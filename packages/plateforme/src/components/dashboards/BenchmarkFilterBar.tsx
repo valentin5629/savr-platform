@@ -6,7 +6,7 @@ import { TAILLE_OPTIONS } from './taille-options.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // Filtres du « point rouge » benchmark (§06.05 Bloc 3 ZD) — distincts des filtres
-// globaux du dashboard : ils n'affectent QUE la moyenne parc, pas les jauges.
+// globaux du dashboard : ils n'affectent QUE la moyenne parc, pas les valeurs « Vous ».
 export interface BenchmarkFilters {
   periode_debut: string | null;
   periode_fin: string | null;
@@ -66,7 +66,7 @@ interface BenchmarkFilterBarProps {
   initialTypeEvenementIds?: string[];
   /** Héritage §06.05 l.160 : Taille d'événement des filtres globaux (init + reset). */
   initialTailleCodes?: string[];
-  /** Rendu compact SANS carte (pour être imbriqué dans la carte des jauges). */
+  /** Rendu compact SANS carte (pour être imbriqué dans la carte du benchmark). */
   embedded?: boolean;
   /**
    * Options des multi-selects pré-chargées côté serveur (R-perf, dashboard SSR) :

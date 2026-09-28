@@ -343,8 +343,8 @@ export default function GestionnaireDashboardPage() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — Filtres du repère + jauges kg/pax en UN seul bloc
-              (retour Val R24b : filtres imbriqués dans la carte des jauges). */}
+          {/* Bloc 3 ZD — Filtres du repère + radar kg/pax en UN seul bloc
+              (retour Val R24b : filtres imbriqués dans la carte du benchmark). */}
           <BenchmarkRadar
             items={gaugeItems}
             filtersSlot={

@@ -424,7 +424,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
       "test": "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
-      "libelle": "Bloc 3 ZD — jauges kg/pax × benchmark parc RÉEL : encart BenchmarkFilterBar 4 dimensions imbriqué (Traiteurs masqué, traiteur_ids[] rejeté serveur §06.04 l.143) + jauges Cockpit BenchmarkBulletGauges (R24) alimentées par kgParPaxParFlux (Vous) et aggregateBenchmarkPerFlux(benchmarkRows) (repère parc). L'ancien composant BenchmarkGauge est supprimé (R24c)."
+      "libelle": "Bloc 3 ZD — jauges kg/pax × benchmark parc RÉEL : encart BenchmarkFilterBar 4 dimensions imbriqué (Traiteurs masqué, traiteur_ids[] rejeté serveur §06.04 l.143) + jauges Cockpit BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28) (R24) alimentées par kgParPaxParFlux (Vous) et aggregateBenchmarkPerFlux(benchmarkRows) (repère parc). L'ancien composant BenchmarkGauge est supprimé (R24c)."
     },
     {
       "id": "M3.1-bloc5-prochaines",
@@ -472,7 +472,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/*",
       "test": "M3.1/dash_bloc2_bloc4_zd_montes + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel + M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
       "statut": "implemented",
-      "libelle": "Refonte visuelle « Cockpit » du dashboard traiteur (R24, pilote UX hors-audit) : 8 composants data-viz R24 câblés sur les blocs §06.04 (KpiCockpitCard, EvolutionZdChart/EvolutionAgChart, BenchmarkBulletGauges, TonnagesDonut cockpit, PackAgRing, TopRankList) importés en direct (hors barrel → orphan-components reste 0). DS §10 par défaut. Testids §11 (bloc-2/4-traiteur, bloc-5/6/7-*, bloc-3ag, bloc-pack-ag) + tooltip Marge (BL-P3-02) + badge « X en attente de facturation » (F3) préservés. Cartes KPI = liens vers la liste Collectes filtrée (période + onglet)."
+      "libelle": "Refonte visuelle « Cockpit » du dashboard traiteur (R24, pilote UX hors-audit) : 8 composants data-viz R24 câblés sur les blocs §06.04 (KpiCockpitCard, EvolutionZdChart/EvolutionAgChart, BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28), TonnagesDonut cockpit, PackAgRing, TopRankList) importés en direct (hors barrel → orphan-components reste 0). DS §10 par défaut. Testids §11 (bloc-2/4-traiteur, bloc-5/6/7-*, bloc-3ag, bloc-pack-ag) + tooltip Marge (BL-P3-02) + badge « X en attente de facturation » (F3) préservés. Cartes KPI = liens vers la liste Collectes filtrée (période + onglet)."
     },
     {
       "id": "M3.1-cockpit-co2-hero",
@@ -568,7 +568,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/benchmark/route.ts",
       "test": "M3.1/fiche_bloc3_ratio_et_repere",
       "statut": "implemented",
-      "libelle": "Bloc 3 ZD de la FICHE collecte (grain single_collecte) — jamais câblé jusqu'ici (§04 l.2175 : fonction livrée mais « 0 consommateur front »). Jauges kg/pax des 5 flux ZD de CETTE collecte × repère parc, encart de filtres du repère imbriqué dans la carte et initialisé sur le segment de la collecte (type × taille), k-anonymat ≥5 côté serveur ⇒ repère masqué, garde traiteur_ids[] interdite au traiteur. Réutilise BenchmarkBulletGauges + BenchmarkFilterBar + loadBenchmark des dashboards (aucun composant de graphe nouveau)."
+      "libelle": "Bloc 3 ZD de la FICHE collecte (grain single_collecte) — jamais câblé jusqu'ici (§04 l.2175 : fonction livrée mais « 0 consommateur front »). Jauges kg/pax des 5 flux ZD de CETTE collecte × repère parc, encart de filtres du repère imbriqué dans la carte et initialisé sur le segment de la collecte (type × taille), k-anonymat ≥5 côté serveur ⇒ repère masqué, garde traiteur_ids[] interdite au traiteur. Réutilise BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28) + BenchmarkFilterBar + loadBenchmark des dashboards (aucun composant de graphe nouveau)."
     },
     {
       "id": "M3.1-fiche-benchmark-colonnes-canoniques",

@@ -38,7 +38,7 @@ const VOUS = NAVY;
 const PARC = '#92A3D2'; // primary-300
 
 // Géométrie SVG (viewBox fixe, rendu fluide en largeur).
-const VB_W = 460; // marge latérale : libellés longs (« Déchet résiduel · n/d »)
+const VB_W = 460; // marge latérale : libellés longs (« Déchet résiduel ») ; « n/d » va en 2e ligne
 const VB_H = 290;
 const CX = VB_W / 2;
 const CY = 145;
@@ -65,9 +65,16 @@ const STATUTS = {
 
 interface Axe {
   item: GaugeItem;
-  /** Indice parc = 100 ; null si value ou benchmark manquant. */
-  indice: number | null;
+  /** value / benchmark ; null si non comparable (valeur absente, non finie, ou
+   *  parc ≤ 0). UN seul prédicat pour le radar, la liste et l'infobulle. */
+  ratio: number | null;
+  /** Le parc a un repère exploitable sur cet axe (fini et > 0). */
+  parcOk: boolean;
   angle: number;
+}
+
+function fini(n: number | null): n is number {
+  return n != null && Number.isFinite(n);
 }
 
 function statutDe(ratio: number) {
@@ -90,7 +97,7 @@ function point(angle: number, r: number): [number, number] {
 /** Anneau extérieur : ≥ 150 (le parc à 100 reste lisible), pas de 50, plafonné
  *  à 300 (au-delà le point est posé sur le bord ; l'écart exact est dans la liste). */
 function anneauMax(axes: Axe[]): number {
-  const max = Math.max(0, ...axes.map((a) => a.indice ?? 0));
+  const max = Math.max(0, ...axes.map((a) => (a.ratio ?? 0) * 100));
   return Math.min(300, Math.max(150, Math.ceil(max / 50) * 50));
 }
 
@@ -145,10 +152,7 @@ function LegendDot({
 }
 
 function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
-  const { item } = axe;
-  const ok = item.value != null && item.benchmark != null;
-  const ratio = ok ? (item.value as number) / (item.benchmark as number) : 1;
-  const statut = statutDe(ratio);
+  const { item, ratio } = axe;
   return (
     <div
       data-testid="benchmark-radar-tooltip"
@@ -161,10 +165,10 @@ function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
         <div className="flex justify-between gap-4">
           <span className="text-savr-neutral-600">Vous</span>
           <span className="font-bold">
-            {item.value != null ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
+            {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
           </span>
         </div>
-        {item.benchmark != null ? (
+        {fini(item.benchmark) ? (
           <div className="flex justify-between gap-4">
             <span className="text-savr-neutral-600">Parc</span>
             <span className="font-bold">
@@ -174,11 +178,14 @@ function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
         ) : (
           <div className="text-savr-neutral-500">Parc : données manquantes</div>
         )}
-        {ok && (
+        {ratio != null && (
           <div className="flex justify-between gap-4 border-t border-savr-neutral-100 pt-0.5">
             <span className="text-savr-neutral-600">Écart</span>
-            <span className="font-bold" style={{ color: statut.badge }}>
-              {ecartTxt(ratio)} · {statut.label}
+            <span
+              className="font-bold"
+              style={{ color: statutDe(ratio).badge }}
+            >
+              {ecartTxt(ratio)} · {statutDe(ratio).label}
             </span>
           </div>
         )}
@@ -196,12 +203,11 @@ function LigneFlux({
   active: boolean;
   onHover: (on: boolean) => void;
 }): React.ReactElement {
-  const { item } = axe;
-  const ok = item.value != null && item.benchmark != null;
-  const ratio = ok ? (item.value as number) / (item.benchmark as number) : 1;
-  const statut = statutDe(ratio);
+  const { item, ratio } = axe;
+  const statut = ratio != null ? statutDe(ratio) : null;
   return (
     <li
+      data-testid="benchmark-radar-ligne"
       className="flex items-center justify-between gap-3 rounded-savr-sm px-2 py-1.5 transition-colors"
       style={{ background: active ? SURFACE_HOVER : 'transparent' }}
       onMouseEnter={() => onHover(true)}
@@ -210,7 +216,7 @@ function LigneFlux({
       <div className="min-w-0">
         <div
           className={
-            ok
+            statut
               ? 'text-[13px] font-bold text-savr-neutral-800'
               : 'text-[13px] font-bold text-savr-neutral-400'
           }
@@ -218,14 +224,14 @@ function LigneFlux({
           {item.label}
         </div>
         <div className="text-[11px] tabular-nums text-savr-neutral-500">
-          {item.value != null ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
+          {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
           {' · '}
-          {item.benchmark != null
+          {fini(item.benchmark)
             ? `parc ${fmtDec(item.benchmark, 2)}`
-            : 'parc n/a'}
+            : 'parc n/d'}
         </div>
       </div>
-      {ok ? (
+      {statut && ratio != null ? (
         <span
           className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
           style={{ color: statut.badge, background: statut.bg }}
@@ -250,29 +256,36 @@ export function BenchmarkRadar({
 }: BenchmarkRadarProps): React.ReactElement {
   const [hover, setHover] = React.useState<number | null>(null);
   const n = items.length;
-  const axes: Axe[] = items.map((item, i) => ({
-    item,
-    indice:
-      item.value != null && item.benchmark != null && item.benchmark > 0
-        ? (item.value / item.benchmark) * 100
-        : null,
-    angle: -Math.PI / 2 + (2 * Math.PI * i) / Math.max(1, n),
-  }));
+  const axes: Axe[] = items.map((item, i) => {
+    const parcOk = fini(item.benchmark) && item.benchmark > 0;
+    return {
+      item,
+      parcOk,
+      ratio:
+        parcOk && fini(item.value)
+          ? item.value / (item.benchmark as number)
+          : null,
+      angle: -Math.PI / 2 + (2 * Math.PI * i) / Math.max(1, n),
+    };
+  });
   const max = anneauMax(axes);
   const scale = (idx: number) => (Math.min(idx, max) / max) * R;
   const anneaux: number[] = [];
   for (let v = 50; v <= max; v += 50) anneaux.push(v);
 
   const ptsVous = axes.map((a) =>
-    a.indice != null ? point(a.angle, scale(a.indice)) : null,
+    a.ratio != null ? point(a.angle, scale(a.ratio * 100)) : null,
   );
-  // Le repère parc n'existe que là où le parc a une valeur.
+  // Le repère parc n'existe que là où le parc a une valeur exploitable.
   const ptsParc = axes.map((a) =>
-    a.item.benchmark != null ? point(a.angle, scale(100)) : null,
+    a.parcOk ? point(a.angle, scale(100)) : null,
   );
 
   const focus = hover != null ? axes[hover] : undefined;
   const focusLabel = focus ? point(focus.angle, LABEL_R) : null;
+  // Axes du bas : infobulle AU-DESSUS du libellé (sinon elle déborde sous le
+  // radar et recouvre la liste en affichage une colonne).
+  const tooltipDessus = focus != null && Math.sin(focus.angle) > 0.2;
 
   return (
     <ChartCard
@@ -354,7 +367,7 @@ export function BenchmarkRadar({
               const cos = Math.cos(a.angle);
               const anchor =
                 Math.abs(cos) < 0.2 ? 'middle' : cos > 0 ? 'start' : 'end';
-              const manquant = a.indice == null;
+              const manquant = a.ratio == null;
               return (
                 <g
                   key={`${a.item.label}-${i}`}
@@ -384,7 +397,13 @@ export function BenchmarkRadar({
                     }}
                   >
                     {a.item.label}
-                    {manquant ? ' · n/d' : ''}
+                    {/* 2e ligne : un suffixe en ligne rognerait le libellé des
+                        axes latéraux (le SVG coupe ce qui dépasse). */}
+                    {manquant && (
+                      <tspan x={lx} dy="1.2em" style={{ fontSize: 11 }}>
+                        n/d
+                      </tspan>
+                    )}
                   </text>
                 </g>
               );
@@ -399,10 +418,14 @@ export function BenchmarkRadar({
           </svg>
           {focus && focusLabel && (
             <div
-              className="absolute z-20 -translate-x-1/2"
+              className={
+                tooltipDessus
+                  ? 'absolute z-20 -translate-x-1/2 -translate-y-full'
+                  : 'absolute z-20 -translate-x-1/2'
+              }
               style={{
                 left: `${(focusLabel[0] / VB_W) * 100}%`,
-                top: `${((focusLabel[1] + 12) / VB_H) * 100}%`,
+                top: `${((focusLabel[1] + (tooltipDessus ? -12 : 12)) / VB_H) * 100}%`,
               }}
             >
               <Tooltip axe={focus} />

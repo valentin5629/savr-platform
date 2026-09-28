@@ -156,7 +156,7 @@ const BENCHMARK_ENDPOINT = '/api/v1/admin/dashboard-client/benchmark';
  *
  * R24c — Déclinaison Cockpit COMPLÈTE (retour Val « je ne vois pas les graphs ») :
  * KPIs KpiCockpitCard (dont CO₂ évité → modale) + évolution EvolutionZd/AgChart +
- * donut TonnagesDonut + jauges Cockpit BenchmarkRadar + Top listes
+ * donut TonnagesDonut + radar Cockpit BenchmarkRadar + Top listes
  * TopRankList (lieux / traiteurs / associations) + prochaines collectes. LECTURE
  * SEULE au sens DONNÉES (aucune écriture, aucune action métier) ; les Top lieux /
  * traiteurs sont cliquables → drill-down vers /admin/collectes filtrée (miroir
@@ -470,7 +470,7 @@ export function DashboardClientView() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — jauges Cockpit vs benchmark parc (anonymisé k≥5) */}
+          {/* Bloc 3 ZD — radar Cockpit vs benchmark parc (anonymisé k≥5) */}
           <BenchmarkRadar items={gaugeItems} />
 
           {/* Bloc 4 donut + Bloc 6 top lieux + Bloc 7 top traiteurs */}

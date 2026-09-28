@@ -120,7 +120,7 @@ function one<T>(v: T | T[] | null): T | null {
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 const STATUTS_ANNULABLES = ['brouillon', 'programmee', 'validee'];
-// Bloc 3 ZD jauges — collectes ZD terminées (§06.04 l.428).
+// Bloc 3 ZD benchmark — collectes ZD terminées (§06.04 l.428).
 const STATUTS_BENCHMARK = ['realisee', 'cloturee'];
 
 /** Cellule label/valeur du bloc d'entête (§06.04 « Bloc d'entête »). */
@@ -160,7 +160,7 @@ export default function FicheCollectePage({
 
   // Bloc 3 ZD — repère parc par flux. Premier rendu sans filtre (segment de la
   // collecte) ; l'encart émet ensuite ses défauts (12 mois glissants) et le
-  // repère est recalculé — les jauges, elles, ne bougent pas.
+  // repère est recalculé — les valeurs « Vous », elles, ne bougent pas.
   const [bench, setBench] = useState<Record<string, BenchmarkFlux> | null>(
     null,
   );
@@ -214,7 +214,7 @@ export default function FicheCollectePage({
     setLoading(true);
     // `bench` porte le ratio kg/pax de LA collecte, pas du parc : sans purge,
     // le bloc 3 de la nouvelle fiche afficherait un aller-retour durant les
-    // jauges de la précédente. `key={id}` remonte l'encart de filtres, pas cet
+    // valeurs de la précédente. `key={id}` remonte l'encart de filtres, pas cet
     // état, qui vit ici.
     setBench(null);
     reload();
@@ -609,7 +609,7 @@ export default function FicheCollectePage({
         </Card>
       )}
 
-      {/* Bloc 3 ZD — jauges kg/pax de CETTE collecte × repère parc (§06.04).
+      {/* Bloc 3 ZD — radar kg/pax de CETTE collecte × repère parc (§06.04).
           Filtres du repère imbriqués dans la carte (même assemblage que les
           dashboards) ; k-anonymat ≥5 appliqué côté serveur → repère masqué. */}
       {benchmarkVisible && (

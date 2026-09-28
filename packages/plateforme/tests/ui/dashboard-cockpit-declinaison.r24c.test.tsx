@@ -336,7 +336,7 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
-      // Graphes Cockpit : jauges bullet (« Intensité par flux »), Top listes.
+      // Graphes Cockpit : radar benchmark (« Intensité par flux »), Top listes.
       expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
       expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
       expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();

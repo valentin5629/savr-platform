@@ -216,7 +216,7 @@ it('BenchmarkRadar — rend le slot filtres imbriqué', () => {
     />,
   );
   expect(screen.getByText('filtres-repère-parc')).toBeInTheDocument();
-  // Titre de la carte des jauges toujours présent = un seul bloc filtres + jauges.
+  // Titre de la carte toujours présent = un seul bloc filtres + radar.
   expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
 });
 
@@ -252,8 +252,8 @@ it('TonnagesDonut — rend le total au centre et la légende des 5 flux', () => 
   expect(screen.getByText('Biodéchets')).toBeInTheDocument();
 });
 
-it('BenchmarkRadar — rend 5 axes dont un état n<5 (insuffisant)', () => {
-  render(
+it('BenchmarkRadar — rend 5 axes dont un état insuffisant (données manquantes)', () => {
+  const { getByTestId } = render(
     <BenchmarkRadar
       items={[
         { label: 'Biodéchets', value: 0.72, benchmark: 0.8 },
@@ -264,13 +264,16 @@ it('BenchmarkRadar — rend 5 axes dont un état n<5 (insuffisant)', () => {
       ]}
     />,
   );
-  // Chaque flux est nommé deux fois : axe du radar + ligne de la liste.
-  expect(screen.getAllByText('Biodéchets').length).toBe(2);
-  // « Données manquantes » (ex « n < 5 ») figure dans la légende ET sur la jauge
-  // insuffisante (Résiduel) — libellés benchmark changés (retour Val).
-  expect(
-    screen.getAllByText(/Données manquantes/).length,
-  ).toBeGreaterThanOrEqual(1);
+  for (let i = 0; i < 5; i++)
+    expect(getByTestId(`benchmark-radar-axe-${i}`)).toBeInTheDocument();
+  expect(screen.queryByTestId('benchmark-radar-axe-5')).toBeNull();
+  // « Données manquantes » dans la LIGNE du flux insuffisant (pas la légende).
+  const lignes = screen.getAllByTestId('benchmark-radar-ligne');
+  expect(lignes).toHaveLength(5);
+  expect(lignes[4]!.textContent).toContain('Données manquantes');
+  expect(lignes[0]!.textContent).not.toContain('Données manquantes');
+  // L'axe insuffisant porte « n/d » (2e ligne du libellé).
+  expect(getByTestId('benchmark-radar-axe-4').textContent).toContain('n/d');
 });
 
 it('Co2HeroCard — met en avant l’évité et affiche induit/net/énergie + équivalences', () => {
@@ -407,7 +410,7 @@ it('BenchmarkRadar — survol d’un axe affiche Vous/Parc/Écart', () => {
 });
 
 it('BenchmarkRadar — indice parc = 100 : chaque flux a sa valeur, son repère et son écart ; flux manquant = n/d sans point', () => {
-  const { container } = render(
+  const { container, getByTestId } = render(
     <BenchmarkRadar
       items={[
         { label: 'Biodéchets', value: 0.12, benchmark: 0.12 },
@@ -420,10 +423,79 @@ it('BenchmarkRadar — indice parc = 100 : chaque flux a sa valeur, son repère 
   );
   // 4 sommets « Vous » seulement : le flux sans valeur n'a pas de point.
   expect(container.querySelectorAll('svg circle').length).toBe(4);
-  expect(screen.getByText(/Déchet résiduel · n\/d/)).toBeInTheDocument();
+  expect(getByTestId('benchmark-radar-axe-4').textContent).toBe(
+    'Déchet résiduel' + 'n/d',
+  );
   // Les valeurs réelles restent lisibles (liste), avec l'écart en badge.
   expect(screen.getByText('+1 %')).toBeInTheDocument();
   expect(screen.getByText(/0,12 kg\/pax · parc 0,12/)).toBeInTheDocument();
+});
+
+it('BenchmarkRadar — seuils du badge : ≤ parc vert, ≤ +30 % orange, au-delà rouge', () => {
+  render(
+    <BenchmarkRadar
+      items={[
+        { label: 'A', value: 0.1, benchmark: 0.1 },
+        { label: 'B', value: 0.13, benchmark: 0.1 },
+        { label: 'C', value: 0.14, benchmark: 0.1 },
+      ]}
+    />,
+  );
+  const [a, b, c] = screen.getAllByTestId('benchmark-radar-ligne');
+  const couleur = (li: HTMLElement, txt: string) =>
+    (li.querySelector('span[style]') as HTMLElement | null)?.textContent === txt
+      ? (li.querySelector('span[style]') as HTMLElement).style.color
+      : 'absent';
+  expect(couleur(a!, '+0 %')).toBe('rgb(22, 163, 74)'); // success
+  expect(couleur(b!, '+30 %')).toBe('rgb(179, 100, 0)'); // accent-700
+  expect(couleur(c!, '+40 %')).toBe('rgb(220, 38, 38)'); // error
+});
+
+it('BenchmarkRadar — parc à 0 ou NaN : axe n/d partout (jamais « +∞ % » / « NaN »), le reste du radar intact', () => {
+  const { container, getByTestId } = render(
+    <BenchmarkRadar
+      items={[
+        { label: 'A', value: 0.1, benchmark: 0 },
+        { label: 'B', value: Number.NaN, benchmark: 0.1 },
+        { label: 'C', value: 0.1, benchmark: 0.1 },
+        { label: 'D', value: 0.1, benchmark: 0.1 },
+      ]}
+    />,
+  );
+  const texte = container.textContent ?? '';
+  expect(texte).not.toMatch(/∞|NaN/);
+  expect(getByTestId('benchmark-radar-axe-0').textContent).toContain('n/d');
+  expect(getByTestId('benchmark-radar-axe-1').textContent).toContain('n/d');
+  const lignes = screen.getAllByTestId('benchmark-radar-ligne');
+  expect(lignes[0]!.textContent).toContain('Données manquantes');
+  expect(lignes[1]!.textContent).toContain('Données manquantes');
+  // Les anneaux de grille restent calculables (un NaN ne contamine pas l'échelle).
+  const polys = Array.from(container.querySelectorAll('svg polygon'));
+  expect(polys.length).toBeGreaterThan(0);
+  for (const p of polys) expect(p.getAttribute('points')).not.toMatch(/NaN/);
+  expect(container.querySelectorAll('svg circle').length).toBe(2);
+});
+
+it("BenchmarkRadar — une valeur ×10 est plafonnée au bord (anneau 300), l'écart exact reste dans la liste", () => {
+  const { container } = render(
+    <BenchmarkRadar
+      items={[
+        { label: 'A', value: 1, benchmark: 0.1 },
+        { label: 'B', value: 0.1, benchmark: 0.1 },
+        { label: 'C', value: 0.1, benchmark: 0.1 },
+      ]}
+    />,
+  );
+  // Point A (axe du haut) posé sur l'anneau extérieur : cy = CY − R = 45.
+  const cy = Number(container.querySelector('svg circle')!.getAttribute('cy'));
+  expect(cy).toBeCloseTo(45, 5);
+  expect(screen.getByText('+900 %')).toBeInTheDocument();
+});
+
+it('BenchmarkRadar — liste vide : rend la carte sans planter', () => {
+  render(<BenchmarkRadar items={[]} />);
+  expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+  expect(screen.queryAllByTestId('benchmark-radar-ligne')).toHaveLength(0);
 });
 
 describe('non-régression fmt', () => {

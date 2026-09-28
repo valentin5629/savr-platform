@@ -13,7 +13,7 @@ import { Sparkline } from './Sparkline';
 import { KpiCockpitCard } from './KpiCockpitCard';
 import { EvolutionZdChart } from './EvolutionZdChart';
 import { TonnagesDonut } from './TonnagesDonut';
-import { BenchmarkBulletGauges } from './BenchmarkBulletGauges';
+import { BenchmarkRadar } from './BenchmarkRadar';
 import { Co2HeroCard } from './Co2HeroCard';
 import { Co2HeroCardAg } from './Co2HeroCardAg';
 import { PackAgRing } from './PackAgRing';
@@ -208,9 +208,9 @@ it('EvolutionZdChart — les segments ne portent plus de <title> natif (pas de d
   );
 });
 
-it('BenchmarkBulletGauges — rend le slot filtres imbriqué', () => {
+it('BenchmarkRadar — rend le slot filtres imbriqué', () => {
   render(
-    <BenchmarkBulletGauges
+    <BenchmarkRadar
       items={[{ label: 'Biodéchets', value: 0.72, benchmark: 0.8 }]}
       filtersSlot={<div>filtres-repère-parc</div>}
     />,
@@ -252,9 +252,9 @@ it('TonnagesDonut — rend le total au centre et la légende des 5 flux', () => 
   expect(screen.getByText('Biodéchets')).toBeInTheDocument();
 });
 
-it('BenchmarkBulletGauges — rend 5 jauges dont un état n<5 (insuffisant)', () => {
+it('BenchmarkRadar — rend 5 axes dont un état n<5 (insuffisant)', () => {
   render(
-    <BenchmarkBulletGauges
+    <BenchmarkRadar
       items={[
         { label: 'Biodéchets', value: 0.72, benchmark: 0.8 },
         { label: 'Emballages', value: 0.31, benchmark: 0.28 },
@@ -264,7 +264,8 @@ it('BenchmarkBulletGauges — rend 5 jauges dont un état n<5 (insuffisant)', ()
       ]}
     />,
   );
-  expect(screen.getByText('Biodéchets')).toBeInTheDocument();
+  // Chaque flux est nommé deux fois : axe du radar + ligne de la liste.
+  expect(screen.getAllByText('Biodéchets').length).toBe(2);
   // « Données manquantes » (ex « n < 5 ») figure dans la légende ET sur la jauge
   // insuffisante (Résiduel) — libellés benchmark changés (retour Val).
   expect(
@@ -390,19 +391,39 @@ it('EvolutionZdChart — survol de la courbe taux affiche la valeur du mois', ()
   expect(screen.getAllByText('Taux de recyclage').length).toBe(before + 1);
 });
 
-it('BenchmarkBulletGauges — survol d’une jauge affiche Vous/Parc/Écart', () => {
-  const { container } = render(
-    <BenchmarkBulletGauges
+it('BenchmarkRadar — survol d’un axe affiche Vous/Parc/Écart', () => {
+  const { getByTestId } = render(
+    <BenchmarkRadar
       items={[{ label: 'Biodéchets', value: 0.72, benchmark: 0.8 }]}
     />,
   );
-  expect(screen.queryByText('Vous')).toBeNull();
-  const gauge = container.querySelector('.relative');
-  expect(gauge).not.toBeNull();
-  fireEvent.mouseEnter(gauge!);
-  expect(screen.getByText('Vous')).toBeInTheDocument();
-  expect(screen.getByText('Parc')).toBeInTheDocument();
-  expect(screen.getByText('Écart')).toBeInTheDocument();
+  expect(screen.queryByTestId('benchmark-radar-tooltip')).toBeNull();
+  fireEvent.mouseEnter(getByTestId('benchmark-radar-axe-0'));
+  const tip = screen.getByTestId('benchmark-radar-tooltip');
+  expect(tip.textContent).toContain('Vous');
+  expect(tip.textContent).toContain('Parc');
+  expect(tip.textContent).toContain('Écart');
+  expect(tip.textContent).toContain('−10 %');
+});
+
+it('BenchmarkRadar — indice parc = 100 : chaque flux a sa valeur, son repère et son écart ; flux manquant = n/d sans point', () => {
+  const { container } = render(
+    <BenchmarkRadar
+      items={[
+        { label: 'Biodéchets', value: 0.12, benchmark: 0.12 },
+        { label: 'Emballages', value: 0.05, benchmark: 0.05 },
+        { label: 'Cartons', value: 0.08, benchmark: 0.08 },
+        { label: 'Verre', value: 0.0404, benchmark: 0.04 },
+        { label: 'Déchet résiduel', value: null, benchmark: 0.18 },
+      ]}
+    />,
+  );
+  // 4 sommets « Vous » seulement : le flux sans valeur n'a pas de point.
+  expect(container.querySelectorAll('svg circle').length).toBe(4);
+  expect(screen.getByText(/Déchet résiduel · n\/d/)).toBeInTheDocument();
+  // Les valeurs réelles restent lisibles (liste), avec l'écart en badge.
+  expect(screen.getByText('+1 %')).toBeInTheDocument();
+  expect(screen.getByText(/0,12 kg\/pax · parc 0,12/)).toBeInTheDocument();
 });
 
 describe('non-régression fmt', () => {

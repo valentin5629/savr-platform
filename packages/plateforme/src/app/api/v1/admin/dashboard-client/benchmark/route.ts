@@ -17,7 +17,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   // bracket → filtre taille de la fonction 7-params (BL-P1-GEST-04). Le repère
   // parc est agrégé par flux côté client (aggregateBenchmarkPerFlux) pour les
-  // jauges Cockpit BenchmarkBulletGauges.
+  // jauges Cockpit BenchmarkRadar.
   const bracket = searchParams.get('bracket');
 
   const allBrackets = ['XS', 'S', 'M', 'L', 'XL'];

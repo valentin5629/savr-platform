@@ -22,7 +22,7 @@ import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpi
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
-import { BenchmarkBulletGauges } from '@/components/dashboards/charts/cockpit/BenchmarkBulletGauges';
+import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
 import { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
 import { Co2HeroCard } from '@/components/dashboards/charts/cockpit/Co2HeroCard';
 import { Co2HeroCardAg } from '@/components/dashboards/charts/cockpit/Co2HeroCardAg';
@@ -156,7 +156,7 @@ const BENCHMARK_ENDPOINT = '/api/v1/admin/dashboard-client/benchmark';
  *
  * R24c — Déclinaison Cockpit COMPLÈTE (retour Val « je ne vois pas les graphs ») :
  * KPIs KpiCockpitCard (dont CO₂ évité → modale) + évolution EvolutionZd/AgChart +
- * donut TonnagesDonut + jauges Cockpit BenchmarkBulletGauges + Top listes
+ * donut TonnagesDonut + jauges Cockpit BenchmarkRadar + Top listes
  * TopRankList (lieux / traiteurs / associations) + prochaines collectes. LECTURE
  * SEULE au sens DONNÉES (aucune écriture, aucune action métier) ; les Top lieux /
  * traiteurs sont cliquables → drill-down vers /admin/collectes filtrée (miroir
@@ -471,7 +471,7 @@ export function DashboardClientView() {
           </div>
 
           {/* Bloc 3 ZD — jauges Cockpit vs benchmark parc (anonymisé k≥5) */}
-          <BenchmarkBulletGauges items={gaugeItems} />
+          <BenchmarkRadar items={gaugeItems} />
 
           {/* Bloc 4 donut + Bloc 6 top lieux + Bloc 7 top traiteurs */}
           <div className="grid gap-6 lg:grid-cols-3">

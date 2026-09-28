@@ -15,7 +15,7 @@ import {
   FLUX_ZD,
   type BenchmarkFilters,
 } from '@/components/dashboards';
-import { BenchmarkBulletGauges } from '@/components/dashboards/charts/cockpit/BenchmarkBulletGauges';
+import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
@@ -614,7 +614,7 @@ export default function FicheCollectePage({
           dashboards) ; k-anonymat ≥5 appliqué côté serveur → repère masqué. */}
       {benchmarkVisible && (
         <div data-testid="bloc-3-zd-fiche" key={id}>
-          <BenchmarkBulletGauges
+          <BenchmarkRadar
             items={gaugeItems}
             filtersSlot={
               <BenchmarkFilterBar

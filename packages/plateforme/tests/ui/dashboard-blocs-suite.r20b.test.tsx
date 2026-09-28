@@ -482,7 +482,7 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
       // Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8).
       expect(screen.queryByTestId('bloc-7-top-acteurs')).toBeNull();
       // Bloc 3 ZD benchmark réel présent (parité §06.04). R24c : l'agence est
-      // passée aux jauges Cockpit (BenchmarkBulletGauges + filtres imbriqués),
+      // passée aux jauges Cockpit (BenchmarkRadar + filtres imbriqués),
       // l'encart porte donc le titre « Filtres du repère parc » (parité traiteur).
       expect(screen.getByText('Filtres du repère parc')).toBeInTheDocument();
     },

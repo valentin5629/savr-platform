@@ -183,7 +183,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   // R24c : l'ex-scénario M3.2/GEST04_benchmark_gauge_moyenne_ponderee (rendu du
   // composant BenchmarkGauge en isolation) est retiré — BenchmarkGauge est
   // supprimé (déclinaison Cockpit full-graphes partout : le gestionnaire, comme
-  // les autres dashboards, rend BenchmarkBulletGauges, testé dans cockpit.test).
+  // les autres dashboards, rend BenchmarkRadar, testé dans cockpit.test).
   // La moyenne pondérée parc (grain flux × type × taille, k-anonymat) reste
   // couverte par le pgTAP r19b_gest04_benchmark_ponderee.test.sql (GEST04-1..14).
 

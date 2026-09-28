@@ -4,10 +4,12 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { writeError, serverError } from '@/lib/api-helpers.js';
+import { writeError } from '@/lib/api-helpers.js';
 import {
   auditerInfosLegales,
   lireInfosLegalesAvant,
+  lireProfilOrganisation,
+  PROFIL_ORG_COLUMNS,
   validerInfosLegales,
 } from '@/lib/organisation-infos-legales.js';
 
@@ -42,24 +44,10 @@ const READ_ROLES: ClientRole[] = ['traiteur_manager', 'traiteur_commercial'];
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, READ_ROLES);
   if (auth.error) return auth.error;
-
-  const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from('organisations')
-    .select(
-      'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url',
-    )
-    .eq('id', auth.ctx.organisationId)
-    .maybeSingle();
-
-  if (error) return serverError(error, 'traiteur.mon_organisation.profil.list');
-  if (!data)
-    return NextResponse.json(
-      { error: 'Organisation non trouvée' },
-      { status: 404 },
-    );
-
-  return NextResponse.json({ data });
+  return lireProfilOrganisation(
+    auth.ctx.organisationId,
+    'traiteur.mon_organisation.profil.list',
+  );
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
@@ -100,9 +88,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .from('organisations')
     .update(patch)
     .eq('id', auth.ctx.organisationId)
-    .select(
-      'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url',
-    )
+    .select(PROFIL_ORG_COLUMNS)
     .maybeSingle();
 
   if (error)

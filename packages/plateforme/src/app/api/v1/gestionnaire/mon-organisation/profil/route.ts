@@ -4,11 +4,13 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { serverError, writeError } from '@/lib/api-helpers.js';
+import { writeError } from '@/lib/api-helpers.js';
 import { parseCleLogo } from '@/lib/logo-key.js';
 import {
   auditerInfosLegales,
   lireInfosLegalesAvant,
+  lireProfilOrganisation,
+  PROFIL_ORG_COLUMNS,
   validerInfosLegales,
 } from '@/lib/organisation-infos-legales.js';
 
@@ -27,30 +29,13 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // tous les rôles ; le CDC les réservait à l'Admin). Nom en lecture seule
 // (modification via support). Garde DB : trigger trg_block_org_gestionnaire_cols_update.
 
-const PROFIL_COLUMNS =
-  'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url';
-
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-
-  const supabase = createSupabaseServerClient();
-
-  const { data, error } = await supabase
-    .from('organisations')
-    .select(PROFIL_COLUMNS)
-    .eq('id', auth.ctx.organisationId)
-    .maybeSingle();
-
-  if (error)
-    return serverError(error, 'gestionnaire.mon_organisation.profil.list');
-  if (!data)
-    return NextResponse.json(
-      { error: 'Organisation non trouvée' },
-      { status: 404 },
-    );
-
-  return NextResponse.json({ data });
+  return lireProfilOrganisation(
+    auth.ctx.organisationId,
+    'gestionnaire.mon_organisation.profil.list',
+  );
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
@@ -92,7 +77,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .from('organisations')
     .update(patch)
     .eq('id', auth.ctx.organisationId)
-    .select(PROFIL_COLUMNS)
+    .select(PROFIL_ORG_COLUMNS)
     .maybeSingle();
 
   if (error)

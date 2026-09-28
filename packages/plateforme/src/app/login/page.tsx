@@ -115,11 +115,11 @@ function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm rounded-savr-lg">
+    <Card className="w-full max-w-sm">
       <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1.5">
           {/* h1 de la page : même style que CardTitle (qui rend un h3). */}
-          <h1 className="text-lg font-semibold tracking-tight text-savr-neutral-900">
+          <h1 className="text-lg font-bold tracking-tight text-savr-neutral-900">
             Connexion à votre compte
           </h1>
           <CardDescription>
@@ -129,7 +129,7 @@ function LoginForm() {
         {/* Sans ce lien, /signup n'était atteignable qu'en tapant l'URL. */}
         <Link
           href="/signup"
-          className="shrink-0 text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
+          className="-my-3 inline-flex shrink-0 items-center py-3 text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
         >
           Créer un compte
         </Link>
@@ -159,7 +159,7 @@ function LoginForm() {
               </Label>
               <Link
                 href="/reset-password"
-                className="text-sm text-savr-neutral-700 underline-offset-4 hover:text-savr-primary-700 hover:underline"
+                className="-my-3 inline-flex items-center py-3 text-sm text-savr-neutral-700 underline-offset-4 hover:text-savr-primary-700 hover:underline"
               >
                 Mot de passe oublié ?
               </Link>
@@ -175,7 +175,7 @@ function LoginForm() {
           </div>
           {erreur && <p className="text-sm text-savr-error">{erreur}</p>}
         </CardContent>
-        <CardFooter className="rounded-b-savr-lg bg-savr-neutral-50 pt-6">
+        <CardFooter className="rounded-b-savr-md bg-savr-neutral-50 pt-6">
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Connexion…' : 'Se connecter'}
           </Button>

@@ -5,11 +5,29 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   MIN_CARACTERES_SUGGESTION,
-  suggererAdresses,
   type SuggestionAdresse,
 } from '@/lib/adresse-suggestions';
 
-// Champ adresse avec suggestions BAN (cf. lib/adresse-suggestions.ts). Contrairement à
+// Suggestions via le relais serveur (jamais d'appel direct navigateur → IGN).
+// Fail-open : toute erreur (401, réseau, JSON inattendu) → aucune suggestion.
+async function chargerSuggestions(
+  saisie: string,
+  signal: AbortSignal,
+): Promise<SuggestionAdresse[]> {
+  try {
+    const res = await fetch(
+      `/api/v1/programmation/adresses?q=${encodeURIComponent(saisie.trim())}`,
+      { signal },
+    );
+    if (!res.ok) return [];
+    const data: unknown = await res.json();
+    return Array.isArray(data) ? (data as SuggestionAdresse[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Champ adresse avec suggestions BAN (relais /api/v1/programmation/adresses). Contrairement à
 // l'Autocomplete §5.5 (sélection = chip figée), le champ reste une saisie libre
 // éditable : une adresse d'accès livraison peut légitimement sortir de la BAN
 // (« quai de livraison, porte 3 »). Choisir une suggestion remplit l'adresse ET
@@ -45,7 +63,7 @@ export function AdresseAutocompleteInput({
     // Debounce + annulation de la requête précédente (réponses obsolètes neutralisées).
     const controller = new AbortController();
     const t = setTimeout(() => {
-      void suggererAdresses(value, controller.signal).then((s) => {
+      void chargerSuggestions(value, controller.signal).then((s) => {
         if (controller.signal.aborted) return;
         setSuggestions(s);
         setActif(-1);

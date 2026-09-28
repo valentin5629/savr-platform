@@ -77,23 +77,18 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
       const onSave = vi.fn();
       const fetchMock = vi.fn((url: string) =>
         Promise.resolve(
-          url.startsWith('https://data.geopf.fr/')
+          url.startsWith('/api/v1/programmation/adresses?')
             ? {
                 ok: true,
-                json: async () => ({
-                  features: [
-                    {
-                      properties: {
-                        id: '75117_9933_00039',
-                        label: '39 Avenue de Wagram 75017 Paris',
-                        name: '39 Avenue de Wagram',
-                        postcode: '75017',
-                        city: 'Paris',
-                        type: 'housenumber',
-                      },
-                    },
-                  ],
-                }),
+                json: async () => [
+                  {
+                    id: '75117_9933_00039',
+                    label: '39 Avenue de Wagram 75017 Paris',
+                    adresse: '39 Avenue de Wagram',
+                    codePostal: '75017',
+                    ville: 'Paris',
+                  },
+                ],
               }
             : { ok: true, json: async () => ({ id: 'l-1', nom: 'X' }) },
         ),
@@ -144,20 +139,17 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
 
   describe('suggestions BAN — clavier et modale', () => {
     const SUGGESTION = {
-      properties: {
-        id: '75117_9933_00039',
-        label: '39 Avenue de Wagram 75017 Paris',
-        name: '39 Avenue de Wagram',
-        postcode: '75017',
-        city: 'Paris',
-        type: 'housenumber',
-      },
+      id: '75117_9933_00039',
+      label: '39 Avenue de Wagram 75017 Paris',
+      adresse: '39 Avenue de Wagram',
+      codePostal: '75017',
+      ville: 'Paris',
     };
     const stubBan = () => {
       const fetchMock = vi.fn(() =>
         Promise.resolve({
           ok: true,
-          json: async () => ({ features: [SUGGESTION] }),
+          json: async () => [SUGGESTION],
         }),
       );
       vi.stubGlobal('fetch', fetchMock);
@@ -186,6 +178,11 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
         // La valeur posée par la sélection ne redéclenche pas le debounce (250 ms).
         await new Promise((r) => setTimeout(r, 400));
         expect(fetchMock).toHaveBeenCalledTimes(1);
+        // Relais serveur uniquement : aucun appel direct navigateur → IGN.
+        const [url] = fetchMock.mock.calls[0] as unknown as [string];
+        expect(url).toBe(
+          '/api/v1/programmation/adresses?q=39%20avenue%20de%20wagram',
+        );
         expect(screen.queryByRole('listbox')).toBeNull();
       },
       ATTENTE_CAS_MS,

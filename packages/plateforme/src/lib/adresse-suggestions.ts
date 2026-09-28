@@ -1,8 +1,10 @@
 // Suggestions d'adresse pendant la saisie (quick-add lieu hors référentiel §06.01).
 // Même source que le géocodage serveur (lib/geocoding.ts) : la Base Adresse Nationale,
 // servie par la Géoplateforme IGN (data.geopf.fr/geocodage — successeur officiel
-// d'api-adresse.data.gouv.fr, qui y redirige). FR, sans clé, CORS ouvert : appelée
-// directement depuis le navigateur, aucune adresse n'est envoyée à un tiers non-FR.
+// d'api-adresse.data.gouv.fr, qui y redirige). FR, sans clé. Appelée CÔTÉ SERVEUR
+// uniquement, via la route /api/v1/programmation/adresses : l'IGN ne voit jamais l'IP
+// de l'utilisateur (arbitrage Val 2026-09-28). Le navigateur n'importe d'ici que le
+// type et la constante.
 //
 // Fail-open : erreur réseau, timeout ou réponse inattendue → [] (le champ reste une
 // saisie libre, jamais bloquant).

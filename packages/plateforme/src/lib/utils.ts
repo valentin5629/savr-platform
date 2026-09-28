@@ -32,7 +32,10 @@ const twMerge = extendTailwindMerge({
     },
     classGroups: {
       shadow: [{ shadow: SAVR_SHADOW }],
+      // Tailwind 4 : les tokens --container-* alimentent max-w, w et min-w.
       'max-w': [{ 'max-w': SAVR_CONTAINER }],
+      w: [{ w: SAVR_CONTAINER }],
+      'min-w': [{ 'min-w': SAVR_CONTAINER }],
     },
   },
 });

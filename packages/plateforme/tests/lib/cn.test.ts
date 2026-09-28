@@ -48,6 +48,8 @@ describe('cn — échelles savr-* relues dans globals.css', () => {
       'rounded-l',
       'rounded-r',
       'rounded-b',
+      'rounded-s',
+      'rounded-tl',
     ]) {
       expectScaleMerges(u, radius);
     }
@@ -62,8 +64,9 @@ describe('cn — échelles savr-* relues dans globals.css', () => {
       expectScaleMerges(u, tokens('spacing'));
   });
 
-  it('conteneurs : max-w-savr-*', () => {
-    expectScaleMerges('max-w', tokens('container'));
+  it('conteneurs : max-w/w/min-w-savr-*', () => {
+    for (const u of ['max-w', 'w', 'min-w'])
+      expectScaleMerges(u, tokens('container'));
   });
 });
 

@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormError } from '@/components/ui/form-error';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { Upload } from 'lucide-react';
 
@@ -362,30 +364,36 @@ export default function MonOrganisationPage() {
             <CardContent>
               <form onSubmit={handleInvite} className="space-y-3">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <input
-                    type="text"
-                    placeholder="Prénom"
-                    value={prenom}
-                    onChange={(e) => setPrenom(e.target.value)}
-                    required
-                    className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Nom"
-                    value={nom}
-                    onChange={(e) => setNom(e.target.value)}
-                    required
-                    className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
-                  />
+                  <FormField label="Prénom" htmlFor="invite-prenom" required>
+                    <Input
+                      id="invite-prenom"
+                      type="text"
+                      autoComplete="given-name"
+                      value={prenom}
+                      onChange={(e) => setPrenom(e.target.value)}
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Nom" htmlFor="invite-nom" required>
+                    <Input
+                      id="invite-nom"
+                      type="text"
+                      autoComplete="family-name"
+                      value={nom}
+                      onChange={(e) => setNom(e.target.value)}
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Email" htmlFor="invite-email" required>
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </FormField>
                 </div>
                 {inviteMsg && (
                   <p className="text-sm text-savr-neutral-600">{inviteMsg}</p>

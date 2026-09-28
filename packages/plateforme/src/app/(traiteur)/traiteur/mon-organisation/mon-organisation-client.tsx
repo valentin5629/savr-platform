@@ -4,6 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 
@@ -57,9 +61,10 @@ interface FactureRow {
   pdf_url_savr: string | null;
 }
 
-const inputCls =
-  'w-full rounded border border-savr-neutral-300 px-3 py-2 text-sm';
-const labelCls = 'text-xs font-medium text-savr-neutral-500';
+const ROLE_OPTIONS = [
+  { value: 'traiteur_commercial', label: 'Commercial' },
+  { value: 'traiteur_manager', label: 'Manager' },
+];
 
 export function MonOrganisationClient({
   isManager,
@@ -393,61 +398,90 @@ function EntitesCard({
               onSubmit={add}
               className="space-y-2 rounded border border-savr-neutral-200 p-3"
             >
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <input
-                  className={inputCls}
-                  placeholder="Raison sociale"
-                  value={form.raison_sociale}
-                  onChange={(ev) =>
-                    setForm({ ...form, raison_sociale: ev.target.value })
-                  }
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FormField
+                  label="Raison sociale"
+                  htmlFor="entite-raison-sociale"
                   required
-                />
-                <input
-                  className={inputCls}
-                  placeholder="SIRET (14 chiffres)"
-                  value={form.siret}
-                  onChange={(ev) =>
-                    setForm({ ...form, siret: ev.target.value })
-                  }
+                >
+                  <Input
+                    id="entite-raison-sociale"
+                    value={form.raison_sociale}
+                    onChange={(ev) =>
+                      setForm({ ...form, raison_sociale: ev.target.value })
+                    }
+                    required
+                  />
+                </FormField>
+                <FormField
+                  label="SIRET"
+                  htmlFor="entite-siret"
                   required
-                />
-                <input
-                  className={`${inputCls} md:col-span-2`}
-                  placeholder="Adresse de facturation"
-                  value={form.adresse_facturation}
-                  onChange={(ev) =>
-                    setForm({ ...form, adresse_facturation: ev.target.value })
-                  }
+                  hint="14 chiffres"
+                >
+                  <Input
+                    id="entite-siret"
+                    value={form.siret}
+                    onChange={(ev) =>
+                      setForm({ ...form, siret: ev.target.value })
+                    }
+                    required
+                  />
+                </FormField>
+                <FormField
+                  label="Adresse de facturation"
+                  htmlFor="entite-adresse"
                   required
-                />
-                <input
-                  className={inputCls}
-                  placeholder="Code postal"
-                  value={form.code_postal}
-                  onChange={(ev) =>
-                    setForm({ ...form, code_postal: ev.target.value })
-                  }
+                  className="md:col-span-2"
+                >
+                  <Input
+                    id="entite-adresse"
+                    value={form.adresse_facturation}
+                    onChange={(ev) =>
+                      setForm({ ...form, adresse_facturation: ev.target.value })
+                    }
+                    required
+                  />
+                </FormField>
+                <FormField
+                  label="Code postal"
+                  htmlFor="entite-code-postal"
                   required
-                />
-                <input
-                  className={inputCls}
-                  placeholder="Ville"
-                  value={form.ville}
-                  onChange={(ev) =>
-                    setForm({ ...form, ville: ev.target.value })
-                  }
-                  required
-                />
-                <input
-                  className={`${inputCls} md:col-span-2`}
-                  type="email"
-                  placeholder="Contact facturation (email qui reçoit les factures)"
-                  value={form.email_facturation}
-                  onChange={(ev) =>
-                    setForm({ ...form, email_facturation: ev.target.value })
-                  }
-                />
+                >
+                  <Input
+                    id="entite-code-postal"
+                    value={form.code_postal}
+                    onChange={(ev) =>
+                      setForm({ ...form, code_postal: ev.target.value })
+                    }
+                    required
+                  />
+                </FormField>
+                <FormField label="Ville" htmlFor="entite-ville" required>
+                  <Input
+                    id="entite-ville"
+                    value={form.ville}
+                    onChange={(ev) =>
+                      setForm({ ...form, ville: ev.target.value })
+                    }
+                    required
+                  />
+                </FormField>
+                <FormField
+                  label="Contact facturation"
+                  htmlFor="entite-email-facturation"
+                  hint="Email qui reçoit les factures"
+                  className="md:col-span-2"
+                >
+                  <Input
+                    id="entite-email-facturation"
+                    type="email"
+                    value={form.email_facturation}
+                    onChange={(ev) =>
+                      setForm({ ...form, email_facturation: ev.target.value })
+                    }
+                  />
+                </FormField>
               </div>
               {msg && <p className="text-sm text-savr-error">{msg}</p>}
               <div className="flex gap-2">
@@ -548,13 +582,19 @@ function DomainesCard({
           </ul>
         )}
         {isManager && (
-          <form onSubmit={add} className="flex gap-2">
-            <input
-              className={inputCls}
-              placeholder="monentreprise.fr"
-              value={domaine}
-              onChange={(e) => setDomaine(e.target.value)}
-            />
+          <form onSubmit={add} className="flex items-end gap-2">
+            <FormField
+              label="Nouveau domaine"
+              htmlFor="domaine-email"
+              className="flex-1"
+            >
+              <Input
+                id="domaine-email"
+                placeholder="monentreprise.fr"
+                value={domaine}
+                onChange={(e) => setDomaine(e.target.value)}
+              />
+            </FormField>
             <Button type="submit">Ajouter</Button>
           </form>
         )}
@@ -626,22 +666,25 @@ function EquipeTab({ userId }: { userId: string }) {
                           §6 ne prévoit que « modifier le rôle d'un COLLABORATEUR »,
                           et la base refuse désormais tout auto-changement (volet 3
                           du trigger anti-escalade, 20260921170000). Sans ce
-                          grisage, le <select> resterait cliquable pour un refus
+                          grisage, la liste resterait cliquable pour un refus
                           silencieux. */}
-                      <select
-                        className="rounded border border-savr-neutral-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-                        value={u.role}
-                        disabled={u.id === userId}
+                      <span
+                        className="block w-36"
                         title={
                           u.id === userId
                             ? 'Vous ne pouvez pas modifier votre propre rôle'
                             : undefined
                         }
-                        onChange={(e) => changeRole(u.id, e.target.value)}
                       >
-                        <option value="traiteur_commercial">Commercial</option>
-                        <option value="traiteur_manager">Manager</option>
-                      </select>
+                        <Combobox
+                          aria-label={`Rôle de ${u.prenom} ${u.nom}`}
+                          icon={null}
+                          options={ROLE_OPTIONS}
+                          value={u.role}
+                          disabled={u.id === userId}
+                          onChange={(v) => changeRole(u.id, v)}
+                        />
+                      </span>
                     </td>
                     <td className="py-1">{u.derniere_connexion ?? '—'}</td>
                     <td className="py-1">
@@ -711,29 +754,32 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
       </CardHeader>
       <CardContent>
         <form onSubmit={invite} className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <input
-              className={inputCls}
-              placeholder="Prénom"
-              value={prenom}
-              onChange={(e) => setPrenom(e.target.value)}
-              required
-            />
-            <input
-              className={inputCls}
-              placeholder="Nom"
-              value={nom}
-              onChange={(e) => setNom(e.target.value)}
-              required
-            />
-            <input
-              className={inputCls}
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <FormField label="Prénom" htmlFor="invite-prenom" required>
+              <Input
+                id="invite-prenom"
+                value={prenom}
+                onChange={(e) => setPrenom(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="Nom" htmlFor="invite-nom" required>
+              <Input
+                id="invite-nom"
+                value={nom}
+                onChange={(e) => setNom(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="Email" htmlFor="invite-email" required>
+              <Input
+                id="invite-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </FormField>
           </div>
           <p className="text-xs text-savr-neutral-400">
             Le collaborateur est ajouté avec le rôle Commercial.
@@ -759,9 +805,19 @@ function TransfertCard({
   const [cible, setCible] = useState('');
   const [msg, setMsg] = useState('');
 
+  const userOptions = users.map((u) => ({
+    value: u.id,
+    label: `${u.prenom} ${u.nom}`,
+  }));
+
   async function transfer(e: React.FormEvent) {
     e.preventDefault();
     setMsg('');
+    // Les deux champs sont obligatoires (ex-`required` des <select> natifs).
+    if (!source || !cible) {
+      setMsg('Choisissez le collaborateur de départ et celui d’arrivée.');
+      return;
+    }
     const res = await fetch('/api/v1/traiteur/equipe/transfert', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -788,39 +844,29 @@ function TransfertCard({
           départ) vers un autre membre de l’équipe.
         </p>
         <form onSubmit={transfer} className="space-y-2">
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            <div>
-              <label className={labelCls}>Depuis</label>
-              <select
-                className={inputCls}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField label="Depuis" htmlFor="transfert-source" required>
+              <Combobox
+                id="transfert-source"
+                icon={null}
+                required
+                placeholder="Choisir un collaborateur"
+                options={userOptions}
                 value={source}
-                onChange={(e) => setSource(e.target.value)}
+                onChange={setSource}
+              />
+            </FormField>
+            <FormField label="Vers" htmlFor="transfert-cible" required>
+              <Combobox
+                id="transfert-cible"
+                icon={null}
                 required
-              >
-                <option value="">— choisir —</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.prenom} {u.nom}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Vers</label>
-              <select
-                className={inputCls}
+                placeholder="Choisir un collaborateur"
+                options={userOptions}
                 value={cible}
-                onChange={(e) => setCible(e.target.value)}
-                required
-              >
-                <option value="">— choisir —</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.prenom} {u.nom}
-                  </option>
-                ))}
-              </select>
-            </div>
+                onChange={setCible}
+              />
+            </FormField>
           </div>
           {msg && <p className="text-sm text-savr-neutral-600">{msg}</p>}
           <Button type="submit">Transférer</Button>
@@ -880,46 +926,52 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
         </CardHeader>
         <CardContent>
           {/* Filtres §6 l.690 : statut, type, période */}
-          <div className="mb-3 flex flex-wrap gap-2">
+          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
             {/* Valeurs = enums réels plateforme.facture_statut / facture_type
                 (brouillon exclu par la route ; « En retard » est un badge dérivé
                 de date_echeance, pas un statut stocké → non filtrable). */}
-            <select
-              className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
-              value={statut}
-              onChange={(e) => setStatut(e.target.value)}
-            >
-              <option value="">Tous statuts</option>
-              <option value="en_attente_pennylane">En attente</option>
-              <option value="emise">Émise</option>
-              <option value="payee">Payée</option>
-              <option value="annulee">Annulée</option>
-            </select>
-            <select
-              className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-            >
-              <option value="">Tous types</option>
-              <option value="zero_dechet">ZD</option>
-              <option value="collecte_antigaspi">AG</option>
-              <option value="achat_pack_antigaspi">Pack</option>
-              <option value="avoir">Avoir</option>
-            </select>
-            <input
-              type="date"
-              aria-label="Période — du"
-              className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
-              value={dateDebut}
-              onChange={(e) => setDateDebut(e.target.value)}
-            />
-            <input
-              type="date"
-              aria-label="Période — au"
-              className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
-              value={dateFin}
-              onChange={(e) => setDateFin(e.target.value)}
-            />
+            <FormField label="Statut" htmlFor="factures-statut">
+              <Combobox
+                id="factures-statut"
+                icon={null}
+                placeholder="Tous statuts"
+                options={[
+                  { value: '', label: 'Tous statuts' },
+                  { value: 'en_attente_pennylane', label: 'En attente' },
+                  { value: 'emise', label: 'Émise' },
+                  { value: 'payee', label: 'Payée' },
+                  { value: 'annulee', label: 'Annulée' },
+                ]}
+                value={statut}
+                onChange={setStatut}
+              />
+            </FormField>
+            <FormField label="Type" htmlFor="factures-type">
+              <Combobox
+                id="factures-type"
+                icon={null}
+                placeholder="Tous types"
+                options={[
+                  { value: '', label: 'Tous types' },
+                  { value: 'zero_dechet', label: 'ZD' },
+                  { value: 'collecte_antigaspi', label: 'AG' },
+                  { value: 'achat_pack_antigaspi', label: 'Pack' },
+                  { value: 'avoir', label: 'Avoir' },
+                ]}
+                value={type}
+                onChange={setType}
+              />
+            </FormField>
+            <FormField label="Période" htmlFor="factures-periode">
+              <DateRangePicker
+                id="factures-periode"
+                value={{ from: dateDebut, to: dateFin }}
+                onChange={(p) => {
+                  setDateDebut(p.from);
+                  setDateFin(p.to);
+                }}
+              />
+            </FormField>
           </div>
           {factures.length === 0 ? (
             <p className="text-sm text-savr-neutral-500">Aucune facture.</p>

@@ -12,6 +12,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { FilterBar } from '@/components/ui/filter-bar';
+import { Modal } from '@/components/ui/modal';
 import { dateVersIso, isoVersDate } from '@/lib/date-iso';
 
 const OPTIONS = [
@@ -181,5 +182,25 @@ describe('FilterBar', () => {
     expect(bloc.className).toContain('border-savr-neutral-200');
     const grille = screen.getByText('champ').parentElement!;
     expect(grille.className).toContain('repeat(auto-fill');
+  });
+});
+
+describe('Combobox dans une Modal', () => {
+  it('ds/echap_ferme_la_liste_pas_la_modale', () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open title="Test" onClose={onClose}>
+        <Combobox aria-label="Lieu" options={OPTIONS} value="" />
+      </Modal>,
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: 'Lieu' }));
+    expect(screen.getAllByRole('option').length).toBeGreaterThan(0);
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: 'Escape',
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    // Liste fermée : Échap ferme maintenant la modale.
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

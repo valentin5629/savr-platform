@@ -4,7 +4,9 @@
  * nb AG · CA AG · Total HT), histogramme monté (RevenusHistogramme non orphelin),
  * filtre de période COMMUN au graphe ET au tableau, tri. Revue E2E Val 2026-07-18 :
  * presets (7j/30j/trimestre/12m/civile) + bouton Export CSV retirés du dashboard admin ;
- * le filtre Du/au pilote désormais l'histogramme comme le tableau ; blocs 50/50.
+ * le filtre de période pilote désormais l'histogramme comme le tableau ; blocs 50/50.
+ * DS « Mise en page des formulaires et filtres » : les deux champs Du/au sont
+ * remplacés par UN DateRangePicker « Période » (bornes lues via data-from/data-to).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -25,6 +27,26 @@ function jsonResponse(obj: unknown): Promise<Response> {
     json: () => Promise.resolve(obj),
     blob: () => Promise.resolve(new Blob(['x'], { type: 'text/csv' })),
   } as unknown as Response);
+}
+
+/** 1er du mois courant (jour Paris) — toujours affiché à l'ouverture d'un calendrier vide. */
+function premierDuMois(): string {
+  const now = new Date();
+  return jourParis(new Date(now.getFullYear(), now.getMonth(), 1));
+}
+
+/**
+ * Pose la période « un seul jour = `jour` » via le DateRangePicker : Effacer (le
+ * calendrier rouvre alors sur le mois courant), clic sur le jour, Appliquer.
+ */
+function choisirPeriodeUnJour(jour: string): void {
+  fireEvent.click(screen.getByTestId('revenus-periode'));
+  fireEvent.click(screen.getByRole('button', { name: 'Effacer' }));
+  fireEvent.click(screen.getByTestId('revenus-periode'));
+  const cellule = document.querySelector(`[data-day="${jour}"] button`);
+  if (!cellule) throw new Error(`jour ${jour} absent du calendrier`);
+  fireEvent.click(cellule);
+  fireEvent.click(screen.getByRole('button', { name: 'Appliquer' }));
 }
 
 const revenusRows = [
@@ -164,8 +186,10 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
       expect(screen.getByText('Revenu par organisation')).toBeInTheDocument();
-      expect(screen.getByTestId('revenus-from')).toBeInTheDocument();
-      expect(screen.getByTestId('revenus-to')).toBeInTheDocument();
+      expect(screen.getByTestId('revenus-periode')).toBeInTheDocument();
+      expect(screen.getByLabelText('Période')).toBe(
+        screen.getByTestId('revenus-periode'),
+      );
       // Retirés du dashboard admin (décision Val 2026-07-18).
       expect(screen.queryByTestId('revenus-export-csv')).toBeNull();
       expect(screen.queryByText('Exporter CSV')).toBeNull();
@@ -182,9 +206,10 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
       const { from, to } = defaultWindow();
-      // Les champs de date reflètent le défaut 12 mois…
-      expect(screen.getByTestId('revenus-from')).toHaveValue(from);
-      expect(screen.getByTestId('revenus-to')).toHaveValue(to);
+      // Le champ Période reflète le défaut 12 mois…
+      const periode = screen.getByTestId('revenus-periode');
+      expect(periode).toHaveAttribute('data-from', from);
+      expect(periode).toHaveAttribute('data-to', to);
       // …et le fetch de montage du tableau porte bien cette fenêtre.
       expect(
         fetchMock.mock.calls.some(([u]) => {
@@ -201,7 +226,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   );
 
   it(
-    'M3.5/admin_revenus_filtre_commun_graph — le filtre Du/au pilote AUSSI l’histogramme (revue E2E Val 2026-07-18)',
+    'M3.5/admin_revenus_filtre_commun_graph — le filtre de période pilote AUSSI l’histogramme (revue E2E Val 2026-07-18)',
     async () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
@@ -217,11 +242,10 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
           );
         }),
       ).toBe(true);
-      // Modifier la borne « Du » relance le fetch de l'histogramme sur la nouvelle fenêtre.
+      // Modifier la période relance le fetch de l'histogramme sur la nouvelle fenêtre.
+      const jour = premierDuMois();
       fetchMock.mockClear();
-      fireEvent.change(screen.getByTestId('revenus-from'), {
-        target: { value: '2026-01-01' },
-      });
+      choisirPeriodeUnJour(jour);
       await waitFor(
         () =>
           expect(
@@ -229,7 +253,8 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
               const s = String(u);
               return (
                 s.includes('/dashboards/kpi-admin') &&
-                s.includes('from=2026-01-01')
+                s.includes(`from=${jour}`) &&
+                s.includes(`to=${jour}`)
               );
             }),
           ).toBe(true),
@@ -245,15 +270,16 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
       const { from, to } = defaultWindow();
-      // On restreint d'abord à une fenêtre custom via saisie manuelle…
-      fireEvent.change(screen.getByTestId('revenus-from'), {
-        target: { value: '2026-05-01' },
-      });
-      expect(screen.getByTestId('revenus-from')).toHaveValue('2026-05-01');
+      // On restreint d'abord à une fenêtre custom via le champ Période…
+      const jour = premierDuMois();
+      choisirPeriodeUnJour(jour);
+      const periode = screen.getByTestId('revenus-periode');
+      expect(periode).toHaveAttribute('data-from', jour);
+      expect(periode).toHaveAttribute('data-to', jour);
       // …puis « Réinitialiser » revient au défaut 12 derniers mois glissants.
       fireEvent.click(screen.getByTestId('revenus-reinitialiser'));
-      expect(screen.getByTestId('revenus-from')).toHaveValue(from);
-      expect(screen.getByTestId('revenus-to')).toHaveValue(to);
+      expect(periode).toHaveAttribute('data-from', from);
+      expect(periode).toHaveAttribute('data-to', to);
     },
     ATTENTE_CAS_MS,
   );

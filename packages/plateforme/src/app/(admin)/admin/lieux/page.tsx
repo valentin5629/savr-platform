@@ -3,6 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { MapPin, Plus, Search, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { PageHero } from '@/components/ui/page-hero';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -331,34 +335,40 @@ export default function LieuxPage() {
         </TabsList>
 
         <TabsContent value="referentiel" className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <label className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-savr-neutral-400" />
-              <input
-                aria-label="Rechercher un lieu"
-                className="w-full pl-9 pr-3 py-2 border border-savr-neutral-300 rounded-savr-md text-sm focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
-                placeholder="Rechercher…"
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
+          <FilterBar data-testid="lieux-filtres">
+            <FormField label="Recherche" htmlFor="lieux-recherche">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
+                <Input
+                  id="lieux-recherche"
+                  className="pl-9"
+                  placeholder="Rechercher un lieu…"
+                  value={q}
+                  onChange={(e) => {
+                    setQ(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </div>
+            </FormField>
+            <FormField label="Statut" htmlFor="lieux-statut">
+              <Combobox
+                id="lieux-statut"
+                icon={null}
+                placeholder="Tous"
+                options={[
+                  { value: 'true', label: 'Actifs' },
+                  { value: 'false', label: 'Inactifs' },
+                  { value: '', label: 'Tous' },
+                ]}
+                value={actif}
+                onChange={(v) => {
+                  setActif(v);
                   setPage(1);
                 }}
               />
-            </label>
-            <select
-              aria-label="Filtrer par statut"
-              className="border border-savr-neutral-300 rounded-savr-md px-3 py-2 text-sm"
-              value={actif}
-              onChange={(e) => {
-                setActif(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="true">Actifs</option>
-              <option value="false">Inactifs</option>
-              <option value="">Tous</option>
-            </select>
-          </div>
+            </FormField>
+          </FilterBar>
           {tableau}
         </TabsContent>
 

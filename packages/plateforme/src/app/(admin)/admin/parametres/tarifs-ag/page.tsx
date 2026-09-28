@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -300,14 +304,16 @@ export default function TarifsPacksAGPage() {
             )}
 
             <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Type de pack
-                </label>
-                <select
+              <FormField label="Type de pack" htmlFor="tarif-ag-type">
+                <Combobox
+                  id="tarif-ag-type"
+                  icon={null}
+                  options={TYPES_PACK.map((t) => ({
+                    value: t,
+                    label: TYPE_LABELS[t] ?? t,
+                  }))}
                   value={fType}
-                  onChange={(e) => {
-                    const t = e.target.value;
+                  onChange={(t) => {
                     const preset: Record<string, number> = {
                       unitaire: 1,
                       pack_10: 10,
@@ -317,64 +323,59 @@ export default function TarifsPacksAGPage() {
                     setFType(t);
                     if (preset[t]) setFCredits(preset[t]);
                   }}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                >
-                  {TYPES_PACK.map((t) => (
-                    <option key={t} value={t}>
-                      {TYPE_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Nombre de crédits
-                </label>
-                <input
+                />
+              </FormField>
+              <FormField
+                label="Nombre de crédits"
+                htmlFor="tarif-ag-credits"
+                required
+              >
+                <Input
+                  id="tarif-ag-credits"
                   type="number"
                   min={1}
                   value={fCredits}
                   onChange={(e) => setFCredits(parseInt(e.target.value) || 1)}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
                   required
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Prix unitaire HT (€ / collecte)
-                </label>
-                <input
+              </FormField>
+              <FormField
+                label="Prix unitaire HT (€ / collecte)"
+                htmlFor="tarif-ag-prix"
+                required
+                hint={
+                  fPrix && fCredits > 0
+                    ? `Total HT : ${(
+                        parseFloat(fPrix) * fCredits
+                      ).toLocaleString('fr-FR', {
+                        minimumFractionDigits: 2,
+                      })} €`
+                    : undefined
+                }
+              >
+                <Input
+                  id="tarif-ag-prix"
                   type="number"
                   min={0}
                   step="0.01"
                   value={fPrix}
                   onChange={(e) => setFPrix(e.target.value)}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
                   placeholder="ex : 130.00"
                   required
                 />
-                {fPrix && fCredits > 0 && (
-                  <p className="text-xs text-neutral-500 mt-1">
-                    Total HT :{' '}
-                    {(parseFloat(fPrix) * fCredits).toLocaleString('fr-FR', {
-                      minimumFractionDigits: 2,
-                    })}{' '}
-                    €
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Date d'entrée en vigueur
-                </label>
-                <input
-                  type="date"
+              </FormField>
+              <FormField
+                label="Date d'entrée en vigueur"
+                htmlFor="tarif-ag-valide-du"
+                required
+              >
+                <DatePicker
+                  id="tarif-ag-valide-du"
                   value={fValideDu}
-                  onChange={(e) => setFValideDu(e.target.value)}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  onChange={setFValideDu}
                   required
                 />
-              </div>
+              </FormField>
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -388,11 +389,12 @@ export default function TarifsPacksAGPage() {
                 </label>
               </div>
               {fMensualisable && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Nombre de mensualités
-                  </label>
-                  <input
+                <FormField
+                  label="Nombre de mensualités"
+                  htmlFor="tarif-ag-mensualites"
+                >
+                  <Input
+                    id="tarif-ag-mensualites"
                     type="number"
                     min={2}
                     max={24}
@@ -400,9 +402,8 @@ export default function TarifsPacksAGPage() {
                     onChange={(e) =>
                       setFNbMensualites(parseInt(e.target.value) || 12)
                     }
-                    className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
                   />
-                </div>
+                </FormField>
               )}
               <div className="flex justify-end gap-2 pt-2">
                 <Button

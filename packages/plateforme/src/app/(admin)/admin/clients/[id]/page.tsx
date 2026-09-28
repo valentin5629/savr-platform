@@ -27,7 +27,7 @@ import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Textarea } from '@/components/ui/textarea';
 import { useUserRole } from '@/lib/use-user-role';
 import {
@@ -782,11 +782,15 @@ export default function ClientFichePage({
           className="space-y-4"
         >
           <FormField label="Type de pack" htmlFor="pack-type">
-            <Select
+            <Combobox
               id="pack-type"
+              icon={null}
+              options={TYPES_PACK.map((t) => ({
+                value: t.value,
+                label: t.label,
+              }))}
               value={fTypePack}
-              onChange={(e) => {
-                const t = e.target.value;
+              onChange={(t) => {
                 setFTypePack(t);
                 const preset: Record<string, number> = {
                   unitaire: 1,
@@ -796,13 +800,7 @@ export default function ClientFichePage({
                 };
                 if (preset[t]) setFCredits(preset[t]);
               }}
-            >
-              {TYPES_PACK.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </Select>
+            />
           </FormField>
           <FormField label="Crédits initiaux" htmlFor="pack-credits" required>
             <Input
@@ -826,14 +824,16 @@ export default function ClientFichePage({
             />
           </FormField>
           <FormField label="Mode de facturation" htmlFor="pack-mode">
-            <Select
+            <Combobox
               id="pack-mode"
+              icon={null}
+              options={[
+                { value: 'par_collecte', label: 'Par collecte' },
+                { value: 'globale_achat', label: 'Globale (achat forfait)' },
+              ]}
               value={fModeFacturation}
-              onChange={(e) => setFModeFacturation(e.target.value)}
-            >
-              <option value="par_collecte">Par collecte</option>
-              <option value="globale_achat">Globale (achat forfait)</option>
-            </Select>
+              onChange={setFModeFacturation}
+            />
           </FormField>
           <FormField label="Commentaires" htmlFor="pack-commentaires">
             <Textarea

@@ -9,7 +9,7 @@
  * (agence/gestionnaire l'avaient déjà, l'admin non).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
@@ -97,7 +97,13 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       expect(
         screen.getByText(/la collecte sera créée au nom de ce traiteur/i),
       ).toBeInTheDocument();
-      // Le traiteur chargé apparaît comme option sélectionnable.
+      // Le traiteur chargé apparaît comme option sélectionnable (Combobox DS :
+      // on ouvre la liste, options portées dans document.body).
+      fireEvent.click(
+        screen.getByRole('combobox', {
+          name: /Traiteur \(pour le compte de\)/,
+        }),
+      );
       await waitFor(
         () =>
           expect(

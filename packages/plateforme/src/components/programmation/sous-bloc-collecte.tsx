@@ -4,6 +4,7 @@ import * as React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PackAGIndicator } from '@/components/ui/pack-ag-indicator';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/ui/form-field';
@@ -81,14 +82,12 @@ export function SousBlocCollecte({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Date de collecte" htmlFor={`date-${type}`} required>
-          <Input
+          <DatePicker
             id={`date-${type}`}
-            type="date"
+            data-testid={`date-${type}`}
             min={today}
             value={data.date_collecte}
-            onChange={(e) =>
-              onChange({ ...data, date_collecte: e.target.value })
-            }
+            onChange={(v) => onChange({ ...data, date_collecte: v })}
             required
           />
           {isLessThan48h && data.date_collecte && (

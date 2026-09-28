@@ -731,16 +731,14 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       // Panneau replié par défaut → ouvrir
       fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
 
-      const traiteurSelect = (await screen.findByLabelText(
-        'Filtrer par traiteur',
-        undefined,
+      // DS : Combobox (déclencheur role=combobox nommé par le libellé du FormField),
+      // options portées dans document.body à l'ouverture.
+      const traiteurCombo = await screen.findByRole(
+        'combobox',
+        { name: 'Traiteur' },
         ATTENTE_UI,
-      )) as HTMLSelectElement;
-      const lieuSelect = screen.getByLabelText(
-        'Filtrer par lieu',
-      ) as HTMLSelectElement;
-      expect(traiteurSelect.tagName).toBe('SELECT');
-
+      );
+      fireEvent.click(traiteurCombo);
       await waitFor(
         () =>
           expect(
@@ -748,11 +746,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
           ).toBeInTheDocument(),
         ATTENTE_UI,
       );
-      expect(
-        screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
-      ).toBeInTheDocument();
-
-      fireEvent.change(traiteurSelect, { target: { value: 'org-1' } });
+      fireEvent.click(screen.getByRole('option', { name: 'Traiteur Alpha' }));
       await waitFor(
         () =>
           expect(
@@ -767,7 +761,17 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         ATTENTE_UI,
       );
 
-      fireEvent.change(lieuSelect, { target: { value: 'lieu-1' } });
+      fireEvent.click(screen.getByRole('combobox', { name: 'Lieu' }));
+      await waitFor(
+        () =>
+          expect(
+            screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
+          ).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      fireEvent.click(
+        screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
+      );
       await waitFor(
         () =>
           expect(

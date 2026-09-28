@@ -20,11 +20,15 @@ import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif
 import {
   CollecteFiltresBar,
   ecrireFiltresCollecte,
+  FILTRES_COLLECTE_VIDES,
   lireFiltresCollecte,
   type CollecteFiltres,
   type CollecteFiltresOptions,
 } from '@/components/collecte/collecte-filtres-bar';
-import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
+import {
+  readCollecteFiltreLabel,
+  periodeCourte,
+} from '@/lib/dashboards/collecte-filtre-label';
 import {
   decalerJour,
   formatJour,
@@ -48,6 +52,16 @@ const STATUTS_HISTORIQUE = [
 ];
 
 type Onglet = 'programmees' | 'historique';
+
+/** Dimensions de drill-down dashboard sans contrôle dans la barre de filtres. */
+interface Drill {
+  /** Lieu reçu d'un drill-down Top lieux : il a aussi son contrôle dans la
+   *  barre, mais le CDC (§06.04 Top lieux) veut le chip « Filtre actif ». */
+  lieu: string;
+  commercial: string;
+  association: string;
+  perimetre: string;
+}
 
 interface Lieu {
   nom: string;
@@ -117,9 +131,15 @@ function CollectesContent() {
   // barre, qui les reflète donc directement (miroir : nombre de lignes = chiffre
   // du Top liste). Commercial / association / périmètre ne sont pas des filtres
   // d'UI : ils restent portés par l'URL et signalés par le chip « Filtre actif ».
-  const commercialFiltre = params.get('commercial');
-  const associationFiltre = params.get('association');
-  const perimetreFiltre = params.get('perimetre');
+  const [drill, setDrill] = useState<Drill>(() => ({
+    lieu: params.get('lieu') ?? '',
+    commercial: params.get('commercial') ?? '',
+    association: params.get('association') ?? '',
+    perimetre: params.get('perimetre') ?? '',
+  }));
+  const commercialFiltre = drill.commercial || null;
+  const associationFiltre = drill.association || null;
+  const perimetreFiltre = drill.perimetre || null;
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,23 +235,38 @@ function CollectesContent() {
   // Libellé du chip « filtre actif » : d'abord le nom mémorisé au clic
   // (sessionStorage), sinon fallback dérivé/générique (URL partagée, refresh).
   useEffect(() => {
-    if (commercialFiltre)
+    if (drill.lieu) setFiltreLabel(readCollecteFiltreLabel('lieu', drill.lieu));
+    else if (commercialFiltre)
       setFiltreLabel(readCollecteFiltreLabel('commercial', commercialFiltre));
     else if (associationFiltre)
       setFiltreLabel(readCollecteFiltreLabel('association', associationFiltre));
     else setFiltreLabel(null);
-  }, [commercialFiltre, associationFiltre]);
+  }, [drill.lieu, commercialFiltre, associationFiltre]);
 
-  // Réécrit l'URL à partir des paramètres courants : `muter` retire/pose les
-  // clés hors filtres, puis les filtres sont (ré)écrits depuis `f`.
-  function majUrl(f: CollecteFiltres, muter?: (usp: URLSearchParams) => void) {
-    const usp = new URLSearchParams(params.toString());
-    muter?.(usp);
-    router.replace(`/traiteur/collectes?${ecrireFiltresCollecte(usp, f)}`);
+  // L'URL est reconstruite ENTIÈREMENT depuis l'état (jamais depuis
+  // `useSearchParams`, en retard d'un rendu après un `router.replace` : deux
+  // changements rapprochés — onglet puis type — perdraient le premier).
+  function majUrl(etat: {
+    onglet?: Onglet;
+    type?: CollecteType;
+    filtres?: CollecteFiltres;
+    drill?: Drill;
+  }) {
+    const d = etat.drill ?? drill;
+    const usp = new URLSearchParams({
+      onglet: etat.onglet ?? onglet,
+      type: etat.type ?? typeFiltre,
+    });
+    if (d.commercial) usp.set('commercial', d.commercial);
+    if (d.association) usp.set('association', d.association);
+    if (d.perimetre) usp.set('perimetre', d.perimetre);
+    router.replace(
+      `/traiteur/collectes?${ecrireFiltresCollecte(usp, etat.filtres ?? filtres)}`,
+    );
   }
   function setFiltres(f: CollecteFiltres) {
     setFiltresEtat(f);
-    majUrl(f);
+    majUrl({ filtres: f });
   }
 
   function changeType(t: CollecteType) {
@@ -241,12 +276,10 @@ function CollectesContent() {
     // en ZD). Les filtres type-agnostiques (lieu, client, info incomplète,
     // programmée par) et le commercial sont conservés.
     const f = { ...filtres, statuts: [], from: '', to: '' };
+    const d = { ...drill, association: '', perimetre: '' };
     setFiltresEtat(f);
-    majUrl(f, (usp) => {
-      usp.set('type', t);
-      usp.delete('association');
-      usp.delete('perimetre');
-    });
+    setDrill(d);
+    majUrl({ type: t, filtres: f, drill: d });
   }
   function changeOnglet(o: Onglet) {
     setOnglet(o);
@@ -255,22 +288,43 @@ function CollectesContent() {
     // la restriction `cloturee` du drill-down ; lieu + période restent.
     const f = { ...filtres, statuts: [] };
     setFiltresEtat(f);
-    majUrl(f, (usp) => usp.set('onglet', o));
+    majUrl({ onglet: o, filtres: f });
   }
+  // ✕ du chip : sort du drill-down ET de son périmètre miroir (lieu, statut,
+  // période), comme avant la barre DS.
   function clearFiltre() {
-    majUrl(filtres, (usp) =>
-      ['commercial', 'association', 'perimetre'].forEach((k) => usp.delete(k)),
-    );
+    const d = { lieu: '', commercial: '', association: '', perimetre: '' };
+    setDrill(d);
+    setFiltresEtat(FILTRES_COLLECTE_VIDES);
+    majUrl({ drill: d, filtres: FILTRES_COLLECTE_VIDES });
   }
 
-  // Chip « Filtre actif » : seulement pour les dimensions de drill-down que la
-  // barre n'affiche pas (commercial, association). Libellé : nom mémorisé au
-  // clic, sinon générique. Le filtrage ne dépend jamais de ce libellé.
-  const chipLabel = commercialFiltre
-    ? `Commercial : ${filtreLabel ?? 'commercial sélectionné'}`
-    : associationFiltre
-      ? `Association : ${filtreLabel ?? 'association sélectionnée'}`
-      : null;
+  // Chip « Filtre actif » (drill-down depuis une Top liste du dashboard) :
+  // libellé mémorisé au clic, sinon dérivé, sinon générique. Le filtrage ne
+  // dépend jamais de ce libellé. Le lieu n'y figure que tant que la barre
+  // filtre encore sur le lieu reçu.
+  const lieuDrillActif = drill.lieu !== '' && filtres.lieuId === drill.lieu;
+  const lieuNom =
+    filtreLabel ??
+    options.lieux.find((l) => l.id === drill.lieu)?.nom ??
+    one(one(rows[0]?.evenements ?? null)?.lieux ?? null)?.nom ??
+    'lieu sélectionné';
+  const chipLabel = lieuDrillActif
+    ? `Lieu : ${lieuNom}`
+    : commercialFiltre
+      ? `Commercial : ${filtreLabel ?? 'commercial sélectionné'}`
+      : associationFiltre
+        ? `Association : ${filtreLabel ?? 'association sélectionnée'}`
+        : null;
+  // Périmètre miroir affiché en clair dans le chip.
+  const chipScope = (() => {
+    const parts: string[] = [];
+    if (filtres.statuts.length === 1 && filtres.statuts[0] === 'cloturee')
+      parts.push('clôturées');
+    const per = periodeCourte(filtres.from || null, filtres.to || null);
+    if (per) parts.push(per);
+    return parts.length ? parts.join(' · ') : undefined;
+  })();
 
   function exportCsv() {
     window.open(`/api/v1/exports/collectes?type=${typeFiltre}`);
@@ -382,22 +436,29 @@ function CollectesContent() {
         icon={<Truck className="h-6 w-6" />}
         subtitle="Vos collectes Zéro Déchet et Anti-Gaspi · cliquez une carte pour ouvrir la fiche"
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={exportCsv}>
+          // Sur l'aplat navy du bandeau : secondaire (fond blanc) + CTA accent,
+          // comme les autres PageHero ; un ghost navy y était invisible. Pas de
+          // wrapper : le slot d'actions du PageHero passe à la ligne sur mobile.
+          <>
+            <Button variant="secondary" onClick={exportCsv}>
               Exporter CSV
             </Button>
-            <Button asChild>
+            <Button variant="accent" asChild>
               <a href={`/programmer/nouveau?type=${typeFiltre}`}>
                 Programmer un événement
               </a>
             </Button>
-          </div>
+          </>
         }
       />
 
-      {/* Filtre actif (drill-down commercial / association depuis le dashboard) */}
+      {/* Filtre actif (drill-down depuis une Top liste du dashboard) */}
       {chipLabel && (
-        <CollecteFiltreActif label={chipLabel} onClear={clearFiltre} />
+        <CollecteFiltreActif
+          label={chipLabel}
+          scope={chipScope}
+          onClear={clearFiltre}
+        />
       )}
 
       {/* Barre de filtres DS : onglets Programmées / Historique + type ZD / AG

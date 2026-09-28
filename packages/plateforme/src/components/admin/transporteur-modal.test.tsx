@@ -35,6 +35,12 @@ const EDIT_FIXTURE: TransporteurRecord = {
   actif: true,
 };
 
+// Combobox (DS règle 3) : ouvrir le déclencheur puis choisir l'option (portail).
+function choisirOption(libelle: RegExp, option: string) {
+  fireEvent.click(screen.getByRole('combobox', { name: libelle }));
+  fireEvent.click(screen.getByRole('option', { name: option }));
+}
+
 const PRESTATAIRES: PrestataireOption[] = [
   {
     id: '11111111-1111-4111-8111-111111111111',
@@ -107,9 +113,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       screen.queryByLabelText(/Code transporteur MTS-1/),
     ).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-      target: { value: 'mts1' },
-    });
+    choisirOption(/Type de TMS/, 'MTS-1 (Strike / Marathon)');
     expect(
       screen.getByLabelText(/Code transporteur MTS-1/),
     ).toBeInTheDocument();
@@ -130,9 +134,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
-      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-        target: { value: 'mts1' },
-      });
+      choisirOption(/Type de TMS/, 'MTS-1 (Strike / Marathon)');
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
       );
@@ -169,9 +171,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
-      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-        target: { value: 'autre' },
-      });
+      choisirOption(/Type de TMS/, 'Autre (province — email/téléphone)');
       fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi (AG)' }));
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
@@ -302,9 +302,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
-      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-        target: { value: 'a_toutes' },
-      });
+      choisirOption(/Type de TMS/, 'A Toutes! (vélo cargo)');
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
       );
@@ -340,12 +338,8 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
-      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-        target: { value: 'a_toutes' },
-      });
-      fireEvent.change(screen.getByLabelText(/Prestataire logistique/), {
-        target: { value: PRESTATAIRES[0]!.id },
-      });
+      choisirOption(/Type de TMS/, 'A Toutes! (vélo cargo)');
+      choisirOption(/Prestataire logistique/, PRESTATAIRES[0]!.nom);
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
       );
@@ -379,9 +373,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
-      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-        target: { value: 'par_mail' },
-      });
+      choisirOption(/Type de TMS/, 'Par mail (validation Admin manuelle)');
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
       );
@@ -408,19 +400,24 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       />,
     );
 
+    // Combobox : options portées dans le portail à l'ouverture ; une option
+    // grisée porte aria-disabled (cmdk), pas l'attribut disabled natif.
+    fireEvent.click(
+      screen.getByRole('combobox', { name: /Prestataire logistique/ }),
+    );
     expect(
       screen.getByRole('option', { name: 'A Toutes!' }),
-    ).not.toBeDisabled();
+    ).not.toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('option', {
         name: /Strike — déjà rattaché à Strike Paris/,
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('option', {
         name: /Marathon — déjà rattaché à Strike Logistique/,
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute('aria-disabled', 'true');
   });
 
   // ── Immuabilité (arbitrage Val 2026-09-16) ─────────────────────────────────
@@ -442,14 +439,15 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       />,
     );
 
-    const typeTms = screen.getByLabelText(/Type de TMS/) as HTMLSelectElement;
-    const presta = screen.getByLabelText(
-      /Prestataire logistique/,
-    ) as HTMLSelectElement;
+    const typeTms = screen.getByRole('combobox', { name: /Type de TMS/ });
+    const presta = screen.getByRole('combobox', {
+      name: /Prestataire logistique/,
+    });
     expect(typeTms).toBeDisabled();
-    expect(typeTms.value).toBe('a_toutes');
+    expect(typeTms).toHaveTextContent(/^A Toutes! \(vélo cargo\)$/);
     expect(presta).toBeDisabled();
-    expect(presta.value).toBe(PRESTATAIRES[2]!.id);
+    // PRESTATAIRES[2] = Marathon, rattaché à CE transporteur (donc non grisé).
+    expect(presta).toHaveTextContent(/^Marathon$/);
     expect(
       screen.getAllByText(/créez un nouveau transporteur/).length,
     ).toBeGreaterThanOrEqual(2);
@@ -509,13 +507,13 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       />,
     );
 
-    const presta = screen.getByLabelText(
-      /Prestataire logistique/,
-    ) as HTMLSelectElement;
-    expect(presta.value).toBe(PRESTATAIRES[0]!.id);
-    expect(presta.selectedOptions[0]!.textContent).toMatch(
-      /Prestataire rattaché/,
-    );
+    const presta = screen.getByRole('combobox', {
+      name: /Prestataire logistique/,
+    });
+    expect(presta).toHaveTextContent(/Prestataire rattaché/);
+    expect(presta).not.toHaveTextContent(/^Aucun$/);
+    // Le Combobox n'affiche ce libellé que si la valeur courante est l'id de
+    // l'option « lien hors liste » (= prestataire_logistique_id posé).
   });
 
   it('liste des prestataires en échec : la création le dit, sans prétendre le référentiel vide', () => {

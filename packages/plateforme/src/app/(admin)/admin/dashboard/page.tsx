@@ -5,6 +5,8 @@ import { LayoutDashboard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FormField } from '@/components/ui/form-field';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
@@ -73,13 +75,6 @@ function badgeVeille(v: number, labelActif: string) {
     <Badge variant="neutral">Aucune</Badge>
   );
 }
-
-// Champ date DS (§5.5) — bornes de période du bloc Revenus. Input natif stylé aux
-// tokens savr-* (h-10, radius md, focus ring signature global), aligné sur le
-// parti-pris DatePicker sans son icône superposée (redondante avec l'indicateur
-// natif dans une barre de filtres dense).
-const dateFieldClass =
-  'h-10 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm text-savr-neutral-900 hover:border-savr-primary-400';
 
 // Période par défaut du bloc Revenus : 12 derniers mois glissants, alignés au 1er du
 // mois (12 buckets pleins pour l'histogramme). Cette MÊME fenêtre pilote l'histogramme
@@ -175,9 +170,9 @@ export default function DashboardAdminPage() {
     setPage(1);
   };
 
-  // Édition manuelle d'une borne de période.
-  const setBorne = (champ: 'from' | 'to', value: string) => {
-    setPeriode((p) => ({ ...p, [champ]: value }));
+  // Édition manuelle de la période (DateRangePicker, au clic « Appliquer »).
+  const setPeriodeManuelle = (p: { from: string; to: string }) => {
+    setPeriode(p);
     setPage(1);
   };
 
@@ -281,58 +276,33 @@ export default function DashboardAdminPage() {
         <h2 className="text-lg font-semibold text-savr-neutral-700">Revenus</h2>
 
         {/* Filtre de période COMMUN — pilote le graphe ET le tableau (revue E2E Val
-            2026-07-18). Champs Du/au + « Réinitialiser » (retour au défaut 12 mois). */}
+            2026-07-18). Un seul champ « Période » (DS règle 3) + « Réinitialiser »
+            (retour au défaut 12 mois). */}
         <div
-          className="flex flex-wrap items-end gap-x-4 gap-y-3"
+          className="grid grid-cols-1 items-end gap-4 sm:grid-cols-3"
           data-testid="revenus-orgs-controls"
         >
-          <div className="space-y-1">
-            <label
-              htmlFor="revenus-from"
-              className="block text-xs font-medium text-savr-neutral-600"
-            >
-              Du
-            </label>
-            <input
-              id="revenus-from"
-              type="date"
-              value={periode.from}
-              max={periode.to}
-              onChange={(e) => setBorne('from', e.target.value)}
-              aria-label="Date de début"
-              data-testid="revenus-from"
-              className={dateFieldClass}
+          <FormField label="Période" htmlFor="revenus-periode">
+            <DateRangePicker
+              id="revenus-periode"
+              data-testid="revenus-periode"
+              value={periode}
+              onChange={setPeriodeManuelle}
             />
-          </div>
-          <div className="space-y-1">
-            <label
-              htmlFor="revenus-to"
-              className="block text-xs font-medium text-savr-neutral-600"
+          </FormField>
+          <div className="flex h-11 items-center sm:h-10">
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => {
+                setPeriode(defaultPeriode());
+                setPage(1);
+              }}
+              data-testid="revenus-reinitialiser"
             >
-              au
-            </label>
-            <input
-              id="revenus-to"
-              type="date"
-              value={periode.to}
-              min={periode.from}
-              onChange={(e) => setBorne('to', e.target.value)}
-              aria-label="Date de fin"
-              data-testid="revenus-to"
-              className={dateFieldClass}
-            />
+              Réinitialiser
+            </Button>
           </div>
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => {
-              setPeriode(defaultPeriode());
-              setPage(1);
-            }}
-            data-testid="revenus-reinitialiser"
-          >
-            Réinitialiser
-          </Button>
         </div>
 
         {/* Graphe (50 %) + tableau (50 %) sur la même ligne ≥ lg (revue E2E Val

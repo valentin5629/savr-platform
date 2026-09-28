@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -223,46 +227,43 @@ export default function GrillesZdPage() {
                 </button>
               </div>
 
-              <div>
-                <label className="text-sm text-savr-neutral-600 block mb-1">
-                  Nom
-                </label>
-                <input
-                  className="w-full border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm"
+              <FormField label="Nom" htmlFor="grille-nom" required>
+                <Input
+                  id="grille-nom"
                   value={fNom}
                   onChange={(e) => setFNom(e.target.value)}
                   required
                 />
-              </div>
+              </FormField>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm text-savr-neutral-600 block mb-1">
-                    Mode
-                  </label>
-                  <select
-                    className="w-full border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm"
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Mode" htmlFor="grille-mode">
+                  <Combobox
+                    id="grille-mode"
+                    icon={null}
+                    options={[
+                      { value: 'paliers', label: MODE_LABELS.paliers },
+                      {
+                        value: 'fixe_variable',
+                        label: MODE_LABELS.fixe_variable,
+                      },
+                    ]}
                     value={fMode}
-                    onChange={(e) => setFMode(e.target.value as Mode)}
-                  >
-                    <option value="paliers">{MODE_LABELS.paliers}</option>
-                    <option value="fixe_variable">
-                      {MODE_LABELS.fixe_variable}
-                    </option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm text-savr-neutral-600 block mb-1">
-                    Valide à partir du
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm"
+                    onChange={(v) => setFMode(v as Mode)}
+                  />
+                </FormField>
+                <FormField
+                  label="Valide à partir du"
+                  htmlFor="grille-valide-du"
+                  required
+                >
+                  <DatePicker
+                    id="grille-valide-du"
                     value={fValideDu}
-                    onChange={(e) => setFValideDu(e.target.value)}
+                    onChange={setFValideDu}
                     required
                   />
-                </div>
+                </FormField>
               </div>
 
               <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
@@ -292,67 +293,71 @@ export default function GrillesZdPage() {
                 </div>
                 {fPaliers.map((pl, i) => (
                   <div key={i} className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label className="text-xs text-savr-neutral-500">
-                        Pax min
-                      </label>
-                      <input
+                    <FormField
+                      label="Pax min"
+                      htmlFor={`palier-${i}-pax-min`}
+                      className="flex-1"
+                    >
+                      <Input
+                        id={`palier-${i}-pax-min`}
                         type="number"
                         min="0"
-                        className="w-full border border-savr-neutral-200 rounded-lg px-2 py-1.5 text-sm"
                         value={pl.pax_min}
                         onChange={(e) =>
                           setPalier(i, 'pax_min', e.target.value)
                         }
                         required
                       />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-savr-neutral-500">
-                        Pax max
-                      </label>
-                      <input
+                    </FormField>
+                    <FormField
+                      label="Pax max"
+                      htmlFor={`palier-${i}-pax-max`}
+                      className="flex-1"
+                    >
+                      <Input
+                        id={`palier-${i}-pax-max`}
                         type="number"
                         placeholder="∞"
-                        className="w-full border border-savr-neutral-200 rounded-lg px-2 py-1.5 text-sm"
                         value={pl.pax_max}
                         onChange={(e) =>
                           setPalier(i, 'pax_max', e.target.value)
                         }
                       />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-savr-neutral-500">
-                        Prix fixe HT
-                      </label>
-                      <input
+                    </FormField>
+                    <FormField
+                      label="Prix fixe HT"
+                      htmlFor={`palier-${i}-prix-base`}
+                      className="flex-1"
+                    >
+                      <Input
+                        id={`palier-${i}-prix-base`}
                         type="number"
                         step="0.01"
                         min="0"
-                        className="w-full border border-savr-neutral-200 rounded-lg px-2 py-1.5 text-sm"
                         value={pl.prix_base_ht}
                         onChange={(e) =>
                           setPalier(i, 'prix_base_ht', e.target.value)
                         }
                         required
                       />
-                    </div>
+                    </FormField>
                     {fMode === 'fixe_variable' && (
-                      <div className="flex-1">
-                        <label className="text-xs text-savr-neutral-500">
-                          €/pax HT
-                        </label>
-                        <input
+                      <FormField
+                        label="€/pax HT"
+                        htmlFor={`palier-${i}-prix-couvert`}
+                        className="flex-1"
+                      >
+                        <Input
+                          id={`palier-${i}-prix-couvert`}
                           type="number"
                           step="0.01"
                           min="0"
-                          className="w-full border border-savr-neutral-200 rounded-lg px-2 py-1.5 text-sm"
                           value={pl.prix_par_couvert_ht}
                           onChange={(e) =>
                             setPalier(i, 'prix_par_couvert_ht', e.target.value)
                           }
                         />
-                      </div>
+                      </FormField>
                     )}
                     <button
                       type="button"

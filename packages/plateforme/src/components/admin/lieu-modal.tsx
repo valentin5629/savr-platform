@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 
 // Modale création/édition d'un lieu — remplace la fiche + les pages nouveau/modifier
@@ -79,6 +79,13 @@ interface FormValues {
   email_gestionnaire: string;
   reference_citeo: boolean;
 }
+
+const OPTIONS_DIFFICULTE = [
+  { value: '', label: 'Non renseigné' },
+  { value: 'facile', label: 'Facile' },
+  { value: 'difficile', label: 'Difficile' },
+  { value: 'tres_difficile', label: 'Très difficile' },
+];
 
 const VIDE: FormValues = {
   nom: '',
@@ -336,20 +343,20 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
               hint="Organisation gestionnaire rattachée — optionnel"
               className="md:col-span-2"
             >
-              <Select
+              <Combobox
                 id="lm_gestionnaire"
+                icon={null}
+                placeholder="Aucun"
                 value={values.gestionnaire_organisation_id}
-                onChange={(e) =>
-                  set('gestionnaire_organisation_id', e.target.value)
-                }
-              >
-                <option value="">Aucun</option>
-                {gestionnaires.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.raison_sociale ?? g.nom ?? g.id}
-                  </option>
-                ))}
-              </Select>
+                onChange={(v) => set('gestionnaire_organisation_id', v)}
+                options={[
+                  { value: '', label: 'Aucun' },
+                  ...gestionnaires.map((g) => ({
+                    value: g.id,
+                    label: g.raison_sociale ?? g.nom ?? g.id,
+                  })),
+                ]}
+              />
             </FormField>
           </div>
 
@@ -371,17 +378,18 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
               />
             </FormField>
             <FormField label="Région" htmlFor="lm_region">
-              <Select
+              <Combobox
                 id="lm_region"
+                icon={null}
+                placeholder="Non renseignée"
                 value={values.region}
-                onChange={(e) =>
-                  set('region', e.target.value as FormValues['region'])
-                }
-              >
-                <option value="">Non renseignée</option>
-                <option value="idf">Île-de-France</option>
-                <option value="province">Province</option>
-              </Select>
+                onChange={(v) => set('region', v as FormValues['region'])}
+                options={[
+                  { value: '', label: 'Non renseignée' },
+                  { value: 'idf', label: 'Île-de-France' },
+                  { value: 'province', label: 'Province' },
+                ]}
+              />
             </FormField>
             <FormField
               label="Code postal"
@@ -414,38 +422,28 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
           {/* Accès & véhicule */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <FormField label="Accès office" htmlFor="lm_acces_office">
-              <Select
+              <Combobox
                 id="lm_acces_office"
+                icon={null}
+                placeholder="Non renseigné"
                 value={values.acces_office}
-                onChange={(e) =>
-                  set(
-                    'acces_office',
-                    e.target.value as FormValues['acces_office'],
-                  )
+                onChange={(v) =>
+                  set('acces_office', v as FormValues['acces_office'])
                 }
-              >
-                <option value="">Non renseigné</option>
-                <option value="facile">Facile</option>
-                <option value="difficile">Difficile</option>
-                <option value="tres_difficile">Très difficile</option>
-              </Select>
+                options={OPTIONS_DIFFICULTE}
+              />
             </FormField>
             <FormField label="Stationnement" htmlFor="lm_stationnement">
-              <Select
+              <Combobox
                 id="lm_stationnement"
+                icon={null}
+                placeholder="Non renseigné"
                 value={values.stationnement}
-                onChange={(e) =>
-                  set(
-                    'stationnement',
-                    e.target.value as FormValues['stationnement'],
-                  )
+                onChange={(v) =>
+                  set('stationnement', v as FormValues['stationnement'])
                 }
-              >
-                <option value="">Non renseigné</option>
-                <option value="facile">Facile</option>
-                <option value="difficile">Difficile</option>
-                <option value="tres_difficile">Très difficile</option>
-              </Select>
+                options={OPTIONS_DIFFICULTE}
+              />
             </FormField>
             <FormField
               label="Type de véhicule max"
@@ -454,24 +452,23 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
               error={errors.type_vehicule_max}
               hint="Tous les véhicules ≤ max sont acceptés"
             >
-              <Select
+              <Combobox
                 id="lm_type_vehicule_max"
+                icon={null}
+                required
                 value={values.type_vehicule_max}
-                onChange={(e) =>
-                  set(
-                    'type_vehicule_max',
-                    e.target.value as FormValues['type_vehicule_max'],
-                  )
+                onChange={(v) =>
+                  set('type_vehicule_max', v as FormValues['type_vehicule_max'])
                 }
                 error={Boolean(errors.type_vehicule_max)}
-              >
-                <option value="">Sélectionner…</option>
-                <option value="velo_cargo">Vélo cargo</option>
-                <option value="camionnette">Camionnette</option>
-                <option value="fourgon">Fourgon</option>
-                <option value="vul">VUL</option>
-                <option value="poids_lourd">Poids lourd</option>
-              </Select>
+                options={[
+                  { value: 'velo_cargo', label: 'Vélo cargo' },
+                  { value: 'camionnette', label: 'Camionnette' },
+                  { value: 'fourgon', label: 'Fourgon' },
+                  { value: 'vul', label: 'VUL' },
+                  { value: 'poids_lourd', label: 'Poids lourd' },
+                ]}
+              />
             </FormField>
             <FormField label="Capacité maximum" htmlFor="lm_capacite_maximum">
               <Input

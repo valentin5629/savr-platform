@@ -15,8 +15,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import { FormField } from '@/components/ui/form-field';
+import { Combobox } from '@/components/ui/combobox';
+import { Textarea } from '@/components/ui/textarea';
 
 interface AssociationSuggestion {
   id: string;
@@ -226,7 +227,8 @@ export default function AttributionDetailPage() {
 
   const suggestions = algo?.associations ?? [];
   // Options = associations actives triées par distance + suggestions absentes de
-  // la liste chargée (échec / en cours) : le <select> montre toujours la sélection.
+  // la liste chargée (échec / en cours) : la liste (Combobox) montre toujours la
+  // sélection — son libellé est résolu parmi ces options.
   const optionsAsso: AssoRef[] = [
     ...associations,
     ...suggestions
@@ -301,8 +303,8 @@ export default function AttributionDetailPage() {
   const showTranspList = transpList.length > 1; // province → choix multiple
 
   // Options = transporteurs actifs + recommandés absents de la liste chargée
-  // (chargement en échec / en cours, au-delà de la 1re page) : le <select> affiche
-  // toujours le transporteur réellement sélectionné.
+  // (chargement en échec / en cours, au-delà de la 1re page) : la liste (Combobox)
+  // affiche toujours le transporteur réellement sélectionné.
   const optionsTransp: TranspRef[] = [
     ...transporteurs,
     ...transpList
@@ -406,31 +408,35 @@ export default function AttributionDetailPage() {
                 requis.
               </div>
             )}
-            <div>
-              <Label htmlFor="association-select">Association</Label>
-              <Select
+            <FormField label="Association" htmlFor="association-select">
+              {/* Option « vide » en tête, comme l'ancien <select> : permet de
+                  revenir à « aucun choix ». */}
+              <Combobox
                 id="association-select"
+                icon={null}
+                placeholder="Choisir une association…"
+                options={[
+                  { value: '', label: 'Choisir une association…' },
+                  ...optionsAsso.map((a) => ({
+                    value: a.id,
+                    label:
+                      a.nom +
+                      (a.ville ? ` · ${a.ville}` : '') +
+                      (a.distance_km != null
+                        ? ` · ${a.distance_km.toLocaleString('fr-FR')} km`
+                        : ' · distance inconnue') +
+                      (a.capacite_max_beneficiaires != null
+                        ? ` · cap. ${a.capacite_max_beneficiaires}`
+                        : '') +
+                      (a.habilitee_attestation_fiscale ? ' · 2041-GE' : '') +
+                      (suggestions.some((x) => x.id === a.id)
+                        ? ' (suggérée)'
+                        : ''),
+                  })),
+                ]}
                 value={selectedAsso ?? ''}
-                onChange={(e) => choisirAssociation(e.target.value)}
-              >
-                <option value="">Choisir une association…</option>
-                {optionsAsso.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nom}
-                    {a.ville ? ` · ${a.ville}` : ''}
-                    {a.distance_km != null
-                      ? ` · ${a.distance_km.toLocaleString('fr-FR')} km`
-                      : ' · distance inconnue'}
-                    {a.capacite_max_beneficiaires != null
-                      ? ` · cap. ${a.capacite_max_beneficiaires}`
-                      : ''}
-                    {a.habilitee_attestation_fiscale ? ' · 2041-GE' : ''}
-                    {suggestions.some((x) => x.id === a.id)
-                      ? ' (suggérée)'
-                      : ''}
-                  </option>
-                ))}
-              </Select>
+                onChange={choisirAssociation}
+              />
               {assoErreur && (
                 <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   <span>Impossible de charger la liste des associations.</span>
@@ -443,7 +449,7 @@ export default function AttributionDetailPage() {
                   </Button>
                 </div>
               )}
-            </div>
+            </FormField>
           </div>
 
           {/* Colonne droite : transporteur + validation */}
@@ -491,24 +497,26 @@ export default function AttributionDetailPage() {
             ))}
 
             {/* BL-P1-ALGO-04 — Choix du transporteur parmi tous les transporteurs actifs */}
-            <div>
-              <Label htmlFor="transporteur-select">Transporteur</Label>
-              <Select
+            <FormField label="Transporteur" htmlFor="transporteur-select">
+              <Combobox
                 id="transporteur-select"
+                icon={null}
+                placeholder="Choisir un transporteur…"
+                options={[
+                  { value: '', label: 'Choisir un transporteur…' },
+                  ...optionsTransp.map((t) => ({
+                    value: t.id,
+                    label:
+                      t.nom +
+                      (t.ville ? ` · ${t.ville}` : '') +
+                      (transpList.some((x) => x.id === t.id)
+                        ? ' (recommandé)'
+                        : ''),
+                  })),
+                ]}
                 value={selectedTransp ?? ''}
-                onChange={(e) => choisirTransporteur(e.target.value)}
-              >
-                <option value="">Choisir un transporteur…</option>
-                {optionsTransp.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nom}
-                    {t.ville ? ` · ${t.ville}` : ''}
-                    {transpList.some((x) => x.id === t.id)
-                      ? ' (recommandé)'
-                      : ''}
-                  </option>
-                ))}
-              </Select>
+                onChange={choisirTransporteur}
+              />
               {transpErreur && (
                 <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   <span>Impossible de charger la liste des transporteurs.</span>
@@ -521,7 +529,7 @@ export default function AttributionDetailPage() {
                   </Button>
                 </div>
               )}
-            </div>
+            </FormField>
 
             {/* Récapitulatif sélection */}
             <div className="rounded-md border border-savr-neutral-200 bg-savr-neutral-50 p-3 text-xs text-savr-neutral-600">
@@ -540,26 +548,32 @@ export default function AttributionDetailPage() {
                 <p className="text-xs font-medium text-amber-800">
                   Choix hors recommandation — motif obligatoire
                 </p>
-                <select
-                  className="w-full rounded border border-savr-neutral-200 px-2 py-1 text-sm"
-                  value={motif}
-                  onChange={(e) => setMotif(e.target.value)}
-                >
-                  <option value="">Choisir un motif…</option>
-                  {MOTIFS_OVERRIDE.map((m) => (
-                    <option key={m.code} value={m.code}>
-                      {m.libelle}
-                    </option>
-                  ))}
-                </select>
-                {motif === 'autre' && (
-                  <textarea
-                    className="w-full rounded border border-savr-neutral-200 px-2 py-1 text-sm"
-                    placeholder="Précision libre (min 10 caractères)…"
-                    rows={2}
-                    value={motifLibre}
-                    onChange={(e) => setMotifLibre(e.target.value)}
+                <FormField label="Motif" htmlFor="motif-override-select">
+                  <Combobox
+                    id="motif-override-select"
+                    icon={null}
+                    placeholder="Choisir un motif…"
+                    options={[
+                      { value: '', label: 'Choisir un motif…' },
+                      ...MOTIFS_OVERRIDE.map((m) => ({
+                        value: m.code,
+                        label: m.libelle,
+                      })),
+                    ]}
+                    value={motif}
+                    onChange={setMotif}
                   />
+                </FormField>
+                {motif === 'autre' && (
+                  <FormField label="Précision" htmlFor="motif-override-libre">
+                    <Textarea
+                      id="motif-override-libre"
+                      placeholder="Min 10 caractères"
+                      rows={2}
+                      value={motifLibre}
+                      onChange={(e) => setMotifLibre(e.target.value)}
+                    />
+                  </FormField>
                 )}
               </div>
             )}

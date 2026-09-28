@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { safeNextPath } from '@/lib/safe-next-path';
 import { AlertBar } from '@/components/ui/alert-bar';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 
 // Motifs posés par `api/auth/verify-email` quand le lien d'activation n'aboutit
 // pas. Ils arrivaient déjà en `?error=` mais n'étaient affichés nulle part :
@@ -114,30 +116,26 @@ function LoginForm() {
         </AlertBar>
       )}
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-savr-neutral-700">
-            Email
-          </label>
-          <input
+        <FormField label="Email" htmlFor="login-email">
+          <Input
+            id="login-email"
             type="email"
             required
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
           />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-savr-neutral-700">
-            Mot de passe
-          </label>
-          <input
+        </FormField>
+        <FormField label="Mot de passe" htmlFor="login-mot-de-passe">
+          <Input
+            id="login-mot-de-passe"
             type="password"
             required
+            autoComplete="current-password"
             value={motDePasse}
             onChange={(e) => setMotDePasse(e.target.value)}
-            className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
           />
-        </div>
+        </FormField>
         {erreur && <p className="text-sm text-savr-error">{erreur}</p>}
         <button
           type="submit"

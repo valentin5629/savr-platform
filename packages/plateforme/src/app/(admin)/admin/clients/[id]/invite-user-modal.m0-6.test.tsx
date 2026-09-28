@@ -110,10 +110,13 @@ describe('M0.6 — fiche organisation : ajouter un utilisateur', () => {
         onCreated={() => {}}
       />,
     );
-    const select = screen.getByLabelText('Rôle') as HTMLSelectElement;
-    const options = Array.from(select.options).map((o) => o.value);
-    expect(options).toEqual(['traiteur_manager', 'traiteur_commercial']);
-    expect(select.value).toBe('traiteur_manager');
+    // Combobox DS : le déclencheur affiche le rôle courant, la liste
+    // (portail) n'expose que les rôles du type d'organisation.
+    const declencheur = screen.getByRole('combobox', { name: 'Rôle' });
+    expect(declencheur).toHaveTextContent('Traiteur (manager)');
+    fireEvent.click(declencheur);
+    const options = screen.getAllByRole('option').map((o) => o.textContent);
+    expect(options).toEqual(['Traiteur (manager)', 'Traiteur (commercial)']);
   });
 
   it(

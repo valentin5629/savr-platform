@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
+import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 
 interface TypeEvenement {
@@ -47,10 +52,6 @@ export interface CollecteEditData {
   lieu_nom: string | null;
   evenement: EvenementEditData;
 }
-
-const INPUT_CLS =
-  'w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500';
-const LABEL_CLS = 'text-sm font-medium text-savr-neutral-700';
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 
@@ -220,81 +221,73 @@ export function EditerCollecteForm({
           <h3 className="text-sm font-semibold text-savr-neutral-900">
             Événement
           </h3>
-          <div className="space-y-1">
-            <label className={LABEL_CLS}>Nom de l&apos;événement</label>
-            <input
-              className={INPUT_CLS}
+          <FormField label="Nom de l'événement" htmlFor="edit-evt-nom">
+            <Input
+              id="edit-evt-nom"
               value={nomEvenement}
               onChange={(ev) => setNomEvenement(ev.target.value)}
             />
-          </div>
+          </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className={LABEL_CLS}>Nombre de convives (pax)</label>
-              <input
+            <FormField label="Nombre de convives (pax)" htmlFor="edit-evt-pax">
+              <Input
+                id="edit-evt-pax"
                 type="number"
                 min={0}
-                className={INPUT_CLS}
                 value={pax}
                 onChange={(ev) => setPax(ev.target.value)}
               />
-            </div>
-            <div className="space-y-1">
-              <label className={LABEL_CLS}>Client final</label>
-              <input
-                className={INPUT_CLS}
+            </FormField>
+            <FormField label="Client final" htmlFor="edit-evt-client">
+              <Input
+                id="edit-evt-client"
                 value={nomClient}
                 onChange={(ev) => setNomClient(ev.target.value)}
               />
-            </div>
+            </FormField>
           </div>
-          <div className="space-y-1">
-            <label className={LABEL_CLS}>Type d&apos;événement</label>
-            <select
-              className={`${INPUT_CLS} bg-savr-white`}
+          <FormField label="Type d'événement" htmlFor="edit-evt-type">
+            <Combobox
+              id="edit-evt-type"
+              icon={null}
+              placeholder="Choisir un type"
+              searchPlaceholder="Rechercher un type…"
+              options={
+                types.length === 0 && typeEvtId
+                  ? [{ value: typeEvtId, label: '—' }]
+                  : types.map((t) => ({ value: t.id, label: t.libelle }))
+              }
               value={typeEvtId}
-              onChange={(ev) => setTypeEvtId(ev.target.value)}
-            >
-              {types.length === 0 && typeEvtId && (
-                <option value={typeEvtId}>—</option>
-              )}
-              {types.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.libelle}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className={LABEL_CLS}>Référence affaire</label>
-            <input
-              className={INPUT_CLS}
+              onChange={setTypeEvtId}
+            />
+          </FormField>
+          <FormField label="Référence affaire" htmlFor="edit-evt-ref-affaire">
+            <Input
+              id="edit-evt-ref-affaire"
               value={refAffaire}
               onChange={(ev) => setRefAffaire(ev.target.value)}
             />
-          </div>
+          </FormField>
           {/* Contact principal (sous-bloc) */}
           <div className="space-y-3 rounded-savr-md border border-savr-neutral-200 p-3">
             <p className="text-sm font-semibold text-savr-neutral-800">
               Contact principal
             </p>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className={LABEL_CLS}>Prénom et nom</label>
-                <input
-                  className={INPUT_CLS}
+              <FormField label="Prénom et nom" htmlFor="edit-cp-nom">
+                <Input
+                  id="edit-cp-nom"
                   value={cpNom}
                   onChange={(ev) => setCpNom(ev.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <label className={LABEL_CLS}>Numéro de téléphone</label>
-                <input
-                  className={INPUT_CLS}
+              </FormField>
+              <FormField label="Numéro de téléphone" htmlFor="edit-cp-tel">
+                <Input
+                  id="edit-cp-tel"
                   value={cpTel}
                   onChange={(ev) => setCpTel(ev.target.value)}
                 />
-              </div>
+              </FormField>
             </div>
           </div>
           {/* Contact de secours (sous-bloc) */}
@@ -303,22 +296,20 @@ export function EditerCollecteForm({
               Contact de secours
             </p>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className={LABEL_CLS}>Prénom et nom</label>
-                <input
-                  className={INPUT_CLS}
+              <FormField label="Prénom et nom" htmlFor="edit-cs-nom">
+                <Input
+                  id="edit-cs-nom"
                   value={csNom}
                   onChange={(ev) => setCsNom(ev.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <label className={LABEL_CLS}>Numéro de téléphone</label>
-                <input
-                  className={INPUT_CLS}
+              </FormField>
+              <FormField label="Numéro de téléphone" htmlFor="edit-cs-tel">
+                <Input
+                  id="edit-cs-tel"
                   value={csTel}
                   onChange={(ev) => setCsTel(ev.target.value)}
                 />
-              </div>
+              </FormField>
             </div>
           </div>
         </section>
@@ -329,24 +320,21 @@ export function EditerCollecteForm({
             Collecte
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className={LABEL_CLS}>Date de collecte</label>
-              <input
-                type="date"
-                className={INPUT_CLS}
+            <FormField label="Date de collecte" htmlFor="edit-date-collecte">
+              <DatePicker
+                id="edit-date-collecte"
                 value={dateCollecte}
-                onChange={(ev) => setDateCollecte(ev.target.value)}
+                onChange={setDateCollecte}
               />
-            </div>
-            <div className="space-y-1">
-              <label className={LABEL_CLS}>Heure de collecte</label>
-              <input
+            </FormField>
+            <FormField label="Heure de collecte" htmlFor="edit-heure-collecte">
+              <Input
+                id="edit-heure-collecte"
                 type="time"
-                className={INPUT_CLS}
                 value={heureCollecte}
                 onChange={(ev) => setHeureCollecte(ev.target.value)}
               />
-            </div>
+            </FormField>
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
             <input
@@ -357,25 +345,26 @@ export function EditerCollecteForm({
             />
             <span className="text-sm">Contrôle d&apos;accès requis</span>
           </label>
-          <div className="space-y-1">
-            <label className={LABEL_CLS}>Informations supplémentaires</label>
-            <textarea
-              className={INPUT_CLS}
+          <FormField
+            label="Informations supplémentaires"
+            htmlFor="edit-infos-suppl"
+          >
+            <Textarea
+              id="edit-infos-suppl"
               rows={3}
               maxLength={1000}
               value={infosSuppl}
               onChange={(ev) => setInfosSuppl(ev.target.value)}
             />
-          </div>
-          <div className="space-y-1">
-            <label className={LABEL_CLS}>Notes internes</label>
-            <textarea
-              className={INPUT_CLS}
+          </FormField>
+          <FormField label="Notes internes" htmlFor="edit-notes-internes">
+            <Textarea
+              id="edit-notes-internes"
               rows={2}
               value={notesCollecte}
               onChange={(ev) => setNotesCollecte(ev.target.value)}
             />
-          </div>
+          </FormField>
         </section>
 
         {/* ── Champs verrouillés (§05 l.314 / §06.04 l.460) ─────────── */}

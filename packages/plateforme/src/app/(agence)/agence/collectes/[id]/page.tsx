@@ -2,6 +2,8 @@
 
 import { use, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -277,20 +279,25 @@ export default function FicheCollecteAgencePage({
                 Le SIRET du traiteur opérationnel est requis pour finaliser le
                 bordereau Cerfa.
               </p>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={14}
-                value={siret}
-                onChange={(e) =>
-                  setSiret(e.target.value.replace(/\D/g, '').slice(0, 14))
-                }
-                placeholder="14 chiffres"
-                className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm"
-              />
-              {siretError && (
-                <p className="text-sm text-savr-error">{siretError}</p>
-              )}
+              <FormField
+                label="SIRET"
+                htmlFor="agence-siret-traiteur"
+                required
+                hint="14 chiffres"
+                error={siretError ?? undefined}
+              >
+                <Input
+                  id="agence-siret-traiteur"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={14}
+                  value={siret}
+                  onChange={(e) =>
+                    setSiret(e.target.value.replace(/\D/g, '').slice(0, 14))
+                  }
+                  error={siretError !== null}
+                />
+              </FormField>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setModalOpen(false)}>
                   Annuler

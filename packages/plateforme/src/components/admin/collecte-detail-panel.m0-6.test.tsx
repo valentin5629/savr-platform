@@ -202,9 +202,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
 
       // Choisir A Toutes! (≠ top-1 Strike) → override → motif obligatoire
-      fireEvent.change(screen.getByLabelText('Prestataire à attribuer'), {
-        target: { value: 't-atoutes' },
-      });
+      // Combobox (DS règle 3) : ouvrir le déclencheur puis choisir l'option.
+      fireEvent.click(
+        screen.getByRole('combobox', { name: 'Prestataire à attribuer' }),
+      );
+      fireEvent.click(screen.getByRole('option', { name: /^A Toutes!/ }));
 
       const bouton = screen.getByRole('button', {
         name: /Envoyer à A Toutes!/,
@@ -216,9 +218,10 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(bouton).not.toBeDisabled();
 
       // Re-sélection du top-1 recommandé → plus de motif requis (validation reco)
-      fireEvent.change(screen.getByLabelText('Prestataire à attribuer'), {
-        target: { value: 't-mts1' },
-      });
+      fireEvent.click(
+        screen.getByRole('combobox', { name: 'Prestataire à attribuer' }),
+      );
+      fireEvent.click(screen.getByRole('option', { name: /^Strike/ }));
       expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
@@ -243,9 +246,15 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       // Motif vide → soumission désactivée
       expect(confirmer).toBeDisabled();
 
-      fireEvent.change(within(dialog).getByLabelText('Nouveau statut'), {
-        target: { value: 'validee' },
-      });
+      // Combobox : options portées dans un portail (screen, pas within).
+      fireEvent.click(
+        within(dialog).getByRole('combobox', { name: 'Nouveau statut' }),
+      );
+      fireEvent.click(
+        screen
+          .getAllByRole('option')
+          .find((o) => o.getAttribute('data-value') === 'validee')!,
+      );
       fireEvent.change(within(dialog).getByLabelText(/Motif \(obligatoire/), {
         target: { value: 'Validation manuelle après échange traiteur' },
       });

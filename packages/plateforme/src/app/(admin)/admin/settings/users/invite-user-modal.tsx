@@ -11,6 +11,9 @@
 import * as React from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
 import {
   Autocomplete,
   type AutocompleteOption,
@@ -130,68 +133,61 @@ export function InviteUserModal({
 
         <form onSubmit={(e) => void submit(e)} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Prénom</label>
-              <input
+            <FormField label="Prénom" htmlFor="invite-membre-prenom">
+              <Input
+                id="invite-membre-prenom"
                 value={prenom}
                 aria-label="Prénom"
                 onChange={(e) => setPrenom(e.target.value)}
-                className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
                 required
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Nom</label>
-              <input
+            </FormField>
+            <FormField label="Nom" htmlFor="invite-membre-nom">
+              <Input
+                id="invite-membre-nom"
                 value={nom}
                 aria-label="Nom"
                 onChange={(e) => setNom(e.target.value)}
-                className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
                 required
               />
-            </div>
+            </FormField>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
+          <FormField label="Email" htmlFor="invite-membre-email">
+            <Input
+              id="invite-membre-email"
               type="email"
               value={email}
               aria-label="Email"
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
               required
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Rôle</label>
-            <select
+          <FormField label="Rôle" htmlFor="invite-membre-role">
+            <Combobox
+              id="invite-membre-role"
               aria-label="Rôle"
+              icon={null}
+              options={roleOptions.map((r) => ({
+                value: r.value,
+                label: r.label,
+              }))}
               value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-            >
-              {roleOptions.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              onChange={setRole}
+            />
+          </FormField>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Organisation
-            </label>
+          <FormField label="Organisation" htmlFor="invite-organisation">
             <Autocomplete
+              id="invite-organisation"
               aria-label="Organisation"
               placeholder="Rechercher une organisation…"
               fetchOptions={fetchOrgs}
               selected={org}
               onChange={setOrg}
             />
-          </div>
+          </FormField>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button

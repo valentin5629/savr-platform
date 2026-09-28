@@ -55,7 +55,9 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
       fireEvent.click(screen.getByRole('button', { name: /Ajouter ce lieu/ }));
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const [, options] = fetchMock.mock.calls.find(
+        ([url]) => url === '/api/v1/programmation/lieux',
+      ) as [string, RequestInit];
       const body = JSON.parse(options.body as string) as Record<
         string,
         unknown
@@ -64,6 +66,77 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
       expect(body.stationnement).toBeUndefined();
       expect(body.acces_office).toBeUndefined();
       await waitFor(() => expect(onSave).toHaveBeenCalled(), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — choisir une suggestion BAN remplit adresse, code postal et ville, envoyés au POST',
+    async () => {
+      const onSave = vi.fn();
+      const fetchMock = vi.fn((url: string) =>
+        Promise.resolve(
+          url.startsWith('https://data.geopf.fr/')
+            ? {
+                ok: true,
+                json: async () => ({
+                  features: [
+                    {
+                      properties: {
+                        id: '75117_9933_00039',
+                        label: '39 Avenue de Wagram 75017 Paris',
+                        name: '39 Avenue de Wagram',
+                        postcode: '75017',
+                        city: 'Paris',
+                        type: 'housenumber',
+                      },
+                    },
+                  ],
+                }),
+              }
+            : { ok: true, json: async () => ({ id: 'l-1', nom: 'X' }) },
+        ),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      render(<LieuManuelForm onSave={onSave} onCancel={vi.fn()} />);
+
+      fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
+        target: { value: 'Salle Wagram' },
+      });
+      fireEvent.change(screen.getByLabelText(/Adresse d'accès livraison/), {
+        target: { value: '39 avenue de wagram' },
+      });
+
+      const option = await screen.findByRole(
+        'option',
+        { name: '39 Avenue de Wagram 75017 Paris' },
+        ATTENTE_UI,
+      );
+      fireEvent.mouseDown(option);
+
+      expect(screen.getByLabelText(/Adresse d'accès livraison/)).toHaveValue(
+        '39 Avenue de Wagram',
+      );
+      expect(screen.getByLabelText(/Code postal/)).toHaveValue('75017');
+      expect(screen.getByLabelText(/Ville/)).toHaveValue('Paris');
+      expect(screen.queryByRole('listbox')).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /Ajouter ce lieu/ }));
+
+      await waitFor(() => expect(onSave).toHaveBeenCalled(), ATTENTE_UI);
+      const [, options] = fetchMock.mock.calls.find(
+        ([url]) => url === '/api/v1/programmation/lieux',
+      ) as unknown as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as Record<
+        string,
+        unknown
+      >;
+      expect(body).toMatchObject({
+        adresse_acces: '39 Avenue de Wagram',
+        code_postal: '75017',
+        ville: 'Paris',
+      });
     },
     ATTENTE_CAS_MS,
   );

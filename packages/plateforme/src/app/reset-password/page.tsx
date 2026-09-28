@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
 import { AlertBar } from '@/components/ui/alert-bar';
+import { AuthCard, AuthPage, authLienClass } from '@/components/auth/auth-card';
 
 function DemandeResetForm() {
   const searchParams = useSearchParams();
@@ -56,88 +57,76 @@ function DemandeResetForm() {
   // l'information que la route protège.
   if (envoye) {
     return (
-      <div className="w-full max-w-sm rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-8 shadow-sm">
-        <h1 className="mb-4 text-xl font-semibold text-savr-neutral-900">
-          Vérifiez votre boîte mail
-        </h1>
+      <AuthCard
+        titre="Vérifiez votre boîte mail"
+        pied={
+          <Link href="/login" className={authLienClass}>
+            Retour à la connexion
+          </Link>
+        }
+      >
         <p className="text-sm text-savr-neutral-700">
           Si un compte Savr existe pour <strong>{email}</strong>, un lien de
           réinitialisation vient d&apos;être envoyé. Il est valide pendant
           1&nbsp;heure.
         </p>
-        <p className="mt-4 text-sm text-savr-neutral-500">
+        <p className="text-sm text-savr-neutral-500">
           Ouvrez le lien dans ce navigateur : c&apos;est ici que la demande a
           été faite.
         </p>
-        <div className="mt-6">
-          <Link
-            href="/login"
-            className="text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-          >
-            Retour à la connexion
-          </Link>
-        </div>
-      </div>
+      </AuthCard>
     );
   }
 
   return (
-    <div className="w-full max-w-sm rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-8 shadow-sm">
-      <h1 className="mb-2 text-xl font-semibold text-savr-neutral-900">
-        Mot de passe oublié
-      </h1>
-      <p className="mb-6 text-sm text-savr-neutral-600">
-        Indiquez votre adresse email : nous vous envoyons un lien pour choisir
-        un nouveau mot de passe.
-      </p>
-
+    <AuthCard
+      titre="Mot de passe oublié"
+      description="Indiquez votre adresse email : nous vous envoyons un lien pour choisir un nouveau mot de passe."
+      action={
+        <Link href="/login" className={authLienClass}>
+          Se connecter
+        </Link>
+      }
+      onSubmit={(e) => void handleSubmit(e)}
+      pied={
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? 'Envoi…' : 'Envoyer le lien'}
+        </Button>
+      }
+    >
       {lienInvalide && (
-        <AlertBar variant="warn" className="mb-4 font-normal">
+        <AlertBar variant="warn" className="font-normal">
           Ce lien n&apos;est plus valable. Il expire au bout d&apos;une heure,
           ne sert qu&apos;une fois, et doit être ouvert dans le navigateur où la
           demande a été faite. Demandez-en un nouveau ci-dessous.
         </AlertBar>
       )}
 
-      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-        <FormField label="Email" htmlFor="email" required>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            error={!!erreur}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </FormField>
+      <FormField label="Email" htmlFor="email" required>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          placeholder="nom@entreprise.fr"
+          value={email}
+          error={!!erreur}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </FormField>
 
-        <FormError>{erreur}</FormError>
-
-        <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Envoi…' : 'Envoyer le lien'}
-        </Button>
-      </form>
-
-      <div className="mt-6">
-        <Link
-          href="/login"
-          className="text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-        >
-          Retour à la connexion
-        </Link>
-      </div>
-    </div>
+      <FormError>{erreur}</FormError>
+    </AuthCard>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-savr-neutral-50 px-4">
+    <AuthPage>
       <Suspense>
         <DemandeResetForm />
       </Suspense>
-    </div>
+    </AuthPage>
   );
 }

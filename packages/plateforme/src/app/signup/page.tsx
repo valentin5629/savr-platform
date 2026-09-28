@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
+import { AuthCard, AuthPage, authLienClass } from '@/components/auth/auth-card';
 import { PASSWORD_MIN_LENGTH, validatePasswordStrength } from '@/lib/password';
 import {
   isValidEmailFormat,
@@ -170,275 +171,257 @@ export default function SignupPage() {
 
   if (envoye) {
     return (
-      <Ecran large={false}>
-        <h1 className="mb-4 text-xl font-semibold text-savr-neutral-900">
-          Vérifiez votre boîte mail
-        </h1>
-        <p className="text-sm text-savr-neutral-700">
-          Votre compte est créé. Un lien d&apos;activation vient d&apos;être
-          envoyé à <strong>{email.trim()}</strong>. Il est valide
-          24&nbsp;heures.
-        </p>
-        <p className="mt-4 text-sm text-savr-neutral-500">
-          Sans ce clic, la connexion reste fermée. Pensez à regarder vos
-          indésirables si rien n&apos;arrive.
-        </p>
-        <div className="mt-6">
-          <Link
-            href="/login"
-            className="text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-          >
-            Aller à la connexion
-          </Link>
-        </div>
-      </Ecran>
+      <AuthPage>
+        <AuthCard
+          titre="Vérifiez votre boîte mail"
+          className="max-w-md"
+          pied={
+            <Link href="/login" className={authLienClass}>
+              Aller à la connexion
+            </Link>
+          }
+        >
+          <p className="text-sm text-savr-neutral-700">
+            Votre compte est créé. Un lien d&apos;activation vient d&apos;être
+            envoyé à <strong>{email.trim()}</strong>. Il est valide
+            24&nbsp;heures.
+          </p>
+          <p className="text-sm text-savr-neutral-500">
+            Sans ce clic, la connexion reste fermée. Pensez à regarder vos
+            indésirables si rien n&apos;arrive.
+          </p>
+        </AuthCard>
+      </AuthPage>
     );
   }
 
+  const retour = (vers: 1 | 2) => (
+    <Button
+      type="button"
+      variant="secondary"
+      className="w-full"
+      onClick={() => {
+        setErreur('');
+        setEtape(vers);
+      }}
+    >
+      Retour
+    </Button>
+  );
+
   return (
-    <Ecran large={etape === 1}>
-      <h1 className="text-xl font-semibold text-savr-neutral-900">
-        Créer un compte Savr
-      </h1>
-      <p className="mb-6 mt-1 text-sm text-savr-neutral-600">
-        Étape {etape} sur 3{etape === 1 && ' — votre activité'}
-        {etape === 2 && ' — vous et votre entreprise'}
-        {etape === 3 && ' — mot de passe'}
-      </p>
-
-      {etape === 1 && (
-        <form onSubmit={allerEtape2} className="space-y-4">
-          <fieldset className="space-y-3">
-            <legend className="sr-only">Type de profil</legend>
-            {PROFILS.map((p) => (
-              <label
-                key={p.valeur}
-                className={`flex cursor-pointer gap-3 rounded-savr-md border p-4 transition-colors ${
-                  typeProfil === p.valeur
-                    ? 'border-savr-primary-700 bg-savr-primary-50'
-                    : 'border-savr-neutral-200 hover:border-savr-neutral-300'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="type_profil"
-                  value={p.valeur}
-                  checked={typeProfil === p.valeur}
-                  onChange={() => setTypeProfil(p.valeur)}
-                  className="mt-1 h-4 w-4 accent-savr-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-                />
-                <span>
-                  <span className="block text-sm font-semibold text-savr-neutral-900">
-                    {p.titre}
-                  </span>
-                  <span className="mt-0.5 block text-sm text-savr-neutral-600">
-                    {p.detail}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
-
-          <FormError>{erreur}</FormError>
-
-          <Button type="submit" className="w-full">
-            Continuer
-          </Button>
-        </form>
-      )}
-
-      {etape === 2 && (
-        <form onSubmit={allerEtape3} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label="Prénom" htmlFor="prenom" required>
-              <Input
-                id="prenom"
-                name="prenom"
-                autoComplete="given-name"
-                required
-                value={prenom}
-                onChange={(e) => setPrenom(e.target.value)}
-              />
-            </FormField>
-            <FormField label="Nom" htmlFor="nom" required>
-              <Input
-                id="nom"
-                name="nom"
-                autoComplete="family-name"
-                required
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-              />
-            </FormField>
-          </div>
-
-          <FormField
-            label="Email professionnel"
-            htmlFor="email"
-            required
-            hint="Il sert d'identifiant. Une adresse au domaine de votre entreprise vous rattache automatiquement à son compte."
-          >
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </FormField>
-
-          <FormField label="Téléphone" htmlFor="telephone" required>
-            <Input
-              id="telephone"
-              name="telephone"
-              type="tel"
-              autoComplete="tel"
-              required
-              value={telephone}
-              onChange={(e) => setTelephone(e.target.value)}
-            />
-          </FormField>
-
-          <FormField label="Raison sociale" htmlFor="raison-sociale" required>
-            <Input
-              id="raison-sociale"
-              name="raison_sociale"
-              autoComplete="organization"
-              required
-              value={raisonSociale}
-              onChange={(e) => setRaisonSociale(e.target.value)}
-            />
-          </FormField>
-
-          <FormError>{erreur}</FormError>
-
-          <div className="flex gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-full"
-              onClick={() => {
-                setErreur('');
-                setEtape(1);
-              }}
-            >
-              Retour
-            </Button>
+    <AuthPage>
+      <AuthCard
+        titre="Créer un compte Savr"
+        description={
+          <>
+            Étape {etape} sur 3{etape === 1 && ' — votre activité'}
+            {etape === 2 && ' — vous et votre entreprise'}
+            {etape === 3 && ' — mot de passe'}
+          </>
+        }
+        className={etape === 1 ? 'max-w-lg' : 'max-w-md'}
+        action={
+          <Link href="/login" className={authLienClass}>
+            J&apos;ai déjà un compte
+          </Link>
+        }
+        onSubmit={
+          etape === 1
+            ? allerEtape2
+            : etape === 2
+              ? allerEtape3
+              : (e) => void handleSubmit(e)
+        }
+        pied={
+          etape === 1 ? (
             <Button type="submit" className="w-full">
               Continuer
             </Button>
-          </div>
-        </form>
-      )}
-
-      {etape === 3 && (
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-          <p className="text-sm text-savr-neutral-600">
-            Au moins {PASSWORD_MIN_LENGTH} caractères, avec une majuscule, un
-            chiffre et un caractère spécial.
-          </p>
-
-          <FormField label="Mot de passe" htmlFor="mot-de-passe" required>
-            <Input
-              id="mot-de-passe"
-              name="mot-de-passe"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={motDePasse}
-              error={!!erreur}
-              onChange={(e) => setMotDePasse(e.target.value)}
-            />
-          </FormField>
-
-          <FormField label="Confirmation" htmlFor="confirmation" required>
-            <Input
-              id="confirmation"
-              name="confirmation"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={confirmation}
-              error={!!erreur}
-              onChange={(e) => setConfirmation(e.target.value)}
-            />
-          </FormField>
-
-          <div className="flex items-start gap-3 pt-2">
-            <Checkbox
-              id="cgu"
-              checked={cgu}
-              onCheckedChange={(v) => setCgu(v === true)}
-              aria-describedby="cgu-label"
-            />
-            <label
-              id="cgu-label"
-              htmlFor="cgu"
-              className="cursor-pointer text-sm text-savr-neutral-700"
-            >
-              J&apos;accepte les{' '}
-              <Link
-                href="/cgu"
-                target="_blank"
-                className="font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-              >
-                Conditions Générales d&apos;Utilisation
-              </Link>
-              . Cette acceptation est horodatée et conservée.
-            </label>
-          </div>
-
-          <FormError>{erreur}</FormError>
-
-          <div className="flex gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-full"
-              onClick={() => {
-                setErreur('');
-                setEtape(2);
-              }}
-            >
-              Retour
-            </Button>
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? 'Création…' : 'Créer mon compte'}
-            </Button>
-          </div>
-        </form>
-      )}
-
-      <div className="mt-6 border-t border-savr-neutral-200 pt-4 text-sm">
-        <Link
-          href="/login"
-          className="font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-        >
-          J&apos;ai déjà un compte
-        </Link>
-      </div>
-    </Ecran>
-  );
-}
-
-function Ecran({
-  children,
-  large,
-}: {
-  children: React.ReactNode;
-  large: boolean;
-}) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-savr-neutral-50 px-4 py-10">
-      <div
-        className={`w-full rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-8 shadow-sm ${
-          large ? 'max-w-lg' : 'max-w-md'
-        }`}
+          ) : etape === 2 ? (
+            <>
+              {retour(1)}
+              <Button type="submit" className="w-full">
+                Continuer
+              </Button>
+            </>
+          ) : (
+            <>
+              {retour(2)}
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? 'Création…' : 'Créer mon compte'}
+              </Button>
+            </>
+          )
+        }
       >
-        {children}
-      </div>
-    </div>
+        {etape === 1 && (
+          <>
+            <fieldset className="space-y-3">
+              <legend className="sr-only">Type de profil</legend>
+              {PROFILS.map((p) => (
+                <label
+                  key={p.valeur}
+                  className={`flex cursor-pointer gap-3 rounded-savr-md border p-4 transition-colors ${
+                    typeProfil === p.valeur
+                      ? 'border-savr-primary-700 bg-savr-primary-50'
+                      : 'border-savr-neutral-200 hover:border-savr-neutral-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="type_profil"
+                    value={p.valeur}
+                    checked={typeProfil === p.valeur}
+                    onChange={() => setTypeProfil(p.valeur)}
+                    className="mt-1 h-4 w-4 accent-savr-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-savr-neutral-900">
+                      {p.titre}
+                    </span>
+                    <span className="mt-0.5 block text-sm text-savr-neutral-600">
+                      {p.detail}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+
+            <FormError>{erreur}</FormError>
+          </>
+        )}
+
+        {etape === 2 && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Prénom" htmlFor="prenom" required>
+                <Input
+                  id="prenom"
+                  name="prenom"
+                  autoComplete="given-name"
+                  required
+                  value={prenom}
+                  onChange={(e) => setPrenom(e.target.value)}
+                />
+              </FormField>
+              <FormField label="Nom" htmlFor="nom" required>
+                <Input
+                  id="nom"
+                  name="nom"
+                  autoComplete="family-name"
+                  required
+                  value={nom}
+                  onChange={(e) => setNom(e.target.value)}
+                />
+              </FormField>
+            </div>
+
+            <FormField
+              label="Email professionnel"
+              htmlFor="email"
+              required
+              hint="Il sert d'identifiant. Une adresse au domaine de votre entreprise vous rattache automatiquement à son compte."
+            >
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </FormField>
+
+            <FormField label="Téléphone" htmlFor="telephone" required>
+              <Input
+                id="telephone"
+                name="telephone"
+                type="tel"
+                autoComplete="tel"
+                required
+                value={telephone}
+                onChange={(e) => setTelephone(e.target.value)}
+              />
+            </FormField>
+
+            <FormField label="Raison sociale" htmlFor="raison-sociale" required>
+              <Input
+                id="raison-sociale"
+                name="raison_sociale"
+                autoComplete="organization"
+                required
+                value={raisonSociale}
+                onChange={(e) => setRaisonSociale(e.target.value)}
+              />
+            </FormField>
+
+            <FormError>{erreur}</FormError>
+          </>
+        )}
+
+        {etape === 3 && (
+          <>
+            <p className="text-sm text-savr-neutral-600">
+              Au moins {PASSWORD_MIN_LENGTH} caractères, avec une majuscule, un
+              chiffre et un caractère spécial.
+            </p>
+
+            <FormField label="Mot de passe" htmlFor="mot-de-passe" required>
+              <Input
+                id="mot-de-passe"
+                name="mot-de-passe"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={motDePasse}
+                error={!!erreur}
+                onChange={(e) => setMotDePasse(e.target.value)}
+              />
+            </FormField>
+
+            <FormField label="Confirmation" htmlFor="confirmation" required>
+              <Input
+                id="confirmation"
+                name="confirmation"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={confirmation}
+                error={!!erreur}
+                onChange={(e) => setConfirmation(e.target.value)}
+              />
+            </FormField>
+
+            <div className="flex items-start gap-3 pt-2">
+              <Checkbox
+                id="cgu"
+                checked={cgu}
+                onCheckedChange={(v) => setCgu(v === true)}
+                aria-describedby="cgu-label"
+              />
+              <label
+                id="cgu-label"
+                htmlFor="cgu"
+                className="cursor-pointer text-sm text-savr-neutral-700"
+              >
+                J&apos;accepte les{' '}
+                <Link
+                  href="/cgu"
+                  target="_blank"
+                  className="font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
+                >
+                  Conditions Générales d&apos;Utilisation
+                </Link>
+                . Cette acceptation est horodatée et conservée.
+              </label>
+            </div>
+
+            <FormError>{erreur}</FormError>
+          </>
+        )}
+      </AuthCard>
+    </AuthPage>
   );
 }

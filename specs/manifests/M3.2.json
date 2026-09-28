@@ -487,7 +487,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/*",
       "test": "M3.2/dash_bloc2_bloc4_zd_montes + M3.2/blocs_gestionnaire_zd_prochaines_colonne_traiteur + M3.2/P2_dashboard_carte_kpi_non_cliquable",
       "statut": "implemented",
-      "libelle": "Refonte visuelle « Cockpit » du dashboard gestionnaire (R24, déclinaison du pilote traiteur, décision Val GO-VISUAL 2026-07-10) : composants Cockpit (KpiCockpitCard NON cliquables, EvolutionZdChart/AgChart à tooltip de survol + format compact, BenchmarkBulletGauges 5 dimensions, TonnagesDonut, TopRankList avec colonnes §06.05 en ligne secondaire) importés en direct. Spécificités gestionnaire préservées : 5 filtres (dont Traiteurs), Bloc 7 top traiteurs, Bloc 5 colonne Traiteur, pack AG lecture seule. DS §10 par défaut. Pas de héros CO₂ (endpoint gestionnaire agrégé, sans co2_*)."
+      "libelle": "Refonte visuelle « Cockpit » du dashboard gestionnaire (R24, déclinaison du pilote traiteur, décision Val GO-VISUAL 2026-07-10) : composants Cockpit (KpiCockpitCard NON cliquables, EvolutionZdChart/AgChart à tooltip de survol + format compact, BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28) 5 dimensions, TonnagesDonut, TopRankList avec colonnes §06.05 en ligne secondaire) importés en direct. Spécificités gestionnaire préservées : 5 filtres (dont Traiteurs), Bloc 7 top traiteurs, Bloc 5 colonne Traiteur, pack AG lecture seule. DS §10 par défaut. Pas de héros CO₂ (endpoint gestionnaire agrégé, sans co2_*)."
     },
     {
       "id": "M3.2-mon-organisation-page",

@@ -4,7 +4,7 @@ import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 
 // GET /api/v1/admin/dashboard-client/benchmark
-// §06.06 §2 — jauges benchmark parc (Bloc 3 ZD) côté Dashboard Client Admin.
+// §06.06 §2 — benchmark parc (Bloc 3 ZD) côté Dashboard Client Admin.
 // Équivalent staff de /api/v1/dashboards/benchmark : la route client n'autorise
 // que les rôles gestionnaire/traiteur ; ici requireStaff + service-role appelle
 // f_benchmark_kg_pax_zd (k-anonymat ≥5 appliqué côté fonction, inchangé).
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   // bracket → filtre taille de la fonction 7-params (BL-P1-GEST-04). Le repère
   // parc est agrégé par flux côté client (aggregateBenchmarkPerFlux) pour les
-  // jauges Cockpit BenchmarkBulletGauges.
+  // radar Cockpit BenchmarkRadar.
   const bracket = searchParams.get('bracket');
 
   const allBrackets = ['XS', 'S', 'M', 'L', 'XL'];

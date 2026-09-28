@@ -489,6 +489,8 @@ it("BenchmarkRadar — une valeur ×10 est plafonnée au bord (anneau 300), l'é
   // Point A (axe du haut) posé sur l'anneau extérieur : cy = CY − R = 45.
   const cy = Number(container.querySelector('svg circle')!.getAttribute('cy'));
   expect(cy).toBeCloseTo(45, 5);
+  // Échelle plafonnée à 300 : 6 anneaux (50 → 300), pas 20 (50 → 1000).
+  expect(container.querySelectorAll('svg polygon').length).toBe(6);
   expect(screen.getByText('+900 %')).toBeInTheDocument();
 });
 

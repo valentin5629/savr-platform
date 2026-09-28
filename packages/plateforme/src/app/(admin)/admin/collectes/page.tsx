@@ -10,8 +10,6 @@ import {
   ArrowRight,
   Search,
   SlidersHorizontal,
-  ChevronLeft,
-  ChevronRight,
   IdCard,
   FileWarning,
   type LucideIcon,
@@ -31,12 +29,15 @@ import {
 import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
+import { DataGrid, type SortingState } from '@/components/ui/data-grid';
+import { Pagination } from '@/components/ui/pagination';
 import {
-  CollecteCard,
-  groupBySemaine,
+  colonnesCollectesAdmin,
+  estUrgente,
+  formatDateHeure,
+  urgentesEnTete,
   type CollecteRow,
-} from '@/components/ui/collecte-card';
+} from '@/components/admin/collectes-table';
 import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
 import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
 
@@ -91,6 +92,22 @@ const CHIPS_HISTORIQUE = [
 ];
 
 type Tab = 'programmees' | 'historique';
+
+// Tri par défaut de chaque onglet : les prochaines collectes d'abord pour
+// « Programmées » (sinon la page 1 montrerait les plus lointaines), les plus
+// récentes d'abord pour « Historique ».
+const TRI_DEFAUT: Record<Tab, SortingState> = {
+  programmees: [{ id: 'date', desc: false }],
+  historique: [{ id: 'date', desc: true }],
+};
+
+// Toutes les colonnes du §06.06 §3 sont visibles par défaut (menu « Colonnes »
+// pour en masquer). Seule exception : le statut TMS, sans état terminal, n'a
+// pas d'objet dans l'Historique.
+const COLONNES_MASQUEES: Record<Tab, Record<string, boolean>> = {
+  programmees: {},
+  historique: { statut_tms: false },
+};
 
 type KpiTone = 'warning' | 'success' | 'info' | 'error';
 
@@ -226,6 +243,9 @@ export default function CollectesPage() {
   const [controleAcces, setControleAcces] = useState(false);
   const [rapportNonConsulte, setRapportNonConsulte] = useState(false);
   const [page, setPage] = useState(1);
+  const [sorting, setSorting] = useState<SortingState>(
+    TRI_DEFAUT[hasDrill ? 'historique' : 'programmees'],
+  );
   const [traiteurs, setTraiteurs] = useState<{ id: string; label: string }[]>(
     [],
   );
@@ -299,6 +319,11 @@ export default function CollectesPage() {
   const fetchCollectes = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
+    const tri = sorting[0];
+    if (tri) {
+      params.set('tri', tri.id);
+      params.set('ordre', tri.desc ? 'desc' : 'asc');
+    }
 
     if (tab === 'programmees') {
       if (quickFilter) {
@@ -356,6 +381,7 @@ export default function CollectesPage() {
   }, [
     tab,
     page,
+    sorting,
     quickFilter,
     type,
     statutsSel,
@@ -415,6 +441,7 @@ export default function CollectesPage() {
     setQuickFilter('');
     setType('');
     setStatutsSel([]);
+    setSorting(TRI_DEFAUT[next]);
     setPage(1);
   };
 
@@ -448,9 +475,16 @@ export default function CollectesPage() {
     });
   }, [collectes, search]);
 
-  const semaines = useMemo(
-    () => groupBySemaine(visibles, tab === 'programmees' ? 'asc' : 'desc'),
-    [visibles, tab],
+  // Urgences (AG à attribuer < 48h) en tête de page (§06.09 §1) — uniquement
+  // sur le tri par date : un tri explicite sur une autre colonne est respecté.
+  const lignes = useMemo(
+    () => (sorting[0]?.id === 'date' ? urgentesEnTete(visibles) : visibles),
+    [visibles, sorting],
+  );
+
+  const colonnes = useMemo(
+    () => colonnesCollectesAdmin({ onOpen: openCollecte }),
+    [openCollecte],
   );
 
   // Rangée de chips : masqués retirés par défaut ; si le filtre actif EST un chip
@@ -491,7 +525,7 @@ export default function CollectesPage() {
       <PageHero
         icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
         title="Collectes"
-        subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une carte pour ouvrir la fiche"
+        subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
         actions={
           <Link href="/programmer/nouveau">
             <Button variant="accent">
@@ -815,75 +849,60 @@ export default function CollectesPage() {
         </FilterBar>
       )}
 
-      {/* Liste par semaine */}
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-[86px] w-full rounded-savr-lg" />
-          ))}
-        </div>
-      ) : semaines.length === 0 ? (
-        <EmptyState
-          icon={<Truck className="h-8 w-8" />}
-          title="Aucune collecte"
-          description="Aucune collecte ne correspond à ce filtre."
-        />
-      ) : (
-        <div className="space-y-6">
-          {semaines.map((sem) => (
-            <section key={sem.key} className="space-y-3">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xs font-extrabold uppercase tracking-wider text-savr-neutral-500">
-                  {sem.label}
-                </h2>
-                <span className="rounded-savr-full bg-savr-neutral-100 px-2 py-0.5 text-[11px] font-extrabold text-savr-neutral-500 tabular-nums">
-                  {sem.items.length}
-                </span>
-                <span className="h-px flex-1 bg-savr-neutral-200" />
-              </div>
-              <div className="space-y-3">
-                {sem.items.map((c) => (
-                  <CollecteCard key={c.id} collecte={c} onOpen={openCollecte} />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {!loading && total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm text-savr-neutral-500">
-          <span>
-            {total} collecte{total > 1 ? 's' : ''}
-            {search
-              ? ` · ${visibles.length} affichée${visibles.length > 1 ? 's' : ''}`
-              : ''}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Page précédente"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="grid h-9 w-9 place-items-center rounded-savr-md border border-savr-neutral-200 bg-savr-white text-savr-neutral-600 disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="text-xs font-bold tabular-nums text-savr-neutral-600">
-              {page} / {totalPages}
+      <DataGrid
+        key={tab}
+        data-testid="collectes-table"
+        columns={colonnes}
+        data={lignes}
+        getRowId={(c) => c.id}
+        loading={loading}
+        manualSorting
+        sorting={sorting}
+        onSortingChange={(next) => {
+          setSorting(next);
+          setPage(1);
+        }}
+        initialColumnVisibility={COLONNES_MASQUEES[tab]}
+        columnsToggle
+        toolbar={
+          !loading && total > 0 ? (
+            <span className="text-sm text-savr-neutral-500">
+              {total} collecte{total > 1 ? 's' : ''}
+              {search
+                ? ` · ${visibles.length} affichée${visibles.length > 1 ? 's' : ''}`
+                : ''}
             </span>
-            <button
-              type="button"
-              aria-label="Page suivante"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="grid h-9 w-9 place-items-center rounded-savr-md border border-savr-neutral-200 bg-savr-white text-savr-neutral-600 disabled:opacity-40"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+          ) : null
+        }
+        onRowClick={(c) => openCollecte(c.id)}
+        rowLabel={(c) => {
+          const { jour, heure } = formatDateHeure(
+            c.date_collecte,
+            c.heure_collecte,
+          );
+          return `Ouvrir la collecte du ${jour}${heure ? ` à ${heure}` : ''} — ${c.evenements.organisations.raison_sociale}`;
+        }}
+        rowClassName={(c) =>
+          estUrgente(c)
+            ? 'bg-savr-error-subtle hover:bg-savr-error-subtle'
+            : undefined
+        }
+        empty={
+          <EmptyState
+            icon={<Truck className="h-8 w-8" />}
+            title="Aucune collecte"
+            description="Aucune collecte ne correspond à ce filtre."
+          />
+        }
+      />
+
+      {!loading && totalPages > 1 && (
+        <Pagination
+          page={page}
+          pageCount={totalPages}
+          onPageChange={setPage}
+          className="justify-end"
+        />
       )}
 
       {/* Pop-up centré (modale) — fiche collecte complète (ex-page [id]).

@@ -10,6 +10,7 @@ import {
   fireEvent,
   act,
   cleanup,
+  within,
 } from '@testing-library/react';
 
 import MonOrganisationPage from '@/app/(gestionnaire)/gestionnaire/mon-organisation/page.js';
@@ -276,10 +277,15 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       );
       render(<MonOrganisationPage />);
       fireEvent.click(screen.getByRole('button', { name: 'Factures' }));
-      expect(await screen.findByText('VIP-001', {}, ATTENTE_UI)).toBeTruthy();
+      // DataGrid rend chaque ligne deux fois (tableau + carte mobile) : on
+      // borne les assertions au tableau.
+      const tableau = await screen.findByRole('table', {}, ATTENTE_UI);
+      expect(within(tableau).getByText('VIP-001')).toBeTruthy();
       // §06.04 §6 fiche facture : pdf_url_pennylane si dispo, sinon pdf_url_savr.
       expect(
-        screen.getByRole('link', { name: 'Télécharger' }).getAttribute('href'),
+        within(tableau)
+          .getByRole('link', { name: 'Télécharger' })
+          .getAttribute('href'),
       ).toBe('https://pennylane.test/f1.pdf');
     },
     ATTENTE_CAS_MS,

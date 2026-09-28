@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { lireTri } from '@/lib/tri-liste.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -17,11 +18,28 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
   const offset = (page - 1) * limit;
+  const tri = lireTri(
+    searchParams,
+    [
+      'nom',
+      'ville',
+      'acces_office',
+      'stationnement',
+      'type_vehicule_max',
+      'capacite_maximum',
+      'controle_acces_requis_default',
+      'actif',
+    ],
+    { colonne: 'nom', ascendant: true },
+  );
 
   let query = supabase
     .from('lieux')
     .select('*', { count: 'exact' })
-    .order('nom')
+    // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
+    // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
+    .order(tri.colonne, { ascending: tri.ascendant })
+    .order('id', { ascending: tri.ascendant })
     .range(offset, offset + limit - 1);
 
   if (actif !== null) query = query.eq('actif', actif === 'true');

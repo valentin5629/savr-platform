@@ -16,8 +16,8 @@
  *
  * Restyle Design System (§10, revue E2E) : formulaires en Input/Combobox/DatePicker/Textarea +
  * Label, dialogues en Modal, bandeaux d'erreur en AlertBar, couleurs = tokens
- * `savr-*`. Les tables restent des <table> (DataTable rendrait desktop + mobile →
- * libellés dupliqués → casse les assertions getByText des onglets).
+ * `savr-*`. L'onglet Collectes utilise la Data Table commune des listes
+ * Collectes (DataGrid, 2026-09-28) ; l'onglet Factures reste sur DataTable.
  */
 
 import * as React from 'react';
@@ -30,6 +30,13 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DataTable, type Column } from '@/components/ui/data-table';
+import {
+  DataGrid,
+  type ColumnDef,
+  type SortingState,
+} from '@/components/ui/data-grid';
+import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -53,6 +60,7 @@ interface CollecteRow {
   type: string;
   statut: string;
   date_collecte: string | null;
+  heure_collecte?: string | null;
   evenements: {
     nom_evenement: string | null;
     pax: number | null;
@@ -68,11 +76,23 @@ export function OngletCollectes({
   const router = useRouter();
   const [rows, setRows] = React.useState<CollecteRow[]>([]);
   const [loading, setLoading] = React.useState(true);
+  // Même Data Table que la liste Collectes (décision Val 2026-09-28). Tri
+  // envoyé à l'API (`tri`/`ordre`, liste blanche côté route) : elle ne renvoie
+  // qu'une page, trier côté client la seule page reçue donnerait un ordre faux.
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: 'date', desc: true },
+  ]);
+  const tri = sorting[0];
 
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    void fetch(`/api/v1/admin/collectes?organisation_id=${organisationId}`)
+    const qs = new URLSearchParams({ organisation_id: organisationId });
+    if (tri) {
+      qs.set('tri', tri.id);
+      qs.set('ordre', tri.desc ? 'desc' : 'asc');
+    }
+    void fetch(`/api/v1/admin/collectes?${qs}`)
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((j: { data?: CollecteRow[] }) => {
         if (!cancelled) setRows(j.data ?? []);
@@ -86,55 +106,71 @@ export function OngletCollectes({
     return () => {
       cancelled = true;
     };
-  }, [organisationId]);
+  }, [organisationId, tri?.id, tri?.desc]);
 
-  const columns: Column<CollecteRow>[] = [
+  const columns: ColumnDef<CollecteRow, unknown>[] = [
     {
-      key: 'date_collecte',
+      id: 'date',
       header: 'Date',
-      render: (row) =>
-        row.date_collecte
-          ? new Date(row.date_collecte).toLocaleDateString('fr-FR', {
-              timeZone: 'Europe/Paris',
-            })
-          : '—',
+      enableHiding: false,
+      accessorFn: (row) => row.date_collecte ?? '',
+      cell: ({ row: { original: row } }) =>
+        row.date_collecte ? (
+          <span className="whitespace-nowrap font-semibold tabular-nums">
+            {libelleDateHeure(row.date_collecte, row.heure_collecte ?? null)}
+          </span>
+        ) : (
+          '—'
+        ),
     },
     {
-      key: 'type',
+      id: 'type',
       header: 'Type',
-      render: (row) => (
-        <Badge variant={row.type === 'zero_dechet' ? 'success' : 'warning'}>
-          {row.type === 'zero_dechet' ? 'ZD' : 'AG'}
-        </Badge>
+      accessorFn: (row) => row.type,
+      cell: ({ row: { original: row } }) => (
+        <TypeCollecteBadge type={row.type} />
       ),
     },
     {
-      key: 'evenement',
+      id: 'evenement',
       header: 'Événement',
-      render: (row) => (
+      enableSorting: false,
+      cell: ({ row: { original: row } }) => (
         <span className="font-medium text-savr-primary-700">
           {row.evenements?.nom_evenement ?? '—'}
         </span>
       ),
     },
     {
-      key: 'lieu',
+      id: 'lieu',
       header: 'Lieu',
-      render: (row) => {
+      enableSorting: false,
+      cell: ({ row: { original: row } }) => {
         const l = row.evenements?.lieux;
         if (!l) return '—';
         return l.ville ? `${l.nom} — ${l.ville}` : l.nom;
       },
     },
-    { key: 'pax', header: 'Pax', render: (row) => row.evenements?.pax ?? '—' },
     {
-      key: 'statut',
+      id: 'pax',
+      header: 'Pax',
+      enableSorting: false,
+      meta: { className: 'text-right tabular-nums' },
+      cell: ({ row: { original: row } }) => row.evenements?.pax ?? '—',
+    },
+    {
+      id: 'statut',
       header: 'Statut',
-      render: (row) => <CollecteStatutBadge statut={row.statut} vue="admin" />,
+      accessorFn: (row) => row.statut,
+      cell: ({ row: { original: row } }) => (
+        <CollecteStatutBadge statut={row.statut} vue="admin" />
+      ),
     },
   ];
 
-  if (loading) return <Skeleton className="h-40 w-full" />;
+  // Squelette au 1er chargement seulement : un re-tri garde le tableau (et
+  // ses en-têtes) à l'écran pendant l'aller-retour serveur.
+  if (loading && rows.length === 0) return <Skeleton className="h-40 w-full" />;
   if (rows.length === 0)
     return (
       <Card className="p-6">
@@ -148,11 +184,17 @@ export function OngletCollectes({
 
   return (
     <Card className="p-4">
-      <DataTable
+      <DataGrid
         columns={columns}
         data={rows}
-        keyExtractor={(row) => row.id}
+        getRowId={(row) => row.id}
+        manualSorting
+        sorting={sorting}
+        onSortingChange={setSorting}
         onRowClick={(row) => router.push(`/admin/collectes/${row.id}`)}
+        rowLabel={(row) =>
+          `Ouvrir la collecte${row.evenements?.nom_evenement ? ` ${row.evenements.nom_evenement}` : ''}`
+        }
       />
     </Card>
   );
@@ -301,6 +343,38 @@ interface Grille {
   tarifs_zero_dechet: Palier[];
 }
 
+const euros = (v: number | null): string =>
+  v != null ? `${v.toLocaleString('fr-FR')} €` : '—';
+
+// Paliers de la grille affectée. Pax max absent = palier ouvert (∞), trié en
+// dernier ; prix absent (undefined) = renvoyé en fin de tri.
+const COLONNES_PALIERS: ColumnDef<Palier, unknown>[] = [
+  {
+    id: 'pax_min',
+    header: 'Pax min',
+    accessorFn: (p) => p.pax_min,
+    cell: ({ row: { original: p } }) => p.pax_min,
+  },
+  {
+    id: 'pax_max',
+    header: 'Pax max',
+    accessorFn: (p) => p.pax_max ?? Number.POSITIVE_INFINITY,
+    cell: ({ row: { original: p } }) => p.pax_max ?? '∞',
+  },
+  {
+    id: 'prix_base_ht',
+    header: 'Prix base HT',
+    accessorFn: (p) => p.prix_base_ht ?? undefined,
+    cell: ({ row: { original: p } }) => euros(p.prix_base_ht),
+  },
+  {
+    id: 'prix_par_couvert_ht',
+    header: 'Prix / couvert HT',
+    accessorFn: (p) => p.prix_par_couvert_ht ?? undefined,
+    cell: ({ row: { original: p } }) => euros(p.prix_par_couvert_ht),
+  },
+];
+
 export function OngletGrilleZd({
   organisationId,
   grilleId,
@@ -418,36 +492,14 @@ export function OngletGrilleZd({
       {affectee && affectee.tarifs_zero_dechet.length > 0 && (
         <div>
           <h3 className="font-medium mb-2 text-sm">Paliers — {affectee.nom}</h3>
-          <table className="w-full text-sm">
-            <thead className="text-left text-savr-neutral-500">
-              <tr>
-                <th className="pb-2">Pax min</th>
-                <th className="pb-2">Pax max</th>
-                <th className="pb-2">Prix base HT</th>
-                <th className="pb-2">Prix / couvert HT</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...affectee.tarifs_zero_dechet]
-                .sort((a, b) => a.pax_min - b.pax_min)
-                .map((p) => (
-                  <tr key={p.id} className="border-t border-savr-neutral-100">
-                    <td className="py-2">{p.pax_min}</td>
-                    <td className="py-2">{p.pax_max ?? '∞'}</td>
-                    <td className="py-2">
-                      {p.prix_base_ht != null
-                        ? `${p.prix_base_ht.toLocaleString('fr-FR')} €`
-                        : '—'}
-                    </td>
-                    <td className="py-2">
-                      {p.prix_par_couvert_ht != null
-                        ? `${p.prix_par_couvert_ht.toLocaleString('fr-FR')} €`
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+          {/* Liste complète des paliers de la grille (route sans pagination)
+              → tri navigateur ; ordre par défaut = pax min croissant. */}
+          <DataGrid
+            columns={COLONNES_PALIERS}
+            data={affectee.tarifs_zero_dechet}
+            getRowId={(p) => p.id}
+            initialSorting={[{ id: 'pax_min', desc: false }]}
+          />
         </div>
       )}
     </Card>
@@ -592,6 +644,81 @@ type CoefModal =
   | { mode: 'editer'; coef: Coefficient }
   | null;
 
+const dateFr = (iso: string): string =>
+  new Date(iso).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
+
+const nomAuteur = (u: { prenom: string; nom: string } | null): string =>
+  u ? `${u.prenom} ${u.nom}` : '—';
+
+// Colonne d'action « Éditer » présente seulement quand l'édition est permise.
+function colonnesCoefficients(
+  canEdit: boolean,
+  onEditer: (c: Coefficient) => void,
+): ColumnDef<Coefficient, unknown>[] {
+  const colonnes: ColumnDef<Coefficient, unknown>[] = [
+    {
+      id: 'annee_reference',
+      header: 'Année de référence',
+      accessorFn: (c) => c.annee_reference,
+      meta: { className: 'font-medium' },
+      cell: ({ row: { original: c } }) => c.annee_reference,
+    },
+    {
+      id: 'coefficient',
+      header: 'Coefficient (kg/couvert)',
+      accessorFn: (c) => c.coefficient_kg_couvert,
+      cell: ({ row: { original: c } }) =>
+        c.coefficient_kg_couvert.toLocaleString('fr-FR', {
+          minimumFractionDigits: 4,
+          maximumFractionDigits: 4,
+        }),
+    },
+    {
+      id: 'annee_application',
+      header: 'Appliqué aux événements de',
+      accessorFn: (c) => c.annee_application ?? c.annee_reference + 1,
+      cell: ({ row: { original: c } }) =>
+        c.annee_application ?? c.annee_reference + 1,
+    },
+    {
+      id: 'source',
+      header: 'Source / commentaire',
+      accessorFn: (c) => c.source_commentaire ?? '',
+      meta: { className: 'text-savr-neutral-500' },
+      cell: ({ row: { original: c } }) => c.source_commentaire ?? '—',
+    },
+    {
+      id: 'saisi_par',
+      header: 'Saisi par',
+      accessorFn: (c) => nomAuteur(c.saisi_par_user),
+      meta: { className: 'text-savr-neutral-500' },
+      cell: ({ row: { original: c } }) => nomAuteur(c.saisi_par_user),
+    },
+    {
+      id: 'saisi_le',
+      header: 'Saisi le',
+      accessorFn: (c) => c.saisi_le,
+      meta: { className: 'text-savr-neutral-500' },
+      cell: ({ row: { original: c } }) => dateFr(c.saisi_le),
+    },
+  ];
+  if (canEdit) {
+    colonnes.push({
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      enableSorting: false,
+      enableHiding: false,
+      meta: { label: 'Actions', interactive: true, className: 'text-right' },
+      cell: ({ row: { original: c } }) => (
+        <Button size="sm" variant="secondary" onClick={() => onEditer(c)}>
+          Éditer
+        </Button>
+      ),
+    });
+  }
+  return colonnes;
+}
+
 export function OngletCoefficients({
   organisationId,
   canEdit,
@@ -708,59 +835,14 @@ export function OngletCoefficients({
           description="Aucun coefficient de perte labo n'a été saisi pour ce traiteur."
         />
       ) : (
-        <table className="w-full text-sm">
-          <thead className="text-left text-savr-neutral-500">
-            <tr>
-              <th className="pb-2">Année de référence</th>
-              <th className="pb-2">Coefficient (kg/couvert)</th>
-              <th className="pb-2">Appliqué aux événements de</th>
-              <th className="pb-2">Source / commentaire</th>
-              <th className="pb-2">Saisi par</th>
-              <th className="pb-2">Saisi le</th>
-              {canEdit && <th className="pb-2"></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {coefs.map((c) => (
-              <tr key={c.id} className="border-t border-savr-neutral-100">
-                <td className="py-2 font-medium">{c.annee_reference}</td>
-                <td className="py-2">
-                  {c.coefficient_kg_couvert.toLocaleString('fr-FR', {
-                    minimumFractionDigits: 4,
-                    maximumFractionDigits: 4,
-                  })}
-                </td>
-                <td className="py-2">
-                  {c.annee_application ?? c.annee_reference + 1}
-                </td>
-                <td className="py-2 text-savr-neutral-500">
-                  {c.source_commentaire ?? '—'}
-                </td>
-                <td className="py-2 text-savr-neutral-500">
-                  {c.saisi_par_user
-                    ? `${c.saisi_par_user.prenom} ${c.saisi_par_user.nom}`
-                    : '—'}
-                </td>
-                <td className="py-2 text-savr-neutral-500">
-                  {new Date(c.saisi_le).toLocaleDateString('fr-FR', {
-                    timeZone: 'Europe/Paris',
-                  })}
-                </td>
-                {canEdit && (
-                  <td className="py-2 text-right">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => openEditer(c)}
-                    >
-                      Éditer
-                    </Button>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        // Liste complète (route sans pagination, triée par année desc) → tri
+        // navigateur, ordre par défaut identique à celui de l'API.
+        <DataGrid
+          columns={colonnesCoefficients(canEdit, openEditer)}
+          data={coefs}
+          getRowId={(c) => c.id}
+          initialSorting={[{ id: 'annee_reference', desc: true }]}
+        />
       )}
 
       {modal && (
@@ -857,6 +939,12 @@ interface Remise {
   lieu_id?: string | null;
   lieux?: { nom: string } | null;
 }
+
+// Portée affichée sur la fiche gestionnaire (colonne « Lieux concernés »).
+const porteeRemise = (r: Remise): string =>
+  r.scope === 'gestionnaire'
+    ? (r.lieux?.nom ?? 'Tous ses lieux')
+    : 'Organisation (en direct)';
 
 // Fiche gestionnaire de lieux : la remise est portée par le gestionnaire
 // (scope=gestionnaire) et s'applique à toutes les collectes sur ses lieux, quel
@@ -1004,6 +1092,91 @@ export function OngletRemises({
     }
   }
 
+  const colonnesRemises: ColumnDef<Remise, unknown>[] = [
+    {
+      id: 'activite',
+      header: 'Activité',
+      accessorFn: (r) => r.activite ?? '',
+      cell: ({ row: { original: r } }) =>
+        r.activite ? r.activite.toUpperCase() : '—',
+    },
+    {
+      id: 'remise',
+      header: 'Remise',
+      accessorFn: (r) => r.remise_pct,
+      meta: { className: 'font-medium' },
+      cell: ({ row: { original: r } }) => (
+        <>
+          {(r.remise_pct * 100).toLocaleString('fr-FR', {
+            maximumFractionDigits: 2,
+          })}{' '}
+          %
+        </>
+      ),
+    },
+    {
+      id: 'valide_du',
+      header: 'Valide du',
+      accessorFn: (r) => r.valide_du,
+      meta: { className: 'text-savr-neutral-500' },
+      cell: ({ row: { original: r } }) => dateFr(r.valide_du),
+    },
+    {
+      id: 'valide_jusqu_au',
+      header: "Jusqu'au",
+      // Remise active (sans fin) = la plus lointaine : triée après les dates.
+      accessorFn: (r) => r.valide_jusqu_au ?? '9999-12-31',
+      meta: { className: 'text-savr-neutral-500' },
+      cell: ({ row: { original: r } }) =>
+        r.valide_jusqu_au ? (
+          dateFr(r.valide_jusqu_au)
+        ) : (
+          <Badge variant="success" className="text-xs">
+            Active
+          </Badge>
+        ),
+    },
+    {
+      id: 'commentaires',
+      header: 'Commentaire',
+      accessorFn: (r) => r.commentaires ?? '',
+      meta: { className: 'text-savr-neutral-500' },
+      cell: ({ row: { original: r } }) => r.commentaires ?? '—',
+    },
+  ];
+  if (estGestionnaire) {
+    colonnesRemises.splice(1, 0, {
+      id: 'lieux',
+      header: 'Lieux concernés',
+      accessorFn: porteeRemise,
+      cell: ({ row: { original: r } }) => porteeRemise(r),
+    });
+  }
+  if (canEdit) {
+    colonnesRemises.push({
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      enableSorting: false,
+      enableHiding: false,
+      meta: { label: 'Actions', interactive: true, className: 'text-right' },
+      cell: ({ row: { original: r } }) =>
+        !r.valide_jusqu_au ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={closingId === r.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              void fermer(r.id);
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {closingId === r.id ? 'Fermeture…' : 'Fermer'}
+          </Button>
+        ) : null,
+    });
+  }
+
   return (
     <Card className="p-6 space-y-4">
       {!canEdit && <OpsReadOnlyBanner />}
@@ -1038,102 +1211,27 @@ export function OngletRemises({
           }
         />
       ) : (
-        <table className="w-full text-sm">
-          <thead className="text-left text-savr-neutral-500">
-            <tr>
-              <th className="pb-2">Activité</th>
-              {estGestionnaire && <th className="pb-2">Lieux concernés</th>}
-              <th className="pb-2">Remise</th>
-              <th className="pb-2">Valide du</th>
-              <th className="pb-2">Jusqu'au</th>
-              <th className="pb-2">Commentaire</th>
-              {canEdit && <th className="pb-2"></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {displayed.map((r) => {
-              const modifiable = canEdit && !r.valide_jusqu_au;
-              return (
-                <tr
-                  key={r.id}
-                  className={
-                    modifiable
-                      ? 'border-t border-savr-neutral-100 cursor-pointer hover:bg-savr-neutral-50 transition-colors'
-                      : 'border-t border-savr-neutral-100'
-                  }
-                  {...(modifiable
-                    ? {
-                        role: 'button',
-                        tabIndex: 0,
-                        'aria-label': 'Modifier la remise',
-                        onClick: () => openModifier(r),
-                        onKeyDown: (e: React.KeyboardEvent) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            openModifier(r);
-                          }
-                        },
-                      }
-                    : {})}
-                >
-                  <td className="py-2">
-                    {r.activite ? r.activite.toUpperCase() : '—'}
-                  </td>
-                  {estGestionnaire && (
-                    <td className="py-2">
-                      {r.scope === 'gestionnaire'
-                        ? (r.lieux?.nom ?? 'Tous ses lieux')
-                        : 'Organisation (en direct)'}
-                    </td>
-                  )}
-                  <td className="py-2 font-medium">
-                    {(r.remise_pct * 100).toLocaleString('fr-FR', {
-                      maximumFractionDigits: 2,
-                    })}{' '}
-                    %
-                  </td>
-                  <td className="py-2 text-savr-neutral-500">
-                    {new Date(r.valide_du).toLocaleDateString('fr-FR', {
-                      timeZone: 'Europe/Paris',
-                    })}
-                  </td>
-                  <td className="py-2 text-savr-neutral-500">
-                    {r.valide_jusqu_au ? (
-                      new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR', {
-                        timeZone: 'Europe/Paris',
-                      })
-                    ) : (
-                      <Badge variant="success" className="text-xs">
-                        Active
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="py-2 text-savr-neutral-500">
-                    {r.commentaires ?? '—'}
-                  </td>
-                  {canEdit && (
-                    <td className="py-2 text-right">
-                      {!r.valide_jusqu_au && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={closingId === r.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void fermer(r.id);
-                          }}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
-                          {closingId === r.id ? 'Fermeture…' : 'Fermer'}
-                        </Button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        // Liste complète (embarquée dans la fiche organisation, sans
+        // pagination) → tri navigateur. Seules les remises actives sont
+        // modifiables (clic ligne) quand l'édition est permise.
+        <DataGrid
+          columns={colonnesRemises}
+          data={displayed}
+          getRowId={(r) => r.id}
+          onRowClick={
+            canEdit
+              ? (r) => {
+                  if (!r.valide_jusqu_au) openModifier(r);
+                }
+              : undefined
+          }
+          rowLabel={(r) =>
+            r.valide_jusqu_au ? 'Remise fermée' : 'Modifier la remise'
+          }
+          rowClassName={(r) =>
+            r.valide_jusqu_au ? 'cursor-default' : undefined
+          }
+        />
       )}
 
       {modal && (
@@ -1288,6 +1386,56 @@ interface PackAudit {
   auteur: { prenom: string; nom: string } | null;
 }
 
+const libelleActionPack = (a: PackAudit): string =>
+  a.action === 'annulation_pack' ? 'Annulation du pack' : 'Ajustement crédits';
+
+const creditsAvantApres = (a: PackAudit): string =>
+  a.action === 'pack_ajuste_manuel' &&
+  a.old_values?.credits_initiaux != null &&
+  a.new_values?.credits_initiaux != null
+    ? `${a.old_values.credits_initiaux} → ${a.new_values.credits_initiaux}`
+    : '—';
+
+const motifPack = (a: PackAudit): string =>
+  a.motif ?? a.new_values?.motif ?? '—';
+
+const COLONNES_AJUSTEMENTS: ColumnDef<PackAudit, unknown>[] = [
+  {
+    id: 'date',
+    header: 'Date',
+    accessorFn: (a) => a.created_at,
+    meta: { className: 'text-savr-neutral-500' },
+    cell: ({ row: { original: a } }) => dateFr(a.created_at),
+  },
+  {
+    id: 'action',
+    header: 'Action',
+    accessorFn: libelleActionPack,
+    cell: ({ row: { original: a } }) => libelleActionPack(a),
+  },
+  {
+    id: 'credits',
+    header: 'Crédits',
+    enableSorting: false,
+    meta: { className: 'font-medium' },
+    cell: ({ row: { original: a } }) => creditsAvantApres(a),
+  },
+  {
+    id: 'motif',
+    header: 'Motif',
+    accessorFn: motifPack,
+    meta: { className: 'text-savr-neutral-500' },
+    cell: ({ row: { original: a } }) => motifPack(a),
+  },
+  {
+    id: 'auteur',
+    header: 'Auteur',
+    accessorFn: (a) => nomAuteur(a.auteur),
+    meta: { className: 'text-savr-neutral-500' },
+    cell: ({ row: { original: a } }) => nomAuteur(a.auteur),
+  },
+];
+
 /**
  * Journal des actions manuelles sur les packs AG (ajustement crédits,
  * annulation) depuis `audit_log`. Rendu sous « Historique des packs » de
@@ -1329,46 +1477,14 @@ export function PackAjustementsHistorique({
       <h3 className="font-medium mb-4">
         Historique des ajustements de crédits
       </h3>
-      <table className="w-full text-sm">
-        <thead className="text-left text-savr-neutral-500">
-          <tr>
-            <th className="pb-2">Date</th>
-            <th className="pb-2">Action</th>
-            <th className="pb-2">Crédits</th>
-            <th className="pb-2">Motif</th>
-            <th className="pb-2">Auteur</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((a) => (
-            <tr key={a.id} className="border-t border-savr-neutral-100">
-              <td className="py-2 text-savr-neutral-500">
-                {new Date(a.created_at).toLocaleDateString('fr-FR', {
-                  timeZone: 'Europe/Paris',
-                })}
-              </td>
-              <td className="py-2">
-                {a.action === 'annulation_pack'
-                  ? 'Annulation du pack'
-                  : 'Ajustement crédits'}
-              </td>
-              <td className="py-2 font-medium">
-                {a.action === 'pack_ajuste_manuel' &&
-                a.old_values?.credits_initiaux != null &&
-                a.new_values?.credits_initiaux != null
-                  ? `${a.old_values.credits_initiaux} → ${a.new_values.credits_initiaux}`
-                  : '—'}
-              </td>
-              <td className="py-2 text-savr-neutral-500">
-                {a.motif ?? a.new_values?.motif ?? '—'}
-              </td>
-              <td className="py-2 text-savr-neutral-500">
-                {a.auteur ? `${a.auteur.prenom} ${a.auteur.nom}` : '—'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Journal complet (route sans pagination, triée par date desc) → tri
+          navigateur, ordre par défaut identique à celui de l'API. */}
+      <DataGrid
+        columns={COLONNES_AJUSTEMENTS}
+        data={rows}
+        getRowId={(a) => a.id}
+        initialSorting={[{ id: 'date', desc: true }]}
+      />
     </Card>
   );
 }

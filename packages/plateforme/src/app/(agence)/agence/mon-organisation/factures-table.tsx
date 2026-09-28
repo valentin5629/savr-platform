@@ -1,0 +1,68 @@
+'use client';
+
+import { Badge } from '@/components/ui/badge';
+import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+
+export interface FactureAgence {
+  id: string;
+  numero_facture: string | null;
+  statut: string;
+  montant_ttc: number | null;
+  date_emission: string | null;
+  date_echeance: string | null;
+}
+
+// Factures de l'agence — Data Table commune. Pas de tri : la page ne charge
+// que les 20 dernières factures (`.limit(20)`), trier ce seul extrait laisserait
+// croire à un ordre sur toutes les factures. Ordre de la requête (émission
+// décroissante).
+const COLONNES: ColumnDef<FactureAgence, unknown>[] = [
+  {
+    id: 'numero',
+    header: 'Numéro',
+    enableSorting: false,
+    cell: ({ row: { original: f } }) => f.numero_facture ?? '—',
+  },
+  {
+    id: 'emission',
+    header: 'Émission',
+    enableSorting: false,
+    cell: ({ row: { original: f } }) => f.date_emission ?? '—',
+  },
+  {
+    id: 'echeance',
+    header: 'Échéance',
+    enableSorting: false,
+    cell: ({ row: { original: f } }) => f.date_echeance ?? '—',
+  },
+  {
+    id: 'montant',
+    header: 'Montant TTC',
+    enableSorting: false,
+    meta: { className: 'tabular-nums' },
+    cell: ({ row: { original: f } }) => `${f.montant_ttc ?? '—'} €`,
+  },
+  {
+    id: 'statut',
+    header: 'Statut',
+    enableSorting: false,
+    cell: ({ row: { original: f } }) => (
+      <Badge variant="neutral">{f.statut}</Badge>
+    ),
+  },
+];
+
+export function FacturesAgenceTable({
+  factures,
+}: {
+  factures: FactureAgence[];
+}) {
+  return (
+    <DataGrid
+      columns={COLONNES}
+      data={factures}
+      getRowId={(f) => f.id}
+      empty={<p className="text-sm text-savr-neutral-500">Aucune facture.</p>}
+    />
+  );
+}

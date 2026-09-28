@@ -209,6 +209,7 @@ export default function AlertesPage() {
         <DataTable
           columns={columns}
           data={alertes}
+          clientSort
           loading={loading}
           keyExtractor={(a) => a.id}
         />

@@ -330,7 +330,8 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       // Variante 4 dimensions : pas de filtre « Traiteurs » (compétitif §06.04 l.143).
       expect(screen.queryByText(/Traiteurs? benchmark/i)).toBeNull();
       // Prochaines : événement rendu + lien vers la fiche collecte.
-      const lien = screen.getByRole('link', { name: 'Gala' });
+      // Data Table : la ligne existe en tableau ET en carte mobile → 1er lien.
+      const lien = screen.getAllByRole('link', { name: 'Gala' })[0];
       expect(lien).toHaveAttribute('href', '/traiteur/collectes/p1');
       // Colonnes CDC §06.04 Bloc 6 (Nb collectes + Taux de recyclage) préservées
       // dans le libellé secondaire Cockpit (R24 — pas seulement le tonnage).
@@ -524,7 +525,8 @@ describe('M3.2 / gestionnaire — top traiteurs + colonne Traiteur', () => {
       expect(
         screen.getByRole('columnheader', { name: 'Traiteur' }),
       ).toBeInTheDocument();
-      expect(screen.getByText('Traiteur Un')).toBeInTheDocument();
+      // Data Table : valeur rendue en tableau ET en carte mobile.
+      expect(screen.getAllByText('Traiteur Un').length).toBeGreaterThan(0);
       // Bloc 7 = top traiteurs.
       expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
       // Colonnes §06.05 Bloc 6 (Nb collectes + Taux) préservées dans le libellé

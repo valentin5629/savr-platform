@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, History } from 'lucide-react';
+import { History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -46,6 +48,64 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPES_PACK = ['unitaire', 'pack_10', 'pack_30', 'pack_60'] as const;
+
+const dateFr = (iso: string): string =>
+  new Date(iso).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
+
+const eurosHt = (v: number): string =>
+  `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`;
+
+// Versions d'une grille de tarif pack AG (lecture seule, CDC §9 l.726-729).
+const COLONNES_HISTORIQUE: ColumnDef<TarifHistoryRow, unknown>[] = [
+  {
+    id: 'credits',
+    header: 'Crédits',
+    accessorFn: (r) => r.credits,
+    cell: ({ row: { original: r } }) => r.credits,
+  },
+  {
+    id: 'prix_unitaire_ht',
+    header: 'Prix unit. HT',
+    accessorFn: (r) => r.prix_unitaire_ht,
+    cell: ({ row: { original: r } }) => eurosHt(r.prix_unitaire_ht),
+  },
+  {
+    id: 'montant_total_ht',
+    header: 'Total HT',
+    accessorFn: (r) => r.montant_total_ht,
+    cell: ({ row: { original: r } }) => eurosHt(r.montant_total_ht),
+  },
+  {
+    id: 'mensualisable',
+    header: 'Mensualisable',
+    accessorFn: (r) => (r.mensualisable ? 1 : 0),
+    cell: ({ row: { original: r } }) =>
+      r.mensualisable
+        ? `Oui${r.nb_mensualites ? ` (${r.nb_mensualites}×)` : ''}`
+        : 'Non',
+  },
+  {
+    id: 'validite',
+    header: 'Validité',
+    accessorFn: (r) => r.valide_du,
+    meta: { className: 'whitespace-nowrap' },
+    cell: ({ row: { original: r } }) =>
+      `${dateFr(r.valide_du)}${r.valide_jusqu_au ? ` → ${dateFr(r.valide_jusqu_au)}` : ' → …'}`,
+  },
+  {
+    id: 'modifie_par',
+    header: 'Modifié par',
+    accessorFn: (r) => r.modifie_par_nom,
+    cell: ({ row: { original: r } }) => r.modifie_par_nom,
+  },
+  {
+    id: 'date_modif',
+    header: 'Date modif',
+    accessorFn: (r) => r.date_modif,
+    meta: { className: 'whitespace-nowrap' },
+    cell: ({ row: { original: r } }) => dateFr(r.date_modif),
+  },
+];
 
 export default function TarifsPacksAGPage() {
   const role = useUserRole();
@@ -167,7 +227,7 @@ export default function TarifsPacksAGPage() {
           <h1 className="text-2xl font-semibold text-savr-primary-950">
             Tarifs packs AG
           </h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <p className="text-sm text-savr-neutral-500 mt-1">
             Tarifs actifs par type de pack. La modification ferme la ligne
             précédente et ouvre une nouvelle version.
           </p>
@@ -183,7 +243,7 @@ export default function TarifsPacksAGPage() {
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="font-medium">{label}</h3>
-                <p className="text-xs text-neutral-400 mt-0.5">{type}</p>
+                <p className="text-xs text-savr-neutral-400 mt-0.5">{type}</p>
               </div>
               {tarif ? (
                 <Badge variant="success" className="text-xs">
@@ -201,11 +261,13 @@ export default function TarifsPacksAGPage() {
             {tarif ? (
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-neutral-500">Crédits</span>
+                  <span className="text-savr-neutral-500">Crédits</span>
                   <span className="font-medium">{tarif.credits}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-neutral-500">Prix unitaire HT</span>
+                  <span className="text-savr-neutral-500">
+                    Prix unitaire HT
+                  </span>
                   <span className="font-medium">
                     {tarif.prix_unitaire_ht.toLocaleString('fr-FR', {
                       minimumFractionDigits: 2,
@@ -214,7 +276,9 @@ export default function TarifsPacksAGPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-neutral-500">Montant total HT</span>
+                  <span className="text-savr-neutral-500">
+                    Montant total HT
+                  </span>
                   <span className="font-medium text-savr-primary-700">
                     {tarif.montant_total_ht.toLocaleString('fr-FR', {
                       minimumFractionDigits: 2,
@@ -224,7 +288,9 @@ export default function TarifsPacksAGPage() {
                 </div>
                 {tarif.mensualisable && tarif.nb_mensualites && (
                   <div className="flex justify-between">
-                    <span className="text-neutral-500">Mensualisation</span>
+                    <span className="text-savr-neutral-500">
+                      Mensualisation
+                    </span>
                     <span>
                       {tarif.nb_mensualites} ×{' '}
                       {(
@@ -281,228 +347,159 @@ export default function TarifsPacksAGPage() {
         ))}
       </div>
 
-      {/* Modale */}
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">
-                Nouveau tarif — {TYPE_LABELS[fType] ?? fType}
-              </h2>
-              <button
-                onClick={() => setModal(false)}
-                className="text-neutral-400 hover:text-neutral-900"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {formError && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-              <FormField label="Type de pack" htmlFor="tarif-ag-type">
-                <Combobox
-                  id="tarif-ag-type"
-                  icon={null}
-                  options={TYPES_PACK.map((t) => ({
-                    value: t,
-                    label: TYPE_LABELS[t] ?? t,
-                  }))}
-                  value={fType}
-                  onChange={(t) => {
-                    const preset: Record<string, number> = {
-                      unitaire: 1,
-                      pack_10: 10,
-                      pack_30: 30,
-                      pack_60: 60,
-                    };
-                    setFType(t);
-                    if (preset[t]) setFCredits(preset[t]);
-                  }}
-                />
-              </FormField>
-              <FormField
-                label="Nombre de crédits"
-                htmlFor="tarif-ag-credits"
-                required
-              >
-                <Input
-                  id="tarif-ag-credits"
-                  type="number"
-                  min={1}
-                  value={fCredits}
-                  onChange={(e) => setFCredits(parseInt(e.target.value) || 1)}
-                  required
-                />
-              </FormField>
-              <FormField
-                label="Prix unitaire HT (€ / collecte)"
-                htmlFor="tarif-ag-prix"
-                required
-                hint={
-                  fPrix && fCredits > 0
-                    ? `Total HT : ${(
-                        parseFloat(fPrix) * fCredits
-                      ).toLocaleString('fr-FR', {
-                        minimumFractionDigits: 2,
-                      })} €`
-                    : undefined
-                }
-              >
-                <Input
-                  id="tarif-ag-prix"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={fPrix}
-                  onChange={(e) => setFPrix(e.target.value)}
-                  placeholder="ex : 130.00"
-                  required
-                />
-              </FormField>
-              <FormField
-                label="Date d'entrée en vigueur"
-                htmlFor="tarif-ag-valide-du"
-                required
-              >
-                <DatePicker
-                  id="tarif-ag-valide-du"
-                  value={fValideDu}
-                  onChange={setFValideDu}
-                  required
-                />
-              </FormField>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="mensualisable"
-                  checked={fMensualisable}
-                  onChange={(e) => setFMensualisable(e.target.checked)}
-                  className="rounded"
-                />
-                <label htmlFor="mensualisable" className="text-sm">
-                  Mensualisation disponible
-                </label>
-              </div>
-              {fMensualisable && (
-                <FormField
-                  label="Nombre de mensualités"
-                  htmlFor="tarif-ag-mensualites"
-                >
-                  <Input
-                    id="tarif-ag-mensualites"
-                    type="number"
-                    min={2}
-                    max={24}
-                    value={fNbMensualites}
-                    onChange={(e) =>
-                      setFNbMensualites(parseInt(e.target.value) || 12)
-                    }
-                  />
-                </FormField>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setModal(false)}
-                  disabled={submitting}
-                >
-                  Annuler
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? 'Enregistrement…' : 'Publier le tarif'}
-                </Button>
-              </div>
-            </form>
+      {/* Modale de création (DS §10 §6) : croix, Échap et clic extérieur
+          ferment ; le formulaire (boutons inclus) reste dans le corps. */}
+      <Modal
+        open={modal}
+        title={`Nouveau tarif — ${TYPE_LABELS[fType] ?? fType}`}
+        onClose={() => setModal(false)}
+      >
+        {formError && (
+          <div className="mb-4 rounded-savr-md border border-savr-error/40 bg-savr-error-subtle px-4 py-2 text-sm text-savr-error-strong">
+            {formError}
           </div>
-        </div>
-      )}
+        )}
+
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+          <FormField label="Type de pack" htmlFor="tarif-ag-type">
+            <Combobox
+              id="tarif-ag-type"
+              icon={null}
+              options={TYPES_PACK.map((t) => ({
+                value: t,
+                label: TYPE_LABELS[t] ?? t,
+              }))}
+              value={fType}
+              onChange={(t) => {
+                const preset: Record<string, number> = {
+                  unitaire: 1,
+                  pack_10: 10,
+                  pack_30: 30,
+                  pack_60: 60,
+                };
+                setFType(t);
+                if (preset[t]) setFCredits(preset[t]);
+              }}
+            />
+          </FormField>
+          <FormField
+            label="Nombre de crédits"
+            htmlFor="tarif-ag-credits"
+            required
+          >
+            <Input
+              id="tarif-ag-credits"
+              type="number"
+              min={1}
+              value={fCredits}
+              onChange={(e) => setFCredits(parseInt(e.target.value) || 1)}
+              required
+            />
+          </FormField>
+          <FormField
+            label="Prix unitaire HT (€ / collecte)"
+            htmlFor="tarif-ag-prix"
+            required
+            hint={
+              fPrix && fCredits > 0
+                ? `Total HT : ${(parseFloat(fPrix) * fCredits).toLocaleString(
+                    'fr-FR',
+                    {
+                      minimumFractionDigits: 2,
+                    },
+                  )} €`
+                : undefined
+            }
+          >
+            <Input
+              id="tarif-ag-prix"
+              type="number"
+              min={0}
+              step="0.01"
+              value={fPrix}
+              onChange={(e) => setFPrix(e.target.value)}
+              placeholder="ex : 130.00"
+              required
+            />
+          </FormField>
+          <FormField
+            label="Date d'entrée en vigueur"
+            htmlFor="tarif-ag-valide-du"
+            required
+          >
+            <DatePicker
+              id="tarif-ag-valide-du"
+              value={fValideDu}
+              onChange={setFValideDu}
+              required
+            />
+          </FormField>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="mensualisable"
+              checked={fMensualisable}
+              onChange={(e) => setFMensualisable(e.target.checked)}
+              className="rounded"
+            />
+            <label htmlFor="mensualisable" className="text-sm">
+              Mensualisation disponible
+            </label>
+          </div>
+          {fMensualisable && (
+            <FormField
+              label="Nombre de mensualités"
+              htmlFor="tarif-ag-mensualites"
+            >
+              <Input
+                id="tarif-ag-mensualites"
+                type="number"
+                min={2}
+                max={24}
+                value={fNbMensualites}
+                onChange={(e) =>
+                  setFNbMensualites(parseInt(e.target.value) || 12)
+                }
+              />
+            </FormField>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setModal(false)}
+              disabled={submitting}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Enregistrement…' : 'Publier le tarif'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Modale historique (versions de la grille — lecture seule, CDC §9 l.726-729) */}
-      {hist.open && hist.type && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4">
-              <h2 className="text-lg font-semibold">
-                Historique — {TYPE_LABELS[hist.type] ?? hist.type}
-              </h2>
-              <button
-                onClick={closeHistory}
-                aria-label="Fermer"
-                className="text-neutral-400 hover:text-neutral-900"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              {hist.loading ? (
-                <Skeleton className="h-32 w-full" />
-              ) : hist.rows.length === 0 ? (
-                <p className="text-sm text-neutral-500">
-                  Aucune version enregistrée.
-                </p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="text-neutral-500 text-left">
-                    <tr>
-                      <th className="py-2 pr-3 font-medium">Crédits</th>
-                      <th className="py-2 pr-3 font-medium">Prix unit. HT</th>
-                      <th className="py-2 pr-3 font-medium">Total HT</th>
-                      <th className="py-2 pr-3 font-medium">Mensualisable</th>
-                      <th className="py-2 pr-3 font-medium">Validité</th>
-                      <th className="py-2 pr-3 font-medium">Modifié par</th>
-                      <th className="py-2 font-medium">Date modif</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {hist.rows.map((r) => (
-                      <tr key={r.id}>
-                        <td className="py-2 pr-3">{r.credits}</td>
-                        <td className="py-2 pr-3">
-                          {r.prix_unitaire_ht.toLocaleString('fr-FR', {
-                            minimumFractionDigits: 2,
-                          })}{' '}
-                          €
-                        </td>
-                        <td className="py-2 pr-3">
-                          {r.montant_total_ht.toLocaleString('fr-FR', {
-                            minimumFractionDigits: 2,
-                          })}{' '}
-                          €
-                        </td>
-                        <td className="py-2 pr-3">
-                          {r.mensualisable
-                            ? `Oui${r.nb_mensualites ? ` (${r.nb_mensualites}×)` : ''}`
-                            : 'Non'}
-                        </td>
-                        <td className="py-2 pr-3 whitespace-nowrap">
-                          {new Date(r.valide_du).toLocaleDateString('fr-FR', {
-                            timeZone: 'Europe/Paris',
-                          })}
-                          {r.valide_jusqu_au
-                            ? ` → ${new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}`
-                            : ' → …'}
-                        </td>
-                        <td className="py-2 pr-3">{r.modifie_par_nom}</td>
-                        <td className="py-2 whitespace-nowrap">
-                          {new Date(r.date_modif).toLocaleDateString('fr-FR', {
-                            timeZone: 'Europe/Paris',
-                          })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={hist.open && hist.type !== null}
+        title={`Historique — ${hist.type ? (TYPE_LABELS[hist.type] ?? hist.type) : ''}`}
+        onClose={closeHistory}
+        wide
+      >
+        {/* Historique complet d'un type de pack (route sans pagination,
+                  triée par date de validité desc) → tri navigateur. */}
+        <DataGrid
+          columns={COLONNES_HISTORIQUE}
+          data={hist.rows}
+          getRowId={(r) => r.id}
+          loading={hist.loading}
+          empty={
+            <p className="text-sm text-savr-neutral-500">
+              Aucune version enregistrée.
+            </p>
+          }
+        />
+      </Modal>
     </div>
   );
 }

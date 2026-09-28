@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 
 interface DocItem {
   type: 'rapport' | 'bordereau' | 'attestation';
@@ -21,6 +22,9 @@ const LABELS: Record<DocItem['type'], string> = {
   attestation: 'Attestation de don',
 };
 
+/** Clé unique d'un document (les id ne sont uniques que par type). */
+const cle = (d: DocItem) => `${d.type}-${d.id}`;
+
 // §11 §7 — Accès lecture seule aux documents PDF (rapports RSE / bordereaux / attestations).
 // Le téléchargement passe par une URL pré-signée R2 (embargo H+24 re-vérifié côté serveur).
 export default function ClientOrganisateurDocumentsPage() {
@@ -36,7 +40,7 @@ export default function ClientOrganisateurDocumentsPage() {
   }, []);
 
   async function download(d: DocItem) {
-    setBusy(`${d.type}-${d.id}`);
+    setBusy(cle(d));
     try {
       const res = await fetch(
         `/api/v1/organisateur/documents/${encodeURIComponent(d.type)}/${encodeURIComponent(d.id)}/download`,
@@ -50,65 +54,76 @@ export default function ClientOrganisateurDocumentsPage() {
     }
   }
 
+  const colonnes: ColumnDef<DocItem, unknown>[] = [
+    {
+      id: 'document',
+      header: 'Document',
+      accessorFn: (d) => LABELS[d.type],
+      cell: ({ row: { original: d } }) => LABELS[d.type],
+    },
+    {
+      id: 'evenement',
+      header: 'Événement',
+      accessorFn: (d) => d.evenement_nom ?? '',
+      cell: ({ row: { original: d } }) => d.evenement_nom ?? '—',
+    },
+    {
+      id: 'date',
+      header: 'Date',
+      accessorFn: (d) => d.date ?? '',
+      meta: { className: 'whitespace-nowrap' },
+      cell: ({ row: { original: d } }) => d.date ?? '—',
+    },
+    {
+      id: 'statut',
+      header: 'Statut',
+      accessorFn: (d) => (d.sous_embargo ? 1 : d.disponible ? 0 : 2),
+      cell: ({ row: { original: d } }) =>
+        d.sous_embargo ? (
+          <Badge variant="warning">Disponible sous 24 h</Badge>
+        ) : d.disponible ? (
+          <Badge variant="success">Disponible</Badge>
+        ) : (
+          <Badge variant="neutral">En préparation</Badge>
+        ),
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      enableSorting: false,
+      meta: { label: 'Actions', interactive: true, className: 'text-right' },
+      cell: ({ row: { original: d } }) => (
+        <Button
+          variant="ghost"
+          disabled={!d.disponible || busy === cle(d)}
+          onClick={() => download(d)}
+        >
+          Télécharger
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-savr-primary-800">
         Mes documents
       </h1>
 
-      {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
-      ) : items.length === 0 ? (
-        <p className="text-sm text-savr-neutral-500">
-          Aucun document disponible pour le moment.
-        </p>
-      ) : (
-        <div className="overflow-x-auto rounded-savr-md border border-savr-neutral-200">
-          <table className="w-full text-sm">
-            <thead className="bg-savr-neutral-50 text-left text-xs uppercase text-savr-neutral-500">
-              <tr>
-                <th className="px-3 py-2">Document</th>
-                <th className="px-3 py-2">Événement</th>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Statut</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((d) => (
-                <tr
-                  key={`${d.type}-${d.id}`}
-                  className="border-t border-savr-neutral-100"
-                >
-                  <td className="px-3 py-2">{LABELS[d.type]}</td>
-                  <td className="px-3 py-2">{d.evenement_nom ?? '—'}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {d.date ?? '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    {d.sous_embargo ? (
-                      <Badge variant="warning">Disponible sous 24 h</Badge>
-                    ) : d.disponible ? (
-                      <Badge variant="success">Disponible</Badge>
-                    ) : (
-                      <Badge variant="neutral">En préparation</Badge>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button
-                      variant="ghost"
-                      disabled={!d.disponible || busy === `${d.type}-${d.id}`}
-                      onClick={() => download(d)}
-                    >
-                      Télécharger
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Data Table commune. Tri côté navigateur : la route renvoie la liste
+          complète des documents (aucune pagination ni `.limit()`). Ordre
+          initial = celui de la route (rapports, bordereaux, attestations). */}
+      <DataGrid
+        columns={colonnes}
+        data={items}
+        getRowId={cle}
+        loading={loading}
+        empty={
+          <p className="text-sm text-savr-neutral-500">
+            Aucun document disponible pour le moment.
+          </p>
+        }
+      />
     </div>
   );
 }

@@ -72,6 +72,12 @@ export default function LieuxPage() {
   const [actif, setActif] = useState('true');
   const [tab, setTab] = useState<'referentiel' | 'modifs'>('referentiel');
   const [page, setPage] = useState(1);
+  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
+  // en page 1 à chaque changement (cf. lib/tri-liste).
+  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
+    cle: 'nom',
+    ordre: 'asc',
+  });
   const [normalisingId, setNormalisingId] = useState<string | null>(null);
 
   // Modale création/édition — point unique (remplace les pages nouveau/[id]).
@@ -90,6 +96,8 @@ export default function LieuxPage() {
   const fetchLieux = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
+    params.set('tri', tri.cle);
+    params.set('ordre', tri.ordre);
     if (tab === 'modifs') {
       params.set('worklist', 'modifs');
     } else {
@@ -104,7 +112,7 @@ export default function LieuxPage() {
       if (tab === 'referentiel') setNbReferentiel(json.total);
     }
     setLoading(false);
-  }, [page, actif, q, tab]);
+  }, [page, actif, q, tab, tri]);
 
   useEffect(() => {
     void fetchLieux();
@@ -147,6 +155,7 @@ export default function LieuxPage() {
   const columns: Column<Lieu>[] = [
     {
       key: 'nom',
+      sortable: true,
       header: 'Nom',
       render: (row) => (
         <div className="flex items-center gap-2">
@@ -170,6 +179,7 @@ export default function LieuxPage() {
     },
     {
       key: 'ville',
+      sortable: true,
       header: 'Ville',
       render: (row) => row.ville || <Vide />,
     },
@@ -180,16 +190,19 @@ export default function LieuxPage() {
     },
     {
       key: 'acces_office',
+      sortable: true,
       header: 'Accès office',
       render: (row) => <DifficulteCell value={row.acces_office} />,
     },
     {
       key: 'stationnement',
+      sortable: true,
       header: 'Stationnement',
       render: (row) => <DifficulteCell value={row.stationnement} />,
     },
     {
       key: 'type_vehicule_max',
+      sortable: true,
       header: 'Véhicule max',
       render: (row) =>
         row.type_vehicule_max ? (
@@ -202,12 +215,14 @@ export default function LieuxPage() {
     },
     {
       key: 'capacite_maximum',
+      sortable: true,
       header: 'Capacité max',
       render: (row) =>
         row.capacite_maximum != null ? String(row.capacite_maximum) : <Vide />,
     },
     {
       key: 'controle_acces_requis_default',
+      sortable: true,
       header: 'Contrôle accès',
       render: (row) =>
         row.controle_acces_requis_default ? (
@@ -218,6 +233,7 @@ export default function LieuxPage() {
     },
     {
       key: 'actif',
+      sortable: true,
       header: 'Statut',
       render: (row) =>
         row.actif ? (
@@ -287,6 +303,12 @@ export default function LieuxPage() {
         columns={columns}
         data={lieux}
         keyExtractor={(row) => row.id}
+        onSort={(cle, ordre) => {
+          setTri({ cle, ordre });
+          setPage(1);
+        }}
+        sortKey={tri.cle}
+        sortDirection={tri.ordre}
         onRowClick={(row) => openEdit(row.id)}
       />
       {total > 50 && (

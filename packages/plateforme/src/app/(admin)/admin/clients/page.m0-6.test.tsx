@@ -235,4 +235,51 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'au-delà de 50 organisations : pagination, recherche et tri demandés AU SERVEUR',
+    async () => {
+      // Avant : seule la 1re page (50) était chargée et la recherche filtrait
+      // ces 50 lignes → les organisations suivantes étaient introuvables.
+      const urls: string[] = [];
+      global.fetch = vi.fn((url: string) => {
+        urls.push(url);
+        const payload = url.startsWith('/api/v1/admin/organisations')
+          ? { data: orgs, total: 120 }
+          : { data: [] };
+        return Promise.resolve({
+          ok: true,
+          json: async () => payload,
+        }) as unknown as Promise<Response>;
+      }) as unknown as typeof fetch;
+      const derniere = () =>
+        urls
+          .filter((u) => u.startsWith('/api/v1/admin/organisations'))
+          .at(-1) ?? '';
+
+      render(<ClientsPage />);
+      await screen.findAllByText('Fleur de Mets', undefined, ATTENTE_UI);
+      expect(derniere()).toContain('page=1');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+      await waitFor(() => expect(derniere()).toContain('page=2'), ATTENTE_UI);
+
+      // Recherche : envoyée au serveur (paramètre q) et retour en page 1.
+      fireEvent.change(screen.getByLabelText('Recherche'), {
+        target: { value: 'Zenith' },
+      });
+      await waitFor(() => expect(derniere()).toContain('q=Zenith'), ATTENTE_UI);
+      expect(derniere()).toContain('page=1');
+
+      // Tri : clic sur l'en-tête « Type » → tri serveur.
+      fireEvent.click(
+        within(screen.getByRole('table')).getByRole('button', { name: /Type/ }),
+      );
+      await waitFor(
+        () => expect(derniere()).toMatch(/tri=type&ordre=/),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 });

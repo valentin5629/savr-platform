@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError, withApiTrace } from '@/lib/api-helpers.js';
+import { lireTri } from '@/lib/tri-liste.js';
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -23,6 +24,19 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   );
   const limit = 50;
   const offset = (page - 1) * limit;
+  const tri = lireTri(
+    url.searchParams,
+    [
+      'numero_facture',
+      'type',
+      'montant_ht',
+      'montant_ttc',
+      'created_at',
+      'date_emission',
+      'statut',
+    ],
+    { colonne: 'created_at', ascendant: false },
+  );
 
   let query = supabase
     .from('factures')
@@ -39,7 +53,10 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
        factures_collectes(count)`,
       { count: 'exact' },
     )
-    .order('created_at', { ascending: false })
+    // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
+    // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
+    .order(tri.colonne, { ascending: tri.ascendant })
+    .order('id', { ascending: tri.ascendant })
     .range(offset, offset + limit - 1);
 
   if (statut) query = query.eq('statut', statut);

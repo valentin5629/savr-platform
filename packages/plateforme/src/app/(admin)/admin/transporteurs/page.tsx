@@ -51,6 +51,12 @@ export default function TransporteursPage() {
   const [typeTms, setTypeTms] = useState('');
   const [actif, setActif] = useState('true');
   const [page, setPage] = useState(1);
+  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
+  // en page 1 à chaque changement (cf. lib/tri-liste).
+  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
+    cle: 'nom',
+    ordre: 'asc',
+  });
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transporteur | null>(null);
@@ -61,6 +67,8 @@ export default function TransporteursPage() {
   const fetchTransporteurs = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
+    params.set('tri', tri.cle);
+    params.set('ordre', tri.ordre);
     if (actif) params.set('actif', actif);
     if (typeTms) params.set('type_tms', typeTms);
     if (q) params.set('q', q);
@@ -74,7 +82,7 @@ export default function TransporteursPage() {
       setTotal(json.total);
     }
     setLoading(false);
-  }, [page, actif, typeTms, q]);
+  }, [page, actif, typeTms, q, tri]);
 
   useEffect(() => {
     void fetchTransporteurs();
@@ -108,6 +116,7 @@ export default function TransporteursPage() {
   const columns: Column<Transporteur>[] = [
     {
       key: 'nom',
+      sortable: true,
       header: 'Nom',
       render: (row) => (
         <div>
@@ -119,7 +128,7 @@ export default function TransporteursPage() {
         </div>
       ),
     },
-    { key: 'ville', header: 'Ville' },
+    { key: 'ville', sortable: true, header: 'Ville' },
     {
       key: 'types_vehicules',
       header: 'Véhicule(s)',
@@ -139,6 +148,7 @@ export default function TransporteursPage() {
     },
     {
       key: 'type_tms',
+      sortable: true,
       header: 'Type TMS',
       render: (row) => (
         <Badge variant="neutral" dot={false}>
@@ -169,6 +179,7 @@ export default function TransporteursPage() {
     },
     {
       key: 'actif',
+      sortable: true,
       header: 'Actif',
       render: (row) =>
         row.actif ? (
@@ -285,6 +296,12 @@ export default function TransporteursPage() {
             columns={columns}
             data={transporteurs}
             keyExtractor={(row) => row.id}
+            onSort={(cle, ordre) => {
+              setTri({ cle, ordre });
+              setPage(1);
+            }}
+            sortKey={tri.cle}
+            sortDirection={tri.ordre}
             onRowClick={openEdit}
           />
           {total > 50 && (

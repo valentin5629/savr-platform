@@ -199,6 +199,7 @@ export default function AutoAcceptPage() {
         <DataTable
           columns={columnsWithToggle}
           data={configs}
+          clientSort
           keyExtractor={(r) => r.id}
         />
       )}

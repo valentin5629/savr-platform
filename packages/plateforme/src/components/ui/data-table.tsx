@@ -1,9 +1,21 @@
 'use client';
 
 import * as React from 'react';
-import { cn } from '@/lib/utils';
-import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DataGrid,
+  type ColumnDef,
+  type SortingState,
+} from '@/components/ui/data-grid';
+
+// DataTable — API historique (colonnes `key`/`header`/`render`) conservée pour
+// ses écrans, rendue par la Data Table commune DataGrid (shadcn/TanStack,
+// décision Val 2026-09-28 : « dès qu'il y a une liste, je la veux à ce
+// format »). Même rendu, même clavier, même carte mobile que les listes
+// Collectes ; le TRI garde exactement le comportement de chaque écran :
+//  - `onSort` fourni → tri piloté par l'écran (souvent serveur), inchangé ;
+//  - `clientSort` → tri dans le navigateur, à réserver aux listes COMPLÈTES
+//    (jamais sur une liste paginée : on ne trierait que la page affichée) ;
+//  - sinon → pas de tri (l'ancien rendu montrait l'icône sans réagir).
 
 export interface Column<T> {
   key: keyof T | string;
@@ -20,17 +32,18 @@ interface DataTableProps<T> {
   onSort?: (key: string, direction: 'asc' | 'desc') => void;
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
+  /** Tri dans le navigateur sur les colonnes à valeur simple (liste complète
+   *  uniquement). */
+  clientSort?: boolean;
   className?: string;
   /** Classe CSS appliquée par ligne (ex. surlignage criticité). */
   rowClassName?: (row: T) => string;
   /** Rend chaque ligne cliquable (navigation vers le détail). */
   onRowClick?: (row: T) => void;
-  pagination?: {
-    page: number;
-    total: number;
-    limit: number;
-    onPageChange: (page: number) => void;
-  };
+}
+
+function valeur<T>(row: T, key: Column<T>['key']): unknown {
+  return (row as Record<string, unknown>)[String(key)];
 }
 
 function DataTable<T>({
@@ -41,183 +54,78 @@ function DataTable<T>({
   onSort,
   sortKey,
   sortDirection,
+  clientSort = false,
   className,
   rowClassName,
   onRowClick,
 }: DataTableProps<T>) {
-  const handleSort = (key: string) => {
-    if (!onSort) return;
-    const next: 'asc' | 'desc' =
-      sortKey === key && sortDirection === 'asc' ? 'desc' : 'asc';
-    onSort(key, next);
-  };
-
-  /**
-   * Active une ligne au clavier (DS §10 « navigation complète au clavier,
-   * ordre de tabulation logique »). Monté uniquement quand `onRowClick` est
-   * fourni : une ligne non cliquable ne doit pas entrer dans l'ordre de
-   * tabulation.
-   *
-   * Pas de `role="button"` / `role="link"` sur la ligne : les cellules portent
-   * déjà leurs propres contrôles (ex. le bouton « Ouvrir la fiche » de
-   * admin/lieux), et un contrôle imbriqué dans un contrôle est invalide — la
-   * ligne desktop reste la `row` de son `role="grid"`.
-   *
-   * La garde `target === currentTarget` évite la double activation : ces
-   * boutons internes ne coupent la propagation que du CLIC, alors que le
-   * keydown qu'ils émettent remonte, lui, jusqu'à la ligne.
-   *
-   * Le focus ring DS (levier #4 — anneau `primary-500`) n'est pas posé en
-   * classe de couleur : `globals.css` l'applique à `*:focus-visible` dans
-   * `@layer base` et aucun composant ne pose plus de couleur divergente (test
-   * M0.8-4d), donc rendre la ligne focusable suffit. Seul l'OFFSET est surchargé, en desktop :
-   * la `<tr>` remplit le conteneur `overflow-x-auto`, qui rogne les bords
-   * gauche/droit d'un anneau à offset positif — il se lit alors comme deux
-   * traits horizontaux. L'offset négatif le dessine à l'intérieur de la ligne,
-   * donc entièrement visible. La card mobile n'est pas dans un conteneur
-   * scrollable : elle garde l'offset positif du DS.
-   * Ne jamais neutraliser l'outline ici (`outline-none` / `outline-0`).
-   */
-  const handleRowKeyDown =
-    (row: T) => (event: React.KeyboardEvent<HTMLElement>) => {
-      if (!onRowClick) return;
-      if (event.target !== event.currentTarget) return;
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault(); // Espace : pas de défilement de la page
-      onRowClick(row);
-    };
-
-  const SortIcon = ({ colKey }: { colKey: string }) => {
-    if (sortKey !== colKey)
-      return (
-        <ChevronsUpDown
-          className="h-3.5 w-3.5 text-savr-neutral-400"
-          aria-hidden="true"
-        />
+  // Colonnes triables en mode client : celles dont la valeur est simple
+  // (texte, nombre, booléen) — une colonne d'actions ou d'objet n'a pas
+  // d'ordre naturel.
+  const triables = React.useMemo(() => {
+    if (onSort)
+      return new Set(
+        columns.filter((c) => c.sortable).map((c) => String(c.key)),
       );
-    return sortDirection === 'asc' ? (
-      <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
-    ) : (
-      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+    if (!clientSort) return new Set<string>();
+    return new Set(
+      columns
+        .filter((c) =>
+          data.some((r) =>
+            ['string', 'number', 'boolean'].includes(typeof valeur(r, c.key)),
+          ),
+        )
+        .map((c) => String(c.key)),
     );
-  };
+  }, [columns, data, onSort, clientSort]);
 
-  if (loading) {
-    return (
-      <div className={cn('space-y-2', className)}>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    );
-  }
+  const defs = React.useMemo<ColumnDef<T, unknown>[]>(
+    () =>
+      columns.map((col) => ({
+        id: String(col.key),
+        header: col.header,
+        accessorFn: (row: T) => {
+          const v = valeur(row, col.key);
+          return v == null ? '' : v;
+        },
+        enableSorting: triables.has(String(col.key)),
+        cell: ({ row }) =>
+          col.render
+            ? col.render(row.original)
+            : String(valeur(row.original, col.key) ?? ''),
+      })),
+    [columns, triables],
+  );
+
+  const sorting: SortingState | undefined =
+    onSort && sortKey
+      ? [{ id: sortKey, desc: sortDirection === 'desc' }]
+      : undefined;
 
   return (
-    <>
-      {/* Desktop : tableau ≥ 640px */}
-      <div className={cn('hidden sm:block w-full overflow-x-auto', className)}>
-        <table className="w-full text-sm" role="grid">
-          <thead>
-            <tr className="border-b border-savr-neutral-200">
-              {columns.map((col) => (
-                <th
-                  key={String(col.key)}
-                  scope="col"
-                  className={cn(
-                    'h-11 select-none px-4 text-left text-[11px] font-bold uppercase tracking-wide text-savr-neutral-500',
-                    col.sortable &&
-                      onSort &&
-                      'cursor-pointer hover:text-savr-neutral-900',
-                  )}
-                  onClick={
-                    col.sortable ? () => handleSort(String(col.key)) : undefined
-                  }
-                  aria-sort={
-                    sortKey === String(col.key)
-                      ? sortDirection === 'asc'
-                        ? 'ascending'
-                        : 'descending'
-                      : 'none'
-                  }
-                >
-                  <span className="flex items-center gap-1">
-                    {col.header}
-                    {col.sortable && <SortIcon colKey={String(col.key)} />}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row) => (
-              <tr
-                key={keyExtractor(row)}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                onKeyDown={onRowClick ? handleRowKeyDown(row) : undefined}
-                tabIndex={onRowClick ? 0 : undefined}
-                className={cn(
-                  'border-b border-savr-neutral-100 hover:bg-savr-neutral-50 transition-colors',
-                  // Anneau tracé à l'intérieur de la ligne : le conteneur
-                  // `overflow-x-auto` rognerait un offset positif.
-                  onRowClick &&
-                    'cursor-pointer focus-visible:-outline-offset-2',
-                  rowClassName?.(row),
-                )}
-              >
-                {columns.map((col) => (
-                  <td
-                    key={String(col.key)}
-                    className="px-4 py-4 align-middle text-savr-neutral-800"
-                  >
-                    {col.render
-                      ? col.render(row)
-                      : String(
-                          (row as Record<string, unknown>)[String(col.key)] ??
-                            '',
-                        )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile < 640px : cards verticales */}
-      <div className={cn('sm:hidden space-y-2', className)}>
-        {data.map((row) => (
-          <div
-            key={keyExtractor(row)}
-            onClick={onRowClick ? () => onRowClick(row) : undefined}
-            onKeyDown={onRowClick ? handleRowKeyDown(row) : undefined}
-            tabIndex={onRowClick ? 0 : undefined}
-            className={cn(
-              'bg-savr-white border border-savr-neutral-200 rounded-savr-md p-4 space-y-2',
-              onRowClick && 'cursor-pointer',
-              rowClassName?.(row),
-            )}
-          >
-            {columns.map((col) => (
-              <div
-                key={String(col.key)}
-                className="flex justify-between gap-2 text-sm"
-              >
-                <span className="font-medium text-savr-neutral-600 shrink-0">
-                  {col.header}
-                </span>
-                <span className="text-savr-neutral-900 text-right">
-                  {col.render
-                    ? col.render(row)
-                    : String(
-                        (row as Record<string, unknown>)[String(col.key)] ?? '',
-                      )}
-                </span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </>
+    <DataGrid
+      columns={defs}
+      data={data}
+      getRowId={keyExtractor}
+      loading={loading}
+      className={className}
+      rowClassName={rowClassName}
+      onRowClick={onRowClick}
+      {...(onSort
+        ? {
+            manualSorting: true,
+            sorting: sorting ?? [],
+            onSortingChange: (updater) => {
+              const next =
+                typeof updater === 'function'
+                  ? updater(sorting ?? [])
+                  : updater;
+              const s = next[0];
+              if (s) onSort(s.id, s.desc ? 'desc' : 'asc');
+            },
+          }
+        : {})}
+    />
   );
 }
 

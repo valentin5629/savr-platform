@@ -16,6 +16,7 @@ import {
   fireEvent,
   waitFor,
   cleanup,
+  within,
 } from '@testing-library/react';
 
 const routerPush = vi.fn();
@@ -320,14 +321,23 @@ describe('M3.2 / P2 listes colonnes', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+      // DataGrid rend chaque ligne deux fois (tableau + carte mobile) : on
+      // borne au tableau, où en-têtes et valeurs sont uniques.
+      const table = within(
+        await screen.findByRole('table', undefined, ATTENTE_UI),
+      );
       expect(
-        await screen.findByText('Tonnage total', undefined, ATTENTE_UI),
+        table.getByRole('columnheader', { name: /Tonnage total/ }),
       ).toBeInTheDocument();
-      expect(screen.getByText('Déchets labo est.')).toBeInTheDocument();
-      expect(screen.getByText('Repas donnés')).toBeInTheDocument();
+      expect(
+        table.getByRole('columnheader', { name: /Déchets labo est\./ }),
+      ).toBeInTheDocument();
+      expect(
+        table.getByRole('columnheader', { name: /Repas donnés/ }),
+      ).toBeInTheDocument();
       // Valeurs rendues (data prête côté route).
-      expect(screen.getByText('300 kg')).toBeInTheDocument();
-      expect(screen.getByText('40')).toBeInTheDocument();
+      expect(table.getByText('300 kg')).toBeInTheDocument();
+      expect(table.getByText('40')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -344,10 +354,13 @@ describe('M3.2 / P2 listes colonnes', () => {
       // DIFFÉRENCE qui est l'oracle. Un assert « — » seul passerait aussi si la
       // page rendait « — » pour tout, y compris pour le zéro déclaré.
       render(<GestionnaireEvenementsPage />);
-      await screen.findByText('Déchets labo est.', undefined, ATTENTE_UI);
+      const table = within(
+        await screen.findByRole('table', undefined, ATTENTE_UI),
+      );
 
       const cellule = (nomEvenement: string) => {
-        const ligne = screen.getByText(nomEvenement).closest('tr')!;
+        // Borné au tableau : la carte mobile rend la même ligne une 2e fois.
+        const ligne = table.getByText(nomEvenement).closest('tr')!;
         // 8e colonne du tableau (cf. l'ordre des <th> de la page).
         return ligne.querySelectorAll('td')[7]!.textContent?.trim();
       };
@@ -376,10 +389,13 @@ describe('M3.2 / P2 listes colonnes', () => {
     "M3.2/P2_traiteurs_colonne_lieux — Lieux d'intervention rendus",
     async () => {
       render(<GestionnaireTraiteursPage />);
+      const table = within(
+        await screen.findByRole('table', undefined, ATTENTE_UI),
+      );
       expect(
-        await screen.findByText("Lieux d'intervention", undefined, ATTENTE_UI),
+        table.getByRole('columnheader', { name: /Lieux d'intervention/ }),
       ).toBeInTheDocument();
-      expect(screen.getByText('Palais des Congrès')).toBeInTheDocument();
+      expect(table.getByText('Palais des Congrès')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -390,15 +406,115 @@ describe('M3.2 / P2 listes colonnes', () => {
     'M3.2/P2_traiteurs_logo_par_proxy — src = proxy, jamais la clé R2',
     async () => {
       render(<GestionnaireTraiteursPage />);
-      const img = (await screen.findByText('Kaspia', undefined, ATTENTE_UI))
-        .closest('div')!
-        .querySelector('img')!;
-      expect(img).toBeTruthy();
-      expect(img.getAttribute('src')).toBe(
-        '/api/v1/gestionnaire/traiteurs/tr1/logo',
+      // Double rendu DataGrid (tableau + carte mobile) : les deux vignettes
+      // doivent passer par le proxy, on les vérifie toutes.
+      const noms = await screen.findAllByText('Kaspia', undefined, ATTENTE_UI);
+      expect(noms).toHaveLength(2);
+      for (const nom of noms) {
+        const img = nom.closest('div')!.querySelector('img')!;
+        expect(img).toBeTruthy();
+        expect(img.getAttribute('src')).toBe(
+          '/api/v1/gestionnaire/traiteurs/tr1/logo',
+        );
+        // Sonde du bug corrigé : la clé de stockage ne doit jamais atterrir dans src.
+        expect(img.getAttribute('src')).not.toContain('savr-dev/logos/');
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // §10 §7 : état Error distinct de l'état Empty. Avant, `r.json()` sans contrôle
+  // de `r.ok` rendait « Aucun traiteur » quand l'API tombait : une panne se
+  // lisait comme un parc sans traiteur.
+  it(
+    'M3.2/P2_traiteurs_erreur_api — une panne affiche une erreur + Réessayer, jamais « Aucun traiteur »',
+    async () => {
+      let appels = 0;
+      // Mock dédié (le beforeEach ré-installe fetchMock : aucune fuite).
+      const fetchPanne = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/gestionnaire/traiteurs')) {
+          appels += 1;
+          // 1er appel en panne, le « Réessayer » réussit.
+          if (appels === 1)
+            return Promise.resolve({
+              ok: false,
+              status: 500,
+              json: () => Promise.resolve({ error: 'boom' }),
+            } as Response);
+          return jsonResponse({ data: [] });
+        }
+        return jsonResponse({});
+      });
+      vi.stubGlobal('fetch', fetchPanne);
+      render(<GestionnaireTraiteursPage />);
+
+      expect(
+        await screen.findByText(
+          'Le chargement des traiteurs a échoué.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Aucun traiteur')).not.toBeInTheDocument();
+
+      // « Réessayer » relance l'appel ; une réponse vide donne alors l'état Empty.
+      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+      expect(
+        await screen.findByText('Aucun traiteur', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText('Le chargement des traiteurs a échoué.'),
+      ).not.toBeInTheDocument();
+      expect(appels).toBe(2);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Même défaut sur la liste Événements : sans contrôle de `r.ok`, une panne de
+  // l'API affichait « Aucun événement. », indiscernable d'un parc sans événement.
+  it(
+    'M3.2/P2_evenements_erreur_api — une panne affiche une erreur + Réessayer, jamais « Aucun événement. »',
+    async () => {
+      let appels = 0;
+      // Mock dédié (le beforeEach ré-installe fetchMock : aucune fuite).
+      const fetchPanne = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/gestionnaire/evenements')) {
+          appels += 1;
+          // 1er appel en panne, le « Réessayer » réussit (données du fetchMock).
+          if (appels === 1)
+            return Promise.resolve({
+              ok: false,
+              status: 500,
+              json: () => Promise.resolve({ error: 'boom' }),
+            } as Response);
+        }
+        return fetchMock(input);
+      });
+      vi.stubGlobal('fetch', fetchPanne);
+      render(<GestionnaireEvenementsPage />);
+
+      expect(
+        await screen.findByText(
+          'Le chargement des événements a échoué.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Aucun événement.')).not.toBeInTheDocument();
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+      // « Réessayer » relance l'appel ; la réponse OK affiche les événements.
+      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+      const table = within(
+        await screen.findByRole('table', undefined, ATTENTE_UI),
       );
-      // Sonde du bug corrigé : la clé de stockage ne doit jamais atterrir dans src.
-      expect(img.getAttribute('src')).not.toContain('savr-dev/logos/');
+      expect(table.getByText('Cocktail')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Le chargement des événements a échoué.'),
+      ).not.toBeInTheDocument();
+      expect(appels).toBe(2);
     },
     ATTENTE_CAS_MS,
   );

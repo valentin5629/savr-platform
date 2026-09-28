@@ -4,10 +4,15 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
-import { DataTable, type Column } from '@/components/ui/data-table';
+import {
+  DataGrid,
+  type ColumnDef,
+  type SortingState,
+} from '@/components/ui/data-grid';
+import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
 import { Pagination } from '@/components/ui/pagination';
@@ -24,6 +29,7 @@ interface CollecteRow {
   type: string;
   statut: string;
   date_collecte: string | null;
+  heure_collecte?: string | null;
   evenement_nom: string | null;
   lieu_nom: string | null;
 }
@@ -70,6 +76,13 @@ function GestionnaireCollectesContent() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  // Tri de la Data Table, envoyé à l'API (liste paginée : trier la seule page
+  // chargée donnerait un ordre faux). Défaut = date décroissante, comme la route.
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'date', desc: true },
+  ]);
+  const tri = sorting[0];
+  const triKey = tri ? `${tri.id}:${tri.desc ? 'desc' : 'asc'}` : '';
 
   // La page courante n'a de sens QUE pour le périmètre qui l'a produite : rester
   // en page 3 après avoir appliqué un filtre qui ne ramène qu'une page afficherait
@@ -85,6 +98,9 @@ function GestionnaireCollectesContent() {
     toFiltre,
     typeEvtKey,
     tailleKey,
+    // Changer de tri renvoie aussi en page 1 (la page 3 d'un autre ordre n'a
+    // aucun rapport avec celle qu'on regardait).
+    triKey,
   ].join('|');
   const [pagination, setPagination] = useState({ key: filtresKey, page: 1 });
   const page = pagination.key === filtresKey ? pagination.page : 1;
@@ -118,6 +134,11 @@ function GestionnaireCollectesContent() {
         .forEach((v) => qs.append('type_evenement_ids[]', v));
     if (tailleKey)
       tailleKey.split(',').forEach((v) => qs.append('taille_evenements[]', v));
+    if (triKey) {
+      const [triId, ordre] = triKey.split(':');
+      qs.set('tri', triId!);
+      qs.set('ordre', ordre!);
+    }
     if (page > 1) qs.set('page', String(page));
     const suffix = qs.toString() ? `?${qs}` : '';
     fetch(`/api/v1/gestionnaire/collectes${suffix}`)
@@ -176,6 +197,7 @@ function GestionnaireCollectesContent() {
     toFiltre,
     typeEvtKey,
     tailleKey,
+    triKey,
     page,
   ]);
 
@@ -231,42 +253,47 @@ function GestionnaireCollectesContent() {
     return parts.length ? parts.join(' · ') : undefined;
   })();
 
-  const colonnes: Column<CollecteRow>[] = [
+  // `id` des colonnes triables = valeur du paramètre API `tri`.
+  const colonnes: ColumnDef<CollecteRow, unknown>[] = [
     {
-      key: 'date_collecte',
+      id: 'date',
       header: 'Date',
-      render: (c) =>
+      enableHiding: false,
+      accessorFn: (c) => c.date_collecte ?? '',
+      cell: ({ row: { original: c } }) =>
         c.date_collecte ? (
-          new Date(c.date_collecte).toLocaleDateString('fr-FR', {
-            timeZone: 'Europe/Paris',
-          })
+          <span className="whitespace-nowrap font-semibold tabular-nums">
+            {libelleDateHeure(c.date_collecte, c.heure_collecte ?? null)}
+          </span>
         ) : (
           <Vide />
         ),
     },
     {
-      key: 'lieu_nom',
+      id: 'lieu',
       header: 'Lieu',
-      render: (c) => c.lieu_nom ?? <Vide />,
+      enableSorting: false,
+      cell: ({ row: { original: c } }) => c.lieu_nom ?? <Vide />,
     },
     {
-      key: 'evenement_nom',
+      id: 'evenement',
       header: 'Événement',
-      render: (c) => c.evenement_nom ?? <Vide />,
+      enableSorting: false,
+      cell: ({ row: { original: c } }) => c.evenement_nom ?? <Vide />,
     },
     {
-      key: 'type',
+      id: 'type',
       header: 'Type',
-      render: (c) => (
-        <Badge variant={c.type === 'zero_dechet' ? 'info' : 'success'}>
-          {c.type === 'zero_dechet' ? 'ZD' : 'AG'}
-        </Badge>
-      ),
+      accessorFn: (c) => c.type,
+      cell: ({ row: { original: c } }) => <TypeCollecteBadge type={c.type} />,
     },
     {
-      key: 'statut',
+      id: 'statut',
       header: 'Statut',
-      render: (c) => <CollecteStatutBadge statut={c.statut} />,
+      accessorFn: (c) => c.statut,
+      cell: ({ row: { original: c } }) => (
+        <CollecteStatutBadge statut={c.statut} />
+      ),
     },
   ];
 
@@ -290,11 +317,18 @@ function GestionnaireCollectesContent() {
     />
   ) : (
     <>
-      <DataTable
+      <DataGrid
+        data-testid="collectes-table"
         columns={colonnes}
         data={rows}
-        keyExtractor={(c) => c.id}
+        getRowId={(c) => c.id}
+        manualSorting
+        sorting={sorting}
+        onSortingChange={setSorting}
         onRowClick={(c) => router.push(`/gestionnaire/collectes/${c.id}`)}
+        rowLabel={(c) =>
+          `Ouvrir la collecte${c.evenement_nom ? ` ${c.evenement_nom}` : ''}${c.lieu_nom ? ` — ${c.lieu_nom}` : ''}`
+        }
       />
       {total > PAGE_SIZE && (
         <div className="flex flex-wrap items-center justify-between gap-2 pt-3 text-sm">

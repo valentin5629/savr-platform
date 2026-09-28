@@ -7,6 +7,13 @@ import {
 import { serverError } from '@/lib/api-helpers.js';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire.js';
 
+// Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
+const TRIS = {
+  date: ['date_collecte'],
+  type: ['type', 'date_collecte'],
+  statut: ['statut', 'date_collecte'],
+} satisfies Record<string, string[]>;
+
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // Brackets « Taille d'événement » (§06.05 l.115) traduits en prédicats PostgREST
@@ -87,6 +94,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // `page` sous la première (0, -3, « abc ») retombe sur 1 plutôt que de produire
   // un range négatif. Le dépassement par le HAUT ne se borne pas ici — le total
   // n'est pas encore connu — il est rattrapé après la requête (voir plus bas).
+  const triParam = sp.get('tri') ?? '';
+  const tri = Object.hasOwn(TRIS, triParam)
+    ? TRIS[triParam as keyof typeof TRIS]
+    : TRIS.date;
+  const ascendant = sp.get('ordre') === 'asc';
   const pageParam = Number.parseInt(sp.get('page') ?? '1', 10);
   const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
   const offset = (page - 1) * PAGE_SIZE;
@@ -102,22 +114,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Requête filtrée, sans fenêtrage : construite deux fois dans le cas dégradé
   // ci-dessous, donc les filtres vivent ici et nulle part ailleurs.
   const filtree = () => {
-    let q = supabase
-      .from('collectes')
-      .select(
-        `id, evenement_id, type, statut, statut_tms, date_collecte,
+    let q = supabase.from('collectes').select(
+      `id, evenement_id, type, statut, statut_tms, date_collecte,
        heure_collecte, taux_recyclage, co2_evite_kg, realisee_at,
        evenements!inner(
          nom_evenement, lieu_id, traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom)
        )`,
-        { count: 'exact' },
-      )
-      // `date_collecte` seule n'est pas unique (plusieurs collectes le même jour) :
-      // sans départage, deux pages successives peuvent réordonner les ex æquo et
-      // faire disparaître une ligne d'une page à l'autre. `id` fige l'ordre.
-      .order('date_collecte', { ascending: false })
-      .order('id', { ascending: false });
+      { count: 'exact' },
+    );
+    // Tri de la Data Table (`tri` en liste blanche, `ordre` asc|desc ; défaut =
+    // date décroissante). Côté serveur car la liste est paginée. `date_collecte`
+    // seule n'est pas unique (plusieurs collectes le même jour) : sans départage,
+    // deux pages successives peuvent réordonner les ex æquo et faire disparaître
+    // une ligne d'une page à l'autre. `id` fige l'ordre.
+    for (const col of tri) q = q.order(col, { ascending: ascendant });
+    q = q.order('id', { ascending: ascendant });
 
     if (type) q = q.eq('type', type);
     if (statut) q = q.eq('statut', statut);

@@ -1,10 +1,23 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
+import {
+  DataGrid,
+  type ColumnDef,
+  type SortingState,
+} from '@/components/ui/data-grid';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FormField } from '@/components/ui/form-field';
@@ -73,6 +86,12 @@ function RegistreContent() {
   const [rows, setRows] = useState<RegistreRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
+  // Chaque appel prend un numéro ; seule la réponse du dernier appel a le droit
+  // d'écrire dans l'état. Filtres, tri et pagination relancent un chargement :
+  // sans cette garde, la réponse PÉRIMÉE (ou son échec) d'un appel encore en vol
+  // écraserait celle des critères courants.
+  const generation = useRef(0);
 
   // Filtres
   const [from, setFrom] = useState('');
@@ -117,16 +136,36 @@ function RegistreContent() {
     ],
   );
 
-  useEffect(() => {
+  const charger = useCallback(() => {
+    const gen = ++generation.current;
+    const perime = () => generation.current !== gen;
     setLoading(true);
+    setErreur(null);
     fetch(`/api/v1/registre?${queryString(false)}`)
-      .then((r) => r.json())
+      .then((r) => {
+        // Sans cette garde, un 500 rendait `rows` absent → liste vide → l'écran
+        // affichait « Aucune collecte au registre pour ces critères. » : une
+        // panne serveur se lisait comme un registre vide (§10 §7, état Error
+        // distinct de l'état Empty).
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((j: { rows?: RegistreRow[]; total?: number }) => {
+        if (perime()) return;
         setRows(j.rows ?? []);
         setTotal(j.total ?? 0);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!perime()) setErreur('Le chargement du registre a échoué.');
+      })
+      .finally(() => {
+        if (!perime()) setLoading(false);
+      });
   }, [queryString]);
+
+  useEffect(() => {
+    charger();
+  }, [charger]);
 
   // Options lieu / traiteur dérivées des lignes chargées (V1 sans endpoint dédié).
   const lieuxOptions = useMemo(() => {
@@ -164,19 +203,94 @@ function RegistreContent() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const SortHead = ({ k, label }: { k: SortKey; label: string }) => (
-    <th className="px-3 py-2">
-      <button
-        type="button"
-        className="flex items-center gap-1 font-medium"
-        onClick={() => sort(k)}
-      >
-        {label}
-        {sortBy === k ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-      </button>
-    </th>
-  );
 
+  // Liste PAGINÉE côté serveur (`fetchRegistre` : `.range()` + `.order(sortBy)`).
+  // Le tri n'est donc jamais fait sur la seule page affichée : `manualSorting`,
+  // chaque clic d'en-tête passe par `sort()` qui renvoie `sortBy`/`sortDir` à
+  // l'API (comportement inchangé : même colonne = inverse le sens, autre
+  // colonne = ascendant, retour en page 1). L'`id` des colonnes triables = la
+  // valeur de `sortBy` ; l'`accessorFn` n'est là que pour rendre l'en-tête
+  // cliquable (règle TanStack), il ne trie rien côté navigateur.
+  const sorting: SortingState = [{ id: sortBy, desc: sortDir === 'desc' }];
+  const colonnes: ColumnDef<RegistreRow, unknown>[] = [
+    {
+      id: 'date_evenement',
+      header: 'Date événement',
+      enableHiding: false,
+      accessorFn: (r) => r.date_evenement ?? '',
+      cell: ({ row: { original: r } }) => (
+        <span className="whitespace-nowrap">
+          {dateFr(r.date_evenement)}
+          {r.historique_partiel && (
+            <span
+              className="ml-1"
+              title="Historique partiel (migration incomplète)"
+            >
+              ⚠
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      id: 'lieu_nom',
+      header: 'Lieu',
+      accessorFn: (r) => r.lieu_nom ?? '',
+      cell: ({ row: { original: r } }) => r.lieu_nom ?? '—',
+    },
+    {
+      id: 'traiteur_raison_sociale',
+      header: 'Traiteur',
+      accessorFn: (r) => r.traiteur_raison_sociale ?? '',
+      cell: ({ row: { original: r } }) => r.traiteur_raison_sociale ?? '—',
+    },
+    {
+      id: 'flux',
+      header: 'Flux',
+      enableSorting: false,
+      cell: ({ row: { original: r } }) => (
+        <div className="flex flex-wrap gap-1">
+          {(r.flux_codes ?? []).map((c) => (
+            <Badge key={c} variant="neutral">
+              {FLUX_LABELS[c] ?? c}
+            </Badge>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'poids_total_kg',
+      header: 'Poids total',
+      accessorFn: (r) => r.poids_total_kg ?? -1,
+      cell: ({ row: { original: r } }) => (
+        <span className="whitespace-nowrap">{poidsFr(r.poids_total_kg)}</span>
+      ),
+    },
+    {
+      id: 'exutoire_nom',
+      header: 'Exutoire',
+      accessorFn: (r) => r.exutoire_nom ?? '',
+      cell: ({ row: { original: r } }) => r.exutoire_nom ?? '—',
+    },
+    {
+      id: 'bordereau',
+      header: 'Bordereau',
+      enableSorting: false,
+      meta: { interactive: true },
+      cell: ({ row: { original: r } }) =>
+        r.bordereau_id && bordereauDispo(r.bordereau_statut) ? (
+          <button
+            type="button"
+            className="text-savr-primary-700 underline"
+            onClick={() => downloadBordereau(r.bordereau_id!)}
+          >
+            {r.bordereau_numero ?? 'PDF'} ⬇
+          </button>
+        ) : (
+          <span className="text-savr-neutral-400">Manquant</span>
+        ),
+    },
+  ];
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -332,82 +446,40 @@ function RegistreContent() {
         </FormField>
       </FilterBar>
 
-      {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-savr-neutral-500">
-          Aucune collecte au registre pour ces critères.
-        </p>
-      ) : (
-        <div className="overflow-x-auto rounded-savr-md border border-savr-neutral-200">
-          <table className="w-full text-sm">
-            <thead className="bg-savr-neutral-50 text-left text-xs uppercase text-savr-neutral-500">
-              <tr>
-                <SortHead k="date_evenement" label="Date événement" />
-                <SortHead k="lieu_nom" label="Lieu" />
-                <SortHead k="traiteur_raison_sociale" label="Traiteur" />
-                <th className="px-3 py-2">Flux</th>
-                <SortHead k="poids_total_kg" label="Poids total" />
-                <SortHead k="exutoire_nom" label="Exutoire" />
-                <th className="px-3 py-2">Bordereau</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.collecte_id}
-                  className="cursor-pointer border-t border-savr-neutral-100 hover:bg-savr-neutral-50"
-                  onClick={() => router.push(`/registre/${r.collecte_id}`)}
-                >
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {dateFr(r.date_evenement)}
-                    {r.historique_partiel && (
-                      <span
-                        className="ml-1"
-                        title="Historique partiel (migration incomplète)"
-                      >
-                        ⚠
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{r.lieu_nom ?? '—'}</td>
-                  <td className="px-3 py-2">
-                    {r.traiteur_raison_sociale ?? '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {(r.flux_codes ?? []).map((c) => (
-                        <Badge key={c} variant="neutral">
-                          {FLUX_LABELS[c] ?? c}
-                        </Badge>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {poidsFr(r.poids_total_kg)}
-                  </td>
-                  <td className="px-3 py-2">{r.exutoire_nom ?? '—'}</td>
-                  <td
-                    className="px-3 py-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {r.bordereau_id && bordereauDispo(r.bordereau_statut) ? (
-                      <button
-                        type="button"
-                        className="text-savr-primary-700 underline"
-                        onClick={() => downloadBordereau(r.bordereau_id!)}
-                      >
-                        {r.bordereau_numero ?? 'PDF'} ⬇
-                      </button>
-                    ) : (
-                      <span className="text-savr-neutral-400">Manquant</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* États système §10 §7 — Error = message + « Réessayer », distinct de
+          l'état Empty : une panne ne doit jamais se lire comme un registre vide. */}
+      {erreur ? (
+        <div className="space-y-4" data-testid="registre-erreur">
+          <AlertBar variant="err">{erreur}</AlertBar>
+          <Button variant="secondary" onClick={charger}>
+            Réessayer
+          </Button>
         </div>
+      ) : (
+        <DataGrid
+          data-testid="registre-table"
+          columns={colonnes}
+          data={rows}
+          getRowId={(r) => r.collecte_id}
+          loading={loading}
+          empty={
+            <p className="text-sm text-savr-neutral-500">
+              Aucune collecte au registre pour ces critères.
+            </p>
+          }
+          manualSorting
+          sorting={sorting}
+          onSortingChange={(updater) => {
+            const next =
+              typeof updater === 'function' ? updater(sorting) : updater;
+            const cle = next[0]?.id as SortKey | undefined;
+            if (cle) sort(cle);
+          }}
+          onRowClick={(r) => router.push(`/registre/${r.collecte_id}`)}
+          rowLabel={(r) =>
+            `Ouvrir la collecte du ${dateFr(r.date_evenement)}${r.lieu_nom ? ` — ${r.lieu_nom}` : ''}`
+          }
+        />
       )}
 
       {/* Pagination */}

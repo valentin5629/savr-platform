@@ -9,7 +9,13 @@
  * assertions en getAllBy*.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from '@testing-library/react';
 
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
@@ -45,9 +51,22 @@ const MOIS = [
   'novembre',
   'décembre',
 ];
+// DataGrid rend chaque ligne deux fois (tableau ≥ 640 px + carte mobile) :
+// les assertions sur le contenu d'une ligne sont bornées au tableau.
+const tableau = () => within(screen.getByRole('table'));
+
+// Déclencheur du DatePicker (porte `data-value`) : un en-tête de colonne
+// triable du tableau peut porter le même nom (« Valide du »).
+function champDate(nom: string): HTMLElement {
+  const champ = screen
+    .getAllByRole('button', { name: nom })
+    .find((b) => b.hasAttribute('data-value'));
+  if (!champ) throw new Error(`DatePicker « ${nom} » introuvable`);
+  return champ;
+}
 function choisirDate(nom: string, iso: string) {
   const [a, m, j] = iso.split('-').map(Number) as [number, number, number];
-  fireEvent.click(screen.getByRole('button', { name: nom }));
+  fireEvent.click(champDate(nom));
   const cible = a * 12 + (m - 1);
   for (let i = 0; i < 600; i++) {
     const [mois, annee] = (
@@ -69,10 +88,7 @@ function choisirDate(nom: string, iso: string) {
       name: new RegExp(` ${j} ${MOIS[m - 1]} ${a}`),
     }),
   );
-  expect(screen.getByRole('button', { name: nom })).toHaveAttribute(
-    'data-value',
-    iso,
-  );
+  expect(champDate(nom)).toHaveAttribute('data-value', iso);
 }
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
@@ -260,7 +276,7 @@ describe('M0.6 — onglet Grille tarifaire ZD', () => {
         ATTENTE_UI,
       );
       expect(screen.queryByText(/Lecture seule/)).not.toBeInTheDocument();
-      expect(screen.getByText(/450/)).toBeInTheDocument();
+      expect(tableau().getByText(/450/)).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -345,14 +361,14 @@ describe('M0.6 — onglet Coefficient de perte labo', () => {
       });
       render(<OngletCoefficients organisationId="org-1" canEdit={true} />);
       await waitFor(
-        () => expect(screen.getByText('2025')).toBeInTheDocument(),
+        () => expect(tableau().getByText('2025')).toBeInTheDocument(),
         ATTENTE_UI,
       );
       // « Appliqué aux événements de » = 2026 (année réf + 1).
-      expect(screen.getByText('2026')).toBeInTheDocument();
-      expect(screen.getByText('Estimation labo')).toBeInTheDocument();
+      expect(tableau().getByText('2026')).toBeInTheDocument();
+      expect(tableau().getByText('Estimation labo')).toBeInTheDocument();
       // Colonne « Saisi par » = auteur résolu (§06.06 §8 tableau coefficients).
-      expect(screen.getByText('Ops Un')).toBeInTheDocument();
+      expect(tableau().getByText('Ops Un')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -446,8 +462,8 @@ describe('M0.6 — onglet Remises négociées', () => {
       />,
     );
     // 0.15 → « 15 % » (et pas « 0.15 % »).
-    expect(screen.getByText(/^15\s*%$/)).toBeInTheDocument();
-    expect(screen.getByText('Geste commercial')).toBeInTheDocument();
+    expect(tableau().getByText(/^15\s*%$/)).toBeInTheDocument();
+    expect(tableau().getByText('Geste commercial')).toBeInTheDocument();
   });
 
   it(
@@ -573,9 +589,11 @@ describe('M0.6 — onglet Remises négociées', () => {
           onUpdated={onUpdated}
         />,
       );
-      expect(screen.getByText('Tous ses lieux')).toBeInTheDocument();
-      expect(screen.getByText('Paris Expo')).toBeInTheDocument();
-      expect(screen.getByText('Organisation (en direct)')).toBeInTheDocument();
+      expect(tableau().getByText('Tous ses lieux')).toBeInTheDocument();
+      expect(tableau().getByText('Paris Expo')).toBeInTheDocument();
+      expect(
+        tableau().getByText('Organisation (en direct)'),
+      ).toBeInTheDocument();
 
       fireEvent.click(screen.getByText('Créer une remise'));
       fireEvent.change(screen.getByLabelText('Remise (%)'), {
@@ -621,7 +639,7 @@ describe('M0.6 — onglet Remises négociées', () => {
           onUpdated={onUpdated}
         />,
       );
-      fireEvent.click(screen.getByText('Tous ses lieux'));
+      fireEvent.click(tableau().getByText('Tous ses lieux'));
       expect(screen.getByText('Modifier la remise')).toBeInTheDocument();
       // Pré-remplissage : 0.05 → « 5 », commentaire repris, activité figée.
       expect(screen.getByLabelText('Remise (%)')).toHaveValue(5);
@@ -671,7 +689,7 @@ describe('M0.6 — onglet Remises négociées', () => {
         onUpdated={() => {}}
       />,
     );
-    fireEvent.click(screen.getByText('Geste commercial'));
+    fireEvent.click(tableau().getByText('Geste commercial'));
     expect(screen.queryByText('Modifier la remise')).not.toBeInTheDocument();
     rerender(
       <OngletRemises
@@ -683,7 +701,7 @@ describe('M0.6 — onglet Remises négociées', () => {
         onUpdated={() => {}}
       />,
     );
-    fireEvent.click(screen.getByText('Geste commercial'));
+    fireEvent.click(tableau().getByText('Geste commercial'));
     expect(screen.queryByText('Modifier la remise')).not.toBeInTheDocument();
   });
 
@@ -704,7 +722,7 @@ describe('M0.6 — onglet Remises négociées', () => {
           onUpdated={onUpdated}
         />,
       );
-      fireEvent.click(screen.getByText('Fermer'));
+      fireEvent.click(tableau().getByText('Fermer'));
       await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
       expect(screen.queryByText('Modifier la remise')).not.toBeInTheDocument();
       expect(
@@ -755,12 +773,12 @@ describe('M0.6 — onglet Remises négociées', () => {
       />,
     );
     // Les deux visibles au départ.
-    expect(screen.getByText('Ancienne remise')).toBeInTheDocument();
-    expect(screen.getByText('Geste commercial')).toBeInTheDocument();
+    expect(tableau().getByText('Ancienne remise')).toBeInTheDocument();
+    expect(tableau().getByText('Geste commercial')).toBeInTheDocument();
     // Activer le filtre → la remise fermée disparaît.
     fireEvent.click(screen.getByLabelText('Actives uniquement'));
     expect(screen.queryByText('Ancienne remise')).not.toBeInTheDocument();
-    expect(screen.getByText('Geste commercial')).toBeInTheDocument();
+    expect(tableau().getByText('Geste commercial')).toBeInTheDocument();
   });
 });
 
@@ -791,11 +809,11 @@ describe('M0.6 — historique ajustements pack', () => {
           ).toBeInTheDocument(),
         ATTENTE_UI,
       );
-      expect(screen.getByText('20 → 15')).toBeInTheDocument();
+      expect(tableau().getByText('20 → 15')).toBeInTheDocument();
       expect(
-        screen.getByText('Correction erreur de saisie'),
+        tableau().getByText('Correction erreur de saisie'),
       ).toBeInTheDocument();
-      expect(screen.getByText('Admin Savr')).toBeInTheDocument();
+      expect(tableau().getByText('Admin Savr')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -820,11 +838,11 @@ describe('M0.6 — historique ajustements pack', () => {
       render(<PackAjustementsHistorique organisationId="org-1" />);
       await waitFor(
         () =>
-          expect(screen.getByText('Annulation du pack')).toBeInTheDocument(),
+          expect(tableau().getByText('Annulation du pack')).toBeInTheDocument(),
         ATTENTE_UI,
       );
-      expect(screen.getByText('Doublon de pack')).toBeInTheDocument();
-      expect(screen.getByText('Ops Un')).toBeInTheDocument();
+      expect(tableau().getByText('Doublon de pack')).toBeInTheDocument();
+      expect(tableau().getByText('Ops Un')).toBeInTheDocument();
       // Pas de crédits avant/après sur une annulation → « — ».
       expect(screen.queryByText(/→/)).not.toBeInTheDocument();
     },

@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { serverError, writeError, withApiTrace } from '@/lib/api-helpers.js';
+import {
+  sanitizeOrTerm,
+  serverError,
+  writeError,
+  withApiTrace,
+} from '@/lib/api-helpers.js';
+import { lireTri } from '@/lib/tri-liste.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import {
   MESSAGE_SIRET_INVALIDE,
@@ -19,6 +25,14 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
   const offset = (page - 1) * limit;
+  // Recherche par raison sociale CÔTÉ SERVEUR : la liste est paginée, filtrer
+  // la seule page chargée cacherait les organisations des pages suivantes.
+  // Paramètre optionnel — les autres appelants de la route sont inchangés.
+  const q = sanitizeOrTerm(searchParams.get('q') ?? '').trim();
+  const tri = lireTri(searchParams, ['raison_sociale', 'type', 'actif'], {
+    colonne: 'raison_sociale',
+    ascendant: true,
+  });
 
   // NB : PAS d'embed `evenements` ici. `evenements` a DEUX FK vers
   // `organisations` (`organisation_id` + `client_organisateur_organisation_id`)
@@ -37,8 +51,11 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     `,
       { count: 'exact' },
     )
-    .order('raison_sociale')
+    .order(tri.colonne, { ascending: tri.ascendant })
+    .order('id', { ascending: tri.ascendant })
     .range(offset, offset + limit - 1);
+
+  if (q) query = query.ilike('raison_sociale', `%${q}%`);
 
   if (type) query = query.eq('type', type);
   if (actif !== null) query = query.eq('actif', actif === 'true');

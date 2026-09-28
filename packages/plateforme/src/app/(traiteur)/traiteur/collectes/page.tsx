@@ -13,9 +13,12 @@ import type { CollecteType } from '@/components/dashboards/index.js';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
-  TraiteurCollecteCard,
-  type TraiteurCollecteCardData,
-} from '@/components/collecte/collecte-card-traiteur';
+  colonnesCollectesTraiteur,
+  type TraiteurCollecteLigne,
+} from '@/components/collecte/collectes-traiteur-table';
+import { DataGrid } from '@/components/ui/data-grid';
+import { EmptyState } from '@/components/ui/empty-state';
+import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
   CollecteFiltresBar,
@@ -29,16 +32,12 @@ import {
   readCollecteFiltreLabel,
   periodeCourte,
 } from '@/lib/dashboards/collecte-filtre-label';
-import {
-  decalerJour,
-  formatJour,
-  lundiDeLaSemaine,
-} from '@savr/shared/src/temps/index.js';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
 // actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
 // Programmées / Historique (statut) × sélecteur ZD / AG (type), cartes
-// simplifiées groupées par semaine, actions Modifier / Annuler / Dupliquer.
+// simplifiées, actions Modifier / Annuler / Dupliquer. Passée en Data Table
+// (décision Val 2026-09-28 : tableau plat, colonnes triables).
 
 // Répartition des statuts par onglet (aligné Admin, + brouillon/annulation_demandee).
 const STATUTS_PROGRAMMEES = ['brouillon', 'programmee', 'validee', 'en_cours'];
@@ -103,17 +102,6 @@ function parseJwt(token: string): Record<string, unknown> {
   } catch {
     return {};
   }
-}
-
-// Groupe les cartes par semaine (lundi), semaines triées, cartes par date.
-function lundiDe(dateStr: string): string {
-  return lundiDeLaSemaine(dateStr);
-}
-function libelleSemaine(lundi: string): string {
-  const fin = decalerJour(lundi, 6);
-  if (!fin) return lundi;
-  const fmt = (j: string) => formatJour(j, { day: '2-digit', month: 'short' });
-  return `Semaine du ${fmt(lundi)} — ${fmt(fin)}`;
 }
 
 function CollectesContent() {
@@ -379,53 +367,51 @@ function CollectesContent() {
     }
   }
 
-  // Cartes + groupement par semaine.
-  const groupes = useMemo(() => {
-    const cards = rows.map((c) => {
-      const evt = one(c.evenements);
-      const lieu = one(evt?.lieux ?? null);
-      const data: TraiteurCollecteCardData = {
-        id: c.id,
-        type: c.type,
-        statut: c.statut,
-        date_collecte: c.date_collecte,
-        heure_collecte: c.heure_collecte,
-        lieu_nom: lieu?.nom ?? null,
-        lieu_adresse:
-          [lieu?.adresse_acces, lieu?.code_postal, lieu?.ville]
-            .filter(Boolean)
-            .join(' ') || null,
-        pax: evt?.pax ?? null,
-        programmee_par_tiers: c.programmee_par_tiers,
-        poids_total_kg: c.poids_total_kg,
-        taux_recyclage: c.taux_recyclage,
-        co2_evite_kg: c.co2_evite_kg,
-        nb_repas_donnes: c.nb_repas_donnes,
-      };
-      return { data, row: c };
-    });
-    const map = new Map<string, typeof cards>();
-    for (const item of cards) {
-      const k = lundiDe(item.data.date_collecte);
-      if (!map.has(k)) map.set(k, []);
-      map.get(k)!.push(item);
-    }
-    // Tri par défaut §06.04 §3 : date DÉCROISSANTE (les plus récentes en
-    // premier), sans exception d'onglet — au niveau des semaines COMME à
-    // l'intérieur d'une semaine. Le tri conditionnel par onglet qui existait ici
-    // contredisait le CDC ; arbitrage Val 2026-09-21 (option B : c'est le code
-    // qui s'aligne), cf. _Divergences/_traités/2026-09/
-    // M3.1_20260921_tri_liste_collectes.md.
-    return [...map.entries()]
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([lundi, items]) => ({
-        lundi,
-        libelle: libelleSemaine(lundi),
-        items: items.sort((a, b) =>
-          b.data.date_collecte.localeCompare(a.data.date_collecte),
-        ),
-      }));
-  }, [rows]);
+  // Lignes de la Data Table (aplaties : lieu / pax / droit d'écriture).
+  const lignes = useMemo<TraiteurCollecteLigne[]>(
+    () =>
+      rows.map((c) => {
+        const evt = one(c.evenements);
+        const lieu = one(evt?.lieux ?? null);
+        return {
+          id: c.id,
+          type: c.type,
+          statut: c.statut,
+          date_collecte: c.date_collecte,
+          heure_collecte: c.heure_collecte,
+          lieu_nom: lieu?.nom ?? null,
+          lieu_adresse:
+            [lieu?.adresse_acces, lieu?.code_postal, lieu?.ville]
+              .filter(Boolean)
+              .join(' ') || null,
+          pax: evt?.pax ?? null,
+          programmee_par_tiers: c.programmee_par_tiers,
+          canWrite: canWrite(c),
+          poids_total_kg: c.poids_total_kg,
+          taux_recyclage: c.taux_recyclage,
+          co2_evite_kg: c.co2_evite_kg,
+          nb_repas_donnes: c.nb_repas_donnes,
+        };
+      }),
+    // canWrite dépend de role / userId (claims JWT chargés après coup).
+    [rows, role, userId],
+  );
+
+  const colonnes = useMemo(
+    () =>
+      colonnesCollectesTraiteur({
+        onModifier: (c) => router.push(`/traiteur/collectes/${c.id}?edit=1`),
+        onAnnuler: (c) => {
+          setAnnulErreur(null);
+          setAnnulMotif('');
+          setAnnulTarget(rows.find((r) => r.id === c.id) ?? null);
+        },
+        onDupliquer: (c) => router.push(`/programmer/nouveau?from=${c.id}`),
+        onTelecharger: (c) => void telechargerRapport(c.id),
+      }),
+    // telechargerRapport est stable (aucune dépendance d'état).
+    [router, rows],
+  );
 
   const estDemande = annulTarget?.statut === 'validee';
 
@@ -434,7 +420,7 @@ function CollectesContent() {
       <PageHero
         title="Collectes"
         icon={<Truck className="h-6 w-6" />}
-        subtitle="Vos collectes Zéro Déchet et Anti-Gaspi · cliquez une carte pour ouvrir la fiche"
+        subtitle="Vos collectes Zéro Déchet et Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
         actions={
           // Sur l'aplat navy du bandeau : secondaire (fond blanc) + CTA accent,
           // comme les autres PageHero ; un ghost navy y était invisible. Pas de
@@ -497,43 +483,32 @@ function CollectesContent() {
         resultats={rows.length}
       />
 
-      {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
-      ) : groupes.length === 0 ? (
-        <p className="text-sm text-savr-neutral-500">Aucune collecte.</p>
-      ) : (
-        <div className="space-y-6">
-          {groupes.map((g) => (
-            <section key={g.lundi} className="space-y-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-savr-neutral-400">
-                {g.libelle}
-              </h2>
-              <div className="space-y-2">
-                {g.items.map(({ data, row }) => (
-                  <TraiteurCollecteCard
-                    key={data.id}
-                    c={data}
-                    canWrite={canWrite(row)}
-                    onOpen={() => router.push(`/traiteur/collectes/${data.id}`)}
-                    onModifier={() =>
-                      router.push(`/traiteur/collectes/${data.id}?edit=1`)
-                    }
-                    onAnnuler={() => {
-                      setAnnulErreur(null);
-                      setAnnulMotif('');
-                      setAnnulTarget(row);
-                    }}
-                    onDupliquer={() =>
-                      router.push(`/programmer/nouveau?from=${data.id}`)
-                    }
-                    onTelecharger={() => void telechargerRapport(data.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+      {/* Tri par défaut §06.04 §3 : date DÉCROISSANTE, sans exception d'onglet
+          (arbitrage Val 2026-09-21, cf. _Divergences/_traités/2026-09/
+          M3.1_20260921_tri_liste_collectes.md). Colonnes triables ensuite. */}
+      <DataGrid
+        key={onglet}
+        data-testid="collectes-table"
+        columns={colonnes}
+        data={lignes}
+        getRowId={(c) => c.id}
+        loading={loading}
+        initialSorting={[{ id: 'date', desc: true }]}
+        initialColumnVisibility={
+          onglet === 'programmees' ? { resultats: false } : {}
+        }
+        onRowClick={(c) => router.push(`/traiteur/collectes/${c.id}`)}
+        rowLabel={(c) =>
+          `Ouvrir la collecte du ${libelleDateHeure(c.date_collecte, c.heure_collecte)}${c.lieu_nom ? ` — ${c.lieu_nom}` : ''}`
+        }
+        empty={
+          <EmptyState
+            icon={<Truck className="h-8 w-8" />}
+            title="Aucune collecte"
+            description="Aucune collecte ne correspond à ces filtres."
+          />
+        }
+      />
 
       {/* Modale d'annulation (liste) */}
       <Modal

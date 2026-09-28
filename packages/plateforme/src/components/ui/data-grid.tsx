@@ -124,7 +124,9 @@ function DataGrid<T>({
   initialSorting = [],
   manualSorting = false,
   initialColumnVisibility = {},
-  columnsToggle = false,
+  // Menu « Colonnes » actif par défaut sur TOUS les tableaux (décision Val
+  // 2026-09-28 : même format partout) ; `false` pour le retirer.
+  columnsToggle = true,
   toolbar,
   onRowClick,
   rowLabel,
@@ -175,7 +177,16 @@ function DataGrid<T>({
       if (interactive) e.stopPropagation();
     };
 
-  const hideable = table.getAllLeafColumns().filter((c) => c.getCanHide());
+  // Colonnes proposées dans le menu : celles qui ont un titre visible. Une
+  // colonne d'actions (titre `sr-only`) reste toujours affichée.
+  const hideable = table
+    .getAllLeafColumns()
+    .filter(
+      (c) =>
+        c.getCanHide() &&
+        typeof c.columnDef.header === 'string' &&
+        c.columnDef.header !== '',
+    );
   const rows = table.getRowModel().rows;
 
   const rowProps = (row: Row<T>) =>

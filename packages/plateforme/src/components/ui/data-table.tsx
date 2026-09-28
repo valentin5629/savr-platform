@@ -70,6 +70,9 @@ function DataTable<T>({
           return v == null ? '' : v;
         },
         enableSorting: tri && col.sortable === true,
+        // Colonne sans titre (actions) : jamais masquable, elle n'aurait pas de
+        // libellé dans le menu « Colonnes ».
+        enableHiding: col.header !== '',
         cell: ({ row }) =>
           col.render
             ? col.render(row.original)

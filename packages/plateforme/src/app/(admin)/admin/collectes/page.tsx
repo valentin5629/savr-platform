@@ -863,7 +863,6 @@ export default function CollectesPage() {
           setPage(1);
         }}
         initialColumnVisibility={COLONNES_MASQUEES[tab]}
-        columnsToggle
         toolbar={
           !loading && total > 0 ? (
             <span className="text-sm text-savr-neutral-500">

@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { FormError } from '@/components/ui/form-error';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 
 // Panneau « Mon compte » RGPD (transverse, tous rôles) — câble les droits :
 //   · Art.16 Rectification  → PATCH /api/me/profil  (prénom / nom)
@@ -14,7 +17,11 @@ export function RgpdComptePanel(): React.JSX.Element {
   const [nom, setNom] = useState('');
   const [telephone, setTelephone] = useState('');
   const [chargement, setChargement] = useState(true);
+  // Chargement en échec : formulaire bloqué — l'enregistrer tel quel (vide)
+  // effacerait le téléphone.
+  const [chargementKo, setChargementKo] = useState(false);
   const [profilMsg, setProfilMsg] = useState<string | null>(null);
+  const [profilErreur, setProfilErreur] = useState<string | null>(null);
   const [suppressionMsg, setSuppressionMsg] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -22,12 +29,16 @@ export function RgpdComptePanel(): React.JSX.Element {
     void (async () => {
       try {
         const res = await fetch('/api/me/profil');
-        if (res.ok) {
-          const { data } = await res.json();
-          setPrenom(data?.prenom ?? '');
-          setNom(data?.nom ?? '');
-          setTelephone(data?.telephone ?? '');
-        }
+        if (!res.ok) throw new Error();
+        const { data } = await res.json();
+        setPrenom(data?.prenom ?? '');
+        setNom(data?.nom ?? '');
+        setTelephone(data?.telephone ?? '');
+      } catch {
+        setChargementKo(true);
+        setProfilErreur(
+          'Impossible de charger vos informations. Veuillez recharger la page.',
+        );
       } finally {
         setChargement(false);
       }
@@ -38,15 +49,17 @@ export function RgpdComptePanel(): React.JSX.Element {
     e.preventDefault();
     setEnCours(true);
     setProfilMsg(null);
+    setProfilErreur(null);
     try {
       const res = await fetch('/api/me/profil', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ prenom, nom, telephone }),
       });
-      setProfilMsg(
-        res.ok ? 'Profil mis à jour.' : 'Échec de la mise à jour du profil.',
-      );
+      if (res.ok) setProfilMsg('Profil mis à jour.');
+      else setProfilErreur('Échec de la mise à jour du profil.');
+    } catch {
+      setProfilErreur('Échec de la mise à jour du profil.');
     } finally {
       setEnCours(false);
     }
@@ -99,45 +112,47 @@ export function RgpdComptePanel(): React.JSX.Element {
         <CardContent>
           <form onSubmit={enregistrerProfil} className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm">
-                <span className="text-savr-neutral-500">Prénom</span>
-                <input
+              <FormField label="Prénom" htmlFor="profil-prenom">
+                <Input
+                  id="profil-prenom"
                   value={prenom}
+                  autoComplete="given-name"
                   onChange={(e) => setPrenom(e.target.value)}
-                  disabled={chargement}
-                  className="mt-1 w-full rounded border border-savr-neutral-300 px-3 py-2 text-sm"
+                  disabled={chargement || chargementKo}
                 />
-              </label>
-              <label className="block text-sm">
-                <span className="text-savr-neutral-500">Nom</span>
-                <input
+              </FormField>
+              <FormField label="Nom" htmlFor="profil-nom">
+                <Input
+                  id="profil-nom"
                   value={nom}
+                  autoComplete="family-name"
                   onChange={(e) => setNom(e.target.value)}
-                  disabled={chargement}
-                  className="mt-1 w-full rounded border border-savr-neutral-300 px-3 py-2 text-sm"
+                  disabled={chargement || chargementKo}
                 />
-              </label>
-              <label className="block text-sm">
-                <span className="text-savr-neutral-500">Téléphone</span>
-                <input
+              </FormField>
+              <FormField label="Téléphone" htmlFor="profil-telephone">
+                <Input
+                  id="profil-telephone"
                   type="tel"
                   value={telephone}
+                  autoComplete="tel"
                   onChange={(e) => setTelephone(e.target.value)}
-                  disabled={chargement}
-                  className="mt-1 w-full rounded border border-savr-neutral-300 px-3 py-2 text-sm"
+                  disabled={chargement || chargementKo}
                 />
-              </label>
+              </FormField>
             </div>
-            <div className="flex items-center gap-3">
-              <Button type="submit" disabled={enCours || chargement}>
-                Enregistrer
-              </Button>
-              {profilMsg && (
-                <span className="text-xs text-savr-neutral-500">
-                  {profilMsg}
-                </span>
-              )}
-            </div>
+            <FormError>{profilErreur}</FormError>
+            {profilMsg && (
+              <p role="status" className="text-sm text-savr-success-strong">
+                {profilMsg}
+              </p>
+            )}
+            <Button
+              type="submit"
+              disabled={enCours || chargement || chargementKo}
+            >
+              Enregistrer
+            </Button>
           </form>
         </CardContent>
       </Card>

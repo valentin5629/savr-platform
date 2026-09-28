@@ -4,8 +4,15 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { serverError, writeError } from '@/lib/api-helpers.js';
+import { writeError } from '@/lib/api-helpers.js';
 import { parseCleLogo } from '@/lib/logo-key.js';
+import {
+  auditerInfosLegales,
+  lireInfosLegalesAvant,
+  lireProfilOrganisation,
+  PROFIL_ORG_COLUMNS,
+  validerInfosLegales,
+} from '@/lib/organisation-infos-legales.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -17,38 +24,18 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // tiers passent par la vue v_traiteurs_gestionnaire), mais le filtre reste la
 // garantie d'une ligne unique si une policy s'élargit.
 // Colonnes = colonnes RÉELLES de plateforme.organisations.
-// Champs éditables (§06.05 §6 Bloc Organisation) : adresse, logo_url.
-// Nom en lecture seule (modification via support) ; raison_sociale et siret
-// réservés à l'Admin.
-
-const PROFIL_COLUMNS =
-  'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url';
-
-const EDITABLE_FIELDS = new Set(['adresse', 'logo_url']);
-
-const ADRESSE_MAX = 500;
+// Champs éditables : §06.05 §6 Bloc Organisation (adresse, logo_url) + raison
+// sociale et SIRET (décision Val 2026-09-28 — informations légales modifiables par
+// tous les rôles ; le CDC les réservait à l'Admin). Nom en lecture seule
+// (modification via support). Garde DB : trigger trg_block_org_gestionnaire_cols_update.
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-
-  const supabase = createSupabaseServerClient();
-
-  const { data, error } = await supabase
-    .from('organisations')
-    .select(PROFIL_COLUMNS)
-    .eq('id', auth.ctx.organisationId)
-    .maybeSingle();
-
-  if (error)
-    return serverError(error, 'gestionnaire.mon_organisation.profil.list');
-  if (!data)
-    return NextResponse.json(
-      { error: 'Organisation non trouvée' },
-      { status: 404 },
-    );
-
-  return NextResponse.json({ data });
+  return lireProfilOrganisation(
+    auth.ctx.organisationId,
+    'gestionnaire.mon_organisation.profil.list',
+  );
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
@@ -64,38 +51,33 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'JSON invalide' }, { status: 400 });
   }
 
-  // Filtrer les champs non autorisés
-  const patch: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(body)) {
-    if (EDITABLE_FIELDS.has(k)) patch[k] = v;
-  }
+  // Informations légales : validation commune (lib/organisation-infos-legales).
+  const valide = validerInfosLegales(body);
+  if ('error' in valide) return valide.error;
+  const patch: Record<string, unknown> = { ...valide.patch };
+  if ('logo_url' in body) patch.logo_url = body.logo_url;
   if (Object.keys(patch).length === 0)
     return NextResponse.json(
       { error: 'Aucun champ éditable fourni' },
       { status: 400 },
     );
-
-  if ('adresse' in patch) {
-    if (typeof patch.adresse !== 'string')
-      return NextResponse.json({ error: 'Adresse invalide' }, { status: 422 });
-    const adresse = patch.adresse.trim();
-    if (adresse.length > ADRESSE_MAX)
-      return NextResponse.json(
-        { error: `Adresse trop longue (${ADRESSE_MAX} caractères maximum)` },
-        { status: 422 },
-      );
-    patch.adresse = adresse === '' ? null : adresse;
-  }
   // logo_url = uniquement une clé produite par POST /logo (lib/logo-key.ts,
   // même garde que les lecteurs R2 et que le trigger trg_garde_format_logo).
   if ('logo_url' in patch && !parseCleLogo(patch.logo_url as string | null))
     return NextResponse.json({ error: 'Logo invalide' }, { status: 422 });
 
+  // Anciennes valeurs des champs légaux, pour l'audit (§06.04 §6 l.660).
+  const before = await lireInfosLegalesAvant(
+    supabase,
+    auth.ctx.organisationId,
+    patch,
+  );
+
   const { data, error } = await supabase
     .from('organisations')
     .update(patch)
     .eq('id', auth.ctx.organisationId)
-    .select(PROFIL_COLUMNS)
+    .select(PROFIL_ORG_COLUMNS)
     .maybeSingle();
 
   if (error)
@@ -106,5 +88,11 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       { status: 404 },
     );
 
+  await auditerInfosLegales(
+    before,
+    patch,
+    auth.ctx.organisationId,
+    auth.ctx.userId,
+  );
   return NextResponse.json({ data });
 }

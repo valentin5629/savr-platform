@@ -364,10 +364,69 @@ describe('M3.2 / P2 listes colonnes', () => {
     'M3.2/P2_lieux_colonne_capacite — Capacité rendue',
     async () => {
       render(<GestionnaireLieuxPage />);
+      // DataTable rend chaque colonne deux fois (tableau >= 640px + cards
+      // mobile, §10 §8) : les deux variantes coexistent dans le DOM jsdom.
       expect(
-        await screen.findByText('Capacité', undefined, ATTENTE_UI),
+        (await screen.findAllByText('Capacité', undefined, ATTENTE_UI)).length,
+      ).toBeGreaterThan(0);
+      expect(screen.getAllByText('3500 pers.').length).toBeGreaterThan(0);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/P2_lieux_etat_erreur_distinct_du_vide — échec de chargement ≠ liste vide',
+    async () => {
+      // §10 §7 « Error » : avant correction, le fetch sans .catch laissait
+      // rows=[] → une 500 s'affichait à l'identique d'un parc réellement vide.
+      const enEchec = vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({}),
+        } as Response),
+      );
+      vi.stubGlobal('fetch', enEchec);
+      render(<GestionnaireLieuxPage />);
+
+      expect(
+        await screen.findByText(
+          'Impossible de charger vos lieux',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toBeInTheDocument();
-      expect(screen.getByText('3500 pers.')).toBeInTheDocument();
+      expect(enEchec).toHaveBeenCalled();
+      expect(screen.queryByText('Aucun lieu associé')).toBeNull();
+
+      // « Réessayer » relance réellement l'appel, et la liste se peuple.
+      vi.stubGlobal('fetch', fetchMock);
+      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+      expect(
+        (
+          await screen.findAllByText(
+            'Palais des Congrès',
+            undefined,
+            ATTENTE_UI,
+          )
+        ).length,
+      ).toBeGreaterThan(0);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "M3.2/P2_lieux_etat_vide — parc vide rend l'EmptyState, pas un tableau nu",
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => jsonResponse({ data: [] })),
+      );
+      render(<GestionnaireLieuxPage />);
+      expect(
+        await screen.findByText('Aucun lieu associé', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Capacité')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

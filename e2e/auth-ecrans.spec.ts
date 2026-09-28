@@ -26,3 +26,13 @@ test('AUTH-ECRANS-1 — /signup : Continuer puis Retour ramène à l’étape 1'
     page.locator('input[name="type_profil"][value="traiteur"]'),
   ).toBeChecked();
 });
+
+test('AUTH-ECRANS-2 — /login : carte arrondie à 12 px (exception DS §5.2 tracée)', async ({
+  page,
+}) => {
+  await page.goto('/login');
+  const carte = page
+    .locator('main form')
+    .locator('xpath=ancestor::div[contains(@class,"rounded-savr-lg")][1]');
+  await expect(carte).toHaveCSS('border-top-left-radius', '12px');
+});

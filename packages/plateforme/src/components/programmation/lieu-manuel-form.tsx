@@ -8,6 +8,7 @@ import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
 import { Label } from '@/components/ui/label';
 import type { LieuOption } from '@/components/programmation/lieu-combobox';
+import { AdresseAutocompleteInput } from '@/components/programmation/adresse-autocomplete-input';
 
 // Formulaire lieu manuel inline (quick-add « lieu hors référentiel » §06.01).
 // Extrait dans son propre fichier (pas exporté depuis la page) : Next.js App Router
@@ -87,14 +88,34 @@ export function LieuManuelForm({
             htmlFor={`lieu-${field}`}
             required
           >
-            <Input
-              id={`lieu-${field}`}
-              placeholder={CHAMPS[field].placeholder}
-              value={form[field]}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, [field]: e.target.value }))
-              }
-            />
+            {field === 'adresse_acces' ? (
+              // Suggestions BAN : choisir une adresse remplit aussi CP + ville.
+              <AdresseAutocompleteInput
+                id={`lieu-${field}`}
+                placeholder={CHAMPS[field].placeholder}
+                value={form.adresse_acces}
+                onChange={(adresse_acces) =>
+                  setForm((p) => ({ ...p, adresse_acces }))
+                }
+                onSelect={(s) =>
+                  setForm((p) => ({
+                    ...p,
+                    adresse_acces: s.adresse,
+                    code_postal: s.codePostal,
+                    ville: s.ville,
+                  }))
+                }
+              />
+            ) : (
+              <Input
+                id={`lieu-${field}`}
+                placeholder={CHAMPS[field].placeholder}
+                value={form[field]}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, [field]: e.target.value }))
+                }
+              />
+            )}
           </FormField>
         ),
       )}

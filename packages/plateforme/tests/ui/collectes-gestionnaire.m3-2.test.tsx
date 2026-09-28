@@ -27,6 +27,7 @@ import {
   fireEvent,
   cleanup,
   act,
+  within,
 } from '@testing-library/react';
 
 const { push, replace, urlParams } = vi.hoisted(() => ({
@@ -107,8 +108,8 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         ),
       ).toBeTruthy();
 
-      // DataTable (§10 §6) : role="grid", en-têtes, lignes rendues.
-      expect(screen.getByRole('grid')).toBeTruthy();
+      // DataGrid (Data Table shadcn, §10 §6) : tableau, en-têtes, lignes rendues.
+      expect(screen.getByRole('table')).toBeTruthy();
       for (const entete of ['Date', 'Lieu', 'Événement', 'Type', 'Statut']) {
         expect(
           screen.getAllByRole('columnheader', { name: entete }).length,
@@ -173,7 +174,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       // L'oracle de la régression : une panne ne se lit JAMAIS comme une liste
       // vide. Avant ce lot, l'écran affichait « Aucune collecte sur vos lieux ».
       expect(screen.queryByText(/Aucune collecte/)).toBeNull();
-      expect(screen.queryByRole('grid')).toBeNull();
+      expect(screen.queryByRole('table')).toBeNull();
 
       // « Réessayer » relance réellement la requête et rend les lignes.
       fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
@@ -238,7 +239,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(
         screen.queryByText('Le chargement des collectes a échoué.'),
       ).toBeNull();
-      expect(screen.getByRole('grid')).toBeTruthy();
+      expect(screen.getByRole('table')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
@@ -352,11 +353,42 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
   );
 
   it(
+    'M3.2/collectes_tri_envoye_au_serveur_et_retour_page_1',
+    async () => {
+      const urls = fetchEspion({ data: PAGE, total: 120 });
+      render(<CollectesPage />);
+      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+
+      // Tri par défaut = celui de la route (date décroissante).
+      expect(urls[0]).toContain('tri=date&ordre=desc');
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+      });
+      expect(urls[urls.length - 1]).toContain('page=2');
+
+      // Clic sur l'en-tête « Statut » : trié AU SERVEUR (liste paginée) et
+      // retour en page 1 — la page 2 d'un autre ordre n'a aucun rapport.
+      await act(async () => {
+        fireEvent.click(
+          within(screen.getByRole('table')).getByRole('button', {
+            name: /Statut/,
+          }),
+        );
+      });
+      const derniere = urls[urls.length - 1]!;
+      expect(derniere).toMatch(/tri=statut&ordre=/);
+      expect(derniere).not.toContain('page=');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/collectes_pagination_absente_sous_le_seuil',
     async () => {
       fetchEspion({ data: LIGNES, total: LIGNES.length });
       render(<CollectesPage />);
-      await screen.findByRole('grid', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       // Une seule page : ni compteur ni nav, sinon l'écran s'encombre d'une
       // pagination qui ne mène nulle part.
@@ -477,7 +509,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         'lieu=L1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&type_evenement_ids[]=ty-cocktail&taille_evenements[]=M&taille_evenements[]=XL';
       const urls = fetchEspion({ data: PAGE, total: 50 });
       render(<CollectesPage />);
-      await screen.findByRole('grid', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       const demande = new URLSearchParams(
         urls[urls.length - 1]!.split('?')[1] ?? '',
@@ -502,7 +534,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         'lieu=L1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&type_evenement_ids[]=ty-cocktail&taille_evenements[]=M';
       fetchEspion({ data: PAGE, total: 50 });
       render(<CollectesPage />);
-      await screen.findByRole('grid', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       // Type/Taille viennent des filtres globaux du dashboard et n'ont AUCUN
       // contrôle sur cet écran : sans mention dans le chip, la liste est
@@ -554,7 +586,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         'lieu=L1&type_evenement_ids[]=ty-gala&taille_evenements[]=M';
       fetchEspion({ data: PAGE, total: 50 });
       render(<CollectesPage />);
-      await screen.findByRole('grid', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       fireEvent.click(
         screen.getByRole('button', { name: /Retirer le filtre/i }),

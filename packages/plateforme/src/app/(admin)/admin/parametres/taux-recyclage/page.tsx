@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Recycle, Edit, History, X } from 'lucide-react';
+import { Recycle, Edit, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { Card } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 
@@ -51,6 +53,65 @@ interface HistState {
 }
 
 const pct = (v: number) => `${(v * 100).toFixed(2)} %`;
+
+// Valeur avant → après seulement si elle a changé.
+const avantApres = (avant: string | null, apres: string | null): string =>
+  avant !== apres ? `${avant ?? '—'} → ${apres ?? '—'}` : (apres ?? '—');
+
+// Historique des modifications d'une filière (lecture seule, CDC §9 l.796-800).
+const COLONNES_HISTORIQUE: ColumnDef<HistoryRow, unknown>[] = [
+  {
+    id: 'date',
+    header: 'Date',
+    accessorFn: (r) => r.modifie_le,
+    meta: { className: 'whitespace-nowrap text-savr-neutral-600' },
+    cell: ({ row: { original: r } }) =>
+      new Date(r.modifie_le).toLocaleDateString('fr-FR', {
+        timeZone: 'Europe/Paris',
+      }),
+  },
+  {
+    id: 'modifie_par',
+    header: 'Modifié par',
+    accessorFn: (r) => r.modifie_par_nom,
+    meta: { className: 'text-savr-neutral-700' },
+    cell: ({ row: { original: r } }) => r.modifie_par_nom,
+  },
+  {
+    id: 'taux',
+    header: 'Taux',
+    accessorFn: (r) => r.taux_captation_apres,
+    meta: { className: 'whitespace-nowrap text-savr-neutral-700' },
+    cell: ({ row: { original: r } }) => (
+      <>
+        {pct(r.taux_captation_avant)} → {pct(r.taux_captation_apres)}
+      </>
+    ),
+  },
+  {
+    id: 'prestataire',
+    header: 'Prestataire',
+    accessorFn: (r) => r.prestataire_apres ?? '',
+    meta: { className: 'text-savr-neutral-600' },
+    cell: ({ row: { original: r } }) =>
+      avantApres(r.prestataire_avant, r.prestataire_apres),
+  },
+  {
+    id: 'source',
+    header: 'Source',
+    accessorFn: (r) => r.source_donnee_apres ?? '',
+    meta: { className: 'text-savr-neutral-600' },
+    cell: ({ row: { original: r } }) =>
+      avantApres(r.source_donnee_avant, r.source_donnee_apres),
+  },
+  {
+    id: 'commentaire',
+    header: 'Commentaire',
+    accessorFn: (r) => r.commentaire_modif,
+    meta: { className: 'text-savr-neutral-600' },
+    cell: ({ row: { original: r } }) => r.commentaire_modif,
+  },
+];
 
 export default function TauxRecyclagePage() {
   const role = useUserRole();
@@ -212,131 +273,84 @@ export default function TauxRecyclagePage() {
       )}
 
       {/* Modal modification */}
-      {modal.open && modal.filiere && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
-            <h2 className="font-semibold text-savr-neutral-900">
-              Modifier — {modal.filiere.nom_filiere}
-            </h2>
-            <div className="space-y-3">
-              <FormField
-                label="Taux de captation (%)"
-                htmlFor="taux-recyclage-captation"
-              >
-                <Input
-                  id="taux-recyclage-captation"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={modal.taux}
-                  onChange={(e) =>
-                    setModal((m) => ({ ...m, taux: e.target.value }))
-                  }
-                />
-              </FormField>
-              <FormField
-                label="Commentaire de modification (obligatoire)"
-                htmlFor="taux-recyclage-commentaire"
-              >
-                <Textarea
-                  id="taux-recyclage-commentaire"
-                  className="resize-none"
-                  rows={3}
-                  placeholder="Motif de la modification…"
-                  value={modal.commentaire}
-                  onChange={(e) =>
-                    setModal((m) => ({ ...m, commentaire: e.target.value }))
-                  }
-                />
-              </FormField>
-              {modal.error && (
-                <p className="text-savr-error-600 text-sm">{modal.error}</p>
-              )}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={closeModal}>
-                Annuler
-              </Button>
-              <Button
-                onClick={() => void handleSave()}
-                disabled={modal.saving || modal.commentaire.length < 5}
-              >
-                {modal.saving ? 'Enregistrement…' : 'Enregistrer'}
-              </Button>
-            </div>
-          </div>
+      {/* Modale DS (§10 §6) : croix, Échap et clic extérieur ferment. */}
+      <Modal
+        open={modal.open && modal.filiere !== null}
+        title={`Modifier — ${modal.filiere?.nom_filiere ?? ''}`}
+        onClose={closeModal}
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeModal}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => void handleSave()}
+              disabled={modal.saving || modal.commentaire.length < 5}
+            >
+              {modal.saving ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <FormField
+            label="Taux de captation (%)"
+            htmlFor="taux-recyclage-captation"
+          >
+            <Input
+              id="taux-recyclage-captation"
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={modal.taux}
+              onChange={(e) =>
+                setModal((m) => ({ ...m, taux: e.target.value }))
+              }
+            />
+          </FormField>
+          <FormField
+            label="Commentaire de modification (obligatoire)"
+            htmlFor="taux-recyclage-commentaire"
+          >
+            <Textarea
+              id="taux-recyclage-commentaire"
+              className="resize-none"
+              rows={3}
+              placeholder="Motif de la modification…"
+              value={modal.commentaire}
+              onChange={(e) =>
+                setModal((m) => ({ ...m, commentaire: e.target.value }))
+              }
+            />
+          </FormField>
+          {modal.error && (
+            <p className="text-savr-error-strong text-sm">{modal.error}</p>
+          )}
         </div>
-      )}
+      </Modal>
 
       {/* Modal historique (lecture seule — CDC §9 l.796-800) */}
-      {hist.open && hist.filiere && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-savr-neutral-100 px-6 py-4">
-              <h2 className="font-semibold text-savr-neutral-900">
-                Historique — {hist.filiere.nom_filiere}
-              </h2>
-              <button onClick={closeHistory} aria-label="Fermer">
-                <X className="h-5 w-5 text-savr-neutral-400" />
-              </button>
-            </div>
-            <div className="p-6">
-              {hist.loading ? (
-                <Skeleton className="h-32 w-full" />
-              ) : hist.rows.length === 0 ? (
-                <p className="text-sm text-savr-neutral-500">
-                  Aucune modification enregistrée.
-                </p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="text-savr-neutral-500 text-left">
-                    <tr>
-                      <th className="py-2 pr-3 font-medium">Date</th>
-                      <th className="py-2 pr-3 font-medium">Modifié par</th>
-                      <th className="py-2 pr-3 font-medium">Taux</th>
-                      <th className="py-2 pr-3 font-medium">Prestataire</th>
-                      <th className="py-2 pr-3 font-medium">Source</th>
-                      <th className="py-2 font-medium">Commentaire</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-savr-neutral-100 align-top">
-                    {hist.rows.map((r) => (
-                      <tr key={r.id}>
-                        <td className="py-2 pr-3 text-savr-neutral-600 whitespace-nowrap">
-                          {new Date(r.modifie_le).toLocaleDateString('fr-FR', {
-                            timeZone: 'Europe/Paris',
-                          })}
-                        </td>
-                        <td className="py-2 pr-3 text-savr-neutral-700">
-                          {r.modifie_par_nom}
-                        </td>
-                        <td className="py-2 pr-3 text-savr-neutral-700 whitespace-nowrap">
-                          {pct(r.taux_captation_avant)} →{' '}
-                          {pct(r.taux_captation_apres)}
-                        </td>
-                        <td className="py-2 pr-3 text-savr-neutral-600">
-                          {r.prestataire_avant !== r.prestataire_apres
-                            ? `${r.prestataire_avant ?? '—'} → ${r.prestataire_apres ?? '—'}`
-                            : (r.prestataire_apres ?? '—')}
-                        </td>
-                        <td className="py-2 pr-3 text-savr-neutral-600">
-                          {r.source_donnee_avant !== r.source_donnee_apres
-                            ? `${r.source_donnee_avant ?? '—'} → ${r.source_donnee_apres ?? '—'}`
-                            : (r.source_donnee_apres ?? '—')}
-                        </td>
-                        <td className="py-2 text-savr-neutral-600">
-                          {r.commentaire_modif}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={hist.open && hist.filiere !== null}
+        title={`Historique — ${hist.filiere?.nom_filiere ?? ''}`}
+        onClose={closeHistory}
+        wide
+      >
+        {/* Historique complet d'une filière (route sans pagination,
+                  triée par date desc) → tri navigateur. */}
+        <DataGrid
+          columns={COLONNES_HISTORIQUE}
+          data={hist.rows}
+          getRowId={(r) => r.id}
+          loading={hist.loading}
+          empty={
+            <p className="text-sm text-savr-neutral-500">
+              Aucune modification enregistrée.
+            </p>
+          }
+        />
+      </Modal>
     </div>
   );
 }

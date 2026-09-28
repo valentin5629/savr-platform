@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
+import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -334,63 +335,83 @@ function EntitesCard({
 
   const actives = entites.filter((e) => e.actif);
 
+  const colonnes: ColumnDef<Entite, unknown>[] = [
+    {
+      id: 'raison_sociale',
+      header: 'Raison sociale',
+      accessorFn: (e) => e.raison_sociale,
+      cell: ({ row: { original: e } }) => e.raison_sociale,
+    },
+    {
+      id: 'siret',
+      header: 'SIRET',
+      accessorFn: (e) => e.siret,
+      meta: { className: 'tabular-nums' },
+      cell: ({ row: { original: e } }) => e.siret,
+    },
+    {
+      id: 'contact',
+      header: 'Contact facturation',
+      accessorFn: (e) => e.email_facturation ?? '',
+      cell: ({ row: { original: e } }) => e.email_facturation ?? '—',
+    },
+    {
+      id: 'verification',
+      header: 'Vérif.',
+      accessorFn: (e) => e.siret_verification,
+      cell: ({ row: { original: e } }) => (
+        <Badge
+          variant={e.siret_verification === 'verifie' ? 'success' : 'neutral'}
+        >
+          {e.siret_verification}
+        </Badge>
+      ),
+    },
+    {
+      id: 'defaut',
+      header: 'Défaut',
+      accessorFn: (e) => (e.entite_par_defaut ? 0 : 1),
+      cell: ({ row: { original: e } }) => (e.entite_par_defaut ? '★' : ''),
+    },
+    ...(isManager
+      ? [
+          {
+            id: 'actions',
+            header: () => <span className="sr-only">Actions</span>,
+            meta: { label: 'Actions', interactive: true },
+            cell: ({ row: { original: e } }) =>
+              !e.entite_par_defaut && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-savr-error text-xs"
+                  onClick={() => remove(e.id)}
+                >
+                  Supprimer
+                </Button>
+              ),
+          } satisfies ColumnDef<Entite, unknown>,
+        ]
+      : []),
+  ];
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Entités de facturation</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {actives.length === 0 ? (
-          <p className="text-sm text-savr-neutral-500">Aucune entité.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase text-savr-neutral-500">
-              <tr>
-                <th className="py-1">Raison sociale</th>
-                <th className="py-1">SIRET</th>
-                <th className="py-1">Contact facturation</th>
-                <th className="py-1">Vérif.</th>
-                <th className="py-1">Défaut</th>
-                {isManager && <th className="py-1"></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {actives.map((e) => (
-                <tr key={e.id} className="border-t border-savr-neutral-100">
-                  <td className="py-1">{e.raison_sociale}</td>
-                  <td className="py-1">{e.siret}</td>
-                  <td className="py-1">{e.email_facturation ?? '—'}</td>
-                  <td className="py-1">
-                    <Badge
-                      variant={
-                        e.siret_verification === 'verifie'
-                          ? 'success'
-                          : 'neutral'
-                      }
-                    >
-                      {e.siret_verification}
-                    </Badge>
-                  </td>
-                  <td className="py-1">{e.entite_par_defaut ? '★' : ''}</td>
-                  {isManager && (
-                    <td className="py-1">
-                      {!e.entite_par_defaut && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-savr-error text-xs"
-                          onClick={() => remove(e.id)}
-                        >
-                          Supprimer
-                        </Button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        {/* Data Table commune, tri côté navigateur : la route renvoie toutes
+            les entités de l'organisation (aucune pagination). Ordre initial =
+            celui de la route (entité par défaut d'abord). */}
+        <DataGrid
+          columns={colonnes}
+          data={actives}
+          getRowId={(e) => e.id}
+          empty={
+            <p className="text-sm text-savr-neutral-500">Aucune entité.</p>
+          }
+        />
 
         {isManager &&
           (showForm ? (
@@ -633,6 +654,89 @@ function EquipeTab({ userId }: { userId: string }) {
     reload();
   }
 
+  const colonnes: ColumnDef<UserRow, unknown>[] = [
+    {
+      id: 'nom',
+      header: 'Nom',
+      accessorFn: (u) => `${u.prenom ?? ''} ${u.nom ?? ''}`.trim(),
+      cell: ({ row: { original: u } }) => (
+        <>
+          {u.prenom} {u.nom}
+        </>
+      ),
+    },
+    {
+      id: 'email',
+      header: 'Email',
+      accessorFn: (u) => u.email,
+      cell: ({ row: { original: u } }) => u.email,
+    },
+    {
+      id: 'role',
+      header: 'Rôle',
+      accessorFn: (u) =>
+        ROLE_OPTIONS.find((o) => o.value === u.role)?.label ?? u.role,
+      // Saisie dans la cellule : le clic/clavier ne remonte pas à la ligne.
+      meta: { interactive: true },
+      cell: ({ row: { original: u } }) => (
+        /* Sa PROPRE ligne : rôle en lecture seule. Le CDC §06.04 §6 ne prévoit
+           que « modifier le rôle d'un COLLABORATEUR », et la base refuse
+           désormais tout auto-changement (volet 3 du trigger anti-escalade,
+           20260921170000). Sans ce grisage, la liste resterait cliquable pour
+           un refus silencieux. */
+        <span
+          className="block w-36"
+          title={
+            u.id === userId
+              ? 'Vous ne pouvez pas modifier votre propre rôle'
+              : undefined
+          }
+        >
+          <Combobox
+            aria-label={`Rôle de ${u.prenom} ${u.nom}`}
+            icon={null}
+            options={ROLE_OPTIONS}
+            value={u.role}
+            disabled={u.id === userId}
+            onChange={(v) => changeRole(u.id, v)}
+          />
+        </span>
+      ),
+    },
+    {
+      id: 'derniere_connexion',
+      header: 'Dernière connexion',
+      accessorFn: (u) => u.derniere_connexion ?? '',
+      cell: ({ row: { original: u } }) => u.derniere_connexion ?? '—',
+    },
+    {
+      id: 'statut',
+      header: 'Statut',
+      accessorFn: (u) => (u.actif ? 'Actif' : 'Suspendu'),
+      cell: ({ row: { original: u } }) => (
+        <Badge variant={u.actif ? 'success' : 'neutral'}>
+          {u.actif ? 'Actif' : 'Suspendu'}
+        </Badge>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      meta: { label: 'Actions', interactive: true },
+      cell: ({ row: { original: u } }) =>
+        u.actif && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-savr-error text-xs"
+            onClick={() => suspend(u.id)}
+          >
+            Suspendre
+          </Button>
+        ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <Card>
@@ -640,75 +744,16 @@ function EquipeTab({ userId }: { userId: string }) {
           <CardTitle>Utilisateurs</CardTitle>
         </CardHeader>
         <CardContent>
-          {users.length === 0 ? (
-            <p className="text-sm text-savr-neutral-500">Aucun membre.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-savr-neutral-500">
-                <tr>
-                  <th className="py-1">Nom</th>
-                  <th className="py-1">Email</th>
-                  <th className="py-1">Rôle</th>
-                  <th className="py-1">Dernière connexion</th>
-                  <th className="py-1">Statut</th>
-                  <th className="py-1"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="border-t border-savr-neutral-100">
-                    <td className="py-1">
-                      {u.prenom} {u.nom}
-                    </td>
-                    <td className="py-1">{u.email}</td>
-                    <td className="py-1">
-                      {/* Sa PROPRE ligne : rôle en lecture seule. Le CDC §06.04
-                          §6 ne prévoit que « modifier le rôle d'un COLLABORATEUR »,
-                          et la base refuse désormais tout auto-changement (volet 3
-                          du trigger anti-escalade, 20260921170000). Sans ce
-                          grisage, la liste resterait cliquable pour un refus
-                          silencieux. */}
-                      <span
-                        className="block w-36"
-                        title={
-                          u.id === userId
-                            ? 'Vous ne pouvez pas modifier votre propre rôle'
-                            : undefined
-                        }
-                      >
-                        <Combobox
-                          aria-label={`Rôle de ${u.prenom} ${u.nom}`}
-                          icon={null}
-                          options={ROLE_OPTIONS}
-                          value={u.role}
-                          disabled={u.id === userId}
-                          onChange={(v) => changeRole(u.id, v)}
-                        />
-                      </span>
-                    </td>
-                    <td className="py-1">{u.derniere_connexion ?? '—'}</td>
-                    <td className="py-1">
-                      <Badge variant={u.actif ? 'success' : 'neutral'}>
-                        {u.actif ? 'Actif' : 'Suspendu'}
-                      </Badge>
-                    </td>
-                    <td className="py-1">
-                      {u.actif && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-savr-error text-xs"
-                          onClick={() => suspend(u.id)}
-                        >
-                          Suspendre
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {/* Data Table commune, tri côté navigateur : la route /equipe
+              renvoie tous les membres de l'organisation (aucune pagination). */}
+          <DataGrid
+            columns={colonnes}
+            data={users}
+            getRowId={(u) => u.id}
+            empty={
+              <p className="text-sm text-savr-neutral-500">Aucun membre.</p>
+            }
+          />
         </CardContent>
       </Card>
 
@@ -878,6 +923,67 @@ function TransfertCard({
 
 /* ─────────────────────────────── Facturation ──────────────────────────────── */
 
+// Factures — Data Table commune, tri côté navigateur : la route
+// /traiteur/factures renvoie toutes les factures qui passent les filtres
+// (filtrage serveur, aucune pagination ni `.limit()`).
+const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
+  {
+    id: 'numero',
+    header: 'Numéro',
+    accessorFn: (f) => f.numero_facture ?? '',
+    cell: ({ row: { original: f } }) => f.numero_facture ?? '—',
+  },
+  {
+    id: 'emission',
+    header: 'Émission',
+    accessorFn: (f) => f.date_emission ?? '',
+    cell: ({ row: { original: f } }) => f.date_emission ?? '—',
+  },
+  {
+    id: 'echeance',
+    header: 'Échéance',
+    accessorFn: (f) => f.date_echeance ?? '',
+    cell: ({ row: { original: f } }) => f.date_echeance ?? '—',
+  },
+  {
+    id: 'montant',
+    header: 'Montant TTC',
+    accessorFn: (f) => f.montant_ttc ?? undefined,
+    sortUndefined: 'last',
+    meta: { className: 'tabular-nums' },
+    cell: ({ row: { original: f } }) =>
+      f.montant_ttc != null ? `${f.montant_ttc} €` : '—',
+  },
+  {
+    id: 'statut',
+    header: 'Statut',
+    accessorFn: (f) => f.statut,
+    cell: ({ row: { original: f } }) => (
+      <Badge variant="neutral">{f.statut}</Badge>
+    ),
+  },
+  {
+    id: 'pdf',
+    header: 'PDF',
+    meta: { interactive: true },
+    cell: ({ row: { original: f } }) => {
+      const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
+      return pdf ? (
+        <a
+          href={pdf}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-savr-primary-700 underline"
+        >
+          Télécharger
+        </a>
+      ) : (
+        '—'
+      );
+    },
+  },
+];
+
 function FacturationTab({ isManager }: { isManager: boolean }) {
   const [factures, setFactures] = useState<FactureRow[]>([]);
   const [statut, setStatut] = useState('');
@@ -973,54 +1079,14 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
               />
             </FormField>
           </div>
-          {factures.length === 0 ? (
-            <p className="text-sm text-savr-neutral-500">Aucune facture.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-savr-neutral-500">
-                <tr>
-                  <th className="py-1">Numéro</th>
-                  <th className="py-1">Émission</th>
-                  <th className="py-1">Échéance</th>
-                  <th className="py-1">Montant TTC</th>
-                  <th className="py-1">Statut</th>
-                  <th className="py-1">PDF</th>
-                </tr>
-              </thead>
-              <tbody>
-                {factures.map((f) => {
-                  const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
-                  return (
-                    <tr key={f.id} className="border-t border-savr-neutral-100">
-                      <td className="py-1">{f.numero_facture ?? '—'}</td>
-                      <td className="py-1">{f.date_emission ?? '—'}</td>
-                      <td className="py-1">{f.date_echeance ?? '—'}</td>
-                      <td className="py-1">
-                        {f.montant_ttc != null ? `${f.montant_ttc} €` : '—'}
-                      </td>
-                      <td className="py-1">
-                        <Badge variant="neutral">{f.statut}</Badge>
-                      </td>
-                      <td className="py-1">
-                        {pdf ? (
-                          <a
-                            href={pdf}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-savr-primary-700 underline"
-                          >
-                            Télécharger
-                          </a>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+          <DataGrid
+            columns={COLONNES_FACTURES}
+            data={factures}
+            getRowId={(f) => f.id}
+            empty={
+              <p className="text-sm text-savr-neutral-500">Aucune facture.</p>
+            }
+          />
         </CardContent>
       </Card>
     </div>

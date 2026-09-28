@@ -1,9 +1,16 @@
 'use client';
 
+import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+} from '@/components/ui/data-grid';
+import { libelleDateHeure } from '@/lib/format-date-collecte';
 import type { ProchaineCollecte } from './blocs-types.js';
-import { formatJour } from '@savr/shared/src/temps/index.js';
 
 interface Props {
   items: ProchaineCollecte[];
@@ -16,18 +23,10 @@ interface Props {
   className?: string;
 }
 
-function formatDateHeure(date: string, heure: string | null): string {
-  const jour = formatJour(date.slice(0, 10), {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-  return heure ? `${jour} · ${heure.slice(0, 5)}` : jour;
-}
-
 /**
  * Bloc 5 — Prochaines collectes programmées (fenêtre 30 j à venir).
- * Grain = collecte. §06.04/§06.05/§06.11 Bloc 5.
+ * Grain = collecte. §06.04/§06.05/§06.11 Bloc 5. Même Data Table que les
+ * listes Collectes (décision Val 2026-09-28), tri côté client.
  */
 export function ProchainesCollectesBloc({
   items,
@@ -35,63 +34,97 @@ export function ProchainesCollectesBloc({
   hrefFor,
   className,
 }: Props) {
+  const router = useRouter();
+
+  const colonnes = useMemo<ColumnDef<ProchaineCollecte, unknown>[]>(() => {
+    const traiteur: ColumnDef<ProchaineCollecte, unknown> = {
+      id: 'traiteur',
+      header: 'Traiteur',
+      accessorFn: (c) => c.traiteur_nom ?? '',
+      cell: ({ row: { original: c } }) => c.traiteur_nom ?? <CelluleVide />,
+    };
+    return [
+      {
+        id: 'date',
+        header: 'Date',
+        enableHiding: false,
+        accessorFn: (c) => `${c.date_collecte} ${c.heure_collecte ?? ''}`,
+        cell: ({ row: { original: c } }) => (
+          <span className="whitespace-nowrap font-semibold tabular-nums">
+            {libelleDateHeure(c.date_collecte.slice(0, 10), c.heure_collecte)}
+          </span>
+        ),
+      },
+      {
+        id: 'evenement',
+        header: 'Événement',
+        accessorFn: (c) => c.evenement_nom ?? '',
+        // Lien conservé (clic du nom, ouverture dans un nouvel onglet) en plus
+        // du clic sur toute la ligne.
+        meta: { interactive: true },
+        cell: ({ row: { original: c } }) => {
+          const href = hrefFor?.(c);
+          if (!c.evenement_nom) return <CelluleVide />;
+          return href ? (
+            <a
+              href={href}
+              className="font-medium text-savr-neutral-900 hover:underline"
+            >
+              {c.evenement_nom}
+            </a>
+          ) : (
+            <span className="font-medium">{c.evenement_nom}</span>
+          );
+        },
+      },
+      {
+        id: 'lieu',
+        header: 'Lieu',
+        accessorFn: (c) => c.lieu_nom ?? '',
+        cell: ({ row: { original: c } }) => c.lieu_nom ?? <CelluleVide />,
+      },
+      ...(showTraiteur ? [traiteur] : []),
+      {
+        id: 'statut',
+        header: 'Statut',
+        accessorFn: (c) => c.statut,
+        cell: ({ row: { original: c } }) => (
+          <CollecteStatutBadge statut={c.statut} vue="client" />
+        ),
+      },
+    ];
+  }, [hrefFor, showTraiteur]);
+
+  const cliquable = items.some((c) => hrefFor?.(c));
+
   return (
     <Card className={className} data-testid="bloc-5-prochaines">
       <CardHeader>
         <CardTitle>Prochaines collectes</CardTitle>
       </CardHeader>
       <CardContent>
-        {items.length === 0 ? (
-          <p className="text-sm text-savr-neutral-500">
-            Aucune collecte à venir sur les 30 prochains jours.
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-savr-md border border-savr-neutral-200">
-            <table className="w-full text-sm">
-              <thead className="bg-savr-neutral-50 text-left text-xs uppercase text-savr-neutral-500">
-                <tr>
-                  <th className="px-3 py-2">Date</th>
-                  <th className="px-3 py-2">Événement</th>
-                  <th className="px-3 py-2">Lieu</th>
-                  {showTraiteur && <th className="px-3 py-2">Traiteur</th>}
-                  <th className="px-3 py-2">Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((c) => {
+        <DataGrid
+          columns={colonnes}
+          data={items}
+          getRowId={(c) => c.id}
+          initialSorting={[{ id: 'date', desc: false }]}
+          onRowClick={
+            cliquable
+              ? (c) => {
                   const href = hrefFor?.(c);
-                  return (
-                    <tr
-                      key={c.id}
-                      className="border-t border-savr-neutral-100 hover:bg-savr-neutral-50"
-                      data-testid="prochaine-row"
-                    >
-                      <td className="whitespace-nowrap px-3 py-2">
-                        {formatDateHeure(c.date_collecte, c.heure_collecte)}
-                      </td>
-                      <td className="px-3 py-2 font-medium">
-                        {href ? (
-                          <a href={href} className="hover:underline">
-                            {c.evenement_nom ?? '—'}
-                          </a>
-                        ) : (
-                          (c.evenement_nom ?? '—')
-                        )}
-                      </td>
-                      <td className="px-3 py-2">{c.lieu_nom ?? '—'}</td>
-                      {showTraiteur && (
-                        <td className="px-3 py-2">{c.traiteur_nom ?? '—'}</td>
-                      )}
-                      <td className="px-3 py-2">
-                        <CollecteStatutBadge statut={c.statut} vue="client" />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                  if (href) router.push(href);
+                }
+              : undefined
+          }
+          rowLabel={(c) =>
+            `Ouvrir ${c.evenement_nom ?? 'la collecte'} du ${libelleDateHeure(c.date_collecte.slice(0, 10), c.heure_collecte)}`
+          }
+          empty={
+            <p className="text-sm text-savr-neutral-500">
+              Aucune collecte à venir sur les 30 prochains jours.
+            </p>
+          }
+        />
       </CardContent>
     </Card>
   );

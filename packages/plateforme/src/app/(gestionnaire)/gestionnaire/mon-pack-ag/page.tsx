@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+} from '@/components/ui/data-grid';
+import { libelleDateHeure } from '@/lib/format-date-collecte';
 
 interface PackActif {
   id: string;
@@ -26,6 +32,96 @@ interface PackData {
   historique_packs: PackActif[];
   historique_consommation: ConsommationRow[];
 }
+
+// Historique des collectes AG du pack — même Data Table que les listes
+// Collectes (décision Val 2026-09-28). SANS tri : la route plafonne à 50
+// lignes (`.limit(50)`), trier cet extrait ferait croire à un ordre global.
+const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
+  {
+    id: 'date',
+    header: 'Date',
+    enableSorting: false,
+    enableHiding: false,
+    accessorFn: (c) => c.date_collecte ?? '',
+    cell: ({ row: { original: c } }) =>
+      c.date_collecte ? (
+        <span className="whitespace-nowrap font-semibold tabular-nums">
+          {libelleDateHeure(c.date_collecte.slice(0, 10), null)}
+        </span>
+      ) : (
+        <CelluleVide />
+      ),
+  },
+  {
+    id: 'evenement',
+    header: 'Événement',
+    enableSorting: false,
+    accessorFn: (c) => c.evenement ?? '',
+    cell: ({ row: { original: c } }) => c.evenement ?? <CelluleVide />,
+  },
+  {
+    id: 'lieu',
+    header: 'Lieu',
+    enableSorting: false,
+    accessorFn: (c) => c.lieu ?? '',
+    cell: ({ row: { original: c } }) => c.lieu ?? <CelluleVide />,
+  },
+  {
+    id: 'repas',
+    header: 'Repas donnés',
+    enableSorting: false,
+    accessorFn: (c) => c.repas_donnes,
+    meta: { className: 'text-right tabular-nums' },
+    cell: ({ row: { original: c } }) => c.repas_donnes,
+  },
+  {
+    id: 'associations',
+    header: 'Association(s)',
+    cell: ({ row: { original: c } }) =>
+      c.associations
+        .map((a) => a.nom)
+        .filter(Boolean)
+        .join(', ') || <CelluleVide />,
+  },
+];
+
+// Historique des packs — Data Table commune. Pas de tri : la route plafonne la
+// liste aux 10 derniers packs (`.limit(10)`), trier ce seul extrait laisserait
+// croire à un ordre sur tout l'historique. Ordre de la route (plus récent d'abord).
+const COLONNES_PACKS: ColumnDef<PackActif, unknown>[] = [
+  {
+    id: 'reference',
+    header: 'Référence',
+    cell: ({ row: { original: p } }) => p.reference ?? '—',
+  },
+  {
+    id: 'collectes',
+    header: 'Collectes',
+    meta: { className: 'tabular-nums' },
+    cell: ({ row: { original: p } }) => (
+      <>
+        {p.nb_collectes_total - p.nb_collectes_restantes} /{' '}
+        {p.nb_collectes_total}
+      </>
+    ),
+  },
+  {
+    id: 'periode',
+    header: 'Période',
+    cell: ({ row: { original: p } }) => (
+      <>
+        {p.date_debut ?? '—'} → {p.date_fin ?? '—'}
+      </>
+    ),
+  },
+  {
+    id: 'statut',
+    header: 'Statut',
+    cell: ({ row: { original: p } }) => (
+      <Badge variant="neutral">{p.statut}</Badge>
+    ),
+  },
+];
 
 export default function MonPackAgPage() {
   const [data, setData] = useState<PackData | null>(null);
@@ -112,38 +208,11 @@ export default function MonPackAgPage() {
             <CardTitle>Historique des collectes AG</CardTitle>
           </CardHeader>
           <CardContent>
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-savr-neutral-500">
-                <tr>
-                  <th className="py-1">Date</th>
-                  <th className="py-1">Événement</th>
-                  <th className="py-1">Lieu</th>
-                  <th className="py-1">Repas donnés</th>
-                  <th className="py-1">Association(s)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.historique_consommation.map((c) => (
-                  <tr
-                    key={c.collecte_id}
-                    className="border-t border-savr-neutral-100"
-                  >
-                    <td className="py-1 whitespace-nowrap">
-                      {c.date_collecte ?? '—'}
-                    </td>
-                    <td className="py-1">{c.evenement ?? '—'}</td>
-                    <td className="py-1">{c.lieu ?? '—'}</td>
-                    <td className="py-1">{c.repas_donnes}</td>
-                    <td className="py-1 text-xs text-savr-neutral-500">
-                      {c.associations
-                        .map((a) => a.nom)
-                        .filter(Boolean)
-                        .join(', ') || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataGrid
+              columns={COLONNES_CONSOMMATION}
+              data={data.historique_consommation}
+              getRowId={(c) => c.collecte_id}
+            />
           </CardContent>
         </Card>
       )}
@@ -155,33 +224,11 @@ export default function MonPackAgPage() {
             <CardTitle>Historique packs</CardTitle>
           </CardHeader>
           <CardContent>
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-savr-neutral-500">
-                <tr>
-                  <th className="py-1">Référence</th>
-                  <th className="py-1">Collectes</th>
-                  <th className="py-1">Période</th>
-                  <th className="py-1">Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.historique_packs.map((p) => (
-                  <tr key={p.id} className="border-t border-savr-neutral-100">
-                    <td className="py-1">{p.reference ?? '—'}</td>
-                    <td className="py-1">
-                      {p.nb_collectes_total - p.nb_collectes_restantes} /{' '}
-                      {p.nb_collectes_total}
-                    </td>
-                    <td className="py-1">
-                      {p.date_debut ?? '—'} → {p.date_fin ?? '—'}
-                    </td>
-                    <td className="py-1">
-                      <Badge variant="neutral">{p.statut}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataGrid
+              columns={COLONNES_PACKS}
+              data={data.historique_packs}
+              getRowId={(p) => p.id}
+            />
           </CardContent>
         </Card>
       )}

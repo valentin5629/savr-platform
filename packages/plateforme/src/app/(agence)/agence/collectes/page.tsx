@@ -1,9 +1,18 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import { Download, Plus, Truck } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+} from '@/components/ui/data-grid';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHero } from '@/components/ui/page-hero';
+import { libelleDateHeure } from '@/lib/format-date-collecte';
 import {
   CollecteTypeTabs,
   type CollecteType,
@@ -45,6 +54,74 @@ function rapportDisponible(realiseeAt: string | null): boolean {
   if (!realiseeAt) return false;
   return Date.now() - new Date(realiseeAt).getTime() >= 24 * 3600 * 1000;
 }
+
+// Colonnes de la Data Table (tri côté client : la route n'est pas paginée).
+const COLONNES: ColumnDef<CollecteRow, unknown>[] = [
+  {
+    id: 'date',
+    header: 'Date',
+    enableHiding: false,
+    accessorFn: (c) => `${c.date_collecte} ${c.heure_collecte ?? ''}`,
+    cell: ({ row: { original: c } }) => (
+      <span className="whitespace-nowrap font-semibold tabular-nums">
+        {libelleDateHeure(c.date_collecte, c.heure_collecte)}
+      </span>
+    ),
+  },
+  {
+    id: 'lieu',
+    header: 'Lieu',
+    accessorFn: (c) => one(one(c.evenements)?.lieux ?? null)?.nom ?? '',
+    cell: ({ row: { original: c } }) => {
+      const lieu = one(one(c.evenements)?.lieux ?? null);
+      if (!lieu) return <CelluleVide />;
+      return (
+        <div className="min-w-0">
+          <div className="font-medium">{lieu.nom}</div>
+          <div className="text-xs text-savr-neutral-500">
+            {[lieu.adresse_acces, lieu.code_postal, lieu.ville]
+              .filter(Boolean)
+              .join(' ')}
+          </div>
+        </div>
+      );
+    },
+  },
+  {
+    id: 'client',
+    header: 'Client',
+    accessorFn: (c) => one(c.evenements)?.nom_client_organisateur ?? '',
+    cell: ({ row: { original: c } }) =>
+      one(c.evenements)?.nom_client_organisateur ?? <CelluleVide />,
+  },
+  {
+    id: 'pax',
+    header: 'Pax',
+    accessorFn: (c) => one(c.evenements)?.pax ?? -1,
+    meta: { className: 'text-right tabular-nums' },
+    cell: ({ row: { original: c } }) =>
+      one(c.evenements)?.pax ?? <CelluleVide />,
+  },
+  {
+    id: 'statut',
+    header: 'Statut',
+    accessorFn: (c) => c.statut,
+    cell: ({ row: { original: c } }) => (
+      <CollecteStatutBadge statut={c.statut} />
+    ),
+  },
+  {
+    id: 'rapport',
+    header: 'Rapport',
+    accessorFn: (c) => (rapportDisponible(c.realisee_at) ? 1 : 0),
+    cell: ({ row: { original: c } }) =>
+      rapportDisponible(c.realisee_at) ? (
+        <span className="font-semibold text-savr-primary-700">Disponible</span>
+      ) : (
+        <span className="text-savr-neutral-400">À venir</span>
+      ),
+  },
+];
 
 function CollectesContent() {
   const router = useRouter();
@@ -118,20 +195,26 @@ function CollectesContent() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-savr-primary-800">Collectes</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={exportCsv}>
-            Exporter CSV
-          </Button>
-          <Button asChild>
-            <a href={`/programmer/nouveau?type=${tab}`}>
-              Programmer un événement
-            </a>
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHero
+        icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
+        title="Collectes"
+        subtitle="Collectes de vos événements · cliquez une ligne pour ouvrir la fiche"
+        actions={
+          <>
+            <Button variant="secondary" onClick={exportCsv}>
+              <Download className="h-4 w-4" />
+              Exporter CSV
+            </Button>
+            <Button variant="accent" asChild>
+              <a href={`/programmer/nouveau?type=${tab}`}>
+                <Plus className="h-4 w-4" />
+                Programmer un événement
+              </a>
+            </Button>
+          </>
+        }
+      />
 
       <CollecteTypeTabs value={tab} onChange={changeTab} />
 
@@ -143,71 +226,25 @@ function CollectesContent() {
         />
       )}
 
-      {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-savr-neutral-500">Aucune collecte.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-savr-md border border-savr-neutral-200">
-          <table className="w-full text-sm">
-            <thead className="bg-savr-neutral-50 text-left text-xs uppercase text-savr-neutral-500">
-              <tr>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Lieu</th>
-                <th className="px-3 py-2">Client</th>
-                <th className="px-3 py-2">Pax</th>
-                <th className="px-3 py-2">Statut</th>
-                <th className="px-3 py-2">Rapport</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((c) => {
-                const evt = one(c.evenements);
-                const lieu = one(evt?.lieux ?? null);
-                const dispo = rapportDisponible(c.realisee_at);
-                return (
-                  <tr
-                    key={c.id}
-                    className="cursor-pointer border-t border-savr-neutral-100 hover:bg-savr-neutral-50"
-                    onClick={() => router.push(`/agence/collectes/${c.id}`)}
-                  >
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      {c.date_collecte}
-                      {c.heure_collecte
-                        ? ` ${c.heure_collecte.slice(0, 5)}`
-                        : ''}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{lieu?.nom ?? '—'}</div>
-                      <div className="text-xs text-savr-neutral-500">
-                        {[lieu?.adresse_acces, lieu?.code_postal, lieu?.ville]
-                          .filter(Boolean)
-                          .join(' ')}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      {evt?.nom_client_organisateur ?? '—'}
-                    </td>
-                    <td className="px-3 py-2">{evt?.pax ?? '—'}</td>
-                    <td className="px-3 py-2">
-                      <CollecteStatutBadge statut={c.statut} />
-                    </td>
-                    <td className="px-3 py-2">
-                      {dispo ? (
-                        <span className="text-savr-primary-700">
-                          Disponible ⬇
-                        </span>
-                      ) : (
-                        <span className="text-savr-neutral-400">À venir</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataGrid
+        data-testid="collectes-table"
+        columns={COLONNES}
+        data={rows}
+        getRowId={(c) => c.id}
+        loading={loading}
+        initialSorting={[{ id: 'date', desc: true }]}
+        onRowClick={(c) => router.push(`/agence/collectes/${c.id}`)}
+        rowLabel={(c) =>
+          `Ouvrir la collecte du ${libelleDateHeure(c.date_collecte, c.heure_collecte)}`
+        }
+        empty={
+          <EmptyState
+            icon={<Truck className="h-8 w-8" />}
+            title="Aucune collecte"
+            description="Aucune collecte ne correspond à ce filtre."
+          />
+        }
+      />
     </div>
   );
 }

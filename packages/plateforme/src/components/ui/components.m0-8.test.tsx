@@ -477,7 +477,7 @@ it('M0.8-14 — DataTable affiche les données en colonnes sur desktop', () => {
   expect(screen.getAllByText('Collecte A').length).toBeGreaterThan(0);
   expect(screen.getAllByText('Collecte B').length).toBeGreaterThan(0);
   // Le tableau desktop est bien présent
-  expect(screen.getByRole('grid')).toBeInTheDocument();
+  expect(screen.getByRole('table')).toBeInTheDocument();
 });
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────
@@ -843,7 +843,8 @@ const COLONNES_TEST = [{ key: 'nom' as const, header: 'Nom' }];
 function lignesRendues(container: HTMLElement) {
   return {
     desktop: container.querySelector('tbody tr') as HTMLElement,
-    mobile: container.querySelector('div.sm\\:hidden > div') as HTMLElement,
+    // DataGrid : cartes mobiles = <ul class="sm:hidden"><li>.
+    mobile: container.querySelector('ul.sm\\:hidden > li') as HTMLElement,
   };
 }
 

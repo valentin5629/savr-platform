@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { use } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { HistoriqueCollectesTable } from '@/components/collecte/historique-collectes-table';
 
 interface TraiteurDetail {
   id: string;
@@ -132,32 +131,10 @@ export default function TraiteurDetailPage({
             <CardTitle>Historique des collectes (12 mois)</CardTitle>
           </CardHeader>
           <CardContent>
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-savr-neutral-500">
-                <tr>
-                  <th className="py-1">Date</th>
-                  <th className="py-1">Lieu</th>
-                  <th className="py-1">Type</th>
-                  <th className="py-1">Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {traiteur.historique_collectes.map((c) => (
-                  <tr key={c.id} className="border-t border-savr-neutral-100">
-                    <td className="py-1">{c.date_collecte ?? '—'}</td>
-                    <td className="py-1">{c.lieu_nom ?? '—'}</td>
-                    <td className="py-1">
-                      <Badge variant="neutral">
-                        {c.type === 'zero_dechet' ? 'ZD' : 'AG'}
-                      </Badge>
-                    </td>
-                    <td className="py-1">
-                      <CollecteStatutBadge statut={c.statut} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <HistoriqueCollectesTable
+              rows={traiteur.historique_collectes}
+              showLieu
+            />
           </CardContent>
         </Card>
       )}

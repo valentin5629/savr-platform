@@ -65,7 +65,8 @@ const JOURS = [
   '2026-07-14',
 ];
 
-// Attendu CDC : décroissant strict, semaines ET cartes intra-semaine.
+// Attendu CDC : décroissant strict (Data Table plate depuis 2026-09-28 : plus
+// de groupement par semaine, l'ordre des lignes suffit).
 const ATTENDU_DECROISSANT = [...JOURS].sort().reverse();
 
 // Le lieu porte la date ISO : c'est le marqueur qui rend l'ORDRE du DOM lisible
@@ -125,19 +126,15 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
   return jsonResponse({ data: null });
 });
 
-/** Dates ISO des cartes, dans l'ordre du DOM. */
+/** Dates ISO des lignes du tableau, dans l'ordre du DOM. Bornées au <table> :
+ *  DataGrid rend aussi chaque ligne en carte mobile (doublon). */
 function ordreDesCartes(container: HTMLElement): string[] {
   return Array.from(
-    (container.textContent ?? '').matchAll(/LIEU-(\d{4}-\d{2}-\d{2})/g),
+    (container.querySelector('table')?.textContent ?? '').matchAll(
+      /LIEU-(\d{4}-\d{2}-\d{2})/g,
+    ),
     (m) => m[1],
   ).filter((d): d is string => Boolean(d));
-}
-
-/** Première date de chaque groupe-semaine, dans l'ordre du DOM. */
-function ordreDesSemaines(container: HTMLElement): string[] {
-  return Array.from(container.querySelectorAll('section'))
-    .map((s) => /LIEU-(\d{4}-\d{2}-\d{2})/.exec(s.textContent ?? '')?.[1])
-    .filter((d): d is string => Boolean(d));
 }
 
 describe('M3.1 — liste Collectes traiteur : tri par défaut (§06.04 §3)', () => {
@@ -163,14 +160,6 @@ describe('M3.1 — liste Collectes traiteur : tri par défaut (§06.04 §3)', ()
         ATTENTE_UI,
       );
 
-      // 3 semaines, ordonnées de la plus récente à la plus ancienne.
-      expect(ordreDesSemaines(container)).toEqual([
-        '2026-07-14',
-        '2026-07-10',
-        '2026-07-02',
-      ]);
-      // … et, À L'INTÉRIEUR de chaque semaine, cartes décroissantes aussi
-      // (c'est ce niveau-là que l'ancien code laissait en croissant).
       expect(ordreDesCartes(container)).toEqual(ATTENDU_DECROISSANT);
 
       // ── Onglet Programmées — MÊME tri, aucune exception d'onglet ─────────
@@ -179,11 +168,6 @@ describe('M3.1 — liste Collectes traiteur : tri par défaut (§06.04 §3)', ()
         () => expect(ordreDesCartes(container)).toEqual(ATTENDU_DECROISSANT),
         ATTENTE_UI,
       );
-      expect(ordreDesSemaines(container)).toEqual([
-        '2026-07-14',
-        '2026-07-10',
-        '2026-07-02',
-      ]);
     },
     ATTENTE_CAS_MS,
   );

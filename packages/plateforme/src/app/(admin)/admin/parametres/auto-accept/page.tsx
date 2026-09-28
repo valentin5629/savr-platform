@@ -68,6 +68,7 @@ const columns: Column<ConfigAutoAccept>[] = [
   {
     key: 'auto_accept_actif',
     header: 'Auto-accept',
+    sortable: true,
     render: (row) =>
       row.auto_accept_actif ? (
         <Badge variant="success">Actif</Badge>
@@ -78,6 +79,7 @@ const columns: Column<ConfigAutoAccept>[] = [
   {
     key: 'notes',
     header: 'Notes',
+    sortable: true,
     render: (row) =>
       row.notes ?? <span className="text-savr-neutral-400">—</span>,
   },
@@ -199,6 +201,7 @@ export default function AutoAcceptPage() {
         <DataTable
           columns={columnsWithToggle}
           data={configs}
+          clientSort
           keyExtractor={(r) => r.id}
         />
       )}

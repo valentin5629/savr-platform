@@ -5,7 +5,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
-import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card.js';
+import {
+  InfosLegalesCard,
+  InfosLegalesOrganisation,
+} from '@/components/organisation/infos-legales-card.js';
+import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel.js';
 import { NAV_CONFIG } from '@/lib/nav-config.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
@@ -92,7 +96,7 @@ describe('Informations légales — carte partagée', () => {
           Promise.resolve(
             init?.method === 'PATCH'
               ? reponse(422, {
-                  error: 'Valeur trop longue (500 caractères maximum)',
+                  error: 'Adresse : 500 caractères maximum',
                 })
               : reponse(200, { data: PROFIL }),
           ),
@@ -104,7 +108,7 @@ describe('Informations légales — carte partagée', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
       expect(
         (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
-      ).toMatch(/Valeur trop longue/);
+      ).toMatch(/Adresse : 500 caractères maximum/);
     },
     ATTENTE_CAS_MS,
   );
@@ -121,6 +125,52 @@ describe('Informations légales — carte partagée', () => {
         (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
       ).toMatch(/Impossible de charger/);
       expect(screen.queryByRole('textbox')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('Informations légales — robustesse de la saisie', () => {
+  it('un nouveau profil aux mêmes valeurs légales (ex. après envoi du logo) n’écrase pas la saisie', () => {
+    const { rerender } = render(
+      <InfosLegalesCard
+        profil={PROFIL}
+        urlProfil={URL_PROFIL}
+        onSaved={() => {}}
+      />,
+    );
+    const champ = screen.getByLabelText('Adresse') as HTMLInputElement;
+    fireEvent.change(champ, { target: { value: '9 rue en cours' } });
+    rerender(
+      <InfosLegalesCard
+        profil={{ ...PROFIL, logo_url: 'savr-dev/logos/x.png' }}
+        urlProfil={URL_PROFIL}
+        onSaved={() => {}}
+      />,
+    );
+    expect((screen.getByLabelText('Adresse') as HTMLInputElement).value).toBe(
+      '9 rue en cours',
+    );
+  });
+});
+
+describe('Informations personnelles — chargement en échec', () => {
+  it(
+    'bloque le formulaire (l’enregistrer vide effacerait le téléphone)',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(reponse(500, { error: 'x' }))),
+      );
+      render(<RgpdComptePanel />);
+      expect(
+        (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
+      ).toMatch(/Impossible de charger vos informations/);
+      expect(
+        (screen.getByLabelText('Téléphone') as HTMLInputElement).disabled,
+      ).toBe(true);
+      const boutons = screen.getAllByRole('button', { name: 'Enregistrer' });
+      expect((boutons[0] as HTMLButtonElement).disabled).toBe(true);
     },
     ATTENTE_CAS_MS,
   );

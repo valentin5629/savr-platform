@@ -7,7 +7,8 @@ import {
 import { writeError, serverError } from '@/lib/api-helpers.js';
 import {
   auditerInfosLegales,
-  INFOS_LEGALES,
+  lireInfosLegalesAvant,
+  validerInfosLegales,
 } from '@/lib/organisation-infos-legales.js';
 
 // CDC §06.04 §6 « Mon organisation » (l.646-664).
@@ -30,14 +31,13 @@ import {
 
 const READ_ROLES: ClientRole[] = ['traiteur_manager', 'traiteur_commercial'];
 
-// Champs éditables par le manager (colonnes RÉELLES de plateforme.organisations).
+// Champs éditables : informations légales (lib/organisation-infos-legales) pour
+// manager et commercial, + logo_url pour le manager.
 // Le « Contact principal facturation » du §6 (email qui reçoit les factures) n'a
 // PAS de home org-level : sa colonne réelle est `entites_facturation.email_facturation`
 // (par entité), éditée via la route entites-facturation. Les « coordonnées
 // bancaires » du §6 sont NON implémentées (contradiction l.678↔l.701 + aucune
 // colonne) — cf. _Divergences M3.1_20260705_facturation_params.
-const EDITABLE_MANAGER = new Set<string>([...INFOS_LEGALES, 'logo_url']);
-const EDITABLE_COMMERCIAL = new Set<string>(INFOS_LEGALES);
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, READ_ROLES);
@@ -65,10 +65,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, READ_ROLES);
   if (auth.error) return auth.error;
-  const editable =
-    auth.ctx.role === 'traiteur_manager'
-      ? EDITABLE_MANAGER
-      : EDITABLE_COMMERCIAL;
 
   let body: Record<string, unknown>;
   try {
@@ -77,10 +73,13 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'JSON invalide' }, { status: 400 });
   }
 
-  const patch: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(body)) {
-    if (editable.has(k)) patch[k] = v;
-  }
+  // Informations légales : validation commune (lib/organisation-infos-legales) ;
+  // logo : manager seulement (format garanti par le trigger trg_garde_format_logo).
+  const valide = validerInfosLegales(body);
+  if ('error' in valide) return valide.error;
+  const patch: Record<string, unknown> = { ...valide.patch };
+  if (auth.ctx.role === 'traiteur_manager' && 'logo_url' in body)
+    patch.logo_url = body.logo_url;
   if (Object.keys(patch).length === 0)
     return NextResponse.json(
       { error: 'Aucun champ éditable fourni' },
@@ -88,13 +87,11 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     );
 
   const supabase = createSupabaseServerClient();
-
-  // Capture des anciennes valeurs des champs légaux AVANT l'UPDATE (pour l'audit).
-  const { data: before } = await supabase
-    .from('organisations')
-    .select('raison_sociale, siret, adresse')
-    .eq('id', auth.ctx.organisationId)
-    .maybeSingle();
+  const before = await lireInfosLegalesAvant(
+    supabase,
+    auth.ctx.organisationId,
+    patch,
+  );
 
   // UPDATE via le client RLS : les policies `org_manager_update` /
   // `org_commercial_update` garantissent le périmètre own-org (jamais l'org d'un
@@ -118,7 +115,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
   // Audit des champs légaux réellement modifiés (l.660).
   await auditerInfosLegales(
-    before as Record<string, unknown> | null,
+    before,
     patch,
     auth.ctx.organisationId,
     auth.ctx.userId,

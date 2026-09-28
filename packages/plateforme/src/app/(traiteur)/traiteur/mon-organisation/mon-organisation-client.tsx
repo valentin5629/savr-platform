@@ -84,8 +84,9 @@ export function MonOrganisationClient({
       </h1>
       {!isManager && (
         <p className="text-sm text-savr-neutral-500">
-          Lecture seule — seul le manager peut modifier les paramètres de
-          l&apos;organisation.
+          Vous pouvez modifier les informations légales. Le logo, les entités de
+          facturation, les domaines email et l&apos;équipe ne sont modifiables
+          que par le manager.
         </p>
       )}
 

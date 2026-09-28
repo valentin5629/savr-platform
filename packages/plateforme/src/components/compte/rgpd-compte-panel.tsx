@@ -17,6 +17,9 @@ export function RgpdComptePanel(): React.JSX.Element {
   const [nom, setNom] = useState('');
   const [telephone, setTelephone] = useState('');
   const [chargement, setChargement] = useState(true);
+  // Chargement en échec : formulaire bloqué — l'enregistrer tel quel (vide)
+  // effacerait le téléphone.
+  const [chargementKo, setChargementKo] = useState(false);
   const [profilMsg, setProfilMsg] = useState<string | null>(null);
   const [profilErreur, setProfilErreur] = useState<string | null>(null);
   const [suppressionMsg, setSuppressionMsg] = useState<string | null>(null);
@@ -26,12 +29,16 @@ export function RgpdComptePanel(): React.JSX.Element {
     void (async () => {
       try {
         const res = await fetch('/api/me/profil');
-        if (res.ok) {
-          const { data } = await res.json();
-          setPrenom(data?.prenom ?? '');
-          setNom(data?.nom ?? '');
-          setTelephone(data?.telephone ?? '');
-        }
+        if (!res.ok) throw new Error();
+        const { data } = await res.json();
+        setPrenom(data?.prenom ?? '');
+        setNom(data?.nom ?? '');
+        setTelephone(data?.telephone ?? '');
+      } catch {
+        setChargementKo(true);
+        setProfilErreur(
+          'Impossible de charger vos informations. Veuillez recharger la page.',
+        );
       } finally {
         setChargement(false);
       }
@@ -111,7 +118,7 @@ export function RgpdComptePanel(): React.JSX.Element {
                   value={prenom}
                   autoComplete="given-name"
                   onChange={(e) => setPrenom(e.target.value)}
-                  disabled={chargement}
+                  disabled={chargement || chargementKo}
                 />
               </FormField>
               <FormField label="Nom" htmlFor="profil-nom">
@@ -120,7 +127,7 @@ export function RgpdComptePanel(): React.JSX.Element {
                   value={nom}
                   autoComplete="family-name"
                   onChange={(e) => setNom(e.target.value)}
-                  disabled={chargement}
+                  disabled={chargement || chargementKo}
                 />
               </FormField>
               <FormField label="Téléphone" htmlFor="profil-telephone">
@@ -130,7 +137,7 @@ export function RgpdComptePanel(): React.JSX.Element {
                   value={telephone}
                   autoComplete="tel"
                   onChange={(e) => setTelephone(e.target.value)}
-                  disabled={chargement}
+                  disabled={chargement || chargementKo}
                 />
               </FormField>
             </div>
@@ -140,7 +147,10 @@ export function RgpdComptePanel(): React.JSX.Element {
                 {profilMsg}
               </p>
             )}
-            <Button type="submit" disabled={enCours || chargement}>
+            <Button
+              type="submit"
+              disabled={enCours || chargement || chargementKo}
+            >
               Enregistrer
             </Button>
           </form>

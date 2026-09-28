@@ -61,7 +61,18 @@ export function InfosLegalesCard({
   const [erreur, setErreur] = useState('');
   const [succes, setSucces] = useState('');
 
-  useEffect(() => setValeurs(valeursDe(profil)), [profil]);
+  // Réaligné sur les seules valeurs légales : un nouvel objet `profil` venu d'un
+  // envoi de logo n'écrase pas une saisie en cours.
+  const { raison_sociale, siret, adresse } = profil;
+  useEffect(
+    () =>
+      setValeurs({
+        raison_sociale: raison_sociale ?? '',
+        siret: siret ?? '',
+        adresse: adresse ?? '',
+      }),
+    [raison_sociale, siret, adresse],
+  );
 
   const initiales = valeursDe(profil);
   const modifies = CHAMPS.filter(({ cle }) => valeurs[cle] !== initiales[cle]);
@@ -117,8 +128,8 @@ export function InfosLegalesCard({
                 onChange={(e) => {
                   setValeurs((v) => ({ ...v, [cle]: e.target.value }));
                   setSucces('');
+                  setErreur('');
                 }}
-                error={!!erreur}
               />
             </FormField>
           ))}

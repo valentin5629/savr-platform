@@ -18,6 +18,67 @@ export const INFOS_LEGALES = ['raison_sociale', 'siret', 'adresse'] as const;
 
 const LONGUEUR_MAX = 500;
 
+type ChampLegal = (typeof INFOS_LEGALES)[number];
+
+const LIBELLES: Record<ChampLegal, string> = {
+  raison_sociale: 'Raison sociale',
+  siret: 'SIRET',
+  adresse: 'Adresse',
+};
+
+type ClientSupabase = ReturnType<typeof createSupabaseServerClient>;
+
+// Validation commune des informations légales présentes dans `body` (les autres
+// clés sont ignorées) : chaîne ou null, espaces retirés, chaîne vide → null,
+// 500 caractères maximum. Partagée par toutes les routes « Mon organisation ».
+export function validerInfosLegales(
+  body: Record<string, unknown>,
+): { patch: Record<string, string | null> } | { error: NextResponse } {
+  const patch: Record<string, string | null> = {};
+  for (const field of INFOS_LEGALES) {
+    if (!(field in body)) continue;
+    const v = body[field];
+    if (v !== null && typeof v !== 'string')
+      return {
+        error: NextResponse.json(
+          { error: `${LIBELLES[field]} : valeur invalide` },
+          { status: 422 },
+        ),
+      };
+    const valeur = (v ?? '').trim();
+    if (valeur.length > LONGUEUR_MAX)
+      return {
+        error: NextResponse.json(
+          { error: `${LIBELLES[field]} : ${LONGUEUR_MAX} caractères maximum` },
+          { status: 422 },
+        ),
+      };
+    patch[field] = valeur === '' ? null : valeur;
+  }
+  return { patch };
+}
+
+// Anciennes valeurs des champs légaux, lues AVANT l'UPDATE pour l'audit. Rien à
+// lire si le patch ne touche aucun champ légal (ex. logo seul).
+export async function lireInfosLegalesAvant(
+  supabase: ClientSupabase,
+  organisationId: string,
+  patch: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  if (!INFOS_LEGALES.some((f) => f in patch)) return null;
+  const { data, error } = await supabase
+    .from('organisations')
+    .select('raison_sociale, siret, adresse')
+    .eq('id', organisationId)
+    .maybeSingle();
+  if (error)
+    logger.error('organisation.infos_legales.lecture_avant_echec', {
+      organisation_id: organisationId,
+      error: messageErreur(error),
+    });
+  return (data as Record<string, unknown> | null) ?? null;
+}
+
 // Écrit une ligne audit_log par champ légal réellement modifié. service_role :
 // audit_log est staff-only en lecture, l'INSERT passe par le client admin.
 export async function auditerInfosLegales(
@@ -74,7 +135,6 @@ export async function lireProfilOrganisation(
 }
 
 // PATCH des seules informations légales (raison_sociale, siret, adresse).
-// Valeurs : chaîne ou null ; espaces retirés ; chaîne vide → null.
 export async function modifierInfosLegales(
   req: NextRequest,
   ctx: { userId: string; organisationId: string },
@@ -87,23 +147,9 @@ export async function modifierInfosLegales(
     return NextResponse.json({ error: 'JSON invalide' }, { status: 400 });
   }
 
-  const patch: Record<string, string | null> = {};
-  for (const field of INFOS_LEGALES) {
-    if (!(field in body)) continue;
-    const v = body[field];
-    if (v !== null && typeof v !== 'string')
-      return NextResponse.json(
-        { error: `Valeur invalide : ${field}` },
-        { status: 422 },
-      );
-    const valeur = (v ?? '').trim();
-    if (valeur.length > LONGUEUR_MAX)
-      return NextResponse.json(
-        { error: `Valeur trop longue (${LONGUEUR_MAX} caractères maximum)` },
-        { status: 422 },
-      );
-    patch[field] = valeur === '' ? null : valeur;
-  }
+  const valide = validerInfosLegales(body);
+  if ('error' in valide) return valide.error;
+  const { patch } = valide;
   if (Object.keys(patch).length === 0)
     return NextResponse.json(
       { error: 'Aucun champ éditable fourni' },
@@ -111,11 +157,11 @@ export async function modifierInfosLegales(
     );
 
   const supabase = createSupabaseServerClient();
-  const { data: before } = await supabase
-    .from('organisations')
-    .select('raison_sociale, siret, adresse')
-    .eq('id', ctx.organisationId)
-    .maybeSingle();
+  const before = await lireInfosLegalesAvant(
+    supabase,
+    ctx.organisationId,
+    patch,
+  );
 
   const { data, error } = await supabase
     .from('organisations')
@@ -131,11 +177,6 @@ export async function modifierInfosLegales(
       { status: 404 },
     );
 
-  await auditerInfosLegales(
-    before as Record<string, unknown> | null,
-    patch,
-    ctx.organisationId,
-    ctx.userId,
-  );
+  await auditerInfosLegales(before, patch, ctx.organisationId, ctx.userId);
   return NextResponse.json({ data });
 }

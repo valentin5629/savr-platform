@@ -1000,20 +1000,14 @@ describe('M3.2 / mon-organisation / profil — édition (§06.05 §6)', () => {
 
   it('M3.2/profil_patch_logo_cle_upload_acceptee', async () => {
     setupAuth('gestionnaire_lieux', 'org-viparis');
-    // 1re lecture = anciennes valeurs légales (audit), 2e = résultat de l'UPDATE.
-    rls.push({
-      data: {
-        raison_sociale: 'Viparis SAS',
-        siret: '11100000000011',
-        adresse: null,
-      },
-      error: null,
-    });
+    // Logo seul : aucune lecture des valeurs légales (rien à auditer).
     rls.push({ data: { id: 'org-viparis', logo_url: LOGO_KEY }, error: null });
     const res = await patch({ logo_url: LOGO_KEY });
     expect(res.status).toBe(200);
     expect(rls.__calls.update?.[0]?.[0]).toEqual({ logo_url: LOGO_KEY });
     expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
+    // Le seul SELECT est le retour de l'UPDATE.
+    expect(rls.__calls.select ?? []).toHaveLength(1);
   });
 
   it.each([

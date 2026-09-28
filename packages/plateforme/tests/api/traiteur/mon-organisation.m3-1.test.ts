@@ -196,6 +196,28 @@ describe('M3.1 / mon-organisation infos légales', () => {
     );
   });
 
+  it('M3.1/trait_monorga_profil_validation_commune — vide → null, type invalide → 422', async () => {
+    setupAuth('traiteur_commercial');
+    rls.push({ data: { siret: '111' }, error: null });
+    rls.push({ data: { id: 'org-1' }, error: null });
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/mon-organisation/profil/route.js');
+    await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
+        siret: '   ',
+      }),
+    );
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ siret: null });
+
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
+        adresse: 42,
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe('Adresse : valeur invalide');
+  });
+
   it('M3.1/trait_monorga_profil_commercial_logo_refuse — logo seul → 400', async () => {
     setupAuth('traiteur_commercial');
     const { PATCH } =

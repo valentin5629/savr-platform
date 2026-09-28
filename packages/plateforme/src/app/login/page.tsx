@@ -118,8 +118,8 @@ function LoginForm() {
     <Card className="w-full max-w-sm">
       <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1.5">
-          {/* h1 de la page : même style que CardTitle (qui rend un h3). */}
-          <h1 className="text-lg font-bold tracking-tight text-savr-neutral-900">
+          {/* h1 de la page : style CardTitle (DS §5.2 titre de card, poids 600) — CardTitle rend un h3. */}
+          <h1 className="text-lg font-semibold tracking-tight text-savr-neutral-900">
             Connexion à votre compte
           </h1>
           <CardDescription>

@@ -24,11 +24,13 @@ export const authLienClass =
 export function AuthPage({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-savr-neutral-50 via-savr-primary-50 to-savr-accent-50 px-4 py-12">
-      {/* Logo complet « + savr », peint en blanc (conçu pour la sidebar navy) :
-          posé sur un bloc primary-700, comme dans la barre latérale. */}
-      <div className="mb-8 rounded-savr-lg bg-savr-primary-700 px-6 py-4 text-savr-accent-500 shadow-savr-md">
-        <SavrLogoMark title="Savr" className="h-9 w-auto" />
-      </div>
+      {/* Logo complet « + savr » en couleurs : navy primary-700, coin de la
+          croix accent-500. */}
+      <SavrLogoMark
+        title="Savr"
+        base="var(--color-savr-primary-700)"
+        className="mb-8 h-12 w-auto text-savr-accent-500"
+      />
       {children}
     </main>
   );

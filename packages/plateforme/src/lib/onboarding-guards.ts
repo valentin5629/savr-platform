@@ -10,6 +10,7 @@
 
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const MESSAGE_ERREUR =
   'Erreur lors de la résolution de l’entité de facturation.';
@@ -21,8 +22,8 @@ function isUniqueViolation(err: { code?: string } | null): boolean {
 async function lireEntiteActive(
   supabase: SupabaseClient,
   organisationId: string,
-): Promise<string | null> {
-  const { data } = await supabase
+): Promise<{ id: string | null; erreur: unknown }> {
+  const { data, error } = await supabase
     .from('entites_facturation')
     .select('id')
     .eq('organisation_id', organisationId)
@@ -31,7 +32,7 @@ async function lireEntiteActive(
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
-  return (data as { id: string } | null)?.id ?? null;
+  return { id: (data as { id: string } | null)?.id ?? null, erreur: error };
 }
 
 // requireCompletedOrganisation — résout l'entité de facturation de l'organisation
@@ -41,7 +42,8 @@ async function lireEntiteActive(
 //   - AUCUN filtre sur siret_verification : une entité « en_attente » suffit ;
 //   - organisation SANS entité active (fiches créées par l'Admin ou le seed — le
 //     signup, lui, en crée toujours une) → création à la volée d'une entité par
-//     défaut vide, SIRET « en_attente », exactement comme le signup sans SIRET.
+//     défaut vide (raison sociale de l'orga, à défaut son nom), SIRET « en_attente »,
+//     exactement comme le signup sans SIRET.
 //     L'Admin la complète avant la première facture (gating facture inchangé).
 // Préférence à l'entité par défaut ; `limit(1)` évite l'erreur maybeSingle d'une
 // orga à plusieurs entités. Course entre deux programmations simultanées : l'index
@@ -53,26 +55,35 @@ export async function requireCompletedOrganisation(
 ): Promise<
   { ok: true; entiteFacturationId: string } | { ok: false; error: NextResponse }
 > {
-  const existante = await lireEntiteActive(supabase, organisationId);
-  if (existante) return { ok: true, entiteFacturationId: existante };
-
-  const echec = {
+  const echec = (err: unknown) => ({
     ok: false as const,
-    error: NextResponse.json({ error: MESSAGE_ERREUR }, { status: 500 }),
-  };
+    error: serverError(
+      err ?? MESSAGE_ERREUR,
+      'programmation.entite_facturation',
+    ),
+  });
 
-  const { data: org } = await supabase
+  // Lecture en échec ≠ « aucune entité » : ne jamais créer sur une panne de lecture.
+  const existante = await lireEntiteActive(supabase, organisationId);
+  if (existante.erreur) return echec(existante.erreur);
+  if (existante.id) return { ok: true, entiteFacturationId: existante.id };
+
+  const { data: org, error: orgErr } = await supabase
     .from('organisations')
-    .select('nom')
+    .select('nom, raison_sociale')
     .eq('id', organisationId)
     .maybeSingle();
-  if (!org) return echec;
+  if (!org) return echec(orgErr);
+  const { nom, raison_sociale } = org as {
+    nom: string;
+    raison_sociale: string | null;
+  };
 
   const { data: creee, error } = await supabase
     .from('entites_facturation')
     .insert({
       organisation_id: organisationId,
-      raison_sociale: (org as { nom: string }).nom,
+      raison_sociale: raison_sociale || nom,
       siret: '',
       adresse_facturation: '',
       code_postal: '',
@@ -89,9 +100,9 @@ export async function requireCompletedOrganisation(
   }
   if (isUniqueViolation(error)) {
     const gagnante = await lireEntiteActive(supabase, organisationId);
-    if (gagnante) return { ok: true, entiteFacturationId: gagnante };
+    if (gagnante.id) return { ok: true, entiteFacturationId: gagnante.id };
   }
-  return echec;
+  return echec(error);
 }
 
 // requireValidatedOrganisation — bloque le push Pennylane tant que l'entité de

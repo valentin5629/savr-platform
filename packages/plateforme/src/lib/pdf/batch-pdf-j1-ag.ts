@@ -153,7 +153,8 @@ export async function runBatchPdfJ1Ag(
     .from('entites_facturation')
     .select('id, organisation_id, raison_sociale, siret')
     .in('organisation_id', orgIds)
-    .eq('entite_par_defaut', true);
+    .eq('entite_par_defaut', true)
+    .eq('actif', true);
 
   // Sans entité, l'attestation serait figée avec un donateur vide (raison sociale/SIRET).
   if (entErr) {

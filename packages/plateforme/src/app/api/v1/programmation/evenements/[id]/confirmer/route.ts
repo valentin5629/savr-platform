@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
-import { requireCompletedOrganisation } from '@/lib/onboarding-guards.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
@@ -75,13 +74,9 @@ export async function PATCH(
     );
   }
 
-  // Entité de facturation de l'orga programmatrice — le SIRET n'est PAS exigé
-  // (décision Val 2026-09-28) ; il ne bloque que l'émission de facture.
-  const completude = await requireCompletedOrganisation(
-    supabase,
-    evt.organisation_id,
-  );
-  if (!completude.ok) return completude.error;
+  // Aucune garde « profil entreprise » ici : l'événement porte déjà son entité de
+  // facturation (evenements.entite_facturation_id NOT NULL, résolue à la création),
+  // et le SIRET ne bloque pas la programmation (décision Val 2026-09-28).
 
   // Gate pack AG (R3) — si des collectes AG sont présentes dans ce brouillon.
   // ⚠ Les collectes viennent de la DB : type = 'anti_gaspi' (valeur enum), jamais 'ag'

@@ -13,7 +13,12 @@ import {
 // prouver QUELS filtres la garde pose et CE qu'elle insère. Les lectures
 // (maybeSingle) et l'insert (single) sont servis dans l'ordre depuis des files.
 function fakeSupabase(opts: {
-  lectures: ({ id: string } | { nom: string } | null)[];
+  lectures: (
+    | { id: string }
+    | { nom: string; raison_sociale?: string | null }
+    | null
+  )[];
+  erreurLecture?: { message: string };
   insert?: { data: { id: string } | null; error: { code: string } | null };
 }) {
   const appels: { table: string; maillon: string; args: unknown[] }[] = [];
@@ -27,7 +32,10 @@ function fakeSupabase(opts: {
     };
   }
   chain.maybeSingle = () =>
-    Promise.resolve({ data: lectures.shift() ?? null, error: null });
+    Promise.resolve({
+      data: lectures.shift() ?? null,
+      error: opts.erreurLecture ?? null,
+    });
   chain.single = () =>
     Promise.resolve(opts.insert ?? { data: null, error: { code: 'XX000' } });
   const client = {
@@ -98,6 +106,29 @@ describe('M0.4 — requireCompletedOrganisation (BL-P1-ONB-05)', () => {
         ],
       },
     ]);
+  });
+
+  it('raison sociale légale de l’orga reprise en priorité sur le nom commercial', async () => {
+    const { client, appels } = fakeSupabase({
+      lectures: [null, { nom: 'AREP', raison_sociale: 'AREP GROUPE SAS' }],
+      insert: { data: { id: 'ef-creee' }, error: null },
+    });
+    await requireCompletedOrganisation(client, 'org-arep');
+    const insert = appels.find((a) => a.maillon === 'insert');
+    expect(insert?.args[0]).toMatchObject({
+      raison_sociale: 'AREP GROUPE SAS',
+    });
+  });
+
+  it('lecture en échec → 500, et SURTOUT aucune entité créée sur une panne', async () => {
+    const { client, appels } = fakeSupabase({
+      lectures: [null],
+      erreurLecture: { message: 'connexion perdue' },
+    });
+    const res = await requireCompletedOrganisation(client, 'org-1');
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.status).toBe(500);
+    expect(appels.some((a) => a.maillon === 'insert')).toBe(false);
   });
 
   it('course : l’INSERT perd sur l’index unique (23505) → relit l’entité gagnante', async () => {

@@ -400,6 +400,9 @@ describe('M1.2 / Validations bloquantes', () => {
         entite_par_defaut: true,
         siret_verification: 'en_attente',
       }),
+    ); // …et c'est CETTE entité qui est rattachée à l'événement.
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ entite_facturation_id: 'ef-creee' }),
     );
   });
 
@@ -570,7 +573,7 @@ describe('M1.2 / Confirmation brouillon', () => {
     expect(json.statut).toBe('programmee');
   });
 
-  it('confirmer_brouillon_sans_entite_facturation_non_bloque — entité créée à la volée, jamais de refus', async () => {
+  it('confirmer_brouillon_sans_siret_non_bloque — aucune garde entité/SIRET à la confirmation', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -599,11 +602,7 @@ describe('M1.2 / Confirmation brouillon', () => {
       if (table === 'collectes') return collectesChain2;
       return mockSupabaseChain;
     });
-    // entites_facturation → aucune entité active → création à la volée
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: { nom: 'Traiteur D' }, error: null });
-    mockSingle.mockResolvedValueOnce({ data: { id: 'ef-creee' }, error: null });
+    // L'événement porte déjà son entité : la confirmation ne la re-résout pas.
     mockRpc.mockResolvedValueOnce({ data: null, error: null });
 
     const { PATCH } =
@@ -614,11 +613,9 @@ describe('M1.2 / Confirmation brouillon', () => {
     );
     const json = (await res.json()) as { error?: string };
     expect(json.error ?? '').not.toMatch(/SIRET|entité de facturation|profil/i);
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        organisation_id: 'org-traiteur-1',
-        siret_verification: 'en_attente',
-      }),
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith(
+      'entites_facturation',
     );
   });
 

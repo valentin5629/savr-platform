@@ -82,8 +82,6 @@ describe('M1.6 / resolveRapportBenchmark / filtres choisis (régénération)', (
   it('respecte les filtres surchargés sans re-résoudre le type de la collecte', async () => {
     const sb = mockSupabase(ROWS, null);
     const res = await resolveRapportBenchmark(sb as never, 'col-1', {
-      periode_debut: '2026-01-01',
-      periode_fin: '2026-06-30',
       lieu_ids: ['l1', 'l2'],
       type_evenement_ids: ['t9'],
       taille_evenement_codes: ['M'],
@@ -92,7 +90,9 @@ describe('M1.6 / resolveRapportBenchmark / filtres choisis (régénération)', (
     expect(res.filtres_benchmark.type_evenement_ids).toEqual(['t9']);
     expect(res.filtres_benchmark.taille_evenement_codes).toEqual(['M']);
     expect(res.filtres_benchmark.lieu_ids).toEqual(['l1', 'l2']);
-    expect(res.benchmark_legende).toContain('2026-01-01 → 2026-06-30');
+    // Période non surchargeable : toujours les 24 mois glissants.
+    const { debut, fin } = periodeBenchmark();
+    expect(res.benchmark_legende).toContain(`${debut} → ${fin}`);
     expect(res.benchmark_legende).toContain('lieux : 2 sélectionné(s)');
   });
 });

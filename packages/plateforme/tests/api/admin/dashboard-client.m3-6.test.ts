@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
 // ─── Mock client admin (service-role) : builder awaitable + rpc ────────────────
 let queryResult: { data: unknown; error: unknown } = { data: [], error: null };
@@ -371,7 +372,12 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
     // p_taille_evenement_codes[] (ex p_bracket).
     expect(adminClient.rpc).toHaveBeenCalledWith(
       'f_benchmark_kg_pax_zd',
-      expect.objectContaining({ p_taille_evenement_codes: ['M'] }),
+      expect.objectContaining({
+        p_taille_evenement_codes: ['M'],
+        // Période fixe 24 mois glissants (plus « tout l'historique »).
+        p_periode_debut: periodeBenchmark().debut,
+        p_periode_fin: periodeBenchmark().fin,
+      }),
     );
   });
 

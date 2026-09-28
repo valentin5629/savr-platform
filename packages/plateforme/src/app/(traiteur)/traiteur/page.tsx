@@ -79,10 +79,7 @@ export default async function TraiteurDashboardPage() {
   const [dashboard, benchmarkFiltres, benchmarkData] = await Promise.all([
     loadTraiteurDashboard(supabase, ctx, { from, to, type: 'zero_dechet' }),
     loadBenchmarkFiltres(supabase, ctx),
-    loadBenchmark(supabase, ctx, {
-      periodeDebut: benchmarkFilters.periode_debut,
-      periodeFin: benchmarkFilters.periode_fin,
-    }),
+    loadBenchmark(supabase, ctx, {}),
   ]);
 
   const options: BenchmarkFilterOptions = {

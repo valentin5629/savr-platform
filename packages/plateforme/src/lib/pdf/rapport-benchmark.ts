@@ -10,8 +10,6 @@ import { periodeBenchmark } from '../dashboards/periode-benchmark.js';
 
 /** Filtres benchmark surchargeables (NULL/absent = segment propre de la collecte). */
 export interface BenchmarkFilters {
-  periode_debut?: string | null;
-  periode_fin?: string | null;
   lieu_ids?: string[] | null;
   type_evenement_ids?: string[] | null;
   taille_evenement_codes?: string[] | null;
@@ -57,10 +55,8 @@ export async function resolveRapportBenchmark(
   collecteId: string,
   filters?: BenchmarkFilters,
 ): Promise<RapportBenchmark> {
-  // Période absente ⇒ 24 mois glissants (période fixe du repère parc).
-  const periodeDefaut = periodeBenchmark();
-  const periodeDebut = filters?.periode_debut || periodeDefaut.debut;
-  const periodeFin = filters?.periode_fin || periodeDefaut.fin;
+  // Période FIXE 24 mois glissants, imposée ici (plus choisie par le demandeur).
+  const { debut: periodeDebut, fin: periodeFin } = periodeBenchmark();
   const { data: benchRaw } = await supabase.rpc('f_rapport_benchmark_zd', {
     p_collecte_id: collecteId,
     p_periode_debut: periodeDebut,

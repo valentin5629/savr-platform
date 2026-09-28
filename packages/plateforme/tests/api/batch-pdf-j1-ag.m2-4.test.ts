@@ -10,6 +10,7 @@ vi.mock('@savr/shared/src/email/index.js', () => ({
 }));
 
 import { runBatchPdfJ1Ag } from '../../src/lib/pdf/batch-pdf-j1-ag.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,18 @@ describe('M2.4 / BatchPdfJ1Ag / SIRET donateur non vérifié (décision Val 2026
       ],
     ],
     ['aucune entité de facturation', []],
+    [
+      'statut verifie mais SIRET vide (incohérence de données)',
+      [
+        {
+          id: 'entite-1',
+          organisation_id: 'org-1',
+          raison_sociale: 'Agence AREP',
+          siret: '',
+          siret_verification: 'verifie',
+        },
+      ],
+    ],
   ];
 
   for (const [cas, entites] of casBloquants) {
@@ -154,6 +167,81 @@ describe('M2.4 / BatchPdfJ1Ag / SIRET donateur non vérifié (décision Val 2026
       expect(sb._chain.insert).not.toHaveBeenCalled();
     });
   }
+});
+
+describe('M2.4 / BatchPdfJ1Ag / alerte SIRET donateur — cycle de vie', () => {
+  it('alerte non posée (RPC en échec) → journalisée, jamais un échec du job', async () => {
+    const spy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [], error: null },
+      { data: [], error: null }, // aucune entité
+    ]);
+    sb.rpc.mockImplementation((() =>
+      Promise.resolve({
+        data: null,
+        error: { code: '42501', message: 'permission denied' },
+      })) as never);
+
+    const result = await runBatchPdfJ1Ag(sb as never);
+
+    expect(result.skipped_siret_donateur).toBe(1);
+    expect(result.fatal).toBeUndefined();
+    expect(spy).toHaveBeenCalledWith(
+      'attestation_ag.alerte_non_posee',
+      expect.objectContaining({
+        collecte_id: 'col-ag-1',
+        error_code: '42501',
+      }),
+    );
+    spy.mockRestore();
+  });
+
+  it('attestation émise → l’alerte SIRET donateur ouverte de CETTE collecte est résolue', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [], error: null },
+      {
+        data: [
+          {
+            id: 'entite-1',
+            organisation_id: 'org-1',
+            raison_sociale: 'Kaspia SAS',
+            siret: '12345678900001',
+            siret_verification: 'verifie',
+          },
+        ],
+        error: null,
+      },
+      { data: 'ATT-DON-2026-00002', error: null },
+      { data: { id: 'att-new' }, error: null },
+    ]);
+
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.enqueued).toBe(1);
+
+    expect(sb._chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ statut: 'resolue' }),
+    );
+    const eqs = (sb._chain.eq as ReturnType<typeof vi.fn>).mock.calls;
+    expect(eqs).toContainEqual([
+      'code',
+      'attestation_ag_siret_donateur_manquant',
+    ]);
+    expect(eqs).toContainEqual(['entity_type', 'collectes']);
+    expect(eqs).toContainEqual(['entity_id', 'col-ag-1']);
+    expect(eqs).toContainEqual(['statut', 'ouverte']);
+  });
+
+  it('attestation différée → aucune résolution d’alerte', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+    ]);
+    await runBatchPdfJ1Ag(sb as never);
+    expect(sb._chain.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
@@ -642,7 +730,10 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
     const tables = (sb.from as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => c[0] as string,
     );
-    expect(tables.at(-1)).toBe('organisations');
+    // Dernière lecture métier = organisations (email) ; la toute dernière
+    // opération est la résolution de l'alerte SIRET donateur (étape 11).
+    expect(tables.at(-2)).toBe('organisations');
+    expect(tables.at(-1)).toBe('alertes_admin');
     const selects = (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls
       .map((c) => String(c[0]))
       .join('\n');

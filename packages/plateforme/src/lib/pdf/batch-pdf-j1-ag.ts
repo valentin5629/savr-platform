@@ -201,15 +201,16 @@ export async function runBatchPdfJ1Ag(
             p_code: 'attestation_ag_siret_donateur_manquant',
             p_titre:
               'Attestation de don bloquée — SIRET du donateur non vérifié',
-            p_message: `Collecte ${collecte.id} : l'attestation de don (Cerfa 2041-GE) ne sera émise qu'une fois le SIRET de l'entité de facturation de l'organisation vérifié. Compléter le SIRET dans la fiche de l'organisation.`,
+            p_message: `Collecte ${collecte.id} : l'attestation de don (Cerfa 2041-GE) ne sera émise qu'une fois le SIRET de l'entité de facturation de l'organisation vérifié. Compléter ou corriger le SIRET dans la fiche de l'organisation.`,
             p_entity_type: 'collectes',
             p_entity_id: collecte.id,
           },
         );
         if (alerteErr) {
-          logger.error('job.alerte_admin.failed', {
-            job: JOB_NAME,
+          logger.error('attestation_ag.alerte_non_posee', {
+            job_name: JOB_NAME,
             collecte_id: collecte.id,
+            error_code: alerteErr.code,
             error: alerteErr.message,
           });
         }
@@ -385,6 +386,25 @@ export async function runBatchPdfJ1Ag(
             template: 'attestation_don_disponible',
             error: e instanceof Error ? e.message : String(e),
           });
+        });
+      }
+
+      // 11. L'attestation est partie : l'alerte « SIRET donateur manquant » posée par
+      // un batch précédent n'a plus d'objet → résolue (sinon la file critique de
+      // l'Ops grossit de cas réglés). Best-effort : jamais bloquant.
+      const { error: resolErr } = await supabase
+        .from('alertes_admin')
+        .update({ statut: 'resolue', resolue_at: new Date().toISOString() })
+        .eq('code', 'attestation_ag_siret_donateur_manquant')
+        .eq('entity_type', 'collectes')
+        .eq('entity_id', collecte.id)
+        .eq('statut', 'ouverte');
+      if (resolErr) {
+        logger.error('attestation_ag.alerte_non_resolue', {
+          job_name: JOB_NAME,
+          collecte_id: collecte.id,
+          error_code: resolErr.code,
+          error: resolErr.message,
         });
       }
 

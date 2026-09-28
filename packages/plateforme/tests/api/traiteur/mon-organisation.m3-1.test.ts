@@ -166,16 +166,47 @@ describe('M3.1 / mon-organisation infos légales', () => {
     expect(insertArgs.table_name).toBe('organisations');
   });
 
-  it('M3.1/trait_monorga_profil_commercial_readonly — commercial refusé (403)', async () => {
+  // Décision Val 2026-09-28 : le commercial modifie les informations légales
+  // (écart au tableau des droits §06.04 §6), mais pas le logo.
+  it('M3.1/trait_monorga_profil_commercial_infos_legales — commercial édite et audite', async () => {
+    setupAuth('traiteur_commercial');
+    rls.push({
+      data: { raison_sociale: 'Ancien', siret: '111', adresse: 'A' },
+      error: null,
+    });
+    rls.push({
+      data: { id: 'org-1', raison_sociale: 'Nouveau', siret: '111' },
+      error: null,
+    });
+    admin.push({ data: null, error: null }); // insert audit_log
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/mon-organisation/profil/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
+        raison_sociale: 'Nouveau',
+        logo_url: 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
+      }),
+    );
+    expect(res.status).toBe(200);
+    // Le logo est filtré : seul le champ légal part dans l'UPDATE.
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ raison_sociale: 'Nouveau' });
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-1']);
+    expect((admin.__calls.insert?.[0]?.[0] as { action: string }).action).toBe(
+      'organisation_infos_legales_update',
+    );
+  });
+
+  it('M3.1/trait_monorga_profil_commercial_logo_refuse — logo seul → 400', async () => {
     setupAuth('traiteur_commercial');
     const { PATCH } =
       await import('@/app/api/v1/traiteur/mon-organisation/profil/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
-        raison_sociale: 'Hack',
+        logo_url: 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
       }),
     );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(400);
+    expect(rls.__calls.update).toBeUndefined();
   });
 });
 

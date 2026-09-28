@@ -1,15 +1,13 @@
-import { requirePageSession } from '@/lib/page-auth';
+import { requireStaffPage } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChangerMotDePassePanel } from '@/components/compte/changer-mot-de-passe-panel';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
-import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
 
-const ORGANISATEUR_ROLES = ['client_organisateur'] as const;
-
-// BL-P3-13 — « Sécurité du compte » pour le client organisateur (rôle impersonable,
-// CDC §15 §2.3). Ce rôle n'avait pas de page profil : on en crée une minimale
-// portant l'historique self des accès admin.
-export default async function MonProfilOrganisateurPage() {
-  const session = await requirePageSession(ORGANISATEUR_ROLES);
+// « Mon profil » staff (§06.04 §7 : section commune à tous les users). Le
+// back-office n'en avait pas : ajouté par décision Val 2026-09-28 (chaque
+// utilisateur modifie ses informations, quel que soit son rôle).
+export default async function MonProfilAdminPage() {
+  const session = await requireStaffPage();
 
   return (
     <div className="space-y-6">
@@ -31,7 +29,7 @@ export default async function MonProfilOrganisateurPage() {
         </CardContent>
       </Card>
 
-      <SecuriteAccesPanel />
+      <ChangerMotDePassePanel />
 
       <RgpdComptePanel />
     </div>

@@ -899,8 +899,17 @@ describe('M3.2 / mon-organisation / profil', () => {
     ]);
   });
 
-  it('M3.2/profil_patch_champ_protege_ignore — siret rejeté silencieusement', async () => {
+  it('M3.2/profil_patch_champ_protege_ignore — nom ignoré, siret accepté et audité', async () => {
     setupAuth('gestionnaire_lieux', 'org-viparis');
+    // 1re lecture = anciennes valeurs légales (audit), 2e = résultat de l'UPDATE.
+    rls.push({
+      data: {
+        raison_sociale: 'Viparis SAS',
+        siret: '11100000000011',
+        adresse: null,
+      },
+      error: null,
+    });
     rls.push({
       data: { id: 'org-viparis', nom: 'Viparis', adresse: '1 rue Neuve' },
       error: null,
@@ -915,12 +924,26 @@ describe('M3.2 / mon-organisation / profil', () => {
       }),
     );
     expect(res.status).toBe(200);
-    // §06.05 §6 Bloc Organisation : adresse modifiable, nom en lecture seule,
-    // siret réservé Admin.
+    // Nom en lecture seule (§06.05 §6) ; raison sociale / SIRET / adresse
+    // modifiables (décision Val 2026-09-28).
     const updateCalls = rls.__calls.update ?? [];
     expect(updateCalls.length).toBeGreaterThan(0);
     const updateArg = updateCalls[0]?.[0] as Record<string, unknown>;
-    expect(updateArg).toEqual({ adresse: '1 rue Neuve' });
+    expect(updateArg).toEqual({
+      siret: '99900000000011',
+      adresse: '1 rue Neuve',
+    });
+    // Audit : une ligne par champ légal réellement modifié (siret, adresse).
+    const audits = (adminClient.__calls.insert ?? []).map(
+      (c) => c[0] as Record<string, unknown>,
+    );
+    expect(audits).toHaveLength(2);
+    expect(audits[0]).toMatchObject({
+      action: 'organisation_infos_legales_update',
+      record_id: 'org-viparis',
+      old_values: { siret: '11100000000011' },
+      new_values: { siret: '99900000000011' },
+    });
     // UPDATE borné à SA propre orga (jamais un UPDATE sans WHERE).
     expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
   });
@@ -956,7 +979,8 @@ describe('M3.2 / mon-organisation / profil', () => {
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/gestionnaire/mon-organisation/profil', {
         siren: '999',
-        siret: '99900000000011',
+        nom: 'Autre nom',
+        email_principal: 'x@y.test',
       }),
     );
     expect(res.status).toBe(400);
@@ -976,6 +1000,15 @@ describe('M3.2 / mon-organisation / profil — édition (§06.05 §6)', () => {
 
   it('M3.2/profil_patch_logo_cle_upload_acceptee', async () => {
     setupAuth('gestionnaire_lieux', 'org-viparis');
+    // 1re lecture = anciennes valeurs légales (audit), 2e = résultat de l'UPDATE.
+    rls.push({
+      data: {
+        raison_sociale: 'Viparis SAS',
+        siret: '11100000000011',
+        adresse: null,
+      },
+      error: null,
+    });
     rls.push({ data: { id: 'org-viparis', logo_url: LOGO_KEY }, error: null });
     const res = await patch({ logo_url: LOGO_KEY });
     expect(res.status).toBe(200);
@@ -1004,11 +1037,13 @@ describe('M3.2 / mon-organisation / profil — édition (§06.05 §6)', () => {
 
   it('M3.2/profil_patch_adresse_trim_et_vide_null', async () => {
     setupAuth('gestionnaire_lieux');
+    rls.push({ data: null, error: null });
     rls.push({ data: { id: 'org-viparis' }, error: null });
     await patch({ adresse: '  3 rue Neuve  ' });
     expect(rls.__calls.update?.[0]?.[0]).toEqual({ adresse: '3 rue Neuve' });
 
     rls = makeChain();
+    rls.push({ data: null, error: null });
     rls.push({ data: { id: 'org-viparis' }, error: null });
     await patch({ adresse: '   ' });
     expect(rls.__calls.update?.[0]?.[0]).toEqual({ adresse: null });

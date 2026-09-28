@@ -4,14 +4,20 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { writeError, serverError } from '@/lib/api-helpers.js';
+import {
+  auditerInfosLegales,
+  INFOS_LEGALES,
+} from '@/lib/organisation-infos-legales.js';
 
 // CDC §06.04 §6 « Mon organisation » (l.646-664).
 // GET : lecture des informations légales de SA propre organisation (manager +
 //       commercial — RLS org-scoped).
-// PATCH : édition MANAGER only (l.660 « modifiables par le manager »). Le
-//       commercial est read-only sur Infos/Logo (l.652, tableau des droits).
+// PATCH : manager = informations légales + logo (l.660). Commercial = informations
+//       légales seules (raison sociale, SIRET, adresse) — décision Val 2026-09-28,
+//       écart au tableau des droits l.652 (commercial en lecture seule) ; le logo
+//       reste manager only. Garde DB : policy org_commercial_update + liste blanche
+//       du trigger trg_block_org_gestionnaire_cols_update (20260928100000).
 //
 // « SIREN » du CDC = colonne shadow `organisations.siret` (la source de vérité
 // SIRET reste `entites_facturation` ; l'org.siret ne gate rien). L'édition des
@@ -23,7 +29,6 @@ import { writeError, serverError } from '@/lib/api-helpers.js';
 // staff-only en lecture, l'INSERT passe par le client admin).
 
 const READ_ROLES: ClientRole[] = ['traiteur_manager', 'traiteur_commercial'];
-const MANAGER_ROLE: ClientRole[] = ['traiteur_manager'];
 
 // Champs éditables par le manager (colonnes RÉELLES de plateforme.organisations).
 // Le « Contact principal facturation » du §6 (email qui reçoit les factures) n'a
@@ -31,14 +36,8 @@ const MANAGER_ROLE: ClientRole[] = ['traiteur_manager'];
 // (par entité), éditée via la route entites-facturation. Les « coordonnées
 // bancaires » du §6 sont NON implémentées (contradiction l.678↔l.701 + aucune
 // colonne) — cf. _Divergences M3.1_20260705_facturation_params.
-const EDITABLE_FIELDS = new Set([
-  'raison_sociale',
-  'siret',
-  'adresse',
-  'logo_url',
-]);
-// Champs « informations légales » dont toute modification est auditée (l.660).
-const AUDITED_FIELDS = ['raison_sociale', 'siret', 'adresse'] as const;
+const EDITABLE_MANAGER = new Set<string>([...INFOS_LEGALES, 'logo_url']);
+const EDITABLE_COMMERCIAL = new Set<string>(INFOS_LEGALES);
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, READ_ROLES);
@@ -64,8 +63,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireUser(req, MANAGER_ROLE);
+  const auth = await requireUser(req, READ_ROLES);
   if (auth.error) return auth.error;
+  const editable =
+    auth.ctx.role === 'traiteur_manager'
+      ? EDITABLE_MANAGER
+      : EDITABLE_COMMERCIAL;
 
   let body: Record<string, unknown>;
   try {
@@ -76,7 +79,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
   const patch: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {
-    if (EDITABLE_FIELDS.has(k)) patch[k] = v;
+    if (editable.has(k)) patch[k] = v;
   }
   if (Object.keys(patch).length === 0)
     return NextResponse.json(
@@ -93,8 +96,9 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
 
-  // UPDATE via le client RLS : la policy `org_manager_update` garantit le
-  // périmètre own-org (jamais l'org d'un autre, même si le JWT était falsifié).
+  // UPDATE via le client RLS : les policies `org_manager_update` /
+  // `org_commercial_update` garantissent le périmètre own-org (jamais l'org d'un
+  // autre, même si le JWT était falsifié).
   const { data, error } = await supabase
     .from('organisations')
     .update(patch)
@@ -112,24 +116,13 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       { status: 404 },
     );
 
-  // Audit des champs légaux réellement modifiés (l.660). service_role : audit_log
-  // est staff-only en lecture, l'INSERT passe par le client admin.
-  const beforeVals = (before ?? {}) as Record<string, unknown>;
-  const admin = createAdminSupabaseClient();
-  for (const field of AUDITED_FIELDS) {
-    if (!(field in patch)) continue;
-    const oldVal = beforeVals[field] ?? null;
-    const newVal = patch[field] ?? null;
-    if (oldVal === newVal) continue;
-    await admin.from('audit_log').insert({
-      action: 'organisation_infos_legales_update',
-      table_name: 'organisations',
-      record_id: auth.ctx.organisationId,
-      user_id: auth.ctx.userId,
-      old_values: { [field]: oldVal },
-      new_values: { [field]: newVal },
-    });
-  }
+  // Audit des champs légaux réellement modifiés (l.660).
+  await auditerInfosLegales(
+    before as Record<string, unknown> | null,
+    patch,
+    auth.ctx.organisationId,
+    auth.ctx.userId,
+  );
 
   return NextResponse.json({ data });
 }

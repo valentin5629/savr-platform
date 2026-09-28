@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
+import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 
 type OrgTab = 'infos' | 'equipe' | 'facturation' | 'preferences';
 
@@ -151,11 +152,22 @@ function InfosTab({ isManager }: { isManager: boolean }) {
 
   return (
     <div className="space-y-4">
-      <InfosLegalesCard
-        profil={profil}
-        isManager={isManager}
-        onSaved={reloadProfil}
-      />
+      {/* Informations légales : modifiables manager ET commercial (décision Val
+          2026-09-28, écart au tableau des droits §6) ; logo, entités et domaines
+          restent manager only. */}
+      {profil ? (
+        <InfosLegalesCard
+          profil={profil}
+          urlProfil="/api/v1/traiteur/mon-organisation/profil"
+          onSaved={setProfil}
+        />
+      ) : (
+        <Card>
+          <CardContent className="py-4 text-sm text-savr-neutral-500">
+            Chargement…
+          </CardContent>
+        </Card>
+      )}
       <LogoCard profil={profil} isManager={isManager} onSaved={reloadProfil} />
       <EntitesCard
         entites={entites}
@@ -168,115 +180,6 @@ function InfosTab({ isManager }: { isManager: boolean }) {
         onChanged={reloadDomaines}
       />
     </div>
-  );
-}
-
-function InfosLegalesCard({
-  profil,
-  isManager,
-  onSaved,
-}: {
-  profil: OrgProfil | null;
-  isManager: boolean;
-  onSaved: () => void;
-}) {
-  const [raisonSociale, setRaisonSociale] = useState('');
-  const [siren, setSiren] = useState('');
-  const [adresse, setAdresse] = useState('');
-  const [msg, setMsg] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!profil) return;
-    setRaisonSociale(profil.raison_sociale ?? '');
-    setSiren(profil.siret ?? '');
-    setAdresse(profil.adresse ?? '');
-  }, [profil]);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setMsg('');
-    const res = await fetch('/api/v1/traiteur/mon-organisation/profil', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        raison_sociale: raisonSociale,
-        siret: siren,
-        adresse,
-      }),
-    });
-    setMsg(
-      res.ok ? 'Modifications enregistrées.' : 'Erreur à l’enregistrement.',
-    );
-    setSaving(false);
-    if (res.ok) onSaved();
-  }
-
-  if (!profil)
-    return (
-      <Card>
-        <CardContent className="py-4 text-sm text-savr-neutral-500">
-          Chargement…
-        </CardContent>
-      </Card>
-    );
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Informations légales</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isManager ? (
-          <form onSubmit={save} className="space-y-3">
-            <div>
-              <label className={labelCls}>Raison sociale</label>
-              <input
-                className={inputCls}
-                value={raisonSociale}
-                onChange={(e) => setRaisonSociale(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>SIREN</label>
-              <input
-                className={inputCls}
-                value={siren}
-                onChange={(e) => setSiren(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Adresse</label>
-              <input
-                className={inputCls}
-                value={adresse}
-                onChange={(e) => setAdresse(e.target.value)}
-              />
-            </div>
-            {msg && <p className="text-sm text-savr-neutral-600">{msg}</p>}
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </form>
-        ) : (
-          <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
-            <div>
-              <span className="text-savr-neutral-500">Raison sociale : </span>
-              {profil.raison_sociale ?? profil.nom ?? '—'}
-            </div>
-            <div>
-              <span className="text-savr-neutral-500">SIREN : </span>
-              {profil.siret ?? '—'}
-            </div>
-            <div className="md:col-span-2">
-              <span className="text-savr-neutral-500">Adresse : </span>
-              {profil.adresse ?? '—'}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 

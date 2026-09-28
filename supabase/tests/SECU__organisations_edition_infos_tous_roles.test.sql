@@ -20,7 +20,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(16);
 
 CREATE OR REPLACE FUNCTION test_set_jwt_prod(
   p_role text,
@@ -130,7 +130,7 @@ SELECT is(
   '12. client_organisateur : l''organisation d''un tiers n''est pas modifiable (0 ligne)');
 
 -- =============================================================================
--- 13-14 — cliquets : prédicats own-org des deux nouvelles policies
+-- 13-14b — cliquets : prédicats own-org (USING + WITH CHECK) des deux nouvelles policies
 -- =============================================================================
 SELECT is(
   (SELECT qual FROM pg_policies WHERE schemaname = 'plateforme' AND tablename = 'organisations'
@@ -138,10 +138,20 @@ SELECT is(
   '((plateforme.f_app_role() = ''traiteur_commercial''::text) AND (id = ((auth.jwt() ->> ''organisation_id''::text))::uuid))',
   '13. org_commercial_update : USING = rôle commercial ET id = organisation du JWT');
 SELECT is(
+  (SELECT with_check FROM pg_policies WHERE schemaname = 'plateforme' AND tablename = 'organisations'
+      AND policyname = 'org_commercial_update'),
+  '((plateforme.f_app_role() = ''traiteur_commercial''::text) AND (id = ((auth.jwt() ->> ''organisation_id''::text))::uuid))',
+  '13b. org_commercial_update : WITH CHECK = rôle ET id = organisation du JWT');
+SELECT is(
   (SELECT qual FROM pg_policies WHERE schemaname = 'plateforme' AND tablename = 'organisations'
       AND policyname = 'org_client_orga_update'),
   '((plateforme.f_app_role() = ''client_organisateur''::text) AND (id = ((auth.jwt() ->> ''organisation_id''::text))::uuid))',
   '14. org_client_orga_update : USING = rôle client_organisateur ET id = organisation du JWT');
+SELECT is(
+  (SELECT with_check FROM pg_policies WHERE schemaname = 'plateforme' AND tablename = 'organisations'
+      AND policyname = 'org_client_orga_update'),
+  '((plateforme.f_app_role() = ''client_organisateur''::text) AND (id = ((auth.jwt() ->> ''organisation_id''::text))::uuid))',
+  '14b. org_client_orga_update : WITH CHECK = rôle ET id = organisation du JWT');
 
 SELECT * FROM finish();
 ROLLBACK;

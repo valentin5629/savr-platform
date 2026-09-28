@@ -24,7 +24,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(34);
+SELECT plan(35);
 
 -- Helpers ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION test_set_jwt_prod(
@@ -248,6 +248,10 @@ SELECT lives_ok(
 SELECT lives_ok(
   $$ UPDATE plateforme.organisations SET siret = '99999999999999' WHERE id = '5e1e0001-0000-0000-0000-0000000000b1' $$,
   '23. gestionnaire : siret modifiable (20260928100000)');
+SELECT is(
+  (SELECT raison_sociale || '|' || siret FROM plateforme.organisations WHERE id = '5e1e0001-0000-0000-0000-0000000000b1'),
+  'Autre SA|99999999999999',
+  '23b. gestionnaire : raison_sociale + siret bien appliqués (un UPDATE de 0 ligne rougit ici)');
 SELECT throws_ok(
   $$ UPDATE plateforme.organisations SET email_principal = 'x@y.test' WHERE id = '5e1e0001-0000-0000-0000-0000000000b1' $$,
   '42501', NULL, '24. gestionnaire : email_principal non modifiable (hors liste §06.05 §6)');

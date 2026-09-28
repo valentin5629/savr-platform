@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { serverError, writeError } from '@/lib/api-helpers.js';
+import { logger } from '@savr/shared/src/logger/index.js';
+import { messageErreur, serverError, writeError } from '@/lib/api-helpers.js';
 
 // Informations légales de SA propre organisation — lecture + édition partagées par
 // les espaces clients (décision Val 2026-09-28 : modifiables par tous les rôles).
@@ -32,7 +33,7 @@ export async function auditerInfosLegales(
     const oldVal = beforeVals[field] ?? null;
     const newVal = patch[field] ?? null;
     if (oldVal === newVal) continue;
-    await admin.from('audit_log').insert({
+    const { error } = await admin.from('audit_log').insert({
       action: 'organisation_infos_legales_update',
       table_name: 'organisations',
       record_id: organisationId,
@@ -40,6 +41,14 @@ export async function auditerInfosLegales(
       old_values: { [field]: oldVal },
       new_values: { [field]: newVal },
     });
+    // La modification est déjà écrite : l'échec d'audit ne l'annule pas, mais ne
+    // doit pas passer sous silence.
+    if (error)
+      logger.error('organisation.infos_legales.audit_echec', {
+        organisation_id: organisationId,
+        champ: field,
+        error: messageErreur(error),
+      });
   }
 }
 

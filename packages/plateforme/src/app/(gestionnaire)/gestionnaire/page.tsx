@@ -134,7 +134,11 @@ export default function GestionnaireDashboardPage() {
     }
     const lire = (q: URLSearchParams) =>
       fetch(`/api/v1/gestionnaire/dashboard?${q}`).then((r) => r.json());
-    Promise.all([lire(qs), fenetrePrev ? lire(qsPrev) : Promise.resolve(null)])
+    Promise.all([
+      lire(qs),
+      // N-1 non bloquant : un échec ne masque que les variations.
+      fenetrePrev ? lire(qsPrev).catch(() => null) : Promise.resolve(null),
+    ])
       .then(([j, jPrev]) => {
         setKpi((j.data?.kpis ?? null) as KpiData | null);
         setKpiPrev((jPrev?.data?.kpis ?? null) as KpiData | null);

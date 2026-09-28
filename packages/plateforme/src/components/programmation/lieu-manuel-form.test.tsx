@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LieuManuelForm } from './lieu-manuel-form';
+import { Modal } from '@/components/ui/modal';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
@@ -140,4 +141,82 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  describe('suggestions BAN — clavier et modale', () => {
+    const SUGGESTION = {
+      properties: {
+        id: '75117_9933_00039',
+        label: '39 Avenue de Wagram 75017 Paris',
+        name: '39 Avenue de Wagram',
+        postcode: '75017',
+        city: 'Paris',
+        type: 'housenumber',
+      },
+    };
+    const stubBan = () => {
+      const fetchMock = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: async () => ({ features: [SUGGESTION] }),
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+      return fetchMock;
+    };
+    const saisir = async () => {
+      const champ = screen.getByLabelText(/Adresse d'accès livraison/);
+      fireEvent.change(champ, { target: { value: '39 avenue de wagram' } });
+      await screen.findByRole('listbox', {}, ATTENTE_UI);
+      return champ;
+    };
+
+    it(
+      'M0.6 — flèche bas + Entrée remplit CP et ville, sans relancer de recherche',
+      async () => {
+        const fetchMock = stubBan();
+        render(<LieuManuelForm onSave={vi.fn()} onCancel={vi.fn()} />);
+        const champ = await saisir();
+
+        fireEvent.keyDown(champ, { key: 'ArrowDown' });
+        fireEvent.keyDown(champ, { key: 'Enter' });
+
+        expect(champ).toHaveValue('39 Avenue de Wagram');
+        expect(screen.getByLabelText(/Code postal/)).toHaveValue('75017');
+        expect(screen.getByLabelText(/Ville/)).toHaveValue('Paris');
+        // La valeur posée par la sélection ne redéclenche pas le debounce (250 ms).
+        await new Promise((r) => setTimeout(r, 400));
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(screen.queryByRole('listbox')).toBeNull();
+      },
+      ATTENTE_CAS_MS,
+    );
+
+    it(
+      'M0.6 — Échap ferme la liste sans fermer la modale ; quitter le champ la ferme aussi',
+      async () => {
+        stubBan();
+        const onClose = vi.fn();
+        render(
+          <Modal open onClose={onClose} title="Ajouter un lieu manuellement">
+            <LieuManuelForm onSave={vi.fn()} onCancel={vi.fn()} />
+          </Modal>,
+        );
+        const champ = await saisir();
+
+        fireEvent.keyDown(champ, { key: 'Escape' });
+        expect(screen.queryByRole('listbox')).toBeNull();
+        expect(onClose).not.toHaveBeenCalled();
+
+        // Liste fermée : Échap retrouve son rôle normal (fermer la modale).
+        fireEvent.keyDown(champ, { key: 'Escape' });
+        expect(onClose).toHaveBeenCalledTimes(1);
+
+        fireEvent.focus(champ);
+        expect(screen.getByRole('listbox')).toBeInTheDocument();
+        fireEvent.blur(champ);
+        expect(screen.queryByRole('listbox')).toBeNull();
+      },
+      ATTENTE_CAS_MS,
+    );
+  });
 });

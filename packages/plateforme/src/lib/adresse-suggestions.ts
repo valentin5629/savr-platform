@@ -44,7 +44,11 @@ export async function suggererAdresses(
 
   try {
     const url = `https://data.geopf.fr/geocodage/search?q=${encodeURIComponent(q)}&autocomplete=1&limit=5&${PRIORITE_PARIS}`;
-    const res = await fetch(url, { signal });
+    // Même plafond que lib/geocoding.ts : une API muette ne laisse pas de requête pendante.
+    const timeout = AbortSignal.timeout(5000);
+    const res = await fetch(url, {
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
     if (!res.ok) return [];
 
     const body = (await res.json()) as { features?: FeatureBan[] };

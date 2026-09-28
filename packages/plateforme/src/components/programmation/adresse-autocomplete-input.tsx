@@ -33,7 +33,6 @@ export function AdresseAutocompleteInput({
   // Vrai seulement quand la valeur vient de la frappe : une valeur posée par une
   // sélection ne doit pas relancer la recherche (la liste se rouvrirait aussitôt).
   const saisieUtilisateur = React.useRef(false);
-  const rootRef = React.useRef<HTMLDivElement>(null);
   const listboxId = `${id}-suggestions`;
 
   React.useEffect(() => {
@@ -58,16 +57,6 @@ export function AdresseAutocompleteInput({
       controller.abort();
     };
   }, [value]);
-
-  React.useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, []);
 
   const choisir = (s: SuggestionAdresse) => {
     saisieUtilisateur.current = false;
@@ -97,13 +86,13 @@ export function AdresseAutocompleteInput({
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div className="relative">
       <Input
         id={id}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={open}
-        aria-controls={listboxId}
+        aria-controls={open ? listboxId : undefined}
         aria-activedescendant={actif >= 0 ? `${listboxId}-${actif}` : undefined}
         // Désactive l'autofill navigateur, qui se superposerait à la liste.
         autoComplete="off"
@@ -115,6 +104,9 @@ export function AdresseAutocompleteInput({
         }}
         onKeyDown={onKeyDown}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
+        // Quitter le champ (Tab, clic ailleurs) ferme la liste, qui sinon masquerait
+        // code postal et ville. Le clic sur une option est protégé (preventDefault).
+        onBlur={() => setOpen(false)}
       />
       {open && (
         <ul
@@ -128,7 +120,7 @@ export function AdresseAutocompleteInput({
               id={`${listboxId}-${i}`}
               role="option"
               aria-selected={i === actif}
-              // mousedown (pas click) : passe avant le blur du champ.
+              // mousedown + preventDefault : le champ ne perd pas le focus (pas de blur).
               onMouseDown={(e) => {
                 e.preventDefault();
                 choisir(s);
@@ -136,7 +128,7 @@ export function AdresseAutocompleteInput({
               onMouseEnter={() => setActif(i)}
               className={cn(
                 'flex min-h-11 cursor-pointer items-center px-3 py-2 text-sm text-savr-neutral-800 sm:min-h-10',
-                i === actif && 'bg-savr-neutral-50',
+                i === actif && 'bg-savr-primary-50',
               )}
             >
               {s.label}

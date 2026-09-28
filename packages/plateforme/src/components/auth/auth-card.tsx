@@ -13,8 +13,6 @@ import { SavrLogoMark } from '@/components/layout/savr-logo';
 // Exception au DS §5.2 (Card radius md, sans ombre) et fond en dégradé :
 // arbitrage Val 2026-09-28, tracé dans _Divergences/M0.5_20260928_ecrans-auth-
 // carte-ombre-degrade.md — limité à ces écrans.
-// `rounded-savr-lg!` : twMerge ne reconnaît pas les rayons `savr-*` et garde le
-// `rounded-savr-md` de <Card>, qui l'emporte dans le CSS compilé.
 
 // Lien secondaire : zone tactile 44 px (DS §10) sans décaler la mise en page
 // (-my-3 compense py-3).
@@ -66,7 +64,7 @@ export function AuthCard({
 
   return (
     <div className={cn('w-full max-w-md', className)}>
-      <Card className="space-y-6 rounded-savr-lg! px-6 py-8 shadow-savr-md sm:px-10">
+      <Card className="space-y-6 rounded-savr-lg px-6 py-8 shadow-savr-md sm:px-10">
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold tracking-tight text-savr-neutral-900">
             {titre}

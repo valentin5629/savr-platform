@@ -150,7 +150,7 @@ function LoginForm() {
           value={motDePasse}
           onChange={(e) => setMotDePasse(e.target.value)}
         />
-        <div className="flex justify-end pt-1">
+        <div className="flex justify-end pt-2">
           <Link href="/reset-password" className={authLienClass}>
             Mot de passe oublié ?
           </Link>

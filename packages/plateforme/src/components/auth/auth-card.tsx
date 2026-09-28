@@ -17,14 +17,14 @@ export const authLienClass =
 
 export function AuthPage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center bg-gradient-to-b from-savr-neutral-50 to-savr-primary-50 px-4 py-12">
+    <main className="flex min-h-screen flex-col items-center bg-savr-neutral-50 px-4 py-12">
       {/* Le logo est peint en blanc (conçu pour la sidebar navy) : il est posé
           sur une pastille primary-700, comme dans la barre latérale. */}
       <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-full bg-savr-primary-700 text-savr-accent-500">
         <SavrLogoMark variant="mark" title="Savr" className="h-8 w-8" />
       </div>
       {children}
-    </div>
+    </main>
   );
 }
 
@@ -58,7 +58,7 @@ export function AuthCard({
 
   return (
     <div className={cn('w-full max-w-md', className)}>
-      <Card className="space-y-6 rounded-savr-lg px-6 py-8 shadow-savr-sm sm:px-10">
+      <Card className="space-y-6 px-6 py-8 sm:px-10">
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold tracking-tight text-savr-neutral-900">
             {titre}

@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useId } from 'react';
+import { Combobox } from '@/components/ui/combobox';
+import { FormField } from '@/components/ui/form-field';
 
 export interface MultiOption {
   id: string;
@@ -18,9 +20,11 @@ interface MultiSelectFilterProps {
 }
 
 /**
- * Multi-select compact (bouton + panneau à cases). Sélection vide = « Tous ».
- * Composant de filtrage uniquement — aucune écriture. Utilisé par l'encart
- * « Filtres benchmark » (§06.05 Bloc 3 ZD).
+ * Filtre multi-choix : libellé au-dessus (`FormField`) + `Combobox multiple`
+ * (DS « Mise en page des formulaires et filtres » règles 1 à 3). Sélection
+ * vide = « Tous » (`allLabel`, première option de la liste). Composant de
+ * filtrage uniquement — aucune écriture. Utilisé par l'encart « Filtres
+ * benchmark » (§06.05 Bloc 3 ZD) et les filtres « parc ».
  */
 export function MultiSelectFilter({
   label,
@@ -30,85 +34,21 @@ export function MultiSelectFilter({
   allLabel = 'Tous',
   testid,
 }: MultiSelectFilterProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent): void {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    }
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, []);
-
-  const selectedSet = new Set(selected);
-  const summary =
-    selected.length === 0
-      ? allLabel
-      : `${selected.length} sélectionné${selected.length > 1 ? 's' : ''}`;
-
-  function toggle(id: string): void {
-    if (selectedSet.has(id)) onChange(selected.filter((x) => x !== id));
-    else onChange([...selected, id]);
-  }
-
+  const autoId = useId();
+  const id = testid ?? `multi-select-${autoId}`;
   return (
-    <div ref={ref} className="relative" data-testid={testid}>
-      <span className="mb-1.5 block text-xs font-semibold text-savr-neutral-600">
-        {label}
-      </span>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="flex w-full items-center justify-between rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 py-2 text-left text-sm hover:border-savr-neutral-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-      >
-        <span className={selected.length === 0 ? 'text-savr-neutral-500' : ''}>
-          {summary}
-        </span>
-        <span className="ml-2 text-savr-neutral-400">▾</span>
-      </button>
-      {open && (
-        <div
-          role="listbox"
-          aria-multiselectable="true"
-          className="absolute z-30 mt-1 max-h-56 w-full min-w-[12rem] overflow-y-auto rounded-savr-md border border-savr-neutral-200 bg-savr-white p-1 shadow-savr-md"
-        >
-          <button
-            type="button"
-            onClick={() => onChange([])}
-            data-testid={testid ? `${testid}-opt-tous` : undefined}
-            className={`w-full rounded-savr-sm px-2 py-1.5 text-left text-sm ${
-              selected.length === 0
-                ? 'bg-savr-primary-50 font-medium text-savr-primary-800'
-                : 'hover:bg-savr-neutral-50'
-            }`}
-          >
-            {allLabel}
-          </button>
-          {options.map((o) => (
-            <label
-              key={o.id}
-              className="flex cursor-pointer items-center gap-2 rounded-savr-sm px-2 py-1.5 text-sm hover:bg-savr-neutral-50"
-            >
-              <input
-                type="checkbox"
-                checked={selectedSet.has(o.id)}
-                onChange={() => toggle(o.id)}
-                data-testid={testid ? `${testid}-opt-${o.id}` : undefined}
-              />
-              <span className="flex-1">{o.nom}</span>
-            </label>
-          ))}
-          {options.length === 0 && (
-            <p className="px-2 py-1.5 text-sm text-savr-neutral-500">
-              Aucune option.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+    <FormField label={label} htmlFor={id}>
+      <Combobox
+        multiple
+        id={id}
+        data-testid={testid}
+        icon={null}
+        placeholder={allLabel}
+        emptyText="Aucune option."
+        options={options.map((o) => ({ value: o.id, label: o.nom }))}
+        value={selected}
+        onChange={onChange}
+      />
+    </FormField>
   );
 }

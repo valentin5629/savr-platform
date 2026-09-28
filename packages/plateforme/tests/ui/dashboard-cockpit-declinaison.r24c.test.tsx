@@ -2,7 +2,7 @@
  * R24c — Déclinaison Cockpit des 3 dashboards « client » restants (agence M3.3,
  * client_organisateur M3.4, Dashboard Client Admin M3.6). Vérifie que chaque page
  * monte SANS crash et rend la SIGNATURE Cockpit attendue (KpiCockpitCard ; pour
- * l'agence : TopRankList + BenchmarkBulletGauges + drill-down onItemClick → URL),
+ * l'agence : TopRankList + BenchmarkRadar + drill-down onItemClick → URL),
  * à parité de sens avec les pilotes traiteur/gestionnaire (R24/R24b), et que les
  * anciens composants (KpiCard, TopLieuxBloc, TopAssociationsBloc, BenchmarkLegend,
  * BenchmarkGauge) ont bien disparu au profit de la lib Cockpit.
@@ -109,7 +109,7 @@ function agenceFetch() {
 
 describe('M3.3 / agence — déclinaison Cockpit', () => {
   it(
-    'M3.3/cockpit_declinaison_kpi_toprank_benchmark — KpiCockpitCard + TopRankList + BenchmarkBulletGauges, plus d’ancien BenchmarkGauge',
+    'M3.3/cockpit_declinaison_kpi_toprank_benchmark — KpiCockpitCard + TopRankList + BenchmarkRadar, plus d’ancien BenchmarkGauge',
     async () => {
       vi.stubGlobal('fetch', agenceFetch());
       render(<AgenceDashboardPage />);
@@ -118,7 +118,7 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
       expect(
         await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // Benchmark Cockpit (BenchmarkBulletGauges — titre propre à la lib figée).
+      // Benchmark Cockpit (BenchmarkRadar — titre propre à la lib figée).
       expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
       // Top listes Cockpit (TopRankList).
       expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
@@ -336,7 +336,7 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
-      // Graphes Cockpit : jauges bullet (« Intensité par flux »), Top listes.
+      // Graphes Cockpit : radar benchmark (« Intensité par flux »), Top listes.
       expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
       expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
       expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();

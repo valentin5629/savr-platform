@@ -1,12 +1,78 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { safeNextPath } from '@/lib/safe-next-path';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+
+// Motifs posés par `api/auth/verify-email` quand le lien d'activation n'aboutit
+// pas. Ils arrivaient déjà en `?error=` mais n'étaient affichés nulle part :
+// l'utilisateur voyait un écran de connexion muet (revue go-live 2026-09-23).
+//
+// ⚠ `Map` et non objet littéral : un objet rend AUSSI les clés héritées
+// d'`Object.prototype`. Avec un objet, `/login?error=__proto__` rendait un objet
+// là où React attend du texte et FAISAIT PLANTER la page de connexion — par
+// simple lien forgé, et sans `error.tsx` pour amortir. `toString`, `valueOf` &
+// consorts rendaient une fonction ou passaient en silence. Un `Map` n'a pas de
+// clés héritées : seul ce qui est posé ici peut sortir.
+const MESSAGES_ERREUR = new Map<string, string>([
+  [
+    'lien_invalide',
+    "Ce lien de vérification est incomplet ou a déjà servi. Écrivez-nous à hello@gosavr.io si vous n'arrivez pas à activer votre compte.",
+  ],
+  [
+    'verification_echouee',
+    "Ce lien de vérification a expiré ou a déjà été utilisé. Écrivez-nous à hello@gosavr.io pour recevoir un nouveau lien d'activation.",
+  ],
+  // ── Motifs renvoyés par Supabase dans le FRAGMENT (#error_code=…) ──────────
+  // Un fragment n'est JAMAIS transmis au serveur : ni le middleware ni une route
+  // ne peuvent le voir. Quand Supabase refuse un lien d'email, il redirige vers
+  // le Site URL du projet — donc ici, via le middleware — en plaçant le motif
+  // là. Sans la lecture ci-dessous, l'utilisateur tombait sur un formulaire de
+  // connexion parfaitement muet (panne mesurée en dev le 2026-09-24 : le seul
+  // indice était `#error_code=otp_expired` dans la barre d'adresse).
+  [
+    'otp_expired',
+    "Ce lien a expiré ou a déjà servi — il ne fonctionne qu'une fois. Demandez-en un nouveau ci-dessous.",
+  ],
+  [
+    'access_denied',
+    "Ce lien n'a pas pu être vérifié. Demandez-en un nouveau ci-dessous.",
+  ],
+]);
+
+/**
+ * Motif d'erreur placé par Supabase dans le fragment de l'URL.
+ *
+ * `window.location.hash` n'existe pas au rendu serveur : on lit après montage,
+ * d'où l'état plutôt qu'un calcul direct. `URLSearchParams` accepte la forme
+ * `a=1&b=2` une fois le `#` retiré.
+ */
+function useMotifFragment(): string | undefined {
+  const [motif, setMotif] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (hash === '') return;
+    const params = new URLSearchParams(hash);
+    // `error_code` est le plus précis ; `error` est le repli générique.
+    const code = params.get('error_code') ?? params.get('error') ?? '';
+    setMotif(MESSAGES_ERREUR.get(code));
+  }, []);
+  return motif;
+}
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // `?error=` : motif d'un lien d'activation qui n'a pas abouti. Lu dans une
+  // table fermée — un motif inconnu (URL forgée) n'affiche rien plutôt que
+  // d'imprimer le paramètre tel quel.
+  const messageQuery = MESSAGES_ERREUR.get(searchParams.get('error') ?? '');
+  const messageFragment = useMotifFragment();
+  const messageLien = messageQuery ?? messageFragment;
   // Pas de `next` (login direct) → `/` qui redirige vers l'espace du rôle
   // (page.tsx / HOME_BY_ROLE). Surtout pas `/admin/dashboard` en dur, sinon
   // tous les rôles atterrissent sur le back-office Admin. Validé : un `next`
@@ -44,31 +110,32 @@ function LoginForm() {
       <h1 className="text-xl font-semibold text-savr-neutral-900 mb-6">
         Connexion Savr
       </h1>
+      {messageLien && (
+        <AlertBar variant="warn" className="mb-4 font-normal">
+          {messageLien}
+        </AlertBar>
+      )}
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-savr-neutral-700">
-            Email
-          </label>
-          <input
+        <FormField label="Email" htmlFor="login-email">
+          <Input
+            id="login-email"
             type="email"
             required
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
           />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-savr-neutral-700">
-            Mot de passe
-          </label>
-          <input
+        </FormField>
+        <FormField label="Mot de passe" htmlFor="login-mot-de-passe">
+          <Input
+            id="login-mot-de-passe"
             type="password"
             required
+            autoComplete="current-password"
             value={motDePasse}
             onChange={(e) => setMotDePasse(e.target.value)}
-            className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
           />
-        </div>
+        </FormField>
         {erreur && <p className="text-sm text-savr-error">{erreur}</p>}
         <button
           type="submit"
@@ -78,6 +145,21 @@ function LoginForm() {
           {loading ? 'Connexion…' : 'Se connecter'}
         </button>
       </form>
+      <div className="mt-6 space-y-2 text-sm">
+        <Link
+          href="/reset-password"
+          className="block font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
+        >
+          Mot de passe oublié ?
+        </Link>
+        {/* Sans ce lien, /signup n'était atteignable qu'en tapant l'URL. */}
+        <Link
+          href="/signup"
+          className="block font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
+        >
+          Créer un compte
+        </Link>
+      </div>
     </div>
   );
 }

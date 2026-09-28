@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { FormField } from '@/components/ui/form-field';
@@ -500,18 +500,19 @@ export default function NouveauProgrammationPage() {
               htmlFor="type-evenement"
               required
             >
-              <Select
+              <Combobox
                 id="type-evenement"
+                icon={null}
+                required
+                placeholder="Choisir…"
+                searchPlaceholder="Rechercher un type…"
+                options={typesEvenements.map((t) => ({
+                  value: t.id,
+                  label: t.libelle,
+                }))}
                 value={typeEvenementId}
-                onChange={(e) => setTypeEvenementId(e.target.value)}
-              >
-                <option value="">Choisir…</option>
-                {typesEvenements.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.libelle}
-                  </option>
-                ))}
-              </Select>
+                onChange={setTypeEvenementId}
+              />
             </FormField>
           </div>
 
@@ -579,18 +580,19 @@ export default function NouveauProgrammationPage() {
                   : undefined
               }
             >
-              <Select
+              <Combobox
                 id="traiteur-select"
+                icon={null}
+                required
+                placeholder="Choisir un traiteur…"
+                searchPlaceholder="Rechercher un traiteur…"
+                options={traiteurs.map((t) => ({
+                  value: t.id,
+                  label: t.nom || t.raison_sociale || '',
+                }))}
                 value={traiteurOperationnelId}
-                onChange={(e) => setTraiteurOperationnelId(e.target.value)}
-              >
-                <option value="">Choisir un traiteur…</option>
-                {traiteurs.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nom || t.raison_sociale}
-                  </option>
-                ))}
-              </Select>
+                onChange={setTraiteurOperationnelId}
+              />
               {/* PROG-02 : option « hors référentiel » — agence uniquement (CDC
                   §06.01 l.280 : le gestionnaire de lieux n'a PAS cette option). */}
               {role === 'agence' && (

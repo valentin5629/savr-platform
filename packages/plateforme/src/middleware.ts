@@ -71,6 +71,8 @@ const PUBLIC_PREFIXES = [
   '/signup',
   '/verify-email',
   '/reset-password',
+  // Texte des CGU : accepté à l'inscription, donc lisible AVANT d'avoir un compte.
+  '/cgu',
   '/403',
   // Pages de smoke-test de composants (dev-only, présentationnel, sans donnée
   // sensible) — délibérément hors du gating /admin/* réservé admin_savr/ops_savr.

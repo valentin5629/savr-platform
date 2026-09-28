@@ -14,6 +14,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { tempsEcouleFr } from '@/lib/facturation/facture-ui';
 
@@ -255,8 +259,6 @@ export default function FactureDetailPage() {
     style: 'currency',
     currency: facture.devise,
   });
-  const inputCls =
-    'rounded-md border border-neutral-300 px-2 py-1 text-sm disabled:bg-neutral-50 disabled:text-neutral-500';
   const factureReference =
     facture.factures_collectes.find(
       (fc) => fc.collectes?.evenements?.reference_affaire,
@@ -360,26 +362,24 @@ export default function FactureDetailPage() {
               {facture.entites_facturation?.siret_verification ?? '—'}
             </div>
           </div>
-          <label className="flex flex-col gap-1">
-            <span className="text-neutral-500">Date d’émission</span>
-            <input
-              type="date"
-              className={inputCls}
+          <FormField label="Date d’émission" htmlFor="facture-date-emission">
+            <DatePicker
+              id="facture-date-emission"
+              data-testid="facture-date-emission"
               value={dateEmission}
               disabled={!isBrouillon}
-              onChange={(e) => setDateEmission(e.target.value)}
+              onChange={setDateEmission}
             />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-neutral-500">Date d’échéance</span>
-            <input
-              type="date"
-              className={inputCls}
+          </FormField>
+          <FormField label="Date d’échéance" htmlFor="facture-date-echeance">
+            <DatePicker
+              id="facture-date-echeance"
+              data-testid="facture-date-echeance"
               value={dateEcheance}
               disabled={!isBrouillon}
-              onChange={(e) => setDateEcheance(e.target.value)}
+              onChange={setDateEcheance}
             />
-          </label>
+          </FormField>
         </div>
       </section>
 
@@ -402,7 +402,6 @@ export default function FactureDetailPage() {
               onSave={(patch) => saveLigne(fc, patch)}
               onDelete={() => deleteLigne(fc)}
               fmt={fmt}
-              inputCls={inputCls}
             />
           ))}
         </div>
@@ -410,27 +409,31 @@ export default function FactureDetailPage() {
         {/* Bloc 3 — Ajout de ligne libre */}
         {isBrouillon && (
           <div className="flex items-end gap-2 pt-2">
-            <label className="flex flex-1 flex-col gap-1 text-sm">
-              <span className="text-neutral-500">
-                Désignation (ligne libre)
-              </span>
-              <input
-                className={inputCls}
+            <FormField
+              label="Désignation (ligne libre)"
+              htmlFor="nouvelle-ligne-designation"
+              className="flex-1"
+            >
+              <Input
+                id="nouvelle-ligne-designation"
                 value={newDesignation}
                 onChange={(e) => setNewDesignation(e.target.value)}
                 placeholder="Frais divers, remise…"
               />
-            </label>
-            <label className="flex w-32 flex-col gap-1 text-sm">
-              <span className="text-neutral-500">Montant HT</span>
-              <input
+            </FormField>
+            <FormField
+              label="Montant HT"
+              htmlFor="nouvelle-ligne-montant"
+              className="w-32"
+            >
+              <Input
+                id="nouvelle-ligne-montant"
                 type="number"
                 step="0.01"
-                className={inputCls}
                 value={newMontant}
                 onChange={(e) => setNewMontant(e.target.value)}
               />
-            </label>
+            </FormField>
             <Button
               variant="secondary"
               onClick={addLigne}
@@ -476,14 +479,16 @@ export default function FactureDetailPage() {
           <span className="text-neutral-500">Référence client : </span>
           <span className="font-medium">{factureReference ?? '—'}</span>
         </div>
-        <textarea
-          className={`${inputCls} w-full`}
-          rows={3}
-          value={notes}
-          disabled={!isBrouillon}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Conditions de paiement, pénalités de retard, escompte…"
-        />
+        <FormField label="Conditions et notes" htmlFor="facture-notes">
+          <Textarea
+            id="facture-notes"
+            rows={3}
+            value={notes}
+            disabled={!isBrouillon}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Conditions de paiement, pénalités de retard, escompte…"
+          />
+        </FormField>
         {isBrouillon && (
           <Button
             variant="secondary"
@@ -562,7 +567,6 @@ function LigneRow({
   onSave,
   onDelete,
   fmt,
-  inputCls,
 }: {
   ligne: Ligne;
   editable: boolean;
@@ -571,7 +575,6 @@ function LigneRow({
   onSave: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
   fmt: Intl.NumberFormat;
-  inputCls: string;
 }) {
   const [designation, setDesignation] = useState(
     ligne.libelle_ligne ?? ligne.designation ?? '',
@@ -599,34 +602,43 @@ function LigneRow({
 
   return (
     <div className="flex items-end gap-2 px-4 py-2.5">
-      <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-500">
-        Désignation
-        <input
-          className={inputCls}
+      <FormField
+        label="Désignation"
+        htmlFor={`ligne-${ligne.id}-designation`}
+        className="flex-1"
+      >
+        <Input
+          id={`ligne-${ligne.id}-designation`}
           value={designation}
           onChange={(e) => setDesignation(e.target.value)}
         />
-      </label>
-      <label className="flex w-24 flex-col gap-1 text-xs text-neutral-500">
-        PU HT
-        <input
+      </FormField>
+      <FormField
+        label="PU HT"
+        htmlFor={`ligne-${ligne.id}-pu`}
+        className="w-24"
+      >
+        <Input
+          id={`ligne-${ligne.id}-pu`}
           type="number"
           step="0.01"
-          className={inputCls}
           value={pu}
           onChange={(e) => setPu(e.target.value)}
         />
-      </label>
-      <label className="flex w-20 flex-col gap-1 text-xs text-neutral-500">
-        TVA %
-        <input
+      </FormField>
+      <FormField
+        label="TVA %"
+        htmlFor={`ligne-${ligne.id}-tva`}
+        className="w-20"
+      >
+        <Input
+          id={`ligne-${ligne.id}-tva`}
           type="number"
           step="0.1"
-          className={inputCls}
           value={tva}
           onChange={(e) => setTva(e.target.value)}
         />
-      </label>
+      </FormField>
       <Button
         variant="secondary"
         onClick={() =>

@@ -166,16 +166,69 @@ describe('M3.1 / mon-organisation infos légales', () => {
     expect(insertArgs.table_name).toBe('organisations');
   });
 
-  it('M3.1/trait_monorga_profil_commercial_readonly — commercial refusé (403)', async () => {
+  // Décision Val 2026-09-28 : le commercial modifie les informations légales
+  // (écart au tableau des droits §06.04 §6), mais pas le logo.
+  it('M3.1/trait_monorga_profil_commercial_infos_legales — commercial édite et audite', async () => {
+    setupAuth('traiteur_commercial');
+    rls.push({
+      data: { raison_sociale: 'Ancien', siret: '111', adresse: 'A' },
+      error: null,
+    });
+    rls.push({
+      data: { id: 'org-1', raison_sociale: 'Nouveau', siret: '111' },
+      error: null,
+    });
+    admin.push({ data: null, error: null }); // insert audit_log
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/mon-organisation/profil/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
+        raison_sociale: 'Nouveau',
+        logo_url: 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
+      }),
+    );
+    expect(res.status).toBe(200);
+    // Le logo est filtré : seul le champ légal part dans l'UPDATE.
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ raison_sociale: 'Nouveau' });
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-1']);
+    expect((admin.__calls.insert?.[0]?.[0] as { action: string }).action).toBe(
+      'organisation_infos_legales_update',
+    );
+  });
+
+  it('M3.1/trait_monorga_profil_validation_commune — vide → null, type invalide → 422', async () => {
+    setupAuth('traiteur_commercial');
+    rls.push({ data: { siret: '111' }, error: null });
+    rls.push({ data: { id: 'org-1' }, error: null });
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/mon-organisation/profil/route.js');
+    await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
+        siret: '   ',
+      }),
+    );
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ siret: null });
+
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
+        adresse: 42,
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe('Adresse : valeur invalide');
+  });
+
+  it('M3.1/trait_monorga_profil_commercial_logo_refuse — logo seul → 400', async () => {
     setupAuth('traiteur_commercial');
     const { PATCH } =
       await import('@/app/api/v1/traiteur/mon-organisation/profil/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
-        raison_sociale: 'Hack',
+        logo_url: 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
       }),
     );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(400);
+    expect(rls.__calls.update).toBeUndefined();
   });
 });
 
@@ -352,7 +405,7 @@ describe('M3.1 / mon-organisation entités facturation', () => {
 describe('M3.1 / mon-organisation domaines email', () => {
   it('M3.1/trait_monorga_domaines_create — manager ajoute un domaine', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: { id: 'd1', domaine: 'kaspia.fr' }, error: null });
+    admin.push({ data: { id: 'd1', domaine: 'kaspia.fr' }, error: null });
     const { POST } =
       await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/route.js');
     const res = await POST(
@@ -365,7 +418,7 @@ describe('M3.1 / mon-organisation domaines email', () => {
 
   it('M3.1/trait_monorga_domaines_dup — domaine global déjà pris → 409', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: null, error: { code: '23505' } });
+    admin.push({ data: null, error: { code: '23505' } });
     const { POST } =
       await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/route.js');
     const res = await POST(
@@ -390,7 +443,7 @@ describe('M3.1 / mon-organisation domaines email', () => {
 
   it('M3.1/trait_monorga_domaines_delete — manager supprime un domaine', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: { id: 'd1' }, error: null }); // delete...select...maybeSingle
+    admin.push({ data: { id: 'd1' }, error: null }); // delete...select...maybeSingle
     const { DELETE } =
       await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/[id]/route.js');
     const res = await DELETE(
@@ -398,11 +451,17 @@ describe('M3.1 / mon-organisation domaines email', () => {
       { params: Promise.resolve({ id: 'd1' }) },
     );
     expect(res.status).toBe(200);
+    // L'écriture passe sous service_role depuis 20260923180000 : la RLS
+    // `ode_manager_write` ne filtre plus. Le périmètre own-org doit donc être
+    // posé PAR LA ROUTE — sans ce `.eq`, un id deviné suffirait à supprimer le
+    // domaine d'une autre organisation.
+    const filtres = (admin.__calls.eq ?? []) as unknown[][];
+    expect(filtres).toContainEqual(['organisation_id', 'org-1']);
   });
 
   it('M3.1/trait_monorga_domaines_delete_hors_org — domaine hors org → 404', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: null, error: null }); // rien supprimé (RLS filtre)
+    admin.push({ data: null, error: null }); // rien supprimé (RLS filtre)
     const { DELETE } =
       await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/[id]/route.js');
     const res = await DELETE(

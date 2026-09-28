@@ -71,6 +71,10 @@ const EXCEPTIONS: Record<string, { garde: RegExp | null; raison: string }> = {
   'auth/login': { garde: null, raison: 'connexion' },
   'auth/signup': { garde: null, raison: 'inscription self-service' },
   'auth/reset-password': { garde: null, raison: 'demande de lien de reset' },
+  'auth/reset-password/confirm': {
+    garde: null,
+    raison: 'échange du code PKCE du lien de reset (le code EST le secret)',
+  },
   'auth/verify-email': { garde: null, raison: 'lien de vérification email' },
   'auth/logout': {
     garde: null,

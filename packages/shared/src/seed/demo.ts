@@ -785,17 +785,24 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     // passée sur le terrain.
     .filter((r) => r.type === 'zero_dechet' && estExecutee(r))
     .forEach((r, i) => {
-      const base = r.pax * 0.3;
+      const profil = PROFILS_TRI[r.traiteur] ?? PROFIL_TRI_NEUTRE;
+      const base = r.pax * 0.3 * profil.volume;
+      const p = repartitionFlux(i, profil);
       // Les 5 flux ZD présents sur chaque collecte (Bloc 2 barres empilées + Bloc 4 donut
       // utilisent les 5 flux : biodechet/emballage/carton/verre/dechet_residuel).
       fluxRows.push(
-        cflux(`cf_${r.slug}_bio`, r.slug, F('biodechet'), round1(base * 0.4)),
+        cflux(`cf_${r.slug}_bio`, r.slug, F('biodechet'), round1(base * p.bio)),
       );
       fluxRows.push(
-        cflux(`cf_${r.slug}_carton`, r.slug, F('carton'), round1(base * 0.25)),
+        cflux(
+          `cf_${r.slug}_carton`,
+          r.slug,
+          F('carton'),
+          round1(base * p.carton),
+        ),
       );
       fluxRows.push(
-        cflux(`cf_${r.slug}_emb`, r.slug, F('emballage'), round1(base * 0.15)),
+        cflux(`cf_${r.slug}_emb`, r.slug, F('emballage'), round1(base * p.emb)),
       );
       // verre : normal, ou alerte MIN (1 collecte / 40)
       fluxRows.push(
@@ -803,7 +810,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           `cf_${r.slug}_verre`,
           r.slug,
           F('verre'),
-          i % 40 === 0 ? 1.5 : round1(base * 0.12),
+          i % 40 === 0 ? 1.5 : round1(base * p.verre),
         ),
       );
       // dechet_residuel : normal, ou alerte MAX (1 collecte / 40)
@@ -812,7 +819,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           `cf_${r.slug}_residuel`,
           r.slug,
           F('dechet_residuel'),
-          i % 40 === 20 ? 5300 : round1(base * 0.08),
+          i % 40 === 20 ? 5300 : round1(base * p.residuel),
         ),
       );
     });
@@ -1421,6 +1428,131 @@ function siret(n: number): string {
 }
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
+}
+/**
+ * Profil de tri par traiteur (multiplicateurs). La variation par collecte de
+ * `repartitionFlux` se moyenne sur des dizaines de collectes : sans profil, tous
+ * les traiteurs retombaient sur le MÊME kg/pax par flux et le benchmark parc du
+ * Bloc 3 ZD affichait « Vous » superposé au parc (écarts « −0 % »). `volume` =
+ * kg/pax global ; les autres = poids relatif du flux avant normalisation.
+ * Données de démo uniquement (jamais de seed en prod).
+ */
+interface ProfilTri {
+  volume: number;
+  bio: number;
+  carton: number;
+  emb: number;
+  verre: number;
+  residuel: number;
+}
+const PROFIL_TRI_NEUTRE: ProfilTri = {
+  volume: 1,
+  bio: 1,
+  carton: 1,
+  emb: 1,
+  verre: 1,
+  residuel: 1,
+};
+const PROFILS_TRI: Record<string, ProfilTri> = {
+  // Bon trieur : peu de résiduel, un peu plus de verre, volume maîtrisé.
+  org_tr_kaspia: {
+    volume: 0.9,
+    bio: 1,
+    carton: 1.25,
+    emb: 0.9,
+    verre: 1.3,
+    residuel: 0.55,
+  },
+  // Gros volumes de cuisine : biodéchets en tête.
+  org_tr_potel: {
+    volume: 1.15,
+    bio: 1.3,
+    carton: 1,
+    emb: 1,
+    verre: 0.9,
+    residuel: 0.9,
+  },
+  // Service à table : beaucoup de verre, peu de carton.
+  org_tr_lenotre: {
+    volume: 1,
+    bio: 1,
+    carton: 0.8,
+    emb: 1,
+    verre: 1.5,
+    residuel: 1,
+  },
+  // Formats cocktail : emballages et résiduel.
+  org_tr_fleurdemets: {
+    volume: 0.85,
+    bio: 0.9,
+    carton: 1,
+    emb: 1.4,
+    verre: 1,
+    residuel: 1.3,
+  },
+  // Logistique cartonnée.
+  org_tr_butard: {
+    volume: 1.1,
+    bio: 1,
+    carton: 1.4,
+    emb: 1,
+    verre: 0.9,
+    residuel: 1.1,
+  },
+  // Mauvais trieur : résiduel élevé.
+  org_tr_grandchemin: {
+    volume: 1.2,
+    bio: 0.8,
+    carton: 0.9,
+    emb: 1.1,
+    verre: 0.8,
+    residuel: 1.7,
+  },
+  // Petits événements, peu de verre.
+  org_tr_cirette: {
+    volume: 0.8,
+    bio: 1.1,
+    carton: 1,
+    emb: 1,
+    verre: 0.7,
+    residuel: 1,
+  },
+};
+
+/**
+ * Parts du poids d'une collecte ZD par flux (somme = 1), variées d'une collecte
+ * à l'autre. Avec des parts fixes, le taux de recyclage (Σ poids × captation /
+ * poids total) serait identique sur toutes les collectes quelle que soit leur
+ * taille → courbe « Taux de recyclage » plate sur les dashboards.
+ * Suite déterministe (parties fractionnaires d'irrationnels) : même seed à
+ * chaque rejeu. Résiduel ~3-30 % du poids.
+ */
+function repartitionFlux(
+  i: number,
+  profil: ProfilTri = PROFIL_TRI_NEUTRE,
+): {
+  bio: number;
+  carton: number;
+  emb: number;
+  verre: number;
+  residuel: number;
+} {
+  const u = (irr: number) => ((i + 1) * irr) % 1;
+  const brut = {
+    bio: (0.25 + 0.3 * u(0.6180339887)) * profil.bio,
+    carton: (0.15 + 0.15 * u(0.4142135624)) * profil.carton,
+    emb: (0.08 + 0.12 * u(0.7320508076)) * profil.emb,
+    verre: (0.05 + 0.12 * u(0.2360679775)) * profil.verre,
+    residuel: (0.03 + 0.27 * u(0.6457513111)) * profil.residuel,
+  };
+  const total = brut.bio + brut.carton + brut.emb + brut.verre + brut.residuel;
+  return {
+    bio: brut.bio / total,
+    carton: brut.carton / total,
+    emb: brut.emb / total,
+    verre: brut.verre / total,
+    residuel: brut.residuel / total,
+  };
 }
 function org(slug: string, nom: string, type: string, raison: string): Row {
   return {

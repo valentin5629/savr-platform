@@ -61,6 +61,7 @@ describe('M0.6 — lanceur impersonation admin (BL-P1-BOA-09)', () => {
         ATTENTE_UI,
       );
       expect(container.querySelector('select')).toBeNull();
+      expect(container.querySelector('[role="combobox"]')).toBeNull();
       // ops ne déclenche même pas le fetch de la liste
       expect(fetchMock).not.toHaveBeenCalled();
     },
@@ -86,6 +87,10 @@ describe('M0.6 — lanceur impersonation admin (BL-P1-BOA-09)', () => {
       );
       expect(fetchMock).toHaveBeenCalledWith('/api/v1/admin/users?actif=true');
       // la cible non-admin apparaît, l'admin lui-même est exclu
+      // (Combobox : options portées dans un portail à l'ouverture).
+      fireEvent.click(
+        screen.getByRole('combobox', { name: 'Utilisateur à impersonner' }),
+      );
       expect(
         screen.getByRole('option', { name: /manager\.demo@savr-test\.local/ }),
       ).toBeInTheDocument();
@@ -130,12 +135,15 @@ describe('M0.6 — lanceur impersonation admin (BL-P1-BOA-09)', () => {
       });
 
       render(<ImpersonationLauncher />);
-      const select = (await screen.findByLabelText(
-        'Utilisateur à impersonner',
-        undefined,
+      const select = await screen.findByRole(
+        'combobox',
+        { name: 'Utilisateur à impersonner' },
         ATTENTE_UI,
-      )) as HTMLSelectElement;
-      fireEvent.change(select, { target: { value: 'u-1' } });
+      );
+      fireEvent.click(select);
+      fireEvent.click(
+        screen.getByRole('option', { name: /manager\.demo@savr-test\.local/ }),
+      );
       fireEvent.click(screen.getByRole('button', { name: /Impersoner/i }));
 
       await waitFor(

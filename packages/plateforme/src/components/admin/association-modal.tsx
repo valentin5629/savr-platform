@@ -14,7 +14,8 @@ import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
 import { LogoUpload } from '@/components/admin/logo-upload';
 import {
@@ -409,18 +410,18 @@ export function AssociationModal({
               required
               error={errors.region}
             >
-              <Select
+              <Combobox
                 id="am_region"
+                icon={null}
+                required
                 value={values.region}
-                onChange={(e) =>
-                  set('region', e.target.value as FormValues['region'])
-                }
+                onChange={(v) => set('region', v as FormValues['region'])}
                 error={Boolean(errors.region)}
-              >
-                <option value="">Sélectionner…</option>
-                <option value="idf">Île-de-France</option>
-                <option value="province">Province</option>
-              </Select>
+                options={[
+                  { value: 'idf', label: 'Île-de-France' },
+                  { value: 'province', label: 'Province' },
+                ]}
+              />
             </FormField>
           </div>
         </Bloc>
@@ -561,13 +562,10 @@ export function AssociationModal({
               htmlFor="am_date_expiration_habilitation"
               hint="Optionnel — édition admin"
             >
-              <Input
+              <DatePicker
                 id="am_date_expiration_habilitation"
-                type="date"
                 value={values.date_expiration_habilitation}
-                onChange={(e) =>
-                  set('date_expiration_habilitation', e.target.value)
-                }
+                onChange={(v) => set('date_expiration_habilitation', v)}
               />
             </FormField>
             <FormField

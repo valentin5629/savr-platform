@@ -299,25 +299,6 @@ it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uni
       motif:
         'idem — Cockpit R24, zone figée GO-VISUAL : ne pas toucher sans Val',
     },
-    {
-      fichier: 'app/(admin)/admin/dashboard-client/OrganisationSelector.tsx',
-      jeton: 'savr-primary-500/30',
-      occurrences: 1,
-      motif: 'anneau à 1,90:1, rattrapé par un focus:border à 7,07:1',
-    },
-    {
-      fichier: 'components/dashboards/CollecteTypeTabs.tsx',
-      jeton: 'ring',
-      occurrences: 2,
-      motif:
-        '`ring-ring` n’est généré nulle part (--ring vit dans :root, pas en --color-ring dans @theme) → currentcolor',
-    },
-    {
-      fichier: 'components/dashboards/DashboardFilterBar.tsx',
-      jeton: 'ring',
-      occurrences: 2,
-      motif: 'idem CollecteTypeTabs',
-    },
   ];
   // Jetons qui ne désignent pas une couleur (épaisseur, offset, neutralisation).
   const NON_COULEUR =
@@ -728,8 +709,12 @@ it('M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel', ()
       aria-label="Date de collecte"
     />,
   );
-  const date = container.querySelector('input[type="date"]')!;
-  expect(date).toHaveValue('2026-07-10');
+  // DS « Mise en page des formulaires » règle 3 : aucun input date natif.
+  expect(container.querySelector('input[type="date"]')).toBeNull();
+  const date = screen.getByRole('button', { name: 'Date de collecte' });
+  expect(date).toHaveTextContent('10 juillet 2026');
+  expect(date.className).toContain('h-11');
+  expect(date.className).toContain('sm:h-10');
   const time = container.querySelector('input[type="time"]')!;
   expect(time).toHaveValue('14:30');
 });

@@ -189,7 +189,7 @@
     },
     {
       "id": "BL-P1-AGENCE-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:256",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:254",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/pack-ag/renouvellement/route.ts + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/AGENCE01_renouvellement_role_agence_201 + M3.3/AGENCE01_renouvellement_role_non_autorise_403 + M3.3/AGENCE01_bouton_renouvellement_onglet_ag + M3.3/AGENCE01_bouton_renouvellement_poste_endpoint",
       "statut": "implemented",
@@ -225,7 +225,7 @@
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/blocs_agence_zd_sans_bloc7",
       "statut": "implemented",
-      "libelle": "Bloc 3 ZD agence — jauges benchmark parc RÉEL, réplique stricte §06.04. R24c : jauges Cockpit BenchmarkBulletGauges (filtres BenchmarkFilterBar imbriqués, « Filtres du repère parc ») alimentées par kgParPaxParFlux + aggregateBenchmarkPerFlux(benchmarkRows) ; 4 dimensions (traiteur_ids jamais transmis). Remplace l'ancien encart BenchmarkGauge + BenchmarkLegend (supprimés)."
+      "libelle": "Bloc 3 ZD agence — jauges benchmark parc RÉEL, réplique stricte §06.04. R24c : jauges Cockpit BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28) (filtres BenchmarkFilterBar imbriqués, « Filtres du repère parc ») alimentées par kgParPaxParFlux + aggregateBenchmarkPerFlux(benchmarkRows) ; 4 dimensions (traiteur_ids jamais transmis). Remplace l'ancien encart BenchmarkGauge + BenchmarkLegend (supprimés)."
     },
     {
       "id": "M3.3-bloc3-benchmark-role-agence",
@@ -261,7 +261,7 @@
     },
     {
       "id": "M3.3-bloc7-retire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:30",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:28",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/blocs_agence_top_acteurs_null + M3.3/blocs_agence_zd_sans_bloc7",
       "statut": "implemented",
@@ -277,11 +277,11 @@
     },
     {
       "id": "M3.3-cockpit-declinaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:17",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/",
       "test": "M3.3/cockpit_declinaison_kpi_toprank_benchmark",
       "statut": "implemented",
-      "libelle": "R24c — Déclinaison du design « Cockpit » (data-viz) sur le dashboard agence, à parité de sens avec les pilotes traiteur/gestionnaire (R24/R24b), en réutilisant la lib Cockpit figée : KPIs KpiCockpitCard (4 cartes ZD sans Marge diff #7 ; non cliquables), Top listes TopRankList, évolution EvolutionZd/AgChart, donut TonnagesDonut, benchmark BenchmarkBulletGauges. Suppression des composants pré-Cockpit orphelins (KpiCard, TopLieuxBloc, TopAssociationsBloc, BenchmarkLegend). DS appliqué (tokens, cibles 44px, palette DOT figée). Aucune régression fonctionnelle ; endpoints inchangés."
+      "libelle": "R24c — Déclinaison du design « Cockpit » (data-viz) sur le dashboard agence, à parité de sens avec les pilotes traiteur/gestionnaire (R24/R24b), en réutilisant la lib Cockpit figée : KPIs KpiCockpitCard (4 cartes ZD sans Marge diff #7 ; non cliquables), Top listes TopRankList, évolution EvolutionZd/AgChart, donut TonnagesDonut, benchmark BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28). Suppression des composants pré-Cockpit orphelins (KpiCard, TopLieuxBloc, TopAssociationsBloc, BenchmarkLegend). DS appliqué (tokens, cibles 44px, palette DOT figée). Aucune régression fonctionnelle ; endpoints inchangés."
     },
     {
       "id": "M3.3-cockpit-drilldown",
@@ -290,9 +290,17 @@
       "test": "M3.3/cockpit_drilldown_top_lieux_url",
       "statut": "implemented",
       "libelle": "R24c — Drill-down « Top lieux → liste Collectes filtrée » (#219) PRÉSERVÉ après migration TopLieuxBloc → TopRankList : onItemClick(index) → setCollecteFiltreLabel + router.push(/agence/collectes?lieu=…&type=…&statut=cloturee&from&to) — miroir exact du chiffre du dashboard, périmètre donneur d'ordre (pas de perimetre=organisation)."
+    },
+    {
+      "id": "M3.3-kpi-sparkline-n1",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:19",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3/kpi_cartes_sparkline_et_variation_n1",
+      "statut": "implemented",
+      "libelle": "Cartes KPI agence = §06.04 à l'identique (l.92) : sparkline + variation N-1 (sauf kg/pax), même source que le traiteur (kpi-traiteur ?compare=n1, lignes mensuelles). Les 4 cartes ZD sans Marge (diff #7) sont conservées."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "d4882e2ce075faa00cf1a24357e7f297aee0966c9b8d8c3d3d854788305ee2e4"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "08aa9e2c9489903e796413a9e144dc5880a428c047e8e6240c22c1a5acbab3b1"
   }
 }

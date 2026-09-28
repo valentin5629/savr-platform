@@ -2,12 +2,28 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
-import { Label } from '@/components/ui/label';
 import type { LieuOption } from '@/components/programmation/lieu-combobox';
+import { AdresseAutocompleteInput } from '@/components/programmation/adresse-autocomplete-input';
+
+const OPTIONS_VEHICULE = [
+  { value: '', label: 'Optionnel' },
+  { value: 'velo_cargo', label: 'Vélo cargo' },
+  { value: 'camionnette', label: 'Camionnette' },
+  { value: 'fourgon', label: 'Fourgon' },
+  { value: 'vul', label: 'VUL' },
+  { value: 'poids_lourd', label: 'Poids lourd' },
+];
+
+const OPTIONS_DIFFICULTE = [
+  { value: '', label: 'Optionnel' },
+  { value: 'facile', label: 'Facile' },
+  { value: 'difficile', label: 'Difficile' },
+  { value: 'tres_difficile', label: 'Très difficile' },
+];
 
 // Formulaire lieu manuel inline (quick-add « lieu hors référentiel » §06.01).
 // Extrait dans son propre fichier (pas exporté depuis la page) : Next.js App Router
@@ -87,65 +103,68 @@ export function LieuManuelForm({
             htmlFor={`lieu-${field}`}
             required
           >
-            <Input
-              id={`lieu-${field}`}
-              placeholder={CHAMPS[field].placeholder}
-              value={form[field]}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, [field]: e.target.value }))
-              }
-            />
+            {field === 'adresse_acces' ? (
+              // Suggestions BAN : choisir une adresse remplit aussi CP + ville.
+              <AdresseAutocompleteInput
+                id={`lieu-${field}`}
+                placeholder={CHAMPS[field].placeholder}
+                value={form.adresse_acces}
+                onChange={(adresse_acces) =>
+                  setForm((p) => ({ ...p, adresse_acces }))
+                }
+                onSelect={(s) =>
+                  setForm((p) => ({
+                    ...p,
+                    adresse_acces: s.adresse,
+                    code_postal: s.codePostal,
+                    ville: s.ville,
+                  }))
+                }
+              />
+            ) : (
+              <Input
+                id={`lieu-${field}`}
+                placeholder={CHAMPS[field].placeholder}
+                value={form[field]}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, [field]: e.target.value }))
+                }
+              />
+            )}
           </FormField>
         ),
       )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="lieu-vehicule">Type de véhicule max</Label>
-          <Select
+        <FormField label="Type de véhicule max" htmlFor="lieu-vehicule">
+          <Combobox
             id="lieu-vehicule"
+            icon={null}
+            placeholder="Optionnel"
+            options={OPTIONS_VEHICULE}
             value={form.type_vehicule_max}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, type_vehicule_max: e.target.value }))
-            }
-          >
-            <option value="">Optionnel</option>
-            <option value="velo_cargo">Vélo cargo</option>
-            <option value="camionnette">Camionnette</option>
-            <option value="fourgon">Fourgon</option>
-            <option value="vul">VUL</option>
-            <option value="poids_lourd">Poids lourd</option>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="lieu-stationnement">Stationnement</Label>
-          <Select
+            onChange={(v) => setForm((p) => ({ ...p, type_vehicule_max: v }))}
+          />
+        </FormField>
+        <FormField label="Stationnement" htmlFor="lieu-stationnement">
+          <Combobox
             id="lieu-stationnement"
+            icon={null}
+            placeholder="Optionnel"
+            options={OPTIONS_DIFFICULTE}
             value={form.stationnement}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, stationnement: e.target.value }))
-            }
-          >
-            <option value="">Optionnel</option>
-            <option value="facile">Facile</option>
-            <option value="difficile">Difficile</option>
-            <option value="tres_difficile">Très difficile</option>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="lieu-office">Accès office</Label>
-          <Select
+            onChange={(v) => setForm((p) => ({ ...p, stationnement: v }))}
+          />
+        </FormField>
+        <FormField label="Accès office" htmlFor="lieu-office">
+          <Combobox
             id="lieu-office"
+            icon={null}
+            placeholder="Optionnel"
+            options={OPTIONS_DIFFICULTE}
             value={form.acces_office}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, acces_office: e.target.value }))
-            }
-          >
-            <option value="">Optionnel</option>
-            <option value="facile">Facile</option>
-            <option value="difficile">Difficile</option>
-            <option value="tres_difficile">Très difficile</option>
-          </Select>
-        </div>
+            onChange={(v) => setForm((p) => ({ ...p, acces_office: v }))}
+          />
+        </FormField>
       </div>
       {error && <FormError>{error}</FormError>}
       <div className="flex gap-2 justify-end pt-1">

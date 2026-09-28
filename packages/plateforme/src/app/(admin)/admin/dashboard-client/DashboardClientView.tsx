@@ -22,7 +22,7 @@ import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpi
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
-import { BenchmarkBulletGauges } from '@/components/dashboards/charts/cockpit/BenchmarkBulletGauges';
+import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
 import { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
 import { Co2HeroCard } from '@/components/dashboards/charts/cockpit/Co2HeroCard';
 import { Co2HeroCardAg } from '@/components/dashboards/charts/cockpit/Co2HeroCardAg';
@@ -41,6 +41,9 @@ import {
   benchmarkItems,
   co2Equivalences,
   FACTEURS_CO2_DEFAUT,
+  previousWindow,
+  sparkFromSeries,
+  variationPct,
   type BenchmarkRow,
   type Co2Totals,
   type FacteursCo2,
@@ -156,7 +159,7 @@ const BENCHMARK_ENDPOINT = '/api/v1/admin/dashboard-client/benchmark';
  *
  * R24c — Déclinaison Cockpit COMPLÈTE (retour Val « je ne vois pas les graphs ») :
  * KPIs KpiCockpitCard (dont CO₂ évité → modale) + évolution EvolutionZd/AgChart +
- * donut TonnagesDonut + jauges Cockpit BenchmarkBulletGauges + Top listes
+ * donut TonnagesDonut + radar Cockpit BenchmarkRadar + Top listes
  * TopRankList (lieux / traiteurs / associations) + prochaines collectes. LECTURE
  * SEULE au sens DONNÉES (aucune écriture, aucune action métier) ; les Top lieux /
  * traiteurs sont cliquables → drill-down vers /admin/collectes filtrée (miroir
@@ -170,6 +173,9 @@ export function DashboardClientView() {
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
   const [filters, setFilters] = useState<DashboardFilters | null>(null);
   const [payload, setPayload] = useState<AdminPayload | null>(null);
+  // Même périmètre, période précédente équivalente (N-1) — variation des cartes
+  // KPI (§06.05 l.136, dont le Dashboard Client est la reprise exacte §06.06 §2).
+  const [payloadPrev, setPayloadPrev] = useState<AdminPayload | null>(null);
   const [benchmarkRows, setBenchmarkRows] = useState<BenchmarkRow[]>([]);
   const [loading, setLoading] = useState(true);
   // Modales « Impact carbone » (méthode de calcul) — ZD et AG distinctes.
@@ -228,10 +234,29 @@ export function DashboardClientView() {
     });
     for (const id of selectedOrgs) qs.append('organisation_ids[]', id);
 
-    fetch(`/api/v1/admin/dashboard-client?${qs.toString()}`)
-      .then((r) => r.json())
-      .then((j: { data?: AdminPayload }) => setPayload(j.data ?? null))
-      .catch(() => setPayload(null))
+    const fenetrePrev = previousWindow(filters.from, filters.to);
+    const qsPrev = new URLSearchParams(qs);
+    if (fenetrePrev) {
+      qsPrev.set('from', fenetrePrev.from);
+      qsPrev.set('to', fenetrePrev.to);
+    }
+    const lire = (q: URLSearchParams): Promise<AdminPayload | null> =>
+      fetch(`/api/v1/admin/dashboard-client?${q.toString()}`)
+        .then((r) => r.json())
+        .then((j: { data?: AdminPayload }) => j.data ?? null);
+    Promise.all([
+      lire(qs),
+      // N-1 non bloquant : un échec ne masque que les variations.
+      fenetrePrev ? lire(qsPrev).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([courant, precedent]) => {
+        setPayload(courant);
+        setPayloadPrev(precedent);
+      })
+      .catch(() => {
+        setPayload(null);
+        setPayloadPrev(null);
+      })
       .finally(() => setLoading(false));
   }, [filters, tab, selectedOrgs]);
 
@@ -254,6 +279,10 @@ export function DashboardClientView() {
   const isEmpty = !kpi || kpi.nb_collectes === 0;
   const zdKpi = tab === 'zero_dechet' ? (kpi as ZdKpi | null) : null;
   const agKpi = tab === 'anti_gaspi' ? (kpi as AgKpi | null) : null;
+  const kpiPrev = payloadPrev?.kpi ?? null;
+  const zdPrev = tab === 'zero_dechet' ? (kpiPrev as ZdKpi | null) : null;
+  const agPrev = tab === 'anti_gaspi' ? (kpiPrev as AgKpi | null) : null;
+  const co2PrevKg = payloadPrev?.co2?.eviteKg ?? 0;
   const blocs = payload?.blocs;
   const granularite: Granularite = payload?.evolution?.granularite ?? 'mois';
   const zdSeries =
@@ -393,12 +422,22 @@ export function DashboardClientView() {
               label="Nombre de collectes"
               value={fmtInt(zdKpi.nb_collectes)}
               dotColor={DOT.navy}
+              variationPct={variationPct(
+                zdKpi.nb_collectes,
+                zdPrev?.nb_collectes ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(zdSeries, (p) => p.nb_collectes)}
             />
             <KpiCockpitCard
               label="Tonnage collecté"
               value={fmtMasse(zdKpi.tonnage_kg ?? 0).value}
               unit={fmtMasse(zdKpi.tonnage_kg ?? 0).unit}
               dotColor={DOT.navy2}
+              variationPct={variationPct(
+                zdKpi.tonnage_kg ?? 0,
+                zdPrev?.tonnage_kg ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(zdSeries, (p) => p.tonnage_total)}
             />
             <KpiCockpitCard
               label="Taux de recyclage"
@@ -409,7 +448,15 @@ export function DashboardClientView() {
               }
               unit={zdKpi.taux_recyclage_pondere != null ? '%' : undefined}
               dotColor={DOT.green}
+              variationPct={variationPct(
+                zdKpi.taux_recyclage_pondere ?? 0,
+                zdPrev?.taux_recyclage_pondere ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(zdSeries, (p) => p.taux_recyclage)}
+              sparkColor={DOT.green}
             />
+            {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
+                mieux », §06.05 l.136). */}
             <KpiCockpitCard
               label="kg/pax moyen"
               value={
@@ -417,12 +464,18 @@ export function DashboardClientView() {
               }
               unit={zdKpi.kg_par_pax != null ? 'kg/pax' : undefined}
               dotColor={DOT.navy3}
+              sparkPoints={sparkFromSeries(zdSeries, (p) =>
+                p.pax ? p.tonnage_total / p.pax : 0,
+              )}
             />
             <KpiCockpitCard
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
               dotColor={DOT.green}
+              variationPct={variationPct(co2.eviteKg, co2PrevKg)}
+              sparkPoints={sparkFromSeries(zdSeries, (p) => p.co2_evite_kg)}
+              sparkColor={DOT.green}
               onClick={
                 co2.eviteKg > 0 ? () => setCo2ModalOpen(true) : undefined
               }
@@ -470,8 +523,8 @@ export function DashboardClientView() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — jauges Cockpit vs benchmark parc (anonymisé k≥5) */}
-          <BenchmarkBulletGauges items={gaugeItems} />
+          {/* Bloc 3 ZD — radar Cockpit vs benchmark parc (anonymisé k≥5) */}
+          <BenchmarkRadar items={gaugeItems} />
 
           {/* Bloc 4 donut + Bloc 6 top lieux + Bloc 7 top traiteurs */}
           <div className="grid gap-6 lg:grid-cols-3">
@@ -513,16 +566,32 @@ export function DashboardClientView() {
               label="Nombre de collectes"
               value={fmtInt(agKpi.nb_collectes)}
               dotColor={DOT.navy}
+              variationPct={variationPct(
+                agKpi.nb_collectes,
+                agPrev?.nb_collectes ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(agSeries, (p) => p.nb_collectes)}
             />
             <KpiCockpitCard
               label="Repas donnés"
               value={fmtInt(agKpi.nb_repas_donnes ?? 0)}
               dotColor={DOT.accent}
+              variationPct={variationPct(
+                agKpi.nb_repas_donnes ?? 0,
+                agPrev?.nb_repas_donnes ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
+              sparkColor={DOT.accent}
             />
             <KpiCockpitCard
               label="Pax cumulés"
               value={fmtInt(agKpi.pax_total ?? 0)}
               dotColor={DOT.navy2}
+              variationPct={variationPct(
+                agKpi.pax_total ?? 0,
+                agPrev?.pax_total ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(agSeries, (p) => p.pax)}
             />
             <KpiCockpitCard
               label="Repas/pax moyen"
@@ -532,12 +601,16 @@ export function DashboardClientView() {
                   : '—'
               }
               dotColor={DOT.navy3}
+              sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
             />
             <KpiCockpitCard
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
               dotColor={DOT.green}
+              variationPct={variationPct(co2.eviteKg, co2PrevKg)}
+              sparkPoints={sparkFromSeries(agSeries, (p) => p.co2_evite_kg)}
+              sparkColor={DOT.green}
               onClick={
                 co2.eviteKg > 0 ? () => setCo2AgModalOpen(true) : undefined
               }

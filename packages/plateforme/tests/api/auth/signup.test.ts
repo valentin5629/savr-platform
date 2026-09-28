@@ -21,6 +21,7 @@ let lastTable = '';
 let insertCalls: Array<{ table: string; payload: Record<string, unknown> }> =
   [];
 let deleteCalls: Array<{ table: string }> = [];
+let notCalls: Array<{ table: string; args: unknown[] }> = [];
 const maybeSingleQueue: Record<string, Resp[]> = {};
 const insertResult: Record<string, Resp> = {};
 
@@ -53,6 +54,13 @@ function makeInsertResult(table: string): Record<string, unknown> {
 const chain: Record<string, unknown> = {
   select: () => chain,
   eq: () => chain,
+  // `.not()` enregistre le filtre : c'est ce qui permet d'épingler la garde
+  // `verifie_at IS NOT NULL` du rattachement par domaine (sans elle, une
+  // revendication de domaine non prouvée rattacherait les inscrits suivants).
+  not: (...args: unknown[]) => {
+    notCalls.push({ table: lastTable, args });
+    return chain;
+  },
   insert: vi.fn((payload: Record<string, unknown>) => {
     insertCalls.push({ table: lastTable, payload });
     return makeInsertResult(lastTable);
@@ -134,6 +142,7 @@ beforeEach(() => {
   lastTable = '';
   insertCalls = [];
   deleteCalls = [];
+  notCalls = [];
   for (const k of Object.keys(maybeSingleQueue)) delete maybeSingleQueue[k];
   for (const k of Object.keys(insertResult)) delete insertResult[k];
   mockCreateUser.mockResolvedValue({
@@ -283,14 +292,37 @@ describe('M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01)', () => {
     expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
   });
 
-  it('SIRET absent sur un chemin de création → 422', async () => {
+  // Décision Val 2026-09-23 (_Divergences/M0.4_20260923) : le SIRET n'est
+  // demandé à PERSONNE à l'inscription — il relève de l'étape 2 du CDC
+  // « complétion avant première collecte ». L'entité est donc créée sans SIRET,
+  // en_attente, et aucune facture ne peut partir tant qu'il n'est pas vérifié.
+  // Ce test remplace l'ancien « SIRET absent → 422 » (BL-P1-ONB-01).
+  it("SIRET absent → 201 : l'orga est créée, entité sans SIRET en_attente, INSEE jamais appelé", async () => {
     const { POST } = await import('@/app/api/auth/signup/route.js');
     const { siret, ...sansSiret } = VALID_BODY;
     void siret;
     const res = await POST(makeReq(sansSiret));
 
-    expect(res.status).toBe(422);
-    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+    expect(res.status).toBe(201);
+    expect(vi.mocked(verifySiret)).not.toHaveBeenCalled();
+    const entite = insertCalls.find((c) => c.table === 'entites_facturation');
+    expect(entite).toBeDefined();
+    expect(entite!.payload.siret).toBe('');
+    expect(entite!.payload.siret_verification).toBe('en_attente');
+    expect(entite!.payload.siret_verifie_le).toBeNull();
+    // Pas de revalidation planifiée : il n'y a aucun SIRET à revalider.
+    expect(vi.mocked(enqueueSiretRevalidation)).not.toHaveBeenCalled();
+  });
+
+  it('SIRET fourni quand même → tout le contrôle ONB-01 continue de jouer', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(201);
+    expect(vi.mocked(verifySiret)).toHaveBeenCalledWith('12345678901234');
+    const entite = insertCalls.find((c) => c.table === 'entites_facturation');
+    expect(entite!.payload.siret).toBe('12345678901234');
+    expect(entite!.payload.siret_verification).toBe('verifie');
   });
 
   it("INSEE répond 'echec' (SIRET inexistant/inactif) → 422 bloquant, aucune orga créée", async () => {
@@ -366,5 +398,124 @@ describe('M0.4 — détection doublons SIRET / domaine (BL-P1-ONB-03)', () => {
 
     expect(res.status).toBe(409);
     expect(deleteCalls.some((c) => c.table === 'organisations')).toBe(true);
+  });
+});
+
+// Formats des champs d'identité (CDC §05 §8, tableau de l'étape 1). L'écran les
+// refuse déjà, mais la route est publique : un `curl` la contourne.
+describe('M0.4 — formats des champs d’identité au signup (CDC §05 §8)', () => {
+  const cas: Array<[string, Record<string, unknown>]> = [
+    ['email sans domaine', { email: 'jean@localhost' }],
+    ['email sans arobase', { email: 'jean.traiteur.fr' }],
+    ['prénom à 1 caractère', { prenom: 'J' }],
+    ['nom à 1 caractère', { nom: 'D' }],
+    ['téléphone trop court', { telephone: '01020304' }],
+    ['téléphone non français', { telephone: '+4915112345678' }],
+  ];
+
+  for (const [libelle, patch] of cas) {
+    it(`422 sur ${libelle} — aucun compte ni organisation créé`, async () => {
+      const { POST } = await import('@/app/api/auth/signup/route.js');
+      const res = await POST(makeReq({ ...VALID_BODY, ...patch }));
+
+      expect(res.status).toBe(422);
+      expect(mockCreateUser).not.toHaveBeenCalled();
+      expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+    });
+  }
+
+  it('accepte les écritures usuelles d’un numéro français', async () => {
+    const formes = ['01 23 45 67 89', '01.23.45.67.89', '+33 1 23 45 67 89'];
+    for (const telephone of formes) {
+      _resetSignupRateLimit();
+      mockCreateUser.mockResolvedValue({
+        data: { user: { id: 'user-1' } },
+        error: null,
+      });
+      const { POST } = await import('@/app/api/auth/signup/route.js');
+      const res = await POST(makeReq({ ...VALID_BODY, telephone }));
+      expect(res.status, telephone).toBe(201);
+    }
+  });
+});
+
+// Chaîne de capture inter-organisation fermée par ce lot (revue sécurité) :
+// `POST /api/v1/traiteur/mon-organisation/domaines-email` laisse n'importe quel
+// traiteur_manager revendiquer un domaine quelconque SANS preuve de contrôle, et
+// `verifie_at` n'était écrit nulle part. Le signup rattachait sur cette ligne :
+// revendiquer « grandtraiteur.fr » depuis un compte jetable suffisait donc à
+// capturer les inscriptions suivantes de ce domaine, dans une organisation dont
+// l'attaquant est manager.
+describe('M0.4 — rattachement par domaine : seules les revendications PROUVÉES comptent', () => {
+  // Piège vécu : `isValidEmailFormat` valide sur une copie trimée, donc une
+  // adresse collée avec une espace passe. Sans `trim()` avant la découpe du
+  // domaine, le signup enregistrerait « traiteur-test.fr » AVEC l'espace, que le
+  // domaine calculé par verify-email ne matcherait jamais : la marque ne serait
+  // jamais posée et le domaine resterait inerte pour toujours, en silence.
+  it('une adresse saisie avec une espace donne le MÊME domaine (trim)', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(
+      makeReq({ ...VALID_BODY, email: '  jean@traiteur-test.fr  ' }),
+    );
+
+    expect(res.status).toBe(201);
+    const domaine = insertCalls.find(
+      (c) => c.table === 'organisations_domaines_email',
+    );
+    expect(domaine).toBeDefined();
+    expect(domaine!.payload.domaine).toBe('traiteur-test.fr');
+    // …et la marque de preuve n'est PAS posée à la revendication.
+    expect(domaine!.payload.verifie_at).toBeUndefined();
+  });
+
+  it('la recherche de domaine filtre sur verifie_at IS NOT NULL', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    await POST(makeReq(VALID_BODY));
+
+    const filtre = notCalls.find(
+      (c) => c.table === 'organisations_domaines_email',
+    );
+    expect(
+      filtre,
+      'aucun filtre posé sur organisations_domaines_email',
+    ).toBeDefined();
+    expect(filtre!.args).toEqual(['verifie_at', 'is', null]);
+  });
+
+  it('un domaine revendiqué mais NON vérifié ne rattache personne → nouvelle orga', async () => {
+    // Le filtre `.not(verifie_at is null)` fait que la requête ne rend RIEN pour
+    // une revendication non prouvée : la route prend donc le chemin « création ».
+    maybeSingleQueue['organisations_domaines_email'] = [
+      { data: null, error: null },
+    ];
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(201);
+    // Une organisation est créée : l'inscrit n'a PAS rejoint celle du revendiquant.
+    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(true);
+    const body = (await res.json()) as { organisation_id?: string };
+    expect(body.organisation_id).toBe('org-1');
+  });
+
+  it('un domaine VÉRIFIÉ rattache toujours, sans créer d’organisation', async () => {
+    maybeSingleQueue['organisations_domaines_email'] = [
+      {
+        data: {
+          organisation_id: 'org-existante',
+          organisations: { type: 'traiteur' },
+        },
+        error: null,
+      },
+    ];
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(201);
+    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+    const user = insertCalls.find((c) => c.table === 'users');
+    expect(user!.payload.organisation_id).toBe('org-existante');
+    // Rôle par défaut du CDC §05 §8 pour une orga traiteur rejointe.
+    expect(user!.payload.role).toBe('traiteur_commercial');
   });
 });

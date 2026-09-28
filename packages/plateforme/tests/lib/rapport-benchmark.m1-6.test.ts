@@ -6,6 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { resolveRapportBenchmark } from '../../src/lib/pdf/rapport-benchmark.js';
 import { buildEquivalences } from '../../src/lib/pdf/batch-pdf-j1.js';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
 function mockSupabase(
   rows: unknown[],
@@ -69,6 +70,11 @@ describe('M1.6 / resolveRapportBenchmark / défaut (batch auto)', () => {
     expect(res.filtres_benchmark.taille_evenement_codes).toEqual(['XS']);
     expect(res.benchmark_legende).toContain("type d'événement : Cocktail");
     expect(res.benchmark_legende).toContain('taille : XS');
+    // Période fixe 24 mois glissants (plus jamais « toutes »).
+    const { debut, fin } = periodeBenchmark();
+    expect(res.filtres_benchmark.periode_debut).toBe(debut);
+    expect(res.filtres_benchmark.periode_fin).toBe(fin);
+    expect(res.benchmark_legende).toContain(`période : ${debut} → ${fin}`);
   });
 });
 
@@ -76,8 +82,6 @@ describe('M1.6 / resolveRapportBenchmark / filtres choisis (régénération)', (
   it('respecte les filtres surchargés sans re-résoudre le type de la collecte', async () => {
     const sb = mockSupabase(ROWS, null);
     const res = await resolveRapportBenchmark(sb as never, 'col-1', {
-      periode_debut: '2026-01-01',
-      periode_fin: '2026-06-30',
       lieu_ids: ['l1', 'l2'],
       type_evenement_ids: ['t9'],
       taille_evenement_codes: ['M'],
@@ -86,7 +90,9 @@ describe('M1.6 / resolveRapportBenchmark / filtres choisis (régénération)', (
     expect(res.filtres_benchmark.type_evenement_ids).toEqual(['t9']);
     expect(res.filtres_benchmark.taille_evenement_codes).toEqual(['M']);
     expect(res.filtres_benchmark.lieu_ids).toEqual(['l1', 'l2']);
-    expect(res.benchmark_legende).toContain('2026-01-01 → 2026-06-30');
+    // Période non surchargeable : toujours les 24 mois glissants.
+    const { debut, fin } = periodeBenchmark();
+    expect(res.benchmark_legende).toContain(`${debut} → ${fin}`);
     expect(res.benchmark_legende).toContain('lieux : 2 sélectionné(s)');
   });
 });

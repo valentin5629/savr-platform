@@ -5,7 +5,7 @@ import { Building2, Mail, MapPin, type LucideIcon } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { normaliserSiretOrganisation } from '@/lib/siret-organisation';
 
@@ -231,19 +231,17 @@ export function OrganisationModal({
               required
               error={errors.type}
             >
-              <Select
+              <Combobox
                 id="om_type"
+                icon={null}
+                required
                 value={values.type}
-                onChange={(e) => set('type', e.target.value)}
+                onChange={(v) => set('type', v)}
                 error={Boolean(errors.type)}
-              >
-                <option value="">Sélectionner…</option>
-                {Object.entries(TYPE_ORGANISATION_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </Select>
+                options={Object.entries(TYPE_ORGANISATION_LABELS).map(
+                  ([k, v]) => ({ value: k, label: v }),
+                )}
+              />
             </FormField>
             <FormField
               label="SIRET"

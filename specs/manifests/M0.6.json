@@ -986,8 +986,8 @@
     {
       "id": "BL-P1-BOA-03",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:502-601 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:90-102",
-      "artefact": "packages/plateforme/src/components/admin/lieu-form.tsx (monté sur nouveau/[id]/modifier, 8 champs prog. + 4 admin/ops + sélecteur Gestionnaire mono → organisations_lieux) ; extension LieuManuelForm (composant packages/plateforme/src/components/programmation/lieu-manuel-form.tsx) ; email admin_demande_ajout_lieu (migration 20260702010000) ; liste lieux réordonnée Nom/Adresse/Contrôle accès/Statut (page.tsx) ; routes lieux POST/PATCH/GET écrivent/exposent organisations_lieux (single, Val 2026-07-02)",
-      "test": "packages/plateforme/src/components/admin/lieu-form.test.tsx « M0.6 — formulaire lieu CRUD Admin (BL-P1-BOA-03) » (4 scénarios dont sélecteur Gestionnaire) + packages/plateforme/src/components/programmation/lieu-manuel-form.test.tsx (2 scénarios quick-add) + packages/plateforme/tests/api/admin/lieux.m1-1b.test.ts",
+      "artefact": "packages/plateforme/src/components/admin/lieu-form.tsx (monté sur nouveau/[id]/modifier, 8 champs prog. + 4 admin/ops + sélecteur Gestionnaire mono → organisations_lieux) ; extension LieuManuelForm (composant packages/plateforme/src/components/programmation/lieu-manuel-form.tsx) + suggestions d'adresse BAN sur « Adresse d'accès livraison » remplissant CP + ville (demande Val E2E 2026-09-28, hors CDC §06.01 → divergence ambigu à tracer en fin de lot : composant adresse-autocomplete-input.tsx, relais serveur GET /api/v1/programmation/adresses — l'IGN ne voit jamais l'IP utilisateur, arbitrage Val C1 —, lib/adresse-suggestions.ts) ; email admin_demande_ajout_lieu (migration 20260702010000) ; liste lieux réordonnée Nom/Adresse/Contrôle accès/Statut (page.tsx) ; routes lieux POST/PATCH/GET écrivent/exposent organisations_lieux (single, Val 2026-07-02)",
+      "test": "packages/plateforme/src/components/admin/lieu-form.test.tsx « M0.6 — formulaire lieu CRUD Admin (BL-P1-BOA-03) » (4 scénarios dont sélecteur Gestionnaire) + packages/plateforme/src/components/programmation/lieu-manuel-form.test.tsx (5 scénarios quick-add, dont sélection suggestion BAN souris/clavier → CP + ville, Échap ferme la liste sans fermer la modale, blur) + packages/plateforme/tests/api/programmation/adresses-suggestions.m0-6.test.ts (4 scénarios relais : 401 sans appel BAN, mapping, troncature 200 car., fail-open) + packages/plateforme/src/lib/adresse-suggestions.test.ts (4 scénarios) + packages/plateforme/tests/api/admin/lieux.m1-1b.test.ts",
       "statut": "à-vérifier",
       "libelle": "Formulaire CRUD lieu Admin + quick-add + email + liste (Nom/Adresse/Capacité max/Contrôle accès/Statut) + sélecteur Gestionnaire (mono, écrit organisations_lieux) + FICHE DÉTAIL complète (capacité, gestionnaire, flux…) + champ « Capacité maximum » (R17c : colonne dédiée lieux.capacite_maximum, migration 20260702030000, distincte de volume_max_bacs) — GO-VISUAL en attente (validation Val). Champ « Contact sur place » (quick-add) reste non implémenté : divergence clair _Divergences/BOA-LIEUX_20260702.md (pas de colonne DB)."
     },
@@ -1161,7 +1161,7 @@
     },
     {
       "id": "BL-P1-API-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:405",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:422",
       "artefact": "supabase/migrations/20260629120000_plateforme_r10b_rls_ops_column_level.sql + supabase/migrations/20260903120000_plateforme_anti_escalade_role_staff.sql + supabase/migrations/20260921170000_plateforme_users_role_auto_changement.sql (volet 3, pgTAP supabase/tests/SECU__users_role_auto_changement.test.sql)",
       "test": "P0 — traiteur_manager NE PEUT PAS s'auto-promouvoir ops_savr (la faille corrigée)",
       "statut": "implemented",
@@ -1177,7 +1177,7 @@
     },
     {
       "id": "M0.6-tournee-siblings-not-exposed",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:280",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:297",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (policy t_select via f_collecte_visible)",
       "test": "supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
       "statut": "implemented",
@@ -1185,7 +1185,7 @@
     },
     {
       "id": "M0.6-attestation-delete-deny",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:237",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:254",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql",
       "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny)",
       "statut": "implemented",
@@ -1193,7 +1193,7 @@
     },
     {
       "id": "M0.6-impersonation-launcher-ui",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:954",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:983",
       "artefact": "packages/plateforme/src/components/ui/impersonation-launcher.tsx (select users + bouton Impersoner, admin_savr only) monté sur packages/plateforme/src/app/(admin)/admin/clients/page.tsx",
       "test": "packages/plateforme/src/components/ui/impersonation-launcher.test.tsx « M0.6 — lanceur impersonation admin (BL-P1-BOA-09) » (masqué non-admin, liste hors-soi, POST impersoner + navigation)",
       "statut": "implemented",
@@ -1307,7 +1307,7 @@
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "2fd0f8b9bafb3b3d1c4b0142a61ad8290de04ffbd347c5dbc0c016babd6beb1b",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f37c49f3824f0c17eb6c45052d6cd0740c73f2140a05b850f8418ae8c1703ee4",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9f385002469e79999e0bc67016e4506d14aca60393adfca955e36153edece2a7",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "c4f2b7f8d94217f928c9356a96894e0617aeb4ab48cff3d75461fd18ebebb204",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "0fcf6f081583aee93f4ba4ff80d564feeb96d4037cee8c2e92747d210fe848a8"
   }
 }

@@ -538,6 +538,19 @@ describe('M3.1 / invitation collaborateur', () => {
       lien_invitation?: string;
     };
     expect(emailVars.lien_invitation).toBeTruthy();
+    // `redirectTo` doit viser la route d'échange PKCE (`/api/auth/reset-password
+    // /confirm`) — `/auth/new-password` n'existe pas (404), régression mesurée
+    // 2026-09-28.
+    expect(mockGenerateLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'recovery',
+        options: expect.objectContaining({
+          redirectTo: expect.stringContaining(
+            '/api/auth/reset-password/confirm',
+          ),
+        }),
+      }),
+    );
   });
 
   it('M3.1/invitation_email_deja_membre_refusee — 409', async () => {

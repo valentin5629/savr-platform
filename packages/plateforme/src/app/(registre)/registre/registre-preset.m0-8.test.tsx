@@ -22,7 +22,7 @@ describe('M0.8-58 — Registre : preset « 30 derniers jours » (BL-P3-10)', () 
     expect(r).toEqual({ from: '2026-06-10', to: '2026-07-10' });
   });
 
-  it('le bouton applique la fenêtre 30 jours aux champs Du/Au (défaut vide avant clic)', () => {
+  it('le bouton applique la fenêtre 30 jours au champ Période (défaut vide avant clic)', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
@@ -34,16 +34,16 @@ describe('M0.8-58 — Registre : preset « 30 derniers jours » (BL-P3-10)', () 
     );
     render(<RegistrePage />);
 
-    const from = screen.getByTestId('registre-from') as HTMLInputElement;
-    const to = screen.getByTestId('registre-to') as HTMLInputElement;
+    // Période = un seul champ (DateRangePicker) ; bornes exposées en data-from/data-to.
+    const periode = screen.getByTestId('registre-periode');
     // Défaut au chargement = vide (historique complet, arbitrage Val).
-    expect(from.value).toBe('');
-    expect(to.value).toBe('');
+    expect(periode).toHaveAttribute('data-from', '');
+    expect(periode).toHaveAttribute('data-to', '');
 
     fireEvent.click(screen.getByTestId('registre-preset-30j'));
 
     const expected = preset30JoursRange();
-    expect(from.value).toBe(expected.from);
-    expect(to.value).toBe(expected.to);
+    expect(periode).toHaveAttribute('data-from', expected.from);
+    expect(periode).toHaveAttribute('data-to', expected.to);
   });
 });

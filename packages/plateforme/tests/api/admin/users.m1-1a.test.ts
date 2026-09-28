@@ -458,6 +458,20 @@ describe('M0.4 — email invitation admin (BL-P1-ONB-04)', () => {
         lien_invitation: 'https://app.gosavr.io/auth/new-password?token=zzz',
       }),
     );
+    // `redirectTo` doit viser la route d'échange PKCE (`/api/auth/reset-password
+    // /confirm`), la seule qui pose la session de récupération avant le
+    // formulaire `/reset-password/confirm`. `/auth/new-password` n'existe pas
+    // (404) — régression mesurée 2026-09-28.
+    expect(mockAdminGenerateLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'recovery',
+        options: expect.objectContaining({
+          redirectTo: expect.stringContaining(
+            '/api/auth/reset-password/confirm',
+          ),
+        }),
+      }),
+    );
   });
 });
 

@@ -69,6 +69,33 @@ function installFetch(
   return fetchMock;
 }
 
+// Combobox DS (liste portée dans document.body) : ouvre la liste des
+// transporteurs et attend les 3 options (vide + 2 transporteurs).
+async function ouvrirTransporteurs() {
+  const declencheur = await screen.findByRole(
+    'combobox',
+    { name: 'Transporteur' },
+    ATTENTE_UI,
+  );
+  if (declencheur.getAttribute('aria-expanded') !== 'true')
+    fireEvent.click(declencheur);
+  await waitFor(
+    () => expect(screen.getAllByRole('option')).toHaveLength(3),
+    ATTENTE_UI,
+  );
+  return declencheur;
+}
+
+async function choisirTransporteur(libelle: string) {
+  await ouvrirTransporteurs();
+  fireEvent.click(screen.getByRole('option', { name: libelle }));
+}
+
+function choisirMotif(libelle: string) {
+  fireEvent.click(screen.getByRole('combobox', { name: 'Motif' }));
+  fireEvent.click(screen.getByRole('option', { name: libelle }));
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -80,18 +107,13 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       const fetchMock = installFetch();
       render(<AttributionDetailPage />);
 
-      const select = (await screen.findByLabelText(
-        'Transporteur',
-        undefined,
-        ATTENTE_UI,
-      )) as HTMLSelectElement;
-      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
+      const select = await ouvrirTransporteurs();
       expect(
         fetchMock.mock.calls.some(([u]) =>
           String(u).includes('/api/v1/admin/transporteurs?actif=true'),
         ),
       ).toBe(true);
-      expect(select.value).toBe('tr-reco');
+      expect(select).toHaveTextContent('Transport Reco · Paris (recommandé)');
       expect(
         screen.getByRole('option', {
           name: 'Transport Reco · Paris (recommandé)',
@@ -115,14 +137,10 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       const fetchMock = installFetch();
       render(<AttributionDetailPage />);
 
-      const select = (await screen.findByLabelText(
-        'Transporteur',
-        undefined,
-        ATTENTE_UI,
-      )) as HTMLSelectElement;
-      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
+      const select = await ouvrirTransporteurs();
 
-      fireEvent.change(select, { target: { value: 'tr-autre' } });
+      await choisirTransporteur('Transport Autre · Montreuil');
+      expect(select).toHaveTextContent('Transport Autre · Montreuil');
 
       const valider = screen.getByRole('button', {
         name: "Valider l'attribution",
@@ -130,9 +148,7 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
       expect(valider.disabled).toBe(true);
 
-      fireEvent.change(screen.getByDisplayValue('Choisir un motif…'), {
-        target: { value: 'transporteur_top1_indispo' },
-      });
+      choisirMotif('Transporteur top 1 indisponible');
       expect(valider.disabled).toBe(false);
       fireEvent.click(valider);
 
@@ -166,19 +182,14 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       });
       render(<AttributionDetailPage />);
 
-      const select = (await screen.findByLabelText(
-        'Transporteur',
-        undefined,
-        ATTENTE_UI,
-      )) as HTMLSelectElement;
-      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
-      expect(select.value).toBe('');
+      const select = await ouvrirTransporteurs();
+      expect(select).toHaveTextContent('Choisir un transporteur…');
       const valider = screen.getByRole('button', {
         name: "Valider l'attribution",
       }) as HTMLButtonElement;
       expect(valider.disabled).toBe(true);
 
-      fireEvent.change(select, { target: { value: 'tr-autre' } });
+      await choisirTransporteur('Transport Autre · Montreuil');
       expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
       expect(valider.disabled).toBe(true);
     },
@@ -201,20 +212,15 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       });
       render(<AttributionDetailPage />);
 
-      const select = (await screen.findByLabelText(
-        'Transporteur',
-        undefined,
-        ATTENTE_UI,
-      )) as HTMLSelectElement;
-      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
+      const select = await ouvrirTransporteurs();
       expect(screen.queryByText(/motif obligatoire/)).toBeNull();
 
-      fireEvent.change(select, { target: { value: 'tr-autre' } });
+      await choisirTransporteur('Transport Autre · Montreuil (recommandé)');
       expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
 
       // Retour au choix vide : pas de transporteur, bouton désactivé.
-      fireEvent.change(select, { target: { value: '' } });
-      expect(select.value).toBe('');
+      await choisirTransporteur('Choisir un transporteur…');
+      expect(select).toHaveTextContent('Choisir un transporteur…');
       expect(
         (
           screen.getByRole('button', {
@@ -240,12 +246,16 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
           ATTENTE_UI,
         ),
       ).toBeTruthy();
-      const select = screen.getByLabelText('Transporteur') as HTMLSelectElement;
-      await waitFor(() => expect(select.value).toBe('tr-reco'), ATTENTE_UI);
+      const select = screen.getByRole('combobox', { name: 'Transporteur' });
+      // La sélection reste affichée même sans la liste chargée.
+      await waitFor(
+        () => expect(select).toHaveTextContent('Transport Reco (recommandé)'),
+        ATTENTE_UI,
+      );
 
       ko = false;
       fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
-      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
+      await ouvrirTransporteurs();
       expect(
         screen.queryByText('Impossible de charger la liste des transporteurs.'),
       ).toBeNull();

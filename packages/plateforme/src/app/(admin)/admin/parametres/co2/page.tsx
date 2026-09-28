@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Leaf, Save, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface FacteurCo2 {
@@ -267,11 +269,12 @@ export default function ParametresCo2Page() {
                   </>
                 ) : (
                   <>
-                    <input
+                    <Input
                       type="number"
                       step="0.01"
                       min="0"
-                      className="w-28 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+                      className="w-28"
+                      aria-label={`FE induit ${f.code_flux} (kg CO₂/t)`}
                       value={f.fe_induit_kg_t}
                       onChange={(e) => {
                         const next = [...facteursDraft];
@@ -282,11 +285,12 @@ export default function ParametresCo2Page() {
                         setFacteursDraft(next);
                       }}
                     />
-                    <input
+                    <Input
                       type="number"
                       step="0.01"
                       min="0"
-                      className="w-28 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+                      className="w-28"
+                      aria-label={`FE évité ${f.code_flux} (kg CO₂/t)`}
                       value={f.fe_evite_kg_t}
                       onChange={(e) => {
                         const next = [...facteursDraft];
@@ -300,11 +304,12 @@ export default function ParametresCo2Page() {
                   </>
                 )}
                 {/* Énergie primaire : éditable pour tous les flux, emballage inclus. */}
-                <input
+                <Input
                   type="number"
                   step="0.01"
                   min="0"
-                  className="w-28 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+                  className="w-28"
+                  aria-label={`Énergie évitée ${f.code_flux} (kWh/t)`}
                   value={f.energie_primaire_evitee_kwh_t}
                   onChange={(e) => {
                     const next = [...facteursDraft];
@@ -370,12 +375,13 @@ export default function ParametresCo2Page() {
               <span className="text-sm font-medium text-savr-neutral-700">
                 {m.nom_materiau ?? m.code_materiau}
               </span>
-              <input
+              <Input
                 type="number"
                 step="0.1"
                 min="0"
                 max="100"
-                className="w-20 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+                className="w-20"
+                aria-label={`Part ${m.nom_materiau ?? m.code_materiau} (%)`}
                 value={m.part_pct}
                 onChange={(e) => {
                   const next = [...mixDraft];
@@ -383,11 +389,12 @@ export default function ParametresCo2Page() {
                   setMixDraft(next);
                 }}
               />
-              <input
+              <Input
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-28 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+                className="w-28"
+                aria-label={`FE induit ${m.nom_materiau ?? m.code_materiau} (kg CO₂/t)`}
                 value={m.fe_induit_kg_t}
                 onChange={(e) => {
                   const next = [...mixDraft];
@@ -398,11 +405,12 @@ export default function ParametresCo2Page() {
                   setMixDraft(next);
                 }}
               />
-              <input
+              <Input
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-28 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+                className="w-28"
+                aria-label={`FE évité ${m.nom_materiau ?? m.code_materiau} (kg CO₂/t)`}
                 value={m.fe_evite_kg_t}
                 onChange={(e) => {
                   const next = [...mixDraft];
@@ -435,20 +443,21 @@ export default function ParametresCo2Page() {
               {savingAg ? 'Enregistrement…' : 'Enregistrer'}
             </Button>
           </div>
-          <div className="flex items-center gap-4">
-            <input
+          <FormField
+            label="Facteur CO₂ évité (kg CO₂ / repas)"
+            htmlFor="co2-facteur-ag"
+            hint="Source FAO"
+            className="max-w-xs"
+          >
+            <Input
+              id="co2-facteur-ag"
               type="number"
               step="0.01"
               min="0"
-              className="w-32 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
               value={agDraft}
               onChange={(e) => setAgDraft(parseFloat(e.target.value) || 0)}
             />
-            <span className="text-sm text-savr-neutral-500">
-              kg CO₂ / repas
-            </span>
-            <span className="text-xs text-savr-neutral-400">(source FAO)</span>
-          </div>
+          </FormField>
           <CommentaireInput value={commentAg} onChange={setCommentAg} />
         </Card>
       )}
@@ -471,16 +480,20 @@ export default function ParametresCo2Page() {
               {savingDivers ? 'Enregistrement…' : 'Enregistrer'}
             </Button>
           </div>
-          <div className="space-y-2">
+          {/* Libellé au-dessus du champ (DS « Mise en page des formulaires »),
+              unité en aide ; grille de 3 colonnes max. */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {diversDraft.map((d, i) => (
-              <div key={d.id} className="flex items-center gap-4">
-                <span className="w-72 text-sm text-savr-neutral-700">
-                  {d.description}
-                </span>
-                <input
+              <FormField
+                key={d.id}
+                label={d.description}
+                htmlFor={`co2-divers-${d.id}`}
+                hint={d.unite}
+              >
+                <Input
+                  id={`co2-divers-${d.id}`}
                   type="number"
                   step="0.0001"
-                  className="w-32 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
                   value={d.valeur}
                   onChange={(e) => {
                     const next = [...diversDraft];
@@ -488,8 +501,7 @@ export default function ParametresCo2Page() {
                     setDiversDraft(next);
                   }}
                 />
-                <span className="text-xs text-savr-neutral-400">{d.unite}</span>
-              </div>
+              </FormField>
             ))}
           </div>
           <CommentaireInput value={commentDivers} onChange={setCommentDivers} />
@@ -508,18 +520,16 @@ function CommentaireInput({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const id = useId();
   return (
-    <div className="space-y-1">
-      <label className="text-xs font-medium text-savr-neutral-600">
-        Commentaire de modification (obligatoire)
-      </label>
-      <input
+    <FormField label="Commentaire de modification (obligatoire)" htmlFor={id}>
+      <Input
+        id={id}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Motif / source de la mise à jour"
-        className="w-full border border-savr-neutral-200 rounded px-2 py-1 text-sm"
       />
-    </div>
+    </FormField>
   );
 }

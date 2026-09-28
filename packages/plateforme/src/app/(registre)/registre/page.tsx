@@ -4,6 +4,10 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Combobox } from '@/components/ui/combobox';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FormField } from '@/components/ui/form-field';
 import { preset30JoursRange } from '@/lib/registre-presets';
 
 // ---------------------------------------------------------------------------
@@ -142,12 +146,6 @@ function RegistreContent() {
     return [...m.entries()];
   }, [rows]);
 
-  function toggleFlux(code: string) {
-    setPage(1);
-    setFlux((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code],
-    );
-  }
   function sort(key: SortKey) {
     if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else {
@@ -207,117 +205,132 @@ function RegistreContent() {
         </div>
       </div>
 
-      {/* Barre de filtres */}
-      <div className="flex flex-wrap items-end gap-3 rounded-savr-md border border-savr-neutral-200 bg-white p-3">
-        <label className="flex flex-col text-xs text-savr-neutral-500">
-          Du
-          <input
-            type="date"
-            data-testid="registre-from"
-            value={from}
-            onChange={(e) => {
+      {/* Barre de filtres — pattern DS `FilterBar` : un FormField + un
+          contrôle par filtre, grille de 3 colonnes. */}
+      <FilterBar
+        data-testid="registre-filtres"
+        actif={
+          from !== '' ||
+          to !== '' ||
+          flux.length > 0 ||
+          lieu !== '' ||
+          traiteur !== '' ||
+          bordereau !== ''
+        }
+        onReset={() => {
+          setPage(1);
+          setFrom('');
+          setTo('');
+          setFlux([]);
+          setLieu('');
+          setTraiteur('');
+          setBordereau('');
+        }}
+      >
+        <FormField label="Période" htmlFor="registre-periode">
+          <DateRangePicker
+            id="registre-periode"
+            data-testid="registre-periode"
+            value={{ from, to }}
+            onChange={(p) => {
               setPage(1);
-              setFrom(e.target.value);
+              setFrom(p.from);
+              setTo(p.to);
             }}
-            className="rounded border border-savr-neutral-300 px-2 py-1 text-sm"
           />
-        </label>
-        <label className="flex flex-col text-xs text-savr-neutral-500">
-          Au
-          <input
-            type="date"
-            data-testid="registre-to"
-            value={to}
-            onChange={(e) => {
+          {/* BL-P3-10 — Preset « 30 derniers jours » (CDC §06.03). Applique la
+              fenêtre au clic ; le défaut au chargement reste vide (historique
+              complet), arbitrage Val R23c. */}
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto px-0"
+            data-testid="registre-preset-30j"
+            onClick={() => {
               setPage(1);
-              setTo(e.target.value);
+              const r = preset30JoursRange();
+              setFrom(r.from);
+              setTo(r.to);
             }}
-            className="rounded border border-savr-neutral-300 px-2 py-1 text-sm"
-          />
-        </label>
-        {/* BL-P3-10 — Preset « 30 derniers jours » (CDC §06.03). Applique la
-            fenêtre au clic ; le défaut au chargement reste vide (historique
-            complet), arbitrage Val R23c. */}
-        <button
-          type="button"
-          data-testid="registre-preset-30j"
-          onClick={() => {
-            setPage(1);
-            const r = preset30JoursRange();
-            setFrom(r.from);
-            setTo(r.to);
-          }}
-          className="rounded border border-savr-neutral-300 px-3 py-1 text-sm text-savr-neutral-700 hover:bg-savr-neutral-50"
-        >
-          30 derniers jours
-        </button>
-        <label className="flex flex-col text-xs text-savr-neutral-500">
-          Lieu
-          <select
+          >
+            30 derniers jours
+          </Button>
+        </FormField>
+        <FormField label="Lieu" htmlFor="registre-lieu">
+          <Combobox
+            id="registre-lieu"
+            data-testid="registre-lieu"
+            placeholder="Tous"
+            searchPlaceholder="Rechercher un lieu…"
+            options={[
+              { value: '', label: 'Tous' },
+              ...lieuxOptions.map(([id, nom]) => ({ value: id, label: nom })),
+            ]}
             value={lieu}
-            onChange={(e) => {
+            onChange={(v) => {
               setPage(1);
-              setLieu(e.target.value);
+              setLieu(v);
             }}
-            className="rounded border border-savr-neutral-300 px-2 py-1 text-sm"
-          >
-            <option value="">Tous</option>
-            {lieuxOptions.map(([id, nom]) => (
-              <option key={id} value={id}>
-                {nom}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col text-xs text-savr-neutral-500">
-          Traiteur
-          <select
+          />
+        </FormField>
+        <FormField label="Traiteur" htmlFor="registre-traiteur">
+          <Combobox
+            id="registre-traiteur"
+            data-testid="registre-traiteur"
+            icon={null}
+            placeholder="Tous"
+            searchPlaceholder="Rechercher un traiteur…"
+            options={[
+              { value: '', label: 'Tous' },
+              ...traiteursOptions.map(([id, nom]) => ({
+                value: id,
+                label: nom,
+              })),
+            ]}
             value={traiteur}
-            onChange={(e) => {
+            onChange={(v) => {
               setPage(1);
-              setTraiteur(e.target.value);
+              setTraiteur(v);
             }}
-            className="rounded border border-savr-neutral-300 px-2 py-1 text-sm"
-          >
-            <option value="">Tous</option>
-            {traiteursOptions.map(([id, nom]) => (
-              <option key={id} value={id}>
-                {nom}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col text-xs text-savr-neutral-500">
-          Bordereau
-          <select
+          />
+        </FormField>
+        <FormField label="Bordereau" htmlFor="registre-bordereau">
+          <Combobox
+            id="registre-bordereau"
+            data-testid="registre-bordereau"
+            icon={null}
+            placeholder="Tous"
+            options={[
+              { value: '', label: 'Tous' },
+              { value: 'dispo', label: 'Disponible' },
+              { value: 'manquant', label: 'Manquant' },
+            ]}
             value={bordereau}
-            onChange={(e) => {
+            onChange={(v) => {
               setPage(1);
-              setBordereau(e.target.value as '' | 'dispo' | 'manquant');
+              setBordereau(v as '' | 'dispo' | 'manquant');
             }}
-            className="rounded border border-savr-neutral-300 px-2 py-1 text-sm"
-          >
-            <option value="">Tous</option>
-            <option value="dispo">Disponible</option>
-            <option value="manquant">Manquant</option>
-          </select>
-        </label>
-        <div className="flex flex-col text-xs text-savr-neutral-500">
-          Flux
-          <div className="flex flex-wrap gap-2 pt-1">
-            {FLUX_ORDER.map((code) => (
-              <label key={code} className="flex items-center gap-1 text-sm">
-                <input
-                  type="checkbox"
-                  checked={flux.includes(code)}
-                  onChange={() => toggleFlux(code)}
-                />
-                {FLUX_LABELS[code]}
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
+          />
+        </FormField>
+        <FormField label="Flux" htmlFor="registre-flux">
+          <Combobox
+            multiple
+            id="registre-flux"
+            data-testid="registre-flux"
+            icon={null}
+            placeholder="Tous"
+            options={FLUX_ORDER.map((code) => ({
+              value: code,
+              label: FLUX_LABELS[code] ?? code,
+            }))}
+            value={flux}
+            onChange={(codes) => {
+              setPage(1);
+              setFlux(codes);
+            }}
+          />
+        </FormField>
+      </FilterBar>
 
       {loading ? (
         <p className="text-sm text-savr-neutral-500">Chargement…</p>
@@ -401,20 +414,21 @@ function RegistreContent() {
       <div className="flex items-center justify-between text-sm text-savr-neutral-500">
         <span>{total} ligne(s)</span>
         <div className="flex items-center gap-2">
-          <select
-            value={pageSize}
-            onChange={(e) => {
+          <Combobox
+            aria-label="Lignes par page"
+            data-testid="registre-page-size"
+            icon={null}
+            className="w-32"
+            options={PAGE_SIZES.map((s) => ({
+              value: String(s),
+              label: `${s} / page`,
+            }))}
+            value={String(pageSize)}
+            onChange={(v) => {
               setPage(1);
-              setPageSize(Number(e.target.value));
+              setPageSize(Number(v));
             }}
-            className="rounded border border-savr-neutral-300 px-2 py-1"
-          >
-            {PAGE_SIZES.map((s) => (
-              <option key={s} value={s}>
-                {s} / page
-              </option>
-            ))}
-          </select>
+          />
           <Button
             variant="ghost"
             disabled={page <= 1}

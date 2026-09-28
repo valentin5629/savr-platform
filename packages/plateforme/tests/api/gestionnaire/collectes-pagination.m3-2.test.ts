@@ -4,7 +4,7 @@
  * Défaut d'origine (revue d'écran E2E 2026-09-22) : la route terminait sur
  * `.limit(100)` et renvoyait `{ data }` sans total. Un parc de plus de 100
  * collectes recevait donc une liste d'apparence complète qui ne l'était pas,
- * sans rien à l'écran pour le signaler. Le §06.05 l.203 veut cette liste LARGE
+ * sans rien à l'écran pour le signaler. Le §06.05 l.209 veut cette liste LARGE
  * (« tous statuts, type ZD/AG non figé »), donc le plafond mordait d'autant
  * plus vite.
  *

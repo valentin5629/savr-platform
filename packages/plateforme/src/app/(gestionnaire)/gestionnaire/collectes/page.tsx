@@ -43,19 +43,28 @@ const SqueletteListe = () => (
 function GestionnaireCollectesContent() {
   const router = useRouter();
   const params = useSearchParams();
-  // Drill-down depuis les Top listes du dashboard (lieu / traiteur). Le dashboard
-  // gestionnaire porte aujourd'hui type + période (from/to) + statut `cloturee`
-  // dans l'URL — c'est la règle du §06.04 TRAITEUR (« miroir 5/5 »), pas celle du
-  // §06.05, qui demande l'inverse pour le gestionnaire : « tous statuts, type
-  // ZD/AG non figé » (l.203). Écart PRÉ-EXISTANT, côté dashboard (`drillScope`
-  // dans (gestionnaire)/gestionnaire/page.tsx), hors périmètre de ce lot : cet
-  // écran se contente d'appliquer les filtres qu'on lui passe.
+  // Drill-down depuis les Top listes du dashboard (lieu / traiteur). §06.05 l.209 :
+  // « tous statuts, type ZD/AG non figé ; filtres du dashboard propagés (période +
+  // Type/Taille d'événement) ». Le dashboard ne fige donc NI `type` NI `statut` —
+  // l'écart qui les forçait (règle §06.04 traiteur appliquée par erreur au
+  // gestionnaire) est corrigé dans ce lot, côté `drillUrl` du dashboard.
+  //
+  // `type` / `statut` restent lus et transmis : la route les accepte toujours, et
+  // une URL écrite à la main — ou un favori d'avant ce lot — doit filtrer comme
+  // elle l'annonce plutôt qu'ignorer en silence les paramètres qu'elle porte.
   const lieuFiltre = params.get('lieu');
   const traiteurFiltre = params.get('traiteur');
   const typeFiltre = params.get('type');
   const statutFiltre = params.get('statut');
   const fromFiltre = params.get('from');
   const toFiltre = params.get('to');
+  // Multi-valués (§06.05 l.209). `getAll` rend un TABLEAU NEUF à chaque rendu :
+  // placé tel quel dans les dépendances de `charger`, il recréerait le callback à
+  // chaque rendu et l'effet partirait en requêtes infinies. On dérive donc une clé
+  // TEXTE stable et on reconstruit les tableaux à partir d'elle. Ni un UUID ni un
+  // code de bracket (XS…XL) ne contient de virgule : le join/split est réversible.
+  const typeEvtKey = params.getAll('type_evenement_ids[]').join(',');
+  const tailleKey = params.getAll('taille_evenements[]').join(',');
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -74,6 +83,8 @@ function GestionnaireCollectesContent() {
     statutFiltre,
     fromFiltre,
     toFiltre,
+    typeEvtKey,
+    tailleKey,
   ].join('|');
   const [pagination, setPagination] = useState({ key: filtresKey, page: 1 });
   const page = pagination.key === filtresKey ? pagination.page : 1;
@@ -101,6 +112,12 @@ function GestionnaireCollectesContent() {
     if (statutFiltre) qs.set('statut', statutFiltre);
     if (fromFiltre) qs.set('from', fromFiltre);
     if (toFiltre) qs.set('to', toFiltre);
+    if (typeEvtKey)
+      typeEvtKey
+        .split(',')
+        .forEach((v) => qs.append('type_evenement_ids[]', v));
+    if (tailleKey)
+      tailleKey.split(',').forEach((v) => qs.append('taille_evenements[]', v));
     if (page > 1) qs.set('page', String(page));
     const suffix = qs.toString() ? `?${qs}` : '';
     fetch(`/api/v1/gestionnaire/collectes${suffix}`)
@@ -157,6 +174,8 @@ function GestionnaireCollectesContent() {
     statutFiltre,
     fromFiltre,
     toFiltre,
+    typeEvtKey,
+    tailleKey,
     page,
   ]);
 
@@ -173,9 +192,18 @@ function GestionnaireCollectesContent() {
 
   function clearFiltre() {
     const usp = new URLSearchParams(Array.from(params.entries()));
-    ['lieu', 'traiteur', 'type', 'statut', 'from', 'to'].forEach((k) =>
-      usp.delete(k),
-    );
+    [
+      'lieu',
+      'traiteur',
+      'type',
+      'statut',
+      'from',
+      'to',
+      // Sans ces deux-là, « Retirer le filtre » laissait la liste filtrée sur des
+      // critères que plus rien n'affiche : un cul-de-sac silencieux.
+      'type_evenement_ids[]',
+      'taille_evenements[]',
+    ].forEach((k) => usp.delete(k));
     const s = usp.toString();
     router.replace(`/gestionnaire/collectes${s ? `?${s}` : ''}`);
   }
@@ -190,6 +218,16 @@ function GestionnaireCollectesContent() {
     if (statutFiltre === 'cloturee') parts.push('clôturées');
     const per = periodeCourte(fromFiltre, toFiltre);
     if (per) parts.push(per);
+    // Type/Taille d'événement viennent des filtres globaux du dashboard (§06.05
+    // l.209) et n'ont aucun contrôle sur cet écran. Sans cette mention, la liste
+    // serait restreinte par des critères invisibles : le gestionnaire chercherait
+    // des collectes qu'il voit au dashboard et que cette liste écarte.
+    const nbType = typeEvtKey ? typeEvtKey.split(',').length : 0;
+    const nbTaille = tailleKey ? tailleKey.split(',').length : 0;
+    if (nbType > 0)
+      parts.push(`${nbType} type${nbType > 1 ? 's' : ''} d'événement`);
+    if (nbTaille > 0)
+      parts.push(`${nbTaille} taille${nbTaille > 1 ? 's' : ''} d'événement`);
     return parts.length ? parts.join(' · ') : undefined;
   })();
 

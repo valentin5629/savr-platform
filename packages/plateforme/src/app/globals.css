@@ -88,6 +88,8 @@
   --radius-savr-sm: 4px;
   --radius-savr-md: 8px;
   --radius-savr-lg: 12px;
+  /* Cards et blocs de filtres (DS Claude Design « radius-savr-xl », FilterBar). */
+  --radius-savr-xl: 14px;
   --radius-savr-full: 9999px;
 
   /* ── Ombres sobres (levier #5 — teintées navy) ───────────────────────────── */

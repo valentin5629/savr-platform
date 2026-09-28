@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { Upload } from 'lucide-react';
 
 type OrgTab = 'profil' | 'membres' | 'factures';
@@ -55,7 +56,7 @@ const PROFIL_URL = '/api/v1/gestionnaire/mon-organisation/profil';
 const LOGO_URL = '/api/v1/gestionnaire/mon-organisation/logo';
 
 async function patchProfil(
-  patch: Partial<Pick<OrgProfil, 'adresse' | 'logo_url'>>,
+  patch: Partial<Pick<OrgProfil, 'logo_url'>>,
 ): Promise<OrgProfil> {
   const res = await fetch(PROFIL_URL, {
     method: 'PATCH',
@@ -68,93 +69,6 @@ async function patchProfil(
   };
   if (!res.ok || !j.data) throw new Error(j.error ?? ERREUR_ENREGISTREMENT);
   return j.data;
-}
-
-// §06.05 §6 Bloc Organisation : nom en lecture seule (modification via
-// support), adresse modifiable. Raison sociale, SIRET, email et téléphone sont
-// affichés en lecture seule (réservés à l'Admin).
-function InformationsCard({
-  profil,
-  onSaved,
-}: {
-  profil: OrgProfil;
-  onSaved: (p: OrgProfil) => void;
-}) {
-  const [adresse, setAdresse] = useState(profil.adresse ?? '');
-  const [saving, setSaving] = useState(false);
-  const [erreur, setErreur] = useState('');
-  const [succes, setSucces] = useState('');
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setErreur('');
-    setSucces('');
-    try {
-      const p = await patchProfil({ adresse });
-      setAdresse(p.adresse ?? '');
-      setSucces('Adresse enregistrée.');
-      onSaved(p);
-    } catch (err) {
-      setErreur((err as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const lectureSeule = [
-    ['Nom', profil.nom, 'Modification via le support Savr'],
-    ['Raison sociale', profil.raison_sociale, null],
-    ['SIRET', profil.siret, null],
-    ['Email', profil.email_principal, null],
-    ['Téléphone', profil.telephone, null],
-  ] as const;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Informations</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <dl className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-          {lectureSeule.map(([libelle, valeur, aide]) => (
-            <div key={libelle}>
-              <dt className="font-semibold text-savr-neutral-700">{libelle}</dt>
-              <dd className="text-savr-neutral-900">{valeur ?? '—'}</dd>
-              {aide && (
-                <dd className="text-xs text-savr-neutral-500">{aide}</dd>
-              )}
-            </div>
-          ))}
-        </dl>
-        <form onSubmit={save} className="space-y-3 md:max-w-xl">
-          <FormField label="Adresse" htmlFor="org-adresse" error={erreur}>
-            <Input
-              id="org-adresse"
-              value={adresse}
-              maxLength={500}
-              onChange={(e) => {
-                setAdresse(e.target.value);
-                setSucces('');
-              }}
-              error={!!erreur}
-            />
-          </FormField>
-          {succes && (
-            <p role="status" className="text-sm text-savr-success-strong">
-              {succes}
-            </p>
-          )}
-          <Button
-            type="submit"
-            disabled={saving || adresse === (profil.adresse ?? '')}
-          >
-            {saving ? 'Enregistrement…' : 'Enregistrer'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
 }
 
 // §06.05 §6 Bloc Organisation : logo (upload / remplacement). Upload R2 puis
@@ -378,7 +292,11 @@ export default function MonOrganisationPage() {
       {/* Onglet Profil */}
       {!loading && !erreur && tab === 'profil' && profil && (
         <div className="space-y-4">
-          <InformationsCard profil={profil} onSaved={setProfil} />
+          <InfosLegalesCard
+            profil={profil}
+            urlProfil={PROFIL_URL}
+            onSaved={setProfil}
+          />
           <LogoCard profil={profil} onSaved={setProfil} />
         </div>
       )}
@@ -446,30 +364,36 @@ export default function MonOrganisationPage() {
             <CardContent>
               <form onSubmit={handleInvite} className="space-y-3">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <input
-                    type="text"
-                    placeholder="Prénom"
-                    value={prenom}
-                    onChange={(e) => setPrenom(e.target.value)}
-                    required
-                    className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Nom"
-                    value={nom}
-                    onChange={(e) => setNom(e.target.value)}
-                    required
-                    className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
-                  />
+                  <FormField label="Prénom" htmlFor="invite-prenom" required>
+                    <Input
+                      id="invite-prenom"
+                      type="text"
+                      autoComplete="given-name"
+                      value={prenom}
+                      onChange={(e) => setPrenom(e.target.value)}
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Nom" htmlFor="invite-nom" required>
+                    <Input
+                      id="invite-nom"
+                      type="text"
+                      autoComplete="family-name"
+                      value={nom}
+                      onChange={(e) => setNom(e.target.value)}
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Email" htmlFor="invite-email" required>
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </FormField>
                 </div>
                 {inviteMsg && (
                   <p className="text-sm text-savr-neutral-600">{inviteMsg}</p>

@@ -59,9 +59,9 @@ function fillRequiredFields() {
   fireEvent.change(screen.getByLabelText(/^Ville/), {
     target: { value: 'Paris' },
   });
-  fireEvent.change(screen.getByLabelText(/Région/), {
-    target: { value: 'idf' },
-  });
+  // Combobox (DS règle 3) : ouvrir le déclencheur puis choisir l'option.
+  fireEvent.click(screen.getByRole('combobox', { name: /Région/ }));
+  fireEvent.click(screen.getByRole('option', { name: 'Île-de-France' }));
   fireEvent.change(screen.getByLabelText(/Nom prénom du contact/), {
     target: { value: 'Marie Curie' },
   });

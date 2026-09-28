@@ -238,8 +238,8 @@ Les composants viennent de shadcn/ui ; ces recettes définissent **comment on le
 |---|---|---|---|---|
 | `primary` | fond `primary-700`, texte blanc | fond `primary-800` + `translateY(-1px)` | fond `primary-800`, sans translation | anneau `primary-500` offset 2px |
 | `secondary` | fond blanc, bordure `neutral-300`, texte `neutral-900` | fond `neutral-100` | fond `neutral-200` | anneau `primary-500` offset 2px |
-| `accent` | fond `accent-500`, texte `primary-950` | fond `accent-600` + `translateY(-1px)` | fond `accent-600` | anneau `accent-600` offset 2px |
-| `destructive` | fond `error`, texte blanc | fond `error-strong` | fond `error-strong` | anneau `error` offset 2px |
+| `accent` | fond `accent-500`, texte `primary-950` | fond `accent-600` + `translateY(-1px)` | fond `accent-600` | anneau `primary-500` offset 2px (levier #4 — anneau uniforme) |
+| `destructive` | fond `error`, texte blanc | fond `error-strong` | fond `error-strong` | anneau `primary-500` offset 2px (levier #4 — anneau uniforme) |
 | `ghost` | transparent, texte `primary-700` | fond `primary-50` | fond `primary-100` | anneau `primary-500` offset 2px |
 
 - Hauteur : 40px (`md`), 44px sur mobile (cible tactile). Padding horizontal `--space-4`/`--space-6`.

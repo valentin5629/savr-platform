@@ -4,6 +4,8 @@ import * as React from 'react';
 import { UserCog } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
+import { FormField } from '@/components/ui/form-field';
 
 interface UserRow {
   id: string;
@@ -119,23 +121,30 @@ export function ImpersonationLauncher(): React.ReactElement | null {
           Se connecter à la place d&apos;un utilisateur (support / debug)
         </span>
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <select
-          aria-label="Utilisateur à impersonner"
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-          className="min-w-[22rem] px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
+      <div className="flex flex-wrap items-end gap-3">
+        <FormField
+          label="Utilisateur à impersonner"
+          htmlFor="impersonation_utilisateur"
+          className="w-full sm:w-[22rem]"
         >
-          <option value="">Choisir un utilisateur…</option>
-          {candidats.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.prenom} {u.nom} — {u.email} · {ROLE_LABELS[u.role] ?? u.role}
-              {u.organisations?.raison_sociale
-                ? ` (${u.organisations.raison_sociale})`
-                : ''}
-            </option>
-          ))}
-        </select>
+          <Combobox
+            id="impersonation_utilisateur"
+            icon={null}
+            placeholder="Choisir un utilisateur…"
+            searchPlaceholder="Rechercher un utilisateur…"
+            emptyText="Aucun utilisateur."
+            value={selected}
+            onChange={setSelected}
+            options={candidats.map((u) => ({
+              value: u.id,
+              label: `${u.prenom} ${u.nom} — ${u.email} · ${ROLE_LABELS[u.role] ?? u.role}${
+                u.organisations?.raison_sociale
+                  ? ` (${u.organisations.raison_sociale})`
+                  : ''
+              }`,
+            }))}
+          />
+        </FormField>
         <Button onClick={handleImpersonate} disabled={!selected || loading}>
           <UserCog className="w-4 h-4" />
           {loading ? 'Connexion…' : 'Impersoner'}

@@ -1,7 +1,9 @@
 // Batch J+1 6h — génère les attestations de don AG pour les collectes cloturees.
 // Règles : R1 (cloturee + anti_gaspi + volume_repas_realise IS NOT NULL),
 //          R2 (exclusion realisee_sans_collecte déjà filtrée sur statut=cloturee),
-//          R8 (idempotence : skip si attestation emise/corrigee).
+//          R8 (idempotence : skip si attestation emise/corrigee),
+//          SIRET donateur (décision Val 2026-09-28) : pas d'attestation tant que
+//          l'entité de facturation du donateur n'a pas un SIRET vérifié.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
@@ -17,6 +19,8 @@ import { anneeParis, jourParis } from '@savr/shared/src/temps/index.js';
 export interface BatchPdfJ1AgResult {
   enqueued: number;
   skipped_no_attribution: number;
+  /** Donateur sans SIRET vérifié → attestation différée + alerte Ops in-app. */
+  skipped_siret_donateur: number;
   already_done: number;
   errors: string[];
   /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
@@ -58,6 +62,7 @@ interface EntiteFacturation {
   organisation_id: string;
   raison_sociale: string;
   siret: string;
+  siret_verification: string;
 }
 
 export async function runBatchPdfJ1Ag(
@@ -66,6 +71,7 @@ export async function runBatchPdfJ1Ag(
   const result: BatchPdfJ1AgResult = {
     enqueued: 0,
     skipped_no_attribution: 0,
+    skipped_siret_donateur: 0,
     already_done: 0,
     errors: [],
   };
@@ -151,9 +157,10 @@ export async function runBatchPdfJ1Ag(
   ] as string[];
   const { data: entites, error: entErr } = await supabase
     .from('entites_facturation')
-    .select('id, organisation_id, raison_sociale, siret')
+    .select('id, organisation_id, raison_sociale, siret, siret_verification')
     .in('organisation_id', orgIds)
-    .eq('entite_par_defaut', true);
+    .eq('entite_par_defaut', true)
+    .eq('actif', true);
 
   // Sans entité, l'attestation serait figée avec un donateur vide (raison sociale/SIRET).
   if (entErr) {
@@ -180,6 +187,35 @@ export async function runBatchPdfJ1Ag(
       const orgId = ev.organisation_id;
       const entite = entiteByOrg.get(orgId);
       const mentionFiscale = asso?.habilitee_attestation_fiscale ?? false;
+
+      // 4bis. SIRET donateur (décision Val 2026-09-28) : la programmation n'exige
+      // plus de SIRET, donc une attestation fiscale 2041-GE pourrait partir avec un
+      // donateur sans SIRET. On la diffère — AVANT d'allouer le numéro gapless —
+      // et on alerte l'Ops (in-app, dédupliquée). Le batch suivant l'émet dès que
+      // le SIRET est vérifié (idempotence R8 inchangée).
+      if (!entite || entite.siret_verification !== 'verifie' || !entite.siret) {
+        result.skipped_siret_donateur++;
+        const { error: alerteErr } = await supabase.rpc(
+          'f_upsert_alerte_admin',
+          {
+            p_code: 'attestation_ag_siret_donateur_manquant',
+            p_titre:
+              'Attestation de don bloquée — SIRET du donateur non vérifié',
+            p_message: `Collecte ${collecte.id} : l'attestation de don (Cerfa 2041-GE) ne sera émise qu'une fois le SIRET de l'entité de facturation de l'organisation vérifié. Compléter ou corriger le SIRET dans la fiche de l'organisation.`,
+            p_entity_type: 'collectes',
+            p_entity_id: collecte.id,
+          },
+        );
+        if (alerteErr) {
+          logger.error('attestation_ag.alerte_non_posee', {
+            job_name: JOB_NAME,
+            collecte_id: collecte.id,
+            error_code: alerteErr.code,
+            error: alerteErr.message,
+          });
+        }
+        continue;
+      }
 
       // 5. Allouer le numéro ATT-DON gapless
       const { data: numeroData } = await supabase
@@ -220,9 +256,9 @@ export async function runBatchPdfJ1Ag(
           numero,
           date_emission: today,
           date_collecte: collecte.date_collecte,
-          donateur_entite_facturation_id: entite?.id ?? null,
-          donateur_raison_sociale: entite?.raison_sociale ?? '',
-          donateur_siret: entite?.siret ?? '',
+          donateur_entite_facturation_id: entite.id,
+          donateur_raison_sociale: entite.raison_sociale,
+          donateur_siret: entite.siret,
           association_nom: asso?.nom ?? '',
           // Instantané figé du n° RUP à l'émission (CDC §04 associations.numero_rup,
           // source unique saisie dans la modale association §06.06 §5). Facultatif :
@@ -281,8 +317,8 @@ export async function runBatchPdfJ1Ag(
         ),
         nom_evenement: ev.nom_evenement,
         date_evenement: dateEvenementStr,
-        donateur_raison_sociale: entite?.raison_sociale ?? '',
-        donateur_siret: entite?.siret ?? '',
+        donateur_raison_sociale: entite.raison_sociale,
+        donateur_siret: entite.siret,
         association_nom: asso?.nom ?? '',
         association_adresse: asso?.adresse ?? null,
         association_numero_rup: asso?.numero_rup ?? null,
@@ -350,6 +386,25 @@ export async function runBatchPdfJ1Ag(
             template: 'attestation_don_disponible',
             error: e instanceof Error ? e.message : String(e),
           });
+        });
+      }
+
+      // 11. L'attestation est partie : l'alerte « SIRET donateur manquant » posée par
+      // un batch précédent n'a plus d'objet → résolue (sinon la file critique de
+      // l'Ops grossit de cas réglés). Best-effort : jamais bloquant.
+      const { error: resolErr } = await supabase
+        .from('alertes_admin')
+        .update({ statut: 'resolue', resolue_at: new Date().toISOString() })
+        .eq('code', 'attestation_ag_siret_donateur_manquant')
+        .eq('entity_type', 'collectes')
+        .eq('entity_id', collecte.id)
+        .eq('statut', 'ouverte');
+      if (resolErr) {
+        logger.error('attestation_ag.alerte_non_resolue', {
+          job_name: JOB_NAME,
+          collecte_id: collecte.id,
+          error_code: resolErr.code,
+          error: resolErr.message,
         });
       }
 

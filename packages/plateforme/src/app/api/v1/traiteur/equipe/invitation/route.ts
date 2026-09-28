@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
 import { writeError, authAccountError } from '@/lib/api-helpers.js';
+import { urlApplication } from '@/lib/url-application.js';
 
 // Invitation de collaborateur = Manager only (§06.04 §6). Le commercial n'a pas
 // la gestion des utilisateurs.
@@ -99,12 +100,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     type: 'recovery',
     email,
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/auth/new-password`,
+      redirectTo: urlApplication(req, '/api/auth/reset-password/confirm'),
     },
   });
   const lienInvitation =
-    linkData?.properties?.action_link ??
-    `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/auth/login`;
+    linkData?.properties?.action_link ?? urlApplication(req, '/auth/login');
 
   // Email d'invitation brandé (template catalogue §06.02 n°17). La variable
   // `lien_invitation` est REQUISE (email_templates.variables) : sans elle, sendEmail

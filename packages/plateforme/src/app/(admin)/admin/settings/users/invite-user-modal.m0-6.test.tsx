@@ -84,9 +84,10 @@ describe('M0.6 — modale invitation', () => {
       fireEvent.change(screen.getByLabelText('Email'), {
         target: { value: 'alice@kaspia.fr' },
       });
-      fireEvent.change(screen.getByLabelText('Rôle'), {
-        target: { value: 'traiteur_manager' },
-      });
+      fireEvent.click(screen.getByRole('combobox', { name: 'Rôle' }));
+      fireEvent.click(
+        screen.getByRole('option', { name: 'Traiteur (manager)' }),
+      );
       await pickOrg();
 
       fireEvent.click(screen.getByText('Inviter'));
@@ -114,6 +115,7 @@ describe('M0.6 — modale invitation', () => {
         onCreated={() => {}}
       />,
     );
+    fireEvent.click(screen.getByRole('combobox', { name: 'Rôle' }));
     expect(
       screen.getByRole('option', { name: 'Admin Savr' }),
     ).toBeInTheDocument();
@@ -127,6 +129,7 @@ describe('M0.6 — modale invitation', () => {
         onCreated={() => {}}
       />,
     );
+    fireEvent.click(screen.getByRole('combobox', { name: 'Rôle' }));
     expect(
       screen.queryByRole('option', { name: 'Admin Savr' }),
     ).not.toBeInTheDocument();

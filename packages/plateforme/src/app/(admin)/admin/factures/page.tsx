@@ -11,8 +11,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
-import { Select } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FormField } from '@/components/ui/form-field';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
 
 interface Facture {
@@ -308,90 +310,55 @@ export default function FacturesPage() {
         onSelect={setFiltre}
       />
 
-      <div className="grid grid-cols-1 gap-3 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-4 shadow-savr-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <label
-            htmlFor="filtre-organisation"
-            className="mb-1 block text-xs font-bold text-savr-neutral-700"
-          >
-            Organisation
-          </label>
-          <Select
+      <FilterBar
+        data-testid="factures-filtres"
+        actif={Boolean(dateDebut || dateFin || typeFiltre || orgFiltre)}
+        onReset={() => {
+          setTypeFiltre('');
+          setOrgFiltre('');
+          setDateDebut('');
+          setDateFin('');
+        }}
+      >
+        <FormField label="Organisation" htmlFor="filtre-organisation">
+          <Combobox
             id="filtre-organisation"
+            icon={null}
+            placeholder="Toutes les organisations"
+            searchPlaceholder="Rechercher une organisation…"
+            options={[
+              { value: '', label: 'Toutes les organisations' },
+              ...orgs.map((o) => ({ value: o.id, label: o.label })),
+            ]}
             value={orgFiltre}
-            onChange={(e) => setOrgFiltre(e.target.value)}
-          >
-            <option value="">Toutes les organisations</option>
-            {orgs.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <label
-            htmlFor="filtre-type"
-            className="mb-1 block text-xs font-bold text-savr-neutral-700"
-          >
-            Type
-          </label>
-          <Select
+            onChange={setOrgFiltre}
+          />
+        </FormField>
+        <FormField label="Type" htmlFor="filtre-type">
+          <Combobox
             id="filtre-type"
+            icon={null}
+            placeholder="Tous les types"
+            options={TYPE_OPTIONS.map((t) => ({
+              value: t.key,
+              label: t.label,
+            }))}
             value={typeFiltre}
-            onChange={(e) => setTypeFiltre(e.target.value)}
-          >
-            {TYPE_OPTIONS.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <label
-            htmlFor="filtre-date-debut"
-            className="mb-1 block text-xs font-bold text-savr-neutral-700"
-          >
-            Période — du
-          </label>
-          <Input
-            id="filtre-date-debut"
-            type="date"
-            value={dateDebut}
-            onChange={(e) => setDateDebut(e.target.value)}
+            onChange={setTypeFiltre}
           />
-        </div>
-        <div>
-          <label
-            htmlFor="filtre-date-fin"
-            className="mb-1 block text-xs font-bold text-savr-neutral-700"
-          >
-            au
-          </label>
-          <Input
-            id="filtre-date-fin"
-            type="date"
-            value={dateFin}
-            onChange={(e) => setDateFin(e.target.value)}
+        </FormField>
+        <FormField label="Période" htmlFor="filtre-periode">
+          <DateRangePicker
+            id="filtre-periode"
+            data-testid="filtre-periode"
+            value={{ from: dateDebut, to: dateFin }}
+            onChange={(p) => {
+              setDateDebut(p.from);
+              setDateFin(p.to);
+            }}
           />
-        </div>
-        {(dateDebut || dateFin || typeFiltre || orgFiltre) && (
-          <div className="flex items-end sm:col-span-2 lg:col-span-4">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setTypeFiltre('');
-                setOrgFiltre('');
-                setDateDebut('');
-                setDateFin('');
-              }}
-            >
-              Réinitialiser
-            </Button>
-          </div>
-        )}
-      </div>
+        </FormField>
+      </FilterBar>
 
       {loading ? (
         <div className="space-y-3">

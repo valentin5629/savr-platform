@@ -117,36 +117,58 @@ SELECT throws_ok(
 -- 2. organisations_domaines_email — écriture manager own-org
 -- ════════════════════════════════════════════════════════════════════════════
 
--- T7 : manager A INSERT un domaine de son org → autorisé
-SELECT lives_ok(
+-- ⚠ T7-T10 RÉÉCRITS (20260923180000). Cette table décide à quelle organisation un
+-- nouvel inscrit est rattaché, et `verifie_at` y fait foi de preuve de contrôle du
+-- domaine. Tant que `authenticated` détenait INSERT/UPDATE/DELETE table-level, un
+-- traiteur_manager écrivait cette colonne lui-même et se décernait la preuve : le
+-- privilège a donc été révoqué, l'écriture passe par les routes sous service_role.
+--
+-- Conséquence sur CE fichier : T7 et T8 assertaient l'écriture directe AUTORISÉE.
+-- Ils assertent désormais son refus. T8 devait impérativement passer sous
+-- `throws_ok` : en SQL nu, le 42501 avorte la transaction et emporte T9-T12 avec
+-- lui (9 erreurs en cascade, mesuré).
+--
+-- ⚠ T9 et T10 ne prouvent PLUS ce que leur ancien libellé annonçait. Le WITH CHECK
+-- de `ode_manager_write` et la séparation manager/commercial ne sont plus ce qui
+-- ferme : le privilège manque désormais pour TOUT LE MONDE. Les asserter sur le
+-- seul code '42501' les rendrait verts par construction. Ils assertent donc le
+-- MESSAGE, et disent la vérité sur ce qui refuse. Le cloisonnement own-org, lui,
+-- est prouvé là où il vit maintenant : côté route (le `.eq('organisation_id', …)`
+-- explicite du DELETE, épinglé par M3.1/trait_monorga_domaines_delete) et côté
+-- privilège (SECU__domaines_email_ecriture_client_fermee, B1-B4).
+
+-- T7 : manager A INSERT un domaine de son org → REFUSÉ (privilège révoqué)
+SELECT throws_ok(
   $$ INSERT INTO plateforme.organisations_domaines_email (organisation_id, domaine)
      VALUES ('cc000000-0000-0000-0000-00000000000a'::uuid, 'kaspia-events.test') $$,
-  'T7 : manager INSERT domaine de son org autorisé'
+  '42501', 'permission denied for table organisations_domaines_email',
+  'T7 : manager ne peut plus INSERT un domaine en direct (écriture par la route)'
 );
 
--- T8 : manager A DELETE un domaine de son org → 1 ligne
-WITH d AS (
-  DELETE FROM plateforme.organisations_domaines_email
-  WHERE id = 'cc000000-0000-0000-0000-0000000000d1'::uuid RETURNING 1
-)
-SELECT is(count(*)::int, 1, 'T8 : manager DELETE domaine de son org autorisé') FROM d;
+-- T8 : manager A DELETE un domaine de son org → REFUSÉ (privilège révoqué)
+SELECT throws_ok(
+  $$ DELETE FROM plateforme.organisations_domaines_email
+      WHERE id = 'cc000000-0000-0000-0000-0000000000d1'::uuid $$,
+  '42501', 'permission denied for table organisations_domaines_email',
+  'T8 : manager ne peut plus DELETE un domaine en direct (écriture par la route)'
+);
 
--- T9 : manager A INSERT un domaine en usurpant org B → refusé (WITH CHECK)
+-- T9 : manager A INSERT un domaine en usurpant org B → refusé
 SELECT throws_ok(
   $$ INSERT INTO plateforme.organisations_domaines_email (organisation_id, domaine)
      VALUES ('cc000000-0000-0000-0000-00000000000b'::uuid, 'usurp.test') $$,
-  '42501', NULL,
-  'T9 : manager ne peut PAS INSERT un domaine pour une autre org (WITH CHECK)'
+  '42501', 'permission denied for table organisations_domaines_email',
+  'T9 : l''usurpation d''org est refusée AVANT même le WITH CHECK (privilège)'
 );
 
--- T10 : commercial A INSERT un domaine → refusé (lecture seule)
+-- T10 : commercial A INSERT un domaine → refusé
 SELECT test_set_jwt('traiteur_commercial', 'cc000000-0000-0000-0000-00000000000a'::uuid,
                     'cc000000-0000-0000-0000-000000000a02'::uuid);
 SELECT throws_ok(
   $$ INSERT INTO plateforme.organisations_domaines_email (organisation_id, domaine)
      VALUES ('cc000000-0000-0000-0000-00000000000a'::uuid, 'hack.test') $$,
-  '42501', NULL,
-  'T10 : commercial ne peut PAS INSERT un domaine (lecture seule)'
+  '42501', 'permission denied for table organisations_domaines_email',
+  'T10 : le commercial non plus (même refus que le manager : c''est le privilège)'
 );
 
 -- T11 : commercial A LIT les domaines de son org → autorisé (ode_own_org_read)

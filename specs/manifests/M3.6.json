@@ -111,7 +111,7 @@
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
       "test": "M3.6/cockpit_declinaison_kpi_cards + M3.6/cockpit_declinaison_onglet_ag + M3.6/dashboard_client_toutes_organisations_lecture_seule",
       "statut": "implemented",
-      "libelle": "R24c — Déclinaison Cockpit COMPLÈTE du Dashboard Client Admin (§06.06 §2, « reprise EXACTE du dashboard gestionnaire », retour Val « je ne vois pas les graphs »). Rendu full-graphes : KpiCockpitCard (ZD 5 / AG 5, dont carte « CO₂ évité » cliquable → modale « Impact carbone » = héros CO₂ + méthode ABC/FAO, retour Val R24c ; parité traiteur, Σ figées collectes.co2_*) + Bloc 2 EvolutionZd/AgChart + Bloc 4 TonnagesDonut + Bloc 3 jauges Cockpit BenchmarkBulletGauges + Bloc 6 Top lieux + Bloc 7 Top traiteurs + Bloc 3 AG Top associations + Bloc 5 Prochaines. LECTURE SEULE au sens DONNÉES (aucune écriture) ; les Top lieux/traiteurs sont cliquables → drill-down /admin/collectes filtrée (cf. M3.6-drilldown), la carte CO₂ ouvre une modale d'info. Comble le gap pré-existant. BenchmarkGauge SUPPRIMÉ (Cockpit partout). DS appliqué. LIMITE CONNUE (pas une régression) : Bloc 3 benchmark admin lit le parc global anonymisé (tous brackets) SANS barre de filtre 5-critères §06.05 (endpoint admin ne prend que `bracket`) = follow-up."
+      "libelle": "R24c — Déclinaison Cockpit COMPLÈTE du Dashboard Client Admin (§06.06 §2, « reprise EXACTE du dashboard gestionnaire », retour Val « je ne vois pas les graphs »). Rendu full-graphes : KpiCockpitCard (ZD 5 / AG 5, dont carte « CO₂ évité » cliquable → modale « Impact carbone » = héros CO₂ + méthode ABC/FAO, retour Val R24c ; parité traiteur, Σ figées collectes.co2_*) + Bloc 2 EvolutionZd/AgChart + Bloc 4 TonnagesDonut + Bloc 3 jauges Cockpit BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28) + Bloc 6 Top lieux + Bloc 7 Top traiteurs + Bloc 3 AG Top associations + Bloc 5 Prochaines. LECTURE SEULE au sens DONNÉES (aucune écriture) ; les Top lieux/traiteurs sont cliquables → drill-down /admin/collectes filtrée (cf. M3.6-drilldown), la carte CO₂ ouvre une modale d'info. Comble le gap pré-existant. BenchmarkGauge SUPPRIMÉ (Cockpit partout). DS appliqué. LIMITE CONNUE (pas une régression) : Bloc 3 benchmark admin lit le parc global anonymisé (tous brackets) SANS barre de filtre 5-critères §06.05 (endpoint admin ne prend que `bracket`) = follow-up."
     },
     {
       "id": "M3.6-cockpit-endpoint",
@@ -144,10 +144,18 @@
       "test": "M3.6/org_selecteur_cellules_par_type + M3.6/dashboard_client_toutes_organisations_lecture_seule",
       "statut": "implemented",
       "libelle": "R24c — Sélecteur d'organisations refondu (2 retours Val GO-VISUAL) : 3 CELLULES par type d'organisation SUR UNE MÊME LIGNE (grid 3 colonnes) — Traiteurs / Agences / Gestionnaires de lieux (ordre §06.06 §2). Chaque cellule = LISTE DÉROULANTE : repliée par défaut, ouverte au CLIC (panneau absolu z-20, max-h-44 = 4 lignes visibles puis scroll), fermée au clic en dehors ; une seule ouverte à la fois. En-tête = libellé + compteur (N orgs / N sélectionnés) + chevron. Recherche transverse + « Toutes les organisations » (sélection vide = défaut). Design System : tokens savr, cibles 44px (min-h-11), chevrons lucide, accent checkbox savr-primary. Composant de filtrage, aucune écriture."
+    },
+    {
+      "id": "M3.6-kpi-sparkline-n1",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:130",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/lib/dashboards/loaders.ts",
+      "test": "M3.6/kpi_cartes_sparkline_et_variation_n1_co2_compris",
+      "statut": "implemented",
+      "libelle": "Dashboard Client Admin = reprise exacte du gestionnaire (§06.05 l.136) : sparkline + variation N-1 sur les cartes (sauf kg/pax), CO₂ évité compris (co2_evite_kg par bucket, sélectionné par le loader Admin). Variation = 2e appel /admin/dashboard-client sur previousWindow, même périmètre d'organisations, non bloquant."
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "2fd0f8b9bafb3b3d1c4b0142a61ad8290de04ffbd347c5dbc0c016babd6beb1b",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a"
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c66e43f4f48ed652a16557e0817f7e70092fb0e1ba78f87f0592f06624f5a327"
   }
 }

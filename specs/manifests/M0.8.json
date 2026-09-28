@@ -482,11 +482,11 @@
       "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx",
       "test": "M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mode parc (BL-P3-02)",
       "statut": "implemented",
-      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge DYNAMIQUE conforme scénario P1 kpi_marge_zd_formule_nominale (tarif × pax − coût = marge, helper margeTooltipZd testé M0.8-48 ; tarif lisible traiteur §04 l.928) + légende benchmark partagée (§11, §06.04). Avert. k-anonymat déjà présent. Défaut période aligné « 12 derniers mois » (§11 aligné §06.04/05, divergence _Divergences/M0.8_20260710 résolue Cowork + specs sync #208 ; code DashboardFilterBar.defaultFilters = 12 mois, testé M0.8-56). R24c : le tooltip KPI (composant KpiCard) et la légende benchmark (BenchmarkLegend) sont retirés — ces composants sont supprimés avec la déclinaison Cockpit des dashboards clients (KpiCockpitCard + légende intégrée de BenchmarkBulletGauges). Le helper margeTooltipZd (M0.8-48) subsiste. Seul DashboardFilterBar reste porté par ce livrable."
+      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge DYNAMIQUE conforme scénario P1 kpi_marge_zd_formule_nominale (tarif × pax − coût = marge, helper margeTooltipZd testé M0.8-48 ; tarif lisible traiteur §04 l.928) + légende benchmark partagée (§11, §06.04). Avert. k-anonymat déjà présent. Défaut période aligné « 12 derniers mois » (§11 aligné §06.04/05, divergence _Divergences/M0.8_20260710 résolue Cowork + specs sync #208 ; code DashboardFilterBar.defaultFilters = 12 mois, testé M0.8-56). R24c : le tooltip KPI (composant KpiCard) et la légende benchmark (BenchmarkLegend) sont retirés — ces composants sont supprimés avec la déclinaison Cockpit des dashboards clients (KpiCockpitCard + légende intégrée de BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28)). Le helper margeTooltipZd (M0.8-48) subsiste. Seul DashboardFilterBar reste porté par ce livrable."
     },
     {
       "id": "BL-P3-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:399",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:397",
       "artefact": "packages/plateforme/src/lib/collecte-ref.ts, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
       "test": "M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)",
       "statut": "implemented",
@@ -494,7 +494,7 @@
     },
     {
       "id": "BL-P3-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:640",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:638",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -510,7 +510,7 @@
     },
     {
       "id": "BL-P3-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:737",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:735",
       "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
       "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
       "statut": "implemented",
@@ -518,7 +518,7 @@
     },
     {
       "id": "BL-P3-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:285",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:283",
       "artefact": "packages/plateforme/src/lib/pdf/logo-inline.ts, packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts, apps/pdf-renderer/src/templates/synthese-dashboard.ts, packages/plateforme/src/lib/pdf/batch-pdf-j1.ts, packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts",
       "test": "M0.8-49 — logoKeyToDataUri inline un logo R2 en data URI (BL-P3-05)",
       "statut": "implemented",
@@ -526,7 +526,7 @@
     },
     {
       "id": "BL-P3-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:878",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:876",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -535,7 +535,7 @@
     },
     {
       "id": "BL-P3-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:89",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:87",
       "artefact": "supabase/config.toml ([auth] enable_refresh_token_rotation ; [auth.sessions] timebox=720h ; [auth.email] otp_expiry=3600 ; [auth.rate_limit] email_sent=3)",
       "test": "M0.8-57 — Config auth : refresh 30j / OTP reset 1h / rate-limit 3/h figés (BL-P3-09)",
       "statut": "implemented",
@@ -602,12 +602,12 @@
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "90e9f62e94f2cfc441443ae9f7bd18776212d35b4b8b5a6a25dcfd4bf95b1ec5",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "d797c7ba3acdddf1427970109ccc74d34ce7ee65155d1dbb22b9c6c18d09f5dd",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "55a8a9d4ff48aecb225abd315a8727a152a1c4efd38d18e7940f866898de99dc",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "e1462a457a824ae69a18fcc8b3fc9677ba8c0eb7f30fa53462348171801b2a25",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "2d3564fa3cf1079b579c016515aaaf309fe9ac2d8e0f3838cbdb97e612565889",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "2fd0f8b9bafb3b3d1c4b0142a61ad8290de04ffbd347c5dbc0c016babd6beb1b",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9f385002469e79999e0bc67016e4506d14aca60393adfca955e36153edece2a7",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "244d0bd3d9c3388722ed4dd3fb0505c178e8919c5b2a2e29edd5e8c48eded5c1",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "9e18f9db0efa3b57d3cc633bdb39b963a9fd25f6929bca67fcba2523914f0dde",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "c4f2b7f8d94217f928c9356a96894e0617aeb4ab48cff3d75461fd18ebebb204",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "b29ff10fc7a2dae23a2ab7f2a6d1b4aa0a7ca10ea1717818810e1ec04aa3e443",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c66e43f4f48ed652a16557e0817f7e70092fb0e1ba78f87f0592f06624f5a327",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "2d2dbe205f8a79466e65ed5673bb9f4abdbcfecadb8b4b34f91cac953f283928",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "0fcf6f081583aee93f4ba4ff80d564feeb96d4037cee8c2e92747d210fe848a8"
   }
 }

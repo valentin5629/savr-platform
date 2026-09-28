@@ -216,15 +216,17 @@ WITH d AS (
 )
 SELECT is(count(*)::int, 0, 'T10 : DELETE collecte programmee refusé (brouillon-only)') FROM d;
 
--- T11 : commercial UPDATE organisations (nom) → 0 ligne (aucune policy UPDATE
--- commercial ; org_commercial_select = SELECT only) — §09 écriture org = Manager only
+-- T11 : commercial UPDATE organisations (nom) → refusé. Depuis 20260928100000
+-- (décision Val 2026-09-28), le commercial a une policy UPDATE own-org limitée aux
+-- informations légales (raison_sociale, siret, adresse) : le nom est rejeté par la
+-- liste blanche du trigger trg_block_org_gestionnaire_cols_update (42501).
 SELECT test_set_jwt('traiteur_commercial', 'bb000000-0000-0000-0000-00000000000a'::uuid,
                     'bb000000-0000-0000-0000-000000000a02'::uuid);
-WITH u AS (
-  UPDATE plateforme.organisations SET nom = 'Hack'
-  WHERE id = 'bb000000-0000-0000-0000-00000000000a'::uuid RETURNING 1
-)
-SELECT is(count(*)::int, 0, 'T11 : commercial ne peut PAS écrire organisations (RLS)') FROM u;
+SELECT throws_ok(
+  $$ UPDATE plateforme.organisations SET nom = 'Hack'
+      WHERE id = 'bb000000-0000-0000-0000-00000000000a'::uuid $$,
+  '42501', NULL,
+  'T11 : commercial ne peut PAS renommer son organisation (liste blanche du trigger)');
 
 SELECT test_as_superuser();
 SELECT * FROM finish();

@@ -1,5 +1,6 @@
 import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
 
 const ORGANISATEUR_ROLES = ['client_organisateur'] as const;
@@ -31,6 +32,8 @@ export default async function MonProfilOrganisateurPage() {
       </Card>
 
       <SecuriteAccesPanel />
+
+      <RgpdComptePanel />
     </div>
   );
 }

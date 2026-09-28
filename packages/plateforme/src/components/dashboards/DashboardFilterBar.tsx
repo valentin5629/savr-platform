@@ -7,6 +7,9 @@ import {
   type ParcFilterValue,
 } from './ParcMultiSelects.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { Button } from '@/components/ui/button';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FormField } from '@/components/ui/form-field';
 
 export interface DashboardFilters {
   from: string; // YYYY-MM-DD
@@ -55,9 +58,14 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
 
 const iso = (d: Date) => jourParis(d);
 
+// Grille DS (identique à `FilterBar`) : 3 colonnes pleines en desktop, repli à
+// 2 puis 1 dès qu'une colonne passerait sous 220px.
+const GRILLE_FILTRES =
+  'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(max(220px,calc((100%_-_2*1rem)/3)),1fr))]';
+
 // Presets de période (BL-P3-02) — liste CDC EXACTE §06.04 l.73 / §06.05 l.105 :
 // 7j / 30j / Trimestre en cours / 12 derniers mois (défaut) / Année civile /
-// Personnalisé (= les 2 champs date). Chaque preset ne touche QUE from/to (les
+// Personnalisé (= le champ Période). Chaque preset ne touche QUE from/to (les
 // filtres parc sont préservés).
 type PresetKey = '7j' | '30j' | 'trimestre' | '12m' | 'civile';
 const PERIOD_PRESETS: { key: PresetKey; label: string }[] = [
@@ -139,64 +147,62 @@ export function DashboardFilterBar({
 
   return (
     <div
-      className={`flex flex-wrap items-end gap-3 ${className ?? ''}`}
+      className={`space-y-3 ${className ?? ''}`}
       data-testid="dashboard-filter-bar"
     >
-      <label className="flex items-center gap-1.5 text-sm">
-        <span className="text-muted-foreground">Du</span>
-        <input
-          type="date"
-          value={filters.from}
-          max={filters.to}
-          onChange={(e) => apply({ ...filters, from: e.target.value })}
-          className="rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </label>
-      <label className="flex items-center gap-1.5 text-sm">
-        <span className="text-muted-foreground">au</span>
-        <input
-          type="date"
-          value={filters.to}
-          min={filters.from}
-          onChange={(e) => apply({ ...filters, to: e.target.value })}
-          className="rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </label>
+      {/* DS « Mise en page des formulaires et filtres » : libellé au-dessus,
+          une seule période (DateRangePicker), grille de 3 colonnes max. */}
+      <div className={GRILLE_FILTRES}>
+        <FormField label="Période" htmlFor="dashboard-filter-periode">
+          <DateRangePicker
+            id="dashboard-filter-periode"
+            data-testid="dashboard-filter-periode"
+            value={{ from: filters.from, to: filters.to }}
+            onChange={(p) => {
+              // « Effacer » (période vide) = retour au défaut 12 derniers mois :
+              // les dashboards exigent toujours une période bornée.
+              const periode = p.from && p.to ? p : presetRange('12m');
+              apply({ ...filters, from: periode.from, to: periode.to });
+            }}
+          />
+        </FormField>
 
-      {/* Presets de période (BL-P3-02) — raccourcis sur tous les dashboards. */}
-      <div className="flex flex-wrap items-center gap-1">
-        {PERIOD_PRESETS.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            onClick={() => apply({ ...filters, ...presetRange(p.key) })}
-            data-testid={`dashboard-filter-preset-${p.key}`}
-            className="rounded-md border border-savr-neutral-200 px-2 py-1 text-xs text-savr-neutral-600 hover:bg-savr-neutral-100"
-          >
-            {p.label}
-          </button>
-        ))}
+        {parcOptions && (
+          <ParcMultiSelects
+            value={parcValue(filters)}
+            options={parcOptions}
+            onChange={(patch) => apply({ ...filters, ...patch })}
+            testidPrefix="dashboard-filter"
+          />
+        )}
       </div>
 
-      {parcOptions && (
-        <ParcMultiSelects
-          value={parcValue(filters)}
-          options={parcOptions}
-          onChange={(patch) => apply({ ...filters, ...patch })}
-          testidPrefix="dashboard-filter"
-        />
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Presets de période (BL-P3-02) — raccourcis sur tous les dashboards. */}
+        {PERIOD_PRESETS.map((p) => (
+          <Button
+            key={p.key}
+            variant="secondary"
+            size="sm"
+            onClick={() => apply({ ...filters, ...presetRange(p.key) })}
+            data-testid={`dashboard-filter-preset-${p.key}`}
+          >
+            {p.label}
+          </Button>
+        ))}
 
-      {/* Réinitialiser — généralisé à tous les dashboards (BL-P3-02, avant
-          gestionnaire-only). Ramène période 12 derniers mois + filtres parc vides. */}
-      <button
-        type="button"
-        onClick={() => apply(defaultFilters())}
-        data-testid="dashboard-filter-reinitialiser"
-        className="text-xs text-savr-primary-700 hover:underline"
-      >
-        Réinitialiser
-      </button>
+        {/* Réinitialiser — généralisé à tous les dashboards (BL-P3-02, avant
+            gestionnaire-only). Ramène période 12 derniers mois + filtres parc vides. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => apply(defaultFilters())}
+          data-testid="dashboard-filter-reinitialiser"
+          className="ml-auto"
+        >
+          Réinitialiser
+        </Button>
+      </div>
     </div>
   );
 }

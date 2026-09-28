@@ -8,6 +8,7 @@ import {
   withApiTrace,
   authAccountError,
 } from '@/lib/api-helpers.js';
+import { urlApplication } from '@/lib/url-application.js';
 
 const ROLES_VALIDES = [
   'admin_savr',
@@ -138,13 +139,12 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     type: 'recovery',
     email,
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/auth/new-password`,
+      redirectTo: urlApplication(req, '/api/auth/reset-password/confirm'),
     },
   });
 
   const resetUrl =
-    linkData?.properties?.action_link ??
-    `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/auth/login`;
+    linkData?.properties?.action_link ?? urlApplication(req, '/auth/login');
 
   // Nom de l'organisation de rattachement (variable requise du template).
   const { data: org } = await supabase

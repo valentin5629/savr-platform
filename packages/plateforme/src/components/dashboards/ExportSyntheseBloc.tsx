@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FormField } from '@/components/ui/form-field';
 import { Modal } from '@/components/ui/modal';
 import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
 import type { CollecteType } from './CollecteTypeTabs.js';
@@ -259,34 +261,19 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-savr-neutral-600">
-                Du
-                <input
-                  type="date"
-                  value={from}
-                  max={to || undefined}
-                  onChange={(e) => {
-                    setPreset('perso');
-                    setFrom(e.target.value);
-                  }}
-                  className="ml-2 rounded-savr-md border border-savr-neutral-300 px-2 py-1 text-sm"
-                />
-              </label>
-              <label className="text-sm text-savr-neutral-600">
-                au
-                <input
-                  type="date"
-                  value={to}
-                  max={iso(new Date())}
-                  onChange={(e) => {
-                    setPreset('perso');
-                    setTo(e.target.value);
-                  }}
-                  className="ml-2 rounded-savr-md border border-savr-neutral-300 px-2 py-1 text-sm"
-                />
-              </label>
-            </div>
+            <FormField label="Période" htmlFor="synthese-periode">
+              <DateRangePicker
+                id="synthese-periode"
+                data-testid="synthese-periode"
+                value={{ from, to }}
+                max={iso(new Date())}
+                onChange={(p) => {
+                  setPreset('perso');
+                  setFrom(p.from);
+                  setTo(p.to);
+                }}
+              />
+            </FormField>
           </div>
         )}
 

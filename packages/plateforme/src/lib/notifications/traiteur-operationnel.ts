@@ -1,6 +1,7 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
+import { urlCanonique } from '@/lib/url-application.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -19,9 +20,8 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
 const TRAITEUR_TEAM_ROLES = ['traiteur_manager', 'traiteur_commercial'];
 
-function appUrl(path: string): string {
-  return `${process.env['NEXT_PUBLIC_APP_URL'] ?? ''}${path}`;
-}
+// Ces notifications n'ont pas de requête sous la main → `urlCanonique()`
+// (lib/url-application.ts), seule source possible du domaine hors requête.
 
 function libelleType(type: string | null | undefined): string {
   if (type === 'zero_dechet') return 'Zéro Déchet';
@@ -197,7 +197,7 @@ export async function notifierTraiteurOperationnel(
     supabase,
     params.acteurOrgId as string,
   );
-  const lienCollecte = appUrl(`/traiteur/collectes/${ctx.collecteId}`);
+  const lienCollecte = urlCanonique(`/traiteur/collectes/${ctx.collecteId}`);
 
   if (params.changement.kind === 'programmation') {
     let programmeurNom = orgProgrammatrice;
@@ -359,7 +359,7 @@ export async function notifierAdminAnnulation(
       delai_avant_creneau: tardive ? 'moins de 12h' : '12h ou plus',
       info_facturation: params.infoFacturation ?? '',
       annulation_tardive: tardive ? 'true' : 'false',
-      lien_backoffice: appUrl(`/admin/collectes/${params.collecteId}`),
+      lien_backoffice: urlCanonique(`/admin/collectes/${params.collecteId}`),
     },
     { entityType: 'collecte', entityId: params.collecteId },
   );

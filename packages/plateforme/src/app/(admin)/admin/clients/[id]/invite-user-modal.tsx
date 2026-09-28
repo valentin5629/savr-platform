@@ -17,7 +17,7 @@ import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -156,17 +156,16 @@ export function ClientInviteUserModal({
           />
         </FormField>
         <FormField label="Rôle" htmlFor="invite-role">
-          <Select
+          <Combobox
             id="invite-role"
+            icon={null}
+            options={roles.map((r) => ({
+              value: r,
+              label: ROLE_LABELS[r] ?? r,
+            }))}
             value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            {roles.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS[r] ?? r}
-              </option>
-            ))}
-          </Select>
+            onChange={setRole}
+          />
         </FormField>
       </form>
     </Modal>

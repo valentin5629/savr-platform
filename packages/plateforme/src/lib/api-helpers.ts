@@ -240,7 +240,10 @@ export function authAccountError(
     );
   if (code === 'weak_password' || msg.includes('password'))
     return NextResponse.json(
-      { error: 'Mot de passe trop faible (8 caractères minimum).' },
+      // Le plancher réel est `PASSWORD_MIN_LENGTH` = 10 (§09 l.84), et c'est ce
+      // que les écrans annoncent : ce libellé disait 8, il aurait fait douter de
+      // la règle l'utilisateur qui vient de lire « 10 caractères » à l'écran.
+      { error: 'Mot de passe trop faible (10 caractères minimum).' },
       { status: 422 },
     );
   return NextResponse.json({ error: repli }, { status: 422 });

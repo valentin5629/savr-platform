@@ -16,6 +16,11 @@ export interface FluxSeriePoint {
   dechet_residuel: number;
   tonnage_total: number;
   taux_recyclage: number | null;
+  /** Collectes du bucket (sparkline carte KPI). Absent des payloads anciens. */
+  nb_collectes?: number;
+  /** Pax distincts par événement du bucket (sparkline kg/pax). */
+  pax?: number; /** CO₂ évité du bucket (0 si le loader ne le sélectionne pas). */
+  co2_evite_kg?: number;
 }
 
 /** Point de série AG — repas donnés + pax + ratio par bucket. */
@@ -24,6 +29,9 @@ export interface RepasSeriePoint {
   repas_donnes: number;
   pax: number;
   ratio: number | null;
+  /** Collectes du bucket (sparkline carte KPI). */
+  nb_collectes?: number; /** CO₂ évité du bucket (0 si le loader ne le sélectionne pas). */
+  co2_evite_kg?: number;
 }
 
 interface EvolutionResult {

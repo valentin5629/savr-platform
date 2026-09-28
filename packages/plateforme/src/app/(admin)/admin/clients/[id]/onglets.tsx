@@ -14,7 +14,7 @@
  * Composants séparés (pas dans page.tsx) : un export nommé arbitraire dans un
  * fichier `page.tsx` casse `next build` (leçon R17 sl1).
  *
- * Restyle Design System (§10, revue E2E) : formulaires en Input/Select/Textarea +
+ * Restyle Design System (§10, revue E2E) : formulaires en Input/Combobox/DatePicker/Textarea +
  * Label, dialogues en Modal, bandeaux d'erreur en AlertBar, couleurs = tokens
  * `savr-*`. Les tables restent des <table> (DataTable rendrait desktop + mobile →
  * libellés dupliqués → casse les assertions getByText des onglets).
@@ -35,7 +35,9 @@ import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { FormField } from '@/components/ui/form-field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -372,30 +374,32 @@ export function OngletGrilleZd({
       {!canEdit && <OpsReadOnlyBanner />}
 
       <div>
-        {/* htmlFor seulement quand le <select> existe (mode édition) — évite une
+        {/* htmlFor seulement quand la liste existe (mode édition) — évite une
             association pendante vers un id absent en lecture seule. */}
         <Label htmlFor={canEdit ? 'grille-zd-select' : undefined}>
           Grille tarifaire ZD affectée
         </Label>
         {canEdit ? (
-          <Select
+          <Combobox
             id="grille-zd-select"
             aria-label="Grille tarifaire ZD"
+            icon={null}
+            placeholder="— Aucune grille spécifique (défaut appliqué) —"
+            options={[
+              {
+                value: '',
+                label: '— Aucune grille spécifique (défaut appliqué) —',
+              },
+              ...grilles.map((g) => ({
+                value: g.id,
+                label: g.nom + (g.est_defaut ? ' (grille par défaut)' : ''),
+              })),
+            ]}
             value={grilleId ?? ''}
             disabled={saving}
-            onChange={(e) => void changerGrille(e.target.value)}
+            onChange={(v) => void changerGrille(v)}
             className="max-w-md"
-          >
-            <option value="">
-              — Aucune grille spécifique (défaut appliqué) —
-            </option>
-            {grilles.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.nom}
-                {g.est_defaut ? ' (grille par défaut)' : ''}
-              </option>
-            ))}
-          </Select>
+          />
         ) : (
           <p className="text-sm">
             {affectee ? affectee.nom : 'Grille par défaut'}
@@ -1163,19 +1167,20 @@ export function OngletRemises({
             onSubmit={(e) => void creer(e)}
             className="space-y-4"
           >
-            <div>
-              <Label htmlFor="remise-activite">Activité</Label>
-              <Select
+            <FormField label="Activité" htmlFor="remise-activite">
+              <Combobox
                 id="remise-activite"
                 aria-label="Activité"
+                icon={null}
+                options={[
+                  { value: 'zd', label: 'Zéro déchet (ZD)' },
+                  { value: 'ag', label: 'Anti-gaspi (AG)' },
+                ]}
                 value={fActivite}
                 disabled={edition !== null}
-                onChange={(e) => setFActivite(e.target.value)}
-              >
-                <option value="zd">Zéro déchet (ZD)</option>
-                <option value="ag">Anti-gaspi (AG)</option>
-              </Select>
-            </div>
+                onChange={setFActivite}
+              />
+            </FormField>
             {afficherLieu && (
               <fieldset>
                 <legend className="text-sm font-medium text-savr-neutral-700">
@@ -1233,26 +1238,26 @@ export function OngletRemises({
                 required
               />
             </div>
-            <div>
-              <Label htmlFor="remise-valide-du">
-                {edition ? 'À partir du' : 'Valide du'}
-              </Label>
-              <Input
+            <FormField
+              label={edition ? 'À partir du' : 'Valide du'}
+              htmlFor="remise-valide-du"
+              required
+              hint={
+                edition
+                  ? "La remise actuelle s'arrête la veille de cette date ; elle reste dans l'historique."
+                  : undefined
+              }
+            >
+              <DatePicker
                 id="remise-valide-du"
-                type="date"
                 value={fValideDu}
                 min={edition ? dateEffetMin(edition) : undefined}
                 aria-label={edition ? 'À partir du' : 'Valide du'}
-                onChange={(e) => setFValideDu(e.target.value)}
+                data-testid="remise-valide-du"
+                onChange={setFValideDu}
                 required
               />
-              {edition && (
-                <p className="mt-1 text-xs text-savr-neutral-500">
-                  La remise actuelle s&apos;arrête la veille de cette date ;
-                  elle reste dans l&apos;historique.
-                </p>
-              )}
-            </div>
+            </FormField>
             <div>
               <Label htmlFor="remise-commentaire">Commentaire</Label>
               <Textarea

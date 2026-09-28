@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  requireUser,
-  createSupabaseServerClient,
-  type ClientRole,
-} from '@/lib/api-auth.js';
+import { requireUser, type ClientRole } from '@/lib/api-auth.js';
 import { writeError } from '@/lib/api-helpers.js';
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 // CDC §06.04 §6 (l.662) — suppression d'un domaine email autorisé par le MANAGER
 // (own-org, RLS ode_manager_write). Hard-delete : la table n'est référencée par
@@ -20,11 +17,18 @@ export async function DELETE(
   if (auth.error) return auth.error;
   const { id } = await params;
 
-  const supabase = createSupabaseServerClient();
+  // Écriture sous service_role (cf. 20260923180000 : `authenticated` n'a plus
+  // DELETE sur cette table). La RLS `ode_manager_write` portait jusqu'ici le
+  // filtre own-org ; en `service_role` elle est contournée, donc le périmètre
+  // doit être écrit ICI, explicitement — sans le `.eq('organisation_id', …)`
+  // ci-dessous, un manager supprimerait le domaine de n'importe quelle
+  // organisation en devinant un id.
+  const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('organisations_domaines_email')
     .delete()
     .eq('id', id)
+    .eq('organisation_id', auth.ctx.organisationId)
     .select('id')
     .maybeSingle();
 

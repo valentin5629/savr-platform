@@ -47,6 +47,7 @@ import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js
 import NouveauProgrammationPage from '@/app/(programmation)/programmer/nouveau/page.js';
 import { BenchmarkFilterBar } from '@/components/dashboards/BenchmarkFilterBar.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
 const KPIS_ZD = {
   nb_collectes: 5,
@@ -183,7 +184,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   // R24c : l'ex-scénario M3.2/GEST04_benchmark_gauge_moyenne_ponderee (rendu du
   // composant BenchmarkGauge en isolation) est retiré — BenchmarkGauge est
   // supprimé (déclinaison Cockpit full-graphes partout : le gestionnaire, comme
-  // les autres dashboards, rend BenchmarkBulletGauges, testé dans cockpit.test).
+  // les autres dashboards, rend BenchmarkRadar, testé dans cockpit.test).
   // La moyenne pondérée parc (grain flux × type × taille, k-anonymat) reste
   // couverte par le pgTAP r19b_gest04_benchmark_ponderee.test.sql (GEST04-1..14).
 
@@ -193,7 +194,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       render(<GestionnaireDashboardPage />);
 
       // L'encart des filtres du repère parc (§06.05 Bloc 3) est monté (imbriqué
-      // dans la carte des jauges depuis R24b) avec ses 5 critères.
+      // dans la carte des jauges depuis R24b) avec ses critères (sans période).
       expect(
         await screen.findByTestId(
           'benchmark-filter-bar',
@@ -206,7 +207,9 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       expect(screen.getByTestId('benchmark-filter-type')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-lieux')).toBeInTheDocument();
-      expect(screen.getByTestId('benchmark-preset-24m')).toBeInTheDocument();
+      // Période fixe 24 mois (décision Val 2026-09-28) : plus aucun choix affiché.
+      expect(screen.queryByTestId('benchmark-preset-24m')).toBeNull();
+      expect(screen.queryByText('Période benchmark')).toBeNull();
       // Le filtre traiteurs n'apparaît qu'après chargement des listes parc (liste non
       // vide côté gestionnaire) → attente asynchrone.
       expect(
@@ -225,14 +228,21 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
     async () => {
       const onChange = vi.fn();
       render(<BenchmarkFilterBar onChange={onChange} />);
-      // Émission initiale (défaut 12 mois, tout « Tous »).
+      // Émission initiale (période fixe 24 mois glissants, tout « Tous »).
       await waitFor(() => expect(onChange).toHaveBeenCalled(), ATTENTE_UI);
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          periode_debut: periodeBenchmark().debut,
+          periode_fin: periodeBenchmark().fin,
+        }),
+      );
+      // Libellé court « Lieux » (revue écran 2026-09-28).
+      expect(screen.getByText('Lieux')).toBeInTheDocument();
+      expect(screen.queryByText('Lieux benchmark')).toBeNull();
 
       // L'utilisateur ouvre le filtre Taille et coche « M ».
-      fireEvent.click(
-        screen.getByTestId('benchmark-filter-taille').querySelector('button')!,
-      );
-      fireEvent.click(screen.getByTestId('benchmark-filter-taille-opt-M'));
+      fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
+      fireEvent.click(screen.getByRole('option', { name: 'M (500-749)' }));
 
       await waitFor(
         () =>

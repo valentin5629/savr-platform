@@ -303,11 +303,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Gating facturation (R1) — profil entreprise complet (SIRET vérifié), §09 §5.
+  // Entité de facturation de l'orga programmatrice (evenements.entite_facturation_id
+  // NOT NULL). Le SIRET n'est PAS exigé pour programmer (décision Val 2026-09-28) ;
+  // il ne bloque que l'émission de facture (§05 §8 étape 3).
   const completude = await requireCompletedOrganisation(
     supabase,
     effectiveOrgId,
-    'Complétez votre profil entreprise (SIRET vérifié requis pour programmer une collecte)',
   );
   if (!completude.ok) return completude.error;
 

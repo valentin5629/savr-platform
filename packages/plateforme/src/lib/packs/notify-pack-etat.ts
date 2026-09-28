@@ -1,6 +1,7 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
+import { urlCanonique } from '@/lib/url-application.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -126,7 +127,9 @@ export async function traiterAlertesPackEtat(
           // Bloc conditionnel du template 9 (un seul actif selon le niveau).
           niveau_bas: estBas ? 'true' : '',
           niveau_epuise: estBas ? '' : 'true',
-          lien_fiche_org: `https://app.gosavr.io/admin/organisations/${p.organisation_id}`,
+          lien_fiche_org: urlCanonique(
+            `/admin/organisations/${p.organisation_id}`,
+          ),
         },
         { entityType: 'pack_antgaspi', entityId: a.entity_id },
       );

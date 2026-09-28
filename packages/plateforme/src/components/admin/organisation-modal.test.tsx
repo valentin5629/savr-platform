@@ -50,9 +50,9 @@ function fillRequired() {
   fireEvent.change(screen.getByLabelText(/^Raison sociale/), {
     target: { value: 'Fleur de Mets SAS' },
   });
-  fireEvent.change(screen.getByLabelText(/^Type/), {
-    target: { value: 'traiteur' },
-  });
+  // Combobox (DS règle 3) : ouvrir le déclencheur puis choisir l'option.
+  fireEvent.click(screen.getByRole('combobox', { name: /^Type/ }));
+  fireEvent.click(screen.getByRole('option', { name: 'Traiteur' }));
   fireEvent.change(screen.getByLabelText(/^Email principal/), {
     target: { value: 'contact@fleurdemets.fr' },
   });
@@ -72,7 +72,9 @@ describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
       within(dialog).getByText('Nouvelle organisation'),
     ).toBeInTheDocument();
     const ids = Array.from(
-      dialog.querySelectorAll<HTMLElement>('input, select, textarea'),
+      dialog.querySelectorAll<HTMLElement>(
+        'input, select, textarea, [role="combobox"]',
+      ),
     )
       .map((el) => el.id)
       .sort();
@@ -88,10 +90,10 @@ describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
       ].sort(),
     );
     // Les 4 types de l'enum organisation_type, aucun autre.
-    const options = Array.from(
-      (screen.getByLabelText(/^Type/) as HTMLSelectElement).options,
-    )
-      .map((o) => o.value)
+    fireEvent.click(screen.getByRole('combobox', { name: /^Type/ }));
+    const options = screen
+      .getAllByRole('option')
+      .map((o) => o.getAttribute('data-value'))
       .filter(Boolean);
     expect(options).toEqual([
       'traiteur',

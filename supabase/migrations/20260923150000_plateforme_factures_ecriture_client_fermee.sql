@@ -1,0 +1,246 @@
+-- =============================================================================
+-- Fermer la CRÉATION et la SUPPRESSION PostgREST directes de `plateforme.factures`.
+--
+-- Source : audit du reliquat de GRANT laissé par le blanket 0.4a sur `factures`.
+-- Suite de #318 (`20260915160000`, `collectes`), #328 (`20260915190000`,
+-- `evenements`), #306 + #360 (`organisations`) et #373 (`20260921210000`,
+-- `lieux`). CLAUDE.md §12 pt 2bis — migration de FERMETURE (resserrement) :
+-- aucun privilège n'est accordé ni élargi ici.
+--
+-- ⚠ PÉRIMÈTRE VOLONTAIREMENT PLUS ÉTROIT QUE SES PRÉDÉCESSEURS — arbitrage Val du
+-- 2026-09-22. La série ferme partout ailleurs INSERT + UPDATE + DELETE. Ici
+-- l'`UPDATE` est CONSERVÉ : le §09 l.415 (matrice étendue `ops_savr`, « source de
+-- vérité unique des permissions ops_savr », l.396, vers laquelle l.147 renvoie
+-- explicitement pour les écritures) accorde à `ops_savr` « Valider + envoyer
+-- Pennylane : Oui » sur les factures — une capacité d'écriture PRÉCISE, à ne pas
+-- élargir en « ops_savr écrit les factures » : les deux lignes suivantes de la
+-- même section la bornent, l.417 « Éditer ligne / montant : Non » et l.418
+-- « Annuler / Générer avoir : Non » (l.416 est une ligne purgée le 2026-06-07,
+-- elles ne sont donc pas immédiatement contiguës).
+--
+-- ⚠ Cette frontière est tenue par DEUX mécanismes distincts, et non par les seuls
+-- triggers — attribution corrigée en revue sécurité, R10b le dit elle-même
+-- l.134-135 :
+--   • l.417 « montant »       → `trg_ops_immutable_cols` (4 colonnes de montant) ;
+--   • l.417 « Éditer ligne »  → absence de policy d'écriture ops sur
+--                               `plateforme.factures_collectes` (mesuré : ses
+--                               seules policies sont `fc_admin` FOR ALL et
+--                               `fc_select`) ;
+--   • l.418 « Annuler »       → `trg_ops_block_facture_annulation` (garde de
+--                               VALEUR sur `statut='annulee'`) ;
+--   • l.418 « Générer avoir » → absence de policy INSERT pour ops sur `factures`
+--                               (mesuré : la seule policy couvrant l'INSERT est
+--                               `fac_admin`, admin_savr) — un avoir est un INSERT.
+-- Les deux triggers R10b n'implémentent donc que la moitié « montant » et
+-- « annulation ». Le reste est fermé par la RLS, ce qui vaut la peine d'être su
+-- pour le lot dédié : fermer l'UPDATE ne touchera pas ces deux moitiés-là.
+--
+-- Retirer l'UPDATE serait un changement de spec, pas un durcissement de
+-- plomberie — ce sera un lot dédié.
+--
+-- ⚠ NE PAS écrire « la matrice `factures` l.209-218 accorde UPDATE à ops_savr » :
+-- cette matrice ne comporte AUCUNE ligne `ops_savr` (ses 6 lignes sont admin_savr,
+-- traiteur_manager, traiteur_commercial, agence, gestionnaire_lieux,
+-- client_organisateur). La capacité d'écriture d'ops_savr vit dans la matrice
+-- étendue l.394+, pas ici. Rédaction corrigée en revue sécurité.
+--
+-- ⚠ ET NE PAS MINIMISER LE RÉSIDUEL. Il serait faux d'écrire que « les triggers
+-- R10b encadrent l'UPDATE colonne par colonne » : `20260629120000` crée 5
+-- triggers, dont **2 seulement portent sur `factures`**
+-- (`trg_ops_immutable_cols` l.106, sur les 4 colonnes montant_ht/montant_tva/
+-- montant_ttc/taux_tva, et `trg_ops_block_facture_annulation` l.159, qui est une
+-- garde de VALEUR et non d'immuabilité de colonne — la migration le dit l.137-138).
+-- Le « 4 » est le nombre de COLONNES gardées, pas de triggers. Surtout, les deux
+-- fonctions sortent immédiatement si le rôle n'est pas `ops_savr`
+-- (`fn_ops_block_column_change` l.87 : `IF f_app_role() IS DISTINCT FROM
+-- 'ops_savr' THEN RETURN NEW;` ; `fn_ops_block_facture_annulation` l.147 : `IF
+-- f_app_role() = 'ops_savr' AND …`). Sous JWT **`admin_savr`** — le chemin même
+-- que cette migration démontre atteignable avec la clé anon publique — l'UPDATE
+-- direct n'est borné par RIEN. Mesuré après ce REVOKE (base jetable, transaction
+-- rollbackée) :
+--   user_role=admin_savr : UPDATE … SET numero_facture='FAC-RENUMEROTEE-000'
+--                          sur une facture `emise`            →  UPDATE 1
+--   user_role=admin_savr : UPDATE … SET numero_facture = NULL →  UPDATE 1
+--   user_role=admin_savr : UPDATE … SET montant_ht = 42       →  UPDATE 1
+--   audit_log_2026 après ces trois UPDATE                     →  0 ligne
+-- La contrainte UNIQUE interdit un DOUBLON de numéro, pas une RENUMÉROTATION ni
+-- un passage à NULL : la numérotation gapless, motif n°1 de cette migration,
+-- reste donc corruptible par UPDATE direct, sans trace. **Résiduel ASSUMÉ**
+-- (arbitrage Val, lot dédié), consigné ici pour qu'il ne se perde pas, et épinglé
+-- par les cas B7a/B7b du pgTAP, qui rougiront le jour où l'UPDATE sera fermé —
+-- B7b est un oracle d'EFFET, pour couvrir aussi une fermeture côté RLS, qui
+-- rendrait l'UPDATE muet plutôt qu'erroné et laisserait un `lives_ok` vert.
+--
+-- LE DÉFAUT
+-- ---------
+-- `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA plateforme TO
+-- authenticated` (0.4a, `20260611180000` l.27) est table-level. Sur `factures`,
+-- seul le SELECT a été repris depuis : `20260616120000` l.386 l'a retiré au niveau
+-- table, puis l.387-414 l'a ré-accordé sur une liste blanche de 26 colonnes
+-- (masquage de `marge_logistique`, `erreur_synchro`, `erreur_synchro_at`,
+-- `derniere_tentative_pennylane_at`, `pennylane_statut`, `pennylane_push_at`).
+-- INSERT, UPDATE et DELETE n'ont, eux, jamais été revus.
+--
+-- État mesuré 2026-09-22 sur base jetable (bootstrap Supabase local + les 159
+-- migrations du repo rejouées sur base vierge, `relacl` de la table) :
+--   postgres=arwdDxtm/postgres
+--   authenticated=awd/postgres      ← a = INSERT, w = UPDATE, d = DELETE
+--   service_role=arwd/postgres
+-- Pas de `r` pour `authenticated` : c'est la trace du REVOKE SELECT de
+-- `20260616120000`, la lecture passant par le GRANT de 26 colonnes.
+-- `anon` n'a jamais rien reçu (0.4a l.23-24 : « `anon` ne reçoit rien »).
+--
+-- ⚠ CE GRANT N'EST PAS INERTE. L'objection « aucune policy FOR INSERT sur
+-- factures, donc privilège dormant » est fausse : `fac_admin` est déclarée
+-- `FOR ALL` (`pg_policy.polcmd = '*'`, dernière définition `20260617180000` l.620),
+-- ce qui en PostgreSQL couvre SELECT, INSERT, UPDATE ET DELETE. Elle est
+-- permissive, porte sur PUBLIC, et son USING/WITH CHECK se réduit à
+-- `f_app_role() = 'admin_savr'`. Le privilège table-level rencontre donc bien une
+-- policy ouvrante, sous un JWT staff porté par la clé anon — laquelle est publique
+-- par construction.
+--
+-- Vérifié par écritures RÉELLES sous rôle `authenticated` (claims JWT posés comme
+-- PostgREST les pose, transaction rollbackée, 2026-09-22) :
+--   user_role=admin_savr : INSERT … numero_facture='FAC-HORS-SEQUENCE-999',
+--                          statut='emise'                       →  INSERT 0 1
+--   user_role=admin_savr : INSERT … statut='emise', SANS numéro →  INSERT 0 1
+--   user_role=admin_savr : UPDATE … SET montant_ht = 9999.00    →  UPDATE 1
+--   user_role=admin_savr : DELETE FROM plateforme.factures …    →  DELETE 1
+--   user_role=ops_savr   : DELETE …                             →  0 ligne (no-op)
+--   user_role=ops_savr   : INSERT …  →  refus 42501 (violation de policy RLS)
+--   user_role=traiteur_manager : DELETE …                       →  0 ligne (no-op)
+-- Les deux chemins qui ABOUTISSAIENT vraiment sont donc l'INSERT et le DELETE sous
+-- `admin_savr`. Ce sont eux que ce lot ferme. Pour `ops_savr` et les rôles clients,
+-- le gain est de convertir un no-op muet — qu'un appelant peut confondre avec un
+-- succès — en refus franc.
+--
+-- CE QUE CE CHEMIN CONTOURNE (mesuré, même transaction)
+-- ----------------------------------------------------
+-- 1. La NUMÉROTATION SÉQUENTIELLE GAPLESS. Le numéro est attribué par
+--    `plateforme.f_attribuer_numero_facture` (SECURITY DEFINER, dernière définition
+--    `20260623110000` l.59), qui consomme `sequences_facturation`. Un INSERT direct
+--    pose le numéro à la main : mesuré, `FAC-HORS-SEQUENCE-999` créée en statut
+--    `emise` sans passer par la séquence. Or la numérotation gapless est une
+--    obligation fiscale (CDC §06.08 + §04).
+-- 2. Les INVARIANTS DE ROUTE : contrôles de `lib/facturation/*` (validation-admin,
+--    edition-facture, avoirs) appelés par les routes `api/v1/admin/factures/*`.
+--    Un INSERT direct les contourne tous.
+-- 3. L'`audit_log`. Il est écrit par les ROUTES seules
+--    (`lib/facturation/numerotation.ts` l.34, `edition-facture.ts` l.252,
+--    `validation-admin.ts` l.441, `admin/factures/[id]/avoir/route.ts` l.41),
+--    jamais par un trigger de base : les 4 triggers vivants sur `factures` sont
+--    `trg_check_avoir_facture_valide`, `trg_avoir_annule_origine`,
+--    `trg_ops_immutable_cols` et `trg_ops_block_facture_annulation` — aucun n'est
+--    un trigger d'audit. Compté après les écritures directes ci-dessus :
+--    `audit_log_2026` = 0 ligne. Une facture créée ou supprimée en direct ne laisse
+--    aucune trace d'auteur, alors que le §13 OBS-2 retient l'audit trail sur les
+--    écritures sensibles.
+-- 4. Le §09 l.213 lui-même (matrice `factures`, l.211-218), qui pose
+--    `admin_savr | … | DELETE : — (pas de suppression, uniquement avoirs)` :
+--    mesuré, le DELETE direct aboutissait.
+--
+-- ⚠ CE QUE CE CHEMIN NE CONTOURNE PAS — à ne pas sur-vendre.
+--   • Pas de DOUBLON de numéro : `factures_numero_facture_key UNIQUE
+--     (numero_facture)` tient, quel que soit le canal.
+--   • Pas de fuite cross-organisation : `fac_admin` est staff-only, le
+--     cloisonnement client tient. C'est un défaut de TRAÇABILITÉ et d'INTÉGRITÉ,
+--     même famille que #318, #328 et #373.
+-- ⚠ En revanche, « une écriture directe ne peut pas produire une facture SANS
+--    numéro » est FAUX, et ne doit pas être écrit : `numero_facture` est NULLABLE
+--    depuis `20260615000100` l.74 (`ALTER COLUMN numero_facture DROP NOT NULL`,
+--    M1.7 — les brouillons n'ont pas de numéro), et aucune contrainte ne lie le
+--    statut au numéro. Mesuré : une facture `statut='emise'` avec
+--    `numero_facture IS NULL` a bien été créée par le chemin direct. Le relevé qui
+--    affirmait l'inverse citait `20260611171639` l.215, périmé de 4 jours.
+--
+-- LA FERMETURE
+-- ------------
+-- Recensement exhaustif préalable des 38 occurrences de `.from('factures')` du repo
+-- (grep sur `packages/`, hors node_modules, extensions ts/tsx) :
+--   • 5 sont des LECTURES sous `authenticated` (`createSupabaseServerClient` ou
+--     `createServerClient`) : `api/v1/traiteur/factures/route.ts` l.32,
+--     `api/v1/agence/factures/route.ts` l.25,
+--     `api/v1/gestionnaire/mon-organisation/factures/route.ts` l.27 (embed
+--     `factures_collectes`), `(agence)/agence/mon-organisation/page.tsx` l.32, et
+--     l'export CSV `lib/exports/builders.ts` l.237 via
+--     `api/v1/exports/[entity]/route.ts` l.48-50 (client conditionnel
+--     `isStaff ? createAdminSupabaseClient() : createSupabaseServerClient()`).
+--     Toutes des `.select()`, sur des colonnes de la liste blanche des 26 : hors
+--     périmètre ici, le SELECT n'est pas touché.
+--   • les 33 autres sont sous `service_role` : routes `api/v1/admin/factures/*` et
+--     `admin/packs-antgaspi` en `createAdminSupabaseClient()` ; modules
+--     `lib/facturation/{validation-admin,batch-brouillons,edition-facture,avoirs,
+--     polling-paiement}` et `lib/pdf/pdf-worker`, qui reçoivent leur client en
+--     paramètre — appelants vérifiés un à un : routes admin en
+--     `createAdminSupabaseClient()`, crons `batch-brouillons-j1`,
+--     `polling-pennylane` et `pennylane-retry` via `withCronObservability`, qui
+--     construit lui-même un client admin (`lib/cron-observabilite.ts` l.126).
+-- AUCUNE écriture sous clé anon. La liste blanche de colonnes à ré-accorder est
+-- donc VIDE : aucun écran ne casse, et l'émission des factures par le back-office
+-- et par les traitements automatiques est inchangée.
+--
+-- ⚠ Un REVOKE sur une seule colonne serait INOPÉRANT tant que le privilège
+-- table-level subsiste (il couvre toutes les colonnes et prime). On retire le
+-- privilège table-level, et on ne re-GRANT rien. Symétriquement, on n'ajoute AUCUN
+-- `GRANT SELECT` table-level : il ré-exposerait les 6 colonnes volontairement
+-- closes par `20260616120000` (marge Savr + erreurs de synchro comptable), donc
+-- une régression de sécurité ET une migration d'OUVERTURE au sens du §12 pt 2bis.
+--
+-- `anon` est cité explicitement bien qu'il ne détienne rien : le REVOKE est alors
+-- sans effet, mais il inscrit l'intention dans le catalogue et couvre le cas d'un
+-- futur blanket grant qui l'inclurait.
+--
+-- PAS d'effet de bord du type #328. Là-bas, retirer UPDATE sur `evenements` avait
+-- cassé le DELETE client de `collectes`, parce que `fn_set_date_evenement`
+-- (trigger, NON `SECURITY DEFINER`) écrivait `evenements` avec les droits de
+-- l'appelant. Même vérification refaite ici sur TOUT le catalogue, sans restriction
+-- de schéma : les seuls corps qui écrivent `plateforme.factures` sont
+-- `plateforme.fn_trg_avoir_annule_origine` (trigger `trg_avoir_annule_origine`,
+-- `20260622130000` l.19) — `SECURITY DEFINER`, donc exécutée avec les droits de
+-- son propriétaire, que ce REVOKE ne touche pas. Aucune fonction du schéma `tests`
+-- n'écrit cette table (le schéma `tests` a été inclus dans la vérification : c'est
+-- l'omission qui avait été corrigée en revue sur #373).
+--
+-- CONFORMITÉ CDC
+-- --------------
+-- §09 l.213 (matrice `factures`, l.211-218) pose `admin_savr | … | DELETE : —
+-- (pas de suppression, uniquement avoirs)` : le REVOKE DELETE rend cette ligne
+-- vraie par construction plutôt que par convention — elle ne l'était pas, mesuré.
+-- La même ligne accorde `admin_savr | INSERT | ALL` : cette capacité n'est pas
+-- retirée, elle est RECANALISÉE vers `service_role` (les routes admin), exactement
+-- comme le §09 l.204 l'a acté pour `collectes` (#318) et l.65 pour `lieux` (#373).
+-- Une divergence `type: clair` est déposée pour que le Vault porte cette note sous
+-- la matrice `factures`, sur le modèle de l.204.
+-- Divergence `type: clair` également déposée pour l'arbitrage Val du 2026-09-22
+-- (l'`UPDATE` d'`ops_savr` reste ouvert, lot dédié), et pour le §09 l.220, qui
+-- prescrit la lecture client par la vue `v_factures_client` alors que les 5 chemins
+-- de lecture tapent la table en direct (rendu sûr par le GRANT de 26 colonnes).
+--
+-- TESTS EXISTANTS RECALÉS
+-- -----------------------
+-- `supabase/tests/rls_0_4_smoke.test.sql` T57 : son oracle était « le DELETE
+-- d'`ops_savr` affecte 0 ligne » (instruction nue + `is(count, 0)`). Le REVOKE le
+-- transforme en refus franc `42501` ; laissé tel quel, l'erreur non capturée
+-- avorterait la transaction et rendrait tout le fichier rouge. Il est réécrit en
+-- `throws_ok(…, '42501', 'permission denied for table factures', …)`, libellé
+-- compris. C'est l'objet même du lot, pas une régression.
+-- `supabase/tests/M0_6__rls_ops_column_level.test.sql` l.103-106 n'est PAS touché :
+-- son `lives_ok` sur `UPDATE … SET devise = 'USD'` sous `ops_savr` est un cas
+-- POSITIF adossé à la matrice §09, et l'`UPDATE` n'étant pas révoqué (arbitrage Val
+-- ci-dessus), il reste vert. Sa verdeur après cette migration est la preuve de
+-- non-régression de la capacité d'`ops_savr`.
+-- `supabase/tests/SECU__admin_only_cols_insert.test.sql` l.146-152 reste vert : son
+-- `throws_ok` sur l'INSERT d'`ops_savr` attend un `42501` à message `NULL` — le
+-- SQLSTATE ne change pas, seul le message passe de la violation de policy RLS à
+-- « permission denied for table factures ».
+--
+-- Les policies `fac_admin` (FOR ALL), `fac_client_select`, `fac_ops_select` et
+-- `fac_ops_update` sont CONSERVÉES (même arbitrage qu'en #318, #328 et #373) : la
+-- fermeture se fait au niveau privilège, pas RLS. `fac_ops_update` reste d'ailleurs
+-- pleinement active, l'UPDATE n'étant pas retiré.
+-- =============================================================================
+
+REVOKE INSERT, DELETE ON plateforme.factures FROM authenticated, anon;
+
+COMMENT ON TABLE plateforme.factures IS
+  'Facture client Savr. CRÉATION et SUPPRESSION FERMÉES à `authenticated` depuis 2026-09-23 : INSERT et DELETE retirés du GRANT table-level 0.4a, sans re-GRANT — toute création ou suppression passe par les routes API et les crons (service_role), seuls à attribuer le numéro par f_attribuer_numero_facture (séquence gapless fiscale), à poser les invariants de lib/facturation/* et à tracer l''audit_log (aucun trigger d''audit sur cette table). Avant ce REVOKE, la policy fac_admin (FOR ALL, donc polcmd=''*'') rendait l''INSERT et le DELETE directs ATTEIGNABLES sous JWT admin_savr porté par la clé anon : mesuré, une facture statut=''emise'' au numéro posé à la main, et une suppression, ont abouti sans laisser de ligne d''audit_log. L''UPDATE est VOLONTAIREMENT CONSERVÉ (arbitrage Val 2026-09-22) : le §09 l.415 (matrice étendue ops_savr, source de vérité unique des écritures ops) accorde à ops_savr « Valider + envoyer Pennylane » — capacité précise, bornée par l.417 « Éditer ligne / montant : Non » et l.418 « Annuler / Générer avoir : Non ». Cette frontière est tenue par DEUX mécanismes : les 2 triggers R10b pour « montant » et « Annuler », et l''absence de policy d''écriture ops pour « Éditer ligne » (sur factures_collectes) et « Générer avoir » (INSERT sur factures) — R10b l''explique elle-même l.134-135. Sa fermeture fera l''objet d''un lot dédié. ⚠ RÉSIDUEL ASSUMÉ, à ne pas minimiser : les 2 triggers R10b portés par factures (trg_ops_immutable_cols sur 4 colonnes de montant, trg_ops_block_facture_annulation sur la valeur statut=annulee) ne gardent QUE ops_savr — leurs deux fonctions sortent si f_app_role() n''est pas ops_savr. Sous JWT admin_savr, l''UPDATE direct reste non borné et non tracé : mesuré, la renumérotation d''une facture emise, son passage à numero_facture=NULL et la modification de montant_ht aboutissent tous, sans ligne d''audit_log. La contrainte UNIQUE interdit un doublon de numéro, pas une renumérotation. Le SELECT table-level avait déjà été retiré par 20260616120000 au profit d''un GRANT sur une liste blanche de 26 colonnes (masquage de marge_logistique et des colonnes de synchro Pennylane) ; il n''est pas touché ici — y ajouter un GRANT SELECT table-level rouvrirait ces 6 colonnes.';

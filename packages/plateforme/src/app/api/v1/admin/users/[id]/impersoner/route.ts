@@ -7,6 +7,7 @@ import {
   CLE_IMPERSONATION_EN_ATTENTE,
   preparerImpersonation,
 } from '@/lib/impersonation.js';
+import { urlApplication } from '@/lib/url-application.js';
 
 // §07/01 : `auth.impersonation_started` émis ici → route enveloppée pour que
 // l'event (et le log d'audit) portent le `trace_id` de la requête.
@@ -72,12 +73,13 @@ export const POST = withApiTrace(
       );
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
-    const lienImpersonation =
-      `${appUrl}/auth/impersonate-callback` +
-      `?token_hash=${encodeURIComponent(tokenHash)}` +
-      `&type=magiclink&impersonator=${encodeURIComponent(auth.ctx.userId)}` +
-      `&jeton=${encodeURIComponent(jeton)}`;
+    const lienImpersonation = urlApplication(
+      req,
+      `/auth/impersonate-callback` +
+        `?token_hash=${encodeURIComponent(tokenHash)}` +
+        `&type=magiclink&impersonator=${encodeURIComponent(auth.ctx.userId)}` +
+        `&jeton=${encodeURIComponent(jeton)}`,
+    );
 
     // §07/01 auth.impersonation_started (warn) — event business (⚠ aussi audit_log
     // ci-dessous). Payload obligatoire : impersonator_id, target_user, by_role.

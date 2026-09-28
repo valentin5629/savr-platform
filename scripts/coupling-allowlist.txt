@@ -162,7 +162,6 @@ packages/plateforme/src/components/admin/transporteur-modal.test.tsx
 # Cliquet des gardes API (sécurité, 2026-09-11) : nomme la route du webhook logistique pour
 # vérifier sa garde propre (jeton X-Webhook-Token). Aucun appel HTTP ; 'customerOrders' reste banni.
 packages/plateforme/tests/securite/api-routes-gardees.test.ts
-<<<<<<< HEAD
 # supabase/migrations/20260915170000_* + son pgTAP — index UNIQUE PARTIEL sur
 # transporteurs.prestataire_logistique_id (1 prestataire = au plus 1 transporteur).
 # 'mts1'/'a_toutes'/'Everest' y sont des VALEURS DE L'ENUM type_tms (INSERT de fixtures,
@@ -173,14 +172,12 @@ packages/plateforme/tests/securite/api-routes-gardees.test.ts
 # assertions. 'customerOrders' reste banni (vérifié : 0 occurrence dans les deux).
 supabase/migrations/20260915170000_plateforme_transporteurs_presta_unique.sql
 supabase/tests/SECU__transporteur_presta_unique.test.sql
-# supabase/migrations/20260915180000_* + son pgTAP (invariants du cloisonnement
-=======
 # supabase/migrations/20260915210000_* + son pgTAP (invariants du cloisonnement
->>>>>>> 3e0bad2 (chore(db): renumérote les deux migrations — 20260915180000 est déjà pris sur dev)
 # provider) — 'mts1'/'a_toutes'/'everest' n'apparaissent que (a) dans les commentaires
-# qui expliquent POURQUOI l'index existe et (b) comme valeurs de l'enum
-# transporteurs.type_tms dans les fixtures pgTAP. La migration ne pose que deux index
-# UNIQUE partiels : aucune logique adapter, aucun appel HTTP, aucun nom de ressource
+# et le COMMENT ON INDEX qui expliquent POURQUOI l'index existe et (b) comme valeurs de
+# l'enum transporteurs.type_tms dans les fixtures pgTAP. La migration ne pose qu'un index
+# UNIQUE partiel (uniq_tournee_par_external_ref ; celui du 1:1 prestataire vit dans
+# 20260915170000) : aucune logique adapter, aucun appel HTTP, aucun nom de ressource
 # distante. Même nature d'exception que 20260625000000 (bridge dispatch AG).
 # 'customerOrders' reste banni.
 supabase/migrations/20260915210000_plateforme_cloisonnement_provider_invariants.sql

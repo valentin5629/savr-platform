@@ -1,7 +1,7 @@
 import { jourParis } from '@savr/shared/src/temps/index.js';
 /**
  * Dérivations pures du dashboard « Cockpit » (R24) — agrégats KPI, séries
- * sparkline, variation N-1, totaux/équivalences CO₂, items de jauges benchmark.
+ * sparkline, variation N-1, totaux/équivalences CO₂, items du radar benchmark.
  *
  * Séparé de la page (client) pour être TESTABLE sans jsdom et RÉUTILISABLE par la
  * déclinaison Cockpit des 5 autres dashboards. Aucune donnée n'est inventée : les
@@ -177,6 +177,20 @@ export function sparkFromRows(
   return pts.length >= 2 ? pts : [];
 }
 
+/**
+ * Série sparkline depuis une série d'évolution (buckets déjà triés
+ * chronologiquement : `buildEvolutionSeries`). Même règle que `sparkFromRows` :
+ * `[]` sous 2 points. Sert aux dashboards sans lignes mensuelles KPI
+ * (gestionnaire, Dashboard Client Admin).
+ */
+export function sparkFromSeries<T>(
+  series: T[],
+  pick: (p: T) => number | string | null | undefined,
+): number[] {
+  const pts = series.map((p) => num(pick(p)));
+  return pts.length >= 2 ? pts : [];
+}
+
 /** Ligne renvoyée par f_benchmark_kg_pax_zd (grain flux × type × taille). */
 export interface BenchmarkRow {
   flux_code: string;
@@ -187,7 +201,7 @@ export interface BenchmarkRow {
 /**
  * Agrège les segments du benchmark parc en UNE valeur par flux (moyenne pondérée
  * par le nombre de collectes). Un flux sans segment (k-anonymat < 5 masqué par la
- * RPC) est absent de la map → la jauge affiche l'état « n < 5 ».
+ * RPC) est absent de la map → l'axe du radar affiche l'état « Données manquantes ».
  */
 export function aggregateBenchmarkPerFlux(
   rows: BenchmarkRow[],
@@ -213,7 +227,7 @@ export interface GaugeItem {
 }
 
 /**
- * Construit les items des jauges bullet (Bloc 3 ZD) : `value` = mon kg/pax du flux,
+ * Construit les items du radar benchmark (Bloc 3 ZD) : `value` = mon kg/pax du flux,
  * `benchmark` = moyenne parc. `null` des deux côtés → état insuffisant côté composant.
  */
 export function benchmarkItems(

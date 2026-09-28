@@ -3,6 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Heart, Plus, Search, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -137,32 +141,40 @@ export default function AssociationsPage() {
         </Button>
       </div>
 
-      <div className="flex gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-savr-neutral-400" />
-          <input
-            className="w-full pl-9 pr-3 py-2 border border-savr-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
-            placeholder="Rechercher…"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
+      <FilterBar data-testid="associations-filtres">
+        <FormField label="Recherche" htmlFor="associations-recherche">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
+            <Input
+              id="associations-recherche"
+              className="pl-9"
+              placeholder="Rechercher…"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+        </FormField>
+        <FormField label="Statut" htmlFor="associations-statut">
+          <Combobox
+            id="associations-statut"
+            icon={null}
+            placeholder="Toutes"
+            options={[
+              { value: 'true', label: 'Actives' },
+              { value: 'false', label: 'Inactives' },
+              { value: '', label: 'Toutes' },
+            ]}
+            value={actif}
+            onChange={(v) => {
+              setActif(v);
               setPage(1);
             }}
           />
-        </div>
-        <select
-          className="border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm"
-          value={actif}
-          onChange={(e) => {
-            setActif(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="true">Actives</option>
-          <option value="false">Inactives</option>
-          <option value="">Toutes</option>
-        </select>
-      </div>
+        </FormField>
+      </FilterBar>
 
       {loading ? (
         <div className="space-y-2">

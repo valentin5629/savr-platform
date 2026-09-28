@@ -23,7 +23,7 @@ import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpi
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
-import { BenchmarkBulletGauges } from '@/components/dashboards/charts/cockpit/BenchmarkBulletGauges';
+import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
 import { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
 import { PackAgRing } from '@/components/dashboards/charts/cockpit/PackAgRing';
 import {
@@ -33,8 +33,12 @@ import {
 } from '@/components/dashboards/charts/cockpit/fmt';
 import {
   aggregateBenchmarkPerFlux,
+  aggregateKpis,
   benchmarkItems,
+  sparkFromRows,
+  variationPct,
   type BenchmarkRow,
+  type TraiteurKpiRow,
 } from '@/lib/dashboards/cockpit-derive';
 import { Button } from '@/components/ui/button';
 
@@ -57,15 +61,8 @@ function masseStr(kg: number): string {
 // par l'API pour le rôle agence (strip serveur dans /api/v1/dashboards/kpi-traiteur).
 // Pas de colonne CO₂ non plus (endpoint role-stripped) → 4 cartes ZD, comme le
 // dashboard gestionnaire (§06.05).
-interface KpiRow {
-  mois: string;
-  type_collecte: CollecteType;
-  nb_collectes: number;
-  tonnage_kg: number | null;
-  taux_recyclage_pondere: number | null;
-  nb_repas_donnes: number | null;
-  pax_total: number;
-}
+// Lignes mensuelles de /kpi-traiteur (marge et CO₂ strippés pour l'agence).
+type KpiRow = TraiteurKpiRow;
 
 /**
  * Dashboard agence (§06.11 — réplique stricte du §06.04 traiteur, périmètre
@@ -73,7 +70,7 @@ interface KpiRow {
  * traiteur/gestionnaire, en réutilisant la lib Cockpit figée : KPIs
  * `KpiCockpitCard`, Top listes `TopRankList` (drill-down lieux préservé),
  * évolution `EvolutionZd/AgChart`, donut `TonnagesDonut`, benchmark
- * `BenchmarkBulletGauges`. Divergences forcées §06.11 conservées : 4 cartes ZD
+ * `BenchmarkRadar`. Divergences forcées §06.11 conservées : 4 cartes ZD
  * (pas de Marge, diff #7) et pas de Bloc 7 « Top 5 commerciaux » (diff #8).
  */
 export default function AgenceDashboardPage() {
@@ -81,6 +78,9 @@ export default function AgenceDashboardPage() {
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
   const [filters, setFilters] = useState<DashboardFilters | null>(null);
   const [rows, setRows] = useState<KpiRow[]>([]);
+  // Période précédente équivalente (N-1) — variation des cartes KPI (§06.04
+  // l.92, hérité §06.11), même source que le traiteur (`compare=n1`).
+  const [prevRows, setPrevRows] = useState<KpiRow[]>([]);
   const [pack, setPack] = useState<{
     pack_actif: boolean;
     credits_initiaux?: number;
@@ -110,10 +110,14 @@ export default function AgenceDashboardPage() {
       from: filters.from,
       to: filters.to,
       type: tab,
+      compare: 'n1',
     });
     fetch(`/api/v1/dashboards/kpi-traiteur?${qs}`)
       .then((r) => r.json())
-      .then((j) => setRows((j.data ?? []) as KpiRow[]))
+      .then((j) => {
+        setRows((j.data ?? []) as KpiRow[]);
+        setPrevRows((j.previous ?? []) as KpiRow[]);
+      })
       .finally(() => setLoading(false));
   }, [filters, tab]);
 
@@ -160,20 +164,9 @@ export default function AgenceDashboardPage() {
       .catch(() => setBenchmarkRows([]));
   }, [benchmarkFilters, tab]);
 
-  const nbCollectes = rows.reduce((s, r) => s + (r.nb_collectes ?? 0), 0);
-  const tonnage = rows.reduce((s, r) => s + (r.tonnage_kg ?? 0), 0);
-  const pax = rows.reduce((s, r) => s + (r.pax_total ?? 0), 0);
-  const repas = rows.reduce((s, r) => s + (r.nb_repas_donnes ?? 0), 0);
-  const tauxNum = rows.reduce(
-    (s, r) => s + (r.taux_recyclage_pondere ?? 0) * (r.tonnage_kg ?? 0),
-    0,
-  );
-  const tauxDen = rows.reduce(
-    (s, r) => s + (r.taux_recyclage_pondere != null ? (r.tonnage_kg ?? 0) : 0),
-    0,
-  );
-  const taux = tauxDen > 0 ? tauxNum / tauxDen : null;
-  const kgPax = pax > 0 ? tonnage / pax : null;
+  const agg = aggregateKpis(rows);
+  const prev = aggregateKpis(prevRows);
+  const { nbCollectes, tonnage, pax, repas, taux, kgPax } = agg;
 
   const seuilBas =
     pack?.pack_actif &&
@@ -278,24 +271,36 @@ export default function AgenceDashboardPage() {
               label="Nombre de collectes"
               value={fmtInt(nbCollectes)}
               dotColor={DOT.navy}
+              variationPct={variationPct(nbCollectes, prev.nbCollectes)}
+              sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
             <KpiCockpitCard
               label="Tonnage collecté"
               value={fmtMasse(tonnage).value}
               unit={fmtMasse(tonnage).unit}
               dotColor={DOT.navy2}
+              variationPct={variationPct(tonnage, prev.tonnage)}
+              sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
             />
             <KpiCockpitCard
               label="Taux de recyclage"
               value={taux != null ? fmtDec(taux, 1) : '—'}
               unit={taux != null ? '%' : undefined}
               dotColor={DOT.green}
+              variationPct={variationPct(taux ?? 0, prev.taux ?? 0)}
+              sparkPoints={sparkFromRows(rows, (r) => r.taux_recyclage_pondere)}
+              sparkColor={DOT.green}
             />
+            {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
+                mieux », §06.04 l.92). */}
             <KpiCockpitCard
               label="kg/pax moyen"
               value={kgPax != null ? fmtDec(kgPax, 2) : '—'}
               unit={kgPax != null ? 'kg/pax' : undefined}
               dotColor={DOT.navy3}
+              sparkPoints={sparkFromRows(rows, (r) =>
+                r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
+              )}
             />
           </div>
 
@@ -304,11 +309,11 @@ export default function AgenceDashboardPage() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — Filtres du repère + jauges kg/pax en UN seul bloc
-              (retour Val R24b : filtres imbriqués dans la carte des jauges).
+          {/* Bloc 3 ZD — Filtres du repère + radar kg/pax en UN seul bloc
+              (retour Val R24b : filtres imbriqués dans la carte du benchmark).
               Benchmark 4 dimensions §06.04 — Traiteurs masqué (endpoint /filtres
               renvoie liste vide, traiteur_ids[] rejeté serveur). */}
-          <BenchmarkBulletGauges
+          <BenchmarkRadar
             items={gaugeItems}
             filtersSlot={
               <BenchmarkFilterBar
@@ -353,21 +358,31 @@ export default function AgenceDashboardPage() {
               label="Nombre de collectes"
               value={fmtInt(nbCollectes)}
               dotColor={DOT.navy}
+              variationPct={variationPct(nbCollectes, prev.nbCollectes)}
+              sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
             <KpiCockpitCard
               label="Repas donnés"
               value={fmtInt(repas)}
               dotColor={DOT.accent}
+              variationPct={variationPct(repas, prev.repas)}
+              sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
+              sparkColor={DOT.accent}
             />
             <KpiCockpitCard
               label="Pax cumulés"
               value={fmtInt(pax)}
               dotColor={DOT.navy2}
+              variationPct={variationPct(pax, prev.pax)}
+              sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
             />
             <KpiCockpitCard
               label="Repas/pax moyen"
               value={pax > 0 ? fmtDec(repas / pax, 2) : '—'}
               dotColor={DOT.navy3}
+              sparkPoints={sparkFromRows(rows, (r) =>
+                r.pax_total > 0 ? (r.nb_repas_donnes ?? 0) / r.pax_total : 0,
+              )}
             />
           </div>
 

@@ -757,8 +757,17 @@ SELECT throws_ok(
 );
 
 -- T57 : BLOQUANT — factures_delete_refuse_tous_roles
--- ops_savr possède SELECT + UPDATE sur factures mais aucune policy DELETE → 0 lignes supprimées.
 -- Prouve qu'une facture est immuable (jamais de hard-delete) pour les rôles applicatifs.
+--
+-- ⚠ RECALÉ le 2026-09-23 par 20260923150000 (fermeture de la création et de la
+-- suppression directes de `plateforme.factures`). L'oracle était « le DELETE
+-- d'ops_savr affecte 0 ligne » : ops_savr n'a pas de policy DELETE, l'instruction
+-- n'échouait donc pas, elle était un NO-OP SILENCIEUX. Depuis le REVOKE du
+-- privilège table-level, le refus est FRANC et levé AVANT l'évaluation RLS — un
+-- 42501 « permission denied for table factures ». Laissée en instruction nue,
+-- l'erreur non capturée avorterait la transaction et rendrait tout ce fichier
+-- rouge : d'où le passage en throws_ok, message asserté (un 42501 est aussi levé
+-- sur cette table par les triggers R10b, le code seul serait complaisant).
 SELECT test_as_superuser();
 INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, numero_facture,
     montant_ht, montant_ttc, statut)
@@ -768,11 +777,12 @@ INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, num
     'FAC-T57-001', 100.00, 120.00, 'brouillon');
 
 SELECT test_set_jwt('ops_savr', NULL);
-WITH del AS (
-  DELETE FROM plateforme.factures
-  WHERE id = 'fac00001-0000-0000-0000-000000000001' RETURNING 1
-)
-SELECT is(count(*)::int, 0, 'T57 BLOQUANT factures_delete_denied_ops_zero_rows') FROM del;
+SELECT throws_ok(
+  $$DELETE FROM plateforme.factures
+     WHERE id = 'fac00001-0000-0000-0000-000000000001'$$,
+  '42501', 'permission denied for table factures',
+  'T57 BLOQUANT factures_delete_denied_ops_42501'
+);
 
 -- T58 : BLOQUANT — rapports_rse_regen_cross_org_denied
 -- Manager org B tente UPDATE (régénération) sur rapport RSE appartenant à org A.

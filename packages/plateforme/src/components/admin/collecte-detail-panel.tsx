@@ -22,7 +22,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
+import { FormField } from '@/components/ui/form-field';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -985,29 +986,38 @@ export function CollecteDetailPanel({
                 </p>
               </div>
 
-              <label
+              <FormField
+                label="Prestataire à attribuer"
                 htmlFor="dispatch-transporteur"
-                className="block text-sm font-medium text-savr-neutral-700"
               >
-                Prestataire à attribuer
-              </label>
-              <Select
-                id="dispatch-transporteur"
-                value={selectedTransporteurId}
-                onChange={(e) => setSelectedTransporteurId(e.target.value)}
-              >
-                <option value="">
-                  {currentTransporteur
-                    ? `Conserver — ${currentTransporteur.nom}`
-                    : '— Choisir un transporteur —'}
-                </option>
-                {transporteurs.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nom} ({t.type_tms})
-                    {t.id === recommendedTransporteurId ? ' — recommandé' : ''}
-                  </option>
-                ))}
-              </Select>
+                <Combobox
+                  id="dispatch-transporteur"
+                  icon={null}
+                  placeholder={
+                    currentTransporteur
+                      ? `Conserver — ${currentTransporteur.nom}`
+                      : '— Choisir un transporteur —'
+                  }
+                  value={selectedTransporteurId}
+                  onChange={setSelectedTransporteurId}
+                  options={[
+                    {
+                      value: '',
+                      label: currentTransporteur
+                        ? `Conserver — ${currentTransporteur.nom}`
+                        : '— Choisir un transporteur —',
+                    },
+                    ...transporteurs.map((t) => ({
+                      value: t.id,
+                      label: `${t.nom} (${t.type_tms})${
+                        t.id === recommendedTransporteurId
+                          ? ' — recommandé'
+                          : ''
+                      }`,
+                    })),
+                  ]}
+                />
+              </FormField>
               {overrideActif && (
                 <div>
                   <label
@@ -1498,7 +1508,7 @@ export function CollecteDetailPanel({
                       >
                         <td className="py-2 font-medium">{flux.nom}</td>
                         <td className="py-2 text-right">
-                          <input
+                          <Input
                             type="number"
                             min={0}
                             step="0.01"
@@ -1509,7 +1519,8 @@ export function CollecteDetailPanel({
                                 [flux.code]: e.target.value,
                               }))
                             }
-                            className="w-28 rounded-savr-md border border-savr-neutral-300 px-2 py-1 text-right text-sm focus:outline-2 focus:outline-offset-2 focus:outline-savr-primary-500"
+                            aria-label={`Poids ${flux.nom} (kg)`}
+                            className="ml-auto w-28 text-right"
                             placeholder="kg"
                           />
                         </td>
@@ -1956,26 +1967,19 @@ export function CollecteDetailPanel({
             Bascule manuelle hors machine à états. L&apos;action est tracée dans
             l&apos;audit (motif obligatoire).
           </p>
-          <div>
-            <label
-              htmlFor="force-statut-select"
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
-            >
-              Nouveau statut
-            </label>
-            <Select
+          <FormField label="Nouveau statut" htmlFor="force-statut-select">
+            <Combobox
               id="force-statut-select"
+              icon={null}
               value={forceStatutValue}
-              onChange={(e) => setForceStatutValue(e.target.value)}
+              onChange={setForceStatutValue}
               required
-            >
-              {STATUTS_FORCABLES.map((s) => (
-                <option key={s} value={s}>
-                  {statutCollecteDisplay(s, 'admin').label}
-                </option>
-              ))}
-            </Select>
-          </div>
+              options={STATUTS_FORCABLES.map((s) => ({
+                value: s,
+                label: statutCollecteDisplay(s, 'admin').label,
+              }))}
+            />
+          </FormField>
           <div>
             <label
               htmlFor="force-statut-motif"

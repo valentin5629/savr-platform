@@ -290,6 +290,14 @@
       "test": "M3.3/cockpit_drilldown_top_lieux_url",
       "statut": "implemented",
       "libelle": "R24c — Drill-down « Top lieux → liste Collectes filtrée » (#219) PRÉSERVÉ après migration TopLieuxBloc → TopRankList : onItemClick(index) → setCollecteFiltreLabel + router.push(/agence/collectes?lieu=…&type=…&statut=cloturee&from&to) — miroir exact du chiffre du dashboard, périmètre donneur d'ordre (pas de perimetre=organisation)."
+    },
+    {
+      "id": "M3.3-kpi-sparkline-n1",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:19",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3/kpi_cartes_sparkline_et_variation_n1",
+      "statut": "implemented",
+      "libelle": "Cartes KPI agence = §06.04 à l'identique (l.92) : sparkline + variation N-1 (sauf kg/pax), même source que le traiteur (kpi-traiteur ?compare=n1, lignes mensuelles). Les 4 cartes ZD sans Marge (diff #7) sont conservées."
     }
   ],
   "cdc_source_hash": {

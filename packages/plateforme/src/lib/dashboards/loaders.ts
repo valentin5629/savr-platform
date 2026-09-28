@@ -381,6 +381,9 @@ export interface EvoCollecteRow {
   type: string;
   taux_recyclage: number | null;
   date_collecte: string;
+  /** CO₂ évité figé (sélectionné par le loader Admin « Dashboard Client »
+   *  seulement) — alimente la sparkline de la carte CO₂. */
+  co2_evite_kg?: number | string | null;
   evenements: EvoEvtEmbed | EvoEvtEmbed[] | null;
   collecte_flux:
     | { poids_reel_kg: number | null; flux_dechets: { code: string } | null }[]
@@ -528,13 +531,24 @@ export function buildEvolutionSeries(
         tonnage: number;
         tauxNum: number;
         tauxDen: number;
+        nb: number;
+        co2: number;
+        paxParEvt: Map<string, number>;
       }
     >();
     for (const c of rows) {
       const key = bucketKey(c.date_collecte, g);
       let b = buckets.get(key);
       if (!b) {
-        b = { flux: {}, tonnage: 0, tauxNum: 0, tauxDen: 0 };
+        b = {
+          flux: {},
+          tonnage: 0,
+          tauxNum: 0,
+          tauxDen: 0,
+          nb: 0,
+          co2: 0,
+          paxParEvt: new Map(),
+        };
         for (const fc of FLUX_CODES) b.flux[fc] = 0;
         buckets.set(key, b);
       }
@@ -547,6 +561,11 @@ export function buildEvolutionSeries(
         kgCollecte += kg;
       }
       b.tonnage += kgCollecte;
+      b.nb += 1;
+      b.co2 += Number(c.co2_evite_kg ?? 0) || 0;
+      const evtZd = firstOf(c.evenements);
+      if (evtZd?.id && !b.paxParEvt.has(evtZd.id))
+        b.paxParEvt.set(evtZd.id, evtZd.pax ?? 0);
       if (c.taux_recyclage != null && kgCollecte > 0) {
         b.tauxNum += c.taux_recyclage * kgCollecte;
         b.tauxDen += kgCollecte;
@@ -559,19 +578,24 @@ export function buildEvolutionSeries(
         ...b.flux,
         tonnage_total: b.tonnage,
         taux_recyclage: b.tauxDen > 0 ? b.tauxNum / b.tauxDen : null,
+        // Sparklines des cartes KPI (gestionnaire / Dashboard Client Admin) :
+        // nombre de collectes et pax distincts par événement du bucket.
+        nb_collectes: b.nb,
+        pax: [...b.paxParEvt.values()].reduce((s, p) => s + p, 0),
+        co2_evite_kg: b.co2,
       }));
   }
 
   // anti_gaspi — repas donnés + pax distinct par événement par bucket.
   const buckets = new Map<
     string,
-    { repas: number; paxParEvt: Map<string, number> }
+    { repas: number; nb: number; co2: number; paxParEvt: Map<string, number> }
   >();
   for (const c of rows) {
     const key = bucketKey(c.date_collecte, g);
     let b = buckets.get(key);
     if (!b) {
-      b = { repas: 0, paxParEvt: new Map() };
+      b = { repas: 0, nb: 0, co2: 0, paxParEvt: new Map() };
       buckets.set(key, b);
     }
     const attrs = Array.isArray(c.attributions_antgaspi)
@@ -580,6 +604,8 @@ export function buildEvolutionSeries(
         ? [c.attributions_antgaspi]
         : [];
     for (const a of attrs) b.repas += a.volume_repas_realise ?? 0;
+    b.nb += 1;
+    b.co2 += Number(c.co2_evite_kg ?? 0) || 0;
     const evt = firstOf(c.evenements);
     if (evt?.id && !b.paxParEvt.has(evt.id))
       b.paxParEvt.set(evt.id, evt.pax ?? 0);
@@ -592,6 +618,8 @@ export function buildEvolutionSeries(
         periode,
         repas_donnes: b.repas,
         pax,
+        nb_collectes: b.nb,
+        co2_evite_kg: b.co2,
         ratio: pax > 0 ? b.repas / pax : null,
       };
     });

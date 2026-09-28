@@ -5,6 +5,7 @@ import {
   MapPin,
   CalendarDays,
   Truck,
+  UserCircle,
   FileText,
   Settings,
   BarChart3,
@@ -57,6 +58,7 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
         { label: 'Lieux', href: '/admin/lieux', icon: MapPin },
         { label: 'Clients', href: '/admin/clients', icon: Building2 },
         { label: 'Paramètres', href: '/admin/parametres', icon: Settings },
+        { label: 'Mon profil', href: '/admin/mon-profil', icon: UserCircle },
         { label: 'Alertes', href: '/admin/alertes', icon: Bell },
         {
           label: 'Santé système',
@@ -180,6 +182,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
           label: 'Registre réglementaire',
           href: '/registre',
           icon: ClipboardList,
+        },
+        {
+          label: 'Mon organisation',
+          href: '/organisateur/mon-organisation',
+          icon: Building2,
         },
         {
           label: 'Mon profil',

@@ -7,6 +7,15 @@ import { safeNextPath } from '@/lib/safe-next-path';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+} from '@/components/ui/card';
 
 // Motifs posés par `api/auth/verify-email` quand le lien d'activation n'aboutit
 // pas. Ils arrivaient déjà en `?error=` mais n'étaient affichés nulle part :
@@ -106,67 +115,79 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-sm bg-savr-white rounded-savr-lg border border-savr-neutral-200 p-8 shadow-sm">
-      <h1 className="text-xl font-semibold text-savr-neutral-900 mb-6">
-        Connexion Savr
-      </h1>
-      {messageLien && (
-        <AlertBar variant="warn" className="mb-4 font-normal">
-          {messageLien}
-        </AlertBar>
-      )}
-      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-        <FormField label="Email" htmlFor="login-email">
-          <Input
-            id="login-email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </FormField>
-        <FormField label="Mot de passe" htmlFor="login-mot-de-passe">
-          <Input
-            id="login-mot-de-passe"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={motDePasse}
-            onChange={(e) => setMotDePasse(e.target.value)}
-          />
-        </FormField>
-        {erreur && <p className="text-sm text-savr-error">{erreur}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-savr-md bg-savr-primary-700 text-savr-white py-2 text-sm font-medium hover:bg-savr-primary-800 disabled:opacity-50"
-        >
-          {loading ? 'Connexion…' : 'Se connecter'}
-        </button>
-      </form>
-      <div className="mt-6 space-y-2 text-sm">
-        <Link
-          href="/reset-password"
-          className="block font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-        >
-          Mot de passe oublié ?
-        </Link>
+    <Card className="w-full max-w-sm">
+      <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+        <div className="space-y-1.5">
+          {/* h1 de la page : style CardTitle (DS §5.2 titre de card, poids 600) — CardTitle rend un h3. */}
+          <h1 className="text-lg font-semibold tracking-tight text-savr-neutral-900">
+            Connexion à votre compte
+          </h1>
+          <CardDescription>
+            Saisissez votre email pour vous connecter à Savr.
+          </CardDescription>
+        </div>
         {/* Sans ce lien, /signup n'était atteignable qu'en tapant l'URL. */}
         <Link
           href="/signup"
-          className="block font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
+          className="-my-3 inline-flex shrink-0 items-center py-3 text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
         >
           Créer un compte
         </Link>
-      </div>
-    </div>
+      </CardHeader>
+      <form onSubmit={(e) => void handleSubmit(e)}>
+        <CardContent className="space-y-4">
+          {messageLien && (
+            <AlertBar variant="warn" className="font-normal">
+              {messageLien}
+            </AlertBar>
+          )}
+          <FormField label="Email" htmlFor="login-email">
+            <Input
+              id="login-email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="nom@entreprise.fr"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </FormField>
+          <div className="space-y-1">
+            <div className="mb-1.5 flex items-center justify-between gap-4">
+              <Label htmlFor="login-mot-de-passe" className="mb-0">
+                Mot de passe
+              </Label>
+              <Link
+                href="/reset-password"
+                className="-my-3 inline-flex items-center py-3 text-sm text-savr-neutral-700 underline-offset-4 hover:text-savr-primary-700 hover:underline"
+              >
+                Mot de passe oublié ?
+              </Link>
+            </div>
+            <Input
+              id="login-mot-de-passe"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={motDePasse}
+              onChange={(e) => setMotDePasse(e.target.value)}
+            />
+          </div>
+          {erreur && <p className="text-sm text-savr-error">{erreur}</p>}
+        </CardContent>
+        <CardFooter className="rounded-b-savr-md bg-savr-neutral-50 pt-6">
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? 'Connexion…' : 'Se connecter'}
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-savr-neutral-50">
+    <div className="min-h-screen flex items-center justify-center bg-savr-neutral-50 px-4">
       <Suspense>
         <LoginForm />
       </Suspense>

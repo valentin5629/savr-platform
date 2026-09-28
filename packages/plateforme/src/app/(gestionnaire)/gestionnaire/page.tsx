@@ -33,6 +33,9 @@ import {
 import {
   aggregateBenchmarkPerFlux,
   benchmarkItems,
+  previousWindow,
+  sparkFromSeries,
+  variationPct,
   type BenchmarkRow,
 } from '@/lib/dashboards/cockpit-derive';
 import { Badge } from '@/components/ui/badge';
@@ -76,6 +79,9 @@ export default function GestionnaireDashboardPage() {
     undefined,
   );
   const [kpi, setKpi] = useState<KpiData | null>(null);
+  // KPIs de la période précédente équivalente (N-1) — variation des cartes
+  // (§06.05 l.136). Même endpoint, fenêtre `previousWindow`, mêmes filtres parc.
+  const [kpiPrev, setKpiPrev] = useState<KpiData | null>(null);
   const [perFlux, setPerFlux] = useState<Record<string, number>>({});
   const [pack, setPack] = useState<PackActif | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,10 +126,18 @@ export default function GestionnaireDashboardPage() {
     (filters.taille_evenement_codes ?? []).forEach((c) =>
       qs.append('taille_evenements[]', c),
     );
-    fetch(`/api/v1/gestionnaire/dashboard?${qs}`)
-      .then((r) => r.json())
-      .then((j) => {
+    const fenetrePrev = previousWindow(filters.from, filters.to);
+    const qsPrev = new URLSearchParams(qs);
+    if (fenetrePrev) {
+      qsPrev.set('from', fenetrePrev.from);
+      qsPrev.set('to', fenetrePrev.to);
+    }
+    const lire = (q: URLSearchParams) =>
+      fetch(`/api/v1/gestionnaire/dashboard?${q}`).then((r) => r.json());
+    Promise.all([lire(qs), fenetrePrev ? lire(qsPrev) : Promise.resolve(null)])
+      .then(([j, jPrev]) => {
         setKpi((j.data?.kpis ?? null) as KpiData | null);
+        setKpiPrev((jPrev?.data?.kpis ?? null) as KpiData | null);
         setPerFlux(
           (j.data?.kg_par_pax_par_flux ?? {}) as Record<string, number>,
         );
@@ -313,12 +327,22 @@ export default function GestionnaireDashboardPage() {
               label="Nombre de collectes"
               value={fmtInt(kpi.nb_collectes)}
               dotColor={DOT.navy}
+              variationPct={variationPct(
+                kpi.nb_collectes,
+                kpiPrev?.nb_collectes ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(zdSeries, (p) => p.nb_collectes)}
             />
             <KpiCockpitCard
               label="Tonnage collecté"
               value={fmtMasse(kpi.tonnage_kg ?? 0).value}
               unit={fmtMasse(kpi.tonnage_kg ?? 0).unit}
               dotColor={DOT.navy2}
+              variationPct={variationPct(
+                kpi.tonnage_kg ?? 0,
+                kpiPrev?.tonnage_kg ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(zdSeries, (p) => p.tonnage_total)}
             />
             <KpiCockpitCard
               label="Taux de recyclage"
@@ -329,12 +353,23 @@ export default function GestionnaireDashboardPage() {
               }
               unit={kpi.taux_recyclage_pondere != null ? '%' : undefined}
               dotColor={DOT.green}
+              variationPct={variationPct(
+                kpi.taux_recyclage_pondere ?? 0,
+                kpiPrev?.taux_recyclage_pondere ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(zdSeries, (p) => p.taux_recyclage)}
+              sparkColor={DOT.green}
             />
+            {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
+                mieux », §06.05 l.136). */}
             <KpiCockpitCard
               label="kg/pax moyen"
               value={kpi.kg_par_pax != null ? fmtDec(kpi.kg_par_pax, 2) : '—'}
               unit={kpi.kg_par_pax != null ? 'kg/pax' : undefined}
               dotColor={DOT.navy3}
+              sparkPoints={sparkFromSeries(zdSeries, (p) =>
+                p.pax ? p.tonnage_total / p.pax : 0,
+              )}
             />
           </div>
 
@@ -406,16 +441,32 @@ export default function GestionnaireDashboardPage() {
               label="Nombre de collectes"
               value={fmtInt(kpi.nb_collectes)}
               dotColor={DOT.navy}
+              variationPct={variationPct(
+                kpi.nb_collectes,
+                kpiPrev?.nb_collectes ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(agSeries, (p) => p.nb_collectes)}
             />
             <KpiCockpitCard
               label="Repas donnés"
               value={fmtInt(kpi.nb_repas_donnes ?? 0)}
               dotColor={DOT.accent}
+              variationPct={variationPct(
+                kpi.nb_repas_donnes ?? 0,
+                kpiPrev?.nb_repas_donnes ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
+              sparkColor={DOT.accent}
             />
             <KpiCockpitCard
               label="Pax cumulés"
               value={fmtInt(kpi.pax_total ?? 0)}
               dotColor={DOT.navy2}
+              variationPct={variationPct(
+                kpi.pax_total ?? 0,
+                kpiPrev?.pax_total ?? 0,
+              )}
+              sparkPoints={sparkFromSeries(agSeries, (p) => p.pax)}
             />
             <KpiCockpitCard
               label="Repas/pax moyen"
@@ -423,6 +474,7 @@ export default function GestionnaireDashboardPage() {
                 kpi.repas_par_pax != null ? fmtDec(kpi.repas_par_pax, 2) : '—'
               }
               dotColor={DOT.navy3}
+              sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
             />
           </div>
 

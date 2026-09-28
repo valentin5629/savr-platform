@@ -176,6 +176,38 @@ describe('Informations personnelles — chargement en échec', () => {
   );
 });
 
+describe('Suppression de compte — absente du profil staff', () => {
+  it(
+    'masquée avec avecSuppression={false}, présente par défaut',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve(
+            reponse(200, { data: { prenom: 'A', nom: 'B', telephone: null } }),
+          ),
+        ),
+      );
+      const { unmount } = render(<RgpdComptePanel avecSuppression={false} />);
+      await screen.findByDisplayValue('A', {}, ATTENTE_UI);
+      expect(
+        screen.queryByRole('button', {
+          name: 'Demander la suppression de mon compte',
+        }),
+      ).toBeNull();
+      unmount();
+      render(<RgpdComptePanel />);
+      await screen.findByDisplayValue('A', {}, ATTENTE_UI);
+      expect(
+        screen.getByRole('button', {
+          name: 'Demander la suppression de mon compte',
+        }),
+      ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('Navigation — accès à ses informations pour tous les rôles', () => {
   it.each([
     ['client_organisateur', '/organisateur/mon-organisation'],

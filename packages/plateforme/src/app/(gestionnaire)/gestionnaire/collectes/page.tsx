@@ -7,6 +7,7 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
+  CelluleVide,
   DataGrid,
   type ColumnDef,
   type SortingState,
@@ -33,8 +34,6 @@ interface CollecteRow {
   evenement_nom: string | null;
   lieu_nom: string | null;
 }
-
-const Vide = () => <span className="text-savr-neutral-400">—</span>;
 
 // Un seul squelette pour les deux moments de chargement de l'écran : le fallback
 // du Suspense (résolution de useSearchParams) et l'attente de la réponse.
@@ -266,20 +265,18 @@ function GestionnaireCollectesContent() {
             {libelleDateHeure(c.date_collecte, c.heure_collecte ?? null)}
           </span>
         ) : (
-          <Vide />
+          <CelluleVide />
         ),
     },
     {
       id: 'lieu',
       header: 'Lieu',
-      enableSorting: false,
-      cell: ({ row: { original: c } }) => c.lieu_nom ?? <Vide />,
+      cell: ({ row: { original: c } }) => c.lieu_nom ?? <CelluleVide />,
     },
     {
       id: 'evenement',
       header: 'Événement',
-      enableSorting: false,
-      cell: ({ row: { original: c } }) => c.evenement_nom ?? <Vide />,
+      cell: ({ row: { original: c } }) => c.evenement_nom ?? <CelluleVide />,
     },
     {
       id: 'type',

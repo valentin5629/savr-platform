@@ -14,7 +14,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { formatDateParis, jourParis } from '@savr/shared/src/temps/index.js';
 
 interface TarifPackAG {
   id: string;
@@ -48,9 +48,6 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPES_PACK = ['unitaire', 'pack_10', 'pack_30', 'pack_60'] as const;
-
-const dateFr = (iso: string): string =>
-  new Date(iso).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
 
 const eurosHt = (v: number): string =>
   `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`;
@@ -90,7 +87,7 @@ const COLONNES_HISTORIQUE: ColumnDef<TarifHistoryRow, unknown>[] = [
     accessorFn: (r) => r.valide_du,
     meta: { className: 'whitespace-nowrap' },
     cell: ({ row: { original: r } }) =>
-      `${dateFr(r.valide_du)}${r.valide_jusqu_au ? ` → ${dateFr(r.valide_jusqu_au)}` : ' → …'}`,
+      `${formatDateParis(r.valide_du)}${r.valide_jusqu_au ? ` → ${formatDateParis(r.valide_jusqu_au)}` : ' → …'}`,
   },
   {
     id: 'modifie_par',
@@ -103,7 +100,7 @@ const COLONNES_HISTORIQUE: ColumnDef<TarifHistoryRow, unknown>[] = [
     header: 'Date modif',
     accessorFn: (r) => r.date_modif,
     meta: { className: 'whitespace-nowrap' },
-    cell: ({ row: { original: r } }) => dateFr(r.date_modif),
+    cell: ({ row: { original: r } }) => formatDateParis(r.date_modif),
   },
 ];
 

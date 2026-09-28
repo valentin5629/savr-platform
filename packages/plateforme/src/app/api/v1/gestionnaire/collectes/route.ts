@@ -6,6 +6,7 @@ import {
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire.js';
+import { lireTri } from '@/lib/tri-liste.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
 const TRIS = {
@@ -94,11 +95,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // `page` sous la première (0, -3, « abc ») retombe sur 1 plutôt que de produire
   // un range négatif. Le dépassement par le HAUT ne se borne pas ici — le total
   // n'est pas encore connu — il est rattrapé après la requête (voir plus bas).
-  const triParam = sp.get('tri') ?? '';
-  const tri = Object.hasOwn(TRIS, triParam)
-    ? TRIS[triParam as keyof typeof TRIS]
-    : TRIS.date;
-  const ascendant = sp.get('ordre') === 'asc';
+  const tri = lireTri(sp, TRIS, { tri: 'date', ascendant: false });
   const pageParam = Number.parseInt(sp.get('page') ?? '1', 10);
   const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
   const offset = (page - 1) * PAGE_SIZE;
@@ -128,8 +125,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // seule n'est pas unique (plusieurs collectes le même jour) : sans départage,
     // deux pages successives peuvent réordonner les ex æquo et faire disparaître
     // une ligne d'une page à l'autre. `id` fige l'ordre.
-    for (const col of tri) q = q.order(col, { ascending: ascendant });
-    q = q.order('id', { ascending: ascendant });
+    for (const c of tri.colonnes) q = q.order(c, { ascending: tri.ascendant });
+    q = q.order('id', { ascending: tri.ascendant });
 
     if (type) q = q.eq('type', type);
     if (statut) q = q.eq('statut', statut);

@@ -1,48 +1,65 @@
 /**
- * Tri serveur des listes paginées (lib/tri-liste) : la colonne demandée part
- * dans `.order()`, elle ne passe QUE si elle est en liste blanche.
+ * Tri serveur des listes paginées (lib/tri-liste) : seules les colonnes SQL de
+ * la liste blanche de la route partent dans `.order()` ; une clé `tri` hors
+ * liste blanche retombe sur le tri par défaut.
  */
 import { describe, it, expect } from 'vitest';
 import { lireTri } from '@/lib/tri-liste';
 
-const COLONNES = ['nom', 'ville'] as const;
-const DEFAUT = { colonne: 'nom', ascendant: true };
+const TRIS = { nom: ['nom'], ville: ['ville', 'nom'] };
+const DEFAUT = { tri: 'nom', ascendant: true } as const;
 const sp = (qs: string) => new URLSearchParams(qs);
 
 describe('lireTri', () => {
   it('sans paramètre → tri par défaut', () => {
-    expect(lireTri(sp(''), COLONNES, DEFAUT)).toEqual(DEFAUT);
-  });
-
-  it('colonne en liste blanche + ordre explicite', () => {
-    expect(lireTri(sp('tri=ville&ordre=desc'), COLONNES, DEFAUT)).toEqual({
-      colonne: 'ville',
+    expect(lireTri(sp(''), TRIS, DEFAUT)).toEqual({
+      colonnes: ['nom'],
+      ascendant: true,
+    });
+    expect(lireTri(sp(''), TRIS, { tri: 'ville', ascendant: false })).toEqual({
+      colonnes: ['ville', 'nom'],
       ascendant: false,
     });
-    expect(lireTri(sp('tri=ville&ordre=asc'), COLONNES, DEFAUT)).toEqual({
-      colonne: 'ville',
+  });
+
+  it('clé en liste blanche + ordre explicite → ses colonnes, dans l’ordre', () => {
+    expect(lireTri(sp('tri=ville&ordre=desc'), TRIS, DEFAUT)).toEqual({
+      colonnes: ['ville', 'nom'],
+      ascendant: false,
+    });
+    expect(lireTri(sp('tri=ville&ordre=asc'), TRIS, DEFAUT)).toEqual({
+      colonnes: ['ville', 'nom'],
       ascendant: true,
     });
   });
 
-  it('colonne hors liste blanche (injection, colonne sensible) → tri par défaut', () => {
-    for (const tri of ['siren', 'nom.desc,id', 'nom;drop', '']) {
+  it('clé en liste blanche SANS ordre → sens par défaut', () => {
+    expect(
+      lireTri(sp('tri=ville'), TRIS, { tri: 'nom', ascendant: false }),
+    ).toEqual({ colonnes: ['ville', 'nom'], ascendant: false });
+  });
+
+  it('clé hors liste blanche (injection, colonne sensible, clé héritée) → tri par défaut', () => {
+    for (const tri of [
+      'siren',
+      'nom.desc,id',
+      'nom;drop',
+      '',
+      'toString',
+      '__proto__',
+    ]) {
       expect(
-        lireTri(
-          sp(`tri=${encodeURIComponent(tri)}&ordre=desc`),
-          COLONNES,
-          DEFAUT,
-        ),
-      ).toEqual(DEFAUT);
+        lireTri(sp(`tri=${encodeURIComponent(tri)}&ordre=desc`), TRIS, DEFAUT),
+      ).toEqual({ colonnes: ['nom'], ascendant: true });
     }
   });
 
   it('ordre invalide → sens par défaut', () => {
     expect(
-      lireTri(sp('tri=ville&ordre=n_importe'), COLONNES, {
-        colonne: 'nom',
+      lireTri(sp('tri=ville&ordre=n_importe'), TRIS, {
+        tri: 'nom',
         ascendant: false,
       }),
-    ).toEqual({ colonne: 'ville', ascendant: false });
+    ).toEqual({ colonnes: ['ville', 'nom'], ascendant: false });
   });
 });

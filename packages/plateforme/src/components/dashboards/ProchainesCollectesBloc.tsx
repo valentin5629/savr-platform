@@ -4,7 +4,11 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
-import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+} from '@/components/ui/data-grid';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import type { ProchaineCollecte } from './blocs-types.js';
 
@@ -18,8 +22,6 @@ interface Props {
   hrefFor?: (item: ProchaineCollecte) => string | undefined;
   className?: string;
 }
-
-const TIRET = <span className="text-savr-neutral-400">—</span>;
 
 /**
  * Bloc 5 — Prochaines collectes programmées (fenêtre 30 j à venir).
@@ -39,7 +41,7 @@ export function ProchainesCollectesBloc({
       id: 'traiteur',
       header: 'Traiteur',
       accessorFn: (c) => c.traiteur_nom ?? '',
-      cell: ({ row: { original: c } }) => c.traiteur_nom ?? TIRET,
+      cell: ({ row: { original: c } }) => c.traiteur_nom ?? <CelluleVide />,
     };
     return [
       {
@@ -62,7 +64,7 @@ export function ProchainesCollectesBloc({
         meta: { interactive: true },
         cell: ({ row: { original: c } }) => {
           const href = hrefFor?.(c);
-          if (!c.evenement_nom) return TIRET;
+          if (!c.evenement_nom) return <CelluleVide />;
           return href ? (
             <a
               href={href}
@@ -79,7 +81,7 @@ export function ProchainesCollectesBloc({
         id: 'lieu',
         header: 'Lieu',
         accessorFn: (c) => c.lieu_nom ?? '',
-        cell: ({ row: { original: c } }) => c.lieu_nom ?? TIRET,
+        cell: ({ row: { original: c } }) => c.lieu_nom ?? <CelluleVide />,
       },
       ...(showTraiteur ? [traiteur] : []),
       {

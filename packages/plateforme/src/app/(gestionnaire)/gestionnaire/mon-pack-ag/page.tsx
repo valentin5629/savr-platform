@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+} from '@/components/ui/data-grid';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 
 interface PackActif {
@@ -29,8 +33,6 @@ interface PackData {
   historique_consommation: ConsommationRow[];
 }
 
-const TIRET = <span className="text-savr-neutral-400">—</span>;
-
 // Historique des collectes AG du pack — même Data Table que les listes
 // Collectes (décision Val 2026-09-28). SANS tri : la route plafonne à 50
 // lignes (`.limit(50)`), trier cet extrait ferait croire à un ordre global.
@@ -47,7 +49,7 @@ const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
           {libelleDateHeure(c.date_collecte.slice(0, 10), null)}
         </span>
       ) : (
-        TIRET
+        <CelluleVide />
       ),
   },
   {
@@ -55,14 +57,14 @@ const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
     header: 'Événement',
     enableSorting: false,
     accessorFn: (c) => c.evenement ?? '',
-    cell: ({ row: { original: c } }) => c.evenement ?? TIRET,
+    cell: ({ row: { original: c } }) => c.evenement ?? <CelluleVide />,
   },
   {
     id: 'lieu',
     header: 'Lieu',
     enableSorting: false,
     accessorFn: (c) => c.lieu ?? '',
-    cell: ({ row: { original: c } }) => c.lieu ?? TIRET,
+    cell: ({ row: { original: c } }) => c.lieu ?? <CelluleVide />,
   },
   {
     id: 'repas',
@@ -75,12 +77,11 @@ const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
   {
     id: 'associations',
     header: 'Association(s)',
-    enableSorting: false,
     cell: ({ row: { original: c } }) =>
       c.associations
         .map((a) => a.nom)
         .filter(Boolean)
-        .join(', ') || TIRET,
+        .join(', ') || <CelluleVide />,
   },
 ];
 
@@ -91,13 +92,11 @@ const COLONNES_PACKS: ColumnDef<PackActif, unknown>[] = [
   {
     id: 'reference',
     header: 'Référence',
-    enableSorting: false,
     cell: ({ row: { original: p } }) => p.reference ?? '—',
   },
   {
     id: 'collectes',
     header: 'Collectes',
-    enableSorting: false,
     meta: { className: 'tabular-nums' },
     cell: ({ row: { original: p } }) => (
       <>
@@ -109,7 +108,6 @@ const COLONNES_PACKS: ColumnDef<PackActif, unknown>[] = [
   {
     id: 'periode',
     header: 'Période',
-    enableSorting: false,
     cell: ({ row: { original: p } }) => (
       <>
         {p.date_debut ?? '—'} → {p.date_fin ?? '—'}
@@ -119,7 +117,6 @@ const COLONNES_PACKS: ColumnDef<PackActif, unknown>[] = [
   {
     id: 'statut',
     header: 'Statut',
-    enableSorting: false,
     cell: ({ row: { original: p } }) => (
       <Badge variant="neutral">{p.statut}</Badge>
     ),

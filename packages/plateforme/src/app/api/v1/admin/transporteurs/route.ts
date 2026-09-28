@@ -21,17 +21,23 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
   const offset = (page - 1) * limit;
-  const tri = lireTri(searchParams, ['nom', 'ville', 'type_tms', 'actif'], {
-    colonne: 'nom',
-    ascendant: true,
-  });
+  const tri = lireTri(
+    searchParams,
+    {
+      nom: ['nom'],
+      ville: ['ville'],
+      type_tms: ['type_tms'],
+      actif: ['actif'],
+    },
+    { tri: 'nom', ascendant: true },
+  );
 
-  let query = supabase
-    .from('transporteurs')
-    .select('*', { count: 'exact' })
-    // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
-    // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
-    .order(tri.colonne, { ascending: tri.ascendant })
+  let query = supabase.from('transporteurs').select('*', { count: 'exact' });
+  // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
+  // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
+  for (const c of tri.colonnes)
+    query = query.order(c, { ascending: tri.ascendant });
+  query = query
     .order('id', { ascending: tri.ascendant })
     .range(offset, offset + limit - 1);
 

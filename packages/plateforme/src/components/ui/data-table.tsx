@@ -12,9 +12,11 @@ import {
 // décision Val 2026-09-28 : « dès qu'il y a une liste, je la veux à ce
 // format »). Même rendu, même clavier, même carte mobile que les listes
 // Collectes ; le TRI garde exactement le comportement de chaque écran :
+// Seules les colonnes marquées `sortable: true` sont triables :
 //  - `onSort` fourni → tri piloté par l'écran (souvent serveur), inchangé ;
-//  - `clientSort` → tri dans le navigateur, à réserver aux listes COMPLÈTES
-//    (jamais sur une liste paginée : on ne trierait que la page affichée) ;
+//  - `clientSort` → tri dans le navigateur sur la valeur brute `row[key]`, à
+//    réserver aux listes COMPLÈTES (jamais sur une liste paginée : on ne
+//    trierait que la page affichée) ;
 //  - sinon → pas de tri (l'ancien rendu montrait l'icône sans réagir).
 
 export interface Column<T> {
@@ -32,12 +34,10 @@ interface DataTableProps<T> {
   onSort?: (key: string, direction: 'asc' | 'desc') => void;
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
-  /** Tri dans le navigateur sur les colonnes à valeur simple (liste complète
+  /** Tri dans le navigateur des colonnes `sortable` (liste complète
    *  uniquement). */
   clientSort?: boolean;
   className?: string;
-  /** Classe CSS appliquée par ligne (ex. surlignage criticité). */
-  rowClassName?: (row: T) => string;
   /** Rend chaque ligne cliquable (navigation vers le détail). */
   onRowClick?: (row: T) => void;
 }
@@ -56,28 +56,9 @@ function DataTable<T>({
   sortDirection,
   clientSort = false,
   className,
-  rowClassName,
   onRowClick,
 }: DataTableProps<T>) {
-  // Colonnes triables en mode client : celles dont la valeur est simple
-  // (texte, nombre, booléen) — une colonne d'actions ou d'objet n'a pas
-  // d'ordre naturel.
-  const triables = React.useMemo(() => {
-    if (onSort)
-      return new Set(
-        columns.filter((c) => c.sortable).map((c) => String(c.key)),
-      );
-    if (!clientSort) return new Set<string>();
-    return new Set(
-      columns
-        .filter((c) =>
-          data.some((r) =>
-            ['string', 'number', 'boolean'].includes(typeof valeur(r, c.key)),
-          ),
-        )
-        .map((c) => String(c.key)),
-    );
-  }, [columns, data, onSort, clientSort]);
+  const tri = Boolean(onSort) || clientSort;
 
   const defs = React.useMemo<ColumnDef<T, unknown>[]>(
     () =>
@@ -88,13 +69,13 @@ function DataTable<T>({
           const v = valeur(row, col.key);
           return v == null ? '' : v;
         },
-        enableSorting: triables.has(String(col.key)),
+        enableSorting: tri && col.sortable === true,
         cell: ({ row }) =>
           col.render
             ? col.render(row.original)
             : String(valeur(row.original, col.key) ?? ''),
       })),
-    [columns, triables],
+    [columns, tri],
   );
 
   const sorting: SortingState | undefined =
@@ -109,7 +90,6 @@ function DataTable<T>({
       getRowId={keyExtractor}
       loading={loading}
       className={className}
-      rowClassName={rowClassName}
       onRowClick={onRowClick}
       {...(onSort
         ? {

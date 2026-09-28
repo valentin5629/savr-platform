@@ -15,6 +15,7 @@ import {
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
+import { CelluleVide } from '@/components/ui/data-grid';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
 // revue écran 2026-07-15, passage en Data Table 2026-09-28 — décisions Val).
@@ -58,8 +59,6 @@ export interface ActionsTraiteur {
   onTelecharger: (c: TraiteurCollecteLigne) => void;
 }
 
-const TIRET = <span className="text-savr-neutral-400">—</span>;
-
 // « Réalisée » (vue client) = statut cloturee : résultats + rapport.
 function Resultats({
   c,
@@ -68,7 +67,7 @@ function Resultats({
   c: TraiteurCollecteLigne;
   onTelecharger: () => void;
 }) {
-  if (c.statut !== 'cloturee') return TIRET;
+  if (c.statut !== 'cloturee') return <CelluleVide />;
   const zd = c.type === 'zero_dechet';
   return (
     <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs font-bold text-savr-neutral-600 sm:justify-start">
@@ -163,7 +162,7 @@ export function colonnesCollectesTraiteur(
             )}
           </div>
         ) : (
-          TIRET
+          <CelluleVide />
         ),
     },
     {
@@ -172,12 +171,11 @@ export function colonnesCollectesTraiteur(
       accessorFn: (c) => c.pax ?? -1,
       meta: { className: 'text-right tabular-nums' },
       cell: ({ row: { original: c } }) =>
-        c.pax != null ? `${c.pax} pax` : TIRET,
+        c.pax != null ? `${c.pax} pax` : <CelluleVide />,
     },
     {
       id: 'resultats',
       header: 'Résultats',
-      enableSorting: false,
       meta: { interactive: true },
       cell: ({ row: { original: c } }) => (
         <Resultats c={c} onTelecharger={() => actions.onTelecharger(c)} />
@@ -194,7 +192,6 @@ export function colonnesCollectesTraiteur(
     {
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
-      enableSorting: false,
       enableHiding: false,
       meta: {
         label: 'Actions',

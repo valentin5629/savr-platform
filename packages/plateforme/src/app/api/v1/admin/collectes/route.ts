@@ -9,6 +9,7 @@ import {
 } from '@/lib/collectes-chips.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { lireTri } from '@/lib/tri-liste.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
 const TRIS = {
@@ -59,11 +60,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   // page chargée donnerait un ordre faux sur l'ensemble. Défaut inchangé
   // (date décroissante) ; `id` départage les ex æquo pour que deux pages
   // successives ne réordonnent pas une même ligne.
-  const triParam = searchParams.get('tri') ?? '';
-  const tri = Object.hasOwn(TRIS, triParam)
-    ? TRIS[triParam as keyof typeof TRIS]
-    : TRIS.date;
-  const ascendant = searchParams.get('ordre') === 'asc';
+  const tri = lireTri(searchParams, TRIS, { tri: 'date', ascendant: false });
 
   // Embed rapports_rse : inner + filtrable quand on filtre « rapport non consulté »
   // (sinon left embed pour l'indicateur d'icône rapport de la liste).
@@ -90,8 +87,9 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
        )`,
     { count: 'exact' },
   );
-  for (const col of tri) query = query.order(col, { ascending: ascendant });
-  query = query.order('id', { ascending: ascendant });
+  for (const c of tri.colonnes)
+    query = query.order(c, { ascending: tri.ascendant });
+  query = query.order('id', { ascending: tri.ascendant });
 
   // Chips prédéfinis (§06.06 §3) — prédicats partagés avec /chip-counts.
   if (chip && isChipKey(chip)) {

@@ -15,6 +15,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LieuModal } from '@/components/admin/lieu-modal';
+import { CelluleVide } from '@/components/ui/data-grid';
 
 interface Lieu {
   id: string;
@@ -51,10 +52,8 @@ const VEHICULE_LABEL: Record<string, string> = {
   poids_lourd: 'Poids lourd',
 };
 
-const Vide = () => <span className="text-savr-neutral-400">—</span>;
-
 function DifficulteCell({ value }: { value: string | null }) {
-  if (!value) return <Vide />;
+  if (!value) return <CelluleVide />;
   return (
     <Badge variant={DIFFICULTE_VARIANT[value] ?? 'neutral'} dot={false}>
       {DIFFICULTE_LABEL[value] ?? value}
@@ -181,12 +180,12 @@ export default function LieuxPage() {
       key: 'ville',
       sortable: true,
       header: 'Ville',
-      render: (row) => row.ville || <Vide />,
+      render: (row) => row.ville || <CelluleVide />,
     },
     {
       key: 'gestionnaire_nom',
       header: 'Gestionnaire',
-      render: (row) => row.gestionnaire_nom ?? <Vide />,
+      render: (row) => row.gestionnaire_nom ?? <CelluleVide />,
     },
     {
       key: 'acces_office',
@@ -210,7 +209,7 @@ export default function LieuxPage() {
             {VEHICULE_LABEL[row.type_vehicule_max] ?? row.type_vehicule_max}
           </Badge>
         ) : (
-          <Vide />
+          <CelluleVide />
         ),
     },
     {
@@ -218,7 +217,11 @@ export default function LieuxPage() {
       sortable: true,
       header: 'Capacité max',
       render: (row) =>
-        row.capacite_maximum != null ? String(row.capacite_maximum) : <Vide />,
+        row.capacite_maximum != null ? (
+          String(row.capacite_maximum)
+        ) : (
+          <CelluleVide />
+        ),
     },
     {
       key: 'controle_acces_requis_default',
@@ -228,7 +231,7 @@ export default function LieuxPage() {
         row.controle_acces_requis_default ? (
           <Badge variant="warning">Requis</Badge>
         ) : (
-          <Vide />
+          <CelluleVide />
         ),
     },
     {

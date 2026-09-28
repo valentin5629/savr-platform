@@ -47,7 +47,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { formatDateParis, jourParis } from '@savr/shared/src/temps/index.js';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
 // OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
@@ -134,7 +134,6 @@ export function OngletCollectes({
     {
       id: 'evenement',
       header: 'Événement',
-      enableSorting: false,
       cell: ({ row: { original: row } }) => (
         <span className="font-medium text-savr-primary-700">
           {row.evenements?.nom_evenement ?? '—'}
@@ -144,7 +143,6 @@ export function OngletCollectes({
     {
       id: 'lieu',
       header: 'Lieu',
-      enableSorting: false,
       cell: ({ row: { original: row } }) => {
         const l = row.evenements?.lieux;
         if (!l) return '—';
@@ -154,7 +152,6 @@ export function OngletCollectes({
     {
       id: 'pax',
       header: 'Pax',
-      enableSorting: false,
       meta: { className: 'text-right tabular-nums' },
       cell: ({ row: { original: row } }) => row.evenements?.pax ?? '—',
     },
@@ -644,9 +641,6 @@ type CoefModal =
   | { mode: 'editer'; coef: Coefficient }
   | null;
 
-const dateFr = (iso: string): string =>
-  new Date(iso).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
-
 const nomAuteur = (u: { prenom: string; nom: string } | null): string =>
   u ? `${u.prenom} ${u.nom}` : '—';
 
@@ -699,14 +693,13 @@ function colonnesCoefficients(
       header: 'Saisi le',
       accessorFn: (c) => c.saisi_le,
       meta: { className: 'text-savr-neutral-500' },
-      cell: ({ row: { original: c } }) => dateFr(c.saisi_le),
+      cell: ({ row: { original: c } }) => formatDateParis(c.saisi_le),
     },
   ];
   if (canEdit) {
     colonnes.push({
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
-      enableSorting: false,
       enableHiding: false,
       meta: { label: 'Actions', interactive: true, className: 'text-right' },
       cell: ({ row: { original: c } }) => (
@@ -1119,7 +1112,7 @@ export function OngletRemises({
       header: 'Valide du',
       accessorFn: (r) => r.valide_du,
       meta: { className: 'text-savr-neutral-500' },
-      cell: ({ row: { original: r } }) => dateFr(r.valide_du),
+      cell: ({ row: { original: r } }) => formatDateParis(r.valide_du),
     },
     {
       id: 'valide_jusqu_au',
@@ -1129,7 +1122,7 @@ export function OngletRemises({
       meta: { className: 'text-savr-neutral-500' },
       cell: ({ row: { original: r } }) =>
         r.valide_jusqu_au ? (
-          dateFr(r.valide_jusqu_au)
+          formatDateParis(r.valide_jusqu_au)
         ) : (
           <Badge variant="success" className="text-xs">
             Active
@@ -1156,7 +1149,6 @@ export function OngletRemises({
     colonnesRemises.push({
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
-      enableSorting: false,
       enableHiding: false,
       meta: { label: 'Actions', interactive: true, className: 'text-right' },
       cell: ({ row: { original: r } }) =>
@@ -1405,7 +1397,7 @@ const COLONNES_AJUSTEMENTS: ColumnDef<PackAudit, unknown>[] = [
     header: 'Date',
     accessorFn: (a) => a.created_at,
     meta: { className: 'text-savr-neutral-500' },
-    cell: ({ row: { original: a } }) => dateFr(a.created_at),
+    cell: ({ row: { original: a } }) => formatDateParis(a.created_at),
   },
   {
     id: 'action',
@@ -1416,7 +1408,6 @@ const COLONNES_AJUSTEMENTS: ColumnDef<PackAudit, unknown>[] = [
   {
     id: 'credits',
     header: 'Crédits',
-    enableSorting: false,
     meta: { className: 'font-medium' },
     cell: ({ row: { original: a } }) => creditsAvantApres(a),
   },

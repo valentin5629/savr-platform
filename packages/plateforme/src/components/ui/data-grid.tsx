@@ -141,7 +141,7 @@ function DataGrid<T>({
   const table = useReactTable({
     data,
     columns,
-    getRowId: (row) => getRowId(row),
+    getRowId,
     state: { sorting, columnVisibility },
     onSortingChange: onSortingChange ?? setSortingLocal,
     onColumnVisibilityChange: setColumnVisibility,
@@ -363,5 +363,10 @@ function DataGrid<T>({
   );
 }
 
-export { DataGrid };
+// Cellule vide commune à toutes les listes : « — » atténué.
+function CelluleVide() {
+  return <span className="text-savr-neutral-400">—</span>;
+}
+
+export { CelluleVide, DataGrid };
 export type { ColumnDef, SortingState } from '@tanstack/react-table';

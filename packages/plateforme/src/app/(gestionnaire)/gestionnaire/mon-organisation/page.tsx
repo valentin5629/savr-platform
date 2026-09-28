@@ -203,7 +203,6 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
   {
     id: 'pdf',
     header: 'PDF',
-    enableSorting: false,
     meta: { interactive: true },
     cell: ({ row: { original: f } }) => {
       // §06.04 §6 fiche facture : Pennylane si dispo, sinon Savr.
@@ -342,7 +341,6 @@ export default function MonOrganisationPage() {
     {
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
-      enableSorting: false,
       meta: { label: 'Actions', interactive: true },
       cell: ({ row: { original: u } }) =>
         u.actif && (

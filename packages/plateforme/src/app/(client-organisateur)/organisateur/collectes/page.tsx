@@ -5,7 +5,11 @@ import { Download, Truck } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
-import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+} from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
@@ -42,8 +46,6 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-const TIRET = <span className="text-savr-neutral-400">—</span>;
-
 // Colonnes de la Data Table (tri côté client : la route n'est pas paginée).
 // La colonne résultat dépend de l'onglet : taux de recyclage ZD, repas AG.
 function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
@@ -64,7 +66,7 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
       header: 'Événement',
       accessorFn: (c) => one(c.evenements)?.nom_evenement ?? '',
       cell: ({ row: { original: c } }) =>
-        one(c.evenements)?.nom_evenement ?? TIRET,
+        one(c.evenements)?.nom_evenement ?? <CelluleVide />,
     },
     {
       id: 'lieu',
@@ -72,7 +74,7 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
       accessorFn: (c) => one(one(c.evenements)?.lieux ?? null)?.nom ?? '',
       cell: ({ row: { original: c } }) => {
         const lieu = one(one(c.evenements)?.lieux ?? null);
-        if (!lieu) return TIRET;
+        if (!lieu) return <CelluleVide />;
         return (
           <div className="min-w-0">
             <div className="font-medium">{lieu.nom}</div>
@@ -87,14 +89,15 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
       id: 'traiteur',
       header: 'Traiteur',
       accessorFn: (c) => c.traiteur_nom ?? '',
-      cell: ({ row: { original: c } }) => c.traiteur_nom ?? TIRET,
+      cell: ({ row: { original: c } }) => c.traiteur_nom ?? <CelluleVide />,
     },
     {
       id: 'pax',
       header: 'Pax',
       accessorFn: (c) => one(c.evenements)?.pax ?? -1,
       meta: { className: 'text-right tabular-nums' },
-      cell: ({ row: { original: c } }) => one(c.evenements)?.pax ?? TIRET,
+      cell: ({ row: { original: c } }) =>
+        one(c.evenements)?.pax ?? <CelluleVide />,
     },
     isZd
       ? {
@@ -103,16 +106,18 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
           accessorFn: (c) => c.taux_recyclage ?? -1,
           meta: { className: 'text-right tabular-nums' },
           cell: ({ row: { original: c } }) =>
-            c.taux_recyclage != null
-              ? `${c.taux_recyclage.toFixed(1)} %`
-              : TIRET,
+            c.taux_recyclage != null ? (
+              `${c.taux_recyclage.toFixed(1)} %`
+            ) : (
+              <CelluleVide />
+            ),
         }
       : {
           id: 'repas',
           header: 'Repas',
           accessorFn: (c) => c.repas_donnes ?? -1,
           meta: { className: 'text-right tabular-nums' },
-          cell: ({ row: { original: c } }) => c.repas_donnes ?? TIRET,
+          cell: ({ row: { original: c } }) => c.repas_donnes ?? <CelluleVide />,
         },
     {
       id: 'statut',

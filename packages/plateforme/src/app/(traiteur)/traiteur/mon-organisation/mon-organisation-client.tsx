@@ -378,7 +378,6 @@ function EntitesCard({
           {
             id: 'actions',
             header: () => <span className="sr-only">Actions</span>,
-            enableSorting: false,
             meta: { label: 'Actions', interactive: true },
             cell: ({ row: { original: e } }) =>
               !e.entite_par_defaut && (
@@ -723,7 +722,6 @@ function EquipeTab({ userId }: { userId: string }) {
     {
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
-      enableSorting: false,
       meta: { label: 'Actions', interactive: true },
       cell: ({ row: { original: u } }) =>
         u.actif && (
@@ -967,7 +965,6 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
   {
     id: 'pdf',
     header: 'PDF',
-    enableSorting: false,
     meta: { interactive: true },
     cell: ({ row: { original: f } }) => {
       const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;

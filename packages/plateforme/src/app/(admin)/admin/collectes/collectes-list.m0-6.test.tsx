@@ -1,7 +1,8 @@
 /**
- * M0.6 — Liste collectes Admin (BL-P1-BOA-05) — refonte UI en cartes.
- * La liste rend désormais des cartes groupées par semaine (plus de tableau) :
- * - contenu carte (traiteur, lieu, client organisateur, adresse, transporteur),
+ * M0.6 — Liste collectes Admin (BL-P1-BOA-05).
+ * La liste est une Data Table plate (DataGrid, décision Val 2026-09-28) : une
+ * ligne par collecte, tri serveur par en-tête, actions dans le menu « ⋯ » :
+ * - contenu ligne (traiteur, lieu, client organisateur, adresse, transporteur),
  * - segment Programmées / Historique (preset du filtre `statuts`),
  * - tuiles KPI « à dispatcher », chips + compteurs, recherche client, filtres
  *   avancés (traiteur / lieu → filtrage serveur), indicateurs Historique

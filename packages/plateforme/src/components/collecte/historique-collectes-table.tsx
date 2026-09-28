@@ -2,7 +2,11 @@
 
 import { useMemo } from 'react';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
-import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+} from '@/components/ui/data-grid';
 import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 
@@ -13,8 +17,6 @@ export interface HistoriqueCollecte {
   date_collecte: string | null;
   lieu_nom?: string | null;
 }
-
-const TIRET = <span className="text-savr-neutral-400">—</span>;
 
 // Historique des collectes d'une fiche (lieu, traiteur) — même Data Table que
 // les listes Collectes (décision Val 2026-09-28). Liste courte déjà complète
@@ -32,7 +34,7 @@ export function HistoriqueCollectesTable({
       id: 'lieu',
       header: 'Lieu',
       accessorFn: (c) => c.lieu_nom ?? '',
-      cell: ({ row: { original: c } }) => c.lieu_nom ?? TIRET,
+      cell: ({ row: { original: c } }) => c.lieu_nom ?? <CelluleVide />,
     };
     return [
       {
@@ -46,7 +48,7 @@ export function HistoriqueCollectesTable({
               {libelleDateHeure(c.date_collecte.slice(0, 10), null)}
             </span>
           ) : (
-            TIRET
+            <CelluleVide />
           ),
       },
       ...(showLieu ? [lieu] : []),

@@ -34,10 +34,10 @@ import { Pagination } from '@/components/ui/pagination';
 import {
   colonnesCollectesAdmin,
   estUrgente,
-  formatDateHeure,
   urgentesEnTete,
   type CollecteRow,
 } from '@/components/admin/collectes-table';
+import { formatDateHeure } from '@/lib/format-date-collecte';
 import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
 import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
 

@@ -30,16 +30,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const offset = (page - 1) * limit;
   const tri = lireTri(
     searchParams,
-    ['nom', 'ville', 'capacite_max_beneficiaires'],
-    { colonne: 'nom', ascendant: true },
+    {
+      nom: ['nom'],
+      ville: ['ville'],
+      capacite_max_beneficiaires: ['capacite_max_beneficiaires'],
+    },
+    { tri: 'nom', ascendant: true },
   );
 
-  let query = supabase
-    .from('associations')
-    .select('*', { count: 'exact' })
-    // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
-    // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
-    .order(tri.colonne, { ascending: tri.ascendant })
+  let query = supabase.from('associations').select('*', { count: 'exact' });
+  // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
+  // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
+  for (const c of tri.colonnes)
+    query = query.order(c, { ascending: tri.ascendant });
+  query = query
     .order('id', { ascending: tri.ascendant })
     .range(offset, offset + limit - 1);
 

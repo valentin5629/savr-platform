@@ -247,7 +247,6 @@ function RegistreContent() {
     {
       id: 'flux',
       header: 'Flux',
-      enableSorting: false,
       cell: ({ row: { original: r } }) => (
         <div className="flex flex-wrap gap-1">
           {(r.flux_codes ?? []).map((c) => (
@@ -275,7 +274,6 @@ function RegistreContent() {
     {
       id: 'bordereau',
       header: 'Bordereau',
-      enableSorting: false,
       meta: { interactive: true },
       cell: ({ row: { original: r } }) =>
         r.bordereau_id && bordereauDispo(r.bordereau_statut) ? (

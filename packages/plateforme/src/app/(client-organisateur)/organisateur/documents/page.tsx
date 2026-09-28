@@ -90,7 +90,6 @@ export default function ClientOrganisateurDocumentsPage() {
     {
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
-      enableSorting: false,
       meta: { label: 'Actions', interactive: true, className: 'text-right' },
       cell: ({ row: { original: d } }) => (
         <Button

@@ -20,32 +20,27 @@ const COLONNES: ColumnDef<FactureAgence, unknown>[] = [
   {
     id: 'numero',
     header: 'Numéro',
-    enableSorting: false,
     cell: ({ row: { original: f } }) => f.numero_facture ?? '—',
   },
   {
     id: 'emission',
     header: 'Émission',
-    enableSorting: false,
     cell: ({ row: { original: f } }) => f.date_emission ?? '—',
   },
   {
     id: 'echeance',
     header: 'Échéance',
-    enableSorting: false,
     cell: ({ row: { original: f } }) => f.date_echeance ?? '—',
   },
   {
     id: 'montant',
     header: 'Montant TTC',
-    enableSorting: false,
     meta: { className: 'tabular-nums' },
     cell: ({ row: { original: f } }) => `${f.montant_ttc ?? '—'} €`,
   },
   {
     id: 'statut',
     header: 'Statut',
-    enableSorting: false,
     cell: ({ row: { original: f } }) => (
       <Badge variant="neutral">{f.statut}</Badge>
     ),

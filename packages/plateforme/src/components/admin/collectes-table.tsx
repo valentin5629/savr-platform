@@ -27,13 +27,12 @@ import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import { cn } from '@/lib/utils';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { formatDateHeure, heureOuMinuit } from '@/lib/format-date-collecte';
-
-export { formatDateHeure };
+import { CelluleVide } from '@/components/ui/data-grid';
 
 // ── Type de ligne collecte de la liste Admin (§06.06 §3) ──────────────────────
 // Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
 // optionnels → la ligne se rend même si la route ne les câble pas encore.
-export interface RapportRse {
+interface RapportRse {
   disponible_a: string | null;
   genere_at: string | null;
   regenere_at: string | null;
@@ -90,12 +89,12 @@ export const STATUTS_TERMINAUX = new Set([
   'rejetee_par_prestataire',
 ]);
 
-export function estTerminale(row: CollecteRow): boolean {
+function estTerminale(row: CollecteRow): boolean {
   return STATUTS_TERMINAUX.has(row.statut);
 }
 
 // Collecte AG « à attribuer » : programmée et sans attribution (≈ « Créée »).
-export function aAttribuer(row: CollecteRow): boolean {
+function aAttribuer(row: CollecteRow): boolean {
   return (
     row.type === 'anti_gaspi' &&
     row.statut === 'programmee' &&
@@ -108,7 +107,7 @@ export function aAttribuer(row: CollecteRow): boolean {
 // lib/collectes-chips → non_transmises_zd) : statut_tms 'non_envoye' ET statut
 // dans (programmee, validee). Pas d'attribution manuelle ZD (CDC §06.06 l.231)
 // → l'action ouvre la fiche (Bloc 0 « Envoyer à MTS-1 »).
-export function aDispatcherZd(row: CollecteRow): boolean {
+function aDispatcherZd(row: CollecteRow): boolean {
   return (
     row.type === 'zero_dechet' &&
     row.statut_tms === 'non_envoye' &&
@@ -143,7 +142,7 @@ function poidsTotalZd(row: CollecteRow): number {
 //   ZD  → montant HT facturé (factures_collectes) quand la facture existe ;
 //   AG  → prix du pack ramené à la collecte = packs_antgaspi.prix_unitaire_ht.
 // Retourne null si non déterminable (ZD non encore facturée) → affiché « — ».
-export function montantCollecte(row: CollecteRow): number | null {
+function montantCollecte(row: CollecteRow): number | null {
   // Priorité au montant résolu côté route (source unique : pack actif / facture).
   if (row.montant_ht != null) return row.montant_ht;
   if (row.type === 'anti_gaspi') {
@@ -230,15 +229,13 @@ function IndicateursAVenir({ row }: { row: CollecteRow }) {
       </Badge>
     ),
   ].filter(Boolean);
-  if (badges.length === 0) return TIRET;
+  if (badges.length === 0) return <CelluleVide />;
   return (
     <div className="flex flex-wrap justify-end gap-1.5 sm:justify-start">
       {badges}
     </div>
   );
 }
-
-const TIRET = <span className="text-savr-neutral-400">—</span>;
 
 // ── Colonnes de la Data Table Collectes Admin (§06.06 §3 « Colonnes par
 // ligne »). L'`id` des colonnes triables = valeur du paramètre API `tri`
@@ -283,7 +280,6 @@ export function colonnesCollectesAdmin({
     {
       id: 'traiteur',
       header: 'Traiteur',
-      enableSorting: false,
       cell: ({ row: { original: r } }) => (
         <span className="whitespace-nowrap font-bold text-savr-neutral-900">
           {r.evenements.organisations.raison_sociale}
@@ -293,7 +289,6 @@ export function colonnesCollectesAdmin({
     {
       id: 'lieu',
       header: 'Lieu',
-      enableSorting: false,
       cell: ({ row: { original: r } }) => {
         const l = r.evenements.lieux;
         const adresse = [
@@ -349,30 +344,25 @@ export function colonnesCollectesAdmin({
     {
       id: 'pax',
       header: 'Pax',
-      enableSorting: false,
       meta: { className: 'text-right tabular-nums' },
-      cell: ({ row: { original: r } }) => r.evenements.pax ?? TIRET,
+      cell: ({ row: { original: r } }) => r.evenements.pax ?? <CelluleVide />,
     },
     {
       id: 'client',
       header: 'Client organisateur',
-      enableSorting: false,
       meta: { hideOnMobile: true },
       cell: ({ row: { original: r } }) =>
         r.evenements.client_organisateur?.raison_sociale ??
-        r.evenements.nom_client_organisateur ??
-        TIRET,
+        r.evenements.nom_client_organisateur ?? <CelluleVide />,
     },
     {
       id: 'transporteur',
       header: 'Transporteur',
-      enableSorting: false,
-      cell: ({ row: { original: r } }) => r.transporteur_nom ?? TIRET,
+      cell: ({ row: { original: r } }) => r.transporteur_nom ?? <CelluleVide />,
     },
     {
       id: 'controle_acces',
       header: 'Accès',
-      enableSorting: false,
       meta: { label: 'Contrôle d’accès', hideOnMobile: true },
       cell: ({ row: { original: r } }) =>
         r.controle_acces_requis ? (
@@ -390,7 +380,6 @@ export function colonnesCollectesAdmin({
     {
       id: 'indicateurs',
       header: 'Indicateurs',
-      enableSorting: false,
       cell: ({ row: { original: r } }) =>
         estTerminale(r) ? (
           <IndicateursHistorique row={r} />
@@ -401,7 +390,6 @@ export function colonnesCollectesAdmin({
     {
       id: 'montant',
       header: 'Montant',
-      enableSorting: false,
       meta: { className: 'text-right' },
       cell: ({ row: { original: r } }) => {
         const m = montantCollecte(r);
@@ -410,14 +398,13 @@ export function colonnesCollectesAdmin({
             {formatEuro(m, r.type)}
           </span>
         ) : (
-          TIRET
+          <CelluleVide />
         );
       },
     },
     {
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
-      enableSorting: false,
       enableHiding: false,
       meta: {
         label: 'Actions',

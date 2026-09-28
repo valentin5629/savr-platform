@@ -26,22 +26,20 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const offset = (page - 1) * limit;
   const tri = lireTri(
     url.searchParams,
-    [
-      'numero_facture',
-      'type',
-      'montant_ht',
-      'montant_ttc',
-      'created_at',
-      'date_emission',
-      'statut',
-    ],
-    { colonne: 'created_at', ascendant: false },
+    {
+      numero_facture: ['numero_facture'],
+      type: ['type'],
+      montant_ht: ['montant_ht'],
+      montant_ttc: ['montant_ttc'],
+      created_at: ['created_at'],
+      date_emission: ['date_emission'],
+      statut: ['statut'],
+    },
+    { tri: 'created_at', ascendant: false },
   );
 
-  let query = supabase
-    .from('factures')
-    .select(
-      `id, numero_facture, type, mode_facturation, statut, pennylane_statut,
+  let query = supabase.from('factures').select(
+    `id, numero_facture, type, mode_facturation, statut, pennylane_statut,
        montant_ht, taux_tva, montant_ttc, devise,
        date_emission, date_echeance, date_paiement,
        organisation_id, entite_facturation_id, pack_antgaspi_id,
@@ -51,11 +49,13 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
        organisations!organisation_id(raison_sociale),
        entites_facturation(raison_sociale, siret),
        factures_collectes(count)`,
-      { count: 'exact' },
-    )
-    // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
-    // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
-    .order(tri.colonne, { ascending: tri.ascendant })
+    { count: 'exact' },
+  );
+  // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
+  // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
+  for (const c of tri.colonnes)
+    query = query.order(c, { ascending: tri.ascendant });
+  query = query
     .order('id', { ascending: tri.ascendant })
     .range(offset, offset + limit - 1);
 

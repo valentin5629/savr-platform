@@ -6,7 +6,11 @@ import { ChefHat } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+} from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
 
 interface TraiteurRow {
@@ -19,8 +23,6 @@ interface TraiteurRow {
   repas_donnes_12m: number;
   lieux_intervention: { id: string; nom: string }[];
 }
-
-const Vide = () => <span className="text-savr-neutral-400">—</span>;
 
 export default function GestionnaireTraiteursPage() {
   const router = useRouter();
@@ -98,7 +100,11 @@ export default function GestionnaireTraiteursPage() {
       header: 'Tonnage ZD 12 m',
       accessorFn: (t) => t.tonnage_12m_kg,
       cell: ({ row: { original: t } }) =>
-        t.tonnage_12m_kg > 0 ? `${t.tonnage_12m_kg.toFixed(0)} kg` : <Vide />,
+        t.tonnage_12m_kg > 0 ? (
+          `${t.tonnage_12m_kg.toFixed(0)} kg`
+        ) : (
+          <CelluleVide />
+        ),
     },
     {
       id: 'taux',
@@ -109,7 +115,7 @@ export default function GestionnaireTraiteursPage() {
         t.taux_recyclage_moyen != null ? (
           `${t.taux_recyclage_moyen.toFixed(1)} %`
         ) : (
-          <Vide />
+          <CelluleVide />
         ),
     },
     {
@@ -117,12 +123,11 @@ export default function GestionnaireTraiteursPage() {
       header: 'Repas AG 12 m',
       accessorFn: (t) => t.repas_donnes_12m,
       cell: ({ row: { original: t } }) =>
-        t.repas_donnes_12m > 0 ? t.repas_donnes_12m : <Vide />,
+        t.repas_donnes_12m > 0 ? t.repas_donnes_12m : <CelluleVide />,
     },
     {
       id: 'lieux',
       header: "Lieux d'intervention",
-      enableSorting: false,
       cell: ({ row: { original: t } }) =>
         t.lieux_intervention.length > 0 ? (
           <div className="flex flex-wrap gap-1">
@@ -133,7 +138,7 @@ export default function GestionnaireTraiteursPage() {
             ))}
           </div>
         ) : (
-          <Vide />
+          <CelluleVide />
         ),
     },
   ];

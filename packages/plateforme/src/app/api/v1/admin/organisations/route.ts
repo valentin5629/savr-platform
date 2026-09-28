@@ -29,10 +29,15 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   // la seule page chargée cacherait les organisations des pages suivantes.
   // Paramètre optionnel — les autres appelants de la route sont inchangés.
   const q = sanitizeOrTerm(searchParams.get('q') ?? '').trim();
-  const tri = lireTri(searchParams, ['raison_sociale', 'type', 'actif'], {
-    colonne: 'raison_sociale',
-    ascendant: true,
-  });
+  const tri = lireTri(
+    searchParams,
+    {
+      raison_sociale: ['raison_sociale'],
+      type: ['type'],
+      actif: ['actif'],
+    },
+    { tri: 'raison_sociale', ascendant: true },
+  );
 
   // NB : PAS d'embed `evenements` ici. `evenements` a DEUX FK vers
   // `organisations` (`organisation_id` + `client_organisateur_organisation_id`)
@@ -42,16 +47,18 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   // était en plus **du code mort** (jamais lu dans le mapping ci-dessous — les
   // compteurs ZD/AG viennent de la RPC `count_collectes_par_org`). Vérifié contre
   // savr-dev : HTTP 206 + 14 organisations.
-  let query = supabase
-    .from('organisations')
-    .select(
-      `
+  let query = supabase.from('organisations').select(
+    `
       id, raison_sociale, type, siret, actif, logo_url, est_shadow, created_at,
       users:users(count)
     `,
-      { count: 'exact' },
-    )
-    .order(tri.colonne, { ascending: tri.ascendant })
+    { count: 'exact' },
+  );
+  // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
+  // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
+  for (const c of tri.colonnes)
+    query = query.order(c, { ascending: tri.ascendant });
+  query = query
     .order('id', { ascending: tri.ascendant })
     .range(offset, offset + limit - 1);
 

@@ -91,7 +91,7 @@
     {
       "id": "BL-P1-ONB-05",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:962",
-      "artefact": "packages/plateforme/src/lib/onboarding-guards.ts (requireCompletedOrganisation : gate programmation SIRET vérifié ; requireValidatedOrganisation : gate push Pennylane) + câblage des 3 sites inline dédupliqués : programmation/evenements/route.ts, programmation/evenements/[id]/confirmer/route.ts, lib/facturation/validation-admin.ts",
+      "artefact": "packages/plateforme/src/lib/onboarding-guards.ts (requireCompletedOrganisation : résout l'entité de facturation active de l'orga programmatrice, SIRET NON exigé pour programmer — décision Val 2026-09-28, _Divergences/M1.2_20260928 ; requireValidatedOrganisation : gate push Pennylane, SIRET vérifié) + câblage des 3 sites inline dédupliqués : programmation/evenements/route.ts, programmation/evenements/[id]/confirmer/route.ts, lib/facturation/validation-admin.ts",
       "test": "packages/plateforme/tests/lib/onboarding-guards.m0-4.test.ts « M0.4 — requireCompletedOrganisation / requireValidatedOrganisation (BL-P1-ONB-05) »",
       "statut": "implemented",
       "libelle": "Middlewares onboarding nommés (gate programmation + gate Pennylane factorisés)"

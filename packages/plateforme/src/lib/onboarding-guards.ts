@@ -1,22 +1,29 @@
 // Middlewares applicatifs d'onboarding (CDC §09 §5) — BL-P1-ONB-05.
-// Factorisation des gates « profil entreprise complet » qui étaient dupliqués inline
-// (risque de drift entre copies, audit onboarding #12). La règle opérationnelle de
-// complétude/validation = `siret_verification = 'verifie'` (gating facturation tranché
-// Val, §4 CLAUDE.md / §15 §2.6 l.73 ; CGV persistée au signup R6 ; TVA VIES non bloquante).
+// Factorisation des gates « profil entreprise » qui étaient dupliqués inline
+// (risque de drift entre copies, audit onboarding #12).
+//
+// SIRET NON BLOQUANT POUR PROGRAMMER (décision Val 2026-09-28, cf.
+// _Divergences/M1.2_20260928) : l'absence de SIRET vérifié ne bloque plus aucune
+// programmation de collecte. Le SIRET reste bloquant là où il protège réellement :
+// l'ÉMISSION de facture (`siret_verification = 'verifie'`, CDC §05 §8 étape 3 ;
+// requireValidatedOrganisation ci-dessous + batch facturation).
 
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
-const MESSAGE_PROFIL_INCOMPLET =
-  'Complétez votre profil entreprise (SIRET vérifié requis).';
+const MESSAGE_SANS_ENTITE =
+  "Aucune entité de facturation active pour votre organisation — contactez l'équipe Savr.";
 
-// requireCompletedOrganisation — bloque la programmation tant que l'organisation n'a
-// pas d'entité de facturation avec un SIRET vérifié (§09 §5). Renvoie un 422 prêt à
-// retourner si le profil est incomplet.
+// requireCompletedOrganisation — résout l'entité de facturation de l'organisation
+// programmatrice (evenements.entite_facturation_id est NOT NULL, règle V1
+// programmateur = facturé, §05 §8). AUCUN filtre sur siret_verification : une entité
+// « en_attente » (inscription sans SIRET) suffit à programmer. Préférence à l'entité
+// par défaut ; `limit(1)` évite l'erreur maybeSingle d'une orga à plusieurs entités.
+// Renvoie un 422 prêt à retourner si l'organisation n'a aucune entité active.
 export async function requireCompletedOrganisation(
   supabase: SupabaseClient,
   organisationId: string,
-  message: string = MESSAGE_PROFIL_INCOMPLET,
+  message: string = MESSAGE_SANS_ENTITE,
 ): Promise<
   { ok: true; entiteFacturationId: string } | { ok: false; error: NextResponse }
 > {
@@ -24,7 +31,10 @@ export async function requireCompletedOrganisation(
     .from('entites_facturation')
     .select('id')
     .eq('organisation_id', organisationId)
-    .eq('siret_verification', 'verifie')
+    .eq('actif', true)
+    .order('entite_par_defaut', { ascending: false })
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle();
 
   if (!entite) {

@@ -75,12 +75,11 @@ export async function PATCH(
     );
   }
 
-  // Gate facturation (R1) — profil entreprise complet (SIRET vérifié), §09 §5,
-  // même règle que le chemin direct.
+  // Entité de facturation de l'orga programmatrice — le SIRET n'est PAS exigé
+  // (décision Val 2026-09-28) ; il ne bloque que l'émission de facture.
   const completude = await requireCompletedOrganisation(
     supabase,
     evt.organisation_id,
-    'Complétez votre profil entreprise (SIRET vérifié requis pour confirmer la programmation)',
   );
   if (!completude.ok) return completude.error;
 

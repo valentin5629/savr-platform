@@ -323,13 +323,9 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
 
     await confirmer();
 
-    // Sur `org-savr`, aucune entité de facturation vérifiée → 422 « Complétez
-    // votre profil » sur le brouillon d'un client parfaitement en règle.
-    expect(gate).toHaveBeenCalledWith(
-      expect.anything(),
-      'org-kaspia',
-      expect.any(String),
-    );
+    // Sur `org-savr`, l'entité de facturation résolue serait celle de Savr → le
+    // client serait facturé sur la mauvaise entité (règle programmateur = facturé).
+    expect(gate).toHaveBeenCalledWith(expect.anything(), 'org-kaspia');
   });
 
   it("le pack AG est lu sur l'org de l'événement, jamais sur l'org du JWT staff", async () => {

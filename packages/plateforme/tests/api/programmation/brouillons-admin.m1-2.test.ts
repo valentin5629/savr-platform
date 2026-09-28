@@ -315,7 +315,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     expect(predicatesOn('organisation_id')).toEqual([]);
   });
 
-  it("la gate facturation est évaluée sur l'org de l'événement, jamais sur l'org du JWT staff", async () => {
+  it("la confirmation ne ré-évalue plus l'entité de facturation (déjà portée par l'événement) — jamais sur l'org du JWT staff", async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null });
     admin.push({ data: [COLLECTE_ZD], error: null });
@@ -323,13 +323,10 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
 
     await confirmer();
 
-    // Sur `org-savr`, aucune entité de facturation vérifiée → 422 « Complétez
-    // votre profil » sur le brouillon d'un client parfaitement en règle.
-    expect(gate).toHaveBeenCalledWith(
-      expect.anything(),
-      'org-kaspia',
-      expect.any(String),
-    );
+    // Décision Val 2026-09-28 : ni SIRET ni entité ne bloquent. L'événement porte
+    // déjà son entite_facturation_id (NOT NULL) — la confirmation n'en résout ni
+    // n'en crée aucune, a fortiori pas sur `org-savr`.
+    expect(gate).not.toHaveBeenCalled();
   });
 
   it("le pack AG est lu sur l'org de l'événement, jamais sur l'org du JWT staff", async () => {

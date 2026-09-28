@@ -181,6 +181,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
         .select('id')
         .eq('organisation_id', organisation_id)
         .eq('entite_par_defaut', true)
+        .eq('actif', true)
         .maybeSingle();
 
       if (ef) {

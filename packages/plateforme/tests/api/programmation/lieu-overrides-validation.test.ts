@@ -25,6 +25,8 @@ const mockSupabaseChain = {
   delete: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
+  order: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
   single: mockSingle,
   maybeSingle: mockMaybeSingle,
   rpc: mockRpc,
@@ -247,7 +249,7 @@ describe('lieu_overrides — validation d’entrée (POST /programmation/eveneme
   it('laisse passer un override légitime (chaînes, liste flux, « non renseigné ») normalisé', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // SIRET
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // récap
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-1', nom_evenement: 'Gala' },

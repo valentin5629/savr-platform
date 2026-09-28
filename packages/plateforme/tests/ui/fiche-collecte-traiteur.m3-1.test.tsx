@@ -22,6 +22,7 @@ vi.mock('next/navigation', () => ({
 
 import FicheCollectePage from '@/app/(traiteur)/traiteur/collectes/[id]/page.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
 const params = (id: string) =>
   Object.assign(Promise.resolve({ id }), {
@@ -463,8 +464,10 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
       // §06.04 « Initialisation » : type d'événement ET taille de CETTE collecte.
       expect(requete).toContain('type_evenement_ids=t1');
       expect(requete).toContain('taille_evenement_codes=S');
-      // …et la période par défaut (12 mois glissants) est bornée.
-      expect(requete).toContain('periode_debut=');
+      // …et la période fixe (24 mois glissants) est bornée.
+      const { debut, fin } = periodeBenchmark();
+      expect(requete).toContain(`periode_debut=${debut}`);
+      expect(requete).toContain(`periode_fin=${fin}`);
     },
     ATTENTE_CAS_MS,
   );

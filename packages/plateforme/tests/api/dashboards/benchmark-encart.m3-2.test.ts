@@ -120,6 +120,20 @@ describe('M3.2 / encart filtres benchmark', () => {
     );
   });
 
+  it('BENCH-24M — sans période fournie, la RPC reçoit 24 mois glissants (jamais tout l’historique)', async () => {
+    setupAuth('gestionnaire_lieux');
+    const { GET } = await import('@/app/api/v1/dashboards/benchmark/route.js');
+    const { periodeBenchmark } =
+      await import('@/lib/dashboards/periode-benchmark.js');
+    const res = await GET(makeReq('/api/v1/dashboards/benchmark'));
+    expect(res.status).toBe(200);
+    const { debut, fin } = periodeBenchmark();
+    expect(mockRpc).toHaveBeenCalledWith(
+      'f_benchmark_kg_pax_zd',
+      expect.objectContaining({ p_periode_debut: debut, p_periode_fin: fin }),
+    );
+  });
+
   it('M3.2/GEST04_route_traiteur_lieu_filter_403 — traiteur + traiteur_ids interdit', async () => {
     setupAuth('traiteur_manager');
     const { GET } = await import('@/app/api/v1/dashboards/benchmark/route.js');

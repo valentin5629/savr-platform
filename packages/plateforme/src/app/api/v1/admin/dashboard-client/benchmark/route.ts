@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
 // GET /api/v1/admin/dashboard-client/benchmark
 // §06.06 §2 — benchmark parc (Bloc 3 ZD) côté Dashboard Client Admin.
@@ -21,8 +22,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const bracket = searchParams.get('bracket');
 
   const allBrackets = ['XS', 'S', 'M', 'L', 'XL'];
+  const periode = periodeBenchmark();
   const { data, error } = await supabase.rpc('f_benchmark_kg_pax_zd', {
     p_taille_evenement_codes: bracket ? [bracket] : allBrackets,
+    p_periode_debut: periode.debut,
+    p_periode_fin: periode.fin,
   });
 
   if (error) {

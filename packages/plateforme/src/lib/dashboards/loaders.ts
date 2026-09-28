@@ -32,6 +32,7 @@ import {
   lundiDeLaSemaine,
   premierDuMois,
 } from '@savr/shared/src/temps/index.js';
+import { periodeBenchmark } from './periode-benchmark.js';
 
 /** Client Supabase serveur (schéma `plateforme`, RLS sous l'identité appelant). */
 export type DbClient = ReturnType<typeof createSupabaseServerClient>;
@@ -1292,8 +1293,11 @@ export async function loadBenchmark(
   const typeIds = params.typeIds ?? null;
   const lieuIds = params.lieuIds ?? null;
   const traiteurIds = params.traiteurIds ?? null;
-  const periodeDebut = params.periodeDebut ?? null;
-  const periodeFin = params.periodeFin ?? null;
+  // Période absente ⇒ 24 mois glissants (période fixe du repère parc), jamais
+  // « tout l'historique » (défaut NULL de la RPC).
+  const periodeDefaut = periodeBenchmark();
+  const periodeDebut = params.periodeDebut || periodeDefaut.debut;
+  const periodeFin = params.periodeFin || periodeDefaut.fin;
 
   const isTraiteur =
     ctx.role === 'traiteur_manager' ||

@@ -6,6 +6,7 @@
 // snapshot `rapports_rse.filtres_benchmark` (reproductibilité PDF, §12 §1.2 l.69).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { periodeBenchmark } from '../dashboards/periode-benchmark.js';
 
 /** Filtres benchmark surchargeables (NULL/absent = segment propre de la collecte). */
 export interface BenchmarkFilters {
@@ -56,10 +57,14 @@ export async function resolveRapportBenchmark(
   collecteId: string,
   filters?: BenchmarkFilters,
 ): Promise<RapportBenchmark> {
+  // Période absente ⇒ 24 mois glissants (période fixe du repère parc).
+  const periodeDefaut = periodeBenchmark();
+  const periodeDebut = filters?.periode_debut || periodeDefaut.debut;
+  const periodeFin = filters?.periode_fin || periodeDefaut.fin;
   const { data: benchRaw } = await supabase.rpc('f_rapport_benchmark_zd', {
     p_collecte_id: collecteId,
-    p_periode_debut: filters?.periode_debut ?? null,
-    p_periode_fin: filters?.periode_fin ?? null,
+    p_periode_debut: periodeDebut,
+    p_periode_fin: periodeFin,
     p_lieu_ids: filters?.lieu_ids ?? null,
     p_type_evenement_ids: filters?.type_evenement_ids ?? null,
     p_taille_evenement_codes: filters?.taille_evenement_codes ?? null,
@@ -104,17 +109,14 @@ export async function resolveRapportBenchmark(
   }
 
   const filtres_benchmark = {
-    periode_debut: filters?.periode_debut ?? null,
-    periode_fin: filters?.periode_fin ?? null,
+    periode_debut: periodeDebut,
+    periode_fin: periodeFin,
     lieu_ids: filters?.lieu_ids ?? null,
     type_evenement_ids: typeIds,
     taille_evenement_codes: bracket ? [bracket] : null,
   };
 
-  const periodeTxt =
-    filters?.periode_debut || filters?.periode_fin
-      ? `${filters?.periode_debut ?? '…'} → ${filters?.periode_fin ?? '…'}`
-      : 'toutes';
+  const periodeTxt = `${periodeDebut} → ${periodeFin}`;
   const lieuxTxt = filters?.lieu_ids?.length
     ? `${filters.lieu_ids.length} sélectionné(s)`
     : 'tous';

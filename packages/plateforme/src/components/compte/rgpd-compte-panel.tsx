@@ -12,7 +12,11 @@ import { Input } from '@/components/ui/input';
 //   · Art.15/20 Accès/Porta → GET   /api/me/export-rgpd  (téléchargement JSON)
 //   · Art.17 Suppression    → POST  /api/me/demande-suppression  (workflow Admin 48h)
 // Remplace les boutons inertes des pages mon-profil (BL-P0-09 / OBS-04 / P2-27).
-export function RgpdComptePanel(): React.JSX.Element {
+// `avecSuppression=false` : pas de demande de suppression de compte (profil staff —
+// décision Val 2026-09-28 : un compte Admin ne se supprime pas en self-service).
+export function RgpdComptePanel({
+  avecSuppression = true,
+}: { avecSuppression?: boolean } = {}): React.JSX.Element {
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
   const [telephone, setTelephone] = useState('');
@@ -172,28 +176,31 @@ export function RgpdComptePanel(): React.JSX.Element {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Suppression du compte</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button
-            variant="destructive"
-            onClick={demanderSuppression}
-            disabled={enCours}
-          >
-            Demander la suppression de mon compte
-          </Button>
-          {suppressionMsg ? (
-            <p className="text-xs text-savr-neutral-500">{suppressionMsg}</p>
-          ) : (
-            <p className="text-xs text-savr-neutral-500">
-              Validation Admin sous 48h ouvrées, puis anonymisation des données
-              personnelles. Les factures et bordereaux légaux sont conservés.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {avecSuppression && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Suppression du compte</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button
+              variant="destructive"
+              onClick={demanderSuppression}
+              disabled={enCours}
+            >
+              Demander la suppression de mon compte
+            </Button>
+            {suppressionMsg ? (
+              <p className="text-xs text-savr-neutral-500">{suppressionMsg}</p>
+            ) : (
+              <p className="text-xs text-savr-neutral-500">
+                Validation Admin sous 48h ouvrées, puis anonymisation des
+                données personnelles. Les factures et bordereaux légaux sont
+                conservés.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }

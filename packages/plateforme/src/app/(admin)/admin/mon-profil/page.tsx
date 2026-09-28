@@ -5,7 +5,8 @@ import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 
 // « Mon profil » staff (§06.04 §7 : section commune à tous les users). Le
 // back-office n'en avait pas : ajouté par décision Val 2026-09-28 (chaque
-// utilisateur modifie ses informations, quel que soit son rôle).
+// utilisateur modifie ses informations, quel que soit son rôle). Pas de demande de
+// suppression de compte pour le staff (décision Val 2026-09-28).
 export default async function MonProfilAdminPage() {
   const session = await requireStaffPage();
 
@@ -31,7 +32,7 @@ export default async function MonProfilAdminPage() {
 
       <ChangerMotDePassePanel />
 
-      <RgpdComptePanel />
+      <RgpdComptePanel avecSuppression={false} />
     </div>
   );
 }

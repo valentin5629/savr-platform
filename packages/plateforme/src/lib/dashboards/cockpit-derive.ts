@@ -177,6 +177,20 @@ export function sparkFromRows(
   return pts.length >= 2 ? pts : [];
 }
 
+/**
+ * Série sparkline depuis une série d'évolution (buckets déjà triés
+ * chronologiquement : `buildEvolutionSeries`). Même règle que `sparkFromRows` :
+ * `[]` sous 2 points. Sert aux dashboards sans lignes mensuelles KPI
+ * (gestionnaire, Dashboard Client Admin).
+ */
+export function sparkFromSeries<T>(
+  series: T[],
+  pick: (p: T) => number | string | null | undefined,
+): number[] {
+  const pts = series.map((p) => num(pick(p)));
+  return pts.length >= 2 ? pts : [];
+}
+
 /** Ligne renvoyée par f_benchmark_kg_pax_zd (grain flux × type × taille). */
 export interface BenchmarkRow {
   flux_code: string;

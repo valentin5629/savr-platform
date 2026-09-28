@@ -100,7 +100,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     type: 'recovery',
     email,
     options: {
-      redirectTo: urlApplication(req, '/auth/new-password'),
+      redirectTo: urlApplication(req, '/api/auth/reset-password/confirm'),
     },
   });
   const lienInvitation =

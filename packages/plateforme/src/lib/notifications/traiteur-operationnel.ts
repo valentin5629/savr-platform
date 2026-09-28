@@ -1,7 +1,7 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
-import { logger } from '@savr/shared/src/logger/index.js';
+import { urlCanonique } from '@/lib/url-application.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -20,27 +20,8 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
 const TRAITEUR_TEAM_ROLES = ['traiteur_manager', 'traiteur_commercial'];
 
-// Ces notifications n'ont pas de requete sous la main : `NEXT_PUBLIC_APP_URL`
-// est donc la seule source possible du domaine (cf. lib/url-application.ts pour
-// la panne qui a motive de ne plus jamais produire un lien relatif en silence).
-//
-// On TRACE, on ne LEVE PAS. Ces notifications sont best-effort et leurs
-// appelants les lancent en `void notifier...(...)` : une exception y deviendrait
-// un rejet de promesse non gere, et ferait porter a une programmation de
-// collecte le prix d'une variable d'environnement absente. Le lien relatif qui
-// subsiste alors est inutilisable, mais l'email - date, lieu, flux - reste
-// utile, et l'erreur est visible dans les logs.
-function appUrl(path: string): string {
-  const canonique = process.env['NEXT_PUBLIC_APP_URL']?.trim();
-  if (!canonique) {
-    logger.error('notifications.lien_non_absolu', {
-      path,
-      motif: 'NEXT_PUBLIC_APP_URL absente',
-    });
-    return path;
-  }
-  return new URL(path, canonique).toString();
-}
+// Ces notifications n'ont pas de requête sous la main → `urlCanonique()`
+// (lib/url-application.ts), seule source possible du domaine hors requête.
 
 function libelleType(type: string | null | undefined): string {
   if (type === 'zero_dechet') return 'Zéro Déchet';
@@ -216,7 +197,7 @@ export async function notifierTraiteurOperationnel(
     supabase,
     params.acteurOrgId as string,
   );
-  const lienCollecte = appUrl(`/traiteur/collectes/${ctx.collecteId}`);
+  const lienCollecte = urlCanonique(`/traiteur/collectes/${ctx.collecteId}`);
 
   if (params.changement.kind === 'programmation') {
     let programmeurNom = orgProgrammatrice;
@@ -378,7 +359,7 @@ export async function notifierAdminAnnulation(
       delai_avant_creneau: tardive ? 'moins de 12h' : '12h ou plus',
       info_facturation: params.infoFacturation ?? '',
       annulation_tardive: tardive ? 'true' : 'false',
-      lien_backoffice: appUrl(`/admin/collectes/${params.collecteId}`),
+      lien_backoffice: urlCanonique(`/admin/collectes/${params.collecteId}`),
     },
     { entityType: 'collecte', entityId: params.collecteId },
   );

@@ -52,6 +52,39 @@ describe('TimePicker', () => {
     expect(onChange).toHaveBeenCalledWith('22:45');
   });
 
+  it('ds/time_picker_clavier_fleches_page_debut_fin', () => {
+    const onChange = vi.fn();
+    render(<TimePicker aria-label="Heure" value="09:00" onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Heure' }));
+    const liste = screen.getByRole('listbox');
+    const focus = () => document.activeElement?.textContent;
+    // À l'ouverture, le créneau choisi a le focus.
+    expect(focus()).toBe('09:00');
+    fireEvent.keyDown(liste, { key: 'ArrowDown' });
+    expect(focus()).toBe('09:15');
+    fireEvent.keyDown(liste, { key: 'PageDown' });
+    expect(focus()).toBe('10:15');
+    fireEvent.keyDown(liste, { key: 'ArrowUp' });
+    expect(focus()).toBe('10:00');
+    fireEvent.keyDown(liste, { key: 'End' });
+    expect(focus()).toBe('23:45');
+    fireEvent.keyDown(liste, { key: 'Home' });
+    expect(focus()).toBe('00:00');
+    // Choix → fermeture de la liste.
+    fireEvent.click(document.activeElement as HTMLElement);
+    expect(onChange).toHaveBeenCalledWith('00:00');
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('ds/time_picker_champ_cache_name', () => {
+    const { container } = render(
+      <TimePicker aria-label="Heure" name="heure_collecte" value="18:30" />,
+    );
+    expect(
+      container.querySelector('input[type="hidden"][name="heure_collecte"]'),
+    ).toHaveValue('18:30');
+  });
+
   it('ds/time_picker_valeur_hors_grille_affichee', () => {
     render(<TimePicker aria-label="Heure" value="10:10:00" />);
     expect(screen.getByRole('button', { name: 'Heure' })).toHaveTextContent(

@@ -14,6 +14,7 @@ import {
 } from '@testing-library/react';
 
 import MonOrganisationPage from '@/app/(gestionnaire)/gestionnaire/mon-organisation/page.js';
+import { messageDeRole } from '@/test-utils/message-role';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const PROFIL = {
@@ -103,7 +104,8 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       });
       fireEvent.click(bouton);
       expect(
-        (await screen.findByRole('status', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('status', 'Informations enregistrées.'))
+          .textContent,
       ).toBe('Informations enregistrées.');
       const patch = fetchMock.mock.calls.find(([, i]) => i?.method === 'PATCH');
       expect(patch?.[0]).toBe('/api/v1/gestionnaire/mon-organisation/profil');
@@ -134,7 +136,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       fireEvent.change(champ, { target: { value: '1 rue Neuve' } });
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
       expect(
-        (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('alert', /Adresse trop longue/)).textContent,
       ).toMatch(/Adresse trop longue/);
     },
     ATTENTE_CAS_MS,
@@ -168,7 +170,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         },
       });
       expect(
-        (await screen.findByRole('status', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('status', 'Logo mis à jour.')).textContent,
       ).toBe('Logo mis à jour.');
       const patch = fetchMock.mock.calls.find(([, i]) => i?.method === 'PATCH');
       expect(JSON.parse(String(patch?.[1]?.body))).toEqual({ logo_url: CLE });
@@ -211,7 +213,8 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         },
       });
       expect(
-        (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('alert', /Logo envoyé mais non enregistré/))
+          .textContent,
       ).toMatch(/Logo envoyé mais non enregistré/);
       expect(screen.queryByRole('status')).toBeNull();
     },
@@ -241,7 +244,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         target: { files: [new File(['x'], 'l.gif', { type: 'image/gif' })] },
       });
       expect(
-        (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('alert', /Format non supporté/)).textContent,
       ).toMatch(/Format non supporté/);
       expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'PATCH')).toBe(
         false,
@@ -300,7 +303,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       );
       render(<MonOrganisationPage />);
       expect(
-        (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('alert', /Impossible de charger/)).textContent,
       ).toMatch(/Impossible de charger/);
     },
     ATTENTE_CAS_MS,

@@ -391,7 +391,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
       "test": "M3.2/GEST04_encart_filtres_present + M3.2/GEST04_encart_choix_taille + M3.2/GEST04_filtres_gestionnaire_listes_parc + M3.2/GEST04_route_forward_7_params",
       "statut": "implemented",
-      "libelle": "Encart « Filtres benchmark » §06.05 Bloc 3 : 5 critères (période+raccourcis, lieux parc, traiteurs parc, type, taille), init 12 mois, Réinitialiser, avertissement comparaison-à-soi, listes parc SECURITY DEFINER + garde compétitive traiteurs, légende couleur 100/130 %. NB : l'héritage Type/Taille depuis les filtres globaux (CDC l.160) est ACTIF depuis R19b-P2 (BL-P2-12) — BenchmarkFilterBar reçoit initialTypeEvenementIds/initialTailleCodes des filtres globaux du dashboard (init + Réinitialiser), cf. M3.2/P2_encart_herite_type_taille."
+      "libelle": "Encart « Filtres benchmark » §06.05 Bloc 3 : 4 critères (lieux parc, traiteurs parc, type, taille) — période FIXE 24 mois glissants imposée côté serveur, plus de choix UI (décision Val 2026-09-28, divergence DASHBOARDS_20260928_benchmark-periode-fixe-24-mois), Réinitialiser, avertissement comparaison-à-soi, listes parc SECURITY DEFINER + garde compétitive traiteurs, légende couleur 100/130 %. NB : l'héritage Type/Taille depuis les filtres globaux (CDC l.160) est ACTIF depuis R19b-P2 (BL-P2-12) — BenchmarkFilterBar reçoit initialTypeEvenementIds/initialTailleCodes des filtres globaux du dashboard (init + Réinitialiser), cf. M3.2/P2_encart_herite_type_taille."
     },
     {
       "id": "BL-P1-GEST-04-JAUGE",

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
 import { TAILLE_OPTIONS } from './taille-options.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
 // Filtres du « point rouge » benchmark (§06.05 Bloc 3 ZD) — distincts des filtres
 // globaux du dashboard : ils n'affectent QUE la moyenne parc, pas les valeurs « Vous ».
@@ -16,31 +16,14 @@ export interface BenchmarkFilters {
   traiteur_ids: string[];
 }
 
-type Preset = '12m' | '24m' | 'civile' | 'perso';
-
-function isoDaysAgoMonths(months: number): { debut: string; fin: string } {
-  const fin = new Date();
-  const debut = new Date();
-  debut.setMonth(debut.getMonth() - months);
-  return {
-    debut: jourParis(debut),
-    fin: jourParis(fin),
-  };
-}
-
-function anneeCivile(): { debut: string; fin: string } {
-  const y = new Date().getFullYear();
-  return { debut: `${y}-01-01`, fin: `${y}-12-31` };
-}
-
-// Défaut CDC : 12 mois glissants. Type/Taille hérités des filtres globaux du
+// Période FIXE 24 mois glissants (décision Val 2026-09-28, plus de choix UI). Type/Taille hérités des filtres globaux du
 // dashboard (§06.05 l.160 — « à l'ouverture, les filtres benchmark héritent par
 // défaut des filtres globaux (Type d'événement + Taille uniquement) »).
 function defaultFilters(
   initType: string[] = [],
   initTaille: string[] = [],
 ): BenchmarkFilters {
-  const { debut, fin } = isoDaysAgoMonths(12);
+  const { debut, fin } = periodeBenchmark();
   return {
     periode_debut: debut,
     periode_fin: fin,
@@ -77,9 +60,10 @@ interface BenchmarkFilterBarProps {
 }
 
 /**
- * Encart « Filtres benchmark » (§06.05 Bloc 3 ZD). 5 critères qui ne s'appliquent
- * qu'au point rouge : Période (+ raccourcis), Lieux parc, Traiteurs parc, Type
- * d'événement, Taille. Bouton Réinitialiser (retour au défaut 12 mois / Tous).
+ * Encart « Filtres benchmark » (§06.05 Bloc 3 ZD). Critères qui ne s'appliquent
+ * qu'au point rouge : Lieux parc, Traiteurs parc, Type d'événement, Taille. La
+ * période est fixe (24 mois glissants, non affichée). Bouton Réinitialiser
+ * (retour à l'héritage Type/Taille, Lieux/Traiteurs « Tous »).
  */
 export function BenchmarkFilterBar({
   onChange,
@@ -92,7 +76,6 @@ export function BenchmarkFilterBar({
   const [filters, setFilters] = useState<BenchmarkFilters>(() =>
     defaultFilters(initialTypeEvenementIds, initialTailleCodes),
   );
-  const [preset, setPreset] = useState<Preset>('12m');
   const [lieux, setLieux] = useState<MultiOption[]>(
     () => initialOptions?.lieux ?? [],
   );
@@ -137,16 +120,7 @@ export function BenchmarkFilterBar({
     [onChange],
   );
 
-  function applyPreset(p: Preset): void {
-    setPreset(p);
-    if (p === 'perso') return;
-    const range =
-      p === 'civile' ? anneeCivile() : isoDaysAgoMonths(p === '24m' ? 24 : 12);
-    apply({ ...filters, periode_debut: range.debut, periode_fin: range.fin });
-  }
-
   function reset(): void {
-    setPreset('12m');
     // Retour à l'héritage par défaut (Type/Taille des filtres globaux — §06.05 l.160).
     apply(defaultFilters(initialTypeEvenementIds, initialTailleCodes));
   }
@@ -193,59 +167,7 @@ export function BenchmarkFilterBar({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        {/* Période + raccourcis */}
-        <div className="md:col-span-3 lg:col-span-1">
-          <span className="mb-1.5 block text-xs font-semibold text-savr-neutral-600">
-            Période benchmark
-          </span>
-          <div className="mb-1.5 flex flex-wrap gap-1.5">
-            {(
-              [
-                ['12m', '12 mois'],
-                ['24m', '24 mois'],
-                ['civile', 'Année civile'],
-              ] as const
-            ).map(([key, lbl]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => applyPreset(key)}
-                data-testid={`benchmark-preset-${key}`}
-                className={`rounded-savr-md px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 ${
-                  preset === key
-                    ? 'bg-savr-primary-700 text-savr-white'
-                    : 'border border-savr-neutral-300 bg-savr-white text-savr-neutral-600 hover:border-savr-neutral-400'
-                }`}
-              >
-                {lbl}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="date"
-              aria-label="Début période benchmark"
-              value={filters.periode_debut ?? ''}
-              onChange={(e) => {
-                setPreset('perso');
-                apply({ ...filters, periode_debut: e.target.value });
-              }}
-              className="w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 py-1.5 text-xs text-savr-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-            />
-            <input
-              type="date"
-              aria-label="Fin période benchmark"
-              value={filters.periode_fin ?? ''}
-              onChange={(e) => {
-                setPreset('perso');
-                apply({ ...filters, periode_fin: e.target.value });
-              }}
-              className="w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 py-1.5 text-xs text-savr-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-            />
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MultiSelectFilter
           label="Type d'événement"
           options={types}
@@ -261,7 +183,7 @@ export function BenchmarkFilterBar({
           testid="benchmark-filter-taille"
         />
         <MultiSelectFilter
-          label="Lieux benchmark"
+          label="Lieux"
           options={lieux}
           selected={filters.lieu_ids}
           onChange={(ids) => apply({ ...filters, lieu_ids: ids })}

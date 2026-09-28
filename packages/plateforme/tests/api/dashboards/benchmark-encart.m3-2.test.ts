@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
@@ -114,9 +115,22 @@ describe('M3.2 / encart filtres benchmark', () => {
         p_taille_evenement_codes: ['M', 'L'],
         p_type_evenement_ids: ['ty1'],
         p_lieu_ids: ['l1'],
-        p_periode_debut: '2026-01-01',
-        p_periode_fin: '2026-06-30',
+        // Période fixe : celle de l'URL est ignorée (24 mois glissants imposés).
+        p_periode_debut: periodeBenchmark().debut,
+        p_periode_fin: periodeBenchmark().fin,
       }),
+    );
+  });
+
+  it('BENCH-24M — sans période fournie, la RPC reçoit 24 mois glissants (jamais tout l’historique)', async () => {
+    setupAuth('gestionnaire_lieux');
+    const { GET } = await import('@/app/api/v1/dashboards/benchmark/route.js');
+    const res = await GET(makeReq('/api/v1/dashboards/benchmark'));
+    expect(res.status).toBe(200);
+    const { debut, fin } = periodeBenchmark();
+    expect(mockRpc).toHaveBeenCalledWith(
+      'f_benchmark_kg_pax_zd',
+      expect.objectContaining({ p_periode_debut: debut, p_periode_fin: fin }),
     );
   });
 

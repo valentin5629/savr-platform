@@ -159,7 +159,7 @@ export default function FicheCollectePage({
   const [progOpen, setProgOpen] = useState(false);
 
   // Bloc 3 ZD — repère parc par flux. Premier rendu sans filtre (segment de la
-  // collecte) ; l'encart émet ensuite ses défauts (12 mois glissants) et le
+  // collecte) ; l'encart émet ensuite ses défauts (période fixe 24 mois glissants) et le
   // repère est recalculé — les valeurs « Vous », elles, ne bougent pas.
   const [bench, setBench] = useState<Record<string, BenchmarkFlux> | null>(
     null,

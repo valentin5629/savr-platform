@@ -32,6 +32,7 @@ import {
   lundiDeLaSemaine,
   premierDuMois,
 } from '@savr/shared/src/temps/index.js';
+import { periodeBenchmark } from './periode-benchmark.js';
 
 /** Client Supabase serveur (schéma `plateforme`, RLS sous l'identité appelant). */
 export type DbClient = ReturnType<typeof createSupabaseServerClient>;
@@ -1268,8 +1269,6 @@ export interface BenchmarkParams {
   typeIds?: string[] | null;
   lieuIds?: string[] | null;
   traiteurIds?: string[] | null;
-  periodeDebut?: string | null;
-  periodeFin?: string | null;
 }
 
 /**
@@ -1292,8 +1291,9 @@ export async function loadBenchmark(
   const typeIds = params.typeIds ?? null;
   const lieuIds = params.lieuIds ?? null;
   const traiteurIds = params.traiteurIds ?? null;
-  const periodeDebut = params.periodeDebut ?? null;
-  const periodeFin = params.periodeFin ?? null;
+  // Période FIXE 24 mois glissants, imposée ici (aucun appelant ne la choisit) —
+  // jamais « tout l'historique » (défaut NULL de la RPC).
+  const periode = periodeBenchmark();
 
   const isTraiteur =
     ctx.role === 'traiteur_manager' ||
@@ -1309,8 +1309,8 @@ export async function loadBenchmark(
   const args = {
     p_taille_evenement_codes: tailleCodes,
     ...(typeIds && typeIds.length ? { p_type_evenement_ids: typeIds } : {}),
-    ...(periodeDebut ? { p_periode_debut: periodeDebut } : {}),
-    ...(periodeFin ? { p_periode_fin: periodeFin } : {}),
+    p_periode_debut: periode.debut,
+    p_periode_fin: periode.fin,
     ...(lieuIds && lieuIds.length ? { p_lieu_ids: lieuIds } : {}),
     ...(traiteurIds && traiteurIds.length
       ? { p_traiteur_ids: traiteurIds }

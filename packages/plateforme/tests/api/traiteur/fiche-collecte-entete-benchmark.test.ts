@@ -11,6 +11,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
 type Result = { data: unknown; error: unknown };
 
@@ -242,8 +243,9 @@ describe('M3.1 / fiche collecte — Bloc 3 ZD jauges (§06.04)', () => {
     ).toMatchObject({
       p_type_evenement_ids: ['t1'],
       p_taille_evenement_codes: ['S'],
-      p_periode_debut: '2025-09-22',
-      p_periode_fin: '2026-09-22',
+      // Période fixe 24 mois glissants : celle de l'URL est ignorée.
+      p_periode_debut: periodeBenchmark().debut,
+      p_periode_fin: periodeBenchmark().fin,
     });
     const { data } = (await res.json()) as {
       data: {

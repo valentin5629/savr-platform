@@ -38,8 +38,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       typeIds: csv('type_evenement_ids'),
       lieuIds: csv('lieu_ids'),
       traiteurIds: csv('traiteur_ids'),
-      periodeDebut: searchParams.get('periode_debut'),
-      periodeFin: searchParams.get('periode_fin'),
     });
     return NextResponse.json(
       { data },

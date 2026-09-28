@@ -19,7 +19,7 @@ import { serverError } from '@/lib/api-helpers.js';
 // de la collecte ET la garde de visibilité (fail fast « Collecte not accessible »).
 // Le repère parc vient toujours du MÊME loader que les dashboards, avec les
 // filtres de l'encart — que la page initialise sur le segment de la collecte
-// (type × taille) et 12 mois glissants, comme le CDC le demande. Un chemin unique :
+// (type × taille) ; la période est fixe (24 mois glissants, imposée par le loader). Un chemin unique :
 // la garde « traiteur_ids[] interdit » s'arme donc sur toute requête, pas
 // seulement sur celles qui portent un autre filtre.
 const TRAITEUR_ROLES: ClientRole[] = [
@@ -78,8 +78,6 @@ export async function GET(
         typeIds: csv('type_evenement_ids'),
         lieuIds: csv('lieu_ids'),
         traiteurIds: csv('traiteur_ids'),
-        periodeDebut: searchParams.get('periode_debut'),
-        periodeFin: searchParams.get('periode_fin'),
       })) as BenchmarkRow[],
     );
   } catch (e) {

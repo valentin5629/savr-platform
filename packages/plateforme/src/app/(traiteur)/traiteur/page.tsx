@@ -12,6 +12,7 @@ import type { BenchmarkFilters } from '@/components/dashboards/BenchmarkFilterBa
 import type { BenchmarkRow } from '@/lib/dashboards/cockpit-derive';
 import { TraiteurDashboardClient } from './traiteur-dashboard-client';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark';
 
 // Lecture cookies + agrégats live par utilisateur → jamais statique.
 export const dynamic = 'force-dynamic';
@@ -61,11 +62,12 @@ export default async function TraiteurDashboardPage() {
   };
 
   const { from, to } = defaultPeriod();
-  // Filtres benchmark par défaut = 12 mois glissants (comme BenchmarkFilterBar),
-  // type/taille hérités des filtres globaux (vides côté traiteur).
+  // Filtres benchmark par défaut = période fixe 24 mois glissants (comme
+  // BenchmarkFilterBar), type/taille hérités des filtres globaux (vides côté traiteur).
+  const bench = periodeBenchmark();
   const benchmarkFilters: BenchmarkFilters = {
-    periode_debut: from,
-    periode_fin: to,
+    periode_debut: bench.debut,
+    periode_fin: bench.fin,
     type_evenement_ids: [],
     taille_evenement_codes: [],
     lieu_ids: [],
@@ -77,10 +79,7 @@ export default async function TraiteurDashboardPage() {
   const [dashboard, benchmarkFiltres, benchmarkData] = await Promise.all([
     loadTraiteurDashboard(supabase, ctx, { from, to, type: 'zero_dechet' }),
     loadBenchmarkFiltres(supabase, ctx),
-    loadBenchmark(supabase, ctx, {
-      periodeDebut: benchmarkFilters.periode_debut,
-      periodeFin: benchmarkFilters.periode_fin,
-    }),
+    loadBenchmark(supabase, ctx, {}),
   ]);
 
   const options: BenchmarkFilterOptions = {

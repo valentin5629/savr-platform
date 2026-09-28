@@ -138,7 +138,7 @@ describe('M1.2 / PROG-01 override lieu', () => {
   it('M1.2 — PROG-01 override lieu : lieu_overrides passé à fn_creer_collecte + notif Admin + audit_log', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // SIRET
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-1', nom_evenement: 'Gala' },
@@ -318,7 +318,7 @@ describe('M1.2 / PROG-04 récap programmation', () => {
   it('M1.2 — PROG-04 récap programmation envoyé au programmeur avec tarif ZD', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // SIRET
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-1', nom_evenement: 'Gala' },
@@ -345,7 +345,7 @@ describe('M1.2 / PROG-04 récap programmation', () => {
   it('M1.2 — PROG-04 récap non envoyé si destinataire non résolu', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // SIRET
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: null, error: null }); // users récap → pas d'email
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-1', nom_evenement: 'Gala' },
@@ -370,7 +370,7 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
   it('M1.2 — PROG-05 auto-accept AG déclenché à la confirmation', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // SIRET
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({
         data: { id: 'pack-1', credits_restants: 5 },
         error: null,
@@ -438,7 +438,7 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       table === 'collectes' ? collectesChain : mockSupabaseChain,
     );
     mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // SIRET
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: null, error: null }); // pack absent → 422
 
     const { PATCH } =

@@ -222,9 +222,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // le CDC §05 §8 ne le demande PAS à l'étape 1 — il relève de l'étape 2
     // « complétion avant première collecte ». L'inscription ne le réclame donc à
     // personne ; l'Admin Savr le récupère ensuite si besoin. Rien ne s'ouvre pour
-    // autant : sans SIRET vérifié, `requireCompletedOrganisation` bloque la
-    // programmation et aucune facture ne peut être émise (gating
-    // `siret_verification = 'verifie'`, CDC §05 §8 étape 3).
+    // autant : sans SIRET vérifié, aucune facture ne peut être émise (gating
+    // `siret_verification = 'verifie'`, CDC §05 §8 étape 3). La programmation, elle,
+    // n'exige plus de SIRET (décision Val 2026-09-28, _Divergences/M1.2_20260928).
     //
     // SIRET FOURNI quand même → tout le contrôle ONB-01/ONB-03 s'applique :
     // format, doublon, vérification INSEE synchrone.

@@ -54,6 +54,7 @@ const mockSupabaseChain = {
   in: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
+  order: vi.fn().mockReturnThis(),
   limit: vi.fn().mockReturnThis(),
   single: mockSingle,
   maybeSingle: mockMaybeSingle,
@@ -272,7 +273,7 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
   it('accepte une saisie légitime et la stocke NORMALISÉE (trim, multiligne conservé)', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // SIRET
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // récap
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-1', nom_evenement: 'Gala' },
@@ -340,7 +341,7 @@ describe('bornes texte libre — contacts principaux', () => {
   it('POST : stocke le contact principal NORMALISÉ (trim) — la valeur brute n’atteint pas l’INSERT', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // SIRET
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // récap
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-1', nom_evenement: 'Gala' },

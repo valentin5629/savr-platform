@@ -378,18 +378,32 @@ describe('M1.2 / Validations bloquantes', () => {
     expect(res.status).toBe(422);
   });
 
-  it('programmation_bloquee_facturation_incomplete — 422 si SIRET non vérifié', async () => {
+  it('programmation_sans_entite_facturation_non_bloquee — entité créée à la volée (SIRET en_attente), jamais de refus', async () => {
     setupAuth('traiteur_commercial');
-    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null }); // pas d'entite vérifiée
+    mockMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null }) // aucune entité active
+      .mockResolvedValueOnce({ data: { nom: 'Agence AREP' }, error: null }); // org
+    mockSingle
+      .mockResolvedValueOnce({ data: { id: 'ef-creee' }, error: null }) // INSERT entité
+      .mockResolvedValueOnce({ data: null, error: { message: 'stop' } }); // INSERT événement : on s'arrête là
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements', BODY_ZD),
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/SIRET|profil/i);
+    const json = (await res.json()) as { error?: string };
+    expect(json.error ?? '').not.toMatch(/SIRET|entité de facturation|profil/i);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organisation_id: 'org-traiteur-1',
+        entite_par_defaut: true,
+        siret_verification: 'en_attente',
+      }),
+    ); // …et c'est CETTE entité qui est rattachée à l'événement.
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ entite_facturation_id: 'ef-creee' }),
+    );
   });
 
   it('programmation_admin_sans_org — 422 si admin_savr sans organisation_id dans le body', async () => {
@@ -410,7 +424,7 @@ describe('M1.2 / Validations bloquantes', () => {
     // Régression : le staff a une org interne RÉELLE (org_savr, users.organisation_id
     // est NOT NULL) → la programmation de support doit cibler l'org du body, pas org_savr.
     setupAuth('admin_savr', 'org-savr-interne');
-    mockMaybeSingle.mockResolvedValue({ data: null, error: null }); // org cible sans SIRET vérifié → 422
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null }); // org cible sans entité de facturation → 422
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -431,7 +445,9 @@ describe('M1.2 / Validations bloquantes', () => {
       'organisation_id',
       'org-savr-interne',
     );
-    expect(res.status).toBe(422); // s'arrête au gate SIRET de l'org cible
+    // Tout est mocké vide : l'org cible est « introuvable » → 500 de la résolution
+    // d'entité (plus jamais le 422 SIRET d'avant).
+    expect(res.status).toBe(500);
   });
 });
 
@@ -539,7 +555,7 @@ describe('M1.2 / Confirmation brouillon', () => {
       return mockSupabaseChain;
     });
 
-    // Gate SIRET — entites_facturation (nouveau)
+    // Gate entité de facturation — entites_facturation
     mockMaybeSingle.mockResolvedValueOnce({
       data: { id: 'entite-1' },
       error: null,
@@ -557,7 +573,7 @@ describe('M1.2 / Confirmation brouillon', () => {
     expect(json.statut).toBe('programmee');
   });
 
-  it('confirmer_brouillon_sans_siret — 422 si entite_facturation non vérifiée', async () => {
+  it('confirmer_brouillon_sans_siret_non_bloque — aucune garde entité/SIRET à la confirmation', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -586,8 +602,8 @@ describe('M1.2 / Confirmation brouillon', () => {
       if (table === 'collectes') return collectesChain2;
       return mockSupabaseChain;
     });
-    // entites_facturation → non vérifiée
-    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    // L'événement porte déjà son entité : la confirmation ne la re-résout pas.
+    mockRpc.mockResolvedValueOnce({ data: null, error: null });
 
     const { PATCH } =
       await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
@@ -595,9 +611,12 @@ describe('M1.2 / Confirmation brouillon', () => {
       makeReq('PATCH', '/api/v1/programmation/evenements/evt-d/confirmer'),
       { params: Promise.resolve({ id: 'evt-d' }) },
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/SIRET|profil/i);
+    const json = (await res.json()) as { error?: string };
+    expect(json.error ?? '').not.toMatch(/SIRET|entité de facturation|profil/i);
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith(
+      'entites_facturation',
+    );
   });
 
   it('confirmer_brouillon_sans_collectes — 422 si aucun brouillon', async () => {
@@ -715,7 +734,7 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
         },
         error: null,
       })
-      // SIRET gate
+      // Gate entité de facturation
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null });
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-agence-1', nom_evenement: 'Gala Agence' },

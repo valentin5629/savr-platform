@@ -83,8 +83,7 @@ describe('M0.4 — /login : les motifs arrivés en fragment sont affichés', () 
     async () => {
       const { container } = render(<LoginPage />);
       await waitFor(
-        () =>
-          expect(container.textContent).toContain('Connexion à votre compte'),
+        () => expect(container.textContent).toContain('Connexion à Savr'),
         ATTENTE_UI,
       );
       expect(container.textContent).not.toContain('Ce lien a expiré');
@@ -99,8 +98,7 @@ describe('M0.4 — /login : les motifs arrivés en fragment sont affichés', () 
       poserFragment('#error_code=<img src=x onerror=alert(1)>');
       const { container } = render(<LoginPage />);
       await waitFor(
-        () =>
-          expect(container.textContent).toContain('Connexion à votre compte'),
+        () => expect(container.textContent).toContain('Connexion à Savr'),
         ATTENTE_UI,
       );
       expect(container.textContent).not.toContain('onerror');
@@ -120,8 +118,7 @@ describe('M0.4 — /login : les motifs arrivés en fragment sont affichés', () 
         poserFragment(`#error_code=${cle}`);
         const { container } = render(<LoginPage />);
         await waitFor(
-          () =>
-            expect(container.textContent).toContain('Connexion à votre compte'),
+          () => expect(container.textContent).toContain('Connexion à Savr'),
           ATTENTE_UI,
         );
         expect(container.textContent, cle).not.toContain('function');

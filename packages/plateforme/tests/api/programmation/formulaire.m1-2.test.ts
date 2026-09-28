@@ -378,18 +378,29 @@ describe('M1.2 / Validations bloquantes', () => {
     expect(res.status).toBe(422);
   });
 
-  it('programmation_bloquee_sans_entite_facturation — 422 si aucune entité de facturation active', async () => {
+  it('programmation_sans_entite_facturation_non_bloquee — entité créée à la volée (SIRET en_attente), jamais de refus', async () => {
     setupAuth('traiteur_commercial');
-    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null }); // aucune entité active
+    mockMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null }) // aucune entité active
+      .mockResolvedValueOnce({ data: { nom: 'Agence AREP' }, error: null }); // org
+    mockSingle
+      .mockResolvedValueOnce({ data: { id: 'ef-creee' }, error: null }) // INSERT entité
+      .mockResolvedValueOnce({ data: null, error: { message: 'stop' } }); // INSERT événement : on s'arrête là
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements', BODY_ZD),
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/entité de facturation/i);
+    const json = (await res.json()) as { error?: string };
+    expect(json.error ?? '').not.toMatch(/SIRET|entité de facturation|profil/i);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organisation_id: 'org-traiteur-1',
+        entite_par_defaut: true,
+        siret_verification: 'en_attente',
+      }),
+    );
   });
 
   it('programmation_admin_sans_org — 422 si admin_savr sans organisation_id dans le body', async () => {
@@ -431,7 +442,9 @@ describe('M1.2 / Validations bloquantes', () => {
       'organisation_id',
       'org-savr-interne',
     );
-    expect(res.status).toBe(422); // s'arrête au gate entité de facturation de l'org cible
+    // Tout est mocké vide : l'org cible est « introuvable » → 500 de la résolution
+    // d'entité (plus jamais le 422 SIRET d'avant).
+    expect(res.status).toBe(500);
   });
 });
 
@@ -557,7 +570,7 @@ describe('M1.2 / Confirmation brouillon', () => {
     expect(json.statut).toBe('programmee');
   });
 
-  it('confirmer_brouillon_sans_entite_facturation — 422 si aucune entité de facturation active', async () => {
+  it('confirmer_brouillon_sans_entite_facturation_non_bloque — entité créée à la volée, jamais de refus', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -586,8 +599,12 @@ describe('M1.2 / Confirmation brouillon', () => {
       if (table === 'collectes') return collectesChain2;
       return mockSupabaseChain;
     });
-    // entites_facturation → aucune entité active
-    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    // entites_facturation → aucune entité active → création à la volée
+    mockMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: { nom: 'Traiteur D' }, error: null });
+    mockSingle.mockResolvedValueOnce({ data: { id: 'ef-creee' }, error: null });
+    mockRpc.mockResolvedValueOnce({ data: null, error: null });
 
     const { PATCH } =
       await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
@@ -595,9 +612,14 @@ describe('M1.2 / Confirmation brouillon', () => {
       makeReq('PATCH', '/api/v1/programmation/evenements/evt-d/confirmer'),
       { params: Promise.resolve({ id: 'evt-d' }) },
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/entité de facturation/i);
+    const json = (await res.json()) as { error?: string };
+    expect(json.error ?? '').not.toMatch(/SIRET|entité de facturation|profil/i);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organisation_id: 'org-traiteur-1',
+        siret_verification: 'en_attente',
+      }),
+    );
   });
 
   it('confirmer_brouillon_sans_collectes — 422 si aucun brouillon', async () => {

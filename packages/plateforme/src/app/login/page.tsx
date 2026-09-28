@@ -9,13 +9,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-} from '@/components/ui/card';
+import { AuthCard, AuthPage, authLienClass } from '@/components/auth/auth-card';
 
 // Motifs posés par `api/auth/verify-email` quand le lien d'activation n'aboutit
 // pas. Ils arrivaient déjà en `?error=` mais n'étaient affichés nulle part :
@@ -115,82 +109,64 @@ function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
-        <div className="space-y-1.5">
-          {/* h1 de la page : style CardTitle (DS §5.2 titre de card, poids 600) — CardTitle rend un h3. */}
-          <h1 className="text-lg font-semibold tracking-tight text-savr-neutral-900">
-            Connexion à votre compte
-          </h1>
-          <CardDescription>
-            Saisissez votre email pour vous connecter à Savr.
-          </CardDescription>
-        </div>
-        {/* Sans ce lien, /signup n'était atteignable qu'en tapant l'URL. */}
-        <Link
-          href="/signup"
-          className="-my-3 inline-flex shrink-0 items-center py-3 text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-        >
+    <AuthCard
+      titre="Connexion à Savr"
+      sousCarte={
+        // Sans ce lien, /signup n'était atteignable qu'en tapant l'URL.
+        <Link href="/signup" className={authLienClass}>
           Créer un compte
         </Link>
-      </CardHeader>
-      <form onSubmit={(e) => void handleSubmit(e)}>
-        <CardContent className="space-y-4">
-          {messageLien && (
-            <AlertBar variant="warn" className="font-normal">
-              {messageLien}
-            </AlertBar>
-          )}
-          <FormField label="Email" htmlFor="login-email">
-            <Input
-              id="login-email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="nom@entreprise.fr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </FormField>
-          <div className="space-y-1">
-            <div className="mb-1.5 flex items-center justify-between gap-4">
-              <Label htmlFor="login-mot-de-passe" className="mb-0">
-                Mot de passe
-              </Label>
-              <Link
-                href="/reset-password"
-                className="-my-3 inline-flex items-center py-3 text-sm text-savr-neutral-700 underline-offset-4 hover:text-savr-primary-700 hover:underline"
-              >
-                Mot de passe oublié ?
-              </Link>
-            </div>
-            <Input
-              id="login-mot-de-passe"
-              type="password"
-              required
-              autoComplete="current-password"
-              value={motDePasse}
-              onChange={(e) => setMotDePasse(e.target.value)}
-            />
-          </div>
-          {erreur && <p className="text-sm text-savr-error">{erreur}</p>}
-        </CardContent>
-        <CardFooter className="rounded-b-savr-md bg-savr-neutral-50 pt-6">
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Connexion…' : 'Se connecter'}
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+      }
+      onSubmit={(e) => void handleSubmit(e)}
+      pied={
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? 'Connexion…' : 'Se connecter'}
+        </Button>
+      }
+    >
+      {messageLien && (
+        <AlertBar variant="warn" className="font-normal">
+          {messageLien}
+        </AlertBar>
+      )}
+      <FormField label="Email" htmlFor="login-email">
+        <Input
+          id="login-email"
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="nom@entreprise.fr"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </FormField>
+      <div className="space-y-1">
+        <Label htmlFor="login-mot-de-passe">Mot de passe</Label>
+        <Input
+          id="login-mot-de-passe"
+          type="password"
+          required
+          autoComplete="current-password"
+          value={motDePasse}
+          onChange={(e) => setMotDePasse(e.target.value)}
+        />
+        <div className="flex justify-end pt-2">
+          <Link href="/reset-password" className={authLienClass}>
+            Mot de passe oublié ?
+          </Link>
+        </div>
+      </div>
+      {erreur && <p className="text-sm text-savr-error">{erreur}</p>}
+    </AuthCard>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-savr-neutral-50 px-4">
+    <AuthPage>
       <Suspense>
         <LoginForm />
       </Suspense>
-    </div>
+    </AuthPage>
   );
 }

@@ -37,6 +37,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { CollecteStatutFrise } from './collecte-statut-frise';
 import {
+  DIFFICULTE_LABEL,
+  DIFFICULTE_VARIANT,
+  VEHICULE_LABEL,
+} from '@/lib/lieux-labels';
+import {
   applyLieuOverrides,
   lieuChampSurcharge,
   CHAMPS_LIEU_SURCHARGEABLES,
@@ -326,26 +331,6 @@ function InfoItem({
     </div>
   );
 }
-
-// Enums `lieux` (§04) en libellés lisibles — mêmes libellés et pastilles que le
-// référentiel Admin des lieux.
-const DIFFICULTE_LABEL: Record<string, string> = {
-  facile: 'Facile',
-  difficile: 'Difficile',
-  tres_difficile: 'Très difficile',
-};
-const DIFFICULTE_VARIANT: Record<string, 'success' | 'warning' | 'error'> = {
-  facile: 'success',
-  difficile: 'warning',
-  tres_difficile: 'error',
-};
-const VEHICULE_LABEL: Record<string, string> = {
-  velo_cargo: 'Vélo cargo',
-  camionnette: 'Camionnette',
-  fourgon: 'Fourgon',
-  vul: 'VUL',
-  poids_lourd: 'Poids lourd',
-};
 
 function DifficulteBadge({ valeur }: { valeur?: string | null }) {
   if (!valeur) return <>—</>;

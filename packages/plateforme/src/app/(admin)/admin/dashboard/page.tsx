@@ -314,14 +314,15 @@ export default function DashboardAdminPage() {
             <RevenusHistogramme from={periode.from} to={periode.to} />
           </ChartCard>
 
-          {/* Colonne « Revenus par organisation » — titre + tableau. */}
-          <div className="space-y-4">
-            {/* Titre du bloc tableau (revue E2E Val 2026-07-15). */}
-            <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
-              Revenu par organisation
-            </h3>
-
-            <Card>
+          {/* Colonne « Revenus par organisation » — titre DANS la carte, comme
+              l'histogramme (ChartCard) : les deux cartes et leurs titres partent
+              de la même ligne (revue E2E Val 2026-09-28). */}
+          <div>
+            <Card className="overflow-hidden rounded-savr-lg shadow-savr-sm">
+              {/* Titre du bloc tableau (revue E2E Val 2026-07-15). */}
+              <h3 className="px-6 pb-4 pt-6 text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+                Revenu par organisation
+              </h3>
               {loadingRevenus ? (
                 <div className="space-y-2 p-6">
                   {[...Array(5)].map((_, i) => (

@@ -241,10 +241,8 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       expect(screen.queryByText('Lieux benchmark')).toBeNull();
 
       // L'utilisateur ouvre le filtre Taille et coche « M ».
-      fireEvent.click(
-        screen.getByTestId('benchmark-filter-taille').querySelector('button')!,
-      );
-      fireEvent.click(screen.getByTestId('benchmark-filter-taille-opt-M'));
+      fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
+      fireEvent.click(screen.getByRole('option', { name: 'M (500-749)' }));
 
       await waitFor(
         () =>

@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { cn } from '@/lib/utils';
 import { TYPES_TMS_AVEC_PRESTATAIRE } from '@/lib/transporteur-lien-prestataire';
@@ -490,24 +490,28 @@ export function TransporteurModal({
                 : "Détermine l'adapter logistique (dispatch). Non modifiable après création."
             }
           >
-            <Select
+            <Combobox
               id="tm_type_tms"
+              icon={null}
+              required
               value={values.type_tms}
-              onChange={(e) => set('type_tms', e.target.value)}
+              onChange={(v) => set('type_tms', v)}
               error={Boolean(errors.type_tms)}
               disabled={isEdition}
-            >
-              <option value="">Sélectionner…</option>
-              <option value="mts1">MTS-1 (Strike / Marathon)</option>
-              <option value="a_toutes">A Toutes! (vélo cargo)</option>
-              <option value="autre">Autre (province — email/téléphone)</option>
-              <option value="par_mail">
-                Par mail (validation Admin manuelle)
-              </option>
-              <option value="par_telephone">
-                Par téléphone (validation Admin manuelle)
-              </option>
-            </Select>
+              options={[
+                { value: 'mts1', label: 'MTS-1 (Strike / Marathon)' },
+                { value: 'a_toutes', label: 'A Toutes! (vélo cargo)' },
+                { value: 'autre', label: 'Autre (province — email/téléphone)' },
+                {
+                  value: 'par_mail',
+                  label: 'Par mail (validation Admin manuelle)',
+                },
+                {
+                  value: 'par_telephone',
+                  label: 'Par téléphone (validation Admin manuelle)',
+                },
+              ]}
+            />
           </FormField>
           {values.type_tms === 'mts1' && (
             <FormField
@@ -542,34 +546,38 @@ export function TransporteurModal({
                   : 'Société qui exécute les courses : c’est ce lien qui rattache les tournées au bon transporteur. Non modifiable après création.'
           }
         >
-          <Select
+          <Combobox
             id="tm_prestataire_logistique_id"
+            icon={null}
+            placeholder="Aucun"
             value={values.prestataire_logistique_id}
-            onChange={(e) => set('prestataire_logistique_id', e.target.value)}
+            onChange={(v) => set('prestataire_logistique_id', v)}
             error={Boolean(errors.prestataire_logistique_id)}
             disabled={isEdition}
-          >
-            <option value="">Aucun</option>
-            {lienHorsListe && (
-              <option value={values.prestataire_logistique_id}>
-                Prestataire rattaché (liste indisponible)
-              </option>
-            )}
-            {optionsPrestataires.map((p) => {
-              // Rattaché à un AUTRE transporteur : grisé (l'index unique le
-              // refuserait). Le sien reste choisissable.
-              const pris =
-                p.transporteur_id !== null &&
-                p.transporteur_id !== transporteur?.id;
-              return (
-                <option key={p.id} value={p.id} disabled={pris}>
-                  {p.nom}
-                  {p.statut !== 'actif' ? ` (${p.statut})` : ''}
-                  {pris ? ` — déjà rattaché à ${p.transporteur_nom}` : ''}
-                </option>
-              );
-            })}
-          </Select>
+            options={[
+              { value: '', label: 'Aucun' },
+              ...(lienHorsListe
+                ? [
+                    {
+                      value: values.prestataire_logistique_id,
+                      label: 'Prestataire rattaché (liste indisponible)',
+                    },
+                  ]
+                : []),
+              ...optionsPrestataires.map((p) => {
+                // Rattaché à un AUTRE transporteur : grisé (l'index unique le
+                // refuserait). Le sien reste choisissable.
+                const pris =
+                  p.transporteur_id !== null &&
+                  p.transporteur_id !== transporteur?.id;
+                return {
+                  value: p.id,
+                  label: `${p.nom}${p.statut !== 'actif' ? ` (${p.statut})` : ''}${pris ? ` — déjà rattaché à ${p.transporteur_nom}` : ''}`,
+                  disabled: pris,
+                };
+              }),
+            ]}
+          />
         </FormField>
 
         <FormField

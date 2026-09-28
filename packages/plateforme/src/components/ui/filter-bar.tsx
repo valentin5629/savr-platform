@@ -1,0 +1,95 @@
+'use client';
+
+import * as React from 'react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+
+// FilterBar — barre de filtres standard de toute page de liste (DS Claude
+// Design « FilterBar » + règle 7 « Mise en page des formulaires et filtres »).
+// Un seul bloc (fond blanc, bordure neutral-200, radius xl), de haut en bas :
+//  1. en-tête : `tabs` (Tabs, changer de vue) à gauche, `toggle` (ToggleGroup,
+//     filtre de type) à droite, séparés de la grille par une bordure ;
+//  2. grille : les `children` (un FormField + un contrôle par filtre), 3
+//     colonnes max, 2 puis 1 en rétrécissant, gap 16px ;
+//  3. pied : compteur de résultats à gauche, « Réinitialiser les filtres » à
+//     droite (seulement si `actif`).
+// Le consommateur fournit les options, l'état, le compteur et la
+// synchronisation avec l'URL.
+export interface FilterBarProps {
+  tabs?: React.ReactNode;
+  toggle?: React.ReactNode;
+  children?: React.ReactNode;
+  /** Compteur de résultats (ex. « 16 collectes correspondent… »). */
+  count?: React.ReactNode;
+  /** Au moins un filtre posé : affiche « Réinitialiser les filtres ». */
+  actif?: boolean;
+  onReset?: () => void;
+  className?: string;
+  'data-testid'?: string;
+}
+
+// minmax(max(220px, (100% - 2 gaps) / 3), 1fr) : 3 colonnes pleines en
+// desktop, repli à 2 puis 1 dès qu'une colonne passerait sous 220px.
+const GRILLE =
+  'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(max(220px,calc((100%_-_2*1rem)/3)),1fr))]';
+
+function FilterBar({
+  tabs,
+  toggle,
+  children,
+  count,
+  actif,
+  onReset,
+  className,
+  'data-testid': testId,
+}: FilterBarProps) {
+  const avecEntete = Boolean(tabs || toggle);
+  const avecPied = count !== undefined || (actif && onReset);
+  return (
+    <section
+      aria-label="Filtres"
+      data-testid={testId}
+      className={cn(
+        'rounded-savr-xl border border-savr-neutral-200 bg-savr-white px-6 pb-6 pt-4',
+        className,
+      )}
+    >
+      {avecEntete && (
+        <div
+          className={cn(
+            'flex flex-wrap items-end justify-between gap-4 border-b border-savr-neutral-200',
+            // Les onglets soulignés reposent sur la bordure de l'en-tête.
+            '[&_[role=tablist]]:-mb-px [&_[role=tablist]]:border-b-0',
+            children ? 'mb-6' : 'mb-0',
+          )}
+        >
+          <div className="min-w-0">{tabs}</div>
+          {toggle && <div className="pb-2">{toggle}</div>}
+        </div>
+      )}
+      {children && <div className={GRILLE}>{children}</div>}
+      {avecPied && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+          <p
+            className="text-sm text-savr-neutral-500"
+            data-testid={testId ? `${testId}-count` : undefined}
+          >
+            {count}
+          </p>
+          {actif && onReset && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onReset}
+              data-testid={testId ? `${testId}-reset` : undefined}
+            >
+              Réinitialiser les filtres
+            </Button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export { FilterBar };

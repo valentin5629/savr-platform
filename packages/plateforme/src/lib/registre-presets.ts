@@ -2,7 +2,7 @@ import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
 // BL-P3-10 — Preset « 30 derniers jours » de la barre de filtres du registre
 // (CDC §06.03). Renvoie la fenêtre [aujourd'hui − 30 jours ; aujourd'hui] au
-// format YYYY-MM-DD attendu par les <input type="date">.
+// format YYYY-MM-DD attendu par le DateRangePicker (jours ISO).
 //
 // Jours PARISIENS : le preset s'exécute dans le navigateur, mais la fenêtre qu'il
 // pose part filtrer des dates métier côté serveur. Les getters locaux la

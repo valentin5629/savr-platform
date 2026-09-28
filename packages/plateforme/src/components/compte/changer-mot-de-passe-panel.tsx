@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 
 // Panneau « Changer mon mot de passe » (transverse, tous rôles) — CDC §06.04 §7.
 // Câble le changement de mot de passe IN-APP pour l'utilisateur connecté :
@@ -11,6 +13,8 @@ import { Button } from '@/components/ui/button';
 // validatePasswordStrength, même helper que le signup). Remplace le lien inerte
 // « <a href="/login"> » de la carte Sécurité (BL-P1-TRAIT-02).
 export function ChangerMotDePassePanel(): React.JSX.Element {
+  const idMotDePasse = useId();
+  const idConfirmation = useId();
   const [motDePasse, setMotDePasse] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
@@ -53,28 +57,24 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
       <CardContent>
         <form onSubmit={soumettre} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm">
-              <span className="text-savr-neutral-500">
-                Nouveau mot de passe
-              </span>
-              <input
+            <FormField label="Nouveau mot de passe" htmlFor={idMotDePasse}>
+              <Input
+                id={idMotDePasse}
                 type="password"
                 value={motDePasse}
                 onChange={(e) => setMotDePasse(e.target.value)}
                 autoComplete="new-password"
-                className="mt-1 w-full rounded border border-savr-neutral-300 px-3 py-2 text-sm"
               />
-            </label>
-            <label className="block text-sm">
-              <span className="text-savr-neutral-500">Confirmation</span>
-              <input
+            </FormField>
+            <FormField label="Confirmation" htmlFor={idConfirmation}>
+              <Input
+                id={idConfirmation}
                 type="password"
                 value={confirmation}
                 onChange={(e) => setConfirmation(e.target.value)}
                 autoComplete="new-password"
-                className="mt-1 w-full rounded border border-savr-neutral-300 px-3 py-2 text-sm"
               />
-            </label>
+            </FormField>
           </div>
           <p className="text-xs text-savr-neutral-500">
             Au moins 10 caractères, dont une majuscule, un chiffre et un

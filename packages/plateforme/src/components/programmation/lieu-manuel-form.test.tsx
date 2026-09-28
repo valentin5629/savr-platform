@@ -48,9 +48,9 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
       fireEvent.change(screen.getByLabelText(/Ville/), {
         target: { value: 'Saint-Cloud' },
       });
-      fireEvent.change(screen.getByLabelText(/Type de véhicule max/), {
-        target: { value: 'fourgon' },
-      });
+      // Combobox DS : ouvrir la liste puis choisir l'option (portail Radix).
+      fireEvent.click(screen.getByLabelText(/Type de véhicule max/));
+      fireEvent.click(screen.getByRole('option', { name: 'Fourgon' }));
       // stationnement et acces_office laissés vides
 
       fireEvent.click(screen.getByRole('button', { name: /Ajouter ce lieu/ }));

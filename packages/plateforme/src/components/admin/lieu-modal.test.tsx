@@ -96,9 +96,13 @@ function fillRequired() {
   fireEvent.change(screen.getByLabelText(/Ville/), {
     target: { value: 'Saint-Cloud' },
   });
-  fireEvent.change(screen.getByLabelText(/Type de véhicule max/), {
-    target: { value: 'fourgon' },
-  });
+  choisirOption(/Type de véhicule max/, 'Fourgon');
+}
+
+// Combobox (DS règle 3) : ouvrir le déclencheur puis choisir l'option (portail).
+function choisirOption(libelle: RegExp, option: string) {
+  fireEvent.click(screen.getByRole('combobox', { name: libelle }));
+  fireEvent.click(screen.getByRole('option', { name: option }));
 }
 
 function postCall(fetchMock: ReturnType<typeof routeFetch>) {
@@ -256,6 +260,18 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
       );
 
+      // La liste est chargée de façon asynchrone : on attend le fetch, puis on
+      // ouvre le Combobox pour lire l'option (portail).
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            expect.stringContaining('/api/v1/admin/organisations'),
+          ),
+        ATTENTE_UI,
+      );
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Gestionnaire de lieux/ }),
+      );
       const option = await screen.findByRole(
         'option',
         {
@@ -263,7 +279,7 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         },
         ATTENTE_UI,
       );
-      expect(option).toHaveValue('org-1');
+      expect(option).toHaveAttribute('data-value', 'org-1');
       expect(
         screen.getByLabelText(/Gestionnaire de lieux/),
       ).toBeInTheDocument();
@@ -305,12 +321,15 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       );
 
       // Round-trip GET → hydratation : chaque champ réintégré prend la valeur du détail.
-      const region = (await screen.findByLabelText(
-        /Région/,
-        undefined,
+      const region = await screen.findByRole(
+        'combobox',
+        { name: /Région/ },
         ATTENTE_UI,
-      )) as HTMLSelectElement;
-      expect(region.value).toBe('idf');
+      );
+      await waitFor(
+        () => expect(region).toHaveTextContent('Île-de-France'),
+        ATTENTE_UI,
+      );
       expect(
         (screen.getByLabelText(/Volume max/) as HTMLInputElement).value,
       ).toBe('12');

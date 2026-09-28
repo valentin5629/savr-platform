@@ -1,9 +1,8 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
-import { Label } from '@/components/ui/label';
 import type { LieuOption } from './lieu-combobox';
 
 // PROG-01 (CDC §06.01 l.104-114) : à la sélection d'un lieu, tous les champs du lieu
@@ -25,6 +24,14 @@ const VEHICULES = [
   { v: 'vul', l: 'VUL' },
   { v: 'poids_lourd', l: 'Poids lourd' },
 ];
+
+/** Options Combobox : « Non renseigné » (valeur vide) en tête de liste. */
+function avecNonRenseigne(liste: { v: string; l: string }[]) {
+  return [
+    { value: '', label: 'Non renseigné' },
+    ...liste.map((d) => ({ value: d.v, label: d.l })),
+  ];
+}
 
 export interface LieuEdits {
   adresse_acces: string;
@@ -127,53 +134,38 @@ export function LieuChampsEditables({
       </FormField>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="edit-stationnement">Stationnement</Label>
-          <Select
+        <FormField label="Stationnement" htmlFor="edit-stationnement">
+          <Combobox
             id="edit-stationnement"
+            icon={null}
+            placeholder="Non renseigné"
+            options={avecNonRenseigne(DIFFICULTE)}
             value={edits.stationnement}
-            onChange={(e) => set('stationnement', e.target.value)}
-          >
-            <option value="">Non renseigné</option>
-            {DIFFICULTE.map((d) => (
-              <option key={d.v} value={d.v}>
-                {d.l}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="edit-office">Accès office</Label>
-          <Select
+            onChange={(v) => set('stationnement', v)}
+          />
+        </FormField>
+        <FormField label="Accès office" htmlFor="edit-office">
+          <Combobox
             id="edit-office"
+            icon={null}
+            placeholder="Non renseigné"
+            options={avecNonRenseigne(DIFFICULTE)}
             value={edits.acces_office}
-            onChange={(e) => set('acces_office', e.target.value)}
-          >
-            <option value="">Non renseigné</option>
-            {DIFFICULTE.map((d) => (
-              <option key={d.v} value={d.v}>
-                {d.l}
-              </option>
-            ))}
-          </Select>
-        </div>
+            onChange={(v) => set('acces_office', v)}
+          />
+        </FormField>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="edit-vehicule">Type de véhicule max</Label>
-        <Select
+      <FormField label="Type de véhicule max" htmlFor="edit-vehicule">
+        <Combobox
           id="edit-vehicule"
+          icon={null}
+          placeholder="Non renseigné"
+          options={avecNonRenseigne(VEHICULES)}
           value={edits.type_vehicule_max}
-          onChange={(e) => set('type_vehicule_max', e.target.value)}
-        >
-          <option value="">Non renseigné</option>
-          {VEHICULES.map((v) => (
-            <option key={v.v} value={v.v}>
-              {v.l}
-            </option>
-          ))}
-        </Select>
-      </div>
+          onChange={(v) => set('type_vehicule_max', v)}
+        />
+      </FormField>
 
       <FormField label="Contraintes horaires" htmlFor="edit-horaires">
         <Input

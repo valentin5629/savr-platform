@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 export interface OrganisationOption {
   id: string;
@@ -154,14 +155,14 @@ export function OrganisationSelector({
           aria-hidden
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400"
         />
-        <input
+        <Input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Rechercher une organisation…"
           data-testid="org-search"
           aria-label="Rechercher une organisation"
-          className="min-h-11 w-full rounded-savr-md border border-savr-neutral-200 bg-savr-white pl-9 pr-3 text-sm text-savr-neutral-900 placeholder:text-savr-neutral-400 focus:border-savr-primary-500 focus:outline-none focus:ring-2 focus:ring-savr-primary-500/30"
+          className="pl-9"
         />
       </div>
 

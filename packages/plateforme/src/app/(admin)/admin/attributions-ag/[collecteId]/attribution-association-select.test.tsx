@@ -105,14 +105,30 @@ function installFetch(
   return fetchMock;
 }
 
+// Combobox DS (liste portée dans document.body) : ouvre la liste de
+// l'association et attend les 4 options (vide + 3 associations).
 async function selectAssociation() {
-  const select = (await screen.findByLabelText(
-    'Association',
-    undefined,
+  const declencheur = await screen.findByRole(
+    'combobox',
+    { name: 'Association' },
     ATTENTE_UI,
-  )) as HTMLSelectElement;
-  await waitFor(() => expect(select.options.length).toBe(4), ATTENTE_UI);
-  return select;
+  );
+  if (declencheur.getAttribute('aria-expanded') !== 'true')
+    fireEvent.click(declencheur);
+  await waitFor(
+    () => expect(screen.getAllByRole('option')).toHaveLength(4),
+    ATTENTE_UI,
+  );
+  return declencheur;
+}
+
+function libellesOptions() {
+  return screen.getAllByRole('option').map((o) => o.textContent);
+}
+
+function choisirMotif(libelle: string) {
+  fireEvent.click(screen.getByRole('combobox', { name: 'Motif' }));
+  fireEvent.click(screen.getByRole('option', { name: libelle }));
 }
 
 function corpsValider(fetchMock: ReturnType<typeof installFetch>) {
@@ -137,8 +153,10 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       render(<AttributionDetailPage />);
       const select = await selectAssociation();
 
-      expect(select.value).toBe('asso-top');
-      expect(Array.from(select.options).map((o) => o.textContent)).toEqual([
+      expect(select).toHaveTextContent(
+        'Asso Top · Paris · 1,2 km · cap. 300 · 2041-GE (suggérée)',
+      );
+      expect(libellesOptions()).toEqual([
         'Choisir une association…',
         'Asso Top · Paris · 1,2 km · cap. 300 · 2041-GE (suggérée)',
         'Asso Loin · Rouen · 111,5 km · cap. 80',
@@ -154,18 +172,19 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
     async () => {
       const fetchMock = installFetch();
       render(<AttributionDetailPage />);
-      const select = await selectAssociation();
-
-      fireEvent.change(select, { target: { value: 'asso-loin' } });
+      await selectAssociation();
+      fireEvent.click(
+        screen.getByRole('option', {
+          name: 'Asso Loin · Rouen · 111,5 km · cap. 80',
+        }),
+      );
       const valider = screen.getByRole('button', {
         name: "Valider l'attribution",
       }) as HTMLButtonElement;
       expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
       expect(valider.disabled).toBe(true);
 
-      fireEvent.change(screen.getByDisplayValue('Choisir un motif…'), {
-        target: { value: 'assoc_top1_surchargee' },
-      });
+      choisirMotif('Association top 1 surchargée cette semaine');
       fireEvent.click(valider);
 
       await waitFor(() => {
@@ -188,15 +207,14 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         no_asso: true,
       });
       render(<AttributionDetailPage />);
-      const select = (await screen.findByLabelText(
-        'Association',
-        undefined,
-        ATTENTE_UI,
-      )) as HTMLSelectElement;
-      await waitFor(() => expect(select.options.length).toBe(4), ATTENTE_UI);
-      expect(select.value).toBe('');
+      const select = await selectAssociation();
+      expect(select).toHaveTextContent('Choisir une association…');
 
-      fireEvent.change(select, { target: { value: 'asso-sans' } });
+      fireEvent.click(
+        screen.getByRole('option', {
+          name: 'Asso Sans GPS · Paris · distance inconnue',
+        }),
+      );
       fireEvent.click(
         screen.getByRole('button', { name: "Valider l'attribution" }),
       );
@@ -244,16 +262,21 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
           ATTENTE_UI,
         ),
       ).toBeTruthy();
-      const select = screen.getByLabelText('Association') as HTMLSelectElement;
+      const select = screen.getByRole('combobox', { name: 'Association' });
       // Option de secours = suggestion de l'algo ; 2041-GE inconnu → non affirmé.
-      expect(select.value).toBe('asso-top');
-      expect(select.options[1]!.textContent).toBe(
+      // La sélection reste affichée même sans la liste chargée.
+      expect(select).toHaveTextContent(
         'Asso Top · 1,2 km · cap. 300 (suggérée)',
       );
+      fireEvent.click(select);
+      expect(libellesOptions()).toEqual([
+        'Choisir une association…',
+        'Asso Top · 1,2 km · cap. 300 (suggérée)',
+      ]);
 
       ko = false;
       fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
-      await waitFor(() => expect(select.options.length).toBe(4), ATTENTE_UI);
+      await selectAssociation();
       expect(
         screen.queryByText('Impossible de charger la liste des associations.'),
       ).toBeNull();

@@ -7,10 +7,11 @@ import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js
 import { PageHero } from '@/components/ui/page-hero';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
-import {
-  CollecteTypeTabs,
-  type CollecteType,
-} from '@/components/dashboards/index.js';
+import { FormField } from '@/components/ui/form-field';
+import { Textarea } from '@/components/ui/textarea';
+import type { CollecteType } from '@/components/dashboards/index.js';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   TraiteurCollecteCard,
   type TraiteurCollecteCardData,
@@ -18,8 +19,9 @@ import {
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
   CollecteFiltresBar,
+  ecrireFiltresCollecte,
   FILTRES_COLLECTE_VIDES,
-  memeFiltresCollecte,
+  lireFiltresCollecte,
   type CollecteFiltres,
   type CollecteFiltresOptions,
 } from '@/components/collecte/collecte-filtres-bar';
@@ -50,6 +52,16 @@ const STATUTS_HISTORIQUE = [
 ];
 
 type Onglet = 'programmees' | 'historique';
+
+/** Dimensions de drill-down dashboard sans contrôle dans la barre de filtres. */
+interface Drill {
+  /** Lieu reçu d'un drill-down Top lieux : il a aussi son contrôle dans la
+   *  barre, mais le CDC (§06.04 Top lieux) veut le chip « Filtre actif ». */
+  lieu: string;
+  commercial: string;
+  association: string;
+  perimetre: string;
+}
 
 interface Lieu {
   nom: string;
@@ -114,23 +126,29 @@ function CollectesContent() {
   const [onglet, setOnglet] = useState<Onglet>(
     params.get('onglet') === 'historique' ? 'historique' : 'programmees',
   );
-  // Drill-down depuis les Top listes du dashboard (lieu / commercial). Miroir
-  // exact : le drill-down porte aussi la période (from/to) + un statut override
-  // (`cloturee`) pour que le nombre de lignes = le chiffre du Top liste.
-  const lieuFiltre = params.get('lieu');
-  const commercialFiltre = params.get('commercial');
-  const associationFiltre = params.get('association');
-  const statutOverride = params.get('statut');
-  const fromFiltre = params.get('from');
-  const toFiltre = params.get('to');
-  const perimetreFiltre = params.get('perimetre');
+  // Drill-down depuis les Top listes du dashboard. Lieu, statut (`cloturee`) et
+  // période (from/to) arrivent par les MÊMES clés d'URL que les filtres de la
+  // barre, qui les reflète donc directement (miroir : nombre de lignes = chiffre
+  // du Top liste). Commercial / association / périmètre ne sont pas des filtres
+  // d'UI : ils restent portés par l'URL et signalés par le chip « Filtre actif ».
+  const [drill, setDrill] = useState<Drill>(() => ({
+    lieu: params.get('lieu') ?? '',
+    commercial: params.get('commercial') ?? '',
+    association: params.get('association') ?? '',
+    perimetre: params.get('perimetre') ?? '',
+  }));
+  const commercialFiltre = drill.commercial || null;
+  const associationFiltre = drill.association || null;
+  const perimetreFiltre = drill.perimetre || null;
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
-  // Filtres §06.04 §3 (BL-P2-14). État local : la persistance query-string est
-  // descopée V1.1 (backlog l.401) ; seuls onglet/type restent dans l'URL.
-  const [filtres, setFiltres] = useState<CollecteFiltres>(
-    FILTRES_COLLECTE_VIDES,
+  // Filtres §06.04 §3 (BL-P2-14), synchronisés dans l'URL : l'état local est la
+  // vérité immédiate, chaque changement réécrit la query-string (replace, pas
+  // d'entrée d'historique) pour qu'un filtre survive au rechargement et au
+  // partage de lien.
+  const [filtres, setFiltresEtat] = useState<CollecteFiltres>(() =>
+    lireFiltresCollecte(new URLSearchParams(params.toString())),
   );
   const [options, setOptions] = useState<CollecteFiltresOptions>({
     lieux: [],
@@ -170,26 +188,6 @@ function CollectesContent() {
         /* options indisponibles : la barre reste utilisable (listes vides). */
       });
   }, []);
-
-  // Graine des filtres depuis le drill-down dashboard (statut/période/lieu portés
-  // par l'URL) → la barre REFLÈTE le périmètre miroir au lieu de le contredire.
-  // Ne s'applique QUE si l'URL porte effectivement une graine : sans cette garde,
-  // toute réécriture d'URL (changement d'onglet/type) écraserait les filtres que
-  // l'utilisateur vient de poser à la main. L'état n'est remplacé que s'il change
-  // réellement (sinon re-render → re-fetch inutile à chaque montage).
-  useEffect(() => {
-    if (!statutOverride && !fromFiltre && !toFiltre && !lieuFiltre) return;
-    setFiltres((f) => {
-      const graine: CollecteFiltres = {
-        ...f,
-        statuts: statutOverride ? statutOverride.split(',') : f.statuts,
-        from: fromFiltre ?? f.from,
-        to: toFiltre ?? f.to,
-        lieuId: lieuFiltre ?? f.lieuId,
-      };
-      return memeFiltresCollecte(f, graine) ? f : graine;
-    });
-  }, [statutOverride, fromFiltre, toFiltre, lieuFiltre]);
 
   const charger = useCallback(() => {
     setLoading(true);
@@ -237,76 +235,93 @@ function CollectesContent() {
   // Libellé du chip « filtre actif » : d'abord le nom mémorisé au clic
   // (sessionStorage), sinon fallback dérivé/générique (URL partagée, refresh).
   useEffect(() => {
-    if (lieuFiltre) setFiltreLabel(readCollecteFiltreLabel('lieu', lieuFiltre));
+    if (drill.lieu) setFiltreLabel(readCollecteFiltreLabel('lieu', drill.lieu));
     else if (commercialFiltre)
       setFiltreLabel(readCollecteFiltreLabel('commercial', commercialFiltre));
     else if (associationFiltre)
       setFiltreLabel(readCollecteFiltreLabel('association', associationFiltre));
     else setFiltreLabel(null);
-  }, [lieuFiltre, commercialFiltre, associationFiltre]);
+  }, [drill.lieu, commercialFiltre, associationFiltre]);
+
+  // L'URL est reconstruite ENTIÈREMENT depuis l'état (jamais depuis
+  // `useSearchParams`, en retard d'un rendu après un `router.replace` : deux
+  // changements rapprochés — onglet puis type — perdraient le premier).
+  function majUrl(etat: {
+    onglet?: Onglet;
+    type?: CollecteType;
+    filtres?: CollecteFiltres;
+    drill?: Drill;
+  }) {
+    const d = etat.drill ?? drill;
+    const usp = new URLSearchParams({
+      onglet: etat.onglet ?? onglet,
+      type: etat.type ?? typeFiltre,
+    });
+    if (d.commercial) usp.set('commercial', d.commercial);
+    if (d.association) usp.set('association', d.association);
+    if (d.perimetre) usp.set('perimetre', d.perimetre);
+    router.replace(
+      `/traiteur/collectes?${ecrireFiltresCollecte(usp, etat.filtres ?? filtres)}`,
+    );
+  }
+  function setFiltres(f: CollecteFiltres) {
+    setFiltresEtat(f);
+    majUrl({ filtres: f });
+  }
 
   function changeType(t: CollecteType) {
     setTypeFiltre(t);
     // Changer de type ZD/AG sort du miroir : on lâche le périmètre miroir
     // (statut/période/perimetre) ET le filtre association (AG-only → liste vide
-    // en ZD). Les filtres type-agnostiques lieu/commercial restent.
-    const usp = new URLSearchParams(Array.from(params.entries()));
-    usp.set('type', t);
-    ['association', 'statut', 'from', 'to', 'perimetre'].forEach((k) =>
-      usp.delete(k),
-    );
-    // Miroir lâché côté état aussi ; les filtres type-agnostiques (lieu, client,
-    // info incomplète, programmée par) sont conservés.
-    setFiltres((f) => ({ ...f, statuts: [], from: '', to: '' }));
-    router.replace(`/traiteur/collectes?${usp}`);
+    // en ZD). Les filtres type-agnostiques (lieu, client, info incomplète,
+    // programmée par) et le commercial sont conservés.
+    const f = { ...filtres, statuts: [], from: '', to: '' };
+    const d = { ...drill, association: '', perimetre: '' };
+    setFiltresEtat(f);
+    setDrill(d);
+    majUrl({ type: t, filtres: f, drill: d });
   }
   function changeOnglet(o: Onglet) {
     setOnglet(o);
-    // Changer d'onglet lève la restriction `cloturee` du drill-down (permet de
-    // « déplier » au-delà des seules clôturées) ; le lieu/commercial + période
-    // restent, jusqu'au ✕ du chip.
-    const usp = new URLSearchParams(Array.from(params.entries()));
-    usp.set('onglet', o);
-    usp.delete('statut');
     // L'onglet partitionne les statuts : une sélection faite dans l'autre onglet
-    // n'a plus de sens ici (et donnerait une intersection vide).
-    setFiltres((f) => ({ ...f, statuts: [] }));
-    router.replace(`/traiteur/collectes?${usp}`);
+    // n'a plus de sens ici (intersection vide). Changer d'onglet lève donc aussi
+    // la restriction `cloturee` du drill-down ; lieu + période restent.
+    const f = { ...filtres, statuts: [] };
+    setFiltresEtat(f);
+    majUrl({ onglet: o, filtres: f });
   }
+  // ✕ du chip : sort du drill-down ET de son périmètre miroir (lieu, statut,
+  // période), comme avant la barre DS.
   function clearFiltre() {
-    const usp = new URLSearchParams(Array.from(params.entries()));
-    [
-      'lieu',
-      'commercial',
-      'association',
-      'statut',
-      'from',
-      'to',
-      'perimetre',
-    ].forEach((k) => usp.delete(k));
-    setFiltres(FILTRES_COLLECTE_VIDES);
-    router.replace(`/traiteur/collectes?${usp}`);
+    const d = { lieu: '', commercial: '', association: '', perimetre: '' };
+    setDrill(d);
+    setFiltresEtat(FILTRES_COLLECTE_VIDES);
+    majUrl({ drill: d, filtres: FILTRES_COLLECTE_VIDES });
   }
 
-  // Libellé du chip : nom mémorisé, sinon nom du lieu dérivé des lignes, sinon
-  // générique. Le filtrage lui-même ne dépend jamais de ce libellé.
-  const lieuNomDesRows = (() => {
-    const evt = one(rows[0]?.evenements ?? null);
-    const lieu = one(evt?.lieux ?? null);
-    return lieu?.nom ?? null;
-  })();
-  const chipLabel = lieuFiltre
-    ? `Lieu : ${filtreLabel ?? lieuNomDesRows ?? 'lieu sélectionné'}`
+  // Chip « Filtre actif » (drill-down depuis une Top liste du dashboard) :
+  // libellé mémorisé au clic, sinon dérivé, sinon générique. Le filtrage ne
+  // dépend jamais de ce libellé. Le lieu n'y figure que tant que la barre
+  // filtre encore sur le lieu reçu.
+  const lieuDrillActif = drill.lieu !== '' && filtres.lieuId === drill.lieu;
+  const lieuNom =
+    filtreLabel ??
+    options.lieux.find((l) => l.id === drill.lieu)?.nom ??
+    one(one(rows[0]?.evenements ?? null)?.lieux ?? null)?.nom ??
+    'lieu sélectionné';
+  const chipLabel = lieuDrillActif
+    ? `Lieu : ${lieuNom}`
     : commercialFiltre
       ? `Commercial : ${filtreLabel ?? 'commercial sélectionné'}`
       : associationFiltre
         ? `Association : ${filtreLabel ?? 'association sélectionnée'}`
         : null;
-  // Périmètre appliqué (miroir dashboard) affiché en clair dans le chip.
+  // Périmètre miroir affiché en clair dans le chip.
   const chipScope = (() => {
     const parts: string[] = [];
-    if (statutOverride === 'cloturee') parts.push('clôturées');
-    const per = periodeCourte(fromFiltre, toFiltre);
+    if (filtres.statuts.length === 1 && filtres.statuts[0] === 'cloturee')
+      parts.push('clôturées');
+    const per = periodeCourte(filtres.from || null, filtres.to || null);
     if (per) parts.push(per);
     return parts.length ? parts.join(' · ') : undefined;
   })();
@@ -421,49 +436,21 @@ function CollectesContent() {
         icon={<Truck className="h-6 w-6" />}
         subtitle="Vos collectes Zéro Déchet et Anti-Gaspi · cliquez une carte pour ouvrir la fiche"
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={exportCsv}>
+          // Sur l'aplat navy du bandeau : secondaire (fond blanc) + CTA accent,
+          // comme les autres PageHero ; un ghost navy y était invisible. Pas de
+          // wrapper : le slot d'actions du PageHero passe à la ligne sur mobile.
+          <>
+            <Button variant="secondary" onClick={exportCsv}>
               Exporter CSV
             </Button>
-            <Button asChild>
+            <Button variant="accent" asChild>
               <a href={`/programmer/nouveau?type=${typeFiltre}`}>
                 Programmer un événement
               </a>
             </Button>
-          </div>
+          </>
         }
       />
-
-      {/* Onglets Programmées / Historique */}
-      <div
-        role="tablist"
-        aria-label="Statut des collectes"
-        className="inline-flex rounded-savr-md border border-savr-neutral-200 bg-savr-white p-1"
-      >
-        {(
-          [
-            ['programmees', 'Programmées'],
-            ['historique', 'Historique'],
-          ] as [Onglet, string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={onglet === key}
-            onClick={() => changeOnglet(key)}
-            className={`rounded px-4 py-1.5 text-sm font-semibold transition-colors ${
-              onglet === key
-                ? 'bg-savr-primary-700 text-savr-white'
-                : 'text-savr-neutral-600 hover:bg-savr-neutral-100'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Sélecteur ZD / AG */}
-      <CollecteTypeTabs value={typeFiltre} onChange={changeType} />
 
       {/* Filtre actif (drill-down depuis une Top liste du dashboard) */}
       {chipLabel && (
@@ -474,9 +461,33 @@ function CollectesContent() {
         />
       )}
 
-      {/* Filtres §06.04 §3 — Statut / Période / Lieu / Client / Info incomplète
-          / Programmée par. Le compteur de résultats est porté par la barre. */}
+      {/* Barre de filtres DS : onglets Programmées / Historique + type ZD / AG
+          en en-tête, puis Statut / Période / Lieu / Client / Info incomplète /
+          Programmée par (§06.04 §3), compteur et réinitialisation en pied. */}
       <CollecteFiltresBar
+        tabs={
+          <Tabs value={onglet} onValueChange={(v) => changeOnglet(v as Onglet)}>
+            <TabsList aria-label="Statut des collectes">
+              <TabsTrigger value="programmees">Programmées</TabsTrigger>
+              <TabsTrigger value="historique">Historique</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+        toggle={
+          <ToggleGroup
+            type="single"
+            aria-label="Type de collecte"
+            value={typeFiltre}
+            onValueChange={(v) => {
+              // Un clic sur l'item actif le désélectionne (v = '') : le type
+              // est obligatoire, on l'ignore.
+              if (v) changeType(v as CollecteType);
+            }}
+          >
+            <ToggleGroupItem value="zero_dechet">Zéro Déchet</ToggleGroupItem>
+            <ToggleGroupItem value="anti_gaspi">Anti-Gaspi</ToggleGroupItem>
+          </ToggleGroup>
+        }
         statutsOnglet={
           onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE
         }
@@ -536,18 +547,18 @@ function CollectesContent() {
               ? 'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.'
               : 'Cette collecte sera annulée immédiatement. Le prestataire sera informé le cas échéant.'}
           </p>
-          <label className="block text-sm">
-            <span className="text-savr-neutral-700">Motif (facultatif)</span>
-            <textarea
-              className="mt-1 w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm"
+          <FormField
+            label="Motif (facultatif)"
+            htmlFor="annulation-motif"
+            error={annulErreur ?? undefined}
+          >
+            <Textarea
+              id="annulation-motif"
               rows={3}
               value={annulMotif}
               onChange={(e) => setAnnulMotif(e.target.value)}
             />
-          </label>
-          {annulErreur && (
-            <p className="text-sm text-savr-error-600">{annulErreur}</p>
-          )}
+          </FormField>
           <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
             <Button
               variant="secondary"

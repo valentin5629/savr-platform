@@ -18,6 +18,11 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
   readCollecteFiltreLabel,
@@ -667,20 +672,20 @@ export default function CollectesPage() {
             setPage(1);
           }}
         />
-        <label className="flex h-9 min-w-[190px] items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-savr-neutral-400">
-          <Search className="h-4 w-4 shrink-0" />
-          <input
+        <div className="relative min-w-[190px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
+          <Input
             aria-label="Rechercher"
             placeholder="Traiteur, lieu, ville…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent text-sm text-savr-neutral-800"
+            className="pl-9"
           />
-        </label>
+        </div>
         <Button
           variant="secondary"
           onClick={() => setShowAdvanced((v) => !v)}
-          className="h-9"
+          className="h-11 sm:h-10"
         >
           <SlidersHorizontal className="h-4 w-4" />
           Filtres avancés
@@ -688,102 +693,72 @@ export default function CollectesPage() {
       </div>
 
       {showAdvanced && (
-        <div className="grid grid-cols-1 gap-3 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
-              Type
-            </label>
-            <select
-              aria-label="Filtrer par type"
-              className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
+        <FilterBar data-testid="collectes-filtres-avances">
+          <FormField label="Type" htmlFor="collectes-filtre-type">
+            <Combobox
+              id="collectes-filtre-type"
+              icon={null}
+              placeholder="Tous types"
+              options={[
+                { value: '', label: 'Tous types' },
+                { value: 'zero_dechet', label: 'Zéro Déchet' },
+                { value: 'anti_gaspi', label: 'Anti-Gaspi' },
+              ]}
               value={type}
-              onChange={(e) => {
-                setType(e.target.value);
+              onChange={(v) => {
+                setType(v);
                 setPage(1);
               }}
-            >
-              <option value="">Tous types</option>
-              <option value="zero_dechet">Zéro Déchet</option>
-              <option value="anti_gaspi">Anti-Gaspi</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
-              Traiteur
-            </label>
-            <select
-              aria-label="Filtrer par traiteur"
-              className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
+            />
+          </FormField>
+          <FormField label="Traiteur" htmlFor="collectes-filtre-traiteur">
+            <Combobox
+              id="collectes-filtre-traiteur"
+              icon={null}
+              placeholder="Tous les traiteurs"
+              searchPlaceholder="Rechercher un traiteur…"
+              options={[
+                { value: '', label: 'Tous les traiteurs' },
+                ...traiteurs.map((t) => ({ value: t.id, label: t.label })),
+              ]}
               value={traiteurId}
-              onChange={(e) => {
-                setTraiteurId(e.target.value);
+              onChange={(v) => {
+                setTraiteurId(v);
                 setPage(1);
               }}
-            >
-              <option value="">Tous les traiteurs</option>
-              {traiteurs.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
-              Lieu
-            </label>
-            <select
-              aria-label="Filtrer par lieu"
-              className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
+            />
+          </FormField>
+          <FormField label="Lieu" htmlFor="collectes-filtre-lieu">
+            <Combobox
+              id="collectes-filtre-lieu"
+              placeholder="Tous les lieux"
+              searchPlaceholder="Rechercher un lieu…"
+              options={[
+                { value: '', label: 'Tous les lieux' },
+                ...lieux.map((l) => ({ value: l.id, label: l.label })),
+              ]}
               value={lieuId}
-              onChange={(e) => {
-                setLieuId(e.target.value);
+              onChange={(v) => {
+                setLieuId(v);
                 setPage(1);
               }}
-            >
-              <option value="">Tous les lieux</option>
-              {lieux.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
-                Du
-              </label>
-              <input
-                type="date"
-                aria-label="Date de début"
-                value={from}
-                onChange={(e) => {
-                  setFrom(e.target.value);
-                  setPage(1);
-                }}
-                className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 text-sm"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
-                Au
-              </label>
-              <input
-                type="date"
-                aria-label="Date de fin"
-                value={to}
-                onChange={(e) => {
-                  setTo(e.target.value);
-                  setPage(1);
-                }}
-                className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 text-sm"
-              />
-            </div>
-          </div>
+            />
+          </FormField>
+          <FormField label="Période" htmlFor="collectes-filtre-periode">
+            <DateRangePicker
+              id="collectes-filtre-periode"
+              data-testid="collectes-filtre-periode"
+              value={{ from, to }}
+              onChange={(p) => {
+                setFrom(p.from);
+                setTo(p.to);
+                setPage(1);
+              }}
+            />
+          </FormField>
 
           {/* Statut — multi-sélection scopée aux valeurs de l'onglet actif */}
-          <div className="sm:col-span-2 lg:col-span-4">
+          <div className="col-span-full">
             <span className="mb-1 block text-xs font-bold text-savr-neutral-700">
               Statut
             </span>
@@ -813,7 +788,7 @@ export default function CollectesPage() {
           </div>
 
           {/* Booléens */}
-          <div className="flex flex-wrap gap-4 sm:col-span-2 lg:col-span-4">
+          <div className="col-span-full flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
               <input
                 type="checkbox"
@@ -837,7 +812,7 @@ export default function CollectesPage() {
               Rapport non consulté
             </label>
           </div>
-        </div>
+        </FilterBar>
       )}
 
       {/* Liste par semaine */}

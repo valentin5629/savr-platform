@@ -65,7 +65,7 @@ export function LieuCombobox({
           aria-haspopup="listbox"
           aria-expanded={open}
           className={cn(
-            'flex w-full items-center justify-between rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 py-2 text-sm text-left',
+            'flex w-full items-center justify-between rounded-savr-md border border-savr-neutral-300 bg-savr-white h-11 px-3 text-sm text-left sm:h-10',
             'hover:border-savr-primary-400 focus:outline-2 focus:outline-savr-primary-500',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             className,
@@ -86,14 +86,14 @@ export function LieuCombobox({
 
       <Popover.Portal>
         <Popover.Content
-          className="z-50 w-[var(--radix-popover-trigger-width)] rounded-savr-md border border-savr-neutral-200 bg-savr-white shadow-lg"
+          className="z-50 w-[var(--radix-popover-trigger-width)] rounded-savr-md border border-savr-neutral-200 bg-savr-white shadow-savr-md"
           sideOffset={4}
         >
           <div className="flex items-center border-b border-savr-neutral-100 px-3">
             <Search className="h-4 w-4 text-savr-neutral-400 shrink-0 mr-2" />
             <input
               autoFocus
-              className="flex-1 py-2 text-sm placeholder:text-savr-neutral-400"
+              className="h-11 flex-1 text-sm placeholder:text-savr-neutral-400 sm:h-10"
               placeholder="Nom, adresse, ville…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

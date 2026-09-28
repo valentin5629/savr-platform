@@ -7,13 +7,15 @@
  *  - « Réinitialiser » n'apparaît que si un filtre est posé, et vide tout.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 import {
   CollecteFiltresBar,
   FILTRES_COLLECTE_VIDES,
   filtresCollecteActifs,
   memeFiltresCollecte,
+  lireFiltresCollecte,
+  ecrireFiltresCollecte,
   type CollecteFiltres,
 } from '@/components/collecte/collecte-filtres-bar';
 import { groupesStatutClient } from '@/lib/statut-collecte-labels';
@@ -87,11 +89,9 @@ describe('M3.1 / R25a — groupes de statuts en vue client', () => {
 
   it('R25a/statut_selectionne_rend_tous_les_statuts_db_du_groupe', () => {
     const { onChange } = renderBar();
-    // Le déclencheur du multi-select est le seul bouton du bloc tant qu'il est fermé.
-    fireEvent.click(
-      within(screen.getByTestId('filtre-statut')).getByRole('button'),
-    );
-    fireEvent.click(screen.getByLabelText('Créée'));
+    // Combobox multiple : on ouvre la liste puis on choisit l'option.
+    fireEvent.click(screen.getByTestId('filtre-statut'));
+    fireEvent.click(screen.getByRole('option', { name: 'Créée' }));
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ statuts: ['brouillon', 'programmee'] }),
     );
@@ -101,17 +101,19 @@ describe('M3.1 / R25a — groupes de statuts en vue client', () => {
 describe('M3.1 / R25a — « Programmée par » et réinitialisation', () => {
   it('R25a/programmee_par_libelles_cdc', () => {
     renderBar();
-    fireEvent.click(
-      within(screen.getByTestId('filtre-programmee-par')).getByRole('button'),
-    );
-    expect(screen.getByLabelText('Mon organisation')).toBeTruthy();
-    expect(screen.getByLabelText('Agence : WPM')).toBeTruthy();
-    expect(screen.getByLabelText('Gestionnaire : Viparis')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('filtre-programmee-par'));
+    expect(
+      screen.getByRole('option', { name: 'Mon organisation' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Agence : WPM' })).toBeTruthy();
+    expect(
+      screen.getByRole('option', { name: 'Gestionnaire : Viparis' }),
+    ).toBeTruthy();
   });
 
   it('R25a/reinitialiser_absent_sans_filtre_actif', () => {
     renderBar();
-    expect(screen.queryByTestId('filtres-reinitialiser')).toBeNull();
+    expect(screen.queryByTestId('collecte-filtres-bar-reset')).toBeNull();
   });
 
   it('R25a/reinitialiser_vide_tous_les_filtres', () => {
@@ -121,7 +123,7 @@ describe('M3.1 / R25a — « Programmée par » et réinitialisation', () => {
       infoIncomplete: 'oui',
       programmeePar: ['org-2'],
     });
-    fireEvent.click(screen.getByTestId('filtres-reinitialiser'));
+    fireEvent.click(screen.getByTestId('collecte-filtres-bar-reset'));
     expect(onChange).toHaveBeenCalledWith(FILTRES_COLLECTE_VIDES);
   });
 
@@ -169,5 +171,51 @@ describe('M3.1 / R25a — helpers de filtres', () => {
         { ...FILTRES_COLLECTE_VIDES, statuts: ['b'] },
       ),
     ).toBe(false);
+  });
+});
+
+describe('Filtres Collectes traiteur — synchronisation URL', () => {
+  it('url/aller_retour_conserve_chaque_dimension', () => {
+    const f: CollecteFiltres = {
+      statuts: ['brouillon', 'programmee'],
+      from: '2026-09-01',
+      to: '2026-09-30',
+      lieuId: 'lieu-a',
+      client: 'Danone',
+      infoIncomplete: 'oui',
+      programmeePar: ['org-1', 'org-2'],
+    };
+    const usp = ecrireFiltresCollecte(
+      new URLSearchParams('onglet=historique'),
+      f,
+    );
+    expect(lireFiltresCollecte(usp)).toEqual(f);
+    // Les clés hors filtres (onglet, type, drill-down) sont conservées.
+    expect(usp.get('onglet')).toBe('historique');
+  });
+
+  it('url/filtre_vide_retire_la_cle', () => {
+    const usp = ecrireFiltresCollecte(
+      new URLSearchParams('lieu=lieu-a&statut=cloturee&commercial=u1'),
+      FILTRES_COLLECTE_VIDES,
+    );
+    expect(usp.toString()).toBe('commercial=u1');
+  });
+
+  it('url/cles_du_drill_down_dashboard_pre_remplissent_la_barre', () => {
+    // Le drill-down d'une Top liste pose lieu + statut cloturee + période.
+    const f = lireFiltresCollecte(
+      new URLSearchParams(
+        'lieu=lieu-a&statut=cloturee&from=2025-07-13&to=2026-07-13&info=peut-etre',
+      ),
+    );
+    expect(f).toMatchObject({
+      lieuId: 'lieu-a',
+      statuts: ['cloturee'],
+      from: '2025-07-13',
+      to: '2026-07-13',
+      // Valeur hors domaine ignorée.
+      infoIncomplete: '',
+    });
   });
 });

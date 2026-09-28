@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { Recycle, Edit, History, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
@@ -216,28 +219,29 @@ export default function TauxRecyclagePage() {
               Modifier — {modal.filiere.nom_filiere}
             </h2>
             <div className="space-y-3">
-              <div>
-                <label className="text-sm text-savr-neutral-600 block mb-1">
-                  Taux de captation (%)
-                </label>
-                <input
+              <FormField
+                label="Taux de captation (%)"
+                htmlFor="taux-recyclage-captation"
+              >
+                <Input
+                  id="taux-recyclage-captation"
                   type="number"
                   min="0"
                   max="100"
                   step="0.1"
-                  className="w-full border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm"
                   value={modal.taux}
                   onChange={(e) =>
                     setModal((m) => ({ ...m, taux: e.target.value }))
                   }
                 />
-              </div>
-              <div>
-                <label className="text-sm text-savr-neutral-600 block mb-1">
-                  Commentaire de modification (obligatoire)
-                </label>
-                <textarea
-                  className="w-full border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm resize-none"
+              </FormField>
+              <FormField
+                label="Commentaire de modification (obligatoire)"
+                htmlFor="taux-recyclage-commentaire"
+              >
+                <Textarea
+                  id="taux-recyclage-commentaire"
+                  className="resize-none"
                   rows={3}
                   placeholder="Motif de la modification…"
                   value={modal.commentaire}
@@ -245,7 +249,7 @@ export default function TauxRecyclagePage() {
                     setModal((m) => ({ ...m, commentaire: e.target.value }))
                   }
                 />
-              </div>
+              </FormField>
               {modal.error && (
                 <p className="text-savr-error-600 text-sm">{modal.error}</p>
               )}

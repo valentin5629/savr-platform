@@ -3,6 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Building2, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -175,39 +179,51 @@ export default function ClientsPage() {
       <ImpersonationLauncher />
 
       {/* Filtres */}
-      <div className="flex gap-3 flex-wrap">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <input
-            type="text"
-            placeholder="Rechercher…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
+      <FilterBar data-testid="clients-filtres">
+        <FormField label="Recherche" htmlFor="clients-recherche">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
+            <Input
+              id="clients-recherche"
+              type="text"
+              placeholder="Rechercher…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </FormField>
+        <FormField label="Type" htmlFor="clients-type">
+          <Combobox
+            id="clients-type"
+            icon={null}
+            placeholder="Tous les types"
+            options={[
+              { value: '', label: 'Tous les types' },
+              ...Object.entries(TYPE_ORGANISATION_LABELS).map(([k, v]) => ({
+                value: k,
+                label: v,
+              })),
+            ]}
+            value={typeFilter}
+            onChange={setTypeFilter}
           />
-        </div>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
-        >
-          <option value="">Tous les types</option>
-          {Object.entries(TYPE_ORGANISATION_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <select
-          value={actifFilter}
-          onChange={(e) => setActifFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
-        >
-          <option value="">Tous les statuts</option>
-          <option value="true">Actifs</option>
-          <option value="false">Inactifs</option>
-        </select>
-      </div>
+        </FormField>
+        <FormField label="Statut" htmlFor="clients-statut">
+          <Combobox
+            id="clients-statut"
+            icon={null}
+            placeholder="Tous les statuts"
+            options={[
+              { value: '', label: 'Tous les statuts' },
+              { value: 'true', label: 'Actifs' },
+              { value: 'false', label: 'Inactifs' },
+            ]}
+            value={actifFilter}
+            onChange={setActifFilter}
+          />
+        </FormField>
+      </FilterBar>
 
       {loading ? (
         <div className="space-y-3">

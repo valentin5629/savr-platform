@@ -5,6 +5,9 @@ import { Settings, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
 
 interface ParamAlgo {
   cle: string;
@@ -130,37 +133,39 @@ export default function AlgoAgParamsPage() {
         <div className="space-y-3">
           {params.map((p) => (
             <Card key={p.cle} className="border border-savr-neutral-200 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-savr-neutral-900">
-                    {CLE_LABELS[p.cle] ?? p.cle}
-                  </p>
-                  <p className="text-xs text-savr-neutral-500">
-                    {p.description}
-                  </p>
-                  <p className="mt-0.5 font-mono text-xs text-savr-neutral-400">
-                    clé: {p.cle} · type: {p.type_valeur}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
+              {/* Libellé au-dessus du champ (DS « Mise en page des formulaires ») :
+                  description + clé technique, puis le contrôle et son action. */}
+              <FormField
+                label={CLE_LABELS[p.cle] ?? p.cle}
+                htmlFor={`param-${p.cle}`}
+              >
+                <p className="text-xs text-savr-neutral-500">{p.description}</p>
+                <p className="font-mono text-xs text-savr-neutral-400">
+                  clé: {p.cle} · type: {p.type_valeur}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-2">
                   {p.type_valeur === 'bool' ? (
-                    <select
-                      className="rounded border border-savr-neutral-200 px-2 py-1 text-sm"
+                    <Combobox
+                      id={`param-${p.cle}`}
+                      icon={null}
+                      className="w-full sm:w-64"
+                      options={[
+                        { value: 'true', label: 'Oui (true)' },
+                        { value: 'false', label: 'Non (false)' },
+                      ]}
                       value={editing[p.cle] ?? 'false'}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setEditing((prev) => ({
                           ...prev,
-                          [p.cle]: e.target.value,
+                          [p.cle]: v,
                         }))
                       }
-                    >
-                      <option value="true">Oui (true)</option>
-                      <option value="false">Non (false)</option>
-                    </select>
+                    />
                   ) : (
-                    <input
+                    <Input
+                      id={`param-${p.cle}`}
                       type="text"
-                      className="w-40 rounded border border-savr-neutral-200 px-2 py-1 text-sm font-mono"
+                      className="w-full font-mono sm:w-64"
                       value={editing[p.cle] ?? ''}
                       onChange={(e) =>
                         setEditing((prev) => ({
@@ -180,7 +185,7 @@ export default function AlgoAgParamsPage() {
                     {saving === p.cle ? '…' : 'Sauvegarder'}
                   </Button>
                 </div>
-              </div>
+              </FormField>
             </Card>
           ))}
         </div>

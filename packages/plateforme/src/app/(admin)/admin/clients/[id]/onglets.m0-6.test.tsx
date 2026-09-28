@@ -26,6 +26,54 @@ import {
   PackAjustementsHistorique,
 } from './onglets';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { jourParisDecale } from '@savr/shared/src/temps/index.js';
+
+// DatePicker DS (aucun <input type="date">) : ouvre le calendrier du champ
+// `nom`, navigue jusqu'au mois de `iso` puis clique le jour (libellés
+// react-day-picker FR : grille « septembre 2026 », jour « jeudi 17 septembre 2026 »).
+const MOIS = [
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+];
+function choisirDate(nom: string, iso: string) {
+  const [a, m, j] = iso.split('-').map(Number) as [number, number, number];
+  fireEvent.click(screen.getByRole('button', { name: nom }));
+  const cible = a * 12 + (m - 1);
+  for (let i = 0; i < 600; i++) {
+    const [mois, annee] = (
+      screen.getByRole('grid').getAttribute('aria-label') ?? ''
+    )
+      .toLowerCase()
+      .split(' ');
+    const courant = Number(annee) * 12 + MOIS.indexOf(mois ?? '');
+    if (courant === cible) break;
+    fireEvent.click(
+      screen.getByRole('button', {
+        name:
+          courant < cible ? 'Aller au mois suivant' : 'Aller au mois précédent',
+      }),
+    );
+  }
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: new RegExp(` ${j} ${MOIS[m - 1]} ${a}`),
+    }),
+  );
+  expect(screen.getByRole('button', { name: nom })).toHaveAttribute(
+    'data-value',
+    iso,
+  );
+}
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -421,9 +469,7 @@ describe('M0.6 — onglet Remises négociées', () => {
       fireEvent.change(screen.getByLabelText('Remise (%)'), {
         target: { value: '10' },
       });
-      fireEvent.change(screen.getByLabelText('Valide du'), {
-        target: { value: '2026-01-01' },
-      });
+      choisirDate('Valide du', '2026-01-01');
       fireEvent.click(screen.getByText('Créer'));
       await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
       const post = calls.find(
@@ -477,9 +523,7 @@ describe('M0.6 — onglet Remises négociées', () => {
       fireEvent.change(screen.getByLabelText('Remise (%)'), {
         target: { value: '10' },
       });
-      fireEvent.change(screen.getByLabelText('Valide du'), {
-        target: { value: '2026-09-17' },
-      });
+      choisirDate('Valide du', '2026-09-17');
       fireEvent.click(screen.getByText('Créer'));
       await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
       const post = calls.find(
@@ -537,9 +581,7 @@ describe('M0.6 — onglet Remises négociées', () => {
       fireEvent.change(screen.getByLabelText('Remise (%)'), {
         target: { value: '10' },
       });
-      fireEvent.change(screen.getByLabelText('Valide du'), {
-        target: { value: '2026-09-17' },
-      });
+      choisirDate('Valide du', '2026-09-17');
       fireEvent.click(screen.getByText('Créer'));
       await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
       const post = calls.find(
@@ -590,9 +632,9 @@ describe('M0.6 — onglet Remises négociées', () => {
         target: { value: '10' },
       });
       fireEvent.click(screen.getByRole('checkbox', { name: 'Paris Expo' }));
-      fireEvent.change(screen.getByLabelText('À partir du'), {
-        target: { value: '2099-01-01' },
-      });
+      // Date d'effet future (jamais passée : min = aujourd'hui).
+      const dateEffet = jourParisDecale(40);
+      choisirDate('À partir du', dateEffet);
       fireEvent.click(screen.getByText('Enregistrer'));
       await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
       const post = calls.find(
@@ -603,7 +645,7 @@ describe('M0.6 — onglet Remises négociées', () => {
       expect(post?.body).toEqual({
         lieu_ids: ['lieu-pv'],
         remise_pct: 0.1,
-        valide_du: '2099-01-01',
+        valide_du: dateEffet,
         commentaires: 'Accord 2025',
       });
       // Pas de création parallèle d'une remise supplémentaire.

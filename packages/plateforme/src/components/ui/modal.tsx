@@ -54,7 +54,11 @@ const Modal = ({
     const raf = requestAnimationFrame(() => setShow(true));
     const focusTimer = setTimeout(() => panelRef.current?.focus(), 0);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
+      // Échap ferme d'abord un popover ouvert DANS le panneau (Combobox,
+      // DatePicker…, portés par Radix) : il ne doit pas fermer le panneau avec.
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('[data-radix-popper-content-wrapper]')) return;
+      onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;

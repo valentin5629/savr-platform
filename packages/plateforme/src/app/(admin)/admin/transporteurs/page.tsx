@@ -3,6 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Truck, Plus, Search, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
@@ -209,47 +213,59 @@ export default function TransporteursPage() {
         </Button>
       </div>
 
-      <div className="flex gap-3 flex-wrap">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-savr-neutral-400" />
-          <input
-            className="w-full pl-9 pr-3 py-2 border border-savr-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
-            placeholder="Rechercher…"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
+      <FilterBar data-testid="transporteurs-filtres">
+        <FormField label="Recherche" htmlFor="transporteurs-recherche">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
+            <Input
+              id="transporteurs-recherche"
+              className="pl-9"
+              placeholder="Rechercher…"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+        </FormField>
+        <FormField label="Type" htmlFor="transporteurs-type">
+          <Combobox
+            id="transporteurs-type"
+            icon={null}
+            placeholder="Tous les types"
+            options={[
+              { value: '', label: 'Tous les types' },
+              ...Object.entries(TYPE_TMS_LABELS).map(([k, v]) => ({
+                value: k,
+                label: v,
+              })),
+            ]}
+            value={typeTms}
+            onChange={(v) => {
+              setTypeTms(v);
               setPage(1);
             }}
           />
-        </div>
-        <select
-          className="border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm"
-          value={typeTms}
-          onChange={(e) => {
-            setTypeTms(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">Tous les types</option>
-          <option value="mts1">MTS-1</option>
-          <option value="a_toutes">A Toutes!</option>
-          <option value="autre">Autre</option>
-          <option value="par_mail">Par mail</option>
-          <option value="par_telephone">Par téléphone</option>
-        </select>
-        <select
-          className="border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm"
-          value={actif}
-          onChange={(e) => {
-            setActif(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="true">Actifs</option>
-          <option value="false">Inactifs</option>
-          <option value="">Tous</option>
-        </select>
-      </div>
+        </FormField>
+        <FormField label="Statut" htmlFor="transporteurs-statut">
+          <Combobox
+            id="transporteurs-statut"
+            icon={null}
+            placeholder="Tous"
+            options={[
+              { value: 'true', label: 'Actifs' },
+              { value: 'false', label: 'Inactifs' },
+              { value: '', label: 'Tous' },
+            ]}
+            value={actif}
+            onChange={(v) => {
+              setActif(v);
+              setPage(1);
+            }}
+          />
+        </FormField>
+      </FilterBar>
 
       {loading ? (
         <div className="space-y-2">

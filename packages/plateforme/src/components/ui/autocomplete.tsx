@@ -23,6 +23,8 @@ interface AutocompleteProps {
   /** Nombre de caractères minimum avant de déclencher la recherche. */
   minChars?: number;
   'aria-label'?: string;
+  /** Id du champ de saisie (cible du `htmlFor` d'un FormField). */
+  id?: string;
 }
 
 function Autocomplete({
@@ -33,6 +35,7 @@ function Autocomplete({
   className,
   minChars = 1,
   'aria-label': ariaLabel,
+  id,
 }: AutocompleteProps) {
   const [query, setQuery] = React.useState('');
   const [options, setOptions] = React.useState<AutocompleteOption[]>([]);
@@ -82,7 +85,7 @@ function Autocomplete({
     return (
       <div
         className={cn(
-          'flex h-10 items-center justify-between gap-2 rounded-savr-md border border-savr-primary-400 bg-savr-primary-50 px-3 text-sm',
+          'flex h-11 items-center justify-between gap-2 rounded-savr-md border border-savr-primary-400 bg-savr-primary-50 px-3 text-sm sm:h-10',
           className,
         )}
       >
@@ -110,6 +113,7 @@ function Autocomplete({
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
         <input
           type="text"
+          id={id}
           role="combobox"
           aria-expanded={open}
           aria-label={ariaLabel}
@@ -117,7 +121,7 @@ function Autocomplete({
           placeholder={placeholder}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => options.length > 0 && setOpen(true)}
-          className="flex h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white pl-9 pr-3 text-sm text-savr-neutral-900 hover:border-savr-primary-400 focus:outline-2 focus:outline-offset-2 focus:outline-savr-primary-500"
+          className="flex h-11 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white pl-9 pr-3 text-sm text-savr-neutral-900 hover:border-savr-primary-400 focus:outline-2 focus:outline-offset-2 focus:outline-savr-primary-500 sm:h-10"
         />
       </div>
       {open && (

@@ -147,9 +147,9 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
       fireEvent.change(within(dialog).getByLabelText(/^Raison sociale/), {
         target: { value: 'Nouvel Org SAS' },
       });
-      fireEvent.change(within(dialog).getByLabelText(/^Type/), {
-        target: { value: 'agence' },
-      });
+      // Type = Combobox (DS règle 3) : options portées dans un portail.
+      fireEvent.click(within(dialog).getByRole('combobox', { name: /^Type/ }));
+      fireEvent.click(screen.getByRole('option', { name: 'Agence' }));
       fireEvent.change(within(dialog).getByLabelText(/^Email principal/), {
         target: { value: 'a@b.fr' },
       });

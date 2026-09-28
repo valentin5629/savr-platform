@@ -183,7 +183,7 @@ export function BenchmarkFilterBar({
           testid="benchmark-filter-taille"
         />
         <MultiSelectFilter
-          label="Lieux benchmark"
+          label="Lieux"
           options={lieux}
           selected={filters.lieu_ids}
           onChange={(ids) => apply({ ...filters, lieu_ids: ids })}

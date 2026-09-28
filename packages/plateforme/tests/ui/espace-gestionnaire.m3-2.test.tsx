@@ -236,6 +236,9 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
           periode_fin: periodeBenchmark().fin,
         }),
       );
+      // Libellé court « Lieux » (revue écran 2026-09-28).
+      expect(screen.getByText('Lieux')).toBeInTheDocument();
+      expect(screen.queryByText('Lieux benchmark')).toBeNull();
 
       // L'utilisateur ouvre le filtre Taille et coche « M ».
       fireEvent.click(

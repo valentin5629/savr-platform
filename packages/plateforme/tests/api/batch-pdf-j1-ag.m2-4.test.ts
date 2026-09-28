@@ -90,6 +90,72 @@ beforeEach(() => vi.clearAllMocks());
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
+describe('M2.4 / BatchPdfJ1Ag / SIRET donateur non vérifié (décision Val 2026-09-28)', () => {
+  const casBloquants: Array<[string, Record<string, unknown>[]]> = [
+    [
+      'entité SIRET en_attente',
+      [
+        {
+          id: 'entite-1',
+          organisation_id: 'org-1',
+          raison_sociale: 'Agence AREP',
+          siret: '',
+          siret_verification: 'en_attente',
+        },
+      ],
+    ],
+    [
+      'SIRET renseigné mais en échec INSEE',
+      [
+        {
+          id: 'entite-1',
+          organisation_id: 'org-1',
+          raison_sociale: 'Agence AREP',
+          siret: '12345678900001',
+          siret_verification: 'echec',
+        },
+      ],
+    ],
+    ['aucune entité de facturation', []],
+  ];
+
+  for (const [cas, entites] of casBloquants) {
+    it(`${cas} → attestation différée, AUCUN numéro consommé, alerte Ops in-app`, async () => {
+      const sb = makeSupabase([
+        { data: [makeCollecteAg()], error: null }, // select collectes AG
+        { data: [], error: null }, // attestations existantes
+        { data: entites, error: null }, // entites_facturation
+      ]);
+
+      const result = await runBatchPdfJ1Ag(sb as never);
+
+      expect(result.skipped_siret_donateur).toBe(1);
+      expect(result.enqueued).toBe(0);
+      expect(result.errors).toHaveLength(0);
+      // Pas de fatal : un report n'est pas un échec du job.
+      expect(result.fatal).toBeUndefined();
+
+      const rpcCalls = sb.rpc.mock.calls as unknown as Array<
+        [string, Record<string, unknown>]
+      >;
+      // Le numéro ATT-DON gapless n'est JAMAIS alloué pour une attestation différée.
+      expect(rpcCalls.map((c) => c[0])).not.toContain(
+        'f_next_numero_attestation',
+      );
+      expect(rpcCalls).toContainEqual([
+        'f_upsert_alerte_admin',
+        expect.objectContaining({
+          p_code: 'attestation_ag_siret_donateur_manquant',
+          p_entity_type: 'collectes',
+          p_entity_id: 'col-ag-1',
+        }),
+      ]);
+      // Aucune écriture : ni attestation, ni job PDF, ni rapport RSE.
+      expect(sb._chain.insert).not.toHaveBeenCalled();
+    });
+  }
+});
+
 describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
   it('attestation_don_ag_batch_avec_snapshot : collecte AG cloturée habilitée → attestation créée + job enqueué', async () => {
     const collecte = makeCollecteAg();
@@ -103,6 +169,7 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
             organisation_id: 'org-1',
             raison_sociale: 'Kaspia SAS',
             siret: '12345678900001',
+            siret_verification: 'verifie',
           },
         ],
         error: null,
@@ -239,6 +306,7 @@ describe('M2.4 / BatchPdfJ1Ag / Mention fiscale conditionnelle', () => {
             organisation_id: 'org-1',
             raison_sociale: 'Kaspia SAS',
             siret: '12345678900001',
+            siret_verification: 'verifie',
           },
         ],
         error: null,
@@ -293,6 +361,7 @@ describe('M2.4 / BatchPdfJ1Ag / Snapshot résistant perte habilitation', () => {
             organisation_id: 'org-1',
             raison_sociale: 'Kaspia SAS',
             siret: '12345678900001',
+            siret_verification: 'verifie',
           },
         ],
         error: null,
@@ -372,6 +441,7 @@ describe('M2.4 / BatchPdfJ1Ag / Embargo H+24', () => {
             organisation_id: 'org-1',
             raison_sociale: 'Kaspia SAS',
             siret: '12345678900001',
+            siret_verification: 'verifie',
           },
         ],
         error: null,
@@ -413,6 +483,7 @@ describe('M2.4 / BatchPdfJ1Ag / rapports_rse AG', () => {
             organisation_id: 'org-1',
             raison_sociale: 'Kaspia SAS',
             siret: '12345678900001',
+            siret_verification: 'verifie',
           },
         ],
         error: null,
@@ -486,6 +557,7 @@ describe('M2.4 / BatchPdfJ1Ag / instantané association_numero_rup', () => {
             organisation_id: 'org-1',
             raison_sociale: 'Kaspia SAS',
             siret: '12345678900001',
+            siret_verification: 'verifie',
           },
         ],
         error: null,
@@ -551,6 +623,7 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
             organisation_id: 'org-1',
             raison_sociale: 'Kaspia SAS',
             siret: '12345678900001',
+            siret_verification: 'verifie',
           },
         ],
         error: null,

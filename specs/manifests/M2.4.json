@@ -118,6 +118,14 @@
       "test": "association AVEC n° RUP : instantané figé + mention transmise au Cerfa",
       "statut": "implemented",
       "libelle": "Instantané attestations_don.association_numero_rup alimenté par associations.numero_rup (colonne source créée 2026-09-14) ; NULL si l'association n'a pas de RUP → Cerfa 2041-GE émis sans la mention"
+    },
+    {
+      "id": "M2.4-siret-donateur-verifie",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1999",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
+      "test": "entité SIRET en_attente → attestation différée, AUCUN numéro consommé, alerte Ops in-app",
+      "statut": "implemented",
+      "libelle": "Attestation de don différée (aucun numéro ATT-DON alloué) + alerte Ops in-app attestation_ag_siret_donateur_manquant tant que l'entité de facturation du donateur n'a pas un SIRET vérifié — décision Val 2026-09-28 (la programmation n'exige plus de SIRET, _Divergences/M1.2_20260928)"
     }
   ],
   "cdc_source_hash": {

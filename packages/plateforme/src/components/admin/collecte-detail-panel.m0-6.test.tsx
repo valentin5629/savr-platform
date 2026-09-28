@@ -758,7 +758,13 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     'M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253)',
     async () => {
       // Collecte AG NON terminale → l'algo (reco) est appelé → top 3 + scores rendus.
-      installMock({ collecte: { ...baseAg, statut: 'programmee' } });
+      installMock({
+        collecte: {
+          ...baseAg,
+          statut: 'programmee',
+          attributions_antgaspi: null,
+        },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
       expect(
@@ -912,6 +918,33 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       fireEvent.keyDown(strike, { key: 'ArrowDown' });
       expect(aToutes).toHaveAttribute('aria-checked', 'true');
       expect(document.activeElement).toBe(aToutes);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'Attribution AG déjà validée : plus de cartes « Choisir » (décision Val C5)',
+    async () => {
+      // baseAg : attribution validée ; statut non terminal → l'algo est appelé.
+      const fetchMock = installMock({
+        collecte: { ...baseAg, statut: 'programmee' },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Attribution AG', undefined, ATTENTE_UI);
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some((c) =>
+              String(c[0]).includes('/recommandation'),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(screen.queryByRole('link', { name: 'Choisir' })).toBeNull();
+      expect(
+        screen.getByRole('link', { name: /attribution compl/i }),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

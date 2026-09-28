@@ -1818,60 +1818,69 @@ export function CollecteDetailPanel({
                 {/* Associations recommandées (algo §06.09) en cartes, la n°1 marquée
                 « Recommandé ». « Choisir » ouvre l'écran d'attribution avec
                 l'association présélectionnée : validation, motif et emails
-                restent sur cet écran unique (§06.06 Bloc 5, décision Val). */}
-                {reco?.associations && reco.associations.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-savr-neutral-800">
-                      Associations recommandées
-                    </p>
-                    <ul className="space-y-2">
-                      {reco.associations.slice(0, 3).map((a, i) => {
-                        const raison = [
-                          a.distance_km != null ? `${a.distance_km} km` : null,
-                          a.capacite_max_beneficiaires != null
-                            ? `capacité ${a.capacite_max_beneficiaires}`
-                            : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ');
-                        return (
-                          <li
-                            key={a.id}
-                            className={cn(
-                              'flex items-center gap-3 rounded-savr-md border p-3 text-sm',
-                              i === 0
-                                ? 'border-savr-primary-600 bg-savr-primary-50'
-                                : 'border-savr-neutral-200 bg-savr-white',
-                            )}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="flex flex-wrap items-center gap-1.5 font-semibold text-savr-neutral-900">
-                                {a.nom}
-                                {i === 0 && (
-                                  <Badge variant="primary" className="text-xs">
-                                    Recommandé
-                                  </Badge>
-                                )}
-                              </p>
-                              {raison && (
-                                <p className="text-xs text-savr-neutral-500">
-                                  {raison}
-                                </p>
+                restent sur cet écran unique (§06.06 Bloc 5, décision Val).
+                Masquées une fois l'attribution validée (décision Val C5) : un
+                changement passe alors par l'écran d'attribution complet. */}
+                {!collecte.attributions_antgaspi?.valide_at &&
+                  reco?.associations &&
+                  reco.associations.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-savr-neutral-800">
+                        Associations recommandées
+                      </p>
+                      <ul className="space-y-2">
+                        {reco.associations.slice(0, 3).map((a, i) => {
+                          const raison = [
+                            a.distance_km != null
+                              ? `${a.distance_km} km`
+                              : null,
+                            a.capacite_max_beneficiaires != null
+                              ? `capacité ${a.capacite_max_beneficiaires}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ');
+                          return (
+                            <li
+                              key={a.id}
+                              className={cn(
+                                'flex items-center gap-3 rounded-savr-md border p-3 text-sm',
+                                i === 0
+                                  ? 'border-savr-primary-600 bg-savr-primary-50'
+                                  : 'border-savr-neutral-200 bg-savr-white',
                               )}
-                            </div>
-                            <Button asChild size="md" variant="secondary">
-                              <Link
-                                href={`/admin/attributions-ag/${collecte.id}?association=${encodeURIComponent(a.id)}`}
-                              >
-                                Choisir
-                              </Link>
-                            </Button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="flex flex-wrap items-center gap-1.5 font-semibold text-savr-neutral-900">
+                                  {a.nom}
+                                  {i === 0 && (
+                                    <Badge
+                                      variant="primary"
+                                      className="text-xs"
+                                    >
+                                      Recommandé
+                                    </Badge>
+                                  )}
+                                </p>
+                                {raison && (
+                                  <p className="text-xs text-savr-neutral-500">
+                                    {raison}
+                                  </p>
+                                )}
+                              </div>
+                              <Button asChild size="md" variant="secondary">
+                                <Link
+                                  href={`/admin/attributions-ag/${collecte.id}?association=${encodeURIComponent(a.id)}`}
+                                >
+                                  Choisir
+                                </Link>
+                              </Button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 <Link
                   href={`/admin/attributions-ag/${collecte.id}`}
                   className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"

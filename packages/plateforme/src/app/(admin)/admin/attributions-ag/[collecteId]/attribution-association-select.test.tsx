@@ -190,6 +190,9 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         render(<AttributionDetailPage />);
         const select = await selectAssociation();
         expect(select).toHaveTextContent(/^Asso Loin/);
+        expect(
+          screen.queryByText(/ne fait plus partie des recommandations/),
+        ).toBeNull();
         // Choix ≠ top 1 de l'algo = override : les règles de l'écran s'appliquent.
         expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
       } finally {
@@ -208,6 +211,10 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         render(<AttributionDetailPage />);
         const select = await selectAssociation();
         expect(select).toHaveTextContent(/^Asso Top/);
+        // Repli annoncé, jamais silencieux (décision Val C6).
+        expect(
+          screen.getByText(/ne fait plus partie des recommandations/),
+        ).toBeTruthy();
       } finally {
         window.history.pushState({}, '', '/');
       }

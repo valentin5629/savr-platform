@@ -83,6 +83,7 @@ interface TourneeInfo {
   plaque_immatriculation: string | null;
   chauffeur_nom: string | null;
   chauffeur_telephone: string | null;
+  type_vehicule: string | null;
 }
 interface FactureInfo {
   id: string;
@@ -157,6 +158,8 @@ interface FicheCollecteTraiteurPanelProps {
   // Signale une mutation (édition, annulation, régénération) : la liste
   // rafraîchit à la fermeture de la modale.
   onChanged?: () => void;
+  // Entrée / sortie du mode édition : la liste retire `edit=1` de l'URL.
+  onEditingChange?: (editing: boolean) => void;
   // Miroir « une sous-modale est ouverte » : le wrapper ne ferme pas la fiche
   // sur Escape tant qu'une sous-modale (annulation, programmée par) est ouverte.
   blockCloseRef?: MutableRefObject<boolean>;
@@ -167,6 +170,7 @@ export function FicheCollecteTraiteurPanel({
   initialEditing = false,
   onLoaded,
   onChanged,
+  onEditingChange,
   blockCloseRef,
 }: FicheCollecteTraiteurPanelProps) {
   const [c, setC] = useState<Collecte | null>(null);
@@ -181,6 +185,12 @@ export function FicheCollecteTraiteurPanel({
   const [annulErreur, setAnnulErreur] = useState<string | null>(null);
   const [regenEnCours, setRegenEnCours] = useState(false);
   const [progOpen, setProgOpen] = useState(false);
+  // Confirmation « Confirmer la modification » du formulaire d'édition.
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    onEditingChange?.(editing);
+  }, [editing, onEditingChange]);
 
   // Bloc 3 ZD — repère parc par flux. Premier rendu sans filtre (segment de la
   // collecte) ; l'encart émet ensuite ses défauts (période fixe 24 mois glissants) et le
@@ -290,7 +300,8 @@ export function FicheCollecteTraiteurPanel({
     });
   }, [c, onLoaded]);
 
-  if (blockCloseRef) blockCloseRef.current = annulOpen || progOpen;
+  if (blockCloseRef)
+    blockCloseRef.current = annulOpen || progOpen || editConfirmOpen;
 
   async function confirmerAnnulation() {
     setAnnulEnCours(true);
@@ -492,6 +503,7 @@ export function FicheCollecteTraiteurPanel({
             reload();
           }}
           onCancel={() => setEditing(false)}
+          onConfirmOpenChange={setEditConfirmOpen}
         />
       )}
 
@@ -648,10 +660,18 @@ export function FicheCollecteTraiteurPanel({
                           )}
                         </InfoItem>
                         <InfoItem label="Plaque d’immatriculation">
-                          {t.plaque_immatriculation ?? (
+                          {t.type_vehicule === 'velo_cargo' &&
+                          !t.plaque_immatriculation ? (
+                            // Vélo cargo : jamais de plaque, pas « en attente ».
                             <span className="text-savr-neutral-400">
-                              En attente
+                              Sans objet (vélo cargo)
                             </span>
+                          ) : (
+                            (t.plaque_immatriculation ?? (
+                              <span className="text-savr-neutral-400">
+                                En attente
+                              </span>
+                            ))
                           )}
                         </InfoItem>
                         <InfoItem label="Téléphone">

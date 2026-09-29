@@ -284,6 +284,22 @@ function CollectesContent() {
   // `majUrl` réécrirait l'URL avec les filtres du premier rendu).
   const ouvrirFicheRef = useRef(ouvrirFiche);
   ouvrirFicheRef.current = ouvrirFiche;
+  // Sortie du mode édition : `edit=1` quitte l'URL (sinon un rechargement
+  // rouvrirait la fiche en édition). Stable : la fiche l'a en dépendance d'effet.
+  const majEditionFiche = useCallback((edit: boolean) => {
+    setFiche((f) => (f && f.edit !== edit ? { ...f, edit } : f));
+  }, []);
+  const ficheEdit = fiche?.edit;
+  const ficheId = fiche?.id;
+  const premierRenduFiche = useRef(true);
+  useEffect(() => {
+    if (premierRenduFiche.current) {
+      premierRenduFiche.current = false;
+      return;
+    }
+    if (ficheId) majUrl({ fiche: { id: ficheId, edit: Boolean(ficheEdit) } });
+    // majUrl lit l'état courant ; seul le basculement d'édition doit déclencher.
+  }, [ficheEdit]);
   function fermerFiche(modifiee: boolean) {
     setFiche(null);
     majUrl({ fiche: null });
@@ -550,6 +566,7 @@ function CollectesContent() {
       <FicheCollecteTraiteurModal
         collecteId={fiche?.id ?? null}
         initialEditing={fiche?.edit ?? false}
+        onEditingChange={majEditionFiche}
         onClose={fermerFiche}
       />
 

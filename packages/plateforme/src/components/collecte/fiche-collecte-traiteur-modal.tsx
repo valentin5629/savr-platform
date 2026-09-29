@@ -15,6 +15,7 @@ interface FicheCollecteTraiteurModalProps {
   // Admin, décision Val 2026-09-29). null = fermé.
   collecteId: string | null;
   initialEditing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
   // `modifiee` = une action de la fiche a changé la collecte → la liste rafraîchit.
   onClose: (modifiee: boolean) => void;
 }
@@ -22,6 +23,7 @@ interface FicheCollecteTraiteurModalProps {
 export function FicheCollecteTraiteurModal({
   collecteId,
   initialEditing = false,
+  onEditingChange,
   onClose,
 }: FicheCollecteTraiteurModalProps) {
   // Une sous-modale (annulation, programmée par) ouverte : Escape la ferme
@@ -63,6 +65,7 @@ export function FicheCollecteTraiteurModal({
           initialEditing={initialEditing}
           onLoaded={setMeta}
           onChanged={onChanged}
+          onEditingChange={onEditingChange}
           blockCloseRef={blockCloseRef}
         />
       )}

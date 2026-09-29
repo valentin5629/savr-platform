@@ -89,6 +89,7 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
           tournee: {
             plaque_immatriculation: 'AB-123-CD',
             chauffeur_nom: 'Léa',
+            chauffeur_telephone: '+33 6 12 34 56 78',
             type_vehicule: 'camionnette',
             plaque_saisie_at: '2026-07-01T08:00:00Z',
             prestataire_logistique_id: 'p1',
@@ -131,6 +132,7 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
       data: {
         tournees: Array<{
           plaque_immatriculation: string;
+          chauffeur_telephone: string | null;
           type_vehicule: string;
           prestataire_nom: string | null;
         }>;
@@ -139,6 +141,8 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
       };
     };
     expect(data.tournees[0]?.plaque_immatriculation).toBe('AB-123-CD');
+    // Bloc Logistique (arbitrage Val 2026-09-29) : téléphone du chauffeur exposé.
+    expect(data.tournees[0]?.chauffeur_telephone).toBe('+33 6 12 34 56 78');
     expect(data.tournees[0]?.type_vehicule).toBe('camionnette');
     expect(data.tournees[0]?.prestataire_nom).toBe('Strike');
     expect(data.rapport_rse_disponible).toBe(true);

@@ -490,7 +490,7 @@
       "artefact": "packages/plateforme/src/lib/collecte-ref.ts, packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx",
       "test": "M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)",
       "statut": "implemented",
-      "libelle": "BL-P3-03 — Fiche collecte traiteur : sous-titre référence courte (tms_reference sinon UUID court, plus l'UUID brut) + tooltip méthode UE 2019/1004 sur le taux (§06.04 l.381/l.422). Message vélo cargo A Toutes! déjà présent (BL-P1-TRAIT-03)."
+      "libelle": "BL-P3-03 — Fiche collecte traiteur : sous-titre référence courte (tms_reference sinon UUID court, plus l'UUID brut) + tooltip méthode UE 2019/1004 sur le taux (§06.04 l.381/l.422). Le message vélo cargo A Toutes! a été retiré le 2026-09-29 (bloc Logistique réduit à chauffeur + plaque + téléphone, cf. M3.1-fiche-popup-logistique ; plaque « Sans objet (vélo cargo) »)."
     },
     {
       "id": "BL-P3-04",

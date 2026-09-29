@@ -489,9 +489,13 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
       render(fiche('c1'));
 
       await ouvrirOnglet('Bilan & documents');
-      // Onglet bien ouvert (non-vacuité) : le bloc « Taux de recyclage » ZD n'y
-      // est pas non plus, mais l'onglet rend son contenu AG.
-      await screen.findByRole('tabpanel', {}, ATTENTE_UI);
+      // Non-vacuité : l'onglet Bilan est bien rendu (état « pas encore de
+      // bilan » d'une AG sans document), et le benchmark ZD n'y est pas.
+      await screen.findByText(
+        /seront disponibles après la collecte/,
+        {},
+        ATTENTE_UI,
+      );
       expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
     },
     ATTENTE_CAS_MS,
@@ -563,6 +567,31 @@ describe('M3.1 / fiche collecte traiteur — Logistique (arbitrage Val 2026-09-2
   );
 
   it(
+    'M3.1/fiche_ui_logistique_velo_cargo_sans_plaque — vélo cargo : plaque « Sans objet », jamais « En attente »',
+    async () => {
+      stubFetch(
+        collecte({
+          statut: 'validee',
+          tournees: [
+            {
+              plaque_immatriculation: null,
+              chauffeur_nom: 'Léa Martin',
+              chauffeur_telephone: '+33 6 00 00 00 01',
+              type_vehicule: 'velo_cargo',
+            },
+          ],
+        }),
+      );
+      render(fiche('c1'));
+      await ouvrirOnglet('Logistique');
+
+      await screen.findByText('Sans objet (vélo cargo)', {}, ATTENTE_UI);
+      expect(screen.queryByText('En attente')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.1/fiche_ui_logistique_aucun_camion — pas de tournée : message, aucune donnée chauffeur',
     async () => {
       stubFetch(collecte({ statut: 'programmee', tournees: [] }));
@@ -591,6 +620,61 @@ describe('M3.1 / fiche collecte traiteur — Logistique (arbitrage Val 2026-09-2
         ATTENTE_UI,
       );
       expect(screen.queryByText('Jean Dupont')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.1 / fiche collecte traiteur — Échap dans le pop-up', () => {
+  it(
+    'M3.1/fiche_ui_echap_confirmation_edition_garde_la_fiche — Échap ferme la confirmation, pas la fiche',
+    async () => {
+      // Créneau passé (< 12h) → la confirmation « urgence » s'ouvre à la soumission.
+      stubFetch(
+        collecte({ statut: 'programmee', date_collecte: '2020-01-01' }),
+      );
+      const onClose = vi.fn();
+      render(
+        <FicheCollecteTraiteurModal
+          collecteId="c1"
+          initialEditing
+          onClose={onClose}
+        />,
+      );
+      // Formulaire d'édition ouvert d'emblée (?edit=1) → soumission → confirmation.
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Confirmer la modification' },
+          ATTENTE_UI,
+        ),
+      );
+      await waitFor(
+        () => expect(screen.getAllByRole('dialog')).toHaveLength(2),
+        ATTENTE_UI,
+      );
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      await waitFor(
+        () => expect(screen.getAllByRole('dialog')).toHaveLength(1),
+        ATTENTE_UI,
+      );
+      // La fiche (et la saisie) restent : onClose n'a jamais été appelé.
+      expect(onClose).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/fiche_ui_echap_sans_sous_modale_ferme_la_fiche — contre-épreuve de la garde',
+    async () => {
+      stubFetch(collecte({ statut: 'programmee' }));
+      const onClose = vi.fn();
+      render(<FicheCollecteTraiteurModal collecteId="c1" onClose={onClose} />);
+      await screen.findByText('Cocktail apéritif', {}, ATTENTE_UI);
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledWith(false);
     },
     ATTENTE_CAS_MS,
   );

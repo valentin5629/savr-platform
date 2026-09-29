@@ -121,7 +121,10 @@
     "M3.1/fiche_ui_logistique_masquee_terminee",
     "M3.1/fiche_redirect_modale",
     "M3.1/fiche_redirect_edit",
-    "M3.1/fiche_redirect_encode"
+    "M3.1/fiche_redirect_encode",
+    "M3.1/fiche_ui_logistique_velo_cargo_sans_plaque",
+    "M3.1/fiche_ui_echap_confirmation_edition_garde_la_fiche",
+    "M3.1/fiche_ui_echap_sans_sous_modale_ferme_la_fiche"
   ],
   "deliverables": [
     {
@@ -602,7 +605,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-modal.tsx, packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_ui_logistique_chauffeur_plaque_tel",
       "statut": "implemented",
-      "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, même format que la fiche Admin : colonne résumé + onglets Informations / Logistique / Bilan & documents) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md."
+      "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, même format que la fiche Admin : colonne résumé + onglets Informations / Logistique / Bilan & documents) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés ; vélo cargo = plaque « Sans objet (vélo cargo) ». Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md."
     }
   ],
   "cdc_source_hash": {

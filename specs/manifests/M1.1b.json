@@ -300,7 +300,7 @@
     },
     {
       "id": "M1.1b-24",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:299",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:304",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/flux/route.ts, packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx",
       "test": "M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
       "statut": "implemented",
@@ -308,7 +308,7 @@
     },
     {
       "id": "M1.1b-25",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:365",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:370",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/route.ts",
       "test": "M1.1b/collectes/create — outbox E1 atomique via fn_creer_collecte",
       "statut": "implemented",
@@ -324,7 +324,7 @@
     },
     {
       "id": "M1.1b-numero-rup",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:458",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:463",
       "artefact": "packages/plateforme/src/components/admin/association-modal.tsx",
       "test": "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL",
       "statut": "implemented",
@@ -356,7 +356,7 @@
     },
     {
       "id": "M1.1b-organisation-siret-format",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:640",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:645",
       "artefact": "packages/plateforme/src/lib/siret-organisation.ts, packages/plateforme/src/app/api/v1/admin/organisations/route.ts, packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
       "test": "M1.1b/orgas/siret — POST : espaces retirés avant INSERT (14 chiffres)",
       "statut": "implemented",
@@ -364,7 +364,7 @@
     },
     {
       "id": "M1.1b-organisation-creation-modale",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:633",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:638",
       "artefact": "packages/plateforme/src/components/admin/organisation-modal.tsx",
       "test": "M1.1b — Modale Nouvelle organisation (§06.06) + M1.1b — le CTA ouvre la modale",
       "statut": "implemented",
@@ -372,7 +372,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "2fd0f8b9bafb3b3d1c4b0142a61ad8290de04ffbd347c5dbc0c016babd6beb1b",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c66e43f4f48ed652a16557e0817f7e70092fb0e1ba78f87f0592f06624f5a327"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "ebf4a56474e824bd5cb0b489d688054ceae8de743bc63476919e2364e6ba5b4a",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "a39351284b96ab75a8d110cfe82f95f9e63310ee8f8d4129f95b9ec9421c0285"
   }
 }

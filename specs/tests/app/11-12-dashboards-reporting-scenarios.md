@@ -298,7 +298,21 @@ Scénario : benchmark_k_anonymat_borne_cinq
   Quand `f_benchmark_kg_pax_zd` est appelée sur chaque segment
   Alors le segment à 5 collectes retourne un ratio_benchmark
   Et le segment à 4 collectes est exclu de la réponse (HAVING nb_collectes_segment >= 5 côté serveur)
-  Et le front affiche la jauge sans point rouge + "Données insuffisantes pour benchmark"
+  Et le front affiche l'axe du radar grisé sans repère parc + "Données insuffisantes pour benchmark"
+```
+
+```gherkin
+# Source : §04 f_benchmark_kg_pax_zd — période fixe 24 mois (décision Val 2026-09-28)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : benchmark_periode_fixe_24_mois_serveur
+  Étant donné un appel à /api/v1/dashboards/benchmark avec periode_debut = 2020-01-01 et periode_fin = 2020-12-31
+  Quand la route calcule le repère parc un 29/09/2026 (jour civil Paris)
+  Alors la RPC est appelée avec p_periode_debut = 2024-09-29 et p_periode_fin = 2026-09-29 (paramètres reçus ignorés)
+  Et il en va de même pour /api/v1/admin/dashboard-client/benchmark (plus jamais « tout l'historique »), la fiche collecte et le rapport PDF (légende « période : AAAA-MM-JJ → AAAA-MM-JJ »)
+  Et un 29 février, la borne de début est le 28 février deux ans plus tôt
+  Et l'encart « Filtres benchmark » n'affiche aucun choix de période
 ```
 
 ```gherkin
@@ -415,7 +429,7 @@ Scénario : dashboard_etat_vide_explicite
 
 Scénario : benchmark_avertissement_comparaison_a_soi
   Étant donné un gestionnaire qui applique p_lieu_ids = ses propres lieux uniquement
-  Quand les jauges Bloc 3 ZD se chargent
+  Quand le radar Bloc 3 ZD se charge
   Alors le tooltip "Vous comparez vos données à vos propres données" s'affiche, sans blocage SQL
 ```
 

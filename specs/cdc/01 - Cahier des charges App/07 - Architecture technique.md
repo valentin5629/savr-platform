@@ -1,5 +1,7 @@
 # 07 - Architecture technique
 
+**Statut** : Validé V1 — mise à jour majeure 2026-04-23 (atelier tech avec frère)
+**Dernière mise à jour** : 2026-06-10 (addendum scope V1)
 
 ---
 

@@ -2,6 +2,7 @@
 
 **Source CDC** : §09 (matrice §3 + matrice étendue ops_savr + §3ter audit RLS V1 + Bloc D) + §04 (RLS inline `sequences_facturation`, `audit_log`, `config_auto_accept_ag`, tables history) + §05 (`f_collecte_editable`) + §06.06 (matrice écrans) + §11 (Bloc 7)
 **Généré le** : 2026-06-07
+**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests RLS transverses de la Plateforme.
 > Pour chaque scénario :
@@ -525,6 +526,21 @@ Scénario : migration_policies_idempotentes
 - **Benchmark RLS 100k rows** (`audit_log` p95 < 200 ms) — objectif de design V1, seuil bloquant V1.1 (sobriété 2026-06-03 A2).
 - **Restriction colonne ops sur `attributions_antgaspi`** (ops limité à poids_repas_kg + volume_repas_realise) — contrôle **applicatif** V1 (décision F1 lot ⑧), non testable en pgTAP DB ; test Vitest API à écrire avec le module §06.09.
 - **MFA / 2FA** — V2.
+
+```gherkin
+# Source : §04 organisations_lieux + §09 A1 (arbitrage Val 2026-09-29 C1-C3)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : organisations_lieux_type_gestionnaire_et_ecriture_fermee
+  Étant donné une organisation traiteur T et un lieu L
+  Quand une ligne organisations_lieux (T, L) est insérée sous service_role
+  Alors le trigger trg_organisations_lieux_type_gestionnaire refuse (P0047)
+  Quand un JWT admin_savr porté par la clé anon tente INSERT/UPDATE/DELETE sur organisations_lieux via PostgREST
+  Alors 42501 (REVOKE table-level), aucune ligne modifiée
+  Et le SELECT org_lieux_self_select du gestionnaire reste autorisé
+  Et POST/PATCH /admin/lieux avec un gestionnaire_organisation_id de type ≠ gestionnaire_lieux renvoie 422
+```
 
 ## Recommandations loggées (non bloquantes — à confirmer)
 

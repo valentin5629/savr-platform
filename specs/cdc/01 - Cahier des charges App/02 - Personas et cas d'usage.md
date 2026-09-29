@@ -1,5 +1,7 @@
 # 02 - Personas et cas d'usage
 
+**Statut** : ✅ Complété
+**Dernière mise à jour** : 2026-06-03 (revue sobriété : dédup RLS → §09, purge contenu obsolète, correctif `client_organisateur_organisation_id`)
 
 ---
 
@@ -103,7 +105,7 @@ Responsable RSE ou facility manager chez un opérateur de lieux (Viparis, Sodexo
 
 ### Ce qu'il peut faire
 - Consulter l'historique complet des **événements** sur ses lieux (tous traiteurs) — le détail des collectes (pesées par flux, repas, bordereaux, attestations) est accessible dans le détail événement (refonte 2026-05-03 : la page Collectes a été supprimée, fusion dans Événements)
-- Voir les volumes agrégés par lieu, par flux, par période via le Dashboard (onglets ZD/AG, blocs jauges kg/pax × benchmark parc)
+- Voir les volumes agrégés par lieu, par flux, par période via le Dashboard (onglets ZD/AG, bloc radar kg/pax × benchmark parc)
 - Comparer les performances entre ses différents lieux et au parc Savr (barre filtre benchmark dédiée 5 dimensions sur le Bloc 3 ZD)
 - Télécharger des rapports RSE par lieu ou agrégés (PDF) + export CSV niveau événement sur la liste Événements
 - **Programmer des collectes sur ses propres lieux** *(extension 2026-05-07)* : avec un traiteur du référentiel Savr (pas de fiche shadow autorisée). Workflow §06.01 cas Gestionnaire. Use case : gestionnaire qui pilote la RSE événementielle directement (vs uniquement via le traiteur).

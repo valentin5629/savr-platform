@@ -1,5 +1,7 @@
 # 04 - Espace client traiteur
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-06-07 (**Test scenarios §06.04 (skill `cdc-test-scenarios`, lot ④)** — 54 scénarios générés (`tests/06.04-espace-traiteur-scenarios.md`). **5 specs floues TRANCHÉES Val + propagées** : F1 annulation `brouillon`/`programmee` = **directe sans validation Admin** (§05 fait foi, flux §Annulation scindé A/B) ; F2 badge pack bas + bouton renouvellement = **seuil relatif ≤ 10 % des crédits initiaux** (aligné email admin, ex < 10 crédits absolu) ; F3 badge « X collectes en attente de facturation » = **dès X ≥ 1** incl. facturation partielle ; F4 mention « SLA d'acceptation » retirée du bloc Contrôle d'accès (aucune source App) ; F5 **DELETE physique limité à `brouillon`** + toute annulation sur collecte poussée TMS → **E3 systématique** tous acteurs (prestataire informé côté TMS). Propagé : §05 (§Annulation + R_marge_zd_traiteur), §09 (restriction DELETE `collectes`). Précédente mise à jour 2026-06-03 (**Revue sobriété §06.04 (skill `cdc-review-sobriete`)** — 2 items appliqués. (1) **Annulation de la revue §12 B2** sur arbitrage Val : la colonne `rapports_rse.filtres_benchmark` est **rétablie** (snapshot des filtres benchmark persisté → PDF reproductible), complétée par une **légende sous le graphe benchmark du PDF** précisant les filtres appliqués. Le calcul à la volée est abandonné. Propagé : §04 Data Model, §12 Reporting, §06.11 Espace agence, §00 Index. (2) **Sobriété B2 Contrôle d'accès** : état "Modification en cours" fusionné dans "Communiqué" (toujours la dernière valeur plaque/nom), 3→2 états. Cross-CDC 0 (benchmark + affichage = Plateforme-only). B1 (retrait filtres benchmark fiche collecte) **refusé Val**. Précédente mise à jour 2026-05-10 — Dashboard : refonte alignement §06.05 — blocs communs (Prochaines collectes, Top 5 lieux, Top 5 commerciaux) rattachés à chaque onglet ZD/AG (numérotation suffixée). Bouton "Exporter une synthèse PDF" du bandeau actions rapides **retiré**, remplacé par **Bloc 8 ZD / Bloc 8 AG** par onglet (pré-rempli filtres globaux + type de collecte selon onglet actif). Pattern strictement aligné §06.05 et §06.11. Précédente mise à jour 2026-05-07 — Dashboard ZD : KPI **Marge générée** ajouté (Bloc 1 → 5 cartes ZD) — formule `tarif_refacture_pax_zd × pax cumulés − coût total Savr facturé`. Liste collectes : suppression vue "Toutes les collectes", remplacement par **2 onglets ZD/AG**. Bouton "Programmer une collecte" devient **contextuel** par onglet. Cf. [[04 - Data Model]] addendum 2026-05-07 + [[05 - Règles métier#R_marge_zd_traiteur]].)
 **Lié à** : [[02 - Personas et cas d'usage]] (profils `traiteur_manager`, `traiteur_commercial`) · [[09 - Authentification et permissions]] · [[11 - Dashboards]] · [[01 - Formulaire de programmation de collecte]] · [[05 - Espace client gestionnaire de lieux]] (structure dashboard héritée)
 
 ---
@@ -132,7 +134,9 @@ Identique à §05 Bloc 2 ZD : barres empilées par mois (granularité automatiqu
 
 Légende cliquable. Tooltip au survol : valeurs kg + % par flux.
 
-#### Bloc 3 ZD — Jauges kg/pax par flux × benchmark parc
+#### Bloc 3 ZD — Radar kg/pax par flux × benchmark parc
+
+**Représentation (décision Val 2026-09-28 — remplace les 5 jauges bullet)** : radar 5 axes « lignes seules » (1 axe par flux ZD), échelle **indice parc = 100 par flux** (le parc forme un pentagone régulier `primary-300`, « Vous » = ligne navy `primary-700` sans remplissage, grille polygonale sans rayons). Liste à côté du radar : par flux, kg/pax réel + repère parc + badge d'écart coloré + légende des statuts. Flux sans donnée : axe « n/d » grisé, pas de point, badge « Données manquantes ». Survol d'un axe ou d'une ligne : infobulle Vous / Parc / Écart. Données, filtres, k-anonymat et seuils de couleur inchangés ; dans la suite, « jauge » se lit « axe du radar » et « point rouge » se lit « repère parc ».
 
 Bloc hérité §05 avec **adaptation traiteur** :
 - **Jauge gestionnaire** → **jauge traiteur** : ratio `kg du flux / pax cumulés` sur le périmètre des **filtres globaux** (les collectes du traiteur).
@@ -140,14 +144,15 @@ Bloc hérité §05 avec **adaptation traiteur** :
 
 ##### Barre de filtre benchmark dédiée (au-dessus du bloc, distincte de la barre globale)
 
-Encart compact "Filtres benchmark" affichant **4 critères** (et non 5 comme côté gestionnaire) :
+Encart compact "Filtres benchmark" affichant **3 critères** (et non 4 comme côté gestionnaire ; période fixe 24 mois) :
 
 | Filtre benchmark              | Type                           | Valeurs                                                                       |
 | ----------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
-| Période benchmark             | Date range picker + raccourcis | 12 mois glissants (défaut) / 24 mois glissants / Année civile / Personnalisé  |
 | Lieux benchmark               | Multi-select                   | Tous les lieux du parc Savr — défaut "Tous"                                   |
 | Type d'événement benchmark    | Multi-select                   | `types_evenements.libelle` — défaut "Tous"                                    |
 | Taille d'événement benchmark  | Multi-select                   | XS / S / M / L / XL — défaut "Tous"                                           |
+
+> **Période du repère parc fixe = 24 mois glissants, non modifiable** (décision Val 2026-09-28) — imposée côté serveur sur toutes les vues benchmark (dashboards, fiche collecte, Dashboard Client Admin, rapport PDF) ; `periode_debut`/`periode_fin` reçus sont ignorés.
 
 > **Différence vs §05** : le filtre **"Traiteurs benchmark" est ABSENT** côté traiteur. Décision Val 2026-05-04 : un traiteur ne peut pas filtrer le benchmark sur d'autres traiteurs (concurrentiel). La fonction `f_benchmark_kg_pax_zd` côté traiteur ignore le paramètre `traiteur_ids[]` (filtre rejeté côté serveur, pas seulement masqué front).
 
@@ -155,10 +160,10 @@ Encart compact "Filtres benchmark" affichant **4 critères** (et non 5 comme cô
 
 **Avertissement UX** : si le traiteur applique le filtre `Lieux benchmark` sur ses propres lieux d'intervention, tooltip "Vous comparez vos données à un benchmark restreint à vos lieux — la valeur de référence en perd". Pas de blocage.
 
-##### Jauges (1 par flux ZD, 5 jauges au total)
+##### Radar (1 axe par flux ZD, 5 axes au total)
 
 - **Jauge traiteur** : ratio `kg du flux / pax cumulés` sur les **filtres globaux**
-- **Borne max axe** : valeur max observée du parc Savr × 1,2 (échelle figée par flux)
+- **Échelle** : indice parc = 100 par flux (remplace la borne max parc × 1,2 des jauges — 2026-09-28)
 - **Point rouge benchmark** : moyenne parc Savr selon **filtres benchmark dédiés** (4 dimensions)
 - **K-anonymat appliqué côté serveur — ≥ 5 collectes ET ≥ 3 acteurs distincts** (organisations programmatrices et traiteurs opérationnels, minimum des deux compteurs ; durci 2026-09-22). Si l'un des deux seuils n'est pas atteint → point rouge masqué + tooltip "Données insuffisantes pour benchmark" — le libellé ne cite jamais la cause du masquage, qui renseignerait sur la structure du segment.
 
@@ -319,9 +324,9 @@ Au-dessus de la liste, à droite, **un bouton unique [ Programmer un événement
 
 > **Cas pack AG épuisé** : si le sélecteur de type est sur Anti-Gaspi ET le pack actif a un solde = 0, la **case Anti-Gaspi est cochée mais la soumission AG est bloquée** (alerte "Pack épuisé — demander un renouvellement depuis le dashboard onglet AG"). La collecte ZD reste programmable si l'utilisateur coche aussi Zéro-Déchet. Cohérent avec règle Bloc 4 AG dashboard et §06.01 Sélection pack AG.
 
-### Vue cartes (refonte 2026-07-05 — remplace la vue tableau)
+### Vue liste (Data Table, décision Val 2026-09-28 — remplace la vue cartes)
 
-Les collectes s'affichent en **cartes groupées par semaine** (rail latéral coloré par type ZD / AG), triées par date décroissante (plus récentes en premier). Fini le tableau multi-colonnes.
+Les collectes s'affichent dans une **Data Table** (colonnes Date · Lieu · Pax · Résultats (onglet Historique) · Statut · Actions), triée par défaut par date décroissante (plus récentes en premier), colonnes triables. Plus de groupement par semaine. Les icônes d'action Modifier / Annuler / Dupliquer restent visibles sur la ligne (arbitrage 2026-07-15). Le reste de la section est inchangé ; « Carte simplifiée » se lit « Ligne ».
 
 **Carte simplifiée** — affiche :
 - **Date · Heure · Lieu · Pax · Statut** (badge coloré, libellés selon le mapping canonique ci-dessous ; badge dédié « Sans excédents » pour `realisee_sans_collecte`, AG uniquement).
@@ -377,6 +382,7 @@ Ces informations sont visibles par le traiteur (contexte sur sa propre collecte)
 - Client Organisateur
 - "Info incomplète" oui/non
 - **Programmée par** (multi : "Mon organisation" / "Agence : {{nom}}" / "Gestionnaire : {{nom}}") — ajout 2026-05-07. Permet au traiteur de filtrer les collectes programmées par des tiers (cas où il opère pour le compte d'une agence ou d'un gestionnaire de lieux).
+- **Persistance (2026-09-28)** : filtres synchronisés dans l'URL (`statut`, `from`, `to`, `lieu`, `client`, `info`, `par` — deep-linkable, survivent au rechargement), clés partagées avec le drill-down des Top listes. Rendu via `FilterBar` (§10).
 
 **Indicateur sur la carte (ajout 2026-05-07, vue cartes 2026-07-05)** : si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, picto orange à côté du nom du lieu (icône "user-tag"). Tooltip "Programmée par {{nom organisation programmatrice}}".
 
@@ -385,6 +391,20 @@ Ces informations sont visibles par le traiteur (contexte sur sa propre collecte)
 Pour le `traiteur_commercial` *(révision 2026-05-29)* : la liste affiche **toutes les collectes de l'organisation** (lecture alignée Manager, RLS lecture `organisation_id` + collectes où le traiteur est opérationnel). Seules les actions d'écriture (modifier/supprimer/programmer) sont restreintes à ses propres collectes (`created_by = auth.uid()`) ; les collectes d'un autre commercial s'affichent en lecture seule (actions grisées).
 
 ### Fiche collecte (vue détail)
+
+> **Refonte pop-up (décisions Val 2026-09-29 — fait foi sur tout ce qui suit dans cette section en cas de contradiction).** S'applique à **tous les rôles clients** (traiteur, agence §06.11, gestionnaire §06.05) ; seules changent les actions autorisées au rôle. Client organisateur : hors lot (liste seule, pas de fiche).
+>
+> - **Format** : pop-up centré sur la liste Collectes (`/traiteur/collectes?collecte=<id>`, `&edit=1` pour l'ouverture en édition). L'URL `/traiteur/collectes/<id>` reste valide et redirige vers la liste pop-up ouverte (liens emails `lien_collecte` et dashboards préservés). Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale.
+> - **En-tête** : badge type (**ZD navy `primary-700`** / **AG orange `accent-500`**, texte `primary-950` — aligné DS dataviz-1/2 ; remplace le cadre orange/vert) + « Réf. », titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax » ; **frise de statut discrète en vocabulaire client** en haut à droite (Créée · Validée · En cours · Réalisée, « Sans excédents » en AG, « Annulée » — jamais Programmée/Clôturée, collapse 2026-06-30 ; étape courante pleine opacité + gras) ; croix de fermeture isolée. Le composite « Date - Lieu - Client organisateur - pax » est remplacé ; le client organisateur passe en champ « Client » de l'onglet Informations.
+> - **Navigation** : onglets en colonne à gauche (actif = fond blanc + contour) : **Informations / Logistique / Bilan & documents**.
+> - **Pied** : « Demander l'annulation » (contour rouge) puis « Modifier la collecte » (primaire), en bas à droite — selon les droits du rôle.
+> - **Informations** : Événement (Client, Date et heure, Pax, Type) ; Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** — bloc masqué tant que la donnée n'existe pas, pas de migration V1).
+> - **Logistique** : voir bloc « Logistique » ci-dessous (chauffeur / plaque / téléphone). Wording 100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un prestataire (« Nous affectons votre chauffeur avant la collecte… »). Bouton **« Demander les coordonnées en urgence »** → alerte **in-app Ops seule** (pas d'email, pas de Slack), **1 demande par collecte**, confirmation « Demande envoyée à l'équipe Savr », alerte **clôturée automatiquement** à réception des coordonnées. AG : bloc **Association bénéficiaire** (nom, ville, présentation = `associations.description_rapport_impact`) dès la validation — **masqué au gestionnaire** tant que `v_attributions_gestionnaire` n'est pas implémentée.
+> - **Bilan & documents ZD** (collecte réalisée) : 4 KPI (Poids total collecté, CO₂ évité net, Taux de recyclage, Pesée par pax) ; donut « Répartition des tonnages » (`TonnagesDonut`) ; radar benchmark « Votre collecte face aux événements comparables » (`BenchmarkRadar`, période fixe 24 mois, filtres Type d'événement / Taille / Lieux en titres cliquables ouvrant une liste à cocher, une seule ligne ; pas de filtre traiteurs) ; document **« Rapport RSE » seul** (bordereau intégré au PDF).
+> - **Bilan & documents AG** : 3 KPI (Repas donnés, Repas par pax, CO₂ évité) + bloc Association ; document affiché **« Rapport de don »** (renommage d'affichage seul — titre PDF, nom de fichier et emails inchangés). Sans excédents : bloc « Aucun repas collecté » (motif + horodatage, pas d'attestation) + « Rapport "Événement sans excédent alimentaire" ». Pas de benchmark AG.
+> - **Avant réalisation** : mêmes blocs Bilan affichés estompés (40 %) sans valeurs, bandeau « Votre bilan sera disponible après la collecte ».
+> - **RGPD** : téléphone du chauffeur (salarié du transporteur) affiché au client — base légale intérêt légitime (coordination sur place), à mentionner dans la notice §15.
+
 
 Refonte 2026-05-04 + sobriété 2026-05-04 + **refonte 2026-05-05** : nouveau titre composite, ajout adresse + contacts dans entête, suppression Type de pesée (champ orphelin), ajout Bloc 3 ZD jauges sur collectes ZD terminées, suppression bloc Dernier rapport synthèse, bouton facture explicite.
 
@@ -442,23 +462,23 @@ Affiché uniquement sur collectes **ZD terminées** (`statut = cloturee`). Carte
 
 Cette valeur est **également imprimée sur le PDF Rapport RSE** §1.2 page 1 (Synthèse RSE) — lecture directe du même `collectes.taux_recyclage`, garantissant la cohérence UI/PDF.
 
-**Bloc 3 ZD — Jauges kg/pax × benchmark parc (refonte 2026-05-05)**
+**Bloc 3 ZD — Radar kg/pax × benchmark parc (refonte 2026-05-05, radar 2026-09-28)**
 
 Affiché uniquement sur collectes **ZD terminées** (`statut IN (cloturee, realisee)`). Permet au traiteur de visualiser les performances de cette collecte unique vs benchmark parc Savr.
 
-Structure (1 jauge par flux ZD = 5 jauges) :
+Structure (radar, 1 axe par flux ZD = 5 axes — même représentation que le Bloc 3 ZD du dashboard) :
 - **Valeur traiteur** : ratio `kg du flux sur cette collecte / pax de cet événement` (grain `single collecte`)
-- **Borne max axe** : valeur max parc Savr × 1,2 (échelle figée par flux, identique §05/§02 dashboard)
+- **Échelle** : indice parc = 100 par flux (identique Bloc 3 ZD dashboard)
 - **Point rouge benchmark** : moyenne parc Savr selon **filtres benchmark dédiés** (4 dimensions, voir §2 Bloc 3 ZD pour la liste)
 - **K-anonymat parc appliqué côté serveur — ≥ 5 collectes ET ≥ 3 acteurs distincts** (durci 2026-09-22, cf. §04 « RLS / k-anonymat »). Si l'un des deux seuils n'est pas atteint → point rouge masqué + tooltip "Données insuffisantes pour benchmark" (libellé neutre : il ne cite pas la cause)
 - **Légende couleur** identique §2 Bloc 3 ZD (vert ≤ benchmark, orange 100-130%, rouge >130%, gris masqué)
 
 **Filtres benchmark modifiables (encart compact au-dessus du bloc)**
 
-Mêmes 4 critères qu'au dashboard (Période / Lieux / Type événement / Taille événement). Pas de filtre `traiteur_ids[]` (idem dashboard, motif concurrentiel).
+Mêmes critères qu'au dashboard (Lieux / Type événement / Taille événement ; période fixe 24 mois glissants). Pas de filtre `traiteur_ids[]` (idem dashboard, motif concurrentiel).
 
 **Initialisation** : à l'ouverture de la fiche collecte, les filtres benchmark sont pré-remplis avec les caractéristiques de la collecte courante :
-- Période benchmark = 12 mois glissants (défaut)
+- Période benchmark = 24 mois glissants (fixe, non modifiable — 2026-09-28)
 - Lieux benchmark = "Tous"
 - Type événement benchmark = type de cette collecte (`evenements.type_evenement_id`)
 - Taille événement benchmark = bracket calculé sur le pax de cette collecte
@@ -530,6 +550,8 @@ Une seule modal de confirmation, contenu adapté dynamiquement aux flags applica
 Bouton unique "Confirmer la modification" (et "Annuler" pour fermer la modal).
 
 ### Bloc "Contrôle d'accès" (propagation M03 2026-04-24 — RESTAURÉ 2026-05-01 — RENOMMÉ + ÉTENDU 2026-05-03)
+
+> **RENOMMÉ « Logistique » + REFONDU (décision Val 2026-09-29 — fait foi sur les états, conditions et libellés ci-dessous)** : s'affiche dès qu'au moins un camion (tournée) est affecté à la collecte ET `collectes.statut IN ('programmee','validee','en_cours')`, **quel que soit `controle_acces_requis`**. Contenu, par camion : **nom du chauffeur, plaque d'immatriculation, téléphone du chauffeur** (lien `tel:`, exposé par `GET /api/v1/traiteur/collectes/[id]` → `tournees[].chauffeur_telephone`) ; « En attente » pour chaque champ non encore communiqué. Vélo cargo : case plaque « Sans objet (vélo cargo) » (jamais « En attente »). Pas de type de véhicule, pas de badge « Communiqué par … le … », plus de message dédié vélo cargo. En-tête « Camion N » si la collecte a plus d'un camion.
 
 > **NOTE 2026-05-03 (refonte formulaire §06.01)** : bloc **renommé** "Véhicule qui viendra" → "Contrôle d'accès" + **étendu** à l'affichage de plaque + nom chauffeur (sémantique du flag unique `controle_acces_requis`). Voir [[04 - Data Model]] addendum 2026-05-03.
 
@@ -672,7 +694,8 @@ Ces règles sont rappelées dans la modal avant confirmation, avec une mention e
 
 | Sous-section | Manager | Commercial (rév. 2026-05-29) |
 |---|---|---|
-| Informations légales / Entités facturation / Logo | Lecture + édition | **Lecture seule** |
+| Informations légales (raison sociale, SIRET, adresse) | Lecture + édition | **Lecture + édition** (décision Val 2026-09-28, auditée `organisation_infos_legales_update`) |
+| Entités facturation / Logo | Lecture + édition | **Lecture seule** |
 | Équipe (utilisateurs) | Accès complet (inviter, rôles, suspendre, transfert) | **Masquée** (gestion des utilisateurs = Manager uniquement) |
 | Facturation (paramètres + liste + fiche) | Lecture + édition paramètres | **Lecture seule** (toutes factures orga, téléchargement PDF ; pas d'édition des paramètres de facturation) |
 | Préférences | Lecture + édition | **Lecture seule** |
@@ -682,7 +705,7 @@ Ces règles sont rappelées dans la modal avant confirmation, avec une mention e
 **Informations légales**
 - Raison sociale, SIREN, adresse — **modifiables par le manager** (toute modification est loguée dans `audit_log`)
 - Entités de facturation (multi-SIRET) — ajout/modification/suppression par le manager
-- Domaines email autorisés (pour l'onboarding auto des collaborateurs)
+- Domaines email autorisés (pour l'onboarding auto des collaborateurs) — un domaine ajouté ici n'est pas encore _vérifié_ : il apparaît dans la liste, mais ne rattache automatiquement les nouveaux inscrits qu'une fois qu'un utilisateur de ce domaine a activé son compte dans l'organisation (cf. §05 §8 « Preuve de contrôle du domaine »).
 - Logo de l'organisation (upload, affiché dans les rapports)
 
 **Équipe (users rattachés)**
@@ -789,7 +812,7 @@ Rappel synthétique (voir [[09 - Authentification et permissions]] pour le déta
 - **Écriture** sur `collectes` / `evenements` WHERE `created_by = current_user.id` uniquement (création + modification/suppression libre des champs métier de ses propres collectes futures, voir §2 Édition). Aucune écriture sur les collectes d'un autre commercial.
 - **Factures** : lecture sur toutes les factures de l'orga (vue liste Mon organisation > Facturation en lecture seule **+** bouton "Télécharger la facture" sur fiche collecte). Aucune action d'écriture.
 - Lecture pack AG de l'orga (solde) **+ action "Demander un renouvellement"** (refonte 2026-05-04 : action ouverte au commercial dans le bloc Mon pack AG du dashboard onglet AG)
-- **`organisations`** : lecture seule (Mon organisation accessible en consultation : infos, logo, facturation). **Aucune écriture** (édition des paramètres org = Manager only). Sous-section **Utilisateurs/Équipe masquée** (gestion des utilisateurs = Manager only).
+- **`organisations`** : lecture seule (Mon organisation accessible en consultation : infos, logo, facturation). **Édition des seules informations légales (raison sociale, SIRET, adresse) de sa propre organisation** (décision Val 2026-09-28, liste blanche trigger `trg_block_org_gestionnaire_cols_update`) ; logo, nom, email, téléphone, entités de facturation, domaines et équipe = Manager only / support. Sous-section **Utilisateurs/Équipe masquée** (gestion des utilisateurs = Manager only).
 - Lecture autorisée sur `f_benchmark_kg_pax_zd` (paramètre `traiteur_ids[]` rejeté côté serveur — cf. §2 Bloc 3 ZD benchmark, applicable au dashboard ET au bloc fiche collecte refonte 2026-05-05)
 
 ### Permissions modification collecte (refonte 2026-05-04, révision 2026-05-29)

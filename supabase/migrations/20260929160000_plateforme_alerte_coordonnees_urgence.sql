@@ -22,6 +22,14 @@
 -- Fonction trigger SECURITY INVOKER : ses seuls déclencheurs sont les écrivains
 -- de `tournees` / `collecte_tournees` (service_role, admin_savr), qui ont déjà
 -- le droit d'UPDATE sur alertes_admin.
+--
+-- ROLLBACK (migration purement additive, aucune donnée à restaurer) — dans cet
+-- ordre : retirer les deux triggers trg_cloturer_alerte_coordonnees_urgence
+-- (sur collecte_tournees puis sur tournees), puis la fonction
+-- fn_cloturer_alerte_coordonnees_urgence(), puis l'index
+-- uniq_alerte_coordonnees_urgence_par_collecte. Effets : les alertes déjà
+-- clôturées le restent ; sans l'index, un double clic peut recréer une alerte
+-- en double (sans gravité) ; la route tolère l'absence de violation d'unicité.
 -- =============================================================================
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_alerte_coordonnees_urgence_par_collecte

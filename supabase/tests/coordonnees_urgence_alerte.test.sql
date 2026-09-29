@@ -14,7 +14,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(17);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(
   p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid()
@@ -79,7 +79,9 @@ DO $$ BEGIN
     ('cd600000-0000-0000-0000-0000000000c2'::uuid, 'cd500000-0000-0000-0000-0000000000a1'::uuid, 'anti_gaspi', 'validee', 'non_envoye', '2026-10-28', '22:30', false, 1),
     ('cd600000-0000-0000-0000-0000000000c3'::uuid, 'cd500000-0000-0000-0000-0000000000a1'::uuid, 'zero_dechet', 'validee', 'non_envoye', '2026-10-29', '22:00', false, 1),
     ('cd600000-0000-0000-0000-0000000000c4'::uuid, 'cd500000-0000-0000-0000-0000000000a1'::uuid, 'zero_dechet', 'validee', 'non_envoye', '2026-10-30', '22:00', false, 2),
-    ('cd600000-0000-0000-0000-0000000000c5'::uuid, 'cd500000-0000-0000-0000-0000000000a1'::uuid, 'zero_dechet', 'validee', 'non_envoye', '2026-10-31', '22:00', false, 1);
+    ('cd600000-0000-0000-0000-0000000000c5'::uuid, 'cd500000-0000-0000-0000-0000000000a1'::uuid, 'zero_dechet', 'validee', 'non_envoye', '2026-10-31', '22:00', false, 1),
+    ('cd600000-0000-0000-0000-0000000000c6'::uuid, 'cd500000-0000-0000-0000-0000000000a1'::uuid, 'zero_dechet', 'validee', 'non_envoye', '2026-11-01', '22:00', false, 1),
+    ('cd600000-0000-0000-0000-0000000000c7'::uuid, 'cd500000-0000-0000-0000-0000000000a1'::uuid, 'zero_dechet', 'validee', 'non_envoye', '2026-11-02', '22:00', false, 1);
 
   INSERT INTO shared.prestataires (id, nom, code) VALUES
     ('90cd0000-0000-0000-0000-0000000000a1'::uuid, 'Presta CU', 'presta-cu') ON CONFLICT (id) DO NOTHING;
@@ -91,7 +93,9 @@ DO $$ BEGIN
     ('cd700000-0000-0000-0000-0000000000c1'::uuid, 'T-CU-3', '2026-10-29', 'soir', '90cd0000-0000-0000-0000-0000000000a1'::uuid, 'planifiee', 'camionnette'),
     ('cd700000-0000-0000-0000-0000000000d1'::uuid, 'T-CU-4A', '2026-10-30', 'soir', '90cd0000-0000-0000-0000-0000000000a1'::uuid, 'planifiee', 'camionnette'),
     ('cd700000-0000-0000-0000-0000000000d2'::uuid, 'T-CU-4B', '2026-10-30', 'soir', '90cd0000-0000-0000-0000-0000000000a1'::uuid, 'planifiee', 'camionnette'),
-    ('cd700000-0000-0000-0000-0000000000e1'::uuid, 'T-CU-5', '2026-10-31', 'soir', '90cd0000-0000-0000-0000-0000000000a1'::uuid, 'planifiee', 'camionnette');
+    ('cd700000-0000-0000-0000-0000000000e1'::uuid, 'T-CU-5', '2026-10-31', 'soir', '90cd0000-0000-0000-0000-0000000000a1'::uuid, 'planifiee', 'camionnette'),
+    ('cd700000-0000-0000-0000-0000000000f1'::uuid, 'T-CU-6', '2026-11-01', 'soir', '90cd0000-0000-0000-0000-0000000000a1'::uuid, 'planifiee', 'camionnette'),
+    ('cd700000-0000-0000-0000-0000000000f2'::uuid, 'T-CU-7', '2026-11-02', 'soir', '90cd0000-0000-0000-0000-0000000000a1'::uuid, 'planifiee', 'camionnette');
 
   -- c4 : le camion A est complet dès le départ.
   UPDATE plateforme.tournees
@@ -105,7 +109,9 @@ DO $$ BEGIN
     ('cd600000-0000-0000-0000-0000000000c3'::uuid, 'cd700000-0000-0000-0000-0000000000c1'::uuid, 1),
     ('cd600000-0000-0000-0000-0000000000c4'::uuid, 'cd700000-0000-0000-0000-0000000000d1'::uuid, 1),
     ('cd600000-0000-0000-0000-0000000000c4'::uuid, 'cd700000-0000-0000-0000-0000000000d2'::uuid, 2),
-    ('cd600000-0000-0000-0000-0000000000c5'::uuid, 'cd700000-0000-0000-0000-0000000000e1'::uuid, 1);
+    ('cd600000-0000-0000-0000-0000000000c5'::uuid, 'cd700000-0000-0000-0000-0000000000e1'::uuid, 1),
+    ('cd600000-0000-0000-0000-0000000000c6'::uuid, 'cd700000-0000-0000-0000-0000000000f1'::uuid, 1),
+    ('cd600000-0000-0000-0000-0000000000c7'::uuid, 'cd700000-0000-0000-0000-0000000000f2'::uuid, 1);
 
   -- Une demande urgente ouverte par collecte (écriture de la route, service_role).
   INSERT INTO plateforme.alertes_admin (code, titre, entity_type, entity_id)
@@ -191,6 +197,33 @@ DELETE FROM plateforme.collecte_tournees
 SELECT is(test_statut_alerte('cd600000-0000-0000-0000-0000000000c4'::uuid), 'resolue',
   'Retrait d''un camion : les camions restants complets → alerte clôturée');
 
+-- c3 (suite) : nom renseigné + plaque, mais PAS de téléphone → reste ouverte
+-- (le téléphone est l'une des trois coordonnées attendues).
+UPDATE plateforme.tournees
+   SET chauffeur_nom = 'Karim', chauffeur_telephone = NULL
+ WHERE id = 'cd700000-0000-0000-0000-0000000000c1'::uuid;
+SELECT is(test_statut_alerte('cd600000-0000-0000-0000-0000000000c3'::uuid), 'ouverte',
+  'Téléphone manquant : nom + plaque ne suffisent pas');
+
+-- Écrivains RÉELS de tournees (et non le superuser des fixtures) :
+-- c6 : l'Admin Savr saisit les coordonnées sous son JWT (policy t_admin) ;
+-- c7 : un adapter / webhook écrit en service_role.
+SELECT test_set_jwt('admin_savr', NULL, gen_random_uuid());
+UPDATE plateforme.tournees
+   SET chauffeur_nom = 'Sami', chauffeur_telephone = '0677777777', plaque_immatriculation = 'CU-600-AA'
+ WHERE id = 'cd700000-0000-0000-0000-0000000000f1'::uuid;
+SELECT test_as_superuser();
+SELECT is(test_statut_alerte('cd600000-0000-0000-0000-0000000000c6'::uuid), 'resolue',
+  'Écrivain admin_savr (JWT) : la saisie des coordonnées clôture l''alerte');
+
+SELECT set_config('role', 'service_role', true);
+UPDATE plateforme.tournees
+   SET chauffeur_nom = 'Inès', chauffeur_telephone = '0688888888', plaque_immatriculation = 'CU-700-AA'
+ WHERE id = 'cd700000-0000-0000-0000-0000000000f2'::uuid;
+SELECT test_as_superuser();
+SELECT is(test_statut_alerte('cd600000-0000-0000-0000-0000000000c7'::uuid), 'resolue',
+  'Écrivain service_role (adapter / webhook) : la clôture automatique fonctionne');
+
 -- c5 : retrait du SEUL camion → aucune coordonnée reçue → reste ouverte.
 DELETE FROM plateforme.collecte_tournees
  WHERE collecte_id = 'cd600000-0000-0000-0000-0000000000c5'::uuid;
@@ -203,7 +236,7 @@ SELECT cmp_ok(
   (SELECT count(*)::int FROM plateforme.alertes_admin
     WHERE entity_id IN (SELECT id FROM plateforme.collectes
                          WHERE evenement_id = 'cd500000-0000-0000-0000-0000000000a1'::uuid)),
-  '>=', 5,
+  '>=', 7,
   'Non-vacuité : les alertes de l''organisation existent (sous superuser)'
 );
 

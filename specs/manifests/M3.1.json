@@ -788,7 +788,7 @@
       "artefact": "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql",
       "test": "supabase/tests/coordonnees_urgence_alerte.test.sql",
       "statut": "implemented",
-      "libelle": "Clôture automatique à réception des coordonnées : trigger AFTER INSERT/UPDATE sur tournees et INSERT/DELETE sur collecte_tournees (seul point qui voit tous les écrivains : adapters, webhooks, saisie Admin) ; clôturée quand la collecte a ≥ 1 camion et que chacun a nom + téléphone + plaque (vélo cargo : pas de plaque), chaîne vide = « En attente ». Même règle côté écran : coordonneesCompletes()."
+      "libelle": "Clôture automatique à réception des coordonnées : trigger AFTER INSERT/UPDATE sur tournees et INSERT/DELETE sur collecte_tournees (seul point qui voit tous les écrivains : adapters, webhooks, saisie Admin) ; clôturée quand la collecte a ≥ 1 camion et que chacun a nom + téléphone + plaque (vélo cargo : pas de plaque), chaîne vide = « En attente ». Même règle côté écran : coordonneesCompletes(). Écrivains réels couverts (admin_savr sous JWT, service_role) ; rollback documenté en tête de migration."
     },
     {
       "id": "M3.1-popup-client-association-ag",

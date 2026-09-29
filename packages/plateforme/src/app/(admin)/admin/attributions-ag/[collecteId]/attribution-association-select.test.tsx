@@ -153,14 +153,12 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       render(<AttributionDetailPage />);
       const select = await selectAssociation();
 
-      expect(select).toHaveTextContent(
-        '1,2 km · Asso Top · Paris · cap. 300 · 2041-GE (suggérée)',
-      );
+      expect(select).toHaveTextContent('1,2 km · cap. 300 · Asso Top');
       expect(libellesOptions()).toEqual([
         'Choisir une association…',
-        '1,2 km · Asso Top · Paris · cap. 300 · 2041-GE (suggérée)',
-        '111,5 km · Asso Loin · Rouen · cap. 80',
-        'Distance inconnue · Asso Sans GPS · Paris',
+        '1,2 km · cap. 300 · Asso Top',
+        '111,5 km · cap. 80 · Asso Loin',
+        'Distance inconnue · Asso Sans GPS',
       ]);
       expect(screen.queryByText(/motif obligatoire/)).toBeNull();
     },
@@ -189,7 +187,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         });
         render(<AttributionDetailPage />);
         const select = await selectAssociation();
-        expect(select).toHaveTextContent(/^111,5 km · Asso Loin/);
+        expect(select).toHaveTextContent(/^111,5 km · cap. 80 · Asso Loin$/);
         expect(
           screen.queryByText(/ne fait plus partie des recommandations/),
         ).toBeNull();
@@ -210,7 +208,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         installFetch();
         render(<AttributionDetailPage />);
         const select = await selectAssociation();
-        expect(select).toHaveTextContent(/^1,2 km · Asso Top/);
+        expect(select).toHaveTextContent(/^1,2 km · cap. 300 · Asso Top$/);
         // Repli annoncé, jamais silencieux (décision Val C6).
         expect(
           screen.getByText(/ne fait plus partie des recommandations/),
@@ -230,7 +228,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       await selectAssociation();
       fireEvent.click(
         screen.getByRole('option', {
-          name: '111,5 km · Asso Loin · Rouen · cap. 80',
+          name: '111,5 km · cap. 80 · Asso Loin',
         }),
       );
       const valider = screen.getByRole('button', {
@@ -267,7 +265,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
 
       fireEvent.click(
         screen.getByRole('option', {
-          name: 'Distance inconnue · Asso Sans GPS · Paris',
+          name: 'Distance inconnue · Asso Sans GPS',
         }),
       );
       fireEvent.click(
@@ -320,13 +318,11 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       const select = screen.getByRole('combobox', { name: 'Association' });
       // Option de secours = suggestion de l'algo ; 2041-GE inconnu → non affirmé.
       // La sélection reste affichée même sans la liste chargée.
-      expect(select).toHaveTextContent(
-        '1,2 km · Asso Top · cap. 300 (suggérée)',
-      );
+      expect(select).toHaveTextContent('1,2 km · cap. 300 · Asso Top');
       fireEvent.click(select);
       expect(libellesOptions()).toEqual([
         'Choisir une association…',
-        '1,2 km · Asso Top · cap. 300 (suggérée)',
+        '1,2 km · cap. 300 · Asso Top',
       ]);
 
       ko = false;

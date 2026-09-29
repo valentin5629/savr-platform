@@ -135,22 +135,27 @@ SELECT throws_ok(
   'superuser : rattacher un traiteur est refusé (scripts, migration V5)'
 );
 
--- ── 3 bis. Chemin PostgREST sous JWT admin_savr (policy org_lieux_admin) ────
--- Mesuré OUVERT le 2026-09-29 avant ce trigger. Si le privilège d'écriture de
--- `authenticated` est retiré (REVOKE), ces deux asserts deviennent 42501.
+-- ── 3 bis. Chemin PostgREST sous JWT admin_savr ──────────────────────────────
+-- Mesuré OUVERT le 2026-09-29 avant ce trigger. L'écriture directe de
+-- `authenticated` est désormais retirée (20260929150000) : le refus y est un
+-- 42501 de privilège, prouvé dans SECU__organisations_lieux_ecriture_client_fermee.
+-- Ici, on prouve que le trigger tiendrait SEUL si le privilège était ré-accordé.
+SET LOCAL role postgres;
+GRANT INSERT ON plateforme.organisations_lieux TO authenticated;
 SELECT olt_jwt('admin_savr', NULL);
 SELECT throws_ok(
   $$ INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
      VALUES ('0e1a0001-0000-0000-0000-000000000002', '0e1a0003-0000-0000-0000-000000000003') $$,
   'P0047', NULL,
-  'authenticated + JWT admin_savr : rattacher un traiteur est refusé'
+  'authenticated + JWT admin_savr (privilège ré-accordé) : rattacher un traiteur est refusé'
 );
 SELECT lives_ok(
   $$ INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
      VALUES ('0e1a0001-0000-0000-0000-000000000001', '0e1a0003-0000-0000-0000-000000000003') $$,
-  'NON-VACUITÉ authenticated + JWT admin_savr : rattacher un gestionnaire passe'
+  'NON-VACUITÉ authenticated + JWT admin_savr (privilège ré-accordé) : rattacher un gestionnaire passe'
 );
 SELECT olt_superuser();
+REVOKE INSERT ON plateforme.organisations_lieux FROM authenticated;
 
 -- ── 4. Fonction fermée (P0 #263) ─────────────────────────────────────────────
 SELECT ok(

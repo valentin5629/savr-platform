@@ -125,7 +125,8 @@
     "M3.1/fiche_redirect_encode",
     "M3.1/fiche_ui_logistique_velo_cargo_sans_plaque",
     "M3.1/fiche_ui_echap_confirmation_edition_garde_la_fiche",
-    "M3.1/fiche_ui_echap_sans_sous_modale_ferme_la_fiche"
+    "M3.1/fiche_ui_echap_sans_sous_modale_ferme_la_fiche",
+    "M3.1/fiche_get_cloisonnement_telephone"
   ],
   "deliverables": [
     {

@@ -1,5 +1,7 @@
 # 10 - Design System
 
+**Statut** : Validé V1 — refonte 2026-06-08 (structure inspirée du UAE Design System / AEGOV DLS v3, palette Savr conservée)
+**Dernière mise à jour** : 2026-06-08
 **Inspiration visuelle de référence** : [UAE Design System (designsystem.gov.ae)](https://designsystem.gov.ae/) — système institutionnel, accessible, dense mais aéré. On en reprend la **rigueur** (échelles tonales complètes, focus states forts, sobriété des ombres, pleins blocs de couleur primaire), pas l'identité (couleurs Savr conservées).
 
 ---
@@ -201,6 +203,7 @@ Tous les espacements sont des multiples de 4px.
 | `--radius-sm` | 4px | Badges carrés, tags, chips |
 | `--radius-md` | 8px | **Défaut** — boutons, inputs, cards |
 | `--radius-lg` | 12px | Modals, panels, sheets |
+| `--radius-xl` | 14px | Blocs de filtres (`FilterBar`) *(2026-09-28 ; alignement sm/lg sur l'échelle Claude Design 6/10 à arbitrer séparément)* |
 | `--radius-full` | 9999px | Avatars, toggles, badges-pilule, jauges |
 
 ### 4.4 Ombres (levier #5 — sobres)
@@ -248,7 +251,7 @@ Les composants viennent de shadcn/ui ; ces recettes définissent **comment on le
 
 ### 5.2 Card (levier #5)
 
-- Fond blanc, **bordure `1px neutral-200`**, radius `md`, ombre `none` au repos.
+- Fond blanc, **bordure `1px neutral-200`**, radius `md`, ombre `none` au repos. **Exception — écrans d'authentification (connexion, inscription, réinitialisation)** : carte centrée radius `lg`, ombre `--shadow-md`, sur fond dégradé vertical `neutral-50` → `primary-50` → `accent-50`, logo complet « + savr » en couleurs (`primary-700` + coin `accent-500`) au-dessus de la carte (arbitrage Val 2026-09-28 ; gabarit unique `components/auth/auth-card.tsx`).
 - Padding interne `--space-6`.
 - Card cliquable : hover → bordure `primary-200` + `--shadow-sm`, transition `--motion-fast`.
 - Titre de card : `--text-lg` poids 600, `neutral-900`. Séparation contenu via bordure `neutral-100`, pas d'ombre interne.
@@ -274,6 +277,8 @@ Pattern signature institutionnel — sidebar, hero d'écran, bandeau de page.
 - Focus : bordure `primary-500` + anneau `primary-500` offset (levier #4).
 - Erreur : bordure `error` + `FormError` `error-strong` dessous + icône.
 - Label `--text-sm` poids 600 `neutral-700`, au-dessus du champ.
+
+**Mise en page des formulaires et filtres (2026-09-28)** : (1) libellé au-dessus via `FormField`, jamais à gauche, jamais de placeholder-libellé ; (2) une seule hauteur de contrôle : 40px desktop / 44px mobile (`h-11 sm:h-10`) ; (3) un composant par besoin (Combobox / DatePicker / DateRangePicker / TimePicker) — aucun `<select>` ni `<input type="date">` natif ; (4) grille 3 colonnes max, gap 16px ; formulaire de saisie 2 colonnes max ; (5) tous les champs d'une ligne ont un libellé ; (6) Tabs pour changer de vue, ToggleGroup pour filtrer ; (7) barre de filtres = `FilterBar` ; (8) actions de formulaire en bas à droite, secondaire puis primaire. Voix : vouvoiement conservé (tutoiement Claude Design non retenu à ce stade).
 
 ### 5.6 PageHero (bandeau d'écran)
 
@@ -341,7 +346,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 
 | Composant | Description |
 |---|---|
-| `DataTable` | Tableau paginé, tri colonne, filtre, recherche. Adaptatif mobile (cards sous 768px) |
+| `DataTable` | Data Table shadcn (TanStack Table) — format UNIQUE de toute liste de l'app (décision Val 2026-09-28). Tri colonne : côté serveur si la liste est paginée (colonnes en liste blanche), dans le navigateur si la liste est complète, absent si la liste est tronquée. Menu « Colonnes » optionnel, colonne d'actions fixable à droite, ligne activable au clavier. Adaptatif mobile (cards sous 640px) |
 | `StatCard` | KPI : valeur (`--text-3xl`/`4xl`), variation %, label, icône |
 | `EmptyState` | État vide illustré + CTA |
 | `Badge` | Pilule statut (§5.4) |
@@ -351,8 +356,12 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 | Composant | Description |
 |---|---|
 | `Input` / `Textarea` | Champ texte (§5.5), états erreur/succès |
-| `Select` / `Combobox` | Déroulant + autocomplétion (lieux, contacts_traiteurs) |
-| `DatePicker` | Date + créneau heure (programmation collecte) |
+| `Combobox` | Choix dans une liste (simple ou multiple), recherche au-delà de 7 options. **Aucun `<select>` natif.** Icône de tête seulement si elle porte du sens (pin pour Lieu). *(2026-09-28)* |
+| `DatePicker` | Date seule (+ heure libre optionnelle, écrans d'édition) — Popover + `Calendar`. Aucun `<input type="date">` natif visible. |
+| `DateRangePicker` | Période en UN seul champ « Période » (jamais deux dates Du / au), appliquée au clic « Appliquer ». |
+| `ToggleGroup` | Segmenté de filtre (ZD / AG) — actif en aplat `primary-700`. `Tabs` (soulignés) = changer de vue. |
+| `FilterBar` | Barre de filtres de liste : en-tête Tabs + ToggleGroup, grille 3 colonnes max (`repeat(auto-fill, minmax(max(220px, (100% − 2 gaps)/3), 1fr))`, gap 16px), pied compteur + « Réinitialiser les filtres » (si filtre actif). Fond blanc, bordure `neutral-200`, radius `xl`, padding 16px haut / 24px côtés et bas. |
+| `TimePicker` | Heure choisie dans une liste de créneaux de 15 min, 00:00 → 23:45 (programmation collecte) — déclencheur identique DatePicker/Combobox, Popover liste verticale, 08:00 centré par défaut, clavier flèches / Page préc.-suiv. / Début-Fin, valeur `HH:MM` *(2026-09-29)* |
 | `Switch` / `Checkbox` | Toggle / case à cocher |
 | `FormError` | Message d'erreur inline |
 

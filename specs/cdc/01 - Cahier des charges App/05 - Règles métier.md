@@ -1,5 +1,7 @@
 # 05 - Règles métier
 
+**Statut** : Validé
+**Dernière mise à jour** : 2026-04-20
 
 ---
 
@@ -535,7 +537,7 @@ Où :
 
 **Affichage UI** :
 - Format : pourcentage avec 1 décimale (ex: `78.4 %`). Cas NULL → `—`.
-- Couleur : aucun seuil d'alerte V1 (l'utilisateur compare au benchmark via le Bloc 3 ZD jauges, pas au taux de recyclage seul).
+- Couleur : aucun seuil d'alerte V1 (l'utilisateur compare au benchmark via le Bloc 3 ZD radar, pas au taux de recyclage seul).
 - Tooltip standard : "Taux de recyclage net (méthode UE 2019/1004) — calculé avec les taux de captation par filière. Cliquez sur Méthodologie pour le détail."
 
 **Modification des taux de captation** : `admin_savr` uniquement via [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr#9. Paramètres > Taux de recyclage par filière]]. Endpoint `PUT /api/v1/admin/parametres/taux-recyclage/{filiere_id}` avec `Idempotency-Key` + commentaire obligatoire (≥ 5 caractères). Audit trail automatique via trigger DB → `parametres_taux_recyclage_history`. Écriture via RPC `SECURITY DEFINER` `rpc_maj_taux_recyclage` (même mécanisme audit-write que les facteurs CO₂, cf. [[#R_co2_snapshot_fige — Reproductibilité (snapshot figé à la clôture)]]).
@@ -948,13 +950,13 @@ Informations obligatoires à la création du compte :
 | `nom` | Texte libre, 2 caractères min |
 | `telephone` | Format FR (validation regex) |
 | `type_profil` | Enum : `traiteur` / `agence` / `gestionnaire_lieux` |
-| `raison_sociale` | Texte libre. Auto-complétion si domaine email déjà connu (matching sur `organisations.domaine_email`). |
+| `raison_sociale` | Texte libre. **Pas d'auto-complétion à l'inscription** (arbitrage Val 2026-09-29) : elle exigerait un endpoint public révélant quels domaines email sont clients de Savr et sous quelle raison sociale. Le rattachement par domaine reste fait côté serveur, après soumission, via `organisations_domaines_email` ; sur ce chemin la raison sociale saisie est ignorée. |
 | `acceptation_cgu` | Checkbox obligatoire (horodatée) |
 
-Confirmation par email avec lien de validation avant premier accès.
+Confirmation par email avec lien de validation avant premier accès. **Le SIRET n'est pas demandé à l'inscription** (arbitrage Val 2026-09-23) : il relève de l'étape 2. S'il est tout de même transmis, il est vérifié (format, doublon, INSEE) comme à l'étape 2.
 
 **Logique de rattachement à une organisation** :
-- Si le domaine email (`@dalloyau.fr` par ex.) correspond à une entrée de la table `organisations_domaines_email` (N-N avec `organisations`) → rattachement automatique avec rôle par défaut selon `organisations.type` :
+- Si le domaine email (`@dalloyau.fr` par ex.) correspond à une entrée **VÉRIFIÉE** (`verifie_at IS NOT NULL`) de la table `organisations_domaines_email` (N-N avec `organisations`) → rattachement automatique avec rôle par défaut selon `organisations.type` :
   - `traiteur` → `traiteur_commercial`
   - `agence` → `agence`
   - `gestionnaire_lieux` → `gestionnaire_lieux`
@@ -965,11 +967,13 @@ Confirmation par email avec lien de validation avant premier accès.
 
 **Multi-domaines supporté** : une organisation peut avoir plusieurs domaines email (cas Dalloyau `@dalloyau.fr` + `@dalloyau.com`, ou groupes avec filiales). Modélisation via table `organisations_domaines_email (organisation_id, domaine, verifie_at)`. Un domaine ne peut être rattaché qu'à une seule organisation (unicité).
 
+**Preuve de contrôle du domaine (2026-09-23)** — `verifie_at` est posé par `api/auth/verify-email` au clic sur le lien d'activation d'une adresse à ce domaine, dans cette organisation : c'est le seul moment du parcours qui prouve la possession. Une revendication faite depuis « Mon organisation » (§06.04 §6) reste **inerte** pour le rattachement tant qu'elle n'est pas prouvée. Sans cette règle, revendiquer un domaine que l'on ne possède pas suffisait à capturer les inscriptions suivantes de ce domaine. L'écriture directe de la table est fermée aux clients (`service_role` seul). Un domaine ajouté après coup (ex. `@dalloyau.com`) peut être marqué vérifié par l'Admin depuis la fiche organisation (§06.06 §8, décision Val 2026-09-29) ; à défaut, son premier inscrit crée une organisation distincte — fusion par l'Admin.
+
 **Cas spécial fiches shadow (2026-05-07)** : si une agence crée un événement avec un traiteur opérationnel "hors référentiel", une fiche `organisations` shadow (`est_shadow=true`) est créée. Cette fiche n'a aucun user rattaché et n'est pas visible dans le matching domaine email. Si plus tard un user du domaine du traiteur shadow s'inscrit (ex: contact saisi par l'agence), il créera une nouvelle organisation distincte — l'Admin Savr peut alors fusionner les deux organisations (action `fusionner_shadow` qui rebascule `est_shadow=false`, transfère l'historique et supprime le doublon).
 
 ### Étape 2 — Avant première collecte (completion progressive)
 
-Le formulaire de programmation de collecte est bloqué tant que les informations suivantes ne sont pas complétées au niveau organisation. **Étendu 2026-05-07 : règle bloquante identique pour les 3 types d'organisations programmatrices** (traiteur, agence, gestionnaire de lieux).
+**La programmation n'est jamais bloquée par l'absence de SIRET ni d'entité de facturation** (arbitrage Val 2026-09-28). Les informations ci-dessous sont à compléter avant la **première facture** : sans `siret_verification = 'verifie'`, la collecte est programmée et réalisée, mais la facture n'est pas émise (cf. étape 3), et l'attestation de don AG est différée + alerte Ops `attestation_ag_siret_donateur_manquant` (résolue automatiquement à l'émission). Si l'organisation n'a aucune entité active, une entité par défaut vide est créée à la volée (`siret=''`, `en_attente`). **Étendu 2026-05-07 : règle bloquante identique pour les 3 types d'organisations programmatrices** (traiteur, agence, gestionnaire de lieux).
 
 | Champ | Niveau |
 |-------|--------|
@@ -979,7 +983,7 @@ Le formulaire de programmation de collecte est bloqué tant que les informations
 | `contact_facturation_email` | entites_facturation |
 | `acceptation_cgv` | organisations (horodatée, version CGV figée) |
 
-**UX** : quand un utilisateur tente de programmer sa première collecte, modal "Complétez votre profil entreprise" qui redirige vers le formulaire de complétion. Une fois rempli, la programmation débloquée.
+**UX** : — retiré (2026-09-28, jamais construit). La complétion se fait depuis « Mon organisation » ; l'Admin récupère le SIRET avant la première facture.
 
 **Règle V1 programmateur=facturé (2026-05-07)** : `evenements.entite_facturation_id` doit appartenir à `evenements.organisation_id` (l'organisation programmatrice est aussi celle qui est facturée). Pas de découplage en V1. Refacturation interne (ex: agence facturée puis refacture le traiteur en off-Plateforme) est hors scope Savr.
 
@@ -1128,6 +1132,7 @@ Issu de la refonte du formulaire de programmation §06.01. Les règles ci-dessou
 
 > **Retirée V1 (Sujet 4, 2026-05-26)** : le mécanisme « Autre + texte libre + normalisation Admin » est supprimé. `types_evenements` est figé à 4 catégories de format de service (`cocktail_aperitif`, `cocktail_repas_complet`, `repas_assis`, `autre`), `autre` étant un fourre-tout sélectionnable **sans saisie**. Plus de colonne `type_evenement_libre`, plus de file de normalisation back-office. Les événements `autre` sont comptés comme un bucket benchmark normal. Extension du référentiel = ajout direct d'une ligne dans `types_evenements` (Supabase), sans UI. Cf. [[04 - Data Model]] table `types_evenements` + [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]].
 >
+> Contenu historique conservé pour traçabilité :
 >
 
 ### R_lieu_modif_pending *(simplifié 2026-05-25 — audit sobriété §04 B1)*

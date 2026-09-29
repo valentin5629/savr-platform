@@ -76,7 +76,7 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 | `users` staff Savr | 4 | 6 | 1 admin, 2 ops, 1 commercial (+2 demo) |
 | `users` clients | 11 | 28 | 2/traiteur (manager+collaborateur), 2 Viparis, 1/autre gest., 2 agence |
 | `lieux` | 6 | 18 | 3→10 Viparis + autres + ponctuels |
-| `organisations_lieux` | 8 | 24 | jointures N-N (≥ 1 lieu partagé 2 orgs) |
+| `organisations_lieux` | 4 | 24 | jointures N-N, gestionnaires de lieux uniquement (1 gestionnaire par lieu) — 2026-09-29 |
 | `contacts_traiteurs` | 2 | 8 | |
 | `transporteurs` / `shared.prestataires` | 3 | 4 | |
 | `tarifs_negocie` | 2 | 5 | dont Kaspia |

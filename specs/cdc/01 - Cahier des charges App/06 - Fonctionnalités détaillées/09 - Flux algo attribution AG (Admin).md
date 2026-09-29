@@ -1,5 +1,7 @@
 # 09 - Flux algo attribution AG (Admin)
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-04-21
 **Lié à** : [[05 - Règles métier]] §2 — Algorithme d'attribution Anti-Gaspi · [[04 - Data Model]] tables `attributions_antgaspi`, `associations`, `transporteurs`, `parametres_algo`
 
 ---
@@ -52,7 +54,7 @@ Tri unique par **distance Haversine croissante** entre `lieux.latitude/longitude
 
 - Si une association est exclue par horaire : affichée en grisé avec mention "Exclue — horaires incompatibles"
 - Bouton **"Sélectionner"** sur chaque ligne pour choisir une alternative au top 1
-- Liste déroulante **« Association »** : toutes les associations actives, triées par distance croissante au lieu de la collecte (distance inconnue en fin de liste, puis ordre alphabétique), avec ville, distance, capacité, 2041-GE et marque « (suggérée) » ; la suggestion top 1 est pré-sélectionnée. La liste inclut les associations **non éligibles** (hors région, capacité insuffisante, fermées au créneau) — l'Admin arbitre. *(décision Val 2026-09-17, confirmée 2026-09-18 ; remplace la recherche libre et ses filtres ville / capacité min / 2041-GE)*
+- Liste déroulante **« Association »** : toutes les associations actives, triées par distance croissante au lieu de la collecte (distance inconnue en fin de liste, puis ordre alphabétique). Libellé de chaque option, dans cet ordre : **distance · capacité · nom** (ex. « 12,4 km · cap. 300 · Association Alpha » ; « Distance inconnue » si coordonnées manquantes ; segment capacité omis si inconnue) — ni ville, ni 2041-GE, ni marque « (suggérée) » *(décision Val 2026-09-29)* ; la suggestion top 1 est pré-sélectionnée. Si l'URL porte `?association=<id>` (arrivée depuis la carte « Choisir » de la fiche collecte §06.06) et que cette association fait partie des recommandations de l'algo, elle est présélectionnée à la place du top 1 ; les règles d'override (motif si ≠ top 1) s'appliquent. Id absent des recommandations = repli sur le top 1, **annoncé** par une ligne d'information (décision Val 2026-09-29, C6). La liste inclut les associations **non éligibles** (hors région, capacité insuffisante, fermées au créneau) — l'Admin arbitre. *(décision Val 2026-09-17, confirmée 2026-09-18 ; remplace la recherche libre et ses filtres ville / capacité min / 2041-GE)*
 
 **Bloc recommandation algorithme — Transporteurs**
 

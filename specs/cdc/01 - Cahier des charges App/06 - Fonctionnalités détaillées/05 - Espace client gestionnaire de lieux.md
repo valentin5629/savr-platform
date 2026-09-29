@@ -1,5 +1,7 @@
 # 05 - Espace client gestionnaire de lieux
 
+**Statut** : Validé V1 (session test-scenarios 2026-06-07 — 6 floues tranchées Val : F1 toggle notif collecte supprimé · F2 statut consolidé défini · F3 brouillons tiers exclus · F4 fenêtre `f_collecte_editable` sur UPDATE gestionnaire · F5 policies users org-wide · F6 factures SELECT self — cf. `tests/06.05-espace-gestionnaire-lieux-scenarios.md`)
+**Dernière mise à jour** : 2026-07-06 (patchs divergences M3.2 — nav 9 sections avec entrées Collectes + Registre distinctes L67/72-73/83 ; champ « type » retiré de la fiche lieu L372, colonne inexistante V1 + cible — cf. `_Divergences/_traités/2026-07/M3.2_*.md`)
 **Lié à** : [[02 - Personas et cas d'usage]] · [[04 - Data Model]] tables `organisations`, `organisations_lieux`, `lieux`, `types_evenements`, `flux_dechets`, `coefficients_perte_labo` · [[05 - Règles métier#R_dechets_labo_estimes]] · [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]] · [[06 - Fonctionnalités détaillées/04 - Espace client traiteur]] · [[11 - Dashboards]] · [[12 - Reporting et exports]] §1.6
 
 ---
@@ -80,6 +82,9 @@ Barre latérale gauche, **9 sections** *(Val 2026-07-06, divergence M3.2 R19b-P2
 
 **Section Collectes réintégrée (Val 2026-07-06 — divergence M3.2, override de la décision 2026-05-03)** : le gestionnaire dispose d'une entrée nav Collectes dédiée (`/gestionnaire/collectes`). Le détail d'une collecte (pesées par flux, repas, bordereau, rapport recyclage, attestation don) reste **également** accessible depuis le détail événement parent.
 
+> **Fiche collecte (décision Val 2026-09-29)** : la fiche collecte reprend le pop-up client §06.04 « Fiche collecte (vue détail) » (en-tête, frise client, onglets Informations / Logistique / Bilan & documents) ; seules changent les actions autorisées au rôle. **Exception** : bloc « Association bénéficiaire » masqué tant que `v_attributions_gestionnaire` n'est pas implémentée.
+
+
 > **Pagination** : liste paginée côté serveur, **50 collectes par page** (aligné §06.06 Back-office Admin). Au-delà d'une page, l'écran affiche le **nombre total de collectes du périmètre filtré** et le composant Pagination du Design System (§10 §6). Le total affiché est celui de la base, pas celui de la page : c'est lui qui rend la troncature visible, la liste étant volontairement large (« tous statuts, type ZD/AG non figé », cf. drill-down des Top listes). Un changement de filtre (dont un drill-down) **réinitialise la pagination à la page 1**. Tri départagé (`date_collecte` puis `id`) : `date_collecte` n'est pas unique, sans départage deux pages successives peuvent réordonner les ex æquo et faire disparaître une ligne. *(décision Val 2026-09-22 — la section réintégrée le 2026-07-06 ne spécifiait pas la taille de la liste ; la route coupait à 100 lignes sans le signaler.)*
 
 > **Page demandée au-delà de la dernière** (lien partagé, ou liste qui a rétréci pendant la consultation) : la route répond **200 avec une page vide ET le total exact**, jamais une erreur — l'écran afficherait sinon « Le chargement des collectes a échoué » sur un parc sain. L'écran, lui, **ramène l'utilisateur sur la dernière page valide** plutôt que de montrer l'état vide : le bloc de pagination ne s'affiche que lorsque la liste est non vide, donc l'état vide serait un cul-de-sac, avec le message d'un parc réellement vide. *(confirmé Val 2026-09-22.)*
@@ -149,28 +154,31 @@ Graphique barres empilées par mois (période filtrée, granularité automatique
 
 Légende cliquable pour masquer/afficher chaque flux. Tooltip au survol : valeurs kg + % par flux.
 
-#### Bloc 3 ZD — Jauges kg/pax par flux × benchmark parc
+#### Bloc 3 ZD — Radar kg/pax par flux × benchmark parc
+
+**Représentation (décision Val 2026-09-28 — remplace les 5 jauges bullet)** : radar 5 axes « lignes seules » (1 axe par flux ZD), échelle **indice parc = 100 par flux** (le parc forme un pentagone régulier `primary-300`, « Vous » = ligne navy `primary-700` sans remplissage, grille polygonale sans rayons). Liste à côté du radar : par flux, kg/pax réel + repère parc + badge d'écart coloré + légende des statuts. Flux sans donnée : axe « n/d » grisé, pas de point, badge « Données manquantes ». Survol d'un axe ou d'une ligne : infobulle Vous / Parc / Écart. Données, filtres, k-anonymat et seuils de couleur inchangés ; dans la suite, « jauge » se lit « axe du radar » et « point rouge » se lit « repère parc ».
 
 ##### Barre de filtre benchmark dédiée (au-dessus du bloc, distincte de la barre globale)
 
-Encart compact "Filtres benchmark" affichant les **5 mêmes critères** que la barre globale, mais qui ne s'appliquent **qu'au point rouge benchmark**, pas aux jauges du gestionnaire :
+Encart compact "Filtres benchmark" affichant **4 critères** (lieux, traiteurs, type, taille — période fixe 24 mois), mais qui ne s'appliquent **qu'au point rouge benchmark**, pas aux jauges du gestionnaire :
 
 | Filtre benchmark | Type | Valeurs |
 |---|---|---|
-| Période benchmark | Date range picker + raccourcis | 12 mois glissants (défaut) / 24 mois glissants / Année civile / Personnalisé |
 | Lieux benchmark | Multi-select | Tous les lieux du parc Savr (toutes organisations confondues) — défaut "Tous" |
 | Traiteurs benchmark | Multi-select | Tous les traiteurs du parc Savr — défaut "Tous" |
 | Type d'événement benchmark | Multi-select | `types_evenements.libelle` — défaut "Tous" |
 | Taille d'événement benchmark | Multi-select | XS / S / M / L / XL — défaut "Tous" |
 
+> **Période du repère parc fixe = 24 mois glissants, non modifiable** (décision Val 2026-09-28) — imposée côté serveur sur toutes les vues benchmark (dashboards, fiche collecte, Dashboard Client Admin, rapport PDF) ; `periode_debut`/`periode_fin` reçus sont ignorés.
+
 **Initialisation** : à l'ouverture du dashboard, les filtres benchmark héritent par défaut des filtres globaux (Type d'événement + Taille d'événement uniquement). Le gestionnaire peut ensuite les modifier indépendamment (bouton "Réinitialiser" pour revenir à l'héritage par défaut).
 
 **Avertissement UX** : si le gestionnaire applique le filtre `Lieux benchmark` ou `Traiteurs benchmark` sur ses propres lieux/traiteurs, un tooltip affiche "Vous comparez vos données à vos propres données — le benchmark perd son rôle de référence parc". Pas de blocage, juste un avertissement.
 
-##### Jauges (1 par flux ZD, 5 jauges au total)
+##### Radar (1 axe par flux ZD, 5 axes au total)
 
 - **Jauge gestionnaire** : ratio `kg du flux / pax cumulés` sur la période et le périmètre **des filtres globaux** (pas des filtres benchmark)
-- **Borne max axe** : valeur max observée du parc Savr × 1,2 (échelle figée par flux pour permettre la comparaison visuelle)
+- **Échelle** : indice parc = 100 par flux (remplace la borne max parc × 1,2 des jauges — 2026-09-28)
 - **Point rouge** : **benchmark parc Savr** = moyenne `kg flux / pax` calculée sur l'ensemble du parc Savr selon les **filtres benchmark dédiés** (les 5 critères ci-dessus)
 
 **Règle k-anonymat (durcie 2026-09-22)** : si l'échantillon benchmark filtré contient strictement moins de **5 collectes**, **ou moins de 3 acteurs distincts** (organisations programmatrices et traiteurs opérationnels, minimum des deux compteurs), le point rouge est **masqué** et un tooltip affiche "Données insuffisantes pour benchmark (échantillon non comparable — affinez ou élargissez les filtres benchmark)". Le libellé ne cite plus « < 5 collectes » : il ne doit pas révéler laquelle des deux conditions a masqué le segment. La jauge gestionnaire reste affichée.
@@ -459,9 +467,10 @@ Fiche traiteur (vue non commerciale) :
 ### Bloc Organisation
 
 Informations de l'organisation :
-- Nom (lecture seule — modification via support)
-- Adresse (modifiable)
+- Nom, email, téléphone (lecture seule — modification via support)
+- Raison sociale, SIRET, adresse (modifiables — décision Val 2026-09-28, audités)
 - Logo (upload / remplacement)
+- Informations personnelles (prénom, nom, téléphone) via `/api/me/profil`
 - Notes internes (non visibles par le gestionnaire, champ Admin uniquement)
 
 ### Bloc Utilisateurs

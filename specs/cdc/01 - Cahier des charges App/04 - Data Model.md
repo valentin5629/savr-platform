@@ -1,5 +1,7 @@
 # 04 - Data Model
 
+**Statut** : Validé — mise à jour architecturale 2026-04-23 (atelier tech avec frère)
+**Dernière mise à jour** : 2026-06-15 — **M2.1 alignement DB→CDC (divergence M2.1_20260615)** : migration `20260615200000_plateforme_m2_1_packs_schema_align.sql` a aligné la DB sur le CDC — le CDC avait déjà les bons noms (`credits_initiaux`/`credits_consommes`/`credits_restants` sur `packs_antgaspi`, `credits`/`prix_unitaire_ht`/`valide_jusqu_au` sur `tarifs_packs_ag`) ; c'est la migration M0.3 qui avait créé de vieux noms (`nb_collectes`/`nb_utilisees`/`nb_annulees`). Colonnes additionnelles (`prix_unitaire_ht`, `idempotency_key`, `cree_par_user_id` sur `packs_antgaspi`) : décision Val pending (M2.1b). / Antérieure 2026-06-07 — **Session test-scenarios lot ⑦ (§06.08 Facturation, arbitrages Val)** : F3 `factures_collectes` étendue lignes de facture (`collecte_id` nullable + CHECK, `designation`/`quantite`/`taux_tva`) ; F4 nouvelle table `sequences_facturation` (gapless, verrou ligne) ; F5 colonne fantôme `factures.marge_logistique` résolue (ajoutée + vue whitelist `v_factures_client`, masquage clients) ; Reco B trigger `trg_fc_collecte_non_facturee` (anti-double-facturation + prédicat « non facturée »). / Antérieure 2026-06-04 — **Propagation suppression saisie plaque terrain (TMS, arbitrage Val)** : côté Plateforme, aucune colonne supprimée — `tournees.plaque_immatriculation` + `plaque_saisie_at` (plaque manager via S7) **inchangées**. Suppression côté TMS de `tms.tournees.plaque_saisie_terrain` (saisie chauffeur M05 E3) : descriptions `plaque_immatriculation` + règle webhook S7 mises à jour pour acter qu'il n'existe plus qu'une seule plaque (manager). La vue `v_courses_logistiques` n'exposait pas `plaque_saisie_terrain` — non impactée. / 2026-05-25 — **Audit de sobriété §04 (skill `cdc-review-sobriete`)** : A1 Module 19 non créé V1 (6 tables + 3 champs anticipés retirés du schéma, spec conservée V2) ; A2 `exports_registre.fichier_url` retiré ; A3 `packs_antgaspi.prix_unitaire_reference_ht` retiré ; A4 `collecte_partages` reporté V1.1 (RLS collectes simplifiée) ; B1 `lieux_modifications_en_attente` supprimée → override `collectes.lieu_overrides` + signalement Admin léger ; B3 `packs_antgaspi.credits_restants` → GENERATED ; **C1 4 colonnes fantômes résolues** (`collectes.pack_antgaspi_id` + `collectes.lieu_overrides` ajoutées, `collectes.date_debut`→`date_collecte`, `collectes.fin_at`→nouvelle `collectes.realisee_at` pour l'embargo) ; C2 `organisations.pennylane_customer_id` supprimé (déplacé sur `entites_facturation`) + `organisations.siret` requalifié shadow-only ; C3 vues `v_stocks_rolls` + `v_courses_logistiques` nettoyées (plus de sémantique table physique) ; D1 enum `collectes.statut` 11→9 (`manquee`+`en_reexamen` retirés) ; D2 `evenements.statut` supprimé (l'événement n'a pas de cycle de vie propre). D3 (`type_prestation=mixte`) + D4 (`mode_integration=manuel`, `tournees.statut.confirmee_prestataire`) déférés à la revue §04 TMS (enums sur `shared.prestataires` / risque cascade). Mise à jour antérieure 2026-05-06 (introduction Taux de recyclage avec captation par filière — table `parametres_taux_recyclage` 4 lignes seed + audit `parametres_taux_recyclage_history` + colonnes `collectes.taux_recyclage` + `collectes.caps_appliques jsonb` snapshot. Indicateur unique ZD-only, suppression notion "Taux de valorisation" du modèle.)
 
 ---
 
@@ -82,6 +84,7 @@ M01 seconde salve ajoute 2 colonnes sur `tms.collectes_tms` pour matérialiser l
 
 ## ⚠ Addendum 2026-04-24 (propagation M03 TMS) — Plaque requise par traiteur — **RESTAURÉ 2026-05-01 — RENOMMÉ + ÉTENDU 2026-05-03**
 
+> **NOTE 2026-05-03 (refonte formulaire §06.01)** : addendum **renommé** `plaque_requise` → `controle_acces_requis` (flag unique couvrant plaque ET nom chauffeur). La sémantique est étendue : si `controle_acces_requis=true`, le manager prestataire doit pré-saisir **plaque + nom chauffeur** en M03 E4 (blocage validation tournée si l'un manque). Voir [[#⚠ Addendum 2026-05-03 (refonte formulaire §06.01) — Renommage controle_acces + cascade lieu + table lieux_modifications_en_attente + type_evenement_libre]] pour les détails complets. Le contenu ci-dessous est conservé pour traçabilité historique mais doit être lu en remplaçant `plaque_requise` par `controle_acces_requis` partout.
 
 > **NOTE 2026-05-01** : addendum **restauré V1** suite à l'audit cohérence inter-CDC pré-handoff (annulation revue sobriété M05 2026-04-29 + Bloc C C3). La chaîne complète `plaque_requise` est réactivée cross-CDC : `lieux.plaque_requise_default` + `collectes.plaque_requise` (Plateforme) + `tms.collectes_tms.plaque_requise` + `tms.tournees.plaque_preassignee_manager` + trigger DB `validate_tournee_plaque_requise` (R_M04.PLAQUE) + R_M03.4 (§05 TMS) + workflow M03 E4 + payload E1 enrichi + webhook S7 `plaque-saisie` (Option B Val : émis à la saisie manager M03 E4 uniquement, plaque chauffeur terrain M05 reste TMS-only). **Exception A Toutes! vélo cargo** : trigger TMS autorise validation tournée même si `plaque_requise=true` (pas de plaque attribuable), message UX inline formulaire programmation Plateforme alerte le traiteur ("Vélo cargo — pas de plaque possible"). Note 2026-04-29 antérieure (suppression V1) annulée.
 
@@ -757,7 +760,7 @@ File d'attente **interne plateforme** qui matérialise le job asynchrone de reva
 
 ### Table : `organisations_lieux` *(table de jointure N-N)*
 
-Associe une organisation (gestionnaire de lieux ou agence) aux lieux qu'elle peut voir.
+Associe une organisation de type `gestionnaire_lieux` aux lieux qu'elle gère (V1 : gestionnaires uniquement, imposé par trigger `trg_organisations_lieux_type_gestionnaire` P0047 ; un lieu = un gestionnaire).
 
 | Champ | Type | Contrainte | Description |
 |-------|------|-----------|-------------|
@@ -767,9 +770,9 @@ Associe une organisation (gestionnaire de lieux ou agence) aux lieux qu'elle peu
 | `created_at` | timestamptz | NOT NULL | |
 | `created_by` | uuid | FK → users | Admin Savr qui a créé l'association |
 
-**Note V1 (2026-05-07)** : utilisé **uniquement pour les gestionnaires de lieux** (ex: profil Viparis voit ses 15 lieux). Le périmètre agence est ouvert en V1 — toute agence peut programmer sur n'importe quel lieu sans entrée préalable dans cette table. Si verrouillage agence requis en V1.5, ajouter flag `organisations.agence_perimetre_ferme` + utiliser `organisations_lieux` pour matérialiser le périmètre fermé.
+**Note V1 (2026-05-07)** : utilisé **uniquement pour les gestionnaires de lieux** — invariant imposé en base (trigger `trg_organisations_lieux_type_gestionnaire`, P0047, migration `20260929140000`, arbitrage Val 2026-09-29 C1/C2) et côté serveur (routes admin lieux, 422) ; le changement de `organisations.type` vers autre chose que `gestionnaire_lieux` est refusé (422) tant que des lignes `organisations_lieux` existent pour l'organisation (C4). Un traiteur n'a jamais de « lieux à lui ». Toute organisation rattachée lit les collectes datées du lieu via `f_collecte_visible` (ex: profil Viparis voit ses 15 lieux). Le périmètre agence est ouvert en V1 — toute agence peut programmer sur n'importe quel lieu sans entrée préalable dans cette table. Si verrouillage agence requis en V1.5, ajouter flag `organisations.agence_perimetre_ferme` + utiliser `organisations_lieux` pour matérialiser le périmètre fermé.
 
-**RLS (BLOQUANT — audit RLS V1 2026-06-05)** : table de jointure référencée dans les sous-requêtes RLS de `evenements`/`lieux`/`collectes`. RLS activée **sans policy = deny total → casse silencieuse** des policies dépendantes. Policy obligatoire (admin ALL + `org_lieux_self_select` sur `organisation_id`). Cf. [[09 - Authentification et permissions#A1 — `organisations_lieux`]].
+**RLS (BLOQUANT — audit RLS V1 2026-06-05)** : table de jointure référencée dans les sous-requêtes RLS de `evenements`/`lieux`/`collectes`. RLS activée **sans policy = deny total → casse silencieuse** des policies dépendantes. Policy obligatoire (admin ALL + `org_lieux_self_select` sur `organisation_id`). Écriture directe PostgREST fermée pour `authenticated`/`anon` (REVOKE 2026-09-29, migration `20260929150000`) : la création (et `created_by`) passe par les routes admin sous `service_role`. Cf. [[09 - Authentification et permissions#A1 — `organisations_lieux`]].
 
 ---
 
@@ -2108,9 +2111,9 @@ Vue whitelist servant la lecture des données AG (Anti-Gaspi) par le rôle `gest
 
 ### Fonction SQL : `f_benchmark_kg_pax_zd` *(ajout 2026-05-02 — refonte 2026-05-03 : 5 dimensions filtrables — extension 2026-05-04 : ouverture rôles traiteur sans filtre `traiteur_ids[]` — refonte sobriété 2026-05-30 : unification, l'ancien nom de vue `v_benchmark_kg_pax_zd` est retiré, l'objet canonique est la fonction `SECURITY DEFINER`)*
 
-Fonction agrégée (adossée à la table base matérialisée `mv_benchmark_kg_pax_zd_base`) alimentant les jauges Bloc 3 ZD du Dashboard gestionnaire de lieux ([[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux#Bloc 3 ZD — Jauges kg/pax par flux × benchmark parc]]) **et du Dashboard traiteur** ([[06 - Fonctionnalités détaillées/04 - Espace client traiteur#Bloc 3 ZD — Jauges kg/pax par flux × benchmark parc]] — extension 2026-05-04, 4 dimensions filtrables côté traiteur car `traiteur_ids[]` est interdit).
+Fonction agrégée (adossée à la table base matérialisée `mv_benchmark_kg_pax_zd_base`) alimentant le radar Bloc 3 ZD du Dashboard gestionnaire de lieux ([[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux#Bloc 3 ZD — Jauges kg/pax par flux × benchmark parc]]) **et du Dashboard traiteur** ([[06 - Fonctionnalités détaillées/04 - Espace client traiteur#Bloc 3 ZD — Jauges kg/pax par flux × benchmark parc]] — extension 2026-05-04, 4 dimensions filtrables côté traiteur car `traiteur_ids[]` est interdit).
 
-**Source** : `collectes` JOIN `collecte_flux` JOIN `evenements` JOIN `flux_dechets` JOIN `types_evenements`, **toutes organisations confondues** (parc Savr complet — c'est le sens du benchmark). Période par défaut UI = 12 mois glissants ; périodicité paramétrable via la barre filtre benchmark dédiée du Bloc 3 ZD.
+**Source** : `collectes` JOIN `collecte_flux` JOIN `evenements` JOIN `flux_dechets` JOIN `types_evenements`, **toutes organisations confondues** (parc Savr complet — c'est le sens du benchmark). Période = 24 mois glissants, fixe sur toutes les vues benchmark (dashboards, fiche collecte, Dashboard Client Admin, rapport PDF) ; non paramétrable dans l'UI (décision Val 2026-09-28). La RPC garde ses paramètres `p_periode_debut`/`p_periode_fin`, renseignés par le serveur.
 
 **Colonnes exposées** :
 | Colonne | Type | Description |
@@ -2129,7 +2132,7 @@ Implémentation : **fonction PostgreSQL** `f_benchmark_kg_pax_zd(p_flux_id, p_ty
 
 | Paramètre | Type | Effet |
 |---|---|---|
-| `p_flux_id` | uuid | Filtre sur `flux_id` (1 jauge par flux côté front, 5 appels en parallèle) |
+| `p_flux_id` | uuid | Filtre sur `flux_id` (1 axe de radar par flux côté front, 5 appels en parallèle) |
 | `p_type_evenement_ids` | uuid[] | Multi-select sur `evenements.type_evenement_id` |
 | `p_taille_evenement_codes` | text[] | Multi-select sur le bracket (`XS`/`S`/`M`/`L`/`XL`) |
 | `p_periode_debut` / `p_periode_fin` | date | Filtre sur `collectes.date_collecte` (corrigé 2026-05-25 — ex-réf fantôme `collectes.date_debut`) |
@@ -2154,7 +2157,7 @@ Le seuil n° 1 seul ne suffisait pas : 5 collectes d'un **même** acteur le fran
 
 #### Grain `single_collecte` — fonction dédiée `f_benchmark_single_collecte` (refonte 2026-05-05 — aligné as-built 2026-07-06, divergence M3.2)
 
-Pour alimenter le Bloc 3 ZD jauges sur la fiche collecte traiteur §06.04, le grain `single_collecte` est servi par une **fonction dédiée** `plateforme.f_benchmark_single_collecte(p_collecte_id uuid)` — **pas** par une extension de signature de `f_benchmark_kg_pax_zd`. La fonction dédiée réutilise `f_benchmark_kg_pax_zd`, filtrée sur le `(type_evenement × taille_evenement)` du segment de la collecte, pour établir le point de comparaison (benchmark parc).
+Pour alimenter le Bloc 3 ZD radar sur la fiche collecte traiteur §06.04, le grain `single_collecte` est servi par une **fonction dédiée** `plateforme.f_benchmark_single_collecte(p_collecte_id uuid)` — **pas** par une extension de signature de `f_benchmark_kg_pax_zd`. La fonction dédiée réutilise `f_benchmark_kg_pax_zd`, filtrée sur le `(type_evenement × taille_evenement)` du segment de la collecte, pour établir le point de comparaison (benchmark parc).
 
 **Signature** :
 ```sql

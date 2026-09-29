@@ -1,5 +1,7 @@
 # 06 - Back-office Admin Savr
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-06-07 (**Session `cdc-test-scenarios` lot ⑥ — 6 floues tranchées Val + 2 résidus corrigés** : **F1** table `audit_log` créée dans [[04 - Data Model]] (référencée ~40× sans définition ; résidu `audit_logs` §05 corrigé) · **F2** Packs AG : « Ajuster crédits » + « Annuler le pack » ouverts à `ops_savr` (alignement matrice §09 qui fait foi — ex admin-only §8) · **F3** Transporteurs : édition SIREN + désactivation `actif=false` ouvertes à `ops_savr` (alignement matrice §09 ; 2 tests pgTAP contraires retirés §09) · **F4** carte KPI « Collectes non transmises au TMS » volet AG **gardée telle quelle** (compte toutes les AG `non_envoye`, file d'attribution nominale comprise — assumé : pas un indicateur d'échec côté AG, ne pas re-proposer) · **F5** terminologie « émission S7 » (sens sortant App→TMS) renommée **« émission dispatch »** (E1 initial / réémission endpoint §08 §10.1) — S7 ne désigne plus que le webhook TMS→App `plaque-saisie` · **F6** bouton « Fusionner 2 organisations » **retiré V1** (opération exceptionnelle par script SQL assisté hors UI ; UI complète V1.1) · résidus : ligne matrice « Relancer facture » et récap #9 purgés (relances = Pennylane, décision 2026-04-28) ; compteur templates 18 → 19 actifs.)
 **Dernière mise à jour précédente** : 2026-05-30 (**Revue de sobriété §06.06 (skill `cdc-review-sobriete`) — 8 simplifications appliquées zéro dette** : **A1** champ association `nombre_convives_par_jour` supprimé (§5 — jamais utilisé ; matching par taille = `capacite_max_beneficiaires`) · **A2** axe histogramme revenus = montant HT unique (toggle nb/montant retiré, §1 Bloc 2.1) · **B2** alerte marge négative retirée (§1 Bloc 3 — pas de marge négative attendue V1, décision Val) · **A3/D1** statut pack `expire` retiré V1 (`actif`/`epuise`/`annule` — aucun mécanisme d'expiration V1 ; §8 + §04 enum) · **B1** modal création pack wizard 4 étapes → formulaire modal unique (§8) · **C1** logique SQL recrédit inline du Bloc 6 §3 retirée → source unique [[05 - Règles métier]] · **C2** description du flag `dirty_tms` centralisée (définition canonique = §3 Bloc 0, KPI §1 + chip §3 y renvoient) · **C3** récap « Actions manuelles critiques V1 » transformé en index non-normatif (pointeurs vers sections sources). 3 fichiers App édités (§06.06 + §04 Data Model + mockup admin) zéro dette. Cross-CDC : 0 divergence (toutes modifs internes Plateforme : UI dashboard, enum pack non partagée, récap).)
 **Dernière mise à jour précédente** : 2026-05-22 (§8 Clients > fiche organisation traiteur : ajout onglet Coefficient de perte labo — saisie admin par année, table `coefficients_perte_labo`. Cf. [[05 - Règles métier#R_dechets_labo_estimes]].)
 **Dernière mise à jour précédente** : 2026-05-08 (fusion ex-fichier 07 dans §8 Clients > onglet Packs AG + §9 Paramètres > Tarifs Anti-Gaspi (publics). Pack unique actif (suppression FIFO multi-packs). Cf. memory `project_fusion_07_packs_ag_2026_05_08`.)
@@ -42,6 +44,9 @@ Barre latérale (desktop) / menu burger (mobile) :
 7. **Lieux**
 8. **Clients** (organisations + users + packs AG)
 9. **Paramètres**
+10. **Mon profil** (prénom, nom, téléphone — §06.04 §7 section commune à tous les users ; ajout 2026-09-28)
+
+> **Client organisateur (2026-09-28)** : entrée « Mon organisation » (`/organisateur/mon-organisation`, informations légales modifiables) + « Mon profil ».
 
 > Section "Anti-Gaspi" supprimée 2026-05-07 — son contenu est redistribué : la file AG en attente attribution est une vue dédiée dans §3 Collectes, la gestion des packs est dans §8 Clients > Fiche organisation, l'auto-accept et les paramètres algo sont dans §9 Paramètres.
 
@@ -130,7 +135,7 @@ Persistance du filtre : `localStorage` côté navigateur (l'Admin retrouve sa s�
 Reprise **exacte** du dashboard Gestionnaire (§06.05) avec la spécificité suivante :
 - Onglets ZD / AG inchangés
 - Filtres globaux (lieux, dates, traiteurs, type+taille événement) inchangés — filtre dates = **`date_collecte`** (parité dashboard gestionnaire)
-- Bloc 1 KPIs, Bloc 2 répartitions, Bloc 3 jauges benchmark, Bloc 4 historique inchangés
+- Bloc 1 KPIs, Bloc 2 répartitions, Bloc 3 radar benchmark, Bloc 4 historique inchangés
 - L'agrégation porte sur le périmètre sélectionné (au lieu de `gestionnaire_id` filtré par RLS comme côté gestionnaire)
 
 **Contrainte benchmark** : la jauge benchmark §06.05 Bloc 3 ZD nécessite un parc minimum (k≥5). Quand le filtre est `Toutes les organisations`, le benchmark est calculé sur l'ensemble du parc Savr filtré par les barres benchmark dédiées (cf. [[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux]] §benchmark).
@@ -146,7 +151,7 @@ Reprise **exacte** du dashboard Gestionnaire (§06.05) avec la spécificité sui
 
 ### Vue liste (défaut)
 
-Liste déroulante avec scroll vertical. Une ligne = une collecte.
+Data Table paginée (50 / page), tri serveur par colonne (Date, Type, Statut, TMS). Une ligne = une collecte, pas de groupement par semaine. Onglet Programmées trié par défaut par date croissante, Historique par date décroissante ; AG à attribuer < 48 h en tête (§06.09 §1). Actions (Ouvrir la fiche, Attribuer, Dispatcher) dans un menu « ⋯ » fixé en bout de ligne. Menu « Colonnes » pour masquer des colonnes (toutes visibles par défaut ; TMS masquée en Historique). *(décision Val 2026-09-28)*
 
 Colonnes par ligne :
 
@@ -216,13 +221,13 @@ Affiche en plus de la liste classique :
 >
 > - **Cadre de la modale coloré par type de collecte** : orange (`anti_gaspi`) / vert (`zero_dechet`), aligné sur le rail de couleur des cartes de la liste.
 > - **Titre figé de l'en-tête**, visible au scroll : « Collecte {Anti-Gaspi|Zéro Déchet} · {date} · {heure} · {traiteur} · {lieu} ({ville}) · jusqu'à {N} pax ». La modale fournit son propre chrome (titre + croix), donc **`PageHero` n'est plus utilisé sur la fiche** (il reste en place sur la liste et les autres pages Admin).
-> - L'en-tête compact interne ne conserve qu'une **barre d'action** : `StatusCollecte` + badge « dirty TMS » + bouton « Forcer le statut ».
+> - L'en-tête interne porte une **frise d'avancement** (Programmée › Validée › En cours › Réalisée › Clôturée ; `realisee_sans_collecte` occupe « Réalisée » avec le libellé « Sans excédents » ; `annulation_demandee`, `annulee`, `rejetee_par_prestataire`, `brouillon` = frise estompée + badge du statut réel) + badge « dirty TMS » + bouton « Forcer le statut ». La frise remplace le badge `StatusCollecte` (décision Val 2026-09-29, C2).
 >
-> **Organisation des blocs (2026-07-22)** :
-> 1. **« Prestataire & Dispatch »** (Bloc 0) et **« Attribution AG »** en tête, en grille 2 colonnes pour l'AG ; en ZD, « Prestataire & Dispatch » occupe la pleine largeur.
-> 2. **« Événement & Lieu » réduit à 4 champs** : **Client** · Type · Adresse · Contrôle accès. Retirés car déjà portés par le titre ou redondants : Traiteur, Événement (`nom_evenement`), PAX, Lieu, Volume estimé. « Client » = le **client organisateur** de l'événement (`evenements.client_organisateur?.raison_sociale ?? nom_client_organisateur ?? '—'`), distinct du traiteur du titre → embed `client_organisateur:organisations!client_organisateur_organisation_id(raison_sociale)` ajouté à `GET /api/v1/admin/collectes/[id]`.
-> 3. **Bloc « Logistique » supprimé** (date/heure remontées dans le titre, contrôle d'accès dans « Événement & Lieu »). **`evenements.informations_supplementaires` et `collectes.notes_internes` sont ré-exposés dans le bloc « Prestataire & Dispatch »** *(arbitrage Val 2026-09-14 — aucun champ ne disparaît de l'écran)*.
-> 4. **Bloc « Pack AG » supprimé de la fiche.** Le badge « Crédit recrédité automatiquement le {{date}} » est **ré-exposé dans le bloc Historique** *(arbitrage Val 2026-09-14 — traçabilité financière conservée)*.
+> **Organisation en onglets (décision Val 2026-09-29, C1 — remplace l'« Organisation des blocs » du 2026-07-22)** : modale `max-w-5xl`, colonne **résumé** fixe à gauche (date/heure, traiteur, pax, lieu, prestataire, statut TMS, association AG) + **4 onglets** (composant DS `Tabs`) :
+> 1. **Informations** (par défaut) — Événement (date et heure, traiteur, nombre de pax, client final = client organisateur, type, nom de l'événement, volume repas estimé AG) · Lieu **effectif** (référence `lieux` + `collectes.lieu_overrides`, même fusion que celle transmise au transporteur `applyLieuOverrides` ; badge « Modifié pour cette collecte » dès qu'une surcharge réelle existe : nom, adresse, accès office, stationnement, véhicule max, contraintes horaires, contrôle d'accès) · Instructions d'accès (`acces_details` effectif, `evenements.informations_supplementaires`, `collectes.notes_internes`) · Contacts principal et secours (téléphone cliquable) · Informations chauffeur (saisie par tournée si contrôle d'accès, sinon mention « aucune information chauffeur n'est demandée »).
+> 2. **Logistique** — Prestataire & Dispatch (choix du prestataire en **cartes cochables**, reco algo en premier, présélectionnée et badgée « Recommandé », badge « Actuel » sur le prestataire en place, motif override inchangé) · Attribution AG (résumé + top 3 associations en cartes, n°1 « Recommandé », bouton **« Choisir »** → écran §06.09 avec `?association=<id>` présélectionnée ; validation, motif et emails restent sur §06.09 — BOA-07 conservé, « en 2 temps ») ; attribution déjà validée → cartes « Choisir » masquées (C5) · Pesées ZD.
+> 3. **Documents** — rapport RSE, bordereau ZD, attestation AG, facture, photos (inchangé).
+> 4. **Historique** — timeline audit (inchangée, y compris badge « Crédit recrédité automatiquement le … » ; filtres par type = plus tard, C4).
 >
 > Aucune donnée n'est supprimée en base : seuls l'emplacement et l'ordre d'affichage changent. Les règles métier de la fiche (dispatch, forçage de statut, pesées, attribution) sont inchangées.
 
@@ -469,11 +474,10 @@ Tableau filtrable :
 
 ### Horaires d'ouverture (format simplifié)
 
-Tableau 7 lignes (lundi à dimanche), par ligne :
-- Case à cocher "Ouvert" (défaut : décochée)
-- Heure de début (time picker, format HH:mm)
-- Heure de fin (time picker, format HH:mm)
-- Bouton "+" pour ajouter un second créneau (ex : pause déjeuner)
+7 lignes (lundi à dimanche), présentation « heures hebdomadaires » *(décision Val 2026-09-29)*, par ligne :
+- Pastille du jour (Lun, Mar, …)
+- Jour fermé (défaut) : libellé « Indisponible » + bouton « + » qui ouvre le jour avec un créneau 09:00–18:00
+- Jour ouvert : un ou plusieurs créneaux Heure de début – Heure de fin (time picker, pas de 15 min, format HH:mm) ; bouton « × » par créneau (retirer le dernier créneau repasse le jour en « Indisponible ») ; bouton « + » pour ajouter un créneau (ex : pause déjeuner) ; bouton « Copier » pour dupliquer les créneaux du jour vers d'autres jours (sélection des jours + « Appliquer »)
 
 Stocké dans `associations.horaires_ouverture` au format JSON.
 
@@ -619,6 +623,7 @@ Voir [[02 - Templates emails V1]] template `admin_demande_ajout_lieu`.
 
 > **Retiré V1 (Sujet 4, 2026-05-26)** : le mécanisme « Autre + texte libre + normalisation » est **supprimé** (pas seulement reporté). `types_evenements` est figé à 4 catégories de format de service (`cocktail_aperitif`, `cocktail_repas_complet`, `repas_assis`, `autre`) ; `autre` est un fourre-tout sélectionnable **sans saisie**. La colonne `evenements.type_evenement_libre` est supprimée (§04), la règle `R_type_evenement_libre` est retirée (§05), et le champ libre disparaît du formulaire §06.01. Plus aucune file de normalisation, ni en V1 ni en V1.1. Extension du référentiel = **ajout direct d'une ligne** dans `types_evenements` (Admin/Supabase), sans UI dédiée. Les événements `autre` sont comptés comme un bucket benchmark normal.
 >
+> Contenu historique conservé pour traçabilité :
 >
 
 ---
@@ -657,6 +662,8 @@ Tableau : nom (avatar à initiales), type (traiteur / agence / gestionnaire_lieu
 
 Onglets sur la fiche :
 
+- **Type (édition, 2026-09-29, arbitrage Val C4)** : modifiable par Admin/Ops via `PATCH /api/v1/admin/organisations/{id}`. Une organisation qui gère au moins un lieu (`organisations_lieux`) ne peut pas quitter `gestionnaire_lieux` : refus **422** `champs_invalides:['type']`, message « Cette organisation gère N lieu(x). Retirez-la comme gestionnaire de ces lieux avant de changer son type. » Décompte en échec : 500, aucun UPDATE.
+- **Domaines email** *(ajout 2026-09-29, décision Val — suite M0.4 domaine vérifié)* : liste des domaines de l'organisation avec statut vérifié / non vérifié ; action Admin **« Marquer comme vérifié »** (pose `verifie_at = now()`, auditée dans `audit_log`) et « Retirer la vérification ». Couvre le cas multi-domaines ajouté après coup (ex. `@dalloyau.com`) sans attendre une activation de compte ni une fusion. Route `PATCH /api/v1/admin/organisations/[id]/domaines-email/[domaineId]` (Admin/Ops, `service_role`).
 - **Informations légales** : SIREN, entités de facturation, multi-SIRET, **Logo organisation** *(ajout 2026-05-08)* — upload (JPG/PNG max 2 Mo) + preview. Stocké dans `organisations.logo_url` (champ déjà existant utilisé pour rapports RSE — voir [[04 - Data Model]] table `organisations`). Édition admin/ops. Affiché dans rapports ZD/AG quand l'organisation est `client_organisateur` ou en en-tête de fiche traiteur. **Sous-section « Domaines email »** *(fusionnée depuis l'ex-onglet Domaines email — décision Val 2026-07-03)* : domaines whitelistés `organisations_domaines_email`, affichés après les entités de facturation. Aucune modification data-model/API.
 - **Users rattachés** : liste avec rôle, statut, dernière connexion
 - **Packs AG** *(refonte 2026-05-07)* : voir sous-section dédiée ci-dessous

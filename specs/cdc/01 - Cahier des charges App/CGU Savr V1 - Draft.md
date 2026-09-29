@@ -1,5 +1,6 @@
 # CGU Savr V1 — Conditions Générales d'Utilisation
 
+**Statut** : Draft V1 (2026-04-28) — à valider avec un juriste avant mise en production
 **Périmètre** : Activités Zéro-Déchet (ZD) + Anti-Gaspi (AG)
 **Remplace** : CGU AG uniquement (version contrat bilatéral signé)
 

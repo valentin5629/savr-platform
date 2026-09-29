@@ -189,7 +189,7 @@
     },
     {
       "id": "BL-P1-AGENCE-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:254",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:40 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:259",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/pack-ag/renouvellement/route.ts + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/AGENCE01_renouvellement_role_agence_201 + M3.3/AGENCE01_renouvellement_role_non_autorise_403 + M3.3/AGENCE01_bouton_renouvellement_onglet_ag + M3.3/AGENCE01_bouton_renouvellement_poste_endpoint",
       "statut": "implemented",
@@ -261,7 +261,7 @@
     },
     {
       "id": "M3.3-bloc7-retire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:28",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:30",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/blocs_agence_top_acteurs_null + M3.3/blocs_agence_zd_sans_bloc7",
       "statut": "implemented",
@@ -277,7 +277,7 @@
     },
     {
       "id": "M3.3-cockpit-declinaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:19",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/",
       "test": "M3.3/cockpit_declinaison_kpi_toprank_benchmark",
       "statut": "implemented",
@@ -293,7 +293,7 @@
     },
     {
       "id": "M3.3-kpi-sparkline-n1",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:21",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/kpi_cartes_sparkline_et_variation_n1",
       "statut": "implemented",
@@ -301,6 +301,6 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "08aa9e2c9489903e796413a9e144dc5880a428c047e8e6240c22c1a5acbab3b1"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "adedebb053b8ac6ae0091354c3192a861578dfcca3c5d9ebb2ab7548c360e64d"
   }
 }

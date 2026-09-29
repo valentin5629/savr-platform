@@ -1,5 +1,7 @@
 # 08 - Performance / 01 - Volumes attendus
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-06-08 (skill `cdc-perf-load`)
 **Source des projections** : [[14 - Scalabilité et évolutivité]] §1 (trajectoire validée 2026-04-20). Pic users : arbitrage Val 2026-06-08 = 50 simultanés.
 
 ---

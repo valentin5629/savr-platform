@@ -527,6 +527,21 @@ Scénario : migration_policies_idempotentes
 - **Restriction colonne ops sur `attributions_antgaspi`** (ops limité à poids_repas_kg + volume_repas_realise) — contrôle **applicatif** V1 (décision F1 lot ⑧), non testable en pgTAP DB ; test Vitest API à écrire avec le module §06.09.
 - **MFA / 2FA** — V2.
 
+```gherkin
+# Source : §04 organisations_lieux + §09 A1 (arbitrage Val 2026-09-29 C1-C3)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : organisations_lieux_type_gestionnaire_et_ecriture_fermee
+  Étant donné une organisation traiteur T et un lieu L
+  Quand une ligne organisations_lieux (T, L) est insérée sous service_role
+  Alors le trigger trg_organisations_lieux_type_gestionnaire refuse (P0047)
+  Quand un JWT admin_savr porté par la clé anon tente INSERT/UPDATE/DELETE sur organisations_lieux via PostgREST
+  Alors 42501 (REVOKE table-level), aucune ligne modifiée
+  Et le SELECT org_lieux_self_select du gestionnaire reste autorisé
+  Et POST/PATCH /admin/lieux avec un gestionnaire_organisation_id de type ≠ gestionnaire_lieux renvoie 422
+```
+
 ## Recommandations loggées (non bloquantes — à confirmer)
 
 - **Reco A** : l'exemple de JWT §09 §4 n'inclut pas `app_domain` ni `impersonator_id` alors que les deux claims sont spécifiés ailleurs — mettre à jour l'exemple (doc stale, zéro impact spec).

@@ -1,5 +1,7 @@
 # 06.01 - Formulaire de programmation de collecte
 
+**Statut** : Draft V1 (refonte formulaire unique événement-centré 2026-05-21)
+**Dernière mise à jour** : 2026-05-29 (revue de sobriété — A1/A2/B1/C1-C5)
 
 ---
 
@@ -177,7 +179,7 @@ Pour **chaque type de collecte coché** en étape 1, un sous-bloc dédié est af
 | Champ | Obligatoire | Composant | Règle |
 | ----- | ----------- | --------- | ----- |
 | **Date de collecte** | Oui | Date picker | **Sans défaut (refonte 2026-05-29)** — saisie obligatoire, aucune valeur pré-remplie. (supprimé : `date_evenement` est désormais dérivé de cette date, pas l'inverse). ≥ aujourd'hui. Stockée dans `collectes.date_collecte`. |
-| **Heure de collecte** | Oui | Time picker (pas de 15min) | Heure unique de présence prestataire (point fixe V1, pas de fenêtre). Stockée dans `collectes.heure_collecte`. Propre à chaque collecte. |
+| **Heure de collecte** | Oui | `TimePicker` — liste de créneaux toutes les 15 min, de 00:00 à 23:45 | Heure unique de présence prestataire (point fixe V1, pas de fenêtre). Stockée dans `collectes.heure_collecte`. Propre à chaque collecte. |
 | **Informations supplémentaires concernant la collecte** | Non | Textarea (1000 car. max) | Texte libre, niveau **collecte**. Ex: "Sonner interphone B au RDC", "Quai N°2 fermé le lundi". Stocké sur `collectes.informations_supplementaires`. Chaque collecte (ZD/AG) porte les siennes. **Plafond 1000 car. désormais appliqué en ÉCRITURE (2026-09-16)** — route (422) + CHECK base (migration `20260915180000`) ; auparavant seul le compteur client tronquait. Sauts de ligne et tabulation admis. ⚠ **Ce champ est le SEUL canal routé vers les deux transporteurs** (`comment` MTS-1 / `notes` Everest) : il agrège aussi le nom du contact de secours et les informations d'accès du lieu (cf. [[08 - APIs et intégrations]]). |
 
 **Visibilité aval des informations supplémentaires** :
@@ -428,7 +430,7 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 - **Ajout d'une collecte à un événement existant (2026-05-21)** : bouton depuis la fiche événement, niveau événement pré-rempli figé.
 - **3 étapes** : événement → lieu/contacts/contrôle d'accès → spécificités par collecte + récap.
 - **Nom du client = nom de l'événement**.
-- **Heure de collecte unique** (point fixe, pas de fenêtre, pas de 15 min) — par collecte.
+- **Heure de collecte unique** (point fixe, pas de fenêtre) — par collecte, choisie dans une liste de créneaux de 15 min (00:00 → 23:45).
 - **Caduc (revue sobriété 2026-05-29, C3)** — "Autre" est une catégorie sèche sélectionnable depuis Sujet 4 (2026-05-26) : plus de texte libre ni de notification de normalisation.
 - **Lieu hors référentiel autorisé** + validation Admin asynchrone.
 - **Lieu existant éditable** (override collecte + patch en attente Admin, option C).

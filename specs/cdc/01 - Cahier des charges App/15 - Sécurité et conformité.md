@@ -1,5 +1,7 @@
 # 15 - Sécurité et conformité
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-04-20
 
 ---
 

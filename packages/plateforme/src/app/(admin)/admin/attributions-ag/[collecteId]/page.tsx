@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { FormField } from '@/components/ui/form-field';
 import { Combobox } from '@/components/ui/combobox';
 import { Textarea } from '@/components/ui/textarea';
+import { AlertBar } from '@/components/ui/alert-bar';
 
 interface AssociationSuggestion {
   id: string;
@@ -109,6 +110,8 @@ export default function AttributionDetailPage() {
   const [selectedAsso, setSelectedAsso] = useState<string | null>(null);
   const [selectedAssoNom, setSelectedAssoNom] = useState<string | null>(null);
   const [assoSource, setAssoSource] = useState<'reco' | 'libre'>('reco');
+  // `?association=<id>` (fiche collecte) absente des recommandations de l'algo.
+  const [assoDemandeeHorsReco, setAssoDemandeeHorsReco] = useState(false);
   const [selectedTransp, setSelectedTransp] = useState<string | null>(null);
   const [selectedTranspNom, setSelectedTranspNom] = useState<string | null>(
     null,
@@ -149,10 +152,21 @@ export default function AttributionDetailPage() {
       }
       const json = (await res.json()) as { data: AlgoResult };
       setAlgo(json.data);
-      // Pré-sélectionner top 1 (asso + transporteur recommandés)
-      if (json.data.associations.length > 0) {
-        setSelectedAsso(json.data.associations[0]?.id ?? null);
-        setSelectedAssoNom(json.data.associations[0]?.nom ?? null);
+      // Pré-sélectionner top 1 (asso + transporteur recommandés) — ou l'association
+      // choisie depuis la fiche collecte (`?association=<id>`, carte « Choisir »),
+      // si elle fait bien partie des recommandations de l'algo.
+      const assoDemandee = new URLSearchParams(window.location.search).get(
+        'association',
+      );
+      const assoTrouvee = json.data.associations.find(
+        (a) => a.id === assoDemandee,
+      );
+      // Repli sur le top 1 annoncé (décision Val C6), jamais silencieux.
+      setAssoDemandeeHorsReco(!!assoDemandee && !assoTrouvee);
+      const assoInitiale = assoTrouvee ?? json.data.associations[0];
+      if (assoInitiale) {
+        setSelectedAsso(assoInitiale.id);
+        setSelectedAssoNom(assoInitiale.nom);
         setAssoSource('reco');
       }
       if (json.data.transporteur) {
@@ -407,6 +421,13 @@ export default function AttributionDetailPage() {
                 Aucune association disponible pour ce créneau. Traitement manuel
                 requis.
               </div>
+            )}
+            {assoDemandeeHorsReco && (
+              <AlertBar variant="info">
+                L&apos;association choisie depuis la fiche collecte ne fait plus
+                partie des recommandations de l&apos;algo : la recommandation
+                n°1 est présélectionnée à la place.
+              </AlertBar>
             )}
             <FormField label="Association" htmlFor="association-select">
               {/* Option « vide » en tête, comme l'ancien <select> : permet de

@@ -281,12 +281,6 @@ it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uni
   // sans rien signaler.
   const DETTE = [
     {
-      fichier: 'app/(traiteur)/traiteur/collectes/[id]/page.tsx',
-      jeton: 'savr-accent-600',
-      occurrences: 1,
-      motif: 'anneau orange — écart le plus visible, à reprendre en premier',
-    },
-    {
       fichier: 'components/collecte/collecte-filtre-actif.tsx',
       jeton: 'savr-primary-400',
       occurrences: 1,

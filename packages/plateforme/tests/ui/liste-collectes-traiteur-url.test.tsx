@@ -51,6 +51,9 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
         programmateurs: [],
       },
     });
+  // Détail d'une fiche ouverte en pop-up (?collecte=<id>).
+  if (url.includes('/traiteur/collectes/c9'))
+    return jsonResponse({ data: null });
   return jsonResponse({ data: [] });
 });
 
@@ -80,6 +83,40 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
       const usp = derniereUrl();
       expect(usp.get('onglet')).toBe('historique');
       expect(usp.get('type')).toBe('anti_gaspi');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'url/fiche_popup_ouverte_depuis_l_url_puis_fermee_sans_perdre_les_filtres',
+    async () => {
+      // Lien profond (email, dashboard, ancienne route [id] redirigée) : la fiche
+      // s'ouvre en pop-up par-dessus la liste filtrée.
+      searchParams = new URLSearchParams(
+        'onglet=historique&statut=cloturee&collecte=c9',
+      );
+      render(<TraiteurCollectesPage />);
+      const dialog = await screen.findByRole('dialog', {}, ATTENTE_UI);
+      await waitFor(
+        () => expect(dialog).toHaveTextContent('Collecte introuvable.'),
+        ATTENTE_UI,
+      );
+      expect(
+        fetchMock.mock.calls.some(([u]) =>
+          String(u).endsWith('/api/v1/traiteur/collectes/c9'),
+        ),
+      ).toBe(true);
+
+      // Fermeture : le paramètre `collecte` disparaît, les filtres restent.
+      fireEvent.keyDown(document, { key: 'Escape' });
+      await waitFor(
+        () => expect(screen.queryByRole('dialog')).toBeNull(),
+        ATTENTE_UI,
+      );
+      const usp = derniereUrl();
+      expect(usp.get('collecte')).toBeNull();
+      expect(usp.get('onglet')).toBe('historique');
+      expect(usp.get('statut')).toBe('cloturee');
     },
     ATTENTE_CAS_MS,
   );

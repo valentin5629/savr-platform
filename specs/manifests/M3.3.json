@@ -19,7 +19,12 @@
     "packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts",
     "packages/plateforme/src/app/api/v1/programmation/organisations/shadow/route.ts",
     "packages/plateforme/src/lib/nav-config.ts",
-    "packages/plateforme/tests/api/agence/espace-agence.m3-3.test.ts"
+    "packages/plateforme/tests/api/agence/espace-agence.m3-3.test.ts",
+    "packages/plateforme/src/app/api/v1/agence/collectes/[id]/benchmark/route.ts",
+    "packages/plateforme/src/app/api/v1/agence/collectes/[id]/rapport-rse/download/route.ts",
+    "packages/plateforme/src/app/api/v1/agence/collectes/[id]/coordonnees-urgence/route.ts",
+    "packages/plateforme/tests/ui/fiche-collecte-client.m3-3.test.tsx",
+    "packages/plateforme/tests/api/agence/fiche-collecte-popup.m3-3.test.ts"
   ],
   "scenarios": [
     "M3.3/auth_guard_non_agence_403",
@@ -48,7 +53,19 @@
     "M3.3/blocs_agence_ag_associations",
     "M3.3/benchmark_agence_autorise",
     "M3.3/benchmark_agence_traiteur_ids_rejete",
-    "M3.3/benchmark_filtres_agence_sans_liste_traiteurs"
+    "M3.3/benchmark_filtres_agence_sans_liste_traiteurs",
+    "M3.3/fiche_redirect_modale",
+    "M3.3/fiche_redirect_edit",
+    "M3.3/fiche_redirect_encode",
+    "M3.3/fiche_popup_agence_endpoints",
+    "M3.3/fiche_popup_agence_traiteur_operationnel_siret",
+    "M3.3/fiche_popup_agence_marque_blanche",
+    "M3.3/fiche_get_socle_commun",
+    "M3.3/fiche_benchmark_agence",
+    "M3.3/fiche_benchmark_agence_traiteur_ids_rejete",
+    "M3.3/rapport_download_agence",
+    "M3.3/rapport_download_agence_cloisonnement",
+    "M3.3/urgence_agence_ok"
   ],
   "deliverables": [
     {
@@ -298,6 +315,70 @@
       "test": "M3.3/kpi_cartes_sparkline_et_variation_n1",
       "statut": "implemented",
       "libelle": "Cartes KPI agence = §06.04 à l'identique (l.92) : sparkline + variation N-1 (sauf kg/pax), même source que le traiteur (kpi-traiteur ?compare=n1, lignes mensuelles). Les 4 cartes ZD sans Marge (diff #7) sont conservées."
+    },
+    {
+      "id": "M3.3-popup-client-fiche-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:54",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/collectes/page.tsx, packages/plateforme/src/app/(agence)/agence/collectes/[id]/page.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-modal.tsx",
+      "test": "M3.3/fiche_redirect_modale",
+      "statut": "implemented",
+      "libelle": "Fiche collecte agence = pop-up client commun §06.04 ouvert sur la liste (?collecte=<id>[&edit=1]) ; l'ancienne page pleine /agence/collectes/[id] redirige. Routes de l'espace agence : M3.3/fiche_popup_agence_endpoints."
+    },
+    {
+      "id": "M3.3-popup-traiteur-operationnel-siret",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:31",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
+      "test": "M3.3/fiche_popup_agence_traiteur_operationnel_siret",
+      "statut": "implemented",
+      "libelle": "§06.11 différence #3 conservée dans le pop-up : ligne « Traiteur opérationnel » (bloc Événement) + badge « Hors référentiel » → modale de complétion SIRET (PATCH /api/v1/agence/shadow/<id>/siret, §06.11 F2)."
+    },
+    {
+      "id": "M3.3-popup-socle-commun-api",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:54",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/app/api/v1/agence/collectes/[id]/route.ts",
+      "test": "M3.3/fiche_get_socle_commun",
+      "statut": "implemented",
+      "libelle": "GET agence sur le chargeur commun : camions (fenêtre logistique), association AG, droits (donneur d'ordre), traiteur opérationnel ; sans notes internes."
+    },
+    {
+      "id": "M3.3-popup-rapport-download",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:57",
+      "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/agence/collectes/[id]/rapport-rse/download/route.ts",
+      "test": "M3.3/rapport_download_agence",
+      "statut": "implemented",
+      "libelle": "Téléchargement du rapport de la collecte depuis la fiche — manquant côté agence jusqu'ici (la liste affichait « Disponible » sans lien) ; embargo H+24 serveur, cloisonnement RLS (M3.3/rapport_download_agence_cloisonnement)."
+    },
+    {
+      "id": "M3.3-popup-radar-agence",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
+      "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/[id]/benchmark/route.ts",
+      "test": "M3.3/fiche_benchmark_agence",
+      "statut": "implemented",
+      "libelle": "Radar de la fiche servi à l'agence (programmatrice : garde f_benchmark_single_collecte satisfaite) ; filtre traiteur_ids refusé (M3.3/fiche_benchmark_agence_traiteur_ids_rejete)."
+    },
+    {
+      "id": "M3.3-benchmark-filtres-options-agence",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Options des filtres du repère parc VIDES pour l'agence (dashboard ET fiche) : f_benchmark_lieux_parc exclut le rôle agence et fait échouer toute la route /api/v1/dashboards/benchmark/filtres (types compris). Préexistant, hors lot : ouvrir la fonction à l'agence ÉLARGIT un accès → arbitrage Val (CLAUDE.md §12 2bis). Tracé dans _Divergences/M3.1_20260929_popup-client-implementation.md."
+    },
+    {
+      "id": "M3.3-popup-coordonnees-urgence",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/[id]/coordonnees-urgence/route.ts",
+      "test": "M3.3/urgence_agence_ok",
+      "statut": "implemented",
+      "libelle": "Demande urgente des coordonnées ouverte à l'agence (logique commune, rôle borné à agence)."
+    },
+    {
+      "id": "M3.3-popup-marque-blanche",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
+      "test": "M3.3/fiche_popup_agence_marque_blanche",
+      "statut": "implemented",
+      "libelle": "Aucun libellé « transporteur » / « prestataire » dans la fiche agence."
     }
   ],
   "cdc_source_hash": {

@@ -11,6 +11,7 @@ import { TimePicker } from '@/components/ui/time-picker';
 import { Modal } from '@/components/ui/modal';
 import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
+import { typeCollecteLabel } from '@/components/collecte/fiche-collecte-modal-cadre';
 
 interface TypeEvenement {
   id: string;
@@ -34,22 +35,19 @@ export interface EvenementEditData {
   contact_principal_telephone: string | null;
   contact_secours_nom: string | null;
   contact_secours_telephone: string | null;
-  notes_internes: string | null;
 }
 
 export interface CollecteEditData {
   id: string;
   type: string;
   statut: string;
-  // Optionnel : seule la fiche traiteur le fournit en V1 (BL-P1-TRAIT-03) →
-  // l'avertissement de réacceptation prestataire ne s'affiche que là. Les fiches
-  // agence/gestionnaire conservent le modal (urgence seule) sans régression.
+  // Fourni par le pop-up client commun (3 espaces) : arme l'avertissement de
+  // reconfirmation du créneau. Optionnel pour les appelants qui ne l'ont pas.
   statut_tms?: string;
   date_collecte: string;
   heure_collecte: string | null;
   controle_acces_requis: boolean;
   informations_supplementaires: string | null;
-  notes_internes: string | null;
   lieu_nom: string | null;
   evenement: EvenementEditData;
 }
@@ -93,9 +91,6 @@ export function EditerCollecteForm({
   );
   const [infosSuppl, setInfosSuppl] = useState(
     collecte.informations_supplementaires ?? '',
-  );
-  const [notesCollecte, setNotesCollecte] = useState(
-    collecte.notes_internes ?? '',
   );
 
   const [saving, setSaving] = useState(false);
@@ -187,8 +182,6 @@ export function EditerCollecteForm({
         colUpdates.controle_acces_requis = controleAcces;
       if (infosSuppl !== (collecte.informations_supplementaires ?? ''))
         colUpdates.informations_supplementaires = infosSuppl || null;
-      if (notesCollecte !== (collecte.notes_internes ?? ''))
-        colUpdates.notes_internes = notesCollecte || null;
 
       if (Object.keys(colUpdates).length > 0) {
         const res = await fetch(collecteEndpoint, {
@@ -366,21 +359,13 @@ export function EditerCollecteForm({
               onChange={(ev) => setInfosSuppl(ev.target.value)}
             />
           </FormField>
-          <FormField label="Notes internes" htmlFor="edit-notes-internes">
-            <Textarea
-              id="edit-notes-internes"
-              rows={2}
-              value={notesCollecte}
-              onChange={(ev) => setNotesCollecte(ev.target.value)}
-            />
-          </FormField>
         </section>
 
         {/* ── Champs verrouillés (§05 l.314 / §06.04 l.460) ─────────── */}
         <section className="space-y-2 rounded-savr-md bg-savr-neutral-50 p-3">
           <p className="text-xs text-savr-neutral-500">
             Lieu : <strong>{collecte.lieu_nom ?? '—'}</strong> · Type :{' '}
-            <strong>{collecte.type}</strong>
+            <strong>{typeCollecteLabel(collecte.type)}</strong>
           </p>
           <p className="text-xs text-savr-neutral-400">
             Pour changer le lieu ou le type de collecte, annulez cette collecte
@@ -419,14 +404,13 @@ export function EditerCollecteForm({
               {urgence && (
                 <li>
                   Cette modification a lieu moins de 12h avant la collecte.
-                  Notre équipe Ops sera alertée en urgence pour relayer au
-                  prestataire si besoin.
+                  Notre équipe Ops sera alertée en urgence.
                 </li>
               )}
               {reacceptation && (
                 <li>
-                  Cette modification de créneau invalidera l’acceptation du
-                  prestataire qui devra re-confirmer.
+                  Ce nouveau créneau devra être reconfirmé par notre équipe
+                  logistique.
                 </li>
               )}
             </ul>

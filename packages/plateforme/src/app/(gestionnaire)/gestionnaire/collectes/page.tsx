@@ -19,6 +19,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
 import {
   readCollecteFiltreLabel,
@@ -48,6 +49,12 @@ const SqueletteListe = () => (
 function GestionnaireCollectesContent() {
   const router = useRouter();
   const params = useSearchParams();
+  const [fiche, setFiche] = useState<{ id: string; edit: boolean } | null>(
+    () => {
+      const id = params.get('collecte');
+      return id ? { id, edit: params.get('edit') === '1' } : null;
+    },
+  );
   // Drill-down depuis les Top listes du dashboard (lieu / traiteur). §06.05 l.209 :
   // « tous statuts, type ZD/AG non figé ; filtres du dashboard propagés (période +
   // Type/Taille d'événement) ». Le dashboard ne fige donc NI `type` NI `statut` —
@@ -211,6 +218,31 @@ function GestionnaireCollectesContent() {
     else setFiltreLabel(null);
   }, [lieuFiltre, traiteurFiltre]);
 
+  // Fiche collecte en pop-up (refonte Val 2026-09-29, pop-up client commun) :
+  // ouverte depuis l'URL (?collecte=<id>[&edit=1]) → l'ancienne route [id], les
+  // emails, le détail événement et les dashboards rouvrent la fiche. `edit`
+  // n'est jamais réécrit : un rechargement rouvre la fiche en lecture.
+  function majUrlFiche(f: { id: string } | null) {
+    const usp = new URLSearchParams(Array.from(params.entries()));
+    usp.delete('edit');
+    if (f) usp.set('collecte', f.id);
+    else usp.delete('collecte');
+    const s = usp.toString();
+    router.replace(`/gestionnaire/collectes${s ? `?${s}` : ''}`);
+  }
+  function ouvrirFiche(id: string) {
+    const f = { id, edit: false };
+    setFiche(f);
+    majUrlFiche(f);
+  }
+  // Une action dans la fiche (édition) peut changer la liste : rechargée à la
+  // fermeture.
+  function fermerFiche() {
+    setFiche(null);
+    majUrlFiche(null);
+    charger();
+  }
+
   function clearFiltre() {
     const usp = new URLSearchParams(Array.from(params.entries()));
     [
@@ -322,7 +354,7 @@ function GestionnaireCollectesContent() {
         manualSorting
         sorting={sorting}
         onSortingChange={setSorting}
-        onRowClick={(c) => router.push(`/gestionnaire/collectes/${c.id}`)}
+        onRowClick={(c) => ouvrirFiche(c.id)}
         rowLabel={(c) =>
           `Ouvrir la collecte${c.evenement_nom ? ` ${c.evenement_nom}` : ''}${c.lieu_nom ? ` — ${c.lieu_nom}` : ''}`
         }
@@ -359,6 +391,13 @@ function GestionnaireCollectesContent() {
       )}
 
       {contenu}
+
+      <FicheCollecteClientModal
+        espace="gestionnaire"
+        collecteId={fiche?.id ?? null}
+        initialEditing={fiche?.edit ?? false}
+        onClose={fermerFiche}
+      />
     </div>
   );
 }

@@ -89,3 +89,17 @@ export function ContactLigne({
     </>
   );
 }
+
+// Téléphone seul, cliquable (appel direct depuis mobile) ; « — » si absent.
+export function TelephoneLien({ telephone }: { telephone?: string | null }) {
+  const tel = telephone?.trim();
+  if (!tel) return <span className="text-savr-neutral-400">—</span>;
+  return (
+    <a
+      href={`tel:${tel.replace(/\s/g, '')}`}
+      className="text-savr-primary-600 hover:underline"
+    >
+      {tel}
+    </a>
+  );
+}

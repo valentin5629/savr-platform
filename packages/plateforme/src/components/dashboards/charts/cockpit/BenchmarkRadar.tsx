@@ -31,6 +31,10 @@ interface BenchmarkRadarProps {
   /** Filtres du repère parc, imbriqués DANS la carte (au-dessus du radar) —
    *  filtres + graphe = un seul bloc (retour Val R24b). */
   filtersSlot?: React.ReactNode;
+  /** Titre de la carte (défaut : libellé des dashboards). */
+  title?: string;
+  /** Sous-titre de la carte (défaut : libellé des dashboards). */
+  subtitle?: string;
 }
 
 // Série « Vous » = navy-700 (encre forte), série « Parc » = primary-300 (repère
@@ -279,6 +283,8 @@ function LigneFlux({
 export function BenchmarkRadar({
   items,
   filtersSlot,
+  title = 'Intensité par flux · kg/pax vs benchmark parc',
+  subtitle = "Indice : moyenne du parc Savr (anonymisée) = 100. À l'intérieur du repère, vous produisez moins que le parc.",
 }: BenchmarkRadarProps): React.ReactElement {
   // Survol : axe actif + position du curseur (px, relative au conteneur) quand
   // le survol vient du GRAPHE ; survol depuis la LISTE = axe seul (la ligne de
@@ -344,8 +350,8 @@ export function BenchmarkRadar({
 
   return (
     <ChartCard
-      title="Intensité par flux · kg/pax vs benchmark parc"
-      subtitle="Indice : moyenne du parc Savr (anonymisée) = 100. À l'intérieur du repère, vous produisez moins que le parc."
+      title={title}
+      subtitle={subtitle}
       headerRight={
         <div className="flex flex-wrap gap-3">
           <LegendLine color={VOUS}>Vous</LegendLine>

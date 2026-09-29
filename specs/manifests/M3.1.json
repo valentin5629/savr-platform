@@ -11,8 +11,6 @@
     "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
     "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
     "packages/plateforme/src/components/collecte/fiche-blocs.tsx",
-    "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx",
-    "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-modal.tsx",
     "packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx",
     "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/page.tsx",
     "packages/plateforme/src/app/(traiteur)/traiteur/mon-profil/page.tsx",
@@ -41,7 +39,23 @@
     "packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCardAg.tsx",
     "packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanelAg.tsx",
     "supabase/migrations/20260921140000_plateforme_lieux_select_traiteur_operationnel.sql",
-    "supabase/tests/lieux_traiteur_operationnel.test.sql"
+    "supabase/tests/lieux_traiteur_operationnel.test.sql",
+    "packages/plateforme/src/components/collecte/fiche-collecte-client-modal.tsx",
+    "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
+    "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
+    "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
+    "packages/plateforme/src/components/collecte/frise-statut-client.tsx",
+    "packages/plateforme/src/lib/collectes/fiche-client-types.ts",
+    "packages/plateforme/src/lib/collectes/fiche-client.ts",
+    "packages/plateforme/src/lib/collectes/benchmark-fiche.ts",
+    "packages/plateforme/src/lib/collectes/rapport-download.ts",
+    "packages/plateforme/src/lib/collectes/coordonnees-urgence.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/coordonnees-urgence/route.ts",
+    "packages/plateforme/src/components/dashboards/FiltreCoches.tsx",
+    "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql",
+    "supabase/tests/coordonnees_urgence_alerte.test.sql",
+    "packages/plateforme/tests/ui/fiche-collecte-client.m3-1.test.tsx",
+    "packages/plateforme/tests/api/traiteur/fiche-collecte-popup.m3-1.test.ts"
   ],
   "scenarios": [
     "M3.1/marge_badge_attente_facturation_partielle",
@@ -109,7 +123,7 @@
     "M3.1/fiche_ui_programmee_par_modale",
     "M3.1/fiche_ui_programmee_par_absent",
     "M3.1/fiche_ui_erreur_reessayer",
-    "M3.1/fiche_ui_bloc3_masque_avant_realisation",
+    "M3.1/fiche_popup_bilan_estompe_avant_realisation",
     "M3.1/fiche_ui_bloc3_masque_en_ag",
     "M3.1/fiche_ui_bloc3_visible_zd_terminee",
     "M3.1/fiche_ui_bloc3_filtres_initialises_sur_la_collecte",
@@ -126,7 +140,46 @@
     "M3.1/fiche_ui_logistique_velo_cargo_sans_plaque",
     "M3.1/fiche_ui_echap_confirmation_edition_garde_la_fiche",
     "M3.1/fiche_ui_echap_sans_sous_modale_ferme_la_fiche",
-    "M3.1/fiche_get_cloisonnement_telephone"
+    "M3.1/fiche_get_cloisonnement_telephone",
+    "M3.1/fiche_popup_entete_badge_frise",
+    "M3.1/fiche_popup_badge_ag_orange",
+    "M3.1/fiche_popup_onglets_colonne",
+    "M3.1/fiche_popup_informations_blocs",
+    "M3.1/fiche_popup_contact_secours",
+    "M3.1/fiche_popup_urgence_demande",
+    "M3.1/fiche_popup_urgence_deja_demandee",
+    "M3.1/fiche_popup_association_logistique_ag",
+    "M3.1/fiche_popup_bilan_zd_realisee",
+    "M3.1/fiche_popup_sans_excedent",
+    "M3.1/fiche_popup_annulee",
+    "M3.1/fiche_popup_telechargement_rapport",
+    "M3.1/fiche_popup_aucun_mot_transporteur",
+    "M3.1/fiche_popup_sous_modales_marque_blanche",
+    "M3.1/fiche_popup_pied_actions",
+    "M3.1/fiche_popup_edition_sans_notes_internes",
+    "M3.1/fiche_popup_echap_annulation_garde_la_fiche",
+    "M3.1/fiche_get_sans_notes_ni_prestataire",
+    "M3.1/fiche_get_telephone_fenetre",
+    "M3.1/fiche_get_telephone_hors_fenetre",
+    "M3.1/fiche_get_invisible_404_sans_service_role",
+    "M3.1/fiche_get_bilan_flux_zd",
+    "M3.1/fiche_get_bilan_flux_avant_realisation",
+    "M3.1/fiche_get_association_ag",
+    "M3.1/fiche_get_lieu_effectif",
+    "M3.1/fiche_get_urgence_demandee",
+    "M3.1/fiche_get_actions_par_role",
+    "M3.1/urgence_collecte_invisible_404",
+    "M3.1/urgence_insert_alerte_ops",
+    "M3.1/urgence_doublon_idempotent",
+    "M3.1/urgence_statut_hors_fenetre_409",
+    "M3.1/urgence_coordonnees_completes_409",
+    "M3.1/edition_notes_internes_refusee",
+    "M3.1/edition_evenement_notes_internes_ignorees",
+    "M3.1/edition_evenement_notes_internes_seules_422",
+    "M3.1/frise_client_vocabulaire",
+    "M3.1/frise_client_sans_excedents",
+    "M3.1/frise_client_annulee",
+    "M3.1/frise_client_etats"
   ],
   "deliverables": [
     {
@@ -276,7 +329,7 @@
     {
       "id": "BL-P1-TRAIT-03",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:438-552",
-      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_get_augmente",
       "statut": "implemented",
       "libelle": "Fiche collecte : bloc Logistique (chauffeur + plaque + téléphone par camion — ex-« Contrôle d'accès », élargi 2026-09-29, cf. M3.1-fiche-popup-logistique), downloads rapport RSE (route traiteur + embargo H+24) et facture, modale d'annulation + motif"
@@ -596,7 +649,7 @@
     {
       "id": "M3.1-fiche-etats-systeme-ds",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:400-419",
-      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_ui_erreur_reessayer",
       "statut": "implemented",
       "libelle": "États système §10 §7 de la fiche : Loading = skeleton à la forme du contenu (et non un « Chargement… » nu), Error = message + bouton « Réessayer ». Un 500 affichait jusqu'ici « Collecte introuvable », message faux qui envoyait le traiteur chercher une collecte supprimée. Entête au pattern label/valeur, bandeau « Informations incomplètes » porté par le composant AlertBar du DS, date du titre en format FR."
@@ -604,10 +657,202 @@
     {
       "id": "M3.1-fiche-popup-logistique",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:552-577",
-      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-modal.tsx, packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx, packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-modal.tsx, packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_ui_logistique_chauffeur_plaque_tel",
       "statut": "implemented",
       "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, même format que la fiche Admin : colonne résumé + onglets Informations / Logistique / Bilan & documents) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés ; vélo cargo = plaque « Sans objet (vélo cargo) ». Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md. Cadre de modale (titre, couleur AG/ZD, garde Échap) partagé avec la fiche Admin (fiche-collecte-modal-cadre.tsx)."
+    },
+    {
+      "id": "M3.1-popup-client-entete",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:398",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
+      "test": "M3.1/fiche_popup_entete_badge_frise",
+      "statut": "implemented",
+      "libelle": "Refonte pop-up (Val 2026-09-29) — en-tête : badge type (Q2 : ZD navy primary-700 texte blanc / AG accent-500 texte primary-950, remplace le cadre orange/vert de #428), « Réf. » courte, titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax », frise discrète en haut à droite, croix isolée. Badge AG prouvé par M3.1/fiche_popup_badge_ag_orange."
+    },
+    {
+      "id": "M3.1-popup-client-frise-vocabulaire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:398",
+      "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts, packages/plateforme/src/components/collecte/frise-statut-client.tsx",
+      "test": "M3.1/frise_client_vocabulaire",
+      "statut": "implemented",
+      "libelle": "Frise en vocabulaire CLIENT (Q1) dérivée du mapping canonique statutCollecteDisplay(…, 'client') : Créée · Validée · En cours · Réalisée ; « Sans excédents » en AG ; jamais Programmée ni Clôturée ; étape courante aria-current + gras, autres estompées."
+    },
+    {
+      "id": "M3.1-popup-client-frise-annulee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:398",
+      "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
+      "test": "M3.1/fiche_popup_annulee",
+      "statut": "implemented",
+      "libelle": "Collecte annulée (arbitrage Val C3 2026-09-29) : frise réduite « Créée · Annulée » (annulation_demandee comprise), onglet Bilan « Collecte annulée : aucun bilan ni document. », pied sans action. Unitaire : M3.1/frise_client_annulee."
+    },
+    {
+      "id": "M3.1-popup-client-navigation-onglets",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:399",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
+      "test": "M3.1/fiche_popup_onglets_colonne",
+      "statut": "implemented",
+      "libelle": "Onglets en colonne à gauche (Radix Tabs orientation verticale) : Informations / Logistique / Bilan & documents ; actif = fond blanc + contour (pas d'aplat navy)."
+    },
+    {
+      "id": "M3.1-popup-client-pied-actions",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:400",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
+      "test": "M3.1/fiche_popup_pied_actions",
+      "statut": "implemented",
+      "libelle": "Pied en bas à droite : « Demander l'annulation » (contour rouge ; « Annuler la collecte » en annulation directe) puis « Modifier la collecte » (primaire). Absents si le statut ne le permet pas, grisés (title explicatif) si le rôle n'en a pas le droit sur CETTE collecte (commercial non créateur, §06.04 l.338)."
+    },
+    {
+      "id": "M3.1-fiche-droits-actions-serveur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:400",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": "M3.1/fiche_get_actions_par_role",
+      "statut": "implemented",
+      "libelle": "droitsFiche() : les droits affichés sont calculés côté serveur en reprenant EXACTEMENT les gardes des routes PATCH / annulation existantes de chaque espace (manager = son organisation, commercial = ses créations, agence = RLS, gestionnaire = ses programmations et jamais d'annulation). L'écran grise ce que le serveur refuserait, il n'invente aucun droit."
+    },
+    {
+      "id": "M3.1-popup-client-informations",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:401",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": "M3.1/fiche_popup_informations_blocs",
+      "statut": "implemented",
+      "libelle": "Onglet Informations : Événement (Client, Date et heure, Pax, Type d'événement + taille), Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = détails d'accès EFFECTIFS du lieu — applyLieuOverrides, même fusion que le transporteur — + informations supplémentaires de la collecte ; jamais les notes internes Admin), Contacts sur place (téléphones tel:). Lieu effectif prouvé côté API par M3.1/fiche_get_lieu_effectif."
+    },
+    {
+      "id": "M3.1-popup-client-contact-secours",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:401",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
+      "test": "M3.1/fiche_popup_contact_secours",
+      "statut": "implemented",
+      "libelle": "Contact de secours + téléphone (Q4 : evenements.contact_secours_* existent déjà — migration 20260611171638) ; ligne masquée seulement si vide. Aucune migration."
+    },
+    {
+      "id": "M3.1-popup-client-logistique-savr",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
+      "test": "M3.1/fiche_popup_aucun_mot_transporteur",
+      "statut": "implemented",
+      "libelle": "Wording 100 % Savr : aucun libellé du pop-up (3 onglets, ZD/AG, à venir/réalisée/sans excédents) ne dit « transporteur » ni « prestataire » ; « Nous affectons votre chauffeur avant la collecte… » tant qu'aucun camion n'est affecté (M3.1/fiche_ui_logistique_aucun_camion)."
+    },
+    {
+      "id": "M3.1-popup-marque-blanche-sous-modales",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/editer-collecte-form.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "test": "M3.1/fiche_popup_sous_modales_marque_blanche",
+      "statut": "implemented",
+      "libelle": "Arbitrage Val C2 (2026-09-29) : « prestataire » retiré des sous-modales (annulation : « Nous prévenons notre équipe logistique » ; confirmation d'édition : « Ce nouveau créneau devra être reconfirmé par notre équipe logistique » au lieu du texte CDC §06.04 l.543 — divergence tracée _Divergences/M3.1_20260929_popup-client-implementation.md)."
+    },
+    {
+      "id": "M3.1-fiche-get-sans-notes-ni-prestataire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1511",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
+      "test": "M3.1/fiche_get_sans_notes_ni_prestataire",
+      "statut": "implemented",
+      "libelle": "Revue sécurité du sync 2026-09-29 : collectes.notes_internes et evenements.notes_internes (commentaires Admin « non visible par le client », §04 l.1511/l.1454) et prestataire_nom ne sont plus ni lus ni servis par les 3 routes GET clientes (réponse = objet curé, jamais la ligne brute)."
+    },
+    {
+      "id": "M3.1-fiche-telephone-fenetre-serveur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:554",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": "M3.1/fiche_get_telephone_hors_fenetre",
+      "statut": "implemented",
+      "libelle": "Téléphone du chauffeur filtré CÔTÉ SERVEUR : hors programmee/validee/en_cours, aucun camion n'est lu ni servi (service-role jamais sollicité). Fenêtre prouvée par M3.1/fiche_get_telephone_fenetre. La lecture PostgREST directe de tournees (policy t_select) reste à fermer par colonne — PR séparée (arbitrage Val C5)."
+    },
+    {
+      "id": "M3.1-edition-notes-internes-fermee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1511",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/agence/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts, packages/plateforme/src/components/collecte/editer-collecte-form.tsx",
+      "test": "M3.1/edition_notes_internes_refusee",
+      "statut": "implemented",
+      "libelle": "Arbitrage Val C1 (2026-09-29) : notes_internes (collecte + événement) = champ Admin → retirée des allowlists PATCH clientes (3 routes collecte + route événement programmateur) et du formulaire d'édition client. Événement : M3.1/edition_evenement_notes_internes_ignorees ; formulaire : M3.1/fiche_popup_edition_sans_notes_internes. Contradiction §06.04 l.510 « Notes » tracée en divergence."
+    },
+    {
+      "id": "M3.1-coordonnees-urgence-route",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "packages/plateforme/src/lib/collectes/coordonnees-urgence.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/coordonnees-urgence/route.ts",
+      "test": "M3.1/urgence_insert_alerte_ops",
+      "statut": "implemented",
+      "libelle": "Bouton « Demander les coordonnées en urgence » (Q3) : POST sans corps lu (aucun texte libre), visibilité RLS de la collecte AVANT l'écriture service-role dans alertes_admin (code coordonnees_chauffeur_urgence, sévérité critique), in-app Ops seule — ni email ni Slack. Refus 404 hors périmètre (M3.1/urgence_collecte_invisible_404), 409 hors fenêtre ou coordonnées déjà reçues."
+    },
+    {
+      "id": "M3.1-coordonnees-urgence-une-par-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql",
+      "test": "M3.1/urgence_doublon_idempotent",
+      "statut": "implemented",
+      "libelle": "« 1 demande par collecte » garanti par la base : index unique partiel uniq_alerte_coordonnees_urgence_par_collecte (alertes_admin.entity_id WHERE code='coordonnees_chauffeur_urgence') ; la route insère sans lecture préalable et traite 23505 comme « déjà demandée » (double clic concurrent). Preuve base : supabase/tests/coordonnees_urgence_alerte.test.sql."
+    },
+    {
+      "id": "M3.1-coordonnees-urgence-cloture-auto",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql",
+      "test": "supabase/tests/coordonnees_urgence_alerte.test.sql",
+      "statut": "implemented",
+      "libelle": "Clôture automatique à réception des coordonnées : trigger AFTER INSERT/UPDATE sur tournees et INSERT/DELETE sur collecte_tournees (seul point qui voit tous les écrivains : adapters, webhooks, saisie Admin) ; clôturée quand la collecte a ≥ 1 camion et que chacun a nom + téléphone + plaque (vélo cargo : pas de plaque), chaîne vide = « En attente ». Même règle côté écran : coordonneesCompletes()."
+    },
+    {
+      "id": "M3.1-popup-client-association-ag",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": "M3.1/fiche_popup_association_logistique_ag",
+      "statut": "implemented",
+      "libelle": "AG : bloc Association bénéficiaire (nom, ville, présentation = associations.description_rapport_impact) dès la validation, lu sous la RLS de l'utilisateur (aa_select, jamais service-role) — API : M3.1/fiche_get_association_ag."
+    },
+    {
+      "id": "M3.1-popup-client-bilan-zd",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": "M3.1/fiche_popup_bilan_zd_realisee",
+      "statut": "implemented",
+      "libelle": "Bilan & documents ZD (collecte « Réalisée » côté client = cloturee) : 4 KPI (Poids total collecté, CO₂ évité net, Taux de recyclage figé + tooltip UE, Pesée par pax en g), donut TonnagesDonut réutilisé, document « Rapport RSE » seul (bordereau intégré au PDF). Pesées par flux : M3.1/fiche_get_bilan_flux_zd."
+    },
+    {
+      "id": "M3.1-popup-client-radar-filtres-ligne",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx, packages/plateforme/src/components/dashboards/FiltreCoches.tsx, packages/plateforme/src/lib/collectes/benchmark-fiche.ts",
+      "test": "M3.1/fiche_ui_bloc3_filtres_initialises_sur_la_collecte",
+      "statut": "implemented",
+      "libelle": "Radar « Votre collecte face aux événements comparables » (BenchmarkRadar réutilisé, titre/sous-titre paramétrables) + filtres Type d'événement / Taille / Lieux en titres cliquables ouvrant une liste à cocher (Popover + Checkbox DS, aucun <select>), une seule ligne, sans filtre Traiteurs même pour un rôle qui y a droit ; initialisés sur le segment de la collecte ; période fixe 24 mois imposée serveur."
+    },
+    {
+      "id": "M3.1-popup-client-bilan-ag",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:404",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
+      "test": "M3.1/fiche_ui_bloc3_masque_en_ag",
+      "statut": "implemented",
+      "libelle": "Bilan & documents AG : 3 KPI (Repas donnés, Repas par pax, CO₂ évité figé) + bloc Association ; document affiché « Rapport de don » (Q5 : renommage d'affichage seul — titre PDF, nom de fichier et emails inchangés) ; pas de benchmark AG."
+    },
+    {
+      "id": "M3.1-popup-client-sans-excedent",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:404",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
+      "test": "M3.1/fiche_popup_sans_excedent",
+      "statut": "implemented",
+      "libelle": "AG sans excédents : bloc « Aucun repas collecté » (motif + « Constaté le » = realisee_at, pas d'attestation) + document « Rapport « Événement sans excédent alimentaire » », frise « Sans excédents »."
+    },
+    {
+      "id": "M3.1-popup-client-avant-realisation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:405",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
+      "test": "M3.1/fiche_popup_bilan_estompe_avant_realisation",
+      "statut": "implemented",
+      "libelle": "Avant « Réalisée » (programmee, validee, en_cours, realisee DB) : mêmes blocs Bilan estompés (opacity-40, aria-hidden) sans valeurs + bandeau « Votre bilan sera disponible après la collecte » ; Télécharger désactivé."
+    },
+    {
+      "id": "M3.1-popup-telechargement-rapport",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
+      "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
+      "test": "M3.1/fiche_popup_telechargement_rapport",
+      "statut": "implemented",
+      "libelle": "Téléchargement du rapport depuis la fiche, route de l'espace courant : logique commune extraite de la route traiteur (RLS de la collecte d'abord, embargo H+24 serveur) — traiteur/agence en service-role borné, gestionnaire sous sa RLS."
+    },
+    {
+      "id": "M3.1-popup-client-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:375",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu du pop-up conforme à la maquette validée (canevas Claude Design K2wDLh3a6rALMFAGUjk42v, piste A) : tokens savr-* uniquement, focus ring primary-500, onglet actif fond blanc + contour, estompé 40 %, frise discrète, 3 rôles × ZD/AG × états — preuve écran à joindre (geste de Val, GO-VISUAL)."
     }
   ],
   "cdc_source_hash": {

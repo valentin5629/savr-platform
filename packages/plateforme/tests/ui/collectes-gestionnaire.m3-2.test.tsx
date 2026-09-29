@@ -46,6 +46,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import CollectesPage from '@/app/(gestionnaire)/gestionnaire/collectes/page.js';
+import { ficheClient } from '@/test-utils/fiche-collecte-client';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const LIGNES = [
@@ -137,13 +138,19 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     async () => {
       vi.stubGlobal(
         'fetch',
-        vi.fn(() => Promise.resolve(reponse(200, { data: LIGNES }))),
+        vi.fn((url: string) =>
+          Promise.resolve(
+            String(url).startsWith('/api/v1/gestionnaire/collectes/c1')
+              ? reponse(200, { data: ficheClient() })
+              : reponse(200, { data: LIGNES }),
+          ),
+        ),
       );
       render(<CollectesPage />);
 
-      // §06.05 l.70 : « liste des collectes … → détail collecte ». Le câblage est
-      // délégué à DataTable depuis ce lot : sans cette sonde, un onRowClick perdu
-      // ne se verrait plus.
+      // §06.05 l.70 : « liste des collectes … → détail collecte ». Depuis la
+      // refonte Val 2026-09-29, la fiche s'ouvre en pop-up sur la liste
+      // (?collecte=<id>) — plus de navigation vers une page pleine.
       const cellule = (
         await screen.findAllByText(
           'Paris Expo Porte de Versailles',
@@ -152,7 +159,12 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         )
       )[0];
       fireEvent.click(cellule!);
-      expect(push).toHaveBeenCalledWith('/gestionnaire/collectes/c1');
+      expect(replace).toHaveBeenCalledWith(
+        '/gestionnaire/collectes?collecte=c1',
+      );
+      expect(push).not.toHaveBeenCalled();
+      await screen.findByRole('dialog', {}, ATTENTE_UI);
+      await screen.findByTestId('frise-statut-client', {}, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

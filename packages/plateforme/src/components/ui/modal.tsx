@@ -13,6 +13,13 @@ interface ModalProps {
   footer?: React.ReactNode;
   /** Panneau élargi (max-w-3xl au lieu de max-w-lg). */
   wide?: boolean;
+  /**
+   * Titre réservé aux lecteurs d'écran (nom accessible du dialogue conservé) :
+   * pour un contenu qui porte son propre en-tête visuel (fiche collecte client).
+   */
+  hideTitle?: boolean;
+  /** Classes du corps (fusionnées) — ex. corps sans marge ni défilement propre. */
+  bodyClassName?: string;
   className?: string;
 }
 
@@ -31,6 +38,8 @@ const Modal = ({
   children,
   footer,
   wide,
+  hideTitle,
+  bodyClassName,
   className,
 }: ModalProps) => {
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -124,11 +133,17 @@ const Modal = ({
         </button>
         <h2
           id={titleId}
-          className="shrink-0 px-6 pr-14 pt-6 text-lg font-bold tracking-[-0.01em] text-savr-neutral-900"
+          className={
+            hideTitle
+              ? 'sr-only'
+              : 'shrink-0 px-6 pr-14 pt-6 text-lg font-bold tracking-[-0.01em] text-savr-neutral-900'
+          }
         >
           {title}
         </h2>
-        <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        <div className={cn('flex-1 overflow-y-auto px-6 py-4', bodyClassName)}>
+          {children}
+        </div>
         {footer && (
           <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-savr-neutral-100 px-6 py-4">
             {footer}

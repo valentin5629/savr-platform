@@ -21,7 +21,6 @@ const COLLECTE: CollecteEditData = {
   heure_collecte: '10:10:00',
   controle_acces_requis: false,
   informations_supplementaires: null,
-  notes_internes: null,
   lieu_nom: 'Pavillon Gabriel',
   evenement: {
     id: 'evt-1',
@@ -34,7 +33,6 @@ const COLLECTE: CollecteEditData = {
     contact_principal_telephone: '0600000000',
     contact_secours_nom: null,
     contact_secours_telephone: null,
-    notes_internes: null,
   },
 };
 

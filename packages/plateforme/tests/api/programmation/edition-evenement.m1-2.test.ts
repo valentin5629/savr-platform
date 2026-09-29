@@ -627,7 +627,9 @@ describe('M1.2 / édition collecte gestionnaire', () => {
       },
       error: null,
     });
-    const res = await patchGestionnaireCollecte({ notes_internes: 'x' });
+    const res = await patchGestionnaireCollecte({
+      informations_supplementaires: 'x',
+    });
     expect(res.status).toBe(403);
   });
 
@@ -644,7 +646,9 @@ describe('M1.2 / édition collecte gestionnaire', () => {
       },
       error: null,
     });
-    const res = await patchGestionnaireCollecte({ notes_internes: 'x' });
+    const res = await patchGestionnaireCollecte({
+      informations_supplementaires: 'x',
+    });
     expect(res.status).toBe(422);
   });
 });
@@ -707,5 +711,34 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
           undefined,
       ),
     ).toBe(false);
+  });
+});
+
+// ── C1 (arbitrage Val 2026-09-29) — notes internes = champ Admin (§04) ──────
+describe('M3.1 / notes internes Admin — route événement programmateur', () => {
+  it('M3.1/edition_evenement_notes_internes_ignorees — un programmateur ne peut plus écrire evenements.notes_internes', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' });
+
+    const res = await patchEvent({ pax: 300, notes_internes: 'écrasement' });
+
+    expect(res.status).toBe(200);
+    const modif = (admin.__calls.rpc ?? []).find(
+      ([fn]) => fn === 'fn_modifier_evenement',
+    );
+    const updates = (modif?.[1] as { p_updates: Record<string, unknown> })
+      .p_updates;
+    expect(updates).toMatchObject({ pax: 300 });
+    expect(updates).not.toHaveProperty('notes_internes');
+  });
+
+  it('M3.1/edition_evenement_notes_internes_seules_422 — notes_internes seule : aucun champ modifiable', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' });
+
+    const res = await patchEvent({ notes_internes: 'écrasement' });
+
+    expect(res.status).toBe(422);
+    expect(admin.__calls.rpc).toBeUndefined();
   });
 });

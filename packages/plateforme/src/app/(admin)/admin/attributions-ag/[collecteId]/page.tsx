@@ -440,19 +440,16 @@ export default function AttributionDetailPage() {
                   { value: '', label: 'Choisir une association…' },
                   ...optionsAsso.map((a) => ({
                     value: a.id,
+                    // Libellé = distance · capacité · nom (décision Val
+                    // 2026-09-29) : la distance est le critère de tri de la liste.
                     label:
-                      a.nom +
-                      (a.ville ? ` · ${a.ville}` : '') +
                       (a.distance_km != null
-                        ? ` · ${a.distance_km.toLocaleString('fr-FR')} km`
-                        : ' · distance inconnue') +
+                        ? `${a.distance_km.toLocaleString('fr-FR')} km`
+                        : 'Distance inconnue') +
                       (a.capacite_max_beneficiaires != null
                         ? ` · cap. ${a.capacite_max_beneficiaires}`
                         : '') +
-                      (a.habilitee_attestation_fiscale ? ' · 2041-GE' : '') +
-                      (suggestions.some((x) => x.id === a.id)
-                        ? ' (suggérée)'
-                        : ''),
+                      ` · ${a.nom}`,
                   })),
                 ]}
                 value={selectedAsso ?? ''}

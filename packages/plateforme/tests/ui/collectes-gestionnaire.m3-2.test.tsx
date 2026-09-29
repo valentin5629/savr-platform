@@ -109,7 +109,11 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       ).toBeTruthy();
 
       // DataGrid (Data Table shadcn, §10 §6) : tableau, en-têtes, lignes rendues.
-      expect(screen.getByRole('table')).toBeTruthy();
+      // Le PageHero s'affiche dès le squelette de chargement : le tableau, lui,
+      // n'arrive qu'avec les données → attente explicite.
+      expect(
+        await screen.findByRole('table', undefined, ATTENTE_UI),
+      ).toBeTruthy();
       for (const entete of ['Date', 'Lieu', 'Événement', 'Type', 'Statut']) {
         expect(
           screen.getAllByRole('columnheader', { name: entete }).length,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormError } from '@/components/ui/form-error';
@@ -62,17 +62,23 @@ export function InfosLegalesCard({
   const [succes, setSucces] = useState('');
 
   // Réaligné sur les seules valeurs légales : un nouvel objet `profil` venu d'un
-  // envoi de logo n'écrase pas une saisie en cours.
+  // envoi de logo n'écrase pas une saisie en cours. Et seulement quand elles
+  // CHANGENT, jamais au montage : l'effet passif peut s'exécuter après une
+  // première frappe et l'écraser (course mesurée en CI sous charge — saisie
+  // perdue, « Enregistrer » redevenu inactif).
   const { raison_sociale, siret, adresse } = profil;
-  useEffect(
-    () =>
-      setValeurs({
-        raison_sociale: raison_sociale ?? '',
-        siret: siret ?? '',
-        adresse: adresse ?? '',
-      }),
-    [raison_sociale, siret, adresse],
-  );
+  const synchronisees = useRef(valeursDe(profil));
+  useEffect(() => {
+    const suivantes = {
+      raison_sociale: raison_sociale ?? '',
+      siret: siret ?? '',
+      adresse: adresse ?? '',
+    };
+    const precedentes = synchronisees.current;
+    if (CHAMPS.every(({ cle }) => precedentes[cle] === suivantes[cle])) return;
+    synchronisees.current = suivantes;
+    setValeurs(suivantes);
+  }, [raison_sociale, siret, adresse]);
 
   const initiales = valeursDe(profil);
   const modifies = CHAMPS.filter(({ cle }) => valeurs[cle] !== initiales[cle]);

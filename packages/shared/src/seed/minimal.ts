@@ -302,10 +302,9 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       orgLieu('org_ge_viparis', 'lieu_palais'),
       orgLieu('org_ge_viparis', 'lieu_champerret'),
       orgLieu('org_ge_artsforains', 'lieu_arts_forains'),
-      orgLieu('org_tr_kaspia', 'lieu_pdv'), // lieu partagé (Viparis + Kaspia)
-      orgLieu('org_tr_kaspia', 'lieu_palais'),
-      orgLieu('org_tr_cirette', 'lieu_rouen'),
-      orgLieu('org_tr_fleurdemets', 'lieu_champerret'),
+      // Gestionnaires seulement : un traiteur n'est jamais rattaché à un lieu
+      // (CDC §04 organisations_lieux, trigger P0047 20260929140000, arbitrage
+      // Val 2026-09-29). Les lieux d'un traiteur viennent de ses événements.
     ],
     ['id'],
   );

@@ -4,7 +4,8 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 export interface AssociationSuggestion {
   id: string;
   nom: string;
-  distance_km: number;
+  // NULL = distance non calculable (coordonnées GPS manquantes).
+  distance_km: number | null;
   capacite_max_beneficiaires: number;
   contact_email: string;
   horaires_ok: boolean;

@@ -257,3 +257,9 @@ supabase/migrations/20260917170000_plateforme_algo_ag_horaires_format_editeur.sq
 # INSERT fixtures pgTAP. Écritures DB uniquement, aucun appel HTTP transporteur.
 # 'customerOrders' banni.
 supabase/tests/reattribution_meme_type_tms.test.sql
+# Algo attribution AG — distance inconnue restituée NULL, plus 0 (revue écran
+# 2026-09-29) : CREATE OR REPLACE de fn_calculer_algo_attribution_ag, corps
+# 20260917170000 recopié VERBATIM hors la ligne 'distance_km'. 'mts1'/'Everest' =
+# valeur enum type_tms + libellés de branches/commentaires existants ; aucun appel
+# HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20260929100000_plateforme_algo_ag_distance_inconnue_null.sql

@@ -23,7 +23,8 @@ import { AlertBar } from '@/components/ui/alert-bar';
 interface AssociationSuggestion {
   id: string;
   nom: string;
-  distance_km: number;
+  // NULL = coordonnées GPS manquantes (lieu ou association) : jamais « 0 km ».
+  distance_km: number | null;
   capacite_max_beneficiaires: number;
   contact_email: string;
 }
@@ -405,7 +406,9 @@ export default function AttributionDetailPage() {
                     {idx === 0 && <Badge variant="success">Top 1</Badge>}
                     <p className="mt-1 text-xs text-savr-neutral-500">
                       <MapPin className="mr-0.5 inline h-3 w-3" />
-                      {asso.distance_km.toLocaleString('fr-FR')} km
+                      {asso.distance_km != null
+                        ? `${asso.distance_km.toLocaleString('fr-FR')} km`
+                        : 'Distance inconnue'}
                     </p>
                     <p className="text-xs text-savr-neutral-500">
                       Cap. {asso.capacite_max_beneficiaires} bénéficiaires

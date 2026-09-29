@@ -356,4 +356,37 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
     },
     ATTENTE_CAS_MS,
   );
+  it(
+    'carte suggérée : distance inconnue affichée « Distance inconnue », jamais « 0 km »',
+    async () => {
+      // L'algo restitue distance_km = null quand les coordonnées GPS manquent.
+      installFetch({
+        ...ALGO,
+        associations: [
+          {
+            ...ALGO.associations[0]!,
+            distance_km: null as unknown as number,
+          },
+        ],
+      });
+      render(<AttributionDetailPage />);
+      expect(
+        await screen.findByText('Distance inconnue', undefined, ATTENTE_UI),
+      ).toBeTruthy();
+      expect(screen.queryByText(/^0 km$/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'carte suggérée : distance connue affichée en km',
+    async () => {
+      installFetch();
+      render(<AttributionDetailPage />);
+      expect(
+        await screen.findByText('1,2 km', undefined, ATTENTE_UI),
+      ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

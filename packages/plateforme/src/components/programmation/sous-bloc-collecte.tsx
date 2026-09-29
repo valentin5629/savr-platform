@@ -5,7 +5,7 @@ import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PackAGIndicator } from '@/components/ui/pack-ag-indicator';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Input } from '@/components/ui/input';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/ui/form-field';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -99,13 +99,11 @@ export function SousBlocCollecte({
         </FormField>
 
         <FormField label="Heure de collecte" htmlFor={`heure-${type}`} required>
-          <Input
+          <TimePicker
             id={`heure-${type}`}
-            type="time"
+            data-testid={`heure-${type}`}
             value={data.heure_collecte}
-            onChange={(e) =>
-              onChange({ ...data, heure_collecte: e.target.value })
-            }
+            onChange={(v) => onChange({ ...data, heure_collecte: v })}
             required
           />
         </FormField>

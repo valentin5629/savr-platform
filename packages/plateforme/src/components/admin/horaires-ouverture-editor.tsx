@@ -61,11 +61,17 @@ export function horairesParDefaut(): JourHoraire[] {
 }
 
 // Créneau suivant : démarre à la fin du dernier, pour 1 h ; défaut 09:00-18:00
-// si le dernier finit trop tard pour en caser un autre.
+// si le dernier finit trop tard (ou passe minuit) pour en caser un autre.
 export function creneauSuivant(dernier: Creneau | undefined): Creneau {
-  if (!dernier) return { ...CRENEAU_DEFAUT };
+  if (!dernier || dernier.fin <= dernier.debut) return { ...CRENEAU_DEFAUT };
   const [h, m] = dernier.fin.split(':').map(Number);
-  if (h === undefined || m === undefined || Number.isNaN(h) || h >= 23) {
+  if (
+    h === undefined ||
+    m === undefined ||
+    Number.isNaN(h) ||
+    Number.isNaN(m) ||
+    h >= 23
+  ) {
     return { ...CRENEAU_DEFAUT };
   }
   const fin = `${String(h + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
@@ -167,7 +173,8 @@ export function HorairesOuvertureEditor({
               <span className="sr-only">{label}</span>
             </span>
 
-            {!jour.ouvert ? (
+            {/* Ouvert sans créneau (donnée importée) = traité comme fermé. */}
+            {!jour.ouvert || jour.creneaux.length === 0 ? (
               <div className="flex items-center gap-1">
                 <span className="text-sm text-savr-neutral-500">
                   Indisponible
@@ -203,7 +210,6 @@ export function HorairesOuvertureEditor({
                         updateCreneau(jourIndex, creneauIndex, { fin })
                       }
                       aria-label={`${label} — fin du créneau ${creneauIndex + 1}`}
-                      defaultScrollTo={creneau.debut}
                       className="w-32"
                     />
                     <IconButton
@@ -290,6 +296,7 @@ function CopierHoraires({
           })}
         </div>
         <Button
+          type="button"
           className="mt-3 w-full"
           disabled={cibles.length === 0}
           onClick={() => {

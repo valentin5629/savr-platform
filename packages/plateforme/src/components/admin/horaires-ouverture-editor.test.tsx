@@ -88,6 +88,26 @@ describe('HorairesOuvertureEditor', () => {
       debut: '09:00',
       fin: '18:00',
     });
+    // Créneau 24 h (00:00-00:00) : pas de proposition qui chevauche.
+    expect(creneauSuivant({ debut: '00:00', fin: '00:00' })).toEqual({
+      debut: '09:00',
+      fin: '18:00',
+    });
+  });
+
+  it('horaires/ouvert_sans_creneau_reste_modifiable', () => {
+    const initial = horairesParDefaut().map((j) =>
+      j.jour === 'jeudi' ? { ...j, ouvert: true, creneaux: [] } : j,
+    );
+    render(<Harness initial={initial} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Ajouter des horaires le jeudi' }),
+    );
+    expect(lire()[3]).toEqual({
+      jour: 'jeudi',
+      ouvert: true,
+      creneaux: [{ debut: '09:00', fin: '18:00' }],
+    });
   });
 
   it('horaires/copier_vers_autres_jours', () => {

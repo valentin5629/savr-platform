@@ -61,11 +61,15 @@ export function EditerCollecteForm({
   collecteEndpoint,
   onSaved,
   onCancel,
+  onConfirmOpenChange,
 }: {
   collecte: CollecteEditData;
   collecteEndpoint: string;
   onSaved?: () => void;
   onCancel?: () => void;
+  // Signale l'ouverture de la confirmation : un conteneur modal (fiche traiteur
+  // en pop-up) ne doit pas se fermer sur l'Échap destiné à cette confirmation.
+  onConfirmOpenChange?: (open: boolean) => void;
 }) {
   const e = collecte.evenement;
   // État formulaire — événement
@@ -97,6 +101,11 @@ export function EditerCollecteForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  useEffect(() => {
+    onConfirmOpenChange?.(confirmOpen);
+    // Démontage confirmation ouverte : la garde du conteneur ne doit pas rester bloquée.
+    return () => onConfirmOpenChange?.(false);
+  }, [confirmOpen, onConfirmOpenChange]);
 
   // Types d'événement éditables (§06.04 l.446 « type d'événement »).
   useEffect(() => {

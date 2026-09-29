@@ -78,6 +78,33 @@ beforeEach(() => {
 });
 
 describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
+  it('M3.1/fiche_get_cloisonnement_telephone — collecte invisible → 404, aucune lecture service-role', async () => {
+    // La route expose le téléphone du chauffeur : la lecture service-role des
+    // tournées ne doit JAMAIS partir avant le contrôle RLS d'appartenance.
+    rls.results.collectes = { data: null, error: null };
+    admin.results.collecte_tournees = {
+      data: [
+        {
+          tournee: {
+            plaque_immatriculation: 'ZZ-999-ZZ',
+            chauffeur_nom: 'Hors périmètre',
+            chauffeur_telephone: '+33 6 99 99 99 99',
+            type_vehicule: 'camionnette',
+            plaque_saisie_at: null,
+            prestataire_logistique_id: null,
+          },
+        },
+      ],
+      error: null,
+    };
+    const { GET } =
+      await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
+    const res = await GET(makeReq(), { params: Promise.resolve({ id: 'c1' }) });
+    expect(res.status).toBe(404);
+    expect(admin.calls).toHaveLength(0);
+    expect(await res.text()).not.toContain('+33 6 99 99 99 99');
+  });
+
   it('M3.1/fiche_get_augmente — tournées + rapport dispo + factures', async () => {
     rls.results.collectes = {
       data: { id: 'c1', type: 'zero_dechet', statut: 'validee', evenement: {} },
@@ -89,6 +116,7 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
           tournee: {
             plaque_immatriculation: 'AB-123-CD',
             chauffeur_nom: 'Léa',
+            chauffeur_telephone: '+33 6 12 34 56 78',
             type_vehicule: 'camionnette',
             plaque_saisie_at: '2026-07-01T08:00:00Z',
             prestataire_logistique_id: 'p1',
@@ -131,6 +159,7 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
       data: {
         tournees: Array<{
           plaque_immatriculation: string;
+          chauffeur_telephone: string | null;
           type_vehicule: string;
           prestataire_nom: string | null;
         }>;
@@ -139,6 +168,8 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
       };
     };
     expect(data.tournees[0]?.plaque_immatriculation).toBe('AB-123-CD');
+    // Bloc Logistique (arbitrage Val 2026-09-29) : téléphone du chauffeur exposé.
+    expect(data.tournees[0]?.chauffeur_telephone).toBe('+33 6 12 34 56 78');
     expect(data.tournees[0]?.type_vehicule).toBe('camionnette');
     expect(data.tournees[0]?.prestataire_nom).toBe('Strike');
     expect(data.rapport_rse_disponible).toBe(true);

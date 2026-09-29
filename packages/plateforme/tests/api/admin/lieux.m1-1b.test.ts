@@ -9,6 +9,7 @@ const mockSupabaseChain = {
   select: vi.fn().mockReturnThis(),
   insert: vi.fn().mockReturnThis(),
   update: vi.fn().mockReturnThis(),
+  delete: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   not: vi.fn().mockReturnThis(),
@@ -248,5 +249,140 @@ describe('M1.1b / Lieux / Normalisation', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { actif: boolean };
     expect(body.actif).toBe(true);
+  });
+});
+
+// Rattachement gestionnaire : réservé aux organisations `gestionnaire_lieux`
+// (CDC §04 `organisations_lieux`). Une organisation d'un autre type rattachée
+// à un lieu lirait, via f_collecte_visible, les collectes datées de ce lieu.
+describe('Lieux / Rattachement gestionnaire — type imposé serveur', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // clearAllMocks ne vide pas les files `mockResolvedValueOnce` : le bloc
+    // Normalisation en laisse une (audit_log n'appelle pas .single).
+    mockSupabaseChain.single.mockReset();
+    mockSupabaseChain.maybeSingle.mockReset();
+  });
+
+  const corpsLieu = {
+    nom: 'Lieu',
+    adresse_acces: '1 rue de la Paix',
+    code_postal: '75001',
+    ville: 'Paris',
+    type_vehicule_max: 'fourgon',
+  };
+
+  function tablesEcrites(): string[] {
+    return mockSupabaseChain.from.mock.calls
+      .map((c) => c[0] as string)
+      .filter((t) => t !== 'organisations');
+  }
+
+  it('POST — 422 si l’organisation est un traiteur, aucun lieu créé', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { type: 'traiteur' },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/lieux/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/lieux', {
+        ...corpsLieu,
+        gestionnaire_organisation_id: 'org-traiteur',
+      }),
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { champs_invalides: string[] };
+    expect(body.champs_invalides).toEqual(['gestionnaire_organisation_id']);
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith('id', 'org-traiteur');
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    expect(tablesEcrites()).toEqual([]);
+  });
+
+  it('POST — 422 si l’organisation est introuvable', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/lieux/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/lieux', {
+        ...corpsLieu,
+        gestionnaire_organisation_id: 'org-inconnue',
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('POST — 201 et rattachement posé si l’organisation est gestionnaire_lieux', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { type: 'gestionnaire_lieux' },
+      error: null,
+    });
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'lieu-new', ...corpsLieu },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/lieux/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/lieux', {
+        ...corpsLieu,
+        gestionnaire_organisation_id: 'org-gest',
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organisation_id: 'org-gest',
+        lieu_id: 'lieu-new',
+      }),
+    );
+  });
+
+  it('PATCH — 422 si l’organisation est un traiteur, lien existant conservé', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'lieu-1', nom: 'Lieu' },
+      error: null,
+    });
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { type: 'traiteur' },
+      error: null,
+    });
+    const { PATCH } = await import('@/app/api/v1/admin/lieux/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/lieux/lieu-1', {
+        nom: 'Renommé',
+        gestionnaire_organisation_id: 'org-traiteur',
+      }),
+      { params: Promise.resolve({ id: 'lieu-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.delete).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('PATCH — chaîne vide = détachement, sans lecture d’organisation', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single
+      .mockResolvedValueOnce({ data: { id: 'lieu-1' }, error: null })
+      .mockResolvedValueOnce({ data: { id: 'lieu-1' }, error: null });
+    const { PATCH } = await import('@/app/api/v1/admin/lieux/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/lieux/lieu-1', {
+        gestionnaire_organisation_id: '',
+      }),
+      { params: Promise.resolve({ id: 'lieu-1' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith('organisations');
+    expect(mockSupabaseChain.delete).toHaveBeenCalled();
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalledWith(
+      expect.objectContaining({ lieu_id: 'lieu-1', organisation_id: '' }),
+    );
   });
 });

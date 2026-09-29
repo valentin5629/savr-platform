@@ -346,7 +346,7 @@
       "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/agence/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.3/rapport_download_agence",
       "statut": "implemented",
-      "libelle": "Téléchargement du rapport de la collecte depuis la fiche — manquant côté agence jusqu'ici (la liste affichait « Disponible » sans lien) ; embargo H+24 serveur, cloisonnement RLS (M3.3/rapport_download_agence_cloisonnement)."
+      "libelle": "Téléchargement du rapport de la collecte depuis la fiche — manquant côté agence jusqu'ici (la liste affichait « Disponible » sans lien) ; embargo H+24 serveur ; documents lus sous la RLS de l'agence (rr_select / att_traiteur_select), jamais en service-role — revue sécurité 2026-09-29 ; cloisonnement : M3.3/rapport_download_agence_cloisonnement."
     },
     {
       "id": "M3.3-popup-radar-agence",

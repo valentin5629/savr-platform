@@ -300,6 +300,78 @@ describe('M3.1 / fiche client — contenu servi', () => {
   });
 });
 
+describe('M3.1 / factures de la fiche — cloisonnement (revue sécurité 2026-09-29)', () => {
+  it('M3.1/fiche_get_factures_sous_rls_traiteur_operationnel — la facture de l’agence programmatrice ne fuit pas', async () => {
+    // Collecte programmée par une agence (facturée à l'AGENCE), le traiteur
+    // courant est l'opérationnel sur place.
+    rls.results.collectes = {
+      data: ligneCollecte({
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-agence',
+          traiteur_operationnel_organisation_id: 'org-1',
+        },
+      }),
+      error: null,
+    };
+    // Piège : en service-role, la facture de l'agence serait lisible.
+    admin.results.factures_collectes = {
+      data: [
+        {
+          facture: {
+            id: 'f-ag',
+            numero_facture: 'FAC-AGENCE-1',
+            statut: 'emise',
+            pdf_url_savr: 'ag.pdf',
+            pdf_url_pennylane: null,
+          },
+        },
+      ],
+      error: null,
+    };
+    // Sous la RLS du traiteur : aucune facture (fac_client_select / fc_select).
+    rls.results.factures_collectes = { data: [], error: null };
+    const { json } = await getFiche();
+    expect(json.data.factures).toEqual([]);
+    expect(JSON.stringify(json)).not.toContain('FAC-AGENCE-1');
+    expect(admin.calls).not.toContain('factures_collectes');
+    expect(admin.calls).not.toContain('factures');
+  });
+
+  it('M3.1/fiche_get_factures_brouillon_exclu — seules les factures émises sont servies', async () => {
+    rls.results.collectes = { data: ligneCollecte(), error: null };
+    rls.results.factures_collectes = {
+      data: [
+        {
+          facture: {
+            id: 'f1',
+            numero_facture: 'FZD-1',
+            statut: 'brouillon',
+            pdf_url_savr: null,
+            pdf_url_pennylane: null,
+          },
+        },
+        {
+          facture: {
+            id: 'f2',
+            numero_facture: 'FZD-2',
+            statut: 'emise',
+            pdf_url_savr: 'f2.pdf',
+            pdf_url_pennylane: null,
+          },
+        },
+      ],
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(
+      (json.data.factures as Array<{ numero_facture: string }>).map(
+        (f) => f.numero_facture,
+      ),
+    ).toEqual(['FZD-2']);
+  });
+});
+
 describe('M3.1 / demande urgente des coordonnées (Q3)', () => {
   const camionIncomplet = {
     data: [

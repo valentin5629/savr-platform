@@ -179,7 +179,9 @@
     "M3.1/frise_client_vocabulaire",
     "M3.1/frise_client_sans_excedents",
     "M3.1/frise_client_annulee",
-    "M3.1/frise_client_etats"
+    "M3.1/frise_client_etats",
+    "M3.1/fiche_get_factures_sous_rls_traiteur_operationnel",
+    "M3.1/fiche_get_factures_brouillon_exclu"
   ],
   "deliverables": [
     {
@@ -844,7 +846,7 @@
       "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.1/fiche_popup_telechargement_rapport",
       "statut": "implemented",
-      "libelle": "Téléchargement du rapport depuis la fiche, route de l'espace courant : logique commune extraite de la route traiteur (RLS de la collecte d'abord, embargo H+24 serveur) — traiteur/agence en service-role borné, gestionnaire sous sa RLS."
+      "libelle": "Téléchargement du rapport depuis la fiche, route de l'espace courant : logique commune extraite de la route traiteur (RLS de la collecte d'abord, embargo H+24 serveur) — traiteur en service-role borné (route historique), agence et gestionnaire sous LEUR RLS."
     },
     {
       "id": "M3.1-popup-client-rendu-visuel",
@@ -853,6 +855,14 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu du pop-up conforme à la maquette validée (canevas Claude Design K2wDLh3a6rALMFAGUjk42v, piste A) : tokens savr-* uniquement, focus ring primary-500, onglet actif fond blanc + contour, estompé 40 %, frise discrète, 3 rôles × ZD/AG × états — preuve écran à joindre (geste de Val, GO-VISUAL)."
+    },
+    {
+      "id": "M3.1-fiche-factures-sous-rls",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:442",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
+      "test": "M3.1/fiche_get_factures_sous_rls_traiteur_operationnel",
+      "statut": "implemented",
+      "libelle": "Fuite inter-organisation PRÉEXISTANTE corrigée (mesurée par reviewer-rls-securite le 2026-09-29) : les factures de la fiche étaient lues en service-role bornées à la seule collecte — le traiteur opérationnel d'une collecte programmée par une agence ou un gestionnaire recevait la facture de CETTE organisation (numéro, statut, liens PDF). Lecture désormais sous la RLS de l'utilisateur (fc_select / fac_client_select) ; brouillons exclus côté serveur (M3.1/fiche_get_factures_brouillon_exclu). Sonde : retour au service-role → test rouge."
     }
   ],
   "cdc_source_hash": {

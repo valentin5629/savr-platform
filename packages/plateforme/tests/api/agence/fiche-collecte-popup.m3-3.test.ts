@@ -146,7 +146,7 @@ describe('M3.3 / fiche client agence', () => {
       data: { id: 'c1', type: 'zero_dechet', statut: 'cloturee' },
       error: null,
     };
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: {
         id: 'r1',
         disponible_a: '2020-01-01T00:00:00Z',
@@ -165,8 +165,10 @@ describe('M3.3 / fiche client agence', () => {
     expect(await res.json()).toMatchObject({
       url: 'https://r2.example/rapport.pdf',
     });
+    // Documents lus sous la RLS de l'agence, jamais en service-role.
+    expect(admin.calls).toHaveLength(0);
 
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: {
         id: 'r1',
         disponible_a: '2999-01-01T00:00:00Z',

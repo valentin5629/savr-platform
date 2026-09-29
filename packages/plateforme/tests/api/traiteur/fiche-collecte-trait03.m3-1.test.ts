@@ -138,7 +138,8 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
       },
       error: null,
     };
-    admin.results.factures_collectes = {
+    // Factures : lues sous la RLS du traiteur (fuite inter-org corrigée).
+    rls.results.factures_collectes = {
       data: [
         {
           facture: {

@@ -111,6 +111,12 @@ export async function GET(
   const admin = createAdminSupabaseClient();
 
   // Factures rattachées (bouton « Télécharger la facture », §06.04 actions).
+  // Lues sous la RLS de l'UTILISATEUR (fc_select / fac_client_select) : une
+  // collecte programmée par une agence ou un gestionnaire est facturée à CETTE
+  // organisation, pas au traiteur opérationnel — une lecture service-role
+  // bornée à la seule collecte lui servait la facture d'un tiers (fuite
+  // inter-organisation mesurée en revue sécurité 2026-09-29). Brouillons exclus
+  // côté serveur (jamais téléchargeables).
   type FactureInfo = {
     id: string;
     numero_facture: string;
@@ -118,7 +124,7 @@ export async function GET(
     pdf_url_savr: string | null;
     pdf_url_pennylane: string | null;
   };
-  const { data: fcData } = await admin
+  const { data: fcData } = await createSupabaseServerClient()
     .from('factures_collectes')
     .select(
       'facture:factures(id, numero_facture, statut, pdf_url_savr, pdf_url_pennylane)',
@@ -128,7 +134,7 @@ export async function GET(
     (fcData ?? []) as Array<{ facture: FactureInfo | FactureInfo[] | null }>
   )
     .map((f) => (Array.isArray(f.facture) ? f.facture[0] : f.facture))
-    .filter((f): f is FactureInfo => Boolean(f));
+    .filter((f): f is FactureInfo => f != null && f.statut !== 'brouillon');
 
   // Régénération traiteur (RPT-04, décision Val 2026-07-07) : manager, ZD
   // uniquement (attestation AG + rapport sans-excédent = Admin seul).

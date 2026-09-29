@@ -206,10 +206,12 @@ export async function chargerFicheCollecteClient(
   const avecAssociation = isAg && STATUTS_ASSOCIATION.includes(c.statut);
 
   const admin = createAdminSupabaseClient();
-  // Documents : traiteur et agence comme avant (service-role après le contrôle
-  // RLS ci-dessus) ; gestionnaire sous sa RLS (rr_select / att_gestionnaire_select),
-  // la même que celle de sa route de téléchargement.
-  const lectureDocs = espace === 'gestionnaire' ? rls : admin;
+  // Documents : traiteur comme avant (service-role après le contrôle RLS
+  // ci-dessus, route historique) ; agence et gestionnaire sous LEUR RLS
+  // (rr_select / att_traiteur_select / att_gestionnaire_select) — l'isolation
+  // ne dépend alors d'aucune hypothèse sur les données (revue sécurité
+  // 2026-09-29), et c'est la frontière de leurs routes de téléchargement.
+  const lectureDocs = espace === 'traiteur' ? admin : rls;
   // AG realisee_sans_collecte : pas d'attestation, le rapport est « Événement
   // sans excédent » (rapports_rse, sans embargo). ZD : rapports_rse. AG
   // cloturee : l'attestation de don.

@@ -214,7 +214,7 @@ describe('M3.3 / collectes', () => {
 
   it('M3.3/fiche_collecte_traiteur_operationnel_referentiel — nom résolu, est_shadow false', async () => {
     setupAuth('agence');
-    // 1) collecte ; 2) v_referentiel_traiteurs (trouvé)
+    // 1) collecte ; 2) rapports_rse ; 3) v_referentiel_traiteurs (trouvé)
     rls.push({
       data: {
         id: 'c1',
@@ -224,6 +224,7 @@ describe('M3.3 / collectes', () => {
       },
       error: null,
     });
+    rls.push({ data: null, error: null }); // rapports_rse (documents lus sous la RLS de l'agence)
     rls.push({
       // v_referentiel_traiteurs rend UN libellé (20260922080000), pas 2 colonnes.
       data: { id: 'org-kaspia', nom: 'Kaspia' },
@@ -242,7 +243,7 @@ describe('M3.3 / collectes', () => {
 
   it('M3.3/fiche_collecte_traiteur_shadow_badge — est_shadow true + siret', async () => {
     setupAuth('agence');
-    // 1) collecte ; 2) v_referentiel_traiteurs (absent) ; 3) organisations shadow
+    // 1) collecte ; 2) rapports_rse ; 3) v_referentiel_traiteurs (absent) ; 4) organisations shadow
     rls.push({
       data: {
         id: 'c1',
@@ -251,6 +252,7 @@ describe('M3.3 / collectes', () => {
       },
       error: null,
     });
+    rls.push({ data: null, error: null }); // rapports_rse (documents lus sous la RLS de l'agence)
     rls.push({ data: null, error: null });
     rls.push({
       data: {

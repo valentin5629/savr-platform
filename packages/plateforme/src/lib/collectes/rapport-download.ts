@@ -14,10 +14,10 @@ import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 //
 // Cloisonnement : la collecte doit d'abord être visible sous la RLS de
 // l'utilisateur. Les documents sont ensuite lus :
-//  · 'service' (traiteur, agence) : service-role borné à CETTE collecte, comme
-//    la route traiteur historique (BL-P1-TRAIT-03) ;
-//  · 'rls' (gestionnaire) : sous SA RLS (rr_select / att_gestionnaire_select),
-//    la frontière de sa route documents — jamais de service-role pour lui.
+//  · 'service' (traiteur) : service-role borné à CETTE collecte, comme la route
+//    traiteur historique (BL-P1-TRAIT-03) ;
+//  · 'rls' (agence, gestionnaire) : sous LEUR RLS (rr_select /
+//    att_traiteur_select / att_gestionnaire_select) — jamais de service-role.
 // Embargo applicatif H+24 (R-PDF2) jamais contournable.
 
 export async function repondreTelechargementRapport(

@@ -15,7 +15,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(11);
+SELECT plan(13);
 
 CREATE OR REPLACE FUNCTION olt_superuser() RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -135,6 +135,23 @@ SELECT throws_ok(
   'superuser : rattacher un traiteur est refusé (scripts, migration V5)'
 );
 
+-- ── 3 bis. Chemin PostgREST sous JWT admin_savr (policy org_lieux_admin) ────
+-- Mesuré OUVERT le 2026-09-29 avant ce trigger. Si le privilège d'écriture de
+-- `authenticated` est retiré (REVOKE), ces deux asserts deviennent 42501.
+SELECT olt_jwt('admin_savr', NULL);
+SELECT throws_ok(
+  $$ INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
+     VALUES ('0e1a0001-0000-0000-0000-000000000002', '0e1a0003-0000-0000-0000-000000000003') $$,
+  'P0047', NULL,
+  'authenticated + JWT admin_savr : rattacher un traiteur est refusé'
+);
+SELECT lives_ok(
+  $$ INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
+     VALUES ('0e1a0001-0000-0000-0000-000000000001', '0e1a0003-0000-0000-0000-000000000003') $$,
+  'NON-VACUITÉ authenticated + JWT admin_savr : rattacher un gestionnaire passe'
+);
+SELECT olt_superuser();
+
 -- ── 4. Fonction fermée (P0 #263) ─────────────────────────────────────────────
 SELECT ok(
   NOT has_function_privilege('authenticated',
@@ -145,7 +162,7 @@ SELECT ok(
 );
 
 -- ── 5. La fuite mesurée reste fermée ─────────────────────────────────────────
--- Le traiteur n'a pu être rattaché à L3 (assert 7) : il ne lit pas la collecte
+-- Le traiteur n'a pu être rattaché à L3 (asserts 7 et 8) : il ne lit pas la collecte
 -- d'OLT Prog. Contrôle positif : OLT Prog, lui, la lit.
 SELECT olt_jwt('traiteur_manager', '0e1a0001-0000-0000-0000-000000000002'::uuid);
 SELECT is(

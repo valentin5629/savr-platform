@@ -13,9 +13,12 @@
 -- rattachée, sans garde de rôle ; la branche 1 de la policy `lieux` aussi.
 -- Mesuré en local (2026-09-29) : un traiteur rattaché par erreur lit la
 -- collecte d'un autre traiteur sur ce lieu (`notes_internes` comprises) et le
--- lieu. Les routes admin lieux refusent déjà ce rattachement en 422 ; ce
--- trigger ferme les autres chemins (PostgREST sous JWT admin, SQL, scripts de
--- migration V5, seeds).
+-- lieu. Ce trigger ferme TOUS les chemins d'écriture : routes admin lieux
+-- (service_role), PostgREST sous JWT admin_savr (mesuré ouvert le 2026-09-29),
+-- SQL, scripts de migration V5, seeds. La garde 422 des routes admin lieux
+-- (branche fix/lieux-rattachement-type-gestionnaire) est livrée séparément :
+-- elle ne sert qu'à refuser proprement AVANT écriture — sans elle, le PATCH
+-- supprime l'ancien rattachement puis voit son INSERT refusé ici.
 --
 -- CE QUE LE TRIGGER NE FAIT PAS. Il ne touche pas aux lignes déjà présentes
 -- (un trigger de ligne ne revalide pas l'existant) : leur mesure et leur

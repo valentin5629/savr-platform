@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { lireGestionnaireLieu } from '@/lib/admin/gestionnaire-lieu.js';
 import { lireTri } from '@/lib/tri-liste.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -113,6 +114,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const supabase = createAdminSupabaseClient();
+
+  // Gestionnaire validé AVANT la création du lieu : un refus ne laisse pas de
+  // lieu orphelin (cf. lib/admin/gestionnaire-lieu.ts).
+  const gestionnaire = await lireGestionnaireLieu(
+    supabase,
+    body.gestionnaire_organisation_id,
+  );
+  if (!gestionnaire.ok) return gestionnaire.reponse;
+
   // Géocodage en background au save, fail-open — cf. lib/geocoding.ts.
   const coords = await geocodeAdresse(
     adresse_acces as string,
@@ -120,7 +131,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ville as string,
   );
 
-  const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('lieux')
     .insert({
@@ -158,11 +168,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Rattachement au gestionnaire (organisations_lieux) — décision Val 2026-07-02 :
   // 1 gestionnaire (organisation type gestionnaire_lieux) par lieu, non obligatoire.
-  const gestionnaireId =
-    typeof body.gestionnaire_organisation_id === 'string' &&
-    body.gestionnaire_organisation_id !== ''
-      ? body.gestionnaire_organisation_id
-      : null;
+  const gestionnaireId = gestionnaire.organisationId;
   if (gestionnaireId) {
     await supabase.from('organisations_lieux').insert({
       organisation_id: gestionnaireId,

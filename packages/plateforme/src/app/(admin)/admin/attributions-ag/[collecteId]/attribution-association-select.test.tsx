@@ -153,14 +153,12 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       render(<AttributionDetailPage />);
       const select = await selectAssociation();
 
-      expect(select).toHaveTextContent(
-        'Asso Top · Paris · 1,2 km · cap. 300 · 2041-GE (suggérée)',
-      );
+      expect(select).toHaveTextContent('1,2 km · cap. 300 · Asso Top');
       expect(libellesOptions()).toEqual([
         'Choisir une association…',
-        'Asso Top · Paris · 1,2 km · cap. 300 · 2041-GE (suggérée)',
-        'Asso Loin · Rouen · 111,5 km · cap. 80',
-        'Asso Sans GPS · Paris · distance inconnue',
+        '1,2 km · cap. 300 · Asso Top',
+        '111,5 km · cap. 80 · Asso Loin',
+        'Distance inconnue · Asso Sans GPS',
       ]);
       expect(screen.queryByText(/motif obligatoire/)).toBeNull();
     },
@@ -189,7 +187,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         });
         render(<AttributionDetailPage />);
         const select = await selectAssociation();
-        expect(select).toHaveTextContent(/^Asso Loin/);
+        expect(select).toHaveTextContent(/^111,5 km · cap. 80 · Asso Loin$/);
         expect(
           screen.queryByText(/ne fait plus partie des recommandations/),
         ).toBeNull();
@@ -210,7 +208,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         installFetch();
         render(<AttributionDetailPage />);
         const select = await selectAssociation();
-        expect(select).toHaveTextContent(/^Asso Top/);
+        expect(select).toHaveTextContent(/^1,2 km · cap. 300 · Asso Top$/);
         // Repli annoncé, jamais silencieux (décision Val C6).
         expect(
           screen.getByText(/ne fait plus partie des recommandations/),
@@ -230,7 +228,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       await selectAssociation();
       fireEvent.click(
         screen.getByRole('option', {
-          name: 'Asso Loin · Rouen · 111,5 km · cap. 80',
+          name: '111,5 km · cap. 80 · Asso Loin',
         }),
       );
       const valider = screen.getByRole('button', {
@@ -267,7 +265,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
 
       fireEvent.click(
         screen.getByRole('option', {
-          name: 'Asso Sans GPS · Paris · distance inconnue',
+          name: 'Distance inconnue · Asso Sans GPS',
         }),
       );
       fireEvent.click(
@@ -320,13 +318,11 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       const select = screen.getByRole('combobox', { name: 'Association' });
       // Option de secours = suggestion de l'algo ; 2041-GE inconnu → non affirmé.
       // La sélection reste affichée même sans la liste chargée.
-      expect(select).toHaveTextContent(
-        'Asso Top · 1,2 km · cap. 300 (suggérée)',
-      );
+      expect(select).toHaveTextContent('1,2 km · cap. 300 · Asso Top');
       fireEvent.click(select);
       expect(libellesOptions()).toEqual([
         'Choisir une association…',
-        'Asso Top · 1,2 km · cap. 300 (suggérée)',
+        '1,2 km · cap. 300 · Asso Top',
       ]);
 
       ko = false;
@@ -357,6 +353,39 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(true);
+    },
+    ATTENTE_CAS_MS,
+  );
+  it(
+    'carte suggérée : distance inconnue affichée « Distance inconnue », jamais « 0 km »',
+    async () => {
+      // L'algo restitue distance_km = null quand les coordonnées GPS manquent.
+      installFetch({
+        ...ALGO,
+        associations: [
+          {
+            ...ALGO.associations[0]!,
+            distance_km: null as unknown as number,
+          },
+        ],
+      });
+      render(<AttributionDetailPage />);
+      expect(
+        await screen.findByText('Distance inconnue', undefined, ATTENTE_UI),
+      ).toBeTruthy();
+      expect(screen.queryByText(/^0 km$/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'carte suggérée : distance connue affichée en km',
+    async () => {
+      installFetch();
+      render(<AttributionDetailPage />);
+      expect(
+        await screen.findByText('1,2 km', undefined, ATTENTE_UI),
+      ).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );

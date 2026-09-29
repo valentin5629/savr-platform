@@ -23,7 +23,8 @@ import { AlertBar } from '@/components/ui/alert-bar';
 interface AssociationSuggestion {
   id: string;
   nom: string;
-  distance_km: number;
+  // NULL = coordonnées GPS manquantes (lieu ou association) : jamais « 0 km ».
+  distance_km: number | null;
   capacite_max_beneficiaires: number;
   contact_email: string;
 }
@@ -405,7 +406,9 @@ export default function AttributionDetailPage() {
                     {idx === 0 && <Badge variant="success">Top 1</Badge>}
                     <p className="mt-1 text-xs text-savr-neutral-500">
                       <MapPin className="mr-0.5 inline h-3 w-3" />
-                      {asso.distance_km.toLocaleString('fr-FR')} km
+                      {asso.distance_km != null
+                        ? `${asso.distance_km.toLocaleString('fr-FR')} km`
+                        : 'Distance inconnue'}
                     </p>
                     <p className="text-xs text-savr-neutral-500">
                       Cap. {asso.capacite_max_beneficiaires} bénéficiaires
@@ -440,19 +443,16 @@ export default function AttributionDetailPage() {
                   { value: '', label: 'Choisir une association…' },
                   ...optionsAsso.map((a) => ({
                     value: a.id,
+                    // Libellé = distance · capacité · nom (décision Val
+                    // 2026-09-29) : la distance est le critère de tri de la liste.
                     label:
-                      a.nom +
-                      (a.ville ? ` · ${a.ville}` : '') +
                       (a.distance_km != null
-                        ? ` · ${a.distance_km.toLocaleString('fr-FR')} km`
-                        : ' · distance inconnue') +
+                        ? `${a.distance_km.toLocaleString('fr-FR')} km`
+                        : 'Distance inconnue') +
                       (a.capacite_max_beneficiaires != null
                         ? ` · cap. ${a.capacite_max_beneficiaires}`
                         : '') +
-                      (a.habilitee_attestation_fiscale ? ' · 2041-GE' : '') +
-                      (suggestions.some((x) => x.id === a.id)
-                        ? ' (suggérée)'
-                        : ''),
+                      ` · ${a.nom}`,
                   })),
                 ]}
                 value={selectedAsso ?? ''}

@@ -712,7 +712,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
       // Drawer fermé au départ.
-      expect(screen.queryByText('Prestataire & Dispatch')).toBeNull();
+      expect(screen.queryByRole('tab', { name: 'Logistique' })).toBeNull();
 
       // Menu « ⋯ » → « Dispatcher » → ouvre le panneau latéral…
       const menu = await ouvrirMenu(menusActionAttendue()[0]!);
@@ -720,11 +720,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         within(menu).getByRole('menuitem', { name: /Dispatcher/ }),
       );
       expect(
-        await screen.findByText(
-          'Prestataire & Dispatch',
-          undefined,
-          ATTENTE_UI,
-        ),
+        await screen.findByRole('tab', { name: 'Logistique' }, ATTENTE_UI),
       ).toBeInTheDocument();
 
       // …et charge la fiche de CETTE collecte (appariement id↔bouton — remplace
@@ -742,7 +738,8 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       // Fermeture via la croix du Sheet → le panneau disparaît.
       fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
       await waitFor(
-        () => expect(screen.queryByText('Prestataire & Dispatch')).toBeNull(),
+        () =>
+          expect(screen.queryByRole('tab', { name: 'Logistique' })).toBeNull(),
         ATTENTE_UI,
       );
     },

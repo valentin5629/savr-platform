@@ -17,6 +17,7 @@ import {
 } from '@/components/dashboards';
 import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
 import { refCourteCollecte } from '@/lib/collecte-ref';
+import { VEHICULE_LABEL as TYPE_VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
 // Tooltip méthode UE (§06.04 l.422) — texte figé, affiché sur le libellé « Taux de
@@ -64,13 +65,6 @@ interface TourneeInfo {
   prestataire_nom: string | null;
 }
 
-const TYPE_VEHICULE_LABEL: Record<string, string> = {
-  velo_cargo: 'Vélo cargo',
-  camionnette: 'Camionnette',
-  fourgon: 'Fourgon',
-  vul: 'VUL',
-  poids_lourd: 'Poids lourd',
-};
 interface FactureInfo {
   id: string;
   numero_facture: string;

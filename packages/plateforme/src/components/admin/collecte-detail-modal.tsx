@@ -53,7 +53,7 @@ export function CollecteDetailModal({
       open={collecteId != null}
       title={meta?.title ?? 'Collecte'}
       onClose={handleClose}
-      className={`max-w-4xl ${borderClass}`.trim()}
+      className={`max-w-5xl ${borderClass}`.trim()}
     >
       {collecteId != null && (
         <CollecteDetailPanel

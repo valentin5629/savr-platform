@@ -122,6 +122,82 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
   );
 
   it(
+    'url/fiche_popup_sortie_edition_retire_edit_de_l_url',
+    async () => {
+      // Détail minimal éditable : ouverture en édition depuis l'URL (?edit=1).
+      // `fetch` local au cas (le mock partagé du fichier reste intact).
+      const fetchEdition = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/traiteur/collectes/c9'))
+          return jsonResponse({
+            data: {
+              id: 'c9',
+              type: 'zero_dechet',
+              statut: 'programmee',
+              statut_tms: 'non_envoye',
+              tms_reference: null,
+              date_collecte: '2030-12-10',
+              heure_collecte: '22:00:00',
+              controle_acces_requis: false,
+              informations_completes: true,
+              informations_supplementaires: null,
+              notes_internes: null,
+              taux_recyclage: null,
+              realisee_at: null,
+              aucun_repas_motif: null,
+              taille_bracket: null,
+              programmee_par: null,
+              tournees: [],
+              rapport_rse_disponible: false,
+              rapport_rse_regenere: false,
+              can_regenerate: false,
+              factures: [],
+              evenement: {
+                id: 'e9',
+                nom_evenement: null,
+                pax: 100,
+                type_evenement_id: null,
+                nom_client_organisateur: null,
+                reference_affaire: null,
+                notes_internes: null,
+                contact_principal_nom: null,
+                contact_principal_telephone: null,
+                contact_secours_nom: null,
+                contact_secours_telephone: null,
+                type_evenement: null,
+                lieu: null,
+              },
+            },
+          });
+        if (url.includes('/traiteur/collectes/filtres'))
+          return jsonResponse({
+            data: { lieux: [], clients: [], programmateurs: [] },
+          });
+        return jsonResponse({ data: [] });
+      });
+      vi.stubGlobal('fetch', fetchEdition);
+      searchParams = new URLSearchParams('collecte=c9&edit=1');
+      render(<TraiteurCollectesPage />);
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Fermer l’édition' },
+          ATTENTE_UI,
+        ),
+      );
+      await waitFor(
+        () => expect(derniereUrl().get('edit')).toBeNull(),
+        ATTENTE_UI,
+      );
+      // La fiche reste ouverte : seul le mode édition est quitté.
+      expect(derniereUrl().get('collecte')).toBe('c9');
+      expect(screen.getByRole('dialog')).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'url/barre_pre_remplie_depuis_l_url_et_filtre_ecrit_dans_l_url',
     async () => {
       searchParams = new URLSearchParams(

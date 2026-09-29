@@ -103,6 +103,8 @@ export function EditerCollecteForm({
   const [confirmOpen, setConfirmOpen] = useState(false);
   useEffect(() => {
     onConfirmOpenChange?.(confirmOpen);
+    // Démontage confirmation ouverte : la garde du conteneur ne doit pas rester bloquée.
+    return () => onConfirmOpenChange?.(false);
   }, [confirmOpen, onConfirmOpenChange]);
 
   // Types d'événement éditables (§06.04 l.446 « type d'événement »).

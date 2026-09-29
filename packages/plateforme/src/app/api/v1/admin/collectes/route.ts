@@ -9,6 +9,15 @@ import {
 } from '@/lib/collectes-chips.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { lireTri } from '@/lib/tri-liste.js';
+
+// Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
+const TRIS = {
+  date: ['date_collecte', 'heure_collecte'],
+  type: ['type', 'date_collecte'],
+  statut: ['statut', 'date_collecte'],
+  statut_tms: ['statut_tms', 'date_collecte'],
+} satisfies Record<string, string[]>;
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -46,6 +55,12 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
   const offset = (page - 1) * limit;
+  // Tri de la Data Table (colonnes triables) — liste blanche : la valeur part
+  // dans `.order()`. Côté serveur car la liste est paginée : trier la seule
+  // page chargée donnerait un ordre faux sur l'ensemble. Défaut inchangé
+  // (date décroissante) ; `id` départage les ex æquo pour que deux pages
+  // successives ne réordonnent pas une même ligne.
+  const tri = lireTri(searchParams, TRIS, { tri: 'date', ascendant: false });
 
   // Embed rapports_rse : inner + filtrable quand on filtre « rapport non consulté »
   // (sinon left embed pour l'indicateur d'icône rapport de la liste).
@@ -54,10 +69,8 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
       ? 'rapports_rse!collecte_id!inner(disponible_a, genere_at, regenere_at, consulte_par_user_at, version)'
       : 'rapports_rse!collecte_id(disponible_a, genere_at, regenere_at, consulte_par_user_at, version)';
 
-  let query = supabase
-    .from('collectes')
-    .select(
-      `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte,
+  let query = supabase.from('collectes').select(
+    `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte,
        nb_camions_demande, tms_reference, created_at,
        controle_acces_requis, informations_completes, taux_recyclage,
        attributions_antgaspi!collecte_id(id, valide_at, mode_validation, volume_repas_realise, transporteurs!transporteur_id(nom)),
@@ -72,9 +85,11 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
          client_organisateur:organisations!client_organisateur_organisation_id(raison_sociale),
          lieux!lieu_id(nom, adresse_acces, code_postal, ville)
        )`,
-      { count: 'exact' },
-    )
-    .order('date_collecte', { ascending: false });
+    { count: 'exact' },
+  );
+  for (const c of tri.colonnes)
+    query = query.order(c, { ascending: tri.ascendant });
+  query = query.order('id', { ascending: tri.ascendant });
 
   // Chips prédéfinis (§06.06 §3) — prédicats partagés avec /chip-counts.
   if (chip && isChipKey(chip)) {

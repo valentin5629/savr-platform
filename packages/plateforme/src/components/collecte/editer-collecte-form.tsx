@@ -7,6 +7,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Modal } from '@/components/ui/modal';
 import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
@@ -328,11 +329,10 @@ export function EditerCollecteForm({
               />
             </FormField>
             <FormField label="Heure de collecte" htmlFor="edit-heure-collecte">
-              <Input
+              <TimePicker
                 id="edit-heure-collecte"
-                type="time"
                 value={heureCollecte}
-                onChange={(ev) => setHeureCollecte(ev.target.value)}
+                onChange={setHeureCollecte}
               />
             </FormField>
           </div>

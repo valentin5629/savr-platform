@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -167,6 +168,61 @@ function LogoCard({
   );
 }
 
+// Factures — Data Table commune, tri côté navigateur : la route /factures
+// renvoie toutes les factures non brouillon (aucune pagination ni `.limit()`).
+const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
+  {
+    id: 'numero',
+    header: 'Numéro',
+    accessorFn: (f) => f.numero_facture ?? '',
+    cell: ({ row: { original: f } }) => f.numero_facture ?? '—',
+  },
+  {
+    id: 'emission',
+    header: 'Émission',
+    accessorFn: (f) => f.date_emission ?? '',
+    cell: ({ row: { original: f } }) => f.date_emission ?? '—',
+  },
+  {
+    id: 'montant',
+    header: 'Montant TTC',
+    accessorFn: (f) => f.montant_ttc ?? undefined,
+    sortUndefined: 'last',
+    meta: { className: 'tabular-nums' },
+    cell: ({ row: { original: f } }) =>
+      f.montant_ttc != null ? `${f.montant_ttc} €` : '—',
+  },
+  {
+    id: 'statut',
+    header: 'Statut',
+    accessorFn: (f) => f.statut,
+    cell: ({ row: { original: f } }) => (
+      <Badge variant="neutral">{f.statut}</Badge>
+    ),
+  },
+  {
+    id: 'pdf',
+    header: 'PDF',
+    meta: { interactive: true },
+    cell: ({ row: { original: f } }) => {
+      // §06.04 §6 fiche facture : Pennylane si dispo, sinon Savr.
+      const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
+      return pdf ? (
+        <a
+          href={pdf}
+          target="_blank"
+          rel="noreferrer"
+          className="text-savr-primary-700 underline text-xs"
+        >
+          Télécharger
+        </a>
+      ) : (
+        '—'
+      );
+    },
+  },
+];
+
 export default function MonOrganisationPage() {
   const [tab, setTab] = useState<OrgTab>('profil');
   const [profil, setProfil] = useState<OrgProfil | null>(null);
@@ -253,6 +309,53 @@ export default function MonOrganisationPage() {
     );
   }
 
+  // Membres — Data Table commune, tri côté navigateur : la route
+  // /users renvoie tous les membres de l'organisation (aucune pagination).
+  const colonnesMembres: ColumnDef<UserRow, unknown>[] = [
+    {
+      id: 'nom',
+      header: 'Nom',
+      accessorFn: (u) => `${u.prenom ?? ''} ${u.nom ?? ''}`.trim(),
+      cell: ({ row: { original: u } }) => (
+        <>
+          {u.prenom} {u.nom}
+        </>
+      ),
+    },
+    {
+      id: 'email',
+      header: 'Email',
+      accessorFn: (u) => u.email,
+      cell: ({ row: { original: u } }) => u.email,
+    },
+    {
+      id: 'statut',
+      header: 'Statut',
+      accessorFn: (u) => (u.actif ? 'Actif' : 'Désactivé'),
+      cell: ({ row: { original: u } }) => (
+        <Badge variant={u.actif ? 'success' : 'neutral'}>
+          {u.actif ? 'Actif' : 'Désactivé'}
+        </Badge>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      meta: { label: 'Actions', interactive: true },
+      cell: ({ row: { original: u } }) =>
+        u.actif && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-savr-error text-xs"
+            onClick={() => handleDesactiver(u.id)}
+          >
+            Désactiver
+          </Button>
+        ),
+    },
+  ];
+
   const tabCls = (t: OrgTab) =>
     `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
       tab === t
@@ -309,50 +412,14 @@ export default function MonOrganisationPage() {
               <CardTitle>Membres</CardTitle>
             </CardHeader>
             <CardContent>
-              {users.length === 0 ? (
-                <p className="text-sm text-savr-neutral-500">Aucun membre.</p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="text-left text-xs uppercase text-savr-neutral-500">
-                    <tr>
-                      <th className="py-1">Nom</th>
-                      <th className="py-1">Email</th>
-                      <th className="py-1">Statut</th>
-                      <th className="py-1"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u) => (
-                      <tr
-                        key={u.id}
-                        className="border-t border-savr-neutral-100"
-                      >
-                        <td className="py-1">
-                          {u.prenom} {u.nom}
-                        </td>
-                        <td className="py-1">{u.email}</td>
-                        <td className="py-1">
-                          <Badge variant={u.actif ? 'success' : 'neutral'}>
-                            {u.actif ? 'Actif' : 'Désactivé'}
-                          </Badge>
-                        </td>
-                        <td className="py-1">
-                          {u.actif && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-savr-error text-xs"
-                              onClick={() => handleDesactiver(u.id)}
-                            >
-                              Désactiver
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              <DataGrid
+                columns={colonnesMembres}
+                data={users}
+                getRowId={(u) => u.id}
+                empty={
+                  <p className="text-sm text-savr-neutral-500">Aucun membre.</p>
+                }
+              />
             </CardContent>
           </Card>
 
@@ -414,56 +481,14 @@ export default function MonOrganisationPage() {
             <CardTitle>Factures</CardTitle>
           </CardHeader>
           <CardContent>
-            {factures.length === 0 ? (
-              <p className="text-sm text-savr-neutral-500">Aucune facture.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase text-savr-neutral-500">
-                  <tr>
-                    <th className="py-1">Numéro</th>
-                    <th className="py-1">Émission</th>
-                    <th className="py-1">Montant TTC</th>
-                    <th className="py-1">Statut</th>
-                    <th className="py-1">PDF</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {factures.map((f) => {
-                    // §06.04 §6 fiche facture : Pennylane si dispo, sinon Savr.
-                    const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
-                    return (
-                      <tr
-                        key={f.id}
-                        className="border-t border-savr-neutral-100"
-                      >
-                        <td className="py-1">{f.numero_facture ?? '—'}</td>
-                        <td className="py-1">{f.date_emission ?? '—'}</td>
-                        <td className="py-1">
-                          {f.montant_ttc != null ? `${f.montant_ttc} €` : '—'}
-                        </td>
-                        <td className="py-1">
-                          <Badge variant="neutral">{f.statut}</Badge>
-                        </td>
-                        <td className="py-1">
-                          {pdf ? (
-                            <a
-                              href={pdf}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-savr-primary-700 underline text-xs"
-                            >
-                              Télécharger
-                            </a>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
+            <DataGrid
+              columns={COLONNES_FACTURES}
+              data={factures}
+              getRowId={(f) => f.id}
+              empty={
+                <p className="text-sm text-savr-neutral-500">Aucune facture.</p>
+              }
+            />
           </CardContent>
         </Card>
       )}

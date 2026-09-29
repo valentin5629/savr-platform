@@ -95,6 +95,7 @@ async function downloadPdfSavr(id: string): Promise<void> {
 const columns: Column<Facture>[] = [
   {
     key: 'numero_facture',
+    sortable: true,
     header: 'Numéro',
     render: (row) => (
       <Link
@@ -112,6 +113,7 @@ const columns: Column<Facture>[] = [
   },
   {
     key: 'type',
+    sortable: true,
     header: 'Type',
     render: (row) => TYPE_LABELS[row.type] ?? row.type,
   },
@@ -122,6 +124,7 @@ const columns: Column<Facture>[] = [
   },
   {
     key: 'montant_ht',
+    sortable: true,
     header: 'Montant HT',
     render: (row) =>
       new Intl.NumberFormat('fr-FR', {
@@ -131,6 +134,7 @@ const columns: Column<Facture>[] = [
   },
   {
     key: 'montant_ttc',
+    sortable: true,
     header: 'TTC',
     render: (row) =>
       new Intl.NumberFormat('fr-FR', {
@@ -140,6 +144,7 @@ const columns: Column<Facture>[] = [
   },
   {
     key: 'created_at',
+    sortable: true,
     header: 'Créée le',
     render: (row) =>
       row.created_at
@@ -150,6 +155,7 @@ const columns: Column<Facture>[] = [
   },
   {
     key: 'date_emission',
+    sortable: true,
     header: 'Émission',
     render: (row) =>
       row.date_emission
@@ -160,6 +166,7 @@ const columns: Column<Facture>[] = [
   },
   {
     key: 'statut',
+    sortable: true,
     header: 'Statut',
     render: (row) => {
       const s = STATUT_LABELS[row.statut] ?? {
@@ -219,6 +226,12 @@ export default function FacturesPage() {
   const [orgFiltre, setOrgFiltre] = useState('');
   const [orgs, setOrgs] = useState<{ id: string; label: string }[]>([]);
   const [page, setPage] = useState(1);
+  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
+  // en page 1 à chaque changement (cf. lib/tri-liste).
+  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
+    cle: 'created_at',
+    ordre: 'desc',
+  });
   const [total, setTotal] = useState(0);
 
   // Liste complète des organisations pour le filtre (§06.08 §4/§8). Boucle de
@@ -249,6 +262,8 @@ export default function FacturesPage() {
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
+    params.set('tri', tri.cle);
+    params.set('ordre', tri.ordre);
     if (filtre === '__erreur__') params.set('en_erreur', '1');
     else if (filtre) params.set('statut', filtre);
     if (typeFiltre) params.set('type', typeFiltre);
@@ -256,7 +271,7 @@ export default function FacturesPage() {
     if (dateDebut) params.set('date_debut', dateDebut);
     if (dateFin) params.set('date_fin', dateFin);
     return params.toString();
-  }, [filtre, typeFiltre, orgFiltre, dateDebut, dateFin]);
+  }, [filtre, typeFiltre, orgFiltre, dateDebut, dateFin, tri]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -378,6 +393,12 @@ export default function FacturesPage() {
             columns={columns}
             data={factures}
             keyExtractor={(row) => row.id}
+            onSort={(cle, ordre) => {
+              setTri({ cle, ordre });
+              setPage(1);
+            }}
+            sortKey={tri.cle}
+            sortDirection={tri.ordre}
           />
           {total > 50 && (
             <div className="flex items-center justify-between gap-2 pt-3 text-sm">

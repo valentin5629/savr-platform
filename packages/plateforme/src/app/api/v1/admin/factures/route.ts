@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError, withApiTrace } from '@/lib/api-helpers.js';
+import { lireTri } from '@/lib/tri-liste.js';
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -23,11 +24,22 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   );
   const limit = 50;
   const offset = (page - 1) * limit;
+  const tri = lireTri(
+    url.searchParams,
+    {
+      numero_facture: ['numero_facture'],
+      type: ['type'],
+      montant_ht: ['montant_ht'],
+      montant_ttc: ['montant_ttc'],
+      created_at: ['created_at'],
+      date_emission: ['date_emission'],
+      statut: ['statut'],
+    },
+    { tri: 'created_at', ascendant: false },
+  );
 
-  let query = supabase
-    .from('factures')
-    .select(
-      `id, numero_facture, type, mode_facturation, statut, pennylane_statut,
+  let query = supabase.from('factures').select(
+    `id, numero_facture, type, mode_facturation, statut, pennylane_statut,
        montant_ht, taux_tva, montant_ttc, devise,
        date_emission, date_echeance, date_paiement,
        organisation_id, entite_facturation_id, pack_antgaspi_id,
@@ -37,9 +49,14 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
        organisations!organisation_id(raison_sociale),
        entites_facturation(raison_sociale, siret),
        factures_collectes(count)`,
-      { count: 'exact' },
-    )
-    .order('created_at', { ascending: false })
+    { count: 'exact' },
+  );
+  // Tri de la Data Table (liste blanche, cf. lib/tri-liste) ; `id` départage
+  // les ex æquo pour qu'une ligne ne saute pas d'une page à l'autre.
+  for (const c of tri.colonnes)
+    query = query.order(c, { ascending: tri.ascendant });
+  query = query
+    .order('id', { ascending: tri.ascendant })
     .range(offset, offset + limit - 1);
 
   if (statut) query = query.eq('statut', statut);

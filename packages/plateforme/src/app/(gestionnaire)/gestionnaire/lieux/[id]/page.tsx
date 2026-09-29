@@ -11,7 +11,7 @@ import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { HistoriqueCollectesTable } from '@/components/collecte/historique-collectes-table';
 
 interface LieuDetail {
   id: string;
@@ -39,7 +39,6 @@ interface LieuDetail {
 }
 
 type TopTraiteur = LieuDetail['top_traiteurs'][number];
-type CollecteLigne = LieuDetail['collectes'][number];
 
 // Agrège le tonnage ZD par mois sur les 12 derniers mois (graphique évolution §06.05 l.371).
 function evolutionMensuelle(
@@ -179,28 +178,6 @@ export default function LieuDetailPage({
       key: 'tonnage',
       header: 'Tonnage (kg)',
       render: (t) => t.tonnage.toFixed(0),
-    },
-  ];
-
-  const colonnesCollectes: Column<CollecteLigne>[] = [
-    {
-      key: 'date_collecte',
-      header: 'Date',
-      render: (c) => c.date_collecte ?? '—',
-    },
-    {
-      key: 'type',
-      header: 'Type',
-      render: (c) => (
-        <Badge variant="neutral">
-          {c.type === 'zero_dechet' ? 'ZD' : 'AG'}
-        </Badge>
-      ),
-    },
-    {
-      key: 'statut',
-      header: 'Statut',
-      render: (c) => <CollecteStatutBadge statut={c.statut} />,
     },
   ];
 
@@ -346,11 +323,7 @@ export default function LieuDetailPage({
             <CardTitle>Historique collectes (12 mois)</CardTitle>
           </CardHeader>
           <CardContent>
-            <DataTable
-              columns={colonnesCollectes}
-              data={lieu.collectes}
-              keyExtractor={(c) => c.id}
-            />
+            <HistoriqueCollectesTable rows={lieu.collectes} />
           </CardContent>
         </Card>
       )}

@@ -97,6 +97,7 @@ export default function AlertesPage() {
     {
       key: 'titre',
       header: 'Alerte',
+      sortable: true,
       render: (row) => (
         <div className="max-w-xl">
           <p className="font-medium text-savr-neutral-900">{row.titre}</p>
@@ -138,6 +139,7 @@ export default function AlertesPage() {
     {
       key: 'created_at',
       header: 'Créée le',
+      sortable: true,
       render: (row) =>
         new Date(row.created_at).toLocaleString('fr-FR', {
           timeZone: 'Europe/Paris',
@@ -209,6 +211,7 @@ export default function AlertesPage() {
         <DataTable
           columns={columns}
           data={alertes}
+          clientSort
           loading={loading}
           keyExtractor={(a) => a.id}
         />

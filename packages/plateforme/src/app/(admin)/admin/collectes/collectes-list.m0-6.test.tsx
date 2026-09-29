@@ -1,14 +1,21 @@
 /**
- * M0.6 — Liste collectes Admin (BL-P1-BOA-05) — refonte UI en cartes.
- * La liste rend désormais des cartes groupées par semaine (plus de tableau) :
- * - contenu carte (traiteur, lieu, client organisateur, adresse, transporteur),
+ * M0.6 — Liste collectes Admin (BL-P1-BOA-05).
+ * La liste est une Data Table plate (DataGrid, décision Val 2026-09-28) : une
+ * ligne par collecte, tri serveur par en-tête, actions dans le menu « ⋯ » :
+ * - contenu ligne (traiteur, lieu, client organisateur, adresse, transporteur),
  * - segment Programmées / Historique (preset du filtre `statuts`),
  * - tuiles KPI « à dispatcher », chips + compteurs, recherche client, filtres
  *   avancés (traiteur / lieu → filtrage serveur), indicateurs Historique
  *   (poids/taux ZD, repas AG, rapport consulté).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from '@testing-library/react';
 
 // URL de la page pilotable par test (drill-down `?chip=` du Dashboard Admin).
 const navState = vi.hoisted(() => ({ search: new URLSearchParams() }));
@@ -25,6 +32,21 @@ vi.mock('next/navigation', () => ({
 import CollectesPage from './page';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+
+// La liste est une Data Table (décision Val 2026-09-28) : DataGrid rend aussi
+// chaque ligne en carte mobile → requêtes bornées au <table> pour ne pas
+// compter deux fois. Les actions Attribuer / Dispatcher vivent dans le menu
+// « ⋯ » de fin de ligne, ouvert ici au clavier (Entrée, comme un utilisateur).
+function tableau() {
+  return within(screen.getByRole('table'));
+}
+function menusActionAttendue(): HTMLElement[] {
+  return tableau().queryAllByRole('button', { name: /action attendue/ });
+}
+async function ouvrirMenu(declencheur: HTMLElement) {
+  fireEvent.keyDown(declencheur, { key: 'Enter' });
+  return screen.findByRole('menu', undefined, ATTENTE_UI);
+}
 
 // ZD clôturée (terminale → vue Historique) : poids + taux + rapport, facturée.
 const collecteZd = {
@@ -491,9 +513,12 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
 
       // agEnAttente : programmée, sans attribution, info incomplète
       expect(screen.getAllByText('Info incomplète').length).toBeGreaterThan(0);
-      const attribuer = screen.getAllByRole('link', { name: /Attribuer/ });
-      expect(attribuer.length).toBeGreaterThan(0);
-      expect(attribuer[0]).toHaveAttribute(
+      const [declencheur] = menusActionAttendue();
+      const menu = await ouvrirMenu(declencheur!);
+      const attribuer = within(menu).getByRole('menuitem', {
+        name: /Attribuer/,
+      });
+      expect(attribuer).toHaveAttribute(
         'href',
         '/admin/attributions-ag/ag-attente',
       );
@@ -554,20 +579,43 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
 
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-      // Exactement 2 boutons (programmée + validée non transmises), pas sur la
-      // transmise ni sur l'AG. Le bouton ouvre le drawer en place (?collecte=<id>)
-      // → c'est un <button> (plus un lien). `/Dispatcher/` (D majuscule) ne matche
-      // pas les tuiles KPI « ZD/AG à dispatcher » (d minuscule).
-      const dispatcher = screen.getAllByRole('button', { name: /Dispatcher/ });
-      expect(dispatcher).toHaveLength(2);
-      // Anti-vacuité : l'AG non transmise porte « Attribuer », jamais « Dispatcher »
-      // (les deux affordances sont mutuellement exclusives par type).
-      const attribuer = screen.getAllByRole('link', { name: /Attribuer/ });
-      expect(attribuer).toHaveLength(1);
-      expect(attribuer[0]).toHaveAttribute(
-        'href',
-        '/admin/attributions-ag/ag-x',
-      );
+      // Exactement 3 lignes à action attendue : les 2 ZD non transmises
+      // (programmée + validée) et l'AG à attribuer — pas la ZD transmise.
+      expect(menusActionAttendue()).toHaveLength(3);
+      // Menu de chaque ligne (ordre d'affichage indifférent : les urgences
+      // remontent en tête).
+      const menus: string[][] = [];
+      for (const declencheur of tableau().getAllByRole('button', {
+        name: /Actions sur la collecte/,
+      })) {
+        const menu = await ouvrirMenu(declencheur);
+        menus.push(
+          within(menu)
+            .getAllByRole('menuitem')
+            .map((m) => m.textContent ?? ''),
+        );
+        fireEvent.keyDown(menu, { key: 'Escape' });
+        await waitFor(
+          () => expect(screen.queryByRole('menu')).toBeNull(),
+          ATTENTE_UI,
+        );
+      }
+      const avec = (action: string) =>
+        menus.filter((m) => m.includes(action)).length;
+      expect(menus).toHaveLength(4);
+      expect(avec('Dispatcher')).toBe(2);
+      // Anti-vacuité : l'AG porte « Attribuer », jamais « Dispatcher »
+      // (affordances mutuellement exclusives par type) ; la ZD transmise n'a
+      // que l'ouverture de fiche.
+      expect(avec('Attribuer')).toBe(1);
+      expect(
+        menus.filter(
+          (m) => m.includes('Attribuer') && m.includes('Dispatcher'),
+        ),
+      ).toHaveLength(0);
+      expect(menus.filter((m) => m.length === 1)).toEqual([
+        ['Ouvrir la fiche'],
+      ]);
     },
     ATTENTE_CAS_MS,
   );
@@ -666,8 +714,11 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       // Drawer fermé au départ.
       expect(screen.queryByRole('tab', { name: 'Logistique' })).toBeNull();
 
-      // Clic « Dispatcher » → ouvre le panneau latéral…
-      fireEvent.click(screen.getByRole('button', { name: /Dispatcher/ }));
+      // Menu « ⋯ » → « Dispatcher » → ouvre le panneau latéral…
+      const menu = await ouvrirMenu(menusActionAttendue()[0]!);
+      fireEvent.click(
+        within(menu).getByRole('menuitem', { name: /Dispatcher/ }),
+      );
       expect(
         await screen.findByRole('tab', { name: 'Logistique' }, ATTENTE_UI),
       ).toBeInTheDocument();
@@ -882,7 +933,45 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
 
       await screen.findAllByText('Traiteur Beta', undefined, ATTENTE_UI);
-      expect(screen.getAllByText('Urgent')).toHaveLength(1);
+      expect(tableau().getAllByText('Urgent')).toHaveLength(1);
+      // Reçue en 2e position, l'urgente remonte en tête (§06.09 §1).
+      const premiere = tableau().getAllByRole('row')[1]!;
+      expect(within(premiere).getByText('Urgent')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — tri de la Data Table envoyé au serveur (liste paginée) : défaut par onglet + clic en-tête',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+      const urls = () =>
+        fetchMock.mock.calls
+          .map((c) => String(c[0]))
+          .filter((u) => u.startsWith('/api/v1/admin/collectes?'));
+
+      // Programmées : prochaines collectes d'abord.
+      expect(urls().at(-1)).toContain('tri=date&ordre=asc');
+
+      // Clic sur « Type » → tri serveur par type, retour page 1.
+      fireEvent.click(
+        within(screen.getByRole('table')).getByRole('button', {
+          name: /Type/,
+        }),
+      );
+      await waitFor(
+        () => expect(urls().at(-1)).toMatch(/page=1&tri=type&ordre=/),
+        ATTENTE_UI,
+      );
+
+      // Historique : les plus récentes d'abord.
+      fireEvent.click(screen.getByRole('tab', { name: 'Historique' }));
+      await waitFor(
+        () => expect(urls().at(-1)).toContain('tri=date&ordre=desc'),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

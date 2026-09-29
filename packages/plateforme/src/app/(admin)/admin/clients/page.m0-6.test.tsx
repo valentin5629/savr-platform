@@ -271,10 +271,11 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
       await waitFor(() => expect(derniere()).toContain('q=Zenith'), ATTENTE_UI);
       expect(derniere()).toContain('page=1');
 
-      // Tri : clic sur l'en-tête « Type » → tri serveur.
-      fireEvent.click(
-        within(screen.getByRole('table')).getByRole('button', { name: /Type/ }),
-      );
+      // Tri : clic sur l'en-tête « Type » → tri serveur. Le tableau est remplacé
+      // par un squelette pendant le rechargement de la recherche : l'attendre
+      // (lu en synchrone, il manquait sous charge en CI).
+      const tableau = await screen.findByRole('table', undefined, ATTENTE_UI);
+      fireEvent.click(within(tableau).getByRole('button', { name: /Type/ }));
       await waitFor(
         () => expect(derniere()).toMatch(/tri=type&ordre=/),
         ATTENTE_UI,

@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { lireGestionnaireLieu } from '@/lib/admin/gestionnaire-lieu.js';
 
 export async function GET(
   req: NextRequest,
@@ -109,6 +110,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'Lieu introuvable' }, { status: 404 });
   }
 
+  // Gestionnaire validé AVANT toute écriture (cf. lib/admin/gestionnaire-lieu.ts).
+  const gestionnaire = gestionnaireProvided
+    ? await lireGestionnaireLieu(supabase, body.gestionnaire_organisation_id)
+    : null;
+  if (gestionnaire && !gestionnaire.ok) return gestionnaire.reponse;
+
   // Géocodage en background au save, relancé si adresse/code_postal/ville change
   // — fail-open, cf. lib/geocoding.ts.
   if (
@@ -144,12 +151,8 @@ export async function PATCH(
   // Rattachement gestionnaire (organisations_lieux) — remplacement single :
   // on retire le lien existant du lieu puis on pose le nouveau (si fourni).
   // Décision Val 2026-07-02 : 1 gestionnaire par lieu, non obligatoire.
-  if (gestionnaireProvided) {
-    const gestionnaireId =
-      typeof body.gestionnaire_organisation_id === 'string' &&
-      body.gestionnaire_organisation_id !== ''
-        ? body.gestionnaire_organisation_id
-        : null;
+  if (gestionnaire?.ok) {
+    const gestionnaireId = gestionnaire.organisationId;
     await supabase.from('organisations_lieux').delete().eq('lieu_id', id);
     if (gestionnaireId) {
       await supabase.from('organisations_lieux').insert({

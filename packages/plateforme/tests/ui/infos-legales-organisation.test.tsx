@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { createRoot } from 'react-dom/client';
 
 import {
   InfosLegalesCard,
@@ -220,5 +221,47 @@ describe('Navigation — accès à ses informations pour tous les rôles', () =>
   ] as const)('%s → %s', (role, href) => {
     const hrefs = NAV_CONFIG[role].flatMap((g) => g.items.map((i) => i.href));
     expect(hrefs).toContain(href);
+  });
+});
+
+// Course mesurée en CI sous charge : l'effet qui recopie le profil dans le
+// formulaire s'exécutait APRÈS une première frappe et l'écrasait (saisie perdue,
+// « Enregistrer » inactif). Reproduite ici sans dépendre de la charge : la carte
+// est montée HORS `act`, et la frappe part dès que le champ est dans le DOM —
+// avant que le planificateur de React n'exécute les effets passifs du montage.
+describe('Informations légales — saisie immédiate après montage', () => {
+  it('une frappe avant les effets de montage n’est pas écrasée', async () => {
+    const g = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const avant = g.IS_REACT_ACT_ENVIRONMENT;
+    g.IS_REACT_ACT_ENVIRONMENT = false;
+    const conteneur = document.createElement('div');
+    document.body.appendChild(conteneur);
+    const racine = createRoot(conteneur);
+    try {
+      racine.render(
+        <InfosLegalesCard
+          profil={PROFIL}
+          urlProfil={URL_PROFIL}
+          onSaved={() => {}}
+        />,
+      );
+      const champ = await new Promise<HTMLInputElement>((ok) => {
+        const obs = new MutationObserver(() => {
+          const el = conteneur.querySelector<HTMLInputElement>('#org-siret');
+          if (el) {
+            obs.disconnect();
+            ok(el);
+          }
+        });
+        obs.observe(conteneur, { childList: true, subtree: true });
+      });
+      fireEvent.change(champ, { target: { value: '12345678900011' } });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(champ.value).toBe('12345678900011');
+    } finally {
+      racine.unmount();
+      conteneur.remove();
+      g.IS_REACT_ACT_ENVIRONMENT = avant;
+    }
   });
 });

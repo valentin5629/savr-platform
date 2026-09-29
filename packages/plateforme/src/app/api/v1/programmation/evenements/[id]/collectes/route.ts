@@ -7,6 +7,7 @@ import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-opera
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 
 // Cible de l'action « Ajouter une collecte à cet événement » de l'écran de
 // confirmation (§06.01 étape 13) → ouverte à l'admin en mode support comme le POST
@@ -30,6 +31,8 @@ export async function POST(
       { status: 422 },
     );
   }
+  const refusHeure = refusHeureCollecte(heure_collecte);
+  if (refusHeure) return refusHeure;
 
   // Borne d'entrée du texte libre transmis au transporteur (voir la route de
   // programmation initiale) : la RPC stocke `p_info_suppl` sans rien vérifier.

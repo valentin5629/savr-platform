@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { writeError } from '@/lib/api-helpers.js';
+import { serverError, writeError } from '@/lib/api-helpers.js';
 import {
   MESSAGE_SIRET_INVALIDE,
   normaliserSiretOrganisation,
@@ -153,6 +153,32 @@ export async function PATCH(
   }
 
   const supabase = createAdminSupabaseClient();
+
+  // Type : une organisation qui gère des lieux (organisations_lieux) ne quitte
+  // pas `gestionnaire_lieux`. Ses rattachements lui resteraient, et
+  // f_collecte_visible ouvre les collectes datées de ces lieux à toute
+  // organisation rattachée, sans garde de rôle : un gestionnaire repassé en
+  // traiteur lirait les collectes des autres traiteurs. Le trigger P0047 ne
+  // contrôle que l'écriture de organisations_lieux, pas le changement de type.
+  // CDC §04 organisations_lieux ; arbitrage Val 2026-09-29 (option C4).
+  if ('type' in updatePayload && updatePayload.type !== 'gestionnaire_lieux') {
+    const { count, error: lieuxErr } = await supabase
+      .from('organisations_lieux')
+      .select('id', { count: 'exact', head: true })
+      .eq('organisation_id', id);
+    if (lieuxErr) {
+      return serverError(lieuxErr, 'admin.organisations.type_lieux_rattaches');
+    }
+    if ((count ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error: `Cette organisation gère ${count} lieu(x). Retirez-la comme gestionnaire de ces lieux avant de changer son type.`,
+          champs_invalides: ['type'],
+        },
+        { status: 422 },
+      );
+    }
+  }
 
   // §07/06 tarif_refacture_pax_zd_update — capture l'ancienne valeur AVANT l'UPDATE.
   // Seule mutation d'organisation auditée (§2) ; les autres champs (raison_sociale,

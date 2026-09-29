@@ -272,9 +272,11 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
       expect(derniere()).toContain('page=1');
 
       // Tri : clic sur l'en-tête « Type » → tri serveur.
-      fireEvent.click(
-        within(screen.getByRole('table')).getByRole('button', { name: /Type/ }),
-      );
+      // L'attente ci-dessus rend la main dès que la requête q=Zenith PART : la
+      // page affiche alors le squelette de chargement, pas le tableau. On attend
+      // donc le retour du tableau (échec CI sous charge, run 36494250694).
+      const tableau = await screen.findByRole('table', undefined, ATTENTE_UI);
+      fireEvent.click(within(tableau).getByRole('button', { name: /Type/ }));
       await waitFor(
         () => expect(derniere()).toMatch(/tri=type&ordre=/),
         ATTENTE_UI,

@@ -619,7 +619,7 @@
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.2/fiche_popup_gestionnaire_sans_annulation",
       "statut": "implemented",
-      "libelle": "Pied gestionnaire : jamais d'annulation (« la gestion des collectes reste exclusive au traiteur ») ; « Modifier la collecte » actif sur ses propres programmations, grisé sinon (miroir de la garde PATCH existante). API : M3.2/fiche_get_actions_gestionnaire."
+      "libelle": "Pied gestionnaire : jamais d'annulation (« la gestion des collectes reste exclusive au traiteur ») ; « Modifier la collecte » actif sur ses propres programmations, grisé sinon (miroir de la garde PATCH existante). API : M3.2/fiche_get_actions_gestionnaire. Écart §05 l.354 (« ne peut pas modifier ») vs synthèse M1.2 : droit existant conservé, tracé D7 (_Divergences/M3.1_20260929_popup-client-implementation.md)."
     },
     {
       "id": "M3.2-popup-radar-tiers-masque",
@@ -627,7 +627,7 @@
       "artefact": "packages/plateforme/src/lib/collectes/benchmark-fiche.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/benchmark/route.ts",
       "test": "M3.2/fiche_benchmark_tiers_masque",
       "statut": "implemented",
-      "libelle": "Radar de la fiche : f_benchmark_single_collecte refuse les collectes de traiteurs tiers → réponse « pas de radar » (200, data null) et bloc masqué à l'écran (M3.2/fiche_popup_gestionnaire_radar_masque_tiers). Garde JAMAIS élargie ni contournée en service-role ; collecte invisible = 404 (M3.2/fiche_benchmark_hors_perimetre_404)."
+      "libelle": "Radar de la fiche : f_benchmark_single_collecte refuse les collectes de traiteurs tiers → réponse « pas de radar » (200, data null) et bloc masqué à l'écran (M3.2/fiche_popup_gestionnaire_radar_masque_tiers). Garde JAMAIS élargie ni contournée en service-role ; collecte invisible = 404 (M3.2/fiche_benchmark_hors_perimetre_404). Écart au CDC l.403 (radar prévu pour tous les rôles) tracé D13."
     },
     {
       "id": "M3.2-popup-documents-sous-rls",
@@ -652,6 +652,14 @@
       "test": "M3.2/fiche_popup_gestionnaire_marque_blanche",
       "statut": "implemented",
       "libelle": "Aucun libellé « transporteur » / « prestataire » dans la fiche gestionnaire."
+    },
+    {
+      "id": "M3.2-popup-bilan-ag-tiers",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:404",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": null,
+      "statut": "partial",
+      "libelle": "Bilan AG du gestionnaire sur une collecte programmée par un traiteur TIERS : « Repas donnés » / « Repas par pax » affichent « — » car volume_repas_realise est lu sous sa RLS (aa_select l'exclut — C-1, pgTAP T18) ; seul le bloc Association est exempté par §06.05 l.85. Livré en l'état, tracé D13 ; source attendue = vue v_attributions_gestionnaire (spécifiée, spec à patcher avant implémentation). Les tests UI M3.2 mockent un volume : ils prouvent l'affichage, pas la lecture en base."
     }
   ],
   "cdc_source_hash": {

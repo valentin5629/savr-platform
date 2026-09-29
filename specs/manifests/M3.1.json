@@ -662,7 +662,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-modal.tsx, packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_ui_logistique_chauffeur_plaque_tel",
       "statut": "implemented",
-      "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, même format que la fiche Admin : colonne résumé + onglets Informations / Logistique / Bilan & documents) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés ; vélo cargo = plaque « Sans objet (vélo cargo) ». Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md. Cadre de modale (titre, couleur AG/ZD, garde Échap) partagé avec la fiche Admin (fiche-collecte-modal-cadre.tsx)."
+      "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, refondu le 2026-09-29 en pop-up client commun : en-tête + onglets en colonne Informations / Logistique / Bilan & documents, cf. M3.1-popup-client-*) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés ; vélo cargo = plaque « Sans objet (vélo cargo) ». Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md. Cadre de modale (titre, couleur AG/ZD, garde Échap) partagé avec la fiche Admin (fiche-collecte-modal-cadre.tsx)."
     },
     {
       "id": "M3.1-popup-client-entete",
@@ -822,7 +822,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_ui_bloc3_masque_en_ag",
       "statut": "implemented",
-      "libelle": "Bilan & documents AG : 3 KPI (Repas donnés, Repas par pax, CO₂ évité figé) + bloc Association ; document affiché « Rapport de don » (Q5 : renommage d'affichage seul — titre PDF, nom de fichier et emails inchangés) ; pas de benchmark AG."
+      "libelle": "Bilan & documents AG : 3 KPI (Repas donnés, Repas par pax, CO₂ évité figé) + bloc Association ; document affiché « Rapport de don » (Q5 : renommage d'affichage seul — titre PDF, nom de fichier et emails inchangés) ; pas de benchmark AG. Test au nom historique (fiche_ui_bloc3_masque_en_ag), corps réécrit pour le pop-up."
     },
     {
       "id": "M3.1-popup-client-sans-excedent",
@@ -863,6 +863,14 @@
       "test": "M3.1/fiche_get_factures_sous_rls_traiteur_operationnel",
       "statut": "implemented",
       "libelle": "Fuite inter-organisation PRÉEXISTANTE corrigée (mesurée par reviewer-rls-securite le 2026-09-29) : les factures de la fiche étaient lues en service-role bornées à la seule collecte — le traiteur opérationnel d'une collecte programmée par une agence ou un gestionnaire recevait la facture de CETTE organisation (numéro, statut, liens PDF). Lecture désormais sous la RLS de l'utilisateur (fc_select / fac_client_select) ; brouillons exclus côté serveur (M3.1/fiche_get_factures_brouillon_exclu). Sonde : retour au service-role → test rouge."
+    },
+    {
+      "id": "M3.1-popup-rgpd-telephone-chauffeur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "RGPD : base légale « intérêt légitime » de l'affichage du téléphone du chauffeur au client à mentionner dans la notice §15 — action documentaire de Val, hors code."
     }
   ],
   "cdc_source_hash": {

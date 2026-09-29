@@ -103,13 +103,12 @@ VALUES ('c1ea0006-0000-0000-0000-000000000001'::uuid, 'cocktail_autocompletion',
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max, actif) VALUES
   -- LX : connu de T1 UNIQUEMENT parce qu'il opère l'événement d'un tiers.
   ('c1ea0003-0000-0000-0000-000000000001'::uuid, 'AA Lieu evenement tiers', '1 r', '75001', 'Paris', 'fourgon', true),
-  -- LY : rattaché à T2 → non-vacuité de l'assert négatif (T2 voit SES lieux).
+  -- LY : lieu d'un événement qu'opère T2 → non-vacuité de l'assert négatif (T2
+  -- voit SES lieux). Plus de rattachement : un traiteur ne peut pas être rattaché
+  -- à un lieu (trigger P0047, 20260929140000 ; arbitrage Val 2026-09-29).
   ('c1ea0003-0000-0000-0000-000000000002'::uuid, 'BB Lieu du concurrent',   '2 r', '75002', 'Paris', 'fourgon', true),
   -- LZ : opéré par T1 mais DÉSACTIVÉ → le filtre `actif` de la route doit l'exclure.
   ('c1ea0003-0000-0000-0000-000000000003'::uuid, 'CC Lieu desactive',       '3 r', '75003', 'Paris', 'fourgon', false);
-
-INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
-VALUES ('c1ea0001-0000-0000-0000-000000000002'::uuid, 'c1ea0003-0000-0000-0000-000000000002'::uuid);
 
 -- ── Fixtures du régime « branche 3 » (client organisateur, événement daté) ──
 -- Objet : PINER l'innocuité de son omission du miroir admin (cf. route.ts). Elle
@@ -128,14 +127,20 @@ INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_v
   ('c1ea0003-0000-0000-0000-000000000008'::uuid, 'HH Lieu rattache gl2','8 r', '75008', 'Paris', 'fourgon', true);
 
 -- GL1 est rattaché au lieu de SON événement (branche 1). GL2 ne l'est PAS au sien.
--- AG2 et GL2 reçoivent chacun un lieu rattaché SANS rapport avec leur événement b3 :
--- sans lui, les asserts 11 et 12 seraient des négatifs sur un ensemble VIDE et
--- passeraient aussi bien si c'était le LECTEUR qui cassait (claim JWT malformé, vue
--- illisible) — même idiome de non-vacuité que le couple 4/5.
+-- AG2 et GL2 reçoivent chacun un lieu SANS rapport avec leur événement b3 — GL2 par
+-- rattachement (branche 1), AG2 par un événement qu'elle programme elle-même
+-- (branche 2 ; une agence ne peut pas être rattachée, trigger P0047) : sans lui,
+-- les asserts 11 et 12 seraient des négatifs sur un ensemble VIDE et passeraient
+-- aussi bien si c'était le LECTEUR qui cassait (claim JWT malformé, vue illisible)
+-- — même idiome de non-vacuité que le couple 4/5.
 INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id) VALUES
   ('c1ea0001-0000-0000-0000-000000000005'::uuid, 'c1ea0003-0000-0000-0000-000000000005'::uuid),
-  ('c1ea0001-0000-0000-0000-000000000004'::uuid, 'c1ea0003-0000-0000-0000-000000000007'::uuid),
   ('c1ea0001-0000-0000-0000-000000000006'::uuid, 'c1ea0003-0000-0000-0000-000000000008'::uuid);
+
+INSERT INTO plateforme.entites_facturation
+  (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville) VALUES
+  ('c1ea0005-0000-0000-0000-000000000004'::uuid, 'c1ea0001-0000-0000-0000-000000000004'::uuid,
+   'AG2 SAS', '95000000000004', '4 rue test', '75004', 'Paris');
 
 -- Trois événements DATÉS appartenant à l'agence AG, opérés par le concurrent T2
 -- (choix assumé : cela élargit l'ensemble de T2 via la branche 4, sans rien changer
@@ -163,6 +168,22 @@ INSERT INTO plateforme.evenements (
    'c1ea0001-0000-0000-0000-000000000006'::uuid, 'c1ea0005-0000-0000-0000-000000000003'::uuid,
    'c1ea0002-0000-0000-0000-000000000003'::uuid, 'c1ea0006-0000-0000-0000-000000000001'::uuid,
    current_date + 10, 100, 'Alice', '0601020304');
+
+-- LY (BB) : programmé par l'agence AG, opéré par T2 → T2 voit SON lieu (branche 4).
+-- GG : programmé par AG2 elle-même → AG2 voit SON lieu (branche 2), opéré par T2
+-- (n'ajoute rien aux asserts de T1 ; élargit l'ensemble de T2, cf. note ci-dessus).
+INSERT INTO plateforme.evenements (
+  id, organisation_id, lieu_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, created_by, type_evenement_id, date_evenement, pax,
+  contact_principal_nom, contact_principal_telephone) VALUES
+  ('c1ea0004-0000-0000-0000-000000000007'::uuid, 'c1ea0001-0000-0000-0000-000000000003'::uuid,
+   'c1ea0003-0000-0000-0000-000000000002'::uuid, 'c1ea0001-0000-0000-0000-000000000002'::uuid,
+   'c1ea0005-0000-0000-0000-000000000003'::uuid, 'c1ea0002-0000-0000-0000-000000000003'::uuid,
+   'c1ea0006-0000-0000-0000-000000000001'::uuid, current_date + 10, 100, 'Alice', '0601020304'),
+  ('c1ea0004-0000-0000-0000-000000000008'::uuid, 'c1ea0001-0000-0000-0000-000000000004'::uuid,
+   'c1ea0003-0000-0000-0000-000000000007'::uuid, 'c1ea0001-0000-0000-0000-000000000002'::uuid,
+   'c1ea0005-0000-0000-0000-000000000004'::uuid, 'c1ea0002-0000-0000-0000-000000000003'::uuid,
+   'c1ea0006-0000-0000-0000-000000000001'::uuid, current_date + 10, 100, 'Alice', '0601020304');
 
 -- Deux événements programmés par l'AGENCE, opérés par T1 : T1 n'a aucun autre
 -- lien vers ces lieux (ni rattachement, ni événement qu'il aurait programmé).
@@ -275,7 +296,7 @@ SELECT ok(
 
 SELECT ok(
   'GG Lieu rattache ag2' = ANY (pgl_autocompletion()),
-  'NON-VACUITÉ : AG2 voit bien son lieu RATTACHÉ (l''assert précédent n''est pas un 0 de lecteur)'
+  'NON-VACUITÉ : AG2 voit bien SON lieu (événement qu''elle programme ; l''assert précédent n''est pas un 0 de lecteur)'
 );
 
 -- Régime B — gestionnaire NON rattaché : même résultat, le second disjoint de

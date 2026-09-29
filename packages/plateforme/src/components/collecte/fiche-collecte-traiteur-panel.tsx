@@ -28,6 +28,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip } from '@/components/ui/tooltip';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 import {
+  typeCollecteLabel,
+  type FicheCollecteMeta,
+} from '@/components/collecte/fiche-collecte-modal-cadre';
+import {
   BlocHeader,
   ContactLigne,
   InfoItem,
@@ -141,25 +145,13 @@ const STATUTS_BENCHMARK = ['realisee', 'cloturee'];
 // plus conditionné au contrôle d'accès — divergence §06.04 tracée).
 const STATUTS_LOGISTIQUE = ['programmee', 'validee', 'en_cours'];
 
-function typeCollecteLabel(type: string): string {
-  return type === 'zero_dechet' ? 'Zéro Déchet' : 'Anti-Gaspi';
-}
-
 interface FicheCollecteTraiteurPanelProps {
   collecteId: string;
   // Ouverture directe en édition (action « Modifier » de la liste).
   initialEditing?: boolean;
   // Remonte au wrapper modale le type + le titre-résumé une fois la collecte
   // chargée → titre de la modale + couleur du cadre (AG orange / ZD vert).
-  onLoaded?: (info: {
-    type: 'anti_gaspi' | 'zero_dechet';
-    title: string;
-  }) => void;
-  // Signale une mutation (édition, annulation, régénération) : la liste
-  // rafraîchit à la fermeture de la modale.
-  onChanged?: () => void;
-  // Entrée / sortie du mode édition : la liste retire `edit=1` de l'URL.
-  onEditingChange?: (editing: boolean) => void;
+  onLoaded?: (info: FicheCollecteMeta) => void;
   // Miroir « une sous-modale est ouverte » : le wrapper ne ferme pas la fiche
   // sur Escape tant qu'une sous-modale (annulation, programmée par) est ouverte.
   blockCloseRef?: MutableRefObject<boolean>;
@@ -169,8 +161,6 @@ export function FicheCollecteTraiteurPanel({
   collecteId: id,
   initialEditing = false,
   onLoaded,
-  onChanged,
-  onEditingChange,
   blockCloseRef,
 }: FicheCollecteTraiteurPanelProps) {
   const [c, setC] = useState<Collecte | null>(null);
@@ -187,10 +177,6 @@ export function FicheCollecteTraiteurPanel({
   const [progOpen, setProgOpen] = useState(false);
   // Confirmation « Confirmer la modification » du formulaire d'édition.
   const [editConfirmOpen, setEditConfirmOpen] = useState(false);
-
-  useEffect(() => {
-    onEditingChange?.(editing);
-  }, [editing, onEditingChange]);
 
   // Bloc 3 ZD — repère parc par flux. Premier rendu sans filtre (segment de la
   // collecte) ; l'encart émet ensuite ses défauts (période fixe 24 mois glissants) et le
@@ -317,7 +303,6 @@ export function FicheCollecteTraiteurPanel({
       );
       if (res.ok) {
         setAnnulOpen(false);
-        onChanged?.();
         reload();
       } else {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -345,10 +330,7 @@ export function FicheCollecteTraiteurPanel({
         `/api/v1/traiteur/collectes/${encodeURIComponent(id)}/documents/rapport-recyclage-zd/regenerate`,
         { method: 'POST' },
       );
-      if (res.ok) {
-        onChanged?.();
-        reload();
-      }
+      if (res.ok) reload();
     } finally {
       setRegenEnCours(false);
     }
@@ -499,7 +481,6 @@ export function FicheCollecteTraiteurPanel({
           collecteEndpoint={`/api/v1/traiteur/collectes/${encodeURIComponent(c.id)}`}
           onSaved={() => {
             setEditing(false);
-            onChanged?.();
             reload();
           }}
           onCancel={() => setEditing(false)}

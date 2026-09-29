@@ -57,11 +57,7 @@ import {
   InfoItem,
   ResumeItem,
 } from '@/components/collecte/fiche-blocs';
-
-// Libellé d'affichage du type de collecte (UX — la DB garde l'enum).
-function typeCollecteLabel(type: string): string {
-  return type === 'zero_dechet' ? 'Zéro Déchet' : 'Anti-Gaspi';
-}
+import { typeCollecteLabel } from '@/components/collecte/fiche-collecte-modal-cadre';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3

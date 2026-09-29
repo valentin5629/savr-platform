@@ -674,7 +674,7 @@ describe('M3.1 / fiche collecte traiteur — Échap dans le pop-up', () => {
       await screen.findByText('Cocktail apéritif', {}, ATTENTE_UI);
 
       fireEvent.keyDown(document, { key: 'Escape' });
-      expect(onClose).toHaveBeenCalledWith(false);
+      expect(onClose).toHaveBeenCalledTimes(1);
     },
     ATTENTE_CAS_MS,
   );

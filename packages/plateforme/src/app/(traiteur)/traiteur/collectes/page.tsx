@@ -267,10 +267,8 @@ function CollectesContent() {
     if (d.commercial) usp.set('commercial', d.commercial);
     if (d.association) usp.set('association', d.association);
     if (d.perimetre) usp.set('perimetre', d.perimetre);
-    if (f) {
-      usp.set('collecte', f.id);
-      if (f.edit) usp.set('edit', '1');
-    }
+    // `edit` n'est jamais réécrit : un rechargement rouvre la fiche en lecture.
+    if (f) usp.set('collecte', f.id);
     router.replace(
       `/traiteur/collectes?${ecrireFiltresCollecte(usp, etat.filtres ?? filtres)}`,
     );
@@ -284,26 +282,12 @@ function CollectesContent() {
   // `majUrl` réécrirait l'URL avec les filtres du premier rendu).
   const ouvrirFicheRef = useRef(ouvrirFiche);
   ouvrirFicheRef.current = ouvrirFiche;
-  // Sortie du mode édition : `edit=1` quitte l'URL (sinon un rechargement
-  // rouvrirait la fiche en édition). Stable : la fiche l'a en dépendance d'effet.
-  const majEditionFiche = useCallback((edit: boolean) => {
-    setFiche((f) => (f && f.edit !== edit ? { ...f, edit } : f));
-  }, []);
-  const ficheEdit = fiche?.edit;
-  const ficheId = fiche?.id;
-  const premierRenduFiche = useRef(true);
-  useEffect(() => {
-    if (premierRenduFiche.current) {
-      premierRenduFiche.current = false;
-      return;
-    }
-    if (ficheId) majUrl({ fiche: { id: ficheId, edit: Boolean(ficheEdit) } });
-    // majUrl lit l'état courant ; seul le basculement d'édition doit déclencher.
-  }, [ficheEdit]);
-  function fermerFiche(modifiee: boolean) {
+  // Une action dans la fiche (édition, annulation…) peut changer la liste :
+  // on la recharge à chaque fermeture.
+  function fermerFiche() {
     setFiche(null);
     majUrl({ fiche: null });
-    if (modifiee) charger();
+    charger();
   }
   function setFiltres(f: CollecteFiltres) {
     setFiltresEtat(f);
@@ -566,7 +550,6 @@ function CollectesContent() {
       <FicheCollecteTraiteurModal
         collecteId={fiche?.id ?? null}
         initialEditing={fiche?.edit ?? false}
-        onEditingChange={majEditionFiche}
         onClose={fermerFiche}
       />
 

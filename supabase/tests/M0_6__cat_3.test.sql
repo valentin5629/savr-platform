@@ -43,7 +43,8 @@ VALUES
   ('aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'Kaspia', 'traiteur', true, false, '11111111100001', 'kaspia@test.com'),
   ('bbbbbbbb-0000-0000-0000-000000000001'::uuid, 'Kardamome', 'traiteur', true, false, '22222222200001', 'kardamome@test.com'),
   ('cccccccc-0000-0000-0000-000000000001'::uuid, 'Agence D', 'agence', true, false, '33333333300001', 'agence@test.com'),
-  ('dddddddd-0000-0000-0000-000000000001'::uuid, 'Gestionnaire X', 'gestionnaire_lieux', true, false, '44444444400001', 'gestx@test.com');
+  ('dddddddd-0000-0000-0000-000000000001'::uuid, 'Gestionnaire X', 'gestionnaire_lieux', true, false, '44444444400001', 'gestx@test.com'),
+  ('eeeeeeee-0000-0000-0000-000000000001'::uuid, 'Gestionnaire Y', 'gestionnaire_lieux', true, false, '55555555500001', 'gesty@test.com');
 
 INSERT INTO plateforme.types_evenements (id, code, libelle)
 VALUES ('11110001-0000-0000-0000-000000000001'::uuid, 'seminaire', 'Séminaire');
@@ -138,9 +139,10 @@ SELECT results_eq(
 
 -- T24 : Gestionnaire lieux tente UPDATE organisations_lieux autre gestionnaire → 0 lignes
 SELECT test_as_superuser();
--- Crée une liaison d'un autre gestionnaire
+-- Crée une liaison d'un autre gestionnaire (Y) — un traiteur ne peut plus être
+-- rattaché à un lieu (trigger P0047, 20260929140000).
 INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
-VALUES ('bbbbbbbb-0000-0000-0000-000000000001'::uuid, '10c00002-0000-0000-0000-000000000001'::uuid);
+VALUES ('eeeeeeee-0000-0000-0000-000000000001'::uuid, '10c00002-0000-0000-0000-000000000001'::uuid);
 SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'::uuid);
 -- Tente de modifier une liaison qui n'existe pas pour lui
 SELECT results_eq(

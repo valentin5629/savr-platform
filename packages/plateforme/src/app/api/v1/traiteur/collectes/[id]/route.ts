@@ -122,7 +122,7 @@ export async function GET(
 
   // Enrichissements fiche (BL-P1-TRAIT-03) — lecture service-role APRÈS le contrôle
   // d'appartenance RLS ci-dessus (la collecte est visible = appartient au traiteur) :
-  //  · tournées → plaque + nom chauffeur pour le bloc « Contrôle d'accès »
+  //  · tournées → chauffeur (nom + téléphone) + plaque pour le bloc « Logistique »
   //  · disponibilité du rapport RSE (embargo H+24) pour le bouton de téléchargement
   //  · factures rattachées (via factures_collectes) pour le bouton « Télécharger la facture »
   const admin = createAdminSupabaseClient();
@@ -137,7 +137,7 @@ export async function GET(
     admin
       .from('collecte_tournees')
       .select(
-        'tournee:tournees(plaque_immatriculation, chauffeur_nom, type_vehicule, plaque_saisie_at, prestataire_logistique_id)',
+        'tournee:tournees(plaque_immatriculation, chauffeur_nom, chauffeur_telephone, type_vehicule, plaque_saisie_at, prestataire_logistique_id)',
       )
       .eq('collecte_id', id),
     admin
@@ -167,6 +167,7 @@ export async function GET(
   type TourneeRow = {
     plaque_immatriculation: string | null;
     chauffeur_nom: string | null;
+    chauffeur_telephone: string | null;
     type_vehicule: string | null;
     plaque_saisie_at: string | null;
     prestataire_logistique_id: string | null;
@@ -202,6 +203,7 @@ export async function GET(
   const tournees = tourneesRaw.map((t) => ({
     plaque_immatriculation: t.plaque_immatriculation,
     chauffeur_nom: t.chauffeur_nom,
+    chauffeur_telephone: t.chauffeur_telephone,
     type_vehicule: t.type_vehicule,
     plaque_saisie_at: t.plaque_saisie_at,
     prestataire_nom: t.prestataire_logistique_id

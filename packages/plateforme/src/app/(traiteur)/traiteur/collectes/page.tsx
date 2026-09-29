@@ -1,6 +1,13 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Truck } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
@@ -20,6 +27,7 @@ import { DataGrid } from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import { FicheCollecteTraiteurModal } from '@/components/collecte/fiche-collecte-traiteur-modal';
 import {
   CollecteFiltresBar,
   ecrireFiltresCollecte,
@@ -119,6 +127,15 @@ function CollectesContent() {
   // barre, qui les reflète donc directement (miroir : nombre de lignes = chiffre
   // du Top liste). Commercial / association / périmètre ne sont pas des filtres
   // d'UI : ils restent portés par l'URL et signalés par le chip « Filtre actif ».
+  // Fiche collecte en pop-up (même format que l'Admin, décision Val 2026-09-29) :
+  // ouverte depuis l'URL (?collecte=<id>[&edit=1]) → les liens profonds (emails,
+  // dashboards, ancienne route [id] qui redirige ici) rouvrent la fiche.
+  const [fiche, setFiche] = useState<{ id: string; edit: boolean } | null>(
+    () => {
+      const id = params.get('collecte');
+      return id ? { id, edit: params.get('edit') === '1' } : null;
+    },
+  );
   const [drill, setDrill] = useState<Drill>(() => ({
     lieu: params.get('lieu') ?? '',
     commercial: params.get('commercial') ?? '',
@@ -239,8 +256,10 @@ function CollectesContent() {
     type?: CollecteType;
     filtres?: CollecteFiltres;
     drill?: Drill;
+    fiche?: { id: string; edit: boolean } | null;
   }) {
     const d = etat.drill ?? drill;
+    const f = etat.fiche !== undefined ? etat.fiche : fiche;
     const usp = new URLSearchParams({
       onglet: etat.onglet ?? onglet,
       type: etat.type ?? typeFiltre,
@@ -248,9 +267,27 @@ function CollectesContent() {
     if (d.commercial) usp.set('commercial', d.commercial);
     if (d.association) usp.set('association', d.association);
     if (d.perimetre) usp.set('perimetre', d.perimetre);
+    if (f) {
+      usp.set('collecte', f.id);
+      if (f.edit) usp.set('edit', '1');
+    }
     router.replace(
       `/traiteur/collectes?${ecrireFiltresCollecte(usp, etat.filtres ?? filtres)}`,
     );
+  }
+  function ouvrirFiche(id: string, edit = false) {
+    const f = { id, edit };
+    setFiche(f);
+    majUrl({ fiche: f });
+  }
+  // Les colonnes sont mémoïsées : elles appellent la version COURANTE (sinon
+  // `majUrl` réécrirait l'URL avec les filtres du premier rendu).
+  const ouvrirFicheRef = useRef(ouvrirFiche);
+  ouvrirFicheRef.current = ouvrirFiche;
+  function fermerFiche(modifiee: boolean) {
+    setFiche(null);
+    majUrl({ fiche: null });
+    if (modifiee) charger();
   }
   function setFiltres(f: CollecteFiltres) {
     setFiltresEtat(f);
@@ -400,7 +437,7 @@ function CollectesContent() {
   const colonnes = useMemo(
     () =>
       colonnesCollectesTraiteur({
-        onModifier: (c) => router.push(`/traiteur/collectes/${c.id}?edit=1`),
+        onModifier: (c) => ouvrirFicheRef.current(c.id, true),
         onAnnuler: (c) => {
           setAnnulErreur(null);
           setAnnulMotif('');
@@ -497,7 +534,7 @@ function CollectesContent() {
         initialColumnVisibility={
           onglet === 'programmees' ? { resultats: false } : {}
         }
-        onRowClick={(c) => router.push(`/traiteur/collectes/${c.id}`)}
+        onRowClick={(c) => ouvrirFiche(c.id)}
         rowLabel={(c) =>
           `Ouvrir la collecte du ${libelleDateHeure(c.date_collecte, c.heure_collecte)}${c.lieu_nom ? ` — ${c.lieu_nom}` : ''}`
         }
@@ -508,6 +545,12 @@ function CollectesContent() {
             description="Aucune collecte ne correspond à ces filtres."
           />
         }
+      />
+
+      <FicheCollecteTraiteurModal
+        collecteId={fiche?.id ?? null}
+        initialEditing={fiche?.edit ?? false}
+        onClose={fermerFiche}
       />
 
       {/* Modale d'annulation (liste) */}

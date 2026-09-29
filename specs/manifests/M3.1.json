@@ -10,6 +10,9 @@
     "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
     "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
     "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
+    "packages/plateforme/src/components/collecte/fiche-blocs.tsx",
+    "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx",
+    "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-modal.tsx",
     "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/page.tsx",
     "packages/plateforme/src/app/(traiteur)/traiteur/mon-profil/page.tsx",
     "packages/plateforme/src/app/api/v1/traiteur/collectes/route.ts",
@@ -111,7 +114,14 @@
     "M3.1/fiche_ui_bloc3_filtres_initialises_sur_la_collecte",
     "M3.1/fiche_ui_404_introuvable",
     "M3.1/fiche_ui_reponse_lente_ignoree",
-    "M3.1/fiche_ui_reload_manuel_perime_ignore"
+    "M3.1/fiche_ui_reload_manuel_perime_ignore",
+    "M3.1/fiche_ui_logistique_chauffeur_plaque_tel",
+    "M3.1/fiche_ui_logistique_multi_camions_en_attente",
+    "M3.1/fiche_ui_logistique_aucun_camion",
+    "M3.1/fiche_ui_logistique_masquee_terminee",
+    "M3.1/fiche_redirect_modale",
+    "M3.1/fiche_redirect_edit",
+    "M3.1/fiche_redirect_encode"
   ],
   "deliverables": [
     {
@@ -261,10 +271,10 @@
     {
       "id": "BL-P1-TRAIT-03",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:418-532",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx",
       "test": "M3.1/fiche_get_augmente",
       "statut": "implemented",
-      "libelle": "Fiche collecte : Contrôle d'accès câblé (plaque + chauffeur via tournées, 4 états), downloads rapport RSE (route traiteur + embargo H+24) et facture, modale d'annulation + motif"
+      "libelle": "Fiche collecte : bloc Logistique (chauffeur + plaque + téléphone par camion — ex-« Contrôle d'accès », élargi 2026-09-29, cf. M3.1-fiche-popup-logistique), downloads rapport RSE (route traiteur + embargo H+24) et facture, modale d'annulation + motif"
     },
     {
       "id": "BL-P1-TRAIT-04",
@@ -581,10 +591,18 @@
     {
       "id": "M3.1-fiche-etats-systeme-ds",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:391-410",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx",
       "test": "M3.1/fiche_ui_erreur_reessayer",
       "statut": "implemented",
       "libelle": "États système §10 §7 de la fiche : Loading = skeleton à la forme du contenu (et non un « Chargement… » nu), Error = message + bouton « Réessayer ». Un 500 affichait jusqu'ici « Collecte introuvable », message faux qui envoyait le traiteur chercher une collecte supprimée. Entête au pattern label/valeur, bandeau « Informations incomplètes » porté par le composant AlertBar du DS, date du titre en format FR."
+    },
+    {
+      "id": "M3.1-fiche-popup-logistique",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:532-555",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-traiteur-modal.tsx, packages/plateforme/src/components/collecte/fiche-collecte-traiteur-panel.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
+      "test": "M3.1/fiche_ui_logistique_chauffeur_plaque_tel",
+      "statut": "implemented",
+      "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, même format que la fiche Admin : colonne résumé + onglets Informations / Logistique / Bilan & documents) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md."
     }
   ],
   "cdc_source_hash": {

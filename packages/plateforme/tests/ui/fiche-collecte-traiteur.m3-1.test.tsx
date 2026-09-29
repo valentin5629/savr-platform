@@ -1,15 +1,13 @@
 /**
- * M3.1 — Fiche collecte traiteur (§06.04 « Fiche collecte (vue détail) »).
+ * M3.1 — Fiche collecte traiteur (§06.04 « Fiche collecte (vue détail) »),
+ * affichée en pop-up sur la liste (même format que la fiche Admin, décision Val
+ * 2026-09-29) : colonne résumé + onglets Informations / Logistique / Bilan.
  *
  * Sondes de RENDU : une route qui renvoie juste et une page qui n'affiche rien
  * passeraient les tests d'API. On vérifie donc ce que le traiteur VOIT :
  * l'entête complet (type + taille), le badge « Programmée par » et sa modale,
  * la date du titre en format FR (l'ISO brut de la DB ne s'affiche jamais),
  * l'état d'erreur distinct du « introuvable », et le gating du Bloc 3 ZD.
- *
- * `use(params)` ne se résout jamais sous Suspense dans cet environnement
- * (jsdom + React 19 + RTL 16) : on passe une promesse déjà marquée résolue au
- * sens de React — même geste que detail-evenement-gestionnaire.m3-2.test.tsx.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -17,18 +15,23 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
-  usePathname: () => '/traiteur/collectes/c1',
+  usePathname: () => '/traiteur/collectes',
 }));
 
-import FicheCollectePage from '@/app/(traiteur)/traiteur/collectes/[id]/page.js';
+import { FicheCollecteTraiteurModal } from '@/components/collecte/fiche-collecte-traiteur-modal.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
-const params = (id: string) =>
-  Object.assign(Promise.resolve({ id }), {
-    status: 'fulfilled',
-    value: { id },
-  });
+const fiche = (id: string) => (
+  <FicheCollecteTraiteurModal collecteId={id} onClose={() => {}} />
+);
+
+// Radix Tabs réagit au mousedown (pas au click) sous jsdom.
+async function ouvrirOnglet(nom: string): Promise<void> {
+  fireEvent.mouseDown(
+    await screen.findByRole('tab', { name: nom }, ATTENTE_UI),
+  );
+}
 
 function collecte(over: Record<string, unknown> = {}) {
   return {
@@ -127,7 +130,7 @@ describe('M3.1 / fiche collecte traiteur — entête (§06.04)', () => {
     'M3.1/fiche_ui_entete_type_et_taille — type d’événement + bracket affichés',
     async () => {
       stubFetch(collecte());
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
 
       await screen.findByText('Cocktail apéritif', {}, ATTENTE_UI);
       expect(screen.getByText('Type d’événement')).toBeTruthy();
@@ -140,16 +143,16 @@ describe('M3.1 / fiche collecte traiteur — entête (§06.04)', () => {
     'M3.1/fiche_ui_titre_date_fr — la date du titre n’est jamais l’ISO de la DB',
     async () => {
       stubFetch(collecte());
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
 
       const titre = await screen.findByRole(
         'heading',
-        { level: 1 },
+        { name: /^Collecte / },
         ATTENTE_UI,
       );
       expect(titre.textContent).toContain('10/12/2026');
       expect(titre.textContent).not.toContain('2026-12-10');
-      // Titre composite §06.04 : date - lieu - (client organisateur) - pax
+      // Titre composite (en-tête de la modale) : type · date · heure · lieu · pax
       expect(titre.textContent).toContain('Palais des Congrès de Paris');
       expect(titre.textContent).toContain('279 pax');
     },
@@ -168,7 +171,7 @@ describe('M3.1 / fiche collecte traiteur — entête (§06.04)', () => {
           },
         }),
       );
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
 
       const badge = await screen.findByTestId(
         'badge-programmee-par',
@@ -195,7 +198,7 @@ describe('M3.1 / fiche collecte traiteur — entête (§06.04)', () => {
     'M3.1/fiche_ui_programmee_par_absent — collecte de son organisation : pas de badge',
     async () => {
       stubFetch(collecte({ programmee_par: null }));
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
 
       await screen.findByText('Cocktail apéritif', {}, ATTENTE_UI);
       expect(screen.queryByTestId('badge-programmee-par')).toBeNull();
@@ -209,7 +212,7 @@ describe('M3.1 / fiche collecte traiteur — états système (§10 §7)', () => 
     'M3.1/fiche_ui_erreur_reessayer — un 500 n’affiche pas « Collecte introuvable »',
     async () => {
       stubFetch(null, { detailKo: true });
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
 
       await screen.findByTestId('fiche-erreur', {}, ATTENTE_UI);
       expect(
@@ -234,7 +237,7 @@ describe('M3.1 / fiche collecte traiteur — états système (§10 §7)', () => 
           } as Response),
         ),
       );
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
 
       await screen.findByText('Collecte introuvable.', {}, ATTENTE_UI);
       // Un « Réessayer » ici renverrait l'utilisateur contre le même 404.
@@ -284,10 +287,10 @@ describe('M3.1 / fiche collecte traiteur — navigation fiche → fiche', () => 
         }),
       );
 
-      const { rerender } = render(<FicheCollectePage params={params('c1')} />);
+      const { rerender } = render(fiche('c1'));
       // On navigue vers c2 AVANT que c1 n'ait répondu.
-      rerender(<FicheCollectePage params={params('c2')} />);
-      await screen.findByText('08:30', {}, ATTENTE_UI);
+      rerender(fiche('c2'));
+      await screen.findAllByText('08:30', {}, ATTENTE_UI);
 
       // c1 répond enfin, avec une heure différente : elle ne doit rien écraser.
       resoudreLente?.({
@@ -295,8 +298,8 @@ describe('M3.1 / fiche collecte traiteur — navigation fiche → fiche', () => 
       });
       await new Promise((r) => setTimeout(r, 0));
 
-      expect(screen.getByText('08:30')).toBeTruthy();
-      expect(screen.queryByText('22:00')).toBeNull();
+      expect(screen.getAllByText('08:30').length).toBeGreaterThan(0);
+      expect(screen.queryAllByText('22:00')).toHaveLength(0);
     },
     ATTENTE_CAS_MS,
   );
@@ -358,8 +361,8 @@ describe('M3.1 / fiche collecte traiteur — navigation fiche → fiche', () => 
         }),
       );
 
-      const { rerender } = render(<FicheCollectePage params={params('c1')} />);
-      await screen.findByText('22:00', {}, ATTENTE_UI);
+      const { rerender } = render(fiche('c1'));
+      await screen.findAllByText('22:00', {}, ATTENTE_UI);
 
       // Annulation → POST, puis reload() manuel sur c1.
       fireEvent.click(
@@ -374,8 +377,8 @@ describe('M3.1 / fiche collecte traiteur — navigation fiche → fiche', () => 
       );
 
       // L'utilisateur navigue vers c2 avant que ce reload n'ait répondu.
-      rerender(<FicheCollectePage params={params('c2')} />);
-      await screen.findByText('08:30', {}, ATTENTE_UI);
+      rerender(fiche('c2'));
+      await screen.findAllByText('08:30', {}, ATTENTE_UI);
 
       // Non-vacuité DANS le test : sans ce compte, un `confirmerAnnulation` qui
       // n'appellerait plus reload() rendrait le cas vert sans jamais exercer la
@@ -395,8 +398,8 @@ describe('M3.1 / fiche collecte traiteur — navigation fiche → fiche', () => 
       resoudreReload?.({ data: collecte({ heure_collecte: '22:00:00' }) });
       await new Promise((r) => setTimeout(r, 0));
 
-      expect(screen.getByText('08:30')).toBeTruthy();
-      expect(screen.queryByText('22:00')).toBeNull();
+      expect(screen.getAllByText('08:30').length).toBeGreaterThan(0);
+      expect(screen.queryAllByText('22:00')).toHaveLength(0);
     },
     ATTENTE_CAS_MS,
   );
@@ -407,9 +410,14 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
     'M3.1/fiche_ui_bloc3_masque_avant_realisation — ZD programmée : pas de jauges',
     async () => {
       stubFetch(collecte({ statut: 'programmee' }));
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
 
-      await screen.findByText('Cocktail apéritif', {}, ATTENTE_UI);
+      await ouvrirOnglet('Bilan & documents');
+      await screen.findByText(
+        /seront disponibles après la collecte/,
+        {},
+        ATTENTE_UI,
+      );
       expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
     },
     ATTENTE_CAS_MS,
@@ -421,7 +429,8 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
     'M3.1/fiche_ui_bloc3_visible_zd_terminee — jauges + encart de filtres (%s)',
     async (statut) => {
       stubFetch(collecte({ statut }));
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
+      await ouvrirOnglet('Bilan & documents');
 
       const bloc = await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
       // Les 5 flux ZD sont tous représentés (§06.04 « 1 jauge par flux ZD »),
@@ -449,7 +458,8 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
       // fait une requête. Sans cela le bloc s'afficherait vide en production
       // alors que les libellés de flux, eux, seraient bien rendus.
       stubFetch(collecte({ statut: 'cloturee' }));
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
+      await ouvrirOnglet('Bilan & documents');
       await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
 
       const urlsAppelees = (): string[] =>
@@ -476,10 +486,111 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
     'M3.1/fiche_ui_bloc3_masque_en_ag — le benchmark ZD ne s’affiche pas sur une collecte AG',
     async () => {
       stubFetch(collecte({ type: 'anti_gaspi', statut: 'cloturee' }));
-      render(<FicheCollectePage params={params('c1')} />);
+      render(fiche('c1'));
 
-      await screen.findByText('Cocktail apéritif', {}, ATTENTE_UI);
+      await ouvrirOnglet('Bilan & documents');
+      // Onglet bien ouvert (non-vacuité) : le bloc « Taux de recyclage » ZD n'y
+      // est pas non plus, mais l'onglet rend son contenu AG.
+      await screen.findByRole('tabpanel', {}, ATTENTE_UI);
       expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.1 / fiche collecte traiteur — Logistique (arbitrage Val 2026-09-29)', () => {
+  const tournee = {
+    plaque_immatriculation: 'AB-123-CD',
+    chauffeur_nom: 'Jean Dupont',
+    chauffeur_telephone: '+33 6 12 34 56 78',
+  };
+
+  it(
+    'M3.1/fiche_ui_logistique_chauffeur_plaque_tel — nom, plaque, téléphone, sans contrôle d’accès',
+    async () => {
+      stubFetch(
+        collecte({
+          statut: 'validee',
+          controle_acces_requis: false,
+          tournees: [tournee],
+        }),
+      );
+      render(fiche('c1'));
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId('bloc-logistique', {}, ATTENTE_UI);
+      await waitFor(() => {
+        expect(bloc.textContent).toContain('Jean Dupont');
+      }, ATTENTE_UI);
+      expect(bloc.textContent).toContain('AB-123-CD');
+      const tel = screen.getByRole('link', { name: '+33 6 12 34 56 78' });
+      expect(tel.getAttribute('href')).toBe('tel:+33612345678');
+      // Rien d'autre : ni type de véhicule, ni badge « Communiqué par ».
+      expect(bloc.textContent).not.toContain('Communiqué');
+      // Un seul camion : pas d'en-tête « Camion 1 ».
+      expect(bloc.textContent).not.toContain('Camion 1');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/fiche_ui_logistique_multi_camions_en_attente — un bloc par camion, champs manquants « En attente »',
+    async () => {
+      stubFetch(
+        collecte({
+          statut: 'programmee',
+          tournees: [
+            tournee,
+            {
+              plaque_immatriculation: null,
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+            },
+          ],
+        }),
+      );
+      render(fiche('c1'));
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId('bloc-logistique', {}, ATTENTE_UI);
+      await waitFor(() => {
+        expect(bloc.textContent).toContain('Camion 2');
+      }, ATTENTE_UI);
+      expect(bloc.textContent).toContain('Camion 1');
+      expect(screen.getAllByText('En attente')).toHaveLength(3);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/fiche_ui_logistique_aucun_camion — pas de tournée : message, aucune donnée chauffeur',
+    async () => {
+      stubFetch(collecte({ statut: 'programmee', tournees: [] }));
+      render(fiche('c1'));
+      await ouvrirOnglet('Logistique');
+
+      await screen.findByText(
+        'Aucun camion affecté pour le moment.',
+        {},
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/fiche_ui_logistique_masquee_terminee — collecte clôturée : plus de chauffeur affiché',
+    async () => {
+      stubFetch(collecte({ statut: 'cloturee', tournees: [tournee] }));
+      render(fiche('c1'));
+      await ouvrirOnglet('Logistique');
+
+      await screen.findByText(
+        'Aucune information logistique à afficher pour cette collecte.',
+        {},
+        ATTENTE_UI,
+      );
+      expect(screen.queryByText('Jean Dupont')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

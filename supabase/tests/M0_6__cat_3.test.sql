@@ -137,7 +137,9 @@ SELECT results_eq(
   'T23 Erreur : traiteur UPDATE parametres retourne 0 lignes'
 );
 
--- T24 : Gestionnaire lieux tente UPDATE organisations_lieux autre gestionnaire → 0 lignes
+-- T24 : Gestionnaire lieux tente UPDATE organisations_lieux autre gestionnaire → 42501
+-- (écriture directe fermée à `authenticated`, 20260929150000 : le privilège refuse
+-- avant la RLS, qui renvoyait auparavant 0 ligne)
 SELECT test_as_superuser();
 -- Crée une liaison d'un autre gestionnaire (Y) — un traiteur ne peut plus être
 -- rattaché à un lieu (trigger P0047, 20260929140000).
@@ -145,14 +147,11 @@ INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
 VALUES ('eeeeeeee-0000-0000-0000-000000000001'::uuid, '10c00002-0000-0000-0000-000000000001'::uuid);
 SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'::uuid);
 -- Tente de modifier une liaison qui n'existe pas pour lui
-SELECT results_eq(
-  $$WITH u AS (
-    UPDATE plateforme.organisations_lieux
+SELECT throws_ok(
+  $$UPDATE plateforme.organisations_lieux
     SET lieu_id = '10c00001-0000-0000-0000-000000000001'::uuid
-    WHERE lieu_id = '10c00002-0000-0000-0000-000000000001'::uuid
-    RETURNING 1
-  ) SELECT count(*)::int FROM u$$,
-  $$VALUES (0)$$,
+    WHERE lieu_id = '10c00002-0000-0000-0000-000000000001'::uuid$$,
+  '42501', 'permission denied for table organisations_lieux',
   'T24 Erreur : gestionnaire UPDATE organisations_lieux cross-org'
 );
 

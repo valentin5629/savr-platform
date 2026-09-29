@@ -12,6 +12,7 @@ import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-opera
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateurOuAdmin(req);
@@ -197,6 +198,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 422 },
       );
     }
+    const refusHeure = refusHeureCollecte(c.heure_collecte);
+    if (refusHeure) return refusHeure;
 
     const infosValides = validerChampsTexteLibre(c);
     if ('error' in infosValides) return infosValides.error;

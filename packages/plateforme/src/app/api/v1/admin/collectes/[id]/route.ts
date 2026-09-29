@@ -9,6 +9,7 @@ import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
+import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 
 async function getHandler(
   req: NextRequest,
@@ -110,6 +111,12 @@ async function patchHandler(
   const texteValide = validerChampsTexteLibre(updates);
   if ('error' in texteValide) return texteValide.error;
   Object.assign(updates, texteValide.valeurs);
+
+  // Format de l'heure refusé en 422 avant la RPC (cast `::time` + NOT NULL → 500).
+  if (Object.hasOwn(updates, 'heure_collecte')) {
+    const refusHeure = refusHeureCollecte(updates.heure_collecte);
+    if (refusHeure) return refusHeure;
+  }
 
   // §07/06 collecte_statut_force — une bascule MANUELLE de statut exige un motif
   // (≥ 10 car., §07/06 pt2). Les éditions de routine (date, notes, camions…)

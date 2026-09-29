@@ -10,6 +10,7 @@ import {
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { lireTri } from '@/lib/tri-liste.js';
+import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
 const TRIS = {
@@ -268,6 +269,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       { status: 422 },
     );
   }
+  const refusHeure = refusHeureCollecte(heure_collecte);
+  if (refusHeure) return refusHeure;
 
   // Borne d'entrée du texte libre transmis au transporteur : `fn_creer_collecte`
   // stocke `p_info_suppl` tel quel, sans rien vérifier.

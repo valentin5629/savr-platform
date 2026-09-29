@@ -1,4 +1,4 @@
-Dernier sync : 2026-09-29 17:15:55 CEST
+Dernier sync : 2026-09-29 17:16:18 CEST
   specs/cdc       : 138 fichiers
   specs/tests/app : 12 fichiers
   specs/tests/tms : 14 fichiers

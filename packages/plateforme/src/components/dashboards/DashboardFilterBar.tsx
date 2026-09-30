@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   ParcMultiSelects,
   type ParcFilterOptions,
   type ParcFilterValue,
 } from './ParcMultiSelects.js';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FilterBar } from '@/components/ui/filter-bar';
 import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
@@ -27,6 +28,15 @@ interface DashboardFilterBarProps {
   onChange: (filters: DashboardFilters) => void;
   /** Si fourni, affiche les 4 filtres parc (Lieux/Traiteurs/Type/Taille) + Réinitialiser. */
   parcOptions?: ParcFilterOptions;
+  /** Filtres propres au consommateur, en tête de ligne (avant « Période »). */
+  children?: ReactNode;
+  /** Appelé en plus du retour à la période par défaut (« Réinitialiser »). */
+  onReset?: () => void;
+  /**
+   * Barre des listes (`FilterBar` : carte blanche + bandeau) au lieu du
+   * bandeau seul — Dashboard Client Admin (décision Val 2026-09-30).
+   */
+  enCarte?: boolean;
   className?: string;
 }
 
@@ -72,6 +82,9 @@ export function DashboardFilterBar({
   storageKey,
   onChange,
   parcOptions,
+  children,
+  onReset,
+  enCarte = false,
   className,
 }: DashboardFilterBarProps) {
   const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
@@ -105,14 +118,14 @@ export function DashboardFilterBar({
     onChange(next);
   }
 
-  return (
-    <BarreFiltres
-      surface="page"
-      data-testid="dashboard-filter-bar"
-      className={className}
-      onReset={() => apply(defaultFilters())}
-      resetTestId="dashboard-filter-reinitialiser"
-    >
+  function reinitialiser() {
+    apply(defaultFilters());
+    onReset?.();
+  }
+
+  const filtres = (
+    <>
+      {children}
       {/* Format unique des barres de filtres (décision Val 2026-09-30) :
           « Période  12 derniers mois ▾ », raccourcis dans le panneau. */}
       <DateRangePicker
@@ -137,6 +150,31 @@ export function DashboardFilterBar({
           testidPrefix="dashboard-filter"
         />
       )}
+    </>
+  );
+
+  if (enCarte) {
+    return (
+      <FilterBar
+        data-testid="dashboard-filter-bar"
+        className={className}
+        actif
+        onReset={reinitialiser}
+      >
+        {filtres}
+      </FilterBar>
+    );
+  }
+
+  return (
+    <BarreFiltres
+      surface="page"
+      data-testid="dashboard-filter-bar"
+      className={className}
+      onReset={reinitialiser}
+      resetTestId="dashboard-filter-reinitialiser"
+    >
+      {filtres}
     </BarreFiltres>
   );
 }

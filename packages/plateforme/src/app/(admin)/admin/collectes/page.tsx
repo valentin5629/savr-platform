@@ -8,8 +8,6 @@ import {
   UtensilsCrossed,
   Leaf,
   ArrowRight,
-  Search,
-  SlidersHorizontal,
   IdCard,
   FileWarning,
   type LucideIcon,
@@ -20,7 +18,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
   readCollecteFiltreLabel,
@@ -221,8 +219,6 @@ export default function CollectesPage() {
   const [lieuId, setLieuId] = useState(drillLieu ?? '');
   const [from, setFrom] = useState(drillFrom ?? '');
   const [to, setTo] = useState(drillTo ?? '');
-  const [search, setSearch] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
   // Statut (multi-sélection, §06.06 §3) : scopé aux valeurs valides de l'onglet
   // actif ; vide = preset de l'onglet. Info incomplète / rapport non consulté :
   // booléens indépendants de l'onglet.
@@ -355,7 +351,7 @@ export default function CollectesPage() {
       }
     }
 
-    // Filtres avancés (communs, hors chemin chip Programmées).
+    // Filtres de la barre (communs, hors chemin chip Programmées).
     if (!(tab === 'programmees' && quickFilter)) {
       // « Traiteur » = traiteur OPÉRATIONNEL (décision Val R24c) → miroir exact du
       // Top 5 traiteurs des dashboards (agrégé par traiteur_operationnel).
@@ -445,34 +441,11 @@ export default function CollectesPage() {
     setPage(1);
   };
 
-  // Recherche texte = filtre côté client sur la page chargée (traiteur, lieu,
-  // ville, client, adresse) — l'API n'expose pas de recherche plein-texte.
-  const visibles = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return collectes;
-    return collectes.filter((c) => {
-      const l = c.evenements.lieux;
-      const hay = [
-        c.evenements.organisations.raison_sociale,
-        l.nom,
-        l.ville,
-        l.adresse_acces,
-        c.evenements.client_organisateur?.raison_sociale,
-        c.evenements.nom_client_organisateur,
-        c.transporteur_nom,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [collectes, search]);
-
   // Urgences (AG à attribuer < 48h) en tête de page (§06.09 §1) — uniquement
   // sur le tri par date : un tri explicite sur une autre colonne est respecté.
   const lignes = useMemo(
-    () => (sorting[0]?.id === 'date' ? urgentesEnTete(visibles) : visibles),
-    [visibles, sorting],
+    () => (sorting[0]?.id === 'date' ? urgentesEnTete(collectes) : collectes),
+    [collectes, sorting],
   );
 
   const colonnes = useMemo(
@@ -682,144 +655,121 @@ export default function CollectesPage() {
         </div>
       )}
 
-      {/* Filtres rapides + recherche + avancés */}
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterChips
-          chips={chips.map((c) =>
-            tab === 'programmees' && c.key
-              ? { ...c, count: chipCounts[c.key] }
-              : c,
-          )}
-          activeKey={quickFilter}
-          ariaLabel="Filtres rapides"
-          className="flex-1"
-          onSelect={(key) => {
-            setQuickFilter(key);
-            setType('');
+      {/* Filtres rapides (pastilles à compteur, DS §5.7) */}
+      <FilterChips
+        chips={chips.map((c) =>
+          tab === 'programmees' && c.key
+            ? { ...c, count: chipCounts[c.key] }
+            : c,
+        )}
+        activeKey={quickFilter}
+        ariaLabel="Filtres rapides"
+        onSelect={(key) => {
+          setQuickFilter(key);
+          setType('');
+          setPage(1);
+        }}
+      />
+
+      {/* Barre de filtres toujours visible — ni recherche libre ni repli
+          « Filtres avancés » (décision Val 2026-09-30, §06.06 §3 « Filtres »). */}
+      <FilterBar data-testid="collectes-filtres">
+        <Combobox
+          titre="Type"
+          id="collectes-filtre-type"
+          options={[
+            { value: '', label: 'Tous types' },
+            { value: 'zero_dechet', label: 'Zéro Déchet' },
+            { value: 'anti_gaspi', label: 'Anti-Gaspi' },
+          ]}
+          value={type}
+          onChange={(v) => {
+            setType(v);
             setPage(1);
           }}
         />
-        <div className="relative min-w-[190px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
-          <Input
-            aria-label="Rechercher"
-            placeholder="Traiteur, lieu, ville…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <Combobox
+          titre="Traiteur"
+          id="collectes-filtre-traiteur"
+          searchPlaceholder="Rechercher un traiteur…"
+          options={[
+            { value: '', label: 'Tous les traiteurs' },
+            ...traiteurs.map((t) => ({ value: t.id, label: t.label })),
+          ]}
+          value={traiteurId}
+          onChange={(v) => {
+            setTraiteurId(v);
+            setPage(1);
+          }}
+        />
+        <Combobox
+          titre="Lieu"
+          id="collectes-filtre-lieu"
+          searchPlaceholder="Rechercher un lieu…"
+          options={[
+            { value: '', label: 'Tous les lieux' },
+            ...lieux.map((l) => ({ value: l.id, label: l.label })),
+          ]}
+          value={lieuId}
+          onChange={(v) => {
+            setLieuId(v);
+            setPage(1);
+          }}
+        />
+        <DateRangePicker
+          titre="Période"
+          id="collectes-filtre-periode"
+          data-testid="collectes-filtre-periode"
+          value={{ from, to }}
+          onChange={(p) => {
+            setFrom(p.from);
+            setTo(p.to);
+            setPage(1);
+          }}
+        />
+
+        {/* Statut — multi-sélection scopée aux valeurs de l'onglet actif */}
+        <FiltreCoches
+          label="Statut"
+          testid="collectes-filtre-statut"
+          options={(tab === 'programmees'
+            ? STATUTS_PROGRAMMEES
+            : STATUTS_HISTORIQUE
+          ).map((s) => ({
+            id: s,
+            nom: statutCollecteDisplay(s, 'admin').label,
+          }))}
+          selected={statutsSel}
+          onChange={(ids) => {
+            setStatutsSel(ids);
+            setPage(1);
+          }}
+        />
+
+        {/* Booléens — case DS (§6 Checkbox), cible 44px mobile */}
+        <div className="flex flex-wrap gap-x-4 px-2">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
+            <Checkbox
+              checked={infoIncomplete}
+              onCheckedChange={(v) => {
+                setInfoIncomplete(v === true);
+                setPage(1);
+              }}
+            />
+            Info incomplète
+          </label>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
+            <Checkbox
+              checked={rapportNonConsulte}
+              onCheckedChange={(v) => {
+                setRapportNonConsulte(v === true);
+                setPage(1);
+              }}
+            />
+            Rapport non consulté
+          </label>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() => setShowAdvanced((v) => !v)}
-          className="h-11 sm:h-10"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-          Filtres avancés
-        </Button>
-      </div>
-
-      {showAdvanced && (
-        <FilterBar data-testid="collectes-filtres-avances">
-          <Combobox
-            titre="Type"
-            id="collectes-filtre-type"
-            options={[
-              { value: '', label: 'Tous types' },
-              { value: 'zero_dechet', label: 'Zéro Déchet' },
-              { value: 'anti_gaspi', label: 'Anti-Gaspi' },
-            ]}
-            value={type}
-            onChange={(v) => {
-              setType(v);
-              setPage(1);
-            }}
-          />
-          <Combobox
-            titre="Traiteur"
-            id="collectes-filtre-traiteur"
-            searchPlaceholder="Rechercher un traiteur…"
-            options={[
-              { value: '', label: 'Tous les traiteurs' },
-              ...traiteurs.map((t) => ({ value: t.id, label: t.label })),
-            ]}
-            value={traiteurId}
-            onChange={(v) => {
-              setTraiteurId(v);
-              setPage(1);
-            }}
-          />
-          <Combobox
-            titre="Lieu"
-            id="collectes-filtre-lieu"
-            searchPlaceholder="Rechercher un lieu…"
-            options={[
-              { value: '', label: 'Tous les lieux' },
-              ...lieux.map((l) => ({ value: l.id, label: l.label })),
-            ]}
-            value={lieuId}
-            onChange={(v) => {
-              setLieuId(v);
-              setPage(1);
-            }}
-          />
-          <DateRangePicker
-            titre="Période"
-            id="collectes-filtre-periode"
-            data-testid="collectes-filtre-periode"
-            value={{ from, to }}
-            onChange={(p) => {
-              setFrom(p.from);
-              setTo(p.to);
-              setPage(1);
-            }}
-          />
-
-          {/* Statut — multi-sélection scopée aux valeurs de l'onglet actif */}
-          <FiltreCoches
-            label="Statut"
-            testid="collectes-filtre-statut"
-            options={(tab === 'programmees'
-              ? STATUTS_PROGRAMMEES
-              : STATUTS_HISTORIQUE
-            ).map((s) => ({
-              id: s,
-              nom: statutCollecteDisplay(s, 'admin').label,
-            }))}
-            selected={statutsSel}
-            onChange={(ids) => {
-              setStatutsSel(ids);
-              setPage(1);
-            }}
-          />
-
-          {/* Booléens */}
-          <div className="flex flex-wrap gap-4 px-2">
-            <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
-              <input
-                type="checkbox"
-                checked={infoIncomplete}
-                onChange={(e) => {
-                  setInfoIncomplete(e.target.checked);
-                  setPage(1);
-                }}
-              />
-              Info incomplète
-            </label>
-            <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
-              <input
-                type="checkbox"
-                checked={rapportNonConsulte}
-                onChange={(e) => {
-                  setRapportNonConsulte(e.target.checked);
-                  setPage(1);
-                }}
-              />
-              Rapport non consulté
-            </label>
-          </div>
-        </FilterBar>
-      )}
+      </FilterBar>
 
       <DataGrid
         key={tab}
@@ -839,9 +789,6 @@ export default function CollectesPage() {
           !loading && total > 0 ? (
             <span className="text-sm text-savr-neutral-500">
               {total} collecte{total > 1 ? 's' : ''}
-              {search
-                ? ` · ${visibles.length} affichée${visibles.length > 1 ? 's' : ''}`
-                : ''}
             </span>
           ) : null
         }

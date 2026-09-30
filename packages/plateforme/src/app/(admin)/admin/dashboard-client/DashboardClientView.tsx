@@ -189,9 +189,20 @@ export function DashboardClientView() {
   useEffect(() => {
     fetch('/api/v1/admin/dashboard-client/organisations')
       .then((r) => r.json())
-      .then((j: { data?: OrganisationOption[] }) =>
-        setOrganisations(j.data ?? []),
-      )
+      .then((j: { data?: OrganisationOption[] }) => {
+        const liste = j.data ?? [];
+        setOrganisations(liste);
+        // Une sélection mémorisée d'une organisation disparue filtrerait en
+        // silence (aucun filtre ne l'affiche) → retirée dès la liste connue.
+        if (liste.length > 0) {
+          const ids = new Set(liste.map((o) => o.id));
+          setSelectedOrgs((sel) =>
+            sel.every((id) => ids.has(id))
+              ? sel
+              : sel.filter((id) => ids.has(id)),
+          );
+        }
+      })
       .catch(() => setOrganisations([]));
   }, []);
 
@@ -395,17 +406,23 @@ export function DashboardClientView() {
         </Badge>
       </div>
 
-      <OrganisationSelector
-        organisations={organisations}
-        selected={selectedOrgs}
-        onChange={setSelectedOrgs}
-      />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <DashboardFilterBar
-          storageKey="savr.dashboard-client.filters"
-          onChange={handleFilters}
+      {/* Même barre que la liste Collectes (décision Val 2026-09-30) :
+          organisations par type + Période ; « Réinitialiser » rétablit
+          aussi toutes les organisations (§06.06 §2). */}
+      <DashboardFilterBar
+        storageKey="savr.dashboard-client.filters"
+        onChange={handleFilters}
+        onReset={() => setSelectedOrgs([])}
+        enCarte
+      >
+        <OrganisationSelector
+          organisations={organisations}
+          selected={selectedOrgs}
+          onChange={setSelectedOrgs}
         />
+      </DashboardFilterBar>
+
+      <div className="flex justify-end">
         <CollecteTypeTabs value={tab} onChange={setTab} />
       </div>
 

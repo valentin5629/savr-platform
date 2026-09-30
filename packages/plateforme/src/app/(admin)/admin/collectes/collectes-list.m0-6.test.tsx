@@ -4,9 +4,9 @@
  * ligne par collecte, tri serveur par en-tête, actions dans le menu « ⋯ » :
  * - contenu ligne (traiteur, lieu, client organisateur, adresse, transporteur),
  * - segment Programmées / Historique (preset du filtre `statuts`),
- * - tuiles KPI « à dispatcher », chips + compteurs, recherche client, filtres
- *   avancés (traiteur / lieu → filtrage serveur), indicateurs Historique
- *   (poids/taux ZD, repas AG, rapport consulté).
+ * - tuiles KPI « à dispatcher », chips + compteurs, barre de filtres toujours
+ *   visible, sans recherche libre (traiteur / lieu → filtrage serveur),
+ *   indicateurs Historique (poids/taux ZD, repas AG, rapport consulté).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
@@ -747,37 +747,19 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — recherche client filtre les cartes de la page chargée',
-    async () => {
-      mockCollectesFetch();
-      render(<CollectesPage />);
-      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-      fireEvent.change(screen.getByLabelText('Rechercher'), {
-        target: { value: 'Wagram' },
-      });
-
-      // Ne reste que la carte du lieu « Salle Wagram » (Traiteur Alpha) ;
-      // « Traiteur Beta » (AG, lieu Pavillon) disparaît.
-      await waitFor(
-        () =>
-          expect(screen.queryByText('Traiteur Beta')).not.toBeInTheDocument(),
-        ATTENTE_UI,
-      );
-      expect(screen.getAllByText('Salle Wagram').length).toBeGreaterThan(0);
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    'M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur',
+    'M0.6 — barre de filtres visible par défaut : traiteur/lieu peuplés + filtrage serveur',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-      // Panneau replié par défaut → ouvrir
-      fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
+      // Décision Val 2026-09-30 : barre affichée d'emblée, ni bouton de repli
+      // « Filtres avancés » ni recherche libre « Traiteur, lieu, ville… ».
+      expect(screen.getByTestId('collectes-filtres')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /Filtres avancés/ }),
+      ).toBeNull();
+      expect(screen.queryByPlaceholderText(/Traiteur, lieu, ville/)).toBeNull();
 
       // DS : filtre en ligne « Traiteur  Tous ▾ » (Combobox mode filtre, nommé
       // par son titre via aria-labelledby), options portées dans document.body.
@@ -843,7 +825,6 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-      fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
       // Statut multi-sélection scopée à l'onglet Programmées : filtre en ligne
       // « Statut  Tous ▾ » → liste à cocher (case distincte du badge de carte).
       fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
@@ -872,7 +853,6 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-      fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
       fireEvent.click(screen.getByLabelText('Info incomplète'));
 
       await waitFor(() => {
@@ -890,7 +870,6 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-      fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
       fireEvent.click(screen.getByLabelText('Rapport non consulté'));
 
       await waitFor(() => {

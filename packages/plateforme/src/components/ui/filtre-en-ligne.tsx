@@ -125,12 +125,19 @@ interface FiltreCochesProps {
   selected: string[];
   onChange: (ids: string[]) => void;
   testid?: string;
+  /** Valeur affichée sans case cochée (défaut « Tous »). */
+  libelleVide?: string;
 }
 
-// Résumé affiché à côté du titre : « Tous », le libellé (court) de l'option
-// unique (« XL (≥ 1000) » → « XL »), ou le nombre d'options cochées.
-function resumeSelection(options: OptionFiltre[], selected: string[]): string {
-  if (selected.length === 0) return 'Tous';
+// Résumé affiché à côté du titre : « Tous » (ou `libelleVide`), le libellé
+// (court) de l'option unique (« XL (≥ 1000) » → « XL »), ou le nombre
+// d'options cochées.
+function resumeSelection(
+  options: OptionFiltre[],
+  selected: string[],
+  libelleVide: string,
+): string {
+  if (selected.length === 0) return libelleVide;
   if (selected.length === 1) {
     const o = options.find((x) => x.id === selected[0]);
     return o ? (o.court ?? o.nom) : '1 sélectionné';
@@ -162,6 +169,7 @@ export function FiltreCoches({
   selected,
   onChange,
   testid,
+  libelleVide = 'Tous',
 }: FiltreCochesProps) {
   const [recherche, setRecherche] = React.useState('');
   const avecRecherche = options.length > SEUIL_RECHERCHE;
@@ -178,7 +186,7 @@ export function FiltreCoches({
         >
           <ContenuDeclencheur
             titre={label}
-            valeur={resumeSelection(options, selected)}
+            valeur={resumeSelection(options, selected, libelleVide)}
           />
         </button>
       </PopoverTrigger>

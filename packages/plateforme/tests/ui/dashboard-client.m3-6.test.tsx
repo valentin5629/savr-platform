@@ -1,9 +1,11 @@
 /**
  * M3.6 — Test UI Dashboard Client Admin (§06.06 §2).
- * Couvre le scénario Gherkin dashboard_client_toutes_organisations_lecture_seule :
- *  - « Toutes les organisations » (défaut) → KPI agrégés sans filtre organisation_id
- *  - aucune action d'écriture disponible
- *  - sélection d'organisations restaurée depuis localStorage à la réouverture
+ * Couvre les scénarios Gherkin :
+ *  - dashboard_client_toutes_organisations_lecture_seule : « Toutes les
+ *    organisations » (défaut) → KPI agrégés sans filtre organisation_id, aucune
+ *    action d'écriture, sélection restaurée depuis localStorage ;
+ *  - dashboard_client_filtres_organisations_par_type : 3 filtres en ligne
+ *    Traiteur / Agence / Gestionnaire de lieux (décision Val 2026-09-30).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -74,6 +76,14 @@ function kpiCalls(): string[] {
     .filter((u) => /\/admin\/dashboard-client\?/.test(u));
 }
 
+// Organisations du périmètre dans la dernière requête KPI.
+function orgIdsDerniereRequete(): string[] {
+  const derniere = kpiCalls().at(-1) ?? '';
+  return new URL(derniere, 'http://savr.test').searchParams.getAll(
+    'organisation_ids[]',
+  );
+}
+
 // localStorage en mémoire (le localStorage jsdom de vitest n'expose pas clear()).
 function makeLocalStorage(): Storage {
   let store: Record<string, string> = {};
@@ -117,8 +127,10 @@ describe('M3.6 / Dashboard Client / UI', () => {
       expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
       expect(screen.getByText('12')).toBeInTheDocument();
 
-      // Et le sélecteur est sur « Toutes les organisations »
-      expect(screen.getByTestId('org-selection-toutes')).toBeInTheDocument();
+      // Et le sélecteur est sur « Toutes les organisations » (3 filtres à « Tous »)
+      expect(screen.getByTestId('org-filtre-traiteur')).toHaveTextContent(
+        'TraiteurTous',
+      );
 
       // Et la requête KPI n'applique AUCUN filtre organisation_id (agrégation totale)
       const calls = kpiCalls();
@@ -133,16 +145,16 @@ describe('M3.6 / Dashboard Client / UI', () => {
         }),
       ).toBeNull();
 
-      // L'admin ouvre la cellule « Traiteurs » (liste déroulante) puis sélectionne o1
+      // L'admin ouvre le filtre « Traiteur » puis coche o1
       fireEvent.click(
-        await screen.findByTestId(
-          'org-section-traiteur',
-          undefined,
-          ATTENTE_UI,
-        ),
+        await screen.findByTestId('org-filtre-traiteur', undefined, ATTENTE_UI),
       );
       fireEvent.click(
-        await screen.findByTestId('org-option-o1', undefined, ATTENTE_UI),
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Traiteur Alpha' },
+          ATTENTE_UI,
+        ),
       );
       await waitFor(
         () =>
@@ -157,9 +169,8 @@ describe('M3.6 / Dashboard Client / UI', () => {
       fetchMock.mockClear();
       render(<DashboardClientView />);
 
-      // La sélection est restaurée depuis localStorage : plus de badge « Toutes »
-      // + le filtre organisation_ids est appliqué à la requête.
-      expect(screen.queryByTestId('org-selection-toutes')).toBeNull();
+      // La sélection est restaurée depuis localStorage : le filtre « Traiteur »
+      // affiche o1 + le filtre organisation_ids est appliqué à la requête.
       await waitFor(
         () =>
           expect(kpiCalls().some((u) => u.includes('organisation_ids'))).toBe(
@@ -167,59 +178,114 @@ describe('M3.6 / Dashboard Client / UI', () => {
           ),
         ATTENTE_UI,
       );
-      // Et en ouvrant la cellule Traiteurs, o1 est bien coché.
-      fireEvent.click(
-        await screen.findByTestId(
-          'org-section-traiteur',
-          undefined,
+      expect(screen.getByTestId('org-filtre-traiteur')).toHaveTextContent(
+        'Traiteur Alpha',
+      );
+      // Et en ouvrant le filtre Traiteur, o1 est bien coché.
+      fireEvent.click(screen.getByTestId('org-filtre-traiteur'));
+      expect(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Traiteur Alpha' },
           ATTENTE_UI,
         ),
-      );
-      const cb = (await screen.findByTestId(
-        'org-option-o1',
-        undefined,
-        ATTENTE_UI,
-      )) as HTMLInputElement;
-      expect(cb.checked).toBe(true);
+      ).toBeChecked();
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.6/org_selecteur_cellules_par_type — 3 cellules par type, listes déroulantes au clic (retour Val R24c)',
+    'M3.6/dashboard_client_filtres_organisations_par_type — 3 filtres en ligne par type, périmètre = union, Réinitialiser (décision Val 2026-09-30)',
     async () => {
       render(<DashboardClientView />);
 
-      // Une cellule (liste déroulante) par type : traiteur / agence / gestionnaire.
+      // La barre affiche « Période » et 3 filtres en ligne, chacun à « Tous /
+      // Toutes » (= toutes les organisations).
+      const traiteur = await screen.findByTestId(
+        'org-filtre-traiteur',
+        undefined,
+        ATTENTE_UI,
+      );
+      const agence = screen.getByTestId('org-filtre-agence');
+      const gestionnaire = screen.getByTestId('org-filtre-gestionnaire_lieux');
       expect(
-        await screen.findByTestId(
-          'org-section-traiteur',
-          undefined,
+        screen.getByTestId('dashboard-filter-periode'),
+      ).toBeInTheDocument();
+      expect(traiteur).toHaveTextContent('TraiteurTous');
+      expect(agence).toHaveTextContent('AgenceToutes');
+      expect(gestionnaire).toHaveTextContent('Gestionnaire de lieuxTous');
+      // Plus de recherche transverse ni de badge « Toutes les organisations ».
+      expect(screen.queryByTestId('org-search')).toBeNull();
+      await waitFor(
+        () => expect(kpiCalls().length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+
+      // Coche o1 dans « Traiteur » → les autres types passent à « Aucun/Aucune »
+      // et le périmètre = o1.
+      fireEvent.click(traiteur);
+      fireEvent.click(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Traiteur Alpha' },
           ATTENTE_UI,
         ),
-      ).toBeInTheDocument();
-      expect(screen.getByTestId('org-section-agence')).toBeInTheDocument();
-      expect(
-        screen.getByTestId('org-section-gestionnaire_lieux'),
-      ).toBeInTheDocument();
+      );
+      await waitFor(() => {
+        expect(agence).toHaveTextContent('AgenceAucune');
+        expect(gestionnaire).toHaveTextContent('Gestionnaire de lieuxAucun');
+        expect(orgIdsDerniereRequete()).toEqual(['o1']);
+      }, ATTENTE_UI);
 
-      // Repliées par défaut → aucune organisation visible tant qu'on n'a pas ouvert.
-      expect(screen.queryByTestId('org-option-o1')).toBeNull();
+      // Coche en plus une agence → périmètre = union des deux organisations.
+      fireEvent.click(agence);
+      fireEvent.click(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Agence Gamma' },
+          ATTENTE_UI,
+        ),
+      );
+      await waitFor(
+        () => expect(orgIdsDerniereRequete().sort()).toEqual(['o1', 'o3']),
+        ATTENTE_UI,
+      );
+      expect(agence).toHaveTextContent('Agence Gamma');
 
-      // Ouvrir « Traiteurs » déroule sa liste (o1 = traiteur Alpha).
-      fireEvent.click(screen.getByTestId('org-section-traiteur'));
-      expect(
-        await screen.findByTestId('org-option-o1', undefined, ATTENTE_UI),
-      ).toBeInTheDocument();
-      // Une seule cellule ouverte à la fois → l'agence reste fermée.
-      expect(screen.queryByTestId('org-option-o3')).toBeNull();
+      // « Réinitialiser » → période par défaut + les 3 filtres à « Tous/Toutes ».
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Réinitialiser les filtres' }),
+      );
+      await waitFor(() => {
+        expect(traiteur).toHaveTextContent('TraiteurTous');
+        expect(agence).toHaveTextContent('AgenceToutes');
+        expect(orgIdsDerniereRequete()).toEqual([]);
+      }, ATTENTE_UI);
+      expect(localStorage.getItem(STORAGE_KEY)).toBe('[]');
+      expect(screen.getByTestId('dashboard-filter-periode')).toHaveTextContent(
+        '12 derniers mois',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 
-      // Ouvrir « Agences » ferme « Traiteurs » et déroule o3 (agence Gamma).
-      fireEvent.click(screen.getByTestId('org-section-agence'));
-      expect(
-        await screen.findByTestId('org-option-o3', undefined, ATTENTE_UI),
-      ).toBeInTheDocument();
-      expect(screen.queryByTestId('org-option-o1')).toBeNull();
+  it(
+    'M3.6 — une organisation mémorisée mais disparue est retirée de la sélection',
+    async () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(['o1', 'disparue']));
+      render(<DashboardClientView />);
+
+      await waitFor(
+        () =>
+          expect(localStorage.getItem(STORAGE_KEY)).toBe(
+            JSON.stringify(['o1']),
+          ),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(orgIdsDerniereRequete()).toEqual(['o1']),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

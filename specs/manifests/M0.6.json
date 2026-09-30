@@ -1008,6 +1008,14 @@
       "libelle": "Liste collectes Admin : colonnes + indicateurs + filtres (§06.06 §3) — GO-VISUAL en attente (validation Val). Prédicat chip « Non transmises TMS » réaligné sur le CDC (test API dédié). Statut attribution AG = 3 des 4 états CDC dérivables (En attente/Validée/Auto-accept via mode_validation) ; 4e état « aucune reco » sans marqueur persisté pré-validation en V1 → replié sur « En attente », décision Val ouverte, cf. _Divergences/BOA-COLLECTES-ATTRIBUTION_20260702.md. « Anomalie pesée » (badge + filtre) NON implémentée = exception actée V2 (détection seuils par flux) — cf. _Divergences/BOA-COLLECTES_20260702.md."
     },
     {
+      "id": "M0.6-collectes-filtres-multiples",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:192",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (barre toujours visible, Période en premier, Type / Traiteur / Lieu en FiltreCoches) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (types / traiteur_operationnel_ids / lieu_ids CSV validés) + packages/plateforme/src/components/ui/filtre-en-ligne.tsx (case « Tous »)",
+      "test": "M0.6 — barre de filtres visible par défaut : traiteur/lieu peuplés + filtrage serveur + M0.6 — filtre Type à choix multiple : un type → types=… ; les deux cochés = « Tous » + M0.6 — choix multiple : types / traiteur_operationnel_ids / lieu_ids (CSV) → in(…) prioritaires sur le mono + ds/filtre_coches_case_tous_cochee_par_defaut_efface_la_selection + M0.6 — pastille rapide ET barre se cumulent (décision Val 2026-09-30) + M0.6 — Historique : pastille Anti-Gaspi × Type Zéro Déchet = aucun résultat, sans appel API + M0.6 — drill-down Dashboard Client (?traiteur / ?type / ?statut / ?perimetre) → filtres multiples pré-cochés + M0.6 — une réponse plus ancienne arrivée en dernier n’écrase pas la liste + M0.6 — pastille (chip) ET filtres de la barre se cumulent côté route (décision Val 2026-09-30, E5)",
+      "statut": "à-vérifier",
+      "libelle": "Barre de filtres Admin Collectes (décisions Val 2026-09-30, _Divergences/M0.8_20260930_filtres-en-ligne D1 + M0.8_20260930_filtres-choix-multiple-tous) : plus de recherche libre ni de repli « Filtres avancés » ; Période en premier ; Type / Traiteur / Lieu à choix multiple avec case « Tous » (= aucun filtre) ; pastille rapide ET barre se cumulent (E5) ; réponse périmée ignorée. CDC §06.06 §3 à patcher (Type/Traiteur/Lieu décrits en valeur unique). GO-VISUAL en attente."
+    },
+    {
       "id": "BL-P1-BOA-06",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:236-297",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (Bloc 0 : prestataire actuel résolu via pont transporteurs.prestataire_logistique_id, statut_tms + statut_tms_at, sélecteur transporteurs actifs (AG), champ motif override conditionnel, bouton d'envoi forké par type_tms — Envoyer à MTS-1 / A Toutes! / Dispatcher manuel) ; handleDispatch POST /dispatch { prestataire_logistique_id, motif_override_prestataire }. FIX BL-P0 crash fiche : le GET packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts référençait 3 colonnes DB inexistantes (types_evenements.nom→libelle, tournees.statut_tms→statut, factures_collectes.statut→factures!facture_id(statut)) → HTTP 400 → écran blanc (collecte.type.toUpperCase() sur undefined). Corrigé + durcissement du fetch (vérif res.ok avant désérialisation).",
@@ -1161,7 +1169,7 @@
     },
     {
       "id": "BL-P1-API-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:426",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:430",
       "artefact": "supabase/migrations/20260629120000_plateforme_r10b_rls_ops_column_level.sql + supabase/migrations/20260903120000_plateforme_anti_escalade_role_staff.sql + supabase/migrations/20260921170000_plateforme_users_role_auto_changement.sql (volet 3, pgTAP supabase/tests/SECU__users_role_auto_changement.test.sql)",
       "test": "P0 — traiteur_manager NE PEUT PAS s'auto-promouvoir ops_savr (la faille corrigée)",
       "statut": "implemented",
@@ -1177,7 +1185,7 @@
     },
     {
       "id": "M0.6-tournee-siblings-not-exposed",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:301",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:303",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (policy t_select via f_collecte_visible)",
       "test": "supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
       "statut": "implemented",
@@ -1185,7 +1193,7 @@
     },
     {
       "id": "M0.6-tournees-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:301",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:303",
       "artefact": "supabase/migrations/20260930160000_plateforme_tournees_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 11 colonnes ; trigger fn_cloturer_alerte_coordonnees_urgence passé SECURITY DEFINER)",
       "test": "supabase/tests/SECU__tournees_select_liste_blanche.test.sql (1-6 privilèges + liste blanche exacte ; 7 non-vacuité ; 8-26 gestionnaire / traiteur opérationnel / agence : ligne visible, 11 colonnes retirées → 42501 ; 27 ligne tierce invisible ; 28-32 admin_savr JWT fermé en lecture mais UPDATE conservé, service_role intact ; 33-34 fail-closed colonne ajoutée) + supabase/tests/infos_acces_chauffeur.test.sql (recalé : 42501 au lieu de lecture)",
       "statut": "implemented",
@@ -1201,7 +1209,7 @@
     },
     {
       "id": "M0.6-impersonation-launcher-ui",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:989",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:993",
       "artefact": "packages/plateforme/src/components/ui/impersonation-launcher.tsx (select users + bouton Impersoner, admin_savr only) monté sur packages/plateforme/src/app/(admin)/admin/clients/page.tsx",
       "test": "packages/plateforme/src/components/ui/impersonation-launcher.test.tsx « M0.6 — lanceur impersonation admin (BL-P1-BOA-09) » (masqué non-admin, liste hors-soi, POST impersoner + navigation)",
       "statut": "implemented",
@@ -1313,9 +1321,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "ebf4a56474e824bd5cb0b489d688054ceae8de743bc63476919e2364e6ba5b4a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "ac5a0257d8e08e15df6a5d8a8391c3ec686d971857ee5294892b0fad57577ea2",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "032397b3bdd3b4fa764162ce0d2f811646e9658152d855a7cb800be62b1432ba",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "5abf9290405210ba77c1450fa1059db2f5fe62bfa7bc94f860a6743a11cdb50c",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "de55ad9dd1ab220cc2e0f7945b7cc1e4b6eccfb6db0bac80734b34213ea0f88a"
   }
 }

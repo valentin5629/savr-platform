@@ -30,7 +30,8 @@
     "M3.6/kpi_ag_repas_donnes",
     "M3.6/organisations_liste_pour_selecteur",
     "M3.6/benchmark_staff_service_role",
-    "M3.6/dashboard_client_toutes_organisations_lecture_seule"
+    "M3.6/dashboard_client_toutes_organisations_lecture_seule",
+    "M3.6/dashboard_client_filtres_organisations_par_type"
   ],
   "deliverables": [
     {
@@ -133,17 +134,17 @@
       "id": "M3.6-drilldown",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:135",
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (URL-aware) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (param traiteur_operationnel_id)",
-      "test": "M3.6/cockpit_declinaison_drilldown + M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur",
+      "test": "M3.6/cockpit_declinaison_drilldown + M0.6 — barre de filtres visible par défaut : traiteur/lieu peuplés + filtrage serveur",
       "statut": "implemented",
       "libelle": "R24c — Drill-down « clic Top 5 → /admin/collectes filtrée » (retour Val). MIROIR EXACT : type courant + statut=cloturee + période + MÊME périmètre d'organisations (param `perimetre` propagé → /admin/collectes filtre par `perimetre_org_ids[]` avec la MÊME logique opérateur-inclusive `.or` que le loader dashboard, sinon le drill sous périmètre actif renverrait un sur-ensemble). Top lieux → ?lieu, Top traiteurs → ?traiteur (= traiteur OPÉRATIONNEL, même clé que aggregateActeurs). La liste Collectes Admin devient URL-aware (lieu/traiteur/type/statut/from/to/perimetre → filtres initiaux + chip CollecteFiltreActif via sessionStorage) et son filtre « Traiteur » passe à traiteur_operationnel_id (API : nouveaux params `.eq(traiteur_operationnel_organisation_id)` + `.or` périmètre ; `organisation_id` conservé). Gestionnaire déjà aligné (traiteur_operationnel), agence = drill lieux seul (pas de Top traiteurs, diff #8), traiteur = drill commercial (created_by)."
     },
     {
       "id": "M3.6-org-selecteur",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:124",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx",
-      "test": "M3.6/org_selecteur_cellules_par_type + M3.6/dashboard_client_toutes_organisations_lecture_seule",
-      "statut": "implemented",
-      "libelle": "R24c — Sélecteur d'organisations refondu (2 retours Val GO-VISUAL) : 3 CELLULES par type d'organisation SUR UNE MÊME LIGNE (grid 3 colonnes) — Traiteurs / Agences / Gestionnaires de lieux (ordre §06.06 §2). Chaque cellule = LISTE DÉROULANTE : repliée par défaut, ouverte au CLIC (panneau absolu z-20, max-h-44 = 4 lignes visibles puis scroll), fermée au clic en dehors ; une seule ouverte à la fois. En-tête = libellé + compteur (N orgs / N sélectionnés) + chevron. Recherche transverse + « Toutes les organisations » (sélection vide = défaut). Design System : tokens savr, cibles 44px (min-h-11), chevrons lucide, accent checkbox savr-primary. Composant de filtrage, aucune écriture."
+      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx + packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx (enCarte, children, onReset) + packages/plateforme/src/components/ui/filtre-en-ligne.tsx (FiltreCoches libelleVide)",
+      "test": "M3.6/dashboard_client_filtres_organisations_par_type + M3.6/dashboard_client_toutes_organisations_lecture_seule + M3.6 — « Tous » d’un type sans autre sélection rétablit « Toutes les organisations »",
+      "statut": "à-vérifier",
+      "libelle": "Sélecteur d'organisations au format des filtres en ligne (décision Val 2026-09-30, §06.06 §2, remplace les cellules R24c) : 3 filtres « Traiteur / Agence / Gestionnaire de lieux » (FiltreCoches, recherche au-delà de 7 organisations) dans la barre du dashboard, après « Période » (en premier, décision Val 2026-09-30), même FilterBar que la liste Collectes. Case « Tous / Toutes » en tête de chaque liste : cochée sans sélection ou quand tout le type est coché ; la cocher ajoute tout le type au périmètre (sans autre sélection : « Toutes les organisations »), la décocher retire le type ; toutes les organisations cochées = « Toutes les organisations ». Aucune case cochée = toutes les organisations (« Tous / Toutes ») ; dès qu'une organisation est cochée, les autres types affichent « Aucun / Aucune » (périmètre = union). « Réinitialiser les filtres » rétablit la période par défaut et toutes les organisations. Une organisation mémorisée (localStorage) mais disparue est retirée de la sélection. Composant de filtrage, aucune écriture. GO-VISUAL en attente (preuve écran)."
     },
     {
       "id": "M3.6-kpi-sparkline-n1",
@@ -155,7 +156,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "ebf4a56474e824bd5cb0b489d688054ceae8de743bc63476919e2364e6ba5b4a",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "a39351284b96ab75a8d110cfe82f95f9e63310ee8f8d4129f95b9ec9421c0285"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "ac5a0257d8e08e15df6a5d8a8391c3ec686d971857ee5294892b0fad57577ea2",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8e6a7a85f7b1b0805cbdbd3bcb362d233168d6665705604d6f4f7f798fdd7353"
   }
 }

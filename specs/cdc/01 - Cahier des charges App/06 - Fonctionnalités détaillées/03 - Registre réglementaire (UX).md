@@ -41,7 +41,7 @@ Tableau principal + barre de filtres en haut + bouton d'export à droite.
 
 ### Barre de filtres
 
-- Période (date picker début-fin, + bouton preset "30 derniers jours") — le défaut au chargement reste vide (pas d'auto-limitation du registre réglementaire).
+- Période (filtre en ligne, panneau raccourcis + calendrier ; « 30 derniers jours » y figure parmi les raccourcis standard — DS §6, 2026-09-30) — le défaut au chargement reste vide (pas d'auto-limitation du registre réglementaire).
 - Lieu (multi-select)
 - Traiteur (multi-select, visible selon RLS)
 - Flux (multi-select)

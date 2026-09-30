@@ -1,7 +1,7 @@
 # Rapport export dev-facing
 
 Mode : SUR (T1 seul, T2 detecte)
-**Total : 2157345 -> 2124033 octets (-33312, -1.5%)**
+**Total : 2172304 -> 2138992 octets (-33312, -1.5%)**
 
 
 ## 00 - Index.md
@@ -45,8 +45,8 @@ Mode : SUR (T1 seul, T2 detecte)
     L4 [meta-changelog]: **Dernière mise à jour** : 2026-04-27 (propagation §11 TMS Dashboards — sous-sec
 
 ## 04 - Data Model.md
-- octets : 326583 -> 315459 (-11124, -3.4%)
-- tokens estimes : ~81645 -> ~78864
+- octets : 327101 -> 315977 (-11124, -3.4%)
+- tokens estimes : ~81775 -> ~78994
 - tombstones supprimes : 30 | fragments barres retires : 36 | en-tetes debarres : 7
 - ⚠ tombstones en prose a revoir a la main :
     L57: - → supprimé, contacts relogés sur `evenements.contact_principal_*` + `contact_secours_*` 
@@ -107,29 +107,29 @@ Mode : SUR (T1 seul, T2 detecte)
     L19 [addendum-date]: ## ⚠ Addendum 2026-04-23 (seconde salve M01) — Simplification contrat API TMS
 
 ## 09 - Authentification et permissions.md
-- octets : 113933 -> 113423 (-510, -0.4%)
-- tokens estimes : ~28483 -> ~28355
+- octets : 115794 -> 115284 (-510, -0.4%)
+- tokens estimes : ~28948 -> ~28821
 - tombstones supprimes : 0 | fragments barres retires : 11 | en-tetes debarres : 1
 - ⚠ tombstones en prose a revoir a la main :
     L68: - *(retiré 2026-06-07 F3 — `ops_savr` peut éditer le SIREN transporteur)*
     L69: - *(retiré 2026-06-07 F3 — `ops_savr` peut désactiver un transporteur)*
-    L450: | | *(retiré V1 — F6 2026-06-07, fusion = script SQL hors UI, cf. §06.06 §8)* | — | — |
+    L454: | | *(retiré V1 — F6 2026-06-07, fusion = script SQL hors UI, cf. §06.06 §8)* | — | — |
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L3 [meta-changelog]: **Statut** : Draft V1 — mise à jour architecturale 2026-04-23 (atelier tech avec
     L4 [meta-changelog]: **Dernière mise à jour** : 2026-06-11 (**Audit RLS V1 post-35 patchs (skill `cdc
     L34 [addendum-date]: ## ⚠ Addendum 2026-04-23 (seconde salve M01) — Policies cross-schema prestataire
 
 ## 10 - Design System.md
-- octets : 29871 -> 29871 (-0, -0.0%)
-- tokens estimes : ~7467 -> ~7467
+- octets : 31983 -> 31983 (-0, -0.0%)
+- tokens estimes : ~7995 -> ~7995
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L3 [meta-changelog]: **Statut** : Validé V1 — refonte 2026-06-08 (structure inspirée du UAE Design Sy
     L4 [meta-changelog]: **Dernière mise à jour** : 2026-06-08
 
 ## 11 - Dashboards.md
-- octets : 30004 -> 29692 (-312, -1.0%)
-- tokens estimes : ~7501 -> ~7423
+- octets : 30330 -> 30018 (-312, -1.0%)
+- tokens estimes : ~7582 -> ~7504
 - tombstones supprimes : 0 | fragments barres retires : 4 | en-tetes debarres : 0
 - ⚠ tombstones en prose a revoir a la main :
     L81: - : **supprimé refonte 2026-05-05** ; **refonte 2026-05-10** : nouveau Bloc 8 ZD/AG = bout
@@ -240,16 +240,16 @@ Mode : SUR (T1 seul, T2 detecte)
     L363 [meta-changelog]: **Statut** : retiré V1
 
 ## 03 - Registre réglementaire (UX).md
-- octets : 8840 -> 8840 (-0, -0.0%)
-- tokens estimes : ~2210 -> ~2210
+- octets : 8913 -> 8913 (-0, -0.0%)
+- tokens estimes : ~2228 -> ~2228
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L3 [meta-changelog]: **Statut** : Validé V1 — ZD uniquement (2026-05-04)
     L4 [meta-changelog]: **Dernière mise à jour** : 2026-06-07 (session test-scenarios lot ③ — 4 floues t
 
 ## 04 - Espace client traiteur.md
-- octets : 108488 -> 107042 (-1446, -1.3%)
-- tokens estimes : ~27122 -> ~26760
+- octets : 110520 -> 109074 (-1446, -1.3%)
+- tokens estimes : ~27630 -> ~27268
 - tombstones supprimes : 0 | fragments barres retires : 16 | en-tetes debarres : 4
 - ⚠ tombstones en prose a revoir a la main :
     L56: **Retiré V1 (refonte formulaire unique 2026-05-21)** — l'entrée se fait désormais par un b
@@ -259,8 +259,8 @@ Mode : SUR (T1 seul, T2 detecte)
     L4 [meta-changelog]: **Dernière mise à jour** : 2026-06-07 (**Test scenarios §06.04 (skill `cdc-test-
 
 ## 05 - Espace client gestionnaire de lieux.md
-- octets : 55860 -> 55576 (-284, -0.5%)
-- tokens estimes : ~13965 -> ~13894
+- octets : 56621 -> 56337 (-284, -0.5%)
+- tokens estimes : ~14155 -> ~14084
 - tombstones supprimes : 0 | fragments barres retires : 7 | en-tetes debarres : 1
 - ⚠ tombstones en prose a revoir a la main :
     L526: - : table supprimée refonte 2026-05-05 (synthèses générées à la demande, non archivées)
@@ -270,8 +270,8 @@ Mode : SUR (T1 seul, T2 detecte)
     L4 [meta-changelog]: **Dernière mise à jour** : 2026-07-06 (patchs divergences M3.2 — nav 9 sections 
 
 ## 06 - Back-office Admin Savr.md
-- octets : 112240 -> 110434 (-1806, -1.6%)
-- tokens estimes : ~28060 -> ~27608
+- octets : 112892 -> 111086 (-1806, -1.6%)
+- tokens estimes : ~28223 -> ~27771
 - tombstones supprimes : 6 | fragments barres retires : 13 | en-tetes debarres : 1
 - ⚠ tombstones en prose a revoir a la main :
     L471: - — supprimé 2026-05-07 (unification libellé)
@@ -302,8 +302,8 @@ Mode : SUR (T1 seul, T2 detecte)
     L4 [meta-changelog]: **Dernière mise à jour** : 2026-04-21
 
 ## 11 - Espace client agence.md
-- octets : 19954 -> 19831 (-123, -0.6%)
-- tokens estimes : ~4988 -> ~4957
+- octets : 20120 -> 19997 (-123, -0.6%)
+- tokens estimes : ~5030 -> ~4999
 - tombstones supprimes : 0 | fragments barres retires : 1 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L3 [meta-changelog]: **Statut** : Draft V1 (création 2026-05-07 — extension programmation 3 types)
@@ -407,29 +407,29 @@ Mode : SUR (T1 seul, T2 detecte)
     L5 [meta-changelog]: **Statut** : À implémenter par Claude Code — **4 specs floues TRANCHÉES Val 2026
 
 ## 06.03-registre-reglementaire-scenarios.md
-- octets : 26993 -> 26993 (-0, -0.0%)
-- tokens estimes : ~6748 -> ~6748
+- octets : 27031 -> 27031 (-0, -0.0%)
+- tokens estimes : ~6757 -> ~6757
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L5 [meta-changelog]: **Statut** : À implémenter par Claude Code — **4 specs floues TRANCHÉES Val 2026
 
 ## 06.04-espace-traiteur-scenarios.md
-- octets : 49269 -> 49269 (-0, -0.0%)
-- tokens estimes : ~12317 -> ~12317
+- octets : 51861 -> 51861 (-0, -0.0%)
+- tokens estimes : ~12965 -> ~12965
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L5 [meta-changelog]: **Statut** : À implémenter par Claude Code
 
 ## 06.05-espace-gestionnaire-lieux-scenarios.md
-- octets : 38571 -> 38571 (-0, -0.0%)
-- tokens estimes : ~9642 -> ~9642
+- octets : 39981 -> 39981 (-0, -0.0%)
+- tokens estimes : ~9995 -> ~9995
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L5 [meta-changelog]: **Statut** : À implémenter par Claude Code
 
 ## 06.06-back-office-admin-scenarios.md
-- octets : 56504 -> 56504 (-0, -0.0%)
-- tokens estimes : ~14126 -> ~14126
+- octets : 57329 -> 57329 (-0, -0.0%)
+- tokens estimes : ~14332 -> ~14332
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L5 [meta-changelog]: **Statut** : À implémenter par Claude Code
@@ -449,8 +449,8 @@ Mode : SUR (T1 seul, T2 detecte)
     L13 [meta-changelog]: **Statut** : À implémenter par Claude Code
 
 ## 06.11-espace-agence-scenarios.md
-- octets : 25715 -> 25715 (-0, -0.0%)
-- tokens estimes : ~6428 -> ~6428
+- octets : 26305 -> 26305 (-0, -0.0%)
+- tokens estimes : ~6576 -> ~6576
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L6 [meta-changelog]: **Statut** : À implémenter par Claude Code
@@ -464,15 +464,15 @@ Mode : SUR (T1 seul, T2 detecte)
     L494 [addendum-date]: # Source : §08 addendum 2026-04-23 §1 — Payload > 256 KB rejeté
 
 ## 09-rls-app-transverse-scenarios.md
-- octets : 35719 -> 35719 (-0, -0.0%)
-- tokens estimes : ~8929 -> ~8929
+- octets : 36600 -> 36600 (-0, -0.0%)
+- tokens estimes : ~9150 -> ~9150
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L5 [meta-changelog]: **Statut** : À implémenter par Claude Code
 
 ## 11-12-dashboards-reporting-scenarios.md
-- octets : 47077 -> 47077 (-0, -0.0%)
-- tokens estimes : ~11769 -> ~11769
+- octets : 47199 -> 47199 (-0, -0.0%)
+- tokens estimes : ~11799 -> ~11799
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
     L5 [meta-changelog]: **Statut** : À implémenter par Claude Code

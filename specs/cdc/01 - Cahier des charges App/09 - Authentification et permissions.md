@@ -259,6 +259,8 @@ Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. 
 
 Même logique que `bordereaux_savr` (y compris la ligne `client_organisateur`, B-3a 2026-06-11).
 
+> **Note 2026-09-30 (D12)** : aucune route cliente ne sert l'attestation hors de cette matrice (le téléchargement traiteur lit sous RLS depuis le lot D12 ; le service-role historique est retiré). L'écart ligne/fichier avec `f_fichier_visible` (qui suit `f_collecte_visible`, traiteur opérationnel compris) reste celui déjà noté B-3.
+
 ### Table `packs_antgaspi` *(extension 2026-05-07)*
 
 | Rôle | SELECT | INSERT | UPDATE | DELETE |
@@ -303,7 +305,7 @@ Même logique que `bordereaux_savr` (y compris la ligne `client_organisateur`, B
 | Rôle | SELECT | INSERT | UPDATE | DELETE |
 |------|--------|--------|--------|--------|
 | admin_savr | ALL | ALL | ALL | ALL (soft) |
-| autres | lecture via jointure `collecte_tournees` → `tournees` filtrée par leur périmètre *(refonte multi-camions 2026-05-25, ex `collectes.tournee_id`)* (ex: un traiteur voit les tournées de ses collectes — N tournées possibles en multi-camions — mais pas les autres collectes qui les composent) | — | — | — |
+| autres | lecture via jointure `collecte_tournees` → `tournees` filtrée par leur périmètre *(refonte multi-camions 2026-05-25, ex `collectes.tournee_id`)* (ex: un traiteur voit les tournées de ses collectes — N tournées possibles en multi-camions — mais pas les autres collectes qui les composent). **Colonnes lisibles (GRANT SELECT colonne-level, 2026-09-30, arbitrage C5)** : `id`, `date_tournee`, `creneau`, `heure_debut_prevue`, `heure_fin_prevue`, `heure_debut_reelle`, `heure_fin_reelle`, `statut`, `created_at`, `updated_at` (10 colonnes — `type_vehicule` fermée, arbitrage Val 2026-09-30 : aucun lecteur authenticated, le libellé « Sans objet (vélo cargo) » est servi par la route). **Hors privilège** : chauffeur / accompagnant (nom, téléphone), plaque (+ `plaque_saisie_at`), `type_vehicule`, `prestataire_logistique_id`, `tms_reference`, `external_ref_commande`, `reference_interne` (préfixe par famille de transporteur), `notes_internes` — servis au client uniquement par la route de la fiche collecte (service_role), en statut `programmee` / `validee` / `en_cours` (§06.04 bloc « Logistique »). | — | — | — |
 
 **SQL explicite (audit RLS 2026-06-11, B-5 — la formulation narrative n'était pas transposable sans interprétation)** :
 
@@ -316,6 +318,8 @@ CREATE POLICY t_select ON plateforme.tournees FOR SELECT
       AND plateforme.f_collecte_visible(ct.collecte_id)));
 -- INSERT/UPDATE/DELETE : SERVICE_ROLE (adapter MTS-1 / cron poll) + admin_savr (matrice ci-dessus).
 ```
+
+**Privilège colonne (2026-09-30, migration `20260930160000_plateforme_tournees_select_liste_blanche.sql` + fermeture `type_vehicule`)** : la RLS filtre les lignes, pas les colonnes. Le SELECT table-level d'`authenticated` est retiré au profit de la liste blanche ci-dessus. Ce privilège vaut pour **tous** les rôles PG `authenticated`, staff compris : `admin_savr ALL` s'entend via les routes back-office (service_role). Toute colonne ajoutée à `tournees` est fermée par défaut ; l'ouvrir = `GRANT SELECT (col)` explicite = ouverture soumise à décision Val. Le trigger `fn_cloturer_alerte_coordonnees_urgence` est `SECURITY DEFINER` (EXECUTE fermé, `search_path` épinglé) pour relire les coordonnées hors privilège.
 
 ### Table `collecte_tournees`
 

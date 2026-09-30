@@ -252,6 +252,7 @@ describe('Filtres en ligne', () => {
     const options = [
       { id: 'M', nom: 'M (500-749)', court: 'M' },
       { id: 'L', nom: 'Pavillon (Paris 8e)' },
+      { id: 'XL', nom: 'XL (≥ 1000)', court: 'XL' },
     ];
     const { rerender } = render(
       <FiltreCoches
@@ -299,6 +300,75 @@ describe('Filtres en ligne', () => {
       />,
     );
     expect(trigger).toHaveTextContent('2 sélectionnés');
+    rerender(
+      <FiltreCoches
+        label="Taille"
+        options={options}
+        selected={['M', 'L', 'XL']}
+        onChange={onChange}
+        testid="taille"
+      />,
+    );
+    // Toutes les options cochées = « Tous ».
+    expect(trigger).toHaveTextContent(/Tous$/);
+  });
+
+  it('ds/filtre_coches_case_tous_cochee_par_defaut_efface_la_selection', () => {
+    const onChange = vi.fn();
+    const options = [
+      { id: 'a', nom: 'Alpha' },
+      { id: 'b', nom: 'Bravo' },
+      { id: 'c', nom: 'Charlie' },
+    ];
+    const { rerender } = render(
+      <FiltreCoches
+        label="Statut"
+        options={options}
+        selected={[]}
+        onChange={onChange}
+        testid="statut"
+      />,
+    );
+    fireEvent.click(screen.getByTestId('statut'));
+    // Sans sélection, « Tous » est cochée (= aucun filtre, décision Val
+    // 2026-09-30) ; choisir une valeur ne garde que celle-ci.
+    expect(screen.getByRole('checkbox', { name: 'Tous' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Bravo' }));
+    expect(onChange).toHaveBeenLastCalledWith(['b']);
+    rerender(
+      <FiltreCoches
+        label="Statut"
+        options={options}
+        selected={['b']}
+        onChange={onChange}
+        testid="statut"
+      />,
+    );
+    expect(screen.getByRole('checkbox', { name: 'Tous' })).not.toBeChecked();
+    // Recocher « Tous » efface la sélection.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Tous' }));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it('ds/filtre_coches_toutes_options_cochees_revient_a_tous', () => {
+    const onChange = vi.fn();
+    render(
+      <FiltreCoches
+        label="Statut"
+        options={[
+          { id: 'a', nom: 'Alpha' },
+          { id: 'b', nom: 'Bravo' },
+          { id: 'c', nom: 'Charlie' },
+        ]}
+        selected={['a', 'b']}
+        onChange={onChange}
+        testid="statut"
+      />,
+    );
+    fireEvent.click(screen.getByTestId('statut'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Charlie' }));
+    // La dernière option cochée complète la liste → « Tous » (sélection vide).
+    expect(onChange).toHaveBeenLastCalledWith([]);
   });
 
   it('ds/filtre_coches_recherche_au_dela_de_7_options', () => {

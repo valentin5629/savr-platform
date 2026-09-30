@@ -189,9 +189,20 @@ export function DashboardClientView() {
   useEffect(() => {
     fetch('/api/v1/admin/dashboard-client/organisations')
       .then((r) => r.json())
-      .then((j: { data?: OrganisationOption[] }) =>
-        setOrganisations(j.data ?? []),
-      )
+      .then((j: { data?: OrganisationOption[] }) => {
+        const liste = j.data ?? [];
+        setOrganisations(liste);
+        // Une sélection mémorisée d'une organisation disparue filtrerait en
+        // silence (aucun filtre ne l'affiche) → retirée dès la liste connue.
+        if (liste.length > 0) {
+          const ids = new Set(liste.map((o) => o.id));
+          setSelectedOrgs((sel) =>
+            sel.every((id) => ids.has(id))
+              ? sel
+              : sel.filter((id) => ids.has(id)),
+          );
+        }
+      })
       .catch(() => setOrganisations([]));
   }, []);
 
@@ -244,20 +255,30 @@ export function DashboardClientView() {
       fetch(`/api/v1/admin/dashboard-client?${q.toString()}`)
         .then((r) => r.json())
         .then((j: { data?: AdminPayload }) => j.data ?? null);
+    // Une réponse d'un périmètre déjà remplacé (cases cochées en rafale) est
+    // ignorée au lieu d'écraser la plus récente.
+    let perimee = false;
     Promise.all([
       lire(qs),
       // N-1 non bloquant : un échec ne masque que les variations.
       fenetrePrev ? lire(qsPrev).catch(() => null) : Promise.resolve(null),
     ])
       .then(([courant, precedent]) => {
+        if (perimee) return;
         setPayload(courant);
         setPayloadPrev(precedent);
       })
       .catch(() => {
+        if (perimee) return;
         setPayload(null);
         setPayloadPrev(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!perimee) setLoading(false);
+      });
+    return () => {
+      perimee = true;
+    };
   }, [filters, tab, selectedOrgs]);
 
   // Repère parc benchmark (Bloc 3 ZD) — parc global anonymisé (k≥5), indépendant
@@ -395,17 +416,23 @@ export function DashboardClientView() {
         </Badge>
       </div>
 
-      <OrganisationSelector
-        organisations={organisations}
-        selected={selectedOrgs}
-        onChange={setSelectedOrgs}
-      />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <DashboardFilterBar
-          storageKey="savr.dashboard-client.filters"
-          onChange={handleFilters}
+      {/* Même barre que la liste Collectes (décision Val 2026-09-30) :
+          Période puis organisations par type ; « Réinitialiser » rétablit
+          aussi toutes les organisations (§06.06 §2). */}
+      <DashboardFilterBar
+        storageKey="savr.dashboard-client.filters"
+        onChange={handleFilters}
+        onReset={() => setSelectedOrgs([])}
+        enCarte
+      >
+        <OrganisationSelector
+          organisations={organisations}
+          selected={selectedOrgs}
+          onChange={setSelectedOrgs}
         />
+      </DashboardFilterBar>
+
+      <div className="flex justify-end">
         <CollecteTypeTabs value={tab} onChange={setTab} />
       </div>
 

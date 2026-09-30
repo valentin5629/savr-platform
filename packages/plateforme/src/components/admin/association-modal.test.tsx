@@ -97,9 +97,11 @@ describe('M1.1 — Modale association (revue E2E)', () => {
         onSaved={vi.fn()}
       />,
     );
-    const dialog = screen.getByRole('dialog');
+    expect(screen.getByRole('dialog')).toHaveAccessibleName(
+      'Nouvelle association',
+    );
     expect(
-      within(dialog).getByText('Nouvelle association'),
+      screen.getByRole('heading', { level: 3, name: 'Nouvelle association' }),
     ).toBeInTheDocument();
   });
 
@@ -283,6 +285,38 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     expect(onglet(/Informations/)).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('en-tête : région, ville, capacité et statut de l’association enregistrée', () => {
+    render(
+      <AssociationModal
+        open
+        association={{ ...EDIT_FIXTURE, siren: '123456789' }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('dialog')).toHaveAccessibleName(
+      'Fiche association — Association Alpha',
+    );
+    const titre = screen.getByRole('heading', {
+      level: 3,
+      name: 'Association Alpha',
+    });
+    const enTete = titre.closest('header') as HTMLElement;
+    expect(within(enTete).getByText('IDF')).toBeInTheDocument();
+    expect(within(enTete).getByText('SIREN 123 456 789')).toBeInTheDocument();
+    expect(within(enTete).getByText('Paris')).toBeInTheDocument();
+    expect(within(enTete).getByText('150 repas')).toBeInTheDocument();
+    expect(within(enTete).getByText('Active')).toBeInTheDocument();
+
+    // L'en-tête décrit la fiche enregistrée : il ne suit pas la saisie.
+    fireEvent.change(screen.getByLabelText(/Nom de l'association/), {
+      target: { value: 'Association Beta' },
+    });
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Association Alpha' }),
+    ).toBeInTheDocument();
+  });
+
   it('colonne résumé : reprend la fiche et suit la saisie', () => {
     render(
       <AssociationModal
@@ -295,18 +329,17 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     const resume = screen.getByRole('complementary', {
       name: /Résumé de l'association/,
     });
-    expect(within(resume).getByText('Association Alpha')).toBeInTheDocument();
-    expect(within(resume).getByText('Active')).toBeInTheDocument();
-    expect(within(resume).getByText('Paris')).toBeInTheDocument();
-    expect(within(resume).getByText('Île-de-France')).toBeInTheDocument();
-    expect(within(resume).getByText('150 repas')).toBeInTheDocument();
+    // Allégée de ce que l'en-tête affiche déjà (nom, statut, ville, capacité).
+    expect(within(resume).queryByText('Association Alpha')).toBeNull();
+    expect(within(resume).queryByText('150 repas')).toBeNull();
     expect(within(resume).getByText('Marie Curie')).toBeInTheDocument();
+    expect(within(resume).getByText('0102030405')).toBeInTheDocument();
     expect(within(resume).getByText('Non')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/Nom de l'association/), {
-      target: { value: 'Association Beta' },
+    fireEvent.change(screen.getByLabelText(/Nom prénom du contact/), {
+      target: { value: 'Irène Joliot' },
     });
-    expect(within(resume).getByText('Association Beta')).toBeInTheDocument();
+    expect(within(resume).getByText('Irène Joliot')).toBeInTheDocument();
   });
 
   it(
@@ -550,7 +583,12 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     const resume = screen.getByRole('complementary', {
       name: /Résumé de l'association/,
     });
-    expect(within(resume).getByText('Inactive')).toBeInTheDocument();
+    // Le statut est porté par l'en-tête.
+    expect(within(resume).queryByText('Inactive')).toBeNull();
+    const enTete = screen
+      .getByRole('heading', { level: 3, name: 'Association Alpha' })
+      .closest('header') as HTMLElement;
+    expect(within(enTete).getByText('Inactive')).toBeInTheDocument();
     expect(within(resume).getByText('Oui')).toBeInTheDocument();
     expect(
       within(resume).getByText(/jusqu.au 12 mars 2027/),

@@ -23,7 +23,13 @@ import { FormField } from '@/components/ui/form-field';
 import { Switch } from '@/components/ui/switch';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BlocHeader, ResumeItem } from '@/components/collecte/fiche-blocs';
+import {
+  BlocHeader,
+  EnTeteMention,
+  EnTetePuce,
+  FicheEnTete,
+  ResumeItem,
+} from '@/components/collecte/fiche-blocs';
 import {
   DIFFICULTE_LABEL,
   DIFFICULTE_VARIANT,
@@ -312,8 +318,8 @@ interface LieuModalProps {
 export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   const isEdition = Boolean(lieuId);
   const [values, setValues] = React.useState<FormValues>(VIDE);
-  // Titre figé (lieu tel que chargé) — ne suit pas la saisie en cours.
-  const [titre, setTitre] = React.useState<string | null>(null);
+  // Lieu tel que chargé : l'en-tête le décrit (stable pendant la saisie).
+  const [lieuCharge, setLieuCharge] = React.useState<LieuApi | null>(null);
   const [onglet, setOnglet] = React.useState<Onglet>('informations');
   // Photos (R2) — lecture seule, non éditées via le formulaire.
   const [photos, setPhotos] = React.useState<string[]>([]);
@@ -330,10 +336,6 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   const alerteRef = React.useRef<HTMLDivElement>(null);
   // Chargement du lieu en échec : pas de formulaire, rien d'enregistrable.
   const [chargementEchoue, setChargementEchoue] = React.useState(false);
-  // Gestionnaire rattaché tel que chargé (repli s'il est absent de la liste
-  // des gestionnaires actifs, ex. organisation désactivée).
-  const [gestionnaireCharge, setGestionnaireCharge] =
-    React.useState<OrgOption | null>(null);
 
   // Liste des organisations gestionnaires de lieux (sélecteur mono) — à l'ouverture.
   React.useEffect(() => {
@@ -354,10 +356,9 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     setServerError(null);
     setChargementEchoue(false);
     setOnglet('informations');
-    setTitre(null);
+    setLieuCharge(null);
     setValues(VIDE);
     setPhotos([]);
-    setGestionnaireCharge(null);
     if (lieuId) {
       setHydrating(true);
       void fetch(`/api/v1/admin/lieux/${encodeURIComponent(lieuId)}`)
@@ -369,13 +370,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
           if (obsolete) return;
           setValues(toForm(d));
           setPhotos(d.photos_urls ?? []);
-          setTitre([d.nom, d.ville].filter(Boolean).join(' · '));
-          if (d.gestionnaire_organisation_id) {
-            setGestionnaireCharge({
-              id: d.gestionnaire_organisation_id,
-              raison_sociale: d.gestionnaire_nom ?? null,
-            });
-          }
+          setLieuCharge(d);
         })
         .catch(() => {
           if (obsolete) return;
@@ -538,15 +533,20 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     void submitForm();
   }
 
-  // Liste des gestionnaires actifs + le gestionnaire chargé s'il n'y figure pas.
+  // Liste des gestionnaires actifs + le gestionnaire chargé s'il n'y figure pas
+  // (ex. organisation désactivée).
+  const gestionnaireCharge: OrgOption | null =
+    lieuCharge?.gestionnaire_organisation_id
+      ? {
+          id: lieuCharge.gestionnaire_organisation_id,
+          raison_sociale: lieuCharge.gestionnaire_nom ?? null,
+        }
+      : null;
   const optionsGestionnaires =
     gestionnaireCharge &&
     !gestionnaires.some((g) => g.id === gestionnaireCharge.id)
       ? [...gestionnaires, gestionnaireCharge]
       : gestionnaires;
-  const nomGestionnaire = optionsGestionnaires.find(
-    (g) => g.id === values.gestionnaire_organisation_id,
-  );
 
   const footer = (
     <>
@@ -576,563 +576,613 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     <Modal
       open={open}
       onClose={onClose}
-      // Hauteur fixe dès md (comme la fiche collecte client) : la modale ne
-      // change ni de taille ni de place d'un onglet à l'autre ; le corps défile.
-      className="max-w-5xl md:h-[min(90vh,52rem)]"
       title={
-        isEdition ? (titre ? `Lieu · ${titre}` : 'Fiche lieu') : 'Nouveau lieu'
+        isEdition
+          ? lieuCharge
+            ? `Fiche lieu — ${lieuCharge.nom}`
+            : 'Fiche lieu'
+          : 'Nouveau lieu'
       }
+      // Même cadre que la fiche transporteur : grand en-tête fixe dans le
+      // corps, qui défile en dessous ; hauteur fixe dès md, la modale ne
+      // change ni de taille ni de place d'un onglet à l'autre.
+      hideTitle
+      bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
+      className="max-w-5xl md:h-[min(90vh,48rem)]"
       footer={footer}
     >
-      {hydrating ? (
-        <p className="py-8 text-center text-sm text-savr-neutral-500">
-          Chargement du lieu…
-        </p>
-      ) : chargementEchoue ? (
-        <AlertBar variant="err" role="alert">
-          Erreur lors du chargement du lieu. Fermez la fiche et réessayez.
-        </AlertBar>
+      {isEdition ? (
+        lieuCharge && (
+          <FicheEnTete
+            surtitre={
+              (lieuCharge.region || lieuCharge.gestionnaire_nom) && (
+                <>
+                  {lieuCharge.region && (
+                    <EnTetePuce>
+                      {lieuCharge.region === 'idf' ? 'IDF' : 'Province'}
+                    </EnTetePuce>
+                  )}
+                  {lieuCharge.gestionnaire_nom && (
+                    <EnTeteMention>{lieuCharge.gestionnaire_nom}</EnTeteMention>
+                  )}
+                </>
+              )
+            }
+            titre={lieuCharge.nom}
+            infos={[
+              {
+                icon: MapPin,
+                texte:
+                  [lieuCharge.ville, lieuCharge.code_postal]
+                    .filter(Boolean)
+                    .join(' ') || '—',
+              },
+              {
+                icon: Truck,
+                texte:
+                  VEHICULE_LABEL[lieuCharge.type_vehicule_max] ??
+                  lieuCharge.type_vehicule_max,
+              },
+            ]}
+            statut={
+              lieuCharge.actif ? (
+                <Badge variant="success">Actif</Badge>
+              ) : (
+                <Badge variant="action">À normaliser</Badge>
+              )
+            }
+          />
+        )
       ) : (
-        <form onSubmit={handleFormSubmit} noValidate>
-          {/* En tête du corps : visible quel que soit l'onglet et le défilement. */}
-          {serverError && (
-            <AlertBar
-              ref={alerteRef}
-              variant="err"
-              role="alert"
-              className="mb-4"
-            >
-              {serverError}
-            </AlertBar>
-          )}
-          {/* Colonne résumé fixe à gauche + onglets à droite (format fiche
-              collecte #423). Masquée sous md : le titre de la modale suffit.
-              Suit la saisie en cours (utile à la création). */}
-          <div className="grid items-start gap-4 md:grid-cols-[13rem_minmax(0,1fr)]">
-            <aside
-              aria-label="Résumé du lieu"
-              className="hidden rounded-savr-lg border border-savr-neutral-100 bg-savr-neutral-50 p-4 md:sticky md:top-0 md:block"
-            >
-              <dl className="grid grid-cols-1 gap-y-3 text-sm">
-                <ResumeItem label="Statut">
-                  {values.actif ? (
-                    <Badge variant="success">Actif</Badge>
-                  ) : (
-                    <Badge variant="action">À normaliser</Badge>
-                  )}
-                </ResumeItem>
-                <ResumeItem label="Ville">
-                  {values.ville || <NonRenseigne />}
-                  {values.code_postal && (
-                    <span className="block text-savr-neutral-600">
-                      {values.code_postal}
-                    </span>
-                  )}
-                </ResumeItem>
-                <ResumeItem label="Gestionnaire">
-                  {nomGestionnaire ? (
-                    (nomGestionnaire.raison_sociale ??
-                    nomGestionnaire.nom ??
-                    nomGestionnaire.id)
-                  ) : (
-                    <span className="text-savr-neutral-400">Aucun</span>
-                  )}
-                </ResumeItem>
-                <ResumeItem label="Véhicule max">
-                  {VEHICULE_LABEL[values.type_vehicule_max] ?? <NonRenseigne />}
-                </ResumeItem>
-                <ResumeItem label="Contrôle d'accès">
-                  {values.controle_acces_requis_default ? (
-                    <Badge variant="warning">Requis</Badge>
-                  ) : (
-                    'Non requis'
-                  )}
-                </ResumeItem>
-                <ResumeItem label="Accès office">
-                  <Difficulte value={values.acces_office} />
-                </ResumeItem>
-                <ResumeItem label="Stationnement">
-                  <Difficulte value={values.stationnement} />
-                </ResumeItem>
-                {values.reference_citeo && (
-                  <ResumeItem label="Citeo">
-                    <Badge variant="info" dot={false}>
-                      Référencé
-                    </Badge>
+        <FicheEnTete
+          titre="Nouveau lieu"
+          description="Renseignez les onglets, puis créez le lieu."
+        />
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+        {hydrating ? (
+          <p className="py-8 text-center text-sm text-savr-neutral-500">
+            Chargement du lieu…
+          </p>
+        ) : chargementEchoue ? (
+          <AlertBar variant="err" role="alert">
+            Erreur lors du chargement du lieu. Fermez la fiche et réessayez.
+          </AlertBar>
+        ) : (
+          <form onSubmit={handleFormSubmit} noValidate>
+            {/* En tête du corps : visible quel que soit l'onglet et le défilement. */}
+            {serverError && (
+              <AlertBar
+                ref={alerteRef}
+                variant="err"
+                role="alert"
+                className="mb-4"
+              >
+                {serverError}
+              </AlertBar>
+            )}
+            {/* Colonne résumé fixe à gauche + onglets à droite (format fiche
+              collecte #423). Allégée de ce que l'en-tête affiche déjà (décision
+              Val 2026-09-30) : accès et Citeo. Suit la saisie en cours.
+              Masquée sous md. */}
+            <div className="grid items-start gap-4 md:grid-cols-[13rem_minmax(0,1fr)]">
+              <aside
+                aria-label="Résumé du lieu"
+                className="hidden rounded-savr-lg border border-savr-neutral-100 bg-savr-neutral-50 p-4 md:sticky md:top-0 md:block"
+              >
+                <dl className="grid grid-cols-1 gap-y-3 text-sm">
+                  <ResumeItem label="Contrôle d'accès">
+                    {values.controle_acces_requis_default ? (
+                      <Badge variant="warning">Requis</Badge>
+                    ) : (
+                      'Non requis'
+                    )}
                   </ResumeItem>
-                )}
-              </dl>
-            </aside>
+                  <ResumeItem label="Accès office">
+                    <Difficulte value={values.acces_office} />
+                  </ResumeItem>
+                  <ResumeItem label="Stationnement">
+                    <Difficulte value={values.stationnement} />
+                  </ResumeItem>
+                  {values.reference_citeo && (
+                    <ResumeItem label="Citeo">
+                      <Badge variant="info" dot={false}>
+                        Référencé
+                      </Badge>
+                    </ResumeItem>
+                  )}
+                </dl>
+              </aside>
 
-            <Tabs
-              value={onglet}
-              onValueChange={(v) => setOnglet(v as Onglet)}
-              className="min-w-0"
-            >
-              {/* Barre d'onglets fixe au défilement du corps de la modale. */}
-              <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
-                {(
-                  [
-                    ['informations', 'Informations'],
-                    ['acces', 'Accès & logistique'],
-                    ['interne', 'Interne Savr'],
-                    ...(isEdition ? [['activite', 'Activité']] : []),
-                  ] as [Onglet, string][]
-                ).map(([value, label]) => (
-                  <OngletTrigger
-                    key={value}
-                    ref={(el) => {
-                      if (el) ongletsRef.current[value] = el;
-                    }}
-                    value={value}
-                    nbErreurs={nbErreurs(value)}
-                  >
-                    {label}
-                  </OngletTrigger>
-                ))}
-              </TabsList>
+              <Tabs
+                value={onglet}
+                onValueChange={(v) => setOnglet(v as Onglet)}
+                className="min-w-0"
+              >
+                {/* Barre d'onglets fixe au défilement du corps de la modale. */}
+                <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
+                  {(
+                    [
+                      ['informations', 'Informations'],
+                      ['acces', 'Accès & logistique'],
+                      ['interne', 'Interne Savr'],
+                      ...(isEdition ? [['activite', 'Activité']] : []),
+                    ] as [Onglet, string][]
+                  ).map(([value, label]) => (
+                    <OngletTrigger
+                      key={value}
+                      ref={(el) => {
+                        if (el) ongletsRef.current[value] = el;
+                      }}
+                      value={value}
+                      nbErreurs={nbErreurs(value)}
+                    >
+                      {label}
+                    </OngletTrigger>
+                  ))}
+                </TabsList>
 
-              <TabsContent value="informations" className="space-y-4">
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={Building2} title="Identité" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormField
-                      label="Nom du lieu"
-                      htmlFor="lm_nom"
-                      required
-                      error={errors.nom}
-                    >
-                      <Input
-                        id="lm_nom"
-                        value={values.nom}
-                        onChange={(e) => set('nom', e.target.value)}
-                        error={Boolean(errors.nom)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Nom alternatif"
-                      htmlFor="lm_nom_alternatif"
-                    >
-                      <Input
-                        id="lm_nom_alternatif"
-                        value={values.nom_alternatif}
-                        onChange={(e) => set('nom_alternatif', e.target.value)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Gestionnaire de lieux"
-                      htmlFor="lm_gestionnaire"
-                      hint="Organisation gestionnaire rattachée — optionnel"
-                      className="md:col-span-2"
-                    >
-                      <Combobox
-                        id="lm_gestionnaire"
-                        icon={null}
-                        placeholder="Aucun"
-                        value={values.gestionnaire_organisation_id}
-                        onChange={(v) => set('gestionnaire_organisation_id', v)}
-                        options={[
-                          { value: '', label: 'Aucun' },
-                          ...optionsGestionnaires.map((g) => ({
-                            value: g.id,
-                            label: g.raison_sociale ?? g.nom ?? g.id,
-                          })),
-                        ]}
-                      />
-                    </FormField>
-                  </div>
-                  <Interrupteur
-                    id="lm_actif"
-                    label="Actif"
-                    checked={values.actif}
-                    onChange={(v) => set('actif', v)}
-                  />
-                </Card>
-
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={MapPin} title="Adresse" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <FormField
-                      label="Adresse accès livraison"
-                      htmlFor="lm_adresse_acces"
-                      required
-                      error={errors.adresse_acces}
-                      hint="Géocodée automatiquement à l'enregistrement"
-                      className="md:col-span-2"
-                    >
-                      <Input
-                        id="lm_adresse_acces"
-                        value={values.adresse_acces}
-                        onChange={(e) => set('adresse_acces', e.target.value)}
-                        error={Boolean(errors.adresse_acces)}
-                      />
-                    </FormField>
-                    <FormField label="Région" htmlFor="lm_region">
-                      <Combobox
-                        id="lm_region"
-                        icon={null}
-                        placeholder="Non renseignée"
-                        value={values.region}
-                        onChange={(v) =>
-                          set('region', v as FormValues['region'])
-                        }
-                        options={[
-                          { value: '', label: 'Non renseignée' },
-                          { value: 'idf', label: 'Île-de-France' },
-                          { value: 'province', label: 'Province' },
-                        ]}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Code postal"
-                      htmlFor="lm_code_postal"
-                      required
-                      error={errors.code_postal}
-                    >
-                      <Input
-                        id="lm_code_postal"
-                        value={values.code_postal}
-                        onChange={(e) => set('code_postal', e.target.value)}
-                        error={Boolean(errors.code_postal)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Ville"
-                      htmlFor="lm_ville"
-                      required
-                      error={errors.ville}
-                    >
-                      <Input
-                        id="lm_ville"
-                        value={values.ville}
-                        onChange={(e) => set('ville', e.target.value)}
-                        error={Boolean(errors.ville)}
-                      />
-                    </FormField>
-                  </div>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="acces" className="space-y-4">
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={KeyRound} title="Accès au lieu" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <FormField
-                      label="Type de véhicule max"
-                      htmlFor="lm_type_vehicule_max"
-                      required
-                      error={errors.type_vehicule_max}
-                      hint="Tous les véhicules ≤ max sont acceptés"
-                    >
-                      <Combobox
-                        id="lm_type_vehicule_max"
-                        icon={null}
+                <TabsContent value="informations" className="space-y-4">
+                  <Card className="space-y-4 p-5">
+                    <BlocHeader icon={Building2} title="Identité" />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <FormField
+                        label="Nom du lieu"
+                        htmlFor="lm_nom"
                         required
-                        value={values.type_vehicule_max}
-                        onChange={(v) =>
-                          set(
-                            'type_vehicule_max',
-                            v as FormValues['type_vehicule_max'],
-                          )
-                        }
-                        error={Boolean(errors.type_vehicule_max)}
-                        options={OPTIONS_VEHICULE}
-                      />
-                    </FormField>
-                    <FormField label="Accès office" htmlFor="lm_acces_office">
-                      <Combobox
-                        id="lm_acces_office"
-                        icon={null}
-                        placeholder="Non renseigné"
-                        value={values.acces_office}
-                        onChange={(v) =>
-                          set('acces_office', v as FormValues['acces_office'])
-                        }
-                        options={OPTIONS_DIFFICULTE}
-                      />
-                    </FormField>
-                    <FormField label="Stationnement" htmlFor="lm_stationnement">
-                      <Combobox
-                        id="lm_stationnement"
-                        icon={null}
-                        placeholder="Non renseigné"
-                        value={values.stationnement}
-                        onChange={(v) =>
-                          set('stationnement', v as FormValues['stationnement'])
-                        }
-                        options={OPTIONS_DIFFICULTE}
-                      />
-                    </FormField>
-                  </div>
-                  <Interrupteur
-                    id="lm_controle_acces"
-                    label="Contrôle d'accès requis (plaque + nom chauffeur)"
-                    checked={values.controle_acces_requis_default}
-                    onChange={(v) => set('controle_acces_requis_default', v)}
-                  />
-                  <FormField
-                    label="Carnet d'accès terrain"
-                    htmlFor="lm_acces_details"
-                    hint="Badge, code, interphone, contact gardien, digicode parking, notes stationnement — partagé au transporteur"
-                  >
-                    <Textarea
-                      id="lm_acces_details"
-                      rows={3}
-                      value={values.acces_details}
-                      onChange={(e) => set('acces_details', e.target.value)}
-                    />
-                  </FormField>
-                </Card>
-
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={Truck} title="Capacité et contraintes" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <FormField
-                      label="Capacité maximum"
-                      htmlFor="lm_capacite_maximum"
-                    >
-                      <Input
-                        id="lm_capacite_maximum"
-                        type="number"
-                        min={0}
-                        value={values.capacite_maximum}
-                        onChange={(e) =>
-                          set('capacite_maximum', e.target.value)
-                        }
-                      />
-                    </FormField>
-                    <FormField
-                      label="Volume max (bacs 1100L)"
-                      htmlFor="lm_volume_max_bacs"
-                    >
-                      <Input
-                        id="lm_volume_max_bacs"
-                        type="number"
-                        min={0}
-                        value={values.volume_max_bacs}
-                        onChange={(e) => set('volume_max_bacs', e.target.value)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Contraintes horaires"
-                      htmlFor="lm_contraintes_horaires"
-                      hint="Plages autorisées pour la collecte"
-                    >
-                      <Input
-                        id="lm_contraintes_horaires"
-                        value={values.contraintes_horaires}
-                        onChange={(e) =>
-                          set('contraintes_horaires', e.target.value)
-                        }
-                      />
-                    </FormField>
-                  </div>
-                  <FormField
-                    label="Flux autorisés"
-                    htmlFor="lm_flux_autorises"
-                    hint="Flux acceptés sur ce lieu — séparés par des virgules"
-                  >
-                    <Input
-                      id="lm_flux_autorises"
-                      value={values.flux_autorises}
-                      onChange={(e) => set('flux_autorises', e.target.value)}
-                    />
-                  </FormField>
-                </Card>
-
-                {/* Photos — lecture seule (upload géré hors formulaire, stockage R2). */}
-                {photos.length > 0 && (
-                  <Card className="space-y-3 p-5">
-                    <BlocHeader
-                      icon={ImageIcon}
-                      title={`Photos (${photos.length})`}
-                    />
-                    <ul className="space-y-1 text-sm">
-                      {photos.map((url, i) => (
-                        <li key={url}>
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-savr-primary-700 hover:underline"
-                          >
-                            Photo {i + 1}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-              </TabsContent>
-
-              {/* Admin / Ops (RLS column-level — invisible côté client, §06.06 §7). */}
-              <TabsContent value="interne" className="space-y-4">
-                <AlertBar variant="info" icon={<Lock className="h-4 w-4" />}>
-                  Ces informations ne sont jamais montrées aux clients
-                  (traiteur, agence, gestionnaire, client organisateur).
-                </AlertBar>
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={Lock} title="Réservé à l'équipe Savr" />
-                  <FormField
-                    label="Commentaire sur le lieu"
-                    htmlFor="lm_commentaire_lieu"
-                    hint="Note opérationnelle, contexte commercial, alerte"
-                  >
-                    <Textarea
-                      id="lm_commentaire_lieu"
-                      rows={3}
-                      value={values.commentaire_lieu}
-                      onChange={(e) => set('commentaire_lieu', e.target.value)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Notes internes"
-                    htmlFor="lm_commentaires_internes"
-                    hint="Notes opérationnelles Admin (technique migration, contexte historique)"
-                  >
-                    <Textarea
-                      id="lm_commentaires_internes"
-                      rows={3}
-                      value={values.commentaires_internes}
-                      onChange={(e) =>
-                        set('commentaires_internes', e.target.value)
-                      }
-                    />
-                  </FormField>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormField
-                      label="SIREN"
-                      htmlFor="lm_siren"
-                      error={errors.siren}
-                      hint="9 chiffres, distinct du SIREN du gestionnaire"
-                    >
-                      <Input
-                        id="lm_siren"
-                        value={values.siren}
-                        onChange={(e) => set('siren', e.target.value)}
-                        error={Boolean(errors.siren)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Mail gestionnaire du lieu"
-                      htmlFor="lm_email_gestionnaire"
-                      hint="Référent — relances commerciales/opérationnelles internes"
-                    >
-                      <Input
-                        id="lm_email_gestionnaire"
-                        value={values.email_gestionnaire}
-                        onChange={(e) =>
-                          set('email_gestionnaire', e.target.value)
-                        }
-                      />
-                    </FormField>
-                  </div>
-                  <Interrupteur
-                    id="lm_reference_citeo"
-                    label="Référencé Citeo (REP emballages)"
-                    checked={values.reference_citeo}
-                    onChange={(v) => set('reference_citeo', v)}
-                  />
-                </Card>
-              </TabsContent>
-
-              {isEdition && (
-                <TabsContent value="activite" className="space-y-4">
-                  {activiteErreur ? (
-                    <AlertBar variant="err">
-                      Impossible de charger l&apos;activité du lieu.
-                    </AlertBar>
-                  ) : !activite ? (
-                    <p className="py-6 text-center text-sm text-savr-neutral-500">
-                      Chargement de l&apos;activité…
-                    </p>
-                  ) : (
-                    <>
-                      <Card className="space-y-4 p-5">
-                        <BlocHeader icon={ChefHat} title="Traiteurs opérant" />
-                        {activite.traiteurs.length === 0 ? (
-                          <p className="text-sm text-savr-neutral-500">
-                            Aucune collecte sur ce lieu pour l&apos;instant.
-                          </p>
-                        ) : (
-                          <ul className="divide-y divide-savr-neutral-100 text-sm">
-                            {activite.traiteurs.map((t) => (
-                              <li
-                                key={t.id}
-                                className="flex items-center justify-between gap-3 py-2"
-                              >
-                                <span className="font-medium text-savr-neutral-900">
-                                  {t.nom}
-                                </span>
-                                <span className="shrink-0 text-savr-neutral-600">
-                                  {t.nb_collectes}{' '}
-                                  {t.nb_collectes > 1
-                                    ? 'collectes'
-                                    : 'collecte'}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </Card>
-
-                      <Card className="space-y-4 p-5">
-                        <BlocHeader
-                          icon={History}
-                          title="Historique des modifications"
+                        error={errors.nom}
+                      >
+                        <Input
+                          id="lm_nom"
+                          value={values.nom}
+                          onChange={(e) => set('nom', e.target.value)}
+                          error={Boolean(errors.nom)}
                         />
-                        {activite.historique.length === 0 ? (
-                          <p className="text-sm text-savr-neutral-500">
-                            Aucune modification enregistrée sur ce lieu.
-                          </p>
-                        ) : (
-                          <Timeline>
-                            {activite.historique.map((h) => (
-                              <TimelineItem key={h.id}>
-                                <p className="text-sm font-medium text-savr-neutral-800">
-                                  {LIBELLE_ACTION[h.action] ?? h.action}
-                                </p>
-                                {h.champs.length > 0 ? (
-                                  <p className="text-sm text-savr-neutral-600">
-                                    {h.champs
-                                      .map((c) => LIBELLE_CHAMP[c] ?? c)
-                                      .join(', ')}
-                                  </p>
-                                ) : (
-                                  h.action === 'UPDATE' && (
-                                    <p className="text-sm text-savr-neutral-500">
-                                      Aucun champ du lieu modifié (le
-                                      gestionnaire rattaché a pu changer)
-                                    </p>
-                                  )
-                                )}
-                                <p className="text-xs text-savr-neutral-500">
-                                  {new Date(h.created_at).toLocaleString(
-                                    'fr-FR',
-                                    { timeZone: 'Europe/Paris' },
-                                  )}
-                                  {h.auteur ? ` · ${h.auteur}` : ''}
-                                  {h.impersonation ? ' · (impersonation)' : ''}
-                                </p>
-                              </TimelineItem>
-                            ))}
-                          </Timeline>
-                        )}
-                        {activite.historique_tronque && (
-                          <p className="text-xs text-savr-neutral-500">
-                            Seules les {activite.historique.length}{' '}
-                            modifications les plus récentes sont affichées.
-                          </p>
-                        )}
-                      </Card>
-                    </>
+                      </FormField>
+                      <FormField
+                        label="Nom alternatif"
+                        htmlFor="lm_nom_alternatif"
+                      >
+                        <Input
+                          id="lm_nom_alternatif"
+                          value={values.nom_alternatif}
+                          onChange={(e) =>
+                            set('nom_alternatif', e.target.value)
+                          }
+                        />
+                      </FormField>
+                      <FormField
+                        label="Gestionnaire de lieux"
+                        htmlFor="lm_gestionnaire"
+                        hint="Organisation gestionnaire rattachée — optionnel"
+                        className="md:col-span-2"
+                      >
+                        <Combobox
+                          id="lm_gestionnaire"
+                          icon={null}
+                          placeholder="Aucun"
+                          value={values.gestionnaire_organisation_id}
+                          onChange={(v) =>
+                            set('gestionnaire_organisation_id', v)
+                          }
+                          options={[
+                            { value: '', label: 'Aucun' },
+                            ...optionsGestionnaires.map((g) => ({
+                              value: g.id,
+                              label: g.raison_sociale ?? g.nom ?? g.id,
+                            })),
+                          ]}
+                        />
+                      </FormField>
+                    </div>
+                    <Interrupteur
+                      id="lm_actif"
+                      label="Actif"
+                      checked={values.actif}
+                      onChange={(v) => set('actif', v)}
+                    />
+                  </Card>
+
+                  <Card className="space-y-4 p-5">
+                    <BlocHeader icon={MapPin} title="Adresse" />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <FormField
+                        label="Adresse accès livraison"
+                        htmlFor="lm_adresse_acces"
+                        required
+                        error={errors.adresse_acces}
+                        hint="Géocodée automatiquement à l'enregistrement"
+                        className="md:col-span-2"
+                      >
+                        <Input
+                          id="lm_adresse_acces"
+                          value={values.adresse_acces}
+                          onChange={(e) => set('adresse_acces', e.target.value)}
+                          error={Boolean(errors.adresse_acces)}
+                        />
+                      </FormField>
+                      <FormField label="Région" htmlFor="lm_region">
+                        <Combobox
+                          id="lm_region"
+                          icon={null}
+                          placeholder="Non renseignée"
+                          value={values.region}
+                          onChange={(v) =>
+                            set('region', v as FormValues['region'])
+                          }
+                          options={[
+                            { value: '', label: 'Non renseignée' },
+                            { value: 'idf', label: 'Île-de-France' },
+                            { value: 'province', label: 'Province' },
+                          ]}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Code postal"
+                        htmlFor="lm_code_postal"
+                        required
+                        error={errors.code_postal}
+                      >
+                        <Input
+                          id="lm_code_postal"
+                          value={values.code_postal}
+                          onChange={(e) => set('code_postal', e.target.value)}
+                          error={Boolean(errors.code_postal)}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Ville"
+                        htmlFor="lm_ville"
+                        required
+                        error={errors.ville}
+                      >
+                        <Input
+                          id="lm_ville"
+                          value={values.ville}
+                          onChange={(e) => set('ville', e.target.value)}
+                          error={Boolean(errors.ville)}
+                        />
+                      </FormField>
+                    </div>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="acces" className="space-y-4">
+                  <Card className="space-y-4 p-5">
+                    <BlocHeader icon={KeyRound} title="Accès au lieu" />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <FormField
+                        label="Type de véhicule max"
+                        htmlFor="lm_type_vehicule_max"
+                        required
+                        error={errors.type_vehicule_max}
+                        hint="Tous les véhicules ≤ max sont acceptés"
+                      >
+                        <Combobox
+                          id="lm_type_vehicule_max"
+                          icon={null}
+                          required
+                          value={values.type_vehicule_max}
+                          onChange={(v) =>
+                            set(
+                              'type_vehicule_max',
+                              v as FormValues['type_vehicule_max'],
+                            )
+                          }
+                          error={Boolean(errors.type_vehicule_max)}
+                          options={OPTIONS_VEHICULE}
+                        />
+                      </FormField>
+                      <FormField label="Accès office" htmlFor="lm_acces_office">
+                        <Combobox
+                          id="lm_acces_office"
+                          icon={null}
+                          placeholder="Non renseigné"
+                          value={values.acces_office}
+                          onChange={(v) =>
+                            set('acces_office', v as FormValues['acces_office'])
+                          }
+                          options={OPTIONS_DIFFICULTE}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Stationnement"
+                        htmlFor="lm_stationnement"
+                      >
+                        <Combobox
+                          id="lm_stationnement"
+                          icon={null}
+                          placeholder="Non renseigné"
+                          value={values.stationnement}
+                          onChange={(v) =>
+                            set(
+                              'stationnement',
+                              v as FormValues['stationnement'],
+                            )
+                          }
+                          options={OPTIONS_DIFFICULTE}
+                        />
+                      </FormField>
+                    </div>
+                    <Interrupteur
+                      id="lm_controle_acces"
+                      label="Contrôle d'accès requis (plaque + nom chauffeur)"
+                      checked={values.controle_acces_requis_default}
+                      onChange={(v) => set('controle_acces_requis_default', v)}
+                    />
+                    <FormField
+                      label="Carnet d'accès terrain"
+                      htmlFor="lm_acces_details"
+                      hint="Badge, code, interphone, contact gardien, digicode parking, notes stationnement — partagé au transporteur"
+                    >
+                      <Textarea
+                        id="lm_acces_details"
+                        rows={3}
+                        value={values.acces_details}
+                        onChange={(e) => set('acces_details', e.target.value)}
+                      />
+                    </FormField>
+                  </Card>
+
+                  <Card className="space-y-4 p-5">
+                    <BlocHeader icon={Truck} title="Capacité et contraintes" />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <FormField
+                        label="Capacité maximum"
+                        htmlFor="lm_capacite_maximum"
+                      >
+                        <Input
+                          id="lm_capacite_maximum"
+                          type="number"
+                          min={0}
+                          value={values.capacite_maximum}
+                          onChange={(e) =>
+                            set('capacite_maximum', e.target.value)
+                          }
+                        />
+                      </FormField>
+                      <FormField
+                        label="Volume max (bacs 1100L)"
+                        htmlFor="lm_volume_max_bacs"
+                      >
+                        <Input
+                          id="lm_volume_max_bacs"
+                          type="number"
+                          min={0}
+                          value={values.volume_max_bacs}
+                          onChange={(e) =>
+                            set('volume_max_bacs', e.target.value)
+                          }
+                        />
+                      </FormField>
+                      <FormField
+                        label="Contraintes horaires"
+                        htmlFor="lm_contraintes_horaires"
+                        hint="Plages autorisées pour la collecte"
+                      >
+                        <Input
+                          id="lm_contraintes_horaires"
+                          value={values.contraintes_horaires}
+                          onChange={(e) =>
+                            set('contraintes_horaires', e.target.value)
+                          }
+                        />
+                      </FormField>
+                    </div>
+                    <FormField
+                      label="Flux autorisés"
+                      htmlFor="lm_flux_autorises"
+                      hint="Flux acceptés sur ce lieu — séparés par des virgules"
+                    >
+                      <Input
+                        id="lm_flux_autorises"
+                        value={values.flux_autorises}
+                        onChange={(e) => set('flux_autorises', e.target.value)}
+                      />
+                    </FormField>
+                  </Card>
+
+                  {/* Photos — lecture seule (upload géré hors formulaire, stockage R2). */}
+                  {photos.length > 0 && (
+                    <Card className="space-y-3 p-5">
+                      <BlocHeader
+                        icon={ImageIcon}
+                        title={`Photos (${photos.length})`}
+                      />
+                      <ul className="space-y-1 text-sm">
+                        {photos.map((url, i) => (
+                          <li key={url}>
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-savr-primary-700 hover:underline"
+                            >
+                              Photo {i + 1}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
                   )}
                 </TabsContent>
-              )}
-            </Tabs>
-          </div>
-        </form>
-      )}
+
+                {/* Admin / Ops (RLS column-level — invisible côté client, §06.06 §7). */}
+                <TabsContent value="interne" className="space-y-4">
+                  <AlertBar variant="info" icon={<Lock className="h-4 w-4" />}>
+                    Ces informations ne sont jamais montrées aux clients
+                    (traiteur, agence, gestionnaire, client organisateur).
+                  </AlertBar>
+                  <Card className="space-y-4 p-5">
+                    <BlocHeader icon={Lock} title="Réservé à l'équipe Savr" />
+                    <FormField
+                      label="Commentaire sur le lieu"
+                      htmlFor="lm_commentaire_lieu"
+                      hint="Note opérationnelle, contexte commercial, alerte"
+                    >
+                      <Textarea
+                        id="lm_commentaire_lieu"
+                        rows={3}
+                        value={values.commentaire_lieu}
+                        onChange={(e) =>
+                          set('commentaire_lieu', e.target.value)
+                        }
+                      />
+                    </FormField>
+                    <FormField
+                      label="Notes internes"
+                      htmlFor="lm_commentaires_internes"
+                      hint="Notes opérationnelles Admin (technique migration, contexte historique)"
+                    >
+                      <Textarea
+                        id="lm_commentaires_internes"
+                        rows={3}
+                        value={values.commentaires_internes}
+                        onChange={(e) =>
+                          set('commentaires_internes', e.target.value)
+                        }
+                      />
+                    </FormField>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <FormField
+                        label="SIREN"
+                        htmlFor="lm_siren"
+                        error={errors.siren}
+                        hint="9 chiffres, distinct du SIREN du gestionnaire"
+                      >
+                        <Input
+                          id="lm_siren"
+                          value={values.siren}
+                          onChange={(e) => set('siren', e.target.value)}
+                          error={Boolean(errors.siren)}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Mail gestionnaire du lieu"
+                        htmlFor="lm_email_gestionnaire"
+                        hint="Référent — relances commerciales/opérationnelles internes"
+                      >
+                        <Input
+                          id="lm_email_gestionnaire"
+                          value={values.email_gestionnaire}
+                          onChange={(e) =>
+                            set('email_gestionnaire', e.target.value)
+                          }
+                        />
+                      </FormField>
+                    </div>
+                    <Interrupteur
+                      id="lm_reference_citeo"
+                      label="Référencé Citeo (REP emballages)"
+                      checked={values.reference_citeo}
+                      onChange={(v) => set('reference_citeo', v)}
+                    />
+                  </Card>
+                </TabsContent>
+
+                {isEdition && (
+                  <TabsContent value="activite" className="space-y-4">
+                    {activiteErreur ? (
+                      <AlertBar variant="err">
+                        Impossible de charger l&apos;activité du lieu.
+                      </AlertBar>
+                    ) : !activite ? (
+                      <p className="py-6 text-center text-sm text-savr-neutral-500">
+                        Chargement de l&apos;activité…
+                      </p>
+                    ) : (
+                      <>
+                        <Card className="space-y-4 p-5">
+                          <BlocHeader
+                            icon={ChefHat}
+                            title="Traiteurs opérant"
+                          />
+                          {activite.traiteurs.length === 0 ? (
+                            <p className="text-sm text-savr-neutral-500">
+                              Aucune collecte sur ce lieu pour l&apos;instant.
+                            </p>
+                          ) : (
+                            <ul className="divide-y divide-savr-neutral-100 text-sm">
+                              {activite.traiteurs.map((t) => (
+                                <li
+                                  key={t.id}
+                                  className="flex items-center justify-between gap-3 py-2"
+                                >
+                                  <span className="font-medium text-savr-neutral-900">
+                                    {t.nom}
+                                  </span>
+                                  <span className="shrink-0 text-savr-neutral-600">
+                                    {t.nb_collectes}{' '}
+                                    {t.nb_collectes > 1
+                                      ? 'collectes'
+                                      : 'collecte'}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </Card>
+
+                        <Card className="space-y-4 p-5">
+                          <BlocHeader
+                            icon={History}
+                            title="Historique des modifications"
+                          />
+                          {activite.historique.length === 0 ? (
+                            <p className="text-sm text-savr-neutral-500">
+                              Aucune modification enregistrée sur ce lieu.
+                            </p>
+                          ) : (
+                            <Timeline>
+                              {activite.historique.map((h) => (
+                                <TimelineItem key={h.id}>
+                                  <p className="text-sm font-medium text-savr-neutral-800">
+                                    {LIBELLE_ACTION[h.action] ?? h.action}
+                                  </p>
+                                  {h.champs.length > 0 ? (
+                                    <p className="text-sm text-savr-neutral-600">
+                                      {h.champs
+                                        .map((c) => LIBELLE_CHAMP[c] ?? c)
+                                        .join(', ')}
+                                    </p>
+                                  ) : (
+                                    h.action === 'UPDATE' && (
+                                      <p className="text-sm text-savr-neutral-500">
+                                        Aucun champ du lieu modifié (le
+                                        gestionnaire rattaché a pu changer)
+                                      </p>
+                                    )
+                                  )}
+                                  <p className="text-xs text-savr-neutral-500">
+                                    {new Date(h.created_at).toLocaleString(
+                                      'fr-FR',
+                                      { timeZone: 'Europe/Paris' },
+                                    )}
+                                    {h.auteur ? ` · ${h.auteur}` : ''}
+                                    {h.impersonation
+                                      ? ' · (impersonation)'
+                                      : ''}
+                                  </p>
+                                </TimelineItem>
+                              ))}
+                            </Timeline>
+                          )}
+                          {activite.historique_tronque && (
+                            <p className="text-xs text-savr-neutral-500">
+                              Seules les {activite.historique.length}{' '}
+                              modifications les plus récentes sont affichées.
+                            </p>
+                          )}
+                        </Card>
+                      </>
+                    )}
+                  </TabsContent>
+                )}
+              </Tabs>
+            </div>
+          </form>
+        )}
+      </div>
     </Modal>
   );
 }

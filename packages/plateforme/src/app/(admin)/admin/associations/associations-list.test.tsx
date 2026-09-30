@@ -110,10 +110,9 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
         screen.getByRole('button', { name: /Nouvelle association/ }),
       );
 
-      const dialog = screen.getByRole('dialog');
-      expect(
-        within(dialog).getByText('Nouvelle association'),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(
+        'Nouvelle association',
+      );
     },
     ATTENTE_CAS_MS,
   );

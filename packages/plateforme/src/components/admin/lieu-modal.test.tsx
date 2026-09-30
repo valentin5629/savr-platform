@@ -13,6 +13,7 @@ import {
   waitFor,
   fireEvent,
   act,
+  within,
 } from '@testing-library/react';
 
 import { LieuModal } from '@/components/admin/lieu-modal';
@@ -463,20 +464,31 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
   );
 
   it(
-    'M1.1b/lieux/fiche-onglets — édition : titre, colonne résumé et 4 onglets',
+    'M1.1b/lieux/fiche-onglets — édition : grand en-tête, colonne résumé et 4 onglets',
     async () => {
       vi.stubGlobal('fetch', routeFetch());
       render(
         <LieuModal open lieuId="lieu-42" onClose={vi.fn()} onSaved={vi.fn()} />,
       );
 
+      // Grand en-tête (même brique que la fiche transporteur) : lieu enregistré.
       expect(
-        await screen.findByText(
-          'Lieu · Château de Saint-Cloud · Saint-Cloud',
-          undefined,
+        await screen.findByRole(
+          'heading',
+          { level: 3, name: 'Château de Saint-Cloud' },
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(
+        'Fiche lieu — Château de Saint-Cloud',
+      );
+      const enTete = screen
+        .getByRole('heading', { level: 3 })
+        .closest('header') as HTMLElement;
+      expect(within(enTete).getByText('IDF')).toBeInTheDocument();
+      expect(within(enTete).getByText('Saint-Cloud 92210')).toBeInTheDocument();
+      expect(within(enTete).getByText('Fourgon')).toBeInTheDocument();
+      expect(within(enTete).getByText('Actif')).toBeInTheDocument();
       const onglets = screen.getAllByRole('tab').map((t) => t.textContent);
       expect(onglets).toEqual([
         'Informations',
@@ -489,11 +501,23 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       const resume = screen.getByRole('complementary', {
         name: 'Résumé du lieu',
       });
-      expect(resume).toHaveTextContent('Actif');
-      expect(resume).toHaveTextContent('Saint-Cloud');
-      expect(resume).toHaveTextContent('Fourgon');
+      // Allégé de ce que l'en-tête affiche déjà.
       expect(resume).toHaveTextContent('Non requis');
       expect(resume).toHaveTextContent('Facile');
+      expect(resume).not.toHaveTextContent('Fourgon');
+      expect(resume).not.toHaveTextContent('Saint-Cloud');
+
+      // L'en-tête décrit le lieu enregistré : il ne suit pas la saisie.
+      await ouvrirOnglet(/Informations/);
+      fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
+        target: { value: 'Renommé' },
+      });
+      expect(
+        screen.getByRole('heading', {
+          level: 3,
+          name: 'Château de Saint-Cloud',
+        }),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -661,20 +685,27 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
   );
 
   it(
-    'M1.1b/lieux/fiche-onglets — la colonne résumé suit la saisie (À normaliser, Citeo)',
+    "M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », la colonne résumé suit la saisie (contrôle d'accès, Citeo)",
     async () => {
       vi.stubGlobal('fetch', routeFetch());
       render(
         <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
       );
 
+      expect(
+        screen.getByRole('heading', { level: 3, name: 'Nouveau lieu' }),
+      ).toBeInTheDocument();
       const resume = screen.getByRole('complementary', {
         name: 'Résumé du lieu',
       });
-      expect(resume).toHaveTextContent('Actif');
+      expect(resume).toHaveTextContent('Non requis');
       expect(resume).not.toHaveTextContent('Citeo');
-      fireEvent.click(screen.getByRole('switch', { name: 'Actif' }));
-      expect(resume).toHaveTextContent('À normaliser');
+      await ouvrirOnglet(/Accès & logistique/);
+      fireEvent.click(
+        screen.getByRole('switch', { name: /Contrôle d'accès requis/ }),
+      );
+      expect(resume).toHaveTextContent('Requis');
+      expect(resume).not.toHaveTextContent('Non requis');
       await ouvrirOnglet(/Interne Savr/);
       fireEvent.click(screen.getByRole('switch', { name: /Référencé Citeo/ }));
       expect(resume).toHaveTextContent('Référencé');
@@ -797,7 +828,10 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         });
       });
 
-      expect(screen.getByText('Lieu · Lieu B · Lyon')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { level: 3, name: 'Lieu B' }),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Lyon 92210')).toBeInTheDocument();
       expect(
         (screen.getByLabelText(/Nom du lieu/) as HTMLInputElement).value,
       ).toBe('Lieu B');

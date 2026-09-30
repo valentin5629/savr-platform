@@ -23,6 +23,9 @@ import { FormField } from '@/components/ui/form-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   BlocHeader,
+  EnTeteMention,
+  EnTetePuce,
+  FicheEnTete,
   ONGLETS_COLONNE_DECLENCHEUR,
   ONGLETS_COLONNE_LISTE,
 } from '@/components/collecte/fiche-blocs';
@@ -189,14 +192,10 @@ interface TransporteurModalProps {
 function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
   if (!transporteur) {
     return (
-      <div className="min-w-0 space-y-1.5">
-        <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
-          Nouveau transporteur
-        </h3>
-        <p className="text-[15px] text-savr-neutral-700">
-          Renseignez les trois onglets, puis créez le transporteur.
-        </p>
-      </div>
+      <FicheEnTete
+        titre="Nouveau transporteur"
+        description="Renseignez les trois onglets, puis créez le transporteur."
+      />
     );
   }
   const typeTms = TYPES_TMS.find((t) => t.value === transporteur.type_tms);
@@ -207,50 +206,32 @@ function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
     .filter(Boolean)
     .join(' ');
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            data-testid="badge-type-tms"
-            className="rounded-savr-sm bg-savr-primary-50 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em] text-savr-primary-700"
-          >
+    <FicheEnTete
+      surtitre={
+        <>
+          <EnTetePuce data-testid="badge-type-tms">
             {typeTms?.court ?? transporteur.type_tms}
-          </span>
-          <span className="text-[13px] text-savr-neutral-500">
+          </EnTetePuce>
+          <EnTeteMention>
             SIREN {transporteur.siren.replace(/(\d{3})(?=\d)/g, '$1 ')}
-          </span>
-        </div>
-        <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
-          {transporteur.nom}
-        </h3>
-        <p
-          data-testid="fiche-transporteur-sous-ligne"
-          className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <MapPin className="h-4 w-4" aria-hidden="true" />
-            {lieu || '—'}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Truck className="h-4 w-4" aria-hidden="true" />
-            {vehicules || '—'}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Phone className="h-4 w-4" aria-hidden="true" />
-            {transporteur.contact_telephone || '—'}
-          </span>
-        </p>
-      </div>
-      {transporteur.actif ? (
-        <Badge variant="success" className="self-start">
-          Actif
-        </Badge>
-      ) : (
-        <Badge variant="neutral" className="self-start">
-          Inactif
-        </Badge>
-      )}
-    </div>
+          </EnTeteMention>
+        </>
+      }
+      titre={transporteur.nom}
+      infosTestId="fiche-transporteur-sous-ligne"
+      infos={[
+        { icon: MapPin, texte: lieu || '—' },
+        { icon: Truck, texte: vehicules || '—' },
+        { icon: Phone, texte: transporteur.contact_telephone || '—' },
+      ]}
+      statut={
+        transporteur.actif ? (
+          <Badge variant="success">Actif</Badge>
+        ) : (
+          <Badge variant="neutral">Inactif</Badge>
+        )
+      }
+    />
   );
 }
 
@@ -455,10 +436,7 @@ export function TransporteurModal({
         noValidate
         className="flex h-full min-h-0 flex-col"
       >
-        {/* pr-14 réserve la croix de fermeture du cadre. */}
-        <header className="shrink-0 border-b border-savr-neutral-200 px-6 pb-5 pr-14 pt-6 md:px-8 md:pr-16">
-          <EnTete transporteur={transporteur} />
-        </header>
+        <EnTete transporteur={transporteur} />
 
         <Tabs
           value={onglet}

@@ -1,7 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 
-// Briques de mise en page des fiches en pop-up (collecte Admin + clients, transporteur) :
-// même en-tête de bloc, même colonne résumé, mêmes champs label/valeur.
+// Briques de mise en page des fiches en pop-up (collecte Admin + clients,
+// transporteur, lieu, association) : même en-tête de fiche, même en-tête de
+// bloc, même colonne résumé, mêmes champs label/valeur.
 
 // En-tête de bloc — DS §10 leviers #2 (pastille primary pleine) + #7 (titre
 // extrabold tracking serré) : pastille icône `primary-50`, titre `neutral-900`,
@@ -113,3 +114,77 @@ export const ONGLETS_COLONNE_LISTE =
 
 export const ONGLETS_COLONNE_DECLENCHEUR =
   'h-11 shrink-0 justify-start rounded-savr-md border-b-0 px-3 text-[15px] font-normal text-savr-neutral-700 hover:bg-savr-white hover:text-savr-neutral-900 data-[state=active]:bg-savr-white data-[state=active]:font-bold data-[state=active]:text-savr-primary-700 data-[state=active]:ring-1 data-[state=active]:ring-inset data-[state=active]:ring-savr-neutral-200 md:w-full';
+
+// En-tête des fiches Admin en pop-up (transporteur, lieu, association — décision
+// Val 2026-09-30 « grand en-tête partout ») : sur-titre (puce + mention), nom en
+// grand, ligne d'infos à pictos, statut à droite. Il décrit l'objet ENREGISTRÉ
+// (stable pendant la saisie). À placer dans une modale `hideTitle` : le titre
+// accessible reste celui de la modale. pr-14 réserve la croix de fermeture.
+export function FicheEnTete({
+  surtitre,
+  titre,
+  description,
+  infos = [],
+  infosTestId,
+  statut,
+}: {
+  surtitre?: React.ReactNode;
+  titre: string;
+  /** Consigne courte (création). */
+  description?: string;
+  infos?: { icon: LucideIcon; texte: React.ReactNode }[];
+  infosTestId?: string;
+  statut?: React.ReactNode;
+}) {
+  return (
+    <header className="shrink-0 border-b border-savr-neutral-200 px-6 pb-5 pr-14 pt-6 md:px-8 md:pr-16">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1.5">
+          {surtitre && (
+            <div className="flex flex-wrap items-center gap-2">{surtitre}</div>
+          )}
+          <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
+            {titre}
+          </h3>
+          {description && (
+            <p className="text-[15px] text-savr-neutral-700">{description}</p>
+          )}
+          {infos.length > 0 && (
+            <p
+              data-testid={infosTestId}
+              className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
+            >
+              {infos.map(({ icon: Icon, texte }, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5">
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {texte}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+        {statut && <div className="self-start">{statut}</div>}
+      </div>
+    </header>
+  );
+}
+
+// Puce du sur-titre (type de TMS, région…).
+export function EnTetePuce({
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      {...props}
+      className="rounded-savr-sm bg-savr-primary-50 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em] text-savr-primary-700"
+    >
+      {children}
+    </span>
+  );
+}
+
+// Mention discrète du sur-titre (SIREN, gestionnaire…).
+export function EnTeteMention({ children }: { children: React.ReactNode }) {
+  return <span className="text-[13px] text-savr-neutral-500">{children}</span>;
+}

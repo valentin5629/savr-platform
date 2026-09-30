@@ -106,10 +106,11 @@ export async function GET(
     .eq('table_name', 'lieux')
     .eq('record_id', id)
     .order('created_at', { ascending: false })
-    .limit(LIMITE_HISTORIQUE);
+    // Une ligne de plus que la limite : distingue « exactement 200 » de « tronqué ».
+    .limit(LIMITE_HISTORIQUE + 1);
   if (auditErr) return serverError(auditErr, 'admin.lieux.activite.audit');
 
-  const lignes = (audit ?? []) as {
+  const toutes = (audit ?? []) as {
     id: string;
     created_at: string;
     user_id: string | null;
@@ -118,16 +119,18 @@ export async function GET(
     new_values: Valeurs;
     impersonator_id: string | null;
   }[];
+  const lignes = toutes.slice(0, LIMITE_HISTORIQUE);
 
   const userIds = [
     ...new Set(lignes.map((l) => l.user_id).filter(Boolean)),
   ] as string[];
   const auteurParId = new Map<string, string>();
   if (userIds.length > 0) {
-    const { data: users } = await supabase
+    const { data: users, error: usersErr } = await supabase
       .from('users')
       .select('id, prenom, nom, email')
       .in('id', userIds);
+    if (usersErr) return serverError(usersErr, 'admin.lieux.activite.auteurs');
     for (const u of (users ?? []) as {
       id: string;
       prenom: string | null;
@@ -151,6 +154,6 @@ export async function GET(
   return NextResponse.json({
     traiteurs,
     historique,
-    historique_tronque: lignes.length === LIMITE_HISTORIQUE,
+    historique_tronque: toutes.length > LIMITE_HISTORIQUE,
   });
 }

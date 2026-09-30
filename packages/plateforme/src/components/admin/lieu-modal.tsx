@@ -260,7 +260,7 @@ function Interrupteur({
   onChange: (v: boolean) => void;
 }) {
   return (
-    // Toute la ligne est le libellé : zone cliquable de 44 px de haut (DS §8).
+    // Toute la ligne est le libellé : zone cliquable de 44 px de haut (DS §10 Accessibilité).
     <label
       htmlFor={id}
       className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-savr-neutral-700"

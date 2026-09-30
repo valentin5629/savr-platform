@@ -27,8 +27,14 @@ function builder(table: string) {
   return b;
 }
 
+// Nombre de clients service_role créés : doit rester à 0 quand la garde refuse.
+let clientsCrees = 0;
+
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
-  createAdminSupabaseClient: () => ({ from: (t: string) => builder(t) }),
+  createAdminSupabaseClient: () => {
+    clientsCrees++;
+    return { from: (t: string) => builder(t) };
+  },
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
@@ -72,6 +78,7 @@ describe('M1.1b / Lieux / Activité', () => {
     vi.clearAllMocks();
     for (const k of Object.keys(resultats)) delete resultats[k];
     for (const k of Object.keys(builders)) delete builders[k];
+    clientsCrees = 0;
   });
 
   it('M1.1b/lieux/activite — 401 si non authentifié', async () => {
@@ -79,12 +86,22 @@ describe('M1.1b / Lieux / Activité', () => {
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
     const res = await appeler();
     expect(res.status).toBe(401);
+    expect(clientsCrees).toBe(0);
   });
 
-  it('M1.1b/lieux/activite — 403 si rôle traiteur_manager', async () => {
-    setupAuth('traiteur_manager');
-    const res = await appeler();
-    expect(res.status).toBe(403);
+  it('M1.1b/lieux/activite — 403 si rôle traiteur_manager (et les 4 autres rôles clients), sans aucune lecture en base', async () => {
+    for (const role of [
+      'traiteur_manager',
+      'traiteur_commercial',
+      'agence',
+      'gestionnaire_lieux',
+      'client_organisateur',
+    ]) {
+      setupAuth(role);
+      const res = await appeler();
+      expect(res.status, role).toBe(403);
+    }
+    expect(clientsCrees).toBe(0);
   });
 
   it('M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes', async () => {
@@ -236,8 +253,8 @@ describe('M1.1b / Lieux / Activité', () => {
 
   it('M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte', async () => {
     setupAuth('admin_savr');
-    resultats.audit_log = {
-      data: Array.from({ length: 200 }, (_, i) => ({
+    const ecritures = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
         id: `a${i}`,
         created_at: '2026-09-20T08:00:00Z',
         user_id: null,
@@ -245,17 +262,117 @@ describe('M1.1b / Lieux / Activité', () => {
         old_values: null,
         new_values: { actif: true },
         impersonator_id: null,
-      })),
-      error: null,
-    };
+      }));
 
-    const res = await appeler('lieu-9');
-    const body = (await res.json()) as {
+    resultats.audit_log = { data: ecritures(201), error: null };
+    let body = (await (await appeler('lieu-9')).json()) as {
       historique: unknown[];
       historique_tronque: boolean;
     };
     expect(body.historique).toHaveLength(200);
     expect(body.historique_tronque).toBe(true);
-    expect(builders.audit_log!.limit).toHaveBeenCalledWith(200);
+    expect(builders.audit_log!.limit).toHaveBeenCalledWith(201);
+
+    // Exactement 200 écritures : rien n'est perdu, pas de mention.
+    resultats.audit_log = { data: ecritures(200), error: null };
+    body = (await (await appeler('lieu-9')).json()) as typeof body;
+    expect(body.historique).toHaveLength(200);
+    expect(body.historique_tronque).toBe(false);
+  });
+
+  it("M1.1b/lieux/activite — réponse minimale : jamais les valeurs avant/après de l'audit (champs admin-only)", async () => {
+    setupAuth('ops_savr');
+    resultats.audit_log = {
+      data: [
+        {
+          id: 'a1',
+          created_at: '2026-09-20T08:00:00Z',
+          user_id: 'u-a',
+          action: 'UPDATE',
+          old_values: {
+            commentaires_internes: 'SECRET_AVANT',
+            siren: '111111111',
+          },
+          new_values: {
+            commentaires_internes: 'SECRET_APRES',
+            siren: '222222222',
+          },
+          impersonator_id: 'imp-1',
+        },
+        {
+          id: 'a2',
+          created_at: '2026-09-21T08:00:00Z',
+          user_id: 'u-a',
+          action: 'lieu_override_programmation',
+          old_values: null,
+          new_values: {
+            evenement_id: 'EVT_SECRET',
+            lieu_overrides: { acces_details: 'CODE_SECRET' },
+          },
+          impersonator_id: null,
+        },
+      ],
+      error: null,
+    };
+    resultats.users = {
+      data: [{ id: 'u-a', prenom: 'Val', nom: 'Leblan', email: 'val@savr.io' }],
+      error: null,
+    };
+
+    const res = await appeler('lieu-9');
+    expect(res.status).toBe(200);
+    const texte = await res.text();
+    const body = JSON.parse(texte) as {
+      historique: Record<string, unknown>[];
+    };
+    expect(Object.keys(body).sort()).toEqual([
+      'historique',
+      'historique_tronque',
+      'traiteurs',
+    ]);
+    for (const h of body.historique) {
+      expect(Object.keys(h).sort()).toEqual([
+        'action',
+        'auteur',
+        'champs',
+        'created_at',
+        'id',
+        'impersonation',
+      ]);
+    }
+    for (const secret of [
+      'SECRET_AVANT',
+      'SECRET_APRES',
+      '111111111',
+      '222222222',
+      'EVT_SECRET',
+      'CODE_SECRET',
+      'imp-1',
+      'val@savr.io',
+    ]) {
+      expect(texte.includes(secret), secret).toBe(false);
+    }
+  });
+
+  it('M1.1b/lieux/activite — 500 si la lecture des auteurs échoue', async () => {
+    setupAuth('admin_savr');
+    resultats.audit_log = {
+      data: [
+        {
+          id: 'a1',
+          created_at: '2026-09-20T08:00:00Z',
+          user_id: 'u-a',
+          action: 'NORMALISE',
+          old_values: null,
+          new_values: { actif: true },
+          impersonator_id: null,
+        },
+      ],
+      error: null,
+    };
+    resultats.users = { data: null, error: { message: 'boom', code: 'XX000' } };
+
+    const res = await appeler('lieu-9');
+    expect(res.status).toBe(500);
   });
 });

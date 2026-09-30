@@ -8,8 +8,10 @@
  *  · ni notes internes ni nom de prestataire dans la réponse ;
  *  · téléphone du chauffeur servi seulement en programmee / validee / en_cours ;
  *  · demande urgente : visibilité RLS AVANT l'écriture service-role, aucun texte
- *    libre lu, « 1 par collecte » porté par la base (23505 = déjà demandée),
- *    ni email ni Slack.
+ *    libre lu, « 1 ouverte par collecte » porté par la base (23505 = déjà
+ *    demandée), ni email ni Slack ;
+ *  · documents lus sous la RLS du traiteur : l'attestation de don du donneur
+ *    d'ordre n'est pas servie au traiteur opérationnel (D12).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -260,6 +262,13 @@ describe('M3.1 / fiche client — contenu servi', () => {
     expect(json.data.coordonnees_urgence_demandee).toBe(true);
   });
 
+  it('M3.1/fiche_get_urgence_ouverte_seule — seule une demande OUVERTE grise le bouton (D10)', async () => {
+    rls.results.collectes = { data: ligneCollecte(), error: null };
+    await getFiche();
+    // Une alerte clôturée ne doit pas empêcher une nouvelle demande.
+    expect(admin.eqs.alertes_admin).toContainEqual(['statut', 'ouverte']);
+  });
+
   it('M3.1/fiche_get_actions_par_role — manager de l’orga actif, commercial non créateur grisé, terminal absent', async () => {
     rls.results.collectes = { data: ligneCollecte(), error: null };
     let { json } = await getFiche();
@@ -297,6 +306,98 @@ describe('M3.1 / fiche client — contenu servi', () => {
       annuler: 'absent',
       annulation: null,
     });
+  });
+});
+
+describe('M3.1 / documents de la fiche — lus sous la RLS du traiteur (D12)', () => {
+  // Collecte AG clôturée, programmée par une agence ; le traiteur courant
+  // (org-1) est l'opérationnel sur place.
+  function collecteAgenceAg() {
+    return ligneCollecte({
+      type: 'anti_gaspi',
+      statut: 'cloturee',
+      evenement: {
+        ...ligneCollecte().evenement,
+        organisation_id: 'org-agence',
+        traiteur_operationnel_organisation_id: 'org-1',
+      },
+    });
+  }
+  const ATTESTATION_AGENCE = {
+    data: { eligible_at: '2020-01-01T00:00:00Z', pdf_url: 'att-agence.pdf' },
+    error: null,
+  };
+
+  it('M3.1/fiche_get_attestation_donneur_ordre_reservee — traiteur opérationnel : attestation non lue, rapport réservé', async () => {
+    rls.results.collectes = { data: collecteAgenceAg(), error: null };
+    // Piège : en service-role, l'attestation de l'agence serait lisible.
+    admin.results.attestations_don = ATTESTATION_AGENCE;
+    // Sous la RLS du traiteur (att_traiteur_select) : aucune attestation.
+    rls.results.attestations_don = { data: null, error: null };
+    const { json } = await getFiche();
+    expect(json.data.rapport_rse_disponible).toBe(false);
+    expect(json.data.rapport_reserve_donneur_ordre).toBe(true);
+    expect(admin.calls).not.toContain('attestations_don');
+    expect(admin.calls).not.toContain('rapports_rse');
+  });
+
+  it('M3.1/fiche_get_attestation_programmateur — traiteur programmateur : attestation lue sous sa RLS', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee' }),
+      error: null,
+    };
+    rls.results.attestations_don = ATTESTATION_AGENCE;
+    const { json } = await getFiche();
+    expect(json.data.rapport_rse_disponible).toBe(true);
+    expect(json.data.rapport_reserve_donneur_ordre).toBe(false);
+  });
+
+  it('M3.1/fiche_get_rapport_zd_traiteur_operationnel — ZD : le rapport RSE reste servi (rr_select)', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        statut: 'cloturee',
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-agence',
+          traiteur_operationnel_organisation_id: 'org-1',
+        },
+      }),
+      error: null,
+    };
+    rls.results.rapports_rse = {
+      data: {
+        disponible_a: '2020-01-02T00:00:00Z',
+        genere_at: '2020-01-02T00:00:00Z',
+        regenere_at: null,
+      },
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.rapport_rse_disponible).toBe(true);
+    expect(json.data.rapport_reserve_donneur_ordre).toBe(false);
+  });
+
+  it('M3.1/rapport_download_attestation_donneur_ordre_404 — téléchargement refusé au traiteur opérationnel', async () => {
+    rls.results.collectes = {
+      data: { id: 'c1', type: 'anti_gaspi', statut: 'cloturee' },
+      error: null,
+    };
+    admin.results.attestations_don = {
+      data: { id: 'att-1', ...ATTESTATION_AGENCE.data },
+      error: null,
+    };
+    rls.results.attestations_don = { data: null, error: null };
+    const { GET } =
+      await import('@/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.js');
+    const res = await GET(
+      req('/api/v1/traiteur/collectes/c1/rapport-rse/download'),
+      {
+        params: Promise.resolve({ id: 'c1' }),
+      },
+    );
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(await res.json())).not.toContain('att-agence');
+    expect(admin.calls).toHaveLength(0);
   });
 });
 

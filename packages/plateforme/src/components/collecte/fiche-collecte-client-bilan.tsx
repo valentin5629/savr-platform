@@ -452,9 +452,11 @@ export function OngletBilan({
               {rapportNom}
             </p>
             <p className="text-[13px] text-savr-neutral-500">
-              {c.rapport_rse_disponible
-                ? 'PDF'
-                : 'Disponible le lendemain de la collecte'}
+              {c.rapport_reserve_donneur_ordre
+                ? 'Réservé à l’organisation qui a programmé la collecte'
+                : c.rapport_rse_disponible
+                  ? 'PDF'
+                  : 'Disponible le lendemain de la collecte'}
               {c.rapport_rse_regenere && (
                 <span data-testid="rapport-regenere">
                   {' '}
@@ -479,13 +481,15 @@ export function OngletBilan({
                     : 'Régénérer le rapport'}
               </Button>
             )}
-          <Button
-            variant="secondary"
-            disabled={!c.rapport_rse_disponible}
-            onClick={() => void telechargerRapport()}
-          >
-            Télécharger
-          </Button>
+          {!c.rapport_reserve_donneur_ordre && (
+            <Button
+              variant="secondary"
+              disabled={!c.rapport_rse_disponible}
+              onClick={() => void telechargerRapport()}
+            >
+              Télécharger
+            </Button>
+          )}
         </div>
         {factures.map((f) => (
           <div

@@ -18,5 +18,5 @@ export async function GET(
   const auth = await requireUser(req, GESTIONNAIRE_ROLES);
   if (auth.error) return auth.error;
   const { id } = await params;
-  return repondreTelechargementRapport(id, 'rls');
+  return repondreTelechargementRapport(id);
 }

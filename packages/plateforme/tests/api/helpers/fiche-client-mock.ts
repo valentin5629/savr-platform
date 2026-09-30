@@ -1,7 +1,8 @@
 /**
  * Mock Supabase keyé par TABLE (robuste à l'ordre des Promise.all) pour les
  * routes du pop-up fiche collecte client : enregistre les tables lues, les
- * `select` demandés par table, les inserts et les appels RPC.
+ * `select` et les filtres `eq` demandés par table, les inserts et les appels
+ * RPC.
  */
 export type Result = { data: unknown; error: unknown };
 
@@ -10,6 +11,7 @@ export function makeClient() {
   const rpcResults: Record<string, Result> = {};
   const calls: string[] = [];
   const selects: Record<string, string[]> = {};
+  const eqs: Record<string, Array<[string, unknown]>> = {};
   const inserts: Array<{ table: string; row: unknown }> = [];
   const rpcCalls: Array<{ name: string; args: unknown }> = [];
   let insertResult: Result = { data: null, error: null };
@@ -21,7 +23,10 @@ export function makeClient() {
         (selects[table] ??= []).push(String(s));
         return c;
       },
-      eq: () => c,
+      eq: (col: unknown, val: unknown) => {
+        (eqs[table] ??= []).push([String(col), val]);
+        return c;
+      },
       is: () => c,
       in: () => c,
       order: () => c,
@@ -54,6 +59,7 @@ export function makeClient() {
     rpcResults,
     calls,
     selects,
+    eqs,
     inserts,
     rpcCalls,
   };

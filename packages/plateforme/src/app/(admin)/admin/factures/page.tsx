@@ -14,7 +14,6 @@ import { FilterChips } from '@/components/ui/filter-chips';
 import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FormField } from '@/components/ui/form-field';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
 
 interface Facture {
@@ -335,44 +334,38 @@ export default function FacturesPage() {
           setDateFin('');
         }}
       >
-        <FormField label="Organisation" htmlFor="filtre-organisation">
-          <Combobox
-            id="filtre-organisation"
-            icon={null}
-            placeholder="Toutes les organisations"
-            searchPlaceholder="Rechercher une organisation…"
-            options={[
-              { value: '', label: 'Toutes les organisations' },
-              ...orgs.map((o) => ({ value: o.id, label: o.label })),
-            ]}
-            value={orgFiltre}
-            onChange={setOrgFiltre}
-          />
-        </FormField>
-        <FormField label="Type" htmlFor="filtre-type">
-          <Combobox
-            id="filtre-type"
-            icon={null}
-            placeholder="Tous les types"
-            options={TYPE_OPTIONS.map((t) => ({
-              value: t.key,
-              label: t.label,
-            }))}
-            value={typeFiltre}
-            onChange={setTypeFiltre}
-          />
-        </FormField>
-        <FormField label="Période" htmlFor="filtre-periode">
-          <DateRangePicker
-            id="filtre-periode"
-            data-testid="filtre-periode"
-            value={{ from: dateDebut, to: dateFin }}
-            onChange={(p) => {
-              setDateDebut(p.from);
-              setDateFin(p.to);
-            }}
-          />
-        </FormField>
+        <Combobox
+          titre="Organisation"
+          id="filtre-organisation"
+          placeholder="Toutes"
+          searchPlaceholder="Rechercher une organisation…"
+          options={[
+            { value: '', label: 'Toutes les organisations' },
+            ...orgs.map((o) => ({ value: o.id, label: o.label })),
+          ]}
+          value={orgFiltre}
+          onChange={setOrgFiltre}
+        />
+        <Combobox
+          titre="Type"
+          id="filtre-type"
+          options={TYPE_OPTIONS.map((t) => ({
+            value: t.key,
+            label: t.label,
+          }))}
+          value={typeFiltre}
+          onChange={setTypeFiltre}
+        />
+        <DateRangePicker
+          titre="Période"
+          id="filtre-periode"
+          data-testid="filtre-periode"
+          value={{ from: dateDebut, to: dateFin }}
+          onChange={(p) => {
+            setDateDebut(p.from);
+            setDateFin(p.to);
+          }}
+        />
       </FilterBar>
 
       {loading ? (

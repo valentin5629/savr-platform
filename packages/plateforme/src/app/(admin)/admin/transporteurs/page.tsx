@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Truck, Plus, Search, Pencil } from 'lucide-react';
+import { Truck, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
+import { FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
@@ -225,57 +224,45 @@ export default function TransporteursPage() {
       </div>
 
       <FilterBar data-testid="transporteurs-filtres">
-        <FormField label="Recherche" htmlFor="transporteurs-recherche">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
-            <Input
-              id="transporteurs-recherche"
-              className="pl-9"
-              placeholder="Rechercher…"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </FormField>
-        <FormField label="Type" htmlFor="transporteurs-type">
-          <Combobox
-            id="transporteurs-type"
-            icon={null}
-            placeholder="Tous les types"
-            options={[
-              { value: '', label: 'Tous les types' },
-              ...Object.entries(TYPE_TMS_LABELS).map(([k, v]) => ({
-                value: k,
-                label: v,
-              })),
-            ]}
-            value={typeTms}
-            onChange={(v) => {
-              setTypeTms(v);
-              setPage(1);
-            }}
-          />
-        </FormField>
-        <FormField label="Statut" htmlFor="transporteurs-statut">
-          <Combobox
-            id="transporteurs-statut"
-            icon={null}
-            placeholder="Tous"
-            options={[
-              { value: 'true', label: 'Actifs' },
-              { value: 'false', label: 'Inactifs' },
-              { value: '', label: 'Tous' },
-            ]}
-            value={actif}
-            onChange={(v) => {
-              setActif(v);
-              setPage(1);
-            }}
-          />
-        </FormField>
+        <FiltreRecherche
+          id="transporteurs-recherche"
+          placeholder="Rechercher…"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
+        />
+        <Combobox
+          titre="Type"
+          id="transporteurs-type"
+          options={[
+            { value: '', label: 'Tous les types' },
+            ...Object.entries(TYPE_TMS_LABELS).map(([k, v]) => ({
+              value: k,
+              label: v,
+            })),
+          ]}
+          value={typeTms}
+          onChange={(v) => {
+            setTypeTms(v);
+            setPage(1);
+          }}
+        />
+        <Combobox
+          titre="Statut"
+          id="transporteurs-statut"
+          options={[
+            { value: 'true', label: 'Actifs' },
+            { value: 'false', label: 'Inactifs' },
+            { value: '', label: 'Tous' },
+          ]}
+          value={actif}
+          onChange={(v) => {
+            setActif(v);
+            setPage(1);
+          }}
+        />
       </FilterBar>
 
       {loading ? (

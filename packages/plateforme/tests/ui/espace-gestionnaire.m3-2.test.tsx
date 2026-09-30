@@ -202,7 +202,8 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
-      expect(screen.getByText('Filtres du repère parc')).toBeInTheDocument();
+      // Ligne « Comparer avec » + filtres en ligne (décision Val 2026-09-30).
+      expect(screen.getByText('Comparer avec')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-reinitialiser')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-type')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();
@@ -236,13 +237,15 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
           periode_fin: periodeBenchmark().fin,
         }),
       );
-      // Libellé court « Lieux » (revue écran 2026-09-28).
-      expect(screen.getByText('Lieux')).toBeInTheDocument();
+      // Libellé court « Lieux » (revue écran 2026-09-28), titre du filtre en ligne.
+      expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
+        /^Lieux/,
+      );
       expect(screen.queryByText('Lieux benchmark')).toBeNull();
 
       // L'utilisateur ouvre le filtre Taille et coche « M ».
       fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
-      fireEvent.click(screen.getByRole('option', { name: 'M (500-749)' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'M (500-749)' }));
 
       await waitFor(
         () =>

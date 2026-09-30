@@ -317,7 +317,6 @@ export default function AgenceDashboardPage() {
             items={gaugeItems}
             filtersSlot={
               <BenchmarkFilterBar
-                embedded
                 onChange={handleBenchmarkFilters}
                 initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
                 initialTailleCodes={filters?.taille_evenement_codes ?? []}

@@ -3,16 +3,18 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 
 // FilterBar — barre de filtres standard de toute page de liste (DS Claude
 // Design « FilterBar » + règle 7 « Mise en page des formulaires et filtres »).
 // Un seul bloc (fond blanc, bordure neutral-200, radius xl), de haut en bas :
 //  1. en-tête : `tabs` (Tabs, changer de vue) à gauche, `toggle` (ToggleGroup,
 //     filtre de type) à droite, séparés de la grille par une bordure ;
-//  2. grille : les `children` (un FormField + un contrôle par filtre), 3
-//     colonnes max, 2 puis 1 en rétrécissant, gap 16px ;
-//  3. pied : compteur de résultats à gauche, « Réinitialiser les filtres » à
-//     droite (seulement si `actif`).
+//  2. ligne de filtres : les `children` (filtres en ligne « Titre  valeur ▾ »,
+//     `filtre-en-ligne`, décision Val 2026-09-30) dans le bandeau gris
+//     `BarreFiltres`, « Réinitialiser les filtres » calé à droite (seulement
+//     si `actif`) ;
+//  3. pied : compteur de résultats.
 // Le consommateur fournit les options, l'état, le compteur et la
 // synchronisation avec l'URL.
 export interface FilterBarProps {
@@ -28,11 +30,6 @@ export interface FilterBarProps {
   'data-testid'?: string;
 }
 
-// minmax(max(220px, (100% - 2 gaps) / 3), 1fr) : 3 colonnes pleines en
-// desktop, repli à 2 puis 1 dès qu'une colonne passerait sous 220px.
-const GRILLE =
-  'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(max(220px,calc((100%_-_2*1rem)/3)),1fr))]';
-
 function FilterBar({
   tabs,
   toggle,
@@ -44,7 +41,11 @@ function FilterBar({
   'data-testid': testId,
 }: FilterBarProps) {
   const avecEntete = Boolean(tabs || toggle);
-  const avecPied = count !== undefined || (actif && onReset);
+  const reinitialiser = actif ? onReset : undefined;
+  // Sans ligne de filtres, « Réinitialiser » reste dans le pied.
+  const resetAuPied = !children && Boolean(reinitialiser);
+  const avecPied = count !== undefined || resetAuPied;
+  const resetTestId = testId ? `${testId}-reset` : undefined;
   return (
     <section
       aria-label="Filtres"
@@ -60,14 +61,22 @@ function FilterBar({
             'flex flex-wrap items-end justify-between gap-4 border-b border-savr-neutral-200',
             // Les onglets soulignés reposent sur la bordure de l'en-tête.
             '[&_[role=tablist]]:-mb-px [&_[role=tablist]]:border-b-0',
-            children ? 'mb-6' : 'mb-0',
+            children ? 'mb-4' : 'mb-0',
           )}
         >
           <div className="min-w-0">{tabs}</div>
           {toggle && <div className="pb-2">{toggle}</div>}
         </div>
       )}
-      {children && <div className={GRILLE}>{children}</div>}
+      {children && (
+        <BarreFiltres
+          onReset={reinitialiser}
+          resetLabel="Réinitialiser les filtres"
+          resetTestId={resetTestId}
+        >
+          {children}
+        </BarreFiltres>
+      )}
       {avecPied && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
           <p
@@ -76,12 +85,12 @@ function FilterBar({
           >
             {count}
           </p>
-          {actif && onReset && (
+          {resetAuPied && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={onReset}
-              data-testid={testId ? `${testId}-reset` : undefined}
+              onClick={reinitialiser}
+              data-testid={resetTestId}
             >
               Réinitialiser les filtres
             </Button>

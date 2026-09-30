@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
-import { FiltreCoches } from './FiltreCoches.js';
+import type { MultiOption } from './MultiSelectFilter.js';
+import { BarreFiltres, FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { TAILLE_OPTIONS } from './taille-options.js';
 import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
@@ -50,27 +50,21 @@ interface BenchmarkFilterBarProps {
   initialTypeEvenementIds?: string[];
   /** Héritage §06.05 l.160 : Taille d'événement des filtres globaux (init + reset). */
   initialTailleCodes?: string[];
-  /** Rendu compact SANS carte (pour être imbriqué dans la carte du benchmark). */
-  embedded?: boolean;
   /**
    * Options des multi-selects pré-chargées côté serveur (R-perf, dashboard SSR) :
    * quand fournies, la barre NE fait PLUS le fetch `/filtres` au montage — la même
    * requête est déjà exécutée dans le Promise.all serveur de la page.
    */
   initialOptions?: BenchmarkFilterOptions;
-  /**
-   * 'ligne' (fiche collecte client, §06.04 refonte 2026-09-29) : une seule ligne
-   * « Comparer avec » + titres cliquables ouvrant une liste à cocher.
-   * 'grille' (défaut, dashboards) : libellés au-dessus, grille de Combobox.
-   */
-  presentation?: 'grille' | 'ligne';
   /** Masque le filtre Traiteurs même pour un rôle qui y a droit (fiche collecte). */
   masquerTraiteurs?: boolean;
 }
 
 /**
- * Encart « Filtres benchmark » (§06.05 Bloc 3 ZD). Critères qui ne s'appliquent
- * qu'au point rouge : Lieux parc, Traiteurs parc, Type d'événement, Taille. La
+ * Encart « Filtres benchmark » (§06.05 Bloc 3 ZD), imbriqué dans la carte du
+ * benchmark : une ligne « Comparer avec » + filtres en ligne (format unique des
+ * barres de filtres, décision Val 2026-09-30). Critères qui ne s'appliquent
+ * qu'au point rouge : Type d'événement, Taille, Lieux parc, Traiteurs parc. La
  * période est fixe (24 mois glissants, non affichée). Bouton Réinitialiser
  * (retour à l'héritage Type/Taille, Lieux/Traiteurs « Tous »).
  */
@@ -79,9 +73,7 @@ export function BenchmarkFilterBar({
   filtresEndpoint = '/api/v1/dashboards/benchmark/filtres',
   initialTypeEvenementIds,
   initialTailleCodes,
-  embedded = false,
   initialOptions,
-  presentation = 'grille',
   masquerTraiteurs = false,
 }: BenchmarkFilterBarProps) {
   const [filters, setFilters] = useState<BenchmarkFilters>(() =>
@@ -152,113 +144,28 @@ export function BenchmarkFilterBar({
   );
   const traiteursVisibles = !masquerTraiteurs && traiteurs.length > 0;
 
-  if (presentation === 'ligne') {
-    return (
-      <div data-testid="benchmark-filter-bar" className="space-y-2">
-        <div className="flex flex-wrap items-center gap-1 rounded-savr-md bg-savr-neutral-50 px-3 py-2 md:flex-nowrap">
-          <span className="mr-1 whitespace-nowrap text-[13px] font-semibold text-savr-neutral-500">
-            Comparer avec
-          </span>
-          <FiltreCoches
-            label="Type d'événement"
-            options={types}
-            selected={filters.type_evenement_ids}
-            onChange={(ids) => apply({ ...filters, type_evenement_ids: ids })}
-            testid="benchmark-filter-type"
-          />
-          <FiltreCoches
-            label="Taille d'événement"
-            options={TAILLE_OPTIONS}
-            selected={filters.taille_evenement_codes}
-            onChange={(ids) =>
-              apply({ ...filters, taille_evenement_codes: ids })
-            }
-            testid="benchmark-filter-taille"
-          />
-          <FiltreCoches
-            label="Lieux"
-            options={lieux}
-            selected={filters.lieu_ids}
-            onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
-            testid="benchmark-filter-lieux"
-          />
-          {traiteursVisibles && (
-            <FiltreCoches
-              label="Traiteurs"
-              options={traiteurs}
-              selected={filters.traiteur_ids}
-              onChange={(ids) => apply({ ...filters, traiteur_ids: ids })}
-              testid="benchmark-filter-traiteurs"
-            />
-          )}
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={reset}
-            data-testid="benchmark-reinitialiser"
-            className="shrink-0 rounded-savr-md px-2 py-1 text-xs font-semibold text-savr-primary-700 hover:bg-savr-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-          >
-            Réinitialiser
-          </button>
-        </div>
-        {avertissementSoi}
-      </div>
-    );
-  }
-
   return (
-    <div
-      data-testid="benchmark-filter-bar"
-      className={
-        embedded
-          ? 'space-y-3'
-          : 'space-y-4 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm'
-      }
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          {embedded ? (
-            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-savr-neutral-500">
-              Filtres du repère parc
-            </span>
-          ) : (
-            <>
-              <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
-                Filtres benchmark
-              </h3>
-              <p className="mt-0.5 text-[13px] text-savr-neutral-500">
-                Affinent uniquement la moyenne du parc (le repère), pas vos
-                données.
-              </p>
-            </>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={reset}
-          data-testid="benchmark-reinitialiser"
-          className="shrink-0 rounded-savr-md px-2 py-1 text-xs font-semibold text-savr-primary-700 hover:bg-savr-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-        >
-          Réinitialiser
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MultiSelectFilter
+    <div data-testid="benchmark-filter-bar" className="space-y-2">
+      <BarreFiltres
+        intro="Comparer avec"
+        onReset={reset}
+        resetTestId="benchmark-reinitialiser"
+      >
+        <FiltreCoches
           label="Type d'événement"
           options={types}
           selected={filters.type_evenement_ids}
           onChange={(ids) => apply({ ...filters, type_evenement_ids: ids })}
           testid="benchmark-filter-type"
         />
-        <MultiSelectFilter
+        <FiltreCoches
           label="Taille d'événement"
           options={TAILLE_OPTIONS}
           selected={filters.taille_evenement_codes}
           onChange={(ids) => apply({ ...filters, taille_evenement_codes: ids })}
           testid="benchmark-filter-taille"
         />
-        <MultiSelectFilter
+        <FiltreCoches
           label="Lieux"
           options={lieux}
           selected={filters.lieu_ids}
@@ -267,16 +174,15 @@ export function BenchmarkFilterBar({
         />
         {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
         {traiteursVisibles && (
-          <MultiSelectFilter
-            label="Traiteurs benchmark"
+          <FiltreCoches
+            label="Traiteurs"
             options={traiteurs}
             selected={filters.traiteur_ids}
             onChange={(ids) => apply({ ...filters, traiteur_ids: ids })}
             testid="benchmark-filter-traiteurs"
           />
         )}
-      </div>
-
+      </BarreFiltres>
       {avertissementSoi}
     </div>
   );

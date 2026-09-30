@@ -779,11 +779,11 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       // Panneau replié par défaut → ouvrir
       fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
 
-      // DS : Combobox (déclencheur role=combobox nommé par le libellé du FormField),
-      // options portées dans document.body à l'ouverture.
+      // DS : filtre en ligne « Traiteur  Tous ▾ » (Combobox mode filtre, nommé
+      // par son titre suivi de la valeur), options portées dans document.body.
       const traiteurCombo = await screen.findByRole(
         'combobox',
-        { name: 'Traiteur' },
+        { name: /^Traiteur/ },
         ATTENTE_UI,
       );
       fireEvent.click(traiteurCombo);
@@ -809,7 +809,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         ATTENTE_UI,
       );
 
-      fireEvent.click(screen.getByRole('combobox', { name: 'Lieu' }));
+      fireEvent.click(screen.getByRole('combobox', { name: /^Lieu/ }));
       await waitFor(
         () =>
           expect(
@@ -844,9 +844,12 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
       fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
-      // Statut multi-sélection scopée à l'onglet Programmées (chip = bouton,
-      // distinct de la même étiquette utilisée comme badge sur une carte).
-      fireEvent.click(screen.getByRole('button', { name: 'Validée' }));
+      // Statut multi-sélection scopée à l'onglet Programmées : filtre en ligne
+      // « Statut  Tous ▾ » → liste à cocher (case distincte du badge de carte).
+      fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
+      fireEvent.click(
+        await screen.findByRole('checkbox', { name: 'Validée' }, ATTENTE_UI),
+      );
 
       await waitFor(() => {
         const urls = fetchMock.mock.calls.map((c) => String(c[0]));

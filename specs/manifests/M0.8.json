@@ -544,10 +544,10 @@
     {
       "id": "BL-P3-10",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:42",
-      "artefact": "packages/plateforme/src/app/(registre)/registre/page.tsx (bouton preset) ; packages/plateforme/src/lib/registre-presets.ts",
+      "artefact": "packages/plateforme/src/app/(registre)/registre/page.tsx (raccourci du panneau Période) ; packages/plateforme/src/lib/periodes-raccourcis.ts",
       "test": "M0.8-58 — Registre : preset « 30 derniers jours » (BL-P3-10)",
       "statut": "implemented",
-      "libelle": "BL-P3-10 — Preset « 30 derniers jours » de la barre de filtres registre (§06.03). Bouton appliquant J−30/J ; défaut au chargement conservé vide (arbitrage Val R23c : ne pas auto-limiter le registre réglementaire). GO-VISUAL."
+      "libelle": "BL-P3-10 — Preset « 30 derniers jours » de la barre de filtres registre (§06.03). Raccourci J−30/J de la colonne du panneau Période (liste standard, décision Val 2026-09-30) ; défaut au chargement conservé vide (arbitrage Val R23c : ne pas auto-limiter le registre réglementaire). GO-VISUAL."
     },
     {
       "id": "BL-P3-11",

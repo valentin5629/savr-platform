@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Heart, Plus, Search, Pencil } from 'lucide-react';
+import { Heart, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
+import { FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -152,38 +151,30 @@ export default function AssociationsPage() {
       </div>
 
       <FilterBar data-testid="associations-filtres">
-        <FormField label="Recherche" htmlFor="associations-recherche">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
-            <Input
-              id="associations-recherche"
-              className="pl-9"
-              placeholder="Rechercher…"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </FormField>
-        <FormField label="Statut" htmlFor="associations-statut">
-          <Combobox
-            id="associations-statut"
-            icon={null}
-            placeholder="Toutes"
-            options={[
-              { value: 'true', label: 'Actives' },
-              { value: 'false', label: 'Inactives' },
-              { value: '', label: 'Toutes' },
-            ]}
-            value={actif}
-            onChange={(v) => {
-              setActif(v);
-              setPage(1);
-            }}
-          />
-        </FormField>
+        <FiltreRecherche
+          id="associations-recherche"
+          placeholder="Rechercher…"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
+        />
+        <Combobox
+          titre="Statut"
+          id="associations-statut"
+          placeholder="Toutes"
+          options={[
+            { value: 'true', label: 'Actives' },
+            { value: 'false', label: 'Inactives' },
+            { value: '', label: 'Toutes' },
+          ]}
+          value={actif}
+          onChange={(v) => {
+            setActif(v);
+            setPage(1);
+          }}
+        />
       </FilterBar>
 
       {loading ? (

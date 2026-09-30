@@ -4,9 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { LayoutDashboard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { FormField } from '@/components/ui/form-field';
+import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
@@ -276,34 +275,25 @@ export default function DashboardAdminPage() {
         <h2 className="text-lg font-semibold text-savr-neutral-700">Revenus</h2>
 
         {/* Filtre de période COMMUN — pilote le graphe ET le tableau (revue E2E Val
-            2026-07-18). Un seul champ « Période » (DS règle 3) + « Réinitialiser »
-            (retour au défaut 12 mois). */}
-        <div
-          className="grid grid-cols-1 items-end gap-4 sm:grid-cols-3"
+            2026-07-18). Un seul filtre « Période » en ligne (décision Val
+            2026-09-30) + « Réinitialiser » (retour au défaut 12 mois). */}
+        <BarreFiltres
+          surface="page"
           data-testid="revenus-orgs-controls"
+          onReset={() => {
+            setPeriode(defaultPeriode());
+            setPage(1);
+          }}
+          resetTestId="revenus-reinitialiser"
         >
-          <FormField label="Période" htmlFor="revenus-periode">
-            <DateRangePicker
-              id="revenus-periode"
-              data-testid="revenus-periode"
-              value={periode}
-              onChange={setPeriodeManuelle}
-            />
-          </FormField>
-          <div className="flex h-11 items-center sm:h-10">
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => {
-                setPeriode(defaultPeriode());
-                setPage(1);
-              }}
-              data-testid="revenus-reinitialiser"
-            >
-              Réinitialiser
-            </Button>
-          </div>
-        </div>
+          <DateRangePicker
+            titre="Période"
+            id="revenus-periode"
+            data-testid="revenus-periode"
+            value={periode}
+            onChange={setPeriodeManuelle}
+          />
+        </BarreFiltres>
 
         {/* Graphe (50 %) + tableau (50 %) sur la même ligne ≥ lg (revue E2E Val
             2026-07-18) — empilés en dessous. `items-start` : chaque colonne garde

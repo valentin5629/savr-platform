@@ -52,7 +52,9 @@ describe('M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mo
     render(
       <DashboardFilterBar storageKey="test-r23b-presets" onChange={onChange} />,
     );
-    // Liste CDC exacte §06.04 l.73 / §06.05 l.105 (Personnalisé = les champs date).
+    // Liste CDC exacte §06.04 l.73 / §06.05 l.105 (Personnalisé = le calendrier),
+    // en colonne dans le panneau du filtre Période (décision Val 2026-09-30).
+    fireEvent.click(screen.getByTestId('dashboard-filter-periode'));
     for (const key of ['7j', '30j', 'trimestre', '12m', 'civile']) {
       expect(
         screen.getByTestId(`dashboard-filter-preset-${key}`),
@@ -70,7 +72,11 @@ describe('M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mo
       <DashboardFilterBar storageKey="test-r23b-apply" onChange={onChange} />,
     );
     const before = onChange.mock.calls.length; // ≥1 (appel au montage)
+    fireEvent.click(screen.getByTestId('dashboard-filter-periode'));
     fireEvent.click(screen.getByTestId('dashboard-filter-preset-7j'));
+    // Le raccourci pose un brouillon : rien n'est émis avant « Appliquer ».
+    expect(onChange.mock.calls.length).toBe(before);
+    fireEvent.click(screen.getByRole('button', { name: 'Appliquer' }));
     expect(onChange.mock.calls.length).toBeGreaterThan(before);
     const last = onChange.mock.calls.at(-1)?.[0] as {
       from: string;

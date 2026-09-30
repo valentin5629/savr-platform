@@ -23,6 +23,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import {
+  ACTION_DESTRUCTIVE_CONTOUR,
   EnTeteMention,
   EnTetePuce,
   FicheEnTete,
@@ -376,11 +377,13 @@ export function AssociationModal({
       </Button>
       {isEdition &&
         (association!.actif ? (
+          // Contour rouge, comme la fiche transporteur et « Annuler la collecte ».
           <Button
             type="button"
-            variant="destructive"
+            variant="secondary"
             onClick={() => void handleToggleActif()}
             disabled={submitting}
+            className={ACTION_DESTRUCTIVE_CONTOUR}
           >
             Désactiver
           </Button>

@@ -22,6 +22,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import {
+  ACTION_DESTRUCTIVE_CONTOUR,
   BlocHeader,
   EnTeteMention,
   EnTetePuce,
@@ -834,7 +835,7 @@ export function TransporteurModal({
                 variant="secondary"
                 onClick={() => void handleToggleActif()}
                 disabled={submitting}
-                className="border-savr-error text-savr-error-strong hover:bg-savr-error-subtle active:bg-savr-error-subtle"
+                className={ACTION_DESTRUCTIVE_CONTOUR}
               >
                 Désactiver
               </Button>

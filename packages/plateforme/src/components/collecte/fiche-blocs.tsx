@@ -224,3 +224,9 @@ export function OngletAvecErreurs({
     </TabsTrigger>
   );
 }
+
+// Action destructive en contour rouge sur un bouton `secondary` : « Annuler la
+// collecte » (pop-up collecte client), « Désactiver » des fiches Admin
+// (transporteur, association) — même rendu partout (décision Val 2026-09-30).
+export const ACTION_DESTRUCTIVE_CONTOUR =
+  'border-savr-error text-savr-error-strong hover:bg-savr-error-subtle active:bg-savr-error-subtle';

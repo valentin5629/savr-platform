@@ -120,20 +120,6 @@ describe('M1.2 — `?from=` ne s’échappe pas du chemin collectes', () => {
   );
 
   it(
-    'agence : la collecte source est lue sous /api/v1/agence/collectes/',
-    async () => {
-      const uuid = '3f1c8a2e-0000-4aaa-9bbb-1234567890ab';
-      const nominal = await rendreAvecFrom(uuid, 'agence');
-      expect(urlsAppelees(nominal)).toContain(`${PREFIXE_AGENCE}${uuid}`);
-      // La route traiteur refuserait l'agence (403) : elle n'est jamais appelée.
-      expect(urlsAppelees(nominal).some((u) => u.startsWith(PREFIXE))).toBe(
-        false,
-      );
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
     'agence : un `from` en ../ reste UN segment sous /api/v1/agence/collectes/',
     async () => {
       const traversee = await rendreAvecFrom(

@@ -46,7 +46,7 @@ import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 // automatiquement à l'agence »). La page agence en avait une copie, restée
 // figée avant la refonte 2026-07-05 (revue écran E2E 2026-09-30) ; seules les
 // routes API (`/api/v1/<espace>/collectes…`) et le droit d'écriture diffèrent.
-export type EspaceListeCollectes = Extract<EspaceClient, 'traiteur' | 'agence'>;
+type EspaceListeCollectes = Extract<EspaceClient, 'traiteur' | 'agence'>;
 
 // Bases LITTÉRALES (jamais l'espace interpolé dans le chemin) : les segments
 // ajoutés ensuite sont des ids passés par encodeURIComponent (cf.

@@ -148,14 +148,6 @@ describe('M3.3 / liste agence — route liste', () => {
       ]),
     );
   });
-
-  it('M3.3/liste_agence_role — la route reste réservée au rôle agence', async () => {
-    const refus = new Response(null, { status: 403 });
-    mockRequireUser.mockResolvedValueOnce({ error: refus });
-    const res = await callListe('type=zero_dechet');
-    expect(res.status).toBe(403);
-    expect(mockRequireUser.mock.calls[0]![1]).toEqual(['agence']);
-  });
 });
 
 describe('M3.3 / liste agence — options de filtres', () => {

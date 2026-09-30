@@ -29,7 +29,8 @@
     "supabase/tests/benchmark_lieux_parc_agence.test.sql",
     "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
     "packages/plateforme/src/lib/collectes/liste-collectes-client.ts",
-    "packages/plateforme/src/app/api/v1/agence/collectes/filtres/route.ts"
+    "packages/plateforme/src/app/api/v1/agence/collectes/filtres/route.ts",
+    "supabase/tests/liste_collectes_agence_lecture.test.sql"
   ],
   "scenarios": [
     "M3.3/auth_guard_non_agence_403",
@@ -424,9 +425,9 @@
       "id": "M3.3-liste-api-resultats",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:334",
       "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/route.ts, packages/plateforme/src/lib/collectes/liste-collectes-client.ts",
-      "test": "M3.3/liste_agence_resultats",
+      "test": "M3.3/liste_agence_resultats ; supabase/tests/liste_collectes_agence_lecture.test.sql",
       "statut": "implemented",
-      "libelle": "GET /api/v1/agence/collectes renvoie les mêmes champs calculés que la liste traiteur (poids ZD, repas AG, CO₂, taux, rapport réservé) — calcul commun enrichirLignesCollectes, embeds bruts non renvoyés."
+      "libelle": "GET /api/v1/agence/collectes renvoie les mêmes champs calculés que la liste traiteur (poids ZD, repas AG, CO₂, taux, rapport réservé) — calcul commun enrichirLignesCollectes, embeds bruts non renvoyés. Lecture des embeds sous RLS agence + refus cross-org prouvés en pgTAP (rôle authenticated, 24 cas)."
     },
     {
       "id": "M3.3-liste-api-filtres",

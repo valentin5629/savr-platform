@@ -786,7 +786,7 @@
     {
       "id": "M3.1-coordonnees-urgence-une-par-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
-      "artefact": "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql, supabase/migrations/20260930140000_plateforme_alerte_coordonnees_urgence_une_ouverte.sql",
+      "artefact": "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql, supabase/migrations/20260930170000_plateforme_alerte_coordonnees_urgence_une_ouverte.sql",
       "test": "M3.1/urgence_doublon_idempotent",
       "statut": "implemented",
       "libelle": "« 1 demande OUVERTE par collecte » garanti par la base : index unique partiel uniq_alerte_coordonnees_urgence_ouverte (alertes_admin.entity_id WHERE code='coordonnees_chauffeur_urgence' AND statut='ouverte', D10 arbitrage Val 2026-09-30 — remplace l'unicité tous statuts) ; la route insère sans lecture préalable et traite 23505 comme « déjà demandée » (double clic concurrent) ; une fois l'alerte clôturée, une nouvelle demande ouvre une nouvelle alerte et la fiche ne grise le bouton que sur une alerte ouverte (M3.1/fiche_get_urgence_ouverte_seule). Preuve base : supabase/tests/coordonnees_urgence_alerte.test.sql."

@@ -24,7 +24,7 @@ import {
 //    préalable et une violation d'unicité (double clic, 2e onglet, 2e
 //    utilisateur) vaut « demande déjà envoyée », réponse identique. Une fois
 //    l'alerte clôturée, une nouvelle demande en ouvre une nouvelle (D10,
-//    arbitrage Val 2026-09-30, migration 20260930140000) ;
+//    arbitrage Val 2026-09-30, migration 20260930170000) ;
 //  · clôture automatique à réception des coordonnées : trigger SQL (migration
 //    20260929160000), qui applique la règle de `coordonneesCompletes`.
 

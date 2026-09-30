@@ -134,8 +134,9 @@ interface FiltreCochesProps {
    * pas à une sélection vide (Dashboard Client : périmètre = union de
    * plusieurs filtres). Défaut : cochée tant que rien n'est coché ; la cocher
    * vide la sélection ; cocher toutes les options revient à « Tous ».
+   * `onDeselect` : décocher « Tous » (sinon sans effet).
    */
-  tous?: { coche: boolean; onSelect: () => void };
+  tous?: { coche: boolean; onSelect: () => void; onDeselect?: () => void };
 }
 
 // Résumé affiché à côté du titre : « Tous » (ou `libelleVide`), `libelleTous`
@@ -252,8 +253,8 @@ export function FiltreCoches({
                   <Checkbox
                     checked={tousCoche}
                     onCheckedChange={(v) => {
-                      if (v !== true) return;
-                      if (tous) tous.onSelect();
+                      if (v !== true) tous?.onDeselect?.();
+                      else if (tous) tous.onSelect();
                       else onChange([]);
                     }}
                   />

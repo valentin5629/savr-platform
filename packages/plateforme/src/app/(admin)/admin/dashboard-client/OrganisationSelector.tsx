@@ -102,6 +102,8 @@ export function OrganisationSelector({
                   idsType.every((id) => selected.includes(id))),
               onSelect: () =>
                 changer(autres.length === 0 ? [] : [...autres, ...idsType]),
+              // Décocher un type entièrement coché le retire du périmètre.
+              onDeselect: () => changer(autres),
             }}
             onChange={(ids) => changer([...autres, ...ids])}
           />

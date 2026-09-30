@@ -255,20 +255,30 @@ export function DashboardClientView() {
       fetch(`/api/v1/admin/dashboard-client?${q.toString()}`)
         .then((r) => r.json())
         .then((j: { data?: AdminPayload }) => j.data ?? null);
+    // Une réponse d'un périmètre déjà remplacé (cases cochées en rafale) est
+    // ignorée au lieu d'écraser la plus récente.
+    let perimee = false;
     Promise.all([
       lire(qs),
       // N-1 non bloquant : un échec ne masque que les variations.
       fenetrePrev ? lire(qsPrev).catch(() => null) : Promise.resolve(null),
     ])
       .then(([courant, precedent]) => {
+        if (perimee) return;
         setPayload(courant);
         setPayloadPrev(precedent);
       })
       .catch(() => {
+        if (perimee) return;
         setPayload(null);
         setPayloadPrev(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!perimee) setLoading(false);
+      });
+    return () => {
+      perimee = true;
+    };
   }, [filters, tab, selectedOrgs]);
 
   // Repère parc benchmark (Bloc 3 ZD) — parc global anonymisé (k≥5), indépendant

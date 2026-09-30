@@ -124,57 +124,60 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
       chip,
       new Date(),
     ) as unknown as typeof query;
-  } else {
-    // Statut : multi-sélection (`statuts` CSV) prioritaire, sinon mono (`statut`).
-    if (statuts) {
-      const list = statuts
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (list.length > 0) query = query.in('statut', list);
-    } else if (statut) {
-      query = query.eq('statut', statut);
-    }
-    if (types.length > 0) query = query.in('type', types);
-    else if (type) query = query.eq('type', type);
-    if (statut_tms) query = query.eq('statut_tms', statut_tms);
-    if (from) query = query.gte('date_collecte', from);
-    if (to) query = query.lte('date_collecte', to);
-    if (organisation_id)
-      query = query.eq('evenements.organisation_id', organisation_id);
-    if (traiteurOperationnelIds.length > 0)
-      query = query.in(
-        'evenements.traiteur_operationnel_organisation_id',
-        traiteurOperationnelIds,
-      );
-    else if (traiteur_operationnel_id)
-      query = query.eq(
-        'evenements.traiteur_operationnel_organisation_id',
-        traiteur_operationnel_id,
-      );
-    if (perimetreOrgIds.length > 0) {
-      const ids = perimetreOrgIds.join(',');
-      query = query.or(
-        `organisation_id.in.(${ids}),traiteur_operationnel_organisation_id.in.(${ids})`,
-        { referencedTable: 'evenements' },
-      );
-    }
-    if (lieuIds.length > 0) query = query.in('evenements.lieu_id', lieuIds);
-    else if (lieu_id) query = query.eq('evenements.lieu_id', lieu_id);
-    if (info_incomplete === 'true')
-      query = query.eq('informations_completes', false);
-    // Miroir EXACT du compteur KPI `controle_acces_a_envoyer` (chip-counts) :
-    // requis ET email récap non encore envoyé ET à venir → compteur = liste.
-    if (controle_acces === 'true') {
-      const today = jourParis();
-      query = query
-        .eq('controle_acces_requis', true)
-        .is('infos_acces_email_envoye_at', null)
-        .gte('date_collecte', today);
-    }
-    if (rapport_non_consulte === 'true')
-      query = query.is('rapports_rse.consulte_par_user_at', null);
   }
+
+  // Filtres de la barre — cumulés avec une pastille (décision Val
+  // 2026-09-30) : la liste = pastille ET barre ; sans filtre posé, elle reste
+  // le miroir exact du compteur de la pastille.
+  // Statut : multi-sélection (`statuts` CSV) prioritaire, sinon mono (`statut`).
+  if (statuts) {
+    const list = statuts
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length > 0) query = query.in('statut', list);
+  } else if (statut) {
+    query = query.eq('statut', statut);
+  }
+  if (types.length > 0) query = query.in('type', types);
+  else if (type) query = query.eq('type', type);
+  if (statut_tms) query = query.eq('statut_tms', statut_tms);
+  if (from) query = query.gte('date_collecte', from);
+  if (to) query = query.lte('date_collecte', to);
+  if (organisation_id)
+    query = query.eq('evenements.organisation_id', organisation_id);
+  if (traiteurOperationnelIds.length > 0)
+    query = query.in(
+      'evenements.traiteur_operationnel_organisation_id',
+      traiteurOperationnelIds,
+    );
+  else if (traiteur_operationnel_id)
+    query = query.eq(
+      'evenements.traiteur_operationnel_organisation_id',
+      traiteur_operationnel_id,
+    );
+  if (perimetreOrgIds.length > 0) {
+    const ids = perimetreOrgIds.join(',');
+    query = query.or(
+      `organisation_id.in.(${ids}),traiteur_operationnel_organisation_id.in.(${ids})`,
+      { referencedTable: 'evenements' },
+    );
+  }
+  if (lieuIds.length > 0) query = query.in('evenements.lieu_id', lieuIds);
+  else if (lieu_id) query = query.eq('evenements.lieu_id', lieu_id);
+  if (info_incomplete === 'true')
+    query = query.eq('informations_completes', false);
+  // Miroir EXACT du compteur KPI `controle_acces_a_envoyer` (chip-counts) :
+  // requis ET email récap non encore envoyé ET à venir → compteur = liste.
+  if (controle_acces === 'true') {
+    const today = jourParis();
+    query = query
+      .eq('controle_acces_requis', true)
+      .is('infos_acces_email_envoye_at', null)
+      .gte('date_collecte', today);
+  }
+  if (rapport_non_consulte === 'true')
+    query = query.is('rapports_rse.consulte_par_user_at', null);
 
   const { data, error, count } = await query.range(offset, offset + limit - 1);
   if (error) return serverError(error, 'admin.collectes.list');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Truck,
@@ -185,6 +185,13 @@ function typeSeul(types: string[], val: string): boolean {
   return types.length === 1 && types[0] === val;
 }
 
+/** `base` restreint à la sélection de la barre (sélection vide = « Tous »). */
+function intersection(base: string[], selection: string[]): string[] {
+  return selection.length > 0
+    ? base.filter((v) => selection.includes(v))
+    : base;
+}
+
 export default function CollectesPage() {
   const router = useRouter();
   const params = useSearchParams();
@@ -323,7 +330,12 @@ export default function CollectesPage() {
     };
   }, []);
 
+  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
+  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
+  const derniereRequete = useRef(0);
+
   const fetchCollectes = useCallback(async () => {
+    const numero = ++derniereRequete.current;
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
     const tri = sorting[0];
@@ -332,10 +344,15 @@ export default function CollectesPage() {
       params.set('ordre', tri.desc ? 'desc' : 'asc');
     }
 
+    // Pastille rapide ET filtres de la barre se cumulent (décision Val
+    // 2026-09-30) : ce qui est affiché s'applique toujours. Sans filtre posé,
+    // la liste reste le miroir exact du compteur de la pastille.
     if (tab === 'programmees') {
       if (quickFilter) {
-        // Chemin chip serveur (les chips sont tous à portée « Programmées »).
+        // Chemin chip serveur (les chips sont tous à portée « Programmées ») ;
+        // le Statut ne raffine qu'avec une sélection explicite.
         params.set('chip', quickFilter);
+        if (statutsSel.length > 0) params.set('statuts', statutsSel.join(','));
       } else {
         params.set(
           'statuts',
@@ -343,45 +360,55 @@ export default function CollectesPage() {
             ? statutsSel.join(',')
             : STATUTS_PROGRAMMEES.join(','),
         );
-        if (types.length > 0) params.set('types', types.join(','));
       }
+      if (types.length > 0) params.set('types', types.join(','));
     } else {
-      // Historique : preset terminaux, raffiné par le filtre rapide.
-      if (quickFilter === 'annulee') {
-        params.set('statuts', 'annulee,rejetee_par_prestataire');
-      } else {
-        params.set(
-          'statuts',
-          statutsSel.length > 0
-            ? statutsSel.join(',')
-            : STATUTS_HISTORIQUE.join(','),
-        );
-        if (quickFilter === 'ag') params.set('type', 'anti_gaspi');
-        else if (quickFilter === 'zd') params.set('type', 'zero_dechet');
-        else if (types.length > 0) params.set('types', types.join(','));
+      // Historique : preset terminaux ; les pastilles Annulées / Anti-Gaspi /
+      // Zéro Déchet se croisent avec Statut / Type de la barre.
+      const statutsEff = intersection(
+        quickFilter === 'annulee'
+          ? ['annulee', 'rejetee_par_prestataire']
+          : STATUTS_HISTORIQUE,
+        statutsSel,
+      );
+      const typePastille =
+        quickFilter === 'ag'
+          ? 'anti_gaspi'
+          : quickFilter === 'zd'
+            ? 'zero_dechet'
+            : null;
+      const typesEff = typePastille
+        ? intersection([typePastille], types)
+        : types;
+      if (statutsEff.length === 0 || (typePastille && typesEff.length === 0)) {
+        // Croisement vide (ex. pastille Anti-Gaspi + Type Zéro Déchet).
+        setCollectes([]);
+        setTotal(0);
+        setLoading(false);
+        return;
       }
+      params.set('statuts', statutsEff.join(','));
+      if (typesEff.length > 0) params.set('types', typesEff.join(','));
     }
 
-    // Filtres de la barre (communs, hors chemin chip Programmées).
-    if (!(tab === 'programmees' && quickFilter)) {
-      // « Traiteur » = traiteur OPÉRATIONNEL (décision Val R24c) → miroir exact du
-      // Top 5 traiteurs des dashboards (agrégé par traiteur_operationnel).
-      if (traiteurIds.length > 0)
-        params.set('traiteur_operationnel_ids', traiteurIds.join(','));
-      if (lieuIds.length > 0) params.set('lieu_ids', lieuIds.join(','));
-      if (from) params.set('from', from);
-      if (to) params.set('to', to);
-      // Périmètre d'organisations du drill-down (miroir exact du chiffre borné).
-      for (const id of perimetreOrgIds)
-        params.append('perimetre_org_ids[]', id);
-      if (infoIncomplete) params.set('info_incomplete', 'true');
-      if (controleAcces) params.set('controle_acces', 'true');
-      if (rapportNonConsulte) params.set('rapport_non_consulte', 'true');
-    }
+    // « Traiteur » = traiteur OPÉRATIONNEL (décision Val R24c) → miroir exact du
+    // Top 5 traiteurs des dashboards (agrégé par traiteur_operationnel).
+    if (traiteurIds.length > 0)
+      params.set('traiteur_operationnel_ids', traiteurIds.join(','));
+    if (lieuIds.length > 0) params.set('lieu_ids', lieuIds.join(','));
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    // Périmètre d'organisations du drill-down (miroir exact du chiffre borné).
+    for (const id of perimetreOrgIds) params.append('perimetre_org_ids[]', id);
+    if (infoIncomplete) params.set('info_incomplete', 'true');
+    if (controleAcces) params.set('controle_acces', 'true');
+    if (rapportNonConsulte) params.set('rapport_non_consulte', 'true');
 
     const res = await fetch(`/api/v1/admin/collectes?${params}`);
+    if (numero !== derniereRequete.current) return;
     if (res.ok) {
       const json = (await res.json()) as { data: CollecteRow[]; total: number };
+      if (numero !== derniereRequete.current) return;
       setCollectes(json.data);
       setTotal(json.total);
     }
@@ -567,14 +594,13 @@ export default function CollectesPage() {
               ['zero_dechet', 'Zéro Déchet', Leaf],
             ] as [string, string, LucideIcon][]
           ).map(([val, label, Icone]) => {
-            const actif = !quickFilter && typeSeul(types, val);
+            const actif = typeSeul(types, val);
             return (
               <button
                 key={val}
                 type="button"
                 aria-pressed={actif}
                 onClick={() => {
-                  setQuickFilter('');
                   setTypes((t) => (typeSeul(t, val) ? [] : [val]));
                   setPage(1);
                 }}
@@ -617,9 +643,8 @@ export default function CollectesPage() {
             label="Infos accès à envoyer"
             sublabel="chauffeur non communiqué"
             tone="info"
-            active={!quickFilter && controleAcces}
+            active={controleAcces}
             onClick={() => {
-              setQuickFilter('');
               setControleAcces((v) => !v);
               setPage(1);
             }}
@@ -631,9 +656,8 @@ export default function CollectesPage() {
             label="AG à dispatcher"
             sublabel="validées transporteur"
             tone="warning"
-            active={!quickFilter && typeSeul(types, 'anti_gaspi')}
+            active={typeSeul(types, 'anti_gaspi')}
             onClick={() => {
-              setQuickFilter('');
               setTypes((t) =>
                 typeSeul(t, 'anti_gaspi') ? [] : ['anti_gaspi'],
               );
@@ -646,9 +670,8 @@ export default function CollectesPage() {
             label="ZD à dispatcher"
             sublabel="validées transporteur"
             tone="success"
-            active={!quickFilter && typeSeul(types, 'zero_dechet')}
+            active={typeSeul(types, 'zero_dechet')}
             onClick={() => {
-              setQuickFilter('');
               setTypes((t) =>
                 typeSeul(t, 'zero_dechet') ? [] : ['zero_dechet'],
               );
@@ -661,9 +684,8 @@ export default function CollectesPage() {
             label="Infos à récupérer"
             sublabel="infos traiteur manquantes"
             tone="warning"
-            active={!quickFilter && infoIncomplete}
+            active={infoIncomplete}
             onClick={() => {
-              setQuickFilter('');
               setInfoIncomplete((v) => !v);
               setPage(1);
             }}
@@ -682,7 +704,6 @@ export default function CollectesPage() {
         ariaLabel="Filtres rapides"
         onSelect={(key) => {
           setQuickFilter(key);
-          setTypes([]);
           setPage(1);
         }}
       />

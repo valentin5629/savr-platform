@@ -263,6 +263,18 @@ describe('M3.6 / Dashboard Client / UI', () => {
       expect(agence).toHaveTextContent('Agence Gamma');
       expect(toutesAgences).toBeChecked();
 
+      // Décocher « Toutes » (type entièrement coché) retire les agences.
+      fireEvent.click(toutesAgences);
+      await waitFor(
+        () => expect(orgIdsDerniereRequete()).toEqual(['o1']),
+        ATTENTE_UI,
+      );
+      fireEvent.click(toutesAgences);
+      await waitFor(
+        () => expect(orgIdsDerniereRequete().sort()).toEqual(['o1', 'o3']),
+        ATTENTE_UI,
+      );
+
       // « Tous » des gestionnaires ajoute tout le type : toutes les
       // organisations cochées = « Toutes les organisations » (aucun filtre).
       fireEvent.click(gestionnaire);

@@ -625,11 +625,11 @@
     },
     {
       "id": "M3.1-liste-tri-date-decroissante",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:324",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:329 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
       "statut": "implemented",
-      "libelle": "Tri par défaut de la liste Collectes (§06.04 §3 « Vue cartes » l.324 + « Tri par défaut » l.383) : date DÉCROISSANTE, les plus récentes en premier, SANS exception d'onglet — au niveau des groupes-semaines COMME à l'intérieur d'une semaine. Ferme l'écart code/CDC relevé le 2026-09-21 (le code triait les semaines en croissant sur l'onglet Programmées, et les cartes intra-semaine toujours en croissant dans les deux onglets) : arbitrage Val 2026-09-21, option B — le CDC était juste, c'est le code qui s'aligne, cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md. Le tri est local au useMemo de la page : la liste Admin (§06.06) garde son propre groupBySemaine(asc|desc) avec remontée des urgences AG §06.09, hors périmètre de cet arbitrage."
+      "libelle": "Tri par défaut de la liste Collectes (§06.04 §3 Data Table l.329 + « Tri par défaut » l.389) : date DÉCROISSANTE, les plus récentes en premier, SANS exception d'onglet — au niveau des groupes-semaines COMME à l'intérieur d'une semaine. Ferme l'écart code/CDC relevé le 2026-09-21 (le code triait les semaines en croissant sur l'onglet Programmées, et les cartes intra-semaine toujours en croissant dans les deux onglets) : arbitrage Val 2026-09-21, option B — le CDC était juste, c'est le code qui s'aligne, cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md. Le tri est porté par `initialSorting` (date décroissante) de la Data Table du composant partagé liste-collectes-client (traiteur + agence) : la liste Admin (§06.06) garde son propre groupBySemaine(asc|desc) avec remontée des urgences AG §06.09, hors périmètre de cet arbitrage."
     },
     {
       "id": "M3.1-lieux-autocomplete-preuve-comportement",

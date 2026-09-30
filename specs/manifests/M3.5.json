@@ -83,7 +83,7 @@
     {
       "id": "BL-P2-43",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
       "libelle": "Pré-cochage du type de collecte (onglet ZD/AG) transmis en query string : les cartes KPI et les liens dashboard passent type=zero_dechet|anti_gaspi ; la liste Collectes traiteur/agence lit params.get('type') et pré-sélectionne l'onglet (déjà en place)."

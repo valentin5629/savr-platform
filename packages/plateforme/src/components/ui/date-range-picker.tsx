@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/filtre-en-ligne';
 import { dateVersIso, formatJourCourt, isoVersDate } from '@/lib/date-iso';
 import {
+  DERNIERS_N_MAX,
   periodeDerniers,
   raccourciDe,
   raccourcisPeriode,
@@ -271,7 +272,7 @@ function DateRangePicker({
                   type="number"
                   inputMode="numeric"
                   min={1}
-                  max={999}
+                  max={DERNIERS_N_MAX}
                   aria-label="Nombre d'unités"
                   value={derniers.n}
                   onChange={(e) =>

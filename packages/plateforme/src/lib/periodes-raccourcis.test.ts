@@ -35,8 +35,10 @@ describe('periodes-raccourcis', () => {
     });
   });
 
-  it('periodeDerniers refuse un nombre non entier ou < 1', () => {
-    for (const n of [0, -3, 1.5, Number.NaN]) {
+  it('periodeDerniers refuse un nombre non entier, < 1 ou > 999', () => {
+    // 1000 : au-delà du plafond du champ (99 999 999 mois produisait une date
+    // invalide envoyée à l'API).
+    for (const n of [0, -3, 1.5, Number.NaN, 1000, 99_999_999]) {
       expect(periodeDerniers(n, 'jours')).toBeNull();
     }
   });

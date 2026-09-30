@@ -37,10 +37,16 @@ export function decalerMois(jour: string, mois: number): string {
   return `${String(annee).padStart(4, '0')}-${String(moisCible).padStart(2, '0')}-${String(jourCible).padStart(2, '0')}`;
 }
 
+/** Plafond de N (même borne que le champ du panneau). */
+export const DERNIERS_N_MAX = 999;
+
+const JOUR_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
  * « Derniers N jours / semaines / mois » : fin = aujourd'hui (ou hier si
  * aujourd'hui est exclu), début = fin − N unités. `null` si N n'est pas un
- * entier ≥ 1.
+ * entier entre 1 et `DERNIERS_N_MAX`, ou si une borne sortirait invalide — une
+ * saisie hors bornes ne doit jamais partir en paramètre d'API.
  */
 export function periodeDerniers(
   n: number,
@@ -48,14 +54,14 @@ export function periodeDerniers(
   inclureAujourdhui = true,
   maintenant: Date = new Date(),
 ): Periode | null {
-  if (!Number.isInteger(n) || n < 1) return null;
+  if (!Number.isInteger(n) || n < 1 || n > DERNIERS_N_MAX) return null;
   const aujourdhui = jourParis(maintenant);
   const to = inclureAujourdhui ? aujourdhui : decalerJour(aujourdhui, -1);
   const from =
     unite === 'mois'
       ? decalerMois(to, -n)
       : decalerJour(to, unite === 'semaines' ? -7 * n : -n);
-  return { from, to };
+  return JOUR_ISO.test(from) && JOUR_ISO.test(to) ? { from, to } : null;
 }
 
 export interface RaccourciPeriode {

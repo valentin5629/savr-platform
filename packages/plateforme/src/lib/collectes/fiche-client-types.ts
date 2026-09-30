@@ -30,6 +30,29 @@ export const STATUTS_ANNULES = ['annulee', 'annulation_demandee'];
 // OUVERTE par collecte : index uniq_alerte_coordonnees_urgence_ouverte).
 export const CODE_ALERTE_COORDONNEES_URGENCE = 'coordonnees_chauffeur_urgence';
 
+// Traiteur opérationnel d'une collecte AG programmée par une AUTRE organisation
+// (agence) : l'attestation de don est émise au nom du donneur d'ordre et
+// att_traiteur_select ne la lui sert pas — la route de téléchargement répond
+// 404 (D12, arbitrage Val 2026-09-30). Règle UNIQUE de la fiche et de la liste
+// traiteur. Le rapport RSE (ZD, AG sans excédent) reste servi (rr_select).
+export function rapportReserveDonneurOrdre(
+  collecte: { type: string; statut: string },
+  organisationProgrammatriceId: string | null | undefined,
+  organisationUtilisateurId: string,
+): boolean {
+  return (
+    collecte.type === 'anti_gaspi' &&
+    collecte.statut !== 'realisee_sans_collecte' &&
+    organisationProgrammatriceId != null &&
+    organisationProgrammatriceId !== organisationUtilisateurId
+  );
+}
+
+// Mention affichée à la place du téléchargement quand le rapport est réservé
+// (fiche et liste traiteur).
+export const LIBELLE_RAPPORT_RESERVE =
+  'Réservé à l’organisation qui a programmé la collecte';
+
 export interface TourneeFiche {
   chauffeur_nom: string | null;
   plaque_immatriculation: string | null;

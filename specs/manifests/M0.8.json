@@ -486,7 +486,7 @@
     },
     {
       "id": "BL-P3-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:420",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:421",
       "artefact": "packages/plateforme/src/lib/collecte-ref.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)",
       "statut": "implemented",
@@ -494,7 +494,7 @@
     },
     {
       "id": "BL-P3-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:664",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:665",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -510,7 +510,7 @@
     },
     {
       "id": "BL-P3-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:762",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:763",
       "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
       "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
       "statut": "implemented",
@@ -526,7 +526,7 @@
     },
     {
       "id": "BL-P3-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:903",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:904",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -600,9 +600,9 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "ba8f6144320893a39f67dbc33a78894ee31bf2caa482586271e453de87979bfb",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "d89075f06b087f49c0f9a3db675adfdd8c8e50f83884bd881a44f843eebecb36",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "f3dadaa9a7279e120c3d190395420044f968a7b69d1ac324222924453e57ae99",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "073e5381079db28f883d0c38b62fa5cc73ec7f0944f82fc41976736f5d42ac77",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "5b47fd23e51c23aa750d632d89c0ed4a25812daf3b7d6dca02938615b7cc84d5",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6f358c8ab8344ff626cacbad0ef7f6d0cfec2f00a2d6207937af2c764f2b44a7",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "ac5a0257d8e08e15df6a5d8a8391c3ec686d971857ee5294892b0fad57577ea2",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "5abf9290405210ba77c1450fa1059db2f5fe62bfa7bc94f860a6743a11cdb50c",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "98f9767e66fb0dbad9f9907235bc9bbe05cb2f102d20c496db1b9afa4dabe013",

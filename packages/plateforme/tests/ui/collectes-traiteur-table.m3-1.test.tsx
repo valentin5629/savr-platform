@@ -4,7 +4,8 @@
  * affichés (Date · Heure · Lieu · Pax · Statut), actions icône-seule (Modifier /
  * Annuler / Dupliquer) MASQUÉES quand indisponibles (plus de bouton grisé), et —
  * sur collecte réalisée (cloturee) — les résultats (ZD : poids/taux/CO₂ ; AG :
- * repas/CO₂) + le téléchargement du rapport.
+ * repas/CO₂) + le téléchargement du rapport, retiré quand le rapport de don
+ * est réservé au donneur d'ordre (D12).
  *
  * Requêtes bornées au <table> : DataGrid rend aussi chaque ligne en carte
  * mobile (< 640 px), qui dupliquerait chaque libellé.
@@ -36,6 +37,7 @@ function base(
     lieu_adresse: '9 Ruelle 76000 Rouen',
     pax: 220,
     programmee_par_tiers: false,
+    rapport_reserve_donneur_ordre: false,
     canWrite: true,
     poids_total_kg: null,
     taux_recyclage: null,
@@ -176,6 +178,29 @@ describe('M3.1 / Data Table liste traiteur', () => {
     );
     fireEvent.click(btn(/Télécharger le rapport/));
     expect(onTelecharger).toHaveBeenCalledOnce();
+  });
+
+  it('M3.1/liste_rapport_reserve_donneur_ordre_picto_retire — AG réservée au donneur d’ordre : picto retiré, mention de la fiche, résultats conservés', () => {
+    // D12 : la route répondrait 404 → pas de bouton inerte dans la liste
+    // (action retirée, §10 §7), mais la mention affichée par la fiche.
+    monte(
+      base({
+        statut: 'cloturee',
+        type: 'anti_gaspi',
+        nb_repas_donnes: 340,
+        co2_evite_kg: 850,
+        programmee_par_tiers: true,
+        rapport_reserve_donneur_ordre: true,
+      }),
+      true,
+    );
+    expect(queryBtn(/Télécharger le rapport/)).toBeNull();
+    expect(
+      table.getByText('Réservé à l’organisation qui a programmé la collecte'),
+    ).toBeTruthy();
+    expect(table.getByText(/340 repas/)).toBeTruthy();
+    expect(table.getByText(/850\s*kg CO₂e/)).toBeTruthy();
+    expect(btn(/Dupliquer/)).toBeTruthy();
   });
 
   it('M3.1/card_traiteur_non_realisee — statut non terminal : pas de téléchargement', () => {

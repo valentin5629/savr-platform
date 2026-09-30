@@ -89,6 +89,7 @@ interface CollecteRow {
   date_collecte: string;
   heure_collecte: string | null;
   programmee_par_tiers: boolean;
+  rapport_reserve_donneur_ordre: boolean;
   // Résultats de la collecte réalisée (renvoyés par la route, agrégés côté serveur).
   poids_total_kg: number | null;
   taux_recyclage: number | null;
@@ -423,6 +424,7 @@ function CollectesContent() {
               .join(' ') || null,
           pax: evt?.pax ?? null,
           programmee_par_tiers: c.programmee_par_tiers,
+          rapport_reserve_donneur_ordre: c.rapport_reserve_donneur_ordre,
           canWrite: canWrite(c),
           poids_total_kg: c.poids_total_kg,
           taux_recyclage: c.taux_recyclage,

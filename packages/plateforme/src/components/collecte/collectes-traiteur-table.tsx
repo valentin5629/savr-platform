@@ -4,6 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import {
   Copy,
   Download,
+  FileText,
   Leaf,
   Package,
   Pencil,
@@ -15,6 +16,7 @@ import {
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
+import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
 import { CelluleVide } from '@/components/ui/data-grid';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
@@ -32,6 +34,8 @@ export interface TraiteurCollecteLigne {
   lieu_adresse: string | null;
   pax: number | null;
   programmee_par_tiers: boolean;
+  /** Rapport de don réservé au donneur d'ordre (D12) : pas de téléchargement. */
+  rapport_reserve_donneur_ordre: boolean;
   /** Droit d'écriture de l'appelant sur cette collecte (manager, ou commercial
    *  créateur de l'événement). */
   canWrite: boolean;
@@ -110,14 +114,27 @@ function Resultats({
           kg CO₂e
         </span>
       )}
-      <IconButton
-        variant="ghost"
-        onClick={onTelecharger}
-        title="Télécharger le rapport"
-        aria-label="Télécharger le rapport de la collecte"
-      >
-        <Download />
-      </IconButton>
+      {/* Rapport réservé au donneur d'ordre : action retirée (liste, §10 §7)
+          et remplacée par la mention de la fiche, précédée du picto document
+          pour qu'elle se lise « rapport réservé », pas « résultats réservés ». */}
+      {c.rapport_reserve_donneur_ordre ? (
+        <span className="inline-flex items-center gap-1.5 font-normal text-savr-neutral-500">
+          <FileText
+            className="h-3.5 w-3.5 text-savr-neutral-400"
+            aria-hidden="true"
+          />
+          {LIBELLE_RAPPORT_RESERVE}
+        </span>
+      ) : (
+        <IconButton
+          variant="ghost"
+          onClick={onTelecharger}
+          title="Télécharger le rapport"
+          aria-label="Télécharger le rapport de la collecte"
+        >
+          <Download />
+        </IconButton>
+      )}
     </div>
   );
 }

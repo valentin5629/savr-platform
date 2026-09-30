@@ -6,17 +6,22 @@ import {
   MapPin,
   User,
   Clock,
+  DoorOpen,
   FileText,
+  BadgeCheck,
   Settings2,
   type LucideIcon,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ResumeItem } from '@/components/collecte/fiche-blocs';
 import { LogoUpload } from '@/components/admin/logo-upload';
 import {
   HorairesOuvertureEditor,
@@ -97,6 +102,49 @@ function toForm(a: AssociationRecord | null): FormValues {
   };
 }
 
+const REGIONS = [
+  { value: 'idf', label: 'Île-de-France' },
+  { value: 'province', label: 'Province' },
+];
+
+// Onglets — gabarit de la fiche collecte Admin (#423), une question par onglet
+// (décision Val 2026-09-30) : qui / où / qui appeler, comment le transporteur
+// passe, ce que voit le client dans son rapport AG, le fiscal et l'interne.
+type Onglet = 'informations' | 'logistique' | 'rapport' | 'administratif';
+
+const ONGLETS: { value: Onglet; label: string }[] = [
+  { value: 'informations', label: 'Informations' },
+  { value: 'logistique', label: 'Logistique' },
+  { value: 'rapport', label: 'Rapport client' },
+  { value: 'administratif', label: 'Administratif' },
+];
+
+// Onglet de chaque champ contrôlé par validate(). Un message d'erreur dans un
+// onglet fermé est invisible : l'échec de validation ouvre le premier onglet
+// fautif et chaque onglet affiche son nombre de champs à corriger.
+const ONGLET_DU_CHAMP: Record<string, Onglet> = {
+  nom: 'informations',
+  capacite_max_beneficiaires: 'informations',
+  adresse: 'informations',
+  ville: 'informations',
+  region: 'informations',
+  contact_nom: 'informations',
+  contact_telephone: 'informations',
+  contact_email: 'informations',
+  description_rapport_impact: 'rapport',
+  siren: 'administratif',
+};
+
+// Les onglets restent montés (forceMount) et l'inactif est seulement masqué :
+// une saisie en cours (envoi du logo, copie d'horaires) survit au changement
+// d'onglet.
+const PANNEAU_ONGLET = 'space-y-4 data-[state=inactive]:hidden';
+
+// « 2027-03-12 » → « 12/03/2027 » (colonne date, sans passage par un fuseau).
+function dateFr(iso: string): string {
+  return iso.split('-').reverse().join('/');
+}
+
 // Bloc thématique — gabarit Design System partagé avec les fiches (#226/#231) :
 // carte bordée (levier §10 #5) + en-tête « pastille primary + titre extrabold
 // tracking serré » (leviers §10 #2/#7). Regroupe visuellement les champs par
@@ -147,6 +195,7 @@ export function AssociationModal({
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [onglet, setOnglet] = React.useState<Onglet>('informations');
 
   // (Ré)initialise le formulaire à chaque ouverture / changement de cible.
   React.useEffect(() => {
@@ -154,6 +203,7 @@ export function AssociationModal({
       setValues(toForm(association));
       setErrors({});
       setServerError(null);
+      setOnglet('informations');
     }
   }, [open, association]);
 
@@ -161,7 +211,7 @@ export function AssociationModal({
     setValues((v) => ({ ...v, [key]: value }));
   }
 
-  function validate(): boolean {
+  function validate(): Record<string, string> {
     const next: Record<string, string> = {};
     if (!values.nom.trim()) next.nom = 'Nom obligatoire';
     if (!values.adresse.trim()) next.adresse = 'Adresse obligatoire';
@@ -181,7 +231,12 @@ export function AssociationModal({
     if (values.siren.trim() !== '' && !/^\d{9}$/.test(values.siren.trim()))
       next.siren = 'SIREN : 9 chiffres';
     setErrors(next);
-    return Object.keys(next).length === 0;
+    return next;
+  }
+
+  function nbErreurs(o: Onglet): number {
+    return Object.keys(errors).filter((champ) => ONGLET_DU_CHAMP[champ] === o)
+      .length;
   }
 
   function buildPayload() {
@@ -214,7 +269,14 @@ export function AssociationModal({
 
   async function submitForm() {
     setServerError(null);
-    if (!validate()) return;
+    const champsEnErreur = Object.keys(validate());
+    if (champsEnErreur.length > 0) {
+      const fautif = ONGLETS.find(({ value }) =>
+        champsEnErreur.some((champ) => ONGLET_DU_CHAMP[champ] === value),
+      );
+      if (fautif) setOnglet(fautif.value);
+      return;
+    }
 
     setSubmitting(true);
     const url = isEdition
@@ -314,11 +376,16 @@ export function AssociationModal({
     </>
   );
 
+  const regionLabel = REGIONS.find((r) => r.value === values.region)?.label;
+  const nonRenseigne = (
+    <span className="text-savr-neutral-400">Non renseigné</span>
+  );
+
   return (
     <Modal
       open={open}
       onClose={onClose}
-      wide
+      className="max-w-5xl"
       title={
         isEdition
           ? `Fiche association — ${association!.nom}`
@@ -326,276 +393,417 @@ export function AssociationModal({
       }
       footer={footer}
     >
-      <form onSubmit={handleFormSubmit} noValidate className="space-y-4">
-        <Bloc icon={Heart} title="Identité">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField
-              label="Nom de l'association"
-              htmlFor="am_nom"
-              required
-              error={errors.nom}
-            >
-              <Input
-                id="am_nom"
-                value={values.nom}
-                onChange={(e) => set('nom', e.target.value)}
-                error={Boolean(errors.nom)}
-              />
-            </FormField>
-            <FormField
-              label="Capacité max bénéficiaires (repas)"
-              htmlFor="am_capacite_max_beneficiaires"
-              required
-              error={errors.capacite_max_beneficiaires}
-              hint="Détermine le matching algo par taille d'événement"
-            >
-              <Input
-                id="am_capacite_max_beneficiaires"
-                type="number"
-                min={0}
-                value={values.capacite_max_beneficiaires}
-                onChange={(e) =>
-                  set('capacite_max_beneficiaires', e.target.value)
-                }
-                error={Boolean(errors.capacite_max_beneficiaires)}
-              />
-            </FormField>
-          </div>
-          <FormField
-            label="Logo de l'association"
-            htmlFor="am_logo"
-            hint="Affiché dans les rapports AG — optionnel"
-          >
-            <LogoUpload
-              inputId="am_logo"
-              value={values.logo_url}
-              onChange={(v) => set('logo_url', v)}
-            />
-          </FormField>
-        </Bloc>
-
-        <Bloc icon={MapPin} title="Adresse">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <FormField
-              label="Adresse"
-              htmlFor="am_adresse"
-              required
-              error={errors.adresse}
-              hint="Géocodée automatiquement à l'enregistrement"
-              className="md:col-span-2"
-            >
-              <Input
-                id="am_adresse"
-                value={values.adresse}
-                onChange={(e) => set('adresse', e.target.value)}
-                error={Boolean(errors.adresse)}
-              />
-            </FormField>
-            <FormField
-              label="Ville"
-              htmlFor="am_ville"
-              required
-              error={errors.ville}
-            >
-              <Input
-                id="am_ville"
-                value={values.ville}
-                onChange={(e) => set('ville', e.target.value)}
-                error={Boolean(errors.ville)}
-              />
-            </FormField>
-            <FormField
-              label="Région"
-              htmlFor="am_region"
-              required
-              error={errors.region}
-            >
-              <Combobox
-                id="am_region"
-                icon={null}
-                required
-                value={values.region}
-                onChange={(v) => set('region', v as FormValues['region'])}
-                error={Boolean(errors.region)}
-                options={[
-                  { value: 'idf', label: 'Île-de-France' },
-                  { value: 'province', label: 'Province' },
-                ]}
-              />
-            </FormField>
-          </div>
-        </Bloc>
-
-        <Bloc icon={User} title="Contact">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <FormField
-              label="Nom prénom du contact"
-              htmlFor="am_contact_nom"
-              required
-              error={errors.contact_nom}
-            >
-              <Input
-                id="am_contact_nom"
-                value={values.contact_nom}
-                onChange={(e) => set('contact_nom', e.target.value)}
-                error={Boolean(errors.contact_nom)}
-              />
-            </FormField>
-            <FormField
-              label="Numéro de contact"
-              htmlFor="am_contact_telephone"
-              required
-              error={errors.contact_telephone}
-            >
-              <Input
-                id="am_contact_telephone"
-                value={values.contact_telephone}
-                onChange={(e) => set('contact_telephone', e.target.value)}
-                error={Boolean(errors.contact_telephone)}
-              />
-            </FormField>
-            <FormField
-              label="Email(s) à prévenir en cas de collecte"
-              htmlFor="am_contact_email"
-              required
-              error={errors.contact_email}
-              hint="Plusieurs emails séparés par une virgule"
-            >
-              <Input
-                id="am_contact_email"
-                value={values.contact_email}
-                onChange={(e) => set('contact_email', e.target.value)}
-                error={Boolean(errors.contact_email)}
-              />
-            </FormField>
-          </div>
-        </Bloc>
-
-        <Bloc icon={Clock} title="Horaires d'ouverture">
-          <HorairesOuvertureEditor
-            value={values.horaires_ouverture}
-            onChange={(v) => set('horaires_ouverture', v)}
-          />
-        </Bloc>
-
-        <Bloc icon={FileText} title="Rapport d'impact">
-          <FormField
-            label="Description pour le rapport d'impact (pour le client)"
-            htmlFor="am_description_rapport_impact"
-            required
-            error={errors.description_rapport_impact}
-            hint="Minimum 30 caractères, copiée dans le rapport AG"
-          >
-            <Textarea
-              id="am_description_rapport_impact"
-              rows={4}
-              value={values.description_rapport_impact}
-              onChange={(e) =>
-                set('description_rapport_impact', e.target.value)
-              }
-              error={Boolean(errors.description_rapport_impact)}
-            />
-          </FormField>
-          <FormField
-            label="Types d'aliments acceptés"
-            htmlFor="am_types_aliments_acceptes"
-            hint="Séparés par une virgule"
-          >
-            <Input
-              id="am_types_aliments_acceptes"
-              value={values.types_aliments_acceptes}
-              onChange={(e) => set('types_aliments_acceptes', e.target.value)}
-            />
-          </FormField>
-          <FormField
-            label="Instructions d'accès (pour le transporteur)"
-            htmlFor="am_instructions_acces"
-          >
-            <Textarea
-              id="am_instructions_acces"
-              rows={2}
-              value={values.instructions_acces}
-              onChange={(e) => set('instructions_acces', e.target.value)}
-            />
-          </FormField>
-        </Bloc>
-
-        <Bloc icon={Settings2} title="Admin / Ops">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField
-              label="SIREN"
-              htmlFor="am_siren"
-              error={errors.siren}
-              hint="9 chiffres — optionnel, édition admin"
-            >
-              <Input
-                id="am_siren"
-                value={values.siren}
-                onChange={(e) => set('siren', e.target.value)}
-                error={Boolean(errors.siren)}
-              />
-            </FormField>
-            <FormField
-              label="Id du point de collecte dans MTS-1"
-              htmlFor="am_id_point_collecte_mts1"
-              hint="V1 only — sert au pré-fill lors de l'envoi vers MTS-1"
-            >
-              <Input
-                id="am_id_point_collecte_mts1"
-                value={values.id_point_collecte_mts1}
-                onChange={(e) => set('id_point_collecte_mts1', e.target.value)}
-              />
-            </FormField>
-            <FormField
-              label="N° RUP"
-              htmlFor="am_numero_rup"
-              hint="Reconnue d'utilité publique — optionnel, édition admin. Renseigné, il apparaît sur le Cerfa 2041-GE."
-            >
-              <Input
-                id="am_numero_rup"
-                value={values.numero_rup}
-                onChange={(e) => set('numero_rup', e.target.value)}
-              />
-            </FormField>
-            <FormField
-              label="Date d'expiration habilitation 2041-GE"
-              htmlFor="am_date_expiration_habilitation"
-              hint="Optionnel — édition admin"
-            >
-              <DatePicker
-                id="am_date_expiration_habilitation"
-                value={values.date_expiration_habilitation}
-                onChange={(v) => set('date_expiration_habilitation', v)}
-              />
-            </FormField>
-            <FormField
-              label="Commentaire interne"
-              htmlFor="am_commentaires_internes"
-            >
-              <Textarea
-                id="am_commentaires_internes"
-                rows={2}
-                value={values.commentaires_internes}
-                onChange={(e) => set('commentaires_internes', e.target.value)}
-              />
-            </FormField>
-          </div>
-          <label className="flex items-center gap-2 text-sm font-medium text-savr-neutral-700">
-            <input
-              type="checkbox"
-              checked={values.habilitee_attestation_fiscale}
-              onChange={(e) =>
-                set('habilitee_attestation_fiscale', e.target.checked)
-              }
-              className={checkboxClass}
-            />
-            Habilitation 2041-GE (attestation fiscale)
-          </label>
-        </Bloc>
-
+      <form onSubmit={handleFormSubmit} noValidate>
         {serverError && (
-          <p className="text-sm text-savr-error-strong">{serverError}</p>
+          <p
+            role="alert"
+            className="mb-4 rounded-savr-md bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong"
+          >
+            {serverError}
+          </p>
         )}
+
+        {/* Colonne résumé fixe à gauche + 4 onglets à droite, comme la fiche
+            collecte Admin : le « de qui on parle » reste visible quel que soit
+            l'onglet. Elle suit la saisie. Masquée sous md : le titre de la
+            modale porte déjà le nom. Hauteur minimale : la modale ne « saute »
+            pas d'un onglet à l'autre. */}
+        <div className="grid items-start gap-4 md:min-h-[60vh] md:grid-cols-[13rem_minmax(0,1fr)]">
+          <aside
+            aria-label="Résumé de l'association"
+            className="hidden rounded-savr-lg border border-savr-neutral-100 bg-savr-neutral-50 p-4 md:sticky md:top-0 md:block"
+          >
+            {values.logo_url && (
+              <img
+                src={`/api/v1/admin/uploads/logo?key=${encodeURIComponent(values.logo_url)}`}
+                alt=""
+                className="mb-3 h-12 w-12 rounded-savr-md border border-savr-neutral-200 bg-savr-white object-contain"
+              />
+            )}
+            <dl className="grid grid-cols-1 gap-y-3 text-sm">
+              <ResumeItem label="Association">
+                {values.nom.trim() || nonRenseigne}
+              </ResumeItem>
+              {isEdition && (
+                <ResumeItem label="Statut">
+                  <Badge
+                    variant={association!.actif ? 'success' : 'neutral'}
+                    className="text-xs"
+                  >
+                    {association!.actif ? 'Active' : 'Inactive'}
+                  </Badge>
+                </ResumeItem>
+              )}
+              <ResumeItem label="Ville">
+                {values.ville.trim() || nonRenseigne}
+                {regionLabel && (
+                  <span className="block text-savr-neutral-600">
+                    {regionLabel}
+                  </span>
+                )}
+              </ResumeItem>
+              <ResumeItem label="Capacité max">
+                {values.capacite_max_beneficiaires.trim()
+                  ? `${values.capacite_max_beneficiaires.trim()} repas`
+                  : nonRenseigne}
+              </ResumeItem>
+              <ResumeItem label="Habilitation 2041-GE">
+                {values.habilitee_attestation_fiscale ? 'Oui' : 'Non'}
+                {values.habilitee_attestation_fiscale &&
+                  values.date_expiration_habilitation && (
+                    <span className="block text-savr-neutral-600">
+                      jusqu&apos;au{' '}
+                      {dateFr(values.date_expiration_habilitation)}
+                    </span>
+                  )}
+              </ResumeItem>
+              <ResumeItem label="Contact">
+                {values.contact_nom.trim() || nonRenseigne}
+                {values.contact_telephone.trim() && (
+                  <span className="block text-savr-neutral-600">
+                    {values.contact_telephone.trim()}
+                  </span>
+                )}
+              </ResumeItem>
+            </dl>
+          </aside>
+
+          <Tabs
+            value={onglet}
+            onValueChange={(v) => setOnglet(v as Onglet)}
+            className="min-w-0"
+          >
+            {/* Barre d'onglets fixe au défilement du corps de la modale. */}
+            <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
+              {ONGLETS.map(({ value, label }) => {
+                const n = nbErreurs(value);
+                return (
+                  <TabsTrigger
+                    key={value}
+                    value={value}
+                    className="gap-2 px-3 sm:px-4"
+                  >
+                    {label}
+                    {n > 0 && (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-savr-error-strong px-1.5 text-xs font-bold text-savr-white"
+                        >
+                          {n}
+                        </span>
+                        <span className="sr-only">
+                          {n > 1
+                            ? `(${n} champs à corriger)`
+                            : '(1 champ à corriger)'}
+                        </span>
+                      </>
+                    )}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+
+            <TabsContent
+              value="informations"
+              forceMount
+              className={PANNEAU_ONGLET}
+            >
+              <Bloc icon={Heart} title="Identité">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormField
+                    label="Nom de l'association"
+                    htmlFor="am_nom"
+                    required
+                    error={errors.nom}
+                  >
+                    <Input
+                      id="am_nom"
+                      value={values.nom}
+                      onChange={(e) => set('nom', e.target.value)}
+                      error={Boolean(errors.nom)}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Capacité max bénéficiaires (repas)"
+                    htmlFor="am_capacite_max_beneficiaires"
+                    required
+                    error={errors.capacite_max_beneficiaires}
+                    hint="Détermine le matching algo par taille d'événement"
+                  >
+                    <Input
+                      id="am_capacite_max_beneficiaires"
+                      type="number"
+                      min={0}
+                      value={values.capacite_max_beneficiaires}
+                      onChange={(e) =>
+                        set('capacite_max_beneficiaires', e.target.value)
+                      }
+                      error={Boolean(errors.capacite_max_beneficiaires)}
+                    />
+                  </FormField>
+                </div>
+              </Bloc>
+
+              <Bloc icon={MapPin} title="Adresse">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <FormField
+                    label="Adresse"
+                    htmlFor="am_adresse"
+                    required
+                    error={errors.adresse}
+                    hint="Géocodée automatiquement à l'enregistrement"
+                    className="md:col-span-2"
+                  >
+                    <Input
+                      id="am_adresse"
+                      value={values.adresse}
+                      onChange={(e) => set('adresse', e.target.value)}
+                      error={Boolean(errors.adresse)}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Ville"
+                    htmlFor="am_ville"
+                    required
+                    error={errors.ville}
+                  >
+                    <Input
+                      id="am_ville"
+                      value={values.ville}
+                      onChange={(e) => set('ville', e.target.value)}
+                      error={Boolean(errors.ville)}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Région"
+                    htmlFor="am_region"
+                    required
+                    error={errors.region}
+                  >
+                    <Combobox
+                      id="am_region"
+                      icon={null}
+                      required
+                      value={values.region}
+                      onChange={(v) => set('region', v as FormValues['region'])}
+                      error={Boolean(errors.region)}
+                      options={REGIONS}
+                    />
+                  </FormField>
+                </div>
+              </Bloc>
+
+              <Bloc icon={User} title="Contact">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <FormField
+                    label="Nom prénom du contact"
+                    htmlFor="am_contact_nom"
+                    required
+                    error={errors.contact_nom}
+                  >
+                    <Input
+                      id="am_contact_nom"
+                      value={values.contact_nom}
+                      onChange={(e) => set('contact_nom', e.target.value)}
+                      error={Boolean(errors.contact_nom)}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Numéro de contact"
+                    htmlFor="am_contact_telephone"
+                    required
+                    error={errors.contact_telephone}
+                  >
+                    <Input
+                      id="am_contact_telephone"
+                      value={values.contact_telephone}
+                      onChange={(e) => set('contact_telephone', e.target.value)}
+                      error={Boolean(errors.contact_telephone)}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Email(s) à prévenir en cas de collecte"
+                    htmlFor="am_contact_email"
+                    required
+                    error={errors.contact_email}
+                    hint="Plusieurs emails séparés par une virgule"
+                  >
+                    <Input
+                      id="am_contact_email"
+                      value={values.contact_email}
+                      onChange={(e) => set('contact_email', e.target.value)}
+                      error={Boolean(errors.contact_email)}
+                    />
+                  </FormField>
+                </div>
+              </Bloc>
+            </TabsContent>
+
+            <TabsContent
+              value="logistique"
+              forceMount
+              className={PANNEAU_ONGLET}
+            >
+              <Bloc icon={Clock} title="Horaires d'ouverture">
+                <HorairesOuvertureEditor
+                  value={values.horaires_ouverture}
+                  onChange={(v) => set('horaires_ouverture', v)}
+                />
+              </Bloc>
+
+              <Bloc icon={DoorOpen} title="Accès et réception">
+                <FormField
+                  label="Instructions d'accès (pour le transporteur)"
+                  htmlFor="am_instructions_acces"
+                >
+                  <Textarea
+                    id="am_instructions_acces"
+                    rows={3}
+                    value={values.instructions_acces}
+                    onChange={(e) => set('instructions_acces', e.target.value)}
+                  />
+                </FormField>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormField
+                    label="Types d'aliments acceptés"
+                    htmlFor="am_types_aliments_acceptes"
+                    hint="Séparés par une virgule"
+                  >
+                    <Input
+                      id="am_types_aliments_acceptes"
+                      value={values.types_aliments_acceptes}
+                      onChange={(e) =>
+                        set('types_aliments_acceptes', e.target.value)
+                      }
+                    />
+                  </FormField>
+                  <FormField
+                    label="Id du point de collecte dans MTS-1"
+                    htmlFor="am_id_point_collecte_mts1"
+                    hint="V1 only — sert au pré-fill lors de l'envoi vers MTS-1"
+                  >
+                    <Input
+                      id="am_id_point_collecte_mts1"
+                      value={values.id_point_collecte_mts1}
+                      onChange={(e) =>
+                        set('id_point_collecte_mts1', e.target.value)
+                      }
+                    />
+                  </FormField>
+                </div>
+              </Bloc>
+            </TabsContent>
+
+            <TabsContent value="rapport" forceMount className={PANNEAU_ONGLET}>
+              <Bloc icon={FileText} title="Rapport d'impact">
+                <FormField
+                  label="Description pour le rapport d'impact (pour le client)"
+                  htmlFor="am_description_rapport_impact"
+                  required
+                  error={errors.description_rapport_impact}
+                  hint="Minimum 30 caractères, copiée dans le rapport AG"
+                >
+                  <Textarea
+                    id="am_description_rapport_impact"
+                    rows={5}
+                    value={values.description_rapport_impact}
+                    onChange={(e) =>
+                      set('description_rapport_impact', e.target.value)
+                    }
+                    error={Boolean(errors.description_rapport_impact)}
+                  />
+                </FormField>
+                <FormField
+                  label="Logo de l'association"
+                  htmlFor="am_logo"
+                  hint="Affiché dans les rapports AG — optionnel"
+                >
+                  <LogoUpload
+                    inputId="am_logo"
+                    value={values.logo_url}
+                    onChange={(v) => set('logo_url', v)}
+                  />
+                </FormField>
+              </Bloc>
+            </TabsContent>
+
+            <TabsContent
+              value="administratif"
+              forceMount
+              className={PANNEAU_ONGLET}
+            >
+              <Bloc icon={BadgeCheck} title="Habilitation fiscale">
+                <label className="flex items-center gap-2 text-sm font-medium text-savr-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={values.habilitee_attestation_fiscale}
+                    onChange={(e) =>
+                      set('habilitee_attestation_fiscale', e.target.checked)
+                    }
+                    className={checkboxClass}
+                  />
+                  Habilitation 2041-GE (attestation fiscale)
+                </label>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormField
+                    label="Date d'expiration habilitation 2041-GE"
+                    htmlFor="am_date_expiration_habilitation"
+                    hint="Optionnel — édition admin"
+                  >
+                    <DatePicker
+                      id="am_date_expiration_habilitation"
+                      value={values.date_expiration_habilitation}
+                      onChange={(v) => set('date_expiration_habilitation', v)}
+                    />
+                  </FormField>
+                  <FormField
+                    label="N° RUP"
+                    htmlFor="am_numero_rup"
+                    hint="Reconnue d'utilité publique — optionnel, édition admin. Renseigné, il apparaît sur le Cerfa 2041-GE."
+                  >
+                    <Input
+                      id="am_numero_rup"
+                      value={values.numero_rup}
+                      onChange={(e) => set('numero_rup', e.target.value)}
+                    />
+                  </FormField>
+                </div>
+              </Bloc>
+
+              <Bloc icon={Settings2} title="Identification et suivi interne">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormField
+                    label="SIREN"
+                    htmlFor="am_siren"
+                    error={errors.siren}
+                    hint="9 chiffres — optionnel, édition admin"
+                  >
+                    <Input
+                      id="am_siren"
+                      value={values.siren}
+                      onChange={(e) => set('siren', e.target.value)}
+                      error={Boolean(errors.siren)}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Commentaire interne"
+                    htmlFor="am_commentaires_internes"
+                  >
+                    <Textarea
+                      id="am_commentaires_internes"
+                      rows={2}
+                      value={values.commentaires_internes}
+                      onChange={(e) =>
+                        set('commentaires_internes', e.target.value)
+                      }
+                    />
+                  </FormField>
+                </div>
+              </Bloc>
+            </TabsContent>
+          </Tabs>
+        </div>
       </form>
     </Modal>
   );

@@ -3,6 +3,9 @@
  * Ouverte depuis la liste /admin/associations (clic ligne ou « Nouvelle »).
  * Champs identité/adresse/contact/horaires/rapport/admin, POST/PATCH,
  * Désactiver = PATCH { actif:false }. Miroir de la modale transporteur.
+ * Gabarit fiche collecte (2026-09-30) : colonne résumé + 4 onglets
+ * (Informations / Logistique / Rapport client / Administratif). Les onglets
+ * restent montés (forceMount), d'où des champs trouvables sans changer d'onglet.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
@@ -77,6 +80,10 @@ function fillRequiredFields() {
   );
 }
 
+function onglet(nom: RegExp): HTMLElement {
+  return screen.getByRole('tab', { name: nom });
+}
+
 describe('M1.1 — Modale association (revue E2E)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
@@ -123,6 +130,12 @@ describe('M1.1 — Modale association (revue E2E)', () => {
         await screen.findByText(/30 caractères minimum/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(fetchMock).not.toHaveBeenCalled();
+      // Le message vit dans l'onglet Rapport client : la modale l'ouvre, sinon
+      // l'erreur resterait invisible depuis Informations.
+      expect(onglet(/Rapport client/)).toHaveAttribute('aria-selected', 'true');
+      expect(onglet(/Rapport client/)).toHaveAccessibleName(
+        'Rapport client (1 champ à corriger)',
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -154,9 +167,112 @@ describe('M1.1 — Modale association (revue E2E)', () => {
         await screen.findByText(/SIREN : 9 chiffres/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(fetchMock).not.toHaveBeenCalled();
+      expect(onglet(/Administratif/)).toHaveAttribute('aria-selected', 'true');
     },
     ATTENTE_CAS_MS,
   );
+
+  it('4 onglets, « Informations » ouvert par défaut', () => {
+    render(
+      <AssociationModal
+        open
+        association={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+      'Informations',
+      'Logistique',
+      'Rapport client',
+      'Administratif',
+    ]);
+    expect(onglet(/Informations/)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('clic sur un onglet → il devient l’onglet actif', () => {
+    render(
+      <AssociationModal
+        open
+        association={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    // Radix active un onglet au mousedown (bouton gauche).
+    fireEvent.mouseDown(onglet(/Logistique/), { button: 0 });
+    expect(onglet(/Logistique/)).toHaveAttribute('aria-selected', 'true');
+    expect(onglet(/Informations/)).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it(
+    'création vide → premier onglet fautif ouvert + compteur par onglet',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+
+      // On part d'un autre onglet : l'échec doit ramener au premier fautif.
+      fireEvent.mouseDown(onglet(/Administratif/), { button: 0 });
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer l.association/ }),
+      );
+
+      await waitFor(
+        () =>
+          expect(onglet(/Informations/)).toHaveAttribute(
+            'aria-selected',
+            'true',
+          ),
+        ATTENTE_UI,
+      );
+      // 8 obligatoires dans Informations, la description dans Rapport client,
+      // rien dans Logistique ni Administratif (SIREN vide = facultatif).
+      expect(onglet(/Informations/)).toHaveAccessibleName(
+        'Informations (8 champs à corriger)',
+      );
+      expect(onglet(/Rapport client/)).toHaveAccessibleName(
+        'Rapport client (1 champ à corriger)',
+      );
+      expect(onglet(/Logistique/)).toHaveAccessibleName('Logistique');
+      expect(onglet(/Administratif/)).toHaveAccessibleName('Administratif');
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('colonne résumé : reprend la fiche et suit la saisie', () => {
+    render(
+      <AssociationModal
+        open
+        association={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    const resume = screen.getByRole('complementary', {
+      name: /Résumé de l'association/,
+    });
+    expect(within(resume).getByText('Association Alpha')).toBeInTheDocument();
+    expect(within(resume).getByText('Active')).toBeInTheDocument();
+    expect(within(resume).getByText('Paris')).toBeInTheDocument();
+    expect(within(resume).getByText('Île-de-France')).toBeInTheDocument();
+    expect(within(resume).getByText('150 repas')).toBeInTheDocument();
+    expect(within(resume).getByText('Marie Curie')).toBeInTheDocument();
+    expect(within(resume).getByText('Non')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Nom de l'association/), {
+      target: { value: 'Association Beta' },
+    });
+    expect(within(resume).getByText('Association Beta')).toBeInTheDocument();
+  });
 
   it(
     'création → POST /associations + onSaved/onClose',

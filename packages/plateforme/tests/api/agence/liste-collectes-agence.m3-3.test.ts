@@ -18,6 +18,7 @@ type Result = { data: unknown; error: unknown };
 function makeClient() {
   const results: Record<string, Result> = {};
   const filtres: [string, string, unknown][] = [];
+  const selects: string[] = [];
   function chain(table: string): Record<string, unknown> {
     const res = (): Result => results[table] ?? { data: [], error: null };
     const note =
@@ -27,7 +28,10 @@ function makeClient() {
         return c;
       };
     const c: Record<string, unknown> = {
-      select: () => c,
+      select: (cols: string) => {
+        selects.push(cols);
+        return c;
+      },
       eq: note('eq'),
       in: note('in'),
       gte: note('gte'),
@@ -37,7 +41,7 @@ function makeClient() {
     };
     return c;
   }
-  return { from: (table: string) => chain(table), results, filtres };
+  return { from: (table: string) => chain(table), results, filtres, selects };
 }
 
 let rls = makeClient();
@@ -107,6 +111,12 @@ describe('M3.3 / liste agence — route liste', () => {
     };
     const res = await callListe('type=zero_dechet&statut=cloturee');
     expect(res.status).toBe(200);
+    // Les résultats ne sont calculables que si la route DEMANDE les embeds
+    // (le mock rend les données quel que soit le select).
+    const select = rls.selects.join(' ').replace(/\s+/g, '');
+    expect(select).toContain('co2_evite_kg');
+    expect(select).toContain('collecte_flux(poids_reel_kg)');
+    expect(select).toContain('attributions_antgaspi(volume_repas_realise)');
     const { data } = (await res.json()) as { data: Record<string, unknown>[] };
     const [zd, ag] = data;
     expect(zd!.poids_total_kg).toBe(100);

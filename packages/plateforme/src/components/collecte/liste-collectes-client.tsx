@@ -209,10 +209,11 @@ export function ListeCollectesClient({
       });
   }, [api]);
 
-  const charger = useCallback(() => {
-    setLoading(true);
-    // Les statuts sélectionnés sont TOUJOURS bornés à l'onglet courant : l'onglet
-    // est une partition par état, un filtre ne doit jamais le déborder.
+  // Paramètres de la liste — partagés avec l'export CSV (§12 « l'export respecte
+  // les filtres actifs »). Les statuts sélectionnés sont TOUJOURS bornés à
+  // l'onglet courant : l'onglet est une partition par état, un filtre ne doit
+  // jamais le déborder.
+  const qsListe = useMemo(() => {
     const statutsOnglet =
       onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE;
     const statuts =
@@ -235,12 +236,8 @@ export function ListeCollectesClient({
     if (commercialFiltre) qs.set('commercial_id', commercialFiltre);
     if (associationFiltre) qs.set('association_id', associationFiltre);
     if (perimetreFiltre) qs.set('perimetre', perimetreFiltre);
-    fetch(`${api}?${qs}`)
-      .then((r) => r.json())
-      .then((j) => setRows((j.data ?? []) as CollecteRow[]))
-      .finally(() => setLoading(false));
+    return qs.toString();
   }, [
-    api,
     typeFiltre,
     onglet,
     filtres,
@@ -248,6 +245,14 @@ export function ListeCollectesClient({
     associationFiltre,
     perimetreFiltre,
   ]);
+
+  const charger = useCallback(() => {
+    setLoading(true);
+    fetch(`${api}?${qsListe}`)
+      .then((r) => r.json())
+      .then((j) => setRows((j.data ?? []) as CollecteRow[]))
+      .finally(() => setLoading(false));
+  }, [api, qsListe]);
 
   useEffect(() => {
     charger();
@@ -367,8 +372,11 @@ export function ListeCollectesClient({
     return parts.length ? parts.join(' · ') : undefined;
   })();
 
+  // Mêmes paramètres que la liste affichée (le builder d'export applique type,
+  // statuts de l'onglet, période, lieu, client, info incomplète, programmée par ;
+  // il ignore les dimensions de drill-down commercial / association).
   function exportCsv() {
-    window.open(`/api/v1/exports/collectes?type=${typeFiltre}`);
+    window.open(`/api/v1/exports/collectes?${qsListe}`);
   }
 
   // Téléchargement du rapport de la collecte réalisée (ZD = rapport recyclage,

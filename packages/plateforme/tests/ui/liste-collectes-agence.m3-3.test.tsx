@@ -23,9 +23,10 @@ import {
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const push = vi.fn();
+const replace = vi.fn();
 let searchParams = new URLSearchParams();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, replace: vi.fn() }),
+  useRouter: () => ({ push, replace }),
   useSearchParams: () => searchParams,
   usePathname: () => '/agence/collectes',
 }));
@@ -80,10 +81,17 @@ const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
       }
     : url.includes('/annulation')
       ? { statut: 'annulee' }
-      : [collecte('c-prog', 'programmee', 'Paris Expo Porte de Versailles')];
+      : [
+          collecte('c-prog', 'programmee', 'Paris Expo Porte de Versailles'),
+          collecte('c-clot', 'cloturee', 'Palais des Congrès de Paris'),
+        ];
+  // La route de téléchargement répond { url } (URL R2 pré-signée), sans `data`.
+  const corps = url.includes('/rapport-rse/download')
+    ? { url: 'https://r2.example/rapport.pdf' }
+    : { data };
   return Promise.resolve({
     ok: true,
-    json: () => Promise.resolve({ data }),
+    json: () => Promise.resolve(corps),
   } as Response);
 });
 
@@ -99,6 +107,7 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockClear();
     push.mockClear();
+    replace.mockClear();
     searchParams = new URLSearchParams();
   });
   afterEach(() => {
@@ -121,6 +130,12 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
       );
 
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
+      // L'URL (deep-link, rechargement) est réécrite sous l'espace agence.
+      await waitFor(() => {
+        const url = String(replace.mock.calls.at(-1)?.[0] ?? '');
+        expect(url.startsWith('/agence/collectes?')).toBe(true);
+        expect(url).toContain('onglet=historique');
+      }, ATTENTE_UI);
       await waitFor(
         () =>
           expect(statutsDemandes()).toContain(
@@ -223,6 +238,49 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
       expect(urls().some((u) => u.includes('/api/v1/traiteur/'))).toBe(false);
       // « Programmée par » n'a pas d'objet : l'agence programme tout elle-même.
       expect(screen.queryByText('Programmée par')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.3/liste_agence_telecharger_et_export — rapport via la route agence, export CSV aux filtres actifs',
+    async () => {
+      searchParams = new URLSearchParams('onglet=historique&type=zero_dechet');
+      const ouvrir = vi.fn();
+      vi.stubGlobal('open', ouvrir);
+      render(<AgenceCollectesPage />);
+      const table = within(await screen.findByRole('table', {}, ATTENTE_UI));
+      const ligne = within(
+        (
+          await table.findByText('Palais des Congrès de Paris', {}, ATTENTE_UI)
+        ).closest('tr') as HTMLElement,
+      );
+      fireEvent.click(
+        ligne.getByRole('button', {
+          name: 'Télécharger le rapport de la collecte',
+        }),
+      );
+      await waitFor(
+        () =>
+          expect(ouvrir).toHaveBeenCalledWith(
+            'https://r2.example/rapport.pdf',
+            '_blank',
+          ),
+        ATTENTE_UI,
+      );
+      expect(urls()).toContain(
+        '/api/v1/agence/collectes/c-clot/rapport-rse/download',
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Exporter CSV' }));
+      const exportUrl = String(ouvrir.mock.calls.at(-1)?.[0] ?? '');
+      expect(exportUrl.startsWith('/api/v1/exports/collectes?')).toBe(true);
+      // Mêmes paramètres que la liste affichée : type + statuts de l'onglet.
+      const qs = new URLSearchParams(exportUrl.split('?')[1]);
+      expect(qs.get('type')).toBe('zero_dechet');
+      expect(qs.get('statut')).toBe(
+        'realisee,realisee_sans_collecte,cloturee,annulation_demandee,annulee,rejetee_par_prestataire',
+      );
     },
     ATTENTE_CAS_MS,
   );

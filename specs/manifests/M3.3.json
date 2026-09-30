@@ -24,7 +24,9 @@
     "packages/plateforme/src/app/api/v1/agence/collectes/[id]/rapport-rse/download/route.ts",
     "packages/plateforme/src/app/api/v1/agence/collectes/[id]/coordonnees-urgence/route.ts",
     "packages/plateforme/tests/ui/fiche-collecte-client.m3-3.test.tsx",
-    "packages/plateforme/tests/api/agence/fiche-collecte-popup.m3-3.test.ts"
+    "packages/plateforme/tests/api/agence/fiche-collecte-popup.m3-3.test.ts",
+    "supabase/migrations/20260930180000_plateforme_benchmark_lieux_parc_agence.sql",
+    "supabase/tests/benchmark_lieux_parc_agence.test.sql"
   ],
   "scenarios": [
     "M3.3/auth_guard_non_agence_403",
@@ -361,7 +363,7 @@
       "id": "M3.3-benchmark-filtres-options-agence",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38",
       "artefact": "supabase/migrations/20260930180000_plateforme_benchmark_lieux_parc_agence.sql",
-      "test": "M3.3/benchmark_filtres_agence_liste_lieux",
+      "test": "M3.3/benchmark_filtres_agence_liste_lieux ; supabase/tests/benchmark_lieux_parc_agence.test.sql",
       "statut": "implemented",
       "libelle": "Options des filtres du repère parc pour l'agence (dashboard ET fiche collecte) : f_benchmark_lieux_parc refusait le rôle agence et faisait échouer toute la route /api/v1/dashboards/benchmark/filtres (types compris). Arbitrage Val 2026-09-30 (D8) : agence ajoutée à la liste blanche de f_benchmark_lieux_parc — même liste que les rôles traiteur (id, nom des lieux actifs) ; f_benchmark_traiteurs_parc reste fermée à l'agence. Migration ÉLARGISSANTE (CLAUDE.md §12 2bis) écrite par Val. Preuve base : supabase/tests/benchmark_lieux_parc_agence.test.sql (agence = traiteur_manager, sortie (id, nom), client_organisateur et rôle absent refusés, liste traiteurs fermée, ACL et SECURITY DEFINER conservés)."
     },

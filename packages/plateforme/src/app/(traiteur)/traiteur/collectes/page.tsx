@@ -27,7 +27,7 @@ import { DataGrid } from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
-import { FicheCollecteTraiteurModal } from '@/components/collecte/fiche-collecte-traiteur-modal';
+import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import {
   CollecteFiltresBar,
   ecrireFiltresCollecte,
@@ -547,7 +547,8 @@ function CollectesContent() {
         }
       />
 
-      <FicheCollecteTraiteurModal
+      <FicheCollecteClientModal
+        espace="traiteur"
         collecteId={fiche?.id ?? null}
         initialEditing={fiche?.edit ?? false}
         onClose={fermerFiche}
@@ -563,7 +564,7 @@ function CollectesContent() {
           <p className="text-sm text-savr-neutral-500">
             {estDemande
               ? 'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.'
-              : 'Cette collecte sera annulée immédiatement. Le prestataire sera informé le cas échéant.'}
+              : 'Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
           </p>
           <FormField
             label="Motif (facultatif)"

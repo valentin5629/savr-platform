@@ -125,6 +125,8 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
       ],
       error: null,
     };
+    // Piège : un prestataire EXISTE en base. La fiche ne doit ni le lire ni
+    // le servir (marque blanche, revue sécurité du sync 2026-09-29).
     admin.results.prestataires = {
       data: [{ id: 'p1', nom: 'Strike' }],
       error: null,
@@ -136,7 +138,8 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
       },
       error: null,
     };
-    admin.results.factures_collectes = {
+    // Factures : lues sous la RLS du traiteur (fuite inter-org corrigée).
+    rls.results.factures_collectes = {
       data: [
         {
           facture: {
@@ -171,7 +174,9 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
     // Bloc Logistique (arbitrage Val 2026-09-29) : téléphone du chauffeur exposé.
     expect(data.tournees[0]?.chauffeur_telephone).toBe('+33 6 12 34 56 78');
     expect(data.tournees[0]?.type_vehicule).toBe('camionnette');
-    expect(data.tournees[0]?.prestataire_nom).toBe('Strike');
+    expect(data.tournees[0]?.prestataire_nom).toBeUndefined();
+    expect(admin.calls).not.toContain('prestataires');
+    expect(JSON.stringify(data)).not.toContain('Strike');
     expect(data.rapport_rse_disponible).toBe(true);
     expect(data.factures[0]?.numero_facture).toBe('FZD-2026-1');
   });

@@ -9,16 +9,17 @@ import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-opera
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
 // Champs métier éditables (réplique §06.04 §Édition, sobriété A4). type/lieu/traiteur
 // verrouillés → rejetés explicitement.
+// `notes_internes` exclu : commentaire Admin Savr (§04), arbitrage Val C1.
 const EDITABLE_FIELDS = [
   'date_collecte',
   'heure_collecte',
   'controle_acces_requis',
-  'notes_internes',
   'informations_supplementaires',
 ];
 const LOCKED_FIELDS = ['type', 'type_collecte', 'lieu_id', 'organisation_id'];
@@ -78,40 +79,22 @@ export async function GET(
   if (auth.error) return auth.error;
   const { id } = await params;
 
-  const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from('collectes')
-    .select(
-      `id, type, statut, statut_tms, date_collecte, heure_collecte,
-       controle_acces_requis, informations_completes, informations_supplementaires,
-       notes_internes, taux_recyclage, realisee_at, aucun_repas_motif,
-       evenement:evenements!inner(
-         id, organisation_id, traiteur_operationnel_organisation_id,
-         nom_evenement, pax, type_evenement_id, reference_affaire, notes_internes,
-         nom_client_organisateur, contact_principal_nom, contact_principal_telephone,
-         contact_secours_nom, contact_secours_telephone,
-         lieu:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)
-       )`,
-    )
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) return serverError(error, 'agence.collectes.get');
-  if (!data)
+  // Socle commun des fiches clientes (pop-up §06.04 repris par §06.11).
+  const r = await chargerFicheCollecteClient(id, auth.ctx, 'agence');
+  if ('erreur' in r) return serverError(r.erreur, 'agence.collectes.get');
+  if ('introuvable' in r)
     return NextResponse.json(
       { error: 'Collecte introuvable' },
       { status: 404 },
     );
 
-  const evt = Array.isArray(data.evenement)
-    ? data.evenement[0]
-    : data.evenement;
+  // §06.11 différence #3 : traiteur opérationnel affiché sur la fiche.
   const traiteur_operationnel = await resolveTraiteurOperationnel(
-    supabase,
-    (evt?.traiteur_operationnel_organisation_id as string | null) ?? null,
+    createSupabaseServerClient(),
+    r.contexte.traiteurOperationnelId,
   );
 
-  return NextResponse.json({ data: { ...data, traiteur_operationnel } });
+  return NextResponse.json({ data: { ...r.fiche, traiteur_operationnel } });
 }
 
 export async function PATCH(

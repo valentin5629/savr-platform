@@ -10,7 +10,7 @@ import { instantParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
-import { tailleBracket } from '@/lib/dashboard-kpi.js';
+import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -19,11 +19,12 @@ const TRAITEUR_ROLES: ClientRole[] = [
 
 // Champs métier éditables côté traiteur (§06.04 §Édition). type_collecte, lieu_id
 // et traiteur sont verrouillés (sobriété A4) → rejetés explicitement.
+// `notes_internes` n'en fait PAS partie : commentaire Admin Savr « non visible
+// par le client » (§04 Data Model) — arbitrage Val 2026-09-29 (C1).
 const EDITABLE_FIELDS = [
   'date_collecte',
   'heure_collecte',
   'controle_acces_requis',
-  'notes_internes',
   'informations_supplementaires',
 ];
 const LOCKED_FIELDS = ['type', 'type_collecte', 'lieu_id', 'organisation_id'];
@@ -94,149 +95,28 @@ export async function GET(
   if (auth.error) return auth.error;
   const { id } = await params;
 
-  const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from('collectes')
-    .select(
-      `id, type, statut, statut_tms, tms_reference, date_collecte, heure_collecte,
-       controle_acces_requis, informations_completes, informations_supplementaires,
-       notes_internes, taux_recyclage, realisee_at, aucun_repas_motif,
-       evenement:evenements!inner(
-         id, organisation_id, traiteur_operationnel_organisation_id,
-         nom_evenement, pax, type_evenement_id, reference_affaire, notes_internes,
-         nom_client_organisateur, contact_principal_nom, contact_principal_telephone,
-         contact_secours_nom, contact_secours_telephone,
-         type_evenement:types_evenements!type_evenement_id(libelle),
-         lieu:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)
-       )`,
-    )
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) return serverError(error, 'traiteur.collectes.get');
-  if (!data)
+  // Socle commun des fiches clientes (pop-up §06.04, refonte 2026-09-29) :
+  // contrôle RLS d'abord, puis lectures service-role bornées à CETTE collecte ;
+  // ni notes internes, ni prestataire, téléphone chauffeur dans la seule fenêtre
+  // programmee/validee/en_cours.
+  const r = await chargerFicheCollecteClient(id, auth.ctx, 'traiteur');
+  if ('erreur' in r) return serverError(r.erreur, 'traiteur.collectes.get');
+  if ('introuvable' in r)
     return NextResponse.json(
       { error: 'Collecte introuvable' },
       { status: 404 },
     );
+  const { fiche, contexte } = r;
 
-  // Enrichissements fiche (BL-P1-TRAIT-03) — lecture service-role APRÈS le contrôle
-  // d'appartenance RLS ci-dessus (la collecte est visible = appartient au traiteur) :
-  //  · tournées → chauffeur (nom + téléphone) + plaque pour le bloc « Logistique »
-  //  · disponibilité du rapport RSE (embargo H+24) pour le bouton de téléchargement
-  //  · factures rattachées (via factures_collectes) pour le bouton « Télécharger la facture »
   const admin = createAdminSupabaseClient();
-  const isAg = (data as { type: string }).type === 'anti_gaspi';
-  // AG realisee_sans_collecte (BL-P1-RPT-02) : pas d'attestation → le « rapport RSE » est
-  // le rapport « Événement sans excédent » (rapports_rse, sans embargo). ZD et AG
-  // sans-excédent lisent rapports_rse ; l'AG cloturee lit l'attestation.
-  const isSansExcedent =
-    isAg && (data as { statut: string }).statut === 'realisee_sans_collecte';
-  const useRapportsRse = !isAg || isSansExcedent;
-  const [ctRes, rapRes, attRes, fcRes] = await Promise.all([
-    admin
-      .from('collecte_tournees')
-      .select(
-        'tournee:tournees(plaque_immatriculation, chauffeur_nom, chauffeur_telephone, type_vehicule, plaque_saisie_at, prestataire_logistique_id)',
-      )
-      .eq('collecte_id', id),
-    admin
-      .from('rapports_rse')
-      .select('disponible_a, genere_at, regenere_at')
-      .eq('collecte_id', id)
-      .order('version', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    // AG (option a Val 2026-07-07) : le « rapport RSE » d'une collecte AG EST
-    // l'attestation → disponibilité/embargo lus sur attestations_don.
-    admin
-      .from('attestations_don')
-      .select('eligible_at, pdf_url')
-      .eq('collecte_id', id)
-      .order('version', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    admin
-      .from('factures_collectes')
-      .select(
-        'facture:factures(id, numero_facture, statut, pdf_url_savr, pdf_url_pennylane)',
-      )
-      .eq('collecte_id', id),
-  ]);
 
-  type TourneeRow = {
-    plaque_immatriculation: string | null;
-    chauffeur_nom: string | null;
-    chauffeur_telephone: string | null;
-    type_vehicule: string | null;
-    plaque_saisie_at: string | null;
-    prestataire_logistique_id: string | null;
-  };
-  const tourneesRaw: TourneeRow[] = (
-    (ctRes.data ?? []) as Array<{
-      tournee: TourneeRow | TourneeRow[] | null;
-    }>
-  )
-    .map((r) => (Array.isArray(r.tournee) ? r.tournee[0] : r.tournee))
-    .filter((t): t is TourneeRow => Boolean(t));
-
-  // Nom du prestataire (badge « Communiqué par … ») — shared.prestataires n'est
-  // jamais embarqué (cross-schema) → résolution par requête batch (cf. route liste).
-  const prestaIds = [
-    ...new Set(
-      tourneesRaw
-        .map((t) => t.prestataire_logistique_id)
-        .filter((v): v is string => Boolean(v)),
-    ),
-  ];
-  const prestaNoms = new Map<string, string>();
-  if (prestaIds.length > 0) {
-    const { data: prestas } = await admin
-      .schema('shared')
-      .from('prestataires')
-      .select('id, nom')
-      .in('id', prestaIds);
-    for (const p of (prestas ?? []) as { id: string; nom: string }[]) {
-      prestaNoms.set(p.id, p.nom);
-    }
-  }
-  const tournees = tourneesRaw.map((t) => ({
-    plaque_immatriculation: t.plaque_immatriculation,
-    chauffeur_nom: t.chauffeur_nom,
-    chauffeur_telephone: t.chauffeur_telephone,
-    type_vehicule: t.type_vehicule,
-    plaque_saisie_at: t.plaque_saisie_at,
-    prestataire_nom: t.prestataire_logistique_id
-      ? (prestaNoms.get(t.prestataire_logistique_id) ?? null)
-      : null,
-  }));
-
-  const rap = rapRes.data as {
-    disponible_a: string | null;
-    genere_at: string | null;
-    regenere_at: string | null;
-  } | null;
-  const att = attRes.data as {
-    eligible_at: string | null;
-    pdf_url: string | null;
-  } | null;
-  // Disponibilité du « rapport RSE » : rapports_rse (rendu + embargo) pour ZD et AG
-  // sans-excédent ; attestation pour l'AG cloturee. Le rapport sans-excédent n'a pas
-  // d'embargo (disponible_a = genere_at) : la garde disponible_a <= now est immédiate.
-  const rapport_rse_disponible = useRapportsRse
-    ? Boolean(rap?.genere_at) &&
-      rap?.disponible_a != null &&
-      new Date(rap.disponible_a).getTime() <= Date.now()
-    : Boolean(att?.pdf_url) &&
-      att?.eligible_at != null &&
-      new Date(att.eligible_at).getTime() <= Date.now();
-  // Picto « rapport régénéré » (§12 §1.4) — porté par rapports_rse.regenere_at (ZD +
-  // AG sans-excédent régénéré par l'Admin).
-  const rapport_rse_regenere = useRapportsRse && Boolean(rap?.regenere_at);
-  // Régénération traiteur (RPT-04, décision Val 2026-07-07) : manager, ZD uniquement
-  // (attestation AG + rapport sans-excédent = régénérables par l'Admin seul, §12 §1.3/§1.3-bis).
-  const can_regenerate = auth.ctx.role === 'traiteur_manager' && !isAg;
-
+  // Factures rattachées (bouton « Télécharger la facture », §06.04 actions).
+  // Lues sous la RLS de l'UTILISATEUR (fc_select / fac_client_select) : une
+  // collecte programmée par une agence ou un gestionnaire est facturée à CETTE
+  // organisation, pas au traiteur opérationnel — une lecture service-role
+  // bornée à la seule collecte lui servait la facture d'un tiers (fuite
+  // inter-organisation mesurée en revue sécurité 2026-09-29). Brouillons exclus
+  // côté serveur (jamais téléchargeables).
   type FactureInfo = {
     id: string;
     numero_facture: string;
@@ -244,46 +124,40 @@ export async function GET(
     pdf_url_savr: string | null;
     pdf_url_pennylane: string | null;
   };
+  const { data: fcData } = await createSupabaseServerClient()
+    .from('factures_collectes')
+    .select(
+      'facture:factures(id, numero_facture, statut, pdf_url_savr, pdf_url_pennylane)',
+    )
+    .eq('collecte_id', id);
   const factures: FactureInfo[] = (
-    (fcRes.data ?? []) as Array<{
-      facture: FactureInfo | FactureInfo[] | null;
-    }>
+    (fcData ?? []) as Array<{ facture: FactureInfo | FactureInfo[] | null }>
   )
-    .map((r) => (Array.isArray(r.facture) ? r.facture[0] : r.facture))
-    .filter((f): f is FactureInfo => Boolean(f));
+    .map((f) => (Array.isArray(f.facture) ? f.facture[0] : f.facture))
+    .filter((f): f is FactureInfo => f != null && f.statut !== 'brouillon');
 
-  // Entête §06.04 « Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax) ».
-  // Bracket dérivé côté serveur avec le helper canonique (même règle que §04
-  // taille_evenement_bracket) ; pax absent (informations_completes=false) ⇒ null.
-  const evtData = (
-    Array.isArray(data.evenement) ? data.evenement[0] : data.evenement
-  ) as {
-    pax: number | null;
-    organisation_id: string;
-    traiteur_operationnel_organisation_id: string | null;
-  } | null;
-  const taille_bracket =
-    evtData?.pax != null ? tailleBracket(evtData.pax) : null;
+  // Régénération traiteur (RPT-04, décision Val 2026-07-07) : manager, ZD
+  // uniquement (attestation AG + rapport sans-excédent = Admin seul).
+  const can_regenerate =
+    auth.ctx.role === 'traiteur_manager' && fiche.type !== 'anti_gaspi';
 
-  // Badge « Programmée par » (§06.04 entête, ajout 2026-05-07) — affiché seulement
-  // quand l'événement a été programmé par un TIERS (agence / gestionnaire de lieux)
-  // et que le traiteur courant est l'opérationnel sur place. Lecture service-role
-  // bornée à CETTE organisation et à 3 colonnes (nom, type, email de contact), car
-  // le traiteur n'a pas de SELECT RLS sur une organisation qui n'est pas la sienne.
+  // Badge « Programmée par » (§06.04, ajout 2026-05-07) — seulement quand
+  // l'événement a été programmé par un TIERS (agence / gestionnaire de lieux).
+  // Lecture service-role bornée à CETTE organisation et à 3 colonnes, car le
+  // traiteur n'a pas de SELECT RLS sur une organisation qui n'est pas la sienne.
   let programmee_par: {
     nom: string;
     type: string;
     email: string | null;
   } | null = null;
   if (
-    evtData &&
-    evtData.traiteur_operationnel_organisation_id != null &&
-    evtData.organisation_id !== evtData.traiteur_operationnel_organisation_id
+    contexte.traiteurOperationnelId != null &&
+    contexte.organisationProgrammatriceId !== contexte.traiteurOperationnelId
   ) {
     const { data: orgProg } = await admin
       .from('organisations')
       .select('nom, type, email_principal')
-      .eq('id', evtData.organisation_id)
+      .eq('id', contexte.organisationProgrammatriceId)
       .maybeSingle();
     if (orgProg)
       programmee_par = {
@@ -294,16 +168,7 @@ export async function GET(
   }
 
   return NextResponse.json({
-    data: {
-      ...data,
-      taille_bracket,
-      programmee_par,
-      tournees,
-      rapport_rse_disponible,
-      rapport_rse_regenere,
-      can_regenerate,
-      factures,
-    },
+    data: { ...fiche, programmee_par, factures, can_regenerate },
   });
 }
 

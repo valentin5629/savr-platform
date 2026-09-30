@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
+import { FiltreCoches } from './FiltreCoches.js';
 import { TAILLE_OPTIONS } from './taille-options.js';
 import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
@@ -57,6 +58,14 @@ interface BenchmarkFilterBarProps {
    * requête est déjà exécutée dans le Promise.all serveur de la page.
    */
   initialOptions?: BenchmarkFilterOptions;
+  /**
+   * 'ligne' (fiche collecte client, §06.04 refonte 2026-09-29) : une seule ligne
+   * « Comparer avec » + titres cliquables ouvrant une liste à cocher.
+   * 'grille' (défaut, dashboards) : libellés au-dessus, grille de Combobox.
+   */
+  presentation?: 'grille' | 'ligne';
+  /** Masque le filtre Traiteurs même pour un rôle qui y a droit (fiche collecte). */
+  masquerTraiteurs?: boolean;
 }
 
 /**
@@ -72,6 +81,8 @@ export function BenchmarkFilterBar({
   initialTailleCodes,
   embedded = false,
   initialOptions,
+  presentation = 'grille',
+  masquerTraiteurs = false,
 }: BenchmarkFilterBarProps) {
   const [filters, setFilters] = useState<BenchmarkFilters>(() =>
     defaultFilters(initialTypeEvenementIds, initialTailleCodes),
@@ -129,6 +140,71 @@ export function BenchmarkFilterBar({
     () => filters.lieu_ids.length > 0 || filters.traiteur_ids.length > 0,
     [filters.lieu_ids, filters.traiteur_ids],
   );
+
+  const avertissementSoi = comparaisonSoi && (
+    <p
+      data-testid="benchmark-comparaison-soi"
+      className="rounded-savr-md border border-savr-warning/30 bg-savr-warning-subtle px-3 py-2 text-xs text-savr-warning-strong"
+    >
+      ⚠ Si vous filtrez sur vos propres lieux/traiteurs, le benchmark compare
+      vos données à vos propres données — il perd son rôle de référence parc.
+    </p>
+  );
+  const traiteursVisibles = !masquerTraiteurs && traiteurs.length > 0;
+
+  if (presentation === 'ligne') {
+    return (
+      <div data-testid="benchmark-filter-bar" className="space-y-2">
+        <div className="flex flex-wrap items-center gap-1 rounded-savr-md bg-savr-neutral-50 px-3 py-2 md:flex-nowrap">
+          <span className="mr-1 whitespace-nowrap text-[13px] font-semibold text-savr-neutral-500">
+            Comparer avec
+          </span>
+          <FiltreCoches
+            label="Type d'événement"
+            options={types}
+            selected={filters.type_evenement_ids}
+            onChange={(ids) => apply({ ...filters, type_evenement_ids: ids })}
+            testid="benchmark-filter-type"
+          />
+          <FiltreCoches
+            label="Taille d'événement"
+            options={TAILLE_OPTIONS}
+            selected={filters.taille_evenement_codes}
+            onChange={(ids) =>
+              apply({ ...filters, taille_evenement_codes: ids })
+            }
+            testid="benchmark-filter-taille"
+          />
+          <FiltreCoches
+            label="Lieux"
+            options={lieux}
+            selected={filters.lieu_ids}
+            onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
+            testid="benchmark-filter-lieux"
+          />
+          {traiteursVisibles && (
+            <FiltreCoches
+              label="Traiteurs"
+              options={traiteurs}
+              selected={filters.traiteur_ids}
+              onChange={(ids) => apply({ ...filters, traiteur_ids: ids })}
+              testid="benchmark-filter-traiteurs"
+            />
+          )}
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={reset}
+            data-testid="benchmark-reinitialiser"
+            className="shrink-0 rounded-savr-md px-2 py-1 text-xs font-semibold text-savr-primary-700 hover:bg-savr-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+          >
+            Réinitialiser
+          </button>
+        </div>
+        {avertissementSoi}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -190,7 +266,7 @@ export function BenchmarkFilterBar({
           testid="benchmark-filter-lieux"
         />
         {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
-        {traiteurs.length > 0 && (
+        {traiteursVisibles && (
           <MultiSelectFilter
             label="Traiteurs benchmark"
             options={traiteurs}
@@ -201,16 +277,7 @@ export function BenchmarkFilterBar({
         )}
       </div>
 
-      {comparaisonSoi && (
-        <p
-          data-testid="benchmark-comparaison-soi"
-          className="rounded-savr-md border border-savr-warning/30 bg-savr-warning-subtle px-3 py-2 text-xs text-savr-warning-strong"
-        >
-          ⚠ Si vous filtrez sur vos propres lieux/traiteurs, le benchmark
-          compare vos données à vos propres données — il perd son rôle de
-          référence parc.
-        </p>
-      )}
+      {avertissementSoi}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 
-// La fiche collecte traiteur s'affiche désormais dans un pop-up centré (modale)
-// sur la liste /traiteur/collectes (composant FicheCollecteTraiteurModal, même
-// format que la fiche Admin — décision Val 2026-09-29). Cette route ne rend plus
+// La fiche collecte traiteur s'affiche désormais dans le pop-up client commun
+// (FicheCollecteClientModal, refonte Val 2026-09-29) sur la liste
+// /traiteur/collectes. Cette route ne rend plus
 // de page : elle redirige vers la liste avec la modale ouverte (?collecte=<id>)
 // pour préserver les liens profonds (emails, dashboards, favoris).
 export default async function FicheCollecteTraiteurRedirect({

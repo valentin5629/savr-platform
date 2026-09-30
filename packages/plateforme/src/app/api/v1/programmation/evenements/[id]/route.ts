@@ -24,7 +24,6 @@ const EVENT_EDITABLE_FIELDS = [
   'nom_client_organisateur',
   'logo_client_organisateur_url',
   'reference_affaire',
-  'notes_internes',
 ];
 // Verrouillés pour les programmateurs (refus 422). lieu_id / type / organisation =
 // immuables (§05 l.314). client_organisateur_organisation_id = RATTACHEMENT d'une

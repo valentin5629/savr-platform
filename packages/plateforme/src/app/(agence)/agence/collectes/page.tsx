@@ -18,6 +18,7 @@ import {
   type CollecteType,
 } from '@/components/dashboards/index.js';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import {
   readCollecteFiltreLabel,
   periodeCourte,
@@ -134,13 +135,25 @@ function CollectesContent() {
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fiche collecte en pop-up (refonte Val 2026-09-29, même format que le
+  // traiteur) : ouverte depuis l'URL (?collecte=<id>[&edit=1]) → l'ancienne
+  // route [id], les emails et les dashboards rouvrent la fiche.
+  const [fiche, setFiche] = useState<{ id: string; edit: boolean } | null>(
+    () => {
+      const id = params.get('collecte');
+      return id ? { id, edit: params.get('edit') === '1' } : null;
+    },
+  );
+  // Une action dans la fiche (édition, annulation…) peut changer la liste :
+  // rechargée à chaque fermeture.
+  const [rechargement, setRechargement] = useState(0);
+  const from = params.get('from');
+  const to = params.get('to');
+  const statut = params.get('statut');
 
   useEffect(() => {
     setLoading(true);
     const qs = new URLSearchParams({ type: tab });
-    const from = params.get('from');
-    const to = params.get('to');
-    const statut = params.get('statut');
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
     if (statut) qs.set('statut', statut);
@@ -149,7 +162,7 @@ function CollectesContent() {
       .then((r) => r.json())
       .then((j) => setRows((j.data ?? []) as CollecteRow[]))
       .finally(() => setLoading(false));
-  }, [tab, params, lieuFiltre]);
+  }, [tab, from, to, statut, lieuFiltre, rechargement]);
 
   useEffect(() => {
     setFiltreLabel(
@@ -162,6 +175,24 @@ function CollectesContent() {
     const usp = new URLSearchParams(Array.from(params.entries()));
     usp.set('type', t);
     router.replace(`/agence/collectes?${usp}`);
+  }
+  // `edit` n'est jamais réécrit : un rechargement rouvre la fiche en lecture.
+  function majUrlFiche(f: { id: string } | null) {
+    const usp = new URLSearchParams(Array.from(params.entries()));
+    usp.delete('edit');
+    if (f) usp.set('collecte', f.id);
+    else usp.delete('collecte');
+    router.replace(`/agence/collectes?${usp}`);
+  }
+  function ouvrirFiche(id: string) {
+    const f = { id, edit: false };
+    setFiche(f);
+    majUrlFiche(f);
+  }
+  function fermerFiche() {
+    setFiche(null);
+    majUrlFiche(null);
+    setRechargement((n) => n + 1);
   }
   function clearFiltre() {
     const usp = new URLSearchParams(Array.from(params.entries()));
@@ -233,7 +264,7 @@ function CollectesContent() {
         getRowId={(c) => c.id}
         loading={loading}
         initialSorting={[{ id: 'date', desc: true }]}
-        onRowClick={(c) => router.push(`/agence/collectes/${c.id}`)}
+        onRowClick={(c) => ouvrirFiche(c.id)}
         rowLabel={(c) =>
           `Ouvrir la collecte du ${libelleDateHeure(c.date_collecte, c.heure_collecte)}`
         }
@@ -244,6 +275,13 @@ function CollectesContent() {
             description="Aucune collecte ne correspond à ce filtre."
           />
         }
+      />
+
+      <FicheCollecteClientModal
+        espace="agence"
+        collecteId={fiche?.id ?? null}
+        initialEditing={fiche?.edit ?? false}
+        onClose={fermerFiche}
       />
     </div>
   );

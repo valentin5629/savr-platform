@@ -99,3 +99,53 @@ export function groupesStatutClient(
   }
   return groupes;
 }
+
+export interface EtapeFriseClient {
+  label: string;
+  etat: 'passee' | 'courante' | 'a_venir';
+}
+
+// Rang de chaque statut DB sur la frise client : Créée(0) · Validée(1) ·
+// En cours(2) · Réalisée / Sans excédents(3).
+const RANG_FRISE_CLIENT: Record<string, number> = {
+  brouillon: 0,
+  programmee: 0,
+  rejetee_par_prestataire: 0,
+  validee: 1,
+  en_cours: 2,
+  realisee: 2,
+  cloturee: 3,
+  realisee_sans_collecte: 3,
+};
+
+/**
+ * Frise de statut de la fiche collecte CLIENT (§06.04 refonte pop-up, décision
+ * Val 2026-09-29, Q1) — vocabulaire client uniquement, dérivé du mapping
+ * canonique ci-dessus (jamais « Programmée » ni « Clôturée ») :
+ *  · parcours : Créée · Validée · En cours · Réalisée ;
+ *  · AG sans excédents : la dernière étape devient « Sans excédents » ;
+ *  · collecte annulée : Créée · Annulée (étape courante « Annulée »).
+ */
+export function friseStatutClient(statut: string): EtapeFriseClient[] {
+  const label = (s: StatutCollecteDb) =>
+    statutCollecteDisplay(s, 'client').label;
+  if (statut === 'annulee' || statut === 'annulation_demandee') {
+    return [
+      { label: label('programmee'), etat: 'passee' },
+      { label: label('annulee'), etat: 'courante' },
+    ];
+  }
+  const courant = RANG_FRISE_CLIENT[statut] ?? 0;
+  const etapes = [
+    label('programmee'),
+    label('validee'),
+    label('en_cours'),
+    statut === 'realisee_sans_collecte'
+      ? label('realisee_sans_collecte')
+      : label('cloturee'),
+  ];
+  return etapes.map((l, i) => ({
+    label: l,
+    etat: i < courant ? 'passee' : i === courant ? 'courante' : 'a_venir',
+  }));
+}

@@ -57,7 +57,13 @@
     "packages/plateforme/tests/ui/detail-evenement-gestionnaire.m3-2.test.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
     "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts",
-    "packages/plateforme/tests/ui/collectes-gestionnaire.m3-2.test.tsx"
+    "packages/plateforme/tests/ui/collectes-gestionnaire.m3-2.test.tsx",
+    "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/[id]/page.tsx",
+    "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/benchmark/route.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/rapport-rse/download/route.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/coordonnees-urgence/route.ts",
+    "packages/plateforme/tests/ui/fiche-collecte-client.m3-2.test.tsx",
+    "packages/plateforme/tests/api/gestionnaire/fiche-collecte-popup.m3-2.test.ts"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -158,7 +164,21 @@
     "M3.2/collectes_route_type_et_taille_se_cumulent",
     "M3.2/collectes_route_drilldown_gestionnaire_sans_statut_ni_type",
     "M3.2/collectes_chip_affiche_les_filtres_devenement",
-    "M3.2/collectes_changement_type_taille_revient_page_1"
+    "M3.2/collectes_changement_type_taille_revient_page_1",
+    "M3.2/fiche_redirect_modale",
+    "M3.2/fiche_redirect_edit",
+    "M3.2/fiche_redirect_encode",
+    "M3.2/fiche_get_association_absente",
+    "M3.2/fiche_get_documents_sous_rls",
+    "M3.2/fiche_get_actions_gestionnaire",
+    "M3.2/rapport_download_gestionnaire_sous_rls",
+    "M3.2/fiche_benchmark_tiers_masque",
+    "M3.2/fiche_benchmark_hors_perimetre_404",
+    "M3.2/urgence_gestionnaire_ok",
+    "M3.2/fiche_popup_gestionnaire_sans_annulation",
+    "M3.2/fiche_popup_gestionnaire_sans_association",
+    "M3.2/fiche_popup_gestionnaire_radar_masque_tiers",
+    "M3.2/fiche_popup_gestionnaire_marque_blanche"
   ],
   "deliverables": [
     {
@@ -576,6 +596,70 @@
       "test": "M3.2/kpi_cartes_sparkline_et_variation_n1 + M3.2/kpi_sparkline_serie_zd_nb_collectes_pax_co2_par_bucket + M3.2/kpi_sparkline_serie_ag_nb_collectes_par_bucket + M3.2/kpi_sparkline_moins_de_deux_points_masquee",
       "statut": "implemented",
       "libelle": "Cartes KPI gestionnaire : sparkline (tendance) + variation N-1 (sauf kg/pax). L'endpoint /gestionnaire/dashboard étant agrégé (pas de lignes mensuelles), la sparkline est dérivée de la série d'évolution (buildEvolutionSeries enrichie de nb_collectes / pax / co2_evite_kg par bucket, champs additifs) et la variation d'un 2e appel du même endpoint sur previousWindow (période précédente équivalente, mêmes filtres parc)."
+    },
+    {
+      "id": "M3.2-popup-client-fiche-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:85",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/[id]/page.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-modal.tsx",
+      "test": "M3.2/fiche_redirect_modale",
+      "statut": "implemented",
+      "libelle": "Fiche collecte gestionnaire = pop-up client commun §06.04 (en-tête, frise client, onglets) ouvert sur la liste (?collecte=<id>[&edit=1]) ; l'ancienne page pleine /gestionnaire/collectes/[id] redirige (liens emails, dashboards, détail événement préservés). Ligne de liste → pop-up : M3.2/collectes_ligne_ouvre_la_fiche."
+    },
+    {
+      "id": "M3.2-popup-association-absente-api",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:85",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": "M3.2/fiche_get_association_absente",
+      "statut": "implemented",
+      "libelle": "Q7 : bloc Association bénéficiaire masqué au gestionnaire tant que v_attributions_gestionnaire n'existe pas — la clé n'est même pas dans la réponse API ; seul volume_repas_realise est lu, sous sa RLS (aa_select jamais élargie, aucun service-role). UI : M3.2/fiche_popup_gestionnaire_sans_association."
+    },
+    {
+      "id": "M3.2-popup-sans-annulation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:354",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
+      "test": "M3.2/fiche_popup_gestionnaire_sans_annulation",
+      "statut": "implemented",
+      "libelle": "Pied gestionnaire : jamais d'annulation (« la gestion des collectes reste exclusive au traiteur ») ; « Modifier la collecte » actif sur ses propres programmations, grisé sinon (miroir de la garde PATCH existante). API : M3.2/fiche_get_actions_gestionnaire. Écart §05 l.354 (« ne peut pas modifier ») vs synthèse M1.2 : droit existant conservé, tracé D7 (_Divergences/M3.1_20260929_popup-client-implementation.md)."
+    },
+    {
+      "id": "M3.2-popup-radar-tiers-masque",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
+      "artefact": "packages/plateforme/src/lib/collectes/benchmark-fiche.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/benchmark/route.ts",
+      "test": "M3.2/fiche_benchmark_tiers_masque",
+      "statut": "implemented",
+      "libelle": "Radar de la fiche : f_benchmark_single_collecte refuse les collectes de traiteurs tiers → réponse « pas de radar » (200, data null) et bloc masqué à l'écran (M3.2/fiche_popup_gestionnaire_radar_masque_tiers). Garde JAMAIS élargie ni contournée en service-role ; collecte invisible = 404 (M3.2/fiche_benchmark_hors_perimetre_404). Écart au CDC l.403 (radar prévu pour tous les rôles) tracé D13."
+    },
+    {
+      "id": "M3.2-popup-documents-sous-rls",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
+      "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/rapport-rse/download/route.ts",
+      "test": "M3.2/rapport_download_gestionnaire_sous_rls",
+      "statut": "implemented",
+      "libelle": "Document de la fiche (Rapport RSE / Rapport de don / sans excédent) lu sous la RLS du gestionnaire (rr_select / att_gestionnaire_select), jamais en service-role ; disponibilité calculée de même (M3.2/fiche_get_documents_sous_rls)."
+    },
+    {
+      "id": "M3.2-popup-coordonnees-urgence",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/coordonnees-urgence/route.ts",
+      "test": "M3.2/urgence_gestionnaire_ok",
+      "statut": "implemented",
+      "libelle": "Demande urgente des coordonnées ouverte au gestionnaire (même logique commune que le traiteur, rôle borné à gestionnaire_lieux)."
+    },
+    {
+      "id": "M3.2-popup-marque-blanche",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
+      "test": "M3.2/fiche_popup_gestionnaire_marque_blanche",
+      "statut": "implemented",
+      "libelle": "Aucun libellé « transporteur » / « prestataire » dans la fiche gestionnaire."
+    },
+    {
+      "id": "M3.2-popup-bilan-ag-tiers",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:404",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": null,
+      "statut": "partial",
+      "libelle": "Bilan AG du gestionnaire sur une collecte programmée par un traiteur TIERS : « Repas donnés » / « Repas par pax » affichent « — » car volume_repas_realise est lu sous sa RLS (aa_select l'exclut — C-1, pgTAP T18) ; seul le bloc Association est exempté par §06.05 l.85. Livré en l'état, tracé D13 ; source attendue = vue v_attributions_gestionnaire (spécifiée, spec à patcher avant implémentation). Les tests UI M3.2 mockent un volume : ils prouvent l'affichage, pas la lecture en base."
     }
   ],
   "cdc_source_hash": {

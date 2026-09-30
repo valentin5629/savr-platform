@@ -6,7 +6,9 @@ import { Card } from '@/components/ui/card';
 
 interface StatCardProps {
   label: string;
-  value: string | number;
+  value: React.ReactNode;
+  /** Classes de la valeur (fusionnées) — ex. taille réduite + une seule ligne. */
+  valueClassName?: string;
   variation?: {
     value: number;
     label?: string;
@@ -16,7 +18,7 @@ interface StatCardProps {
 }
 
 const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
-  ({ label, value, variation, icon, className }, ref) => (
+  ({ label, value, valueClassName, variation, icon, className }, ref) => (
     <Card ref={ref} className={cn('p-6 flex flex-col gap-3', className)}>
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-savr-neutral-500">
@@ -29,7 +31,12 @@ const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
         )}
       </div>
       <div className="flex items-end gap-3">
-        <span className="text-3xl font-bold tracking-[-0.02em] text-savr-neutral-900 leading-none">
+        <span
+          className={cn(
+            'text-3xl font-bold tracking-[-0.02em] text-savr-neutral-900 leading-none',
+            valueClassName,
+          )}
+        >
           {value}
         </span>
         {variation !== undefined && (

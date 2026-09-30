@@ -271,7 +271,7 @@ describe('M3.1 / édition collecte', () => {
       await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/traiteur/collectes/c1', {
-        notes_internes: 'x',
+        informations_supplementaires: 'x',
       }),
       { params: Promise.resolve({ id: 'c1' }) },
     );
@@ -292,13 +292,16 @@ describe('M3.1 / édition collecte', () => {
       error: null,
     });
     admin.push({ data: { id: 'c1' }, error: null }); // before select
-    admin.push({ data: { id: 'c1', notes_internes: 'x' }, error: null }); // rpc fn_modifier
+    admin.push({
+      data: { id: 'c1', informations_supplementaires: 'x' },
+      error: null,
+    }); // rpc fn_modifier
     admin.push({ data: null, error: null }); // audit insert
     const { PATCH } =
       await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/traiteur/collectes/c1', {
-        notes_internes: 'x',
+        informations_supplementaires: 'x',
       }),
       { params: Promise.resolve({ id: 'c1' }) },
     );
@@ -326,7 +329,7 @@ describe('M3.1 / édition collecte', () => {
       await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/traiteur/collectes/c1', {
-        notes_internes: 'x',
+        informations_supplementaires: 'x',
       }),
       { params: Promise.resolve({ id: 'c1' }) },
     );
@@ -362,7 +365,7 @@ describe('M3.1 / édition collecte', () => {
       await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/traiteur/collectes/c1', {
-        notes_internes: 'x',
+        informations_supplementaires: 'x',
       }),
       { params: Promise.resolve({ id: 'c1' }) },
     );
@@ -386,7 +389,7 @@ describe('M3.1 / édition collecte', () => {
       await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/traiteur/collectes/c1', {
-        notes_internes: 'x',
+        informations_supplementaires: 'x',
       }),
       { params: Promise.resolve({ id: 'c1' }) },
     );

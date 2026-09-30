@@ -24,6 +24,9 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   bordereau_pesees_manquantes_48h: 'critique',
   // Attestation fiscale 2041-GE différée : donateur sans SIRET vérifié.
   attestation_ag_siret_donateur_manquant: 'critique',
+  // Client qui demande en urgence les coordonnées du chauffeur (fiche collecte,
+  // §06.04 refonte 2026-09-29) : clôturée automatiquement à leur réception.
+  coordonnees_chauffeur_urgence: 'critique',
   // À traiter — anomalie à instruire, sans urgence bloquante.
   ag_annulee_tardive_sans_pack_actif: 'attention',
   attribution_aucun_prestataire: 'attention',

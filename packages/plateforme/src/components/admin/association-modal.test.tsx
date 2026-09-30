@@ -3,6 +3,9 @@
  * Ouverte depuis la liste /admin/associations (clic ligne ou « Nouvelle »).
  * Champs identité/adresse/contact/horaires/rapport/admin, POST/PATCH,
  * Désactiver = PATCH { actif:false }. Miroir de la modale transporteur.
+ * Gabarit fiche collecte (2026-09-30) : colonne résumé + 4 onglets
+ * (Informations / Logistique / Rapport client / Administratif). Les onglets
+ * restent montés (forceMount), d'où des champs trouvables sans changer d'onglet.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
@@ -77,6 +80,10 @@ function fillRequiredFields() {
   );
 }
 
+function onglet(nom: RegExp): HTMLElement {
+  return screen.getByRole('tab', { name: nom });
+}
+
 describe('M1.1 — Modale association (revue E2E)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
@@ -123,6 +130,12 @@ describe('M1.1 — Modale association (revue E2E)', () => {
         await screen.findByText(/30 caractères minimum/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(fetchMock).not.toHaveBeenCalled();
+      // Le message vit dans l'onglet Rapport client : la modale l'ouvre, sinon
+      // l'erreur resterait invisible depuis Informations.
+      expect(onglet(/Rapport client/)).toHaveAttribute('aria-selected', 'true');
+      expect(onglet(/Rapport client/)).toHaveAccessibleName(
+        'Rapport client (1 champ à corriger)',
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -154,9 +167,147 @@ describe('M1.1 — Modale association (revue E2E)', () => {
         await screen.findByText(/SIREN : 9 chiffres/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(fetchMock).not.toHaveBeenCalled();
+      expect(onglet(/Administratif/)).toHaveAttribute('aria-selected', 'true');
     },
     ATTENTE_CAS_MS,
   );
+
+  it('4 onglets, « Informations » ouvert par défaut', () => {
+    render(
+      <AssociationModal
+        open
+        association={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+      'Informations',
+      'Logistique',
+      'Rapport client',
+      'Administratif',
+    ]);
+    expect(onglet(/Informations/)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('clic sur un onglet → il devient l’onglet actif', () => {
+    render(
+      <AssociationModal
+        open
+        association={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    // Radix active un onglet au mousedown (bouton gauche).
+    fireEvent.mouseDown(onglet(/Logistique/), { button: 0 });
+    expect(onglet(/Logistique/)).toHaveAttribute('aria-selected', 'true');
+    expect(onglet(/Informations/)).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it(
+    'création vide → premier onglet fautif ouvert + compteur par onglet',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+
+      // La modale prend le focus à l'ouverture (minuteur) : l'attendre, comme
+      // un utilisateur réel, sinon il écraserait le focus posé par l'échec.
+      await waitFor(
+        () => expect(screen.getByRole('dialog')).toHaveFocus(),
+        ATTENTE_UI,
+      );
+      // On part d'un autre onglet : l'échec doit ramener au premier fautif.
+      fireEvent.mouseDown(onglet(/Administratif/), { button: 0 });
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer l.association/ }),
+      );
+
+      await waitFor(
+        () =>
+          expect(onglet(/Informations/)).toHaveAttribute(
+            'aria-selected',
+            'true',
+          ),
+        ATTENTE_UI,
+      );
+      // 8 obligatoires dans Informations, la description dans Rapport client,
+      // rien dans Logistique ni Administratif (SIREN vide = facultatif).
+      expect(onglet(/Informations/)).toHaveAccessibleName(
+        'Informations (8 champs à corriger)',
+      );
+      expect(onglet(/Rapport client/)).toHaveAccessibleName(
+        'Rapport client (1 champ à corriger)',
+      );
+      expect(onglet(/Logistique/)).toHaveAccessibleName('Logistique');
+      expect(onglet(/Administratif/)).toHaveAccessibleName('Administratif');
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      // Focus sur l'onglet fautif : il devient l'onglet atteignable au clavier
+      // (sinon Maj+Tab rouvrirait « Administratif » et cacherait les erreurs).
+      expect(onglet(/Informations/)).toHaveFocus();
+      expect(onglet(/Informations/)).toHaveAttribute('tabindex', '0');
+      expect(onglet(/Administratif/)).toHaveAttribute('tabindex', '-1');
+
+      // Un champ corrigé retire son erreur du compteur, sans nouvel envoi.
+      fireEvent.change(screen.getByLabelText(/Nom de l'association/), {
+        target: { value: 'Association Alpha' },
+      });
+      expect(onglet(/Informations/)).toHaveAccessibleName(
+        'Informations (7 champs à corriger)',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('réouverture → retour sur « Informations »', () => {
+    const props = {
+      association: EDIT_FIXTURE,
+      onClose: vi.fn(),
+      onSaved: vi.fn(),
+    };
+    const { rerender } = render(<AssociationModal open {...props} />);
+    fireEvent.mouseDown(onglet(/Administratif/), { button: 0 });
+    expect(onglet(/Administratif/)).toHaveAttribute('aria-selected', 'true');
+
+    rerender(<AssociationModal open={false} {...props} />);
+    rerender(<AssociationModal open {...props} />);
+    expect(onglet(/Informations/)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('colonne résumé : reprend la fiche et suit la saisie', () => {
+    render(
+      <AssociationModal
+        open
+        association={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    const resume = screen.getByRole('complementary', {
+      name: /Résumé de l'association/,
+    });
+    expect(within(resume).getByText('Association Alpha')).toBeInTheDocument();
+    expect(within(resume).getByText('Active')).toBeInTheDocument();
+    expect(within(resume).getByText('Paris')).toBeInTheDocument();
+    expect(within(resume).getByText('Île-de-France')).toBeInTheDocument();
+    expect(within(resume).getByText('150 repas')).toBeInTheDocument();
+    expect(within(resume).getByText('Marie Curie')).toBeInTheDocument();
+    expect(within(resume).getByText('Non')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Nom de l'association/), {
+      target: { value: 'Association Beta' },
+    });
+    expect(within(resume).getByText('Association Beta')).toBeInTheDocument();
+  });
 
   it(
     'création → POST /associations + onSaved/onClose',
@@ -379,6 +530,108 @@ describe('M1.1 — Modale association (revue E2E)', () => {
       const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(options.body as string) as { numero_rup: string };
       expect(body.numero_rup).toBe('W920000001');
+    },
+    ATTENTE_CAS_MS,
+  );
+  it('colonne résumé : association inactive, habilitée avec date d’expiration', () => {
+    render(
+      <AssociationModal
+        open
+        association={{
+          ...EDIT_FIXTURE,
+          actif: false,
+          habilitee_attestation_fiscale: true,
+          date_expiration_habilitation: '2027-03-12',
+        }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    const resume = screen.getByRole('complementary', {
+      name: /Résumé de l'association/,
+    });
+    expect(within(resume).getByText('Inactive')).toBeInTheDocument();
+    expect(within(resume).getByText('Oui')).toBeInTheDocument();
+    expect(
+      within(resume).getByText(/jusqu.au 12 mars 2027/),
+    ).toBeInTheDocument();
+  });
+
+  it('colonne résumé en création : pas de ligne Statut', () => {
+    render(
+      <AssociationModal
+        open
+        association={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    const resume = screen.getByRole('complementary', {
+      name: /Résumé de l'association/,
+    });
+    expect(within(resume).queryByText('Statut')).not.toBeInTheDocument();
+  });
+
+  it('une saisie survit au changement d’onglet ; l’onglet inactif est masqué', () => {
+    render(
+      <AssociationModal
+        open
+        association={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    fireEvent.mouseDown(onglet(/Logistique/), { button: 0 });
+    fireEvent.change(screen.getByLabelText(/Instructions d'accès/), {
+      target: { value: 'Quai n°3, sonner à l’accueil' },
+    });
+    fireEvent.mouseDown(onglet(/Administratif/), { button: 0 });
+    fireEvent.mouseDown(onglet(/Logistique/), { button: 0 });
+    expect(
+      (screen.getByLabelText(/Instructions d'accès/) as HTMLTextAreaElement)
+        .value,
+    ).toBe('Quai n°3, sonner à l’accueil');
+
+    // Masquage : Radix marque le panneau inactif, la classe DS le cache
+    // (jsdom ne charge pas le CSS, on vérifie le couple attribut + classe).
+    const panneauInfos = screen.getByRole('tabpanel', {
+      name: /Informations/,
+      hidden: true,
+    });
+    expect(panneauInfos).toHaveAttribute('data-state', 'inactive');
+    expect(panneauInfos.className).toContain('data-[state=inactive]:hidden');
+  });
+
+  it(
+    'erreur serveur → message en tête de modale (role=alert), modale ouverte',
+    async () => {
+      const onClose = vi.fn();
+      // scrollIntoView est un no-op posé par vitest.setup (jsdom ne l'a pas).
+      const scrollIntoView = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: 'Nom déjà utilisé' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={EDIT_FIXTURE}
+          onClose={onClose}
+          onSaved={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+
+      expect(
+        await screen.findByRole('alert', undefined, ATTENTE_UI),
+      ).toHaveTextContent('Nom déjà utilisé');
+      expect(onClose).not.toHaveBeenCalled();
+      // Ramenée à l'écran même si l'onglet ouvert a été défilé.
+      await waitFor(
+        () => expect(scrollIntoView).toHaveBeenCalled(),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

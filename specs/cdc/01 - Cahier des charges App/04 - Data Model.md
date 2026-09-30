@@ -925,7 +925,7 @@ Référentiel des contacts terrain par organisation (traiteur ou agence). Permet
 | Champ | Type | Contrainte | Description |
 |-------|------|-----------|-------------|
 | `id` | uuid | PK | |
-| `reference_interne` | text | NOT NULL, UNIQUE | ex: `TRN-2026-00147` (séquence Savr) |
+| `reference_interne` | text | NOT NULL, UNIQUE | Construite par l'adapter à la création de la tournée : `TMS-{collecte_id}-{rang}` (MTS-1) / `EVR-{collecte_id}-{rang}` (Everest), suffixe `-r{n}` sur réattribution. **Pas une séquence Savr** (l'ex-exemple `TRN-2026-00147` ne correspond à aucun code). Le préfixe révèle la famille de transporteur → hors GRANT SELECT authenticated (§09, marque blanche §06.04). |
 | `date_tournee` | date | NOT NULL | Date de réalisation |
 | `creneau` | enum | NOT NULL | `matin` \| `apres_midi` \| `soir` \| `nuit` \| `journee_complete` |
 | `heure_debut_prevue` | time | | |
@@ -943,7 +943,7 @@ Référentiel des contacts terrain par organisation (traiteur ou agence). Permet
 | `statut` | enum | NOT NULL | **4 valeurs (corrigé 2026-06-11, audit data model)** : `planifiee` \| `en_cours` \| `terminee` \| `annulee`. L'ex-valeur `confirmee_prestataire` est retirée : aucun flux ne l'écrivait — le contrat S3 V2 pousse 4 valeurs (l'état interne TMS `acceptee` est mappé `planifiee` côté App, arbitrage M04 2026-06-06), et en V1 l'adapter MTS-1 mappe les états tour : création/dispatch → `planifiee`, démarrage → `en_cours`, `OK`/`PARTIAL` → `terminee`, `CANCELED`/`KO` → `annulee` (cf. CLAUDE.md multi-camions + §08 §3bis). |
 | `tms_reference` | text | | Identifiant de la tournée côté TMS Savr (V2) / `tourId` MTS-1 (V1, créé par l'adapter à l'envoi). |
 | `external_ref_commande` | text | nullable | **(ajout 2026-06-08, multi-camions V1)** Référence **neutre** de la commande logistique externe = `customerOrderId` MTS-1 en V1, une par tournée/camion (`tms_reference` = id tournée/tour ; cette colonne = id commande). Permet à l'adapter MTS-1 de retrouver une commande déjà envoyée → **idempotence du retry** (cf. [[08 - APIs et intégrations]] §3bis.5). Neutre TMS-Ready (garde-fou 5, jamais d'id MTS-1 en dur). |
-| `notes_internes` | text | | |
+| `notes_internes` | text | | Commentaire Ops Savr, jamais visible par un client (hors GRANT SELECT authenticated, cf. §09). |
 | `created_at` | timestamptz | NOT NULL | |
 | `updated_at` | timestamptz | NOT NULL | |
 
@@ -2191,7 +2191,7 @@ Les deux listes de valeurs du filtre benchmark dédié (lieux du parc, traiteurs
 | Déclaration | `SECURITY DEFINER` + `SET search_path = plateforme, pg_catalog` **ré-énoncés à chaque `CREATE OR REPLACE`** | idem |
 | Privilèges | `REVOKE EXECUTE … FROM PUBLIC` puis `GRANT EXECUTE … TO authenticated` | idem |
 | Rôle applicatif absent | `RAISE EXCEPTION 'Role applicatif absent (acces refuse)'` | `RAISE EXCEPTION 'Role applicatif absent (acces refuse)'` |
-| Liste blanche | rôles habilités au filtre benchmark ; tout autre rôle → `RAISE EXCEPTION 'Role non autorise pour la liste benchmark'` | **`gestionnaire_lieux`, `admin_savr`, `ops_savr` uniquement** ; tout autre rôle → `RAISE EXCEPTION 'Role non autorise pour la liste traiteurs benchmark'` |
+| Liste blanche | rôles habilités au filtre benchmark, **`agence` comprise** (D8 Val 2026-09-30 — migration élargissante à écrire, non encore sur `main`) ; tout autre rôle → `RAISE EXCEPTION 'Role non autorise pour la liste benchmark'` | **`gestionnaire_lieux`, `admin_savr`, `ops_savr` uniquement** ; tout autre rôle → `RAISE EXCEPTION 'Role non autorise pour la liste traiteurs benchmark'` |
 
 ⚠ **Motif de la liste blanche de `f_benchmark_traiteurs_parc`, à ne jamais relâcher** : la liste nominative des traiteurs du parc est une **donnée concurrentielle**. Elle ne sort jamais vers un rôle traiteur — c'est le pendant, côté valeurs de filtre, de la garde déjà posée sur le paramètre `p_traiteur_ids[]` de `f_benchmark_kg_pax_zd`. Ouvrir la fonction aux rôles traiteur rouvrirait au traiteur la liste nominative de ses concurrents, sans qu'aucune garde aval ne le rattrape.
 

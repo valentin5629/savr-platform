@@ -98,7 +98,7 @@
     },
     {
       "id": "BL-P1-AUTH-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:986",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:990",
       "artefact": "packages/plateforme/src/app/auth/impersonate-callback/route.ts + supabase/migrations/20260701120000_plateforme_r14_impersonation_claim.sql + packages/plateforme/src/app/api/auth/exit-impersonation/route.ts + packages/plateforme/src/components/ui/impersonation-banner-mount.tsx (monté layout racine) + packages/plateforme/src/app/api/v1/admin/users/[id]/impersoner/route.ts",
       "test": "packages/plateforme/tests/api/auth/impersonate.test.ts « M0.4 — impersonate callback / exit impersonation » + supabase/tests/r14_impersonation_claim.test.sql (hook injecte impersonator_id, fenêtre 1h) + packages/plateforme/src/components/ui/impersonation-banner-mount.test.tsx « M0.6 — bandeau impersonation » + supabase/tests/audit_trail.m0-10.test.sql (T14/T15 : action en session impersonée → audit_log.impersonator_id=admin ET user_id=user impersoné, chaîne bout-en-bout §09 §7 l.904)",
       "statut": "implemented",
@@ -186,7 +186,7 @@
     },
     {
       "id": "M0.4-signup-stepper-trois-etapes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:433",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:435",
       "artefact": "packages/plateforme/src/app/signup/page.tsx (stepper 3 étapes — §10 §8 : > 6 champs → stepper ; primitives Button/Input/FormField/FormError/Checkbox)",
       "test": "M0.4 — /signup : chaque champ et son refus (CDC §05 §8) > aucun profil choisi → refus, on reste à l’étape 1",
       "statut": "implemented",
@@ -284,8 +284,8 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "ba8f6144320893a39f67dbc33a78894ee31bf2caa482586271e453de87979bfb",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "032397b3bdd3b4fa764162ce0d2f811646e9658152d855a7cb800be62b1432ba",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "9353c1caa7cb22de65622e1c31b88764c9d198d0092f6ea647c97f378b37f4ea",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "5abf9290405210ba77c1450fa1059db2f5fe62bfa7bc94f860a6743a11cdb50c",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "98f9767e66fb0dbad9f9907235bc9bbe05cb2f102d20c496db1b9afa4dabe013",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "de55ad9dd1ab220cc2e0f7945b7cc1e4b6eccfb6db0bac80734b34213ea0f88a",
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "2cc8294096f90ae0582a699895a55119d766dc8626eaac4bf7b944e9580c161a"
   }

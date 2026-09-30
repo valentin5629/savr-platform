@@ -82,7 +82,7 @@ Barre latérale gauche, **9 sections** *(Val 2026-07-06, divergence M3.2 R19b-P2
 
 **Section Collectes réintégrée (Val 2026-07-06 — divergence M3.2, override de la décision 2026-05-03)** : le gestionnaire dispose d'une entrée nav Collectes dédiée (`/gestionnaire/collectes`). Le détail d'une collecte (pesées par flux, repas, bordereau, rapport recyclage, attestation don) reste **également** accessible depuis le détail événement parent.
 
-> **Fiche collecte (décision Val 2026-09-29)** : la fiche collecte reprend le pop-up client §06.04 « Fiche collecte (vue détail) » (en-tête, frise client, onglets Informations / Logistique / Bilan & documents) ; seules changent les actions autorisées au rôle. **Exception** : bloc « Association bénéficiaire » masqué tant que `v_attributions_gestionnaire` n'est pas implémentée.
+> **Fiche collecte (décision Val 2026-09-29)** : la fiche collecte reprend le pop-up client §06.04 « Fiche collecte (vue détail) » (en-tête, frise client, onglets Informations / Logistique / Bilan & documents) ; seules changent les actions autorisées au rôle. **Exception** : bloc « Association bénéficiaire » masqué tant que `v_attributions_gestionnaire` n'est pas implémentée. *(D13 + D9 2026-09-30)* Collecte AG programmée par une autre organisation : « Repas donnés » / « Repas par pax » lus dans l'attestation de don servie au gestionnaire (`attestations_don.nb_repas`) tant que la vue n'est pas implémentée (« — » avant génération de l'attestation) ; radar ZD masqué (garde `f_benchmark_single_collecte`). Le masquage du bloc Association est une limite technique temporaire, pas une règle de confidentialité : l'attestation de don reste servie (l.619) et l'association est visible sur le détail événement (l.347).
 
 
 > **Pagination** : liste paginée côté serveur, **50 collectes par page** (aligné §06.06 Back-office Admin). Au-delà d'une page, l'écran affiche le **nombre total de collectes du périmètre filtré** et le composant Pagination du Design System (§10 §6). Le total affiché est celui de la base, pas celui de la page : c'est lui qui rend la troncature visible, la liste étant volontairement large (« tous statuts, type ZD/AG non figé », cf. drill-down des Top listes). Un changement de filtre (dont un drill-down) **réinitialise la pagination à la page 1**. Tri départagé (`date_collecte` puis `id`) : `date_collecte` n'est pas unique, sans départage deux pages successives peuvent réordonner les ex æquo et faire disparaître une ligne. *(décision Val 2026-09-22 — la section réintégrée le 2026-07-06 ne spécifiait pas la taille de la liste ; la route coupait à 100 lignes sans le signaler.)*
@@ -351,7 +351,7 @@ Clic sur une ligne → vue consolidée en lecture seule (consultation pure, aucu
 - Rapport de recyclage (1 par événement, agrégé)
 - Attestation(s) de don AG (par attribution)
 
-**Note** : pas de bouton d'action. Le gestionnaire ne peut pas modifier, dupliquer ou annuler. La gestion des collectes reste exclusive au traiteur.
+**Note** : pas de bouton d'action **sur le détail événement**. Le gestionnaire ne peut pas dupliquer ni annuler. *(Précision D7, arbitrage Val 2026-09-30)* : sur la **fiche collecte**, le gestionnaire garde « Modifier » sur **ses propres programmations** (synthèse M1.2 §06.04, `f_collecte_editable`) — grisé sur les collectes de traiteurs tiers ; jamais d'annulation.
 
 ### Export CSV
 

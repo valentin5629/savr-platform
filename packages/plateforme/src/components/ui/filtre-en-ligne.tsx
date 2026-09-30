@@ -125,12 +125,32 @@ interface FiltreCochesProps {
   selected: string[];
   onChange: (ids: string[]) => void;
   testid?: string;
+  /** Valeur affichée sans case cochée (défaut « Tous »). */
+  libelleVide?: string;
+  /** Libellé de la case « Tous » en tête de liste (défaut « Tous »). */
+  libelleTous?: string;
+  /**
+   * Case « Tous » pilotée par le consommateur, quand « tout » ne se réduit
+   * pas à une sélection vide (Dashboard Client : périmètre = union de
+   * plusieurs filtres). Défaut : cochée tant que rien n'est coché ; la cocher
+   * vide la sélection ; cocher toutes les options revient à « Tous ».
+   * `onDeselect` : décocher « Tous » (sinon sans effet).
+   */
+  tous?: { coche: boolean; onSelect: () => void; onDeselect?: () => void };
 }
 
-// Résumé affiché à côté du titre : « Tous », le libellé (court) de l'option
-// unique (« XL (≥ 1000) » → « XL »), ou le nombre d'options cochées.
-function resumeSelection(options: OptionFiltre[], selected: string[]): string {
-  if (selected.length === 0) return 'Tous';
+// Résumé affiché à côté du titre : « Tous » (ou `libelleVide`), `libelleTous`
+// si toutes les options sont cochées, le libellé (court) de l'option unique
+// (« XL (≥ 1000) » → « XL »), ou le nombre d'options cochées.
+function resumeSelection(
+  options: OptionFiltre[],
+  selected: string[],
+  libelleVide: string,
+  libelleTous: string,
+): string {
+  if (selected.length === 0) return libelleVide;
+  if (options.length > 1 && options.every((o) => selected.includes(o.id)))
+    return libelleTous;
   if (selected.length === 1) {
     const o = options.find((x) => x.id === selected[0]);
     return o ? (o.court ?? o.nom) : '1 sélectionné';
@@ -151,9 +171,13 @@ const normaliser = (t: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
+const ligneCoche =
+  'flex min-h-11 cursor-pointer sm:min-h-9 items-center gap-2.5 rounded-savr-sm px-2 text-sm text-savr-neutral-900 hover:bg-savr-neutral-50';
+
 /**
  * Filtre à choix multiple : titre cliquable → liste à cocher (Popover +
- * Checkbox du DS, aucun <select> natif). Composant de filtrage uniquement —
+ * Checkbox du DS, aucun <select> natif), case « Tous » en tête (= aucun
+ * filtre, décision Val 2026-09-30). Composant de filtrage uniquement —
  * aucune écriture.
  */
 export function FiltreCoches({
@@ -162,12 +186,29 @@ export function FiltreCoches({
   selected,
   onChange,
   testid,
+  libelleVide = 'Tous',
+  libelleTous = 'Tous',
+  tous,
 }: FiltreCochesProps) {
   const [recherche, setRecherche] = React.useState('');
   const avecRecherche = options.length > SEUIL_RECHERCHE;
   const visibles = recherche
     ? options.filter((o) => normaliser(o.nom).includes(normaliser(recherche)))
     : options;
+  const tousCoche = tous ? tous.coche : selected.length === 0;
+
+  function basculer(id: string, coche: boolean) {
+    const suivants = coche
+      ? [...selected, id]
+      : selected.filter((x) => x !== id);
+    // Toutes les options cochées = « Tous » (mode par défaut seulement : un
+    // consommateur qui pilote `tous` garde sa sélection explicite).
+    const toutes =
+      !tous &&
+      options.length > 1 &&
+      options.every((o) => suivants.includes(o.id));
+    onChange(toutes ? [] : suivants);
+  }
   return (
     <Popover onOpenChange={(o) => !o && setRecherche('')}>
       <PopoverTrigger asChild>
@@ -178,7 +219,12 @@ export function FiltreCoches({
         >
           <ContenuDeclencheur
             titre={label}
-            valeur={resumeSelection(options, selected)}
+            valeur={resumeSelection(
+              options,
+              selected,
+              libelleVide,
+              libelleTous,
+            )}
           />
         </button>
       </PopoverTrigger>
@@ -199,26 +245,34 @@ export function FiltreCoches({
           </p>
         ) : (
           <ul aria-label={label} className="max-h-64 overflow-y-auto">
-            {visibles.map((o) => {
-              const coche = selected.includes(o.id);
-              return (
-                <li key={o.id}>
-                  <label className="flex min-h-11 cursor-pointer sm:min-h-9 items-center gap-2.5 rounded-savr-sm px-2 text-sm text-savr-neutral-900 hover:bg-savr-neutral-50">
-                    <Checkbox
-                      checked={coche}
-                      onCheckedChange={(v) =>
-                        onChange(
-                          v === true
-                            ? [...selected, o.id]
-                            : selected.filter((x) => x !== o.id),
-                        )
-                      }
-                    />
-                    {o.nom}
-                  </label>
-                </li>
-              );
-            })}
+            {/* « Tous » = aucun filtre : se décoche en choisissant une valeur.
+                Masquée pendant une recherche (ne vise pas « tous les résultats »). */}
+            {!recherche && (
+              <li className="mb-1 border-b border-savr-neutral-100 pb-1">
+                <label className={ligneCoche}>
+                  <Checkbox
+                    checked={tousCoche}
+                    onCheckedChange={(v) => {
+                      if (v !== true) tous?.onDeselect?.();
+                      else if (tous) tous.onSelect();
+                      else onChange([]);
+                    }}
+                  />
+                  {libelleTous}
+                </label>
+              </li>
+            )}
+            {visibles.map((o) => (
+              <li key={o.id}>
+                <label className={ligneCoche}>
+                  <Checkbox
+                    checked={selected.includes(o.id)}
+                    onCheckedChange={(v) => basculer(o.id, v === true)}
+                  />
+                  {o.nom}
+                </label>
+              </li>
+            ))}
           </ul>
         )}
       </PopoverContent>

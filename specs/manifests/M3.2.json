@@ -626,7 +626,7 @@
     },
     {
       "id": "M3.2-popup-radar-tiers-masque",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406",
       "artefact": "packages/plateforme/src/lib/collectes/benchmark-fiche.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/benchmark/route.ts",
       "test": "M3.2/fiche_benchmark_tiers_masque",
       "statut": "implemented",
@@ -634,7 +634,7 @@
     },
     {
       "id": "M3.2-popup-documents-sous-rls",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406",
       "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.2/rapport_download_gestionnaire_sous_rls",
       "statut": "implemented",
@@ -658,7 +658,7 @@
     },
     {
       "id": "M3.2-popup-bilan-ag-tiers",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:404",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:407",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.2/fiche_get_repas_tiers_depuis_attestation",
       "statut": "implemented",
@@ -666,7 +666,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "aab7ce85da06a640f234ce4e397fd44459c3e7d2aa6ba2a083dfc83bb2bcc265",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "0ae203d11dc219a1c62eed9f660dd490435cee77f2df447329993c57a953277e"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "807240f53d36baff435d4692b2ce738e82438988f0b27370d5ee70d6084ecf36",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "5b47fd23e51c23aa750d632d89c0ed4a25812daf3b7d6dca02938615b7cc84d5",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "7a01620ba21405f6418c5c4b03e8b9fbe06687e56c21a5a8cdbf34d4e0f758ee"
   }
 }

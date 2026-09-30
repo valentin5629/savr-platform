@@ -94,4 +94,29 @@ describe('M3.3 / Bloc 3 ZD agence — benchmark parc', () => {
     // Variante 4 dimensions : la RPC traiteurs n'est pas appelée pour l'agence.
     expect(mockRpc).not.toHaveBeenCalledWith('f_benchmark_traiteurs_parc');
   });
+
+  it('M3.3/benchmark_filtres_agence_liste_lieux', async () => {
+    // D8 (arbitrage Val 2026-09-30) : f_benchmark_lieux_parc accepte le rôle
+    // agence (migration 20260930180000, preuve base :
+    // supabase/tests/benchmark_lieux_parc_agence.test.sql). La route sert la
+    // liste des lieux au lieu d'échouer en entier.
+    setupAuth('agence');
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve(
+        name === 'f_benchmark_lieux_parc'
+          ? { data: [{ id: 'l1', nom: 'Salle Pleyel' }], error: null }
+          : { data: [], error: null },
+      ),
+    );
+    const { GET } =
+      await import('@/app/api/v1/dashboards/benchmark/filtres/route.js');
+    const res = await GET(makeReq('/api/v1/dashboards/benchmark/filtres'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { lieux: unknown[]; traiteurs: unknown[] };
+    };
+    expect(body.data.lieux).toEqual([{ id: 'l1', nom: 'Salle Pleyel' }]);
+    expect(body.data.traiteurs).toEqual([]);
+    expect(mockRpc).toHaveBeenCalledWith('f_benchmark_lieux_parc');
+  });
 });

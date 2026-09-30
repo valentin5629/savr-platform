@@ -1,16 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MultiSelectFilter } from './MultiSelectFilter.js';
 import {
   ParcMultiSelects,
   type ParcFilterOptions,
 } from './ParcMultiSelects.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
 import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FormField } from '@/components/ui/form-field';
+import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 // Filtres de la liste Événements gestionnaire (§06.05 §2 l.280-293) :
 // 5 filtres globaux (Période + Lieux + Traiteurs + Type + Taille) + 2 spécifiques
@@ -42,14 +41,11 @@ const TYPE_COLLECTE_OPTIONS: {
   { value: 'zd_et_ag', label: 'ZD et AG' },
 ];
 
-// Période défaut = 12 derniers mois (§06.05 l.282).
+// Période défaut = 12 derniers mois (§06.05 l.282) — même calcul que le
+// raccourci « 12 derniers mois », que le déclencheur affiche alors par son nom.
 export function defaultEvenementsFilters(): EvenementsListFilters {
-  const to = new Date();
-  const from = new Date();
-  from.setMonth(from.getMonth() - 12);
   return {
-    from: jourParis(from),
-    to: jourParis(to),
+    ...periodeDerniers(12, 'mois')!,
     lieu_ids: [],
     traiteur_ids: [],
     type_evenement_ids: [],
@@ -120,14 +116,13 @@ export function EvenementsFilterBar({
         ) : undefined
       }
     >
-      <FormField label="Période" htmlFor="evenements-filter-periode">
-        <DateRangePicker
-          id="evenements-filter-periode"
-          data-testid="evenements-filter-periode"
-          value={{ from: value.from, to: value.to }}
-          onChange={(p) => onChange({ ...value, from: p.from, to: p.to })}
-        />
-      </FormField>
+      <DateRangePicker
+        titre="Période"
+        id="evenements-filter-periode"
+        data-testid="evenements-filter-periode"
+        value={{ from: value.from, to: value.to }}
+        onChange={(p) => onChange({ ...value, from: p.from, to: p.to })}
+      />
 
       <ParcMultiSelects
         value={value}
@@ -137,27 +132,22 @@ export function EvenementsFilterBar({
       />
 
       {/* Type de collecte (single-select, propre à la liste — l.292) */}
-      <FormField
-        label="Type de collecte"
-        htmlFor="evenements-filter-type-collecte"
-      >
-        <Combobox
-          id="evenements-filter-type-collecte"
-          data-testid="evenements-filter-type-collecte"
-          icon={null}
-          placeholder="Toutes"
-          options={TYPE_COLLECTE_OPTIONS}
-          value={value.type_collecte}
-          onChange={(v) =>
-            onChange({
-              ...value,
-              type_collecte: v as EvenementsListFilters['type_collecte'],
-            })
-          }
-        />
-      </FormField>
+      <Combobox
+        titre="Type de collecte"
+        id="evenements-filter-type-collecte"
+        data-testid="evenements-filter-type-collecte"
+        placeholder="Toutes"
+        options={TYPE_COLLECTE_OPTIONS}
+        value={value.type_collecte}
+        onChange={(v) =>
+          onChange({
+            ...value,
+            type_collecte: v as EvenementsListFilters['type_collecte'],
+          })
+        }
+      />
 
-      <MultiSelectFilter
+      <FiltreCoches
         label="Statut consolidé"
         options={STATUT_OPTIONS}
         selected={value.statut_consolide}

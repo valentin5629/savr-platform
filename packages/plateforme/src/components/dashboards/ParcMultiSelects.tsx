@@ -1,6 +1,9 @@
 'use client';
 
-import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
+import {
+  FiltreCoches,
+  type OptionFiltre,
+} from '@/components/ui/filtre-en-ligne';
 import { TAILLE_OPTIONS } from './taille-options.js';
 
 // Valeurs des 4 filtres « parc » communs (§06.05 §1) — hors Période (gérée par la
@@ -13,8 +16,8 @@ export interface ParcFilterValue {
 }
 
 export interface ParcFilterOptions {
-  lieux: MultiOption[];
-  traiteurs: MultiOption[];
+  lieux: OptionFiltre[];
+  traiteurs: OptionFiltre[];
   /** Types d'événement (référentiel) au format { id, libelle }. */
   types: { id: string; libelle: string }[];
 }
@@ -28,7 +31,8 @@ interface ParcMultiSelectsProps {
 }
 
 /**
- * 4 multi-selects « parc » (Lieux / Traiteurs / Type d'événement / Taille) — §06.05 §1.
+ * 4 filtres à cocher « parc » (Lieux / Traiteurs / Type d'événement / Taille) —
+ * §06.05 §1, au format en ligne (à placer dans une `BarreFiltres`).
  * Composant présentationnel pur : aucune fetch, aucun état, aucune écriture.
  */
 export function ParcMultiSelects({
@@ -37,35 +41,35 @@ export function ParcMultiSelects({
   onChange,
   testidPrefix = 'parc-filter',
 }: ParcMultiSelectsProps) {
-  const typeOptions: MultiOption[] = options.types.map((t) => ({
+  const typeOptions: OptionFiltre[] = options.types.map((t) => ({
     id: t.id,
     nom: t.libelle,
   }));
 
   return (
     <>
-      <MultiSelectFilter
+      <FiltreCoches
         label="Lieux"
         options={options.lieux}
         selected={value.lieu_ids}
         onChange={(ids) => onChange({ lieu_ids: ids })}
         testid={`${testidPrefix}-lieux`}
       />
-      <MultiSelectFilter
+      <FiltreCoches
         label="Traiteurs"
         options={options.traiteurs}
         selected={value.traiteur_ids}
         onChange={(ids) => onChange({ traiteur_ids: ids })}
         testid={`${testidPrefix}-traiteurs`}
       />
-      <MultiSelectFilter
+      <FiltreCoches
         label="Type d'événement"
         options={typeOptions}
         selected={value.type_evenement_ids}
         onChange={(ids) => onChange({ type_evenement_ids: ids })}
         testid={`${testidPrefix}-type`}
       />
-      <MultiSelectFilter
+      <FiltreCoches
         label="Taille d'événement"
         options={TAILLE_OPTIONS}
         selected={value.taille_evenement_codes}

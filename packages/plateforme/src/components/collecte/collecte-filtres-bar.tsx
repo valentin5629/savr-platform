@@ -4,7 +4,7 @@ import type * as React from 'react';
 import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FormField } from '@/components/ui/form-field';
+import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { groupesStatutClient } from '@/lib/statut-collecte-labels';
 
 /** Organisation ayant programmé l'événement (§06.04 filtre « Programmée par »). */
@@ -156,8 +156,9 @@ interface Props {
  * Client Organisateur · « Info incomplète » oui/non · « Programmée par » (multi).
  * Le filtre Type est porté par le sélecteur ZD/AG de l'en-tête.
  *
- * Mise en page = pattern DS `FilterBar` : un FormField + un Combobox (ou le
- * DateRangePicker de la période) par filtre, grille de 3 colonnes.
+ * Mise en page = pattern DS `FilterBar` : filtres en ligne « Titre  valeur ▾ »
+ * (décision Val 2026-09-30) — FiltreCoches pour les choix multiples, Combobox
+ * `titre` pour les choix uniques, DateRangePicker `titre` pour la période.
  *
  * Le filtre Statut propose les LIBELLÉS de la vue client (mapping canonique
  * 2026-06-30) : l'utilisateur ne voit jamais « Programmée », et un libellé
@@ -201,98 +202,80 @@ export function CollecteFiltresBar({
         </span>
       }
     >
-      <FormField label="Statut" htmlFor="filtre-statut">
-        <Combobox
-          multiple
-          id="filtre-statut"
-          data-testid="filtre-statut"
-          icon={null}
-          placeholder="Tous"
-          options={groupes.map((g) => ({ value: g.label, label: g.label }))}
-          value={groupesSelectionnes}
-          onChange={(labels) =>
-            set(
-              'statuts',
-              groupes
-                .filter((g) => labels.includes(g.label))
-                .flatMap((g) => g.statuts),
-            )
-          }
-        />
-      </FormField>
+      <FiltreCoches
+        label="Statut"
+        testid="filtre-statut"
+        options={groupes.map((g) => ({ id: g.label, nom: g.label }))}
+        selected={groupesSelectionnes}
+        onChange={(labels) =>
+          set(
+            'statuts',
+            groupes
+              .filter((g) => labels.includes(g.label))
+              .flatMap((g) => g.statuts),
+          )
+        }
+      />
 
-      <FormField label="Période" htmlFor="filtre-periode">
-        <DateRangePicker
-          id="filtre-periode"
-          data-testid="filtre-periode"
-          value={{ from: value.from, to: value.to }}
-          onChange={(p) => onChange({ ...value, from: p.from, to: p.to })}
-        />
-      </FormField>
+      <DateRangePicker
+        titre="Période"
+        id="filtre-periode"
+        data-testid="filtre-periode"
+        value={{ from: value.from, to: value.to }}
+        onChange={(p) => onChange({ ...value, from: p.from, to: p.to })}
+      />
 
-      <FormField label="Lieu" htmlFor="filtre-lieu">
-        <Combobox
-          id="filtre-lieu"
-          data-testid="filtre-lieu"
-          placeholder="Tous les lieux"
-          searchPlaceholder="Rechercher un lieu…"
-          options={[
-            { value: '', label: 'Tous les lieux' },
-            ...options.lieux.map((l) => ({ value: l.id, label: l.nom })),
-          ]}
-          value={value.lieuId}
-          onChange={(v) => set('lieuId', v)}
-        />
-      </FormField>
+      <Combobox
+        titre="Lieu"
+        id="filtre-lieu"
+        data-testid="filtre-lieu"
+        searchPlaceholder="Rechercher un lieu…"
+        options={[
+          { value: '', label: 'Tous les lieux' },
+          ...options.lieux.map((l) => ({ value: l.id, label: l.nom })),
+        ]}
+        value={value.lieuId}
+        onChange={(v) => set('lieuId', v)}
+      />
 
-      <FormField label="Client organisateur" htmlFor="filtre-client">
-        <Combobox
-          id="filtre-client"
-          data-testid="filtre-client"
-          icon={null}
-          placeholder="Tous les clients"
-          searchPlaceholder="Rechercher un client…"
-          options={[
-            { value: '', label: 'Tous les clients' },
-            ...options.clients.map((c) => ({ value: c, label: c })),
-          ]}
-          value={value.client}
-          onChange={(v) => set('client', v)}
-        />
-      </FormField>
+      <Combobox
+        titre="Client organisateur"
+        id="filtre-client"
+        data-testid="filtre-client"
+        searchPlaceholder="Rechercher un client…"
+        options={[
+          { value: '', label: 'Tous les clients' },
+          ...options.clients.map((c) => ({ value: c, label: c })),
+        ]}
+        value={value.client}
+        onChange={(v) => set('client', v)}
+      />
 
-      <FormField label="Info incomplète" htmlFor="filtre-info-incomplete">
-        <Combobox
-          id="filtre-info-incomplete"
-          data-testid="filtre-info-incomplete"
-          icon={null}
-          placeholder="Toutes"
-          options={[
-            { value: '', label: 'Toutes' },
-            { value: 'oui', label: 'Oui' },
-            { value: 'non', label: 'Non' },
-          ]}
-          value={value.infoIncomplete}
-          onChange={(v) => set('infoIncomplete', v as '' | 'oui' | 'non')}
-        />
-      </FormField>
+      <Combobox
+        titre="Info incomplète"
+        id="filtre-info-incomplete"
+        data-testid="filtre-info-incomplete"
+        placeholder="Toutes"
+        options={[
+          { value: '', label: 'Toutes' },
+          { value: 'oui', label: 'Oui' },
+          { value: 'non', label: 'Non' },
+        ]}
+        value={value.infoIncomplete}
+        onChange={(v) => set('infoIncomplete', v as '' | 'oui' | 'non')}
+      />
 
       {options.programmateurs.length > 1 && (
-        <FormField label="Programmée par" htmlFor="filtre-programmee-par">
-          <Combobox
-            multiple
-            id="filtre-programmee-par"
-            data-testid="filtre-programmee-par"
-            icon={null}
-            placeholder="Tous"
-            options={options.programmateurs.map((p) => ({
-              value: p.id,
-              label: libelleProgrammateur(p),
-            }))}
-            value={value.programmeePar}
-            onChange={(ids) => set('programmeePar', ids)}
-          />
-        </FormField>
+        <FiltreCoches
+          label="Programmée par"
+          testid="filtre-programmee-par"
+          options={options.programmateurs.map((p) => ({
+            id: p.id,
+            nom: libelleProgrammateur(p),
+          }))}
+          selected={value.programmeePar}
+          onChange={(ids) => set('programmeePar', ids)}
+        />
       )}
     </FilterBar>
   );

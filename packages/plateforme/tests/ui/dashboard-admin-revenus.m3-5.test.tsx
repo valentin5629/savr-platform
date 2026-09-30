@@ -37,7 +37,8 @@ function premierDuMois(): string {
 
 /**
  * Pose la période « un seul jour = `jour` » via le DateRangePicker : Effacer (le
- * calendrier rouvre alors sur le mois courant), clic sur le jour, Appliquer.
+ * calendrier rouvre alors sur le mois précédent + le mois courant), clic sur le
+ * jour, Appliquer.
  */
 function choisirPeriodeUnJour(jour: string): void {
   fireEvent.click(screen.getByTestId('revenus-periode'));
@@ -187,13 +188,16 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
       expect(screen.getByText('Revenu par organisation')).toBeInTheDocument();
       expect(screen.getByTestId('revenus-periode')).toBeInTheDocument();
-      expect(screen.getByLabelText('Période')).toBe(
+      // Filtre en ligne « Période  <période> ▾ » (décision Val 2026-09-30).
+      expect(screen.getByRole('button', { name: /^Période/ })).toBe(
         screen.getByTestId('revenus-periode'),
       );
-      // Retirés du dashboard admin (décision Val 2026-07-18).
+      // Retirés de la barre du dashboard admin (décision Val 2026-07-18) ; les
+      // raccourcis standard ne vivent plus que dans le panneau Période, fermé
+      // ici (décision Val 2026-09-30, même liste sur tous les filtres de date).
       expect(screen.queryByTestId('revenus-export-csv')).toBeNull();
       expect(screen.queryByText('Exporter CSV')).toBeNull();
-      expect(screen.queryByText('7 jours')).toBeNull();
+      expect(screen.queryByText('7 derniers jours')).toBeNull();
       expect(screen.queryByText('12 derniers mois')).toBeNull();
       expect(screen.queryByText('Année civile')).toBeNull();
     },

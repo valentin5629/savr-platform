@@ -265,7 +265,7 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
       await waitFor(() => expect(derniere()).toContain('page=2'), ATTENTE_UI);
 
       // Recherche : envoyée au serveur (paramètre q) et retour en page 1.
-      fireEvent.change(screen.getByLabelText('Recherche'), {
+      fireEvent.change(screen.getByLabelText('Rechercher'), {
         target: { value: 'Zenith' },
       });
       await waitFor(() => expect(derniere()).toContain('q=Zenith'), ATTENTE_UI);

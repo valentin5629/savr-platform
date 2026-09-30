@@ -415,8 +415,6 @@ export function OngletBilan({
                   items={gaugeItems}
                   filtersSlot={
                     <BenchmarkFilterBar
-                      embedded
-                      presentation="ligne"
                       masquerTraiteurs
                       onChange={setBenchFilters}
                       initialTypeEvenementIds={

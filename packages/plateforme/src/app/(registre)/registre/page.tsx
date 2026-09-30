@@ -20,8 +20,7 @@ import {
 } from '@/components/ui/data-grid';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FormField } from '@/components/ui/form-field';
-import { preset30JoursRange } from '@/lib/registre-presets';
+import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — vue liste : tableau chronologique des
@@ -317,8 +316,8 @@ function RegistreContent() {
         </div>
       </div>
 
-      {/* Barre de filtres — pattern DS `FilterBar` : un FormField + un
-          contrôle par filtre, grille de 3 colonnes. */}
+      {/* Barre de filtres — pattern DS `FilterBar` : filtres en ligne
+          « Titre  valeur ▾ » (décision Val 2026-09-30). */}
       <FilterBar
         data-testid="registre-filtres"
         actif={
@@ -339,109 +338,83 @@ function RegistreContent() {
           setBordereau('');
         }}
       >
-        <FormField label="Période" htmlFor="registre-periode">
-          <DateRangePicker
-            id="registre-periode"
-            data-testid="registre-periode"
-            value={{ from, to }}
-            onChange={(p) => {
-              setPage(1);
-              setFrom(p.from);
-              setTo(p.to);
-            }}
-          />
-          {/* BL-P3-10 — Preset « 30 derniers jours » (CDC §06.03). Applique la
-              fenêtre au clic ; le défaut au chargement reste vide (historique
-              complet), arbitrage Val R23c. */}
-          <Button
-            variant="link"
-            size="sm"
-            className="h-auto px-0"
-            data-testid="registre-preset-30j"
-            onClick={() => {
-              setPage(1);
-              const r = preset30JoursRange();
-              setFrom(r.from);
-              setTo(r.to);
-            }}
-          >
-            30 derniers jours
-          </Button>
-        </FormField>
-        <FormField label="Lieu" htmlFor="registre-lieu">
-          <Combobox
-            id="registre-lieu"
-            data-testid="registre-lieu"
-            placeholder="Tous"
-            searchPlaceholder="Rechercher un lieu…"
-            options={[
-              { value: '', label: 'Tous' },
-              ...lieuxOptions.map(([id, nom]) => ({ value: id, label: nom })),
-            ]}
-            value={lieu}
-            onChange={(v) => {
-              setPage(1);
-              setLieu(v);
-            }}
-          />
-        </FormField>
-        <FormField label="Traiteur" htmlFor="registre-traiteur">
-          <Combobox
-            id="registre-traiteur"
-            data-testid="registre-traiteur"
-            icon={null}
-            placeholder="Tous"
-            searchPlaceholder="Rechercher un traiteur…"
-            options={[
-              { value: '', label: 'Tous' },
-              ...traiteursOptions.map(([id, nom]) => ({
-                value: id,
-                label: nom,
-              })),
-            ]}
-            value={traiteur}
-            onChange={(v) => {
-              setPage(1);
-              setTraiteur(v);
-            }}
-          />
-        </FormField>
-        <FormField label="Bordereau" htmlFor="registre-bordereau">
-          <Combobox
-            id="registre-bordereau"
-            data-testid="registre-bordereau"
-            icon={null}
-            placeholder="Tous"
-            options={[
-              { value: '', label: 'Tous' },
-              { value: 'dispo', label: 'Disponible' },
-              { value: 'manquant', label: 'Manquant' },
-            ]}
-            value={bordereau}
-            onChange={(v) => {
-              setPage(1);
-              setBordereau(v as '' | 'dispo' | 'manquant');
-            }}
-          />
-        </FormField>
-        <FormField label="Flux" htmlFor="registre-flux">
-          <Combobox
-            multiple
-            id="registre-flux"
-            data-testid="registre-flux"
-            icon={null}
-            placeholder="Tous"
-            options={FLUX_ORDER.map((code) => ({
-              value: code,
-              label: FLUX_LABELS[code] ?? code,
-            }))}
-            value={flux}
-            onChange={(codes) => {
-              setPage(1);
-              setFlux(codes);
-            }}
-          />
-        </FormField>
+        {/* BL-P3-10 — Preset « 30 derniers jours » (CDC §06.03) : raccourci de
+            la liste standard du panneau Période. Le défaut au chargement reste
+            vide (historique complet), arbitrage Val R23c. */}
+        <DateRangePicker
+          titre="Période"
+          id="registre-periode"
+          data-testid="registre-periode"
+          placeholder="Tout l'historique"
+          raccourcisTestIdPrefixe="registre-preset"
+          value={{ from, to }}
+          onChange={(p) => {
+            setPage(1);
+            setFrom(p.from);
+            setTo(p.to);
+          }}
+        />
+        <Combobox
+          titre="Lieu"
+          id="registre-lieu"
+          data-testid="registre-lieu"
+          searchPlaceholder="Rechercher un lieu…"
+          options={[
+            { value: '', label: 'Tous' },
+            ...lieuxOptions.map(([id, nom]) => ({ value: id, label: nom })),
+          ]}
+          value={lieu}
+          onChange={(v) => {
+            setPage(1);
+            setLieu(v);
+          }}
+        />
+        <Combobox
+          titre="Traiteur"
+          id="registre-traiteur"
+          data-testid="registre-traiteur"
+          searchPlaceholder="Rechercher un traiteur…"
+          options={[
+            { value: '', label: 'Tous' },
+            ...traiteursOptions.map(([id, nom]) => ({
+              value: id,
+              label: nom,
+            })),
+          ]}
+          value={traiteur}
+          onChange={(v) => {
+            setPage(1);
+            setTraiteur(v);
+          }}
+        />
+        <Combobox
+          titre="Bordereau"
+          id="registre-bordereau"
+          data-testid="registre-bordereau"
+          options={[
+            { value: '', label: 'Tous' },
+            { value: 'dispo', label: 'Disponible' },
+            { value: 'manquant', label: 'Manquant' },
+          ]}
+          value={bordereau}
+          onChange={(v) => {
+            setPage(1);
+            setBordereau(v as '' | 'dispo' | 'manquant');
+          }}
+        />
+        <FiltreCoches
+          label="Flux"
+          testid="registre-flux"
+          options={FLUX_ORDER.map((code) => ({
+            id: code,
+            nom: FLUX_LABELS[code] ?? code,
+          }))}
+          selected={flux}
+          onChange={(codes) => {
+            setPage(1);
+            setFlux(codes);
+          }}
+        />
       </FilterBar>
 
       {/* États système §10 §7 — Error = message + « Réessayer », distinct de

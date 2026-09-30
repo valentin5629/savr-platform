@@ -496,7 +496,9 @@ export function TraiteurDashboardClient({
             items={gaugeItems}
             filtersSlot={
               <BenchmarkFilterBar
-                embedded
+                // Jamais de filtre Traiteurs côté traiteur (§06.04 l.152,
+                // concurrentiel) — garde UI en plus du refus serveur.
+                masquerTraiteurs
                 onChange={handleBenchmarkFilters}
                 initialTypeEvenementIds={filters.type_evenement_ids ?? []}
                 initialTailleCodes={filters.taille_evenement_codes ?? []}

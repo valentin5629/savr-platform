@@ -15,6 +15,11 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import {
+  ContenuDeclencheur,
+  declencheurFiltre,
+  SEUIL_RECHERCHE,
+} from '@/components/ui/filtre-en-ligne';
 
 // Combobox — choix dans une liste, avec recherche (Popover + Command, shadcn
 // stylé Savr). Remplace tout <select> natif (DS « Mise en page des formulaires
@@ -24,6 +29,9 @@ import {
 // choix « Tous », le consommateur passe une option `{ value: '', label: 'Tous' }`.
 // Icône de tête : pin par défaut (Lieu) ; `icon={null}` pour les autres listes.
 // Mode `multiple` : valeurs `string[]`, liste vide = « Tous ».
+// Mode filtre (`titre`) : déclencheur « Titre  valeur ▾ » des barres de filtres
+// (`filtre-en-ligne`, décision Val 2026-09-30) au lieu du champ bordé ; la
+// liste (coche sur l'option choisie, fermeture au clic) est inchangée.
 
 export interface ComboboxOption {
   value: string;
@@ -34,6 +42,8 @@ export interface ComboboxOption {
 
 interface ComboboxBaseProps {
   options: ComboboxOption[];
+  /** Mode filtre en ligne : titre affiché devant la valeur courante. */
+  titre?: string;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
@@ -69,12 +79,11 @@ interface ComboboxMultipleProps extends ComboboxBaseProps {
 
 export type ComboboxProps = ComboboxSingleProps | ComboboxMultipleProps;
 
-const SEUIL_RECHERCHE = 7;
-
 function Combobox(props: ComboboxProps) {
   const {
     options,
-    placeholder = 'Sélectionner…',
+    titre,
+    placeholder = titre ? 'Tous' : 'Sélectionner…',
     searchPlaceholder = 'Rechercher…',
     emptyText = 'Aucun résultat.',
     icon,
@@ -91,6 +100,7 @@ function Combobox(props: ComboboxProps) {
   } = props;
 
   const [open, setOpen] = React.useState(false);
+  const titreId = React.useId();
   const commandRef = React.useRef<HTMLDivElement>(null);
 
   // Contrôlé ou non contrôlé, dans les deux modes.
@@ -151,40 +161,55 @@ function Combobox(props: ComboboxProps) {
           aria-expanded={open}
           aria-haspopup="listbox"
           aria-label={ariaLabel}
+          aria-labelledby={titre && !ariaLabel ? titreId : undefined}
           aria-describedby={ariaDescribedBy}
           aria-invalid={error || undefined}
           aria-required={required || undefined}
           data-testid={testId}
-          className={cn(
-            'flex h-11 w-full min-w-0 items-center gap-2 rounded-savr-md border bg-savr-white px-3 text-left text-sm text-savr-neutral-900 sm:h-10',
-            'transition-colors duration-[120ms] ease-out',
-            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-            error
-              ? 'border-savr-error'
-              : open
-                ? 'border-savr-primary-500'
-                : 'border-savr-neutral-300 hover:border-savr-primary-400',
-            className,
-          )}
+          className={
+            titre
+              ? cn(declencheurFiltre, className)
+              : cn(
+                  'flex h-11 w-full min-w-0 items-center gap-2 rounded-savr-md border bg-savr-white px-3 text-left text-sm text-savr-neutral-900 sm:h-10',
+                  'transition-colors duration-[120ms] ease-out',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                  error
+                    ? 'border-savr-error'
+                    : open
+                      ? 'border-savr-primary-500'
+                      : 'border-savr-neutral-300 hover:border-savr-primary-400',
+                  className,
+                )
+          }
         >
-          {iconeTete && (
-            <span className="shrink-0 text-savr-neutral-400 [&_svg]:h-4 [&_svg]:w-4">
-              {iconeTete}
-            </span>
+          {titre ? (
+            <ContenuDeclencheur
+              titre={titre}
+              titreId={titreId}
+              valeur={resume ?? placeholder}
+            />
+          ) : (
+            <>
+              {iconeTete && (
+                <span className="shrink-0 text-savr-neutral-400 [&_svg]:h-4 [&_svg]:w-4">
+                  {iconeTete}
+                </span>
+              )}
+              <span
+                className={cn(
+                  'min-w-0 flex-1 truncate',
+                  resume === null && 'text-savr-neutral-500',
+                )}
+              >
+                {resume ?? placeholder}
+              </span>
+              <ChevronDown
+                className="h-4 w-4 shrink-0 text-savr-neutral-400"
+                aria-hidden="true"
+              />
+            </>
           )}
-          <span
-            className={cn(
-              'min-w-0 flex-1 truncate',
-              resume === null && 'text-savr-neutral-500',
-            )}
-          >
-            {resume ?? placeholder}
-          </span>
-          <ChevronDown
-            className="h-4 w-4 shrink-0 text-savr-neutral-400"
-            aria-hidden="true"
-          />
         </button>
       </PopoverTrigger>
       {name &&
@@ -196,7 +221,11 @@ function Combobox(props: ComboboxProps) {
           <input type="hidden" name={name} value={courant} />
         ))}
       <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] min-w-[12rem] p-0"
+        className={
+          titre
+            ? 'w-64 p-0'
+            : 'w-[var(--radix-popover-trigger-width)] min-w-[12rem] p-0'
+        }
         onOpenAutoFocus={(e) => {
           // Sans champ de recherche, le focus va sur la liste pour la
           // navigation clavier (flèches + Entrée).

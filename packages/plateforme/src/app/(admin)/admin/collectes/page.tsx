@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FormField } from '@/components/ui/form-field';
+import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { Input } from '@/components/ui/input';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
@@ -445,13 +445,6 @@ export default function CollectesPage() {
     setPage(1);
   };
 
-  const toggleStatut = (s: string) => {
-    setStatutsSel((prev) =>
-      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
-    );
-    setPage(1);
-  };
-
   // Recherche texte = filtre côté client sur la page chargée (traiteur, lieu,
   // ville, client, adresse) — l'API n'expose pas de recherche plein-texte.
   const visibles = useMemo(() => {
@@ -728,101 +721,80 @@ export default function CollectesPage() {
 
       {showAdvanced && (
         <FilterBar data-testid="collectes-filtres-avances">
-          <FormField label="Type" htmlFor="collectes-filtre-type">
-            <Combobox
-              id="collectes-filtre-type"
-              icon={null}
-              placeholder="Tous types"
-              options={[
-                { value: '', label: 'Tous types' },
-                { value: 'zero_dechet', label: 'Zéro Déchet' },
-                { value: 'anti_gaspi', label: 'Anti-Gaspi' },
-              ]}
-              value={type}
-              onChange={(v) => {
-                setType(v);
-                setPage(1);
-              }}
-            />
-          </FormField>
-          <FormField label="Traiteur" htmlFor="collectes-filtre-traiteur">
-            <Combobox
-              id="collectes-filtre-traiteur"
-              icon={null}
-              placeholder="Tous les traiteurs"
-              searchPlaceholder="Rechercher un traiteur…"
-              options={[
-                { value: '', label: 'Tous les traiteurs' },
-                ...traiteurs.map((t) => ({ value: t.id, label: t.label })),
-              ]}
-              value={traiteurId}
-              onChange={(v) => {
-                setTraiteurId(v);
-                setPage(1);
-              }}
-            />
-          </FormField>
-          <FormField label="Lieu" htmlFor="collectes-filtre-lieu">
-            <Combobox
-              id="collectes-filtre-lieu"
-              placeholder="Tous les lieux"
-              searchPlaceholder="Rechercher un lieu…"
-              options={[
-                { value: '', label: 'Tous les lieux' },
-                ...lieux.map((l) => ({ value: l.id, label: l.label })),
-              ]}
-              value={lieuId}
-              onChange={(v) => {
-                setLieuId(v);
-                setPage(1);
-              }}
-            />
-          </FormField>
-          <FormField label="Période" htmlFor="collectes-filtre-periode">
-            <DateRangePicker
-              id="collectes-filtre-periode"
-              data-testid="collectes-filtre-periode"
-              value={{ from, to }}
-              onChange={(p) => {
-                setFrom(p.from);
-                setTo(p.to);
-                setPage(1);
-              }}
-            />
-          </FormField>
+          <Combobox
+            titre="Type"
+            id="collectes-filtre-type"
+            options={[
+              { value: '', label: 'Tous types' },
+              { value: 'zero_dechet', label: 'Zéro Déchet' },
+              { value: 'anti_gaspi', label: 'Anti-Gaspi' },
+            ]}
+            value={type}
+            onChange={(v) => {
+              setType(v);
+              setPage(1);
+            }}
+          />
+          <Combobox
+            titre="Traiteur"
+            id="collectes-filtre-traiteur"
+            searchPlaceholder="Rechercher un traiteur…"
+            options={[
+              { value: '', label: 'Tous les traiteurs' },
+              ...traiteurs.map((t) => ({ value: t.id, label: t.label })),
+            ]}
+            value={traiteurId}
+            onChange={(v) => {
+              setTraiteurId(v);
+              setPage(1);
+            }}
+          />
+          <Combobox
+            titre="Lieu"
+            id="collectes-filtre-lieu"
+            searchPlaceholder="Rechercher un lieu…"
+            options={[
+              { value: '', label: 'Tous les lieux' },
+              ...lieux.map((l) => ({ value: l.id, label: l.label })),
+            ]}
+            value={lieuId}
+            onChange={(v) => {
+              setLieuId(v);
+              setPage(1);
+            }}
+          />
+          <DateRangePicker
+            titre="Période"
+            id="collectes-filtre-periode"
+            data-testid="collectes-filtre-periode"
+            value={{ from, to }}
+            onChange={(p) => {
+              setFrom(p.from);
+              setTo(p.to);
+              setPage(1);
+            }}
+          />
 
           {/* Statut — multi-sélection scopée aux valeurs de l'onglet actif */}
-          <div className="col-span-full">
-            <span className="mb-1 block text-xs font-bold text-savr-neutral-700">
-              Statut
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {(tab === 'programmees'
-                ? STATUTS_PROGRAMMEES
-                : STATUTS_HISTORIQUE
-              ).map((s) => {
-                const active = statutsSel.includes(s);
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleStatut(s)}
-                    className={`rounded-savr-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                      active
-                        ? 'border-savr-primary-700 bg-savr-primary-700 text-savr-white'
-                        : 'border-savr-neutral-300 bg-savr-white text-savr-neutral-600 hover:border-savr-primary-300'
-                    }`}
-                  >
-                    {statutCollecteDisplay(s, 'admin').label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <FiltreCoches
+            label="Statut"
+            testid="collectes-filtre-statut"
+            options={(tab === 'programmees'
+              ? STATUTS_PROGRAMMEES
+              : STATUTS_HISTORIQUE
+            ).map((s) => ({
+              id: s,
+              nom: statutCollecteDisplay(s, 'admin').label,
+            }))}
+            selected={statutsSel}
+            onChange={(ids) => {
+              setStatutsSel(ids);
+              setPage(1);
+            }}
+          />
 
           {/* Booléens */}
-          <div className="col-span-full flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-4 px-2">
             <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
               <input
                 type="checkbox"

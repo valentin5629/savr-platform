@@ -5,11 +5,11 @@ import {
   ParcMultiSelects,
   type ParcFilterOptions,
 } from './ParcMultiSelects.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
 import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 // Filtres de la liste Événements gestionnaire (§06.05 §2 l.280-293) :
 // 5 filtres globaux (Période + Lieux + Traiteurs + Type + Taille) + 2 spécifiques
@@ -41,14 +41,11 @@ const TYPE_COLLECTE_OPTIONS: {
   { value: 'zd_et_ag', label: 'ZD et AG' },
 ];
 
-// Période défaut = 12 derniers mois (§06.05 l.282).
+// Période défaut = 12 derniers mois (§06.05 l.282) — même calcul que le
+// raccourci « 12 derniers mois », que le déclencheur affiche alors par son nom.
 export function defaultEvenementsFilters(): EvenementsListFilters {
-  const to = new Date();
-  const from = new Date();
-  from.setMonth(from.getMonth() - 12);
   return {
-    from: jourParis(from),
-    to: jourParis(to),
+    ...periodeDerniers(12, 'mois')!,
     lieu_ids: [],
     traiteur_ids: [],
     type_evenement_ids: [],

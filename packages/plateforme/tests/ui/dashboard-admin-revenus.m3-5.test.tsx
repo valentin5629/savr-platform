@@ -197,7 +197,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       // ici (décision Val 2026-09-30, même liste sur tous les filtres de date).
       expect(screen.queryByTestId('revenus-export-csv')).toBeNull();
       expect(screen.queryByText('Exporter CSV')).toBeNull();
-      expect(screen.queryByText('7 jours')).toBeNull();
+      expect(screen.queryByText('7 derniers jours')).toBeNull();
       expect(screen.queryByText('12 derniers mois')).toBeNull();
       expect(screen.queryByText('Année civile')).toBeNull();
     },

@@ -290,6 +290,32 @@ describe('Filtres en ligne', () => {
     expect(trigger).toHaveTextContent('2 sélectionnés');
   });
 
+  it('ds/filtre_coches_recherche_au_dela_de_7_options', () => {
+    const options = Array.from({ length: 8 }, (_, i) => ({
+      id: `l${i}`,
+      nom: i === 3 ? 'Pavillon Élysée' : `Lieu ${i}`,
+    }));
+    render(
+      <FiltreCoches
+        label="Lieux"
+        options={options}
+        selected={[]}
+        onChange={() => {}}
+        testid="lieux"
+      />,
+    );
+    fireEvent.click(screen.getByTestId('lieux'));
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Rechercher dans Lieux' }),
+      { target: { value: 'elysee' } },
+    );
+    // Recherche insensible aux accents et à la casse.
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+    expect(
+      screen.getByRole('checkbox', { name: 'Pavillon Élysée' }),
+    ).toBeInTheDocument();
+  });
+
   it('ds/filtre_recherche_loupe_sans_titre_au_dessus', () => {
     render(<FiltreRecherche value="" onChange={() => {}} />);
     expect(

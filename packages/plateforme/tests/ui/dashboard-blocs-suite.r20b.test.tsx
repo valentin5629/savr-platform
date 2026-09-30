@@ -205,7 +205,13 @@ function payloadAg(blocs: unknown): TraiteurDashboardPayload {
 
 const BENCH_PROP = {
   rows: [],
-  options: { lieux: [], traiteurs: [], types: [] },
+  // Un traiteur en option : la garde « pas de filtre Traiteurs côté traiteur »
+  // doit tenir même si la liste arrivait non vide.
+  options: {
+    lieux: [],
+    traiteurs: [{ id: 't-concurrent', nom: 'Traiteur concurrent' }],
+    types: [],
+  },
   filters: {
     periode_debut: PERIOD.from,
     periode_fin: PERIOD.to,
@@ -329,7 +335,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       // « Comparer avec » depuis 2026-09-30), pas le stub R20a.
       expect(screen.getByText('Comparer avec')).toBeInTheDocument();
       // Variante 4 dimensions : pas de filtre « Traiteurs » (compétitif §06.04 l.143).
-      expect(screen.queryByText(/Traiteurs? benchmark/i)).toBeNull();
+      expect(screen.queryByTestId('benchmark-filter-traiteurs')).toBeNull();
       // Prochaines : événement rendu + lien vers la fiche collecte.
       // Data Table : la ligne existe en tableau ET en carte mobile → 1er lien.
       const lien = screen.getAllByRole('link', { name: 'Gala' })[0];

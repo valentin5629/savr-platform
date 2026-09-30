@@ -780,10 +780,10 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
 
       // DS : filtre en ligne « Traiteur  Tous ▾ » (Combobox mode filtre, nommé
-      // par son titre suivi de la valeur), options portées dans document.body.
+      // par son titre via aria-labelledby), options portées dans document.body.
       const traiteurCombo = await screen.findByRole(
         'combobox',
-        { name: /^Traiteur/ },
+        { name: 'Traiteur' },
         ATTENTE_UI,
       );
       fireEvent.click(traiteurCombo);
@@ -809,7 +809,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         ATTENTE_UI,
       );
 
-      fireEvent.click(screen.getByRole('combobox', { name: /^Lieu/ }));
+      fireEvent.click(screen.getByRole('combobox', { name: 'Lieu' }));
       await waitFor(
         () =>
           expect(

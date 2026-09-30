@@ -251,7 +251,7 @@ function DateRangePicker({
                     }
                     onClick={() => choisirRaccourci(r)}
                     className={cn(
-                      'flex min-h-9 w-full items-center whitespace-nowrap rounded-savr-sm px-3 text-left text-sm text-savr-neutral-900 transition-colors hover:bg-savr-neutral-50',
+                      'flex min-h-11 w-full items-center whitespace-nowrap sm:min-h-9 rounded-savr-sm px-3 text-left text-sm text-savr-neutral-900 transition-colors hover:bg-savr-neutral-50',
                       'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
                       actif === r.cle &&
                         'bg-savr-neutral-100 font-semibold hover:bg-savr-neutral-100',
@@ -290,7 +290,7 @@ function DateRangePicker({
                   }
                   className="w-32 sm:h-9"
                 />
-                <label className="flex min-h-9 items-center gap-2 text-sm text-savr-neutral-700">
+                <label className="flex min-h-11 items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
                   <Checkbox
                     checked={derniers.inclure}
                     onCheckedChange={(v) =>
@@ -327,6 +327,7 @@ function DateRangePicker({
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="h-11 sm:h-8"
                   onClick={() => fermerAvec(PERIODE_VIDE)}
                 >
                   Effacer
@@ -334,12 +335,14 @@ function DateRangePicker({
                 <Button
                   variant="secondary"
                   size="sm"
+                  className="h-11 sm:h-8"
                   onClick={() => fermerAvec()}
                 >
                   Annuler
                 </Button>
                 <Button
                   size="sm"
+                  className="h-11 sm:h-8"
                   onClick={() => fermerAvec(versIso(brouillon))}
                 >
                   Appliquer

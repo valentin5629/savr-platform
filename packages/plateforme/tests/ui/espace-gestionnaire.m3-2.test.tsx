@@ -259,6 +259,35 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   );
 
   it(
+    'M3.2/GEST04_encart_comparaison_soi — filtrer sur ses lieux affiche l’avertissement',
+    async () => {
+      render(
+        <BenchmarkFilterBar
+          onChange={vi.fn()}
+          initialOptions={{
+            lieux: [{ id: 'l1', nom: 'Pavillon Gabriel' }],
+            traiteurs: [],
+            types: [],
+          }}
+        />,
+      );
+      expect(screen.queryByTestId('benchmark-comparaison-soi')).toBeNull();
+      fireEvent.click(screen.getByTestId('benchmark-filter-lieux'));
+      fireEvent.click(
+        screen.getByRole('checkbox', { name: 'Pavillon Gabriel' }),
+      );
+      expect(
+        await screen.findByTestId(
+          'benchmark-comparaison-soi',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/GEST02_form_cas_gestionnaire — sélecteur traiteur + blocage AG sans pack',
     async () => {
       render(<NouveauProgrammationPage />);

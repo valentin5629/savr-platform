@@ -8,6 +8,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FormField } from '@/components/ui/form-field';
+import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 import { Input } from '@/components/ui/input';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
@@ -1031,54 +1032,62 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
           <CardTitle>Factures</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Filtres §6 l.690 : statut, type, période */}
-          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {/* Filtres §6 l.690 : statut, type, période — filtres en ligne
+              (décision Val 2026-09-30). */}
+          <BarreFiltres
+            className="mb-4"
+            data-testid="factures-filtres"
+            resetTestId="factures-filtres-reset"
+            onReset={
+              statut || type || dateDebut || dateFin
+                ? () => {
+                    setStatut('');
+                    setType('');
+                    setDateDebut('');
+                    setDateFin('');
+                  }
+                : undefined
+            }
+          >
             {/* Valeurs = enums réels plateforme.facture_statut / facture_type
                 (brouillon exclu par la route ; « En retard » est un badge dérivé
                 de date_echeance, pas un statut stocké → non filtrable). */}
-            <FormField label="Statut" htmlFor="factures-statut">
-              <Combobox
-                id="factures-statut"
-                icon={null}
-                placeholder="Tous statuts"
-                options={[
-                  { value: '', label: 'Tous statuts' },
-                  { value: 'en_attente_pennylane', label: 'En attente' },
-                  { value: 'emise', label: 'Émise' },
-                  { value: 'payee', label: 'Payée' },
-                  { value: 'annulee', label: 'Annulée' },
-                ]}
-                value={statut}
-                onChange={setStatut}
-              />
-            </FormField>
-            <FormField label="Type" htmlFor="factures-type">
-              <Combobox
-                id="factures-type"
-                icon={null}
-                placeholder="Tous types"
-                options={[
-                  { value: '', label: 'Tous types' },
-                  { value: 'zero_dechet', label: 'ZD' },
-                  { value: 'collecte_antigaspi', label: 'AG' },
-                  { value: 'achat_pack_antigaspi', label: 'Pack' },
-                  { value: 'avoir', label: 'Avoir' },
-                ]}
-                value={type}
-                onChange={setType}
-              />
-            </FormField>
-            <FormField label="Période" htmlFor="factures-periode">
-              <DateRangePicker
-                id="factures-periode"
-                value={{ from: dateDebut, to: dateFin }}
-                onChange={(p) => {
-                  setDateDebut(p.from);
-                  setDateFin(p.to);
-                }}
-              />
-            </FormField>
-          </div>
+            <Combobox
+              titre="Statut"
+              id="factures-statut"
+              options={[
+                { value: '', label: 'Tous statuts' },
+                { value: 'en_attente_pennylane', label: 'En attente' },
+                { value: 'emise', label: 'Émise' },
+                { value: 'payee', label: 'Payée' },
+                { value: 'annulee', label: 'Annulée' },
+              ]}
+              value={statut}
+              onChange={setStatut}
+            />
+            <Combobox
+              titre="Type"
+              id="factures-type"
+              options={[
+                { value: '', label: 'Tous types' },
+                { value: 'zero_dechet', label: 'ZD' },
+                { value: 'collecte_antigaspi', label: 'AG' },
+                { value: 'achat_pack_antigaspi', label: 'Pack' },
+                { value: 'avoir', label: 'Avoir' },
+              ]}
+              value={type}
+              onChange={setType}
+            />
+            <DateRangePicker
+              titre="Période"
+              id="factures-periode"
+              value={{ from: dateDebut, to: dateFin }}
+              onChange={(p) => {
+                setDateDebut(p.from);
+                setDateFin(p.to);
+              }}
+            />
+          </BarreFiltres>
           <DataGrid
             columns={COLONNES_FACTURES}
             data={factures}

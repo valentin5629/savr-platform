@@ -142,6 +142,16 @@ function resumeSelection(
   return `${selected.length} sélectionnés`;
 }
 
+// Au-delà de 7 options, un champ de recherche filtre la liste (même seuil que
+// le Combobox : listes de lieux / traiteurs / clients potentiellement longues).
+const SEUIL_RECHERCHE = 7;
+
+const normaliser = (t: string) =>
+  t
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
 /**
  * Filtre à choix multiple : titre cliquable → liste à cocher (Popover +
  * Checkbox du DS, aucun <select> natif). Composant de filtrage uniquement —
@@ -155,8 +165,13 @@ export function FiltreCoches({
   tousLabel = 'Tous',
   testid,
 }: FiltreCochesProps) {
+  const [recherche, setRecherche] = React.useState('');
+  const avecRecherche = options.length > SEUIL_RECHERCHE;
+  const visibles = recherche
+    ? options.filter((o) => normaliser(o.nom).includes(normaliser(recherche)))
+    : options;
   return (
-    <Popover>
+    <Popover onOpenChange={(o) => !o && setRecherche('')}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -170,17 +185,27 @@ export function FiltreCoches({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-1.5">
-        {options.length === 0 ? (
+        {avecRecherche && (
+          <Input
+            type="search"
+            aria-label={`Rechercher dans ${label}`}
+            placeholder="Rechercher…"
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            className="mb-1.5 sm:h-9"
+          />
+        )}
+        {visibles.length === 0 ? (
           <p className="px-2 py-1.5 text-sm text-savr-neutral-500">
-            Aucune option.
+            {options.length === 0 ? 'Aucune option.' : 'Aucun résultat.'}
           </p>
         ) : (
           <ul aria-label={label} className="max-h-64 overflow-y-auto">
-            {options.map((o) => {
+            {visibles.map((o) => {
               const coche = selected.includes(o.id);
               return (
                 <li key={o.id}>
-                  <label className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-savr-sm px-2 text-sm text-savr-neutral-900 hover:bg-savr-neutral-50">
+                  <label className="flex min-h-11 cursor-pointer sm:min-h-9 items-center gap-2.5 rounded-savr-sm px-2 text-sm text-savr-neutral-900 hover:bg-savr-neutral-50">
                     <Checkbox
                       checked={coche}
                       onCheckedChange={(v) =>

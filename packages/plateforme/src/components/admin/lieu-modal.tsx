@@ -273,31 +273,32 @@ function Interrupteur({
   );
 }
 
-// Onglet avec pastille rouge quand un de ses champs bloque l'enregistrement.
-function OngletTrigger({
-  value,
-  enErreur,
-  children,
-}: {
-  value: Onglet;
-  enErreur: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <TabsTrigger value={value} className="gap-1.5 px-3 sm:px-4">
-      {children}
-      {enErreur && (
-        <>
-          <span
-            aria-hidden="true"
-            className="h-2 w-2 rounded-savr-full bg-savr-error"
-          />
-          <span className="sr-only"> (champ à corriger)</span>
-        </>
-      )}
-    </TabsTrigger>
-  );
-}
+// Onglet avec le nombre de ses champs qui bloquent l'enregistrement (même
+// rendu que la fiche association #446).
+const OngletTrigger = React.forwardRef<
+  HTMLButtonElement,
+  { value: Onglet; nbErreurs: number; children: React.ReactNode }
+>(({ value, nbErreurs, children }, ref) => (
+  <TabsTrigger ref={ref} value={value} className="gap-2 px-3 sm:px-4">
+    {children}
+    {nbErreurs > 0 && (
+      <>
+        <span
+          aria-hidden="true"
+          className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-savr-error-strong px-1.5 text-xs font-bold text-savr-white"
+        >
+          {nbErreurs}
+        </span>
+        <span className="sr-only">
+          {nbErreurs > 1
+            ? ` (${nbErreurs} champs à corriger)`
+            : ' (1 champ à corriger)'}
+        </span>
+      </>
+    )}
+  </TabsTrigger>
+));
+OngletTrigger.displayName = 'OngletTrigger';
 
 interface LieuModalProps {
   open: boolean;
@@ -323,6 +324,10 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [hydrating, setHydrating] = React.useState(false);
+  const ongletsRef = React.useRef<Partial<Record<Onglet, HTMLButtonElement>>>(
+    {},
+  );
+  const alerteRef = React.useRef<HTMLDivElement>(null);
   // Chargement du lieu en échec : pas de formulaire, rien d'enregistrable.
   const [chargementEchoue, setChargementEchoue] = React.useState(false);
   // Gestionnaire rattaché tel que chargé (repli s'il est absent de la liste
@@ -409,8 +414,23 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     };
   }, [open, lieuId]);
 
+  // L'erreur serveur vit en tête du corps : la ramener à l'écran quand on a
+  // fait défiler un onglet long.
+  React.useEffect(() => {
+    if (serverError) alerteRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [serverError]);
+
   function set<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
+    // Un champ corrigé perd son erreur, et son onglet son compteur, sans
+    // attendre le prochain envoi.
+    setErrors((e) =>
+      key in e
+        ? Object.fromEntries(
+            Object.entries(e).filter(([champ]) => champ !== key),
+          )
+        : e,
+    );
   }
 
   function validate(): boolean {
@@ -429,12 +449,19 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     const premierOngletEnErreur = ONGLETS_FORMULAIRE.find((o) =>
       Object.keys(next).some((champ) => ONGLET_DU_CHAMP[champ] === o),
     );
-    if (premierOngletEnErreur) setOnglet(premierOngletEnErreur);
+    if (premierOngletEnErreur) {
+      setOnglet(premierOngletEnErreur);
+      // Le focus recale l'onglet atteignable au clavier de Radix (sinon
+      // Maj+Tab rouvrirait l'ancien onglet et cacherait les erreurs) et fait
+      // annoncer le changement aux lecteurs d'écran.
+      ongletsRef.current[premierOngletEnErreur]?.focus();
+    }
     return Object.keys(next).length === 0;
   }
 
-  function ongletEnErreur(o: Onglet): boolean {
-    return Object.keys(errors).some((champ) => ONGLET_DU_CHAMP[champ] === o);
+  function nbErreurs(o: Onglet): number {
+    return Object.keys(errors).filter((champ) => ONGLET_DU_CHAMP[champ] === o)
+      .length;
   }
 
   function buildPayload() {
@@ -569,7 +596,12 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
         <form onSubmit={handleFormSubmit} noValidate>
           {/* En tête du corps : visible quel que soit l'onglet et le défilement. */}
           {serverError && (
-            <AlertBar variant="err" role="alert" className="mb-4">
+            <AlertBar
+              ref={alerteRef}
+              variant="err"
+              role="alert"
+              className="mb-4"
+            >
               {serverError}
             </AlertBar>
           )}
@@ -639,26 +671,25 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
             >
               {/* Barre d'onglets fixe au défilement du corps de la modale. */}
               <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
-                <OngletTrigger
-                  value="informations"
-                  enErreur={ongletEnErreur('informations')}
-                >
-                  Informations
-                </OngletTrigger>
-                <OngletTrigger value="acces" enErreur={ongletEnErreur('acces')}>
-                  Accès &amp; logistique
-                </OngletTrigger>
-                <OngletTrigger
-                  value="interne"
-                  enErreur={ongletEnErreur('interne')}
-                >
-                  Interne Savr
-                </OngletTrigger>
-                {isEdition && (
-                  <OngletTrigger value="activite" enErreur={false}>
-                    Activité
+                {(
+                  [
+                    ['informations', 'Informations'],
+                    ['acces', 'Accès & logistique'],
+                    ['interne', 'Interne Savr'],
+                    ...(isEdition ? [['activite', 'Activité']] : []),
+                  ] as [Onglet, string][]
+                ).map(([value, label]) => (
+                  <OngletTrigger
+                    key={value}
+                    ref={(el) => {
+                      if (el) ongletsRef.current[value] = el;
+                    }}
+                    value={value}
+                    nbErreurs={nbErreurs(value)}
+                  >
+                    {label}
                   </OngletTrigger>
-                )}
+                ))}
               </TabsList>
 
               <TabsContent value="informations" className="space-y-4">

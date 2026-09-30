@@ -532,6 +532,12 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
       );
 
+      // La modale prend le focus à l'ouverture (minuteur) : l'attendre, comme
+      // un utilisateur réel, sinon il écraserait le focus posé par l'échec.
+      await waitFor(
+        () => expect(screen.getByRole('dialog')).toHaveFocus(),
+        ATTENTE_UI,
+      );
       // Onglet Informations complet, véhicule max (onglet Accès) laissé vide.
       fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
         target: { value: 'Château de Saint-Cloud' },
@@ -557,9 +563,18 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       const onglet = screen.getByRole('tab', { name: /Accès & logistique/ });
       expect(onglet).toHaveAttribute('aria-selected', 'true');
       expect(onglet).toHaveAccessibleName(
-        'Accès & logistique (champ à corriger)',
+        'Accès & logistique (1 champ à corriger)',
       );
+      // Le focus suit l'onglet ouvert (clavier + lecteur d'écran).
+      expect(onglet).toHaveFocus();
       expect(postCall(fetchMock)).toBeUndefined();
+
+      // Champ corrigé : l'erreur et le compteur disparaissent sans renvoyer.
+      choisirOption(/Type de véhicule max/, 'Fourgon');
+      expect(screen.queryByText(/Type de véhicule max obligatoire/)).toBeNull();
+      expect(
+        screen.getByRole('tab', { name: /Accès & logistique/ }),
+      ).toHaveAccessibleName('Accès & logistique');
     },
     ATTENTE_CAS_MS,
   );

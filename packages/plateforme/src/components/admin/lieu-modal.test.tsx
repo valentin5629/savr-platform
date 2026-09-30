@@ -668,6 +668,8 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       expect(
         (screen.getByLabelText(/Nom du lieu/) as HTMLInputElement).value,
       ).toBe('Château de Saint-Cloud');
+      // L'interrupteur « Actif » est bien envoyé (désactivation d'un lieu).
+      fireEvent.click(screen.getByRole('switch', { name: 'Actif' }));
       fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
       await waitFor(
@@ -676,8 +678,14 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       );
       const body = JSON.parse(
         (postCall(fetchMock)![1] as RequestInit).body as string,
-      ) as { nom: string; type_vehicule_max: string; commentaire_lieu: string };
+      ) as {
+        nom: string;
+        type_vehicule_max: string;
+        commentaire_lieu: string;
+        actif: boolean;
+      };
       expect(body.nom).toBe('Château de Saint-Cloud');
+      expect(body.actif).toBe(false);
       expect(body.type_vehicule_max).toBe('fourgon');
       expect(body.commentaire_lieu).toBe('Quai fermé le dimanche');
     },
@@ -888,6 +896,10 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       expect(
         screen.getByRole('button', { name: /Enregistrer/ }),
       ).toBeDisabled();
+      // En-tête de repli : la modale garde un titre visible.
+      expect(
+        screen.getByRole('heading', { level: 3, name: 'Fiche lieu' }),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

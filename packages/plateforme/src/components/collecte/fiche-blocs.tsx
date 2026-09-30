@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Briques de mise en page des fiches en pop-up (collecte Admin + clients,
 // transporteur, lieu, association) : même en-tête de fiche, même en-tête de
@@ -172,12 +173,16 @@ export function FicheEnTete({
 // Puce du sur-titre (type de TMS, région…).
 export function EnTetePuce({
   children,
+  className,
   ...props
 }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       {...props}
-      className="rounded-savr-sm bg-savr-primary-50 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em] text-savr-primary-700"
+      className={cn(
+        'rounded-savr-sm bg-savr-primary-50 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em] text-savr-primary-700',
+        className,
+      )}
     >
       {children}
     </span>

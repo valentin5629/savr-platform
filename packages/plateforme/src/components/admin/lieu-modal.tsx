@@ -592,7 +592,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       footer={footer}
     >
       {isEdition ? (
-        lieuCharge && (
+        lieuCharge ? (
           <FicheEnTete
             surtitre={
               (lieuCharge.region || lieuCharge.gestionnaire_nom) && (
@@ -632,6 +632,10 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
               )
             }
           />
+        ) : (
+          // Chargement ou échec : un en-tête quand même (titre visible, place
+          // de la croix de fermeture réservée, pas de saut à l'arrivée).
+          <FicheEnTete titre="Fiche lieu" />
         )
       ) : (
         <FicheEnTete

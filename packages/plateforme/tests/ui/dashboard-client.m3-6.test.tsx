@@ -324,6 +324,42 @@ describe('M3.6 / Dashboard Client / UI', () => {
   );
 
   it(
+    'M3.6 — « Tous » d’un type sans autre sélection rétablit « Toutes les organisations »',
+    async () => {
+      render(<DashboardClientView />);
+      const traiteur = await screen.findByTestId(
+        'org-filtre-traiteur',
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.click(traiteur);
+      const liste = await screen.findByRole(
+        'list',
+        { name: 'Traiteur' },
+        ATTENTE_UI,
+      );
+      fireEvent.click(
+        within(liste).getByRole('checkbox', { name: 'Traiteur Alpha' }),
+      );
+      await waitFor(
+        () => expect(orgIdsDerniereRequete()).toEqual(['o1']),
+        ATTENTE_UI,
+      );
+      // Aucun autre type coché : « Tous » = aucun filtre (et non « tous les
+      // traiteurs » seuls).
+      fireEvent.click(within(liste).getByRole('checkbox', { name: 'Tous' }));
+      await waitFor(
+        () => expect(orgIdsDerniereRequete()).toEqual([]),
+        ATTENTE_UI,
+      );
+      expect(screen.getByTestId('org-filtre-agence')).toHaveTextContent(
+        'AgenceToutes',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.6 — une organisation mémorisée mais disparue est retirée de la sélection',
     async () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(['o1', 'disparue']));

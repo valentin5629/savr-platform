@@ -141,6 +141,23 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
     expect(chain.eq).not.toHaveBeenCalledWith('evenements.lieu_id', 'lieu-1');
   });
 
+  it('M0.6 — pastille (chip) ET filtres de la barre se cumulent côté route (décision Val 2026-09-30, E5)', async () => {
+    const t = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    await callGet(
+      `?chip=non_transmises&types=zero_dechet&traiteur_operationnel_ids=${t}&statuts=validee`,
+    );
+    // Prédicat de la pastille…
+    expect(chain.eq).toHaveBeenCalledWith('statut', 'programmee');
+    expect(chain.is).toHaveBeenCalledWith('tms_reference', null);
+    // … ET filtres de la barre, appliqués en plus (ET logique).
+    expect(chain.in).toHaveBeenCalledWith('type', ['zero_dechet']);
+    expect(chain.in).toHaveBeenCalledWith(
+      'evenements.traiteur_operationnel_organisation_id',
+      [t],
+    );
+    expect(chain.in).toHaveBeenCalledWith('statut', ['validee']);
+  });
+
   it('M0.6 — choix multiple : valeurs hors liste blanche / non-UUID écartées avant in(…)', async () => {
     const a = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
     await callGet(

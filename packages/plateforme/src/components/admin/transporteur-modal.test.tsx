@@ -41,6 +41,11 @@ function choisirOption(libelle: RegExp, option: string) {
   fireEvent.click(screen.getByRole('option', { name: option }));
 }
 
+// Radix Tabs réagit au mousedown (pas au click) sous jsdom.
+function ouvrirOnglet(nom: RegExp) {
+  fireEvent.mouseDown(screen.getByRole('tab', { name: nom }));
+}
+
 const PRESTATAIRES: PrestataireOption[] = [
   {
     id: '11111111-1111-4111-8111-111111111111',
@@ -68,7 +73,8 @@ const PRESTATAIRES: PrestataireOption[] = [
   },
 ];
 
-function fillCommonFields() {
+// Onglet « Identité & contact » (ouvert par défaut).
+function remplirIdentite() {
   fireEvent.change(screen.getByLabelText(/Nom du transporteur/), {
     target: { value: 'Strike Logistique' },
   });
@@ -93,6 +99,11 @@ function fillCommonFields() {
   fireEvent.change(screen.getByLabelText(/Ville/), {
     target: { value: 'Paris' },
   });
+}
+
+function fillCommonFields() {
+  remplirIdentite();
+  ouvrirOnglet(/Capacités/);
   fireEvent.click(screen.getByRole('button', { name: 'Camionnette' }));
 }
 
@@ -109,6 +120,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
         onSaved={vi.fn()}
       />,
     );
+    ouvrirOnglet(/Connexion logistique/);
     expect(
       screen.queryByLabelText(/Code transporteur MTS-1/),
     ).not.toBeInTheDocument();
@@ -134,6 +146,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
+      ouvrirOnglet(/Connexion logistique/);
       choisirOption(/Type de TMS/, 'MTS-1 (Strike / Marathon)');
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
@@ -171,7 +184,9 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
+      ouvrirOnglet(/Connexion logistique/);
       choisirOption(/Type de TMS/, 'Autre (province — email/téléphone)');
+      ouvrirOnglet(/Capacités/);
       fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi (AG)' }));
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
@@ -274,8 +289,8 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
         ATTENTE_UI,
       );
       const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-      const body = JSON.parse(options.body as string) as { actif: boolean };
-      expect(body.actif).toBe(false);
+      // Désactiver n'écrit QUE actif (geste Ops libre, §6 immuabilité).
+      expect(JSON.parse(options.body as string)).toEqual({ actif: false });
       await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
       expect(onClose).toHaveBeenCalled();
     },
@@ -302,6 +317,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
+      ouvrirOnglet(/Connexion logistique/);
       choisirOption(/Type de TMS/, 'A Toutes! (vélo cargo)');
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
@@ -338,6 +354,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
+      ouvrirOnglet(/Connexion logistique/);
       choisirOption(/Type de TMS/, 'A Toutes! (vélo cargo)');
       choisirOption(/Prestataire logistique/, PRESTATAIRES[0]!.nom);
       fireEvent.click(
@@ -373,6 +390,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       );
 
       fillCommonFields();
+      ouvrirOnglet(/Connexion logistique/);
       choisirOption(/Type de TMS/, 'Par mail (validation Admin manuelle)');
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
@@ -402,6 +420,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
 
     // Combobox : options portées dans le portail à l'ouverture ; une option
     // grisée porte aria-disabled (cmdk), pas l'attribut disabled natif.
+    ouvrirOnglet(/Connexion logistique/);
     fireEvent.click(
       screen.getByRole('combobox', { name: /Prestataire logistique/ }),
     );
@@ -439,6 +458,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       />,
     );
 
+    ouvrirOnglet(/Connexion logistique/);
     const typeTms = screen.getByRole('combobox', { name: /Type de TMS/ });
     const presta = screen.getByRole('combobox', {
       name: /Prestataire logistique/,
@@ -448,9 +468,9 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     expect(presta).toBeDisabled();
     // PRESTATAIRES[2] = Marathon, rattaché à CE transporteur (donc non grisé).
     expect(presta).toHaveTextContent(/^Marathon$/);
-    expect(
-      screen.getAllByText(/créez un nouveau transporteur/).length,
-    ).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId('bandeau-immuabilite')).toHaveTextContent(
+      /fixés à la création\. Pour en changer, créez un nouveau transporteur/,
+    );
   });
 
   it(
@@ -507,6 +527,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       />,
     );
 
+    ouvrirOnglet(/Connexion logistique/);
     const presta = screen.getByRole('combobox', {
       name: /Prestataire logistique/,
     });
@@ -527,11 +548,290 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       />,
     );
 
+    ouvrirOnglet(/Connexion logistique/);
     expect(
       screen.getByText(/Liste des prestataires indisponible/),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(/Aucun prestataire logistique enregistré/),
     ).not.toBeInTheDocument();
+  });
+
+  // ── Fiche en onglets, format du pop-up collecte (décision Val 2026-09-30) ──
+
+  it('3 onglets en colonne, « Identité & contact » ouvert par défaut, chaque champ dans son onglet', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole('tab').map((o) => o.textContent)).toEqual([
+      'Identité & contact',
+      'Capacités',
+      'Connexion logistique',
+    ]);
+    expect(
+      screen.getByRole('tab', { name: 'Identité & contact' }),
+    ).toHaveAttribute('aria-selected', 'true');
+    for (const champ of [
+      /Nom du transporteur/,
+      /SIREN/,
+      /Nom du contact/,
+      /Téléphone/,
+      /Mail de contact/,
+      /^Adresse/,
+      /Code postal/,
+      /Ville/,
+    ]) {
+      expect(screen.getByLabelText(champ)).toBeInTheDocument();
+    }
+    expect(
+      screen.queryByRole('group', { name: 'Type(s) de véhicule' }),
+    ).not.toBeInTheDocument();
+
+    ouvrirOnglet(/Capacités/);
+    expect(
+      screen.getByRole('group', { name: 'Type(s) de véhicule' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: 'Type(s) de collecte' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Description du process de collecte/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/Nom du transporteur/),
+    ).not.toBeInTheDocument();
+
+    ouvrirOnglet(/Connexion logistique/);
+    expect(
+      screen.getByRole('combobox', { name: /Type de TMS/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: /Prestataire logistique/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('bandeau-immuabilite')).toHaveTextContent(
+      /ne pourront plus être modifiés après la création/,
+    );
+  });
+
+  it(
+    'erreur dans un onglet caché : la fiche y bascule et marque les onglets à corriger',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+
+      // Identité complète, validation lancée depuis Connexion : manquent le
+      // véhicule (Capacités) et le type de TMS (Connexion).
+      remplirIdentite();
+      ouvrirOnglet(/Connexion logistique/);
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer le transporteur/ }),
+      );
+
+      // Premier onglet en erreur dans l'ordre d'affichage.
+      await waitFor(
+        () =>
+          expect(
+            screen.getByRole('tab', { name: /^Capacités/ }),
+          ).toHaveAttribute('aria-selected', 'true'),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByText('Au moins un type de véhicule'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('tab', { name: /Capacités — champ à corriger/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('tab', {
+          name: /Connexion logistique — champ à corriger/,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('tab', { name: 'Identité & contact' }),
+      ).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('en-tête : type de TMS, SIREN, ville, véhicules, téléphone et statut du transporteur enregistré', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={{
+          ...EDIT_FIXTURE,
+          types_vehicules: ['velo_cargo', 'camionnette'],
+        }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('badge-type-tms')).toHaveTextContent(/^Autre$/);
+    expect(screen.getByText('SIREN 123 456 789')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Strike Logistique' }),
+    ).toBeInTheDocument();
+    const sousLigne = screen.getByTestId('fiche-transporteur-sous-ligne');
+    expect(sousLigne).toHaveTextContent('Paris 75012');
+    expect(sousLigne).toHaveTextContent('Vélo cargo, Camionnette');
+    expect(sousLigne).toHaveTextContent('0102030405');
+    expect(screen.getByText('Actif')).toBeInTheDocument();
+
+    // L'en-tête décrit la fiche enregistrée : il ne suit pas la saisie.
+    fireEvent.change(screen.getByLabelText(/Nom du transporteur/), {
+      target: { value: 'Renommé' },
+    });
+    expect(
+      screen.getByRole('heading', { name: 'Strike Logistique' }),
+    ).toBeInTheDocument();
+  });
+
+  it(
+    'Réactiver → PATCH { actif:true } seul + onSaved/onClose',
+    async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={{ ...EDIT_FIXTURE, actif: false }}
+          onClose={onClose}
+          onSaved={onSaved}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Réactiver' }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+      const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe(`/api/v1/admin/transporteurs/${EDIT_FIXTURE.id}`);
+      expect(options.method).toBe('PATCH');
+      expect(JSON.parse(options.body as string)).toEqual({ actif: true });
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(onClose).toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each(['12345678', '1234567890', '12345678A'])(
+    'SIREN « %s » refusé (9 chiffres exactement), rien n’est envoyé',
+    async (siren) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={EDIT_FIXTURE}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+
+      fireEvent.change(screen.getByLabelText(/SIREN/), {
+        target: { value: siren },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+
+      expect(
+        await screen.findByText('SIREN : 9 chiffres', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('transporteur inactif : badge « Inactif » et bouton « Réactiver »', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={{ ...EDIT_FIXTURE, actif: false }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Inactif')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Réactiver' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Désactiver' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it(
+    "erreur serveur affichée dans le pied, visible quel que soit l'onglet",
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          json: async () => ({ error: 'SIREN déjà utilisé' }),
+        }),
+      );
+      render(
+        <TransporteurModal
+          open
+          transporteur={EDIT_FIXTURE}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+
+      ouvrirOnglet(/Connexion logistique/);
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+      expect(
+        await screen.findByRole('alert', undefined, ATTENTE_UI),
+      ).toHaveTextContent('SIREN déjà utilisé');
+
+      ouvrirOnglet(/Capacités/);
+      expect(screen.getByRole('alert')).toHaveTextContent('SIREN déjà utilisé');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('coordonnées du transporteur ignorées par les gestionnaires de mots de passe (Bitwarden)', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    for (const champ of [
+      /Nom du transporteur/,
+      /Nom du contact/,
+      /Téléphone/,
+      /Mail de contact/,
+      /^Adresse/,
+      /Code postal/,
+      /Ville/,
+    ]) {
+      const input = screen.getByLabelText(champ);
+      expect(input).toHaveAttribute('data-bwignore', 'true');
+      expect(input).toHaveAttribute('autocomplete', 'off');
+    }
   });
 });

@@ -6,10 +6,9 @@ import {
   type ParcFilterOptions,
   type ParcFilterValue,
 } from './ParcMultiSelects.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
-import { Button } from '@/components/ui/button';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { FormField } from '@/components/ui/form-field';
+import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
+import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 export interface DashboardFilters {
   from: string; // YYYY-MM-DD
@@ -34,17 +33,19 @@ interface DashboardFilterBarProps {
 function defaultFilters(): DashboardFilters {
   // Défaut = 12 derniers mois (CDC §11 l.179 aligné sur §06.04 l.73 / §06.05 l.105,
   // résolution divergence _Divergences/M0.8_20260710, décision Val 2026-07-10).
-  const to = new Date();
-  const from = new Date();
-  from.setMonth(from.getMonth() - 12);
+  // Même calcul que le raccourci « 12 derniers mois » : le déclencheur l'affiche
+  // sous ce nom.
   return {
-    from: jourParis(from),
-    to: jourParis(to),
+    ...douzeDerniersMois(),
     lieu_ids: [],
     traiteur_ids: [],
     type_evenement_ids: [],
     taille_evenement_codes: [],
   };
+}
+
+function douzeDerniersMois(): { from: string; to: string } {
+  return periodeDerniers(12, 'mois')!;
 }
 
 function parcValue(f: DashboardFilters): ParcFilterValue {
@@ -56,52 +57,11 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
   };
 }
 
-const iso = (d: Date) => jourParis(d);
-
-// Grille DS (identique à `FilterBar`) : 3 colonnes pleines en desktop, repli à
-// 2 puis 1 dès qu'une colonne passerait sous 220px.
-const GRILLE_FILTRES =
-  'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(max(220px,calc((100%_-_2*1rem)/3)),1fr))]';
-
-// Presets de période (BL-P3-02) — liste CDC EXACTE §06.04 l.73 / §06.05 l.105 :
-// 7j / 30j / Trimestre en cours / 12 derniers mois (défaut) / Année civile /
-// Personnalisé (= le champ Période). Chaque preset ne touche QUE from/to (les
+// Raccourcis de période (BL-P3-02) — liste CDC EXACTE §06.04 l.73 / §06.05 l.105
+// (7 derniers jours / 30 derniers jours / Trimestre en cours / 12 derniers mois
+// / Année civile / Personnalisé = le calendrier) : liste standard du panneau
+// Période (`lib/periodes-raccourcis`). Un raccourci ne touche QUE from/to (les
 // filtres parc sont préservés).
-type PresetKey = '7j' | '30j' | 'trimestre' | '12m' | 'civile';
-const PERIOD_PRESETS: { key: PresetKey; label: string }[] = [
-  { key: '7j', label: '7 jours' },
-  { key: '30j', label: '30 jours' },
-  { key: 'trimestre', label: 'Trimestre en cours' },
-  { key: '12m', label: '12 derniers mois' },
-  { key: 'civile', label: 'Année civile' },
-];
-
-function presetRange(key: PresetKey): { from: string; to: string } {
-  const now = new Date();
-  const from = new Date();
-  if (key === '7j') {
-    from.setDate(from.getDate() - 7);
-  } else if (key === '30j') {
-    from.setDate(from.getDate() - 30);
-  } else if (key === 'trimestre') {
-    // Trimestre en cours : 1er jour du trimestre courant → aujourd'hui.
-    return {
-      from: iso(
-        new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1),
-      ),
-      to: iso(now),
-    };
-  } else if (key === '12m') {
-    from.setMonth(from.getMonth() - 12);
-  } else {
-    // Année civile — aligné sur le preset benchmark existant (Jan 1 → Dec 31).
-    return {
-      from: `${now.getFullYear()}-01-01`,
-      to: `${now.getFullYear()}-12-31`,
-    };
-  }
-  return { from: iso(from), to: iso(now) };
-}
 
 /**
  * Barre de filtres du dashboard — persistance localStorage (sobriété B1, pas de table).
@@ -146,63 +106,37 @@ export function DashboardFilterBar({
   }
 
   return (
-    <div
-      className={`space-y-3 ${className ?? ''}`}
+    <BarreFiltres
+      surface="page"
       data-testid="dashboard-filter-bar"
+      className={className}
+      onReset={() => apply(defaultFilters())}
+      resetTestId="dashboard-filter-reinitialiser"
     >
-      {/* DS « Mise en page des formulaires et filtres » : libellé au-dessus,
-          une seule période (DateRangePicker), grille de 3 colonnes max. */}
-      <div className={GRILLE_FILTRES}>
-        <FormField label="Période" htmlFor="dashboard-filter-periode">
-          <DateRangePicker
-            id="dashboard-filter-periode"
-            data-testid="dashboard-filter-periode"
-            value={{ from: filters.from, to: filters.to }}
-            onChange={(p) => {
-              // « Effacer » (période vide) = retour au défaut 12 derniers mois :
-              // les dashboards exigent toujours une période bornée.
-              const periode = p.from && p.to ? p : presetRange('12m');
-              apply({ ...filters, from: periode.from, to: periode.to });
-            }}
-          />
-        </FormField>
+      {/* Format unique des barres de filtres (décision Val 2026-09-30) :
+          « Période  12 derniers mois ▾ », raccourcis dans le panneau. */}
+      <DateRangePicker
+        titre="Période"
+        id="dashboard-filter-periode"
+        data-testid="dashboard-filter-periode"
+        raccourcisTestIdPrefixe="dashboard-filter-preset"
+        value={{ from: filters.from, to: filters.to }}
+        onChange={(p) => {
+          // « Effacer » (période vide) = retour au défaut 12 derniers mois :
+          // les dashboards exigent toujours une période bornée.
+          const periode = p.from && p.to ? p : douzeDerniersMois();
+          apply({ ...filters, from: periode.from, to: periode.to });
+        }}
+      />
 
-        {parcOptions && (
-          <ParcMultiSelects
-            value={parcValue(filters)}
-            options={parcOptions}
-            onChange={(patch) => apply({ ...filters, ...patch })}
-            testidPrefix="dashboard-filter"
-          />
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Presets de période (BL-P3-02) — raccourcis sur tous les dashboards. */}
-        {PERIOD_PRESETS.map((p) => (
-          <Button
-            key={p.key}
-            variant="secondary"
-            size="sm"
-            onClick={() => apply({ ...filters, ...presetRange(p.key) })}
-            data-testid={`dashboard-filter-preset-${p.key}`}
-          >
-            {p.label}
-          </Button>
-        ))}
-
-        {/* Réinitialiser — généralisé à tous les dashboards (BL-P3-02, avant
-            gestionnaire-only). Ramène période 12 derniers mois + filtres parc vides. */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => apply(defaultFilters())}
-          data-testid="dashboard-filter-reinitialiser"
-          className="ml-auto"
-        >
-          Réinitialiser
-        </Button>
-      </div>
-    </div>
+      {parcOptions && (
+        <ParcMultiSelects
+          value={parcValue(filters)}
+          options={parcOptions}
+          onChange={(patch) => apply({ ...filters, ...patch })}
+          testidPrefix="dashboard-filter"
+        />
+      )}
+    </BarreFiltres>
   );
 }

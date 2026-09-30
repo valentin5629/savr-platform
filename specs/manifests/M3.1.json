@@ -51,7 +51,7 @@
     "packages/plateforme/src/lib/collectes/rapport-download.ts",
     "packages/plateforme/src/lib/collectes/coordonnees-urgence.ts",
     "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/coordonnees-urgence/route.ts",
-    "packages/plateforme/src/components/dashboards/FiltreCoches.tsx",
+    "packages/plateforme/src/components/ui/filtre-en-ligne.tsx",
     "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql",
     "supabase/tests/coordonnees_urgence_alerte.test.sql",
     "packages/plateforme/tests/ui/fiche-collecte-client.m3-1.test.tsx",
@@ -825,7 +825,7 @@
     {
       "id": "M3.1-popup-client-radar-filtres-ligne",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
-      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx, packages/plateforme/src/components/dashboards/FiltreCoches.tsx, packages/plateforme/src/lib/collectes/benchmark-fiche.ts",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx, packages/plateforme/src/components/ui/filtre-en-ligne.tsx, packages/plateforme/src/lib/collectes/benchmark-fiche.ts",
       "test": "M3.1/fiche_ui_bloc3_filtres_initialises_sur_la_collecte",
       "statut": "implemented",
       "libelle": "Radar « Votre collecte face aux événements comparables » (BenchmarkRadar réutilisé, titre/sous-titre paramétrables) + filtres Type d'événement / Taille / Lieux en titres cliquables ouvrant une liste à cocher (Popover + Checkbox DS, aucun <select>), une seule ligne, sans filtre Traiteurs même pour un rôle qui y a droit ; initialisés sur le segment de la collecte ; période fixe 24 mois imposée serveur."

@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-import { preset30JoursRange } from '@/lib/registre-presets';
+import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -18,11 +18,11 @@ describe('M0.8-58 — Registre : preset « 30 derniers jours » (BL-P3-10)', () 
   afterEach(() => vi.restoreAllMocks());
 
   it('helper : fenêtre [J−30 ; J] au format YYYY-MM-DD (date fixe)', () => {
-    const r = preset30JoursRange(new Date(2026, 6, 10)); // 10 juillet 2026 (mois 0-indexé)
+    const r = periodeDerniers(30, 'jours', true, new Date(2026, 6, 10)); // 10 juillet 2026 (mois 0-indexé)
     expect(r).toEqual({ from: '2026-06-10', to: '2026-07-10' });
   });
 
-  it('le bouton applique la fenêtre 30 jours au champ Période (défaut vide avant clic)', () => {
+  it('le raccourci applique la fenêtre 30 jours au filtre Période (défaut vide avant clic)', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
@@ -40,9 +40,12 @@ describe('M0.8-58 — Registre : preset « 30 derniers jours » (BL-P3-10)', () 
     expect(periode).toHaveAttribute('data-from', '');
     expect(periode).toHaveAttribute('data-to', '');
 
+    // Raccourci de la colonne du panneau Période (brouillon), validé par Appliquer.
+    fireEvent.click(periode);
     fireEvent.click(screen.getByTestId('registre-preset-30j'));
+    fireEvent.click(screen.getByRole('button', { name: 'Appliquer' }));
 
-    const expected = preset30JoursRange();
+    const expected = periodeDerniers(30, 'jours')!;
     expect(periode).toHaveAttribute('data-from', expected.from);
     expect(periode).toHaveAttribute('data-to', expected.to);
   });

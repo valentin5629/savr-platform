@@ -205,7 +205,13 @@ function payloadAg(blocs: unknown): TraiteurDashboardPayload {
 
 const BENCH_PROP = {
   rows: [],
-  options: { lieux: [], traiteurs: [], types: [] },
+  // Un traiteur en option : la garde « pas de filtre Traiteurs côté traiteur »
+  // doit tenir même si la liste arrivait non vide.
+  options: {
+    lieux: [],
+    traiteurs: [{ id: 't-concurrent', nom: 'Traiteur concurrent' }],
+    types: [],
+  },
   filters: {
     periode_debut: PERIOD.from,
     periode_fin: PERIOD.to,
@@ -325,10 +331,11 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       ).toBeInTheDocument();
       expect(screen.getByTestId('bloc-6-top-lieux')).toBeInTheDocument();
       expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
-      // Bloc 3 ZD = VRAI benchmark (encart « Filtres benchmark »), pas le stub R20a.
-      expect(screen.getByText('Filtres du repère parc')).toBeInTheDocument();
+      // Bloc 3 ZD = VRAI benchmark (encart « Filtres benchmark », ligne
+      // « Comparer avec » depuis 2026-09-30), pas le stub R20a.
+      expect(screen.getByText('Comparer avec')).toBeInTheDocument();
       // Variante 4 dimensions : pas de filtre « Traiteurs » (compétitif §06.04 l.143).
-      expect(screen.queryByText(/Traiteurs? benchmark/i)).toBeNull();
+      expect(screen.queryByTestId('benchmark-filter-traiteurs')).toBeNull();
       // Prochaines : événement rendu + lien vers la fiche collecte.
       // Data Table : la ligne existe en tableau ET en carte mobile → 1er lien.
       const lien = screen.getAllByRole('link', { name: 'Gala' })[0];
@@ -484,8 +491,8 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
       expect(screen.queryByTestId('bloc-7-top-acteurs')).toBeNull();
       // Bloc 3 ZD benchmark réel présent (parité §06.04). R24c : l'agence est
       // passée au benchmark Cockpit (BenchmarkRadar + filtres imbriqués),
-      // l'encart porte donc le titre « Filtres du repère parc » (parité traiteur).
-      expect(screen.getByText('Filtres du repère parc')).toBeInTheDocument();
+      // l'encart porte donc l'amorce « Comparer avec » (parité traiteur).
+      expect(screen.getByText('Comparer avec')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

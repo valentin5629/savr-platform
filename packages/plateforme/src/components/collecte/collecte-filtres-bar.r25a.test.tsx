@@ -89,9 +89,9 @@ describe('M3.1 / R25a — groupes de statuts en vue client', () => {
 
   it('R25a/statut_selectionne_rend_tous_les_statuts_db_du_groupe', () => {
     const { onChange } = renderBar();
-    // Combobox multiple : on ouvre la liste puis on choisit l'option.
+    // Filtre en ligne à cocher : on ouvre la liste puis on coche le groupe.
     fireEvent.click(screen.getByTestId('filtre-statut'));
-    fireEvent.click(screen.getByRole('option', { name: 'Créée' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Créée' }));
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ statuts: ['brouillon', 'programmee'] }),
     );
@@ -103,11 +103,11 @@ describe('M3.1 / R25a — « Programmée par » et réinitialisation', () => {
     renderBar();
     fireEvent.click(screen.getByTestId('filtre-programmee-par'));
     expect(
-      screen.getByRole('option', { name: 'Mon organisation' }),
+      screen.getByRole('checkbox', { name: 'Mon organisation' }),
     ).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Agence : WPM' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Agence : WPM' })).toBeTruthy();
     expect(
-      screen.getByRole('option', { name: 'Gestionnaire : Viparis' }),
+      screen.getByRole('checkbox', { name: 'Gestionnaire : Viparis' }),
     ).toBeTruthy();
   });
 

@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Building2, Plus, Search } from 'lucide-react';
+import { Building2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
+import { FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -198,55 +197,41 @@ export default function ClientsPage() {
 
       {/* Filtres */}
       <FilterBar data-testid="clients-filtres">
-        <FormField label="Recherche" htmlFor="clients-recherche">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
-            <Input
-              id="clients-recherche"
-              type="text"
-              placeholder="Rechercher…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </FormField>
-        <FormField label="Type" htmlFor="clients-type">
-          <Combobox
-            id="clients-type"
-            icon={null}
-            placeholder="Tous les types"
-            options={[
-              { value: '', label: 'Tous les types' },
-              ...Object.entries(TYPE_ORGANISATION_LABELS).map(([k, v]) => ({
-                value: k,
-                label: v,
-              })),
-            ]}
-            value={typeFilter}
-            onChange={(v) => {
-              setTypeFilter(v);
-              setPage(1);
-            }}
-          />
-        </FormField>
-        <FormField label="Statut" htmlFor="clients-statut">
-          <Combobox
-            id="clients-statut"
-            icon={null}
-            placeholder="Tous les statuts"
-            options={[
-              { value: '', label: 'Tous les statuts' },
-              { value: 'true', label: 'Actifs' },
-              { value: 'false', label: 'Inactifs' },
-            ]}
-            value={actifFilter}
-            onChange={(v) => {
-              setActifFilter(v);
-              setPage(1);
-            }}
-          />
-        </FormField>
+        <FiltreRecherche
+          id="clients-recherche"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <Combobox
+          titre="Type"
+          id="clients-type"
+          options={[
+            { value: '', label: 'Tous les types' },
+            ...Object.entries(TYPE_ORGANISATION_LABELS).map(([k, v]) => ({
+              value: k,
+              label: v,
+            })),
+          ]}
+          value={typeFilter}
+          onChange={(v) => {
+            setTypeFilter(v);
+            setPage(1);
+          }}
+        />
+        <Combobox
+          titre="Statut"
+          id="clients-statut"
+          options={[
+            { value: '', label: 'Tous les statuts' },
+            { value: 'true', label: 'Actifs' },
+            { value: 'false', label: 'Inactifs' },
+          ]}
+          value={actifFilter}
+          onChange={(v) => {
+            setActifFilter(v);
+            setPage(1);
+          }}
+        />
       </FilterBar>
 
       {loading ? (

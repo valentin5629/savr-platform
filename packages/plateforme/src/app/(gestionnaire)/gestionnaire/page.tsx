@@ -388,7 +388,6 @@ export default function GestionnaireDashboardPage() {
             items={gaugeItems}
             filtersSlot={
               <BenchmarkFilterBar
-                embedded
                 onChange={handleBenchmarkFilters}
                 initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
                 initialTailleCodes={filters?.taille_evenement_codes ?? []}

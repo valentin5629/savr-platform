@@ -289,8 +289,8 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
         ATTENTE_UI,
       );
       const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-      const body = JSON.parse(options.body as string) as { actif: boolean };
-      expect(body.actif).toBe(false);
+      // Désactiver n'écrit QUE actif (geste Ops libre, §6 immuabilité).
+      expect(JSON.parse(options.body as string)).toEqual({ actif: false });
       await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
       expect(onClose).toHaveBeenCalled();
     },
@@ -700,6 +700,65 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       screen.getByRole('heading', { name: 'Strike Logistique' }),
     ).toBeInTheDocument();
   });
+
+  it(
+    'Réactiver → PATCH { actif:true } seul + onSaved/onClose',
+    async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={{ ...EDIT_FIXTURE, actif: false }}
+          onClose={onClose}
+          onSaved={onSaved}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Réactiver' }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+      const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe(`/api/v1/admin/transporteurs/${EDIT_FIXTURE.id}`);
+      expect(options.method).toBe('PATCH');
+      expect(JSON.parse(options.body as string)).toEqual({ actif: true });
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(onClose).toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each(['12345678', '1234567890', '12345678A'])(
+    'SIREN « %s » refusé (9 chiffres exactement), rien n’est envoyé',
+    async (siren) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={EDIT_FIXTURE}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+
+      fireEvent.change(screen.getByLabelText(/SIREN/), {
+        target: { value: siren },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+
+      expect(
+        await screen.findByText('SIREN : 9 chiffres', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it('transporteur inactif : badge « Inactif » et bouton « Réactiver »', () => {
     render(

@@ -22,6 +22,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResumeItem } from '@/components/collecte/fiche-blocs';
+import { formatJourCourt, isoVersDate } from '@/lib/date-iso';
 import { LogoUpload } from '@/components/admin/logo-upload';
 import {
   HorairesOuvertureEditor,
@@ -145,11 +146,6 @@ type Erreurs = Partial<Record<ChampValide, string>>;
 // d'onglet.
 const PANNEAU_ONGLET = 'space-y-4 data-[state=inactive]:hidden';
 
-// « 2027-03-12 » → « 12/03/2027 » (colonne date, sans passage par un fuseau).
-function dateFr(iso: string): string {
-  return iso.split('-').reverse().join('/');
-}
-
 // Bloc thématique — gabarit Design System partagé avec les fiches (#226/#231) :
 // carte bordée (levier §10 #5) + en-tête « pastille primary + titre extrabold
 // tracking serré » (leviers §10 #2/#7). Regroupe visuellement les champs par
@@ -201,6 +197,10 @@ export function AssociationModal({
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [onglet, setOnglet] = React.useState<Onglet>('informations');
+  const ongletsRef = React.useRef<
+    Partial<Record<Onglet, HTMLButtonElement | null>>
+  >({});
+  const alerteRef = React.useRef<HTMLParagraphElement>(null);
 
   // (Ré)initialise le formulaire à chaque ouverture / changement de cible.
   React.useEffect(() => {
@@ -212,8 +212,23 @@ export function AssociationModal({
     }
   }, [open, association]);
 
+  // L'erreur serveur vit en tête du corps : la ramener à l'écran quand on a
+  // fait défiler un onglet long (horaires).
+  React.useEffect(() => {
+    if (serverError) alerteRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [serverError]);
+
   function set<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
+    // Un champ corrigé perd son erreur, et son onglet son compteur, sans
+    // attendre le prochain envoi.
+    setErrors((e) =>
+      key in e
+        ? (Object.fromEntries(
+            Object.entries(e).filter(([champ]) => champ !== key),
+          ) as Erreurs)
+        : e,
+    );
   }
 
   function validate(): Erreurs {
@@ -280,7 +295,13 @@ export function AssociationModal({
       const fautif = ONGLETS.find(({ value }) =>
         champsEnErreur.some((champ) => ONGLET_DU_CHAMP[champ] === value),
       );
-      if (fautif) setOnglet(fautif.value);
+      if (fautif) {
+        setOnglet(fautif.value);
+        // Le focus recale l'onglet atteignable au clavier de Radix (sinon
+        // Maj+Tab rouvrirait l'ancien onglet et cacherait les erreurs) et fait
+        // annoncer le changement aux lecteurs d'écran.
+        ongletsRef.current[fautif.value]?.focus();
+      }
       return;
     }
 
@@ -383,6 +404,7 @@ export function AssociationModal({
   );
 
   const regionLabel = REGIONS.find((r) => r.value === values.region)?.label;
+  const dateExpiration = isoVersDate(values.date_expiration_habilitation);
   const nonRenseigne = (
     <span className="text-savr-neutral-400">Non renseigné</span>
   );
@@ -402,6 +424,7 @@ export function AssociationModal({
       <form onSubmit={handleFormSubmit} noValidate>
         {serverError && (
           <p
+            ref={alerteRef}
             role="alert"
             className="mb-4 rounded-savr-md bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong"
           >
@@ -455,13 +478,11 @@ export function AssociationModal({
               </ResumeItem>
               <ResumeItem label="Habilitation 2041-GE">
                 {values.habilitee_attestation_fiscale ? 'Oui' : 'Non'}
-                {values.habilitee_attestation_fiscale &&
-                  values.date_expiration_habilitation && (
-                    <span className="block text-savr-neutral-600">
-                      jusqu&apos;au{' '}
-                      {dateFr(values.date_expiration_habilitation)}
-                    </span>
-                  )}
+                {values.habilitee_attestation_fiscale && dateExpiration && (
+                  <span className="block text-savr-neutral-600">
+                    jusqu&apos;au {formatJourCourt(dateExpiration)}
+                  </span>
+                )}
               </ResumeItem>
               <ResumeItem label="Contact">
                 {values.contact_nom.trim() || nonRenseigne}
@@ -486,6 +507,9 @@ export function AssociationModal({
                 return (
                   <TabsTrigger
                     key={value}
+                    ref={(el) => {
+                      ongletsRef.current[value] = el;
+                    }}
                     value={value}
                     className="gap-2 px-3 sm:px-4"
                   >
@@ -500,8 +524,8 @@ export function AssociationModal({
                         </span>
                         <span className="sr-only">
                           {n > 1
-                            ? `(${n} champs à corriger)`
-                            : '(1 champ à corriger)'}
+                            ? ` (${n} champs à corriger)`
+                            : ' (1 champ à corriger)'}
                         </span>
                       </>
                     )}

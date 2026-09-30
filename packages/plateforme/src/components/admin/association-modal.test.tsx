@@ -219,6 +219,12 @@ describe('M1.1 — Modale association (revue E2E)', () => {
         />,
       );
 
+      // La modale prend le focus à l'ouverture (minuteur) : l'attendre, comme
+      // un utilisateur réel, sinon il écraserait le focus posé par l'échec.
+      await waitFor(
+        () => expect(screen.getByRole('dialog')).toHaveFocus(),
+        ATTENTE_UI,
+      );
       // On part d'un autre onglet : l'échec doit ramener au premier fautif.
       fireEvent.mouseDown(onglet(/Administratif/), { button: 0 });
       fireEvent.click(
@@ -244,9 +250,38 @@ describe('M1.1 — Modale association (revue E2E)', () => {
       expect(onglet(/Logistique/)).toHaveAccessibleName('Logistique');
       expect(onglet(/Administratif/)).toHaveAccessibleName('Administratif');
       expect(fetchMock).not.toHaveBeenCalled();
+
+      // Focus sur l'onglet fautif : il devient l'onglet atteignable au clavier
+      // (sinon Maj+Tab rouvrirait « Administratif » et cacherait les erreurs).
+      expect(onglet(/Informations/)).toHaveFocus();
+      expect(onglet(/Informations/)).toHaveAttribute('tabindex', '0');
+      expect(onglet(/Administratif/)).toHaveAttribute('tabindex', '-1');
+
+      // Un champ corrigé retire son erreur du compteur, sans nouvel envoi.
+      fireEvent.change(screen.getByLabelText(/Nom de l'association/), {
+        target: { value: 'Association Alpha' },
+      });
+      expect(onglet(/Informations/)).toHaveAccessibleName(
+        'Informations (7 champs à corriger)',
+      );
     },
     ATTENTE_CAS_MS,
   );
+
+  it('réouverture → retour sur « Informations »', () => {
+    const props = {
+      association: EDIT_FIXTURE,
+      onClose: vi.fn(),
+      onSaved: vi.fn(),
+    };
+    const { rerender } = render(<AssociationModal open {...props} />);
+    fireEvent.mouseDown(onglet(/Administratif/), { button: 0 });
+    expect(onglet(/Administratif/)).toHaveAttribute('aria-selected', 'true');
+
+    rerender(<AssociationModal open={false} {...props} />);
+    rerender(<AssociationModal open {...props} />);
+    expect(onglet(/Informations/)).toHaveAttribute('aria-selected', 'true');
+  });
 
   it('colonne résumé : reprend la fiche et suit la saisie', () => {
     render(
@@ -518,7 +553,7 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     expect(within(resume).getByText('Inactive')).toBeInTheDocument();
     expect(within(resume).getByText('Oui')).toBeInTheDocument();
     expect(
-      within(resume).getByText(/jusqu.au 12\/03\/2027/),
+      within(resume).getByText(/jusqu.au 12 mars 2027/),
     ).toBeInTheDocument();
   });
 
@@ -571,6 +606,8 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     'erreur serveur → message en tête de modale (role=alert), modale ouverte',
     async () => {
       const onClose = vi.fn();
+      // scrollIntoView est un no-op posé par vitest.setup (jsdom ne l'a pas).
+      const scrollIntoView = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
       const fetchMock = vi.fn().mockResolvedValue({
         ok: false,
         json: async () => ({ error: 'Nom déjà utilisé' }),
@@ -590,6 +627,11 @@ describe('M1.1 — Modale association (revue E2E)', () => {
         await screen.findByRole('alert', undefined, ATTENTE_UI),
       ).toHaveTextContent('Nom déjà utilisé');
       expect(onClose).not.toHaveBeenCalled();
+      // Ramenée à l'écran même si l'onglet ouvert a été défilé.
+      await waitFor(
+        () => expect(scrollIntoView).toHaveBeenCalled(),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

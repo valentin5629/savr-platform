@@ -124,19 +124,13 @@ interface FiltreCochesProps {
   /** ids cochés ; tableau vide = « Tous ». */
   selected: string[];
   onChange: (ids: string[]) => void;
-  /** Valeur affichée quand rien n'est coché. */
-  tousLabel?: string;
   testid?: string;
 }
 
 // Résumé affiché à côté du titre : « Tous », le libellé (court) de l'option
 // unique (« XL (≥ 1000) » → « XL »), ou le nombre d'options cochées.
-function resumeSelection(
-  options: OptionFiltre[],
-  selected: string[],
-  tousLabel: string,
-): string {
-  if (selected.length === 0) return tousLabel;
+function resumeSelection(options: OptionFiltre[], selected: string[]): string {
+  if (selected.length === 0) return 'Tous';
   if (selected.length === 1) {
     const o = options.find((x) => x.id === selected[0]);
     return o ? (o.court ?? o.nom) : '1 sélectionné';
@@ -144,9 +138,12 @@ function resumeSelection(
   return `${selected.length} sélectionnés`;
 }
 
-// Au-delà de 7 options, un champ de recherche filtre la liste (même seuil que
-// le Combobox : listes de lieux / traiteurs / clients potentiellement longues).
-const SEUIL_RECHERCHE = 7;
+/**
+ * Au-delà de ce nombre d'options, un champ de recherche filtre la liste —
+ * seuil commun au Combobox et à FiltreCoches (lieux / traiteurs / clients
+ * potentiellement longs).
+ */
+export const SEUIL_RECHERCHE = 7;
 
 const normaliser = (t: string) =>
   t
@@ -164,7 +161,6 @@ export function FiltreCoches({
   options,
   selected,
   onChange,
-  tousLabel = 'Tous',
   testid,
 }: FiltreCochesProps) {
   const [recherche, setRecherche] = React.useState('');
@@ -182,7 +178,7 @@ export function FiltreCoches({
         >
           <ContenuDeclencheur
             titre={label}
-            valeur={resumeSelection(options, selected, tousLabel)}
+            valeur={resumeSelection(options, selected)}
           />
         </button>
       </PopoverTrigger>

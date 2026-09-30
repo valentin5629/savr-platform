@@ -199,7 +199,6 @@ export default function ClientsPage() {
       <FilterBar data-testid="clients-filtres">
         <FiltreRecherche
           id="clients-recherche"
-          placeholder="Rechercher…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

@@ -18,6 +18,7 @@ import {
 import {
   ContenuDeclencheur,
   declencheurFiltre,
+  SEUIL_RECHERCHE,
 } from '@/components/ui/filtre-en-ligne';
 
 // Combobox — choix dans une liste, avec recherche (Popover + Command, shadcn
@@ -77,8 +78,6 @@ interface ComboboxMultipleProps extends ComboboxBaseProps {
 }
 
 export type ComboboxProps = ComboboxSingleProps | ComboboxMultipleProps;
-
-const SEUIL_RECHERCHE = 7;
 
 function Combobox(props: ComboboxProps) {
   const {

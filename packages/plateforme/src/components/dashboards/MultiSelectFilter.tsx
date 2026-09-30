@@ -21,9 +21,10 @@ interface MultiSelectFilterProps {
 /**
  * Filtre multi-choix : libellé au-dessus (`FormField`) + `Combobox multiple`
  * (DS « Mise en page des formulaires et filtres » règles 1 à 3). Sélection
- * vide = « Tous » (`allLabel`, première option de la liste). Composant de
- * filtrage uniquement — aucune écriture. Utilisé par l'encart « Filtres
- * benchmark » (§06.05 Bloc 3 ZD) et les filtres « parc ».
+ * vide = « Tous » (`allLabel`, première option de la liste). Aucune écriture.
+ * Ne sert plus qu'à l'assistant d'export « Synthèse PDF » (formulaire en
+ * étapes) : les barres de filtres utilisent les filtres en ligne
+ * (`components/ui/filtre-en-ligne`, décision Val 2026-09-30).
  */
 export function MultiSelectFilter({
   label,

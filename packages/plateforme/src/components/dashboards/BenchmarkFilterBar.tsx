@@ -1,8 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { MultiOption } from './MultiSelectFilter.js';
-import { BarreFiltres, FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import {
+  BarreFiltres,
+  FiltreCoches,
+  type OptionFiltre,
+} from '@/components/ui/filtre-en-ligne';
 import { TAILLE_OPTIONS } from './taille-options.js';
 import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
@@ -37,8 +40,8 @@ function defaultFilters(
 
 /** Options des multi-selects fournies par le SSR (évite le fetch /filtres au mount). */
 export interface BenchmarkFilterOptions {
-  lieux: MultiOption[];
-  traiteurs: MultiOption[];
+  lieux: OptionFiltre[];
+  traiteurs: OptionFiltre[];
   types: { id: string; libelle: string }[];
 }
 
@@ -79,13 +82,13 @@ export function BenchmarkFilterBar({
   const [filters, setFilters] = useState<BenchmarkFilters>(() =>
     defaultFilters(initialTypeEvenementIds, initialTailleCodes),
   );
-  const [lieux, setLieux] = useState<MultiOption[]>(
+  const [lieux, setLieux] = useState<OptionFiltre[]>(
     () => initialOptions?.lieux ?? [],
   );
-  const [traiteurs, setTraiteurs] = useState<MultiOption[]>(
+  const [traiteurs, setTraiteurs] = useState<OptionFiltre[]>(
     () => initialOptions?.traiteurs ?? [],
   );
-  const [types, setTypes] = useState<MultiOption[]>(() =>
+  const [types, setTypes] = useState<OptionFiltre[]>(() =>
     (initialOptions?.types ?? []).map((t) => ({ id: t.id, nom: t.libelle })),
   );
 
@@ -99,8 +102,8 @@ export function BenchmarkFilterBar({
       .then(
         (j: {
           data?: {
-            lieux?: MultiOption[];
-            traiteurs?: MultiOption[];
+            lieux?: OptionFiltre[];
+            traiteurs?: OptionFiltre[];
             types?: { id: string; libelle: string }[];
           };
         }) => {

@@ -7,7 +7,7 @@ import {
   type LoaderCtx,
 } from '@/lib/dashboards/loaders';
 import type { BenchmarkFilterOptions } from '@/components/dashboards/index.js';
-import type { MultiOption } from '@/components/dashboards/MultiSelectFilter';
+import type { OptionFiltre } from '@/components/ui/filtre-en-ligne';
 import type { BenchmarkFilters } from '@/components/dashboards/BenchmarkFilterBar';
 import type { BenchmarkRow } from '@/lib/dashboards/cockpit-derive';
 import { TraiteurDashboardClient } from './traiteur-dashboard-client';
@@ -78,8 +78,8 @@ export default async function TraiteurDashboardPage() {
   ]);
 
   const options: BenchmarkFilterOptions = {
-    lieux: benchmarkFiltres.lieux as MultiOption[],
-    traiteurs: benchmarkFiltres.traiteurs as MultiOption[],
+    lieux: benchmarkFiltres.lieux as OptionFiltre[],
+    traiteurs: benchmarkFiltres.traiteurs as OptionFiltre[],
     types: benchmarkFiltres.types as { id: string; libelle: string }[],
   };
 

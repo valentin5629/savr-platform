@@ -1,7 +1,9 @@
 'use client';
 
-import type { MultiOption } from './MultiSelectFilter.js';
-import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import {
+  FiltreCoches,
+  type OptionFiltre,
+} from '@/components/ui/filtre-en-ligne';
 import { TAILLE_OPTIONS } from './taille-options.js';
 
 // Valeurs des 4 filtres « parc » communs (§06.05 §1) — hors Période (gérée par la
@@ -14,8 +16,8 @@ export interface ParcFilterValue {
 }
 
 export interface ParcFilterOptions {
-  lieux: MultiOption[];
-  traiteurs: MultiOption[];
+  lieux: OptionFiltre[];
+  traiteurs: OptionFiltre[];
   /** Types d'événement (référentiel) au format { id, libelle }. */
   types: { id: string; libelle: string }[];
 }
@@ -39,7 +41,7 @@ export function ParcMultiSelects({
   onChange,
   testidPrefix = 'parc-filter',
 }: ParcMultiSelectsProps) {
-  const typeOptions: MultiOption[] = options.types.map((t) => ({
+  const typeOptions: OptionFiltre[] = options.types.map((t) => ({
     id: t.id,
     nom: t.libelle,
   }));

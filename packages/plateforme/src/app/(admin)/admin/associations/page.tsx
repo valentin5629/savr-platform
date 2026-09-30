@@ -153,7 +153,6 @@ export default function AssociationsPage() {
       <FilterBar data-testid="associations-filtres">
         <FiltreRecherche
           id="associations-recherche"
-          placeholder="Rechercher…"
           value={q}
           onChange={(e) => {
             setQ(e.target.value);

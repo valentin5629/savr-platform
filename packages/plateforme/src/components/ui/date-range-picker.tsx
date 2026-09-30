@@ -26,6 +26,7 @@ import {
   raccourciDe,
   raccourcisPeriode,
   UNITES_PERIODE,
+  type Periode,
   type RaccourciPeriode,
   type UnitePeriode,
 } from '@/lib/periodes-raccourcis';
@@ -41,25 +42,16 @@ import {
 // Effacer / Annuler / Appliquer. Tout reste un brouillon jusqu'à Appliquer.
 //
 // Mode filtre (`titre`) : déclencheur « Période  12 derniers mois ▾ » des
-// barres de filtres (`filtre-en-ligne`), raccourcis standard et ligne
-// « Derniers N » affichés par défaut. Mode champ (sans `titre`) : champ bordé,
-// ni raccourcis ni ligne sauf demande explicite.
-export interface PeriodeIso {
-  from: string;
-  to: string;
-}
-
-export type { RaccourciPeriode };
+// barres de filtres (`filtre-en-ligne`), avec la liste STANDARD de raccourcis
+// (même liste sur tous les filtres de date, décision Val 2026-09-30) et la
+// ligne « Derniers N ». Mode champ (sans `titre`) : champ bordé, calendrier seul.
+export type PeriodeIso = Periode;
 
 export interface DateRangePickerProps {
   /** Mode filtre en ligne : titre affiché devant la période courante. */
   titre?: string;
-  /** Colonne de raccourcis ; défaut = liste standard en mode filtre, aucune sinon. */
-  raccourcis?: RaccourciPeriode[];
   /** Préfixe des data-testid des raccourcis (`${prefixe}-${cle}`). */
   raccourcisTestIdPrefixe?: string;
-  /** Ligne « Derniers N unités » ; défaut = mode filtre. */
-  avecDerniers?: boolean;
   value?: PeriodeIso;
   onChange?: (value: PeriodeIso) => void;
   min?: string;
@@ -115,11 +107,16 @@ interface Derniers {
 // équivalent, clic dans le calendrier, période quelconque) : elle ne ment pas.
 const DERNIERS_VIDE: Derniers = { n: '', unite: 'jours', inclure: true };
 
+/** Ligne « Derniers N » équivalente à un raccourci, s'il en a une. */
+function derniersDe(r: RaccourciPeriode | undefined): Derniers | null {
+  return r?.relatif
+    ? { n: String(r.relatif.n), unite: r.relatif.unite, inclure: true }
+    : null;
+}
+
 function DateRangePicker({
   titre,
-  raccourcis: raccourcisProp,
   raccourcisTestIdPrefixe,
-  avecDerniers = Boolean(titre),
   value = PERIODE_VIDE,
   onChange,
   min,
@@ -134,13 +131,12 @@ function DateRangePicker({
   'data-testid': testId,
 }: DateRangePickerProps) {
   // Recalculés à chaque rendu : « 7 derniers jours » se lit par rapport à aujourd'hui.
-  const raccourcis = raccourcisProp ?? (titre ? raccourcisPeriode() : []);
+  const raccourcis = titre ? raccourcisPeriode() : [];
   const [open, setOpen] = React.useState(false);
   const [brouillon, setBrouillon] = React.useState<DateRange | undefined>();
   const [mois, setMois] = React.useState<Date>(() =>
     premierMoisAffiche(undefined),
   );
-  const [actif, setActif] = React.useState<string | null>(null);
   const [derniers, setDerniers] = React.useState<Derniers>(DERNIERS_VIDE);
 
   const borneMin = isoVersDate(min);
@@ -150,32 +146,24 @@ function DateRangePicker({
     ...(borneMax ? [{ after: borneMax }] : []),
   ];
 
-  // Pose un brouillon et synchronise raccourci surligné + mois affichés.
+  // Pose un brouillon et affiche ses mois.
   function poser(p: PeriodeIso) {
     const r = versRange(p);
     setBrouillon(r);
-    setActif(raccourciDe(p, raccourcis)?.cle ?? null);
     setMois(premierMoisAffiche(r, borneMin));
   }
 
   function ouvrir(o: boolean) {
     if (o) {
       poser(value);
-      const r = raccourciDe(value, raccourcis)?.relatif;
-      setDerniers(
-        r ? { n: String(r.n), unite: r.unite, inclure: true } : DERNIERS_VIDE,
-      );
+      setDerniers(derniersDe(raccourciDe(value, raccourcis)) ?? DERNIERS_VIDE);
     }
     setOpen(o);
   }
 
   function choisirRaccourci(r: RaccourciPeriode) {
     poser(r.periode);
-    setDerniers(
-      r.relatif
-        ? { n: String(r.relatif.n), unite: r.relatif.unite, inclure: true }
-        : (d) => ({ ...d, n: '' }),
-    );
+    setDerniers((d) => derniersDe(r) ?? { ...d, n: '' });
   }
 
   function changerDerniers(next: Derniers) {
@@ -196,6 +184,8 @@ function DateRangePicker({
     periodeDerniers(Number(derniers.n), derniers.unite, derniers.inclure) ===
       null;
 
+  // Raccourci surligné = celui dont la période est le brouillon (déduit).
+  const actif = raccourciDe(versIso(brouillon), raccourcis)?.cle ?? null;
   const libelle =
     raccourciDe(value, raccourcis)?.libelle ?? libellePeriode(value);
   const resume = libellePeriode(versIso(brouillon)) ?? 'Aucune période';
@@ -276,7 +266,7 @@ function DateRangePicker({
             </ul>
           )}
           <div className="p-3">
-            {avecDerniers && (
+            {titre && (
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className="text-sm text-savr-neutral-700">Derniers</span>
                 <Input
@@ -296,7 +286,6 @@ function DateRangePicker({
                 <Combobox
                   aria-label="Unité"
                   icon={null}
-                  searchable={false}
                   options={UNITES_PERIODE}
                   value={derniers.unite}
                   onChange={(u) =>
@@ -330,7 +319,6 @@ function DateRangePicker({
               onSelect={(r) => {
                 setBrouillon(r);
                 setDerniers((d) => ({ ...d, n: '' }));
-                setActif(raccourciDe(versIso(r), raccourcis)?.cle ?? null);
               }}
               autoFocus
             />

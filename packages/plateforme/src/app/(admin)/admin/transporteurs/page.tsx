@@ -226,7 +226,6 @@ export default function TransporteursPage() {
       <FilterBar data-testid="transporteurs-filtres">
         <FiltreRecherche
           id="transporteurs-recherche"
-          placeholder="Rechercher…"
           value={q}
           onChange={(e) => {
             setQ(e.target.value);

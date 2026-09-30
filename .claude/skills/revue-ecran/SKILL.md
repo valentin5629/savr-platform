@@ -134,7 +134,7 @@ Reconnaître l'état AVANT tout : `git fetch --quiet && git branch -a && git wor
   avant/après) ; le skill `/verify`, s'il est disponible dans la session, l'orchestre mais n'est pas requis.
   ⚠️ La preview tourne depuis le **clone principal**, pas le worktree → une route worktree-only renvoie 404 en
   preview. Pour valider visuellement une branche worktree, c'est un **checkpoint avec Val** (GO-VISUAL), pas une preview auto.
-  Connexion en local : personas `<role>.<slug>@savr-test.local` / `SavrTest2026!` (agence = `agence.caromy`), après `pnpm seed:minimal && pnpm seed:auth`, dev sur `:3001`.
+  Connexion en local : personas `<role>.<slug>@savr-test.local` / `savr` (agence = `agence.caromy`), après `pnpm seed:minimal && pnpm seed:auth`, dev sur `:3001`.
 - **Tests** : `pnpm test:module <M>` + `pnpm check:coverage <M>` (jamais `pnpm test --filter`). Reproduire chaque
   GET/POST touché contre `savr-dev` — les mocks masquent les 400 réels.
 - **Reviewers à contexte neuf**, lancés **séquentiellement** (jamais en parallèle = corruption git), read-only :

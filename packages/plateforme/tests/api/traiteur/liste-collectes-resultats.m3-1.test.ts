@@ -4,7 +4,8 @@
  *  - poids_total_kg = Σ collecte_flux.poids_reel_kg (ZD)
  *  - nb_repas_donnes = Σ attributions_antgaspi.volume_repas_realise (AG), avec
  *    normalisation embed to-one (objet) OU tableau (cache PostgREST)
- *  - les embeds bruts (collecte_flux / attributions_antgaspi) ne fuitent pas au client.
+ *  - les embeds bruts (collecte_flux / attributions_antgaspi) ne fuitent pas au client ;
+ *  - rapport_reserve_donneur_ordre (D12) : même règle que la fiche.
  *
  * Mock du query-builder Supabase chaînable, keyé par table (résout via `.then`).
  */
@@ -170,5 +171,64 @@ describe('M3.1 / liste traiteur — agrégation résultats collecte réalisée',
     const row = json.data[0]!;
     expect(row.programmee_par_tiers).toBe(true);
     expect(row.poids_total_kg).toBe(100);
+  });
+});
+
+// D12 (arbitrage Val 2026-09-30) : la route de téléchargement lit l'attestation
+// de don sous la RLS du traiteur (att_traiteur_select = organisation
+// programmatrice) et répond 404 au traiteur opérationnel d'une collecte AG
+// programmée par une agence. La liste expose ce cas pour ne pas proposer un
+// bouton inerte — même règle que la fiche (rapportReserveDonneurOrdre).
+describe('M3.1 / liste traiteur — rapport réservé au donneur d’ordre (D12)', () => {
+  function ligne(
+    id: string,
+    type: string,
+    statut: string,
+    organisationProgrammatrice: string,
+  ) {
+    return {
+      id,
+      type,
+      statut,
+      co2_evite_kg: null,
+      collecte_flux: [],
+      attributions_antgaspi: null,
+      evenements: {
+        organisation_id: organisationProgrammatrice,
+        traiteur_operationnel_organisation_id: 'org-1',
+      },
+    };
+  }
+
+  it('M3.1/liste_rapport_reserve_donneur_ordre — AG programmée par un tiers : réservée ; propre AG, ZD et sans-excédent : téléchargeables', async () => {
+    rls.results.collectes = {
+      data: [
+        ligne('ag-agence', 'anti_gaspi', 'cloturee', 'org-agence'),
+        ligne('ag-propre', 'anti_gaspi', 'cloturee', 'org-1'),
+        // Rapport RSE ZD servi au traiteur opérationnel (rr_select).
+        ligne('zd-agence', 'zero_dechet', 'cloturee', 'org-agence'),
+        // Sans excédent : pas d'attestation, rapport RSE « Événement sans
+        // excédent alimentaire » (rapports_rse).
+        ligne(
+          'ag-sans-excedent-agence',
+          'anti_gaspi',
+          'realisee_sans_collecte',
+          'org-agence',
+        ),
+      ],
+      error: null,
+    };
+    const res = await callGet('statut=cloturee,realisee_sans_collecte');
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: Record<string, unknown>[] };
+    const reserve = Object.fromEntries(
+      json.data.map((r) => [r.id, r.rapport_reserve_donneur_ordre]),
+    );
+    expect(reserve).toEqual({
+      'ag-agence': true,
+      'ag-propre': false,
+      'zd-agence': false,
+      'ag-sans-excedent-agence': false,
+    });
   });
 });

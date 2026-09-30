@@ -887,6 +887,14 @@
       "libelle": "Liste traiteur, cellule Résultats d'une collecte cloturee : quand rapport_reserve_donneur_ordre, le picto « Télécharger le rapport » est RETIRÉ (action indisponible retirée sur cette liste, §10 §7 exception densité — plus de bouton inerte) et remplacé par la mention de la fiche « Réservé à l'organisation qui a programmé la collecte » (constante LIBELLE_RAPPORT_RESERVE, partagée avec le Bilan de la fiche). Câblage page → table : M3.1/liste_rapport_reserve_donneur_ordre_page."
     },
     {
+      "id": "M3.1-liste-rapport-reserve-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:412",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la mention « Réservé à l'organisation qui a programmé la collecte » dans la cellule Résultats de la liste traiteur (picto document devant, pas de picto Télécharger), en tableau desktop ET en carte mobile < 640 px : se lit « rapport réservé » et non « résultats réservés », ne casse pas la cellule ; la ligne non réservée garde son picto — preuve écran à joindre (geste de Val, GO-VISUAL)."
+    },
+    {
       "id": "M3.1-popup-client-rendu-visuel",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:375",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",

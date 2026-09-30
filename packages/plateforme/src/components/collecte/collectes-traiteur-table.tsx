@@ -4,6 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import {
   Copy,
   Download,
+  FileText,
   Leaf,
   Package,
   Pencil,
@@ -114,9 +115,14 @@ function Resultats({
         </span>
       )}
       {/* Rapport réservé au donneur d'ordre : action retirée (liste, §10 §7)
-          et remplacée par la mention de la fiche. */}
+          et remplacée par la mention de la fiche, précédée du picto document
+          pour qu'elle se lise « rapport réservé », pas « résultats réservés ». */}
       {c.rapport_reserve_donneur_ordre ? (
-        <span className="font-normal text-savr-neutral-500">
+        <span className="inline-flex items-center gap-1.5 font-normal text-savr-neutral-500">
+          <FileText
+            className="h-3.5 w-3.5 text-savr-neutral-400"
+            aria-hidden="true"
+          />
           {LIBELLE_RAPPORT_RESERVE}
         </span>
       ) : (

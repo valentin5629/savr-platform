@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 
-// Briques de mise en page des fiches collecte en pop-up (Admin + traiteur) :
+// Briques de mise en page des fiches en pop-up (collecte Admin + clients, transporteur) :
 // même en-tête de bloc, même colonne résumé, mêmes champs label/valeur.
 
 // En-tête de bloc — DS §10 leviers #2 (pastille primary pleine) + #7 (titre
@@ -103,3 +103,13 @@ export function TelephoneLien({ telephone }: { telephone?: string | null }) {
     </a>
   );
 }
+
+// Onglets en colonne des fiches en pop-up (fiche collecte client, fiche
+// transporteur Admin) : colonne à gauche sur fond neutral-50, barre horizontale
+// défilante sous md. Onglet actif = fond blanc + contour (pas d'aplat navy) —
+// maquette validée.
+export const ONGLETS_COLONNE_LISTE =
+  'flex shrink-0 gap-1 overflow-x-auto border-b border-savr-neutral-200 bg-savr-neutral-50 px-4 py-2 md:w-56 md:flex-col md:items-stretch md:overflow-visible md:border-b-0 md:border-r md:px-4 md:py-5';
+
+export const ONGLETS_COLONNE_DECLENCHEUR =
+  'h-11 shrink-0 justify-start rounded-savr-md border-b-0 px-3 text-[15px] font-normal text-savr-neutral-700 hover:bg-savr-white hover:text-savr-neutral-900 data-[state=active]:bg-savr-white data-[state=active]:font-bold data-[state=active]:text-savr-primary-700 data-[state=active]:ring-1 data-[state=active]:ring-inset data-[state=active]:ring-savr-neutral-200 md:w-full';

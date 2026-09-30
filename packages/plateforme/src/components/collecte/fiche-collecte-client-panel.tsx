@@ -29,6 +29,10 @@ import {
   type FicheClientDonnees,
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
+import {
+  ONGLETS_COLONNE_DECLENCHEUR,
+  ONGLETS_COLONNE_LISTE,
+} from '@/components/collecte/fiche-blocs';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { cn } from '@/lib/utils';
@@ -40,10 +44,6 @@ import { cn } from '@/lib/utils';
 // Seules changent les actions, calculées par le serveur selon le rôle.
 
 type Onglet = 'informations' | 'logistique' | 'bilan';
-
-// Onglet actif = fond blanc + contour (pas d'aplat navy) — maquette validée.
-const TRIGGER_ONGLET =
-  'h-11 shrink-0 justify-start rounded-savr-md border-b-0 px-3 text-[15px] font-normal text-savr-neutral-700 hover:bg-savr-white hover:text-savr-neutral-900 data-[state=active]:bg-savr-white data-[state=active]:font-bold data-[state=active]:text-savr-primary-700 data-[state=active]:ring-1 data-[state=active]:ring-inset data-[state=active]:ring-savr-neutral-200 md:w-full';
 
 // Badge type (Q2) : ZD navy primary-700 texte blanc / AG orange accent-500
 // texte primary-950 — aligné DS dataviz-1/2.
@@ -354,15 +354,21 @@ export function FicheCollecteClientPanel({
         >
           <TabsList
             aria-label="Sections de la fiche collecte"
-            className="flex shrink-0 gap-1 overflow-x-auto border-b border-savr-neutral-200 bg-savr-neutral-50 px-4 py-2 md:w-56 md:flex-col md:items-stretch md:overflow-visible md:border-b-0 md:border-r md:px-4 md:py-5"
+            className={ONGLETS_COLONNE_LISTE}
           >
-            <TabsTrigger value="informations" className={TRIGGER_ONGLET}>
+            <TabsTrigger
+              value="informations"
+              className={ONGLETS_COLONNE_DECLENCHEUR}
+            >
               Informations
             </TabsTrigger>
-            <TabsTrigger value="logistique" className={TRIGGER_ONGLET}>
+            <TabsTrigger
+              value="logistique"
+              className={ONGLETS_COLONNE_DECLENCHEUR}
+            >
               Logistique
             </TabsTrigger>
-            <TabsTrigger value="bilan" className={TRIGGER_ONGLET}>
+            <TabsTrigger value="bilan" className={ONGLETS_COLONNE_DECLENCHEUR}>
               Bilan & documents
             </TabsTrigger>
           </TabsList>

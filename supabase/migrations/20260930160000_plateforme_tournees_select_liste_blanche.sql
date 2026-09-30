@@ -102,6 +102,9 @@ ALTER FUNCTION plateforme.fn_cloturer_alerte_coordonnees_urgence() SECURITY DEFI
 REVOKE EXECUTE ON FUNCTION plateforme.fn_cloturer_alerte_coordonnees_urgence()
   FROM PUBLIC, anon, authenticated;
 
+COMMENT ON FUNCTION plateforme.fn_cloturer_alerte_coordonnees_urgence() IS
+  'Trigger (tournees, collecte_tournees) : clôt l''alerte coordonnees_chauffeur_urgence quand tous les camions de la collecte ont nom + téléphone (+ plaque hors vélo cargo). SECURITY DEFINER depuis 20260930160000 : les colonnes chauffeur sont hors GRANT SELECT authenticated, une écriture admin_savr sous JWT lèverait 42501 en INVOKER. ⚠ Toute redéfinition (CREATE OR REPLACE) doit redéclarer SECURITY DEFINER et SET search_path = plateforme, pg_catalog — sinon retour silencieux à INVOKER (épinglé par SECU__tournees_select_liste_blanche, assertions 5 et 29).';
+
 COMMENT ON COLUMN plateforme.tournees.chauffeur_telephone IS
   'Téléphone du chauffeur. Saisie Admin en V1 (MTS-1 ne l''expose pas). Hors GRANT SELECT authenticated depuis 20260930160000 : servi au client par la route de la fiche collecte (service_role) en statut programmee / validee / en_cours seulement (§06.04).';
 
@@ -111,4 +114,5 @@ COMMENT ON COLUMN plateforme.tournees.prestataire_logistique_id IS
 -- ROLLBACK (rouvre des accès : décision explicite de Val, CLAUDE.md §12-2bis) :
 --   ALTER FUNCTION plateforme.fn_cloturer_alerte_coordonnees_urgence() SECURITY INVOKER;
 --   GRANT SELECT ON plateforme.tournees TO authenticated;
---   puis REVOKE SELECT (<liste blanche>) devenu sans objet.
+--   (le grant colonne-level des 12 colonnes devient alors redondant : le retirer est
+--   optionnel et purement cosmétique.)

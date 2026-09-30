@@ -958,11 +958,87 @@ describe('M3.1 / pop-up — attestation du donneur d’ordre (D12)', () => {
       expect(docs.textContent).toContain(
         'Réservé à l’organisation qui a programmé la collecte',
       );
-      // Pas de faux « disponible demain » : le document ne viendra jamais.
+      // Aucune promesse d'arrivée : le document ne viendra jamais.
       expect(docs.textContent).not.toContain('Disponible le lendemain');
+      expect(docs.textContent).not.toContain('48h');
+      expect(docs.textContent).not.toContain('En cours de préparation');
       expect(
         within(docs).queryByRole('button', { name: 'Télécharger' }),
       ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 2026-09-30)', () => {
+  it(
+    'M3.1/fiche_popup_document_a_venir — avant l’échéance : promesse des 48 h, téléchargement inactif',
+    async () => {
+      stubFetchFiche(
+        ficheClient({ statut: 'realisee', rapport_etat: 'a_venir' }),
+      );
+      render(fiche('c1'));
+      await ouvrirOnglet('Bilan & documents');
+
+      const docs = await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
+      expect(docs.textContent).toContain('Rapport RSE');
+      expect(docs.textContent).toContain(
+        'Document disponible dans les 48h après la collecte',
+      );
+      expect(docs.textContent).not.toContain('Disponible le lendemain');
+      expect(
+        within(docs).getByRole('button', { name: 'Télécharger' }),
+      ).toHaveProperty('disabled', true);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/fiche_popup_document_en_preparation — échéance passée sans PDF : « En cours de préparation », aucune promesse ni cause',
+    async () => {
+      // Cas constaté par Val : AG réalisée le 13/09, consultée le 30/09.
+      stubFetchFiche(
+        ficheClient({
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          realisee_at: '2026-09-13T21:00:00Z',
+          repas_donnes: 840,
+          rapport_etat: 'en_preparation',
+          actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+        }),
+      );
+      render(fiche('c1'));
+      await ouvrirOnglet('Bilan & documents');
+
+      const docs = await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
+      expect(docs.textContent).toContain('Rapport de don');
+      expect(docs.textContent).toContain('En cours de préparation');
+      expect(docs.textContent).not.toContain('Disponible le lendemain');
+      expect(docs.textContent).not.toContain('48h');
+      expect(docs.textContent).not.toMatch(/retard|échec|erreur|pesée/i);
+      expect(
+        within(docs).getByRole('button', { name: 'Télécharger' }),
+      ).toHaveProperty('disabled', true);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/fiche_popup_document_disponible — PDF prêt : « PDF », téléchargement actif',
+    async () => {
+      stubFetchFiche(
+        ficheClient({ ...ZD_REALISEE, rapport_etat: 'disponible' }),
+      );
+      render(fiche('c1'));
+      await ouvrirOnglet('Bilan & documents');
+
+      const docs = await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
+      expect(docs.textContent).toContain('PDF');
+      expect(docs.textContent).not.toContain('48h');
+      expect(docs.textContent).not.toContain('En cours de préparation');
+      expect(
+        within(docs).getByRole('button', { name: 'Télécharger' }),
+      ).toHaveProperty('disabled', false);
     },
     ATTENTE_CAS_MS,
   );

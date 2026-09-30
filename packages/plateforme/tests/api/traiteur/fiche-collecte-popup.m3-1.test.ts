@@ -16,6 +16,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { makeClient, ligneCollecte } from '../helpers/fiche-client-mock';
+import { etatRapport } from '@/lib/collectes/fiche-client-types';
 
 let rls = makeClient();
 let admin = makeClient();
@@ -398,6 +399,155 @@ describe('M3.1 / documents de la fiche — lus sous la RLS du traiteur (D12)', (
     expect(res.status).toBe(404);
     expect(JSON.stringify(await res.json())).not.toContain('att-agence');
     expect(admin.calls).toHaveLength(0);
+  });
+});
+
+describe('M3.1 / ligne document — état calculé par le serveur (arbitrage Val 2026-09-30)', () => {
+  const H = 3600 * 1000;
+  const ilYa = (ms: number) => new Date(Date.now() - ms).toISOString();
+
+  it.each([
+    ['ZD programmée, pas encore réalisée', 'zero_dechet', 'programmee', null],
+    ['ZD réalisée il y a 2 h', 'zero_dechet', 'realisee', ilYa(2 * H)],
+    ['AG réalisée il y a 23 h', 'anti_gaspi', 'realisee', ilYa(23 * H)],
+  ])(
+    'M3.1/fiche_get_rapport_etat_a_venir — %s : avant l’échéance H+24',
+    async (_cas, type, statut, realisee_at) => {
+      rls.results.collectes = {
+        data: ligneCollecte({ type, statut, realisee_at }),
+        error: null,
+      };
+      const { json } = await getFiche();
+      expect(json.data.rapport_rse_disponible).toBe(false);
+      expect(json.data.rapport_etat).toBe('a_venir');
+    },
+  );
+
+  it.each([
+    [
+      'AG réalisée le 13/09, attestation sans PDF (cas constaté)',
+      'anti_gaspi',
+      'cloturee',
+      '2026-09-13T21:00:00Z',
+      'attestations_don',
+      { eligible_at: '2026-09-14T21:00:00Z', pdf_url: null },
+    ],
+    [
+      'ZD clôturée, aucune ligne de document (lot du matin sauté)',
+      'zero_dechet',
+      'cloturee',
+      ilYa(30 * H),
+      null,
+      null,
+    ],
+    [
+      'ZD clôturée, rendu PDF pas encore fait',
+      'zero_dechet',
+      'cloturee',
+      ilYa(30 * H),
+      'rapports_rse',
+      { disponible_a: ilYa(6 * H), genere_at: null, regenere_at: null },
+    ],
+    [
+      'AG sans excédent réalisée il y a 25 h, sans rapport',
+      'anti_gaspi',
+      'realisee_sans_collecte',
+      ilYa(25 * H),
+      null,
+      null,
+    ],
+    [
+      'clôturée sans date de réalisation (historique)',
+      'zero_dechet',
+      'cloturee',
+      null,
+      null,
+      null,
+    ],
+  ] as const)(
+    'M3.1/fiche_get_rapport_etat_en_preparation — %s',
+    async (_cas, type, statut, realisee_at, table, ligne) => {
+      rls.results.collectes = {
+        data: ligneCollecte({ type, statut, realisee_at }),
+        error: null,
+      };
+      if (table) rls.results[table] = { data: ligne, error: null };
+      const { json } = await getFiche();
+      expect(json.data.rapport_rse_disponible).toBe(false);
+      expect(json.data.rapport_etat).toBe('en_preparation');
+    },
+  );
+
+  it('M3.1/fiche_get_rapport_etat_disponible — PDF généré, embargo écoulé', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ statut: 'cloturee', realisee_at: ilYa(30 * H) }),
+      error: null,
+    };
+    rls.results.rapports_rse = {
+      data: {
+        disponible_a: ilYa(6 * H),
+        genere_at: ilYa(5 * H),
+        regenere_at: null,
+      },
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.rapport_rse_disponible).toBe(true);
+    expect(json.data.rapport_etat).toBe('disponible');
+  });
+
+  it('M3.1/fiche_get_rapport_etat_reserve — traiteur opérationnel : « réservé » l’emporte sur l’échéance passée', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        type: 'anti_gaspi',
+        statut: 'cloturee',
+        realisee_at: ilYa(30 * 24 * H),
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-agence',
+          traiteur_operationnel_organisation_id: 'org-1',
+        },
+      }),
+      error: null,
+    };
+    rls.results.attestations_don = { data: null, error: null };
+    const { json } = await getFiche();
+    expect(json.data.rapport_reserve_donneur_ordre).toBe(true);
+    expect(json.data.rapport_etat).toBe('reserve');
+  });
+
+  it('M3.1/rapport_etat_echeance_h24 — bascule exactement à réalisation + 24 h', () => {
+    const realisee_at = '2026-09-13T21:00:00.000Z';
+    const echeance = new Date(realisee_at).getTime() + 24 * H;
+    const etat = (maintenant: number) =>
+      etatRapport({
+        reserve: false,
+        disponible: false,
+        statut: 'realisee',
+        realisee_at,
+        maintenant,
+      });
+    expect(etat(echeance - 1)).toBe('a_venir');
+    expect(etat(echeance)).toBe('en_preparation');
+    // Disponible et réservé ne dépendent pas de l'échéance.
+    expect(
+      etatRapport({
+        reserve: false,
+        disponible: true,
+        statut: 'cloturee',
+        realisee_at,
+        maintenant: echeance - 1,
+      }),
+    ).toBe('disponible');
+    expect(
+      etatRapport({
+        reserve: true,
+        disponible: false,
+        statut: 'cloturee',
+        realisee_at,
+        maintenant: echeance + 1,
+      }),
+    ).toBe('reserve');
   });
 });
 

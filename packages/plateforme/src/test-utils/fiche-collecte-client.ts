@@ -55,6 +55,13 @@ export function ficheClient(
     rapport_rse_disponible: false,
     rapport_rse_regenere: false,
     rapport_reserve_donneur_ordre: false,
+    // Par défaut, cohérent avec les deux indicateurs comme le calcule le
+    // serveur (etatRapport) ; un test peut forcer n'importe quel état.
+    rapport_etat: over.rapport_reserve_donneur_ordre
+      ? 'reserve'
+      : over.rapport_rse_disponible
+        ? 'disponible'
+        : 'a_venir',
     actions: { modifier: 'actif', annuler: 'actif', annulation: 'demande' },
     ...over,
   };

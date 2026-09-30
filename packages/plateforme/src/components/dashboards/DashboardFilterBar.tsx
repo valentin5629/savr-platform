@@ -28,7 +28,7 @@ interface DashboardFilterBarProps {
   onChange: (filters: DashboardFilters) => void;
   /** Si fourni, affiche les 4 filtres parc (Lieux/Traiteurs/Type/Taille) + Réinitialiser. */
   parcOptions?: ParcFilterOptions;
-  /** Filtres propres au consommateur, en tête de ligne (avant « Période »). */
+  /** Filtres propres au consommateur, placés juste après « Période ». */
   children?: ReactNode;
   /** Appelé en plus du retour à la période par défaut (« Réinitialiser »). */
   onReset?: () => void;
@@ -125,9 +125,9 @@ export function DashboardFilterBar({
 
   const filtres = (
     <>
-      {children}
       {/* Format unique des barres de filtres (décision Val 2026-09-30) :
-          « Période  12 derniers mois ▾ », raccourcis dans le panneau. */}
+          « Période  12 derniers mois ▾ » EN PREMIER, raccourcis dans le
+          panneau ; les filtres du consommateur suivent. */}
       <DateRangePicker
         titre="Période"
         id="dashboard-filter-periode"
@@ -141,6 +141,7 @@ export function DashboardFilterBar({
           apply({ ...filters, from: periode.from, to: periode.to });
         }}
       />
+      {children}
 
       {parcOptions && (
         <ParcMultiSelects

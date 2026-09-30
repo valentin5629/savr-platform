@@ -121,6 +121,42 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
     expect(orCall?.[1]).toEqual({ referencedTable: 'evenements' });
   });
 
+  it('M0.6 — choix multiple : types / traiteur_operationnel_ids / lieu_ids (CSV) → in(…) prioritaires sur le mono', async () => {
+    const a = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    const b = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    await callGet(
+      `?types=zero_dechet,anti_gaspi&type=zero_dechet&traiteur_operationnel_ids=${a},${b}&lieu_ids=${b}&lieu_id=lieu-1`,
+    );
+    expect(chain.in).toHaveBeenCalledWith('type', [
+      'zero_dechet',
+      'anti_gaspi',
+    ]);
+    expect(chain.in).toHaveBeenCalledWith(
+      'evenements.traiteur_operationnel_organisation_id',
+      [a, b],
+    );
+    expect(chain.in).toHaveBeenCalledWith('evenements.lieu_id', [b]);
+    // Le mono est ignoré quand la liste est fournie.
+    expect(chain.eq).not.toHaveBeenCalledWith('type', 'zero_dechet');
+    expect(chain.eq).not.toHaveBeenCalledWith('evenements.lieu_id', 'lieu-1');
+  });
+
+  it('M0.6 — choix multiple : valeurs hors liste blanche / non-UUID écartées avant in(…)', async () => {
+    const a = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    await callGet(
+      `?types=zero_dechet,autre),x&traiteur_operationnel_ids=${a},pas-un-uuid&lieu_ids=pas-un-uuid`,
+    );
+    expect(chain.in).toHaveBeenCalledWith('type', ['zero_dechet']);
+    expect(chain.in).toHaveBeenCalledWith(
+      'evenements.traiteur_operationnel_organisation_id',
+      [a],
+    );
+    // Aucune valeur valide → pas de filtre lieu du tout.
+    expect(chain.in.mock.calls.some((c) => c[0] === 'evenements.lieu_id')).toBe(
+      false,
+    );
+  });
+
   it('R24c — périmètre ignore les ids non-UUID (défense en profondeur → pas de .or)', async () => {
     await callGet('?perimetre_org_ids[]=not-a-uuid');
     expect(

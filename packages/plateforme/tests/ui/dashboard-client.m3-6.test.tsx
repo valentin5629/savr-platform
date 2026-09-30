@@ -14,6 +14,7 @@ import {
   fireEvent,
   waitFor,
   cleanup,
+  within,
 } from '@testing-library/react';
 import { DashboardClientView } from '@/app/(admin)/admin/dashboard-client/DashboardClientView.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
@@ -208,9 +209,12 @@ describe('M3.6 / Dashboard Client / UI', () => {
       );
       const agence = screen.getByTestId('org-filtre-agence');
       const gestionnaire = screen.getByTestId('org-filtre-gestionnaire_lieux');
+      // « Période » en premier dans la barre (décision Val 2026-09-30).
       expect(
-        screen.getByTestId('dashboard-filter-periode'),
-      ).toBeInTheDocument();
+        screen
+          .getByTestId('dashboard-filter-periode')
+          .compareDocumentPosition(traiteur) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
       expect(traiteur).toHaveTextContent('TraiteurTous');
       expect(agence).toHaveTextContent('AgenceToutes');
       expect(gestionnaire).toHaveTextContent('Gestionnaire de lieuxTous');
@@ -239,18 +243,56 @@ describe('M3.6 / Dashboard Client / UI', () => {
 
       // Coche en plus une agence → périmètre = union des deux organisations.
       fireEvent.click(agence);
+      const listeAgences = await screen.findByRole(
+        'list',
+        { name: 'Agence' },
+        ATTENTE_UI,
+      );
+      // « Toutes » (case de tête) est décochée : une autre sélection existe.
+      const toutesAgences = within(listeAgences).getByRole('checkbox', {
+        name: 'Toutes',
+      });
+      expect(toutesAgences).not.toBeChecked();
       fireEvent.click(
-        await screen.findByRole(
-          'checkbox',
-          { name: 'Agence Gamma' },
-          ATTENTE_UI,
-        ),
+        within(listeAgences).getByRole('checkbox', { name: 'Agence Gamma' }),
       );
       await waitFor(
         () => expect(orgIdsDerniereRequete().sort()).toEqual(['o1', 'o3']),
         ATTENTE_UI,
       );
       expect(agence).toHaveTextContent('Agence Gamma');
+      expect(toutesAgences).toBeChecked();
+
+      // « Tous » des gestionnaires ajoute tout le type : toutes les
+      // organisations cochées = « Toutes les organisations » (aucun filtre).
+      fireEvent.click(gestionnaire);
+      fireEvent.click(
+        within(
+          await screen.findByRole(
+            'list',
+            { name: 'Gestionnaire de lieux' },
+            ATTENTE_UI,
+          ),
+        ).getByRole('checkbox', { name: 'Tous' }),
+      );
+      await waitFor(() => {
+        expect(orgIdsDerniereRequete()).toEqual([]);
+        expect(traiteur).toHaveTextContent('TraiteurTous');
+        expect(agence).toHaveTextContent('AgenceToutes');
+      }, ATTENTE_UI);
+
+      // Nouvelle sélection avant de tester « Réinitialiser » (le panneau
+      // Traiteur s'est refermé à l'ouverture des autres filtres).
+      fireEvent.click(traiteur);
+      fireEvent.click(
+        within(
+          await screen.findByRole('list', { name: 'Traiteur' }, ATTENTE_UI),
+        ).getByRole('checkbox', { name: 'Traiteur Alpha' }),
+      );
+      await waitFor(
+        () => expect(orgIdsDerniereRequete()).toEqual(['o1']),
+        ATTENTE_UI,
+      );
 
       // « Réinitialiser » → période par défaut + les 3 filtres à « Tous/Toutes ».
       fireEvent.click(

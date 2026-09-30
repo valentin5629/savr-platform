@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
@@ -180,6 +179,12 @@ function KpiTile({
   );
 }
 
+// Pastilles AG / ZD et tuiles « à dispatcher » : actives quand le filtre Type
+// porte exactement ce type (un re-clic le retire).
+function typeSeul(types: string[], val: string): boolean {
+  return types.length === 1 && types[0] === val;
+}
+
 export default function CollectesPage() {
   const router = useRouter();
   const params = useSearchParams();
@@ -214,9 +219,15 @@ export default function CollectesPage() {
       ? drillChip
       : '',
   );
-  const [type, setType] = useState(drillType ?? '');
-  const [traiteurId, setTraiteurId] = useState(drillTraiteur ?? '');
-  const [lieuId, setLieuId] = useState(drillLieu ?? '');
+  // Type / Traiteur / Lieu : choix multiple (décision Val 2026-09-30), vide =
+  // « Tous ». Le drill-down (?type= / ?traiteur= / ?lieu=) pré-coche une valeur.
+  const [types, setTypes] = useState<string[]>(drillType ? [drillType] : []);
+  const [traiteurIds, setTraiteurIds] = useState<string[]>(
+    drillTraiteur ? [drillTraiteur] : [],
+  );
+  const [lieuIds, setLieuIds] = useState<string[]>(
+    drillLieu ? [drillLieu] : [],
+  );
   const [from, setFrom] = useState(drillFrom ?? '');
   const [to, setTo] = useState(drillTo ?? '');
   // Statut (multi-sélection, §06.06 §3) : scopé aux valeurs valides de l'onglet
@@ -332,7 +343,7 @@ export default function CollectesPage() {
             ? statutsSel.join(',')
             : STATUTS_PROGRAMMEES.join(','),
         );
-        if (type) params.set('type', type);
+        if (types.length > 0) params.set('types', types.join(','));
       }
     } else {
       // Historique : preset terminaux, raffiné par le filtre rapide.
@@ -347,7 +358,7 @@ export default function CollectesPage() {
         );
         if (quickFilter === 'ag') params.set('type', 'anti_gaspi');
         else if (quickFilter === 'zd') params.set('type', 'zero_dechet');
-        else if (type) params.set('type', type);
+        else if (types.length > 0) params.set('types', types.join(','));
       }
     }
 
@@ -355,8 +366,9 @@ export default function CollectesPage() {
     if (!(tab === 'programmees' && quickFilter)) {
       // « Traiteur » = traiteur OPÉRATIONNEL (décision Val R24c) → miroir exact du
       // Top 5 traiteurs des dashboards (agrégé par traiteur_operationnel).
-      if (traiteurId) params.set('traiteur_operationnel_id', traiteurId);
-      if (lieuId) params.set('lieu_id', lieuId);
+      if (traiteurIds.length > 0)
+        params.set('traiteur_operationnel_ids', traiteurIds.join(','));
+      if (lieuIds.length > 0) params.set('lieu_ids', lieuIds.join(','));
       if (from) params.set('from', from);
       if (to) params.set('to', to);
       // Périmètre d'organisations du drill-down (miroir exact du chiffre borné).
@@ -379,10 +391,10 @@ export default function CollectesPage() {
     page,
     sorting,
     quickFilter,
-    type,
+    types,
     statutsSel,
-    traiteurId,
-    lieuId,
+    traiteurIds,
+    lieuIds,
     from,
     to,
     perimetreOrgIds,
@@ -435,7 +447,7 @@ export default function CollectesPage() {
   const changeTab = (next: Tab) => {
     setTab(next);
     setQuickFilter('');
-    setType('');
+    setTypes([]);
     setStatutsSel([]);
     setSorting(TRI_DEFAUT[next]);
     setPage(1);
@@ -469,9 +481,9 @@ export default function CollectesPage() {
   // Efface le filtre de drill-down (lieu / traiteur venu du dashboard) → liste nue.
   const clearDrill = () => {
     setDrillActive(false);
-    setTraiteurId('');
-    setLieuId('');
-    setType('');
+    setTraiteurIds([]);
+    setLieuIds([]);
+    setTypes([]);
     setStatutsSel([]);
     setFrom('');
     setTo('');
@@ -555,7 +567,7 @@ export default function CollectesPage() {
               ['zero_dechet', 'Zéro Déchet', Leaf],
             ] as [string, string, LucideIcon][]
           ).map(([val, label, Icone]) => {
-            const actif = !quickFilter && type === val;
+            const actif = !quickFilter && typeSeul(types, val);
             return (
               <button
                 key={val}
@@ -563,7 +575,7 @@ export default function CollectesPage() {
                 aria-pressed={actif}
                 onClick={() => {
                   setQuickFilter('');
-                  setType((t) => (t === val ? '' : val));
+                  setTypes((t) => (typeSeul(t, val) ? [] : [val]));
                   setPage(1);
                 }}
                 className={`inline-flex items-center gap-1.5 rounded-savr-full px-4 py-2 text-sm font-bold transition-colors duration-[120ms] ${
@@ -619,10 +631,12 @@ export default function CollectesPage() {
             label="AG à dispatcher"
             sublabel="validées transporteur"
             tone="warning"
-            active={!quickFilter && type === 'anti_gaspi'}
+            active={!quickFilter && typeSeul(types, 'anti_gaspi')}
             onClick={() => {
               setQuickFilter('');
-              setType((t) => (t === 'anti_gaspi' ? '' : 'anti_gaspi'));
+              setTypes((t) =>
+                typeSeul(t, 'anti_gaspi') ? [] : ['anti_gaspi'],
+              );
               setPage(1);
             }}
           />
@@ -632,10 +646,12 @@ export default function CollectesPage() {
             label="ZD à dispatcher"
             sublabel="validées transporteur"
             tone="success"
-            active={!quickFilter && type === 'zero_dechet'}
+            active={!quickFilter && typeSeul(types, 'zero_dechet')}
             onClick={() => {
               setQuickFilter('');
-              setType((t) => (t === 'zero_dechet' ? '' : 'zero_dechet'));
+              setTypes((t) =>
+                typeSeul(t, 'zero_dechet') ? [] : ['zero_dechet'],
+              );
               setPage(1);
             }}
           />
@@ -666,7 +682,7 @@ export default function CollectesPage() {
         ariaLabel="Filtres rapides"
         onSelect={(key) => {
           setQuickFilter(key);
-          setType('');
+          setTypes([]);
           setPage(1);
         }}
       />
@@ -674,48 +690,8 @@ export default function CollectesPage() {
       {/* Barre de filtres toujours visible — ni recherche libre ni repli
           « Filtres avancés » (décision Val 2026-09-30, §06.06 §3 « Filtres »). */}
       <FilterBar data-testid="collectes-filtres">
-        <Combobox
-          titre="Type"
-          id="collectes-filtre-type"
-          options={[
-            { value: '', label: 'Tous types' },
-            { value: 'zero_dechet', label: 'Zéro Déchet' },
-            { value: 'anti_gaspi', label: 'Anti-Gaspi' },
-          ]}
-          value={type}
-          onChange={(v) => {
-            setType(v);
-            setPage(1);
-          }}
-        />
-        <Combobox
-          titre="Traiteur"
-          id="collectes-filtre-traiteur"
-          searchPlaceholder="Rechercher un traiteur…"
-          options={[
-            { value: '', label: 'Tous les traiteurs' },
-            ...traiteurs.map((t) => ({ value: t.id, label: t.label })),
-          ]}
-          value={traiteurId}
-          onChange={(v) => {
-            setTraiteurId(v);
-            setPage(1);
-          }}
-        />
-        <Combobox
-          titre="Lieu"
-          id="collectes-filtre-lieu"
-          searchPlaceholder="Rechercher un lieu…"
-          options={[
-            { value: '', label: 'Tous les lieux' },
-            ...lieux.map((l) => ({ value: l.id, label: l.label })),
-          ]}
-          value={lieuId}
-          onChange={(v) => {
-            setLieuId(v);
-            setPage(1);
-          }}
-        />
+        {/* Période en premier, puis filtres à choix multiple avec case
+            « Tous » (décision Val 2026-09-30). */}
         <DateRangePicker
           titre="Période"
           id="collectes-filtre-periode"
@@ -724,6 +700,39 @@ export default function CollectesPage() {
           onChange={(p) => {
             setFrom(p.from);
             setTo(p.to);
+            setPage(1);
+          }}
+        />
+        <FiltreCoches
+          label="Type"
+          testid="collectes-filtre-type"
+          options={[
+            { id: 'zero_dechet', nom: 'Zéro Déchet' },
+            { id: 'anti_gaspi', nom: 'Anti-Gaspi' },
+          ]}
+          selected={types}
+          onChange={(ids) => {
+            setTypes(ids);
+            setPage(1);
+          }}
+        />
+        <FiltreCoches
+          label="Traiteur"
+          testid="collectes-filtre-traiteur"
+          options={traiteurs.map((t) => ({ id: t.id, nom: t.label }))}
+          selected={traiteurIds}
+          onChange={(ids) => {
+            setTraiteurIds(ids);
+            setPage(1);
+          }}
+        />
+        <FiltreCoches
+          label="Lieu"
+          testid="collectes-filtre-lieu"
+          options={lieux.map((l) => ({ id: l.id, nom: l.label }))}
+          selected={lieuIds}
+          onChange={(ids) => {
+            setLieuIds(ids);
             setPage(1);
           }}
         />

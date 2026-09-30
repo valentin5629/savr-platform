@@ -407,7 +407,7 @@ export function DashboardClientView() {
       </div>
 
       {/* Même barre que la liste Collectes (décision Val 2026-09-30) :
-          organisations par type + Période ; « Réinitialiser » rétablit
+          Période puis organisations par type ; « Réinitialiser » rétablit
           aussi toutes les organisations (§06.06 §2). */}
       <DashboardFilterBar
         storageKey="savr.dashboard-client.filters"

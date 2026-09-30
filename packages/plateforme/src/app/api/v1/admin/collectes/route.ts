@@ -20,6 +20,22 @@ const TRIS = {
   statut_tms: ['statut_tms', 'date_collecte'],
 } satisfies Record<string, string[]>;
 
+const TYPES_COLLECTE = ['zero_dechet', 'anti_gaspi'];
+
+const estUuid = (id: string): boolean =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+/** Liste CSV d'un paramètre, restreinte aux valeurs acceptées par `valide`. */
+function listeCsv(
+  brut: string | null,
+  valide: (v: string) => boolean,
+): string[] {
+  return (brut ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter((v) => v && valide(v));
+}
+
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
@@ -44,12 +60,19 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   // profondeur, la valeur est interpolée dans un `.or()` non paramétré).
   const perimetreOrgIds = searchParams
     .getAll('perimetre_org_ids[]')
-    .filter((id) =>
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        id,
-      ),
-    );
+    .filter(estUuid);
   const lieu_id = searchParams.get('lieu_id'); // lieu (autocomplete)
+  // Choix multiple de la barre de filtres (décision Val 2026-09-30) : listes
+  // CSV, prioritaires sur leur équivalent mono (même motif que `statuts`).
+  // Valeurs en liste blanche (types) ou validées UUID (ids) avant `.in()`.
+  const types = listeCsv(searchParams.get('types'), (t) =>
+    TYPES_COLLECTE.includes(t),
+  );
+  const traiteurOperationnelIds = listeCsv(
+    searchParams.get('traiteur_operationnel_ids'),
+    estUuid,
+  );
+  const lieuIds = listeCsv(searchParams.get('lieu_ids'), estUuid);
   const info_incomplete = searchParams.get('info_incomplete'); // « Info incomplète »
   const controle_acces = searchParams.get('controle_acces'); // « Infos accès à envoyer » = contrôle d'accès requis ET email non envoyé ET à venir
   const rapport_non_consulte = searchParams.get('rapport_non_consulte'); // rapport non consulté
@@ -112,13 +135,19 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     } else if (statut) {
       query = query.eq('statut', statut);
     }
-    if (type) query = query.eq('type', type);
+    if (types.length > 0) query = query.in('type', types);
+    else if (type) query = query.eq('type', type);
     if (statut_tms) query = query.eq('statut_tms', statut_tms);
     if (from) query = query.gte('date_collecte', from);
     if (to) query = query.lte('date_collecte', to);
     if (organisation_id)
       query = query.eq('evenements.organisation_id', organisation_id);
-    if (traiteur_operationnel_id)
+    if (traiteurOperationnelIds.length > 0)
+      query = query.in(
+        'evenements.traiteur_operationnel_organisation_id',
+        traiteurOperationnelIds,
+      );
+    else if (traiteur_operationnel_id)
       query = query.eq(
         'evenements.traiteur_operationnel_organisation_id',
         traiteur_operationnel_id,
@@ -130,7 +159,8 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
         { referencedTable: 'evenements' },
       );
     }
-    if (lieu_id) query = query.eq('evenements.lieu_id', lieu_id);
+    if (lieuIds.length > 0) query = query.in('evenements.lieu_id', lieuIds);
+    else if (lieu_id) query = query.eq('evenements.lieu_id', lieu_id);
     if (info_incomplete === 'true')
       query = query.eq('informations_completes', false);
     // Miroir EXACT du compteur KPI `controle_acces_a_envoyer` (chip-counts) :

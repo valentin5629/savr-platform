@@ -44,7 +44,7 @@ const FILTRES = [
 /**
  * Sélecteur d'organisations du Dashboard Client (§06.06 §2) : 3 filtres en
  * ligne « Traiteur / Agence / Gestionnaire de lieux » (listes à cocher, DS §10
- * règle 7, décision Val 2026-09-30), posés dans la barre du dashboard avant
+ * règle 7, décision Val 2026-09-30), posés dans la barre du dashboard après
  * « Période ». Recherche dans chaque liste au-delà de 7 organisations.
  * Composant de filtrage, aucune écriture.
  */
@@ -70,24 +70,43 @@ export function OrganisationSelector({
     return parType;
   }, [organisations]);
 
+  // Toutes les organisations cochées = « Toutes les organisations » (vide).
+  function changer(ids: string[]): void {
+    const toutes =
+      organisations.length > 0 &&
+      organisations.every((o) => ids.includes(o.id));
+    onChange(toutes ? [] : ids);
+  }
+
   return (
     <>
-      {FILTRES.map(({ type, titre, tous, aucun }) => (
-        <FiltreCoches
-          key={type}
-          label={titre}
-          testid={`org-filtre-${type}`}
-          options={optionsParType.get(type) ?? []}
-          selected={selected.filter((id) => typeParId.get(id) === type)}
-          libelleVide={selected.length === 0 ? tous : aucun}
-          onChange={(ids) =>
-            onChange([
-              ...selected.filter((id) => typeParId.get(id) !== type),
-              ...ids,
-            ])
-          }
-        />
-      ))}
+      {FILTRES.map(({ type, titre, tous, aucun }) => {
+        const idsType = (optionsParType.get(type) ?? []).map((o) => o.id);
+        const autres = selected.filter((id) => typeParId.get(id) !== type);
+        return (
+          <FiltreCoches
+            key={type}
+            label={titre}
+            testid={`org-filtre-${type}`}
+            options={optionsParType.get(type) ?? []}
+            selected={selected.filter((id) => typeParId.get(id) === type)}
+            libelleVide={selected.length === 0 ? tous : aucun}
+            libelleTous={tous}
+            // « Tous » d'un type : coché sans aucune sélection (toutes les
+            // organisations) ou quand toutes celles du type sont cochées ;
+            // le cocher ajoute tout le type à la sélection des autres types.
+            tous={{
+              coche:
+                selected.length === 0 ||
+                (idsType.length > 0 &&
+                  idsType.every((id) => selected.includes(id))),
+              onSelect: () =>
+                changer(autres.length === 0 ? [] : [...autres, ...idsType]),
+            }}
+            onChange={(ids) => changer([...autres, ...ids])}
+          />
+        );
+      })}
     </>
   );
 }

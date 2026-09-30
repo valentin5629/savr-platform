@@ -184,7 +184,11 @@ function mockCollectesFetch() {
         json: async () => ({
           data: empty
             ? []
-            : [{ id: 'org-1', raison_sociale: 'Traiteur Alpha' }],
+            : [
+                { id: 'org-1', raison_sociale: 'Traiteur Alpha' },
+                { id: 'org-2', raison_sociale: 'Traiteur Gamma' },
+                { id: 'org-3', raison_sociale: 'Traiteur Delta' },
+              ],
           limit: 50,
         }),
       });
@@ -205,6 +209,18 @@ function mockCollectesFetch() {
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
+}
+
+// Paramètres de la dernière requête de la liste (hors compteurs de chips).
+function derniereRequeteListe(
+  fetchMock: ReturnType<typeof mockCollectesFetch>,
+): URLSearchParams {
+  const url =
+    fetchMock.mock.calls
+      .map((c) => String(c[0]))
+      .filter((u) => u.startsWith('/api/v1/admin/collectes?'))
+      .at(-1) ?? '';
+  return new URL(url, 'http://savr.test').searchParams;
 }
 
 describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
@@ -358,23 +374,21 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — bouton de filtre par type « Anti-Gaspi » ajoute type=anti_gaspi',
+    'M0.6 — bouton de filtre par type « Anti-Gaspi » ajoute types=anti_gaspi',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
+      // Le bouton coche ce seul type dans le filtre Type (choix multiple).
       fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi' }));
-      await waitFor(() => {
-        const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-        expect(
-          urls.some(
-            (u) =>
-              u.startsWith('/api/v1/admin/collectes?') &&
-              u.includes('type=anti_gaspi'),
+      await waitFor(
+        () =>
+          expect(derniereRequeteListe(fetchMock).get('types')).toBe(
+            'anti_gaspi',
           ),
-        ).toBe(true);
-      }, ATTENTE_UI);
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -761,59 +775,108 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       ).toBeNull();
       expect(screen.queryByPlaceholderText(/Traiteur, lieu, ville/)).toBeNull();
 
-      // DS : filtre en ligne « Traiteur  Tous ▾ » (Combobox mode filtre, nommé
-      // par son titre via aria-labelledby), options portées dans document.body.
-      const traiteurCombo = await screen.findByRole(
-        'combobox',
+      // Période en premier dans la barre (décision Val 2026-09-30).
+      const barre = screen.getByTestId('collectes-filtres');
+      const periode = within(barre).getByTestId('collectes-filtre-periode');
+      expect(
+        periode.compareDocumentPosition(
+          within(barre).getByTestId('collectes-filtre-type'),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+
+      // Traiteur : choix multiple (liste à cocher), « Tous » coché par défaut.
+      // R24c : le filtre « Traiteur » = traiteur OPÉRATIONNEL (décision Val).
+      fireEvent.click(screen.getByTestId('collectes-filtre-traiteur'));
+      const listeTraiteurs = await screen.findByRole(
+        'list',
         { name: 'Traiteur' },
         ATTENTE_UI,
       );
-      fireEvent.click(traiteurCombo);
+      const tous = within(listeTraiteurs).getByRole('checkbox', {
+        name: 'Tous',
+      });
+      expect(tous).toBeChecked();
+      fireEvent.click(
+        within(listeTraiteurs).getByRole('checkbox', {
+          name: 'Traiteur Alpha',
+        }),
+      );
+      fireEvent.click(
+        within(listeTraiteurs).getByRole('checkbox', {
+          name: 'Traiteur Gamma',
+        }),
+      );
       await waitFor(
         () =>
           expect(
-            screen.getByRole('option', { name: 'Traiteur Alpha' }),
-          ).toBeInTheDocument(),
+            derniereRequeteListe(fetchMock).get('traiteur_operationnel_ids'),
+          ).toBe('org-1,org-2'),
         ATTENTE_UI,
       );
-      fireEvent.click(screen.getByRole('option', { name: 'Traiteur Alpha' }));
+      expect(tous).not.toBeChecked();
+
+      // « Tous » efface la sélection → plus de filtre traiteur.
+      fireEvent.click(tous);
       await waitFor(
         () =>
           expect(
-            fetchMock.mock.calls.some(
-              (c) =>
-                typeof c[0] === 'string' &&
-                c[0].startsWith('/api/v1/admin/collectes') &&
-                // R24c : le filtre « Traiteur » = traiteur OPÉRATIONNEL (décision Val).
-                c[0].includes('traiteur_operationnel_id=org-1'),
-            ),
-          ).toBe(true),
+            derniereRequeteListe(fetchMock).get('traiteur_operationnel_ids'),
+          ).toBeNull(),
         ATTENTE_UI,
       );
 
-      fireEvent.click(screen.getByRole('combobox', { name: 'Lieu' }));
+      fireEvent.click(screen.getByTestId('collectes-filtre-lieu'));
+      fireEvent.click(
+        within(
+          await screen.findByRole('list', { name: 'Lieu' }, ATTENTE_UI),
+        ).getByRole('checkbox', { name: 'Salle Wagram — Paris' }),
+      );
       await waitFor(
         () =>
-          expect(
-            screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
-          ).toBeInTheDocument(),
+          expect(derniereRequeteListe(fetchMock).get('lieu_ids')).toBe(
+            'lieu-1',
+          ),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — filtre Type à choix multiple : un type → types=… ; les deux cochés = « Tous »',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.click(screen.getByTestId('collectes-filtre-type'));
+      const liste = await screen.findByRole(
+        'list',
+        { name: 'Type' },
         ATTENTE_UI,
       );
       fireEvent.click(
-        screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
+        within(liste).getByRole('checkbox', { name: 'Zéro Déchet' }),
       );
       await waitFor(
         () =>
-          expect(
-            fetchMock.mock.calls.some(
-              (c) =>
-                typeof c[0] === 'string' &&
-                c[0].startsWith('/api/v1/admin/collectes') &&
-                c[0].includes('lieu_id=lieu-1'),
-            ),
-          ).toBe(true),
+          expect(derniereRequeteListe(fetchMock).get('types')).toBe(
+            'zero_dechet',
+          ),
         ATTENTE_UI,
       );
+
+      // Les deux types cochés = tous les types → aucun filtre, « Tous » coché.
+      fireEvent.click(
+        within(liste).getByRole('checkbox', { name: 'Anti-Gaspi' }),
+      );
+      await waitFor(
+        () => expect(derniereRequeteListe(fetchMock).get('types')).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(
+        within(liste).getByRole('checkbox', { name: 'Tous' }),
+      ).toBeChecked();
     },
     ATTENTE_CAS_MS,
   );

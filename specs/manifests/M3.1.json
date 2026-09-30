@@ -880,7 +880,7 @@
     },
     {
       "id": "M3.1-popup-document-etat-serveur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:441",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:444",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client-types.ts, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/rapport_etat_echeance_h24",
       "statut": "implemented",
@@ -888,7 +888,7 @@
     },
     {
       "id": "M3.1-popup-document-a-venir",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:441",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:444",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
       "test": "M3.1/fiche_popup_document_a_venir",
       "statut": "implemented",
@@ -896,7 +896,7 @@
     },
     {
       "id": "M3.1-popup-document-en-preparation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:441",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:444",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
       "test": "M3.1/fiche_popup_document_en_preparation",
       "statut": "implemented",

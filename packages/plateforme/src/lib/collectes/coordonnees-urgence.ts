@@ -19,12 +19,14 @@ import {
 //    AVANT l'écriture service-role (alertes_admin est fermée aux clients) ;
 //  · aucun texte libre n'est lu dans la requête : titre et message sont
 //    construits ici ;
-//  · 1 demande par collecte : garantie par l'index unique partiel
-//    uniq_alerte_coordonnees_urgence_par_collecte — on insère sans lecture
+//  · 1 demande OUVERTE par collecte : garantie par l'index unique partiel
+//    uniq_alerte_coordonnees_urgence_ouverte — on insère sans lecture
 //    préalable et une violation d'unicité (double clic, 2e onglet, 2e
-//    utilisateur) vaut « demande déjà envoyée », réponse identique ;
-//  · clôture automatique à réception des coordonnées : trigger SQL (même
-//    migration), qui applique la règle de `coordonneesCompletes`.
+//    utilisateur) vaut « demande déjà envoyée », réponse identique. Une fois
+//    l'alerte clôturée, une nouvelle demande en ouvre une nouvelle (D10,
+//    arbitrage Val 2026-09-30, migration 20260930140000) ;
+//  · clôture automatique à réception des coordonnées : trigger SQL (migration
+//    20260929160000), qui applique la règle de `coordonneesCompletes`.
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   if (!v) return null;
@@ -101,7 +103,8 @@ export async function repondreDemandeCoordonneesUrgence(
     entity_type: 'collecte',
     entity_id: id,
   });
-  // 23505 = index unique : la demande existe déjà → même réponse (idempotent).
+  // 23505 = index unique : une demande est déjà ouverte → même réponse
+  // (idempotent).
   if (insErr && insErr.code !== '23505')
     return writeError(insErr, evenementLog);
 

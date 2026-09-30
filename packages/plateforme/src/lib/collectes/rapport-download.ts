@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 
@@ -13,16 +12,15 @@ import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 //                                 (rapports_rse, disponible_a = genere_at)
 //
 // Cloisonnement : la collecte doit d'abord être visible sous la RLS de
-// l'utilisateur. Les documents sont ensuite lus :
-//  · 'service' (traiteur) : service-role borné à CETTE collecte, comme la route
-//    traiteur historique (BL-P1-TRAIT-03) ;
-//  · 'rls' (agence, gestionnaire) : sous LEUR RLS (rr_select /
-//    att_traiteur_select / att_gestionnaire_select) — jamais de service-role.
+// l'utilisateur, puis les documents sont lus sous cette même RLS (rr_select /
+// att_traiteur_select / att_gestionnaire_select) — jamais de service-role.
+// Le traiteur opérationnel d'une collecte AG programmée par une agence reçoit
+// donc 404 sur l'attestation de don du donneur d'ordre (D12, arbitrage Val
+// 2026-09-30 ; la lecture service-role historique la lui servait).
 // Embargo applicatif H+24 (R-PDF2) jamais contournable.
 
 export async function repondreTelechargementRapport(
   id: string,
-  lecture: 'service' | 'rls',
 ): Promise<NextResponse> {
   const rls = createSupabaseServerClient();
   const { data: collecte } = await rls
@@ -37,8 +35,6 @@ export async function repondreTelechargementRapport(
     );
   }
 
-  const docs = lecture === 'rls' ? rls : createAdminSupabaseClient();
-
   const { type: collecteType, statut: collecteStatut } = collecte as {
     type: string;
     statut: string;
@@ -48,7 +44,7 @@ export async function repondreTelechargementRapport(
     collecteStatut !== 'realisee_sans_collecte';
 
   if (servirAttestation) {
-    const { data: att } = await docs
+    const { data: att } = await rls
       .from('attestations_don')
       .select('id, eligible_at, pdf_url')
       .eq('collecte_id', id)
@@ -78,7 +74,7 @@ export async function repondreTelechargementRapport(
     return NextResponse.json({ url: attUrl, expires_in: 900 });
   }
 
-  const { data: rapport } = await docs
+  const { data: rapport } = await rls
     .from('rapports_rse')
     .select('id, disponible_a, genere_at, pdf_url')
     .eq('collecte_id', id)

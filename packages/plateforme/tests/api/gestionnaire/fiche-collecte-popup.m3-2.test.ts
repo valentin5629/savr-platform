@@ -94,6 +94,51 @@ describe('M3.2 / fiche client gestionnaire — association (Q7)', () => {
   });
 });
 
+describe('M3.2 / fiche client gestionnaire — repas des collectes tierces (D13)', () => {
+  it('M3.2/fiche_get_repas_non_communiques_tiers — AG d’un traiteur tiers : repas « non communiqués »', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee', ...TIERS }),
+      error: null,
+    };
+    // aa_select exclut le gestionnaire sur une collecte tierce (C-1).
+    rls.results.attributions_antgaspi = { data: null, error: null };
+    const { json } = await getFiche();
+    expect(json.data.repas_donnes).toBeNull();
+    expect(json.data.repas_non_communiques).toBe(true);
+    expect(admin.calls).not.toContain('attributions_antgaspi');
+  });
+
+  it('M3.2/fiche_get_repas_propre_programmation — AG programmée par le gestionnaire : repas servis', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        type: 'anti_gaspi',
+        statut: 'cloturee',
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-gest',
+        },
+      }),
+      error: null,
+    };
+    rls.results.attributions_antgaspi = {
+      data: { volume_repas_realise: 320 },
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.repas_donnes).toBe(320);
+    expect(json.data.repas_non_communiques).toBe(false);
+  });
+
+  it('M3.2/fiche_get_zd_tiers_sans_mention — ZD d’un traiteur tiers : pas de mention repas', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ statut: 'cloturee', ...TIERS }),
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.repas_non_communiques).toBe(false);
+  });
+});
+
 describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
   it('M3.2/fiche_get_documents_sous_rls — disponibilité du rapport lue sous la RLS du gestionnaire', async () => {
     rls.results.collectes = {

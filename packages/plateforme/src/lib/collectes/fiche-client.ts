@@ -26,14 +26,14 @@ import {
 // Frontière de sécurité, dans cet ordre :
 //  1. la collecte est lue avec le client de l'UTILISATEUR (RLS) : invisible ⇒
 //     null, et aucune lecture service-role ne part ;
-//  2. les lectures service-role qui suivent (camions, documents du traiteur et
-//     de l'agence, demande urgente) sont bornées à CETTE collecte ;
+//  2. les lectures service-role qui suivent (camions, demande urgente) sont
+//     bornées à CETTE collecte ; les documents sont lus sous la RLS de
+//     l'utilisateur, pour les trois espaces ;
 //  3. rien de confidentiel ne sort : ni notes internes (Admin), ni nom du
 //     prestataire logistique (marque blanche), ni téléphone du chauffeur hors
 //     de la fenêtre programmee/validee/en_cours ;
 //  4. gestionnaire : l'association bénéficiaire n'est PAS lue (Q7 — aa_select
-//     n'est jamais élargie, la vue v_attributions_gestionnaire n'existe pas), et
-//     ses documents sont lus sous SA RLS, jamais en service-role.
+//     n'est jamais élargie, la vue v_attributions_gestionnaire n'existe pas).
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 
@@ -206,17 +206,21 @@ export async function chargerFicheCollecteClient(
   const avecAssociation = isAg && STATUTS_ASSOCIATION.includes(c.statut);
 
   const admin = createAdminSupabaseClient();
-  // Documents : traiteur comme avant (service-role après le contrôle RLS
-  // ci-dessus, route historique) ; agence et gestionnaire sous LEUR RLS
-  // (rr_select / att_traiteur_select / att_gestionnaire_select) — l'isolation
-  // ne dépend alors d'aucune hypothèse sur les données (revue sécurité
-  // 2026-09-29), et c'est la frontière de leurs routes de téléchargement.
-  const lectureDocs = espace === 'traiteur' ? admin : rls;
+  // Collecte programmée par une AUTRE organisation que celle de l'utilisateur
+  // (traiteur opérationnel, gestionnaire d'un lieu accueillant un traiteur
+  // tiers). L'agence n'y est jamais : sa RLS la borne à ses programmations.
+  const programmeeParTiers =
+    evt != null && evt.organisation_id !== ctx.organisationId;
   // AG realisee_sans_collecte : pas d'attestation, le rapport est « Événement
   // sans excédent » (rapports_rse, sans embargo). ZD : rapports_rse. AG
   // cloturee : l'attestation de don.
   const useRapportsRse = !isAg || c.statut === 'realisee_sans_collecte';
 
+  // Documents sous la RLS de l'utilisateur, pour les trois espaces (rr_select /
+  // att_traiteur_select / att_gestionnaire_select), comme leurs routes de
+  // téléchargement. Le traiteur opérationnel d'une collecte AG programmée par
+  // une agence ne lit donc pas l'attestation de don du donneur d'ordre (D12,
+  // arbitrage Val 2026-09-30) ; le rapport RSE ZD lui reste servi (rr_select).
   const [ctRes, rapRes, attRes, aaRes, alerteRes] = await Promise.all([
     avecCamions
       ? admin
@@ -228,7 +232,7 @@ export async function chargerFicheCollecteClient(
           .order('rang', { ascending: true })
       : Promise.resolve({ data: [] as unknown[], error: null }),
     useRapportsRse
-      ? lectureDocs
+      ? rls
           .from('rapports_rse')
           .select('disponible_a, genere_at, regenere_at')
           .eq('collecte_id', id)
@@ -238,7 +242,7 @@ export async function chargerFicheCollecteClient(
       : Promise.resolve({ data: null, error: null }),
     useRapportsRse
       ? Promise.resolve({ data: null, error: null })
-      : lectureDocs
+      : rls
           .from('attestations_don')
           .select('eligible_at, pdf_url')
           .eq('collecte_id', id)
@@ -264,6 +268,7 @@ export async function chargerFicheCollecteClient(
           .select('id')
           .eq('code', CODE_ALERTE_COORDONNEES_URGENCE)
           .eq('entity_id', id)
+          .eq('statut', 'ouverte')
           .limit(1)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -398,9 +403,13 @@ export async function chargerFicheCollecteClient(
     coordonnees_urgence_demandee: Boolean(alerteRes.data),
     bilan_flux,
     repas_donnes,
+    repas_non_communiques:
+      espace === 'gestionnaire' && isAg && programmeeParTiers,
     ...(espace === 'gestionnaire' ? {} : { association }),
     rapport_rse_disponible,
     rapport_rse_regenere,
+    rapport_reserve_donneur_ordre:
+      espace === 'traiteur' && !useRapportsRse && programmeeParTiers,
     actions: evt
       ? droitsFiche(espace, ctx, c.statut, {
           organisation_id: evt.organisation_id,

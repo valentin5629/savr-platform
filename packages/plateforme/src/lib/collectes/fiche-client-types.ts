@@ -26,8 +26,8 @@ export const STATUT_BILAN = 'cloturee';
 
 export const STATUTS_ANNULES = ['annulee', 'annulation_demandee'];
 
-// Code de l'alerte in-app Ops « coordonnées du chauffeur en urgence » (unique par
-// collecte : index uniq_alerte_coordonnees_urgence_par_collecte).
+// Code de l'alerte in-app Ops « coordonnées du chauffeur en urgence » (une seule
+// OUVERTE par collecte : index uniq_alerte_coordonnees_urgence_ouverte).
 export const CODE_ALERTE_COORDONNEES_URGENCE = 'coordonnees_chauffeur_urgence';
 
 export interface TourneeFiche {
@@ -99,16 +99,26 @@ export interface FicheCollecteClient {
   taille_bracket: string | null;
   evenement: EvenementFiche | null;
   tournees: TourneeFiche[];
+  // Une demande urgente est OUVERTE (une demande clôturée n'empêche pas d'en
+  // refaire une — D10, arbitrage Val 2026-09-30).
   coordonnees_urgence_demandee: boolean;
   // ZD « Réalisée » : kg par code de flux (biodechet, emballage…).
   bilan_flux: Record<string, number> | null;
   // AG : repas donnés (lecture RLS de l'attribution).
   repas_donnes: number | null;
+  // Gestionnaire, collecte AG programmée par une autre organisation : le volume
+  // de repas ne lui est pas lisible (aa_select, C-1) → « Non communiqué » au
+  // lieu de « — » (D13, arbitrage Val 2026-09-30).
+  repas_non_communiques: boolean;
   // Absente pour le gestionnaire (Q7 : tant que v_attributions_gestionnaire
   // n'existe pas, la clé n'est même pas dans la réponse).
   association?: AssociationFiche | null;
   rapport_rse_disponible: boolean;
   rapport_rse_regenere: boolean;
+  // Traiteur opérationnel d'une collecte AG programmée par une autre
+  // organisation : l'attestation de don est émise au nom du donneur d'ordre et
+  // ne lui est pas servie (att_traiteur_select — D12, arbitrage Val 2026-09-30).
+  rapport_reserve_donneur_ordre: boolean;
   actions: ActionsFiche;
 }
 

@@ -182,7 +182,13 @@
     "M3.1/frise_client_etats",
     "M3.1/fiche_get_factures_sous_rls_traiteur_operationnel",
     "M3.1/fiche_get_factures_brouillon_exclu",
-    "M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne"
+    "M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne",
+    "M3.1/fiche_get_urgence_ouverte_seule",
+    "M3.1/fiche_get_attestation_donneur_ordre_reservee",
+    "M3.1/fiche_get_attestation_programmateur",
+    "M3.1/fiche_get_rapport_zd_traiteur_operationnel",
+    "M3.1/rapport_download_attestation_donneur_ordre_404",
+    "M3.1/fiche_popup_rapport_reserve_donneur_ordre"
   ],
   "deliverables": [
     {
@@ -780,10 +786,10 @@
     {
       "id": "M3.1-coordonnees-urgence-une-par-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
-      "artefact": "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql",
+      "artefact": "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql, supabase/migrations/20260930140000_plateforme_alerte_coordonnees_urgence_une_ouverte.sql",
       "test": "M3.1/urgence_doublon_idempotent",
       "statut": "implemented",
-      "libelle": "« 1 demande par collecte » garanti par la base : index unique partiel uniq_alerte_coordonnees_urgence_par_collecte (alertes_admin.entity_id WHERE code='coordonnees_chauffeur_urgence') ; la route insère sans lecture préalable et traite 23505 comme « déjà demandée » (double clic concurrent). Preuve base : supabase/tests/coordonnees_urgence_alerte.test.sql."
+      "libelle": "« 1 demande OUVERTE par collecte » garanti par la base : index unique partiel uniq_alerte_coordonnees_urgence_ouverte (alertes_admin.entity_id WHERE code='coordonnees_chauffeur_urgence' AND statut='ouverte', D10 arbitrage Val 2026-09-30 — remplace l'unicité tous statuts) ; la route insère sans lecture préalable et traite 23505 comme « déjà demandée » (double clic concurrent) ; une fois l'alerte clôturée, une nouvelle demande ouvre une nouvelle alerte et la fiche ne grise le bouton que sur une alerte ouverte (M3.1/fiche_get_urgence_ouverte_seule). Preuve base : supabase/tests/coordonnees_urgence_alerte.test.sql."
     },
     {
       "id": "M3.1-coordonnees-urgence-cloture-auto",
@@ -847,7 +853,15 @@
       "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.1/fiche_popup_telechargement_rapport",
       "statut": "implemented",
-      "libelle": "Téléchargement du rapport depuis la fiche, route de l'espace courant : logique commune extraite de la route traiteur (RLS de la collecte d'abord, embargo H+24 serveur) — traiteur en service-role borné (route historique), agence et gestionnaire sous LEUR RLS."
+      "libelle": "Téléchargement du rapport depuis la fiche, route de l'espace courant : logique commune extraite de la route traiteur (RLS de la collecte d'abord, embargo H+24 serveur) — documents lus sous la RLS de l'utilisateur pour les trois espaces (le service-role historique du traiteur est retiré, D12 arbitrage Val 2026-09-30)."
+    },
+    {
+      "id": "M3.1-popup-attestation-donneur-ordre-reservee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:258",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
+      "test": "M3.1/fiche_get_attestation_donneur_ordre_reservee",
+      "statut": "implemented",
+      "libelle": "D12 (arbitrage Val 2026-09-30) : le traiteur opérationnel d'une collecte AG programmée par une agence ne reçoit plus l'attestation de don du donneur d'ordre (raison sociale + SIRET de l'agence) — fiche et téléchargement lisent sous sa RLS (att_traiteur_select, matrice §09 attestations_don = bordereaux_savr : organisation programmatrice) ; la fiche affiche « Réservé à l'organisation qui a programmé la collecte » sans bouton Télécharger (M3.1/fiche_popup_rapport_reserve_donneur_ordre). Le rapport RSE ZD reste servi (rr_select via f_collecte_visible)."
     },
     {
       "id": "M3.1-popup-client-rendu-visuel",

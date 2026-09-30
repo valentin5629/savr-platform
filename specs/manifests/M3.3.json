@@ -65,7 +65,8 @@
     "M3.3/fiche_benchmark_agence_traiteur_ids_rejete",
     "M3.3/rapport_download_agence",
     "M3.3/rapport_download_agence_cloisonnement",
-    "M3.3/urgence_agence_ok"
+    "M3.3/urgence_agence_ok",
+    "M3.3/benchmark_filtres_agence_liste_lieux"
   ],
   "deliverables": [
     {
@@ -359,10 +360,10 @@
     {
       "id": "M3.3-benchmark-filtres-options-agence",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Options des filtres du repère parc VIDES pour l'agence (dashboard ET fiche) : f_benchmark_lieux_parc exclut le rôle agence et fait échouer toute la route /api/v1/dashboards/benchmark/filtres (types compris). Arbitrage Val 2026-09-30 (D8) : ajouter agence à la liste blanche de f_benchmark_lieux_parc (f_benchmark_traiteurs_parc reste fermée). Migration ÉLARGISSANTE (CLAUDE.md §12 2bis) non écrite par Claude Code — refusée par le contrôle de permissions, à écrire par Val puis GO reviewer-rls-securite. Tracé dans _Divergences/M3.1_20260929_popup-client-implementation.md."
+      "artefact": "supabase/migrations/20260930180000_plateforme_benchmark_lieux_parc_agence.sql",
+      "test": "M3.3/benchmark_filtres_agence_liste_lieux",
+      "statut": "implemented",
+      "libelle": "Options des filtres du repère parc pour l'agence (dashboard ET fiche collecte) : f_benchmark_lieux_parc refusait le rôle agence et faisait échouer toute la route /api/v1/dashboards/benchmark/filtres (types compris). Arbitrage Val 2026-09-30 (D8) : agence ajoutée à la liste blanche de f_benchmark_lieux_parc — même liste que les rôles traiteur (id, nom des lieux actifs) ; f_benchmark_traiteurs_parc reste fermée à l'agence. Migration ÉLARGISSANTE (CLAUDE.md §12 2bis) écrite par Val. Preuve base : supabase/tests/benchmark_lieux_parc_agence.test.sql (agence = traiteur_manager, sortie (id, nom), client_organisateur et rôle absent refusés, liste traiteurs fermée, ACL et SECURITY DEFINER conservés)."
     },
     {
       "id": "M3.3-popup-coordonnees-urgence",

@@ -48,6 +48,16 @@ jobs:
       - run: pnpm -w typecheck
       - run: pnpm -w lint
       - run: pnpm -w test:unit
+      # check:coverage ne tourne qu'en local (/goal) : sans cet auto-test, rien ne
+      # verrait le detecteur redevenir muet (ENOBUFS au-dela de 1 Mio le 2026-09-30 :
+      # tous les scenarios « MANQUANT » sur tous les modules). Faux Vitest, 3 s.
+      - run: pnpm check:coverage --self-test
+      # Sa baseline (livrables a preuve non resolue toleres) ne peut que descendre :
+      # toute entree absente de main (ou au texte change) rougit le job.
+      - name: Baseline check:coverage — aucun ajout par rapport a main
+        run: |
+          git fetch --quiet --depth=1 origin main:refs/remotes/origin/main
+          pnpm check:coverage --verifier-baseline origin/main
       - run: pnpm -w build
 
   # Garde-fou 3 TMS-Ready : anti-couplage MTS-1/Everest (deterministe, sans DB).

@@ -196,6 +196,7 @@ describe('M1.1b / Lieux / Activité', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       traiteurs: unknown[];
+      historique_tronque: boolean;
       historique: {
         id: string;
         action: string;
@@ -228,7 +229,33 @@ describe('M1.1b / Lieux / Activité', () => {
         champs: [],
       }),
     ]);
+    expect(body.historique_tronque).toBe(false);
     expect(builders.audit_log!.eq).toHaveBeenCalledWith('table_name', 'lieux');
     expect(builders.audit_log!.eq).toHaveBeenCalledWith('record_id', 'lieu-9');
+  });
+
+  it('M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte', async () => {
+    setupAuth('admin_savr');
+    resultats.audit_log = {
+      data: Array.from({ length: 200 }, (_, i) => ({
+        id: `a${i}`,
+        created_at: '2026-09-20T08:00:00Z',
+        user_id: null,
+        action: 'NORMALISE',
+        old_values: null,
+        new_values: { actif: true },
+        impersonator_id: null,
+      })),
+      error: null,
+    };
+
+    const res = await appeler('lieu-9');
+    const body = (await res.json()) as {
+      historique: unknown[];
+      historique_tronque: boolean;
+    };
+    expect(body.historique).toHaveLength(200);
+    expect(body.historique_tronque).toBe(true);
+    expect(builders.audit_log!.limit).toHaveBeenCalledWith(200);
   });
 });

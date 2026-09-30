@@ -77,6 +77,8 @@ interface ActiviteApi {
     champs: string[];
     impersonation: boolean;
   }[];
+  /** true = seules les écritures les plus récentes sont renvoyées. */
+  historique_tronque: boolean;
 }
 
 interface OrgOption {
@@ -245,7 +247,7 @@ function Difficulte({ value }: { value: string }) {
   );
 }
 
-// Interrupteur + libellé cliquable (cible 44 px, DS §6 « Switch »).
+// Interrupteur DS « Switch » + libellé cliquable.
 function Interrupteur({
   id,
   label,
@@ -258,12 +260,14 @@ function Interrupteur({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex min-h-11 items-center gap-3">
+    // Toute la ligne est le libellé : zone cliquable de 44 px de haut (DS §8).
+    <label
+      htmlFor={id}
+      className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-savr-neutral-700"
+    >
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
-      <label htmlFor={id} className="text-sm font-medium text-savr-neutral-700">
-        {label}
-      </label>
-    </div>
+      {label}
+    </label>
   );
 }
 
@@ -1012,6 +1016,12 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                               </TimelineItem>
                             ))}
                           </Timeline>
+                        )}
+                        {activite.historique_tronque && (
+                          <p className="text-xs text-savr-neutral-500">
+                            Seules les {activite.historique.length}{' '}
+                            modifications les plus récentes sont affichées.
+                          </p>
                         )}
                       </Card>
                     </>

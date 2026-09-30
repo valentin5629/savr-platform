@@ -123,7 +123,11 @@
     "M1.1b/lieux/fiche-onglets — champ obligatoire d'un autre onglet : ouvre l'onglet en erreur",
     "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only)",
     "M1.1b/lieux/fiche-onglets — onglet Activité : traiteurs opérant et historique",
-    "M1.1b/lieux/fiche-onglets — les saisies survivent au changement d'onglet"
+    "M1.1b/lieux/fiche-onglets — les saisies survivent au changement d'onglet",
+    "M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte",
+    "M1.1b/lieux/fiche-onglets — la colonne résumé suit la saisie (À normaliser, Citeo)",
+    "M1.1b/lieux/fiche-onglets — onglet Activité : erreur de chargement annoncée",
+    "M1.1b/lieux/fiche-onglets — historique tronqué : la limite est annoncée"
   ],
   "deliverables": [
     {
@@ -386,7 +390,7 @@
       "id": "M1.1b-lieu-fiche-onglets",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:565",
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
-      "test": "M1.1b/lieux/fiche-onglets — édition : titre, colonne résumé et 4 onglets",
+      "test": "M1.1b/lieux/fiche-onglets — édition : titre, colonne résumé et 4 onglets + M1.1b/lieux/fiche-onglets — la colonne résumé suit la saisie (À normaliser, Citeo)",
       "statut": "implemented",
       "libelle": "Fiche lieu au format fiche collecte (décision Val 2026-09-30 C1) : titre figé « Lieu · nom · ville », colonne résumé fixe (statut, ville, gestionnaire, véhicule max, contrôle d'accès, accès office, stationnement, Citeo) + onglets Informations / Accès & logistique / Interne Savr / Activité ; un seul Enregistrer pour tous les onglets"
     },
@@ -394,7 +398,7 @@
       "id": "M1.1b-lieu-champs-admin-onglet-interne",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:600",
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
-      "test": "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only)",
+      "test": "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only) + rendu création — tous les champs de la modale sont présents",
       "statut": "implemented",
       "libelle": "Onglet « Interne Savr » = les champs admin/ops only (Commentaire sur le lieu, Notes internes, SIREN, Mail gestionnaire, Référencé Citeo) sous un bandeau « jamais montrées aux clients » — le commentaire sur le lieu n'est plus affiché hors du bloc Admin/Ops (décision Val C2)"
     },
@@ -410,7 +414,7 @@
       "id": "M1.1b-lieu-activite",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:586",
       "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/[id]/activite/route.ts",
-      "test": "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes + M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur",
+      "test": "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes + M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur + M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte",
       "statut": "implemented",
       "libelle": "GET /api/v1/admin/lieux/{id}/activite (staff) : traiteurs opérant = traiteur opérationnel des événements du lieu ayant au moins une collecte, avec leur nombre de collectes ; historique = audit_log table_name='lieux' (création, modification avec champs réellement changés, normalisation, modification signalée à la programmation) + auteur (décision Val C3)"
     }

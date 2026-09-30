@@ -25,6 +25,9 @@ const COLONNES_TECHNIQUES = new Set([
   'longitude',
 ]);
 
+// Au-delà, seules les écritures les plus récentes sont renvoyées (signalé à l'UI).
+const LIMITE_HISTORIQUE = 200;
+
 type Valeurs = Record<string, unknown> | null;
 
 // Champs réellement changés par une écriture de l'audit_log.
@@ -103,7 +106,7 @@ export async function GET(
     .eq('table_name', 'lieux')
     .eq('record_id', id)
     .order('created_at', { ascending: false })
-    .limit(200);
+    .limit(LIMITE_HISTORIQUE);
   if (auditErr) return serverError(auditErr, 'admin.lieux.activite.audit');
 
   const lignes = (audit ?? []) as {
@@ -145,5 +148,9 @@ export async function GET(
     impersonation: Boolean(l.impersonator_id),
   }));
 
-  return NextResponse.json({ traiteurs, historique });
+  return NextResponse.json({
+    traiteurs,
+    historique,
+    historique_tronque: lignes.length === LIMITE_HISTORIQUE,
+  });
 }

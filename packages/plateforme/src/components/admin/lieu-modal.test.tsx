@@ -61,6 +61,7 @@ const ACTIVITE = {
       impersonation: false,
     },
   ],
+  historique_tronque: false,
 };
 
 type OrgOption = {
@@ -73,7 +74,10 @@ type OrgOption = {
 // hydratation (GET /lieux/{id}), onglet Activité (GET /lieux/{id}/activite),
 // puis POST/PATCH d'enregistrement.
 // `orgs` peuple le sélecteur « Gestionnaire de lieux » (vide par défaut).
-function routeFetch(orgs: OrgOption[] = []) {
+function routeFetch(
+  orgs: OrgOption[] = [],
+  activite: { ok: boolean; body: unknown } = { ok: true, body: ACTIVITE },
+) {
   return vi.fn((url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     if (url.includes('/api/v1/admin/organisations'))
@@ -81,7 +85,11 @@ function routeFetch(orgs: OrgOption[] = []) {
     if (/\/api\/v1\/admin\/lieux\/[^/?]+$/.test(url) && method === 'GET')
       return Promise.resolve({ ok: true, json: async () => DETAIL });
     if (url.endsWith('/activite'))
-      return Promise.resolve({ ok: true, json: async () => ACTIVITE });
+      return Promise.resolve({
+        ok: activite.ok,
+        status: activite.ok ? 200 : 500,
+        json: async () => activite.body,
+      });
     return Promise.resolve({ ok: true, json: async () => ({ id: 'lieu-1' }) });
   });
 }
@@ -624,6 +632,77 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       expect(body.nom).toBe('Château de Saint-Cloud');
       expect(body.type_vehicule_max).toBe('fourgon');
       expect(body.commentaire_lieu).toBe('Quai fermé le dimanche');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.1b/lieux/fiche-onglets — la colonne résumé suit la saisie (À normaliser, Citeo)',
+    async () => {
+      vi.stubGlobal('fetch', routeFetch());
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      const resume = screen.getByRole('complementary', {
+        name: 'Résumé du lieu',
+      });
+      expect(resume).toHaveTextContent('Actif');
+      expect(resume).not.toHaveTextContent('Citeo');
+      fireEvent.click(screen.getByRole('switch', { name: 'Actif' }));
+      expect(resume).toHaveTextContent('À normaliser');
+      await ouvrirOnglet(/Interne Savr/);
+      fireEvent.click(screen.getByRole('switch', { name: /Référencé Citeo/ }));
+      expect(resume).toHaveTextContent('Référencé');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.1b/lieux/fiche-onglets — onglet Activité : erreur de chargement annoncée',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        routeFetch([], { ok: false, body: { error: 'Erreur serveur' } }),
+      );
+      render(
+        <LieuModal open lieuId="lieu-42" onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      await ouvrirOnglet(/Activité/);
+      expect(
+        await screen.findByText(
+          /Impossible de charger l'activité du lieu/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.1b/lieux/fiche-onglets — historique tronqué : la limite est annoncée',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        routeFetch([], {
+          ok: true,
+          body: { ...ACTIVITE, historique_tronque: true },
+        }),
+      );
+      render(
+        <LieuModal open lieuId="lieu-42" onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      await ouvrirOnglet(/Activité/);
+      expect(
+        await screen.findByText(
+          /Seules les 2 modifications les plus récentes sont affichées/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

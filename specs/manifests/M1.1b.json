@@ -129,7 +129,10 @@
     "M1.1b/lieux/fiche-onglets — onglet Activité : erreur de chargement annoncée",
     "M1.1b/lieux/fiche-onglets — historique tronqué : la limite est annoncée",
     "M1.1b/lieux/activite — réponse minimale : jamais les valeurs avant/après de l'audit (champs admin-only)",
-    "M1.1b/lieux/activite — 500 si la lecture des auteurs échoue"
+    "M1.1b/lieux/activite — 500 si la lecture des auteurs échoue",
+    "M1.1b/lieux/fiche-onglets — réponse tardive d'un lieu précédent ignorée (ni affichée ni enregistrée)",
+    "M1.1b/lieux/fiche-onglets — chargement du lieu en échec : pas de formulaire, rien d'enregistrable",
+    "M1.1b/lieux/fiche-onglets — enregistrement en échec réseau : message affiché, bouton libéré"
   ],
   "deliverables": [
     {
@@ -392,7 +395,7 @@
       "id": "M1.1b-lieu-fiche-onglets",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:565",
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
-      "test": "M1.1b/lieux/fiche-onglets — édition : titre, colonne résumé et 4 onglets + M1.1b/lieux/fiche-onglets — la colonne résumé suit la saisie (À normaliser, Citeo)",
+      "test": "M1.1b/lieux/fiche-onglets — édition : titre, colonne résumé et 4 onglets + M1.1b/lieux/fiche-onglets — la colonne résumé suit la saisie (À normaliser, Citeo) + M1.1b/lieux/fiche-onglets — réponse tardive d'un lieu précédent ignorée (ni affichée ni enregistrée)",
       "statut": "implemented",
       "libelle": "Fiche lieu au format fiche collecte (décision Val 2026-09-30 C1) : titre figé « Lieu · nom · ville », colonne résumé fixe (statut, ville, gestionnaire, véhicule max, contrôle d'accès, accès office, stationnement, Citeo) + onglets Informations / Accès & logistique / Interne Savr / Activité ; un seul Enregistrer pour tous les onglets"
     },

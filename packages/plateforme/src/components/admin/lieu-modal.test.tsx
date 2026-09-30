@@ -7,7 +7,13 @@
  * onglets Informations / Accès & logistique / Interne Savr / Activité (édition).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+} from '@testing-library/react';
 
 import { LieuModal } from '@/components/admin/lieu-modal';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
@@ -592,6 +598,9 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       expect(
         await screen.findByText('Kaspia', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/v1/admin/lieux/lieu-42/activite',
+      );
       expect(screen.getByText('12 collectes')).toBeInTheDocument();
       expect(screen.getByText('1 collecte')).toBeInTheDocument();
       expect(screen.getByText('Modification')).toBeInTheDocument();
@@ -703,6 +712,161 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "M1.1b/lieux/fiche-onglets — réponse tardive d'un lieu précédent ignorée (ni affichée ni enregistrée)",
+    async () => {
+      const detail = (nom: string, ville: string) => ({
+        ...DETAIL,
+        nom,
+        ville,
+        photos_urls: null,
+      });
+      const activite = (traiteur: string) => ({
+        traiteurs: [{ id: `o-${traiteur}`, nom: traiteur, nb_collectes: 7 }],
+        historique: [],
+        historique_tronque: false,
+      });
+      const enAttente: Record<string, (v: unknown) => void> = {};
+      const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+        if (url.includes('/organisations'))
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [] }),
+          });
+        if (init?.method === 'PATCH')
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        return new Promise((resolve) => {
+          enAttente[url] = resolve;
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { rerender } = render(
+        <LieuModal open lieuId="A" onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+      // Fermer A puis ouvrir B avant que A ne réponde.
+      rerender(
+        <LieuModal
+          open={false}
+          lieuId="A"
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+      rerender(
+        <LieuModal open lieuId="B" onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+      // B répond d'abord, puis A (lent).
+      await act(async () => {
+        enAttente['/api/v1/admin/lieux/B']!({
+          ok: true,
+          json: async () => detail('Lieu B', 'Lyon'),
+        });
+        enAttente['/api/v1/admin/lieux/B/activite']!({
+          ok: true,
+          json: async () => activite('TraiteurDeB'),
+        });
+      });
+      await act(async () => {
+        enAttente['/api/v1/admin/lieux/A']!({
+          ok: true,
+          json: async () => detail('Lieu A', 'Paris'),
+        });
+        enAttente['/api/v1/admin/lieux/A/activite']!({
+          ok: true,
+          json: async () => activite('TraiteurDeA'),
+        });
+      });
+
+      expect(screen.getByText('Lieu · Lieu B · Lyon')).toBeInTheDocument();
+      expect(
+        (screen.getByLabelText(/Nom du lieu/) as HTMLInputElement).value,
+      ).toBe('Lieu B');
+      await ouvrirOnglet(/Activité/);
+      expect(screen.getByText('TraiteurDeB')).toBeInTheDocument();
+      expect(screen.queryByText('TraiteurDeA')).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          ([, o]) => (o as RequestInit | undefined)?.method === 'PATCH',
+        );
+        expect(patch?.[0]).toBe('/api/v1/admin/lieux/B');
+        expect(
+          (
+            JSON.parse((patch![1] as RequestInit).body as string) as {
+              nom: string;
+            }
+          ).nom,
+        ).toBe('Lieu B');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "M1.1b/lieux/fiche-onglets — chargement du lieu en échec : pas de formulaire, rien d'enregistrable",
+    async () => {
+      const fetchMock = vi.fn((url: string) => {
+        if (url.includes('/organisations'))
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [] }),
+          });
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({ error: 'Lieu introuvable' }),
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId="inconnu" onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      expect(
+        await screen.findByText(
+          /Erreur lors du chargement du lieu/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Nom du lieu/)).toBeNull();
+      expect(
+        screen.getByRole('button', { name: /Enregistrer/ }),
+      ).toBeDisabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.1b/lieux/fiche-onglets — enregistrement en échec réseau : message affiché, bouton libéré',
+    async () => {
+      const base = routeFetch();
+      const fetchMock = vi.fn((url: string, init?: RequestInit) =>
+        init?.method === 'POST'
+          ? Promise.reject(new TypeError('Failed to fetch'))
+          : base(url, init),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      await fillRequired();
+      fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
+
+      expect(
+        await screen.findByRole('alert', undefined, ATTENTE_UI),
+      ).toHaveTextContent(/Enregistrement impossible/);
+      expect(
+        screen.getByRole('button', { name: /Créer le lieu/ }),
+      ).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Annuler' })).toBeEnabled();
     },
     ATTENTE_CAS_MS,
   );

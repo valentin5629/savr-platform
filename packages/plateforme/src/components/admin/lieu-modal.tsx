@@ -59,6 +59,7 @@ interface LieuApi {
   photos_urls: string[] | null;
   actif: boolean;
   gestionnaire_organisation_id: string | null;
+  gestionnaire_nom?: string | null;
   commentaire_lieu: string | null;
   commentaires_internes: string | null;
   siren: string | null;
@@ -70,7 +71,8 @@ interface LieuApi {
 interface ActiviteApi {
   traiteurs: { id: string; nom: string; nb_collectes: number }[];
   historique: {
-    id: string;
+    // audit_log.id = bigint (nombre en JSON).
+    id: number | string;
     created_at: string;
     action: string;
     auteur: string | null;
@@ -263,7 +265,7 @@ function Interrupteur({
     // Toute la ligne est le libellé : zone cliquable de 44 px de haut (DS §10 Accessibilité).
     <label
       htmlFor={id}
-      className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-savr-neutral-700"
+      className="inline-flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-savr-neutral-700"
     >
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
       {label}
@@ -321,6 +323,12 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [hydrating, setHydrating] = React.useState(false);
+  // Chargement du lieu en échec : pas de formulaire, rien d'enregistrable.
+  const [chargementEchoue, setChargementEchoue] = React.useState(false);
+  // Gestionnaire rattaché tel que chargé (repli s'il est absent de la liste
+  // des gestionnaires actifs, ex. organisation désactivée).
+  const [gestionnaireCharge, setGestionnaireCharge] =
+    React.useState<OrgOption | null>(null);
 
   // Liste des organisations gestionnaires de lieux (sélecteur mono) — à l'ouverture.
   React.useEffect(() => {
@@ -332,27 +340,51 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   }, [open]);
 
   // (Ré)initialise / hydrate le formulaire à chaque ouverture ou changement de cible.
+  // `obsolete` écarte la réponse tardive d'un lieu précédent (fermer A puis ouvrir
+  // B avant la réponse de A) : sinon B afficherait — et enregistrerait — A.
   React.useEffect(() => {
     if (!open) return;
+    let obsolete = false;
     setErrors({});
     setServerError(null);
+    setChargementEchoue(false);
     setOnglet('informations');
     setTitre(null);
+    setValues(VIDE);
+    setPhotos([]);
+    setGestionnaireCharge(null);
     if (lieuId) {
       setHydrating(true);
       void fetch(`/api/v1/admin/lieux/${encodeURIComponent(lieuId)}`)
-        .then((r) => r.json())
-        .then((d: LieuApi) => {
+        .then((r) => {
+          if (!r.ok) throw new Error(String(r.status));
+          return r.json() as Promise<LieuApi>;
+        })
+        .then((d) => {
+          if (obsolete) return;
           setValues(toForm(d));
           setPhotos(d.photos_urls ?? []);
           setTitre([d.nom, d.ville].filter(Boolean).join(' · '));
+          if (d.gestionnaire_organisation_id) {
+            setGestionnaireCharge({
+              id: d.gestionnaire_organisation_id,
+              raison_sociale: d.gestionnaire_nom ?? null,
+            });
+          }
         })
-        .catch(() => setServerError('Erreur lors du chargement du lieu'))
-        .finally(() => setHydrating(false));
+        .catch(() => {
+          if (obsolete) return;
+          setChargementEchoue(true);
+        })
+        .finally(() => {
+          if (!obsolete) setHydrating(false);
+        });
     } else {
-      setValues(VIDE);
-      setPhotos([]);
+      setHydrating(false);
     }
+    return () => {
+      obsolete = true;
+    };
   }, [open, lieuId]);
 
   // Onglet Activité (édition seule) : traiteurs opérant + historique.
@@ -360,13 +392,21 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     setActivite(null);
     setActiviteErreur(false);
     if (!open || !lieuId) return;
+    let obsolete = false;
     void fetch(`/api/v1/admin/lieux/${encodeURIComponent(lieuId)}/activite`)
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status));
         return r.json() as Promise<ActiviteApi>;
       })
-      .then(setActivite)
-      .catch(() => setActiviteErreur(true));
+      .then((a) => {
+        if (!obsolete) setActivite(a);
+      })
+      .catch(() => {
+        if (!obsolete) setActiviteErreur(true);
+      });
+    return () => {
+      obsolete = true;
+    };
   }, [open, lieuId]);
 
   function set<K extends keyof FormValues>(key: K, value: FormValues[K]) {
@@ -441,12 +481,19 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     const url = isEdition
       ? `/api/v1/admin/lieux/${encodeURIComponent(lieuId!)}`
       : '/api/v1/admin/lieux';
-    const res = await fetch(url, {
-      method: isEdition ? 'PATCH' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildPayload()),
-    });
-    setSubmitting(false);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: isEdition ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildPayload()),
+      });
+    } catch {
+      setServerError('Enregistrement impossible : vérifiez votre connexion');
+      return;
+    } finally {
+      setSubmitting(false);
+    }
 
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as {
@@ -464,7 +511,13 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     void submitForm();
   }
 
-  const nomGestionnaire = gestionnaires.find(
+  // Liste des gestionnaires actifs + le gestionnaire chargé s'il n'y figure pas.
+  const optionsGestionnaires =
+    gestionnaireCharge &&
+    !gestionnaires.some((g) => g.id === gestionnaireCharge.id)
+      ? [...gestionnaires, gestionnaireCharge]
+      : gestionnaires;
+  const nomGestionnaire = optionsGestionnaires.find(
     (g) => g.id === values.gestionnaire_organisation_id,
   );
 
@@ -481,7 +534,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       <Button
         type="button"
         onClick={() => void submitForm()}
-        disabled={submitting || hydrating}
+        disabled={submitting || hydrating || chargementEchoue}
       >
         {submitting
           ? 'Enregistrement…'
@@ -508,8 +561,18 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
         <p className="py-8 text-center text-sm text-savr-neutral-500">
           Chargement du lieu…
         </p>
+      ) : chargementEchoue ? (
+        <AlertBar variant="err" role="alert">
+          Erreur lors du chargement du lieu. Fermez la fiche et réessayez.
+        </AlertBar>
       ) : (
         <form onSubmit={handleFormSubmit} noValidate>
+          {/* En tête du corps : visible quel que soit l'onglet et le défilement. */}
+          {serverError && (
+            <AlertBar variant="err" role="alert" className="mb-4">
+              {serverError}
+            </AlertBar>
+          )}
           {/* Colonne résumé fixe à gauche + onglets à droite (format fiche
               collecte #423). Masquée sous md : le titre de la modale suffit.
               Suit la saisie en cours (utile à la création). */}
@@ -639,7 +702,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         onChange={(v) => set('gestionnaire_organisation_id', v)}
                         options={[
                           { value: '', label: 'Aucun' },
-                          ...gestionnaires.map((g) => ({
+                          ...optionsGestionnaires.map((g) => ({
                             value: g.id,
                             label: g.raison_sociale ?? g.nom ?? g.id,
                           })),
@@ -998,12 +1061,19 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                                 <p className="text-sm font-medium text-savr-neutral-800">
                                   {LIBELLE_ACTION[h.action] ?? h.action}
                                 </p>
-                                {h.champs.length > 0 && (
+                                {h.champs.length > 0 ? (
                                   <p className="text-sm text-savr-neutral-600">
                                     {h.champs
                                       .map((c) => LIBELLE_CHAMP[c] ?? c)
                                       .join(', ')}
                                   </p>
+                                ) : (
+                                  h.action === 'UPDATE' && (
+                                    <p className="text-sm text-savr-neutral-500">
+                                      Aucun champ du lieu modifié (le
+                                      gestionnaire rattaché a pu changer)
+                                    </p>
+                                  )
                                 )}
                                 <p className="text-xs text-savr-neutral-500">
                                   {new Date(h.created_at).toLocaleString(
@@ -1030,10 +1100,6 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
               )}
             </Tabs>
           </div>
-
-          {serverError && (
-            <p className="mt-4 text-sm text-savr-error-strong">{serverError}</p>
-          )}
         </form>
       )}
     </Modal>

@@ -17,14 +17,16 @@
 --   · miroirs positifs : programmateur (manager, commercial non créateur),
 --     agence donneuse d'ordre ; cross-org et gestionnaire d'un autre lieu = 0 ;
 --   · gestionnaire du lieu : attestations servies (§06.05 l.619, D9 non fermé),
---     attributions refusées (aa_select, C-1 intacte).
+--     attributions refusées (aa_select, C-1 intacte) ; la requête exacte de la
+--     fiche lui rend nb_repas de l'attestation, source des « Repas donnés » sur
+--     une collecte tierce (D13, 2e arbitrage Val 2026-09-30).
 -- Requêtes q_* = requêtes EXACTES des chemins applicatifs (fiche + route).
 -- Témoins de non-vacuité NV1-NV3 : un 0 est un refus RLS, pas une absence.
 -- Sonde écrite par reviewer-rls-securite (revue 2026-09-30), reprise ici.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(41);
+SELECT plan(42);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
 RETURNS void LANGUAGE plpgsql AS $$
@@ -92,9 +94,9 @@ DO $$ BEGIN
   INSERT INTO plateforme.attributions_antgaspi (collecte_id, association_id, transporteur_id, branche_attribution, mode_validation, volume_repas_realise) VALUES
    ('d1260000-0000-0000-0000-0000000000a1','d1270000-0000-0000-0000-000000000001','d1280000-0000-0000-0000-000000000001','branche_1','manuel_top1',150),
    ('d1260000-0000-0000-0000-0000000000b1','d1270000-0000-0000-0000-000000000001','d1280000-0000-0000-0000-000000000001','branche_1','manuel_top1',90);
-  INSERT INTO plateforme.attestations_don (id, collecte_id, association_id, statut, genere_at, pdf_url, eligible_at, donateur_raison_sociale, donateur_siret, association_nom) VALUES
-   ('d1290000-0000-0000-0000-0000000000a1','d1260000-0000-0000-0000-0000000000a1','d1270000-0000-0000-0000-000000000001','emise',now()-interval '29h','att/a1.pdf',now()-interval '6h','Agence D12 SAS','51200000000011','Asso Secrete D12'),
-   ('d1290000-0000-0000-0000-0000000000b1','d1260000-0000-0000-0000-0000000000b1','d1270000-0000-0000-0000-000000000001','emise',now()-interval '29h','att/b1.pdf',now()-interval '6h','Traiteur Propre SAS','51200000000033','Asso Secrete D12');
+  INSERT INTO plateforme.attestations_don (id, collecte_id, association_id, statut, genere_at, pdf_url, eligible_at, donateur_raison_sociale, donateur_siret, association_nom, nb_repas) VALUES
+   ('d1290000-0000-0000-0000-0000000000a1','d1260000-0000-0000-0000-0000000000a1','d1270000-0000-0000-0000-000000000001','emise',now()-interval '29h','att/a1.pdf',now()-interval '6h','Agence D12 SAS','51200000000011','Asso Secrete D12',150),
+   ('d1290000-0000-0000-0000-0000000000b1','d1260000-0000-0000-0000-0000000000b1','d1270000-0000-0000-0000-000000000001','emise',now()-interval '29h','att/b1.pdf',now()-interval '6h','Traiteur Propre SAS','51200000000033','Asso Secrete D12',90);
   INSERT INTO plateforme.rapports_rse (id, collecte_id, evenement_id, disponible_a, genere_at, pdf_url) VALUES
    ('d12a0000-0000-0000-0000-0000000000a2','d1260000-0000-0000-0000-0000000000a2','d1250000-0000-0000-0000-0000000000ea',now()-interval '6h',now()-interval '29h','rr/a2.pdf'),
    ('d12a0000-0000-0000-0000-0000000000a3','d1260000-0000-0000-0000-0000000000a3','d1250000-0000-0000-0000-0000000000ea',now()-interval '29h',now()-interval '29h','rr/a3.pdf'),
@@ -155,6 +157,7 @@ SELECT is((SELECT count(*)::int FROM plateforme.collectes WHERE id::text LIKE 'd
 SELECT is((SELECT count(*)::int FROM plateforme.attestations_don WHERE id::text LIKE 'd129%'), 2, 'GST : 2 attestations (D9, att_gestionnaire_select, CDC l.619)');
 SELECT is((SELECT count(*)::int FROM plateforme.rapports_rse WHERE id::text LIKE 'd12a%'), 4, 'GST : 4 rapports');
 SELECT is((SELECT count(*)::int FROM plateforme.attributions_antgaspi WHERE collecte_id::text LIKE 'd126%'), 0, 'GST : 0 attribution (aa_select intacte, C-1)');
+SELECT is((SELECT nb_repas FROM plateforme.attestations_don WHERE collecte_id = 'd1260000-0000-0000-0000-0000000000b1' ORDER BY version DESC LIMIT 1), 90, 'GST : nb_repas de l''attestation d''un traiteur tiers lisible par la requête de la fiche (repli D13)');
 SELECT is((SELECT count(*)::int FROM plateforme.evenements WHERE id::text LIKE 'd125%' AND organisation_id <> 'd1200000-0000-0000-0000-0000000000a5'), 2, 'GST : organisation_id des événements tiers déjà lisible (drapeaux sans info nouvelle)');
 SELECT test_set_jwt('gestionnaire_lieux','d1200000-0000-0000-0000-0000000000a6');
 SELECT is((SELECT count(*)::int FROM plateforme.collectes WHERE id::text LIKE 'd126%'), 0, 'GX : 0 collecte');

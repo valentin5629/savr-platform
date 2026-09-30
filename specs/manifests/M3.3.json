@@ -362,7 +362,7 @@
       "artefact": null,
       "test": null,
       "statut": "partial",
-      "libelle": "Options des filtres du repère parc VIDES pour l'agence (dashboard ET fiche) : f_benchmark_lieux_parc exclut le rôle agence et fait échouer toute la route /api/v1/dashboards/benchmark/filtres (types compris). Préexistant, hors lot : ouvrir la fonction à l'agence ÉLARGIT un accès → arbitrage Val (CLAUDE.md §12 2bis). Tracé dans _Divergences/M3.1_20260929_popup-client-implementation.md."
+      "libelle": "Options des filtres du repère parc VIDES pour l'agence (dashboard ET fiche) : f_benchmark_lieux_parc exclut le rôle agence et fait échouer toute la route /api/v1/dashboards/benchmark/filtres (types compris). Arbitrage Val 2026-09-30 (D8) : ajouter agence à la liste blanche de f_benchmark_lieux_parc (f_benchmark_traiteurs_parc reste fermée). Migration ÉLARGISSANTE (CLAUDE.md §12 2bis) non écrite par Claude Code — refusée par le contrôle de permissions, à écrire par Val puis GO reviewer-rls-securite. Tracé dans _Divergences/M3.1_20260929_popup-client-implementation.md."
     },
     {
       "id": "M3.3-popup-coordonnees-urgence",

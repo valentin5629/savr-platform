@@ -413,7 +413,7 @@
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
       "test": "M1.1b/lieux/fiche-onglets — champ obligatoire d'un autre onglet : ouvre l'onglet en erreur",
       "statut": "implemented",
-      "libelle": "Création : 3 onglets (pas d'Activité) ; un champ obligatoire vide dans un onglet caché ouvre cet onglet et y pose une pastille « champ à corriger » (décision Val C4)"
+      "libelle": "Création : 3 onglets (pas d'Activité) ; un champ obligatoire vide dans un onglet caché ouvre cet onglet, y pose le focus et affiche le nombre de champs à corriger (« N champs à corriger »), qui disparaît dès la correction — même comportement que la fiche association (décision Val C4 + alignement #446)"
     },
     {
       "id": "M1.1b-lieu-activite",
@@ -422,6 +422,22 @@
       "test": "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes + M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur + M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte + M1.1b/lieux/activite — réponse minimale : jamais les valeurs avant/après de l'audit (champs admin-only)",
       "statut": "implemented",
       "libelle": "GET /api/v1/admin/lieux/{id}/activite (staff) : traiteurs opérant = traiteur opérationnel des événements du lieu ayant au moins une collecte, avec leur nombre de collectes ; historique = audit_log table_name='lieux' (création, modification avec champs réellement changés, normalisation, modification signalée à la programmation) + auteur (décision Val C3)"
+    },
+    {
+      "id": "M1.1b-association-fiche-onglets-entete",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:446",
+      "artefact": "packages/plateforme/src/components/admin/association-modal.tsx",
+      "test": "en-tête : région, ville, capacité et statut de l’association enregistrée + colonne résumé : reprend la fiche et suit la saisie",
+      "statut": "implemented",
+      "libelle": "Fiche association : grand en-tête commun (région, SIREN, nom, ville, capacité, statut — association enregistrée, stable pendant la saisie) + colonne résumé allégée (logo, habilitation 2041-GE, contact — suit la saisie) + hauteur fixe (décisions Val 2026-09-30 « grand en-tête partout » / « résumé allégé »)"
+    },
+    {
+      "id": "M1.1b-fiches-admin-entete-commun",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:446",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-blocs.tsx",
+      "test": "en-tête : type de TMS, SIREN, ville, véhicules, téléphone et statut du transporteur enregistré + M1.1b/lieux/fiche-onglets — édition : grand en-tête, colonne résumé et 4 onglets + en-tête : région, ville, capacité et statut de l’association enregistrée",
+      "statut": "implemented",
+      "libelle": "Brique commune FicheEnTete (+ EnTetePuce, EnTeteMention) : même grand en-tête pour les fiches Admin transporteur, lieu et association — sur-titre, nom en grand, ligne d'infos à pictos, statut ; objet enregistré ; titre accessible « Fiche X — nom » (décision Val 2026-09-30)"
     }
   ],
   "cdc_source_hash": {

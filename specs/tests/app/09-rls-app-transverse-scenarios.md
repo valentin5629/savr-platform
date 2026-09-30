@@ -542,6 +542,20 @@ Scénario : organisations_lieux_type_gestionnaire_et_ecriture_fermee
   Et POST/PATCH /admin/lieux avec un gestionnaire_organisation_id de type ≠ gestionnaire_lieux renvoie 422
 ```
 
+```gherkin
+# Source : §09 §3 Table tournees — privilège colonne (arbitrage C5 + type_vehicule fermé, Val 2026-09-30)
+# Couche : db (pgTAP SECU__tournees_select_liste_blanche)
+# Priorité : P0-bloquant
+
+Scénario : tournees_colonnes_sensibles_fermees_clients
+  Étant donné une tournée liée à une collecte visible par un gestionnaire, un traiteur opérationnel et une agence
+  Et la tournée porte chauffeur, accompagnant, plaque, type de véhicule, prestataire, références provider et notes internes
+  Quand chacun de ces rôles lit la tournée par PostgREST direct
+  Alors la ligne est visible sur les 10 colonnes de la liste blanche (id, date, créneau, heures prévues/réelles, statut, created_at, updated_at)
+  Mais la lecture de chauffeur_telephone, type_vehicule, prestataire_logistique_id, reference_interne ou notes_internes est refusée (42501)
+  Et select=* est refusé (42501)
+```
+
 ## Recommandations loggées (non bloquantes — à confirmer)
 
 - **Reco A** : l'exemple de JWT §09 §4 n'inclut pas `app_domain` ni `impersonator_id` alors que les deux claims sont spécifiés ailleurs — mettre à jour l'exemple (doc stale, zéro impact spec).

@@ -353,7 +353,7 @@
     },
     {
       "id": "M3.3-popup-radar-agence",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:403",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406",
       "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/[id]/benchmark/route.ts",
       "test": "M3.3/fiche_benchmark_agence",
       "statut": "implemented",
@@ -385,6 +385,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "adedebb053b8ac6ae0091354c3192a861578dfcca3c5d9ebb2ab7548c360e64d"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "5b47fd23e51c23aa750d632d89c0ed4a25812daf3b7d6dca02938615b7cc84d5",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "00a3973aa020ea07011df7e915269ae594c41f15b74c0357dc983a331fc1d422"
   }
 }

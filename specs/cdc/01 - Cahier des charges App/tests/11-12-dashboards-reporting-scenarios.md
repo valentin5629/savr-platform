@@ -55,11 +55,11 @@ Scénario : dashboard_admin_revenus_defaut_12_mois
     Et une SEULE barre de filtre Du/Au pilote les deux blocs
     Et la période par défaut est les 12 derniers mois glissants, alignés au 1er du mois (12 buckets mensuels pleins)
     Et ce n'est PAS le mois en cours (l'ancien défaut isolé du §11 est supprimé)
-    Et aucun preset de période (7j / 30j / Trimestre / 12 mois / Année civile) n'est affiché sur CE dashboard
+    Et aucune rangée de presets n'est affichée sous la barre ; les raccourcis standard (7 derniers jours … Année civile) figurent dans le panneau du filtre Période, comme sur tous les filtres de date (Val 2026-09-30)
     Et aucun bouton « Exporter CSV » n'est affiché (l'endpoint ?format=csv reste servi, sans déclencheur UI)
   Quand l'admin clique « Réinitialiser »
   Alors la période revient aux 12 derniers mois, pas au mois en cours
-  Et les presets restent présents sur les autres dashboards (traiteur §06.04, gestionnaire §06.05, agence, registre) — non concernés
+  Et la même liste de raccourcis figure dans le panneau Période des autres dashboards (traiteur §06.04, gestionnaire §06.05, agence) et du registre
 ```
 
 ```gherkin

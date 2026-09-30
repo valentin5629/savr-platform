@@ -337,9 +337,9 @@ Les collectes s'affichent dans une **Data Table** (colonnes Date · Lieu · Pax 
 - **Modifier** → ouvre la fiche en édition (statuts `programmee` / `validee`).
 - **Annuler** → modale + motif obligatoire (statuts `brouillon` / `programmee` / `validee` ; `validee` = demande soumise à l'Admin, cf. §Annulation).
 - **Dupliquer** *(nouveau 2026-07-05)* → pré-remplit le formulaire de programmation (`/programmer/nouveau?from=<collecteId>`), **date laissée vide** ; rien n'est créé tant que l'utilisateur ne valide pas (réutilise tout le flux §06.01 : tarif ZD, vérif pack AG). Toujours présent.
-- **Télécharger le rapport** *(réintroduit dans la liste 2026-07-15, divergence M3.1)* → sur les collectes **`cloturee`** uniquement, picto Téléchargement à gauche du badge « Réalisée », branché sur la route `api/v1/traiteur/collectes/[id]/rapport-rse/download` (ZD = rapport recyclage, AG = attestation ; embargo H+24 conservé).
+- **Télécharger le rapport** *(réintroduit dans la liste 2026-07-15, divergence M3.1)* → sur les collectes **`cloturee`** uniquement, **sauf** rapport de don réservé au donneur d'ordre (traiteur opérationnel d'une collecte AG hors « sans excédent » programmée par une autre organisation — D12 2026-09-30) : picto retiré (action indisponible, exception densité §10 §7) et mention « Réservé à l'organisation qui a programmé la collecte » à sa place (précédée du picto document), même règle que la fiche (`rapport_reserve_donneur_ordre` exposé par `GET /api/v1/traiteur/collectes`). Sinon picto Téléchargement à gauche du badge « Réalisée », branché sur la route `api/v1/traiteur/collectes/[id]/rapport-rse/download` (ZD = rapport recyclage, AG = attestation ; embargo H+24 conservé).
 
-> **Téléchargement du rapport — de nouveau accessible depuis la liste** *(révision 2026-07-15, divergence M3.1 — supersede le retrait 2026-05-04)* : le rapport de la collecte réalisée (`cloturee`) est téléchargeable directement depuis la carte (picto ci-dessus), **en plus** de la fiche collecte. La facture reste, elle, accessible depuis la **fiche** (cf. §Actions fiche, BL-P1-TRAIT-03).
+> **Téléchargement du rapport — de nouveau accessible depuis la liste** *(révision 2026-07-15, divergence M3.1 — supersede le retrait 2026-05-04)* : le rapport de la collecte réalisée (`cloturee`) est téléchargeable directement depuis la carte (picto ci-dessus), **en plus** de la fiche collecte — sauf rapport de don réservé au donneur d'ordre (ni picto dans la liste, ni bouton dans la fiche, D12 2026-09-30). La facture reste, elle, accessible depuis la **fiche** (cf. §Actions fiche, BL-P1-TRAIT-03).
 
 > **Périmètre commercial** *(révision 2026-05-29 conservée)* : le `traiteur_commercial` voit **toutes les collectes de l'organisation** ; sur les collectes d'un autre (`created_by ≠ auth.uid()`), actions **Modifier / Annuler grisées** (lecture seule) ; **Dupliquer reste disponible** (crée une nouvelle collecte à son nom).
 
@@ -398,8 +398,11 @@ Pour le `traiteur_commercial` *(révision 2026-05-29)* : la liste affiche **tout
 > - **En-tête** : badge type (**ZD navy `primary-700`** / **AG orange `accent-500`**, texte `primary-950` — aligné DS dataviz-1/2 ; remplace le cadre orange/vert) + « Réf. », titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax » ; **frise de statut discrète en vocabulaire client** en haut à droite (Créée · Validée · En cours · Réalisée, « Sans excédents » en AG, « Annulée » — jamais Programmée/Clôturée, collapse 2026-06-30 ; étape courante pleine opacité + gras) ; croix de fermeture isolée. Le composite « Date - Lieu - Client organisateur - pax » est remplacé ; le client organisateur passe en champ « Client » de l'onglet Informations.
 > - **Navigation** : onglets en colonne à gauche (actif = fond blanc + contour) : **Informations / Logistique / Bilan & documents**.
 > - **Pied** : « Demander l'annulation » (contour rouge) puis « Modifier la collecte » (primaire), en bas à droite — selon les droits du rôle.
-> - **Informations** : Événement (Client, Date et heure, Pax, Type) ; Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** — bloc masqué tant que la donnée n'existe pas, pas de migration V1).
-> - **Logistique** : voir bloc « Logistique » ci-dessous (chauffeur / plaque / téléphone). Wording 100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un prestataire (« Nous affectons votre chauffeur avant la collecte… »). Bouton **« Demander les coordonnées en urgence »** → alerte **in-app Ops seule** (pas d'email, pas de Slack), **1 demande par collecte**, confirmation « Demande envoyée à l'équipe Savr », alerte **clôturée automatiquement** à réception des coordonnées. AG : bloc **Association bénéficiaire** (nom, ville, présentation = `associations.description_rapport_impact`) dès la validation — **masqué au gestionnaire** tant que `v_attributions_gestionnaire` n'est pas implémentée.
+> - **Informations** : Événement (Client, Date et heure, Pax, Type) ; Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = `acces_details` effectif du lieu, surcharge `lieu_overrides` de la collecte comprise, + `collectes.informations_supplementaires` ; jamais les notes internes — D5 2026-09-30) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** (`evenements.contact_secours_*`) — ligne masquée si vide, D6 2026-09-30).
+> - **Logistique** : voir bloc « Logistique » ci-dessous (chauffeur / plaque / téléphone). Wording 100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un prestataire (« Nous affectons votre chauffeur avant la collecte… »). Bouton **« Demander les coordonnées en urgence »** → alerte **in-app Ops seule** (pas d'email, pas de Slack), **1 demande OUVERTE à la fois par collecte** (D10 2026-09-30 : tant que l'alerte Ops est ouverte, un nouveau clic ne crée rien ; après clôture — coordonnées reçues puis perdues, ou clôture manuelle Ops — une nouvelle demande ouvre une nouvelle alerte), confirmation « Demande envoyée à l'équipe Savr », alerte **clôturée automatiquement** à réception des coordonnées. AG : bloc **Association bénéficiaire** (nom, ville, présentation = `associations.description_rapport_impact`) dès la validation — **masqué au gestionnaire** tant que `v_attributions_gestionnaire` n'est pas implémentée.
+> - **Collecte annulée** (`annulee`, `annulation_demandee`) *(C3 2026-09-29)* : frise « Créée · Annulée », onglet Bilan « Collecte annulée : aucun bilan ni document. », aucune action en pied.
+> - **Bilan affiché quand la collecte est « Réalisée » côté client (`cloturee`)** ; `realisee` DB (« En cours » client) = blocs estompés *(D4 2026-09-30)*.
+> - **Traiteur opérationnel d'une collecte AG programmée par une autre organisation (agence)** *(D12 2026-09-30)* : l'attestation de don est émise au nom du donneur d'ordre et ne lui est pas servie (matrice §09 `attestations_don`, lecture sous RLS) — ligne « Rapport de don » avec la mention « Réservé à l'organisation qui a programmé la collecte », sans téléchargement.
 > - **Bilan & documents ZD** (collecte réalisée) : 4 KPI (Poids total collecté, CO₂ évité net, Taux de recyclage, Pesée par pax) ; donut « Répartition des tonnages » (`TonnagesDonut`) ; radar benchmark « Votre collecte face aux événements comparables » (`BenchmarkRadar`, période fixe 24 mois, filtres Type d'événement / Taille / Lieux en titres cliquables ouvrant une liste à cocher, une seule ligne ; pas de filtre traiteurs) ; document **« Rapport RSE » seul** (bordereau intégré au PDF).
 > - **Bilan & documents AG** : 3 KPI (Repas donnés, Repas par pax, CO₂ évité) + bloc Association ; document affiché **« Rapport de don »** (renommage d'affichage seul — titre PDF, nom de fichier et emails inchangés). Sans excédents : bloc « Aucun repas collecté » (motif + horodatage, pas d'attestation) + « Rapport "Événement sans excédent alimentaire" ». Pas de benchmark AG.
 > - **Avant réalisation** : mêmes blocs Bilan affichés estompés (40 %) sans valeurs, bandeau « Votre bilan sera disponible après la collecte ».
@@ -464,7 +467,7 @@ Cette valeur est **également imprimée sur le PDF Rapport RSE** §1.2 page 1 (S
 
 **Bloc 3 ZD — Radar kg/pax × benchmark parc (refonte 2026-05-05, radar 2026-09-28)**
 
-Affiché uniquement sur collectes **ZD terminées** (`statut IN (cloturee, realisee)`). Permet au traiteur de visualiser les performances de cette collecte unique vs benchmark parc Savr.
+Affiché uniquement sur collectes **ZD clôturées** (`statut = cloturee` — « Réalisée » client ; `realisee` retiré, D4 2026-09-30). Permet au traiteur de visualiser les performances de cette collecte unique vs benchmark parc Savr.
 
 Structure (radar, 1 axe par flux ZD = 5 axes — même représentation que le Bloc 3 ZD du dashboard) :
 - **Valeur traiteur** : ratio `kg du flux sur cette collecte / pax de cet événement` (grain `single collecte`)
@@ -507,9 +510,10 @@ Tous les champs métier de la collecte et de l'événement parent :
 - Date, heure de collecte
 - Pax, type d'événement, taille
 - Contacts principal / secours (événement)
-- Notes
 - Flag `controle_acces_requis`
 - **Informations supplémentaires concernant la collecte** (text 1000 car., refonte 2026-05-06 §06.01 §2.a)
+
+> **`notes_internes`** (collecte et événement) = commentaire Admin Savr, jamais lu ni écrit par un rôle client (§04 ; arbitrage Val C1 2026-09-29).
 
 > **Refonte 2026-05-05** : champ "Type de pesée" supprimé. Champ orphelin (jamais défini en data model, jamais utilisé côté TMS, suppression sans cascade).
 
@@ -544,8 +548,8 @@ Tous les champs métier de la collecte et de l'événement parent :
 **Confirmation utilisateur** (sobriété B2 2026-05-04 — modal unique au lieu de 3)
 
 Une seule modal de confirmation, contenu adapté dynamiquement aux flags applicables. Avant sauvegarde, si **au moins un** des contextes ci-dessous est vrai, la modal s'affiche en empilant les avertissements pertinents (sinon save direct sans modal) :
-- `priorite_urgence` (modification < 12h avant créneau) → ligne "Cette modification a lieu moins de 12h avant la collecte. Notre équipe Ops sera alertée en urgence pour relayer au prestataire si besoin."
-- `reacceptation_requise` (modif date/heure sur collecte `acceptee`) → ligne "Cette modification de créneau invalidera l'acceptation du prestataire qui devra re-confirmer."
+- `priorite_urgence` (modification < 12h avant créneau) → ligne "Cette modification a lieu moins de 12h avant la collecte. Notre équipe Ops sera alertée en urgence." *(marque blanche, C2 2026-09-29)*
+- `reacceptation_requise` (modif date/heure sur collecte `acceptee`) → ligne "Ce nouveau créneau devra être reconfirmé par notre équipe logistique." *(marque blanche, C2 2026-09-29)*
 
 Bouton unique "Confirmer la modification" (et "Annuler" pour fermer la modal).
 
@@ -634,7 +638,7 @@ Un commercial qui programme une collecte pour un autre collègue (cas fréquent 
 **Deux chemins selon le statut** (cf. [[05 - Règles métier#Annulation]], source unique) :
 
 **A. Annulation directe — `statut IN (brouillon, programmee)`** (sans validation Admin) :
-1. Clic "Annuler la collecte" → modal de confirmation (motif texte libre, optionnel V1)
+1. Clic "Annuler la collecte" → modal de confirmation (motif texte libre, optionnel V1). Libellé (pop-up ET liste) : « Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique. » *(marque blanche, C2 2026-09-29)*
 2. Statut collecte passe **immédiatement** à `annulee`
 3. Si `statut_tms ≠ non_envoye` (collecte déjà poussée TMS) : **E3 `DELETE /collectes/:id` déclenché systématiquement** vers le TMS → le prestataire est informé côté TMS sans délai *(exigence Val 2026-06-07 F5 : toute annulation/suppression — traiteur, Ops ou Admin — doit être propagée au TMS)*
 4. Notification email info à l'Admin Savr (pas de validation requise)

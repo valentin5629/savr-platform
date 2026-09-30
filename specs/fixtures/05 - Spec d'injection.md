@@ -33,7 +33,7 @@ Environnement **dev uniquement** : les scripts refusent de s'exécuter si `SUPAB
 - **Triggers** : l'injection passe par les INSERT normaux (triggers actifs) sauf données historiques figées (snapshots CO₂/taux, `cout/marge` calculés) injectées telles quelles — désactivation ciblée `session_replication_role = replica` UNIQUEMENT sur le bloc historique demo, documentée dans le script.
 - **`shared.fichiers` + Storage** : PDF placeholder 1 page par fichier référencé, uploadés dans le bucket dev ; chemins déterministes.
 - **RLS** : injection sous rôle service (bypass), mais `seed:check` relit sous chaque JWT de test pour valider le cloisonnement de base (1 requête par persona).
-- **Auth** : users créés via `auth.admin` API (emails `@savr-test.local`, mot de passe commun dev `SavrTest2026!`), puis lignes `plateforme.users` liées.
+- **Auth** : users créés via `auth.admin` API (emails `@savr-test.local`, mot de passe commun dev `savr` — raccourci le 2026-09-30, décision Val), puis lignes `plateforme.users` liées.
 
 ## 5. `seed:check` — intégrité
 

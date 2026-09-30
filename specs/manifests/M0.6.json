@@ -1184,6 +1184,14 @@
       "libelle": "Cloisonnement tournees : tournée sœur d’une autre org non exposée"
     },
     {
+      "id": "M0.6-tournees-select-liste-blanche",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:301",
+      "artefact": "supabase/migrations/20260930160000_plateforme_tournees_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 11 colonnes ; trigger fn_cloturer_alerte_coordonnees_urgence passé SECURITY DEFINER)",
+      "test": "supabase/tests/SECU__tournees_select_liste_blanche.test.sql (1-6 privilèges + liste blanche exacte ; 7 non-vacuité ; 8-26 gestionnaire / traiteur opérationnel / agence : ligne visible, 11 colonnes retirées → 42501 ; 27 ligne tierce invisible ; 28-32 admin_savr JWT fermé en lecture mais UPDATE conservé, service_role intact ; 33-34 fail-closed colonne ajoutée) + supabase/tests/infos_acces_chauffeur.test.sql (recalé : 42501 au lieu de lecture)",
+      "statut": "implemented",
+      "libelle": "tournees : SELECT authenticated en liste blanche — chauffeur/accompagnant/plaque, prestataire, références provider (dont reference_interne TMS-/EVR-) et notes internes hors privilège (arbitrage C5, suite #435)"
+    },
+    {
       "id": "M0.6-attestation-delete-deny",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:258",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql",

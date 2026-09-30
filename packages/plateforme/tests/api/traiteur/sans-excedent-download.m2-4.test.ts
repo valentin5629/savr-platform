@@ -90,7 +90,7 @@ describe('M2.4 / download rapport sans-excédent (BL-P1-RPT-02)', () => {
       data: { id: 'c1', type: 'anti_gaspi', statut: 'realisee_sans_collecte' },
       error: null,
     };
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: {
         id: 'r1',
         disponible_a: PAST,
@@ -101,7 +101,7 @@ describe('M2.4 / download rapport sans-excédent (BL-P1-RPT-02)', () => {
     };
     // Aucune attestation n'existe pour une collecte sans-excédent : si le code la lisait,
     // il renverrait 404. Le test prouve qu'il passe par la branche rapports_rse.
-    admin.results.attestations_don = { data: null, error: null };
+    rls.results.attestations_don = { data: null, error: null };
 
     const res = await download();
     expect(res.status).toBe(200);
@@ -113,7 +113,7 @@ describe('M2.4 / download rapport sans-excédent (BL-P1-RPT-02)', () => {
       data: { id: 'c1', type: 'anti_gaspi', statut: 'cloturee' },
       error: null,
     };
-    admin.results.attestations_don = {
+    rls.results.attestations_don = {
       data: { id: 'a1', eligible_at: PAST, pdf_url: 'rapports/att-a1.pdf' },
       error: null,
     };
@@ -124,9 +124,9 @@ describe('M2.4 / download rapport sans-excédent (BL-P1-RPT-02)', () => {
 
   it('collecte cross-org (invisible RLS) → 404 SANS présignature (0 fuite inter-org)', async () => {
     // La lecture RLS-scopée ne voit pas la collecte d'une autre org → 404 avant toute
-    // lecture service-role du rapport. Aucune URL présignée émise.
+    // lecture du rapport. Aucune URL présignée émise.
     rls.results.collectes = { data: null, error: null };
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: {
         id: 'r1',
         disponible_a: PAST,
@@ -145,7 +145,7 @@ describe('M2.4 / download rapport sans-excédent (BL-P1-RPT-02)', () => {
       data: { id: 'c1', type: 'anti_gaspi', statut: 'realisee_sans_collecte' },
       error: null,
     };
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: {
         id: 'r1',
         disponible_a: PAST,
@@ -177,13 +177,13 @@ describe('M2.4 / fiche collecte GET — disponibilité sans-excédent (BL-P1-RPT
       },
       error: null,
     };
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: { disponible_a: PAST, genere_at: '2020-01-02T00:00:00Z' },
       error: null,
     };
     // Pas d'attestation → si le code lisait l'attestation (ancien comportement),
     // rapport_rse_disponible serait false.
-    admin.results.attestations_don = { data: null, error: null };
+    rls.results.attestations_don = { data: null, error: null };
 
     const res = await get();
     const { data } = (await res.json()) as {
@@ -202,11 +202,11 @@ describe('M2.4 / fiche collecte GET — disponibilité sans-excédent (BL-P1-RPT
       },
       error: null,
     };
-    admin.results.attestations_don = {
+    rls.results.attestations_don = {
       data: { eligible_at: PAST, pdf_url: 'k.pdf' },
       error: null,
     };
-    admin.results.rapports_rse = { data: null, error: null };
+    rls.results.rapports_rse = { data: null, error: null };
 
     const res = await get();
     const { data } = (await res.json()) as {

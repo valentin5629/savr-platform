@@ -54,6 +54,7 @@ export function ficheClient(
     association: null,
     rapport_rse_disponible: false,
     rapport_rse_regenere: false,
+    rapport_reserve_donneur_ordre: false,
     actions: { modifier: 'actif', annuler: 'actif', annulation: 'demande' },
     ...over,
   };

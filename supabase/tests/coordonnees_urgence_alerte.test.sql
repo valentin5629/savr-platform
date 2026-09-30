@@ -2,9 +2,11 @@
 -- Demande « coordonnées du chauffeur en urgence » — garanties portées par la base
 -- =============================================================================
 -- §06.04 Fiche collecte, refonte pop-up (décision Val 2026-09-29, Q3). Vérifie :
---   · 1 demande par collecte : l'index unique partiel refuse la 2e alerte du même
---     code sur la même collecte (le double clic concurrent de la route retombe
---     sur cette violation), sans gêner les autres codes d'alerte ;
+--   · 1 demande OUVERTE par collecte (D10, arbitrage Val 2026-09-30) : l'index
+--     unique partiel refuse une 2e alerte ouverte du même code sur la même
+--     collecte (le double clic concurrent de la route retombe sur cette
+--     violation), sans gêner les autres codes d'alerte ; une fois l'alerte
+--     clôturée, une nouvelle demande en ouvre une nouvelle (historique gardé) ;
 --   · clôture automatique « à réception des coordonnées » : chaque camion doit
 --     avoir nom + téléphone + plaque (vélo cargo : pas de plaque) ; une chaîne
 --     vide reste « En attente » ; retrait d'un camion incomplet ⇒ clôture ;
@@ -14,7 +16,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(17);
+SELECT plan(21);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(
   p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid()
@@ -122,13 +124,13 @@ END $$;
 
 SELECT test_as_superuser();
 
--- ═══ 1. Une demande par collecte (index unique partiel) ══════════════════════
+-- ═══ 1. Une demande ouverte par collecte (index unique partiel) ═════════════
 SELECT throws_ok(
   $$INSERT INTO plateforme.alertes_admin (code, titre, entity_type, entity_id)
     VALUES ('coordonnees_chauffeur_urgence', 'Doublon', 'collecte', 'cd600000-0000-0000-0000-0000000000c1'::uuid)$$,
   '23505',
   NULL,
-  'Unicité : une 2e demande urgente sur la même collecte est refusée par la base'
+  'Unicité : une 2e demande urgente ouverte sur la même collecte est refusée par la base'
 );
 
 SELECT lives_ok(
@@ -229,6 +231,44 @@ DELETE FROM plateforme.collecte_tournees
  WHERE collecte_id = 'cd600000-0000-0000-0000-0000000000c5'::uuid;
 SELECT is(test_statut_alerte('cd600000-0000-0000-0000-0000000000c5'::uuid), 'ouverte',
   'Collecte sans camion : jamais clôturée (aucune coordonnée reçue)');
+
+-- ═══ 2bis. Nouvelle demande après clôture (D10) ══════════════════════════════
+-- c2 : l'alerte est clôturée (vélo cargo, ci-dessus). Une réattribution efface
+-- le téléphone du chauffeur, le client redemande : une NOUVELLE alerte s'ouvre.
+UPDATE plateforme.tournees
+   SET chauffeur_telephone = NULL
+ WHERE id = 'cd700000-0000-0000-0000-0000000000b1'::uuid;
+SELECT lives_ok(
+  $$INSERT INTO plateforme.alertes_admin (code, titre, entity_type, entity_id)
+    VALUES ('coordonnees_chauffeur_urgence', 'Relance', 'collecte', 'cd600000-0000-0000-0000-0000000000c2'::uuid)$$,
+  'Après clôture : une nouvelle demande ouvre une nouvelle alerte'
+);
+SELECT throws_ok(
+  $$INSERT INTO plateforme.alertes_admin (code, titre, entity_type, entity_id)
+    VALUES ('coordonnees_chauffeur_urgence', 'Doublon relance', 'collecte', 'cd600000-0000-0000-0000-0000000000c2'::uuid)$$,
+  '23505',
+  NULL,
+  'Après réouverture : un nouveau clic reste refusé tant que la demande est ouverte'
+);
+SELECT is(
+  (SELECT array_agg(statut ORDER BY statut) FROM plateforme.alertes_admin
+    WHERE code = 'coordonnees_chauffeur_urgence'
+      AND entity_id = 'cd600000-0000-0000-0000-0000000000c2'::uuid),
+  ARRAY['ouverte', 'resolue']::text[],
+  'Historique conservé : l''alerte clôturée reste, à côté de la nouvelle'
+);
+-- Le téléphone revient : la nouvelle alerte se clôture à son tour, et la base
+-- accepte deux alertes clôturées sur la même collecte.
+UPDATE plateforme.tournees
+   SET chauffeur_telephone = '0644444445'
+ WHERE id = 'cd700000-0000-0000-0000-0000000000b1'::uuid;
+SELECT is(
+  (SELECT array_agg(statut ORDER BY statut) FROM plateforme.alertes_admin
+    WHERE code = 'coordonnees_chauffeur_urgence'
+      AND entity_id = 'cd600000-0000-0000-0000-0000000000c2'::uuid),
+  ARRAY['resolue', 'resolue']::text[],
+  'Coordonnées revenues : la nouvelle alerte est clôturée, deux clôturées coexistent'
+);
 
 -- ═══ 3. alertes_admin fermée aux rôles clients ═══════════════════════════════
 -- Non-vacuité : la table porte bien des alertes de l'organisation testée.

@@ -35,6 +35,6 @@ export async function GET(
   if (auth.error) return auth.error;
   const { id } = await params;
   // Logique commune aux 3 espaces clients (lib/collectes/rapport-download.ts) :
-  // contrôle RLS de la collecte puis lecture service-role bornée à celle-ci.
-  return repondreTelechargementRapport(id, 'service');
+  // contrôle RLS de la collecte puis lecture des documents sous la même RLS.
+  return repondreTelechargementRapport(id);
 }

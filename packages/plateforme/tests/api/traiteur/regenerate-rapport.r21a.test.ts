@@ -137,7 +137,7 @@ describe('M2.4 / rapport RSE AG = attestation standalone (option a Val)', () => 
       data: { id: 'c1', type: 'anti_gaspi' },
       error: null,
     };
-    admin.results.attestations_don = {
+    rls.results.attestations_don = {
       data: {
         id: 'a1',
         eligible_at: '2020-01-01T00:00:00Z',
@@ -155,7 +155,7 @@ describe('M2.4 / rapport RSE AG = attestation standalone (option a Val)', () => 
       data: { id: 'c1', type: 'anti_gaspi' },
       error: null,
     };
-    admin.results.attestations_don = {
+    rls.results.attestations_don = {
       data: {
         id: 'a1',
         eligible_at: '2999-01-01T00:00:00Z',

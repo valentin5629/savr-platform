@@ -131,7 +131,7 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
       data: [{ id: 'p1', nom: 'Strike' }],
       error: null,
     };
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: {
         disponible_a: '2020-01-01T00:00:00Z',
         genere_at: '2020-01-02T00:00:00Z',
@@ -183,7 +183,7 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
 
   it('M3.1/fiche_get_rapport_sous_embargo — disponible_a futur → non téléchargeable', async () => {
     rls.results.collectes = { data: { id: 'c1', evenement: {} }, error: null };
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: {
         disponible_a: '2999-01-01T00:00:00Z',
         genere_at: '2999-01-01T00:00:00Z',
@@ -209,7 +209,7 @@ describe('M3.1 / téléchargement rapport RSE traiteur (BL-P1-TRAIT-03)', () => 
 
   it('M3.1/rapport_download_ok — URL pré-signée (embargo levé)', async () => {
     rls.results.collectes = { data: { id: 'c1' }, error: null };
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: {
         id: 'r1',
         disponible_a: '2020-01-01T00:00:00Z',
@@ -227,7 +227,7 @@ describe('M3.1 / téléchargement rapport RSE traiteur (BL-P1-TRAIT-03)', () => 
 
   it('M3.1/rapport_download_embargo — 425 si disponible_a futur', async () => {
     rls.results.collectes = { data: { id: 'c1' }, error: null };
-    admin.results.rapports_rse = {
+    rls.results.rapports_rse = {
       data: {
         id: 'r1',
         disponible_a: '2999-01-01T00:00:00Z',
@@ -249,7 +249,7 @@ describe('M3.1 / téléchargement rapport RSE traiteur (BL-P1-TRAIT-03)', () => 
 
   it('M3.1/rapport_download_absent — pas de rapport → 404', async () => {
     rls.results.collectes = { data: { id: 'c1' }, error: null };
-    admin.results.rapports_rse = { data: null, error: null };
+    rls.results.rapports_rse = { data: null, error: null };
     const res = await download();
     expect(res.status).toBe(404);
   });

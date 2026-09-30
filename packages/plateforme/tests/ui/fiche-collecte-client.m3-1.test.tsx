@@ -936,6 +936,38 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
   );
 });
 
+describe('M3.1 / pop-up — attestation du donneur d’ordre (D12)', () => {
+  it(
+    'M3.1/fiche_popup_rapport_reserve_donneur_ordre — traiteur opérationnel : rapport de don réservé, pas de téléchargement',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          repas_donnes: 840,
+          rapport_rse_disponible: false,
+          rapport_reserve_donneur_ordre: true,
+          actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+        }),
+      );
+      render(fiche('c1'));
+      await ouvrirOnglet('Bilan & documents');
+
+      const docs = await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
+      expect(docs.textContent).toContain('Rapport de don');
+      expect(docs.textContent).toContain(
+        'Réservé à l’organisation qui a programmé la collecte',
+      );
+      // Pas de faux « disponible demain » : le document ne viendra jamais.
+      expect(docs.textContent).not.toContain('Disponible le lendemain');
+      expect(
+        within(docs).queryByRole('button', { name: 'Télécharger' }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('M3.1 / pop-up — marque blanche et actions', () => {
   it.each([
     ['ZD à venir', { statut: 'validee' }],

@@ -284,4 +284,41 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'M3.3/liste_agence_ancien_lien_sans_onglet — ?lieu=…&statut=cloturee sans onglet ouvre l’Historique',
+    async () => {
+      searchParams = new URLSearchParams(
+        'lieu=lieu-1&type=zero_dechet&statut=cloturee',
+      );
+      render(<AgenceCollectesPage />);
+      expect(screen.getByRole('tab', { name: 'Historique' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      await waitFor(
+        () => expect(statutsDemandes()).toContain('cloturee'),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.3/liste_agence_statut_hors_onglet_jamais_vide — un statut hors onglet retombe sur les statuts de l’onglet',
+    async () => {
+      searchParams = new URLSearchParams('onglet=programmees&statut=cloturee');
+      render(<AgenceCollectesPage />);
+      await waitFor(
+        () => expect(statutsDemandes().length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+      // Jamais `statut=` vide : les routes ne filtreraient plus aucun statut.
+      expect(statutsDemandes()).not.toContain('');
+      expect(statutsDemandes()).toContain(
+        'brouillon,programmee,validee,en_cours',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 });

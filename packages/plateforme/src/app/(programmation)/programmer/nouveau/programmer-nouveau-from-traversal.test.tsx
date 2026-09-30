@@ -145,6 +145,12 @@ describe('M1.2 — `?from=` ne s’échappe pas du chemin collectes', () => {
       );
       const { pathname } = new URL(cible!, 'https://app.gosavr.io');
       expect(pathname).toBe(`${PREFIXE_AGENCE}..%2F..%2Fautre-endpoint`);
+      // Contrôle négatif : aucun appel n'atteint l'endpoint visé par la remontée.
+      for (const u of urlsAppelees(traversee)) {
+        expect(new URL(u, 'https://app.gosavr.io').pathname).not.toBe(
+          '/api/v1/autre-endpoint',
+        );
+      }
     },
     ATTENTE_CAS_MS,
   );

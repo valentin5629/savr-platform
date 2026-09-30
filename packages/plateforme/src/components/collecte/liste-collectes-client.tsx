@@ -112,6 +112,19 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
+// Onglet de l'URL ; à défaut, déduit des statuts demandés : un lien sans
+// `onglet` dont tous les statuts relèvent de l'Historique (ancien format du
+// drill-down Top lieux agence, `?lieu=…&statut=cloturee`) ouvre l'Historique.
+function ongletInitial(params: URLSearchParams): Onglet {
+  const o = params.get('onglet');
+  if (o === 'historique' || o === 'programmees') return o;
+  const statuts = (params.get('statut') ?? '').split(',').filter(Boolean);
+  return statuts.length > 0 &&
+    statuts.every((s) => STATUTS_HISTORIQUE.includes(s))
+    ? 'historique'
+    : 'programmees';
+}
+
 function parseJwt(token: string): Record<string, unknown> {
   try {
     const p = token.split('.')[1] ?? '';
@@ -134,8 +147,8 @@ export function ListeCollectesClient({
   const initialType: CollecteType =
     params.get('type') === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const [typeFiltre, setTypeFiltre] = useState<CollecteType>(initialType);
-  const [onglet, setOnglet] = useState<Onglet>(
-    params.get('onglet') === 'historique' ? 'historique' : 'programmees',
+  const [onglet, setOnglet] = useState<Onglet>(() =>
+    ongletInitial(new URLSearchParams(params.toString())),
   );
   // Drill-down depuis les Top listes du dashboard. Lieu, statut (`cloturee`) et
   // période (from/to) arrivent par les MÊMES clés d'URL que les filtres de la
@@ -216,10 +229,10 @@ export function ListeCollectesClient({
   const qsListe = useMemo(() => {
     const statutsOnglet =
       onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE;
-    const statuts =
-      filtres.statuts.length > 0
-        ? filtres.statuts.filter((s) => statutsOnglet.includes(s))
-        : statutsOnglet;
+    const choisis = filtres.statuts.filter((s) => statutsOnglet.includes(s));
+    // Jamais de `statut` vide (sélection hors onglet, lien fabriqué) : les
+    // routes et l'export ne filtreraient alors plus aucun statut.
+    const statuts = choisis.length > 0 ? choisis : statutsOnglet;
     const qs = new URLSearchParams({
       type: typeFiltre,
       statut: statuts.join(','),
@@ -372,9 +385,11 @@ export function ListeCollectesClient({
     return parts.length ? parts.join(' · ') : undefined;
   })();
 
-  // Mêmes paramètres que la liste affichée (le builder d'export applique type,
-  // statuts de l'onglet, période, lieu, client, info incomplète, programmée par ;
-  // il ignore les dimensions de drill-down commercial / association).
+  // Mêmes paramètres que la liste affichée. Le builder d'export applique type,
+  // statuts de l'onglet, période, lieu, client, info incomplète, programmée
+  // par ; il IGNORE encore les dimensions de drill-down traiteur
+  // (commercial_id, association_id, perimetre) : après un clic depuis une Top
+  // liste du dashboard, l'export peut contenir plus de lignes que la liste.
   function exportCsv() {
     window.open(`/api/v1/exports/collectes?${qsListe}`);
   }

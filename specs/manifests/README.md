@@ -43,9 +43,23 @@ R0b ajoute, **à côté de `scenarios[]` (conservé)**, un tableau **`deliverabl
 | **G2** grain livrable | `pnpm check:manifest-grain` · job `manifest-grain` | Chaque manifeste valide vs `_schema.json` ; rejette le grain scénario-seul. |
 | **G1** couverture CDC | `pnpm check:spec-deliverables` · job `spec-deliverables` | Diff `cdc-deliverables.index.json` ↔ union des `deliverables[]`. Un livrable CDC non transcrit (et non descopé) = signalé. |
 | **G12** ancrage `ref_cdc` | `pnpm check:manifest-ref-anchor` · job `manifest-ref-anchor` | Chaque `ref_cdc` **lignée** pointe-t-elle toujours le passage visé à sa pose ? Enforcement par le méta-cliquet (baseline 0). |
-| (rappel) couverture test | `pnpm check:coverage` | `scenarios[]` → test (par titre exact). **Inchangé** : G1/G2 ajoutent une couche, ne le remplacent pas. |
+| (rappel) couverture test | `pnpm check:coverage <M>` (local, moitié du `/goal`) · auto-test CI `check:coverage --self-test` | `scenarios[]` → test (par titre) ; `deliverables[]` `implemented` → preuve **qui existe** (cf. ci-dessous). G1/G2 ajoutent une couche, ne le remplacent pas. |
 
 Les deux gates sont `continue-on-error: true` (mode rapport) : résumé `$GITHUB_STEP_SUMMARY` + compteur de burn-down, **exit 0**. **Flip bloquant (T1)** par périmètre/module, derrière le lot de fix correspondant (cliquet) — cf. `30. Review Code/Backlog final priorisé/Lot 0 …`.
+
+### Preuve d'un livrable : ce que `check:coverage <M>` accepte dans `test`
+
+Depuis le 2026-09-30, un `test` non vide ne suffit plus : chaque référence doit **désigner un test existant**. Plusieurs références se séparent par ` + ` ou ` ; ` (hors parenthèses, crochets, « ») ; un ` + ` qui appartient à un titre est reconnu (les segments voisins sont recollés), mais jamais un fichier avec un titre voisin. Refusés comme trop vagues : un code module seul (`M3.4`), un mot isolé (`cloisonnement`), une référence qui vise plus de 20 tests. Les tests `skip`/`todo` ne comptent pas.
+
+| Forme | Exigence |
+|---|---|
+| Titre Vitest | Début d'un titre de `describe` ou de test **du run**, ou d'un segment après `/` (`liste_registre_200` dans `M4.2/liste_registre_200 — …`), jusqu'à une frontière de mot : `T01` ne vaut pas `GEST01`, `M0.3-1` ne vaut pas `M0.3-10`. Describe et test séparés par une espace, ` > ` ou ` › `. `…` = texte élidé. |
+| Fichier de test | Le chemin (ou le nom seul, s'il est unique) doit exister ; un fichier Vitest doit **figurer dans le run**. Les titres « … » qui l'accompagnent doivent y être trouvés ; le reste est du commentaire. |
+| Titre pgTAP / Playwright | En tête d'une chaîne littérale d'**un seul** fichier de `supabase/tests/` ou `e2e/` (`T15`, présent dans 9 fichiers, est ambigu). ⚠ Présence seulement : ces suites ne tournent pas ici. |
+
+Les livrables dont la preuve n'était pas résolue au durcissement (libellé sans test, id pgTAP ambigu, titre paraphrasé d'un test qui existe, fichier disparu) sont tolérés, **à leur texte exact**, par `docs/audit/coverage-deliverables-baseline.json`. Cliquet : une preuve corrigée rend son entrée périmée et fait échouer le module jusqu'à `pnpm check:coverage <M> --prune-baseline`, qui ne fait que retirer ; en CI, `check:coverage --verifier-baseline origin/main` refuse toute entrée absente de `main` (et échoue, fermé, si `main` est introuvable ou sa baseline illisible).
+
+Codes de sortie du script : `0` couverture OK · `1` couverture incomplète · `2` run Vitest inexploitable (couverture **non mesurée** — ce n'est pas « tout manque »). `pnpm check:coverage` propage le code ; `pnpm -s` ramène tout échec à `1` : le message `RUN VITEST INEXPLOITABLE` fait alors foi.
 
 ## ⚠ Les numéros de ligne des `ref_cdc` pourrissent aux syncs
 

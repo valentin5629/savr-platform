@@ -498,4 +498,99 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     },
     ATTENTE_CAS_MS,
   );
+  it('colonne résumé : association inactive, habilitée avec date d’expiration', () => {
+    render(
+      <AssociationModal
+        open
+        association={{
+          ...EDIT_FIXTURE,
+          actif: false,
+          habilitee_attestation_fiscale: true,
+          date_expiration_habilitation: '2027-03-12',
+        }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    const resume = screen.getByRole('complementary', {
+      name: /Résumé de l'association/,
+    });
+    expect(within(resume).getByText('Inactive')).toBeInTheDocument();
+    expect(within(resume).getByText('Oui')).toBeInTheDocument();
+    expect(
+      within(resume).getByText(/jusqu.au 12\/03\/2027/),
+    ).toBeInTheDocument();
+  });
+
+  it('colonne résumé en création : pas de ligne Statut', () => {
+    render(
+      <AssociationModal
+        open
+        association={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    const resume = screen.getByRole('complementary', {
+      name: /Résumé de l'association/,
+    });
+    expect(within(resume).queryByText('Statut')).not.toBeInTheDocument();
+  });
+
+  it('une saisie survit au changement d’onglet ; l’onglet inactif est masqué', () => {
+    render(
+      <AssociationModal
+        open
+        association={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    fireEvent.mouseDown(onglet(/Logistique/), { button: 0 });
+    fireEvent.change(screen.getByLabelText(/Instructions d'accès/), {
+      target: { value: 'Quai n°3, sonner à l’accueil' },
+    });
+    fireEvent.mouseDown(onglet(/Administratif/), { button: 0 });
+    fireEvent.mouseDown(onglet(/Logistique/), { button: 0 });
+    expect(
+      (screen.getByLabelText(/Instructions d'accès/) as HTMLTextAreaElement)
+        .value,
+    ).toBe('Quai n°3, sonner à l’accueil');
+
+    // Masquage : Radix marque le panneau inactif, la classe DS le cache
+    // (jsdom ne charge pas le CSS, on vérifie le couple attribut + classe).
+    const panneauInfos = screen.getByRole('tabpanel', {
+      name: /Informations/,
+      hidden: true,
+    });
+    expect(panneauInfos).toHaveAttribute('data-state', 'inactive');
+    expect(panneauInfos.className).toContain('data-[state=inactive]:hidden');
+  });
+
+  it(
+    'erreur serveur → message en tête de modale (role=alert), modale ouverte',
+    async () => {
+      const onClose = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: 'Nom déjà utilisé' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={EDIT_FIXTURE}
+          onClose={onClose}
+          onSaved={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+
+      expect(
+        await screen.findByRole('alert', undefined, ATTENTE_UI),
+      ).toHaveTextContent('Nom déjà utilisé');
+      expect(onClose).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

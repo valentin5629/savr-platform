@@ -121,8 +121,10 @@ const ONGLETS: { value: Onglet; label: string }[] = [
 
 // Onglet de chaque champ contrôlé par validate(). Un message d'erreur dans un
 // onglet fermé est invisible : l'échec de validation ouvre le premier onglet
-// fautif et chaque onglet affiche son nombre de champs à corriger.
-const ONGLET_DU_CHAMP: Record<string, Onglet> = {
+// fautif et chaque onglet affiche son nombre de champs à corriger. Les clés
+// d'erreur sont typées par cette table : une validation ajoutée sans onglet ne
+// compile pas.
+const ONGLET_DU_CHAMP = {
   nom: 'informations',
   capacite_max_beneficiaires: 'informations',
   adresse: 'informations',
@@ -133,7 +135,10 @@ const ONGLET_DU_CHAMP: Record<string, Onglet> = {
   contact_email: 'informations',
   description_rapport_impact: 'rapport',
   siren: 'administratif',
-};
+} satisfies Record<string, Onglet>;
+
+type ChampValide = keyof typeof ONGLET_DU_CHAMP;
+type Erreurs = Partial<Record<ChampValide, string>>;
 
 // Les onglets restent montés (forceMount) et l'inactif est seulement masqué :
 // une saisie en cours (envoi du logo, copie d'horaires) survit au changement
@@ -192,7 +197,7 @@ export function AssociationModal({
   const [values, setValues] = React.useState<FormValues>(() =>
     toForm(association),
   );
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [errors, setErrors] = React.useState<Erreurs>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [onglet, setOnglet] = React.useState<Onglet>('informations');
@@ -211,8 +216,8 @@ export function AssociationModal({
     setValues((v) => ({ ...v, [key]: value }));
   }
 
-  function validate(): Record<string, string> {
-    const next: Record<string, string> = {};
+  function validate(): Erreurs {
+    const next: Erreurs = {};
     if (!values.nom.trim()) next.nom = 'Nom obligatoire';
     if (!values.adresse.trim()) next.adresse = 'Adresse obligatoire';
     if (!values.region) next.region = 'Région obligatoire';
@@ -235,8 +240,9 @@ export function AssociationModal({
   }
 
   function nbErreurs(o: Onglet): number {
-    return Object.keys(errors).filter((champ) => ONGLET_DU_CHAMP[champ] === o)
-      .length;
+    return (Object.keys(errors) as ChampValide[]).filter(
+      (champ) => ONGLET_DU_CHAMP[champ] === o,
+    ).length;
   }
 
   function buildPayload() {
@@ -269,7 +275,7 @@ export function AssociationModal({
 
   async function submitForm() {
     setServerError(null);
-    const champsEnErreur = Object.keys(validate());
+    const champsEnErreur = Object.keys(validate()) as ChampValide[];
     if (champsEnErreur.length > 0) {
       const fautif = ONGLETS.find(({ value }) =>
         champsEnErreur.some((champ) => ONGLET_DU_CHAMP[champ] === value),

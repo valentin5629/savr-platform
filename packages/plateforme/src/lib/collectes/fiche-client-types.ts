@@ -53,6 +53,48 @@ export function rapportReserveDonneurOrdre(
 export const LIBELLE_RAPPORT_RESERVE =
   'Réservé à l’organisation qui a programmé la collecte';
 
+// Ligne document du Bilan (rapport RSE ZD, rapport de don AG, « Événement sans
+// excédent ») : état calculé par le SERVEUR, l'écran n'en lit que le libellé
+// (arbitrage Val 2026-09-30). L'échéance est l'embargo H+24 (réalisation + 24 h,
+// §12) : après elle, un document absent est « en préparation » — attente du lot
+// de 6 h (une collecte clôturée l'après-midi n'a son PDF que le lendemain
+// matin), rendu PDF relancé, pesées manquantes, attestation différée. Aucune
+// cause n'est affichée au client.
+export type EtatRapport =
+  | 'reserve'
+  | 'disponible'
+  | 'en_preparation'
+  | 'a_venir';
+
+export const LIBELLE_ETAT_RAPPORT: Record<EtatRapport, string> = {
+  reserve: LIBELLE_RAPPORT_RESERVE,
+  disponible: 'PDF',
+  en_preparation: 'En cours de préparation',
+  a_venir: 'Document disponible dans les 48h après la collecte',
+};
+
+const ECHEANCE_RAPPORT_MS = 24 * 3600 * 1000;
+
+export function etatRapport(p: {
+  reserve: boolean;
+  disponible: boolean;
+  statut: string;
+  realisee_at: string | null;
+  maintenant: number;
+}): EtatRapport {
+  if (p.reserve) return 'reserve';
+  if (p.disponible) return 'disponible';
+  // Collecte terminée sans date de réalisation (historique repris) : il n'y a
+  // plus d'échéance à promettre.
+  if (p.realisee_at == null)
+    return p.statut === STATUT_BILAN || p.statut === 'realisee_sans_collecte'
+      ? 'en_preparation'
+      : 'a_venir';
+  return new Date(p.realisee_at).getTime() + ECHEANCE_RAPPORT_MS <= p.maintenant
+    ? 'en_preparation'
+    : 'a_venir';
+}
+
 export interface TourneeFiche {
   chauffeur_nom: string | null;
   plaque_immatriculation: string | null;
@@ -139,6 +181,8 @@ export interface FicheCollecteClient {
   // organisation : l'attestation de don est émise au nom du donneur d'ordre et
   // ne lui est pas servie (att_traiteur_select — D12, arbitrage Val 2026-09-30).
   rapport_reserve_donneur_ordre: boolean;
+  // Libellé de la ligne document (etatRapport).
+  rapport_etat: EtatRapport;
   actions: ActionsFiche;
 }
 

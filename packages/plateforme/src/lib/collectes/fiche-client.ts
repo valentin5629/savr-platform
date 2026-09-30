@@ -10,6 +10,7 @@ import {
   STATUTS_ASSOCIATION,
   STATUTS_LOGISTIQUE,
   STATUT_BILAN,
+  etatRapport,
   rapportReserveDonneurOrdre,
   type ActionsFiche,
   type AssociationFiche,
@@ -304,6 +305,9 @@ export async function chargerFicheCollecteClient(
       att?.eligible_at != null &&
       new Date(att.eligible_at).getTime() <= maintenant;
   const rapport_rse_regenere = useRapportsRse && Boolean(rap?.regenere_at);
+  const rapport_reserve_donneur_ordre =
+    espace === 'traiteur' &&
+    rapportReserveDonneurOrdre(c, evt?.organisation_id, ctx.organisationId);
 
   // ── Bilan ───────────────────────────────────────────────────────────────
   // ZD « Réalisée » : pesées par flux (collecte_flux, lue sous RLS avec la
@@ -408,9 +412,14 @@ export async function chargerFicheCollecteClient(
     ...(espace === 'gestionnaire' ? {} : { association }),
     rapport_rse_disponible,
     rapport_rse_regenere,
-    rapport_reserve_donneur_ordre:
-      espace === 'traiteur' &&
-      rapportReserveDonneurOrdre(c, evt?.organisation_id, ctx.organisationId),
+    rapport_reserve_donneur_ordre,
+    rapport_etat: etatRapport({
+      reserve: rapport_reserve_donneur_ordre,
+      disponible: rapport_rse_disponible,
+      statut: c.statut,
+      realisee_at: c.realisee_at,
+      maintenant,
+    }),
     actions: evt
       ? droitsFiche(espace, ctx, c.statut, {
           organisation_id: evt.organisation_id,

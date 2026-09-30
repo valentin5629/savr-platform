@@ -195,7 +195,15 @@
     "M3.1/fiche_popup_rapport_reserve_donneur_ordre",
     "M3.1/liste_rapport_reserve_donneur_ordre",
     "M3.1/liste_rapport_reserve_donneur_ordre_picto_retire",
-    "M3.1/liste_rapport_reserve_donneur_ordre_page"
+    "M3.1/liste_rapport_reserve_donneur_ordre_page",
+    "M3.1/fiche_get_rapport_etat_a_venir",
+    "M3.1/fiche_get_rapport_etat_en_preparation",
+    "M3.1/fiche_get_rapport_etat_disponible",
+    "M3.1/fiche_get_rapport_etat_reserve",
+    "M3.1/rapport_etat_echeance_h24",
+    "M3.1/fiche_popup_document_a_venir",
+    "M3.1/fiche_popup_document_en_preparation",
+    "M3.1/fiche_popup_document_disponible"
   ],
   "deliverables": [
     {
@@ -869,6 +877,30 @@
       "test": "M3.1/fiche_get_attestation_donneur_ordre_reservee",
       "statut": "implemented",
       "libelle": "D12 (arbitrage Val 2026-09-30) : le traiteur opérationnel d'une collecte AG programmée par une agence ne reçoit plus l'attestation de don du donneur d'ordre (raison sociale + SIRET de l'agence) — fiche et téléchargement lisent sous sa RLS (att_traiteur_select, matrice §09 attestations_don = bordereaux_savr : organisation programmatrice) ; la fiche affiche « Réservé à l'organisation qui a programmé la collecte » sans bouton Télécharger (M3.1/fiche_popup_rapport_reserve_donneur_ordre). Le rapport RSE ZD reste servi (rr_select via f_collecte_visible). Preuve base : supabase/tests/documents_traiteur_operationnel_d12.test.sql (41 cas, requêtes exactes de la fiche et de la route ; rouge si att_traiteur_select est alignée sur f_collecte_visible)."
+    },
+    {
+      "id": "M3.1-popup-document-etat-serveur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:441",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client-types.ts, packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": "M3.1/rapport_etat_echeance_h24",
+      "statut": "implemented",
+      "libelle": "Ligne document du Bilan (rapport RSE ZD, rapport de don AG, « Événement sans excédent ») — arbitrage Val 2026-09-30 : état calculé par le SERVEUR (règle pure etatRapport) et servi dans rapport_etat ∈ {reserve, disponible, en_preparation, a_venir} ; l'écran n'affiche que le libellé (LIBELLE_ETAT_RAPPORT), aucune date recalculée côté client. Échéance = embargo H+24 (realisee_at + 24 h, bascule exacte testée) ; « réservé » (D12) puis « disponible » priment ; collecte terminée sans realisee_at (historique) = en_preparation. Documents toujours lus sous la RLS de l'utilisateur, aucune lecture ajoutée. Cas API : M3.1/fiche_get_rapport_etat_disponible, M3.1/fiche_get_rapport_etat_reserve."
+    },
+    {
+      "id": "M3.1-popup-document-a-venir",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:441",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
+      "test": "M3.1/fiche_popup_document_a_venir",
+      "statut": "implemented",
+      "libelle": "Avant l'échéance (C3, arbitrage Val 2026-09-30 ; divergence M3.1_20260930_bilan-document-libelle-apres-echeance) : « Document disponible dans les 48h après la collecte » remplace « Disponible le lendemain de la collecte », promesse fausse dès qu'une collecte est clôturée après le lot de 6 h (PDF au lot du lendemain matin) ; Télécharger désactivé. API : M3.1/fiche_get_rapport_etat_a_venir."
+    },
+    {
+      "id": "M3.1-popup-document-en-preparation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:441",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
+      "test": "M3.1/fiche_popup_document_en_preparation",
+      "statut": "implemented",
+      "libelle": "Échéance passée sans PDF (C1 option A, arbitrage Val 2026-09-30 — CDC muet, divergence M3.1_20260930_bilan-document-libelle-apres-echeance) : « En cours de préparation », vrai dans tous les cas (attente du lot de 6 h, rendu PDF relancé, pesées manquantes, attestation AG différée) ; aucune date promise, aucune cause ni prestataire affichés ; Télécharger désactivé. Cas constaté par Val : AG réalisée le 13/09, consultée le 30/09, attestation sans PDF. API : M3.1/fiche_get_rapport_etat_en_preparation (5 cas)."
     },
     {
       "id": "M3.1-liste-rapport-reserve-api",

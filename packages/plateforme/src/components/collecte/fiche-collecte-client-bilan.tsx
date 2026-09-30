@@ -83,20 +83,38 @@ function GrapheEnAttente({ titre }: { titre: string }) {
   );
 }
 
+// Carte KPI : chiffre en grand + unité plus petite, sur UNE seule ligne
+// (retour Val 2026-09-30 : « −100 kgCO₂e » ne doit jamais passer à la ligne).
 function Kpi({
   label,
-  valeur,
+  nombre,
+  unite,
   aide,
 }: {
   label: string;
-  valeur: string;
+  // « — » tant que la valeur n'existe pas.
+  nombre: string;
+  unite?: string;
   aide?: string;
 }) {
   return (
     <StatCard
       label={label}
-      value={valeur}
       className="gap-2 p-5"
+      valueClassName="whitespace-nowrap text-2xl font-extrabold tabular-nums"
+      value={
+        <>
+          {nombre}
+          {unite && (
+            <>
+              {' '}
+              <span className="text-base font-semibold text-savr-neutral-500">
+                {unite}
+              </span>
+            </>
+          )}
+        </>
+      }
       icon={
         aide ? (
           <Tooltip content={aide}>
@@ -321,19 +339,21 @@ export function OngletBilan({
           >
             <Kpi
               label="Repas donnés"
-              valeur={repas != null ? `${fmtInt(repas)} repas` : '— repas'}
+              nombre={repas != null ? fmtInt(repas) : '—'}
+              unite="repas"
             />
             <Kpi
               label="Repas par pax"
-              valeur={repas != null && pax ? fmtDec(repas / pax, 2) : '—'}
+              nombre={repas != null && pax ? fmtDec(repas / pax, 2) : '—'}
             />
             <Kpi
               label="CO₂ évité"
-              valeur={
+              nombre={
                 realisee && c.co2_evite_kg != null
-                  ? `${fmtInt(c.co2_evite_kg)} kgCO₂e`
-                  : '— kgCO₂e'
+                  ? fmtInt(c.co2_evite_kg)
+                  : '—'
               }
+              unite="kgCO₂e"
             />
           </div>
           {realisee && c.association && (
@@ -348,36 +368,38 @@ export function OngletBilan({
           >
             <Kpi
               label="Poids total collecté"
-              valeur={masse ? `${masse.value} ${masse.unit}` : '— kg'}
+              nombre={masse ? masse.value : '—'}
+              unite={masse ? masse.unit : 'kg'}
             />
             <Kpi
               label="CO₂ évité (net)"
-              valeur={
-                realisee && c.co2_net_kg != null
-                  ? `${fmtInt(c.co2_net_kg)} kgCO₂e`
-                  : '— kgCO₂e'
+              nombre={
+                realisee && c.co2_net_kg != null ? fmtInt(c.co2_net_kg) : '—'
               }
+              unite="kgCO₂e"
             />
             <Kpi
               label="Taux de recyclage"
               aide={TOOLTIP_TAUX_UE}
-              valeur={
+              nombre={
                 realisee && c.taux_recyclage != null
-                  ? `${fmtDec(c.taux_recyclage, 1)} %`
-                  : '— %'
+                  ? fmtDec(c.taux_recyclage, 1)
+                  : '—'
               }
+              unite="%"
             />
             <Kpi
               label="Pesée par pax"
-              valeur={
+              nombre={
                 poidsTotal != null && pax
-                  ? `${fmtInt((poidsTotal / pax) * 1000)} g`
-                  : '— g'
+                  ? fmtInt((poidsTotal / pax) * 1000)
+                  : '—'
               }
+              unite="g"
             />
           </div>
           {realisee ? (
-            <TonnagesDonut series={serieDonut} />
+            <TonnagesDonut series={serieDonut} disposition="ligne" />
           ) : (
             <GrapheEnAttente titre="Répartition des tonnages" />
           )}

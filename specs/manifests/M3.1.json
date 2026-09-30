@@ -181,7 +181,8 @@
     "M3.1/frise_client_annulee",
     "M3.1/frise_client_etats",
     "M3.1/fiche_get_factures_sous_rls_traiteur_operationnel",
-    "M3.1/fiche_get_factures_brouillon_exclu"
+    "M3.1/fiche_get_factures_brouillon_exclu",
+    "M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne"
   ],
   "deliverables": [
     {
@@ -806,7 +807,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_popup_bilan_zd_realisee",
       "statut": "implemented",
-      "libelle": "Bilan & documents ZD (collecte « Réalisée » côté client = cloturee) : 4 KPI (Poids total collecté, CO₂ évité net, Taux de recyclage figé + tooltip UE, Pesée par pax en g), donut TonnagesDonut réutilisé, document « Rapport RSE » seul (bordereau intégré au PDF). Pesées par flux : M3.1/fiche_get_bilan_flux_zd."
+      "libelle": "Bilan & documents ZD (collecte « Réalisée » côté client = cloturee) : 4 KPI (Poids total collecté, CO₂ évité net, Taux de recyclage figé + tooltip UE, Pesée par pax en g), donut TonnagesDonut réutilisé, document « Rapport RSE » seul (bordereau intégré au PDF). Pesées par flux : M3.1/fiche_get_bilan_flux_zd. Retour visuel Val 2026-09-30 : donut et légende sur la même ligne (TonnagesDonut disposition=\"ligne\", repli en colonne sous 640px ; dashboards inchangés) et valeur des cartes KPI sur une seule ligne (chiffre + unité plus petite, insécable) — M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne."
     },
     {
       "id": "M3.1-popup-client-radar-filtres-ligne",

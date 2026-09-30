@@ -698,6 +698,30 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
     ATTENTE_CAS_MS,
   );
 
+  it(
+    'M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne — valeur KPI sur une ligne (unité à part), donut et légende côte à côte',
+    async () => {
+      stubFetchFiche(ficheClient({ ...ZD_REALISEE, co2_net_kg: -100 }));
+      render(fiche('c1'));
+      await ouvrirOnglet('Bilan & documents');
+
+      const kpi = await screen.findByTestId('kpi-zd', {}, ATTENTE_UI);
+      // « −100 kgCO₂e » : chiffre et unité dans la même valeur insécable.
+      const unite = within(kpi).getAllByText('kgCO₂e')[0]!;
+      const valeur = unite.parentElement!;
+      expect(valeur.className).toContain('whitespace-nowrap');
+      expect(valeur.textContent?.replace(/\s/g, ' ')).toBe('-100 kgCO₂e');
+      // L'unité est plus petite que le chiffre (span dédié).
+      expect(unite.className).toContain('text-base');
+
+      // Donut à gauche, légende à droite : conteneur en ligne dès 640px.
+      const titre = screen.getByText('Répartition des tonnages');
+      const carte = titre.closest('[class*="rounded"]')!;
+      expect(carte.querySelector('.sm\\:flex-row')).not.toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it.each(['programmee', 'validee', 'realisee'])(
     'M3.1/fiche_popup_bilan_estompe_avant_realisation — blocs estompés sans valeurs + bandeau (%s)',
     async (statut) => {

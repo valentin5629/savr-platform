@@ -171,7 +171,9 @@ export default function DashboardAdminPage() {
 
   // Édition manuelle de la période (DateRangePicker, au clic « Appliquer »).
   const setPeriodeManuelle = (p: { from: string; to: string }) => {
-    setPeriode(p);
+    // « Effacer » (période vide) = retour au défaut, comme les autres
+    // dashboards : la route ne remplace pas une borne vide par son défaut.
+    setPeriode(p.from && p.to ? p : defaultPeriode());
     setPage(1);
   };
 

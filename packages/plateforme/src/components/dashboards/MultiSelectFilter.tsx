@@ -4,10 +4,9 @@ import { useId } from 'react';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 
-export interface MultiOption {
-  id: string;
-  nom: string;
-}
+// Même forme que les options des filtres en ligne (source unique du type).
+export type { OptionFiltre as MultiOption } from '@/components/ui/filtre-en-ligne';
+import type { OptionFiltre as MultiOption } from '@/components/ui/filtre-en-ligne';
 
 interface MultiSelectFilterProps {
   label: string;

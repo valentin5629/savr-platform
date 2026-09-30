@@ -114,6 +114,8 @@ export function BarreFiltres({
 export interface OptionFiltre {
   id: string;
   nom: string;
+  /** Libellé court affiché dans le déclencheur (défaut : `nom`). */
+  court?: string;
 }
 
 interface FiltreCochesProps {
@@ -127,8 +129,8 @@ interface FiltreCochesProps {
   testid?: string;
 }
 
-// Résumé affiché à côté du titre : « Tous », le libellé court de l'option unique
-// (« XL (≥ 1000) » → « XL »), ou le nombre d'options cochées.
+// Résumé affiché à côté du titre : « Tous », le libellé (court) de l'option
+// unique (« XL (≥ 1000) » → « XL »), ou le nombre d'options cochées.
 function resumeSelection(
   options: OptionFiltre[],
   selected: string[],
@@ -136,8 +138,8 @@ function resumeSelection(
 ): string {
   if (selected.length === 0) return tousLabel;
   if (selected.length === 1) {
-    const nom = options.find((o) => o.id === selected[0])?.nom;
-    return nom ? nom.split(' (')[0]! : '1 sélectionné';
+    const o = options.find((x) => x.id === selected[0]);
+    return o ? (o.court ?? o.nom) : '1 sélectionné';
   }
   return `${selected.length} sélectionnés`;
 }

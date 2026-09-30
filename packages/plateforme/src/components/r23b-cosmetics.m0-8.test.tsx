@@ -15,6 +15,7 @@ import { refCourteCollecte } from '@/lib/collecte-ref';
 import { margeTooltipZd } from '@/lib/marge-tooltip';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { DashboardFilterBar } from '@/components/dashboards/DashboardFilterBar';
+import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 // ── BL-P3-03 — référence courte (jamais l'UUID brut) ────────────────────────
 describe('M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)', () => {
@@ -82,8 +83,8 @@ describe('M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mo
       from: string;
       to: string;
     };
-    expect(last.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(last.to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // Fenêtre exacte du raccourci « 7 derniers jours » (liste standard).
+    expect(last).toMatchObject(periodeDerniers(7, 'jours')!);
   });
 
   it('M0.8-56 — période par défaut = 12 derniers mois (§11 aligné §06.04/05)', () => {

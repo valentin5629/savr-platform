@@ -156,8 +156,9 @@ interface Props {
  * Client Organisateur · « Info incomplète » oui/non · « Programmée par » (multi).
  * Le filtre Type est porté par le sélecteur ZD/AG de l'en-tête.
  *
- * Mise en page = pattern DS `FilterBar` : un FormField + un Combobox (ou le
- * DateRangePicker de la période) par filtre, grille de 3 colonnes.
+ * Mise en page = pattern DS `FilterBar` : filtres en ligne « Titre  valeur ▾ »
+ * (décision Val 2026-09-30) — FiltreCoches pour les choix multiples, Combobox
+ * `titre` pour les choix uniques, DateRangePicker `titre` pour la période.
  *
  * Le filtre Statut propose les LIBELLÉS de la vue client (mapping canonique
  * 2026-06-30) : l'utilisateur ne voit jamais « Programmée », et un libellé

@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 
 // FilterBar — barre de filtres standard de toute page de liste (DS Claude
@@ -41,11 +40,7 @@ function FilterBar({
   'data-testid': testId,
 }: FilterBarProps) {
   const avecEntete = Boolean(tabs || toggle);
-  const reinitialiser = actif ? onReset : undefined;
-  // Sans ligne de filtres, « Réinitialiser » reste dans le pied.
-  const resetAuPied = !children && Boolean(reinitialiser);
-  const avecPied = count !== undefined || resetAuPied;
-  const resetTestId = testId ? `${testId}-reset` : undefined;
+  const avecPied = count !== undefined;
   return (
     <section
       aria-label="Filtres"
@@ -70,9 +65,9 @@ function FilterBar({
       )}
       {children && (
         <BarreFiltres
-          onReset={reinitialiser}
+          onReset={actif ? onReset : undefined}
           resetLabel="Réinitialiser les filtres"
-          resetTestId={resetTestId}
+          resetTestId={testId ? `${testId}-reset` : undefined}
         >
           {children}
         </BarreFiltres>
@@ -85,16 +80,6 @@ function FilterBar({
           >
             {count}
           </p>
-          {resetAuPied && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={reinitialiser}
-              data-testid={resetTestId}
-            >
-              Réinitialiser les filtres
-            </Button>
-          )}
         </div>
       )}
     </section>

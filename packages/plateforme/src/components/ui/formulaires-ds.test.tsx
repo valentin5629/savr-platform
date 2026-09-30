@@ -250,8 +250,8 @@ describe('Filtres en ligne', () => {
   it('ds/filtre_coches_cumule_et_resume_la_selection', () => {
     const onChange = vi.fn();
     const options = [
-      { id: 'M', nom: 'M (500-749)' },
-      { id: 'L', nom: 'L (750-999)' },
+      { id: 'M', nom: 'M (500-749)', court: 'M' },
+      { id: 'L', nom: 'Pavillon (Paris 8e)' },
     ];
     const { rerender } = render(
       <FiltreCoches
@@ -276,8 +276,19 @@ describe('Filtres en ligne', () => {
         testid="taille"
       />,
     );
-    // Option unique : libellé court (« M (500-749) » → « M »).
+    // Option unique : libellé court explicite (« M (500-749) » → « M »).
     expect(trigger).toHaveTextContent(/M$/);
+    rerender(
+      <FiltreCoches
+        label="Taille"
+        options={options}
+        selected={['L']}
+        onChange={onChange}
+        testid="taille"
+      />,
+    );
+    // Sans libellé court, le nom complet — jamais tronqué à la parenthèse.
+    expect(trigger).toHaveTextContent('Pavillon (Paris 8e)');
     rerender(
       <FiltreCoches
         label="Taille"
@@ -432,6 +443,50 @@ describe('DateRangePicker — raccourcis + calendrier', () => {
     expect(
       screen.getByRole('button', { name: '7 derniers jours' }),
     ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('ds/periode_apres_un_raccourci_deux_clics_font_une_nouvelle_periode', () => {
+    const onChange = vi.fn();
+    render(
+      <DateRangePicker
+        titre="Période"
+        value={{ from: '', to: '' }}
+        onChange={onChange}
+        data-testid="p"
+      />,
+    );
+    fireEvent.click(screen.getByTestId('p'));
+    fireEvent.click(screen.getByRole('button', { name: '12 derniers mois' }));
+    const jour = (iso: string) =>
+      document.querySelector(`[data-day="${iso}"] button`) as HTMLElement;
+    fireEvent.click(jour('2026-09-01'));
+    fireEvent.click(jour('2026-09-15'));
+    // La ligne « Derniers N » ne reflète plus le brouillon : elle se vide.
+    expect(
+      screen.getByRole('spinbutton', { name: "Nombre d'unités" }),
+    ).toHaveValue(null);
+    fireEvent.click(screen.getByRole('button', { name: 'Appliquer' }));
+    expect(onChange).toHaveBeenCalledWith({
+      from: '2026-09-01',
+      to: '2026-09-15',
+    });
+  });
+
+  it('ds/periode_derniers_hors_bornes_bloque_appliquer', () => {
+    render(
+      <DateRangePicker
+        titre="Période"
+        value={{ from: '', to: '' }}
+        data-testid="p"
+      />,
+    );
+    fireEvent.click(screen.getByTestId('p'));
+    const n = screen.getByRole('spinbutton', { name: "Nombre d'unités" });
+    fireEvent.change(n, { target: { value: '1000' } });
+    expect(n).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: 'Appliquer' })).toBeDisabled();
+    fireEvent.change(n, { target: { value: '10' } });
+    expect(screen.getByRole('button', { name: 'Appliquer' })).toBeEnabled();
   });
 
   it('ds/periode_mode_champ_sans_raccourcis_ni_ligne_derniers', () => {

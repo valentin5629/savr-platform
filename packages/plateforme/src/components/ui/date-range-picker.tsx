@@ -96,10 +96,13 @@ const versRange = (p: PeriodeIso): DateRange | undefined => {
   return from || p.to ? { from, to: isoVersDate(p.to) } : undefined;
 };
 
-// Deux mois affichés, le second contenant la fin de la période.
-function premierMoisAffiche(r: DateRange | undefined, repli?: Date): Date {
-  const ancre = r?.to ?? r?.from ?? repli ?? new Date();
-  return new Date(ancre.getFullYear(), ancre.getMonth() - 1, 1);
+// Deux mois affichés, le second contenant la fin de la période ; sans période,
+// le mois de la borne `min` en premier, sinon le mois précédent + le courant.
+function premierMoisAffiche(r: DateRange | undefined, min?: Date): Date {
+  const ancre = r?.to ?? r?.from;
+  if (!ancre && min) return new Date(min.getFullYear(), min.getMonth(), 1);
+  const a = ancre ?? new Date();
+  return new Date(a.getFullYear(), a.getMonth() - 1, 1);
 }
 
 interface Derniers {
@@ -108,7 +111,9 @@ interface Derniers {
   inclure: boolean;
 }
 
-const DERNIERS_DEFAUT: Derniers = { n: '30', unite: 'jours', inclure: true };
+// N vide = la ligne n'est pas à l'origine du brouillon (raccourci sans
+// équivalent, clic dans le calendrier, période quelconque) : elle ne ment pas.
+const DERNIERS_VIDE: Derniers = { n: '', unite: 'jours', inclure: true };
 
 function DateRangePicker({
   titre,
@@ -136,7 +141,7 @@ function DateRangePicker({
     premierMoisAffiche(undefined),
   );
   const [actif, setActif] = React.useState<string | null>(null);
-  const [derniers, setDerniers] = React.useState<Derniers>(DERNIERS_DEFAUT);
+  const [derniers, setDerniers] = React.useState<Derniers>(DERNIERS_VIDE);
 
   const borneMin = isoVersDate(min);
   const borneMax = isoVersDate(max);
@@ -158,7 +163,7 @@ function DateRangePicker({
       poser(value);
       const r = raccourciDe(value, raccourcis)?.relatif;
       setDerniers(
-        r ? { n: String(r.n), unite: r.unite, inclure: true } : DERNIERS_DEFAUT,
+        r ? { n: String(r.n), unite: r.unite, inclure: true } : DERNIERS_VIDE,
       );
     }
     setOpen(o);
@@ -166,12 +171,11 @@ function DateRangePicker({
 
   function choisirRaccourci(r: RaccourciPeriode) {
     poser(r.periode);
-    if (r.relatif)
-      setDerniers({
-        n: String(r.relatif.n),
-        unite: r.relatif.unite,
-        inclure: true,
-      });
+    setDerniers(
+      r.relatif
+        ? { n: String(r.relatif.n), unite: r.relatif.unite, inclure: true }
+        : (d) => ({ ...d, n: '' }),
+    );
   }
 
   function changerDerniers(next: Derniers) {
@@ -184,6 +188,13 @@ function DateRangePicker({
     if (p) onChange?.(p);
     setOpen(false);
   }
+
+  // N saisi hors bornes (vide exclu) : champ en erreur, « Appliquer » bloqué —
+  // sinon le dernier brouillon valide partirait sans que la saisie le reflète.
+  const derniersInvalide =
+    derniers.n !== '' &&
+    periodeDerniers(Number(derniers.n), derniers.unite, derniers.inclure) ===
+      null;
 
   const libelle =
     raccourciDe(value, raccourcis)?.libelle ?? libellePeriode(value);
@@ -274,6 +285,8 @@ function DateRangePicker({
                   min={1}
                   max={DERNIERS_N_MAX}
                   aria-label="Nombre d'unités"
+                  placeholder="N"
+                  error={derniersInvalide}
                   value={derniers.n}
                   onChange={(e) =>
                     changerDerniers({ ...derniers, n: e.target.value })
@@ -307,12 +320,16 @@ function DateRangePicker({
               numberOfMonths={2}
               // Deux mois côte à côte : les jours hors mois feraient doublon.
               showOutsideDays={false}
+              // Période déjà complète (raccourci, valeur appliquée) : le clic
+              // suivant démarre une nouvelle période au lieu d'en tirer la fin.
+              resetOnSelect
               selected={brouillon}
               month={mois}
               onMonthChange={setMois}
               disabled={desactives}
               onSelect={(r) => {
                 setBrouillon(r);
+                setDerniers((d) => ({ ...d, n: '' }));
                 setActif(raccourciDe(versIso(r), raccourcis)?.cle ?? null);
               }}
               autoFocus
@@ -344,6 +361,7 @@ function DateRangePicker({
                 <Button
                   size="sm"
                   className="h-11 sm:h-8"
+                  disabled={derniersInvalide}
                   onClick={() => fermerAvec(versIso(brouillon))}
                 >
                   Appliquer

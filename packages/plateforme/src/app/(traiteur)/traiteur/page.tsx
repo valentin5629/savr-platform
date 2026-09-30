@@ -11,7 +11,7 @@ import type { MultiOption } from '@/components/dashboards/MultiSelectFilter';
 import type { BenchmarkFilters } from '@/components/dashboards/BenchmarkFilterBar';
 import type { BenchmarkRow } from '@/lib/dashboards/cockpit-derive';
 import { TraiteurDashboardClient } from './traiteur-dashboard-client';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { periodeDerniers } from '@/lib/periodes-raccourcis';
 import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark';
 
 // Lecture cookies + agrégats live par utilisateur → jamais statique.
@@ -31,15 +31,10 @@ export const dynamic = 'force-dynamic';
  * défense en profondeur ici : scope org des loaders sous l'identité de l'appelant).
  */
 
-// Période par défaut — 12 derniers mois (§11 l.179, aligné DashboardFilterBar).
+// Période par défaut — 12 derniers mois (§11 l.179), même calcul que
+// DashboardFilterBar (raccourci « 12 derniers mois »).
 function defaultPeriod(): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date();
-  from.setMonth(from.getMonth() - 12);
-  return {
-    from: jourParis(from),
-    to: jourParis(to),
-  };
+  return periodeDerniers(12, 'mois')!;
 }
 
 export default async function TraiteurDashboardPage() {

@@ -9,19 +9,19 @@
 --
 -- Fixture = le cas mesuré : événement programmé par une AGENCE, exécuté par un
 -- TRAITEUR opérationnel, sur le lieu d'un GESTIONNAIRE ; collecte CLÔTURÉE (la route
--- de la fiche ne sert plus le camion à ce statut, §06.04) ; tournée aux 10 colonnes
+-- de la fiche ne sert plus le camion à ce statut, §06.04) ; tournée aux 11 colonnes
 -- retirées toutes renseignées.
 --
 -- NON-VACUITÉ (mesurée sur base rejouée SANS la migration, 2026-09-30) : les
 -- assertions de fermeture tombent en `not ok` (les SELECT passent). Les contrôles
--- positifs (7, 8, 20, 23, 27, 31) prouvent que chaque refus vient du privilège
+-- positifs (7, 8, 21, 24, 28, 32) prouvent que chaque refus vient du privilège
 -- colonne, pas d'une ligne invisible ni d'une fixture invalide.
 --
 -- ⚠ JWT au format PRODUCTION (claim réservé `role` + claim métier `user_role`).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(33);
+SELECT plan(34);
 
 -- Helpers ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION test_set_jwt_prod(
@@ -130,9 +130,8 @@ SELECT is(
     WHERE attrelid = 'plateforme.tournees'::regclass AND attnum > 0 AND NOT attisdropped
       AND has_column_privilege('authenticated', attrelid, attnum, 'SELECT')),
   ARRAY['created_at', 'creneau', 'date_tournee', 'heure_debut_prevue', 'heure_debut_reelle',
-        'heure_fin_prevue', 'heure_fin_reelle', 'id', 'reference_interne', 'statut',
-        'type_vehicule', 'updated_at'],
-  '2. liste blanche SELECT authenticated EXACTE (12 colonnes : un ajout comme un retrait fait rougir)');
+        'heure_fin_prevue', 'heure_fin_reelle', 'id', 'statut', 'type_vehicule', 'updated_at'],
+  '2. liste blanche SELECT authenticated EXACTE (11 colonnes : un ajout comme un retrait fait rougir)');
 
 SELECT is(
   (SELECT count(*)::int
@@ -160,10 +159,10 @@ SELECT is(
   ARRAY['postgres', 'service_role'],
   '6. trigger de clôture urgence : EXECUTE à postgres + service_role seuls (ni PUBLIC, ni anon, ni authenticated)');
 
--- 32-33 (fin de fichier) : colonne ajoutée demain = non lisible (fail-closed).
+-- 33-34 (fin de fichier) : colonne ajoutée demain = non lisible (fail-closed).
 
 -- =============================================================================
--- 7 — Non-vacuité : la ligne existe et porte les 10 colonnes retirées renseignées
+-- 7 — Non-vacuité : la ligne existe et porte les 11 colonnes retirées renseignées
 -- =============================================================================
 SELECT is(
   (SELECT count(*)::int FROM plateforme.tournees
@@ -172,19 +171,20 @@ SELECT is(
       AND plaque_saisie_at IS NOT NULL AND chauffeur_nom IS NOT NULL
       AND chauffeur_telephone IS NOT NULL AND accompagnant_nom IS NOT NULL
       AND accompagnant_telephone IS NOT NULL AND tms_reference IS NOT NULL
-      AND external_ref_commande IS NOT NULL AND notes_internes IS NOT NULL),
+      AND external_ref_commande IS NOT NULL AND notes_internes IS NOT NULL
+      AND reference_interne LIKE 'TRN-%'),
   1,
-  '7. non-vacuité (superuser) : la tournée existe, les 10 colonnes retirées sont renseignées');
+  '7. non-vacuité (superuser) : la tournée existe, les 11 colonnes retirées sont renseignées');
 
 -- =============================================================================
--- 8-19 — gestionnaire_lieux (tournée d'un traiteur tiers servant son lieu) : le cas mesuré
+-- 8-20 — gestionnaire_lieux (tournée d'un traiteur tiers servant son lieu) : le cas mesuré
 -- =============================================================================
 SELECT test_set_jwt_prod('gestionnaire_lieux', 'c5c50003-0000-0000-0000-0000000000c5'::uuid);
 
 SELECT is(
   (SELECT statut::text FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5'),
   'terminee',
-  '8. gestionnaire : la ligne reste visible (t_select inchangée) — les refus 9-19 portent sur la colonne');
+  '8. gestionnaire : la ligne reste visible (t_select inchangée) — les refus 9-20 portent sur la colonne');
 
 SELECT throws_ok($$ SELECT chauffeur_telephone FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5' $$,
   '42501', NULL, '9. gestionnaire : chauffeur_telephone illisible (permission denied)');
@@ -206,97 +206,99 @@ SELECT throws_ok($$ SELECT external_ref_commande FROM plateforme.tournees WHERE 
   '42501', NULL, '17. gestionnaire : external_ref_commande illisible');
 SELECT throws_ok($$ SELECT notes_internes FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5' $$,
   '42501', NULL, '18. gestionnaire : notes_internes illisible');
+SELECT throws_ok($$ SELECT reference_interne FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5' $$,
+  '42501', NULL, '19. gestionnaire : reference_interne illisible (préfixe TMS-/EVR- = famille du transporteur)');
 SELECT throws_ok($$ SELECT * FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5' $$,
-  '42501', NULL, '19. gestionnaire : SELECT * (PostgREST select=*) refusé');
+  '42501', NULL, '20. gestionnaire : SELECT * (PostgREST select=*) refusé');
 
 -- =============================================================================
--- 20-22 — traiteur opérationnel (traiteur_manager)
+-- 21-23 — traiteur opérationnel (traiteur_manager)
 -- =============================================================================
 SELECT test_set_jwt_prod('traiteur_manager', 'c5c50001-0000-0000-0000-0000000000c5'::uuid);
 
 SELECT is(
   (SELECT statut::text FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5'),
   'terminee',
-  '20. traiteur opérationnel : la ligne reste visible');
+  '21. traiteur opérationnel : la ligne reste visible');
 SELECT throws_ok($$ SELECT chauffeur_telephone FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5' $$,
-  '42501', NULL, '21. traiteur opérationnel : chauffeur_telephone illisible en direct (servi par la route, fenêtre de statut)');
+  '42501', NULL, '22. traiteur opérationnel : chauffeur_telephone illisible en direct (servi par la route, fenêtre de statut)');
 SELECT throws_ok(
   $$ SELECT t.prestataire_logistique_id
        FROM plateforme.collecte_tournees ct JOIN plateforme.tournees t ON t.id = ct.tournee_id
       WHERE ct.collecte_id = 'c5c5c001-0000-0000-0000-0000000000c5' $$,
-  '42501', NULL, '22. traiteur opérationnel : prestataire illisible par l''embed collecte_tournees → tournees');
+  '42501', NULL, '23. traiteur opérationnel : prestataire illisible par l''embed collecte_tournees → tournees');
 
 -- =============================================================================
--- 23-25 — agence programmatrice
+-- 24-26 — agence programmatrice
 -- =============================================================================
 SELECT test_set_jwt_prod('agence', 'c5c50002-0000-0000-0000-0000000000c5'::uuid);
 
 SELECT is(
   (SELECT statut::text FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5'),
   'terminee',
-  '23. agence : la ligne reste visible');
+  '24. agence : la ligne reste visible');
 SELECT throws_ok($$ SELECT chauffeur_telephone FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5' $$,
-  '42501', NULL, '24. agence : chauffeur_telephone illisible');
+  '42501', NULL, '25. agence : chauffeur_telephone illisible');
 SELECT throws_ok($$ SELECT external_ref_commande FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5' $$,
-  '42501', NULL, '25. agence : external_ref_commande illisible');
+  '42501', NULL, '26. agence : external_ref_commande illisible');
 
 -- =============================================================================
--- 26 — traiteur sans lien : cloisonnement des LIGNES inchangé
+-- 27 — traiteur sans lien : cloisonnement des LIGNES inchangé
 -- =============================================================================
 SELECT test_set_jwt_prod('traiteur_manager', 'c5c50004-0000-0000-0000-0000000000c5'::uuid);
 
 SELECT is(
   (SELECT count(*)::int FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5'),
   0,
-  '26. traiteur sans lien : la tournée reste invisible (t_select inchangée)');
+  '27. traiteur sans lien : la tournée reste invisible (t_select inchangée)');
 
 -- =============================================================================
--- 27-31 — staff et service_role
+-- 28-32 — staff et service_role
 -- =============================================================================
 SELECT test_set_jwt_prod('admin_savr', NULL);
 
 SELECT is(
   (SELECT statut::text FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5'),
   'terminee',
-  '27. admin_savr (JWT) : la ligne reste visible');
+  '28. admin_savr (JWT) : la ligne reste visible');
 
 -- Effet de bord ASSUMÉ et épinglé : le privilège est par rôle PG, admin_savr porte
 -- `authenticated`. Le back-office lit tournees en service_role (aucun écran impacté).
 SELECT throws_ok($$ SELECT chauffeur_telephone FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5' $$,
-  '42501', NULL, '28. admin_savr (JWT, PostgREST direct) : chauffeur_telephone fermé aussi — le back-office lit en service_role');
+  '42501', NULL, '29. admin_savr (JWT, PostgREST direct) : chauffeur_telephone fermé aussi — le back-office lit en service_role');
 
 -- L'écriture admin sous JWT (t_admin FOR ALL) survit : le trigger de clôture relit
 -- les coordonnées en SECURITY DEFINER, plus avec les privilèges de l'écrivain.
 SELECT lives_ok(
   $$ UPDATE plateforme.tournees SET chauffeur_telephone = '0633333333'
       WHERE id = 'c5c57001-0000-0000-0000-0000000000c5' $$,
-  '29. admin_savr (JWT) : UPDATE des coordonnées toujours possible (trigger de clôture en DEFINER)');
+  '30. admin_savr (JWT) : UPDATE des coordonnées toujours possible (trigger de clôture en DEFINER)');
 
 SELECT test_as_superuser();
 SELECT is(
   (SELECT chauffeur_telephone FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5'),
   '0633333333',
-  '30. l''UPDATE admin a bien été écrit (pas filtré en silence par la RLS)');
+  '31. l''UPDATE admin a bien été écrit (pas filtré en silence par la RLS)');
 
 SELECT test_as_service_role();
 SELECT is(
   (SELECT chauffeur_telephone || '|' || prestataire_logistique_id::text || '|' || notes_internes
      FROM plateforme.tournees WHERE id = 'c5c57001-0000-0000-0000-0000000000c5'),
   '0633333333|c5c59a01-0000-0000-0000-0000000000c5|NOTE OPS C5',
-  '31. service_role : lit toujours les colonnes retirées (routes admin, fiche client, adapters)');
+  '32. service_role : lit toujours les colonnes retirées (routes admin, fiche client, adapters)');
 
 -- =============================================================================
--- 32-33 — Fail-closed : une colonne ajoutée plus tard n'est pas lisible par défaut
+-- 33-34 — Fail-closed : une colonne ajoutée plus tard n'est pas lisible par défaut
 -- =============================================================================
 SELECT test_as_superuser();
 ALTER TABLE plateforme.tournees ADD COLUMN sonde_c5_fail_closed text;
 
 SELECT ok(
   NOT has_column_privilege('authenticated', 'plateforme.tournees', 'sonde_c5_fail_closed', 'SELECT'),
-  '32. fail-closed : une colonne ajoutée à tournees n''est pas lisible par authenticated');
+  '33. fail-closed : une colonne ajoutée à tournees n''est pas lisible par authenticated');
 SELECT ok(
   has_column_privilege('service_role', 'plateforme.tournees', 'sonde_c5_fail_closed', 'SELECT'),
-  '33. contrôle positif de la sonde : service_role, lui, lit la nouvelle colonne (privilège table-level)');
+  '34. contrôle positif de la sonde : service_role, lui, lit la nouvelle colonne (privilège table-level)');
 
 SELECT * FROM finish();
 ROLLBACK;

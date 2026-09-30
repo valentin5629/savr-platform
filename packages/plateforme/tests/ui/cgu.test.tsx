@@ -84,4 +84,35 @@ describe('M0.4 — /cgu : le texte publié est celui du CDC', () => {
       expect(container.textContent).toContain(ligne.replaceAll('**', ''));
     }
   });
+
+  // Sans ce cas, seuls les titres et l'Art. 22 étaient comparés : le délai de
+  // mise à disposition des documents (Art. 4 et engagements de SAVR) a dérivé
+  // du CDC sans aucun test rouge (sync 2026-09-30, « 48 heures »).
+  it('reprend mot pour mot chaque ligne contractuelle du CDC', () => {
+    const { container } = render(<CguPage />);
+    const source = readFileSync(SOURCE_CDC, 'utf8');
+    // Du Préambule aux Annexes incluses : ni l'en-tête de versionnement ni la
+    // section de travail interne ne sont contractuels.
+    const corps = source
+      .split('## Préambule')[1]!
+      .split(/\n## Notes pour révision/i)[0]!;
+    const lignes = corps
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l !== '' && l !== '---' && !l.startsWith('## '))
+      // Syntaxe markdown retirée : titre, puce, numéro de liste, gras, italique.
+      .map((l) =>
+        l
+          .replace(/^#+\s*/, '')
+          .replace(/^[-*]\s+/, '')
+          .replace(/^\d+\.\s+/, '')
+          .replaceAll('*', ''),
+      );
+
+    // Garde de non-vacuité : 125 lignes au 2026-09-30.
+    expect(lignes.length).toBeGreaterThan(100);
+    for (const ligne of lignes) {
+      expect(container.textContent, ligne).toContain(ligne);
+    }
+  });
 });

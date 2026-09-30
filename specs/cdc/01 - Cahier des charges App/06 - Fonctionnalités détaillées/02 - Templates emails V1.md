@@ -72,7 +72,7 @@ Votre collecte est bien programmée. Voici le récapitulatif :
 — Type : {{type_collecte}} ({{flux_list}})
 — Tarif estimé : {{montant_ht}} € HT{{pack_info}}
 
-Nous transmettons immédiatement l'ordre à notre équipe logistique. Vous recevrez un email dès que le rapport post-collecte sera disponible (au plus tard 24h après l'événement).
+Nous transmettons immédiatement l'ordre à notre équipe logistique. Vous recevrez un email dès que le rapport post-collecte sera disponible (dans les 48h suivant la collecte).
 
 [Bouton : Voir la collecte]
 

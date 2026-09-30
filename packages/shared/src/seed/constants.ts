@@ -34,7 +34,10 @@ export function ancreSeed(): string {
   }
   return jourParis();
 }
-export const SEED_PASSWORD = 'SavrTest2026!';
+// Court volontairement (choix Val 2026-09-30) : seed:auth l'écrit par crypt() en
+// SQL, sans passer par la règle de longueur de GoTrue ; à la connexion, GoTrue
+// accepte et signale seulement `weak_password` (mesuré sur savr-dev).
+export const SEED_PASSWORD = 'savr';
 export const SEED_EMAIL_DOMAIN = 'savr-test.local';
 // Ref dev hard-codée — garde-fou prod
 export const DEV_PROJECT_REF = 'nvbyuajdvtuezcvyxtkd';

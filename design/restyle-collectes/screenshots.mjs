@@ -24,7 +24,7 @@ const page = await ctx.newPage();
 // ── Login persona admin ──────────────────────────────────────────────────────
 await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
 await page.locator('input[type="email"]').fill('admin@savr-test.local');
-await page.locator('input[type="password"]').fill('SavrTest2026!');
+await page.locator('input[type="password"]').fill('savr');
 await page.getByRole('button', { name: /Se connecter/ }).click();
 await page.waitForURL((u) => !u.pathname.endsWith('/login'), {
   timeout: 20000,

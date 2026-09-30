@@ -274,17 +274,26 @@ export function TransporteurModal({
     }
   }, [open, transporteur]);
 
-  function set<K extends keyof FormValues>(key: K, value: FormValues[K]) {
-    setValues((v) => ({ ...v, [key]: value }));
-    // Un champ corrigé perd son erreur, et son onglet son compteur, sans
-    // attendre le prochain envoi (même comportement que les fiches lieu et
-    // association).
+  // Un champ corrigé perd son erreur, et son onglet son compteur, sans
+  // attendre le prochain envoi (même comportement que les fiches lieu et
+  // association). Changer de type de TMS efface aussi les erreurs des champs
+  // qui en dépendent (code MTS-1, prestataire) : ils peuvent disparaître.
+  function effacerErreurs(champs: string[]) {
     setErrors((e) =>
-      key in e
+      champs.some((c) => c in e)
         ? Object.fromEntries(
-            Object.entries(e).filter(([champ]) => champ !== key),
+            Object.entries(e).filter(([champ]) => !champs.includes(champ)),
           )
         : e,
+    );
+  }
+
+  function set<K extends keyof FormValues>(key: K, value: FormValues[K]) {
+    setValues((v) => ({ ...v, [key]: value }));
+    effacerErreurs(
+      key === 'type_tms'
+        ? ['type_tms', 'code_transporteur_mts1', 'prestataire_logistique_id']
+        : [key],
     );
   }
 
@@ -295,6 +304,7 @@ export function TransporteurModal({
         ? v[key].filter((t) => t !== value)
         : [...v[key], value],
     }));
+    effacerErreurs([key]);
   }
 
   function validate(): boolean {

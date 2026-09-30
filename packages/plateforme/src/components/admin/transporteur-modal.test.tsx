@@ -672,6 +672,13 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
         screen.getByRole('tab', { name: 'Identité & contact' }),
       ).toBeInTheDocument();
       expect(fetchMock).not.toHaveBeenCalled();
+
+      // Véhicule choisi : l'erreur et le compteur disparaissent sans renvoyer.
+      fireEvent.click(screen.getByRole('button', { name: 'Fourgon' }));
+      expect(screen.queryByText('Au moins un type de véhicule')).toBeNull();
+      expect(
+        screen.getByRole('tab', { name: 'Capacités' }),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

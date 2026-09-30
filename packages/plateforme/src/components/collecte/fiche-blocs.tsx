@@ -1,9 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
 import { TabsTrigger } from '@/components/ui/tabs';
 
-// Briques de mise en page des fiches en pop-up (collecte Admin + clients,
-// transporteur, lieu, association) : même en-tête de fiche, même en-tête de
-// bloc, même colonne résumé, mêmes champs label/valeur.
+// Briques de mise en page des fiches en pop-up : en-tête de bloc et champs
+// label/valeur (toutes), colonne résumé (fiches collecte), grand en-tête et
+// onglets à compteur d'erreurs (fiches Admin transporteur, lieu, association).
 
 // En-tête de bloc — DS §10 leviers #2 (pastille primary pleine) + #7 (titre
 // extrabold tracking serré) : pastille icône `primary-50`, titre `neutral-900`,
@@ -106,9 +106,9 @@ export function TelephoneLien({ telephone }: { telephone?: string | null }) {
   );
 }
 
-// Onglets en colonne du pop-up fiche collecte client : colonne à gauche sur fond neutral-50, barre horizontale
-// défilante sous md. Onglet actif = fond blanc + contour (pas d'aplat navy) —
-// maquette validée.
+// Onglets en colonne du pop-up fiche collecte client : colonne à gauche sur
+// fond neutral-50, barre horizontale défilante sous md. Onglet actif = fond
+// blanc + contour (pas d'aplat navy) — maquette validée.
 export const ONGLETS_COLONNE_LISTE =
   'flex shrink-0 gap-1 overflow-x-auto border-b border-savr-neutral-200 bg-savr-neutral-50 px-4 py-2 md:w-56 md:flex-col md:items-stretch md:overflow-visible md:border-b-0 md:border-r md:px-4 md:py-5';
 
@@ -189,7 +189,7 @@ export function EnTeteMention({ children }: { children: React.ReactNode }) {
   return <span className="text-[13px] text-savr-neutral-500">{children}</span>;
 }
 
-// Onglet horizontal des fiches Admin (lieu, association) portant le nombre de
+// Onglet horizontal des fiches Admin (transporteur, lieu, association) portant le nombre de
 // ses champs qui bloquent l'enregistrement : pastille rouge + nom accessible
 // « … (N champs à corriger) ». `ref` sert à y poser le focus à l'échec.
 export function OngletAvecErreurs({

@@ -652,10 +652,16 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       );
 
       await fillRequired();
+      // Onglet Accès (ouvert par fillRequired) : le contrôle d'accès déclenche
+      // l'exigence plaque + nom chauffeur chez le transporteur.
+      fireEvent.click(
+        screen.getByRole('switch', { name: /Contrôle d'accès requis/ }),
+      );
       await ouvrirOnglet(/Interne Savr/);
       fireEvent.change(screen.getByLabelText(/Commentaire sur le lieu/), {
         target: { value: 'Quai fermé le dimanche' },
       });
+      fireEvent.click(screen.getByRole('switch', { name: /Référencé Citeo/ }));
       await ouvrirOnglet(/Informations/);
       expect(
         (screen.getByLabelText(/Nom du lieu/) as HTMLInputElement).value,
@@ -675,11 +681,15 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         type_vehicule_max: string;
         commentaire_lieu: string;
         actif: boolean;
+        controle_acces_requis_default: boolean;
+        reference_citeo: boolean;
       };
       expect(body.nom).toBe('Château de Saint-Cloud');
       expect(body.actif).toBe(false);
       expect(body.type_vehicule_max).toBe('fourgon');
       expect(body.commentaire_lieu).toBe('Quai fermé le dimanche');
+      expect(body.controle_acces_requis_default).toBe(true);
+      expect(body.reference_citeo).toBe(true);
     },
     ATTENTE_CAS_MS,
   );

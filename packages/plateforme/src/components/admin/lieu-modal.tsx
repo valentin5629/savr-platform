@@ -36,10 +36,10 @@ import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
 // (point unique, ouverte depuis la liste /admin/lieux). En édition, les champs sont
 // hydratés par GET /api/v1/admin/lieux/{id} (seul endroit qui expose le gestionnaire
 // rattaché via organisations_lieux). Miroir de TransporteurModal (#252/#254).
-// Mise en page de la fiche collecte (#423, décisions Val 2026-09-30 C1-C4) :
-// colonne résumé fixe à gauche + onglets Informations / Accès & logistique /
-// Interne Savr / Activité (édition seule). Un seul « Enregistrer » pour tous les
-// onglets : les valeurs vivent dans l'état du formulaire, pas dans les onglets.
+// Cadre commun des fiches Admin (décisions Val 2026-09-30) : grand en-tête
+// (FicheEnTete) puis onglets seuls, sans colonne — Informations / Accès &
+// logistique / Interne Savr / Activité (édition seule). Un seul « Enregistrer »
+// pour tous les onglets : les valeurs vivent dans l'état du formulaire.
 
 // Réponse du GET détail — sert à préremplir le formulaire d'édition.
 interface LieuApi {
@@ -619,11 +619,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                 {serverError}
               </AlertBar>
             )}
-            <Tabs
-              value={onglet}
-              onValueChange={(v) => setOnglet(v as Onglet)}
-              className="min-w-0"
-            >
+            <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
               {/* Barre d'onglets fixe au défilement du corps de la modale. */}
               <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
                 {ONGLETS.filter((o) => isEdition || o.value !== 'activite').map(

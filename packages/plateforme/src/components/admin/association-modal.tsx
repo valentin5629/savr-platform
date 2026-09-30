@@ -478,11 +478,7 @@ export function AssociationModal({
             </p>
           )}
 
-          <Tabs
-            value={onglet}
-            onValueChange={(v) => setOnglet(v as Onglet)}
-            className="min-w-0"
-          >
+          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
             {/* Barre d'onglets fixe au défilement du corps de la modale. */}
             <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
               {ONGLETS.map(({ value, label }) => (

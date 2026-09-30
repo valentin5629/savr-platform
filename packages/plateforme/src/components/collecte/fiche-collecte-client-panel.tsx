@@ -30,6 +30,7 @@ import {
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
 import {
+  ACTION_DESTRUCTIVE_CONTOUR,
   ONGLETS_COLONNE_DECLENCHEUR,
   ONGLETS_COLONNE_LISTE,
 } from '@/components/collecte/fiche-blocs';
@@ -412,7 +413,7 @@ export function FicheCollecteClientPanel({
               data-testid="action-annuler"
               disabled={actions.annuler === 'grise'}
               title={actions.annuler === 'grise' ? motifGrise : undefined}
-              className="border-savr-error text-savr-error-strong hover:bg-savr-error-subtle active:bg-savr-error-subtle"
+              className={ACTION_DESTRUCTIVE_CONTOUR}
               onClick={() => {
                 setAnnulErreur(null);
                 setAnnulOpen(true);

@@ -53,7 +53,9 @@
     "packages/plateforme/src/lib/transporteur-lien-prestataire.ts",
     "packages/plateforme/src/app/api/v1/admin/prestataires/route.ts",
     "packages/plateforme/src/components/admin/transporteur-modal.tsx",
-    "supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql"
+    "supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql",
+    "packages/plateforme/src/app/api/v1/admin/lieux/[id]/activite/route.ts",
+    "packages/plateforme/tests/api/admin/lieux-activite.m1-1b.test.ts"
   ],
   "scenarios": [
     "M1.1b/lieux/liste — 200 avec data pour admin_savr",
@@ -111,7 +113,26 @@
     "M1.1b/flux/manuel — 403 si rôle client (traiteur_manager)",
     "M1.1b/flux/manuel — 200 pour ops_savr (2e rôle staff autorisé)",
     "M1.1b/associations/patch — 403 si ops tente modifier numero_rup",
-    "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL"
+    "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL",
+    "M1.1b/lieux/activite — 401 si non authentifié",
+    "M1.1b/lieux/activite — 403 si rôle traiteur_manager",
+    "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes",
+    "M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur",
+    "M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé",
+    "M1.1b/lieux/fiche-onglets — création : 3 onglets, pas d'onglet Activité",
+    "M1.1b/lieux/fiche-onglets — champ obligatoire d'un autre onglet : ouvre l'onglet en erreur",
+    "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only)",
+    "M1.1b/lieux/fiche-onglets — onglet Activité : traiteurs opérant et historique",
+    "M1.1b/lieux/fiche-onglets — les saisies survivent au changement d'onglet",
+    "M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte",
+    "M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », onglets seuls sans colonne résumé",
+    "M1.1b/lieux/fiche-onglets — onglet Activité : erreur de chargement annoncée",
+    "M1.1b/lieux/fiche-onglets — historique tronqué : la limite est annoncée",
+    "M1.1b/lieux/activite — réponse minimale : jamais les valeurs avant/après de l'audit (champs admin-only)",
+    "M1.1b/lieux/activite — 500 si la lecture des auteurs échoue",
+    "M1.1b/lieux/fiche-onglets — réponse tardive d'un lieu précédent ignorée (ni affichée ni enregistrée)",
+    "M1.1b/lieux/fiche-onglets — chargement du lieu en échec : pas de formulaire, rien d'enregistrable",
+    "M1.1b/lieux/fiche-onglets — enregistrement en échec réseau : message affiché, bouton libéré"
   ],
   "deliverables": [
     {
@@ -369,6 +390,54 @@
       "test": "M1.1b — Modale Nouvelle organisation (§06.06) + M1.1b — le CTA ouvre la modale",
       "statut": "implemented",
       "libelle": "Bouton « Nouvelle organisation » (liste Clients, admin_savr + ops_savr) → modale de création : 7 champs de l'allowlist POST /api/v1/admin/organisations (nom, raison sociale, type, email obligatoires ; SIRET 14 chiffres, téléphone, adresse optionnels), aucun champ admin-only ni système"
+    },
+    {
+      "id": "M1.1b-lieu-fiche-onglets",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:565",
+      "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
+      "test": "M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé + M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », onglets seuls sans colonne résumé + M1.1b/lieux/fiche-onglets — réponse tardive d'un lieu précédent ignorée (ni affichée ni enregistrée)",
+      "statut": "implemented",
+      "libelle": "Fiche lieu au format des fiches Admin (décisions Val 2026-09-30 C1 + « grand en-tête partout » + « supprime la colonne résumé, ne conserve que les onglets ») : grand en-tête commun FicheEnTete (région, gestionnaire, nom, ville, véhicule max, statut — lieu enregistré, stable pendant la saisie) + onglets horizontaux Informations / Accès & logistique / Interne Savr / Activité ; un seul Enregistrer pour tous les onglets"
+    },
+    {
+      "id": "M1.1b-lieu-champs-admin-onglet-interne",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:600",
+      "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
+      "test": "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only) + rendu création — tous les champs de la modale sont présents",
+      "statut": "implemented",
+      "libelle": "Onglet « Interne Savr » = les champs admin/ops only (Commentaire sur le lieu, Notes internes, SIREN, Mail gestionnaire, Référencé Citeo) sous un bandeau « jamais montrées aux clients » — le commentaire sur le lieu n'est plus affiché hors du bloc Admin/Ops (décision Val C2)"
+    },
+    {
+      "id": "M1.1b-lieu-creation-onglet-en-erreur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:565",
+      "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
+      "test": "M1.1b/lieux/fiche-onglets — champ obligatoire d'un autre onglet : ouvre l'onglet en erreur",
+      "statut": "implemented",
+      "libelle": "Création : 3 onglets (pas d'Activité) ; un champ obligatoire vide dans un onglet caché ouvre cet onglet, y pose le focus et affiche le nombre de champs à corriger (« N champs à corriger »), qui disparaît dès la correction — même comportement que la fiche association (décision Val C4 + alignement #446)"
+    },
+    {
+      "id": "M1.1b-lieu-activite",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:586",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/[id]/activite/route.ts",
+      "test": "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes + M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur + M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte + M1.1b/lieux/activite — réponse minimale : jamais les valeurs avant/après de l'audit (champs admin-only)",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/admin/lieux/{id}/activite (staff) : traiteurs opérant = traiteur opérationnel des événements du lieu ayant au moins une collecte, avec leur nombre de collectes ; historique = audit_log table_name='lieux' (création, modification avec champs réellement changés, normalisation, modification signalée à la programmation) + auteur (décision Val C3)"
+    },
+    {
+      "id": "M1.1b-association-fiche-onglets-entete",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:446",
+      "artefact": "packages/plateforme/src/components/admin/association-modal.tsx",
+      "test": "en-tête : région, ville, capacité et statut de l’association enregistrée + pas de colonne résumé : l’en-tête et les onglets seuls",
+      "statut": "implemented",
+      "libelle": "Fiche association : grand en-tête commun (région, SIREN, nom, ville, capacité, statut — association enregistrée, stable pendant la saisie) + onglets seuls, sans colonne résumé + hauteur fixe (décisions Val 2026-09-30)"
+    },
+    {
+      "id": "M1.1b-fiches-admin-entete-commun",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:446",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-blocs.tsx",
+      "test": "en-tête : type de TMS, SIREN, ville, véhicules, téléphone et statut du transporteur enregistré + M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé + en-tête : région, ville, capacité et statut de l’association enregistrée + erreur dans un onglet caché : la fiche y bascule et marque les onglets à corriger",
+      "statut": "implemented",
+      "libelle": "Brique commune FicheEnTete (+ EnTetePuce, EnTeteMention) et barre d'onglets horizontale avec compteur d'erreurs (OngletAvecErreurs) : même cadre pour les fiches Admin transporteur, lieu et association — grand en-tête, onglets seuls (plus de colonne résumé ni d'onglets en colonne) ; titre accessible « Fiche X — nom » (décisions Val 2026-09-30)"
     }
   ],
   "cdc_source_hash": {

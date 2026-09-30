@@ -5,13 +5,16 @@
 --   · fn_infos_acces_marquer_si_complet : NULL si incomplet / non requis / déjà
 --     envoyé ; payload + stamp atomique quand complet (nom + tel par tournée) ;
 --     dédup au 2e appel.
---   · RLS : les colonnes chauffeur/accompagnant héritent de la policy `t_select`
---     de `tournees` (cloisonnement par collecte) — aucune fuite inter-org.
+--   · RLS : la ligne de `tournees` suit la policy `t_select` (cloisonnement par
+--     collecte) — aucune fuite inter-org. Les colonnes chauffeur/accompagnant, elles,
+--     sont hors GRANT SELECT authenticated depuis 20260930160000 (arbitrage C5) :
+--     servies au client par la route de la fiche (service_role, fenêtre de statut).
+--     Preuve complète : SECU__tournees_select_liste_blanche.test.sql.
 -- Sous rôle `authenticated` + claim `user_role` (jamais `role`) pour la partie RLS.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(10);
+SELECT plan(11);
 
 -- ─── Helpers JWT (pattern canonique repo) ────────────────────────────────────
 CREATE OR REPLACE FUNCTION test_set_jwt(
@@ -157,16 +160,23 @@ SELECT is(
   'RPC : NULL quand controle_acces_requis = false (rien à envoyer)'
 );
 
--- ═══ 2. RLS : cloisonnement des colonnes chauffeur/accompagnant ══════════════
--- Manager org A voit la tournée de SA collecte (colonnes lisibles).
+-- ═══ 2. RLS : cloisonnement de la ligne, colonnes chauffeur hors privilège ═══
+-- Manager org A voit la tournée de SA collecte (ligne visible)…
 SELECT test_set_jwt(
   'traiteur_manager', 'ac000000-0000-0000-0000-0000000000a1'::uuid,
   'ac200000-0000-0000-0000-0000000000a1'::uuid
 );
 SELECT is(
-  (SELECT chauffeur_telephone FROM plateforme.tournees WHERE id = 'ac700000-0000-0000-0000-0000000000a1'::uuid),
-  '0611111111',
-  'RLS : le traiteur propriétaire lit chauffeur_telephone de sa tournée'
+  (SELECT count(*)::int FROM plateforme.tournees WHERE id = 'ac700000-0000-0000-0000-0000000000a1'::uuid),
+  1,
+  'RLS : le traiteur propriétaire voit la tournée de sa collecte'
+);
+-- … mais plus son téléphone chauffeur en direct (20260930160000, arbitrage C5) :
+-- la route de la fiche le sert, en programmee / validee / en_cours seulement.
+SELECT throws_ok(
+  $$ SELECT chauffeur_telephone FROM plateforme.tournees WHERE id = 'ac700000-0000-0000-0000-0000000000a1'::uuid $$,
+  '42501', NULL,
+  'Privilège : le traiteur propriétaire ne lit plus chauffeur_telephone par PostgREST direct'
 );
 
 -- Manager org B ne voit PAS la tournée de la collecte org A.

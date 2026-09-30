@@ -12,6 +12,7 @@ import {
   type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
+import { ACTION_DESTRUCTIVE_CONTOUR } from '@/components/collecte/fiche-blocs';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const EDIT_FIXTURE_ID = 'transp-42';
@@ -559,7 +560,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
 
   // ── Fiche en onglets, format du pop-up collecte (décision Val 2026-09-30) ──
 
-  it('3 onglets en colonne, « Identité & contact » ouvert par défaut, chaque champ dans son onglet', () => {
+  it('3 onglets, « Identité & contact » ouvert par défaut, chaque champ dans son onglet', () => {
     render(
       <TransporteurModal
         open
@@ -633,6 +634,12 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
         />,
       );
 
+      // La modale prend le focus à l'ouverture (minuteur) : l'attendre, sinon
+      // il écraserait le focus posé par l'échec de validation.
+      await waitFor(
+        () => expect(screen.getByRole('dialog')).toHaveFocus(),
+        ATTENTE_UI,
+      );
       // Identité complète, validation lancée depuis Connexion : manquent le
       // véhicule (Capacités) et le type de TMS (Connexion).
       remplirIdentite();
@@ -652,18 +659,26 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       expect(
         screen.getByText('Au moins un type de véhicule'),
       ).toBeInTheDocument();
+      // Focus sur l'onglet fautif (même comportement que lieu et association).
       expect(
-        screen.getByRole('tab', { name: /Capacités — champ à corriger/ }),
-      ).toBeInTheDocument();
+        screen.getByRole('tab', { name: 'Capacités (1 champ à corriger)' }),
+      ).toHaveFocus();
       expect(
         screen.getByRole('tab', {
-          name: /Connexion logistique — champ à corriger/,
+          name: 'Connexion logistique (1 champ à corriger)',
         }),
       ).toBeInTheDocument();
       expect(
         screen.getByRole('tab', { name: 'Identité & contact' }),
       ).toBeInTheDocument();
       expect(fetchMock).not.toHaveBeenCalled();
+
+      // Véhicule choisi : l'erreur et le compteur disparaissent sans renvoyer.
+      fireEvent.click(screen.getByRole('button', { name: 'Fourgon' }));
+      expect(screen.queryByText('Au moins un type de véhicule')).toBeNull();
+      expect(
+        screen.getByRole('tab', { name: 'Capacités' }),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -832,6 +847,21 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       const input = screen.getByLabelText(champ);
       expect(input).toHaveAttribute('data-bwignore', 'true');
       expect(input).toHaveAttribute('autocomplete', 'off');
+    }
+  });
+
+  it('« Désactiver » en contour rouge, même rendu que la fiche association', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    const bouton = screen.getByRole('button', { name: 'Désactiver' });
+    for (const classe of ACTION_DESTRUCTIVE_CONTOUR.split(' ')) {
+      expect(bouton).toHaveClass(classe);
     }
   });
 });

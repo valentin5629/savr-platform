@@ -10,6 +10,7 @@ import {
   FileText,
   BadgeCheck,
   Settings2,
+  UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
@@ -20,9 +21,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ResumeItem } from '@/components/collecte/fiche-blocs';
-import { formatJourCourt, isoVersDate } from '@/lib/date-iso';
+import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
+import {
+  ACTION_DESTRUCTIVE_CONTOUR,
+  EnTeteMention,
+  EnTetePuce,
+  FicheEnTete,
+  OngletAvecErreurs,
+} from '@/components/collecte/fiche-blocs';
 import { LogoUpload } from '@/components/admin/logo-upload';
 import {
   HorairesOuvertureEditor,
@@ -371,11 +377,13 @@ export function AssociationModal({
       </Button>
       {isEdition &&
         (association!.actif ? (
+          // Contour rouge, comme la fiche transporteur et « Annuler la collecte ».
           <Button
             type="button"
-            variant="destructive"
+            variant="secondary"
             onClick={() => void handleToggleActif()}
             disabled={submitting}
+            className={ACTION_DESTRUCTIVE_CONTOUR}
           >
             Désactiver
           </Button>
@@ -403,135 +411,88 @@ export function AssociationModal({
     </>
   );
 
-  const regionLabel = REGIONS.find((r) => r.value === values.region)?.label;
-  const dateExpiration = isoVersDate(values.date_expiration_habilitation);
-  const nonRenseigne = (
-    <span className="text-savr-neutral-400">Non renseigné</span>
-  );
-
   return (
     <Modal
       open={open}
       onClose={onClose}
-      className="max-w-5xl"
       title={
         isEdition
           ? `Fiche association — ${association!.nom}`
           : 'Nouvelle association'
       }
+      // Même cadre que les fiches transporteur et lieu : grand en-tête fixe,
+      // corps défilant, hauteur fixe dès md (la modale ne bouge pas d'un
+      // onglet à l'autre).
+      hideTitle
+      bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
+      className="max-w-5xl md:h-[min(90vh,48rem)]"
       footer={footer}
     >
-      <form onSubmit={handleFormSubmit} noValidate>
-        {serverError && (
-          <p
-            ref={alerteRef}
-            role="alert"
-            className="mb-4 rounded-savr-md bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong"
-          >
-            {serverError}
-          </p>
-        )}
-
-        {/* Colonne résumé fixe à gauche + 4 onglets à droite, comme la fiche
-            collecte Admin : le « de qui on parle » reste visible quel que soit
-            l'onglet. Elle suit la saisie. Masquée sous md : le titre de la
-            modale porte déjà le nom. Hauteur minimale : la modale ne « saute »
-            pas d'un onglet à l'autre. */}
-        <div className="grid items-start gap-4 md:min-h-[60vh] md:grid-cols-[13rem_minmax(0,1fr)]">
-          <aside
-            aria-label="Résumé de l'association"
-            className="hidden rounded-savr-lg border border-savr-neutral-100 bg-savr-neutral-50 p-4 md:sticky md:top-0 md:block"
-          >
-            {values.logo_url && (
-              <img
-                src={`/api/v1/admin/uploads/logo?key=${encodeURIComponent(values.logo_url)}`}
-                alt=""
-                className="mb-3 h-12 w-12 rounded-savr-md border border-savr-neutral-200 bg-savr-white object-contain"
-              />
-            )}
-            <dl className="grid grid-cols-1 gap-y-3 text-sm">
-              <ResumeItem label="Association">
-                {values.nom.trim() || nonRenseigne}
-              </ResumeItem>
-              {isEdition && (
-                <ResumeItem label="Statut">
-                  <Badge
-                    variant={association!.actif ? 'success' : 'neutral'}
-                    className="text-xs"
-                  >
-                    {association!.actif ? 'Active' : 'Inactive'}
-                  </Badge>
-                </ResumeItem>
+      {isEdition ? (
+        // Association ENREGISTRÉE : l'en-tête ne suit pas la saisie.
+        <FicheEnTete
+          surtitre={
+            <>
+              <EnTetePuce>
+                {association!.region === 'idf' ? 'IDF' : 'Province'}
+              </EnTetePuce>
+              {association!.siren && (
+                <EnTeteMention>
+                  SIREN {association!.siren.replace(/(\d{3})(?=\d)/g, '$1 ')}
+                </EnTeteMention>
               )}
-              <ResumeItem label="Ville">
-                {values.ville.trim() || nonRenseigne}
-                {regionLabel && (
-                  <span className="block text-savr-neutral-600">
-                    {regionLabel}
-                  </span>
-                )}
-              </ResumeItem>
-              <ResumeItem label="Capacité max">
-                {values.capacite_max_beneficiaires.trim()
-                  ? `${values.capacite_max_beneficiaires.trim()} repas`
-                  : nonRenseigne}
-              </ResumeItem>
-              <ResumeItem label="Habilitation 2041-GE">
-                {values.habilitee_attestation_fiscale ? 'Oui' : 'Non'}
-                {values.habilitee_attestation_fiscale && dateExpiration && (
-                  <span className="block text-savr-neutral-600">
-                    jusqu&apos;au {formatJourCourt(dateExpiration)}
-                  </span>
-                )}
-              </ResumeItem>
-              <ResumeItem label="Contact">
-                {values.contact_nom.trim() || nonRenseigne}
-                {values.contact_telephone.trim() && (
-                  <span className="block text-savr-neutral-600">
-                    {values.contact_telephone.trim()}
-                  </span>
-                )}
-              </ResumeItem>
-            </dl>
-          </aside>
+            </>
+          }
+          titre={association!.nom}
+          infos={[
+            { icon: MapPin, texte: association!.ville || '—' },
+            {
+              icon: UtensilsCrossed,
+              texte:
+                association!.capacite_max_beneficiaires != null
+                  ? `${association!.capacite_max_beneficiaires} repas`
+                  : '—',
+            },
+          ]}
+          statut={
+            <Badge variant={association!.actif ? 'success' : 'neutral'}>
+              {association!.actif ? 'Active' : 'Inactive'}
+            </Badge>
+          }
+        />
+      ) : (
+        <FicheEnTete
+          titre="Nouvelle association"
+          description="Renseignez les onglets, puis créez l’association."
+        />
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+        <form onSubmit={handleFormSubmit} noValidate>
+          {serverError && (
+            <p
+              ref={alerteRef}
+              role="alert"
+              className="mb-4 rounded-savr-md bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong"
+            >
+              {serverError}
+            </p>
+          )}
 
-          <Tabs
-            value={onglet}
-            onValueChange={(v) => setOnglet(v as Onglet)}
-            className="min-w-0"
-          >
+          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
             {/* Barre d'onglets fixe au défilement du corps de la modale. */}
             <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
-              {ONGLETS.map(({ value, label }) => {
-                const n = nbErreurs(value);
-                return (
-                  <TabsTrigger
-                    key={value}
-                    ref={(el) => {
-                      ongletsRef.current[value] = el;
-                    }}
-                    value={value}
-                    className="gap-2 px-3 sm:px-4"
-                  >
-                    {label}
-                    {n > 0 && (
-                      <>
-                        <span
-                          aria-hidden="true"
-                          className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-savr-error-strong px-1.5 text-xs font-bold text-savr-white"
-                        >
-                          {n}
-                        </span>
-                        <span className="sr-only">
-                          {n > 1
-                            ? ` (${n} champs à corriger)`
-                            : ' (1 champ à corriger)'}
-                        </span>
-                      </>
-                    )}
-                  </TabsTrigger>
-                );
-              })}
+              {ONGLETS.map(({ value, label }) => (
+                <OngletAvecErreurs
+                  key={value}
+                  ref={(el) => {
+                    ongletsRef.current[value] = el;
+                  }}
+                  value={value}
+                  nbErreurs={nbErreurs(value)}
+                >
+                  {label}
+                </OngletAvecErreurs>
+              ))}
             </TabsList>
 
             <TabsContent
@@ -833,8 +794,8 @@ export function AssociationModal({
               </Bloc>
             </TabsContent>
           </Tabs>
-        </div>
-      </form>
+        </form>
+      </div>
     </Modal>
   );
 }

@@ -20,11 +20,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import {
+  ACTION_DESTRUCTIVE_CONTOUR,
   BlocHeader,
-  ONGLETS_COLONNE_DECLENCHEUR,
-  ONGLETS_COLONNE_LISTE,
+  EnTeteMention,
+  EnTetePuce,
+  FicheEnTete,
+  OngletAvecErreurs,
 } from '@/components/collecte/fiche-blocs';
 import { cn } from '@/lib/utils';
 import { TYPES_TMS_AVEC_PRESTATAIRE } from '@/lib/transporteur-lien-prestataire';
@@ -189,14 +192,10 @@ interface TransporteurModalProps {
 function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
   if (!transporteur) {
     return (
-      <div className="min-w-0 space-y-1.5">
-        <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
-          Nouveau transporteur
-        </h3>
-        <p className="text-[15px] text-savr-neutral-700">
-          Renseignez les trois onglets, puis créez le transporteur.
-        </p>
-      </div>
+      <FicheEnTete
+        titre="Nouveau transporteur"
+        description="Renseignez les trois onglets, puis créez le transporteur."
+      />
     );
   }
   const typeTms = TYPES_TMS.find((t) => t.value === transporteur.type_tms);
@@ -207,50 +206,32 @@ function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
     .filter(Boolean)
     .join(' ');
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            data-testid="badge-type-tms"
-            className="rounded-savr-sm bg-savr-primary-50 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em] text-savr-primary-700"
-          >
+    <FicheEnTete
+      surtitre={
+        <>
+          <EnTetePuce data-testid="badge-type-tms">
             {typeTms?.court ?? transporteur.type_tms}
-          </span>
-          <span className="text-[13px] text-savr-neutral-500">
+          </EnTetePuce>
+          <EnTeteMention>
             SIREN {transporteur.siren.replace(/(\d{3})(?=\d)/g, '$1 ')}
-          </span>
-        </div>
-        <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
-          {transporteur.nom}
-        </h3>
-        <p
-          data-testid="fiche-transporteur-sous-ligne"
-          className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <MapPin className="h-4 w-4" aria-hidden="true" />
-            {lieu || '—'}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Truck className="h-4 w-4" aria-hidden="true" />
-            {vehicules || '—'}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Phone className="h-4 w-4" aria-hidden="true" />
-            {transporteur.contact_telephone || '—'}
-          </span>
-        </p>
-      </div>
-      {transporteur.actif ? (
-        <Badge variant="success" className="self-start">
-          Actif
-        </Badge>
-      ) : (
-        <Badge variant="neutral" className="self-start">
-          Inactif
-        </Badge>
-      )}
-    </div>
+          </EnTeteMention>
+        </>
+      }
+      titre={transporteur.nom}
+      infosTestId="fiche-transporteur-sous-ligne"
+      infos={[
+        { icon: MapPin, texte: lieu || '—' },
+        { icon: Truck, texte: vehicules || '—' },
+        { icon: Phone, texte: transporteur.contact_telephone || '—' },
+      ]}
+      statut={
+        transporteur.actif ? (
+          <Badge variant="success">Actif</Badge>
+        ) : (
+          <Badge variant="neutral">Inactif</Badge>
+        )
+      }
+    />
   );
 }
 
@@ -275,9 +256,13 @@ export function TransporteurModal({
   const lienHorsListe =
     Boolean(values.prestataire_logistique_id) &&
     !optionsPrestataires.some((p) => p.id === values.prestataire_logistique_id);
-  const ongletsEnErreur = new Set(
-    Object.keys(errors).map((champ) => ONGLET_DU_CHAMP[champ]),
+  const ongletsRef = React.useRef<Partial<Record<Onglet, HTMLButtonElement>>>(
+    {},
   );
+  function nbErreurs(o: Onglet): number {
+    return Object.keys(errors).filter((champ) => ONGLET_DU_CHAMP[champ] === o)
+      .length;
+  }
 
   // (Ré)initialise le formulaire à chaque ouverture / changement de cible.
   React.useEffect(() => {
@@ -289,8 +274,27 @@ export function TransporteurModal({
     }
   }, [open, transporteur]);
 
+  // Un champ corrigé perd son erreur, et son onglet son compteur, sans
+  // attendre le prochain envoi (même comportement que les fiches lieu et
+  // association). Changer de type de TMS efface aussi les erreurs des champs
+  // qui en dépendent (code MTS-1, prestataire) : ils peuvent disparaître.
+  function effacerErreurs(champs: string[]) {
+    setErrors((e) =>
+      champs.some((c) => c in e)
+        ? Object.fromEntries(
+            Object.entries(e).filter(([champ]) => !champs.includes(champ)),
+          )
+        : e,
+    );
+  }
+
   function set<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
+    effacerErreurs(
+      key === 'type_tms'
+        ? ['type_tms', 'code_transporteur_mts1', 'prestataire_logistique_id']
+        : [key],
+    );
   }
 
   function toggle(key: 'types_vehicules' | 'types_collecte', value: string) {
@@ -300,6 +304,7 @@ export function TransporteurModal({
         ? v[key].filter((t) => t !== value)
         : [...v[key], value],
     }));
+    effacerErreurs([key]);
   }
 
   function validate(): boolean {
@@ -336,7 +341,12 @@ export function TransporteurModal({
     const premier = ONGLETS.find((o) =>
       Object.keys(next).some((champ) => ONGLET_DU_CHAMP[champ] === o.value),
     );
-    if (premier) setOnglet(premier.value);
+    if (premier) {
+      setOnglet(premier.value);
+      // Le focus recale l'onglet atteignable au clavier de Radix et fait
+      // annoncer le changement aux lecteurs d'écran.
+      ongletsRef.current[premier.value]?.focus();
+    }
     return Object.keys(next).length === 0;
   }
 
@@ -455,43 +465,31 @@ export function TransporteurModal({
         noValidate
         className="flex h-full min-h-0 flex-col"
       >
-        {/* pr-14 réserve la croix de fermeture du cadre. */}
-        <header className="shrink-0 border-b border-savr-neutral-200 px-6 pb-5 pr-14 pt-6 md:px-8 md:pr-16">
-          <EnTete transporteur={transporteur} />
-        </header>
+        <EnTete transporteur={transporteur} />
 
-        <Tabs
-          value={onglet}
-          onValueChange={(v) => setOnglet(v as Onglet)}
-          orientation="vertical"
-          className="flex min-h-0 flex-1 flex-col md:flex-row"
-        >
-          <TabsList
-            aria-label="Sections de la fiche transporteur"
-            className={ONGLETS_COLONNE_LISTE}
-          >
-            {ONGLETS.map((o) => (
-              <TabsTrigger
-                key={o.value}
-                value={o.value}
-                className={cn(ONGLETS_COLONNE_DECLENCHEUR, 'gap-2')}
-              >
-                {o.label}
-                {ongletsEnErreur.has(o.value) && (
-                  <>
-                    <span
-                      aria-hidden="true"
-                      className="h-2 w-2 shrink-0 rounded-savr-full bg-savr-error md:ml-auto"
-                    />
-                    <span className="sr-only"> — champ à corriger</span>
-                  </>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        {/* Même barre d'onglets horizontale que les fiches lieu et association
+            (décision Val 2026-09-30), fixe au défilement du corps. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
+            <TabsList
+              aria-label="Sections de la fiche transporteur"
+              className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
+            >
+              {ONGLETS.map(({ value, label }) => (
+                <OngletAvecErreurs
+                  key={value}
+                  ref={(el) => {
+                    if (el) ongletsRef.current[value] = el;
+                  }}
+                  value={value}
+                  nbErreurs={nbErreurs(value)}
+                >
+                  {label}
+                </OngletAvecErreurs>
+              ))}
+            </TabsList>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-8">
-            <TabsContent value="identite" className="mt-0 space-y-3">
+            <TabsContent value="identite" className="space-y-3">
               <Card className="space-y-4 p-5">
                 <BlocHeader icon={Building2} title="Société" />
                 <div className={GRILLE_2}>
@@ -628,7 +626,7 @@ export function TransporteurModal({
               </Card>
             </TabsContent>
 
-            <TabsContent value="capacites" className="mt-0 space-y-3">
+            <TabsContent value="capacites" className="space-y-3">
               <Card className="space-y-4 p-5">
                 <BlocHeader icon={Truck} title="Véhicules et flux" />
                 <FormField
@@ -707,7 +705,7 @@ export function TransporteurModal({
               </Card>
             </TabsContent>
 
-            <TabsContent value="connexion" className="mt-0 space-y-3">
+            <TabsContent value="connexion" className="space-y-3">
               <AlertBar
                 variant="info"
                 icon={<Lock />}
@@ -822,8 +820,8 @@ export function TransporteurModal({
                 </div>
               </Card>
             </TabsContent>
-          </div>
-        </Tabs>
+          </Tabs>
+        </div>
 
         <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
           {serverError && (
@@ -847,7 +845,7 @@ export function TransporteurModal({
                 variant="secondary"
                 onClick={() => void handleToggleActif()}
                 disabled={submitting}
-                className="border-savr-error text-savr-error-strong hover:bg-savr-error-subtle active:bg-savr-error-subtle"
+                className={ACTION_DESTRUCTIVE_CONTOUR}
               >
                 Désactiver
               </Button>

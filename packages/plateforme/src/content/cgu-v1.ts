@@ -535,7 +535,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Documents réglementaires', gras: true },
           {
             texte:
-              " : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client au plus tard à J+1 6h (batch quotidien). Ces documents constituent la traçabilité réglementaire de la Collecte.",
+              " : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte (batch quotidien), sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.",
             gras: false,
           },
         ],
@@ -572,7 +572,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Attestation de don', gras: true },
           {
             texte:
-              " : à l'issue de chaque Collecte AG, la Plateforme génère automatiquement une Attestation de don, disponible dans l'Espace Client au plus tard à J+1 6h. Si l'Association est habilitée au titre de l'article 238 bis du CGI, l'Attestation mentionne les informations permettant au Client de bénéficier de la réduction fiscale prévue par l'article 2041-GE.",
+              " : à l'issue de chaque Collecte AG, la Plateforme génère automatiquement une Attestation de don, disponible dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou vérification en cours des informations du Client. Si l'Association est habilitée au titre de l'article 238 bis du CGI, l'Attestation mentionne les informations permettant au Client de bénéficier de la réduction fiscale prévue par l'article 2041-GE.",
             gras: false,
           },
         ],
@@ -670,7 +670,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         segments: [
           {
             texte:
-              'Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Attestation, Rapport RSE) au plus tard J+1 6h après la Collecte ;',
+              'Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Attestation, Rapport RSE) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;',
             gras: false,
           },
         ],

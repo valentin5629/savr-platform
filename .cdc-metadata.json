@@ -40,16 +40,16 @@
       "bytes": 58131
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": {
-      "sha256": "d89075f06b087f49c0f9a3db675adfdd8c8e50f83884bd881a44f843eebecb36",
-      "bytes": 35540
+      "sha256": "f3dadaa9a7279e120c3d190395420044f968a7b69d1ac324222924453e57ae99",
+      "bytes": 35535
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": {
       "sha256": "073e5381079db28f883d0c38b62fa5cc73ec7f0944f82fc41976736f5d42ac77",
       "bytes": 9239
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": {
-      "sha256": "5b47fd23e51c23aa750d632d89c0ed4a25812daf3b7d6dca02938615b7cc84d5",
-      "bytes": 112822
+      "sha256": "6f358c8ab8344ff626cacbad0ef7f6d0cfec2f00a2d6207937af2c764f2b44a7",
+      "bytes": 113962
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": {
       "sha256": "7a01620ba21405f6418c5c4b03e8b9fbe06687e56c21a5a8cdbf34d4e0f758ee",
@@ -72,8 +72,8 @@
       "bytes": 20684
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/_RAPPORT-EXPORT.md": {
-      "sha256": "82a00c27afccbfab6a359535fe1c05ac96b9bdfe48258ecadbb1e3bdbc6a2be6",
-      "bytes": 606
+      "sha256": "b7b86ea60cdfeaf5ccd6794382e021df3b5fbad71d483b818e86382e12ea4864",
+      "bytes": 740
     },
     "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": {
       "sha256": "791f5e51e8447c431b075dccc9faa5942c0194785b51703c0d29edcb96bb11f3",
@@ -172,8 +172,8 @@
       "bytes": 14720
     },
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": {
-      "sha256": "2cc8294096f90ae0582a699895a55119d766dc8626eaac4bf7b944e9580c161a",
-      "bytes": 28866
+      "sha256": "bb72cba6d036be25817b346daf56b550dd1d5d6264f351f1ba429434feb8e9c9",
+      "bytes": 29115
     },
     "specs/cdc/01 - Cahier des charges App/Frontière TMS-Ready V1.md": {
       "sha256": "1b414231c02037ac24c731a198f8ce5de806a9d0e836b801413b70257d68bb16",
@@ -188,8 +188,8 @@
       "bytes": 5277
     },
     "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
-      "sha256": "0d5881edd51d9dce6a2efb901da023adac466d8f6eb5cc4a4a09e34ba6b07053",
-      "bytes": 27362
+      "sha256": "1d0d9e554d3fa22d915ced4dfea68f0aacccc00deb41937b0acab2608eed3729",
+      "bytes": 490
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
       "sha256": "53ef5bdec3c73e70aba8625761d492b04ad0c44791b8a870f07fcf71d5223a54",
@@ -204,8 +204,8 @@
       "bytes": 27903
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.04-espace-traiteur-scenarios.md": {
-      "sha256": "4f00dc790a51d4853401e343e256ea7b33ce939278e6b4b5bec1cb77971d7b2e",
-      "bytes": 53664
+      "sha256": "b25d1bcf10447a002b318715099820c6a0df822f3778881fb3ee595691e9fbc9",
+      "bytes": 53855
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.05-espace-gestionnaire-lieux-scenarios.md": {
       "sha256": "b6669dcc34ecf598e5a919de530ec7ad4d42bcbfa5a2b8d6e04b197daaf9bddd",
@@ -240,8 +240,8 @@
       "bytes": 48829
     },
     "specs/cdc/01 - Cahier des charges App/tests/_RAPPORT-EXPORT.md": {
-      "sha256": "83927fee4de21e49db9808c1016ecc4d2e1d7259e826ccea2203f3435c96b2b5",
-      "bytes": 470
+      "sha256": "9c1bfc1eefb2487cf699620ab890038493a1302e7573f0a1fb28f80ec227007e",
+      "bytes": 465
     },
     "specs/cdc/02 - Cahier des charges TMS/01 - Vision et objectifs TMS.md": {
       "sha256": "71c9e78dac07c90f0739d1208064db82f4f333b38c78ab0d83459fe1c7f3124c",

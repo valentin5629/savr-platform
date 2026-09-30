@@ -108,7 +108,7 @@ Le Client peut souscrire à l'une ou aux deux Activités.
 
 **Transport et valorisation** : SAVR ou son Prestataire transporte les Déchets collectés jusqu'à l'Exutoire approprié pour chaque flux. SAVR s'engage à acheminer les Déchets vers des filières de valorisation conformes à la réglementation applicable (notamment la réglementation relative aux Déchets Industriels Banals, aux biodéchets et aux emballages).
 
-**Documents réglementaires** : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client au plus tard à J+1 6h (batch quotidien). Ces documents constituent la traçabilité réglementaire de la Collecte.
+**Documents réglementaires** : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte (batch quotidien), sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.
 
 ### 4.2. Activité Anti-Gaspi
 
@@ -116,7 +116,7 @@ Le Client peut souscrire à l'une ou aux deux Activités.
 
 **Enlèvement et acheminement** : SAVR ou son Prestataire se présente sur le Point de Collecte pour retirer les Excédents déclarés par le Client, dans un délai n'excédant pas 30 minutes après l'heure prévue de la Collecte, et les livre à l'Association sélectionnée dans des conditions permettant le respect de la chaîne du froid.
 
-**Attestation de don** : à l'issue de chaque Collecte AG, la Plateforme génère automatiquement une Attestation de don, disponible dans l'Espace Client au plus tard à J+1 6h. Si l'Association est habilitée au titre de l'article 238 bis du CGI, l'Attestation mentionne les informations permettant au Client de bénéficier de la réduction fiscale prévue par l'article 2041-GE.
+**Attestation de don** : à l'issue de chaque Collecte AG, la Plateforme génère automatiquement une Attestation de don, disponible dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou vérification en cours des informations du Client. Si l'Association est habilitée au titre de l'article 238 bis du CGI, l'Attestation mentionne les informations permettant au Client de bénéficier de la réduction fiscale prévue par l'article 2041-GE.
 
 ### 4.3. Offres et tarification
 
@@ -139,7 +139,7 @@ SAVR s'engage à :
 - Fournir les Services avec loyauté dans les conditions décrites à l'article 4 ;
 - **ZD** : transporter les Déchets dans des véhicules conformes à la réglementation relative au transport de déchets, et les acheminer vers des Exutoires autorisés ;
 - **AG** : transporter les Excédents dans des véhicules adaptés, propres et respectant la réglementation relative au transport de Denrées alimentaires ;
-- Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Attestation, Rapport RSE) au plus tard J+1 6h après la Collecte ;
+- Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Attestation, Rapport RSE) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;
 - Informer le Client en cas de difficulté dans l'exécution du Service.
 
 ---

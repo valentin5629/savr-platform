@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { rapportReserveDonneurOrdre } from '@/lib/collectes/fiche-client-types.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -107,6 +108,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const rows = (
     (data ?? []) as unknown as Array<
       {
+        type: string;
+        statut: string;
         evenements: unknown;
         collecte_flux?: { poids_reel_kg: number | null }[] | null;
         attributions_antgaspi?:
@@ -150,6 +153,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       collecte_flux: undefined,
       attributions_antgaspi: undefined,
       programmee_par_tiers: programmeeParTiers,
+      // Même règle que la fiche (D12) : la liste n'offre pas un téléchargement
+      // que la route refuserait (404).
+      rapport_reserve_donneur_ordre: rapportReserveDonneurOrdre(
+        c,
+        evt?.organisation_id,
+        orgId,
+      ),
       poids_total_kg: poidsTotalKg,
       nb_repas_donnes: nbRepasDonnes,
     };

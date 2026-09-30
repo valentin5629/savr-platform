@@ -24,6 +24,7 @@ import {
   fmtMasse,
 } from '@/components/dashboards/charts/cockpit/fmt';
 import {
+  LIBELLE_RAPPORT_RESERVE,
   STATUTS_ANNULES,
   STATUT_BILAN,
   type EspaceClient,
@@ -453,7 +454,7 @@ export function OngletBilan({
             </p>
             <p className="text-[13px] text-savr-neutral-500">
               {c.rapport_reserve_donneur_ordre
-                ? 'Réservé à l’organisation qui a programmé la collecte'
+                ? LIBELLE_RAPPORT_RESERVE
                 : c.rapport_rse_disponible
                   ? 'PDF'
                   : 'Disponible le lendemain de la collecte'}

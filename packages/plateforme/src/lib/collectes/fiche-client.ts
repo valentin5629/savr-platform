@@ -10,6 +10,7 @@ import {
   STATUTS_ASSOCIATION,
   STATUTS_LOGISTIQUE,
   STATUT_BILAN,
+  rapportReserveDonneurOrdre,
   type ActionsFiche,
   type AssociationFiche,
   type EspaceClient,
@@ -206,10 +207,6 @@ export async function chargerFicheCollecteClient(
   const avecAssociation = isAg && STATUTS_ASSOCIATION.includes(c.statut);
 
   const admin = createAdminSupabaseClient();
-  // Collecte programmée par une AUTRE organisation que celle de l'utilisateur
-  // (ici : traiteur opérationnel d'une collecte d'agence).
-  const programmeeParTiers =
-    evt != null && evt.organisation_id !== ctx.organisationId;
   // AG realisee_sans_collecte : pas d'attestation, le rapport est « Événement
   // sans excédent » (rapports_rse, sans embargo). ZD : rapports_rse. AG
   // cloturee : l'attestation de don.
@@ -412,7 +409,8 @@ export async function chargerFicheCollecteClient(
     rapport_rse_disponible,
     rapport_rse_regenere,
     rapport_reserve_donneur_ordre:
-      espace === 'traiteur' && !useRapportsRse && programmeeParTiers,
+      espace === 'traiteur' &&
+      rapportReserveDonneurOrdre(c, evt?.organisation_id, ctx.organisationId),
     actions: evt
       ? droitsFiche(espace, ctx, c.statut, {
           organisation_id: evt.organisation_id,

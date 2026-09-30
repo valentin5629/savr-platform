@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { TabsTrigger } from '@/components/ui/tabs';
 
 // Briques de mise en page des fiches en pop-up (collecte Admin + clients,
 // transporteur, lieu, association) : même en-tête de fiche, même en-tête de
@@ -173,16 +173,12 @@ export function FicheEnTete({
 // Puce du sur-titre (type de TMS, région…).
 export function EnTetePuce({
   children,
-  className,
   ...props
 }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       {...props}
-      className={cn(
-        'rounded-savr-sm bg-savr-primary-50 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em] text-savr-primary-700',
-        className,
-      )}
+      className="rounded-savr-sm bg-savr-primary-50 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em] text-savr-primary-700"
     >
       {children}
     </span>
@@ -192,4 +188,40 @@ export function EnTetePuce({
 // Mention discrète du sur-titre (SIREN, gestionnaire…).
 export function EnTeteMention({ children }: { children: React.ReactNode }) {
   return <span className="text-[13px] text-savr-neutral-500">{children}</span>;
+}
+
+// Onglet horizontal des fiches Admin (lieu, association) portant le nombre de
+// ses champs qui bloquent l'enregistrement : pastille rouge + nom accessible
+// « … (N champs à corriger) ». `ref` sert à y poser le focus à l'échec.
+export function OngletAvecErreurs({
+  value,
+  nbErreurs,
+  children,
+  ref,
+}: {
+  value: string;
+  nbErreurs: number;
+  children: React.ReactNode;
+  ref?: React.Ref<HTMLButtonElement>;
+}) {
+  return (
+    <TabsTrigger ref={ref} value={value} className="gap-2 px-3 sm:px-4">
+      {children}
+      {nbErreurs > 0 && (
+        <>
+          <span
+            aria-hidden="true"
+            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-savr-error-strong px-1.5 text-xs font-bold text-savr-white"
+          >
+            {nbErreurs}
+          </span>
+          <span className="sr-only">
+            {nbErreurs > 1
+              ? ` (${nbErreurs} champs à corriger)`
+              : ' (1 champ à corriger)'}
+          </span>
+        </>
+      )}
+    </TabsTrigger>
+  );
 }

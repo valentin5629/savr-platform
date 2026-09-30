@@ -21,11 +21,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import {
   EnTeteMention,
   EnTetePuce,
   FicheEnTete,
+  OngletAvecErreurs,
   ResumeItem,
 } from '@/components/collecte/fiche-blocs';
 import { formatJourCourt, isoVersDate } from '@/lib/date-iso';
@@ -524,36 +525,18 @@ export function AssociationModal({
             >
               {/* Barre d'onglets fixe au défilement du corps de la modale. */}
               <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
-                {ONGLETS.map(({ value, label }) => {
-                  const n = nbErreurs(value);
-                  return (
-                    <TabsTrigger
-                      key={value}
-                      ref={(el) => {
-                        ongletsRef.current[value] = el;
-                      }}
-                      value={value}
-                      className="gap-2 px-3 sm:px-4"
-                    >
-                      {label}
-                      {n > 0 && (
-                        <>
-                          <span
-                            aria-hidden="true"
-                            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-savr-error-strong px-1.5 text-xs font-bold text-savr-white"
-                          >
-                            {n}
-                          </span>
-                          <span className="sr-only">
-                            {n > 1
-                              ? ` (${n} champs à corriger)`
-                              : ' (1 champ à corriger)'}
-                          </span>
-                        </>
-                      )}
-                    </TabsTrigger>
-                  );
-                })}
+                {ONGLETS.map(({ value, label }) => (
+                  <OngletAvecErreurs
+                    key={value}
+                    ref={(el) => {
+                      ongletsRef.current[value] = el;
+                    }}
+                    value={value}
+                    nbErreurs={nbErreurs(value)}
+                  >
+                    {label}
+                  </OngletAvecErreurs>
+                ))}
               </TabsList>
 
               <TabsContent

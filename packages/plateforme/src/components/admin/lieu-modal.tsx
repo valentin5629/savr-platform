@@ -22,12 +22,13 @@ import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { Switch } from '@/components/ui/switch';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import {
   BlocHeader,
   EnTeteMention,
   EnTetePuce,
   FicheEnTete,
+  OngletAvecErreurs,
   ResumeItem,
 } from '@/components/collecte/fiche-blocs';
 import {
@@ -141,7 +142,13 @@ const ONGLET_DU_CHAMP: Record<string, Onglet> = {
   type_vehicule_max: 'acces',
   siren: 'interne',
 };
-const ONGLETS_FORMULAIRE: Onglet[] = ['informations', 'acces', 'interne'];
+const ONGLETS: { value: Onglet; label: string }[] = [
+  { value: 'informations', label: 'Informations' },
+  { value: 'acces', label: 'Accès & logistique' },
+  { value: 'interne', label: 'Interne Savr' },
+  // Lieu existant seulement (rien à montrer en création).
+  { value: 'activite', label: 'Activité' },
+];
 
 const OPTIONS_DIFFICULTE = [
   { value: '', label: 'Non renseigné' },
@@ -241,13 +248,10 @@ function toForm(d: LieuApi): FormValues {
   };
 }
 
-function NonRenseigne() {
-  return <span className="text-savr-neutral-400">Non renseigné</span>;
-}
-
 // Pastille de difficulté (accès office / stationnement) — même rendu que la liste.
 function Difficulte({ value }: { value: string }) {
-  if (!value) return <NonRenseigne />;
+  if (!value)
+    return <span className="text-savr-neutral-400">Non renseigné</span>;
   return (
     <Badge variant={DIFFICULTE_VARIANT[value] ?? 'neutral'} dot={false}>
       {DIFFICULTE_LABEL[value] ?? value}
@@ -279,33 +283,6 @@ function Interrupteur({
   );
 }
 
-// Onglet avec le nombre de ses champs qui bloquent l'enregistrement (même
-// rendu que la fiche association #446).
-const OngletTrigger = React.forwardRef<
-  HTMLButtonElement,
-  { value: Onglet; nbErreurs: number; children: React.ReactNode }
->(({ value, nbErreurs, children }, ref) => (
-  <TabsTrigger ref={ref} value={value} className="gap-2 px-3 sm:px-4">
-    {children}
-    {nbErreurs > 0 && (
-      <>
-        <span
-          aria-hidden="true"
-          className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-savr-error-strong px-1.5 text-xs font-bold text-savr-white"
-        >
-          {nbErreurs}
-        </span>
-        <span className="sr-only">
-          {nbErreurs > 1
-            ? ` (${nbErreurs} champs à corriger)`
-            : ' (1 champ à corriger)'}
-        </span>
-      </>
-    )}
-  </TabsTrigger>
-));
-OngletTrigger.displayName = 'OngletTrigger';
-
 interface LieuModalProps {
   open: boolean;
   /** Id du lieu à éditer, ou null pour une création. */
@@ -321,15 +298,12 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   // Lieu tel que chargé : l'en-tête le décrit (stable pendant la saisie).
   const [lieuCharge, setLieuCharge] = React.useState<LieuApi | null>(null);
   const [onglet, setOnglet] = React.useState<Onglet>('informations');
-  // Photos (R2) — lecture seule, non éditées via le formulaire.
-  const [photos, setPhotos] = React.useState<string[]>([]);
   const [gestionnaires, setGestionnaires] = React.useState<OrgOption[]>([]);
   const [activite, setActivite] = React.useState<ActiviteApi | null>(null);
   const [activiteErreur, setActiviteErreur] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-  const [hydrating, setHydrating] = React.useState(false);
   const ongletsRef = React.useRef<Partial<Record<Onglet, HTMLButtonElement>>>(
     {},
   );
@@ -358,9 +332,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     setOnglet('informations');
     setLieuCharge(null);
     setValues(VIDE);
-    setPhotos([]);
     if (lieuId) {
-      setHydrating(true);
       void fetch(`/api/v1/admin/lieux/${encodeURIComponent(lieuId)}`)
         .then((r) => {
           if (!r.ok) throw new Error(String(r.status));
@@ -369,18 +341,11 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
         .then((d) => {
           if (obsolete) return;
           setValues(toForm(d));
-          setPhotos(d.photos_urls ?? []);
           setLieuCharge(d);
         })
         .catch(() => {
-          if (obsolete) return;
-          setChargementEchoue(true);
-        })
-        .finally(() => {
-          if (!obsolete) setHydrating(false);
+          if (!obsolete) setChargementEchoue(true);
         });
-    } else {
-      setHydrating(false);
     }
     return () => {
       obsolete = true;
@@ -441,9 +406,9 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     if (values.siren.trim() !== '' && !/^\d{9}$/.test(values.siren.trim()))
       next.siren = 'SIREN : 9 chiffres';
     setErrors(next);
-    const premierOngletEnErreur = ONGLETS_FORMULAIRE.find((o) =>
-      Object.keys(next).some((champ) => ONGLET_DU_CHAMP[champ] === o),
-    );
+    const premierOngletEnErreur = ONGLETS.find(({ value }) =>
+      Object.keys(next).some((champ) => ONGLET_DU_CHAMP[champ] === value),
+    )?.value;
     if (premierOngletEnErreur) {
       setOnglet(premierOngletEnErreur);
       // Le focus recale l'onglet atteignable au clavier de Radix (sinon
@@ -548,6 +513,11 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       ? [...gestionnaires, gestionnaireCharge]
       : gestionnaires;
 
+  // Dérivés du lieu chargé : chargement en cours, photos (R2, lecture seule —
+  // upload hors formulaire, jamais renvoyées au PATCH).
+  const hydrating = isEdition && !lieuCharge && !chargementEchoue;
+  const photos = lieuCharge?.photos_urls ?? [];
+
   const footer = (
     <>
       <Button
@@ -561,7 +531,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       <Button
         type="button"
         onClick={() => void submitForm()}
-        disabled={submitting || hydrating || chargementEchoue}
+        disabled={submitting || (isEdition && !lieuCharge)}
       >
         {submitting
           ? 'Enregistrement…'
@@ -705,15 +675,10 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
               >
                 {/* Barre d'onglets fixe au défilement du corps de la modale. */}
                 <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
-                  {(
-                    [
-                      ['informations', 'Informations'],
-                      ['acces', 'Accès & logistique'],
-                      ['interne', 'Interne Savr'],
-                      ...(isEdition ? [['activite', 'Activité']] : []),
-                    ] as [Onglet, string][]
-                  ).map(([value, label]) => (
-                    <OngletTrigger
+                  {ONGLETS.filter(
+                    (o) => isEdition || o.value !== 'activite',
+                  ).map(({ value, label }) => (
+                    <OngletAvecErreurs
                       key={value}
                       ref={(el) => {
                         if (el) ongletsRef.current[value] = el;
@@ -722,7 +687,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       nbErreurs={nbErreurs(value)}
                     >
                       {label}
-                    </OngletTrigger>
+                    </OngletAvecErreurs>
                   ))}
                 </TabsList>
 

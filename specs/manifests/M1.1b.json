@@ -53,7 +53,9 @@
     "packages/plateforme/src/lib/transporteur-lien-prestataire.ts",
     "packages/plateforme/src/app/api/v1/admin/prestataires/route.ts",
     "packages/plateforme/src/components/admin/transporteur-modal.tsx",
-    "supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql"
+    "supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql",
+    "packages/plateforme/src/app/api/v1/admin/lieux/[id]/activite/route.ts",
+    "packages/plateforme/tests/api/admin/lieux-activite.m1-1b.test.ts"
   ],
   "scenarios": [
     "M1.1b/lieux/liste — 200 avec data pour admin_savr",
@@ -111,7 +113,17 @@
     "M1.1b/flux/manuel — 403 si rôle client (traiteur_manager)",
     "M1.1b/flux/manuel — 200 pour ops_savr (2e rôle staff autorisé)",
     "M1.1b/associations/patch — 403 si ops tente modifier numero_rup",
-    "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL"
+    "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL",
+    "M1.1b/lieux/activite — 401 si non authentifié",
+    "M1.1b/lieux/activite — 403 si rôle traiteur_manager",
+    "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes",
+    "M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur",
+    "M1.1b/lieux/fiche-onglets — édition : titre, colonne résumé et 4 onglets",
+    "M1.1b/lieux/fiche-onglets — création : 3 onglets, pas d'onglet Activité",
+    "M1.1b/lieux/fiche-onglets — champ obligatoire d'un autre onglet : ouvre l'onglet en erreur",
+    "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only)",
+    "M1.1b/lieux/fiche-onglets — onglet Activité : traiteurs opérant et historique",
+    "M1.1b/lieux/fiche-onglets — les saisies survivent au changement d'onglet"
   ],
   "deliverables": [
     {
@@ -369,6 +381,38 @@
       "test": "M1.1b — Modale Nouvelle organisation (§06.06) + M1.1b — le CTA ouvre la modale",
       "statut": "implemented",
       "libelle": "Bouton « Nouvelle organisation » (liste Clients, admin_savr + ops_savr) → modale de création : 7 champs de l'allowlist POST /api/v1/admin/organisations (nom, raison sociale, type, email obligatoires ; SIRET 14 chiffres, téléphone, adresse optionnels), aucun champ admin-only ni système"
+    },
+    {
+      "id": "M1.1b-lieu-fiche-onglets",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:565",
+      "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
+      "test": "M1.1b/lieux/fiche-onglets — édition : titre, colonne résumé et 4 onglets",
+      "statut": "implemented",
+      "libelle": "Fiche lieu au format fiche collecte (décision Val 2026-09-30 C1) : titre figé « Lieu · nom · ville », colonne résumé fixe (statut, ville, gestionnaire, véhicule max, contrôle d'accès, accès office, stationnement, Citeo) + onglets Informations / Accès & logistique / Interne Savr / Activité ; un seul Enregistrer pour tous les onglets"
+    },
+    {
+      "id": "M1.1b-lieu-champs-admin-onglet-interne",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:600",
+      "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
+      "test": "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only)",
+      "statut": "implemented",
+      "libelle": "Onglet « Interne Savr » = les champs admin/ops only (Commentaire sur le lieu, Notes internes, SIREN, Mail gestionnaire, Référencé Citeo) sous un bandeau « jamais montrées aux clients » — le commentaire sur le lieu n'est plus affiché hors du bloc Admin/Ops (décision Val C2)"
+    },
+    {
+      "id": "M1.1b-lieu-creation-onglet-en-erreur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:565",
+      "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
+      "test": "M1.1b/lieux/fiche-onglets — champ obligatoire d'un autre onglet : ouvre l'onglet en erreur",
+      "statut": "implemented",
+      "libelle": "Création : 3 onglets (pas d'Activité) ; un champ obligatoire vide dans un onglet caché ouvre cet onglet et y pose une pastille « champ à corriger » (décision Val C4)"
+    },
+    {
+      "id": "M1.1b-lieu-activite",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:586",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/[id]/activite/route.ts",
+      "test": "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes + M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/admin/lieux/{id}/activite (staff) : traiteurs opérant = traiteur opérationnel des événements du lieu ayant au moins une collecte, avec leur nombre de collectes ; historique = audit_log table_name='lieux' (création, modification avec champs réellement changés, normalisation, modification signalée à la programmation) + auteur (décision Val C3)"
     }
   ],
   "cdc_source_hash": {

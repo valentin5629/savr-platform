@@ -3,6 +3,8 @@
  * Ouverte depuis la liste /admin/lieux (clic ligne, « Nouveau lieu », ?edit=).
  * Édition hydratée par GET /lieux/{id} ; POST création / PATCH édition ;
  * SIREN 9 chiffres bloquant. Remplace le cluster nouveau/[id]/modifier.
+ * Format fiche collecte (décisions Val 2026-09-30 C1-C4) : colonne résumé +
+ * onglets Informations / Accès & logistique / Interne Savr / Activité (édition).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -36,6 +38,31 @@ const DETAIL = {
   reference_citeo: false,
 };
 
+const ACTIVITE = {
+  traiteurs: [
+    { id: 'org-k', nom: 'Kaspia', nb_collectes: 12 },
+    { id: 'org-p', nom: 'Potel', nb_collectes: 1 },
+  ],
+  historique: [
+    {
+      id: 'a2',
+      created_at: '2026-09-20T08:00:00Z',
+      action: 'UPDATE',
+      auteur: 'Val Leblan',
+      champs: ['nom', 'ville'],
+      impersonation: false,
+    },
+    {
+      id: 'a1',
+      created_at: '2026-09-01T08:00:00Z',
+      action: 'INSERT',
+      auteur: 'Val Leblan',
+      champs: [],
+      impersonation: false,
+    },
+  ],
+};
+
 type OrgOption = {
   id: string;
   raison_sociale?: string | null;
@@ -43,7 +70,8 @@ type OrgOption = {
 };
 
 // Mock fetch routant par URL + méthode : liste gestionnaires (GET organisations),
-// hydratation (GET /lieux/{id}), puis POST/PATCH d'enregistrement.
+// hydratation (GET /lieux/{id}), onglet Activité (GET /lieux/{id}/activite),
+// puis POST/PATCH d'enregistrement.
 // `orgs` peuple le sélecteur « Gestionnaire de lieux » (vide par défaut).
 function routeFetch(orgs: OrgOption[] = []) {
   return vi.fn((url: string, init?: RequestInit) => {
@@ -52,38 +80,63 @@ function routeFetch(orgs: OrgOption[] = []) {
       return Promise.resolve({ ok: true, json: async () => ({ data: orgs }) });
     if (/\/api\/v1\/admin\/lieux\/[^/?]+$/.test(url) && method === 'GET')
       return Promise.resolve({ ok: true, json: async () => DETAIL });
+    if (url.endsWith('/activite'))
+      return Promise.resolve({ ok: true, json: async () => ACTIVITE });
     return Promise.resolve({ ok: true, json: async () => ({ id: 'lieu-1' }) });
   });
 }
 
-// Tous les libellés de champ attendus dans la modale (mode création) — anti-régression
-// contre le retrait accidentel d'un champ (repris de l'ex lieu-form.test.tsx).
-const CHAMPS: RegExp[] = [
-  /Nom du lieu/,
-  /Nom alternatif/,
-  /Gestionnaire de lieux/,
-  /Adresse accès livraison/,
-  /Code postal/,
-  /Ville/,
-  /Accès office/,
-  /Stationnement/,
-  /Type de véhicule max/,
-  /Capacité maximum/,
-  /Région/,
-  /Volume max/,
-  /Contraintes horaires/,
-  /Contrôle d'accès requis/,
-  /^Actif$/,
-  /Carnet d'accès terrain/,
-  /Flux autorisés/,
-  /Commentaire sur le lieu/,
-  /^SIREN/,
-  /Mail gestionnaire du lieu/,
-  /Notes internes/,
-  /Référencé Citeo/,
+// Tous les libellés de champ attendus dans la modale (mode création), rangés par
+// onglet — anti-régression contre le retrait ou le déplacement d'un champ.
+const CHAMPS_PAR_ONGLET: [string, RegExp[]][] = [
+  [
+    'Informations',
+    [
+      /Nom du lieu/,
+      /Nom alternatif/,
+      /Gestionnaire de lieux/,
+      /^Actif$/,
+      /Adresse accès livraison/,
+      /Région/,
+      /Code postal/,
+      /Ville/,
+    ],
+  ],
+  [
+    'Accès & logistique',
+    [
+      /Type de véhicule max/,
+      /Accès office/,
+      /Stationnement/,
+      /Contrôle d'accès requis/,
+      /Carnet d'accès terrain/,
+      /Capacité maximum/,
+      /Volume max/,
+      /Contraintes horaires/,
+      /Flux autorisés/,
+    ],
+  ],
+  [
+    'Interne Savr',
+    [
+      /Commentaire sur le lieu/,
+      /Notes internes/,
+      /^SIREN/,
+      /Mail gestionnaire du lieu/,
+      /Référencé Citeo/,
+    ],
+  ],
 ];
 
-function fillRequired() {
+// Onglets Radix : activation au mousedown (bouton gauche), pas au click.
+async function ouvrirOnglet(nom: RegExp | string) {
+  fireEvent.mouseDown(
+    await screen.findByRole('tab', { name: nom }, ATTENTE_UI),
+    { button: 0 },
+  );
+}
+
+async function fillRequired() {
   fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
     target: { value: 'Château de Saint-Cloud' },
   });
@@ -96,6 +149,7 @@ function fillRequired() {
   fireEvent.change(screen.getByLabelText(/Ville/), {
     target: { value: 'Saint-Cloud' },
   });
+  await ouvrirOnglet(/Accès & logistique/);
   choisirOption(/Type de véhicule max/, 'Fourgon');
 }
 
@@ -127,7 +181,7 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         <LieuModal open lieuId={null} onClose={onClose} onSaved={onSaved} />,
       );
 
-      fillRequired();
+      await fillRequired();
       fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
       await waitFor(
@@ -210,7 +264,8 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
       );
 
-      fillRequired();
+      await fillRequired();
+      await ouvrirOnglet(/Interne Savr/);
       fireEvent.change(screen.getByLabelText(/^SIREN/), {
         target: { value: 'abc' },
       });
@@ -233,8 +288,11 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
       );
 
-      for (const champ of CHAMPS) {
-        expect(screen.getByLabelText(champ)).toBeInTheDocument();
+      for (const [onglet, champs] of CHAMPS_PAR_ONGLET) {
+        await ouvrirOnglet(onglet);
+        for (const champ of champs) {
+          expect(screen.getByLabelText(champ)).toBeInTheDocument();
+        }
       }
 
       // Laisse le fetch organisations se résoudre (évite un act() warning tardif).
@@ -297,7 +355,8 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       );
 
       // Tout est valide sauf le Nom laissé vide.
-      fillRequired();
+      await fillRequired();
+      await ouvrirOnglet(/Informations/);
       fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
         target: { value: '' },
       });
@@ -330,6 +389,7 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         () => expect(region).toHaveTextContent('Île-de-France'),
         ATTENTE_UI,
       );
+      await ouvrirOnglet(/Accès & logistique/);
       expect(
         (screen.getByLabelText(/Volume max/) as HTMLInputElement).value,
       ).toBe('12');
@@ -345,11 +405,12 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       expect(
         (screen.getByLabelText(/Flux autorisés/) as HTMLInputElement).value,
       ).toBe('zero_dechet, anti_gaspi');
+      // Photos en lecture seule (liste de liens R2).
+      expect(screen.getByRole('link', { name: 'Photo 1' })).toBeInTheDocument();
+      await ouvrirOnglet(/Interne Savr/);
       expect(
         (screen.getByLabelText(/Notes internes/) as HTMLTextAreaElement).value,
       ).toBe('Migré Bubble #4210');
-      // Photos en lecture seule (liste de liens R2).
-      expect(screen.getByRole('link', { name: 'Photo 1' })).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
@@ -383,6 +444,186 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       expect(body.commentaires_internes).toBe('Migré Bubble #4210');
       // Les photos ne sont jamais renvoyées (jamais écrasées).
       expect(body.photos_urls).toBeUndefined();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.1b/lieux/fiche-onglets — édition : titre, colonne résumé et 4 onglets',
+    async () => {
+      vi.stubGlobal('fetch', routeFetch());
+      render(
+        <LieuModal open lieuId="lieu-42" onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      expect(
+        await screen.findByText(
+          'Lieu · Château de Saint-Cloud · Saint-Cloud',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      const onglets = screen.getAllByRole('tab').map((t) => t.textContent);
+      expect(onglets).toEqual([
+        'Informations',
+        'Accès & logistique',
+        'Interne Savr',
+        'Activité',
+      ]);
+      // Résumé toujours visible, quel que soit l'onglet ouvert.
+      await ouvrirOnglet(/Interne Savr/);
+      const resume = screen.getByRole('complementary', {
+        name: 'Résumé du lieu',
+      });
+      expect(resume).toHaveTextContent('Actif');
+      expect(resume).toHaveTextContent('Saint-Cloud');
+      expect(resume).toHaveTextContent('Fourgon');
+      expect(resume).toHaveTextContent('Non requis');
+      expect(resume).toHaveTextContent('Facile');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "M1.1b/lieux/fiche-onglets — création : 3 onglets, pas d'onglet Activité",
+    async () => {
+      const fetchMock = routeFetch();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      expect(screen.getAllByRole('tab')).toHaveLength(3);
+      expect(screen.queryByRole('tab', { name: /Activité/ })).toBeNull();
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            expect.stringContaining('/api/v1/admin/organisations'),
+          ),
+        ATTENTE_UI,
+      );
+      expect(
+        fetchMock.mock.calls.some(([u]) => String(u).endsWith('/activite')),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "M1.1b/lieux/fiche-onglets — champ obligatoire d'un autre onglet : ouvre l'onglet en erreur",
+    async () => {
+      const fetchMock = routeFetch();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      // Onglet Informations complet, véhicule max (onglet Accès) laissé vide.
+      fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
+        target: { value: 'Château de Saint-Cloud' },
+      });
+      fireEvent.change(screen.getByLabelText(/Adresse accès livraison/), {
+        target: { value: '1 avenue de Paris' },
+      });
+      fireEvent.change(screen.getByLabelText(/Code postal/), {
+        target: { value: '92210' },
+      });
+      fireEvent.change(screen.getByLabelText(/Ville/), {
+        target: { value: 'Saint-Cloud' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
+
+      expect(
+        await screen.findByText(
+          /Type de véhicule max obligatoire/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      const onglet = screen.getByRole('tab', { name: /Accès & logistique/ });
+      expect(onglet).toHaveAttribute('aria-selected', 'true');
+      expect(onglet).toHaveAccessibleName(
+        'Accès & logistique (champ à corriger)',
+      );
+      expect(postCall(fetchMock)).toBeUndefined();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only)",
+    async () => {
+      vi.stubGlobal('fetch', routeFetch());
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      expect(screen.queryByLabelText(/Commentaire sur le lieu/)).toBeNull();
+      await ouvrirOnglet(/Accès & logistique/);
+      expect(screen.queryByLabelText(/Commentaire sur le lieu/)).toBeNull();
+      await ouvrirOnglet(/Interne Savr/);
+      expect(
+        screen.getByLabelText(/Commentaire sur le lieu/),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/jamais montrées aux clients/),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.1b/lieux/fiche-onglets — onglet Activité : traiteurs opérant et historique',
+    async () => {
+      vi.stubGlobal('fetch', routeFetch());
+      render(
+        <LieuModal open lieuId="lieu-42" onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      await ouvrirOnglet(/Activité/);
+      expect(
+        await screen.findByText('Kaspia', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('12 collectes')).toBeInTheDocument();
+      expect(screen.getByText('1 collecte')).toBeInTheDocument();
+      expect(screen.getByText('Modification')).toBeInTheDocument();
+      expect(screen.getByText('Nom du lieu, Ville')).toBeInTheDocument();
+      expect(screen.getByText('Création du lieu')).toBeInTheDocument();
+      expect(screen.getAllByText(/Val Leblan/)).toHaveLength(2);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "M1.1b/lieux/fiche-onglets — les saisies survivent au changement d'onglet",
+    async () => {
+      const fetchMock = routeFetch();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      await fillRequired();
+      await ouvrirOnglet(/Interne Savr/);
+      fireEvent.change(screen.getByLabelText(/Commentaire sur le lieu/), {
+        target: { value: 'Quai fermé le dimanche' },
+      });
+      await ouvrirOnglet(/Informations/);
+      expect(
+        (screen.getByLabelText(/Nom du lieu/) as HTMLInputElement).value,
+      ).toBe('Château de Saint-Cloud');
+      fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
+
+      await waitFor(
+        () => expect(postCall(fetchMock)).toBeDefined(),
+        ATTENTE_UI,
+      );
+      const body = JSON.parse(
+        (postCall(fetchMock)![1] as RequestInit).body as string,
+      ) as { nom: string; type_vehicule_max: string; commentaire_lieu: string };
+      expect(body.nom).toBe('Château de Saint-Cloud');
+      expect(body.type_vehicule_max).toBe('fourgon');
+      expect(body.commentaire_lieu).toBe('Quai fermé le dimanche');
     },
     ATTENTE_CAS_MS,
   );

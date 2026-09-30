@@ -1,12 +1,31 @@
 'use client';
 
 import * as React from 'react';
+import {
+  Building2,
+  ClipboardList,
+  Lock,
+  MapPin,
+  Phone,
+  Truck,
+  UserRound,
+  Workflow,
+} from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  BlocHeader,
+  ONGLETS_COLONNE_DECLENCHEUR,
+  ONGLETS_COLONNE_LISTE,
+} from '@/components/collecte/fiche-blocs';
 import { cn } from '@/lib/utils';
 import { TYPES_TMS_AVEC_PRESTATAIRE } from '@/lib/transporteur-lien-prestataire';
 
@@ -56,6 +75,63 @@ const TYPES_COLLECTE = [
   { value: 'anti_gaspi', label: 'Anti-Gaspi (AG)' },
   { value: 'zero_dechet', label: 'Zéro Déchet (ZD)' },
 ] as const;
+
+// `label` = option du sélecteur, `court` = badge de l'en-tête de la fiche.
+const TYPES_TMS = [
+  { value: 'mts1', label: 'MTS-1 (Strike / Marathon)', court: 'MTS-1' },
+  { value: 'a_toutes', label: 'A Toutes! (vélo cargo)', court: 'A Toutes!' },
+  {
+    value: 'autre',
+    label: 'Autre (province — email/téléphone)',
+    court: 'Autre',
+  },
+  {
+    value: 'par_mail',
+    label: 'Par mail (validation Admin manuelle)',
+    court: 'Par mail',
+  },
+  {
+    value: 'par_telephone',
+    label: 'Par téléphone (validation Admin manuelle)',
+    court: 'Par téléphone',
+  },
+] as const;
+
+// Fiche en 3 onglets au format du pop-up fiche collecte (décision Val
+// 2026-09-30, C1/C2) : ce qu'on modifie souvent / ce que le transporteur sait
+// faire / la connexion logistique, fixée à la création.
+type Onglet = 'identite' | 'capacites' | 'connexion';
+
+const ONGLETS: { value: Onglet; label: string }[] = [
+  { value: 'identite', label: 'Identité & contact' },
+  { value: 'capacites', label: 'Capacités' },
+  { value: 'connexion', label: 'Connexion logistique' },
+];
+
+// Onglet de chaque champ validé : une erreur dans un onglet caché y ramène.
+const ONGLET_DU_CHAMP: Record<string, Onglet> = {
+  nom: 'identite',
+  siren: 'identite',
+  contact_nom: 'identite',
+  contact_telephone: 'identite',
+  contact_email: 'identite',
+  adresse: 'identite',
+  code_postal: 'identite',
+  ville: 'identite',
+  types_vehicules: 'capacites',
+  type_tms: 'connexion',
+  code_transporteur_mts1: 'connexion',
+  prestataire_logistique_id: 'connexion',
+};
+
+// Coordonnées d'un tiers : sans ça, Bitwarden propose l'identité de l'admin
+// connecté sur ces champs (décision Val C5).
+const SANS_AUTOREMPLISSAGE = {
+  autoComplete: 'off',
+  'data-bwignore': 'true',
+} as const;
+
+const GRILLE_2 = 'grid grid-cols-1 gap-4 md:grid-cols-2';
 
 interface FormValues {
   nom: string;
@@ -108,6 +184,76 @@ interface TransporteurModalProps {
   prestataires?: PrestataireOption[] | null;
 }
 
+// En-tête de la fiche : il décrit le transporteur ENREGISTRÉ (stable pendant
+// la saisie), pas les valeurs en cours de modification.
+function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
+  if (!transporteur) {
+    return (
+      <div className="min-w-0 space-y-1.5">
+        <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
+          Nouveau transporteur
+        </h3>
+        <p className="text-[15px] text-savr-neutral-700">
+          Renseignez les trois onglets, puis créez le transporteur.
+        </p>
+      </div>
+    );
+  }
+  const typeTms = TYPES_TMS.find((t) => t.value === transporteur.type_tms);
+  const vehicules = transporteur.types_vehicules
+    .map((v) => TYPES_VEHICULES.find((t) => t.value === v)?.label ?? v)
+    .join(', ');
+  const lieu = [transporteur.ville, transporteur.code_postal]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            data-testid="badge-type-tms"
+            className="rounded-savr-sm bg-savr-primary-50 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em] text-savr-primary-700"
+          >
+            {typeTms?.court ?? transporteur.type_tms}
+          </span>
+          <span className="text-[13px] text-savr-neutral-500">
+            SIREN {transporteur.siren.replace(/(\d{3})(?=\d)/g, '$1 ')}
+          </span>
+        </div>
+        <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
+          {transporteur.nom}
+        </h3>
+        <p
+          data-testid="fiche-transporteur-sous-ligne"
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            {lieu || '—'}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Truck className="h-4 w-4" aria-hidden="true" />
+            {vehicules || '—'}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Phone className="h-4 w-4" aria-hidden="true" />
+            {transporteur.contact_telephone || '—'}
+          </span>
+        </p>
+      </div>
+      {transporteur.actif ? (
+        <Badge variant="success" className="self-start">
+          Actif
+        </Badge>
+      ) : (
+        <Badge variant="neutral" className="self-start">
+          Inactif
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 export function TransporteurModal({
   open,
   transporteur,
@@ -119,6 +265,7 @@ export function TransporteurModal({
   const [values, setValues] = React.useState<FormValues>(() =>
     toForm(transporteur),
   );
+  const [onglet, setOnglet] = React.useState<Onglet>('identite');
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
@@ -128,11 +275,15 @@ export function TransporteurModal({
   const lienHorsListe =
     Boolean(values.prestataire_logistique_id) &&
     !optionsPrestataires.some((p) => p.id === values.prestataire_logistique_id);
+  const ongletsEnErreur = new Set(
+    Object.keys(errors).map((champ) => ONGLET_DU_CHAMP[champ]),
+  );
 
   // (Ré)initialise le formulaire à chaque ouverture / changement de cible.
   React.useEffect(() => {
     if (open) {
       setValues(toForm(transporteur));
+      setOnglet('identite');
       setErrors({});
       setServerError(null);
     }
@@ -181,6 +332,11 @@ export function TransporteurModal({
       next.prestataire_logistique_id =
         'Prestataire logistique obligatoire pour ce type de TMS';
     setErrors(next);
+    // Sinon « Enregistrer » ne fait rien de visible quand l'erreur est ailleurs.
+    const premier = ONGLETS.find((o) =>
+      Object.keys(next).some((champ) => ONGLET_DU_CHAMP[champ] === o.value),
+    );
+    if (premier) setOnglet(premier.value);
     return Object.keys(next).length === 0;
   }
 
@@ -279,353 +435,444 @@ export function TransporteurModal({
         : 'border-savr-neutral-300 bg-savr-white text-savr-neutral-700 hover:border-savr-primary-400',
     );
 
-  const footer = (
-    <>
-      <Button
-        type="button"
-        variant="secondary"
-        onClick={onClose}
-        disabled={submitting}
-      >
-        Annuler
-      </Button>
-      {isEdition &&
-        (transporteur!.actif ? (
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={() => void handleToggleActif()}
-            disabled={submitting}
-          >
-            Désactiver
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => void handleToggleActif()}
-            disabled={submitting}
-          >
-            Réactiver
-          </Button>
-        ))}
-      <Button
-        type="button"
-        onClick={() => void submitForm()}
-        disabled={submitting}
-      >
-        {submitting
-          ? 'Enregistrement…'
-          : isEdition
-            ? 'Enregistrer'
-            : 'Créer le transporteur'}
-      </Button>
-    </>
-  );
-
   return (
     <Modal
       open={open}
       onClose={onClose}
-      wide
       title={
         isEdition
           ? `Fiche transporteur — ${transporteur!.nom}`
           : 'Nouveau transporteur'
       }
-      footer={footer}
+      // Même cadre que le pop-up fiche collecte : l'en-tête visuel est dans le
+      // corps, qui fournit onglets et pied et gère lui-même le défilement.
+      hideTitle
+      bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
+      className="max-w-5xl md:h-[min(90vh,48rem)]"
     >
-      <form onSubmit={handleFormSubmit} noValidate className="space-y-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField
-            label="Nom du transporteur"
-            htmlFor="tm_nom"
-            required
-            error={errors.nom}
-          >
-            <Input
-              id="tm_nom"
-              value={values.nom}
-              onChange={(e) => set('nom', e.target.value)}
-              error={Boolean(errors.nom)}
-            />
-          </FormField>
-          <FormField
-            label="SIREN"
-            htmlFor="tm_siren"
-            required
-            error={errors.siren}
-            hint="9 chiffres, validation INSEE"
-          >
-            <Input
-              id="tm_siren"
-              value={values.siren}
-              onChange={(e) => set('siren', e.target.value)}
-              error={Boolean(errors.siren)}
-            />
-          </FormField>
-          <FormField
-            label="Nom du contact"
-            htmlFor="tm_contact_nom"
-            required
-            error={errors.contact_nom}
-          >
-            <Input
-              id="tm_contact_nom"
-              value={values.contact_nom}
-              onChange={(e) => set('contact_nom', e.target.value)}
-              error={Boolean(errors.contact_nom)}
-            />
-          </FormField>
-          <FormField
-            label="Téléphone"
-            htmlFor="tm_contact_telephone"
-            required
-            error={errors.contact_telephone}
-            hint="Joignable jour J, format E.164 recommandé"
-          >
-            <Input
-              id="tm_contact_telephone"
-              value={values.contact_telephone}
-              onChange={(e) => set('contact_telephone', e.target.value)}
-              error={Boolean(errors.contact_telephone)}
-            />
-          </FormField>
-          <FormField
-            label="Mail de contact"
-            htmlFor="tm_contact_email"
-            required
-            error={errors.contact_email}
-            className="md:col-span-2"
-          >
-            <Input
-              id="tm_contact_email"
-              type="email"
-              value={values.contact_email}
-              onChange={(e) => set('contact_email', e.target.value)}
-              error={Boolean(errors.contact_email)}
-            />
-          </FormField>
-          <FormField
-            label="Adresse"
-            htmlFor="tm_adresse"
-            required
-            error={errors.adresse}
-            hint="Géocodée automatiquement à l'enregistrement"
-            className="md:col-span-2"
-          >
-            <Input
-              id="tm_adresse"
-              value={values.adresse}
-              onChange={(e) => set('adresse', e.target.value)}
-              error={Boolean(errors.adresse)}
-            />
-          </FormField>
-          <FormField
-            label="Code postal"
-            htmlFor="tm_code_postal"
-            required
-            error={errors.code_postal}
-          >
-            <Input
-              id="tm_code_postal"
-              value={values.code_postal}
-              onChange={(e) => set('code_postal', e.target.value)}
-              error={Boolean(errors.code_postal)}
-            />
-          </FormField>
-          <FormField
-            label="Ville"
-            htmlFor="tm_ville"
-            required
-            error={errors.ville}
-          >
-            <Input
-              id="tm_ville"
-              value={values.ville}
-              onChange={(e) => set('ville', e.target.value)}
-              error={Boolean(errors.ville)}
-            />
-          </FormField>
-        </div>
+      <form
+        onSubmit={handleFormSubmit}
+        noValidate
+        className="flex h-full min-h-0 flex-col"
+      >
+        {/* pr-14 réserve la croix de fermeture du cadre. */}
+        <header className="shrink-0 border-b border-savr-neutral-200 px-6 pb-5 pr-14 pt-6 md:px-8 md:pr-16">
+          <EnTete transporteur={transporteur} />
+        </header>
 
-        <FormField
-          label="Type(s) de véhicule"
-          htmlFor="tm_types_vehicules"
-          required
-          error={errors.types_vehicules}
+        <Tabs
+          value={onglet}
+          onValueChange={(v) => setOnglet(v as Onglet)}
+          orientation="vertical"
+          className="flex min-h-0 flex-1 flex-col md:flex-row"
         >
-          <div
-            id="tm_types_vehicules"
-            role="group"
-            aria-label="Type(s) de véhicule"
-            className="flex flex-wrap gap-2"
+          <TabsList
+            aria-label="Sections de la fiche transporteur"
+            className={ONGLETS_COLONNE_LISTE}
           >
-            {TYPES_VEHICULES.map((t) => {
-              const selected = values.types_vehicules.includes(t.value);
-              return (
-                <button
-                  key={t.value}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => toggle('types_vehicules', t.value)}
-                  className={chipClass(selected)}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-        </FormField>
+            {ONGLETS.map((o) => (
+              <TabsTrigger
+                key={o.value}
+                value={o.value}
+                className={cn(ONGLETS_COLONNE_DECLENCHEUR, 'gap-2')}
+              >
+                {o.label}
+                {ongletsEnErreur.has(o.value) && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="h-2 w-2 shrink-0 rounded-savr-full bg-savr-error md:ml-auto"
+                    />
+                    <span className="sr-only"> — champ à corriger</span>
+                  </>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField
-            label="Type de TMS"
-            htmlFor="tm_type_tms"
-            required
-            error={errors.type_tms}
-            hint={
-              isEdition
-                ? 'Non modifiable après création — pour en changer, créez un nouveau transporteur'
-                : "Détermine l'adapter logistique (dispatch). Non modifiable après création."
-            }
-          >
-            <Combobox
-              id="tm_type_tms"
-              icon={null}
-              required
-              value={values.type_tms}
-              onChange={(v) => set('type_tms', v)}
-              error={Boolean(errors.type_tms)}
-              disabled={isEdition}
-              options={[
-                { value: 'mts1', label: 'MTS-1 (Strike / Marathon)' },
-                { value: 'a_toutes', label: 'A Toutes! (vélo cargo)' },
-                { value: 'autre', label: 'Autre (province — email/téléphone)' },
-                {
-                  value: 'par_mail',
-                  label: 'Par mail (validation Admin manuelle)',
-                },
-                {
-                  value: 'par_telephone',
-                  label: 'Par téléphone (validation Admin manuelle)',
-                },
-              ]}
-            />
-          </FormField>
-          {values.type_tms === 'mts1' && (
-            <FormField
-              label="Code transporteur MTS-1"
-              htmlFor="tm_code_transporteur_mts1"
-              required
-              error={errors.code_transporteur_mts1}
-              hint="carrierShareableCode récupérable via GET /v3/carrier"
-            >
-              <Input
-                id="tm_code_transporteur_mts1"
-                value={values.code_transporteur_mts1}
-                onChange={(e) => set('code_transporteur_mts1', e.target.value)}
-                error={Boolean(errors.code_transporteur_mts1)}
-              />
-            </FormField>
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-8">
+            <TabsContent value="identite" className="mt-0 space-y-3">
+              <Card className="space-y-4 p-5">
+                <BlocHeader icon={Building2} title="Société" />
+                <div className={GRILLE_2}>
+                  <FormField
+                    label="Nom du transporteur"
+                    htmlFor="tm_nom"
+                    required
+                    error={errors.nom}
+                  >
+                    <Input
+                      id="tm_nom"
+                      value={values.nom}
+                      onChange={(e) => set('nom', e.target.value)}
+                      error={Boolean(errors.nom)}
+                      {...SANS_AUTOREMPLISSAGE}
+                    />
+                  </FormField>
+                  <FormField
+                    label="SIREN"
+                    htmlFor="tm_siren"
+                    required
+                    error={errors.siren}
+                    hint="9 chiffres, validation INSEE"
+                  >
+                    <Input
+                      id="tm_siren"
+                      value={values.siren}
+                      onChange={(e) => set('siren', e.target.value)}
+                      error={Boolean(errors.siren)}
+                    />
+                  </FormField>
+                </div>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <BlocHeader icon={UserRound} title="Contact jour J" />
+                <div className={GRILLE_2}>
+                  <FormField
+                    label="Nom du contact"
+                    htmlFor="tm_contact_nom"
+                    required
+                    error={errors.contact_nom}
+                  >
+                    <Input
+                      id="tm_contact_nom"
+                      value={values.contact_nom}
+                      onChange={(e) => set('contact_nom', e.target.value)}
+                      error={Boolean(errors.contact_nom)}
+                      {...SANS_AUTOREMPLISSAGE}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Téléphone"
+                    htmlFor="tm_contact_telephone"
+                    required
+                    error={errors.contact_telephone}
+                    hint="Joignable jour J, format E.164 recommandé"
+                  >
+                    <Input
+                      id="tm_contact_telephone"
+                      value={values.contact_telephone}
+                      onChange={(e) => set('contact_telephone', e.target.value)}
+                      error={Boolean(errors.contact_telephone)}
+                      {...SANS_AUTOREMPLISSAGE}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Mail de contact"
+                    htmlFor="tm_contact_email"
+                    required
+                    error={errors.contact_email}
+                    className="md:col-span-2"
+                  >
+                    <Input
+                      id="tm_contact_email"
+                      type="email"
+                      value={values.contact_email}
+                      onChange={(e) => set('contact_email', e.target.value)}
+                      error={Boolean(errors.contact_email)}
+                      {...SANS_AUTOREMPLISSAGE}
+                    />
+                  </FormField>
+                </div>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <BlocHeader icon={MapPin} title="Adresse" />
+                <div className={GRILLE_2}>
+                  <FormField
+                    label="Adresse"
+                    htmlFor="tm_adresse"
+                    required
+                    error={errors.adresse}
+                    hint="Géocodée automatiquement à l'enregistrement"
+                    className="md:col-span-2"
+                  >
+                    <Input
+                      id="tm_adresse"
+                      value={values.adresse}
+                      onChange={(e) => set('adresse', e.target.value)}
+                      error={Boolean(errors.adresse)}
+                      {...SANS_AUTOREMPLISSAGE}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Code postal"
+                    htmlFor="tm_code_postal"
+                    required
+                    error={errors.code_postal}
+                  >
+                    <Input
+                      id="tm_code_postal"
+                      value={values.code_postal}
+                      onChange={(e) => set('code_postal', e.target.value)}
+                      error={Boolean(errors.code_postal)}
+                      {...SANS_AUTOREMPLISSAGE}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Ville"
+                    htmlFor="tm_ville"
+                    required
+                    error={errors.ville}
+                  >
+                    <Input
+                      id="tm_ville"
+                      value={values.ville}
+                      onChange={(e) => set('ville', e.target.value)}
+                      error={Boolean(errors.ville)}
+                      {...SANS_AUTOREMPLISSAGE}
+                    />
+                  </FormField>
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="capacites" className="mt-0 space-y-3">
+              <Card className="space-y-4 p-5">
+                <BlocHeader icon={Truck} title="Véhicules et flux" />
+                <FormField
+                  label="Type(s) de véhicule"
+                  htmlFor="tm_types_vehicules"
+                  required
+                  error={errors.types_vehicules}
+                >
+                  <div
+                    id="tm_types_vehicules"
+                    role="group"
+                    aria-label="Type(s) de véhicule"
+                    className="flex flex-wrap gap-2"
+                  >
+                    {TYPES_VEHICULES.map((t) => {
+                      const selected = values.types_vehicules.includes(t.value);
+                      return (
+                        <button
+                          key={t.value}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => toggle('types_vehicules', t.value)}
+                          className={chipClass(selected)}
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </FormField>
+                <FormField
+                  label="Type(s) de collecte"
+                  htmlFor="tm_types_collecte"
+                  hint="Flux gérés par ce transporteur — AG et/ou ZD"
+                >
+                  <div
+                    id="tm_types_collecte"
+                    role="group"
+                    aria-label="Type(s) de collecte"
+                    className="flex flex-wrap gap-2"
+                  >
+                    {TYPES_COLLECTE.map((t) => {
+                      const selected = values.types_collecte.includes(t.value);
+                      return (
+                        <button
+                          key={t.value}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => toggle('types_collecte', t.value)}
+                          className={chipClass(selected)}
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </FormField>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <BlocHeader icon={ClipboardList} title="Process de collecte" />
+                <FormField
+                  label="Description du process de collecte"
+                  htmlFor="tm_description"
+                  hint="Comment déclencher une collecte auprès de ce transporteur (texte libre)"
+                >
+                  <Textarea
+                    id="tm_description"
+                    rows={5}
+                    value={values.description_process_collecte}
+                    onChange={(e) =>
+                      set('description_process_collecte', e.target.value)
+                    }
+                  />
+                </FormField>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="connexion" className="mt-0 space-y-3">
+              <AlertBar
+                variant="info"
+                icon={<Lock />}
+                data-testid="bandeau-immuabilite"
+              >
+                {isEdition
+                  ? 'Le type de TMS et le prestataire logistique sont fixés à la création. Pour en changer, créez un nouveau transporteur.'
+                  : 'Le type de TMS et le prestataire logistique ne pourront plus être modifiés après la création : vérifiez-les avant de créer le transporteur.'}
+              </AlertBar>
+
+              <Card className="space-y-4 p-5">
+                <BlocHeader
+                  icon={Workflow}
+                  title="Transmission des collectes"
+                />
+                <div className={GRILLE_2}>
+                  <FormField
+                    label="Type de TMS"
+                    htmlFor="tm_type_tms"
+                    required
+                    error={errors.type_tms}
+                    hint={
+                      isEdition
+                        ? 'Fixé à la création'
+                        : "Détermine l'adapter logistique (dispatch)"
+                    }
+                  >
+                    <Combobox
+                      id="tm_type_tms"
+                      icon={null}
+                      required
+                      value={values.type_tms}
+                      onChange={(v) => set('type_tms', v)}
+                      error={Boolean(errors.type_tms)}
+                      disabled={isEdition}
+                      options={TYPES_TMS.map(({ value, label }) => ({
+                        value,
+                        label,
+                      }))}
+                    />
+                  </FormField>
+                  {values.type_tms === 'mts1' && (
+                    <FormField
+                      label="Code transporteur MTS-1"
+                      htmlFor="tm_code_transporteur_mts1"
+                      required
+                      error={errors.code_transporteur_mts1}
+                      hint="carrierShareableCode récupérable via GET /v3/carrier"
+                    >
+                      <Input
+                        id="tm_code_transporteur_mts1"
+                        value={values.code_transporteur_mts1}
+                        onChange={(e) =>
+                          set('code_transporteur_mts1', e.target.value)
+                        }
+                        error={Boolean(errors.code_transporteur_mts1)}
+                      />
+                    </FormField>
+                  )}
+                  <FormField
+                    label="Prestataire logistique"
+                    htmlFor="tm_prestataire_logistique_id"
+                    required={TYPES_TMS_AVEC_PRESTATAIRE.includes(
+                      values.type_tms,
+                    )}
+                    error={errors.prestataire_logistique_id}
+                    className="md:col-span-2"
+                    hint={
+                      isEdition
+                        ? 'Fixé à la création'
+                        : prestataires === null
+                          ? 'Liste des prestataires indisponible — rechargez la page'
+                          : prestataires.length === 0
+                            ? 'Aucun prestataire logistique enregistré — à créer par l’équipe technique'
+                            : 'Société qui exécute les courses : c’est ce lien qui rattache les tournées au bon transporteur.'
+                    }
+                  >
+                    <Combobox
+                      id="tm_prestataire_logistique_id"
+                      icon={null}
+                      placeholder="Aucun"
+                      value={values.prestataire_logistique_id}
+                      onChange={(v) => set('prestataire_logistique_id', v)}
+                      error={Boolean(errors.prestataire_logistique_id)}
+                      disabled={isEdition}
+                      options={[
+                        { value: '', label: 'Aucun' },
+                        ...(lienHorsListe
+                          ? [
+                              {
+                                value: values.prestataire_logistique_id,
+                                label:
+                                  'Prestataire rattaché (liste indisponible)',
+                              },
+                            ]
+                          : []),
+                        ...optionsPrestataires.map((p) => {
+                          // Rattaché à un AUTRE transporteur : grisé (l'index
+                          // unique le refuserait). Le sien reste choisissable.
+                          const pris =
+                            p.transporteur_id !== null &&
+                            p.transporteur_id !== transporteur?.id;
+                          return {
+                            value: p.id,
+                            label: `${p.nom}${p.statut !== 'actif' ? ` (${p.statut})` : ''}${pris ? ` — déjà rattaché à ${p.transporteur_nom}` : ''}`,
+                            disabled: pris,
+                          };
+                        }),
+                      ]}
+                    />
+                  </FormField>
+                </div>
+              </Card>
+            </TabsContent>
+          </div>
+        </Tabs>
+
+        <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
+          {serverError && (
+            <p role="alert" className="mr-auto text-sm text-savr-error-strong">
+              {serverError}
+            </p>
           )}
-        </div>
-
-        <FormField
-          label="Prestataire logistique"
-          htmlFor="tm_prestataire_logistique_id"
-          required={TYPES_TMS_AVEC_PRESTATAIRE.includes(values.type_tms)}
-          error={errors.prestataire_logistique_id}
-          hint={
-            isEdition
-              ? 'Non modifiable après création — pour en changer, créez un nouveau transporteur'
-              : prestataires === null
-                ? 'Liste des prestataires indisponible — rechargez la page'
-                : prestataires.length === 0
-                  ? 'Aucun prestataire logistique enregistré — à créer par l’équipe technique'
-                  : 'Société qui exécute les courses : c’est ce lien qui rattache les tournées au bon transporteur. Non modifiable après création.'
-          }
-        >
-          <Combobox
-            id="tm_prestataire_logistique_id"
-            icon={null}
-            placeholder="Aucun"
-            value={values.prestataire_logistique_id}
-            onChange={(v) => set('prestataire_logistique_id', v)}
-            error={Boolean(errors.prestataire_logistique_id)}
-            disabled={isEdition}
-            options={[
-              { value: '', label: 'Aucun' },
-              ...(lienHorsListe
-                ? [
-                    {
-                      value: values.prestataire_logistique_id,
-                      label: 'Prestataire rattaché (liste indisponible)',
-                    },
-                  ]
-                : []),
-              ...optionsPrestataires.map((p) => {
-                // Rattaché à un AUTRE transporteur : grisé (l'index unique le
-                // refuserait). Le sien reste choisissable.
-                const pris =
-                  p.transporteur_id !== null &&
-                  p.transporteur_id !== transporteur?.id;
-                return {
-                  value: p.id,
-                  label: `${p.nom}${p.statut !== 'actif' ? ` (${p.statut})` : ''}${pris ? ` — déjà rattaché à ${p.transporteur_nom}` : ''}`,
-                  disabled: pris,
-                };
-              }),
-            ]}
-          />
-        </FormField>
-
-        <FormField
-          label="Type(s) de collecte"
-          htmlFor="tm_types_collecte"
-          hint="Flux gérés par ce transporteur — AG et/ou ZD"
-        >
-          <div
-            id="tm_types_collecte"
-            role="group"
-            aria-label="Type(s) de collecte"
-            className="flex flex-wrap gap-2"
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={submitting}
           >
-            {TYPES_COLLECTE.map((t) => {
-              const selected = values.types_collecte.includes(t.value);
-              return (
-                <button
-                  key={t.value}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => toggle('types_collecte', t.value)}
-                  className={chipClass(selected)}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-        </FormField>
-
-        <FormField
-          label="Description du process de collecte"
-          htmlFor="tm_description"
-          hint="Comment déclencher une collecte auprès de ce transporteur (texte libre)"
-        >
-          <Textarea
-            id="tm_description"
-            rows={3}
-            value={values.description_process_collecte}
-            onChange={(e) =>
-              set('description_process_collecte', e.target.value)
-            }
-          />
-        </FormField>
-
-        {serverError && (
-          <p className="text-sm text-savr-error-strong">{serverError}</p>
-        )}
+            Annuler
+          </Button>
+          {isEdition &&
+            (transporteur!.actif ? (
+              // Contour rouge, comme « Annuler la collecte » du pop-up collecte.
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handleToggleActif()}
+                disabled={submitting}
+                className="border-savr-error text-savr-error-strong hover:bg-savr-error-subtle active:bg-savr-error-subtle"
+              >
+                Désactiver
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handleToggleActif()}
+                disabled={submitting}
+              >
+                Réactiver
+              </Button>
+            ))}
+          <Button
+            type="button"
+            onClick={() => void submitForm()}
+            disabled={submitting}
+          >
+            {submitting
+              ? 'Enregistrement…'
+              : isEdition
+                ? 'Enregistrer'
+                : 'Créer le transporteur'}
+          </Button>
+        </footer>
       </form>
     </Modal>
   );

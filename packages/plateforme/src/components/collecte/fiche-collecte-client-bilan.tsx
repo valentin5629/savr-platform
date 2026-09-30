@@ -41,9 +41,6 @@ const TOOLTIP_TAUX_UE =
   'résiduel) entre uniquement au dénominateur. Voir Méthodologie.';
 
 const TITRE_RADAR = 'Votre collecte face aux événements comparables';
-
-const AIDE_REPAS_NON_COMMUNIQUES =
-  'Le nombre de repas est communiqué à l’organisation qui a programmé la collecte.';
 const SOUS_TITRE_RADAR =
   'Déchets par convive (kg/pax), flux par flux, comparés à la moyenne anonymisée ' +
   'des événements Savr des 24 derniers mois. À l’intérieur du repère, vous ' +
@@ -88,31 +85,23 @@ function GrapheEnAttente({ titre }: { titre: string }) {
 
 // Carte KPI : chiffre en grand + unité plus petite, sur UNE seule ligne
 // (retour Val 2026-09-30 : « −100 kgCO₂e » ne doit jamais passer à la ligne).
-// `texte` : la carte porte une mention (« Non communiqué »), pas un chiffre →
-// corps de texte courant, qui peut passer à la ligne.
 function Kpi({
   label,
   nombre,
   unite,
   aide,
-  texte = false,
 }: {
   label: string;
   // « — » tant que la valeur n'existe pas.
   nombre: string;
   unite?: string;
   aide?: string;
-  texte?: boolean;
 }) {
   return (
     <StatCard
       label={label}
       className="gap-2 p-5"
-      valueClassName={
-        texte
-          ? 'text-base font-semibold text-savr-neutral-500'
-          : 'whitespace-nowrap text-2xl font-extrabold tabular-nums'
-      }
+      valueClassName="whitespace-nowrap text-2xl font-extrabold tabular-nums"
       value={
         <>
           {nombre}
@@ -287,8 +276,6 @@ export function OngletBilan({
 
   // ── Bilan AG ────────────────────────────────────────────────────────────
   const repas = realisee ? c.repas_donnes : null;
-  // Gestionnaire, collecte d'un traiteur tiers : repas non lisibles (D13).
-  const repasNonCommuniques = realisee && c.repas_non_communiques;
 
   return (
     <div className="space-y-3">
@@ -350,34 +337,15 @@ export function OngletBilan({
             className="grid grid-cols-1 gap-3 sm:grid-cols-3"
             data-testid="kpi-ag"
           >
-            {repasNonCommuniques ? (
-              <>
-                <Kpi
-                  label="Repas donnés"
-                  nombre="Non communiqué"
-                  aide={AIDE_REPAS_NON_COMMUNIQUES}
-                  texte
-                />
-                <Kpi
-                  label="Repas par pax"
-                  nombre="Non communiqué"
-                  aide={AIDE_REPAS_NON_COMMUNIQUES}
-                  texte
-                />
-              </>
-            ) : (
-              <>
-                <Kpi
-                  label="Repas donnés"
-                  nombre={repas != null ? fmtInt(repas) : '—'}
-                  unite="repas"
-                />
-                <Kpi
-                  label="Repas par pax"
-                  nombre={repas != null && pax ? fmtDec(repas / pax, 2) : '—'}
-                />
-              </>
-            )}
+            <Kpi
+              label="Repas donnés"
+              nombre={repas != null ? fmtInt(repas) : '—'}
+              unite="repas"
+            />
+            <Kpi
+              label="Repas par pax"
+              nombre={repas != null && pax ? fmtDec(repas / pax, 2) : '—'}
+            />
             <Kpi
               label="CO₂ évité"
               nombre={

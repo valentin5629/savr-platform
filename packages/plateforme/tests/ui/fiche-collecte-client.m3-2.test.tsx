@@ -6,13 +6,7 @@
  * tiers (garde SQL non élargie).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -101,36 +95,6 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       expect(screen.getByTestId('bloc-documents').textContent).toContain(
         'Rapport de don',
       );
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    'M3.2/fiche_popup_gestionnaire_repas_non_communiques — AG d’un traiteur tiers : « Non communiqué » au lieu de « — »',
-    async () => {
-      stubFetchFiche(
-        ficheGestionnaire({
-          type: 'anti_gaspi',
-          statut: 'cloturee',
-          repas_donnes: null,
-          repas_non_communiques: true,
-          co2_evite_kg: 250,
-          actions: { modifier: 'absent', annuler: 'absent', annulation: null },
-        }),
-      );
-      render(fiche());
-      await ouvrirOnglet('Bilan & documents');
-
-      const kpi = await screen.findByTestId('kpi-ag', {}, ATTENTE_UI);
-      expect(within(kpi).getAllByText('Non communiqué')).toHaveLength(2);
-      expect(kpi.textContent).not.toContain('— repas');
-      // Le CO₂ évité (lu sur la collecte) reste affiché.
-      expect(kpi.textContent).toContain('250');
-      expect(
-        within(kpi).getAllByLabelText(
-          'Le nombre de repas est communiqué à l’organisation qui a programmé la collecte.',
-        ),
-      ).toHaveLength(2);
     },
     ATTENTE_CAS_MS,
   );

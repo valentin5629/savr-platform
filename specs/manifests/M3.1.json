@@ -861,7 +861,7 @@
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_get_attestation_donneur_ordre_reservee",
       "statut": "implemented",
-      "libelle": "D12 (arbitrage Val 2026-09-30) : le traiteur opérationnel d'une collecte AG programmée par une agence ne reçoit plus l'attestation de don du donneur d'ordre (raison sociale + SIRET de l'agence) — fiche et téléchargement lisent sous sa RLS (att_traiteur_select, matrice §09 attestations_don = bordereaux_savr : organisation programmatrice) ; la fiche affiche « Réservé à l'organisation qui a programmé la collecte » sans bouton Télécharger (M3.1/fiche_popup_rapport_reserve_donneur_ordre). Le rapport RSE ZD reste servi (rr_select via f_collecte_visible)."
+      "libelle": "D12 (arbitrage Val 2026-09-30) : le traiteur opérationnel d'une collecte AG programmée par une agence ne reçoit plus l'attestation de don du donneur d'ordre (raison sociale + SIRET de l'agence) — fiche et téléchargement lisent sous sa RLS (att_traiteur_select, matrice §09 attestations_don = bordereaux_savr : organisation programmatrice) ; la fiche affiche « Réservé à l'organisation qui a programmé la collecte » sans bouton Télécharger (M3.1/fiche_popup_rapport_reserve_donneur_ordre). Le rapport RSE ZD reste servi (rr_select via f_collecte_visible). Preuve base : supabase/tests/documents_traiteur_operationnel_d12.test.sql (41 cas, requêtes exactes de la fiche et de la route ; rouge si att_traiteur_select est alignée sur f_collecte_visible)."
     },
     {
       "id": "M3.1-popup-client-rendu-visuel",

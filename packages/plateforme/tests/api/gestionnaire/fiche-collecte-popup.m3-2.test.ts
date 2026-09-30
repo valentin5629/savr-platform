@@ -95,20 +95,43 @@ describe('M3.2 / fiche client gestionnaire — association (Q7)', () => {
 });
 
 describe('M3.2 / fiche client gestionnaire — repas des collectes tierces (D13)', () => {
-  it('M3.2/fiche_get_repas_non_communiques_tiers — AG d’un traiteur tiers : repas « non communiqués »', async () => {
+  it('M3.2/fiche_get_repas_tiers_depuis_attestation — AG d’un traiteur tiers : repas lus dans l’attestation servie au gestionnaire', async () => {
     rls.results.collectes = {
       data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee', ...TIERS }),
       error: null,
     };
-    // aa_select exclut le gestionnaire sur une collecte tierce (C-1).
+    // aa_select exclut le gestionnaire sur une collecte tierce (C-1)…
     rls.results.attributions_antgaspi = { data: null, error: null };
+    // …mais att_gestionnaire_select lui sert l'attestation (§06.05 l.619).
+    rls.results.attestations_don = {
+      data: {
+        eligible_at: '2020-01-01T00:00:00Z',
+        pdf_url: 'att.pdf',
+        nb_repas: 150,
+      },
+      error: null,
+    };
     const { json } = await getFiche();
-    expect(json.data.repas_donnes).toBeNull();
-    expect(json.data.repas_non_communiques).toBe(true);
+    expect(json.data.repas_donnes).toBe(150);
+    expect(rls.selects.attestations_don?.[0]).toContain('nb_repas');
+    // Aucune lecture service-role, aucune association sérialisée (Q7).
+    expect(admin.calls).not.toContain('attestations_don');
     expect(admin.calls).not.toContain('attributions_antgaspi');
+    expect(Object.hasOwn(json.data, 'association')).toBe(false);
   });
 
-  it('M3.2/fiche_get_repas_propre_programmation — AG programmée par le gestionnaire : repas servis', async () => {
+  it('M3.2/fiche_get_repas_tiers_sans_attestation — attestation pas encore générée : « — »', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee', ...TIERS }),
+      error: null,
+    };
+    rls.results.attributions_antgaspi = { data: null, error: null };
+    rls.results.attestations_don = { data: null, error: null };
+    const { json } = await getFiche();
+    expect(json.data.repas_donnes).toBeNull();
+  });
+
+  it('M3.2/fiche_get_repas_propre_programmation — AG programmée par le gestionnaire : volume de l’attribution', async () => {
     rls.results.collectes = {
       data: ligneCollecte({
         type: 'anti_gaspi',
@@ -124,18 +147,17 @@ describe('M3.2 / fiche client gestionnaire — repas des collectes tierces (D13)
       data: { volume_repas_realise: 320 },
       error: null,
     };
-    const { json } = await getFiche();
-    expect(json.data.repas_donnes).toBe(320);
-    expect(json.data.repas_non_communiques).toBe(false);
-  });
-
-  it('M3.2/fiche_get_zd_tiers_sans_mention — ZD d’un traiteur tiers : pas de mention repas', async () => {
-    rls.results.collectes = {
-      data: ligneCollecte({ statut: 'cloturee', ...TIERS }),
+    rls.results.attestations_don = {
+      data: {
+        eligible_at: '2020-01-01T00:00:00Z',
+        pdf_url: 'att.pdf',
+        nb_repas: 999,
+      },
       error: null,
     };
     const { json } = await getFiche();
-    expect(json.data.repas_non_communiques).toBe(false);
+    // L'attribution prime : l'attestation n'est qu'un repli.
+    expect(json.data.repas_donnes).toBe(320);
   });
 });
 

@@ -51,7 +51,6 @@ export function ficheClient(
     coordonnees_urgence_demandee: false,
     bilan_flux: null,
     repas_donnes: null,
-    repas_non_communiques: false,
     association: null,
     rapport_rse_disponible: false,
     rapport_rse_regenere: false,

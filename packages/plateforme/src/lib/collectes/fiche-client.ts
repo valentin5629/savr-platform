@@ -207,8 +207,7 @@ export async function chargerFicheCollecteClient(
 
   const admin = createAdminSupabaseClient();
   // Collecte programmée par une AUTRE organisation que celle de l'utilisateur
-  // (traiteur opérationnel, gestionnaire d'un lieu accueillant un traiteur
-  // tiers). L'agence n'y est jamais : sa RLS la borne à ses programmations.
+  // (ici : traiteur opérationnel d'une collecte d'agence).
   const programmeeParTiers =
     evt != null && evt.organisation_id !== ctx.organisationId;
   // AG realisee_sans_collecte : pas d'attestation, le rapport est « Événement
@@ -244,7 +243,7 @@ export async function chargerFicheCollecteClient(
       ? Promise.resolve({ data: null, error: null })
       : rls
           .from('attestations_don')
-          .select('eligible_at, pdf_url')
+          .select('eligible_at, pdf_url, nb_repas')
           .eq('collecte_id', id)
           .order('version', { ascending: false })
           .limit(1)
@@ -297,6 +296,7 @@ export async function chargerFicheCollecteClient(
   const att = attRes.data as {
     eligible_at: string | null;
     pdf_url: string | null;
+    nb_repas: number | null;
   } | null;
   const maintenant = Date.now();
   const rapport_rse_disponible = useRapportsRse
@@ -336,7 +336,12 @@ export async function chargerFicheCollecteClient(
         }[]
       | null;
   } | null;
-  const repas_donnes = aa?.volume_repas_realise ?? null;
+  // Repas donnés : volume de l'attribution (aa_select). Gestionnaire sur une
+  // collecte programmée par un traiteur tiers : aa_select le lui refuse (C-1),
+  // mais l'attestation de don qui lui est servie (att_gestionnaire_select,
+  // §06.05 l.619) porte le même chiffre, copié de l'attribution au batch J+1
+  // (D13, arbitrage Val 2026-09-30). Aucune lecture élargie.
+  const repas_donnes = aa?.volume_repas_realise ?? att?.nb_repas ?? null;
   const asso = one(aa?.association ?? null);
   const association: AssociationFiche | null = asso
     ? {
@@ -403,8 +408,6 @@ export async function chargerFicheCollecteClient(
     coordonnees_urgence_demandee: Boolean(alerteRes.data),
     bilan_flux,
     repas_donnes,
-    repas_non_communiques:
-      espace === 'gestionnaire' && isAg && programmeeParTiers,
     ...(espace === 'gestionnaire' ? {} : { association }),
     rapport_rse_disponible,
     rapport_rse_regenere,

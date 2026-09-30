@@ -8,6 +8,8 @@ import {
   validerLienPrestataire,
 } from '@/lib/transporteur-lien-prestataire.js';
 import { lireTri } from '@/lib/tri-liste.js';
+import { listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -17,6 +19,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const actif = searchParams.get('actif');
   const type_tms = searchParams.get('type_tms');
+  // Filtre « Type » à choix multiple (CSV, liste blanche de l'enum type_tms),
+  // prioritaire sur le mono `type_tms` conservé.
+  const typesTms = listeCsv(
+    searchParams.get('types_tms'),
+    parmi(Constants.plateforme.Enums.type_tms),
+  );
   const q = searchParams.get('q');
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
@@ -42,7 +50,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .range(offset, offset + limit - 1);
 
   if (actif !== null) query = query.eq('actif', actif === 'true');
-  if (type_tms) query = query.eq('type_tms', type_tms);
+  if (typesTms.length > 0) query = query.in('type_tms', typesTms);
+  else if (type_tms) query = query.eq('type_tms', type_tms);
   if (q) query = query.ilike('nom', `%${q}%`);
 
   const { data, error, count } = await query;

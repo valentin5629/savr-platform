@@ -21,6 +21,8 @@ import {
   unwrap,
 } from './shared.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 
 type Row = Record<string, unknown>;
 
@@ -230,6 +232,13 @@ export async function buildFacturesExport(
 ): Promise<ExportOutput> {
   const statut = sp.get('statut');
   const type = sp.get('type');
+  // Filtres à choix multiple de la liste Factures Admin (§12 : l'export
+  // respecte les filtres actifs) — CSV validés, prioritaires sur le mono.
+  const types = listeCsv(
+    sp.get('types'),
+    parmi(Constants.plateforme.Enums.facture_type),
+  );
+  const orgIds = listeCsv(sp.get('organisation_ids'), estUuid);
   const from = sp.get('from');
   const to = sp.get('to');
 
@@ -243,7 +252,9 @@ export async function buildFacturesExport(
 
   if (!ctx.isStaff) q = q.neq('statut', 'brouillon');
   if (statut) q = q.eq('statut', statut);
-  if (type) q = q.eq('type', type);
+  if (types.length > 0) q = q.in('type', types);
+  else if (type) q = q.eq('type', type);
+  if (orgIds.length > 0) q = q.in('organisation_id', orgIds);
   if (from) q = q.gte('date_emission', from);
   if (to) q = q.lte('date_emission', to);
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import type { AnyRole } from '@/lib/api-auth.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — types, filtres, requête.
@@ -99,11 +100,11 @@ export interface RegistreFilters {
 
 /** Parse les filtres du registre depuis la query string (valeurs CSV-listées). */
 export function parseRegistreFilters(sp: URLSearchParams): RegistreFilters {
-  const list = (k: string): string[] =>
-    (sp.get(k) ?? '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
+  // Lieu / Traiteur / Flux à choix multiple (§06.03) : ids validés UUID, flux
+  // en liste blanche, avant `.in()` / `.overlaps()` — une valeur invalide est
+  // écartée en silence.
+  const list = (k: string, valide: (v: string) => boolean): string[] =>
+    listeCsv(sp.get(k), valide);
 
   const sortByRaw = sp.get('sortBy') ?? 'date_evenement';
   const sortBy: SortColumn = (SORT_COLUMNS as readonly string[]).includes(
@@ -123,9 +124,9 @@ export function parseRegistreFilters(sp: URLSearchParams): RegistreFilters {
   return {
     from: sp.get('from') ?? undefined,
     to: sp.get('to') ?? undefined,
-    lieuIds: list('lieu'),
-    traiteurIds: list('traiteur'),
-    fluxCodes: list('flux'),
+    lieuIds: list('lieu', estUuid),
+    traiteurIds: list('traiteur', estUuid),
+    fluxCodes: list('flux', parmi(FLUX_ORDER)),
     bordereauStatut: bs === 'dispo' || bs === 'manquant' ? bs : undefined,
     sortBy,
     sortDir,
@@ -181,6 +182,53 @@ export async function fetchRegistre(
     page: f.page,
     pageSize: f.pageSize,
   };
+}
+
+export interface OptionRegistre {
+  id: string;
+  nom: string;
+}
+
+/**
+ * Options des filtres « Lieu » et « Traiteur » (§06.03, multi-select) : tous
+ * les lieux et traiteurs présents au registre du périmètre, et pas seulement
+ * ceux de la page affichée — sinon cocher un lieu faisait disparaître les
+ * autres de la liste. Même vue RLS-safe que la liste (aucune donnée de plus),
+ * lue par tranches jusqu'à une tranche vide : rien n'est tronqué, quel que
+ * soit le plafond `max_rows` du projet.
+ */
+export async function fetchRegistreOptions(
+  supabase: SupabaseClient,
+): Promise<{ lieux: OptionRegistre[]; traiteurs: OptionRegistre[] }> {
+  const lieux = new Map<string, string>();
+  const traiteurs = new Map<string, string>();
+  const TRANCHE = 1000;
+  for (let debut = 0; ; ) {
+    const { data, error } = await supabase
+      .from('v_registre_dechets')
+      .select(
+        'collecte_id, lieu_id, lieu_nom, traiteur_operationnel_organisation_id, traiteur_raison_sociale',
+      )
+      .order('collecte_id', { ascending: true })
+      .range(debut, debut + TRANCHE - 1);
+    if (error) throw erreurInterne(error, 'registre.options');
+    const lignes = (data ?? []) as unknown as RegistreRow[];
+    if (lignes.length === 0) break;
+    for (const r of lignes) {
+      if (r.lieu_id && r.lieu_nom) lieux.set(r.lieu_id, r.lieu_nom);
+      if (r.traiteur_operationnel_organisation_id && r.traiteur_raison_sociale)
+        traiteurs.set(
+          r.traiteur_operationnel_organisation_id,
+          r.traiteur_raison_sociale,
+        );
+    }
+    debut += lignes.length;
+  }
+  const trier = (m: Map<string, string>): OptionRegistre[] =>
+    [...m]
+      .map(([id, nom]) => ({ id, nom }))
+      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  return { lieux: trier(lieux), traiteurs: trier(traiteurs) };
 }
 
 /** Libellé du statut bordereau pour l'affichage (dispo / manquant / —). */

@@ -3,6 +3,8 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError, withApiTrace } from '@/lib/api-helpers.js';
 import { lireTri } from '@/lib/tri-liste.js';
+import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -14,6 +16,13 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const orgId = url.searchParams.get('organisation_id');
   // R22b BL-P2-02 — filtres liste (§06.08 §4/§8) : type, période, « en erreur ».
   const type = url.searchParams.get('type');
+  // Organisation et Type à choix multiple (CSV validés : UUID / liste blanche
+  // de l'enum facture_type), prioritaires sur les mono conservés.
+  const orgIds = listeCsv(url.searchParams.get('organisation_ids'), estUuid);
+  const types = listeCsv(
+    url.searchParams.get('types'),
+    parmi(Constants.plateforme.Enums.facture_type),
+  );
   const dateDebut = url.searchParams.get('date_debut');
   const dateFin = url.searchParams.get('date_fin');
   const enErreur = url.searchParams.get('en_erreur');
@@ -60,8 +69,10 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     .range(offset, offset + limit - 1);
 
   if (statut) query = query.eq('statut', statut);
-  if (orgId) query = query.eq('organisation_id', orgId);
-  if (type) query = query.eq('type', type);
+  if (orgIds.length > 0) query = query.in('organisation_id', orgIds);
+  else if (orgId) query = query.eq('organisation_id', orgId);
+  if (types.length > 0) query = query.in('type', types);
+  else if (type) query = query.eq('type', type);
   // « En erreur » (§06.08 §2.3) — factures portant une erreur de synchro Pennylane
   // (rejet 4xx repassé en brouillon, ou retry épuisé echec_final).
   if (enErreur === '1') query = query.not('erreur_synchro', 'is', null);

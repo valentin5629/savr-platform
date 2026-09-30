@@ -11,6 +11,7 @@ import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { estUuid, listeCsv } from '@/lib/filtre-csv.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
 const TRIS = {
@@ -21,20 +22,6 @@ const TRIS = {
 } satisfies Record<string, string[]>;
 
 const TYPES_COLLECTE = ['zero_dechet', 'anti_gaspi'];
-
-const estUuid = (id: string): boolean =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-
-/** Liste CSV d'un paramètre, restreinte aux valeurs acceptées par `valide`. */
-function listeCsv(
-  brut: string | null,
-  valide: (v: string) => boolean,
-): string[] {
-  return (brut ?? '')
-    .split(',')
-    .map((v) => v.trim())
-    .filter((v) => v && valide(v));
-}
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);

@@ -8,6 +8,8 @@ import {
   withApiTrace,
 } from '@/lib/api-helpers.js';
 import { lireTri } from '@/lib/tri-liste.js';
+import { listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import {
   MESSAGE_SIRET_INVALIDE,
@@ -21,6 +23,13 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type');
+  // Filtre « Type » à choix multiple de la liste Clients (CSV validé),
+  // prioritaire sur le mono `type` que gardent les autres appelants
+  // (?type=traiteur des listes Collectes / Factures, fiche lieu).
+  const types = listeCsv(
+    searchParams.get('types'),
+    parmi(Constants.plateforme.Enums.organisation_type),
+  );
   const actif = searchParams.get('actif');
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
@@ -64,7 +73,8 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
 
   if (q) query = query.ilike('raison_sociale', `%${q}%`);
 
-  if (type) query = query.eq('type', type);
+  if (types.length > 0) query = query.in('type', types);
+  else if (type) query = query.eq('type', type);
   if (actif !== null) query = query.eq('actif', actif === 'true');
 
   const { data: orgs, error, count } = await query;

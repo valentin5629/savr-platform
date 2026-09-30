@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { FileText, Download } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -11,9 +11,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
-import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
+import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
 
 interface Facture {
@@ -75,11 +75,10 @@ const FILTRES = [
 ];
 
 const TYPE_OPTIONS = [
-  { key: '', label: 'Tous les types' },
-  { key: 'zero_dechet', label: 'Zéro Déchet' },
-  { key: 'collecte_antigaspi', label: 'Anti-Gaspi' },
-  { key: 'achat_pack_antigaspi', label: 'Achat Pack AG' },
-  { key: 'avoir', label: 'Avoir' },
+  { id: 'zero_dechet', nom: 'Zéro Déchet' },
+  { id: 'collecte_antigaspi', nom: 'Anti-Gaspi' },
+  { id: 'achat_pack_antigaspi', nom: 'Achat Pack AG' },
+  { id: 'avoir', nom: 'Avoir' },
 ];
 
 async function downloadPdfSavr(id: string): Promise<void> {
@@ -219,10 +218,12 @@ export default function FacturesPage() {
   const [factures, setFactures] = useState<Facture[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtre, setFiltre] = useState('');
-  const [typeFiltre, setTypeFiltre] = useState('');
+  // Organisation et Type à choix multiple, case « Tous » = sélection vide
+  // (décision Val 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous).
+  const [types, setTypes] = useState<string[]>([]);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
-  const [orgFiltre, setOrgFiltre] = useState('');
+  const [orgIds, setOrgIds] = useState<string[]>([]);
   const [orgs, setOrgs] = useState<{ id: string; label: string }[]>([]);
   const [page, setPage] = useState(1);
   // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
@@ -265,24 +266,33 @@ export default function FacturesPage() {
     params.set('ordre', tri.ordre);
     if (filtre === '__erreur__') params.set('en_erreur', '1');
     else if (filtre) params.set('statut', filtre);
-    if (typeFiltre) params.set('type', typeFiltre);
-    if (orgFiltre) params.set('organisation_id', orgFiltre);
+    if (types.length > 0) params.set('types', types.join(','));
+    if (orgIds.length > 0) params.set('organisation_ids', orgIds.join(','));
     if (dateDebut) params.set('date_debut', dateDebut);
     if (dateFin) params.set('date_fin', dateFin);
     return params.toString();
-  }, [filtre, typeFiltre, orgFiltre, dateDebut, dateFin, tri]);
+  }, [filtre, types, orgIds, dateDebut, dateFin, tri]);
+
+  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
+  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
+  const derniereRequete = useRef(0);
 
   const load = useCallback(() => {
+    const numero = ++derniereRequete.current;
+    const perime = () => numero !== derniereRequete.current;
     setLoading(true);
     const qs = buildParams();
     const url = `/api/v1/admin/factures?${qs ? `${qs}&` : ''}page=${page}`;
     fetch(url)
       .then((r) => r.json())
       .then((d: { data: Facture[]; total?: number }) => {
+        if (perime()) return;
         setFactures(d.data ?? []);
         setTotal(d.total ?? 0);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!perime()) setLoading(false);
+      });
   }, [buildParams, page]);
 
   useEffect(() => {
@@ -326,36 +336,18 @@ export default function FacturesPage() {
 
       <FilterBar
         data-testid="factures-filtres"
-        actif={Boolean(dateDebut || dateFin || typeFiltre || orgFiltre)}
+        actif={Boolean(
+          dateDebut || dateFin || types.length > 0 || orgIds.length > 0,
+        )}
         onReset={() => {
-          setTypeFiltre('');
-          setOrgFiltre('');
+          setTypes([]);
+          setOrgIds([]);
           setDateDebut('');
           setDateFin('');
         }}
       >
-        <Combobox
-          titre="Organisation"
-          id="filtre-organisation"
-          placeholder="Toutes"
-          searchPlaceholder="Rechercher une organisation…"
-          options={[
-            { value: '', label: 'Toutes les organisations' },
-            ...orgs.map((o) => ({ value: o.id, label: o.label })),
-          ]}
-          value={orgFiltre}
-          onChange={setOrgFiltre}
-        />
-        <Combobox
-          titre="Type"
-          id="filtre-type"
-          options={TYPE_OPTIONS.map((t) => ({
-            value: t.key,
-            label: t.label,
-          }))}
-          value={typeFiltre}
-          onChange={setTypeFiltre}
-        />
+        {/* « Période » en premier (décision Val 2026-09-30), puis filtres à
+            choix multiple avec case « Tous ». */}
         <DateRangePicker
           titre="Période"
           id="filtre-periode"
@@ -365,6 +357,22 @@ export default function FacturesPage() {
             setDateDebut(p.from);
             setDateFin(p.to);
           }}
+        />
+        <FiltreCoches
+          label="Organisation"
+          testid="filtre-organisation"
+          libelleVide="Toutes"
+          libelleTous="Toutes"
+          options={orgs.map((o) => ({ id: o.id, nom: o.label }))}
+          selected={orgIds}
+          onChange={setOrgIds}
+        />
+        <FiltreCoches
+          label="Type"
+          testid="filtre-type"
+          options={TYPE_OPTIONS}
+          selected={types}
+          onChange={setTypes}
         />
       </FilterBar>
 

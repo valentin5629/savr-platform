@@ -516,6 +516,69 @@ describe('M3.2 / statut consolidé F2', () => {
   });
 });
 
+// ── Type de collecte : partition à cocher (arbitrage Val F1 2026-10-01) ──────
+describe('M3.2 / événements — Type de collecte à choix multiple', () => {
+  // 3 événements : ZD seul, AG seul, ZD et AG — chacun dans UNE catégorie.
+  const evt = (id: string, types: string[]) => ({
+    id,
+    nom_evenement: id,
+    date_evenement: '2026-07-01',
+    pax: 300,
+    lieu_id: 'lieu-1',
+    traiteur_operationnel_organisation_id: 'org-kaspia',
+    lieux: { nom: 'Viparis', ville: 'Paris' },
+    organisations: { nom: 'Kaspia' },
+    types_evenements: { libelle: 'Conférence' },
+    collectes: types.map((type) => ({
+      type,
+      statut: 'programmee',
+      date_collecte: '2026-07-01',
+      collecte_flux: [],
+      attributions_antgaspi: [],
+    })),
+  });
+  const ids = async (qs: string) => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        evt('zd', ['zero_dechet']),
+        evt('ag', ['anti_gaspi']),
+        evt('mixte', ['zero_dechet', 'anti_gaspi']),
+      ],
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/evenements/route.js');
+    const res = await GET(
+      makeReq('GET', `/api/v1/gestionnaire/evenements${qs}`),
+    );
+    const json = (await res.json()) as { data: Array<{ id: string }> };
+    return json.data.map((e) => e.id);
+  };
+
+  it('M3.2/evenements_types_collecte_partition — ZD seul + AG seul cochés → sans les événements ZD et AG', async () => {
+    expect(
+      await ids('?types_collecte[]=zd_seul&types_collecte[]=ag_seul'),
+    ).toEqual(['zd', 'ag']);
+    expect(await ids('?types_collecte[]=zd_et_ag')).toEqual(['mixte']);
+  });
+
+  it('M3.2/evenements_type_collecte_ancien_lien — ?type_collecte=avec_zd = ZD seul + ZD et AG', async () => {
+    expect(await ids('?type_collecte=avec_zd')).toEqual(['zd', 'mixte']);
+    expect(await ids('?type_collecte=avec_ag')).toEqual(['ag', 'mixte']);
+  });
+
+  it('M3.2/evenements_types_collecte_hors_liste_ecartes — valeur inconnue ignorée (= Tous)', async () => {
+    expect(await ids('?types_collecte[]=bidon')).toEqual(['zd', 'ag', 'mixte']);
+    expect(await ids('?type_collecte=constructor')).toEqual([
+      'zd',
+      'ag',
+      'mixte',
+    ]);
+  });
+});
+
 // ── Lieux ────────────────────────────────────────────────────────────────────
 describe('M3.2 / lieux', () => {
   it("M3.2/lieux_liste_perimetre_org — uniquement lieux de l'organisation", async () => {

@@ -301,6 +301,22 @@
       "test": "M1.7 / R22b fact-suivi-en-retard [packages/plateforme/tests/lib/facturation.m1-7.test.ts] ; M1.7 / R22b fact-mention-tva-293b [apps/pdf-renderer/src/render.test.ts]",
       "statut": "implemented",
       "libelle": "Facture — listes/filtres/colonnes §4/§8 : filtres statut (brouillon/en_attente/en erreur/émise/payée/annulée) + organisation + type + période, colonnes Lignes/Montant HT/Créée le, indicateur « en retard » borne stricte jour (§10). Mention « TVA non applicable art. 293 B CGI » : NON applicable V1 (Savr assujettie à la TVA, aucune franchise en base — arbitrage Val 2026-07-08, cf. _Divergences/M1.7_20260708.md ; oracle négatif fact-mention-tva-293b)"
+    },
+    {
+      "id": "M1.7-factures-filtres-choix-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:382",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/factures/page.tsx (Période en premier, Organisation / Type en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/admin/factures/route.ts (organisation_ids CSV UUID, types CSV en liste blanche facture_type, mono conservés)",
+      "test": "M1.7 — Période en premier ; Organisation / Type cochés + M1.7/factures_liste_organisation_ids_types_csv + M1.7/factures_liste_valeurs_invalides_ecartees + M1.7/factures_liste_mono_conserves",
+      "statut": "à-vérifier",
+      "libelle": "Liste Factures Admin — « Période » en premier, Organisation et Type à choix multiple avec case « Toutes » / « Tous » (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). Les pastilles « Filtrer par statut » (FilterChips) restent des pastilles (arbitrage #437). GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+    },
+    {
+      "id": "M1.7-export-factures-filtres-liste",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:400",
+      "artefact": "packages/plateforme/src/lib/exports/builders.ts (buildFacturesExport : organisation_ids / types CSV validés) + packages/plateforme/src/app/(admin)/admin/factures/page.tsx (exportCsv = mêmes paramètres que la liste)",
+      "test": "M1.7/export_factures_organisation_ids_types + M1.7/export_factures_type_mono_conserve + M1.7 — Période en premier ; Organisation / Type cochés",
+      "statut": "partial",
+      "libelle": "Export CSV Factures Admin — respecte les filtres Organisation et Type cochés de la liste (§12 « l'export respecte les filtres actifs » ; arbitrage Val F3 2026-10-01 : l'export ignorait déjà l'organisation). PARTIAL : la Période de la page n'est toujours pas appliquée à l'export (liste sur created_at, export sur date_emission via from/to) — décision à prendre, _Divergences/M1.7_20261001_export-factures-periode."
     }
   ],
   "cdc_source_hash": {

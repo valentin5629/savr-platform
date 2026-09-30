@@ -711,4 +711,44 @@ describe('M3.1 / mon-organisation facturation filtres', () => {
     expect(gte).toContainEqual(['date_emission', '2026-01-01']);
     expect(lte).toContainEqual(['date_emission', '2026-12-31']);
   });
+
+  // Choix multiple (décision Val 2026-09-30) : CSV au pluriel en liste blanche,
+  // prioritaire sur le mono ; lecture toujours sous la RLS (client serveur),
+  // brouillons toujours exclus — `.in()` ne fait que restreindre.
+  it('M3.1/trait_monorga_factures_filtres_choix_multiple — statuts/types CSV → in(), hors liste blanche écartés', async () => {
+    setupAuth('traiteur_commercial');
+    rls.push({ data: [], error: null });
+    const { GET } = await import('@/app/api/v1/traiteur/factures/route.js');
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/traiteur/factures?statuts=emise,payee,brouillon,en_retard&types=zero_dechet,avoir,anti_gaspi',
+      ),
+    );
+    expect(res.status).toBe(200);
+    const inCalls = rls.__calls.in ?? [];
+    // `brouillon` (jamais visible au client) et `en_retard` (badge dérivé)
+    // ne passent pas la liste blanche ; `anti_gaspi` n'est pas un facture_type.
+    expect(inCalls).toContainEqual(['statut', ['emise', 'payee']]);
+    expect(inCalls).toContainEqual(['type', ['zero_dechet', 'avoir']]);
+    expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
+    expect(
+      (rls.__calls.eq ?? []).filter(
+        (c) => c[0] === 'statut' || c[0] === 'type',
+      ),
+    ).toEqual([]);
+    // Aucune lecture hors RLS : le client admin (service_role) n'est pas touché.
+    expect(admin.__calls.from ?? []).toEqual([]);
+  });
+
+  it('M3.1/trait_monorga_factures_filtres_valeurs_toutes_invalides — aucun filtre, jamais in() vide', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [], error: null });
+    const { GET } = await import('@/app/api/v1/traiteur/factures/route.js');
+    await GET(
+      makeReq('GET', '/api/v1/traiteur/factures?statuts=brouillon&types=x'),
+    );
+    expect(rls.__calls.in ?? []).toEqual([]);
+    expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
+  });
 });

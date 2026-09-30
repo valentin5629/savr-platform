@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Building2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Combobox } from '@/components/ui/combobox';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FiltreRecherche } from '@/components/ui/filtre-en-ligne';
+import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
+import { valeurUnique } from '@/lib/filtre-csv';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -126,8 +126,10 @@ export default function ClientsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [actifFilter, setActifFilter] = useState('');
+  // Filtres à choix multiple, case « Tous » = sélection vide (décision Val
+  // 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous).
+  const [types, setTypes] = useState<string[]>([]);
+  const [actifs, setActifs] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   // Liste paginée côté serveur (50 par page) : recherche, tri et page sont
   // envoyés à l'API. Avant, seule la 1re page était chargée et la recherche
@@ -147,26 +149,34 @@ export default function ClientsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
+  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
+  const derniereRequete = useRef(0);
+
   const fetchOrgs = useCallback(async () => {
+    const numero = ++derniereRequete.current;
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
-    if (typeFilter) params.set('type', typeFilter);
-    if (actifFilter) params.set('actif', actifFilter);
+    if (types.length > 0) params.set('types', types.join(','));
+    const actif = valeurUnique(actifs);
+    if (actif) params.set('actif', actif);
     if (q) params.set('q', q);
     params.set('tri', tri.cle);
     params.set('ordre', tri.ordre);
 
     const res = await fetch(`/api/v1/admin/organisations?${params.toString()}`);
+    if (numero !== derniereRequete.current) return;
     if (res.ok) {
       const json = (await res.json()) as {
         data: Organisation[];
         total: number;
       };
+      if (numero !== derniereRequete.current) return;
       setOrgs(json.data);
       setTotal(json.total);
     }
     setLoading(false);
-  }, [typeFilter, actifFilter, q, tri, page]);
+  }, [types, actifs, q, tri, page]);
 
   useEffect(() => {
     void fetchOrgs();
@@ -202,33 +212,31 @@ export default function ClientsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <Combobox
-          titre="Type"
-          id="clients-type"
-          options={[
-            { value: '', label: 'Tous les types' },
-            ...Object.entries(TYPE_ORGANISATION_LABELS).map(([k, v]) => ({
-              value: k,
-              label: v,
-            })),
-          ]}
-          value={typeFilter}
-          onChange={(v) => {
-            setTypeFilter(v);
+        <FiltreCoches
+          label="Type"
+          testid="clients-type"
+          options={Object.entries(TYPE_ORGANISATION_LABELS).map(
+            ([id, nom]) => ({
+              id,
+              nom,
+            }),
+          )}
+          selected={types}
+          onChange={(ids) => {
+            setTypes(ids);
             setPage(1);
           }}
         />
-        <Combobox
-          titre="Statut"
-          id="clients-statut"
+        <FiltreCoches
+          label="Statut"
+          testid="clients-statut"
           options={[
-            { value: '', label: 'Tous les statuts' },
-            { value: 'true', label: 'Actifs' },
-            { value: 'false', label: 'Inactifs' },
+            { id: 'true', nom: 'Actifs' },
+            { id: 'false', nom: 'Inactifs' },
           ]}
-          value={actifFilter}
-          onChange={(v) => {
-            setActifFilter(v);
+          selected={actifs}
+          onChange={(ids) => {
+            setActifs(ids);
             setPage(1);
           }}
         />

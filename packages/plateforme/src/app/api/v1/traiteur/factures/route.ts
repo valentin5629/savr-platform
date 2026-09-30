@@ -5,12 +5,17 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 
 // Lecture seule, manager + commercial (§06.04 §6 Facturation, révision 2026-05-29).
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
   'traiteur_commercial',
 ];
+
+const STATUTS_VISIBLES_CLIENT =
+  Constants.plateforme.Enums.facture_statut.filter((s) => s !== 'brouillon');
 
 // GET /api/v1/traiteur/factures — liste des factures de l'orga (lecture seule).
 // La policy fac_client_select + masquage colonne F5 (M3.5) garantissent le
@@ -24,6 +29,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const statut = searchParams.get('statut');
   const type = searchParams.get('type');
+  // Statut et Type à choix multiple (CSV en liste blanche des enums, brouillon
+  // exclu), prioritaires sur les mono conservés. Le périmètre reste celui de
+  // la RLS : `.in()` ne fait que restreindre les factures déjà visibles.
+  const statuts = listeCsv(
+    searchParams.get('statuts'),
+    parmi(STATUTS_VISIBLES_CLIENT),
+  );
+  const types = listeCsv(
+    searchParams.get('types'),
+    parmi(Constants.plateforme.Enums.facture_type),
+  );
   // Filtres §06.04 §6 l.690 : statut, type, période (date d'émission).
   const dateDebut = searchParams.get('date_debut');
   const dateFin = searchParams.get('date_fin');
@@ -37,8 +53,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .neq('statut', 'brouillon')
     .order('date_emission', { ascending: false, nullsFirst: false });
 
-  if (statut) query = query.eq('statut', statut);
-  if (type) query = query.eq('type', type);
+  if (statuts.length > 0) query = query.in('statut', statuts);
+  else if (statut) query = query.eq('statut', statut);
+  if (types.length > 0) query = query.in('type', types);
+  else if (type) query = query.eq('type', type);
   if (dateDebut) query = query.gte('date_emission', dateDebut);
   if (dateFin) query = query.lte('date_emission', dateFin);
 

@@ -106,8 +106,7 @@ export function TelephoneLien({ telephone }: { telephone?: string | null }) {
   );
 }
 
-// Onglets en colonne des fiches en pop-up (fiche collecte client, fiche
-// transporteur Admin) : colonne à gauche sur fond neutral-50, barre horizontale
+// Onglets en colonne du pop-up fiche collecte client : colonne à gauche sur fond neutral-50, barre horizontale
 // défilante sous md. Onglet actif = fond blanc + contour (pas d'aplat navy) —
 // maquette validée.
 export const ONGLETS_COLONNE_LISTE =

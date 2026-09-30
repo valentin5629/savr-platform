@@ -464,7 +464,7 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
   );
 
   it(
-    'M1.1b/lieux/fiche-onglets — édition : grand en-tête, colonne résumé et 4 onglets',
+    'M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé',
     async () => {
       vi.stubGlobal('fetch', routeFetch());
       render(
@@ -496,16 +496,8 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
         'Interne Savr',
         'Activité',
       ]);
-      // Résumé toujours visible, quel que soit l'onglet ouvert.
-      await ouvrirOnglet(/Interne Savr/);
-      const resume = screen.getByRole('complementary', {
-        name: 'Résumé du lieu',
-      });
-      // Allégé de ce que l'en-tête affiche déjà.
-      expect(resume).toHaveTextContent('Non requis');
-      expect(resume).toHaveTextContent('Facile');
-      expect(resume).not.toHaveTextContent('Fourgon');
-      expect(resume).not.toHaveTextContent('Saint-Cloud');
+      // Plus de colonne résumé : l'en-tête et les onglets seuls (Val 2026-09-30).
+      expect(screen.queryByRole('complementary')).toBeNull();
 
       // L'en-tête décrit le lieu enregistré : il ne suit pas la saisie.
       await ouvrirOnglet(/Informations/);
@@ -693,7 +685,7 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
   );
 
   it(
-    "M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », la colonne résumé suit la saisie (contrôle d'accès, Citeo)",
+    'M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », onglets seuls sans colonne résumé',
     async () => {
       vi.stubGlobal('fetch', routeFetch());
       render(
@@ -703,20 +695,14 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       expect(
         screen.getByRole('heading', { level: 3, name: 'Nouveau lieu' }),
       ).toBeInTheDocument();
-      const resume = screen.getByRole('complementary', {
-        name: 'Résumé du lieu',
-      });
-      expect(resume).toHaveTextContent('Non requis');
-      expect(resume).not.toHaveTextContent('Citeo');
-      await ouvrirOnglet(/Accès & logistique/);
-      fireEvent.click(
-        screen.getByRole('switch', { name: /Contrôle d'accès requis/ }),
+      expect(screen.queryByRole('complementary')).toBeNull();
+      await waitFor(
+        () =>
+          expect(fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/api/v1/admin/organisations'),
+          ),
+        ATTENTE_UI,
       );
-      expect(resume).toHaveTextContent('Requis');
-      expect(resume).not.toHaveTextContent('Non requis');
-      await ouvrirOnglet(/Interne Savr/);
-      fireEvent.click(screen.getByRole('switch', { name: /Référencé Citeo/ }));
-      expect(resume).toHaveTextContent('Référencé');
     },
     ATTENTE_CAS_MS,
   );

@@ -559,7 +559,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
 
   // ── Fiche en onglets, format du pop-up collecte (décision Val 2026-09-30) ──
 
-  it('3 onglets en colonne, « Identité & contact » ouvert par défaut, chaque champ dans son onglet', () => {
+  it('3 onglets, « Identité & contact » ouvert par défaut, chaque champ dans son onglet', () => {
     render(
       <TransporteurModal
         open
@@ -633,6 +633,12 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
         />,
       );
 
+      // La modale prend le focus à l'ouverture (minuteur) : l'attendre, sinon
+      // il écraserait le focus posé par l'échec de validation.
+      await waitFor(
+        () => expect(screen.getByRole('dialog')).toHaveFocus(),
+        ATTENTE_UI,
+      );
       // Identité complète, validation lancée depuis Connexion : manquent le
       // véhicule (Capacités) et le type de TMS (Connexion).
       remplirIdentite();
@@ -652,12 +658,13 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       expect(
         screen.getByText('Au moins un type de véhicule'),
       ).toBeInTheDocument();
+      // Focus sur l'onglet fautif (même comportement que lieu et association).
       expect(
-        screen.getByRole('tab', { name: /Capacités — champ à corriger/ }),
-      ).toBeInTheDocument();
+        screen.getByRole('tab', { name: 'Capacités (1 champ à corriger)' }),
+      ).toHaveFocus();
       expect(
         screen.getByRole('tab', {
-          name: /Connexion logistique — champ à corriger/,
+          name: 'Connexion logistique (1 champ à corriger)',
         }),
       ).toBeInTheDocument();
       expect(

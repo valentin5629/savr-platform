@@ -317,7 +317,7 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     ).toBeInTheDocument();
   });
 
-  it('colonne résumé : reprend la fiche et suit la saisie', () => {
+  it('pas de colonne résumé : l’en-tête et les onglets seuls', () => {
     render(
       <AssociationModal
         open
@@ -326,20 +326,11 @@ describe('M1.1 — Modale association (revue E2E)', () => {
         onSaved={vi.fn()}
       />,
     );
-    const resume = screen.getByRole('complementary', {
-      name: /Résumé de l'association/,
-    });
-    // Allégée de ce que l'en-tête affiche déjà (nom, statut, ville, capacité).
-    expect(within(resume).queryByText('Association Alpha')).toBeNull();
-    expect(within(resume).queryByText('150 repas')).toBeNull();
-    expect(within(resume).getByText('Marie Curie')).toBeInTheDocument();
-    expect(within(resume).getByText('0102030405')).toBeInTheDocument();
-    expect(within(resume).getByText('Non')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText(/Nom prénom du contact/), {
-      target: { value: 'Irène Joliot' },
-    });
-    expect(within(resume).getByText('Irène Joliot')).toBeInTheDocument();
+    // Décision Val 2026-09-30 : colonne résumé supprimée, onglets seuls.
+    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Association Alpha' }),
+    ).toBeInTheDocument();
   });
 
   it(
@@ -566,36 +557,22 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     },
     ATTENTE_CAS_MS,
   );
-  it('colonne résumé : association inactive, habilitée avec date d’expiration', () => {
+  it('en-tête : association inactive', () => {
     render(
       <AssociationModal
         open
-        association={{
-          ...EDIT_FIXTURE,
-          actif: false,
-          habilitee_attestation_fiscale: true,
-          date_expiration_habilitation: '2027-03-12',
-        }}
+        association={{ ...EDIT_FIXTURE, actif: false }}
         onClose={vi.fn()}
         onSaved={vi.fn()}
       />,
     );
-    const resume = screen.getByRole('complementary', {
-      name: /Résumé de l'association/,
-    });
-    // Le statut est porté par l'en-tête.
-    expect(within(resume).queryByText('Inactive')).toBeNull();
     const enTete = screen
       .getByRole('heading', { level: 3, name: 'Association Alpha' })
       .closest('header') as HTMLElement;
     expect(within(enTete).getByText('Inactive')).toBeInTheDocument();
-    expect(within(resume).getByText('Oui')).toBeInTheDocument();
-    expect(
-      within(resume).getByText(/jusqu.au 12 mars 2027/),
-    ).toBeInTheDocument();
   });
 
-  it('colonne résumé en création : pas de ligne Statut', () => {
+  it('en-tête en création : « Nouvelle association », pas de statut', () => {
     render(
       <AssociationModal
         open
@@ -604,10 +581,11 @@ describe('M1.1 — Modale association (revue E2E)', () => {
         onSaved={vi.fn()}
       />,
     );
-    const resume = screen.getByRole('complementary', {
-      name: /Résumé de l'association/,
-    });
-    expect(within(resume).queryByText('Statut')).not.toBeInTheDocument();
+    const enTete = screen
+      .getByRole('heading', { level: 3, name: 'Nouvelle association' })
+      .closest('header') as HTMLElement;
+    expect(within(enTete).queryByText(/Active|Inactive/)).toBeNull();
+    expect(screen.queryByRole('complementary')).toBeNull();
   });
 
   it('une saisie survit au changement d’onglet ; l’onglet inactif est masqué', () => {

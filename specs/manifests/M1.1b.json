@@ -118,14 +118,14 @@
     "M1.1b/lieux/activite — 403 si rôle traiteur_manager",
     "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes",
     "M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur",
-    "M1.1b/lieux/fiche-onglets — édition : grand en-tête, colonne résumé et 4 onglets",
+    "M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé",
     "M1.1b/lieux/fiche-onglets — création : 3 onglets, pas d'onglet Activité",
     "M1.1b/lieux/fiche-onglets — champ obligatoire d'un autre onglet : ouvre l'onglet en erreur",
     "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only)",
     "M1.1b/lieux/fiche-onglets — onglet Activité : traiteurs opérant et historique",
     "M1.1b/lieux/fiche-onglets — les saisies survivent au changement d'onglet",
     "M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte",
-    "M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », la colonne résumé suit la saisie (contrôle d'accès, Citeo)",
+    "M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », onglets seuls sans colonne résumé",
     "M1.1b/lieux/fiche-onglets — onglet Activité : erreur de chargement annoncée",
     "M1.1b/lieux/fiche-onglets — historique tronqué : la limite est annoncée",
     "M1.1b/lieux/activite — réponse minimale : jamais les valeurs avant/après de l'audit (champs admin-only)",
@@ -395,9 +395,9 @@
       "id": "M1.1b-lieu-fiche-onglets",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:565",
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
-      "test": "M1.1b/lieux/fiche-onglets — édition : grand en-tête, colonne résumé et 4 onglets + M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », la colonne résumé suit la saisie (contrôle d'accès, Citeo) + M1.1b/lieux/fiche-onglets — réponse tardive d'un lieu précédent ignorée (ni affichée ni enregistrée)",
+      "test": "M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé + M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », onglets seuls sans colonne résumé + M1.1b/lieux/fiche-onglets — réponse tardive d'un lieu précédent ignorée (ni affichée ni enregistrée)",
       "statut": "implemented",
-      "libelle": "Fiche lieu au format des fiches Admin (décisions Val 2026-09-30 C1 + « grand en-tête partout ») : grand en-tête commun FicheEnTete (région, gestionnaire, nom, ville, véhicule max, statut — lieu enregistré, stable pendant la saisie), colonne résumé allégée (contrôle d'accès, accès office, stationnement, Citeo — suit la saisie) + onglets Informations / Accès & logistique / Interne Savr / Activité ; un seul Enregistrer pour tous les onglets"
+      "libelle": "Fiche lieu au format des fiches Admin (décisions Val 2026-09-30 C1 + « grand en-tête partout » + « supprime la colonne résumé, ne conserve que les onglets ») : grand en-tête commun FicheEnTete (région, gestionnaire, nom, ville, véhicule max, statut — lieu enregistré, stable pendant la saisie) + onglets horizontaux Informations / Accès & logistique / Interne Savr / Activité ; un seul Enregistrer pour tous les onglets"
     },
     {
       "id": "M1.1b-lieu-champs-admin-onglet-interne",
@@ -427,17 +427,17 @@
       "id": "M1.1b-association-fiche-onglets-entete",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:446",
       "artefact": "packages/plateforme/src/components/admin/association-modal.tsx",
-      "test": "en-tête : région, ville, capacité et statut de l’association enregistrée + colonne résumé : reprend la fiche et suit la saisie",
+      "test": "en-tête : région, ville, capacité et statut de l’association enregistrée + pas de colonne résumé : l’en-tête et les onglets seuls",
       "statut": "implemented",
-      "libelle": "Fiche association : grand en-tête commun (région, SIREN, nom, ville, capacité, statut — association enregistrée, stable pendant la saisie) + colonne résumé allégée (logo, habilitation 2041-GE, contact — suit la saisie) + hauteur fixe (décisions Val 2026-09-30 « grand en-tête partout » / « résumé allégé »)"
+      "libelle": "Fiche association : grand en-tête commun (région, SIREN, nom, ville, capacité, statut — association enregistrée, stable pendant la saisie) + onglets seuls, sans colonne résumé + hauteur fixe (décisions Val 2026-09-30)"
     },
     {
       "id": "M1.1b-fiches-admin-entete-commun",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:446",
       "artefact": "packages/plateforme/src/components/collecte/fiche-blocs.tsx",
-      "test": "en-tête : type de TMS, SIREN, ville, véhicules, téléphone et statut du transporteur enregistré + M1.1b/lieux/fiche-onglets — édition : grand en-tête, colonne résumé et 4 onglets + en-tête : région, ville, capacité et statut de l’association enregistrée",
+      "test": "en-tête : type de TMS, SIREN, ville, véhicules, téléphone et statut du transporteur enregistré + M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé + en-tête : région, ville, capacité et statut de l’association enregistrée + erreur dans un onglet caché : la fiche y bascule et marque les onglets à corriger",
       "statut": "implemented",
-      "libelle": "Brique commune FicheEnTete (+ EnTetePuce, EnTeteMention) : même grand en-tête pour les fiches Admin transporteur, lieu et association — sur-titre, nom en grand, ligne d'infos à pictos, statut ; objet enregistré ; titre accessible « Fiche X — nom » (décision Val 2026-09-30)"
+      "libelle": "Brique commune FicheEnTete (+ EnTetePuce, EnTeteMention) et barre d'onglets horizontale avec compteur d'erreurs (OngletAvecErreurs) : même cadre pour les fiches Admin transporteur, lieu et association — grand en-tête, onglets seuls (plus de colonne résumé ni d'onglets en colonne) ; titre accessible « Fiche X — nom » (décisions Val 2026-09-30)"
     }
   ],
   "cdc_source_hash": {

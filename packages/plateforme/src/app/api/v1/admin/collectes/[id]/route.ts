@@ -49,7 +49,62 @@ async function getHandler(
   }
   if (error) return serverError(error, 'admin.collectes.get');
 
-  return NextResponse.json(data);
+  // Prestataire actuel (§06.06 §3 Bloc 0 : « depuis collectes.prestataire_logistique_id »).
+  // Résolu ici, SANS filtre `actif` : la fiche le cherchait dans la liste des
+  // transporteurs actifs et affichait « non attribué » sur une collecte attribuée
+  // dès que le transporteur avait été désactivé — or une désactivation n'arrête pas
+  // les collectes en cours (§06.06 §6). Pas de FK collectes → transporteurs, et ce
+  // repo n'embarque jamais `shared.*` : requêtes à part. Pont R5 1:1
+  // (`uniq_transporteur_par_prestataire`) → au plus une ligne.
+  const prestataireId = (data as { prestataire_logistique_id: string | null })
+    .prestataire_logistique_id;
+  let prestataireActuel: {
+    transporteur_id: string | null;
+    nom: string;
+    type_tms: string | null;
+  } | null = null;
+  if (prestataireId) {
+    const transporteur = await supabase
+      .from('transporteurs')
+      .select('id, nom, type_tms')
+      .eq('prestataire_logistique_id', prestataireId)
+      .maybeSingle();
+    if (transporteur.error) {
+      return serverError(transporteur.error, 'admin.collectes.get');
+    }
+    if (transporteur.data) {
+      const t = transporteur.data as {
+        id: string;
+        nom: string;
+        type_tms: string;
+      };
+      prestataireActuel = {
+        transporteur_id: t.id,
+        nom: t.nom,
+        type_tms: t.type_tms,
+      };
+    } else {
+      // Prestataire sans fiche transporteur : nommé depuis le référentiel partagé.
+      const prestataire = await supabase
+        .schema('shared')
+        .from('prestataires')
+        .select('nom')
+        .eq('id', prestataireId)
+        .maybeSingle();
+      if (prestataire.error) {
+        return serverError(prestataire.error, 'admin.collectes.get');
+      }
+      if (prestataire.data) {
+        prestataireActuel = {
+          transporteur_id: null,
+          nom: (prestataire.data as { nom: string }).nom,
+          type_tms: null,
+        };
+      }
+    }
+  }
+
+  return NextResponse.json({ ...data, prestataire_actuel: prestataireActuel });
 }
 
 async function patchHandler(

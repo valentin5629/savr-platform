@@ -127,7 +127,6 @@ function makeSupabase(opts: MockOpts) {
           data: {
             associations: {
               id_point_collecte_mts1: null,
-              nom: 'Association Alpha',
               adresse: '12 rue des Associations',
               ville: 'Ivry-sur-Seine',
               contact_nom: null,

@@ -158,10 +158,9 @@ export class AdapterEverest implements LogistiqueProvider {
     // Lire branche_attribution depuis attributions_antgaspi
     const serviceId = await this.resolveServiceId(collecte.id);
 
-    // Point B : l'adresse de l'association attribuée part dans la mission
-    // (décision Val 2026-10-01 — l'association est choisie AVANT le prestataire).
-    // Sans elle, le coursier ne sait pas où livrer : on refuse de créer la
-    // mission (permanent, hors du try : ce n'est pas un refus du transporteur).
+    // Point B = association (cf. Collecte.association_adresse). Sans elle, refus
+    // permanent HORS du try : ce n'est pas un refus du transporteur, et aucune
+    // tournée ne doit être créée.
     const adresseLivraison = collecte.association_adresse;
     if (!adresseLivraison) {
       throw new LogistiquePermanentError(
@@ -436,7 +435,7 @@ export class AdapterEverest implements LogistiqueProvider {
           phone: collecte.contact_principal_telephone,
         },
       },
-      // Point B = association destinataire (adresse non vide, vérifiée en amont).
+      // Point B (adresse vérifiée non vide par dispatchCollecte).
       dropoff: {
         address: adresseLivraison,
         ...(collecte.association_contact_nom &&

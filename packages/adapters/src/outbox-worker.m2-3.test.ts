@@ -34,7 +34,6 @@ const PRESTA_ID = 'presta-uuid-ag-001';
 // Association destinataire de la collecte AG (attributions_antgaspi → associations).
 const ASSOCIATION_ROW = {
   id_point_collecte_mts1: null,
-  nom: 'Association Alpha',
   adresse: '12 rue des Associations',
   ville: 'Ivry-sur-Seine',
   contact_nom: 'Nadia Benali',
@@ -226,7 +225,7 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     }
   });
 
-  it('M2.3 / worker — AG sans attribution : champs association_* null transmis à l’adapter (qui refuse)', async () => {
+  it('M2.3 / worker — AG sans attribution : champs association_* null transmis à l’adapter', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
       .mockResolvedValue('adapter_everest');

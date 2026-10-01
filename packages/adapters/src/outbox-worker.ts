@@ -583,14 +583,10 @@ async function fetchCollecte(
   };
 }
 
-// BL-P1-API-02 — résout l'association destinataire d'une collecte AG (point B :
-// placeId favori MTS-1 + adresse postale + contact) via son attribution.
-// `collecte_id` est UNIQUE sur attributions_antgaspi (≤ 1 ligne) → maybeSingle,
-// même pattern que l'adapter Everest resolveServiceId. Aucune attribution ⇒ NULL
-// (l'adapter refuse alors de partir sans adresse de livraison — erreur
-// permanente, jamais un ordre sans point B). Une LECTURE en échec (blip
-// PostgREST) n'est PAS « pas d'association » : Transient, le worker retente —
-// sinon un incident passager tuerait l'event (dead) avec un message faux.
+// BL-P1-API-02 — association destinataire d'une collecte AG (point B) via son
+// attribution (`collecte_id` UNIQUE → maybeSingle). Aucune attribution → null
+// (l'adapter refuse) ; lecture en échec → Transient (jamais confondue avec
+// « pas d'association », sinon un blip PostgREST tuerait l'event).
 interface AssociationDestinataireRow {
   id_point_collecte_mts1: string | null;
   adresse: string;

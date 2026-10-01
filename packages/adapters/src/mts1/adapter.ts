@@ -41,7 +41,11 @@ import {
   FILTRE_STATUTS_COLLECTE_TERMINAUX,
   STATUTS_COLLECTE_EN_EXECUTION,
 } from '../statuts-collecte.js';
-import type { CreateOrderPayload, CreateTourPayload } from './client.js';
+import type {
+  CreateOrderPayload,
+  CreateTourPayload,
+  PointLivraison,
+} from './client.js';
 import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
 import {
@@ -1391,33 +1395,24 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // Point B (livraison) = où les stuffs sont déposés → `stuffs[].relatedAddress`
     // (CustomerOrderPlaceInput). ZD → entrepôt Savr (favoritePlace `MTS1_ENTREPOT_PLACE_ID`) ;
-    // AG → point de dépôt de l'association : favoritePlace `id_point_collecte_mts1`
-    // quand il existe, sinon son adresse postale inline. Une AG sans association
-    // attribuée n'a pas de point B : on refuse de partir (erreur permanente, jamais
-    // un camion qui ne sait pas où livrer — décision Val 2026-10-01, l'association
-    // est choisie AVANT le prestataire).
-    // Le `place` de la commande reste le PICKUP (point A = adresse traiteur).
+    // AG → association : favoritePlace `id_point_collecte_mts1` sinon adresse inline
+    // (cf. Collecte.association_adresse). AG sans association = pas de point B →
+    // refus permanent, avant tout POST. Le `place` de la commande reste le PICKUP.
     const pointBPlaceId = isZd
       ? process.env['MTS1_ENTREPOT_PLACE_ID'] || undefined
       : (collecte.association_id_point_collecte_mts1 ?? undefined);
-    let relatedAddress: Pick<
-      NonNullable<CreateOrderPayload['stuffs']>[number],
-      'relatedAddress'
-    > = {};
+    let pointB: PointLivraison | undefined;
     if (pointBPlaceId) {
-      relatedAddress = { relatedAddress: { placeId: pointBPlaceId } };
+      pointB = { placeId: pointBPlaceId };
     } else if (!isZd) {
       if (!collecte.association_adresse) {
         throw new LogistiquePermanentError(
           `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à MTS-1`,
         );
       }
-      relatedAddress = {
-        relatedAddress: {
-          address: { addressSingleLine: collecte.association_adresse },
-        },
-      };
+      pointB = { address: { addressSingleLine: collecte.association_adresse } };
     }
+    const relatedAddress = pointB ? { relatedAddress: pointB } : {};
 
     // Marchandise transportée (pesée plus tard → quantity 0), chaque stuff portant le
     // point B (relatedAddress). ZD = 5 flux + volume du camion ; AG = le don

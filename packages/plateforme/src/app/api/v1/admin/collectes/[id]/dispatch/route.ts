@@ -64,18 +64,16 @@ export async function POST(
   // l'adapter. Sans attribution, l'ordre partirait sans adresse de livraison :
   // on refuse l'envoi tant que l'association n'est pas attribuée (§06.09 §3).
   if (c.type === 'anti_gaspi') {
+    // (association_id NOT NULL : la ligne existe ⇔ l'association est attribuée)
     const { data: attribution, error: attrErr } = await supabase
       .from('attributions_antgaspi')
-      .select('association_id')
+      .select('id')
       .eq('collecte_id', id)
       .maybeSingle();
     if (attrErr) {
       return serverError(attrErr, 'admin.collectes.dispatch.attribution');
     }
-    if (
-      !(attribution as { association_id?: string | null } | null)
-        ?.association_id
-    ) {
+    if (!attribution) {
       return NextResponse.json(
         {
           error:

@@ -984,6 +984,14 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la colonne « Client » dans la liste Collectes (traiteur et agence, composant commun), en tableau desktop ET en carte mobile < 640 px : placée entre Lieu et Pax, ne tasse pas la colonne Lieu ni les actions — preuve écran à joindre (geste de Val, GO-VISUAL)."
+    },
+    {
+      "id": "M3.1-liste-filtres-choix-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:377-385",
+      "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx (Période en premier ; Lieu, Client organisateur, Info incomplète en FiltreCoches ; adresse de la page : `lieu` CSV, `client` répété) + packages/plateforme/src/components/collecte/liste-collectes-client.tsx (lieu_ids CSV et client répété envoyés à la liste ET à l'export, réponse périmée ignorée, chip de drill-down) + packages/plateforme/src/app/api/v1/traiteur/collectes/route.ts + packages/plateforme/src/lib/collectes/liste-collectes-client.ts (lireFiltresListeCollectes, commun aux routes traiteur / agence et à l'export) + packages/plateforme/src/lib/filtre-csv.ts (inTextes)",
+      "test": "M3.1/barre_periode_en_premier + M3.1/liste_traiteur_periode_en_premier + M3.1/liste_traiteur_lieux_coches + M3.1/liste_traiteur_liens_existants_pre_coches + M3.1/liste_traiteur_info_incomplete_deux_cases + M3.1/liste_traiteur_reponse_perimee_ignoree + M3.1/liste_traiteur_reponse_perimee_arrivee_apres + M3.1/liste_traiteur_chip_lieu_tant_que_seul_lieu_filtre + M3.1/liste_traiteur_export_csv_memes_parametres + M3.1/liste_filtres_lieux_multiples + M3.1/liste_filtres_ancien_lieu_id + M3.1/liste_filtres_liste_prioritaire + M3.1/liste_filtres_valeurs_invalides_ecartees + M3.1/liste_filtres_tout_invalide_jamais_de_in_vide + M3.1/liste_filtres_clients_multiples + M4.1/export_collectes_filtres_choix_multiple + M4.1/export_collectes_filtres_invalides_ecartes",
+      "statut": "à-vérifier",
+      "libelle": "Liste Collectes traiteur — « Période » en premier ; Lieu, Client organisateur et « Info incomplète » à choix multiple avec case « Tous » (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, partie C). API : `lieu_ids` (CSV d'UUID ; l'ancien `lieu_id` lu comme une liste d'un élément), `client` répété (noms saisis à la main, cités et échappés avant le `in`), statuts validés contre l'enum, « Programmée par » en UUID ; une valeur invalide est écartée, jamais de `.in()` vide. Lecture toujours sous RLS (col_select), aucune lecture service_role ajoutée. Liens existants `?lieu=<id>` / `?client=<nom>` pré-cochés ; l'export CSV reçoit les paramètres de la liste. GO-VISUAL en attente (pas de capture dans ce lot — arbitrage Val 2026-10-01)."
     }
   ],
   "cdc_source_hash": {

@@ -1,7 +1,6 @@
 'use client';
 
 import type * as React from 'react';
-import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
@@ -27,8 +26,11 @@ export interface CollecteFiltres {
   statuts: string[];
   from: string;
   to: string;
-  lieuId: string;
-  client: string;
+  /** Lieux cochés ; vide = tous. */
+  lieuIds: string[];
+  /** Noms de clients organisateurs cochés ; vide = tous. */
+  clients: string[];
+  /** Filtre à deux valeurs : '' = toutes (aucune ou les deux cases cochées). */
   infoIncomplete: '' | 'oui' | 'non';
   programmeePar: string[];
 }
@@ -37,8 +39,8 @@ export const FILTRES_COLLECTE_VIDES: CollecteFiltres = {
   statuts: [],
   from: '',
   to: '',
-  lieuId: '',
-  client: '',
+  lieuIds: [],
+  clients: [],
   infoIncomplete: '',
   programmeePar: [],
 };
@@ -58,8 +60,8 @@ export function memeFiltresCollecte(
     memeListe(a.statuts, b.statuts) &&
     a.from === b.from &&
     a.to === b.to &&
-    a.lieuId === b.lieuId &&
-    a.client === b.client &&
+    memeListe(a.lieuIds, b.lieuIds) &&
+    memeListe(a.clients, b.clients) &&
     a.infoIncomplete === b.infoIncomplete &&
     memeListe(a.programmeePar, b.programmeePar)
   );
@@ -70,8 +72,8 @@ export function filtresCollecteActifs(f: CollecteFiltres): boolean {
     f.statuts.length > 0 ||
     f.from !== '' ||
     f.to !== '' ||
-    f.lieuId !== '' ||
-    f.client !== '' ||
+    f.lieuIds.length > 0 ||
+    f.clients.length > 0 ||
     f.infoIncomplete !== '' ||
     f.programmeePar.length > 0
   );
@@ -81,13 +83,16 @@ export function filtresCollecteActifs(f: CollecteFiltres): boolean {
  * Filtres ⇄ query-string de la page. Clés partagées avec le drill-down des
  * dashboards (`statut`, `from`, `to`, `lieu`) : arriver depuis une Top liste
  * pré-remplit donc la barre, et un filtre posé survit au rechargement.
+ * Listes en CSV (`statut`, `lieu`, `par`), sauf `client`, RÉPÉTÉ : ce sont des
+ * noms saisis à la main, une virgule y est possible. Un ancien lien à valeur
+ * unique (`?lieu=<id>`, `?client=<nom>`) se lit comme une liste d'un élément.
  */
 const CLES_URL = {
   statuts: 'statut',
   from: 'from',
   to: 'to',
-  lieuId: 'lieu',
-  client: 'client',
+  lieuIds: 'lieu',
+  clients: 'client',
   infoIncomplete: 'info',
   programmeePar: 'par',
 } as const;
@@ -99,8 +104,8 @@ export function lireFiltresCollecte(params: URLSearchParams): CollecteFiltres {
     statuts: liste(CLES_URL.statuts),
     from: params.get(CLES_URL.from) ?? '',
     to: params.get(CLES_URL.to) ?? '',
-    lieuId: params.get(CLES_URL.lieuId) ?? '',
-    client: params.get(CLES_URL.client) ?? '',
+    lieuIds: liste(CLES_URL.lieuIds),
+    clients: params.getAll(CLES_URL.clients).filter(Boolean),
     infoIncomplete: info === 'oui' || info === 'non' ? info : '',
     programmeePar: liste(CLES_URL.programmeePar),
   };
@@ -116,8 +121,9 @@ export function ecrireFiltresCollecte(
   poser(CLES_URL.statuts, f.statuts.join(','));
   poser(CLES_URL.from, f.from);
   poser(CLES_URL.to, f.to);
-  poser(CLES_URL.lieuId, f.lieuId);
-  poser(CLES_URL.client, f.client);
+  poser(CLES_URL.lieuIds, f.lieuIds.join(','));
+  usp.delete(CLES_URL.clients);
+  for (const c of f.clients) usp.append(CLES_URL.clients, c);
   poser(CLES_URL.infoIncomplete, f.infoIncomplete);
   poser(CLES_URL.programmeePar, f.programmeePar.join(','));
   return usp;
@@ -151,14 +157,15 @@ interface Props {
 }
 
 /**
- * Barre de filtres de la liste Collectes traiteur — §06.04 §3 « Filtres
- * disponibles » (BL-P2-14, volet filtres) : Statut (multi) · Période · Lieu ·
- * Client Organisateur · « Info incomplète » oui/non · « Programmée par » (multi).
+ * Barre de filtres des listes Collectes traiteur et agence — §06.04 §3
+ * « Filtres disponibles » (BL-P2-14, volet filtres) : Période · Statut · Lieu ·
+ * Client Organisateur · « Info incomplète » oui/non · « Programmée par ».
  * Le filtre Type est porté par le sélecteur ZD/AG de l'en-tête.
  *
- * Mise en page = pattern DS `FilterBar` : filtres en ligne « Titre  valeur ▾ »
- * (décision Val 2026-09-30) — FiltreCoches pour les choix multiples, Combobox
- * `titre` pour les choix uniques, DateRangePicker `titre` pour la période.
+ * Mise en page = pattern DS `FilterBar` : filtres en ligne « Titre  valeur ▾ ».
+ * Décisions Val 2026-09-30 : « Période » en premier (DateRangePicker `titre`),
+ * puis des listes à cocher (`FiltreCoches`, case « Tous » = aucun filtre) —
+ * plus aucun filtre à valeur unique.
  *
  * Le filtre Statut propose les LIBELLÉS de la vue client (mapping canonique
  * 2026-06-30) : l'utilisateur ne voit jamais « Programmée », et un libellé
@@ -202,6 +209,14 @@ export function CollecteFiltresBar({
         </span>
       }
     >
+      <DateRangePicker
+        titre="Période"
+        id="filtre-periode"
+        data-testid="filtre-periode"
+        value={{ from: value.from, to: value.to }}
+        onChange={(p) => onChange({ ...value, from: p.from, to: p.to })}
+      />
+
       <FiltreCoches
         label="Statut"
         testid="filtre-statut"
@@ -217,52 +232,37 @@ export function CollecteFiltresBar({
         }
       />
 
-      <DateRangePicker
-        titre="Période"
-        id="filtre-periode"
-        data-testid="filtre-periode"
-        value={{ from: value.from, to: value.to }}
-        onChange={(p) => onChange({ ...value, from: p.from, to: p.to })}
+      <FiltreCoches
+        label="Lieu"
+        testid="filtre-lieu"
+        options={options.lieux}
+        selected={value.lieuIds}
+        onChange={(ids) => set('lieuIds', ids)}
       />
 
-      <Combobox
-        titre="Lieu"
-        id="filtre-lieu"
-        data-testid="filtre-lieu"
-        searchPlaceholder="Rechercher un lieu…"
-        options={[
-          { value: '', label: 'Tous les lieux' },
-          ...options.lieux.map((l) => ({ value: l.id, label: l.nom })),
-        ]}
-        value={value.lieuId}
-        onChange={(v) => set('lieuId', v)}
+      <FiltreCoches
+        label="Client organisateur"
+        testid="filtre-client"
+        options={options.clients.map((c) => ({ id: c, nom: c }))}
+        selected={value.clients}
+        onChange={(noms) => set('clients', noms)}
       />
 
-      <Combobox
-        titre="Client organisateur"
-        id="filtre-client"
-        data-testid="filtre-client"
-        searchPlaceholder="Rechercher un client…"
+      <FiltreCoches
+        label="Info incomplète"
+        testid="filtre-info-incomplete"
+        libelleVide="Toutes"
+        libelleTous="Toutes"
         options={[
-          { value: '', label: 'Tous les clients' },
-          ...options.clients.map((c) => ({ value: c, label: c })),
+          { id: 'oui', nom: 'Oui' },
+          { id: 'non', nom: 'Non' },
         ]}
-        value={value.client}
-        onChange={(v) => set('client', v)}
-      />
-
-      <Combobox
-        titre="Info incomplète"
-        id="filtre-info-incomplete"
-        data-testid="filtre-info-incomplete"
-        placeholder="Toutes"
-        options={[
-          { value: '', label: 'Toutes' },
-          { value: 'oui', label: 'Oui' },
-          { value: 'non', label: 'Non' },
-        ]}
-        value={value.infoIncomplete}
-        onChange={(v) => set('infoIncomplete', v as '' | 'oui' | 'non')}
+        selected={value.infoIncomplete ? [value.infoIncomplete] : []}
+        // Deux cases : une seule cochée filtre ; les deux cochées = « Toutes »,
+        // que FiltreCoches rend déjà en sélection vide.
+        onChange={([v]) =>
+          set('infoIncomplete', v === 'oui' || v === 'non' ? v : '')
+        }
       />
 
       {options.programmateurs.length > 1 && (

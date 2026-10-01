@@ -237,8 +237,10 @@ export function ListeCollectesClient({
       type: typeFiltre,
       statut: statuts.join(','),
     });
-    if (filtres.lieuId) qs.set('lieu_id', filtres.lieuId);
-    if (filtres.client) qs.set('client', filtres.client);
+    if (filtres.lieuIds.length > 0)
+      qs.set('lieu_ids', filtres.lieuIds.join(','));
+    // Noms saisis à la main (virgule possible) : paramètre répété, pas de CSV.
+    for (const c of filtres.clients) qs.append('client', c);
     if (filtres.infoIncomplete)
       qs.set('info_incomplete', filtres.infoIncomplete);
     if (filtres.programmeePar.length > 0)
@@ -259,12 +261,21 @@ export function ListeCollectesClient({
     perimetreFiltre,
   ]);
 
+  // Chaque case cochée relance la liste : une réponse plus ancienne que la
+  // dernière demande est ignorée (sinon elle écraserait la liste à jour).
+  const derniereRequete = useRef(0);
   const charger = useCallback(() => {
+    const requete = ++derniereRequete.current;
+    const courante = () => requete === derniereRequete.current;
     setLoading(true);
     fetch(`${api}?${qsListe}`)
       .then((r) => r.json())
-      .then((j) => setRows((j.data ?? []) as CollecteRow[]))
-      .finally(() => setLoading(false));
+      .then((j) => {
+        if (courante()) setRows((j.data ?? []) as CollecteRow[]);
+      })
+      .finally(() => {
+        if (courante()) setLoading(false);
+      });
   }, [api, qsListe]);
 
   useEffect(() => {
@@ -361,8 +372,11 @@ export function ListeCollectesClient({
   // Chip « Filtre actif » (drill-down depuis une Top liste du dashboard) :
   // libellé mémorisé au clic, sinon dérivé, sinon générique. Le filtrage ne
   // dépend jamais de ce libellé. Le lieu n'y figure que tant que la barre
-  // filtre encore sur le lieu reçu.
-  const lieuDrillActif = drill.lieu !== '' && filtres.lieuId === drill.lieu;
+  // filtre encore sur le lieu reçu, et sur lui seul.
+  const lieuDrillActif =
+    drill.lieu !== '' &&
+    filtres.lieuIds.length === 1 &&
+    filtres.lieuIds[0] === drill.lieu;
   const lieuNom =
     filtreLabel ??
     options.lieux.find((l) => l.id === drill.lieu)?.nom ??
@@ -530,7 +544,7 @@ export function ListeCollectesClient({
       )}
 
       {/* Barre de filtres DS : onglets Programmées / Historique + type ZD / AG
-          en en-tête, puis Statut / Période / Lieu / Client / Info incomplète /
+          en en-tête, puis Période / Statut / Lieu / Client / Info incomplète /
           Programmée par (§06.04 §3), compteur et réinitialisation en pied. */}
       <CollecteFiltresBar
         tabs={

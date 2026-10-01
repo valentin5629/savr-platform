@@ -29,6 +29,7 @@ function makeChain() {
     'select',
     'eq',
     'in',
+    'filter',
     'gte',
     'lte',
     'neq',
@@ -114,6 +115,12 @@ beforeEach(() => {
   rls = makeChain();
   admin = makeChain();
 });
+
+// Identifiants au format UUID : les listes d'ids sont validées avant `.in()`.
+const LIEU_1 = '11111111-1111-4111-8111-111111111111';
+const LIEU_2 = '22222222-2222-4222-8222-222222222222';
+const ORG_1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const ORG_2 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 // ── Auth / entité ───────────────────────────────────────────────────────────
 describe('M4.1 / garde', () => {
@@ -326,19 +333,73 @@ describe('M4.1 / export_csv_format_fr_et_filtres_actifs', () => {
     rls.push({ data: [], error: null });
     await call(
       'collectes',
-      '?type=zero_dechet&statut=brouillon,programmee&lieu_id=l1&client=Viparis&info_incomplete=oui&programmee_par=o1,o2',
+      `?type=zero_dechet&statut=brouillon,programmee&lieu_id=${LIEU_1}&client=Viparis&info_incomplete=oui&programmee_par=${ORG_1},${ORG_2}`,
     );
     const eq = rls.__calls.eq ?? [];
     const inn = rls.__calls.in ?? [];
     expect(inn).toContainEqual(['statut', ['brouillon', 'programmee']]);
-    expect(eq).toContainEqual(['evenements.lieu_id', 'l1']);
-    expect(eq).toContainEqual([
+    // L'ancien `lieu_id` est lu comme une liste d'un élément.
+    expect(inn).toContainEqual(['evenements.lieu_id', [LIEU_1]]);
+    expect(rls.__calls.filter).toContainEqual([
       'evenements.nom_client_organisateur',
-      'Viparis',
+      'in',
+      '("Viparis")',
     ]);
     // « Info incomplète : oui » = informations_completes à false.
     expect(eq).toContainEqual(['informations_completes', false]);
-    expect(inn).toContainEqual(['evenements.organisation_id', ['o1', 'o2']]);
+    expect(inn).toContainEqual(['evenements.organisation_id', [ORG_1, ORG_2]]);
+  });
+
+  // Filtres à choix multiple des listes traiteur / agence (partie C) : l'export
+  // lit les paramètres par la MÊME fonction que leurs routes (§12).
+  it('M4.1/export_collectes_filtres_choix_multiple — lieu_ids CSV et client répété, comme la liste', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [], error: null });
+    const qs = new URLSearchParams({
+      type: 'zero_dechet',
+      lieu_ids: `${LIEU_1},${LIEU_2}`,
+    });
+    qs.append('client', 'Viparis');
+    qs.append('client', 'Agence "Les Halles", (Paris)');
+    await call('collectes', `?${qs}`);
+    expect(rls.__calls.in).toContainEqual([
+      'evenements.lieu_id',
+      [LIEU_1, LIEU_2],
+    ]);
+    expect(rls.__calls.filter).toContainEqual([
+      'evenements.nom_client_organisateur',
+      'in',
+      '("Viparis","Agence \\"Les Halles\\", (Paris)")',
+    ]);
+  });
+
+  it('M4.1/export_collectes_filtres_liste_prioritaire — lieu_ids ET lieu_id présents : seule la liste est lue', async () => {
+    setupAuth('agence');
+    rls.push({ data: [], error: null });
+    await call('collectes', `?lieu_ids=${LIEU_1}&lieu_id=${LIEU_2}`);
+    expect(
+      (rls.__calls.in ?? []).filter((a) => a[0] === 'evenements.lieu_id'),
+    ).toEqual([['evenements.lieu_id', [LIEU_1]]]);
+  });
+
+  it('M4.1/export_collectes_filtres_invalides_ecartes — jamais de .in() vide, aucun filtre fantôme', async () => {
+    setupAuth('agence');
+    rls.push({ data: [], error: null });
+    await call(
+      'collectes',
+      '?type=zero_dechet&lieu_ids=pas-un-uuid&statut=inconnu&programmee_par=x&client=',
+    );
+    // Un `.in(colonne, [])` viderait l'export ; ici aucun filtre n'est posé.
+    expect(rls.__calls.in ?? []).toEqual([]);
+    expect(rls.__calls.filter ?? []).toEqual([]);
+    expect(rls.__calls.eq).toEqual([['type', 'zero_dechet']]);
+  });
+
+  it('M4.1/export_collectes_statut_hors_enum_retire — seuls les statuts de l’enum filtrent', async () => {
+    setupAuth('agence');
+    rls.push({ data: [], error: null });
+    await call('collectes', '?statut=inconnu,cloturee');
+    expect(rls.__calls.in).toContainEqual(['statut', ['cloturee']]);
   });
 });
 

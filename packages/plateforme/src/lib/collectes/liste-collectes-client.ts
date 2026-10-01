@@ -1,4 +1,6 @@
 import { rapportReserveDonneurOrdre } from './fiche-client-types.js';
+import { Constants } from '@savr/shared/src/database.types.js';
+import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
 
 // Ligne brute renvoyée par les routes liste Collectes client (traiteur, agence) :
 // embeds `collecte_flux` et `attributions_antgaspi` à agréger, `evenements` à
@@ -71,4 +73,32 @@ export function enrichirLignesCollectes(
       nb_repas_donnes: nbRepasDonnes,
     };
   });
+}
+
+/**
+ * Filtres de la barre des listes Collectes traiteur / agence (§06.04 §3
+ * « Filtres disponibles ») — UNE lecture pour les deux routes et pour l'export
+ * CSV, qui doit rendre les lignes de la liste affichée (§12). Tous à choix
+ * multiple (décision Val 2026-09-30) ; une valeur invalide est écartée, une
+ * liste vide ne pose aucun filtre.
+ *  - `lieu_ids` (CSV d'UUID) ; l'ancien `lieu_id` est lu comme une liste d'un
+ *    élément ;
+ *  - `client` RÉPÉTÉ : ce sont des noms saisis à la main, une virgule y est
+ *    possible — à appliquer avec `inTextes` ;
+ *  - `info_incomplete` oui | non → `informations_completes` (booléen inverse) ;
+ *  - `statut` (CSV, enum) et `programmee_par` (CSV d'UUID).
+ */
+export function lireFiltresListeCollectes(sp: URLSearchParams) {
+  const info = sp.get('info_incomplete');
+  return {
+    statuts: listeCsv(
+      sp.get('statut'),
+      parmi(Constants.plateforme.Enums.collecte_statut),
+    ),
+    lieuIds: listeCsv(sp.get('lieu_ids') ?? sp.get('lieu_id'), estUuid),
+    clients: sp.getAll('client').filter(Boolean),
+    informationsCompletes:
+      info === 'oui' ? false : info === 'non' ? true : null,
+    programmeePar: listeCsv(sp.get('programmee_par'), estUuid),
+  };
 }

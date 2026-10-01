@@ -478,6 +478,14 @@
       "test": "M3.3/liste_agence_colonne_client",
       "statut": "implemented",
       "libelle": "Colonne « Client » de la liste Collectes agence, à droite de « Lieu » (parité §06.04 — décision Val, revue écran E2E 2026-10-01). Portée par le composant commun : la colonne lit evenements.nom_client_organisateur, déjà renvoyé par GET /api/v1/agence/collectes."
+    },
+    {
+      "id": "M3.3-liste-filtres-choix-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:57",
+      "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx + packages/plateforme/src/components/collecte/liste-collectes-client.tsx (composant commun aux listes traiteur et agence) + packages/plateforme/src/app/api/v1/agence/collectes/route.ts + packages/plateforme/src/lib/collectes/liste-collectes-client.ts (lireFiltresListeCollectes)",
+      "test": "M3.3/liste_agence_periode_en_premier + M3.3/liste_agence_lieux_coches + M3.3/liste_agence_liens_existants_pre_coches + M3.3/liste_agence_info_incomplete_deux_cases + M3.3/liste_agence_reponse_perimee_ignoree + M3.3/liste_agence_reponse_perimee_arrivee_apres + M3.3/liste_agence_chip_lieu_tant_que_seul_lieu_filtre + M3.3/liste_agence_export_csv_memes_parametres + M3.3/liste_agence_filtres_lieux_multiples + M3.3/liste_agence_filtres_liste_prioritaire + M3.3/liste_agence_filtres_valeurs_invalides_ecartees + M3.3/liste_agence_filtres_tout_invalide_jamais_de_in_vide + M3.3/liste_agence_filtres_clients_multiples + M3.3/liste_agence_programmee_par_sans_objet",
+      "statut": "à-vérifier",
+      "libelle": "Liste Collectes agence — mêmes filtres que la liste traiteur (§06.11 : vue liste identique au §06.04) : « Période » en premier ; Lieu, Client organisateur et « Info incomplète » à choix multiple avec case « Tous » (décision Val 2026-09-30, partie C). API agence : `lieu_ids` CSV (ancien `lieu_id` relu), `client` répété, statuts validés contre l'enum ; lecture sous RLS, périmètre donneur d'ordre inchangé ; « Programmée par » reste sans objet (le paramètre ne filtre pas). GO-VISUAL en attente (pas de capture dans ce lot — arbitrage Val 2026-10-01)."
     }
   ],
   "cdc_source_hash": {

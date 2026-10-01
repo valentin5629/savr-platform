@@ -134,14 +134,15 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
         'data-from',
         '2026-09-01',
       );
-      // Choisir un lieu réécrit l'URL sans perdre le reste.
-      await waitFor(() => {
-        fireEvent.click(screen.getByTestId('filtre-lieu'));
-        expect(
-          screen.getByRole('option', { name: 'Pavillon Gabriel' }),
-        ).toBeTruthy();
-      }, ATTENTE_UI);
-      fireEvent.click(screen.getByRole('option', { name: 'Pavillon Gabriel' }));
+      // Cocher un lieu réécrit l'URL sans perdre le reste.
+      fireEvent.click(screen.getByTestId('filtre-lieu'));
+      fireEvent.click(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Pavillon Gabriel' },
+          ATTENTE_UI,
+        ),
+      );
       const usp = derniereUrl();
       expect(usp.get('lieu')).toBe('lieu-a');
       expect(usp.get('statut')).toBe('cloturee');

@@ -5,7 +5,11 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
-import { enrichirLignesCollectes } from '@/lib/collectes/liste-collectes-client.js';
+import {
+  enrichirLignesCollectes,
+  lireFiltresListeCollectes,
+} from '@/lib/collectes/liste-collectes-client.js';
+import { inTextes } from '@/lib/filtre-csv.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -13,9 +17,11 @@ const AGENCE_ROLES: ClientRole[] = ['agence'];
 // §06.04 §3). Périmètre donneur d'ordre : la RLS (col_select → f_collecte_visible)
 // scope sur evenements.organisation_id = agence. Tri date décroissante.
 //
-// Mêmes filtres que la liste traiteur (§06.04 §3 « Filtres disponibles ») :
-//   type (sélecteur ZD/AG) · statut (multi) · période (from/to) · lieu_id ·
-//   client (nom du client organisateur) · info_incomplete (oui|non).
+// Mêmes filtres que la liste traiteur (§06.04 §3 « Filtres disponibles »), lus
+// par la même fonction (lireFiltresListeCollectes) :
+//   type (sélecteur ZD/AG) · statut (multi) · période (from/to) · lieu_ids
+//   (multi) · client (multi, noms du client organisateur) · info_incomplete
+//   (oui|non).
 // « Programmée par » n'a pas d'objet ici : l'agence est toujours la programmatrice.
 // Mêmes champs calculés (résultats de la collecte réalisée, rapport réservé) —
 // cf. enrichirLignesCollectes.
@@ -26,12 +32,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createSupabaseServerClient();
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type');
-  const statut = searchParams.get('statut');
   const from = searchParams.get('from');
   const to = searchParams.get('to');
-  const lieuId = searchParams.get('lieu_id');
-  const client = searchParams.get('client');
-  const infoIncomplete = searchParams.get('info_incomplete');
+  const filtres = lireFiltresListeCollectes(searchParams);
 
   let query = supabase
     .from('collectes')
@@ -51,13 +54,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (type === 'zero_dechet' || type === 'anti_gaspi') {
     query = query.eq('type', type);
   }
-  if (statut) query = query.in('statut', statut.split(','));
+  if (filtres.statuts.length > 0) query = query.in('statut', filtres.statuts);
   if (from) query = query.gte('date_collecte', from);
   if (to) query = query.lte('date_collecte', to);
-  if (lieuId) query = query.eq('evenements.lieu_id', lieuId);
-  if (client) query = query.eq('evenements.nom_client_organisateur', client);
-  if (infoIncomplete === 'oui' || infoIncomplete === 'non')
-    query = query.eq('informations_completes', infoIncomplete === 'non');
+  if (filtres.lieuIds.length > 0)
+    query = query.in('evenements.lieu_id', filtres.lieuIds);
+  if (filtres.clients.length > 0)
+    query = query.filter(
+      'evenements.nom_client_organisateur',
+      'in',
+      inTextes(filtres.clients),
+    );
+  if (filtres.informationsCompletes !== null)
+    query = query.eq('informations_completes', filtres.informationsCompletes);
 
   const { data, error } = await query;
   if (error) return serverError(error, 'agence.collectes.list');

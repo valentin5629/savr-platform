@@ -120,9 +120,10 @@ export function FicheEnTete({
 }) {
   return (
     <header className="shrink-0 border-b border-savr-neutral-200 px-6 pb-5 pr-14 pt-6 md:px-8 md:pr-16">
-      {/* Le statut partage la ligne du sur-titre ; titre et infos gardent toute
-          la largeur (une frise ne les écrase pas). Sous le point de bascule,
-          une seule colonne et le statut passe en dernier. */}
+      {/* Le statut occupe la droite de la première ligne (celle du sur-titre,
+          ou du titre s'il n'y a pas de sur-titre) ; titre et infos gardent
+          toute la largeur — une frise ne les écrase pas. Sous le point de
+          bascule : une seule colonne, statut en dernier (ordre du DOM). */}
       <div
         className={cn(
           'grid items-center gap-x-6 gap-y-1.5',
@@ -131,24 +132,17 @@ export function FicheEnTete({
             : 'sm:grid-cols-[minmax(0,1fr)_auto]',
         )}
       >
-        {(surtitre || statut) && (
+        {surtitre && (
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {surtitre}
           </div>
         )}
-        {statut && (
-          <div
-            className={cn(
-              'order-last mt-1.5 min-w-0',
-              statutLarge
-                ? 'lg:order-none lg:mt-0 lg:justify-self-end'
-                : 'sm:order-none sm:mt-0 sm:justify-self-end',
-            )}
-          >
-            {statut}
-          </div>
-        )}
-        <h3 className="col-span-full text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
+        <h3
+          className={cn(
+            'text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900',
+            (surtitre || !statut) && 'col-span-full',
+          )}
+        >
           {titre}
         </h3>
         {description && (
@@ -168,6 +162,19 @@ export function FicheEnTete({
               </span>
             ))}
           </p>
+        )}
+        {statut && (
+          <div
+            className={cn(
+              'mt-1.5 min-w-0',
+              !surtitre && 'self-start',
+              statutLarge
+                ? 'lg:col-start-2 lg:row-start-1 lg:mt-0 lg:justify-self-end'
+                : 'sm:col-start-2 sm:row-start-1 sm:mt-0 sm:justify-self-end',
+            )}
+          >
+            {statut}
+          </div>
         )}
       </div>
     </header>

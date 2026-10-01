@@ -1,9 +1,9 @@
+import type { EtapeFriseClient } from '@/lib/statut-collecte-labels';
 import { cn } from '@/lib/utils';
 
-export interface EtapeFrise {
-  label: string;
-  etat: 'passee' | 'courante' | 'a_venir';
-}
+// Une étape de frise (libellé + état) — même forme pour les frises client et
+// Admin.
+export type EtapeFrise = EtapeFriseClient;
 
 // Frise de statut discrète des pop-ups collecte, à droite du sur-titre du grand
 // en-tête : étape courante pleine opacité + gras, les autres estompées. Même

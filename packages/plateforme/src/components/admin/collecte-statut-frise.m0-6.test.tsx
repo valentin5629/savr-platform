@@ -14,7 +14,7 @@ function etapeCourante(): HTMLElement | null {
   );
 }
 
-describe('CollecteStatutFrise', () => {
+describe('M0.6 — CollecteStatutFrise (frise de la fiche collecte Admin)', () => {
   it('marque l’étape courante du parcours nominal', () => {
     render(<CollecteStatutFrise statut="en_cours" />);
     expect(etapeCourante()).toHaveTextContent('En cours');

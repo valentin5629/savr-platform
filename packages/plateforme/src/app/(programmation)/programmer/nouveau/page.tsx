@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserRole } from '@/lib/use-user-role';
 import {
@@ -71,7 +71,8 @@ interface PackInfo {
 }
 
 // Source de pré-remplissage « Dupliquer » (?from=) — sous-ensemble du GET
-// /api/v1/traiteur/collectes/:id.
+// /api/v1/traiteur/collectes/:id ou /api/v1/agence/collectes/:id (même chargeur
+// de fiche client ; l'agence y lit en plus le traiteur opérationnel).
 interface SourceLieu {
   id: string;
   nom: string | null;
@@ -96,6 +97,8 @@ interface SourceCollecte {
   controle_acces_requis: boolean;
   informations_supplementaires: string | null;
   evenement: SourceEvenement | SourceEvenement[] | null;
+  /** GET agence seulement (§06.11 différence #3). */
+  traiteur_operationnel?: { id: string; nom: string | null } | null;
 }
 
 const emptyCollecte = (type: 'zd' | 'ag'): CollecteFormData => ({
@@ -126,6 +129,17 @@ export default function NouveauProgrammationPage() {
   // c'est le submit qui route la valeur vers le bon champ du body.
   const [traiteurOperationnelId, setTraiteurOperationnelId] = useState('');
   const [traiteurs, setTraiteurs] = useState<TraiteurOption[]>([]);
+  // « Dupliquer » côté agence : traiteur opérationnel de la collecte source. La
+  // liste du sélecteur est plafonnée à 20 traiteurs du référentiel et exclut les
+  // fiches shadow : on l'y ajoute au rendu, sinon il serait sélectionné sans
+  // être affiché.
+  const [traiteurSource, setTraiteurSource] = useState<TraiteurOption | null>(
+    null,
+  );
+  const optionsTraiteurs =
+    traiteurSource && !traiteurs.some((t) => t.id === traiteurSource.id)
+      ? [traiteurSource, ...traiteurs]
+      : traiteurs;
   // Org cible à propager aux sous-requêtes lieux/contacts — admin support seulement
   // (le param cross-org n'est honoré que pour le staff côté route).
   const adminTargetOrgId =
@@ -209,13 +223,22 @@ export default function NouveauProgrammationPage() {
   // adresse un autre endpoint same-origin avec la session de l'utilisateur
   // (relevé revue rls-securite sur #285). Même garde que
   // `(admin)/admin/collectes/[id]/page.tsx`.
+  //
+  // La route source dépend du rôle (la liste agence propose aussi « Dupliquer »,
+  // §06.11 = §06.04) : on attend donc que le rôle soit lu, puis on charge UNE fois.
+  const duplicationChargee = useRef(false);
   useEffect(() => {
     const from =
       typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).get('from')
         : null;
-    if (!from) return;
-    void fetch(`/api/v1/traiteur/collectes/${encodeURIComponent(from)}`)
+    if (!from || !role || duplicationChargee.current) return;
+    duplicationChargee.current = true;
+    const source =
+      role === 'agence'
+        ? `/api/v1/agence/collectes/${encodeURIComponent(from)}`
+        : `/api/v1/traiteur/collectes/${encodeURIComponent(from)}`;
+    void fetch(source)
       .then((r) =>
         r.ok ? (r.json() as Promise<{ data?: SourceCollecte }>) : null,
       )
@@ -224,6 +247,11 @@ export default function NouveauProgrammationPage() {
         if (!d) return;
         const evt = Array.isArray(d.evenement) ? d.evenement[0] : d.evenement;
         if (!evt) return;
+        const traiteurOp = d.traiteur_operationnel;
+        if (traiteurOp) {
+          setTraiteurSource({ id: traiteurOp.id, nom: traiteurOp.nom ?? '' });
+          setTraiteurOperationnelId(traiteurOp.id);
+        }
         const lieuSrc = Array.isArray(evt.lieu) ? evt.lieu[0] : evt.lieu;
         const isZd = d.type === 'zero_dechet';
         setNomClient(evt.nom_client_organisateur ?? '');
@@ -268,7 +296,7 @@ export default function NouveauProgrammationPage() {
         ]);
       })
       .catch(() => {});
-  }, [applyLieu]);
+  }, [applyLieu, role]);
 
   // Chargement des traiteurs pour les rôles qui programment pour le compte d'un
   // tiers (agence / gestionnaire_lieux) ou en support (admin_savr / ops_savr).
@@ -586,7 +614,7 @@ export default function NouveauProgrammationPage() {
                 required
                 placeholder="Choisir un traiteur…"
                 searchPlaceholder="Rechercher un traiteur…"
-                options={traiteurs.map((t) => ({
+                options={optionsTraiteurs.map((t) => ({
                   value: t.id,
                   label: t.nom || t.raison_sociale || '',
                 }))}

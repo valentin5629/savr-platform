@@ -14,7 +14,7 @@ function etapeCourante(): HTMLElement | null {
   );
 }
 
-describe('CollecteStatutFrise', () => {
+describe('M0.6 — CollecteStatutFrise (frise de la fiche collecte Admin)', () => {
   it('marque l’étape courante du parcours nominal', () => {
     render(<CollecteStatutFrise statut="en_cours" />);
     expect(etapeCourante()).toHaveTextContent('En cours');
@@ -26,13 +26,31 @@ describe('CollecteStatutFrise', () => {
     expect(etapeCourante()).toHaveTextContent('Sans excédents');
   });
 
+  // jsdom ne calcule aucune mise en page : garde de classe. Une frise non
+  // rétractable débordait de l'en-tête et passait sous la croix de la modale
+  // (5 étapes ≈ 590 px, mesuré dans Chromium — revue du 2026-10-01).
+  it('la frise peut se replier : jamais de largeur incompressible', () => {
+    render(<CollecteStatutFrise statut="realisee_sans_collecte" />);
+    const frise = screen.getByRole('list', {
+      name: 'Avancement de la collecte',
+    });
+    expect(frise.className).toMatch(/\bflex-wrap\b/);
+    expect(frise.className).not.toMatch(/\bshrink-0\b/);
+  });
+
   it.each([
+    ['annulation_demandee', 'Annulation demandée'],
     ['annulee', 'Annulée'],
     ['rejetee_par_prestataire', 'Rejetée'],
     ['brouillon', 'Créée'],
-  ])('%s : aucune étape courante, statut réel en badge', (statut, libelle) => {
-    render(<CollecteStatutFrise statut={statut} />);
-    expect(etapeCourante()).toBeNull();
-    expect(screen.getByText(libelle)).toBeInTheDocument();
-  });
+  ])(
+    '%s : aucune étape courante, frise estompée, statut réel en badge',
+    (statut, libelle) => {
+      render(<CollecteStatutFrise statut={statut} />);
+      expect(etapeCourante()).toBeNull();
+      // Frise estompée : aucune étape passée non plus (ni courante, ci-dessus).
+      expect(screen.queryByText(/étape passée/)).toBeNull();
+      expect(screen.getByText(libelle)).toBeInTheDocument();
+    },
+  );
 });

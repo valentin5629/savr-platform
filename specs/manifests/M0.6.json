@@ -1026,7 +1026,7 @@
     {
       "id": "BL-P1-RM-08",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:346 + specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (bouton « Forcer le statut » d'en-tête + modale : Select 9 statuts + Textarea motif ≥ 10 → PATCH /admin/collectes/[id] { statut, motif }). L'API (route.ts : forceStatut = 'statut' in updates, garde motif.length < 10, audit collecte_statut_force) était déjà en place — volet UI uniquement (drift, non recodé).",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (bouton « Forcer le statut » dans le pied de la fiche depuis le 2026-10-01 — components/admin/collecte-detail-panel.tsx — + modale : Select 9 statuts + Textarea motif ≥ 10 → PATCH /admin/collectes/[id] { statut, motif }). L'API (route.ts : forceStatut = 'statut' in updates, garde motif.length < 10, audit collecte_statut_force) était déjà en place — volet UI uniquement (drift, non recodé).",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères » (soumission désactivée motif court, PATCH { statut, motif } émis) + non-régression packages/plateforme/tests/api/admin/collectes-machine-etats.r16.test.ts",
       "statut": "à-vérifier",
       "libelle": "Modale UI de forçage manuel du statut (motif obligatoire ≥ 10) — volet UI de BL-P1-RM-08 (API + audit collecte_statut_force déjà en place). GO-VISUAL en attente (validation Val)."
@@ -1318,6 +1318,22 @@
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/grilles-zd.m0-6.test.tsx",
       "statut": "implemented",
       "libelle": "Bandeau ops « Lecture seule — édition réservée admin » partagé, appliqué aux écrans Paramètres §9"
+    },
+    {
+      "id": "M0.6-fiche-collecte-entete-frise-pied",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:224",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/components/admin/collecte-statut-frise.tsx, packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx, packages/plateforme/src/components/collecte/frise-etapes.tsx",
+      "test": "Grand en-tête AG (décision Val 2026-10-01) + Grand en-tête ZD : badge Zéro Déchet + M0.6 — CollecteStatutFrise (frise de la fiche collecte Admin)",
+      "statut": "implemented",
+      "libelle": "Fiche collecte Admin au cadre commun des fiches (décision Val 2026-10-01, _Divergences/M0.6_20261001_fiche-collecte-grand-en-tete) : grand en-tête (badge type, réf., lieu effectif, date · heure, pax, traiteur, ville, prestataire + statut TMS en badge, association AG ; « dirty TMS » en sur-titre), frise d'avancement compacte à droite (5 étapes, « Sans excédents », hors parcours = estompée + badge), 4 onglets en barre horizontale, « Forcer le statut » dans le pied ; plus de colonne résumé ni de cadre coloré."
+    },
+    {
+      "id": "M0.6-fiche-collecte-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:377",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/components/collecte/fiche-blocs.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la fiche collecte Admin au cadre commun (AG « Sans excédents » + dirty, ZD, annulée/rejetée ; 1024, 1440 et 390 px) et non-régression des fiches lieu, association, transporteur (brique FicheEnTete : +5 px d'en-tête avec sur-titre). Mesuré hors app dans Chromium (vrais composants + CSS compilé, 252 mesures de 320 à 1440 px, aucun débordement) ; pas de capture dans l'app connectée (arbitrage Val 2026-10-01) — GO-VISUAL en attente."
     }
   ],
   "cdc_source_hash": {

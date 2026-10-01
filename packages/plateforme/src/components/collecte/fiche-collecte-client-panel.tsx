@@ -17,10 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
-import {
-  typeCollecteLabel,
-  type FicheCollecteMeta,
-} from '@/components/collecte/fiche-collecte-modal-cadre';
+import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { FriseStatutClient } from '@/components/collecte/frise-statut-client';
 import {
   OngletInformations,
@@ -31,50 +28,24 @@ import {
 import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
 import {
   ACTION_DESTRUCTIVE_CONTOUR,
-  ONGLETS_COLONNE_DECLENCHEUR,
-  ONGLETS_COLONNE_LISTE,
+  BadgeTypeCollecte,
+  dateLongueCapitalisee,
+  EnTeteMention,
+  FicheEnTete,
+  ONGLET_FICHE,
+  typeCollecteLabel,
 } from '@/components/collecte/fiche-blocs';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
-import { cn } from '@/lib/utils';
 
 // Pop-up fiche collecte COMMUN aux rôles clients — traiteur (§06.04), agence
-// (§06.11) et gestionnaire de lieux (§06.05) — refonte Val 2026-09-29 :
-// en-tête (badge type, réf., lieu, date · heure · pax, frise client), onglets
-// en colonne (Informations / Logistique / Bilan & documents), pied d'actions.
-// Seules changent les actions, calculées par le serveur selon le rôle.
+// (§06.11) et gestionnaire de lieux (§06.05) — refonte Val 2026-09-29, au
+// format des fiches Admin depuis le 2026-10-01 : grand en-tête (badge type,
+// réf., lieu, date · heure · pax, frise client), barre d'onglets horizontale
+// (Informations / Logistique / Bilan & documents), pied d'actions. Seules
+// changent les actions, calculées par le serveur selon le rôle.
 
 type Onglet = 'informations' | 'logistique' | 'bilan';
-
-// Badge type (Q2) : ZD navy primary-700 texte blanc / AG orange accent-500
-// texte primary-950 — aligné DS dataviz-1/2.
-function BadgeType({ type }: { type: string }) {
-  const ag = type === 'anti_gaspi';
-  return (
-    <span
-      data-testid="badge-type-collecte"
-      className={cn(
-        'rounded-savr-sm px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em]',
-        ag
-          ? 'bg-savr-accent-500 text-savr-primary-950'
-          : 'bg-savr-primary-700 text-savr-white',
-      )}
-    >
-      {typeCollecteLabel(type)}
-    </span>
-  );
-}
-
-function dateLongueCapitalisee(dateIso: string): string {
-  const d = new Date(dateIso).toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'Europe/Paris',
-  });
-  return d.charAt(0).toUpperCase() + d.slice(1);
-}
 
 interface FicheCollecteClientPanelProps {
   espace: EspaceClient;
@@ -159,7 +130,6 @@ export function FicheCollecteClientPanel({
     if (!c) return;
     const lieu = c.evenement?.lieu;
     onLoaded?.({
-      type: c.type === 'zero_dechet' ? 'zero_dechet' : 'anti_gaspi',
       title: [
         `Collecte ${typeCollecteLabel(c.type)}`,
         lieu?.nom,
@@ -277,39 +247,31 @@ export function FicheCollecteClientPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* En-tête : pr-14 réserve la croix de fermeture du cadre. */}
-      <header className="shrink-0 border-b border-savr-neutral-200 px-6 pb-5 pr-14 pt-6 md:px-8 md:pr-16">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 space-y-1.5">
-            <div className="flex items-center gap-2">
-              <BadgeType type={c.type} />
-              <span className="text-[13px] text-savr-neutral-500">
-                Réf. {refCourteCollecte(c)}
-              </span>
-            </div>
-            <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
-              {lieu?.nom ?? 'Collecte'}
-            </h3>
-            <p
-              className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
-              data-testid="fiche-sous-ligne"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarDays className="h-4 w-4" aria-hidden="true" />
-                {dateLongueCapitalisee(c.date_collecte)}
-                {heure ? ` · ${heure}` : ''}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Users className="h-4 w-4" aria-hidden="true" />
-                {evt?.pax != null
-                  ? `${new Intl.NumberFormat('fr-FR').format(evt.pax)} pax`
-                  : '— pax'}
-              </span>
-            </p>
-          </div>
-          <FriseStatutClient statut={c.statut} />
-        </div>
-      </header>
+      <FicheEnTete
+        surtitre={
+          <>
+            <BadgeTypeCollecte type={c.type} />
+            <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
+          </>
+        }
+        titre={lieu?.nom ?? 'Collecte'}
+        infosTestId="fiche-sous-ligne"
+        infos={[
+          {
+            icon: CalendarDays,
+            texte: `${dateLongueCapitalisee(c.date_collecte)}${heure ? ` · ${heure}` : ''}`,
+          },
+          {
+            icon: Users,
+            texte:
+              evt?.pax != null
+                ? `${new Intl.NumberFormat('fr-FR').format(evt.pax)} pax`
+                : '— pax',
+          },
+        ]}
+        statut={<FriseStatutClient statut={c.statut} />}
+        statutLarge
+      />
 
       {editing && evt ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-8">
@@ -347,40 +309,35 @@ export function FicheCollecteClientPanel({
           />
         </div>
       ) : (
-        <Tabs
-          value={onglet}
-          onValueChange={(v) => setOnglet(v as Onglet)}
-          orientation="vertical"
-          className="flex min-h-0 flex-1 flex-col md:flex-row"
-        >
-          <TabsList
-            aria-label="Sections de la fiche collecte"
-            className={ONGLETS_COLONNE_LISTE}
-          >
-            <TabsTrigger
-              value="informations"
-              className={ONGLETS_COLONNE_DECLENCHEUR}
+        // Même barre d'onglets horizontale que les fiches Admin (décision Val
+        // 2026-10-01), fixe au défilement du corps.
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
+            <TabsList
+              aria-label="Sections de la fiche collecte"
+              className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
             >
-              Informations
-            </TabsTrigger>
-            <TabsTrigger
-              value="logistique"
-              className={ONGLETS_COLONNE_DECLENCHEUR}
-            >
-              Logistique
-            </TabsTrigger>
-            <TabsTrigger value="bilan" className={ONGLETS_COLONNE_DECLENCHEUR}>
-              Bilan & documents
-            </TabsTrigger>
-          </TabsList>
+              <TabsTrigger value="informations" className={ONGLET_FICHE}>
+                Informations
+              </TabsTrigger>
+              <TabsTrigger value="logistique" className={ONGLET_FICHE}>
+                Logistique
+              </TabsTrigger>
+              <TabsTrigger value="bilan" className={ONGLET_FICHE}>
+                Bilan & documents
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-6 md:px-8">
             {!c.informations_completes && (
-              <AlertBar variant="warn" data-testid="bandeau-infos-incompletes">
+              <AlertBar
+                variant="warn"
+                className="mt-4"
+                data-testid="bandeau-infos-incompletes"
+              >
                 Informations incomplètes — merci de compléter avant la collecte.
               </AlertBar>
             )}
-            <TabsContent value="informations" className="mt-0">
+            <TabsContent value="informations">
               <OngletInformations
                 c={c}
                 onProgrammeePar={() => setProgOpen(true)}
@@ -390,7 +347,7 @@ export function FicheCollecteClientPanel({
                 }}
               />
             </TabsContent>
-            <TabsContent value="logistique" className="mt-0">
+            <TabsContent value="logistique">
               <OngletLogistique
                 c={c}
                 urgence={urgence}
@@ -398,11 +355,11 @@ export function FicheCollecteClientPanel({
                 onDemanderUrgence={() => void demanderUrgence()}
               />
             </TabsContent>
-            <TabsContent value="bilan" className="mt-0">
+            <TabsContent value="bilan">
               <OngletBilan c={c} base={base} espace={espace} />
             </TabsContent>
-          </div>
-        </Tabs>
+          </Tabs>
+        </div>
       )}
 
       {piedVisible && (

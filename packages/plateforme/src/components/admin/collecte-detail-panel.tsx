@@ -20,6 +20,7 @@ import {
   CalendarDays,
   DoorOpen,
   Users,
+  Building2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,12 +53,18 @@ import {
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
+  BadgeTypeCollecte,
   BlocHeader,
   ContactLigne,
+  dateLongueCapitalisee,
+  EnTeteMention,
+  FicheEnTete,
   InfoItem,
-  ResumeItem,
+  ONGLET_FICHE,
+  typeCollecteLabel,
 } from '@/components/collecte/fiche-blocs';
-import { typeCollecteLabel } from '@/components/collecte/fiche-collecte-modal-cadre';
+import { refCourteCollecte } from '@/lib/collecte-ref';
+import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -372,13 +379,9 @@ interface CollecteDetailPanelProps {
   // dispatch, envoi TMS, infos accès/chauffeur, pesées ZD, documents, forçage
   // statut). L'id vient d'une prop (plus de route [id], plus de useParams).
   collecteId: string;
-  // Le panneau remonte au wrapper modale le type + le titre-résumé de la collecte
-  // une fois chargée → titre figé de l'en-tête de la modale + couleur du cadre
-  // (AG orange / ZD vert). Optionnel : absent en test unitaire du panneau seul.
-  onLoaded?: (info: {
-    type: 'anti_gaspi' | 'zero_dechet';
-    title: string;
-  }) => void;
+  // Le panneau remonte au cadre modale le titre accessible de la collecte une
+  // fois chargée. Optionnel : absent en test unitaire du panneau seul.
+  onLoaded?: (info: FicheCollecteMeta) => void;
   // Miroir « une sous-modale (forçage/nb camions/annuler crédit) est ouverte » :
   // le wrapper modale le lit pour ne PAS fermer la fiche sur Escape tant qu'une
   // sous-modale est ouverte (modale externe + sous-modale écoutent toutes deux
@@ -852,8 +855,8 @@ export function CollecteDetailPanel({
     setInfosAccesSaving(false);
   };
 
-  // Remonte le type + le titre-résumé au wrapper modale dès que la collecte est
-  // chargée (en-tête figé « Collecte AG · … · jusqu'à N pax » + cadre coloré).
+  // Remonte le titre accessible au cadre modale dès que la collecte est chargée
+  // (« Collecte AG · … · jusqu'à N pax », lu par les lecteurs d'écran).
   useEffect(() => {
     if (!collecte) return;
     const d = new Date(collecte.date_collecte).toLocaleDateString('fr-FR', {
@@ -864,7 +867,6 @@ export function CollecteDetailPanel({
       : '';
     const lieu = collecte.evenements.lieux;
     onLoaded?.({
-      type: collecte.type,
       title: `Collecte ${typeCollecteLabel(collecte.type)} · ${d}${h} · ${collecte.evenements.organisations.raison_sociale} · ${lieu.nom} (${lieu.ville}) · jusqu'à ${collecte.evenements.pax} pax`,
     });
   }, [collecte, onLoaded]);
@@ -879,7 +881,7 @@ export function CollecteDetailPanel({
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 p-6">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -887,7 +889,11 @@ export function CollecteDetailPanel({
   }
 
   if (error || !collecte) {
-    return <AlertBar variant="err">{error ?? 'Collecte introuvable'}</AlertBar>;
+    return (
+      <div className="p-6">
+        <AlertBar variant="err">{error ?? 'Collecte introuvable'}</AlertBar>
+      </div>
+    );
   }
 
   const isTerminal = STATUTS_TERMINAUX.includes(collecte.statut);
@@ -966,107 +972,91 @@ export function CollecteDetailPanel({
   );
   const lieu = applyLieuOverrides(collecte.evenements.lieux, overrides);
 
+  const statutTms = statutTmsDisplay(collecte.statut_tms);
+
   return (
-    <div className="space-y-4">
-      {/* En-tête : frise d'avancement (décision Val C2, remplace le badge seul) +
-          « dirty TMS » + forçage. Le titre-résumé vit dans l'en-tête figé de la modale. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="min-w-0 flex-1">
-          <CollecteStatutFrise statut={collecte.statut} />
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          {collecte.dirty_tms && (
-            <Badge
-              variant="warning"
-              className="flex items-center gap-1 text-xs"
-            >
-              <AlertTriangle className="h-3 w-3" />
-              Modifiée — renvoi requis
-            </Badge>
-          )}
-          {/* RM-08 — forçage manuel du statut (motif obligatoire) */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setForceStatutValue(collecte.statut);
-              setForceStatutMotif('');
-              setForceStatutError(null);
-              setForceStatutModal(true);
-            }}
-          >
-            <Settings2 className="h-4 w-4" />
-            Forcer le statut
-          </Button>
-        </div>
-      </div>
-
-      {/* Colonne résumé fixe à gauche + 4 onglets à droite (décision Val C1) :
-          le « de quoi on parle » reste visible quel que soit l'onglet ouvert.
-          Masquée sous md : le titre de la modale porte déjà ce résumé. */}
-      {/* Hauteur minimale : la modale ne « saute » pas d'un onglet à l'autre. */}
-      <div className="grid items-start gap-4 md:min-h-[60vh] md:grid-cols-[13rem_minmax(0,1fr)]">
-        <aside
-          aria-label="Résumé de la collecte"
-          className="hidden rounded-savr-lg border border-savr-neutral-100 bg-savr-neutral-50 p-4 md:sticky md:top-0 md:block"
-        >
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm md:grid-cols-1">
-            <ResumeItem label="Date et heure">
-              {dateCollecteLongue}
-              {heureCollecte && (
-                <span className="block text-savr-neutral-600">
-                  {heureCollecte}
-                </span>
-              )}
-            </ResumeItem>
-            <ResumeItem label="Traiteur">
-              {collecte.evenements.organisations.raison_sociale}
-            </ResumeItem>
-            <ResumeItem label="Pax">
-              jusqu&apos;à {collecte.evenements.pax}
-            </ResumeItem>
-            <ResumeItem label="Lieu">
-              {lieu.nom}
-              <span className="block text-savr-neutral-600">{lieu.ville}</span>
-            </ResumeItem>
-            <ResumeItem label="Prestataire">
-              {currentTransporteur?.nom ?? (
-                <span className="text-savr-neutral-400">Non attribué</span>
-              )}
-            </ResumeItem>
-            <ResumeItem label="Statut TMS">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Grand en-tête commun aux fiches (décision Val 2026-10-01) : il remplace
+          le titre-résumé de la modale, la colonne résumé (C1) et la frise
+          pleine largeur (C2) ; « dirty TMS » en sur-titre. */}
+      <FicheEnTete
+        surtitre={
+          <>
+            <BadgeTypeCollecte type={collecte.type} />
+            <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
+            {collecte.dirty_tms && (
               <Badge
-                variant={statutTmsDisplay(collecte.statut_tms).variant}
-                className="text-xs"
+                variant="warning"
+                className="flex items-center gap-1 text-xs"
               >
-                {statutTmsDisplay(collecte.statut_tms).label}
+                <AlertTriangle className="h-3 w-3" />
+                Modifiée — renvoi requis
               </Badge>
-            </ResumeItem>
-            {collecte.type === 'anti_gaspi' && (
-              <ResumeItem label="Association">
-                {collecte.attributions_antgaspi?.associations?.nom ?? (
-                  <span className="text-savr-neutral-400">
-                    En attente d&apos;attribution
-                  </span>
-                )}
-              </ResumeItem>
             )}
-          </dl>
-        </aside>
+          </>
+        }
+        titre={lieu.nom}
+        infosTestId="fiche-admin-sous-ligne"
+        infos={[
+          {
+            icon: CalendarDays,
+            texte: `${dateLongueCapitalisee(collecte.date_collecte)}${heureCollecte ? ` · ${heureCollecte}` : ''}`,
+          },
+          {
+            icon: Users,
+            texte: `jusqu'à ${new Intl.NumberFormat('fr-FR').format(collecte.evenements.pax)} pax`,
+          },
+          {
+            icon: Building2,
+            texte: collecte.evenements.organisations.raison_sociale,
+          },
+          { icon: MapPin, texte: lieu.ville },
+          {
+            icon: Truck,
+            // Le badge garde la couleur du statut TMS (rejet, erreur) visible
+            // sans ouvrir l'onglet Logistique.
+            texte: (
+              <span className="inline-flex flex-wrap items-center gap-2">
+                {currentTransporteur?.nom ?? 'Prestataire non attribué'}
+                <Badge variant={statutTms.variant} className="text-xs">
+                  {statutTms.label}
+                </Badge>
+              </span>
+            ),
+          },
+          ...(collecte.type === 'anti_gaspi'
+            ? [
+                {
+                  icon: HeartHandshake,
+                  texte:
+                    collecte.attributions_antgaspi?.associations?.nom ??
+                    'Association en attente d’attribution',
+                },
+              ]
+            : []),
+        ]}
+        statut={<CollecteStatutFrise statut={collecte.statut} />}
+        statutLarge
+      />
 
-        <Tabs defaultValue="informations" className="min-w-0">
-          {/* Barre d'onglets fixe au défilement du corps de la modale. */}
-          <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
-            <TabsTrigger value="informations" className="px-3 sm:px-4">
+      {/* Onglets seuls, sans colonne : même barre horizontale que les autres
+          fiches, fixe au défilement du corps. */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+        <Tabs defaultValue="informations">
+          <TabsList
+            aria-label="Sections de la fiche collecte"
+            className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
+          >
+            <TabsTrigger value="informations" className={ONGLET_FICHE}>
               Informations
             </TabsTrigger>
-            <TabsTrigger value="logistique" className="px-3 sm:px-4">
+            <TabsTrigger value="logistique" className={ONGLET_FICHE}>
               Logistique
             </TabsTrigger>
-            <TabsTrigger value="documents" className="px-3 sm:px-4">
+            <TabsTrigger value="documents" className={ONGLET_FICHE}>
               Documents
             </TabsTrigger>
-            <TabsTrigger value="historique" className="px-3 sm:px-4">
+            <TabsTrigger value="historique" className={ONGLET_FICHE}>
               Historique
             </TabsTrigger>
           </TabsList>
@@ -2258,6 +2248,23 @@ export function CollecteDetailPanel({
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Pied d'actions (cadre commun des fiches) — RM-08 forçage manuel du
+          statut (motif obligatoire). */}
+      <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setForceStatutValue(collecte.statut);
+            setForceStatutMotif('');
+            setForceStatutError(null);
+            setForceStatutModal(true);
+          }}
+        >
+          <Settings2 className="h-4 w-4" />
+          Forcer le statut
+        </Button>
+      </footer>
 
       {/* Modale — Annuler le crédit AG */}
       <Modal

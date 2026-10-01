@@ -18,11 +18,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
   const actif = searchParams.get('actif');
-  const type_tms = searchParams.get('type_tms');
-  // Filtre « Type » à choix multiple (CSV, liste blanche de l'enum type_tms),
-  // prioritaire sur le mono `type_tms` conservé.
   const typesTms = listeCsv(
-    searchParams.get('types_tms'),
+    searchParams.get('types_tms') ?? searchParams.get('type_tms'),
     parmi(Constants.plateforme.Enums.type_tms),
   );
   const q = searchParams.get('q');
@@ -51,7 +48,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (actif !== null) query = query.eq('actif', actif === 'true');
   if (typesTms.length > 0) query = query.in('type_tms', typesTms);
-  else if (type_tms) query = query.eq('type_tms', type_tms);
   if (q) query = query.ilike('nom', `%${q}%`);
 
   const { data, error, count } = await query;

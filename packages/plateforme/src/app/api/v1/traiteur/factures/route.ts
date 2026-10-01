@@ -14,9 +14,6 @@ const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_commercial',
 ];
 
-const STATUTS_VISIBLES_CLIENT =
-  Constants.plateforme.Enums.facture_statut.filter((s) => s !== 'brouillon');
-
 // GET /api/v1/traiteur/factures — liste des factures de l'orga (lecture seule).
 // La policy fac_client_select + masquage colonne F5 (M3.5) garantissent le
 // périmètre org-scoped et l'exclusion des colonnes sensibles (marge, synchro).
@@ -27,17 +24,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createSupabaseServerClient();
   const { searchParams } = new URL(req.url);
-  const statut = searchParams.get('statut');
-  const type = searchParams.get('type');
-  // Statut et Type à choix multiple (CSV en liste blanche des enums, brouillon
-  // exclu), prioritaires sur les mono conservés. Le périmètre reste celui de
-  // la RLS : `.in()` ne fait que restreindre les factures déjà visibles.
+  // Statut et Type à choix multiple. Le périmètre reste celui de la RLS et le
+  // `.neq('statut', 'brouillon')` ci-dessous : `.in()` ne fait que restreindre.
   const statuts = listeCsv(
-    searchParams.get('statuts'),
-    parmi(STATUTS_VISIBLES_CLIENT),
+    searchParams.get('statuts') ?? searchParams.get('statut'),
+    parmi(Constants.plateforme.Enums.facture_statut),
   );
   const types = listeCsv(
-    searchParams.get('types'),
+    searchParams.get('types') ?? searchParams.get('type'),
     parmi(Constants.plateforme.Enums.facture_type),
   );
   // Filtres §06.04 §6 l.690 : statut, type, période (date d'émission).
@@ -54,9 +48,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('date_emission', { ascending: false, nullsFirst: false });
 
   if (statuts.length > 0) query = query.in('statut', statuts);
-  else if (statut) query = query.eq('statut', statut);
   if (types.length > 0) query = query.in('type', types);
-  else if (type) query = query.eq('type', type);
   if (dateDebut) query = query.gte('date_emission', dateDebut);
   if (dateFin) query = query.lte('date_emission', dateFin);
 

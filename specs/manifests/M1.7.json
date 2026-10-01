@@ -305,7 +305,7 @@
     {
       "id": "M1.7-factures-filtres-choix-multiple",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:382",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/factures/page.tsx (Période en premier, Organisation / Type en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/admin/factures/route.ts (organisation_ids CSV UUID, types CSV en liste blanche facture_type, mono conservés)",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/factures/page.tsx (Période en premier, Organisation / Type en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/admin/factures/route.ts (organisation_ids CSV UUID, types CSV en liste blanche facture_type ; organisation_id (fiche Client) et type lus comme des listes d'un élément)",
       "test": "M1.7 — Période en premier ; Organisation / Type cochés + M1.7/factures_liste_organisation_ids_types_csv + M1.7/factures_liste_valeurs_invalides_ecartees + M1.7/factures_liste_mono_conserves + M1.7/factures_liste_listes_prioritaires_sur_mono + M1.7 — une réponse plus ancienne arrivée en dernier",
       "statut": "à-vérifier",
       "libelle": "Liste Factures Admin — « Période » en premier, Organisation et Type à choix multiple avec case « Toutes » / « Tous » (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). Les pastilles « Filtrer par statut » (FilterChips) restent des pastilles (arbitrage #437). GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."

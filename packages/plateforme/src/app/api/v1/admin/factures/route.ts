@@ -13,14 +13,16 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
   const url = new URL(req.url);
   const statut = url.searchParams.get('statut');
-  const orgId = url.searchParams.get('organisation_id');
   // R22b BL-P2-02 — filtres liste (§06.08 §4/§8) : type, période, « en erreur ».
-  const type = url.searchParams.get('type');
-  // Organisation et Type à choix multiple (CSV validés : UUID / liste blanche
-  // de l'enum facture_type), prioritaires sur les mono conservés.
-  const orgIds = listeCsv(url.searchParams.get('organisation_ids'), estUuid);
+  // Organisation et Type à choix multiple ; `organisation_id` reste lu (fiche
+  // Client, onglet Factures).
+  const orgIds = listeCsv(
+    url.searchParams.get('organisation_ids') ??
+      url.searchParams.get('organisation_id'),
+    estUuid,
+  );
   const types = listeCsv(
-    url.searchParams.get('types'),
+    url.searchParams.get('types') ?? url.searchParams.get('type'),
     parmi(Constants.plateforme.Enums.facture_type),
   );
   const dateDebut = url.searchParams.get('date_debut');
@@ -70,9 +72,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
 
   if (statut) query = query.eq('statut', statut);
   if (orgIds.length > 0) query = query.in('organisation_id', orgIds);
-  else if (orgId) query = query.eq('organisation_id', orgId);
   if (types.length > 0) query = query.in('type', types);
-  else if (type) query = query.eq('type', type);
   // « En erreur » (§06.08 §2.3) — factures portant une erreur de synchro Pennylane
   // (rejet 4xx repassé en brouillon, ou retry épuisé echec_final).
   if (enErreur === '1') query = query.not('erreur_synchro', 'is', null);

@@ -138,9 +138,9 @@
       "id": "M4.2-registre-options-perimetre",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:45-46",
       "artefact": "packages/plateforme/src/app/api/v1/registre/options/route.ts (requireRegistreUser) + packages/plateforme/src/lib/registre/registre.ts (fetchRegistreOptions : vue RLS v_registre_dechets lue par tranches jusqu'à une tranche vide)",
-      "test": "M4.2/registre_options_perimetre_complet + M4.2/registre_options_garde + M4.2 — Lieu : options du périmètre entier",
+      "test": "M4.2/registre_options_perimetre_complet + M4.2/registre_options_garde + M4.2 — Lieu : options du périmètre entier + M4.2 — options en échec",
       "statut": "implemented",
-      "libelle": "Options des filtres Lieu / Traiteur du registre = tout le registre du périmètre (arbitrage Val F2 2026-10-01), et non plus les lignes de la page affichée : en choix multiple, cocher un lieu faisait disparaître les autres. Même garde et même vue RLS-safe que la liste (aucune donnée de plus) ; aucune troncature quel que soit max_rows."
+      "libelle": "Options des filtres Lieu / Traiteur du registre = tout le registre du périmètre (arbitrage Val F2 2026-10-01), et non plus les lignes de la page affichée : en choix multiple, cocher un lieu faisait disparaître les autres. Même garde et même vue RLS-safe que la liste (aucune donnée de plus) ; aucune troncature quel que soit max_rows ; si la route échoue, repli sur les lieux / traiteurs des lignes affichées (jamais une liste vide muette)."
     }
   ],
   "cdc_source_hash": {

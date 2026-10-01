@@ -11,7 +11,8 @@ import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
-import { estUuid, listeCsv } from '@/lib/filtre-csv.js';
+import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
 const TRIS = {
@@ -20,8 +21,6 @@ const TRIS = {
   statut: ['statut', 'date_collecte'],
   statut_tms: ['statut_tms', 'date_collecte'],
 } satisfies Record<string, string[]>;
-
-const TYPES_COLLECTE = ['zero_dechet', 'anti_gaspi'];
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -52,8 +51,9 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   // Choix multiple de la barre de filtres (décision Val 2026-09-30) : listes
   // CSV, prioritaires sur leur équivalent mono (même motif que `statuts`).
   // Valeurs en liste blanche (types) ou validées UUID (ids) avant `.in()`.
-  const types = listeCsv(searchParams.get('types'), (t) =>
-    TYPES_COLLECTE.includes(t),
+  const types = listeCsv(
+    searchParams.get('types'),
+    parmi(Constants.plateforme.Enums.collecte_type),
   );
   const traiteurOperationnelIds = listeCsv(
     searchParams.get('traiteur_operationnel_ids'),

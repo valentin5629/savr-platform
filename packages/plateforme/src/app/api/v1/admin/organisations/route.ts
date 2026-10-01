@@ -22,12 +22,10 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
-  const type = searchParams.get('type');
-  // Filtre « Type » à choix multiple de la liste Clients (CSV validé),
-  // prioritaire sur le mono `type` que gardent les autres appelants
-  // (?type=traiteur des listes Collectes / Factures, fiche lieu).
+  // Filtre « Type » à choix multiple de la liste Clients ; `type` reste lu
+  // (Admin Collectes ?type=traiteur, fiche lieu ?type=gestionnaire_lieux).
   const types = listeCsv(
-    searchParams.get('types'),
+    searchParams.get('types') ?? searchParams.get('type'),
     parmi(Constants.plateforme.Enums.organisation_type),
   );
   const actif = searchParams.get('actif');
@@ -74,7 +72,6 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   if (q) query = query.ilike('raison_sociale', `%${q}%`);
 
   if (types.length > 0) query = query.in('type', types);
-  else if (type) query = query.eq('type', type);
   if (actif !== null) query = query.eq('actif', actif === 'true');
 
   const { data: orgs, error, count } = await query;

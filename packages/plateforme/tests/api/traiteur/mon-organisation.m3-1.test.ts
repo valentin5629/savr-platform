@@ -702,19 +702,20 @@ describe('M3.1 / mon-organisation facturation filtres', () => {
     );
     expect(res.status).toBe(200);
     // Valeurs envoyées = enums RÉELS (facture_statut / facture_type), pas des
-    // libellés fantômes (en_retard / anti_gaspi / pack).
-    const eqCalls = rls.__calls.eq ?? [];
-    expect(eqCalls).toContainEqual(['statut', 'emise']);
-    expect(eqCalls).toContainEqual(['type', 'collecte_antigaspi']);
+    // libellés fantômes (en_retard / anti_gaspi / pack). Le paramètre à valeur
+    // unique est lu comme une liste d'un élément (choix multiple, 2026-09-30).
+    const inCalls = rls.__calls.in ?? [];
+    expect(inCalls).toContainEqual(['statut', ['emise']]);
+    expect(inCalls).toContainEqual(['type', ['collecte_antigaspi']]);
     const gte = rls.__calls.gte ?? [];
     const lte = rls.__calls.lte ?? [];
     expect(gte).toContainEqual(['date_emission', '2026-01-01']);
     expect(lte).toContainEqual(['date_emission', '2026-12-31']);
   });
 
-  // Choix multiple (décision Val 2026-09-30) : CSV au pluriel en liste blanche,
-  // prioritaire sur le mono ; lecture toujours sous la RLS (client serveur),
-  // brouillons toujours exclus — `.in()` ne fait que restreindre.
+  // Choix multiple (décision Val 2026-09-30) : CSV au pluriel en liste blanche
+  // des enums ; lecture toujours sous la RLS (client serveur), brouillons
+  // toujours exclus par le `.neq` — `.in()` ne fait que restreindre.
   it('M3.1/trait_monorga_factures_filtres_choix_multiple — statuts/types CSV → in(), hors liste blanche écartés', async () => {
     setupAuth('traiteur_commercial');
     rls.push({ data: [], error: null });
@@ -727,9 +728,10 @@ describe('M3.1 / mon-organisation facturation filtres', () => {
     );
     expect(res.status).toBe(200);
     const inCalls = rls.__calls.in ?? [];
-    // `brouillon` (jamais visible au client) et `en_retard` (badge dérivé)
-    // ne passent pas la liste blanche ; `anti_gaspi` n'est pas un facture_type.
-    expect(inCalls).toContainEqual(['statut', ['emise', 'payee']]);
+    // `en_retard` (badge dérivé) n'est pas un facture_statut ; `anti_gaspi`
+    // n'est pas un facture_type. `brouillon` passe la liste blanche mais le
+    // `.neq` le rend vide : jamais de brouillon côté client.
+    expect(inCalls).toContainEqual(['statut', ['emise', 'payee', 'brouillon']]);
     expect(inCalls).toContainEqual(['type', ['zero_dechet', 'avoir']]);
     expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
     expect(
@@ -746,13 +748,13 @@ describe('M3.1 / mon-organisation facturation filtres', () => {
     rls.push({ data: [], error: null });
     const { GET } = await import('@/app/api/v1/traiteur/factures/route.js');
     await GET(
-      makeReq('GET', '/api/v1/traiteur/factures?statuts=brouillon&types=x'),
+      makeReq('GET', '/api/v1/traiteur/factures?statuts=en_retard&types=x'),
     );
     expect(rls.__calls.in ?? []).toEqual([]);
     expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
   });
 
-  it('M3.1/trait_monorga_factures_filtres_listes_prioritaires_sur_mono — statuts / types l’emportent sur statut / type', async () => {
+  it('M3.1/trait_monorga_factures_filtres_listes_prioritaires_sur_mono — statuts / types présents : seules les listes sont lues', async () => {
     setupAuth('traiteur_manager');
     rls.push({ data: [], error: null });
     const { GET } = await import('@/app/api/v1/traiteur/factures/route.js');

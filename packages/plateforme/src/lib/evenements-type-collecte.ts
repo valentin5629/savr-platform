@@ -5,11 +5,7 @@
 // « Avec ZD / Avec AG / ZD et AG » se recouvraient (un événement ZD+AG était
 // dans les trois) : impossible à cocher ensemble sans contresens.
 
-export const TYPES_COLLECTE_EVENEMENT = [
-  'zd_seul',
-  'ag_seul',
-  'zd_et_ag',
-] as const;
+const TYPES_COLLECTE_EVENEMENT = ['zd_seul', 'ag_seul', 'zd_et_ag'] as const;
 export type TypeCollecteEvenement = (typeof TYPES_COLLECTE_EVENEMENT)[number];
 
 // Anciennes valeurs à choix unique (`?type_collecte=…` des liens existants)

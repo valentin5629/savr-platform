@@ -45,13 +45,14 @@ const OPTIONS = {
   traiteurs: [{ id: 't1', nom: 'Kaspia' }],
 };
 
-const fetchMock = vi.fn((input: RequestInfo | URL) => {
+const fetchParDefaut = (input: RequestInfo | URL): Promise<Response> => {
   const url = String(input);
   const body = url.startsWith('/api/v1/registre/options')
     ? OPTIONS
     : { rows: ROWS, total: 1 };
   return Promise.resolve({ ok: true, json: async () => body } as Response);
-});
+};
+const fetchMock = vi.fn(fetchParDefaut);
 
 const dernierAppelListe = () =>
   new URL(
@@ -66,10 +67,47 @@ const dernierAppelListe = () =>
 
 describe('M4.2 — Registre : filtres à choix multiple', () => {
   beforeEach(() => {
-    fetchMock.mockClear();
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(fetchParDefaut);
     vi.stubGlobal('fetch', fetchMock);
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it(
+    'M4.2 — options en échec : repli sur les lieux des lignes affichées, jamais une liste vide muette',
+    async () => {
+      fetchMock.mockImplementation((input: RequestInfo | URL) =>
+        String(input).startsWith('/api/v1/registre/options')
+          ? Promise.resolve({
+              ok: false,
+              status: 500,
+              json: async () => ({ error: 'boom' }),
+            } as Response)
+          : fetchParDefaut(input),
+      );
+      render(<RegistrePage />);
+      await screen.findByRole('table', undefined, ATTENTE_UI);
+
+      fireEvent.click(screen.getByTestId('registre-lieu'));
+      const lieux = within(
+        await screen.findByRole('list', { name: 'Lieu' }, ATTENTE_UI),
+      );
+      // « Palais » vient des lignes affichées ; « Salle Wagram » (hors page)
+      // n'est pas proposé sans la route des options.
+      expect(
+        lieux.getByRole('checkbox', { name: 'Palais' }),
+      ).toBeInTheDocument();
+      expect(
+        lieux.queryByRole('checkbox', { name: 'Salle Wagram' }),
+      ).toBeNull();
+      fireEvent.click(lieux.getByRole('checkbox', { name: 'Palais' }));
+      await waitFor(
+        () => expect(dernierAppelListe().get('lieu')).toBe('l1'),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it(
     'M4.2 — Lieu : options du périmètre entier, 2 lieux cochés → lieu=… ; « Tous » efface ; Période reste en premier',

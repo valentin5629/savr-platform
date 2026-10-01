@@ -1,9 +1,10 @@
 // Filtres à choix multiple des listes (décision Val 2026-09-30, divergence
 // M0.8_20260930_filtres-choix-multiple-tous) : les valeurs cochées arrivent en
-// paramètre CSV au pluriel (`types=a,b`), prioritaire sur le paramètre à valeur
-// unique conservé pour les appelants et liens existants (`type=a`). Chaque
-// valeur est validée (liste blanche d'enum ou UUID) AVANT `.in()` : une valeur
-// invalide est écartée en silence.
+// paramètre CSV au pluriel (`types=a,b`) ; à défaut, l'ancien paramètre à
+// valeur unique (`type=a`) est lu comme une liste d'un élément :
+// `listeCsv(sp.get('types') ?? sp.get('type'), …)`. Chaque valeur est validée
+// (liste blanche d'enum ou UUID) AVANT `.in()` : une valeur invalide est
+// écartée en silence.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

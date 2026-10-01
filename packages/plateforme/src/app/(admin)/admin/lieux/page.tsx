@@ -110,16 +110,18 @@ export default function LieuxPage() {
       if (actif) params.set('actif', actif);
       if (q) params.set('q', q);
     }
-    const res = await fetch(`/api/v1/admin/lieux?${params}`);
-    if (numero !== derniereRequete.current) return;
-    if (res.ok) {
-      const json = (await res.json()) as { data: Lieu[]; total: number };
-      if (numero !== derniereRequete.current) return;
+    try {
+      const res = await fetch(`/api/v1/admin/lieux?${params}`);
+      const json = res.ok
+        ? ((await res.json()) as { data: Lieu[]; total: number })
+        : null;
+      if (numero !== derniereRequete.current || !json) return;
       setLieux(json.data);
       setTotal(json.total);
       if (tab === 'referentiel') setNbReferentiel(json.total);
+    } finally {
+      if (numero === derniereRequete.current) setLoading(false);
     }
-    setLoading(false);
   }, [page, actifs, q, tab, tri]);
 
   useEffect(() => {

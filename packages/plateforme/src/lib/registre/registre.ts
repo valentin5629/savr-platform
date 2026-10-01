@@ -100,12 +100,6 @@ export interface RegistreFilters {
 
 /** Parse les filtres du registre depuis la query string (valeurs CSV-listées). */
 export function parseRegistreFilters(sp: URLSearchParams): RegistreFilters {
-  // Lieu / Traiteur / Flux à choix multiple (§06.03) : ids validés UUID, flux
-  // en liste blanche, avant `.in()` / `.overlaps()` — une valeur invalide est
-  // écartée en silence.
-  const list = (k: string, valide: (v: string) => boolean): string[] =>
-    listeCsv(sp.get(k), valide);
-
   const sortByRaw = sp.get('sortBy') ?? 'date_evenement';
   const sortBy: SortColumn = (SORT_COLUMNS as readonly string[]).includes(
     sortByRaw,
@@ -124,9 +118,10 @@ export function parseRegistreFilters(sp: URLSearchParams): RegistreFilters {
   return {
     from: sp.get('from') ?? undefined,
     to: sp.get('to') ?? undefined,
-    lieuIds: list('lieu', estUuid),
-    traiteurIds: list('traiteur', estUuid),
-    fluxCodes: list('flux', parmi(FLUX_ORDER)),
+    // Lieu / Traiteur / Flux à choix multiple (§06.03).
+    lieuIds: listeCsv(sp.get('lieu'), estUuid),
+    traiteurIds: listeCsv(sp.get('traiteur'), estUuid),
+    fluxCodes: listeCsv(sp.get('flux'), parmi(FLUX_ORDER)),
     bordereauStatut: bs === 'dispo' || bs === 'manquant' ? bs : undefined,
     sortBy,
     sortDir,
@@ -184,7 +179,7 @@ export async function fetchRegistre(
   };
 }
 
-export interface OptionRegistre {
+interface OptionRegistre {
   id: string;
   nom: string;
 }

@@ -16,18 +16,21 @@ import {
   type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
+import type { Database } from '@savr/shared/src/database.types.js';
 
 // Ligne = enregistrement complet (l'API liste renvoie select('*')) → sert
 // directement à préremplir la modale d'édition, sans re-fetch.
 type Transporteur = TransporteurRecord;
 
+// Clés = enum DB type_tms complet (`satisfies`) : le filtre Type en tire ses
+// options, un renommage d'enum casse la compilation.
 const TYPE_TMS_LABELS: Record<string, string> = {
   mts1: 'MTS-1',
   a_toutes: 'A Toutes!',
   autre: 'Autre',
   par_mail: 'Par mail',
   par_telephone: 'Par téléphone',
-};
+} satisfies Record<Database['plateforme']['Enums']['type_tms'], string>;
 
 const TYPE_VEHICULE_LABELS: Record<string, string> = {
   velo_cargo: 'Vélo cargo',
@@ -79,18 +82,17 @@ export default function TransporteursPage() {
     if (actif) params.set('actif', actif);
     if (typesTms.length > 0) params.set('types_tms', typesTms.join(','));
     if (q) params.set('q', q);
-    const res = await fetch(`/api/v1/admin/transporteurs?${params}`);
-    if (numero !== derniereRequete.current) return;
-    if (res.ok) {
-      const json = (await res.json()) as {
-        data: Transporteur[];
-        total: number;
-      };
-      if (numero !== derniereRequete.current) return;
+    try {
+      const res = await fetch(`/api/v1/admin/transporteurs?${params}`);
+      const json = res.ok
+        ? ((await res.json()) as { data: Transporteur[]; total: number })
+        : null;
+      if (numero !== derniereRequete.current || !json) return;
       setTransporteurs(json.data);
       setTotal(json.total);
+    } finally {
+      if (numero === derniereRequete.current) setLoading(false);
     }
-    setLoading(false);
   }, [page, actifs, typesTms, q, tri]);
 
   useEffect(() => {

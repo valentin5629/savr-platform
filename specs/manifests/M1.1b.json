@@ -442,7 +442,7 @@
     {
       "id": "M1.1b-transporteurs-filtres-choix-multiple",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:500",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/transporteurs/page.tsx (Type / Statut en FiltreCoches, « Actifs » pré-coché) + packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts (types_tms CSV en liste blanche de l'enum type_tms, mono type_tms conservé)",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/transporteurs/page.tsx (Type / Statut en FiltreCoches, « Actifs » pré-coché) + packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts (types_tms CSV en liste blanche de l'enum type_tms ; l'ancien type_tms lu comme une liste d'un élément)",
       "test": "M1.1b — Transporteurs : Type + M1.1b/transporteurs_liste_types_tms_csv + M1.1b/transporteurs_liste_types_tms_hors_enum_ecartes + M1.1b/transporteurs_liste_type_tms_mono_conserve + M1.1b/transporteurs_liste_types_tms_prioritaire_sur_mono",
       "statut": "à-vérifier",
       "libelle": "Liste Transporteurs — filtres Type (type de TMS) et Statut à choix multiple avec case « Tous » (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2) ; défaut « Actifs » conservé (pré-coché). GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."

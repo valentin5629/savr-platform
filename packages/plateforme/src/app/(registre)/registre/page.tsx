@@ -76,6 +76,18 @@ function dateFr(d: string | null): string {
 function bordereauDispo(statut: string | null): boolean {
   return statut === 'emis' || statut === 'corrige';
 }
+/** Options distinctes tirées des lignes affichées (repli des filtres). */
+function optionsDesLignes(
+  rows: RegistreRow[],
+  cle: (r: RegistreRow) => [string | null, string | null],
+): OptionFiltre[] {
+  const m = new Map<string, string>();
+  for (const r of rows) {
+    const [id, nom] = cle(r);
+    if (id && nom) m.set(id, nom);
+  }
+  return [...m].map(([id, nom]) => ({ id, nom }));
+}
 
 function RegistreContent() {
   const router = useRouter();
@@ -168,11 +180,13 @@ function RegistreContent() {
 
   // Options Lieu / Traiteur = tout le registre du périmètre (arbitrage Val F2
   // 2026-10-01), chargées une fois : dérivées de la page affichée, cocher un
-  // lieu faisait disparaître les autres de la liste.
+  // lieu faisait disparaître les autres de la liste. Tant qu'elles manquent
+  // (chargement, ou route en échec), repli sur les lignes affichées plutôt
+  // qu'une liste vide sans explication.
   const [options, setOptions] = useState<{
     lieux: OptionFiltre[];
     traiteurs: OptionFiltre[];
-  }>({ lieux: [], traiteurs: [] });
+  } | null>(null);
   useEffect(() => {
     let annule = false;
     fetch('/api/v1/registre/options')
@@ -188,6 +202,13 @@ function RegistreContent() {
       annule = true;
     };
   }, []);
+  const optionsAffichees = options ?? {
+    lieux: optionsDesLignes(rows, (r) => [r.lieu_id, r.lieu_nom]),
+    traiteurs: optionsDesLignes(rows, (r) => [
+      r.traiteur_operationnel_organisation_id,
+      r.traiteur_raison_sociale,
+    ]),
+  };
 
   function sort(key: SortKey) {
     if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -362,7 +383,7 @@ function RegistreContent() {
         <FiltreCoches
           label="Lieu"
           testid="registre-lieu"
-          options={options.lieux}
+          options={optionsAffichees.lieux}
           selected={lieux}
           onChange={(ids) => {
             setPage(1);
@@ -372,7 +393,7 @@ function RegistreContent() {
         <FiltreCoches
           label="Traiteur"
           testid="registre-traiteur"
-          options={options.traiteurs}
+          options={optionsAffichees.traiteurs}
           selected={traiteurs}
           onChange={(ids) => {
             setPage(1);

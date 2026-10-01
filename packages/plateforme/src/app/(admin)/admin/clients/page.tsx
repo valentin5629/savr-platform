@@ -164,18 +164,19 @@ export default function ClientsPage() {
     params.set('tri', tri.cle);
     params.set('ordre', tri.ordre);
 
-    const res = await fetch(`/api/v1/admin/organisations?${params.toString()}`);
-    if (numero !== derniereRequete.current) return;
-    if (res.ok) {
-      const json = (await res.json()) as {
-        data: Organisation[];
-        total: number;
-      };
-      if (numero !== derniereRequete.current) return;
+    try {
+      const res = await fetch(
+        `/api/v1/admin/organisations?${params.toString()}`,
+      );
+      const json = res.ok
+        ? ((await res.json()) as { data: Organisation[]; total: number })
+        : null;
+      if (numero !== derniereRequete.current || !json) return;
       setOrgs(json.data);
       setTotal(json.total);
+    } finally {
+      if (numero === derniereRequete.current) setLoading(false);
     }
-    setLoading(false);
   }, [types, actifs, q, tri, page]);
 
   useEffect(() => {

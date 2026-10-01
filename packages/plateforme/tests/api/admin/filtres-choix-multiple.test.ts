@@ -114,14 +114,20 @@ describe('M1.1a — GET /admin/organisations : filtre Type à choix multiple', (
     expect(surColonne('eq', 'type')).toEqual([]);
   });
 
-  it('M1.1a/orgas_liste_type_mono_conserve — ?type=traiteur (autres écrans) reste un eq(type)', async () => {
+  it('M1.1a/orgas_liste_type_mono_conserve — ?type=traiteur (autres écrans) reste lu, comme une liste d’un élément validée', async () => {
     await get('type=traiteur&actif=true');
-    expect(surColonne('eq', 'type')).toEqual([['type', 'traiteur']]);
-    expect(surColonne('in', 'type')).toEqual([]);
+    expect(surColonne('in', 'type')).toEqual([['type', ['traiteur']]]);
+    expect(surColonne('eq', 'type')).toEqual([]);
     expect(surColonne('eq', 'actif')).toEqual([['actif', true]]);
+
+    // Valeur unique hors enum : écartée comme dans une liste (plus d'erreur 500).
+    admin = makeChain();
+    await get('type=inconnu');
+    expect(surColonne('in', 'type')).toEqual([]);
+    expect(surColonne('eq', 'type')).toEqual([]);
   });
 
-  it('M1.1a/orgas_liste_types_prioritaire_sur_mono — types ET type présents : la liste gagne ; liste toute invalide → le mono s’applique', async () => {
+  it('M1.1a/orgas_liste_types_prioritaire_sur_mono — types ET type présents : seule la liste est lue', async () => {
     await get('types=agence&type=traiteur');
     expect(surColonne('in', 'type')).toEqual([['type', ['agence']]]);
     expect(surColonne('eq', 'type')).toEqual([]);
@@ -129,7 +135,7 @@ describe('M1.1a — GET /admin/organisations : filtre Type à choix multiple', (
     admin = makeChain();
     await get('types=inconnu&type=traiteur');
     expect(surColonne('in', 'type')).toEqual([]);
-    expect(surColonne('eq', 'type')).toEqual([['type', 'traiteur']]);
+    expect(surColonne('eq', 'type')).toEqual([]);
   });
 });
 
@@ -157,13 +163,13 @@ describe('M1.1b — GET /admin/transporteurs : filtre Type à choix multiple', (
     expect(surColonne('in', 'type_tms')).toEqual([]);
   });
 
-  it('M1.1b/transporteurs_liste_type_tms_mono_conserve — ?type_tms= reste un eq', async () => {
+  it('M1.1b/transporteurs_liste_type_tms_mono_conserve — ?type_tms= reste lu, comme une liste d’un élément', async () => {
     await get('type_tms=autre');
-    expect(surColonne('eq', 'type_tms')).toEqual([['type_tms', 'autre']]);
-    expect(surColonne('in', 'type_tms')).toEqual([]);
+    expect(surColonne('in', 'type_tms')).toEqual([['type_tms', ['autre']]]);
+    expect(surColonne('eq', 'type_tms')).toEqual([]);
   });
 
-  it('M1.1b/transporteurs_liste_types_tms_prioritaire_sur_mono — types_tms ET type_tms : la liste gagne', async () => {
+  it('M1.1b/transporteurs_liste_types_tms_prioritaire_sur_mono — types_tms ET type_tms : seule la liste est lue', async () => {
     await get('types_tms=par_mail&type_tms=autre');
     expect(surColonne('in', 'type_tms')).toEqual([['type_tms', ['par_mail']]]);
     expect(surColonne('eq', 'type_tms')).toEqual([]);
@@ -200,13 +206,13 @@ describe('M1.7 — GET /admin/factures : Organisation et Type à choix multiple'
     expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
   });
 
-  it('M1.7/factures_liste_mono_conserves — organisation_id / type à valeur unique restent des eq', async () => {
+  it('M1.7/factures_liste_mono_conserves — organisation_id (fiche Client) / type restent lus, comme des listes d’un élément', async () => {
     await get(`organisation_id=${UUID_A}&type=avoir`);
-    expect(surColonne('eq', 'organisation_id')).toEqual([
-      ['organisation_id', UUID_A],
+    expect(surColonne('in', 'organisation_id')).toEqual([
+      ['organisation_id', [UUID_A]],
     ]);
-    expect(surColonne('eq', 'type')).toEqual([['type', 'avoir']]);
-    expect(admin.__calls.in ?? []).toEqual([]);
+    expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
+    expect(admin.__calls.eq ?? []).toEqual([]);
   });
 
   it('M1.7/factures_liste_listes_prioritaires_sur_mono — organisation_ids / types l’emportent sur organisation_id / type', async () => {
@@ -245,15 +251,15 @@ describe('M1.7 — export CSV factures : respecte Organisation et Type cochés (
     ]);
   });
 
-  it('M1.7/export_factures_type_mono_conserve — ?type= (exports clients) reste un eq', async () => {
+  it('M1.7/export_factures_type_mono_conserve — ?type= reste lu (liste d’un élément) ; brouillons exclus hors staff', async () => {
     await exporter('type=avoir', false);
-    expect(surColonne('eq', 'type')).toEqual([['type', 'avoir']]);
-    expect(admin.__calls.in ?? []).toEqual([]);
+    expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
+    expect(surColonne('eq', 'type')).toEqual([]);
     // Brouillons toujours exclus côté client.
     expect(admin.__calls.neq).toContainEqual(['statut', 'brouillon']);
   });
 
-  it('M1.7/export_factures_types_prioritaire_sur_mono — types ET type : la liste gagne', async () => {
+  it('M1.7/export_factures_types_prioritaire_sur_mono — types ET type : seule la liste est lue', async () => {
     await exporter('types=avoir&type=zero_dechet');
     expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
     expect(surColonne('eq', 'type')).toEqual([]);

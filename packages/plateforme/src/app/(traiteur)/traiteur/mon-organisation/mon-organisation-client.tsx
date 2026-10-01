@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,11 @@ import { BarreFiltres, FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { Input } from '@/components/ui/input';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
+import type { Database } from '@savr/shared/src/database.types.js';
+
+// Ids des filtres typés par l'enum DB : un renommage casse la compilation au
+// lieu de devenir un filtre ignoré en silence par la route (liste blanche).
+type Enums = Database['plateforme']['Enums'];
 
 type OrgTab = 'infos' | 'equipe' | 'facturation' | 'preferences';
 
@@ -993,13 +998,11 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
   const [types, setTypes] = useState<string[]>([]);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
 
   useEffect(() => {
-    // Filtres §6 l.690 : statut, type, période (date d'émission).
-    const numero = ++derniereRequete.current;
+    // Filtres §6 l.690 : statut, type, période (date d'émission). Une réponse
+    // arrivée après un changement de filtre (effet nettoyé) est ignorée.
+    let perime = false;
     const params = new URLSearchParams();
     if (statuts.length > 0) params.set('statuts', statuts.join(','));
     if (types.length > 0) params.set('types', types.join(','));
@@ -1009,9 +1012,11 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
     fetch(`/api/v1/traiteur/factures${qs ? `?${qs}` : ''}`)
       .then((r) => r.json())
       .then((j) => {
-        if (numero === derniereRequete.current)
-          setFactures((j.data ?? []) as FactureRow[]);
+        if (!perime) setFactures((j.data ?? []) as FactureRow[]);
       });
+    return () => {
+      perime = true;
+    };
   }, [statuts, types, dateDebut, dateFin]);
 
   return (
@@ -1074,24 +1079,28 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
             <FiltreCoches
               label="Statut"
               testid="factures-statut"
-              options={[
-                { id: 'en_attente_pennylane', nom: 'En attente' },
-                { id: 'emise', nom: 'Émise' },
-                { id: 'payee', nom: 'Payée' },
-                { id: 'annulee', nom: 'Annulée' },
-              ]}
+              options={
+                [
+                  { id: 'en_attente_pennylane', nom: 'En attente' },
+                  { id: 'emise', nom: 'Émise' },
+                  { id: 'payee', nom: 'Payée' },
+                  { id: 'annulee', nom: 'Annulée' },
+                ] satisfies { id: Enums['facture_statut']; nom: string }[]
+              }
               selected={statuts}
               onChange={setStatuts}
             />
             <FiltreCoches
               label="Type"
               testid="factures-type"
-              options={[
-                { id: 'zero_dechet', nom: 'ZD' },
-                { id: 'collecte_antigaspi', nom: 'AG' },
-                { id: 'achat_pack_antigaspi', nom: 'Pack' },
-                { id: 'avoir', nom: 'Avoir' },
-              ]}
+              options={
+                [
+                  { id: 'zero_dechet', nom: 'ZD' },
+                  { id: 'collecte_antigaspi', nom: 'AG' },
+                  { id: 'achat_pack_antigaspi', nom: 'Pack' },
+                  { id: 'avoir', nom: 'Avoir' },
+                ] satisfies { id: Enums['facture_type']; nom: string }[]
+              }
               selected={types}
               onChange={setTypes}
             />

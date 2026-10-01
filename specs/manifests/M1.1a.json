@@ -359,10 +359,10 @@
     {
       "id": "M1.1a-clients-filtres-choix-multiple",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:635",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/clients/page.tsx (Type / Statut en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/admin/organisations/route.ts (types CSV en liste blanche organisation_type, mono type conservé) + packages/plateforme/src/lib/filtre-csv.ts",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/clients/page.tsx (Type / Statut en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/admin/organisations/route.ts (types CSV en liste blanche organisation_type ; l'ancien type lu comme une liste d'un élément) + packages/plateforme/src/lib/filtre-csv.ts",
       "test": "M1.1a — Type : 2 types + M1.1a — Statut : Actifs + M1.1a/orgas_liste_types_csv + M1.1a/orgas_liste_types_hors_enum_ecartes + M1.1a/orgas_liste_type_mono_conserve + M1.1a/orgas_liste_types_prioritaire_sur_mono + M1.1a — une réponse plus ancienne arrivée en dernier",
       "statut": "à-vérifier",
-      "libelle": "Liste Clients — filtres Type et Statut à choix multiple, case « Tous » en tête (= aucun filtre) (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). API : `types` CSV validé, prioritaire sur le mono `type` que gardent les autres écrans (?type=traiteur des listes Collectes / Factures, fiche lieu). Statut Actifs / Inactifs : une valeur cochée → `actif`, les deux = aucun paramètre. §06.06 §8 ne liste pas les filtres. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+      "libelle": "Liste Clients — filtres Type et Statut à choix multiple, case « Tous » en tête (= aucun filtre) (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). API : `types` CSV validé ; l'ancien `type` reste lu comme une liste d'un élément (Admin Collectes ?type=traiteur, fiche lieu ?type=gestionnaire_lieux) — une seule lecture, plus de branche mono. Statut Actifs / Inactifs : une valeur cochée → `actif`, les deux = aucun paramètre. §06.06 §8 ne liste pas les filtres. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
     }
   ],
   "cdc_source_hash": {

@@ -15,6 +15,9 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
+import type { Database } from '@savr/shared/src/database.types.js';
+
+type Enums = Database['plateforme']['Enums'];
 
 interface Facture {
   id: string;
@@ -74,12 +77,14 @@ const FILTRES = [
   { key: 'annulee', label: 'Annulées' },
 ];
 
+// Ids typés par l'enum DB : un renommage d'enum casse la compilation au lieu
+// de devenir un filtre ignoré en silence par la route (liste blanche).
 const TYPE_OPTIONS = [
   { id: 'zero_dechet', nom: 'Zéro Déchet' },
   { id: 'collecte_antigaspi', nom: 'Anti-Gaspi' },
   { id: 'achat_pack_antigaspi', nom: 'Achat Pack AG' },
   { id: 'avoir', nom: 'Avoir' },
-];
+] satisfies { id: Enums['facture_type']; nom: string }[];
 
 async function downloadPdfSavr(id: string): Promise<void> {
   const res = await fetch(

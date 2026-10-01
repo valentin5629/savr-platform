@@ -17,7 +17,7 @@ type Result = { data: unknown; error: unknown };
 
 function makeClient() {
   const results: Record<string, Result> = {};
-  const filtres: [string, string, unknown][] = [];
+  const filtres: unknown[][] = [];
   const selects: string[] = [];
   function chain(table: string): Record<string, unknown> {
     const res = (): Result => results[table] ?? { data: [], error: null };
@@ -34,6 +34,11 @@ function makeClient() {
       },
       eq: note('eq'),
       in: note('in'),
+      // Liste de noms libres : `.filter(colonne, 'in', '("a","b")')`.
+      filter: (col: string, op: string, val: string) => {
+        filtres.push(['filter', col, op, val]);
+        return c;
+      },
       gte: note('gte'),
       lte: note('lte'),
       order: () => c,
@@ -67,6 +72,13 @@ async function callFiltres() {
     new NextRequest('http://localhost/api/v1/agence/collectes/filtres'),
   );
 }
+
+// Identifiants au format UUID : les listes d'ids sont validées avant `.in()`.
+const LIEU_1 = '11111111-1111-4111-8111-111111111111';
+const LIEU_2 = '22222222-2222-4222-8222-222222222222';
+const ORG_9 = '99999999-9999-4999-8999-999999999999';
+/** Filtres posés sur une colonne (toutes méthodes confondues). */
+const surColonne = (col: string) => rls.filtres.filter((f) => f[1] === col);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -135,18 +147,77 @@ describe('M3.3 / liste agence — route liste', () => {
 
   it('M3.3/liste_agence_filtres_client_info — client organisateur et info incomplète appliqués', async () => {
     await callListe(
-      'type=anti_gaspi&statut=programmee,validee&client=Viparis&info_incomplete=oui&lieu_id=l1',
+      `type=anti_gaspi&statut=programmee,validee&client=Viparis&info_incomplete=oui&lieu_id=${LIEU_1}`,
     );
     expect(rls.filtres).toEqual(
       expect.arrayContaining([
         ['eq', 'type', 'anti_gaspi'],
         ['in', 'statut', ['programmee', 'validee']],
-        ['eq', 'evenements.lieu_id', 'l1'],
-        ['eq', 'evenements.nom_client_organisateur', 'Viparis'],
+        // L'ancien `lieu_id` est lu comme une liste d'un élément.
+        ['in', 'evenements.lieu_id', [LIEU_1]],
+        ['filter', 'evenements.nom_client_organisateur', 'in', '("Viparis")'],
         // « Info incomplète : oui » = informations_completes à false.
         ['eq', 'informations_completes', false],
       ]),
     );
+  });
+});
+
+// Filtres à choix multiple (décision Val 2026-09-30, partie C) — mêmes règles
+// que la liste traiteur : §06.11 = §06.04 « à l'identique ».
+describe('M3.3 / liste Collectes agence — filtres à choix multiple (route)', () => {
+  it('M3.3/liste_agence_filtres_lieux_multiples — lieu_ids CSV → un seul .in()', async () => {
+    await callListe(`type=zero_dechet&lieu_ids=${LIEU_1},${LIEU_2}`);
+    expect(surColonne('evenements.lieu_id')).toEqual([
+      ['in', 'evenements.lieu_id', [LIEU_1, LIEU_2]],
+    ]);
+  });
+
+  it('M3.3/liste_agence_filtres_liste_prioritaire — lieu_ids ET lieu_id présents : seule la liste est lue', async () => {
+    await callListe(`type=zero_dechet&lieu_ids=${LIEU_1}&lieu_id=${LIEU_2}`);
+    expect(surColonne('evenements.lieu_id')).toEqual([
+      ['in', 'evenements.lieu_id', [LIEU_1]],
+    ]);
+  });
+
+  it('M3.3/liste_agence_filtres_valeurs_invalides_ecartees — non-UUID et statut hors enum retirés des listes', async () => {
+    await callListe(
+      `type=zero_dechet&lieu_ids=pas-un-uuid,${LIEU_1}&statut=inconnu,cloturee`,
+    );
+    expect(surColonne('evenements.lieu_id')).toEqual([
+      ['in', 'evenements.lieu_id', [LIEU_1]],
+    ]);
+    expect(surColonne('statut')).toEqual([['in', 'statut', ['cloturee']]]);
+  });
+
+  it('M3.3/liste_agence_filtres_tout_invalide_jamais_de_in_vide — aucune valeur valide = aucun filtre', async () => {
+    await callListe(
+      'type=zero_dechet&lieu_ids=pas-un-uuid&statut=inconnu&client=&client=%20',
+    );
+    // Un `.in(colonne, [])` rendrait une liste vide ; ici le filtre disparaît.
+    expect(rls.filtres).toEqual([['eq', 'type', 'zero_dechet']]);
+  });
+
+  it('M3.3/liste_agence_filtres_clients_multiples — paramètre client répété, noms cités et échappés', async () => {
+    const qs = new URLSearchParams({ type: 'zero_dechet' });
+    qs.append('client', 'Viparis');
+    qs.append('client', 'Agence "Les Halles", (Paris)');
+    await callListe(qs.toString());
+    expect(surColonne('evenements.nom_client_organisateur')).toEqual([
+      [
+        'filter',
+        'evenements.nom_client_organisateur',
+        'in',
+        '("Viparis","Agence \\"Les Halles\\", (Paris)")',
+      ],
+    ]);
+  });
+
+  it('M3.3/liste_agence_programmee_par_sans_objet — le paramètre du traiteur ne filtre pas la liste agence', async () => {
+    // L'agence programme toutes ses collectes : « Programmée par » n'existe pas
+    // dans sa barre, et le paramètre ne doit pas devenir un filtre caché.
+    await callListe(`type=zero_dechet&programmee_par=${ORG_9}`);
+    expect(surColonne('evenements.organisation_id')).toEqual([]);
   });
 });
 

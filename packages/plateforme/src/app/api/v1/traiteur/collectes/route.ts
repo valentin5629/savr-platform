@@ -5,7 +5,11 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
-import { enrichirLignesCollectes } from '@/lib/collectes/liste-collectes-client.js';
+import {
+  enrichirLignesCollectes,
+  lireFiltresListeCollectes,
+} from '@/lib/collectes/liste-collectes-client.js';
+import { inTextes } from '@/lib/filtre-csv.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -18,9 +22,10 @@ const TRAITEUR_ROLES: ClientRole[] = [
 // où le traiteur est opérationnel. Tri date décroissante.
 //
 // Filtres §06.04 §3 « Filtres disponibles » (BL-P2-14, volet filtres) :
-//   type (sélecteur ZD/AG) · statut (multi) · période (from/to) · lieu_id ·
-//   client (nom du client organisateur) · info_incomplete (oui|non) ·
-//   programmee_par (multi, organisations programmatrices).
+//   type (sélecteur ZD/AG) · statut (multi) · période (from/to) · lieu_ids
+//   (multi) · client (multi, noms du client organisateur) · info_incomplete
+//   (oui|non) · programmee_par (multi, organisations programmatrices) — lus
+//   par lireFiltresListeCollectes, commun à la liste agence et à l'export CSV.
 // S'y ajoutent les paramètres de DRILL-DOWN depuis les Top listes du dashboard
 // (commercial_id, association_id, perimetre), qui ne sont pas des filtres d'UI.
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -30,10 +35,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createSupabaseServerClient();
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type'); // 'zero_dechet' | 'anti_gaspi'
-  const statut = searchParams.get('statut');
   const from = searchParams.get('from');
   const to = searchParams.get('to');
-  const lieuId = searchParams.get('lieu_id');
+  const filtres = lireFiltresListeCollectes(searchParams);
   // Drill-down « Top 5 commerciaux » du dashboard → filtre sur le commercial
   // créateur (evenements.created_by). Reste scopé org par la RLS col_select.
   const commercialId = searchParams.get('commercial_id');
@@ -41,15 +45,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // POSSÉDÉS par l'org (evenements.organisation_id) — comme le calcul des Top
   // listes — au lieu du périmètre RLS plus large (org + opéré pour tiers).
   const perimetre = searchParams.get('perimetre');
-  // Filtre « Client Organisateur » : keyé sur le NOM (evenements.nom_client_organisateur),
-  // obligatoire à la confirmation d'une programmation, et non sur
-  // client_organisateur_organisation_id qui est un rattachement réservé Admin
-  // (NULL sur les événements programmés par un traiteur) — cf. route /filtres.
-  const client = searchParams.get('client');
-  // « Info incomplète » oui/non → collectes.informations_completes (booléen inverse).
-  const infoIncomplete = searchParams.get('info_incomplete');
-  // « Programmée par » (multi) : organisations ayant programmé l'événement.
-  const programmeePar = searchParams.get('programmee_par');
   // Drill-down « Top associations bénéficiaires » (AG) → collectes attribuées à
   // cette association (attributions_antgaspi.association_id, collecte_id UNIQUE).
   const associationId = searchParams.get('association_id');
@@ -83,22 +78,31 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (type === 'zero_dechet' || type === 'anti_gaspi') {
     query = query.eq('type', type);
   }
-  if (statut) query = query.in('statut', statut.split(','));
+  if (filtres.statuts.length > 0) query = query.in('statut', filtres.statuts);
   if (from) query = query.gte('date_collecte', from);
   if (to) query = query.lte('date_collecte', to);
-  if (lieuId) query = query.eq('evenements.lieu_id', lieuId);
+  if (filtres.lieuIds.length > 0)
+    query = query.in('evenements.lieu_id', filtres.lieuIds);
   if (commercialId) query = query.eq('evenements.created_by', commercialId);
   if (perimetre === 'organisation')
     query = query.eq('evenements.organisation_id', auth.ctx.organisationId);
   if (associationId)
     query = query.eq('attributions_antgaspi.association_id', associationId);
-  if (client) query = query.eq('evenements.nom_client_organisateur', client);
-  if (infoIncomplete === 'oui' || infoIncomplete === 'non')
-    query = query.eq('informations_completes', infoIncomplete === 'non');
-  if (programmeePar) {
-    const ids = programmeePar.split(',').filter(Boolean);
-    if (ids.length > 0) query = query.in('evenements.organisation_id', ids);
-  }
+  // « Client Organisateur » : keyé sur le NOM (evenements.nom_client_organisateur),
+  // obligatoire à la confirmation d'une programmation, et non sur
+  // client_organisateur_organisation_id qui est un rattachement réservé Admin
+  // (NULL sur les événements programmés par un traiteur) — cf. route /filtres.
+  if (filtres.clients.length > 0)
+    query = query.filter(
+      'evenements.nom_client_organisateur',
+      'in',
+      inTextes(filtres.clients),
+    );
+  if (filtres.informationsCompletes !== null)
+    query = query.eq('informations_completes', filtres.informationsCompletes);
+  // « Programmée par » : organisations ayant programmé l'événement.
+  if (filtres.programmeePar.length > 0)
+    query = query.in('evenements.organisation_id', filtres.programmeePar);
 
   const { data, error } = await query;
   if (error) return serverError(error, 'traiteur.collectes.list');

@@ -86,6 +86,10 @@ beforeEach(() => {
   });
 });
 
+// Le drill-down Top lieux envoie un identifiant de lieu : la route le valide
+// (UUID) et le lit comme une liste d'un élément (filtres à choix multiple).
+const LIEU_1 = '11111111-1111-4111-8111-111111111111';
+
 describe('API traiteur/collectes — filtre commercial (drill-down Top 5 commerciaux)', () => {
   async function call(url: string) {
     const { GET } = await import('@/app/api/v1/traiteur/collectes/route.js');
@@ -101,12 +105,12 @@ describe('API traiteur/collectes — filtre commercial (drill-down Top 5 commerc
     expect(rls.__eq).toContainEqual(['evenements.created_by', 'comm-9']);
   });
 
-  it('lieu_id → applique .eq(evenements.lieu_id)', async () => {
+  it('lieu_id → applique .in(evenements.lieu_id) (liste d’un élément)', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
-      'http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=lieu-1',
+      `http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=${LIEU_1}`,
     );
-    expect(rls.__eq).toContainEqual(['evenements.lieu_id', 'lieu-1']);
+    expect(rls.__in).toContainEqual(['evenements.lieu_id', [LIEU_1]]);
   });
 
   it('sans filtre commercial → aucun filtre created_by', async () => {
@@ -120,20 +124,20 @@ describe('API traiteur/collectes — filtre commercial (drill-down Top 5 commerc
   it('miroir exact : statut=cloturee + période (from/to) tous appliqués', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
-      'http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=lieu-1&statut=cloturee&from=2025-07-13&to=2026-07-13',
+      `http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=${LIEU_1}&statut=cloturee&from=2025-07-13&to=2026-07-13`,
     );
     // statut restreint aux clôturées (= base du chiffre du Top liste).
     expect(rls.__in).toContainEqual(['statut', ['cloturee']]);
     // même fenêtre temporelle que le dashboard.
     expect(rls.__gte).toContainEqual(['date_collecte', '2025-07-13']);
     expect(rls.__lte).toContainEqual(['date_collecte', '2026-07-13']);
-    expect(rls.__eq).toContainEqual(['evenements.lieu_id', 'lieu-1']);
+    expect(rls.__in).toContainEqual(['evenements.lieu_id', [LIEU_1]]);
   });
 
   it('perimetre=organisation → restreint aux événements possédés (organisation_id du JWT)', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
-      'http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=lieu-1&perimetre=organisation',
+      `http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=${LIEU_1}&perimetre=organisation`,
     );
     // organisation_id vient du ctx (JWT), jamais du body/URL.
     expect(rls.__eq).toContainEqual(['evenements.organisation_id', 'org-1']);
@@ -142,7 +146,7 @@ describe('API traiteur/collectes — filtre commercial (drill-down Top 5 commerc
   it('sans perimetre → aucun filtre organisation_id (RLS large habituelle)', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
-      'http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=lieu-1',
+      `http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=${LIEU_1}`,
     );
     expect(rls.__eq.some(([col]) => col === 'evenements.organisation_id')).toBe(
       false,

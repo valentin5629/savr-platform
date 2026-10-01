@@ -1,4 +1,6 @@
 import { rapportReserveDonneurOrdre } from './fiche-client-types.js';
+import { Constants } from '@savr/shared/src/database.types.js';
+import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
 
 // Ligne brute renvoyée par les routes liste Collectes client (traiteur, agence) :
 // embeds `collecte_flux` et `attributions_antgaspi` à agréger, `evenements` à
@@ -71,4 +73,28 @@ export function enrichirLignesCollectes(
       nb_repas_donnes: nbRepasDonnes,
     };
   });
+}
+
+/**
+ * Filtres de la BARRE des listes Collectes traiteur / agence (§06.04 §3) — UNE
+ * lecture pour les deux routes et pour l'export CSV, qui applique ainsi les
+ * mêmes filtres que la liste (§12). Les paramètres de drill-down
+ * (commercial_id, association_id, perimetre) n'en font pas partie.
+ * `client` est RÉPÉTÉ (noms saisis à la main, virgule possible) et s'applique
+ * avec `inTextes` ; `lieu_ids` est un CSV, l'ancien nom `lieu_id` reste lu
+ * comme une liste d'un élément. Une valeur invalide est écartée.
+ */
+export function lireFiltresListeCollectes(sp: URLSearchParams) {
+  const info = sp.get('info_incomplete');
+  return {
+    statuts: listeCsv(
+      sp.get('statut'),
+      parmi(Constants.plateforme.Enums.collecte_statut),
+    ),
+    lieuIds: listeCsv(sp.get('lieu_ids') ?? sp.get('lieu_id'), estUuid),
+    clients: sp.getAll('client').filter((nom) => nom.trim()),
+    informationsCompletes:
+      info === 'oui' ? false : info === 'non' ? true : null,
+    programmeePar: listeCsv(sp.get('programmee_par'), estUuid),
+  };
 }

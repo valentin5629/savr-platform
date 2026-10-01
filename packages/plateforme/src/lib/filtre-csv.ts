@@ -35,3 +35,14 @@ export function listeCsv(
     .map((v) => v.trim())
     .filter((v) => v && valide(v));
 }
+
+/**
+ * Liste `in.(…)` de textes LIBRES (noms saisis à la main), pour
+ * `query.filter(colonne, 'in', inTextes(noms))`. Chaque valeur est citée, `\`
+ * et `"` échappés : le `.in()` de postgrest-js ajoute les guillemets sans
+ * échapper ceux de la valeur, et un nom portant un guillemet ET une virgule
+ * (« Agence "Les Halles", Paris ») ne retrouvait alors aucune ligne.
+ */
+export function inTextes(valeurs: readonly string[]): string {
+  return `(${valeurs.map((v) => `"${v.replace(/[\\"]/g, '\\$&')}"`).join(',')})`;
+}

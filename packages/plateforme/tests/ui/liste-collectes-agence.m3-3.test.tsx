@@ -206,7 +206,8 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
       const liste = urls().find((u) =>
         /\/api\/v1\/agence\/collectes\?/.test(u),
       );
-      expect(new URLSearchParams(liste!.split('?')[1]).get('lieu_id')).toBe(
+      // Le lieu du lien part en liste d'un élément (filtres à choix multiple).
+      expect(new URLSearchParams(liste!.split('?')[1]).get('lieu_ids')).toBe(
         'lieu-1',
       );
     },

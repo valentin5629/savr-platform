@@ -13,7 +13,6 @@ import {
   CollecteFiltresBar,
   FILTRES_COLLECTE_VIDES,
   filtresCollecteActifs,
-  memeFiltresCollecte,
   lireFiltresCollecte,
   ecrireFiltresCollecte,
   type CollecteFiltres,
@@ -31,8 +30,12 @@ const STATUTS_HISTORIQUE = [
 ];
 
 const OPTIONS = {
-  lieux: [{ id: 'lieu-a', nom: 'Pavillon Gabriel' }],
-  clients: ['Danone'],
+  lieux: [
+    { id: 'lieu-a', nom: 'Pavillon Gabriel' },
+    { id: 'lieu-b', nom: 'Carrousel du Louvre' },
+    { id: 'lieu-c', nom: 'Palais Brongniart' },
+  ],
+  clients: ['Danone', 'Kering, Paris'],
   programmateurs: [
     { id: 'org-1', nom: 'Mon organisation', type: null },
     { id: 'org-2', nom: 'WPM', type: 'agence' },
@@ -119,7 +122,7 @@ describe('M3.1 / R25a — « Programmée par » et réinitialisation', () => {
   it('R25a/reinitialiser_vide_tous_les_filtres', () => {
     const { onChange } = renderBar({
       ...FILTRES_COLLECTE_VIDES,
-      client: 'Danone',
+      clients: ['Danone'],
       infoIncomplete: 'oui',
       programmeePar: ['org-2'],
     });
@@ -142,8 +145,8 @@ describe('M3.1 / R25a — helpers de filtres', () => {
       { statuts: ['cloturee'] },
       { from: '2026-01-01' },
       { to: '2026-01-31' },
-      { lieuId: 'lieu-a' },
-      { client: 'Danone' },
+      { lieuIds: ['lieu-a'] },
+      { clients: ['Danone'] },
       { infoIncomplete: 'oui' },
       { programmeePar: ['org-2'] },
     ];
@@ -152,25 +155,120 @@ describe('M3.1 / R25a — helpers de filtres', () => {
         true,
       );
   });
+});
 
-  it('R25a/meme_filtres_compare_chaque_dimension', () => {
+describe('M3.1 / barre de filtres Collectes — choix multiple, « Tous », Période en premier', () => {
+  it('M3.1/barre_periode_en_premier', () => {
+    renderBar();
+    const periode = screen.getByTestId('filtre-periode');
+    for (const id of [
+      'filtre-statut',
+      'filtre-lieu',
+      'filtre-client',
+      'filtre-info-incomplete',
+      'filtre-programmee-par',
+    ])
+      expect(
+        periode.compareDocumentPosition(screen.getByTestId(id)) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+  });
+
+  it('M3.1/barre_lieu_liste_a_cocher_ajoute_au_choix_existant', () => {
+    const { onChange } = renderBar({
+      ...FILTRES_COLLECTE_VIDES,
+      lieuIds: ['lieu-a'],
+    });
+    fireEvent.click(screen.getByTestId('filtre-lieu'));
+    // Le lieu déjà choisi est coché, « Tous » ne l'est pas.
     expect(
-      memeFiltresCollecte(FILTRES_COLLECTE_VIDES, {
-        ...FILTRES_COLLECTE_VIDES,
-      }),
-    ).toBe(true);
+      screen.getByRole('checkbox', { name: 'Pavillon Gabriel' }),
+    ).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Tous' })).not.toBeChecked();
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Carrousel du Louvre' }),
+    );
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lieuIds: ['lieu-a', 'lieu-b'] }),
+    );
+  });
+
+  it('M3.1/barre_lieu_case_tous_efface_et_tout_cocher_revient_a_tous', () => {
+    const { onChange } = renderBar({
+      ...FILTRES_COLLECTE_VIDES,
+      lieuIds: ['lieu-a', 'lieu-b'],
+    });
+    fireEvent.click(screen.getByTestId('filtre-lieu'));
+    // Cocher le dernier lieu = tous cochés = aucun filtre.
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Palais Brongniart' }),
+    );
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lieuIds: [] }),
+    );
+    // « Tous » efface la sélection.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Tous' }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lieuIds: [] }),
+    );
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('M3.1/barre_client_liste_a_cocher_sur_les_noms', () => {
+    const { onChange } = renderBar({
+      ...FILTRES_COLLECTE_VIDES,
+      clients: ['Danone'],
+    });
+    expect(screen.getByTestId('filtre-client')).toHaveTextContent('Danone');
+    fireEvent.click(screen.getByTestId('filtre-client'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Danone' }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ clients: [] }),
+    );
+  });
+
+  it('M3.1/barre_info_incomplete_deux_cases_une_seule_filtre', () => {
+    const { onChange } = renderBar();
+    expect(screen.getByTestId('filtre-info-incomplete')).toHaveTextContent(
+      'Toutes',
+    );
+    fireEvent.click(screen.getByTestId('filtre-info-incomplete'));
+    expect(screen.getByRole('checkbox', { name: 'Toutes' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Oui' }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ infoIncomplete: 'oui' }),
+    );
+  });
+
+  it('M3.1/barre_info_incomplete_les_deux_cochees_egale_toutes', () => {
+    const { onChange } = renderBar({
+      ...FILTRES_COLLECTE_VIDES,
+      infoIncomplete: 'oui',
+    });
+    fireEvent.click(screen.getByTestId('filtre-info-incomplete'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Non' }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ infoIncomplete: '' }),
+    );
+  });
+
+  it('M3.1/url_client_parametre_repete_virgule_conservee', () => {
+    const usp = ecrireFiltresCollecte(new URLSearchParams('client=Ancien'), {
+      ...FILTRES_COLLECTE_VIDES,
+      lieuIds: ['lieu-a', 'lieu-b'],
+      clients: ['Danone', 'Kering, Paris'],
+    });
+    // Lieux en CSV, clients en paramètre RÉPÉTÉ (l'ancienne valeur est retirée).
+    expect(usp.get('lieu')).toBe('lieu-a,lieu-b');
+    expect(usp.getAll('client')).toEqual(['Danone', 'Kering, Paris']);
+  });
+
+  it('M3.1/url_ancien_lien_valeur_unique_lu_comme_liste_d_un_element', () => {
+    // Drill-down des Top listes (`?lieu=<id>`) et liens partagés avant le
+    // choix multiple (`?client=<nom>`).
     expect(
-      memeFiltresCollecte(FILTRES_COLLECTE_VIDES, {
-        ...FILTRES_COLLECTE_VIDES,
-        lieuId: 'lieu-a',
-      }),
-    ).toBe(false);
-    expect(
-      memeFiltresCollecte(
-        { ...FILTRES_COLLECTE_VIDES, statuts: ['a'] },
-        { ...FILTRES_COLLECTE_VIDES, statuts: ['b'] },
-      ),
-    ).toBe(false);
+      lireFiltresCollecte(new URLSearchParams('lieu=lieu-a&client=Danone')),
+    ).toMatchObject({ lieuIds: ['lieu-a'], clients: ['Danone'] });
   });
 });
 
@@ -180,8 +278,9 @@ describe('Filtres Collectes traiteur — synchronisation URL', () => {
       statuts: ['brouillon', 'programmee'],
       from: '2026-09-01',
       to: '2026-09-30',
-      lieuId: 'lieu-a',
-      client: 'Danone',
+      lieuIds: ['lieu-a', 'lieu-b'],
+      // Un nom peut porter une virgule : il n'est jamais découpé.
+      clients: ['Danone', 'Kering, Paris'],
       infoIncomplete: 'oui',
       programmeePar: ['org-1', 'org-2'],
     };
@@ -210,7 +309,7 @@ describe('Filtres Collectes traiteur — synchronisation URL', () => {
       ),
     );
     expect(f).toMatchObject({
-      lieuId: 'lieu-a',
+      lieuIds: ['lieu-a'],
       statuts: ['cloturee'],
       from: '2025-07-13',
       to: '2026-07-13',

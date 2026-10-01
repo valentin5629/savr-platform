@@ -22,7 +22,16 @@ function makeClient() {
   function chain(table: string): Record<string, unknown> {
     const res = (): Result => results[table] ?? { data: [], error: null };
     const c: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'in', 'gte', 'lte', 'order', 'limit']) {
+    for (const m of [
+      'select',
+      'eq',
+      'in',
+      'filter',
+      'gte',
+      'lte',
+      'order',
+      'limit',
+    ]) {
       c[m] = (...args: unknown[]) => {
         calls.push({ table, method: m, args });
         return c;
@@ -46,19 +55,31 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => admin,
 }));
 
-/** Prédicats posés sur une table, sous forme `method:champ=valeur`. */
+/**
+ * Prédicats posés sur une table, sous forme `method:champ=valeur` ; un
+ * `.filter(champ, op, valeur)` (liste de noms libres) se lit
+ * `filter:champ=op.valeur`, tel qu'il part dans l'URL PostgREST.
+ */
 function predicats(
   client: ReturnType<typeof makeClient>,
   table: string,
 ): string[] {
   return client.calls
     .filter(
-      (c) => c.table === table && (c.method === 'eq' || c.method === 'in'),
+      (c) => c.table === table && ['eq', 'in', 'filter'].includes(c.method),
     )
-    .map(
-      (c) => `${c.method}:${String(c.args[0])}=${JSON.stringify(c.args[1])}`,
+    .map((c) =>
+      c.method === 'filter'
+        ? `filter:${String(c.args[0])}=${String(c.args[1])}.${String(c.args[2])}`
+        : `${c.method}:${String(c.args[0])}=${JSON.stringify(c.args[1])}`,
     );
 }
+
+// Identifiants au format UUID : les listes d'ids sont validées avant `.in()`.
+const LIEU_1 = '11111111-1111-4111-8111-111111111111';
+const LIEU_2 = '22222222-2222-4222-8222-222222222222';
+const ORG_1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const ORG_9 = '99999999-9999-4999-8999-999999999999';
 
 async function callListe(qs: string) {
   const { GET } = await import('@/app/api/v1/traiteur/collectes/route.js');
@@ -89,7 +110,7 @@ describe('R25a / liste collectes traiteur — filtres serveur', () => {
     // Keyé sur le NOM : client_organisateur_organisation_id est réservé Admin et
     // reste NULL sur les événements programmés par un traiteur.
     expect(predicats(rls, 'collectes')).toContain(
-      'eq:evenements.nom_client_organisateur="Groupe Danone"',
+      'filter:evenements.nom_client_organisateur=in.("Groupe Danone")',
     );
   });
 
@@ -117,9 +138,9 @@ describe('R25a / liste collectes traiteur — filtres serveur', () => {
   });
 
   it('R25a/filtre_programmee_par_multi', async () => {
-    await callListe('type=zero_dechet&programmee_par=org-1,org-9');
+    await callListe(`type=zero_dechet&programmee_par=${ORG_1},${ORG_9}`);
     expect(predicats(rls, 'collectes')).toContain(
-      'in:evenements.organisation_id=["org-1","org-9"]',
+      `in:evenements.organisation_id=["${ORG_1}","${ORG_9}"]`,
     );
   });
 
@@ -135,12 +156,63 @@ describe('R25a / liste collectes traiteur — filtres serveur', () => {
   it('R25a/aucun_filtre_aucun_predicat_fantome', async () => {
     await callListe('type=zero_dechet&statut=cloturee');
     const p = predicats(rls, 'collectes');
-    expect(p.some((x) => x.startsWith('eq:evenements.nom_client'))).toBe(false);
-    expect(p.some((x) => x.startsWith('eq:informations_completes'))).toBe(
-      false,
+    // Seuls le type et les statuts de l'onglet filtrent.
+    expect(p).toEqual(['eq:type="zero_dechet"', 'in:statut=["cloturee"]']);
+  });
+});
+
+// Filtres à choix multiple (décision Val 2026-09-30, partie C) : Lieu et Client
+// organisateur deviennent des listes ; chaque valeur est validée avant `.in()`.
+describe('M3.1 / liste Collectes traiteur — filtres à choix multiple (route)', () => {
+  it('M3.1/liste_filtres_lieux_multiples — lieu_ids CSV → un seul .in()', async () => {
+    await callListe(`type=zero_dechet&lieu_ids=${LIEU_1},${LIEU_2}`);
+    expect(predicats(rls, 'collectes')).toContain(
+      `in:evenements.lieu_id=["${LIEU_1}","${LIEU_2}"]`,
     );
-    expect(p.some((x) => x.startsWith('in:evenements.organisation_id'))).toBe(
-      false,
+  });
+
+  it('M3.1/liste_filtres_ancien_lieu_id — la valeur unique est lue comme une liste d’un élément', async () => {
+    // Ancien nom du paramètre : même convention que les autres listes (#450).
+    await callListe(`type=zero_dechet&lieu_id=${LIEU_1}`);
+    const p = predicats(rls, 'collectes');
+    expect(p).toContain(`in:evenements.lieu_id=["${LIEU_1}"]`);
+    expect(p.some((x) => x.startsWith('eq:evenements.lieu_id'))).toBe(false);
+  });
+
+  it('M3.1/liste_filtres_liste_prioritaire — lieu_ids ET lieu_id présents : seule la liste est lue', async () => {
+    await callListe(`type=zero_dechet&lieu_ids=${LIEU_1}&lieu_id=${LIEU_2}`);
+    const lieux = predicats(rls, 'collectes').filter((x) =>
+      x.includes('evenements.lieu_id'),
+    );
+    expect(lieux).toEqual([`in:evenements.lieu_id=["${LIEU_1}"]`]);
+  });
+
+  it('M3.1/liste_filtres_valeurs_invalides_ecartees — non-UUID et statut hors enum retirés des listes', async () => {
+    await callListe(
+      `type=zero_dechet&lieu_ids=pas-un-uuid,${LIEU_1}&statut=inconnu,cloturee&programmee_par=x,${ORG_9}`,
+    );
+    const p = predicats(rls, 'collectes');
+    expect(p).toContain(`in:evenements.lieu_id=["${LIEU_1}"]`);
+    expect(p).toContain('in:statut=["cloturee"]');
+    expect(p).toContain(`in:evenements.organisation_id=["${ORG_9}"]`);
+  });
+
+  it('M3.1/liste_filtres_tout_invalide_jamais_de_in_vide — aucune valeur valide = aucun filtre', async () => {
+    await callListe(
+      'type=zero_dechet&lieu_ids=pas-un-uuid&statut=inconnu&programmee_par=x&client=&client=%20',
+    );
+    // Un `.in(colonne, [])` rendrait une liste vide ; ici le filtre disparaît.
+    expect(predicats(rls, 'collectes')).toEqual(['eq:type="zero_dechet"']);
+  });
+
+  it('M3.1/liste_filtres_clients_multiples — paramètre client répété, noms cités et échappés', async () => {
+    const qs = new URLSearchParams({ type: 'zero_dechet' });
+    qs.append('client', 'Danone');
+    // Virgule, parenthèses, guillemets, antislash : le nom reste UNE valeur.
+    qs.append('client', 'Agence "Les Halles", (Paris) \\ fin');
+    await callListe(qs.toString());
+    expect(predicats(rls, 'collectes')).toContain(
+      'filter:evenements.nom_client_organisateur=in.("Danone","Agence \\"Les Halles\\", (Paris) \\\\ fin")',
     );
   });
 });

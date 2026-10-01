@@ -21,7 +21,8 @@ import {
   unwrap,
 } from './shared.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
-import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { estUuid, inTextes, listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { lireFiltresListeCollectes } from '@/lib/collectes/liste-collectes-client.js';
 import { Constants } from '@savr/shared/src/database.types.js';
 
 type Row = Record<string, unknown>;
@@ -35,15 +36,11 @@ export async function buildCollectesExport(
   sp: URLSearchParams,
 ): Promise<ExportOutput> {
   const type = sp.get('type');
-  const statut = sp.get('statut');
   const from = sp.get('from');
   const to = sp.get('to');
   // Filtres de la barre des listes Collectes traiteur / agence (§12 « l'export
-  // respecte les filtres actifs ») — mêmes clés et même sens que leurs routes.
-  const lieuId = sp.get('lieu_id');
-  const client = sp.get('client');
-  const infoIncomplete = sp.get('info_incomplete');
-  const programmeePar = sp.get('programmee_par');
+  // respecte les filtres actifs ») — lus par la MÊME fonction que leurs routes.
+  const filtres = lireFiltresListeCollectes(sp);
 
   let q = ctx.supabase
     .from('collectes')
@@ -57,17 +54,21 @@ export async function buildCollectesExport(
     .order('date_collecte', { ascending: false });
 
   if (type === 'zero_dechet' || type === 'anti_gaspi') q = q.eq('type', type);
-  if (statut) q = q.in('statut', statut.split(','));
+  if (filtres.statuts.length > 0) q = q.in('statut', filtres.statuts);
   if (from) q = q.gte('date_collecte', from);
   if (to) q = q.lte('date_collecte', to);
-  if (lieuId) q = q.eq('evenements.lieu_id', lieuId);
-  if (client) q = q.eq('evenements.nom_client_organisateur', client);
-  if (infoIncomplete === 'oui' || infoIncomplete === 'non')
-    q = q.eq('informations_completes', infoIncomplete === 'non');
-  if (programmeePar) {
-    const ids = programmeePar.split(',').filter(Boolean);
-    if (ids.length > 0) q = q.in('evenements.organisation_id', ids);
-  }
+  if (filtres.lieuIds.length > 0)
+    q = q.in('evenements.lieu_id', filtres.lieuIds);
+  if (filtres.clients.length > 0)
+    q = q.filter(
+      'evenements.nom_client_organisateur',
+      'in',
+      inTextes(filtres.clients),
+    );
+  if (filtres.informationsCompletes !== null)
+    q = q.eq('informations_completes', filtres.informationsCompletes);
+  if (filtres.programmeePar.length > 0)
+    q = q.in('evenements.organisation_id', filtres.programmeePar);
 
   const { data, error } = await q;
   if (error) throw erreurInterne(error, 'exports.builders');

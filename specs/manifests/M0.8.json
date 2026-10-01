@@ -600,10 +600,10 @@
     {
       "id": "M0.8-filtres-choix-multiple-toutes-barres",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
-      "artefact": "packages/plateforme/src/components/ui/filtre-en-ligne.tsx (FiltreCoches, case « Tous ») + écrans PR 1 (#444 : Admin Collectes, Dashboard Client) et PR 2 (Admin Clients, Transporteurs, Associations, Lieux, Factures ; Registre ; Facturation traiteur ; Événements gestionnaire)",
+      "artefact": "packages/plateforme/src/components/ui/filtre-en-ligne.tsx (FiltreCoches, case « Tous ») + écrans PR 1 (#444 : Admin Collectes, Dashboard Client) et PR 2 (Admin Clients, Transporteurs, Associations, Lieux, Factures ; Registre ; Facturation traiteur ; Événements gestionnaire) et PR 3 (listes Collectes traiteur et agence : components/collecte/collecte-filtres-bar.tsx)",
       "test": "ds/filtre_coches_case_tous_cochee_par_defaut_efface_la_selection",
-      "statut": "partial",
-      "libelle": "Règle DS (7) telle que patchée par _Divergences/M0.8_20260930_filtres-choix-multiple-tous : tous les filtres de l'app à choix multiple, case « Tous » = aucun filtre, « Période » en premier. PARTIAL : restent les listes Collectes clients traiteur / agence / gestionnaire (components/collecte/collecte-filtres-bar.tsx : Lieu, Client organisateur, Info incomplète + « Période » en premier) — reportées tant que la PR #448 (liste agence au format traiteur) n'est pas mergée."
+      "statut": "implemented",
+      "libelle": "Règle DS (7) telle que patchée par _Divergences/M0.8_20260930_filtres-choix-multiple-tous : tous les filtres de l'app à choix multiple, case « Tous » = aucun filtre, « Période » en premier. Toutes les barres de filtres de l'app y sont : PR 1 (#444), PR 2 (#450), puis les listes Collectes traiteur et agence (PR 3 : Lieu, Client organisateur, Info incomplète + « Période » en premier). La liste Collectes gestionnaire n'a pas de barre de filtres (paramètres de drill-down seuls) : rien à convertir. Les preuves d'écran sont portées par les livrables `à-vérifier` de chaque module."
     }
   ],
   "cdc_source_hash": {

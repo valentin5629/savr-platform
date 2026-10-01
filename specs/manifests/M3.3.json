@@ -478,6 +478,22 @@
       "test": "M3.3/liste_agence_colonne_client",
       "statut": "implemented",
       "libelle": "Colonne « Client » de la liste Collectes agence, à droite de « Lieu » (parité §06.04 — décision Val, revue écran E2E 2026-10-01). Portée par le composant commun : la colonne lit evenements.nom_client_organisateur, déjà renvoyé par GET /api/v1/agence/collectes."
+    },
+    {
+      "id": "M3.3-liste-filtres-choix-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:57",
+      "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx + packages/plateforme/src/components/collecte/liste-collectes-client.tsx (composant commun aux listes traiteur et agence) + packages/plateforme/src/app/api/v1/agence/collectes/route.ts + packages/plateforme/src/lib/collectes/liste-collectes-client.ts (lireFiltresListeCollectes)",
+      "test": "M3.3/liste_agence_periode_en_premier + M3.3/liste_agence_lieux_coches + M3.3/liste_agence_liens_existants_pre_coches + M3.3/liste_agence_info_incomplete_deux_cases + M3.3/liste_agence_reponse_perimee_ignoree + M3.3/liste_agence_reponse_perimee_arrivee_apres + M3.3/liste_agence_chip_lieu_tant_que_seul_lieu_filtre + M3.3/liste_agence_reinitialiser_sort_du_drill_down + M3.3/liste_agence_plusieurs_lieux_au_rechargement + M3.3/liste_agence_changement_de_type_conserve_lieux_et_clients + M3.3/liste_agence_export_csv_memes_parametres + M3.3/liste_agence_filtres_lieux_multiples + M3.3/liste_agence_filtres_liste_prioritaire + M3.3/liste_agence_filtres_valeurs_invalides_ecartees + M3.3/liste_agence_filtres_tout_invalide_jamais_de_in_vide + M3.3/liste_agence_filtres_clients_multiples + M3.3/liste_agence_programmee_par_sans_objet",
+      "statut": "implemented",
+      "libelle": "Liste Collectes agence — mêmes filtres que la liste traiteur (§06.11 : vue liste identique au §06.04) : « Période » en premier ; Lieu, Client organisateur et « Info incomplète » à choix multiple avec case « Tous » (décision Val 2026-09-30, partie C). API agence : `lieu_ids` CSV (ancien `lieu_id` relu), `client` répété, statuts validés contre l'enum ; lecture sous RLS, périmètre donneur d'ordre inchangé ; « Programmée par » reste sans objet (le paramètre ne filtre pas la liste). Même sortie du drill-down Top lieux que côté traiteur (composant commun). Rendu à l'écran : livrable M3.3-liste-filtres-choix-multiple-rendu-visuel."
+    },
+    {
+      "id": "M3.3-liste-filtres-choix-multiple-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
+      "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la barre de filtres de la liste Collectes agence, desktop ET mobile < 640 px : « Période » en premier ; cases « Tous » en tête de Lieu et Client organisateur, « Toutes » pour Info incomplète ; libellés des déclencheurs (« Tous », nom unique, « n sélectionnés ») ; nom de client contenant une virgule ; chip « Filtre actif » après un clic depuis une Top liste, puis sa disparition quand un second lieu est coché. Pas de capture dans ce lot (arbitrage Val 2026-10-01) : GO visuel de Val à sa prochaine revue écran."
     }
   ],
   "cdc_source_hash": {

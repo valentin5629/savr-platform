@@ -1341,7 +1341,7 @@
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/components/collecte/fiche-blocs.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu de la fiche collecte Admin au cadre commun (AG « Sans excédents » + dirty, ZD, annulée/rejetée ; 1024, 1440 et 390 px) et non-régression des fiches lieu, association, transporteur (brique FicheEnTete : +5 px d'en-tête avec sur-titre). Mesuré hors app dans Chromium (vrais composants + CSS compilé, 252 mesures de 320 à 1440 px, aucun débordement) ; pas de capture dans l'app connectée (arbitrage Val 2026-10-01) — GO-VISUAL en attente."
+      "libelle": "Rendu de la fiche collecte Admin au cadre commun (AG « Sans excédents » + dirty, ZD, annulée/rejetée ; 1024, 1440 et 390 px) et non-régression des fiches lieu, association, transporteur (brique FicheEnTete : +5 px d'en-tête avec sur-titre). Mesuré hors app dans Chromium (vrais composants + CSS compilé, 252 mesures de 320 à 1440 px, aucun débordement) ; pas de capture dans l'app connectée (arbitrage Val 2026-10-01). GO-VISUAL donné par Val le 2026-10-01 après merge (#453), sans capture jointe."
     }
   ],
   "cdc_source_hash": {

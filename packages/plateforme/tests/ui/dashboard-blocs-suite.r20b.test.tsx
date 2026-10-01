@@ -354,6 +354,8 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       // Colonnes CDC §06.04 Bloc 3 AG (Ville + Nb collectes) préservées (secondary).
       expect(screen.getByText(/Paris · 2 collectes/)).toBeInTheDocument();
       expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
+      // Onglet AG : le Bloc 5 « Prochaines collectes » est retiré lui aussi.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -500,6 +502,8 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
         ),
       ).toBeInTheDocument();
       expect(screen.queryByTestId('bloc-7-top-acteurs')).toBeNull();
+      // Onglet AG : le Bloc 5 « Prochaines collectes » est retiré lui aussi.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -544,6 +548,8 @@ describe('M3.2 / gestionnaire — top traiteurs', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+      // Onglet AG : le Bloc 5 « Prochaines collectes » est retiré lui aussi.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

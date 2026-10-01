@@ -568,7 +568,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/*",
       "test": "M3.1/dash_bloc2_bloc4_zd_montes + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel + M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
       "statut": "implemented",
-      "libelle": "Refonte visuelle « Cockpit » du dashboard traiteur (R24, pilote UX hors-audit) : 8 composants data-viz R24 câblés sur les blocs §06.04 (KpiCockpitCard, EvolutionZdChart/EvolutionAgChart, BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28), TonnagesDonut cockpit, PackAgRing, TopRankList) importés en direct (hors barrel → orphan-components reste 0). DS §10 par défaut. Testids §11 (bloc-2/4-traiteur, bloc-5/6/7-*, bloc-3ag, bloc-pack-ag) + tooltip Marge (BL-P3-02) + badge « X en attente de facturation » (F3) préservés. Cartes KPI = liens vers la liste Collectes filtrée (période + onglet)."
+      "libelle": "Refonte visuelle « Cockpit » du dashboard traiteur (R24, pilote UX hors-audit) : 8 composants data-viz R24 câblés sur les blocs §06.04 (KpiCockpitCard, EvolutionZdChart/EvolutionAgChart, BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28), TonnagesDonut cockpit, PackAgRing, TopRankList) importés en direct (hors barrel → orphan-components reste 0). DS §10 par défaut. Testids §11 (bloc-2/4-traiteur, bloc-6/7-*, bloc-3ag, bloc-pack-ag ; bloc-5-prochaines retiré le 2026-10-01, décision Val) + tooltip Marge (BL-P3-02) + badge « X en attente de facturation » (F3) préservés. Cartes KPI = liens vers la liste Collectes filtrée (période + onglet)."
     },
     {
       "id": "M3.1-cockpit-co2-hero",

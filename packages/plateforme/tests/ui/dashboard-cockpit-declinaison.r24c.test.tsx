@@ -416,6 +416,8 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
         ),
       ).toBeInTheDocument();
       expect(screen.getByText('Les Restos du Cœur')).toBeInTheDocument();
+      // Onglet AG : le Bloc 5 « Prochaines collectes » est retiré lui aussi.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
 
       // Carte CO₂ AG cliquable → modale « Impact carbone » variante AG.
       fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));

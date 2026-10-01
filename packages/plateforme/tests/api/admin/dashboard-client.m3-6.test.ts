@@ -240,8 +240,12 @@ describe('M3.6 / Dashboard Client / KPI', () => {
       data: {
         kpi: Record<string, number>;
         co2: { eviteKg: number };
+        blocs: Record<string, unknown>;
       };
     };
+    // Bloc 5 « Prochaines collectes » retiré (décision Val 2026-10-01) : le
+    // loader Admin ne sert plus la liste.
+    expect(body.data.blocs).not.toHaveProperty('prochaines');
     // Plomberie CO₂ Admin bout-en-bout : SELECT co2_evite_kg → co2Totals → payload.
     expect(body.data.co2.eviteKg).toBeCloseTo(120, 5);
     const kpi = body.data.kpi;

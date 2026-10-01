@@ -28,8 +28,11 @@
 -- (20260617170000) : on retire le privilège TABLE-LEVEL puis on re-GRANT une liste
 -- blanche. Un REVOKE colonne seul serait INOPÉRANT tant que le privilège table
 -- subsiste. Fail-closed : une colonne ajoutée demain n'est pas lisible par
--- authenticated (aucun ALTER DEFAULT PRIVILEGES ne vise authenticated sur
--- `plateforme`). La liste est épinglée à l'identique par
+-- authenticated, PARCE QUE le privilège table-level n'existe plus (un ADD COLUMN
+-- n'hérite d'aucun grant colonne ; mesuré, et épinglé par les assertions 1, 42 et
+-- 43 du test). Ce qui rouvrirait tout : un `GRANT SELECT ON plateforme.evenements`
+-- ou un `GRANT … ON ALL TABLES IN SCHEMA plateforme TO authenticated` comme celui
+-- de 0.4a. La liste est épinglée à l'identique par
 -- SECU__evenements_select_liste_blanche.test.sql.
 --
 -- LISTE BLANCHE (14 colonnes) :
@@ -45,8 +48,8 @@
 --     rôles clients : nom_evenement, type_evenement_id, pax,
 --     nom_client_organisateur, logo_client_organisateur_url (§06.05 : le
 --     gestionnaire voit « les clients finaux si renseignés par le traiteur ») ;
---   - created_at, updated_at : dates techniques, sans lecteur client aujourd'hui,
---     laissées ouvertes comme sur tournees (arbitrage C4).
+--   - created_at, updated_at : dates techniques, sans lecture sous identité
+--     utilisateur aujourd'hui, laissées ouvertes comme sur tournees (arbitrage C4).
 --
 -- COLONNES RETIRÉES à authenticated (7 — lues en service_role uniquement) :
 --   - contact_principal_nom, contact_principal_telephone, contact_secours_nom,
@@ -88,7 +91,16 @@
 -- FERME un accès (CLAUDE.md §12-2bis) — GO reviewer-rls-securite + pgTAP de preuve.
 -- ORDRE DE DÉPLOIEMENT : le code de la fiche (lecture service_role) doit être en
 -- ligne AVANT cette migration ; l'inverse ferait répondre 500 à la fiche collecte
--- des trois espaces clients (42501 sur l'embed evenements).
+-- des trois espaces clients (42501 sur l'embed evenements). Le nouveau code
+-- fonctionne avec l'ancien schéma, l'ancien code casse avec le nouveau : avant de
+-- pousser, vérifier que le déploiement de ce lot est bien en ligne (dev, puis
+-- prod). Un retour arrière du code APRÈS la migration reproduit le 500 — il faut
+-- alors rouvrir par le ROLLBACK SQL en fin de fichier. Toute préversion ou branche
+-- en vol qui porte l'ancien fiche-client.ts casse contre une base migrée.
+-- APRÈS APPLICATION, mesurer sur la base : has_table_privilege('authenticated',
+-- 'plateforme.evenements', 'SELECT') = false, 14 colonnes lisibles, et aucun
+-- privilège INSERT / UPDATE / DELETE (le commentaire de table ci-dessous suppose
+-- la fermeture d'écriture 20260915190000 appliquée).
 -- =============================================================================
 
 REVOKE SELECT ON plateforme.evenements FROM authenticated;

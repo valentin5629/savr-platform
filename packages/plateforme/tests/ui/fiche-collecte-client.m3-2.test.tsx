@@ -134,6 +134,50 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   );
 
   it(
+    'M3.2/fiche_popup_gestionnaire_contacts_tiers_masques — collecte d’un traiteur tiers : pas de bloc Contacts sur place',
+    async () => {
+      const base = ficheGestionnaire();
+      stubFetchFiche({
+        ...base,
+        evenement: {
+          ...base.evenement!,
+          contacts_visibles: false,
+          contact_principal_nom: null,
+          contact_principal_telephone: null,
+        },
+      });
+      render(fiche());
+
+      // Non-vacuité : l'onglet Informations est rendu (le bloc Lieu est là)…
+      await screen.findByTestId('bloc-lieu', {}, ATTENTE_UI);
+      // …et le bloc Contacts n'existe pas (ni titre, ni ligne vide « — »).
+      expect(screen.queryByTestId('bloc-contacts')).toBeNull();
+      expect(document.body.textContent).not.toContain('Contacts sur place');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/fiche_popup_gestionnaire_contacts_propre_programmation — sa propre programmation : bloc Contacts sur place affiché',
+    async () => {
+      stubFetchFiche(
+        ficheGestionnaire({
+          actions: { modifier: 'actif', annuler: 'absent', annulation: null },
+        }),
+      );
+      render(fiche());
+
+      const contacts = await screen.findByTestId(
+        'bloc-contacts',
+        {},
+        ATTENTE_UI,
+      );
+      expect(contacts.textContent).toContain('Paul Contact');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/fiche_popup_gestionnaire_marque_blanche — aucun « transporteur » ni « prestataire »',
     async () => {
       stubFetchFiche(ficheGestionnaire());

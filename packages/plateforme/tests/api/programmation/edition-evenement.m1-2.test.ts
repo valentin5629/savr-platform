@@ -172,6 +172,78 @@ describe('M1.2 / édition événement — 4 rôles programmateurs', () => {
   }
 });
 
+// ── Réponse du PATCH : jamais la ligne brute (arbitrage Val C1 2026-10-01) ───
+// `fn_modifier_evenement` rend `to_jsonb(evenements)` : sans filtre, le client qui
+// a programmé l'événement relisait `notes_internes` (notes Admin Savr) et
+// `entite_facturation_id` par un simple PATCH sans effet — deux colonnes fermées à
+// tous les rôles clients (migration 20261001103000).
+describe('M1.2 / édition événement — réponse filtrée', () => {
+  const LIGNE_BRUTE = {
+    id: 'e1',
+    organisation_id: 'org-1',
+    traiteur_operationnel_organisation_id: 'org-1',
+    client_organisateur_organisation_id: null,
+    entite_facturation_id: 'ef-secrete',
+    lieu_id: 'l1',
+    created_by: 'user-1',
+    nom_evenement: 'Gala',
+    type_evenement_id: 't1',
+    date_evenement: '2026-10-28',
+    pax: 300,
+    contact_principal_nom: 'Bob',
+    contact_principal_telephone: '+33611111111',
+    contact_secours_nom: null,
+    contact_secours_telephone: null,
+    nom_client_organisateur: 'Maison Client',
+    logo_client_organisateur_url: null,
+    reference_affaire: 'AFF-1',
+    notes_internes: 'NOTE ADMIN SECRÈTE',
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-10-01T00:00:00Z',
+  };
+
+  for (const role of ['traiteur_manager', 'agence', 'gestionnaire_lieux']) {
+    it(`M1.2/edition_evenement_reponse_filtree — ${role} : ni notes internes ni entité de facturation dans la réponse`, async () => {
+      setupAuth(role, 'org-1', 'user-1');
+      rls.push({
+        data: { id: 'e1', organisation_id: 'org-1', created_by: 'user-1' },
+        error: null,
+      }); // maybeSingle event
+      rls.push({ data: true, error: null }); // rpc f_collecte_editable
+      admin.push({ data: LIGNE_BRUTE, error: null }); // before select
+      admin.push({ data: LIGNE_BRUTE, error: null }); // rpc fn_modifier_evenement
+      admin.push({ data: null, error: null }); // audit insert
+
+      const res = await patchEvent({ nom_evenement: 'Gala' });
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as { data: Record<string, unknown> };
+      const texte = JSON.stringify(json);
+      expect(texte).not.toContain('notes_internes');
+      expect(texte).not.toContain('NOTE ADMIN SECRÈTE');
+      expect(texte).not.toContain('entite_facturation_id');
+      expect(texte).not.toContain('ef-secrete');
+      // Liste blanche exacte : l'id et les champs éditables, rien d'autre.
+      expect(Object.keys(json.data).sort()).toEqual(
+        [
+          'contact_principal_nom',
+          'contact_principal_telephone',
+          'contact_secours_nom',
+          'contact_secours_telephone',
+          'id',
+          'logo_client_organisateur_url',
+          'nom_client_organisateur',
+          'nom_evenement',
+          'pax',
+          'reference_affaire',
+          'type_evenement_id',
+        ].sort(),
+      );
+      // Non-vacuité : la valeur éditée est bien rendue.
+      expect(json.data.nom_evenement).toBe('Gala');
+    });
+  }
+});
+
 // ── §09 manager_update_dans_fenetre_edition_ok (révisé 2026-09-16) ──────────
 // Depuis le REVOKE table-level sur `evenements` (20260915190000), l'UPDATE direct
 // PostgREST lève 42501 : le succès ne passe plus QUE par la route. Moitié DB

@@ -66,7 +66,26 @@ export function makeClient() {
   return api;
 }
 
-/** Ligne `collectes` telle que la renvoie la lecture RLS du chargeur. */
+/**
+ * Colonnes réservées d'`evenements` (hors GRANT SELECT authenticated) telles que
+ * les renvoie la lecture service-role du chargeur — à poser dans
+ * `admin.results.evenements`.
+ */
+export function reserveEvenement(over: Record<string, unknown> = {}) {
+  return {
+    contact_principal_nom: 'Paul',
+    contact_principal_telephone: '0611223344',
+    contact_secours_nom: 'Léa',
+    contact_secours_telephone: '0655443322',
+    reference_affaire: 'AFF-2026-042',
+    ...over,
+  };
+}
+
+/**
+ * Ligne `collectes` telle que la renvoie la lecture RLS du chargeur : l'embed
+ * `evenement` ne porte AUCUNE colonne réservée (contacts, référence d'affaire).
+ */
 export function ligneCollecte(over: Record<string, unknown> = {}) {
   return {
     id: 'c1',
@@ -93,12 +112,7 @@ export function ligneCollecte(over: Record<string, unknown> = {}) {
       nom_evenement: 'Salon',
       pax: 4200,
       type_evenement_id: 't1',
-      reference_affaire: null,
       nom_client_organisateur: 'Maison Client',
-      contact_principal_nom: 'Paul',
-      contact_principal_telephone: '0611223344',
-      contact_secours_nom: 'Léa',
-      contact_secours_telephone: '0655443322',
       type_evenement: { libelle: 'Cocktail apéritif' },
       lieu: {
         id: 'l1',

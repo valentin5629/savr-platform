@@ -6,7 +6,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { makeClient, ligneCollecte } from '../helpers/fiche-client-mock';
+import {
+  makeClient,
+  ligneCollecte,
+  reserveEvenement,
+} from '../helpers/fiche-client-mock';
 
 let rls = makeClient();
 let admin = makeClient();
@@ -97,6 +101,31 @@ describe('M3.3 / fiche client agence', () => {
       annulation: 'demande',
     });
     expect(JSON.stringify(data)).not.toContain('notes_internes');
+  });
+
+  it('M3.3/fiche_get_contacts_agence — donneur d’ordre : contacts sur place + sa référence d’affaire', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-agence',
+          traiteur_operationnel_organisation_id: 'org-kaspia',
+        },
+      }),
+      error: null,
+    };
+    admin.results.evenements = { data: reserveEvenement(), error: null };
+    const { GET } = await import('@/app/api/v1/agence/collectes/[id]/route.js');
+    const res = await GET(req('/api/v1/agence/collectes/c1'), params);
+    const { data } = (await res.json()) as { data: Record<string, unknown> };
+    expect(data.evenement).toMatchObject({
+      contacts_visibles: true,
+      contact_principal_nom: 'Paul',
+      contact_secours_telephone: '0655443322',
+      reference_affaire: 'AFF-2026-042',
+    });
+    expect(rls.selects.collectes?.[0]).not.toContain('contact_');
+    expect(rls.selects.collectes?.[0]).not.toContain('reference_affaire');
   });
 
   it('M3.3/fiche_benchmark_agence — radar de la fiche servi à l’agence (programmatrice)', async () => {

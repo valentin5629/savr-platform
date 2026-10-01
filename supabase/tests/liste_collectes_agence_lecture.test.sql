@@ -61,8 +61,13 @@ LANGUAGE sql AS $$
        FROM plateforme.attributions_antgaspi a WHERE a.collecte_id = c.id),
     e.nom_client_organisateur
   FROM plateforme.collectes c
+  -- Colonnes de l'embed `evenements!inner(...)` de la route, pas `ev.*` : depuis
+  -- 20261001103000, evenements est en liste blanche colonne-level pour
+  -- authenticated (un `*` lèverait 42501, comme un `select=*` PostgREST).
   JOIN LATERAL (
-    SELECT ev.* FROM plateforme.evenements ev
+    SELECT ev.id, ev.organisation_id, ev.traiteur_operationnel_organisation_id,
+           ev.nom_evenement, ev.pax, ev.nom_client_organisateur, ev.lieu_id
+      FROM plateforme.evenements ev
      WHERE ev.id = c.evenement_id
        AND (p_lieu IS NULL OR ev.lieu_id = p_lieu)
        AND (p_client IS NULL OR ev.nom_client_organisateur = p_client)
@@ -167,7 +172,7 @@ SELECT is((SELECT count(*)::int FROM test_liste_agence(
             p_prog => ARRAY['e2e33000-0000-0000-0000-0000000000a1'::uuid, 'e2e33000-0000-0000-0000-0000000000a2'::uuid])),
   2, 'A12 programmée par [A, B] : seulement les 2 collectes de A');
 SELECT is((SELECT count(*)::int FROM plateforme.collectes c
-            JOIN LATERAL (SELECT ev.* FROM plateforme.evenements ev WHERE ev.id = c.evenement_id) e ON true
+            JOIN LATERAL (SELECT ev.lieu_id FROM plateforme.evenements ev WHERE ev.id = c.evenement_id) e ON true
             JOIN LATERAL (SELECT l.nom FROM plateforme.lieux l WHERE l.id = e.lieu_id) l ON true
            WHERE l.nom = 'Lieu SECRET B'),
   0, 'A13 options de filtres : le lieu de B n''est jamais dérivé');

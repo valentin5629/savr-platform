@@ -202,28 +202,32 @@ export function OngletInformations({
         </dl>
       </Card>
 
-      <Card className="space-y-4 p-5" data-testid="bloc-contacts">
-        <BlocHeader icon={Users} title="Contacts sur place" />
-        <dl className={GRILLE_4}>
-          <InfoItem label="Contact principal">
-            {evt?.contact_principal_nom ?? <Vide />}
-          </InfoItem>
-          <InfoItem label="Téléphone">
-            <TelephoneLien telephone={evt?.contact_principal_telephone} />
-          </InfoItem>
-          {/* Contact de secours (Q4) : ligne masquée seulement si vide. */}
-          {avecSecours && (
-            <>
-              <InfoItem label="Contact de secours">
-                {evt?.contact_secours_nom ?? <Vide />}
-              </InfoItem>
-              <InfoItem label="Téléphone">
-                <TelephoneLien telephone={evt?.contact_secours_telephone} />
-              </InfoItem>
-            </>
-          )}
-        </dl>
-      </Card>
+      {/* Bloc absent pour le gestionnaire sur la collecte d'un traiteur tiers
+          (§06.05 : rien de personnel sur un traiteur tiers) — décidé serveur. */}
+      {evt?.contacts_visibles && (
+        <Card className="space-y-4 p-5" data-testid="bloc-contacts">
+          <BlocHeader icon={Users} title="Contacts sur place" />
+          <dl className={GRILLE_4}>
+            <InfoItem label="Contact principal">
+              {evt.contact_principal_nom ?? <Vide />}
+            </InfoItem>
+            <InfoItem label="Téléphone">
+              <TelephoneLien telephone={evt.contact_principal_telephone} />
+            </InfoItem>
+            {/* Contact de secours (Q4) : ligne masquée seulement si vide. */}
+            {avecSecours && (
+              <>
+                <InfoItem label="Contact de secours">
+                  {evt.contact_secours_nom ?? <Vide />}
+                </InfoItem>
+                <InfoItem label="Téléphone">
+                  <TelephoneLien telephone={evt.contact_secours_telephone} />
+                </InfoItem>
+              </>
+            )}
+          </dl>
+        </Card>
+      )}
     </div>
   );
 }

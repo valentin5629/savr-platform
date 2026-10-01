@@ -179,8 +179,16 @@ describe('M3.6 / Dashboard Client / UI', () => {
           ),
         ATTENTE_UI,
       );
-      expect(screen.getByTestId('org-filtre-traiteur')).toHaveTextContent(
-        'Traiteur Alpha',
+      // Le libellé « Traiteur Alpha » dépend du fetch de la liste des
+      // organisations (distinct de la requête KPI) : tant qu'elle n'est pas
+      // chargée, o1 n'est rattaché à aucun type et le filtre affiche « Aucun ».
+      // Attente explicite (test instable en CI sinon).
+      await waitFor(
+        () =>
+          expect(screen.getByTestId('org-filtre-traiteur')).toHaveTextContent(
+            'Traiteur Alpha',
+          ),
+        ATTENTE_UI,
       );
       // Et en ouvrant le filtre Traiteur, o1 est bien coché.
       fireEvent.click(screen.getByTestId('org-filtre-traiteur'));

@@ -162,13 +162,21 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
   );
 
   it(
-    'M3.1/fiche_popup_onglets_colonne — Informations / Logistique / Bilan & documents, verticaux',
+    'M3.1/fiche_popup_onglets_horizontaux — Informations / Logistique / Bilan & documents, en barre horizontale sous le grand en-tête',
     async () => {
       stubFetchFiche(ficheClient());
       render(fiche('c1'));
 
       const liste = await screen.findByRole('tablist', {}, ATTENTE_UI);
-      expect(liste.getAttribute('aria-orientation')).toBe('vertical');
+      expect(liste.getAttribute('aria-orientation')).toBe('horizontal');
+      // Grand en-tête commun des fiches (FicheEnTete) : la frise y est portée.
+      expect(
+        within(
+          screen
+            .getByTestId('fiche-sous-ligne')
+            .closest('header') as HTMLElement,
+        ).getByTestId('frise-statut-client'),
+      ).toBeInTheDocument();
       expect(
         within(liste)
           .getAllByRole('tab')

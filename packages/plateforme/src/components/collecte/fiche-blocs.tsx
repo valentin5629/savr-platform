@@ -1,9 +1,12 @@
 import type { LucideIcon } from 'lucide-react';
 import { TabsTrigger } from '@/components/ui/tabs';
+import { typeCollecteLabel } from '@/components/collecte/fiche-collecte-modal-cadre';
+import { cn } from '@/lib/utils';
 
 // Briques de mise en page des fiches en pop-up : en-tête de bloc et champs
-// label/valeur (toutes), colonne résumé (fiches collecte), grand en-tête et
-// onglets à compteur d'erreurs (fiches Admin transporteur, lieu, association).
+// label/valeur, grand en-tête (fiches collecte Admin et client, fiches Admin
+// transporteur, lieu, association), badge de type de collecte et onglets à
+// compteur d'erreurs.
 
 // En-tête de bloc — DS §10 leviers #2 (pastille primary pleine) + #7 (titre
 // extrabold tracking serré) : pastille icône `primary-50`, titre `neutral-900`,
@@ -28,22 +31,6 @@ export function BlocHeader({
         </h2>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
-    </div>
-  );
-}
-
-// Colonne résumé (gauche) — libellé discret + valeur.
-export function ResumeItem({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs text-savr-neutral-500">{label}</dt>
-      <dd className="font-medium text-savr-neutral-900">{children}</dd>
     </div>
   );
 }
@@ -106,19 +93,11 @@ export function TelephoneLien({ telephone }: { telephone?: string | null }) {
   );
 }
 
-// Onglets en colonne du pop-up fiche collecte client : colonne à gauche sur
-// fond neutral-50, barre horizontale défilante sous md. Onglet actif = fond
-// blanc + contour (pas d'aplat navy) — maquette validée.
-export const ONGLETS_COLONNE_LISTE =
-  'flex shrink-0 gap-1 overflow-x-auto border-b border-savr-neutral-200 bg-savr-neutral-50 px-4 py-2 md:w-56 md:flex-col md:items-stretch md:overflow-visible md:border-b-0 md:border-r md:px-4 md:py-5';
-
-export const ONGLETS_COLONNE_DECLENCHEUR =
-  'h-11 shrink-0 justify-start rounded-savr-md border-b-0 px-3 text-[15px] font-normal text-savr-neutral-700 hover:bg-savr-white hover:text-savr-neutral-900 data-[state=active]:bg-savr-white data-[state=active]:font-bold data-[state=active]:text-savr-primary-700 data-[state=active]:ring-1 data-[state=active]:ring-inset data-[state=active]:ring-savr-neutral-200 md:w-full';
-
 // En-tête des fiches Admin en pop-up (transporteur, lieu, association — décision
-// Val 2026-09-30 « grand en-tête partout ») : sur-titre (puce + mention), nom en
-// grand, ligne d'infos à pictos, statut à droite. Il décrit l'objet ENREGISTRÉ
-// (stable pendant la saisie). À placer dans une modale `hideTitle` : le titre
+// Val 2026-09-30 « grand en-tête partout ») et fiches collecte (Admin et client,
+// décision Val 2026-10-01) : sur-titre (puce + mention), nom en grand, ligne
+// d'infos à pictos, statut à droite. Il décrit l'objet ENREGISTRÉ (stable
+// pendant la saisie). À placer dans une modale `hideTitle` : le titre
 // accessible reste celui de la modale. pr-14 réserve la croix de fermeture.
 export function FicheEnTete({
   surtitre,
@@ -127,6 +106,7 @@ export function FicheEnTete({
   infos = [],
   infosTestId,
   statut,
+  statutLarge = false,
 }: {
   surtitre?: React.ReactNode;
   titre: string;
@@ -135,10 +115,19 @@ export function FicheEnTete({
   infos?: { icon: LucideIcon; texte: React.ReactNode }[];
   infosTestId?: string;
   statut?: React.ReactNode;
+  /** Statut large (frise des fiches collecte) : à droite sur grand écran
+   *  seulement, sous le titre en dessous — sinon il écraserait le titre. */
+  statutLarge?: boolean;
 }) {
   return (
     <header className="shrink-0 border-b border-savr-neutral-200 px-6 pb-5 pr-14 pt-6 md:px-8 md:pr-16">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div
+        className={
+          statutLarge
+            ? 'flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'
+            : 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'
+        }
+      >
         <div className="min-w-0 space-y-1.5">
           {surtitre && (
             <div className="flex flex-wrap items-center gap-2">{surtitre}</div>
@@ -180,6 +169,26 @@ export function EnTetePuce({
       className="rounded-savr-sm bg-savr-primary-50 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em] text-savr-primary-700"
     >
       {children}
+    </span>
+  );
+}
+
+// Badge de type du sur-titre des fiches collecte (§06.04 Q2, remplace le cadre
+// orange/vert) : ZD navy primary-700 texte blanc / AG orange accent-500 texte
+// primary-950 — aligné DS dataviz-1/2.
+export function BadgeTypeCollecte({ type }: { type: string }) {
+  const ag = type === 'anti_gaspi';
+  return (
+    <span
+      data-testid="badge-type-collecte"
+      className={cn(
+        'rounded-savr-sm px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em]',
+        ag
+          ? 'bg-savr-accent-500 text-savr-primary-950'
+          : 'bg-savr-primary-700 text-savr-white',
+      )}
+    >
+      {typeCollecteLabel(type)}
     </span>
   );
 }

@@ -147,7 +147,7 @@
     "M3.1/fiche_get_cloisonnement_telephone",
     "M3.1/fiche_popup_entete_badge_frise",
     "M3.1/fiche_popup_badge_ag_orange",
-    "M3.1/fiche_popup_onglets_colonne",
+    "M3.1/fiche_popup_onglets_horizontaux",
     "M3.1/fiche_popup_informations_blocs",
     "M3.1/fiche_popup_contact_secours",
     "M3.1/fiche_popup_urgence_demande",
@@ -714,9 +714,9 @@
       "id": "M3.1-popup-client-navigation-onglets",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:399",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
-      "test": "M3.1/fiche_popup_onglets_colonne",
+      "test": "M3.1/fiche_popup_onglets_horizontaux",
       "statut": "implemented",
-      "libelle": "Onglets en colonne à gauche (Radix Tabs orientation verticale) : Informations / Logistique / Bilan & documents ; actif = fond blanc + contour (pas d'aplat navy)."
+      "libelle": "Onglets seuls en barre horizontale sous le grand en-tête commun des fiches (FicheEnTete : badge type, réf., lieu, date · heure · pax, frise client à droite) — décision Val 2026-10-01, remplace les onglets en colonne du 2026-09-29 : Informations / Logistique / Bilan & documents ; cadre commun des fiches (max-w-5xl, hauteur fixe dès md, pied d'actions)."
     },
     {
       "id": "M3.1-popup-client-pied-actions",

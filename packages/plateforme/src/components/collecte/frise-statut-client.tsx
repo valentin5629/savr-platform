@@ -1,17 +1,26 @@
-import { friseStatutClient } from '@/lib/statut-collecte-labels';
+import {
+  friseStatutClient,
+  type EtapeFriseClient,
+} from '@/lib/statut-collecte-labels';
 import { cn } from '@/lib/utils';
 
-// Frise de statut discrète de la fiche collecte CLIENT (§06.04 refonte pop-up,
-// décision Val 2026-09-29, Q1) : en haut à droite de l'en-tête, vocabulaire
-// client (Créée · Validée · En cours · Réalisée / Sans excédents / Annulée —
-// jamais Programmée ni Clôturée). Étape courante pleine opacité + gras, les
-// autres estompées. Distincte de la frise Admin (granularité complète).
-export function FriseStatutClient({ statut }: { statut: string }) {
-  const etapes = friseStatutClient(statut);
+// Frise de statut discrète des pop-ups collecte, en haut à droite du grand
+// en-tête : étape courante pleine opacité + gras, les autres estompées. Même
+// rendu pour la frise client et la frise Admin (décision Val 2026-10-01) ;
+// seules changent les étapes.
+export function FriseEtapes({
+  etapes,
+  label,
+  testId,
+}: {
+  etapes: EtapeFriseClient[];
+  label: string;
+  testId?: string;
+}) {
   return (
     <ol
-      aria-label="Statut de la collecte"
-      data-testid="frise-statut-client"
+      aria-label={label}
+      data-testid={testId}
       className="flex shrink-0 flex-wrap items-center gap-2"
     >
       {etapes.map((e, i) => {
@@ -62,5 +71,19 @@ export function FriseStatutClient({ statut }: { statut: string }) {
         );
       })}
     </ol>
+  );
+}
+
+// Frise de la fiche collecte CLIENT (§06.04 refonte pop-up, décision Val
+// 2026-09-29, Q1) : vocabulaire client (Créée · Validée · En cours · Réalisée /
+// Sans excédents / Annulée — jamais Programmée ni Clôturée). Distincte de la
+// frise Admin (granularité complète).
+export function FriseStatutClient({ statut }: { statut: string }) {
+  return (
+    <FriseEtapes
+      etapes={friseStatutClient(statut)}
+      label="Statut de la collecte"
+      testId="frise-statut-client"
+    />
   );
 }

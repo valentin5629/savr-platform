@@ -18,11 +18,7 @@ export function FicheCollecteClientModal({
   onClose: () => void;
 }) {
   return (
-    <FicheCollecteModalCadre
-      collecteId={collecteId}
-      onClose={onClose}
-      variante="client"
-    >
+    <FicheCollecteModalCadre collecteId={collecteId} onClose={onClose}>
       {({ onLoaded, blockCloseRef }) => (
         <FicheCollecteClientPanel
           key={collecteId}

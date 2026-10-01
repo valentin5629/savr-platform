@@ -1,9 +1,11 @@
 import type { LucideIcon } from 'lucide-react';
 import { TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 // Briques de mise en page des fiches en pop-up : en-tête de bloc et champs
-// label/valeur (toutes), colonne résumé (fiches collecte), grand en-tête et
-// onglets à compteur d'erreurs (fiches Admin transporteur, lieu, association).
+// label/valeur, grand en-tête (fiches collecte Admin et client, fiches Admin
+// transporteur, lieu, association), badge de type de collecte et onglets à
+// compteur d'erreurs.
 
 // En-tête de bloc — DS §10 leviers #2 (pastille primary pleine) + #7 (titre
 // extrabold tracking serré) : pastille icône `primary-50`, titre `neutral-900`,
@@ -28,22 +30,6 @@ export function BlocHeader({
         </h2>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
-    </div>
-  );
-}
-
-// Colonne résumé (gauche) — libellé discret + valeur.
-export function ResumeItem({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs text-savr-neutral-500">{label}</dt>
-      <dd className="font-medium text-savr-neutral-900">{children}</dd>
     </div>
   );
 }
@@ -106,19 +92,11 @@ export function TelephoneLien({ telephone }: { telephone?: string | null }) {
   );
 }
 
-// Onglets en colonne du pop-up fiche collecte client : colonne à gauche sur
-// fond neutral-50, barre horizontale défilante sous md. Onglet actif = fond
-// blanc + contour (pas d'aplat navy) — maquette validée.
-export const ONGLETS_COLONNE_LISTE =
-  'flex shrink-0 gap-1 overflow-x-auto border-b border-savr-neutral-200 bg-savr-neutral-50 px-4 py-2 md:w-56 md:flex-col md:items-stretch md:overflow-visible md:border-b-0 md:border-r md:px-4 md:py-5';
-
-export const ONGLETS_COLONNE_DECLENCHEUR =
-  'h-11 shrink-0 justify-start rounded-savr-md border-b-0 px-3 text-[15px] font-normal text-savr-neutral-700 hover:bg-savr-white hover:text-savr-neutral-900 data-[state=active]:bg-savr-white data-[state=active]:font-bold data-[state=active]:text-savr-primary-700 data-[state=active]:ring-1 data-[state=active]:ring-inset data-[state=active]:ring-savr-neutral-200 md:w-full';
-
 // En-tête des fiches Admin en pop-up (transporteur, lieu, association — décision
-// Val 2026-09-30 « grand en-tête partout ») : sur-titre (puce + mention), nom en
-// grand, ligne d'infos à pictos, statut à droite. Il décrit l'objet ENREGISTRÉ
-// (stable pendant la saisie). À placer dans une modale `hideTitle` : le titre
+// Val 2026-09-30 « grand en-tête partout ») et fiches collecte (Admin et client,
+// décision Val 2026-10-01) : sur-titre (puce + mention), nom en grand, ligne
+// d'infos à pictos, statut à droite du sur-titre. Il décrit l'objet ENREGISTRÉ (stable
+// pendant la saisie). À placer dans une modale `hideTitle` : le titre
 // accessible reste celui de la modale. pr-14 réserve la croix de fermeture.
 export function FicheEnTete({
   surtitre,
@@ -127,6 +105,7 @@ export function FicheEnTete({
   infos = [],
   infosTestId,
   statut,
+  statutLarge = false,
 }: {
   surtitre?: React.ReactNode;
   titre: string;
@@ -135,35 +114,68 @@ export function FicheEnTete({
   infos?: { icon: LucideIcon; texte: React.ReactNode }[];
   infosTestId?: string;
   statut?: React.ReactNode;
+  /** Statut large (frise des fiches collecte) : à droite du sur-titre sur
+   *  grand écran seulement, sous les infos en dessous. */
+  statutLarge?: boolean;
 }) {
   return (
     <header className="shrink-0 border-b border-savr-neutral-200 px-6 pb-5 pr-14 pt-6 md:px-8 md:pr-16">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
-          {surtitre && (
-            <div className="flex flex-wrap items-center gap-2">{surtitre}</div>
+      {/* Le statut occupe la droite de la première ligne (celle du sur-titre,
+          ou du titre s'il n'y a pas de sur-titre) ; titre et infos gardent
+          toute la largeur — une frise ne les écrase pas. Sous le point de
+          bascule : une seule colonne, statut en dernier (ordre du DOM). */}
+      <div
+        className={cn(
+          'grid items-center gap-x-6 gap-y-1.5',
+          statutLarge
+            ? 'lg:grid-cols-[minmax(0,1fr)_auto]'
+            : 'sm:grid-cols-[minmax(0,1fr)_auto]',
+        )}
+      >
+        {surtitre && (
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {surtitre}
+          </div>
+        )}
+        <h3
+          className={cn(
+            'text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900',
+            (surtitre || !statut) && 'col-span-full',
           )}
-          <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
-            {titre}
-          </h3>
-          {description && (
-            <p className="text-[15px] text-savr-neutral-700">{description}</p>
-          )}
-          {infos.length > 0 && (
-            <p
-              data-testid={infosTestId}
-              className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
-            >
-              {infos.map(({ icon: Icon, texte }, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  {texte}
-                </span>
-              ))}
-            </p>
-          )}
-        </div>
-        {statut && <div className="self-start">{statut}</div>}
+        >
+          {titre}
+        </h3>
+        {description && (
+          <p className="col-span-full text-[15px] text-savr-neutral-700">
+            {description}
+          </p>
+        )}
+        {infos.length > 0 && (
+          <p
+            data-testid={infosTestId}
+            className="col-span-full flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
+          >
+            {infos.map(({ icon: Icon, texte }, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {texte}
+              </span>
+            ))}
+          </p>
+        )}
+        {statut && (
+          <div
+            className={cn(
+              'mt-1.5 min-w-0',
+              !surtitre && 'self-start',
+              statutLarge
+                ? 'lg:col-start-2 lg:row-start-1 lg:mt-0 lg:justify-self-end'
+                : 'sm:col-start-2 sm:row-start-1 sm:mt-0 sm:justify-self-end',
+            )}
+          >
+            {statut}
+          </div>
+        )}
       </div>
     </header>
   );
@@ -184,10 +196,51 @@ export function EnTetePuce({
   );
 }
 
+// Libellé d'affichage du type de collecte (UX — la DB garde l'enum).
+export function typeCollecteLabel(type: string): string {
+  return type === 'zero_dechet' ? 'Zéro Déchet' : 'Anti-Gaspi';
+}
+
+// Date de collecte de l'en-tête des fiches : « Samedi 26 septembre 2026 ».
+export function dateLongueCapitalisee(dateIso: string): string {
+  const d = new Date(dateIso).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Paris',
+  });
+  return d.charAt(0).toUpperCase() + d.slice(1);
+}
+
+// Badge de type du sur-titre des fiches collecte (§06.04 Q2, remplace le cadre
+// orange/vert) : ZD navy primary-700 texte blanc / AG orange accent-500 texte
+// primary-950 — aligné DS dataviz-1/2.
+export function BadgeTypeCollecte({ type }: { type: string }) {
+  const ag = type === 'anti_gaspi';
+  return (
+    <span
+      data-testid="badge-type-collecte"
+      className={cn(
+        'rounded-savr-sm px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em]',
+        ag
+          ? 'bg-savr-accent-500 text-savr-primary-950'
+          : 'bg-savr-primary-700 text-savr-white',
+      )}
+    >
+      {typeCollecteLabel(type)}
+    </span>
+  );
+}
+
 // Mention discrète du sur-titre (SIREN, gestionnaire…).
 export function EnTeteMention({ children }: { children: React.ReactNode }) {
   return <span className="text-[13px] text-savr-neutral-500">{children}</span>;
 }
+
+// Onglet de la barre horizontale des fiches collecte : cible tactile de 44 px
+// sur mobile, 40 px au-delà (DS §10).
+export const ONGLET_FICHE = 'h-11 px-3 sm:h-10 sm:px-4';
 
 // Onglet horizontal des fiches Admin (transporteur, lieu, association) portant le nombre de
 // ses champs qui bloquent l'enregistrement : pastille rouge + nom accessible

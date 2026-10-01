@@ -45,6 +45,7 @@
     "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
     "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
     "packages/plateforme/src/components/collecte/frise-statut-client.tsx",
+    "packages/plateforme/src/components/collecte/frise-etapes.tsx",
     "packages/plateforme/src/lib/collectes/fiche-client-types.ts",
     "packages/plateforme/src/lib/collectes/fiche-client.ts",
     "packages/plateforme/src/lib/collectes/benchmark-fiche.ts",
@@ -148,7 +149,7 @@
     "M3.1/fiche_get_cloisonnement_telephone",
     "M3.1/fiche_popup_entete_badge_frise",
     "M3.1/fiche_popup_badge_ag_orange",
-    "M3.1/fiche_popup_onglets_colonne",
+    "M3.1/fiche_popup_onglets_horizontaux",
     "M3.1/fiche_popup_informations_blocs",
     "M3.1/fiche_popup_contact_secours",
     "M3.1/fiche_popup_urgence_demande",
@@ -685,7 +686,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-modal.tsx, packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_ui_logistique_chauffeur_plaque_tel",
       "statut": "implemented",
-      "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, refondu le 2026-09-29 en pop-up client commun : en-tête + onglets en colonne Informations / Logistique / Bilan & documents, cf. M3.1-popup-client-*) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés ; vélo cargo = plaque « Sans objet (vélo cargo) ». Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md. Cadre de modale (titre, couleur AG/ZD, garde Échap) partagé avec la fiche Admin (fiche-collecte-modal-cadre.tsx)."
+      "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, refondu le 2026-09-29 en pop-up client commun, au cadre commun des fiches depuis le 2026-10-01 : grand en-tête + onglets en barre horizontale Informations / Logistique / Bilan & documents, cf. M3.1-popup-client-*) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés ; vélo cargo = plaque « Sans objet (vélo cargo) ». Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md. Cadre de modale (titre accessible, garde Échap ; plus de couleur AG/ZD depuis le 2026-10-01, le type est porté par le badge de l'en-tête) partagé avec la fiche Admin (fiche-collecte-modal-cadre.tsx)."
     },
     {
       "id": "M3.1-popup-client-entete",
@@ -715,9 +716,9 @@
       "id": "M3.1-popup-client-navigation-onglets",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:399",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
-      "test": "M3.1/fiche_popup_onglets_colonne",
+      "test": "M3.1/fiche_popup_onglets_horizontaux",
       "statut": "implemented",
-      "libelle": "Onglets en colonne à gauche (Radix Tabs orientation verticale) : Informations / Logistique / Bilan & documents ; actif = fond blanc + contour (pas d'aplat navy)."
+      "libelle": "Onglets seuls en barre horizontale sous le grand en-tête commun des fiches (FicheEnTete : badge type, réf., lieu, date · heure · pax, frise client à droite) — décision Val 2026-10-01, remplace les onglets en colonne du 2026-09-29 : Informations / Logistique / Bilan & documents ; cadre commun des fiches (max-w-5xl, hauteur fixe dès md, pied d'actions)."
     },
     {
       "id": "M3.1-popup-client-pied-actions",
@@ -933,7 +934,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu du pop-up conforme à la maquette validée (canevas Claude Design K2wDLh3a6rALMFAGUjk42v, piste A) : tokens savr-* uniquement, focus ring primary-500, onglet actif fond blanc + contour, estompé 40 %, frise discrète, 3 rôles × ZD/AG × états — preuve écran à joindre (geste de Val, GO-VISUAL)."
+      "libelle": "Rendu du pop-up conforme à la maquette validée (canevas Claude Design K2wDLh3a6rALMFAGUjk42v, piste A) : tokens savr-* uniquement, focus ring primary-500, onglets en barre horizontale du DS (décision Val 2026-10-01, remplace la colonne à onglet actif fond blanc + contour), estompé 40 %, frise discrète, 3 rôles × ZD/AG × états — preuve écran à joindre (geste de Val, GO-VISUAL)."
     },
     {
       "id": "M3.1-fiche-factures-sous-rls",

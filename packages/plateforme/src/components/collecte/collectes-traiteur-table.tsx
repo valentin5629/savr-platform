@@ -66,12 +66,42 @@ export interface ActionsTraiteur {
   onTelecharger: (c: TraiteurCollecteLigne) => void;
 }
 
-// « Réalisée » (vue client) = statut cloturee : résultats + rapport.
-function Resultats({
+// Cellule « Lieu » (nom + adresse d'accès) — partagée avec la liste Collectes
+// gestionnaire, qui reprend les colonnes de celle-ci (décision Val 2026-10-01).
+export function CelluleLieu({
+  nom,
+  adresse,
+}: {
+  nom: string | null;
+  adresse: string | null;
+}) {
+  if (!nom && !adresse) return <CelluleVide />;
+  return (
+    <div className="min-w-0">
+      <div className="font-medium">{nom ?? '—'}</div>
+      {adresse && (
+        <div className="text-xs text-savr-neutral-500">{adresse}</div>
+      )}
+    </div>
+  );
+}
+
+// « Réalisée » (vue client) = statut cloturee : résultats + rapport. Partagée
+// avec la liste Collectes gestionnaire.
+export function ResultatsCollecte({
   c,
   onTelecharger,
 }: {
-  c: TraiteurCollecteLigne;
+  c: Pick<
+    TraiteurCollecteLigne,
+    | 'type'
+    | 'statut'
+    | 'rapport_reserve_donneur_ordre'
+    | 'poids_total_kg'
+    | 'taux_recyclage'
+    | 'co2_evite_kg'
+    | 'nb_repas_donnes'
+  >;
   onTelecharger: () => void;
 }) {
   if (c.statut !== 'cloturee') return <CelluleVide />;
@@ -171,19 +201,9 @@ export function colonnesCollectesTraiteur(
       id: 'lieu',
       header: 'Lieu',
       accessorFn: (c) => c.lieu_nom ?? '',
-      cell: ({ row: { original: c } }) =>
-        c.lieu_nom || c.lieu_adresse ? (
-          <div className="min-w-0">
-            <div className="font-medium">{c.lieu_nom ?? '—'}</div>
-            {c.lieu_adresse && (
-              <div className="text-xs text-savr-neutral-500">
-                {c.lieu_adresse}
-              </div>
-            )}
-          </div>
-        ) : (
-          <CelluleVide />
-        ),
+      cell: ({ row: { original: c } }) => (
+        <CelluleLieu nom={c.lieu_nom} adresse={c.lieu_adresse} />
+      ),
     },
     {
       id: 'client',
@@ -204,7 +224,10 @@ export function colonnesCollectesTraiteur(
       header: 'Résultats',
       meta: { interactive: true },
       cell: ({ row: { original: c } }) => (
-        <Resultats c={c} onTelecharger={() => actions.onTelecharger(c)} />
+        <ResultatsCollecte
+          c={c}
+          onTelecharger={() => actions.onTelecharger(c)}
+        />
       ),
     },
     {

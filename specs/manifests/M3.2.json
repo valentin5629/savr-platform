@@ -182,7 +182,9 @@
     "M3.2/fiche_get_repas_tiers_depuis_attestation",
     "M3.2/fiche_get_repas_tiers_sans_attestation",
     "M3.2/fiche_get_repas_propre_programmation",
-    "M3.2/collectes_route_renvoie_le_client_organisateur"
+    "M3.2/collectes_route_renvoie_le_client_organisateur",
+    "M3.2/collectes_route_colonnes_liste_traiteur",
+    "M3.2/collectes_colonnes_identiques_liste_traiteur"
   ],
   "deliverables": [
     {
@@ -679,7 +681,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": "M3.2/collectes_route_renvoie_le_client_organisateur + M3.2/collectes_liste_rendue_au_design_system",
       "statut": "implemented",
-      "libelle": "Colonne « Client » de la liste Collectes gestionnaire, à droite de « Lieu » (décision Val, revue écran E2E 2026-10-01, choix C2 = client organisateur — divergence M3.1_20261001_liste-colonne-client). La route ajoute evenements.nom_client_organisateur à son embed, sous la RLS du gestionnaire : même colonne, même périmètre que le détail événement, qui la lui restitue déjà (« Client Organisateur si renseigné par le traiteur », l.341). « — » si non renseigné. Non triable, comme Lieu et Événement (liste paginée serveur, tri borné aux colonnes de collectes)."
+      "libelle": "Colonne « Client » de la liste Collectes gestionnaire, à droite de « Lieu » (décision Val, revue écran E2E 2026-10-01, choix C2 = client organisateur — divergence M3.1_20261001_liste-colonne-client). La route ajoute evenements.nom_client_organisateur à son embed, sous la RLS du gestionnaire : même colonne, même périmètre que le détail événement, qui la lui restitue déjà (« Client Organisateur si renseigné par le traiteur », l.341). « — » si non renseigné (une saisie faite d'espaces compte comme non renseignée). Non triable, comme Lieu (liste paginée serveur, tri borné aux colonnes de collectes)."
     },
     {
       "id": "M3.2-liste-colonne-client-rendu-visuel",
@@ -687,7 +689,15 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu de la colonne « Client » dans la liste Collectes gestionnaire, en tableau desktop ET en carte mobile < 640 px : placée entre Lieu et Événement, tableau pas trop large — preuve écran à joindre (geste de Val, GO-VISUAL)."
+      "libelle": "Rendu de la liste Collectes gestionnaire aux colonnes de la liste traiteur (Date · Lieu · Client · Traiteur · Pax · Résultats · Type · Statut), en tableau desktop ET en carte mobile < 640 px : Lieu sur deux lignes (nom + adresse), Résultats lisibles sur une collecte réalisée ZD et AG, tableau pas trop large — preuve écran à joindre (geste de Val, GO-VISUAL)."
+    },
+    {
+      "id": "M3.2-liste-colonnes-parite-traiteur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:83",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx, packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
+      "test": "M3.2/collectes_colonnes_identiques_liste_traiteur + M3.2/collectes_route_colonnes_liste_traiteur",
+      "statut": "implemented",
+      "libelle": "Liste Collectes gestionnaire aux colonnes de la liste traiteur, plus « Traiteur » (décisions Val, revue écran E2E 2026-10-01 : mêmes colonnes dans l'écran existant — liste plate paginée conservée ; « Type » gardé car ZD et AG sont mêlés ; « Événement » retiré ; aucun picto d'action — divergence M3.1_20261001_liste-colonne-client). Colonnes : Date · Lieu (nom + adresse) · Client · Traiteur · Pax · Résultats · Type · Statut ; les cellules Lieu et Résultats sont celles de la liste traiteur (composants partagés), et un test de parité échoue si une colonne ajoutée côté traiteur n'est pas reprise. Traiteur lu par la vue restreinte v_traiteurs_gestionnaire (nom seul). Résultats sur collecte clôturée : poids ZD = Σ collecte_flux, taux de recyclage, CO₂ évité ; repas AG = attribution quand elle est lisible, sinon dernière version de l'attestation de don servie au gestionnaire (même règle que la fiche, D13 — sur une collecte d'un traiteur tiers l'attribution lui est refusée par aa_select, jamais élargie). Téléchargement du rapport depuis la ligne (route gestionnaire existante, documents sous sa RLS, §06.05 l.619) : jamais « réservé au donneur d'ordre ». Les embeds bruts ne sortent pas de la route. Seules Date / Type / Statut restent triables (tri serveur)."
     }
   ],
   "cdc_source_hash": {

@@ -20,10 +20,12 @@
 -- (plateforme.type_vehicule : velo_cargo, camionnette, fourgon, vul, poids_lourd).
 -- Nullable : une collecte programmée sans précision reste valide (backward-compatible).
 -- Garde-fou 1 : colonne absente de §04 et du DDL cible V2 (dérivé non régénéré).
--- Divergence tracée dans _Divergences/BOA-LOGISTIQUE_20261001.md (ajout neutre à
--- intégrer au DDL cible ; classement « V1-only dormante » ou « durable V2 » à
--- trancher par Val), volontairement hors v1-divergences-allowlist.txt (liste
--- fermée), signalée par le gate schema-vs-cible en mode rapport d'ici là.
+-- Divergence tracée dans _Divergences/BOA-LOGISTIQUE_20261001.md. Classement
+-- tranché par Val (2026-10-01) : colonne V1-only, dormante en V2 (comme
+-- nb_camions_demande, liste fermée du garde-fou 1) — à ajouter à cette liste
+-- lors du prochain patch du Vault ; volontairement hors
+-- v1-divergences-allowlist.txt (dérivé), signalée par le gate schema-vs-cible en
+-- mode rapport d'ici là.
 -- Aucune policy RLS modifiée (colonne couverte par les policies de `collectes` ;
 -- écritures déjà fermées à authenticated depuis 20260915160000).
 -- Ordre de déploiement : le worker lit la colonne par une requête TOLÉRANTE

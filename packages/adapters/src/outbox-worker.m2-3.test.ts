@@ -31,8 +31,12 @@ interface WorkerMockOpts {
   typeVehiculeSouhaite?: string | null;
   /** `collectes.nb_camions_demande`. */
   nbCamions?: number;
+  /** `collectes.type` (défaut AG : le besoin véhicule est une donnée d'attribution AG). */
+  typeCollecte?: 'anti_gaspi' | 'zero_dechet';
   /** La colonne `type_vehicule_souhaite` n'existe pas encore (42703). */
   colonneVehiculeAbsente?: boolean;
+  /** Lecture de `type_vehicule_souhaite` en échec passager (blip PostgREST). */
+  colonneVehiculeBlip?: boolean;
 }
 
 const COLLECTE_ID = 'col-ag-dispatch-001';
@@ -67,7 +71,7 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
   // jointure evenements!inner — fix M1.5a 2026-06-26 ; §06.04 l.375 / §08 l.411).
   const collecteRow = {
     id: COLLECTE_ID,
-    type: 'anti_gaspi',
+    type: opts.typeCollecte ?? 'anti_gaspi',
     date_collecte: '2026-07-20',
     heure_collecte: '22:00:00',
     nb_camions_demande: opts.nbCamions ?? 1,
@@ -137,6 +141,11 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     // associations : embed OBJET (FK sortante association_id).
     q['maybeSingle'] = vi.fn(async () => {
       // Véhicule souhaité : lecture dédiée et tolérante (migration 20261001213000).
+      if (table === 'collectes' && opts.colonneVehiculeBlip)
+        return {
+          data: null,
+          error: { code: '08006', message: 'connexion interrompue' },
+        };
       if (table === 'collectes')
         return opts.colonneVehiculeAbsente
           ? {
@@ -702,7 +711,7 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
         nb_camions_demande: number;
       };
       expect(collecte.informations_supplementaires).toContain(
-        'Véhicule souhaité : 2 × camionnette',
+        'Véhicule souhaité : camionnette (1 par commande, 2 commandes identiques pour cette collecte)',
       );
       expect(collecte.type_vehicule_souhaite).toBe('camionnette');
       expect(collecte.nb_camions_demande).toBe(2);
@@ -720,6 +729,30 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
       ).toBe(true);
     },
   );
+
+  it('M2.3 / worker — collecte ZD avec N véhicules : aucune ligne « Véhicule souhaité » (besoin véhicule = attribution AG seule)', async () => {
+    const spy = vi
+      .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
+      .mockResolvedValue('noop_no_remote');
+    const supabase = makeWorkerSupabase({
+      typeTms: 'mts1',
+      prestataireLogistiqueId: PRESTA_ID,
+      typeCollecte: 'zero_dechet',
+      typeVehiculeSouhaite: 'camionnette',
+      nbCamions: 2,
+    });
+    await runOutboxWorker(supabase);
+
+    // N rangs = N commandes, ZD comme AG — mais la ligne véhicule est une donnée
+    // de l'attribution AG : jamais fabriquée pour une ZD.
+    expect(spy).toHaveBeenCalledTimes(2);
+    const collecte = spy.mock.calls[0]![0] as {
+      informations_supplementaires: string | null;
+    };
+    expect(collecte.informations_supplementaires ?? '').not.toContain(
+      'Véhicule souhaité',
+    );
+  });
 
   it('M2.3 / worker — colonne type_vehicule_souhaite illisible (migration non appliquée) → dispatch sans la ligne, jamais dead', async () => {
     const spy = vi
@@ -742,6 +775,22 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
     expect(collecte.informations_supplementaires ?? '').not.toContain(
       'Véhicule souhaité',
     );
+  });
+
+  it('M2.3 / worker — lecture type_vehicule_souhaite en échec passager → failed + retry, jamais une commande sans la ligne', async () => {
+    const spy = vi
+      .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_mts1');
+    const supabase = makeWorkerSupabase({
+      typeTms: 'mts1',
+      prestataireLogistiqueId: PRESTA_ID,
+      typeVehiculeSouhaite: 'camionnette',
+      colonneVehiculeBlip: true,
+    });
+    const result = await runOutboxWorker(supabase);
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.failed).toBe(1);
+    expect(result.dead).toBe(0);
   });
 
   // Le piège exact de #304 : re-fetcher le lieu OFFICIEL au lieu du lieu fusionné

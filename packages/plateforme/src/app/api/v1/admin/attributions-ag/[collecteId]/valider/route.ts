@@ -104,11 +104,35 @@ async function postHandler(
   }
 
   // Besoin véhicule : posé avant l'event de dispatch (émis par la RPC ci-dessous).
-  // Les écritures précèdent les gardes de la RPC : on vérifie donc d'abord qu'il
-  // n'existe pas déjà d'attribution (sinon 409 ici, rien n'est écrit), et chaque
-  // écriture est bornée à une collecte AG encore `programmee`.
+  // Les écritures précèdent les gardes de la RPC (P0042/P0043/P0044) et ne sont
+  // pas dans sa transaction : on rejoue donc ces gardes AVANT d'écrire — collecte
+  // AG encore `programmee`, aucune attribution existante — sinon 404/422/409 ici
+  // et rien n'est écrit. L'UPDATE du type reste en plus borné par le WHERE.
   if (nbCamions !== undefined || typeVehicule !== undefined) {
     const supabase = createAdminSupabaseClient();
+    const { data: etat, error: errEtat } = await supabase
+      .from('collectes')
+      .select('type, statut')
+      .eq('id', collecteId)
+      .single();
+    if (errEtat?.code === 'PGRST116' || (!etat && !errEtat)) {
+      return NextResponse.json(
+        { error: 'Collecte introuvable' },
+        { status: 404 },
+      );
+    }
+    if (errEtat) {
+      return serverError(errEtat, 'admin.attributions_ag.valider.collecte');
+    }
+    const c = etat as { type: string; statut: string };
+    if (c.type !== 'anti_gaspi' || c.statut !== 'programmee') {
+      return NextResponse.json(
+        {
+          error: `Attribution impossible : collecte ${c.type === 'anti_gaspi' ? `au statut '${c.statut}'` : 'non Anti-Gaspi'} (attendu : Anti-Gaspi programmée)`,
+        },
+        { status: 422 },
+      );
+    }
     const { data: existante, error: errExistante } = await supabase
       .from('attributions_antgaspi')
       .select('id')
@@ -135,11 +159,27 @@ async function postHandler(
         p_champs_modifies: ['nb_camions_demande'],
       });
       if (errNb) {
-        if ((errNb.message ?? '').includes('NB_CAMIONS_STATUT_TERMINAL')) {
+        const msg = errNb.message ?? '';
+        if (msg.includes('NB_CAMIONS_STATUT_TERMINAL')) {
           return NextResponse.json(
             {
               error:
                 'Le nombre de véhicules n’est plus modifiable (statut terminal)',
+            },
+            { status: 409 },
+          );
+        }
+        if (msg.includes('NB_CAMIONS_INVALIDE')) {
+          return NextResponse.json(
+            { error: 'nb_camions_demande doit être un entier >= 1' },
+            { status: 422 },
+          );
+        }
+        if (msg.includes('REDUCTION_CANCEL_WINDOW_CLOSED')) {
+          return NextResponse.json(
+            {
+              error:
+                'Réduction du nombre de véhicules impossible à moins d’1h de la mission',
             },
             { status: 409 },
           );

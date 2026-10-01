@@ -340,7 +340,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 | `TopBar` | Barre supérieure mobile, burger menu | Mobile + tablet |
 | `BottomNav` | Navigation bas d'écran (4-5 items) | Mobile |
 | `Breadcrumb` | Fil d'Ariane pages imbriquées | Dashboard → Événement → Collecte |
-| `PageHero` | Bandeau d'en-tête d'écran (§5.6) | **Listes Admin** (collectes, lieux, transporteurs, associations, clients…). **Pas sur la fiche collecte** *(refonte 2026-07-21)* : celle-ci s'ouvre en **pop-up centré (`Modal`)**, qui fournit son propre chrome (titre figé + croix) et un en-tête compact interne réduit à la barre d'action. |
+| `PageHero` | Bandeau d'en-tête d'écran (§5.6) | **Listes Admin** (collectes, lieux, transporteurs, associations, clients…). **Pas sur la fiche collecte** *(refonte 2026-07-21)* : celle-ci s'ouvre en **pop-up centré (`Modal`)** ; le titre de la modale est réservé aux lecteurs d'écran et l'en-tête interne est le **grand en-tête commun des fiches** *(2026-10-01)*. |
 
 ### Données et tableaux
 
@@ -384,7 +384,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 
 | Composant | Description |
 |---|---|
-| `Tabs` | AG / ZD / Vue consolidée (dashboards) |
+| `Tabs` | AG / ZD / Vue consolidée (dashboards) ; onglets de fiche. **44 px de haut sur mobile, 40 px au-delà** (cible tactile §10), pour tous les écrans à onglets *(décision Val 2026-10-01)* |
 | `Pagination` | Entre pages de tableau |
 | `Accordion` | Contenu dépliable (aide, détails) |
 

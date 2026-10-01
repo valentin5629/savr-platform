@@ -469,6 +469,20 @@ export default function CollectesPage() {
     setPage(1);
   };
 
+  // Tuile « AG / ZD à dispatcher » : pose (ou retire) le chip « Non transmises »
+  // de son type. À l'activation, le filtre Type de la barre est effacé : le chip
+  // porte déjà son type, et un autre type coché viderait la liste alors que la
+  // tuile affiche N (décision Val 2026-10-01). Les autres filtres de la barre
+  // continuent de se cumuler.
+  const basculerADispatcher = (
+    chip: 'non_transmises_ag' | 'non_transmises_zd',
+  ) => {
+    const actif = quickFilter === chip;
+    setQuickFilter(actif ? '' : chip);
+    if (!actif) setTypes([]);
+    setPage(1);
+  };
+
   // Urgences (AG à attribuer < 48h) en tête de page (§06.09 §1) — uniquement
   // sur le tri par date : un tri explicite sur une autre colonne est respecté.
   const lignes = useMemo(
@@ -610,8 +624,8 @@ export default function CollectesPage() {
       {/* KPI de tête (Programmées uniquement) : 4 files d'action sur une ligne.
           Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01).
           Un clic sur « AG / ZD à dispatcher » pose le chip « Non transmises
-          AG / ZD » : la liste montre exactement les collectes comptées
-          (décision Val 2026-10-01) ; un re-clic le retire. */}
+          AG / ZD » et efface le filtre Type : la liste montre les collectes
+          comptées (décisions Val 2026-10-01) ; un re-clic retire le chip. */}
       {tab === 'programmees' && (
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           <KpiTile
@@ -621,12 +635,7 @@ export default function CollectesPage() {
             sublabel="validées transporteur"
             tone="warning"
             active={quickFilter === 'non_transmises_ag'}
-            onClick={() => {
-              setQuickFilter((q) =>
-                q === 'non_transmises_ag' ? '' : 'non_transmises_ag',
-              );
-              setPage(1);
-            }}
+            onClick={() => basculerADispatcher('non_transmises_ag')}
           />
           <KpiTile
             icon={Leaf}
@@ -635,12 +644,7 @@ export default function CollectesPage() {
             sublabel="validées transporteur"
             tone="success"
             active={quickFilter === 'non_transmises_zd'}
-            onClick={() => {
-              setQuickFilter((q) =>
-                q === 'non_transmises_zd' ? '' : 'non_transmises_zd',
-              );
-              setPage(1);
-            }}
+            onClick={() => basculerADispatcher('non_transmises_zd')}
           />
           <KpiTile
             icon={IdCard}

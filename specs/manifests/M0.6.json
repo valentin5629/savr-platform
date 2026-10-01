@@ -1360,10 +1360,10 @@
     {
       "id": "M0.6-tuile-a-dispatcher-clic",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:203",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (clic sur une tuile « AG / ZD à dispatcher » = chip non_transmises_ag / non_transmises_zd)",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (basculerADispatcher : clic sur une tuile « AG / ZD à dispatcher » = chip non_transmises_ag / non_transmises_zd + filtre Type effacé)",
       "test": "M0.6 — kpi_a_dispatcher_predicat_unique : clic sur une tuile « à dispatcher »",
       "statut": "implemented",
-      "libelle": "Un clic sur la tuile « AG / ZD à dispatcher » active le filtre « Non transmises » du même type : la liste montre les collectes comptées (décision Val 2026-10-01). Règle absente du CDC à ce jour, patch proposé dans _Divergences/M0.6_20261001_tuile-a-dispatcher-clic ; la ligne citée est celle du chip, qui recevra la règle. Choix d'implémentation : re-clic = retrait, filtres de la barre cumulés (règle du 2026-09-30)."
+      "libelle": "Un clic sur la tuile « AG / ZD à dispatcher » active le filtre « Non transmises » du même type : la liste montre les collectes comptées (décision Val 2026-10-01). À l'activation, le filtre Type de la barre est effacé, pour qu'un autre type coché ne vide pas la liste (seconde décision Val, même jour) ; les autres filtres de la barre restent cumulés (règle du 2026-09-30). Règles absentes du CDC à ce jour, patch proposé dans _Divergences/M0.6_20261001_tuile-a-dispatcher-clic ; la ligne citée est celle du chip, qui recevra la règle. Choix d'implémentation : re-clic = retrait du chip."
     },
     {
       "id": "M0.6-tuile-a-dispatcher-rendu-actif",

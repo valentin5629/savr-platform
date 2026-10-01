@@ -316,8 +316,20 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       // compte aussi les collectes validées transporteur.
       expect(zdTile).toHaveTextContent('validées transporteur');
 
+      // La barre porte déjà un AUTRE type : sans effacement, le clic sur la
+      // tuile ZD rendrait une liste vide alors que la tuile affiche 3.
+      const pastilleAg = screen.getByRole('button', { name: 'Anti-Gaspi' });
+      fireEvent.click(pastilleAg);
+      await waitFor(
+        () =>
+          expect(derniereRequeteListe(fetchMock).get('types')).toBe(
+            'anti_gaspi',
+          ),
+        ATTENTE_UI,
+      );
+
       // Clic : la liste est filtrée par le prédicat MÊME que compte la tuile
-      // (chip serveur), plus par le seul type (décision Val 2026-10-01).
+      // (chip serveur), et le filtre Type est effacé (décisions Val 2026-10-01).
       fireEvent.click(zdTile);
       await waitFor(() => {
         const q = derniereRequeteListe(fetchMock);
@@ -325,6 +337,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         expect(q.get('types')).toBeNull();
       }, ATTENTE_UI);
       expect(zdTile).toHaveAttribute('aria-pressed', 'true');
+      expect(pastilleAg).toHaveAttribute('aria-pressed', 'false');
       // Le chip masqué apparaît actif dans la rangée, avec le même compteur.
       const chip = screen.getByRole('button', { name: /Non transmises ZD/ });
       expect(chip).toHaveAttribute('aria-pressed', 'true');

@@ -950,37 +950,87 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'Colonne résumé visible quel que soit l’onglet (traiteur, lieu, association)',
+    'Grand en-tête AG (décision Val 2026-10-01) : badge, réf., lieu, date · heure, pax, traiteur, ville, prestataire, association — sans colonne résumé',
     async () => {
       installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
-      const resume = await screen.findByRole(
-        'complementary',
-        { name: 'Résumé de la collecte' },
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        {},
         ATTENTE_UI,
       );
-      await ouvrirOnglet('Historique');
-      expect(within(resume).getByText('Traiteur Beta')).toBeInTheDocument();
-      expect(within(resume).getByText('Pavillon')).toBeInTheDocument();
+      const enTete = sousLigne.closest('header') as HTMLElement;
       expect(
-        within(resume).getByText('Les Restos du Cœur'),
+        within(enTete).getByTestId('badge-type-collecte'),
+      ).toHaveTextContent('Anti-Gaspi');
+      expect(within(enTete).getByText('Réf. TMS-9')).toBeInTheDocument();
+      expect(
+        within(enTete).getByRole('heading', { name: 'Pavillon' }),
       ).toBeInTheDocument();
+      expect(sousLigne).toHaveTextContent('Dimanche 10 mai 2026 · 19:00');
+      expect(sousLigne).toHaveTextContent("jusqu'à 80 pax");
+      expect(sousLigne).toHaveTextContent('Traiteur Beta');
+      expect(sousLigne).toHaveTextContent('Paris');
+      expect(sousLigne).toHaveTextContent('Prestataire non attribué');
+      // Statut TMS en badge coloré (pas en texte brut).
+      expect(within(sousLigne).getByText('Acceptée presta').className).toMatch(
+        /success/,
+      );
+      expect(sousLigne).toHaveTextContent('Les Restos du Cœur');
+      // Frise compacte dans l'en-tête ; plus de colonne résumé.
+      expect(
+        within(enTete).getByRole('list', { name: 'Avancement de la collecte' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('complementary', { name: 'Résumé de la collecte' }),
+      ).toBeNull();
+      // Onglets seuls, en barre horizontale.
+      expect(
+        screen
+          .getByRole('tablist', { name: 'Sections de la fiche collecte' })
+          .getAttribute('aria-orientation'),
+      ).toBe('horizontal');
+      // « Forcer le statut » dans le pied d'actions.
+      expect(
+        screen
+          .getByRole('button', { name: /Forcer le statut/ })
+          .closest('footer'),
+      ).not.toBeNull();
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M0.6 — onLoaded remonte type + titre-résumé (cadre coloré + en-tête figé « jusqu’à N pax »)',
+    'Grand en-tête ZD : badge Zéro Déchet, pas de ligne association ; « dirty TMS » en sur-titre',
+    async () => {
+      installMock({ collecte: { ...baseZd, dirty_tms: true } });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        {},
+        ATTENTE_UI,
+      );
+      const enTete = sousLigne.closest('header') as HTMLElement;
+      expect(
+        within(enTete).getByTestId('badge-type-collecte'),
+      ).toHaveTextContent('Zéro Déchet');
+      expect(
+        within(enTete).getByText('Modifiée — renvoi requis'),
+      ).toBeInTheDocument();
+      expect(sousLigne).not.toHaveTextContent('Association');
+      expect(sousLigne).not.toHaveTextContent('Les Restos du Cœur');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — onLoaded remonte le titre accessible « Collecte … jusqu’à N pax »',
     async () => {
       const onLoaded = vi.fn();
       installMock({ collecte: baseAg });
       render(<CollecteDetailPanel collecteId="c1" onLoaded={onLoaded} />);
       await waitFor(() => expect(onLoaded).toHaveBeenCalled(), ATTENTE_UI);
-      const arg = onLoaded.mock.calls.at(-1)?.[0] as {
-        type: string;
-        title: string;
-      };
-      expect(arg.type).toBe('anti_gaspi');
+      const arg = onLoaded.mock.calls.at(-1)?.[0] as { title: string };
       expect(arg.title).toContain('Collecte Anti-Gaspi');
       expect(arg.title).toContain("jusqu'à 80 pax");
     },

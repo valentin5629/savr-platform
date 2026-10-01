@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({
 import { CollecteDetailModal } from './collecte-detail-modal';
 import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 
-// Collecte AG programmée (non terminale) → l'en-tête affiche « Forcer le statut ».
+// Collecte AG programmée (non terminale) → le pied affiche « Forcer le statut ».
 const collecteAg = {
   id: 'c1',
   type: 'anti_gaspi',

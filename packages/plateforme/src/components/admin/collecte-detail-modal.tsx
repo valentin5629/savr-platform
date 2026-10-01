@@ -11,9 +11,9 @@ interface CollecteDetailModalProps {
   onClose: () => void;
 }
 
-// Titre figé « Collecte AG · … · jusqu'à N pax », cadre AG orange / ZD vert et
-// garde Escape des sous-modales (forçage statut / nb camions / annuler crédit) :
-// portés par le cadre commun aux fiches Admin et traiteur.
+// Titre accessible « Collecte AG · … · jusqu'à N pax » et garde Escape des
+// sous-modales (forçage statut / nb camions / annuler crédit) : portés par le
+// cadre commun aux fiches collecte Admin et clientes.
 export function CollecteDetailModal({
   collecteId,
   onClose,

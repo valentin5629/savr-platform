@@ -193,13 +193,19 @@ describe('M3.1 / Data Table liste traiteur', () => {
 
   it('M3.1/card_traiteur_realisee_download — le picto téléchargement appelle onTelecharger', () => {
     const onTelecharger = vi.fn();
+    const onOpen = vi.fn();
     monte(
       base({ statut: 'cloturee', poids_total_kg: 100, co2_evite_kg: 10 }),
       true,
-      { onTelecharger },
+      { onTelecharger, onOpen },
     );
     fireEvent.click(btn(/Télécharger le rapport/));
     expect(onTelecharger).toHaveBeenCalledOnce();
+    // Le clic s'arrête au bouton ; le reste de la cellule Résultats ouvre la
+    // fiche comme toute la ligne (plus de zone morte autour des chiffres).
+    expect(onOpen).not.toHaveBeenCalled();
+    fireEvent.click(table.getByText(/100\s*kg/));
+    expect(onOpen).toHaveBeenCalledOnce();
   });
 
   it('M3.1/liste_rapport_reserve_donneur_ordre_picto_retire — AG réservée au donneur d’ordre : picto retiré, mention de la fiche, résultats conservés', () => {

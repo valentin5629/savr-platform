@@ -242,9 +242,29 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
           attributions_antgaspi: [],
           attestations_don: null,
         },
+        // Attribution lisible à 0 repas : c'est une valeur, elle prime (un `||`
+        // la remplacerait par l'attestation).
+        {
+          ...base,
+          id: 'ag-zero',
+          type: 'anti_gaspi',
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 0 },
+          attestations_don: [{ nb_repas: 12, version: 1 }],
+        },
+        // Attribution lisible mais volume non saisi : repli sur l'attestation,
+        // ici rendue en OBJET par PostgREST (même lecture que le tableau).
+        {
+          ...base,
+          id: 'ag-volume-null',
+          type: 'anti_gaspi',
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: null },
+          attestations_don: { nb_repas: 90, version: 1 },
+        },
       ],
       error: null,
-      count: 4,
+      count: 6,
     });
     const res = await appel();
     const { data } = (await res.json()) as {
@@ -275,7 +295,14 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
       co2_evite_kg: 96,
       nb_repas_donnes: null,
     });
-    expect(data.map((c) => c.nb_repas_donnes)).toEqual([null, 180, 152, null]);
+    expect(data.map((c) => c.nb_repas_donnes)).toEqual([
+      null,
+      180,
+      152,
+      null,
+      0,
+      90,
+    ]);
     // Lignes sans traiteur nommé ni pax (fixture de base) : null, pas d'erreur.
     expect(data[1]).toMatchObject({
       traiteur_nom: null,

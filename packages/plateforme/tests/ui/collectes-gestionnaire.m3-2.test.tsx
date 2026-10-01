@@ -154,8 +154,18 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         'Type',
         'Statut',
       ]);
+      // Tri serveur : seules les colonnes de la liste blanche de la route sont
+      // triables (DataGrid ne pose `aria-sort` que sur une colonne triable).
+      // Une colonne triable hors liste blanche afficherait une flèche de tri
+      // sur un ordre resté par date.
+      expect(
+        screen
+          .getAllByRole('columnheader')
+          .filter((th) => th.hasAttribute('aria-sort'))
+          .map((th) => th.textContent?.trim()),
+      ).toEqual(['Date', 'Type', 'Statut']);
       expect(screen.getAllByText('Maison Lenôtre').length).toBeGreaterThan(0);
-      // Client non renseigné (c2, seule cellule vide de sa ligne) : « — ».
+      // Client non renseigné (c2) : « — ».
       const ligneSansClient = within(screen.getByRole('table'))
         .getByText('Palais des Congrès de Paris')
         .closest('tr');
@@ -169,9 +179,15 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(screen.getAllByText('ZD').length).toBeGreaterThan(0);
       expect(screen.getAllByText('AG').length).toBeGreaterThan(0);
 
-      // Ligne aux champs nuls : date, lieu, client, traiteur et pax tombent
-      // sur « — » (DataTable rend chaque ligne en tableau ET en card).
-      expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
+      // Ligne aux champs nuls (c3, 3e ligne — ordre de la route, tri serveur) :
+      // date, lieu, client, traiteur et pax tombent chacun sur « — ».
+      const cellulesC3 = within(
+        within(screen.getByRole('table')).getAllByRole('row')[3]!,
+      ).getAllByRole('cell');
+      for (const entete of ['Date', 'Lieu', 'Client', 'Traiteur', 'Pax'])
+        expect(cellulesC3[entetes.indexOf(entete)]?.textContent, entete).toBe(
+          '—',
+        );
     },
     ATTENTE_CAS_MS,
   );
@@ -185,46 +201,48 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         Promise.resolve(
           String(url).includes('/rapport-rse/download')
             ? reponse(200, { url: 'https://r2.example/rapport.pdf' })
-            : reponse(200, {
-                data: [
-                  LIGNES[0],
-                  {
-                    id: 'zd/1',
-                    type: 'zero_dechet',
-                    statut: 'cloturee',
-                    date_collecte: '2026-10-11',
-                    heure_collecte: '22:00:00',
-                    evenement_nom: null,
-                    lieu_nom: 'Musée des Arts Forains',
-                    lieu_adresse:
-                      '53 Avenue des Terroirs de France 75012 Paris',
-                    client_nom: null,
-                    traiteur_nom: 'Fleurdemets',
-                    pax: 500,
-                    poids_total_kg: 412.5,
-                    taux_recyclage: 87,
-                    co2_evite_kg: 96,
-                    nb_repas_donnes: null,
-                  },
-                  {
-                    id: 'ag-1',
-                    type: 'anti_gaspi',
-                    statut: 'cloturee',
-                    date_collecte: '2026-10-04',
-                    heure_collecte: '23:00:00',
-                    evenement_nom: null,
-                    lieu_nom: 'Paris Nord Villepinte',
-                    lieu_adresse: null,
-                    client_nom: null,
-                    traiteur_nom: 'Kaspia Réceptions',
-                    pax: 238,
-                    poids_total_kg: 0,
-                    taux_recyclage: null,
-                    co2_evite_kg: 450,
-                    nb_repas_donnes: 180,
-                  },
-                ],
-              }),
+            : String(url).startsWith('/api/v1/gestionnaire/collectes/c1')
+              ? reponse(200, { data: ficheClient() })
+              : reponse(200, {
+                  data: [
+                    LIGNES[0],
+                    {
+                      id: 'zd/1',
+                      type: 'zero_dechet',
+                      statut: 'cloturee',
+                      date_collecte: '2026-10-11',
+                      heure_collecte: '22:00:00',
+                      evenement_nom: null,
+                      lieu_nom: 'Musée des Arts Forains',
+                      lieu_adresse:
+                        '53 Avenue des Terroirs de France 75012 Paris',
+                      client_nom: null,
+                      traiteur_nom: 'Fleurdemets',
+                      pax: 500,
+                      poids_total_kg: 412.5,
+                      taux_recyclage: 87,
+                      co2_evite_kg: 96,
+                      nb_repas_donnes: null,
+                    },
+                    {
+                      id: 'ag-1',
+                      type: 'anti_gaspi',
+                      statut: 'cloturee',
+                      date_collecte: '2026-10-04',
+                      heure_collecte: '23:00:00',
+                      evenement_nom: null,
+                      lieu_nom: 'Paris Nord Villepinte',
+                      lieu_adresse: null,
+                      client_nom: null,
+                      traiteur_nom: 'Kaspia Réceptions',
+                      pax: 238,
+                      poids_total_kg: 0,
+                      taux_recyclage: null,
+                      co2_evite_kg: 450,
+                      nb_repas_donnes: 180,
+                    },
+                  ],
+                }),
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
@@ -288,6 +306,16 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(
         table.queryByRole('button', { name: /Modifier|Annuler|Dupliquer/ }),
       ).toBeNull();
+      // La cellule Résultats n'est pas une zone morte : cliquer son « — » ouvre
+      // la fiche, comme le reste de la ligne.
+      fireEvent.click(
+        within(ligneValidee).getAllByRole('cell')[
+          attendu.indexOf('Résultats')
+        ]!,
+      );
+      expect(replace).toHaveBeenCalledWith(
+        '/gestionnaire/collectes?collecte=c1',
+      );
     },
     ATTENTE_CAS_MS,
   );

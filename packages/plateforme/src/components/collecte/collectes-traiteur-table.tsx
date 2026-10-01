@@ -161,7 +161,12 @@ export function ResultatsCollecte({
       ) : (
         <IconButton
           variant="ghost"
-          onClick={onTelecharger}
+          // Le clic s'arrête au bouton : le reste de la cellule (chiffres,
+          // « — ») ouvre la fiche comme toute la ligne.
+          onClick={(e) => {
+            e.stopPropagation();
+            onTelecharger();
+          }}
           title="Télécharger le rapport"
           aria-label="Télécharger le rapport de la collecte"
         >
@@ -222,7 +227,6 @@ export function colonnesCollectesTraiteur(
     {
       id: 'resultats',
       header: 'Résultats',
-      meta: { interactive: true },
       cell: ({ row: { original: c } }) => (
         <ResultatsCollecte
           c={c}

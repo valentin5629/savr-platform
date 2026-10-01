@@ -327,7 +327,7 @@ function GestionnaireCollectesContent() {
       accessorFn: (c) => c.date_collecte ?? '',
       cell: ({ row: { original: c } }) =>
         c.date_collecte ? (
-          <span className="whitespace-nowrap font-semibold tabular-nums">
+          <span className="whitespace-nowrap font-semibold text-savr-neutral-900 tabular-nums">
             {libelleDateHeure(c.date_collecte, c.heure_collecte ?? null)}
           </span>
         ) : (
@@ -361,7 +361,6 @@ function GestionnaireCollectesContent() {
     {
       id: 'resultats',
       header: 'Résultats',
-      meta: { interactive: true },
       cell: ({ row: { original: c } }) => (
         <ResultatsCollecte
           // Le gestionnaire est servi de tous les rapports des collectes tenues

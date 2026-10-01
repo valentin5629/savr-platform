@@ -63,7 +63,7 @@ function un<T>(v: UnOuListe<T>): T | null {
 type LigneBrute = Record<string, unknown> & {
   collecte_flux: { poids_reel_kg: number | null }[] | null;
   attributions_antgaspi: UnOuListe<{ volume_repas_realise: number | null }>;
-  attestations_don: { nb_repas: number | null; version: number }[] | null;
+  attestations_don: UnOuListe<{ nb_repas: number | null; version: number }>;
   evenements: UnOuListe<{
     nom_evenement: string | null;
     nom_client_organisateur: string | null;
@@ -219,9 +219,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const evt = un(evenements);
     const lieu = un(evt?.lieux ?? null);
     // Dernière version de l'attestation (une par régénération).
-    const attestation = [...(attestations_don ?? [])].sort(
-      (a, b) => b.version - a.version,
-    )[0];
+    const attestation = [attestations_don ?? []]
+      .flat()
+      .sort((a, b) => b.version - a.version)[0];
     return {
       ...rest,
       evenement_nom: evt?.nom_evenement ?? null,

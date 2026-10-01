@@ -7,8 +7,9 @@
 -- plateforme.evenements (blanket grant 0.4a, 20260611180000 l.27 — seule l'écriture
 -- a été retirée, 20260915190000). Les policies evt_*_select filtrent les LIGNES,
 -- jamais les colonnes : tout rôle client qui voit un événement en lit donc les 21
--- colonnes par PostgREST direct. Mesuré : sur 7 événements de traiteurs TIERS tenus
--- sur son lieu (evt_gestionnaire_select), un gestionnaire lit 7/7
+-- colonnes par PostgREST direct. Mesuré sur la base locale de développement (jeu de
+-- démonstration) : sur 7 événements de traiteurs TIERS tenus sur son lieu
+-- (evt_gestionnaire_select), un gestionnaire lit 7/7
 -- `contact_principal_nom`, `contact_principal_telephone`, `entite_facturation_id` ;
 -- `notes_internes`, `reference_affaire`, `contact_secours_*` sont interrogeables
 -- sans refus. Même constat, par construction, pour le client organisateur
@@ -56,10 +57,15 @@
 --   - reference_affaire : référence interne du programmateur (« numéro d'affaire »,
 --     §04). Servie par la même route à l'organisation programmatrice seule
 --     (arbitrage C3) — elle n'alimente que le formulaire d'édition.
---   - notes_internes, entite_facturation_id : aucun lecteur client (arbitrage C1).
+--   - notes_internes, entite_facturation_id : fermées à tous les rôles clients
+--     (arbitrage C1). Aucune lecture sous authenticated ; côté routes, un chemin
+--     les rendait encore au programmateur — la réponse du PATCH
+--     programmation/evenements/[id], qui renvoyait la ligne entière produite par
+--     fn_modifier_evenement (relevé par reviewer-rls-securite). Réduite dans le
+--     même lot à l'id et aux champs éditables.
 --
--- LECTEURS RECENSÉS (2026-10-01 : 79 sites dans packages/, 40 sous identité
--- utilisateur ; catalogue sur base rejouée depuis main) :
+-- LECTEURS RECENSÉS (2026-10-01 : tous les `.from('evenements')` et embeds
+-- `evenements(...)` de packages/ ; catalogue sur base rejouée depuis main) :
 --   - Un seul lecteur authenticated des 7 colonnes retirées : la fiche collecte
 --     (5 colonnes), basculée en service_role dans le même lot.
 --   - Vues : v_kpi_lieu, v_kpi_traiteur, v_kpi_client_organisateur
@@ -111,7 +117,13 @@ COMMENT ON COLUMN plateforme.evenements.reference_affaire IS
   'Référence interne du programmateur (numéro d''affaire), reportée sur la facture. Hors GRANT SELECT authenticated depuis 20261001103000 : servie par la route de la fiche collecte (service_role) à l''organisation programmatrice seule (arbitrage Val C3 2026-10-01).';
 
 COMMENT ON COLUMN plateforme.evenements.notes_internes IS
-  'Notes Admin Savr uniquement (§04). Hors GRANT SELECT authenticated depuis 20261001103000 : aucun rôle client ne la lit, y compris par PostgREST direct.';
+  'Notes Admin Savr uniquement (§04). Hors GRANT SELECT authenticated depuis 20261001103000 : illisible par PostgREST direct, staff compris. Aucune route servant un rôle client ne doit la rendre (arbitrage Val C1 2026-10-01) — attention aux fonctions qui renvoient la ligne entière (fn_modifier_evenement).';
+
+-- Le commentaire de table posé par 20260915190000 disait « SELECT reste accordé » :
+-- vrai au niveau table à l'époque, faux depuis cette migration. On le réécrit
+-- plutôt que de laisser le catalogue annoncer un droit qui n'existe plus.
+COMMENT ON TABLE plateforme.evenements IS
+  'Événement (réception) portant N collectes. Écriture FERMÉE à `authenticated` depuis 2026-09-15 : INSERT, UPDATE et DELETE retirés du GRANT table-level 0.4a, sans re-GRANT — toute écriture passe par les routes API (service_role), seules à émettre l''outbox E2 via fn_modifier_evenement, tracer l''audit_log et appliquer la matrice de rôles §09. Les policies evt_*_insert / evt_*_update / evt_manager_delete sont conservées mais INERTES pour PostgREST direct tant que le privilège n''est pas ré-accordé. Lecture : depuis 20261001103000, `authenticated` n''a plus le SELECT table-level mais une LISTE BLANCHE de 14 colonnes (épinglée par SECU__evenements_select_liste_blanche) ; contacts sur place, référence d''affaire, notes internes et entité de facturation sont hors privilège et servis, quand ils le sont, par les routes (service_role). Toute colonne ajoutée est fermée par défaut.';
 
 -- ROLLBACK (rouvre des accès : décision explicite de Val, CLAUDE.md §12-2bis) :
 --   GRANT SELECT ON plateforme.evenements TO authenticated;

@@ -250,7 +250,18 @@ export async function PATCH(
     // notification best-effort — ignorée si irrésoluble
   }
 
-  return NextResponse.json({ data: updated });
+  // `fn_modifier_evenement` rend la ligne ENTIÈRE (`to_jsonb`), dont
+  // `notes_internes` (notes Admin Savr, §04) et `entite_facturation_id` — deux
+  // colonnes qu'aucun rôle client ne lit (hors GRANT SELECT authenticated,
+  // arbitrage Val C1 2026-10-01). La réponse est donc réduite à l'id et aux
+  // champs que ce rôle peut éditer ; l'écran n'en consomme que le statut HTTP.
+  const ligne = (updated ?? {}) as Record<string, unknown>;
+  const data = Object.fromEntries(
+    ['id', ...EVENT_EDITABLE_FIELDS]
+      .filter((champ) => champ in ligne)
+      .map((champ) => [champ, ligne[champ]]),
+  );
+  return NextResponse.json({ data });
 }
 
 // Rôles clients dont le DELETE brouillon est borné à leurs PROPRES créations

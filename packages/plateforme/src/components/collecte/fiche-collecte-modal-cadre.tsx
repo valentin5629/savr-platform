@@ -62,8 +62,3 @@ export function FicheCollecteModalCadre({
     </Modal>
   );
 }
-
-// Libellé d'affichage du type de collecte (UX — la DB garde l'enum).
-export function typeCollecteLabel(type: string): string {
-  return type === 'zero_dechet' ? 'Zéro Déchet' : 'Anti-Gaspi';
-}

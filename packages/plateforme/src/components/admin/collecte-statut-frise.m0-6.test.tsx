@@ -26,6 +26,18 @@ describe('CollecteStatutFrise', () => {
     expect(etapeCourante()).toHaveTextContent('Sans excédents');
   });
 
+  // jsdom ne calcule aucune mise en page : garde de classe. Une frise non
+  // rétractable débordait de l'en-tête et passait sous la croix de la modale
+  // (5 étapes ≈ 590 px, mesuré dans Chromium — revue du 2026-10-01).
+  it('la frise peut se replier : jamais de largeur incompressible', () => {
+    render(<CollecteStatutFrise statut="realisee_sans_collecte" />);
+    const frise = screen.getByRole('list', {
+      name: 'Avancement de la collecte',
+    });
+    expect(frise.className).toMatch(/\bflex-wrap\b/);
+    expect(frise.className).not.toMatch(/\bshrink-0\b/);
+  });
+
   it.each([
     ['annulee', 'Annulée'],
     ['rejetee_par_prestataire', 'Rejetée'],

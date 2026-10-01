@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
 import { TabsTrigger } from '@/components/ui/tabs';
-import { typeCollecteLabel } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { cn } from '@/lib/utils';
 
 // Briques de mise en page des fiches en pop-up : en-tête de bloc et champs
@@ -96,7 +95,7 @@ export function TelephoneLien({ telephone }: { telephone?: string | null }) {
 // En-tête des fiches Admin en pop-up (transporteur, lieu, association — décision
 // Val 2026-09-30 « grand en-tête partout ») et fiches collecte (Admin et client,
 // décision Val 2026-10-01) : sur-titre (puce + mention), nom en grand, ligne
-// d'infos à pictos, statut à droite. Il décrit l'objet ENREGISTRÉ (stable
+// d'infos à pictos, statut à droite du sur-titre. Il décrit l'objet ENREGISTRÉ (stable
 // pendant la saisie). À placer dans une modale `hideTitle` : le titre
 // accessible reste celui de la modale. pr-14 réserve la croix de fermeture.
 export function FicheEnTete({
@@ -115,44 +114,61 @@ export function FicheEnTete({
   infos?: { icon: LucideIcon; texte: React.ReactNode }[];
   infosTestId?: string;
   statut?: React.ReactNode;
-  /** Statut large (frise des fiches collecte) : à droite sur grand écran
-   *  seulement, sous le titre en dessous — sinon il écraserait le titre. */
+  /** Statut large (frise des fiches collecte) : à droite du sur-titre sur
+   *  grand écran seulement, sous les infos en dessous. */
   statutLarge?: boolean;
 }) {
   return (
     <header className="shrink-0 border-b border-savr-neutral-200 px-6 pb-5 pr-14 pt-6 md:px-8 md:pr-16">
+      {/* Le statut partage la ligne du sur-titre ; titre et infos gardent toute
+          la largeur (une frise ne les écrase pas). Sous le point de bascule,
+          une seule colonne et le statut passe en dernier. */}
       <div
-        className={
+        className={cn(
+          'grid items-center gap-x-6 gap-y-1.5',
           statutLarge
-            ? 'flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'
-            : 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'
-        }
+            ? 'lg:grid-cols-[minmax(0,1fr)_auto]'
+            : 'sm:grid-cols-[minmax(0,1fr)_auto]',
+        )}
       >
-        <div className="min-w-0 space-y-1.5">
-          {surtitre && (
-            <div className="flex flex-wrap items-center gap-2">{surtitre}</div>
-          )}
-          <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
-            {titre}
-          </h3>
-          {description && (
-            <p className="text-[15px] text-savr-neutral-700">{description}</p>
-          )}
-          {infos.length > 0 && (
-            <p
-              data-testid={infosTestId}
-              className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
-            >
-              {infos.map(({ icon: Icon, texte }, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  {texte}
-                </span>
-              ))}
-            </p>
-          )}
-        </div>
-        {statut && <div className="self-start">{statut}</div>}
+        {(surtitre || statut) && (
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {surtitre}
+          </div>
+        )}
+        {statut && (
+          <div
+            className={cn(
+              'order-last mt-1.5 min-w-0',
+              statutLarge
+                ? 'lg:order-none lg:mt-0 lg:justify-self-end'
+                : 'sm:order-none sm:mt-0 sm:justify-self-end',
+            )}
+          >
+            {statut}
+          </div>
+        )}
+        <h3 className="col-span-full text-2xl font-extrabold leading-tight tracking-[-0.02em] text-savr-neutral-900">
+          {titre}
+        </h3>
+        {description && (
+          <p className="col-span-full text-[15px] text-savr-neutral-700">
+            {description}
+          </p>
+        )}
+        {infos.length > 0 && (
+          <p
+            data-testid={infosTestId}
+            className="col-span-full flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
+          >
+            {infos.map(({ icon: Icon, texte }, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {texte}
+              </span>
+            ))}
+          </p>
+        )}
       </div>
     </header>
   );
@@ -171,6 +187,11 @@ export function EnTetePuce({
       {children}
     </span>
   );
+}
+
+// Libellé d'affichage du type de collecte (UX — la DB garde l'enum).
+export function typeCollecteLabel(type: string): string {
+  return type === 'zero_dechet' ? 'Zéro Déchet' : 'Anti-Gaspi';
 }
 
 // Badge de type du sur-titre des fiches collecte (§06.04 Q2, remplace le cadre

@@ -59,12 +59,10 @@ import {
   EnTeteMention,
   FicheEnTete,
   InfoItem,
+  typeCollecteLabel,
 } from '@/components/collecte/fiche-blocs';
 import { refCourteCollecte } from '@/lib/collecte-ref';
-import {
-  typeCollecteLabel,
-  type FicheCollecteMeta,
-} from '@/components/collecte/fiche-collecte-modal-cadre';
+import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -1013,7 +1011,16 @@ export function CollecteDetailPanel({
           { icon: MapPin, texte: lieu.ville },
           {
             icon: Truck,
-            texte: `${currentTransporteur?.nom ?? 'Prestataire non attribué'} · ${statutTms.label}`,
+            // Le badge garde la couleur du statut TMS (rejet, erreur) visible
+            // sans ouvrir l'onglet Logistique.
+            texte: (
+              <span className="inline-flex flex-wrap items-center gap-2">
+                {currentTransporteur?.nom ?? 'Prestataire non attribué'}
+                <Badge variant={statutTms.variant} className="text-xs">
+                  {statutTms.label}
+                </Badge>
+              </span>
+            ),
           },
           ...(collecte.type === 'anti_gaspi'
             ? [

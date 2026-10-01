@@ -17,10 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
-import {
-  typeCollecteLabel,
-  type FicheCollecteMeta,
-} from '@/components/collecte/fiche-collecte-modal-cadre';
+import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { FriseStatutClient } from '@/components/collecte/frise-statut-client';
 import {
   OngletInformations,
@@ -34,6 +31,7 @@ import {
   BadgeTypeCollecte,
   EnTeteMention,
   FicheEnTete,
+  typeCollecteLabel,
 } from '@/components/collecte/fiche-blocs';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';

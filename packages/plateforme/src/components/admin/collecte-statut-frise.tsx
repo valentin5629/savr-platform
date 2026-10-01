@@ -1,9 +1,9 @@
 import { Badge } from '@/components/ui/badge';
-import { FriseEtapes } from '@/components/collecte/frise-statut-client';
 import {
-  statutCollecteDisplay,
-  type EtapeFriseClient,
-} from '@/lib/statut-collecte-labels';
+  FriseEtapes,
+  type EtapeFrise,
+} from '@/components/collecte/frise-etapes';
+import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
 
 // Parcours nominal d'une collecte (machine à états §05, CLAUDE.md §3) :
 // programmee → validee → en_cours → realisee → cloturee.
@@ -32,13 +32,14 @@ function indexEtape(statut: string): number {
 
 // Frise d'avancement de la fiche collecte Admin (décision Val C2 2026-09-29) :
 // granularité complète, au rendu compact de la frise client en haut à droite du
-// grand en-tête (décision Val 2026-10-01).
+// grand en-tête (décision Val 2026-10-01). Le conteneur laisse la frise se
+// replier (mobile) : elle ne doit jamais déborder de l'en-tête.
 export function CollecteStatutFrise({ statut }: { statut: string }) {
   const courant = HORS_PARCOURS.includes(statut) ? -1 : indexEtape(statut);
   // Statut hors frise (annulé, rejeté, brouillon « Créée ») : aucune étape
   // marquée (frise estompée) et badge explicite du statut réel.
   const badge = courant === -1 ? statutCollecteDisplay(statut, 'admin') : null;
-  const etapes: EtapeFriseClient[] = ETAPES.map((etape, i) => ({
+  const etapes: EtapeFrise[] = ETAPES.map((etape, i) => ({
     label:
       i === courant && statut === 'realisee_sans_collecte'
         ? statutCollecteDisplay(statut, 'admin').label

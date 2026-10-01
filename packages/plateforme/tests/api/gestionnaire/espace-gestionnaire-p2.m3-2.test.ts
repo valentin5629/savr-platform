@@ -644,14 +644,19 @@ describe('M3.2 / liste événements — repas donnés', () => {
       ]),
       // Rien de lisible.
       collecteAg('c4', null, []),
+      // Attribution lisible mais volume non renseigné : ce n'est pas un zéro,
+      // l'attestation est lue (même chaîne que la fiche).
+      collecteAg('c5', { volume_repas_realise: null }, [
+        { nb_repas: 3, version: 1 },
+      ]),
       // Une collecte ZD ne compte jamais, même avec une attestation parasite.
       {
-        ...collecteAg('c5', null, [{ nb_repas: 500, version: 1 }]),
+        ...collecteAg('c6', null, [{ nb_repas: 500, version: 1 }]),
         type: 'zero_dechet',
       },
     ]);
-    expect(ligne.repas_donnes).toBe(65);
-    expect(ligne.nb_collectes_ag).toBe(4);
+    expect(ligne.repas_donnes).toBe(68);
+    expect(ligne.nb_collectes_ag).toBe(5);
   });
 });
 

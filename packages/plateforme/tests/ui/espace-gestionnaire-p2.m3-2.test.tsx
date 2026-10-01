@@ -374,6 +374,36 @@ describe('M3.2 / P2 listes colonnes', () => {
   );
 
   it(
+    'M3.2/evenements_repas_colonne_rendue — colonne « Repas donnés » : le nombre servi par la route, « — » quand elle sert 0',
+    async () => {
+      // La route somme les repas par événement (attribution, à défaut
+      // attestation de don — D13) et sert 0 quand rien n'est lisible. Les deux
+      // lignes sont lues sur le même rendu : un assert « — » seul passerait
+      // aussi si la colonne rendait « — » partout.
+      render(<GestionnaireEvenementsPage />);
+      const table = within(
+        await screen.findByRole('table', undefined, ATTENTE_UI),
+      );
+      const colonne = table
+        .getAllByRole('columnheader')
+        .findIndex((th) => /Repas donnés/.test(th.textContent ?? ''));
+      expect(colonne).toBeGreaterThan(-1);
+      const cellule = (nomEvenement: string) => {
+        // Borné au tableau : la carte mobile rend la même ligne une 2e fois.
+        const cellules = table
+          .getByText(nomEvenement)
+          .closest('tr')!
+          .querySelectorAll('td');
+        return cellules[colonne]!.textContent?.trim();
+      };
+
+      expect(cellule('Gala')).toBe('40');
+      expect(cellule('Cocktail')).toBe('—');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/P2_lieux_colonne_capacite — Capacité rendue',
     async () => {
       render(<GestionnaireLieuxPage />);

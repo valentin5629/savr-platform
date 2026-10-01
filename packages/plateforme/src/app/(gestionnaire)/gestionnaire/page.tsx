@@ -149,7 +149,7 @@ export default function GestionnaireDashboardPage() {
       .finally(() => setLoading(false));
   }, [filters, tab]);
 
-  // Blocs 5/6/7/3AG (§11) — endpoint partagé, mêmes filtres globaux parc.
+  // Blocs 6/7/3AG (§11) — endpoint partagé, mêmes filtres globaux parc.
   useEffect(() => {
     if (!filters) return;
     const qs = new URLSearchParams({

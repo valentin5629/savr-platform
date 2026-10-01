@@ -92,7 +92,7 @@
       "id": "M3.5-blocs-endpoint",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
-      "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_sans_prochaines_collectes",
+      "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_sans_prochaines_collectes",
       "statut": "implemented",
       "libelle": "Endpoint partagé GET /api/v1/dashboards/blocs (traiteur/agence/gestionnaire) : Bloc 6 top 5 lieux, Bloc 7 top 5 acteurs, Bloc 3 AG associations, kg/pax par flux ZD. Périmètre par rôle (org / organisations_lieux) EN PLUS de la RLS f_collecte_visible, agrégation TS (aucune vue nouvelle), normalisation to-one PostgREST. Bloc 5 « Prochaines collectes » retiré le 2026-10-01 (décision Val) : la réponse ne porte plus de liste `prochaines`."
     }

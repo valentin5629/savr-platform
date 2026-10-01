@@ -513,13 +513,32 @@ describe('M3.2 / gestionnaire — top traiteurs', () => {
   it(
     'M3.2/blocs_gestionnaire_zd_top_traiteurs_sans_prochaines',
     async () => {
-      useFetch(blocsZd());
+      // Contrat serveur côté gestionnaire : les acteurs du Bloc 7 sont des
+      // traiteurs (nom résolu via v_referentiel_traiteurs), pas des commerciaux.
+      useFetch(
+        blocsZd({
+          acteurLabel: 'Traiteur',
+          topActeurs: [
+            {
+              id: 't1',
+              label: 'Traiteur Un',
+              nb_collectes: 2,
+              tonnage_kg: 400,
+              taux_recyclage: 75,
+              repas_donnes: null,
+              repas_par_pax: null,
+            },
+          ],
+        }),
+      );
       render(<GestionnaireDashboardPage />);
       expect(
         await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // Bloc 7 = top traiteurs.
+      // Bloc 7 = top traiteurs : titre propre au rôle + nom du traiteur rendu.
       expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
+      expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();
+      expect(screen.getByText('Traiteur Un')).toBeInTheDocument();
       // Bloc 5 « Prochaines collectes » retiré des dashboards (décision Val
       // 2026-10-01) : l'information se lit dans l'onglet Collectes.
       expect(screen.queryByText('Prochaines collectes')).toBeNull();

@@ -127,7 +127,7 @@ export default function AgenceDashboardPage() {
       .then((j) => setPack(j));
   }, [tab]);
 
-  // Blocs 5/6/3AG + kg/pax par flux (§11) — endpoint partagé, périmètre org.
+  // Blocs 6/3AG + kg/pax par flux (§11) — endpoint partagé, périmètre org.
   useEffect(() => {
     if (!filters) return;
     const qs = new URLSearchParams({

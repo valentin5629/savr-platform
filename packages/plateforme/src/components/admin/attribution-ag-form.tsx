@@ -14,7 +14,7 @@
 // Mise en page (maquette validée Val 2026-10-01) : grille 2 colonnes alignée
 // ligne à ligne — titres / champs / recommandations / listes / aides.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Minus, Plus, Search } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,11 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatJour } from '@savr/shared/src/temps/index.js';
-import { libelleTypeTms, libelleValiderEtEnvoyer } from '@/lib/type-tms-labels';
+import {
+  envoiAutomatique,
+  libelleTypeTms,
+  libelleValiderEtEnvoyer,
+} from '@/lib/type-tms-labels';
 
 interface AssociationSuggestion {
   id: string;
@@ -172,12 +176,18 @@ export function AttributionAgForm({
   const [contexte, setContexte] = useState<ContexteCollecte | null>(
     collecte ?? null,
   );
+  // Écran dédié : tant que le contexte n'est pas lu, le besoin véhicule du POST
+  // écraserait un N posé par Ops avec la valeur par défaut — bouton bloqué.
+  const [contexteEtat, setContexteEtat] = useState<
+    'ok' | 'chargement' | 'erreur'
+  >(collecte ? 'ok' : 'chargement');
+  // L'Admin a touché le besoin véhicule : une lecture tardive ne l'écrase plus,
+  // et ses valeurs partent même si le contexte n'a pas pu être lu.
+  const vehiculeToucheRef = useRef(false);
 
   const [selectedAsso, setSelectedAsso] = useState<string | null>(null);
   const [selectedAssoNom, setSelectedAssoNom] = useState<string | null>(null);
   const [assoSource, setAssoSource] = useState<'reco' | 'libre'>('reco');
-  // `?association=<id>` absente des recommandations de l'algo.
-  const [assoDemandeeHorsReco, setAssoDemandeeHorsReco] = useState(false);
   const [selectedTransp, setSelectedTransp] = useState<string | null>(null);
   const [selectedTranspNom, setSelectedTranspNom] = useState<string | null>(
     null,
@@ -213,22 +223,17 @@ export function AttributionAgForm({
         `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/recommandation`,
       );
       if (!res.ok) {
-        const json = (await res.json()) as { error?: string };
-        throw new Error(json.error ?? 'Erreur chargement recommandation');
+        const json = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(
+          json?.error ?? `Erreur chargement recommandation (${res.status})`,
+        );
       }
       const json = (await res.json()) as { data: AlgoResult };
       setAlgo(json.data);
-      // Pré-sélectionner top 1 (asso + transporteur recommandés) — ou l'association
-      // demandée par l'URL (`?association=<id>`), si elle fait bien partie des
-      // recommandations de l'algo. Repli sur le top 1 annoncé (décision Val C6).
-      const assoDemandee = new URLSearchParams(window.location.search).get(
-        'association',
-      );
-      const assoTrouvee = json.data.associations.find(
-        (a) => a.id === assoDemandee,
-      );
-      setAssoDemandeeHorsReco(!!assoDemandee && !assoTrouvee);
-      const assoInitiale = assoTrouvee ?? json.data.associations[0];
+      // Pré-sélectionner le top 1 (asso + transporteur recommandés).
+      const assoInitiale = json.data.associations[0];
       if (assoInitiale) {
         setSelectedAsso(assoInitiale.id);
         setSelectedAssoNom(assoInitiale.nom);
@@ -251,39 +256,50 @@ export function AttributionAgForm({
   }, [loadAlgo]);
 
   // Contexte collecte non fourni (écran dédié) : lu depuis le GET détail.
-  // Dégradation gracieuse : champs « — » si indisponible.
-  useEffect(() => {
-    if (collecte) return;
-    let active = true;
-    fetch(`/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((c: unknown) => {
-        if (!active || !c || typeof c !== 'object' || Array.isArray(c)) return;
-        const row = c as {
-          volume_estime_repas?: number | null;
-          date_collecte?: string | null;
-          heure_collecte?: string | null;
-          nb_camions_demande?: number;
-          type_vehicule_souhaite?: string | null;
-          evenements?: { pax?: number | null } | null;
-        };
-        if (typeof row.nb_camions_demande !== 'number') return;
-        setContexte({
-          volume_estime_repas: row.volume_estime_repas ?? null,
-          pax: row.evenements?.pax ?? null,
-          date_collecte: row.date_collecte ?? null,
-          heure_collecte: row.heure_collecte ?? null,
-          nb_camions_demande: row.nb_camions_demande,
-          type_vehicule_souhaite: row.type_vehicule_souhaite ?? null,
-        });
+  const chargerContexte = useCallback(async () => {
+    setContexteEtat('chargement');
+    try {
+      const res = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      );
+      if (!res.ok) throw new Error('chargement collecte');
+      const c = (await res.json()) as unknown;
+      if (!c || typeof c !== 'object' || Array.isArray(c)) {
+        throw new Error('collecte illisible');
+      }
+      const row = c as {
+        volume_estime_repas?: number | null;
+        date_collecte?: string | null;
+        heure_collecte?: string | null;
+        nb_camions_demande?: number;
+        type_vehicule_souhaite?: string | null;
+        evenements?: { pax?: number | null } | null;
+      };
+      if (typeof row.nb_camions_demande !== 'number') {
+        throw new Error('collecte illisible');
+      }
+      setContexte({
+        volume_estime_repas: row.volume_estime_repas ?? null,
+        pax: row.evenements?.pax ?? null,
+        date_collecte: row.date_collecte ?? null,
+        heure_collecte: row.heure_collecte ?? null,
+        nb_camions_demande: row.nb_camions_demande,
+        type_vehicule_souhaite: row.type_vehicule_souhaite ?? null,
+      });
+      if (!vehiculeToucheRef.current) {
         setNbVehicules(String(row.nb_camions_demande));
         setTypeVehicule(row.type_vehicule_souhaite ?? '');
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [collecte, collecteId]);
+      }
+      setContexteEtat('ok');
+    } catch {
+      setContexteEtat('erreur');
+    }
+  }, [collecteId]);
+
+  useEffect(() => {
+    if (collecte) return;
+    void chargerContexte();
+  }, [collecte, chargerContexte]);
 
   // Erreur dédiée (pas `error`, remis à null par loadAlgo) : la liste est le seul
   // moyen de choisir un transporteur quand l'algo n'en recommande aucun.
@@ -403,10 +419,12 @@ export function AttributionAgForm({
     nbVehiculesNum <= NB_VEHICULES_MAX;
   const changerNbVehicules = (delta: number) => {
     const base = Number.isInteger(nbVehiculesNum) ? nbVehiculesNum : 1;
+    vehiculeToucheRef.current = true;
     setNbVehicules(
       String(Math.min(NB_VEHICULES_MAX, Math.max(1, base + delta))),
     );
   };
+  const contexteCharge = contexteEtat === 'ok';
 
   const handleValider = async () => {
     if (!selectedAsso || !selectedTransp || !algo) return;
@@ -438,17 +456,29 @@ export function AttributionAgForm({
               isOverride && motif === 'autre' ? motifLibre : undefined,
             aucune_reco: aucuneReco,
             // Besoin véhicule : écrit avant l'event de dispatch, donc transmis.
-            nb_camions_demande: nbVehiculesNum,
-            type_vehicule_souhaite: typeVehicule || null,
+            // Jamais le défaut à l'aveugle : seulement si le N actuel de la
+            // collecte a été lu, ou si l'Admin a explicitement saisi le besoin
+            // (sinon fn_modifier_collecte écraserait un N posé par Ops).
+            ...(contexteCharge || vehiculeToucheRef.current
+              ? {
+                  nb_camions_demande: nbVehiculesNum,
+                  type_vehicule_souhaite: typeVehicule || null,
+                }
+              : {}),
           }),
         },
       );
       if (!res.ok) {
-        const json = (await res.json()) as { error?: string };
-        throw new Error(json.error ?? 'Erreur validation');
+        const json = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(json?.error ?? `Erreur validation (${res.status})`);
       }
+      const envoiAuto = envoiAutomatique(selectedTranspTypeTms);
       setSuccessMsg(
-        "Attribution validée. L'ordre part au prestataire, les emails sont en cours d'envoi.",
+        envoiAuto
+          ? "Attribution validée. L'ordre part au prestataire, les emails sont en cours d'envoi."
+          : "Attribution validée. Dispatch manuel à réaliser auprès du prestataire ; les emails sont en cours d'envoi.",
       );
       onValidee?.();
     } catch (e) {
@@ -545,6 +575,21 @@ export function AttributionAgForm({
                   readOnly
                 />
               </FormField>
+              {contexteEtat === 'erreur' && (
+                <div className="col-span-2 flex items-center justify-between gap-2 rounded-savr-md border border-savr-error/40 bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong">
+                  <span>
+                    Impossible de lire la collecte : le besoin véhicule ne sera
+                    envoyé que si vous le modifiez ici.
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void chargerContexte()}
+                  >
+                    Recharger la collecte
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -561,7 +606,10 @@ export function AttributionAgForm({
                     ...TYPES_VEHICULE,
                   ]}
                   value={typeVehicule}
-                  onChange={setTypeVehicule}
+                  onChange={(v) => {
+                    vehiculeToucheRef.current = true;
+                    setTypeVehicule(v);
+                  }}
                 />
               </FormField>
               <FormField label="Nombre de véhicules" htmlFor="nb-vehicules">
@@ -569,6 +617,7 @@ export function AttributionAgForm({
                   <button
                     type="button"
                     aria-label="Retirer un véhicule"
+                    disabled={nbVehiculesOk && nbVehiculesNum <= 1}
                     className="flex h-full w-11 items-center justify-center border-r border-savr-neutral-200 bg-savr-neutral-50 text-savr-neutral-700 hover:bg-savr-neutral-100"
                     onClick={() => changerNbVehicules(-1)}
                   >
@@ -579,18 +628,39 @@ export function AttributionAgForm({
                     type="text"
                     inputMode="numeric"
                     value={nbVehicules}
-                    onChange={(e) => setNbVehicules(e.target.value)}
+                    onChange={(e) => {
+                      vehiculeToucheRef.current = true;
+                      setNbVehicules(e.target.value);
+                    }}
+                    aria-invalid={!nbVehiculesOk}
+                    aria-describedby="nb-vehicules-aide"
                     className="h-full min-w-0 flex-1 border-0 bg-transparent text-center text-base font-bold text-savr-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-savr-primary-500"
                   />
                   <button
                     type="button"
                     aria-label="Ajouter un véhicule"
+                    disabled={
+                      nbVehiculesOk && nbVehiculesNum >= NB_VEHICULES_MAX
+                    }
                     className="flex h-full w-11 items-center justify-center border-l border-savr-neutral-200 bg-savr-neutral-50 text-savr-neutral-700 hover:bg-savr-neutral-100"
                     onClick={() => changerNbVehicules(1)}
                   >
                     <Plus className="h-4 w-4" />
                   </button>
                 </div>
+                <p
+                  id="nb-vehicules-aide"
+                  className={cn(
+                    'mt-1 text-xs',
+                    nbVehiculesOk
+                      ? 'text-savr-neutral-500'
+                      : 'text-savr-error-strong',
+                  )}
+                >
+                  {nbVehiculesOk
+                    ? `Entier entre 1 et ${NB_VEHICULES_MAX} : 1 commande par véhicule chez le prestataire.`
+                    : `Nombre invalide : entier entre 1 et ${NB_VEHICULES_MAX}.`}
+                </p>
               </FormField>
             </div>
 
@@ -751,8 +821,6 @@ export function AttributionAgForm({
             {/* Ligne 5 : aides */}
             <p className="text-xs text-savr-neutral-500">
               Toutes les associations actives, triées par distance au lieu.
-              {assoDemandeeHorsReco &&
-                " L'association choisie depuis la fiche collecte ne fait plus partie des recommandations de l'algo : la recommandation n°1 est présélectionnée à la place."}
             </p>
             <p className="text-xs text-savr-neutral-500">
               Tous les transporteurs actifs. Hors recommandation, un motif est
@@ -806,11 +874,9 @@ export function AttributionAgForm({
               {nbVehiculesOk && (
                 <>
                   {' '}
-                  · {nbVehiculesNum}{' '}
-                  {TYPES_VEHICULE.find(
-                    (t) => t.value === typeVehicule,
-                  )?.label.toLowerCase() ??
-                    (nbVehiculesNum > 1 ? 'véhicules' : 'véhicule')}
+                  · {nbVehiculesNum} ×{' '}
+                  {TYPES_VEHICULE.find((t) => t.value === typeVehicule)
+                    ?.label ?? 'véhicule (type non précisé)'}
                 </>
               )}
               {aucuneReco && (

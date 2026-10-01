@@ -166,61 +166,6 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
   );
 
   it(
-    'arrivée depuis la fiche collecte (?association=) : association choisie présélectionnée, motif exigé si ≠ top 1',
-    async () => {
-      // Carte « Choisir » de la fiche collecte (décision Val 2026-09-29).
-      window.history.pushState({}, '', '/?association=asso-loin');
-      try {
-        installFetch({
-          ...ALGO,
-          associations: [
-            ...ALGO.associations,
-            {
-              id: 'asso-loin',
-              nom: 'Asso Loin',
-              distance_km: 111.5,
-              capacite_max_beneficiaires: 80,
-              contact_email: 'l@asso.test',
-            },
-          ],
-          assoc_count: 2,
-        });
-        render(<AttributionDetailPage />);
-        const select = await selectAssociation();
-        expect(select).toHaveTextContent(/^111,5 km · cap. 80 · Asso Loin$/);
-        expect(
-          screen.queryByText(/ne fait plus partie des recommandations/),
-        ).toBeNull();
-        // Choix ≠ top 1 de l'algo = override : les règles de l'écran s'appliquent.
-        expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
-      } finally {
-        window.history.pushState({}, '', '/');
-      }
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    '?association= inconnue de l’algo : repli sur le top 1',
-    async () => {
-      window.history.pushState({}, '', '/?association=asso-inconnue');
-      try {
-        installFetch();
-        render(<AttributionDetailPage />);
-        const select = await selectAssociation();
-        expect(select).toHaveTextContent(/^1,2 km · cap. 300 · Asso Top$/);
-        // Repli annoncé, jamais silencieux (décision Val C6).
-        expect(
-          screen.getByText(/ne fait plus partie des recommandations/),
-        ).toBeTruthy();
-      } finally {
-        window.history.pushState({}, '', '/');
-      }
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
     'association hors suggestion : motif obligatoire, puis POST avec cette association',
     async () => {
       const fetchMock = installFetch();

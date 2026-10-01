@@ -548,8 +548,10 @@ async function fetchCollecte(
       : null;
 
   // Véhicule souhaité par l'Admin (migration 20261001213000) : lu à part et
-  // TOLÉRANT à l'absence de la colonne — le code peut être déployé avant la
+  // tolérant à l'ABSENCE de la colonne — le code peut être déployé avant la
   // migration sans transformer chaque event en « collecte introuvable » → dead.
+  // Composé pour les N commandes identiques : « 1 par commande » (décision Val
+  // 2026-10-01, N véhicules = N commandes).
   const typeVehiculeSouhaite = await lireTypeVehiculeSouhaite(supabase, raw.id);
 
   return {
@@ -574,10 +576,9 @@ async function fetchCollecte(
       lieu,
       raw.informations_supplementaires,
       evt.contact_secours_nom,
-      {
-        type: typeVehiculeSouhaite,
-        nombre: raw.nb_camions_demande,
-      },
+      raw.type === 'anti_gaspi'
+        ? { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande }
+        : null,
     ),
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
@@ -610,11 +611,20 @@ async function lireTypeVehiculeSouhaite(
     .eq('id', collecteId)
     .maybeSingle();
   if (error) {
-    logger.warn('outbox.type_vehicule_souhaite_illisible', {
-      collecte_id: collecteId,
-      error_code: error.code ?? null,
-    });
-    return null;
+    // Seule la colonne ABSENTE est tolérée (migration 20261001213000 pas encore
+    // appliquée). Tout autre échec de lecture est un incident passager : Transient,
+    // le worker retente — une commande MTS-1 partie sans la ligne véhicule ne se
+    // corrige plus (le re-push E2 ne porte pas ce canal à l'identique).
+    if (error.code === '42703' || error.code === 'PGRST204') {
+      logger.warn('outbox.type_vehicule_souhaite_colonne_absente', {
+        collecte_id: collecteId,
+        error_code: error.code,
+      });
+      return null;
+    }
+    throw new LogistiqueTransientError(
+      `lecture type_vehicule_souhaite ${collecteId} : ${error.message}`,
+    );
   }
   return (
     (data as { type_vehicule_souhaite?: string | null } | null)

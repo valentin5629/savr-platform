@@ -143,7 +143,12 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupAuth('admin_savr');
-    // Aucune attribution existante (lecture faite seulement si besoin véhicule).
+    // Lectures faites seulement si besoin véhicule : collecte AG programmee,
+    // aucune attribution existante.
+    mockSupabaseChain.single.mockResolvedValue({
+      data: { type: 'anti_gaspi', statut: 'programmee' },
+      error: null,
+    });
     mockSupabaseChain.maybeSingle.mockResolvedValue({
       data: null,
       error: null,
@@ -195,9 +200,10 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
             error: null,
           },
     );
-    // 1er eq = lecture attributions_antgaspi (collecte_id), puis
+    // eq 1 = pré-lecture collecte (id), eq 2 = attributions_antgaspi (collecte_id), puis
     // `.update().eq('id').eq('type').eq('statut')` : la dernière étape est awaitée.
     mockSupabaseChain.eq
+      .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
@@ -239,6 +245,28 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
     expect(mockSupabaseChain.eq).toHaveBeenCalledWith('statut', 'programmee');
   });
 
+  it('M2.3/valider — besoin véhicule sur une collecte non « AG programmee » → 422, rien n’est écrit', async () => {
+    mockSupabaseChain.single.mockResolvedValue({
+      data: { type: 'anti_gaspi', statut: 'validee' },
+      error: null,
+    });
+    const { POST } =
+      await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-1/valider', {
+        association_id: 'asso-1',
+        transporteur_id: 'transp-1',
+        branche_attribution: 'ag_marathon_nuit',
+        mode_validation: 'manuel_top1',
+        nb_camions_demande: 2,
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
   it('M2.3/valider — besoin véhicule sur une AG déjà attribuée → 409, rien n’est écrit', async () => {
     mockSupabaseChain.maybeSingle.mockResolvedValue({
       data: { id: 'attr-existante' },
@@ -271,9 +299,10 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
       },
       error: null,
     });
-    // 1er eq = lecture attributions_antgaspi (collecte_id), puis
+    // eq 1 = pré-lecture collecte (id), eq 2 = attributions_antgaspi (collecte_id), puis
     // `.update().eq('id').eq('type').eq('statut')` : la dernière étape est awaitée.
     mockSupabaseChain.eq
+      .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)

@@ -5,7 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
-import { rapportReserveDonneurOrdre } from '@/lib/collectes/fiche-client-types.js';
+import { enrichirLignesCollectes } from '@/lib/collectes/liste-collectes-client.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -103,67 +103,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data, error } = await query;
   if (error) return serverError(error, 'traiteur.collectes.list');
 
-  // Indicateur "programmée par tiers" : evenement.organisation_id != traiteur opérationnel
-  const orgId = auth.ctx.organisationId;
-  const rows = (
-    (data ?? []) as unknown as Array<
-      {
-        type: string;
-        statut: string;
-        evenements: unknown;
-        collecte_flux?: { poids_reel_kg: number | null }[] | null;
-        attributions_antgaspi?:
-          | { volume_repas_realise: number | null }
-          | { volume_repas_realise: number | null }[]
-          | null;
-      } & Record<string, unknown>
-    >
-  ).map((c) => {
-    const evt = (
-      Array.isArray(c.evenements) ? c.evenements[0] : c.evenements
-    ) as
-      | {
-          organisation_id: string;
-          traiteur_operationnel_organisation_id: string | null;
-        }
-      | undefined;
-    const programmeeParTiers =
-      evt?.traiteur_operationnel_organisation_id === orgId &&
-      evt?.organisation_id !== orgId;
-    // Poids total ZD = Σ poids_reel_kg des flux (identique fiche/dashboards).
-    const poidsTotalKg = (c.collecte_flux ?? []).reduce(
-      (s, f) => s + (f.poids_reel_kg ?? 0),
-      0,
-    );
-    // Repas donnés AG = Σ volume_repas_realise (attribution unique par collecte,
-    // somme défensive alignée sur les loaders dashboards).
-    const attrs = Array.isArray(c.attributions_antgaspi)
-      ? c.attributions_antgaspi
-      : c.attributions_antgaspi
-        ? [c.attributions_antgaspi]
-        : [];
-    const nbRepasDonnes = attrs.reduce(
-      (s, a) => s + (a.volume_repas_realise ?? 0),
-      0,
-    );
-    // On ne renvoie pas les embeds bruts (flux/attributions) au client : la carte
-    // ne consomme que les agrégats. `undefined` est retiré par la sérialisation JSON.
-    return {
-      ...c,
-      collecte_flux: undefined,
-      attributions_antgaspi: undefined,
-      programmee_par_tiers: programmeeParTiers,
-      // Même règle que la fiche (D12) : la liste n'offre pas un téléchargement
-      // que la route refuserait (404).
-      rapport_reserve_donneur_ordre: rapportReserveDonneurOrdre(
-        c,
-        evt?.organisation_id,
-        orgId,
-      ),
-      poids_total_kg: poidsTotalKg,
-      nb_repas_donnes: nbRepasDonnes,
-    };
-  });
+  // Champs calculés (programmée par tiers, rapport réservé, résultats) : calcul
+  // commun avec la liste agence (§06.11 = §06.04 à l'identique).
+  const rows = enrichirLignesCollectes(data, auth.ctx.organisationId);
 
   return NextResponse.json({ data: rows });
 }

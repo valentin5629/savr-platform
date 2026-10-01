@@ -38,6 +38,12 @@ export async function buildCollectesExport(
   const statut = sp.get('statut');
   const from = sp.get('from');
   const to = sp.get('to');
+  // Filtres de la barre des listes Collectes traiteur / agence (§12 « l'export
+  // respecte les filtres actifs ») — mêmes clés et même sens que leurs routes.
+  const lieuId = sp.get('lieu_id');
+  const client = sp.get('client');
+  const infoIncomplete = sp.get('info_incomplete');
+  const programmeePar = sp.get('programmee_par');
 
   let q = ctx.supabase
     .from('collectes')
@@ -54,6 +60,14 @@ export async function buildCollectesExport(
   if (statut) q = q.in('statut', statut.split(','));
   if (from) q = q.gte('date_collecte', from);
   if (to) q = q.lte('date_collecte', to);
+  if (lieuId) q = q.eq('evenements.lieu_id', lieuId);
+  if (client) q = q.eq('evenements.nom_client_organisateur', client);
+  if (infoIncomplete === 'oui' || infoIncomplete === 'non')
+    q = q.eq('informations_completes', infoIncomplete === 'non');
+  if (programmeePar) {
+    const ids = programmeePar.split(',').filter(Boolean);
+    if (ids.length > 0) q = q.in('evenements.organisation_id', ids);
+  }
 
   const { data, error } = await q;
   if (error) throw erreurInterne(error, 'exports.builders');

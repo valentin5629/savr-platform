@@ -26,7 +26,11 @@
     "packages/plateforme/tests/ui/fiche-collecte-client.m3-3.test.tsx",
     "packages/plateforme/tests/api/agence/fiche-collecte-popup.m3-3.test.ts",
     "supabase/migrations/20260930180000_plateforme_benchmark_lieux_parc_agence.sql",
-    "supabase/tests/benchmark_lieux_parc_agence.test.sql"
+    "supabase/tests/benchmark_lieux_parc_agence.test.sql",
+    "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+    "packages/plateforme/src/lib/collectes/liste-collectes-client.ts",
+    "packages/plateforme/src/app/api/v1/agence/collectes/filtres/route.ts",
+    "supabase/tests/liste_collectes_agence_lecture.test.sql"
   ],
   "scenarios": [
     "M3.3/auth_guard_non_agence_403",
@@ -68,7 +72,18 @@
     "M3.3/rapport_download_agence",
     "M3.3/rapport_download_agence_cloisonnement",
     "M3.3/urgence_agence_ok",
-    "M3.3/benchmark_filtres_agence_liste_lieux"
+    "M3.3/benchmark_filtres_agence_liste_lieux",
+    "M3.3/liste_agence_onglets_programmees_historique",
+    "M3.3/liste_agence_lien_profond_historique",
+    "M3.3/liste_agence_actions_ligne",
+    "M3.3/liste_agence_routes_agence_seules",
+    "M3.3/liste_agence_resultats",
+    "M3.3/liste_agence_filtres_client_info",
+    "M3.3/liste_agence_options_filtres",
+    "M3.3/dupliquer_agence_traiteur_operationnel_preselectionne",
+    "M3.3/liste_agence_telecharger_et_export",
+    "M3.3/liste_agence_ancien_lien_sans_onglet",
+    "M3.3/liste_agence_statut_hors_onglet_jamais_vide"
   ],
   "deliverables": [
     {
@@ -309,7 +324,7 @@
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/cockpit_drilldown_top_lieux_url",
       "statut": "implemented",
-      "libelle": "R24c — Drill-down « Top lieux → liste Collectes filtrée » (#219) PRÉSERVÉ après migration TopLieuxBloc → TopRankList : onItemClick(index) → setCollecteFiltreLabel + router.push(/agence/collectes?lieu=…&type=…&statut=cloturee&from&to) — miroir exact du chiffre du dashboard, périmètre donneur d'ordre (pas de perimetre=organisation)."
+      "libelle": "R24c — Drill-down « Top lieux → liste Collectes filtrée » (#219) PRÉSERVÉ après migration TopLieuxBloc → TopRankList : onItemClick(index) → setCollecteFiltreLabel + router.push(/agence/collectes?onglet=historique&lieu=…&type=…&statut=cloturee&from&to) — miroir exact du chiffre du dashboard, périmètre donneur d'ordre (pas de perimetre=organisation)."
     },
     {
       "id": "M3.3-kpi-sparkline-n1",
@@ -382,10 +397,83 @@
       "test": "M3.3/fiche_popup_agence_marque_blanche",
       "statut": "implemented",
       "libelle": "Aucun libellé « transporteur » / « prestataire » dans la fiche agence."
+    },
+    {
+      "id": "M3.3-liste-onglets-etat",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:57 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:311",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+      "test": "M3.3/liste_agence_onglets_programmees_historique",
+      "statut": "implemented",
+      "libelle": "Liste Collectes agence = liste traiteur (§06.11 l.57 « vue liste identique au §06.04 ») : onglets Programmées / Historique (partition des statuts) + sélecteur ZD / AG + barre de filtres, via le composant COMMUN ListeCollectesClient (la page agence en était une copie figée d'avant la refonte §06.04 2026-07-05 — revue écran E2E 2026-09-30)."
+    },
+    {
+      "id": "M3.3-liste-actions-ligne",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:336-340",
+      "artefact": "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+      "test": "M3.3/liste_agence_actions_ligne",
+      "statut": "implemented",
+      "libelle": "Actions de ligne de la liste agence (Modifier / Annuler / Dupliquer, icône seule, masquées si indisponibles) : le rôle unique agence a le droit d'écriture d'un traiteur_manager (§06.11 diff #2) ; annulation sur /api/v1/agence/collectes/:id/annulation."
+    },
+    {
+      "id": "M3.3-liste-routes-agence",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:57",
+      "artefact": "packages/plateforme/src/components/collecte/liste-collectes-client.tsx, packages/plateforme/src/app/api/v1/agence/collectes/filtres/route.ts",
+      "test": "M3.3/liste_agence_routes_agence_seules",
+      "statut": "implemented",
+      "libelle": "La liste agence n'appelle que les routes /api/v1/agence/collectes… (les routes traiteur refusent le rôle) ; « Programmée par » masqué (l'agence programme toutes ses collectes)."
+    },
+    {
+      "id": "M3.3-liste-api-resultats",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:334",
+      "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/route.ts, packages/plateforme/src/lib/collectes/liste-collectes-client.ts",
+      "test": "M3.3/liste_agence_resultats ; supabase/tests/liste_collectes_agence_lecture.test.sql",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/agence/collectes renvoie les mêmes champs calculés que la liste traiteur (poids ZD, repas AG, CO₂, taux, rapport réservé) — calcul commun enrichirLignesCollectes, embeds bruts non renvoyés. Lecture des embeds sous RLS agence + refus cross-org prouvés en pgTAP (rôle authenticated, 24 cas)."
+    },
+    {
+      "id": "M3.3-liste-api-filtres",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:382-383",
+      "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/route.ts",
+      "test": "M3.3/liste_agence_filtres_client_info",
+      "statut": "implemented",
+      "libelle": "Filtres de la liste agence côté serveur : client organisateur (nom) et « Info incomplète » oui/non, en plus de type / statut / période / lieu."
+    },
+    {
+      "id": "M3.3-liste-filtres-options",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:377-383",
+      "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/filtres/route.ts",
+      "test": "M3.3/liste_agence_options_filtres",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/agence/collectes/filtres : options Lieu / Client organisateur dérivées des seules collectes listées (lecture sous l'identité de l'agence, aucune lecture service-role), programmateurs vide."
+    },
+    {
+      "id": "M3.3-liste-lien-profond-historique",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:196",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+      "test": "M3.3/liste_agence_lien_profond_historique",
+      "statut": "implemented",
+      "libelle": "Drill-down Top lieux du dashboard agence → /agence/collectes?onglet=historique&lieu=…&statut=cloturee : la liste s'ouvre sur l'Historique (cloturee hors de l'onglet Programmées)."
+    },
+    {
+      "id": "M3.3-dupliquer-agence",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:339",
+      "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
+      "test": "M3.3/dupliquer_agence_traiteur_operationnel_preselectionne",
+      "statut": "implemented",
+      "libelle": "« Dupliquer » depuis la liste agence : la collecte source est lue sur /api/v1/agence/collectes/:id (encodée), son traiteur opérationnel est pré-sélectionné et ajouté aux options du sélecteur s'il n'y figure pas (liste plafonnée, shadows exclus)."
+    },
+    {
+      "id": "M3.3-liste-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:349",
+      "artefact": "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la liste Collectes agence (onglets, barre de filtres, colonnes Résultats / Statut / actions) identique à la liste traiteur, desktop ET mobile < 640 px : GO visuel de Val."
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6f358c8ab8344ff626cacbad0ef7f6d0cfec2f00a2d6207937af2c764f2b44a7",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "00a3973aa020ea07011df7e915269ae594c41f15b74c0357dc983a331fc1d422"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "00a3973aa020ea07011df7e915269ae594c41f15b74c0357dc983a331fc1d422",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "98f9767e66fb0dbad9f9907235bc9bbe05cb2f102d20c496db1b9afa4dabe013"
   }
 }

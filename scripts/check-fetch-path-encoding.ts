@@ -18,8 +18,11 @@
  *
  * Angle mort ASSUMÉ (documenté, pas détecté) : un gabarit qui ne commence pas
  * par `/api/` mais qui est COMPOSÉ dans un tel gabarit (`…${suffixe}`) échappe à
- * cette regex. Les 3 seuls points de composition du code client sont sûrs par
+ * cette regex. Les 4 seuls points de composition du code client sont sûrs par
  * construction et doivent le rester :
+ *   - `components/collecte/liste-collectes-client.tsx` → base LITTÉRALE choisie
+ *     dans une table fermée (`API_COLLECTES`), segments suivants = ids passés
+ *     par `encodeURIComponent` au point d'appel ;
  *   - `(admin)/admin/factures/[id]/page.tsx` → `callEdit(segments: string[])`
  *     encode chaque segment lui-même (la signature interdit de lui passer un
  *     chemin déjà composé) ;

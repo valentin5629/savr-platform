@@ -320,6 +320,26 @@ describe('M4.1 / export_csv_format_fr_et_filtres_actifs', () => {
       lte.some((a) => a[0] === 'date_collecte' && a[1] === '2026-01-31'),
     ).toBe(true);
   });
+
+  it('filtres de la barre des listes traiteur / agence propagés (statuts d’onglet, lieu, client, info incomplète, programmée par)', async () => {
+    setupAuth('agence');
+    rls.push({ data: [], error: null });
+    await call(
+      'collectes',
+      '?type=zero_dechet&statut=brouillon,programmee&lieu_id=l1&client=Viparis&info_incomplete=oui&programmee_par=o1,o2',
+    );
+    const eq = rls.__calls.eq ?? [];
+    const inn = rls.__calls.in ?? [];
+    expect(inn).toContainEqual(['statut', ['brouillon', 'programmee']]);
+    expect(eq).toContainEqual(['evenements.lieu_id', 'l1']);
+    expect(eq).toContainEqual([
+      'evenements.nom_client_organisateur',
+      'Viparis',
+    ]);
+    // « Info incomplète : oui » = informations_completes à false.
+    expect(eq).toContainEqual(['informations_completes', false]);
+    expect(inn).toContainEqual(['evenements.organisation_id', ['o1', 'o2']]);
+  });
 });
 
 // ── Factures : whitelist sans donnée sensible ────────────────────────────────

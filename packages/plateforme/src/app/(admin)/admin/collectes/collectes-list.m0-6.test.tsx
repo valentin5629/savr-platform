@@ -54,6 +54,7 @@ const collecteZd = {
   type: 'zero_dechet',
   statut: 'cloturee',
   statut_tms: 'acceptee',
+  tms_reference: 'CO-ZD-1',
   dirty_tms: false,
   date_collecte: '2026-04-23',
   heure_collecte: '08:30:00',
@@ -95,6 +96,7 @@ function ag(overrides: Record<string, unknown>) {
     type: 'anti_gaspi',
     statut: 'programmee',
     statut_tms: 'non_envoye',
+    tms_reference: null,
     dirty_tms: false,
     date_collecte: '2026-05-10',
     heure_collecte: '19:00:00',
@@ -155,8 +157,10 @@ function mockCollectesFetch() {
         ok: true,
         json: async () => ({
           non_transmises: 3,
-          non_transmises_zd: 2,
-          non_transmises_ag: 1,
+          // Même nombre que les tuiles « à dispatcher » : la route les tire du
+          // même compteur (kpi_a_dispatcher_predicat_unique).
+          non_transmises_zd: 3,
+          non_transmises_ag: 2,
           attente_prestataire: 1,
           dirty_tms: 0,
           ag_attente_attribution: 2,
@@ -293,6 +297,73 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       const zdTile = screen.getByRole('button', { name: /ZD à dispatcher/ });
       await waitFor(() => expect(agTile).toHaveTextContent('2'), ATTENTE_UI);
       await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — kpi_a_dispatcher_predicat_unique : clic sur une tuile « à dispatcher » → chip « Non transmises » du même type, re-clic le retire',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      const zdTile = await screen.findByRole(
+        'button',
+        { name: /ZD à dispatcher/ },
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
+      // Sous-libellé : 4e surface du scénario, exact depuis que la tuile
+      // compte aussi les collectes validées transporteur.
+      expect(zdTile).toHaveTextContent('validées transporteur');
+
+      // La barre porte déjà un AUTRE type : sans effacement, le clic sur la
+      // tuile ZD rendrait une liste vide alors que la tuile affiche 3.
+      const pastilleAg = screen.getByRole('button', { name: 'Anti-Gaspi' });
+      fireEvent.click(pastilleAg);
+      await waitFor(
+        () =>
+          expect(derniereRequeteListe(fetchMock).get('types')).toBe(
+            'anti_gaspi',
+          ),
+        ATTENTE_UI,
+      );
+
+      // Clic : la liste est filtrée par le prédicat MÊME que compte la tuile
+      // (chip serveur), et le filtre Type est effacé (décisions Val 2026-10-01).
+      fireEvent.click(zdTile);
+      await waitFor(() => {
+        const q = derniereRequeteListe(fetchMock);
+        expect(q.get('chip')).toBe('non_transmises_zd');
+        expect(q.get('types')).toBeNull();
+      }, ATTENTE_UI);
+      expect(zdTile).toHaveAttribute('aria-pressed', 'true');
+      expect(pastilleAg).toHaveAttribute('aria-pressed', 'false');
+      // Le chip masqué apparaît actif dans la rangée, avec le même compteur.
+      const chip = screen.getByRole('button', { name: /Non transmises ZD/ });
+      expect(chip).toHaveAttribute('aria-pressed', 'true');
+      expect(chip).toHaveTextContent('3');
+
+      // L'autre tuile remplace le chip (un seul filtre rapide à la fois).
+      const agTile = screen.getByRole('button', { name: /AG à dispatcher/ });
+      fireEvent.click(agTile);
+      await waitFor(
+        () =>
+          expect(derniereRequeteListe(fetchMock).get('chip')).toBe(
+            'non_transmises_ag',
+          ),
+        ATTENTE_UI,
+      );
+      expect(agTile).toHaveAttribute('aria-pressed', 'true');
+      expect(zdTile).toHaveAttribute('aria-pressed', 'false');
+
+      // Re-clic : retour à la liste Programmées complète.
+      fireEvent.click(agTile);
+      await waitFor(() => {
+        const q = derniereRequeteListe(fetchMock);
+        expect(q.get('chip')).toBeNull();
+        expect(q.get('statuts')).toBe('programmee,validee,en_cours');
+      }, ATTENTE_UI);
+      expect(agTile).toHaveAttribute('aria-pressed', 'false');
     },
     ATTENTE_CAS_MS,
   );
@@ -555,6 +626,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         id: 'zd-disp',
         statut: 'programmee',
         statut_tms: 'non_envoye',
+        tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
         factures_collectes: [],
@@ -570,6 +642,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         id: 'zd-envoyee',
         statut: 'validee',
         statut_tms: 'acceptee',
+        tms_reference: 'CO-ZD-9',
       };
       // AG programmée + non transmise (même forme statut/statut_tms qu'une ZD à
       // dispatcher) → PAS de « Dispatcher » (garde de type) mais « Attribuer ».
@@ -645,6 +718,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         id: 'zd-open',
         statut: 'programmee',
         statut_tms: 'non_envoye',
+        tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
         factures_collectes: [],

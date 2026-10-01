@@ -24,6 +24,7 @@ import {
   DropdownTrigger,
 } from '@/components/ui/dropdown';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
+import { estADispatcher } from '@/lib/collectes-chips';
 import { cn } from '@/lib/utils';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { formatDateHeure, heureOuMinuit } from '@/lib/format-date-collecte';
@@ -45,6 +46,7 @@ export interface CollecteRow {
   type: 'zero_dechet' | 'anti_gaspi';
   statut: string;
   statut_tms: string;
+  tms_reference: string | null;
   dirty_tms: boolean;
   date_collecte: string;
   heure_collecte: string;
@@ -102,17 +104,13 @@ function aAttribuer(row: CollecteRow): boolean {
   );
 }
 
-// Collecte ZD « à dispatcher » : pas encore transmise au TMS et encore ouverte.
-// Prédicat aligné sur le chip « Non transmises ZD » (source unique
-// lib/collectes-chips → non_transmises_zd) : statut_tms 'non_envoye' ET statut
-// dans (programmee, validee). Pas d'attribution manuelle ZD (CDC §06.06 l.231)
-// → l'action ouvre la fiche (Bloc 0 « Envoyer à MTS-1 »).
-function aDispatcherZd(row: CollecteRow): boolean {
-  return (
-    row.type === 'zero_dechet' &&
-    row.statut_tms === 'non_envoye' &&
-    (row.statut === 'programmee' || row.statut === 'validee')
-  );
+// Collecte ZD « à dispatcher » : définition canonique §11 §1.1, écrite une
+// seule fois dans lib/collectes-chips (`estADispatcher`) — la même que le chip
+// « Non transmises ZD » et la tuile « ZD à dispatcher ». Pas d'attribution
+// manuelle ZD (CDC §06.06 l.231) → l'action ouvre la fiche (Bloc 0 « Envoyer à
+// MTS-1 »).
+export function aDispatcherZd(row: CollecteRow): boolean {
+  return row.type === 'zero_dechet' && estADispatcher(row);
 }
 
 // Criticité (§06.09 §1 / ALGO-02) : à attribuer ET à moins de 48h.

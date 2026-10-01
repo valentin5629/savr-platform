@@ -41,6 +41,37 @@ export interface ChipQuery {
   lte(column: string, value: unknown): ChipQuery;
 }
 
+// Définition canonique de « à dispatcher » (§11 §1.1, tranchée Val 2026-09-14) :
+// non envoyée au TMS, sans référence de commande, encore ouverte (programmée OU
+// validée transporteur). Elle vit ici sous deux formes côte à côte : filtre de
+// requête (`aDispatcher`) et test d'une ligne déjà chargée (`estADispatcher`).
+// Seule la liste des statuts est littéralement partagée ; l'accord des deux
+// formes est tenu par tests/api/admin/collectes-chip-counts.m0-6.test.ts. En
+// dépendent : les chips « Non transmises ZD/AG », les tuiles « AG/ZD à
+// dispatcher » (chip-counts reprend le compteur de ces chips) et l'action
+// « Dispatcher » de la liste (collectes-table). Les cartes Bloc 1 du Dashboard
+// Admin (dashboard/kpi/route.ts) en portent encore leur propre copie.
+const STATUTS_A_DISPATCHER: readonly string[] = ['programmee', 'validee'];
+
+function aDispatcher(query: ChipQuery): ChipQuery {
+  return query
+    .eq('statut_tms', 'non_envoye')
+    .is('tms_reference', null)
+    .in('statut', STATUTS_A_DISPATCHER);
+}
+
+export function estADispatcher(row: {
+  statut: string;
+  statut_tms: string;
+  tms_reference: string | null;
+}): boolean {
+  return (
+    row.statut_tms === 'non_envoye' &&
+    row.tms_reference === null &&
+    STATUTS_A_DISPATCHER.includes(row.statut)
+  );
+}
+
 // Applique le prédicat d'un chip à une requête collectes. `now` injecté pour la
 // testabilité (fenêtres 48h). Chip inconnu = requête inchangée.
 export function applyChipPredicate(
@@ -55,21 +86,13 @@ export function applyChipPredicate(
     case 'non_transmises':
       // « Non transmises au TMS » = programmée ET sans référence de commande.
       return query.eq('statut', 'programmee').is('tms_reference', null);
-    // « Non transmises ZD/AG » = miroir EXACT des cartes Bloc 1 du Dashboard Admin
-    // (§11 §1.1) : non envoyée au TMS, sans référence, encore ouverte (programmée
-    // OU validée). Toute évolution DOIT rester alignée sur dashboard/kpi/route.ts.
+    // « Non transmises ZD/AG » = « à dispatcher » par type, miroir EXACT des
+    // cartes Bloc 1 du Dashboard Admin (§11 §1.1). Toute évolution DOIT rester
+    // alignée sur dashboard/kpi/route.ts.
     case 'non_transmises_zd':
-      return query
-        .eq('type', 'zero_dechet')
-        .eq('statut_tms', 'non_envoye')
-        .is('tms_reference', null)
-        .in('statut', ['programmee', 'validee']);
+      return aDispatcher(query.eq('type', 'zero_dechet'));
     case 'non_transmises_ag':
-      return query
-        .eq('type', 'anti_gaspi')
-        .eq('statut_tms', 'non_envoye')
-        .is('tms_reference', null)
-        .in('statut', ['programmee', 'validee']);
+      return aDispatcher(query.eq('type', 'anti_gaspi'));
     case 'attente_prestataire':
       return query.eq('statut_tms', 'attribuee_en_attente_acceptation');
     case 'dirty_tms':

@@ -173,6 +173,121 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
     expect(lecture!.select).toBe('nom');
   });
 
+  // ── Transporteur SANS pont prestataire (par mail, par téléphone, autre) ──────
+  // `rpc_valider_attribution_ag` laisse alors `collectes.prestataire_logistique_id`
+  // à NULL : le prestataire actuel d'une AG est le transporteur de son attribution
+  // validée (arbitrage Val 2026-10-01), sinon la fiche dit « non attribué » d'une
+  // collecte que le bloc Attribution AG nomme attribuée.
+  const attributionValidee = {
+    id: 'att-1',
+    valide_at: '2026-09-30T10:00:00Z',
+    transporteurs: {
+      id: 't-province',
+      nom: 'Transports Dupont',
+      type_tms: 'par_mail',
+    },
+  };
+
+  it('AG sans prestataire, attribution validée à un transporteur sans pont : c’est lui le prestataire actuel', async () => {
+    reponses.set('plateforme.collectes', {
+      data: {
+        id: 'col-1',
+        type: 'anti_gaspi',
+        prestataire_logistique_id: null,
+        attributions_antgaspi: attributionValidee,
+      },
+      error: null,
+    });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).prestataire_actuel).toEqual({
+      transporteur_id: 't-province',
+      nom: 'Transports Dupont',
+      type_tms: 'par_mail',
+    });
+    // Lu dans l'embed de l'attribution : aucune requête de plus.
+    expect(appelsSur('plateforme.transporteurs')).toHaveLength(0);
+    expect(appelsSur('shared.prestataires')).toHaveLength(0);
+    // L'embed porte les trois colonnes servies (colonnes réelles de transporteurs).
+    const [lecture] = appelsSur('plateforme.collectes');
+    expect(lecture!.select).toContain(
+      'transporteurs!transporteur_id(id, nom, type_tms)',
+    );
+  });
+
+  it('attribution servie en tableau par PostgREST : même résultat', async () => {
+    reponses.set('plateforme.collectes', {
+      data: {
+        id: 'col-1',
+        prestataire_logistique_id: null,
+        attributions_antgaspi: [
+          {
+            ...attributionValidee,
+            transporteurs: [attributionValidee.transporteurs],
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const res = await getDetail();
+
+    expect((await res.json()).prestataire_actuel).toEqual({
+      transporteur_id: 't-province',
+      nom: 'Transports Dupont',
+      type_tms: 'par_mail',
+    });
+  });
+
+  it.each([
+    ['attribution non validée', { ...attributionValidee, valide_at: null }],
+    [
+      'attribution sans transporteur',
+      { ...attributionValidee, transporteurs: null },
+    ],
+  ])(
+    'AG sans prestataire, %s : prestataire_actuel null',
+    async (_cas, attribution) => {
+      reponses.set('plateforme.collectes', {
+        data: {
+          id: 'col-1',
+          prestataire_logistique_id: null,
+          attributions_antgaspi: attribution,
+        },
+        error: null,
+      });
+
+      const res = await getDetail();
+
+      expect((await res.json()).prestataire_actuel).toBeNull();
+    },
+  );
+
+  it('prestataire posé sur la collecte ET attribution à un autre transporteur : la collecte fait foi', async () => {
+    reponses.set('plateforme.collectes', {
+      data: {
+        id: 'col-1',
+        prestataire_logistique_id: 'presta-1',
+        attributions_antgaspi: attributionValidee,
+      },
+      error: null,
+    });
+    reponses.set('plateforme.transporteurs', {
+      data: { id: 't-1', nom: 'A Toutes!', type_tms: 'a_toutes' },
+      error: null,
+    });
+
+    const res = await getDetail();
+
+    expect((await res.json()).prestataire_actuel).toEqual({
+      transporteur_id: 't-1',
+      nom: 'A Toutes!',
+      type_tms: 'a_toutes',
+    });
+  });
+
   it.each([
     ['plateforme.transporteurs', {}],
     ['shared.prestataires', { 'plateforme.transporteurs': null }],

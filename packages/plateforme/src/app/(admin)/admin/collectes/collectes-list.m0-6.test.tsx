@@ -164,8 +164,6 @@ function mockCollectesFetch() {
           ag_48h: 4,
           ag_a_dispatcher: 2,
           zd_a_dispatcher: 3,
-          ag_a_venir: 9,
-          zd_a_venir: 7,
           controle_acces_a_envoyer: 4,
           infos_a_recuperer: 6,
         }),
@@ -300,27 +298,32 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — cartes KPI « à venir » AG/ZD affichent leur volume (indicateurs)',
+    "M0.6 — KPI de tête : 4 files d'action sur une ligne, sans tuiles « à venir » (décision Val 2026-10-01)",
     async () => {
       mockCollectesFetch();
       render(<CollectesPage />);
 
-      // Indicateurs statiques (pas des boutons) → requête par texte, compteur lu
-      // sur le conteneur (count + libellé + sous-libellé sont frères).
-      const agVenir = await screen.findByText(
-        'AG à venir',
-        undefined,
-        ATTENTE_UI,
+      const ordre = [
+        /AG à dispatcher/,
+        /ZD à dispatcher/,
+        /Infos accès à envoyer/,
+        /Infos à récupérer/,
+      ];
+      const tuiles = await Promise.all(
+        ordre.map((name) => screen.findByRole('button', { name }, ATTENTE_UI)),
       );
-      const zdVenir = screen.getByText('ZD à venir');
-      await waitFor(
-        () => expect(agVenir.parentElement).toHaveTextContent('9'),
-        ATTENTE_UI,
-      );
-      await waitFor(
-        () => expect(zdVenir.parentElement).toHaveTextContent('7'),
-        ATTENTE_UI,
-      );
+      // Ordre d'affichage = ordre demandé (gauche → droite).
+      for (let i = 1; i < tuiles.length; i++) {
+        expect(
+          tuiles[i - 1]!.compareDocumentPosition(tuiles[i]!) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      }
+      // Même grille, 4 colonnes en desktop.
+      expect(tuiles[0]!.parentElement).toBe(tuiles[3]!.parentElement);
+      expect(tuiles[0]!.parentElement!.className).toContain('xl:grid-cols-4');
+      expect(screen.queryByText('AG à venir')).toBeNull();
+      expect(screen.queryByText('ZD à venir')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

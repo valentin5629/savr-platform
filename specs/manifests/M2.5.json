@@ -80,6 +80,14 @@
       "test": "everest_acceptation_manuelle_plans.test.sql (statut_depart : a_attribuer / attribuee_en_attente_acceptation → acceptee, rejetee_par_prestataire → refus ; refus_409 : realisee / cloturee / annulee, aucune écriture) + everest_acceptation_manuelle_reference.test.sql (non_envoye A2c, non a_toutes A8b, mission API A8, autre référence A5c, référence d'une autre tournée A7) + everest-manual-accept.m2-5.test.ts (P0003 → 409, formats 422)",
       "statut": "implemented",
       "libelle": "Plans du scénario acceptation_manuelle_everest_statut_depart (4 départs) et acceptation_manuelle_everest_refus_409 (5 contextes)."
+    },
+    {
+      "id": "M2.5-point-b-dropoff-association",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:165",
+      "artefact": "packages/adapters/src/everest/adapter.ts (dispatchCollecte : refus permanent sans association attribuée, hors du try ; buildMissionPayload : dropoff = adresse + contact de l'association) ; packages/adapters/src/everest/client.ts (CreateMissionPayload.dropoff) ; packages/adapters/src/outbox-worker.ts (résolution association via attributions_antgaspi → associations, composée une fois pour les deux adapters)",
+      "test": "M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans dropoff + M2.5 / dispatch — AG sans association attribuée → LogistiquePermanentError, aucune mission créée [adapter.m2-5.test.ts]",
+      "statut": "implemented",
+      "libelle": "Everest : la mission porte le point B (adresse de livraison = association bénéficiaire, §06.09 §4 « Adresse de livraison (siège association) ») dans `dropoff` {address, contact}, symétrique de `pickup` ; AG sans association attribuée = LogistiquePermanentError avant tout POST (décision Val 2026-10-01 — l'association est choisie AVANT le prestataire). ⚠ Nom de champ wire (`dropoff` vs `address_end` du CDC TMS M14) à figer au compte de test Everest, comme le reste du wire V1."
     }
   ],
   "cdc_source_hash": {

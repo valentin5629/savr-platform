@@ -232,7 +232,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         }),
       );
       const valider = screen.getByRole('button', {
-        name: "Valider l'attribution",
+        name: /^Valider/,
       }) as HTMLButtonElement;
       expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
       expect(valider.disabled).toBe(true);
@@ -268,9 +268,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
           name: 'Distance inconnue · Asso Sans GPS',
         }),
       );
-      fireEvent.click(
-        screen.getByRole('button', { name: "Valider l'attribution" }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: /^Valider/ }));
 
       await waitFor(() => {
         const sent = corpsValider(fetchMock);
@@ -287,9 +285,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       installFetch();
       render(<AttributionDetailPage />);
       await selectAssociation();
-      fireEvent.click(
-        screen.getByRole('button', { name: "Valider l'attribution" }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: /^Valider/ }));
 
       await waitFor(
         () =>
@@ -342,14 +338,14 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       render(<AttributionDetailPage />);
       await selectAssociation();
       const valider = screen.getByRole('button', {
-        name: "Valider l'attribution",
+        name: /^Valider/,
       }) as HTMLButtonElement;
       fireEvent.click(valider);
       await screen.findByText(/Attribution validée/, undefined, ATTENTE_UI);
       expect(
         (
           screen.getByRole('button', {
-            name: "Valider l'attribution",
+            name: /^Valider/,
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(true);

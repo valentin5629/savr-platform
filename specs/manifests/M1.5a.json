@@ -237,9 +237,9 @@
       "id": "BL-P1-API-02",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:366",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5a / dispatch AG — deliveryPlace.placeId = id_point_collecte_mts1 de l'association [adapter.m1-5a.test.ts]",
+      "test": "M1.5a / dispatch AG — point B (asso) sur le stuff Don alimentaire (relatedAddress) + M1.5a / dispatch AG — pas de point favori → adresse de l’association inline en point B + M1.5a / dispatch AG — sans association attribuée → LogistiquePermanentError, aucun POST [adapter.m1-5a.test.ts] + M2.3 / worker — point B : l’adresse de l’association attribuée est résolue et transmise à l’adapter + M2.3 / worker — AG sans attribution : champs association_* null transmis à l’adapter + M2.3 / worker — lecture attribution en erreur (blip PostgREST) → failed + retry, jamais dead ni « sans association » [outbox-worker.m2-3.test.ts]",
       "statut": "implemented",
-      "libelle": "MTS-1 favoritePlaces : buildTourPayload pose deliveryPlace.placeId (= associations.id_point_collecte_mts1, AG) ; outbox-worker.fetchCollecte résout l'id via la dernière attributions_antgaspi → associations. Sans ce champ MTS-1 ignorait où déposer les excédents AG."
+      "libelle": "MTS-1 point B AG : buildOrderPayload porte le point de dépôt de l'association sur le stuff « Don alimentaire » (stuffs[].relatedAddress) — placeId favori (associations.id_point_collecte_mts1) quand il existe, sinon adresse postale inline (CustomerOrderPlaceInput.address.addressSingleLine) ; AG sans association attribuée = LogistiquePermanentError avant tout POST (jamais de commande sans point B — décision Val 2026-10-01, l'association est choisie AVANT le prestataire). outbox-worker.fetchCollecte résout l'association (placeId + adresse + ville + contact) via la dernière attributions_antgaspi → associations, composée une fois pour les deux adapters (garde-fou 2) ; lecture en erreur = LogistiqueTransientError (retry), jamais confondue avec « sans association »."
     },
     {
       "id": "BL-P1-API-06",

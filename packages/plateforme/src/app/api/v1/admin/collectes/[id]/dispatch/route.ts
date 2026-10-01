@@ -59,6 +59,31 @@ export async function POST(
     );
   }
 
+  // AG : l'association destinataire est choisie AVANT le prestataire (décision
+  // Val 2026-10-01) — son adresse est le point B transmis au prestataire par
+  // l'adapter. Sans attribution, l'ordre partirait sans adresse de livraison :
+  // on refuse l'envoi tant que l'association n'est pas attribuée (§06.09 §3).
+  if (c.type === 'anti_gaspi') {
+    // (association_id NOT NULL : la ligne existe ⇔ l'association est attribuée)
+    const { data: attribution, error: attrErr } = await supabase
+      .from('attributions_antgaspi')
+      .select('id')
+      .eq('collecte_id', id)
+      .maybeSingle();
+    if (attrErr) {
+      return serverError(attrErr, 'admin.collectes.dispatch.attribution');
+    }
+    if (!attribution) {
+      return NextResponse.json(
+        {
+          error:
+            "Choisissez d'abord l'association bénéficiaire : son adresse est transmise au prestataire logistique pour la livraison.",
+        },
+        { status: 422 },
+      );
+    }
+  }
+
   // Détermination de l'override (§06.06 §3 Bloc 0) :
   //  - AG : override = prestataire choisi ≠ TOP 1 de l'algo (CDC : « Motif override
   //    obligatoire si choix ≠ top 1 algo » ; motif NULL sinon). Le top-1 est calculé

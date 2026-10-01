@@ -38,6 +38,9 @@ const LIEU: Lieu = {
 const COLLECTE_AG: Collecte = {
   id: 'col-ag-redispatchee',
   type: 'anti_gaspi',
+  association_adresse: '12 rue des Associations, Ivry-sur-Seine',
+  association_contact_nom: 'Nadia Benali',
+  association_contact_telephone: '+33699990001',
   date_collecte: '2026-07-15',
   heure_collecte: '19:00:00',
   nb_camions_demande: 1,

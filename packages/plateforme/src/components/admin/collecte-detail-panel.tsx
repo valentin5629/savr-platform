@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
-import Link from 'next/link';
 import {
   Truck,
   Send,
@@ -36,6 +35,7 @@ import { Timeline, TimelineItem } from '@/components/ui/timeline';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { CollecteStatutFrise } from './collecte-statut-frise';
+import { AttributionAgForm } from './attribution-ag-form';
 import {
   DIFFICULTE_LABEL,
   DIFFICULTE_VARIANT,
@@ -51,6 +51,7 @@ import {
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
+import { libelleDispatch, libelleTypeTms } from '@/lib/type-tms-labels';
 import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
   BadgeTypeCollecte,
@@ -109,18 +110,6 @@ const STATUTS_FORCABLES: StatutCollecteDb[] = [
   'rejetee_par_prestataire',
 ];
 
-// Libellé du bouton d'envoi TMS forké par type_tms (§06.06 §3 « Spec V1 fork » :
-// MTS-1 pour Strike/Marathon, A Toutes! pour le vélo cargo, manuel sinon).
-function libelleDispatch(
-  typeTms: string | null | undefined,
-  dejaEnvoye: boolean,
-): string {
-  const verbe = dejaEnvoye ? 'Renvoyer' : 'Envoyer';
-  if (typeTms === 'mts1') return `${verbe} à MTS-1`;
-  if (typeTms === 'a_toutes') return `${verbe} à A Toutes!`;
-  return 'Dispatcher (manuel)';
-}
-
 // Lieu tel que servi par GET /admin/collectes/[id] (`lieux!lieu_id(*)`) — seuls
 // les champs affichés dans l'onglet Informations sont typés.
 interface LieuDetail {
@@ -147,6 +136,8 @@ interface CollecteDetail {
   nb_camions_demande: number;
   tms_reference: string | null;
   volume_estime_repas: number | null;
+  // Besoin véhicule saisi à l'attribution (décision Val 2026-10-01), nullable.
+  type_vehicule_souhaite?: string | null;
   controle_acces_requis: boolean;
   infos_acces_email_envoye_at: string | null;
   notes_internes: string | null;
@@ -297,15 +288,6 @@ function DifficulteBadge({ valeur }: { valeur?: string | null }) {
       {DIFFICULTE_LABEL[valeur] ?? valeur}
     </Badge>
   );
-}
-
-// Mode d'envoi du transporteur (`type_tms`) en clair sur la carte de choix.
-function libelleTypeTms(typeTms: string): string {
-  if (typeTms === 'mts1') return 'Envoi MTS-1';
-  if (typeTms === 'a_toutes') return 'A Toutes! · vélo cargo';
-  if (typeTms === 'par_mail') return 'Dispatch par email';
-  if (typeTms === 'par_telephone') return 'Dispatch par téléphone';
-  return 'Dispatch manuel';
 }
 
 // Groupe de cartes radio (motif APG radiogroup) : les flèches déplacent le
@@ -909,6 +891,14 @@ export function CollecteDetailPanel({
   }
 
   const isTerminal = STATUTS_TERMINAUX.includes(collecte.statut);
+  // AG sans attribution : le formulaire d'attribution (association, besoin
+  // véhicule, prestataire — décision Val 2026-10-01) remplace le bloc dispatch,
+  // dont il est l'unique point d'entrée : « Valider et envoyer » = la décision de
+  // dispatch (§06.09 §3). Le bloc dispatch ne sert ensuite qu'au renvoi / au
+  // changement de prestataire (garde serveur 422 sans association, inchangée).
+  const attributionManquante =
+    collecte.type === 'anti_gaspi' &&
+    collecte.attributions_antgaspi?.associations == null;
   // RM-02 — N camions modifiable uniquement hors état terminal (garde serveur).
   const nbCamionsEditable = ['programmee', 'validee', 'en_cours'].includes(
     collecte.statut,
@@ -1439,234 +1429,33 @@ export function CollecteDetailPanel({
           </TabsContent>
 
           <TabsContent value="logistique" className="space-y-4">
-            <Card className="p-5 space-y-4">
-              <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
-              {dispatchError && (
-                <AlertBar variant="err">{dispatchError}</AlertBar>
-              )}
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                <div>
-                  <dt className="text-savr-neutral-500">Prestataire actuel</dt>
-                  <dd className="font-medium flex items-center gap-2">
-                    {currentTransporteur?.nom ?? (
-                      <span className="text-savr-neutral-400">
-                        {libelleSansNom ?? 'Aucun prestataire attribué'}
-                      </span>
-                    )}
-                    {currentTransporteur?.type_tms && (
-                      <Badge variant="neutral" className="text-[10px]">
-                        {currentTransporteur.type_tms}
-                      </Badge>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Statut TMS</dt>
-                  <dd className="font-medium">
-                    <Badge
-                      variant={statutTmsDisplay(collecte.statut_tms).variant}
-                      className="text-xs"
-                    >
-                      {statutTmsDisplay(collecte.statut_tms).label}
-                    </Badge>
-                    {collecte.statut_tms_at && (
-                      <span className="ml-1 text-xs text-savr-neutral-400">
-                        (
-                        {new Date(collecte.statut_tms_at).toLocaleString(
-                          'fr-FR',
-                          {
-                            timeZone: 'Europe/Paris',
-                          },
-                        )}
-                        )
-                      </span>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Référence TMS</dt>
-                  <dd className="font-mono font-medium">
-                    {collecte.tms_reference ?? '—'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Nb camions</dt>
-                  <dd className="flex items-center gap-2 font-medium">
-                    {collecte.nb_camions_demande}
-                    {nbCamionsEditable && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setNbCamionsValue(
-                            String(collecte.nb_camions_demande),
-                          );
-                          setNbCamionsError(null);
-                          setNbCamionsModal(true);
-                        }}
-                      >
-                        Modifier
-                      </Button>
-                    )}
-                  </dd>
-                </div>
-                {collecte.motif_override_prestataire && (
-                  <div className="col-span-2">
-                    <dt className="text-savr-neutral-500">Motif override</dt>
-                    <dd className="font-medium">
-                      {collecte.motif_override_prestataire}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-
-              {/* Choix du prestataire (AG) — override manuel §06.06 §3, en cartes
-            cochables (décision Val C3) : la reco algo est présélectionnée et
-            marquée « Recommandé ». Pas de choix en ZD V1 (réémission seule). */}
-              {collecte.type === 'anti_gaspi' && !isTerminal && (
-                <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
-                  <p
-                    id="dispatch-transporteur-label"
-                    className="text-sm font-semibold text-savr-neutral-800"
-                  >
-                    Prestataire à attribuer
-                  </p>
-                  {transporteursOrdonnes.length === 0 ? (
-                    <p className="text-sm text-savr-neutral-500">
-                      Aucun transporteur actif dans le référentiel.
-                    </p>
-                  ) : (
-                    <div
-                      role="radiogroup"
-                      aria-labelledby="dispatch-transporteur-label"
-                      onKeyDown={naviguerRadios}
-                      className="grid gap-2 sm:grid-cols-2"
-                    >
-                      {transporteursOrdonnes.map((t, i) => {
-                        const estActuel =
-                          t.id === currentTransporteur?.transporteur_id;
-                        const coche =
-                          (selectedTransporteurId ||
-                            currentTransporteur?.transporteur_id) === t.id;
-                        return (
-                          <CarteChoix
-                            key={t.id}
-                            coche={coche}
-                            // Un seul arrêt de tabulation : la carte cochée, sinon la 1re.
-                            focusable={coche || (aucuneCarteCochee && i === 0)}
-                            // Re-choisir le prestataire actuel = le conserver ('').
-                            onSelect={() =>
-                              setSelectedTransporteurId(estActuel ? '' : t.id)
-                            }
-                            titre={t.nom}
-                            detail={libelleTypeTms(t.type_tms)}
-                            badges={
-                              <>
-                                {t.id === recommendedTransporteurId && (
-                                  <Badge variant="primary" className="text-xs">
-                                    Recommandé
-                                  </Badge>
-                                )}
-                                {estActuel && (
-                                  <Badge variant="neutral" className="text-xs">
-                                    Actuel
-                                  </Badge>
-                                )}
-                              </>
-                            }
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
-                  {overrideActif && (
-                    <div>
-                      <label
-                        htmlFor="dispatch-motif"
-                        className="block text-sm font-medium text-savr-neutral-700 mb-1"
-                      >
-                        Motif override (obligatoire ≥ 5 car. — prestataire ≠
-                        reco algo)
-                      </label>
-                      <Textarea
-                        id="dispatch-motif"
-                        rows={2}
-                        value={motifOverride}
-                        onChange={(e) => setMotifOverride(e.target.value)}
-                        placeholder="Raison du choix d'un prestataire différent de la recommandation…"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Bouton d'envoi TMS forké par type_tms (+ acceptation manuelle
-              A Toutes! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
-              <div className="flex flex-wrap justify-end gap-2">
-                {acceptationManuellePossible && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setAcceptationSaisie({
-                        reference_mission: '',
-                        contact_joint: '',
-                        heure_appel: '',
-                        commentaire: '',
-                      });
-                      setAcceptationError(null);
-                      setAcceptationModal(true);
-                    }}
-                  >
-                    <PhoneCall className="h-4 w-4 mr-2" />
-                    Acceptation manuelle
-                  </Button>
-                )}
-                <Button
-                  disabled={isTerminal || dispatching || overrideMotifManquant}
-                  onClick={() => void handleDispatch()}
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  {dispatching
-                    ? 'Envoi…'
-                    : libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
-                </Button>
-              </div>
-
-              {/* Tournées (multi-camions) */}
-              {collecte.collecte_tournees.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <p className="text-sm font-medium text-savr-neutral-700">
-                      Tournées
-                    </p>
-                    <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
-                  </div>
-                  <div className="space-y-1">
-                    {collecte.collecte_tournees.map((ct) => (
-                      <div
-                        key={ct.rang}
-                        className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded px-3 py-2"
-                      >
-                        <span className="font-medium">Camion {ct.rang}</span>
-                        <Badge variant="neutral" className="text-xs">
-                          {ct.tournees.statut}
-                        </Badge>
-                        <span className="font-mono text-xs text-savr-neutral-500">
-                          {ct.tournees.external_ref_commande ?? '—'}
-                        </span>
-                        <span className="font-mono text-xs text-savr-neutral-600">
-                          {ct.tournees.plaque_immatriculation ?? 'plaque —'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-            {/* Attribution AG (AG only) — remontée tout en haut, à droite de
-            « Prestataire & Dispatch » (décision Val). */}
-            {collecte.type === 'anti_gaspi' && (
+            {/* AG sans attribution : formulaire intégré (décision Val 2026-10-01) —
+            association d'abord (son adresse est le point de livraison), besoin
+            véhicule, prestataire, un seul bouton « Valider et envoyer ». */}
+            {attributionManquante && !isTerminal && (
+              <Card className="p-5 space-y-4">
+                <BlocHeader
+                  icon={HeartHandshake}
+                  title="Attribution & dispatch"
+                />
+                <AttributionAgForm
+                  collecteId={collecte.id}
+                  collecte={{
+                    volume_estime_repas: collecte.volume_estime_repas ?? null,
+                    pax: collecte.evenements.pax ?? null,
+                    date_collecte: collecte.date_collecte,
+                    heure_collecte: collecte.heure_collecte,
+                    nb_camions_demande: collecte.nb_camions_demande,
+                    type_vehicule_souhaite:
+                      collecte.type_vehicule_souhaite ?? null,
+                  }}
+                  onValidee={() => void refetch()}
+                />
+              </Card>
+            )}
+            {/* AG attribuée : résumé de l'attribution AVANT « Prestataire &
+            Dispatch » (décision Val 2026-10-01). */}
+            {collecte.type === 'anti_gaspi' && !attributionManquante && (
               <Card className="p-5 space-y-4">
                 <BlocHeader icon={HeartHandshake} title="Attribution AG" />
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
@@ -1722,45 +1511,138 @@ export function CollecteDetailPanel({
                     </dd>
                   </div>
                 </dl>
-                {/* Associations recommandées (algo §06.09) en cartes, la n°1 marquée
-                « Recommandé ». « Choisir » ouvre l'écran d'attribution avec
-                l'association présélectionnée : validation, motif et emails
-                restent sur cet écran unique (§06.06 Bloc 5, décision Val).
-                Masquées une fois l'attribution validée (décision Val C5) : un
-                changement passe alors par l'écran d'attribution complet. */}
-                {!collecte.attributions_antgaspi?.valide_at &&
-                  reco?.associations &&
-                  reco.associations.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold text-savr-neutral-800">
-                        Associations recommandées
+              </Card>
+            )}
+            {!(attributionManquante && !isTerminal) && (
+              <Card className="p-5 space-y-4">
+                <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
+                {dispatchError && (
+                  <AlertBar variant="err">{dispatchError}</AlertBar>
+                )}
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  <div>
+                    <dt className="text-savr-neutral-500">
+                      Prestataire actuel
+                    </dt>
+                    <dd className="font-medium flex items-center gap-2">
+                      {currentTransporteur?.nom ?? (
+                        <span className="text-savr-neutral-400">
+                          {libelleSansNom ?? 'Aucun prestataire attribué'}
+                        </span>
+                      )}
+                      {currentTransporteur?.type_tms && (
+                        <Badge variant="neutral" className="text-[10px]">
+                          {currentTransporteur.type_tms}
+                        </Badge>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-savr-neutral-500">Statut TMS</dt>
+                    <dd className="font-medium">
+                      <Badge
+                        variant={statutTmsDisplay(collecte.statut_tms).variant}
+                        className="text-xs"
+                      >
+                        {statutTmsDisplay(collecte.statut_tms).label}
+                      </Badge>
+                      {collecte.statut_tms_at && (
+                        <span className="ml-1 text-xs text-savr-neutral-400">
+                          (
+                          {new Date(collecte.statut_tms_at).toLocaleString(
+                            'fr-FR',
+                            {
+                              timeZone: 'Europe/Paris',
+                            },
+                          )}
+                          )
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-savr-neutral-500">Référence TMS</dt>
+                    <dd className="font-mono font-medium">
+                      {collecte.tms_reference ?? '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-savr-neutral-500">Nb camions</dt>
+                    <dd className="flex items-center gap-2 font-medium">
+                      {collecte.nb_camions_demande}
+                      {nbCamionsEditable && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setNbCamionsValue(
+                              String(collecte.nb_camions_demande),
+                            );
+                            setNbCamionsError(null);
+                            setNbCamionsModal(true);
+                          }}
+                        >
+                          Modifier
+                        </Button>
+                      )}
+                    </dd>
+                  </div>
+                  {collecte.motif_override_prestataire && (
+                    <div className="col-span-2">
+                      <dt className="text-savr-neutral-500">Motif override</dt>
+                      <dd className="font-medium">
+                        {collecte.motif_override_prestataire}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+
+                {/* Choix du prestataire (AG) — override manuel §06.06 §3, en cartes
+            cochables (décision Val C3) : la reco algo est présélectionnée et
+            marquée « Recommandé ». Pas de choix en ZD V1 (réémission seule). */}
+                {collecte.type === 'anti_gaspi' && !isTerminal && (
+                  <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
+                    <p
+                      id="dispatch-transporteur-label"
+                      className="text-sm font-semibold text-savr-neutral-800"
+                    >
+                      Prestataire à attribuer
+                    </p>
+                    {transporteursOrdonnes.length === 0 ? (
+                      <p className="text-sm text-savr-neutral-500">
+                        Aucun transporteur actif dans le référentiel.
                       </p>
-                      <ul className="space-y-2">
-                        {reco.associations.slice(0, 3).map((a, i) => {
-                          const raison = [
-                            a.distance_km != null
-                              ? `${a.distance_km} km`
-                              : null,
-                            a.capacite_max_beneficiaires != null
-                              ? `capacité ${a.capacite_max_beneficiaires}`
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ');
+                    ) : (
+                      <div
+                        role="radiogroup"
+                        aria-labelledby="dispatch-transporteur-label"
+                        onKeyDown={naviguerRadios}
+                        className="grid gap-2 sm:grid-cols-2"
+                      >
+                        {transporteursOrdonnes.map((t, i) => {
+                          const estActuel =
+                            t.id === currentTransporteur?.transporteur_id;
+                          const coche =
+                            (selectedTransporteurId ||
+                              currentTransporteur?.transporteur_id) === t.id;
                           return (
-                            <li
-                              key={a.id}
-                              className={cn(
-                                'flex items-center gap-3 rounded-savr-md border p-3 text-sm',
-                                i === 0
-                                  ? 'border-savr-primary-600 bg-savr-primary-50'
-                                  : 'border-savr-neutral-200 bg-savr-white',
-                              )}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="flex flex-wrap items-center gap-1.5 font-semibold text-savr-neutral-900">
-                                  {a.nom}
-                                  {i === 0 && (
+                            <CarteChoix
+                              key={t.id}
+                              coche={coche}
+                              // Un seul arrêt de tabulation : la carte cochée, sinon la 1re.
+                              focusable={
+                                coche || (aucuneCarteCochee && i === 0)
+                              }
+                              // Re-choisir le prestataire actuel = le conserver ('').
+                              onSelect={() =>
+                                setSelectedTransporteurId(estActuel ? '' : t.id)
+                              }
+                              titre={t.nom}
+                              detail={libelleTypeTms(t.type_tms)}
+                              badges={
+                                <>
+                                  {t.id === recommendedTransporteurId && (
                                     <Badge
                                       variant="primary"
                                       className="text-xs"
@@ -1768,33 +1650,106 @@ export function CollecteDetailPanel({
                                       Recommandé
                                     </Badge>
                                   )}
-                                </p>
-                                {raison && (
-                                  <p className="text-xs text-savr-neutral-500">
-                                    {raison}
-                                  </p>
-                                )}
-                              </div>
-                              <Button asChild size="md" variant="secondary">
-                                <Link
-                                  href={`/admin/attributions-ag/${collecte.id}?association=${encodeURIComponent(a.id)}`}
-                                >
-                                  Choisir
-                                </Link>
-                              </Button>
-                            </li>
+                                  {estActuel && (
+                                    <Badge
+                                      variant="neutral"
+                                      className="text-xs"
+                                    >
+                                      Actuel
+                                    </Badge>
+                                  )}
+                                </>
+                              }
+                            />
                           );
                         })}
-                      </ul>
-                    </div>
+                      </div>
+                    )}
+                    {overrideActif && (
+                      <div>
+                        <label
+                          htmlFor="dispatch-motif"
+                          className="block text-sm font-medium text-savr-neutral-700 mb-1"
+                        >
+                          Motif override (obligatoire ≥ 5 car. — prestataire ≠
+                          reco algo)
+                        </label>
+                        <Textarea
+                          id="dispatch-motif"
+                          rows={2}
+                          value={motifOverride}
+                          onChange={(e) => setMotifOverride(e.target.value)}
+                          placeholder="Raison du choix d'un prestataire différent de la recommandation…"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Bouton d'envoi TMS forké par type_tms (+ acceptation manuelle
+              A Toutes! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
+                <div className="flex flex-wrap justify-end gap-2">
+                  {acceptationManuellePossible && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setAcceptationSaisie({
+                          reference_mission: '',
+                          contact_joint: '',
+                          heure_appel: '',
+                          commentaire: '',
+                        });
+                        setAcceptationError(null);
+                        setAcceptationModal(true);
+                      }}
+                    >
+                      <PhoneCall className="h-4 w-4 mr-2" />
+                      Acceptation manuelle
+                    </Button>
                   )}
-                <Link
-                  href={`/admin/attributions-ag/${collecte.id}`}
-                  className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
-                >
-                  Ouvrir l’attribution complète (top 3, validation, emails,
-                  re-jouer l’algo) →
-                </Link>
+                  <Button
+                    disabled={
+                      isTerminal || dispatching || overrideMotifManquant
+                    }
+                    onClick={() => void handleDispatch()}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {dispatching
+                      ? 'Envoi…'
+                      : libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
+                  </Button>
+                </div>
+
+                {/* Tournées (multi-camions) */}
+                {collecte.collecte_tournees.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-sm font-medium text-savr-neutral-700">
+                        Tournées
+                      </p>
+                      <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
+                    </div>
+                    <div className="space-y-1">
+                      {collecte.collecte_tournees.map((ct) => (
+                        <div
+                          key={ct.rang}
+                          className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded px-3 py-2"
+                        >
+                          <span className="font-medium">Camion {ct.rang}</span>
+                          <Badge variant="neutral" className="text-xs">
+                            {ct.tournees.statut}
+                          </Badge>
+                          <span className="font-mono text-xs text-savr-neutral-500">
+                            {ct.tournees.external_ref_commande ?? '—'}
+                          </span>
+                          <span className="font-mono text-xs text-savr-neutral-600">
+                            {ct.tournees.plaque_immatriculation ?? 'plaque —'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Card>
             )}
             {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}

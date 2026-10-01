@@ -120,7 +120,9 @@ export class AdapterEverest implements LogistiqueProvider {
     collecte: Collecte,
     rang: number,
   ): Promise<ConsumerTag> {
-    // V1 : 1 collecte AG = 1 mission Everest (rang toujours 1)
+    // N véhicules = N missions identiques (décision Val 2026-10-01) : le worker
+    // appelle ce dispatch pour chaque rang 1..nb_camions_demande, 1 tournée
+    // `EVR-{collecte}-{rang}` + 1 mission par rang.
     const tourneeExistante = await this.findTournee(collecte.id, rang);
 
     // Idempotence : la vérité sur « une mission existe-t-elle chez Everest ? »
@@ -158,6 +160,16 @@ export class AdapterEverest implements LogistiqueProvider {
     // Lire branche_attribution depuis attributions_antgaspi
     const serviceId = await this.resolveServiceId(collecte.id);
 
+    // Point B = association (cf. Collecte.association_adresse). Sans elle, refus
+    // permanent HORS du try : ce n'est pas un refus du transporteur, et aucune
+    // tournée ne doit être créée.
+    const adresseLivraison = collecte.association_adresse;
+    if (!adresseLivraison) {
+      throw new LogistiquePermanentError(
+        `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à Everest`,
+      );
+    }
+
     // Créer ou récupérer la tournée. Le rang déjà lié à une tournée A Toutes!
     // est repris tel quel : c'est le cas d'une mission refusée puis réattribuée,
     // dont fn_dispatcher_collecte a réinitialisé la tournée en place (arbitrage
@@ -171,7 +183,12 @@ export class AdapterEverest implements LogistiqueProvider {
     let missionId: string | null = null;
     try {
       // client_ref = tournee.id (M14 W1 R_M14.2 / idempotence multi-camion V2)
-      const payload = this.buildMissionPayload(collecte, tournee.id, serviceId);
+      const payload = this.buildMissionPayload(
+        collecte,
+        tournee.id,
+        serviceId,
+        adresseLivraison,
+      );
       const pushAt = new Date().toISOString();
       const created = await this.client.createMission(payload, collecte.id);
       missionId = created.mission_id;
@@ -396,6 +413,7 @@ export class AdapterEverest implements LogistiqueProvider {
     collecte: Collecte,
     tourneeId: string,
     serviceId: number,
+    adresseLivraison: string,
   ): CreateMissionPayload {
     const slotMinutes = SERVICE_SLOT_MINUTES[serviceId] ?? 30;
     const [h = '00', m = '00'] = (collecte.heure_collecte ?? '00:00:00')
@@ -418,6 +436,19 @@ export class AdapterEverest implements LogistiqueProvider {
           name: collecte.contact_principal_nom,
           phone: collecte.contact_principal_telephone,
         },
+      },
+      // Point B (adresse vérifiée non vide par dispatchCollecte).
+      dropoff: {
+        address: adresseLivraison,
+        ...(collecte.association_contact_nom &&
+        collecte.association_contact_telephone
+          ? {
+              contact: {
+                name: collecte.association_contact_nom,
+                phone: collecte.association_contact_telephone,
+              },
+            }
+          : {}),
       },
       timeslot: {
         date: collecte.date_collecte,

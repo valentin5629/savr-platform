@@ -248,12 +248,27 @@ function liste(valeur: unknown): string {
  * sans savoir qui appeler ». C'est aussi la plus courte : la placer en tête ne
  * coûte quasiment rien aux informations d'accès qui suivent.
  */
+/**
+ * Véhicule demandé par l'Admin à l'attribution (décision Val 2026-10-01) :
+ * « 2 × camionnette », « vélo cargo », ou « 2 véhicules » quand seul le nombre
+ * est connu. Un seul véhicule sans type précisé = rien à dire.
+ */
+function ligneVehicule(vehicule: VehiculeSouhaite | undefined): string {
+  if (!vehicule) return '';
+  const type = libelle(vehicule.type, LIBELLE_VEHICULE);
+  const nombre = Number.isInteger(vehicule.nombre) ? vehicule.nombre : 1;
+  if (type) return nombre > 1 ? `${nombre} × ${type}` : type;
+  return nombre > 1 ? `${nombre} véhicules` : '';
+}
+
 function lignesCanalLibre(
   lieu: Lieu,
   contactSecoursNom: string | null | undefined,
+  vehicule: VehiculeSouhaite | undefined,
 ): string[] {
   const candidates: Array<[string, string]> = [
     ['Contact de secours', nomContact(contactSecoursNom)],
+    ['Véhicule souhaité', ligneVehicule(vehicule)],
     ['Accès', valeurLigne(lieu.acces_details)],
     ['Stationnement', libelle(lieu.stationnement, LIBELLE_DIFFICULTE)],
     ['Contraintes horaires', valeurLigne(lieu.contraintes_horaires)],
@@ -371,13 +386,21 @@ function assemblerAgregat(
  *   être créée pour une collecte sans information : `null` = pas de `comment`
  *   MTS-1, pas de `notes` Everest).
  */
+export interface VehiculeSouhaite {
+  /** Valeur de l'enum plateforme.type_vehicule, ou null si non précisé. */
+  readonly type: string | null | undefined;
+  /** `collectes.nb_camions_demande`. */
+  readonly nombre: number;
+}
+
 export function composerInformationsSupplementaires(
   lieu: Lieu,
   informationsSupplementaires: string | null | undefined,
   contactSecoursNom: string | null | undefined,
+  vehicule?: VehiculeSouhaite,
 ): string | null {
   const base = texte(informationsSupplementaires);
-  const lignes = lignesCanalLibre(lieu, contactSecoursNom);
+  const lignes = lignesCanalLibre(lieu, contactSecoursNom, vehicule);
 
   if (!base && lignes.length === 0) return null;
 

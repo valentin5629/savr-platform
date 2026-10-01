@@ -435,9 +435,9 @@
       "id": "M1.1b-fiches-admin-entete-commun",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:446",
       "artefact": "packages/plateforme/src/components/collecte/fiche-blocs.tsx",
-      "test": "en-tête : type de TMS, SIREN, ville, véhicules, téléphone et statut du transporteur enregistré + M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé + en-tête : région, ville, capacité et statut de l’association enregistrée + erreur dans un onglet caché : la fiche y bascule et marque les onglets à corriger",
+      "test": "en-tête : type de TMS, SIREN, ville, véhicules, téléphone et statut du transporteur enregistré + M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé + en-tête : région, ville, capacité et statut de l’association enregistrée + erreur dans un onglet caché : la fiche y bascule et marque les onglets à corriger + avec sur-titre : le statut partage sa ligne, le titre garde toute la largeur + sans sur-titre : pas de ligne vide, le statut se place à droite du titre",
       "statut": "implemented",
-      "libelle": "Brique commune FicheEnTete (+ EnTetePuce, EnTeteMention) et barre d'onglets horizontale avec compteur d'erreurs (OngletAvecErreurs) : même cadre pour les fiches Admin transporteur, lieu et association — grand en-tête, onglets seuls (plus de colonne résumé ni d'onglets en colonne) ; titre accessible « Fiche X — nom » (décisions Val 2026-09-30)"
+      "libelle": "Brique commune FicheEnTete (+ EnTetePuce, EnTeteMention) et barre d'onglets horizontale avec compteur d'erreurs (OngletAvecErreurs) : même cadre pour les fiches Admin transporteur, lieu et association — grand en-tête, onglets seuls (plus de colonne résumé ni d'onglets en colonne) ; titre accessible « Fiche X — nom » (décisions Val 2026-09-30). Depuis le 2026-10-01, brique partagée avec les fiches collecte Admin et client : le statut (badge ou frise) occupe la droite de la première ligne, titre et infos en pleine largeur."
     }
   ],
   "cdc_source_hash": {

@@ -1484,8 +1484,8 @@ export function CollecteDetailPanel({
                   />
                   <AlertBar variant="warn">
                     L&apos;attribution (association, prestataire) n&apos;est
-                    possible qu&apos;au statut « Programmée » — statut actuel :{' '}
-                    {collecte.statut}.
+                    possible qu&apos;au statut « Programmée » — statut actuel :
+                    « {statutCollecteDisplay(collecte.statut).label} ».
                   </AlertBar>
                 </Card>
               )}

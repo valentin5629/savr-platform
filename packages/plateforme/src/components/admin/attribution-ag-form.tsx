@@ -177,13 +177,16 @@ export function AttributionAgForm({
     collecte ?? null,
   );
   // Écran dédié : tant que le contexte n'est pas lu, le besoin véhicule du POST
-  // écraserait un N posé par Ops avec la valeur par défaut — bouton bloqué.
+  // écraserait un N posé par Ops avec la valeur par défaut — il n'est alors pas
+  // envoyé (le bouton reste actif : l'attribution part sans ces champs).
   const [contexteEtat, setContexteEtat] = useState<
     'ok' | 'chargement' | 'erreur'
   >(collecte ? 'ok' : 'chargement');
-  // L'Admin a touché le besoin véhicule : une lecture tardive ne l'écrase plus,
-  // et ses valeurs partent même si le contexte n'a pas pu être lu.
-  const vehiculeToucheRef = useRef(false);
+  // Un drapeau PAR CHAMP (nombre, type) : une lecture tardive ne pose que le
+  // champ non touché, et seul un champ touché part si le contexte n'a pas pu
+  // être lu — jamais la valeur par défaut de l'autre champ.
+  const nbToucheRef = useRef(false);
+  const typeToucheRef = useRef(false);
 
   const [selectedAsso, setSelectedAsso] = useState<string | null>(null);
   const [selectedAssoNom, setSelectedAssoNom] = useState<string | null>(null);
@@ -286,8 +289,10 @@ export function AttributionAgForm({
         nb_camions_demande: row.nb_camions_demande,
         type_vehicule_souhaite: row.type_vehicule_souhaite ?? null,
       });
-      if (!vehiculeToucheRef.current) {
+      if (!nbToucheRef.current) {
         setNbVehicules(String(row.nb_camions_demande));
+      }
+      if (!typeToucheRef.current) {
         setTypeVehicule(row.type_vehicule_souhaite ?? '');
       }
       setContexteEtat('ok');
@@ -419,7 +424,7 @@ export function AttributionAgForm({
     nbVehiculesNum <= NB_VEHICULES_MAX;
   const changerNbVehicules = (delta: number) => {
     const base = Number.isInteger(nbVehiculesNum) ? nbVehiculesNum : 1;
-    vehiculeToucheRef.current = true;
+    nbToucheRef.current = true;
     setNbVehicules(
       String(Math.min(NB_VEHICULES_MAX, Math.max(1, base + delta))),
     );
@@ -456,14 +461,15 @@ export function AttributionAgForm({
               isOverride && motif === 'autre' ? motifLibre : undefined,
             aucune_reco: aucuneReco,
             // Besoin véhicule : écrit avant l'event de dispatch, donc transmis.
-            // Jamais le défaut à l'aveugle : seulement si le N actuel de la
-            // collecte a été lu, ou si l'Admin a explicitement saisi le besoin
-            // (sinon fn_modifier_collecte écraserait un N posé par Ops).
-            ...(contexteCharge || vehiculeToucheRef.current
-              ? {
-                  nb_camions_demande: nbVehiculesNum,
-                  type_vehicule_souhaite: typeVehicule || null,
-                }
+            // Jamais le défaut à l'aveugle, champ par champ : un champ part si
+            // le contexte de la collecte a été lu, ou si l'Admin l'a saisi lui-
+            // même (sinon fn_modifier_collecte écraserait un N posé par Ops, ou
+            // un type saisi seul enverrait nb=1 par défaut).
+            ...(contexteCharge || nbToucheRef.current
+              ? { nb_camions_demande: nbVehiculesNum }
+              : {}),
+            ...(contexteCharge || typeToucheRef.current
+              ? { type_vehicule_souhaite: typeVehicule || null }
               : {}),
           }),
         },
@@ -607,7 +613,7 @@ export function AttributionAgForm({
                   ]}
                   value={typeVehicule}
                   onChange={(v) => {
-                    vehiculeToucheRef.current = true;
+                    typeToucheRef.current = true;
                     setTypeVehicule(v);
                   }}
                 />
@@ -629,7 +635,7 @@ export function AttributionAgForm({
                     inputMode="numeric"
                     value={nbVehicules}
                     onChange={(e) => {
-                      vehiculeToucheRef.current = true;
+                      nbToucheRef.current = true;
                       setNbVehicules(e.target.value);
                     }}
                     aria-invalid={!nbVehiculesOk}

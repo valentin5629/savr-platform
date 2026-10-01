@@ -53,7 +53,7 @@ describe('infos-acces / composition du champ libre', () => {
         type: 'camionnette',
         nombre: 1,
       }),
-    ).toContain('Véhicule souhaité : camionnette');
+    ).toBe('Véhicule souhaité : camionnette');
     expect(
       composerInformationsSupplementaires(LIEU_NU, null, null, {
         type: 'velo_cargo',

@@ -120,7 +120,9 @@ export class AdapterEverest implements LogistiqueProvider {
     collecte: Collecte,
     rang: number,
   ): Promise<ConsumerTag> {
-    // V1 : 1 collecte AG = 1 mission Everest (rang toujours 1)
+    // N véhicules = N missions identiques (décision Val 2026-10-01) : le worker
+    // appelle ce dispatch pour chaque rang 1..nb_camions_demande, 1 tournée
+    // `EVR-{collecte}-{rang}` + 1 mission par rang.
     const tourneeExistante = await this.findTournee(collecte.id, rang);
 
     // Idempotence : la vérité sur « une mission existe-t-elle chez Everest ? »

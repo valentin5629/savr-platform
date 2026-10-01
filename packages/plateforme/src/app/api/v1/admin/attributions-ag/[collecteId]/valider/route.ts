@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireAdmin } from '@/lib/api-auth.js';
 import { withApiTrace, businessError, serverError } from '@/lib/api-helpers.js';
 import {
@@ -16,7 +17,22 @@ interface ValiderBody {
   // BL-P1-ALGO-03 — true quand l'Admin valide via recherche libre faute de
   // recommandation association (algo no_asso) → audit attribution_manuelle_aucune_reco.
   aucune_reco?: boolean;
+  // Besoin véhicule saisi dans le même formulaire (décision Val 2026-10-01) :
+  // écrit AVANT la validation, qui émet l'event de dispatch — le worker lit la
+  // collecte à la consommation, les deux valeurs partent donc au prestataire
+  // (N commandes MTS-1 ; type + nombre dans le canal libre des deux adapters).
+  nb_camions_demande?: number;
+  type_vehicule_souhaite?: string | null;
 }
+
+// Valeurs de l'enum plateforme.type_vehicule (lieux.type_vehicule_max, tournees.type_vehicule).
+const TYPES_VEHICULE = [
+  'velo_cargo',
+  'camionnette',
+  'fourgon',
+  'vul',
+  'poids_lourd',
+] as const;
 
 // POST /api/v1/admin/attributions-ag/[collecteId]/valider
 async function postHandler(
@@ -60,6 +76,68 @@ async function postHandler(
       { error: 'motif_override obligatoire en mode override' },
       { status: 422 },
     );
+  }
+
+  const nbCamions = body.nb_camions_demande;
+  if (
+    nbCamions !== undefined &&
+    (!Number.isInteger(nbCamions) || nbCamions < 1 || nbCamions > 20)
+  ) {
+    return NextResponse.json(
+      { error: 'nb_camions_demande doit être un entier entre 1 et 20' },
+      { status: 422 },
+    );
+  }
+  const typeVehicule = body.type_vehicule_souhaite;
+  if (
+    typeVehicule !== undefined &&
+    typeVehicule !== null &&
+    !(TYPES_VEHICULE as readonly string[]).includes(typeVehicule)
+  ) {
+    return NextResponse.json(
+      {
+        error: `type_vehicule_souhaite invalide (attendu : ${TYPES_VEHICULE.join(', ')})`,
+      },
+      { status: 422 },
+    );
+  }
+
+  // Besoin véhicule : posé avant l'event de dispatch (émis par la RPC ci-dessous).
+  // Le nombre passe par fn_modifier_collecte (gardes RM-02/RM-05 + E2 si une
+  // commande existait déjà) ; le type est une colonne sans règle de transition.
+  if (nbCamions !== undefined || typeVehicule !== undefined) {
+    const supabase = createAdminSupabaseClient();
+    if (nbCamions !== undefined) {
+      const { error: errNb } = await supabase.rpc('fn_modifier_collecte', {
+        p_id: collecteId,
+        p_updates: { nb_camions_demande: nbCamions },
+        p_champs_modifies: ['nb_camions_demande'],
+      });
+      if (errNb) {
+        if ((errNb.message ?? '').includes('NB_CAMIONS_STATUT_TERMINAL')) {
+          return NextResponse.json(
+            {
+              error:
+                'Le nombre de véhicules n’est plus modifiable (statut terminal)',
+            },
+            { status: 409 },
+          );
+        }
+        return serverError(errNb, 'admin.attributions_ag.valider.nb_camions');
+      }
+    }
+    if (typeVehicule !== undefined) {
+      const { error: errType } = await supabase
+        .from('collectes')
+        .update({ type_vehicule_souhaite: typeVehicule })
+        .eq('id', collecteId);
+      if (errType) {
+        return serverError(
+          errType,
+          'admin.attributions_ag.valider.type_vehicule',
+        );
+      }
+    }
   }
 
   try {

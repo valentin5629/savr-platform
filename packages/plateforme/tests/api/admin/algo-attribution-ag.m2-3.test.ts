@@ -172,6 +172,87 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
     expect(body.data.ok).toBe(true);
   });
 
+  // Décision Val 2026-10-01 : le besoin véhicule est écrit AVANT l'event de
+  // dispatch (fn_modifier_collecte pour le nombre, UPDATE pour le type), puis la
+  // RPC de validation émet collecte.creee — le worker lit ces valeurs.
+  it('M2.3/valider — besoin véhicule écrit avant la validation (nb via fn_modifier_collecte, type via UPDATE)', async () => {
+    mockRpc.mockImplementation(async (name: string) =>
+      name === 'fn_modifier_collecte'
+        ? { data: {}, error: null }
+        : {
+            data: {
+              ok: true,
+              attribution_id: 'attr-1',
+              outbox_id: 'o',
+              pack_id: null,
+            },
+            error: null,
+          },
+    );
+    mockSupabaseChain.eq.mockReturnValueOnce(
+      Promise.resolve({ data: null, error: null }) as never,
+    );
+
+    const { POST } =
+      await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-1/valider', {
+        association_id: 'asso-1',
+        transporteur_id: 'transp-1',
+        branche_attribution: 'ag_marathon_nuit',
+        mode_validation: 'manuel_top1',
+        nb_camions_demande: 2,
+        type_vehicule_souhaite: 'camionnette',
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-1' }) },
+    );
+    expect(res.status).toBe(201);
+    const noms = mockRpc.mock.calls.map((c) => c[0]);
+    expect(noms.indexOf('fn_modifier_collecte')).toBeGreaterThanOrEqual(0);
+    expect(noms.indexOf('fn_modifier_collecte')).toBeLessThan(
+      noms.indexOf('rpc_valider_attribution_ag'),
+    );
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_modifier_collecte',
+      expect.objectContaining({
+        p_id: 'coll-1',
+        p_updates: { nb_camions_demande: 2 },
+      }),
+    );
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith({
+      type_vehicule_souhaite: 'camionnette',
+    });
+  });
+
+  it('M2.3/valider — 422 si type_vehicule_souhaite hors enum ou nb_camions_demande invalide', async () => {
+    const { POST } =
+      await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');
+    const base = {
+      association_id: 'asso-1',
+      transporteur_id: 'transp-1',
+      branche_attribution: 'ag_marathon_nuit',
+      mode_validation: 'manuel_top1',
+    };
+    const resType = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-1/valider', {
+        ...base,
+        type_vehicule_souhaite: 'tracteur',
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-1' }) },
+    );
+    expect(resType.status).toBe(422);
+    const resNb = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-1/valider', {
+        ...base,
+        nb_camions_demande: 0,
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-1' }) },
+    );
+    expect(resNb.status).toBe(422);
+    // Rien n'est écrit ni validé.
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it('retourne 422 si champs obligatoires manquants', async () => {
     const { POST } =
       await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');

@@ -27,6 +27,10 @@ interface WorkerMockOpts {
   contactSecoursNom?: string | null;
   /** Lecture `attributions_antgaspi` : attribution présente (défaut), absente, ou en erreur (blip PostgREST). */
   attribution?: 'presente' | 'absente' | 'erreur';
+  /** `collectes.type_vehicule_souhaite` (décision Val 2026-10-01). */
+  typeVehiculeSouhaite?: string | null;
+  /** `collectes.nb_camions_demande`. */
+  nbCamions?: number;
 }
 
 const COLLECTE_ID = 'col-ag-dispatch-001';
@@ -64,9 +68,10 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     type: 'anti_gaspi',
     date_collecte: '2026-07-20',
     heure_collecte: '22:00:00',
-    nb_camions_demande: 1,
+    nb_camions_demande: opts.nbCamions ?? 1,
     statut_tms: 'non_envoye',
     controle_acces_requis: false,
+    type_vehicule_souhaite: opts.typeVehiculeSouhaite ?? null,
     informations_supplementaires: opts.infosSuppl ?? null,
     notes_internes: null,
     prestataire_logistique_id: opts.prestataireLogistiqueId,
@@ -649,6 +654,48 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
           `champ ${champ} absent du canal libre`,
         ).toContain(ligne);
       }
+    },
+  );
+
+  // Besoin véhicule de l'attribution AG (décision Val 2026-10-01) : type + nombre
+  // partent dans le même canal, composés une fois pour les deux adapters.
+  it.each([
+    ['a_toutes', AdapterEverest] as const,
+    ['mts1', AdapterMts1] as const,
+  ])(
+    'M2.3 / worker — type_tms=%s : le véhicule souhaité (type × nombre) atteint l’adapter',
+    async (typeTms, Adapter) => {
+      const spy = vi
+        .spyOn(Adapter.prototype, 'dispatchCollecte')
+        .mockResolvedValue('noop_no_remote');
+
+      const supabase = makeWorkerSupabase({
+        typeTms,
+        prestataireLogistiqueId: PRESTA_ID,
+        typeVehiculeSouhaite: 'camionnette',
+        nbCamions: 2,
+      });
+      await runOutboxWorker(supabase);
+
+      const collecte = spy.mock.calls[0]![0] as {
+        informations_supplementaires: string | null;
+        type_vehicule_souhaite?: string | null;
+        nb_camions_demande: number;
+      };
+      expect(collecte.informations_supplementaires).toContain(
+        'Véhicule souhaité : 2 × camionnette',
+      );
+      expect(collecte.type_vehicule_souhaite).toBe('camionnette');
+      expect(collecte.nb_camions_demande).toBe(2);
+      // N véhicules = N commandes identiques au TMS (décision Val 2026-10-01) :
+      // un dispatch par rang, même collecte, pour MTS-1 comme pour Everest.
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(spy.mock.calls.map((c) => c[1])).toEqual([1, 2]);
+      expect(spy.mock.calls[1]![0]).toBe(spy.mock.calls[0]![0]);
+      // La colonne est bien DEMANDÉE à PostgREST (un mock ne filtre pas).
+      expect(supabase._selects['collectes']?.[0]).toContain(
+        'type_vehicule_souhaite',
+      );
     },
   );
 

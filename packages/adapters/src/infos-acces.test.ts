@@ -45,6 +45,39 @@ const SEPARATEUR = '— Infos Savr —';
 const MARQUEUR = '(…)';
 
 describe('infos-acces / composition du champ libre', () => {
+  // Besoin véhicule saisi à l'attribution AG (décision Val 2026-10-01) : même
+  // canal que les infos d'accès, aucun champ natif MTS-1/Everest en V1.
+  it('le véhicule souhaité sort en clair : type seul, « N × type », ou « N véhicules »', () => {
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, null, {
+        type: 'camionnette',
+        nombre: 1,
+      }),
+    ).toContain('Véhicule souhaité : camionnette');
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, null, {
+        type: 'velo_cargo',
+        nombre: 2,
+      }),
+    ).toContain('Véhicule souhaité : 2 × vélo cargo');
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, null, {
+        type: null,
+        nombre: 3,
+      }),
+    ).toContain('Véhicule souhaité : 3 véhicules');
+  });
+
+  it('un seul véhicule sans type précisé = aucune ligne véhicule', () => {
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, null, {
+        type: null,
+        nombre: 1,
+      }),
+    ).toBeNull();
+    expect(composerInformationsSupplementaires(LIEU_NU, null, null)).toBeNull();
+  });
+
   it('les 6 informations d’accès sortent en clair, une par ligne', () => {
     const texte = composerInformationsSupplementaires(LIEU_COMPLET, null, null);
 

@@ -123,7 +123,7 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       expect(
         (
           screen.getByRole('button', {
-            name: "Valider l'attribution",
+            name: /^Valider/,
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(false);
@@ -143,7 +143,7 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       expect(select).toHaveTextContent('Transport Autre · Montreuil');
 
       const valider = screen.getByRole('button', {
-        name: "Valider l'attribution",
+        name: /^Valider/,
       }) as HTMLButtonElement;
       expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
       expect(valider.disabled).toBe(true);
@@ -185,7 +185,7 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       const select = await ouvrirTransporteurs();
       expect(select).toHaveTextContent('Choisir un transporteur…');
       const valider = screen.getByRole('button', {
-        name: "Valider l'attribution",
+        name: /^Valider/,
       }) as HTMLButtonElement;
       expect(valider.disabled).toBe(true);
 
@@ -224,7 +224,7 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       expect(
         (
           screen.getByRole('button', {
-            name: "Valider l'attribution",
+            name: /^Valider/,
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(true);

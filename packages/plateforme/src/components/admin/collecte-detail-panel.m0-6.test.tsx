@@ -123,12 +123,51 @@ function mockFetch(collecteFixture: object = collecteAg) {
           ok: true,
           json: async () => ({
             data: {
-              associations: [{ id: 'a1', nom: 'Les Restos du Cœur' }],
+              associations: [
+                {
+                  id: 'a1',
+                  nom: 'Les Restos du Cœur',
+                  distance_km: 2.4,
+                  capacite_max_beneficiaires: 300,
+                  contact_email: 'contact@restos.test',
+                },
+              ],
+              assoc_count: 1,
               transporteur: { id: 't-mts1', nom: 'Strike', type_tms: 'mts1' },
+              transporteurs: [
+                { id: 't-mts1', nom: 'Strike', type_tms: 'mts1' },
+              ],
+              branche: 'ag_marathon_nuit',
+              is_idf: true,
               no_asso: false,
               no_prestataire: false,
+              delai_minutes: 600,
+              nb_pax: 80,
             },
           }),
+        });
+      }
+      if (url.includes('/associations')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'a1',
+                nom: 'Les Restos du Cœur',
+                ville: 'Paris',
+                capacite_max_beneficiaires: 300,
+                habilitee_attestation_fiscale: true,
+                distance_km: 2.4,
+              },
+            ],
+          }),
+        });
+      }
+      if (url.includes('/valider') && method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { attribution_id: 'att-1' } }),
         });
       }
       if (url === '/api/v1/admin/collectes/c1' && method === 'PATCH') {
@@ -241,23 +280,70 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6 — AG sans association attribuée : envoi au prestataire bloqué + consigne',
+    'M0.6 — AG sans attribution : le formulaire d’attribution intégré remplace le dispatch',
     async () => {
-      mockFetch({ ...collecteAg, attributions_antgaspi: null });
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        attributions_antgaspi: null,
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
-      // Pré-sélection du top-1 → bouton forké MTS-1, mais DÉSACTIVÉ : l'adresse
-      // de livraison (association) est inconnue, rien ne doit partir.
-      const bouton = await screen.findByRole(
+      // Association d'abord (son adresse est le point de livraison), puis le
+      // besoin véhicule et le prestataire — dans le popup, sans page dédiée.
+      expect(
+        await screen.findByText(
+          'Attribution & dispatch',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText('Type de véhicule souhaité'),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText('Nombre de véhicules')).toHaveValue('1');
+      expect(
+        await screen.findByRole(
+          'combobox',
+          { name: 'Association' },
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      // Plus de bouton d'envoi direct : l'unique geste est « Valider et envoyer ».
+      expect(
+        screen.queryByRole('button', { name: /^Envoyer à/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Prestataire & Dispatch'),
+      ).not.toBeInTheDocument();
+
+      // Nombre de véhicules → 2 ; validation = POST /valider avec le besoin véhicule.
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Ajouter un véhicule' }),
+      );
+      expect(screen.getByLabelText('Nombre de véhicules')).toHaveValue('2');
+      const valider = await screen.findByRole(
         'button',
-        { name: /Envoyer à MTS-1/ },
+        { name: /^Valider et envoyer à MTS-1/ },
         ATTENTE_UI,
       );
-      expect(bouton).toBeDisabled();
-      expect(
-        screen.getByText(/Choisissez d.abord l.association bénéficiaire/),
-      ).toBeInTheDocument();
+      await waitFor(() => expect(valider).not.toBeDisabled(), ATTENTE_UI);
+      fireEvent.click(valider);
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          ([u, o]) =>
+            String(u).includes('/valider') &&
+            (o as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        const body = JSON.parse(
+          String((post![1] as { body: string }).body),
+        ) as Record<string, unknown>;
+        expect(body.association_id).toBe('a1');
+        expect(body.transporteur_id).toBe('t-mts1');
+        expect(body.nb_camions_demande).toBe(2);
+        expect(body.type_vehicule_souhaite).toBeNull();
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );
@@ -925,7 +1011,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   // (Bloc « Pack AG » retiré de la fiche — décision Val ; ex-tests Bloc 4 supprimés.)
 
   it(
-    'M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 »)',
+    'M0.6 — Bloc 5 Attribution AG : association + transporteur retenus (attribution intégrée à la fiche, plus de stub « algo V2 »)',
     async () => {
       installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -939,9 +1025,11 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         0,
       );
       expect(screen.getByText('A Toutes!')).toBeInTheDocument();
-      // Lien vers l'écran d'attribution complète (§06.09).
-      const lien = screen.getByRole('link', { name: /attribution compl/i });
-      expect(lien).toHaveAttribute('href', '/admin/attributions-ag/c1');
+      // L'attribution se fait dans la fiche (décision Val 2026-10-01) : plus de
+      // lien vers un écran dédié.
+      expect(
+        screen.queryByRole('link', { name: /attribution compl/i }),
+      ).not.toBeInTheDocument();
       // Le stub V2 a disparu.
       expect(
         screen.queryByText(/algo V2.*Non disponible en V1/),
@@ -1061,23 +1149,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
+      // Formulaire intégré (décision Val 2026-10-01) : la n°1 est la carte
+      // « Recommandée » avec ses scores ; les autres sont dans la liste.
       expect(
-        await screen.findByText(/3\.2 km/, undefined, ATTENTE_UI),
+        await screen.findByText('3,2 km', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
-      // Choix en 2 temps (décision Val) : « Choisir » ouvre l'écran d'attribution
-      // avec l'association présélectionnée ; la n°1 porte le badge « Recommandé ».
-      const choisir = screen.getAllByRole('link', { name: 'Choisir' });
-      expect(choisir).toHaveLength(3);
-      expect(choisir[0]).toHaveAttribute(
-        'href',
-        '/admin/attributions-ag/c1?association=a1',
+      expect(screen.queryAllByRole('link', { name: 'Choisir' })).toHaveLength(
+        0,
       );
-      expect(choisir[1]).toHaveAttribute(
-        'href',
-        '/admin/attributions-ag/c1?association=a2',
-      );
-      expect(screen.getAllByText('Recommandé').length).toBeGreaterThan(0);
+      expect(screen.getByText('Recommandée')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -1236,9 +1317,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         ATTENTE_UI,
       );
       expect(screen.queryByRole('link', { name: 'Choisir' })).toBeNull();
+      // Attribution validée : le résumé + le bloc dispatch (renvoi / changement
+      // de prestataire), jamais le formulaire d'attribution intégré.
+      expect(screen.getByText('Prestataire & Dispatch')).toBeInTheDocument();
       expect(
-        screen.getByRole('link', { name: /attribution compl/i }),
-      ).toBeInTheDocument();
+        screen.queryByLabelText('Type de véhicule souhaité'),
+      ).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

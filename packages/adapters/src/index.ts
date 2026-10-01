@@ -111,6 +111,9 @@ export interface Collecte {
   readonly contact_principal_telephone: string;
   readonly contact_secours_nom?: string | null;
   readonly contact_secours_telephone?: string | null;
+  // Véhicule souhaité par l'Admin (enum plateforme.type_vehicule, nullable).
+  // Transmis dans le canal libre (comment / notes), composé par le worker.
+  readonly type_vehicule_souhaite?: string | null;
   // AG uniquement — association destinataire (point B = livraison du don),
   // résolue par le worker via attributions_antgaspi → associations. Composée
   // UNE fois ici pour les deux adapters (garde-fou 2) : MTS-1 porte le point B

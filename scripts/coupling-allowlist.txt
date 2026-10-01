@@ -263,3 +263,4 @@ supabase/tests/reattribution_meme_type_tms.test.sql
 # valeur enum type_tms + libellés de branches/commentaires existants ; aucun appel
 # HTTP transporteur. 'customerOrders' banni.
 supabase/migrations/20260929100000_plateforme_algo_ag_distance_inconnue_null.sql
+packages/plateforme/src/lib/type-tms-labels.ts

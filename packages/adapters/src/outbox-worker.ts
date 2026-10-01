@@ -65,6 +65,7 @@ interface CollecteRow {
   contact_secours_nom: string | null;
   contact_secours_telephone: string | null;
   prestataire_logistique_id: string | null;
+  type_vehicule_souhaite: string | null;
   // AG uniquement (BL-P1-API-02) — association destinataire (point B), résolue
   // via attributions_antgaspi → associations : placeId favori MTS-1 + adresse
   // postale (adresse inline MTS-1 sans point favori, dropoff Everest).
@@ -489,7 +490,7 @@ async function fetchCollecte(
       `
       id, type, date_collecte, heure_collecte, nb_camions_demande,
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
-      prestataire_logistique_id, lieu_overrides,
+      prestataire_logistique_id, lieu_overrides, type_vehicule_souhaite,
       evenement:evenements!inner(
         contact_principal_nom, contact_principal_telephone,
         contact_secours_nom, contact_secours_telephone,
@@ -561,13 +562,20 @@ async function fetchCollecte(
     // Le nom du contact de secours y est joint (arbitrage Val 2026-09-14) : son
     // téléphone part nativement (`phoneAlternatives` MTS-1), son nom n'a aucun
     // champ d'accueil chez MTS-1 comme chez Everest.
+    // Le véhicule souhaité par l'Admin (type + nombre) emprunte le même canal :
+    // aucun champ natif MTS-1/Everest en V1 (décision Val 2026-10-01).
     informations_supplementaires: composerInformationsSupplementaires(
       lieu,
       raw.informations_supplementaires,
       evt.contact_secours_nom,
+      {
+        type: raw.type_vehicule_souhaite,
+        nombre: raw.nb_camions_demande,
+      },
     ),
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
+    type_vehicule_souhaite: raw.type_vehicule_souhaite ?? null,
     association_id_point_collecte_mts1:
       association?.id_point_collecte_mts1 ?? null,
     association_adresse: association
@@ -667,6 +675,7 @@ function toCollecte(row: CollecteRow): Collecte {
     controle_acces_requis: row.controle_acces_requis,
     informations_supplementaires: row.informations_supplementaires,
     notes_internes: row.notes_internes,
+    type_vehicule_souhaite: row.type_vehicule_souhaite,
     contact_principal_nom: row.contact_principal_nom,
     contact_principal_telephone: row.contact_principal_telephone,
     contact_secours_nom: row.contact_secours_nom,

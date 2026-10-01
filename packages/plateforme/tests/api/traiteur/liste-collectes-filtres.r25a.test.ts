@@ -172,7 +172,7 @@ describe('M3.1 / liste Collectes traiteur — filtres à choix multiple (route)'
   });
 
   it('M3.1/liste_filtres_ancien_lieu_id — la valeur unique est lue comme une liste d’un élément', async () => {
-    // Liens existants (drill-down des Top listes, favoris) : `lieu_id=<id>`.
+    // Ancien nom du paramètre : même convention que les autres listes (#450).
     await callListe(`type=zero_dechet&lieu_id=${LIEU_1}`);
     const p = predicats(rls, 'collectes');
     expect(p).toContain(`in:evenements.lieu_id=["${LIEU_1}"]`);

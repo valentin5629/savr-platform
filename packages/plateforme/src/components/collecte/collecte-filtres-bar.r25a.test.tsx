@@ -13,7 +13,6 @@ import {
   CollecteFiltresBar,
   FILTRES_COLLECTE_VIDES,
   filtresCollecteActifs,
-  memeFiltresCollecte,
   lireFiltresCollecte,
   ecrireFiltresCollecte,
   type CollecteFiltres,
@@ -156,32 +155,6 @@ describe('M3.1 / R25a — helpers de filtres', () => {
         true,
       );
   });
-
-  it('R25a/meme_filtres_compare_chaque_dimension', () => {
-    expect(
-      memeFiltresCollecte(FILTRES_COLLECTE_VIDES, {
-        ...FILTRES_COLLECTE_VIDES,
-      }),
-    ).toBe(true);
-    expect(
-      memeFiltresCollecte(FILTRES_COLLECTE_VIDES, {
-        ...FILTRES_COLLECTE_VIDES,
-        lieuIds: ['lieu-a'],
-      }),
-    ).toBe(false);
-    expect(
-      memeFiltresCollecte(
-        { ...FILTRES_COLLECTE_VIDES, clients: ['Danone'] },
-        { ...FILTRES_COLLECTE_VIDES, clients: ['Kering, Paris'] },
-      ),
-    ).toBe(false);
-    expect(
-      memeFiltresCollecte(
-        { ...FILTRES_COLLECTE_VIDES, statuts: ['a'] },
-        { ...FILTRES_COLLECTE_VIDES, statuts: ['b'] },
-      ),
-    ).toBe(false);
-  });
 });
 
 describe('M3.1 / barre de filtres Collectes — choix multiple, « Tous », Période en premier', () => {
@@ -288,21 +261,6 @@ describe('M3.1 / barre de filtres Collectes — choix multiple, « Tous », Pér
     // Lieux en CSV, clients en paramètre RÉPÉTÉ (l'ancienne valeur est retirée).
     expect(usp.get('lieu')).toBe('lieu-a,lieu-b');
     expect(usp.getAll('client')).toEqual(['Danone', 'Kering, Paris']);
-  });
-
-  it('M3.1/url_lien_ecrit_a_la_main_doublons_et_vides_ecartes', () => {
-    // Sans cela, une case cochée « deux fois » compterait « 2 sélectionnés ».
-    expect(
-      lireFiltresCollecte(
-        new URLSearchParams(
-          'lieu=lieu-a,lieu-a,%20lieu-b,,&client=Danone&client=Danone&client=%20&par=org-1,org-1',
-        ),
-      ),
-    ).toMatchObject({
-      lieuIds: ['lieu-a', 'lieu-b'],
-      clients: ['Danone'],
-      programmeePar: ['org-1'],
-    });
   });
 
   it('M3.1/url_ancien_lien_valeur_unique_lu_comme_liste_d_un_element', () => {

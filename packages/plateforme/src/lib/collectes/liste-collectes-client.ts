@@ -76,19 +76,13 @@ export function enrichirLignesCollectes(
 }
 
 /**
- * Filtres de la BARRE des listes Collectes traiteur / agence (§06.04 §3
- * « Filtres disponibles ») — UNE lecture pour les deux routes et pour l'export
- * CSV, qui applique ainsi les filtres de la barre comme la liste (§12). Les
- * paramètres de drill-down (commercial_id, association_id, perimetre) n'en
- * font pas partie : l'export les ignore. Tous à choix multiple (décision Val
- * 2026-09-30) ; une valeur invalide est écartée, une liste vide ne pose aucun
- * filtre.
- *  - `lieu_ids` (CSV d'UUID) ; l'ancien `lieu_id` est lu comme une liste d'un
- *    élément ;
- *  - `client` RÉPÉTÉ : ce sont des noms saisis à la main, une virgule y est
- *    possible — à appliquer avec `inTextes` ;
- *  - `info_incomplete` oui | non → `informations_completes` (booléen inverse) ;
- *  - `statut` (CSV, enum) et `programmee_par` (CSV d'UUID).
+ * Filtres de la BARRE des listes Collectes traiteur / agence (§06.04 §3) — UNE
+ * lecture pour les deux routes et pour l'export CSV, qui applique ainsi les
+ * mêmes filtres que la liste (§12). Les paramètres de drill-down
+ * (commercial_id, association_id, perimetre) n'en font pas partie.
+ * `client` est RÉPÉTÉ (noms saisis à la main, virgule possible) et s'applique
+ * avec `inTextes` ; `lieu_ids` est un CSV, l'ancien nom `lieu_id` reste lu
+ * comme une liste d'un élément. Une valeur invalide est écartée.
  */
 export function lireFiltresListeCollectes(sp: URLSearchParams) {
   const info = sp.get('info_incomplete');

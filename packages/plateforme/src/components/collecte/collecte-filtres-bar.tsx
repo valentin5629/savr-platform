@@ -45,28 +45,6 @@ export const FILTRES_COLLECTE_VIDES: CollecteFiltres = {
   programmeePar: [],
 };
 
-/**
- * Égalité structurelle de deux jeux de filtres — sert à ne PAS remplacer l'état
- * quand la graine issue du drill-down est identique à l'état courant (sinon chaque
- * montage produit un nouvel objet → re-render → re-fetch inutile).
- */
-export function memeFiltresCollecte(
-  a: CollecteFiltres,
-  b: CollecteFiltres,
-): boolean {
-  const memeListe = (x: string[], y: string[]): boolean =>
-    x.length === y.length && x.every((v, i) => v === y[i]);
-  return (
-    memeListe(a.statuts, b.statuts) &&
-    a.from === b.from &&
-    a.to === b.to &&
-    memeListe(a.lieuIds, b.lieuIds) &&
-    memeListe(a.clients, b.clients) &&
-    a.infoIncomplete === b.infoIncomplete &&
-    memeListe(a.programmeePar, b.programmeePar)
-  );
-}
-
 export function filtresCollecteActifs(f: CollecteFiltres): boolean {
   return (
     f.statuts.length > 0 ||
@@ -98,19 +76,14 @@ const CLES_URL = {
 } as const;
 
 export function lireFiltresCollecte(params: URLSearchParams): CollecteFiltres {
-  // Lien écrit à la main : valeurs rognées, vides et doublons écartés (une
-  // case cochée deux fois compterait « 2 sélectionnés »).
-  const uniques = (valeurs: string[]) => [
-    ...new Set(valeurs.map((v) => v.trim()).filter(Boolean)),
-  ];
-  const liste = (k: string) => uniques((params.get(k) ?? '').split(','));
+  const liste = (k: string) => (params.get(k) ?? '').split(',').filter(Boolean);
   const info = params.get(CLES_URL.infoIncomplete);
   return {
     statuts: liste(CLES_URL.statuts),
     from: params.get(CLES_URL.from) ?? '',
     to: params.get(CLES_URL.to) ?? '',
     lieuIds: liste(CLES_URL.lieuIds),
-    clients: uniques(params.getAll(CLES_URL.clients)),
+    clients: params.getAll(CLES_URL.clients).filter(Boolean),
     infoIncomplete: info === 'oui' || info === 'non' ? info : '',
     programmeePar: liste(CLES_URL.programmeePar),
   };
@@ -169,9 +142,9 @@ interface Props {
  *
  * Mise en page = pattern DS `FilterBar` : filtres en ligne « Titre  valeur ▾ ».
  * Décisions Val 2026-09-30 : « Période » en premier (DateRangePicker `titre`),
- * puis des listes à cocher (`FiltreCoches`, case « Tous » = aucun filtre) —
- * plus aucun filtre à valeur unique dans la ligne de filtres. Les onglets et
- * le sélecteur ZD / AG de l'en-tête sont des axes de vue, pas des filtres.
+ * puis des listes à cocher (`FiltreCoches`, case « Tous » = aucun filtre). Les
+ * onglets et le sélecteur ZD / AG de l'en-tête sont des axes de vue, pas des
+ * filtres.
  *
  * Le filtre Statut propose les LIBELLÉS de la vue client (mapping canonique
  * 2026-06-30) : l'utilisateur ne voit jamais « Programmée », et un libellé

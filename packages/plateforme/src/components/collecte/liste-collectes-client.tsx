@@ -384,16 +384,13 @@ export function ListeCollectesClient({
 
   // Chip « Filtre actif » (drill-down depuis une Top liste du dashboard) :
   // libellé mémorisé au clic, sinon dérivé, sinon générique. Le filtrage ne
-  // dépend jamais de ce libellé. Le lieu n'y figure que tant que la barre
-  // filtre encore sur le lieu reçu, et sur lui seul (`setFiltres` vide
-  // `drill.lieu` dès que ce n'est plus le cas).
-  const lieuDrillActif = drill.lieu !== '';
+  // dépend jamais de ce libellé.
   const lieuNom =
     filtreLabel ??
     options.lieux.find((l) => l.id === drill.lieu)?.nom ??
     one(one(rows[0]?.evenements ?? null)?.lieux ?? null)?.nom ??
     'lieu sélectionné';
-  const chipLabel = lieuDrillActif
+  const chipLabel = drill.lieu
     ? `Lieu : ${lieuNom}`
     : commercialFiltre
       ? `Commercial : ${filtreLabel ?? 'commercial sélectionné'}`

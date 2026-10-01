@@ -58,7 +58,6 @@ beforeEach(() => {
 
 // ── Agence (M3.3) ────────────────────────────────────────────────────────────
 const AGENCE_ZD_BLOCS = {
-  prochaines: [],
   topLieux: [
     {
       lieu_id: 'A',
@@ -256,7 +255,6 @@ const ADMIN_PAYLOAD = {
     ],
     acteurLabel: 'Traiteur',
     topAssociations: null,
-    prochaines: [],
   },
 };
 
@@ -294,7 +292,6 @@ const ADMIN_PAYLOAD_AG = {
         repas_recus: 320,
       },
     ],
-    prochaines: [],
   },
 };
 
@@ -343,6 +340,9 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
       expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
       expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();
       expect(screen.getByText('Lieu A')).toBeInTheDocument();
+      // Bloc 5 « Prochaines collectes » retiré (décision Val 2026-10-01), comme sur
+      // les dashboards clients que cette vue réplique.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
       // L'ancien encart BenchmarkGauge (« Performance vs benchmark parc ») a disparu.
       expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
       // Lecture seule DONNÉES + badge présent (pas d'écriture).

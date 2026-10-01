@@ -30,7 +30,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_auth_401_sans_jwt + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
-      "libelle": "Blocs §11 partagés COMPLETS sur les 3 rôles : R20a = Bloc 2 (barres/courbe) + Bloc 4 donut ; R20b = Bloc 5 prochaines + Bloc 6 top lieux + Bloc 7 top acteurs (commerciaux traiteur / traiteurs gestionnaire, retiré agence) + Bloc 3 AG associations + Bloc 3 ZD benchmark réel (encart 4 dims traiteur/agence). Endpoint partagé /api/v1/dashboards/blocs (evolution-pattern, périmètre par rôle, RLS f_collecte_visible)."
+      "libelle": "Blocs §11 partagés COMPLETS sur les 3 rôles : R20a = Bloc 2 (barres/courbe) + Bloc 4 donut ; R20b = Bloc 6 top lieux + Bloc 7 top acteurs (commerciaux traiteur / traiteurs gestionnaire, retiré agence) + Bloc 3 AG associations + Bloc 3 ZD benchmark réel (encart 4 dims traiteur/agence). Endpoint partagé /api/v1/dashboards/blocs (evolution-pattern, périmètre par rôle, RLS f_collecte_visible). Bloc 5 « Prochaines collectes » retiré le 2026-10-01 (décision Val)."
     },
     {
       "id": "M3.5-charts-lib",
@@ -92,9 +92,9 @@
       "id": "M3.5-blocs-endpoint",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
-      "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_prochaines_fenetre_statuts",
+      "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_sans_prochaines_collectes",
       "statut": "implemented",
-      "libelle": "Endpoint partagé GET /api/v1/dashboards/blocs (traiteur/agence/gestionnaire) : Bloc 5 prochaines (fenêtre 30 j, statuts non terminaux), Bloc 6 top 5 lieux, Bloc 7 top 5 acteurs, Bloc 3 AG associations, kg/pax par flux ZD. Périmètre par rôle (org / organisations_lieux) EN PLUS de la RLS f_collecte_visible, agrégation TS (aucune vue nouvelle), normalisation to-one PostgREST."
+      "libelle": "Endpoint partagé GET /api/v1/dashboards/blocs (traiteur/agence/gestionnaire) : Bloc 6 top 5 lieux, Bloc 7 top 5 acteurs, Bloc 3 AG associations, kg/pax par flux ZD. Périmètre par rôle (org / organisations_lieux) EN PLUS de la RLS f_collecte_visible, agrégation TS (aucune vue nouvelle), normalisation to-one PostgREST. Bloc 5 « Prochaines collectes » retiré le 2026-10-01 (décision Val) : la réponse ne porte plus de liste `prochaines`."
     }
   ],
   "cdc_source_hash": {

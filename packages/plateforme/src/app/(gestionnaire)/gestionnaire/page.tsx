@@ -8,7 +8,6 @@ import {
   DashboardFilterBar,
   BenchmarkFilterBar,
   EmptyDashboardState,
-  ProchainesCollectesBloc,
   ExportSyntheseBloc,
   FLUX_ZD,
   useEvolutionBlocs,
@@ -422,17 +421,6 @@ export default function GestionnaireDashboardPage() {
             )}
           </div>
 
-          {/* Bloc 5 — Prochaines collectes (colonne Traiteur §06.05 l.194) */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            showTraiteur
-            hrefFor={(c) =>
-              c.evenement_id
-                ? `/gestionnaire/evenements/${c.evenement_id}`
-                : undefined
-            }
-          />
-
           {/* Bloc 8 — Export synthèse PDF */}
           <ExportSyntheseBloc filters={filters} tab={tab} />
         </>
@@ -549,17 +537,6 @@ export default function GestionnaireDashboardPage() {
               </div>
             )}
           </div>
-
-          {/* Bloc 5 — Prochaines collectes */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            showTraiteur
-            hrefFor={(c) =>
-              c.evenement_id
-                ? `/gestionnaire/evenements/${c.evenement_id}`
-                : undefined
-            }
-          />
 
           {/* Bloc 8 — Export synthèse PDF */}
           <ExportSyntheseBloc filters={filters} tab={tab} />

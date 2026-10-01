@@ -27,8 +27,6 @@ import {
   type FacteursCo2,
 } from '@/lib/dashboards/cockpit-derive.js';
 import {
-  decalerJour,
-  jourParis,
   lundiDeLaSemaine,
   premierDuMois,
 } from '@savr/shared/src/temps/index.js';
@@ -626,11 +624,9 @@ export function buildEvolutionSeries(
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// BLOCS — prochaines (5) + top lieux (6) + top acteurs (7) + top asso (3AG) + kg/pax
+// BLOCS — top lieux (6) + top acteurs (7) + top asso (3AG) + kg/pax
 // ══════════════════════════════════════════════════════════════════════════
 
-const STATUTS_A_VENIR = ['programmee', 'validee', 'en_cours'] as const;
-const PROCHAINES_FENETRE_JOURS = 30;
 const TOP_N = 5;
 
 interface BlocsEvtEmbed {
@@ -964,7 +960,6 @@ export function kgParPaxParFluxFrom(
 
 function emptyBlocs(type: string, isGestionnaire: boolean, isAgence: boolean) {
   return {
-    prochaines: [],
     topLieux: [],
     topActeurs: isAgence ? null : [],
     acteurLabel: isAgence ? null : isGestionnaire ? 'Traiteur' : 'Commercial',
@@ -983,21 +978,7 @@ export interface BlocsParams {
   tailleEvts?: string[];
 }
 
-/** Élément « prochaine collecte » (Bloc 5) — miroir de `ProchaineCollecte` (front). */
-export interface ProchaineCollecteRow {
-  id: string;
-  evenement_id: string | null;
-  date_collecte: string;
-  heure_collecte: string | null;
-  statut: string;
-  evenement_nom: string | null;
-  lieu_nom: string | null;
-  traiteur_id: string | null;
-  traiteur_nom: string | null;
-}
-
 export interface BlocsResult {
-  prochaines: ProchaineCollecteRow[];
   topLieux: LieuRow[];
   topActeurs: ActeurRow[] | null;
   acteurLabel: 'Commercial' | 'Traiteur' | null;
@@ -1006,7 +987,7 @@ export interface BlocsResult {
 }
 
 /**
- * Blocs « liste/ranking » (5/6/7/3AG/perFlux). ⚠ Contrat identique à
+ * Blocs « liste/ranking » (6/7/3AG/perFlux). ⚠ Contrat identique à
  * `GET /api/v1/dashboards/blocs` (payload sous `data`).
  */
 export async function loadBlocs(
@@ -1090,75 +1071,12 @@ export async function loadBlocs(
   if (from) qHist = qHist.gte('date_collecte', from);
   if (to) qHist = qHist.lte('date_collecte', to);
 
-  // Fenêtre en jours CALENDAIRES parisiens : `setDate` sur une Date ajoutait
-  // 30 × 24 h à un instant, donc la borne haute tombait la veille dès que
-  // l'appel avait lieu en soirée ou traversait un changement d'heure.
-  const aujourdhui = jourParis();
-  const dans30j = decalerJour(aujourdhui, PROCHAINES_FENETRE_JOURS);
-
-  let qProch = supabase
-    .from('collectes')
-    .select(
-      `id, date_collecte, heure_collecte, statut, type,
-       evenements!inner(id, nom_evenement, lieu_id, pax, organisation_id,
-         type_evenement_id, traiteur_operationnel_organisation_id, created_by,
-         lieux!inner(id, nom))`,
-    )
-    .eq('type', type)
-    .in('statut', [...STATUTS_A_VENIR])
-    .gte('date_collecte', aujourdhui)
-    .lte('date_collecte', dans30j);
-  qProch = scoped(qProch);
-  qProch = qProch
-    .order('date_collecte', { ascending: true })
-    .order('heure_collecte', { ascending: true, nullsFirst: false });
-
-  const [histRes, prochRes] = await Promise.all([qHist, qProch]);
-  const { data: histData, error: histErr } = histRes;
+  const { data: histData, error: histErr } = await qHist;
   if (histErr) throw loaderDbError(histErr, 'dashboards.blocs.hist_err');
-  const { data: prochData, error: prochErr } = prochRes;
-  if (prochErr) throw loaderDbError(prochErr, 'dashboards.blocs.proch_err');
 
   const histRows = ((histData ?? []) as unknown as BlocsCollecteRow[]).filter(
     (c) => tailleOk(firstOf(c.evenements)),
   );
-
-  interface ProchEvt {
-    id: string;
-    nom_evenement: string | null;
-    pax: number | null;
-    traiteur_operationnel_organisation_id: string | null;
-    lieux: { nom: string } | { nom: string }[] | null;
-  }
-  interface ProchRow {
-    id: string;
-    date_collecte: string;
-    heure_collecte: string | null;
-    statut: string;
-    evenements: ProchEvt | ProchEvt[] | null;
-  }
-  const prochaines = ((prochData ?? []) as unknown as ProchRow[])
-    .filter((c) => {
-      const evt = firstOf(c.evenements);
-      if (!evt) return false;
-      if (tailleEvts.length === 0) return true;
-      return tailleEvts.includes(tailleBracket(evt.pax ?? 0));
-    })
-    .map((c) => {
-      const evt = firstOf(c.evenements);
-      const lieu = firstOf(evt?.lieux ?? null);
-      return {
-        id: c.id,
-        evenement_id: evt?.id ?? null,
-        date_collecte: c.date_collecte,
-        heure_collecte: c.heure_collecte,
-        statut: c.statut,
-        evenement_nom: evt?.nom_evenement ?? null,
-        lieu_nom: lieu?.nom ?? null,
-        traiteur_id: evt?.traiteur_operationnel_organisation_id ?? null,
-        traiteur_nom: null as string | null,
-      };
-    });
 
   const topLieux = topLieuxFrom(histRows, type);
 
@@ -1171,17 +1089,12 @@ export async function loadBlocs(
       type,
       (evt) => evt.traiteur_operationnel_organisation_id,
     );
-    const traiteurIdsAResoudre = [
-      ...new Set([
-        ...topActeurs.map((a) => a.id),
-        ...prochaines.map((p) => p.traiteur_id).filter((x): x is string => !!x),
-      ]),
-    ];
-    const noms = await traiteurNamesMap(supabase, traiteurIdsAResoudre);
+    const noms = await traiteurNamesMap(
+      supabase,
+      topActeurs.map((a) => a.id),
+    );
     for (const a of topActeurs)
       a.label = noms.get(a.id) || 'Traiteur hors référentiel';
-    for (const p of prochaines)
-      p.traiteur_nom = p.traiteur_id ? (noms.get(p.traiteur_id) ?? null) : null;
   } else if (!isAgence) {
     acteurLabel = 'Commercial';
     topActeurs = aggregateActeurs(histRows, type, (evt) => evt.created_by);
@@ -1195,7 +1108,6 @@ export async function loadBlocs(
     type === 'zero_dechet' ? kgParPaxParFluxFrom(histRows) : {};
 
   return {
-    prochaines,
     topLieux,
     topActeurs,
     acteurLabel,

@@ -109,7 +109,7 @@
     "M3.1/trait_monorga_factures_filtres",
     "M3.1/blocs_top_lieux_zd_ordre_tonnage",
     "M3.1/blocs_top_commerciaux_ordre_nb_et_noms",
-    "M3.1/blocs_prochaines_fenetre_statuts",
+    "M3.1/blocs_sans_prochaines_collectes",
     "M3.1/blocs_top_associations_ordre_repas",
     "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
     "M3.1/blocs_traiteur_ag_associations_et_top7",
@@ -524,10 +524,11 @@
     {
       "id": "M3.1-bloc5-prochaines",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:180",
-      "artefact": "packages/plateforme/src/components/dashboards/ProchainesCollectesBloc.tsx",
-      "test": "M3.1/blocs_prochaines_fenetre_statuts + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
-      "statut": "implemented",
-      "libelle": "Bloc 5 ZD/AG — prochaines collectes (fenêtre 30 j, statuts non terminaux) : Date+heure/Événement/Lieu/Statut (badge client), clic → fiche collecte."
+      "artefact": null,
+      "test": "M3.1/blocs_sans_prochaines_collectes + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
+      "statut": "descoped",
+      "ref_divergence": "_Divergences/M3.5_20261001_dashboards-retrait-prochaines-collectes.md",
+      "libelle": "Bloc 5 ZD/AG « Prochaines collectes » — RETIRÉ du dashboard traiteur (décision Val 2026-10-01 : l'information se lit dans l'onglet Collectes). Composant ProchainesCollectesBloc supprimé, liste et lecture des collectes à venir retirées de l'endpoint /api/v1/dashboards/blocs. Les tests cités gardent l'absence (clé absente de la réponse, titre absent de l'écran)."
     },
     {
       "id": "M3.1-bloc6-top-lieux",

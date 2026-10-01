@@ -4,7 +4,7 @@ import { loadBlocs, LoaderError } from '@/lib/dashboards/loaders.js';
 
 /**
  * GET /api/v1/dashboards/blocs — Blocs §11 « liste/ranking » du dashboard client,
- * par onglet ZD/AG (prochaines 5 / top lieux 6 / top acteurs 7 / top asso 3AG /
+ * par onglet ZD/AG (top lieux 6 / top acteurs 7 / top asso 3AG /
  * kg-pax par flux). « 1 dashboard, 3 contextes » : endpoint PARTAGÉ (même périmètre
  * par rôle que /dashboards/evolution). Fine enveloppe autour de `loadBlocs`.
  */

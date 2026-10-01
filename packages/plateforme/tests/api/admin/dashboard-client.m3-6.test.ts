@@ -160,7 +160,7 @@ describe('M3.6 / Dashboard Client / périmètre', () => {
     expect(res.status).toBe(200);
     // DÉCISION VAL R24c : un traiteur sélectionné = son activité d'OPÉRATEUR →
     // filtre .or(organisation_id IN … OU traiteur_operationnel_organisation_id IN …)
-    // sur la table référencée evenements, appliqué aux 2 requêtes (hist + prochaines).
+    // sur la table référencée evenements, appliqué à la requête d'historique.
     const orgOr = orCalls().find((c) =>
       String(c[0]).includes(`organisation_id.in.(${org1},${org2})`),
     );

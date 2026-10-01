@@ -115,9 +115,9 @@ const KPI_TONE: Record<KpiTone, string> = {
   error: 'bg-savr-error-subtle text-savr-error-strong',
 };
 
-// Tuile KPI de tête de la liste Collectes. Statique (indicateur pur) quand
-// `onClick` est absent ; sinon bouton-filtre cliquable (aria-pressed + flèche
-// de drill-down), état actif encadré comme les chips.
+// Tuile KPI de tête de la liste Collectes : bouton-filtre cliquable
+// (aria-pressed + flèche de drill-down), état actif encadré comme les chips.
+// Gabarit compact (4 tuiles sur une ligne, décision Val 2026-10-01).
 function KpiTile({
   icon: Icone,
   count,
@@ -132,49 +132,37 @@ function KpiTile({
   label: string;
   sublabel: string;
   tone: KpiTone;
-  active?: boolean;
-  onClick?: () => void;
+  active: boolean;
+  onClick: () => void;
 }) {
-  const body = (
-    <>
-      <span
-        className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-savr-md ${KPI_TONE[tone]}`}
-      >
-        <Icone className="h-6 w-6" aria-hidden="true" />
-      </span>
-      <div className="min-w-0">
-        <div className="text-3xl font-extrabold leading-none tracking-tight text-savr-neutral-900 tabular-nums">
-          {count}
-        </div>
-        <div className="mt-1 text-sm font-bold text-savr-neutral-800">
-          {label}
-        </div>
-        <div className="text-xs font-semibold text-savr-neutral-500">
-          {sublabel}
-        </div>
-      </div>
-      {onClick && (
-        <ArrowRight className="ml-auto h-5 w-5 shrink-0 text-savr-neutral-300" />
-      )}
-    </>
-  );
-  const shell =
-    'flex items-center gap-4 rounded-savr-lg border bg-savr-white px-5 py-4 text-left shadow-savr-sm';
-  if (!onClick) {
-    return <div className={`${shell} border-savr-neutral-200`}>{body}</div>;
-  }
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`${shell} transition-[border-color,box-shadow,transform] duration-[120ms] hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
+      className={`flex items-center gap-3 rounded-savr-lg border bg-savr-white px-4 py-3 text-left shadow-savr-sm transition-[border-color,box-shadow,transform] duration-[120ms] hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
         active
           ? 'border-savr-primary-700 shadow-[0_0_0_1px_var(--color-savr-primary-700)]'
           : 'border-savr-neutral-200'
       }`}
     >
-      {body}
+      <span
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-savr-md ${KPI_TONE[tone]}`}
+      >
+        <Icone className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-2xl font-extrabold leading-none tracking-tight text-savr-neutral-900 tabular-nums">
+          {count}
+        </div>
+        <div className="mt-1 text-sm font-bold leading-tight text-savr-neutral-800">
+          {label}
+        </div>
+        <div className="text-xs font-semibold leading-tight text-savr-neutral-500">
+          {sublabel}
+        </div>
+      </div>
+      <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-savr-neutral-300" />
     </button>
   );
 }
@@ -618,38 +606,10 @@ export default function CollectesPage() {
         </div>
       </div>
 
-      {/* KPI de tête (Programmées uniquement) : volumes à venir + files d'action.
-          « à venir » = date_collecte ≥ aujourd'hui (décision Val 2026-07-15). */}
+      {/* KPI de tête (Programmées uniquement) : 4 files d'action sur une ligne.
+          Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01). */}
       {tab === 'programmees' && (
-        <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-3">
-          {/* Ligne 1 : volumes à venir + plaque à récupérer (décision Val) */}
-          <KpiTile
-            icon={UtensilsCrossed}
-            count={chipCounts.ag_a_venir ?? 0}
-            label="AG à venir"
-            sublabel="collectes à venir"
-            tone="warning"
-          />
-          <KpiTile
-            icon={Leaf}
-            count={chipCounts.zd_a_venir ?? 0}
-            label="ZD à venir"
-            sublabel="collectes à venir"
-            tone="success"
-          />
-          <KpiTile
-            icon={IdCard}
-            count={chipCounts.controle_acces_a_envoyer ?? 0}
-            label="Infos accès à envoyer"
-            sublabel="chauffeur non communiqué"
-            tone="info"
-            active={controleAcces}
-            onClick={() => {
-              setControleAcces((v) => !v);
-              setPage(1);
-            }}
-          />
-          {/* Ligne 2 : files d'action à dispatcher + infos à récupérer */}
+        <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           <KpiTile
             icon={UtensilsCrossed}
             count={chipCounts.ag_a_dispatcher ?? 0}
@@ -675,6 +635,18 @@ export default function CollectesPage() {
               setTypes((t) =>
                 typeSeul(t, 'zero_dechet') ? [] : ['zero_dechet'],
               );
+              setPage(1);
+            }}
+          />
+          <KpiTile
+            icon={IdCard}
+            count={chipCounts.controle_acces_a_envoyer ?? 0}
+            label="Infos accès à envoyer"
+            sublabel="chauffeur non communiqué"
+            tone="info"
+            active={controleAcces}
+            onClick={() => {
+              setControleAcces((v) => !v);
               setPage(1);
             }}
           />

@@ -59,24 +59,15 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
       dispatchByType('zero_dechet'),
     ]);
 
-    // KPI de tête « à venir » / files d'action (refonte 2026-07-15, décision Val) :
+    // KPI de tête files d'action (refonte 2026-07-15, décision Val) :
     // définitions DATE-BASED → `date_collecte >= aujourd'hui`, quel que soit le
-    // statut. AG/ZD à venir = volume par type. « Infos accès à envoyer » =
-    // contrôle d'accès requis ET email récap PAS encore envoyé (module infos
-    // accès chauffeur, décision Val 2026-07-15). Une fois l'email envoyé
+    // statut. Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01).
+    // « Infos accès à envoyer » = contrôle d'accès requis ET email récap PAS
+    // encore envoyé (module infos accès chauffeur, décision Val 2026-07-15). Une fois l'email envoyé
     // (`infos_acces_email_envoye_at` renseigné), la collecte sort du compteur.
     // « Infos à récupérer » = infos traiteur incomplètes. Le filtre liste
     // `controle_acces` DOIT matcher exactement cette définition (route.ts).
     const today = jourParis(now);
-    const countAvenirType = async (t: string): Promise<number> => {
-      const { count, error } = await supabase
-        .from('collectes')
-        .select('id', { count: 'exact', head: true })
-        .eq('type', t)
-        .gte('date_collecte', today);
-      if (error) throw error;
-      return count ?? 0;
-    };
     const countAvenirFlag = async (
       col: 'controle_acces_requis' | 'informations_completes',
       val: boolean,
@@ -100,14 +91,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
       if (error) throw error;
       return count ?? 0;
     };
-    const [
-      ag_a_venir,
-      zd_a_venir,
-      controle_acces_a_envoyer,
-      infos_a_recuperer,
-    ] = await Promise.all([
-      countAvenirType('anti_gaspi'),
-      countAvenirType('zero_dechet'),
+    const [controle_acces_a_envoyer, infos_a_recuperer] = await Promise.all([
       countControleAccesAEnvoyer(),
       countAvenirFlag('informations_completes', false),
     ]);
@@ -116,8 +100,6 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
       ...Object.fromEntries(entries),
       ag_a_dispatcher,
       zd_a_dispatcher,
-      ag_a_venir,
-      zd_a_venir,
       controle_acces_a_envoyer,
       infos_a_recuperer,
     });

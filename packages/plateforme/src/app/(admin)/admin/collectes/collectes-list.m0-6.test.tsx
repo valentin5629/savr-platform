@@ -155,8 +155,10 @@ function mockCollectesFetch() {
         ok: true,
         json: async () => ({
           non_transmises: 3,
-          non_transmises_zd: 2,
-          non_transmises_ag: 1,
+          // Même nombre que les tuiles « à dispatcher » : la route les tire du
+          // même compteur (kpi_a_dispatcher_predicat_unique).
+          non_transmises_zd: 3,
+          non_transmises_ag: 2,
           attente_prestataire: 1,
           dirty_tms: 0,
           ag_attente_attribution: 2,
@@ -293,6 +295,57 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       const zdTile = screen.getByRole('button', { name: /ZD à dispatcher/ });
       await waitFor(() => expect(agTile).toHaveTextContent('2'), ATTENTE_UI);
       await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — kpi_a_dispatcher_predicat_unique : clic sur une tuile « à dispatcher » → chip « Non transmises » du même type, re-clic le retire',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      const zdTile = await screen.findByRole(
+        'button',
+        { name: /ZD à dispatcher/ },
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
+
+      // Clic : la liste est filtrée par le prédicat MÊME que compte la tuile
+      // (chip serveur), plus par le seul type (décision Val 2026-10-01).
+      fireEvent.click(zdTile);
+      await waitFor(() => {
+        const q = derniereRequeteListe(fetchMock);
+        expect(q.get('chip')).toBe('non_transmises_zd');
+        expect(q.get('types')).toBeNull();
+      }, ATTENTE_UI);
+      expect(zdTile).toHaveAttribute('aria-pressed', 'true');
+      // Le chip masqué apparaît actif dans la rangée, avec le même compteur.
+      const chip = screen.getByRole('button', { name: /Non transmises ZD/ });
+      expect(chip).toHaveAttribute('aria-pressed', 'true');
+      expect(chip).toHaveTextContent('3');
+
+      // L'autre tuile remplace le chip (un seul filtre rapide à la fois).
+      const agTile = screen.getByRole('button', { name: /AG à dispatcher/ });
+      fireEvent.click(agTile);
+      await waitFor(
+        () =>
+          expect(derniereRequeteListe(fetchMock).get('chip')).toBe(
+            'non_transmises_ag',
+          ),
+        ATTENTE_UI,
+      );
+      expect(agTile).toHaveAttribute('aria-pressed', 'true');
+      expect(zdTile).toHaveAttribute('aria-pressed', 'false');
+
+      // Re-clic : retour à la liste Programmées complète.
+      fireEvent.click(agTile);
+      await waitFor(() => {
+        const q = derniereRequeteListe(fetchMock);
+        expect(q.get('chip')).toBeNull();
+        expect(q.get('statuts')).toBe('programmee,validee,en_cours');
+      }, ATTENTE_UI);
+      expect(agTile).toHaveAttribute('aria-pressed', 'false');
     },
     ATTENTE_CAS_MS,
   );

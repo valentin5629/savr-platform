@@ -167,8 +167,8 @@ function KpiTile({
   );
 }
 
-// Pastilles AG / ZD et tuiles « à dispatcher » : actives quand le filtre Type
-// porte exactement ce type (un re-clic le retire).
+// Pastilles AG / ZD : actives quand le filtre Type porte exactement ce type
+// (un re-clic le retire).
 function typeSeul(types: string[], val: string): boolean {
   return types.length === 1 && types[0] === val;
 }
@@ -607,7 +607,10 @@ export default function CollectesPage() {
       </div>
 
       {/* KPI de tête (Programmées uniquement) : 4 files d'action sur une ligne.
-          Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01). */}
+          Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01).
+          Un clic sur « AG / ZD à dispatcher » pose le chip « Non transmises
+          AG / ZD » : la liste montre exactement les collectes comptées
+          (décision Val 2026-10-01) ; un re-clic le retire. */}
       {tab === 'programmees' && (
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           <KpiTile
@@ -616,10 +619,10 @@ export default function CollectesPage() {
             label="AG à dispatcher"
             sublabel="validées transporteur"
             tone="warning"
-            active={typeSeul(types, 'anti_gaspi')}
+            active={quickFilter === 'non_transmises_ag'}
             onClick={() => {
-              setTypes((t) =>
-                typeSeul(t, 'anti_gaspi') ? [] : ['anti_gaspi'],
+              setQuickFilter((q) =>
+                q === 'non_transmises_ag' ? '' : 'non_transmises_ag',
               );
               setPage(1);
             }}
@@ -630,10 +633,10 @@ export default function CollectesPage() {
             label="ZD à dispatcher"
             sublabel="validées transporteur"
             tone="success"
-            active={typeSeul(types, 'zero_dechet')}
+            active={quickFilter === 'non_transmises_zd'}
             onClick={() => {
-              setTypes((t) =>
-                typeSeul(t, 'zero_dechet') ? [] : ['zero_dechet'],
+              setQuickFilter((q) =>
+                q === 'non_transmises_zd' ? '' : 'non_transmises_zd',
               );
               setPage(1);
             }}

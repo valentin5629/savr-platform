@@ -1352,10 +1352,10 @@
     {
       "id": "M0.6-kpi-a-dispatcher-predicat-unique",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:28",
-      "artefact": "packages/plateforme/src/lib/collectes-chips.ts (définition écrite une fois : filtre de requête aDispatcher + test de ligne estADispatcher) + packages/plateforme/src/app/api/v1/admin/collectes/chip-counts/route.ts (ag_a_dispatcher / zd_a_dispatcher = compteur du chip non_transmises_ag / non_transmises_zd, plus de requête propre) + packages/plateforme/src/components/admin/collectes-table.tsx (aDispatcherZd = type ZD + estADispatcher, tms_reference lu)",
+      "artefact": "packages/plateforme/src/lib/collectes-chips.ts (définition écrite une fois : filtre de requête aDispatcher + test de ligne estADispatcher) + packages/plateforme/src/app/api/v1/admin/collectes/chip-counts/route.ts (ag_a_dispatcher / zd_a_dispatcher = compteur du chip non_transmises_ag / non_transmises_zd, plus de requête propre) + packages/plateforme/src/components/admin/collectes-table.tsx (aDispatcherZd = type ZD + estADispatcher, tms_reference lu) + packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (clic sur une tuile = chip non_transmises_ag / non_transmises_zd, re-clic = retrait)",
       "test": "M0.6 — kpi_a_dispatcher_predicat_unique",
       "statut": "implemented",
-      "libelle": "Définition canonique de « à dispatcher » (Val 2026-09-14 : statut_tms = non_envoye ET tms_reference IS NULL ET statut IN (programmee, validee)) partagée par la tuile KPI « AG/ZD à dispatcher », le chip « Non transmises ZD/AG » et l'action « Dispatcher » de la liste Collectes Admin ; la tuile n'est jamais inférieure au nombre de lignes offrant « Dispatcher »."
+      "libelle": "Définition canonique de « à dispatcher » (Val 2026-09-14 : statut_tms = non_envoye ET tms_reference IS NULL ET statut IN (programmee, validee)) partagée par la tuile KPI « AG/ZD à dispatcher », le chip « Non transmises ZD/AG » et l'action « Dispatcher » de la liste Collectes Admin ; la tuile n'est jamais inférieure au nombre de lignes offrant « Dispatcher ». Un clic sur la tuile active le chip « Non transmises » du même type : la liste montre exactement les collectes comptées (décision Val 2026-10-01, _Divergences/M0.6_20261001_tuile-a-dispatcher-clic)."
     }
   ],
   "cdc_source_hash": {

@@ -57,6 +57,7 @@ const LIGNES = [
     date_collecte: '2026-11-30',
     evenement_nom: 'Kaspia — 2026-11-30',
     lieu_nom: 'Paris Expo Porte de Versailles',
+    client_nom: 'Maison Lenôtre',
   },
   {
     id: 'c2',
@@ -120,6 +121,13 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
           screen.getAllByRole('columnheader', { name: entete }).length,
         ).toBeGreaterThan(0);
       }
+      // Colonne « Client » (revue écran 2026-10-01) : à droite de « Lieu »,
+      // alimentée par le client organisateur renvoyé par la route.
+      const entetes = screen
+        .getAllByRole('columnheader')
+        .map((th) => th.textContent?.trim());
+      expect(entetes.indexOf('Client')).toBe(entetes.indexOf('Lieu') + 1);
+      expect(screen.getAllByText('Maison Lenôtre').length).toBeGreaterThan(0);
       expect(
         screen.getAllByText('Paris Expo Porte de Versailles').length,
       ).toBeGreaterThan(0);

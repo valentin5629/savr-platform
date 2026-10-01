@@ -34,6 +34,7 @@ interface CollecteRow {
   heure_collecte?: string | null;
   evenement_nom: string | null;
   lieu_nom: string | null;
+  client_nom: string | null;
 }
 
 // Un seul squelette pour les deux moments de chargement de l'écran : le fallback
@@ -304,6 +305,13 @@ function GestionnaireCollectesContent() {
       id: 'lieu',
       header: 'Lieu',
       cell: ({ row: { original: c } }) => c.lieu_nom ?? <CelluleVide />,
+    },
+    {
+      // Non triable, comme Lieu et Événement : la liste est paginée côté
+      // serveur et `tri` n'ordonne que sur les colonnes de `collectes`.
+      id: 'client',
+      header: 'Client',
+      cell: ({ row: { original: c } }) => c.client_nom || <CelluleVide />,
     },
     {
       id: 'evenement',

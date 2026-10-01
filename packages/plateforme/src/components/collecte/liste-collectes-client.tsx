@@ -463,6 +463,7 @@ export function ListeCollectesClient({
             [lieu?.adresse_acces, lieu?.code_postal, lieu?.ville]
               .filter(Boolean)
               .join(' ') || null,
+          client_nom: evt?.nom_client_organisateur ?? null,
           pax: evt?.pax ?? null,
           programmee_par_tiers: c.programmee_par_tiers,
           rapport_reserve_donneur_ordre: c.rapport_reserve_donneur_ordre,

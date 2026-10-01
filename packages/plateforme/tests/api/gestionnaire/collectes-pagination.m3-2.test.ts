@@ -97,6 +97,8 @@ function lignes(n: number) {
     realisee_at: null,
     evenements: {
       nom_evenement: `Événement ${i}`,
+      // Renseigné par le traiteur sur la 1re ligne seulement (champ facultatif).
+      nom_client_organisateur: i === 0 ? 'Maison Lenôtre' : null,
       lieu_id: 'L1',
       traiteur_operationnel_organisation_id: 'T1',
       lieux: { nom: 'Paris Expo Porte de Versailles' },
@@ -153,6 +155,24 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
     // total retomberait silencieusement sur la taille de la page).
     const select = rls.__calls.select?.[0];
     expect(select?.[1]).toEqual({ count: 'exact' });
+  });
+
+  it('M3.2/collectes_route_renvoie_le_client_organisateur', async () => {
+    rls.__set({ data: lignes(2), error: null, count: 2 });
+    const res = await appel();
+    const json = (await res.json()) as {
+      data: { client_nom: string | null }[];
+    };
+
+    // La colonne est demandée à PostgREST (sans elle, la colonne « Client » de
+    // l'écran resterait vide sans erreur) et aplatie sur chaque ligne.
+    expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+      'nom_client_organisateur',
+    );
+    expect(json.data.map((c) => c.client_nom)).toEqual([
+      'Maison Lenôtre',
+      null,
+    ]);
   });
 
   it('M3.2/collectes_route_fenetre_la_page_demandee', async () => {

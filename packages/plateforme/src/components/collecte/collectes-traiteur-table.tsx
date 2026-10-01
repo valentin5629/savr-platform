@@ -21,9 +21,10 @@ import { CelluleVide } from '@/components/ui/data-grid';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
 // revue écran 2026-07-15, passage en Data Table 2026-09-28 — décisions Val).
-// Colonnes : Date · Lieu · Pax · Résultats (collecte réalisée) · Statut ·
-// Actions icône-seule Modifier / Annuler / Dupliquer (masquées si
-// indisponibles). Le contenu métier détaillé reste sur la fiche (clic ligne).
+// Colonnes : Date · Lieu · Client (revue écran 2026-10-01) · Pax · Résultats
+// (collecte réalisée) · Statut · Actions icône-seule Modifier / Annuler /
+// Dupliquer (masquées si indisponibles). Le contenu métier détaillé reste sur
+// la fiche (clic ligne).
 export interface TraiteurCollecteLigne {
   id: string;
   type: string; // 'zero_dechet' | 'anti_gaspi'
@@ -32,6 +33,8 @@ export interface TraiteurCollecteLigne {
   heure_collecte: string | null;
   lieu_nom: string | null;
   lieu_adresse: string | null;
+  /** Client organisateur saisi à la programmation (`nom_client_organisateur`). */
+  client_nom: string | null;
   pax: number | null;
   programmee_par_tiers: boolean;
   /** Rapport de don réservé au donneur d'ordre (D12) : pas de téléchargement. */
@@ -181,6 +184,12 @@ export function colonnesCollectesTraiteur(
         ) : (
           <CelluleVide />
         ),
+    },
+    {
+      id: 'client',
+      header: 'Client',
+      accessorFn: (c) => c.client_nom ?? '',
+      cell: ({ row: { original: c } }) => c.client_nom || <CelluleVide />,
     },
     {
       id: 'pax',

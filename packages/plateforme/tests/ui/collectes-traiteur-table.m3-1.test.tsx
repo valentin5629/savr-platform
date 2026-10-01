@@ -35,6 +35,7 @@ function base(
     heure_collecte: '23:30:00',
     lieu_nom: 'Lieu Rouen Gare',
     lieu_adresse: '9 Ruelle 76000 Rouen',
+    client_nom: 'Maison Lenôtre',
     pax: 220,
     programmee_par_tiers: false,
     rapport_reserve_donneur_ordre: false,
@@ -96,6 +97,21 @@ describe('M3.1 / Data Table liste traiteur', () => {
     expect(btn(/Modifier/)).toBeTruthy();
     expect(btn(/Annuler/)).toBeTruthy();
     expect(btn(/Dupliquer/)).toBeTruthy();
+  });
+
+  it('M3.1/liste_colonne_client — colonne « Client » à droite de « Lieu », « — » si non renseigné', () => {
+    monte(base(), true);
+    const entetes = table
+      .getAllByRole('columnheader')
+      .map((th) => th.textContent?.trim());
+    expect(entetes.indexOf('Client')).toBe(entetes.indexOf('Lieu') + 1);
+    expect(table.getByText('Maison Lenôtre')).toBeTruthy();
+
+    // Client organisateur non saisi à la programmation : cellule vide du DS.
+    monte(base({ client_nom: null }), true);
+    expect(table.queryByText('Maison Lenôtre')).toBeNull();
+    const cellules = table.getAllByRole('cell');
+    expect(cellules[entetes.indexOf('Client')]?.textContent).toBe('—');
   });
 
   it('M3.1/card_traiteur_gating_manager — validee + canWrite → Modifier/Annuler présents et cliquables', () => {

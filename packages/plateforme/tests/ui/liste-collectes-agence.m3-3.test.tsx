@@ -50,7 +50,12 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 
 import AgenceCollectesPage from '@/app/(agence)/agence/collectes/page.js';
 
-function collecte(id: string, statut: string, lieu: string) {
+function collecte(
+  id: string,
+  statut: string,
+  lieu: string,
+  client: string | null = null,
+) {
   return {
     id,
     type: 'zero_dechet',
@@ -65,7 +70,7 @@ function collecte(id: string, statut: string, lieu: string) {
     nb_repas_donnes: 0,
     evenements: {
       pax: 1443,
-      nom_client_organisateur: null,
+      nom_client_organisateur: client,
       lieux: { nom: lieu, adresse_acces: null, code_postal: null, ville: null },
     },
   };
@@ -82,7 +87,12 @@ const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
     : url.includes('/annulation')
       ? { statut: 'annulee' }
       : [
-          collecte('c-prog', 'programmee', 'Paris Expo Porte de Versailles'),
+          collecte(
+            'c-prog',
+            'programmee',
+            'Paris Expo Porte de Versailles',
+            'Maison Lenôtre',
+          ),
           collecte('c-clot', 'cloturee', 'Palais des Congrès de Paris'),
         ];
   // La route de téléchargement répond { url } (URL R2 pré-signée), sans `data`.
@@ -145,6 +155,23 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
       );
       // Sélecteur de type conservé à côté des onglets.
       expect(screen.getByRole('radio', { name: 'Zéro Déchet' })).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.3/liste_agence_colonne_client — le client organisateur de l’événement alimente la colonne « Client »',
+    async () => {
+      render(<AgenceCollectesPage />);
+      const table = within(
+        await screen.findByRole('table', undefined, ATTENTE_UI),
+      );
+      // Câblage du composant commun (traiteur + agence) : la colonne lit
+      // `evenements.nom_client_organisateur`, déjà renvoyé par les deux routes.
+      expect(
+        await table.findByText('Maison Lenôtre', undefined, ATTENTE_UI),
+      ).toBeTruthy();
+      expect(table.getByRole('columnheader', { name: 'Client' })).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );

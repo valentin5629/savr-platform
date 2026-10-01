@@ -83,7 +83,8 @@
     "M3.3/dupliquer_agence_traiteur_operationnel_preselectionne",
     "M3.3/liste_agence_telecharger_et_export",
     "M3.3/liste_agence_ancien_lien_sans_onglet",
-    "M3.3/liste_agence_statut_hors_onglet_jamais_vide"
+    "M3.3/liste_agence_statut_hors_onglet_jamais_vide",
+    "M3.3/liste_agence_colonne_client"
   ],
   "deliverables": [
     {
@@ -469,6 +470,14 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la liste Collectes agence (onglets, barre de filtres, colonnes Résultats / Statut / actions) identique à la liste traiteur, desktop ET mobile < 640 px : GO visuel de Val."
+    },
+    {
+      "id": "M3.3-liste-colonne-client",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:57",
+      "artefact": "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+      "test": "M3.3/liste_agence_colonne_client",
+      "statut": "implemented",
+      "libelle": "Colonne « Client » de la liste Collectes agence, à droite de « Lieu » (parité §06.04 — décision Val, revue écran E2E 2026-10-01). Portée par le composant commun : la colonne lit evenements.nom_client_organisateur, déjà renvoyé par GET /api/v1/agence/collectes."
     }
   ],
   "cdc_source_hash": {

@@ -115,7 +115,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       `id, evenement_id, type, statut, statut_tms, date_collecte,
        heure_collecte, taux_recyclage, co2_evite_kg, realisee_at,
        evenements!inner(
-         nom_evenement, lieu_id, traiteur_operationnel_organisation_id,
+         nom_evenement, nom_client_organisateur, lieu_id,
+         traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom)
        )`,
       { count: 'exact' },
@@ -177,10 +178,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       evenements:
         | {
             nom_evenement: string | null;
+            nom_client_organisateur: string | null;
             lieux: { nom: string | null } | { nom: string | null }[] | null;
           }
         | {
             nom_evenement: string | null;
+            nom_client_organisateur: string | null;
             lieux: { nom: string | null } | { nom: string | null }[] | null;
           }[]
         | null;
@@ -194,6 +197,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return {
       ...rest,
       evenement_nom: evt?.nom_evenement ?? null,
+      // Client organisateur « si renseigné par le traiteur » (§06.05 Détail
+      // événement) — même colonne que le détail, même RLS.
+      client_nom: evt?.nom_client_organisateur ?? null,
       lieu_nom: lieu?.nom ?? null,
     };
   });

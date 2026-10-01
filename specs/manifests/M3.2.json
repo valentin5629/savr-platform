@@ -181,7 +181,8 @@
     "M3.2/fiche_popup_gestionnaire_marque_blanche",
     "M3.2/fiche_get_repas_tiers_depuis_attestation",
     "M3.2/fiche_get_repas_tiers_sans_attestation",
-    "M3.2/fiche_get_repas_propre_programmation"
+    "M3.2/fiche_get_repas_propre_programmation",
+    "M3.2/collectes_route_renvoie_le_client_organisateur"
   ],
   "deliverables": [
     {
@@ -671,6 +672,22 @@
       "test": "M3.2 — ancien lien ?type_collecte=avec_zd + M3.2 — « AG seul » coché + M3.2/evenements_types_collecte_partition + M3.2/evenements_type_collecte_ancien_lien + M3.2/evenements_types_collecte_hors_liste_ecartes + M3.2/evenements_types_collecte_prioritaire_sur_ancien + M3.2/P2_export_csv_types_collecte",
       "statut": "à-vérifier",
       "libelle": "Liste Événements — « Type de collecte » à choix multiple sur une PARTITION « ZD seul / AG seul / ZD et AG » (arbitrage Val F1 2026-10-01, _Divergences/M0.8_20260930_filtres-choix-multiple-tous) : les options « Avec ZD / Avec AG / ZD et AG » du CDC l.312 (« Single-select ») se recouvraient. « Avec ZD » = ZD seul + ZD et AG ; un ancien lien ?type_collecte= reste compris ; export CSV aligné. CDC à patcher par la divergence. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+    },
+    {
+      "id": "M3.2-liste-colonne-client",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:341",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
+      "test": "M3.2/collectes_route_renvoie_le_client_organisateur + M3.2/collectes_liste_rendue_au_design_system",
+      "statut": "implemented",
+      "libelle": "Colonne « Client » de la liste Collectes gestionnaire, à droite de « Lieu » (décision Val, revue écran E2E 2026-10-01, choix C2 = client organisateur — divergence M3.1_20261001_liste-colonne-client). La route ajoute evenements.nom_client_organisateur à son embed, sous la RLS du gestionnaire : même colonne, même périmètre que le détail événement, qui la lui restitue déjà (« Client Organisateur si renseigné par le traiteur », l.341). « — » si non renseigné. Non triable, comme Lieu et Événement (liste paginée serveur, tri borné aux colonnes de collectes)."
+    },
+    {
+      "id": "M3.2-liste-colonne-client-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:349",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la colonne « Client » dans la liste Collectes gestionnaire, en tableau desktop ET en carte mobile < 640 px : placée entre Lieu et Événement, tableau pas trop large — preuve écran à joindre (geste de Val, GO-VISUAL)."
     }
   ],
   "cdc_source_hash": {

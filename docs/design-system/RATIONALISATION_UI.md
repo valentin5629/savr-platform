@@ -2,6 +2,8 @@
 
 **Date** : 2026-10-01 · **Périmètre** : `packages/plateforme/src/{app,components,lib}` (67 pages, 109 fichiers tsx d'écran, 55 primitives `components/ui/`) · **Référence** : CDC §10 Design System (`specs/cdc/01 - Cahier des charges App/10 - Design System.md`).
 
+**Usages** : comptage par élément réutilisable dans [USAGES.md](./USAGES.md) (`pnpm ds:usages`). **Claude Design** : inventaire, usages et décisions publiés dans le design system Savr (section « Rationalisation UI ») ; aller-retour avec le code décrit dans [SYNC_CLAUDE_DESIGN.md](./SYNC_CLAUDE_DESIGN.md).
+
 **Visualiser** : galerie de captures [GALERIE.md](./GALERIE.md) et page de dev `/dev/design-system` (primitives DS et recettes ad hoc côte à côte).
 
 **Objectif** : pour chaque élément d'interface, désigner **une source unique** (un fichier) telle que la modifier change tous les écrans. Chaque ligne porte une colonne `Décision` à remplir par Val : `OK` (faire tel quel), `MODIF` (faire avec la variante notée), `NON` (écarter).

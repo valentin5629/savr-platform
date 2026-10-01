@@ -53,7 +53,9 @@
     "git:hygiene": "bash scripts/git-hygiene.sh",
     "session:new": "bash scripts/session-new.sh",
     "session:doctor": "bash scripts/session-doctor.sh",
-    "session:db-unlock": "bash scripts/session-db-unlock.sh"
+    "session:db-unlock": "bash scripts/session-db-unlock.sh",
+    "check:ds-tokens": "node scripts/ds-tokens-diff.mjs",
+    "ds:usages": "node scripts/ds-usages.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",

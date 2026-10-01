@@ -64,9 +64,10 @@ const CHIPS_PROGRAMMEES_CATALOGUE = [
 ];
 
 // Chips retirés de la rangée par défaut (décision Val 2026-07-15). Conservés au
-// catalogue : ils ne s'affichent que s'ils sont le filtre actif à l'arrivée (sinon
-// la liste serait filtrée sans indicateur visible) — ce qui préserve les cibles de
-// drill-down Dashboard Admin (non_transmises_zd/ag, zd_48h, ag_48h).
+// catalogue : ils ne s'affichent que s'ils sont le filtre actif (sinon la liste
+// serait filtrée sans indicateur visible) — ce qui préserve les cibles de
+// drill-down Dashboard Admin (non_transmises_zd/ag, zd_48h, ag_48h) et celles
+// des tuiles « AG / ZD à dispatcher ».
 const CHIPS_PROGRAMMEES_MASQUES = new Set([
   'non_transmises_zd',
   'non_transmises_ag',
@@ -167,8 +168,8 @@ function KpiTile({
   );
 }
 
-// Pastilles AG / ZD et tuiles « à dispatcher » : actives quand le filtre Type
-// porte exactement ce type (un re-clic le retire).
+// Pastilles AG / ZD : actives quand le filtre Type porte exactement ce type
+// (un re-clic le retire).
 function typeSeul(types: string[], val: string): boolean {
   return types.length === 1 && types[0] === val;
 }
@@ -468,6 +469,20 @@ export default function CollectesPage() {
     setPage(1);
   };
 
+  // Tuile « AG / ZD à dispatcher » : pose (ou retire) le chip « Non transmises »
+  // de son type. À l'activation, le filtre Type de la barre est effacé : le chip
+  // porte déjà son type, et un autre type coché viderait la liste alors que la
+  // tuile affiche N (décision Val 2026-10-01). Les autres filtres de la barre
+  // continuent de se cumuler.
+  const basculerADispatcher = (
+    chip: 'non_transmises_ag' | 'non_transmises_zd',
+  ) => {
+    const actif = quickFilter === chip;
+    setQuickFilter(actif ? '' : chip);
+    if (!actif) setTypes([]);
+    setPage(1);
+  };
+
   // Urgences (AG à attribuer < 48h) en tête de page (§06.09 §1) — uniquement
   // sur le tri par date : un tri explicite sur une autre colonne est respecté.
   const lignes = useMemo(
@@ -607,7 +622,10 @@ export default function CollectesPage() {
       </div>
 
       {/* KPI de tête (Programmées uniquement) : 4 files d'action sur une ligne.
-          Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01). */}
+          Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01).
+          Un clic sur « AG / ZD à dispatcher » pose le chip « Non transmises
+          AG / ZD » et efface le filtre Type : la liste montre les collectes
+          comptées (décisions Val 2026-10-01) ; un re-clic retire le chip. */}
       {tab === 'programmees' && (
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           <KpiTile
@@ -616,13 +634,8 @@ export default function CollectesPage() {
             label="AG à dispatcher"
             sublabel="validées transporteur"
             tone="warning"
-            active={typeSeul(types, 'anti_gaspi')}
-            onClick={() => {
-              setTypes((t) =>
-                typeSeul(t, 'anti_gaspi') ? [] : ['anti_gaspi'],
-              );
-              setPage(1);
-            }}
+            active={quickFilter === 'non_transmises_ag'}
+            onClick={() => basculerADispatcher('non_transmises_ag')}
           />
           <KpiTile
             icon={Leaf}
@@ -630,13 +643,8 @@ export default function CollectesPage() {
             label="ZD à dispatcher"
             sublabel="validées transporteur"
             tone="success"
-            active={typeSeul(types, 'zero_dechet')}
-            onClick={() => {
-              setTypes((t) =>
-                typeSeul(t, 'zero_dechet') ? [] : ['zero_dechet'],
-              );
-              setPage(1);
-            }}
+            active={quickFilter === 'non_transmises_zd'}
+            onClick={() => basculerADispatcher('non_transmises_zd')}
           />
           <KpiTile
             icon={IdCard}

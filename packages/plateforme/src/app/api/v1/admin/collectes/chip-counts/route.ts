@@ -5,6 +5,7 @@ import { serverError, withApiTrace } from '@/lib/api-helpers.js';
 import {
   CHIP_KEYS,
   applyChipPredicate,
+  type ChipKey,
   type ChipQuery,
 } from '@/lib/collectes-chips.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -41,23 +42,11 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
       }),
     );
 
-    // KPI « à dispatcher » par type (tuiles de tête, refonte UI Collectes) =
-    // programmée ET non transmise au TMS (même prédicat que le chip
-    // `non_transmises`, scindé AG / ZD). Définition à confirmer avec Val.
-    const dispatchByType = async (t: string): Promise<number> => {
-      const { count, error } = await supabase
-        .from('collectes')
-        .select('id', { count: 'exact', head: true })
-        .eq('type', t)
-        .eq('statut', 'programmee')
-        .is('tms_reference', null);
-      if (error) throw error;
-      return count ?? 0;
-    };
-    const [ag_a_dispatcher, zd_a_dispatcher] = await Promise.all([
-      dispatchByType('anti_gaspi'),
-      dispatchByType('zero_dechet'),
-    ]);
+    // KPI « à dispatcher » par type (tuiles de tête) = définition canonique
+    // §11 §1.1 (Val 2026-09-14), soit exactement le chip « Non transmises
+    // ZD/AG ». La tuile reprend le compteur du chip : ni requête ni prédicat
+    // propres, donc tuile et chip ne peuvent pas diverger.
+    const compteurs = Object.fromEntries(entries) as Record<ChipKey, number>;
 
     // KPI de tête files d'action (refonte 2026-07-15, décision Val) :
     // définitions DATE-BASED → `date_collecte >= aujourd'hui`, quel que soit le
@@ -97,9 +86,9 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     ]);
 
     return NextResponse.json({
-      ...Object.fromEntries(entries),
-      ag_a_dispatcher,
-      zd_a_dispatcher,
+      ...compteurs,
+      ag_a_dispatcher: compteurs.non_transmises_ag,
+      zd_a_dispatcher: compteurs.non_transmises_zd,
       controle_acces_a_envoyer,
       infos_a_recuperer,
     });

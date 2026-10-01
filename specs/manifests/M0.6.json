@@ -413,6 +413,12 @@
       "category": "7 — Migration",
       "title": "Users structure ready V2",
       "file": "M0_6__cat_6-7.test.sql"
+    },
+    {
+      "id": "kpi_a_dispatcher_predicat_unique",
+      "category": "Back-office Admin — liste Collectes",
+      "title": "kpi_a_dispatcher_predicat_unique",
+      "file": "packages/plateforme/tests/api/admin/collectes-chip-counts.m0-6.test.ts"
     }
   ],
   "coverage": {
@@ -1342,6 +1348,14 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la fiche collecte Admin au cadre commun (AG « Sans excédents » + dirty, ZD, annulée/rejetée ; 1024, 1440 et 390 px) et non-régression des fiches lieu, association, transporteur (brique FicheEnTete : +5 px d'en-tête avec sur-titre). Mesuré hors app dans Chromium (vrais composants + CSS compilé, 252 mesures de 320 à 1440 px, aucun débordement) ; pas de capture dans l'app connectée (arbitrage Val 2026-10-01). GO-VISUAL donné par Val le 2026-10-01 après merge (#453), sans capture jointe."
+    },
+    {
+      "id": "M0.6-kpi-a-dispatcher-predicat-unique",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:28",
+      "artefact": "packages/plateforme/src/lib/collectes-chips.ts (définition écrite une fois : filtre de requête aDispatcher + test de ligne estADispatcher) + packages/plateforme/src/app/api/v1/admin/collectes/chip-counts/route.ts (ag_a_dispatcher / zd_a_dispatcher = compteur du chip non_transmises_ag / non_transmises_zd, plus de requête propre) + packages/plateforme/src/components/admin/collectes-table.tsx (aDispatcherZd = type ZD + estADispatcher, tms_reference lu)",
+      "test": "M0.6 — kpi_a_dispatcher_predicat_unique",
+      "statut": "implemented",
+      "libelle": "Définition canonique de « à dispatcher » (Val 2026-09-14 : statut_tms = non_envoye ET tms_reference IS NULL ET statut IN (programmee, validee)) partagée par la tuile KPI « AG/ZD à dispatcher », le chip « Non transmises ZD/AG » et l'action « Dispatcher » de la liste Collectes Admin ; la tuile n'est jamais inférieure au nombre de lignes offrant « Dispatcher »."
     }
   ],
   "cdc_source_hash": {
@@ -1349,6 +1363,7 @@
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "5abf9290405210ba77c1450fa1059db2f5fe62bfa7bc94f860a6743a11cdb50c",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "51fbb2a366fe99598076e91fa1d37cd386914720ef68db431220647f5b071955",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8e6a7a85f7b1b0805cbdbd3bcb362d233168d6665705604d6f4f7f798fdd7353",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "de55ad9dd1ab220cc2e0f7945b7cc1e4b6eccfb6db0bac80734b34213ea0f88a"
   }
 }

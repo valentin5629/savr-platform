@@ -28,6 +28,7 @@ function row(over: Partial<CollecteRow> = {}): CollecteRow {
     type: 'anti_gaspi',
     statut: 'programmee',
     statut_tms: 'non_envoye',
+    tms_reference: null,
     dirty_tms: false,
     date_collecte: '2026-07-08',
     heure_collecte: '20:00:00',

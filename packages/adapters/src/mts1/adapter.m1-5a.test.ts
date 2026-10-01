@@ -54,6 +54,12 @@ const COLLECTE_AG: Collecte = {
   ...COLLECTE_ZD,
   id: 'col-ag-001',
   type: 'anti_gaspi',
+  // Association destinataire résolue par le worker (point B), SANS point favori
+  // MTS-1 : l'adresse part inline dans `stuffs[].relatedAddress.address`.
+  association_nom: 'Association Alpha',
+  association_adresse: '12 rue des Associations, Ivry-sur-Seine',
+  association_contact_nom: 'Nadia Benali',
+  association_contact_telephone: '+33699990001',
 };
 
 const COLLECTE_MULTI: Collecte = {
@@ -258,14 +264,18 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     expect(orderPayload['orderCategories']).toEqual(['Alimentaire']);
     // AG = un seul stuff « Don alimentaire » (pesé plus tard, quantity 0).
-    // COLLECTE_AG n'a pas de point favori → pas de relatedAddress.
+    // COLLECTE_AG n'a pas de point favori → point B = adresse de l'association inline.
     const stuffs = orderPayload['stuffs'] as Array<{
       name: string;
       relatedAddress?: unknown;
     }>;
     expect(stuffs).toHaveLength(1);
     expect(stuffs[0]!.name).toBe('Don alimentaire');
-    expect(stuffs[0]!.relatedAddress).toBeUndefined();
+    expect(stuffs[0]!.relatedAddress).toEqual({
+      address: {
+        addressSingleLine: '12 rue des Associations, Ivry-sur-Seine',
+      },
+    });
   });
 
   // BL-P1-API-02 — point de dépôt AG = point de dépôt de l'association (favoritePlace
@@ -322,9 +332,10 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     });
   });
 
-  // AG sans point favori résolu (association.id_point_collecte_mts1 NULL) → pas de
-  // deliveryPlace (l'adresse de l'association n'est pas connue de MTS-1).
-  it('M1.5a / dispatch AG — pas de point favori → deliveryPlace absent', async () => {
+  // AG sans point favori (association.id_point_collecte_mts1 NULL) → le point B
+  // est l'adresse postale de l'association, inline dans `relatedAddress.address`
+  // (CustomerOrderPlaceInput) : MTS-1 sait toujours où livrer le don.
+  it('M1.5a / dispatch AG — pas de point favori → adresse de l’association inline en point B', async () => {
     const postOrder = vi.fn().mockResolvedValue({
       ok: true,
       id: 'O-AG-NOFAV',
@@ -358,6 +369,47 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
 
     const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
     expect(tourPayload['deliveryPlace']).toBeUndefined();
+    const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
+    const stuffs = orderPayload['stuffs'] as Array<{
+      name: string;
+      relatedAddress?: unknown;
+    }>;
+    expect(stuffs).toHaveLength(1);
+    expect(stuffs[0]!.name).toBe('Don alimentaire');
+    expect(stuffs[0]!.relatedAddress).toEqual({
+      address: {
+        addressSingleLine: '12 rue des Associations, Ivry-sur-Seine',
+      },
+    });
+  });
+
+  // AG sans association attribuée → aucun point B possible : refus permanent
+  // AVANT tout appel MTS-1 (décision Val 2026-10-01, l'association est choisie
+  // avant le prestataire — jamais un camion qui ne sait pas où livrer).
+  it('M1.5a / dispatch AG — sans association attribuée → LogistiquePermanentError, aucun POST', async () => {
+    const postOrder = vi.fn();
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder,
+      createTour: vi.fn(),
+      addCustomerOrder: vi.fn(),
+      dispatchTour: vi.fn(),
+      validateTour: vi.fn(),
+    });
+
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+    await expect(
+      new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+        {
+          ...COLLECTE_AG,
+          association_id_point_collecte_mts1: null,
+          association_adresse: null,
+        },
+        1,
+      ),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    expect(postOrder).not.toHaveBeenCalled();
   });
 
   it('M1.5a / dispatch ZD — stuffs contient les 5 flux + volume_du_camion', async () => {

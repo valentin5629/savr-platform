@@ -41,6 +41,11 @@ const LIEU_FIXTURE: Lieu = {
 const COLLECTE_AG: Collecte = {
   id: 'col-ag-everest-001',
   type: 'anti_gaspi',
+  // Association destinataire résolue par le worker (point B de la mission).
+  association_nom: 'Association Alpha',
+  association_adresse: '12 rue des Associations, Ivry-sur-Seine',
+  association_contact_nom: 'Nadia Benali',
+  association_contact_telephone: '+33699990001',
   date_collecte: '2026-07-20',
   heure_collecte: '22:00:00',
   nb_camions_demande: 1,
@@ -409,6 +414,44 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     expect(mission.service_id).toBe(71);
     // client_ref = tournee.id (M14 W1 R_M14.2), pas collecte.id
     expect(mission.client_ref).toBe('tournee-everest-new-001');
+  });
+
+  it('M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans dropoff', async () => {
+    const { payloads } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+
+    const payload = payloads.get('tournee-everest-new-001') as {
+      pickup?: { address: string };
+      dropoff?: { address: string; contact?: { name: string; phone: string } };
+    };
+    // Point A = lieu de collecte, point B = association (décision Val 2026-10-01).
+    expect(payload?.pickup?.address).toBe('45 rue La Boétie, 75008 Paris');
+    expect(payload?.dropoff).toEqual({
+      address: '12 rue des Associations, Ivry-sur-Seine',
+      contact: { name: 'Nadia Benali', phone: '+33699990001' },
+    });
+  });
+
+  it('M2.5 / dispatch — AG sans association attribuée → LogistiquePermanentError, aucune mission créée', async () => {
+    const { missions } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(
+      adapter.dispatchCollecte(
+        { ...COLLECTE_AG, association_adresse: null },
+        1,
+      ),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    // Jamais de course sans destination : rien n'est parti chez Everest.
+    expect(missions.size).toBe(0);
   });
 
   it('dispatch vélo express — createMission appelé avec service_id=74 (ag_velo_express)', async () => {

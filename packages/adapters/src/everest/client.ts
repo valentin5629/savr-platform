@@ -33,6 +33,12 @@ export interface CreateMissionPayload {
     address: string;
     contact: { name: string; phone: string };
   };
+  // Point B = adresse de livraison du don (association destinataire). Toujours
+  // présent sur une mission AG : une course sans destination n'a pas de sens.
+  dropoff: {
+    address: string;
+    contact?: { name: string; phone: string };
+  };
   timeslot: { date: string; start: string; end: string };
   notes?: string;
   metadata?: Record<string, string | null>;

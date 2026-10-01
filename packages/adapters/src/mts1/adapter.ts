@@ -1391,14 +1391,33 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // Point B (livraison) = où les stuffs sont déposés → `stuffs[].relatedAddress`
     // (CustomerOrderPlaceInput). ZD → entrepôt Savr (favoritePlace `MTS1_ENTREPOT_PLACE_ID`) ;
-    // AG → point de dépôt de l'association (favoritePlace `id_point_collecte_mts1`).
+    // AG → point de dépôt de l'association : favoritePlace `id_point_collecte_mts1`
+    // quand il existe, sinon son adresse postale inline. Une AG sans association
+    // attribuée n'a pas de point B : on refuse de partir (erreur permanente, jamais
+    // un camion qui ne sait pas où livrer — décision Val 2026-10-01, l'association
+    // est choisie AVANT le prestataire).
     // Le `place` de la commande reste le PICKUP (point A = adresse traiteur).
     const pointBPlaceId = isZd
       ? process.env['MTS1_ENTREPOT_PLACE_ID'] || undefined
       : (collecte.association_id_point_collecte_mts1 ?? undefined);
-    const relatedAddress = pointBPlaceId
-      ? { relatedAddress: { placeId: pointBPlaceId } }
-      : {};
+    let relatedAddress: Pick<
+      NonNullable<CreateOrderPayload['stuffs']>[number],
+      'relatedAddress'
+    > = {};
+    if (pointBPlaceId) {
+      relatedAddress = { relatedAddress: { placeId: pointBPlaceId } };
+    } else if (!isZd) {
+      if (!collecte.association_adresse) {
+        throw new LogistiquePermanentError(
+          `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à MTS-1`,
+        );
+      }
+      relatedAddress = {
+        relatedAddress: {
+          address: { addressSingleLine: collecte.association_adresse },
+        },
+      };
+    }
 
     // Marchandise transportée (pesée plus tard → quantity 0), chaque stuff portant le
     // point B (relatedAddress). ZD = 5 flux + volume du camion ; AG = le don

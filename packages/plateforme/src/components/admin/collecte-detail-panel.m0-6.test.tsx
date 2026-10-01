@@ -49,8 +49,18 @@ const collecteAg = {
   annulee_cote_savr: false,
   pack_antgaspi_id: null,
   packs_antgaspi: null,
-  // Collecte AG non encore attribuée (comme sur le preview réel).
+  // Collecte AG non encore attribuée à un prestataire (comme sur le preview réel),
+  // mais dont l'association est déjà choisie : l'envoi au prestataire n'est
+  // possible qu'après (décision Val 2026-10-01 — son adresse est le point B).
   prestataire_logistique_id: null,
+  attributions_antgaspi: {
+    id: 'attr-1',
+    mode_validation: 'manuel_top1',
+    valide_at: null,
+    volume_repas_realise: null,
+    associations: { nom: 'Les Restos du Cœur' },
+    transporteurs: null,
+  },
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -96,7 +106,7 @@ const transporteurs = [
   },
 ];
 
-function mockFetch() {
+function mockFetch(collecteFixture: object = collecteAg) {
   const fetchMock = vi.fn(
     (url: string, opts?: { method?: string; body?: string }) => {
       const method = opts?.method ?? 'GET';
@@ -149,7 +159,7 @@ function mockFetch() {
         });
       }
       // GET collecte
-      return Promise.resolve({ ok: true, json: async () => collecteAg });
+      return Promise.resolve({ ok: true, json: async () => collecteFixture });
     },
   );
   vi.stubGlobal('fetch', fetchMock);
@@ -204,6 +214,50 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ),
       ).toBeInTheDocument();
       expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Logistique AG : le bloc « Attribution AG » précède « Prestataire & Dispatch »',
+    async () => {
+      mockFetch();
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const attribution = await screen.findByText(
+        'Attribution AG',
+        undefined,
+        ATTENTE_UI,
+      );
+      const dispatch = screen.getByText('Prestataire & Dispatch');
+      // L'association est choisie AVANT le prestataire (décision Val 2026-10-01).
+      expect(
+        attribution.compareDocumentPosition(dispatch) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — AG sans association attribuée : envoi au prestataire bloqué + consigne',
+    async () => {
+      mockFetch({ ...collecteAg, attributions_antgaspi: null });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      // Pré-sélection du top-1 → bouton forké MTS-1, mais DÉSACTIVÉ : l'adresse
+      // de livraison (association) est inconnue, rien ne doit partir.
+      const bouton = await screen.findByRole(
+        'button',
+        { name: /Envoyer à MTS-1/ },
+        ATTENTE_UI,
+      );
+      expect(bouton).toBeDisabled();
+      expect(
+        screen.getByText(/Choisissez d.abord l.association bénéficiaire/),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

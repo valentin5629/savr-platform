@@ -158,6 +158,16 @@ export class AdapterEverest implements LogistiqueProvider {
     // Lire branche_attribution depuis attributions_antgaspi
     const serviceId = await this.resolveServiceId(collecte.id);
 
+    // Point B : l'adresse de l'association attribuée part dans la mission
+    // (décision Val 2026-10-01 — l'association est choisie AVANT le prestataire).
+    // Sans elle, le coursier ne sait pas où livrer : on refuse de créer la
+    // mission (permanent, hors du try : ce n'est pas un refus du transporteur).
+    if (!collecte.association_adresse) {
+      throw new LogistiquePermanentError(
+        `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à Everest`,
+      );
+    }
+
     // Créer ou récupérer la tournée. Le rang déjà lié à une tournée A Toutes!
     // est repris tel quel : c'est le cas d'une mission refusée puis réattribuée,
     // dont fn_dispatcher_collecte a réinitialisé la tournée en place (arbitrage
@@ -418,6 +428,19 @@ export class AdapterEverest implements LogistiqueProvider {
           name: collecte.contact_principal_nom,
           phone: collecte.contact_principal_telephone,
         },
+      },
+      // Point B = association destinataire (garanti non vide par dispatchCollecte).
+      dropoff: {
+        address: collecte.association_adresse ?? '',
+        ...(collecte.association_contact_nom &&
+        collecte.association_contact_telephone
+          ? {
+              contact: {
+                name: collecte.association_contact_nom,
+                phone: collecte.association_contact_telephone,
+              },
+            }
+          : {}),
       },
       timeslot: {
         date: collecte.date_collecte,

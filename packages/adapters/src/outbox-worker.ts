@@ -65,9 +65,14 @@ interface CollecteRow {
   contact_secours_nom: string | null;
   contact_secours_telephone: string | null;
   prestataire_logistique_id: string | null;
-  // AG uniquement (BL-P1-API-02) — placeId favori MTS-1 de l'association
-  // destinataire, résolu via attributions_antgaspi → associations.
+  // AG uniquement (BL-P1-API-02) — association destinataire (point B), résolue
+  // via attributions_antgaspi → associations : placeId favori MTS-1 + adresse
+  // postale (adresse inline MTS-1 sans point favori, dropoff Everest).
   association_id_point_collecte_mts1: string | null;
+  association_nom: string | null;
+  association_adresse: string | null;
+  association_contact_nom: string | null;
+  association_contact_telephone: string | null;
   lieux: {
     id: string;
     nom: string;
@@ -532,12 +537,14 @@ async function fetchCollecte(
   // BL-P1-API-02 — lieu de dépôt AG : l'association destinataire est attribuée
   // APRÈS la création de la collecte (§08 l.154), donc connue au moment où le
   // worker consomme `collecte.creee` émis par la cascade d'attribution (R5). On
-  // résout son point favori MTS-1 (associations.id_point_collecte_mts1) via la
-  // dernière attribution_antgaspi. ZD = jamais d'association → NULL.
-  let idPointCollecteMts1: string | null = null;
-  if (raw.type === 'anti_gaspi') {
-    idPointCollecteMts1 = await fetchIdPointCollecteMts1(supabase, raw.id);
-  }
+  // résout son point favori MTS-1 (associations.id_point_collecte_mts1) ET son
+  // adresse postale via la dernière attribution_antgaspi : c'est l'adresse de
+  // livraison transmise au prestataire (décision Val 2026-10-01 — l'association
+  // est choisie AVANT le prestataire). ZD = jamais d'association → NULL.
+  const association =
+    raw.type === 'anti_gaspi'
+      ? await fetchAssociationDestinataire(supabase, raw.id)
+      : null;
 
   return {
     id: raw.id,
@@ -562,7 +569,14 @@ async function fetchCollecte(
     ),
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
-    association_id_point_collecte_mts1: idPointCollecteMts1,
+    association_id_point_collecte_mts1:
+      association?.id_point_collecte_mts1 ?? null,
+    association_nom: association?.nom ?? null,
+    association_adresse: association
+      ? `${association.adresse}, ${association.ville}`
+      : null,
+    association_contact_nom: association?.contact_nom ?? null,
+    association_contact_telephone: association?.contact_telephone ?? null,
     contact_principal_nom: evt.contact_principal_nom,
     contact_principal_telephone: evt.contact_principal_telephone,
     contact_secours_nom: evt.contact_secours_nom,
@@ -571,28 +585,37 @@ async function fetchCollecte(
   };
 }
 
-// BL-P1-API-02 — résout le placeId favori MTS-1 du lieu de dépôt d'une collecte AG
-// (associations.id_point_collecte_mts1) via son attribution. `collecte_id` est
-// UNIQUE sur attributions_antgaspi (≤ 1 ligne) → maybeSingle, même pattern que
-// l'adapter Everest resolveServiceId. Une association sans point favori
-// (id_point_collecte_mts1 NULL) ⇒ pas de deliveryPlace.
-async function fetchIdPointCollecteMts1(
+// BL-P1-API-02 — résout l'association destinataire d'une collecte AG (point B :
+// placeId favori MTS-1 + adresse postale + contact) via son attribution.
+// `collecte_id` est UNIQUE sur attributions_antgaspi (≤ 1 ligne) → maybeSingle,
+// même pattern que l'adapter Everest resolveServiceId. Aucune attribution ⇒ NULL
+// (l'adapter refuse alors de partir sans adresse de livraison — erreur
+// permanente, jamais un ordre sans point B).
+interface AssociationDestinataireRow {
+  id_point_collecte_mts1: string | null;
+  nom: string;
+  adresse: string;
+  ville: string;
+  contact_nom: string | null;
+  contact_telephone: string | null;
+}
+
+async function fetchAssociationDestinataire(
   supabase: SupabaseClient,
   collecteId: string,
-): Promise<string | null> {
+): Promise<AssociationDestinataireRow | null> {
   const { data } = await supabase
     .from('attributions_antgaspi')
-    .select('associations:association_id(id_point_collecte_mts1)')
+    .select(
+      'associations:association_id(id_point_collecte_mts1, nom, adresse, ville, contact_nom, contact_telephone)',
+    )
     .eq('collecte_id', collecteId)
     .maybeSingle();
 
   if (!data) return null;
   const assoc = (data as { associations?: unknown }).associations;
   const row = Array.isArray(assoc) ? assoc[0] : assoc;
-  return (
-    (row as { id_point_collecte_mts1?: string | null } | null)
-      ?.id_point_collecte_mts1 ?? null
-  );
+  return (row as AssociationDestinataireRow | null | undefined) ?? null;
 }
 
 async function fetchTransporteur(
@@ -649,6 +672,10 @@ function toCollecte(row: CollecteRow): Collecte {
     contact_secours_nom: row.contact_secours_nom,
     contact_secours_telephone: row.contact_secours_telephone,
     association_id_point_collecte_mts1: row.association_id_point_collecte_mts1,
+    association_nom: row.association_nom,
+    association_adresse: row.association_adresse,
+    association_contact_nom: row.association_contact_nom,
+    association_contact_telephone: row.association_contact_telephone,
     lieu: row.lieux,
   };
 }

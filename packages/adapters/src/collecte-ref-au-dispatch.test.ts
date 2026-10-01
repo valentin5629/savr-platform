@@ -64,6 +64,10 @@ const COLLECTE_AG: Collecte = {
   ...COLLECTE,
   id: 'col-ref-ag-001',
   type: 'anti_gaspi',
+  association_nom: 'Association Alpha',
+  association_adresse: '12 rue des Associations, Ivry-sur-Seine',
+  association_contact_nom: 'Nadia Benali',
+  association_contact_telephone: '+33699990001',
   nb_camions_demande: 1,
 };
 

@@ -29,6 +29,15 @@ interface WorkerMockOpts {
 
 const COLLECTE_ID = 'col-ag-dispatch-001';
 const PRESTA_ID = 'presta-uuid-ag-001';
+// Association destinataire de la collecte AG (attributions_antgaspi → associations).
+const ASSOCIATION_ROW = {
+  id_point_collecte_mts1: null,
+  nom: 'Association Alpha',
+  adresse: '12 rue des Associations',
+  ville: 'Ivry-sur-Seine',
+  contact_nom: 'Nadia Benali',
+  contact_telephone: '+33699990001',
+};
 
 function makeWorkerSupabase(opts: WorkerMockOpts) {
   const claimedEvent = {
@@ -116,7 +125,13 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
         return { data: transporteurRow, error: null };
       return { data: null, error: null };
     });
-    q['maybeSingle'] = vi.fn(async () => ({ data: null, error: null }));
+    // Association destinataire (point B) résolue via attributions_antgaspi →
+    // associations : embed OBJET (FK sortante association_id).
+    q['maybeSingle'] = vi.fn(async () => {
+      if (table === 'attributions_antgaspi')
+        return { data: { associations: ASSOCIATION_ROW }, error: null };
+      return { data: null, error: null };
+    });
     q['update'] = vi.fn(() => q);
     q['insert'] = vi.fn(() => q);
     return q;
@@ -169,6 +184,38 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     });
     expect(everestSpy.mock.calls[0]![1]).toBe(1);
     expect(result.done).toBe(1);
+  });
+
+  it('M2.3 / worker — point B : l’adresse de l’association attribuée est résolue et transmise à l’adapter', async () => {
+    const everestSpy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+    });
+    await runOutboxWorker(supabase);
+
+    // Composée UNE fois par le worker pour les deux adapters (garde-fou 2) :
+    // adresse sur une ligne « adresse, ville » + contact + point favori MTS-1.
+    expect(everestSpy.mock.calls[0]![0]).toMatchObject({
+      association_nom: 'Association Alpha',
+      association_adresse: '12 rue des Associations, Ivry-sur-Seine',
+      association_contact_nom: 'Nadia Benali',
+      association_contact_telephone: '+33699990001',
+      association_id_point_collecte_mts1: null,
+    });
+    // Les colonnes sont bien DEMANDÉES à PostgREST (un mock ne filtre pas).
+    const selectAttribution = supabase._selects['attributions_antgaspi']?.[0];
+    for (const col of [
+      'adresse',
+      'ville',
+      'contact_nom',
+      'contact_telephone',
+    ]) {
+      expect(selectAttribution).toContain(col);
+    }
   });
 
   it('type_tms=mts1 → AdapterMts1.dispatchCollecte (pas Everest)', async () => {

@@ -909,6 +909,12 @@ export function CollecteDetailPanel({
   }
 
   const isTerminal = STATUTS_TERMINAUX.includes(collecte.statut);
+  // AG : l'association est choisie AVANT le prestataire (décision Val
+  // 2026-10-01) — son adresse est le point B envoyé à MTS-1 / Everest. Tant
+  // qu'elle manque, l'envoi au prestataire est bloqué (même garde côté route).
+  const associationManquante =
+    collecte.type === 'anti_gaspi' &&
+    collecte.attributions_antgaspi?.associations == null;
   // RM-02 — N camions modifiable uniquement hors état terminal (garde serveur).
   const nbCamionsEditable = ['programmee', 'validee', 'en_cours'].includes(
     collecte.statut,
@@ -1439,10 +1445,151 @@ export function CollecteDetailPanel({
           </TabsContent>
 
           <TabsContent value="logistique" className="space-y-4">
+            {/* Attribution AG (AG only) — AVANT « Prestataire & Dispatch »
+            (décision Val 2026-10-01) : l'association est choisie d'abord, son
+            adresse étant le point de livraison transmis au prestataire. */}
+            {collecte.type === 'anti_gaspi' && (
+              <Card className="p-5 space-y-4">
+                <BlocHeader icon={HeartHandshake} title="Attribution AG" />
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-savr-neutral-500">
+                      Association retenue
+                    </dt>
+                    <dd className="font-medium">
+                      {collecte.attributions_antgaspi?.associations?.nom ?? (
+                        <span className="text-savr-neutral-400">
+                          Aucune (en attente d’attribution)
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-savr-neutral-500">
+                      Transporteur retenu
+                    </dt>
+                    <dd className="font-medium">
+                      {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
+                        <span className="text-savr-neutral-400">—</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-savr-neutral-500">Validation</dt>
+                    <dd className="font-medium">
+                      {collecte.attributions_antgaspi?.valide_at ? (
+                        <>
+                          {collecte.attributions_antgaspi.mode_validation} —{' '}
+                          {new Date(
+                            collecte.attributions_antgaspi.valide_at,
+                          ).toLocaleDateString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                          })}
+                        </>
+                      ) : (
+                        <Badge variant="warning" className="text-xs">
+                          En attente de validation
+                        </Badge>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-savr-neutral-500">
+                      Volume repas (estimé / réalisé)
+                    </dt>
+                    <dd className="font-medium">
+                      {collecte.volume_estime_repas ?? '—'} /{' '}
+                      {collecte.attributions_antgaspi?.volume_repas_realise ??
+                        '—'}
+                    </dd>
+                  </div>
+                </dl>
+                {/* Associations recommandées (algo §06.09) en cartes, la n°1 marquée
+                « Recommandé ». « Choisir » ouvre l'écran d'attribution avec
+                l'association présélectionnée : validation, motif et emails
+                restent sur cet écran unique (§06.06 Bloc 5, décision Val).
+                Masquées une fois l'attribution validée (décision Val C5) : un
+                changement passe alors par l'écran d'attribution complet. */}
+                {!collecte.attributions_antgaspi?.valide_at &&
+                  reco?.associations &&
+                  reco.associations.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-savr-neutral-800">
+                        Associations recommandées
+                      </p>
+                      <ul className="space-y-2">
+                        {reco.associations.slice(0, 3).map((a, i) => {
+                          const raison = [
+                            a.distance_km != null
+                              ? `${a.distance_km} km`
+                              : null,
+                            a.capacite_max_beneficiaires != null
+                              ? `capacité ${a.capacite_max_beneficiaires}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ');
+                          return (
+                            <li
+                              key={a.id}
+                              className={cn(
+                                'flex items-center gap-3 rounded-savr-md border p-3 text-sm',
+                                i === 0
+                                  ? 'border-savr-primary-600 bg-savr-primary-50'
+                                  : 'border-savr-neutral-200 bg-savr-white',
+                              )}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="flex flex-wrap items-center gap-1.5 font-semibold text-savr-neutral-900">
+                                  {a.nom}
+                                  {i === 0 && (
+                                    <Badge
+                                      variant="primary"
+                                      className="text-xs"
+                                    >
+                                      Recommandé
+                                    </Badge>
+                                  )}
+                                </p>
+                                {raison && (
+                                  <p className="text-xs text-savr-neutral-500">
+                                    {raison}
+                                  </p>
+                                )}
+                              </div>
+                              <Button asChild size="md" variant="secondary">
+                                <Link
+                                  href={`/admin/attributions-ag/${collecte.id}?association=${encodeURIComponent(a.id)}`}
+                                >
+                                  Choisir
+                                </Link>
+                              </Button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                <Link
+                  href={`/admin/attributions-ag/${collecte.id}`}
+                  className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
+                >
+                  Ouvrir l’attribution complète (top 3, validation, emails,
+                  re-jouer l’algo) →
+                </Link>
+              </Card>
+            )}
             <Card className="p-5 space-y-4">
               <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
               {dispatchError && (
                 <AlertBar variant="err">{dispatchError}</AlertBar>
+              )}
+              {associationManquante && !isTerminal && (
+                <AlertBar variant="warn">
+                  Choisissez d&apos;abord l&apos;association bénéficiaire (bloc
+                  « Attribution AG » ci-dessus) : son adresse est transmise au
+                  prestataire logistique pour la livraison.
+                </AlertBar>
               )}
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <div>
@@ -1623,7 +1770,12 @@ export function CollecteDetailPanel({
                   </Button>
                 )}
                 <Button
-                  disabled={isTerminal || dispatching || overrideMotifManquant}
+                  disabled={
+                    isTerminal ||
+                    dispatching ||
+                    overrideMotifManquant ||
+                    associationManquante
+                  }
                   onClick={() => void handleDispatch()}
                 >
                   <Send className="h-4 w-4 mr-2" />
@@ -1664,139 +1816,6 @@ export function CollecteDetailPanel({
                 </div>
               )}
             </Card>
-            {/* Attribution AG (AG only) — remontée tout en haut, à droite de
-            « Prestataire & Dispatch » (décision Val). */}
-            {collecte.type === 'anti_gaspi' && (
-              <Card className="p-5 space-y-4">
-                <BlocHeader icon={HeartHandshake} title="Attribution AG" />
-                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-savr-neutral-500">
-                      Association retenue
-                    </dt>
-                    <dd className="font-medium">
-                      {collecte.attributions_antgaspi?.associations?.nom ?? (
-                        <span className="text-savr-neutral-400">
-                          Aucune (en attente d’attribution)
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-savr-neutral-500">
-                      Transporteur retenu
-                    </dt>
-                    <dd className="font-medium">
-                      {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                        <span className="text-savr-neutral-400">—</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-savr-neutral-500">Validation</dt>
-                    <dd className="font-medium">
-                      {collecte.attributions_antgaspi?.valide_at ? (
-                        <>
-                          {collecte.attributions_antgaspi.mode_validation} —{' '}
-                          {new Date(
-                            collecte.attributions_antgaspi.valide_at,
-                          ).toLocaleDateString('fr-FR', {
-                            timeZone: 'Europe/Paris',
-                          })}
-                        </>
-                      ) : (
-                        <Badge variant="warning" className="text-xs">
-                          En attente de validation
-                        </Badge>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-savr-neutral-500">
-                      Volume repas (estimé / réalisé)
-                    </dt>
-                    <dd className="font-medium">
-                      {collecte.volume_estime_repas ?? '—'} /{' '}
-                      {collecte.attributions_antgaspi?.volume_repas_realise ??
-                        '—'}
-                    </dd>
-                  </div>
-                </dl>
-                {/* Associations recommandées (algo §06.09) en cartes, la n°1 marquée
-                « Recommandé ». « Choisir » ouvre l'écran d'attribution avec
-                l'association présélectionnée : validation, motif et emails
-                restent sur cet écran unique (§06.06 Bloc 5, décision Val).
-                Masquées une fois l'attribution validée (décision Val C5) : un
-                changement passe alors par l'écran d'attribution complet. */}
-                {!collecte.attributions_antgaspi?.valide_at &&
-                  reco?.associations &&
-                  reco.associations.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold text-savr-neutral-800">
-                        Associations recommandées
-                      </p>
-                      <ul className="space-y-2">
-                        {reco.associations.slice(0, 3).map((a, i) => {
-                          const raison = [
-                            a.distance_km != null
-                              ? `${a.distance_km} km`
-                              : null,
-                            a.capacite_max_beneficiaires != null
-                              ? `capacité ${a.capacite_max_beneficiaires}`
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ');
-                          return (
-                            <li
-                              key={a.id}
-                              className={cn(
-                                'flex items-center gap-3 rounded-savr-md border p-3 text-sm',
-                                i === 0
-                                  ? 'border-savr-primary-600 bg-savr-primary-50'
-                                  : 'border-savr-neutral-200 bg-savr-white',
-                              )}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="flex flex-wrap items-center gap-1.5 font-semibold text-savr-neutral-900">
-                                  {a.nom}
-                                  {i === 0 && (
-                                    <Badge
-                                      variant="primary"
-                                      className="text-xs"
-                                    >
-                                      Recommandé
-                                    </Badge>
-                                  )}
-                                </p>
-                                {raison && (
-                                  <p className="text-xs text-savr-neutral-500">
-                                    {raison}
-                                  </p>
-                                )}
-                              </div>
-                              <Button asChild size="md" variant="secondary">
-                                <Link
-                                  href={`/admin/attributions-ag/${collecte.id}?association=${encodeURIComponent(a.id)}`}
-                                >
-                                  Choisir
-                                </Link>
-                              </Button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  )}
-                <Link
-                  href={`/admin/attributions-ag/${collecte.id}`}
-                  className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
-                >
-                  Ouvrir l’attribution complète (top 3, validation, emails,
-                  re-jouer l’algo) →
-                </Link>
-              </Card>
-            )}
             {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
             {collecte.type === 'zero_dechet' && (
               <Card className="p-5 space-y-4">

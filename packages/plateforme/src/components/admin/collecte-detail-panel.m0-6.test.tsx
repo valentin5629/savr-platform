@@ -290,6 +290,181 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     ATTENTE_CAS_MS,
   );
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // Prestataire actuel (§06.06 §3 Bloc 0 : « depuis collectes.prestataire_logistique_id »).
+  // La fiche le cherchait dans la liste des transporteurs ACTIFS, chargée à part :
+  // transporteur désactivé depuis, liste absente ou en échec → « non attribué »
+  // sur une collecte attribuée, de quoi pousser un Ops à la ré-attribuer.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Remplace la collecte servie et, au besoin, la réponse de la liste des transporteurs.
+  function mockFetchPrestataire(
+    collecte: Record<string, unknown>,
+    listeTransporteurs?: { ok: boolean; data?: unknown[] },
+  ) {
+    const fetchMock = mockFetch() as unknown as ReturnType<typeof vi.fn>;
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(
+      (url: string, opts?: { method?: string; body?: string }) => {
+        if (
+          listeTransporteurs &&
+          url.startsWith('/api/v1/admin/transporteurs')
+        ) {
+          return Promise.resolve({
+            ok: listeTransporteurs.ok,
+            json: async () => ({ data: listeTransporteurs.data ?? [] }),
+          });
+        }
+        if (url === '/api/v1/admin/collectes/c1' && !opts?.method) {
+          return Promise.resolve({ ok: true, json: async () => collecte });
+        }
+        return base(url, opts);
+      },
+    );
+    return fetchMock;
+  }
+
+  // « non attribué » (en-tête) sans attraper un éventuel « non attribuée ».
+  const NON_ATTRIBUE = /non attribué(?!e)/i;
+
+  it(
+    'collecte attribuée à un transporteur désactivé depuis (absent de la liste des actifs) : son nom reste affiché, jamais « non attribué »',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-marathon',
+        prestataire_actuel: {
+          transporteur_id: 't-marathon',
+          nom: 'Marathon',
+          type_tms: 'mts1',
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      expect(
+        (await screen.findAllByText('Marathon', undefined, ATTENTE_UI)).length,
+      ).toBeGreaterThan(0);
+      expect(screen.queryByText(NON_ATTRIBUE)).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      const ligne = (
+        await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI)
+      ).parentElement!;
+      expect(within(ligne).getByText('Marathon')).toBeInTheDocument();
+      expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+      // Désactivé = plus proposé à l'attribution : pas de carte, donc pas de
+      // badge « Actuel » — c'est la ligne « Prestataire actuel » qui le nomme.
+      await screen.findByRole('radio', { name: /Strike/ }, ATTENTE_UI);
+      expect(screen.queryByRole('radio', { name: /Marathon/ })).toBeNull();
+      expect(screen.queryByText('Actuel')).toBeNull();
+      // Le bouton d'envoi suit le mode d'envoi du prestataire en place.
+      expect(
+        screen.getByRole('button', { name: 'Envoyer à MTS-1' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'liste des transporteurs en échec : le prestataire actuel reste nommé et son mode d’envoi connu',
+    async () => {
+      mockFetchPrestataire(
+        {
+          ...collecteAg,
+          prestataire_logistique_id: 'presta-atoutes',
+          prestataire_actuel: {
+            transporteur_id: 't-atoutes',
+            nom: 'A Toutes!',
+            type_tms: 'a_toutes',
+          },
+          collecte_tournees: [],
+        },
+        { ok: false },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      expect(
+        (await screen.findAllByText('A Toutes!', undefined, ATTENTE_UI)).length,
+      ).toBeGreaterThan(0);
+      expect(screen.queryByText(NON_ATTRIBUE)).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      // `type_tms` lu sur le prestataire actuel, sans la liste : l'acceptation
+      // manuelle (réservée à A Toutes!) reste offerte.
+      expect(
+        await screen.findByRole(
+          'button',
+          { name: 'Acceptation manuelle' },
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'collecte attribuée dont le nom du prestataire manque dans la réponse : « Attribué — nom indisponible », jamais « non attribué »',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-inconnu',
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      expect(
+        (
+          await screen.findAllByText(
+            'Attribué — nom indisponible',
+            undefined,
+            ATTENTE_UI,
+          )
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(screen.queryByText(NON_ATTRIBUE)).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      const ligne = (
+        await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI)
+      ).parentElement!;
+      expect(
+        within(ligne).getByText('Attribué — nom indisponible'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'collecte attribuée à un transporteur actif : sa carte porte « Actuel » et reste cochée',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-atoutes',
+        prestataire_actuel: {
+          transporteur_id: 't-atoutes',
+          nom: 'A Toutes!',
+          type_tms: 'a_toutes',
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const carte = await screen.findByRole(
+        'radio',
+        { name: /A Toutes!/ },
+        ATTENTE_UI,
+      );
+      expect(carte).toHaveAttribute('aria-checked', 'true');
+      expect(within(carte).getByText('Actuel')).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /Strike/ })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères',
     async () => {
@@ -997,6 +1172,11 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 const collecteAToutes = {
   ...collecteAg,
   prestataire_logistique_id: 'presta-atoutes',
+  prestataire_actuel: {
+    transporteur_id: 't-atoutes',
+    nom: 'A Toutes!',
+    type_tms: 'a_toutes',
+  },
   collecte_tournees: [],
 };
 
@@ -1141,7 +1321,15 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
     ],
     [
       'collecte chez un transporteur MTS-1',
-      { ...collecteAToutes, prestataire_logistique_id: 'presta-mts1' },
+      {
+        ...collecteAToutes,
+        prestataire_logistique_id: 'presta-mts1',
+        prestataire_actuel: {
+          transporteur_id: 't-mts1',
+          nom: 'Strike',
+          type_tms: 'mts1',
+        },
+      },
     ],
     ['collecte terminale', { ...collecteAToutes, statut: 'annulee' }],
   ])(

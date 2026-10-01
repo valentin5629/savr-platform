@@ -106,7 +106,7 @@ const STATUTS_FORCABLES: StatutCollecteDb[] = [
 // Libellé du bouton d'envoi TMS forké par type_tms (§06.06 §3 « Spec V1 fork » :
 // MTS-1 pour Strike/Marathon, A Toutes! pour le vélo cargo, manuel sinon).
 function libelleDispatch(
-  typeTms: string | undefined,
+  typeTms: string | null | undefined,
   dejaEnvoye: boolean,
 ): string {
   const verbe = dejaEnvoye ? 'Renvoyer' : 'Envoyer';
@@ -164,6 +164,14 @@ interface CollecteDetail {
     transporteurs: { nom: string } | null;
   } | null;
   prestataire_logistique_id: string | null;
+  // Prestataire actuel, résolu par la route détail depuis `prestataire_logistique_id`
+  // (transporteur actif OU désactivé). `transporteur_id` / `type_tms` sont null
+  // quand le prestataire n'a pas de fiche transporteur.
+  prestataire_actuel?: {
+    transporteur_id: string | null;
+    nom: string;
+    type_tms: string | null;
+  } | null;
   // Surcharge per-collecte du lieu (§04 `collectes.lieu_overrides`) : prime sur
   // la référence `lieux` pour cette collecte seulement.
   lieu_overrides?: Record<string, unknown> | null;
@@ -896,17 +904,20 @@ export function CollecteDetailPanel({
     collecte.statut,
   );
 
-  // Bloc 0 — résolution prestataire (pont R5 : transporteurs.prestataire_logistique_id
-  // → collectes.prestataire_logistique_id) + fork type_tms.
-  // Garde null : un transporteur sans pont R5 (prestataire_logistique_id NULL)
-  // ne doit pas « matcher » une collecte non attribuée (NULL === NULL).
+  // Bloc 0 — prestataire actuel + fork type_tms. Il vient de la route détail, PAS
+  // de `transporteurs` : cette liste ne porte que les ACTIFS et se charge à part —
+  // transporteur désactivé depuis, liste pas encore arrivée ou en échec faisaient
+  // dire « non attribué » d'une collecte attribuée.
   const currentTransporteur =
     collecte.prestataire_logistique_id == null
       ? undefined
-      : transporteurs.find(
-          (t) =>
-            t.prestataire_logistique_id === collecte.prestataire_logistique_id,
-        );
+      : (collecte.prestataire_actuel ?? undefined);
+  // « Non attribué » ne se dit que d'une collecte SANS prestataire : si elle en a
+  // un dont le nom manque dans la réponse, on le dit tel quel.
+  const libelleSansNom =
+    collecte.prestataire_logistique_id == null
+      ? null
+      : 'Attribué — nom indisponible';
   const selectedTransporteur = transporteurs.find(
     (t) => t.id === selectedTransporteurId,
   );
@@ -938,14 +949,15 @@ export function CollecteDetailPanel({
   const rangCarte = (t: Transporteur): number =>
     t.id === recommendedTransporteurId
       ? 0
-      : t.id === currentTransporteur?.id
+      : t.id === currentTransporteur?.transporteur_id
         ? 1
         : 2;
   const transporteursOrdonnes = [...transporteurs].sort(
     (a, b) => rangCarte(a) - rangCarte(b),
   );
   const aucuneCarteCochee = !transporteursOrdonnes.some(
-    (t) => (selectedTransporteurId || currentTransporteur?.id) === t.id,
+    (t) =>
+      (selectedTransporteurId || currentTransporteur?.transporteur_id) === t.id,
   );
 
   const dateCollecteLongue = new Date(
@@ -1031,7 +1043,9 @@ export function CollecteDetailPanel({
             </ResumeItem>
             <ResumeItem label="Prestataire">
               {currentTransporteur?.nom ?? (
-                <span className="text-savr-neutral-400">Non attribué</span>
+                <span className="text-savr-neutral-400">
+                  {libelleSansNom ?? 'Non attribué'}
+                </span>
               )}
             </ResumeItem>
             <ResumeItem label="Statut TMS">
@@ -1443,10 +1457,10 @@ export function CollecteDetailPanel({
                   <dd className="font-medium flex items-center gap-2">
                     {currentTransporteur?.nom ?? (
                       <span className="text-savr-neutral-400">
-                        Aucun prestataire attribué
+                        {libelleSansNom ?? 'Aucun prestataire attribué'}
                       </span>
                     )}
-                    {currentTransporteur && (
+                    {currentTransporteur?.type_tms && (
                       <Badge variant="neutral" className="text-[10px]">
                         {currentTransporteur.type_tms}
                       </Badge>
@@ -1537,10 +1551,11 @@ export function CollecteDetailPanel({
                       className="grid gap-2 sm:grid-cols-2"
                     >
                       {transporteursOrdonnes.map((t, i) => {
-                        const estActuel = t.id === currentTransporteur?.id;
+                        const estActuel =
+                          t.id === currentTransporteur?.transporteur_id;
                         const coche =
                           (selectedTransporteurId ||
-                            currentTransporteur?.id) === t.id;
+                            currentTransporteur?.transporteur_id) === t.id;
                         return (
                           <CarteChoix
                             key={t.id}

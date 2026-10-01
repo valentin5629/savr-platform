@@ -446,7 +446,7 @@ export function ListeCollectesClient({
     }
   }
 
-  // Lignes de la Data Table (aplaties : lieu / pax / droit d'écriture).
+  // Lignes de la Data Table (aplaties : lieu / client / pax / droit d'écriture).
   const lignes = useMemo<TraiteurCollecteLigne[]>(
     () =>
       rows.map((c) => {
@@ -463,6 +463,8 @@ export function ListeCollectesClient({
             [lieu?.adresse_acces, lieu?.code_postal, lieu?.ville]
               .filter(Boolean)
               .join(' ') || null,
+          // Texte libre : une saisie faite d'espaces vaut « non renseigné ».
+          client_nom: evt?.nom_client_organisateur?.trim() || null,
           pax: evt?.pax ?? null,
           programmee_par_tiers: c.programmee_par_tiers,
           rapport_reserve_donneur_ordre: c.rapport_reserve_donneur_ordre,

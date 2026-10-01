@@ -11,7 +11,7 @@ import { TimePicker } from '@/components/ui/time-picker';
 import { Modal } from '@/components/ui/modal';
 import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
-import { typeCollecteLabel } from '@/components/collecte/fiche-collecte-modal-cadre';
+import { typeCollecteLabel } from '@/components/collecte/fiche-blocs';
 
 interface TypeEvenement {
   id: string;

@@ -21,9 +21,10 @@ import { CelluleVide } from '@/components/ui/data-grid';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
 // revue écran 2026-07-15, passage en Data Table 2026-09-28 — décisions Val).
-// Colonnes : Date · Lieu · Pax · Résultats (collecte réalisée) · Statut ·
-// Actions icône-seule Modifier / Annuler / Dupliquer (masquées si
-// indisponibles). Le contenu métier détaillé reste sur la fiche (clic ligne).
+// Colonnes : Date · Lieu · Client (revue écran 2026-10-01) · Pax · Résultats
+// (collecte réalisée) · Statut · Actions icône-seule Modifier / Annuler /
+// Dupliquer (masquées si indisponibles). Le contenu métier détaillé reste sur
+// la fiche (clic ligne).
 export interface TraiteurCollecteLigne {
   id: string;
   type: string; // 'zero_dechet' | 'anti_gaspi'
@@ -32,6 +33,8 @@ export interface TraiteurCollecteLigne {
   heure_collecte: string | null;
   lieu_nom: string | null;
   lieu_adresse: string | null;
+  /** Client organisateur saisi à la programmation (`nom_client_organisateur`). */
+  client_nom: string | null;
   pax: number | null;
   programmee_par_tiers: boolean;
   /** Rapport de don réservé au donneur d'ordre (D12) : pas de téléchargement. */
@@ -63,12 +66,42 @@ export interface ActionsTraiteur {
   onTelecharger: (c: TraiteurCollecteLigne) => void;
 }
 
-// « Réalisée » (vue client) = statut cloturee : résultats + rapport.
-function Resultats({
+// Cellule « Lieu » (nom + adresse d'accès) — partagée avec la liste Collectes
+// gestionnaire, qui reprend les colonnes de celle-ci (décision Val 2026-10-01).
+export function CelluleLieu({
+  nom,
+  adresse,
+}: {
+  nom: string | null;
+  adresse: string | null;
+}) {
+  if (!nom && !adresse) return <CelluleVide />;
+  return (
+    <div className="min-w-0">
+      <div className="font-medium">{nom ?? '—'}</div>
+      {adresse && (
+        <div className="text-xs text-savr-neutral-500">{adresse}</div>
+      )}
+    </div>
+  );
+}
+
+// « Réalisée » (vue client) = statut cloturee : résultats + rapport. Partagée
+// avec la liste Collectes gestionnaire.
+export function ResultatsCollecte({
   c,
   onTelecharger,
 }: {
-  c: TraiteurCollecteLigne;
+  c: Pick<
+    TraiteurCollecteLigne,
+    | 'type'
+    | 'statut'
+    | 'rapport_reserve_donneur_ordre'
+    | 'poids_total_kg'
+    | 'taux_recyclage'
+    | 'co2_evite_kg'
+    | 'nb_repas_donnes'
+  >;
   onTelecharger: () => void;
 }) {
   if (c.statut !== 'cloturee') return <CelluleVide />;
@@ -128,7 +161,12 @@ function Resultats({
       ) : (
         <IconButton
           variant="ghost"
-          onClick={onTelecharger}
+          // Le clic s'arrête au bouton : le reste de la cellule (chiffres,
+          // « — ») ouvre la fiche comme toute la ligne.
+          onClick={(e) => {
+            e.stopPropagation();
+            onTelecharger();
+          }}
           title="Télécharger le rapport"
           aria-label="Télécharger le rapport de la collecte"
         >
@@ -168,19 +206,15 @@ export function colonnesCollectesTraiteur(
       id: 'lieu',
       header: 'Lieu',
       accessorFn: (c) => c.lieu_nom ?? '',
-      cell: ({ row: { original: c } }) =>
-        c.lieu_nom || c.lieu_adresse ? (
-          <div className="min-w-0">
-            <div className="font-medium">{c.lieu_nom ?? '—'}</div>
-            {c.lieu_adresse && (
-              <div className="text-xs text-savr-neutral-500">
-                {c.lieu_adresse}
-              </div>
-            )}
-          </div>
-        ) : (
-          <CelluleVide />
-        ),
+      cell: ({ row: { original: c } }) => (
+        <CelluleLieu nom={c.lieu_nom} adresse={c.lieu_adresse} />
+      ),
+    },
+    {
+      id: 'client',
+      header: 'Client',
+      accessorFn: (c) => c.client_nom ?? '',
+      cell: ({ row: { original: c } }) => c.client_nom || <CelluleVide />,
     },
     {
       id: 'pax',
@@ -193,9 +227,11 @@ export function colonnesCollectesTraiteur(
     {
       id: 'resultats',
       header: 'Résultats',
-      meta: { interactive: true },
       cell: ({ row: { original: c } }) => (
-        <Resultats c={c} onTelecharger={() => actions.onTelecharger(c)} />
+        <ResultatsCollecte
+          c={c}
+          onTelecharger={() => actions.onTelecharger(c)}
+        />
       ),
     },
     {

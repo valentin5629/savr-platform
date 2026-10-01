@@ -45,6 +45,7 @@
     "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
     "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
     "packages/plateforme/src/components/collecte/frise-statut-client.tsx",
+    "packages/plateforme/src/components/collecte/frise-etapes.tsx",
     "packages/plateforme/src/lib/collectes/fiche-client-types.ts",
     "packages/plateforme/src/lib/collectes/fiche-client.ts",
     "packages/plateforme/src/lib/collectes/benchmark-fiche.ts",
@@ -148,7 +149,7 @@
     "M3.1/fiche_get_cloisonnement_telephone",
     "M3.1/fiche_popup_entete_badge_frise",
     "M3.1/fiche_popup_badge_ag_orange",
-    "M3.1/fiche_popup_onglets_colonne",
+    "M3.1/fiche_popup_onglets_horizontaux",
     "M3.1/fiche_popup_informations_blocs",
     "M3.1/fiche_popup_contact_secours",
     "M3.1/fiche_popup_urgence_demande",
@@ -204,7 +205,8 @@
     "M3.1/rapport_etat_echeance_h24",
     "M3.1/fiche_popup_document_a_venir",
     "M3.1/fiche_popup_document_en_preparation",
-    "M3.1/fiche_popup_document_disponible"
+    "M3.1/fiche_popup_document_disponible",
+    "M3.1/liste_colonne_client"
   ],
   "deliverables": [
     {
@@ -685,7 +687,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-modal.tsx, packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_ui_logistique_chauffeur_plaque_tel",
       "statut": "implemented",
-      "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, refondu le 2026-09-29 en pop-up client commun : en-tête + onglets en colonne Informations / Logistique / Bilan & documents, cf. M3.1-popup-client-*) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés ; vélo cargo = plaque « Sans objet (vélo cargo) ». Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md. Cadre de modale (titre, couleur AG/ZD, garde Échap) partagé avec la fiche Admin (fiche-collecte-modal-cadre.tsx)."
+      "libelle": "Revue E2E 2026-09-29 (arbitrage Val) : la fiche collecte traiteur s'ouvre en pop-up sur la liste (?collecte=<id>, refondu le 2026-09-29 en pop-up client commun, au cadre commun des fiches depuis le 2026-10-01 : grand en-tête + onglets en barre horizontale Informations / Logistique / Bilan & documents, cf. M3.1-popup-client-*) ; l'ancienne route [id] redirige (liens emails/dashboards préservés). Bloc Logistique = nom du chauffeur + plaque + téléphone (tel: cliquable), un par camion, affiché dès qu'un camion est affecté et tant que la collecte n'est pas terminée — plus conditionné au contrôle d'accès, type de véhicule et badge « Communiqué par » retirés ; vélo cargo = plaque « Sans objet (vélo cargo) ». Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale. Écart §06.04 l.542-555 tracé dans _Divergences/M3.1_20260929_fiche-collecte-traiteur-popup-logistique.md. Cadre de modale (titre accessible, garde Échap ; plus de couleur AG/ZD depuis le 2026-10-01, le type est porté par le badge de l'en-tête) partagé avec la fiche Admin (fiche-collecte-modal-cadre.tsx)."
     },
     {
       "id": "M3.1-popup-client-entete",
@@ -715,9 +717,9 @@
       "id": "M3.1-popup-client-navigation-onglets",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:399",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
-      "test": "M3.1/fiche_popup_onglets_colonne",
+      "test": "M3.1/fiche_popup_onglets_horizontaux",
       "statut": "implemented",
-      "libelle": "Onglets en colonne à gauche (Radix Tabs orientation verticale) : Informations / Logistique / Bilan & documents ; actif = fond blanc + contour (pas d'aplat navy)."
+      "libelle": "Onglets seuls en barre horizontale sous le grand en-tête commun des fiches (FicheEnTete : badge type, réf., lieu, date · heure · pax, frise client à droite) — décision Val 2026-10-01, remplace les onglets en colonne du 2026-09-29 : Informations / Logistique / Bilan & documents ; cadre commun des fiches (max-w-5xl, hauteur fixe dès md, pied d'actions)."
     },
     {
       "id": "M3.1-popup-client-pied-actions",
@@ -941,7 +943,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu du pop-up conforme à la maquette validée (canevas Claude Design K2wDLh3a6rALMFAGUjk42v, piste A) : tokens savr-* uniquement, focus ring primary-500, onglet actif fond blanc + contour, estompé 40 %, frise discrète, 3 rôles × ZD/AG × états — preuve écran à joindre (geste de Val, GO-VISUAL)."
+      "libelle": "Rendu du pop-up conforme à la maquette validée (canevas Claude Design K2wDLh3a6rALMFAGUjk42v, piste A) : tokens savr-* uniquement, focus ring primary-500, onglets en barre horizontale du DS (décision Val 2026-10-01, remplace la colonne à onglet actif fond blanc + contour), estompé 40 %, frise discrète, 3 rôles × ZD/AG × états — preuve écran à joindre (geste de Val, GO-VISUAL)."
     },
     {
       "id": "M3.1-fiche-factures-sous-rls",
@@ -966,6 +968,22 @@
       "test": "M3.1 — Facturation : Période en premier + M3.1/trait_monorga_factures_filtres_choix_multiple + M3.1/trait_monorga_factures_filtres_valeurs_toutes_invalides + M3.1/trait_monorga_factures_filtres_listes_prioritaires_sur_mono + M3.1 — Facturation : une réponse plus ancienne",
       "statut": "à-vérifier",
       "libelle": "Mon organisation > Facturation — « Période » en premier, Statut et Type à choix multiple avec case « Tous » (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). Route cliente : lecture toujours sous RLS (fac_client_select), brouillons toujours exclus ; `.in()` ne fait que restreindre. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+    },
+    {
+      "id": "M3.1-liste-colonne-client",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:332",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+      "test": "M3.1/liste_colonne_client",
+      "statut": "implemented",
+      "libelle": "Colonne « Client » de la liste Collectes traiteur, à droite de « Lieu » (décision Val, revue écran E2E 2026-10-01 — le CDC l.332 liste encore Date · Heure · Lieu · Pax · Statut, divergence M3.1_20261001_liste-colonne-client). Affiche le client organisateur saisi à la programmation (evenements.nom_client_organisateur, déjà renvoyé par la route liste — aucune lecture nouvelle) ; « — » si non renseigné ; triable, masquable par le menu « Colonnes »."
+    },
+    {
+      "id": "M3.1-liste-colonne-client-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:349",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la colonne « Client » dans la liste Collectes (traiteur et agence, composant commun), en tableau desktop ET en carte mobile < 640 px : placée entre Lieu et Pax, ne tasse pas la colonne Lieu ni les actions — preuve écran à joindre (geste de Val, GO-VISUAL)."
     }
   ],
   "cdc_source_hash": {

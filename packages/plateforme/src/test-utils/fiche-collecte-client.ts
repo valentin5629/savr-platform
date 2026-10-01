@@ -34,6 +34,7 @@ export function ficheClient(
       type_evenement: { libelle: 'Cocktail apéritif' },
       nom_client_organisateur: 'Maison Client',
       reference_affaire: null,
+      contacts_visibles: true,
       contact_principal_nom: 'Paul Contact',
       contact_principal_telephone: '+33 6 11 22 33 44',
       contact_secours_nom: null,

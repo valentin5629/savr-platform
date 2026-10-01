@@ -44,6 +44,14 @@
       "libelle": "RPC fn_modifier_evenement : UPDATE événement + E2 par collecte dispatchée (transactional outbox)"
     },
     {
+      "id": "M1.2-patch-evenement-reponse-filtree",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:517",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
+      "test": "M1.2/edition_evenement_reponse_filtree",
+      "statut": "implemented",
+      "libelle": "PATCH programmation/evenements/[id] : la réponse ne rend plus la ligne entière produite par fn_modifier_evenement (to_jsonb) mais l'id et les champs éditables — notes_internes (notes Admin Savr) et entite_facturation_id ne sont jamais servis à un rôle client (arbitrage Val C1 2026-10-01, relevé par reviewer-rls-securite)"
+    },
+    {
       "id": "M1.2-recalc-volume-pax",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:311",
       "artefact": "supabase/migrations/20260626000000_plateforme_fn_modifier_evenement.sql",

@@ -119,7 +119,11 @@ export interface EvenementFiche {
   type_evenement_id: string | null;
   type_evenement: { libelle: string | null } | null;
   nom_client_organisateur: string | null;
+  // Servie à l'organisation programmatrice seule (null sinon).
   reference_affaire: string | null;
+  // false = bloc « Contacts sur place » masqué : gestionnaire sur la collecte
+  // d'un traiteur tiers (§06.05). Les quatre champs contact sont alors null.
+  contacts_visibles: boolean;
   contact_principal_nom: string | null;
   contact_principal_telephone: string | null;
   contact_secours_nom: string | null;

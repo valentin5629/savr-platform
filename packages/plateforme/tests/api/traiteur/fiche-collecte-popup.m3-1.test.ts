@@ -15,7 +15,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { makeClient, ligneCollecte } from '../helpers/fiche-client-mock';
+import {
+  makeClient,
+  ligneCollecte,
+  reserveEvenement,
+} from '../helpers/fiche-client-mock';
 import { etatRapport } from '@/lib/collectes/fiche-client-types';
 
 let rls = makeClient();
@@ -175,6 +179,76 @@ describe('M3.1 / fiche client — réponse GET (sécurité)', () => {
     const { res } = await getFiche();
     expect(res.status).toBe(404);
     expect(admin.calls).toHaveLength(0);
+  });
+});
+
+// Colonnes d'`evenements` hors GRANT SELECT authenticated (migration
+// 20261001103000, arbitrages Val C2/C3/C5) : la lecture RLS ne les demande plus,
+// le chargeur les lit en service-role pour qui y a titre.
+describe('M3.1 / fiche client — colonnes réservées de l’événement', () => {
+  const COLONNES_FERMEES = [
+    'contact_principal_nom',
+    'contact_principal_telephone',
+    'contact_secours_nom',
+    'contact_secours_telephone',
+    'reference_affaire',
+    'notes_internes',
+    'entite_facturation_id',
+  ];
+
+  it('M3.1/fiche_get_contacts_service_role — traiteur programmateur : contacts + référence d’affaire, jamais demandés sous RLS', async () => {
+    rls.results.collectes = { data: ligneCollecte(), error: null };
+    admin.results.evenements = { data: reserveEvenement(), error: null };
+    const { res, json } = await getFiche();
+    expect(res.status).toBe(200);
+    const evt = json.data.evenement as Record<string, unknown>;
+    expect(evt).toMatchObject({
+      contacts_visibles: true,
+      contact_principal_nom: 'Paul',
+      contact_principal_telephone: '0611223344',
+      contact_secours_nom: 'Léa',
+      contact_secours_telephone: '0655443322',
+      reference_affaire: 'AFF-2026-042',
+    });
+    // La lecture sous l'identité de l'utilisateur ne cite AUCUNE colonne fermée
+    // (elle lèverait 42501 : la fiche entière tomberait en 500).
+    for (const col of COLONNES_FERMEES)
+      expect(rls.selects.collectes?.[0]).not.toContain(col);
+    expect(rls.calls).not.toContain('evenements');
+    // Lecture service-role bornée à CET événement.
+    expect(admin.eqs.evenements).toEqual([['id', 'e1']]);
+    expect(admin.selects.evenements?.[0]).not.toContain('notes_internes');
+    expect(admin.selects.evenements?.[0]).not.toContain(
+      'entite_facturation_id',
+    );
+  });
+
+  it('M3.1/fiche_get_reference_affaire_programmateur_seul — traiteur opérationnel : contacts servis, référence d’affaire du donneur d’ordre ni lue ni servie', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-agence',
+          traiteur_operationnel_organisation_id: 'org-1',
+        },
+      }),
+      error: null,
+    };
+    // Piège : la base renverrait la référence si on la demandait.
+    admin.results.evenements = { data: reserveEvenement(), error: null };
+    const { json } = await getFiche();
+    const evt = json.data.evenement as Record<string, unknown>;
+    expect(evt.contacts_visibles).toBe(true);
+    expect(evt.contact_principal_telephone).toBe('0611223344');
+    expect(admin.selects.evenements?.[0]).not.toContain('reference_affaire');
+    expect(admin.selects.evenements?.[0]).toContain('contact_principal_nom');
+  });
+
+  it('M3.1/fiche_get_contacts_erreur_500 — lecture des contacts en échec : 500, jamais « aucun contact »', async () => {
+    rls.results.collectes = { data: ligneCollecte(), error: null };
+    admin.results.evenements = { data: null, error: { message: 'boom' } };
+    const { res } = await getFiche();
+    expect(res.status).toBe(500);
   });
 });
 

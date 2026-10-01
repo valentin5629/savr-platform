@@ -778,6 +778,14 @@
       "libelle": "Revue sécurité du sync 2026-09-29 : collectes.notes_internes et evenements.notes_internes (commentaires Admin « non visible par le client », §04 l.1511/l.1454) et prestataire_nom ne sont plus ni lus ni servis par les 3 routes GET clientes (réponse = objet curé, jamais la ligne brute)."
     },
     {
+      "id": "M3.1-fiche-colonnes-reservees-service-role",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:401",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
+      "test": "M3.1/fiche_get_reference_affaire_programmateur_seul + M3.1/fiche_get_contacts_service_role + M3.1/fiche_get_contacts_erreur_500",
+      "statut": "implemented",
+      "libelle": "Chargeur commun de la fiche collecte : contacts sur place et référence d'affaire (colonnes d'evenements hors GRANT SELECT authenticated) lus en service-role sur le seul événement de la collecte, après la lecture RLS ; référence d'affaire servie à l'organisation programmatrice seule (arbitrages Val C3/C5 2026-10-01 — M3.1/fiche_get_contacts_service_role, M3.1/fiche_get_contacts_erreur_500, M3.3/fiche_get_contacts_agence)"
+    },
+    {
       "id": "M3.1-fiche-telephone-fenetre-serveur",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:559",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",

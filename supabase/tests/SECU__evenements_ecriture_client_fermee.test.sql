@@ -163,13 +163,25 @@ SELECT ok(
   'A3 authenticated n''a plus DELETE table-level sur evenements'
 );
 
--- Non-régression : SELECT est HORS périmètre. Le retirer casserait quatre lectures
--- réelles sous JWT client (gestionnaire/evenements, .../[id], .../export-csv,
--- dashboards/synthese-pdf/filtres) plus la lecture de cloisonnement en tête du
--- PATCH programmation.
+-- Non-régression : la LECTURE est hors périmètre de cette fermeture d'écriture. La
+-- retirer casserait quatre lectures réelles sous JWT client (gestionnaire/evenements,
+-- .../[id], .../export-csv, dashboards/synthese-pdf/filtres) plus la lecture de
+-- cloisonnement en tête du PATCH programmation.
+-- ⚠ Ce cas a changé de NATURE le 2026-10-01 (20261001103000) : le SELECT n'est plus
+-- accordé au niveau TABLE mais en liste blanche de colonnes. Il épingle donc les
+-- colonnes que ces cinq lectures demandent ; la liste exacte et la fermeture des 7
+-- autres sont prouvées par SECU__evenements_select_liste_blanche. Il ne prouve
+-- PLUS que toute colonne d'evenements est lisible — c'est précisément ce qui a été
+-- fermé.
 SELECT ok(
-  has_table_privilege('authenticated', 'plateforme.evenements', 'SELECT'),
-  'A4 SELECT reste accorde (lectures gestionnaire + filtres synthese PDF)'
+  NOT EXISTS (
+    SELECT 1 FROM unnest(ARRAY[
+      'id', 'organisation_id', 'traiteur_operationnel_organisation_id',
+      'client_organisateur_organisation_id', 'lieu_id', 'created_by', 'nom_evenement',
+      'type_evenement_id', 'date_evenement', 'pax', 'nom_client_organisateur',
+      'logo_client_organisateur_url']) AS col
+     WHERE NOT has_column_privilege('authenticated', 'plateforme.evenements', col, 'SELECT')),
+  'A4 SELECT reste accorde sur les colonnes lues sous JWT client (lectures gestionnaire + filtres synthese PDF)'
 );
 
 -- Cliquet : interdit de ré-ouvrir par la porte colonne-level. Un

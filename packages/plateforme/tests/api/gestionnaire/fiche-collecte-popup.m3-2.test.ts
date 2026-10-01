@@ -12,7 +12,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { makeClient, ligneCollecte } from '../helpers/fiche-client-mock';
+import {
+  makeClient,
+  ligneCollecte,
+  reserveEvenement,
+} from '../helpers/fiche-client-mock';
 
 let rls = makeClient();
 let admin = makeClient();
@@ -91,6 +95,56 @@ describe('M3.2 / fiche client gestionnaire — association (Q7)', () => {
     expect(rls.selects.attributions_antgaspi).toEqual(['volume_repas_realise']);
     expect(admin.calls).not.toContain('attributions_antgaspi');
     expect(admin.calls).not.toContain('associations');
+  });
+});
+
+// §06.05 : le gestionnaire ne voit pas les données personnelles / commerciales
+// des traiteurs au-delà du nom et du logo (arbitrages Val C2/C3 2026-10-01).
+describe('M3.2 / fiche client gestionnaire — contacts et référence d’affaire', () => {
+  it('M3.2/fiche_get_contacts_tiers_masques — collecte d’un traiteur tiers : contacts et référence ni lus ni servis', async () => {
+    rls.results.collectes = { data: ligneCollecte(TIERS), error: null };
+    // Piège : la base renverrait tout si on la lisait.
+    admin.results.evenements = { data: reserveEvenement(), error: null };
+    const { res, json } = await getFiche();
+    expect(res.status).toBe(200);
+    expect(json.data.evenement).toMatchObject({
+      contacts_visibles: false,
+      contact_principal_nom: null,
+      contact_principal_telephone: null,
+      contact_secours_nom: null,
+      contact_secours_telephone: null,
+      reference_affaire: null,
+    });
+    const texte = JSON.stringify(json);
+    expect(texte).not.toContain('0611223344');
+    expect(texte).not.toContain('0655443322');
+    expect(texte).not.toContain('AFF-2026-042');
+    // Pas seulement caché : aucune lecture, ni sous RLS ni en service-role.
+    expect(admin.calls).not.toContain('evenements');
+    expect(rls.calls).not.toContain('evenements');
+    expect(rls.selects.collectes?.[0]).not.toContain('contact_');
+    expect(rls.selects.collectes?.[0]).not.toContain('reference_affaire');
+  });
+
+  it('M3.2/fiche_get_contacts_propre_programmation — collecte programmée par le gestionnaire : contacts + référence servis', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-gest',
+        },
+      }),
+      error: null,
+    };
+    admin.results.evenements = { data: reserveEvenement(), error: null };
+    const { json } = await getFiche();
+    expect(json.data.evenement).toMatchObject({
+      contacts_visibles: true,
+      contact_principal_nom: 'Paul',
+      contact_principal_telephone: '0611223344',
+      reference_affaire: 'AFF-2026-042',
+    });
+    expect(admin.eqs.evenements).toEqual([['id', 'e1']]);
   });
 });
 

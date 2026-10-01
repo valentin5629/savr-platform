@@ -140,7 +140,7 @@ function KpiTile({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-savr-lg border bg-savr-white px-4 py-3.5 text-left shadow-savr-sm transition-[border-color,box-shadow,transform] duration-[120ms] hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
+      className={`flex items-center gap-3 rounded-savr-lg border bg-savr-white px-4 py-3 text-left shadow-savr-sm transition-[border-color,box-shadow,transform] duration-[120ms] hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
         active
           ? 'border-savr-primary-700 shadow-[0_0_0_1px_var(--color-savr-primary-700)]'
           : 'border-savr-neutral-200'

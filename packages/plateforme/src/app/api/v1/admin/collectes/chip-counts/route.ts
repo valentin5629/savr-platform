@@ -62,9 +62,8 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     // KPI de tête files d'action (refonte 2026-07-15, décision Val) :
     // définitions DATE-BASED → `date_collecte >= aujourd'hui`, quel que soit le
     // statut. Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01).
-    // « Infos accès à envoyer » =
-    // contrôle d'accès requis ET email récap PAS encore envoyé (module infos
-    // accès chauffeur, décision Val 2026-07-15). Une fois l'email envoyé
+    // « Infos accès à envoyer » = contrôle d'accès requis ET email récap PAS
+    // encore envoyé (module infos accès chauffeur, décision Val 2026-07-15). Une fois l'email envoyé
     // (`infos_acces_email_envoye_at` renseigné), la collecte sort du compteur.
     // « Infos à récupérer » = infos traiteur incomplètes. Le filtre liste
     // `controle_acces` DOIT matcher exactement cette définition (route.ts).

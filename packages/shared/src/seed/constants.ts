@@ -56,7 +56,7 @@ export const EMAIL_TEMPLATE_CODES = [
   'rappel_collecte_j3',
   'annulation_collecte',
   'collecte_realisee',
-  'bordereau_disponible',
+  'rapport_disponible', // ex bordereau_disponible (bloc8) — renommé 20261002100000, CDC §06.02 §6 (divergence M1.6, Val 2026-09-14)
   'attestation_don_disponible',
   'facture_emise',
   'avoir_emis',

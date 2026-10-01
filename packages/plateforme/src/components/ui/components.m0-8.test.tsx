@@ -662,6 +662,9 @@ it('M0.8-30 — Tabs affiche le panneau de l’onglet actif', () => {
       <TabsList>
         <TabsTrigger value="ag">AG</TabsTrigger>
         <TabsTrigger value="zd">ZD</TabsTrigger>
+        <TabsTrigger value="marges" className="px-3 sm:px-4">
+          Marges surchargées
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="ag">Contenu AG</TabsContent>
       <TabsContent value="zd">Contenu ZD</TabsContent>
@@ -674,8 +677,8 @@ it('M0.8-30 — Tabs affiche le panneau de l’onglet actif', () => {
     'active',
   );
   // Cible tactile §10 : 44 px sur mobile, 40 px au-delà — pour tous les onglets
-  // de l'app (décision Val 2026-10-01), y compris ceux qui surchargent leurs
-  // marges.
+  // du composant Tabs (décision Val 2026-10-01), y compris celui qui surcharge
+  // ses marges comme le font les fiches.
   for (const onglet of screen.getAllByRole('tab')) {
     expect(onglet.className).toMatch(/(^|\s)h-11(\s|$)/);
     expect(onglet.className).toMatch(/(^|\s)sm:h-10(\s|$)/);

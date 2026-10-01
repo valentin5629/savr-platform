@@ -360,7 +360,7 @@
       "artefact": null,
       "test": "M0.8-30 — Tabs affiche le panneau de l’onglet actif",
       "statut": "à-vérifier",
-      "libelle": "Tabs — onglets génériques de contenu (§6), Radix ; cible tactile §10 : 44 px sur mobile, 40 px au-delà, pour tous les onglets de l'app (décision Val 2026-10-01)"
+      "libelle": "Tabs — onglets génériques de contenu (§6), Radix ; cible tactile §10 : 44 px sur mobile, 40 px au-delà, pour tous les onglets du composant DS Tabs (décision Val 2026-10-01 ; mesuré dans Chromium : 44 px jusqu'à 639 px de large, 40 px à partir de 640 px)"
     },
     {
       "id": "M0.8-sheet",

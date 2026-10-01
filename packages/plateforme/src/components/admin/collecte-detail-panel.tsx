@@ -60,7 +60,6 @@ import {
   EnTeteMention,
   FicheEnTete,
   InfoItem,
-  ONGLET_FICHE,
   typeCollecteLabel,
 } from '@/components/collecte/fiche-blocs';
 import { refCourteCollecte } from '@/lib/collecte-ref';
@@ -1061,16 +1060,16 @@ export function CollecteDetailPanel({
             aria-label="Sections de la fiche collecte"
             className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
           >
-            <TabsTrigger value="informations" className={ONGLET_FICHE}>
+            <TabsTrigger value="informations" className="px-3 sm:px-4">
               Informations
             </TabsTrigger>
-            <TabsTrigger value="logistique" className={ONGLET_FICHE}>
+            <TabsTrigger value="logistique" className="px-3 sm:px-4">
               Logistique
             </TabsTrigger>
-            <TabsTrigger value="documents" className={ONGLET_FICHE}>
+            <TabsTrigger value="documents" className="px-3 sm:px-4">
               Documents
             </TabsTrigger>
-            <TabsTrigger value="historique" className={ONGLET_FICHE}>
+            <TabsTrigger value="historique" className="px-3 sm:px-4">
               Historique
             </TabsTrigger>
           </TabsList>

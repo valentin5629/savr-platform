@@ -935,7 +935,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu du pop-up conforme à la maquette validée (canevas Claude Design K2wDLh3a6rALMFAGUjk42v, piste A) : tokens savr-* uniquement, focus ring primary-500, onglets en barre horizontale du DS (décision Val 2026-10-01, remplace la colonne à onglet actif fond blanc + contour), estompé 40 %, frise discrète, 3 rôles × ZD/AG × états — preuve écran à joindre (geste de Val, GO-VISUAL)."
+      "libelle": "Rendu du pop-up conforme à la maquette validée (canevas Claude Design K2wDLh3a6rALMFAGUjk42v, piste A) : tokens savr-* uniquement, focus ring primary-500, onglets en barre horizontale du DS (décision Val 2026-10-01, remplace la colonne à onglet actif fond blanc + contour), estompé 40 %, frise discrète, 3 rôles × ZD/AG × états. GO-VISUAL donné par Val le 2026-10-01 sur le pop-up au cadre commun des fiches (#453), sans capture jointe."
     },
     {
       "id": "M3.1-fiche-factures-sous-rls",

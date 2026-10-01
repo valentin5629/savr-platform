@@ -673,6 +673,14 @@ it('M0.8-30 — Tabs affiche le panneau de l’onglet actif', () => {
     'data-state',
     'active',
   );
+  // Cible tactile §10 : 44 px sur mobile, 40 px au-delà — pour tous les onglets
+  // de l'app (décision Val 2026-10-01), y compris ceux qui surchargent leurs
+  // marges.
+  for (const onglet of screen.getAllByRole('tab')) {
+    expect(onglet.className).toMatch(/(^|\s)h-11(\s|$)/);
+    expect(onglet.className).toMatch(/(^|\s)sm:h-10(\s|$)/);
+    expect(onglet.className).not.toMatch(/(^|\s)h-10(\s|$)/);
+  }
 });
 
 // ── Sheet (§5.9, §8 mobile) ──────────────────────────────────────────────────

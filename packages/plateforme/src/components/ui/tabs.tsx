@@ -32,7 +32,8 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'inline-flex h-10 items-center whitespace-nowrap border-b-2 border-transparent px-4 text-sm font-semibold text-savr-neutral-500 transition-colors',
+      // Cible tactile DS §10 : 44 px sur mobile, 40 px au-delà (comme Button, Input).
+      'inline-flex h-11 items-center whitespace-nowrap border-b-2 border-transparent px-4 text-sm font-semibold text-savr-neutral-500 transition-colors sm:h-10',
       'hover:text-savr-neutral-900',
       'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
       'disabled:pointer-events-none disabled:opacity-50',

@@ -387,7 +387,7 @@ describe('M4.1 / export_csv_format_fr_et_filtres_actifs', () => {
     rls.push({ data: [], error: null });
     await call(
       'collectes',
-      '?type=zero_dechet&lieu_ids=pas-un-uuid&statut=inconnu&programmee_par=x&client=',
+      '?type=zero_dechet&lieu_ids=pas-un-uuid&statut=inconnu&programmee_par=x&client=&client=%20',
     );
     // Un `.in(colonne, [])` viderait l'export ; ici aucun filtre n'est posé.
     expect(rls.__calls.in ?? []).toEqual([]);

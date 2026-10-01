@@ -192,7 +192,7 @@ describe('M3.3 / liste Collectes agence — filtres à choix multiple (route)', 
 
   it('M3.3/liste_agence_filtres_tout_invalide_jamais_de_in_vide — aucune valeur valide = aucun filtre', async () => {
     await callListe(
-      'type=zero_dechet&lieu_ids=pas-un-uuid&statut=inconnu&client=',
+      'type=zero_dechet&lieu_ids=pas-un-uuid&statut=inconnu&client=&client=%20',
     );
     // Un `.in(colonne, [])` rendrait une liste vide ; ici le filtre disparaît.
     expect(rls.filtres).toEqual([['eq', 'type', 'zero_dechet']]);

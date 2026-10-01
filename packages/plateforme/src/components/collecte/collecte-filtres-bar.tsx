@@ -98,14 +98,19 @@ const CLES_URL = {
 } as const;
 
 export function lireFiltresCollecte(params: URLSearchParams): CollecteFiltres {
-  const liste = (k: string) => (params.get(k) ?? '').split(',').filter(Boolean);
+  // Lien écrit à la main : valeurs rognées, vides et doublons écartés (une
+  // case cochée deux fois compterait « 2 sélectionnés »).
+  const uniques = (valeurs: string[]) => [
+    ...new Set(valeurs.map((v) => v.trim()).filter(Boolean)),
+  ];
+  const liste = (k: string) => uniques((params.get(k) ?? '').split(','));
   const info = params.get(CLES_URL.infoIncomplete);
   return {
     statuts: liste(CLES_URL.statuts),
     from: params.get(CLES_URL.from) ?? '',
     to: params.get(CLES_URL.to) ?? '',
     lieuIds: liste(CLES_URL.lieuIds),
-    clients: params.getAll(CLES_URL.clients).filter(Boolean),
+    clients: uniques(params.getAll(CLES_URL.clients)),
     infoIncomplete: info === 'oui' || info === 'non' ? info : '',
     programmeePar: liste(CLES_URL.programmeePar),
   };
@@ -165,7 +170,8 @@ interface Props {
  * Mise en page = pattern DS `FilterBar` : filtres en ligne « Titre  valeur ▾ ».
  * Décisions Val 2026-09-30 : « Période » en premier (DateRangePicker `titre`),
  * puis des listes à cocher (`FiltreCoches`, case « Tous » = aucun filtre) —
- * plus aucun filtre à valeur unique.
+ * plus aucun filtre à valeur unique dans la ligne de filtres. Les onglets et
+ * le sélecteur ZD / AG de l'en-tête sont des axes de vue, pas des filtres.
  *
  * Le filtre Statut propose les LIBELLÉS de la vue client (mapping canonique
  * 2026-06-30) : l'utilisateur ne voit jamais « Programmée », et un libellé

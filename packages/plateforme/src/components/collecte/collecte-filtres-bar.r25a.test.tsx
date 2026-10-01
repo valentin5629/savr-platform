@@ -290,6 +290,21 @@ describe('M3.1 / barre de filtres Collectes — choix multiple, « Tous », Pér
     expect(usp.getAll('client')).toEqual(['Danone', 'Kering, Paris']);
   });
 
+  it('M3.1/url_lien_ecrit_a_la_main_doublons_et_vides_ecartes', () => {
+    // Sans cela, une case cochée « deux fois » compterait « 2 sélectionnés ».
+    expect(
+      lireFiltresCollecte(
+        new URLSearchParams(
+          'lieu=lieu-a,lieu-a,%20lieu-b,,&client=Danone&client=Danone&client=%20&par=org-1,org-1',
+        ),
+      ),
+    ).toMatchObject({
+      lieuIds: ['lieu-a', 'lieu-b'],
+      clients: ['Danone'],
+      programmeePar: ['org-1'],
+    });
+  });
+
   it('M3.1/url_ancien_lien_valeur_unique_lu_comme_liste_d_un_element', () => {
     // Drill-down des Top listes (`?lieu=<id>`) et liens partagés avant le
     // choix multiple (`?client=<nom>`).

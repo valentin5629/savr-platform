@@ -34,6 +34,7 @@ import {
   periodeCourte,
 } from '@/lib/dashboards/collecte-filtre-label';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
+import { valeurUnique } from '@/lib/filtre-csv';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
 // actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
@@ -72,7 +73,8 @@ type Onglet = 'programmees' | 'historique';
 /** Dimensions de drill-down dashboard sans contrôle dans la barre de filtres. */
 interface Drill {
   /** Lieu reçu d'un drill-down Top lieux : il a aussi son contrôle dans la
-   *  barre, mais le CDC (§06.04 Top lieux) veut le chip « Filtre actif ». */
+   *  barre, mais le CDC (§06.04 Top lieux) veut le chip « Filtre actif ».
+   *  Renseigné tant que la barre filtre sur CE lieu seul (cf. `setFiltres`). */
   lieu: string;
   commercial: string;
   association: string;
@@ -150,6 +152,13 @@ export function ListeCollectesClient({
   const [onglet, setOnglet] = useState<Onglet>(() =>
     ongletInitial(new URLSearchParams(params.toString())),
   );
+  // Filtres §06.04 §3 (BL-P2-14), synchronisés dans l'URL : l'état local est la
+  // vérité immédiate, chaque changement réécrit la query-string (replace, pas
+  // d'entrée d'historique) pour qu'un filtre survive au rechargement et au
+  // partage de lien.
+  const [filtres, setFiltresEtat] = useState<CollecteFiltres>(() =>
+    lireFiltresCollecte(new URLSearchParams(params.toString())),
+  );
   // Drill-down depuis les Top listes du dashboard. Lieu, statut (`cloturee`) et
   // période (from/to) arrivent par les MÊMES clés d'URL que les filtres de la
   // barre, qui les reflète donc directement (miroir : nombre de lignes = chiffre
@@ -165,7 +174,8 @@ export function ListeCollectesClient({
     },
   );
   const [drill, setDrill] = useState<Drill>(() => ({
-    lieu: params.get('lieu') ?? '',
+    // Un seul lieu dans l'URL (lien de drill-down) ; plusieurs = simple filtre.
+    lieu: valeurUnique(filtres.lieuIds) ?? '',
     commercial: params.get('commercial') ?? '',
     association: params.get('association') ?? '',
     perimetre: params.get('perimetre') ?? '',
@@ -176,13 +186,6 @@ export function ListeCollectesClient({
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
-  // Filtres §06.04 §3 (BL-P2-14), synchronisés dans l'URL : l'état local est la
-  // vérité immédiate, chaque changement réécrit la query-string (replace, pas
-  // d'entrée d'historique) pour qu'un filtre survive au rechargement et au
-  // partage de lien.
-  const [filtres, setFiltresEtat] = useState<CollecteFiltres>(() =>
-    lireFiltresCollecte(new URLSearchParams(params.toString())),
-  );
   const [options, setOptions] = useState<CollecteFiltresOptions>({
     lieux: [],
     clients: [],
@@ -336,7 +339,17 @@ export function ListeCollectesClient({
   }
   function setFiltres(f: CollecteFiltres) {
     setFiltresEtat(f);
-    majUrl({ filtres: f });
+    // Le lieu d'un drill-down Top lieux arrive avec un périmètre miroir SANS
+    // contrôle dans la barre (`perimetre`), que seul le chip signale. Dès que
+    // la barre ne filtre plus sur ce lieu seul, le chip disparaît : on sort du
+    // miroir et on lâche ce périmètre, qui filtrerait sinon sans rien montrer
+    // (comme `changeType`).
+    const d =
+      drill.lieu && valeurUnique(f.lieuIds) !== drill.lieu
+        ? { ...drill, lieu: '', perimetre: '' }
+        : drill;
+    setDrill(d);
+    majUrl({ filtres: f, drill: d });
   }
 
   function changeType(t: CollecteType) {
@@ -372,11 +385,9 @@ export function ListeCollectesClient({
   // Chip « Filtre actif » (drill-down depuis une Top liste du dashboard) :
   // libellé mémorisé au clic, sinon dérivé, sinon générique. Le filtrage ne
   // dépend jamais de ce libellé. Le lieu n'y figure que tant que la barre
-  // filtre encore sur le lieu reçu, et sur lui seul.
-  const lieuDrillActif =
-    drill.lieu !== '' &&
-    filtres.lieuIds.length === 1 &&
-    filtres.lieuIds[0] === drill.lieu;
+  // filtre encore sur le lieu reçu, et sur lui seul (`setFiltres` vide
+  // `drill.lieu` dès que ce n'est plus le cas).
+  const lieuDrillActif = drill.lieu !== '';
   const lieuNom =
     filtreLabel ??
     options.lieux.find((l) => l.id === drill.lieu)?.nom ??

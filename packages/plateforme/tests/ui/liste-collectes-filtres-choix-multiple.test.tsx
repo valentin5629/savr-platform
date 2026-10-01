@@ -27,6 +27,7 @@ import {
   within,
 } from '@testing-library/react';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 
 const replace = vi.fn();
 let searchParams = new URLSearchParams();
@@ -148,6 +149,7 @@ for (const { module, espace, api, Page } of ESPACES) {
       replace.mockClear();
       searchParams = new URLSearchParams();
       enAttente = null;
+      sessionStorage.clear();
     });
     afterEach(() => {
       cleanup();
@@ -332,25 +334,114 @@ for (const { module, espace, api, Page } of ESPACES) {
       ATTENTE_CAS_MS,
     );
 
+    // Lien RÉEL du drill-down Top lieux du dashboard traiteur : le lieu arrive
+    // avec son périmètre miroir (`perimetre=organisation`, sans contrôle dans la
+    // barre), le statut `cloturee` et la période.
+    const LIEN_TOP_LIEUX =
+      'onglet=historique&lieu=l-gabriel&type=zero_dechet&statut=cloturee&perimetre=organisation&from=2026-01-01&to=2026-06-30';
+
     it(
-      `${module}/liste_${espace}_chip_lieu_tant_que_seul_lieu_filtre — le chip « Filtre actif » du drill-down disparaît dès qu’un autre lieu est coché`,
+      `${module}/liste_${espace}_chip_lieu_tant_que_seul_lieu_filtre — cocher un autre lieu sort du drill-down : plus de chip, plus de périmètre caché`,
       async () => {
-        // Drill-down Top lieux : `?lieu=<id>` pose le chip ET coche le lieu.
-        searchParams = new URLSearchParams('onglet=historique&lieu=l-gabriel');
+        searchParams = new URLSearchParams(LIEN_TOP_LIEUX);
         render(<Page />);
         const chip = await screen.findByTestId('filtre-actif', {}, ATTENTE_UI);
         await waitFor(
           () => expect(chip).toHaveTextContent('Lieu : Pavillon Gabriel'),
           ATTENTE_UI,
         );
-        // La barre ne filtre plus sur ce seul lieu : le chip n'est plus vrai.
+        expect(derniereListe().get('perimetre')).toBe('organisation');
+
+        // La barre ne filtre plus sur ce seul lieu : le chip n'est plus vrai, et
+        // le périmètre qu'il signalait ne doit pas continuer à filtrer en silence.
         await ouvrir('filtre-lieu', 'Carrousel du Louvre');
         cocher('Carrousel du Louvre');
         await waitFor(
           () => expect(screen.queryByTestId('filtre-actif')).toBeNull(),
           ATTENTE_UI,
         );
+        await waitFor(
+          () =>
+            expect(derniereListe().get('lieu_ids')).toBe('l-gabriel,l-louvre'),
+          ATTENTE_UI,
+        );
+        expect(derniereListe().has('perimetre')).toBe(false);
+        expect(derniereUrl().has('perimetre')).toBe(false);
+        // Statut et période, visibles dans la barre, restent posés.
+        expect(derniereListe().get('statut')).toBe('cloturee');
+        expect(derniereListe().get('from')).toBe('2026-01-01');
+      },
+      ATTENTE_CAS_MS,
+    );
+
+    it(
+      `${module}/liste_${espace}_reinitialiser_sort_du_drill_down — « Réinitialiser » lâche aussi le périmètre du drill-down`,
+      async () => {
+        searchParams = new URLSearchParams(LIEN_TOP_LIEUX);
+        render(<Page />);
+        await screen.findByTestId('filtre-actif', {}, ATTENTE_UI);
+        fireEvent.click(screen.getByTestId('collecte-filtres-bar-reset'));
+        await waitFor(
+          () => expect(derniereListe().has('lieu_ids')).toBe(false),
+          ATTENTE_UI,
+        );
+        // Plus aucun filtre visible : plus aucun filtre appliqué, hors onglet et type.
+        expect([...derniereListe().keys()].sort()).toEqual(['statut', 'type']);
+        expect(derniereUrl().has('perimetre')).toBe(false);
+        expect(screen.queryByTestId('filtre-actif')).toBeNull();
+      },
+      ATTENTE_CAS_MS,
+    );
+
+    it(
+      `${module}/liste_${espace}_plusieurs_lieux_au_rechargement — ?lieu=a,b est un filtre, pas un drill-down : le chip du commercial garde son nom`,
+      async () => {
+        setCollecteFiltreLabel({
+          kind: 'commercial',
+          id: 'u-commercial',
+          label: 'Jeanne Martin',
+        });
+        searchParams = new URLSearchParams(
+          'onglet=historique&commercial=u-commercial&lieu=l-gabriel,l-louvre',
+        );
+        render(<Page />);
+        const chip = await screen.findByTestId('filtre-actif', {}, ATTENTE_UI);
+        await waitFor(
+          () => expect(chip).toHaveTextContent('Commercial : Jeanne Martin'),
+          ATTENTE_UI,
+        );
         expect(derniereListe().get('lieu_ids')).toBe('l-gabriel,l-louvre');
+      },
+      ATTENTE_CAS_MS,
+    );
+
+    it(
+      `${module}/liste_${espace}_changement_de_type_conserve_lieux_et_clients — passer en Anti-Gaspi garde les filtres indépendants du type`,
+      async () => {
+        searchParams = new URLSearchParams(
+          'onglet=programmees&lieu=l-gabriel,l-louvre&client=Danone&client=Kering%2C+Paris&info=oui',
+        );
+        render(<Page />);
+        await waitFor(
+          () => expect(derniereListe().get('type')).toBe('zero_dechet'),
+          ATTENTE_UI,
+        );
+        fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
+        await waitFor(
+          () => expect(derniereListe().get('type')).toBe('anti_gaspi'),
+          ATTENTE_UI,
+        );
+        expect(derniereListe().get('lieu_ids')).toBe('l-gabriel,l-louvre');
+        expect(derniereListe().getAll('client')).toEqual([
+          'Danone',
+          'Kering, Paris',
+        ]);
+        expect(derniereListe().get('info_incomplete')).toBe('oui');
+        expect(derniereUrl().get('lieu')).toBe('l-gabriel,l-louvre');
+        expect(derniereUrl().getAll('client')).toEqual([
+          'Danone',
+          'Kering, Paris',
+        ]);
       },
       ATTENTE_CAS_MS,
     );

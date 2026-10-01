@@ -199,7 +199,7 @@ describe('M3.1 / liste Collectes traiteur — filtres à choix multiple (route)'
 
   it('M3.1/liste_filtres_tout_invalide_jamais_de_in_vide — aucune valeur valide = aucun filtre', async () => {
     await callListe(
-      'type=zero_dechet&lieu_ids=pas-un-uuid&statut=inconnu&programmee_par=x&client=',
+      'type=zero_dechet&lieu_ids=pas-un-uuid&statut=inconnu&programmee_par=x&client=&client=%20',
     );
     // Un `.in(colonne, [])` rendrait une liste vide ; ici le filtre disparaît.
     expect(predicats(rls, 'collectes')).toEqual(['eq:type="zero_dechet"']);

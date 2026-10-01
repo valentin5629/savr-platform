@@ -37,10 +37,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const type = searchParams.get('type'); // 'zero_dechet' | 'anti_gaspi'
   const from = searchParams.get('from');
   const to = searchParams.get('to');
-  // Filtre « Client Organisateur » : keyé sur le NOM (evenements.nom_client_organisateur),
-  // obligatoire à la confirmation d'une programmation, et non sur
-  // client_organisateur_organisation_id qui est un rattachement réservé Admin
-  // (NULL sur les événements programmés par un traiteur) — cf. route /filtres.
   const filtres = lireFiltresListeCollectes(searchParams);
   // Drill-down « Top 5 commerciaux » du dashboard → filtre sur le commercial
   // créateur (evenements.created_by). Reste scopé org par la RLS col_select.
@@ -92,6 +88,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     query = query.eq('evenements.organisation_id', auth.ctx.organisationId);
   if (associationId)
     query = query.eq('attributions_antgaspi.association_id', associationId);
+  // « Client Organisateur » : keyé sur le NOM (evenements.nom_client_organisateur),
+  // obligatoire à la confirmation d'une programmation, et non sur
+  // client_organisateur_organisation_id qui est un rattachement réservé Admin
+  // (NULL sur les événements programmés par un traiteur) — cf. route /filtres.
   if (filtres.clients.length > 0)
     query = query.filter(
       'evenements.nom_client_organisateur',

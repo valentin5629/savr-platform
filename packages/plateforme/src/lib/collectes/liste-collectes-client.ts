@@ -76,11 +76,13 @@ export function enrichirLignesCollectes(
 }
 
 /**
- * Filtres de la barre des listes Collectes traiteur / agence (§06.04 §3
+ * Filtres de la BARRE des listes Collectes traiteur / agence (§06.04 §3
  * « Filtres disponibles ») — UNE lecture pour les deux routes et pour l'export
- * CSV, qui doit rendre les lignes de la liste affichée (§12). Tous à choix
- * multiple (décision Val 2026-09-30) ; une valeur invalide est écartée, une
- * liste vide ne pose aucun filtre.
+ * CSV, qui applique ainsi les filtres de la barre comme la liste (§12). Les
+ * paramètres de drill-down (commercial_id, association_id, perimetre) n'en
+ * font pas partie : l'export les ignore. Tous à choix multiple (décision Val
+ * 2026-09-30) ; une valeur invalide est écartée, une liste vide ne pose aucun
+ * filtre.
  *  - `lieu_ids` (CSV d'UUID) ; l'ancien `lieu_id` est lu comme une liste d'un
  *    élément ;
  *  - `client` RÉPÉTÉ : ce sont des noms saisis à la main, une virgule y est
@@ -96,7 +98,7 @@ export function lireFiltresListeCollectes(sp: URLSearchParams) {
       parmi(Constants.plateforme.Enums.collecte_statut),
     ),
     lieuIds: listeCsv(sp.get('lieu_ids') ?? sp.get('lieu_id'), estUuid),
-    clients: sp.getAll('client').filter(Boolean),
+    clients: sp.getAll('client').filter((nom) => nom.trim()),
     informationsCompletes:
       info === 'oui' ? false : info === 'non' ? true : null,
     programmeePar: listeCsv(sp.get('programmee_par'), estUuid),

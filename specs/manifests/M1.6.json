@@ -78,10 +78,12 @@
     "vitest": [
       "packages/plateforme/tests/api/pdf-worker.m1-6.test.ts (8 tests)",
       "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts (5 tests)",
-      "packages/plateforme/tests/api/batch-pdf-j1-observabilite.m1-6.test.ts (11 tests)"
+      "packages/plateforme/tests/api/batch-pdf-j1-observabilite.m1-6.test.ts (11 tests)",
+      "packages/shared/src/seed/template-rapport-disponible.m1-6.test.ts (6 tests)"
     ],
     "pgtap": [
-      "supabase/tests/m1_6_pdf_batch.test.sql (14 assertions)"
+      "supabase/tests/m1_6_pdf_batch.test.sql (14 assertions)",
+      "supabase/tests/email_template_rapport_disponible.test.sql (5 assertions)"
     ]
   },
   "hors_scope": [
@@ -274,10 +276,19 @@
       "test": "supabase/tests/m1_6_rapport_benchmark.test.sql (pgTAP : f_rapport_benchmark_zd grain flux + k-anonymat ; f_taux_recyclage_moyen_parc gate ≥3 ; service_role only)",
       "statut": "implemented",
       "libelle": "2 fonctions SECURITY DEFINER service-role : f_rapport_benchmark_zd (wrapper grain collecte de f_benchmark_kg_pax_zd, sans garde JWT) + f_taux_recyclage_moyen_parc (moyenne parc anonymisée ≥3). REVOKE PUBLIC, GRANT service_role."
+    },
+    {
+      "id": "M1.6-email-rapport-disponible",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:133",
+      "artefact": "supabase/migrations/20261002100000_plateforme_email_template_rapport_disponible.sql + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (étape 10) + packages/shared/src/seed/constants.ts",
+      "test": "envoi_rapport_disponible_apres_batch_j1 + M1.6/seed_slug_rapport_disponible_pas_bordereau + supabase/tests/email_template_rapport_disponible.test.sql",
+      "statut": "implemented",
+      "libelle": "Email rapport post-collecte ZD (§06.02 §6) : slug `rapport_disponible` en base (ex `bordereau_disponible`, divergence M1.6 tranchée Val 2026-09-14), objet/corps/variables du CDC, batch J+1 → organisations.email_principal avec exactement prenom, date_collecte, lieu_nom, poids_total, co2_evite, taux_recyclage, lien_rapport."
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "e718bf8778bbecddcedda53f29fc7b94bd012ba43e1f951841254578dfdd5c1d"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "e718bf8778bbecddcedda53f29fc7b94bd012ba43e1f951841254578dfdd5c1d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "f3dadaa9a7279e120c3d190395420044f968a7b69d1ac324222924453e57ae99"
   }
 }

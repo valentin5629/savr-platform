@@ -20,6 +20,11 @@ import type {
 } from './mock.js';
 import { _getMts1Handlers } from './mock.js';
 
+// Point de dépôt (B) d'un stuff : favoritePlace MTS-1 ou adresse inline.
+export type PointLivraison =
+  | { placeId: string }
+  | { address: { addressSingleLine: string } };
+
 export interface CreateOrderPayload {
   orderNumber: string;
   orderDate: string;
@@ -50,9 +55,7 @@ export interface CreateOrderPayload {
     name: string;
     task: string;
     quantity: number;
-    relatedAddress?:
-      | { placeId: string }
-      | { address: { addressSingleLine: string } };
+    relatedAddress?: PointLivraison;
   }>;
   // Instructions logistiques libres transmises au prestataire (M01/M03/M05).
   // MTS-1 as-built §3bis.5 l.389 : `comment` ← collectes.informations_supplementaires.

@@ -403,7 +403,10 @@ describe('A Toutes! — mission refusée puis réattribuée', () => {
     });
 
     await new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
-      collecte({ type: 'anti_gaspi' }),
+      collecte({
+        type: 'anti_gaspi',
+        association_adresse: '12 rue des Associations, Ivry-sur-Seine',
+      }),
       1,
     );
 

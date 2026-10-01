@@ -1097,6 +1097,7 @@ export type Database = {
           statut_tms_at: string | null
           taux_recyclage: number | null
           tms_reference: string | null
+          type_vehicule_souhaite: Database["plateforme"]["Enums"]["type_vehicule"] | null
           type: Database["plateforme"]["Enums"]["collecte_type"]
           updated_at: string
           volume_estime_repas: number | null
@@ -1142,6 +1143,7 @@ export type Database = {
           statut_tms_at?: string | null
           taux_recyclage?: number | null
           tms_reference?: string | null
+          type_vehicule_souhaite?: Database["plateforme"]["Enums"]["type_vehicule"] | null
           type: Database["plateforme"]["Enums"]["collecte_type"]
           updated_at?: string
           volume_estime_repas?: number | null
@@ -1187,6 +1189,7 @@ export type Database = {
           statut_tms_at?: string | null
           taux_recyclage?: number | null
           tms_reference?: string | null
+          type_vehicule_souhaite?: Database["plateforme"]["Enums"]["type_vehicule"] | null
           type?: Database["plateforme"]["Enums"]["collecte_type"]
           updated_at?: string
           volume_estime_repas?: number | null

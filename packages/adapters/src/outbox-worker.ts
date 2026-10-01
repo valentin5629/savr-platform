@@ -25,6 +25,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { sendAlert } from '@savr/shared/src/alerting/slack.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
 import {
@@ -65,9 +66,14 @@ interface CollecteRow {
   contact_secours_nom: string | null;
   contact_secours_telephone: string | null;
   prestataire_logistique_id: string | null;
-  // AG uniquement (BL-P1-API-02) — placeId favori MTS-1 de l'association
-  // destinataire, résolu via attributions_antgaspi → associations.
+  type_vehicule_souhaite: string | null;
+  // AG uniquement (BL-P1-API-02) — association destinataire (point B), résolue
+  // via attributions_antgaspi → associations : placeId favori MTS-1 + adresse
+  // postale (adresse inline MTS-1 sans point favori, dropoff Everest).
   association_id_point_collecte_mts1: string | null;
+  association_adresse: string | null;
+  association_contact_nom: string | null;
+  association_contact_telephone: string | null;
   lieux: {
     id: string;
     nom: string;
@@ -532,12 +538,19 @@ async function fetchCollecte(
   // BL-P1-API-02 — lieu de dépôt AG : l'association destinataire est attribuée
   // APRÈS la création de la collecte (§08 l.154), donc connue au moment où le
   // worker consomme `collecte.creee` émis par la cascade d'attribution (R5). On
-  // résout son point favori MTS-1 (associations.id_point_collecte_mts1) via la
-  // dernière attribution_antgaspi. ZD = jamais d'association → NULL.
-  let idPointCollecteMts1: string | null = null;
-  if (raw.type === 'anti_gaspi') {
-    idPointCollecteMts1 = await fetchIdPointCollecteMts1(supabase, raw.id);
-  }
+  // résout son point favori MTS-1 (associations.id_point_collecte_mts1) ET son
+  // adresse postale via la dernière attribution_antgaspi : c'est l'adresse de
+  // livraison transmise au prestataire (décision Val 2026-10-01 — l'association
+  // est choisie AVANT le prestataire). ZD = jamais d'association → NULL.
+  const association =
+    raw.type === 'anti_gaspi'
+      ? await fetchAssociationDestinataire(supabase, raw.id)
+      : null;
+
+  // Véhicule souhaité par l'Admin (migration 20261001213000) : lu à part et
+  // TOLÉRANT à l'absence de la colonne — le code peut être déployé avant la
+  // migration sans transformer chaque event en « collecte introuvable » → dead.
+  const typeVehiculeSouhaite = await lireTypeVehiculeSouhaite(supabase, raw.id);
 
   return {
     id: raw.id,
@@ -555,14 +568,27 @@ async function fetchCollecte(
     // Le nom du contact de secours y est joint (arbitrage Val 2026-09-14) : son
     // téléphone part nativement (`phoneAlternatives` MTS-1), son nom n'a aucun
     // champ d'accueil chez MTS-1 comme chez Everest.
+    // Le véhicule souhaité par l'Admin (type + nombre) emprunte le même canal :
+    // aucun champ natif MTS-1/Everest en V1 (décision Val 2026-10-01).
     informations_supplementaires: composerInformationsSupplementaires(
       lieu,
       raw.informations_supplementaires,
       evt.contact_secours_nom,
+      {
+        type: typeVehiculeSouhaite,
+        nombre: raw.nb_camions_demande,
+      },
     ),
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
-    association_id_point_collecte_mts1: idPointCollecteMts1,
+    type_vehicule_souhaite: typeVehiculeSouhaite,
+    association_id_point_collecte_mts1:
+      association?.id_point_collecte_mts1 ?? null,
+    association_adresse: association
+      ? `${association.adresse}, ${association.ville}`
+      : null,
+    association_contact_nom: association?.contact_nom ?? null,
+    association_contact_telephone: association?.contact_telephone ?? null,
     contact_principal_nom: evt.contact_principal_nom,
     contact_principal_telephone: evt.contact_principal_telephone,
     contact_secours_nom: evt.contact_secours_nom,
@@ -571,28 +597,64 @@ async function fetchCollecte(
   };
 }
 
-// BL-P1-API-02 — résout le placeId favori MTS-1 du lieu de dépôt d'une collecte AG
-// (associations.id_point_collecte_mts1) via son attribution. `collecte_id` est
-// UNIQUE sur attributions_antgaspi (≤ 1 ligne) → maybeSingle, même pattern que
-// l'adapter Everest resolveServiceId. Une association sans point favori
-// (id_point_collecte_mts1 NULL) ⇒ pas de deliveryPlace.
-async function fetchIdPointCollecteMts1(
+// `collectes.type_vehicule_souhaite` — null si non précisé OU si la colonne
+// n'existe pas encore (42703 / PGRST204 : migration non appliquée) : tracé en
+// warn, jamais bloquant — la commande part sans la ligne « Véhicule souhaité ».
+async function lireTypeVehiculeSouhaite(
   supabase: SupabaseClient,
   collecteId: string,
 ): Promise<string | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
+    .from('collectes')
+    .select('type_vehicule_souhaite')
+    .eq('id', collecteId)
+    .maybeSingle();
+  if (error) {
+    logger.warn('outbox.type_vehicule_souhaite_illisible', {
+      collecte_id: collecteId,
+      error_code: error.code ?? null,
+    });
+    return null;
+  }
+  return (
+    (data as { type_vehicule_souhaite?: string | null } | null)
+      ?.type_vehicule_souhaite ?? null
+  );
+}
+
+// BL-P1-API-02 — association destinataire d'une collecte AG (point B) via son
+// attribution (`collecte_id` UNIQUE → maybeSingle). Aucune attribution → null
+// (l'adapter refuse) ; lecture en échec → Transient (jamais confondue avec
+// « pas d'association », sinon un blip PostgREST tuerait l'event).
+interface AssociationDestinataireRow {
+  id_point_collecte_mts1: string | null;
+  adresse: string;
+  ville: string;
+  contact_nom: string | null;
+  contact_telephone: string | null;
+}
+
+async function fetchAssociationDestinataire(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<AssociationDestinataireRow | null> {
+  const { data, error } = await supabase
     .from('attributions_antgaspi')
-    .select('associations:association_id(id_point_collecte_mts1)')
+    .select(
+      'associations:association_id(id_point_collecte_mts1, adresse, ville, contact_nom, contact_telephone)',
+    )
     .eq('collecte_id', collecteId)
     .maybeSingle();
 
+  if (error) {
+    throw new LogistiqueTransientError(
+      `lecture attribution AG ${collecteId} : ${error.message}`,
+    );
+  }
   if (!data) return null;
   const assoc = (data as { associations?: unknown }).associations;
   const row = Array.isArray(assoc) ? assoc[0] : assoc;
-  return (
-    (row as { id_point_collecte_mts1?: string | null } | null)
-      ?.id_point_collecte_mts1 ?? null
-  );
+  return (row as AssociationDestinataireRow | null | undefined) ?? null;
 }
 
 async function fetchTransporteur(
@@ -644,11 +706,15 @@ function toCollecte(row: CollecteRow): Collecte {
     controle_acces_requis: row.controle_acces_requis,
     informations_supplementaires: row.informations_supplementaires,
     notes_internes: row.notes_internes,
+    type_vehicule_souhaite: row.type_vehicule_souhaite,
     contact_principal_nom: row.contact_principal_nom,
     contact_principal_telephone: row.contact_principal_telephone,
     contact_secours_nom: row.contact_secours_nom,
     contact_secours_telephone: row.contact_secours_telephone,
     association_id_point_collecte_mts1: row.association_id_point_collecte_mts1,
+    association_adresse: row.association_adresse,
+    association_contact_nom: row.association_contact_nom,
+    association_contact_telephone: row.association_contact_telephone,
     lieu: row.lieux,
   };
 }

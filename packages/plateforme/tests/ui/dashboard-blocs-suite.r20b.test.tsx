@@ -1,7 +1,7 @@
 /**
  * R20b — Blocs §11 restants montés sur les 3 rôles (traiteur M3.1, agence M3.3,
- * gestionnaire M3.2). Vérifie que les SECTIONS Bloc 5 (prochaines) / Bloc 6 (top
- * lieux) / Bloc 7 (top acteurs) / Bloc 3 AG (associations) sont montées au bon
+ * gestionnaire M3.2). Vérifie que les SECTIONS Bloc 6 (top lieux) / Bloc 7 (top
+ * acteurs) / Bloc 3 AG (associations) sont montées au bon
  * endroit, conditionnées par rôle (Bloc 7 retiré agence) et par onglet, et que le
  * Bloc 3 ZD traiteur/agence est le VRAI benchmark (encart « Filtres benchmark »),
  * plus le stub. Les fetch et les graphes lazy sont mockés.
@@ -79,19 +79,6 @@ const CO2_METHODE = {
 
 function blocsZd(overrides: Record<string, unknown> = {}) {
   return {
-    prochaines: [
-      {
-        id: 'p1',
-        evenement_id: 'e1',
-        date_collecte: '2026-07-10',
-        heure_collecte: '14:30:00',
-        statut: 'programmee',
-        evenement_nom: 'Gala',
-        lieu_nom: 'Lieu Z',
-        traiteur_id: 't1',
-        traiteur_nom: 'Traiteur Un',
-      },
-    ],
     topLieux: [
       {
         lieu_id: 'A',
@@ -123,7 +110,6 @@ function blocsZd(overrides: Record<string, unknown> = {}) {
 
 function blocsAg(overrides: Record<string, unknown> = {}) {
   return {
-    prochaines: [],
     topLieux: [
       {
         lieu_id: 'A',
@@ -327,19 +313,17 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       useTraiteurFetch(payloadAg(blocsAg()));
       renderTraiteur(blocsZd());
       expect(
-        await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI),
+        await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(screen.getByTestId('bloc-6-top-lieux')).toBeInTheDocument();
       expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
+      // Bloc 5 « Prochaines collectes » retiré des dashboards (décision Val
+      // 2026-10-01) : l'information se lit dans l'onglet Collectes.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
       // Bloc 3 ZD = VRAI benchmark (encart « Filtres benchmark », ligne
       // « Comparer avec » depuis 2026-09-30), pas le stub R20a.
       expect(screen.getByText('Comparer avec')).toBeInTheDocument();
       // Variante 4 dimensions : pas de filtre « Traiteurs » (compétitif §06.04 l.143).
       expect(screen.queryByTestId('benchmark-filter-traiteurs')).toBeNull();
-      // Prochaines : événement rendu + lien vers la fiche collecte.
-      // Data Table : la ligne existe en tableau ET en carte mobile → 1er lien.
-      const lien = screen.getAllByRole('link', { name: 'Gala' })[0];
-      expect(lien).toHaveAttribute('href', '/traiteur/collectes/p1');
       // Colonnes CDC §06.04 Bloc 6 (Nb collectes + Taux de recyclage) préservées
       // dans le libellé secondaire Cockpit (R24 — pas seulement le tonnage).
       expect(
@@ -354,7 +338,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     async () => {
       useTraiteurFetch(payloadAg(blocsAg()));
       renderTraiteur(blocsZd());
-      await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+      await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
         await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
       );
@@ -370,6 +354,8 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       // Colonnes CDC §06.04 Bloc 3 AG (Ville + Nb collectes) préservées (secondary).
       expect(screen.getByText(/Paris · 2 collectes/)).toBeInTheDocument();
       expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
+      // Onglet AG : le Bloc 5 « Prochaines collectes » est retiré lui aussi.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -415,7 +401,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       // une navigation (invariant R24). payloadAg porte co2_evite_kg = 300 > 0.
       useTraiteurFetch(payloadAg(blocsAg()));
       renderTraiteur(blocsZd());
-      await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+      await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
         await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
       );
@@ -458,7 +444,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       };
       useTraiteurFetch(agZero);
       renderTraiteur(blocsZd());
-      await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+      await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
         await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
       );
@@ -484,11 +470,13 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
       useFetch(blocsZd());
       render(<AgenceDashboardPage />);
       expect(
-        await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI),
+        await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(screen.getByTestId('bloc-6-top-lieux')).toBeInTheDocument();
       // Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8).
       expect(screen.queryByTestId('bloc-7-top-acteurs')).toBeNull();
+      // Bloc 5 « Prochaines collectes » retiré des dashboards (décision Val
+      // 2026-10-01) : l'information se lit dans l'onglet Collectes.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
       // Bloc 3 ZD benchmark réel présent (parité §06.04). R24c : l'agence est
       // passée au benchmark Cockpit (BenchmarkRadar + filtres imbriqués),
       // l'encart porte donc l'amorce « Comparer avec » (parité traiteur).
@@ -502,7 +490,7 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
     async () => {
       useFetch(blocsAg());
       render(<AgenceDashboardPage />);
-      await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+      await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
         await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
       );
@@ -514,28 +502,46 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
         ),
       ).toBeInTheDocument();
       expect(screen.queryByTestId('bloc-7-top-acteurs')).toBeNull();
+      // Onglet AG : le Bloc 5 « Prochaines collectes » est retiré lui aussi.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
 });
 
-describe('M3.2 / gestionnaire — top traiteurs + colonne Traiteur', () => {
+describe('M3.2 / gestionnaire — top traiteurs', () => {
   it(
-    'M3.2/blocs_gestionnaire_zd_prochaines_colonne_traiteur',
+    'M3.2/blocs_gestionnaire_zd_top_traiteurs_sans_prochaines',
     async () => {
-      useFetch(blocsZd());
+      // Contrat serveur côté gestionnaire : les acteurs du Bloc 7 sont des
+      // traiteurs (nom résolu via v_referentiel_traiteurs), pas des commerciaux.
+      useFetch(
+        blocsZd({
+          acteurLabel: 'Traiteur',
+          topActeurs: [
+            {
+              id: 't1',
+              label: 'Traiteur Un',
+              nb_collectes: 2,
+              tonnage_kg: 400,
+              taux_recyclage: 75,
+              repas_donnes: null,
+              repas_par_pax: null,
+            },
+          ],
+        }),
+      );
       render(<GestionnaireDashboardPage />);
       expect(
-        await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI),
+        await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // Bloc 5 gestionnaire : colonne « Traiteur » (§06.05 l.194) + valeur résolue.
-      expect(
-        screen.getByRole('columnheader', { name: 'Traiteur' }),
-      ).toBeInTheDocument();
-      // Data Table : valeur rendue en tableau ET en carte mobile.
-      expect(screen.getAllByText('Traiteur Un').length).toBeGreaterThan(0);
-      // Bloc 7 = top traiteurs.
+      // Bloc 7 = top traiteurs : titre propre au rôle + nom du traiteur rendu.
       expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
+      expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();
+      expect(screen.getByText('Traiteur Un')).toBeInTheDocument();
+      // Bloc 5 « Prochaines collectes » retiré des dashboards (décision Val
+      // 2026-10-01) : l'information se lit dans l'onglet Collectes.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
       // Colonnes §06.05 Bloc 6 (Nb collectes + Taux) préservées dans le libellé
       // secondaire Cockpit côté gestionnaire (parité avec le traiteur).
       expect(
@@ -550,7 +556,7 @@ describe('M3.2 / gestionnaire — top traiteurs + colonne Traiteur', () => {
     async () => {
       useFetch(blocsAg());
       render(<GestionnaireDashboardPage />);
-      await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+      await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
         await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
       );
@@ -561,6 +567,8 @@ describe('M3.2 / gestionnaire — top traiteurs + colonne Traiteur', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+      // Onglet AG : le Bloc 5 « Prochaines collectes » est retiré lui aussi.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

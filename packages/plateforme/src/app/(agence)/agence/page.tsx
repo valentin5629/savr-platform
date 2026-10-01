@@ -8,7 +8,6 @@ import {
   DashboardFilterBar,
   BenchmarkFilterBar,
   EmptyDashboardState,
-  ProchainesCollectesBloc,
   ExportSyntheseBloc,
   FLUX_ZD,
   useEvolutionBlocs,
@@ -87,7 +86,7 @@ export default function AgenceDashboardPage() {
     credits_restants?: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  // Blocs §11 partagés (5 prochaines / 6 top lieux / 3 AG associations + kg/pax
+  // Blocs §11 partagés (6 top lieux / 3 AG associations + kg/pax
   // par flux). Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8).
   const [blocs, setBlocs] = useState<BlocsData | null>(null);
   const [benchmarkFilters, setBenchmarkFilters] =
@@ -128,7 +127,7 @@ export default function AgenceDashboardPage() {
       .then((j) => setPack(j));
   }, [tab]);
 
-  // Blocs 5/6/3AG + kg/pax par flux (§11) — endpoint partagé, périmètre org.
+  // Blocs 6/3AG + kg/pax par flux (§11) — endpoint partagé, périmètre org.
   useEffect(() => {
     if (!filters) return;
     const qs = new URLSearchParams({
@@ -344,12 +343,6 @@ export default function AgenceDashboardPage() {
             </div>
           </div>
 
-          {/* Bloc 5 — Prochaines collectes (§06.11 hérite §06.04 Bloc 5) */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            hrefFor={(c) => `/agence/collectes/${c.id}`}
-          />
-
           {/* Bloc 8 — Export synthèse PDF (§06.11 réplique stricte §06.04, R20b-2) */}
           <ExportSyntheseBloc filters={filters} tab={tab} />
         </>
@@ -442,12 +435,6 @@ export default function AgenceDashboardPage() {
               />
             </div>
           </div>
-
-          {/* Bloc 5 — Prochaines collectes */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            hrefFor={(c) => `/agence/collectes/${c.id}`}
-          />
 
           {/* Bloc 8 — Export synthèse PDF */}
           <ExportSyntheseBloc filters={filters} tab={tab} />

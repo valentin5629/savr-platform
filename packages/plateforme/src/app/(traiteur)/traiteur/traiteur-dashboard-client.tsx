@@ -8,7 +8,6 @@ import {
   DashboardFilterBar,
   BenchmarkFilterBar,
   EmptyDashboardState,
-  ProchainesCollectesBloc,
   ExportSyntheseBloc,
   FLUX_ZD,
   type CollecteType,
@@ -534,12 +533,6 @@ export function TraiteurDashboardClient({
             )}
           </div>
 
-          {/* Bloc 5 — Prochaines collectes */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            hrefFor={(c) => `/traiteur/collectes/${c.id}`}
-          />
-
           {/* Bloc 8 — Export synthèse PDF */}
           <ExportSyntheseBloc filters={filters} tab={tab} />
         </>
@@ -700,12 +693,6 @@ export function TraiteurDashboardClient({
               />
             </div>
           )}
-
-          {/* Bloc 5 — Prochaines collectes */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            hrefFor={(c) => `/traiteur/collectes/${c.id}`}
-          />
 
           {/* Bloc 8 — Export synthèse PDF */}
           <ExportSyntheseBloc filters={filters} tab={tab} />

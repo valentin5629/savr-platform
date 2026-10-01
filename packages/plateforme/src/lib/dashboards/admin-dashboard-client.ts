@@ -34,7 +34,6 @@ import {
   type LieuRow,
   type ActeurRow,
   type AssociationRow,
-  type ProchaineCollecteRow,
   type EvolutionResult,
   type Co2Methode,
 } from '@/lib/dashboards/loaders.js';
@@ -44,13 +43,9 @@ import {
   type FacteursCo2,
   type TraiteurKpiRow,
 } from '@/lib/dashboards/cockpit-derive.js';
-import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 
 type AdminDbClient = ReturnType<typeof createAdminSupabaseClient>;
-
-const STATUTS_A_VENIR = ['programmee', 'validee', 'en_cours'] as const;
-const PROCHAINES_FENETRE_JOURS = 30;
 
 export interface AdminDashboardClientParams {
   type: DashboardCollecteType;
@@ -78,7 +73,6 @@ export interface AdminDashboardClientPayload {
     topActeurs: ActeurRow[];
     acteurLabel: 'Traiteur';
     topAssociations: AssociationRow[] | null;
-    prochaines: ProchaineCollecteRow[];
   };
 }
 
@@ -89,11 +83,6 @@ const SELECT_HISTORIQUE = `id, type, taux_recyclage, date_collecte,
    collecte_flux(poids_reel_kg, flux_dechets(code)),
    attributions_antgaspi(volume_repas_realise, association_id,
      associations!association_id(id, nom, ville))`;
-
-const SELECT_PROCHAINES = `id, date_collecte, heure_collecte, statut, type,
-   evenements!inner(id, nom_evenement, lieu_id, pax, organisation_id,
-     type_evenement_id, traiteur_operationnel_organisation_id, created_by,
-     lieux!inner(id, nom))`;
 
 // Les ids d'org sont interpolés dans une chaîne de filtre `.or()` PostgREST (non
 // paramétrée). Ils viennent d'un staff authentifié qui voit déjà tout — donc pas
@@ -128,7 +117,7 @@ async function orgNames(
 
 /**
  * Charge le dashboard Admin Client complet (KPI + kg/pax par flux + évolution +
- * blocs top/prochaines) pour un onglet donné, scopé au périmètre d'organisations.
+ * blocs top) pour un onglet donné, scopé au périmètre d'organisations.
  * `organisationIds` vide = agrégation sur la totalité des collectes Savr.
  */
 export async function loadAdminDashboardClient(
@@ -187,36 +176,15 @@ export async function loadAdminDashboardClient(
   if (from) qHist = qHist.gte('date_collecte', from);
   if (to) qHist = qHist.lte('date_collecte', to);
 
-  // ── Prochaines (Bloc 5, fenêtre 30 j) ───────────────────────────────────────
-  // Fenêtre en jours CALENDAIRES parisiens : `setDate` sur une Date ajoutait
-  // 30 × 24 h à un instant, donc la borne haute tombait la veille dès que
-  // l'appel avait lieu en soirée ou traversait un changement d'heure.
-  const aujourdhui = jourParis();
-  const dans30j = decalerJour(aujourdhui, PROCHAINES_FENETRE_JOURS);
-  let qProch = admin
-    .from('collectes')
-    .select(SELECT_PROCHAINES)
-    .eq('type', type)
-    .in('statut', [...STATUTS_A_VENIR])
-    .gte('date_collecte', aujourdhui)
-    .lte('date_collecte', dans30j);
-  qProch = applyScope(qProch as never) as typeof qProch;
-  // Tri (date puis heure) fait en JS après lecture — la liste « prochaines » est
-  // bornée à 30 jours, l'ordre serveur n'apporte rien et évite un chaînage
-  // `.order()` sensible.
-
   // La vue (requête lourde) + facteurs/méthode CO₂ (clients service_role séparés,
   // constantes ADEME globales) sont indépendants → lancés en parallèle.
-  const [histRes, prochRes, facteursCo2, co2Methode] = await Promise.all([
+  const [histRes, facteursCo2, co2Methode] = await Promise.all([
     qHist,
-    qProch,
     lireFacteursCo2(),
     lireMethodeCo2(),
   ]);
   if (histRes.error)
     throw erreurInterne(histRes.error, 'admin.dashboard_client.historique');
-  if (prochRes.error)
-    throw erreurInterne(prochRes.error, 'admin.dashboard_client.prochaines');
 
   // Filtre taille (pax) en JS — parité §06.05.
   const tailleOk = (evt: { pax?: number | null } | null): boolean => {
@@ -257,57 +225,13 @@ export async function loadAdminDashboardClient(
   const kgParPaxParFlux =
     type === 'zero_dechet' ? kgParPaxParFluxFrom(histRows) : {};
 
-  // Prochaines → objets front + résolution des noms de traiteur.
-  interface ProchEvt {
-    id: string;
-    nom_evenement: string | null;
-    pax: number | null;
-    traiteur_operationnel_organisation_id: string | null;
-    lieux: { nom: string } | { nom: string }[] | null;
-  }
-  interface ProchRow {
-    id: string;
-    date_collecte: string;
-    heure_collecte: string | null;
-    statut: string;
-    evenements: ProchEvt | ProchEvt[] | null;
-  }
-  const prochaines: ProchaineCollecteRow[] = (
-    (prochRes.data ?? []) as unknown as ProchRow[]
-  )
-    .filter((c) => tailleOk(firstOf(c.evenements)))
-    .map((c) => {
-      const evt = firstOf(c.evenements);
-      const lieu = firstOf(evt?.lieux ?? null);
-      return {
-        id: c.id,
-        evenement_id: evt?.id ?? null,
-        date_collecte: c.date_collecte,
-        heure_collecte: c.heure_collecte,
-        statut: c.statut,
-        evenement_nom: evt?.nom_evenement ?? null,
-        lieu_nom: lieu?.nom ?? null,
-        traiteur_id: evt?.traiteur_operationnel_organisation_id ?? null,
-        traiteur_nom: null as string | null,
-      };
-    })
-    .sort((a, b) => {
-      const d = (a.date_collecte ?? '').localeCompare(b.date_collecte ?? '');
-      return d !== 0
-        ? d
-        : (a.heure_collecte ?? '').localeCompare(b.heure_collecte ?? '');
-    });
-
-  // Résolution des noms de traiteur (top acteurs + prochaines) — service_role.
-  const traiteurIdsAResoudre = [
-    ...topActeurs.map((a) => a.id),
-    ...prochaines.map((p) => p.traiteur_id).filter((x): x is string => !!x),
-  ];
-  const noms = await orgNames(admin, traiteurIdsAResoudre);
+  // Résolution des noms de traiteur (top acteurs) — service_role.
+  const noms = await orgNames(
+    admin,
+    topActeurs.map((a) => a.id),
+  );
   for (const a of topActeurs)
     a.label = noms.get(a.id) || 'Traiteur hors référentiel';
-  for (const p of prochaines)
-    p.traiteur_nom = p.traiteur_id ? (noms.get(p.traiteur_id) ?? null) : null;
 
   return {
     kpi,
@@ -321,7 +245,6 @@ export async function loadAdminDashboardClient(
       topActeurs,
       acteurLabel: 'Traiteur',
       topAssociations,
-      prochaines,
     },
   };
 }

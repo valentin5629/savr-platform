@@ -226,6 +226,10 @@ export function EnTeteMention({ children }: { children: React.ReactNode }) {
   return <span className="text-[13px] text-savr-neutral-500">{children}</span>;
 }
 
+// Onglet de la barre horizontale des fiches collecte : cible tactile de 44 px
+// sur mobile, 40 px au-delà (DS §10).
+export const ONGLET_FICHE = 'h-11 px-3 sm:h-10 sm:px-4';
+
 // Onglet horizontal des fiches Admin (transporteur, lieu, association) portant le nombre de
 // ses champs qui bloquent l'enregistrement : pastille rouge + nom accessible
 // « … (N champs à corriger) ». `ref` sert à y poser le focus à l'échec.

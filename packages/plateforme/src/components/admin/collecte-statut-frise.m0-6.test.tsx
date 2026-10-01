@@ -6,6 +6,14 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { CollecteStatutFrise } from './collecte-statut-frise';
 
+const ETAPES_ADMIN = [
+  'Programmée',
+  'Validée',
+  'En cours',
+  'Réalisée',
+  'Clôturée',
+];
+
 function etapeCourante(): HTMLElement | null {
   return (
     within(screen.getByRole('list', { name: 'Avancement de la collecte' }))
@@ -39,12 +47,20 @@ describe('M0.6 — CollecteStatutFrise (frise de la fiche collecte Admin)', () =
   });
 
   it.each([
+    ['annulation_demandee', 'Annulation demandée'],
     ['annulee', 'Annulée'],
     ['rejetee_par_prestataire', 'Rejetée'],
     ['brouillon', 'Créée'],
-  ])('%s : aucune étape courante, statut réel en badge', (statut, libelle) => {
-    render(<CollecteStatutFrise statut={statut} />);
-    expect(etapeCourante()).toBeNull();
-    expect(screen.getByText(libelle)).toBeInTheDocument();
-  });
+  ])(
+    '%s : aucune étape courante, frise estompée, statut réel en badge',
+    (statut, libelle) => {
+      render(<CollecteStatutFrise statut={statut} />);
+      expect(etapeCourante()).toBeNull();
+      // Les 5 étapes sont estompées (aucune passée, aucune courante).
+      for (const etape of ETAPES_ADMIN) {
+        expect(screen.getByText(etape).className).toMatch(/\bopacity-60\b/);
+      }
+      expect(screen.getByText(libelle)).toBeInTheDocument();
+    },
+  );
 });

@@ -31,6 +31,7 @@ import {
   BadgeTypeCollecte,
   EnTeteMention,
   FicheEnTete,
+  ONGLET_FICHE,
   typeCollecteLabel,
 } from '@/components/collecte/fiche-blocs';
 import { refCourteCollecte } from '@/lib/collecte-ref';
@@ -326,13 +327,13 @@ export function FicheCollecteClientPanel({
               aria-label="Sections de la fiche collecte"
               className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
             >
-              <TabsTrigger value="informations" className="px-3 sm:px-4">
+              <TabsTrigger value="informations" className={ONGLET_FICHE}>
                 Informations
               </TabsTrigger>
-              <TabsTrigger value="logistique" className="px-3 sm:px-4">
+              <TabsTrigger value="logistique" className={ONGLET_FICHE}>
                 Logistique
               </TabsTrigger>
-              <TabsTrigger value="bilan" className="px-3 sm:px-4">
+              <TabsTrigger value="bilan" className={ONGLET_FICHE}>
                 Bilan & documents
               </TabsTrigger>
             </TabsList>

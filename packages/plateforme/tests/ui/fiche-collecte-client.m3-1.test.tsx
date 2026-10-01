@@ -169,6 +169,11 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
 
       const liste = await screen.findByRole('tablist', {}, ATTENTE_UI);
       expect(liste.getAttribute('aria-orientation')).toBe('horizontal');
+      // Cible tactile : 44 px sur mobile, 40 px au-delà (DS §10).
+      for (const onglet of within(liste).getAllByRole('tab')) {
+        expect(onglet.className).toMatch(/(^|\s)h-11(\s|$)/);
+        expect(onglet.className).toMatch(/\bsm:h-10\b/);
+      }
       // Grand en-tête commun des fiches (FicheEnTete) : la frise y est portée.
       expect(
         within(

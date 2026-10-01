@@ -46,6 +46,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import CollectesPage from '@/app/(gestionnaire)/gestionnaire/collectes/page.js';
+import { colonnesCollectesTraiteur } from '@/components/collecte/collectes-traiteur-table';
 import { ficheClient } from '@/test-utils/fiche-collecte-client';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
@@ -57,6 +58,10 @@ const LIGNES = [
     date_collecte: '2026-11-30',
     evenement_nom: 'Kaspia — 2026-11-30',
     lieu_nom: 'Paris Expo Porte de Versailles',
+    lieu_adresse: '1 Place de la Porte de Versailles 75015 Paris',
+    client_nom: 'Maison Lenôtre',
+    traiteur_nom: 'Kaspia Réceptions',
+    pax: 335,
   },
   {
     id: 'c2',
@@ -65,9 +70,13 @@ const LIGNES = [
     date_collecte: '2026-11-10',
     evenement_nom: 'Fleurdemets — 2026-11-10',
     lieu_nom: 'Palais des Congrès de Paris',
+    lieu_adresse: null,
+    client_nom: null,
+    traiteur_nom: 'Fleurdemets',
+    pax: 120,
   },
-  // La route rend `nom_evenement` et le nom du lieu embarqué nullables, et
-  // `date_collecte` l'est aussi : les 3 cellules doivent tomber sur « — ».
+  // La route rend le lieu, le client, le traiteur et le pax nullables, et
+  // `date_collecte` l'est aussi : ces 5 cellules doivent tomber sur « — ».
   {
     id: 'c3',
     type: 'zero_dechet',
@@ -75,8 +84,23 @@ const LIGNES = [
     date_collecte: null,
     evenement_nom: null,
     lieu_nom: null,
+    lieu_adresse: null,
+    client_nom: null,
+    traiteur_nom: null,
+    pax: null,
   },
 ];
+
+// En-têtes de la liste traiteur, lus dans ses colonnes réelles : la liste
+// gestionnaire doit les reprendre (décision Val 2026-10-01).
+const ENTETES_TRAITEUR = colonnesCollectesTraiteur({
+  onModifier: () => {},
+  onAnnuler: () => {},
+  onDupliquer: () => {},
+  onTelecharger: () => {},
+}).map((c) =>
+  typeof c.header === 'string' ? c.header : (c.meta?.label ?? c.id),
+);
 
 function reponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });
@@ -115,20 +139,183 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(
         await screen.findByRole('table', undefined, ATTENTE_UI),
       ).toBeTruthy();
-      for (const entete of ['Date', 'Lieu', 'Événement', 'Type', 'Statut']) {
-        expect(
-          screen.getAllByRole('columnheader', { name: entete }).length,
-        ).toBeGreaterThan(0);
-      }
+      // Colonnes (revue écran 2026-10-01) : celles de la liste traiteur, plus
+      // « Traiteur » ; « Type » gardé, « Événement » retiré, pas d'actions.
+      const entetes = screen
+        .getAllByRole('columnheader')
+        .map((th) => th.textContent?.trim());
+      expect(entetes).toEqual([
+        'Date',
+        'Lieu',
+        'Client',
+        'Traiteur',
+        'Pax',
+        'Résultats',
+        'Type',
+        'Statut',
+      ]);
+      // Tri serveur : seules les colonnes de la liste blanche de la route sont
+      // triables (DataGrid ne pose `aria-sort` que sur une colonne triable).
+      // Une colonne triable hors liste blanche afficherait une flèche de tri
+      // sur un ordre resté par date.
+      expect(
+        screen
+          .getAllByRole('columnheader')
+          .filter((th) => th.hasAttribute('aria-sort'))
+          .map((th) => th.textContent?.trim()),
+      ).toEqual(['Date', 'Type', 'Statut']);
+      expect(screen.getAllByText('Maison Lenôtre').length).toBeGreaterThan(0);
+      // Client non renseigné (c2) : « — ».
+      const ligneSansClient = within(screen.getByRole('table'))
+        .getByText('Palais des Congrès de Paris')
+        .closest('tr');
+      expect(
+        within(ligneSansClient!).getAllByRole('cell')[entetes.indexOf('Client')]
+          ?.textContent,
+      ).toBe('—');
       expect(
         screen.getAllByText('Paris Expo Porte de Versailles').length,
       ).toBeGreaterThan(0);
       expect(screen.getAllByText('ZD').length).toBeGreaterThan(0);
       expect(screen.getAllByText('AG').length).toBeGreaterThan(0);
 
-      // Ligne aux champs nuls : date, lieu et événement tombent sur « — »
-      // (3 cellules ; DataTable rend chaque ligne en tableau ET en card).
-      expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
+      // Ligne aux champs nuls (c3, 3e ligne — ordre de la route, tri serveur) :
+      // date, lieu, client, traiteur et pax tombent chacun sur « — ».
+      const cellulesC3 = within(
+        within(screen.getByRole('table')).getAllByRole('row')[3]!,
+      ).getAllByRole('cell');
+      for (const entete of ['Date', 'Lieu', 'Client', 'Traiteur', 'Pax'])
+        expect(cellulesC3[entetes.indexOf(entete)]?.textContent, entete).toBe(
+          '—',
+        );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_colonnes_identiques_liste_traiteur — mêmes colonnes que le traiteur, plus Traiteur et Type, sans actions',
+    async () => {
+      const ouvrir = vi.fn();
+      vi.stubGlobal('open', ouvrir);
+      const fetchMock = vi.fn((url: string) =>
+        Promise.resolve(
+          String(url).includes('/rapport-rse/download')
+            ? reponse(200, { url: 'https://r2.example/rapport.pdf' })
+            : String(url).startsWith('/api/v1/gestionnaire/collectes/c1')
+              ? reponse(200, { data: ficheClient() })
+              : reponse(200, {
+                  data: [
+                    LIGNES[0],
+                    {
+                      id: 'zd/1',
+                      type: 'zero_dechet',
+                      statut: 'cloturee',
+                      date_collecte: '2026-10-11',
+                      heure_collecte: '22:00:00',
+                      evenement_nom: null,
+                      lieu_nom: 'Musée des Arts Forains',
+                      lieu_adresse:
+                        '53 Avenue des Terroirs de France 75012 Paris',
+                      client_nom: null,
+                      traiteur_nom: 'Fleurdemets',
+                      pax: 500,
+                      poids_total_kg: 412.5,
+                      taux_recyclage: 87,
+                      co2_evite_kg: 96,
+                      nb_repas_donnes: null,
+                    },
+                    {
+                      id: 'ag-1',
+                      type: 'anti_gaspi',
+                      statut: 'cloturee',
+                      date_collecte: '2026-10-04',
+                      heure_collecte: '23:00:00',
+                      evenement_nom: null,
+                      lieu_nom: 'Paris Nord Villepinte',
+                      lieu_adresse: null,
+                      client_nom: null,
+                      traiteur_nom: 'Kaspia Réceptions',
+                      pax: 238,
+                      poids_total_kg: 0,
+                      taux_recyclage: null,
+                      co2_evite_kg: 450,
+                      nb_repas_donnes: 180,
+                    },
+                  ],
+                }),
+        ),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+      render(<CollectesPage />);
+      const table = within(
+        await screen.findByRole('table', undefined, ATTENTE_UI),
+      );
+
+      // Parité : les colonnes de la liste traiteur, dans le même ordre, sans
+      // « Actions », avec « Traiteur » après « Client » et « Type » avant
+      // « Statut ». Une colonne ajoutée côté traiteur fait échouer ce test tant
+      // que la liste gestionnaire ne la reprend pas.
+      const attendu = ENTETES_TRAITEUR.filter((e) => e !== 'Actions');
+      attendu.splice(attendu.indexOf('Client') + 1, 0, 'Traiteur');
+      attendu.splice(attendu.indexOf('Statut'), 0, 'Type');
+      expect(
+        table.getAllByRole('columnheader').map((th) => th.textContent?.trim()),
+      ).toEqual(attendu);
+
+      // Lieu = nom + adresse, traiteur nommé, pax.
+      expect(
+        table.getByText('1 Place de la Porte de Versailles 75015 Paris'),
+      ).toBeTruthy();
+      const ligneZd = table.getByText('Musée des Arts Forains').closest('tr')!;
+      expect(within(ligneZd).getByText('Fleurdemets')).toBeTruthy();
+      expect(within(ligneZd).getByText('500 pax')).toBeTruthy();
+
+      // Résultats de la collecte réalisée : ZD = poids · taux · CO₂ ; AG =
+      // repas · CO₂ (mêmes cellules que la liste traiteur).
+      expect(within(ligneZd).getByText(/412,5\s*kg/)).toBeTruthy();
+      expect(within(ligneZd).getByText(/87\s*%/)).toBeTruthy();
+      expect(within(ligneZd).getByText(/96\s*kg CO₂e/)).toBeTruthy();
+      const ligneAg = table.getByText('Paris Nord Villepinte').closest('tr')!;
+      expect(within(ligneAg).getByText('180 repas')).toBeTruthy();
+      expect(within(ligneAg).getByText(/450\s*kg CO₂e/)).toBeTruthy();
+
+      // Téléchargement du rapport : route gestionnaire, id encodé, sans ouvrir
+      // la fiche (cellule interactive).
+      fireEvent.click(
+        within(ligneZd).getByRole('button', {
+          name: 'Télécharger le rapport de la collecte',
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(ouvrir).toHaveBeenCalledWith(
+          'https://r2.example/rapport.pdf',
+          '_blank',
+        ),
+      );
+      expect(fetchMock.mock.calls.map(([u]) => String(u))).toContain(
+        '/api/v1/gestionnaire/collectes/zd%2F1/rapport-rse/download',
+      );
+      expect(replace).not.toHaveBeenCalled();
+
+      // Collecte non réalisée : pas de résultats ; aucun picto d'action
+      // (Modifier / Annuler / Dupliquer) sur aucune ligne.
+      const ligneValidee = table
+        .getByText('Paris Expo Porte de Versailles')
+        .closest('tr')!;
+      expect(within(ligneValidee).queryByRole('button')).toBeNull();
+      expect(
+        table.queryByRole('button', { name: /Modifier|Annuler|Dupliquer/ }),
+      ).toBeNull();
+      // La cellule Résultats n'est pas une zone morte : cliquer son « — » ouvre
+      // la fiche, comme le reste de la ligne.
+      fireEvent.click(
+        within(ligneValidee).getAllByRole('cell')[
+          attendu.indexOf('Résultats')
+        ]!,
+      );
+      expect(replace).toHaveBeenCalledWith(
+        '/gestionnaire/collectes?collecte=c1',
+      );
     },
     ATTENTE_CAS_MS,
   );

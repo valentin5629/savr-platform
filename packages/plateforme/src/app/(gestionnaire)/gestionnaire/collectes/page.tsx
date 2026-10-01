@@ -12,6 +12,10 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@/components/ui/data-grid';
+import {
+  CelluleLieu,
+  ResultatsCollecte,
+} from '@/components/collecte/collectes-traiteur-table';
 import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -34,6 +38,15 @@ interface CollecteRow {
   heure_collecte?: string | null;
   evenement_nom: string | null;
   lieu_nom: string | null;
+  lieu_adresse: string | null;
+  client_nom: string | null;
+  traiteur_nom: string | null;
+  pax: number | null;
+  // Résultats de la collecte réalisée (agrégés par la route).
+  poids_total_kg: number | null;
+  taux_recyclage: number | null;
+  co2_evite_kg: number | null;
+  nb_repas_donnes: number | null;
 }
 
 // Un seul squelette pour les deux moments de chargement de l'écran : le fallback
@@ -284,7 +297,28 @@ function GestionnaireCollectesContent() {
     return parts.length ? parts.join(' · ') : undefined;
   })();
 
-  // `id` des colonnes triables = valeur du paramètre API `tri`.
+  // Téléchargement du rapport de la collecte réalisée (ZD = rapport recyclage,
+  // AG = attestation de don) — miroir de la liste traiteur : URL R2 pré-signée,
+  // no-op silencieux si indisponible (embargo H+24, PDF non encore généré).
+  async function telechargerRapport(collecteId: string) {
+    try {
+      const res = await fetch(
+        `/api/v1/gestionnaire/collectes/${encodeURIComponent(collecteId)}/rapport-rse/download`,
+      );
+      if (!res.ok) return;
+      const { url } = (await res.json()) as { url?: string };
+      if (url) window.open(url, '_blank');
+    } catch {
+      // Réseau indisponible : no-op silencieux (l'action reste réessayable).
+    }
+  }
+
+  // Mêmes colonnes que la liste traiteur (collectes-traiteur-table.tsx), plus
+  // « Traiteur » ; « Type » est gardé (liste plate, ZD et AG mêlés) et il n'y a
+  // pas de pictos d'action (décisions Val 2026-10-01). Seules Date / Type /
+  // Statut sont triables : la liste est paginée côté serveur, `tri` n'ordonne
+  // que sur les colonnes de `collectes`, et l'`id` d'une colonne triable est la
+  // valeur du paramètre API `tri`.
   const colonnes: ColumnDef<CollecteRow, unknown>[] = [
     {
       id: 'date',
@@ -293,7 +327,7 @@ function GestionnaireCollectesContent() {
       accessorFn: (c) => c.date_collecte ?? '',
       cell: ({ row: { original: c } }) =>
         c.date_collecte ? (
-          <span className="whitespace-nowrap font-semibold tabular-nums">
+          <span className="whitespace-nowrap font-semibold text-savr-neutral-900 tabular-nums">
             {libelleDateHeure(c.date_collecte, c.heure_collecte ?? null)}
           </span>
         ) : (
@@ -303,12 +337,38 @@ function GestionnaireCollectesContent() {
     {
       id: 'lieu',
       header: 'Lieu',
-      cell: ({ row: { original: c } }) => c.lieu_nom ?? <CelluleVide />,
+      cell: ({ row: { original: c } }) => (
+        <CelluleLieu nom={c.lieu_nom} adresse={c.lieu_adresse} />
+      ),
     },
     {
-      id: 'evenement',
-      header: 'Événement',
-      cell: ({ row: { original: c } }) => c.evenement_nom ?? <CelluleVide />,
+      id: 'client',
+      header: 'Client',
+      cell: ({ row: { original: c } }) => c.client_nom || <CelluleVide />,
+    },
+    {
+      id: 'traiteur',
+      header: 'Traiteur',
+      cell: ({ row: { original: c } }) => c.traiteur_nom || <CelluleVide />,
+    },
+    {
+      id: 'pax',
+      header: 'Pax',
+      meta: { className: 'text-right tabular-nums' },
+      cell: ({ row: { original: c } }) =>
+        c.pax != null ? `${c.pax} pax` : <CelluleVide />,
+    },
+    {
+      id: 'resultats',
+      header: 'Résultats',
+      cell: ({ row: { original: c } }) => (
+        <ResultatsCollecte
+          // Le gestionnaire est servi de tous les rapports des collectes tenues
+          // sur ses lieux (§06.05) : jamais « réservé au donneur d'ordre ».
+          c={{ ...c, rapport_reserve_donneur_ordre: false }}
+          onTelecharger={() => void telechargerRapport(c.id)}
+        />
+      ),
     },
     {
       id: 'type',

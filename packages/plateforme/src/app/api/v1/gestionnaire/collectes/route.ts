@@ -53,6 +53,31 @@ const PREDICAT_TAILLE = new Map<string, string>([
   ['XL', 'pax.gte.1000'],
 ]);
 
+// Embed to-one PostgREST : objet ou tableau selon le cache de schéma.
+type UnOuListe<T> = T | T[] | null;
+function un<T>(v: UnOuListe<T>): T | null {
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+// Ligne telle que PostgREST la rend (embeds à agréger avant de répondre).
+type LigneBrute = Record<string, unknown> & {
+  collecte_flux: { poids_reel_kg: number | null }[] | null;
+  attributions_antgaspi: UnOuListe<{ volume_repas_realise: number | null }>;
+  attestations_don: UnOuListe<{ nb_repas: number | null; version: number }>;
+  evenements: UnOuListe<{
+    nom_evenement: string | null;
+    nom_client_organisateur: string | null;
+    pax: number | null;
+    lieux: UnOuListe<{
+      nom: string | null;
+      adresse_acces: string | null;
+      code_postal: string | null;
+      ville: string | null;
+    }>;
+    organisations: UnOuListe<{ nom: string | null }>;
+  }>;
+};
+
 // GET /api/v1/gestionnaire/collectes
 // Liste des collectes sur les lieux du gestionnaire. On interroge `collectes`
 // DIRECTEMENT avec l'embed `evenements!inner` (même pattern éprouvé que la route
@@ -111,12 +136,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Requête filtrée, sans fenêtrage : construite deux fois dans le cas dégradé
   // ci-dessous, donc les filtres vivent ici et nulle part ailleurs.
   const filtree = () => {
+    // Mêmes colonnes que la liste traiteur, plus le traiteur (décision Val
+    // 2026-10-01) : pax, adresse du lieu, résultats de la collecte réalisée
+    // (poids ZD = Σ collecte_flux ; repas AG = attribution, à défaut attestation
+    // de don — cf. aplatissement). Le traiteur passe par la vue restreinte
+    // v_traiteurs_gestionnaire (nom seul), comme les autres écrans du rôle.
     let q = supabase.from('collectes').select(
       `id, evenement_id, type, statut, statut_tms, date_collecte,
        heure_collecte, taux_recyclage, co2_evite_kg, realisee_at,
+       collecte_flux(poids_reel_kg),
+       attributions_antgaspi(volume_repas_realise),
+       attestations_don(nb_repas, version),
        evenements!inner(
-         nom_evenement, lieu_id, traiteur_operationnel_organisation_id,
-         lieux!lieu_id(nom)
+         nom_evenement, nom_client_organisateur, pax, lieu_id,
+         traiteur_operationnel_organisation_id,
+         lieux!lieu_id(nom, adresse_acces, code_postal, ville),
+         organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(nom)
        )`,
       { count: 'exact' },
     );
@@ -171,30 +206,48 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (error) return serverError(error, 'gestionnaire.collectes.list');
 
-  // Aplatissement des noms (to-one PostgREST = objet ou tableau selon le cache).
-  const rows = (data ?? []).map((c) => {
-    const { evenements, ...rest } = c as typeof c & {
-      evenements:
-        | {
-            nom_evenement: string | null;
-            lieux: { nom: string | null } | { nom: string | null }[] | null;
-          }
-        | {
-            nom_evenement: string | null;
-            lieux: { nom: string | null } | { nom: string | null }[] | null;
-          }[]
-        | null;
-    };
-    const evt = Array.isArray(evenements) ? evenements[0] : evenements;
-    const lieu = evt
-      ? Array.isArray(evt.lieux)
-        ? evt.lieux[0]
-        : evt.lieux
-      : null;
+  // Aplatissement : les embeds bruts ne sortent pas de la route, l'écran n'en
+  // lit que les agrégats.
+  const rows = ((data ?? []) as unknown as LigneBrute[]).map((c) => {
+    const {
+      evenements,
+      collecte_flux,
+      attributions_antgaspi,
+      attestations_don,
+      ...rest
+    } = c;
+    const evt = un(evenements);
+    const lieu = un(evt?.lieux ?? null);
+    // Dernière version de l'attestation (une par régénération).
+    const attestation = [attestations_don ?? []]
+      .flat()
+      .sort((a, b) => b.version - a.version)[0];
     return {
       ...rest,
       evenement_nom: evt?.nom_evenement ?? null,
+      // Client organisateur « si renseigné par le traiteur » (§06.05 Détail
+      // événement) — même colonne que le détail, même RLS. Texte libre : une
+      // saisie faite d'espaces vaut « non renseigné ».
+      client_nom: evt?.nom_client_organisateur?.trim() || null,
+      traiteur_nom: un(evt?.organisations ?? null)?.nom ?? null,
+      pax: evt?.pax ?? null,
       lieu_nom: lieu?.nom ?? null,
+      lieu_adresse:
+        [lieu?.adresse_acces, lieu?.code_postal, lieu?.ville]
+          .filter(Boolean)
+          .join(' ') || null,
+      poids_total_kg: (collecte_flux ?? []).reduce(
+        (s, f) => s + (f.poids_reel_kg ?? 0),
+        0,
+      ),
+      // Repas donnés — même règle que la fiche (D13, arbitrage Val 2026-09-30) :
+      // l'attribution quand elle est lisible ; sur une collecte programmée par
+      // un traiteur tiers, aa_select la refuse (C-1) et l'attestation de don
+      // servie au gestionnaire (att_gestionnaire_select) porte le même chiffre.
+      nb_repas_donnes:
+        un(attributions_antgaspi)?.volume_repas_realise ??
+        attestation?.nb_repas ??
+        null,
     };
   });
 

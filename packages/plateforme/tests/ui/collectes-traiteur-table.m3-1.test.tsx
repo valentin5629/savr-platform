@@ -1,7 +1,7 @@
 /**
  * M3.1 — Data Table liste collectes traiteur (refonte 2026-07-05, revue écran
  * 2026-07-15, passage en Data Table 2026-09-28 — décisions Val). Couvre : champs
- * affichés (Date · Heure · Lieu · Pax · Statut), actions icône-seule (Modifier /
+ * affichés (Date · Heure · Lieu · Client · Pax · Statut), actions icône-seule (Modifier /
  * Annuler / Dupliquer) MASQUÉES quand indisponibles (plus de bouton grisé), et —
  * sur collecte réalisée (cloturee) — les résultats (ZD : poids/taux/CO₂ ; AG :
  * repas/CO₂) + le téléchargement du rapport, retiré quand le rapport de don
@@ -35,6 +35,7 @@ function base(
     heure_collecte: '23:30:00',
     lieu_nom: 'Lieu Rouen Gare',
     lieu_adresse: '9 Ruelle 76000 Rouen',
+    client_nom: 'Maison Lenôtre',
     pax: 220,
     programmee_par_tiers: false,
     rapport_reserve_donneur_ordre: false,
@@ -96,6 +97,27 @@ describe('M3.1 / Data Table liste traiteur', () => {
     expect(btn(/Modifier/)).toBeTruthy();
     expect(btn(/Annuler/)).toBeTruthy();
     expect(btn(/Dupliquer/)).toBeTruthy();
+  });
+
+  it('M3.1/liste_colonne_client — colonne « Client » à droite de « Lieu », « — » si non renseigné', () => {
+    monte(base(), true);
+    const entetes = table
+      .getAllByRole('columnheader')
+      .map((th) => th.textContent?.trim());
+    expect(entetes.indexOf('Client')).toBe(entetes.indexOf('Lieu') + 1);
+    expect(table.getByText('Maison Lenôtre')).toBeTruthy();
+    // Triable : DataGrid ne pose `aria-sort` que sur une colonne triable (sans
+    // `accessorFn`, l'en-tête serait inerte).
+    expect(table.getByRole('columnheader', { name: 'Client' })).toHaveAttribute(
+      'aria-sort',
+      'none',
+    );
+
+    // Client organisateur non saisi à la programmation : cellule vide du DS.
+    monte(base({ client_nom: null }), true);
+    expect(table.queryByText('Maison Lenôtre')).toBeNull();
+    const cellules = table.getAllByRole('cell');
+    expect(cellules[entetes.indexOf('Client')]?.textContent).toBe('—');
   });
 
   it('M3.1/card_traiteur_gating_manager — validee + canWrite → Modifier/Annuler présents et cliquables', () => {
@@ -171,13 +193,19 @@ describe('M3.1 / Data Table liste traiteur', () => {
 
   it('M3.1/card_traiteur_realisee_download — le picto téléchargement appelle onTelecharger', () => {
     const onTelecharger = vi.fn();
+    const onOpen = vi.fn();
     monte(
       base({ statut: 'cloturee', poids_total_kg: 100, co2_evite_kg: 10 }),
       true,
-      { onTelecharger },
+      { onTelecharger, onOpen },
     );
     fireEvent.click(btn(/Télécharger le rapport/));
     expect(onTelecharger).toHaveBeenCalledOnce();
+    // Le clic s'arrête au bouton ; le reste de la cellule Résultats ouvre la
+    // fiche comme toute la ligne (plus de zone morte autour des chiffres).
+    expect(onOpen).not.toHaveBeenCalled();
+    fireEvent.click(table.getByText(/100\s*kg/));
+    expect(onOpen).toHaveBeenCalledOnce();
   });
 
   it('M3.1/liste_rapport_reserve_donneur_ordre_picto_retire — AG réservée au donneur d’ordre : picto retiré, mention de la fiche, résultats conservés', () => {

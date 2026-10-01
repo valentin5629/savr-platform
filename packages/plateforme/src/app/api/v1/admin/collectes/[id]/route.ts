@@ -35,7 +35,7 @@ async function getHandler(
          *, tournees(id, statut, tms_reference, external_ref_commande, plaque_immatriculation, chauffeur_nom, chauffeur_telephone, accompagnant_nom, accompagnant_telephone)
        ),
        packs_antgaspi!pack_antgaspi_id(id, type_pack, credits_restants, statut),
-       attributions_antgaspi(id, mode_validation, valide_at, volume_repas_realise, associations!association_id(nom), transporteurs!transporteur_id(nom)),
+       attributions_antgaspi(id, mode_validation, valide_at, volume_repas_realise, associations!association_id(nom), transporteurs!transporteur_id(id, nom, type_tms)),
        factures_collectes(id, montant_ht, factures!facture_id(statut))`,
     )
     .eq('id', id)
@@ -101,6 +101,31 @@ async function getHandler(
           type_tms: null,
         };
       }
+    }
+  } else {
+    // Transporteur SANS pont prestataire (par mail, par téléphone, autre) :
+    // `rpc_valider_attribution_ag` laisse `prestataire_logistique_id` à NULL. Le
+    // prestataire actuel est alors le transporteur de l'attribution validée
+    // (arbitrage Val 2026-10-01) — sinon la fiche dit « non attribué » d'une
+    // collecte que son bloc Attribution AG nomme attribuée.
+    type TransporteurAttribue = { id: string; nom: string; type_tms: string };
+    type Attribution = {
+      valide_at: string | null;
+      transporteurs: TransporteurAttribue | TransporteurAttribue[] | null;
+    };
+    const embed = (
+      data as { attributions_antgaspi?: Attribution | Attribution[] | null }
+    ).attributions_antgaspi;
+    const attribution = Array.isArray(embed) ? embed[0] : embed;
+    const t = Array.isArray(attribution?.transporteurs)
+      ? attribution.transporteurs[0]
+      : attribution?.transporteurs;
+    if (attribution?.valide_at && t) {
+      prestataireActuel = {
+        transporteur_id: t.id,
+        nom: t.nom,
+        type_tms: t.type_tms,
+      };
     }
   }
 

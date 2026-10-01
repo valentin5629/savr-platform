@@ -170,8 +170,9 @@ interface CollecteDetail {
     transporteurs: { nom: string } | null;
   } | null;
   prestataire_logistique_id: string | null;
-  // Prestataire actuel, résolu par la route détail depuis `prestataire_logistique_id`
-  // (transporteur actif OU désactivé). `transporteur_id` / `type_tms` sont null
+  // Prestataire actuel, résolu par la route détail : depuis `prestataire_logistique_id`
+  // (transporteur actif OU désactivé), sinon transporteur de l'attribution AG validée
+  // (transporteur sans pont prestataire). `transporteur_id` / `type_tms` sont null
   // quand le prestataire n'a pas de fiche transporteur.
   prestataire_actuel?: {
     transporteur_id: string | null;
@@ -595,7 +596,11 @@ export function CollecteDetailPanel({
   // de la reco = 0 motif). Erreur/aucune reco = dégradation gracieuse (pas de baseline).
   const collecteType = collecte?.type;
   const collecteStatut = collecte?.statut;
-  const collectePresta = collecte?.prestataire_logistique_id ?? null;
+  // Déjà attribuée = prestataire posé sur la collecte OU servi par la route
+  // (transporteur sans pont : `prestataire_logistique_id` reste NULL).
+  const dejaAttribuee =
+    collecte?.prestataire_logistique_id != null ||
+    collecte?.prestataire_actuel != null;
   useEffect(() => {
     if (collecteType !== 'anti_gaspi') return;
     if (
@@ -616,7 +621,7 @@ export function CollecteDetailPanel({
         const r = j?.data ?? null;
         setReco(r);
         // Pré-sélection du top-1 recommandé si aucune sélection ni prestataire courant.
-        if (r?.transporteur && collectePresta == null) {
+        if (r?.transporteur && !dejaAttribuee) {
           setSelectedTransporteurId((prev) => prev || r.transporteur!.id);
         }
       })
@@ -626,7 +631,7 @@ export function CollecteDetailPanel({
     return () => {
       active = false;
     };
-  }, [collecteId, collecteType, collecteStatut, collectePresta]);
+  }, [collecteId, collecteType, collecteStatut, dejaAttribuee]);
 
   const handleAnnulerCredit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -912,11 +917,10 @@ export function CollecteDetailPanel({
   // Bloc 0 — prestataire actuel + fork type_tms. Il vient de la route détail, PAS
   // de `transporteurs` : cette liste ne porte que les ACTIFS et se charge à part —
   // transporteur désactivé depuis, liste pas encore arrivée ou en échec faisaient
-  // dire « non attribué » d'une collecte attribuée.
-  const currentTransporteur =
-    collecte.prestataire_logistique_id == null
-      ? undefined
-      : (collecte.prestataire_actuel ?? undefined);
+  // dire « non attribué » d'une collecte attribuée. Servi aussi quand
+  // `prestataire_logistique_id` est NULL : transporteur sans pont (par mail, par
+  // téléphone, autre) de l'attribution AG validée.
+  const currentTransporteur = collecte.prestataire_actuel ?? undefined;
   // « Non attribué » ne se dit que d'une collecte SANS prestataire : si elle en a
   // un dont le nom manque dans la réponse, on le dit tel quel.
   const libelleSansNom =

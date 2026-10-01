@@ -466,6 +466,71 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
+    'AG attribuée à un transporteur sans pont prestataire (par mail) : il est le prestataire actuel, sa carte reste cochée malgré la reco',
+    async () => {
+      // `prestataire_logistique_id` reste NULL pour ces transporteurs : la route
+      // sert le transporteur de l'attribution validée (arbitrage Val 2026-10-01).
+      mockFetchPrestataire(
+        {
+          ...collecteAg,
+          prestataire_logistique_id: null,
+          prestataire_actuel: {
+            transporteur_id: 't-province',
+            nom: 'Transports Dupont',
+            type_tms: 'par_mail',
+          },
+        },
+        {
+          ok: true,
+          data: [
+            ...transporteurs,
+            {
+              id: 't-province',
+              nom: 'Transports Dupont',
+              type_tms: 'par_mail',
+              prestataire_logistique_id: null,
+              actif: true,
+            },
+          ],
+        },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      expect(
+        (await screen.findAllByText('Transports Dupont', undefined, ATTENTE_UI))
+          .length,
+      ).toBeGreaterThan(0);
+      expect(screen.queryByText(NON_ATTRIBUE)).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      const ligne = (
+        await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI)
+      ).parentElement!;
+      expect(within(ligne).getByText('Transports Dupont')).toBeInTheDocument();
+      expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+
+      // La reco (top-1 = Strike) est affichée mais ne prend PAS la main sur une
+      // collecte déjà attribuée : un clic sur le bouton d'envoi la ré-attribuerait.
+      const carteStrike = await screen.findByRole(
+        'radio',
+        { name: /Strike/ },
+        ATTENTE_UI,
+      );
+      await within(carteStrike).findByText('Recommandé', undefined, ATTENTE_UI);
+      expect(carteStrike).toHaveAttribute('aria-checked', 'false');
+      const carteActuelle = screen.getByRole('radio', {
+        name: /Transports Dupont/,
+      });
+      expect(carteActuelle).toHaveAttribute('aria-checked', 'true');
+      expect(within(carteActuelle).getByText('Actuel')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Dispatcher (manuel)' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères',
     async () => {
       const fetchMock = mockFetch();

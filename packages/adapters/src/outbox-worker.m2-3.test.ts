@@ -31,6 +31,8 @@ interface WorkerMockOpts {
   typeVehiculeSouhaite?: string | null;
   /** `collectes.nb_camions_demande`. */
   nbCamions?: number;
+  /** La colonne `type_vehicule_souhaite` n'existe pas encore (42703). */
+  colonneVehiculeAbsente?: boolean;
 }
 
 const COLLECTE_ID = 'col-ag-dispatch-001';
@@ -134,6 +136,23 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     // Association destinataire (point B) résolue via attributions_antgaspi →
     // associations : embed OBJET (FK sortante association_id).
     q['maybeSingle'] = vi.fn(async () => {
+      // Véhicule souhaité : lecture dédiée et tolérante (migration 20261001213000).
+      if (table === 'collectes')
+        return opts.colonneVehiculeAbsente
+          ? {
+              data: null,
+              error: {
+                code: '42703',
+                message:
+                  'column collectes.type_vehicule_souhaite does not exist',
+              },
+            }
+          : {
+              data: {
+                type_vehicule_souhaite: opts.typeVehiculeSouhaite ?? null,
+              },
+              error: null,
+            };
       if (table === 'attributions_antgaspi') {
         if (opts.attribution === 'erreur')
           return {
@@ -692,12 +711,38 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
       expect(spy).toHaveBeenCalledTimes(2);
       expect(spy.mock.calls.map((c) => c[1])).toEqual([1, 2]);
       expect(spy.mock.calls[1]![0]).toBe(spy.mock.calls[0]![0]);
-      // La colonne est bien DEMANDÉE à PostgREST (un mock ne filtre pas).
-      expect(supabase._selects['collectes']?.[0]).toContain(
-        'type_vehicule_souhaite',
-      );
+      // La colonne est bien DEMANDÉE à PostgREST (un mock ne filtre pas), par
+      // une requête dédiée.
+      expect(
+        supabase._selects['collectes']?.some((s) =>
+          s.includes('type_vehicule_souhaite'),
+        ),
+      ).toBe(true);
     },
   );
+
+  it('M2.3 / worker — colonne type_vehicule_souhaite illisible (migration non appliquée) → dispatch sans la ligne, jamais dead', async () => {
+    const spy = vi
+      .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_mts1');
+    const supabase = makeWorkerSupabase({
+      typeTms: 'mts1',
+      prestataireLogistiqueId: PRESTA_ID,
+      typeVehiculeSouhaite: 'camionnette',
+      colonneVehiculeAbsente: true,
+    });
+    const result = await runOutboxWorker(supabase);
+    expect(result.done).toBe(1);
+    expect(result.dead).toBe(0);
+    const collecte = spy.mock.calls[0]![0] as {
+      type_vehicule_souhaite?: string | null;
+      informations_supplementaires: string | null;
+    };
+    expect(collecte.type_vehicule_souhaite).toBeNull();
+    expect(collecte.informations_supplementaires ?? '').not.toContain(
+      'Véhicule souhaité',
+    );
+  });
 
   // Le piège exact de #304 : re-fetcher le lieu OFFICIEL au lieu du lieu fusionné
   // retransmettrait la valeur du référentiel, pas la correction saisie.

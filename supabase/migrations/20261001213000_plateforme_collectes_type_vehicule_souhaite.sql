@@ -19,9 +19,25 @@
 -- Même enum que `lieux.type_vehicule_max` et `tournees.type_vehicule`
 -- (plateforme.type_vehicule : velo_cargo, camionnette, fourgon, vul, poids_lourd).
 -- Nullable : une collecte programmée sans précision reste valide (backward-compatible).
--- Colonne V1-only : à tracer dans _Divergences/ (BOA-LOGISTIQUE_20261001) et à
--- reporter au DDL cible V2 lors de la prochaine régénération.
--- Aucune policy RLS modifiée (colonne couverte par les policies de `collectes`).
+-- Garde-fou 1 : colonne absente de §04 et du DDL cible V2 (dérivé non régénéré).
+-- Divergence tracée dans _Divergences/BOA-LOGISTIQUE_20261001.md (ajout neutre à
+-- intégrer au DDL cible ; classement « V1-only dormante » ou « durable V2 » à
+-- trancher par Val), volontairement hors v1-divergences-allowlist.txt (liste
+-- fermée), signalée par le gate schema-vs-cible en mode rapport d'ici là.
+-- Aucune policy RLS modifiée (colonne couverte par les policies de `collectes` ;
+-- écritures déjà fermées à authenticated depuis 20260915160000).
+-- Ordre de déploiement : le worker lit la colonne par une requête TOLÉRANTE
+-- (colonne absente → null + warn), la fiche par select('*') — le code peut donc
+-- partir avant ou après cette migration sans mettre d'event en DLQ.
+--
+-- ROLLBACK (additif, aucune donnée existante touchée) : retirer la colonne
+-- `type_vehicule_souhaite` (opération inverse de l'ADD COLUMN ci-dessous) dans
+-- une migration ULTÉRIEURE dédiée, après 1 release sans usage (CLAUDE.md §2).
+-- Ordre : 1) retirer du code l'écriture (route attributions-ag/[collecteId]/valider)
+-- et la lecture (outbox-worker.ts) ; 2) puis la colonne. Aucun index, FK, vue ni
+-- trigger ne la référence ; les valeurs perdues sont un choix Admin ressaisissable.
+-- SQL de rollback volontairement non littéral : le garde CI anti-destructif est
+-- un grep textuel qui ne distingue pas commentaire et code.
 -- =============================================================================
 
 ALTER TABLE plateforme.collectes

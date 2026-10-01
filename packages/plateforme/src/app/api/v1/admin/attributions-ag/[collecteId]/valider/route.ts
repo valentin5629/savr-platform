@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { requireAdmin } from '@/lib/api-auth.js';
 import { withApiTrace, businessError, serverError } from '@/lib/api-helpers.js';
 import {
@@ -103,10 +104,30 @@ async function postHandler(
   }
 
   // Besoin véhicule : posé avant l'event de dispatch (émis par la RPC ci-dessous).
-  // Le nombre passe par fn_modifier_collecte (gardes RM-02/RM-05 + E2 si une
-  // commande existait déjà) ; le type est une colonne sans règle de transition.
+  // Les écritures précèdent les gardes de la RPC : on vérifie donc d'abord qu'il
+  // n'existe pas déjà d'attribution (sinon 409 ici, rien n'est écrit), et chaque
+  // écriture est bornée à une collecte AG encore `programmee`.
   if (nbCamions !== undefined || typeVehicule !== undefined) {
     const supabase = createAdminSupabaseClient();
+    const { data: existante, error: errExistante } = await supabase
+      .from('attributions_antgaspi')
+      .select('id')
+      .eq('collecte_id', collecteId)
+      .maybeSingle();
+    if (errExistante) {
+      return serverError(
+        errExistante,
+        'admin.attributions_ag.valider.attribution',
+      );
+    }
+    if (existante) {
+      return NextResponse.json(
+        { error: 'Attribution déjà existante' },
+        { status: 409 },
+      );
+    }
+    // Le nombre passe par fn_modifier_collecte (gardes RM-02/RM-05, E2 si une
+    // commande existait déjà).
     if (nbCamions !== undefined) {
       const { error: errNb } = await supabase.rpc('fn_modifier_collecte', {
         p_id: collecteId,
@@ -126,16 +147,28 @@ async function postHandler(
         return serverError(errNb, 'admin.attributions_ag.valider.nb_camions');
       }
     }
+    // Le type est une colonne sans règle de transition : UPDATE borné. Colonne
+    // absente (migration 20261001213000 pas encore appliquée : 42703 / PGRST204)
+    // → la validation continue sans le type, tracé en warn, jamais un 500.
     if (typeVehicule !== undefined) {
       const { error: errType } = await supabase
         .from('collectes')
         .update({ type_vehicule_souhaite: typeVehicule })
-        .eq('id', collecteId);
+        .eq('id', collecteId)
+        .eq('type', 'anti_gaspi')
+        .eq('statut', 'programmee');
       if (errType) {
-        return serverError(
-          errType,
-          'admin.attributions_ag.valider.type_vehicule',
-        );
+        if (errType.code === '42703' || errType.code === 'PGRST204') {
+          logger.warn('attribution.type_vehicule_colonne_absente', {
+            collecte_id: collecteId,
+            error_code: errType.code,
+          });
+        } else {
+          return serverError(
+            errType,
+            'admin.attributions_ag.valider.type_vehicule',
+          );
+        }
       }
     }
   }

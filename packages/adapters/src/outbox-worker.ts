@@ -25,6 +25,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { sendAlert } from '@savr/shared/src/alerting/slack.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
 import {
@@ -490,7 +491,7 @@ async function fetchCollecte(
       `
       id, type, date_collecte, heure_collecte, nb_camions_demande,
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
-      prestataire_logistique_id, lieu_overrides, type_vehicule_souhaite,
+      prestataire_logistique_id, lieu_overrides,
       evenement:evenements!inner(
         contact_principal_nom, contact_principal_telephone,
         contact_secours_nom, contact_secours_telephone,
@@ -546,6 +547,11 @@ async function fetchCollecte(
       ? await fetchAssociationDestinataire(supabase, raw.id)
       : null;
 
+  // Véhicule souhaité par l'Admin (migration 20261001213000) : lu à part et
+  // TOLÉRANT à l'absence de la colonne — le code peut être déployé avant la
+  // migration sans transformer chaque event en « collecte introuvable » → dead.
+  const typeVehiculeSouhaite = await lireTypeVehiculeSouhaite(supabase, raw.id);
+
   return {
     id: raw.id,
     type: raw.type,
@@ -569,13 +575,13 @@ async function fetchCollecte(
       raw.informations_supplementaires,
       evt.contact_secours_nom,
       {
-        type: raw.type_vehicule_souhaite,
+        type: typeVehiculeSouhaite,
         nombre: raw.nb_camions_demande,
       },
     ),
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
-    type_vehicule_souhaite: raw.type_vehicule_souhaite ?? null,
+    type_vehicule_souhaite: typeVehiculeSouhaite,
     association_id_point_collecte_mts1:
       association?.id_point_collecte_mts1 ?? null,
     association_adresse: association
@@ -589,6 +595,31 @@ async function fetchCollecte(
     contact_secours_telephone: evt.contact_secours_telephone,
     lieux: lieu,
   };
+}
+
+// `collectes.type_vehicule_souhaite` — null si non précisé OU si la colonne
+// n'existe pas encore (42703 / PGRST204 : migration non appliquée) : tracé en
+// warn, jamais bloquant — la commande part sans la ligne « Véhicule souhaité ».
+async function lireTypeVehiculeSouhaite(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('collectes')
+    .select('type_vehicule_souhaite')
+    .eq('id', collecteId)
+    .maybeSingle();
+  if (error) {
+    logger.warn('outbox.type_vehicule_souhaite_illisible', {
+      collecte_id: collecteId,
+      error_code: error.code ?? null,
+    });
+    return null;
+  }
+  return (
+    (data as { type_vehicule_souhaite?: string | null } | null)
+      ?.type_vehicule_souhaite ?? null
+  );
 }
 
 // BL-P1-API-02 — association destinataire d'une collecte AG (point B) via son

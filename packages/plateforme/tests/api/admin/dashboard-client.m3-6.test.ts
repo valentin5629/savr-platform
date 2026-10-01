@@ -160,7 +160,7 @@ describe('M3.6 / Dashboard Client / périmètre', () => {
     expect(res.status).toBe(200);
     // DÉCISION VAL R24c : un traiteur sélectionné = son activité d'OPÉRATEUR →
     // filtre .or(organisation_id IN … OU traiteur_operationnel_organisation_id IN …)
-    // sur la table référencée evenements, appliqué aux 2 requêtes (hist + prochaines).
+    // sur la table référencée evenements, appliqué à la requête d'historique.
     const orgOr = orCalls().find((c) =>
       String(c[0]).includes(`organisation_id.in.(${org1},${org2})`),
     );
@@ -240,8 +240,12 @@ describe('M3.6 / Dashboard Client / KPI', () => {
       data: {
         kpi: Record<string, number>;
         co2: { eviteKg: number };
+        blocs: Record<string, unknown>;
       };
     };
+    // Bloc 5 « Prochaines collectes » retiré (décision Val 2026-10-01) : le
+    // loader Admin ne sert plus la liste.
+    expect(body.data.blocs).not.toHaveProperty('prochaines');
     // Plomberie CO₂ Admin bout-en-bout : SELECT co2_evite_kg → co2Totals → payload.
     expect(body.data.co2.eviteKg).toBeCloseTo(120, 5);
     const kpi = body.data.kpi;

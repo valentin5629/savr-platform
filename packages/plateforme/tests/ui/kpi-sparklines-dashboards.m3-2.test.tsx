@@ -228,7 +228,6 @@ function gestionnaireFetch() {
     if (url.includes('/dashboards/blocs'))
       return jsonResponse({
         data: {
-          prochaines: [],
           topLieux: [],
           topActeurs: [],
           acteurLabel: 'Traiteur',
@@ -299,7 +298,6 @@ describe('M3.3 / agence — sparkline + variation N-1', () => {
         if (url.includes('/dashboards/blocs'))
           return jsonResponse({
             data: {
-              prochaines: [],
               topLieux: [],
               topActeurs: null,
               acteurLabel: null,
@@ -366,7 +364,6 @@ describe('M3.6 / dashboard-client Admin — sparkline + variation N-1', () => {
           topActeurs: [],
           acteurLabel: 'Traiteur',
           topAssociations: null,
-          prochaines: [],
         },
       });
       vi.stubGlobal(

@@ -8,7 +8,6 @@ import {
   CollecteTypeTabs,
   DashboardFilterBar,
   EmptyDashboardState,
-  ProchainesCollectesBloc,
   FLUX_ZD,
   type CollecteType,
   type DashboardFilters,
@@ -134,17 +133,6 @@ interface AdminPayload {
     topActeurs: ActeurItem[];
     acteurLabel: 'Traiteur';
     topAssociations: AssociationItem[] | null;
-    prochaines: {
-      id: string;
-      evenement_id: string | null;
-      date_collecte: string;
-      heure_collecte: string | null;
-      statut: string;
-      evenement_nom: string | null;
-      lieu_nom: string | null;
-      traiteur_id: string | null;
-      traiteur_nom: string | null;
-    }[];
   };
 }
 
@@ -160,7 +148,7 @@ const BENCHMARK_ENDPOINT = '/api/v1/admin/dashboard-client/benchmark';
  * R24c — Déclinaison Cockpit COMPLÈTE (retour Val « je ne vois pas les graphs ») :
  * KPIs KpiCockpitCard (dont CO₂ évité → modale) + évolution EvolutionZd/AgChart +
  * donut TonnagesDonut + radar Cockpit BenchmarkRadar + Top listes
- * TopRankList (lieux / traiteurs / associations) + prochaines collectes. LECTURE
+ * TopRankList (lieux / traiteurs / associations). LECTURE
  * SEULE au sens DONNÉES (aucune écriture, aucune action métier) ; les Top lieux /
  * traiteurs sont cliquables → drill-down vers /admin/collectes filtrée (miroir
  * exact, retour Val R24c ; « traiteur » = traiteur OPÉRATIONNEL). Le périmètre
@@ -577,13 +565,6 @@ export function DashboardClientView() {
               />
             </div>
           </div>
-
-          {/* Bloc 5 — Prochaines collectes (lecture seule, sans lien) */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            showTraiteur
-            hrefFor={() => undefined}
-          />
         </>
       ) : agKpi ? (
         <>
@@ -721,13 +702,6 @@ export function DashboardClientView() {
               showBar
             />
           </div>
-
-          {/* Bloc 5 — Prochaines collectes (lecture seule, sans lien) */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            showTraiteur
-            hrefFor={() => undefined}
-          />
         </>
       ) : (
         <EmptyDashboardState />

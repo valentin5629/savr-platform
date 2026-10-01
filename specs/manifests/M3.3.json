@@ -274,10 +274,11 @@
     {
       "id": "M3.3-bloc5-prochaines",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38",
-      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "artefact": null,
       "test": "M3.3/blocs_agence_zd_sans_bloc7",
-      "statut": "implemented",
-      "libelle": "Bloc 5 ZD/AG agence — prochaines collectes (fenêtre 30 j), clic → fiche collecte agence. Périmètre evenements.organisation_id (donneur d'ordre)."
+      "statut": "descoped",
+      "ref_divergence": "_Divergences/M3.5_20261001_dashboards-retrait-prochaines-collectes.md",
+      "libelle": "Bloc 5 ZD/AG agence « Prochaines collectes » — RETIRÉ du dashboard agence (décision Val 2026-10-01 : l'information se lit dans l'onglet Collectes). Le test cité garde l'absence du bloc à l'écran."
     },
     {
       "id": "M3.3-bloc6-top-lieux",

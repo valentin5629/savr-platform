@@ -25,6 +25,8 @@ interface WorkerMockOpts {
   infosSuppl?: string | null;
   /** `evenements.contact_secours_nom` — porté par l'événement parent. */
   contactSecoursNom?: string | null;
+  /** Lecture `attributions_antgaspi` : attribution présente (défaut), absente, ou en erreur (blip PostgREST). */
+  attribution?: 'presente' | 'absente' | 'erreur';
 }
 
 const COLLECTE_ID = 'col-ag-dispatch-001';
@@ -128,8 +130,15 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     // Association destinataire (point B) résolue via attributions_antgaspi →
     // associations : embed OBJET (FK sortante association_id).
     q['maybeSingle'] = vi.fn(async () => {
-      if (table === 'attributions_antgaspi')
+      if (table === 'attributions_antgaspi') {
+        if (opts.attribution === 'erreur')
+          return {
+            data: null,
+            error: { code: '08006', message: 'connexion interrompue' },
+          };
+        if (opts.attribution === 'absente') return { data: null, error: null };
         return { data: { associations: ASSOCIATION_ROW }, error: null };
+      }
       return { data: null, error: null };
     });
     q['update'] = vi.fn(() => q);
@@ -200,7 +209,6 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     // Composée UNE fois par le worker pour les deux adapters (garde-fou 2) :
     // adresse sur une ligne « adresse, ville » + contact + point favori MTS-1.
     expect(everestSpy.mock.calls[0]![0]).toMatchObject({
-      association_nom: 'Association Alpha',
       association_adresse: '12 rue des Associations, Ivry-sur-Seine',
       association_contact_nom: 'Nadia Benali',
       association_contact_telephone: '+33699990001',
@@ -216,6 +224,54 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     ]) {
       expect(selectAttribution).toContain(col);
     }
+  });
+
+  it('M2.3 / worker — AG sans attribution : champs association_* null transmis à l’adapter (qui refuse)', async () => {
+    const everestSpy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+      attribution: 'absente',
+    });
+    await runOutboxWorker(supabase);
+
+    expect(everestSpy.mock.calls[0]![0]).toMatchObject({
+      association_adresse: null,
+      association_contact_nom: null,
+      association_contact_telephone: null,
+      association_id_point_collecte_mts1: null,
+    });
+  });
+
+  it('M2.3 / worker — lecture attribution en erreur (blip PostgREST) → failed + retry, jamais dead ni « sans association »', async () => {
+    const everestSpy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+      attribution: 'erreur',
+    });
+    const result = await runOutboxWorker(supabase);
+
+    // L'adapter n'est jamais appelé avec une association « absente » à tort.
+    expect(everestSpy).not.toHaveBeenCalled();
+    expect(result.failed).toBe(1);
+    expect(result.dead).toBe(0);
+    const resultat = (
+      supabase.rpc as unknown as { mock: { calls: unknown[][] } }
+    ).mock.calls.find((c) => c[0] === 'fn_result_outbox');
+    expect(resultat?.[1]).toMatchObject({
+      p_statut: 'failed',
+      p_next_retry_at: expect.any(String),
+    });
+    expect(
+      String((resultat?.[1] as { p_last_error: string }).p_last_error),
+    ).not.toMatch(/sans association/);
   });
 
   it('type_tms=mts1 → AdapterMts1.dispatchCollecte (pas Everest)', async () => {

@@ -69,7 +69,6 @@ interface CollecteRow {
   // via attributions_antgaspi → associations : placeId favori MTS-1 + adresse
   // postale (adresse inline MTS-1 sans point favori, dropoff Everest).
   association_id_point_collecte_mts1: string | null;
-  association_nom: string | null;
   association_adresse: string | null;
   association_contact_nom: string | null;
   association_contact_telephone: string | null;
@@ -571,7 +570,6 @@ async function fetchCollecte(
     prestataire_logistique_id: raw.prestataire_logistique_id,
     association_id_point_collecte_mts1:
       association?.id_point_collecte_mts1 ?? null,
-    association_nom: association?.nom ?? null,
     association_adresse: association
       ? `${association.adresse}, ${association.ville}`
       : null,
@@ -590,10 +588,11 @@ async function fetchCollecte(
 // `collecte_id` est UNIQUE sur attributions_antgaspi (≤ 1 ligne) → maybeSingle,
 // même pattern que l'adapter Everest resolveServiceId. Aucune attribution ⇒ NULL
 // (l'adapter refuse alors de partir sans adresse de livraison — erreur
-// permanente, jamais un ordre sans point B).
+// permanente, jamais un ordre sans point B). Une LECTURE en échec (blip
+// PostgREST) n'est PAS « pas d'association » : Transient, le worker retente —
+// sinon un incident passager tuerait l'event (dead) avec un message faux.
 interface AssociationDestinataireRow {
   id_point_collecte_mts1: string | null;
-  nom: string;
   adresse: string;
   ville: string;
   contact_nom: string | null;
@@ -604,14 +603,19 @@ async function fetchAssociationDestinataire(
   supabase: SupabaseClient,
   collecteId: string,
 ): Promise<AssociationDestinataireRow | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('attributions_antgaspi')
     .select(
-      'associations:association_id(id_point_collecte_mts1, nom, adresse, ville, contact_nom, contact_telephone)',
+      'associations:association_id(id_point_collecte_mts1, adresse, ville, contact_nom, contact_telephone)',
     )
     .eq('collecte_id', collecteId)
     .maybeSingle();
 
+  if (error) {
+    throw new LogistiqueTransientError(
+      `lecture attribution AG ${collecteId} : ${error.message}`,
+    );
+  }
   if (!data) return null;
   const assoc = (data as { associations?: unknown }).associations;
   const row = Array.isArray(assoc) ? assoc[0] : assoc;
@@ -672,7 +676,6 @@ function toCollecte(row: CollecteRow): Collecte {
     contact_secours_nom: row.contact_secours_nom,
     contact_secours_telephone: row.contact_secours_telephone,
     association_id_point_collecte_mts1: row.association_id_point_collecte_mts1,
-    association_nom: row.association_nom,
     association_adresse: row.association_adresse,
     association_contact_nom: row.association_contact_nom,
     association_contact_telephone: row.association_contact_telephone,

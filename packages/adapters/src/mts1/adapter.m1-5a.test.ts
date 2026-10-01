@@ -56,7 +56,6 @@ const COLLECTE_AG: Collecte = {
   type: 'anti_gaspi',
   // Association destinataire résolue par le worker (point B), SANS point favori
   // MTS-1 : l'adresse part inline dans `stuffs[].relatedAddress.address`.
-  association_nom: 'Association Alpha',
   association_adresse: '12 rue des Associations, Ivry-sur-Seine',
   association_contact_nom: 'Nadia Benali',
   association_contact_telephone: '+33699990001',
@@ -388,11 +387,12 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
   // avant le prestataire — jamais un camion qui ne sait pas où livrer).
   it('M1.5a / dispatch AG — sans association attribuée → LogistiquePermanentError, aucun POST', async () => {
     const postOrder = vi.fn();
+    const createTour = vi.fn();
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour: vi.fn(),
+      createTour,
       addCustomerOrder: vi.fn(),
       dispatchTour: vi.fn(),
       validateTour: vi.fn(),
@@ -409,7 +409,12 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
         1,
       ),
     ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    // Aucun effet de bord : ni commande, ni tournée MTS-1, ni tournée en base.
     expect(postOrder).not.toHaveBeenCalled();
+    expect(createTour).not.toHaveBeenCalled();
+    expect(
+      (supabase as unknown as { _upserted: unknown[] })._upserted,
+    ).toHaveLength(0);
   });
 
   it('M1.5a / dispatch ZD — stuffs contient les 5 flux + volume_du_camion', async () => {

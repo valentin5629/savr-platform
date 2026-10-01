@@ -116,7 +116,6 @@ export interface Collecte {
   // UNE fois ici pour les deux adapters (garde-fou 2) : MTS-1 porte le point B
   // par `placeId` favori (sinon adresse inline), Everest par l'adresse inline.
   readonly association_id_point_collecte_mts1?: string | null;
-  readonly association_nom?: string | null;
   // Adresse postale sur une ligne (« adresse, ville »), prête pour le wire.
   readonly association_adresse?: string | null;
   readonly association_contact_nom?: string | null;

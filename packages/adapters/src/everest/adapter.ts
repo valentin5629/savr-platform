@@ -162,7 +162,8 @@ export class AdapterEverest implements LogistiqueProvider {
     // (décision Val 2026-10-01 — l'association est choisie AVANT le prestataire).
     // Sans elle, le coursier ne sait pas où livrer : on refuse de créer la
     // mission (permanent, hors du try : ce n'est pas un refus du transporteur).
-    if (!collecte.association_adresse) {
+    const adresseLivraison = collecte.association_adresse;
+    if (!adresseLivraison) {
       throw new LogistiquePermanentError(
         `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à Everest`,
       );
@@ -181,7 +182,12 @@ export class AdapterEverest implements LogistiqueProvider {
     let missionId: string | null = null;
     try {
       // client_ref = tournee.id (M14 W1 R_M14.2 / idempotence multi-camion V2)
-      const payload = this.buildMissionPayload(collecte, tournee.id, serviceId);
+      const payload = this.buildMissionPayload(
+        collecte,
+        tournee.id,
+        serviceId,
+        adresseLivraison,
+      );
       const pushAt = new Date().toISOString();
       const created = await this.client.createMission(payload, collecte.id);
       missionId = created.mission_id;
@@ -406,6 +412,7 @@ export class AdapterEverest implements LogistiqueProvider {
     collecte: Collecte,
     tourneeId: string,
     serviceId: number,
+    adresseLivraison: string,
   ): CreateMissionPayload {
     const slotMinutes = SERVICE_SLOT_MINUTES[serviceId] ?? 30;
     const [h = '00', m = '00'] = (collecte.heure_collecte ?? '00:00:00')
@@ -429,9 +436,9 @@ export class AdapterEverest implements LogistiqueProvider {
           phone: collecte.contact_principal_telephone,
         },
       },
-      // Point B = association destinataire (garanti non vide par dispatchCollecte).
+      // Point B = association destinataire (adresse non vide, vérifiée en amont).
       dropoff: {
-        address: collecte.association_adresse ?? '',
+        address: adresseLivraison,
         ...(collecte.association_contact_nom &&
         collecte.association_contact_telephone
           ? {

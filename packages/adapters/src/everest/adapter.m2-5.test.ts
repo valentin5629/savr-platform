@@ -42,7 +42,6 @@ const COLLECTE_AG: Collecte = {
   id: 'col-ag-everest-001',
   type: 'anti_gaspi',
   // Association destinataire résolue par le worker (point B de la mission).
-  association_nom: 'Association Alpha',
   association_adresse: '12 rue des Associations, Ivry-sur-Seine',
   association_contact_nom: 'Nadia Benali',
   association_contact_telephone: '+33699990001',
@@ -452,6 +451,20 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     ).rejects.toBeInstanceOf(LogistiquePermanentError);
     // Jamais de course sans destination : rien n'est parti chez Everest.
     expect(missions.size).toBe(0);
+    // Garde HORS du try : aucune tournée créée, et ce n'est pas un refus du
+    // transporteur → la collecte n'est pas passée en rejetee_par_prestataire.
+    expect(supabase._inserted['tournees']).toBeUndefined();
+    expect(supabase._upserted['everest_missions']).toBeUndefined();
+    const ecrituresCollecte = supabase._updated['collectes'] ?? [];
+    expect(
+      ecrituresCollecte.some((u) => {
+        const champs = u as { statut?: string; statut_tms?: string };
+        return (
+          champs.statut === 'rejetee_par_prestataire' ||
+          champs.statut_tms === 'rejetee_par_prestataire'
+        );
+      }),
+    ).toBe(false);
   });
 
   it('dispatch vélo express — createMission appelé avec service_id=74 (ag_velo_express)', async () => {

@@ -56,6 +56,7 @@ import {
   BadgeTypeCollecte,
   BlocHeader,
   ContactLigne,
+  dateLongueCapitalisee,
   EnTeteMention,
   FicheEnTete,
   InfoItem,
@@ -999,7 +1000,7 @@ export function CollecteDetailPanel({
         infos={[
           {
             icon: CalendarDays,
-            texte: `${dateCollecteLongue.charAt(0).toUpperCase()}${dateCollecteLongue.slice(1)}${heureCollecte ? ` · ${heureCollecte}` : ''}`,
+            texte: `${dateLongueCapitalisee(collecte.date_collecte)}${heureCollecte ? ` · ${heureCollecte}` : ''}`,
           },
           {
             icon: Users,

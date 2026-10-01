@@ -201,6 +201,18 @@ export function typeCollecteLabel(type: string): string {
   return type === 'zero_dechet' ? 'Zéro Déchet' : 'Anti-Gaspi';
 }
 
+// Date de collecte de l'en-tête des fiches : « Samedi 26 septembre 2026 ».
+export function dateLongueCapitalisee(dateIso: string): string {
+  const d = new Date(dateIso).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Paris',
+  });
+  return d.charAt(0).toUpperCase() + d.slice(1);
+}
+
 // Badge de type du sur-titre des fiches collecte (§06.04 Q2, remplace le cadre
 // orange/vert) : ZD navy primary-700 texte blanc / AG orange accent-500 texte
 // primary-950 — aligné DS dataviz-1/2.

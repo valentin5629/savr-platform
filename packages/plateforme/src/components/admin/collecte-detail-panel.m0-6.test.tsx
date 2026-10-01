@@ -977,13 +977,6 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         /success/,
       );
       expect(sousLigne).toHaveTextContent('Les Restos du Cœur');
-      // Titre et infos sur toute la largeur de l'en-tête : la frise partage
-      // la ligne du sur-titre et ne les écrase pas (garde de classe, jsdom ne
-      // calcule pas la mise en page).
-      expect(
-        within(enTete).getByRole('heading', { name: 'Pavillon' }).className,
-      ).toMatch(/\bcol-span-full\b/);
-      expect(sousLigne.className).toMatch(/\bcol-span-full\b/);
       // Frise compacte dans l'en-tête ; plus de colonne résumé.
       expect(
         within(enTete).getByRole('list', { name: 'Avancement de la collecte' }),

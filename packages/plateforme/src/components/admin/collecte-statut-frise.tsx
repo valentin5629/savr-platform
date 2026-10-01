@@ -15,14 +15,6 @@ const ETAPES = [
   { statut: 'cloturee', label: 'Clôturée' },
 ] as const;
 
-// Statuts qui sortent du parcours : la frise reste affichée (repère) mais aucune
-// étape n'est marquée, et le statut réel est porté par un badge d'erreur.
-const HORS_PARCOURS = [
-  'annulation_demandee',
-  'annulee',
-  'rejetee_par_prestataire',
-];
-
 function indexEtape(statut: string): number {
   // AG « réalisée sans collecte » : même rang que « Réalisée » (étape terminale
   // de la réalisation), libellé propre ci-dessous.
@@ -35,9 +27,10 @@ function indexEtape(statut: string): number {
 // grand en-tête (décision Val 2026-10-01). Le conteneur laisse la frise se
 // replier (mobile) : elle ne doit jamais déborder de l'en-tête.
 export function CollecteStatutFrise({ statut }: { statut: string }) {
-  const courant = HORS_PARCOURS.includes(statut) ? -1 : indexEtape(statut);
-  // Statut hors frise (annulé, rejeté, brouillon « Créée ») : aucune étape
-  // marquée (frise estompée) et badge explicite du statut réel.
+  const courant = indexEtape(statut);
+  // Statut hors parcours (annulation demandée, annulé, rejeté, brouillon
+  // « Créée ») : la frise reste affichée (repère) mais aucune étape n'est
+  // marquée (frise estompée), et un badge porte le statut réel.
   const badge = courant === -1 ? statutCollecteDisplay(statut, 'admin') : null;
   const etapes: EtapeFrise[] = ETAPES.map((etape, i) => ({
     label:

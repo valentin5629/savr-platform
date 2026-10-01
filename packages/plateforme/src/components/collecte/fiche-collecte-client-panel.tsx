@@ -29,6 +29,7 @@ import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
 import {
   ACTION_DESTRUCTIVE_CONTOUR,
   BadgeTypeCollecte,
+  dateLongueCapitalisee,
   EnTeteMention,
   FicheEnTete,
   ONGLET_FICHE,
@@ -45,17 +46,6 @@ import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 // changent les actions, calculées par le serveur selon le rôle.
 
 type Onglet = 'informations' | 'logistique' | 'bilan';
-
-function dateLongueCapitalisee(dateIso: string): string {
-  const d = new Date(dateIso).toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'Europe/Paris',
-  });
-  return d.charAt(0).toUpperCase() + d.slice(1);
-}
 
 interface FicheCollecteClientPanelProps {
   espace: EspaceClient;

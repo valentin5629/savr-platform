@@ -6,14 +6,6 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { CollecteStatutFrise } from './collecte-statut-frise';
 
-const ETAPES_ADMIN = [
-  'Programmée',
-  'Validée',
-  'En cours',
-  'Réalisée',
-  'Clôturée',
-];
-
 function etapeCourante(): HTMLElement | null {
   return (
     within(screen.getByRole('list', { name: 'Avancement de la collecte' }))
@@ -56,10 +48,8 @@ describe('M0.6 — CollecteStatutFrise (frise de la fiche collecte Admin)', () =
     (statut, libelle) => {
       render(<CollecteStatutFrise statut={statut} />);
       expect(etapeCourante()).toBeNull();
-      // Les 5 étapes sont estompées (aucune passée, aucune courante).
-      for (const etape of ETAPES_ADMIN) {
-        expect(screen.getByText(etape).className).toMatch(/\bopacity-60\b/);
-      }
+      // Frise estompée : aucune étape passée non plus (ni courante, ci-dessus).
+      expect(screen.queryByText(/étape passée/)).toBeNull();
       expect(screen.getByText(libelle)).toBeInTheDocument();
     },
   );

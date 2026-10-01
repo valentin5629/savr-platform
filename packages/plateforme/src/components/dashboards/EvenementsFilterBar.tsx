@@ -5,15 +5,15 @@ import {
   ParcMultiSelects,
   type ParcFilterOptions,
 } from './ParcMultiSelects.js';
-import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
+import type { TypeCollecteEvenement } from '@/lib/evenements-type-collecte';
 
 // Filtres de la liste Événements gestionnaire (§06.05 §2 l.280-293) :
 // 5 filtres globaux (Période + Lieux + Traiteurs + Type + Taille) + 2 spécifiques
-// (Type de collecte single-select, Statut consolidé multi-select).
+// (Type de collecte et Statut consolidé, à choix multiple).
 export interface EvenementsListFilters {
   from: string;
   to: string;
@@ -21,7 +21,7 @@ export interface EvenementsListFilters {
   traiteur_ids: string[];
   type_evenement_ids: string[];
   taille_evenement_codes: string[];
-  type_collecte: '' | 'avec_zd' | 'avec_ag' | 'zd_et_ag';
+  types_collecte: TypeCollecteEvenement[];
   statut_consolide: string[];
 }
 
@@ -31,14 +31,12 @@ const STATUT_OPTIONS = [
   { id: 'Annulé', nom: 'Annulé' },
 ];
 
-const TYPE_COLLECTE_OPTIONS: {
-  value: EvenementsListFilters['type_collecte'];
-  label: string;
-}[] = [
-  { value: '', label: 'Toutes' },
-  { value: 'avec_zd', label: 'Avec ZD' },
-  { value: 'avec_ag', label: 'Avec AG' },
-  { value: 'zd_et_ag', label: 'ZD et AG' },
+// Partition (arbitrage Val F1 2026-10-01) : chaque événement est dans une seule
+// case. « Avec ZD » = ZD seul + ZD et AG ; « Avec AG » = AG seul + ZD et AG.
+const TYPE_COLLECTE_OPTIONS: { id: TypeCollecteEvenement; nom: string }[] = [
+  { id: 'zd_seul', nom: 'ZD seul' },
+  { id: 'ag_seul', nom: 'AG seul' },
+  { id: 'zd_et_ag', nom: 'ZD et AG' },
 ];
 
 // Période défaut = 12 derniers mois (§06.05 l.282) — même calcul que le
@@ -50,7 +48,7 @@ export function defaultEvenementsFilters(): EvenementsListFilters {
     traiteur_ids: [],
     type_evenement_ids: [],
     taille_evenement_codes: [],
-    type_collecte: '',
+    types_collecte: [],
     statut_consolide: [],
   };
 }
@@ -65,7 +63,7 @@ export function filtresEvenementsActifs(f: EvenementsListFilters): boolean {
     f.traiteur_ids.length > 0 ||
     f.type_evenement_ids.length > 0 ||
     f.taille_evenement_codes.length > 0 ||
-    f.type_collecte !== '' ||
+    f.types_collecte.length > 0 ||
     f.statut_consolide.length > 0
   );
 }
@@ -131,18 +129,19 @@ export function EvenementsFilterBar({
         testidPrefix="evenements-filter"
       />
 
-      {/* Type de collecte (single-select, propre à la liste — l.292) */}
-      <Combobox
-        titre="Type de collecte"
-        id="evenements-filter-type-collecte"
-        data-testid="evenements-filter-type-collecte"
-        placeholder="Toutes"
+      {/* Type de collecte (propre à la liste — l.292), à choix multiple sur
+          une partition ; case « Toutes » = aucun filtre. */}
+      <FiltreCoches
+        label="Type de collecte"
+        testid="evenements-filter-type-collecte"
+        libelleVide="Toutes"
+        libelleTous="Toutes"
         options={TYPE_COLLECTE_OPTIONS}
-        value={value.type_collecte}
-        onChange={(v) =>
+        selected={value.types_collecte}
+        onChange={(ids) =>
           onChange({
             ...value,
-            type_collecte: v as EvenementsListFilters['type_collecte'],
+            types_collecte: ids as TypeCollecteEvenement[],
           })
         }
       />

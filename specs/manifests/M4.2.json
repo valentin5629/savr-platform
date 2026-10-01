@@ -125,6 +125,22 @@
       "test": "url_directe_bordereau_hors_perimetre_deny",
       "statut": "implemented",
       "libelle": "url_directe_bordereau_hors_perimetre_deny"
+    },
+    {
+      "id": "M4.2-registre-filtres-choix-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:45",
+      "artefact": "packages/plateforme/src/app/(registre)/registre/page.tsx (Lieu / Traiteur / Bordereau en FiltreCoches ; Période déjà en premier) + packages/plateforme/src/lib/registre/registre.ts (parseRegistreFilters : lieu / traiteur validés UUID, flux en liste blanche)",
+      "test": "M4.2 — Lieu : options du périmètre entier + M4.2 — Bordereau : Disponible + M4.2/registre_filtres_lieu_traiteur_csv + M4.2/registre_filtres_valeurs_toutes_invalides",
+      "statut": "à-vérifier",
+      "libelle": "Registre — Lieu et Traiteur à choix multiple (§06.03 « multi-select », le code était en choix unique) et Bordereau (Disponible / Manquant ; les deux = aucun paramètre), case « Tous » en tête (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+    },
+    {
+      "id": "M4.2-registre-options-perimetre",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:45-46",
+      "artefact": "packages/plateforme/src/app/api/v1/registre/options/route.ts (requireRegistreUser) + packages/plateforme/src/lib/registre/registre.ts (fetchRegistreOptions : vue RLS v_registre_dechets lue par tranches jusqu'à une tranche vide)",
+      "test": "M4.2/registre_options_perimetre_complet + M4.2/registre_options_garde + M4.2 — Lieu : options du périmètre entier + M4.2 — options en échec",
+      "statut": "implemented",
+      "libelle": "Options des filtres Lieu / Traiteur du registre = tout le registre du périmètre (arbitrage Val F2 2026-10-01), et non plus les lignes de la page affichée : en choix multiple, cocher un lieu faisait disparaître les autres. Même garde et même vue RLS-safe que la liste (aucune donnée de plus) ; aucune troncature quel que soit max_rows ; si la route échoue, repli sur les lieux / traiteurs des lignes affichées (jamais une liste vide muette)."
     }
   ],
   "cdc_source_hash": {

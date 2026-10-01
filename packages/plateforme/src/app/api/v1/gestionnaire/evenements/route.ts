@@ -5,6 +5,10 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import {
+  lireTypesCollecte,
+  passeTypesCollecte,
+} from '@/lib/evenements-type-collecte.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -27,7 +31,8 @@ function statutConsolide(
 // GET /api/v1/gestionnaire/evenements
 // Liste agrégée par événement (1 ligne = 1 événement) — §06.05 §2.
 // Filtres : from, to, lieu_ids[], traiteur_ids[], type_evenement_ids[],
-//           taille_evenements[], type_collecte, statut_consolide
+//           taille_evenements[], types_collecte[] (ancien type_collecte),
+//           statut_consolide[]
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
@@ -40,7 +45,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const traiteurIds = sp.getAll('traiteur_ids[]');
   const typeEvtIds = sp.getAll('type_evenement_ids[]');
   const tailleEvts = sp.getAll('taille_evenements[]');
-  const typeCollecte = sp.get('type_collecte'); // 'avec_zd'|'avec_ag'|'zd_et_ag'|null
+  const typesCollecte = lireTypesCollecte(sp);
   const statutFiltres = sp.getAll('statut_consolide[]');
 
   // Lieux du périmètre
@@ -109,11 +114,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const zbCollectes = collectes.filter((c) => c.type === 'zero_dechet');
       const agCollectes = collectes.filter((c) => c.type === 'anti_gaspi');
 
-      if (typeCollecte === 'avec_zd' && zbCollectes.length === 0) return null;
-      if (typeCollecte === 'avec_ag' && agCollectes.length === 0) return null;
       if (
-        typeCollecte === 'zd_et_ag' &&
-        (zbCollectes.length === 0 || agCollectes.length === 0)
+        !passeTypesCollecte(
+          typesCollecte,
+          zbCollectes.length > 0,
+          agCollectes.length > 0,
+        )
       )
         return null;
 

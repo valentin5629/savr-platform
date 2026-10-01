@@ -21,6 +21,8 @@ import {
   unwrap,
 } from './shared.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 
 type Row = Record<string, unknown>;
 
@@ -243,9 +245,24 @@ export async function buildFacturesExport(
   sp: URLSearchParams,
 ): Promise<ExportOutput> {
   const statut = sp.get('statut');
-  const type = sp.get('type');
+  // Filtres à choix multiple de la liste Factures Admin (§12 : l'export
+  // respecte les filtres actifs).
+  const types = listeCsv(
+    sp.get('types') ?? sp.get('type'),
+    parmi(Constants.plateforme.Enums.facture_type),
+  );
+  const orgIds = listeCsv(sp.get('organisation_ids'), estUuid);
   const from = sp.get('from');
   const to = sp.get('to');
+  // Liste Factures Admin (arbitrage Val 2026-10-01, _Divergences/
+  // M1.7_20261001_export-factures-periode, option a) : même Période que la
+  // liste — `created_at`, toujours renseignée (brouillons compris), date_fin
+  // inclusive — et même pastille « En erreur ». Staff seulement : la colonne
+  // de synchro est masquée aux clients (F5), dont les exports gardent
+  // from / to sur date_emission.
+  const dateDebut = ctx.isStaff ? sp.get('date_debut') : null;
+  const dateFin = ctx.isStaff ? sp.get('date_fin') : null;
+  const enErreur = ctx.isStaff && sp.get('en_erreur') === '1';
 
   let q = ctx.supabase
     .from('factures')
@@ -257,9 +274,13 @@ export async function buildFacturesExport(
 
   if (!ctx.isStaff) q = q.neq('statut', 'brouillon');
   if (statut) q = q.eq('statut', statut);
-  if (type) q = q.eq('type', type);
+  if (types.length > 0) q = q.in('type', types);
+  if (orgIds.length > 0) q = q.in('organisation_id', orgIds);
   if (from) q = q.gte('date_emission', from);
   if (to) q = q.lte('date_emission', to);
+  if (dateDebut) q = q.gte('created_at', dateDebut);
+  if (dateFin) q = q.lte('created_at', `${dateFin}T23:59:59.999Z`);
+  if (enErreur) q = q.not('erreur_synchro', 'is', null);
 
   const { data, error } = await q;
   if (error) throw erreurInterne(error, 'exports.builders');

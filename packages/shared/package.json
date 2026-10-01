@@ -10,6 +10,7 @@
     "./src/pdf/document-types.js": "./src/pdf/document-types.ts",
     "./src/r2/upload.js": "./src/r2/upload.ts",
     "./src/supabase-client.js": "./src/supabase-client.ts",
+    "./src/database.types.js": "./src/database.types.ts",
     "./src/email-denylist.js": "./src/email-denylist.ts",
     "./src/email/index.js": "./src/email/index.ts",
     "./src/api/siret.js": "./src/api/siret.ts",

@@ -367,3 +367,94 @@ describe('M4.2 / telechargement_pdf_bordereau_depuis_liste', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ── Filtres à choix multiple (§06.03 « multi-select », décision Val 2026-09-30) ─
+describe('M4.2 / filtres à choix multiple', () => {
+  const UUID_A = '11111111-1111-4111-8111-111111111111';
+  const UUID_B = '22222222-2222-4222-8222-222222222222';
+
+  it('M4.2/registre_filtres_lieu_traiteur_csv — lieu / traiteur CSV → in(), non-UUID et flux inconnus écartés', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({ data: [], count: 0, error: null });
+    const res = await callList(
+      `?lieu=${UUID_A},${UUID_B},pas-un-uuid&traiteur=${UUID_A},x)&flux=biodechet,inconnu&bordereau=dispo`,
+    );
+    expect(res.status).toBe(200);
+    const inCalls = rls.__calls.in ?? [];
+    expect(inCalls).toContainEqual(['lieu_id', [UUID_A, UUID_B]]);
+    expect(inCalls).toContainEqual([
+      'traiteur_operationnel_organisation_id',
+      [UUID_A],
+    ]);
+    expect(inCalls).toContainEqual(['bordereau_statut', ['emis', 'corrige']]);
+    expect(rls.__calls.overlaps).toContainEqual(['flux_codes', ['biodechet']]);
+  });
+
+  it('M4.2/registre_filtres_valeurs_toutes_invalides — aucun in() vide', async () => {
+    setupAuth('traiteur_manager', 'org-a');
+    rls.push({ data: [], count: 0, error: null });
+    await callList('?lieu=abc&traiteur=def&flux=zzz');
+    expect(rls.__calls.in ?? []).toEqual([]);
+    expect(rls.__calls.overlaps ?? []).toEqual([]);
+  });
+
+  it('M4.2/registre_options_perimetre_complet — lieux et traiteurs de toute la vue, dédoublonnés, triés, lus par tranches', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({
+      data: [
+        {
+          collecte_id: 'c1',
+          lieu_id: 'l2',
+          lieu_nom: 'Salle Wagram',
+          traiteur_operationnel_organisation_id: 't1',
+          traiteur_raison_sociale: 'Kaspia',
+        },
+        {
+          collecte_id: 'c2',
+          lieu_id: 'l1',
+          lieu_nom: 'Pavillon Dauphine',
+          traiteur_operationnel_organisation_id: 't1',
+          traiteur_raison_sociale: 'Kaspia',
+        },
+        {
+          collecte_id: 'c3',
+          lieu_id: 'l2',
+          lieu_nom: 'Salle Wagram',
+          traiteur_operationnel_organisation_id: null,
+          traiteur_raison_sociale: null,
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [], error: null }); // tranche suivante vide → fin
+    const { GET } = await import('@/app/api/v1/registre/options/route.js');
+    const res = await GET(makeReq('/api/v1/registre/options'));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      lieux: [
+        { id: 'l1', nom: 'Pavillon Dauphine' },
+        { id: 'l2', nom: 'Salle Wagram' },
+      ],
+      traiteurs: [{ id: 't1', nom: 'Kaspia' }],
+    });
+    // Même vue RLS-safe que la liste ; la 2e tranche repart après les lignes lues
+    // (aucune troncature, quel que soit max_rows).
+    expect(rls.__calls.from).toEqual([
+      ['v_registre_dechets'],
+      ['v_registre_dechets'],
+    ]);
+    expect(rls.__calls.range).toEqual([
+      [0, 999],
+      [3, 1002],
+    ]);
+  });
+
+  it('M4.2/registre_options_garde — 401 sans session, agence refusée (403), aucune lecture', async () => {
+    const { GET } = await import('@/app/api/v1/registre/options/route.js');
+    noAuth();
+    expect((await GET(makeReq('/api/v1/registre/options'))).status).toBe(401);
+    setupAuth('agence', 'org-a');
+    expect((await GET(makeReq('/api/v1/registre/options'))).status).toBe(403);
+    expect(rls.__calls.from ?? []).toEqual([]);
+  });
+});

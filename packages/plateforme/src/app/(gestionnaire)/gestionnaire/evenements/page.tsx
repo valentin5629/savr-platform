@@ -18,6 +18,7 @@ import {
   defaultEvenementsFilters,
   type EvenementsListFilters,
 } from '@/components/dashboards/index.js';
+import { lireTypesCollecte } from '@/lib/evenements-type-collecte';
 
 interface EvenementRow {
   id: string;
@@ -166,7 +167,6 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
 // cartes KPI du dashboard qui transmettent les filtres globaux.
 function filtersFromParams(params: URLSearchParams): EvenementsListFilters {
   const base = defaultEvenementsFilters();
-  const typeCollecte = params.get('type_collecte');
   return {
     from: params.get('from') ?? base.from,
     to: params.get('to') ?? base.to,
@@ -174,12 +174,9 @@ function filtersFromParams(params: URLSearchParams): EvenementsListFilters {
     traiteur_ids: params.getAll('traiteur_ids[]'),
     type_evenement_ids: params.getAll('type_evenement_ids[]'),
     taille_evenement_codes: params.getAll('taille_evenements[]'),
-    type_collecte:
-      typeCollecte === 'avec_zd' ||
-      typeCollecte === 'avec_ag' ||
-      typeCollecte === 'zd_et_ag'
-        ? typeCollecte
-        : '',
+    // `types_collecte[]`, ou l'ancien `type_collecte` d'un lien existant
+    // (même lecture que la route).
+    types_collecte: lireTypesCollecte(params),
     statut_consolide: params.getAll('statut_consolide[]'),
   };
 }
@@ -192,7 +189,7 @@ function toQueryString(f: EvenementsListFilters): URLSearchParams {
   f.traiteur_ids.forEach((id) => qs.append('traiteur_ids[]', id));
   f.type_evenement_ids.forEach((id) => qs.append('type_evenement_ids[]', id));
   f.taille_evenement_codes.forEach((c) => qs.append('taille_evenements[]', c));
-  if (f.type_collecte) qs.set('type_collecte', f.type_collecte);
+  f.types_collecte.forEach((t) => qs.append('types_collecte[]', t));
   f.statut_consolide.forEach((s) => qs.append('statut_consolide[]', s));
   return qs;
 }

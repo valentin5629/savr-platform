@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { MapPin, Plus, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Combobox } from '@/components/ui/combobox';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FiltreRecherche } from '@/components/ui/filtre-en-ligne';
+import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
+import { valeurUnique } from '@/lib/filtre-csv';
 import { Badge } from '@/components/ui/badge';
 import { PageHero } from '@/components/ui/page-hero';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -67,7 +67,9 @@ export default function LieuxPage() {
   const [nbModifs, setNbModifs] = useState(0);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  const [actif, setActif] = useState('true');
+  // Statut à choix multiple, « Actifs » pré-coché par défaut ; case « Tous »
+  // = sélection vide = aucun filtre (décision Val 2026-09-30).
+  const [actifs, setActifs] = useState<string[]>(['true']);
   const [tab, setTab] = useState<'referentiel' | 'modifs'>('referentiel');
   const [page, setPage] = useState(1);
   // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
@@ -91,7 +93,12 @@ export default function LieuxPage() {
     setModalOpen(true);
   };
 
+  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
+  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
+  const derniereRequete = useRef(0);
+
   const fetchLieux = useCallback(async () => {
+    const numero = ++derniereRequete.current;
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
     params.set('tri', tri.cle);
@@ -99,18 +106,23 @@ export default function LieuxPage() {
     if (tab === 'modifs') {
       params.set('worklist', 'modifs');
     } else {
-      if (actif) params.set('actif', actif); // '' = Tous → filtre omis
+      const actif = valeurUnique(actifs);
+      if (actif) params.set('actif', actif);
       if (q) params.set('q', q);
     }
-    const res = await fetch(`/api/v1/admin/lieux?${params}`);
-    if (res.ok) {
-      const json = (await res.json()) as { data: Lieu[]; total: number };
+    try {
+      const res = await fetch(`/api/v1/admin/lieux?${params}`);
+      const json = res.ok
+        ? ((await res.json()) as { data: Lieu[]; total: number })
+        : null;
+      if (numero !== derniereRequete.current || !json) return;
       setLieux(json.data);
       setTotal(json.total);
       if (tab === 'referentiel') setNbReferentiel(json.total);
+    } finally {
+      if (numero === derniereRequete.current) setLoading(false);
     }
-    setLoading(false);
-  }, [page, actif, q, tab, tri]);
+  }, [page, actifs, q, tab, tri]);
 
   useEffect(() => {
     void fetchLieux();
@@ -372,17 +384,16 @@ export default function LieuxPage() {
                 setPage(1);
               }}
             />
-            <Combobox
-              titre="Statut"
-              id="lieux-statut"
+            <FiltreCoches
+              label="Statut"
+              testid="lieux-statut"
               options={[
-                { value: 'true', label: 'Actifs' },
-                { value: 'false', label: 'Inactifs' },
-                { value: '', label: 'Tous' },
+                { id: 'true', nom: 'Actifs' },
+                { id: 'false', nom: 'Inactifs' },
               ]}
-              value={actif}
-              onChange={(v) => {
-                setActif(v);
+              selected={actifs}
+              onChange={(ids) => {
+                setActifs(ids);
                 setPage(1);
               }}
             />

@@ -5,6 +5,8 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 
 // Lecture seule, manager + commercial (§06.04 §6 Facturation, révision 2026-05-29).
 const TRAITEUR_ROLES: ClientRole[] = [
@@ -22,8 +24,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createSupabaseServerClient();
   const { searchParams } = new URL(req.url);
-  const statut = searchParams.get('statut');
-  const type = searchParams.get('type');
+  // Statut et Type à choix multiple. Le périmètre reste celui de la RLS et le
+  // `.neq('statut', 'brouillon')` ci-dessous : `.in()` ne fait que restreindre.
+  const statuts = listeCsv(
+    searchParams.get('statuts') ?? searchParams.get('statut'),
+    parmi(Constants.plateforme.Enums.facture_statut),
+  );
+  const types = listeCsv(
+    searchParams.get('types') ?? searchParams.get('type'),
+    parmi(Constants.plateforme.Enums.facture_type),
+  );
   // Filtres §06.04 §6 l.690 : statut, type, période (date d'émission).
   const dateDebut = searchParams.get('date_debut');
   const dateFin = searchParams.get('date_fin');
@@ -37,8 +47,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .neq('statut', 'brouillon')
     .order('date_emission', { ascending: false, nullsFirst: false });
 
-  if (statut) query = query.eq('statut', statut);
-  if (type) query = query.eq('type', type);
+  if (statuts.length > 0) query = query.in('statut', statuts);
+  if (types.length > 0) query = query.in('type', types);
   if (dateDebut) query = query.gte('date_emission', dateDebut);
   if (dateFin) query = query.lte('date_emission', dateFin);
 

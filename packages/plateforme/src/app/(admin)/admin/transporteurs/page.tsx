@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Truck, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Combobox } from '@/components/ui/combobox';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FiltreRecherche } from '@/components/ui/filtre-en-ligne';
+import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
+import { valeurUnique } from '@/lib/filtre-csv';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
@@ -16,18 +16,21 @@ import {
   type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
+import type { Database } from '@savr/shared/src/database.types.js';
 
 // Ligne = enregistrement complet (l'API liste renvoie select('*')) → sert
 // directement à préremplir la modale d'édition, sans re-fetch.
 type Transporteur = TransporteurRecord;
 
+// Clés = enum DB type_tms complet (`satisfies`) : le filtre Type en tire ses
+// options, un renommage d'enum casse la compilation.
 const TYPE_TMS_LABELS: Record<string, string> = {
   mts1: 'MTS-1',
   a_toutes: 'A Toutes!',
   autre: 'Autre',
   par_mail: 'Par mail',
   par_telephone: 'Par téléphone',
-};
+} satisfies Record<Database['plateforme']['Enums']['type_tms'], string>;
 
 const TYPE_VEHICULE_LABELS: Record<string, string> = {
   velo_cargo: 'Vélo cargo',
@@ -47,8 +50,10 @@ export default function TransporteursPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  const [typeTms, setTypeTms] = useState('');
-  const [actif, setActif] = useState('true');
+  // Filtres à choix multiple, case « Tous » = sélection vide (décision Val
+  // 2026-09-30) ; « Actifs » reste pré-coché par défaut.
+  const [typesTms, setTypesTms] = useState<string[]>([]);
+  const [actifs, setActifs] = useState<string[]>(['true']);
   const [page, setPage] = useState(1);
   // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
   // en page 1 à chaque changement (cf. lib/tri-liste).
@@ -63,25 +68,32 @@ export default function TransporteursPage() {
     null,
   ); // null = non chargé ou en échec (≠ référentiel vide)
 
+  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
+  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
+  const derniereRequete = useRef(0);
+
   const fetchTransporteurs = useCallback(async () => {
+    const numero = ++derniereRequete.current;
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
     params.set('tri', tri.cle);
     params.set('ordre', tri.ordre);
+    const actif = valeurUnique(actifs);
     if (actif) params.set('actif', actif);
-    if (typeTms) params.set('type_tms', typeTms);
+    if (typesTms.length > 0) params.set('types_tms', typesTms.join(','));
     if (q) params.set('q', q);
-    const res = await fetch(`/api/v1/admin/transporteurs?${params}`);
-    if (res.ok) {
-      const json = (await res.json()) as {
-        data: Transporteur[];
-        total: number;
-      };
+    try {
+      const res = await fetch(`/api/v1/admin/transporteurs?${params}`);
+      const json = res.ok
+        ? ((await res.json()) as { data: Transporteur[]; total: number })
+        : null;
+      if (numero !== derniereRequete.current || !json) return;
       setTransporteurs(json.data);
       setTotal(json.total);
+    } finally {
+      if (numero === derniereRequete.current) setLoading(false);
     }
-    setLoading(false);
-  }, [page, actif, typeTms, q, tri]);
+  }, [page, actifs, typesTms, q, tri]);
 
   useEffect(() => {
     void fetchTransporteurs();
@@ -232,33 +244,29 @@ export default function TransporteursPage() {
             setPage(1);
           }}
         />
-        <Combobox
-          titre="Type"
-          id="transporteurs-type"
-          options={[
-            { value: '', label: 'Tous les types' },
-            ...Object.entries(TYPE_TMS_LABELS).map(([k, v]) => ({
-              value: k,
-              label: v,
-            })),
-          ]}
-          value={typeTms}
-          onChange={(v) => {
-            setTypeTms(v);
+        <FiltreCoches
+          label="Type"
+          testid="transporteurs-type"
+          options={Object.entries(TYPE_TMS_LABELS).map(([id, nom]) => ({
+            id,
+            nom,
+          }))}
+          selected={typesTms}
+          onChange={(ids) => {
+            setTypesTms(ids);
             setPage(1);
           }}
         />
-        <Combobox
-          titre="Statut"
-          id="transporteurs-statut"
+        <FiltreCoches
+          label="Statut"
+          testid="transporteurs-statut"
           options={[
-            { value: 'true', label: 'Actifs' },
-            { value: 'false', label: 'Inactifs' },
-            { value: '', label: 'Tous' },
+            { id: 'true', nom: 'Actifs' },
+            { id: 'false', nom: 'Inactifs' },
           ]}
-          value={actif}
-          onChange={(v) => {
-            setActif(v);
+          selected={actifs}
+          onChange={(ids) => {
+            setActifs(ids);
             setPage(1);
           }}
         />

@@ -54,13 +54,21 @@ beforeAll(async () => {
   class AttestationsEcrites extends Error {}
   const client = {
     query: (sql: string, params: unknown[] = []) => {
-      const table = /^INSERT INTO (\S+) \(([^)]+)\) VALUES/.exec(sql);
-      const cible = table ? ecrites.get(table[1]!) : undefined;
+      const insert =
+        /^INSERT INTO (\S+) \(([^)]+)\) VALUES (.+) ON CONFLICT/.exec(sql);
+      const cible = insert ? ecrites.get(insert[1]!) : undefined;
       if (cible) {
-        const colonnes = table![2]!.split(', ');
-        for (let i = 0; i < params.length; i += colonnes.length) {
+        const colonnes = insert![2]!.split(', ');
+        // Chaque valeur est lue par son numéro de paramètre (`$12`), pas par sa
+        // position dans `params` : une valeur écrite en dur dans le SQL
+        // (`DEFAULT`) ne consomme aucun paramètre et décalerait les suivantes.
+        for (const [, ligne] of insert![3]!.matchAll(/\(([^)]*)\)/g)) {
+          const valeurs = ligne!.split(', ').map((valeur) => {
+            const numero = /^\$(\d+)/.exec(valeur)?.[1];
+            return numero ? params[Number(numero) - 1] : undefined;
+          });
           cible.push(
-            Object.fromEntries(colonnes.map((c, k) => [c, params[i + k]])),
+            Object.fromEntries(colonnes.map((c, k) => [c, valeurs[k]])),
           );
         }
       } else if (attestations.length > 0) {

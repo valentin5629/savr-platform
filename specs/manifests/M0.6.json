@@ -1200,6 +1200,14 @@
       "libelle": "tournees : SELECT authenticated en liste blanche — chauffeur/accompagnant/plaque, prestataire, références provider (dont reference_interne TMS-/EVR-) et notes internes hors privilège (arbitrage C5, suite #435)"
     },
     {
+      "id": "M0.6-evenements-select-liste-blanche",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:59",
+      "artefact": "supabase/migrations/20261001103000_plateforme_evenements_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 14 colonnes)",
+      "test": "supabase/tests/SECU__evenements_select_liste_blanche.test.sql (1-5 privilèges + liste blanche exacte ; 6 non-vacuité ; 7-27 gestionnaire / traiteur opérationnel / agence / client organisateur : ligne visible, 7 colonnes retirées → 42501 ; 28 ligne tierce invisible ; 29-37 policies d'autres tables et vues security_invoker toujours lisibles ; 38-41 admin_savr JWT fermé, service_role intact ; 42-43 fail-closed colonne ajoutée ; recalés dans le même lot : SECU__evenements_ecriture_client_fermee A4, bornes_texte_libre, liste_collectes_agence_lecture)",
+      "statut": "implemented",
+      "libelle": "evenements : SELECT authenticated en liste blanche — contacts sur place (nom + téléphone, principal et secours), référence d'affaire, notes internes et entité de facturation hors privilège (arbitrages Val C1-C5 2026-10-01)"
+    },
+    {
       "id": "M0.6-attestation-delete-deny",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:258",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql",

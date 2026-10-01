@@ -35,9 +35,26 @@ import {
 //     prestataire logistique (marque blanche), ni téléphone du chauffeur hors
 //     de la fenêtre programmee/validee/en_cours ;
 //  4. gestionnaire : l'association bénéficiaire n'est PAS lue (Q7 — aa_select
-//     n'est jamais élargie, la vue v_attributions_gestionnaire n'existe pas).
+//     n'est jamais élargie, la vue v_attributions_gestionnaire n'existe pas) ;
+//  5. contacts sur place et référence d'affaire : colonnes d'`evenements` hors
+//     GRANT SELECT authenticated (migration 20261001103000), lues en
+//     service-role sur CET événement et seulement pour qui y a titre —
+//     contacts : traiteur et agence, gestionnaire sur ses seules programmations
+//     (§06.05 : rien de personnel sur un traiteur tiers) ; référence d'affaire :
+//     organisation programmatrice seule (arbitrages Val C2/C3 2026-10-01).
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
+
+const COLONNES_CONTACTS =
+  'contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone';
+
+interface EvenementReserve {
+  contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
+  reference_affaire?: string | null;
+}
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   if (!v) return null;
@@ -52,12 +69,7 @@ interface EvenementRow {
   nom_evenement: string | null;
   pax: number | null;
   type_evenement_id: string | null;
-  reference_affaire: string | null;
   nom_client_organisateur: string | null;
-  contact_principal_nom: string | null;
-  contact_principal_telephone: string | null;
-  contact_secours_nom: string | null;
-  contact_secours_telephone: string | null;
   type_evenement:
     | { libelle: string | null }
     | { libelle: string | null }[]
@@ -187,9 +199,7 @@ export async function chargerFicheCollecteClient(
        lieu_overrides,
        evenement:evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id, created_by,
-         nom_evenement, pax, type_evenement_id, reference_affaire,
-         nom_client_organisateur, contact_principal_nom, contact_principal_telephone,
-         contact_secours_nom, contact_secours_telephone,
+         nom_evenement, pax, type_evenement_id, nom_client_organisateur,
          type_evenement:types_evenements!type_evenement_id(libelle),
          lieu:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, acces_details)
        ),
@@ -206,6 +216,10 @@ export async function chargerFicheCollecteClient(
   const isAg = c.type === 'anti_gaspi';
   const avecCamions = STATUTS_LOGISTIQUE.includes(c.statut);
   const avecAssociation = isAg && STATUTS_ASSOCIATION.includes(c.statut);
+  // Frontière 5 : qui a titre aux colonnes réservées de l'événement.
+  const programmeParSoi = evt?.organisation_id === ctx.organisationId;
+  const contactsVisibles =
+    Boolean(evt) && (espace !== 'gestionnaire' || programmeParSoi);
 
   const admin = createAdminSupabaseClient();
   // AG realisee_sans_collecte : pas d'attestation, le rapport est « Événement
@@ -218,7 +232,7 @@ export async function chargerFicheCollecteClient(
   // téléchargement. Le traiteur opérationnel d'une collecte AG programmée par
   // une agence ne lit donc pas l'attestation de don du donneur d'ordre (D12,
   // arbitrage Val 2026-09-30) ; le rapport RSE ZD lui reste servi (rr_select).
-  const [ctRes, rapRes, attRes, aaRes, alerteRes] = await Promise.all([
+  const [ctRes, rapRes, attRes, aaRes, alerteRes, evtRes] = await Promise.all([
     avecCamions
       ? admin
           .from('collecte_tournees')
@@ -269,7 +283,21 @@ export async function chargerFicheCollecteClient(
           .limit(1)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    contactsVisibles && evt
+      ? admin
+          .from('evenements')
+          .select(
+            programmeParSoi
+              ? `${COLONNES_CONTACTS}, reference_affaire`
+              : COLONNES_CONTACTS,
+          )
+          .eq('id', evt.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
+  // Un échec de cette lecture ne doit pas se lire comme « aucun contact ».
+  if (evtRes.error) return { erreur: evtRes.error };
+  const reserve = evtRes.data as EvenementReserve | null;
 
   // ── Camions (Logistique) ────────────────────────────────────────────────
   type TourneeRow = TourneeFiche;
@@ -367,11 +395,13 @@ export async function chargerFicheCollecteClient(
         type_evenement_id: evt.type_evenement_id,
         type_evenement: one(evt.type_evenement),
         nom_client_organisateur: evt.nom_client_organisateur,
-        reference_affaire: evt.reference_affaire,
-        contact_principal_nom: evt.contact_principal_nom,
-        contact_principal_telephone: evt.contact_principal_telephone,
-        contact_secours_nom: evt.contact_secours_nom,
-        contact_secours_telephone: evt.contact_secours_telephone,
+        reference_affaire: reserve?.reference_affaire ?? null,
+        contacts_visibles: contactsVisibles,
+        contact_principal_nom: reserve?.contact_principal_nom ?? null,
+        contact_principal_telephone:
+          reserve?.contact_principal_telephone ?? null,
+        contact_secours_nom: reserve?.contact_secours_nom ?? null,
+        contact_secours_telephone: reserve?.contact_secours_telephone ?? null,
         lieu: lieuEffectif
           ? {
               id: lieuEffectif.id,

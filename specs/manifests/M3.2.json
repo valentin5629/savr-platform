@@ -665,6 +665,14 @@
       "libelle": "Bilan AG du gestionnaire sur une collecte programmée par un traiteur TIERS : volume_repas_realise lui est refusé sous sa RLS (aa_select — C-1, pgTAP T18, jamais élargie), seul le bloc Association étant exempté par §06.05 l.85. Arbitrage Val 2026-09-30 (D13) : « Repas donnés » / « Repas par pax » lus dans l'attestation de don qui lui est déjà servie (att_gestionnaire_select, §06.05 l.619) — attestations_don.nb_repas, copié de l'attribution au batch J+1 ; « — » tant que l'attestation n'existe pas ; l'attribution prime quand elle est lisible. Aucune lecture élargie. Preuve base : supabase/tests/documents_traiteur_operationnel_d12.test.sql (bloc Gestionnaire : attestation servie, attribution refusée, nb_repas lu par la requête de la fiche). Le radar ZD reste masqué sur les collectes tierces (garde f_benchmark_single_collecte non élargie)."
     },
     {
+      "id": "M3.2-popup-contacts-tiers-masques",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:59",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
+      "test": "M3.2/fiche_get_contacts_tiers_masques",
+      "statut": "implemented",
+      "libelle": "Fiche collecte du gestionnaire sur la collecte d'un traiteur TIERS : contacts sur place (nom + téléphone, principal et secours) et référence d'affaire ni lus ni servis, bloc « Contacts sur place » absent ; affichés sur ses propres programmations (arbitrage Val C2 2026-10-01 — M3.2/fiche_get_contacts_propre_programmation, M3.2/fiche_popup_gestionnaire_contacts_tiers_masques)"
+    },
+    {
       "id": "M3.2-evenements-type-collecte-choix-multiple",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:312",
       "artefact": "packages/plateforme/src/components/dashboards/EvenementsFilterBar.tsx (FiltreCoches « ZD seul / AG seul / ZD et AG ») + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx (URL types_collecte[], ancien type_collecte relu) + packages/plateforme/src/lib/evenements-type-collecte.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/export-csv/route.ts",

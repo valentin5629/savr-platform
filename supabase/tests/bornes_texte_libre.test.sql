@@ -275,14 +275,17 @@ SELECT throws_ok(
 -- fixture laisse `contact_secours_nom` à NULL, donc un 42501 mal simulé (ou un
 -- privilège ré-accordé) se verrait ici — la valeur `'Marie Durand'` du premier cas
 -- apparaîtrait.
+-- Relue en superuser depuis 20261001103000 : `contact_secours_nom` est hors de la
+-- liste blanche SELECT de authenticated (la lecture lèverait 42501 à son tour, ce
+-- qui ne dirait rien de l'écriture). La ligne lue est la même.
+SELECT pg_temp.as_superuser();
+
 SELECT is(
   (SELECT contact_secours_nom FROM plateforme.evenements
     WHERE id = 'b0c0ea06-0000-0000-0000-000000000001'::uuid),
   NULL,
-  'authenticated : aucune des écritures refusées n''a touché la ligne');
+  'authenticated : aucune des écritures refusées n''a touché la ligne (relue en superuser)');
 
-
-SELECT pg_temp.as_superuser();
 
 SELECT * FROM finish();
 ROLLBACK;

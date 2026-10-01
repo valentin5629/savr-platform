@@ -36,3 +36,14 @@ Après un lot de rationalisation mergé : rebuild du bundle des aperçus (esbuil
 ## Galerie et vitrine
 
 `docs/design-system/GALERIE.md` (captures) et `/dev/design-system` (page de dev, 404 en production) montrent côte à côte les primitives et les recettes ad hoc trouvées dans l'app.
+
+## Producteur (resynchronisation depuis le code)
+
+`packages/plateforme/design-system-sync/` tient tout ce qui fabrique les fichiers du design system à partir du code :
+
+- `entry.ts` : ce qui entre dans le bundle (`window.SavrDS`) — toutes les primitives `components/ui` sauf celles qui dépendent de Supabase, les composants métier partagés, un sous-ensemble d'icônes lucide. Type-checké par le `tsc` racine.
+- `build.mjs` : `node packages/plateforme/design-system-sync/build.mjs` → `dist/bundle.js` (esbuild, IIFE minifié, React 18 fourni par la page via `shims/`), `dist/bundle.css` (Tailwind 4 sur les sources exportées et sur `previews/`, tokens Savr en `@theme reference` pour que `tokens.css` du design system reste la source des valeurs), `dist/index.d.ts` (types de documentation).
+- `previews/<Carte>.html` : un aperçu par carte (ligne 1 = marqueur `@dsCard`), publié tel quel en `project/components/<Carte>/preview.html`.
+- `check.mjs` : `CHROMIUM_PATH=/opt/pw-browsers/chromium node packages/plateforme/design-system-sync/check.mjs` rend chaque aperçu dans Chromium avec le bundle, un `tokens.css` dérivé du snapshot et React en global ; erreurs JS remontées, une capture par carte dans `dist/check/`.
+
+Publication (Claude Code, outil Artifact) : `project/components/{bundle.js,bundle.css,index.d.ts}`, les aperçus, puis l'index (`lastChange`) en dernier. Les README des cartes et le brand book sont la prose de Val : la synchro y ajoute ou met à jour les blocs « Usage dans l'app » et la provenance, sans réécrire le reste. `tokens.json` n'est pas écrasé par le code : les divergences sont listées par `pnpm check:ds-tokens` et tranchées dans Claude Design.

@@ -1,0 +1,9 @@
+<!-- @dsCard group="Affichage" height=80 subtitle="shadcn · nouveau" -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.ToggleGroup,{type:'single',defaultValue:'all'},
+  h(S.ToggleGroupItem,{value:'all'},'Toutes'),h(S.ToggleGroupItem,{value:'zd'},'Zéro Déchet'),h(S.ToggleGroupItem,{value:'ag'},'Anti-Gaspi'))
+);
+</script>

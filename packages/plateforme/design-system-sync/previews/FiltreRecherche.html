@@ -1,0 +1,7 @@
+<!-- @dsCard group="Filtres" height=90 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+function Demo(){ const [q,setQ]=React.useState(''); return h('div',{className:'max-w-sm'},h(S.FiltreRecherche,{value:q,onChange:e=>setQ(e.target.value),placeholder:'Rechercher un client…'})); }
+ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>

@@ -1,0 +1,16 @@
+<!-- @dsCard group="Actions" height=120 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex flex-wrap items-center gap-3'},
+  h(S.Button,null,'Programmer une collecte'),
+  h(S.Button,{variant:'secondary'},'Annuler'),
+  h(S.Button,{variant:'accent'},'Recharger le pack AG'),
+  h(S.Button,{variant:'ghost'},'Voir le détail'),
+  h(S.Button,{variant:'destructive'},'Supprimer'),
+  h(S.Button,{variant:'link'},'Lien'),
+  h(S.Button,{size:'sm'},'Petit'),
+  h(S.Button,{disabled:true},'Désactivé'))
+);
+</script>

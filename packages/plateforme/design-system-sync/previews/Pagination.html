@@ -1,0 +1,8 @@
+<!-- @dsCard group="Affichage" height=80 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(function(){const [p,setP]=React.useState(3);return h(S.Pagination,{page:p,pageCount:12,onPageChange:setP})})
+);
+</script>

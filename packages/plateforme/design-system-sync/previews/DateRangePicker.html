@@ -1,0 +1,13 @@
+<!-- @dsCard group="Formulaires" height=110 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+function Demo(){
+  const [a,setA]=React.useState({from:'2026-10-12',to:'2026-10-16'}); const [b,setB]=React.useState(S.PERIODE_VIDE);
+  return h('div',{className:'flex flex-wrap items-center gap-6'},
+    h(S.DateRangePicker,{titre:'Période',value:a,onChange:setA}),
+    h('div',{className:'w-72'},h(S.DateRangePicker,{value:b,onChange:setB,placeholder:'Période'})),
+    h('span',{className:'text-xs text-savr-neutral-500'},'Filtre en ligne (titre) · champ de formulaire'));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>

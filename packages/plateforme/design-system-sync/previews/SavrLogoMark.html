@@ -1,0 +1,11 @@
+<!-- @dsCard group="Marque" height=120 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex items-center gap-6'},
+  h('div',{className:'rounded-savr-md bg-savr-primary-700 px-6 py-4 text-savr-accent-500'},h(S.SavrLogoMark,{title:'Savr',className:'h-10 w-auto'})),
+  h('div',{className:'rounded-savr-md bg-savr-primary-700 px-6 py-4 text-savr-success'},h(S.SavrLogoMark,{title:'Savr ZD',className:'h-10 w-auto'})),
+  h('div',{className:'rounded-savr-md bg-savr-primary-800 p-3 text-savr-accent-500'},h(S.SavrLogoMark,{variant:'mark',className:'h-8 w-8'})))
+);
+</script>

@@ -43,8 +43,10 @@ export interface ChipQuery {
 
 // Définition canonique de « à dispatcher » (§11 §1.1, tranchée Val 2026-09-14) :
 // non envoyée au TMS, sans référence de commande, encore ouverte (programmée OU
-// validée transporteur). Écrite UNE fois, sous deux formes : filtre de requête
-// (`aDispatcher`) et test d'une ligne déjà chargée (`estADispatcher`). En
+// validée transporteur). Elle vit ici sous deux formes côte à côte : filtre de
+// requête (`aDispatcher`) et test d'une ligne déjà chargée (`estADispatcher`).
+// Seule la liste des statuts est littéralement partagée ; l'accord des deux
+// formes est tenu par tests/api/admin/collectes-chip-counts.m0-6.test.ts. En
 // dépendent : les chips « Non transmises ZD/AG », les tuiles « AG/ZD à
 // dispatcher » (chip-counts reprend le compteur de ces chips) et l'action
 // « Dispatcher » de la liste (collectes-table). Les cartes Bloc 1 du Dashboard
@@ -65,7 +67,7 @@ export function estADispatcher(row: {
 }): boolean {
   return (
     row.statut_tms === 'non_envoye' &&
-    row.tms_reference == null &&
+    row.tms_reference === null &&
     STATUTS_A_DISPATCHER.includes(row.statut)
   );
 }

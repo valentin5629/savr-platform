@@ -1352,10 +1352,26 @@
     {
       "id": "M0.6-kpi-a-dispatcher-predicat-unique",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:28",
-      "artefact": "packages/plateforme/src/lib/collectes-chips.ts (définition écrite une fois : filtre de requête aDispatcher + test de ligne estADispatcher) + packages/plateforme/src/app/api/v1/admin/collectes/chip-counts/route.ts (ag_a_dispatcher / zd_a_dispatcher = compteur du chip non_transmises_ag / non_transmises_zd, plus de requête propre) + packages/plateforme/src/components/admin/collectes-table.tsx (aDispatcherZd = type ZD + estADispatcher, tms_reference lu) + packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (clic sur une tuile = chip non_transmises_ag / non_transmises_zd, re-clic = retrait)",
-      "test": "M0.6 — kpi_a_dispatcher_predicat_unique",
+      "artefact": "packages/plateforme/src/lib/collectes-chips.ts (définition sous deux formes : filtre de requête aDispatcher + test de ligne estADispatcher, statuts partagés) + packages/plateforme/src/app/api/v1/admin/collectes/chip-counts/route.ts (ag_a_dispatcher / zd_a_dispatcher = compteur du chip non_transmises_ag / non_transmises_zd, plus de requête propre) + packages/plateforme/src/components/admin/collectes-table.tsx (aDispatcherZd = type ZD + estADispatcher, tms_reference lu)",
+      "test": "M0.6 — kpi_a_dispatcher_predicat_unique + M0.6 — la liste sert tms_reference",
       "statut": "implemented",
-      "libelle": "Définition canonique de « à dispatcher » (Val 2026-09-14 : statut_tms = non_envoye ET tms_reference IS NULL ET statut IN (programmee, validee)) partagée par la tuile KPI « AG/ZD à dispatcher », le chip « Non transmises ZD/AG » et l'action « Dispatcher » de la liste Collectes Admin ; la tuile n'est jamais inférieure au nombre de lignes offrant « Dispatcher ». Un clic sur la tuile active le chip « Non transmises » du même type : la liste montre exactement les collectes comptées (décision Val 2026-10-01, _Divergences/M0.6_20261001_tuile-a-dispatcher-clic)."
+      "libelle": "Définition canonique de « à dispatcher » (Val 2026-09-14 : statut_tms = non_envoye ET tms_reference IS NULL ET statut IN (programmee, validee)) partagée par la tuile KPI « AG/ZD à dispatcher », le chip « Non transmises ZD/AG », le sous-libellé de la tuile et l'action « Dispatcher » de la liste Collectes Admin ; la tuile n'est jamais inférieure au nombre de lignes offrant « Dispatcher ». Reste hors de cette source : les cartes Bloc 1 du Dashboard Admin (copie conforme dans dashboard/kpi/route.ts et dashboards/kpi-admin/route.ts)."
+    },
+    {
+      "id": "M0.6-tuile-a-dispatcher-clic",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:203",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (clic sur une tuile « AG / ZD à dispatcher » = chip non_transmises_ag / non_transmises_zd)",
+      "test": "M0.6 — kpi_a_dispatcher_predicat_unique : clic sur une tuile « à dispatcher »",
+      "statut": "implemented",
+      "libelle": "Un clic sur la tuile « AG / ZD à dispatcher » active le filtre « Non transmises » du même type : la liste montre les collectes comptées (décision Val 2026-10-01). Règle absente du CDC à ce jour, patch proposé dans _Divergences/M0.6_20261001_tuile-a-dispatcher-clic ; la ligne citée est celle du chip, qui recevra la règle. Choix d'implémentation : re-clic = retrait, filtres de la barre cumulés (règle du 2026-09-30)."
+    },
+    {
+      "id": "M0.6-tuile-a-dispatcher-rendu-actif",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:293",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu après clic sur une tuile « à dispatcher » : cadre actif de la tuile, pastille « Non transmises ZD/AG » ajoutée en fin de rangée avec le même compteur, total de la liste égal au compteur. Aucun style nouveau (état déjà atteint par le drill-down du Dashboard Admin) ; GO-VISUAL de Val attendu."
     }
   ],
   "cdc_source_hash": {

@@ -54,6 +54,7 @@ const collecteZd = {
   type: 'zero_dechet',
   statut: 'cloturee',
   statut_tms: 'acceptee',
+  tms_reference: 'CO-ZD-1',
   dirty_tms: false,
   date_collecte: '2026-04-23',
   heure_collecte: '08:30:00',
@@ -95,6 +96,7 @@ function ag(overrides: Record<string, unknown>) {
     type: 'anti_gaspi',
     statut: 'programmee',
     statut_tms: 'non_envoye',
+    tms_reference: null,
     dirty_tms: false,
     date_collecte: '2026-05-10',
     heure_collecte: '19:00:00',
@@ -310,6 +312,9 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         ATTENTE_UI,
       );
       await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
+      // Sous-libellé : 4e surface du scénario, exact depuis que la tuile
+      // compte aussi les collectes validées transporteur.
+      expect(zdTile).toHaveTextContent('validées transporteur');
 
       // Clic : la liste est filtrée par le prédicat MÊME que compte la tuile
       // (chip serveur), plus par le seul type (décision Val 2026-10-01).
@@ -608,6 +613,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         id: 'zd-disp',
         statut: 'programmee',
         statut_tms: 'non_envoye',
+        tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
         factures_collectes: [],
@@ -623,6 +629,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         id: 'zd-envoyee',
         statut: 'validee',
         statut_tms: 'acceptee',
+        tms_reference: 'CO-ZD-9',
       };
       // AG programmée + non transmise (même forme statut/statut_tms qu'une ZD à
       // dispatcher) → PAS de « Dispatcher » (garde de type) mais « Attribuer ».
@@ -698,6 +705,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         id: 'zd-open',
         statut: 'programmee',
         statut_tms: 'non_envoye',
+        tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
         factures_collectes: [],

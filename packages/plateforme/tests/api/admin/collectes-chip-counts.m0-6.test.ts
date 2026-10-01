@@ -61,9 +61,18 @@ const LIGNES: Ligne[] = [
   }),
   ligne('zd-a-attribuer', { statut_tms: 'a_attribuer' }),
   // Non transmises mais plus ouvertes.
+  ligne('zd-brouillon', { statut: 'brouillon' }),
   ligne('zd-en-cours', { statut: 'en_cours' }),
+  ligne('zd-annulation-demandee', { statut: 'annulation_demandee' }),
   ligne('zd-annulee', { statut: 'annulee' }),
   ligne('ag-validee', { type: 'anti_gaspi', statut: 'validee' }),
+  // Mêmes leurres côté AG, une clause à la fois.
+  ligne('ag-avec-reference', { type: 'anti_gaspi', tms_reference: 'M-8' }),
+  ligne('ag-attente-prestataire', {
+    type: 'anti_gaspi',
+    statut_tms: 'attribuee_en_attente_acceptation',
+  }),
+  ligne('ag-en-cours', { type: 'anti_gaspi', statut: 'en_cours' }),
   ligne('ag-transmise', {
     type: 'anti_gaspi',
     statut_tms: 'acceptee',

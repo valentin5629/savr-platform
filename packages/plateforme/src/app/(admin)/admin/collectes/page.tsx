@@ -64,9 +64,10 @@ const CHIPS_PROGRAMMEES_CATALOGUE = [
 ];
 
 // Chips retirés de la rangée par défaut (décision Val 2026-07-15). Conservés au
-// catalogue : ils ne s'affichent que s'ils sont le filtre actif à l'arrivée (sinon
-// la liste serait filtrée sans indicateur visible) — ce qui préserve les cibles de
-// drill-down Dashboard Admin (non_transmises_zd/ag, zd_48h, ag_48h).
+// catalogue : ils ne s'affichent que s'ils sont le filtre actif (sinon la liste
+// serait filtrée sans indicateur visible) — ce qui préserve les cibles de
+// drill-down Dashboard Admin (non_transmises_zd/ag, zd_48h, ag_48h) et celles
+// des tuiles « AG / ZD à dispatcher ».
 const CHIPS_PROGRAMMEES_MASQUES = new Set([
   'non_transmises_zd',
   'non_transmises_ag',

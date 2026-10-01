@@ -751,4 +751,23 @@ describe('M3.1 / mon-organisation facturation filtres', () => {
     expect(rls.__calls.in ?? []).toEqual([]);
     expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
   });
+
+  it('M3.1/trait_monorga_factures_filtres_listes_prioritaires_sur_mono — statuts / types l’emportent sur statut / type', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [], error: null });
+    const { GET } = await import('@/app/api/v1/traiteur/factures/route.js');
+    await GET(
+      makeReq(
+        'GET',
+        '/api/v1/traiteur/factures?statuts=payee&statut=emise&types=avoir&type=zero_dechet',
+      ),
+    );
+    expect(rls.__calls.in).toContainEqual(['statut', ['payee']]);
+    expect(rls.__calls.in).toContainEqual(['type', ['avoir']]);
+    expect(
+      (rls.__calls.eq ?? []).filter(
+        (c) => c[0] === 'statut' || c[0] === 'type',
+      ),
+    ).toEqual([]);
+  });
 });

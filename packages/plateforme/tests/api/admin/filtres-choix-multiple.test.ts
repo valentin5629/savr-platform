@@ -120,6 +120,17 @@ describe('M1.1a — GET /admin/organisations : filtre Type à choix multiple', (
     expect(surColonne('in', 'type')).toEqual([]);
     expect(surColonne('eq', 'actif')).toEqual([['actif', true]]);
   });
+
+  it('M1.1a/orgas_liste_types_prioritaire_sur_mono — types ET type présents : la liste gagne ; liste toute invalide → le mono s’applique', async () => {
+    await get('types=agence&type=traiteur');
+    expect(surColonne('in', 'type')).toEqual([['type', ['agence']]]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+
+    admin = makeChain();
+    await get('types=inconnu&type=traiteur');
+    expect(surColonne('in', 'type')).toEqual([]);
+    expect(surColonne('eq', 'type')).toEqual([['type', 'traiteur']]);
+  });
 });
 
 describe('M1.1b — GET /admin/transporteurs : filtre Type à choix multiple', () => {
@@ -150,6 +161,12 @@ describe('M1.1b — GET /admin/transporteurs : filtre Type à choix multiple', (
     await get('type_tms=autre');
     expect(surColonne('eq', 'type_tms')).toEqual([['type_tms', 'autre']]);
     expect(surColonne('in', 'type_tms')).toEqual([]);
+  });
+
+  it('M1.1b/transporteurs_liste_types_tms_prioritaire_sur_mono — types_tms ET type_tms : la liste gagne', async () => {
+    await get('types_tms=par_mail&type_tms=autre');
+    expect(surColonne('in', 'type_tms')).toEqual([['type_tms', ['par_mail']]]);
+    expect(surColonne('eq', 'type_tms')).toEqual([]);
   });
 });
 
@@ -191,6 +208,18 @@ describe('M1.7 — GET /admin/factures : Organisation et Type à choix multiple'
     expect(surColonne('eq', 'type')).toEqual([['type', 'avoir']]);
     expect(admin.__calls.in ?? []).toEqual([]);
   });
+
+  it('M1.7/factures_liste_listes_prioritaires_sur_mono — organisation_ids / types l’emportent sur organisation_id / type', async () => {
+    await get(
+      `organisation_ids=${UUID_B}&organisation_id=${UUID_A}&types=avoir&type=zero_dechet`,
+    );
+    expect(surColonne('in', 'organisation_id')).toEqual([
+      ['organisation_id', [UUID_B]],
+    ]);
+    expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
+    expect(surColonne('eq', 'organisation_id')).toEqual([]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+  });
 });
 
 describe('M1.7 — export CSV factures : respecte Organisation et Type cochés (§12)', () => {
@@ -222,5 +251,11 @@ describe('M1.7 — export CSV factures : respecte Organisation et Type cochés (
     expect(admin.__calls.in ?? []).toEqual([]);
     // Brouillons toujours exclus côté client.
     expect(admin.__calls.neq).toContainEqual(['statut', 'brouillon']);
+  });
+
+  it('M1.7/export_factures_types_prioritaire_sur_mono — types ET type : la liste gagne', async () => {
+    await exporter('types=avoir&type=zero_dechet');
+    expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
+    expect(surColonne('eq', 'type')).toEqual([]);
   });
 });

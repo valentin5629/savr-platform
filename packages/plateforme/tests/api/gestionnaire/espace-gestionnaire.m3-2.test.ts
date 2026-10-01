@@ -577,6 +577,12 @@ describe('M3.2 / événements — Type de collecte à choix multiple', () => {
       'mixte',
     ]);
   });
+
+  it('M3.2/evenements_types_collecte_prioritaire_sur_ancien — types_collecte[] ET type_collecte : la liste gagne', async () => {
+    expect(
+      await ids('?types_collecte[]=ag_seul&type_collecte=avec_zd'),
+    ).toEqual(['ag']);
+  });
 });
 
 // ── Lieux ────────────────────────────────────────────────────────────────────

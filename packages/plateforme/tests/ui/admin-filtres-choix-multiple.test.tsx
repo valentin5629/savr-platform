@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  act,
   render,
   screen,
   waitFor,
@@ -40,14 +41,49 @@ const ORGS = [
   { id: 'org-2', raison_sociale: 'Fleur de Mets' },
 ];
 
-const fetchMock = vi.fn((input: RequestInfo | URL) => {
-  const url = String(input);
-  const data = url.startsWith('/api/v1/admin/organisations') ? ORGS : [];
-  return Promise.resolve({
+const reponse = (data: unknown[]) =>
+  ({
     ok: true,
     json: async () => ({ data, total: data.length, limit: 50 }),
-  } as Response);
-});
+  }) as Response;
+
+const fetchParDefaut = (input: RequestInfo | URL): Promise<Response> =>
+  Promise.resolve(
+    reponse(
+      String(input).startsWith('/api/v1/admin/organisations') ? ORGS : [],
+    ),
+  );
+const fetchMock = vi.fn(fetchParDefaut);
+
+/**
+ * La 1re réponse de `prefixe` (lignes `perimees`) n'arrive qu'à l'appel de la
+ * fonction rendue ; les suivantes répondent tout de suite (lignes `recentes`).
+ */
+function premiereReponseEnRetard(
+  prefixe: string,
+  perimees: unknown[],
+  recentes: unknown[],
+): () => void {
+  let liberer = () => {};
+  let premiere = true;
+  fetchMock.mockImplementation((input: RequestInfo | URL) => {
+    if (!String(input).startsWith(prefixe)) return fetchParDefaut(input);
+    if (!premiere) return Promise.resolve(reponse(recentes));
+    premiere = false;
+    return new Promise((resoudre) => {
+      liberer = () => resoudre(reponse(perimees));
+    });
+  });
+  return () => liberer();
+}
+
+/** Livre la réponse retenue et laisse la page la traiter. */
+async function livrerEnRetard(liberer: () => void) {
+  await act(async () => {
+    liberer();
+    await new Promise((r) => setTimeout(r, 0));
+  });
+}
 
 /** Paramètres du dernier appel GET à `prefixe` (ex. '/api/v1/admin/lieux?'). */
 function dernierAppel(prefixe: string): URLSearchParams {
@@ -66,7 +102,8 @@ async function ouvrir(testid: string, titre: string) {
 }
 
 beforeEach(() => {
-  fetchMock.mockClear();
+  fetchMock.mockReset();
+  fetchMock.mockImplementation(fetchParDefaut);
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('open', vi.fn());
 });
@@ -132,6 +169,41 @@ describe('M1.1a — liste Clients : filtres à choix multiple', () => {
         ATTENTE_UI,
       );
       expect(liste.getByRole('checkbox', { name: 'Tous' })).toBeChecked();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.1a — une réponse plus ancienne arrivée en dernier n’écrase pas la liste Clients',
+    async () => {
+      const org = (id: string, raison_sociale: string) => ({
+        id,
+        raison_sociale,
+        type: 'traiteur',
+        siret: null,
+        actif: true,
+        nb_users: 1,
+        nb_collectes_zd_12m: 0,
+        nb_collectes_ag_12m: 0,
+        pack_actif: null,
+      });
+      const liberer = premiereReponseEnRetard(
+        '/api/v1/admin/organisations?',
+        [org('org-old', 'Org Périmée')],
+        [org('org-new', 'Org Récente')],
+      );
+      render(<ClientsPage />);
+      const liste = await ouvrir('clients-type', 'Type');
+      fireEvent.click(liste.getByRole('checkbox', { name: 'Agence' }));
+      await waitFor(
+        () =>
+          expect(screen.getAllByText('Org Récente').length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+
+      await livrerEnRetard(liberer);
+      expect(screen.queryByText('Org Périmée')).toBeNull();
+      expect(screen.getAllByText('Org Récente').length).toBeGreaterThan(0);
     },
     ATTENTE_CAS_MS,
   );
@@ -292,6 +364,50 @@ describe('M1.7 — liste Factures Admin : filtres à choix multiple', () => {
         () => expect(dernierAppel(PREFIXE).get('types')).toBeNull(),
         ATTENTE_UI,
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.7 — une réponse plus ancienne arrivée en dernier n’écrase pas la liste Factures',
+    async () => {
+      const facture = (id: string, numero_facture: string) => ({
+        id,
+        numero_facture,
+        type: 'zero_dechet',
+        mode_facturation: 'par_collecte',
+        statut: 'emise',
+        pennylane_statut: null,
+        montant_ht: 10,
+        montant_ttc: 12,
+        devise: 'EUR',
+        date_emission: '2026-09-01',
+        date_echeance: '2026-10-01',
+        date_paiement: null,
+        created_at: '2026-09-01T08:00:00Z',
+        derniere_tentative_pennylane_at: null,
+        pdf_url_savr: null,
+        organisations: { raison_sociale: 'Kaspia' },
+        entites_facturation: null,
+        factures_collectes: [{ count: 1 }],
+      });
+      const liberer = premiereReponseEnRetard(
+        '/api/v1/admin/factures?',
+        [facture('f-old', 'FZD-PERIMEE')],
+        [facture('f-new', 'FZD-RECENTE')],
+      );
+      render(<FacturesPage />);
+      const type = await ouvrir('filtre-type', 'Type');
+      fireEvent.click(type.getByRole('checkbox', { name: 'Avoir' }));
+      await waitFor(
+        () =>
+          expect(screen.getAllByText('FZD-RECENTE').length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+
+      await livrerEnRetard(liberer);
+      expect(screen.queryByText('FZD-PERIMEE')).toBeNull();
+      expect(screen.getAllByText('FZD-RECENTE').length).toBeGreaterThan(0);
     },
     ATTENTE_CAS_MS,
   );

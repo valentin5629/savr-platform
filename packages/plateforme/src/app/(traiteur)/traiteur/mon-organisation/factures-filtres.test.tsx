@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
+  act,
   render,
   screen,
   fireEvent,
@@ -136,6 +137,63 @@ describe('M3.1 — Mon organisation : filtres Factures en ligne', () => {
         ATTENTE_UI,
       );
       expect(types.getByRole('checkbox', { name: 'Tous' })).toBeChecked();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1 — Facturation : une réponse plus ancienne arrivée en dernier n’écrase pas la liste',
+    async () => {
+      const facture = (id: string, numero_facture: string) => ({
+        id,
+        numero_facture,
+        type: 'zero_dechet',
+        statut: 'emise',
+        montant_ttc: 12,
+        date_emission: '2026-09-01',
+        date_echeance: null,
+        pdf_url_pennylane: null,
+        pdf_url_savr: null,
+      });
+      // 1re requête Factures retenue (lignes périmées), les suivantes immédiates.
+      let liberer = () => {};
+      let premiere = true;
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        const reponse = (data: unknown[]) =>
+          ({ ok: true, json: async () => ({ data }) }) as Response;
+        if (!String(input).startsWith('/api/v1/traiteur/factures'))
+          return Promise.resolve(reponse([]));
+        if (!premiere)
+          return Promise.resolve(reponse([facture('f-new', 'F-RECENTE')]));
+        premiere = false;
+        return new Promise<Response>((resoudre) => {
+          liberer = () => resoudre(reponse([facture('f-old', 'F-PERIMEE')]));
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<MonOrganisationClient isManager userId="u1" />);
+      fireEvent.click(screen.getByRole('button', { name: 'Facturation' }));
+
+      fireEvent.click(
+        await screen.findByTestId('factures-statut', undefined, ATTENTE_UI),
+      );
+      fireEvent.click(
+        within(
+          await screen.findByRole('list', { name: 'Statut' }, ATTENTE_UI),
+        ).getByRole('checkbox', { name: 'Payée' }),
+      );
+      await waitFor(
+        () =>
+          expect(screen.getAllByText('F-RECENTE').length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+
+      await act(async () => {
+        liberer();
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(screen.queryByText('F-PERIMEE')).toBeNull();
+      expect(screen.getAllByText('F-RECENTE').length).toBeGreaterThan(0);
     },
     ATTENTE_CAS_MS,
   );

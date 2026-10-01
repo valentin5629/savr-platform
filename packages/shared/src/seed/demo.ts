@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import type pg from 'pg';
 import { seedUuid } from './uuid.js';
+import { clientOrganisateurSeed } from './clients-organisateurs.js';
 import { upsert, lookupMap, jsonb, type Row } from './db.js';
 import {
   fakePhone,
@@ -711,6 +712,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       lieu_id: U(r.lieu),
       created_by: isAgenceEvent ? U('user_agence_caromy') : mgr(t),
       nom_evenement: `${cap(t)} — ${r.date}`,
+      nom_client_organisateur: clientOrganisateurSeed(r.slug),
       type_evenement_id: isAg ? tEvAg : tEvZd,
       date_evenement: r.date,
       pax: r.pax,

@@ -1,0 +1,288 @@
+/**
+ * Filtres à choix multiple des listes Admin — PR 2 (décision Val 2026-09-30,
+ * divergence M0.8_20260930_filtres-choix-multiple-tous) : chaque liste cochée
+ * arrive en paramètre CSV au pluriel, validé (liste blanche d'enum / UUID)
+ * AVANT `.in()`, prioritaire sur le paramètre à valeur unique conservé.
+ *
+ * Par route : (e) CSV → `.in()`, (f) valeurs hors liste blanche / non-UUID
+ * écartées, (g) le mono reste accepté (`.eq()`, comportement inchangé).
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextRequest } from 'next/server';
+
+type Result = { data: unknown; error: unknown; count?: number };
+
+// Chaîne Supabase qui enregistre chaque appel (`__calls.in`, `__calls.eq`…) et
+// se résout, une fois attendue, sur la file de résultats (vide par défaut).
+function makeChain() {
+  const queue: Result[] = [];
+  const calls: Record<string, unknown[][]> = {};
+  const next = (): Result => queue.shift() ?? { data: [], error: null };
+  const chain: Record<string, unknown> = { __calls: calls };
+  for (const m of [
+    'from',
+    'select',
+    'eq',
+    'in',
+    'neq',
+    'not',
+    'gte',
+    'lte',
+    'order',
+    'range',
+    'ilike',
+    'rpc',
+  ]) {
+    chain[m] = (...args: unknown[]) => {
+      (calls[m] ??= []).push(args);
+      return chain;
+    };
+  }
+  chain.then = (resolve: (r: Result) => unknown) => resolve(next());
+  return chain as Record<string, unknown> & {
+    __calls: Record<string, unknown[][]>;
+  };
+}
+
+let admin = makeChain();
+const mockGetUser = vi.fn();
+const mockGetSession = vi.fn();
+
+vi.mock('@savr/shared/src/supabase-client.js', () => ({
+  createAdminSupabaseClient: () => admin,
+}));
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: () => ({
+    auth: { getUser: mockGetUser, getSession: mockGetSession },
+  }),
+}));
+vi.mock('next/headers', () => ({
+  cookies: () => ({ getAll: () => [], set: () => {} }),
+}));
+
+function setupStaff() {
+  const payload = Buffer.from(
+    JSON.stringify({ user_role: 'admin_savr', organisation_id: null }),
+  ).toString('base64url');
+  mockGetUser.mockResolvedValue({
+    data: { user: { id: 'user-admin-1' } },
+    error: null,
+  });
+  mockGetSession.mockResolvedValue({
+    data: { session: { access_token: `h.${payload}.s` } },
+    error: null,
+  });
+}
+
+const req = (url: string) => new NextRequest(`http://localhost${url}`);
+
+/** Appels `.in()` / `.eq()` portant sur `colonne`. */
+const surColonne = (m: 'in' | 'eq', colonne: string) =>
+  (admin.__calls[m] ?? []).filter((c) => c[0] === colonne);
+
+const UUID_A = '11111111-1111-4111-8111-111111111111';
+const UUID_B = '22222222-2222-4222-8222-222222222222';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  admin = makeChain();
+  setupStaff();
+});
+
+describe('M1.1a — GET /admin/organisations : filtre Type à choix multiple', () => {
+  const get = async (qs: string) => {
+    const { GET } = await import('@/app/api/v1/admin/organisations/route.js');
+    const res = await GET(req(`/api/v1/admin/organisations?${qs}`));
+    expect(res.status).toBe(200);
+  };
+
+  it('M1.1a/orgas_liste_types_csv — types=traiteur,agence → in(type, [traiteur, agence])', async () => {
+    await get('types=traiteur,agence');
+    expect(surColonne('in', 'type')).toEqual([
+      ['type', ['traiteur', 'agence']],
+    ]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+  });
+
+  it('M1.1a/orgas_liste_types_hors_enum_ecartes — une valeur hors enum organisation_type est écartée, seule → aucun filtre', async () => {
+    await get('types=traiteur,inconnu');
+    expect(surColonne('in', 'type')).toEqual([['type', ['traiteur']]]);
+
+    admin = makeChain();
+    await get('types=inconnu');
+    expect(surColonne('in', 'type')).toEqual([]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+  });
+
+  it('M1.1a/orgas_liste_type_mono_conserve — ?type=traiteur (autres écrans) reste lu, comme une liste d’un élément validée', async () => {
+    await get('type=traiteur&actif=true');
+    expect(surColonne('in', 'type')).toEqual([['type', ['traiteur']]]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+    expect(surColonne('eq', 'actif')).toEqual([['actif', true]]);
+
+    // Valeur unique hors enum : écartée comme dans une liste (plus d'erreur 500).
+    admin = makeChain();
+    await get('type=inconnu');
+    expect(surColonne('in', 'type')).toEqual([]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+  });
+
+  it('M1.1a/orgas_liste_types_prioritaire_sur_mono — types ET type présents : seule la liste est lue', async () => {
+    await get('types=agence&type=traiteur');
+    expect(surColonne('in', 'type')).toEqual([['type', ['agence']]]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+
+    admin = makeChain();
+    await get('types=inconnu&type=traiteur');
+    expect(surColonne('in', 'type')).toEqual([]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+  });
+});
+
+describe('M1.1b — GET /admin/transporteurs : filtre Type à choix multiple', () => {
+  const get = async (qs: string) => {
+    const { GET } = await import('@/app/api/v1/admin/transporteurs/route.js');
+    const res = await GET(req(`/api/v1/admin/transporteurs?${qs}`));
+    expect(res.status).toBe(200);
+  };
+
+  it('M1.1b/transporteurs_liste_types_tms_csv — types_tms=autre,par_mail → in(type_tms)', async () => {
+    await get('types_tms=autre,par_mail');
+    expect(surColonne('in', 'type_tms')).toEqual([
+      ['type_tms', ['autre', 'par_mail']],
+    ]);
+    expect(surColonne('eq', 'type_tms')).toEqual([]);
+  });
+
+  it('M1.1b/transporteurs_liste_types_tms_hors_enum_ecartes — valeur hors enum type_tms écartée', async () => {
+    await get('types_tms=a_toutes,bidon');
+    expect(surColonne('in', 'type_tms')).toEqual([['type_tms', ['a_toutes']]]);
+
+    admin = makeChain();
+    await get('types_tms=bidon');
+    expect(surColonne('in', 'type_tms')).toEqual([]);
+  });
+
+  it('M1.1b/transporteurs_liste_type_tms_mono_conserve — ?type_tms= reste lu, comme une liste d’un élément', async () => {
+    await get('type_tms=autre');
+    expect(surColonne('in', 'type_tms')).toEqual([['type_tms', ['autre']]]);
+    expect(surColonne('eq', 'type_tms')).toEqual([]);
+  });
+
+  it('M1.1b/transporteurs_liste_types_tms_prioritaire_sur_mono — types_tms ET type_tms : seule la liste est lue', async () => {
+    await get('types_tms=par_mail&type_tms=autre');
+    expect(surColonne('in', 'type_tms')).toEqual([['type_tms', ['par_mail']]]);
+    expect(surColonne('eq', 'type_tms')).toEqual([]);
+  });
+});
+
+describe('M1.7 — GET /admin/factures : Organisation et Type à choix multiple', () => {
+  const get = async (qs: string) => {
+    const { GET } = await import('@/app/api/v1/admin/factures/route.js');
+    const res = await GET(req(`/api/v1/admin/factures?${qs}`));
+    expect(res.status).toBe(200);
+  };
+
+  it('M1.7/factures_liste_organisation_ids_types_csv — CSV → in(organisation_id) + in(type)', async () => {
+    await get(`organisation_ids=${UUID_A},${UUID_B}&types=zero_dechet,avoir`);
+    expect(surColonne('in', 'organisation_id')).toEqual([
+      ['organisation_id', [UUID_A, UUID_B]],
+    ]);
+    expect(surColonne('in', 'type')).toEqual([
+      ['type', ['zero_dechet', 'avoir']],
+    ]);
+    expect(surColonne('eq', 'organisation_id')).toEqual([]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+  });
+
+  it('M1.7/factures_liste_valeurs_invalides_ecartees — non-UUID et type hors enum facture_type écartés', async () => {
+    await get(
+      `organisation_ids=${UUID_A},pas-un-uuid,1)or(1=1&types=avoir,anti_gaspi`,
+    );
+    expect(surColonne('in', 'organisation_id')).toEqual([
+      ['organisation_id', [UUID_A]],
+    ]);
+    // `anti_gaspi` est un type de COLLECTE, pas de facture.
+    expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
+  });
+
+  it('M1.7/factures_liste_mono_conserves — organisation_id (fiche Client) / type restent lus, comme des listes d’un élément', async () => {
+    await get(`organisation_id=${UUID_A}&type=avoir`);
+    expect(surColonne('in', 'organisation_id')).toEqual([
+      ['organisation_id', [UUID_A]],
+    ]);
+    expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
+    expect(admin.__calls.eq ?? []).toEqual([]);
+  });
+
+  it('M1.7/factures_liste_listes_prioritaires_sur_mono — organisation_ids / types l’emportent sur organisation_id / type', async () => {
+    await get(
+      `organisation_ids=${UUID_B}&organisation_id=${UUID_A}&types=avoir&type=zero_dechet`,
+    );
+    expect(surColonne('in', 'organisation_id')).toEqual([
+      ['organisation_id', [UUID_B]],
+    ]);
+    expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
+    expect(surColonne('eq', 'organisation_id')).toEqual([]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+  });
+});
+
+describe('M1.7 — export CSV factures : respecte Organisation et Type cochés (§12)', () => {
+  const exporter = async (qs: string, isStaff = true) => {
+    const { buildFacturesExport } = await import('@/lib/exports/builders.js');
+    await buildFacturesExport(
+      { supabase: admin, isStaff } as unknown as Parameters<
+        typeof buildFacturesExport
+      >[0],
+      new URLSearchParams(qs),
+    );
+  };
+
+  it('M1.7/export_factures_organisation_ids_types — même filtre que la liste', async () => {
+    await exporter(
+      `organisation_ids=${UUID_A},nope&types=collecte_antigaspi,inconnu`,
+    );
+    expect(surColonne('in', 'organisation_id')).toEqual([
+      ['organisation_id', [UUID_A]],
+    ]);
+    expect(surColonne('in', 'type')).toEqual([
+      ['type', ['collecte_antigaspi']],
+    ]);
+  });
+
+  it('M1.7/export_factures_type_mono_conserve — ?type= reste lu (liste d’un élément) ; brouillons exclus hors staff', async () => {
+    await exporter('type=avoir', false);
+    expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+    // Brouillons toujours exclus côté client.
+    expect(admin.__calls.neq).toContainEqual(['statut', 'brouillon']);
+  });
+
+  it('M1.7/export_factures_types_prioritaire_sur_mono — types ET type : seule la liste est lue', async () => {
+    await exporter('types=avoir&type=zero_dechet');
+    expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
+    expect(surColonne('eq', 'type')).toEqual([]);
+  });
+
+  // Arbitrage Val 2026-10-01 (option a) : l'export Admin applique la même
+  // Période que la liste (created_at, fin inclusive) et la pastille « En erreur ».
+  it('M1.7/export_factures_periode_et_en_erreur_comme_la_liste — staff : created_at du jour de début au jour de fin inclus + erreur_synchro', async () => {
+    await exporter('date_debut=2026-09-01&date_fin=2026-09-30&en_erreur=1');
+    expect(admin.__calls.gte).toEqual([['created_at', '2026-09-01']]);
+    expect(admin.__calls.lte).toEqual([
+      ['created_at', '2026-09-30T23:59:59.999Z'],
+    ]);
+    expect(admin.__calls.not).toEqual([['erreur_synchro', 'is', null]]);
+  });
+
+  it('M1.7/export_factures_periode_admin_hors_staff_ignoree — client : date_debut / en_erreur sans effet, from / to sur date_emission', async () => {
+    await exporter(
+      'date_debut=2026-09-01&date_fin=2026-09-30&en_erreur=1&from=2026-01-01&to=2026-12-31',
+      false,
+    );
+    expect(admin.__calls.gte).toEqual([['date_emission', '2026-01-01']]);
+    expect(admin.__calls.lte).toEqual([['date_emission', '2026-12-31']]);
+    expect(admin.__calls.not ?? []).toEqual([]);
+  });
+});

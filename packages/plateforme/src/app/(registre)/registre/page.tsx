@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
@@ -20,7 +13,11 @@ import {
 } from '@/components/ui/data-grid';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import {
+  FiltreCoches,
+  type OptionFiltre,
+} from '@/components/ui/filtre-en-ligne';
+import { valeurUnique } from '@/lib/filtre-csv';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — vue liste : tableau chronologique des
@@ -79,6 +76,18 @@ function dateFr(d: string | null): string {
 function bordereauDispo(statut: string | null): boolean {
   return statut === 'emis' || statut === 'corrige';
 }
+/** Options distinctes tirées des lignes affichées (repli des filtres). */
+function optionsDesLignes(
+  rows: RegistreRow[],
+  cle: (r: RegistreRow) => [string | null, string | null],
+): OptionFiltre[] {
+  const m = new Map<string, string>();
+  for (const r of rows) {
+    const [id, nom] = cle(r);
+    if (id && nom) m.set(id, nom);
+  }
+  return [...m].map(([id, nom]) => ({ id, nom }));
+}
 
 function RegistreContent() {
   const router = useRouter();
@@ -96,9 +105,11 @@ function RegistreContent() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [flux, setFlux] = useState<string[]>([]);
-  const [lieu, setLieu] = useState('');
-  const [traiteur, setTraiteur] = useState('');
-  const [bordereau, setBordereau] = useState<'' | 'dispo' | 'manquant'>('');
+  // Lieu / Traiteur / Bordereau à choix multiple, case « Tous » = sélection
+  // vide (§06.03 « multi-select » ; décision Val 2026-09-30).
+  const [lieux, setLieux] = useState<string[]>([]);
+  const [traiteurs, setTraiteurs] = useState<string[]>([]);
+  const [bordereaux, setBordereaux] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortKey>('date_evenement');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -110,8 +121,9 @@ function RegistreContent() {
       if (from) qs.set('from', from);
       if (to) qs.set('to', to);
       if (flux.length) qs.set('flux', flux.join(','));
-      if (lieu) qs.set('lieu', lieu);
-      if (traiteur) qs.set('traiteur', traiteur);
+      if (lieux.length) qs.set('lieu', lieux.join(','));
+      if (traiteurs.length) qs.set('traiteur', traiteurs.join(','));
+      const bordereau = valeurUnique(bordereaux);
       if (bordereau) qs.set('bordereau', bordereau);
       if (!forExport) {
         qs.set('sortBy', sortBy);
@@ -125,9 +137,9 @@ function RegistreContent() {
       from,
       to,
       flux,
-      lieu,
-      traiteur,
-      bordereau,
+      lieux,
+      traiteurs,
+      bordereaux,
       sortBy,
       sortDir,
       page,
@@ -166,23 +178,37 @@ function RegistreContent() {
     charger();
   }, [charger]);
 
-  // Options lieu / traiteur dérivées des lignes chargées (V1 sans endpoint dédié).
-  const lieuxOptions = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of rows)
-      if (r.lieu_id && r.lieu_nom) m.set(r.lieu_id, r.lieu_nom);
-    return [...m.entries()];
-  }, [rows]);
-  const traiteursOptions = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of rows)
-      if (r.traiteur_operationnel_organisation_id && r.traiteur_raison_sociale)
-        m.set(
-          r.traiteur_operationnel_organisation_id,
-          r.traiteur_raison_sociale,
-        );
-    return [...m.entries()];
-  }, [rows]);
+  // Options Lieu / Traiteur = tout le registre du périmètre (arbitrage Val F2
+  // 2026-10-01), chargées une fois : dérivées de la page affichée, cocher un
+  // lieu faisait disparaître les autres de la liste. Tant qu'elles manquent
+  // (chargement, ou route en échec), repli sur les lignes affichées plutôt
+  // qu'une liste vide sans explication.
+  const [options, setOptions] = useState<{
+    lieux: OptionFiltre[];
+    traiteurs: OptionFiltre[];
+  } | null>(null);
+  useEffect(() => {
+    let annule = false;
+    fetch('/api/v1/registre/options')
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (j: { lieux?: OptionFiltre[]; traiteurs?: OptionFiltre[] } | null) => {
+          if (!annule && j)
+            setOptions({ lieux: j.lieux ?? [], traiteurs: j.traiteurs ?? [] });
+        },
+      )
+      .catch(() => {});
+    return () => {
+      annule = true;
+    };
+  }, []);
+  const optionsAffichees = options ?? {
+    lieux: optionsDesLignes(rows, (r) => [r.lieu_id, r.lieu_nom]),
+    traiteurs: optionsDesLignes(rows, (r) => [
+      r.traiteur_operationnel_organisation_id,
+      r.traiteur_raison_sociale,
+    ]),
+  };
 
   function sort(key: SortKey) {
     if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -324,18 +350,18 @@ function RegistreContent() {
           from !== '' ||
           to !== '' ||
           flux.length > 0 ||
-          lieu !== '' ||
-          traiteur !== '' ||
-          bordereau !== ''
+          lieux.length > 0 ||
+          traiteurs.length > 0 ||
+          bordereaux.length > 0
         }
         onReset={() => {
           setPage(1);
           setFrom('');
           setTo('');
           setFlux([]);
-          setLieu('');
-          setTraiteur('');
-          setBordereau('');
+          setLieux([]);
+          setTraiteurs([]);
+          setBordereaux([]);
         }}
       >
         {/* BL-P3-10 — Preset « 30 derniers jours » (CDC §06.03) : raccourci de
@@ -354,52 +380,37 @@ function RegistreContent() {
             setTo(p.to);
           }}
         />
-        <Combobox
-          titre="Lieu"
-          id="registre-lieu"
-          data-testid="registre-lieu"
-          searchPlaceholder="Rechercher un lieu…"
-          options={[
-            { value: '', label: 'Tous' },
-            ...lieuxOptions.map(([id, nom]) => ({ value: id, label: nom })),
-          ]}
-          value={lieu}
-          onChange={(v) => {
+        <FiltreCoches
+          label="Lieu"
+          testid="registre-lieu"
+          options={optionsAffichees.lieux}
+          selected={lieux}
+          onChange={(ids) => {
             setPage(1);
-            setLieu(v);
+            setLieux(ids);
           }}
         />
-        <Combobox
-          titre="Traiteur"
-          id="registre-traiteur"
-          data-testid="registre-traiteur"
-          searchPlaceholder="Rechercher un traiteur…"
-          options={[
-            { value: '', label: 'Tous' },
-            ...traiteursOptions.map(([id, nom]) => ({
-              value: id,
-              label: nom,
-            })),
-          ]}
-          value={traiteur}
-          onChange={(v) => {
+        <FiltreCoches
+          label="Traiteur"
+          testid="registre-traiteur"
+          options={optionsAffichees.traiteurs}
+          selected={traiteurs}
+          onChange={(ids) => {
             setPage(1);
-            setTraiteur(v);
+            setTraiteurs(ids);
           }}
         />
-        <Combobox
-          titre="Bordereau"
-          id="registre-bordereau"
-          data-testid="registre-bordereau"
+        <FiltreCoches
+          label="Bordereau"
+          testid="registre-bordereau"
           options={[
-            { value: '', label: 'Tous' },
-            { value: 'dispo', label: 'Disponible' },
-            { value: 'manquant', label: 'Manquant' },
+            { id: 'dispo', nom: 'Disponible' },
+            { id: 'manquant', nom: 'Manquant' },
           ]}
-          value={bordereau}
-          onChange={(v) => {
+          selected={bordereaux}
+          onChange={(ids) => {
             setPage(1);
-            setBordereau(v as '' | 'dispo' | 'manquant');
+            setBordereaux(ids);
           }}
         />
         <FiltreCoches

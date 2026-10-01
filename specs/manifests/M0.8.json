@@ -596,6 +596,14 @@
       "test": "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
       "statut": "à-vérifier",
       "libelle": "Focus ring (levier #4) — la ligne cliquable porte l'anneau focus-visible primary-500, jamais le focus bleu navigateur. Le test couvre l'automatisable (règle globale présente ET layered, ligne focusable, outline non neutralisé, offset surchargé côté desktop seulement) ; le RENDU relève de la preuve visuelle (jsdom ne peint pas) — mesuré au navigateur le 2026-09-22 : #3f5599, 2px, offset -2px en desktop (anneau tracé à l'intérieur de la <tr>, donc plus rogné par le conteneur overflow-x-auto) et +2px sur la card mobile. Rognage corrigé par l'arbitrage Val 2026-09-22 (_Divergences/M0.8_20260922_focus-ring-uniforme-vs-differencie.md)."
+    },
+    {
+      "id": "M0.8-filtres-choix-multiple-toutes-barres",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
+      "artefact": "packages/plateforme/src/components/ui/filtre-en-ligne.tsx (FiltreCoches, case « Tous ») + écrans PR 1 (#444 : Admin Collectes, Dashboard Client) et PR 2 (Admin Clients, Transporteurs, Associations, Lieux, Factures ; Registre ; Facturation traiteur ; Événements gestionnaire)",
+      "test": "ds/filtre_coches_case_tous_cochee_par_defaut_efface_la_selection",
+      "statut": "partial",
+      "libelle": "Règle DS (7) telle que patchée par _Divergences/M0.8_20260930_filtres-choix-multiple-tous : tous les filtres de l'app à choix multiple, case « Tous » = aucun filtre, « Période » en premier. PARTIAL : restent les listes Collectes clients traiteur / agence / gestionnaire (components/collecte/collecte-filtres-bar.tsx : Lieu, Client organisateur, Info incomplète + « Période » en premier) — reportées tant que la PR #448 (liste agence au format traiteur) n'est pas mergée."
     }
   ],
   "cdc_source_hash": {

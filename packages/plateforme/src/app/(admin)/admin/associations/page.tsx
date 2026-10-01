@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Heart, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Combobox } from '@/components/ui/combobox';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { FiltreRecherche } from '@/components/ui/filtre-en-ligne';
+import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
+import { valeurUnique } from '@/lib/filtre-csv';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -68,7 +68,9 @@ export default function AssociationsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  const [actif, setActif] = useState('true');
+  // Statut à choix multiple, « Actives » pré-cochée par défaut ; case
+  // « Toutes » = sélection vide = aucun filtre (décision Val 2026-09-30).
+  const [actifs, setActifs] = useState<string[]>(['true']);
   const [page, setPage] = useState(1);
   // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
   // en page 1 à chaque changement (cf. lib/tri-liste).
@@ -80,23 +82,33 @@ export default function AssociationsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Association | null>(null);
 
+  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
+  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
+  const derniereRequete = useRef(0);
+
   const fetchAssociations = useCallback(async () => {
+    const numero = ++derniereRequete.current;
     setLoading(true);
-    const params = new URLSearchParams({ page: String(page), actif });
+    const params = new URLSearchParams({ page: String(page) });
+    // Sans valeur unique cochée, AUCUN paramètre `actif` : l'ancien `actif=`
+    // vide (« Toutes ») était lu `false` par la route → inactives seules.
+    const actif = valeurUnique(actifs);
+    if (actif) params.set('actif', actif);
     params.set('tri', tri.cle);
     params.set('ordre', tri.ordre);
     if (q) params.set('q', q);
-    const res = await fetch(`/api/v1/admin/associations?${params}`);
-    if (res.ok) {
-      const json = (await res.json()) as {
-        data: Association[];
-        total: number;
-      };
+    try {
+      const res = await fetch(`/api/v1/admin/associations?${params}`);
+      const json = res.ok
+        ? ((await res.json()) as { data: Association[]; total: number })
+        : null;
+      if (numero !== derniereRequete.current || !json) return;
       setAssociations(json.data);
       setTotal(json.total);
+    } finally {
+      if (numero === derniereRequete.current) setLoading(false);
     }
-    setLoading(false);
-  }, [page, actif, q, tri]);
+  }, [page, actifs, q, tri]);
 
   useEffect(() => {
     void fetchAssociations();
@@ -159,18 +171,18 @@ export default function AssociationsPage() {
             setPage(1);
           }}
         />
-        <Combobox
-          titre="Statut"
-          id="associations-statut"
-          placeholder="Toutes"
+        <FiltreCoches
+          label="Statut"
+          testid="associations-statut"
+          libelleVide="Toutes"
+          libelleTous="Toutes"
           options={[
-            { value: 'true', label: 'Actives' },
-            { value: 'false', label: 'Inactives' },
-            { value: '', label: 'Toutes' },
+            { id: 'true', nom: 'Actives' },
+            { id: 'false', nom: 'Inactives' },
           ]}
-          value={actif}
-          onChange={(v) => {
-            setActif(v);
+          selected={actifs}
+          onChange={(ids) => {
+            setActifs(ids);
             setPage(1);
           }}
         />

@@ -702,13 +702,74 @@ describe('M3.1 / mon-organisation facturation filtres', () => {
     );
     expect(res.status).toBe(200);
     // Valeurs envoyées = enums RÉELS (facture_statut / facture_type), pas des
-    // libellés fantômes (en_retard / anti_gaspi / pack).
-    const eqCalls = rls.__calls.eq ?? [];
-    expect(eqCalls).toContainEqual(['statut', 'emise']);
-    expect(eqCalls).toContainEqual(['type', 'collecte_antigaspi']);
+    // libellés fantômes (en_retard / anti_gaspi / pack). Le paramètre à valeur
+    // unique est lu comme une liste d'un élément (choix multiple, 2026-09-30).
+    const inCalls = rls.__calls.in ?? [];
+    expect(inCalls).toContainEqual(['statut', ['emise']]);
+    expect(inCalls).toContainEqual(['type', ['collecte_antigaspi']]);
     const gte = rls.__calls.gte ?? [];
     const lte = rls.__calls.lte ?? [];
     expect(gte).toContainEqual(['date_emission', '2026-01-01']);
     expect(lte).toContainEqual(['date_emission', '2026-12-31']);
+  });
+
+  // Choix multiple (décision Val 2026-09-30) : CSV au pluriel en liste blanche
+  // des enums ; lecture toujours sous la RLS (client serveur), brouillons
+  // toujours exclus par le `.neq` — `.in()` ne fait que restreindre.
+  it('M3.1/trait_monorga_factures_filtres_choix_multiple — statuts/types CSV → in(), hors liste blanche écartés', async () => {
+    setupAuth('traiteur_commercial');
+    rls.push({ data: [], error: null });
+    const { GET } = await import('@/app/api/v1/traiteur/factures/route.js');
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/traiteur/factures?statuts=emise,payee,brouillon,en_retard&types=zero_dechet,avoir,anti_gaspi',
+      ),
+    );
+    expect(res.status).toBe(200);
+    const inCalls = rls.__calls.in ?? [];
+    // `en_retard` (badge dérivé) n'est pas un facture_statut ; `anti_gaspi`
+    // n'est pas un facture_type. `brouillon` passe la liste blanche mais le
+    // `.neq` le rend vide : jamais de brouillon côté client.
+    expect(inCalls).toContainEqual(['statut', ['emise', 'payee', 'brouillon']]);
+    expect(inCalls).toContainEqual(['type', ['zero_dechet', 'avoir']]);
+    expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
+    expect(
+      (rls.__calls.eq ?? []).filter(
+        (c) => c[0] === 'statut' || c[0] === 'type',
+      ),
+    ).toEqual([]);
+    // Aucune lecture hors RLS : le client admin (service_role) n'est pas touché.
+    expect(admin.__calls.from ?? []).toEqual([]);
+  });
+
+  it('M3.1/trait_monorga_factures_filtres_valeurs_toutes_invalides — aucun filtre, jamais in() vide', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [], error: null });
+    const { GET } = await import('@/app/api/v1/traiteur/factures/route.js');
+    await GET(
+      makeReq('GET', '/api/v1/traiteur/factures?statuts=en_retard&types=x'),
+    );
+    expect(rls.__calls.in ?? []).toEqual([]);
+    expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
+  });
+
+  it('M3.1/trait_monorga_factures_filtres_listes_prioritaires_sur_mono — statuts / types présents : seules les listes sont lues', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [], error: null });
+    const { GET } = await import('@/app/api/v1/traiteur/factures/route.js');
+    await GET(
+      makeReq(
+        'GET',
+        '/api/v1/traiteur/factures?statuts=payee&statut=emise&types=avoir&type=zero_dechet',
+      ),
+    );
+    expect(rls.__calls.in).toContainEqual(['statut', ['payee']]);
+    expect(rls.__calls.in).toContainEqual(['type', ['avoir']]);
+    expect(
+      (rls.__calls.eq ?? []).filter(
+        (c) => c[0] === 'statut' || c[0] === 'type',
+      ),
+    ).toEqual([]);
   });
 });

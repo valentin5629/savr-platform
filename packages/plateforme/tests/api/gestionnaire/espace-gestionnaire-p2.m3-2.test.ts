@@ -679,6 +679,46 @@ describe('M3.2 / P2 export CSV filtres', () => {
     expect(csv).toContain('GrandEvt');
     expect(csv).not.toContain('PetitEvt');
   });
+
+  it('M3.2/P2_export_csv_types_collecte — l’export applique la partition cochée, comme la liste', async () => {
+    setupAuth();
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
+    const evt = (nom: string, types: string[]) => ({
+      id: nom,
+      nom_evenement: nom,
+      date_evenement: '2026-06-01',
+      pax: 300,
+      traiteur_operationnel_organisation_id: 'tr1',
+      lieux: { nom: 'A' },
+      types_evenements: { libelle: 'Gala' },
+      collectes: types.map((type, i) => ({
+        id: `${nom}-${i}`,
+        type,
+        statut: 'programmee',
+        date_collecte: '2026-06-01',
+        collecte_flux: [],
+      })),
+    });
+    rls.push({
+      data: [
+        evt('EvtZdSeul', ['zero_dechet']),
+        evt('EvtMixte', ['zero_dechet', 'anti_gaspi']),
+      ],
+      error: null,
+    }); // evenements
+    rls.push({ data: [{ id: 'tr1', nom: 'Kaspia' }], error: null });
+
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/evenements/export-csv/route.js');
+    const res = await GET(
+      makeReq(
+        '/api/v1/gestionnaire/evenements/export-csv?types_collecte[]=zd_seul',
+      ),
+    );
+    const csv = await res.text();
+    expect(csv).toContain('EvtZdSeul');
+    expect(csv).not.toContain('EvtMixte');
+  });
 });
 
 // ── Détail Lieu : capacité + photos + collectes (graphique) ───────────────────

@@ -60,7 +60,8 @@
     "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
     "packages/plateforme/tests/api/traiteur/liste-collectes-resultats.m3-1.test.ts",
     "packages/plateforme/tests/ui/collectes-traiteur-table.m3-1.test.tsx",
-    "packages/plateforme/tests/ui/liste-traiteur-rapport-reserve.m3-1.test.tsx"
+    "packages/plateforme/tests/ui/liste-traiteur-rapport-reserve.m3-1.test.tsx",
+    "packages/plateforme/src/components/collecte/liste-collectes-client.tsx"
   ],
   "scenarios": [
     "M3.1/marge_badge_attente_facturation_partielle",
@@ -370,10 +371,10 @@
     {
       "id": "BL-P2-14",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:309-391",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/card_traiteur_champs",
-      "statut": "partial",
-      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet FILTRES livré en R25a (cf. M3.1-liste-filtres). Volet AGENCE (M3.3) à venir → statut `partial` conservé."
+      "statut": "implemented",
+      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet FILTRES livré en R25a (cf. M3.1-liste-filtres). Volet AGENCE livré le 2026-09-30 (revue écran E2E) : même composant ListeCollectesClient, cf. M3.3-liste-onglets-etat."
     },
     {
       "id": "M3.1-liste-carte-simplifiee",
@@ -625,11 +626,11 @@
     },
     {
       "id": "M3.1-liste-tri-date-decroissante",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:324",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:329 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
       "statut": "implemented",
-      "libelle": "Tri par défaut de la liste Collectes (§06.04 §3 « Vue cartes » l.324 + « Tri par défaut » l.383) : date DÉCROISSANTE, les plus récentes en premier, SANS exception d'onglet — au niveau des groupes-semaines COMME à l'intérieur d'une semaine. Ferme l'écart code/CDC relevé le 2026-09-21 (le code triait les semaines en croissant sur l'onglet Programmées, et les cartes intra-semaine toujours en croissant dans les deux onglets) : arbitrage Val 2026-09-21, option B — le CDC était juste, c'est le code qui s'aligne, cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md. Le tri est local au useMemo de la page : la liste Admin (§06.06) garde son propre groupBySemaine(asc|desc) avec remontée des urgences AG §06.09, hors périmètre de cet arbitrage."
+      "libelle": "Tri par défaut de la liste Collectes (§06.04 §3 Data Table l.329 + « Tri par défaut » l.389) : date DÉCROISSANTE, les plus récentes en premier, SANS exception d'onglet — au niveau des groupes-semaines COMME à l'intérieur d'une semaine. Ferme l'écart code/CDC relevé le 2026-09-21 (le code triait les semaines en croissant sur l'onglet Programmées, et les cartes intra-semaine toujours en croissant dans les deux onglets) : arbitrage Val 2026-09-21, option B — le CDC était juste, c'est le code qui s'aligne, cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md. Le tri est porté par `initialSorting` (date décroissante) de la Data Table du composant partagé liste-collectes-client (traiteur + agence) : la liste Admin (§06.06) garde son propre groupBySemaine(asc|desc) avec remontée des urgences AG §06.09, hors périmètre de cet arbitrage."
     },
     {
       "id": "M3.1-lieux-autocomplete-preuve-comportement",
@@ -762,7 +763,7 @@
     {
       "id": "M3.1-popup-marque-blanche-sous-modales",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
-      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/editer-collecte-form.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/editer-collecte-form.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/fiche_popup_sous_modales_marque_blanche",
       "statut": "implemented",
       "libelle": "Arbitrage Val C2 (2026-09-29) : « prestataire » retiré des sous-modales (annulation : « Nous prévenons notre équipe logistique » ; confirmation d'édition : « Ce nouveau créneau devra être reconfirmé par notre équipe logistique » au lieu du texte CDC §06.04 l.543 — divergence tracée _Divergences/M3.1_20260929_popup-client-implementation.md)."
@@ -914,7 +915,7 @@
     {
       "id": "M3.1-liste-rapport-reserve-picto",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:414",
-      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/liste_rapport_reserve_donneur_ordre_picto_retire",
       "statut": "implemented",
       "libelle": "Liste traiteur, cellule Résultats d'une collecte cloturee : quand rapport_reserve_donneur_ordre, le picto « Télécharger le rapport » est RETIRÉ (action indisponible retirée sur cette liste, §10 §7 exception densité — plus de bouton inerte) et remplacé par la mention de la fiche « Réservé à l'organisation qui a programmé la collecte » (constante LIBELLE_RAPPORT_RESERVE, partagée avec le Bilan de la fiche). Câblage page → table : M3.1/liste_rapport_reserve_donneur_ordre_page."
@@ -950,6 +951,14 @@
       "test": null,
       "statut": "partial",
       "libelle": "RGPD : base légale « intérêt légitime » de l'affichage du téléphone du chauffeur au client à mentionner dans la notice §15 — action documentaire de Val, hors code."
+    },
+    {
+      "id": "M3.1-facturation-filtres-choix-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:742",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client.tsx (FacturationTab : Période en premier, Statut / Type en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/traiteur/factures/route.ts (statuts / types CSV en liste blanche des enums, statut / type lus comme des listes d'un élément ; RLS et .neq brouillon inchangés)",
+      "test": "M3.1 — Facturation : Période en premier + M3.1/trait_monorga_factures_filtres_choix_multiple + M3.1/trait_monorga_factures_filtres_valeurs_toutes_invalides + M3.1/trait_monorga_factures_filtres_listes_prioritaires_sur_mono + M3.1 — Facturation : une réponse plus ancienne",
+      "statut": "à-vérifier",
+      "libelle": "Mon organisation > Facturation — « Période » en premier, Statut et Type à choix multiple avec case « Tous » (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). Route cliente : lecture toujours sous RLS (fac_client_select), brouillons toujours exclus ; `.in()` ne fait que restreindre. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
     }
   ],
   "cdc_source_hash": {

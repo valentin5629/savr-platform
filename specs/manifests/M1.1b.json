@@ -438,6 +438,30 @@
       "test": "en-tête : type de TMS, SIREN, ville, véhicules, téléphone et statut du transporteur enregistré + M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé + en-tête : région, ville, capacité et statut de l’association enregistrée + erreur dans un onglet caché : la fiche y bascule et marque les onglets à corriger + avec sur-titre : le statut partage sa ligne, le titre garde toute la largeur + sans sur-titre : pas de ligne vide, le statut se place à droite du titre",
       "statut": "implemented",
       "libelle": "Brique commune FicheEnTete (+ EnTetePuce, EnTeteMention) et barre d'onglets horizontale avec compteur d'erreurs (OngletAvecErreurs) : même cadre pour les fiches Admin transporteur, lieu et association — grand en-tête, onglets seuls (plus de colonne résumé ni d'onglets en colonne) ; titre accessible « Fiche X — nom » (décisions Val 2026-09-30). Depuis le 2026-10-01, brique partagée avec les fiches collecte Admin et client : le statut (badge ou frise) occupe la droite de la première ligne, titre et infos en pleine largeur."
+    },
+    {
+      "id": "M1.1b-transporteurs-filtres-choix-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:500",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/transporteurs/page.tsx (Type / Statut en FiltreCoches, « Actifs » pré-coché) + packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts (types_tms CSV en liste blanche de l'enum type_tms ; l'ancien type_tms lu comme une liste d'un élément)",
+      "test": "M1.1b — Transporteurs : Type + M1.1b/transporteurs_liste_types_tms_csv + M1.1b/transporteurs_liste_types_tms_hors_enum_ecartes + M1.1b/transporteurs_liste_type_tms_mono_conserve + M1.1b/transporteurs_liste_types_tms_prioritaire_sur_mono",
+      "statut": "à-vérifier",
+      "libelle": "Liste Transporteurs — filtres Type (type de TMS) et Statut à choix multiple avec case « Tous » (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2) ; défaut « Actifs » conservé (pré-coché). GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+    },
+    {
+      "id": "M1.1b-associations-filtre-statut-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:436",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/associations/page.tsx (Statut en FiltreCoches, « Actives » pré-cochée ; route inchangée)",
+      "test": "M1.1b — Associations : « Actives » pré-cochée",
+      "statut": "à-vérifier",
+      "libelle": "Liste Associations — filtre Statut à choix multiple, case « Toutes » en tête (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2) ; défaut « Actives » conservé. Corrige au passage « Toutes » qui envoyait `actif=` (vide), lu `false` par la route : seules les inactives s'affichaient. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+    },
+    {
+      "id": "M1.1b-lieux-filtre-statut-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:563",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/lieux/page.tsx (Statut en FiltreCoches, « Actifs » pré-coché ; route inchangée)",
+      "test": "M1.1b — Lieux : Statut « Actifs » pré-coché",
+      "statut": "à-vérifier",
+      "libelle": "Liste Lieux (onglet Référentiel) — filtre Statut à choix multiple avec case « Tous » (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2) ; défaut « Actifs » conservé ; Actifs + Inactifs = aucun paramètre. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
     }
   ],
   "cdc_source_hash": {

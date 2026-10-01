@@ -663,6 +663,14 @@
       "test": "M3.2/fiche_get_repas_tiers_depuis_attestation",
       "statut": "implemented",
       "libelle": "Bilan AG du gestionnaire sur une collecte programmée par un traiteur TIERS : volume_repas_realise lui est refusé sous sa RLS (aa_select — C-1, pgTAP T18, jamais élargie), seul le bloc Association étant exempté par §06.05 l.85. Arbitrage Val 2026-09-30 (D13) : « Repas donnés » / « Repas par pax » lus dans l'attestation de don qui lui est déjà servie (att_gestionnaire_select, §06.05 l.619) — attestations_don.nb_repas, copié de l'attribution au batch J+1 ; « — » tant que l'attestation n'existe pas ; l'attribution prime quand elle est lisible. Aucune lecture élargie. Preuve base : supabase/tests/documents_traiteur_operationnel_d12.test.sql (bloc Gestionnaire : attestation servie, attribution refusée, nb_repas lu par la requête de la fiche). Le radar ZD reste masqué sur les collectes tierces (garde f_benchmark_single_collecte non élargie)."
+    },
+    {
+      "id": "M3.2-evenements-type-collecte-choix-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:312",
+      "artefact": "packages/plateforme/src/components/dashboards/EvenementsFilterBar.tsx (FiltreCoches « ZD seul / AG seul / ZD et AG ») + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx (URL types_collecte[], ancien type_collecte relu) + packages/plateforme/src/lib/evenements-type-collecte.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/export-csv/route.ts",
+      "test": "M3.2 — ancien lien ?type_collecte=avec_zd + M3.2 — « AG seul » coché + M3.2/evenements_types_collecte_partition + M3.2/evenements_type_collecte_ancien_lien + M3.2/evenements_types_collecte_hors_liste_ecartes + M3.2/evenements_types_collecte_prioritaire_sur_ancien + M3.2/P2_export_csv_types_collecte",
+      "statut": "à-vérifier",
+      "libelle": "Liste Événements — « Type de collecte » à choix multiple sur une PARTITION « ZD seul / AG seul / ZD et AG » (arbitrage Val F1 2026-10-01, _Divergences/M0.8_20260930_filtres-choix-multiple-tous) : les options « Avec ZD / Avec AG / ZD et AG » du CDC l.312 (« Single-select ») se recouvraient. « Avec ZD » = ZD seul + ZD et AG ; un ancien lien ?type_collecte= reste compris ; export CSV aligné. CDC à patcher par la divergence. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
     }
   ],
   "cdc_source_hash": {

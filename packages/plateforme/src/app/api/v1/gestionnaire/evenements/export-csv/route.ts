@@ -12,6 +12,10 @@ import {
   evenementsToCsv,
 } from '@/lib/exports/evenements.js';
 import { serverError } from '@/lib/api-helpers.js';
+import {
+  lireTypesCollecte,
+  passeTypesCollecte,
+} from '@/lib/evenements-type-collecte.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -32,7 +36,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const traiteurIds = sp.getAll('traiteur_ids[]');
   const typeEvtIds = sp.getAll('type_evenement_ids[]');
   const tailleEvts = sp.getAll('taille_evenements[]');
-  const typeCollecte = sp.get('type_collecte');
+  const typesCollecte = lireTypesCollecte(sp);
   const statutFiltres = sp.getAll('statut_consolide[]');
 
   // Périmètre lieux du gestionnaire (défense en profondeur — la RLS
@@ -81,9 +85,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ) as { type: string; statut: string }[];
     const hasZd = cs.some((c) => c.type === 'zero_dechet');
     const hasAg = cs.some((c) => c.type === 'anti_gaspi');
-    if (typeCollecte === 'avec_zd' && !hasZd) return false;
-    if (typeCollecte === 'avec_ag' && !hasAg) return false;
-    if (typeCollecte === 'zd_et_ag' && !(hasZd && hasAg)) return false;
+    if (!passeTypesCollecte(typesCollecte, hasZd, hasAg)) return false;
     if (
       statutFiltres.length > 0 &&
       !statutFiltres.includes(exportStatutConsolide(cs))

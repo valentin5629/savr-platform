@@ -8,10 +8,15 @@ import { Combobox } from '@/components/ui/combobox';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FormField } from '@/components/ui/form-field';
-import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
+import { BarreFiltres, FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { Input } from '@/components/ui/input';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
+import type { Database } from '@savr/shared/src/database.types.js';
+
+// Ids des filtres typés par l'enum DB : un renommage casse la compilation au
+// lieu de devenir un filtre ignoré en silence par la route (liste blanche).
+type Enums = Database['plateforme']['Enums'];
 
 type OrgTab = 'infos' | 'equipe' | 'facturation' | 'preferences';
 
@@ -987,23 +992,32 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
 
 function FacturationTab({ isManager }: { isManager: boolean }) {
   const [factures, setFactures] = useState<FactureRow[]>([]);
-  const [statut, setStatut] = useState('');
-  const [type, setType] = useState('');
+  // Statut et Type à choix multiple, case « Tous » = sélection vide (décision
+  // Val 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous).
+  const [statuts, setStatuts] = useState<string[]>([]);
+  const [types, setTypes] = useState<string[]>([]);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
 
   useEffect(() => {
-    // Filtres §6 l.690 : statut, type, période (date d'émission).
+    // Filtres §6 l.690 : statut, type, période (date d'émission). Une réponse
+    // arrivée après un changement de filtre (effet nettoyé) est ignorée.
+    let perime = false;
     const params = new URLSearchParams();
-    if (statut) params.set('statut', statut);
-    if (type) params.set('type', type);
+    if (statuts.length > 0) params.set('statuts', statuts.join(','));
+    if (types.length > 0) params.set('types', types.join(','));
     if (dateDebut) params.set('date_debut', dateDebut);
     if (dateFin) params.set('date_fin', dateFin);
     const qs = params.toString();
     fetch(`/api/v1/traiteur/factures${qs ? `?${qs}` : ''}`)
       .then((r) => r.json())
-      .then((j) => setFactures((j.data ?? []) as FactureRow[]));
-  }, [statut, type, dateDebut, dateFin]);
+      .then((j) => {
+        if (!perime) setFactures((j.data ?? []) as FactureRow[]);
+      });
+    return () => {
+      perime = true;
+    };
+  }, [statuts, types, dateDebut, dateFin]);
 
   return (
     <div className="space-y-4">
@@ -1039,45 +1053,17 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
             data-testid="factures-filtres"
             resetTestId="factures-filtres-reset"
             onReset={
-              statut || type || dateDebut || dateFin
+              statuts.length > 0 || types.length > 0 || dateDebut || dateFin
                 ? () => {
-                    setStatut('');
-                    setType('');
+                    setStatuts([]);
+                    setTypes([]);
                     setDateDebut('');
                     setDateFin('');
                   }
                 : undefined
             }
           >
-            {/* Valeurs = enums réels plateforme.facture_statut / facture_type
-                (brouillon exclu par la route ; « En retard » est un badge dérivé
-                de date_echeance, pas un statut stocké → non filtrable). */}
-            <Combobox
-              titre="Statut"
-              id="factures-statut"
-              options={[
-                { value: '', label: 'Tous statuts' },
-                { value: 'en_attente_pennylane', label: 'En attente' },
-                { value: 'emise', label: 'Émise' },
-                { value: 'payee', label: 'Payée' },
-                { value: 'annulee', label: 'Annulée' },
-              ]}
-              value={statut}
-              onChange={setStatut}
-            />
-            <Combobox
-              titre="Type"
-              id="factures-type"
-              options={[
-                { value: '', label: 'Tous types' },
-                { value: 'zero_dechet', label: 'ZD' },
-                { value: 'collecte_antigaspi', label: 'AG' },
-                { value: 'achat_pack_antigaspi', label: 'Pack' },
-                { value: 'avoir', label: 'Avoir' },
-              ]}
-              value={type}
-              onChange={setType}
-            />
+            {/* « Période » en premier (décision Val 2026-09-30). */}
             <DateRangePicker
               titre="Période"
               id="factures-periode"
@@ -1086,6 +1072,37 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
                 setDateDebut(p.from);
                 setDateFin(p.to);
               }}
+            />
+            {/* Valeurs = enums réels plateforme.facture_statut / facture_type
+                (brouillon exclu par la route ; « En retard » est un badge dérivé
+                de date_echeance, pas un statut stocké → non filtrable). */}
+            <FiltreCoches
+              label="Statut"
+              testid="factures-statut"
+              options={
+                [
+                  { id: 'en_attente_pennylane', nom: 'En attente' },
+                  { id: 'emise', nom: 'Émise' },
+                  { id: 'payee', nom: 'Payée' },
+                  { id: 'annulee', nom: 'Annulée' },
+                ] satisfies { id: Enums['facture_statut']; nom: string }[]
+              }
+              selected={statuts}
+              onChange={setStatuts}
+            />
+            <FiltreCoches
+              label="Type"
+              testid="factures-type"
+              options={
+                [
+                  { id: 'zero_dechet', nom: 'ZD' },
+                  { id: 'collecte_antigaspi', nom: 'AG' },
+                  { id: 'achat_pack_antigaspi', nom: 'Pack' },
+                  { id: 'avoir', nom: 'Avoir' },
+                ] satisfies { id: Enums['facture_type']; nom: string }[]
+              }
+              selected={types}
+              onChange={setTypes}
             />
           </BarreFiltres>
           <DataGrid

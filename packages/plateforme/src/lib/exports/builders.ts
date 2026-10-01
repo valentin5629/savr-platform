@@ -240,6 +240,15 @@ export async function buildFacturesExport(
   const orgIds = listeCsv(sp.get('organisation_ids'), estUuid);
   const from = sp.get('from');
   const to = sp.get('to');
+  // Liste Factures Admin (arbitrage Val 2026-10-01, _Divergences/
+  // M1.7_20261001_export-factures-periode, option a) : même Période que la
+  // liste — `created_at`, toujours renseignée (brouillons compris), date_fin
+  // inclusive — et même pastille « En erreur ». Staff seulement : la colonne
+  // de synchro est masquée aux clients (F5), dont les exports gardent
+  // from / to sur date_emission.
+  const dateDebut = ctx.isStaff ? sp.get('date_debut') : null;
+  const dateFin = ctx.isStaff ? sp.get('date_fin') : null;
+  const enErreur = ctx.isStaff && sp.get('en_erreur') === '1';
 
   let q = ctx.supabase
     .from('factures')
@@ -255,6 +264,9 @@ export async function buildFacturesExport(
   if (orgIds.length > 0) q = q.in('organisation_id', orgIds);
   if (from) q = q.gte('date_emission', from);
   if (to) q = q.lte('date_emission', to);
+  if (dateDebut) q = q.gte('created_at', dateDebut);
+  if (dateFin) q = q.lte('created_at', `${dateFin}T23:59:59.999Z`);
+  if (enErreur) q = q.not('erreur_synchro', 'is', null);
 
   const { data, error } = await q;
   if (error) throw erreurInterne(error, 'exports.builders');

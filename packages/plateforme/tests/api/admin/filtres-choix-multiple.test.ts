@@ -264,4 +264,25 @@ describe('M1.7 — export CSV factures : respecte Organisation et Type cochés (
     expect(surColonne('in', 'type')).toEqual([['type', ['avoir']]]);
     expect(surColonne('eq', 'type')).toEqual([]);
   });
+
+  // Arbitrage Val 2026-10-01 (option a) : l'export Admin applique la même
+  // Période que la liste (created_at, fin inclusive) et la pastille « En erreur ».
+  it('M1.7/export_factures_periode_et_en_erreur_comme_la_liste — staff : created_at du jour de début au jour de fin inclus + erreur_synchro', async () => {
+    await exporter('date_debut=2026-09-01&date_fin=2026-09-30&en_erreur=1');
+    expect(admin.__calls.gte).toEqual([['created_at', '2026-09-01']]);
+    expect(admin.__calls.lte).toEqual([
+      ['created_at', '2026-09-30T23:59:59.999Z'],
+    ]);
+    expect(admin.__calls.not).toEqual([['erreur_synchro', 'is', null]]);
+  });
+
+  it('M1.7/export_factures_periode_admin_hors_staff_ignoree — client : date_debut / en_erreur sans effet, from / to sur date_emission', async () => {
+    await exporter(
+      'date_debut=2026-09-01&date_fin=2026-09-30&en_erreur=1&from=2026-01-01&to=2026-12-31',
+      false,
+    );
+    expect(admin.__calls.gte).toEqual([['date_emission', '2026-01-01']]);
+    expect(admin.__calls.lte).toEqual([['date_emission', '2026-12-31']]);
+    expect(admin.__calls.not ?? []).toEqual([]);
+  });
 });

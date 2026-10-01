@@ -777,9 +777,9 @@
     },
     {
       "id": "M3.1-fiche-colonnes-reservees-service-role",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1453",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:401",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
-      "test": "M3.1/fiche_get_reference_affaire_programmateur_seul",
+      "test": "M3.1/fiche_get_reference_affaire_programmateur_seul + M3.1/fiche_get_contacts_service_role + M3.1/fiche_get_contacts_erreur_500",
       "statut": "implemented",
       "libelle": "Chargeur commun de la fiche collecte : contacts sur place et référence d'affaire (colonnes d'evenements hors GRANT SELECT authenticated) lus en service-role sur le seul événement de la collecte, après la lecture RLS ; référence d'affaire servie à l'organisation programmatrice seule (arbitrages Val C3/C5 2026-10-01 — M3.1/fiche_get_contacts_service_role, M3.1/fiche_get_contacts_erreur_500, M3.3/fiche_get_contacts_agence)"
     },

@@ -59,7 +59,10 @@
 --     (arbitrages C2 = masqué sur les événements de traiteurs tiers, C5).
 --   - reference_affaire : référence interne du programmateur (« numéro d'affaire »,
 --     §04). Servie par la même route à l'organisation programmatrice seule
---     (arbitrage C3) — elle n'alimente que le formulaire d'édition.
+--     (arbitrage C3). Elle alimente le formulaire d'édition et le préremplissage
+--     de la duplication (programmer/nouveau). Conséquence voulue : un traiteur
+--     opérationnel qui duplique la collecte d'un donneur d'ordre ne reprend plus
+--     la référence d'affaire de celui-ci.
 --   - notes_internes, entite_facturation_id : fermées à tous les rôles clients
 --     (arbitrage C1). Aucune lecture sous authenticated ; côté routes, un chemin
 --     les rendait encore au programmateur — la réponse du PATCH

@@ -668,9 +668,9 @@
       "id": "M3.2-popup-contacts-tiers-masques",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:59",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
-      "test": "M3.2/fiche_get_contacts_tiers_masques",
+      "test": "M3.2/fiche_get_contacts_tiers_masques + M3.2/fiche_get_contacts_propre_programmation + M3.2/fiche_popup_gestionnaire_contacts_tiers_masques",
       "statut": "implemented",
-      "libelle": "Fiche collecte du gestionnaire sur la collecte d'un traiteur TIERS : contacts sur place (nom + téléphone, principal et secours) et référence d'affaire ni lus ni servis, bloc « Contacts sur place » absent ; affichés sur ses propres programmations (arbitrage Val C2 2026-10-01 — M3.2/fiche_get_contacts_propre_programmation, M3.2/fiche_popup_gestionnaire_contacts_tiers_masques)"
+      "libelle": "Fiche collecte du gestionnaire sur la collecte d'un TIERS (traiteur ou agence, evenements.organisation_id ≠ la sienne) : contacts sur place (nom + téléphone, principal et secours) et référence d'affaire ni lus ni servis, bloc « Contacts sur place » absent ; affichés sur ses propres programmations (arbitrage Val C2 2026-10-01 — M3.2/fiche_get_contacts_propre_programmation, M3.2/fiche_popup_gestionnaire_contacts_tiers_masques)"
     },
     {
       "id": "M3.2-evenements-type-collecte-choix-multiple",

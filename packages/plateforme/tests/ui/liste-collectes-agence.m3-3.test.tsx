@@ -93,7 +93,8 @@ const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
             'Paris Expo Porte de Versailles',
             'Maison Lenôtre',
           ),
-          collecte('c-clot', 'cloturee', 'Palais des Congrès de Paris'),
+          // Client saisi en espaces seuls : vaut « non renseigné ».
+          collecte('c-clot', 'cloturee', 'Palais des Congrès de Paris', '   '),
         ];
   // La route de téléchargement répond { url } (URL R2 pré-signée), sans `data`.
   const corps = url.includes('/rapport-rse/download')
@@ -172,6 +173,17 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
         await table.findByText('Maison Lenôtre', undefined, ATTENTE_UI),
       ).toBeTruthy();
       expect(table.getByRole('columnheader', { name: 'Client' })).toBeTruthy();
+      // Saisie faite d'espaces : cellule vide du DS, pas une cellule blanche.
+      const entetes = table
+        .getAllByRole('columnheader')
+        .map((th) => th.textContent?.trim());
+      const ligne = table
+        .getByText('Palais des Congrès de Paris')
+        .closest('tr');
+      expect(
+        within(ligne!).getAllByRole('cell')[entetes.indexOf('Client')]
+          ?.textContent,
+      ).toBe('—');
     },
     ATTENTE_CAS_MS,
   );

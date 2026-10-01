@@ -66,9 +66,11 @@ const LIGNES = [
     date_collecte: '2026-11-10',
     evenement_nom: 'Fleurdemets — 2026-11-10',
     lieu_nom: 'Palais des Congrès de Paris',
+    client_nom: null,
   },
-  // La route rend `nom_evenement` et le nom du lieu embarqué nullables, et
-  // `date_collecte` l'est aussi : les 3 cellules doivent tomber sur « — ».
+  // La route rend `nom_evenement`, le client et le nom du lieu embarqué
+  // nullables, et `date_collecte` l'est aussi : les 4 cellules doivent tomber
+  // sur « — ».
   {
     id: 'c3',
     type: 'zero_dechet',
@@ -76,6 +78,7 @@ const LIGNES = [
     date_collecte: null,
     evenement_nom: null,
     lieu_nom: null,
+    client_nom: null,
   },
 ];
 
@@ -128,14 +131,22 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         .map((th) => th.textContent?.trim());
       expect(entetes.indexOf('Client')).toBe(entetes.indexOf('Lieu') + 1);
       expect(screen.getAllByText('Maison Lenôtre').length).toBeGreaterThan(0);
+      // Client non renseigné (c2, seule cellule vide de sa ligne) : « — ».
+      const ligneSansClient = within(screen.getByRole('table'))
+        .getByText('Palais des Congrès de Paris')
+        .closest('tr');
+      expect(
+        within(ligneSansClient!).getAllByRole('cell')[entetes.indexOf('Client')]
+          ?.textContent,
+      ).toBe('—');
       expect(
         screen.getAllByText('Paris Expo Porte de Versailles').length,
       ).toBeGreaterThan(0);
       expect(screen.getAllByText('ZD').length).toBeGreaterThan(0);
       expect(screen.getAllByText('AG').length).toBeGreaterThan(0);
 
-      // Ligne aux champs nuls : date, lieu et événement tombent sur « — »
-      // (3 cellules ; DataTable rend chaque ligne en tableau ET en card).
+      // Ligne aux champs nuls : date, lieu, client et événement tombent sur
+      // « — » (DataTable rend chaque ligne en tableau ET en card).
       expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
     },
     ATTENTE_CAS_MS,

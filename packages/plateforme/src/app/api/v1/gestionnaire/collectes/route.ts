@@ -198,8 +198,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       ...rest,
       evenement_nom: evt?.nom_evenement ?? null,
       // Client organisateur « si renseigné par le traiteur » (§06.05 Détail
-      // événement) — même colonne que le détail, même RLS.
-      client_nom: evt?.nom_client_organisateur ?? null,
+      // événement) — même colonne que le détail, même RLS. Texte libre : une
+      // saisie faite d'espaces vaut « non renseigné ».
+      client_nom: evt?.nom_client_organisateur?.trim() || null,
       lieu_nom: lieu?.nom ?? null,
     };
   });

@@ -1,7 +1,7 @@
 /**
  * M3.1 — Data Table liste collectes traiteur (refonte 2026-07-05, revue écran
  * 2026-07-15, passage en Data Table 2026-09-28 — décisions Val). Couvre : champs
- * affichés (Date · Heure · Lieu · Pax · Statut), actions icône-seule (Modifier /
+ * affichés (Date · Heure · Lieu · Client · Pax · Statut), actions icône-seule (Modifier /
  * Annuler / Dupliquer) MASQUÉES quand indisponibles (plus de bouton grisé), et —
  * sur collecte réalisée (cloturee) — les résultats (ZD : poids/taux/CO₂ ; AG :
  * repas/CO₂) + le téléchargement du rapport, retiré quand le rapport de don
@@ -106,6 +106,12 @@ describe('M3.1 / Data Table liste traiteur', () => {
       .map((th) => th.textContent?.trim());
     expect(entetes.indexOf('Client')).toBe(entetes.indexOf('Lieu') + 1);
     expect(table.getByText('Maison Lenôtre')).toBeTruthy();
+    // Triable : DataGrid ne pose `aria-sort` que sur une colonne triable (sans
+    // `accessorFn`, l'en-tête serait inerte).
+    expect(table.getByRole('columnheader', { name: 'Client' })).toHaveAttribute(
+      'aria-sort',
+      'none',
+    );
 
     // Client organisateur non saisi à la programmation : cellule vide du DS.
     monte(base({ client_nom: null }), true);

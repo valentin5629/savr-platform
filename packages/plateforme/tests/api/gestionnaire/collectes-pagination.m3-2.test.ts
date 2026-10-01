@@ -97,8 +97,9 @@ function lignes(n: number) {
     realisee_at: null,
     evenements: {
       nom_evenement: `Événement ${i}`,
-      // Renseigné par le traiteur sur la 1re ligne seulement (champ facultatif).
-      nom_client_organisateur: i === 0 ? 'Maison Lenôtre' : null,
+      // Champ facultatif, texte libre : renseigné sur la 1re ligne, absent sur
+      // la 2e, fait d'espaces sur la 3e.
+      nom_client_organisateur: ['Maison Lenôtre', null, '   '][i] ?? null,
       lieu_id: 'L1',
       traiteur_operationnel_organisation_id: 'T1',
       lieux: { nom: 'Paris Expo Porte de Versailles' },
@@ -158,19 +159,21 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
   });
 
   it('M3.2/collectes_route_renvoie_le_client_organisateur', async () => {
-    rls.__set({ data: lignes(2), error: null, count: 2 });
+    rls.__set({ data: lignes(3), error: null, count: 3 });
     const res = await appel();
     const json = (await res.json()) as {
       data: { client_nom: string | null }[];
     };
 
     // La colonne est demandée à PostgREST (sans elle, la colonne « Client » de
-    // l'écran resterait vide sans erreur) et aplatie sur chaque ligne.
+    // l'écran resterait vide sans erreur) et aplatie sur chaque ligne. Une
+    // saisie faite d'espaces vaut « non renseigné » (l'écran affiche « — »).
     expect(String(rls.__calls.select?.[0]?.[0])).toContain(
       'nom_client_organisateur',
     );
     expect(json.data.map((c) => c.client_nom)).toEqual([
       'Maison Lenôtre',
+      null,
       null,
     ]);
   });

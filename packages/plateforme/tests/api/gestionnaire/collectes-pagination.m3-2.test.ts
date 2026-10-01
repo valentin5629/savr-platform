@@ -97,6 +97,9 @@ function lignes(n: number) {
     realisee_at: null,
     evenements: {
       nom_evenement: `Événement ${i}`,
+      // Champ facultatif, texte libre : renseigné sur la 1re ligne, absent sur
+      // la 2e, fait d'espaces sur la 3e.
+      nom_client_organisateur: ['Maison Lenôtre', null, '   '][i] ?? null,
       lieu_id: 'L1',
       traiteur_operationnel_organisation_id: 'T1',
       lieux: { nom: 'Paris Expo Porte de Versailles' },
@@ -153,6 +156,169 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
     // total retomberait silencieusement sur la taille de la page).
     const select = rls.__calls.select?.[0];
     expect(select?.[1]).toEqual({ count: 'exact' });
+  });
+
+  it('M3.2/collectes_route_renvoie_le_client_organisateur', async () => {
+    rls.__set({ data: lignes(3), error: null, count: 3 });
+    const res = await appel();
+    const json = (await res.json()) as {
+      data: { client_nom: string | null }[];
+    };
+
+    // La colonne est demandée à PostgREST (sans elle, la colonne « Client » de
+    // l'écran resterait vide sans erreur) et aplatie sur chaque ligne. Une
+    // saisie faite d'espaces vaut « non renseigné » (l'écran affiche « — »).
+    expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+      'nom_client_organisateur',
+    );
+    expect(json.data.map((c) => c.client_nom)).toEqual([
+      'Maison Lenôtre',
+      null,
+      null,
+    ]);
+  });
+
+  it('M3.2/collectes_route_colonnes_liste_traiteur — traiteur, pax, adresse et résultats aplatis, embeds bruts retirés', async () => {
+    const base = lignes(1)[0]!;
+    rls.__set({
+      data: [
+        // ZD réalisée : poids = Σ des flux (un flux sans pesée compte 0).
+        {
+          ...base,
+          id: 'zd',
+          taux_recyclage: 87,
+          co2_evite_kg: 96,
+          collecte_flux: [
+            { poids_reel_kg: 300 },
+            { poids_reel_kg: 112.5 },
+            { poids_reel_kg: null },
+          ],
+          attributions_antgaspi: null,
+          attestations_don: [],
+          evenements: {
+            ...base.evenements,
+            pax: 500,
+            lieux: {
+              nom: 'Musée des Arts Forains',
+              adresse_acces: '53 Avenue des Terroirs de France',
+              code_postal: '75012',
+              ville: 'Paris',
+            },
+            // to-one PostgREST rendu en tableau : même lecture que l'objet.
+            organisations: [{ nom: 'Fleurdemets' }],
+          },
+        },
+        // AG programmée par le gestionnaire : l'attribution est lisible et
+        // prime sur l'attestation.
+        {
+          ...base,
+          id: 'ag-propre',
+          type: 'anti_gaspi',
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 180 },
+          attestations_don: [{ nb_repas: 175, version: 1 }],
+        },
+        // AG d'un traiteur tiers : l'attribution lui est refusée par la RLS
+        // (embed vide) ; l'attestation de don porte le chiffre — dernière
+        // version, quel que soit l'ordre de retour.
+        {
+          ...base,
+          id: 'ag-tiers',
+          type: 'anti_gaspi',
+          collecte_flux: [],
+          attributions_antgaspi: null,
+          attestations_don: [
+            { nb_repas: 140, version: 1 },
+            { nb_repas: 152, version: 3 },
+            { nb_repas: 150, version: 2 },
+          ],
+        },
+        // AG sans attribution lisible ni attestation : non renseigné, pas 0.
+        {
+          ...base,
+          id: 'ag-rien',
+          type: 'anti_gaspi',
+          collecte_flux: null,
+          attributions_antgaspi: [],
+          attestations_don: null,
+        },
+        // Attribution lisible à 0 repas : c'est une valeur, elle prime (un `||`
+        // la remplacerait par l'attestation).
+        {
+          ...base,
+          id: 'ag-zero',
+          type: 'anti_gaspi',
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 0 },
+          attestations_don: [{ nb_repas: 12, version: 1 }],
+        },
+        // Attribution lisible mais volume non saisi : repli sur l'attestation,
+        // ici rendue en OBJET par PostgREST (même lecture que le tableau).
+        {
+          ...base,
+          id: 'ag-volume-null',
+          type: 'anti_gaspi',
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: null },
+          attestations_don: { nb_repas: 90, version: 1 },
+        },
+      ],
+      error: null,
+      count: 6,
+    });
+    const res = await appel();
+    const { data } = (await res.json()) as {
+      data: Record<string, unknown>[];
+    };
+
+    // Ce que l'écran affiche est demandé à PostgREST — le traiteur par la vue
+    // restreinte du rôle (nom seul), jamais par `organisations`.
+    const select = String(rls.__calls.select?.[0]?.[0]);
+    for (const attendu of [
+      'pax',
+      'lieux!lieu_id(nom, adresse_acces, code_postal, ville)',
+      'organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(nom)',
+      'collecte_flux(poids_reel_kg)',
+      'attributions_antgaspi(volume_repas_realise)',
+      'attestations_don(nb_repas, version)',
+    ])
+      expect(select).toContain(attendu);
+
+    expect(data[0]).toMatchObject({
+      id: 'zd',
+      traiteur_nom: 'Fleurdemets',
+      pax: 500,
+      lieu_nom: 'Musée des Arts Forains',
+      lieu_adresse: '53 Avenue des Terroirs de France 75012 Paris',
+      poids_total_kg: 412.5,
+      taux_recyclage: 87,
+      co2_evite_kg: 96,
+      nb_repas_donnes: null,
+    });
+    expect(data.map((c) => c.nb_repas_donnes)).toEqual([
+      null,
+      180,
+      152,
+      null,
+      0,
+      90,
+    ]);
+    // Lignes sans traiteur nommé ni pax (fixture de base) : null, pas d'erreur.
+    expect(data[1]).toMatchObject({
+      traiteur_nom: null,
+      pax: null,
+      lieu_adresse: null,
+      poids_total_kg: 0,
+    });
+    // Les embeds bruts ne sortent pas de la route.
+    for (const c of data)
+      for (const brut of [
+        'evenements',
+        'collecte_flux',
+        'attributions_antgaspi',
+        'attestations_don',
+      ])
+        expect(c).not.toHaveProperty(brut);
   });
 
   it('M3.2/collectes_route_fenetre_la_page_demandee', async () => {

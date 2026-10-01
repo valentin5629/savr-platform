@@ -523,6 +523,138 @@ describe('M3.2 / P2 liste événements colonnes', () => {
   });
 });
 
+// ── Liste Événements : « Repas donnés » (D13, arbitrage Val 2026-09-30) ───────
+// Même règle que la fiche collecte du rôle : l'attribution quand elle est
+// lisible, sinon la dernière version de l'attestation de don. Les formes sont
+// celles que PostgREST rend réellement sous le jeton d'un gestionnaire (rejeu
+// savr-dev du 2026-10-01) : attribution refusée par aa_select = `null` (embed
+// to-one), attestations = tableau (une ligne par version).
+describe('M3.2 / liste événements — repas donnés', () => {
+  type Attribution = { volume_repas_realise: number | null } | null;
+  type Attestation = { nb_repas: number | null; version: number };
+
+  function collecteAg(
+    id: string,
+    attribution: Attribution,
+    attestations: Attestation[],
+  ) {
+    return {
+      id,
+      type: 'anti_gaspi',
+      statut: 'cloturee',
+      date_collecte: '2026-06-01',
+      collecte_flux: [],
+      attributions_antgaspi: attribution,
+      attestations_don: attestations,
+    };
+  }
+
+  // Appelle la route sur UN événement portant les collectes données ; rend la
+  // ligne produite et la chaîne `select` envoyée à `evenements`.
+  async function listeAvec(collectes: unknown[]) {
+    setupAuth();
+    const selects: string[] = [];
+    rls.select = (colonnes: string) => {
+      selects.push(colonnes);
+      return rls;
+    };
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
+    rls.push({
+      data: [
+        {
+          id: 'e1',
+          nom_evenement: 'Gala',
+          date_evenement: '2026-06-01',
+          pax: 600,
+          // Programmé par un traiteur tiers : le cas nominal du gestionnaire.
+          organisation_id: 'org-kaspia',
+          lieu_id: 'lieu-1',
+          lieux: { id: 'lieu-1', nom: 'Palais', ville: 'Paris' },
+          traiteur_operationnel_organisation_id: 'org-kaspia',
+          organisations: { id: 'org-kaspia', nom: 'Kaspia' },
+          type_evenement_id: 'ty1',
+          types_evenements: { id: 'ty1', libelle: 'Gala' },
+          collectes,
+        },
+      ],
+      error: null,
+    }); // evenements
+    rls.push({ data: null, error: null }); // f_dechets_labo_estimes
+
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/evenements/route.js');
+    const res = await GET(makeReq('/api/v1/gestionnaire/evenements'));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: Array<{ repas_donnes: number; nb_collectes_ag: number }>;
+    };
+    return { ligne: json.data[0]!, selectEvenements: selects[1] ?? '' };
+  }
+
+  it('M3.2/evenements_repas_attribution_lisible — l’attribution prime sur l’attestation', async () => {
+    // Collecte programmée par le gestionnaire lui-même : aa_select la lui sert.
+    // Le chiffre de l'attestation (volontairement différent) ne doit pas sortir.
+    const { ligne } = await listeAvec([
+      collecteAg('c1', { volume_repas_realise: 40 }, [
+        { nb_repas: 999, version: 1 },
+      ]),
+    ]);
+    expect(ligne.repas_donnes).toBe(40);
+  });
+
+  it('M3.2/evenements_repas_tiers_depuis_attestation — attribution refusée : repas lus dans l’attestation servie au gestionnaire', async () => {
+    const { ligne, selectEvenements } = await listeAvec([
+      collecteAg('c1', null, [{ nb_repas: 129, version: 1 }]),
+    ]);
+    expect(ligne.repas_donnes).toBe(129);
+    // La route DEMANDE l'attestation : sans cet embed dans le select, PostgREST
+    // ne la rendrait jamais et le repli resterait lettre morte.
+    expect(selectEvenements).toContain('attestations_don(nb_repas, version)');
+    expect(selectEvenements).toContain(
+      'attributions_antgaspi(volume_repas_realise)',
+    );
+  });
+
+  it('M3.2/evenements_repas_attestation_derniere_version — plusieurs versions : la plus haute fait foi, quel que soit l’ordre reçu', async () => {
+    const { ligne } = await listeAvec([
+      collecteAg('c1', null, [
+        { nb_repas: 100, version: 2 },
+        { nb_repas: 120, version: 3 },
+        { nb_repas: 80, version: 1 },
+      ]),
+    ]);
+    expect(ligne.repas_donnes).toBe(120);
+  });
+
+  it('M3.2/evenements_repas_sans_attribution_ni_attestation — ni l’une ni l’autre : 0, que l’écran rend « — »', async () => {
+    const { ligne } = await listeAvec([collecteAg('c1', null, [])]);
+    expect(ligne.repas_donnes).toBe(0);
+    expect(ligne.nb_collectes_ag).toBe(1);
+  });
+
+  it('M3.2/evenements_repas_somme_par_evenement — repli décidé collecte par collecte, puis somme sur l’événement', async () => {
+    const { ligne } = await listeAvec([
+      // Attribution lisible.
+      collecteAg('c1', { volume_repas_realise: 40 }, []),
+      // Attribution refusée → attestation.
+      collecteAg('c2', null, [{ nb_repas: 25, version: 1 }]),
+      // Attribution lisible à 0 repas : un vrai zéro, pas un repli.
+      collecteAg('c3', { volume_repas_realise: 0 }, [
+        { nb_repas: 7, version: 1 },
+      ]),
+      // Rien de lisible.
+      collecteAg('c4', null, []),
+      // Une collecte ZD ne compte jamais, même avec une attestation parasite.
+      {
+        ...collecteAg('c5', null, [{ nb_repas: 500, version: 1 }]),
+        type: 'zero_dechet',
+      },
+    ]);
+    expect(ligne.repas_donnes).toBe(65);
+    expect(ligne.nb_collectes_ag).toBe(4);
+  });
+});
+
 // ── Liste Traiteurs : lieux d'intervention ────────────────────────────────────
 describe('M3.2 / P2 liste traiteurs', () => {
   it("M3.2/P2_traiteurs_lieux_intervention_noms — { id, nom } résolus depuis l'embed", async () => {

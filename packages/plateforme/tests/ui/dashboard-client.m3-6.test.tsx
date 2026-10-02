@@ -549,4 +549,40 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'M3.6/benchmark_admin_reference_filtres_sans_k_anonymat — référence injoignable (500) : message « Référence indisponible », pas d’axes muets',
+    async () => {
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/dashboard-client/organisations'))
+          return jsonResponse({ data: ORGS });
+        if (url.includes('/dashboard-client/benchmark/filtres'))
+          return jsonResponse({
+            data: { lieux: [], traiteurs: [], types: [] },
+          });
+        if (url.includes('/dashboard-client/benchmark'))
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: () => Promise.resolve({ error: 'Erreur serveur' }),
+          } as Response);
+        if (url.includes('/dashboard-client'))
+          return jsonResponse({ data: { kpi: KPI_AGREGE } });
+        return jsonResponse({});
+      });
+      render(<DashboardClientView />);
+      expect(
+        await screen.findByTestId(
+          'benchmark-reference-erreur',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toHaveTextContent(/Référence indisponible/);
+      expect(
+        screen.queryByTestId('benchmark-reference-echantillon'),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

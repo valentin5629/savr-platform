@@ -18,7 +18,12 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import {
+  ToggleTypeCollecte,
+  type TypeCollecteFiltre,
+} from '@/components/collecte/toggle-type-collecte';
 import {
   readCollecteFiltreLabel,
   periodeCourte,
@@ -90,11 +95,11 @@ const CHIPS_PROGRAMMEES = CHIPS_PROGRAMMEES_CATALOGUE.filter(
   (c) => !CHIPS_PROGRAMMEES_MASQUES.has(c.key),
 );
 
-// Filtres rapides Historique — mappés sur type / statuts (pas de chip serveur).
+// Filtres rapides Historique — mappés sur les statuts (pas de chip serveur).
+// Les anciennes pastilles Anti-Gaspi / Zéro Déchet sont retirées (R-UI-4b, D1) :
+// le type se filtre par LE segmenté `ToggleTypeCollecte` de la FilterBar.
 const CHIPS_HISTORIQUE = [
   { key: '', label: 'Toutes' },
-  { key: 'ag', label: 'Anti-Gaspi' },
-  { key: 'zd', label: 'Zéro Déchet' },
   { key: 'annulee', label: 'Annulées' },
 ];
 
@@ -107,11 +112,15 @@ type Tab = 'programmees' | 'historique';
 // hors « Réinitialiser les filtres », qui n'efface que la barre (la pastille
 // et les filtres se cumulent, décision Val 2026-09-30). `tri`/`ordre` vides =
 // tri par défaut de l'onglet ; `tab` vide = Historique si drill-down, sinon
-// Programmées.
+// Programmées. `tab` reste de la navigation (R-UI-4b, D2) : les onglets sont
+// un changement de VUE (Tabs, DS règle 6), pas un filtre — « Réinitialiser les
+// filtres » ne change pas de vue et l'onglet ne compte pas dans `actif`.
+// `type` (R-UI-4b, D1) : UN seul contrôle, le segmenté `ToggleTypeCollecte`
+// (`tous` = défaut, omis de l'URL ; `?type=zero_dechet` reste lisible).
 const FILTRES = {
   tab: navigation(texte('')),
   chip: navigation(texte('')),
-  type: liste(),
+  type: texte('tous'),
   traiteur: liste(),
   lieu: liste(),
   statut: liste(),
@@ -202,12 +211,6 @@ function KpiTile({
   );
 }
 
-// Pastilles AG / ZD : actives quand le filtre Type porte exactement ce type
-// (un re-clic le retire).
-function typeSeul(types: string[], val: string): boolean {
-  return types.length === 1 && types[0] === val;
-}
-
 /** `base` restreint à la sélection de la barre (sélection vide = « Tous »). */
 function intersection(base: string[], selection: string[]): string[] {
   return selection.length > 0
@@ -220,11 +223,17 @@ export default function CollectesPage() {
   const params = useSearchParams();
   // Drill-down depuis les Top listes du Dashboard Client Admin (miroir exact) :
   // lieu / traiteur (OPÉRATIONNEL, décision Val R24c) + type + statut + période.
-  const drillLieu = params.get('lieu');
-  const drillTraiteur = params.get('traiteur');
-  // Drill-down depuis les cartes-actions du Dashboard Admin (Bloc 1) : chip
-  // prédéfini « Programmées » pré-sélectionné à l'arrivée (miroir exact du compteur).
-  const drillStatut = params.get('statut');
+  // Identifiants figés au montage : ils servent à reconnaître le drill-down
+  // dans les filtres (`drillActive` est DÉRIVÉ des valeurs de la barre, R-UI-4b
+  // D10 : pas d'état séparé) — `useSearchParams` peut être resynchronisé par
+  // Next après chaque écriture de l'URL par `useFiltresUrl`.
+  const [{ drillLieu, drillTraiteur, drillStatut }] = useState(() => ({
+    drillLieu: params.get('lieu'),
+    drillTraiteur: params.get('traiteur'),
+    // Drill-down depuis les cartes-actions du Dashboard Admin (Bloc 1) : chip
+    // prédéfini « Programmées » pré-sélectionné à l'arrivée (miroir exact du compteur).
+    drillStatut: params.get('statut'),
+  }));
   // Périmètre d'organisations propagé par le drill-down (miroir exact du chiffre
   // du dashboard, borné au même périmètre). Figé au montage (getAll = nouveau
   // tableau à chaque render → capté en state pour rester stable dans les deps).
@@ -254,9 +263,12 @@ export default function CollectesPage() {
       : CHIPS_HISTORIQUE.some((c) => c.key === f.chip)
         ? f.chip
         : '';
-  // Type / Traiteur / Lieu : choix multiple (décision Val 2026-09-30), vide =
+  // Type : UN seul contrôle (`ToggleTypeCollecte`, R-UI-4b D1) ; toute autre
+  // valeur d'URL (ancien CSV `type=a,b`, valeur inconnue) = « Toutes ».
+  const type: TypeCollecteFiltre =
+    f.type === 'zero_dechet' || f.type === 'anti_gaspi' ? f.type : 'tous';
+  // Traiteur / Lieu : choix multiple (décision Val 2026-09-30), vide =
   // « Tous ». Le drill-down (?type= / ?traiteur= / ?lieu=) pré-coche une valeur.
-  const types = f.type;
   const traiteurIds = f.traiteur;
   const lieuIds = f.lieu;
   const from = f.from;
@@ -282,7 +294,13 @@ export default function CollectesPage() {
       return readCollecteFiltreLabel('traiteur', drillTraiteur);
     return null;
   });
-  const [drillActive, setDrillActive] = useState(hasDrill);
+  // Chip « Filtre actif » : dérivé des filtres — visible tant que le lieu /
+  // traiteur du drill-down est encore sélectionné dans la barre (R-UI-4b, D10).
+  const drillActive = drillLieu
+    ? lieuIds.includes(drillLieu)
+    : drillTraiteur
+      ? traiteurIds.includes(drillTraiteur)
+      : false;
   const [traiteurs, setTraiteurs] = useState<{ id: string; label: string }[]>(
     [],
   );
@@ -355,7 +373,7 @@ export default function CollectesPage() {
 
   // URL de la liste (R-UI-4a : chargement, garde anti-réponse périmée et état
   // Error portés par `useListePaginee`). `null` = croisement vide (ex. pastille
-  // Anti-Gaspi + Type Zéro Déchet) : aucun appel, liste vide.
+  // Annulées + Statut Clôturée) : aucun appel, liste vide.
   const urlListe = useMemo(() => {
     const params = new URLSearchParams({ page: String(page) });
     const tri = sorting[0];
@@ -381,31 +399,20 @@ export default function CollectesPage() {
             : STATUTS_PROGRAMMEES.join(','),
         );
       }
-      if (types.length > 0) params.set('types', types.join(','));
     } else {
-      // Historique : preset terminaux ; les pastilles Annulées / Anti-Gaspi /
-      // Zéro Déchet se croisent avec Statut / Type de la barre.
+      // Historique : preset terminaux ; la pastille Annulées se croise avec le
+      // Statut de la barre.
       const statutsEff = intersection(
         quickFilter === 'annulee'
           ? ['annulee', 'rejetee_par_prestataire']
           : STATUTS_HISTORIQUE,
         statutsSel,
       );
-      const typePastille =
-        quickFilter === 'ag'
-          ? 'anti_gaspi'
-          : quickFilter === 'zd'
-            ? 'zero_dechet'
-            : null;
-      const typesEff = typePastille
-        ? intersection([typePastille], types)
-        : types;
-      if (statutsEff.length === 0 || (typePastille && typesEff.length === 0)) {
-        return null;
-      }
+      if (statutsEff.length === 0) return null;
       params.set('statuts', statutsEff.join(','));
-      if (typesEff.length > 0) params.set('types', typesEff.join(','));
     }
+    // Type (segmenté) : même paramètre CSV qu'avant, absent pour « Toutes ».
+    if (type !== 'tous') params.set('types', type);
 
     // « Traiteur » = traiteur OPÉRATIONNEL (décision Val R24c) → miroir exact du
     // Top 5 traiteurs des dashboards (agrégé par traiteur_operationnel).
@@ -425,7 +432,7 @@ export default function CollectesPage() {
     page,
     sorting,
     quickFilter,
-    types,
+    type,
     statutsSel,
     traiteurIds,
     lieuIds,
@@ -488,19 +495,20 @@ export default function CollectesPage() {
   }, [setCollecteParam, fetchCollectes, loadChipCounts]);
 
   const changeTab = (next: Tab) => {
-    set({ tab: next, chip: '', type: [], statut: [], tri: '', ordre: '' });
+    set({ tab: next, chip: '', type: 'tous', statut: [], tri: '', ordre: '' });
   };
 
   // Tuile « AG / ZD à dispatcher » : pose (ou retire) le chip « Non transmises »
-  // de son type. À l'activation, le filtre Type de la barre est effacé : le chip
-  // porte déjà son type, et un autre type coché viderait la liste alors que la
-  // tuile affiche N (décision Val 2026-10-01). Les autres filtres de la barre
-  // continuent de se cumuler.
+  // de son type. À l'activation, la tuile pilote le MÊME état `type` que le
+  // segmenté (R-UI-4b, D1 : pas un 4e contrôle) et le remet à « Toutes » : le
+  // chip porte déjà son type, et un autre type choisi viderait la liste alors
+  // que la tuile affiche N (décision Val 2026-10-01). Les autres filtres de la
+  // barre continuent de se cumuler.
   const basculerADispatcher = (
     chip: 'non_transmises_ag' | 'non_transmises_zd',
   ) => {
     const actif = quickFilter === chip;
-    set(actif ? { chip: '' } : { chip, type: [] });
+    set(actif ? { chip: '' } : { chip, type: 'tous' });
   };
 
   // Urgences (AG à attribuer < 48h) en tête de page (§06.09 §1) — uniquement
@@ -527,9 +535,9 @@ export default function CollectesPage() {
         : CHIPS_PROGRAMMEES
       : CHIPS_HISTORIQUE;
   // Efface le filtre de drill-down (lieu / traiteur venu du dashboard) → liste
-  // nue : filtres au défaut, périmètre d'organisations retiré de l'URL.
+  // nue : filtres au défaut (le chip « Filtre actif » s'éteint avec le lieu /
+  // traiteur), périmètre d'organisations retiré de l'URL.
   const clearDrill = () => {
-    setDrillActive(false);
     setPerimetreOrgIds([]);
     if (typeof window !== 'undefined') {
       const sp = new URLSearchParams(window.location.search);
@@ -577,68 +585,6 @@ export default function CollectesPage() {
           onClear={clearDrill}
         />
       )}
-
-      {/* Segment Programmées / Historique + filtre par type (AG / ZD) */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div
-          role="tablist"
-          aria-label="Vue collectes"
-          className="inline-flex rounded-savr-full border border-savr-neutral-200 bg-savr-white p-1 shadow-savr-sm"
-        >
-          {(
-            [
-              ['programmees', 'Programmées'],
-              ['historique', 'Historique'],
-            ] as [Tab, string][]
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => changeTab(key)}
-              className={`rounded-savr-full px-5 py-2 text-sm font-bold transition-colors duration-savr-fast ${
-                tab === key
-                  ? 'bg-savr-primary-700 text-savr-white'
-                  : 'text-savr-neutral-500 hover:text-savr-primary-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Filtre par type — s'applique à l'onglet actif (re-clic = tout type). */}
-        <div
-          role="group"
-          aria-label="Filtrer par type"
-          className="inline-flex rounded-savr-full border border-savr-neutral-200 bg-savr-white p-1 shadow-savr-sm"
-        >
-          {(
-            [
-              ['anti_gaspi', 'Anti-Gaspi', UtensilsCrossed],
-              ['zero_dechet', 'Zéro Déchet', Leaf],
-            ] as [string, string, LucideIcon][]
-          ).map(([val, label, Icone]) => {
-            const actif = typeSeul(types, val);
-            return (
-              <button
-                key={val}
-                type="button"
-                aria-pressed={actif}
-                onClick={() => set({ type: typeSeul(types, val) ? [] : [val] })}
-                className={`inline-flex items-center gap-1.5 rounded-savr-full px-4 py-2 text-sm font-bold transition-colors duration-savr-fast ${
-                  actif
-                    ? 'bg-savr-primary-700 text-savr-white'
-                    : 'text-savr-neutral-500 hover:text-savr-primary-700'
-                }`}
-              >
-                <Icone className="h-4 w-4" aria-hidden="true" />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* KPI de tête (Programmées uniquement) : 4 files d'action sur une ligne.
           Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01).
@@ -699,10 +645,31 @@ export default function CollectesPage() {
       />
 
       {/* Barre de filtres toujours visible — ni recherche libre ni repli
-          « Filtres avancés » (décision Val 2026-09-30, §06.06 §3 « Filtres »). */}
+          « Filtres avancés » (décision Val 2026-09-30, §06.06 §3 « Filtres »).
+          FilterBar complet (R-UI-4b, D5) : onglets Programmées / Historique
+          (Tabs, changer de vue) + segmenté de type (ToggleGroup, filtrer) en
+          en-tête, compteur en pied — seul emplacement du compteur. */}
       <FilterBar
         data-testid="collectes-filtres"
-        count={`${total} collecte${total > 1 ? 's' : ''}`}
+        tabs={
+          <Tabs value={tab} onValueChange={(v) => changeTab(v as Tab)}>
+            <TabsList aria-label="Vue collectes">
+              <TabsTrigger value="programmees">Programmées</TabsTrigger>
+              <TabsTrigger value="historique">Historique</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+        toggle={
+          <ToggleTypeCollecte
+            avecTous
+            value={type}
+            onChange={(t) => set({ type: t })}
+            data-testid="collectes-filtre-type"
+          />
+        }
+        count={`${total} collecte${total > 1 ? 's' : ''} correspond${
+          total > 1 ? 'ent' : ''
+        } à votre sélection`}
         actif={filtresActifs}
         // En drill-down, « Réinitialiser » retire aussi le chip et le périmètre
         // d'organisations (sinon le chip annoncerait un filtre qui ne s'applique plus).
@@ -716,16 +683,6 @@ export default function CollectesPage() {
           data-testid="collectes-filtre-periode"
           value={{ from, to }}
           onChange={(p) => set({ from: p.from, to: p.to })}
-        />
-        <FiltreCoches
-          label="Type"
-          testid="collectes-filtre-type"
-          options={[
-            { id: 'zero_dechet', nom: 'Zéro Déchet' },
-            { id: 'anti_gaspi', nom: 'Anti-Gaspi' },
-          ]}
-          selected={types}
-          onChange={(ids) => set({ type: ids })}
         />
         <FiltreCoches
           label="Traiteur"

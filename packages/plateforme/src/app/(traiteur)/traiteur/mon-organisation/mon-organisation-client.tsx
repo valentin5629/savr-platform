@@ -7,7 +7,7 @@ import {
   libelleVerificationSiret,
   variantVerificationSiret,
 } from '@/lib/libelles/organisation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +15,12 @@ import { Combobox } from '@/components/ui/combobox';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FormField } from '@/components/ui/form-field';
-import { BarreFiltres, FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import { FilterBar } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { liste, texte, useFiltresUrl } from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import type { Database } from '@savr/shared/src/database.types.js';
@@ -95,13 +99,6 @@ export function MonOrganisationClient({
 }) {
   const [tab, setTab] = useState<OrgTab>('infos');
 
-  const tabCls = (t: OrgTab) =>
-    `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-      tab === t
-        ? 'border-savr-primary-600 text-savr-primary-700'
-        : 'border-transparent text-savr-neutral-500 hover:text-savr-neutral-700'
-    }`;
-
   return (
     <div className="space-y-6">
       <Heading level={1} tone="primary">
@@ -115,34 +112,31 @@ export function MonOrganisationClient({
         </Text>
       )}
 
-      <div className="flex flex-wrap border-b border-savr-neutral-200">
-        <button className={tabCls('infos')} onClick={() => setTab('infos')}>
-          Informations légales
-        </button>
-        {/* Équipe : masquée au commercial (CDC §6 l.653) */}
-        {isManager && (
-          <button className={tabCls('equipe')} onClick={() => setTab('equipe')}>
-            Équipe
-          </button>
-        )}
-        <button
-          className={tabCls('facturation')}
-          onClick={() => setTab('facturation')}
-        >
-          Facturation
-        </button>
-        <button
-          className={tabCls('preferences')}
-          onClick={() => setTab('preferences')}
-        >
-          Préférences
-        </button>
-      </div>
+      {/* Onglets du DS (R-UI-4b, D4) : un seul contenu monté à la fois. */}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as OrgTab)}>
+        <TabsList className="w-full flex-wrap justify-start">
+          <TabsTrigger value="infos">Informations légales</TabsTrigger>
+          {/* Équipe : masquée au commercial (CDC §6 l.653) */}
+          {isManager && <TabsTrigger value="equipe">Équipe</TabsTrigger>}
+          <TabsTrigger value="facturation">Facturation</TabsTrigger>
+          <TabsTrigger value="preferences">Préférences</TabsTrigger>
+        </TabsList>
 
-      {tab === 'infos' && <InfosTab isManager={isManager} />}
-      {tab === 'equipe' && isManager && <EquipeTab userId={userId} />}
-      {tab === 'facturation' && <FacturationTab isManager={isManager} />}
-      {tab === 'preferences' && <PreferencesTab />}
+        <TabsContent value="infos">
+          <InfosTab isManager={isManager} />
+        </TabsContent>
+        {isManager && (
+          <TabsContent value="equipe">
+            <EquipeTab userId={userId} />
+          </TabsContent>
+        )}
+        <TabsContent value="facturation">
+          <FacturationTab isManager={isManager} />
+        </TabsContent>
+        <TabsContent value="preferences">
+          <PreferencesTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -966,34 +960,35 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
   },
 ];
 
-function FacturationTab({ isManager }: { isManager: boolean }) {
-  const [factures, setFactures] = useState<FactureRow[]>([]);
-  // Statut et Type à choix multiple, case « Tous » = sélection vide (décision
-  // Val 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous).
-  const [statuts, setStatuts] = useState<string[]>([]);
-  const [types, setTypes] = useState<string[]>([]);
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
+// Filtres §6 l.690 : statut, type, période (date d'émission). Statut et Type à
+// choix multiple, case « Tous » = sélection vide (décision Val 2026-09-30,
+// divergence M0.8_20260930_filtres-choix-multiple-tous). État dans l'URL
+// (R-UI-4b, D5/D6), mêmes clés que la route.
+const FILTRES_FACTURES = {
+  statuts: liste(),
+  types: liste(),
+  date_debut: texte(''),
+  date_fin: texte(''),
+};
 
-  useEffect(() => {
-    // Filtres §6 l.690 : statut, type, période (date d'émission). Une réponse
-    // arrivée après un changement de filtre (effet nettoyé) est ignorée.
-    let perime = false;
+function FacturationTab({ isManager }: { isManager: boolean }) {
+  const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES_FACTURES);
+  const url = useMemo(() => {
     const params = new URLSearchParams();
-    if (statuts.length > 0) params.set('statuts', statuts.join(','));
-    if (types.length > 0) params.set('types', types.join(','));
-    if (dateDebut) params.set('date_debut', dateDebut);
-    if (dateFin) params.set('date_fin', dateFin);
+    if (f.statuts.length > 0) params.set('statuts', f.statuts.join(','));
+    if (f.types.length > 0) params.set('types', f.types.join(','));
+    if (f.date_debut) params.set('date_debut', f.date_debut);
+    if (f.date_fin) params.set('date_fin', f.date_fin);
     const qs = params.toString();
-    fetch(`/api/v1/traiteur/factures${qs ? `?${qs}` : ''}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (!perime) setFactures((j.data ?? []) as FactureRow[]);
-      });
-    return () => {
-      perime = true;
-    };
-  }, [statuts, types, dateDebut, dateFin]);
+    return `/api/v1/traiteur/factures${qs ? `?${qs}` : ''}`;
+  }, [f]);
+  // Une réponse arrivée après un changement de filtre est ignorée par le hook.
+  const {
+    data: factures,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<FactureRow>(url);
 
   return (
     <div className="space-y-4">
@@ -1023,31 +1018,21 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
         </CardHeader>
         <CardContent>
           {/* Filtres §6 l.690 : statut, type, période — filtres en ligne
-              (décision Val 2026-09-30). */}
-          <BarreFiltres
+              (décision Val 2026-09-30) dans une FilterBar complète (R-UI-4b,
+              D5 : compteur + « Réinitialiser les filtres »). */}
+          <FilterBar
             className="mb-4"
             data-testid="factures-filtres"
-            resetTestId="factures-filtres-reset"
-            onReset={
-              statuts.length > 0 || types.length > 0 || dateDebut || dateFin
-                ? () => {
-                    setStatuts([]);
-                    setTypes([]);
-                    setDateDebut('');
-                    setDateFin('');
-                  }
-                : undefined
-            }
+            count={`${factures.length} facture${factures.length > 1 ? 's' : ''}`}
+            actif={actif}
+            onReset={reset}
           >
             {/* « Période » en premier (décision Val 2026-09-30). */}
             <DateRangePicker
               titre="Période"
               id="factures-periode"
-              value={{ from: dateDebut, to: dateFin }}
-              onChange={(p) => {
-                setDateDebut(p.from);
-                setDateFin(p.to);
-              }}
+              value={{ from: f.date_debut, to: f.date_fin }}
+              onChange={(p) => set({ date_debut: p.from, date_fin: p.to })}
             />
             {/* Valeurs = enums réels plateforme.facture_statut / facture_type
                 (brouillon exclu par la route ; « En retard » est un badge dérivé
@@ -1063,8 +1048,8 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
                   { id: 'annulee', nom: 'Annulée' },
                 ] satisfies { id: Enums['facture_statut']; nom: string }[]
               }
-              selected={statuts}
-              onChange={setStatuts}
+              selected={f.statuts}
+              onChange={(ids) => set({ statuts: ids })}
             />
             <FiltreCoches
               label="Type"
@@ -1077,14 +1062,17 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
                   { id: 'avoir', nom: 'Avoir' },
                 ] satisfies { id: Enums['facture_type']; nom: string }[]
               }
-              selected={types}
-              onChange={setTypes}
+              selected={f.types}
+              onChange={(ids) => set({ types: ids })}
             />
-          </BarreFiltres>
+          </FilterBar>
           <DataGrid
             columnsToggle={false}
             columns={COLONNES_FACTURES}
             data={factures}
+            loading={loading}
+            erreur={erreur}
+            onRecharger={recharger}
             getRowId={(f) => f.id}
             empty={<Text>Aucune facture.</Text>}
           />

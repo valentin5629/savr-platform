@@ -92,7 +92,7 @@ export function ContactCombobox({
                 (R-UI-4b, D7 : avant, <input> brut). */}
             <Input
               autoFocus
-              className="flex-1 rounded-none border-0 px-0"
+              className="flex-1 border-0 px-0"
               placeholder="Prénom, nom ou téléphone…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

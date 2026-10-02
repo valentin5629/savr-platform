@@ -14,6 +14,8 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
 
 type Mode = 'paliers' | 'fixe_variable';
 
@@ -187,20 +189,19 @@ export default function GrillesZdPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Table2 className="h-6 w-6 text-savr-neutral-600" />
-          <h1 className="text-2xl font-bold text-savr-neutral-900">
-            Paramètres — Grilles tarifaires ZD
-          </h1>
-        </div>
-        {canEdit && (
-          <Button onClick={openModal}>
-            <Plus className="h-4 w-4 mr-1" />
-            Créer une grille
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Paramètres — Grilles tarifaires ZD"
+        tone="neutral"
+        icon={<Table2 className="h-6 w-6 text-savr-neutral-600" />}
+        actions={
+          canEdit ? (
+            <Button onClick={openModal}>
+              <Plus className="h-4 w-4 mr-1" />
+              Créer une grille
+            </Button>
+          ) : undefined
+        }
+      />
 
       {!canEdit && <OpsReadOnlyBanner />}
 
@@ -279,9 +280,9 @@ export default function GrillesZdPage() {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-savr-neutral-700">
+              <Text as="span" variant="body" className="font-medium">
                 Paliers
-              </span>
+              </Text>
               <Button
                 type="button"
                 size="sm"

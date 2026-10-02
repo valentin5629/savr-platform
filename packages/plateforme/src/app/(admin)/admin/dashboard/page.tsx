@@ -12,11 +12,14 @@ import { Pagination } from '@/components/ui/pagination';
 import { RevenusHistogramme } from '@/components/dashboards/index.js';
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
-import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import { StatCard } from '@/components/ui/stat-card';
 import { ChartCard } from '@/components/dashboards/charts/cockpit/ChartCard';
 import { fmtInt } from '@/components/dashboards/charts/cockpit/fmt';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { OPS_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { fmtEuro } from '@/lib/format';
 
 interface KpiData {
   non_transmises_zd: number;
@@ -39,7 +42,7 @@ interface RevenusRow {
 }
 
 function euro(v: number): string {
-  return v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+  return fmtEuro(v);
 }
 
 // Badge d'état d'un KPI d'alerte : action requise si > 0, « À jour » sinon.
@@ -173,16 +176,16 @@ export default function DashboardAdminPage() {
     <div className="space-y-8">
       <div className="flex items-center gap-3">
         <LayoutDashboard className="h-6 w-6 text-savr-primary-700" />
-        <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-savr-neutral-900">
+        <Heading level={1} weight="extrabold" tight>
           Dashboard Admin
-        </h1>
+        </Heading>
       </div>
 
       {/* Bloc 1 — KPIs opérationnels (rangée cockpit R24) */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-savr-neutral-700">
+        <Heading level={2} tone="muted" className="mb-4">
           Suivi opérationnel
-        </h2>
+        </Heading>
         {loadingKpi ? (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
             {[...Array(5)].map((_, i) => (
@@ -194,7 +197,7 @@ export default function DashboardAdminPage() {
             {/* Chaque carte est un lien vers la liste Collectes filtrée sur le
                 MÊME prédicat que le compteur (miroir exact, §11 §1.1) — chip
                 partagé lib/collectes-chips. */}
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Non transmises ZD"
               value={fmtInt(kpi.non_transmises_zd)}
@@ -208,7 +211,7 @@ export default function DashboardAdminPage() {
                 'À traiter',
               )}
             />
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Non transmises AG"
               value={fmtInt(kpi.non_transmises_ag)}
@@ -222,7 +225,7 @@ export default function DashboardAdminPage() {
                 'À traiter',
               )}
             />
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Attente prestataire"
               value={fmtInt(kpi.attente_prestataire)}
@@ -232,7 +235,7 @@ export default function DashboardAdminPage() {
               }
               footer={badgeVeille(kpi.attente_prestataire, 'En cours')}
             />
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Dirty TMS"
               value={fmtInt(kpi.dirty_tms)}
@@ -242,7 +245,7 @@ export default function DashboardAdminPage() {
             />
             {/* Fusion ZD 48h + AG 48h (revue E2E Val 2026-07-15) : collectes ZD/AG
                 dans 48 h non validées par le prestataire (inclut les non transmises). */}
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Collecte <48h non validée"
               value={fmtInt(kpi.collectes_48h_non_validees)}
@@ -264,7 +267,9 @@ export default function DashboardAdminPage() {
 
       {/* Bloc 2 — Revenus (histogramme + tableau par organisation, filtre commun) */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-savr-neutral-700">Revenus</h2>
+        <Heading level={2} tone="muted">
+          Revenus
+        </Heading>
 
         {/* Filtre de période COMMUN — pilote le graphe ET le tableau (revue E2E Val
             2026-07-18). Un seul filtre « Période » en ligne (décision Val
@@ -300,11 +305,15 @@ export default function DashboardAdminPage() {
               l'histogramme (ChartCard) : les deux cartes et leurs titres partent
               de la même ligne (revue E2E Val 2026-09-28). */}
           <div>
-            <Card className="overflow-hidden rounded-savr-lg shadow-savr-sm">
+            <Card variant="elevated" className="overflow-hidden">
               {/* Titre du bloc tableau (revue E2E Val 2026-07-15). */}
-              <h3 className="px-6 pb-4 pt-6 text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+              <Heading
+                level={3}
+                weight="extrabold"
+                className="px-6 pb-4 pt-6 tracking-[-0.01em]"
+              >
                 Revenu par organisation
-              </h3>
+              </Heading>
               {loadingRevenus ? (
                 <div className="space-y-2 p-6">
                   {[...Array(5)].map((_, i) => (
@@ -312,9 +321,7 @@ export default function DashboardAdminPage() {
                   ))}
                 </div>
               ) : revenus.length === 0 ? (
-                <p className="p-6 text-sm text-savr-neutral-500">
-                  Aucune donnée sur la période.
-                </p>
+                <Text className="p-6">Aucune donnée sur la période.</Text>
               ) : (
                 <>
                   <DataTable

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface DocItem {
   type: 'rapport' | 'bordereau' | 'attestation';
@@ -105,9 +107,9 @@ export default function ClientOrganisateurDocumentsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
+      <Heading level={1} tone="primary">
         Mes documents
-      </h1>
+      </Heading>
 
       {/* Data Table commune. Tri côté navigateur : la route renvoie la liste
           complète des documents (aucune pagination ni `.limit()`). Ordre
@@ -117,11 +119,7 @@ export default function ClientOrganisateurDocumentsPage() {
         data={items}
         getRowId={cle}
         loading={loading}
-        empty={
-          <p className="text-sm text-savr-neutral-500">
-            Aucun document disponible pour le moment.
-          </p>
-        }
+        empty={<Text>Aucun document disponible pour le moment.</Text>}
       />
     </div>
   );

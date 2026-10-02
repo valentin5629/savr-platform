@@ -9,6 +9,7 @@ import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
 import type { CollecteType } from './CollecteTypeTabs.js';
 import type { DashboardFilters } from './DashboardFilterBar.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { Text } from '@/components/ui/text';
 
 /**
  * Bloc 8 — « Exporter une synthèse PDF » (§06.04 / §06.05 / §06.11 Bloc 8 ZD/AG).
@@ -242,9 +243,7 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
 
         {step === 0 && (
           <div className="space-y-3">
-            <p className="text-sm text-savr-neutral-600">
-              Choisissez la période du rapport.
-            </p>
+            <Text tone="soft">Choisissez la période du rapport.</Text>
             <div className="flex flex-wrap gap-2">
               {PRESET_LABELS.map((p) => (
                 <button
@@ -280,12 +279,12 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
         {step === 1 && (
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-medium text-savr-neutral-800">
+              <Text tone="strong" className="font-medium">
                 Type de collecte
-              </p>
-              <p className="text-sm text-savr-neutral-600">
+              </Text>
+              <Text tone="soft">
                 Figé sur <strong>{typeLabel}</strong> (onglet actif).
-              </p>
+              </Text>
               <label className="mt-1 flex items-center gap-2 text-sm text-savr-neutral-700">
                 <input
                   type="checkbox"
@@ -316,24 +315,24 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
               />
             )}
             <div>
-              <p className="text-sm font-medium text-savr-neutral-800">
+              <Text tone="strong" className="font-medium">
                 Filtres hérités du tableau de bord
-              </p>
-              <p className="text-sm text-savr-neutral-600">
+              </Text>
+              <Text tone="soft">
                 {inheritedFilters.length > 0
                   ? inheritedFilters.join(' · ')
                   : 'Aucun filtre — toutes les collectes du périmètre.'}
-              </p>
-              <p className="mt-1 text-xs text-savr-neutral-400">
+              </Text>
+              <Text variant="faint" className="mt-1">
                 Ajustez les lieux et types depuis les filtres du tableau de bord
                 avant de générer.
-              </p>
+              </Text>
             </div>
           </div>
         )}
 
         {step === 2 && (
-          <div className="space-y-2 text-sm text-savr-neutral-700">
+          <Text as="div" variant="body" className="space-y-2">
             <p>Le rapport sera généré puis téléchargé automatiquement.</p>
             <ul className="list-disc space-y-1 pl-5 text-savr-neutral-600">
               <li>
@@ -353,17 +352,17 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
                 <li>Commerciaux : {commercialIds.length} sélectionné(s)</li>
               )}
             </ul>
-            <p className="text-xs text-savr-neutral-400">
+            <Text variant="faint">
               Seules les collectes clôturées depuis plus de 24 h sont incluses.
               Le rapport n'est pas archivé.
-            </p>
+            </Text>
             {generating && (
               <p className="text-sm text-savr-primary-700">
                 Génération en cours… (jusqu'à 2 min)
               </p>
             )}
             {error && <p className="text-sm text-savr-error">{error}</p>}
-          </div>
+          </Text>
         )}
       </Modal>
     </div>

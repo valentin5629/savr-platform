@@ -10,6 +10,8 @@ import {
   type ColumnDef,
 } from '@/components/ui/data-grid';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface PackActif {
   id: string;
@@ -137,8 +139,7 @@ export default function MonPackAgPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading)
-    return <p className="text-sm text-savr-neutral-500">Chargement…</p>;
+  if (loading) return <Text>Chargement…</Text>;
 
   const pack = data?.pack_actif;
   const packEpuise = pack && pack.nb_collectes_restantes === 0;
@@ -149,7 +150,9 @@ export default function MonPackAgPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">Mon pack AG</h1>
+      <Heading level={1} tone="primary">
+        Mon pack AG
+      </Heading>
 
       {!pack ? (
         <Card>
@@ -176,9 +179,9 @@ export default function MonPackAgPage() {
                 <div className="text-savr-neutral-500">Crédits restants</div>
                 <div className="text-xl font-bold">
                   {pack.nb_collectes_restantes}{' '}
-                  <span className="text-sm font-normal text-savr-neutral-400">
+                  <Text as="span" tone="faint" className="font-normal">
                     / {pack.nb_collectes_total}
-                  </span>
+                  </Text>
                 </div>
               </div>
               <div>

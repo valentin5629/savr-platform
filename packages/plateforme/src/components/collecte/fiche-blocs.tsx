@@ -1,6 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import { TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 // Briques de mise en page des fiches en pop-up : en-tête de bloc et champs
 // label/valeur, grand en-tête (fiches collecte Admin et client, fiches Admin
@@ -25,9 +27,14 @@ export function BlocHeader({
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
           <Icon className="h-[18px] w-[18px]" />
         </span>
-        <h2 className="truncate text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+        <Heading
+          level={2}
+          size="base"
+          weight="extrabold"
+          className="truncate tracking-[-0.01em]"
+        >
           {title}
-        </h2>
+        </Heading>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -235,7 +242,11 @@ export function BadgeTypeCollecte({ type }: { type: string }) {
 
 // Mention discrète du sur-titre (SIREN, gestionnaire…).
 export function EnTeteMention({ children }: { children: React.ReactNode }) {
-  return <span className="text-[13px] text-savr-neutral-500">{children}</span>;
+  return (
+    <Text as="span" size="xs-plus">
+      {children}
+    </Text>
+  );
 }
 
 // Onglet horizontal des fiches Admin (transporteur, lieu, association) portant le nombre de

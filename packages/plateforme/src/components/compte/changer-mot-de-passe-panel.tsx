@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
 
 // Panneau « Changer mon mot de passe » (transverse, tous rôles) — CDC §06.04 §7.
 // Câble le changement de mot de passe IN-APP pour l'utilisateur connecté :
@@ -76,10 +77,10 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
               />
             </FormField>
           </div>
-          <p className="text-xs text-savr-neutral-500">
+          <Text variant="hint">
             Au moins 10 caractères, dont une majuscule, un chiffre et un
             caractère spécial.
-          </p>
+          </Text>
           <div className="flex items-center gap-3">
             <Button
               type="submit"

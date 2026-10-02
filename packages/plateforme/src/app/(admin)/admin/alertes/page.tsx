@@ -12,6 +12,8 @@ import {
   severiteParCode,
   entiteHref,
 } from '@/lib/alertes-admin.js';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface Alerte {
   id: string;
@@ -102,13 +104,18 @@ export default function AlertesPage() {
         <div className="max-w-xl">
           <p className="font-medium text-savr-neutral-900">{row.titre}</p>
           {row.message && (
-            <p className="mt-0.5 text-xs text-savr-neutral-500">
+            <Text variant="hint" className="mt-0.5">
               {row.message}
-            </p>
+            </Text>
           )}
-          <p className="mt-0.5 font-mono text-[11px] text-savr-neutral-400">
+          <Text
+            variant="hint"
+            size="2xs"
+            tone="faint"
+            className="mt-0.5 font-mono"
+          >
             {row.code}
-          </p>
+          </Text>
         </div>
       ),
     },
@@ -129,11 +136,7 @@ export default function AlertesPage() {
             </Link>
           );
         }
-        return (
-          <span className="text-sm text-savr-neutral-500">
-            {row.entity_type}
-          </span>
-        );
+        return <Text as="span">{row.entity_type}</Text>;
       },
     },
     {
@@ -159,10 +162,14 @@ export default function AlertesPage() {
             {resolvingId === row.id ? 'Résolution…' : 'Résoudre'}
           </Button>
         ) : (
-          <span className="inline-flex items-center gap-1 text-xs text-savr-neutral-500">
+          <Text
+            as="span"
+            variant="hint"
+            className="inline-flex items-center gap-1"
+          >
             <CheckCircle2 className="h-3.5 w-3.5 text-savr-success" />
             Résolue
-          </span>
+          </Text>
         ),
     },
   ];
@@ -172,12 +179,14 @@ export default function AlertesPage() {
       <div className="flex items-center gap-3">
         <Bell className="h-6 w-6 text-savr-primary-600" />
         <div>
-          <h1 className="text-2xl font-semibold">Alertes</h1>
-          <p className="text-sm text-savr-neutral-500">
+          <Heading level={1} weight="semibold" tone="inherit">
+            Alertes
+          </Heading>
+          <Text>
             Alertes Admin in-app à traiter (packs, pesées, PDF, facturation,
             dispatch…). Le canal d&apos;action des alertes fonctionnelles est
             cet écran, pas Slack.
-          </p>
+          </Text>
         </div>
       </div>
 

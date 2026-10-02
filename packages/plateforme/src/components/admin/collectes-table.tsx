@@ -29,6 +29,8 @@ import { cn } from '@/lib/utils';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { formatDateHeure, heureOuMinuit } from '@/lib/format-date-collecte';
 import { CelluleVide } from '@/components/ui/data-grid';
+import { Text } from '@/components/ui/text';
+import { fmtEuro, fmtKgAuto, fmtPct } from '@/lib/format';
 
 // ── Type de ligne collecte de la liste Admin (§06.06 §3) ──────────────────────
 // Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
@@ -163,8 +165,8 @@ function attributionBadge(row: CollecteRow): {
 }
 
 function formatEuro(n: number, type: CollecteRow['type']): string {
-  const v = n.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
-  return type === 'zero_dechet' ? `${v} € HT` : `${v} €`;
+  const v = fmtEuro(n, 0);
+  return type === 'zero_dechet' ? `${v} HT` : v;
 }
 
 // ── Indicateurs de résultat (vue Historique) — repas AG / kg + taux ZD / rapport.
@@ -174,7 +176,12 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
   const repas = row.attributions_antgaspi?.volume_repas_realise;
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs font-bold text-savr-neutral-600 sm:justify-start">
+    <Text
+      as="div"
+      variant="hint"
+      tone="soft"
+      className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
+    >
       {row.type === 'anti_gaspi' && repas != null && (
         <span className="inline-flex items-center gap-1.5">
           <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
@@ -184,16 +191,13 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
       {row.type === 'zero_dechet' && poids > 0 && (
         <span className="inline-flex items-center gap-1.5">
           <Scale className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {poids.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} kg
+          {fmtKgAuto(poids)}
         </span>
       )}
       {row.type === 'zero_dechet' && row.taux_recyclage != null && (
         <span className="inline-flex items-center gap-1.5">
           <Recycle className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {row.taux_recyclage.toLocaleString('fr-FR', {
-            maximumFractionDigits: 0,
-          })}{' '}
-          %
+          {fmtPct(row.taux_recyclage, 0)}
         </span>
       )}
       {rapport &&
@@ -208,7 +212,7 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
             Rapport non consulté
           </span>
         ))}
-    </div>
+    </Text>
   );
 }
 

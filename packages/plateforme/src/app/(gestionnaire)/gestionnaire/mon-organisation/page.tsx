@@ -8,11 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
-import { FormError } from '@/components/ui/form-error';
+import { LogoCard } from '@/components/organisation/logo-card';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
-import { Upload } from 'lucide-react';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 type OrgTab = 'profil' | 'membres' | 'factures';
 
@@ -73,102 +74,6 @@ async function patchProfil(
   };
   if (!res.ok || !j.data) throw new Error(j.error ?? ERREUR_ENREGISTREMENT);
   return j.data;
-}
-
-// §06.05 §6 Bloc Organisation : logo (upload / remplacement). Upload R2 puis
-// écriture de la clé dans organisations.logo_url (même flux que le traiteur).
-function LogoCard({
-  profil,
-  onSaved,
-}: {
-  profil: OrgProfil;
-  onSaved: (p: OrgProfil) => void;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const [erreur, setErreur] = useState('');
-  const [succes, setSucces] = useState('');
-  // Clé dont l'aperçu n'a pas pu être chargé (fichier absent côté R2).
-  const [apercuKo, setApercuKo] = useState<string | null>(null);
-
-  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
-    const input = e.target;
-    const file = input.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setErreur('');
-    setSucces('');
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const up = await fetch(LOGO_URL, { method: 'POST', body: form });
-      const j = (await up.json().catch(() => ({}))) as {
-        logo_url?: string;
-        error?: string;
-      };
-      if (!up.ok || !j.logo_url)
-        throw new Error(j.error ?? 'Échec de l’envoi du logo.');
-      const p = await patchProfil({ logo_url: j.logo_url }).catch(() => {
-        throw new Error('Logo envoyé mais non enregistré. Veuillez réessayer.');
-      });
-      setSucces('Logo mis à jour.');
-      onSaved(p);
-    } catch (err) {
-      setErreur((err as Error).message);
-    } finally {
-      setUploading(false);
-      // Permet de re-sélectionner le même fichier après un échec.
-      input.value = '';
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Logo</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {profil.logo_url && apercuKo !== profil.logo_url ? (
-          <img
-            // La clé change à chaque upload : force le rechargement du proxy.
-            src={`${LOGO_URL}?v=${encodeURIComponent(profil.logo_url)}`}
-            alt="Logo de l'organisation"
-            onError={() => setApercuKo(profil.logo_url)}
-            className="h-16 w-auto rounded-savr-md border border-savr-neutral-200 object-contain"
-          />
-        ) : (
-          <p className="text-sm text-savr-neutral-500">Aucun logo.</p>
-        )}
-        <div className="space-y-1">
-          <input
-            id="org-logo"
-            type="file"
-            accept="image/png,image/jpeg"
-            className="peer sr-only"
-            onChange={(e) => void upload(e)}
-            disabled={uploading}
-          />
-          <label
-            htmlFor="org-logo"
-            className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-4 text-sm font-medium text-savr-neutral-900 hover:bg-savr-neutral-100 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-savr-primary-500 sm:h-10"
-          >
-            <Upload className="h-4 w-4" aria-hidden="true" />
-            {uploading
-              ? 'Envoi…'
-              : profil.logo_url
-                ? 'Remplacer le logo'
-                : 'Ajouter un logo'}
-          </label>
-          <p className="text-xs text-savr-neutral-500">JPG ou PNG, 2 Mo max.</p>
-          <FormError>{erreur}</FormError>
-          {succes && (
-            <p role="status" className="text-sm text-savr-success-strong">
-              {succes}
-            </p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
 
 // Factures — Data Table commune, tri côté navigateur : la route /factures
@@ -374,9 +279,9 @@ export default function MonOrganisationPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
+      <Heading level={1} tone="primary">
         Mon organisation
-      </h1>
+      </Heading>
 
       <div className="flex border-b border-savr-neutral-200">
         <button className={tabCls('profil')} onClick={() => setTab('profil')}>
@@ -393,7 +298,7 @@ export default function MonOrganisationPage() {
         </button>
       </div>
 
-      {loading && <p className="text-sm text-savr-neutral-500">Chargement…</p>}
+      {loading && <Text>Chargement…</Text>}
 
       {!loading && erreur && (
         <p role="alert" className="text-sm text-savr-error">
@@ -409,7 +314,21 @@ export default function MonOrganisationPage() {
             urlProfil={PROFIL_URL}
             onSaved={setProfil}
           />
-          <LogoCard profil={profil} onSaved={setProfil} />
+          <LogoCard
+            logoKey={profil.logo_url}
+            uploadUrl={LOGO_URL}
+            previewSrc={(k) => `${LOGO_URL}?v=${encodeURIComponent(k)}`}
+            onUploaded={async (k) => {
+              // Le logo est déjà sur R2 : un échec du PATCH ne doit pas être
+              // confondu avec un échec d'envoi (message dédié, §06.05).
+              const p = await patchProfil({ logo_url: k }).catch(() => {
+                throw new Error(
+                  'Logo envoyé mais non enregistré. Veuillez réessayer.',
+                );
+              });
+              setProfil(p);
+            }}
+          />
         </div>
       )}
 
@@ -425,9 +344,7 @@ export default function MonOrganisationPage() {
                 columns={colonnesMembres}
                 data={users}
                 getRowId={(u) => u.id}
-                empty={
-                  <p className="text-sm text-savr-neutral-500">Aucun membre.</p>
-                }
+                empty={<Text>Aucun membre.</Text>}
               />
             </CardContent>
           </Card>
@@ -496,9 +413,7 @@ export default function MonOrganisationPage() {
               columns={COLONNES_FACTURES}
               data={factures}
               getRowId={(f) => f.id}
-              empty={
-                <p className="text-sm text-savr-neutral-500">Aucune facture.</p>
-              }
+              empty={<Text>Aucune facture.</Text>}
             />
           </CardContent>
         </Card>

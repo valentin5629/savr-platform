@@ -9,6 +9,8 @@ import {
   type OpsBatch,
   type OpsIntegration,
 } from './tableaux-sante';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 const ALLOWED_ROLES = ['admin_savr', 'ops_savr'];
 
@@ -114,16 +116,16 @@ export default async function SanteSystemePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
+      <Heading level={1} tone="primary">
         Santé système
-      </h1>
+      </Heading>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {/* Outbox */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Outbox events</CardTitle>
+              <CardTitle size="base">Outbox events</CardTitle>
               <StatusBadge ok={outboxOk} />
             </div>
           </CardHeader>
@@ -168,7 +170,7 @@ export default async function SanteSystemePage() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Jobs PDF</CardTitle>
+              <CardTitle size="base">Jobs PDF</CardTitle>
               <StatusBadge ok={jobsPdfOk} />
             </div>
           </CardHeader>
@@ -202,9 +204,7 @@ export default async function SanteSystemePage() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                Factures bloquées Pennylane
-              </CardTitle>
+              <CardTitle size="base">Factures bloquées Pennylane</CardTitle>
               <StatusBadge
                 ok={facturesOk}
                 label={facturesOk ? 'OK' : `${data.facturesBloquees.length}`}
@@ -229,9 +229,9 @@ export default async function SanteSystemePage() {
                   </li>
                 ))}
                 {data.facturesBloquees.length > 5 && (
-                  <li className="text-savr-neutral-400 text-xs">
+                  <Text as="li" variant="faint">
                     +{data.facturesBloquees.length - 5} autres
-                  </li>
+                  </Text>
                 )}
               </ul>
             )}
@@ -242,7 +242,7 @@ export default async function SanteSystemePage() {
       {/* Intégrations */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Intégrations externes</CardTitle>
+          <CardTitle size="base">Intégrations externes</CardTitle>
         </CardHeader>
         <CardContent>
           <TableauIntegrations integrations={data.integrations} />
@@ -252,7 +252,7 @@ export default async function SanteSystemePage() {
       {/* Batchs cron */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Batchs cron</CardTitle>
+          <CardTitle size="base">Batchs cron</CardTitle>
         </CardHeader>
         <CardContent>
           <TableauBatchs batchs={data.batchs} />

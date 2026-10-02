@@ -17,6 +17,8 @@ import {
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
 import type { Database } from '@savr/shared/src/database.types.js';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
 
 // Ligne = enregistrement complet (l'API liste renvoie select('*')) → sert
 // directement à préremplir la modale d'édition, sans re-fetch.
@@ -132,10 +134,10 @@ export default function TransporteursPage() {
       render: (row) => (
         <div>
           <div className="font-medium text-savr-neutral-900">{row.nom}</div>
-          <div className="text-xs text-savr-neutral-500">
+          <Text as="div" variant="hint">
             {row.contact_nom}
             {row.contact_telephone ? ` · ${row.contact_telephone}` : ''}
-          </div>
+          </Text>
         </div>
       ),
     },
@@ -222,18 +224,17 @@ export default function TransporteursPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Truck className="h-6 w-6 text-savr-neutral-600" />
-          <h1 className="text-2xl font-bold text-savr-neutral-900">
-            Transporteurs
-          </h1>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouveau transporteur
-        </Button>
-      </div>
+      <PageHeader
+        title="Transporteurs"
+        tone="neutral"
+        icon={<Truck className="h-6 w-6 text-savr-neutral-600" />}
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouveau transporteur
+          </Button>
+        }
+      />
 
       <FilterBar data-testid="transporteurs-filtres">
         <FiltreRecherche

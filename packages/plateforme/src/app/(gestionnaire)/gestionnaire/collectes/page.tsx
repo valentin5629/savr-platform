@@ -29,6 +29,7 @@ import {
   readCollecteFiltreLabel,
   periodeCourte,
 } from '@/lib/dashboards/collecte-filtre-label';
+import { fmtPax } from '@/lib/format';
 
 interface CollecteRow {
   id: string;
@@ -356,7 +357,7 @@ function GestionnaireCollectesContent() {
       header: 'Pax',
       meta: { className: 'text-right tabular-nums' },
       cell: ({ row: { original: c } }) =>
-        c.pax != null ? `${c.pax} pax` : <CelluleVide />,
+        c.pax != null ? fmtPax(c.pax) : <CelluleVide />,
     },
     {
       id: 'resultats',

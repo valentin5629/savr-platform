@@ -4,6 +4,7 @@ import * as React from 'react';
 import { ChartCard } from './ChartCard';
 import { initiales } from './fmt';
 import { RANK, TINT, TRACK } from './palette';
+import { Text } from '@/components/ui/text';
 
 // TopRankList — liste-classement Cockpit (R24) : rang coloré (dégradé navy par
 // position), avatar initiales, nom, mini-barre optionnelle et valeur déjà
@@ -63,9 +64,7 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
       <ChartCard title={title} subtitle={subtitle}>
         <div ref={ref}>
           {items.length === 0 ? (
-            <p className="text-sm text-savr-neutral-500">
-              Aucune donnée sur la période.
-            </p>
+            <Text>Aucune donnée sur la période.</Text>
           ) : (
             <div className="flex flex-col gap-3.5">
               {items.map((item, i) => {
@@ -91,17 +90,27 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex justify-between gap-2">
-                        <span className="truncate text-[13px] font-bold text-savr-neutral-800">
+                        <Text
+                          as="span"
+                          size="xs-plus"
+                          tone="strong"
+                          className="truncate font-bold"
+                        >
                           {item.label}
-                        </span>
+                        </Text>
                         <span className="text-[13px] font-extrabold tabular-nums">
                           {item.value}
                         </span>
                       </div>
                       {item.secondary && (
-                        <div className="mb-1 truncate text-[11px] tabular-nums text-savr-neutral-500">
+                        <Text
+                          as="div"
+                          variant="hint"
+                          size="2xs"
+                          className="mb-1 truncate tabular-nums"
+                        >
                           {item.secondary}
-                        </div>
+                        </Text>
                       )}
                       {hasBar && (
                         <div

@@ -35,6 +35,7 @@ import {
   horairesParDefaut,
   type JourHoraire,
 } from '@/components/admin/horaires-ouverture-editor';
+import { Heading } from '@/components/ui/heading';
 
 // Enregistrement association complet, aligné sur le select('*') de l'API liste —
 // sert à préremplir la modale d'édition sans re-fetch (toutes les colonnes sont
@@ -171,9 +172,9 @@ function Bloc({
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
           <Icon className="h-[18px] w-[18px]" />
         </span>
-        <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+        <Heading level={3} weight="extrabold" className="tracking-[-0.01em]">
           {title}
-        </h3>
+        </Heading>
       </div>
       <div className="space-y-4">{children}</div>
     </section>

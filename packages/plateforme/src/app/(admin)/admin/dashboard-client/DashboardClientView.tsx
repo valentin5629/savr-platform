@@ -17,14 +17,13 @@ import type {
   RepasSeriePoint,
 } from '@/components/dashboards/useEvolutionBlocs.js';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
-import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import { StatCard } from '@/components/ui/stat-card';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
 import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
 import { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
 import { Co2HeroCard } from '@/components/dashboards/charts/cockpit/Co2HeroCard';
-import { Co2HeroCardAg } from '@/components/dashboards/charts/cockpit/Co2HeroCardAg';
 import {
   Co2MethodePanel,
   type Co2FluxFactor,
@@ -55,6 +54,9 @@ import {
   type OrganisationOption,
 } from './OrganisationSelector.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
+import { fmtPct } from '@/lib/format';
 
 // Variables de la modale « méthode CO₂ » renvoyées par l'endpoint admin.
 interface Co2Methode {
@@ -137,7 +139,7 @@ const BENCHMARK_ENDPOINT = '/api/v1/admin/dashboard-client/benchmark';
  * La sélection est persistée/restaurée via localStorage. Aucune écriture.
  *
  * R24c — Déclinaison Cockpit COMPLÈTE (retour Val « je ne vois pas les graphs ») :
- * KPIs KpiCockpitCard (dont CO₂ évité → modale) + évolution EvolutionZd/AgChart +
+ * KPIs StatCard (dont CO₂ évité → modale) + évolution EvolutionZd/AgChart +
  * donut TonnagesDonut + radar Cockpit BenchmarkRadar + Top listes
  * TopRankList (lieux / traiteurs / associations). LECTURE
  * SEULE au sens DONNÉES (aucune écriture, aucune action métier) ; les Top lieux /
@@ -297,7 +299,7 @@ export function DashboardClientView() {
   // ── Top listes (Cockpit) — colonnes §06.05 préservées via `secondary`. ──
   const nbColl = (n: number) => `${fmtInt(n)} collecte${n > 1 ? 's' : ''}`;
   const tauxStr = (t: number | null) =>
-    t != null ? `${fmtDec(t, 1)} % recyclage` : 'taux n/d';
+    t != null ? `${fmtPct(t, 1)} recyclage` : 'taux n/d';
   const repasPaxStr = (r: number | null) =>
     r != null ? `${fmtDec(r, 2)} repas/pax` : 'repas/pax n/d';
   const topLieuxItems = (blocs?.topLieux ?? []).map((l) =>
@@ -321,7 +323,7 @@ export function DashboardClientView() {
     value: nbColl(a.nb_collectes),
     secondary:
       tab === 'zero_dechet'
-        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? `${fmtDec(a.taux_recyclage, 1)} %` : '—'}`
+        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? fmtPct(a.taux_recyclage, 1) : '—'}`
         : `${fmtInt(a.repas_donnes ?? 0)} repas · ${repasPaxStr(a.repas_par_pax)}`,
   }));
   const topAssociationsItems = (blocs?.topAssociations ?? []).map((a) => ({
@@ -383,17 +385,16 @@ export function DashboardClientView() {
 
   return (
     <div className="space-y-6" data-testid="dashboard-client">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Eye className="h-6 w-6 text-savr-neutral-600" />
-          <h1 className="text-2xl font-bold text-savr-neutral-900">
-            Dashboard Client
-          </h1>
-        </div>
-        <Badge variant="info" data-testid="lecture-seule-badge">
-          Lecture seule
-        </Badge>
-      </div>
+      <PageHeader
+        title="Dashboard Client"
+        tone="neutral"
+        icon={<Eye className="h-6 w-6 text-savr-neutral-600" />}
+        actions={
+          <Badge variant="info" data-testid="lecture-seule-badge">
+            Lecture seule
+          </Badge>
+        }
+      />
 
       {/* Même barre que la liste Collectes (décision Val 2026-09-30) :
           Période puis organisations par type ; « Réinitialiser » rétablit
@@ -416,7 +417,7 @@ export function DashboardClientView() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
+        <Text>Chargement…</Text>
       ) : isEmpty ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' && zdKpi ? (
@@ -424,7 +425,7 @@ export function DashboardClientView() {
           {/* Bloc 1 — KPIs Cockpit (5 cartes ZD, lecture seule ; seule la carte
               CO₂ ouvre une modale d'info — pas une navigation). */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(zdKpi.nb_collectes)}
               dotColor={KPI_DOT.navy}
@@ -434,7 +435,7 @@ export function DashboardClientView() {
               )}
               sparkPoints={sparkFromSeries(zdSeries, (p) => p.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Tonnage collecté"
               value={fmtMasse(zdKpi.tonnage_kg ?? 0).value}
               unit={fmtMasse(zdKpi.tonnage_kg ?? 0).unit}
@@ -445,7 +446,7 @@ export function DashboardClientView() {
               )}
               sparkPoints={sparkFromSeries(zdSeries, (p) => p.tonnage_total)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Taux de recyclage"
               value={
                 zdKpi.taux_recyclage_pondere != null
@@ -463,7 +464,7 @@ export function DashboardClientView() {
             />
             {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
                 mieux », §06.05 l.136). */}
-            <KpiCockpitCard
+            <StatCard
               label="kg/pax moyen"
               value={
                 zdKpi.kg_par_pax != null ? fmtDec(zdKpi.kg_par_pax, 2) : '—'
@@ -474,7 +475,7 @@ export function DashboardClientView() {
                 p.pax ? p.tonnage_total / p.pax : 0,
               )}
             />
-            <KpiCockpitCard
+            <StatCard
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
@@ -501,14 +502,14 @@ export function DashboardClientView() {
             wide
           >
             <div className="space-y-5">
-              <p className="text-[13px] text-savr-neutral-500">
+              <Text size="xs-plus">
                 Période analysée :{' '}
                 <span className="font-semibold text-savr-neutral-700">
                   du {frDate(periodeFrom)} au {frDate(periodeTo)}
                 </span>{' '}
                 · {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} clôturée
                 {nbCollectes > 1 ? 's' : ''} Zéro Déchet
-              </p>
+              </Text>
               <Co2HeroCard
                 eviteKg={co2.eviteKg}
                 induitKg={co2.induitKg}
@@ -561,7 +562,7 @@ export function DashboardClientView() {
         <>
           {/* Bloc 1 — KPIs Cockpit AG (5 cartes, lecture seule ; CO₂ → modale) */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(agKpi.nb_collectes)}
               dotColor={KPI_DOT.navy}
@@ -571,7 +572,7 @@ export function DashboardClientView() {
               )}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas donnés"
               value={fmtInt(agKpi.nb_repas_donnes ?? 0)}
               dotColor={KPI_DOT.accent}
@@ -582,7 +583,7 @@ export function DashboardClientView() {
               sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
               sparkColor={KPI_DOT.accent}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Pax cumulés"
               value={fmtInt(agKpi.pax_total ?? 0)}
               dotColor={KPI_DOT.navy2}
@@ -592,7 +593,7 @@ export function DashboardClientView() {
               )}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.pax)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas/pax moyen"
               value={
                 agKpi.repas_par_pax != null
@@ -602,7 +603,7 @@ export function DashboardClientView() {
               dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
@@ -630,15 +631,16 @@ export function DashboardClientView() {
             wide
           >
             <div className="space-y-5">
-              <p className="text-[13px] text-savr-neutral-500">
+              <Text size="xs-plus">
                 Période analysée :{' '}
                 <span className="font-semibold text-savr-neutral-700">
                   du {frDate(periodeFrom)} au {frDate(periodeTo)}
                 </span>{' '}
                 · {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} clôturée
                 {nbCollectes > 1 ? 's' : ''} Anti-Gaspi
-              </p>
-              <Co2HeroCardAg
+              </Text>
+              <Co2HeroCard
+                variant="ag"
                 eviteKg={co2.eviteKg}
                 equivalences={{
                   kmVoiture: equivalences.kmVoiture,

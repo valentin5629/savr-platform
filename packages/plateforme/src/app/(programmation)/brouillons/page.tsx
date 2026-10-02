@@ -7,6 +7,8 @@ import { PlusCircle, FileEdit, CalendarDays, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
 
 interface BrouillonRow {
   id: string;
@@ -42,17 +44,19 @@ export default function BrouillonsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-savr-neutral-900">
-          Mes brouillons
-        </h1>
-        <Button asChild>
-          <Link href="/programmer/nouveau">
-            <PlusCircle className="h-4 w-4" />
-            Nouvelle programmation
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Mes brouillons"
+        tone="neutral"
+        size="xl"
+        actions={
+          <Button asChild>
+            <Link href="/programmer/nouveau">
+              <PlusCircle className="h-4 w-4" />
+              Nouvelle programmation
+            </Link>
+          </Button>
+        }
+      />
 
       {loading && (
         <div className="space-y-3">
@@ -87,7 +91,11 @@ export default function BrouillonsPage() {
                     row.nom_evenement ??
                     'Sans nom'}
                 </p>
-                <div className="flex items-center gap-3 text-xs text-savr-neutral-500">
+                <Text
+                  as="div"
+                  variant="hint"
+                  className="flex items-center gap-3"
+                >
                   <span className="flex items-center gap-1">
                     <CalendarDays className="h-3.5 w-3.5" />
                     {row.collectes[0]?.date_collecte ?? 'Date à définir'}
@@ -95,7 +103,7 @@ export default function BrouillonsPage() {
                   <span>
                     {row.collectes.map((c) => c.type.toUpperCase()).join(' + ')}
                   </span>
-                </div>
+                </Text>
               </div>
               <div className="flex gap-2 shrink-0">
                 <Button variant="secondary" size="sm" asChild>

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { fmtDec, fmtInt, fmtMasse } from './fmt';
+import { Text } from '@/components/ui/text';
 
 // Co2MethodePanelAg — variante ANTI-GASPI (allégée) de la méthode de calcul CO₂.
 // Le CO₂ AG est « évité seul en V1 » (§05 R_co2_ag, §11 l.163) : une formule
@@ -31,10 +32,17 @@ function Formule({
 }): React.ReactElement {
   return (
     <div className="border-l-2 border-savr-neutral-200 pl-3">
-      <div className="text-[13px] font-bold text-savr-neutral-900">{titre}</div>
-      <div className="mt-0.5 text-[13px] leading-relaxed text-savr-neutral-600">
+      <Text as="div" size="xs-plus" tone="ink" className="font-bold">
+        {titre}
+      </Text>
+      <Text
+        as="div"
+        size="xs-plus"
+        tone="soft"
+        className="mt-0.5 leading-relaxed"
+      >
         {children}
-      </div>
+      </Text>
     </div>
   );
 }
@@ -52,11 +60,11 @@ export function Co2MethodePanelAg({
       <h4 className="text-[15px] font-extrabold text-savr-neutral-900">
         Comment ce chiffre est-il calculé ?
       </h4>
-      <p className="mt-0.5 text-[13px] text-savr-neutral-500">
+      <Text size="xs-plus" className="mt-0.5">
         Méthode FAO. Chaque repas sauvé du gaspillage évite une empreinte
         carbone moyenne, figée à la clôture de chaque collecte, puis additionnée
         sur la période filtrée.
-      </p>
+      </Text>
 
       <div className="mt-4 flex flex-col gap-3">
         <Formule titre="CO₂e évité">
@@ -81,10 +89,10 @@ export function Co2MethodePanelAg({
         </Formule>
       </div>
 
-      <p className="mt-4 text-[11px] text-savr-neutral-400">
+      <Text variant="hint" size="2xs" tone="faint" className="mt-4">
         Facteur d'émission : {fmtDec(facteurParRepas, 2)} kgCO₂e par repas
         {source ? ` — ${source}` : ''}.
-      </p>
+      </Text>
     </section>
   );
 }

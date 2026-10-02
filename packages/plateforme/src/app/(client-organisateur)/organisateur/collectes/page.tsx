@@ -18,6 +18,7 @@ import {
   CollecteTypeTabs,
   type CollecteType,
 } from '@/components/dashboards/index.js';
+import { Text } from '@/components/ui/text';
 
 interface Lieu {
   nom: string;
@@ -79,9 +80,9 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
         return (
           <div className="min-w-0">
             <div className="font-medium">{lieu.nom}</div>
-            <div className="text-xs text-savr-neutral-500">
+            <Text as="div" variant="hint">
               {[lieu.code_postal, lieu.ville].filter(Boolean).join(' ')}
-            </div>
+            </Text>
           </div>
         );
       },

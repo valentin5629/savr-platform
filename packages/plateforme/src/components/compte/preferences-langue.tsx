@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
 
 /**
  * Bloc « Préférences » — langue de l'interface (BL-P3-08).
@@ -21,10 +22,10 @@ export function PreferencesLangueCard() {
           </span>
           Français (FR)
         </div>
-        <p className="text-xs text-savr-neutral-400">
+        <Text variant="faint">
           La gestion des notifications email par type d’événement sera
           disponible ultérieurement.
-        </p>
+        </Text>
       </CardContent>
     </Card>
   );

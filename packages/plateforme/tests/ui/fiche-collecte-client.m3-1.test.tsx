@@ -694,11 +694,12 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       const kpi = await screen.findByTestId('kpi-zd', {}, ATTENTE_UI);
       const t = (kpi.textContent ?? '').replace(/\s/g, ' ');
       expect(t).toContain('Poids total collecté');
-      expect(t).toContain('870 kg');
-      expect(t).toContain('312 kgCO₂e');
-      expect(t).toContain('78,4 %');
+      // StatCard (R-UI-6b) : chiffre et unité dans deux spans d'une même rangée flex.
+      expect(t).toMatch(/870\s*kg/);
+      expect(t).toMatch(/312\s*kgCO₂e/);
+      expect(t).toMatch(/78,4\s*%/);
       // 870 kg / 4 200 pax = 207 g
-      expect(t).toContain('207 g');
+      expect(t).toMatch(/207\s*g/);
       expect(screen.getByText('Répartition des tonnages')).toBeTruthy();
       expect(
         await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI),
@@ -722,10 +723,11 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       // « −100 kgCO₂e » : chiffre et unité dans la même valeur insécable.
       const unite = within(kpi).getAllByText('kgCO₂e')[0]!;
       const valeur = unite.parentElement!;
-      expect(valeur.className).toContain('whitespace-nowrap');
-      expect(valeur.textContent?.replace(/\s/g, ' ')).toBe('-100 kgCO₂e');
+      // Rangée flex sans retour à la ligne (StatCard R-UI-6b, ex-`whitespace-nowrap`).
+      expect(valeur.className).toMatch(/\bflex\b.*items-baseline/);
+      expect(valeur.textContent?.replace(/\s/g, ' ')).toMatch(/^-100 ?kgCO₂e$/);
       // L'unité est plus petite que le chiffre (span dédié).
-      expect(unite.className).toContain('text-base');
+      expect(unite.className).toMatch(/text-(base|\[17px\])/); // unité plus petite que la valeur (34 px)
 
       // Donut à gauche, légende à droite : conteneur en ligne dès 640px.
       const titre = screen.getByText('Répartition des tonnages');
@@ -749,7 +751,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       );
       const estompe = screen.getByTestId('bilan-estompe');
       expect(estompe.className).toContain('opacity-40');
-      expect(estompe.textContent).toContain('— kg');
+      expect(estompe.textContent).toMatch(/—\s*kg/);
       expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
       expect(
         screen.getByRole('button', { name: 'Télécharger' }),
@@ -775,7 +777,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       await waitFor(() => {
         expect(bloc.textContent).toContain('0,40');
       }, ATTENTE_UI);
-      expect(bloc.textContent).toContain('+33 %');
+      expect(bloc.textContent).toContain('+33\u00a0%'); // fmtPct : espace insécable
     },
     ATTENTE_CAS_MS,
   );
@@ -834,10 +836,10 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
 
       const kpi = await screen.findByTestId('kpi-ag', {}, ATTENTE_UI);
       const t = (kpi.textContent ?? '').replace(/\s/g, ' ');
-      expect(t).toContain('840 repas');
+      expect(t).toMatch(/840\s*repas/);
       // 840 / 4 200 = 0,20
       expect(t).toContain('0,20');
-      expect(t).toContain('2 100 kgCO₂e');
+      expect(t).toMatch(/2 100\s*kgCO₂e/);
       expect(screen.getByTestId('bloc-association').textContent).toContain(
         'Les Restos du Cœur',
       );

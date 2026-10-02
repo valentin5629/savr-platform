@@ -1,5 +1,6 @@
 import { requirePageSession } from '@/lib/page-auth';
 import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
+import { Heading } from '@/components/ui/heading';
 
 const ORGANISATEUR_ROLES = ['client_organisateur'] as const;
 
@@ -10,9 +11,9 @@ export default async function MonOrganisationOrganisateurPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
+      <Heading level={1} tone="primary">
         Mon organisation
-      </h1>
+      </Heading>
       <InfosLegalesOrganisation urlProfil="/api/v1/organisateur/mon-organisation/profil" />
     </div>
   );

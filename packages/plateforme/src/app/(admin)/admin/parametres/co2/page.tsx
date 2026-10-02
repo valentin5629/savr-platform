@@ -8,6 +8,8 @@ import { Card } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface FacteurCo2 {
   id: string;
@@ -216,17 +218,15 @@ export default function ParametresCo2Page() {
     <div className="space-y-8">
       <div className="flex items-center gap-3">
         <Leaf className="h-6 w-6 text-savr-neutral-600" />
-        <h1 className="text-2xl font-bold text-savr-neutral-900">
-          Paramètres — CO₂
-        </h1>
+        <Heading level={1}>Paramètres — CO₂</Heading>
       </div>
 
       {/* Facteurs CO2 par flux */}
-      <Card className="p-6 space-y-4">
+      <Card padding="lg" className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-savr-neutral-800">
+          <Heading level={2} size="inherit" tone="strong">
             Facteurs CO₂ par flux (kg CO₂e / tonne)
-          </h2>
+          </Heading>
           <Button
             size="sm"
             onClick={() => void handleSaveFacteurs()}
@@ -238,16 +238,20 @@ export default function ParametresCo2Page() {
             {savingFacteurs ? 'Enregistrement…' : 'Enregistrer'}
           </Button>
         </div>
-        <p className="text-xs text-savr-neutral-500">
+        <Text variant="hint">
           La ligne &ldquo;emballage&rdquo; a ses FE induit/évité dérivés du mix
           (lecture seule) ; seule son énergie primaire est éditable.
-        </p>
-        <div className="grid grid-cols-[10rem_repeat(3,8rem)] items-center gap-2 text-xs font-medium text-savr-neutral-400">
+        </Text>
+        <Text
+          as="div"
+          variant="faint"
+          className="grid grid-cols-[10rem_repeat(3,8rem)] items-center gap-2 font-medium"
+        >
           <span>Flux</span>
           <span>FE induit</span>
           <span>FE évité</span>
           <span>Énergie évitée</span>
-        </div>
+        </Text>
         <div className="space-y-2">
           {facteursDraft.map((f, i) => {
             const derive = f.code_flux === 'emballage';
@@ -256,17 +260,17 @@ export default function ParametresCo2Page() {
                 key={f.id}
                 className="grid grid-cols-[10rem_repeat(3,8rem)] items-center gap-2"
               >
-                <span className="text-sm font-medium text-savr-neutral-700">
+                <Text as="span" variant="body" className="font-medium">
                   {f.code_flux}
-                </span>
+                </Text>
                 {derive ? (
                   <>
-                    <span className="text-sm text-savr-neutral-400 italic">
+                    <Text as="span" tone="faint" className="italic">
                       {f.fe_induit_kg_t} (calculé)
-                    </span>
-                    <span className="text-sm text-savr-neutral-400 italic">
+                    </Text>
+                    <Text as="span" tone="faint" className="italic">
                       {f.fe_evite_kg_t} (calculé)
-                    </span>
+                    </Text>
                   </>
                 ) : (
                   <>
@@ -333,11 +337,11 @@ export default function ParametresCo2Page() {
       </Card>
 
       {/* Mix emballages */}
-      <Card className="p-6 space-y-4">
+      <Card padding="lg" className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-savr-neutral-800">
+          <Heading level={2} size="inherit" tone="strong">
             Mix emballages (7 matériaux)
-          </h2>
+          </Heading>
           <Button
             size="sm"
             onClick={() => void handleSaveMix()}
@@ -363,21 +367,25 @@ export default function ParametresCo2Page() {
           <p className="text-savr-error-strong text-sm">{mixError}</p>
         )}
 
-        <div className="grid grid-cols-[10rem_5rem_8rem_8rem] items-center gap-2 text-xs font-medium text-savr-neutral-400">
+        <Text
+          as="div"
+          variant="faint"
+          className="grid grid-cols-[10rem_5rem_8rem_8rem] items-center gap-2 font-medium"
+        >
           <span>Matériau</span>
           <span>Part %</span>
           <span>FE induit</span>
           <span>FE évité</span>
-        </div>
+        </Text>
         <div className="space-y-2">
           {mixDraft.map((m, i) => (
             <div
               key={m.id}
               className="grid grid-cols-[10rem_5rem_8rem_8rem] items-center gap-2"
             >
-              <span className="text-sm font-medium text-savr-neutral-700">
+              <Text as="span" variant="body" className="font-medium">
                 {m.nom_materiau ?? m.code_materiau}
-              </span>
+              </Text>
               <Input
                 type="number"
                 step="0.1"
@@ -432,11 +440,11 @@ export default function ParametresCo2Page() {
 
       {/* Facteur AG */}
       {facteurAg && (
-        <Card className="p-6 space-y-4">
+        <Card padding="lg" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-savr-neutral-800">
+            <Heading level={2} size="inherit" tone="strong">
               Facteur CO₂ évité AG (kg CO₂ / repas)
-            </h2>
+            </Heading>
             <Button
               size="sm"
               onClick={() => void handleSaveAg()}
@@ -467,11 +475,11 @@ export default function ParametresCo2Page() {
 
       {/* Paramètres CO₂ divers (forfait collecte + équivalences) */}
       {diversDraft.length > 0 && (
-        <Card className="p-6 space-y-4">
+        <Card padding="lg" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-savr-neutral-800">
+            <Heading level={2} size="inherit" tone="strong">
               Paramètres divers (forfait collecte + équivalences)
-            </h2>
+            </Heading>
             <Button
               size="sm"
               onClick={() => void handleSaveDivers()}

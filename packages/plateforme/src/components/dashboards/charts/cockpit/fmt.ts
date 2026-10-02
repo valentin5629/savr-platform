@@ -9,18 +9,8 @@ import { fmtDec, fmtInt } from '@/lib/format';
 // pour les graphes Cockpit.
 export { fmtDec, fmtInt };
 
-/** Euro fr : « 14 820 » (l'unité € est rendue à part par l'appelant). */
-export function fmtEuro(n: number, d = 0): string {
-  return new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: d,
-    maximumFractionDigits: d,
-  }).format(n);
-}
-
-/** Pourcentage fr : « 78,4 ». */
-export function fmtPct(n: number, d = 1): string {
-  return fmtDec(n, d);
-}
+// Les ex-homonymes sans unité `fmtEuro` / `fmtPct` (0 usage) ont été retirés en
+// R-UI-6b : la source unique est `lib/format` (`fmtEuro` avec €, `fmtPct` avec %).
 
 /**
  * Masse : rend une valeur en kg → { value, unit }, bascule kg→t au-delà de

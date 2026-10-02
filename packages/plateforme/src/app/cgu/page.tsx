@@ -13,6 +13,8 @@ import {
   CGU_TEXTE_VERSION,
   type BlocCgu,
 } from '@/content/cgu-v1';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 export const metadata: Metadata = {
   title: "Conditions Générales d'Utilisation — Savr",
@@ -59,21 +61,23 @@ export default function CguPage() {
   return (
     <div className="min-h-screen bg-savr-neutral-50 px-4 py-10">
       <main className="mx-auto w-full max-w-3xl rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm sm:p-10">
-        <h1 className="text-2xl font-semibold text-savr-neutral-900">
+        <Heading level={1} weight="semibold">
           Conditions Générales d&apos;Utilisation
-        </h1>
-        <p className="mt-2 text-sm text-savr-neutral-500">
+        </Heading>
+        <Text className="mt-2">
           Version {CGU_TEXTE_VERSION} — activités Zéro-Déchet et Anti-Gaspi.
           C&apos;est le texte accepté à la création d&apos;un compte Savr.
-        </p>
+        </Text>
 
         <div className="mt-8 space-y-8">
           {CGU_SECTIONS.map((section) => (
             <section key={section.titre}>
-              <h2 className="text-lg font-semibold text-savr-neutral-900">
-                {section.titre}
-              </h2>
-              <div className="mt-3 space-y-3 text-sm leading-relaxed text-savr-neutral-700">
+              <Heading level={2}>{section.titre}</Heading>
+              <Text
+                as="div"
+                variant="body"
+                className="mt-3 space-y-3 leading-relaxed"
+              >
                 {grouper(section.blocs).map((groupe, i) => {
                   if (groupe.type === 'liste') {
                     return (
@@ -89,12 +93,9 @@ export default function CguPage() {
                   const bloc = groupe.blocs[0]!;
                   if (bloc.type === 'h3') {
                     return (
-                      <h3
-                        key={i}
-                        className="pt-2 text-base font-semibold text-savr-neutral-900"
-                      >
+                      <Heading level={3} className="pt-2" key={i}>
                         <Segments bloc={bloc} />
-                      </h3>
+                      </Heading>
                     );
                   }
                   return (
@@ -103,7 +104,7 @@ export default function CguPage() {
                     </p>
                   );
                 })}
-              </div>
+              </Text>
             </section>
           ))}
         </div>

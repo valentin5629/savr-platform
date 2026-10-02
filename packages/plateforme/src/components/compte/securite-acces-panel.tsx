@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
 
 type Acces = { accede_le: string; type_acces: string };
 
@@ -33,23 +34,25 @@ export function SecuriteAccesPanel(): React.JSX.Element {
         <CardTitle>Sécurité du compte</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-3 text-sm text-savr-neutral-600">
+        <Text tone="soft" className="mb-3">
           Historique des accès administrateur à votre compte. Un accès apparaît
           ici si un membre de l&apos;équipe Savr s&apos;est connecté à votre
           compte pour résoudre un incident.
-        </p>
+        </Text>
         {chargement ? (
-          <p className="text-sm text-savr-neutral-500">Chargement…</p>
+          <Text>Chargement…</Text>
         ) : acces.length === 0 ? (
-          <p className="text-sm text-savr-neutral-500" data-testid="acces-vide">
+          <Text data-testid="acces-vide">
             Aucun accès administrateur enregistré.
-          </p>
+          </Text>
         ) : (
           <ul className="space-y-1" data-testid="acces-liste">
             {acces.map((a, i) => (
-              <li
+              <Text
+                as="li"
+                variant="body"
+                className="flex items-center gap-2"
                 key={i}
-                className="flex items-center gap-2 text-sm text-savr-neutral-700"
               >
                 <span className="font-medium">
                   {new Date(a.accede_le).toLocaleString('fr-FR', {
@@ -59,7 +62,7 @@ export function SecuriteAccesPanel(): React.JSX.Element {
                 <span className="text-savr-neutral-500">
                   Accès administrateur
                 </span>
-              </li>
+              </Text>
             ))}
           </ul>
         )}

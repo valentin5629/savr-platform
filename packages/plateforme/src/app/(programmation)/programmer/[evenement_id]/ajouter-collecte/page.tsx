@@ -9,6 +9,7 @@ import {
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
+import { Heading } from '@/components/ui/heading';
 
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
@@ -85,9 +86,9 @@ export default function AjouterCollectePage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-savr-neutral-900">
+      <Heading level={1} size="xl">
         Ajouter une collecte
-      </h1>
+      </Heading>
 
       <div className="flex gap-3">
         {(['zd', 'ag'] as const).map((t) => (

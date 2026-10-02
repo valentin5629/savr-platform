@@ -41,6 +41,8 @@ import {
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 const STEPS = [
   { label: 'Événement' },
@@ -497,10 +499,8 @@ export default function NouveauProgrammationPage() {
 
       {/* ── Étape 1 : Événement ── */}
       {step === 0 && (
-        <Card className="p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-savr-neutral-900">
-            Informations sur l'événement
-          </h2>
+        <Card padding="lg" className="space-y-5">
+          <Heading level={2}>Informations sur l'événement</Heading>
 
           <FormField label="Nom du client final" htmlFor="nom-client" required>
             <Input
@@ -662,10 +662,10 @@ export default function NouveauProgrammationPage() {
             }
           >
             <div className="space-y-4">
-              <p className="text-xs text-savr-neutral-500">
+              <Text variant="hint">
                 Une fiche traiteur provisoire sera créée et signalée à Savr pour
                 vérification.
-              </p>
+              </Text>
               <FormField label="Nom commercial" htmlFor="shadow-nom" required>
                 <Input
                   id="shadow-nom"
@@ -728,10 +728,8 @@ export default function NouveauProgrammationPage() {
 
       {/* ── Étape 2 : Lieu & contacts ── */}
       {step === 1 && (
-        <Card className="p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-savr-neutral-900">
-            Lieu et contacts
-          </h2>
+        <Card padding="lg" className="space-y-5">
+          <Heading level={2}>Lieu et contacts</Heading>
 
           <FormField label="Lieu de collecte" htmlFor="lieu-combobox" required>
             <LieuCombobox
@@ -773,8 +771,8 @@ export default function NouveauProgrammationPage() {
                 onCheckedChange={(c) => setControleAcces(c === true)}
               />
               <label
-                htmlFor="controle-acces"
                 className="text-sm cursor-pointer text-savr-neutral-700"
+                htmlFor="controle-acces"
               >
                 Plaque d'immatriculation et nom du chauffeur requis pour ce lieu
               </label>
@@ -901,10 +899,8 @@ export default function NouveauProgrammationPage() {
 
       {/* ── Étape 3 : Collectes + récapitulatif ── */}
       {step === 2 && (
-        <Card className="p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-savr-neutral-900">
-            Détails de la collecte
-          </h2>
+        <Card padding="lg" className="space-y-5">
+          <Heading level={2}>Détails de la collecte</Heading>
 
           {collectes.map((c, i) => (
             <SousBlocCollecte
@@ -922,9 +918,9 @@ export default function NouveauProgrammationPage() {
 
           {/* Récapitulatif */}
           <div className="rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 p-4 space-y-2 text-sm">
-            <h3 className="font-semibold text-savr-neutral-900">
+            <Heading level={3} size="inherit">
               Récapitulatif
-            </h3>
+            </Heading>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-savr-neutral-700">
               <dt className="text-savr-neutral-500">Client</dt>
               <dd>{nomClient}</dd>
@@ -941,11 +937,11 @@ export default function NouveauProgrammationPage() {
             </dl>
           </div>
 
-          <p className="text-xs text-savr-neutral-500">
+          <Text variant="hint">
             Toute collecte annulée à moins de 12h de l'heure de collecte donne
             lieu à facturation plein tarif — pour une collecte Anti-Gaspi sous
             pack, un crédit est décompté (cf. CGV).
-          </p>
+          </Text>
 
           {error && <AlertBar variant="err">{error}</AlertBar>}
 

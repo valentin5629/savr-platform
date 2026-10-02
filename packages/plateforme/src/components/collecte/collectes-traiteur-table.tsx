@@ -19,7 +19,7 @@ import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
-import { fmtKgAuto, fmtPct, fmtInt } from '@/lib/format';
+import { fmtKgAuto, fmtPct, fmtInt, fmtPax } from '@/lib/format';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
 // revue écran 2026-07-15, passage en Data Table 2026-09-28 — décisions Val).
@@ -227,7 +227,7 @@ export function colonnesCollectesTraiteur(
       accessorFn: (c) => c.pax ?? -1,
       meta: { className: 'text-right tabular-nums' },
       cell: ({ row: { original: c } }) =>
-        c.pax != null ? `${c.pax} pax` : <CelluleVide />,
+        c.pax != null ? fmtPax(c.pax) : <CelluleVide />,
     },
     {
       id: 'resultats',

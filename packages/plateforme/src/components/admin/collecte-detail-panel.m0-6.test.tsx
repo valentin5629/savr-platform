@@ -1529,7 +1529,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await waitFor(() => expect(onLoaded).toHaveBeenCalled(), ATTENTE_UI);
       const arg = onLoaded.mock.calls.at(-1)?.[0] as { title: string };
       expect(arg.title).toContain('Collecte Anti-Gaspi');
-      expect(arg.title).toContain("jusqu'à 80 pax");
+      expect(arg.title).toContain("jusqu'à 80\u00a0pax"); // fmtPax : espace insécable
     },
     ATTENTE_CAS_MS,
   );

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """R-UI-6b — J2 formatteurs : lib/format source unique, Intl.NumberFormat locaux et concaténations € / % / kg."""
 import re, glob, os
-os.chdir('/home/user/savr-platform/packages/plateforme/src')
+os.chdir(os.environ.get('SAVR_SRC', os.path.join(os.getcwd(), 'packages/plateforme/src')))
 
 def edit(p, reps):
     s = open(p).read()

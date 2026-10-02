@@ -2,7 +2,8 @@
 """Migrations mécaniques R-UI-6b (iso-rendu) : Heading / PageHeader / Card / ChartTooltip / ToggleChip / Text."""
 import os, re, sys, glob, collections
 
-ROOT = '/home/user/savr-platform/packages/plateforme/src'
+import os
+ROOT = os.environ.get('SAVR_SRC', os.path.join(os.getcwd(), 'packages/plateforme/src'))
 EXCLUDE = ('/components/ui/', '/app/dev/', '/app/api/', '.test.', '/test-utils/',
            'parametres/algo-ag/page.tsx')  # algo-ag : PR parallèle de Val
 STATS = collections.Counter()

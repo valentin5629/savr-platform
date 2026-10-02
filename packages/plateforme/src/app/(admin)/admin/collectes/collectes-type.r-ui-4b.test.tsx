@@ -211,4 +211,44 @@ describe('R-UI-4b — Collectes admin : un seul contrôle de type, FilterBar com
     },
     ATTENTE_CAS_MS,
   );
+  it(
+    '(d) drill-down avec périmètre : décocher le lieu ne laisse pas un périmètre invisible — le chip reste, son reset retire `perimetre_org_ids[]`',
+    async () => {
+      window.history.replaceState(
+        null,
+        '',
+        '/admin/collectes?lieu=lieu-1&perimetre=org-1&perimetre=org-2',
+      );
+      const fetchMock = mockFetch();
+      render(<CollectesPage />);
+      await screen.findByRole('table', undefined, ATTENTE_UI);
+      await waitFor(
+        () =>
+          expect(
+            derniereListe(fetchMock).getAll('perimetre_org_ids[]'),
+          ).toEqual(['org-1', 'org-2']),
+        ATTENTE_UI,
+      );
+      expect(screen.getByText(/Lieu sélectionné/)).toBeInTheDocument();
+
+      // Le lieu du drill quitte la barre (liste d'options vide dans ce mock :
+      // on passe par « Réinitialiser les filtres », qui n'est PAS clearDrill
+      // tant que le chip est éteint) — ici le chip doit rester allumé car le
+      // périmètre borne encore la liste.
+      fireEvent.click(screen.getByTestId('collectes-filtres-reset'));
+      await waitFor(
+        () => expect(screen.queryByText(/Lieu sélectionné/)).toBeNull(),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () =>
+          expect(
+            derniereListe(fetchMock).getAll('perimetre_org_ids[]'),
+          ).toEqual([]),
+        ATTENTE_UI,
+      );
+      expect(window.location.search).not.toContain('perimetre');
+    },
+    ATTENTE_CAS_MS,
+  );
 });

@@ -31,7 +31,7 @@ export interface FilterBarProps {
    * barre d'outils de grille, ni pied). `null` = pas de pied, réservé aux
    * barres de dashboard (pas de liste à compter).
    */
-  count: React.ReactNode;
+  count: Exclude<React.ReactNode, undefined>;
   /** Au moins un filtre posé : affiche « Réinitialiser les filtres ». */
   actif: boolean;
   /** Remise au défaut de tous les filtres (obligatoire : toute liste se réinitialise). */

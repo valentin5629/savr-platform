@@ -332,19 +332,21 @@ export const FiltreRecherche = React.forwardRef<
     const onValueChangeRef = React.useRef(onValueChange);
     onValueChangeRef.current = onValueChange;
 
-    React.useEffect(() => {
-      if (value !== appliquee.current) {
-        appliquee.current = value;
-        setSaisie(value);
-      }
-    }, [value]);
-
     const annuler = () => {
       if (minuteur.current !== null) {
         clearTimeout(minuteur.current);
         minuteur.current = null;
       }
     };
+    React.useEffect(() => {
+      if (value !== appliquee.current) {
+        // Valeur externe (reset, URL) : une saisie en vol ne doit pas la
+        // ré-émettre après coup (revue principale #481).
+        annuler();
+        appliquee.current = value;
+        setSaisie(value);
+      }
+    }, [value]);
     React.useEffect(() => annuler, []);
 
     const emettre = (valeur: string) => {

@@ -295,12 +295,17 @@ export default function CollectesPage() {
     return null;
   });
   // Chip « Filtre actif » : dérivé des filtres — visible tant que le lieu /
-  // traiteur du drill-down est encore sélectionné dans la barre (R-UI-4b, D10).
-  const drillActive = drillLieu
-    ? lieuIds.includes(drillLieu)
-    : drillTraiteur
-      ? traiteurIds.includes(drillTraiteur)
-      : false;
+  // traiteur du drill-down est encore sélectionné dans la barre (R-UI-4b, D10)
+  // OU qu'un périmètre d'organisations borne encore la liste (revue principale
+  // #481 : jamais de filtre invisible sans issue — le ✕ / « Réinitialiser »
+  // du chip retire aussi le périmètre).
+  const drillActive =
+    perimetreOrgIds.length > 0 ||
+    (drillLieu
+      ? lieuIds.includes(drillLieu)
+      : drillTraiteur
+        ? traiteurIds.includes(drillTraiteur)
+        : false);
   const [traiteurs, setTraiteurs] = useState<{ id: string; label: string }[]>(
     [],
   );

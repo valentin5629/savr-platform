@@ -95,11 +95,18 @@ describe('FiltreRecherche (R-UI-4b, D7)', () => {
     // L'écho (« Kaspia ») ne rogne pas l'espace en cours de frappe.
     expect(champ).toHaveValue('Kaspia ');
 
+    // Frappe puis reset avant 300 ms : la saisie en vol n'est pas ré-émise
+    // après le reset (revue principale #481).
+    fireEvent.change(champ, { target: { value: 'Strike' } });
+    act(() => vi.advanceTimersByTime(100));
     fireEvent.click(screen.getByRole('button', { name: 'reset' }));
     expect(champ).toHaveValue('');
     expect(
       screen.queryByRole('button', { name: 'Effacer la recherche' }),
     ).toBeNull();
+    act(() => vi.advanceTimersByTime(400));
+    expect(screen.getByTestId('q')).toHaveTextContent('');
+    expect(champ).toHaveValue('');
   });
 
   it('onChange natif : appelé à chaque frappe (compat)', () => {

@@ -59,6 +59,11 @@ export interface TraiteurCollecteLigne {
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 const STATUTS_ANNULABLES = ['brouillon', 'programmee', 'validee'];
 
+// Picto des actions de ligne à 50 % de la taille IconButton par défaut
+// (20 px → 10 px, revue écran 2026-10-01) ; la cible tactile du bouton
+// reste 44/40 px.
+const PICTO_ACTION = '[&>svg]:h-2.5 [&>svg]:w-2.5';
+
 export interface ActionsTraiteur {
   onModifier: (c: TraiteurCollecteLigne) => void;
   onAnnuler: (c: TraiteurCollecteLigne) => void;
@@ -238,6 +243,9 @@ export function colonnesCollectesTraiteur(
       id: 'statut',
       header: 'Statut',
       accessorFn: (c) => c.statut,
+      // Colonne au contenu : le badge reste collé aux pictos d'action
+      // (revue écran 2026-10-01).
+      meta: { className: 'w-[1%] whitespace-nowrap' },
       cell: ({ row: { original: c } }) => (
         <CollecteStatutBadge statut={c.statut} />
       ),
@@ -250,11 +258,14 @@ export function colonnesCollectesTraiteur(
         label: 'Actions',
         interactive: true,
         stickyRight: true,
-        className: 'text-right',
+        // Colonne réduite à son contenu (revue écran 2026-10-01) : plus de
+        // vide entre la dernière colonne de données et les pictos.
+        className: 'w-[1%] whitespace-nowrap text-right',
       },
       cell: ({ row: { original: c } }) => (
         // IconButton (§10 §6, icône seule) : libellé au survol (title), cible
-        // tactile 44/40px. L'action indisponible n'est pas rendue.
+        // tactile 44/40px conservée, picto réduit de moitié (revue écran
+        // 2026-10-01). L'action indisponible n'est pas rendue.
         <div className="flex items-center justify-end gap-1">
           {c.canWrite && STATUTS_EDITABLES.includes(c.statut) && (
             <IconButton
@@ -262,6 +273,7 @@ export function colonnesCollectesTraiteur(
               onClick={() => actions.onModifier(c)}
               title="Modifier"
               aria-label="Modifier la collecte"
+              className={PICTO_ACTION}
             >
               <Pencil />
             </IconButton>
@@ -272,6 +284,7 @@ export function colonnesCollectesTraiteur(
               onClick={() => actions.onAnnuler(c)}
               title="Annuler"
               aria-label="Annuler la collecte"
+              className={PICTO_ACTION}
             >
               <XCircle />
             </IconButton>
@@ -281,6 +294,7 @@ export function colonnesCollectesTraiteur(
             onClick={() => actions.onDupliquer(c)}
             title="Dupliquer"
             aria-label="Dupliquer la collecte"
+            className={PICTO_ACTION}
           >
             <Copy />
           </IconButton>

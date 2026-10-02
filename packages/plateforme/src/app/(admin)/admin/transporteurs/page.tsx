@@ -282,7 +282,6 @@ export default function TransporteursPage() {
             description="Créez le premier transporteur."
           />
         }
-        columnsToggle
         onSort={(cle, ordre) => set({ tri: cle, ordre })}
         sortKey={f.tri}
         sortDirection={f.ordre as 'asc' | 'desc'}

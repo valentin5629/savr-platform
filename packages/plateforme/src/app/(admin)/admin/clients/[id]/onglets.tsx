@@ -509,6 +509,7 @@ export function OngletGrilleZd({
           {/* Liste complète des paliers de la grille (route sans pagination)
               → tri navigateur ; ordre par défaut = pax min croissant. */}
           <DataGrid
+            columnsToggle={false}
             columns={COLONNES_PALIERS}
             data={affectee.tarifs_zero_dechet}
             getRowId={(p) => p.id}
@@ -846,6 +847,7 @@ export function OngletCoefficients({
         // Liste complète (route sans pagination, triée par année desc) → tri
         // navigateur, ordre par défaut identique à celui de l'API.
         <DataGrid
+          columnsToggle={false}
           columns={colonnesCoefficients(canEdit, openEditer)}
           data={coefs}
           getRowId={(c) => c.id}
@@ -1218,6 +1220,7 @@ export function OngletRemises({
         // pagination) → tri navigateur. Seules les remises actives sont
         // modifiables (clic ligne) quand l'édition est permise.
         <DataGrid
+          columnsToggle={false}
           columns={colonnesRemises}
           data={displayed}
           getRowId={(r) => r.id}
@@ -1484,6 +1487,7 @@ export function PackAjustementsHistorique({
       {/* Journal complet (route sans pagination, triée par date desc) → tri
           navigateur, ordre par défaut identique à celui de l'API. */}
       <DataGrid
+        columnsToggle={false}
         columns={COLONNES_AJUSTEMENTS}
         data={rows}
         getRowId={(a) => a.id}

@@ -322,7 +322,6 @@ export default function LieuxPage() {
         erreur={erreur}
         onRecharger={recharger}
         empty={listeVide}
-        columnsToggle
         onSort={(cle, ordre) => set({ tri: cle, ordre })}
         sortKey={f.tri}
         sortDirection={f.ordre as 'asc' | 'desc'}

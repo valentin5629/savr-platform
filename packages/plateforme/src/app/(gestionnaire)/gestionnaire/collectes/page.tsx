@@ -389,7 +389,6 @@ function GestionnaireCollectesContent() {
         columns={colonnes}
         data={rows}
         getRowId={(c) => c.id}
-        columnsToggle
         manualSorting
         sorting={sorting}
         onSortingChange={setSorting}

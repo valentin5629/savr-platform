@@ -101,7 +101,6 @@ export default function GestionnaireLieuxPage() {
     />
   ) : (
     <DataTable
-      columnsToggle
       columns={columns}
       data={rows}
       loading={loading}

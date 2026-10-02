@@ -85,9 +85,9 @@ interface DataGridProps<T> {
   /** Colonnes masquées au départ (`{ id: false }`). */
   initialColumnVisibility?: VisibilityState;
   /**
-   * Menu « Colonnes » (masquer / réafficher). Défaut `false` (R-UI-4a, E6) :
-   * réservé aux listes principales, pas aux petits blocs de dashboard ou de
-   * fiche.
+   * Menu « Colonnes » (masquer / réafficher). Défaut `true` (décision Val
+   * 2026-09-28) ; les petits blocs (dashboard, fiche, modale) passent
+   * `columnsToggle={false}` (R-UI-4a, E6).
    */
   columnsToggle?: boolean;
   /** Contenu à gauche de la barre d'outils (compteur, filtres…). */
@@ -143,7 +143,7 @@ function DataGrid<T>({
   initialColumnVisibility = {},
   // Menu « Colonnes » actif par défaut sur TOUS les tableaux (décision Val
   // 2026-09-28 : même format partout) ; `false` pour le retirer.
-  columnsToggle = false,
+  columnsToggle = true,
   toolbar,
   onRowClick,
   rowLabel,

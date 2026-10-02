@@ -335,6 +335,7 @@ export default function TauxRecyclagePage() {
         {/* Historique complet d'une filière (route sans pagination,
                   triée par date desc) → tri navigateur. */}
         <DataGrid
+          columnsToggle={false}
           columns={COLONNES_HISTORIQUE}
           data={hist.rows}
           getRowId={(r) => r.id}

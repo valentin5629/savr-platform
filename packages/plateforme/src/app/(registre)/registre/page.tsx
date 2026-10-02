@@ -393,7 +393,6 @@ function RegistreContent() {
         erreur={erreur}
         onRecharger={recharger}
         empty={<Text>Aucune collecte au registre pour ces critères.</Text>}
-        columnsToggle
         manualSorting
         sorting={sorting}
         onSortingChange={(updater) => {

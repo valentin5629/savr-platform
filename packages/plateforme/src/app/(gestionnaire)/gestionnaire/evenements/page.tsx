@@ -287,7 +287,6 @@ function EvenementsContent() {
         </div>
       ) : (
         <DataGrid
-          columnsToggle
           data-testid="evenements-table"
           columns={COLONNES}
           data={rows}

@@ -41,7 +41,10 @@ for f in kpi evolution …; do compare -metric AE /tmp/pv/shots-avant/$f.png /tm
   les imports diffèrent — `KpiCockpitCard` / `Co2HeroCardAg` n'existent plus
   après), `entry-r-ui-3-avant.tsx` / `entry-r-ui-3-apres.tsx` (R-UI-3 :
   `ACTION_DESTRUCTIVE_CONTOUR`, `authLienClass`, `Button size="icon"`
-  n'existent plus après). Fixtures communes dans `common-6b.tsx`.
+  n'existent plus après), `entry-r-ui-4a-avant.tsx` / `entry-r-ui-4a-apres.tsx`
+  (R-UI-4a : `FilterBar` compteur + reset, `ListFooter`, `DataGrid` erreur /
+  vide / `columnsToggle` opt-in ; avant = pied H1 recopié, pagination maison du
+  registre, état Error recopié). Fixtures communes dans `common-6b.tsx`.
 - `VIEWPORTS=dialog,dialog-collecte` (shoot.mjs) : l'entrée rend une modale
   plein écran sous `#<nom>` → capture du viewport entier (une `fixed inset-0`
   n'est pas capturable par section).

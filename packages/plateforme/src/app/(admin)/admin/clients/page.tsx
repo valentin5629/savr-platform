@@ -250,7 +250,6 @@ export default function ClientsPage() {
             }
           />
         }
-        columnsToggle
         onSort={(cle, ordre) => set({ tri: cle, ordre })}
         sortKey={f.tri}
         sortDirection={f.ordre as 'asc' | 'desc'}

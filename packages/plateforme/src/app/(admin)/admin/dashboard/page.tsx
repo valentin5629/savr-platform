@@ -312,6 +312,7 @@ export default function DashboardAdminPage() {
                 Revenu par organisation
               </Heading>
               <DataTable
+                columnsToggle={false}
                 columns={revenusColumns}
                 data={revenus}
                 keyExtractor={(row) => row.organisation_id}

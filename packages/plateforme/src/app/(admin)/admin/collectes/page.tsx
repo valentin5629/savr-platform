@@ -781,7 +781,6 @@ export default function CollectesPage() {
         loading={loading}
         erreur={erreur}
         onRecharger={fetchCollectes}
-        columnsToggle
         manualSorting
         sorting={sorting}
         onSortingChange={(next) => {

@@ -201,7 +201,6 @@ export default function AssociationsPage() {
             description="Créez la première association."
           />
         }
-        columnsToggle
         onSort={(cle, ordre) => set({ tri: cle, ordre })}
         sortKey={f.tri}
         sortDirection={f.ordre as 'asc' | 'desc'}

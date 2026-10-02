@@ -319,6 +319,7 @@ export default function LieuDetailPage({
           </CardHeader>
           <CardContent>
             <DataTable
+              columnsToggle={false}
               columns={colonnesTraiteurs}
               data={lieu.top_traiteurs}
               keyExtractor={(t) => t.id}

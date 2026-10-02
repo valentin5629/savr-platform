@@ -2,7 +2,7 @@
  * R-UI-4a — listes paginées : `useFiltresUrl` (état des filtres miroir URL,
  * retour page 1, reset), `useListePaginee` (anti-réponse périmée, état Error,
  * Réessayer), `ListFooter`, `DataGrid` (`erreur`, `empty` par défaut,
- * `columnsToggle` désactivé par défaut).
+ * `columnsToggle={false}` sur les petits blocs).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as React from 'react';
@@ -262,7 +262,7 @@ describe('ListFooter — pagination commune', () => {
   });
 });
 
-describe('DataGrid — états erreur / vide, menu Colonnes opt-in', () => {
+describe('DataGrid — états erreur / vide, menu Colonnes', () => {
   type Row = { id: string; nom: string };
   const columns: ColumnDef<Row, unknown>[] = [
     { id: 'nom', header: 'Nom', accessorFn: (r) => r.nom },
@@ -287,7 +287,7 @@ describe('DataGrid — états erreur / vide, menu Colonnes opt-in', () => {
     expect(onRecharger).toHaveBeenCalledTimes(1);
   });
 
-  it('vide : « Aucun résultat. » par défaut ; menu Colonnes absent sauf columnsToggle', () => {
+  it('vide : « Aucun résultat. » par défaut ; menu Colonnes présent par défaut (décision Val 2026-09-28), columnsToggle={false} le retire', () => {
     const { rerender } = render(
       <DataGrid columns={columns} data={[]} getRowId={(r) => r.id} />,
     );
@@ -299,17 +299,17 @@ describe('DataGrid — états erreur / vide, menu Colonnes opt-in', () => {
         getRowId={(r) => r.id}
       />,
     );
-    expect(screen.queryByRole('button', { name: /Colonnes/ })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: /Colonnes/ }),
+    ).toBeInTheDocument();
     rerender(
       <DataGrid
         columns={columns}
         data={[{ id: '1', nom: 'A' }]}
         getRowId={(r) => r.id}
-        columnsToggle
+        columnsToggle={false}
       />,
     );
-    expect(
-      screen.getByRole('button', { name: /Colonnes/ }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Colonnes/ })).toBeNull();
   });
 });

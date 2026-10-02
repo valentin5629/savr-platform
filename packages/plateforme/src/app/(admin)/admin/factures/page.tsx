@@ -368,7 +368,6 @@ export default function FacturesPage() {
             description="Les brouillons apparaissent ici après le batch J+1."
           />
         }
-        columnsToggle
         onSort={(cle, ordre) => set({ tri: cle, ordre })}
         sortKey={f.tri}
         sortDirection={f.ordre as 'asc' | 'desc'}

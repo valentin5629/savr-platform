@@ -161,7 +161,6 @@ export default function GestionnaireTraiteursPage() {
         </div>
       ) : (
         <DataGrid
-          columnsToggle
           data-testid="traiteurs-table"
           columns={colonnes}
           data={rows}

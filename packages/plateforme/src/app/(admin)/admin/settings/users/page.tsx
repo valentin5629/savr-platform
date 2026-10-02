@@ -120,7 +120,6 @@ export default function SettingsUsersPage() {
       </div>
 
       <DataTable
-        columnsToggle
         columns={columns}
         data={users}
         keyExtractor={(row) => row.id}

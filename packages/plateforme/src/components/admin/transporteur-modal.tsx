@@ -862,13 +862,10 @@ export function TransporteurModal({
           <Button
             type="button"
             onClick={() => void submitForm()}
-            disabled={submitting}
+            loading={submitting}
+            loadingText="Enregistrement…"
           >
-            {submitting
-              ? 'Enregistrement…'
-              : isEdition
-                ? 'Enregistrer'
-                : 'Créer le transporteur'}
+            {isEdition ? 'Enregistrer' : 'Créer le transporteur'}
           </Button>
         </footer>
       </form>

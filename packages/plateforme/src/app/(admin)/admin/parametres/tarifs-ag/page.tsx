@@ -314,7 +314,7 @@ export default function TarifsPacksAGPage() {
                     variant="secondary"
                     onClick={() => openHistory(type)}
                   >
-                    <History className="h-4 w-4 mr-1" />
+                    <History />
                     Historique
                   </Button>
                 </div>
@@ -335,7 +335,7 @@ export default function TarifsPacksAGPage() {
                   variant="secondary"
                   onClick={() => openHistory(type)}
                 >
-                  <History className="h-4 w-4 mr-1" />
+                  <History />
                   Historique
                 </Button>
               </div>
@@ -464,8 +464,12 @@ export default function TarifsPacksAGPage() {
             >
               Annuler
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Enregistrement…' : 'Publier le tarif'}
+            <Button
+              type="submit"
+              loading={submitting}
+              loadingText="Enregistrement…"
+            >
+              Publier le tarif
             </Button>
           </div>
         </form>

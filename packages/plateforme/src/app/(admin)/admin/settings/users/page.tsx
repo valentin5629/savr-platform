@@ -101,7 +101,7 @@ export default function SettingsUsersPage() {
           </Text>
         </div>
         <Button onClick={() => setShowInvite(true)}>
-          <Plus className="w-4 h-4" />
+          <Plus />
           Inviter un membre
         </Button>
       </div>

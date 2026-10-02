@@ -253,8 +253,13 @@ export default function SignupPage() {
           ) : (
             <>
               {retour(2)}
-              <Button type="submit" disabled={loading} className="w-full">
-                {loading ? 'Création…' : 'Créer mon compte'}
+              <Button
+                type="submit"
+                className="w-full"
+                loading={loading}
+                loadingText="Création…"
+              >
+                Créer mon compte
               </Button>
             </>
           )

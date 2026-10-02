@@ -131,8 +131,13 @@ export function InviteUserModal({
           >
             Annuler
           </Button>
-          <Button type="submit" form="invite-membre-form" disabled={saving}>
-            {saving ? 'Invitation…' : 'Inviter'}
+          <Button
+            type="submit"
+            form="invite-membre-form"
+            loading={saving}
+            loadingText="Invitation…"
+          >
+            Inviter
           </Button>
         </>
       }

@@ -181,9 +181,10 @@ export function OrganisationModal({
       <Button
         type="button"
         onClick={() => void submitForm()}
-        disabled={submitting}
+        loading={submitting}
+        loadingText="Création…"
       >
-        {submitting ? 'Création…' : 'Créer l’organisation'}
+        Créer l’organisation
       </Button>
     </>
   );

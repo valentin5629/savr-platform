@@ -261,13 +261,14 @@ export default function LieuxPage() {
             <Button
               size="sm"
               variant="accent"
-              disabled={normalisingId === row.id}
               onClick={(e) => {
                 e.stopPropagation();
                 void handleNormaliser(row.id);
               }}
+              loading={normalisingId === row.id}
+              loadingText="En cours…"
             >
-              {normalisingId === row.id ? 'En cours…' : 'Normaliser'}
+              Normaliser
             </Button>
           </div>
         ),
@@ -351,7 +352,7 @@ export default function LieuxPage() {
         subtitle="Référentiel lieux d'événements · normalisation des lieux saisis manuellement"
         actions={
           <Button variant="accent" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
+            <Plus />
             Nouveau lieu
           </Button>
         }

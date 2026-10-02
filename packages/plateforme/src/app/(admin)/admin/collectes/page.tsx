@@ -538,7 +538,7 @@ export default function CollectesPage() {
         actions={
           <Button asChild variant="accent">
             <Link href="/programmer/nouveau">
-              <Plus className="h-4 w-4" />
+              <Plus />
               Programmer une collecte
             </Link>
           </Button>

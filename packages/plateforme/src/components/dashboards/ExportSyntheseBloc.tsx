@@ -218,9 +218,10 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
               <Button
                 variant="primary"
                 onClick={generate}
-                disabled={generating}
+                loading={generating}
+                loadingText="Génération en cours…"
               >
-                {generating ? 'Génération en cours…' : 'Générer le rapport'}
+                Générer le rapport
               </Button>
             )}
           </>

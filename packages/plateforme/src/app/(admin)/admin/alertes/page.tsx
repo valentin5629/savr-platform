@@ -156,10 +156,11 @@ export default function AlertesPage() {
           <Button
             variant="secondary"
             size="sm"
-            disabled={resolvingId === row.id}
             onClick={() => resoudre(row.id)}
+            loading={resolvingId === row.id}
+            loadingText="Résolution…"
           >
-            {resolvingId === row.id ? 'Résolution…' : 'Résoudre'}
+            Résoudre
           </Button>
         ) : (
           <Text

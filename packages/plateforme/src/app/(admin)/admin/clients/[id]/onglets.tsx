@@ -584,8 +584,13 @@ export function OngletTarifRefacture({
               aria-label="Tarif refacturé (€/pax)"
               className="w-40"
             />
-            <Button type="submit" size="sm" disabled={saving}>
-              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            <Button
+              type="submit"
+              size="sm"
+              loading={saving}
+              loadingText="Enregistrement…"
+            >
+              Enregistrer
             </Button>
             <Button
               type="button"
@@ -855,8 +860,13 @@ export function OngletCoefficients({
               >
                 Annuler
               </Button>
-              <Button type="submit" form="coef-form" disabled={saving}>
-                {saving ? 'Enregistrement…' : 'Enregistrer'}
+              <Button
+                type="submit"
+                form="coef-form"
+                loading={saving}
+                loadingText="Enregistrement…"
+              >
+                Enregistrer
               </Button>
             </>
           }
@@ -1154,14 +1164,15 @@ export function OngletRemises({
           <Button
             size="sm"
             variant="secondary"
-            disabled={closingId === r.id}
             onClick={(e) => {
               e.stopPropagation();
               void fermer(r.id);
             }}
             onKeyDown={(e) => e.stopPropagation()}
+            loading={closingId === r.id}
+            loadingText="Fermeture…"
           >
-            {closingId === r.id ? 'Fermeture…' : 'Fermer'}
+            Fermer
           </Button>
         ) : null,
     });
@@ -1241,8 +1252,13 @@ export function OngletRemises({
               >
                 Annuler
               </Button>
-              <Button type="submit" form="remise-form" disabled={saving}>
-                {saving ? 'Enregistrement…' : edition ? 'Enregistrer' : 'Créer'}
+              <Button
+                type="submit"
+                form="remise-form"
+                loading={saving}
+                loadingText="Enregistrement…"
+              >
+                {edition ? 'Enregistrer' : 'Créer'}
               </Button>
             </>
           }

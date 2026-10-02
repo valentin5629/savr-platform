@@ -319,7 +319,7 @@ export default function FacturesPage() {
         }
         actions={
           <Button variant="secondary" onClick={exportCsv}>
-            <Download className="h-4 w-4" />
+            <Download />
             Exporter CSV
           </Button>
         }

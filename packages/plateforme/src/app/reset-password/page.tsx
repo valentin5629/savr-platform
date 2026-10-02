@@ -90,8 +90,13 @@ function DemandeResetForm() {
       }
       onSubmit={(e) => void handleSubmit(e)}
       pied={
-        <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Envoi…' : 'Envoyer le lien'}
+        <Button
+          type="submit"
+          className="w-full"
+          loading={loading}
+          loadingText="Envoi…"
+        >
+          Envoyer le lien
         </Button>
       }
     >

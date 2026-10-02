@@ -189,7 +189,7 @@ export default function ClientsPage() {
           // admin_savr ET ops_savr (§06.06 + matrice ops §09) : le layout
           // (admin) et requireStaff bornent déjà aux 2 rôles staff.
           <Button variant="accent" onClick={() => setModalOpen(true)}>
-            <Plus className="w-4 h-4" />
+            <Plus />
             Nouvelle organisation
           </Button>
         }

@@ -196,7 +196,7 @@ export default function GrillesZdPage() {
         actions={
           canEdit ? (
             <Button onClick={openModal}>
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus />
               Créer une grille
             </Button>
           ) : undefined
@@ -289,7 +289,7 @@ export default function GrillesZdPage() {
                 variant="secondary"
                 onClick={addPalier}
               >
-                <Plus className="h-3.5 w-3.5 mr-1" />
+                <Plus className="h-3.5 w-3.5" />
                 Ajouter un palier
               </Button>
             </div>
@@ -381,8 +381,13 @@ export default function GrillesZdPage() {
             >
               Annuler
             </Button>
-            <Button type="submit" disabled={submitting || !fNom}>
-              {submitting ? 'Création…' : 'Créer la grille'}
+            <Button
+              type="submit"
+              disabled={!fNom}
+              loading={submitting}
+              loadingText="Création…"
+            >
+              Créer la grille
             </Button>
           </div>
         </form>

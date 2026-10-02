@@ -157,7 +157,7 @@ export default function AjouterCollectePage() {
           onClick={() => void handleSubmit()}
           disabled={!valid || submitting || agDoublonWarning}
         >
-          <CheckCircle className="h-4 w-4" />
+          <CheckCircle />
           Ajouter la collecte
         </Button>
       </div>

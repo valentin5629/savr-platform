@@ -517,12 +517,10 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
         type="button"
         onClick={() => void submitForm()}
         disabled={submitting || (isEdition && !lieuCharge)}
+        loading={submitting}
+        loadingText="Enregistrement…"
       >
-        {submitting
-          ? 'Enregistrement…'
-          : isEdition
-            ? 'Enregistrer'
-            : 'Créer le lieu'}
+        {isEdition ? 'Enregistrer' : 'Créer le lieu'}
       </Button>
     </>
   );

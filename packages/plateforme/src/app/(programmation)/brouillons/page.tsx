@@ -51,7 +51,7 @@ export default function BrouillonsPage() {
         actions={
           <Button asChild>
             <Link href="/programmer/nouveau">
-              <PlusCircle className="h-4 w-4" />
+              <PlusCircle />
               Nouvelle programmation
             </Link>
           </Button>

@@ -460,14 +460,12 @@ export function OngletBilan({
               <Button
                 variant="ghost"
                 size="sm"
-                disabled={regenEnCours || regenFait}
+                disabled={regenFait}
+                loading={regenEnCours}
+                loadingText="Régénération…"
                 onClick={() => void regenererRapport()}
               >
-                {regenFait
-                  ? 'Régénération demandée'
-                  : regenEnCours
-                    ? 'Régénération…'
-                    : 'Régénérer le rapport'}
+                {regenFait ? 'Régénération demandée' : 'Régénérer le rapport'}
               </Button>
             )}
           {!c.rapport_reserve_donneur_ordre && (

@@ -186,7 +186,7 @@ export function RgpdComptePanel({
             <Button
               variant="destructive"
               onClick={demanderSuppression}
-              disabled={enCours}
+              loading={enCours}
             >
               Demander la suppression de mon compte
             </Button>

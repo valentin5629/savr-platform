@@ -122,10 +122,11 @@ export default function RepriseBrouillonPage() {
       <div className="flex gap-3">
         <Button
           onClick={() => void handleConfirmer()}
-          disabled={confirming || brouillons.length === 0}
+          disabled={brouillons.length === 0}
+          loading={confirming}
+          loadingText="Confirmation…"
         >
-          <CheckCircle className="h-4 w-4" />
-          {confirming ? 'Confirmation…' : 'Confirmer la programmation'}
+          <CheckCircle /> Confirmer la programmation
         </Button>
         <Button variant="secondary" onClick={() => router.push('/brouillons')}>
           Annuler

@@ -136,9 +136,14 @@ export function ImpersonationLauncher(): React.ReactElement | null {
             }))}
           />
         </FormField>
-        <Button onClick={handleImpersonate} disabled={!selected || loading}>
-          <UserCog className="w-4 h-4" />
-          {loading ? 'Connexion…' : 'Impersoner'}
+        <Button
+          onClick={handleImpersonate}
+          disabled={!selected}
+          loading={loading}
+          loadingText="Connexion…"
+        >
+          <UserCog />
+          Impersoner
         </Button>
       </div>
       {error && <p className="mt-2 text-sm text-savr-error">{error}</p>}

@@ -458,8 +458,8 @@ function EntitesCard({
               </div>
               {msg && <p className="text-sm text-savr-error">{msg}</p>}
               <div className="flex gap-2">
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Ajout…' : 'Ajouter'}
+                <Button type="submit" loading={saving} loadingText="Ajout…">
+                  Ajouter
                 </Button>
                 <Button
                   type="button"
@@ -782,8 +782,8 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
           {msg && (
             <AlertBar variant={msg.ok ? 'success' : 'err'}>{msg.text}</AlertBar>
           )}
-          <Button type="submit" disabled={busy}>
-            {busy ? 'Envoi…' : 'Envoyer l’invitation'}
+          <Button type="submit" loading={busy} loadingText="Envoi…">
+            Envoyer l’invitation
           </Button>
         </form>
       </CardContent>

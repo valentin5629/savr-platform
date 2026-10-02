@@ -401,13 +401,10 @@ export function AssociationModal({
       <Button
         type="button"
         onClick={() => void submitForm()}
-        disabled={submitting}
+        loading={submitting}
+        loadingText="Enregistrement…"
       >
-        {submitting
-          ? 'Enregistrement…'
-          : isEdition
-            ? 'Enregistrer'
-            : 'Créer l’association'}
+        {isEdition ? 'Enregistrer' : 'Créer l’association'}
       </Button>
     </>
   );

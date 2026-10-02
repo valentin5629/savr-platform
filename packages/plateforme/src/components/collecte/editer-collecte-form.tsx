@@ -384,8 +384,12 @@ export function EditerCollecteForm({
         {error && <p className="text-sm text-savr-error">{error}</p>}
 
         <div className="flex gap-2">
-          <Button onClick={onSubmitClick} disabled={saving}>
-            {saving ? 'Enregistrement…' : 'Confirmer la modification'}
+          <Button
+            onClick={onSubmitClick}
+            loading={saving}
+            loadingText="Enregistrement…"
+          >
+            Confirmer la modification
           </Button>
           {onCancel && (
             <Button variant="ghost" onClick={onCancel} disabled={saving}>
@@ -429,7 +433,7 @@ export function EditerCollecteForm({
                   setConfirmOpen(false);
                   void save();
                 }}
-                disabled={saving}
+                loading={saving}
               >
                 Confirmer la modification
               </Button>

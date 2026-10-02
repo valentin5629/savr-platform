@@ -119,8 +119,13 @@ function LoginForm() {
       }
       onSubmit={(e) => void handleSubmit(e)}
       pied={
-        <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Connexion…' : 'Se connecter'}
+        <Button
+          type="submit"
+          className="w-full"
+          loading={loading}
+          loadingText="Connexion…"
+        >
+          Se connecter
         </Button>
       }
     >

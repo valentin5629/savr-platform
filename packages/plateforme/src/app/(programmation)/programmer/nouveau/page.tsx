@@ -720,7 +720,7 @@ export default function NouveauProgrammationPage() {
           <div className="flex justify-end pt-1">
             <Button onClick={() => setStep(1)} disabled={!step1Valid}>
               Continuer
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight />
             </Button>
           </div>
         </Card>
@@ -886,12 +886,12 @@ export default function NouveauProgrammationPage() {
 
           <div className="flex justify-between pt-1">
             <Button variant="ghost" onClick={() => setStep(0)}>
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft />
               Retour
             </Button>
             <Button onClick={() => setStep(2)} disabled={!step2Valid}>
               Continuer
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight />
             </Button>
           </div>
         </Card>
@@ -947,7 +947,7 @@ export default function NouveauProgrammationPage() {
 
           <div className="flex flex-col sm:flex-row justify-between gap-3 pt-1">
             <Button variant="ghost" onClick={() => setStep(1)}>
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft />
               Retour
             </Button>
             <div className="flex gap-3">
@@ -956,14 +956,14 @@ export default function NouveauProgrammationPage() {
                 onClick={() => void handleSubmit(false)}
                 disabled={!step3Valid || submitting}
               >
-                <Save className="h-4 w-4" />
+                <Save />
                 Enregistrer en brouillon
               </Button>
               <Button
                 onClick={() => void handleSubmit(true)}
                 disabled={!step3Valid || submitting}
               >
-                <CheckCircle className="h-4 w-4" />
+                <CheckCircle />
                 Confirmer la programmation
               </Button>
             </div>

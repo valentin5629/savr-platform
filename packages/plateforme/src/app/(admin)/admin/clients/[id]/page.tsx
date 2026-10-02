@@ -596,7 +596,7 @@ export default function ClientFichePage({
             <div className="flex items-center justify-between gap-3">
               <BlocHeader icon={Users} title="Utilisateurs" />
               <Button size="sm" onClick={() => setInviteOpen(true)}>
-                <UserPlus className="h-4 w-4" />
+                <UserPlus />
                 Ajouter un utilisateur
               </Button>
             </div>
@@ -821,8 +821,13 @@ export default function ClientFichePage({
             >
               Annuler
             </Button>
-            <Button type="submit" form="creer-pack-form" disabled={submitting}>
-              {submitting ? 'Création…' : 'Créer le pack'}
+            <Button
+              type="submit"
+              form="creer-pack-form"
+              loading={submitting}
+              loadingText="Création…"
+            >
+              Créer le pack
             </Button>
           </>
         }
@@ -921,9 +926,10 @@ export default function ClientFichePage({
             <Button
               type="submit"
               form="ajuster-pack-form"
-              disabled={submitting}
+              loading={submitting}
+              loadingText="Enregistrement…"
             >
-              {submitting ? 'Enregistrement…' : 'Ajuster'}
+              Ajuster
             </Button>
           </>
         }
@@ -1003,9 +1009,10 @@ export default function ClientFichePage({
               type="submit"
               form="annuler-pack-form"
               variant="destructive"
-              disabled={submitting}
+              loading={submitting}
+              loadingText="Annulation…"
             >
-              {submitting ? 'Annulation…' : "Confirmer l'annulation"}
+              {"Confirmer l'annulation"}
             </Button>
           </>
         }

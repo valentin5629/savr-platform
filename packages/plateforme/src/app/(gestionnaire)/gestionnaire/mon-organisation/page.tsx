@@ -393,8 +393,8 @@ export default function MonOrganisationPage() {
                     {inviteMsg.text}
                   </AlertBar>
                 )}
-                <Button type="submit" disabled={inviting}>
-                  {inviting ? 'Envoi…' : "Envoyer l'invitation"}
+                <Button type="submit" loading={inviting} loadingText="Envoi…">
+                  {"Envoyer l'invitation"}
                 </Button>
               </form>
             </CardContent>

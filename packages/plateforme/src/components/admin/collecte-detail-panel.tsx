@@ -1422,9 +1422,10 @@ export function CollecteDetailPanel({
                       <Button
                         type="submit"
                         size="sm"
-                        disabled={infosAccesSaving}
+                        loading={infosAccesSaving}
+                        loadingText="Enregistrement…"
                       >
-                        {infosAccesSaving ? 'Enregistrement…' : 'Enregistrer'}
+                        Enregistrer
                       </Button>
                       <Button
                         type="button"
@@ -1748,20 +1749,18 @@ export function CollecteDetailPanel({
                         setAcceptationModal(true);
                       }}
                     >
-                      <PhoneCall className="h-4 w-4 mr-2" />
+                      <PhoneCall />
                       Acceptation manuelle
                     </Button>
                   )}
                   <Button
-                    disabled={
-                      isTerminal || dispatching || overrideMotifManquant
-                    }
+                    disabled={isTerminal || overrideMotifManquant}
                     onClick={() => void handleDispatch()}
+                    loading={dispatching}
+                    loadingText="Envoi…"
                   >
-                    <Send className="h-4 w-4 mr-2" />
-                    {dispatching
-                      ? 'Envoi…'
-                      : libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
+                    <Send />{' '}
+                    {libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
                   </Button>
                 </div>
 
@@ -1922,8 +1921,12 @@ export function CollecteDetailPanel({
                       >
                         Annuler
                       </Button>
-                      <Button type="submit" disabled={peseesSaving}>
-                        {peseesSaving ? 'Enregistrement…' : 'Enregistrer'}
+                      <Button
+                        type="submit"
+                        loading={peseesSaving}
+                        loadingText="Enregistrement…"
+                      >
+                        Enregistrer
                       </Button>
                     </div>
                   </form>
@@ -1988,27 +1991,20 @@ export function CollecteDetailPanel({
                       )
                     }
                   >
-                    <Download className="h-4 w-4 mr-1" />
+                    <Download />
                     Télécharger
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    disabled={
-                      !documents?.rapport ||
-                      regenerating === 'rapport-recyclage-zd'
-                    }
+                    disabled={!documents?.rapport}
+                    loading={regenerating === 'rapport-recyclage-zd'}
+                    loadingText="Régénérer"
                     onClick={() =>
                       void handleRegenerate('rapport-recyclage-zd')
                     }
                   >
-                    <RotateCw
-                      className={`h-4 w-4 mr-1 ${
-                        regenerating === 'rapport-recyclage-zd'
-                          ? 'animate-spin'
-                          : ''
-                      }`}
-                    />
+                    <RotateCw />
                     Régénérer
                   </Button>
                 </div>
@@ -2046,22 +2042,18 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download className="h-4 w-4 mr-1" />
+                      <Download />
                       Télécharger
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={
-                        !documents?.bordereau || regenerating === 'bordereau-zd'
-                      }
+                      disabled={!documents?.bordereau}
+                      loading={regenerating === 'bordereau-zd'}
+                      loadingText="Régénérer"
                       onClick={() => void handleRegenerate('bordereau-zd')}
                     >
-                      <RotateCw
-                        className={`h-4 w-4 mr-1 ${
-                          regenerating === 'bordereau-zd' ? 'animate-spin' : ''
-                        }`}
-                      />
+                      <RotateCw />
                       Régénérer
                     </Button>
                   </div>
@@ -2100,25 +2092,18 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download className="h-4 w-4 mr-1" />
+                      <Download />
                       Télécharger
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={
-                        !documents?.attestation ||
-                        regenerating === 'attestation-don'
-                      }
+                      disabled={!documents?.attestation}
+                      loading={regenerating === 'attestation-don'}
+                      loadingText="Régénérer"
                       onClick={() => void handleRegenerate('attestation-don')}
                     >
-                      <RotateCw
-                        className={`h-4 w-4 mr-1 ${
-                          regenerating === 'attestation-don'
-                            ? 'animate-spin'
-                            : ''
-                        }`}
-                      />
+                      <RotateCw />
                       Régénérer
                     </Button>
                   </div>
@@ -2296,7 +2281,7 @@ export function CollecteDetailPanel({
             setForceStatutModal(true);
           }}
         >
-          <Settings2 className="h-4 w-4" />
+          <Settings2 />
           Forcer le statut
         </Button>
       </footer>
@@ -2355,11 +2340,10 @@ export function CollecteDetailPanel({
             <Button
               type="submit"
               variant="destructive"
-              disabled={annulerCreditSubmitting}
+              loading={annulerCreditSubmitting}
+              loadingText="Annulation…"
             >
-              {annulerCreditSubmitting
-                ? 'Annulation…'
-                : "Confirmer l'annulation"}
+              {"Confirmer l'annulation"}
             </Button>
           </div>
         </form>
@@ -2422,12 +2406,12 @@ export function CollecteDetailPanel({
             <Button
               type="submit"
               disabled={
-                forceStatutSubmitting ||
-                forceStatutMotif.trim().length < 10 ||
-                forceStatutValue === ''
+                forceStatutMotif.trim().length < 10 || forceStatutValue === ''
               }
+              loading={forceStatutSubmitting}
+              loadingText="Application…"
             >
-              {forceStatutSubmitting ? 'Application…' : 'Confirmer le forçage'}
+              Confirmer le forçage
             </Button>
           </div>
         </form>
@@ -2549,11 +2533,11 @@ export function CollecteDetailPanel({
             </Button>
             <Button
               type="submit"
-              disabled={acceptationSubmitting || acceptationIncomplete}
+              disabled={acceptationIncomplete}
+              loading={acceptationSubmitting}
+              loadingText="Enregistrement…"
             >
-              {acceptationSubmitting
-                ? 'Enregistrement…'
-                : "Enregistrer l'acceptation"}
+              {"Enregistrer l'acceptation"}
             </Button>
           </div>
         </form>
@@ -2609,12 +2593,13 @@ export function CollecteDetailPanel({
             <Button
               type="submit"
               disabled={
-                nbCamionsSubmitting ||
                 Number(nbCamionsValue) < 1 ||
                 !Number.isInteger(Number(nbCamionsValue))
               }
+              loading={nbCamionsSubmitting}
+              loadingText="Enregistrement…"
             >
-              {nbCamionsSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+              Enregistrer
             </Button>
           </div>
         </form>

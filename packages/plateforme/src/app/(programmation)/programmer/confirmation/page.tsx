@@ -228,14 +228,14 @@ function ConfirmationContent() {
         {evenement && (
           <Button asChild>
             <Link href={`/programmer/${evenement.id}/ajouter-collecte`}>
-              <PlusCircle className="h-4 w-4" />
+              <PlusCircle />
               Ajouter une collecte à cet événement
             </Link>
           </Button>
         )}
         <Button asChild variant="secondary">
           <Link href="/programmer/nouveau">
-            <CalendarPlus className="h-4 w-4" />
+            <CalendarPlus />
             Programmer un autre événement
           </Link>
         </Button>

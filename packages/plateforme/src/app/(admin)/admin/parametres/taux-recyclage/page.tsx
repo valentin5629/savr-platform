@@ -235,7 +235,7 @@ export default function TauxRecyclagePage() {
                     variant="secondary"
                     onClick={() => openHistory(f)}
                   >
-                    <History className="h-4 w-4 mr-1" />
+                    <History />
                     Historique
                   </Button>
                   {canEdit && (
@@ -244,7 +244,7 @@ export default function TauxRecyclagePage() {
                       variant="secondary"
                       onClick={() => openModal(f)}
                     >
-                      <Edit className="h-4 w-4 mr-1" />
+                      <Edit />
                       Modifier
                     </Button>
                   )}
@@ -280,9 +280,11 @@ export default function TauxRecyclagePage() {
             </Button>
             <Button
               onClick={() => void handleSave()}
-              disabled={modal.saving || modal.commentaire.length < 5}
+              disabled={modal.commentaire.length < 5}
+              loading={modal.saving}
+              loadingText="Enregistrement…"
             >
-              {modal.saving ? 'Enregistrement…' : 'Enregistrer'}
+              Enregistrer
             </Button>
           </>
         }

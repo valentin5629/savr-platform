@@ -79,12 +79,11 @@ interface Transporteur {
 }
 
 // Recommandation de l'algo d'attribution AG (§06.09) — sous-ensemble consommé par
-// Bloc 0 : transporteur top-1 (baseline « ≠ top-1 → motif obligatoire ») +
-// association recommandée. L'attribution complète (validation, emails, top 3) vit
-// sur l'écran /admin/attributions-ag/[id] (+ Bloc 5).
+// Bloc 0 sur une AG déjà attribuée : transporteur top-1 (baseline « ≠ top-1 →
+// motif obligatoire » au renvoi / changement de prestataire). L'attribution
+// elle-même passe par le formulaire intégré (AttributionAgForm), qui charge sa
+// propre recommandation.
 interface RecoAlgo {
-  // Scores détaillés (distance, capacité) exposés par calculerAlgoAttributionAg
-  // (§06.06 l.253) — surfacés dans le top 3 du Bloc 5.
   associations: {
     id: string;
     nom: string;
@@ -578,13 +577,19 @@ export function CollecteDetailPanel({
   // de la reco = 0 motif). Erreur/aucune reco = dégradation gracieuse (pas de baseline).
   const collecteType = collecte?.type;
   const collecteStatut = collecte?.statut;
+  // AG sans attribution : le formulaire intégré charge sa propre recommandation
+  // et le bloc dispatch n'est pas rendu — ne rien présélectionner ici (sinon le
+  // top-1 resterait coché après une validation sur un autre transporteur).
+  const attributionAbsente =
+    collecte?.type === 'anti_gaspi' &&
+    collecte?.attributions_antgaspi?.associations == null;
   // Déjà attribuée = prestataire posé sur la collecte OU servi par la route
   // (transporteur sans pont : `prestataire_logistique_id` reste NULL).
   const dejaAttribuee =
     collecte?.prestataire_logistique_id != null ||
     collecte?.prestataire_actuel != null;
   useEffect(() => {
-    if (collecteType !== 'anti_gaspi') return;
+    if (collecteType !== 'anti_gaspi' || attributionAbsente) return;
     if (
       collecteStatut != null &&
       ['realisee', 'cloturee', 'annulee', 'realisee_sans_collecte'].includes(
@@ -613,7 +618,13 @@ export function CollecteDetailPanel({
     return () => {
       active = false;
     };
-  }, [collecteId, collecteType, collecteStatut, dejaAttribuee]);
+  }, [
+    collecteId,
+    collecteType,
+    collecteStatut,
+    dejaAttribuee,
+    attributionAbsente,
+  ]);
 
   const handleAnnulerCredit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1432,7 +1443,7 @@ export function CollecteDetailPanel({
             {/* AG sans attribution : formulaire intégré (décision Val 2026-10-01) —
             association d'abord (son adresse est le point de livraison), besoin
             véhicule, prestataire, un seul bouton « Valider et envoyer ». */}
-            {attributionManquante && !isTerminal && (
+            {attributionManquante && collecte.statut === 'programmee' && (
               <Card className="p-5 space-y-4">
                 <BlocHeader
                   icon={HeartHandshake}
@@ -1449,10 +1460,35 @@ export function CollecteDetailPanel({
                     type_vehicule_souhaite:
                       collecte.type_vehicule_souhaite ?? null,
                   }}
-                  onValidee={() => void refetch()}
+                  onValidee={() => {
+                    // Le bloc dispatch qui prend la relève ne doit hériter
+                    // d'aucune sélection : l'ordre vient de partir chez le
+                    // transporteur choisi, pas chez le recommandé.
+                    setSelectedTransporteurId('');
+                    setMotifOverride('');
+                    void refetch();
+                  }}
                 />
               </Card>
             )}
+            {/* AG sans attribution hors `programmee` (brouillon, annulation
+            demandée…) : la validation d'attribution est impossible (§06.09 §3,
+            RPC P0043) — consigne plutôt qu'un formulaire qui échouerait. */}
+            {attributionManquante &&
+              collecte.statut !== 'programmee' &&
+              !isTerminal && (
+                <Card className="p-5 space-y-4">
+                  <BlocHeader
+                    icon={HeartHandshake}
+                    title="Attribution & dispatch"
+                  />
+                  <AlertBar variant="warn">
+                    L&apos;attribution (association, prestataire) n&apos;est
+                    possible qu&apos;au statut « Programmée » — statut actuel :
+                    « {statutCollecteDisplay(collecte.statut).label} ».
+                  </AlertBar>
+                </Card>
+              )}
             {/* AG attribuée : résumé de l'attribution AVANT « Prestataire &
             Dispatch » (décision Val 2026-10-01). */}
             {collecte.type === 'anti_gaspi' && !attributionManquante && (

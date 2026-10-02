@@ -610,7 +610,8 @@ export class AdapterEverest implements LogistiqueProvider {
    * d'affichage de la collecte (§04 Data Model l.1509, §06.06 bouton « Renvoyer
    * au TMS », §11 carte « Collectes non transmises »). Ce provider n'a pas de
    * notion de tour : la référence de rapprochement EST le missionId. Posée au
-   * rang 1 seulement (V1 : 1 collecte AG = 1 mission). JAMAIS un prédicat
+   * rang 1 seulement (référence d'affichage de la collecte ; les rangs > 1 ont
+   * leur propre tournée + mission, cf. dispatchCollecte). JAMAIS un prédicat
    * d'émission — cf. fn_collecte_commandee_chez_provider.
    *
    * L'`error` est lue : `uniq_tournee_par_external_ref` rend ce commit faillible,

@@ -249,22 +249,29 @@ function liste(valeur: unknown): string {
  * coûte quasiment rien aux informations d'accès qui suivent.
  */
 /**
- * Véhicule demandé par l'Admin à l'attribution (décision Val 2026-10-01) :
- * « 2 × camionnette », « vélo cargo », ou « 2 véhicules » quand seul le nombre
- * est connu. Un seul véhicule sans type précisé = rien à dire.
+ * Véhicule demandé par l'Admin à l'attribution (décision Val 2026-10-01). Le
+ * texte est composé UNE fois puis envoyé à l'identique sur les N commandes
+ * (N véhicules = N commandes identiques) : il dit donc « 1 par commande » pour
+ * qu'un prestataire ne lise pas « 2 × camionnette » comme 2 véhicules PAR
+ * commande. Formes :
+ *   - N = 1, type connu  → « camionnette »
+ *   - N > 1, type connu  → « camionnette (1 par commande, 2 commandes identiques pour cette collecte) »
+ *   - N > 1, sans type   → « 1 par commande, 3 commandes identiques pour cette collecte »
+ *   - N = 1, sans type   → rien à dire.
  */
-function ligneVehicule(vehicule: VehiculeSouhaite | undefined): string {
+function ligneVehicule(vehicule: VehiculeSouhaite | null): string {
   if (!vehicule) return '';
   const type = libelle(vehicule.type, LIBELLE_VEHICULE);
   const nombre = Number.isInteger(vehicule.nombre) ? vehicule.nombre : 1;
-  if (type) return nombre > 1 ? `${nombre} × ${type}` : type;
-  return nombre > 1 ? `${nombre} véhicules` : '';
+  if (nombre <= 1) return type;
+  const repartition = `1 par commande, ${nombre} commandes identiques pour cette collecte`;
+  return type ? `${type} (${repartition})` : repartition;
 }
 
 function lignesCanalLibre(
   lieu: Lieu,
   contactSecoursNom: string | null | undefined,
-  vehicule: VehiculeSouhaite | undefined,
+  vehicule: VehiculeSouhaite | null,
 ): string[] {
   const candidates: Array<[string, string]> = [
     ['Contact de secours', nomContact(contactSecoursNom)],
@@ -364,6 +371,14 @@ function assemblerAgregat(
     : `${prefixe}${MARQUEUR_TRONQUE}`;
 }
 
+/** Besoin véhicule saisi à l'attribution AG (décision Val 2026-10-01). */
+export interface VehiculeSouhaite {
+  /** Valeur de l'enum plateforme.type_vehicule, ou null si non précisé. */
+  readonly type: string | null | undefined;
+  /** `collectes.nb_camions_demande` = nombre de commandes identiques. */
+  readonly nombre: number;
+}
+
 /**
  * Compose le champ libre transmis au transporteur : les informations
  * supplémentaires saisies par le traiteur, PUIS — sous un séparateur — le nom du
@@ -382,22 +397,18 @@ function assemblerAgregat(
  *   **obligatoire** (quitte à passer `null`) : le défaut corrigé ici est
  *   précisément une donnée portée jusqu'au worker que personne ne lisait — un
  *   paramètre optionnel rouvrirait l'oubli silencieux au prochain appelant.
+ * @param vehicule Besoin véhicule de l'attribution AG (type souhaité + nombre
+ *   de commandes), `null` quand la collecte n'en porte pas (ZD) — obligatoire,
+ *   pour la même raison que `contactSecoursNom`.
  * @returns Le champ libre, ou `null` si rien à transmettre (aucune ligne ne doit
  *   être créée pour une collecte sans information : `null` = pas de `comment`
  *   MTS-1, pas de `notes` Everest).
  */
-export interface VehiculeSouhaite {
-  /** Valeur de l'enum plateforme.type_vehicule, ou null si non précisé. */
-  readonly type: string | null | undefined;
-  /** `collectes.nb_camions_demande`. */
-  readonly nombre: number;
-}
-
 export function composerInformationsSupplementaires(
   lieu: Lieu,
   informationsSupplementaires: string | null | undefined,
   contactSecoursNom: string | null | undefined,
-  vehicule?: VehiculeSouhaite,
+  vehicule: VehiculeSouhaite | null,
 ): string | null {
   const base = texte(informationsSupplementaires);
   const lignes = lignesCanalLibre(lieu, contactSecoursNom, vehicule);

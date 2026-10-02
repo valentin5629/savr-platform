@@ -106,7 +106,7 @@ const transporteurs = [
   },
 ];
 
-function mockFetch(collecteFixture: object = collecteAg) {
+function mockFetch(collecteFixture: object | (() => object) = collecteAg) {
   const fetchMock = vi.fn(
     (url: string, opts?: { method?: string; body?: string }) => {
       const method = opts?.method ?? 'GET';
@@ -198,7 +198,13 @@ function mockFetch(collecteFixture: object = collecteAg) {
         });
       }
       // GET collecte
-      return Promise.resolve({ ok: true, json: async () => collecteFixture });
+      return Promise.resolve({
+        ok: true,
+        json: async () =>
+          typeof collecteFixture === 'function'
+            ? collecteFixture()
+            : collecteFixture,
+      });
     },
   );
   vi.stubGlobal('fetch', fetchMock);
@@ -344,6 +350,119 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(body.nb_camions_demande).toBe(2);
         expect(body.type_vehicule_souhaite).toBeNull();
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — attribution validée sur un autre transporteur : le bloc dispatch coche l’actuel, jamais le recommandé',
+    async () => {
+      // Avant : AG sans attribution. Après validation : attribuée à A Toutes!
+      // (≠ reco Strike). Le bloc dispatch qui prend la relève ne doit pas
+      // présélectionner Strike — un clic renverrait la collecte au mauvais
+      // prestataire, sans motif.
+      let fixture: object = { ...collecteAg, attributions_antgaspi: null };
+      const fetchMock = mockFetch(() => fixture);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const selectTransp = await screen.findByRole(
+        'combobox',
+        { name: 'Transporteur' },
+        ATTENTE_UI,
+      );
+      fireEvent.click(selectTransp);
+      fireEvent.click(
+        await screen.findByRole('option', { name: 'A Toutes!' }, ATTENTE_UI),
+      );
+      fireEvent.click(screen.getByRole('combobox', { name: 'Motif' }));
+      fireEvent.click(
+        screen.getByRole('option', { name: 'Transporteur top 1 indisponible' }),
+      );
+      const valider = await screen.findByRole(
+        'button',
+        { name: /^Valider et envoyer à A Toutes!/ },
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(valider).not.toBeDisabled(), ATTENTE_UI);
+      fixture = {
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-atoutes',
+        prestataire_actuel: {
+          transporteur_id: 't-atoutes',
+          nom: 'A Toutes!',
+          type_tms: 'a_toutes',
+        },
+        attributions_antgaspi: {
+          id: 'attr-1',
+          mode_validation: 'manuel_override',
+          valide_at: '2026-10-01T10:00:00Z',
+          volume_repas_realise: null,
+          associations: { nom: 'Les Restos du Cœur' },
+          transporteurs: {
+            id: 't-atoutes',
+            nom: 'A Toutes!',
+            type_tms: 'a_toutes',
+          },
+        },
+      };
+      fireEvent.click(valider);
+
+      // Après refetch : bloc dispatch, carte « Actuel » = A Toutes! cochée,
+      // bouton forké sur A Toutes!, aucun bouton vers le recommandé.
+      const carteAToutes = await screen.findByRole(
+        'radio',
+        { name: /A Toutes!/ },
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(carteAToutes).toHaveAttribute('aria-checked', 'true'),
+        ATTENTE_UI,
+      );
+      expect(screen.getByRole('radio', { name: /Strike/ })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
+      expect(
+        screen.getByRole('button', { name: /Envoyer à A Toutes!/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /Envoyer à MTS-1/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        fetchMock.mock.calls.some(
+          ([u, o]) =>
+            String(u).includes('/valider') &&
+            (o as { method?: string } | undefined)?.method === 'POST',
+        ),
+      ).toBe(true);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — AG sans attribution hors « programmee » : consigne, ni formulaire ni bouton d’envoi',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        statut: 'brouillon',
+        attributions_antgaspi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /possible qu.au statut « Programmée »/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByLabelText('Type de véhicule souhaité'),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^Envoyer à/ }),
+      ).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -1137,7 +1256,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253)',
+    'M0.6 — Bloc 5 : la recommandation n°1 affiche ses scores détaillés (distance + capacité, §06.06 l.253)',
     async () => {
       // Collecte AG NON terminale → l'algo (reco) est appelé → top 3 + scores rendus.
       installMock({

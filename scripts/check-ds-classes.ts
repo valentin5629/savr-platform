@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * check-ds-classes — Gate UI « styles hors Design System » (R-UI-0, §5 de
- * docs/design-system/RATIONALISATION_UI.md). MODE RAPPORT, enforcement via le
+ * docs/design-system/RATIONALISATION_UI.md (PR #462)). MODE RAPPORT, enforcement via le
  * méta-cliquet `check:ratchet` (compteur qui ne peut que descendre).
  * =============================================================================
  * Règle : dans le code applicatif (`app/`, `components/` hors `components/ui/`),

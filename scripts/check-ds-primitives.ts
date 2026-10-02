@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * check-ds-primitives — Gate UI « primitive HTML brute au lieu du composant
- * Design System » (R-UI-0, §5 de docs/design-system/RATIONALISATION_UI.md).
+ * Design System » (R-UI-0, §5 de docs/design-system/RATIONALISATION_UI.md (PR #462)).
  * MODE RAPPORT, enforcement via le méta-cliquet `check:ratchet`.
  * =============================================================================
  * Dans le code applicatif (`app/`, `components/` hors `components/ui/`), un

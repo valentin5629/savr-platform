@@ -3,6 +3,7 @@
  * Une seule graphie par rôle (fin des « Gestionnaire lieux » / « Gestionnaire de
  * lieux » concurrents). Fallback = valeur brute.
  */
+import type { Database } from '@savr/shared/src/database.types.js';
 
 export const LIBELLE_ROLE: Record<string, string> = {
   admin_savr: 'Admin Savr',
@@ -12,7 +13,7 @@ export const LIBELLE_ROLE: Record<string, string> = {
   agence: 'Agence',
   gestionnaire_lieux: 'Gestionnaire de lieux',
   client_organisateur: 'Client organisateur',
-};
+} satisfies Record<Database['plateforme']['Enums']['user_role'], string>;
 
 export function libelleRole(role: string | null | undefined): string {
   if (!role) return '—';

@@ -1,21 +1,22 @@
 /**
  * Libellés et variantes de badge des packs Anti-Gaspi (R-UI-0 B2).
  */
-import type { BadgeProps } from '@/components/ui/badge';
+import type { Database } from '@savr/shared/src/database.types.js';
+import type { VarianteBadge as Variant } from './types';
 
-type Variant = NonNullable<BadgeProps['variant']>;
+type StatutPack = Database['plateforme']['Enums']['pack_statut'];
 
 export const LIBELLE_STATUT_PACK: Record<string, string> = {
   actif: 'Actif',
   epuise: 'Épuisé',
   annule: 'Annulé',
-};
+} satisfies Record<StatutPack, string>;
 
 export const VARIANT_STATUT_PACK: Record<string, Variant> = {
   actif: 'success',
   epuise: 'neutral',
   annule: 'error',
-};
+} satisfies Record<StatutPack, Variant>;
 
 export const LIBELLE_TYPE_PACK: Record<string, string> = {
   unitaire: 'Unitaire',

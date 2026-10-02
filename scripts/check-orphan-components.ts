@@ -12,7 +12,7 @@
  * sur une page, et les tests unitaires du composant restent verts alors que la
  * page ne l'affiche pas. Le gate transforme « oubli de montage » en compteur.
  *
- * Extension R-UI-0 (docs/design-system/RATIONALISATION_UI.md §5) : même règle
+ * Extension R-UI-0 (docs/design-system/RATIONALISATION_UI.md (PR #462) §5) : même règle
  * pour les PRIMITIVES `components/ui/*.tsx` (export de valeur PascalCase). Une
  * primitive exportée qu'aucun écran ni composant n'importe (Toast, Sheet,
  * StatCard…) est une recette du Design System que l'app ne suit pas — soit à
@@ -27,11 +27,15 @@
  *   le barrel — page OU composant frère (import relatif `./X.js` inclus). Sinon
  *   = orphelin (exporté mais monté nulle part).
  *
- * Sortie : émet `RATCHET_COUNT=<nb orphelins>` (lu par check-ratchet), écrit un
- * rapport, et sort TOUJOURS 0 (report-only ; l'enforcement passe par le cliquet
+ * Sortie : rapport des deux familles, puis `RATCHET_COUNT=<n>` (lu par
+ * check-ratchet) = orphelins DASHBOARDS par défaut (clé `orphan-components`,
+ * baseline 0), ou orphelins DS avec `--ui` (clé `orphan-ui`). Deux compteurs
+ * séparés : la dette DS tolérée ne doit jamais masquer un bloc dashboard
+ * oublié. Sort TOUJOURS 0 (report-only ; l'enforcement passe par le cliquet
  * `docs/audit/gate-baseline.json`).
  *
- * Usage : pnpm check:orphan-components
+ * Usage : pnpm check:orphan-components   # RATCHET_COUNT = dashboards
+ *         pnpm check:orphan-ui           # RATCHET_COUNT = primitives components/ui
  * =============================================================================
  */
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -219,7 +223,8 @@ function main(): void {
     )
     .sort();
 
-  const total = orphans.length + uiOrphans.length;
+  const modeUi = process.argv.includes('--ui');
+  const total = modeUi ? uiOrphans.length : orphans.length;
   const lines: string[] = [
     '## Gate G3 — Composants dashboards + primitives DS orphelins (report-only)',
     '',
@@ -250,7 +255,9 @@ function main(): void {
   }
   const report = lines.join('\n');
   console.log(report);
-  console.log(`\nRATCHET_COUNT=${total}`);
+  console.log(
+    `\nRATCHET_COUNT=${total} (${modeUi ? 'primitives components/ui' : 'composants dashboards'})`,
+  );
   if (process.env.GITHUB_STEP_SUMMARY) {
     writeFileSync(process.env.GITHUB_STEP_SUMMARY, `${report}\n`, {
       flag: 'a',

@@ -11,12 +11,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/gestionnaire',
 }));
 
-vi.mock('@/components/dashboards/charts/lazy.js', () => ({
-  EvolutionFluxChart: () => <div data-testid="stub-flux" />,
-  EvolutionRepasChart: () => <div data-testid="stub-repas" />,
-  TonnagesDonut: () => <div data-testid="stub-donut" />,
-}));
-
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 

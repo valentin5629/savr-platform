@@ -11,7 +11,7 @@
  * `components/dashboards/charts/cockpit/fmt.ts` jusque-là.
  */
 
-const NBSP = ' ';
+const NBSP = '\u00a0';
 
 function nombre(n: number, d: number): string {
   return new Intl.NumberFormat('fr-FR', {

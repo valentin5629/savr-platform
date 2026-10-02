@@ -66,7 +66,7 @@ const SELECTEURS_TEMPS = [
   },
 ];
 
-// Sélecteurs Design System (R-UI-0, docs/design-system/RATIONALISATION_UI.md §5)
+// Sélecteurs Design System (R-UI-0, docs/design-system/RATIONALISATION_UI.md (PR #462) §5)
 // — un nombre affiché dans du JSX passe par `@/lib/format` : `toFixed()` rend
 // « 12.5 » (point décimal anglais) là où l'app affiche « 12,5 ». Le filet
 // large (toFixed hors graphes SVG) est le gate cliqueté `check:ds-primitives`.

@@ -124,8 +124,12 @@ describe('AlertesPage', () => {
       expect(resolues).toHaveAttribute('aria-pressed', 'true');
       expect(window.location.search).toBe('?statut=resolue');
       // Compteur dans le pied de la FilterBar (D5), un seul emplacement.
-      expect(screen.getByTestId('alertes-filtres-count')).toHaveTextContent(
-        '1 alerte',
+      await waitFor(
+        () =>
+          expect(screen.getByTestId('alertes-filtres-count')).toHaveTextContent(
+            '1 alerte',
+          ),
+        ATTENTE_UI,
       );
 
       // « Réinitialiser les filtres » → retour au défaut (Ouvertes), URL vierge.

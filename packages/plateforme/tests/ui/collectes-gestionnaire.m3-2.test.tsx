@@ -557,11 +557,14 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       // Le total EXACT est affiché — dans le pied de la barre de filtres, seul
       // emplacement du compteur (R-UI-4b, D5) : au-delà d'une page, lui seul
       // dit combien de collectes existent dans le périmètre demandé.
-      expect(
-        await screen.findByTestId('collectes-resultats-count', {}, ATTENTE_UI),
-      ).toHaveProperty(
-        'textContent',
-        '120 collectes correspondent à votre sélection',
+      // Le compteur existe dès le rendu (0 avant la réponse) : attendre la
+      // VALEUR, pas l'élément (course observée en CI, #481).
+      await waitFor(
+        () =>
+          expect(
+            screen.getByTestId('collectes-resultats-count'),
+          ).toHaveTextContent('120 collectes correspondent à votre sélection'),
+        ATTENTE_UI,
       );
 
       // 120 / 50 = 3 pages.

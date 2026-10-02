@@ -34,7 +34,7 @@ interface SousBlocCollecteProps {
 
 const TYPE_LABELS = { zd: 'Zéro Déchet', ag: 'Anti-Gaspi' };
 const TYPE_COLORS = {
-  zd: 'border-savr-success bg-green-50',
+  zd: 'border-savr-success bg-savr-success-subtle',
   ag: 'border-savr-primary-400 bg-savr-primary-50',
 };
 

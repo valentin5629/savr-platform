@@ -363,7 +363,7 @@ export function AssociationModal({
   }
 
   const checkboxClass =
-    'h-4 w-4 rounded border-savr-neutral-300 text-savr-primary-700 focus:outline-2 focus:outline-savr-primary-500';
+    'h-4 w-4 rounded-savr-sm border-savr-neutral-300 text-savr-primary-700 focus:outline-2 focus:outline-savr-primary-500';
 
   const footer = (
     <>

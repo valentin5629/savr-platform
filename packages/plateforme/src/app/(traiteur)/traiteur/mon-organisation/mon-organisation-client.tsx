@@ -260,7 +260,7 @@ function LogoCard({
           <img
             src={logoSrc}
             alt="Logo de l'organisation"
-            className="h-16 w-auto rounded border border-savr-neutral-200"
+            className="h-16 w-auto rounded-savr-sm border border-savr-neutral-200"
           />
         ) : (
           <p className="text-sm text-savr-neutral-500">Aucun logo.</p>
@@ -435,7 +435,7 @@ function EntitesCard({
           (showForm ? (
             <form
               onSubmit={add}
-              className="space-y-2 rounded border border-savr-neutral-200 p-3"
+              className="space-y-2 rounded-savr-sm border border-savr-neutral-200 p-3"
             >
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField

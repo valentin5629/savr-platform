@@ -14,6 +14,8 @@ import {
   TEXT_FAINT,
   TEXT_XFAINT,
   SURFACE_HOVER,
+  PARC,
+  WHITE,
 } from './palette';
 
 // BenchmarkRadar — radar « lignes seules » (modèle shadcn Radar Chart - Lines
@@ -40,7 +42,6 @@ interface BenchmarkRadarProps {
 // Série « Vous » = navy-700 (encre forte), série « Parc » = primary-300 (repère
 // en retrait) — échelle primary DS §10.
 const VOUS = NAVY;
-const PARC = '#92A3D2'; // primary-300
 
 // Géométrie SVG (viewBox fixe, rendu fluide en largeur).
 const VB_W = 460; // marge latérale : libellés longs (« Déchet résiduel ») ; « n/d » va en 2e ligne
@@ -426,7 +427,7 @@ export function BenchmarkRadar({
                 cy={ptsParc[hover]![1]}
                 r={4}
                 fill={PARC}
-                stroke="#FFFFFF"
+                stroke={WHITE}
                 strokeWidth={1.5}
               />
             )}
@@ -438,7 +439,7 @@ export function BenchmarkRadar({
                   cy={p[1]}
                   r={hover === i ? 5 : 3}
                   fill={VOUS}
-                  stroke={hover === i ? '#FFFFFF' : 'none'}
+                  stroke={hover === i ? WHITE : 'none'}
                   strokeWidth={1.5}
                 />
               ) : null,

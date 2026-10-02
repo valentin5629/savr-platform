@@ -11,10 +11,18 @@
  *
  * Compte, hors tests et hors vitrine `/dev` :
  *   1. classes de palette Tailwind brute : `text-red-600`, `bg-neutral-100`… ;
- *   2. rayons bruts : `rounded`, `rounded-lg`, `rounded-t-xl`… (sauf
+ *   2. blanc / noir bruts : `bg-white`, `text-white`, `bg-black/40`… (le token
+ *      est `*-savr-white` ; un voile noir passe par un token dédié) ;
+ *   3. rayons bruts : `rounded`, `rounded-lg`, `rounded-t-xl`… (sauf
  *      `rounded-savr-*` et `rounded-full`) ;
- *   3. ombres brutes : `shadow`, `shadow-sm`, `shadow-xl`… (sauf `shadow-savr-*`) ;
- *   4. couleurs hexadécimales en dur : `#1f2937`.
+ *   4. ombres brutes : `shadow`, `shadow-sm`, `shadow-xl`… (sauf `shadow-savr-*`) ;
+ *   5. couleurs hexadécimales en dur : `#1f2937`, `#fff`, `#223870cc`
+ *      (3, 4, 6 ou 8 chiffres) et fonctions `rgb()` / `rgba()` / `hsl()` ;
+ *   6. durées de transition brutes : `duration-150`, `duration-[120ms]`
+ *      (au lieu de `duration-savr-fast|base|slow`).
+ *
+ * Cas assumés (R-UI-6a) : une valeur unique sans token de même rendu reste en
+ * place, précédée d'un commentaire `ds-classes: valeur unique, à arbitrer`.
  *
  * Les commentaires sont retirés avant l'analyse (un mot « shadow » dans une
  * explication n'est pas une classe).
@@ -46,6 +54,8 @@ const UTILS =
 
 // Une classe est délimitée par un guillemet, un backtick, une espace, un `:`
 // (variante `hover:`) ou `${`/`}` dans un template literal.
+// (Un hex dans une valeur arbitraire — `bg-[#223870]`, `shadow-[0_0_0_1px_#000]`
+// — est attrapé par la catégorie `hex`, dont les délimiteurs incluent `[` et `_`.)
 const AVANT = '(?<=["\'`\\s:}]|^)';
 const APRES = '(?=["\'`\\s$]|$)';
 
@@ -59,25 +69,50 @@ const CATEGORIES: { key: string; libelle: string; re: RegExp }[] = [
     ),
   },
   {
-    key: 'rayon',
-    libelle: 'rayon brut (ex. rounded-lg) au lieu de rounded-savr-*',
+    key: 'blanc-noir',
+    libelle:
+      'blanc / noir brut (ex. bg-white, bg-black/40) au lieu de *-savr-white',
     re: new RegExp(
-      `${AVANT}rounded(?:-(?:t|b|l|r|tl|tr|bl|br|s|e|ss|se|es|ee))?(?:-(?:none|xs|sm|md|lg|xl|2xl|3xl|4xl))?${APRES}`,
+      `${AVANT}(?:${UTILS})-(?:white|black)(?:/\\d{1,3})?${APRES}`,
+      'g',
+    ),
+  },
+  {
+    key: 'rayon',
+    libelle:
+      'rayon brut (ex. rounded-lg, rounded-[6px]) au lieu de rounded-savr-*',
+    re: new RegExp(
+      `${AVANT}rounded(?:-(?:t|b|l|r|tl|tr|bl|br|s|e|ss|se|es|ee))?(?:-(?:none|xs|sm|md|lg|xl|2xl|3xl|4xl)|-\\[(?!var\\(--)[^\\]]+\\])?${APRES}`,
       'g',
     ),
   },
   {
     key: 'ombre',
-    libelle: 'ombre brute (ex. shadow-md) au lieu de shadow-savr-*',
+    libelle:
+      'ombre brute (ex. shadow-md, shadow-[…]) au lieu de shadow-savr-* (une valeur arbitraire contenant var(--…) est tolérée)',
     re: new RegExp(
-      `${AVANT}shadow(?:-(?:2xs|xs|sm|md|lg|xl|2xl|inner|none))?${APRES}`,
+      `${AVANT}shadow(?:-(?:2xs|xs|sm|md|lg|xl|2xl|inner|none)|-\\[(?!(?:[^\\]]*)var\\(--)[^\\]]+\\])?${APRES}`,
       'g',
     ),
   },
   {
+    key: 'duree',
+    libelle:
+      'durée de transition brute (ex. duration-150, duration-[120ms]) au lieu de duration-savr-*',
+    re: new RegExp(`${AVANT}duration-(?:\\d+|\\[[^\\]]+\\])${APRES}`, 'g'),
+  },
+  {
     key: 'hex',
-    libelle: 'couleur hexadécimale en dur (ex. #1f2937)',
-    re: /#[0-9a-fA-F]{6}\b/g,
+    libelle: 'couleur hexadécimale en dur (ex. #1f2937, #fff, #223870cc)',
+    // 8, 6, 4 ou 3 chiffres ; les formes courtes exigent un délimiteur de
+    // valeur CSS/JS autour (un « #285 » de référence de PR vit en commentaire,
+    // déjà retiré, ou dans du texte sans guillemet).
+    re: /(?<=["'`(\s:_[])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?=["'`)\s;,_\]]|$)/g,
+  },
+  {
+    key: 'rgb',
+    libelle: 'couleur fonctionnelle en dur (rgb(), rgba(), hsl())',
+    re: /\b(?:rgba?|hsla?)\(/g,
   },
 ];
 

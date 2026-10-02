@@ -54,6 +54,7 @@ import {
   OrganisationSelector,
   type OrganisationOption,
 } from './OrganisationSelector.js';
+import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 
 // Variables de la modale « méthode CO₂ » renvoyées par l'endpoint admin.
 interface Co2Methode {
@@ -66,16 +67,6 @@ interface Co2Methode {
 function frDate(iso?: string): string {
   return iso ? iso.split('-').reverse().join('/') : '—';
 }
-
-// Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens —
-// identique gestionnaire, dashboard répliqué).
-const DOT = {
-  navy: '#223870',
-  navy2: '#3F5599',
-  green: '#16A34A',
-  navy3: '#6379B6',
-  accent: '#FF9B00',
-};
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -436,7 +427,7 @@ export function DashboardClientView() {
             <KpiCockpitCard
               label="Nombre de collectes"
               value={fmtInt(zdKpi.nb_collectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(
                 zdKpi.nb_collectes,
                 zdPrev?.nb_collectes ?? 0,
@@ -447,7 +438,7 @@ export function DashboardClientView() {
               label="Tonnage collecté"
               value={fmtMasse(zdKpi.tonnage_kg ?? 0).value}
               unit={fmtMasse(zdKpi.tonnage_kg ?? 0).unit}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(
                 zdKpi.tonnage_kg ?? 0,
                 zdPrev?.tonnage_kg ?? 0,
@@ -462,13 +453,13 @@ export function DashboardClientView() {
                   : '—'
               }
               unit={zdKpi.taux_recyclage_pondere != null ? '%' : undefined}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
               variationPct={variationPct(
                 zdKpi.taux_recyclage_pondere ?? 0,
                 zdPrev?.taux_recyclage_pondere ?? 0,
               )}
               sparkPoints={sparkFromSeries(zdSeries, (p) => p.taux_recyclage)}
-              sparkColor={DOT.green}
+              sparkColor={KPI_DOT.green}
             />
             {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
                 mieux », §06.05 l.136). */}
@@ -478,7 +469,7 @@ export function DashboardClientView() {
                 zdKpi.kg_par_pax != null ? fmtDec(zdKpi.kg_par_pax, 2) : '—'
               }
               unit={zdKpi.kg_par_pax != null ? 'kg/pax' : undefined}
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromSeries(zdSeries, (p) =>
                 p.pax ? p.tonnage_total / p.pax : 0,
               )}
@@ -487,10 +478,10 @@ export function DashboardClientView() {
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
               variationPct={variationPct(co2.eviteKg, co2PrevKg)}
               sparkPoints={sparkFromSeries(zdSeries, (p) => p.co2_evite_kg)}
-              sparkColor={DOT.green}
+              sparkColor={KPI_DOT.green}
               onClick={
                 co2.eviteKg > 0 ? () => setCo2ModalOpen(true) : undefined
               }
@@ -573,7 +564,7 @@ export function DashboardClientView() {
             <KpiCockpitCard
               label="Nombre de collectes"
               value={fmtInt(agKpi.nb_collectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(
                 agKpi.nb_collectes,
                 agPrev?.nb_collectes ?? 0,
@@ -583,18 +574,18 @@ export function DashboardClientView() {
             <KpiCockpitCard
               label="Repas donnés"
               value={fmtInt(agKpi.nb_repas_donnes ?? 0)}
-              dotColor={DOT.accent}
+              dotColor={KPI_DOT.accent}
               variationPct={variationPct(
                 agKpi.nb_repas_donnes ?? 0,
                 agPrev?.nb_repas_donnes ?? 0,
               )}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
-              sparkColor={DOT.accent}
+              sparkColor={KPI_DOT.accent}
             />
             <KpiCockpitCard
               label="Pax cumulés"
               value={fmtInt(agKpi.pax_total ?? 0)}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(
                 agKpi.pax_total ?? 0,
                 agPrev?.pax_total ?? 0,
@@ -608,17 +599,17 @@ export function DashboardClientView() {
                   ? fmtDec(agKpi.repas_par_pax, 2)
                   : '—'
               }
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
             />
             <KpiCockpitCard
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
               variationPct={variationPct(co2.eviteKg, co2PrevKg)}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.co2_evite_kg)}
-              sparkColor={DOT.green}
+              sparkColor={KPI_DOT.green}
               onClick={
                 co2.eviteKg > 0 ? () => setCo2AgModalOpen(true) : undefined
               }

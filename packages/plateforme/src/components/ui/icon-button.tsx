@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 // `aria-label` OBLIGATOIRE (§9 : jamais d'icône seule sans label). Cible tactile
 // 44px sur mobile (§8/§10), 40px desktop ; focus ring signature (levier #4).
 const iconButtonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center rounded-savr-md transition-[background-color,color,transform] duration-[120ms] ease-out focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 [&>svg]:h-5 [&>svg]:w-5',
+  'inline-flex shrink-0 items-center justify-center rounded-savr-md transition-[background-color,color,transform] duration-savr-fast ease-out focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 [&>svg]:h-5 [&>svg]:w-5',
   {
     variants: {
       variant: {

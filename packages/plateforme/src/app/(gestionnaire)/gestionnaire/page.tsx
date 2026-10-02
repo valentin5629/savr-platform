@@ -39,14 +39,7 @@ import {
 } from '@/lib/dashboards/cockpit-derive';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
-const DOT = {
-  navy: '#223870',
-  navy2: '#3F5599',
-  green: '#16A34A',
-  navy3: '#6379B6',
-  accent: '#FF9B00',
-};
+import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -329,7 +322,7 @@ export default function GestionnaireDashboardPage() {
             <KpiCockpitCard
               label="Nombre de collectes"
               value={fmtInt(kpi.nb_collectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(
                 kpi.nb_collectes,
                 kpiPrev?.nb_collectes ?? 0,
@@ -340,7 +333,7 @@ export default function GestionnaireDashboardPage() {
               label="Tonnage collecté"
               value={fmtMasse(kpi.tonnage_kg ?? 0).value}
               unit={fmtMasse(kpi.tonnage_kg ?? 0).unit}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(
                 kpi.tonnage_kg ?? 0,
                 kpiPrev?.tonnage_kg ?? 0,
@@ -355,13 +348,13 @@ export default function GestionnaireDashboardPage() {
                   : '—'
               }
               unit={kpi.taux_recyclage_pondere != null ? '%' : undefined}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
               variationPct={variationPct(
                 kpi.taux_recyclage_pondere ?? 0,
                 kpiPrev?.taux_recyclage_pondere ?? 0,
               )}
               sparkPoints={sparkFromSeries(zdSeries, (p) => p.taux_recyclage)}
-              sparkColor={DOT.green}
+              sparkColor={KPI_DOT.green}
             />
             {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
                 mieux », §06.05 l.136). */}
@@ -369,7 +362,7 @@ export default function GestionnaireDashboardPage() {
               label="kg/pax moyen"
               value={kpi.kg_par_pax != null ? fmtDec(kpi.kg_par_pax, 2) : '—'}
               unit={kpi.kg_par_pax != null ? 'kg/pax' : undefined}
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromSeries(zdSeries, (p) =>
                 p.pax ? p.tonnage_total / p.pax : 0,
               )}
@@ -431,7 +424,7 @@ export default function GestionnaireDashboardPage() {
             <KpiCockpitCard
               label="Nombre de collectes"
               value={fmtInt(kpi.nb_collectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(
                 kpi.nb_collectes,
                 kpiPrev?.nb_collectes ?? 0,
@@ -441,18 +434,18 @@ export default function GestionnaireDashboardPage() {
             <KpiCockpitCard
               label="Repas donnés"
               value={fmtInt(kpi.nb_repas_donnes ?? 0)}
-              dotColor={DOT.accent}
+              dotColor={KPI_DOT.accent}
               variationPct={variationPct(
                 kpi.nb_repas_donnes ?? 0,
                 kpiPrev?.nb_repas_donnes ?? 0,
               )}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
-              sparkColor={DOT.accent}
+              sparkColor={KPI_DOT.accent}
             />
             <KpiCockpitCard
               label="Pax cumulés"
               value={fmtInt(kpi.pax_total ?? 0)}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(
                 kpi.pax_total ?? 0,
                 kpiPrev?.pax_total ?? 0,
@@ -464,7 +457,7 @@ export default function GestionnaireDashboardPage() {
               value={
                 kpi.repas_par_pax != null ? fmtDec(kpi.repas_par_pax, 2) : '—'
               }
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
             />
           </div>

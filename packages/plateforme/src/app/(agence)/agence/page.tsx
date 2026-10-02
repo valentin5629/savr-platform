@@ -40,16 +40,7 @@ import {
   type TraiteurKpiRow,
 } from '@/lib/dashboards/cockpit-derive';
 import { Button } from '@/components/ui/button';
-
-// Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens —
-// identique traiteur/gestionnaire).
-const DOT = {
-  navy: '#223870',
-  navy2: '#3F5599',
-  green: '#16A34A',
-  navy3: '#6379B6',
-  accent: '#FF9B00',
-};
+import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -273,7 +264,7 @@ export default function AgenceDashboardPage() {
             <KpiCockpitCard
               label="Nombre de collectes"
               value={fmtInt(nbCollectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
@@ -281,7 +272,7 @@ export default function AgenceDashboardPage() {
               label="Tonnage collecté"
               value={fmtMasse(tonnage).value}
               unit={fmtMasse(tonnage).unit}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(tonnage, prev.tonnage)}
               sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
             />
@@ -289,10 +280,10 @@ export default function AgenceDashboardPage() {
               label="Taux de recyclage"
               value={taux != null ? fmtDec(taux, 1) : '—'}
               unit={taux != null ? '%' : undefined}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
               variationPct={variationPct(taux ?? 0, prev.taux ?? 0)}
               sparkPoints={sparkFromRows(rows, (r) => r.taux_recyclage_pondere)}
-              sparkColor={DOT.green}
+              sparkColor={KPI_DOT.green}
             />
             {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
                 mieux », §06.04 l.92). */}
@@ -300,7 +291,7 @@ export default function AgenceDashboardPage() {
               label="kg/pax moyen"
               value={kgPax != null ? fmtDec(kgPax, 2) : '—'}
               unit={kgPax != null ? 'kg/pax' : undefined}
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromRows(rows, (r) =>
                 r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
               )}
@@ -353,29 +344,29 @@ export default function AgenceDashboardPage() {
             <KpiCockpitCard
               label="Nombre de collectes"
               value={fmtInt(nbCollectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
             <KpiCockpitCard
               label="Repas donnés"
               value={fmtInt(repas)}
-              dotColor={DOT.accent}
+              dotColor={KPI_DOT.accent}
               variationPct={variationPct(repas, prev.repas)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
-              sparkColor={DOT.accent}
+              sparkColor={KPI_DOT.accent}
             />
             <KpiCockpitCard
               label="Pax cumulés"
               value={fmtInt(pax)}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(pax, prev.pax)}
               sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
             />
             <KpiCockpitCard
               label="Repas/pax moyen"
               value={pax > 0 ? fmtDec(repas / pax, 2) : '—'}
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromRows(rows, (r) =>
                 r.pax_total > 0 ? (r.nb_repas_donnes ?? 0) / r.pax_total : 0,
               )}

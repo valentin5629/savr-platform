@@ -131,7 +131,7 @@ export function AdresseAutocompleteInput({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-savr-md border border-savr-neutral-200 bg-savr-white py-1 shadow-lg"
+          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-savr-md border border-savr-neutral-200 bg-savr-white py-1 shadow-savr-md"
         >
           {suggestions.map((s, i) => (
             <li

@@ -59,7 +59,7 @@ export default function TemplatesEmailPage() {
                 <li key={t.id}>
                   <button
                     onClick={() => setSelectedId(t.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors ${
+                    className={`w-full text-left px-3 py-2.5 rounded-savr-md transition-colors ${
                       t.id === selectedId
                         ? 'bg-savr-primary-50'
                         : 'hover:bg-savr-neutral-50'
@@ -121,7 +121,7 @@ export default function TemplatesEmailPage() {
                     title={`Aperçu ${selected.code}`}
                     sandbox=""
                     srcDoc={selected.corps_html}
-                    className="w-full h-96 border border-savr-neutral-200 rounded-lg bg-white"
+                    className="w-full h-96 border border-savr-neutral-200 rounded-savr-md bg-savr-white"
                   />
                 </div>
               </>

@@ -33,7 +33,7 @@ export function FormStepIndicator({
             <div className="flex flex-col items-center gap-1 min-w-0">
               <div
                 className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold border-2 shrink-0 transition-colors duration-150',
+                  'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold border-2 shrink-0 transition-colors duration-savr-fast',
                   done
                     ? 'bg-savr-success border-savr-success text-savr-white'
                     : active
@@ -61,7 +61,7 @@ export function FormStepIndicator({
             {i < steps.length - 1 && (
               <div
                 className={cn(
-                  'flex-1 h-0.5 mt-4 mx-2 transition-colors duration-150',
+                  'flex-1 h-0.5 mt-4 mx-2 transition-colors duration-savr-fast',
                   i < current ? 'bg-savr-success' : 'bg-savr-neutral-200',
                 )}
                 aria-hidden="true"

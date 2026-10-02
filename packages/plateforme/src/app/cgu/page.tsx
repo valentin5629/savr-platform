@@ -58,7 +58,7 @@ function grouper(blocs: BlocCgu[]): Groupe[] {
 export default function CguPage() {
   return (
     <div className="min-h-screen bg-savr-neutral-50 px-4 py-10">
-      <main className="mx-auto w-full max-w-3xl rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-sm sm:p-10">
+      <main className="mx-auto w-full max-w-3xl rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm sm:p-10">
         <h1 className="text-2xl font-semibold text-savr-neutral-900">
           Conditions Générales d&apos;Utilisation
         </h1>

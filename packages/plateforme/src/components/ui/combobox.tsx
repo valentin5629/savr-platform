@@ -171,7 +171,7 @@ function Combobox(props: ComboboxProps) {
               ? cn(declencheurFiltre, className)
               : cn(
                   'flex h-11 w-full min-w-0 items-center gap-2 rounded-savr-md border bg-savr-white px-3 text-left text-sm text-savr-neutral-900 sm:h-10',
-                  'transition-colors duration-[120ms] ease-out',
+                  'transition-colors duration-savr-fast ease-out',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
                   'disabled:cursor-not-allowed disabled:opacity-50',
                   error

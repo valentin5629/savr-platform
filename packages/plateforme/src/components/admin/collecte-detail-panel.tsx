@@ -1772,7 +1772,7 @@ export function CollecteDetailPanel({
                       {collecte.collecte_tournees.map((ct) => (
                         <div
                           key={ct.rang}
-                          className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded px-3 py-2"
+                          className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded-savr-sm px-3 py-2"
                         >
                           <span className="font-medium">Camion {ct.rang}</span>
                           <Badge variant="neutral" className="text-xs">
@@ -2118,7 +2118,7 @@ export function CollecteDetailPanel({
                     {collecte.factures_collectes.map((f) => (
                       <div
                         key={f.id}
-                        className="flex items-center justify-between text-sm bg-savr-neutral-50 rounded px-3 py-2"
+                        className="flex items-center justify-between text-sm bg-savr-neutral-50 rounded-savr-sm px-3 py-2"
                       >
                         <span className="font-mono text-xs text-savr-neutral-500">
                           {f.id.slice(0, 8)}…

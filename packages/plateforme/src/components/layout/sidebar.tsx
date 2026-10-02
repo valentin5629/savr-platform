@@ -44,7 +44,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         ref={ref}
         aria-label="Navigation principale"
         className={cn(
-          'flex h-full flex-col bg-savr-primary-800 transition-[width] duration-[200ms] ease-out',
+          'flex h-full flex-col bg-savr-primary-800 transition-[width] duration-savr-base ease-out',
           collapsed ? 'w-16' : 'w-64',
           className,
         )}
@@ -54,7 +54,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         <div
           data-testid="savr-logo"
           className={cn(
-            'flex h-16 shrink-0 items-center border-b border-savr-primary-700 px-4 transition-colors duration-200',
+            'flex h-16 shrink-0 items-center border-b border-savr-primary-700 px-4 transition-colors duration-savr-base',
             collapsed && 'justify-center px-0',
             logoZd ? 'text-savr-success' : 'text-savr-accent-500',
           )}
@@ -87,7 +87,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     href={item.href}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'group relative flex h-10 items-center gap-3 rounded-savr-md px-3 text-sm font-medium transition-colors duration-[120ms]',
+                      'group relative flex h-10 items-center gap-3 rounded-savr-md px-3 text-sm font-medium transition-colors duration-savr-fast',
                       isActive
                         ? 'bg-savr-primary-700 text-savr-white'
                         : 'text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white',

@@ -13,6 +13,8 @@ import {
   GRID,
   GRID_BASELINE,
   ACCENT_TEXT,
+  TINT,
+  WHITE,
 } from './palette';
 
 // Cerclage gris du segment survolé (retour Val R24b — remplace le liseré noir).
@@ -197,11 +199,12 @@ const EvolutionZdChart = React.forwardRef<
                             d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
                             fill={f.color}
                             fillOpacity={isHovered ? 1 : dim ? 0.45 : 0.75}
-                            stroke={isHovered ? SEGMENT_HOVER : '#fff'}
+                            stroke={isHovered ? SEGMENT_HOVER : WHITE}
                             strokeWidth={isHovered ? 1.5 : 0.75}
                             style={{
                               cursor: 'pointer',
-                              transition: 'fill-opacity 120ms',
+                              transition:
+                                'fill-opacity var(--transition-duration-savr-fast)',
                             }}
                             onMouseEnter={onEnter}
                           />
@@ -216,11 +219,12 @@ const EvolutionZdChart = React.forwardRef<
                           height={h}
                           fill={f.color}
                           fillOpacity={isHovered ? 1 : dim ? 0.45 : 0.75}
-                          stroke={isHovered ? SEGMENT_HOVER : '#fff'}
+                          stroke={isHovered ? SEGMENT_HOVER : WHITE}
                           strokeWidth={isHovered ? 1.5 : 0.75}
                           style={{
                             cursor: 'pointer',
-                            transition: 'fill-opacity 120ms',
+                            transition:
+                              'fill-opacity var(--transition-duration-savr-fast)',
                           }}
                           onMouseEnter={onEnter}
                         />
@@ -254,10 +258,10 @@ const EvolutionZdChart = React.forwardRef<
                         cy={pt.y}
                         r={isHovered ? 2.25 : isLast ? 1.75 : 1.25}
                         fill={
-                          isHovered || isLast ? TAUX_RECYCLAGE_COLOR : '#fff'
+                          isHovered || isLast ? TAUX_RECYCLAGE_COLOR : WHITE
                         }
                         stroke={
-                          isHovered || isLast ? '#fff' : TAUX_RECYCLAGE_COLOR
+                          isHovered || isLast ? WHITE : TAUX_RECYCLAGE_COLOR
                         }
                         strokeWidth={0.75}
                         style={{ pointerEvents: 'none' }}
@@ -433,8 +437,8 @@ const EvolutionZdChart = React.forwardRef<
               aria-pressed={!hidden.has(TAUX)}
               className="inline-flex min-h-[44px] items-center gap-1.5 rounded-savr-full border px-2.5 py-1 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
               style={{
-                borderColor: '#FFE8C2',
-                background: '#FFF4E0',
+                borderColor: TINT.orange.border,
+                background: TINT.orange.background,
                 color: ACCENT_TEXT,
                 opacity: hidden.has(TAUX) ? 0.4 : 1,
               }}

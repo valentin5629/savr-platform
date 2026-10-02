@@ -13,22 +13,35 @@ export interface FluxZd {
   color: string;
 }
 
-// Couleurs = palette data-viz figée du Design System §2.4 (catégoriel, dashboards).
-// 6 couleurs de marque : #223870 · #FF9B00 · #3F5599 · #16A34A · #6379B6 · #D97F00.
+// Couleurs = palette data-viz figée du Design System §2.4 (catégoriel, dashboards),
+// DÉRIVÉE des tokens `--color-savr-dataviz-1..6` de globals.css (R-UI-6a) :
+// 1 navy · 2 orange · 3 navy-500 · 4 vert · 5 navy-400 · 6 orange-600.
 // Pas de gris pur (§2.3). Ordre = empilement des barres (bas → haut) et parts du donut.
 export const FLUX_ZD: FluxZd[] = [
-  { code: 'biodechet', label: 'Biodéchets', color: '#16A34A' },
-  { code: 'emballage', label: 'Emballages', color: '#3F5599' },
-  { code: 'carton', label: 'Cartons', color: '#D97F00' },
-  { code: 'verre', label: 'Verre', color: '#6379B6' },
-  { code: 'dechet_residuel', label: 'Déchet résiduel', color: '#223870' },
+  {
+    code: 'biodechet',
+    label: 'Biodéchets',
+    color: 'var(--color-savr-dataviz-4)',
+  },
+  {
+    code: 'emballage',
+    label: 'Emballages',
+    color: 'var(--color-savr-dataviz-3)',
+  },
+  { code: 'carton', label: 'Cartons', color: 'var(--color-savr-dataviz-6)' },
+  { code: 'verre', label: 'Verre', color: 'var(--color-savr-dataviz-5)' },
+  {
+    code: 'dechet_residuel',
+    label: 'Déchet résiduel',
+    color: 'var(--color-savr-dataviz-1)',
+  },
 ];
 
 export const FLUX_ZD_CODES = FLUX_ZD.map((f) => f.code);
 
 /** Couleur de la courbe « taux de recyclage » (axe secondaire Bloc 2 ZD) — DS §2.4. */
-export const TAUX_RECYCLAGE_COLOR = '#FF9B00'; // accent-500 (série 2)
+export const TAUX_RECYCLAGE_COLOR = 'var(--color-savr-dataviz-2)'; // accent-500 (série 2)
 
 /** Bloc 2 AG — AG = orange, ligne ratio = navy (DS §2.4 « AG = orange, ZD = navy »). */
-export const REPAS_COLOR = '#FF9B00'; // accent-500
-export const RATIO_COLOR = '#223870'; // primary-700
+export const REPAS_COLOR = 'var(--color-savr-dataviz-2)'; // accent-500
+export const RATIO_COLOR = 'var(--color-savr-dataviz-1)'; // primary-700

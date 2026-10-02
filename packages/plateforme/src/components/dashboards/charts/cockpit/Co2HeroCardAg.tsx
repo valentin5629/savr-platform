@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { fmtInt, fmtMasse } from './fmt';
-import { CO2 } from './palette';
+import { CO2, WHITE } from './palette';
 
 // Co2HeroCardAg — variante ANTI-GASPI (allégée) du héros carbone. Contrairement au
 // ZD (méthode ABC : évité / induit / net / énergie), le CO₂ AG est « ÉVITÉ SEUL en
@@ -26,7 +26,7 @@ export function Co2HeroCardAg({
   return (
     <div
       className="relative overflow-hidden rounded-savr-lg p-7"
-      style={{ background: CO2.bg, color: '#fff' }}
+      style={{ background: CO2.bg, color: WHITE }}
     >
       {/* Filet vert (accent « évité ») */}
       <div

@@ -7,7 +7,7 @@ interface EmptyDashboardStateProps {
 export function EmptyDashboardState({ className }: EmptyDashboardStateProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center py-16 text-center text-muted-foreground ${className ?? ''}`}
+      className={`flex flex-col items-center justify-center py-16 text-center text-savr-neutral-500 ${className ?? ''}`}
       data-testid="empty-dashboard-state"
     >
       <p className="text-sm">

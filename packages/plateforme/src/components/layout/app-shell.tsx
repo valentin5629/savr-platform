@@ -65,7 +65,7 @@ const AppShell = ({
         {/* Sidebar mobile (overlay slide) */}
         <div
           className={cn(
-            'fixed inset-y-0 left-0 z-40 lg:hidden transition-transform duration-[200ms] ease-out',
+            'fixed inset-y-0 left-0 z-40 lg:hidden transition-transform duration-savr-base ease-out',
             mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           )}
         >

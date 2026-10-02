@@ -109,7 +109,7 @@ export default function RepriseBrouillonPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-savr-md bg-red-50 border border-savr-error px-3 py-2 text-sm text-savr-error">
+        <div className="flex items-center gap-2 rounded-savr-md bg-savr-error-subtle border border-savr-error px-3 py-2 text-sm text-savr-error">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {error}
         </div>

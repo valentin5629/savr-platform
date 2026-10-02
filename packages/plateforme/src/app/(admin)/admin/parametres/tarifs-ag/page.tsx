@@ -437,7 +437,7 @@ export default function TarifsPacksAGPage() {
               id="mensualisable"
               checked={fMensualisable}
               onChange={(e) => setFMensualisable(e.target.checked)}
-              className="rounded"
+              className="rounded-savr-sm"
             />
             <label htmlFor="mensualisable" className="text-sm">
               Mensualisation disponible

@@ -94,7 +94,7 @@ export default function SettingsUsersPage() {
           <h1 className="text-2xl font-semibold text-savr-primary-950">
             Utilisateurs Savr
           </h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <p className="text-sm text-savr-neutral-500 mt-1">
             {total} membre{total !== 1 ? 's' : ''} de l&apos;équipe
           </p>
         </div>
@@ -116,7 +116,7 @@ export default function SettingsUsersPage() {
       )}
 
       {/* Paramètres avancés (algo AG) — accès depuis la page Paramètres */}
-      <div className="flex flex-wrap items-center gap-4 rounded-md border border-savr-neutral-200 bg-savr-neutral-50 px-4 py-3 text-sm">
+      <div className="flex flex-wrap items-center gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 px-4 py-3 text-sm">
         <span className="font-medium text-savr-neutral-700">Paramètres :</span>
         <Link
           href="/admin/parametres/algo-ag"

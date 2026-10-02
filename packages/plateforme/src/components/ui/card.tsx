@@ -28,7 +28,7 @@ const CardClickable = React.forwardRef<
     ref={ref}
     className={cn(
       'bg-savr-white border border-savr-neutral-200 rounded-savr-md shadow-savr-none',
-      'cursor-pointer transition-[border-color,box-shadow] duration-[120ms] ease-out',
+      'cursor-pointer transition-[border-color,box-shadow] duration-savr-fast ease-out',
       'hover:border-savr-primary-200 hover:shadow-savr-sm',
       className,
     )}

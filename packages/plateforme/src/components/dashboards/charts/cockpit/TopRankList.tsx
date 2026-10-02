@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ChartCard } from './ChartCard';
 import { initiales } from './fmt';
-import { RANK } from './palette';
+import { RANK, TINT, TRACK } from './palette';
 
 // TopRankList — liste-classement Cockpit (R24) : rang coloré (dégradé navy par
 // position), avatar initiales, nom, mini-barre optionnelle et valeur déjà
@@ -12,11 +12,6 @@ import { RANK } from './palette';
 function rankColor(index: number): string {
   return RANK[index] ?? RANK[RANK.length - 1]!;
 }
-
-const AVATAR_TINT = {
-  navy: { background: '#EFF2F9', color: '#223870' },
-  orange: { background: '#FFF4E0', color: '#B36400' },
-} as const;
 
 export interface TopItem {
   label: string;
@@ -60,7 +55,7 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
     },
     ref,
   ) => {
-    const tint = AVATAR_TINT[avatarTint];
+    const tint = TINT[avatarTint];
     const avatarRadius =
       avatarShape === 'round' ? 'rounded-savr-full' : 'rounded-savr-md';
 
@@ -111,7 +106,7 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                       {hasBar && (
                         <div
                           className="h-1.5 rounded-savr-full"
-                          style={{ background: '#EEF0F5' }}
+                          style={{ background: TRACK }}
                         >
                           <div
                             style={{

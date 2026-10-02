@@ -31,7 +31,7 @@ export function SavrLogoMark({
   className,
   title,
   variant = 'full',
-  base = '#ffffff',
+  base = 'var(--color-savr-white)',
   ...props
 }: React.SVGProps<SVGSVGElement> & {
   title?: string;

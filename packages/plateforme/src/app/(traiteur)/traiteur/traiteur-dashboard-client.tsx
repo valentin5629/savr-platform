@@ -59,6 +59,7 @@ import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Info } from 'lucide-react';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
+import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 
 // Variables du calcul CO₂ renvoyées par l'endpoint kpi-traiteur (modale méthode).
 // `ag` = facteur anti-gaspi par repas (méthode « évité seul » V1, §11 l.163).
@@ -72,15 +73,6 @@ interface Co2Methode {
 function frDate(iso?: string): string {
   return iso ? iso.split('-').reverse().join('/') : '—';
 }
-
-// Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens).
-const DOT = {
-  navy: '#223870',
-  navy2: '#3F5599',
-  green: '#16A34A',
-  navy3: '#6379B6',
-  accent: '#FF9B00',
-};
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -388,7 +380,7 @@ export function TraiteurDashboardClient({
             <KpiCockpitCard
               label="Nombre de collectes"
               value={fmtInt(agg.nbCollectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
@@ -396,7 +388,7 @@ export function TraiteurDashboardClient({
               label="Tonnage collecté"
               value={fmtMasse(agg.tonnage).value}
               unit={fmtMasse(agg.tonnage).unit}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(agg.tonnage, prev.tonnage)}
               sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
             />
@@ -404,16 +396,16 @@ export function TraiteurDashboardClient({
               label="Taux de recyclage"
               value={agg.taux != null ? fmtDec(agg.taux, 1) : '—'}
               unit={agg.taux != null ? '%' : undefined}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
               variationPct={variationPct(agg.taux ?? 0, prev.taux ?? 0)}
               sparkPoints={sparkFromRows(rows, (r) => r.taux_recyclage_pondere)}
-              sparkColor={DOT.green}
+              sparkColor={KPI_DOT.green}
             />
             <KpiCockpitCard
               label="kg/pax moyen"
               value={agg.kgPax != null ? fmtDec(agg.kgPax, 2) : '—'}
               unit={agg.kgPax != null ? 'kg/pax' : undefined}
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromRows(rows, (r) =>
                 r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
               )}
@@ -425,10 +417,10 @@ export function TraiteurDashboardClient({
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
               variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
               sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
-              sparkColor={DOT.green}
+              sparkColor={KPI_DOT.green}
               onClick={
                 co2.eviteKg > 0 ? () => setCo2ModalOpen(true) : undefined
               }
@@ -544,29 +536,29 @@ export function TraiteurDashboardClient({
             <KpiCockpitCard
               label="Nombre de collectes"
               value={fmtInt(agg.nbCollectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
             <KpiCockpitCard
               label="Repas donnés"
               value={fmtInt(agg.repas)}
-              dotColor={DOT.accent}
+              dotColor={KPI_DOT.accent}
               variationPct={variationPct(agg.repas, prev.repas)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
-              sparkColor={DOT.accent}
+              sparkColor={KPI_DOT.accent}
             />
             <KpiCockpitCard
               label="Pax cumulés"
               value={fmtInt(agg.pax)}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(agg.pax, prev.pax)}
               sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
             />
             <KpiCockpitCard
               label="Repas/pax moyen"
               value={agg.pax > 0 ? fmtDec(agg.repas / agg.pax, 2) : '—'}
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromRows(rows, (r) =>
                 r.pax_total > 0 ? (r.nb_repas_donnes ?? 0) / r.pax_total : 0,
               )}
@@ -578,10 +570,10 @@ export function TraiteurDashboardClient({
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
               variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
               sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
-              sparkColor={DOT.green}
+              sparkColor={KPI_DOT.green}
               onClick={
                 co2.eviteKg > 0 ? () => setCo2AgModalOpen(true) : undefined
               }

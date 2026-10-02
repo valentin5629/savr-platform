@@ -341,7 +341,7 @@ export function EditerCollecteForm({
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-savr-neutral-300 text-savr-primary-700"
+              className="h-4 w-4 rounded-savr-sm border-savr-neutral-300 text-savr-primary-700"
               checked={controleAcces}
               onChange={(ev) => setControleAcces(ev.target.checked)}
             />

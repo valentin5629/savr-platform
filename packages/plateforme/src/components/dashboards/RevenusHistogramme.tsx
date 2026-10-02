@@ -134,7 +134,7 @@ export function RevenusHistogramme({
             type="button"
             aria-pressed={toggle === 'montant'}
             onClick={() => setToggle('montant')}
-            className={`px-3 py-1.5 transition-colors duration-[120ms] ${toggle === 'montant' ? 'bg-savr-primary-700 text-savr-white' : 'text-savr-neutral-500 hover:bg-savr-neutral-100'}`}
+            className={`px-3 py-1.5 transition-colors duration-savr-fast ${toggle === 'montant' ? 'bg-savr-primary-700 text-savr-white' : 'text-savr-neutral-500 hover:bg-savr-neutral-100'}`}
           >
             Montant HT
           </button>
@@ -142,7 +142,7 @@ export function RevenusHistogramme({
             type="button"
             aria-pressed={toggle === 'nombre'}
             onClick={() => setToggle('nombre')}
-            className={`border-l border-savr-neutral-300 px-3 py-1.5 transition-colors duration-[120ms] ${toggle === 'nombre' ? 'bg-savr-primary-700 text-savr-white' : 'text-savr-neutral-500 hover:bg-savr-neutral-100'}`}
+            className={`border-l border-savr-neutral-300 px-3 py-1.5 transition-colors duration-savr-fast ${toggle === 'nombre' ? 'bg-savr-primary-700 text-savr-white' : 'text-savr-neutral-500 hover:bg-savr-neutral-100'}`}
           >
             Nb collectes
           </button>
@@ -201,7 +201,7 @@ export function RevenusHistogramme({
                         formatés selon la bascule montant/nombre. */}
                     <div
                       role="tooltip"
-                      className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 text-left opacity-0 shadow-savr-md transition-opacity duration-[120ms] group-hover:opacity-100"
+                      className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 text-left opacity-0 shadow-savr-md transition-opacity duration-savr-fast group-hover:opacity-100"
                     >
                       <div className="mb-1 text-[11px] font-semibold text-savr-neutral-500">
                         {label}

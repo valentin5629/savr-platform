@@ -53,6 +53,9 @@ import {
 import { ClientInviteUserModal } from './invite-user-modal';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { IconButton } from '@/components/ui/icon-button';
+import { FormActions } from '@/components/ui/form-actions';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface OrgDetail {
   id: string;
@@ -299,7 +302,6 @@ export default function ClientFichePage({
   const [fAjusterMotif, setFAjusterMotif] = useState('');
 
   // Formulaire annuler
-  const [fAnnulerMotif, setFAnnulerMotif] = useState('');
 
   useEffect(() => {
     // Durcir : vérifier res.ok AVANT de désérialiser. Sinon une réponse d'erreur
@@ -419,8 +421,7 @@ export default function ClientFichePage({
     }
   }
 
-  async function submitAnnuler(e: React.FormEvent) {
-    e.preventDefault();
+  async function submitAnnuler(motif: string) {
     if (!packActif) return;
     setSubmitting(true);
     setFormError(null);
@@ -430,7 +431,7 @@ export default function ClientFichePage({
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'annuler', motif: fAnnulerMotif }),
+          body: JSON.stringify({ action: 'annuler', motif }),
         },
       );
       const data = (await r.json()) as { error?: string };
@@ -451,14 +452,14 @@ export default function ClientFichePage({
       <PageHero
         icon={
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <IconButton
+              size="sm"
               onClick={() => router.back()}
               aria-label="Retour"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-white transition-colors hover:bg-savr-white/10"
+              className="text-savr-white hover:bg-savr-white/10 hover:text-savr-white [&>svg]:h-4 [&>svg]:w-4"
             >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+              <ArrowLeft />
+            </IconButton>
             {org.logo_url && !logoKo ? (
               <img
                 // logo_url porte une CLÉ R2, pas une URL : le proxy staff la
@@ -596,7 +597,7 @@ export default function ClientFichePage({
             <div className="flex items-center justify-between gap-3">
               <BlocHeader icon={Users} title="Utilisateurs" />
               <Button size="sm" onClick={() => setInviteOpen(true)}>
-                <UserPlus className="h-4 w-4" />
+                <UserPlus />
                 Ajouter un utilisateur
               </Button>
             </div>
@@ -680,7 +681,6 @@ export default function ClientFichePage({
                     size="sm"
                     variant="destructive"
                     onClick={() => {
-                      setFAnnulerMotif('');
                       setFormError(null);
                       setModal('annuler');
                     }}
@@ -812,19 +812,12 @@ export default function ClientFichePage({
         title="Créer un pack AG"
         onClose={() => setModal(null)}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(null)}
-              disabled={submitting}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" form="creer-pack-form" disabled={submitting}>
-              {submitting ? 'Création…' : 'Créer le pack'}
-            </Button>
-          </>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(null) }}
+            submit={{ label: 'Créer le pack', form: 'creer-pack-form' }}
+            loading={submitting}
+            loadingText="Création…"
+          />
         }
       >
         {formError && (
@@ -909,23 +902,12 @@ export default function ClientFichePage({
         title="Ajuster les crédits"
         onClose={() => setModal(null)}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(null)}
-              disabled={submitting}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              form="ajuster-pack-form"
-              disabled={submitting}
-            >
-              {submitting ? 'Enregistrement…' : 'Ajuster'}
-            </Button>
-          </>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(null) }}
+            submit={{ label: 'Ajuster', form: 'ajuster-pack-form' }}
+            loading={submitting}
+            loadingText="Enregistrement…"
+          />
         }
       >
         {formError && (
@@ -985,65 +967,28 @@ export default function ClientFichePage({
       </Modal>
 
       {/* ── Modale : Annuler le pack ──────────────────────────────────────── */}
-      <Modal
+      <ConfirmDialog
         open={modal === 'annuler'}
         title="Annuler le pack"
-        onClose={() => setModal(null)}
-        footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(null)}
-              disabled={submitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              form="annuler-pack-form"
-              variant="destructive"
-              disabled={submitting}
-            >
-              {submitting ? 'Annulation…' : "Confirmer l'annulation"}
-            </Button>
-          </>
-        }
+        confirmLabel="Confirmer l’annulation"
+        cancelLabel="Retour"
+        variant="destructive"
+        loading={submitting}
+        loadingText="Annulation…"
+        error={formError}
+        motif={{ label: 'Motif', minLength: 10 }}
+        onConfirm={(motif) => void submitAnnuler(motif)}
+        onCancel={() => setModal(null)}
       >
-        {formError && (
-          <AlertBar variant="err" className="mb-4">
-            {formError}
-          </AlertBar>
-        )}
         {packActif && (
-          <form
-            id="annuler-pack-form"
-            onSubmit={(e) => void submitAnnuler(e)}
-            className="space-y-4"
-          >
-            <Text>
-              Le pack <strong>{packActif.type_pack}</strong> ({creditsRestants}{' '}
-              crédit{creditsRestants !== 1 ? 's' : ''} restant
-              {creditsRestants !== 1 ? 's' : ''}) sera annulé définitivement.
-              Les crédits non consommés seront perdus.
-            </Text>
-            <FormField
-              label="Motif (≥ 10 caractères)"
-              htmlFor="annuler-motif"
-              required
-            >
-              <Textarea
-                id="annuler-motif"
-                value={fAnnulerMotif}
-                onChange={(e) => setFAnnulerMotif(e.target.value)}
-                rows={3}
-                minLength={10}
-                required
-              />
-            </FormField>
-          </form>
+          <Text>
+            Le pack <strong>{packActif.type_pack}</strong> ({creditsRestants}{' '}
+            crédit{creditsRestants !== 1 ? 's' : ''} restant
+            {creditsRestants !== 1 ? 's' : ''}) sera annulé définitivement. Les
+            crédits non consommés seront perdus.
+          </Text>
         )}
-      </Modal>
+      </ConfirmDialog>
 
       {/* ── Modale : Ajouter un utilisateur (org imposée = la fiche) ───────── */}
       {inviteOpen && (

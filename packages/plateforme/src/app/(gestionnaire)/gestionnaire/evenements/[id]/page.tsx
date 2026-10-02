@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDateHeureParis } from '@savr/shared/src/temps/index.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 interface Attribution {
   id: string;
@@ -336,40 +337,37 @@ export default function EvenementDetailPage({
               <div className="flex flex-wrap gap-2">
                 {c.bordereaux_savr.map((b) =>
                   b.statut === 'emis' || b.statut === 'corrige' ? (
-                    <button
+                    <TextLink
                       key={b.id}
-                      type="button"
                       onClick={() => void telechargerBordereau(b.id)}
-                      className="text-xs text-savr-primary-700 underline"
+                      className="text-xs"
                     >
                       Bordereau {b.numero ?? ''}
-                    </button>
+                    </TextLink>
                   ) : null,
                 )}
                 {c.rapports_rse.map((r) =>
                   r.pdf_url ? (
-                    <button
+                    <TextLink
                       key={r.id}
-                      type="button"
                       onClick={() => void telechargerDocument('rapport', r.id)}
-                      className="text-xs text-savr-primary-700 underline"
+                      className="text-xs"
                     >
                       Rapport RSE
-                    </button>
+                    </TextLink>
                   ) : null,
                 )}
                 {c.attestations_don.map((a) =>
                   a.pdf_url ? (
-                    <button
+                    <TextLink
                       key={a.id}
-                      type="button"
                       onClick={() =>
                         void telechargerDocument('attestation', a.id)
                       }
-                      className="text-xs text-savr-primary-700 underline"
+                      className="text-xs"
                     >
                       Attestation don
-                    </button>
+                    </TextLink>
                   ) : null,
                 )}
               </div>

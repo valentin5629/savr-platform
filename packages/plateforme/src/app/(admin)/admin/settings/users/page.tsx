@@ -2,7 +2,6 @@
 
 import { libelleRole } from '@/lib/libelles/role';
 import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
 import { Users, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +12,7 @@ import { useUserRole } from '@/lib/use-user-role';
 import { InviteUserModal } from './invite-user-modal';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 interface StaffUser {
   id: string;
@@ -101,7 +101,7 @@ export default function SettingsUsersPage() {
           </Text>
         </div>
         <Button onClick={() => setShowInvite(true)}>
-          <Plus className="w-4 h-4" />
+          <Plus />
           Inviter un membre
         </Button>
       </div>
@@ -120,18 +120,12 @@ export default function SettingsUsersPage() {
       {/* Paramètres avancés (algo AG) — accès depuis la page Paramètres */}
       <div className="flex flex-wrap items-center gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 px-4 py-3 text-sm">
         <span className="font-medium text-savr-neutral-700">Paramètres :</span>
-        <Link
-          href="/admin/parametres/algo-ag"
-          className="text-savr-primary-600 hover:underline"
-        >
+        <TextLink href="/admin/parametres/algo-ag">
           Paramètres algorithme →
-        </Link>
-        <Link
-          href="/admin/parametres/auto-accept"
-          className="text-savr-primary-600 hover:underline"
-        >
+        </TextLink>
+        <TextLink href="/admin/parametres/auto-accept">
           Configuration auto-accept →
-        </Link>
+        </TextLink>
       </div>
 
       {loading ? (

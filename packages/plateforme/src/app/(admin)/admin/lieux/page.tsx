@@ -15,6 +15,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LieuModal } from '@/components/admin/lieu-modal';
 import { CelluleVide } from '@/components/ui/data-grid';
+import { TextLink } from '@/components/ui/text-link';
+import { IconButton } from '@/components/ui/icon-button';
 
 interface Lieu {
   id: string;
@@ -172,16 +174,15 @@ export default function LieuxPage() {
         // un nom comme « Adresse libre — Lyon » passait sur 3 lignes (retour
         // Val 2026-09-28).
         <div className="flex min-w-[220px] items-center gap-2">
-          <button
-            type="button"
+          <TextLink
             onClick={(e) => {
               e.stopPropagation();
               openEdit(row.id);
             }}
-            className="text-left font-medium text-savr-primary-700 hover:underline"
+            className="text-left font-medium"
           >
             {row.nom}
-          </button>
+          </TextLink>
           {row.reference_citeo && (
             <Badge variant="info" dot={false}>
               Citeo
@@ -261,13 +262,14 @@ export default function LieuxPage() {
             <Button
               size="sm"
               variant="accent"
-              disabled={normalisingId === row.id}
               onClick={(e) => {
                 e.stopPropagation();
                 void handleNormaliser(row.id);
               }}
+              loading={normalisingId === row.id}
+              loadingText="En cours…"
             >
-              {normalisingId === row.id ? 'En cours…' : 'Normaliser'}
+              Normaliser
             </Button>
           </div>
         ),
@@ -276,17 +278,16 @@ export default function LieuxPage() {
       key: '_open',
       header: '',
       render: (row) => (
-        <button
-          type="button"
+        <IconButton
+          size="sm"
           aria-label={`Ouvrir la fiche ${row.nom}`}
           onClick={(e) => {
             e.stopPropagation();
             openEdit(row.id);
           }}
-          className="inline-flex text-savr-neutral-400 hover:text-savr-primary-700"
         >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+          <ChevronRight />
+        </IconButton>
       ),
     },
   ];
@@ -351,7 +352,7 @@ export default function LieuxPage() {
         subtitle="Référentiel lieux d'événements · normalisation des lieux saisis manuellement"
         actions={
           <Button variant="accent" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
+            <Plus />
             Nouveau lieu
           </Button>
         }

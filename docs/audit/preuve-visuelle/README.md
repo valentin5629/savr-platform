@@ -39,7 +39,14 @@ for f in kpi evolution …; do compare -metric AE /tmp/pv/shots-avant/$f.png /tm
   de capture (hauteurs fractionnaires).
 - Entrées : `entry.tsx` (6a), `entry-6b-avant.tsx` / `entry-6b-apres.tsx` (6b :
   les imports diffèrent — `KpiCockpitCard` / `Co2HeroCardAg` n'existent plus
-  après). Fixtures communes dans `common-6b.tsx`.
+  après), `entry-r-ui-3-avant.tsx` / `entry-r-ui-3-apres.tsx` (R-UI-3 :
+  `ACTION_DESTRUCTIVE_CONTOUR`, `authLienClass`, `Button size="icon"`
+  n'existent plus après). Fixtures communes dans `common-6b.tsx`.
+- `VIEWPORTS=dialog,dialog-collecte` (shoot.mjs) : l'entrée rend une modale
+  plein écran sous `#<nom>` → capture du viewport entier (une `fixed inset-0`
+  n'est pas capturable par section).
+- Playwright est résolu depuis `packages/plateforme` (`createRequire`), le
+  harnais n'a pas de `node_modules` : `REPO` sert aussi à shoot.mjs.
 
 ## Limites connues
 
@@ -61,3 +68,8 @@ for f in kpi evolution …; do compare -metric AE /tmp/pv/shots-avant/$f.png /tm
   autre attribut (`key=`, `data-testid=`) pour la phase `C`, `<label>` (à
   exclure : primitive formulaire, R-UI-5).
 - `r-ui-6b-formatteurs.py` : J2 (`lib/format` source unique).
+- `r-ui-3-migrate.py` : phases `L` (`Button loading` + `loadingText`, retrait
+  de la condition dans `disabled`), `I` (icône sans `mr-*` / `h-4 w-4` dans un
+  `Button`), `F` (pied de modale `footer={<>…</>}` et rangée `flex … gap-2` à
+  deux boutons → `FormActions`, secondaire d'abord). Hors gabarit (3 boutons,
+  spinner maison, libellé JSX) : repris à la main, listés par le script.

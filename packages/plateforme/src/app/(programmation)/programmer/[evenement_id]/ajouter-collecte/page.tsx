@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
   SousBlocCollecte,
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { Heading } from '@/components/ui/heading';
+import { FormActions } from '@/components/ui/form-actions';
 
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
@@ -120,25 +120,22 @@ export default function AjouterCollectePage() {
             Cet événement a déjà une collecte Anti-Gaspi. Confirmer l&apos;ajout
             d&apos;une seconde&nbsp;?
           </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => {
+          <FormActions
+            cancel={{
+              label: 'Annuler',
+              size: 'sm',
+              onClick: () => setAgDoublonWarning(false),
+            }}
+            submit={{
+              label: 'Confirmer quand même',
+              size: 'sm',
+              onClick: () => {
                 setAgDoublonConfirm(true);
                 setAgDoublonWarning(false);
                 void handleSubmit();
-              }}
-            >
-              Confirmer quand même
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setAgDoublonWarning(false)}
-            >
-              Annuler
-            </Button>
-          </div>
+              },
+            }}
+          />
         </div>
       )}
 
@@ -149,18 +146,19 @@ export default function AjouterCollectePage() {
         </div>
       )}
 
-      <div className="flex justify-end gap-3">
-        <Button variant="secondary" onClick={() => router.back()}>
-          Annuler
-        </Button>
-        <Button
-          onClick={() => void handleSubmit()}
-          disabled={!valid || submitting || agDoublonWarning}
-        >
-          <CheckCircle className="h-4 w-4" />
-          Ajouter la collecte
-        </Button>
-      </div>
+      <FormActions
+        cancel={{ label: 'Annuler', onClick: () => router.back() }}
+        submit={{
+          label: (
+            <>
+              <CheckCircle /> Ajouter la collecte
+            </>
+          ),
+          onClick: () => void handleSubmit(),
+          disabled: !valid || submitting || agDoublonWarning,
+        }}
+        className="gap-3"
+      />
     </div>
   );
 }

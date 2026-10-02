@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { FormActions } from '@/components/ui/form-actions';
 
 interface BrouillonDetail {
   id: string;
@@ -119,18 +120,21 @@ export default function RepriseBrouillonPage() {
         </div>
       )}
 
-      <div className="flex gap-3">
-        <Button
-          onClick={() => void handleConfirmer()}
-          disabled={confirming || brouillons.length === 0}
-        >
-          <CheckCircle className="h-4 w-4" />
-          {confirming ? 'Confirmation…' : 'Confirmer la programmation'}
-        </Button>
-        <Button variant="secondary" onClick={() => router.push('/brouillons')}>
-          Annuler
-        </Button>
-      </div>
+      <FormActions
+        cancel={{ label: 'Annuler', onClick: () => router.push('/brouillons') }}
+        submit={{
+          label: (
+            <>
+              <CheckCircle /> Confirmer la programmation
+            </>
+          ),
+          onClick: () => void handleConfirmer(),
+          disabled: brouillons.length === 0,
+        }}
+        loading={confirming}
+        loadingText="Confirmation…"
+        className="gap-3"
+      />
     </div>
   );
 }

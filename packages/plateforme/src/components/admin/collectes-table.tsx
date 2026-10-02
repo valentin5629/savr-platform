@@ -31,6 +31,7 @@ import { formatDateHeure, heureOuMinuit } from '@/lib/format-date-collecte';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
 import { fmtEuro, fmtKgAuto, fmtPct } from '@/lib/format';
+import { IconButton } from '@/components/ui/icon-button';
 
 // ── Type de ligne collecte de la liste Admin (§06.06 §3) ──────────────────────
 // Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
@@ -436,22 +437,20 @@ function ActionsCollecte({
   return (
     <Dropdown>
       <DropdownTrigger asChild>
-        <button
-          type="button"
+        <IconButton
           aria-label={
             attendue
               ? 'Actions sur la collecte (action attendue)'
               : 'Actions sur la collecte'
           }
           className={cn(
-            'inline-grid h-11 w-11 place-items-center rounded-savr-md hover:bg-savr-neutral-100 sm:h-9 sm:w-9',
-            attendue
-              ? 'bg-savr-accent-500 text-savr-primary-950 hover:bg-savr-accent-600'
-              : 'text-savr-neutral-500 hover:text-savr-neutral-900',
+            'sm:h-9 sm:w-9',
+            attendue &&
+              'bg-savr-accent-500 text-savr-primary-950 hover:bg-savr-accent-600 hover:text-savr-primary-950',
           )}
         >
-          <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-        </button>
+          <MoreHorizontal aria-hidden="true" />
+        </IconButton>
       </DropdownTrigger>
       <DropdownContent align="end">
         <DropdownItem onSelect={() => onOpen(row.id)}>

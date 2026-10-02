@@ -148,8 +148,13 @@ export function InfosLegalesCard({
               {succes}
             </p>
           )}
-          <Button type="submit" disabled={saving || modifies.length === 0}>
-            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          <Button
+            type="submit"
+            disabled={modifies.length === 0}
+            loading={saving}
+            loadingText="Enregistrement…"
+          >
+            Enregistrer
           </Button>
         </form>
         <div className="space-y-2">

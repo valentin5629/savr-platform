@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { FriseStatutClient } from '@/components/collecte/frise-statut-client';
@@ -27,7 +26,6 @@ import {
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
 import {
-  ACTION_DESTRUCTIVE_CONTOUR,
   BadgeTypeCollecte,
   dateLongueCapitalisee,
   EnTeteMention,
@@ -38,6 +36,9 @@ import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
 import { fmtPax } from '@/lib/format';
+import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
+import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
 
 // Pop-up fiche collecte COMMUN aux rôles clients — traiteur (§06.04), agence
 // (§06.11) et gestionnaire de lieux (§06.05) — refonte Val 2026-09-29, au
@@ -77,7 +78,6 @@ export function FicheCollecteClientPanel({
 
   // Annulation (directe ou demande) — modale + motif facultatif.
   const [annulOpen, setAnnulOpen] = useState(false);
-  const [annulMotif, setAnnulMotif] = useState('');
   const [annulEnCours, setAnnulEnCours] = useState(false);
   const [annulErreur, setAnnulErreur] = useState<string | null>(null);
   const [progOpen, setProgOpen] = useState(false);
@@ -145,14 +145,14 @@ export function FicheCollecteClientPanel({
     blockCloseRef.current =
       annulOpen || progOpen || editConfirmOpen || siretOpen;
 
-  async function confirmerAnnulation() {
+  async function confirmerAnnulation(motif: string) {
     setAnnulEnCours(true);
     setAnnulErreur(null);
     try {
       const res = await fetch(`${base}/annulation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ motif: annulMotif }),
+        body: JSON.stringify({ motif }),
       });
       if (res.ok) {
         setAnnulOpen(false);
@@ -364,11 +364,10 @@ export function FicheCollecteClientPanel({
         <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
           {actions.annuler !== 'absent' && (
             <Button
-              variant="secondary"
+              variant="outline-destructive"
               data-testid="action-annuler"
               disabled={actions.annuler === 'grise'}
               title={actions.annuler === 'grise' ? motifGrise : undefined}
-              className={ACTION_DESTRUCTIVE_CONTOUR}
               onClick={() => {
                 setAnnulErreur(null);
                 setAnnulOpen(true);
@@ -407,12 +406,9 @@ export function FicheCollecteClientPanel({
           {c.programmee_par?.email && (
             <p className="text-savr-neutral-500">
               Pour toute question :{' '}
-              <a
-                className="text-savr-primary-700 underline"
-                href={`mailto:${c.programmee_par.email}`}
-              >
+              <TextLink href={`mailto:${c.programmee_par.email}`} external>
                 {c.programmee_par.email}
-              </a>
+              </TextLink>
             </p>
           )}
           <div className="flex justify-end border-t border-savr-neutral-100 pt-4">
@@ -424,60 +420,15 @@ export function FicheCollecteClientPanel({
       </Modal>
 
       {/* Annulation directe (brouillon/programmee) ou demande (validee). */}
-      <Modal
+      <AnnulationCollecteDialog
         open={annulOpen}
-        title={demande ? 'Demander l’annulation' : 'Annuler la collecte'}
-        onClose={() => setAnnulOpen(false)}
-      >
-        <div className="space-y-4">
-          <Text>
-            {demande
-              ? 'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.'
-              : 'Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
-          </Text>
-          {c.type === 'anti_gaspi' && (
-            <p
-              data-testid="mention-credit-ag"
-              className="rounded-savr-md bg-savr-success-subtle px-3 py-2 text-sm text-savr-success-strong"
-            >
-              Votre crédit Anti-Gaspi sera préservé : il n’a pas encore été
-              débité (annulation avant réalisation de la collecte).
-            </p>
-          )}
-          <FormField
-            label="Motif (facultatif)"
-            htmlFor="fiche-annulation-motif"
-          >
-            <Textarea
-              id="fiche-annulation-motif"
-              rows={3}
-              value={annulMotif}
-              onChange={(e) => setAnnulMotif(e.target.value)}
-            />
-          </FormField>
-          {annulErreur && (
-            <p className="text-sm text-savr-error-strong" role="alert">
-              {annulErreur}
-            </p>
-          )}
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setAnnulOpen(false)}
-              disabled={annulEnCours}
-            >
-              Retour
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void confirmerAnnulation()}
-              disabled={annulEnCours}
-            >
-              {demande ? 'Confirmer la demande' : 'Confirmer l’annulation'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        demande={demande}
+        antiGaspi={c.type === 'anti_gaspi'}
+        loading={annulEnCours}
+        error={annulErreur}
+        onConfirm={(motif) => void confirmerAnnulation(motif)}
+        onCancel={() => setAnnulOpen(false)}
+      />
 
       {/* Agence — complétion du SIRET d'un traiteur hors référentiel (§06.11 F2). */}
       <Modal
@@ -509,17 +460,16 @@ export function FicheCollecteClientPanel({
               error={siretErreur !== null}
             />
           </FormField>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button variant="secondary" onClick={() => setSiretOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              disabled={siretEnCours || siret.length !== 14}
-              onClick={() => void enregistrerSiret()}
-            >
-              Enregistrer
-            </Button>
-          </div>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setSiretOpen(false) }}
+            submit={{
+              label: 'Enregistrer',
+              disabled: siret.length !== 14,
+              onClick: () => void enregistrerSiret(),
+            }}
+            loading={siretEnCours}
+            bordered
+          />
         </div>
       </Modal>
     </div>

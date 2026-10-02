@@ -43,6 +43,8 @@ import {
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
 
 const STEPS = [
   { label: 'Événement' },
@@ -624,14 +626,13 @@ export default function NouveauProgrammationPage() {
               {/* PROG-02 : option « hors référentiel » — agence uniquement (CDC
                   §06.01 l.280 : le gestionnaire de lieux n'a PAS cette option). */}
               {role === 'agence' && (
-                <button
-                  type="button"
+                <TextLink
                   onClick={() => setShowShadowModal(true)}
-                  className="mt-2 flex items-center gap-1 text-sm font-medium text-savr-primary-700 hover:underline"
+                  className="mt-2 flex text-sm font-medium"
                 >
                   <PlusCircle className="h-4 w-4" />
                   Ajouter un traiteur hors référentiel
-                </button>
+                </TextLink>
               )}
             </FormField>
           )}
@@ -642,23 +643,19 @@ export default function NouveauProgrammationPage() {
             title="Traiteur hors référentiel"
             onClose={() => setShowShadowModal(false)}
             footer={
-              <>
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowShadowModal(false)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  onClick={() => void handleCreateShadow()}
-                  disabled={
+              <FormActions
+                cancel={{
+                  label: 'Annuler',
+                  onClick: () => setShowShadowModal(false),
+                }}
+                submit={{
+                  label: 'Créer le traiteur',
+                  onClick: () => void handleCreateShadow(),
+                  disabled:
                     !shadowForm.raison_sociale.trim() ||
-                    shadowForm.nom_commercial.trim().length < 2
-                  }
-                >
-                  Créer le traiteur
-                </Button>
-              </>
+                    shadowForm.nom_commercial.trim().length < 2,
+                }}
+              />
             }
           >
             <div className="space-y-4">
@@ -720,7 +717,7 @@ export default function NouveauProgrammationPage() {
           <div className="flex justify-end pt-1">
             <Button onClick={() => setStep(1)} disabled={!step1Valid}>
               Continuer
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight />
             </Button>
           </div>
         </Card>
@@ -811,27 +808,22 @@ export default function NouveauProgrammationPage() {
             title="Nouveau contact"
             onClose={() => setShowContactForm(null)}
             footer={
-              <>
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowContactForm(null)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  onClick={() =>
+              <FormActions
+                cancel={{
+                  label: 'Annuler',
+                  onClick: () => setShowContactForm(null),
+                }}
+                submit={{
+                  label: 'Ajouter',
+                  onClick: () =>
                     showContactForm &&
-                    void handleAddContactInline(showContactForm)
-                  }
-                  disabled={
+                    void handleAddContactInline(showContactForm),
+                  disabled:
                     !newContact.prenom ||
                     !newContact.nom ||
-                    !newContact.telephone
-                  }
-                >
-                  Ajouter
-                </Button>
-              </>
+                    !newContact.telephone,
+                }}
+              />
             }
           >
             <div className="space-y-4">
@@ -886,12 +878,12 @@ export default function NouveauProgrammationPage() {
 
           <div className="flex justify-between pt-1">
             <Button variant="ghost" onClick={() => setStep(0)}>
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft />
               Retour
             </Button>
             <Button onClick={() => setStep(2)} disabled={!step2Valid}>
               Continuer
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight />
             </Button>
           </div>
         </Card>
@@ -947,7 +939,7 @@ export default function NouveauProgrammationPage() {
 
           <div className="flex flex-col sm:flex-row justify-between gap-3 pt-1">
             <Button variant="ghost" onClick={() => setStep(1)}>
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft />
               Retour
             </Button>
             <div className="flex gap-3">
@@ -956,14 +948,14 @@ export default function NouveauProgrammationPage() {
                 onClick={() => void handleSubmit(false)}
                 disabled={!step3Valid || submitting}
               >
-                <Save className="h-4 w-4" />
+                <Save />
                 Enregistrer en brouillon
               </Button>
               <Button
                 onClick={() => void handleSubmit(true)}
                 disabled={!step3Valid || submitting}
               >
-                <CheckCircle className="h-4 w-4" />
+                <CheckCircle />
                 Confirmer la programmation
               </Button>
             </div>

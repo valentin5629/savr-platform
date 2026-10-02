@@ -1,5 +1,6 @@
 import { Card } from '@/components/ui/card';
 import { Heading } from '@/components/ui/heading';
+import { TextLink } from '@/components/ui/text-link';
 
 // Notice méthodologique unique (§06.03 + §12) — même source que le rapport de
 // recyclage (sobriété C2 : pas de PDF méthodo séparé). Contenu canonique in-app.
@@ -8,9 +9,9 @@ export default function MethodologiePage() {
   return (
     <div className="space-y-4">
       <div>
-        <a href="/registre" className="text-sm text-savr-primary-700 underline">
+        <TextLink href="/registre" className="text-sm">
           ← Registre
-        </a>
+        </TextLink>
         <Heading level={1} tone="primary">
           Méthodologie de calcul
         </Heading>

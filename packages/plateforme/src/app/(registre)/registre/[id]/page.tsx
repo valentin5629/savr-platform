@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 // Détail d'une collecte au registre (§06.03, 8 blocs snapshot lecture seule).
 
@@ -123,12 +124,9 @@ export default function RegistreDetailPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <a
-            href="/registre"
-            className="text-sm text-savr-primary-700 underline"
-          >
+          <TextLink href="/registre" className="text-sm">
             ← Registre
-          </a>
+          </TextLink>
           <Heading level={1} tone="primary">
             Collecte ZD — {dateFr(data.evenement.date)} — {data.lieu.nom ?? ''}
           </Heading>

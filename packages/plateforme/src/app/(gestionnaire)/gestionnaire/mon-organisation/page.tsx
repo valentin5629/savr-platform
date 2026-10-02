@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 type OrgTab = 'profil' | 'membres' | 'factures';
 
@@ -116,14 +118,15 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
       // §06.04 §6 fiche facture : Pennylane si dispo, sinon Savr.
       const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
       return pdf ? (
-        <a
+        <TextLink
           href={pdf}
+          external
           target="_blank"
           rel="noreferrer"
-          className="text-savr-primary-700 underline text-xs"
+          className="text-xs"
         >
           Télécharger
-        </a>
+        </TextLink>
       ) : (
         '—'
       );
@@ -208,8 +211,16 @@ export default function MonOrganisationPage() {
     setInviting(false);
   }
 
+  const { confirmer, dialogue } = useConfirm();
   async function handleDesactiver(userId: string) {
-    if (!confirm('Désactiver ce membre ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Désactiver ce membre ?',
+        confirmLabel: 'Désactiver',
+        variant: 'destructive',
+      }))
+    )
+      return;
     await fetch(
       `/api/v1/gestionnaire/mon-organisation/users/${encodeURIComponent(userId)}`,
       {
@@ -259,9 +270,9 @@ export default function MonOrganisationPage() {
       cell: ({ row: { original: u } }) =>
         u.actif && (
           <Button
-            variant="ghost"
+            variant="ghost-destructive"
             size="sm"
-            className="text-savr-error text-xs"
+            className="text-xs"
             onClick={() => handleDesactiver(u.id)}
           >
             Désactiver
@@ -279,6 +290,7 @@ export default function MonOrganisationPage() {
 
   return (
     <div className="space-y-6">
+      {dialogue}
       <Heading level={1} tone="primary">
         Mon organisation
       </Heading>
@@ -393,8 +405,8 @@ export default function MonOrganisationPage() {
                     {inviteMsg.text}
                   </AlertBar>
                 )}
-                <Button type="submit" disabled={inviting}>
-                  {inviting ? 'Envoi…' : "Envoyer l'invitation"}
+                <Button type="submit" loading={inviting} loadingText="Envoi…">
+                  {"Envoyer l'invitation"}
                 </Button>
               </form>
             </CardContent>

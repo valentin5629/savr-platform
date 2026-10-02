@@ -7,7 +7,6 @@
 // tableau de segments {texte, gras}, donc aucune injection possible.
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import {
   CGU_SECTIONS,
   CGU_TEXTE_VERSION,
@@ -15,6 +14,7 @@ import {
 } from '@/content/cgu-v1';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 export const metadata: Metadata = {
   title: "Conditions Générales d'Utilisation — Savr",
@@ -110,12 +110,9 @@ export default function CguPage() {
         </div>
 
         <div className="mt-10 border-t border-savr-neutral-200 pt-6">
-          <Link
-            href="/signup"
-            className="text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-          >
+          <TextLink href="/signup" strong className="text-sm">
             Retour à la création de compte
-          </Link>
+          </TextLink>
         </div>
       </main>
     </div>

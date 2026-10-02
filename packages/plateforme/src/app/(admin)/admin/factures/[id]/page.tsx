@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,8 @@ import { tempsEcouleFr } from '@/lib/facturation/facture-ui';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { fmtMontant } from '@/lib/format';
+import { TextLink } from '@/components/ui/text-link';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 interface Ligne {
   id: string;
@@ -219,8 +222,16 @@ export default function FactureDetailPage() {
     await callEdit(['lignes', ligne.id], 'PATCH', patch, `ligne-${ligne.id}`);
   }
 
+  const { confirmer, dialogue } = useConfirm();
   async function deleteLigne(ligne: Ligne) {
-    if (!window.confirm('Supprimer cette ligne ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Supprimer cette ligne ?',
+        confirmLabel: 'Supprimer',
+        variant: 'destructive',
+      }))
+    )
+      return;
     await callEdit(
       ['lignes', ligne.id],
       'DELETE',
@@ -264,6 +275,7 @@ export default function FactureDetailPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {dialogue}
       <div className="flex items-center gap-3">
         <Link
           href="/admin/factures"
@@ -318,9 +330,10 @@ export default function FactureDetailPage() {
             variant="secondary"
             onClick={() => doAction('renvoyer')}
             disabled={actionLoading !== null}
+            loading={actionLoading === 'renvoyer'}
+            loadingText="Envoi…"
           >
-            <RotateCcw className="h-4 w-4 mr-1" />
-            {actionLoading === 'renvoyer' ? 'Envoi…' : 'Renvoyer'}
+            <RotateCcw /> Renvoyer
           </Button>
         </div>
       )}
@@ -438,9 +451,9 @@ export default function FactureDetailPage() {
             <Button
               variant="secondary"
               onClick={addLigne}
-              disabled={actionLoading === 'add'}
+              loading={actionLoading === 'add'}
             >
-              <Plus className="h-4 w-4 mr-1" /> Ajouter
+              <Plus /> Ajouter
             </Button>
           </div>
         )}
@@ -492,37 +505,32 @@ export default function FactureDetailPage() {
           <Button
             variant="secondary"
             onClick={saveHeader}
-            disabled={actionLoading === 'header'}
+            loading={actionLoading === 'header'}
+            loadingText="Enregistrement…"
           >
-            <Save className="h-4 w-4 mr-1" />
-            {actionLoading === 'header'
-              ? 'Enregistrement…'
-              : 'Enregistrer l’en-tête'}
+            <Save /> Enregistrer l’en-tête
           </Button>
         )}
       </section>
 
       <div className="flex flex-wrap gap-4">
         {facture.pdf_url_pennylane && (
-          <a
+          <TextLink
             href={facture.pdf_url_pennylane}
+            external
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
+            className="gap-2 text-sm"
           >
             Télécharger le PDF Pennylane
-          </a>
+          </TextLink>
         )}
         {/* Copie de travail §06.08 §1 — clé R2 pré-signée à la volée. */}
         {facture.pdf_url_savr && (
-          <button
-            type="button"
-            onClick={downloadPdfSavr}
-            className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
-          >
+          <TextLink onClick={downloadPdfSavr} className="gap-2 text-sm">
             <Download className="h-4 w-4" />
             Télécharger le PDF Savr (copie de travail)
-          </button>
+          </TextLink>
         )}
       </div>
 
@@ -532,11 +540,10 @@ export default function FactureDetailPage() {
           <Button
             onClick={() => doAction('valider')}
             disabled={actionLoading !== null}
+            loading={actionLoading === 'valider'}
+            loadingText="Envoi…"
           >
-            <Send className="h-4 w-4 mr-2" />
-            {actionLoading === 'valider'
-              ? 'Envoi…'
-              : 'Valider et envoyer à Pennylane'}
+            <Send /> Valider et envoyer à Pennylane
           </Button>
         )}
 
@@ -548,9 +555,10 @@ export default function FactureDetailPage() {
             variant="destructive"
             onClick={creerAvoir}
             disabled={actionLoading !== null}
+            loading={actionLoading === 'avoir'}
+            loadingText="Création…"
           >
-            <FileX className="h-4 w-4 mr-2" />
-            {actionLoading === 'avoir' ? 'Création…' : 'Générer un avoir'}
+            <FileX /> Générer un avoir
           </Button>
         )}
       </section>
@@ -638,8 +646,9 @@ function LigneRow({
           onChange={(e) => setTva(e.target.value)}
         />
       </FormField>
-      <Button
-        variant="secondary"
+      <IconButton
+        size="sm"
+        aria-label="Enregistrer la ligne"
         onClick={() =>
           onSave({
             designation,
@@ -647,13 +656,20 @@ function LigneRow({
             taux_tva: Number(tva),
           })
         }
-        disabled={!dirty || busy}
+        disabled={!dirty}
+        loading={busy}
       >
-        {busy ? '…' : <Save className="h-4 w-4" />}
-      </Button>
-      <Button variant="ghost" onClick={onDelete} disabled={deleting}>
-        <Trash2 className="h-4 w-4 text-savr-error" />
-      </Button>
+        <Save />
+      </IconButton>
+      <IconButton
+        size="sm"
+        variant="destructive"
+        aria-label="Supprimer la ligne"
+        onClick={onDelete}
+        loading={deleting}
+      >
+        <Trash2 />
+      </IconButton>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 // Briques de mise en page des fiches en pop-up : en-tête de bloc et champs
 // label/valeur, grand en-tête (fiches collecte Admin et client, fiches Admin
@@ -74,12 +75,13 @@ export function ContactLigne({
     <>
       {nom ?? '—'}
       {telephone && (
-        <a
+        <TextLink
           href={`tel:${telephone.replace(/\s/g, '')}`}
-          className="block text-savr-primary-600 hover:underline"
+          external
+          className="block"
         >
           {telephone}
-        </a>
+        </TextLink>
       )}
     </>
   );
@@ -90,12 +92,9 @@ export function TelephoneLien({ telephone }: { telephone?: string | null }) {
   const tel = telephone?.trim();
   if (!tel) return <span className="text-savr-neutral-400">—</span>;
   return (
-    <a
-      href={`tel:${tel.replace(/\s/g, '')}`}
-      className="text-savr-primary-600 hover:underline"
-    >
+    <TextLink href={`tel:${tel.replace(/\s/g, '')}`} external>
       {tel}
-    </a>
+    </TextLink>
   );
 }
 
@@ -284,9 +283,3 @@ export function OngletAvecErreurs({
     </TabsTrigger>
   );
 }
-
-// Action destructive en contour rouge sur un bouton `secondary` : « Annuler la
-// collecte » (pop-up collecte client), « Désactiver » des fiches Admin
-// (transporteur, association) — même rendu partout (décision Val 2026-09-30).
-export const ACTION_DESTRUCTIVE_CONTOUR =
-  'border-savr-error text-savr-error-strong hover:bg-savr-error-subtle active:bg-savr-error-subtle';

@@ -23,6 +23,9 @@ import type { Database } from '@savr/shared/src/database.types.js';
 import { LogoCard } from '@/components/organisation/logo-card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
@@ -276,8 +279,16 @@ function EntitesCard({
     setSaving(false);
   }
 
+  const { confirmer, dialogue } = useConfirm();
   async function remove(id: string) {
-    if (!confirm('Supprimer cette entité de facturation ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Supprimer cette entité de facturation ?',
+        confirmLabel: 'Supprimer',
+        variant: 'destructive',
+      }))
+    )
+      return;
     const res = await fetch(
       `/api/v1/traiteur/mon-organisation/entites-facturation/${encodeURIComponent(id)}`,
       { method: 'DELETE' },
@@ -336,9 +347,9 @@ function EntitesCard({
             cell: ({ row: { original: e } }) =>
               !e.entite_par_defaut && (
                 <Button
-                  variant="ghost"
+                  variant="ghost-destructive"
                   size="sm"
-                  className="text-savr-error text-xs"
+                  className="text-xs"
                   onClick={() => remove(e.id)}
                 >
                   Supprimer
@@ -351,6 +362,7 @@ function EntitesCard({
 
   return (
     <Card>
+      {dialogue}
       <CardHeader>
         <CardTitle>Entités de facturation</CardTitle>
       </CardHeader>
@@ -457,18 +469,16 @@ function EntitesCard({
                 </FormField>
               </div>
               {msg && <p className="text-sm text-savr-error">{msg}</p>}
-              <div className="flex gap-2">
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Ajout…' : 'Ajouter'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowForm(false)}
-                >
-                  Annuler
-                </Button>
-              </div>
+              <FormActions
+                cancel={{
+                  label: 'Annuler',
+                  variant: 'ghost',
+                  onClick: () => setShowForm(false),
+                }}
+                submit={{ label: 'Ajouter' }}
+                loading={saving}
+                loadingText="Ajout…"
+              />
             </form>
           ) : (
             <Button variant="secondary" onClick={() => setShowForm(true)}>
@@ -542,9 +552,9 @@ function DomainesCard({
                 <span>{d.domaine}</span>
                 {isManager && (
                   <Button
-                    variant="ghost"
+                    variant="ghost-destructive"
                     size="sm"
-                    className="text-savr-error text-xs"
+                    className="text-xs"
                     onClick={() => remove(d.id)}
                   >
                     Retirer
@@ -596,8 +606,16 @@ function EquipeTab({ userId }: { userId: string }) {
     });
     reload();
   }
+  const { confirmer, dialogue } = useConfirm();
   async function suspend(id: string) {
-    if (!confirm('Suspendre ce collaborateur ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Suspendre ce collaborateur ?',
+        confirmLabel: 'Suspendre',
+        variant: 'destructive',
+      }))
+    )
+      return;
     await fetch(`/api/v1/traiteur/equipe/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -678,9 +696,9 @@ function EquipeTab({ userId }: { userId: string }) {
       cell: ({ row: { original: u } }) =>
         u.actif && (
           <Button
-            variant="ghost"
+            variant="ghost-destructive"
             size="sm"
-            className="text-savr-error text-xs"
+            className="text-xs"
             onClick={() => suspend(u.id)}
           >
             Suspendre
@@ -691,6 +709,7 @@ function EquipeTab({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
+      {dialogue}
       <Card>
         <CardHeader>
           <CardTitle>Utilisateurs</CardTitle>
@@ -782,8 +801,8 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
           {msg && (
             <AlertBar variant={msg.ok ? 'success' : 'err'}>{msg.text}</AlertBar>
           )}
-          <Button type="submit" disabled={busy}>
-            {busy ? 'Envoi…' : 'Envoyer l’invitation'}
+          <Button type="submit" loading={busy} loadingText="Envoi…">
+            Envoyer l’invitation
           </Button>
         </form>
       </CardContent>
@@ -929,14 +948,15 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
     cell: ({ row: { original: f } }) => {
       const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
       return pdf ? (
-        <a
+        <TextLink
           href={pdf}
+          external
           target="_blank"
           rel="noreferrer"
-          className="text-xs text-savr-primary-700 underline"
+          className="text-xs"
         >
           Télécharger
-        </a>
+        </TextLink>
       ) : (
         '—'
       );

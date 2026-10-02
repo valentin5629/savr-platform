@@ -897,17 +897,16 @@ export function AttributionAgForm({
               disabled={
                 !selectedAsso ||
                 !selectedTransp ||
-                submitting ||
                 !motifOk ||
                 !nbVehiculesOk ||
                 // Déjà validée : pas de second POST.
                 !!successMsg
               }
               onClick={() => void handleValider()}
+              loading={submitting}
+              loadingText="Validation en cours…"
             >
-              {submitting
-                ? 'Validation en cours…'
-                : libelleValiderEtEnvoyer(selectedTranspTypeTms)}
+              {libelleValiderEtEnvoyer(selectedTranspTypeTms)}
             </Button>
           </div>
         </>

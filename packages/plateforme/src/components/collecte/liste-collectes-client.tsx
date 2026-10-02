@@ -6,9 +6,6 @@ import { Truck } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { PageHero } from '@/components/ui/page-hero';
 import { Button } from '@/components/ui/button';
-import { Modal } from '@/components/ui/modal';
-import { FormField } from '@/components/ui/form-field';
-import { Textarea } from '@/components/ui/textarea';
 import type { CollecteType } from '@/components/dashboards/index.js';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -35,7 +32,7 @@ import {
 } from '@/lib/dashboards/collecte-filtre-label';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { valeurUnique } from '@/lib/filtre-csv';
-import { Text } from '@/components/ui/text';
+import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
 // actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
@@ -198,7 +195,6 @@ export function ListeCollectesClient({
 
   // Annulation (modale liste — réutilise l'endpoint de la fiche).
   const [annulTarget, setAnnulTarget] = useState<CollecteRow | null>(null);
-  const [annulMotif, setAnnulMotif] = useState('');
   const [annulEnCours, setAnnulEnCours] = useState(false);
   const [annulErreur, setAnnulErreur] = useState<string | null>(null);
 
@@ -443,7 +439,7 @@ export function ListeCollectesClient({
     return role === 'traiteur_commercial' && evt?.created_by === userId;
   }
 
-  async function confirmerAnnulation() {
+  async function confirmerAnnulation(motif: string) {
     if (!annulTarget) return;
     setAnnulEnCours(true);
     setAnnulErreur(null);
@@ -453,12 +449,11 @@ export function ListeCollectesClient({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ motif: annulMotif }),
+          body: JSON.stringify({ motif }),
         },
       );
       if (res.ok) {
         setAnnulTarget(null);
-        setAnnulMotif('');
         charger();
       } else {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -508,7 +503,6 @@ export function ListeCollectesClient({
         onModifier: (c) => ouvrirFicheRef.current(c.id, true),
         onAnnuler: (c) => {
           setAnnulErreur(null);
-          setAnnulMotif('');
           setAnnulTarget(rows.find((r) => r.id === c.id) ?? null);
         },
         onDupliquer: (c) => router.push(`/programmer/nouveau?from=${c.id}`),
@@ -623,47 +617,15 @@ export function ListeCollectesClient({
       />
 
       {/* Modale d'annulation (liste) */}
-      <Modal
+      <AnnulationCollecteDialog
         open={annulTarget !== null}
-        title={estDemande ? "Demander l'annulation" : 'Annuler la collecte'}
-        onClose={() => setAnnulTarget(null)}
-      >
-        <div className="space-y-4">
-          <Text>
-            {estDemande
-              ? 'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.'
-              : 'Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
-          </Text>
-          <FormField
-            label="Motif (facultatif)"
-            htmlFor="annulation-motif"
-            error={annulErreur ?? undefined}
-          >
-            <Textarea
-              id="annulation-motif"
-              rows={3}
-              value={annulMotif}
-              onChange={(e) => setAnnulMotif(e.target.value)}
-            />
-          </FormField>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setAnnulTarget(null)}
-              disabled={annulEnCours}
-            >
-              Retour
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void confirmerAnnulation()}
-              disabled={annulEnCours}
-            >
-              {estDemande ? 'Confirmer la demande' : "Confirmer l'annulation"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        demande={estDemande}
+        antiGaspi={annulTarget?.type === 'anti_gaspi'}
+        loading={annulEnCours}
+        error={annulErreur}
+        onConfirm={(motif) => void confirmerAnnulation(motif)}
+        onCancel={() => setAnnulTarget(null)}
+      />
     </div>
   );
 }

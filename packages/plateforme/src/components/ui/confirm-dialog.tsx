@@ -133,11 +133,22 @@ export function useConfirm(): {
     resolve: (ok: boolean) => void;
   } | null>(null);
 
+  // Un nouvel appel pendant qu'une modale est ouverte (double clic) résout la
+  // précédente à `false` ; au démontage, la promesse en attente est résolue à
+  // `false` — jamais de promesse pendante (revue sécurité R-UI-3).
   const confirmer = React.useCallback(
     (options: ConfirmOptions) =>
-      new Promise<boolean>((resolve) => setEtat({ options, resolve })),
+      new Promise<boolean>((resolve) =>
+        setEtat((prev) => {
+          prev?.resolve(false);
+          return { options, resolve };
+        }),
+      ),
     [],
   );
+  const etatRef = React.useRef(etat);
+  etatRef.current = etat;
+  React.useEffect(() => () => etatRef.current?.resolve(false), []);
 
   const fermer = (ok: boolean) => {
     etat?.resolve(ok);

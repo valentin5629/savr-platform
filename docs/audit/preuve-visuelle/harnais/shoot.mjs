@@ -41,11 +41,16 @@ for (const id of process.env.SECTIONS
 // VIEWPORTS="dialog,dialog-collecte" : l'entrée rend une modale plein écran
 // sous `#<nom>` → capture du viewport entier (une `fixed inset-0` n'est pas
 // capturable par section).
-for (const name of process.env.VIEWPORTS ? process.env.VIEWPORTS.split(',') : []) {
+for (const name of process.env.VIEWPORTS
+  ? process.env.VIEWPORTS.split(',')
+  : []) {
   await page.goto(`file://${dist}/index.html#${name}`);
   await page.reload();
   await page.waitForTimeout(800);
-  await page.screenshot({ path: `${outDir}/${name}.png`, animations: 'disabled' });
+  await page.screenshot({
+    path: `${outDir}/${name}.png`,
+    animations: 'disabled',
+  });
 }
 await browser.close();
 console.log('shot', outDir);

@@ -87,7 +87,10 @@ function App() {
           </Row>
         </div>
       </Section>
-      <Section id="icon-buttons" title="IconButton — ghost / destructive / loading (B4)">
+      <Section
+        id="icon-buttons"
+        title="IconButton — ghost / destructive / loading (B4)"
+      >
         <Row>
           <IconButton aria-label="Modifier">
             <Pencil />
@@ -129,7 +132,10 @@ function App() {
           </p>
         </div>
       </Section>
-      <Section id="form-actions" title="FormActions — secondaire puis primaire, à droite (B5)">
+      <Section
+        id="form-actions"
+        title="FormActions — secondaire puis primaire, à droite (B5)"
+      >
         <div className="space-y-4 rounded-savr-md bg-savr-white p-4">
           <FormActions
             cancel={{ label: 'Annuler' }}
@@ -147,7 +153,10 @@ function App() {
       <Section id="page-cgu" title="Page CGU (lien de retour)">
         <CguPage />
       </Section>
-      <Section id="page-methodologie" title="Page méthodologie registre (lien ← Registre)">
+      <Section
+        id="page-methodologie"
+        title="Page méthodologie registre (lien ← Registre)"
+      >
         <MethodologiePage />
       </Section>
     </div>

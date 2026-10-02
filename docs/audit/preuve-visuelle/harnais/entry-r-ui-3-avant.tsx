@@ -35,7 +35,11 @@ function App() {
             <Button variant="secondary" className={ACTION_DESTRUCTIVE_CONTOUR}>
               Désactiver
             </Button>
-            <Button variant="ghost" size="sm" className="text-savr-error text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-savr-error text-xs"
+            >
               Supprimer
             </Button>
             <Button
@@ -57,7 +61,10 @@ function App() {
           </Row>
         </div>
       </Section>
-      <Section id="icon-buttons" title="Icône seule (avant) — Button size=icon / <button> brut">
+      <Section
+        id="icon-buttons"
+        title="Icône seule (avant) — Button size=icon / <button> brut"
+      >
         <Row>
           <IconButton aria-label="Modifier">
             <Pencil />
@@ -86,7 +93,10 @@ function App() {
             </Link>
           </p>
           <p>
-            <a href="/registre" className="text-sm text-savr-primary-700 underline">
+            <a
+              href="/registre"
+              className="text-sm text-savr-primary-700 underline"
+            >
               ← Registre
             </a>
           </p>
@@ -128,7 +138,10 @@ function App() {
       <Section id="page-cgu" title="Page CGU (lien de retour)">
         <CguPage />
       </Section>
-      <Section id="page-methodologie" title="Page méthodologie registre (lien ← Registre)">
+      <Section
+        id="page-methodologie"
+        title="Page méthodologie registre (lien ← Registre)"
+      >
         <MethodologiePage />
       </Section>
     </div>

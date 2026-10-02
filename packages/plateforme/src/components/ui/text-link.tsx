@@ -53,8 +53,11 @@ export function TextLink(props: TextLinkProps): React.ReactElement {
   if (props.external === true) {
     const { className, children, strong, touch, external, ...a } = props;
     void [className, strong, touch, external];
+    // Nouvel onglet : jamais sans `rel` (revue sécurité R-UI-3).
+    const rel =
+      a.target === '_blank' ? (a.rel ?? 'noopener noreferrer') : a.rel;
     return (
-      <a className={cls} {...a}>
+      <a className={cls} {...a} rel={rel}>
         {children}
       </a>
     );

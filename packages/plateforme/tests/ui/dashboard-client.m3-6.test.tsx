@@ -492,6 +492,14 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
         await screen.findByText('Périmètre comparé', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(screen.queryByText('Moyenne parc')).toBeNull();
+      // Titre et aria-label du radar ne parlent plus de « parc » en comparaison.
+      expect(
+        screen.getByText('Intensité par flux · kg/pax vs périmètre comparé'),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('benchmark-radar')).toHaveAttribute(
+        'aria-label',
+        expect.stringContaining('indice comparé = 100'),
+      );
       // …et la liste bascule sur la valeur du traiteur comparé (0,20 kg/pax).
       await waitFor(
         () =>

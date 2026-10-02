@@ -594,6 +594,11 @@ export function DashboardClientView() {
               k-anonymat côté Admin — décision Val 2026-10-02). */}
           <BenchmarkRadar
             items={gaugeItems}
+            title={
+              referenceCiblee
+                ? 'Intensité par flux · kg/pax vs périmètre comparé'
+                : undefined
+            }
             subtitle="Indice : référence = 100 (parc Savr entier, ou périmètre des filtres « Comparer avec »). À l'intérieur du repère, le périmètre sélectionné produit moins que la référence."
             referenceLabel={referenceLabel}
             referenceCourt={referenceCiblee ? 'Comparé' : 'Parc'}

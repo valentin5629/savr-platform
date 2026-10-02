@@ -402,7 +402,7 @@ export function BenchmarkRadar({
             viewBox={`0 0 ${VB_W} ${VB_H}`}
             className="block h-auto w-full"
             role="img"
-            aria-label="Radar de l'intensité kg/pax par flux, indice parc = 100"
+            aria-label={`Radar de l'intensité kg/pax par flux, indice ${referenceCourt.toLowerCase()} = 100`}
             data-testid="benchmark-radar"
             onMouseMove={onMove}
             onMouseLeave={onLeave}

@@ -71,7 +71,8 @@ export function BarreFiltres({
   intro,
   children,
   onReset,
-  resetLabel = 'Réinitialiser',
+  // Libellé unique de remise à zéro (R-UI-4b, D5 : 2 libellés → 1).
+  resetLabel = 'Réinitialiser les filtres',
   resetTestId,
   surface = 'carte',
   className,

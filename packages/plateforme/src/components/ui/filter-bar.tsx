@@ -15,16 +15,40 @@ import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 //     si `actif`) ;
 //  3. pied : compteur de résultats.
 // Le consommateur fournit les options, l'état, le compteur et la
-// synchronisation avec l'URL.
+// synchronisation avec l'URL (`useFiltresUrl`). Règle R-UI-4b (D5) : toute
+// liste = FilterBar complet (count + actif + onReset obligatoires) ; les
+// barres de dashboard (`DashboardFilterBar`, `BenchmarkFilterBar`, Revenus
+// admin) sont bâties dessus avec `surface` (page / encart) et `count={null}`.
 export interface FilterBarProps {
   tabs?: React.ReactNode;
   toggle?: React.ReactNode;
+  /** Amorce en tête de la ligne de filtres (ex. « Comparer avec »). */
+  intro?: React.ReactNode;
   children?: React.ReactNode;
-  /** Compteur de résultats (ex. « 16 collectes correspondent… »). */
-  count?: React.ReactNode;
+  /**
+   * Compteur de résultats (ex. « 16 collectes correspondent… »), SEUL
+   * emplacement du compteur d'une liste (R-UI-4b, D5 : ni en-tête de page, ni
+   * barre d'outils de grille, ni pied). `null` = pas de pied, réservé aux
+   * barres de dashboard (pas de liste à compter).
+   */
+  count: React.ReactNode;
   /** Au moins un filtre posé : affiche « Réinitialiser les filtres ». */
-  actif?: boolean;
-  onReset?: () => void;
+  actif: boolean;
+  /** Remise au défaut de tous les filtres (obligatoire : toute liste se réinitialise). */
+  onReset: () => void;
+  /**
+   * Support de la barre (R-UI-4b, D5 façon C) :
+   *  - 'carte' (défaut) : la barre EST une carte blanche bordée, bandeau gris
+   *    dedans — toute page de liste ;
+   *  - 'page' : posée sur le fond de page, sans carte ni padding, le bandeau
+   *    passe en blanc bordé (`BarreFiltres surface="page"`) — bandeau des
+   *    dashboards ;
+   *  - 'encart' : bandeau gris seul, posé dans une carte existante (filtres
+   *    benchmark dans la carte des jauges).
+   */
+  surface?: 'carte' | 'page' | 'encart';
+  /** `data-testid` du bouton de reset ; défaut `${data-testid}-reset`. */
+  resetTestId?: string;
   className?: string;
   'data-testid'?: string;
 }
@@ -32,21 +56,25 @@ export interface FilterBarProps {
 function FilterBar({
   tabs,
   toggle,
+  intro,
   children,
   count,
   actif,
   onReset,
+  surface = 'carte',
+  resetTestId,
   className,
   'data-testid': testId,
 }: FilterBarProps) {
   const avecEntete = Boolean(tabs || toggle);
-  const avecPied = count !== undefined;
+  const avecPied = count !== null && count !== undefined;
   return (
     <section
       aria-label="Filtres"
       data-testid={testId}
       className={cn(
-        'rounded-savr-xl border border-savr-neutral-200 bg-savr-white px-6 pb-6 pt-4',
+        surface === 'carte' &&
+          'rounded-savr-xl border border-savr-neutral-200 bg-savr-white px-6 pb-6 pt-4',
         className,
       )}
     >
@@ -65,9 +93,11 @@ function FilterBar({
       )}
       {children && (
         <BarreFiltres
+          intro={intro}
+          surface={surface === 'page' ? 'page' : 'carte'}
           onReset={actif ? onReset : undefined}
           resetLabel="Réinitialiser les filtres"
-          resetTestId={testId ? `${testId}-reset` : undefined}
+          resetTestId={resetTestId ?? (testId ? `${testId}-reset` : undefined)}
         >
           {children}
         </BarreFiltres>

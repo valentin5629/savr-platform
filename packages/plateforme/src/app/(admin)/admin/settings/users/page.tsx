@@ -1,13 +1,14 @@
 'use client';
 
 import { libelleRole } from '@/lib/libelles/role';
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Users, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ListFooter } from '@/components/ui/list-footer';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useUserRole } from '@/lib/use-user-role';
 import { InviteUserModal } from './invite-user-modal';
 import { Heading } from '@/components/ui/heading';
@@ -63,31 +64,21 @@ const columns: Column<StaffUser>[] = [
 ];
 
 export default function SettingsUsersPage() {
-  const [users, setUsers] = useState<StaffUser[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
+  const [page, setPage] = useState(1);
   const role = useUserRole();
-
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch('/api/v1/admin/users?role=admin_savr');
-    const res2 = await fetch('/api/v1/admin/users?role=ops_savr');
-    if (res.ok && res2.ok) {
-      const j1 = (await res.json()) as { data: StaffUser[]; total: number };
-      const j2 = (await res2.json()) as { data: StaffUser[]; total: number };
-      const all = [...j1.data, ...j2.data].sort((a, b) =>
-        a.nom.localeCompare(b.nom),
-      );
-      setUsers(all);
-      setTotal(j1.total + j2.total);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    void fetchUsers();
-  }, [fetchUsers]);
+  // Un seul appel paginé (R-UI-4a, E5) : avant, deux appels par rôle plafonnés
+  // à 50 lignes chacun, concaténés et re-triés — au-delà, les membres manquaient
+  // sans que le compteur (somme des totaux) ne le dise.
+  const {
+    data: users,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<StaffUser>(
+    `/api/v1/admin/users?roles=admin_savr,ops_savr&page=${page}`,
+  );
 
   return (
     <div className="space-y-6">
@@ -112,7 +103,7 @@ export default function SettingsUsersPage() {
           onClose={() => setShowInvite(false)}
           onCreated={() => {
             setShowInvite(false);
-            void fetchUsers();
+            recharger();
           }}
         />
       )}
@@ -128,25 +119,23 @@ export default function SettingsUsersPage() {
         </TextLink>
       </div>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : users.length === 0 ? (
-        <EmptyState
-          icon={<Users />}
-          title="Aucun utilisateur Savr"
-          description="Invitez les membres de votre équipe."
-        />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={users}
-          keyExtractor={(row) => row.id}
-        />
-      )}
+      <DataTable
+        columnsToggle
+        columns={columns}
+        data={users}
+        keyExtractor={(row) => row.id}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={
+          <EmptyState
+            icon={<Users />}
+            title="Aucun utilisateur Savr"
+            description="Invitez les membres de votre équipe."
+          />
+        }
+      />
+      <ListFooter total={total} page={page} onPageChange={setPage} />
     </div>
   );
 }

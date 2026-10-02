@@ -586,6 +586,7 @@ export function ListeCollectesClient({
           (arbitrage Val 2026-09-21, cf. _Divergences/_traités/2026-09/
           M3.1_20260921_tri_liste_collectes.md). Colonnes triables ensuite. */}
       <DataGrid
+        columnsToggle
         key={onglet}
         data-testid="collectes-table"
         columns={colonnes}

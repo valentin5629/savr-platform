@@ -216,6 +216,7 @@ export default function AlertesPage() {
         />
       ) : (
         <DataTable
+          columnsToggle
           columns={columns}
           data={alertes}
           clientSort

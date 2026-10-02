@@ -201,6 +201,7 @@ export default function AutoAcceptPage() {
         />
       ) : (
         <DataTable
+          columnsToggle
           columns={columnsWithToggle}
           data={configs}
           clientSort

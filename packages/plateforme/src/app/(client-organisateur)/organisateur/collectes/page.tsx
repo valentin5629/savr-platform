@@ -192,6 +192,7 @@ function CollectesContent() {
       <CollecteTypeTabs value={tab} onChange={changeTab} />
 
       <DataGrid
+        columnsToggle
         key={tab}
         data-testid="collectes-table"
         columns={cols}

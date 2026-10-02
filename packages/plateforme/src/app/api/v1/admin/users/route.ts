@@ -10,6 +10,7 @@ import {
   authAccountError,
 } from '@/lib/api-helpers.js';
 import { urlApplication } from '@/lib/url-application.js';
+import { listeCsv, parmi } from '@/lib/filtre-csv.js';
 
 const ROLES_VALIDES = [
   'admin_savr',
@@ -28,7 +29,11 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
   const organisation_id = searchParams.get('organisation_id');
-  const role = searchParams.get('role');
+  // `roles` (CSV) ou `role` (un seul) ; valeurs hors liste écartées.
+  const roles = listeCsv(
+    searchParams.get('roles') ?? searchParams.get('role'),
+    parmi(ROLES_VALIDES),
+  );
   const actif = searchParams.get('actif');
   const { page, limit, from: offset } = lirePagination(searchParams);
 
@@ -42,7 +47,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     .range(offset, offset + limit - 1);
 
   if (organisation_id) query = query.eq('organisation_id', organisation_id);
-  if (role) query = query.eq('role', role);
+  if (roles.length > 0) query = query.in('role', roles);
   if (actif !== null) query = query.eq('actif', actif === 'true');
 
   const { data, error, count } = await query;

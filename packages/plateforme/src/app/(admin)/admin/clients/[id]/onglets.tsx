@@ -20,6 +20,8 @@
  * Collectes (DataGrid, 2026-09-28) ; l'onglet Factures reste sur DataTable.
  */
 
+import { ListFooter } from '@/components/ui/list-footer';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { BarChart3, CreditCard, FlaskConical, Percent } from 'lucide-react';
@@ -78,39 +80,34 @@ export function OngletCollectes({
   organisationId: string;
 }): React.ReactElement {
   const router = useRouter();
-  const [rows, setRows] = React.useState<CollecteRow[]>([]);
-  const [loading, setLoading] = React.useState(true);
   // Même Data Table que la liste Collectes (décision Val 2026-09-28). Tri
   // envoyé à l'API (`tri`/`ordre`, liste blanche côté route) : elle ne renvoie
   // qu'une page, trier côté client la seule page reçue donnerait un ordre faux.
+  // Liste PAGINÉE (R-UI-4a, E5) : avant, seule la 1re page (50) était chargée
+  // et le reste de l'historique restait invisible, sans compteur ni pagination.
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: 'date', desc: true },
   ]);
+  const [page, setPage] = React.useState(1);
   const tri = sorting[0];
-
-  React.useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const qs = new URLSearchParams({ organisation_id: organisationId });
+  const url = React.useMemo(() => {
+    const qs = new URLSearchParams({
+      organisation_id: organisationId,
+      page: String(page),
+    });
     if (tri) {
       qs.set('tri', tri.id);
       qs.set('ordre', tri.desc ? 'desc' : 'asc');
     }
-    void fetch(`/api/v1/admin/collectes?${qs}`)
-      .then((r) => (r.ok ? r.json() : { data: [] }))
-      .then((j: { data?: CollecteRow[] }) => {
-        if (!cancelled) setRows(j.data ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setRows([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [organisationId, tri?.id, tri?.desc]);
+    return `/api/v1/admin/collectes?${qs}`;
+  }, [organisationId, page, tri?.id, tri?.desc]);
+  const {
+    data: rows,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<CollecteRow>(url);
 
   const columns: ColumnDef<CollecteRow, unknown>[] = [
     {
@@ -171,8 +168,9 @@ export function OngletCollectes({
 
   // Squelette au 1er chargement seulement : un re-tri garde le tableau (et
   // ses en-têtes) à l'écran pendant l'aller-retour serveur.
-  if (loading && rows.length === 0) return <Skeleton className="h-40 w-full" />;
-  if (rows.length === 0)
+  if (loading && rows.length === 0 && !erreur)
+    return <Skeleton className="h-40 w-full" />;
+  if (!loading && !erreur && rows.length === 0)
     return (
       <Card padding="lg">
         <EmptyState
@@ -189,14 +187,27 @@ export function OngletCollectes({
         columns={columns}
         data={rows}
         getRowId={(row) => row.id}
+        erreur={erreur}
+        onRecharger={recharger}
+        toolbar={
+          total > 0 ? (
+            <Text as="span">
+              {total} collecte{total > 1 ? 's' : ''}
+            </Text>
+          ) : null
+        }
         manualSorting
         sorting={sorting}
-        onSortingChange={setSorting}
+        onSortingChange={(next) => {
+          setSorting(next);
+          setPage(1);
+        }}
         onRowClick={(row) => router.push(`/admin/collectes/${row.id}`)}
         rowLabel={(row) =>
           `Ouvrir la collecte${row.evenements?.nom_evenement ? ` ${row.evenements.nom_evenement}` : ''}`
         }
       />
+      <ListFooter total={total} page={page} onPageChange={setPage} />
     </Card>
   );
 }

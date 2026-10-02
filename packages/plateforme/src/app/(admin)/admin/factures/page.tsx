@@ -1,13 +1,20 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { FileText, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -68,7 +75,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 // Filtre statut (§06.08 §4/§2.3). '__erreur__' = pseudo-filtre « En erreur »
 // (factures portant une erreur de synchro Pennylane).
-const FILTRES = [
+const PASTILLES_STATUT = [
   { key: '', label: 'Tout' },
   { key: 'brouillon', label: 'Brouillons' },
   { key: 'en_attente_pennylane', label: 'En attente Pennylane' },
@@ -205,25 +212,25 @@ const columns: Column<Facture>[] = [
   },
 ];
 
+// Filtres de la liste, miroir dans l'URL (R-UI-4a) : `statut` = pastille
+// (« __erreur__ » = en erreur Pennylane) ; Organisation et Type à choix
+// multiple, case « Tous » = sélection vide (décision Val 2026-09-30,
+// divergence M0.8_20260930_filtres-choix-multiple-tous). Tri serveur (cf.
+// lib/tri-liste), retour page 1 à chaque changement (BL-P3-07).
+const FILTRES = {
+  statut: texte(''),
+  types: liste(),
+  organisation_ids: liste(),
+  date_debut: texte(''),
+  date_fin: texte(''),
+  page: navigation(entier(1, 1)),
+  tri: navigation(texte('created_at')),
+  ordre: navigation(texte('desc')),
+};
+
 export default function FacturesPage() {
-  const [factures, setFactures] = useState<Facture[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filtre, setFiltre] = useState('');
-  // Organisation et Type à choix multiple, case « Tous » = sélection vide
-  // (décision Val 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous).
-  const [types, setTypes] = useState<string[]>([]);
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
-  const [orgIds, setOrgIds] = useState<string[]>([]);
+  const { valeurs: f, set, reset } = useFiltresUrl(FILTRES);
   const [orgs, setOrgs] = useState<{ id: string; label: string }[]>([]);
-  const [page, setPage] = useState(1);
-  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
-  // en page 1 à chaque changement (cf. lib/tri-liste).
-  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
-    cle: 'created_at',
-    ordre: 'desc',
-  });
-  const [total, setTotal] = useState(0);
 
   // Liste complète des organisations pour le filtre (§06.08 §4/§8). Boucle de
   // pagination (pas de troncature silencieuse) — même pattern que la liste collectes.
@@ -251,52 +258,37 @@ export default function FacturesPage() {
     };
   }, []);
 
-  const buildParams = useCallback(() => {
+  // Paramètres API hors page (partagés avec l'export CSV).
+  const qs = useMemo(() => {
     const params = new URLSearchParams();
-    params.set('tri', tri.cle);
-    params.set('ordre', tri.ordre);
-    if (filtre === '__erreur__') params.set('en_erreur', '1');
-    else if (filtre) params.set('statut', filtre);
-    if (types.length > 0) params.set('types', types.join(','));
-    if (orgIds.length > 0) params.set('organisation_ids', orgIds.join(','));
-    if (dateDebut) params.set('date_debut', dateDebut);
-    if (dateFin) params.set('date_fin', dateFin);
+    params.set('tri', f.tri);
+    params.set('ordre', f.ordre);
+    if (f.statut === '__erreur__') params.set('en_erreur', '1');
+    else if (f.statut) params.set('statut', f.statut);
+    if (f.types.length > 0) params.set('types', f.types.join(','));
+    if (f.organisation_ids.length > 0)
+      params.set('organisation_ids', f.organisation_ids.join(','));
+    if (f.date_debut) params.set('date_debut', f.date_debut);
+    if (f.date_fin) params.set('date_fin', f.date_fin);
     return params.toString();
-  }, [filtre, types, orgIds, dateDebut, dateFin, tri]);
-
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
-
-  const load = useCallback(() => {
-    const numero = ++derniereRequete.current;
-    const perime = () => numero !== derniereRequete.current;
-    setLoading(true);
-    const qs = buildParams();
-    const url = `/api/v1/admin/factures?${qs ? `${qs}&` : ''}page=${page}`;
-    fetch(url)
-      .then((r) => r.json())
-      .then((d: { data: Facture[]; total?: number }) => {
-        if (perime()) return;
-        setFactures(d.data ?? []);
-        setTotal(d.total ?? 0);
-      })
-      .finally(() => {
-        if (!perime()) setLoading(false);
-      });
-  }, [buildParams, page]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  // Retour à la page 1 quand les filtres changent (BL-P3-07).
-  useEffect(() => {
-    setPage(1);
-  }, [buildParams]);
+  }, [f]);
+  const {
+    data: factures,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<Facture>(
+    `/api/v1/admin/factures?${qs ? `${qs}&` : ''}page=${f.page}`,
+  );
+  const filtresActifs = Boolean(
+    f.date_debut ||
+    f.date_fin ||
+    f.types.length > 0 ||
+    f.organisation_ids.length > 0,
+  );
 
   function exportCsv() {
-    const qs = buildParams();
     window.open(`/api/v1/exports/factures${qs ? `?${qs}` : ''}`);
   }
 
@@ -319,22 +311,20 @@ export default function FacturesPage() {
       />
 
       <FilterChips
-        chips={FILTRES}
-        activeKey={filtre}
+        chips={PASTILLES_STATUT}
+        activeKey={f.statut}
         ariaLabel="Filtrer par statut"
-        onSelect={setFiltre}
+        onSelect={(statut) => set({ statut })}
       />
 
       <FilterBar
         data-testid="factures-filtres"
-        actif={Boolean(
-          dateDebut || dateFin || types.length > 0 || orgIds.length > 0,
-        )}
+        count={`${total} facture${total > 1 ? 's' : ''}`}
+        actif={filtresActifs}
         onReset={() => {
-          setTypes([]);
-          setOrgIds([]);
-          setDateDebut('');
-          setDateFin('');
+          // La pastille de statut n'est pas un filtre de la barre : conservée.
+          reset();
+          set({ statut: f.statut });
         }}
       >
         {/* « Période » en premier (décision Val 2026-09-30), puis filtres à
@@ -343,11 +333,8 @@ export default function FacturesPage() {
           titre="Période"
           id="filtre-periode"
           data-testid="filtre-periode"
-          value={{ from: dateDebut, to: dateFin }}
-          onChange={(p) => {
-            setDateDebut(p.from);
-            setDateFin(p.to);
-          }}
+          value={{ from: f.date_debut, to: f.date_fin }}
+          onChange={(p) => set({ date_debut: p.from, date_fin: p.to })}
         />
         <FiltreCoches
           label="Organisation"
@@ -355,57 +342,41 @@ export default function FacturesPage() {
           libelleVide="Toutes"
           libelleTous="Toutes"
           options={orgs.map((o) => ({ id: o.id, nom: o.label }))}
-          selected={orgIds}
-          onChange={setOrgIds}
+          selected={f.organisation_ids}
+          onChange={(ids) => set({ organisation_ids: ids })}
         />
         <FiltreCoches
           label="Type"
           testid="filtre-type"
           options={TYPE_OPTIONS}
-          selected={types}
-          onChange={setTypes}
+          selected={f.types}
+          onChange={(ids) => set({ types: ids })}
         />
       </FilterBar>
 
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : factures.length === 0 ? (
-        <EmptyState
-          icon={<FileText className="h-8 w-8" />}
-          title="Aucune facture"
-          description="Les brouillons apparaissent ici après le batch J+1."
-        />
-      ) : (
-        <>
-          <DataTable
-            columns={columns}
-            data={factures}
-            keyExtractor={(row) => row.id}
-            onSort={(cle, ordre) => {
-              setTri({ cle, ordre });
-              setPage(1);
-            }}
-            sortKey={tri.cle}
-            sortDirection={tri.ordre}
+      <DataTable
+        columns={columns}
+        data={factures}
+        keyExtractor={(row) => row.id}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={
+          <EmptyState
+            icon={<FileText className="h-8 w-8" />}
+            title="Aucune facture"
+            description="Les brouillons apparaissent ici après le batch J+1."
           />
-          {total > 50 && (
-            <div className="flex items-center justify-between gap-2 pt-3 text-sm">
-              <span className="text-savr-neutral-500">
-                {total} facture{total > 1 ? 's' : ''}
-              </span>
-              <Pagination
-                page={page}
-                pageCount={Math.ceil(total / 50)}
-                onPageChange={setPage}
-              />
-            </div>
-          )}
-        </>
-      )}
+        }
+        onSort={(cle, ordre) => set({ tri: cle, ordre })}
+        sortKey={f.tri}
+        sortDirection={f.ordre as 'asc' | 'desc'}
+      />
+      <ListFooter
+        total={total}
+        page={f.page}
+        onPageChange={(page) => set({ page })}
+      />
     </div>
   );
 }

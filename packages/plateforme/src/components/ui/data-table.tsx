@@ -40,6 +40,12 @@ interface DataTableProps<T> {
   className?: string;
   /** Rend chaque ligne cliquable (navigation vers le détail). */
   onRowClick?: (row: T) => void;
+  /** Transmis à DataGrid (R-UI-4a, E4/E6). */
+  empty?: React.ReactNode;
+  erreur?: string | null;
+  onRecharger?: () => void;
+  columnsToggle?: boolean;
+  toolbar?: React.ReactNode;
 }
 
 function valeur<T>(row: T, key: Column<T>['key']): unknown {
@@ -57,6 +63,11 @@ function DataTable<T>({
   clientSort = false,
   className,
   onRowClick,
+  empty,
+  erreur,
+  onRecharger,
+  columnsToggle,
+  toolbar,
 }: DataTableProps<T>) {
   const tri = Boolean(onSort) || clientSort;
 
@@ -97,6 +108,11 @@ function DataTable<T>({
       loading={loading}
       className={className}
       onRowClick={onRowClick}
+      empty={empty}
+      erreur={erreur}
+      onRecharger={onRecharger}
+      columnsToggle={columnsToggle}
+      toolbar={toolbar}
       {...(onSort
         ? {
             manualSorting: true,

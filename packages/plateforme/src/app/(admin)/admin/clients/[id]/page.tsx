@@ -609,6 +609,7 @@ export default function ClientFichePage({
               />
             ) : (
               <DataGrid
+                columnsToggle={false}
                 columns={COLONNES_USERS}
                 data={org.users}
                 getRowId={(u) => u.id}
@@ -731,6 +732,7 @@ export default function ClientFichePage({
                 Historique des packs
               </Heading>
               <DataGrid
+                columnsToggle={false}
                 columns={COLONNES_PACKS}
                 data={org.packs_antgaspi}
                 getRowId={(p) => p.id}

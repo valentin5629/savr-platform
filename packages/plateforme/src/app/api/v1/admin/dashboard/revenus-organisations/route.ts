@@ -3,6 +3,8 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { lireTri } from '@/lib/tri-liste.js';
+import { DEFAULT_PAGE_SIZE, parsePage } from '@/lib/pagination.js';
 
 /**
  * GET /api/v1/admin/dashboard/revenus-organisations — Bloc 2 « Revenus par
@@ -17,7 +19,7 @@ import { serverError } from '@/lib/api-helpers.js';
  * Agrégation server-side par organisation (l'ancien endpoint paginait les LIGNES
  * `factures_collectes` → totaux par org faux dès qu'une org dépassait la fenêtre de
  * 50 lignes ; corrigé ici : on agrège TOUTES les lignes de la période, puis on
- * trie/pagine les ORGANISATIONS). Tri défaut `montant_total_desc`, pagination 50/page,
+ * trie/pagine les ORGANISATIONS). Tri défaut `montant_total` desc (`tri`/`ordre`), pagination 50/page,
  * export CSV (`?format=csv`).
  */
 
@@ -28,7 +30,7 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   client_organisateur: 'Client organisateur',
 };
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 const FETCH_BATCH = 1000;
 
 interface OrgRevenus {
@@ -140,12 +142,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const from = sp.get('from') ?? defaults.from;
   const to = sp.get('to') ?? defaults.to;
   const format = sp.get('format');
-  const sortParam = sp.get('sort');
-  const sortKey: SortKey = SORT_KEYS.includes(sortParam as SortKey)
-    ? (sortParam as SortKey)
-    : 'montant_total';
-  const sortDir = sp.get('dir') === 'asc' ? 'asc' : 'desc';
-  const page = Math.max(1, parseInt(sp.get('page') ?? '1', 10));
+  // Convention de tri unique des listes (R-UI-4a, E3) : `tri` + `ordre`, lus
+  // par `lireTri` (liste blanche, défaut montant_total desc).
+  const tri = lireTri(
+    sp,
+    Object.fromEntries(SORT_KEYS.map((k) => [k, [k]])) as unknown as Record<
+      SortKey,
+      readonly string[]
+    >,
+    { tri: 'montant_total', ascendant: false },
+  );
+  const sortKey = tri.colonnes[0] as SortKey;
+  const sortDir = tri.ascendant ? 'asc' : 'desc';
+  const page = parsePage(sp);
 
   const byOrg = new Map<string, OrgRevenus>();
   function ensure(

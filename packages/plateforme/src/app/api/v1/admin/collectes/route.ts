@@ -1,3 +1,4 @@
+import { lirePagination } from '@/lib/pagination.js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
@@ -63,9 +64,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const info_incomplete = searchParams.get('info_incomplete'); // « Info incomplète »
   const controle_acces = searchParams.get('controle_acces'); // « Infos accès à envoyer » = contrôle d'accès requis ET email non envoyé ET à venir
   const rapport_non_consulte = searchParams.get('rapport_non_consulte'); // rapport non consulté
-  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-  const limit = 50;
-  const offset = (page - 1) * limit;
+  const { page, limit, from: offset } = lirePagination(searchParams);
   // Tri de la Data Table (colonnes triables) — liste blanche : la valeur part
   // dans `.order()`. Côté serveur car la liste est paginée : trier la seule
   // page chargée donnerait un ordre faux sur l'ensemble. Défaut inchangé
@@ -268,7 +267,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ data: rows, total: count ?? 0 });
+  return NextResponse.json({ data: rows, total: count ?? 0, page, limit });
 }
 
 async function postHandler(req: NextRequest): Promise<NextResponse> {

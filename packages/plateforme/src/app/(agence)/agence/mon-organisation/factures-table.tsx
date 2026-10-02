@@ -58,6 +58,7 @@ export function FacturesAgenceTable({
 }) {
   return (
     <DataGrid
+      columnsToggle={false}
       columns={COLONNES}
       data={factures}
       getRowId={(f) => f.id}

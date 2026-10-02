@@ -35,6 +35,8 @@ export function useListePaginee<T>(
     extraire?: (json: unknown) => ReponseListe<T>;
     /** Options `fetch` (en-têtes…). */
     init?: RequestInit;
+    /** Message de l'état Error (défaut `ERREUR_LISTE`). */
+    messageErreur?: string;
   },
 ): ListePaginee<T> {
   const [data, setData] = React.useState<T[]>([]);
@@ -45,6 +47,7 @@ export function useListePaginee<T>(
   const derniereRequete = React.useRef(0);
   const extraire = options?.extraire;
   const init = options?.init;
+  const messageErreur = options?.messageErreur ?? ERREUR_LISTE;
 
   React.useEffect(() => {
     if (url === null) return;
@@ -64,7 +67,7 @@ export function useListePaginee<T>(
         setTotal(r.total ?? r.data?.length ?? 0);
       } catch {
         if (numero !== derniereRequete.current) return;
-        setErreur(ERREUR_LISTE);
+        setErreur(messageErreur);
       } finally {
         if (numero === derniereRequete.current) setLoading(false);
       }
@@ -73,7 +76,7 @@ export function useListePaginee<T>(
       // Une requête dépassée ne doit plus écrire : on avance le compteur.
       if (numero === derniereRequete.current) derniereRequete.current++;
     };
-    // `extraire` / `init` : constantes chez les appelants.
+    // `extraire` / `init` / `messageErreur` : constantes chez les appelants.
   }, [url, tentative]);
 
   const recharger = React.useCallback(() => setTentative((t) => t + 1), []);

@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import type { AnyRole } from '@/lib/api-auth.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { lireTri } from '@/lib/tri-liste.js';
+import { parseLimit, parsePage } from '@/lib/pagination.js';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — types, filtres, requête.
@@ -98,21 +100,28 @@ export interface RegistreFilters {
   pageSize: number;
 }
 
-/** Parse les filtres du registre depuis la query string (valeurs CSV-listées). */
+/**
+ * Parse les filtres du registre depuis la query string (valeurs CSV-listées).
+ * Tri = convention unique des listes (R-UI-4a, E3) : `tri` + `ordre` ;
+ * taille de page = `limit` ∈ PAGE_SIZES (défaut 25).
+ */
 export function parseRegistreFilters(sp: URLSearchParams): RegistreFilters {
-  const sortByRaw = sp.get('sortBy') ?? 'date_evenement';
-  const sortBy: SortColumn = (SORT_COLUMNS as readonly string[]).includes(
-    sortByRaw,
-  )
-    ? (sortByRaw as SortColumn)
-    : 'date_evenement';
-  const sortDir = sp.get('sortDir') === 'asc' ? 'asc' : 'desc';
+  const tri = lireTri(
+    sp,
+    Object.fromEntries(SORT_COLUMNS.map((c) => [c, [c]])) as unknown as Record<
+      SortColumn,
+      readonly string[]
+    >,
+    { tri: 'date_evenement', ascendant: false },
+  );
+  const sortBy = tri.colonnes[0] as SortColumn;
+  const sortDir = tri.ascendant ? 'asc' : 'desc';
 
-  const pageSizeRaw = Number(sp.get('pageSize') ?? 25);
+  const pageSizeRaw = parseLimit(sp, 25, 100);
   const pageSize = (PAGE_SIZES as readonly number[]).includes(pageSizeRaw)
     ? pageSizeRaw
     : 25;
-  const page = Math.max(1, Number(sp.get('page') ?? 1) || 1);
+  const page = parsePage(sp);
 
   const bs = sp.get('bordereau');
   return {

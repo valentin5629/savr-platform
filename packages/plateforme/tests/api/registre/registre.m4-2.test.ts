@@ -151,7 +151,7 @@ describe('M4.2 / garde', () => {
   it('M4.2/liste_registre_200 — manager voit ses lignes', async () => {
     setupAuth('traiteur_manager', 'org-a');
     rls.push({ data: [{ collecte_id: 'c1' }], count: 1, error: null });
-    const res = await callList('?page=1&pageSize=25');
+    const res = await callList('?page=1&limit=25');
     expect(res.status).toBe(200);
     const body = (await res.json()) as { total: number; rows: unknown[] };
     expect(body.total).toBe(1);

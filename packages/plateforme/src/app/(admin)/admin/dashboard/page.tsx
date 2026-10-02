@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LayoutDashboard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -8,7 +8,8 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { RevenusHistogramme } from '@/components/dashboards/index.js';
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
@@ -116,10 +117,7 @@ const revenusColumns: Column<RevenusRow>[] = [
 
 export default function DashboardAdminPage() {
   const [kpi, setKpi] = useState<KpiData | null>(null);
-  const [revenus, setRevenus] = useState<RevenusRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [loadingKpi, setLoadingKpi] = useState(true);
-  const [loadingRevenus, setLoadingRevenus] = useState(true);
 
   // Filtre de période UNIQUE — pilote l'histogramme ET le tableau (revue E2E Val
   // 2026-07-18). Défaut = 12 derniers mois glissants.
@@ -135,26 +133,27 @@ export default function DashboardAdminPage() {
       .finally(() => setLoadingKpi(false));
   }, []);
 
-  const revenusQs = useCallback(() => {
-    return new URLSearchParams({
-      from: periode.from,
-      to: periode.to,
-      sort: sortKey,
-      dir: sortDir,
-      page: String(page),
-    }).toString();
-  }, [periode, sortKey, sortDir, page]);
-
-  useEffect(() => {
-    setLoadingRevenus(true);
-    fetch(`/api/v1/admin/dashboard/revenus-organisations?${revenusQs()}`)
-      .then((r) => r.json())
-      .then((d: { data?: RevenusRow[]; total?: number }) => {
-        setRevenus(d.data ?? []);
-        setTotal(d.total ?? 0);
-      })
-      .finally(() => setLoadingRevenus(false));
-  }, [revenusQs]);
+  // Tableau Revenus par organisation : liste paginée serveur (convention de tri
+  // unique `tri`/`ordre`, R-UI-4a), garde anti-réponse périmée + état Error
+  // portés par `useListePaginee`.
+  const revenusUrl = useMemo(
+    () =>
+      `/api/v1/admin/dashboard/revenus-organisations?${new URLSearchParams({
+        from: periode.from,
+        to: periode.to,
+        tri: sortKey,
+        ordre: sortDir,
+        page: String(page),
+      })}`,
+    [periode, sortKey, sortDir, page],
+  );
+  const {
+    data: revenus,
+    total,
+    loading: loadingRevenus,
+    erreur: erreurRevenus,
+    recharger: rechargerRevenus,
+  } = useListePaginee<RevenusRow>(revenusUrl);
 
   const handleSort = (key: string, direction: 'asc' | 'desc') => {
     setSortKey(key);
@@ -169,8 +168,6 @@ export default function DashboardAdminPage() {
     setPeriode(p.from && p.to ? p : defaultPeriode());
     setPage(1);
   };
-
-  const totalPages = Math.max(1, Math.ceil(total / 50));
 
   return (
     <div className="space-y-8">
@@ -314,39 +311,34 @@ export default function DashboardAdminPage() {
               >
                 Revenu par organisation
               </Heading>
-              {loadingRevenus ? (
-                <div className="space-y-2 p-6">
-                  {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full" />
-                  ))}
-                </div>
-              ) : revenus.length === 0 ? (
-                <Text className="p-6">Aucune donnée sur la période.</Text>
-              ) : (
-                <>
-                  <DataTable
-                    columns={revenusColumns}
-                    data={revenus}
-                    keyExtractor={(row) => row.organisation_id}
-                    onSort={handleSort}
-                    sortKey={sortKey}
-                    sortDirection={sortDir}
-                  />
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between gap-2 border-t border-savr-neutral-100 p-3 text-sm">
-                      <span className="text-savr-neutral-500">
-                        {total} organisation{total > 1 ? 's' : ''}
-                      </span>
-                      {/* Pagination DS (BL-P3-07) — remplace le footer Précédent/Suivant maison. */}
-                      <Pagination
-                        page={page}
-                        pageCount={totalPages}
-                        onPageChange={setPage}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
+              <DataTable
+                columns={revenusColumns}
+                data={revenus}
+                keyExtractor={(row) => row.organisation_id}
+                loading={loadingRevenus}
+                erreur={erreurRevenus}
+                onRecharger={rechargerRevenus}
+                empty={
+                  <Text className="p-6">Aucune donnée sur la période.</Text>
+                }
+                toolbar={
+                  !loadingRevenus && total > 0 ? (
+                    <Text as="span" className="px-6">
+                      {total} organisation{total > 1 ? 's' : ''}
+                    </Text>
+                  ) : null
+                }
+                onSort={handleSort}
+                sortKey={sortKey}
+                sortDirection={sortDir}
+                className="px-6 pb-6"
+              />
+              <ListFooter
+                total={total}
+                page={page}
+                onPageChange={setPage}
+                className="border-t border-savr-neutral-100 px-3 pb-3"
+              />
             </Card>
           </div>
         </div>

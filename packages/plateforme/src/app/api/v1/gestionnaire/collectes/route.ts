@@ -6,6 +6,7 @@ import {
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire.js';
+import { parsePage } from '@/lib/pagination.js';
 import { lireTri } from '@/lib/tri-liste.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
@@ -121,8 +122,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // un range négatif. Le dépassement par le HAUT ne se borne pas ici — le total
   // n'est pas encore connu — il est rattrapé après la requête (voir plus bas).
   const tri = lireTri(sp, TRIS, { tri: 'date', ascendant: false });
-  const pageParam = Number.parseInt(sp.get('page') ?? '1', 10);
-  const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
+  const page = parsePage(sp);
   const offset = (page - 1) * PAGE_SIZE;
 
   // Tailles demandées mais AUCUNE reconnue (code hors XS…XL) : renvoyer la liste

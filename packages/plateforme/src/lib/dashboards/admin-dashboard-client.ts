@@ -254,7 +254,13 @@ export async function loadAdminDashboardClient(
 
 /** Filtres de la ligne de référence (encart « Comparer avec » du radar). */
 export interface AdminBenchmarkFiltres {
-  /** Traiteurs OPÉRATIONNELS (même clé que le périmètre et le Top 5). */
+  /**
+   * Traiteurs OPÉRATIONNELS (`evenements.traiteur_operationnel_organisation_id`),
+   * même clé que le filtre « Traiteurs » du benchmark client et que le Top 5.
+   * ⚠ Pas la même règle que le PÉRIMÈTRE « Vous » (programmatrice OU opérateur,
+   * décision Val R24c) : un traiteur qui programme des événements opérés par un
+   * autre apparaît dans « Vous », pas dans la référence (point 4 de la divergence).
+   */
   traiteurIds: string[];
   lieuIds: string[];
   typeEvtIds: string[];
@@ -269,6 +275,9 @@ export interface AdminBenchmarkComparaison {
   /** Bornes de la période fixe 24 mois glissants (affichage). */
   periode: { debut: string; fin: string };
 }
+
+/** Taille de page = plafond PostgREST `max_rows` (supabase/config.toml). */
+export const PAGE_REFERENCE = 1000;
 
 const SELECT_REFERENCE = `id, type, taux_recyclage, date_collecte,
    evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
@@ -293,38 +302,45 @@ export async function loadAdminBenchmarkComparaison(
   filtres: AdminBenchmarkFiltres,
 ): Promise<AdminBenchmarkComparaison> {
   const periode = periodeBenchmark();
-  let q = admin
-    .from('collectes')
-    .select(SELECT_REFERENCE)
-    .eq('statut', 'cloturee')
-    .eq('type', 'zero_dechet')
-    .gte('date_collecte', periode.debut)
-    .lte('date_collecte', periode.fin);
   const traiteurIds = onlyUuids(filtres.traiteurIds);
   const lieuIds = onlyUuids(filtres.lieuIds);
   const typeEvtIds = onlyUuids(filtres.typeEvtIds);
-  if (traiteurIds.length > 0)
-    q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
-  if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
-  if (typeEvtIds.length > 0)
-    q = q.in('evenements.type_evenement_id', typeEvtIds);
 
-  const res = await q;
-  if (res.error)
-    throw erreurInterne(
-      res.error,
-      'admin.dashboard_client.benchmark.reference',
-    );
+  // Pagination : PostgREST plafonne chaque réponse à `max_rows` (1 000,
+  // supabase/config.toml). Sans pages, la référence « parc entier » serait
+  // tronquée en silence au-delà — tri stable par id, pages jointes.
+  const toutes: BlocsCollecteRow[] = [];
+  for (let offset = 0; ; offset += PAGE_REFERENCE) {
+    let q = admin
+      .from('collectes')
+      .select(SELECT_REFERENCE)
+      .eq('statut', 'cloturee')
+      .eq('type', 'zero_dechet')
+      .gte('date_collecte', periode.debut)
+      .lte('date_collecte', periode.fin);
+    if (traiteurIds.length > 0)
+      q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
+    if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+    if (typeEvtIds.length > 0)
+      q = q.in('evenements.type_evenement_id', typeEvtIds);
+    const res = await q.order('id').range(offset, offset + PAGE_REFERENCE - 1);
+    if (res.error)
+      throw erreurInterne(
+        res.error,
+        'admin.dashboard_client.benchmark.reference',
+      );
+    const page = (res.data ?? []) as unknown as BlocsCollecteRow[];
+    toutes.push(...page);
+    if (page.length < PAGE_REFERENCE) break;
+  }
 
   // Filtre taille (pax) en JS — même règle que le dashboard (parité §06.05).
   const tailleEvts = filtres.tailleEvts;
-  const rows = ((res.data ?? []) as unknown as BlocsCollecteRow[]).filter(
-    (c) => {
-      if (tailleEvts.length === 0) return true;
-      const evt = firstOf(c.evenements);
-      return evt != null && tailleEvts.includes(tailleBracket(evt.pax ?? 0));
-    },
-  );
+  const rows = toutes.filter((c) => {
+    if (tailleEvts.length === 0) return true;
+    const evt = firstOf(c.evenements);
+    return evt != null && tailleEvts.includes(tailleBracket(evt.pax ?? 0));
+  });
 
   return {
     kgParPaxParFlux: kgParPaxParFluxFrom(rows),

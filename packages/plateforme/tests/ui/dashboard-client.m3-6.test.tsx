@@ -448,6 +448,18 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
         ATTENTE_UI,
       );
       expect(benchmarkCalls().at(-1)).not.toMatch(/traiteur_ids/);
+      // La valeur de la référence est bien celle AFFICHÉE dans la liste du
+      // radar (parc = 0,10 kg/pax servi par le mock), pas seulement requêtée.
+      await waitFor(
+        () =>
+          expect(
+            screen
+              .getAllByTestId('benchmark-radar-ligne')
+              .map((l) => l.textContent)
+              .join(' | '),
+          ).toMatch(/Biodéchets0,12 kg\/pax · parc 0,10/),
+        ATTENTE_UI,
+      );
       // Échantillon de la référence, SANS seuil d'anonymisation (vue Admin).
       expect(
         await screen.findByTestId(
@@ -480,6 +492,17 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
         await screen.findByText('Périmètre comparé', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(screen.queryByText('Moyenne parc')).toBeNull();
+      // …et la liste bascule sur la valeur du traiteur comparé (0,20 kg/pax).
+      await waitFor(
+        () =>
+          expect(
+            screen
+              .getAllByTestId('benchmark-radar-ligne')
+              .map((l) => l.textContent)
+              .join(' | '),
+          ).toMatch(/Biodéchets0,12 kg\/pax · comparé 0,20/),
+        ATTENTE_UI,
+      );
       await waitFor(
         () =>
           expect(

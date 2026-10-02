@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
+import { PAGE_REFERENCE } from '@/lib/dashboards/admin-dashboard-client.js';
 
 // ─── Mock client admin (service-role) : builder awaitable + rpc ────────────────
 let queryResult: { data: unknown; error: unknown } = { data: [], error: null };
@@ -23,6 +24,7 @@ const adminClient: Record<string, unknown> = {
   lte: vi.fn(() => adminClient),
   neq: vi.fn(() => adminClient),
   order: vi.fn(() => adminClient),
+  range: vi.fn(() => adminClient),
   limit: vi.fn(() => adminClient),
   maybeSingle: vi.fn(() => Promise.resolve(queryResult)),
   rpc: vi.fn(() => Promise.resolve(rpcResult)),
@@ -355,8 +357,10 @@ const T1 = '11111111-1111-4111-8111-111111111111';
 const T2 = '22222222-2222-4222-8222-222222222222';
 const LIEU1 = '33333333-3333-4333-8333-333333333333';
 
-// Deux collectes du MÊME traiteur (k-anonymat clients : segment masqué) :
-// biodéchets 20 + 10 kg sur 100 + 100 pax → 0,15 kg/pax ; cartons 5 kg → 0,025.
+// Deux collectes du MÊME traiteur (k-anonymat clients : segment masqué), pax
+// INÉGAUX pour distinguer la formule parc (Σ kg / Σ pax) d'une moyenne des
+// ratios : biodéchets 20 + 10 kg sur 100 + 300 pax → 30/400 = 0,075 kg/pax
+// (moyenne des ratios = (0,20 + 0,033)/2 = 0,117 ≠) ; cartons 5/400 = 0,0125.
 const COLLECTES_REFERENCE = [
   {
     id: 'c1',
@@ -385,7 +389,7 @@ const COLLECTES_REFERENCE = [
     evenements: {
       id: 'e2',
       lieu_id: LIEU1,
-      pax: 100,
+      pax: 300,
       organisation_id: T1,
       type_evenement_id: 'ty1',
       traiteur_operationnel_organisation_id: T1,
@@ -410,8 +414,8 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
         periode: { debut: string; fin: string };
       };
     };
-    expect(body.data.kgParPaxParFlux.biodechet).toBeCloseTo(0.15, 6);
-    expect(body.data.kgParPaxParFlux.cartons).toBeCloseTo(0.025, 6);
+    expect(body.data.kgParPaxParFlux.biodechet).toBeCloseTo(0.075, 6);
+    expect(body.data.kgParPaxParFlux.cartons).toBeCloseTo(0.0125, 6);
     expect(body.data.nbCollectes).toBe(2);
     // Période fixe 24 mois glissants, imposée côté serveur (§06.05 l.172).
     expect(body.data.periode).toEqual(periodeBenchmark());
@@ -431,6 +435,54 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
     expect(inCalls()).toHaveLength(0);
     // Plus de passage par la fonction k-anonyme côté Admin.
     expect(adminClient.rpc).not.toHaveBeenCalled();
+    // `evenements!inner` : sans lui, les filtres `.in('evenements.…')` ne
+    // retireraient aucune collecte (embed vidé, ligne conservée).
+    const selectArg = String(
+      (adminClient.select as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
+    );
+    expect(selectArg).toContain('evenements!inner(');
+    // Pagination explicite (plafond PostgREST max_rows = 1 000) : tri stable + page.
+    expect(adminClient.order).toHaveBeenCalledWith('id');
+    expect(adminClient.range).toHaveBeenCalledWith(0, PAGE_REFERENCE - 1);
+  });
+
+  it('M3.6/benchmark_admin_reference_filtres_sans_k_anonymat — pagination : au-delà de 1 000 collectes, la référence n’est pas tronquée', async () => {
+    // Faux client : page 1 pleine (1 000 lignes), page 2 = 1 ligne → 1 001.
+    const ligne = (i: number) => ({
+      ...COLLECTES_REFERENCE[0]!,
+      id: `c${i}`,
+      evenements: { ...COLLECTES_REFERENCE[0]!.evenements, id: `e${i}` },
+    });
+    const pages: unknown[][] = [
+      Array.from({ length: PAGE_REFERENCE }, (_, i) => ligne(i)),
+      [ligne(PAGE_REFERENCE)],
+    ];
+    const ranges: [number, number][] = [];
+    const faux: Record<string, unknown> = {};
+    for (const m of ['from', 'select', 'eq', 'in', 'gte', 'lte', 'order'])
+      faux[m] = () => faux;
+    faux.range = (a: number, b: number) => {
+      ranges.push([a, b]);
+      return Promise.resolve({
+        data: pages[ranges.length - 1] ?? [],
+        error: null,
+      });
+    };
+    const { loadAdminBenchmarkComparaison } =
+      await import('@/lib/dashboards/admin-dashboard-client.js');
+    const res = await loadAdminBenchmarkComparaison(faux as never, {
+      traiteurIds: [],
+      lieuIds: [],
+      typeEvtIds: [],
+      tailleEvts: [],
+    });
+    expect(ranges).toEqual([
+      [0, PAGE_REFERENCE - 1],
+      [PAGE_REFERENCE, 2 * PAGE_REFERENCE - 1],
+    ]);
+    expect(res.nbCollectes).toBe(PAGE_REFERENCE + 1);
+    // 1 001 événements de 100 pax, 20 kg de biodéchets chacun → 0,20 kg/pax.
+    expect(res.kgParPaxParFlux.biodechet).toBeCloseTo(0.2, 6);
   });
 
   it('M3.6/benchmark_admin_reference_filtres_sans_k_anonymat — un seul traiteur ciblé est publié (pas de seuil k≥5 / ≥3 acteurs côté Admin)', async () => {
@@ -440,7 +492,7 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
       await import('@/app/api/v1/admin/dashboard-client/benchmark/route.js');
     const res = await GET(
       makeReq(
-        `/api/v1/admin/dashboard-client/benchmark?traiteur_ids=${T1},${T2}&lieu_ids=${LIEU1}&type_evenement_ids=pas-un-uuid&taille_evenement_codes=S,M`,
+        `/api/v1/admin/dashboard-client/benchmark?traiteur_ids=${T1},${T2}&lieu_ids=${LIEU1}&type_evenement_ids=pas-un-uuid&taille_evenement_codes=M,L`,
       ),
     );
     expect(res.status).toBe(200);
@@ -457,13 +509,14 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
     expect(
       inCalls().find((c) => c[0] === 'evenements.type_evenement_id'),
     ).toBeUndefined();
-    // Taille en JS (parité §06.05) : 100 pax = XS → hors S/M → référence vide,
-    // mais la réponse reste 200 (axes « n/d »), pas une erreur.
+    // Taille en JS (parité §06.05) : 100 pax = XS et 300 pax = S → hors M/L →
+    // référence vide, mais la réponse reste 200 (axes « n/d »), pas une erreur.
     expect(body.data.nbCollectes).toBe(0);
     expect(body.data.kgParPaxParFlux).toEqual({});
     expect(adminClient.rpc).not.toHaveBeenCalled();
 
-    // Même traiteur, taille compatible : 2 collectes d'UN SEUL acteur → publiées.
+    // Même traiteur, taille XS : la seule collecte de 100 pax (20 kg) d'UN SEUL
+    // acteur → publiée (0,20 kg/pax), là où le client aurait un segment masqué.
     const res2 = await GET(
       makeReq(
         `/api/v1/admin/dashboard-client/benchmark?traiteur_ids=${T1}&taille_evenement_codes=XS`,
@@ -472,8 +525,8 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
     const body2 = (await res2.json()) as {
       data: { kgParPaxParFlux: Record<string, number>; nbCollectes: number };
     };
-    expect(body2.data.nbCollectes).toBe(2);
-    expect(body2.data.kgParPaxParFlux.biodechet).toBeCloseTo(0.15, 6);
+    expect(body2.data.nbCollectes).toBe(1);
+    expect(body2.data.kgParPaxParFlux.biodechet).toBeCloseTo(0.2, 6);
   });
 
   it('M3.6/benchmark_staff_service_role — 401 sans session', async () => {
@@ -533,5 +586,16 @@ describe('M3.6 / Dashboard Client / benchmark filtres', () => {
       makeReq('/api/v1/admin/dashboard-client/benchmark/filtres'),
     );
     expect(res.status).toBe(403);
+  });
+
+  it('M3.6/benchmark_admin_filtres_options — 401 sans session', async () => {
+    setupNoAuth();
+    const { GET } =
+      await import('@/app/api/v1/admin/dashboard-client/benchmark/filtres/route.js');
+    const res = await GET(
+      makeReq('/api/v1/admin/dashboard-client/benchmark/filtres'),
+    );
+    expect(res.status).toBe(401);
+    expect(adminClient.from).not.toHaveBeenCalled();
   });
 });

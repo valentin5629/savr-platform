@@ -372,8 +372,18 @@ describe('M3.6 / dashboard-client Admin — sparkline + variation N-1', () => {
           const url = String(input);
           if (url.includes('/dashboard-client/organisations'))
             return jsonResponse({ data: [] });
+          if (url.includes('/dashboard-client/benchmark/filtres'))
+            return jsonResponse({
+              data: { lieux: [], traiteurs: [], types: [] },
+            });
           if (url.includes('/dashboard-client/benchmark'))
-            return jsonResponse({ data: [] });
+            return jsonResponse({
+              data: {
+                kgParPaxParFlux: {},
+                nbCollectes: 0,
+                periode: { debut: '2024-10-02', fin: '2026-10-02' },
+              },
+            });
           if (url.includes('/dashboard-client'))
             return jsonResponse({ data: payload(appels++ % 2 === 0) });
           return jsonResponse({});

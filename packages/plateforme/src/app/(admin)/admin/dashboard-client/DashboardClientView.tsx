@@ -182,6 +182,8 @@ export function DashboardClientView() {
   // Ligne de référence du radar + filtres « Comparer avec » (émis par la barre
   // au montage, puis à chaque changement).
   const [reference, setReference] = useState<ReferenceRadar | null>(null);
+  // Référence injoignable (403/500/réseau) : dit, pas muet (axes « n/d » seuls).
+  const [referenceErreur, setReferenceErreur] = useState(false);
   const [benchFilters, setBenchFilters] = useState<BenchmarkFilters | null>(
     null,
   );
@@ -303,20 +305,24 @@ export function DashboardClientView() {
   // ou le périmètre des filtres (ex. un autre traiteur), sans k-anonymat côté
   // Admin. Indépendante du périmètre sélectionné (ligne « Vous »). Onglet ZD seul.
   useEffect(() => {
-    if (tab !== 'zero_dechet' || !benchFilters) {
-      setReference(null);
-      return;
-    }
+    // Référence vidée dès le changement de filtres : la légende et les valeurs
+    // affichées décrivent toujours la même sélection (pas d'état mixte).
+    setReference(null);
+    setReferenceErreur(false);
+    if (tab !== 'zero_dechet' || !benchFilters) return;
     const qs = benchmarkQuery(benchFilters);
     let perimee = false;
     fetch(qs ? `${BENCHMARK_ENDPOINT}?${qs}` : BENCHMARK_ENDPOINT)
-      .then((r) => r.json())
+      .then((r) =>
+        r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)),
+      )
       .then((j: { data?: ReferenceRadar }) => {
         if (perimee) return;
-        setReference(j.data?.kgParPaxParFlux ? j.data : null);
+        if (j.data?.kgParPaxParFlux) setReference(j.data);
+        else setReferenceErreur(true);
       })
       .catch(() => {
-        if (!perimee) setReference(null);
+        if (!perimee) setReferenceErreur(true);
       });
     return () => {
       perimee = true;
@@ -613,6 +619,17 @@ export function DashboardClientView() {
                     {frDate(reference.periode.debut)} au{' '}
                     {frDate(reference.periode.fin)}, sans seuil d'anonymisation
                     (vue Admin).
+                  </Text>
+                )}
+                {referenceErreur && (
+                  <Text
+                    as="p"
+                    size="2xs"
+                    className="text-savr-error"
+                    data-testid="benchmark-reference-erreur"
+                  >
+                    Référence indisponible pour le moment : les écarts ne
+                    peuvent pas être calculés.
                   </Text>
                 )}
               </div>

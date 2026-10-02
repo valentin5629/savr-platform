@@ -12,8 +12,7 @@ import { loadAdminBenchmarkComparaison } from '@/lib/dashboards/admin-dashboard-
 // déjà chaque organisation en clair ; cf. loadAdminBenchmarkComparaison). Les
 // dashboards clients continuent de passer par f_benchmark_kg_pax_zd (k-anonyme).
 // Lecture seule. Paramètres (CSV, tous facultatifs, même contrat que la route
-// client) : traiteur_ids, lieu_ids, type_evenement_ids, taille_evenement_codes ;
-// `bracket` (mono-taille) = compat de l'ancien appel.
+// client) : traiteur_ids, lieu_ids, type_evenement_ids, taille_evenement_codes.
 // Réponse : { data: { kgParPaxParFlux, nbCollectes, periode } }.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -28,8 +27,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .map((s) => s.trim())
       .filter(Boolean);
   };
-  const bracket = searchParams.get('bracket');
-  const tailleEvts = csv('taille_evenement_codes');
 
   try {
     const data = await loadAdminBenchmarkComparaison(
@@ -38,7 +35,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         traiteurIds: csv('traiteur_ids'),
         lieuIds: csv('lieu_ids'),
         typeEvtIds: csv('type_evenement_ids'),
-        tailleEvts: tailleEvts.length ? tailleEvts : bracket ? [bracket] : [],
+        tailleEvts: csv('taille_evenement_codes'),
       },
     );
     return NextResponse.json(

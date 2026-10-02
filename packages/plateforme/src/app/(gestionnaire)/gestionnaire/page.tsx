@@ -44,6 +44,7 @@ import { Heading } from '@/components/ui/heading';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
+import { Card } from '@/components/ui/card';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -226,7 +227,7 @@ export default function GestionnaireDashboardPage() {
     value: nbColl(a.nb_collectes),
     secondary:
       tab === 'zero_dechet'
-        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? `${fmtPct(a.taux_recyclage, 1)}` : '—'}`
+        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? fmtPct(a.taux_recyclage, 1) : '—'}`
         : `${fmtInt(a.repas_donnes ?? 0)} repas · ${repasPaxStr(a.repas_par_pax)}`,
   }));
   const topAssociationsItems = (blocs?.topAssociations ?? []).map((a) => ({
@@ -484,10 +485,7 @@ export default function GestionnaireDashboardPage() {
 
           {/* Mon pack AG (lecture seule gestionnaire) */}
           {pack && (
-            <div
-              data-testid="bloc-pack-ag"
-              className="rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm"
-            >
+            <Card variant="elevated" padding="lg" data-testid="bloc-pack-ag">
               <Heading level={3} weight="extrabold" className="mb-2">
                 Mon pack Anti-Gaspi
               </Heading>
@@ -507,7 +505,7 @@ export default function GestionnaireDashboardPage() {
               <Text className="mt-2">
                 Contactez votre responsable Savr pour renouveler votre pack.
               </Text>
-            </div>
+            </Card>
           )}
 
           {/* Bloc 6 lieux + Bloc 7 traiteurs */}

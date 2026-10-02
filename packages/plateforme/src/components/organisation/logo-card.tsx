@@ -56,9 +56,8 @@ export function LogoCard({
       };
       if (!up.ok || !j.logo_url)
         throw new Error(j.error ?? 'Échec de l’envoi du logo.');
-      await onUploaded(j.logo_url).catch(() => {
-        throw new Error('Logo envoyé mais non enregistré. Veuillez réessayer.');
-      });
+      // L'appelant enregistre la clé sur le profil ; son rejet porte le message affiché.
+      await onUploaded(j.logo_url);
       setSucces('Logo mis à jour.');
     } catch (err) {
       setErreur((err as Error).message);

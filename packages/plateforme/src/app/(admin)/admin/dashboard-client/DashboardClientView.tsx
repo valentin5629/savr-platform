@@ -323,7 +323,7 @@ export function DashboardClientView() {
     value: nbColl(a.nb_collectes),
     secondary:
       tab === 'zero_dechet'
-        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? `${fmtPct(a.taux_recyclage, 1)}` : '—'}`
+        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? fmtPct(a.taux_recyclage, 1) : '—'}`
         : `${fmtInt(a.repas_donnes ?? 0)} repas · ${repasPaxStr(a.repas_par_pax)}`,
   }));
   const topAssociationsItems = (blocs?.topAssociations ?? []).map((a) => ({

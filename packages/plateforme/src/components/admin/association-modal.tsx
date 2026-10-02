@@ -726,7 +726,7 @@ export function AssociationModal({
               className={PANNEAU_ONGLET}
             >
               <Bloc icon={BadgeCheck} title="Habilitation fiscale">
-                <label className="text-sm text-savr-neutral-700 flex items-center gap-2 font-medium">
+                <label className="flex items-center gap-2 text-sm font-medium text-savr-neutral-700">
                   <input
                     type="checkbox"
                     checked={values.habilitee_attestation_fiscale}

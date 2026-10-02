@@ -19,6 +19,7 @@ import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
+import { fmtKgAuto, fmtPct, fmtInt } from '@/lib/format';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
 // revue écran 2026-07-15, passage en Data Table 2026-09-28 — décisions Val).
@@ -126,19 +127,13 @@ export function ResultatsCollecte({
           {c.poids_total_kg != null && c.poids_total_kg > 0 && (
             <span className="inline-flex items-center gap-1.5">
               <Scale className="h-3.5 w-3.5 text-savr-neutral-400" />
-              {c.poids_total_kg.toLocaleString('fr-FR', {
-                maximumFractionDigits: 1,
-              })}{' '}
-              kg
+              {fmtKgAuto(c.poids_total_kg)}
             </span>
           )}
           {c.taux_recyclage != null && (
             <span className="inline-flex items-center gap-1.5">
               <Recycle className="h-3.5 w-3.5 text-savr-neutral-400" />
-              {c.taux_recyclage.toLocaleString('fr-FR', {
-                maximumFractionDigits: 0,
-              })}{' '}
-              %
+              {fmtPct(c.taux_recyclage, 0)}
             </span>
           )}
         </>
@@ -147,17 +142,14 @@ export function ResultatsCollecte({
         c.nb_repas_donnes > 0 && (
           <span className="inline-flex items-center gap-1.5">
             <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
-            {c.nb_repas_donnes} repas
+            {fmtInt(c.nb_repas_donnes)} repas
           </span>
         )
       )}
       {c.co2_evite_kg != null && c.co2_evite_kg > 0 && (
         <span className="inline-flex items-center gap-1.5">
           <Leaf className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {c.co2_evite_kg.toLocaleString('fr-FR', {
-            maximumFractionDigits: 0,
-          })}{' '}
-          kg CO₂e
+          {fmtInt(c.co2_evite_kg)} kg CO₂e
         </span>
       )}
       {/* Rapport réservé au donneur d'ordre : action retirée (liste, §10 §7)

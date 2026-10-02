@@ -1,5 +1,3 @@
-'use client';
-
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +18,7 @@ export type TextTone =
   | 'body' // neutral-700
   | 'strong' // neutral-800
   | 'ink'; // neutral-900
-type TextElement = 'p' | 'span' | 'div' | 'dt' | 'dd' | 'li' | 'label';
+type TextElement = 'p' | 'span' | 'div' | 'dt' | 'dd' | 'li';
 
 const VARIANT: Record<TextVariant, { size: TextSize; tone: TextTone }> = {
   body: { size: 'sm', tone: 'body' },
@@ -52,7 +50,6 @@ export interface TextProps extends React.HTMLAttributes<HTMLElement> {
   variant?: TextVariant;
   size?: TextSize;
   tone?: TextTone;
-  htmlFor?: string;
 }
 
 /** Classes d'un texte courant (exportée pour les composants composés / tests). */

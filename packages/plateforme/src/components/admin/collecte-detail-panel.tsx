@@ -1356,7 +1356,7 @@ export function CollecteDetailPanel({
                             Camion {ct.rang}
                           </p>
                           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                            <label className="text-xs text-savr-neutral-500 space-y-1">
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
                               <span>Plaque d’immatriculation</span>
                               <Input
                                 value={v.plaque_immatriculation}
@@ -1368,7 +1368,7 @@ export function CollecteDetailPanel({
                                 }
                               />
                             </label>
-                            <label className="text-xs text-savr-neutral-500 space-y-1">
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
                               <span>Nom du chauffeur</span>
                               <Input
                                 value={v.chauffeur_nom}
@@ -1377,7 +1377,7 @@ export function CollecteDetailPanel({
                                 }
                               />
                             </label>
-                            <label className="text-xs text-savr-neutral-500 space-y-1">
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
                               <span>Téléphone du chauffeur</span>
                               <Input
                                 type="tel"
@@ -1390,7 +1390,7 @@ export function CollecteDetailPanel({
                                 }
                               />
                             </label>
-                            <label className="text-xs text-savr-neutral-500 space-y-1">
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
                               <span>Nom de l’accompagnant (facultatif)</span>
                               <Input
                                 value={v.accompagnant_nom}
@@ -1399,7 +1399,7 @@ export function CollecteDetailPanel({
                                 }
                               />
                             </label>
-                            <label className="text-xs text-savr-neutral-500 space-y-1">
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
                               <span>
                                 Téléphone de l’accompagnant (facultatif)
                               </span>
@@ -1713,7 +1713,7 @@ export function CollecteDetailPanel({
                     {overrideActif && (
                       <div>
                         <label
-                          className="text-sm text-savr-neutral-700 block font-medium mb-1"
+                          className="block text-sm font-medium text-savr-neutral-700 mb-1"
                           htmlFor="dispatch-motif"
                         >
                           Motif override (obligatoire ≥ 5 car. — prestataire ≠
@@ -1899,7 +1899,7 @@ export function CollecteDetailPanel({
                       </tbody>
                     </table>
                     <div>
-                      <label className="text-sm text-savr-neutral-700 mb-1 block font-medium">
+                      <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
                         Motif (obligatoire, ≥ 10 caractères)
                       </label>
                       <Textarea
@@ -2332,7 +2332,7 @@ export function CollecteDetailPanel({
             )}
           </Text>
           <div>
-            <label className="text-sm text-savr-neutral-700 mb-1 block font-medium">
+            <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
               Motif (≥ 10 caractères)
             </label>
             <Textarea
@@ -2396,7 +2396,7 @@ export function CollecteDetailPanel({
           </FormField>
           <div>
             <label
-              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
               htmlFor="force-statut-motif"
             >
               Motif (obligatoire, ≥ 10 caractères)
@@ -2455,7 +2455,7 @@ export function CollecteDetailPanel({
           </Text>
           <div>
             <label
-              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
               htmlFor="acceptation-reference"
             >
               Référence de mission communiquée par A Toutes! (obligatoire)
@@ -2480,7 +2480,7 @@ export function CollecteDetailPanel({
           </div>
           <div>
             <label
-              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
               htmlFor="acceptation-contact"
             >
               Contact joint chez A Toutes! (obligatoire)
@@ -2500,7 +2500,7 @@ export function CollecteDetailPanel({
           </div>
           <div>
             <label
-              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
               htmlFor="acceptation-heure"
             >
               Heure de l&apos;appel
@@ -2520,7 +2520,7 @@ export function CollecteDetailPanel({
           </div>
           <div>
             <label
-              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
               htmlFor="acceptation-commentaire"
             >
               Commentaire
@@ -2581,7 +2581,7 @@ export function CollecteDetailPanel({
           </Text>
           <div>
             <label
-              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
               htmlFor="nb-camions-input"
             >
               Nombre de camions

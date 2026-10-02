@@ -33,6 +33,7 @@ import {
   libelleValiderEtEnvoyer,
 } from '@/lib/type-tms-labels';
 import { Text } from '@/components/ui/text';
+import { fmtPax, fmtInt } from '@/lib/format';
 
 interface AssociationSuggestion {
   id: string;
@@ -504,8 +505,8 @@ export function AttributionAgForm({
     const pax = contexte?.pax ?? algo?.nb_pax ?? null;
     const repas = contexte?.volume_estime_repas ?? null;
     const parts: string[] = [];
-    if (pax != null) parts.push(`${pax.toLocaleString('fr-FR')} pax`);
-    if (repas != null) parts.push(`≈ ${repas.toLocaleString('fr-FR')} repas`);
+    if (pax != null) parts.push(fmtPax(pax));
+    if (repas != null) parts.push(`≈ ${fmtInt(repas)} repas`);
     return parts.length > 0 ? parts.join(' · ') : '—';
   })();
 

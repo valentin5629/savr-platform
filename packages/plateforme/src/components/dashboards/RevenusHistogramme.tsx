@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
-import { fmtEuro } from '@/lib/format';
+import { fmtEuro, fmtInt } from '@/lib/format';
 
 interface KpiAdminRow {
   mois: string;
@@ -71,13 +71,7 @@ export function RevenusHistogramme({
   // Formatage d'une valeur selon la bascule active — € sans décimales en montant,
   // entier en nombre de collectes (alimente le tooltip de survol des barres).
   const fmtVal = (v: number): string =>
-    toggle === 'montant'
-      ? v.toLocaleString('fr-FR', {
-          style: 'currency',
-          currency: 'EUR',
-          maximumFractionDigits: 0,
-        })
-      : v.toLocaleString('fr-FR');
+    toggle === 'montant' ? fmtEuro(v, 0) : fmtInt(v);
 
   const maxVal = Math.max(
     1,
@@ -106,7 +100,7 @@ export function RevenusHistogramme({
       return v >= 1000
         ? `${(v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} k€`
         : fmtEuro(v, 0);
-    return v.toLocaleString('fr-FR');
+    return fmtInt(v);
   };
 
   if (loading) {

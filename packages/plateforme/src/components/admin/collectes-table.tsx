@@ -30,7 +30,7 @@ import { instantParis } from '@savr/shared/src/temps/index.js';
 import { formatDateHeure, heureOuMinuit } from '@/lib/format-date-collecte';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
-import { fmtEuro } from '@/lib/format';
+import { fmtEuro, fmtKgAuto, fmtPct } from '@/lib/format';
 
 // ── Type de ligne collecte de la liste Admin (§06.06 §3) ──────────────────────
 // Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
@@ -191,16 +191,13 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
       {row.type === 'zero_dechet' && poids > 0 && (
         <span className="inline-flex items-center gap-1.5">
           <Scale className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {poids.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} kg
+          {fmtKgAuto(poids)}
         </span>
       )}
       {row.type === 'zero_dechet' && row.taux_recyclage != null && (
         <span className="inline-flex items-center gap-1.5">
           <Recycle className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {row.taux_recyclage.toLocaleString('fr-FR', {
-            maximumFractionDigits: 0,
-          })}{' '}
-          %
+          {fmtPct(row.taux_recyclage, 0)}
         </span>
       )}
       {rapport &&

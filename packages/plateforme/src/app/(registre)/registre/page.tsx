@@ -322,7 +322,7 @@ function RegistreContent() {
       <PageHeader
         title="Registre réglementaire"
         actions={
-          <div className="flex items-center gap-2">
+          <>
             <Button variant="ghost" asChild>
               <a href="/registre/methodologie">Méthodologie</a>
             </Button>
@@ -341,7 +341,7 @@ function RegistreContent() {
             >
               Télécharger tous les bordereaux
             </Button>
-          </div>
+          </>
         }
       />
 

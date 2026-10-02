@@ -19,6 +19,7 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { OPS_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { fmtEuro } from '@/lib/format';
 
 interface KpiData {
   non_transmises_zd: number;
@@ -41,7 +42,7 @@ interface RevenusRow {
 }
 
 function euro(v: number): string {
-  return v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+  return fmtEuro(v);
 }
 
 // Badge d'état d'un KPI d'alerte : action requise si > 0, « À jour » sinon.

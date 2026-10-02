@@ -407,7 +407,7 @@ export default function SignupPage() {
                 aria-describedby="cgu-label"
               />
               <label
-                className="text-sm text-savr-neutral-700 cursor-pointer"
+                className="cursor-pointer text-sm text-savr-neutral-700"
                 id="cgu-label"
                 htmlFor="cgu"
               >

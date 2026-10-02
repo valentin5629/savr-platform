@@ -771,7 +771,7 @@ export default function NouveauProgrammationPage() {
                 onCheckedChange={(c) => setControleAcces(c === true)}
               />
               <label
-                className="text-sm text-savr-neutral-700 cursor-pointer"
+                className="text-sm cursor-pointer text-savr-neutral-700"
                 htmlFor="controle-acces"
               >
                 Plaque d'immatriculation et nom du chauffeur requis pour ce lieu

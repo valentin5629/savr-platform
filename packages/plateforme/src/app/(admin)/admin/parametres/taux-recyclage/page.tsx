@@ -224,7 +224,7 @@ export default function TauxRecyclagePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filieres.map((f) => (
-            <Card key={f.id} className="p-6 space-y-3">
+            <Card key={f.id} padding="lg" className="space-y-3">
               <div className="flex items-center justify-between">
                 <Heading level={3} size="inherit" tone="strong">
                   {f.nom_filiere}

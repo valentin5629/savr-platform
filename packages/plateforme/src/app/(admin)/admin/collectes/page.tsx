@@ -759,7 +759,7 @@ export default function CollectesPage() {
 
         {/* Booléens — case DS (§6 Checkbox), cible 44px mobile */}
         <div className="flex flex-wrap gap-x-4 px-2">
-          <label className="text-sm text-savr-neutral-700 flex min-h-11 cursor-pointer items-center gap-2 sm:min-h-9">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
             <Checkbox
               checked={infoIncomplete}
               onCheckedChange={(v) => {
@@ -769,7 +769,7 @@ export default function CollectesPage() {
             />
             Info incomplète
           </label>
-          <label className="text-sm text-savr-neutral-700 flex min-h-11 cursor-pointer items-center gap-2 sm:min-h-9">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
             <Checkbox
               checked={rapportNonConsulte}
               onCheckedChange={(v) => {

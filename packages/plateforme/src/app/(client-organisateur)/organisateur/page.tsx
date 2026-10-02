@@ -17,6 +17,7 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { fmtInt, fmtDec } from '@/lib/format';
 
 // §11 §7 — Dashboard client_organisateur : impact RSE, lecture seule.
 // Pas de données financières, pas de benchmark (le rôle n'a aucun intérêt à se comparer).
@@ -236,7 +237,7 @@ export default function ClientOrganisateurDashboardPage() {
                 />
                 <StatCard
                   label="Énergie primaire évitée"
-                  value={`${energie.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} kWh`}
+                  value={`${fmtInt(energie)} kWh`}
                   dotColor={KPI_DOT.navy3}
                 />
               </CardContent>
@@ -272,8 +273,5 @@ export default function ClientOrganisateurDashboardPage() {
 
 /** Taux en fr : « 78,4 » (unité % rendue à part par la carte). */
 function fmtTaux(t: number): string {
-  return t.toLocaleString('fr-FR', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
+  return fmtDec(t, 1);
 }

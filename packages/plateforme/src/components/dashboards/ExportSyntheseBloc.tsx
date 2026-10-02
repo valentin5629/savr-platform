@@ -285,7 +285,7 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
               <Text tone="soft">
                 Figé sur <strong>{typeLabel}</strong> (onglet actif).
               </Text>
-              <label className="text-sm text-savr-neutral-700 mt-1 flex items-center gap-2">
+              <label className="mt-1 flex items-center gap-2 text-sm text-savr-neutral-700">
                 <input
                   type="checkbox"
                   checked={includeBoth}

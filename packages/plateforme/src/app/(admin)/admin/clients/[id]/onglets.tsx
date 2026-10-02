@@ -50,7 +50,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatDateParis, jourParis } from '@savr/shared/src/temps/index.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
-import { fmtEuro } from '@/lib/format';
+import { fmtEuro, fmtDec } from '@/lib/format';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
 // OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
@@ -283,12 +283,7 @@ export function OngletFactures({
       key: 'montant_ttc',
       header: 'Montant TTC',
       render: (row) =>
-        row.montant_ttc != null
-          ? `${row.montant_ttc.toLocaleString('fr-FR', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })} €`
-          : '—',
+        row.montant_ttc != null ? fmtEuro(row.montant_ttc) : '—',
     },
     {
       key: 'date_emission',
@@ -609,12 +604,7 @@ export function OngletTarifRefacture({
         ) : (
           <div className="flex items-center gap-4">
             <span className="text-lg font-semibold text-savr-neutral-900">
-              {value != null
-                ? `${value.toLocaleString('fr-FR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })} €`
-                : '1,50 € (défaut)'}
+              {value != null ? fmtEuro(value) : '1,50 € (défaut)'}
             </span>
             {canEdit && (
               <Button
@@ -671,11 +661,7 @@ function colonnesCoefficients(
       id: 'coefficient',
       header: 'Coefficient (kg/couvert)',
       accessorFn: (c) => c.coefficient_kg_couvert,
-      cell: ({ row: { original: c } }) =>
-        c.coefficient_kg_couvert.toLocaleString('fr-FR', {
-          minimumFractionDigits: 4,
-          maximumFractionDigits: 4,
-        }),
+      cell: ({ row: { original: c } }) => fmtDec(c.coefficient_kg_couvert, 4),
     },
     {
       id: 'annee_application',
@@ -1190,7 +1176,7 @@ export function OngletRemises({
           Remises négociées
         </Heading>
         <div className="flex items-center gap-4">
-          <label className="text-sm text-savr-neutral-600 flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-savr-neutral-600">
             <input
               type="checkbox"
               checked={activesOnly}

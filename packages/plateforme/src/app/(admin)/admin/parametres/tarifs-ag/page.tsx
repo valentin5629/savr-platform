@@ -17,6 +17,7 @@ import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { formatDateParis, jourParis } from '@savr/shared/src/temps/index.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { fmtEuro } from '@/lib/format';
 
 interface TarifPackAG {
   id: string;
@@ -51,8 +52,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPES_PACK = ['unitaire', 'pack_10', 'pack_30', 'pack_60'] as const;
 
-const eurosHt = (v: number): string =>
-  `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`;
+const eurosHt = (v: number): string => fmtEuro(v);
 
 // Versions d'une grille de tarif pack AG (lecture seule, CDC §9 l.726-729).
 const COLONNES_HISTORIQUE: ColumnDef<TarifHistoryRow, unknown>[] = [
@@ -238,7 +238,7 @@ export default function TarifsPacksAGPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {byType.map(({ type, label, tarif }) => (
-          <Card key={type} className="p-5">
+          <Card key={type} padding="md">
             <div className="flex items-start justify-between mb-3">
               <div>
                 <Heading
@@ -277,10 +277,7 @@ export default function TarifsPacksAGPage() {
                     Prix unitaire HT
                   </span>
                   <span className="font-medium">
-                    {tarif.prix_unitaire_ht.toLocaleString('fr-FR', {
-                      minimumFractionDigits: 2,
-                    })}{' '}
-                    €
+                    {fmtEuro(tarif.prix_unitaire_ht)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -288,10 +285,7 @@ export default function TarifsPacksAGPage() {
                     Montant total HT
                   </span>
                   <span className="font-medium text-savr-primary-700">
-                    {tarif.montant_total_ht.toLocaleString('fr-FR', {
-                      minimumFractionDigits: 2,
-                    })}{' '}
-                    €
+                    {fmtEuro(tarif.montant_total_ht)}
                   </span>
                 </div>
                 {tarif.mensualisable && tarif.nb_mensualites && (
@@ -301,12 +295,7 @@ export default function TarifsPacksAGPage() {
                     </span>
                     <span>
                       {tarif.nb_mensualites} ×{' '}
-                      {(
-                        tarif.montant_total_ht / tarif.nb_mensualites
-                      ).toLocaleString('fr-FR', {
-                        minimumFractionDigits: 2,
-                      })}{' '}
-                      €
+                      {fmtEuro(tarif.montant_total_ht / tarif.nb_mensualites)}
                     </span>
                   </div>
                 )}
@@ -410,12 +399,7 @@ export default function TarifsPacksAGPage() {
             required
             hint={
               fPrix && fCredits > 0
-                ? `Total HT : ${(parseFloat(fPrix) * fCredits).toLocaleString(
-                    'fr-FR',
-                    {
-                      minimumFractionDigits: 2,
-                    },
-                  )} €`
+                ? `Total HT : ${fmtEuro(parseFloat(fPrix) * fCredits)}`
                 : undefined
             }
           >

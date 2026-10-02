@@ -276,7 +276,7 @@ function CopierHoraires({
             const id = `copier-${source}-${j}`;
             return (
               <label
-                className="text-sm text-savr-neutral-700 flex h-10 cursor-pointer items-center justify-between rounded-savr-md px-2 hover:bg-savr-neutral-100"
+                className="flex h-10 cursor-pointer items-center justify-between rounded-savr-md px-2 text-sm text-savr-neutral-700 hover:bg-savr-neutral-100"
                 key={j}
                 htmlFor={id}
               >

@@ -194,14 +194,12 @@ export default function GrillesZdPage() {
         tone="neutral"
         icon={<Table2 className="h-6 w-6 text-savr-neutral-600" />}
         actions={
-          <>
-            {canEdit && (
-              <Button onClick={openModal}>
-                <Plus className="h-4 w-4 mr-1" />
-                Créer une grille
-              </Button>
-            )}
-          </>
+          canEdit ? (
+            <Button onClick={openModal}>
+              <Plus className="h-4 w-4 mr-1" />
+              Créer une grille
+            </Button>
+          ) : undefined
         }
       />
 
@@ -270,7 +268,7 @@ export default function GrillesZdPage() {
             </FormField>
           </div>
 
-          <label className="text-sm text-savr-neutral-700 flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
             <input
               type="checkbox"
               checked={fDefaut}

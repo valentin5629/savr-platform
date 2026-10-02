@@ -104,7 +104,11 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
       ) : (
         <div className="flex flex-wrap items-end gap-x-10 gap-y-6">
           {hero}
-          <LignesAbc {...props} />
+          <LignesAbc
+            induitKg={props.induitKg}
+            netKg={props.netKg}
+            energiePrimaireKwh={props.energiePrimaireKwh}
+          />
         </div>
       )}
 
@@ -160,7 +164,10 @@ function LignesAbc({
   induitKg,
   netKg,
   energiePrimaireKwh,
-}: Co2HeroCardZdProps): React.ReactElement {
+}: Pick<
+  Co2HeroCardZdProps,
+  'induitKg' | 'netKg' | 'energiePrimaireKwh'
+>): React.ReactElement {
   const induit = fmtMasse(induitKg);
   const net = fmtMasse(netKg);
   // Bilan net favorable (évité net ≥ 0) → vert clair ; défavorable (induit >

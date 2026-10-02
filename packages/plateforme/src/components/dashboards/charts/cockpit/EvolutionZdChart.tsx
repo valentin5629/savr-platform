@@ -18,7 +18,7 @@ import {
 import { Text } from '@/components/ui/text';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
 import { ToggleChip } from '@/components/ui/toggle-chip';
-import { fmtPct } from '@/lib/format';
+import { fmtPct, fmtKg } from '@/lib/format';
 
 // Cerclage gris du segment survolé (retour Val R24b — remplace le liseré noir).
 const SEGMENT_HOVER = TEXT_MUTED; // neutral-500
@@ -354,7 +354,7 @@ const EvolutionZdChart = React.forwardRef<
                           style={{ color: ACCENT_TEXT }}
                         >
                           {p.taux_recyclage != null
-                            ? `${fmtPct(p.taux_recyclage, 1)}`
+                            ? fmtPct(p.taux_recyclage, 1)
                             : '—'}
                         </span>
                       </div>
@@ -389,7 +389,7 @@ const EvolutionZdChart = React.forwardRef<
                         {f.label}
                       </span>
                       <span className="font-extrabold tabular-nums text-savr-neutral-900">
-                        {fmtInt(val)} kg
+                        {fmtKg(val)}
                       </span>
                     </div>
                     <Text
@@ -409,7 +409,7 @@ const EvolutionZdChart = React.forwardRef<
                           className="font-bold tabular-nums"
                           style={{ color: ACCENT_TEXT }}
                         >
-                          {fmtDec(p.taux_recyclage, 1)} %
+                          {fmtPct(p.taux_recyclage, 1)}
                         </span>
                       </div>
                     )}

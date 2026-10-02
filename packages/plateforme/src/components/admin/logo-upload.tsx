@@ -58,7 +58,7 @@ export function LogoUpload({
           />
         )}
         <label
-          className="text-sm text-savr-neutral-700 inline-flex cursor-pointer items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 py-2 font-medium hover:border-savr-primary-400"
+          className="inline-flex cursor-pointer items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 py-2 text-sm font-medium text-savr-neutral-700 hover:border-savr-primary-400"
           htmlFor={inputId}
         >
           <Upload className="h-4 w-4" />

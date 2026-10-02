@@ -256,7 +256,7 @@ export default function FactureDetailPage() {
   if (loading) return <Text as="div">Chargement…</Text>;
   if (!facture) return <Text as="div">Facture introuvable.</Text>;
 
-  const fmt = { format: (n: number) => fmtMontant(n, facture.devise) };
+  const fmt = (n: number): string => fmtMontant(n, facture.devise);
   const factureReference =
     facture.factures_collectes.find(
       (fc) => fc.collectes?.evenements?.reference_affaire,
@@ -453,17 +453,15 @@ export default function FactureDetailPage() {
         </Heading>
         <div className="flex justify-between">
           <span className="text-savr-neutral-500">Total HT</span>
-          <span className="font-medium">{fmt.format(facture.montant_ht)}</span>
+          <span className="font-medium">{fmt(facture.montant_ht)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-savr-neutral-500">TVA</span>
-          <span className="font-medium">{fmt.format(facture.montant_tva)}</span>
+          <span className="font-medium">{fmt(facture.montant_tva)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-savr-neutral-500">Total TTC</span>
-          <span className="font-semibold">
-            {fmt.format(facture.montant_ttc)}
-          </span>
+          <span className="font-semibold">{fmt(facture.montant_ttc)}</span>
         </div>
       </section>
 
@@ -575,7 +573,7 @@ function LigneRow({
   deleting: boolean;
   onSave: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
-  fmt: { format: (n: number) => string };
+  fmt: (n: number) => string;
 }) {
   const [designation, setDesignation] = useState(
     ligne.libelle_ligne ?? ligne.designation ?? '',
@@ -590,7 +588,7 @@ function LigneRow({
           {ligne.libelle_ligne ?? ligne.designation ?? 'Prestation Savr'}
         </div>
         <div className="font-medium text-savr-neutral-900">
-          {fmt.format(ligne.montant_ligne_ht * ligne.quantite)}
+          {fmt(ligne.montant_ligne_ht * ligne.quantite)}
         </div>
       </div>
     );

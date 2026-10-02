@@ -363,4 +363,45 @@ describe('LogoCard — bloc logo partagé', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'échec de l’envoi : message d’erreur du serveur affiché, onUploaded non appelé, input réinitialisé',
+    async () => {
+      const onUploaded = vi.fn(async () => {});
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({
+          ok: false,
+          json: async () => ({ error: 'Fichier trop lourd (2 Mo max).' }),
+        })),
+      );
+      const { container } = render(
+        <LogoCard
+          logoKey={null}
+          uploadUrl="/u"
+          previewSrc={(k) => k}
+          onUploaded={onUploaded}
+        />,
+      );
+      const input = container.querySelector(
+        'input[type=file]',
+      ) as HTMLInputElement;
+      fireEvent.change(input, {
+        target: {
+          files: [new File(['x'], 'logo.png', { type: 'image/png' })],
+        },
+      });
+      expect(
+        await screen.findByText(
+          'Fichier trop lourd (2 Mo max).',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(onUploaded).not.toHaveBeenCalled();
+      expect(input.value).toBe('');
+      vi.unstubAllGlobals();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

@@ -318,9 +318,16 @@ export default function MonOrganisationPage() {
             logoKey={profil.logo_url}
             uploadUrl={LOGO_URL}
             previewSrc={(k) => `${LOGO_URL}?v=${encodeURIComponent(k)}`}
-            onUploaded={async (k) =>
-              setProfil(await patchProfil({ logo_url: k }))
-            }
+            onUploaded={async (k) => {
+              // Le logo est déjà sur R2 : un échec du PATCH ne doit pas être
+              // confondu avec un échec d'envoi (message dédié, §06.05).
+              const p = await patchProfil({ logo_url: k }).catch(() => {
+                throw new Error(
+                  'Logo envoyé mais non enregistré. Veuillez réessayer.',
+                );
+              });
+              setProfil(p);
+            }}
           />
         </div>
       )}

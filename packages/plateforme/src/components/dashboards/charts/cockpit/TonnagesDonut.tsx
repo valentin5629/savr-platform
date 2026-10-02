@@ -61,7 +61,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
     const focus = hover != null ? perFlux[hover]! : null;
     const centerMasse = focus ? fmtMasse(focus.kg) : masse;
     const centerPct =
-      focus && total > 0 ? Math.round((focus.kg / total) * 100) : null;
+      focus && total > 0 ? fmtPct((focus.kg / total) * 100, 0) : null;
 
     return (
       <ChartCard
@@ -170,7 +170,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                   className="tabular-nums"
                   style={{ fontSize: 11, fill: TEXT_MUTED, fontWeight: 700 }}
                 >
-                  {`${focus.label} · ${centerPct} %`}
+                  {`${focus.label} · ${centerPct}`}
                 </text>
               )}
             </svg>

@@ -2,7 +2,7 @@
  * M1.6 — Tests batch J+1 6h (sélection collectes → enqueue jobs_pdf)
  * Scénarios P1 : nominal, skip pesées vides, escalade R9 > 48h, idempotence, embargo.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
@@ -622,5 +622,102 @@ describe('M1.6 / BatchPdfJ1 / email rapport_disponible (§06.02 §6)', () => {
     const sel = selectionCollectes(sb);
     expect(sel).toContain('date_collecte');
     expect(sel).toContain('programmeur:users!created_by');
+  });
+});
+
+describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux_savr.date_collecte)', () => {
+  // Relevé savr-dev 2026-10-02 : collecte ZD du 10/09 clôturée, batch exécuté le 01/10
+  // → bordereau ET rapport affichaient « Intervention le 01/10/2026 » (jour du batch) et
+  // bordereaux_savr.date_collecte portait le jour d'émission. La date d'intervention est
+  // `collectes.date_collecte`, jamais la date du jour : on fige l'horloge à un jour
+  // DIFFÉRENT de la collecte pour que le test distingue les deux.
+  const JOUR_BATCH = new Date('2026-10-01T04:00:00.000Z'); // 06:00 Paris (été)
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('bordereau + rapport : date_collecte = date de la collecte, date_emission = jour du batch', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(JOUR_BATCH);
+
+    const collecte = makeCollecte({
+      date_collecte: '2026-09-10',
+      realisee_at: '2026-09-11T02:00:00.000Z',
+      evenements: {
+        ...makeCollecte().evenements,
+        // Événement du 09/09, intervention la nuit suivante : la mention
+        // « Intervention le … » n'apparaît que si les deux dates diffèrent.
+        date_evenement: '2026-09-09',
+      },
+    });
+    const sb = makeSupabase([
+      { data: [collecte], error: null }, // select collectes
+      { data: [], error: null }, // bordereaux existants
+      { count: 1, error: null }, // count collecte_flux
+      {
+        data: [
+          { flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Biodéchets' } },
+        ],
+      }, // flux
+      { data: 'BSAV-2026-00042', error: null }, // rpc numero
+      {
+        data: { nom: 'Strike Transport', siret: '98765432100011' },
+      }, // shared.prestataires
+      {
+        data: {
+          evenement: {
+            type_evenement_id: 't1',
+            type_evenement: { libelle: 'Gala' },
+          },
+        },
+      }, // resolveRapportBenchmark : type d'événement
+      { data: { id: 'bord-date' }, error: null }, // insert bordereaux_savr
+      { data: { id: 'rse-date' }, error: null }, // insert rapports_rse
+      { data: null, error: null }, // job bordereau
+      { data: null, error: null }, // job rapport
+    ]);
+
+    const result = await runBatchPdfJ1(sb as never);
+    expect(result.enqueued).toBe(1);
+    expect(result.errors).toHaveLength(0);
+
+    // La sélection doit demander la colonne (sinon undefined → '' silencieux).
+    const selectArgs = (sb._chain.select as ReturnType<typeof vi.fn>).mock
+      .calls[0]![0] as string;
+    expect(selectArgs).toMatch(/\bdate_collecte\b/);
+
+    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+
+    // Ligne bordereaux_savr (document réglementaire, snapshot) : DATE « YYYY-MM-DD ».
+    const bordRow = insertCalls.find(
+      (c) => c[0].numero === 'BSAV-2026-00042',
+    )?.[0];
+    expect(bordRow).toBeDefined();
+    expect(bordRow!.date_collecte).toBe('2026-09-10');
+    expect(bordRow!.date_emission).toBe('2026-10-01');
+
+    // Payload bordereau (rendu Railway) : « JJ/MM/AAAA ».
+    const bordJob = insertCalls.find(
+      (c) => c[0].type_document === 'bordereau-zd',
+    )?.[0];
+    const bordPayload = bordJob!.payload as Record<string, string>;
+    expect(bordPayload.date_collecte).toBe('10/09/2026');
+    expect(bordPayload.date_evenement).toBe('09/09/2026');
+    expect(bordPayload.date_emission).toBe('01/10/2026');
+
+    // Payload rapport : même date d'intervention, et le bordereau embarqué aussi.
+    const rapJob = insertCalls.find(
+      (c) => c[0].type_document === 'rapport-recyclage-zd',
+    )?.[0];
+    const rapPayload = rapJob!.payload as {
+      date_collecte: string;
+      date_evenement: string;
+      bordereau: { date_collecte: string };
+    };
+    expect(rapPayload.date_collecte).toBe('10/09/2026');
+    expect(rapPayload.date_evenement).toBe('09/09/2026');
+    expect(rapPayload.bordereau.date_collecte).toBe('10/09/2026');
   });
 });

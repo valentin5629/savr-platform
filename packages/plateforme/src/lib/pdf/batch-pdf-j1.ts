@@ -14,7 +14,11 @@ import { resolveRapportBenchmark } from './rapport-benchmark.js';
 import { resolveRapportLogo } from './logo-cascade.js';
 import { makeLogoResolver } from './logo-inline.js';
 import { logger } from '@savr/shared/src/logger/index.js';
-import { anneeParis, jourParis } from '@savr/shared/src/temps/index.js';
+import {
+  anneeParis,
+  formatDateParis,
+  jourParis,
+} from '@savr/shared/src/temps/index.js';
 import { urlCanonique } from '@/lib/url-application.js';
 
 export interface BatchPdfJ1Result {
@@ -33,7 +37,10 @@ interface CollecteRow {
   id: string;
   evenement_id: string;
   realisee_at: string;
-  // Date de la collecte (variable `date_collecte` de l'email rapport_disponible, §06.02 §6).
+  // Date d'intervention du prestataire (§04 `collectes.date_collecte`, DATE
+  // « YYYY-MM-DD »). Snapshotée sur le bordereau (§04 `bordereaux_savr.date_collecte`),
+  // affichée « Intervention le … » sur bordereau + rapport (§12 §1.1 / §1.2) et
+  // variable `date_collecte` de l'email rapport_disponible (§06.02 §6).
   date_collecte: string;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
@@ -319,9 +326,13 @@ export async function runBatchPdfJ1(
         }
       }
 
-      const dateCollecteStr = new Date().toLocaleDateString('fr-FR', {
-        timeZone: 'Europe/Paris',
-      });
+      // Date d'intervention = `collectes.date_collecte` (§12 §1.1 « intervention le
+      // {{date_collecte}} », §04 bordereaux_savr.date_collecte = snapshot). Jamais la
+      // date du jour : le batch tourne à J+1 au plus tôt, et peut rattraper des
+      // collectes bien plus anciennes (relevé savr-dev 2026-10-02 : collecte du
+      // 10/09 rendue « Intervention le 01/10 »). Valeur DATE « YYYY-MM-DD » →
+      // formatDateParis la rend telle quelle, sans passer par un instant.
+      const dateCollecteStr = formatDateParis(collecte.date_collecte);
       const dateEvenementStr = new Date(ev.date_evenement).toLocaleDateString(
         'fr-FR',
         { timeZone: 'Europe/Paris' },
@@ -409,7 +420,8 @@ export async function runBatchPdfJ1(
           collecte_id: collecte.id,
           numero,
           date_emission: jourParis(),
-          date_collecte: jourParis(),
+          // Snapshot de la date d'intervention (§04), pas du jour d'émission.
+          date_collecte: collecte.date_collecte,
           producteur_raison_sociale: organisationProd?.raison_sociale ?? '',
           producteur_siret: organisationProd?.siret ?? null,
           producteur_adresse: organisationProd?.adresse ?? '',

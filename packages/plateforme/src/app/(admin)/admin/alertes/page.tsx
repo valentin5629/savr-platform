@@ -44,8 +44,9 @@ const FILTRES = { statut: texte('ouverte') };
 export default function AlertesPage() {
   const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES);
   const statut = f.statut;
+  // Valeur lue de l'URL : encodée (revue sécurité #481), la route la valide.
   const { data, loading, erreur, recharger } = useListePaginee<Alerte>(
-    `/api/v1/admin/alertes?statut=${statut}`,
+    `/api/v1/admin/alertes?${new URLSearchParams({ statut }).toString()}`,
   );
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   // Résolutions optimistes (id → date) appliquées par-dessus la liste chargée :

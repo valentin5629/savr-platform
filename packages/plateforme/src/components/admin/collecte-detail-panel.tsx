@@ -1632,6 +1632,12 @@ export function CollecteDetailPanel({
                       En attente : infos à compléter avant envoi de l’email.
                     </Text>
                   )}
+                  {collecte.collecte_tournees.length === 0 && (
+                    <Text>
+                      Aucune tournée dispatchée pour le moment — les coordonnées
+                      pourront être saisies une fois le prestataire attribué.
+                    </Text>
+                  )}
                 </>
               ) : collecte.collecte_tournees.length === 0 ? (
                 <Text>

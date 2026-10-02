@@ -12,6 +12,7 @@ import { logger } from '@savr/shared/src/logger/index.js';
 import {
   setupEverestMock,
   _setEverestHandlers,
+  _getEverestHandlers,
   type EverestMissionDetail,
 } from '@savr/adapters/src/index.js';
 
@@ -362,6 +363,10 @@ describe('M2.5 / webhook Everest — déduplication inbox', () => {
 });
 
 describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
+  // mission_dispatched relit la mission sur l'API Everest (coursier) : le mock
+  // est OBLIGATOIRE ici, sinon le test appelle le vrai serveur A Toutes!.
+  let mockState: ReturnType<typeof setupEverestMock>;
+
   beforeEach(() => {
     Object.keys(insertedRows).forEach((k) => delete insertedRows[k]);
     Object.keys(updatedRows).forEach((k) => delete updatedRows[k]);
@@ -370,6 +375,11 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
     vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
     mockAuditRow = null;
+    mockState = setupEverestMock();
+  });
+
+  afterEach(() => {
+    _setEverestHandlers(null);
   });
 
   it('mission_dispatched → statut_everest=assigned + statut_tms=acceptee', async () => {
@@ -414,7 +424,6 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
       statut_everest: 'created',
     };
     mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
-    const mockState = setupEverestMock();
     mockState.details.set('EVR-001', {
       mission_id: 'EVR-001',
       status: 'assigned',
@@ -449,7 +458,6 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
         ['external_ref_commande', 'EVR-001'],
       ]),
     );
-    _setEverestHandlers(null);
   });
 
   it('mission_dispatched — API Everest sans coursier (ou téléphone seul) → la tournée n’est pas touchée (saisie Admin conservée)', async () => {
@@ -460,7 +468,6 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
       statut_everest: 'created',
     };
     mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
-    const mockState = setupEverestMock();
     mockState.details.set('EVR-001', {
       mission_id: 'EVR-001',
       status: 'assigned',
@@ -480,7 +487,6 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
       }),
     );
     expect(updatedRows['tournees'] ?? []).toEqual([]);
-    _setEverestHandlers(null);
   });
 
   it('mission_dispatched — re-fetch Everest en échec → rien d’écrit sur la tournée (payload ignoré), mission quand même assigned, 200', async () => {
@@ -509,7 +515,6 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
         (u) => (u as { statut_everest?: string }).statut_everest === 'assigned',
       ),
     ).toBe(true);
-    _setEverestHandlers(null);
   });
 
   it('mission_dispatched — déjà acceptée → pas de double update statut_tms', async () => {
@@ -1488,8 +1493,13 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
     expect(traceHorsAttribution('EVR-OLD-4')).toBe(true);
   });
 
-  it('mission_dispatched après réattribution, coursier présent sur l’API → aucune écriture sur la tournée (garde mission courante AVANT la propagation)', async () => {
+  it('mission_dispatched après réattribution, coursier présent sur l’API → aucune écriture sur la tournée ni appel API (garde mission courante AVANT la propagation)', async () => {
     mockTransporteurRow = { type_tms: 'mts1' };
+    // Espion sur la relecture : une mission hors attribution ne déclenche
+    // aucun appel à l'API Everest.
+    const handlers = _getEverestHandlers()!;
+    const getMission = vi.fn(handlers.getMission);
+    _setEverestHandlers({ ...handlers, getMission });
     mockState.details.set('EVR-OLD-6', {
       mission_id: 'EVR-OLD-6',
       status: 'assigned',
@@ -1510,6 +1520,7 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
     );
     expect(resp.status).toBe(200);
     expect(updatedRows['tournees'] ?? []).toEqual([]);
+    expect(getMission).not.toHaveBeenCalled();
     expect(traceHorsAttribution('EVR-OLD-6')).toBe(true);
   });
 

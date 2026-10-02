@@ -432,6 +432,26 @@ async function handleEventType(
         break;
       }
 
+      // Passer statut_tms → 'acceptee' si pas encore acceptée
+      // (trigger fn_sync_statut_collecte_from_tms dérive collectes.statut)
+      if (lue.etat.statut_tms === 'attribuee_en_attente_acceptation') {
+        await ecritureCollecteGardee(
+          supabase,
+          supabase
+            .from('collectes')
+            .update({ statut_tms: 'acceptee' })
+            .eq('id', mission.collecte_id)
+            .eq('statut_tms', 'attribuee_en_attente_acceptation')
+            .eq('prestataire_logistique_id', lue.prestataire)
+            .select('id'),
+          {
+            evenement: 'collecte_acceptee',
+            collecteId: mission.collecte_id,
+            missionId,
+            quoi: 'acceptation de la course (statut transporteur « acceptee »)',
+          },
+        );
+      }
       // Coordonnées du coursier → tournée de la mission (bloc « Chauffeur »
       // des fiches collecte client et Admin, comme l'adapter MTS-1 avec le
       // référentiel carrier — décision Val 2026-10-02). Webhook = SIGNAL : nom
@@ -442,7 +462,9 @@ async function handleEventType(
       // téléphone est écrit ensemble (téléphone null si l'API ne l'expose pas) :
       // jamais un nom neuf associé à un ancien téléphone saisi par l'Admin.
       // Best-effort (pas une transition d'état) : re-fetch KO ou UPDATE refusé
-      // = tracé, rien d'écrit, réponse 200.
+      // = tracé, rien d'écrit, réponse 200. Placé APRÈS la transition
+      // `statut_tms → acceptee` (l'étape principale) : la relecture API (jusqu'à
+      // 40 s) ne retarde pas l'acceptation.
       {
         let coursier: { nom: string; telephone: string | null } | null = null;
         try {
@@ -484,26 +506,6 @@ async function handleEventType(
         }
       }
 
-      // Passer statut_tms → 'acceptee' si pas encore acceptée
-      // (trigger fn_sync_statut_collecte_from_tms dérive collectes.statut)
-      if (lue.etat.statut_tms === 'attribuee_en_attente_acceptation') {
-        await ecritureCollecteGardee(
-          supabase,
-          supabase
-            .from('collectes')
-            .update({ statut_tms: 'acceptee' })
-            .eq('id', mission.collecte_id)
-            .eq('statut_tms', 'attribuee_en_attente_acceptation')
-            .eq('prestataire_logistique_id', lue.prestataire)
-            .select('id'),
-          {
-            evenement: 'collecte_acceptee',
-            collecteId: mission.collecte_id,
-            missionId,
-            quoi: 'acceptation de la course (statut transporteur « acceptee »)',
-          },
-        );
-      }
       break;
     }
 

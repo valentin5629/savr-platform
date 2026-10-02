@@ -13,17 +13,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FormField } from '@/components/ui/form-field';
-import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
-import { FilterBar } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { liste, texte, useFiltresUrl } from '@/lib/hooks/use-filtres-url';
+import { useFiltresUrl } from '@/lib/hooks/use-filtres-url';
+import {
+  FILTRES_FACTURES,
+  FacturesFiltresBar,
+} from '@/components/facture/factures-filtres-bar';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
-import type { Database } from '@savr/shared/src/database.types.js';
 import { LogoCard } from '@/components/organisation/logo-card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -33,7 +33,6 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
-type Enums = Database['plateforme']['Enums'];
 
 type OrgTab = 'infos' | 'equipe' | 'facturation' | 'preferences';
 
@@ -960,17 +959,8 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
   },
 ];
 
-// Filtres §6 l.690 : statut, type, période (date d'émission). Statut et Type à
-// choix multiple, case « Tous » = sélection vide (décision Val 2026-09-30,
-// divergence M0.8_20260930_filtres-choix-multiple-tous). État dans l'URL
-// (R-UI-4b, D5/D6), mêmes clés que la route.
-const FILTRES_FACTURES = {
-  statuts: liste(),
-  types: liste(),
-  date_debut: texte(''),
-  date_fin: texte(''),
-};
-
+// Filtres §6 l.690 : statut, type, période — schéma et barre partagés avec
+// gestionnaire / agence (`components/facture/factures-filtres-bar`, R-UI-4b D10).
 function FacturationTab({ isManager }: { isManager: boolean }) {
   const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES_FACTURES);
   const url = useMemo(() => {
@@ -1017,55 +1007,14 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
           <CardTitle>Factures</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Filtres §6 l.690 : statut, type, période — filtres en ligne
-              (décision Val 2026-09-30) dans une FilterBar complète (R-UI-4b,
-              D5 : compteur + « Réinitialiser les filtres »). */}
-          <FilterBar
+          <FacturesFiltresBar
             className="mb-4"
-            data-testid="factures-filtres"
-            count={`${factures.length} facture${factures.length > 1 ? 's' : ''}`}
+            value={f}
+            set={set}
             actif={actif}
             onReset={reset}
-          >
-            {/* « Période » en premier (décision Val 2026-09-30). */}
-            <DateRangePicker
-              titre="Période"
-              id="factures-periode"
-              value={{ from: f.date_debut, to: f.date_fin }}
-              onChange={(p) => set({ date_debut: p.from, date_fin: p.to })}
-            />
-            {/* Valeurs = enums réels plateforme.facture_statut / facture_type
-                (brouillon exclu par la route ; « En retard » est un badge dérivé
-                de date_echeance, pas un statut stocké → non filtrable). */}
-            <FiltreCoches
-              label="Statut"
-              testid="factures-statut"
-              options={
-                [
-                  { id: 'en_attente_pennylane', nom: 'En attente' },
-                  { id: 'emise', nom: 'Émise' },
-                  { id: 'payee', nom: 'Payée' },
-                  { id: 'annulee', nom: 'Annulée' },
-                ] satisfies { id: Enums['facture_statut']; nom: string }[]
-              }
-              selected={f.statuts}
-              onChange={(ids) => set({ statuts: ids })}
-            />
-            <FiltreCoches
-              label="Type"
-              testid="factures-type"
-              options={
-                [
-                  { id: 'zero_dechet', nom: 'ZD' },
-                  { id: 'collecte_antigaspi', nom: 'AG' },
-                  { id: 'achat_pack_antigaspi', nom: 'Pack' },
-                  { id: 'avoir', nom: 'Avoir' },
-                ] satisfies { id: Enums['facture_type']; nom: string }[]
-              }
-              selected={f.types}
-              onChange={(ids) => set({ types: ids })}
-            />
-          </FilterBar>
+            count={factures.length}
+          />
           <DataGrid
             columnsToggle={false}
             columns={COLONNES_FACTURES}

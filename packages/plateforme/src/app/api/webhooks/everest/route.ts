@@ -464,7 +464,7 @@ async function handleEventType(
       // Best-effort (pas une transition d'état) : re-fetch KO ou UPDATE refusé
       // = tracé, rien d'écrit, réponse 200. Placé APRÈS la transition
       // `statut_tms → acceptee` (l'étape principale) : la relecture API (jusqu'à
-      // 40 s) ne retarde pas l'acceptation.
+      // 80 s avec un 401 puis un nouvel essai) ne retarde pas l'acceptation.
       {
         let coursier: { nom: string; telephone: string | null } | null = null;
         try {

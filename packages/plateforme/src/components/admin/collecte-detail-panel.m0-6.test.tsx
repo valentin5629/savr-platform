@@ -2032,7 +2032,7 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
       }
       expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
       expect(
-        screen.getByText(/Aucune tournée dispatchée pour le moment/),
+        screen.getByText(/Aucune tournée pour le moment/),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole('button', { name: 'Modifier les coordonnées' }),
@@ -2169,6 +2169,35 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
       // Transporteur manuel : rien ne remonte automatiquement.
       expect(screen.getByText(/à saisir par l’équipe Ops/)).toBeInTheDocument();
       expect(screen.queryByText(/remontent automatiquement/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'contrôle d’accès requis sans tournée : mention de l’email ET explication de l’absence de saisie',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        controle_acces_requis: true,
+        infos_acces_email_envoye_at: null,
+        collecte_tournees: [],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          /exige un contrôle d’accès/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Aucune tournée pour le moment/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Modifier les coordonnées' }),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

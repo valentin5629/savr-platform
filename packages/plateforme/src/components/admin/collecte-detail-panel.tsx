@@ -1676,14 +1676,6 @@ export function CollecteDetailPanel({
                           <Text as="span" variant="hint" className="font-mono">
                             {ct.tournees.external_ref_commande ?? '—'}
                           </Text>
-                          <Text
-                            as="span"
-                            variant="hint"
-                            tone="soft"
-                            className="font-mono"
-                          >
-                            {ct.tournees.plaque_immatriculation ?? 'plaque —'}
-                          </Text>
                         </div>
                       ))}
                     </div>
@@ -1749,15 +1741,17 @@ export function CollecteDetailPanel({
                   )}
                   {collecte.collecte_tournees.length === 0 && (
                     <Text>
-                      Aucune tournée dispatchée pour le moment — les coordonnées
-                      pourront être saisies une fois le prestataire attribué.
+                      Aucune tournée pour le moment — les coordonnées pourront
+                      être saisies dès que le prestataire aura pris en charge la
+                      commande (création de la tournée).
                     </Text>
                   )}
                 </>
               ) : collecte.collecte_tournees.length === 0 ? (
                 <Text>
-                  Aucune tournée dispatchée pour le moment — les coordonnées
-                  pourront être saisies une fois le prestataire attribué.
+                  Aucune tournée pour le moment — les coordonnées pourront être
+                  saisies dès que le prestataire aura pris en charge la commande
+                  (création de la tournée).
                 </Text>
               ) : canalChauffeur ? (
                 <Text>

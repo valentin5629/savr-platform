@@ -1372,6 +1372,14 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu après clic sur une tuile « à dispatcher » : cadre actif de la tuile, pastille « Non transmises ZD/AG » ajoutée en fin de rangée avec le même compteur, total de la liste égal au compteur. Aucun style nouveau (état déjà atteint par le drill-down du Dashboard Admin) ; GO-VISUAL de Val attendu."
+    },
+    {
+      "id": "M0.6-bloc-dispatch-ordre-en-file-envoi",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:252",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (état dérivé ordreEnFileEnvoi : prestataire chez un adapter + tms_reference NULL + statut_tms non_envoye, hors terminal → badge « Envoyée » en en-tête et ligne Statut TMS, encart « Collecte envoyée à … », cartes + bouton d'envoi masqués, action secondaire « Changer de prestataire » (AG) / « Renvoyer à … » (ZD), « Garder le prestataire actuel »), packages/plateforme/src/lib/type-tms-labels.ts (libelleCanalEnvoi)",
+      "test": "AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au prestataire, ni carte ni bouton d’envoi + AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer + ZD en file d’envoi : collecte dite envoyée, réémission seule en action secondaire (« Renvoyer à MTS-1 »)",
+      "statut": "à-vérifier",
+      "libelle": "Bloc 0 « Prestataire & Dispatch » en lecture tant que l'ordre est en file d'envoi (décision Val 2026-10-02, option C1, _Divergences/M0.6_20261002_bloc-dispatch-ordre-en-file-envoi) : entre « Valider et envoyer » et le passage du worker outbox (15 min), la fiche dit la collecte envoyée au prestataire au lieu de réafficher « Prestataire à attribuer » + « Envoyer à MTS-1 ». Transporteurs manuels non concernés ; acceptation manuelle A Toutes! conservée. Présentationnel : statut à-vérifier jusqu'au GO visuel de Val."
     }
   ],
   "cdc_source_hash": {

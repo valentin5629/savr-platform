@@ -367,8 +367,9 @@ describe('M3.2 / P2 listes colonnes', () => {
 
       expect(cellule('Cocktail')).toBe('—');
       expect(cellule('Cocktail')).not.toContain('0');
-      expect(cellule('Séminaire')).toBe('0 kg');
-      expect(cellule('Gala')).toBe('12 kg');
+      // Format FR (R-UI-0 B6) : espace insécable avant l'unité.
+      expect(cellule('Séminaire')).toBe('0\u00a0kg');
+      expect(cellule('Gala')).toBe('12\u00a0kg');
     },
     ATTENTE_CAS_MS,
   );

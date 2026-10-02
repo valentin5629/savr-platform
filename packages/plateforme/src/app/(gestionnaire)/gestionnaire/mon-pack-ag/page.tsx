@@ -1,5 +1,6 @@
 'use client';
 
+import { libelleStatutPack, variantStatutPack } from '@/lib/libelles/pack';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -118,7 +119,9 @@ const COLONNES_PACKS: ColumnDef<PackActif, unknown>[] = [
     id: 'statut',
     header: 'Statut',
     cell: ({ row: { original: p } }) => (
-      <Badge variant="neutral">{p.statut}</Badge>
+      <Badge variant={variantStatutPack(p.statut)}>
+        {libelleStatutPack(p.statut)}
+      </Badge>
     ),
   },
 ];

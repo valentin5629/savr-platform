@@ -105,26 +105,13 @@ export const STATUT_COLLECTE_LIBELLE: Record<string, string> = {
   rejetee_par_prestataire: 'Rejetée par le prestataire',
 };
 
-export const STATUT_FACTURE_LIBELLE: Record<string, string> = {
-  brouillon: 'Brouillon',
-  en_attente_pennylane: 'En attente Pennylane',
-  emise: 'Émise',
-  payee: 'Payée',
-  annulee: 'Annulée',
-};
-
-export const TYPE_FACTURE_LIBELLE: Record<string, string> = {
-  zero_dechet: 'Zéro Déchet',
-  achat_pack_antigaspi: 'Achat pack Anti-Gaspi',
-  collecte_antigaspi: 'Collecte Anti-Gaspi',
-  avoir: 'Avoir',
-};
-
-export const STATUT_PACK_LIBELLE: Record<string, string> = {
-  actif: 'Actif',
-  epuise: 'Épuisé',
-  annule: 'Annulé',
-};
+// Facture / pack : source unique `lib/libelles/` (R-UI-0), ré-exportée sous les
+// noms historiques des builders CSV.
+export {
+  LIBELLE_STATUT_FACTURE as STATUT_FACTURE_LIBELLE,
+  LIBELLE_TYPE_FACTURE as TYPE_FACTURE_LIBELLE,
+} from '@/lib/libelles/facture.js';
+export { LIBELLE_STATUT_PACK as STATUT_PACK_LIBELLE } from '@/lib/libelles/pack.js';
 
 export function libelle(map: Record<string, string>, key: unknown): string {
   if (key == null) return '';

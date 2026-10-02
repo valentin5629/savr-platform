@@ -66,6 +66,25 @@ const SELECTEURS_TEMPS = [
   },
 ];
 
+// Sélecteurs Design System (R-UI-0, docs/design-system/RATIONALISATION_UI.md §5)
+// — un nombre affiché dans du JSX passe par `@/lib/format` : `toFixed()` rend
+// « 12.5 » (point décimal anglais) là où l'app affiche « 12,5 ». Le filet
+// large (toFixed hors graphes SVG) est le gate cliqueté `check:ds-primitives`.
+const SELECTEURS_DS = [
+  {
+    selector:
+      ":matches(JSXExpressionContainer, JSXExpressionContainer > ConditionalExpression) > CallExpression[callee.property.name='toFixed']",
+    message:
+      "Nombre affiché avec toFixed() : point décimal anglais (« 12.5 »). Utiliser fmtDec / fmtPct / fmtKg / fmtEuro de '@/lib/format'.",
+  },
+  {
+    selector:
+      ":matches(JSXExpressionContainer, JSXExpressionContainer > ConditionalExpression) > TemplateLiteral CallExpression[callee.property.name='toFixed']",
+    message:
+      "Nombre affiché avec toFixed() dans un template : point décimal anglais (« 12.5 »). Utiliser fmtDec / fmtPct / fmtKg / fmtEuro de '@/lib/format'.",
+  },
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -122,7 +141,7 @@ export default tseslint.config(
       // transforme chaque `pnpm lint` en type-check complet (~15 s → ~50 s ici,
       // hook pre-commit inclus). Disproportionné pour une classe qui, aujourd'hui,
       // n'a aucun site en vie ; à rouvrir si elle réapparaît.
-      'no-restricted-syntax': ['error', ...SELECTEURS_TEMPS],
+      'no-restricted-syntax': ['error', ...SELECTEURS_TEMPS, ...SELECTEURS_DS],
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_' },

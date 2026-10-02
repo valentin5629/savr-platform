@@ -1,5 +1,7 @@
 'use client';
 
+import { fmtEuro } from '@/lib/format';
+import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 
@@ -36,13 +38,14 @@ const COLONNES: ColumnDef<FactureAgence, unknown>[] = [
     id: 'montant',
     header: 'Montant TTC',
     meta: { className: 'tabular-nums' },
-    cell: ({ row: { original: f } }) => `${f.montant_ttc ?? '—'} €`,
+    cell: ({ row: { original: f } }) =>
+      f.montant_ttc != null ? fmtEuro(f.montant_ttc) : '—',
   },
   {
     id: 'statut',
     header: 'Statut',
     cell: ({ row: { original: f } }) => (
-      <Badge variant="neutral">{f.statut}</Badge>
+      <Badge variant="neutral">{libelleStatutFacture(f.statut)}</Badge>
     ),
   },
 ];

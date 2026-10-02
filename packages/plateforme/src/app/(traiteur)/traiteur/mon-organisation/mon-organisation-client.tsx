@@ -1,5 +1,12 @@
 'use client';
 
+import { AlertBar } from '@/components/ui/alert-bar';
+import { fmtEuro } from '@/lib/format';
+import { libelleStatutFacture } from '@/lib/libelles/facture';
+import {
+  libelleVerificationSiret,
+  variantVerificationSiret,
+} from '@/lib/libelles/organisation';
 import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -205,14 +212,14 @@ function LogoCard({
   isManager: boolean;
   onSaved: () => void;
 }) {
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [uploading, setUploading] = useState(false);
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    setMsg('');
+    setMsg(null);
     const form = new FormData();
     form.append('file', file);
     const up = await fetch('/api/v1/traiteur/mon-organisation/logo', {
@@ -221,7 +228,7 @@ function LogoCard({
     });
     if (!up.ok) {
       const j = (await up.json()) as { error?: string };
-      setMsg(j.error ?? 'Échec de l’upload.');
+      setMsg({ ok: false, text: j.error ?? 'Échec de l’upload.' });
       setUploading(false);
       return;
     }
@@ -231,7 +238,10 @@ function LogoCard({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ logo_url }),
     });
-    setMsg(patch.ok ? 'Logo mis à jour.' : 'Logo uploadé mais non enregistré.');
+    setMsg({
+      ok: patch.ok,
+      text: patch.ok ? 'Logo mis à jour.' : 'Logo uploadé mais non enregistré.',
+    });
     setUploading(false);
     if (patch.ok) onSaved();
   }
@@ -267,7 +277,11 @@ function LogoCard({
             <p className="text-xs text-savr-neutral-400">
               JPG ou PNG, 2 Mo max.
             </p>
-            {msg && <p className="text-sm text-savr-neutral-600">{msg}</p>}
+            {msg && (
+              <AlertBar variant={msg.ok ? 'success' : 'err'}>
+                {msg.text}
+              </AlertBar>
+            )}
           </div>
         )}
       </CardContent>
@@ -366,10 +380,8 @@ function EntitesCard({
       header: 'Vérif.',
       accessorFn: (e) => e.siret_verification,
       cell: ({ row: { original: e } }) => (
-        <Badge
-          variant={e.siret_verification === 'verifie' ? 'success' : 'neutral'}
-        >
-          {e.siret_verification}
+        <Badge variant={variantVerificationSiret(e.siret_verification)}>
+          {libelleVerificationSiret(e.siret_verification)}
         </Badge>
       ),
     },
@@ -773,27 +785,27 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setMsg('');
+    setMsg(null);
     const res = await fetch('/api/v1/traiteur/equipe/invitation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prenom, nom, email }),
     });
     if (res.ok) {
-      setMsg('Invitation envoyée.');
+      setMsg({ ok: true, text: 'Invitation envoyée.' });
       setPrenom('');
       setNom('');
       setEmail('');
       onInvited();
     } else {
       const j = (await res.json()) as { error?: string };
-      setMsg(j.error ?? 'Erreur.');
+      setMsg({ ok: false, text: j.error ?? 'Erreur.' });
     }
     setBusy(false);
   }
@@ -835,7 +847,9 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
           <p className="text-xs text-savr-neutral-400">
             Le collaborateur est ajouté avec le rôle Commercial.
           </p>
-          {msg && <p className="text-sm text-savr-neutral-600">{msg}</p>}
+          {msg && (
+            <AlertBar variant={msg.ok ? 'success' : 'err'}>{msg.text}</AlertBar>
+          )}
           <Button type="submit" disabled={busy}>
             {busy ? 'Envoi…' : 'Envoyer l’invitation'}
           </Button>
@@ -854,7 +868,7 @@ function TransfertCard({
 }) {
   const [source, setSource] = useState('');
   const [cible, setCible] = useState('');
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const userOptions = users.map((u) => ({
     value: u.id,
@@ -863,10 +877,13 @@ function TransfertCard({
 
   async function transfer(e: React.FormEvent) {
     e.preventDefault();
-    setMsg('');
+    setMsg(null);
     // Les deux champs sont obligatoires (ex-`required` des <select> natifs).
     if (!source || !cible) {
-      setMsg('Choisissez le collaborateur de départ et celui d’arrivée.');
+      setMsg({
+        ok: false,
+        text: 'Choisissez le collaborateur de départ et celui d’arrivée.',
+      });
       return;
     }
     const res = await fetch('/api/v1/traiteur/equipe/transfert', {
@@ -876,11 +893,14 @@ function TransfertCard({
     });
     if (res.ok) {
       const j = (await res.json()) as { data?: { transferes?: number } };
-      setMsg(`${j.data?.transferes ?? 0} événement(s) transféré(s).`);
+      setMsg({
+        ok: true,
+        text: `${j.data?.transferes ?? 0} événement(s) transféré(s).`,
+      });
       onDone();
     } else {
       const j = (await res.json()) as { error?: string };
-      setMsg(j.error ?? 'Erreur.');
+      setMsg({ ok: false, text: j.error ?? 'Erreur.' });
     }
   }
 
@@ -919,7 +939,9 @@ function TransfertCard({
               />
             </FormField>
           </div>
-          {msg && <p className="text-sm text-savr-neutral-600">{msg}</p>}
+          {msg && (
+            <AlertBar variant={msg.ok ? 'success' : 'err'}>{msg.text}</AlertBar>
+          )}
           <Button type="submit">Transférer</Button>
         </form>
       </CardContent>
@@ -958,14 +980,14 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
     sortUndefined: 'last',
     meta: { className: 'tabular-nums' },
     cell: ({ row: { original: f } }) =>
-      f.montant_ttc != null ? `${f.montant_ttc} €` : '—',
+      f.montant_ttc != null ? fmtEuro(f.montant_ttc) : '—',
   },
   {
     id: 'statut',
     header: 'Statut',
     accessorFn: (f) => f.statut,
     cell: ({ row: { original: f } }) => (
-      <Badge variant="neutral">{f.statut}</Badge>
+      <Badge variant="neutral">{libelleStatutFacture(f.statut)}</Badge>
     ),
   },
   {

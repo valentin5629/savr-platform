@@ -1,9 +1,11 @@
 'use client';
 
+import { fmtKg, fmtPct } from '@/lib/format';
+import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HistoriqueCollectesTable } from '@/components/collecte/historique-collectes-table';
 
@@ -68,9 +70,9 @@ export default function TraiteurDetailPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          ←
-        </Button>
+        <IconButton aria-label="Retour" onClick={() => router.back()}>
+          <ArrowLeft />
+        </IconButton>
         <div className="flex items-center gap-3">
           {traiteur.logo_url && !logoKo && (
             <img
@@ -100,14 +102,14 @@ export default function TraiteurDetailPage({
           <div>
             <div className="text-xs text-savr-neutral-500">Tonnage ZD</div>
             <div className="text-xl font-bold">
-              {s.tonnage_zd_kg > 0 ? `${s.tonnage_zd_kg.toFixed(0)} kg` : '—'}
+              {s.tonnage_zd_kg > 0 ? fmtKg(s.tonnage_zd_kg) : '—'}
             </div>
           </div>
           <div>
             <div className="text-xs text-savr-neutral-500">Taux recyclage</div>
             <div className="text-xl font-bold">
               {s.taux_recyclage_moyen != null
-                ? `${s.taux_recyclage_moyen.toFixed(1)} %`
+                ? fmtPct(s.taux_recyclage_moyen)
                 : '—'}
             </div>
           </div>

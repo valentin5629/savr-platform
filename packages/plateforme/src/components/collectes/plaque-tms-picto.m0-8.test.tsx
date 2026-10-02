@@ -26,7 +26,7 @@ describe('M0.8-60 — Picto plaque TMS : vert ssi toutes les tournées ont leur 
     render(<PlaqueTmsPicto tournees={[t('AB-123-CD'), t('EF-456-GH')]} />);
     const picto = screen.getByTestId('picto-plaque-tms');
     expect(picto).toHaveAttribute('aria-label', 'Plaque TMS communiquée');
-    expect(picto.className).toContain('savr-success-600');
+    expect(picto.className).toContain('savr-success-strong');
   });
 
   it('rendu gris quand au moins une plaque manque (multi-camions)', () => {

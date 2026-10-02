@@ -1,5 +1,8 @@
 'use client';
 
+import { fmtEuro } from '@/lib/format';
+import { libelleStatutFacture } from '@/lib/libelles/facture';
+import { libelleStatutTournee } from '@/lib/libelles/tournee';
 import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
 import {
   Truck,
@@ -1236,7 +1239,7 @@ export function CollecteDetailPanel({
                 </p>
 
                 {collecte.infos_acces_email_envoye_at ? (
-                  <div className="flex items-center gap-2 text-sm font-medium text-savr-success-600">
+                  <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
                     <Send className="h-4 w-4 shrink-0" />
                     Email envoyé au programmateur le{' '}
                     {new Date(
@@ -1568,7 +1571,7 @@ export function CollecteDetailPanel({
                       )}
                       {currentTransporteur?.type_tms && (
                         <Badge variant="neutral" className="text-[10px]">
-                          {currentTransporteur.type_tms}
+                          {libelleTypeTms(currentTransporteur.type_tms)}
                         </Badge>
                       )}
                     </dd>
@@ -1773,7 +1776,7 @@ export function CollecteDetailPanel({
                         >
                           <span className="font-medium">Camion {ct.rang}</span>
                           <Badge variant="neutral" className="text-xs">
-                            {ct.tournees.statut}
+                            {libelleStatutTournee(ct.tournees.statut)}
                           </Badge>
                           <span className="font-mono text-xs text-savr-neutral-500">
                             {ct.tournees.external_ref_commande ?? '—'}
@@ -2121,9 +2124,11 @@ export function CollecteDetailPanel({
                           {f.id.slice(0, 8)}…
                         </span>
                         <Badge variant="neutral">
-                          {f.factures?.statut ?? '—'}
+                          {libelleStatutFacture(f.factures?.statut)}
                         </Badge>
-                        <span className="font-medium">{f.montant_ht} € HT</span>
+                        <span className="font-medium">
+                          {fmtEuro(f.montant_ht)} HT
+                        </span>
                       </div>
                     ))}
                   </div>

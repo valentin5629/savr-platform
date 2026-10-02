@@ -1,5 +1,8 @@
 'use client';
 
+import { AlertBar } from '@/components/ui/alert-bar';
+import { fmtEuro } from '@/lib/format';
+import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -190,14 +193,14 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
     sortUndefined: 'last',
     meta: { className: 'tabular-nums' },
     cell: ({ row: { original: f } }) =>
-      f.montant_ttc != null ? `${f.montant_ttc} €` : '—',
+      f.montant_ttc != null ? fmtEuro(f.montant_ttc) : '—',
   },
   {
     id: 'statut',
     header: 'Statut',
     accessorFn: (f) => f.statut,
     cell: ({ row: { original: f } }) => (
-      <Badge variant="neutral">{f.statut}</Badge>
+      <Badge variant="neutral">{libelleStatutFacture(f.statut)}</Badge>
     ),
   },
   {
@@ -236,7 +239,10 @@ export default function MonOrganisationPage() {
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
   const [inviting, setInviting] = useState(false);
-  const [inviteMsg, setInviteMsg] = useState('');
+  const [inviteMsg, setInviteMsg] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     // Ignore la réponse d'un onglet quitté entre-temps (sinon son erreur ou
@@ -272,14 +278,14 @@ export default function MonOrganisationPage() {
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     setInviting(true);
-    setInviteMsg('');
+    setInviteMsg(null);
     const res = await fetch('/api/v1/gestionnaire/mon-organisation/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, prenom, nom, role: 'gestionnaire_lieux' }),
     });
     if (res.ok) {
-      setInviteMsg('Invitation envoyée.');
+      setInviteMsg({ ok: true, text: 'Invitation envoyée.' });
       setEmail('');
       setPrenom('');
       setNom('');
@@ -289,7 +295,10 @@ export default function MonOrganisationPage() {
       setUsers((j.data ?? []) as UserRow[]);
     } else {
       const j = (await res.json()) as { error?: string };
-      setInviteMsg(j.error ?? "Erreur lors de l'invitation.");
+      setInviteMsg({
+        ok: false,
+        text: j.error ?? "Erreur lors de l'invitation.",
+      });
     }
     setInviting(false);
   }
@@ -463,7 +472,9 @@ export default function MonOrganisationPage() {
                   </FormField>
                 </div>
                 {inviteMsg && (
-                  <p className="text-sm text-savr-neutral-600">{inviteMsg}</p>
+                  <AlertBar variant={inviteMsg.ok ? 'success' : 'err'}>
+                    {inviteMsg.text}
+                  </AlertBar>
                 )}
                 <Button type="submit" disabled={inviting}>
                   {inviting ? 'Envoi…' : "Envoyer l'invitation"}

@@ -860,15 +860,15 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(
         await screen.findByText('Cocktail apéritif', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // tournees.statut (onglet Logistique — liste multi-camions)
+      // tournees.statut (onglet Logistique — liste multi-camions), libellé FR (R-UI-0 B2)
       await ouvrirOnglet('Logistique');
       expect(
-        await screen.findByText('planifiee', undefined, ATTENTE_UI),
+        await screen.findByText('Planifiée', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // factures_collectes → factures.statut (onglet Documents)
+      // factures_collectes → factures.statut (onglet Documents), libellé FR (R-UI-0 B2)
       await ouvrirOnglet('Documents');
       expect(
-        await screen.findByText('emise', undefined, ATTENTE_UI),
+        await screen.findByText('Émise', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,

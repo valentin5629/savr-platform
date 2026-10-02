@@ -3,18 +3,11 @@
  * en tabular-nums côté rendu. Source unique pour barres / donut / jauges / KPI.
  */
 
-/** Entier fr : « 18 700 ». */
-export function fmtInt(n: number): string {
-  return new Intl.NumberFormat('fr-FR').format(Math.round(n));
-}
+import { fmtDec, fmtInt } from '@/lib/format';
 
-/** Décimal fr à `d` décimales : « 48,6 ». */
-export function fmtDec(n: number, d = 1): string {
-  return new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: d,
-    maximumFractionDigits: d,
-  }).format(n);
-}
+// Entier / décimal fr : source unique `lib/format` (R-UI-0), ré-exportés ici
+// pour les graphes Cockpit.
+export { fmtDec, fmtInt };
 
 /** Euro fr : « 14 820 » (l'unité € est rendue à part par l'appelant). */
 export function fmtEuro(n: number, d = 0): string {

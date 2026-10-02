@@ -1,10 +1,12 @@
 'use client';
 
+import { fmtKg, fmtPct } from '@/lib/format';
+import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDateHeureParis } from '@savr/shared/src/temps/index.js';
 
@@ -161,9 +163,9 @@ export default function EvenementDetailPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          ←
-        </Button>
+        <IconButton aria-label="Retour" onClick={() => router.back()}>
+          <ArrowLeft />
+        </IconButton>
         <h1 className="text-2xl font-bold text-savr-primary-800">
           {evt.nom_evenement ?? 'Événement'}
         </h1>
@@ -238,7 +240,7 @@ export default function EvenementDetailPage({
             >
               Est. labo :{' '}
               {evt.dechets_labo_kg != null
-                ? `${evt.dechets_labo_kg.toFixed(1)} kg`
+                ? fmtKg(evt.dechets_labo_kg, 1)
                 : '—'}
             </div>
           </div>
@@ -296,7 +298,7 @@ export default function EvenementDetailPage({
                   {c.taux_recyclage != null && (
                     <div className="mt-1 text-sm">
                       Taux de recyclage :{' '}
-                      <strong>{c.taux_recyclage.toFixed(1)} %</strong>
+                      <strong>{fmtPct(c.taux_recyclage)}</strong>
                     </div>
                   )}
                 </div>

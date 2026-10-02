@@ -56,6 +56,12 @@ const GATES: { key: string; cmd: string[] }[] = [
   // absente de `database.types.ts` est INVISIBLE à column-db, pas mal typée —
   // ses écritures échappent entièrement au gate G7 ci-dessus.
   { key: 'types-snapshot', cmd: ['check:types-snapshot'] },
+  // Gates UI (R-UI-0, docs/design-system/RATIONALISATION_UI.md §5) : styles
+  // hors tokens (palette/rayon/ombre/hex bruts) et primitives HTML brutes
+  // (<button, <select, <table, confirm(), overlay maison, toFixed). Baseline =
+  // dette existante ; chaque lot R-UI-n la fait descendre.
+  { key: 'ds-classes', cmd: ['check:ds-classes'] },
+  { key: 'ds-primitives', cmd: ['check:ds-primitives'] },
 ];
 
 function runGate(cmd: string[]): number | null {

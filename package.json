@@ -35,6 +35,8 @@
     "check:pdf-contract": "tsx scripts/check-pdf-contract.ts",
     "check:preuve-visuelle": "tsx scripts/check-preuve-visuelle.ts",
     "check:ratchet": "tsx scripts/check-ratchet.ts",
+    "check:ds-classes": "tsx scripts/check-ds-classes.ts",
+    "check:ds-primitives": "tsx scripts/check-ds-primitives.ts",
     "gen:cdc-metadata": "tsx scripts/gen-cdc-metadata.ts",
     "db:smoke": "bash scripts/smoke-test-db.sh",
     "test:module": "tsx scripts/test-module.ts",

@@ -535,12 +535,12 @@ export default function CollectesPage() {
         title="Collectes"
         subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
         actions={
-          <Link href="/programmer/nouveau">
-            <Button variant="accent">
+          <Button asChild variant="accent">
+            <Link href="/programmer/nouveau">
               <Plus className="h-4 w-4" />
               Programmer une collecte
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         }
       />
 

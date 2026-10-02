@@ -1,5 +1,6 @@
 'use client';
 
+import { fmtPct } from '@/lib/format';
 import { useEffect, useState } from 'react';
 import { Recycle, Edit, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -52,7 +53,7 @@ interface HistState {
   loading: boolean;
 }
 
-const pct = (v: number) => `${(v * 100).toFixed(2)} %`;
+const pct = (v: number) => fmtPct(v * 100, 2);
 
 // Valeur avant → après seulement si elle a changé.
 const avantApres = (avant: string | null, apres: string | null): string =>
@@ -251,7 +252,7 @@ export default function TauxRecyclagePage() {
               </div>
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-bold text-savr-neutral-900">
-                  {(f.taux_captation * 100).toFixed(1)} %
+                  {fmtPct(f.taux_captation * 100, 1)}
                 </span>
                 <span className="text-sm text-savr-neutral-500 mb-1">
                   taux de captation

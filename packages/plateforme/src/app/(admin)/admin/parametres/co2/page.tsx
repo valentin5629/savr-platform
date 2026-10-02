@@ -1,5 +1,6 @@
 'use client';
 
+import { fmtPct } from '@/lib/format';
 import { useEffect, useId, useState } from 'react';
 import { Leaf, Save, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -351,14 +352,16 @@ export default function ParametresCo2Page() {
 
         {/* Contrôle live somme */}
         <div
-          className={`flex items-center gap-2 text-sm font-medium ${mixValid ? 'text-savr-success-600' : 'text-savr-error-600'}`}
+          className={`flex items-center gap-2 text-sm font-medium ${mixValid ? 'text-savr-success-strong' : 'text-savr-error-strong'}`}
         >
           {!mixValid && <AlertCircle className="h-4 w-4" />}
-          Total : {mixTotal.toFixed(2)} %{' '}
+          Total : {fmtPct(mixTotal, 2)}{' '}
           {mixValid ? '✓' : `— doit être égal à 100 %`}
         </div>
 
-        {mixError && <p className="text-savr-error-600 text-sm">{mixError}</p>}
+        {mixError && (
+          <p className="text-savr-error-strong text-sm">{mixError}</p>
+        )}
 
         <div className="grid grid-cols-[10rem_5rem_8rem_8rem] items-center gap-2 text-xs font-medium text-savr-neutral-400">
           <span>Matériau</span>

@@ -1,5 +1,6 @@
 'use client';
 
+import { libelleTypePack } from '@/lib/libelles/pack';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Building2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,15 +35,6 @@ interface Organisation {
   nb_collectes_ag_12m: number;
   pack_actif: PackActif | null;
 }
-
-// Libellé compact du type de pack pour la colonne (ex. pack_30 → « Pack 30 »).
-const PACK_LABELS: Record<string, string> = {
-  unitaire: 'Unitaire',
-  pack_10: 'Pack 10',
-  pack_30: 'Pack 30',
-  pack_60: 'Pack 60',
-  personnalise: 'Pack perso',
-};
 
 // Seuil « crédits faibles » aligné sur le bandeau d'alerte de la fiche (< 5).
 const PACK_CREDITS_FAIBLES = 5;
@@ -95,7 +87,7 @@ const columns: Column<Organisation>[] = [
       if (!row.pack_actif)
         return <span className="text-savr-neutral-400">—</span>;
       const { type_pack, credits_restants } = row.pack_actif;
-      const label = PACK_LABELS[type_pack] ?? type_pack;
+      const label = libelleTypePack(type_pack);
       return (
         <Badge
           variant={

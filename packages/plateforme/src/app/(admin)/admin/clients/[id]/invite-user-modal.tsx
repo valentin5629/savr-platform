@@ -12,6 +12,7 @@
  * cliente). Habillage Design System (Modal + form-kit + AlertBar).
  */
 
+import { libelleRole } from '@/lib/libelles/role';
 import * as React from 'react';
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -19,14 +20,6 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
-
-const ROLE_LABELS: Record<string, string> = {
-  traiteur_manager: 'Traiteur (manager)',
-  traiteur_commercial: 'Traiteur (commercial)',
-  agence: 'Agence',
-  gestionnaire_lieux: 'Gestionnaire de lieux',
-  client_organisateur: 'Client organisateur',
-};
 
 // Rôles proposables selon le type d'organisation cliente.
 export function rolesForOrgType(type: string): string[] {
@@ -161,7 +154,7 @@ export function ClientInviteUserModal({
             icon={null}
             options={roles.map((r) => ({
               value: r,
-              label: ROLE_LABELS[r] ?? r,
+              label: libelleRole(r),
             }))}
             value={role}
             onChange={setRole}

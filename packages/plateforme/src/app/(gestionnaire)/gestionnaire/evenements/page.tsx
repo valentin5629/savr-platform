@@ -1,5 +1,6 @@
 'use client';
 
+import { fmtKg } from '@/lib/format';
 import {
   Suspense,
   useCallback,
@@ -114,7 +115,7 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
     accessorFn: (e) => e.tonnage_zd_kg,
     cell: ({ row: { original: e } }) => (
       <span className="whitespace-nowrap">
-        {e.tonnage_zd_kg > 0 ? `${e.tonnage_zd_kg.toFixed(0)} kg` : '—'}
+        {e.tonnage_zd_kg > 0 ? fmtKg(e.tonnage_zd_kg) : '—'}
       </span>
     ),
   },
@@ -132,7 +133,7 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
     accessorFn: (e) => e.dechets_labo_kg ?? -1,
     cell: ({ row: { original: e } }) => (
       <span className="whitespace-nowrap">
-        {e.dechets_labo_kg != null ? `${e.dechets_labo_kg.toFixed(0)} kg` : '—'}
+        {e.dechets_labo_kg != null ? fmtKg(e.dechets_labo_kg) : '—'}
       </span>
     ),
   },

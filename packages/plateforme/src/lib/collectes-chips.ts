@@ -48,8 +48,10 @@ export interface ChipQuery {
 // Seule la liste des statuts est littéralement partagée ; l'accord des deux
 // formes est tenu par tests/api/admin/collectes-chip-counts.m0-6.test.ts. En
 // dépendent : les chips « Non transmises ZD/AG », les tuiles « AG/ZD à
-// dispatcher » (chip-counts reprend le compteur de ces chips) et l'action
-// « Dispatcher » de la liste (collectes-table). Les cartes Bloc 1 du Dashboard
+// dispatcher » (chip-counts reprend le compteur de ces chips), l'action
+// « Dispatcher » de la liste (collectes-table) et l'état « ordre en file
+// d'envoi » de la fiche collecte Admin (collecte-detail-panel : AG à dispatcher
+// dont le prestataire adapter est déjà posé). Les cartes Bloc 1 du Dashboard
 // Admin (dashboard/kpi/route.ts) en portent encore leur propre copie.
 const STATUTS_A_DISPATCHER: readonly string[] = ['programmee', 'validee'];
 

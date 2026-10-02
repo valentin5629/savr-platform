@@ -60,6 +60,7 @@ import {
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
+import { estADispatcher } from '@/lib/collectes-chips';
 import {
   envoiAutomatique,
   libelleCanalEnvoi,
@@ -450,12 +451,10 @@ export function CollecteDetailPanel({
   const retourFocusChangerRef = useRef(false);
   useEffect(() => {
     if (changerPrestataire) {
-      const zone = dispatchChoixRef.current;
-      (
-        zone?.querySelector<HTMLElement>(
-          '[role="radio"][aria-checked="true"]',
-        ) ?? zone?.querySelector<HTMLElement>('[role="radio"]')
-      )?.focus();
+      // La carte « focusable » (cochée, sinon la 1re) porte déjà tabIndex 0.
+      dispatchChoixRef.current
+        ?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]')
+        ?.focus();
     } else if (retourFocusChangerRef.current) {
       retourFocusChangerRef.current = false;
       changerPrestataireBtnRef.current?.focus();
@@ -1005,14 +1004,17 @@ export function CollecteDetailPanel({
   // (création, PATCH, dispatch à corps vide) — l'état n'existe que par seed, sans
   // event en file. Transporteurs manuels (mail / téléphone / autre) exclus :
   // rien ne part automatiquement pour eux.
+  // « À dispatcher » au sens canonique (§11 §1.1, `estADispatcher` : non envoyée,
+  // sans référence, programmée ou validée) — mais l'ordre est déjà en file.
   const ordreEnFileEnvoi =
     collecte.type === 'anti_gaspi' &&
-    ['programmee', 'validee'].includes(collecte.statut) &&
     collecte.prestataire_logistique_id != null &&
     envoiAutomatique(currentTransporteur?.type_tms) &&
-    !collecte.tms_reference &&
-    collecte.statut_tms === 'non_envoye';
+    estADispatcher(collecte);
   const dispatchEnLecture = ordreEnFileEnvoi && !changerPrestataire;
+  // Même prestataire, ordre déjà en file (ou référence TMS reçue) → « Renvoyer ».
+  const renvoi =
+    !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
   const canalEnvoi = libelleCanalEnvoi(currentTransporteur?.type_tms);
   const referenceSaisie = acceptationSaisie.reference_mission.trim();
   const acceptationIncomplete =
@@ -1877,12 +1879,7 @@ export function CollecteDetailPanel({
                         <Send className="h-4 w-4 mr-2" />
                         {dispatching
                           ? 'Envoi…'
-                          : libelleDispatch(
-                              forkTypeTms,
-                              // Même prestataire, ordre déjà en file → c'est un renvoi.
-                              !!collecte.tms_reference ||
-                                (ordreEnFileEnvoi && !selectedTransporteurId),
-                            )}
+                          : libelleDispatch(forkTypeTms, renvoi)}
                       </Button>
                     </>
                   )}

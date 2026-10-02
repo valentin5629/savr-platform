@@ -907,14 +907,15 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         });
       }, ATTENTE_UI);
       // Après le refetch, le bloc revient en lecture : plus de cartes, le
-      // bouton « Changer de prestataire » est de retour.
+      // bouton « Changer de prestataire » est de retour et reprend le focus
+      // (le bouton d'envoi cliqué a disparu).
       await waitFor(
         () => expect(screen.queryByRole('radiogroup')).toBeNull(),
         ATTENTE_UI,
       );
       expect(
         screen.getByRole('button', { name: 'Changer de prestataire' }),
-      ).toBeInTheDocument();
+      ).toHaveFocus();
     },
     ATTENTE_CAS_MS,
   );
@@ -957,8 +958,16 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     ],
     ['collecte terminale', { ...collecteEnFileMts1, statut: 'annulee' }],
     [
-      'collecte déjà en cours (hors programmee / validee)',
-      { ...collecteEnFileMts1, statut: 'en_cours' },
+      'transporteur manuel (par mail) avec prestataire de rattachement posé : rien ne part automatiquement',
+      {
+        ...collecteEnFileMts1,
+        prestataire_logistique_id: 'presta-province',
+        prestataire_actuel: {
+          transporteur_id: 't-province',
+          nom: 'Transports Dupont',
+          type_tms: 'par_mail',
+        },
+      },
     ],
   ])(
     'pas d’état « en file d’envoi » : %s',

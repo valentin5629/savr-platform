@@ -970,7 +970,7 @@ export default function ClientFichePage({
       <ConfirmDialog
         open={modal === 'annuler'}
         title="Annuler le pack"
-        confirmLabel="Confirmer l'annulation"
+        confirmLabel="Confirmer l’annulation"
         cancelLabel="Retour"
         variant="destructive"
         loading={submitting}

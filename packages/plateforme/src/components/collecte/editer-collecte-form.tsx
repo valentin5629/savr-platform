@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -14,6 +13,7 @@ import { typeCollecteLabel } from '@/components/collecte/fiche-blocs';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { FormActions } from '@/components/ui/form-actions';
 
 interface TypeEvenement {
   id: string;
@@ -383,20 +383,20 @@ export function EditerCollecteForm({
         )}
         {error && <p className="text-sm text-savr-error">{error}</p>}
 
-        <div className="flex gap-2">
-          <Button
-            onClick={onSubmitClick}
-            loading={saving}
-            loadingText="Enregistrement…"
-          >
-            Confirmer la modification
-          </Button>
-          {onCancel && (
-            <Button variant="ghost" onClick={onCancel} disabled={saving}>
-              Annuler
-            </Button>
-          )}
-        </div>
+        <FormActions
+          cancel={
+            onCancel
+              ? { label: 'Annuler', variant: 'ghost', onClick: onCancel }
+              : undefined
+          }
+          submit={{
+            label: 'Confirmer la modification',
+            type: 'button',
+            onClick: onSubmitClick,
+          }}
+          loading={saving}
+          loadingText="Enregistrement…"
+        />
 
         {/* Modal de confirmation unique (§06.04 l.501-507) — empile les
             avertissements applicables avant la sauvegarde. */}

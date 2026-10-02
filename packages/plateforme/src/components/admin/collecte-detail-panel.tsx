@@ -2273,7 +2273,7 @@ export function CollecteDetailPanel({
       <ConfirmDialog
         open={annulerCreditModal}
         title="Annuler le crédit AG"
-        confirmLabel="Confirmer l'annulation"
+        confirmLabel="Confirmer l’annulation"
         cancelLabel="Retour"
         variant="destructive"
         loading={annulerCreditSubmitting}

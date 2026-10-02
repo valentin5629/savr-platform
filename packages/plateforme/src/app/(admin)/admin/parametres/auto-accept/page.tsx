@@ -168,7 +168,7 @@ export default function AutoAcceptPage() {
           </div>
         </div>
         <Button size="sm" variant="secondary" disabled>
-          <Plus className="h-3.5 w-3.5" />
+          <Plus />
           Nouvelle config
         </Button>
       </div>

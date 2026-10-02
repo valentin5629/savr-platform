@@ -451,7 +451,7 @@ export default function FactureDetailPage() {
             <Button
               variant="secondary"
               onClick={addLigne}
-              disabled={actionLoading === 'add'}
+              loading={actionLoading === 'add'}
             >
               <Plus /> Ajouter
             </Button>
@@ -666,7 +666,7 @@ function LigneRow({
         variant="destructive"
         aria-label="Supprimer la ligne"
         onClick={onDelete}
-        disabled={deleting}
+        loading={deleting}
       >
         <Trash2 />
       </IconButton>

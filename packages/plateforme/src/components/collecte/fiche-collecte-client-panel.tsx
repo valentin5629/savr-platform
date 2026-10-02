@@ -464,9 +464,10 @@ export function FicheCollecteClientPanel({
             cancel={{ label: 'Annuler', onClick: () => setSiretOpen(false) }}
             submit={{
               label: 'Enregistrer',
-              disabled: siretEnCours || siret.length !== 14,
+              disabled: siret.length !== 14,
               onClick: () => void enregistrerSiret(),
             }}
+            loading={siretEnCours}
             bordered
           />
         </div>

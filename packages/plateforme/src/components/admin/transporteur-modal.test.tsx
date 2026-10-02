@@ -12,6 +12,7 @@ import {
   type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
+import { buttonVariants } from '@/components/ui/button';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const EDIT_FIXTURE_ID = 'transp-42';
@@ -860,11 +861,9 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     );
     const bouton = screen.getByRole('button', { name: 'Désactiver' });
     // Variante `outline-destructive` (R-UI-3, B3 — ex-ACTION_DESTRUCTIVE_CONTOUR).
-    for (const classe of [
-      'border-savr-error',
-      'text-savr-error-strong',
-      'hover:bg-savr-error-subtle',
-    ]) {
+    for (const classe of buttonVariants({
+      variant: 'outline-destructive',
+    }).split(' ')) {
       expect(bouton).toHaveClass(classe);
     }
   });

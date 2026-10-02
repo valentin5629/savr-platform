@@ -291,7 +291,7 @@ export default function GrillesZdPage() {
                 variant="secondary"
                 onClick={addPalier}
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus />
                 Ajouter un palier
               </Button>
             </div>

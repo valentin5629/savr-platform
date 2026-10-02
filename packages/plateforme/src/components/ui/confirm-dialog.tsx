@@ -86,6 +86,7 @@ export function ConfirmDialog({
                 : `${motif.label} (facultatif)`
             }
             htmlFor={`${id}-motif`}
+            required={minLength > 0}
           >
             <Textarea
               id={`${id}-motif`}
@@ -119,6 +120,9 @@ export function ConfirmDialog({
 //   if (!(await confirmer({ title: 'Supprimer ?', confirmLabel: 'Supprimer' }))) return;
 //   … et `{dialogue}` rendu une fois dans le JSX du composant.
 // Résout `true` à la confirmation, `false` à l'annulation / fermeture.
+// Contrainte : `Modal` n'est pas rendu dans un portal et `ConfirmDialog` porte
+// un `<form>` — rendre `{dialogue}` (ou `<ConfirmDialog>`) HORS de tout `<form>`
+// parent, sinon la confirmation soumettrait aussi le formulaire englobant.
 type ConfirmOptions = Omit<
   ConfirmDialogProps,
   'open' | 'onConfirm' | 'onCancel' | 'loading' | 'loadingText' | 'error'

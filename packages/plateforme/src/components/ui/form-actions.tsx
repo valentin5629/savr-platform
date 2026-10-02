@@ -17,7 +17,11 @@ interface ActionProps extends Omit<ButtonProps, 'children' | 'loading'> {
 interface FormActionsProps {
   /** Action secondaire ; absente = une seule action. */
   cancel?: ActionProps;
-  /** Action principale (défaut `type="submit"`, `variant="primary"`). */
+  /**
+   * Action principale (`variant="primary"` par défaut). `type` : `submit` si
+   * `form` est donné ou sans `onClick`, sinon `button` (pas de soumission
+   * d'un formulaire parent par un simple `onClick`).
+   */
   submit: ActionProps;
   loading?: boolean;
   /** Libellé pendant `loading` (ex. « Enregistrement… »). */
@@ -54,7 +58,10 @@ const FormActions = React.forwardRef<HTMLDivElement, FormActionsProps>(
           </Button>
         )}
         <Button
-          type="submit"
+          type={
+            submitRest.type ??
+            (submitRest.form || !submitRest.onClick ? 'submit' : 'button')
+          }
           {...submitRest}
           loading={loading}
           loadingText={loadingText}

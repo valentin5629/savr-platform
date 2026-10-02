@@ -9,6 +9,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 vi.mock('next/navigation', () => ({
+  useSearchParams: () => null,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }));
 

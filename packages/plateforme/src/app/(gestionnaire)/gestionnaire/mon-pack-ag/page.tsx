@@ -215,6 +215,7 @@ export default function MonPackAgPage() {
           </CardHeader>
           <CardContent>
             <DataGrid
+              columnsToggle={false}
               columns={COLONNES_CONSOMMATION}
               data={data.historique_consommation}
               getRowId={(c) => c.collecte_id}
@@ -231,6 +232,7 @@ export default function MonPackAgPage() {
           </CardHeader>
           <CardContent>
             <DataGrid
+              columnsToggle={false}
               columns={COLONNES_PACKS}
               data={data.historique_packs}
               getRowId={(p) => p.id}

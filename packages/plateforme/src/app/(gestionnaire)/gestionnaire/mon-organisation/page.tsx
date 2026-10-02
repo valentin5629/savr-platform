@@ -353,6 +353,7 @@ export default function MonOrganisationPage() {
             </CardHeader>
             <CardContent>
               <DataGrid
+                columnsToggle={false}
                 columns={colonnesMembres}
                 data={users}
                 getRowId={(u) => u.id}
@@ -422,6 +423,7 @@ export default function MonOrganisationPage() {
           </CardHeader>
           <CardContent>
             <DataGrid
+              columnsToggle={false}
               columns={COLONNES_FACTURES}
               data={factures}
               getRowId={(f) => f.id}

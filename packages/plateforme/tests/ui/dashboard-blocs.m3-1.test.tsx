@@ -58,7 +58,6 @@ function kpiResult(rows: unknown[]): TraiteurDashboardPayload['kpi'] {
 }
 
 const EMPTY_BLOCS = {
-  prochaines: [],
   topLieux: [],
   topActeurs: [],
   acteurLabel: 'Commercial' as const,

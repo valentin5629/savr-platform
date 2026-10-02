@@ -1,5 +1,5 @@
 /**
- * Blocs §11 partagés — API /dashboards/blocs (Bloc 3 AG / 5 / 6 / 7 + kg/pax par
+ * Blocs §11 partagés — API /dashboards/blocs (Bloc 3 AG / 6 / 7 + kg/pax par
  * flux). Endpoint commun traiteur (M3.1) / agence (M3.3) / gestionnaire (M3.2),
  * parité §11 (M3.5). Couvre la logique SERVEUR réelle (agrégation, tri top 5,
  * périmètre par rôle, Bloc 7 retiré agence, résolution des noms), pas un mock à [].
@@ -15,7 +15,7 @@ const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
 
 // Chaîne supabase thenable routée par table, avec une FILE de réponses par table
-// (l'endpoint fait DEUX requêtes `collectes` : historique clôturé puis prochaines).
+// (l'endpoint fait UNE requête `collectes` : l'historique clôturé).
 type Res = { data: unknown; error: unknown };
 let queues: Record<string, Res[]> = {};
 let calls: Record<string, unknown[][]> = {};
@@ -149,7 +149,6 @@ async function loadGET() {
 
 interface BlocsJson {
   data: {
-    prochaines: Array<Record<string, unknown>>;
     topLieux: Array<Record<string, number | string | null>>;
     topActeurs: Array<Record<string, number | string | null>> | null;
     acteurLabel: string | null;
@@ -199,7 +198,6 @@ describe('M3.1 / blocs traiteur ZD', () => {
         ],
         error: null,
       },
-      { data: [], error: null }, // prochaines
     ];
     const GET = await loadGET();
     const res = await GET(
@@ -233,7 +231,6 @@ describe('M3.1 / blocs traiteur ZD', () => {
         ],
         error: null,
       },
-      { data: [], error: null },
     ];
     queues['users'] = [
       {
@@ -259,42 +256,24 @@ describe('M3.1 / blocs traiteur ZD', () => {
     expect(j.data.topActeurs![0]!.nb_collectes).toBe(2);
   });
 
-  it('M3.1/blocs_prochaines_fenetre_statuts', async () => {
+  it('M3.1/blocs_sans_prochaines_collectes', async () => {
+    // Bloc 5 « Prochaines collectes » retiré des dashboards (décision Val
+    // 2026-10-01) : l'endpoint ne sert plus la liste et ne lance plus la lecture
+    // des collectes à venir — une seule requête `collectes`, l'historique clôturé.
     setupAuth('traiteur_manager', 'org-1');
-    queues['collectes'] = [
-      { data: [], error: null }, // historique
-      {
-        data: [
-          {
-            id: 'p1',
-            date_collecte: '2026-07-10',
-            heure_collecte: '14:30:00',
-            statut: 'programmee',
-            evenements: {
-              id: 'e9',
-              nom_evenement: 'Gala',
-              pax: 100,
-              traiteur_operationnel_organisation_id: null,
-              lieux: { nom: 'Lieu Z' },
-            },
-          },
-        ],
-        error: null,
-      },
-    ];
+    queues['collectes'] = [{ data: [], error: null }];
     const GET = await loadGET();
     const res = await GET(
       req(
         '/api/v1/dashboards/blocs?type=zero_dechet&from=2026-06-01&to=2026-06-30',
       ),
     );
-    const j = (await res.json()) as BlocsJson;
-    expect(j.data.prochaines).toHaveLength(1);
-    expect(j.data.prochaines[0]!.evenement_nom).toBe('Gala');
-    expect(j.data.prochaines[0]!.lieu_nom).toBe('Lieu Z');
-    // Fenêtre à venir : statuts non terminaux uniquement.
-    const inStatut = (calls.in ?? []).find((a) => a[0] === 'statut');
-    expect(inStatut?.[1]).toEqual(['programmee', 'validee', 'en_cours']);
+    const j = (await res.json()) as { data: Record<string, unknown> };
+    expect(j.data).not.toHaveProperty('prochaines');
+    expect((calls.from ?? []).filter((a) => a[0] === 'collectes')).toHaveLength(
+      1,
+    );
+    expect((calls.in ?? []).some((a) => a[0] === 'statut')).toBe(false);
   });
 });
 
@@ -312,7 +291,6 @@ describe('M3.1 / blocs traiteur AG', () => {
         ],
         error: null,
       },
-      { data: [], error: null },
     ];
     queues['users'] = [{ data: [], error: null }];
     const GET = await loadGET();
@@ -353,7 +331,6 @@ describe('M3.3 / blocs agence — Bloc 7 retiré', () => {
         ],
         error: null,
       },
-      { data: [], error: null },
     ];
     const GET = await loadGET();
     const res = await GET(
@@ -393,24 +370,6 @@ describe('M3.2 / blocs gestionnaire — traiteurs + périmètre parc', () => {
         ],
         error: null,
       },
-      {
-        data: [
-          {
-            id: 'p1',
-            date_collecte: '2026-07-10',
-            heure_collecte: null,
-            statut: 'validee',
-            evenements: {
-              id: 'e9',
-              nom_evenement: 'Salon',
-              pax: 100,
-              traiteur_operationnel_organisation_id: 't1',
-              lieux: { nom: 'Lieu A' },
-            },
-          },
-        ],
-        error: null,
-      },
     ];
     queues['v_referentiel_traiteurs'] = [
       {
@@ -444,7 +403,5 @@ describe('M3.2 / blocs gestionnaire — traiteurs + périmètre parc', () => {
       'Traiteur Un',
       'Traiteur Deux',
     ]);
-    // Bloc 5 : colonne Traiteur résolue sur les prochaines.
-    expect(j.data.prochaines[0]!.traiteur_nom).toBe('Traiteur Un');
   });
 });

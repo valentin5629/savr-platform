@@ -143,7 +143,12 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupAuth('admin_savr');
-    // Aucune attribution existante (lecture faite seulement si besoin véhicule).
+    // Lectures faites seulement si besoin véhicule : collecte AG programmee,
+    // aucune attribution existante.
+    mockSupabaseChain.single.mockResolvedValue({
+      data: { type: 'anti_gaspi', statut: 'programmee' },
+      error: null,
+    });
     mockSupabaseChain.maybeSingle.mockResolvedValue({
       data: null,
       error: null,
@@ -195,9 +200,10 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
             error: null,
           },
     );
-    // 1er eq = lecture attributions_antgaspi (collecte_id), puis
+    // eq 1 = pré-lecture collecte (id), eq 2 = attributions_antgaspi (collecte_id), puis
     // `.update().eq('id').eq('type').eq('statut')` : la dernière étape est awaitée.
     mockSupabaseChain.eq
+      .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
@@ -239,6 +245,28 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
     expect(mockSupabaseChain.eq).toHaveBeenCalledWith('statut', 'programmee');
   });
 
+  it('M2.3/valider — besoin véhicule sur une collecte non « AG programmee » → 422, rien n’est écrit', async () => {
+    mockSupabaseChain.single.mockResolvedValue({
+      data: { type: 'anti_gaspi', statut: 'validee' },
+      error: null,
+    });
+    const { POST } =
+      await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-1/valider', {
+        association_id: 'asso-1',
+        transporteur_id: 'transp-1',
+        branche_attribution: 'ag_marathon_nuit',
+        mode_validation: 'manuel_top1',
+        nb_camions_demande: 2,
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
   it('M2.3/valider — besoin véhicule sur une AG déjà attribuée → 409, rien n’est écrit', async () => {
     mockSupabaseChain.maybeSingle.mockResolvedValue({
       data: { id: 'attr-existante' },
@@ -261,6 +289,104 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
     expect(mockSupabaseChain.update).not.toHaveBeenCalled();
   });
 
+  it('M2.3/valider — besoin véhicule sur une collecte introuvable → 404, rien n’est écrit', async () => {
+    mockSupabaseChain.single.mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST116', message: 'no rows returned' },
+    });
+    const { POST } =
+      await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-404/valider', {
+        association_id: 'asso-1',
+        transporteur_id: 'transp-1',
+        branche_attribution: 'ag_marathon_nuit',
+        mode_validation: 'manuel_top1',
+        nb_camions_demande: 2,
+        type_vehicule_souhaite: 'camionnette',
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-404' }) },
+    );
+    expect(res.status).toBe(404);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
+  // Erreurs métier de fn_modifier_collecte (RM-02/RM-05) traduites, et la RPC
+  // de validation n'est jamais lancée derrière un nombre refusé.
+  it('M2.3/valider — fn_modifier_collecte refuse NB_CAMIONS_INVALIDE → 422, validation non lancée', async () => {
+    mockRpc.mockImplementation(async (name: string) =>
+      name === 'fn_modifier_collecte'
+        ? {
+            data: null,
+            error: { message: 'NB_CAMIONS_INVALIDE: entier >= 1 attendu' },
+          }
+        : {
+            data: {
+              ok: true,
+              attribution_id: 'a',
+              outbox_id: 'o',
+              pack_id: null,
+            },
+            error: null,
+          },
+    );
+    const { POST } =
+      await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-1/valider', {
+        association_id: 'asso-1',
+        transporteur_id: 'transp-1',
+        branche_attribution: 'ag_marathon_nuit',
+        mode_validation: 'manuel_top1',
+        nb_camions_demande: 2,
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockRpc.mock.calls.map((c) => c[0])).toEqual([
+      'fn_modifier_collecte',
+    ]);
+  });
+
+  it('M2.3/valider — fn_modifier_collecte refuse REDUCTION_CANCEL_WINDOW_CLOSED → 409, validation non lancée', async () => {
+    mockRpc.mockImplementation(async (name: string) =>
+      name === 'fn_modifier_collecte'
+        ? {
+            data: null,
+            error: {
+              message:
+                'REDUCTION_CANCEL_WINDOW_CLOSED: mission dans moins d’1h',
+            },
+          }
+        : {
+            data: {
+              ok: true,
+              attribution_id: 'a',
+              outbox_id: 'o',
+              pack_id: null,
+            },
+            error: null,
+          },
+    );
+    const { POST } =
+      await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-1/valider', {
+        association_id: 'asso-1',
+        transporteur_id: 'transp-1',
+        branche_attribution: 'ag_marathon_nuit',
+        mode_validation: 'manuel_top1',
+        nb_camions_demande: 1,
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-1' }) },
+    );
+    expect(res.status).toBe(409);
+    expect(mockRpc.mock.calls.map((c) => c[0])).toEqual([
+      'fn_modifier_collecte',
+    ]);
+  });
+
   it('M2.3/valider — colonne type_vehicule_souhaite absente (migration non appliquée) → validation quand même (201)', async () => {
     mockRpc.mockResolvedValue({
       data: {
@@ -271,9 +397,10 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
       },
       error: null,
     });
-    // 1er eq = lecture attributions_antgaspi (collecte_id), puis
+    // eq 1 = pré-lecture collecte (id), eq 2 = attributions_antgaspi (collecte_id), puis
     // `.update().eq('id').eq('type').eq('statut')` : la dernière étape est awaitée.
     mockSupabaseChain.eq
+      .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)

@@ -1408,9 +1408,9 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
     [
       email(
         'em_1',
-        'bordereau_disponible',
+        'rapport_disponible',
         'manager.kaspia',
-        'Votre bordereau est disponible',
+        'Votre rapport RSE est disponible',
         'delivered',
         -197,
       ),
@@ -1448,9 +1448,9 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       ),
       email(
         'em_echec',
-        'bordereau_disponible',
+        'rapport_disponible',
         'manager.fail',
-        'Votre bordereau est disponible',
+        'Votre rapport RSE est disponible',
         'failed',
         -10,
       ),

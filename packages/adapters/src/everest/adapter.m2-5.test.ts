@@ -1300,6 +1300,7 @@ describe('M1.5 / infos d’accès du lieu → notes Everest', () => {
             LIEU_ACCES,
             'Demander Karim à la plonge',
             null,
+            null,
           ),
         },
         1,

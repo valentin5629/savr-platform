@@ -19,6 +19,7 @@ import {
   formatDateParis,
   jourParis,
 } from '@savr/shared/src/temps/index.js';
+import { urlCanonique } from '@/lib/url-application.js';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -37,8 +38,9 @@ interface CollecteRow {
   evenement_id: string;
   realisee_at: string;
   // Date d'intervention du prestataire (§04 `collectes.date_collecte`, DATE
-  // « YYYY-MM-DD »). Snapshotée sur le bordereau (§04 `bordereaux_savr.date_collecte`)
-  // et affichée « Intervention le … » sur bordereau + rapport (§12 §1.1 / §1.2).
+  // « YYYY-MM-DD »). Snapshotée sur le bordereau (§04 `bordereaux_savr.date_collecte`),
+  // affichée « Intervention le … » sur bordereau + rapport (§12 §1.1 / §1.2) et
+  // variable `date_collecte` de l'email rapport_disponible (§06.02 §6).
   date_collecte: string;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
@@ -56,6 +58,9 @@ interface CollecteRow {
     date_evenement: string;
     pax: number | null;
     organisation_id: string;
+    // Programmeur de la collecte (evenements.created_by → users, FK unique
+    // evenements_created_by_fkey) → variable `prenom` de l'email (§06.02 §6).
+    programmeur: { prenom: string | null } | null;
     traiteur_operationnel_organisation_id: string | null;
     // Cascade logo §1.2 (BL-P2-19).
     client_organisateur_organisation_id: string | null;
@@ -153,6 +158,7 @@ export async function runBatchPdfJ1(
       evenements (
         id, nom_evenement, date_evenement, pax,
         organisation_id, traiteur_operationnel_organisation_id,
+        programmeur:users!created_by ( prenom ),
         client_organisateur_organisation_id, logo_client_organisateur_url,
         organisations!organisation_id ( raison_sociale, siret, adresse, email_principal, type, logo_url ),
         traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, siret, adresse, logo_url ),
@@ -474,6 +480,11 @@ export async function runBatchPdfJ1(
       // 10. Email rapport_disponible au programmeur de la collecte (async, non bloquant).
       // Destinataire = email_principal de l'organisation programmante (§06.02 ; pas de
       // contact_principal_email sur evenements en V1 — différé V1.1, cf. §04 Data Model).
+      // Variables = EXACTEMENT la liste du §06.02 §6 (prenom, date_collecte, lieu_nom,
+      // poids_total, co2_evite, taux_recyclage, lien_rapport) : sendEmail refuse l'envoi
+      // (MISSING_VARIABLE, §08 §4) dès qu'une variable déclarée au template manque.
+      // Divergence M1.6 tranchée Val 2026-09-14 — l'ancien payload (nom_evenement /
+      // date_evenement, CO₂ en tonnes) n'était pas celui du template.
       const emailDestinataire = ev.organisations?.email_principal;
       if (emailDestinataire) {
         const { sendEmail } = await import('@savr/shared/src/email/index.js');
@@ -481,16 +492,21 @@ export async function runBatchPdfJ1(
           'rapport_disponible',
           emailDestinataire,
           {
-            nom_evenement: ev.nom_evenement,
-            date_evenement: dateEvenementStr,
-            taux_recyclage:
-              collecte.taux_recyclage != null
-                ? `${collecte.taux_recyclage.toFixed(1)} %`
-                : '—',
-            co2_evite:
-              collecte.co2_evite_kg != null
-                ? `${(collecte.co2_evite_kg / 1000).toFixed(3)} t CO₂e`
-                : '—',
+            // Programmeur = evenements.created_by, comme l'email d'annulation (tpl 5).
+            // '' si inconnu : valeur fournie, l'envoi n'est pas refusé.
+            prenom: ev.programmeur?.prenom ?? '',
+            date_collecte: new Date(collecte.date_collecte).toLocaleDateString(
+              'fr-FR',
+              { timeZone: 'Europe/Paris' },
+            ),
+            lieu_nom: lieu?.nom ?? '',
+            // Nombres nus : le corps du template porte les unités (« kg », « kg CO₂e », « % »).
+            poids_total: formatNombre(poidsTotalKg),
+            co2_evite: formatNombre(collecte.co2_evite_kg),
+            taux_recyclage: formatNombre(collecte.taux_recyclage),
+            lien_rapport: urlCanonique(
+              cheminFicheCollecte(ev.organisations?.type, collecte.id),
+            ),
           },
           { entityType: 'collectes', entityId: collecte.id },
         ).catch((e: unknown) => {
@@ -516,4 +532,27 @@ export async function runBatchPdfJ1(
 
   result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
   return result;
+}
+
+// ─── Helpers email rapport_disponible (§06.02 §6) ────────────────────────────
+
+/** Nombre pour le corps de l'email, 1 décimale max, format FR (ex. « 12,5 ») ; « — » si absent. */
+function formatNombre(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return '—';
+  return n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+}
+
+/**
+ * Fiche collecte de l'espace du programmeur (bouton « Voir le rapport »). Le
+ * rapport se télécharge depuis la fiche collecte de chaque espace client ; le
+ * chemin dépend du type de l'organisation programmatrice.
+ */
+function cheminFicheCollecte(
+  typeOrganisation: string | null | undefined,
+  collecteId: string,
+): string {
+  if (typeOrganisation === 'agence') return `/agence/collectes/${collecteId}`;
+  if (typeOrganisation === 'gestionnaire_lieux')
+    return `/gestionnaire/collectes/${collecteId}`;
+  return `/traiteur/collectes/${collecteId}`;
 }

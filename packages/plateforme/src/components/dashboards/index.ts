@@ -34,11 +34,9 @@ export { DashboardFilterBar } from './DashboardFilterBar.js';
 export { EmptyDashboardState } from './EmptyDashboardState.js';
 export { RevenusHistogramme } from './RevenusHistogramme.js';
 export { TonnageDisplay } from './TonnageDisplay.js';
-export { ProchainesCollectesBloc } from './ProchainesCollectesBloc.js';
 export { ExportSyntheseBloc } from './ExportSyntheseBloc.js';
 export type {
   BlocsData,
-  ProchaineCollecte,
   TopLieu,
   TopActeur,
   TopAssociation,

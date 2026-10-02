@@ -25,6 +25,12 @@ export function libelleTypeTms(typeTms: string | null | undefined): string {
   return 'Dispatch manuel';
 }
 
+// L'ordre part-il automatiquement chez le prestataire (adapter) ou par un
+// dispatch manuel (mail / téléphone / autre) ?
+export function envoiAutomatique(typeTms: string | null | undefined): boolean {
+  return typeTms === 'mts1' || typeTms === 'a_toutes';
+}
+
 // Bouton unique « valider l'attribution + envoyer » (décision Val 2026-10-01) :
 // la validation d'attribution AG EST la décision de dispatch (§06.09 §3).
 export function libelleValiderEtEnvoyer(

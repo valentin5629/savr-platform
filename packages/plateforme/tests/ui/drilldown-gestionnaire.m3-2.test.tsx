@@ -94,7 +94,6 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
   if (url.includes('/dashboards/blocs'))
     return jsonResponse({
       data: {
-        prochaines: [],
         topLieux: [
           {
             lieu_id: LIEU.id,

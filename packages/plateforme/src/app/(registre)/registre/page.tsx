@@ -63,7 +63,7 @@ const FILTRES = {
   lieu: liste(),
   traiteur: liste(),
   bordereau: liste(),
-  page: navigation(entier(1)),
+  page: navigation(entier(1, 1)),
   limit: navigation(entier(25)),
   tri: navigation(texte('date_evenement')),
   ordre: navigation(texte('desc')),

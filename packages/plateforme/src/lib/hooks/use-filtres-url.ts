@@ -21,7 +21,13 @@ import { useSearchParams } from 'next/navigation';
 
 type ChampTexte = { type: 'texte'; defaut: string; navigation?: boolean };
 type ChampListe = { type: 'liste'; defaut?: string[]; navigation?: boolean };
-type ChampEntier = { type: 'entier'; defaut: number; navigation?: boolean };
+type ChampEntier = {
+  type: 'entier';
+  defaut: number;
+  /** Borne basse (ex. `page` ≥ 1) : une valeur d'URL en dessous est ramenée au défaut. */
+  min?: number;
+  navigation?: boolean;
+};
 export type ChampFiltre = ChampTexte | ChampListe | ChampEntier;
 export type SchemaFiltres = Record<string, ChampFiltre>;
 
@@ -38,9 +44,10 @@ export const liste = (defaut: string[] = []): ChampListe => ({
   type: 'liste',
   defaut,
 });
-export const entier = (defaut: number): ChampEntier => ({
+export const entier = (defaut: number, min?: number): ChampEntier => ({
   type: 'entier',
   defaut,
+  min,
 });
 /** Champ de navigation (page, tri, ordre) : hors `actif`, conservé au reset. */
 export const navigation = <C extends ChampFiltre>(champ: C): C => ({
@@ -69,7 +76,10 @@ function lire<S extends SchemaFiltres>(
         .filter(Boolean);
     } else if (champ.type === 'entier') {
       const n = parseInt(brut, 10);
-      out[cle] = Number.isFinite(n) ? n : champ.defaut;
+      out[cle] =
+        Number.isFinite(n) && (champ.min === undefined || n >= champ.min)
+          ? n
+          : champ.defaut;
     } else {
       out[cle] = brut;
     }
@@ -138,7 +148,11 @@ export function useFiltresUrl<S extends SchemaFiltres>(
     );
     const qs = params.toString();
     const url = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
-    window.history.replaceState(window.history.state, '', url);
+    // `null`, jamais `window.history.state` : Next.js (App Router) ignore un
+    // `replaceState` dont l'état porte déjà `__NA` et ne resynchroniserait pas
+    // `useSearchParams` ; avec `null` il recopie son état interne et met à jour
+    // ses hooks, sans aller-retour serveur.
+    window.history.replaceState(null, '', url);
     // `schema` est une constante de module chez les appelants.
   }, [valeurs]);
 

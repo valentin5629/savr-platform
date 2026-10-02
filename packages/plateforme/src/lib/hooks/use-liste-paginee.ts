@@ -50,7 +50,16 @@ export function useListePaginee<T>(
   const messageErreur = options?.messageErreur ?? ERREUR_LISTE;
 
   React.useEffect(() => {
-    if (url === null) return;
+    if (url === null) {
+      // Pas d'appel : liste vide, pas de chargement (une requête en vol est
+      // invalidée par le nettoyage ci-dessous).
+      derniereRequete.current++;
+      setData([]);
+      setTotal(0);
+      setErreur(null);
+      setLoading(false);
+      return;
+    }
     const numero = ++derniereRequete.current;
     setLoading(true);
     setErreur(null);

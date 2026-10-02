@@ -218,7 +218,7 @@ function DataGrid<T>({
 
   return (
     <div className={cn('space-y-3', className)} data-testid={testId}>
-      {(toolbar || columnsToggle) && (
+      {!erreur && !loading && rows.length > 0 && (toolbar || columnsToggle) && (
         <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">{toolbar}</div>
           {columnsToggle && hideable.length > 0 && (

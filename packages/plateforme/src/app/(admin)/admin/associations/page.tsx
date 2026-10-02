@@ -80,7 +80,7 @@ const columns: Column<Association>[] = [
 const FILTRES = {
   q: texte(''),
   actif: liste(['true']),
-  page: navigation(entier(1)),
+  page: navigation(entier(1, 1)),
   tri: navigation(texte('nom')),
   ordre: navigation(texte('asc')),
 };

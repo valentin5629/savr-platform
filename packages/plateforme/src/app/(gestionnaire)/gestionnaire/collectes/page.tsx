@@ -196,11 +196,22 @@ function GestionnaireCollectesContent() {
     rows.length === 0 &&
     total > 0 &&
     page > dernierePage;
+  // `enRedirection` couvre le rendu intermédiaire (page corrigée, hook pas
+  // encore relancé) : l'écran reste en chargement jusqu'au prochain appel, puis
+  // conclut (état vide si la réponse est encore vide — jamais un squelette qui
+  // ne finit pas).
+  const [enRedirection, setEnRedirection] = useState(false);
   useEffect(() => {
-    if (redirige) allerPage(dernierePage);
+    if (redirige) {
+      setEnRedirection(true);
+      allerPage(dernierePage);
+    }
     // allerPage change à chaque rendu (filtresKey) : la condition seule compte.
   }, [redirige, dernierePage]);
-  const loading = chargement || redirige;
+  useEffect(() => {
+    if (chargement) setEnRedirection(false);
+  }, [chargement]);
+  const loading = chargement || redirige || enRedirection;
 
   useEffect(() => {
     if (lieuFiltre) setFiltreLabel(readCollecteFiltreLabel('lieu', lieuFiltre));

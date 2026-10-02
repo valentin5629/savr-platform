@@ -120,7 +120,7 @@ const FILTRES = {
   info_incomplete: texte(''),
   controle_acces: texte(''),
   rapport_non_consulte: texte(''),
-  page: navigation(entier(1)),
+  page: navigation(entier(1, 1)),
   tri: navigation(texte('')),
   ordre: navigation(texte('')),
 };
@@ -436,13 +436,13 @@ export default function CollectesPage() {
     controleAcces,
     rapportNonConsulte,
   ]);
-  const liste = useListePaginee<CollecteRow>(urlListe);
-  const croisementVide = urlListe === null;
-  const collectes = croisementVide ? [] : liste.data;
-  const total = croisementVide ? 0 : liste.total;
-  const loading = croisementVide ? false : liste.loading;
-  const erreur = croisementVide ? null : liste.erreur;
-  const fetchCollectes = liste.recharger;
+  const {
+    data: collectes,
+    total,
+    loading,
+    erreur,
+    recharger: fetchCollectes,
+  } = useListePaginee<CollecteRow>(urlListe);
 
   // ── Pop-up centré (modale) — fiche collecte complète (ex-page [id]) ─────────
   // openId = état local, initialisé depuis l'URL (?collecte=<id>) → deep-links
@@ -455,7 +455,13 @@ export default function CollectesPage() {
 
   const setCollecteParam = useCallback(
     (id: string | null) => {
-      const sp = new URLSearchParams(params.toString());
+      // Base = l'URL du document (les filtres y sont écrits par `useFiltresUrl`),
+      // pas `useSearchParams` (figé à la dernière navigation Next).
+      const sp = new URLSearchParams(
+        typeof window === 'undefined'
+          ? params.toString()
+          : window.location.search,
+      );
       if (id) sp.set('collecte', id);
       else sp.delete('collecte');
       const qs = sp.toString();
@@ -530,7 +536,7 @@ export default function CollectesPage() {
       sp.delete('perimetre');
       const qs = sp.toString();
       window.history.replaceState(
-        window.history.state,
+        null,
         '',
         `${window.location.pathname}${qs ? `?${qs}` : ''}`,
       );
@@ -698,7 +704,9 @@ export default function CollectesPage() {
         data-testid="collectes-filtres"
         count={`${total} collecte${total > 1 ? 's' : ''}`}
         actif={filtresActifs}
-        onReset={reset}
+        // En drill-down, « Réinitialiser » retire aussi le chip et le périmètre
+        // d'organisations (sinon le chip annoncerait un filtre qui ne s'applique plus).
+        onReset={drillActive ? clearDrill : reset}
       >
         {/* Période en premier, puis filtres à choix multiple avec case
             « Tous » (décision Val 2026-09-30). */}

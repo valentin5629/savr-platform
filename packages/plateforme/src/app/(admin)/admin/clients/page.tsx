@@ -130,7 +130,7 @@ const FILTRES = {
   q: texte(''),
   types: liste(),
   actif: liste(),
-  page: navigation(entier(1)),
+  page: navigation(entier(1, 1)),
   tri: navigation(texte('raison_sociale')),
   ordre: navigation(texte('asc')),
 };

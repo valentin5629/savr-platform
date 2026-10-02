@@ -38,7 +38,7 @@ const SCHEMA = {
   q: texte(''),
   types: liste(),
   actif: liste(['true']),
-  page: navigation(entier(1)),
+  page: navigation(entier(1, 1)),
   tri: navigation(texte('nom')),
 };
 
@@ -120,6 +120,16 @@ describe('useFiltresUrl — état des filtres miroir dans l’URL', () => {
     });
     expect(screen.getByTestId('actif').textContent).toBe('false');
     expect(window.location.search).toBe('?tri=ville');
+  });
+
+  it('entier borné : ?page=0 lu comme 1 (min) ; l’URL est écrite avec un état history nul (resynchro Next)', () => {
+    navState.search = new URLSearchParams('page=0');
+    const spy = vi.spyOn(window.history, 'replaceState');
+    render(<Filtres />);
+    expect(etat().page).toBe(1);
+    fireEvent.click(screen.getByText('q'));
+    expect(spy).toHaveBeenLastCalledWith(null, '', '/liste?q=pavillon');
+    spy.mockRestore();
   });
 
   it('liste vide ≠ défaut non vide : « Tous » (actif=[]) est écrit explicitement et relu', () => {
@@ -220,11 +230,28 @@ describe('useListePaginee — chargement, anti-périmé, erreur', () => {
     ATTENTE_CAS_MS,
   );
 
-  it('url nulle : aucun appel, pas de chargement', () => {
-    render(<Liste url={null} />);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId('loading').textContent).toBe('false');
-  });
+  it(
+    'url nulle : aucun appel, pas de chargement ; chaîne → null vide la liste et baisse loading',
+    async () => {
+      const { rerender } = render(<Liste url={null} />);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(screen.getByTestId('loading').textContent).toBe('false');
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [{ id: 'a' }], total: 1 }),
+      });
+      rerender(<Liste url="/api" />);
+      await waitFor(
+        () => expect(screen.getByTestId('ids').textContent).toBe('a'),
+        ATTENTE_UI,
+      );
+      rerender(<Liste url={null} />);
+      expect(screen.getByTestId('loading').textContent).toBe('false');
+      expect(screen.getByTestId('ids').textContent).toBe('');
+      expect(screen.getByTestId('total').textContent).toBe('0');
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 describe('ListFooter — pagination commune', () => {
@@ -283,6 +310,7 @@ describe('DataGrid — états erreur / vide, menu Colonnes', () => {
       screen.getByText('Le chargement de la liste a échoué.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Colonnes/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(onRecharger).toHaveBeenCalledTimes(1);
   });

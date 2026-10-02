@@ -223,7 +223,7 @@ const FILTRES = {
   organisation_ids: liste(),
   date_debut: texte(''),
   date_fin: texte(''),
-  page: navigation(entier(1)),
+  page: navigation(entier(1, 1)),
   tri: navigation(texte('created_at')),
   ordre: navigation(texte('desc')),
 };

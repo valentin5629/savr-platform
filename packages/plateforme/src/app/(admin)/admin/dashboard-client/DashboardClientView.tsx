@@ -456,6 +456,8 @@ export function DashboardClientView() {
         onChange={handleFilters}
         onReset={() => setSelectedOrgs([])}
         enCarte
+        enfantsActifs={selectedOrgs.length > 0}
+        toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
       >
         <OrganisationSelector
           organisations={organisations}
@@ -463,10 +465,6 @@ export function DashboardClientView() {
           onChange={setSelectedOrgs}
         />
       </DashboardFilterBar>
-
-      <div className="flex justify-end">
-        <ToggleTypeCollecte value={tab} onChange={setTab} />
-      </div>
 
       {loading ? (
         <Text>Chargement…</Text>

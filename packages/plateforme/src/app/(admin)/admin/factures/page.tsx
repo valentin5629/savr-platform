@@ -16,6 +16,7 @@ import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
 import type { Database } from '@savr/shared/src/database.types.js';
+import { fmtMontant } from '@/lib/format';
 
 type Enums = Database['plateforme']['Enums'];
 
@@ -129,21 +130,13 @@ const columns: Column<Facture>[] = [
     key: 'montant_ht',
     sortable: true,
     header: 'Montant HT',
-    render: (row) =>
-      new Intl.NumberFormat('fr-FR', {
-        style: 'currency',
-        currency: row.devise,
-      }).format(row.montant_ht),
+    render: (row) => fmtMontant(row.montant_ht, row.devise),
   },
   {
     key: 'montant_ttc',
     sortable: true,
     header: 'TTC',
-    render: (row) =>
-      new Intl.NumberFormat('fr-FR', {
-        style: 'currency',
-        currency: row.devise,
-      }).format(row.montant_ttc),
+    render: (row) => fmtMontant(row.montant_ttc, row.devise),
   },
   {
     key: 'created_at',

@@ -22,9 +22,8 @@ import type {
 } from '@/components/dashboards/useEvolutionBlocs.js';
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
-import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import { StatCard } from '@/components/ui/stat-card';
 import { Co2HeroCard } from '@/components/dashboards/charts/cockpit/Co2HeroCard';
-import { Co2HeroCardAg } from '@/components/dashboards/charts/cockpit/Co2HeroCardAg';
 import {
   Co2MethodePanel,
   type Co2FluxFactor,
@@ -60,6 +59,9 @@ import { Modal } from '@/components/ui/modal';
 import { Info } from 'lucide-react';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
+import { fmtPct } from '@/lib/format';
 
 // Variables du calcul CO₂ renvoyées par l'endpoint kpi-traiteur (modale méthode).
 // `ag` = facteur anti-gaspi par repas (méthode « évité seul » V1, §11 l.163).
@@ -256,7 +258,7 @@ export function TraiteurDashboardClient({
   // ── Top listes (Cockpit TopRankList) ─────────────────────────────────────────
   const nbColl = (n: number) => `${fmtInt(n)} collecte${n > 1 ? 's' : ''}`;
   const tauxStr = (t: number | null) =>
-    t != null ? `${fmtDec(t, 1)} % recyclage` : 'taux n/d';
+    t != null ? `${fmtPct(t, 1)} recyclage` : 'taux n/d';
   const repasPaxStr = (r: number | null) =>
     r != null ? `${fmtDec(r, 2)} repas/pax` : 'repas/pax n/d';
 
@@ -281,7 +283,7 @@ export function TraiteurDashboardClient({
     value: nbColl(a.nb_collectes),
     secondary:
       tab === 'zero_dechet'
-        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? `${fmtDec(a.taux_recyclage, 1)} %` : '—'}`
+        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? fmtPct(a.taux_recyclage, 1) : '—'}`
         : `${fmtInt(a.repas_donnes ?? 0)} repas · ${repasPaxStr(a.repas_par_pax)}`,
   }));
   const topAssociationsItems = (blocs?.topAssociations ?? []).map((a) => ({
@@ -346,12 +348,14 @@ export function TraiteurDashboardClient({
 
   return (
     <div className="space-y-6" data-testid="traiteur-dashboard">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-savr-primary-800">Dashboard</h1>
-        <Button asChild>
-          <a href="/programmer/nouveau">Programmer un événement</a>
-        </Button>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        actions={
+          <Button asChild>
+            <a href="/programmer/nouveau">Programmer un événement</a>
+          </Button>
+        }
+      />
 
       <DashboardFilterBar
         storageKey="traiteur-dashboard"
@@ -360,31 +364,28 @@ export function TraiteurDashboardClient({
       <CollecteTypeTabs value={tab} onChange={setTab} />
 
       {!loading && (
-        <p
-          data-testid="dashboard-collectes-count"
-          className="text-sm text-savr-neutral-500"
-        >
+        <Text data-testid="dashboard-collectes-count">
           {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''} correspond
           {agg.nbCollectes > 1 ? 'ent' : ''} à votre sélection
-        </p>
+        </Text>
       )}
 
       {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
+        <Text>Chargement…</Text>
       ) : agg.nbCollectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (
         <>
           {/* Bloc 1 — KPIs Cockpit (5 cartes ZD) */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(agg.nbCollectes)}
               dotColor={KPI_DOT.navy}
               variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Tonnage collecté"
               value={fmtMasse(agg.tonnage).value}
               unit={fmtMasse(agg.tonnage).unit}
@@ -392,7 +393,7 @@ export function TraiteurDashboardClient({
               variationPct={variationPct(agg.tonnage, prev.tonnage)}
               sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Taux de recyclage"
               value={agg.taux != null ? fmtDec(agg.taux, 1) : '—'}
               unit={agg.taux != null ? '%' : undefined}
@@ -401,7 +402,7 @@ export function TraiteurDashboardClient({
               sparkPoints={sparkFromRows(rows, (r) => r.taux_recyclage_pondere)}
               sparkColor={KPI_DOT.green}
             />
-            <KpiCockpitCard
+            <StatCard
               label="kg/pax moyen"
               value={agg.kgPax != null ? fmtDec(agg.kgPax, 2) : '—'}
               unit={agg.kgPax != null ? 'kg/pax' : undefined}
@@ -413,7 +414,7 @@ export function TraiteurDashboardClient({
             {/* CO₂ évité des collectes réalisées sur la période (retour Val —
                 remplace « Marge générée », divergence §06.04 tracée). Cliquable :
                 ouvre la modale « Impact carbone » (héros + méthode de calcul). */}
-            <KpiCockpitCard
+            <StatCard
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
@@ -453,14 +454,14 @@ export function TraiteurDashboardClient({
             wide
           >
             <div className="space-y-5">
-              <p className="text-[13px] text-savr-neutral-500">
+              <Text size="xs-plus">
                 Période analysée :{' '}
                 <span className="font-semibold text-savr-neutral-700">
                   du {frDate(filters.from)} au {frDate(filters.to)}
                 </span>{' '}
                 · {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
                 clôturée{agg.nbCollectes > 1 ? 's' : ''} Zéro Déchet
-              </p>
+              </Text>
               <Co2HeroCard
                 eviteKg={co2.eviteKg}
                 induitKg={co2.induitKg}
@@ -533,14 +534,14 @@ export function TraiteurDashboardClient({
           {/* Bloc 1 — KPIs Cockpit (5 cartes AG : + CO₂ évité, décision Val
               2026-07-13 — divergence §06.04/§11 tracée, cf. carte ZD #216) */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(agg.nbCollectes)}
               dotColor={KPI_DOT.navy}
               variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas donnés"
               value={fmtInt(agg.repas)}
               dotColor={KPI_DOT.accent}
@@ -548,14 +549,14 @@ export function TraiteurDashboardClient({
               sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
               sparkColor={KPI_DOT.accent}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Pax cumulés"
               value={fmtInt(agg.pax)}
               dotColor={KPI_DOT.navy2}
               variationPct={variationPct(agg.pax, prev.pax)}
               sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas/pax moyen"
               value={agg.pax > 0 ? fmtDec(agg.repas / agg.pax, 2) : '—'}
               dotColor={KPI_DOT.navy3}
@@ -566,7 +567,7 @@ export function TraiteurDashboardClient({
             {/* CO₂ évité AG (évité seul V1, §11 l.163) — même UX que le ZD :
                 cliquable → modale « Impact carbone » (héros + méthode AG) UNIQUEMENT
                 si Σ co2_evite > 0. Aucune navigation (invariant R24 préservé). */}
-            <KpiCockpitCard
+            <StatCard
               label="CO₂ évité"
               value={co2Masse.value}
               unit={`${co2Masse.unit} CO₂e`}
@@ -595,15 +596,16 @@ export function TraiteurDashboardClient({
             wide
           >
             <div className="space-y-5">
-              <p className="text-[13px] text-savr-neutral-500">
+              <Text size="xs-plus">
                 Période analysée :{' '}
                 <span className="font-semibold text-savr-neutral-700">
                   du {frDate(filters.from)} au {frDate(filters.to)}
                 </span>{' '}
                 · {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
                 clôturée{agg.nbCollectes > 1 ? 's' : ''} Anti-Gaspi
-              </p>
-              <Co2HeroCardAg
+              </Text>
+              <Co2HeroCard
+                variant="ag"
                 eviteKg={co2.eviteKg}
                 equivalences={{
                   kmVoiture: equivalences.kmVoiture,

@@ -19,6 +19,8 @@ import {
   type OptionFiltre,
 } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — vue liste : tableau chronologique des
@@ -317,31 +319,31 @@ function RegistreContent() {
   ];
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-savr-primary-800">
-          Registre réglementaire
-        </h1>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" asChild>
-            <a href="/registre/methodologie">Méthodologie</a>
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() =>
-              window.open(`/api/v1/registre/export-csv?${queryString(true)}`)
-            }
-          >
-            Exporter CSV
-          </Button>
-          <Button
-            onClick={() =>
-              window.open(`/api/v1/registre/export-zip?${queryString(true)}`)
-            }
-          >
-            Télécharger tous les bordereaux
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Registre réglementaire"
+        actions={
+          <>
+            <Button variant="ghost" asChild>
+              <a href="/registre/methodologie">Méthodologie</a>
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() =>
+                window.open(`/api/v1/registre/export-csv?${queryString(true)}`)
+              }
+            >
+              Exporter CSV
+            </Button>
+            <Button
+              onClick={() =>
+                window.open(`/api/v1/registre/export-zip?${queryString(true)}`)
+              }
+            >
+              Télécharger tous les bordereaux
+            </Button>
+          </>
+        }
+      />
 
       {/* Barre de filtres — pattern DS `FilterBar` : filtres en ligne
           « Titre  valeur ▾ » (décision Val 2026-09-30). */}
@@ -445,11 +447,7 @@ function RegistreContent() {
           data={rows}
           getRowId={(r) => r.collecte_id}
           loading={loading}
-          empty={
-            <p className="text-sm text-savr-neutral-500">
-              Aucune collecte au registre pour ces critères.
-            </p>
-          }
+          empty={<Text>Aucune collecte au registre pour ces critères.</Text>}
           manualSorting
           sorting={sorting}
           onSortingChange={(updater) => {
@@ -466,7 +464,7 @@ function RegistreContent() {
       )}
 
       {/* Pagination */}
-      <div className="flex items-center justify-between text-sm text-savr-neutral-500">
+      <Text as="div" className="flex items-center justify-between">
         <span>{total} ligne(s)</span>
         <div className="flex items-center gap-2">
           <Combobox
@@ -502,7 +500,7 @@ function RegistreContent() {
             Suivant
           </Button>
         </div>
-      </div>
+      </Text>
     </div>
   );
 }

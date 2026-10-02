@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { fmtDec } from './fmt';
 import { TEXT_MUTED } from './palette';
+import { Text } from '@/components/ui/text';
 
 // Co2MethodePanel — explique la MÉTHODE de calcul CO₂ (ABC ADEME) et affiche les
 // VARIABLES réellement utilisées (forfait transport + facteurs d'émission par
@@ -32,10 +33,17 @@ function Formule({
 }): React.ReactElement {
   return (
     <div className="border-l-2 border-savr-neutral-200 pl-3">
-      <div className="text-[13px] font-bold text-savr-neutral-900">{titre}</div>
-      <div className="mt-0.5 text-[13px] leading-relaxed text-savr-neutral-600">
+      <Text as="div" size="xs-plus" tone="ink" className="font-bold">
+        {titre}
+      </Text>
+      <Text
+        as="div"
+        size="xs-plus"
+        tone="soft"
+        className="mt-0.5 leading-relaxed"
+      >
         {children}
-      </div>
+      </Text>
     </div>
   );
 }
@@ -50,10 +58,10 @@ export function Co2MethodePanel({
       <h4 className="text-[15px] font-extrabold text-savr-neutral-900">
         Comment ces chiffres sont-ils calculés ?
       </h4>
-      <p className="mt-0.5 text-[13px] text-savr-neutral-500">
+      <Text size="xs-plus" className="mt-0.5">
         Méthode ABC de l'ADEME. Les grandeurs sont figées à la clôture de chaque
         collecte, puis additionnées sur la période filtrée.
-      </p>
+      </Text>
 
       <div className="mt-4 flex flex-col gap-3">
         <Formule titre="CO₂e évité">

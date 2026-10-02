@@ -12,6 +12,8 @@ import { Modal } from '@/components/ui/modal';
 import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { typeCollecteLabel } from '@/components/collecte/fiche-blocs';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface TypeEvenement {
   id: string;
@@ -221,9 +223,9 @@ export function EditerCollecteForm({
       <CardContent className="space-y-6">
         {/* ── Champs événement ──────────────────────────────────────── */}
         <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-900">
+          <Heading level={3} size="sm">
             Événement
-          </h3>
+          </Heading>
           <FormField label="Nom de l'événement" htmlFor="edit-evt-nom">
             <Input
               id="edit-evt-nom"
@@ -273,9 +275,9 @@ export function EditerCollecteForm({
           </FormField>
           {/* Contact principal (sous-bloc) */}
           <div className="space-y-3 rounded-savr-md border border-savr-neutral-200 p-3">
-            <p className="text-sm font-semibold text-savr-neutral-800">
+            <Text tone="strong" className="font-semibold">
               Contact principal
-            </p>
+            </Text>
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Prénom et nom" htmlFor="edit-cp-nom">
                 <Input
@@ -295,9 +297,9 @@ export function EditerCollecteForm({
           </div>
           {/* Contact de secours (sous-bloc) */}
           <div className="space-y-3 rounded-savr-md border border-savr-neutral-200 p-3">
-            <p className="text-sm font-semibold text-savr-neutral-800">
+            <Text tone="strong" className="font-semibold">
               Contact de secours
-            </p>
+            </Text>
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Prénom et nom" htmlFor="edit-cs-nom">
                 <Input
@@ -319,9 +321,9 @@ export function EditerCollecteForm({
 
         {/* ── Champs collecte ───────────────────────────────────────── */}
         <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-900">
+          <Heading level={3} size="sm">
             Collecte
-          </h3>
+          </Heading>
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Date de collecte" htmlFor="edit-date-collecte">
               <DatePicker
@@ -363,14 +365,14 @@ export function EditerCollecteForm({
 
         {/* ── Champs verrouillés (§05 l.314 / §06.04 l.460) ─────────── */}
         <section className="space-y-2 rounded-savr-md bg-savr-neutral-50 p-3">
-          <p className="text-xs text-savr-neutral-500">
+          <Text variant="hint">
             Lieu : <strong>{collecte.lieu_nom ?? '—'}</strong> · Type :{' '}
             <strong>{typeCollecteLabel(collecte.type)}</strong>
-          </p>
-          <p className="text-xs text-savr-neutral-400">
+          </Text>
+          <Text variant="faint">
             Pour changer le lieu ou le type de collecte, annulez cette collecte
             et programmez-en une nouvelle.
-          </p>
+          </Text>
         </section>
 
         {urgence && (

@@ -20,6 +20,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { tempsEcouleFr } from '@/lib/facturation/facture-ui';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { fmtMontant } from '@/lib/format';
 
 interface Ligne {
   id: string;
@@ -250,17 +253,10 @@ export default function FactureDetailPage() {
     await doAction('avoir', { motif });
   }
 
-  if (loading)
-    return <div className="text-savr-neutral-500 text-sm">Chargement…</div>;
-  if (!facture)
-    return (
-      <div className="text-savr-neutral-500 text-sm">Facture introuvable.</div>
-    );
+  if (loading) return <Text as="div">Chargement…</Text>;
+  if (!facture) return <Text as="div">Facture introuvable.</Text>;
 
-  const fmt = new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: facture.devise,
-  });
+  const fmt = (n: number): string => fmtMontant(n, facture.devise);
   const factureReference =
     facture.factures_collectes.find(
       (fc) => fc.collectes?.evenements?.reference_affaire,
@@ -275,9 +271,9 @@ export default function FactureDetailPage() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="text-xl font-semibold">
+        <Heading level={1} size="xl" weight="semibold" tone="inherit">
           {facture.numero_facture ?? '— brouillon (numéro à attribuer) —'}
-        </h1>
+        </Heading>
         <Badge variant="neutral">
           {STATUT_LABELS[facture.statut] ?? facture.statut}
         </Badge>
@@ -338,9 +334,9 @@ export default function FactureDetailPage() {
 
       {/* Bloc 1 — En-tête */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-savr-neutral-700">
+        <Heading level={2} size="sm" tone="muted">
           Bloc 1 — En-tête
-        </h2>
+        </Heading>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <div className="text-savr-neutral-500">Type</div>
@@ -390,9 +386,9 @@ export default function FactureDetailPage() {
 
       {/* Bloc 2 — Lignes */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-savr-neutral-700">
+        <Heading level={2} size="sm" tone="muted">
           Bloc 2 — Lignes
-        </h2>
+        </Heading>
         <div className="rounded-savr-md border divide-y text-sm">
           {facture.factures_collectes.length === 0 && (
             <div className="px-4 py-3 text-savr-neutral-500">Aucune ligne.</div>
@@ -452,30 +448,28 @@ export default function FactureDetailPage() {
 
       {/* Bloc 4 — Totaux */}
       <section className="space-y-1 text-sm">
-        <h2 className="text-sm font-semibold text-savr-neutral-700">
+        <Heading level={2} size="sm" tone="muted">
           Bloc 4 — Totaux
-        </h2>
+        </Heading>
         <div className="flex justify-between">
           <span className="text-savr-neutral-500">Total HT</span>
-          <span className="font-medium">{fmt.format(facture.montant_ht)}</span>
+          <span className="font-medium">{fmt(facture.montant_ht)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-savr-neutral-500">TVA</span>
-          <span className="font-medium">{fmt.format(facture.montant_tva)}</span>
+          <span className="font-medium">{fmt(facture.montant_tva)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-savr-neutral-500">Total TTC</span>
-          <span className="font-semibold">
-            {fmt.format(facture.montant_ttc)}
-          </span>
+          <span className="font-semibold">{fmt(facture.montant_ttc)}</span>
         </div>
       </section>
 
       {/* Bloc 5 — Conditions / notes */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-savr-neutral-700">
+        <Heading level={2} size="sm" tone="muted">
           Bloc 5 — Référence et conditions
-        </h2>
+        </Heading>
         {/* Référence client = evenements.reference_affaire (transmise à Pennylane).
             Affichage seul en V1 : aucune colonne facture-level pour un override
             (ni schéma V1 ni DDL cible) — l'override serait une divergence à
@@ -579,7 +573,7 @@ function LigneRow({
   deleting: boolean;
   onSave: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
-  fmt: Intl.NumberFormat;
+  fmt: (n: number) => string;
 }) {
   const [designation, setDesignation] = useState(
     ligne.libelle_ligne ?? ligne.designation ?? '',
@@ -594,7 +588,7 @@ function LigneRow({
           {ligne.libelle_ligne ?? ligne.designation ?? 'Prestation Savr'}
         </div>
         <div className="font-medium text-savr-neutral-900">
-          {fmt.format(ligne.montant_ligne_ht * ligne.quantite)}
+          {fmt(ligne.montant_ligne_ht * ligne.quantite)}
         </div>
       </div>
     );

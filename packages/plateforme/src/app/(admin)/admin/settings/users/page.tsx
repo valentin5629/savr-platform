@@ -11,6 +11,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUserRole } from '@/lib/use-user-role';
 import { InviteUserModal } from './invite-user-modal';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface StaffUser {
   id: string;
@@ -91,12 +93,12 @@ export default function SettingsUsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-savr-primary-950">
+          <Heading level={1} weight="semibold" tone="primary-deep">
             Utilisateurs Savr
-          </h1>
-          <p className="text-sm text-savr-neutral-500 mt-1">
+          </Heading>
+          <Text className="mt-1">
             {total} membre{total !== 1 ? 's' : ''} de l&apos;équipe
-          </p>
+          </Text>
         </div>
         <Button onClick={() => setShowInvite(true)}>
           <Plus className="w-4 h-4" />

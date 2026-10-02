@@ -5,6 +5,8 @@ import { use, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 // Détail d'une collecte au registre (§06.03, 8 blocs snapshot lecture seule).
 
@@ -127,9 +129,9 @@ export default function RegistreDetailPage({
           >
             ← Registre
           </a>
-          <h1 className="text-2xl font-bold text-savr-primary-800">
+          <Heading level={1} tone="primary">
             Collecte ZD — {dateFr(data.evenement.date)} — {data.lieu.nom ?? ''}
-          </h1>
+          </Heading>
           <div className="flex items-center gap-2 pt-1">
             <Badge variant={dispo ? 'success' : 'neutral'}>
               {dispo ? 'Bordereau disponible' : 'Bordereau manquant'}
@@ -148,8 +150,10 @@ export default function RegistreDetailPage({
         )}
       </div>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 1 — Événement</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 1 — Événement
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <Field label="Nom" value={data.evenement.nom} />
           <Field label="Date" value={dateFr(data.evenement.date)} />
@@ -163,8 +167,10 @@ export default function RegistreDetailPage({
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 2 — Producteur de déchets</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 2 — Producteur de déchets
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <Field
             label="Raison sociale"
@@ -175,8 +181,10 @@ export default function RegistreDetailPage({
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 3 — Lieu</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 3 — Lieu
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <Field label="Nom" value={data.lieu.nom} />
           <Field
@@ -188,16 +196,20 @@ export default function RegistreDetailPage({
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 4 — Transporteur</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 4 — Transporteur
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <Field label="Nom" value={data.transporteur.nom} />
           <Field label="SIRET" value={data.transporteur.siret} />
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 5 — Exutoire</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 5 — Exutoire
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <Field label="Nom" value={data.exutoire.nom} />
           <Field label="SIRET" value={data.exutoire.siret} />
@@ -205,8 +217,10 @@ export default function RegistreDetailPage({
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 6 — Détail des flux</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 6 — Détail des flux
+        </Heading>
         <table className="w-full text-sm">
           <thead className="text-left text-xs uppercase text-savr-neutral-500">
             <tr>
@@ -235,8 +249,10 @@ export default function RegistreDetailPage({
         </table>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 7 — Documents</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 7 — Documents
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <Field label="N° bordereau" value={data.documents.numero} />
           <Field
@@ -247,12 +263,12 @@ export default function RegistreDetailPage({
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 8 — Historique</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 8 — Historique
+        </Heading>
         {data.historique.length === 0 ? (
-          <p className="text-sm text-savr-neutral-500">
-            Aucun événement d&apos;audit visible.
-          </p>
+          <Text>Aucun événement d&apos;audit visible.</Text>
         ) : (
           <ul className="space-y-1 text-sm">
             {data.historique.map((h, i) => (

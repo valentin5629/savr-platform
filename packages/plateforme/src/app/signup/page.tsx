@@ -27,6 +27,7 @@ import {
   isValidTelephoneFr,
   NOM_MIN_LENGTH,
 } from '@/lib/identite-signup';
+import { Text } from '@/components/ui/text';
 
 // Les 3 valeurs de `type_profil` acceptées par la route. Toute autre valeur y
 // est refusée en 422 : l'écran n'en propose donc pas d'autre.
@@ -180,15 +181,15 @@ export default function SignupPage() {
             </Link>
           }
         >
-          <p className="text-sm text-savr-neutral-700">
+          <Text variant="body">
             Votre compte est créé. Un lien d&apos;activation vient d&apos;être
             envoyé à <strong>{email.trim()}</strong>. Il est valide
             24&nbsp;heures.
-          </p>
-          <p className="text-sm text-savr-neutral-500">
+          </Text>
+          <Text>
             Sans ce clic, la connexion reste fermée. Pensez à regarder vos
             indésirables si rien n&apos;arrive.
-          </p>
+          </Text>
         </AuthCard>
       </AuthPage>
     );
@@ -281,12 +282,12 @@ export default function SignupPage() {
                     className="mt-1 h-4 w-4 accent-savr-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
                   />
                   <span>
-                    <span className="block text-sm font-semibold text-savr-neutral-900">
+                    <Text as="span" tone="ink" className="block font-semibold">
                       {p.titre}
-                    </span>
-                    <span className="mt-0.5 block text-sm text-savr-neutral-600">
+                    </Text>
+                    <Text as="span" tone="soft" className="mt-0.5 block">
                       {p.detail}
-                    </span>
+                    </Text>
                   </span>
                 </label>
               ))}
@@ -367,10 +368,10 @@ export default function SignupPage() {
 
         {etape === 3 && (
           <>
-            <p className="text-sm text-savr-neutral-600">
+            <Text tone="soft">
               Au moins {PASSWORD_MIN_LENGTH} caractères, avec une majuscule, un
               chiffre et un caractère spécial.
-            </p>
+            </Text>
 
             <FormField label="Mot de passe" htmlFor="mot-de-passe" required>
               <Input
@@ -406,9 +407,9 @@ export default function SignupPage() {
                 aria-describedby="cgu-label"
               />
               <label
+                className="cursor-pointer text-sm text-savr-neutral-700"
                 id="cgu-label"
                 htmlFor="cgu"
-                className="cursor-pointer text-sm text-savr-neutral-700"
               >
                 J&apos;accepte les{' '}
                 <Link

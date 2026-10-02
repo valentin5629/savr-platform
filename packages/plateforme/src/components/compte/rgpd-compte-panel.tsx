@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
 
 // Panneau « Mon compte » RGPD (transverse, tous rôles) — câble les droits :
 //   · Art.16 Rectification  → PATCH /api/me/profil  (prénom / nom)
@@ -169,10 +170,10 @@ export function RgpdComptePanel({
           <Button variant="secondary" onClick={exporter}>
             Exporter mes données (JSON)
           </Button>
-          <p className="text-xs text-savr-neutral-500">
+          <Text variant="hint">
             Téléchargez l’ensemble de vos données personnelles (droit d’accès et
             de portabilité).
-          </p>
+          </Text>
         </CardContent>
       </Card>
 
@@ -190,13 +191,13 @@ export function RgpdComptePanel({
               Demander la suppression de mon compte
             </Button>
             {suppressionMsg ? (
-              <p className="text-xs text-savr-neutral-500">{suppressionMsg}</p>
+              <Text variant="hint">{suppressionMsg}</Text>
             ) : (
-              <p className="text-xs text-savr-neutral-500">
+              <Text variant="hint">
                 Validation Admin sous 48h ouvrées, puis anonymisation des
                 données personnelles. Les factures et bordereaux légaux sont
                 conservés.
-              </p>
+              </Text>
             )}
           </CardContent>
         </Card>

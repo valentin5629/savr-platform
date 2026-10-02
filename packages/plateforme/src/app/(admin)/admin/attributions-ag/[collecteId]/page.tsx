@@ -11,6 +11,7 @@ import { ArrowLeft, Leaf } from 'lucide-react';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { AttributionAgForm } from '@/components/admin/attribution-ag-form';
+import { Heading } from '@/components/ui/heading';
 
 export default function AttributionDetailPage() {
   const { collecteId } = useParams<{ collecteId: string }>();
@@ -32,9 +33,9 @@ export default function AttributionDetailPage() {
         </IconButton>
         <div className="flex items-center gap-2">
           <Leaf className="h-5 w-5 text-savr-success" />
-          <h1 className="text-xl font-semibold text-savr-neutral-900">
+          <Heading level={1} size="xl" weight="semibold">
             Attribution AG
-          </h1>
+          </Heading>
         </div>
       </div>
 

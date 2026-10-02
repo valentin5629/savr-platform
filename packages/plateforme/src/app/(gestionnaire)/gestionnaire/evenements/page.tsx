@@ -20,6 +20,8 @@ import {
   type EvenementsListFilters,
 } from '@/components/dashboards/index.js';
 import { lireTypesCollecte } from '@/lib/evenements-type-collecte';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
 
 interface EvenementRow {
   id: string;
@@ -66,7 +68,9 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
             </Badge>
           )}
         </div>
-        <div className="text-xs text-savr-neutral-500">{e.taille_bracket}</div>
+        <Text as="div" variant="hint">
+          {e.taille_bracket}
+        </Text>
       </>
     ),
   },
@@ -77,9 +81,9 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
     cell: ({ row: { original: e } }) => (
       <>
         <div>{e.lieu_nom ?? '—'}</div>
-        <div className="text-xs text-savr-neutral-500">
+        <Text as="div" variant="hint">
           {e.lieu_ville ?? ''}
-        </div>
+        </Text>
       </>
     ),
   },
@@ -257,12 +261,14 @@ function EvenementsContent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-savr-primary-800">Événements</h1>
-        <Button variant="ghost" onClick={exportCsv}>
-          Exporter CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="Événements"
+        actions={
+          <Button variant="ghost" onClick={exportCsv}>
+            Exporter CSV
+          </Button>
+        }
+      />
 
       <EvenementsFilterBar
         value={filters}
@@ -286,9 +292,7 @@ function EvenementsContent() {
           data={rows}
           getRowId={(e) => e.id}
           loading={loading}
-          empty={
-            <p className="text-sm text-savr-neutral-500">Aucun événement.</p>
-          }
+          empty={<Text>Aucun événement.</Text>}
           onRowClick={(e) => router.push(`/gestionnaire/evenements/${e.id}`)}
           rowLabel={(e) =>
             `Ouvrir l'événement${e.nom_evenement ? ` ${e.nom_evenement}` : ''}`

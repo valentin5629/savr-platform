@@ -14,6 +14,8 @@ import {
   AssociationModal,
   type AssociationRecord,
 } from '@/components/admin/association-modal';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
 
 // Ligne = enregistrement complet (l'API liste renvoie select('*')) + KPI dérivé →
 // sert directement à préremplir la modale d'édition, sans re-fetch.
@@ -37,9 +39,9 @@ const columns: Column<Association>[] = [
     render: (row) => (
       <div>
         <div className="text-savr-neutral-800">{row.adresse}</div>
-        <div className="text-xs text-savr-neutral-500">
+        <Text as="div" variant="hint">
           {row.ville} ({row.region})
-        </div>
+        </Text>
       </div>
     ),
   },
@@ -149,18 +151,17 @@ export default function AssociationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Heart className="h-6 w-6 text-savr-neutral-600" />
-          <h1 className="text-2xl font-bold text-savr-neutral-900">
-            Associations
-          </h1>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvelle association
-        </Button>
-      </div>
+      <PageHeader
+        title="Associations"
+        tone="neutral"
+        icon={<Heart className="h-6 w-6 text-savr-neutral-600" />}
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle association
+          </Button>
+        }
+      />
 
       <FilterBar data-testid="associations-filtres">
         <FiltreRecherche

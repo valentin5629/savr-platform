@@ -9,13 +9,12 @@ import type {
   FluxSeriePoint,
   RepasSeriePoint,
 } from '@/components/dashboards/useEvolutionBlocs';
-import { Sparkline } from './Sparkline';
-import { KpiCockpitCard } from './KpiCockpitCard';
+import { Sparkline } from '@/components/ui/sparkline';
+import { StatCard } from '@/components/ui/stat-card';
 import { EvolutionZdChart } from './EvolutionZdChart';
 import { TonnagesDonut } from './TonnagesDonut';
 import { BenchmarkRadar } from './BenchmarkRadar';
 import { Co2HeroCard } from './Co2HeroCard';
-import { Co2HeroCardAg } from './Co2HeroCardAg';
 import { PackAgRing } from './PackAgRing';
 import { EvolutionAgChart } from './EvolutionAgChart';
 import { TopRankList } from './TopRankList';
@@ -70,9 +69,9 @@ it('Sparkline — rend une aire dégradée sous la courbe', () => {
   expect(container.querySelector('linearGradient')).toBeInTheDocument();
 });
 
-it('KpiCockpitCard — affiche label, valeur, unité et pastille de variation', () => {
+it('StatCard — affiche label, valeur, unité et pastille de variation', () => {
   render(
-    <KpiCockpitCard
+    <StatCard
       label="Tonnage détourné"
       value="48,6"
       unit="t"
@@ -86,9 +85,9 @@ it('KpiCockpitCard — affiche label, valeur, unité et pastille de variation', 
   expect(screen.getByText(/12,4/)).toBeInTheDocument();
 });
 
-it('KpiCockpitCard — variation négative affiche ▼ et le pourcentage', () => {
+it('StatCard — variation négative affiche ▼ et le pourcentage', () => {
   render(
-    <KpiCockpitCard
+    <StatCard
       label="Marge"
       value="12"
       dotColor="#223870"
@@ -98,9 +97,9 @@ it('KpiCockpitCard — variation négative affiche ▼ et le pourcentage', () =>
   expect(screen.getByText(/▼\s*8,3\s*%/)).toBeInTheDocument();
 });
 
-it('KpiCockpitCard — rend les slots headerRight et footer', () => {
+it('StatCard — rend les slots headerRight et footer', () => {
   render(
-    <KpiCockpitCard
+    <StatCard
       label="Marge"
       value="12"
       dotColor="#223870"
@@ -112,10 +111,10 @@ it('KpiCockpitCard — rend les slots headerRight et footer', () => {
   expect(screen.getByText('2 en attente')).toBeInTheDocument();
 });
 
-it('KpiCockpitCard — onClick rend un bouton qui déclenche le handler', () => {
+it('StatCard — onClick rend un bouton qui déclenche le handler', () => {
   const onClick = vi.fn();
   render(
-    <KpiCockpitCard
+    <StatCard
       label="CO₂ évité"
       value="8 803"
       unit="kg CO₂e"
@@ -153,9 +152,9 @@ it('Co2MethodePanel — affiche la méthode + le tableau des facteurs par matiè
   expect(screen.getByText('Biodéchets')).toBeInTheDocument();
 });
 
-it('KpiCockpitCard — href rend un lien cliquable', () => {
+it('StatCard — href rend un lien cliquable', () => {
   const { container } = render(
-    <KpiCockpitCard
+    <StatCard
       label="X"
       value="1"
       dotColor="#223870"
@@ -432,7 +431,7 @@ it('BenchmarkRadar — survol d’un axe affiche Vous/Parc/Écart', () => {
   expect(tip.textContent).toContain('Vous');
   expect(tip.textContent).toContain('Parc');
   expect(tip.textContent).toContain('Écart');
-  expect(tip.textContent).toContain('−10 %');
+  expect(tip.textContent).toContain('−10\u00a0%'); // fmtPct : espace insécable avant %
   fireEvent.mouseLeave(getByTestId('benchmark-radar'));
   expect(screen.queryByTestId('benchmark-radar-tooltip')).toBeNull();
 });
@@ -512,9 +511,9 @@ it('BenchmarkRadar — seuils du badge : ≤ parc vert, ≤ +30 % orange, au-del
       ? (li.querySelector('span[style]') as HTMLElement).style.color
       : 'absent';
   // Couleurs = tokens DS (R-UI-6a) : le style inline porte la référence var().
-  expect(couleur(a!, '+0 %')).toBe('var(--color-savr-success)');
-  expect(couleur(b!, '+30 %')).toBe('var(--color-savr-accent-700)');
-  expect(couleur(c!, '+40 %')).toBe('var(--color-savr-error)');
+  expect(couleur(a!, '+0\u00a0%')).toBe('var(--color-savr-success)');
+  expect(couleur(b!, '+30\u00a0%')).toBe('var(--color-savr-accent-700)');
+  expect(couleur(c!, '+40\u00a0%')).toBe('var(--color-savr-error)');
 });
 
 it('BenchmarkRadar — parc à 0 ou NaN : axe n/d partout (jamais « +∞ % » / « NaN »), le reste du radar intact', () => {
@@ -574,9 +573,10 @@ describe('non-régression fmt', () => {
 });
 
 // ── CO₂ Anti-Gaspi (variante « évité seul » V1 — carte KPI + modale) ─────────
-it('Co2HeroCardAg — héros évité seul, sans induit/net/énergie (V1)', () => {
+it('Co2HeroCard variant="ag" — héros évité seul, sans induit/net/énergie (V1)', () => {
   render(
-    <Co2HeroCardAg
+    <Co2HeroCard
+      variant="ag"
       eviteKg={205}
       equivalences={{ kmVoiture: 940, repasBoeuf: 29 }}
     />,
@@ -615,7 +615,7 @@ it('Co2 AG — carte cliquable + contenu modale (composants isolés)', () => {
   //    modale (aucune navigation : invariant R24 préservé).
   const onClick = vi.fn();
   const { unmount } = render(
-    <KpiCockpitCard
+    <StatCard
       label="CO₂ évité"
       value="205"
       unit="kg CO₂e"
@@ -631,7 +631,8 @@ it('Co2 AG — carte cliquable + contenu modale (composants isolés)', () => {
   // 2. Le contenu de la modale AG = héros allégé (évité seul) + méthode par repas.
   render(
     <div>
-      <Co2HeroCardAg
+      <Co2HeroCard
+        variant="ag"
         eviteKg={205}
         equivalences={{ kmVoiture: 940, repasBoeuf: 29 }}
       />

@@ -1,6 +1,6 @@
 'use client';
 
-import { fmtKg, fmtPct } from '@/lib/format';
+import { fmtKg, fmtPct, fmtKgAuto } from '@/lib/format';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDateHeureParis } from '@savr/shared/src/temps/index.js';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface Attribution {
   id: string;
@@ -142,12 +144,8 @@ export default function EvenementDetailPage({
     if (j.url) window.open(j.url, '_blank');
   }
 
-  if (loading)
-    return <p className="text-sm text-savr-neutral-500">Chargement…</p>;
-  if (notFound)
-    return (
-      <p className="text-sm text-savr-neutral-500">Événement non trouvé.</p>
-    );
+  if (loading) return <Text>Chargement…</Text>;
+  if (notFound) return <Text>Événement non trouvé.</Text>;
   if (!evt) return null;
 
   const lieu = one(evt.lieux as Parameters<typeof one>[0]);
@@ -166,9 +164,9 @@ export default function EvenementDetailPage({
         <IconButton aria-label="Retour" onClick={() => router.back()}>
           <ArrowLeft />
         </IconButton>
-        <h1 className="text-2xl font-bold text-savr-primary-800">
+        <Heading level={1} tone="primary">
           {evt.nom_evenement ?? 'Événement'}
-        </h1>
+        </Heading>
         <Badge variant="neutral">{evt.taille_bracket}</Badge>
       </div>
 
@@ -176,18 +174,24 @@ export default function EvenementDetailPage({
       <Card>
         <CardContent className="grid grid-cols-2 gap-3 pt-4 text-sm md:grid-cols-4">
           <div>
-            <div className="text-xs text-savr-neutral-500">Date</div>
+            <Text as="div" variant="hint">
+              Date
+            </Text>
             <div>{evt.date_evenement ?? '—'}</div>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">Lieu</div>
+            <Text as="div" variant="hint">
+              Lieu
+            </Text>
             <div>{(lieu as { nom?: string } | null)?.nom ?? '—'}</div>
-            <div className="text-xs text-savr-neutral-400">
+            <Text as="div" variant="faint">
               {(lieu as { ville?: string } | null)?.ville ?? ''}
-            </div>
+            </Text>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">Traiteur</div>
+            <Text as="div" variant="hint">
+              Traiteur
+            </Text>
             {/* §06.05 §3 : « nom + logo, pas d'email / téléphone / SIRET ».
                 logo_url porte une CLÉ R2 : seul le proxy la résout, dans le
                 périmètre de v_traiteurs_gestionnaire (#367). */}
@@ -204,23 +208,25 @@ export default function EvenementDetailPage({
             </div>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">
+            <Text as="div" variant="hint">
               Type d'événement
-            </div>
+            </Text>
             <div>{typeEvenement?.libelle ?? '—'}</div>
           </div>
           {/* « Client Organisateur si renseigné par le traiteur » : la cellule
               n'apparaît pas quand le champ est vide (§06.05 §3). */}
           {evt.nom_client_organisateur && (
             <div>
-              <div className="text-xs text-savr-neutral-500">
+              <Text as="div" variant="hint">
                 Client organisateur
-              </div>
+              </Text>
               <div>{evt.nom_client_organisateur}</div>
             </div>
           )}
           <div>
-            <div className="text-xs text-savr-neutral-500">Pax</div>
+            <Text as="div" variant="hint">
+              Pax
+            </Text>
             <div>{evt.pax ?? '—'}</div>
             {/* §06.05 §3 : estimation amont, toujours affichée. Le coefficient
                 brut n'est jamais exposé (la route ne renvoie que les kg, via
@@ -234,42 +240,41 @@ export default function EvenementDetailPage({
                 signifier — à l'exception tracée et hors lot de `pax = 0`, qui
                 rend 0 alors que §05 veut NULL
                 (_Divergences/M3.2_20260921_dechets-labo-pax-zero.md). */}
-            <div
-              className="text-xs text-savr-neutral-400"
+            <Text
+              as="div"
+              variant="faint"
               title="Estimation amont, distincte des déchets collectés sur l'événement ci-dessous."
             >
               Est. labo :{' '}
               {evt.dechets_labo_kg != null
                 ? fmtKg(evt.dechets_labo_kg, 1)
                 : '—'}
-            </div>
+            </Text>
           </div>
         </CardContent>
       </Card>
 
       {docMessage && (
-        <p role="status" className="text-sm text-savr-neutral-600">
+        <Text tone="soft" role="status">
           {docMessage}
-        </p>
+        </Text>
       )}
 
       {/* Collectes */}
       {evt.collectes.length === 0 ? (
-        <p className="text-sm text-savr-neutral-500">
-          Aucune collecte associée.
-        </p>
+        <Text>Aucune collecte associée.</Text>
       ) : (
         evt.collectes.map((c) => (
           <Card key={c.id}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle size="base" className="flex items-center gap-2">
                 {c.type === 'zero_dechet'
                   ? 'Collecte Zéro Déchet'
                   : 'Collecte Anti-Gaspi'}
-                <span className="text-sm font-normal text-savr-neutral-500">
+                <Text as="span" className="font-normal">
                   {c.date_collecte ?? '—'}
                   {c.heure_collecte ? ` · ${c.heure_collecte.slice(0, 5)}` : ''}
-                </span>
+                </Text>
                 <Badge variant="neutral">{c.statut_affiche}</Badge>
               </CardTitle>
             </CardHeader>
@@ -290,7 +295,7 @@ export default function EvenementDetailPage({
                         </span>{' '}
                         :{' '}
                         {f.poids_reel_kg != null
-                          ? `${f.poids_reel_kg} kg`
+                          ? fmtKgAuto(f.poids_reel_kg)
                           : '—'}
                       </div>
                     ))}

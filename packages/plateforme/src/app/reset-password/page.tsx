@@ -14,6 +14,7 @@ import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { AuthCard, AuthPage, authLienClass } from '@/components/auth/auth-card';
+import { Text } from '@/components/ui/text';
 
 function DemandeResetForm() {
   const searchParams = useSearchParams();
@@ -65,15 +66,15 @@ function DemandeResetForm() {
           </Link>
         }
       >
-        <p className="text-sm text-savr-neutral-700">
+        <Text variant="body">
           Si un compte Savr existe pour <strong>{email}</strong>, un lien de
           réinitialisation vient d&apos;être envoyé. Il est valide pendant
           1&nbsp;heure.
-        </p>
-        <p className="text-sm text-savr-neutral-500">
+        </Text>
+        <Text>
           Ouvrez le lien dans ce navigateur : c&apos;est ici que la demande a
           été faite.
-        </p>
+        </Text>
       </AuthCard>
     );
   }

@@ -18,7 +18,7 @@ import {
   type BlocsData,
 } from '@/components/dashboards/index.js';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
-import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import { StatCard } from '@/components/ui/stat-card';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
@@ -40,6 +40,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
+import { fmtPct } from '@/lib/format';
+import { Card } from '@/components/ui/card';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -198,7 +203,7 @@ export default function GestionnaireDashboardPage() {
   // ── Top listes (Cockpit) — colonnes §06.05 préservées via `secondary`. ──
   const nbColl = (n: number) => `${fmtInt(n)} collecte${n > 1 ? 's' : ''}`;
   const tauxStr = (t: number | null) =>
-    t != null ? `${fmtDec(t, 1)} % recyclage` : 'taux n/d';
+    t != null ? `${fmtPct(t, 1)} recyclage` : 'taux n/d';
   const repasPaxStr = (r: number | null) =>
     r != null ? `${fmtDec(r, 2)} repas/pax` : 'repas/pax n/d';
   const topLieuxItems = (blocs?.topLieux ?? []).map((l) =>
@@ -222,7 +227,7 @@ export default function GestionnaireDashboardPage() {
     value: nbColl(a.nb_collectes),
     secondary:
       tab === 'zero_dechet'
-        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? `${fmtDec(a.taux_recyclage, 1)} %` : '—'}`
+        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? fmtPct(a.taux_recyclage, 1) : '—'}`
         : `${fmtInt(a.repas_donnes ?? 0)} repas · ${repasPaxStr(a.repas_par_pax)}`,
   }));
   const topAssociationsItems = (blocs?.topAssociations ?? []).map((a) => ({
@@ -288,12 +293,14 @@ export default function GestionnaireDashboardPage() {
 
   return (
     <div className="space-y-6" data-testid="gestionnaire-dashboard">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-savr-primary-800">Dashboard</h1>
-        <Button asChild>
-          <a href="/programmer/nouveau">Programmer un événement</a>
-        </Button>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        actions={
+          <Button asChild>
+            <a href="/programmer/nouveau">Programmer un événement</a>
+          </Button>
+        }
+      />
 
       <DashboardFilterBar
         storageKey="gestionnaire-dashboard"
@@ -301,25 +308,22 @@ export default function GestionnaireDashboardPage() {
         parcOptions={parcOptions}
       />
       {!loading && kpi && (
-        <p
-          className="text-sm text-savr-neutral-500"
-          data-testid="dashboard-collectes-count"
-        >
+        <Text data-testid="dashboard-collectes-count">
           {kpi.nb_collectes} collecte{kpi.nb_collectes > 1 ? 's' : ''}{' '}
           correspond{kpi.nb_collectes > 1 ? 'ent' : ''}
-        </p>
+        </Text>
       )}
       <CollecteTypeTabs value={tab} onChange={setTab} />
 
       {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
+        <Text>Chargement…</Text>
       ) : !kpi || kpi.nb_collectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (
         <>
           {/* Bloc 1 — KPIs Cockpit (non cliquables, décision Val 2026-07-10) */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(kpi.nb_collectes)}
               dotColor={KPI_DOT.navy}
@@ -329,7 +333,7 @@ export default function GestionnaireDashboardPage() {
               )}
               sparkPoints={sparkFromSeries(zdSeries, (p) => p.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Tonnage collecté"
               value={fmtMasse(kpi.tonnage_kg ?? 0).value}
               unit={fmtMasse(kpi.tonnage_kg ?? 0).unit}
@@ -340,7 +344,7 @@ export default function GestionnaireDashboardPage() {
               )}
               sparkPoints={sparkFromSeries(zdSeries, (p) => p.tonnage_total)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Taux de recyclage"
               value={
                 kpi.taux_recyclage_pondere != null
@@ -358,7 +362,7 @@ export default function GestionnaireDashboardPage() {
             />
             {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
                 mieux », §06.05 l.136). */}
-            <KpiCockpitCard
+            <StatCard
               label="kg/pax moyen"
               value={kpi.kg_par_pax != null ? fmtDec(kpi.kg_par_pax, 2) : '—'}
               unit={kpi.kg_par_pax != null ? 'kg/pax' : undefined}
@@ -421,7 +425,7 @@ export default function GestionnaireDashboardPage() {
         <>
           {/* Bloc 1 — KPIs Cockpit AG (non cliquables) */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(kpi.nb_collectes)}
               dotColor={KPI_DOT.navy}
@@ -431,7 +435,7 @@ export default function GestionnaireDashboardPage() {
               )}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas donnés"
               value={fmtInt(kpi.nb_repas_donnes ?? 0)}
               dotColor={KPI_DOT.accent}
@@ -442,7 +446,7 @@ export default function GestionnaireDashboardPage() {
               sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
               sparkColor={KPI_DOT.accent}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Pax cumulés"
               value={fmtInt(kpi.pax_total ?? 0)}
               dotColor={KPI_DOT.navy2}
@@ -452,7 +456,7 @@ export default function GestionnaireDashboardPage() {
               )}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.pax)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas/pax moyen"
               value={
                 kpi.repas_par_pax != null ? fmtDec(kpi.repas_par_pax, 2) : '—'
@@ -481,30 +485,27 @@ export default function GestionnaireDashboardPage() {
 
           {/* Mon pack AG (lecture seule gestionnaire) */}
           {pack && (
-            <div
-              data-testid="bloc-pack-ag"
-              className="rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm"
-            >
-              <h3 className="mb-2 text-base font-extrabold text-savr-neutral-900">
+            <Card variant="elevated" padding="lg" data-testid="bloc-pack-ag">
+              <Heading level={3} weight="extrabold" className="mb-2">
                 Mon pack Anti-Gaspi
-              </h3>
-              <p className="text-sm text-savr-neutral-700">
+              </Heading>
+              <Text variant="body">
                 Crédits restants :{' '}
                 <strong className="tabular-nums">
                   {pack.nb_collectes_restantes}
                 </strong>{' '}
                 / {pack.nb_collectes_total}
-              </p>
+              </Text>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {packEpuise && <Badge variant="error">Pack épuisé</Badge>}
                 {packBas && (
                   <Badge variant="warning">Pack bientôt épuisé</Badge>
                 )}
               </div>
-              <p className="mt-2 text-sm text-savr-neutral-500">
+              <Text className="mt-2">
                 Contactez votre responsable Savr pour renouveler votre pack.
-              </p>
-            </div>
+              </Text>
+            </Card>
           )}
 
           {/* Bloc 6 lieux + Bloc 7 traiteurs */}

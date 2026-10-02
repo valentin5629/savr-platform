@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle, AlertTriangle, CalendarDays, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface BrouillonDetail {
   id: string;
@@ -78,9 +80,9 @@ export default function RepriseBrouillonPage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-savr-neutral-900">
+      <Heading level={1} size="xl">
         Confirmer le brouillon
-      </h1>
+      </Heading>
 
       <div className="rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-5 space-y-3">
         <p className="font-medium text-savr-neutral-900">
@@ -88,23 +90,25 @@ export default function RepriseBrouillonPage() {
         </p>
         <ul className="space-y-2">
           {brouillons.map((c) => (
-            <li
+            <Text
+              as="li"
+              variant="body"
+              className="flex items-center gap-3"
               key={c.id}
-              className="flex items-center gap-3 text-sm text-savr-neutral-700"
             >
               <CalendarDays className="h-4 w-4 shrink-0 text-savr-neutral-400" />
               <span className="uppercase font-medium text-xs text-savr-neutral-500 w-6">
                 {c.type}
               </span>
               {c.date_collecte}
-            </li>
+            </Text>
           ))}
         </ul>
         {brouillons.length === 0 && (
-          <p className="text-sm text-savr-neutral-500 flex items-center gap-2">
+          <Text className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
             Aucune collecte en brouillon à confirmer.
-          </p>
+          </Text>
         )}
       </div>
 

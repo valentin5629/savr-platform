@@ -5,10 +5,10 @@
  * affiché passe par ici (locale fr-FR : virgule décimale, espace fin insécable
  * comme séparateur de milliers, unité séparée par une espace insécable).
  *
- * Périmètre volontairement réduit (entiers, décimales, €, %, kg). Les règles
- * encore à arbitrer (seuil kg→t, graphie CO₂, pax) arrivent avec R-UI-6 ; les
- * graphes Cockpit gardent leurs variantes sans unité dans
- * `components/dashboards/charts/cockpit/fmt.ts` jusque-là.
+ * Périmètre : entiers, décimales, €, montants en devise, %, kg, pax (R-UI-6b,
+ * J2 : plus aucun `Intl.NumberFormat` local ni concaténation « ${n} € / % / kg »
+ * dans l'app). Restent à arbitrer, et donc hors d'ici : le seuil kg→t
+ * (`cockpit/fmt.ts` `fmtMasse`, Q5) et la graphie CO₂ (Q6).
  */
 
 const NBSP = '\u00a0';
@@ -43,4 +43,27 @@ export function fmtPct(n: number, d = 1): string {
 /** Masse en kilogrammes, sans bascule en tonnes (arbitrage Q5 à venir) : « 840 kg ». */
 export function fmtKg(n: number, d = 0): string {
   return `${nombre(n, d)}${NBSP}kg`;
+}
+
+/** Masse saisie (pesée) : décimale affichée seulement si elle existe : « 12 kg », « 12,5 kg ». */
+export function fmtKgAuto(n: number): string {
+  const v = new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(n);
+  return `${v}${NBSP}kg`;
+}
+
+/** Montant dans la devise de la facture : « 1 234,50 € » (EUR = fmtEuro ; autre devise = Intl). */
+export function fmtMontant(n: number, devise: string): string {
+  if (!devise || devise === 'EUR') return fmtEuro(n);
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: devise,
+  }).format(n);
+}
+
+/** Convives : « 4 300 pax ». */
+export function fmtPax(n: number): string {
+  return `${fmtInt(n)}${NBSP}pax`;
 }

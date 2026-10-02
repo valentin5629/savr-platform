@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Search, MapPin, PlusCircle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Text } from '@/components/ui/text';
 
 export interface LieuOption {
   id: string;
@@ -102,14 +103,14 @@ export function LieuCombobox({
 
           <ul role="listbox" className="max-h-60 overflow-y-auto py-1">
             {loading && (
-              <li className="px-3 py-2 text-sm text-savr-neutral-400">
+              <Text as="li" tone="faint" className="px-3 py-2">
                 Chargement…
-              </li>
+              </Text>
             )}
             {!loading && options.length === 0 && (
-              <li className="px-3 py-2 text-sm text-savr-neutral-400">
+              <Text as="li" tone="faint" className="px-3 py-2">
                 Aucun lieu trouvé
-              </li>
+              </Text>
             )}
             {options.map((l) => (
               <li
@@ -136,9 +137,9 @@ export function LieuCombobox({
                 />
                 <span className="min-w-0">
                   <span className="font-medium block truncate">{l.nom}</span>
-                  <span className="text-xs text-savr-neutral-500">
+                  <Text as="span" variant="hint">
                     {l.adresse_acces}, {l.code_postal} {l.ville}
-                  </span>
+                  </Text>
                 </span>
               </li>
             ))}

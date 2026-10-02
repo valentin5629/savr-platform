@@ -35,6 +35,7 @@ import {
 } from '@/lib/dashboards/collecte-filtre-label';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { Text } from '@/components/ui/text';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
 // actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
@@ -628,11 +629,11 @@ export function ListeCollectesClient({
         onClose={() => setAnnulTarget(null)}
       >
         <div className="space-y-4">
-          <p className="text-sm text-savr-neutral-500">
+          <Text>
             {estDemande
               ? 'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.'
               : 'Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
-          </p>
+          </Text>
           <FormField
             label="Motif (facultatif)"
             htmlFor="annulation-motif"

@@ -23,6 +23,8 @@ import {
   type AssociationFiche,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
+import { Text } from '@/components/ui/text';
+import { fmtInt } from '@/lib/format';
 
 // Onglets Informations et Logistique du pop-up fiche collecte CLIENT (§06.04
 // « Fiche collecte (vue détail) », refonte Val 2026-09-29). Wording 100 % Savr :
@@ -110,7 +112,7 @@ export function OngletInformations({
 
   return (
     <div className="space-y-3">
-      <Card className="space-y-4 p-5" data-testid="bloc-evenement">
+      <Card padding="md" className="space-y-4" data-testid="bloc-evenement">
         <BlocHeader icon={CalendarDays} title="Événement" />
         <dl className={GRILLE_4}>
           <InfoItem label="Client">
@@ -121,11 +123,7 @@ export function OngletInformations({
             {heure ? `, ${heure}` : ''}
           </InfoItem>
           <InfoItem label="Pax">
-            {evt?.pax != null ? (
-              new Intl.NumberFormat('fr-FR').format(evt.pax)
-            ) : (
-              <Vide />
-            )}
+            {evt?.pax != null ? fmtInt(evt.pax) : <Vide />}
           </InfoItem>
           <InfoItem label="Type d’événement">
             <span className="flex flex-wrap items-center gap-2">
@@ -179,7 +177,7 @@ export function OngletInformations({
         </dl>
       </Card>
 
-      <Card className="space-y-4 p-5" data-testid="bloc-lieu">
+      <Card padding="md" className="space-y-4" data-testid="bloc-lieu">
         <BlocHeader icon={MapPin} title="Lieu" />
         <dl className={GRILLE_4}>
           <InfoItem label="Adresse" pleineLargeur>
@@ -205,7 +203,7 @@ export function OngletInformations({
       {/* Bloc absent pour le gestionnaire sur la collecte d'un traiteur tiers
           (§06.05 : rien de personnel sur un traiteur tiers) — décidé serveur. */}
       {evt?.contacts_visibles && (
-        <Card className="space-y-4 p-5" data-testid="bloc-contacts">
+        <Card padding="md" className="space-y-4" data-testid="bloc-contacts">
           <BlocHeader icon={Users} title="Contacts sur place" />
           <dl className={GRILLE_4}>
             <InfoItem label="Contact principal">
@@ -240,7 +238,7 @@ export function BlocAssociation({
   association: AssociationFiche;
 }) {
   return (
-    <Card className="space-y-4 p-5" data-testid="bloc-association">
+    <Card padding="md" className="space-y-4" data-testid="bloc-association">
       <BlocHeader icon={HandHeart} title="Association bénéficiaire" />
       <dl className={GRILLE_4}>
         <InfoItem label="Association" pleineLargeur>
@@ -283,7 +281,7 @@ export function OngletLogistique({
 
   return (
     <div className="space-y-3">
-      <Card className="space-y-4 p-5" data-testid="bloc-logistique">
+      <Card padding="md" className="space-y-4" data-testid="bloc-logistique">
         <BlocHeader
           icon={Truck}
           title={
@@ -297,16 +295,16 @@ export function OngletLogistique({
           }
         />
         {!fenetre ? (
-          <p className="text-sm text-savr-neutral-500">
+          <Text>
             Aucune information logistique à afficher pour cette collecte.
-          </p>
+          </Text>
         ) : tournees.length === 0 ? (
           <>
-            <p className="text-sm leading-relaxed text-savr-neutral-600">
+            <Text tone="soft" className="leading-relaxed">
               Nous affectons votre chauffeur avant la collecte. Son nom, la
               plaque du véhicule et son téléphone apparaîtront ici dès qu’il
               sera désigné.
-            </p>
+            </Text>
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-3">
               <InfoItem label="Chauffeur">
                 <Vide />
@@ -365,8 +363,9 @@ export function OngletLogistique({
             className="flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:items-center"
           >
             {demandeEnvoyee ? (
-              <p
-                className="flex flex-1 items-start gap-2 text-sm text-savr-neutral-700"
+              <Text
+                variant="body"
+                className="flex flex-1 items-start gap-2"
                 role="status"
               >
                 <CheckCircle2
@@ -380,13 +379,13 @@ export function OngletLogistique({
                   Nous revenons vers vous au plus vite avec les coordonnées du
                   chauffeur.
                 </span>
-              </p>
+              </Text>
             ) : (
               <>
-                <p className="flex-1 text-sm text-savr-neutral-700">
+                <Text variant="body" className="flex-1">
                   Besoin de ces informations rapidement (accès au site, liste de
                   sécurité) ?
-                </p>
+                </Text>
                 <Button
                   variant="secondary"
                   onClick={onDemanderUrgence}

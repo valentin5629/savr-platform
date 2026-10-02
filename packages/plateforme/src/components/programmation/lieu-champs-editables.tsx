@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import type { LieuOption } from './lieu-combobox';
+import { Text } from '@/components/ui/text';
 
 // PROG-01 (CDC §06.01 l.104-114) : à la sélection d'un lieu, tous les champs du lieu
 // SAUF le nom s'affichent pré-remplis et ÉDITABLES. Toute valeur modifiée est stockée
@@ -94,10 +95,10 @@ export function LieuChampsEditables({
 
   return (
     <div className="rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 p-4 space-y-4">
-      <p className="text-sm text-savr-neutral-600">
+      <Text tone="soft">
         Champs du lieu (modifiables pour cette collecte uniquement — le
         référentiel n'est pas mis à jour).
-      </p>
+      </Text>
 
       <FormField label="Adresse d'accès livraison" htmlFor="edit-adresse">
         <Input

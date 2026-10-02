@@ -1,7 +1,7 @@
 /**
  * R24c — Déclinaison Cockpit des 3 dashboards « client » restants (agence M3.3,
  * client_organisateur M3.4, Dashboard Client Admin M3.6). Vérifie que chaque page
- * monte SANS crash et rend la SIGNATURE Cockpit attendue (KpiCockpitCard ; pour
+ * monte SANS crash et rend la SIGNATURE Cockpit attendue (StatCard ; pour
  * l'agence : TopRankList + BenchmarkRadar + drill-down onItemClick → URL),
  * à parité de sens avec les pilotes traiteur/gestionnaire (R24/R24b), et que les
  * anciens composants (KpiCard, TopLieuxBloc, TopAssociationsBloc, BenchmarkLegend,
@@ -108,12 +108,12 @@ function agenceFetch() {
 
 describe('M3.3 / agence — déclinaison Cockpit', () => {
   it(
-    'M3.3/cockpit_declinaison_kpi_toprank_benchmark — KpiCockpitCard + TopRankList + BenchmarkRadar, plus d’ancien BenchmarkGauge',
+    'M3.3/cockpit_declinaison_kpi_toprank_benchmark — StatCard + TopRankList + BenchmarkRadar, plus d’ancien BenchmarkGauge',
     async () => {
       vi.stubGlobal('fetch', agenceFetch());
       render(<AgenceDashboardPage />);
 
-      // KPI Cockpit (rangée KpiCockpitCard).
+      // KPI Cockpit (rangée StatCard).
       expect(
         await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
 // ── Client organisateur (M3.4) ───────────────────────────────────────────────
 describe('M3.4 / organisateur — déclinaison Cockpit', () => {
   it(
-    'M3.4/cockpit_declinaison_kpi_cards — page RSE montée en KpiCockpitCard (bandeau YTD + onglet ZD + détail ABC)',
+    'M3.4/cockpit_declinaison_kpi_cards — page RSE montée en StatCard (bandeau YTD + onglet ZD + détail ABC)',
     async () => {
       vi.stubGlobal(
         'fetch',

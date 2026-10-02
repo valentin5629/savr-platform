@@ -13,6 +13,6 @@
   "api-error-leak": 0,
   "types-snapshot": 0,
   "ds-classes": 9,
-  "ds-primitives": 107,
+  "ds-primitives": 102,
   "orphan-ui": 15
 }

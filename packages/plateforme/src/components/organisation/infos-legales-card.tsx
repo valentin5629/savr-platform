@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
 
 // « Informations légales » de SA propre organisation, partagé par les espaces
 // clients. Raison sociale, SIRET et adresse modifiables par tous les rôles
@@ -162,9 +163,9 @@ export function InfosLegalesCard({
               </div>
             ))}
           </dl>
-          <p className="text-xs text-savr-neutral-500">
+          <Text variant="hint">
             Nom, email et téléphone : modification via le support Savr.
-          </p>
+          </Text>
         </div>
       </CardContent>
     </Card>

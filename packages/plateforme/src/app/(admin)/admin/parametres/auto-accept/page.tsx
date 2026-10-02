@@ -14,6 +14,8 @@ import { Card } from '@/components/ui/card';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface ConfigAutoAccept {
   id: string;
@@ -159,12 +161,10 @@ export default function AutoAcceptPage() {
           {/* ds-classes: valeur unique (amber-500, icône), à arbitrer */}
           <Zap className="h-6 w-6 text-amber-500" />
           <div>
-            <h1 className="text-xl font-semibold text-savr-neutral-900">
+            <Heading level={1} size="xl" weight="semibold">
               Configuration auto-accept
-            </h1>
-            <p className="text-sm text-savr-neutral-500">
-              Activation de la validation automatique par traiteur
-            </p>
+            </Heading>
+            <Text>Activation de la validation automatique par traiteur</Text>
           </div>
         </div>
         <Button size="sm" variant="secondary" disabled>
@@ -209,7 +209,10 @@ export default function AutoAcceptPage() {
       )}
 
       {/* ds-classes: valeur unique (border amber-100), à arbitrer — encart remplacé par AlertBar en R-UI-1 */}
-      <Card className="border border-amber-100 bg-savr-warning-subtle p-4">
+      <Card
+        padding="sm"
+        className="border border-amber-100 bg-savr-warning-subtle"
+      >
         <p className="text-sm text-savr-warning-deep">
           L'auto-accept déclenche la validation sans action humaine dès que
           l'algo AG trouve une combinaison association + transporteur

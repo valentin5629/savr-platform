@@ -490,7 +490,7 @@ export function TransporteurModal({
             </TabsList>
 
             <TabsContent value="identite" className="space-y-3">
-              <Card className="space-y-4 p-5">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader icon={Building2} title="Société" />
                 <div className={GRILLE_2}>
                   <FormField
@@ -524,7 +524,7 @@ export function TransporteurModal({
                 </div>
               </Card>
 
-              <Card className="space-y-4 p-5">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader icon={UserRound} title="Contact jour J" />
                 <div className={GRILLE_2}>
                   <FormField
@@ -575,7 +575,7 @@ export function TransporteurModal({
                 </div>
               </Card>
 
-              <Card className="space-y-4 p-5">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader icon={MapPin} title="Adresse" />
                 <div className={GRILLE_2}>
                   <FormField
@@ -627,7 +627,7 @@ export function TransporteurModal({
             </TabsContent>
 
             <TabsContent value="capacites" className="space-y-3">
-              <Card className="space-y-4 p-5">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader icon={Truck} title="Véhicules et flux" />
                 <FormField
                   label="Type(s) de véhicule"
@@ -686,7 +686,7 @@ export function TransporteurModal({
                 </FormField>
               </Card>
 
-              <Card className="space-y-4 p-5">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader icon={ClipboardList} title="Process de collecte" />
                 <FormField
                   label="Description du process de collecte"
@@ -716,7 +716,7 @@ export function TransporteurModal({
                   : 'Le type de TMS et le prestataire logistique ne pourront plus être modifiés après la création : vérifiez-les avant de créer le transporteur.'}
               </AlertBar>
 
-              <Card className="space-y-4 p-5">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader
                   icon={Workflow}
                   title="Transmission des collectes"

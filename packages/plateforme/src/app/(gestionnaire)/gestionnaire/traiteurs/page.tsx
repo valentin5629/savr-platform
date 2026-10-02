@@ -13,6 +13,8 @@ import {
   type ColumnDef,
 } from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface TraiteurRow {
   id: string;
@@ -145,10 +147,10 @@ export default function GestionnaireTraiteursPage() {
   // liste vide.
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-savr-primary-800">Traiteurs</h1>
-      <p className="text-sm text-savr-neutral-500">
-        Traiteurs intervenus sur vos lieux (24 derniers mois).
-      </p>
+      <Heading level={1} tone="primary">
+        Traiteurs
+      </Heading>
+      <Text>Traiteurs intervenus sur vos lieux (24 derniers mois).</Text>
 
       {erreur ? (
         <div className="space-y-4" data-testid="traiteurs-erreur">

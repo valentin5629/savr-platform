@@ -13,6 +13,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface ParamLink {
   label: string;
@@ -77,24 +79,25 @@ const SECTIONS: ParamLink[] = [
 export default function ParametresIndexPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-neutral-900">Paramètres</h1>
+      <Heading level={1}>Paramètres</Heading>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {SECTIONS.map((s) => {
           const Icon = s.icon;
           return (
             <Link key={s.href} href={s.href}>
-              <Card className="p-5 h-full hover:border-savr-primary-300 hover:shadow-savr-sm transition-all">
+              <Card
+                padding="md"
+                className="h-full hover:border-savr-primary-300 hover:shadow-savr-sm transition-all"
+              >
                 <div className="flex items-start gap-3">
                   <div className="rounded-savr-md bg-savr-primary-50 p-2">
                     <Icon className="h-5 w-5 text-savr-primary-700" />
                   </div>
                   <div>
-                    <h2 className="font-semibold text-savr-neutral-800">
+                    <Heading level={2} size="inherit" tone="strong">
                       {s.label}
-                    </h2>
-                    <p className="text-sm text-savr-neutral-500 mt-0.5">
-                      {s.description}
-                    </p>
+                    </Heading>
+                    <Text className="mt-0.5">{s.description}</Text>
                   </div>
                 </div>
               </Card>

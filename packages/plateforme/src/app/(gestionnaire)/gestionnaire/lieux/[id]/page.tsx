@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HistoriqueCollectesTable } from '@/components/collecte/historique-collectes-table';
+import { Text } from '@/components/ui/text';
 
 interface LieuDetail {
   id: string;
@@ -86,9 +87,9 @@ function Champ({
 }) {
   return (
     <div className={large ? 'sm:col-span-2' : undefined}>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-savr-neutral-500">
+      <Text as="dt" variant="overline">
         {libelle}
-      </dt>
+      </Text>
       <dd className="mt-0.5 flex flex-wrap items-center gap-1 text-savr-neutral-900">
         {children}
       </dd>
@@ -293,9 +294,14 @@ export default function LieuDetailPage({
                         style={{ height: `${(d.kg / max) * 96 + 2}px` }}
                         title={`${d.mois} : ${fmtKg(d.kg)}`}
                       />
-                      <span className="mt-1 text-[10px] text-savr-neutral-500">
+                      <Text
+                        as="span"
+                        variant="hint"
+                        size="3xs"
+                        className="mt-1"
+                      >
                         {d.mois}
-                      </span>
+                      </Text>
                     </div>
                   ))}
                 </div>

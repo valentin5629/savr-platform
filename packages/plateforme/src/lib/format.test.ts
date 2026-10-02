@@ -4,7 +4,16 @@
  * (U+00A0) avant l'unité.
  */
 import { describe, expect, it } from 'vitest';
-import { fmtDec, fmtEuro, fmtInt, fmtKg, fmtPct } from './format';
+import {
+  fmtDec,
+  fmtEuro,
+  fmtInt,
+  fmtKg,
+  fmtKgAuto,
+  fmtMontant,
+  fmtPax,
+  fmtPct,
+} from './format';
 
 const FINE = '\u202f';
 const NBSP = '\u00a0';
@@ -36,5 +45,24 @@ describe('R-UI-0 — lib/format : nombres affichés en français', () => {
     expect(fmtKg(0, 1)).toBe(`0,0${NBSP}kg`);
     expect(fmtKg(45, 1)).toBe(`45,0${NBSP}kg`);
     expect(fmtPct(12.5)).not.toContain('.');
+  });
+});
+
+describe('lib/format — formatteurs R-UI-6b (J2)', () => {
+  it('fmtMontant : EUR = fmtEuro, autre devise = Intl currency', () => {
+    expect(fmtMontant(1234.5, 'EUR')).toBe('1\u202f234,50\u00a0€');
+    expect(fmtMontant(1234.5, '')).toBe('1\u202f234,50\u00a0€');
+    expect(fmtMontant(1234.5, 'USD')).toBe('1\u202f234,50\u00a0$US');
+  });
+
+  it('fmtPax : entier fr + « pax » insécable', () => {
+    expect(fmtPax(4300)).toBe('4\u202f300\u00a0pax');
+  });
+
+  it('fmtKgAuto : décimale seulement si elle existe (§05 « 75 kg » / « 74,5 kg »)', () => {
+    expect(fmtKgAuto(75)).toBe('75\u00a0kg');
+    expect(fmtKgAuto(74.5)).toBe('74,5\u00a0kg');
+    expect(fmtKgAuto(74.56)).toBe('74,6\u00a0kg');
+    expect(fmtKgAuto(12345)).toBe('12\u202f345\u00a0kg');
   });
 });

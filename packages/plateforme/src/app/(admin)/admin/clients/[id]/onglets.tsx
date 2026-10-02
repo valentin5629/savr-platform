@@ -48,6 +48,9 @@ import { FormField } from '@/components/ui/form-field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDateParis, jourParis } from '@savr/shared/src/temps/index.js';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { fmtEuro, fmtDec } from '@/lib/format';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
 // OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
@@ -170,7 +173,7 @@ export function OngletCollectes({
   if (loading && rows.length === 0) return <Skeleton className="h-40 w-full" />;
   if (rows.length === 0)
     return (
-      <Card className="p-6">
+      <Card padding="lg">
         <EmptyState
           icon={<BarChart3 />}
           title="Aucune collecte"
@@ -180,7 +183,7 @@ export function OngletCollectes({
     );
 
   return (
-    <Card className="p-4">
+    <Card padding="sm">
       <DataGrid
         columns={columns}
         data={rows}
@@ -280,12 +283,7 @@ export function OngletFactures({
       key: 'montant_ttc',
       header: 'Montant TTC',
       render: (row) =>
-        row.montant_ttc != null
-          ? `${row.montant_ttc.toLocaleString('fr-FR', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })} €`
-          : '—',
+        row.montant_ttc != null ? fmtEuro(row.montant_ttc) : '—',
     },
     {
       key: 'date_emission',
@@ -302,7 +300,7 @@ export function OngletFactures({
   if (loading) return <Skeleton className="h-40 w-full" />;
   if (rows.length === 0)
     return (
-      <Card className="p-6">
+      <Card padding="lg">
         <EmptyState
           icon={<CreditCard />}
           title="Aucune facture"
@@ -312,7 +310,7 @@ export function OngletFactures({
     );
 
   return (
-    <Card className="p-4">
+    <Card padding="sm">
       <DataTable
         columns={columns}
         data={rows}
@@ -340,8 +338,7 @@ interface Grille {
   tarifs_zero_dechet: Palier[];
 }
 
-const euros = (v: number | null): string =>
-  v != null ? `${v.toLocaleString('fr-FR')} €` : '—';
+const euros = (v: number | null): string => (v != null ? fmtEuro(v) : '—');
 
 // Paliers de la grille affectée. Pax max absent = palier ouvert (∞), trié en
 // dernier ; prix absent (undefined) = renvoyé en fin de tri.
@@ -441,7 +438,7 @@ export function OngletGrilleZd({
   if (loading) return <Skeleton className="h-40 w-full" />;
 
   return (
-    <Card className="p-6 space-y-4">
+    <Card padding="lg" className="space-y-4">
       {!canEdit && <OpsReadOnlyBanner />}
 
       <div>
@@ -478,17 +475,25 @@ export function OngletGrilleZd({
           </p>
         )}
         {!grilleId && (
-          <p className="text-xs text-savr-neutral-500 mt-1">
+          <Text variant="hint" className="mt-1">
             Aucune grille spécifique — la grille par défaut « Standard paliers »
             s'applique.
-          </p>
+          </Text>
         )}
         {error && <p className="text-sm text-savr-error mt-1">{error}</p>}
       </div>
 
       {affectee && affectee.tarifs_zero_dechet.length > 0 && (
         <div>
-          <h3 className="font-medium mb-2 text-sm">Paliers — {affectee.nom}</h3>
+          <Heading
+            level={3}
+            size="sm"
+            weight="medium"
+            tone="inherit"
+            className="mb-2"
+          >
+            Paliers — {affectee.nom}
+          </Heading>
           {/* Liste complète des paliers de la grille (route sans pagination)
               → tri navigateur ; ordre par défaut = pax min croissant. */}
           <DataGrid
@@ -552,7 +557,7 @@ export function OngletTarifRefacture({
   }
 
   return (
-    <Card className="p-6 space-y-4 max-w-xl">
+    <Card padding="lg" className="space-y-4 max-w-xl">
       {!canEdit && <OpsReadOnlyBanner />}
       <div>
         {/* htmlFor seulement quand l'<input> existe (mode édition) — évite une
@@ -562,10 +567,10 @@ export function OngletTarifRefacture({
         >
           Tarif refacturé client final ZD (€/pax)
         </Label>
-        <p className="text-xs text-savr-neutral-500 mb-3">
+        <Text variant="hint" className="mb-3">
           Tarif que ce traiteur refacture à son client final par couvert sur ses
           collectes ZD. Sert au calcul de sa marge affichée dans son dashboard.
-        </p>
+        </Text>
 
         {editing && canEdit ? (
           <form onSubmit={(e) => void save(e)} className="flex items-end gap-2">
@@ -599,12 +604,7 @@ export function OngletTarifRefacture({
         ) : (
           <div className="flex items-center gap-4">
             <span className="text-lg font-semibold text-savr-neutral-900">
-              {value != null
-                ? `${value.toLocaleString('fr-FR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })} €`
-                : '1,50 € (défaut)'}
+              {value != null ? fmtEuro(value) : '1,50 € (défaut)'}
             </span>
             {canEdit && (
               <Button
@@ -661,11 +661,7 @@ function colonnesCoefficients(
       id: 'coefficient',
       header: 'Coefficient (kg/couvert)',
       accessorFn: (c) => c.coefficient_kg_couvert,
-      cell: ({ row: { original: c } }) =>
-        c.coefficient_kg_couvert.toLocaleString('fr-FR', {
-          minimumFractionDigits: 4,
-          maximumFractionDigits: 4,
-        }),
+      cell: ({ row: { original: c } }) => fmtDec(c.coefficient_kg_couvert, 4),
     },
     {
       id: 'annee_application',
@@ -809,11 +805,13 @@ export function OngletCoefficients({
   if (loading) return <Skeleton className="h-40 w-full" />;
 
   return (
-    <Card className="p-6 space-y-4">
+    <Card padding="lg" className="space-y-4">
       {!canEdit && <OpsReadOnlyBanner />}
 
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-sm">Coefficients de perte labo</h3>
+        <Heading level={3} size="sm" weight="medium" tone="inherit">
+          Coefficients de perte labo
+        </Heading>
         {canEdit && (
           <Button size="sm" onClick={openAjouter}>
             Ajouter un coefficient
@@ -1170,11 +1168,13 @@ export function OngletRemises({
   }
 
   return (
-    <Card className="p-6 space-y-4">
+    <Card padding="lg" className="space-y-4">
       {!canEdit && <OpsReadOnlyBanner />}
 
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-sm">Remises négociées</h3>
+        <Heading level={3} size="sm" weight="medium" tone="inherit">
+          Remises négociées
+        </Heading>
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-savr-neutral-600">
             <input
@@ -1305,13 +1305,13 @@ export function OngletRemises({
                     </label>
                   ))}
                 </div>
-                <p className="mt-1 text-xs text-savr-neutral-500">
+                <Text variant="hint" className="mt-1">
                   S&apos;applique à toutes les collectes réalisées sur ces
                   lieux, quel que soit le traiteur. Si le traiteur a sa propre
                   remise, seule la plus élevée des deux s&apos;applique.
                   {fLieuIds.length > 1 &&
                     ` Une remise sera enregistrée par lieu (${fLieuIds.length}).`}
-                </p>
+                </Text>
               </fieldset>
             )}
             <div>
@@ -1464,10 +1464,16 @@ export function PackAjustementsHistorique({
   if (loading || rows.length === 0) return null;
 
   return (
-    <Card className="p-6">
-      <h3 className="font-medium mb-4">
+    <Card padding="lg">
+      <Heading
+        level={3}
+        size="inherit"
+        weight="medium"
+        tone="inherit"
+        className="mb-4"
+      >
         Historique des ajustements de crédits
-      </h3>
+      </Heading>
       {/* Journal complet (route sans pagination, triée par date desc) → tri
           navigateur, ordre par défaut identique à celui de l'API. */}
       <DataGrid

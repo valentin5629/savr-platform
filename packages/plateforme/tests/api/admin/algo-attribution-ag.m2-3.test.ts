@@ -637,6 +637,10 @@ describe('M2.3 / PATCH /parametres-algo', () => {
   });
 
   it('met à jour un paramètre algo (200)', async () => {
+    mockSupabaseChain.maybeSingle.mockResolvedValue({
+      data: { type_valeur: 'bool' },
+      error: null,
+    });
     mockSupabaseChain.single.mockResolvedValue({
       data: {
         cle: 'a_toutes_indisponible',
@@ -680,5 +684,124 @@ describe('M2.3 / PATCH /parametres-algo', () => {
       makeReq('PATCH', '/api/v1/admin/parametres-algo', { valeur: true }),
     );
     expect(res.status).toBe(422);
+  });
+
+  // Validation serveur selon le type de la ligne (bug 2026-10-02 : une liste
+  // envoyée en chaîne devenait un scalaire JSON et faisait lever
+  // fn_calculer_algo_attribution_ag — « cannot extract elements from a
+  // scalar » — sur toutes les collectes AG).
+  it('rejette (422) une liste text[] envoyée en chaîne — jamais de scalaire en base', async () => {
+    mockSupabaseChain.maybeSingle.mockResolvedValue({
+      data: { type_valeur: 'text[]' },
+      error: null,
+    });
+    const { PATCH } =
+      await import('@/app/api/v1/admin/parametres-algo/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/parametres-algo', {
+        cle: 'everest_codes_postaux',
+        valeur: '["75","92","93"]',
+      }),
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/liste de chaînes/);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
+  it('accepte (200) une liste de chaînes pour text[] et la transmet telle quelle', async () => {
+    mockSupabaseChain.maybeSingle.mockResolvedValue({
+      data: { type_valeur: 'text[]' },
+      error: null,
+    });
+    mockSupabaseChain.single.mockResolvedValue({
+      data: {
+        cle: 'everest_codes_postaux',
+        valeur: ['75', '92', '93', '94'],
+        type_valeur: 'text[]',
+        updated_at: '2026-10-02T10:00:00Z',
+      },
+      error: null,
+    });
+    const { PATCH } =
+      await import('@/app/api/v1/admin/parametres-algo/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/parametres-algo', {
+        cle: 'everest_codes_postaux',
+        valeur: ['75', '92', '93', '94'],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ valeur: ['75', '92', '93', '94'] }),
+    );
+  });
+
+  it.each([
+    ['time', 'regle_ag_plage_velo_debut', '7h', /HH:MM/],
+    ['time', 'regle_ag_plage_velo_debut', '25:00', /HH:MM/],
+    ['int', 'regle_ag_seuil_pax_velo', 600.5, /entier/],
+    ['int', 'regle_ag_seuil_pax_velo', '600', /entier/],
+    ['decimal', 'poids_par_repas_kg', '0,45', /décimal/],
+    ['bool', 'a_toutes_indisponible', 'true', /booléen/],
+  ])(
+    'rejette (422) une valeur non conforme au type %s (%s = %j)',
+    async (type_valeur, cle, valeur, attendu) => {
+      mockSupabaseChain.maybeSingle.mockResolvedValue({
+        data: { type_valeur },
+        error: null,
+      });
+      const { PATCH } =
+        await import('@/app/api/v1/admin/parametres-algo/route.js');
+      const res = await PATCH(
+        makeReq('PATCH', '/api/v1/admin/parametres-algo', { cle, valeur }),
+      );
+      expect(res.status).toBe(422);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toMatch(attendu);
+      expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('accepte (200) une heure HH:MM valide pour time', async () => {
+    mockSupabaseChain.maybeSingle.mockResolvedValue({
+      data: { type_valeur: 'time' },
+      error: null,
+    });
+    mockSupabaseChain.single.mockResolvedValue({
+      data: {
+        cle: 'regle_ag_plage_velo_fin',
+        valeur: '21:30',
+        type_valeur: 'time',
+        updated_at: '2026-10-02T10:00:00Z',
+      },
+      error: null,
+    });
+    const { PATCH } =
+      await import('@/app/api/v1/admin/parametres-algo/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/parametres-algo', {
+        cle: 'regle_ag_plage_velo_fin',
+        valeur: '21:30',
+      }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('retourne 404 si la clé est inconnue, sans tenter de mise à jour', async () => {
+    mockSupabaseChain.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    const { PATCH } =
+      await import('@/app/api/v1/admin/parametres-algo/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/parametres-algo', {
+        cle: 'cle_inexistante',
+        valeur: 1,
+      }),
+    );
+    expect(res.status).toBe(404);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
   });
 });

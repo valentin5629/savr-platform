@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireAdmin, requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { valeurConformeAuType } from '@/lib/parametres-algo/validation.js';
 
 // GET /api/v1/admin/parametres-algo — lecture (ops + admin)
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -38,6 +39,29 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
 
   const supabase = createAdminSupabaseClient();
+
+  // Le type attendu est celui de la ligne, pas celui que le client déclare.
+  const { data: ligne, error: erreurLecture } = await supabase
+    .from('parametres_algo')
+    .select('type_valeur')
+    .eq('cle', body.cle)
+    .maybeSingle();
+  if (erreurLecture)
+    return serverError(erreurLecture, 'admin.parametres_algo.update');
+  if (!ligne)
+    return NextResponse.json(
+      { error: `Paramètre inconnu: ${body.cle}` },
+      { status: 404 },
+    );
+  const conformite = valeurConformeAuType(ligne.type_valeur, body.valeur);
+  if (!conformite.ok)
+    return NextResponse.json(
+      {
+        error: `Valeur invalide pour « ${body.cle} » : ${conformite.attendu} attendu(e)`,
+      },
+      { status: 422 },
+    );
+
   const { data, error } = await supabase
     .from('parametres_algo')
     .update({ valeur: body.valeur, updated_at: new Date().toISOString() })

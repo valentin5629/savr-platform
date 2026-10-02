@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
+import { convertirSaisie } from '@/lib/parametres-algo/saisie';
 
 interface ParamAlgo {
   cle: string;
@@ -68,14 +69,7 @@ export default function AlgoAgParamsPage() {
     setError(null);
     setSuccessMsg(null);
     try {
-      let valeur: unknown = editing[cle];
-      if (type_valeur === 'bool') valeur = editing[cle] === 'true';
-      else if (type_valeur === 'int')
-        valeur = parseInt(editing[cle] ?? '0', 10);
-      else if (type_valeur === 'decimal')
-        valeur = parseFloat(editing[cle] ?? '0');
-      else if (type_valeur === 'json')
-        valeur = JSON.parse(editing[cle] ?? '[]');
+      const valeur = convertirSaisie(type_valeur, editing[cle] ?? '');
 
       const res = await fetch('/api/v1/admin/parametres-algo', {
         method: 'PATCH',

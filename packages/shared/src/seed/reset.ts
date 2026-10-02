@@ -118,6 +118,48 @@ const BUSINESS_TABLES = [
   'shared.prestataires',
 ];
 
+/**
+ * Tables RÉFÉRENTIEL emportées par le vidage sans être dans la liste :
+ * leur colonne `valide_par` référence `plateforme.users`, et le CASCADE
+ * posé sur `users` vide TOUTE table qui la référence — pas seulement celles
+ * qu'on nomme. Le seed ne les réinsère jamais (il « relit le référentiel posé
+ * par les migrations », cf. minimal.ts), donc après le premier seed les
+ * paramètres de l'algo AG et les constantes CO₂ disparaissaient de la base
+ * dev : page Admin « Paramètres algorithme AG » vide, algo sur ses défauts
+ * codés en dur, CO₂ ZD sur ses défauts (mesuré sur savr-dev le 2026-10-02 :
+ * 0 ligne, 16 attendues en prod).
+ *
+ * On les photographie avant le vidage et on les réinsère après, dans la même
+ * transaction. `valide_par` est remis à NULL : les users qu'il pointait
+ * n'existent plus.
+ */
+export const TABLES_REFERENTIEL_PRESERVEES = [
+  'plateforme.parametres_algo',
+  'plateforme.parametres_co2_divers',
+] as const;
+
+/** Nom de la table temporaire qui porte la photo d'une table référentiel. */
+function nomPhoto(table: string): string {
+  return `_seed_ref_${table.replace('.', '_')}`;
+}
+
+/**
+ * Photo d'une table référentiel : copie intégrale en table temporaire
+ * (détruite au COMMIT/ROLLBACK), `valide_par` neutralisé.
+ */
+export function sqlPhotoReferentiel(table: string): string {
+  const photo = nomPhoto(table);
+  return `
+    CREATE TEMP TABLE ${photo} ON COMMIT DROP AS SELECT * FROM ${table};
+    UPDATE ${photo} SET valide_par = NULL;
+  `;
+}
+
+/** Restauration : la photo a les colonnes de la table, dans le même ordre. */
+export function sqlRestaurationReferentiel(table: string): string {
+  return `INSERT INTO ${table} SELECT * FROM ${nomPhoto(table)};`;
+}
+
 /** Nom du trigger posé par la migration 20260922200000. */
 export const GARDE_AUDIT_LOG = 'trg_audit_log_vidage_interdit';
 
@@ -174,7 +216,13 @@ export async function resetBusinessData(client: pg.Client): Promise<void> {
   await client.query('BEGIN');
   try {
     await client.query(sqlGardeAuditLog('DISABLE'));
+    for (const table of TABLES_REFERENTIEL_PRESERVEES) {
+      await client.query(sqlPhotoReferentiel(table));
+    }
     await client.query(sqlVidageTablesMetier());
+    for (const table of TABLES_REFERENTIEL_PRESERVEES) {
+      await client.query(sqlRestaurationReferentiel(table));
+    }
     await client.query(sqlGardeAuditLog('ENABLE'));
     // Dernier rempart : si la réactivation n'a rien fait, on échoue ici plutôt
     // que de committer une base dont l'audit trail est resté ouvert.

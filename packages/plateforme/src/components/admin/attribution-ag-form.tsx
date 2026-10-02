@@ -32,6 +32,7 @@ import {
   libelleTypeTms,
   libelleValiderEtEnvoyer,
 } from '@/lib/type-tms-labels';
+import { Text } from '@/components/ui/text';
 
 interface AssociationSuggestion {
   id: string;
@@ -543,23 +544,23 @@ export function AttributionAgForm({
               <span className="flex h-6 w-6 items-center justify-center rounded-savr-full bg-savr-primary-700 text-xs font-extrabold text-savr-white">
                 1
               </span>
-              <p className="text-sm font-bold text-savr-neutral-900">
+              <Text tone="ink" className="font-bold">
                 Association bénéficiaire
-              </p>
-              <span className="text-xs text-savr-neutral-500">
+              </Text>
+              <Text as="span" variant="hint">
                 · son adresse est le point de livraison
-              </span>
+              </Text>
             </div>
             <div className="flex h-7 items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-savr-full bg-savr-primary-700 text-xs font-extrabold text-savr-white">
                 2
               </span>
-              <p className="text-sm font-bold text-savr-neutral-900">
+              <Text tone="ink" className="font-bold">
                 Prestataire logistique
-              </p>
-              <span className="text-xs text-savr-neutral-500">
+              </Text>
+              <Text as="span" variant="hint">
                 · reçoit l&apos;adresse de l&apos;association
-              </span>
+              </Text>
             </div>
 
             {/* Ligne 2 : champs — gauche = critères de l'algo (lecture seule),
@@ -692,14 +693,14 @@ export function AttributionAgForm({
                         Recommandée
                       </Badge>
                     </span>
-                    <span className="text-xs text-savr-neutral-600">
+                    <Text as="span" variant="hint" tone="soft">
                       <span>{formatDistance(assoTop1.distance_km)}</span> ·
                       capacité {assoTop1.capacite_max_beneficiaires}{' '}
                       bénéficiaires
-                    </span>
-                    <span className="text-xs text-savr-neutral-600">
+                    </Text>
+                    <Text as="span" variant="hint" tone="soft">
                       {assoTop1.contact_email}
-                    </span>
+                    </Text>
                   </span>
                 </button>
               ) : (
@@ -730,17 +731,17 @@ export function AttributionAgForm({
                         Recommandé
                       </Badge>
                     </span>
-                    <span className="text-xs text-savr-neutral-600">
+                    <Text as="span" variant="hint" tone="soft">
                       Branche : {BRANCHE_LABELS[algo.branche] ?? algo.branche} ·
                       Zone : {algo.is_idf ? 'IDF' : 'Province'} · {algo.nb_pax}{' '}
                       PAX
                       {transpReco.distance_km != null
                         ? ` · ${transpReco.distance_km} km`
                         : ''}
-                    </span>
-                    <span className="text-xs text-savr-neutral-600">
+                    </Text>
+                    <Text as="span" variant="hint" tone="soft">
                       {libelleTypeTms(transpReco.type_tms)}
-                    </span>
+                    </Text>
                   </span>
                 </button>
               ) : (
@@ -825,13 +826,13 @@ export function AttributionAgForm({
             </FormField>
 
             {/* Ligne 5 : aides */}
-            <p className="text-xs text-savr-neutral-500">
+            <Text variant="hint">
               Toutes les associations actives, triées par distance au lieu.
-            </p>
-            <p className="text-xs text-savr-neutral-500">
+            </Text>
+            <Text variant="hint">
               Tous les transporteurs actifs. Hors recommandation, un motif est
               demandé.
-            </p>
+            </Text>
           </div>
 
           {/* Motif override (obligatoire si override / recherche libre transporteur) */}
@@ -874,7 +875,7 @@ export function AttributionAgForm({
 
           {/* Pied : synthèse + action unique */}
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-savr-neutral-100 pt-4">
-            <p className="text-sm text-savr-neutral-700">
+            <Text variant="body">
               Sélection : <strong>{selectedAssoNom ?? '—'}</strong> +{' '}
               <strong>{selectedTranspNom ?? '—'}</strong>
               {nbVehiculesOk && (
@@ -890,7 +891,7 @@ export function AttributionAgForm({
                   (association hors recommandation — auditée)
                 </span>
               )}
-            </p>
+            </Text>
             <Button
               disabled={
                 !selectedAsso ||

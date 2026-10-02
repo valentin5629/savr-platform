@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { normaliserSiretOrganisation } from '@/lib/siret-organisation';
+import { Heading } from '@/components/ui/heading';
 
 // Libellés des 4 types d'organisation (enum `organisation_type`), mêmes
 // libellés que le filtre de la liste Clients.
@@ -55,9 +56,9 @@ function Bloc({
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
           <Icon className="h-[18px] w-[18px]" />
         </span>
-        <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+        <Heading level={3} weight="extrabold" className="tracking-[-0.01em]">
           {title}
-        </h3>
+        </Heading>
       </div>
       <div className="space-y-4">{children}</div>
     </section>

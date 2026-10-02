@@ -4,8 +4,9 @@ import * as React from 'react';
 import { FLUX_ZD } from '@/components/dashboards/flux';
 import type { FluxSeriePoint } from '@/components/dashboards/useEvolutionBlocs';
 import { ChartCard } from './ChartCard';
-import { fmtDec, fmtMasse } from './fmt';
+import { fmtMasse } from './fmt';
 import { INK, TEXT_FAINT, TEXT_MUTED, GRID, SURFACE_HOVER } from './palette';
+import { fmtPct } from '@/lib/format';
 
 // TonnagesDonut (Cockpit R24) — donut de répartition des 5 flux ZD, total au
 // centre (§11 Bloc 4). Arcs SVG en stroke-dasharray sur r=74, séparations
@@ -113,7 +114,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                       onMouseEnter={() => setHover(i)}
                     >
                       {/* Tooltip natif au survol : kg + % (CDC §06.04 l.164). */}
-                      <title>{`${f.label} : ${m.value} ${m.unit} (${fmtDec(a.pct * 100, 0)} %)`}</title>
+                      <title>{`${f.label} : ${m.value} ${m.unit} (${fmtPct(a.pct * 100, 0)})`}</title>
                     </circle>
                   );
                 })
@@ -206,7 +207,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                     {f.label}
                   </span>
                   <span className="font-extrabold tabular-nums">
-                    {`${m.value} ${m.unit} · ${fmtDec(pct, 0)} %`}
+                    {`${m.value} ${m.unit} · ${fmtPct(pct, 0)}`}
                   </span>
                 </div>
               );

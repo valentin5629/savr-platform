@@ -18,6 +18,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
 import { CelluleVide } from '@/components/ui/data-grid';
+import { Text } from '@/components/ui/text';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
 // revue écran 2026-07-15, passage en Data Table 2026-09-28 — décisions Val).
@@ -85,7 +86,9 @@ export function CelluleLieu({
     <div className="min-w-0">
       <div className="font-medium">{nom ?? '—'}</div>
       {adresse && (
-        <div className="text-xs text-savr-neutral-500">{adresse}</div>
+        <Text as="div" variant="hint">
+          {adresse}
+        </Text>
       )}
     </div>
   );
@@ -112,7 +115,12 @@ export function ResultatsCollecte({
   if (c.statut !== 'cloturee') return <CelluleVide />;
   const zd = c.type === 'zero_dechet';
   return (
-    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs font-bold text-savr-neutral-600 sm:justify-start">
+    <Text
+      as="div"
+      variant="hint"
+      tone="soft"
+      className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
+    >
       {zd ? (
         <>
           {c.poids_total_kg != null && c.poids_total_kg > 0 && (
@@ -178,7 +186,7 @@ export function ResultatsCollecte({
           <Download />
         </IconButton>
       )}
-    </div>
+    </Text>
   );
 }
 

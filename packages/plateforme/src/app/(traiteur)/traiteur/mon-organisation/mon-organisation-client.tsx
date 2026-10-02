@@ -20,6 +20,9 @@ import { Input } from '@/components/ui/input';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import type { Database } from '@savr/shared/src/database.types.js';
+import { LogoCard } from '@/components/organisation/logo-card';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
@@ -98,15 +101,15 @@ export function MonOrganisationClient({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
+      <Heading level={1} tone="primary">
         Mon organisation
-      </h1>
+      </Heading>
       {!isManager && (
-        <p className="text-sm text-savr-neutral-500">
+        <Text>
           Vous pouvez modifier les informations légales. Le logo, les entités de
           facturation, les domaines email et l&apos;équipe ne sont modifiables
           que par le manager.
-        </p>
+        </Text>
       )}
 
       <div className="flex flex-wrap border-b border-savr-neutral-200">
@@ -188,7 +191,26 @@ function InfosTab({ isManager }: { isManager: boolean }) {
           </CardContent>
         </Card>
       )}
-      <LogoCard profil={profil} isManager={isManager} onSaved={reloadProfil} />
+      <LogoCard
+        logoKey={profil?.logo_url}
+        uploadUrl="/api/v1/traiteur/mon-organisation/logo"
+        previewSrc={(k) =>
+          `/api/v1/traiteur/mon-organisation/logo?key=${encodeURIComponent(k)}`
+        }
+        canEdit={isManager}
+        onUploaded={async (k) => {
+          const patch = await fetch(
+            '/api/v1/traiteur/mon-organisation/profil',
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ logo_url: k }),
+            },
+          );
+          if (!patch.ok) throw new Error('Logo uploadé mais non enregistré.');
+          reloadProfil();
+        }}
+      />
       <EntitesCard
         entites={entites}
         isManager={isManager}
@@ -200,92 +222,6 @@ function InfosTab({ isManager }: { isManager: boolean }) {
         onChanged={reloadDomaines}
       />
     </div>
-  );
-}
-
-function LogoCard({
-  profil,
-  isManager,
-  onSaved,
-}: {
-  profil: OrgProfil | null;
-  isManager: boolean;
-  onSaved: () => void;
-}) {
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [uploading, setUploading] = useState(false);
-
-  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setMsg(null);
-    const form = new FormData();
-    form.append('file', file);
-    const up = await fetch('/api/v1/traiteur/mon-organisation/logo', {
-      method: 'POST',
-      body: form,
-    });
-    if (!up.ok) {
-      const j = (await up.json()) as { error?: string };
-      setMsg({ ok: false, text: j.error ?? 'Échec de l’upload.' });
-      setUploading(false);
-      return;
-    }
-    const { logo_url } = (await up.json()) as { logo_url: string };
-    const patch = await fetch('/api/v1/traiteur/mon-organisation/profil', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ logo_url }),
-    });
-    setMsg({
-      ok: patch.ok,
-      text: patch.ok ? 'Logo mis à jour.' : 'Logo uploadé mais non enregistré.',
-    });
-    setUploading(false);
-    if (patch.ok) onSaved();
-  }
-
-  const logoSrc = profil?.logo_url
-    ? `/api/v1/traiteur/mon-organisation/logo?key=${encodeURIComponent(profil.logo_url)}`
-    : null;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Logo</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {logoSrc ? (
-          <img
-            src={logoSrc}
-            alt="Logo de l'organisation"
-            className="h-16 w-auto rounded-savr-sm border border-savr-neutral-200"
-          />
-        ) : (
-          <p className="text-sm text-savr-neutral-500">Aucun logo.</p>
-        )}
-        {isManager && (
-          <div className="space-y-1">
-            <input
-              type="file"
-              accept="image/png,image/jpeg"
-              onChange={upload}
-              disabled={uploading}
-              className="text-sm"
-            />
-            <p className="text-xs text-savr-neutral-400">
-              JPG ou PNG, 2 Mo max.
-            </p>
-            {msg && (
-              <AlertBar variant={msg.ok ? 'success' : 'err'}>
-                {msg.text}
-              </AlertBar>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -426,9 +362,7 @@ function EntitesCard({
           columns={colonnes}
           data={actives}
           getRowId={(e) => e.id}
-          empty={
-            <p className="text-sm text-savr-neutral-500">Aucune entité.</p>
-          }
+          empty={<Text>Aucune entité.</Text>}
         />
 
         {isManager &&
@@ -592,12 +526,12 @@ function DomainesCard({
         <CardTitle>Domaines email autorisés</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-xs text-savr-neutral-400">
+        <Text variant="faint">
           Les collaborateurs dont l’email appartient à ces domaines sont
           rattachés automatiquement à l’organisation.
-        </p>
+        </Text>
         {domaines.length === 0 ? (
-          <p className="text-sm text-savr-neutral-500">Aucun domaine.</p>
+          <Text>Aucun domaine.</Text>
         ) : (
           <ul className="space-y-1 text-sm">
             {domaines.map((d) => (
@@ -768,9 +702,7 @@ function EquipeTab({ userId }: { userId: string }) {
             columns={colonnes}
             data={users}
             getRowId={(u) => u.id}
-            empty={
-              <p className="text-sm text-savr-neutral-500">Aucun membre.</p>
-            }
+            empty={<Text>Aucun membre.</Text>}
           />
         </CardContent>
       </Card>
@@ -844,9 +776,9 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
               />
             </FormField>
           </div>
-          <p className="text-xs text-savr-neutral-400">
+          <Text variant="faint">
             Le collaborateur est ajouté avec le rôle Commercial.
-          </p>
+          </Text>
           {msg && (
             <AlertBar variant={msg.ok ? 'success' : 'err'}>{msg.text}</AlertBar>
           )}
@@ -910,10 +842,10 @@ function TransfertCard({
         <CardTitle>Transférer les collectes</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-3 text-xs text-savr-neutral-400">
+        <Text variant="faint" className="mb-3">
           Réassigne toutes les collectes d’un collaborateur (ex. en cas de
           départ) vers un autre membre de l’équipe.
-        </p>
+        </Text>
         <form onSubmit={transfer} className="space-y-2">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="Depuis" htmlFor="transfert-source" required>
@@ -1056,10 +988,10 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
               ? ' (onglet Informations légales > Entités de facturation).'
               : '.'}
           </p>
-          <p className="text-xs text-savr-neutral-400">
+          <Text variant="faint">
             Les coordonnées bancaires de règlement figurent sur la facture
             (virement — pas de paiement en ligne en V1).
-          </p>
+          </Text>
         </CardContent>
       </Card>
 
@@ -1131,9 +1063,7 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
             columns={COLONNES_FACTURES}
             data={factures}
             getRowId={(f) => f.id}
-            empty={
-              <p className="text-sm text-savr-neutral-500">Aucune facture.</p>
-            }
+            empty={<Text>Aucune facture.</Text>}
           />
         </CardContent>
       </Card>

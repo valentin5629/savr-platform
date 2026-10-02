@@ -1,8 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { fmtInt, fmtDec } from './fmt';
+import { fmtInt } from './fmt';
 import { RING_OK, RING_LOW, TRACK, PACK_BADGE, WHITE } from './palette';
+import { Card } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
+import { fmtPct } from '@/lib/format';
 
 export interface PackAgRingProps {
   creditsInitiaux: number;
@@ -43,25 +46,25 @@ export function PackAgRing({
         className="inline-block rounded-savr-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] tabular-nums"
         style={PACK_BADGE.faible}
       >
-        {`Solde faible · ${fmtDec(pctRestant * 100, 1)} %`}
+        {`Solde faible · ${fmtPct(pctRestant * 100, 1)}`}
       </span>
     );
   }
 
   return (
-    <div className="rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm">
+    <Card variant="elevated" padding="lg">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div className="min-w-0">
           <div className="text-[15px] font-extrabold text-savr-neutral-900">
             Mon pack Anti-Gaspi
           </div>
-          <div className="mt-0.5 text-[13px] text-savr-neutral-500">
+          <Text as="div" size="xs-plus" className="mt-0.5">
             <span className="font-extrabold tabular-nums text-savr-neutral-800">
               {fmtInt(consommes)}
             </span>
             {' / '}
             {fmtInt(creditsInitiaux)} repas consommés
-          </div>
+          </Text>
         </div>
         <div className="shrink-0 text-right">
           <span className="text-[34px] font-black leading-none tabular-nums text-savr-neutral-900">
@@ -95,12 +98,18 @@ export function PackAgRing({
       </div>
 
       <div className="mt-2.5 flex items-center justify-between gap-3">
-        <span className="text-[11px] tabular-nums text-savr-neutral-400">
-          {`${fmtDec(pctRestant * 100, 0)} % du pack restant`}
-        </span>
+        <Text
+          as="span"
+          variant="hint"
+          size="2xs"
+          tone="faint"
+          className="tabular-nums"
+        >
+          {`${fmtPct(pctRestant * 100, 0)} du pack restant`}
+        </Text>
         {badge}
       </div>
-    </div>
+    </Card>
   );
 }
 

@@ -17,6 +17,9 @@ import {
   PARC,
   WHITE,
 } from './palette';
+import { Text } from '@/components/ui/text';
+import { ChartTooltip } from '@/components/ui/chart-tooltip';
+import { fmtPct } from '@/lib/format';
 
 // BenchmarkRadar — radar « lignes seules » (modèle shadcn Radar Chart - Lines
 // Only, décision Val 2026-09-28, remplace les 5 jauges bullet R24) : intensité
@@ -93,7 +96,7 @@ function statutDe(ratio: number) {
 
 function ecartTxt(ratio: number): string {
   const delta = (ratio - 1) * 100;
-  return `${delta >= 0 ? '+' : '−'}${fmtDec(Math.abs(delta), 0)} %`;
+  return `${delta >= 0 ? '+' : '−'}${fmtPct(Math.abs(delta), 0)}`;
 }
 
 function point(angle: number, r: number): [number, number] {
@@ -127,14 +130,20 @@ function LegendLine({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
+    <Text
+      as="span"
+      variant="hint"
+      size="2xs"
+      tone="soft"
+      className="flex items-center gap-1.5 font-semibold"
+    >
       <span
         aria-hidden
         className="inline-block rounded-savr-full"
         style={{ width: 14, height: 3, background: color }}
       />
       {children}
-    </span>
+    </Text>
   );
 }
 
@@ -146,14 +155,20 @@ function LegendDot({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
+    <Text
+      as="span"
+      variant="hint"
+      size="2xs"
+      tone="soft"
+      className="flex items-center gap-1.5 font-semibold"
+    >
       <span
         aria-hidden
         className="inline-block rounded-savr-full"
         style={{ width: 9, height: 9, background: color }}
       />
       {children}
-    </span>
+    </Text>
   );
 }
 
@@ -184,9 +199,10 @@ function Serie({
 function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
   const { item, ratio } = axe;
   return (
-    <div
+    <ChartTooltip
+      floating={false}
+      className="min-w-[170px] whitespace-nowrap"
       data-testid="benchmark-radar-tooltip"
-      className="min-w-[170px] whitespace-nowrap rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
     >
       <div className="mb-1.5 text-[12px] font-bold text-savr-neutral-900">
         {item.label}
@@ -221,7 +237,7 @@ function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
           </div>
         )}
       </div>
-    </div>
+    </ChartTooltip>
   );
 }
 
@@ -254,13 +270,13 @@ function LigneFlux({
         >
           {item.label}
         </div>
-        <div className="text-[11px] tabular-nums text-savr-neutral-500">
+        <Text as="div" variant="hint" size="2xs" className="tabular-nums">
           {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
           {' · '}
           {fini(item.benchmark)
             ? `parc ${fmtDec(item.benchmark, 2)}`
             : 'parc n/d'}
-        </div>
+        </Text>
       </div>
       {statut && ratio != null ? (
         <span

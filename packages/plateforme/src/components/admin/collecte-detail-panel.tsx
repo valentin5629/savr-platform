@@ -1,6 +1,6 @@
 'use client';
 
-import { fmtEuro } from '@/lib/format';
+import { fmtEuro, fmtPax, fmtKgAuto } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { libelleStatutTournee } from '@/lib/libelles/tournee';
 import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
@@ -68,6 +68,7 @@ import {
 } from '@/components/collecte/fiche-blocs';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
+import { Text } from '@/components/ui/text';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -359,7 +360,9 @@ function CarteChoix({
           {titre}
           {badges}
         </span>
-        <span className="block text-xs text-savr-neutral-500">{detail}</span>
+        <Text as="span" variant="hint" className="block">
+          {detail}
+        </Text>
       </span>
     </button>
   );
@@ -1023,7 +1026,7 @@ export function CollecteDetailPanel({
           },
           {
             icon: Users,
-            texte: `jusqu'à ${new Intl.NumberFormat('fr-FR').format(collecte.evenements.pax)} pax`,
+            texte: `jusqu'à ${fmtPax(collecte.evenements.pax)}`,
           },
           {
             icon: Building2,
@@ -1083,7 +1086,7 @@ export function CollecteDetailPanel({
           </TabsList>
 
           <TabsContent value="informations" className="space-y-4">
-            <Card className="p-5 space-y-4">
+            <Card padding="md" className="space-y-4">
               <BlocHeader icon={CalendarDays} title="Événement" />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <InfoItem label="Date et heure de collecte">
@@ -1120,7 +1123,7 @@ export function CollecteDetailPanel({
 
             {/* Lieu effectif = référence `lieux` + surcharge de cette collecte
                 (`lieu_overrides`, §04 : le lieu officiel n'est jamais modifié). */}
-            <Card className="p-5 space-y-4">
+            <Card padding="md" className="space-y-4">
               <BlocHeader
                 icon={MapPin}
                 title="Lieu"
@@ -1163,7 +1166,7 @@ export function CollecteDetailPanel({
               </dl>
             </Card>
 
-            <Card className="p-5 space-y-4">
+            <Card padding="md" className="space-y-4">
               <BlocHeader icon={DoorOpen} title="Instructions d'accès" />
               <dl className="space-y-3 text-sm">
                 <InfoItem label="Accès au lieu (badge, code, interphone, gardien…)">
@@ -1194,7 +1197,7 @@ export function CollecteDetailPanel({
               </dl>
             </Card>
 
-            <Card className="p-5 space-y-4">
+            <Card padding="md" className="space-y-4">
               <BlocHeader icon={Users} title="Contacts" />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <InfoItem label="Contact principal">
@@ -1215,7 +1218,7 @@ export function CollecteDetailPanel({
             {/* Informations chauffeur demandées — saisie par tournée si le lieu
                 exige un contrôle d'accès. */}
             {collecte.controle_acces_requis ? (
-              <Card className="p-5 space-y-4">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader
                   icon={KeyRound}
                   title="Informations chauffeur"
@@ -1231,12 +1234,12 @@ export function CollecteDetailPanel({
                     ) : undefined
                   }
                 />
-                <p className="text-sm text-savr-neutral-500">
+                <Text>
                   Ce lieu exige un contrôle d’accès. Renseignez le nom et le
                   téléphone du chauffeur (et l’accompagnant s’il y en a un) pour
                   chaque camion : un email récapitulatif est envoyé au
                   programmateur dès que toutes les tournées sont complètes.
-                </p>
+                </Text>
 
                 {collecte.infos_acces_email_envoye_at ? (
                   <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
@@ -1247,10 +1250,14 @@ export function CollecteDetailPanel({
                     ).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-sm text-savr-neutral-600">
+                  <Text
+                    as="div"
+                    tone="soft"
+                    className="flex items-center gap-2"
+                  >
                     <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
                     En attente : infos à compléter avant envoi de l’email.
-                  </div>
+                  </Text>
                 )}
 
                 {infosAccesFeedback && (
@@ -1261,10 +1268,10 @@ export function CollecteDetailPanel({
                 )}
 
                 {collecte.collecte_tournees.length === 0 ? (
-                  <p className="text-sm text-savr-neutral-500">
+                  <Text>
                     Aucune tournée dispatchée pour le moment — les infos
                     pourront être saisies une fois le prestataire attribué.
-                  </p>
+                  </Text>
                 ) : !editInfosAcces ? (
                   <div className="space-y-2">
                     {collecte.collecte_tournees.map((ct) => (
@@ -1275,36 +1282,36 @@ export function CollecteDetailPanel({
                         <p className="mb-1.5 font-medium">Camion {ct.rang}</p>
                         <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-savr-neutral-700">
                           <div>
-                            <dt className="text-xs text-savr-neutral-500">
+                            <Text as="dt" variant="hint">
                               Plaque
-                            </dt>
+                            </Text>
                             <dd>{ct.tournees.plaque_immatriculation ?? '—'}</dd>
                           </div>
                           <div>
-                            <dt className="text-xs text-savr-neutral-500">
+                            <Text as="dt" variant="hint">
                               Chauffeur
-                            </dt>
+                            </Text>
                             <dd>{ct.tournees.chauffeur_nom ?? '—'}</dd>
                           </div>
                           <div>
-                            <dt className="text-xs text-savr-neutral-500">
+                            <Text as="dt" variant="hint">
                               Téléphone
-                            </dt>
+                            </Text>
                             <dd>{ct.tournees.chauffeur_telephone ?? '—'}</dd>
                           </div>
                           {(ct.tournees.accompagnant_nom ||
                             ct.tournees.accompagnant_telephone) && (
                             <>
                               <div>
-                                <dt className="text-xs text-savr-neutral-500">
+                                <Text as="dt" variant="hint">
                                   Accompagnant
-                                </dt>
+                                </Text>
                                 <dd>{ct.tournees.accompagnant_nom ?? '—'}</dd>
                               </div>
                               <div>
-                                <dt className="text-xs text-savr-neutral-500">
+                                <Text as="dt" variant="hint">
                                   Tél. accompagnant
-                                </dt>
+                                </Text>
                                 <dd>
                                   {ct.tournees.accompagnant_telephone ?? '—'}
                                 </dd>
@@ -1349,7 +1356,7 @@ export function CollecteDetailPanel({
                             Camion {ct.rang}
                           </p>
                           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <label className="text-xs text-savr-neutral-500 space-y-1">
                               <span>Plaque d’immatriculation</span>
                               <Input
                                 value={v.plaque_immatriculation}
@@ -1361,7 +1368,7 @@ export function CollecteDetailPanel({
                                 }
                               />
                             </label>
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <label className="text-xs text-savr-neutral-500 space-y-1">
                               <span>Nom du chauffeur</span>
                               <Input
                                 value={v.chauffeur_nom}
@@ -1370,7 +1377,7 @@ export function CollecteDetailPanel({
                                 }
                               />
                             </label>
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <label className="text-xs text-savr-neutral-500 space-y-1">
                               <span>Téléphone du chauffeur</span>
                               <Input
                                 type="tel"
@@ -1383,7 +1390,7 @@ export function CollecteDetailPanel({
                                 }
                               />
                             </label>
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <label className="text-xs text-savr-neutral-500 space-y-1">
                               <span>Nom de l’accompagnant (facultatif)</span>
                               <Input
                                 value={v.accompagnant_nom}
@@ -1392,7 +1399,7 @@ export function CollecteDetailPanel({
                                 }
                               />
                             </label>
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <label className="text-xs text-savr-neutral-500 space-y-1">
                               <span>
                                 Téléphone de l’accompagnant (facultatif)
                               </span>
@@ -1432,12 +1439,12 @@ export function CollecteDetailPanel({
                 )}
               </Card>
             ) : (
-              <Card className="p-5 space-y-4">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader icon={KeyRound} title="Informations chauffeur" />
-                <p className="text-sm text-savr-neutral-500">
+                <Text>
                   Ce lieu n&apos;exige pas de contrôle d&apos;accès : aucune
                   information chauffeur n&apos;est demandée.
-                </p>
+                </Text>
               </Card>
             )}
           </TabsContent>
@@ -1447,7 +1454,7 @@ export function CollecteDetailPanel({
             association d'abord (son adresse est le point de livraison), besoin
             véhicule, prestataire, un seul bouton « Valider et envoyer ». */}
             {attributionManquante && collecte.statut === 'programmee' && (
-              <Card className="p-5 space-y-4">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader
                   icon={HeartHandshake}
                   title="Attribution & dispatch"
@@ -1480,7 +1487,7 @@ export function CollecteDetailPanel({
             {attributionManquante &&
               collecte.statut !== 'programmee' &&
               !isTerminal && (
-                <Card className="p-5 space-y-4">
+                <Card padding="md" className="space-y-4">
                   <BlocHeader
                     icon={HeartHandshake}
                     title="Attribution & dispatch"
@@ -1495,7 +1502,7 @@ export function CollecteDetailPanel({
             {/* AG attribuée : résumé de l'attribution AVANT « Prestataire &
             Dispatch » (décision Val 2026-10-01). */}
             {collecte.type === 'anti_gaspi' && !attributionManquante && (
-              <Card className="p-5 space-y-4">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader icon={HeartHandshake} title="Attribution AG" />
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                   <div>
@@ -1553,7 +1560,7 @@ export function CollecteDetailPanel({
               </Card>
             )}
             {!(attributionManquante && !isTerminal) && (
-              <Card className="p-5 space-y-4">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
                 {dispatchError && (
                   <AlertBar variant="err">{dispatchError}</AlertBar>
@@ -1586,7 +1593,7 @@ export function CollecteDetailPanel({
                         {statutTmsDisplay(collecte.statut_tms).label}
                       </Badge>
                       {collecte.statut_tms_at && (
-                        <span className="ml-1 text-xs text-savr-neutral-400">
+                        <Text as="span" variant="faint" className="ml-1">
                           (
                           {new Date(collecte.statut_tms_at).toLocaleString(
                             'fr-FR',
@@ -1595,7 +1602,7 @@ export function CollecteDetailPanel({
                             },
                           )}
                           )
-                        </span>
+                        </Text>
                       )}
                     </dd>
                   </div>
@@ -1642,16 +1649,15 @@ export function CollecteDetailPanel({
             marquée « Recommandé ». Pas de choix en ZD V1 (réémission seule). */}
                 {collecte.type === 'anti_gaspi' && !isTerminal && (
                   <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
-                    <p
+                    <Text
+                      tone="strong"
+                      className="font-semibold"
                       id="dispatch-transporteur-label"
-                      className="text-sm font-semibold text-savr-neutral-800"
                     >
                       Prestataire à attribuer
-                    </p>
+                    </Text>
                     {transporteursOrdonnes.length === 0 ? (
-                      <p className="text-sm text-savr-neutral-500">
-                        Aucun transporteur actif dans le référentiel.
-                      </p>
+                      <Text>Aucun transporteur actif dans le référentiel.</Text>
                     ) : (
                       <div
                         role="radiogroup"
@@ -1707,8 +1713,8 @@ export function CollecteDetailPanel({
                     {overrideActif && (
                       <div>
                         <label
+                          className="text-sm text-savr-neutral-700 block font-medium mb-1"
                           htmlFor="dispatch-motif"
-                          className="block text-sm font-medium text-savr-neutral-700 mb-1"
                         >
                           Motif override (obligatoire ≥ 5 car. — prestataire ≠
                           reco algo)
@@ -1763,9 +1769,9 @@ export function CollecteDetailPanel({
                 {collecte.collecte_tournees.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <p className="text-sm font-medium text-savr-neutral-700">
+                      <Text variant="body" className="font-medium">
                         Tournées
-                      </p>
+                      </Text>
                       <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
                     </div>
                     <div className="space-y-1">
@@ -1778,12 +1784,17 @@ export function CollecteDetailPanel({
                           <Badge variant="neutral" className="text-xs">
                             {libelleStatutTournee(ct.tournees.statut)}
                           </Badge>
-                          <span className="font-mono text-xs text-savr-neutral-500">
+                          <Text as="span" variant="hint" className="font-mono">
                             {ct.tournees.external_ref_commande ?? '—'}
-                          </span>
-                          <span className="font-mono text-xs text-savr-neutral-600">
+                          </Text>
+                          <Text
+                            as="span"
+                            variant="hint"
+                            tone="soft"
+                            className="font-mono"
+                          >
                             {ct.tournees.plaque_immatriculation ?? 'plaque —'}
-                          </span>
+                          </Text>
                         </div>
                       ))}
                     </div>
@@ -1793,7 +1804,7 @@ export function CollecteDetailPanel({
             )}
             {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
             {collecte.type === 'zero_dechet' && (
-              <Card className="p-5 space-y-4">
+              <Card padding="md" className="space-y-4">
                 <BlocHeader
                   icon={Scale}
                   title="Pesées ZD"
@@ -1839,7 +1850,9 @@ export function CollecteDetailPanel({
                             <td className="py-2 font-medium">{flux.nom}</td>
                             <td className="py-2 text-right">
                               {poids !== null ? (
-                                <span className="font-medium">{poids} kg</span>
+                                <span className="font-medium">
+                                  {fmtKgAuto(poids)}
+                                </span>
                               ) : (
                                 <span className="text-savr-neutral-400">
                                   En attente
@@ -1886,7 +1899,7 @@ export function CollecteDetailPanel({
                       </tbody>
                     </table>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
+                      <label className="text-sm text-savr-neutral-700 mb-1 block font-medium">
                         Motif (obligatoire, ≥ 10 caractères)
                       </label>
                       <Textarea
@@ -1921,7 +1934,7 @@ export function CollecteDetailPanel({
 
           <TabsContent value="documents">
             {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
-            <Card className="p-5 space-y-4">
+            <Card padding="md" className="space-y-4">
               <BlocHeader icon={FileText} title="Documents" />
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
@@ -1950,7 +1963,7 @@ export function CollecteDetailPanel({
                           </span>
                         )}
                     </p>
-                    <p className="text-xs text-savr-neutral-500">
+                    <Text variant="hint">
                       {!documents?.rapport
                         ? 'Non encore généré'
                         : !documents.rapport.genere_at
@@ -1962,7 +1975,7 @@ export function CollecteDetailPanel({
                                 timeZone: 'Europe/Paris',
                               })}`
                             : 'Disponible'}
-                    </p>
+                    </Text>
                   </div>
                   <Button
                     size="sm"
@@ -2007,16 +2020,20 @@ export function CollecteDetailPanel({
                       <p className="text-sm font-medium">
                         Bordereau ZD
                         {documents?.bordereau?.numero && (
-                          <span className="ml-2 font-mono text-xs text-savr-neutral-500">
+                          <Text
+                            as="span"
+                            variant="hint"
+                            className="ml-2 font-mono"
+                          >
                             {documents.bordereau.numero}
-                          </span>
+                          </Text>
                         )}
                       </p>
-                      <p className="text-xs text-savr-neutral-500">
+                      <Text variant="hint">
                         {documents?.bordereau
                           ? `Statut : ${documents.bordereau.statut}`
                           : 'Non encore généré'}
-                      </p>
+                      </Text>
                     </div>
                     <Button
                       size="sm"
@@ -2057,16 +2074,20 @@ export function CollecteDetailPanel({
                       <p className="text-sm font-medium">
                         Attestation de don
                         {documents?.attestation?.numero && (
-                          <span className="ml-2 font-mono text-xs text-savr-neutral-500">
+                          <Text
+                            as="span"
+                            variant="hint"
+                            className="ml-2 font-mono"
+                          >
                             {documents.attestation.numero}
-                          </span>
+                          </Text>
                         )}
                       </p>
-                      <p className="text-xs text-savr-neutral-500">
+                      <Text variant="hint">
                         {documents?.attestation
                           ? `Statut : ${documents.attestation.statut}`
                           : 'Non encore générée'}
-                      </p>
+                      </Text>
                     </div>
                     <Button
                       size="sm"
@@ -2106,13 +2127,11 @@ export function CollecteDetailPanel({
 
               {/* Facture (ex-bloc Facturation, désormais intégré aux Documents) */}
               <div className="border-t border-savr-neutral-100 pt-4 space-y-3">
-                <p className="text-sm font-medium text-savr-neutral-700">
+                <Text variant="body" className="font-medium">
                   Facture
-                </p>
+                </Text>
                 {collecte.factures_collectes.length === 0 ? (
-                  <p className="text-sm text-savr-neutral-500">
-                    Aucune facture générée.
-                  </p>
+                  <Text>Aucune facture générée.</Text>
                 ) : (
                   <div className="space-y-2">
                     {collecte.factures_collectes.map((f) => (
@@ -2120,9 +2139,9 @@ export function CollecteDetailPanel({
                         key={f.id}
                         className="flex items-center justify-between text-sm bg-savr-neutral-50 rounded-savr-sm px-3 py-2"
                       >
-                        <span className="font-mono text-xs text-savr-neutral-500">
+                        <Text as="span" variant="hint" className="font-mono">
                           {f.id.slice(0, 8)}…
-                        </span>
+                        </Text>
                         <Badge variant="neutral">
                           {libelleStatutFacture(f.factures?.statut)}
                         </Badge>
@@ -2166,9 +2185,9 @@ export function CollecteDetailPanel({
               {/* Galerie photos + import */}
               <div className="border-t border-savr-neutral-100 pt-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium text-savr-neutral-700">
+                  <Text variant="body" className="font-medium">
                     Photos ({documents?.photos?.length ?? 0})
-                  </p>
+                  </Text>
                   <label className="inline-flex items-center gap-1 text-sm text-savr-primary-600 cursor-pointer hover:underline">
                     <Upload className="h-4 w-4" />
                     {photoUploading ? 'Import…' : 'Importer des photos'}
@@ -2196,19 +2215,19 @@ export function CollecteDetailPanel({
                           className="h-24 w-full object-cover rounded-savr-md border border-savr-neutral-200"
                         />
                       ) : (
-                        <div
+                        <Text
+                          as="div"
+                          variant="faint"
+                          className="h-24 w-full flex items-center justify-center rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50"
                           key={p.id}
-                          className="h-24 w-full flex items-center justify-center rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 text-xs text-savr-neutral-400"
                         >
                           Photo
-                        </div>
+                        </Text>
                       ),
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-savr-neutral-400">
-                    Aucune photo importée.
-                  </p>
+                  <Text tone="faint">Aucune photo importée.</Text>
                 )}
               </div>
             </Card>
@@ -2216,12 +2235,10 @@ export function CollecteDetailPanel({
 
           <TabsContent value="historique">
             {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
-            <Card className="p-5 space-y-4">
+            <Card padding="md" className="space-y-4">
               <BlocHeader icon={History} title="Historique & audit" />
               {audit.length === 0 ? (
-                <p className="text-sm text-savr-neutral-500">
-                  Aucune action enregistrée sur cette collecte.
-                </p>
+                <Text>Aucune action enregistrée sur cette collecte.</Text>
               ) : (
                 <Timeline>
                   {audit.map((e) => {
@@ -2233,25 +2250,29 @@ export function CollecteDetailPanel({
                     )?.statut;
                     return (
                       <TimelineItem key={e.id}>
-                        <p className="text-sm font-medium text-savr-neutral-800">
+                        <Text tone="strong" className="font-medium">
                           {e.action}
                           {oldStatut && newStatut && (
                             <span className="ml-2 font-normal text-savr-neutral-500">
                               {oldStatut} → {newStatut}
                             </span>
                           )}
-                        </p>
-                        <p className="text-xs text-savr-neutral-500">
+                        </Text>
+                        <Text variant="hint">
                           {new Date(e.created_at).toLocaleString('fr-FR', {
                             timeZone: 'Europe/Paris',
                           })}
                           {e.role ? ` · ${e.role}` : ''}
                           {e.impersonator_id ? ' · (impersonation)' : ''}
-                        </p>
+                        </Text>
                         {e.motif && (
-                          <p className="mt-1 text-xs italic text-savr-neutral-600">
+                          <Text
+                            variant="hint"
+                            tone="soft"
+                            className="mt-1 italic"
+                          >
                             « {e.motif} »
-                          </p>
+                          </Text>
                         )}
                       </TimelineItem>
                     );
@@ -2295,7 +2316,7 @@ export function CollecteDetailPanel({
           onSubmit={(e) => void handleAnnulerCredit(e)}
           className="space-y-4"
         >
-          <p className="text-sm text-savr-neutral-500">
+          <Text>
             Le crédit AG sera annulé côté Savr. La collecte reste à{' '}
             <strong>réalisée</strong> — seul le décompte du pack est rétabli.
             {collecte.packs_antgaspi && (
@@ -2309,9 +2330,9 @@ export function CollecteDetailPanel({
                 {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}.
               </>
             )}
-          </p>
+          </Text>
           <div>
-            <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
+            <label className="text-sm text-savr-neutral-700 mb-1 block font-medium">
               Motif (≥ 10 caractères)
             </label>
             <Textarea
@@ -2356,10 +2377,10 @@ export function CollecteDetailPanel({
           </AlertBar>
         )}
         <form onSubmit={(e) => void handleForceStatut(e)} className="space-y-4">
-          <p className="text-sm text-savr-neutral-500">
+          <Text>
             Bascule manuelle hors machine à états. L&apos;action est tracée dans
             l&apos;audit (motif obligatoire).
-          </p>
+          </Text>
           <FormField label="Nouveau statut" htmlFor="force-statut-select">
             <Combobox
               id="force-statut-select"
@@ -2375,8 +2396,8 @@ export function CollecteDetailPanel({
           </FormField>
           <div>
             <label
+              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
               htmlFor="force-statut-motif"
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
             >
               Motif (obligatoire, ≥ 10 caractères)
             </label>
@@ -2427,15 +2448,15 @@ export function CollecteDetailPanel({
           onSubmit={(e) => void handleAcceptationManuelle(e)}
           className="space-y-4"
         >
-          <p className="text-sm text-savr-neutral-500">
+          <Text>
             À utiliser quand Everest est indisponible et que la course a été
             calée par téléphone avec A Toutes!. La référence de mission permet
             ensuite de renvoyer une modification ou d&apos;annuler la course.
-          </p>
+          </Text>
           <div>
             <label
+              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
               htmlFor="acceptation-reference"
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
             >
               Référence de mission communiquée par A Toutes! (obligatoire)
             </label>
@@ -2453,14 +2474,14 @@ export function CollecteDetailPanel({
               className="font-mono"
               required
             />
-            <p className="mt-1 text-xs text-savr-neutral-500">
+            <Text variant="hint" className="mt-1">
               Sans espace, 64 caractères maximum.
-            </p>
+            </Text>
           </div>
           <div>
             <label
+              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
               htmlFor="acceptation-contact"
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
             >
               Contact joint chez A Toutes! (obligatoire)
             </label>
@@ -2479,8 +2500,8 @@ export function CollecteDetailPanel({
           </div>
           <div>
             <label
+              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
               htmlFor="acceptation-heure"
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
             >
               Heure de l&apos;appel
             </label>
@@ -2499,8 +2520,8 @@ export function CollecteDetailPanel({
           </div>
           <div>
             <label
+              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
               htmlFor="acceptation-commentaire"
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
             >
               Commentaire
             </label>
@@ -2553,15 +2574,15 @@ export function CollecteDetailPanel({
           onSubmit={(e) => void handleModifierNbCamions(e)}
           className="space-y-4"
         >
-          <p className="text-sm text-savr-neutral-500">
+          <Text>
             L&apos;adapter crée N tournées (1 par camion). Réduire N à moins
             d&apos;1 h de la mission est bloqué (alerte Ops). Non modifiable sur
             un statut terminal.
-          </p>
+          </Text>
           <div>
             <label
+              className="text-sm text-savr-neutral-700 mb-1 block font-medium"
               htmlFor="nb-camions-input"
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
             >
               Nombre de camions
             </label>

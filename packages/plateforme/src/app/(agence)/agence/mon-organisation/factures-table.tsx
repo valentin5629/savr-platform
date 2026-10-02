@@ -4,6 +4,7 @@ import { fmtEuro } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import { Text } from '@/components/ui/text';
 
 export interface FactureAgence {
   id: string;
@@ -60,7 +61,7 @@ export function FacturesAgenceTable({
       columns={COLONNES}
       data={factures}
       getRowId={(f) => f.id}
-      empty={<p className="text-sm text-savr-neutral-500">Aucune facture.</p>}
+      empty={<Text>Aucune facture.</Text>}
     />
   );
 }

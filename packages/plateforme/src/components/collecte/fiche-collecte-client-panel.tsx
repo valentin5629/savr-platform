@@ -36,6 +36,8 @@ import {
 } from '@/components/collecte/fiche-blocs';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
+import { Text } from '@/components/ui/text';
+import { fmtPax } from '@/lib/format';
 
 // Pop-up fiche collecte COMMUN aux rôles clients — traiteur (§06.04), agence
 // (§06.11) et gestionnaire de lieux (§06.05) — refonte Val 2026-09-29, au
@@ -262,10 +264,7 @@ export function FicheCollecteClientPanel({
           },
           {
             icon: Users,
-            texte:
-              evt?.pax != null
-                ? `${new Intl.NumberFormat('fr-FR').format(evt.pax)} pax`
-                : '— pax',
+            texte: evt?.pax != null ? fmtPax(evt.pax) : '— pax',
           },
         ]}
         statut={<FriseStatutClient statut={c.statut} />}
@@ -431,11 +430,11 @@ export function FicheCollecteClientPanel({
         onClose={() => setAnnulOpen(false)}
       >
         <div className="space-y-4">
-          <p className="text-sm text-savr-neutral-500">
+          <Text>
             {demande
               ? 'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.'
               : 'Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
-          </p>
+          </Text>
           {c.type === 'anti_gaspi' && (
             <p
               data-testid="mention-credit-ag"
@@ -487,10 +486,10 @@ export function FicheCollecteClientPanel({
         onClose={() => setSiretOpen(false)}
       >
         <div className="space-y-3" data-testid="modal-siret">
-          <p className="text-sm text-savr-neutral-500">
+          <Text>
             Le SIRET du traiteur opérationnel est requis pour finaliser le
             bordereau Cerfa.
-          </p>
+          </Text>
           <FormField
             label="SIRET"
             htmlFor="fiche-siret-traiteur"

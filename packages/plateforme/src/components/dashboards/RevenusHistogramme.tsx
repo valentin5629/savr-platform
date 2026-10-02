@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { ChartTooltip } from '@/components/ui/chart-tooltip';
+import { fmtEuro } from '@/lib/format';
 
 interface KpiAdminRow {
   mois: string;
@@ -101,7 +105,7 @@ export function RevenusHistogramme({
     if (toggle === 'montant')
       return v >= 1000
         ? `${(v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} k€`
-        : `${v.toLocaleString('fr-FR')} €`;
+        : fmtEuro(v, 0);
     return v.toLocaleString('fr-FR');
   };
 
@@ -125,9 +129,9 @@ export function RevenusHistogramme({
   return (
     <div className={className} data-testid="revenus-histogramme">
       <div className="mb-4 flex items-center justify-between gap-4">
-        <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+        <Heading level={3} weight="extrabold" className="tracking-[-0.01em]">
           Revenus 12 mois glissants
-        </h3>
+        </Heading>
         {/* Bascule montant/nombre — segmented control DS (§5.4) */}
         <div className="inline-flex overflow-hidden rounded-savr-md border border-savr-neutral-300 text-xs font-semibold">
           <button
@@ -154,13 +158,17 @@ export function RevenusHistogramme({
         {/* Axe Y — graduations « rondes » alignées sur les lignes de repère. */}
         <div className="relative h-[200px] w-12 shrink-0">
           {gridValues.map((v) => (
-            <span
+            <Text
+              as="span"
+              variant="hint"
+              size="3xs"
+              tone="faint"
+              className="absolute right-0 -translate-y-1/2 pr-1 tabular-nums"
               key={v}
-              className="absolute right-0 -translate-y-1/2 pr-1 text-[10px] tabular-nums text-savr-neutral-400"
               style={{ bottom: `${(v / maxVal) * 100}%` }}
             >
               {fmtAxis(v)}
-            </span>
+            </Text>
           ))}
         </div>
 
@@ -199,13 +207,18 @@ export function RevenusHistogramme({
                     {/* Tooltip valeurs au survol — surface claire DS, calquée sur
                         les graphes cockpit (EvolutionZdChart) : ZD, AG et total
                         formatés selon la bascule montant/nombre. */}
-                    <div
+                    <ChartTooltip
+                      className="bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap text-left opacity-0 transition-opacity duration-savr-fast group-hover:opacity-100"
                       role="tooltip"
-                      className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 text-left opacity-0 shadow-savr-md transition-opacity duration-savr-fast group-hover:opacity-100"
                     >
-                      <div className="mb-1 text-[11px] font-semibold text-savr-neutral-500">
+                      <Text
+                        as="div"
+                        variant="hint"
+                        size="2xs"
+                        className="mb-1 font-semibold"
+                      >
                         {label}
-                      </div>
+                      </Text>
                       <div className="flex items-center justify-between gap-5 text-[13px]">
                         <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
                           <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-success" />
@@ -232,7 +245,7 @@ export function RevenusHistogramme({
                           {fmtVal(total)}
                         </span>
                       </div>
-                    </div>
+                    </ChartTooltip>
                     {agVal > 0 && (
                       <div
                         className="w-full rounded-t-savr-sm bg-savr-accent-500"
@@ -259,22 +272,25 @@ export function RevenusHistogramme({
           {/* Libellés des mois — alignés sous les barres, hors surface traçante. */}
           <div className="mt-1 flex gap-1">
             {moisSet.map((mois) => (
-              <span
+              <Text
+                as="span"
+                variant="hint"
+                size="3xs"
+                className="flex-1 text-center"
                 key={mois}
-                className="flex-1 text-center text-[10px] text-savr-neutral-500"
               >
                 {new Date(mois).toLocaleDateString('fr-FR', {
                   timeZone: 'Europe/Paris',
                   month: 'short',
                   year: '2-digit',
                 })}
-              </span>
+              </Text>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="mt-3 flex gap-4 text-xs text-savr-neutral-500">
+      <Text as="div" variant="hint" className="mt-3 flex gap-4">
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-success" />
           Zéro déchet
@@ -283,7 +299,7 @@ export function RevenusHistogramme({
           <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-accent-500" />
           Anti-gaspi
         </span>
-      </div>
+      </Text>
     </div>
   );
 }

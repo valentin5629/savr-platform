@@ -37,6 +37,7 @@ import {
 import { formatDateHeure } from '@/lib/format-date-collecte';
 import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
 import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
+import { Text } from '@/components/ui/text';
 
 // Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
 const STATUTS_PROGRAMMEES = ['programmee', 'validee', 'en_cours'];
@@ -156,12 +157,12 @@ function KpiTile({
         <div className="text-2xl font-extrabold leading-none tracking-tight text-savr-neutral-900 tabular-nums">
           {count}
         </div>
-        <div className="mt-1 text-sm font-bold leading-tight text-savr-neutral-800">
+        <Text as="div" tone="strong" className="mt-1 font-bold leading-tight">
           {label}
-        </div>
-        <div className="text-xs font-semibold leading-tight text-savr-neutral-500">
+        </Text>
+        <Text as="div" variant="hint" className="font-semibold leading-tight">
           {sublabel}
-        </div>
+        </Text>
       </div>
       <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-savr-neutral-300" />
     </button>
@@ -758,7 +759,7 @@ export default function CollectesPage() {
 
         {/* Booléens — case DS (§6 Checkbox), cible 44px mobile */}
         <div className="flex flex-wrap gap-x-4 px-2">
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
+          <label className="text-sm text-savr-neutral-700 flex min-h-11 cursor-pointer items-center gap-2 sm:min-h-9">
             <Checkbox
               checked={infoIncomplete}
               onCheckedChange={(v) => {
@@ -768,7 +769,7 @@ export default function CollectesPage() {
             />
             Info incomplète
           </label>
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
+          <label className="text-sm text-savr-neutral-700 flex min-h-11 cursor-pointer items-center gap-2 sm:min-h-9">
             <Checkbox
               checked={rapportNonConsulte}
               onCheckedChange={(v) => {
@@ -797,9 +798,9 @@ export default function CollectesPage() {
         initialColumnVisibility={COLONNES_MASQUEES[tab]}
         toolbar={
           !loading && total > 0 ? (
-            <span className="text-sm text-savr-neutral-500">
+            <Text as="span">
               {total} collecte{total > 1 ? 's' : ''}
-            </span>
+            </Text>
           ) : null
         }
         onRowClick={(c) => openCollecte(c.id)}

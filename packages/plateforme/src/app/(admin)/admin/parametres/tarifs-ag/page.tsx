@@ -15,6 +15,8 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { formatDateParis, jourParis } from '@savr/shared/src/temps/index.js';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface TarifPackAG {
   id: string;
@@ -221,13 +223,13 @@ export default function TarifsPacksAGPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-savr-primary-950">
+          <Heading level={1} weight="semibold" tone="primary-deep">
             Tarifs packs AG
-          </h1>
-          <p className="text-sm text-savr-neutral-500 mt-1">
+          </Heading>
+          <Text className="mt-1">
             Tarifs actifs par type de pack. La modification ferme la ligne
             précédente et ouvre une nouvelle version.
-          </p>
+          </Text>
         </div>
         {canEdit && <Button onClick={() => openModal()}>Nouveau tarif</Button>}
       </div>
@@ -239,8 +241,17 @@ export default function TarifsPacksAGPage() {
           <Card key={type} className="p-5">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h3 className="font-medium">{label}</h3>
-                <p className="text-xs text-savr-neutral-400 mt-0.5">{type}</p>
+                <Heading
+                  level={3}
+                  size="inherit"
+                  weight="medium"
+                  tone="inherit"
+                >
+                  {label}
+                </Heading>
+                <Text variant="faint" className="mt-0.5">
+                  {type}
+                </Text>
               </div>
               {tarif ? (
                 <Badge variant="success" className="text-xs">
@@ -490,11 +501,7 @@ export default function TarifsPacksAGPage() {
           data={hist.rows}
           getRowId={(r) => r.id}
           loading={hist.loading}
-          empty={
-            <p className="text-sm text-savr-neutral-500">
-              Aucune version enregistrée.
-            </p>
-          }
+          empty={<Text>Aucune version enregistrée.</Text>}
         />
       </Modal>
     </div>

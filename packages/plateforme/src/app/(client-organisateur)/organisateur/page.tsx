@@ -10,11 +10,13 @@ import {
   type DashboardFilters,
 } from '@/components/dashboards/index.js';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
-import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import { StatCard } from '@/components/ui/stat-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 // §11 §7 — Dashboard client_organisateur : impact RSE, lecture seule.
 // Pas de données financières, pas de benchmark (le rôle n'a aucun intérêt à se comparer).
@@ -51,7 +53,7 @@ function Co2Display({ kg }: { kg: number }) {
 /**
  * Dashboard client_organisateur (§11 §7) — « Mon impact RSE », lecture seule,
  * ultra-simple, orienté reporting ESG : bandeau YTD + cadrans par onglet + détail
- * bilan carbone ABC repliable. Décliné en Cockpit (R24c) = cartes `KpiCockpitCard`
+ * bilan carbone ABC repliable. Décliné en Cockpit (R24c) = cartes `StatCard`
  * (le chrome data-viz partagé), en conservant à l'identique les données et la
  * structure §11 §7 (pas de benchmark ni de Top listes : ce rôle n'en a pas).
  */
@@ -122,9 +124,9 @@ export default function ClientOrganisateurDashboardPage() {
 
   return (
     <div className="space-y-6" data-testid="organisateur-dashboard">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
+      <Heading level={1} tone="primary">
         Mon impact RSE
-      </h1>
+      </Heading>
 
       {/* Bandeau de tête — synthèse RSE annuelle (YTD), commun aux 2 onglets */}
       <Card data-testid="organisateur-bandeau-ytd">
@@ -136,22 +138,22 @@ export default function ClientOrganisateurDashboardPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <KpiCockpitCard
+            <StatCard
               label="Événements collectés"
               value={ytdEvenements}
               dotColor={KPI_DOT.navy}
             />
-            <KpiCockpitCard
+            <StatCard
               label="CO₂e évité (total)"
               value={<Co2Display kg={ytdCo2Evite} />}
               dotColor={KPI_DOT.green}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Déchets détournés (ZD)"
               value={<TonnageDisplay kg={ytdKgZd} />}
               dotColor={KPI_DOT.navy2}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas détournés (AG)"
               value={ytdRepasAg}
               dotColor={KPI_DOT.accent}
@@ -170,7 +172,7 @@ export default function ClientOrganisateurDashboardPage() {
       <CollecteTypeTabs value={tab} onChange={setTab} />
 
       {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
+        <Text>Chargement…</Text>
       ) : nbCollectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (
@@ -179,25 +181,25 @@ export default function ClientOrganisateurDashboardPage() {
             className="grid grid-cols-2 gap-4 lg:grid-cols-4"
             data-testid="organisateur-kpi-zd"
           >
-            <KpiCockpitCard
+            <StatCard
               label="Événements ZD"
               value={nbEvenements}
               dotColor={KPI_DOT.navy}
               href="/organisateur/collectes?type=zero_dechet"
             />
-            <KpiCockpitCard
+            <StatCard
               label="Déchets détournés"
               value={<TonnageDisplay kg={tonnage} />}
               dotColor={KPI_DOT.navy2}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Taux de recyclage"
               value={taux != null ? fmtTaux(taux) : '—'}
               unit={taux != null ? '%' : undefined}
               dotColor={KPI_DOT.green}
             />
             {/* CO₂ évité en headline (§11 §7, refonte 2026-06-04 Sujet 3) */}
-            <KpiCockpitCard
+            <StatCard
               label="CO₂ évité"
               value={<Co2Display kg={co2Evite} />}
               dotColor={KPI_DOT.green}
@@ -222,17 +224,17 @@ export default function ClientOrganisateurDashboardPage() {
                 className="grid grid-cols-1 gap-4 md:grid-cols-3"
                 data-testid="organisateur-co2-abc"
               >
-                <KpiCockpitCard
+                <StatCard
                   label="CO₂ induit (A)"
                   value={<Co2Display kg={co2Induit} />}
                   dotColor={KPI_DOT.navy3}
                 />
-                <KpiCockpitCard
+                <StatCard
                   label="CO₂ net"
                   value={<Co2Display kg={co2Net} />}
                   dotColor={KPI_DOT.navy3}
                 />
-                <KpiCockpitCard
+                <StatCard
                   label="Énergie primaire évitée"
                   value={`${energie.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} kWh`}
                   dotColor={KPI_DOT.navy3}
@@ -246,18 +248,18 @@ export default function ClientOrganisateurDashboardPage() {
           className="grid grid-cols-2 gap-4 lg:grid-cols-4"
           data-testid="organisateur-kpi-ag"
         >
-          <KpiCockpitCard
+          <StatCard
             label="Événements AG"
             value={nbEvenements}
             dotColor={KPI_DOT.navy}
             href="/organisateur/collectes?type=anti_gaspi"
           />
-          <KpiCockpitCard
+          <StatCard
             label="Repas détournés"
             value={repas}
             dotColor={KPI_DOT.accent}
           />
-          <KpiCockpitCard
+          <StatCard
             label="CO₂e évité"
             value={<Co2Display kg={co2Evite} />}
             dotColor={KPI_DOT.green}

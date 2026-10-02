@@ -7,6 +7,7 @@ import { MapPin, TriangleAlert } from 'lucide-react';
 import { PageHero } from '@/components/ui/page-hero';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Text } from '@/components/ui/text';
 
 interface LieuRow {
   id: string;
@@ -61,9 +62,9 @@ export default function GestionnaireLieuxPage() {
       render: (l) => (
         <div>
           <div>{l.adresse_acces ?? '—'}</div>
-          <div className="text-xs text-savr-neutral-500">
+          <Text as="div" variant="hint">
             {[l.code_postal, l.ville].filter(Boolean).join(' ')}
-          </div>
+          </Text>
         </div>
       ),
     },

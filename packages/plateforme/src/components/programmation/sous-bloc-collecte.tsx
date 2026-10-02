@@ -9,6 +9,8 @@ import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/ui/form-field';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 export interface CollecteFormData {
   type: 'zd' | 'ag';
@@ -60,9 +62,9 @@ export function SousBlocCollecte({
         className,
       )}
     >
-      <h3 className="font-semibold text-savr-neutral-900">
+      <Heading level={3} size="inherit">
         Collecte {TYPE_LABELS[type]}
-      </h3>
+      </Heading>
 
       {type === 'ag' && pack && (
         <div>
@@ -126,9 +128,9 @@ export function SousBlocCollecte({
           placeholder="Instructions spécifiques, accès, matériel…"
           className="resize-none"
         />
-        <p className="mt-1 text-xs text-savr-neutral-400 text-right">
+        <Text variant="faint" className="mt-1 text-right">
           {data.informations_supplementaires.length}/1000
-        </p>
+        </Text>
       </FormField>
     </div>
   );

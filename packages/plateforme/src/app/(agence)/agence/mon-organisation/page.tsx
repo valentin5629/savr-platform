@@ -4,6 +4,7 @@ import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FacturesAgenceTable } from './factures-table';
 import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
+import { Heading } from '@/components/ui/heading';
 
 const AGENCE_ROLES = ['agence'] as const;
 
@@ -46,9 +47,9 @@ export default async function MonOrganisationAgencePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
+      <Heading level={1} tone="primary">
         Mon organisation
-      </h1>
+      </Heading>
 
       <InfosLegalesOrganisation urlProfil="/api/v1/agence/mon-organisation/profil" />
 

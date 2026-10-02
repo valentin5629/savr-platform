@@ -8,6 +8,8 @@ import { use } from 'react';
 import { IconButton } from '@/components/ui/icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HistoriqueCollectesTable } from '@/components/collecte/historique-collectes-table';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface TraiteurDetail {
   id: string;
@@ -57,12 +59,8 @@ export default function TraiteurDetailPage({
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading)
-    return <p className="text-sm text-savr-neutral-500">Chargement…</p>;
-  if (notFound)
-    return (
-      <p className="text-sm text-savr-neutral-500">Traiteur non trouvé.</p>
-    );
+  if (loading) return <Text>Chargement…</Text>;
+  if (notFound) return <Text>Traiteur non trouvé.</Text>;
   if (!traiteur) return null;
 
   const s = traiteur.stats_12m;
@@ -84,9 +82,9 @@ export default function TraiteurDetailPage({
               className="h-10 w-10 rounded-full object-cover"
             />
           )}
-          <h1 className="text-2xl font-bold text-savr-primary-800">
+          <Heading level={1} tone="primary">
             {traiteur.nom}
-          </h1>
+          </Heading>
         </div>
       </div>
 
@@ -96,17 +94,23 @@ export default function TraiteurDetailPage({
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
           <div>
-            <div className="text-xs text-savr-neutral-500">Collectes ZD</div>
+            <Text as="div" variant="hint">
+              Collectes ZD
+            </Text>
             <div className="text-xl font-bold">{s.nb_collectes_zd}</div>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">Tonnage ZD</div>
+            <Text as="div" variant="hint">
+              Tonnage ZD
+            </Text>
             <div className="text-xl font-bold">
               {s.tonnage_zd_kg > 0 ? fmtKg(s.tonnage_zd_kg) : '—'}
             </div>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">Taux recyclage</div>
+            <Text as="div" variant="hint">
+              Taux recyclage
+            </Text>
             <div className="text-xl font-bold">
               {s.taux_recyclage_moyen != null
                 ? fmtPct(s.taux_recyclage_moyen)
@@ -114,11 +118,15 @@ export default function TraiteurDetailPage({
             </div>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">Collectes AG</div>
+            <Text as="div" variant="hint">
+              Collectes AG
+            </Text>
             <div className="text-xl font-bold">{s.nb_collectes_ag}</div>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">Repas donnés</div>
+            <Text as="div" variant="hint">
+              Repas donnés
+            </Text>
             <div className="text-xl font-bold">
               {s.repas_donnes > 0 ? s.repas_donnes : '—'}
             </div>

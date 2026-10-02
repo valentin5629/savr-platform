@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Search, User, PlusCircle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Text } from '@/components/ui/text';
 
 export interface ContactOption {
   id: string;
@@ -97,14 +98,14 @@ export function ContactCombobox({
 
           <ul role="listbox" className="max-h-52 overflow-y-auto py-1">
             {loading && (
-              <li className="px-3 py-2 text-sm text-savr-neutral-400">
+              <Text as="li" tone="faint" className="px-3 py-2">
                 Chargement…
-              </li>
+              </Text>
             )}
             {!loading && options.length === 0 && (
-              <li className="px-3 py-2 text-sm text-savr-neutral-400">
+              <Text as="li" tone="faint" className="px-3 py-2">
                 Aucun contact trouvé
-              </li>
+              </Text>
             )}
             {options.map((c) => (
               <li
@@ -133,10 +134,10 @@ export function ContactCombobox({
                   <span className="font-medium block">
                     {c.prenom} {c.nom}
                   </span>
-                  <span className="text-xs text-savr-neutral-500">
+                  <Text as="span" variant="hint">
                     {c.telephone}
                     {c.fonction ? ` · ${c.fonction}` : ''}
-                  </span>
+                  </Text>
                 </span>
               </li>
             ))}

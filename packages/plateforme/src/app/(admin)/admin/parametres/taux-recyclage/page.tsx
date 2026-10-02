@@ -13,6 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface TauxRecyclage {
   id: string;
@@ -208,9 +210,7 @@ export default function TauxRecyclagePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Recycle className="h-6 w-6 text-savr-neutral-600" />
-        <h1 className="text-2xl font-bold text-savr-neutral-900">
-          Paramètres — Taux de recyclage
-        </h1>
+        <Heading level={1}>Paramètres — Taux de recyclage</Heading>
       </div>
 
       {!canEdit && <OpsReadOnlyBanner />}
@@ -226,9 +226,9 @@ export default function TauxRecyclagePage() {
           {filieres.map((f) => (
             <Card key={f.id} className="p-6 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-savr-neutral-800">
+                <Heading level={3} size="inherit" tone="strong">
                   {f.nom_filiere}
-                </h3>
+                </Heading>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -254,19 +254,13 @@ export default function TauxRecyclagePage() {
                 <span className="text-3xl font-bold text-savr-neutral-900">
                   {fmtPct(f.taux_captation * 100, 1)}
                 </span>
-                <span className="text-sm text-savr-neutral-500 mb-1">
+                <Text as="span" className="mb-1">
                   taux de captation
-                </span>
+                </Text>
               </div>
-              {f.prestataire && (
-                <p className="text-sm text-savr-neutral-500">
-                  Prestataire : {f.prestataire}
-                </p>
-              )}
+              {f.prestataire && <Text>Prestataire : {f.prestataire}</Text>}
               {f.source_donnee && (
-                <p className="text-xs text-savr-neutral-400">
-                  Source : {f.source_donnee}
-                </p>
+                <Text variant="faint">Source : {f.source_donnee}</Text>
               )}
             </Card>
           ))}
@@ -345,11 +339,7 @@ export default function TauxRecyclagePage() {
           data={hist.rows}
           getRowId={(r) => r.id}
           loading={hist.loading}
-          empty={
-            <p className="text-sm text-savr-neutral-500">
-              Aucune modification enregistrée.
-            </p>
-          }
+          empty={<Text>Aucune modification enregistrée.</Text>}
         />
       </Modal>
     </div>

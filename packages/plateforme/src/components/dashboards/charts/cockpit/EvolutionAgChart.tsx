@@ -15,6 +15,9 @@ import {
   GRID_BASELINE,
   WHITE,
 } from './palette';
+import { Text } from '@/components/ui/text';
+import { ChartTooltip } from '@/components/ui/chart-tooltip';
+import { ToggleChip } from '@/components/ui/toggle-chip';
 
 // EvolutionAgChart (Cockpit R24) — BARRES verticales des repas donnés (orange,
 // axe gauche) + courbe du ratio repas/pax (ligne navy pointillée, axe droit).
@@ -85,48 +88,36 @@ const EvolutionAgChart = React.forwardRef<
       title="Évolution Anti-Gaspi"
       subtitle="Repas donnés · ratio repas / pax"
       headerRight={
-        <div className="flex gap-2 text-[11px] font-semibold text-savr-neutral-600">
-          <button
-            type="button"
+        <Text
+          as="div"
+          variant="hint"
+          size="2xs"
+          tone="soft"
+          className="flex gap-2 font-semibold"
+        >
+          <ToggleChip
+            variant="bare"
+            pressed={!hidden.has('repas')}
             onClick={() => toggle('repas')}
-            aria-pressed={!hidden.has('repas')}
-            className="-my-3 flex min-h-[44px] items-center gap-1.5 rounded-savr-full px-1.5 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-            style={{ opacity: hidden.has('repas') ? 0.4 : 1 }}
+            swatch={{ color: REPAS_COLOR }}
           >
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                background: REPAS_COLOR,
-                borderRadius: 2,
-              }}
-            />
             Repas
-          </button>
-          <button
-            type="button"
+          </ToggleChip>
+          <ToggleChip
+            variant="bare"
+            pressed={!hidden.has('ratio')}
             onClick={() => toggle('ratio')}
-            aria-pressed={!hidden.has('ratio')}
-            className="-my-3 flex min-h-[44px] items-center gap-1.5 rounded-savr-full px-1.5 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-            style={{ opacity: hidden.has('ratio') ? 0.4 : 1 }}
+            swatch={{ color: RATIO_COLOR, shape: 'line' }}
           >
-            <span
-              style={{
-                width: 14,
-                height: 3,
-                background: RATIO_COLOR,
-                borderRadius: 2,
-              }}
-            />
             Ratio/pax
-          </button>
-        </div>
+          </ToggleChip>
+        </Text>
       }
     >
       {empty ? (
-        <p className="py-10 text-center text-sm text-savr-neutral-500">
+        <Text className="py-10 text-center">
           Aucune collecte Anti-Gaspi sur la période.
-        </p>
+        </Text>
       ) : (
         <div className="relative">
           <svg
@@ -286,13 +277,16 @@ const EvolutionAgChart = React.forwardRef<
                 transform: `${toRight ? 'translateX(0)' : 'translateX(-100%)'} translateY(-50%)`,
               };
               return (
-                <div
-                  className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
-                  style={anchorStyle}
-                >
-                  <div className="mb-1.5 text-[11px] font-bold text-savr-neutral-900">
+                <ChartTooltip style={anchorStyle}>
+                  <Text
+                    as="div"
+                    variant="hint"
+                    size="2xs"
+                    tone="ink"
+                    className="mb-1.5 font-bold"
+                  >
                     {formatPeriode(p.periode, granularite)}
-                  </div>
+                  </Text>
                   <div className="flex flex-col gap-1 text-[11px] tabular-nums">
                     <div className="flex items-center justify-between gap-5">
                       <span className="flex items-center gap-1.5 text-savr-neutral-600">
@@ -333,7 +327,7 @@ const EvolutionAgChart = React.forwardRef<
                       </span>
                     </div>
                   </div>
-                </div>
+                </ChartTooltip>
               );
             })()}
         </div>

@@ -51,6 +51,8 @@ import {
   PackAjustementsHistorique,
 } from './onglets';
 import { ClientInviteUserModal } from './invite-user-modal';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface OrgDetail {
   id: string;
@@ -251,9 +253,14 @@ function BlocHeader({
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
         <Icon className="h-[18px] w-[18px]" />
       </span>
-      <h2 className="truncate text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+      <Heading
+        level={2}
+        size="base"
+        weight="extrabold"
+        className="truncate tracking-[-0.01em]"
+      >
         {title}
-      </h2>
+      </Heading>
     </div>
   );
 }
@@ -495,7 +502,7 @@ export default function ClientFichePage({
         {/* Informations légales */}
         <TabsContent value="informations" className="space-y-4">
           <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-            <Card className="p-6 space-y-4">
+            <Card padding="lg" className="space-y-4">
               <BlocHeader icon={Building2} title="Informations légales" />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <div>
@@ -523,12 +530,10 @@ export default function ClientFichePage({
               </dl>
             </Card>
 
-            <Card className="p-6 space-y-4">
+            <Card padding="lg" className="space-y-4">
               <BlocHeader icon={CreditCard} title="Entités de facturation" />
               {org.entites_facturation.length === 0 ? (
-                <p className="text-sm text-savr-neutral-500">
-                  Aucune entité de facturation.
-                </p>
+                <Text>Aucune entité de facturation.</Text>
               ) : (
                 <div className="space-y-1">
                   {org.entites_facturation.map((ef) => (
@@ -539,9 +544,9 @@ export default function ClientFichePage({
                       <span className="flex-1 text-sm font-medium">
                         {ef.raison_sociale}
                       </span>
-                      <span className="font-mono text-sm text-savr-neutral-500">
+                      <Text as="span" className="font-mono">
                         {ef.siret}
-                      </span>
+                      </Text>
                       <Badge
                         variant={variantVerificationSiret(
                           ef.siret_verification,
@@ -563,21 +568,21 @@ export default function ClientFichePage({
 
             {/* Domaines email — fusionnés dans « Informations légales »
                 (décision Val 2026-07-03, onglet Domaines supprimé). */}
-            <Card className="p-6 space-y-4 md:col-span-2">
+            <Card padding="lg" className="space-y-4 md:col-span-2">
               <BlocHeader icon={Tag} title="Domaines email" />
               {org.organisations_domaines_email.length === 0 ? (
-                <p className="text-sm text-savr-neutral-500">
-                  Aucun domaine whitelisté pour cette organisation.
-                </p>
+                <Text>Aucun domaine whitelisté pour cette organisation.</Text>
               ) : (
                 <ul className="flex flex-wrap gap-2">
                   {org.organisations_domaines_email.map(({ domaine }) => (
-                    <li
+                    <Text
+                      as="li"
+                      variant="body"
+                      className="rounded-savr-md bg-savr-neutral-50 px-3 py-1.5 font-mono"
                       key={domaine}
-                      className="rounded-savr-md bg-savr-neutral-50 px-3 py-1.5 font-mono text-sm text-savr-neutral-700"
                     >
                       @{domaine}
-                    </li>
+                    </Text>
                   ))}
                 </ul>
               )}
@@ -587,7 +592,7 @@ export default function ClientFichePage({
 
         {/* Utilisateurs */}
         <TabsContent value="users">
-          <Card className="p-6 space-y-4">
+          <Card padding="lg" className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <BlocHeader icon={Users} title="Utilisateurs" />
               <Button size="sm" onClick={() => setInviteOpen(true)}>
@@ -645,9 +650,16 @@ export default function ClientFichePage({
 
           {/* Pack actif */}
           {packActif ? (
-            <Card className="p-6">
+            <Card padding="lg">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-medium">Pack actif</h3>
+                <Heading
+                  level={3}
+                  size="inherit"
+                  weight="medium"
+                  tone="inherit"
+                >
+                  Pack actif
+                </Heading>
                 <div className="flex items-center gap-2">
                   <Badge variant="success">
                     {libelleTypePack(packActif.type_pack)}
@@ -697,7 +709,7 @@ export default function ClientFichePage({
               </div>
             </Card>
           ) : (
-            <Card className="p-6">
+            <Card padding="lg">
               <EmptyState
                 icon={<Package />}
                 title="Aucun pack actif"
@@ -708,8 +720,16 @@ export default function ClientFichePage({
 
           {/* Historique */}
           {org.packs_antgaspi.length > 0 && (
-            <Card className="p-6">
-              <h3 className="mb-4 font-medium">Historique des packs</h3>
+            <Card padding="lg">
+              <Heading
+                level={3}
+                size="inherit"
+                weight="medium"
+                tone="inherit"
+                className="mb-4"
+              >
+                Historique des packs
+              </Heading>
               <DataGrid
                 columns={COLONNES_PACKS}
                 data={org.packs_antgaspi}
@@ -919,11 +939,11 @@ export default function ClientFichePage({
             onSubmit={(e) => void submitAjuster(e)}
             className="space-y-4"
           >
-            <p className="text-sm text-savr-neutral-500">
+            <Text>
               Pack actif : <strong>{packActif.type_pack}</strong> —{' '}
               {packActif.credits_consommes} crédits consommés sur{' '}
               {packActif.credits_initiaux}.
-            </p>
+            </Text>
             <FormField
               label="Nouveau total de crédits initiaux"
               htmlFor="ajuster-credits"
@@ -1001,12 +1021,12 @@ export default function ClientFichePage({
             onSubmit={(e) => void submitAnnuler(e)}
             className="space-y-4"
           >
-            <p className="text-sm text-savr-neutral-500">
+            <Text>
               Le pack <strong>{packActif.type_pack}</strong> ({creditsRestants}{' '}
               crédit{creditsRestants !== 1 ? 's' : ''} restant
               {creditsRestants !== 1 ? 's' : ''}) sera annulé définitivement.
               Les crédits non consommés seront perdus.
-            </p>
+            </Text>
             <FormField
               label="Motif (≥ 10 caractères)"
               htmlFor="annuler-motif"

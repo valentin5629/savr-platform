@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 // ChartCard — conteneur commun des graphes Cockpit (R24, DS §5.2/§10) : fond
 // blanc, bordure portante neutral-200, radius 12px (lg), ombre sobre, padding 6.
@@ -29,14 +31,18 @@ const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>(
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
             {title && (
-              <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+              <Heading
+                level={3}
+                weight="extrabold"
+                className="tracking-[-0.01em]"
+              >
                 {title}
-              </h3>
+              </Heading>
             )}
             {subtitle && (
-              <p className="mt-0.5 text-[13px] text-savr-neutral-500">
+              <Text size="xs-plus" className="mt-0.5">
                 {subtitle}
-              </p>
+              </Text>
             )}
           </div>
           {headerRight && <div className="shrink-0">{headerRight}</div>}

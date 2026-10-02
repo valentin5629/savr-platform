@@ -31,6 +31,7 @@ import {
   OngletAvecErreurs,
 } from '@/components/collecte/fiche-blocs';
 import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
+import { Text } from '@/components/ui/text';
 
 // Modale création/édition d'un lieu — remplace la fiche + les pages nouveau/modifier
 // (point unique, ouverte depuis la liste /admin/lieux). En édition, les champs sont
@@ -258,8 +259,8 @@ function Interrupteur({
   return (
     // Toute la ligne est le libellé : zone cliquable de 44 px de haut (DS §10 Accessibilité).
     <label
+      className="text-sm text-savr-neutral-700 inline-flex min-h-11 cursor-pointer items-center gap-3 font-medium"
       htmlFor={id}
-      className="inline-flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-savr-neutral-700"
     >
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
       {label}
@@ -599,9 +600,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       )}
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
         {hydrating ? (
-          <p className="py-8 text-center text-sm text-savr-neutral-500">
-            Chargement du lieu…
-          </p>
+          <Text className="py-8 text-center">Chargement du lieu…</Text>
         ) : chargementEchoue ? (
           <AlertBar variant="err" role="alert">
             Erreur lors du chargement du lieu. Fermez la fiche et réessayez.
@@ -639,7 +638,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
               </TabsList>
 
               <TabsContent value="informations" className="space-y-4">
-                <Card className="space-y-4 p-5">
+                <Card padding="md" className="space-y-4">
                   <BlocHeader icon={Building2} title="Identité" />
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FormField
@@ -695,7 +694,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                   />
                 </Card>
 
-                <Card className="space-y-4 p-5">
+                <Card padding="md" className="space-y-4">
                   <BlocHeader icon={MapPin} title="Adresse" />
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <FormField
@@ -760,7 +759,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
               </TabsContent>
 
               <TabsContent value="acces" className="space-y-4">
-                <Card className="space-y-4 p-5">
+                <Card padding="md" className="space-y-4">
                   <BlocHeader icon={KeyRound} title="Accès au lieu" />
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <FormField
@@ -830,7 +829,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                   </FormField>
                 </Card>
 
-                <Card className="space-y-4 p-5">
+                <Card padding="md" className="space-y-4">
                   <BlocHeader icon={Truck} title="Capacité et contraintes" />
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <FormField
@@ -888,7 +887,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
                 {/* Photos — lecture seule (upload géré hors formulaire, stockage R2). */}
                 {photos.length > 0 && (
-                  <Card className="space-y-3 p-5">
+                  <Card padding="md" className="space-y-3">
                     <BlocHeader
                       icon={ImageIcon}
                       title={`Photos (${photos.length})`}
@@ -917,7 +916,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                   Ces informations ne sont jamais montrées aux clients
                   (traiteur, agence, gestionnaire, client organisateur).
                 </AlertBar>
-                <Card className="space-y-4 p-5">
+                <Card padding="md" className="space-y-4">
                   <BlocHeader icon={Lock} title="Réservé à l'équipe Savr" />
                   <FormField
                     label="Commentaire sur le lieu"
@@ -989,17 +988,17 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       Impossible de charger l&apos;activité du lieu.
                     </AlertBar>
                   ) : !activite ? (
-                    <p className="py-6 text-center text-sm text-savr-neutral-500">
+                    <Text className="py-6 text-center">
                       Chargement de l&apos;activité…
-                    </p>
+                    </Text>
                   ) : (
                     <>
-                      <Card className="space-y-4 p-5">
+                      <Card padding="md" className="space-y-4">
                         <BlocHeader icon={ChefHat} title="Traiteurs opérant" />
                         {activite.traiteurs.length === 0 ? (
-                          <p className="text-sm text-savr-neutral-500">
+                          <Text>
                             Aucune collecte sur ce lieu pour l&apos;instant.
-                          </p>
+                          </Text>
                         ) : (
                           <ul className="divide-y divide-savr-neutral-100 text-sm">
                             {activite.traiteurs.map((t) => (
@@ -1022,53 +1021,53 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         )}
                       </Card>
 
-                      <Card className="space-y-4 p-5">
+                      <Card padding="md" className="space-y-4">
                         <BlocHeader
                           icon={History}
                           title="Historique des modifications"
                         />
                         {activite.historique.length === 0 ? (
-                          <p className="text-sm text-savr-neutral-500">
+                          <Text>
                             Aucune modification enregistrée sur ce lieu.
-                          </p>
+                          </Text>
                         ) : (
                           <Timeline>
                             {activite.historique.map((h) => (
                               <TimelineItem key={h.id}>
-                                <p className="text-sm font-medium text-savr-neutral-800">
+                                <Text tone="strong" className="font-medium">
                                   {LIBELLE_ACTION[h.action] ?? h.action}
-                                </p>
+                                </Text>
                                 {h.champs.length > 0 ? (
-                                  <p className="text-sm text-savr-neutral-600">
+                                  <Text tone="soft">
                                     {h.champs
                                       .map((c) => LIBELLE_CHAMP[c] ?? c)
                                       .join(', ')}
-                                  </p>
+                                  </Text>
                                 ) : (
                                   h.action === 'UPDATE' && (
-                                    <p className="text-sm text-savr-neutral-500">
+                                    <Text>
                                       Aucun champ du lieu modifié (le
                                       gestionnaire rattaché a pu changer)
-                                    </p>
+                                    </Text>
                                   )
                                 )}
-                                <p className="text-xs text-savr-neutral-500">
+                                <Text variant="hint">
                                   {new Date(h.created_at).toLocaleString(
                                     'fr-FR',
                                     { timeZone: 'Europe/Paris' },
                                   )}
                                   {h.auteur ? ` · ${h.auteur}` : ''}
                                   {h.impersonation ? ' · (impersonation)' : ''}
-                                </p>
+                                </Text>
                               </TimelineItem>
                             ))}
                           </Timeline>
                         )}
                         {activite.historique_tronque && (
-                          <p className="text-xs text-savr-neutral-500">
+                          <Text variant="hint">
                             Seules les {activite.historique.length}{' '}
                             modifications les plus récentes sont affichées.
-                          </p>
+                          </Text>
                         )}
                       </Card>
                     </>

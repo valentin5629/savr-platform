@@ -2,6 +2,7 @@ import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
+import { Heading } from '@/components/ui/heading';
 
 const ORGANISATEUR_ROLES = ['client_organisateur'] as const;
 
@@ -13,7 +14,9 @@ export default async function MonProfilOrganisateurPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">Mon profil</h1>
+      <Heading level={1} tone="primary">
+        Mon profil
+      </Heading>
 
       <Card>
         <CardHeader>

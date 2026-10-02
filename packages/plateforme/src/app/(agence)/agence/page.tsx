@@ -18,7 +18,7 @@ import {
 } from '@/components/dashboards/index.js';
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
-import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import { StatCard } from '@/components/ui/stat-card';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
@@ -41,6 +41,9 @@ import {
 } from '@/lib/dashboards/cockpit-derive';
 import { Button } from '@/components/ui/button';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
+import { fmtPct } from '@/lib/format';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -58,7 +61,7 @@ type KpiRow = TraiteurKpiRow;
  * Dashboard agence (§06.11 — réplique stricte du §06.04 traiteur, périmètre
  * donneur d'ordre). Décliné en Cockpit (R24c) à parité de sens avec
  * traiteur/gestionnaire, en réutilisant la lib Cockpit figée : KPIs
- * `KpiCockpitCard`, Top listes `TopRankList` (drill-down lieux préservé),
+ * `StatCard`, Top listes `TopRankList` (drill-down lieux préservé),
  * évolution `EvolutionZd/AgChart`, donut `TonnagesDonut`, benchmark
  * `BenchmarkRadar`. Divergences forcées §06.11 conservées : 4 cartes ZD
  * (pas de Marge, diff #7) et pas de Bloc 7 « Top 5 commerciaux » (diff #8).
@@ -168,7 +171,7 @@ export default function AgenceDashboardPage() {
   // ── Top listes (Cockpit TopRankList) — colonnes §06.04 préservées via `secondary`. ──
   const nbColl = (n: number) => `${fmtInt(n)} collecte${n > 1 ? 's' : ''}`;
   const tauxStr = (t: number | null) =>
-    t != null ? `${fmtDec(t, 1)} % recyclage` : 'taux n/d';
+    t != null ? `${fmtPct(t, 1)} recyclage` : 'taux n/d';
   const repasPaxStr = (r: number | null) =>
     r != null ? `${fmtDec(r, 2)} repas/pax` : 'repas/pax n/d';
   const topLieuxItems = (blocs?.topLieux ?? []).map((l) =>
@@ -226,12 +229,14 @@ export default function AgenceDashboardPage() {
 
   return (
     <div className="space-y-6" data-testid="agence-dashboard">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-savr-primary-800">Dashboard</h1>
-        <Button asChild>
-          <a href="/programmer/nouveau">Programmer un événement</a>
-        </Button>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        actions={
+          <Button asChild>
+            <a href="/programmer/nouveau">Programmer un événement</a>
+          </Button>
+        }
+      />
 
       <DashboardFilterBar
         storageKey="agence-dashboard"
@@ -241,17 +246,14 @@ export default function AgenceDashboardPage() {
 
       {/* Compteur « X collectes correspondent » (BL-P3-02) — parité gestionnaire. */}
       {!loading && filters && (
-        <p
-          data-testid="dashboard-collectes-count"
-          className="text-sm text-savr-neutral-500"
-        >
+        <Text data-testid="dashboard-collectes-count">
           {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
           {nbCollectes > 1 ? 'ent' : ''} à votre sélection
-        </p>
+        </Text>
       )}
 
       {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
+        <Text>Chargement…</Text>
       ) : nbCollectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (
@@ -261,14 +263,14 @@ export default function AgenceDashboardPage() {
             className="grid grid-cols-2 gap-4 lg:grid-cols-4"
             data-testid="agence-kpi-zd"
           >
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(nbCollectes)}
               dotColor={KPI_DOT.navy}
               variationPct={variationPct(nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Tonnage collecté"
               value={fmtMasse(tonnage).value}
               unit={fmtMasse(tonnage).unit}
@@ -276,7 +278,7 @@ export default function AgenceDashboardPage() {
               variationPct={variationPct(tonnage, prev.tonnage)}
               sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Taux de recyclage"
               value={taux != null ? fmtDec(taux, 1) : '—'}
               unit={taux != null ? '%' : undefined}
@@ -287,7 +289,7 @@ export default function AgenceDashboardPage() {
             />
             {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
                 mieux », §06.04 l.92). */}
-            <KpiCockpitCard
+            <StatCard
               label="kg/pax moyen"
               value={kgPax != null ? fmtDec(kgPax, 2) : '—'}
               unit={kgPax != null ? 'kg/pax' : undefined}
@@ -341,14 +343,14 @@ export default function AgenceDashboardPage() {
         <>
           {/* Bloc 1 — KPIs Cockpit AG (4 cartes, non cliquables) */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(nbCollectes)}
               dotColor={KPI_DOT.navy}
               variationPct={variationPct(nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas donnés"
               value={fmtInt(repas)}
               dotColor={KPI_DOT.accent}
@@ -356,14 +358,14 @@ export default function AgenceDashboardPage() {
               sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
               sparkColor={KPI_DOT.accent}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Pax cumulés"
               value={fmtInt(pax)}
               dotColor={KPI_DOT.navy2}
               variationPct={variationPct(pax, prev.pax)}
               sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas/pax moyen"
               value={pax > 0 ? fmtDec(repas / pax, 2) : '—'}
               dotColor={KPI_DOT.navy3}

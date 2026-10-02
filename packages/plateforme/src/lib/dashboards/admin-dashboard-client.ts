@@ -44,6 +44,7 @@ import {
   type TraiteurKpiRow,
 } from '@/lib/dashboards/cockpit-derive.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
 
 type AdminDbClient = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -246,5 +247,148 @@ export async function loadAdminDashboardClient(
       acteurLabel: 'Traiteur',
       topAssociations,
     },
+  };
+}
+
+// ─── Bloc 3 ZD — ligne de référence du radar, version Admin ─────────────────────
+
+/** Filtres de la ligne de référence (encart « Comparer avec » du radar). */
+export interface AdminBenchmarkFiltres {
+  /**
+   * Traiteurs OPÉRATIONNELS (`evenements.traiteur_operationnel_organisation_id`),
+   * même clé que le filtre « Traiteurs » du benchmark client et que le Top 5.
+   * ⚠ Pas la même règle que le PÉRIMÈTRE « Vous » (programmatrice OU opérateur,
+   * décision Val R24c) : un traiteur qui programme des événements opérés par un
+   * autre apparaît dans « Vous », pas dans la référence (point 4 de la divergence).
+   */
+  traiteurIds: string[];
+  lieuIds: string[];
+  typeEvtIds: string[];
+  tailleEvts: string[];
+}
+
+export interface AdminBenchmarkComparaison {
+  /** kg/pax par code de flux sur le périmètre de référence (Σ kg flux / Σ pax). */
+  kgParPaxParFlux: Record<string, number>;
+  /** Collectes clôturées ZD qui composent la référence (taille d'échantillon). */
+  nbCollectes: number;
+  /** Bornes de la période fixe 24 mois glissants (affichage). */
+  periode: { debut: string; fin: string };
+}
+
+/** Taille de page = plafond PostgREST `max_rows` (supabase/config.toml). */
+export const PAGE_REFERENCE = 1000;
+
+const SELECT_REFERENCE = `id, type, taux_recyclage, date_collecte,
+   evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
+     traiteur_operationnel_organisation_id),
+   collecte_flux(poids_reel_kg, flux_dechets(code))`;
+
+/**
+ * Ligne de référence du radar Admin (« Moyenne parc » paramétrable, décision Val
+ * 2026-10-02) : kg/pax par flux des collectes clôturées ZD du parc, sur la
+ * période fixe 24 mois glissants, restreint aux filtres reçus. Aucun filtre =
+ * tout le parc Savr.
+ *
+ * ⚠ Volontairement SANS k-anonymat : l'Admin voit déjà chaque organisation en
+ * clair (sélecteur de périmètre) ; masquer un segment ne protégerait rien et
+ * empêcherait la comparaison « un traiteur contre un autre ». La fonction SQL
+ * `f_benchmark_kg_pax_zd` (k ≥ 5 collectes et ≥ 3 acteurs) reste la seule source
+ * des dashboards CLIENTS, inchangée. Même formule que la ligne « Vous »
+ * (`kgParPaxParFluxFrom`) : les deux lignes se comparent à grain identique.
+ */
+export async function loadAdminBenchmarkComparaison(
+  admin: AdminDbClient,
+  filtres: AdminBenchmarkFiltres,
+): Promise<AdminBenchmarkComparaison> {
+  const periode = periodeBenchmark();
+  const traiteurIds = onlyUuids(filtres.traiteurIds);
+  const lieuIds = onlyUuids(filtres.lieuIds);
+  const typeEvtIds = onlyUuids(filtres.typeEvtIds);
+
+  // Pagination : PostgREST plafonne chaque réponse à `max_rows` (1 000,
+  // supabase/config.toml). Sans pages, la référence « parc entier » serait
+  // tronquée en silence au-delà — tri stable par id, pages jointes.
+  const toutes: BlocsCollecteRow[] = [];
+  for (let offset = 0; ; offset += PAGE_REFERENCE) {
+    let q = admin
+      .from('collectes')
+      .select(SELECT_REFERENCE)
+      .eq('statut', 'cloturee')
+      .eq('type', 'zero_dechet')
+      .gte('date_collecte', periode.debut)
+      .lte('date_collecte', periode.fin);
+    if (traiteurIds.length > 0)
+      q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
+    if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+    if (typeEvtIds.length > 0)
+      q = q.in('evenements.type_evenement_id', typeEvtIds);
+    const res = await q.order('id').range(offset, offset + PAGE_REFERENCE - 1);
+    if (res.error)
+      throw erreurInterne(
+        res.error,
+        'admin.dashboard_client.benchmark.reference',
+      );
+    const page = (res.data ?? []) as unknown as BlocsCollecteRow[];
+    toutes.push(...page);
+    if (page.length < PAGE_REFERENCE) break;
+  }
+
+  // Filtre taille (pax) en JS — même règle que le dashboard (parité §06.05).
+  const tailleEvts = filtres.tailleEvts;
+  const rows = toutes.filter((c) => {
+    if (tailleEvts.length === 0) return true;
+    const evt = firstOf(c.evenements);
+    return evt != null && tailleEvts.includes(tailleBracket(evt.pax ?? 0));
+  });
+
+  return {
+    kgParPaxParFlux: kgParPaxParFluxFrom(rows),
+    nbCollectes: rows.length,
+    periode,
+  };
+}
+
+export interface AdminBenchmarkFiltresOptions {
+  lieux: { id: string; nom: string }[];
+  traiteurs: { id: string; nom: string }[];
+  types: { id: string; libelle: string }[];
+}
+
+/**
+ * Options des filtres de la ligne de référence (encart « Comparer avec »), en
+ * service_role : lieux actifs du parc, traiteurs actifs non fantômes, types
+ * d'événements actifs — mêmes critères que `f_benchmark_lieux_parc` /
+ * `f_benchmark_traiteurs_parc` côté clients. Ces fonctions acceptent les rôles
+ * staff, mais lisent `auth.jwt()` : choix assumé de rester sur le client
+ * service_role (même client et même garde requireStaff que la référence,
+ * `organisations.nom` NOT NULL = libellé identique) au prix de 3 requêtes
+ * recopiées — alternative : `loadBenchmarkFiltres` sous la session du staff.
+ */
+export async function loadAdminBenchmarkFiltres(
+  admin: AdminDbClient,
+): Promise<AdminBenchmarkFiltresOptions> {
+  const [lieux, traiteurs, types] = await Promise.all([
+    admin.from('lieux').select('id, nom').neq('actif', false).order('nom'),
+    admin
+      .from('organisations')
+      .select('id, nom')
+      .eq('type', 'traiteur')
+      .neq('actif', false)
+      .neq('est_shadow', true)
+      .order('nom'),
+    admin
+      .from('types_evenements')
+      .select('id, libelle')
+      .eq('actif', true)
+      .order('ordre_affichage'),
+  ]);
+  const firstError = lieux.error ?? traiteurs.error ?? types.error;
+  if (firstError)
+    throw erreurInterne(firstError, 'admin.dashboard_client.benchmark.filtres');
+  return {
+    lieux: (lieux.data ?? []) as { id: string; nom: string }[],
+    traiteurs: (traiteurs.data ?? []) as { id: string; nom: string }[],
+    types: (types.data ?? []) as { id: string; libelle: string }[],
   };
 }

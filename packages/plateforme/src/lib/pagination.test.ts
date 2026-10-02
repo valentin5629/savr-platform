@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_PAGE_SIZE,
+  PAGE_MAX,
   PAGE_SIZE_MAX,
   lirePagination,
   nombreDePages,
@@ -17,6 +18,9 @@ describe('lib/pagination', () => {
     expect(parsePage(new URLSearchParams('page=0'))).toBe(1);
     expect(parsePage(new URLSearchParams('page=-3'))).toBe(1);
     expect(parsePage(new URLSearchParams('page=7'))).toBe(7);
+    expect(parsePage(new URLSearchParams('page=99999999999999999999'))).toBe(
+      PAGE_MAX,
+    );
   });
 
   it('parseLimit : défaut 50, plafond 100, invalide → défaut', () => {

@@ -7,11 +7,13 @@
 
 export const DEFAULT_PAGE_SIZE = 50;
 export const PAGE_SIZE_MAX = 100;
+/** Au-delà, l'offset dépasse ce que PostgREST sérialise (`Range: 5e+21-…` → 500) : page vide plutôt qu'une erreur. */
+export const PAGE_MAX = 1_000_000;
 
-/** Numéro de page demandé : entier ≥ 1 (défaut 1 si absent ou invalide). */
+/** Numéro de page demandé : entier dans [1, PAGE_MAX] (défaut 1 si absent ou invalide). */
 export function parsePage(searchParams: URLSearchParams): number {
   const n = parseInt(searchParams.get('page') ?? '', 10);
-  return Number.isFinite(n) && n >= 1 ? n : 1;
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, PAGE_MAX) : 1;
 }
 
 /**

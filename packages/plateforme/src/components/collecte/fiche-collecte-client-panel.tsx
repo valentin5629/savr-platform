@@ -27,7 +27,6 @@ import {
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
 import {
-  ACTION_DESTRUCTIVE_CONTOUR,
   BadgeTypeCollecte,
   dateLongueCapitalisee,
   EnTeteMention,
@@ -365,11 +364,10 @@ export function FicheCollecteClientPanel({
         <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
           {actions.annuler !== 'absent' && (
             <Button
-              variant="secondary"
+              variant="outline-destructive"
               data-testid="action-annuler"
               disabled={actions.annuler === 'grise'}
               title={actions.annuler === 'grise' ? motifGrise : undefined}
-              className={ACTION_DESTRUCTIVE_CONTOUR}
               onClick={() => {
                 setAnnulErreur(null);
                 setAnnulOpen(true);

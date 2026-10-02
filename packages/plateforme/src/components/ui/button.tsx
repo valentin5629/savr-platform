@@ -42,7 +42,7 @@ const buttonVariants = cva(
           'bg-savr-white border border-savr-error text-savr-error-strong hover:bg-savr-error-subtle active:bg-savr-error-subtle focus-visible:outline-savr-primary-500',
         // Avertissement en contour (action réversible mais engageante).
         'outline-warning':
-          'bg-savr-white border border-savr-warning text-savr-warning-strong hover:bg-savr-warning-subtle active:bg-savr-warning-subtle focus-visible:outline-savr-primary-500',
+          'bg-savr-white border border-savr-warning-strong text-savr-warning-strong hover:bg-savr-warning-subtle active:bg-savr-warning-subtle focus-visible:outline-savr-primary-500',
       },
       size: {
         // Cible tactile 44px sur mobile → 40px desktop (§5.1, §8, §10). `sm` reste

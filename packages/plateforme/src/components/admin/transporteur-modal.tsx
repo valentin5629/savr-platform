@@ -22,7 +22,6 @@ import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import {
-  ACTION_DESTRUCTIVE_CONTOUR,
   BlocHeader,
   EnTeteMention,
   EnTetePuce,
@@ -839,13 +838,11 @@ export function TransporteurModal({
           </Button>
           {isEdition &&
             (transporteur!.actif ? (
-              // Contour rouge, comme « Annuler la collecte » du pop-up collecte.
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline-destructive"
                 onClick={() => void handleToggleActif()}
                 disabled={submitting}
-                className={ACTION_DESTRUCTIVE_CONTOUR}
               >
                 Désactiver
               </Button>

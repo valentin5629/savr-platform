@@ -261,9 +261,9 @@ export default function MonOrganisationPage() {
       cell: ({ row: { original: u } }) =>
         u.actif && (
           <Button
-            variant="ghost"
+            variant="ghost-destructive"
             size="sm"
-            className="text-savr-error text-xs"
+            className="text-xs"
             onClick={() => handleDesactiver(u.id)}
           >
             Désactiver

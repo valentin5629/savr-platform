@@ -337,9 +337,9 @@ function EntitesCard({
             cell: ({ row: { original: e } }) =>
               !e.entite_par_defaut && (
                 <Button
-                  variant="ghost"
+                  variant="ghost-destructive"
                   size="sm"
-                  className="text-savr-error text-xs"
+                  className="text-xs"
                   onClick={() => remove(e.id)}
                 >
                   Supprimer
@@ -543,9 +543,9 @@ function DomainesCard({
                 <span>{d.domaine}</span>
                 {isManager && (
                   <Button
-                    variant="ghost"
+                    variant="ghost-destructive"
                     size="sm"
-                    className="text-savr-error text-xs"
+                    className="text-xs"
                     onClick={() => remove(d.id)}
                   >
                     Retirer
@@ -679,9 +679,9 @@ function EquipeTab({ userId }: { userId: string }) {
       cell: ({ row: { original: u } }) =>
         u.actif && (
           <Button
-            variant="ghost"
+            variant="ghost-destructive"
             size="sm"
-            className="text-savr-error text-xs"
+            className="text-xs"
             onClick={() => suspend(u.id)}
           >
             Suspendre

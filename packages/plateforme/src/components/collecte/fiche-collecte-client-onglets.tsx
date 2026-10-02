@@ -387,10 +387,9 @@ export function OngletLogistique({
                   sécurité) ?
                 </Text>
                 <Button
-                  variant="secondary"
+                  variant="outline-warning"
                   onClick={onDemanderUrgence}
                   disabled={urgence === 'envoi'}
-                  className="border-savr-warning-strong text-savr-warning-strong hover:bg-savr-white"
                 >
                   <BellRing className="h-4 w-4" aria-hidden="true" />
                   Demander les coordonnées en urgence

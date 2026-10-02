@@ -7,6 +7,7 @@ import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 // Panneau « Mon compte » RGPD (transverse, tous rôles) — câble les droits :
 //   · Art.16 Rectification  → PATCH /api/me/profil  (prénom / nom)
@@ -82,13 +83,16 @@ export function RgpdComptePanel({
     URL.revokeObjectURL(url);
   }
 
+  const { confirmer, dialogue } = useConfirm();
   async function demanderSuppression(): Promise<void> {
     if (
-      !window.confirm(
-        'Demander la suppression de votre compte ? Un administrateur Savr ' +
-          'traitera votre demande sous 48h ouvrées (anonymisation de vos ' +
-          'données personnelles ; les pièces comptables légales sont conservées).',
-      )
+      !(await confirmer({
+        title: 'Demander la suppression de votre compte ?',
+        children:
+          'Un administrateur Savr traitera votre demande sous 48h ouvrées (anonymisation de vos données personnelles ; les pièces comptables légales sont conservées).',
+        confirmLabel: 'Demander la suppression',
+        variant: 'destructive',
+      }))
     ) {
       return;
     }
@@ -110,6 +114,7 @@ export function RgpdComptePanel({
 
   return (
     <>
+      {dialogue}
       <Card>
         <CardHeader>
           <CardTitle>Informations personnelles</CardTitle>

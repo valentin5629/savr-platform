@@ -15,6 +15,7 @@ import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 type OrgTab = 'profil' | 'membres' | 'factures';
 
@@ -210,8 +211,16 @@ export default function MonOrganisationPage() {
     setInviting(false);
   }
 
+  const { confirmer, dialogue } = useConfirm();
   async function handleDesactiver(userId: string) {
-    if (!confirm('Désactiver ce membre ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Désactiver ce membre ?',
+        confirmLabel: 'Désactiver',
+        variant: 'destructive',
+      }))
+    )
+      return;
     await fetch(
       `/api/v1/gestionnaire/mon-organisation/users/${encodeURIComponent(userId)}`,
       {
@@ -281,6 +290,7 @@ export default function MonOrganisationPage() {
 
   return (
     <div className="space-y-6">
+      {dialogue}
       <Heading level={1} tone="primary">
         Mon organisation
       </Heading>

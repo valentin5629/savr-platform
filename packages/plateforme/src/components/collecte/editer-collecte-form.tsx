@@ -8,13 +8,12 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { TimePicker } from '@/components/ui/time-picker';
-import { Modal } from '@/components/ui/modal';
 import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { typeCollecteLabel } from '@/components/collecte/fiche-blocs';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
-import { FormActions } from '@/components/ui/form-actions';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface TypeEvenement {
   id: string;
@@ -401,43 +400,34 @@ export function EditerCollecteForm({
 
         {/* Modal de confirmation unique (§06.04 l.501-507) — empile les
             avertissements applicables avant la sauvegarde. */}
-        <Modal
+        <ConfirmDialog
           open={confirmOpen}
           title="Confirmer la modification"
-          onClose={() => setConfirmOpen(false)}
+          confirmLabel="Confirmer la modification"
+          cancelLabel="Annuler"
+          variant="primary"
+          loading={saving}
+          onConfirm={() => {
+            setConfirmOpen(false);
+            void save();
+          }}
+          onCancel={() => setConfirmOpen(false)}
         >
-          <div className="space-y-3">
-            <ul className="list-disc space-y-2 pl-5 text-sm text-savr-neutral-700">
-              {urgence && (
-                <li>
-                  Cette modification a lieu moins de 12h avant la collecte.
-                  Notre équipe Ops sera alertée en urgence.
-                </li>
-              )}
-              {reacceptation && (
-                <li>
-                  Ce nouveau créneau devra être reconfirmé par notre équipe
-                  logistique.
-                </li>
-              )}
-            </ul>
-            <FormActions
-              cancel={{
-                label: 'Annuler',
-                onClick: () => setConfirmOpen(false),
-              }}
-              submit={{
-                label: 'Confirmer la modification',
-                onClick: () => {
-                  setConfirmOpen(false);
-                  void save();
-                },
-              }}
-              loading={saving}
-              bordered
-            />
-          </div>
-        </Modal>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-savr-neutral-700">
+            {urgence && (
+              <li>
+                Cette modification a lieu moins de 12h avant la collecte. Notre
+                équipe Ops sera alertée en urgence.
+              </li>
+            )}
+            {reacceptation && (
+              <li>
+                Ce nouveau créneau devra être reconfirmé par notre équipe
+                logistique.
+              </li>
+            )}
+          </ul>
+        </ConfirmDialog>
       </CardContent>
     </Card>
   );

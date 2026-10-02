@@ -55,6 +55,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
 import { FormActions } from '@/components/ui/form-actions';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface OrgDetail {
   id: string;
@@ -301,7 +302,6 @@ export default function ClientFichePage({
   const [fAjusterMotif, setFAjusterMotif] = useState('');
 
   // Formulaire annuler
-  const [fAnnulerMotif, setFAnnulerMotif] = useState('');
 
   useEffect(() => {
     // Durcir : vérifier res.ok AVANT de désérialiser. Sinon une réponse d'erreur
@@ -421,8 +421,7 @@ export default function ClientFichePage({
     }
   }
 
-  async function submitAnnuler(e: React.FormEvent) {
-    e.preventDefault();
+  async function submitAnnuler(motif: string) {
     if (!packActif) return;
     setSubmitting(true);
     setFormError(null);
@@ -432,7 +431,7 @@ export default function ClientFichePage({
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'annuler', motif: fAnnulerMotif }),
+          body: JSON.stringify({ action: 'annuler', motif }),
         },
       );
       const data = (await r.json()) as { error?: string };
@@ -682,7 +681,6 @@ export default function ClientFichePage({
                     size="sm"
                     variant="destructive"
                     onClick={() => {
-                      setFAnnulerMotif('');
                       setFormError(null);
                       setModal('annuler');
                     }}
@@ -969,57 +967,28 @@ export default function ClientFichePage({
       </Modal>
 
       {/* ── Modale : Annuler le pack ──────────────────────────────────────── */}
-      <Modal
+      <ConfirmDialog
         open={modal === 'annuler'}
         title="Annuler le pack"
-        onClose={() => setModal(null)}
-        footer={
-          <FormActions
-            cancel={{ label: 'Retour', onClick: () => setModal(null) }}
-            submit={{
-              label: "Confirmer l'annulation",
-              form: 'annuler-pack-form',
-              variant: 'destructive',
-            }}
-            loading={submitting}
-            loadingText="Annulation…"
-          />
-        }
+        confirmLabel="Confirmer l'annulation"
+        cancelLabel="Retour"
+        variant="destructive"
+        loading={submitting}
+        loadingText="Annulation…"
+        error={formError}
+        motif={{ label: 'Motif', minLength: 10 }}
+        onConfirm={(motif) => void submitAnnuler(motif)}
+        onCancel={() => setModal(null)}
       >
-        {formError && (
-          <AlertBar variant="err" className="mb-4">
-            {formError}
-          </AlertBar>
-        )}
         {packActif && (
-          <form
-            id="annuler-pack-form"
-            onSubmit={(e) => void submitAnnuler(e)}
-            className="space-y-4"
-          >
-            <Text>
-              Le pack <strong>{packActif.type_pack}</strong> ({creditsRestants}{' '}
-              crédit{creditsRestants !== 1 ? 's' : ''} restant
-              {creditsRestants !== 1 ? 's' : ''}) sera annulé définitivement.
-              Les crédits non consommés seront perdus.
-            </Text>
-            <FormField
-              label="Motif (≥ 10 caractères)"
-              htmlFor="annuler-motif"
-              required
-            >
-              <Textarea
-                id="annuler-motif"
-                value={fAnnulerMotif}
-                onChange={(e) => setFAnnulerMotif(e.target.value)}
-                rows={3}
-                minLength={10}
-                required
-              />
-            </FormField>
-          </form>
+          <Text>
+            Le pack <strong>{packActif.type_pack}</strong> ({creditsRestants}{' '}
+            crédit{creditsRestants !== 1 ? 's' : ''} restant
+            {creditsRestants !== 1 ? 's' : ''}) sera annulé définitivement. Les
+            crédits non consommés seront perdus.
+          </Text>
         )}
-      </Modal>
+      </ConfirmDialog>
 
       {/* ── Modale : Ajouter un utilisateur (org imposée = la fiche) ───────── */}
       {inviteOpen && (

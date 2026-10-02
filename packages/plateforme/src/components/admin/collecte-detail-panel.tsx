@@ -70,6 +70,7 @@ import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { Text } from '@/components/ui/text';
 import { FormActions } from '@/components/ui/form-actions';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -397,7 +398,6 @@ export function CollecteDetailPanel({
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [annulerCreditModal, setAnnulerCreditModal] = useState(false);
-  const [annulerCreditMotif, setAnnulerCreditMotif] = useState('');
   const [annulerCreditSubmitting, setAnnulerCreditSubmitting] = useState(false);
   const [annulerCreditError, setAnnulerCreditError] = useState<string | null>(
     null,
@@ -633,8 +633,7 @@ export function CollecteDetailPanel({
     attributionAbsente,
   ]);
 
-  const handleAnnulerCredit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAnnulerCredit = async (motif: string) => {
     setAnnulerCreditSubmitting(true);
     setAnnulerCreditError(null);
     const res = await fetch(
@@ -642,7 +641,7 @@ export function CollecteDetailPanel({
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ motif: annulerCreditMotif }),
+        body: JSON.stringify({ motif }),
       },
     );
     if (res.ok) {
@@ -2136,7 +2135,6 @@ export function CollecteDetailPanel({
                         variant="destructive"
                         size="sm"
                         onClick={() => {
-                          setAnnulerCreditMotif('');
                           setAnnulerCreditError(null);
                           setAnnulerCreditModal(true);
                         }}
@@ -2272,59 +2270,34 @@ export function CollecteDetailPanel({
       </footer>
 
       {/* Modale — Annuler le crédit AG */}
-      <Modal
+      <ConfirmDialog
         open={annulerCreditModal}
         title="Annuler le crédit AG"
-        onClose={() => setAnnulerCreditModal(false)}
+        confirmLabel="Confirmer l'annulation"
+        cancelLabel="Retour"
+        variant="destructive"
+        loading={annulerCreditSubmitting}
+        loadingText="Annulation…"
+        error={annulerCreditError}
+        motif={{ label: 'Motif', minLength: 10 }}
+        onConfirm={(motif) => void handleAnnulerCredit(motif)}
+        onCancel={() => setAnnulerCreditModal(false)}
       >
-        {annulerCreditError && (
-          <AlertBar variant="err" className="mb-4">
-            {annulerCreditError}
-          </AlertBar>
-        )}
-        <form
-          onSubmit={(e) => void handleAnnulerCredit(e)}
-          className="space-y-4"
-        >
-          <Text>
-            Le crédit AG sera annulé côté Savr. La collecte reste à{' '}
-            <strong>réalisée</strong> — seul le décompte du pack est rétabli.
-            {collecte.packs_antgaspi && (
-              <>
-                {' '}
-                Pack : <strong>
-                  {collecte.packs_antgaspi.type_pack}
-                </strong> — {collecte.packs_antgaspi.credits_restants} crédit
-                {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}{' '}
-                restant
-                {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}.
-              </>
-            )}
-          </Text>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
-              Motif (≥ 10 caractères)
-            </label>
-            <Textarea
-              value={annulerCreditMotif}
-              onChange={(e) => setAnnulerCreditMotif(e.target.value)}
-              rows={3}
-              minLength={10}
-              required
-            />
-          </div>
-          <FormActions
-            cancel={{
-              label: 'Retour',
-              onClick: () => setAnnulerCreditModal(false),
-            }}
-            submit={{ label: "Confirmer l'annulation", variant: 'destructive' }}
-            loading={annulerCreditSubmitting}
-            loadingText="Annulation…"
-            bordered
-          />
-        </form>
-      </Modal>
+        <Text>
+          Le crédit AG sera annulé côté Savr. La collecte reste à{' '}
+          <strong>réalisée</strong> — seul le décompte du pack est rétabli.
+          {collecte.packs_antgaspi && (
+            <>
+              {' '}
+              Pack : <strong>{collecte.packs_antgaspi.type_pack}</strong> —{' '}
+              {collecte.packs_antgaspi.credits_restants} crédit
+              {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}{' '}
+              restant
+              {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}.
+            </>
+          )}
+        </Text>
+      </ConfirmDialog>
 
       {/* Modale — Forcer le statut (RM-08) */}
       <Modal

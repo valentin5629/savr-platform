@@ -25,6 +25,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { fmtMontant } from '@/lib/format';
 import { TextLink } from '@/components/ui/text-link';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 interface Ligne {
   id: string;
@@ -221,8 +222,16 @@ export default function FactureDetailPage() {
     await callEdit(['lignes', ligne.id], 'PATCH', patch, `ligne-${ligne.id}`);
   }
 
+  const { confirmer, dialogue } = useConfirm();
   async function deleteLigne(ligne: Ligne) {
-    if (!window.confirm('Supprimer cette ligne ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Supprimer cette ligne ?',
+        confirmLabel: 'Supprimer',
+        variant: 'destructive',
+      }))
+    )
+      return;
     await callEdit(
       ['lignes', ligne.id],
       'DELETE',
@@ -266,6 +275,7 @@ export default function FactureDetailPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {dialogue}
       <div className="flex items-center gap-3">
         <Link
           href="/admin/factures"

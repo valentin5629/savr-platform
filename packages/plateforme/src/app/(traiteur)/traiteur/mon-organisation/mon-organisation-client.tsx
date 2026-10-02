@@ -25,6 +25,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
@@ -278,8 +279,16 @@ function EntitesCard({
     setSaving(false);
   }
 
+  const { confirmer, dialogue } = useConfirm();
   async function remove(id: string) {
-    if (!confirm('Supprimer cette entité de facturation ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Supprimer cette entité de facturation ?',
+        confirmLabel: 'Supprimer',
+        variant: 'destructive',
+      }))
+    )
+      return;
     const res = await fetch(
       `/api/v1/traiteur/mon-organisation/entites-facturation/${encodeURIComponent(id)}`,
       { method: 'DELETE' },
@@ -353,6 +362,7 @@ function EntitesCard({
 
   return (
     <Card>
+      {dialogue}
       <CardHeader>
         <CardTitle>Entités de facturation</CardTitle>
       </CardHeader>
@@ -596,8 +606,16 @@ function EquipeTab({ userId }: { userId: string }) {
     });
     reload();
   }
+  const { confirmer, dialogue } = useConfirm();
   async function suspend(id: string) {
-    if (!confirm('Suspendre ce collaborateur ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Suspendre ce collaborateur ?',
+        confirmLabel: 'Suspendre',
+        variant: 'destructive',
+      }))
+    )
+      return;
     await fetch(`/api/v1/traiteur/equipe/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -691,6 +709,7 @@ function EquipeTab({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
+      {dialogue}
       <Card>
         <CardHeader>
           <CardTitle>Utilisateurs</CardTitle>

@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 interface BrouillonRow {
   id: string;
@@ -31,8 +32,16 @@ export default function BrouillonsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const { confirmer, dialogue } = useConfirm();
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer ce brouillon ? Cette action est irréversible.'))
+    if (
+      !(await confirmer({
+        title: 'Supprimer ce brouillon ?',
+        children: 'Cette action est irréversible.',
+        confirmLabel: 'Supprimer',
+        variant: 'destructive',
+      }))
+    )
       return;
     setDeleting(id);
     await fetch(`/api/v1/programmation/evenements/${encodeURIComponent(id)}`, {
@@ -44,6 +53,7 @@ export default function BrouillonsPage() {
 
   return (
     <div className="space-y-6">
+      {dialogue}
       <PageHeader
         title="Mes brouillons"
         tone="neutral"

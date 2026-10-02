@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FilterBar } from '@/components/ui/filter-bar';
 import {
-  BarreFiltres,
   FiltreCoches,
   type OptionFiltre,
 } from '@/components/ui/filtre-en-ligne';
@@ -36,6 +36,19 @@ function defaultFilters(
     lieu_ids: [],
     traiteur_ids: [],
   };
+}
+
+const memesIds = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((id) => b.includes(id));
+
+/** Au moins un critère diffère de l'héritage (Type/Taille globaux, Lieux/Traiteurs « Tous »). */
+function criteresPoses(f: BenchmarkFilters, defaut: BenchmarkFilters): boolean {
+  return (
+    !memesIds(f.type_evenement_ids, defaut.type_evenement_ids) ||
+    !memesIds(f.taille_evenement_codes, defaut.taille_evenement_codes) ||
+    f.lieu_ids.length > 0 ||
+    f.traiteur_ids.length > 0
+  );
 }
 
 /** Options des multi-selects fournies par le SSR (évite le fetch /filtres au mount). */
@@ -80,8 +93,10 @@ interface BenchmarkFilterBarProps {
  * benchmark : une ligne « Comparer avec » + filtres en ligne (format unique des
  * barres de filtres, décision Val 2026-09-30). Critères qui ne s'appliquent
  * qu'au point rouge : Type d'événement, Taille, Lieux parc, Traiteurs parc. La
- * période est fixe (24 mois glissants, non affichée). Bouton Réinitialiser
- * (retour à l'héritage Type/Taille, Lieux/Traiteurs « Tous »).
+ * période est fixe (24 mois glissants, non affichée). Bâti sur `FilterBar`
+ * (R-UI-4b, D5 façon C, `surface="encart"`, `count={null}`) : « Réinitialiser
+ * les filtres » (retour à l'héritage Type/Taille, Lieux/Traiteurs « Tous »)
+ * seulement si un critère diffère de l'héritage.
  */
 export function BenchmarkFilterBar({
   onChange,
@@ -162,11 +177,18 @@ export function BenchmarkFilterBar({
     </p>
   );
   const traiteursVisibles = !masquerTraiteurs && traiteurs.length > 0;
+  const actif = criteresPoses(
+    filters,
+    defaultFilters(initialTypeEvenementIds, initialTailleCodes),
+  );
 
   return (
     <div data-testid="benchmark-filter-bar" className="space-y-2">
-      <BarreFiltres
+      <FilterBar
+        surface="encart"
         intro="Comparer avec"
+        count={null}
+        actif={actif}
         onReset={reset}
         resetTestId="benchmark-reinitialiser"
       >
@@ -201,7 +223,7 @@ export function BenchmarkFilterBar({
             testid="benchmark-filter-traiteurs"
           />
         )}
-      </BarreFiltres>
+      </FilterBar>
       {avertissementSoi}
     </div>
   );

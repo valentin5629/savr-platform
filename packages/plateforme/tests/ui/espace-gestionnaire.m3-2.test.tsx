@@ -204,7 +204,9 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       ).toBeInTheDocument();
       // Ligne « Comparer avec » + filtres en ligne (décision Val 2026-09-30).
       expect(screen.getByText('Comparer avec')).toBeInTheDocument();
-      expect(screen.getByTestId('benchmark-reinitialiser')).toBeInTheDocument();
+      // « Réinitialiser les filtres » n'apparaît qu'une fois un critère posé
+      // (R-UI-4b, D5 : `FilterBar actif`) — héritage pur au montage.
+      expect(screen.queryByTestId('benchmark-reinitialiser')).toBeNull();
       expect(screen.getByTestId('benchmark-filter-type')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-lieux')).toBeInTheDocument();

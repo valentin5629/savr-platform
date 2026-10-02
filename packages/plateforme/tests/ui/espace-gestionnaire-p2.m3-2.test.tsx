@@ -237,9 +237,9 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
       ).toBeInTheDocument();
       expect(screen.getByTestId('dashboard-filter-type')).toBeInTheDocument();
       expect(screen.getByTestId('dashboard-filter-taille')).toBeInTheDocument();
-      expect(
-        screen.getByTestId('dashboard-filter-reinitialiser'),
-      ).toBeInTheDocument();
+      // « Réinitialiser les filtres » n'apparaît qu'une fois un filtre posé
+      // (R-UI-4b, D5 : `FilterBar actif`) — tout est au défaut au montage.
+      expect(screen.queryByTestId('dashboard-filter-reinitialiser')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

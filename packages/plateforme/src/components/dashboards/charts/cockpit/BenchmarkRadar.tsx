@@ -40,6 +40,10 @@ interface BenchmarkRadarProps {
   title?: string;
   /** Sous-titre de la carte (défaut : libellé des dashboards). */
   subtitle?: string;
+  /** Libellé de la série de référence dans la légende (défaut « Moyenne parc »). */
+  referenceLabel?: string;
+  /** Libellé court de la référence (infobulle, liste ; défaut « Parc »). */
+  referenceCourt?: string;
 }
 
 // Série « Vous » = navy-700 (encre forte), série « Parc » = primary-300 (repère
@@ -196,7 +200,13 @@ function Serie({
   );
 }
 
-function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
+function Tooltip({
+  axe,
+  referenceCourt,
+}: {
+  axe: Axe;
+  referenceCourt: string;
+}): React.ReactElement {
   const { item, ratio } = axe;
   return (
     <ChartTooltip
@@ -215,7 +225,7 @@ function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
         />
         <Serie
           color={PARC}
-          label="Parc"
+          label={referenceCourt}
           valeur={
             fini(item.benchmark)
               ? `${fmtDec(item.benchmark, 2)} kg/pax`
@@ -245,13 +255,16 @@ function LigneFlux({
   axe,
   active,
   onHover,
+  referenceCourt,
 }: {
   axe: Axe;
   active: boolean;
   onHover: (on: boolean) => void;
+  referenceCourt: string;
 }): React.ReactElement {
   const { item, ratio } = axe;
   const statut = ratio != null ? statutDe(ratio) : null;
+  const ref = referenceCourt.toLowerCase();
   return (
     <li
       data-testid="benchmark-radar-ligne"
@@ -274,8 +287,8 @@ function LigneFlux({
           {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
           {' · '}
           {fini(item.benchmark)
-            ? `parc ${fmtDec(item.benchmark, 2)}`
-            : 'parc n/d'}
+            ? `${ref} ${fmtDec(item.benchmark, 2)}`
+            : `${ref} n/d`}
         </Text>
       </div>
       {statut && ratio != null ? (
@@ -302,6 +315,8 @@ export function BenchmarkRadar({
   filtersSlot,
   title = 'Intensité par flux · kg/pax vs benchmark parc',
   subtitle = "Indice : moyenne du parc Savr (anonymisée) = 100. À l'intérieur du repère, vous produisez moins que le parc.",
+  referenceLabel = 'Moyenne parc',
+  referenceCourt = 'Parc',
 }: BenchmarkRadarProps): React.ReactElement {
   // Survol : axe actif + position du curseur (px, relative au conteneur) quand
   // le survol vient du GRAPHE ; survol depuis la LISTE = axe seul (la ligne de
@@ -372,7 +387,7 @@ export function BenchmarkRadar({
       headerRight={
         <div className="flex flex-wrap gap-3">
           <LegendLine color={VOUS}>Vous</LegendLine>
-          <LegendLine color={PARC}>Moyenne parc</LegendLine>
+          <LegendLine color={PARC}>{referenceLabel}</LegendLine>
         </div>
       }
     >
@@ -387,7 +402,7 @@ export function BenchmarkRadar({
             viewBox={`0 0 ${VB_W} ${VB_H}`}
             className="block h-auto w-full"
             role="img"
-            aria-label="Radar de l'intensité kg/pax par flux, indice parc = 100"
+            aria-label={`Radar de l'intensité kg/pax par flux, indice ${referenceCourt.toLowerCase()} = 100`}
             data-testid="benchmark-radar"
             onMouseMove={onMove}
             onMouseLeave={onLeave}
@@ -518,7 +533,7 @@ export function BenchmarkRadar({
                 top: curseur.y,
               }}
             >
-              <Tooltip axe={focus} />
+              <Tooltip axe={focus} referenceCourt={referenceCourt} />
             </div>
           )}
         </div>
@@ -529,6 +544,7 @@ export function BenchmarkRadar({
                 key={`${a.item.label}-${i}`}
                 axe={a}
                 active={hover === i}
+                referenceCourt={referenceCourt}
                 onHover={(on) => {
                   setCurseur(null);
                   setHover(on ? i : null);

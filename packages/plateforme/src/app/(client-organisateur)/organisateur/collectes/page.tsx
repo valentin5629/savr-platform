@@ -1,9 +1,8 @@
 'use client';
 
 import { fmtPct } from '@/lib/format';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useMemo } from 'react';
 import { Download, Truck } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
@@ -14,10 +13,15 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
+import { type CollecteType } from '@/components/dashboards/index.js';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import {
-  CollecteTypeTabs,
-  type CollecteType,
-} from '@/components/dashboards/index.js';
+  CollecteFiltresBar,
+  FILTRES_COLLECTE_VIDES,
+  type CollecteFiltresOptions,
+} from '@/components/collecte/collecte-filtres-bar';
+import { navigation, texte, useFiltresUrl } from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { Text } from '@/components/ui/text';
 
 interface Lieu {
@@ -132,46 +136,56 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
   ];
 }
 
+// Filtres de la liste, miroir de l'URL (R-UI-4b, D6/D10). La route
+// `organisateur/collectes` n'accepte que `type` + période : la barre n'expose
+// donc que « Période » (aucun filtre inventé). `type` est un axe de vue
+// (colonnes différentes) : hors « Réinitialiser les filtres », hors `actif`.
+const FILTRES = {
+  type: navigation(texte('zero_dechet')),
+  from: texte(),
+  to: texte(),
+};
+const OPTIONS_BARRE: CollecteFiltresOptions = {
+  lieux: [],
+  clients: [],
+  programmateurs: [],
+};
+
 // §11 §7 — Liste des événements/collectes du client organisateur, lecture seule.
 // Pas de bouton « Programmer » (rôle jamais self-service), pas de fiche éditable.
 function CollectesContent() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const initialTab =
-    params.get('type') === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
-  const [tab, setTab] = useState<CollecteType>(initialTab);
-  const [rows, setRows] = useState<CollecteRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES);
+  const tab: CollecteType =
+    f.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
 
-  useEffect(() => {
-    setLoading(true);
-    const qs = new URLSearchParams({ type: tab });
-    const from = params.get('from');
-    const to = params.get('to');
-    if (from) qs.set('from', from);
-    if (to) qs.set('to', to);
-    fetch(`/api/v1/organisateur/collectes?${qs}`)
-      .then((r) => r.json())
-      .then((j) => setRows((j.data ?? []) as CollecteRow[]))
-      .finally(() => setLoading(false));
-  }, [tab, params]);
-
-  function changeTab(t: CollecteType) {
-    setTab(t);
-    const usp = new URLSearchParams(Array.from(params.entries()));
-    usp.set('type', t);
-    router.replace(`/organisateur/collectes?${usp}`);
-  }
+  // Paramètres partagés avec l'export CSV (§12 « l'export respecte les filtres
+  // actifs »).
+  const qs = useMemo(() => {
+    const usp = new URLSearchParams({ type: tab });
+    if (f.from) usp.set('from', f.from);
+    if (f.to) usp.set('to', f.to);
+    return usp.toString();
+  }, [tab, f.from, f.to]);
+  // Liste non paginée (la route ne l'est pas) : garde anti-réponse périmée et
+  // état Error portés par `useListePaginee`.
+  const {
+    data: rows,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<CollecteRow>(`/api/v1/organisateur/collectes?${qs}`, {
+    extraire: (j) => {
+      const data = ((j as { data?: CollecteRow[] }).data ??
+        []) as CollecteRow[];
+      return { data, total: data.length };
+    },
+    messageErreur: 'Le chargement des collectes a échoué.',
+  });
 
   const isZd = tab === 'zero_dechet';
   const cols = useMemo(() => colonnes(isZd), [isZd]);
 
   function exportCsv() {
-    const qs = new URLSearchParams({ type: tab });
-    const from = params.get('from');
-    const to = params.get('to');
-    if (from) qs.set('from', from);
-    if (to) qs.set('to', to);
     window.open(`/api/v1/exports/collectes?${qs}`);
   }
 
@@ -189,7 +203,27 @@ function CollectesContent() {
         }
       />
 
-      <CollecteTypeTabs value={tab} onChange={changeTab} />
+      {/* Barre de filtres DS (D10 : la même que traiteur / agence) : type
+          ZD / AG en en-tête, « Période », compteur et réinitialisation. */}
+      <CollecteFiltresBar
+        toggle={
+          <ToggleTypeCollecte value={tab} onChange={(t) => set({ type: t })} />
+        }
+        statutsOnglet={[]}
+        filtres={{
+          statut: false,
+          lieu: false,
+          client: false,
+          infoIncomplete: false,
+          programmeePar: false,
+        }}
+        options={OPTIONS_BARRE}
+        value={{ ...FILTRES_COLLECTE_VIDES, from: f.from, to: f.to }}
+        onChange={(v) => set({ from: v.from, to: v.to })}
+        actif={actif}
+        onReset={reset}
+        resultats={rows.length}
+      />
 
       <DataGrid
         key={tab}
@@ -198,6 +232,8 @@ function CollectesContent() {
         data={rows}
         getRowId={(c) => c.id}
         loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
         initialSorting={[{ id: 'date', desc: true }]}
         empty={
           <EmptyState

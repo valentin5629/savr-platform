@@ -17,6 +17,12 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import {
+  FacturesFiltresBar,
+  FILTRES_FACTURES,
+  filtrerFactures,
+} from '@/components/facture/factures-filtres-bar';
+import { useFiltresUrl } from '@/lib/hooks/use-filtres-url';
 
 type OrgTab = 'profil' | 'membres' | 'factures';
 
@@ -406,23 +412,44 @@ export default function MonOrganisationPage() {
         {/* Onglet Factures */}
         {!loading && !erreur && (
           <TabsContent value="factures">
-            <Card>
-              <CardHeader>
-                <CardTitle>Factures</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DataGrid
-                  columnsToggle={false}
-                  columns={COLONNES_FACTURES}
-                  data={factures}
-                  getRowId={(f) => f.id}
-                  empty={<Text>Aucune facture.</Text>}
-                />
-              </CardContent>
-            </Card>
+            <OngletFactures factures={factures} />
           </TabsContent>
         )}
       </Tabs>
     </div>
+  );
+}
+
+// Onglet Factures — mêmes filtres que le traiteur (R-UI-4b, D10 :
+// `FacturesFiltresBar`), appliqués côté client aux factures déjà chargées par
+// la page : la route `/gestionnaire/mon-organisation/factures` n'accepte qu'un
+// `statut` unique et ne renvoie pas `type` (filtre Type masqué) — reliquat.
+function OngletFactures({ factures }: { factures: FactureRow[] }) {
+  const { valeurs, set, reset, actif } = useFiltresUrl(FILTRES_FACTURES);
+  const visibles = filtrerFactures(factures, valeurs);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Factures</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <FacturesFiltresBar
+          className="mb-4"
+          value={valeurs}
+          set={set}
+          actif={actif}
+          onReset={reset}
+          count={visibles.length}
+          filtres={{ type: false }}
+        />
+        <DataGrid
+          columnsToggle={false}
+          columns={COLONNES_FACTURES}
+          data={visibles}
+          getRowId={(f) => f.id}
+          empty={<Text>Aucune facture.</Text>}
+        />
+      </CardContent>
+    </Card>
   );
 }

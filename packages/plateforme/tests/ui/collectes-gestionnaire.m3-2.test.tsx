@@ -28,6 +28,7 @@ import {
   cleanup,
   act,
   within,
+  waitFor,
 } from '@testing-library/react';
 
 const { push, replace, urlParams } = vi.hoisted(() => ({
@@ -106,12 +107,44 @@ function reponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
+const API_LISTE = '/api/v1/gestionnaire/collectes';
+/** Options de la barre de filtres (route `/gestionnaire/filtres`). */
+const OPTIONS_FILTRES = {
+  lieux: [
+    { id: 'L1', nom: 'Paris Expo Porte de Versailles' },
+    { id: 'L2', nom: 'Palais des Congrès de Paris' },
+  ],
+  traiteurs: [{ id: 'T1', nom: 'Kaspia Réceptions' }],
+  types: [
+    { id: 'ty-gala', libelle: 'Gala' },
+    { id: 'ty-cocktail', libelle: 'Cocktail' },
+    { id: 'ty-seminaire', libelle: 'Séminaire' },
+  ],
+};
+/** Réponse par défaut d'un `fetch` : la liste, ou les options de la barre. */
+function repondre(url: string, liste: unknown): Promise<Response> {
+  return Promise.resolve(
+    String(url).startsWith('/api/v1/gestionnaire/filtres')
+      ? reponse(200, { data: OPTIONS_FILTRES })
+      : reponse(200, liste),
+  );
+}
+/** Appels de la LISTE seulement (la barre charge ses options à part). */
+function appelsListe(fetchMock: { mock: { calls: unknown[][] } }): string[] {
+  return fetchMock.mock.calls
+    .map(([u]) => String(u))
+    .filter((u) => u.startsWith(API_LISTE) && !u.startsWith(`${API_LISTE}/`));
+}
+
 afterEach(() => {
   cleanup();
   push.mockClear();
   replace.mockClear();
   urlParams.current = '';
   vi.unstubAllGlobals();
+  // `useFiltresUrl` recopie les filtres dans l'URL jsdom, qui survit d'un test
+  // à l'autre : on la remet à plat.
+  window.history.replaceState(null, '', '/gestionnaire/collectes');
 });
 
 describe('M3.2 / liste Collectes gestionnaire', () => {
@@ -360,10 +393,12 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     'M3.2/collectes_erreur_chargement_message_et_reessayer',
     async () => {
       // 1er appel en panne, 2e (après « Réessayer ») nominal.
+      // Une Response NEUVE par appel : son corps ne se lit qu'une fois, et la
+      // barre de filtres charge ses options par un appel distinct.
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(reponse(500, { error: 'boom' }))
-        .mockResolvedValue(reponse(200, { data: LIGNES }));
+        .mockImplementation((url: string) => repondre(url, { data: LIGNES }));
       vi.stubGlobal('fetch', fetchMock);
       render(<CollectesPage />);
 
@@ -391,7 +426,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         ).length,
       ).toBeGreaterThan(0);
       expect(screen.queryByTestId('collectes-erreur')).toBeNull();
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(appelsListe(fetchMock)).toHaveLength(2);
     },
     ATTENTE_CAS_MS,
   );
@@ -400,9 +435,10 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     'M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche',
     async () => {
       // Scénario réel : une requête filtrée est en vol, l'utilisateur retire le
-      // filtre (✕ du chip) → 2e requête. La 1re, PÉRIMÉE, échoue APRÈS que la 2e
-      // a réussi. Sans garde de péremption, son `setErreur` écrase le succès et
-      // épingle l'écran sur l'erreur, données fraîches invisibles.
+      // filtre (« Réinitialiser les filtres ») → 2e requête. La 1re, PÉRIMÉE,
+      // échoue APRÈS que la 2e a réussi. Sans garde de péremption, son
+      // `setErreur` écrase le succès et épingle l'écran sur l'erreur, données
+      // fraîches invisibles.
       let echouerLaPerimee: (() => void) | null = null;
       const fetchMock = vi
         .fn()
@@ -412,16 +448,15 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
               echouerLaPerimee = () => rej(new Error('réseau'));
             }),
         )
-        .mockResolvedValue(reponse(200, { data: LIGNES }));
+        .mockImplementation((url: string) => repondre(url, { data: LIGNES }));
       vi.stubGlobal('fetch', fetchMock);
 
       urlParams.current = 'lieu=L1';
-      const { rerender } = render(<CollectesPage />);
+      render(<CollectesPage />);
       await screen.findByTestId('collectes-skeleton', {}, ATTENTE_UI);
 
       // Le filtre tombe → 2e requête, qui aboutit.
-      urlParams.current = '';
-      rerender(<CollectesPage />);
+      fireEvent.click(screen.getByTestId('collecte-filtres-bar-reset'));
       expect(
         (
           await screen.findAllByText(
@@ -431,7 +466,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
           )
         ).length,
       ).toBeGreaterThan(0);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(appelsListe(fetchMock)).toHaveLength(2);
 
       // Seulement MAINTENANT, la requête périmée échoue.
       await act(async () => {
@@ -498,12 +533,16 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     lieu_nom: 'Paris Expo Porte de Versailles',
   }));
 
-  /** Mock fetch qui ENREGISTRE les URL demandées (copie, pas de référence). */
+  /**
+   * Mock fetch qui ENREGISTRE les URL de la LISTE demandées (copie, pas de
+   * référence) ; la barre de filtres reçoit ses options à part.
+   */
   function fetchEspion(body: unknown) {
     const urls: string[] = [];
     const f = vi.fn((url: string) => {
-      urls.push(String(url));
-      return Promise.resolve(reponse(200, body));
+      const u = String(url);
+      if (u.startsWith(API_LISTE)) urls.push(u);
+      return repondre(u, body);
     });
     vi.stubGlobal('fetch', f);
     return urls;
@@ -515,11 +554,15 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
 
-      // Le total EXACT est affiché : au-delà d'une page, lui seul dit combien de
-      // collectes existent dans le périmètre demandé.
+      // Le total EXACT est affiché — dans le pied de la barre de filtres, seul
+      // emplacement du compteur (R-UI-4b, D5) : au-delà d'une page, lui seul
+      // dit combien de collectes existent dans le périmètre demandé.
       expect(
-        await screen.findByTestId('collectes-total', {}, ATTENTE_UI),
-      ).toHaveProperty('textContent', '120 collectes');
+        await screen.findByTestId('collectes-resultats-count', {}, ATTENTE_UI),
+      ).toHaveProperty(
+        'textContent',
+        '120 collectes correspondent à votre sélection',
+      );
 
       // 120 / 50 = 3 pages.
       const nav = screen.getByRole('navigation', { name: 'Pagination' });
@@ -538,7 +581,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     async () => {
       const urls = fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       // 1er appel : pas de `page` (page 1 implicite).
       expect(urls[0]).not.toContain('page=');
@@ -560,7 +603,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     async () => {
       const urls = fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       // Tri par défaut = celui de la route (date décroissante).
       expect(urls[0]).toContain('tri=date&ordre=desc');
@@ -593,9 +636,12 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
 
-      // Une seule page : ni compteur ni nav, sinon l'écran s'encombre d'une
-      // pagination qui ne mène nulle part.
-      expect(screen.queryByTestId('collectes-total')).toBeNull();
+      // Une seule page : pas de nav, sinon l'écran s'encombre d'une pagination
+      // qui ne mène nulle part. Le compteur, lui, vit dans la barre (D5) et
+      // s'affiche toujours.
+      expect(screen.getByTestId('collectes-resultats-count').textContent).toBe(
+        '3 collectes correspondent à votre sélection',
+      );
       expect(
         screen.queryByRole('navigation', { name: 'Pagination' }),
       ).toBeNull();
@@ -607,21 +653,27 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     'M3.2/collectes_changement_de_filtre_revient_page_1',
     async () => {
       const urls = fetchEspion({ data: PAGE, total: 120 });
-      const { rerender } = render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
       });
       expect(urls[urls.length - 1]).toContain('page=2');
 
-      // Drill-down depuis une Top liste ALORS QU'ON EST EN PAGE 2. La page
+      // Un lieu posé dans la barre ALORS QU'ON EST EN PAGE 2. La page
       // courante appartient au périmètre précédent : la conserver demanderait
       // la page 2 d'un filtre qui n'a peut-être qu'une page, et l'écran
       // afficherait une liste vide sur un parc qui ne l'est pas.
-      urlParams.current = 'lieu=L1';
       await act(async () => {
-        rerender(<CollectesPage />);
+        fireEvent.click(screen.getByRole('combobox', { name: 'Lieu' }));
+      });
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('option', {
+            name: 'Paris Expo Porte de Versailles',
+          }),
+        );
       });
 
       const derniere = urls[urls.length - 1]!;
@@ -636,7 +688,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       // 120 collectes (3 pages) au premier chargement.
       const urls = fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       // L'utilisateur va en page 3. Entre-temps la liste a rétréci à 60 (2
       // pages) : des collectes annulées ailleurs, un parc réduit. Le serveur
@@ -647,11 +699,12 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         'fetch',
         vi.fn((url: string) => {
           const u = String(url);
-          urls.push(u);
-          return Promise.resolve(
+          if (u.startsWith(API_LISTE)) urls.push(u);
+          return repondre(
+            u,
             u.includes('page=2')
-              ? reponse(200, { data: PAGE.slice(0, 10), total: 60 })
-              : reponse(200, { data: [], total: 60 }),
+              ? { data: PAGE.slice(0, 10), total: 60 }
+              : { data: [], total: 60 },
           );
         }),
       );
@@ -683,7 +736,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       // squelette pour toujours.
       fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       vi.stubGlobal(
         'fetch',
@@ -731,7 +784,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
   );
 
   it(
-    'M3.2/collectes_chip_affiche_les_filtres_devenement — un filtre appliqué est un filtre visible',
+    'M3.2/collectes_barre_affiche_les_filtres_devenement — un filtre appliqué est un filtre visible',
     async () => {
       urlParams.current =
         'lieu=L1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&type_evenement_ids[]=ty-cocktail&taille_evenements[]=M';
@@ -739,13 +792,26 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
 
-      // Type/Taille viennent des filtres globaux du dashboard et n'ont AUCUN
-      // contrôle sur cet écran : sans mention dans le chip, la liste est
-      // restreinte par des critères que rien n'affiche, et le gestionnaire
-      // cherche des collectes qu'il voit au dashboard et que la liste écarte.
-      const chip = screen.getByTestId('filtre-actif');
-      expect(chip.textContent).toMatch(/2 types d.événement/);
-      expect(chip.textContent).toMatch(/1 taille d.événement/);
+      // Type/Taille viennent des filtres globaux du dashboard : la barre de
+      // filtres (R-UI-4b, D10) les porte comme ses propres contrôles. Sans
+      // cela, la liste serait restreinte par des critères que rien n'affiche,
+      // et le gestionnaire chercherait des collectes qu'il voit au dashboard
+      // et que la liste écarte.
+      expect(screen.getByTestId('filtre-type-evenement').textContent).toContain(
+        '2 sélectionnés',
+      );
+      expect(screen.getByTestId('filtre-taille-evenement').textContent).toMatch(
+        /Taille d'événement\s*M$/,
+      );
+      // Le lieu du drill-down est nommé dès que les options sont chargées.
+      await waitFor(
+        () =>
+          expect(screen.getByTestId('filtre-lieu').textContent).toContain(
+            'Paris Expo Porte de Versailles',
+          ),
+        ATTENTE_UI,
+      );
+      expect(screen.getByTestId('collecte-filtres-bar-reset')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
@@ -759,51 +825,59 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       // après le rerender) alourdit le cas sans rien prouver de plus — et ce
       // fichier est déjà le plus lent de la suite.
       const urls = fetchEspion({ data: PAGE.slice(0, 3), total: 120 });
-      const { rerender } = render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
       });
       expect(urls[urls.length - 1]).toContain('page=2');
 
-      // Le périmètre change (Type d'événement ajouté) : rester en page 2
-      // demanderait la 2e page d'un filtre qui n'en a peut-être qu'une, et
-      // l'écran afficherait une liste vide sur un parc qui ne l'est pas.
-      urlParams.current = 'lieu=L1&type_evenement_ids[]=ty-gala';
+      // Le périmètre change (Type d'événement coché dans la barre) : rester en
+      // page 2 demanderait la 2e page d'un filtre qui n'en a peut-être qu'une,
+      // et l'écran afficherait une liste vide sur un parc qui ne l'est pas.
       await act(async () => {
-        rerender(<CollectesPage />);
+        fireEvent.click(screen.getByTestId('filtre-type-evenement'));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Gala' }));
       });
 
       const derniere = urls[urls.length - 1]!;
-      expect(derniere).toContain('type_evenement_ids');
+      expect(derniere).toContain('type_evenement_ids%5B%5D=ty-gala');
+      expect(derniere).toContain('lieu_id=L1');
       expect(derniere).not.toContain('page=');
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille — pas de filtre invisible résiduel',
+    'M3.2/collectes_reinitialiser_retire_aussi_type_et_taille — pas de filtre invisible résiduel',
     async () => {
       urlParams.current =
         'lieu=L1&type_evenement_ids[]=ty-gala&taille_evenements[]=M';
-      fetchEspion({ data: PAGE, total: 50 });
+      const urls = fetchEspion({ data: PAGE, total: 50 });
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
+      const avant = urls.length;
 
-      fireEvent.click(
-        screen.getByRole('button', { name: /Retirer le filtre/i }),
-      );
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('collecte-filtres-bar-reset'));
+      });
 
-      // Sans ce nettoyage, la liste resterait restreinte à « Gala / M » alors que
-      // le chip a disparu : un filtre actif que plus rien n'affiche ni ne retire.
-      // Assertion d'abord : sans elle, un `calls` vide rendrait les `not.toContain`
-      // ci-dessous vrais par construction — la sonde serait muette.
-      expect(replace).toHaveBeenCalledTimes(1);
-      const apres = String(replace.mock.calls.at(-1)![0]);
+      // Sans ce nettoyage, la liste resterait restreinte à « Gala / M » alors
+      // que la barre ne montre plus rien : un filtre actif que plus rien
+      // n'affiche ni ne retire. Assertion d'abord : sans nouvel appel, les
+      // `not.toContain` ci-dessous seraient vrais par construction.
+      expect(urls.length).toBe(avant + 1);
+      const apres = urls[urls.length - 1]!;
       expect(apres).not.toContain('type_evenement_ids');
       expect(apres).not.toContain('taille_evenements');
-      expect(apres).not.toContain('lieu=');
+      expect(apres).not.toContain('lieu_id=');
+      // L'URL de la page (miroir des filtres, D6) est nettoyée aussi, y compris
+      // les anciennes clés `x[]`.
+      expect(window.location.search).not.toContain('type_evenement_ids');
+      expect(window.location.search).not.toContain('lieu=');
     },
     ATTENTE_CAS_MS,
   );

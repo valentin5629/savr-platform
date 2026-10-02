@@ -1372,6 +1372,14 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu après clic sur une tuile « à dispatcher » : cadre actif de la tuile, pastille « Non transmises ZD/AG » ajoutée en fin de rangée avec le même compteur, total de la liste égal au compteur. Aucun style nouveau (état déjà atteint par le drill-down du Dashboard Admin) ; GO-VISUAL de Val attendu."
+    },
+    {
+      "id": "M0.6-bloc-dispatch-ordre-en-file-envoi",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:252",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (état dérivé ordreEnFileEnvoi : AG programmee/validee + prestataire_logistique_id posé chez un adapter mts1/a_toutes + tms_reference NULL + statut_tms non_envoye → badge « Envoyée » en en-tête et ligne Statut TMS, encart « Collecte envoyée à … », cartes + bouton d'envoi masqués, action secondaire « Changer de prestataire » (titre « Changer de prestataire », « Renvoyer à … » si même prestataire, « Garder le prestataire actuel », focus clavier géré) ; ZD, transporteurs manuels et sans pont exclus), packages/plateforme/src/lib/type-tms-labels.ts (libelleCanalEnvoi)",
+      "test": "AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au prestataire, ni carte ni bouton d’envoi + AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer + AG en file d’envoi : envoyer chez un autre prestataire (motif override) POST le dispatch, puis le mode « changer » se referme + ZD avec prestataire et sans référence (fixture seed col_dispatch_non_envoye) : pas « envoyée » — rien ne pose de prestataire sur une ZD en V1, aucun ordre en file + pas d’état « en file d’envoi »",
+      "statut": "à-vérifier",
+      "libelle": "Bloc 0 « Prestataire & Dispatch » en lecture tant que l'ordre est en file d'envoi (décision Val 2026-10-02, option C1, _Divergences/M0.6_20261002_bloc-dispatch-ordre-en-file-envoi) : entre « Valider et envoyer » et le passage du worker outbox (15 min), la fiche AG dit la collecte envoyée au prestataire au lieu de réafficher « Prestataire à attribuer » + « Envoyer à MTS-1 ». Gardes = celles du worker (prestataire_logistique_id posé, programmee/validee). ZD exclue (aucun chemin V1 ne pose de prestataire sur une ZD — fait mesuré, revue principale 2026-10-02) ; transporteurs manuels exclus ; acceptation manuelle A Toutes! conservée. La fiche ne lit pas outbox_events (DLQ invisible, filet = carte « non transmises » + alerte Slack). Présentationnel : statut à-vérifier jusqu'au GO visuel de Val."
     }
   ],
   "cdc_source_hash": {

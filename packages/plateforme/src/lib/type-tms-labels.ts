@@ -31,6 +31,16 @@ export function envoiAutomatique(typeTms: string | null | undefined): boolean {
   return typeTms === 'mts1' || typeTms === 'a_toutes';
 }
 
+// Nom du canal qui reçoit la commande d'un envoi automatique (texte Admin,
+// bloc « ordre en file d'envoi » de la fiche collecte). Manuel → null.
+export function libelleCanalEnvoi(
+  typeTms: string | null | undefined,
+): string | null {
+  if (typeTms === 'mts1') return 'MTS-1';
+  if (typeTms === 'a_toutes') return 'A Toutes!';
+  return null;
+}
+
 // Bouton unique « valider l'attribution + envoyer » (décision Val 2026-10-01) :
 // la validation d'attribution AG EST la décision de dispatch (§06.09 §3).
 export function libelleValiderEtEnvoyer(

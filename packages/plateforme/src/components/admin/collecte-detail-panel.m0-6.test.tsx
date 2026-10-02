@@ -408,8 +408,24 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       };
       fireEvent.click(valider);
 
-      // Après refetch : bloc dispatch, carte « Actuel » = A Toutes! cochée,
-      // bouton forké sur A Toutes!, aucun bouton vers le recommandé.
+      // Après refetch : l'ordre est en file d'envoi → la fiche dit la collecte
+      // envoyée à A Toutes!, sans carte ni bouton d'envoi (décision Val
+      // 2026-10-02, C1). « Changer de prestataire » rouvre les cartes : « Actuel »
+      // = A Toutes! cochée, bouton forké sur A Toutes!, rien vers le recommandé.
+      expect(
+        await screen.findByText(
+          /Collecte envoyée à A Toutes!/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('radio', { name: /Strike/ })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      );
       const carteAToutes = await screen.findByRole(
         'radio',
         { name: /A Toutes!/ },
@@ -423,11 +439,12 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         'aria-checked',
         'false',
       );
+      // Même prestataire, ordre déjà en file : c'est un renvoi, pas un envoi.
       expect(
-        screen.getByRole('button', { name: /Envoyer à A Toutes!/ }),
+        screen.getByRole('button', { name: /Renvoyer à A Toutes!/ }),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole('button', { name: /Envoyer à MTS-1/ }),
+        screen.queryByRole('button', { name: /MTS-1/ }),
       ).not.toBeInTheDocument();
       expect(
         fetchMock.mock.calls.some(
@@ -611,14 +628,23 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       ).parentElement!;
       expect(within(ligne).getByText('Marathon')).toBeInTheDocument();
       expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+      // Ordre en file d'envoi : la fiche le dit envoyé à Marathon ; les cartes
+      // ne reviennent que sur « Changer de prestataire ».
+      expect(
+        screen.getByText(/Collecte envoyée à Marathon/),
+      ).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      );
       // Désactivé = plus proposé à l'attribution : pas de carte, donc pas de
       // badge « Actuel » — c'est la ligne « Prestataire actuel » qui le nomme.
       await screen.findByRole('radio', { name: /Strike/ }, ATTENTE_UI);
       expect(screen.queryByRole('radio', { name: /Marathon/ })).toBeNull();
       expect(screen.queryByText('Actuel')).toBeNull();
-      // Le bouton d'envoi suit le mode d'envoi du prestataire en place.
+      // Le bouton d'envoi suit le mode d'envoi du prestataire en place, et dit
+      // « Renvoyer » : l'ordre est déjà en file chez lui.
       expect(
-        screen.getByRole('button', { name: 'Envoyer à MTS-1' }),
+        screen.getByRole('button', { name: 'Renvoyer à MTS-1' }),
       ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
@@ -709,6 +735,14 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
+      // Ordre en file d'envoi : les cartes ne reviennent que sur demande.
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Changer de prestataire' },
+          ATTENTE_UI,
+        ),
+      );
       const carte = await screen.findByRole(
         'radio',
         { name: /A Toutes!/ },
@@ -720,6 +754,234 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         'aria-checked',
         'false',
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Ordre en file d'envoi (décision Val 2026-10-02, C1). Entre « Valider et
+  // envoyer » et le passage du worker outbox (15 min), `tms_reference` est vide
+  // et `statut_tms` encore `non_envoye` (§06.09 §3 pt 3) : la fiche réaffichait
+  // « Prestataire à attribuer » + « Envoyer à MTS-1 », comme si rien n'était
+  // parti. Elle doit dire la collecte envoyée et ne rouvrir le choix que sur
+  // demande.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const collecteEnFileMts1 = {
+    ...collecteAg,
+    prestataire_logistique_id: 'presta-mts1',
+    prestataire_actuel: {
+      transporteur_id: 't-mts1',
+      nom: 'Strike',
+      type_tms: 'mts1',
+    },
+    collecte_tournees: [],
+  };
+
+  it(
+    'AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au prestataire, ni carte ni bouton d’envoi',
+    async () => {
+      mockFetchPrestataire(collecteEnFileMts1);
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      // En-tête : plus de « Non envoyé » à côté du prestataire.
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(sousLigne).getByText('Envoyée')).toBeInTheDocument();
+      expect(within(sousLigne).queryByText('Non envoyé')).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /Collecte envoyée à Strike/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/vers MTS-1/)).toBeInTheDocument();
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Envoyée')).toBeInTheDocument();
+      expect(screen.queryByText('Non envoyé')).toBeNull();
+      // Ni choix du prestataire ni bouton d'envoi tant qu'on ne le demande pas.
+      expect(screen.queryByRole('radiogroup')).toBeNull();
+      expect(screen.queryByText('Prestataire à attribuer')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer',
+    async () => {
+      const fetchMock = mockFetchPrestataire(collecteEnFileMts1);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Changer de prestataire' },
+          ATTENTE_UI,
+        ),
+      );
+      expect(screen.getByText('Changer de prestataire')).toBeInTheDocument();
+      const carteStrike = await screen.findByRole(
+        'radio',
+        { name: /Strike/ },
+        ATTENTE_UI,
+      );
+      expect(carteStrike).toHaveAttribute('aria-checked', 'true');
+      expect(within(carteStrike).getByText('Actuel')).toBeInTheDocument();
+      // Le bouton cliqué a disparu : le focus est passé sur la carte cochée.
+      expect(carteStrike).toHaveFocus();
+      // Même prestataire → renvoi ; un autre prestataire → envoi chez lui.
+      expect(
+        screen.getByRole('button', { name: 'Renvoyer à MTS-1' }),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('radio', { name: /A Toutes!/ }));
+      expect(
+        screen.getByRole('button', { name: 'Envoyer à A Toutes!' }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Garder le prestataire actuel' }),
+      );
+      expect(screen.queryByRole('radiogroup')).toBeNull();
+      // « Garder » a disparu à son tour : le focus revient sur « Changer ».
+      expect(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      ).toHaveFocus();
+      expect(
+        fetchMock.mock.calls.some(([u]) => String(u).includes('/dispatch')),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'AG en file d’envoi : envoyer chez un autre prestataire (motif override) POST le dispatch, puis le mode « changer » se referme',
+    async () => {
+      const fetchMock = mockFetchPrestataire(collecteEnFileMts1);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Changer de prestataire' },
+          ATTENTE_UI,
+        ),
+      );
+      // A Toutes! ≠ reco Strike → motif obligatoire, puis envoi chez A Toutes!.
+      fireEvent.click(
+        await screen.findByRole('radio', { name: /A Toutes!/ }, ATTENTE_UI),
+      );
+      const bouton = screen.getByRole('button', {
+        name: 'Envoyer à A Toutes!',
+      });
+      expect(bouton).toBeDisabled();
+      fireEvent.change(screen.getByLabelText(/Motif override/), {
+        target: { value: 'Zone vélo cargo IDF' },
+      });
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).includes('/dispatch') &&
+            (c[1] as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          prestataire_logistique_id: 'presta-atoutes',
+          motif_override_prestataire: 'Zone vélo cargo IDF',
+        });
+      }, ATTENTE_UI);
+      // Après le refetch, le bloc revient en lecture : plus de cartes, le
+      // bouton « Changer de prestataire » est de retour et reprend le focus
+      // (le bouton d'envoi cliqué a disparu).
+      await waitFor(
+        () => expect(screen.queryByRole('radiogroup')).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      ).toHaveFocus();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'ZD avec prestataire et sans référence (fixture seed col_dispatch_non_envoye) : pas « envoyée » — rien ne pose de prestataire sur une ZD en V1, aucun ordre en file',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        type: 'zero_dechet',
+        attributions_antgaspi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const ligne = (
+        await screen.findByText('Statut TMS', undefined, ATTENTE_UI)
+      ).parentElement!;
+      expect(within(ligne).getByText('Non envoyé')).toBeInTheDocument();
+      expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeNull();
+      // L'action attendue par la liste (« Dispatcher ») reste l'envoi initial.
+      expect(
+        screen.getByRole('button', { name: 'Envoyer à MTS-1' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    [
+      'statut TMS autre que « non envoyé » (rejet prestataire, référence vide)',
+      { ...collecteEnFileMts1, statut_tms: 'rejetee_par_prestataire' },
+    ],
+    [
+      'prestataire servi par le repli attribution, sans pont (prestataire_logistique_id NULL)',
+      { ...collecteEnFileMts1, prestataire_logistique_id: null },
+    ],
+    ['collecte terminale', { ...collecteEnFileMts1, statut: 'annulee' }],
+    [
+      'transporteur manuel (par mail) avec prestataire de rattachement posé : rien ne part automatiquement',
+      {
+        ...collecteEnFileMts1,
+        prestataire_logistique_id: 'presta-province',
+        prestataire_actuel: {
+          transporteur_id: 't-province',
+          nom: 'Transports Dupont',
+          type_tms: 'par_mail',
+        },
+      },
+    ],
+  ])(
+    'pas d’état « en file d’envoi » : %s',
+    async (_cas, collecte) => {
+      mockFetchPrestataire(collecte);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+
+      expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
+      expect(screen.queryByText('Envoyée')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

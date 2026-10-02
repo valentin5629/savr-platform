@@ -19,7 +19,6 @@ import {
 
 import DashboardAdminPage from '@/app/(admin)/admin/dashboard/page.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
-import { periodeDerniers } from '@/lib/periodes-raccourcis';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
@@ -111,9 +110,13 @@ beforeEach(() => {
 
 // Fenêtre par défaut du bloc Revenus : 12 derniers mois glissants alignés au 1er du
 // mois — identique à defaultPeriode() de la page.
-// Défaut = raccourci standard « 12 derniers mois » (R-UI-4b D8).
 function defaultWindow(): { from: string; to: string } {
-  return periodeDerniers(12, 'mois')!;
+  const now = new Date();
+  const iso = (d: Date) => jourParis(d);
+  return {
+    from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
+    to: iso(now),
+  };
 }
 
 describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
@@ -196,12 +199,9 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       expect(screen.queryByText('Exporter CSV')).toBeNull();
       expect(screen.queryByText('7 derniers jours')).toBeNull();
       expect(screen.queryByText('Année civile')).toBeNull();
-      // Le défaut est le raccourci « 12 derniers mois » : le déclencheur
-      // l'affiche sous ce nom (R-UI-4b D8), seule occurrence du libellé.
-      expect(screen.getByTestId('revenus-periode')).toHaveTextContent(
-        '12 derniers mois',
-      );
-      expect(screen.getAllByText('12 derniers mois')).toHaveLength(1);
+      // Défaut aligné au 1er du mois (§06.06 l.76) : ne correspond à aucun
+      // raccourci, le déclencheur affiche des dates (§11 l.38).
+      expect(screen.queryByText('12 derniers mois')).toBeNull();
       // Période au défaut → pas de « Réinitialiser les filtres » (D5, actif).
       expect(screen.queryByTestId('revenus-reinitialiser')).toBeNull();
     },
@@ -209,7 +209,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   );
 
   it(
-    'M3.5/admin_revenus_defaut_12_mois — période par défaut = raccourci « 12 derniers mois » (jour Paris)',
+    'M3.5/admin_revenus_defaut_12_mois — période par défaut = 12 derniers mois glissants (alignés au 1er du mois)',
     async () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);

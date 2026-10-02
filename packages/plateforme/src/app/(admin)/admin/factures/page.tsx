@@ -217,9 +217,11 @@ const columns: Column<Facture>[] = [
 // (« __erreur__ » = en erreur Pennylane) ; Organisation et Type à choix
 // multiple, case « Tous » = sélection vide (décision Val 2026-09-30,
 // divergence M0.8_20260930_filtres-choix-multiple-tous). Tri serveur (cf.
-// lib/tri-liste), retour page 1 à chaque changement (BL-P3-07).
+// lib/tri-liste), retour page 1 à chaque changement (BL-P3-07). La pastille
+// est hors `actif` et conservée par « Réinitialiser les filtres », comme sur
+// Collectes admin (décision Val 2026-09-30 : pastille et filtres se cumulent).
 const FILTRES = {
-  statut: texte(''),
+  statut: navigation(texte('')),
   types: liste(),
   organisation_ids: liste(),
   date_debut: texte(''),
@@ -316,7 +318,7 @@ export default function FacturesPage() {
         data-testid="factures-filtres"
         count={compteurResultats(total, 'facture', 'factures')}
         actif={filtresActifs}
-        // Remet aussi la pastille de statut à « Tout » (R-UI-4b, D5).
+        // N'efface que la barre : la pastille de statut reste posée.
         onReset={reset}
       >
         {/* « Période » en premier (décision Val 2026-09-30), puis filtres à

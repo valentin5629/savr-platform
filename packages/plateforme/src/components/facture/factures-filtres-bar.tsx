@@ -1,6 +1,7 @@
 'use client';
 
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { liste, texte, type ValeursFiltres } from '@/lib/hooks/use-filtres-url';
@@ -105,7 +106,7 @@ export function FacturesFiltresBar({
     <FilterBar
       className={className}
       data-testid="factures-filtres"
-      count={`${count} facture${count > 1 ? 's' : ''}`}
+      count={compteurResultats(count, 'facture', 'factures')}
       actif={actif}
       onReset={onReset}
     >

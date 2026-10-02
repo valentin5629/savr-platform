@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FilterChips } from '@/components/ui/filter-chips';
 import { texte, useFiltresUrl } from '@/lib/hooks/use-filtres-url';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import {
   SEVERITE_BADGE,
@@ -187,7 +188,7 @@ export default function AlertesPage() {
 
       <FilterBar
         data-testid="alertes-filtres"
-        count={`${alertes.length} alerte${alertes.length > 1 ? 's' : ''}`}
+        count={compteurResultats(alertes.length, 'alerte', 'alertes')}
         actif={actif}
         onReset={reset}
       >

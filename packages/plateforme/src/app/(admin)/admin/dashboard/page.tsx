@@ -16,7 +16,7 @@ import { RevenusHistogramme } from '@/components/dashboards/index.js';
 import { StatCard } from '@/components/ui/stat-card';
 import { ChartCard } from '@/components/dashboards/charts/cockpit/ChartCard';
 import { fmtInt } from '@/components/dashboards/charts/cockpit/fmt';
-import { periodeDerniers } from '@/lib/periodes-raccourcis';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 import { OPS_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -69,12 +69,19 @@ function badgeVeille(v: number, labelActif: string) {
   );
 }
 
-// Période par défaut du bloc Revenus : le raccourci standard « 12 derniers
-// mois » (`lib/periodes-raccourcis`, R-UI-4b D8) — le déclencheur « Période »
-// l'affiche sous ce nom. Cette MÊME fenêtre pilote l'histogramme ET le tableau
-// (filtre unique, revue E2E Val 2026-07-18) ; « Réinitialiser » y revient.
+// Période par défaut du bloc Revenus : 12 derniers mois glissants, alignés au 1er du
+// mois (12 buckets pleins pour l'histogramme — §06.06 l.76 / §11 l.38, décision Val
+// 2026-07-18 réaffirmée 2026-09-30 : ne correspond à aucun raccourci, le déclencheur
+// affiche des dates ; le plan R-UI-4b D8 proposait l'inverse → arbitrage Val, PR #481).
+// Cette MÊME fenêtre pilote l'histogramme ET le tableau (filtre unique) ;
+// « Réinitialiser les filtres » y revient.
 function defaultPeriode(): { from: string; to: string } {
-  return periodeDerniers(12, 'mois')!;
+  const now = new Date();
+  const iso = (d: Date) => jourParis(d);
+  return {
+    from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
+    to: iso(now),
+  };
 }
 
 /** Période ≠ défaut : « Réinitialiser les filtres » visible. */

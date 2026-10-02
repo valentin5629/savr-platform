@@ -371,6 +371,7 @@ function EntitesCard({
             les entités de l'organisation (aucune pagination). Ordre initial =
             celui de la route (entité par défaut d'abord). */}
         <DataGrid
+          columnsToggle={false}
           columns={colonnes}
           data={actives}
           getRowId={(e) => e.id}
@@ -718,6 +719,7 @@ function EquipeTab({ userId }: { userId: string }) {
           {/* Data Table commune, tri côté navigateur : la route /equipe
               renvoie tous les membres de l'organisation (aucune pagination). */}
           <DataGrid
+            columnsToggle={false}
             columns={colonnes}
             data={users}
             getRowId={(u) => u.id}
@@ -1080,6 +1082,7 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
             />
           </BarreFiltres>
           <DataGrid
+            columnsToggle={false}
             columns={COLONNES_FACTURES}
             data={factures}
             getRowId={(f) => f.id}

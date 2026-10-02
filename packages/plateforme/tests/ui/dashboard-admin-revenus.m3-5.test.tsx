@@ -300,7 +300,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
         () =>
           expect(
             fetchMock.mock.calls.some(([u]) =>
-              String(u).includes('sort=montant_ag_ht'),
+              String(u).includes('tri=montant_ag_ht'),
             ),
           ).toBe(true),
         ATTENTE_UI,

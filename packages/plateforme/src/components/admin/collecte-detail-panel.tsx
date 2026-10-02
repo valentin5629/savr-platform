@@ -3,7 +3,13 @@
 import { fmtEuro, fmtPax, fmtKgAuto } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { libelleStatutTournee } from '@/lib/libelles/tournee';
-import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from 'react';
 import {
   Truck,
   Send,
@@ -54,7 +60,9 @@ import {
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
+import { estADispatcher } from '@/lib/collectes-chips';
 import {
+  envoiAutomatique,
   libelleCanalEnvoi,
   libelleDispatch,
   libelleTypeTms,
@@ -436,6 +444,25 @@ export function CollecteDetailPanel({
   // Bloc 0 — dispatch prestataire (BOA-06)
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [selectedTransporteurId, setSelectedTransporteurId] = useState('');
+  // Ordre en file d'envoi : les cartes prestataire et le bouton d'envoi ne
+  // reviennent que sur demande explicite (« Changer de prestataire »).
+  const [changerPrestataire, setChangerPrestataire] = useState(false);
+  // Focus clavier : à l'ouverture, sur la carte cochée ; à la fermeture, de
+  // retour sur « Changer de prestataire » (les deux boutons disparaissent au clic).
+  const dispatchChoixRef = useRef<HTMLDivElement>(null);
+  const changerPrestataireBtnRef = useRef<HTMLButtonElement>(null);
+  const retourFocusChangerRef = useRef(false);
+  useEffect(() => {
+    if (changerPrestataire) {
+      // La carte « focusable » (cochée, sinon la 1re) porte déjà tabIndex 0.
+      dispatchChoixRef.current
+        ?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]')
+        ?.focus();
+    } else if (retourFocusChangerRef.current) {
+      retourFocusChangerRef.current = false;
+      changerPrestataireBtnRef.current?.focus();
+    }
+  }, [changerPrestataire]);
   const [motifOverride, setMotifOverride] = useState('');
   const [reco, setReco] = useState<RecoAlgo | null>(null);
   // RM-08 — forçage manuel du statut
@@ -688,6 +715,10 @@ export function CollecteDetailPanel({
       await refetch();
       setSelectedTransporteurId('');
       setMotifOverride('');
+      // Mode « changer » ouvert → il se referme : rendre le focus au bouton
+      // « Changer de prestataire » plutôt que de le perdre en haut de page.
+      retourFocusChangerRef.current = changerPrestataire;
+      setChangerPrestataire(false);
     } else {
       const errBody = (await res.json()) as { error: string };
       setDispatchError(errBody.error);
@@ -964,6 +995,32 @@ export function CollecteDetailPanel({
     !isTerminal &&
     currentTransporteur?.type_tms === 'a_toutes' &&
     !collecte.tms_reference;
+  // Ordre en file d'envoi (décision Val 2026-10-02, C1) : AG dont l'attribution
+  // validée a posé le prestataire chez un adapter (MTS-1 / A Toutes!) et dont la
+  // commande n'est pas encore partie (le worker outbox tourne toutes les 15 min :
+  // `tms_reference` vide, `statut_tms` encore « non envoyé » — §06.09 §3 pt 3).
+  // À ce stade la fiche DIT la collecte envoyée et ne rouvre le choix du
+  // prestataire que sur demande : avant, elle réaffichait « Prestataire à
+  // attribuer » + « Envoyer », comme si rien n'était parti.
+  // Gardes = celles du worker : `prestataire_logistique_id` posé (sans lui le
+  // worker sort en no-op — un transporteur sans pont servi par le repli
+  // `prestataire_actuel` n'a rien en file) et collecte encore `programmee` /
+  // `validee`. ZD exclue : en V1 aucun chemin ne pose de prestataire sur une ZD
+  // (création, PATCH, dispatch à corps vide) — l'état n'existe que par seed, sans
+  // event en file. Transporteurs manuels (mail / téléphone / autre) exclus :
+  // rien ne part automatiquement pour eux.
+  // « À dispatcher » au sens canonique (§11 §1.1, `estADispatcher` : non envoyée,
+  // sans référence, programmée ou validée) — mais l'ordre est déjà en file.
+  const ordreEnFileEnvoi =
+    collecte.type === 'anti_gaspi' &&
+    collecte.prestataire_logistique_id != null &&
+    envoiAutomatique(currentTransporteur?.type_tms) &&
+    estADispatcher(collecte);
+  const dispatchEnLecture = ordreEnFileEnvoi && !changerPrestataire;
+  // Même prestataire, ordre déjà en file (ou référence TMS reçue) → « Renvoyer ».
+  const renvoi =
+    !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
+  const canalEnvoi = libelleCanalEnvoi(currentTransporteur?.type_tms);
   const referenceSaisie = acceptationSaisie.reference_mission.trim();
   const acceptationIncomplete =
     referenceSaisie === '' ||
@@ -1003,7 +1060,11 @@ export function CollecteDetailPanel({
   );
   const lieu = applyLieuOverrides(collecte.evenements.lieux, overrides);
 
-  const statutTms = statutTmsDisplay(collecte.statut_tms);
+  // En file d'envoi, « Non envoyé » (valeur brute de l'enum) tromperait l'Ops :
+  // l'ordre est parti côté Plateforme. Affichage dérivé, l'enum DB ne change pas.
+  const statutTms = ordreEnFileEnvoi
+    ? { label: 'Envoyée', variant: 'info' as const }
+    : statutTmsDisplay(collecte.statut_tms);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -1362,11 +1423,8 @@ export function CollecteDetailPanel({
                   <div>
                     <dt className="text-savr-neutral-500">Statut TMS</dt>
                     <dd className="font-medium">
-                      <Badge
-                        variant={statutTmsDisplay(collecte.statut_tms).variant}
-                        className="text-xs"
-                      >
-                        {statutTmsDisplay(collecte.statut_tms).label}
+                      <Badge variant={statutTms.variant} className="text-xs">
+                        {statutTms.label}
                       </Badge>
                       {collecte.statut_tms_at && (
                         <Text as="span" variant="faint" className="ml-1">
@@ -1420,92 +1478,121 @@ export function CollecteDetailPanel({
                   )}
                 </dl>
 
+                {ordreEnFileEnvoi && (
+                  <AlertBar variant="info">
+                    <span>
+                      Collecte envoyée à {currentTransporteur?.nom}
+                      {currentTransporteur?.nom?.endsWith('!') ? '' : '.'}{' '}
+                      <span className="font-normal">
+                        La commande part automatiquement vers {canalEnvoi}{' '}
+                        (prochain passage sous 15 minutes, reprises automatiques
+                        en cas d&apos;erreur) : la référence TMS et le statut «
+                        Attente acceptation presta » s&apos;afficheront ici dès
+                        sa prise en compte.
+                      </span>
+                    </span>
+                  </AlertBar>
+                )}
+
                 {/* Choix du prestataire (AG) — override manuel §06.06 §3, en cartes
             cochables (décision Val C3) : la reco algo est présélectionnée et
-            marquée « Recommandé ». Pas de choix en ZD V1 (réémission seule). */}
-                {collecte.type === 'anti_gaspi' && !isTerminal && (
-                  <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
-                    <Text
-                      tone="strong"
-                      className="font-semibold"
-                      id="dispatch-transporteur-label"
+            marquée « Recommandé ». Pas de choix en ZD V1 (réémission seule).
+            Ordre en file d'envoi : masqué tant que l'Ops ne demande pas à
+            changer de prestataire. */}
+                {collecte.type === 'anti_gaspi' &&
+                  !isTerminal &&
+                  !dispatchEnLecture && (
+                    <div
+                      ref={dispatchChoixRef}
+                      className="space-y-3 border-t border-savr-neutral-100 pt-4"
                     >
-                      Prestataire à attribuer
-                    </Text>
-                    {transporteursOrdonnes.length === 0 ? (
-                      <Text>Aucun transporteur actif dans le référentiel.</Text>
-                    ) : (
-                      <div
-                        role="radiogroup"
-                        aria-labelledby="dispatch-transporteur-label"
-                        onKeyDown={naviguerRadios}
-                        className="grid gap-2 sm:grid-cols-2"
+                      <Text
+                        tone="strong"
+                        className="font-semibold"
+                        id="dispatch-transporteur-label"
                       >
-                        {transporteursOrdonnes.map((t, i) => {
-                          const estActuel =
-                            t.id === currentTransporteur?.transporteur_id;
-                          const coche =
-                            (selectedTransporteurId ||
-                              currentTransporteur?.transporteur_id) === t.id;
-                          return (
-                            <CarteChoix
-                              key={t.id}
-                              coche={coche}
-                              // Un seul arrêt de tabulation : la carte cochée, sinon la 1re.
-                              focusable={
-                                coche || (aucuneCarteCochee && i === 0)
-                              }
-                              // Re-choisir le prestataire actuel = le conserver ('').
-                              onSelect={() =>
-                                setSelectedTransporteurId(estActuel ? '' : t.id)
-                              }
-                              titre={t.nom}
-                              detail={libelleTypeTms(t.type_tms)}
-                              badges={
-                                <>
-                                  {t.id === recommendedTransporteurId && (
-                                    <Badge
-                                      variant="primary"
-                                      className="text-xs"
-                                    >
-                                      Recommandé
-                                    </Badge>
-                                  )}
-                                  {estActuel && (
-                                    <Badge
-                                      variant="neutral"
-                                      className="text-xs"
-                                    >
-                                      Actuel
-                                    </Badge>
-                                  )}
-                                </>
-                              }
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
-                    {overrideActif && (
-                      <div>
-                        <label
-                          className="block text-sm font-medium text-savr-neutral-700 mb-1"
-                          htmlFor="dispatch-motif"
+                        {ordreEnFileEnvoi
+                          ? 'Changer de prestataire'
+                          : 'Prestataire à attribuer'}
+                      </Text>
+                      {transporteursOrdonnes.length === 0 ? (
+                        <Text>
+                          Aucun transporteur actif dans le référentiel.
+                        </Text>
+                      ) : (
+                        <div
+                          role="radiogroup"
+                          aria-labelledby="dispatch-transporteur-label"
+                          onKeyDown={naviguerRadios}
+                          className="grid gap-2 sm:grid-cols-2"
                         >
-                          Motif override (obligatoire ≥ 5 car. — prestataire ≠
-                          reco algo)
-                        </label>
-                        <Textarea
-                          id="dispatch-motif"
-                          rows={2}
-                          value={motifOverride}
-                          onChange={(e) => setMotifOverride(e.target.value)}
-                          placeholder="Raison du choix d'un prestataire différent de la recommandation…"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
+                          {transporteursOrdonnes.map((t, i) => {
+                            const estActuel =
+                              t.id === currentTransporteur?.transporteur_id;
+                            const coche =
+                              (selectedTransporteurId ||
+                                currentTransporteur?.transporteur_id) === t.id;
+                            return (
+                              <CarteChoix
+                                key={t.id}
+                                coche={coche}
+                                // Un seul arrêt de tabulation : la carte cochée, sinon la 1re.
+                                focusable={
+                                  coche || (aucuneCarteCochee && i === 0)
+                                }
+                                // Re-choisir le prestataire actuel = le conserver ('').
+                                onSelect={() =>
+                                  setSelectedTransporteurId(
+                                    estActuel ? '' : t.id,
+                                  )
+                                }
+                                titre={t.nom}
+                                detail={libelleTypeTms(t.type_tms)}
+                                badges={
+                                  <>
+                                    {t.id === recommendedTransporteurId && (
+                                      <Badge
+                                        variant="primary"
+                                        className="text-xs"
+                                      >
+                                        Recommandé
+                                      </Badge>
+                                    )}
+                                    {estActuel && (
+                                      <Badge
+                                        variant="neutral"
+                                        className="text-xs"
+                                      >
+                                        Actuel
+                                      </Badge>
+                                    )}
+                                  </>
+                                }
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                      {overrideActif && (
+                        <div>
+                          <label
+                            className="block text-sm font-medium text-savr-neutral-700 mb-1"
+                            htmlFor="dispatch-motif"
+                          >
+                            Motif override (obligatoire ≥ 5 car. — prestataire ≠
+                            reco algo)
+                          </label>
+                          <Textarea
+                            id="dispatch-motif"
+                            rows={2}
+                            value={motifOverride}
+                            onChange={(e) => setMotifOverride(e.target.value)}
+                            placeholder="Raison du choix d'un prestataire différent de la recommandation…"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                 {/* Bouton d'envoi TMS forké par type_tms (+ acceptation manuelle
               A Toutes! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
@@ -1528,15 +1615,43 @@ export function CollecteDetailPanel({
                       Acceptation manuelle
                     </Button>
                   )}
-                  <Button
-                    disabled={isTerminal || overrideMotifManquant}
-                    onClick={() => void handleDispatch()}
-                    loading={dispatching}
-                    loadingText="Envoi…"
-                  >
-                    <Send />{' '}
-                    {libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
-                  </Button>
+                  {dispatchEnLecture ? (
+                    // Ordre en file d'envoi : pas de bouton primaire d'envoi (il
+                    // est déjà parti) — seule action : rouvrir le choix du
+                    // prestataire.
+                    <Button
+                      ref={changerPrestataireBtnRef}
+                      variant="secondary"
+                      onClick={() => setChangerPrestataire(true)}
+                    >
+                      <Truck />
+                      Changer de prestataire
+                    </Button>
+                  ) : (
+                    <>
+                      {ordreEnFileEnvoi && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            retourFocusChangerRef.current = true;
+                            setChangerPrestataire(false);
+                            setSelectedTransporteurId('');
+                            setMotifOverride('');
+                          }}
+                        >
+                          Garder le prestataire actuel
+                        </Button>
+                      )}
+                      <Button
+                        disabled={isTerminal || overrideMotifManquant}
+                        onClick={() => void handleDispatch()}
+                        loading={dispatching}
+                        loadingText="Envoi…"
+                      >
+                        <Send /> {libelleDispatch(forkTypeTms, renvoi)}
+                      </Button>
+                    </>
+                  )}
                 </div>
 
                 {/* Tournées (multi-camions) */}

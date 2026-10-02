@@ -476,6 +476,7 @@ export default function TarifsPacksAGPage() {
         {/* Historique complet d'un type de pack (route sans pagination,
                   triée par date de validité desc) → tri navigateur. */}
         <DataGrid
+          columnsToggle={false}
           columns={COLONNES_HISTORIQUE}
           data={hist.rows}
           getRowId={(r) => r.id}

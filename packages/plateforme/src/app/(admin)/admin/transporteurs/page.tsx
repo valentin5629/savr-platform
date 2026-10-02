@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Truck, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
@@ -9,9 +9,16 @@ import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import {
   TransporteurModal,
   type PrestataireOption,
@@ -48,59 +55,51 @@ const TYPE_COLLECTE_LABELS: Record<string, string> = {
   zero_dechet: 'ZD',
 };
 
+// Filtres de la liste, miroir dans l'URL (R-UI-4a) : choix multiple, case
+// « Tous » = sélection vide (décision Val 2026-09-30), « Actifs » pré-coché.
+// Tri serveur de la Data Table (cf. lib/tri-liste), retour page 1 à chaque
+// changement de filtre ou de tri.
+const FILTRES = {
+  q: texte(''),
+  types_tms: liste(),
+  actif: liste(['true']),
+  page: navigation(entier(1, 1)),
+  tri: navigation(texte('nom')),
+  ordre: navigation(texte('asc')),
+};
+
 export default function TransporteursPage() {
-  const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
-  // Filtres à choix multiple, case « Tous » = sélection vide (décision Val
-  // 2026-09-30) ; « Actifs » reste pré-coché par défaut.
-  const [typesTms, setTypesTms] = useState<string[]>([]);
-  const [actifs, setActifs] = useState<string[]>(['true']);
-  const [page, setPage] = useState(1);
-  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
-  // en page 1 à chaque changement (cf. lib/tri-liste).
-  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
-    cle: 'nom',
-    ordre: 'asc',
-  });
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
+  const url = useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(f.page),
+      tri: f.tri,
+      ordre: f.ordre,
+    });
+    const actif = valeurUnique(f.actif);
+    if (actif) params.set('actif', actif);
+    if (f.types_tms.length > 0) params.set('types_tms', f.types_tms.join(','));
+    if (f.q) params.set('q', f.q);
+    return `/api/v1/admin/transporteurs?${params}`;
+  }, [f]);
+  const {
+    data: transporteurs,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<Transporteur>(url);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transporteur | null>(null);
   const [prestataires, setPrestataires] = useState<PrestataireOption[] | null>(
     null,
   ); // null = non chargé ou en échec (≠ référentiel vide)
-
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
-
-  const fetchTransporteurs = useCallback(async () => {
-    const numero = ++derniereRequete.current;
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page) });
-    params.set('tri', tri.cle);
-    params.set('ordre', tri.ordre);
-    const actif = valeurUnique(actifs);
-    if (actif) params.set('actif', actif);
-    if (typesTms.length > 0) params.set('types_tms', typesTms.join(','));
-    if (q) params.set('q', q);
-    try {
-      const res = await fetch(`/api/v1/admin/transporteurs?${params}`);
-      const json = res.ok
-        ? ((await res.json()) as { data: Transporteur[]; total: number })
-        : null;
-      if (numero !== derniereRequete.current || !json) return;
-      setTransporteurs(json.data);
-      setTotal(json.total);
-    } finally {
-      if (numero === derniereRequete.current) setLoading(false);
-    }
-  }, [page, actifs, typesTms, q, tri]);
-
-  useEffect(() => {
-    void fetchTransporteurs();
-  }, [fetchTransporteurs]);
 
   const fetchPrestataires = useCallback(async () => {
     try {
@@ -236,14 +235,16 @@ export default function TransporteursPage() {
         }
       />
 
-      <FilterBar data-testid="transporteurs-filtres">
+      <FilterBar
+        data-testid="transporteurs-filtres"
+        count={`${total} transporteur${total > 1 ? 's' : ''}`}
+        actif={filtresActifs}
+        onReset={reset}
+      >
         <FiltreRecherche
           id="transporteurs-recherche"
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
+          value={f.q}
+          onChange={(e) => set({ q: e.target.value })}
         />
         <FiltreCoches
           label="Type"
@@ -252,11 +253,8 @@ export default function TransporteursPage() {
             id,
             nom,
           }))}
-          selected={typesTms}
-          onChange={(ids) => {
-            setTypesTms(ids);
-            setPage(1);
-          }}
+          selected={f.types_tms}
+          onChange={(ids) => set({ types_tms: ids })}
         />
         <FiltreCoches
           label="Statut"
@@ -265,61 +263,42 @@ export default function TransporteursPage() {
             { id: 'true', nom: 'Actifs' },
             { id: 'false', nom: 'Inactifs' },
           ]}
-          selected={actifs}
-          onChange={(ids) => {
-            setActifs(ids);
-            setPage(1);
-          }}
+          selected={f.actif}
+          onChange={(ids) => set({ actif: ids })}
         />
       </FilterBar>
 
-      {loading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : transporteurs.length === 0 ? (
-        <EmptyState
-          icon={<Truck className="h-8 w-8" />}
-          title="Aucun transporteur"
-          description="Créez le premier transporteur."
-        />
-      ) : (
-        <>
-          <DataTable
-            columns={columns}
-            data={transporteurs}
-            keyExtractor={(row) => row.id}
-            onSort={(cle, ordre) => {
-              setTri({ cle, ordre });
-              setPage(1);
-            }}
-            sortKey={tri.cle}
-            sortDirection={tri.ordre}
-            onRowClick={openEdit}
+      <DataTable
+        columns={columns}
+        data={transporteurs}
+        keyExtractor={(row) => row.id}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={
+          <EmptyState
+            icon={<Truck className="h-8 w-8" />}
+            title="Aucun transporteur"
+            description="Créez le premier transporteur."
           />
-          {total > 50 && (
-            <div className="flex items-center justify-between gap-2 pt-3 text-sm">
-              <span className="text-savr-neutral-500">
-                {total} transporteur{total > 1 ? 's' : ''}
-              </span>
-              <Pagination
-                page={page}
-                pageCount={Math.ceil(total / 50)}
-                onPageChange={setPage}
-              />
-            </div>
-          )}
-        </>
-      )}
+        }
+        onSort={(cle, ordre) => set({ tri: cle, ordre })}
+        sortKey={f.tri}
+        sortDirection={f.ordre as 'asc' | 'desc'}
+        onRowClick={openEdit}
+      />
+      <ListFooter
+        total={total}
+        page={f.page}
+        onPageChange={(page) => set({ page })}
+      />
 
       <TransporteurModal
         open={modalOpen}
         transporteur={editing}
         onClose={() => setModalOpen(false)}
         onSaved={() => {
-          void fetchTransporteurs();
+          recharger();
           // Un rattachement change les prestataires à griser.
           void fetchPrestataires();
         }}

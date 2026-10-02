@@ -17,6 +17,7 @@ import {
 import { ChevronDown, ChevronUp, ChevronsUpDown, Columns3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { AlertBar } from '@/components/ui/alert-bar';
 import {
   Dropdown,
   DropdownCheckboxItem,
@@ -67,8 +68,14 @@ interface DataGridProps<T> {
   data: T[];
   getRowId: (row: T) => string;
   loading?: boolean;
-  /** Rendu quand `data` est vide (hors chargement). */
+  /** Rendu quand `data` est vide (hors chargement) ; défaut « Aucun résultat. ». */
   empty?: React.ReactNode;
+  /**
+   * État Error §10 §7 (R-UI-4a, E4) : message + « Réessayer », rendu À LA
+   * PLACE du tableau — une panne ne doit jamais se lire comme une liste vide.
+   */
+  erreur?: string | null;
+  onRecharger?: () => void;
   /** Tri contrôlé (obligatoire avec `manualSorting`). */
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
@@ -77,7 +84,11 @@ interface DataGridProps<T> {
   manualSorting?: boolean;
   /** Colonnes masquées au départ (`{ id: false }`). */
   initialColumnVisibility?: VisibilityState;
-  /** Affiche le menu « Colonnes » (masquer / réafficher). */
+  /**
+   * Menu « Colonnes » (masquer / réafficher). Défaut `true` (décision Val
+   * 2026-09-28) ; les petits blocs (dashboard, fiche, modale) passent
+   * `columnsToggle={false}` (R-UI-4a, E6).
+   */
   columnsToggle?: boolean;
   /** Contenu à gauche de la barre d'outils (compteur, filtres…). */
   toolbar?: React.ReactNode;
@@ -118,7 +129,13 @@ function DataGrid<T>({
   data,
   getRowId,
   loading = false,
-  empty,
+  empty = (
+    <p className="py-8 text-center text-sm text-savr-neutral-500">
+      Aucun résultat.
+    </p>
+  ),
+  erreur = null,
+  onRecharger,
   sorting: sortingProp,
   onSortingChange,
   initialSorting = [],
@@ -201,7 +218,7 @@ function DataGrid<T>({
 
   return (
     <div className={cn('space-y-3', className)} data-testid={testId}>
-      {(toolbar || columnsToggle) && (
+      {!erreur && !loading && rows.length > 0 && (toolbar || columnsToggle) && (
         <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">{toolbar}</div>
           {columnsToggle && hideable.length > 0 && (
@@ -231,7 +248,19 @@ function DataGrid<T>({
         </div>
       )}
 
-      {loading ? (
+      {erreur ? (
+        <div
+          className="space-y-4"
+          data-testid={testId ? `${testId}-erreur` : undefined}
+        >
+          <AlertBar variant="err">{erreur}</AlertBar>
+          {onRecharger && (
+            <Button variant="secondary" onClick={onRecharger}>
+              Réessayer
+            </Button>
+          )}
+        </div>
+      ) : loading ? (
         <div className="space-y-2" aria-busy="true">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full rounded-savr-md" />

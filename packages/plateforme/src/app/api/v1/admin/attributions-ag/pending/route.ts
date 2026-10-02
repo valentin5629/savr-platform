@@ -1,3 +1,4 @@
+import { lirePagination } from '@/lib/pagination.js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
@@ -12,9 +13,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
-  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-  const limit = 50;
-  const offset = (page - 1) * limit;
+  const { page, limit, from: offset } = lirePagination(searchParams);
 
   const { data, error, count } = await supabase
     .from('collectes')

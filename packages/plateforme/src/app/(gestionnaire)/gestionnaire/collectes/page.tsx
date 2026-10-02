@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -20,7 +20,8 @@ import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
@@ -92,10 +93,6 @@ function GestionnaireCollectesContent() {
   const typeEvtKey = params.getAll('type_evenement_ids[]').join(',');
   const tailleKey = params.getAll('taille_evenements[]').join(',');
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
-  const [rows, setRows] = useState<CollecteRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [erreur, setErreur] = useState<string | null>(null);
   // Tri de la Data Table, envoyé à l'API (liste paginée : trier la seule page
   // chargée donnerait un ordre faux). Défaut = date décroissante, comme la route.
   const [sorting, setSorting] = useState<SortingState>([
@@ -126,21 +123,11 @@ function GestionnaireCollectesContent() {
   const page = pagination.key === filtresKey ? pagination.page : 1;
   const allerPage = (p: number) => setPagination({ key: filtresKey, page: p });
 
-  // Chaque appel prend un numéro ; seule la réponse du dernier appel a le droit
-  // d'écrire dans l'état. Sans cette garde, un filtre retiré pendant qu'une
-  // requête est en vol laisse l'échec de la requête PÉRIMÉE épingler l'écran sur
-  // « Le chargement des collectes a échoué. » alors que les données fraîches sont
-  // déjà chargées et invisibles (la branche `erreur` l'emporte sur le contenu).
-  const generation = useRef(0);
-
-  const charger = useCallback(() => {
-    const gen = ++generation.current;
-    const perime = () => generation.current !== gen;
-    // Voir plus bas : une page devenue hors bornes relance un chargement, et
-    // l'écran ne doit pas repasser par l'état « chargé » entre les deux.
-    let redirige = false;
-    setLoading(true);
-    setErreur(null);
+  // Liste paginée serveur (R-UI-4a) : URL mémoïsée, garde anti-réponse périmée
+  // et état Error portés par `useListePaginee`. Sans la garde `!r.ok`, un 500
+  // rendait `data` absent → liste vide → « Aucune collecte sur vos lieux » :
+  // une panne serveur se lisait comme un parc sans collecte (§10 §7).
+  const urlListe = useMemo(() => {
     const qs = new URLSearchParams();
     if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
     if (traiteurFiltre) qs.set('traiteur_id', traiteurFiltre);
@@ -161,53 +148,7 @@ function GestionnaireCollectesContent() {
     }
     if (page > 1) qs.set('page', String(page));
     const suffix = qs.toString() ? `?${qs}` : '';
-    fetch(`/api/v1/gestionnaire/collectes${suffix}`)
-      .then((r) => {
-        // Sans cette garde, un 500 rendait `data` absent → liste vide → l'écran
-        // affichait « Aucune collecte sur vos lieux » : une panne serveur se
-        // lisait comme un parc sans collecte (§10 §7, état Error distinct de
-        // l'état Empty).
-        if (!r.ok) throw new Error(String(r.status));
-        return r.json();
-      })
-      .then((j) => {
-        if (perime()) return;
-        const data = (j.data ?? []) as CollecteRow[];
-        // `total` absent (contrat plus ancien) : on n'invente pas un total plus
-        // grand que ce qu'on a reçu, sinon la pagination proposerait des pages
-        // vides.
-        const recu = typeof j.total === 'number' ? j.total : data.length;
-
-        // Page devenue hors bornes — la liste a rétréci pendant qu'on la
-        // consultait (une collecte annulée ailleurs, un parc réduit). Le serveur
-        // répond alors une page vide AVEC le vrai total.
-        //
-        // Sans ce rattrapage, l'écran afficherait « Aucune collecte sur vos
-        // lieux pour ce périmètre. » — mot pour mot ce qu'il affiche pour un
-        // parc réellement vide — et SANS pagination pour en sortir, puisque le
-        // bloc de pagination vit dans la branche non-vide du rendu. L'utilisateur
-        // serait dans un cul-de-sac, à devoir recharger l'écran à la main.
-        //
-        // `page > dernierePage` est une comparaison STRICTE : on ne redescend
-        // que vers une page plus petite, donc jamais de boucle.
-        const dernierePage = Math.max(1, Math.ceil(recu / PAGE_SIZE));
-        if (data.length === 0 && recu > 0 && page > dernierePage) {
-          redirige = true;
-          allerPage(dernierePage);
-          return;
-        }
-
-        setRows(data);
-        setTotal(recu);
-      })
-      .catch(() => {
-        if (!perime()) setErreur('Le chargement des collectes a échoué.');
-      })
-      .finally(() => {
-        // Pendant une redirection, l'écran reste en chargement : le baisser ici
-        // ferait clignoter l'état vide avant l'arrivée de la bonne page.
-        if (!perime() && !redirige) setLoading(false);
-      });
+    return `/api/v1/gestionnaire/collectes${suffix}`;
   }, [
     lieuFiltre,
     traiteurFiltre,
@@ -220,10 +161,57 @@ function GestionnaireCollectesContent() {
     triKey,
     page,
   ]);
+  const {
+    data: rows,
+    total,
+    loading: chargement,
+    erreur,
+    recharger: charger,
+  } = useListePaginee<CollecteRow>(urlListe, {
+    // `total` absent (contrat plus ancien) : on n'invente pas un total plus
+    // grand que ce qu'on a reçu, sinon la pagination proposerait des pages vides.
+    extraire: (j) => {
+      const r = j as { data?: CollecteRow[]; total?: number };
+      const data = r.data ?? [];
+      return {
+        data,
+        total: typeof r.total === 'number' ? r.total : data.length,
+      };
+    },
+    messageErreur: 'Le chargement des collectes a échoué.',
+  });
 
+  // Page devenue hors bornes — la liste a rétréci pendant qu'on la consultait
+  // (une collecte annulée ailleurs, un parc réduit). Le serveur répond alors
+  // une page vide AVEC le vrai total. Sans ce rattrapage, l'écran afficherait
+  // « Aucune collecte sur vos lieux pour ce périmètre. » — mot pour mot ce qu'il
+  // affiche pour un parc réellement vide — et SANS pagination pour en sortir.
+  // `page > dernierePage` est une comparaison STRICTE : on ne redescend que
+  // vers une page plus petite, donc jamais de boucle. L'écran reste en
+  // chargement pendant la redirection (pas de clignotement de l'état vide).
+  const dernierePage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const redirige =
+    !chargement &&
+    !erreur &&
+    rows.length === 0 &&
+    total > 0 &&
+    page > dernierePage;
+  // `enRedirection` couvre le rendu intermédiaire (page corrigée, hook pas
+  // encore relancé) : l'écran reste en chargement jusqu'au prochain appel, puis
+  // conclut (état vide si la réponse est encore vide — jamais un squelette qui
+  // ne finit pas).
+  const [enRedirection, setEnRedirection] = useState(false);
   useEffect(() => {
-    charger();
-  }, [charger]);
+    if (redirige) {
+      setEnRedirection(true);
+      allerPage(dernierePage);
+    }
+    // allerPage change à chaque rendu (filtresKey) : la condition seule compte.
+  }, [redirige, dernierePage]);
+  useEffect(() => {
+    if (chargement) setEnRedirection(false);
+  }, [chargement]);
+  const loading = chargement || redirige || enRedirection;
 
   useEffect(() => {
     if (lieuFiltre) setFiltreLabel(readCollecteFiltreLabel('lieu', lieuFiltre));
@@ -425,10 +413,12 @@ function GestionnaireCollectesContent() {
           <span className="text-savr-neutral-500" data-testid="collectes-total">
             {total} collectes
           </span>
-          <Pagination
+          <ListFooter
+            total={total}
             page={page}
-            pageCount={Math.ceil(total / PAGE_SIZE)}
             onPageChange={allerPage}
+            taillePage={PAGE_SIZE}
+            className="pt-0"
           />
         </div>
       )}

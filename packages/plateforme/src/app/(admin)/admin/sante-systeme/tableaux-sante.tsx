@@ -117,6 +117,7 @@ export function TableauIntegrations({
 }) {
   return (
     <DataGrid
+      columnsToggle={false}
       columns={COLONNES_INTEGRATIONS}
       data={integrations}
       getRowId={(i) => i.service}
@@ -128,6 +129,7 @@ export function TableauIntegrations({
 export function TableauBatchs({ batchs }: { batchs: OpsBatch[] }) {
   return (
     <DataGrid
+      columnsToggle={false}
       columns={COLONNES_BATCHS}
       data={batchs}
       getRowId={(b) => b.job_name}

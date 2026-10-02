@@ -71,6 +71,7 @@ export function HistoriqueCollectesTable({
 
   return (
     <DataGrid
+      columnsToggle={false}
       columns={colonnes}
       data={rows}
       getRowId={(c) => c.id}

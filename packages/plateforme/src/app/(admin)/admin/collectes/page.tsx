@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Truck,
@@ -27,7 +27,15 @@ import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DataGrid, type SortingState } from '@/components/ui/data-grid';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import {
   colonnesCollectesAdmin,
   estUrgente,
@@ -91,6 +99,31 @@ const CHIPS_HISTORIQUE = [
 ];
 
 type Tab = 'programmees' | 'historique';
+
+// Filtres de la liste, miroir dans l'URL (R-UI-4a, D6) : les mêmes clés que
+// les liens de drill-down des dashboards (`?lieu=`, `?traiteur=`, `?chip=`,
+// `?type=`, `?statut=`, `?from=`, `?to=`), en CSV pour les listes. `tab`,
+// `chip` (pastille rapide), `page`, `tri`, `ordre` sont de la navigation :
+// hors « Réinitialiser les filtres », qui n'efface que la barre (la pastille
+// et les filtres se cumulent, décision Val 2026-09-30). `tri`/`ordre` vides =
+// tri par défaut de l'onglet ; `tab` vide = Historique si drill-down, sinon
+// Programmées.
+const FILTRES = {
+  tab: navigation(texte('')),
+  chip: navigation(texte('')),
+  type: liste(),
+  traiteur: liste(),
+  lieu: liste(),
+  statut: liste(),
+  from: texte(''),
+  to: texte(''),
+  info_incomplete: texte(''),
+  controle_acces: texte(''),
+  rapport_non_consulte: texte(''),
+  page: navigation(entier(1, 1)),
+  tri: navigation(texte('')),
+  ordre: navigation(texte('')),
+};
 
 // Tri par défaut de chaque onglet : les prochaines collectes d'abord pour
 // « Programmées » (sinon la page 1 montrerait les plus lointaines), les plus
@@ -191,11 +224,7 @@ export default function CollectesPage() {
   const drillTraiteur = params.get('traiteur');
   // Drill-down depuis les cartes-actions du Dashboard Admin (Bloc 1) : chip
   // prédéfini « Programmées » pré-sélectionné à l'arrivée (miroir exact du compteur).
-  const drillChip = params.get('chip');
-  const drillType = params.get('type');
   const drillStatut = params.get('statut');
-  const drillFrom = params.get('from');
-  const drillTo = params.get('to');
   // Périmètre d'organisations propagé par le drill-down (miroir exact du chiffre
   // du dashboard, borné au même périmètre). Figé au montage (getAll = nouveau
   // tableau à chaque render → capté en state pour rester stable dans les deps).
@@ -204,34 +233,46 @@ export default function CollectesPage() {
   );
   const hasDrill = !!(drillLieu || drillTraiteur);
 
-  const [tab, setTab] = useState<Tab>(hasDrill ? 'historique' : 'programmees');
-  const [collectes, setCollectes] = useState<CollecteRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
+  // Onglet : explicite dans l'URL, sinon Historique à l'arrivée d'un drill-down.
+  const [tabDefaut] = useState<Tab>(hasDrill ? 'historique' : 'programmees');
+  const tab: Tab =
+    f.tab === 'historique' || f.tab === 'programmees' ? f.tab : tabDefaut;
   // Filtre rapide de l'onglet actif : chip Programmées OU filtre Historique.
   // Pré-sélectionné depuis le drill-down Dashboard Admin (`?chip=`) s'il désigne
   // un chip « Programmées » connu → la liste s'ouvre déjà filtrée + chip actif.
-  const [quickFilter, setQuickFilter] = useState(
-    drillChip && CHIPS_PROGRAMMEES_CATALOGUE.some((c) => c.key === drillChip)
-      ? drillChip
-      : '',
-  );
+  const quickFilter =
+    tab === 'programmees'
+      ? CHIPS_PROGRAMMEES_CATALOGUE.some((c) => c.key === f.chip)
+        ? f.chip
+        : ''
+      : CHIPS_HISTORIQUE.some((c) => c.key === f.chip)
+        ? f.chip
+        : '';
   // Type / Traiteur / Lieu : choix multiple (décision Val 2026-09-30), vide =
   // « Tous ». Le drill-down (?type= / ?traiteur= / ?lieu=) pré-coche une valeur.
-  const [types, setTypes] = useState<string[]>(drillType ? [drillType] : []);
-  const [traiteurIds, setTraiteurIds] = useState<string[]>(
-    drillTraiteur ? [drillTraiteur] : [],
-  );
-  const [lieuIds, setLieuIds] = useState<string[]>(
-    drillLieu ? [drillLieu] : [],
-  );
-  const [from, setFrom] = useState(drillFrom ?? '');
-  const [to, setTo] = useState(drillTo ?? '');
+  const types = f.type;
+  const traiteurIds = f.traiteur;
+  const lieuIds = f.lieu;
+  const from = f.from;
+  const to = f.to;
   // Statut (multi-sélection, §06.06 §3) : scopé aux valeurs valides de l'onglet
   // actif ; vide = preset de l'onglet. Info incomplète / rapport non consulté :
   // booléens indépendants de l'onglet.
-  const [statutsSel, setStatutsSel] = useState<string[]>(
-    drillStatut ? [drillStatut] : [],
+  const statutsSel = f.statut;
+  const infoIncomplete = f.info_incomplete === '1';
+  const controleAcces = f.controle_acces === '1';
+  const rapportNonConsulte = f.rapport_non_consulte === '1';
+  const page = f.page;
+  // Tri de la Data Table : explicite dans l'URL, sinon défaut de l'onglet.
+  const sorting: SortingState = useMemo(
+    () => (f.tri ? [{ id: f.tri, desc: f.ordre === 'desc' }] : TRI_DEFAUT[tab]),
+    [f.tri, f.ordre, tab],
   );
   // Libellé humain du filtre de drill-down (lieu / traiteur), lu du sessionStorage
   // posé par le dashboard (fallback null → chip générique).
@@ -242,14 +283,6 @@ export default function CollectesPage() {
     return null;
   });
   const [drillActive, setDrillActive] = useState(hasDrill);
-  const [infoIncomplete, setInfoIncomplete] = useState(false);
-  // « Plaques à envoyer » = contrôle d'accès requis (KPI de tête cliquable).
-  const [controleAcces, setControleAcces] = useState(false);
-  const [rapportNonConsulte, setRapportNonConsulte] = useState(false);
-  const [page, setPage] = useState(1);
-  const [sorting, setSorting] = useState<SortingState>(
-    TRI_DEFAUT[hasDrill ? 'historique' : 'programmees'],
-  );
   const [traiteurs, setTraiteurs] = useState<{ id: string; label: string }[]>(
     [],
   );
@@ -320,13 +353,10 @@ export default function CollectesPage() {
     };
   }, []);
 
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
-
-  const fetchCollectes = useCallback(async () => {
-    const numero = ++derniereRequete.current;
-    setLoading(true);
+  // URL de la liste (R-UI-4a : chargement, garde anti-réponse périmée et état
+  // Error portés par `useListePaginee`). `null` = croisement vide (ex. pastille
+  // Anti-Gaspi + Type Zéro Déchet) : aucun appel, liste vide.
+  const urlListe = useMemo(() => {
     const params = new URLSearchParams({ page: String(page) });
     const tri = sorting[0];
     if (tri) {
@@ -371,11 +401,7 @@ export default function CollectesPage() {
         ? intersection([typePastille], types)
         : types;
       if (statutsEff.length === 0 || (typePastille && typesEff.length === 0)) {
-        // Croisement vide (ex. pastille Anti-Gaspi + Type Zéro Déchet).
-        setCollectes([]);
-        setTotal(0);
-        setLoading(false);
-        return;
+        return null;
       }
       params.set('statuts', statutsEff.join(','));
       if (typesEff.length > 0) params.set('types', typesEff.join(','));
@@ -393,16 +419,7 @@ export default function CollectesPage() {
     if (infoIncomplete) params.set('info_incomplete', 'true');
     if (controleAcces) params.set('controle_acces', 'true');
     if (rapportNonConsulte) params.set('rapport_non_consulte', 'true');
-
-    const res = await fetch(`/api/v1/admin/collectes?${params}`);
-    if (numero !== derniereRequete.current) return;
-    if (res.ok) {
-      const json = (await res.json()) as { data: CollecteRow[]; total: number };
-      if (numero !== derniereRequete.current) return;
-      setCollectes(json.data);
-      setTotal(json.total);
-    }
-    setLoading(false);
+    return `/api/v1/admin/collectes?${params}`;
   }, [
     tab,
     page,
@@ -419,10 +436,13 @@ export default function CollectesPage() {
     controleAcces,
     rapportNonConsulte,
   ]);
-
-  useEffect(() => {
-    void fetchCollectes();
-  }, [fetchCollectes]);
+  const {
+    data: collectes,
+    total,
+    loading,
+    erreur,
+    recharger: fetchCollectes,
+  } = useListePaginee<CollecteRow>(urlListe);
 
   // ── Pop-up centré (modale) — fiche collecte complète (ex-page [id]) ─────────
   // openId = état local, initialisé depuis l'URL (?collecte=<id>) → deep-links
@@ -435,7 +455,13 @@ export default function CollectesPage() {
 
   const setCollecteParam = useCallback(
     (id: string | null) => {
-      const sp = new URLSearchParams(params.toString());
+      // Base = l'URL du document (les filtres y sont écrits par `useFiltresUrl`),
+      // pas `useSearchParams` (figé à la dernière navigation Next).
+      const sp = new URLSearchParams(
+        typeof window === 'undefined'
+          ? params.toString()
+          : window.location.search,
+      );
       if (id) sp.set('collecte', id);
       else sp.delete('collecte');
       const qs = sp.toString();
@@ -457,17 +483,12 @@ export default function CollectesPage() {
     setCollecteParam(null);
     // Une action dans la fiche (dispatch, forçage statut, pesées…) peut changer
     // la liste ou un compteur → on rafraîchit à la fermeture.
-    void fetchCollectes();
+    fetchCollectes();
     void loadChipCounts();
   }, [setCollecteParam, fetchCollectes, loadChipCounts]);
 
   const changeTab = (next: Tab) => {
-    setTab(next);
-    setQuickFilter('');
-    setTypes([]);
-    setStatutsSel([]);
-    setSorting(TRI_DEFAUT[next]);
-    setPage(1);
+    set({ tab: next, chip: '', type: [], statut: [], tri: '', ordre: '' });
   };
 
   // Tuile « AG / ZD à dispatcher » : pose (ou retire) le chip « Non transmises »
@@ -479,9 +500,7 @@ export default function CollectesPage() {
     chip: 'non_transmises_ag' | 'non_transmises_zd',
   ) => {
     const actif = quickFilter === chip;
-    setQuickFilter(actif ? '' : chip);
-    if (!actif) setTypes([]);
-    setPage(1);
+    set(actif ? { chip: '' } : { chip, type: [] });
   };
 
   // Urgences (AG à attribuer < 48h) en tête de page (§06.09 §1) — uniquement
@@ -507,20 +526,22 @@ export default function CollectesPage() {
           ]
         : CHIPS_PROGRAMMEES
       : CHIPS_HISTORIQUE;
-  const totalPages = Math.max(1, Math.ceil(total / 50));
-
-  // Efface le filtre de drill-down (lieu / traiteur venu du dashboard) → liste nue.
+  // Efface le filtre de drill-down (lieu / traiteur venu du dashboard) → liste
+  // nue : filtres au défaut, périmètre d'organisations retiré de l'URL.
   const clearDrill = () => {
     setDrillActive(false);
-    setTraiteurIds([]);
-    setLieuIds([]);
-    setTypes([]);
-    setStatutsSel([]);
-    setFrom('');
-    setTo('');
     setPerimetreOrgIds([]);
-    setPage(1);
-    router.replace('/admin/collectes');
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      sp.delete('perimetre');
+      const qs = sp.toString();
+      window.history.replaceState(
+        null,
+        '',
+        `${window.location.pathname}${qs ? `?${qs}` : ''}`,
+      );
+    }
+    reset();
   };
   const drillScope =
     drillActive && drillStatut === 'cloturee'
@@ -604,10 +625,7 @@ export default function CollectesPage() {
                 key={val}
                 type="button"
                 aria-pressed={actif}
-                onClick={() => {
-                  setTypes((t) => (typeSeul(t, val) ? [] : [val]));
-                  setPage(1);
-                }}
+                onClick={() => set({ type: typeSeul(types, val) ? [] : [val] })}
                 className={`inline-flex items-center gap-1.5 rounded-savr-full px-4 py-2 text-sm font-bold transition-colors duration-savr-fast ${
                   actif
                     ? 'bg-savr-primary-700 text-savr-white'
@@ -654,10 +672,7 @@ export default function CollectesPage() {
             sublabel="chauffeur non communiqué"
             tone="info"
             active={controleAcces}
-            onClick={() => {
-              setControleAcces((v) => !v);
-              setPage(1);
-            }}
+            onClick={() => set({ controle_acces: controleAcces ? '' : '1' })}
           />
           <KpiTile
             icon={FileWarning}
@@ -666,10 +681,7 @@ export default function CollectesPage() {
             sublabel="infos traiteur manquantes"
             tone="warning"
             active={infoIncomplete}
-            onClick={() => {
-              setInfoIncomplete((v) => !v);
-              setPage(1);
-            }}
+            onClick={() => set({ info_incomplete: infoIncomplete ? '' : '1' })}
           />
         </div>
       )}
@@ -683,15 +695,19 @@ export default function CollectesPage() {
         )}
         activeKey={quickFilter}
         ariaLabel="Filtres rapides"
-        onSelect={(key) => {
-          setQuickFilter(key);
-          setPage(1);
-        }}
+        onSelect={(key) => set({ chip: key })}
       />
 
       {/* Barre de filtres toujours visible — ni recherche libre ni repli
           « Filtres avancés » (décision Val 2026-09-30, §06.06 §3 « Filtres »). */}
-      <FilterBar data-testid="collectes-filtres">
+      <FilterBar
+        data-testid="collectes-filtres"
+        count={`${total} collecte${total > 1 ? 's' : ''}`}
+        actif={filtresActifs}
+        // En drill-down, « Réinitialiser » retire aussi le chip et le périmètre
+        // d'organisations (sinon le chip annoncerait un filtre qui ne s'applique plus).
+        onReset={drillActive ? clearDrill : reset}
+      >
         {/* Période en premier, puis filtres à choix multiple avec case
             « Tous » (décision Val 2026-09-30). */}
         <DateRangePicker
@@ -699,11 +715,7 @@ export default function CollectesPage() {
           id="collectes-filtre-periode"
           data-testid="collectes-filtre-periode"
           value={{ from, to }}
-          onChange={(p) => {
-            setFrom(p.from);
-            setTo(p.to);
-            setPage(1);
-          }}
+          onChange={(p) => set({ from: p.from, to: p.to })}
         />
         <FiltreCoches
           label="Type"
@@ -713,30 +725,21 @@ export default function CollectesPage() {
             { id: 'anti_gaspi', nom: 'Anti-Gaspi' },
           ]}
           selected={types}
-          onChange={(ids) => {
-            setTypes(ids);
-            setPage(1);
-          }}
+          onChange={(ids) => set({ type: ids })}
         />
         <FiltreCoches
           label="Traiteur"
           testid="collectes-filtre-traiteur"
           options={traiteurs.map((t) => ({ id: t.id, nom: t.label }))}
           selected={traiteurIds}
-          onChange={(ids) => {
-            setTraiteurIds(ids);
-            setPage(1);
-          }}
+          onChange={(ids) => set({ traiteur: ids })}
         />
         <FiltreCoches
           label="Lieu"
           testid="collectes-filtre-lieu"
           options={lieux.map((l) => ({ id: l.id, nom: l.label }))}
           selected={lieuIds}
-          onChange={(ids) => {
-            setLieuIds(ids);
-            setPage(1);
-          }}
+          onChange={(ids) => set({ lieu: ids })}
         />
 
         {/* Statut — multi-sélection scopée aux valeurs de l'onglet actif */}
@@ -751,10 +754,7 @@ export default function CollectesPage() {
             nom: statutCollecteDisplay(s, 'admin').label,
           }))}
           selected={statutsSel}
-          onChange={(ids) => {
-            setStatutsSel(ids);
-            setPage(1);
-          }}
+          onChange={(ids) => set({ statut: ids })}
         />
 
         {/* Booléens — case DS (§6 Checkbox), cible 44px mobile */}
@@ -762,20 +762,18 @@ export default function CollectesPage() {
           <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
             <Checkbox
               checked={infoIncomplete}
-              onCheckedChange={(v) => {
-                setInfoIncomplete(v === true);
-                setPage(1);
-              }}
+              onCheckedChange={(v) =>
+                set({ info_incomplete: v === true ? '1' : '' })
+              }
             />
             Info incomplète
           </label>
           <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
             <Checkbox
               checked={rapportNonConsulte}
-              onCheckedChange={(v) => {
-                setRapportNonConsulte(v === true);
-                setPage(1);
-              }}
+              onCheckedChange={(v) =>
+                set({ rapport_non_consulte: v === true ? '1' : '' })
+              }
             />
             Rapport non consulté
           </label>
@@ -789,20 +787,16 @@ export default function CollectesPage() {
         data={lignes}
         getRowId={(c) => c.id}
         loading={loading}
+        erreur={erreur}
+        onRecharger={fetchCollectes}
         manualSorting
         sorting={sorting}
         onSortingChange={(next) => {
-          setSorting(next);
-          setPage(1);
+          const s = typeof next === 'function' ? next(sorting) : next;
+          const t = s[0];
+          set({ tri: t?.id ?? '', ordre: t ? (t.desc ? 'desc' : 'asc') : '' });
         }}
         initialColumnVisibility={COLONNES_MASQUEES[tab]}
-        toolbar={
-          !loading && total > 0 ? (
-            <Text as="span">
-              {total} collecte{total > 1 ? 's' : ''}
-            </Text>
-          ) : null
-        }
         onRowClick={(c) => openCollecte(c.id)}
         rowLabel={(c) => {
           const { jour, heure } = formatDateHeure(
@@ -825,14 +819,11 @@ export default function CollectesPage() {
         }
       />
 
-      {!loading && totalPages > 1 && (
-        <Pagination
-          page={page}
-          pageCount={totalPages}
-          onPageChange={setPage}
-          className="justify-end"
-        />
-      )}
+      <ListFooter
+        total={total}
+        page={page}
+        onPageChange={(p) => set({ page: p })}
+      />
 
       {/* Pop-up centré (modale) — fiche collecte complète (ex-page [id]).
           S'ouvre via ?collecte=<id> ; onClose retire le paramètre + rafraîchit. */}

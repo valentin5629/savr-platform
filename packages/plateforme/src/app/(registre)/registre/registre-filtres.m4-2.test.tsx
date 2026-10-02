@@ -15,6 +15,7 @@ import {
 } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
+  useSearchParams: () => null,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }));
 

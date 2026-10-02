@@ -195,7 +195,8 @@ const EvolutionAgChart = React.forwardRef<
                     fillOpacity={hover === i ? 1 : 0.75}
                     style={{
                       pointerEvents: 'none',
-                      transition: 'fill-opacity 120ms',
+                      transition:
+                        'fill-opacity var(--transition-duration-savr-fast)',
                     }}
                   />
                 );
@@ -226,7 +227,10 @@ const EvolutionAgChart = React.forwardRef<
                       fill={on ? RATIO_COLOR : WHITE}
                       stroke={RATIO_COLOR}
                       strokeWidth={on ? 1 : 0.75}
-                      style={{ pointerEvents: 'none', transition: 'r 120ms' }}
+                      style={{
+                        pointerEvents: 'none',
+                        transition: 'r var(--transition-duration-savr-fast)',
+                      }}
                     />
                   );
                 })}

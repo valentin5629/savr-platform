@@ -59,6 +59,10 @@ describe('cn — échelles savr-* relues dans globals.css', () => {
     expectScaleMerges('shadow', tokens('shadow'));
   });
 
+  it('durées : duration-savr-*', () => {
+    expectScaleMerges('duration', tokens('transition-duration'));
+  });
+
   it('espacements : aucun token --spacing-savr-* (grille 4px = échelle Tailwind, R-UI-6a)', () => {
     expect(tokens('spacing')).toEqual([]);
   });
@@ -80,6 +84,7 @@ describe('cn — surcharges réelles', () => {
     expect(cn('rounded-md', 'rounded-savr-lg')).toBe('rounded-savr-lg');
     expect(cn('rounded-savr-lg', 'rounded-none')).toBe('rounded-none');
     expect(cn('shadow-sm', 'shadow-savr-md')).toBe('shadow-savr-md');
+    expect(cn('duration-200', 'duration-savr-fast')).toBe('duration-savr-fast');
   });
 
   it('une ombre savr ne supprime pas une couleur d’ombre (groupes distincts)', () => {

@@ -203,7 +203,8 @@ const EvolutionZdChart = React.forwardRef<
                             strokeWidth={isHovered ? 1.5 : 0.75}
                             style={{
                               cursor: 'pointer',
-                              transition: 'fill-opacity 120ms',
+                              transition:
+                                'fill-opacity var(--transition-duration-savr-fast)',
                             }}
                             onMouseEnter={onEnter}
                           />
@@ -222,7 +223,8 @@ const EvolutionZdChart = React.forwardRef<
                           strokeWidth={isHovered ? 1.5 : 0.75}
                           style={{
                             cursor: 'pointer',
-                            transition: 'fill-opacity 120ms',
+                            transition:
+                              'fill-opacity var(--transition-duration-savr-fast)',
                           }}
                           onMouseEnter={onEnter}
                         />

@@ -12,6 +12,7 @@ import { extendTailwindMerge } from 'tailwind-merge';
  */
 const SAVR_RADIUS = ['savr-sm', 'savr-md', 'savr-lg', 'savr-xl', 'savr-full'];
 const SAVR_SHADOW = ['savr-none', 'savr-sm', 'savr-md', 'savr-lg'];
+const SAVR_DURATION = ['savr-fast', 'savr-base', 'savr-slow'];
 const SAVR_CONTAINER = ['savr-content', 'savr-wide', 'savr-prose'];
 
 const twMerge = extendTailwindMerge({
@@ -21,6 +22,8 @@ const twMerge = extendTailwindMerge({
     },
     classGroups: {
       shadow: [{ shadow: SAVR_SHADOW }],
+      // Tailwind 4 : --transition-duration-savr-* → duration-savr-* (R-UI-6a).
+      duration: [{ duration: SAVR_DURATION }],
       // Tailwind 4 : les tokens --container-* alimentent max-w, w et min-w.
       'max-w': [{ 'max-w': SAVR_CONTAINER }],
       w: [{ w: SAVR_CONTAINER }],

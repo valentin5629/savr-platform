@@ -107,7 +107,8 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                       opacity={dim ? 0.35 : 1}
                       style={{
                         cursor: 'pointer',
-                        transition: 'opacity 120ms, stroke-width 120ms',
+                        transition:
+                          'opacity var(--transition-duration-savr-fast), stroke-width var(--transition-duration-savr-fast)',
                       }}
                       onMouseEnter={() => setHover(i)}
                     >

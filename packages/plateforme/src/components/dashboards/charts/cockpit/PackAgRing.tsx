@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { fmtInt, fmtDec } from './fmt';
-import { RING_OK, RING_LOW, TRACK, PACK_BADGE } from './palette';
+import { RING_OK, RING_LOW, TRACK, PACK_BADGE, WHITE } from './palette';
 
 export interface PackAgRingProps {
   creditsInitiaux: number;
@@ -25,7 +25,7 @@ export function PackAgRing({
   const fillColor = low ? RING_LOW : RING_OK;
   // Même rendu que les barres de l'histogramme AG juste au-dessus (couleur à
   // 75 % sur blanc — retour Val R24b).
-  const barBg = `color-mix(in srgb, ${fillColor} 75%, white)`;
+  const barBg = `color-mix(in srgb, ${fillColor} 75%, ${WHITE})`;
 
   let badge: React.ReactNode = null;
   if (creditsRestants === 0) {
@@ -88,7 +88,8 @@ export function PackAgRing({
           style={{
             width: `${pctFill}%`,
             background: barBg,
-            transition: 'width 300ms ease-out, background 200ms',
+            transition:
+              'width var(--motion-savr-slow), background var(--transition-duration-savr-base)',
           }}
         />
       </div>

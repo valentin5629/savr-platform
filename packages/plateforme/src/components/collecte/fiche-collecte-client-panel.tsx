@@ -38,6 +38,7 @@ import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
 import { fmtPax } from '@/lib/format';
+import { TextLink } from '@/components/ui/text-link';
 
 // Pop-up fiche collecte COMMUN aux rôles clients — traiteur (§06.04), agence
 // (§06.11) et gestionnaire de lieux (§06.05) — refonte Val 2026-09-29, au
@@ -407,12 +408,9 @@ export function FicheCollecteClientPanel({
           {c.programmee_par?.email && (
             <p className="text-savr-neutral-500">
               Pour toute question :{' '}
-              <a
-                className="text-savr-primary-700 underline"
-                href={`mailto:${c.programmee_par.email}`}
-              >
+              <TextLink href={`mailto:${c.programmee_par.email}`} external>
                 {c.programmee_par.email}
-              </a>
+              </TextLink>
             </p>
           )}
           <div className="flex justify-end border-t border-savr-neutral-100 pt-4">

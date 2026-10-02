@@ -43,6 +43,7 @@ import {
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 const STEPS = [
   { label: 'Événement' },
@@ -624,14 +625,13 @@ export default function NouveauProgrammationPage() {
               {/* PROG-02 : option « hors référentiel » — agence uniquement (CDC
                   §06.01 l.280 : le gestionnaire de lieux n'a PAS cette option). */}
               {role === 'agence' && (
-                <button
-                  type="button"
+                <TextLink
                   onClick={() => setShowShadowModal(true)}
-                  className="mt-2 flex items-center gap-1 text-sm font-medium text-savr-primary-700 hover:underline"
+                  className="mt-2 flex text-sm font-medium"
                 >
                   <PlusCircle className="h-4 w-4" />
                   Ajouter un traiteur hors référentiel
-                </button>
+                </TextLink>
               )}
             </FormField>
           )}

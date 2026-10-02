@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LieuModal } from '@/components/admin/lieu-modal';
 import { CelluleVide } from '@/components/ui/data-grid';
+import { TextLink } from '@/components/ui/text-link';
 
 interface Lieu {
   id: string;
@@ -172,16 +173,15 @@ export default function LieuxPage() {
         // un nom comme « Adresse libre — Lyon » passait sur 3 lignes (retour
         // Val 2026-09-28).
         <div className="flex min-w-[220px] items-center gap-2">
-          <button
-            type="button"
+          <TextLink
             onClick={(e) => {
               e.stopPropagation();
               openEdit(row.id);
             }}
-            className="text-left font-medium text-savr-primary-700 hover:underline"
+            className="text-left font-medium"
           >
             {row.nom}
-          </button>
+          </TextLink>
           {row.reference_citeo && (
             <Badge variant="info" dot={false}>
               Citeo

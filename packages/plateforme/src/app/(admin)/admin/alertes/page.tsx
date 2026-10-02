@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
@@ -14,6 +13,7 @@ import {
 } from '@/lib/alertes-admin.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 interface Alerte {
   id: string;
@@ -128,12 +128,9 @@ export default function AlertesPage() {
           return <span className="text-savr-neutral-400">—</span>;
         if (href) {
           return (
-            <Link
-              href={href}
-              className="text-sm text-savr-primary-700 hover:underline"
-            >
+            <TextLink href={href} className="text-sm">
               {row.entity_type}
-            </Link>
+            </TextLink>
           );
         }
         return <Text as="span">{row.entity_type}</Text>;

@@ -23,6 +23,7 @@ import type { Database } from '@savr/shared/src/database.types.js';
 import { LogoCard } from '@/components/organisation/logo-card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
@@ -929,14 +930,15 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
     cell: ({ row: { original: f } }) => {
       const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
       return pdf ? (
-        <a
+        <TextLink
           href={pdf}
+          external
           target="_blank"
           rel="noreferrer"
-          className="text-xs text-savr-primary-700 underline"
+          className="text-xs"
         >
           Télécharger
-        </a>
+        </TextLink>
       ) : (
         '—'
       );

@@ -32,6 +32,7 @@ import {
 } from '@/components/collecte/fiche-blocs';
 import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 // Modale création/édition d'un lieu — remplace la fiche + les pages nouveau/modifier
 // (point unique, ouverte depuis la liste /admin/lieux). En édition, les champs sont
@@ -893,14 +894,14 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     <ul className="space-y-1 text-sm">
                       {photos.map((url, i) => (
                         <li key={url}>
-                          <a
+                          <TextLink
                             href={url}
+                            external
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-savr-primary-700 hover:underline"
                           >
                             Photo {i + 1}
-                          </a>
+                          </TextLink>
                         </li>
                       ))}
                     </ul>

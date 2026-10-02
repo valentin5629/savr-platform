@@ -24,6 +24,7 @@ import { tempsEcouleFr } from '@/lib/facturation/facture-ui';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { fmtMontant } from '@/lib/format';
+import { TextLink } from '@/components/ui/text-link';
 
 interface Ligne {
   id: string;
@@ -504,25 +505,22 @@ export default function FactureDetailPage() {
 
       <div className="flex flex-wrap gap-4">
         {facture.pdf_url_pennylane && (
-          <a
+          <TextLink
             href={facture.pdf_url_pennylane}
+            external
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
+            className="gap-2 text-sm"
           >
             Télécharger le PDF Pennylane
-          </a>
+          </TextLink>
         )}
         {/* Copie de travail §06.08 §1 — clé R2 pré-signée à la volée. */}
         {facture.pdf_url_savr && (
-          <button
-            type="button"
-            onClick={downloadPdfSavr}
-            className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
-          >
+          <TextLink onClick={downloadPdfSavr} className="gap-2 text-sm">
             <Download className="h-4 w-4" />
             Télécharger le PDF Savr (copie de travail)
-          </button>
+          </TextLink>
         )}
       </div>
 

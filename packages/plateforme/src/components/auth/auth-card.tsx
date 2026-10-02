@@ -16,10 +16,7 @@ import { Text } from '@/components/ui/text';
 // arbitrage Val 2026-09-28, tracé dans _Divergences/M0.5_20260928_ecrans-auth-
 // carte-ombre-degrade.md — limité à ces écrans.
 
-// Lien secondaire : zone tactile 44 px (DS §10) sans décaler la mise en page
-// (-my-3 compense py-3).
-export const authLienClass =
-  '-my-3 inline-flex items-center py-3 text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline';
+// Lien secondaire : `<TextLink strong touch>` (R-UI-3, ex-`authLienClass`).
 
 export function AuthPage({ children }: { children: React.ReactNode }) {
   return (

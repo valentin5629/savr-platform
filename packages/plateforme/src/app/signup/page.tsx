@@ -13,13 +13,12 @@
 // reste bloquée et aucune facture ne part — l'inscription, elle, aboutit.
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
-import { AuthCard, AuthPage, authLienClass } from '@/components/auth/auth-card';
+import { AuthCard, AuthPage } from '@/components/auth/auth-card';
 import { PASSWORD_MIN_LENGTH, validatePasswordStrength } from '@/lib/password';
 import {
   isValidEmailFormat,
@@ -28,6 +27,7 @@ import {
   NOM_MIN_LENGTH,
 } from '@/lib/identite-signup';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 // Les 3 valeurs de `type_profil` acceptées par la route. Toute autre valeur y
 // est refusée en 422 : l'écran n'en propose donc pas d'autre.
@@ -176,9 +176,9 @@ export default function SignupPage() {
         <AuthCard
           titre="Vérifiez votre boîte mail"
           sousCarte={
-            <Link href="/login" className={authLienClass}>
+            <TextLink href="/login" strong touch className="text-sm">
               Aller à la connexion
-            </Link>
+            </TextLink>
           }
         >
           <Text variant="body">
@@ -227,9 +227,9 @@ export default function SignupPage() {
         }
         className={etape === 1 ? 'max-w-lg' : undefined}
         sousCarte={
-          <Link href="/login" className={authLienClass}>
+          <TextLink href="/login" strong touch className="text-sm">
             J&apos;ai déjà un compte
-          </Link>
+          </TextLink>
         }
         onSubmit={
           etape === 1
@@ -417,13 +417,9 @@ export default function SignupPage() {
                 htmlFor="cgu"
               >
                 J&apos;accepte les{' '}
-                <Link
-                  href="/cgu"
-                  target="_blank"
-                  className="font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-                >
+                <TextLink href="/cgu" target="_blank" strong>
                   Conditions Générales d&apos;Utilisation
-                </Link>
+                </TextLink>
                 . Cette acceptation est horodatée et conservée.
               </label>
             </div>

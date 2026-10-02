@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 type OrgTab = 'profil' | 'membres' | 'factures';
 
@@ -116,14 +117,15 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
       // §06.04 §6 fiche facture : Pennylane si dispo, sinon Savr.
       const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
       return pdf ? (
-        <a
+        <TextLink
           href={pdf}
+          external
           target="_blank"
           rel="noreferrer"
-          className="text-savr-primary-700 underline text-xs"
+          className="text-xs"
         >
           Télécharger
-        </a>
+        </TextLink>
       ) : (
         '—'
       );

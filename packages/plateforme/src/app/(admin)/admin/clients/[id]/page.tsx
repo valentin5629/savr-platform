@@ -53,6 +53,7 @@ import {
 import { ClientInviteUserModal } from './invite-user-modal';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { IconButton } from '@/components/ui/icon-button';
 
 interface OrgDetail {
   id: string;
@@ -451,14 +452,14 @@ export default function ClientFichePage({
       <PageHero
         icon={
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <IconButton
+              size="sm"
               onClick={() => router.back()}
               aria-label="Retour"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-white transition-colors hover:bg-savr-white/10"
+              className="text-savr-white hover:bg-savr-white/10 hover:text-savr-white [&>svg]:h-4 [&>svg]:w-4"
             >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+              <ArrowLeft />
+            </IconButton>
             {org.logo_url && !logoKo ? (
               <img
                 // logo_url porte une CLÉ R2, pas une URL : le proxy staff la

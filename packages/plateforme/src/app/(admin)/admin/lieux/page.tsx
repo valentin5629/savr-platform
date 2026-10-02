@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { LieuModal } from '@/components/admin/lieu-modal';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { TextLink } from '@/components/ui/text-link';
+import { IconButton } from '@/components/ui/icon-button';
 
 interface Lieu {
   id: string;
@@ -277,17 +278,16 @@ export default function LieuxPage() {
       key: '_open',
       header: '',
       render: (row) => (
-        <button
-          type="button"
+        <IconButton
+          size="sm"
           aria-label={`Ouvrir la fiche ${row.nom}`}
           onClick={(e) => {
             e.stopPropagation();
             openEdit(row.id);
           }}
-          className="inline-flex text-savr-neutral-400 hover:text-savr-primary-700"
         >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+          <ChevronRight />
+        </IconButton>
       ),
     },
   ];

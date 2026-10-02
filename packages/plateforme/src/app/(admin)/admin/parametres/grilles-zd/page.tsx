@@ -16,6 +16,7 @@ import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
+import { IconButton } from '@/components/ui/icon-button';
 
 type Mode = 'paliers' | 'fixe_variable';
 
@@ -357,14 +358,14 @@ export default function GrillesZdPage() {
                     />
                   </FormField>
                 )}
-                <button
-                  type="button"
+                <IconButton
+                  size="sm"
+                  variant="destructive"
                   onClick={() => removePalier(i)}
                   aria-label="Supprimer le palier"
-                  className="p-2 text-savr-neutral-400 hover:text-savr-error-strong"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  <Trash2 />
+                </IconButton>
               </div>
             ))}
           </div>

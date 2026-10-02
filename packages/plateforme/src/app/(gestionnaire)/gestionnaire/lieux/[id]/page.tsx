@@ -289,7 +289,7 @@ export default function LieuDetailPage({
                   {data.map((d, i) => (
                     <div key={i} className="flex flex-1 flex-col items-center">
                       <div
-                        className="w-full rounded-t bg-savr-primary-500"
+                        className="w-full rounded-t-savr-sm bg-savr-primary-500"
                         style={{ height: `${(d.kg / max) * 96 + 2}px` }}
                         title={`${d.mois} : ${fmtKg(d.kg)}`}
                       />

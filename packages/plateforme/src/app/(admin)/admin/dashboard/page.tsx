@@ -16,6 +16,7 @@ import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpi
 import { ChartCard } from '@/components/dashboards/charts/cockpit/ChartCard';
 import { fmtInt } from '@/components/dashboards/charts/cockpit/fmt';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { OPS_DOT } from '@/components/dashboards/charts/cockpit/palette';
 
 interface KpiData {
   non_transmises_zd: number;
@@ -40,17 +41,6 @@ interface RevenusRow {
 function euro(v: number): string {
   return v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 }
-
-// Pastilles couleur des KPI opérationnels (cockpit R24, palette data-viz DS §2.4 /
-// sémantique §10). La pastille encode la SÉVÉRITÉ (à traiter / à jour), le badge de
-// pied la reformule en clair — remplace l'ancien code couleur porté par la bordure.
-const OPS_DOT = {
-  warn: '#d97706', // warning
-  error: '#dc2626', // error
-  success: '#16a34a', // success
-  info: '#2563eb', // info
-  neutral: '#9aa2b8', // neutral-400
-};
 
 // Badge d'état d'un KPI d'alerte : action requise si > 0, « À jour » sinon.
 function badgeAlerte(

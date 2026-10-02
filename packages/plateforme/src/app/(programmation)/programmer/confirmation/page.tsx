@@ -127,6 +127,7 @@ function ConfirmationContent() {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       {/* Bandeau succès */}
+      {/* ds-classes: valeur unique (emerald-50 ≠ success-subtle), à arbitrer */}
       <div className="flex items-start gap-3 rounded-savr-lg border border-savr-success bg-emerald-50 px-5 py-4">
         <CheckCircle2 className="h-6 w-6 shrink-0 text-savr-success" />
         <div className="space-y-1">
@@ -144,7 +145,7 @@ function ConfirmationContent() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-savr-md border border-savr-error bg-red-50 px-3 py-2 text-sm text-savr-error">
+        <div className="flex items-center gap-2 rounded-savr-md border border-savr-error bg-savr-error-subtle px-3 py-2 text-sm text-savr-error">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {error}
         </div>

@@ -251,9 +251,11 @@ export default function FactureDetailPage() {
   }
 
   if (loading)
-    return <div className="text-neutral-500 text-sm">Chargement…</div>;
+    return <div className="text-savr-neutral-500 text-sm">Chargement…</div>;
   if (!facture)
-    return <div className="text-neutral-500 text-sm">Facture introuvable.</div>;
+    return (
+      <div className="text-savr-neutral-500 text-sm">Facture introuvable.</div>
+    );
 
   const fmt = new Intl.NumberFormat('fr-FR', {
     style: 'currency',
@@ -269,7 +271,7 @@ export default function FactureDetailPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/admin/factures"
-          className="text-neutral-500 hover:text-neutral-700"
+          className="text-savr-neutral-500 hover:text-savr-neutral-700"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
@@ -282,15 +284,16 @@ export default function FactureDetailPage() {
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-savr-md bg-savr-error-subtle border border-savr-error-soft px-4 py-3 text-sm text-savr-error-strong">
           {error}
         </div>
       )}
 
       {/* Bandeau SLA Pennylane §06.08 §2.3 — en_attente_pennylane : « dernier essai
           il y a Xmin » + bouton Renvoyer. echec_final (retry épuisé) = intervention. */}
+      {/* ds-classes: valeur unique (orange-50/300/800, hors sémantique warning), à arbitrer — encart remplacé par AlertBar en R-UI-1 */}
       {facture.statut === 'en_attente_pennylane' && (
-        <div className="rounded-md bg-orange-50 border border-orange-300 px-4 py-3 text-sm text-orange-800 flex items-start justify-between gap-4">
+        <div className="rounded-savr-md bg-orange-50 border border-orange-300 px-4 py-3 text-sm text-orange-800 flex items-start justify-between gap-4">
           <div>
             <strong>En attente d’envoi Pennylane</strong>
             {facture.derniere_tentative_pennylane_at && (
@@ -308,6 +311,7 @@ export default function FactureDetailPage() {
                 Échec après 3 tentatives — renvoi manuel requis.
               </div>
             )}
+            {/* ds-classes: valeur unique (orange-700), à arbitrer */}
             {facture.erreur_synchro && (
               <div className="mt-1 text-orange-700">
                 {facture.erreur_synchro}
@@ -325,39 +329,40 @@ export default function FactureDetailPage() {
         </div>
       )}
 
+      {/* ds-classes: valeur unique (border amber-200), à arbitrer — encart remplacé par AlertBar en R-UI-1 */}
       {facture.statut !== 'en_attente_pennylane' && facture.erreur_synchro && (
-        <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-savr-md bg-savr-warning-subtle border border-amber-200 px-4 py-3 text-sm text-savr-warning-deep">
           <strong>Erreur Pennylane :</strong> {facture.erreur_synchro}
         </div>
       )}
 
       {/* Bloc 1 — En-tête */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-neutral-700">
+        <h2 className="text-sm font-semibold text-savr-neutral-700">
           Bloc 1 — En-tête
         </h2>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <div className="text-neutral-500">Type</div>
+            <div className="text-savr-neutral-500">Type</div>
             <div className="font-medium">
               {TYPE_LABELS[facture.type] ?? facture.type}
             </div>
           </div>
           <div>
-            <div className="text-neutral-500">Organisation</div>
+            <div className="text-savr-neutral-500">Organisation</div>
             <div className="font-medium">
               {facture.organisations?.raison_sociale ?? '—'}
             </div>
           </div>
           <div>
-            <div className="text-neutral-500">Entité de facturation</div>
+            <div className="text-savr-neutral-500">Entité de facturation</div>
             <div className="font-medium">
               {facture.entites_facturation?.raison_sociale ?? '—'} ·{' '}
               {facture.entites_facturation?.siret ?? 'SIRET —'}
             </div>
           </div>
           <div>
-            <div className="text-neutral-500">SIRET vérification</div>
+            <div className="text-savr-neutral-500">SIRET vérification</div>
             <div className="font-medium">
               {facture.entites_facturation?.siret_verification ?? '—'}
             </div>
@@ -385,12 +390,12 @@ export default function FactureDetailPage() {
 
       {/* Bloc 2 — Lignes */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-neutral-700">
+        <h2 className="text-sm font-semibold text-savr-neutral-700">
           Bloc 2 — Lignes
         </h2>
-        <div className="rounded-md border divide-y text-sm">
+        <div className="rounded-savr-md border divide-y text-sm">
           {facture.factures_collectes.length === 0 && (
-            <div className="px-4 py-3 text-neutral-500">Aucune ligne.</div>
+            <div className="px-4 py-3 text-savr-neutral-500">Aucune ligne.</div>
           )}
           {facture.factures_collectes.map((fc) => (
             <LigneRow
@@ -447,19 +452,19 @@ export default function FactureDetailPage() {
 
       {/* Bloc 4 — Totaux */}
       <section className="space-y-1 text-sm">
-        <h2 className="text-sm font-semibold text-neutral-700">
+        <h2 className="text-sm font-semibold text-savr-neutral-700">
           Bloc 4 — Totaux
         </h2>
         <div className="flex justify-between">
-          <span className="text-neutral-500">Total HT</span>
+          <span className="text-savr-neutral-500">Total HT</span>
           <span className="font-medium">{fmt.format(facture.montant_ht)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-500">TVA</span>
+          <span className="text-savr-neutral-500">TVA</span>
           <span className="font-medium">{fmt.format(facture.montant_tva)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-500">Total TTC</span>
+          <span className="text-savr-neutral-500">Total TTC</span>
           <span className="font-semibold">
             {fmt.format(facture.montant_ttc)}
           </span>
@@ -468,7 +473,7 @@ export default function FactureDetailPage() {
 
       {/* Bloc 5 — Conditions / notes */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-neutral-700">
+        <h2 className="text-sm font-semibold text-savr-neutral-700">
           Bloc 5 — Référence et conditions
         </h2>
         {/* Référence client = evenements.reference_affaire (transmise à Pennylane).
@@ -476,7 +481,7 @@ export default function FactureDetailPage() {
             (ni schéma V1 ni DDL cible) — l'override serait une divergence à
             arbitrer avec Val. */}
         <div className="text-sm">
-          <span className="text-neutral-500">Référence client : </span>
+          <span className="text-savr-neutral-500">Référence client : </span>
           <span className="font-medium">{factureReference ?? '—'}</span>
         </div>
         <FormField label="Conditions et notes" htmlFor="facture-notes">
@@ -585,10 +590,10 @@ function LigneRow({
   if (!editable) {
     return (
       <div className="flex items-center justify-between px-4 py-2.5">
-        <div className="text-neutral-700">
+        <div className="text-savr-neutral-700">
           {ligne.libelle_ligne ?? ligne.designation ?? 'Prestation Savr'}
         </div>
-        <div className="font-medium text-neutral-900">
+        <div className="font-medium text-savr-neutral-900">
           {fmt.format(ligne.montant_ligne_ht * ligne.quantite)}
         </div>
       </div>
@@ -653,7 +658,7 @@ function LigneRow({
         {busy ? '…' : <Save className="h-4 w-4" />}
       </Button>
       <Button variant="ghost" onClick={onDelete} disabled={deleting}>
-        <Trash2 className="h-4 w-4 text-red-600" />
+        <Trash2 className="h-4 w-4 text-savr-error" />
       </Button>
     </div>
   );

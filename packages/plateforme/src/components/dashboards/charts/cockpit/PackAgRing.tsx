@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { fmtInt, fmtDec } from './fmt';
-import { RING_OK, RING_LOW, TRACK } from './palette';
+import { RING_OK, RING_LOW, TRACK, PACK_BADGE } from './palette';
 
 export interface PackAgRingProps {
   creditsInitiaux: number;
@@ -32,11 +32,7 @@ export function PackAgRing({
     badge = (
       <span
         className="inline-block rounded-savr-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] tabular-nums"
-        style={{
-          color: '#DC2626',
-          backgroundColor: '#FEF2F2',
-          border: '1px solid #FECACA',
-        }}
+        style={PACK_BADGE.epuise}
       >
         Pack épuisé
       </span>
@@ -45,11 +41,7 @@ export function PackAgRing({
     badge = (
       <span
         className="inline-block rounded-savr-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] tabular-nums"
-        style={{
-          color: '#B36400',
-          backgroundColor: '#FFF4E0',
-          border: '1px solid #FFE8C2',
-        }}
+        style={PACK_BADGE.faible}
       >
         {`Solde faible · ${fmtDec(pctRestant * 100, 1)} %`}
       </span>

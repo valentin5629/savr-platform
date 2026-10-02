@@ -283,7 +283,7 @@ export default function EvenementDetailPage({
                     {c.collecte_flux.map((f, i) => (
                       <div
                         key={i}
-                        className="rounded bg-savr-neutral-50 px-2 py-1 text-sm"
+                        className="rounded-savr-sm bg-savr-neutral-50 px-2 py-1 text-sm"
                       >
                         <span className="font-medium">
                           {f.flux_dechets?.nom ?? f.flux_dechets?.code ?? '?'}

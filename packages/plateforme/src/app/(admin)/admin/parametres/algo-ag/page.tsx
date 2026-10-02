@@ -111,13 +111,13 @@ export default function AlgoAgParamsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-savr-md border border-savr-error-soft bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
       {successMsg && (
-        <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+        <div className="flex items-center gap-2 rounded-savr-md border border-savr-success-soft bg-savr-success-subtle px-3 py-2 text-sm text-savr-success-strong">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {successMsg}
         </div>

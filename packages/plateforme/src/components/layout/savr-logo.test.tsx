@@ -11,7 +11,7 @@ describe('SavrLogoMark — couleur de base', () => {
   it('sans `base` : logo peint en blanc (rendu sidebar inchangé)', () => {
     const { container } = render(<SavrLogoMark />);
     const rectBase = container.querySelector('svg > rect');
-    expect(rectBase?.getAttribute('fill')).toBe('#ffffff');
+    expect(rectBase?.getAttribute('fill')).toBe('var(--color-savr-white)');
   });
 
   it('avec `base` : logo peint dans la couleur fournie', () => {

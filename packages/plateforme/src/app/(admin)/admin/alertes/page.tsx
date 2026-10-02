@@ -118,7 +118,7 @@ export default function AlertesPage() {
       render: (row) => {
         const href = entiteHref(row.entity_type, row.entity_id);
         if (!row.entity_type)
-          return <span className="text-neutral-400">—</span>;
+          return <span className="text-savr-neutral-400">—</span>;
         if (href) {
           return (
             <Link
@@ -188,8 +188,8 @@ export default function AlertesPage() {
             onClick={() => setStatut(f.key)}
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
               statut === f.key
-                ? 'bg-savr-primary-600 text-white'
-                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                ? 'bg-savr-primary-600 text-savr-white'
+                : 'bg-savr-neutral-100 text-savr-neutral-700 hover:bg-savr-neutral-200'
             }`}
           >
             {f.label}

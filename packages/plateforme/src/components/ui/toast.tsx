@@ -70,7 +70,7 @@ function ToastItem({
       duration={entry.duration ?? 4000}
       className={cn(
         'flex items-start gap-3 rounded-savr-md border border-savr-neutral-200 bg-savr-white p-4 shadow-savr-lg',
-        'transition-[opacity,transform] duration-200 ease-out',
+        'transition-[opacity,transform] duration-savr-base ease-out',
         'data-[state=closed]:opacity-0 data-[swipe=end]:opacity-0',
       )}
     >

@@ -14,7 +14,7 @@ export function PlaqueTmsPicto({
   return (
     <span
       data-testid="picto-plaque-tms"
-      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
+      className={`inline-flex items-center gap-1 rounded-savr-sm px-2 py-0.5 text-xs ${
         complete
           ? 'bg-savr-success-subtle text-savr-success-strong'
           : 'bg-savr-neutral-100 text-savr-neutral-400'

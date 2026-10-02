@@ -394,8 +394,10 @@ it('EvolutionZdChart — survol d’un segment ouvre le tooltip du flux (grain f
   );
   // Aucun tooltip de flux sans survol.
   expect(screen.queryByText(/% du mois/)).toBeNull();
-  // Segment « emballage » (#3F5599, non sommet → <rect>) survolé.
-  const seg = container.querySelector('rect[fill="#3F5599"]');
+  // Segment « emballage » (token dataviz-3, non sommet → <rect>) survolé.
+  const seg = container.querySelector(
+    'rect[fill="var(--color-savr-dataviz-3)"]',
+  );
   expect(seg).not.toBeNull();
   fireEvent.mouseEnter(seg!);
   expect(screen.getByText(/% du mois/)).toBeInTheDocument();
@@ -509,9 +511,10 @@ it('BenchmarkRadar — seuils du badge : ≤ parc vert, ≤ +30 % orange, au-del
     (li.querySelector('span[style]') as HTMLElement | null)?.textContent === txt
       ? (li.querySelector('span[style]') as HTMLElement).style.color
       : 'absent';
-  expect(couleur(a!, '+0 %')).toBe('rgb(22, 163, 74)'); // success
-  expect(couleur(b!, '+30 %')).toBe('rgb(179, 100, 0)'); // accent-700
-  expect(couleur(c!, '+40 %')).toBe('rgb(220, 38, 38)'); // error
+  // Couleurs = tokens DS (R-UI-6a) : le style inline porte la référence var().
+  expect(couleur(a!, '+0 %')).toBe('var(--color-savr-success)');
+  expect(couleur(b!, '+30 %')).toBe('var(--color-savr-accent-700)');
+  expect(couleur(c!, '+40 %')).toBe('var(--color-savr-error)');
 });
 
 it('BenchmarkRadar — parc à 0 ou NaN : axe n/d partout (jamais « +∞ % » / « NaN »), le reste du radar intact', () => {

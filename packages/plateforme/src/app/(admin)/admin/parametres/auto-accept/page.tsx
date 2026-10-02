@@ -156,6 +156,7 @@ export default function AutoAcceptPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {/* ds-classes: valeur unique (amber-500, icône), à arbitrer */}
           <Zap className="h-6 w-6 text-amber-500" />
           <div>
             <h1 className="text-xl font-semibold text-savr-neutral-900">
@@ -173,13 +174,13 @@ export default function AutoAcceptPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-savr-md border border-savr-error-soft bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
       {successMsg && (
-        <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+        <div className="flex items-center gap-2 rounded-savr-md border border-savr-success-soft bg-savr-success-subtle px-3 py-2 text-sm text-savr-success-strong">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {successMsg}
         </div>
@@ -193,6 +194,7 @@ export default function AutoAcceptPage() {
         </div>
       ) : configs.length === 0 ? (
         <EmptyState
+          // ds-classes: valeur unique (amber-400, icône), à arbitrer
           icon={<Zap className="h-8 w-8 text-amber-400" />}
           title="Aucune configuration"
           description="Aucun traiteur n'a de configuration auto-accept définie."
@@ -206,8 +208,9 @@ export default function AutoAcceptPage() {
         />
       )}
 
-      <Card className="border border-amber-100 bg-amber-50 p-4">
-        <p className="text-sm text-amber-800">
+      {/* ds-classes: valeur unique (border amber-100), à arbitrer — encart remplacé par AlertBar en R-UI-1 */}
+      <Card className="border border-amber-100 bg-savr-warning-subtle p-4">
+        <p className="text-sm text-savr-warning-deep">
           L'auto-accept déclenche la validation sans action humaine dès que
           l'algo AG trouve une combinaison association + transporteur
           satisfaisant les seuils configurés. L'événement outbox{' '}

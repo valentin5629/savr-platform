@@ -41,7 +41,7 @@ const FilterChips = React.forwardRef<HTMLDivElement, FilterChipsProps>(
             aria-pressed={active}
             onClick={() => onSelect(chip.key)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-savr-full border px-3.5 py-1.5 text-xs font-bold transition-colors duration-[120ms]',
+              'inline-flex items-center gap-1.5 rounded-savr-full border px-3.5 py-1.5 text-xs font-bold transition-colors duration-savr-fast',
               active
                 ? 'border-savr-primary-700 bg-savr-primary-700 text-savr-white'
                 : 'border-savr-neutral-300 bg-savr-white text-savr-neutral-600 hover:border-savr-primary-300',

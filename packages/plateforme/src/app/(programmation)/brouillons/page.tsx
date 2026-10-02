@@ -108,7 +108,7 @@ export default function BrouillonsPage() {
                   size="sm"
                   onClick={() => void handleDelete(row.id)}
                   disabled={deleting === row.id}
-                  className="text-savr-error hover:bg-red-50 hover:border-savr-error"
+                  className="text-savr-error hover:bg-savr-error-subtle hover:border-savr-error"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Supprimer

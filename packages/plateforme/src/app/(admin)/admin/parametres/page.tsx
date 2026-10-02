@@ -83,9 +83,9 @@ export default function ParametresIndexPage() {
           const Icon = s.icon;
           return (
             <Link key={s.href} href={s.href}>
-              <Card className="p-5 h-full hover:border-savr-primary-300 hover:shadow-sm transition-all">
+              <Card className="p-5 h-full hover:border-savr-primary-300 hover:shadow-savr-sm transition-all">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-savr-primary-50 p-2">
+                  <div className="rounded-savr-md bg-savr-primary-50 p-2">
                     <Icon className="h-5 w-5 text-savr-primary-700" />
                   </div>
                   <div>

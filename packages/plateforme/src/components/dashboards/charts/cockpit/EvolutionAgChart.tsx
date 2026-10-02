@@ -13,6 +13,7 @@ import {
   TEXT_STRONG,
   GRID,
   GRID_BASELINE,
+  WHITE,
 } from './palette';
 
 // EvolutionAgChart (Cockpit R24) — BARRES verticales des repas donnés (orange,
@@ -222,7 +223,7 @@ const EvolutionAgChart = React.forwardRef<
                       cx={x}
                       cy={y}
                       r={on ? 2.75 : 1.25}
-                      fill={on ? RATIO_COLOR : '#fff'}
+                      fill={on ? RATIO_COLOR : WHITE}
                       stroke={RATIO_COLOR}
                       strokeWidth={on ? 1 : 0.75}
                       style={{ pointerEvents: 'none', transition: 'r 120ms' }}

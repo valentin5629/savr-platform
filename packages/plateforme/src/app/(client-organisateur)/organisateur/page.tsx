@@ -14,16 +14,7 @@ import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpi
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { jourParis } from '@savr/shared/src/temps/index.js';
-
-// Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens —
-// identique traiteur/gestionnaire/agence).
-const DOT = {
-  navy: '#223870',
-  navy2: '#3F5599',
-  green: '#16A34A',
-  navy3: '#6379B6',
-  accent: '#FF9B00',
-};
+import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 
 // §11 §7 — Dashboard client_organisateur : impact RSE, lecture seule.
 // Pas de données financières, pas de benchmark (le rôle n'a aucun intérêt à se comparer).
@@ -148,22 +139,22 @@ export default function ClientOrganisateurDashboardPage() {
             <KpiCockpitCard
               label="Événements collectés"
               value={ytdEvenements}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
             />
             <KpiCockpitCard
               label="CO₂e évité (total)"
               value={<Co2Display kg={ytdCo2Evite} />}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
             />
             <KpiCockpitCard
               label="Déchets détournés (ZD)"
               value={<TonnageDisplay kg={ytdKgZd} />}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
             />
             <KpiCockpitCard
               label="Repas détournés (AG)"
               value={ytdRepasAg}
-              dotColor={DOT.accent}
+              dotColor={KPI_DOT.accent}
             />
           </div>
           <Button variant="ghost" asChild>
@@ -191,25 +182,25 @@ export default function ClientOrganisateurDashboardPage() {
             <KpiCockpitCard
               label="Événements ZD"
               value={nbEvenements}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               href="/organisateur/collectes?type=zero_dechet"
             />
             <KpiCockpitCard
               label="Déchets détournés"
               value={<TonnageDisplay kg={tonnage} />}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
             />
             <KpiCockpitCard
               label="Taux de recyclage"
               value={taux != null ? fmtTaux(taux) : '—'}
               unit={taux != null ? '%' : undefined}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
             />
             {/* CO₂ évité en headline (§11 §7, refonte 2026-06-04 Sujet 3) */}
             <KpiCockpitCard
               label="CO₂ évité"
               value={<Co2Display kg={co2Evite} />}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
             />
           </div>
 
@@ -234,17 +225,17 @@ export default function ClientOrganisateurDashboardPage() {
                 <KpiCockpitCard
                   label="CO₂ induit (A)"
                   value={<Co2Display kg={co2Induit} />}
-                  dotColor={DOT.navy3}
+                  dotColor={KPI_DOT.navy3}
                 />
                 <KpiCockpitCard
                   label="CO₂ net"
                   value={<Co2Display kg={co2Net} />}
-                  dotColor={DOT.navy3}
+                  dotColor={KPI_DOT.navy3}
                 />
                 <KpiCockpitCard
                   label="Énergie primaire évitée"
                   value={`${energie.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} kWh`}
-                  dotColor={DOT.navy3}
+                  dotColor={KPI_DOT.navy3}
                 />
               </CardContent>
             )}
@@ -258,18 +249,18 @@ export default function ClientOrganisateurDashboardPage() {
           <KpiCockpitCard
             label="Événements AG"
             value={nbEvenements}
-            dotColor={DOT.navy}
+            dotColor={KPI_DOT.navy}
             href="/organisateur/collectes?type=anti_gaspi"
           />
           <KpiCockpitCard
             label="Repas détournés"
             value={repas}
-            dotColor={DOT.accent}
+            dotColor={KPI_DOT.accent}
           />
           <KpiCockpitCard
             label="CO₂e évité"
             value={<Co2Display kg={co2Evite} />}
-            dotColor={DOT.green}
+            dotColor={KPI_DOT.green}
           />
         </div>
       )}

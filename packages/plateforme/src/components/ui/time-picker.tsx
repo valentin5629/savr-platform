@@ -179,7 +179,7 @@ const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
                     }}
                     className={cn(
                       'h-10 w-full shrink-0 rounded-savr-md text-center text-sm font-medium tabular-nums',
-                      'transition-colors duration-[120ms] ease-out',
+                      'transition-colors duration-savr-fast ease-out',
                       'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-savr-primary-500',
                       choisi
                         ? 'bg-savr-primary-700 text-savr-white hover:bg-savr-primary-800'

@@ -57,6 +57,18 @@
   --color-savr-info: #2563eb;
   --color-savr-info-strong: #1d4ed8;
   --color-savr-info-subtle: #eff6ff;
+  /* Tons sémantiques relevés dans le code et figés à leur valeur actuelle
+     (R-UI-6a, iso-rendu — aucun hex ne vit hors de ce fichier) :
+     - `*-soft` = bordure claire des encarts d'alerte (ex-`red-200` / `green-200`)
+       et du badge « Pack épuisé » ; transitoire, remplacé par AlertBar (R-UI-1)
+       qui borde en `{semantic}` plein (§5.8) ;
+     - `warning-deep` = texte des encarts d'avertissement (ex-`amber-800`),
+       plus foncé que `warning-strong` ; même sort que `*-soft` ;
+     - `success-on-dark` = vert clair lisible sur navy (bilan net Co2HeroCard). */
+  --color-savr-error-soft: #fecaca;
+  --color-savr-success-soft: #bbf7d0;
+  --color-savr-warning-deep: #92400e;
+  --color-savr-success-on-dark: #7ed9a6;
 
   /* ── Data-viz (ordre d'attribution des séries) ──────────────────────────── */
   --color-savr-dataviz-1: #223870;
@@ -74,15 +86,8 @@
   --text-4xl: 38px;
   --text-4xl--line-height: 1.15;
 
-  /* ── Spacing (grille 4px) ────────────────────────────────────────────────── */
-  --spacing-savr-1: 4px;
-  --spacing-savr-2: 8px;
-  --spacing-savr-3: 12px;
-  --spacing-savr-4: 16px;
-  --spacing-savr-6: 24px;
-  --spacing-savr-8: 32px;
-  --spacing-savr-12: 48px;
-  --spacing-savr-16: 64px;
+  /* Spacing : grille 4px = échelle Tailwind par défaut (p-1 = 4px, p-4 = 16px…).
+     Les ex-tokens `--spacing-savr-*` (0 usage) ont été retirés en R-UI-6a. */
 
   /* ── Border radius (levier #6 — md=8px partout) ─────────────────────────── */
   --radius-savr-sm: 4px;
@@ -98,10 +103,17 @@
   --shadow-savr-md: 0 4px 12px rgba(13, 20, 40, 0.08);
   --shadow-savr-lg: 0 12px 28px rgba(13, 20, 40, 0.12);
 
-  /* ── Mouvement ──────────────────────────────────────────────────────────── */
-  --motion-savr-fast: 120ms ease-out;
-  --motion-savr-base: 200ms ease-out;
-  --motion-savr-slow: 320ms ease-out;
+  /* ── Mouvement (§4.5) ───────────────────────────────────────────────────── */
+  /* Durées seules : Tailwind lit le namespace `--transition-duration-*` →
+     utilitaires `duration-savr-fast|base|slow` (easing = défaut Tailwind,
+     inchangé). `--motion-savr-*` = raccourci durée + easing pour du CSS écrit
+     à la main (transition: … var(--motion-savr-fast)). */
+  --transition-duration-savr-fast: 120ms;
+  --transition-duration-savr-base: 200ms;
+  --transition-duration-savr-slow: 320ms;
+  --motion-savr-fast: var(--transition-duration-savr-fast) ease-out;
+  --motion-savr-base: var(--transition-duration-savr-base) ease-out;
+  --motion-savr-slow: var(--transition-duration-savr-slow) ease-out;
 
   /* ── Conteneurs ─────────────────────────────────────────────────────────── */
   --container-savr-content: 1200px;

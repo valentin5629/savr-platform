@@ -12,23 +12,12 @@ import { extendTailwindMerge } from 'tailwind-merge';
  */
 const SAVR_RADIUS = ['savr-sm', 'savr-md', 'savr-lg', 'savr-xl', 'savr-full'];
 const SAVR_SHADOW = ['savr-none', 'savr-sm', 'savr-md', 'savr-lg'];
-const SAVR_SPACING = [
-  'savr-1',
-  'savr-2',
-  'savr-3',
-  'savr-4',
-  'savr-6',
-  'savr-8',
-  'savr-12',
-  'savr-16',
-];
 const SAVR_CONTAINER = ['savr-content', 'savr-wide', 'savr-prose'];
 
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
       borderRadius: SAVR_RADIUS,
-      spacing: SAVR_SPACING,
     },
     classGroups: {
       shadow: [{ shadow: SAVR_SHADOW }],

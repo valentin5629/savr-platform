@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { fmtInt, fmtMasse } from './fmt';
-import { CO2 } from './palette';
+import { CO2, WHITE } from './palette';
 
 // Co2HeroCard — bloc héros à FOND NAVY (PAS ChartCard) présentant l'impact
 // carbone selon la règle ABC (méthode ADEME) : le CO₂e ÉVITÉ est mis en héros,
@@ -34,7 +34,7 @@ export function Co2HeroCard({
   return (
     <div
       className="relative overflow-hidden rounded-savr-lg p-7"
-      style={{ background: CO2.bg, color: '#fff' }}
+      style={{ background: CO2.bg, color: WHITE }}
     >
       {/* Filet vert (accent « évité ») */}
       <div

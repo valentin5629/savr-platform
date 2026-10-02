@@ -27,7 +27,7 @@ export function CollecteTypeTabs({
         aria-selected={value === 'zero_dechet'}
         data-value="zero_dechet"
         onClick={() => onChange('zero_dechet')}
-        className={`inline-flex h-full items-center rounded-savr-sm px-3 text-sm font-semibold transition-colors duration-[120ms] ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 ${
+        className={`inline-flex h-full items-center rounded-savr-sm px-3 text-sm font-semibold transition-colors duration-savr-fast ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 ${
           value === 'zero_dechet'
             ? 'bg-savr-primary-700 text-savr-white'
             : 'text-savr-neutral-600 hover:bg-savr-neutral-100 hover:text-savr-neutral-900'
@@ -40,7 +40,7 @@ export function CollecteTypeTabs({
         aria-selected={value === 'anti_gaspi'}
         data-value="anti_gaspi"
         onClick={() => onChange('anti_gaspi')}
-        className={`inline-flex h-full items-center rounded-savr-sm px-3 text-sm font-semibold transition-colors duration-[120ms] ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 ${
+        className={`inline-flex h-full items-center rounded-savr-sm px-3 text-sm font-semibold transition-colors duration-savr-fast ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 ${
           value === 'anti_gaspi'
             ? 'bg-savr-primary-700 text-savr-white'
             : 'text-savr-neutral-600 hover:bg-savr-neutral-100 hover:text-savr-neutral-900'

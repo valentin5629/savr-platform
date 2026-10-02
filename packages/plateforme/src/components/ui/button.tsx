@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
   // Base — hauteur 40px, radius md=8px, transitions franches (levier #8)
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-semibold transition-[background-color,transform] duration-[120ms] ease-out focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-semibold transition-[background-color,transform] duration-savr-fast ease-out focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {

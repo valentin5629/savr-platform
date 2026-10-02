@@ -59,9 +59,8 @@ describe('cn — échelles savr-* relues dans globals.css', () => {
     expectScaleMerges('shadow', tokens('shadow'));
   });
 
-  it('espacements : p/m/gap-savr-*', () => {
-    for (const u of ['p', 'px', 'm', 'gap'])
-      expectScaleMerges(u, tokens('spacing'));
+  it('espacements : aucun token --spacing-savr-* (grille 4px = échelle Tailwind, R-UI-6a)', () => {
+    expect(tokens('spacing')).toEqual([]);
   });
 
   it('conteneurs : max-w/w/min-w-savr-*', () => {
@@ -81,7 +80,6 @@ describe('cn — surcharges réelles', () => {
     expect(cn('rounded-md', 'rounded-savr-lg')).toBe('rounded-savr-lg');
     expect(cn('rounded-savr-lg', 'rounded-none')).toBe('rounded-none');
     expect(cn('shadow-sm', 'shadow-savr-md')).toBe('shadow-savr-md');
-    expect(cn('p-4', 'p-savr-6')).toBe('p-savr-6');
   });
 
   it('une ombre savr ne supprime pas une couleur d’ombre (groupes distincts)', () => {

@@ -141,7 +141,7 @@ function KpiTile({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-savr-lg border bg-savr-white px-4 py-3 text-left shadow-savr-sm transition-[border-color,box-shadow,transform] duration-[120ms] hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
+      className={`flex items-center gap-3 rounded-savr-lg border bg-savr-white px-4 py-3 text-left shadow-savr-sm transition-[border-color,box-shadow,transform] duration-savr-fast hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
         active
           ? 'border-savr-primary-700 shadow-[0_0_0_1px_var(--color-savr-primary-700)]'
           : 'border-savr-neutral-200'
@@ -574,7 +574,7 @@ export default function CollectesPage() {
               role="tab"
               aria-selected={tab === key}
               onClick={() => changeTab(key)}
-              className={`rounded-savr-full px-5 py-2 text-sm font-bold transition-colors duration-[120ms] ${
+              className={`rounded-savr-full px-5 py-2 text-sm font-bold transition-colors duration-savr-fast ${
                 tab === key
                   ? 'bg-savr-primary-700 text-savr-white'
                   : 'text-savr-neutral-500 hover:text-savr-primary-700'
@@ -607,7 +607,7 @@ export default function CollectesPage() {
                   setTypes((t) => (typeSeul(t, val) ? [] : [val]));
                   setPage(1);
                 }}
-                className={`inline-flex items-center gap-1.5 rounded-savr-full px-4 py-2 text-sm font-bold transition-colors duration-[120ms] ${
+                className={`inline-flex items-center gap-1.5 rounded-savr-full px-4 py-2 text-sm font-bold transition-colors duration-savr-fast ${
                   actif
                     ? 'bg-savr-primary-700 text-savr-white'
                     : 'text-savr-neutral-500 hover:text-savr-primary-700'

@@ -31,7 +31,11 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Corps JSON invalide' }, { status: 400 });
   }
 
-  if (!body.cle || body.valeur === undefined) {
+  if (
+    typeof body.cle !== 'string' ||
+    body.cle === '' ||
+    body.valeur === undefined
+  ) {
     return NextResponse.json(
       { error: 'cle et valeur obligatoires' },
       { status: 422 },

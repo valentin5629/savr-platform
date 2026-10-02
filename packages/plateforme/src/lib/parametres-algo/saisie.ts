@@ -13,29 +13,27 @@ export function convertirSaisie(type_valeur: string, saisie: string): unknown {
     return parseInt(brut, 10);
   }
   if (type_valeur === 'decimal') {
-    const n = Number(brut.replace(',', '.'));
-    if (brut === '' || !Number.isFinite(n))
+    // Forme stricte : `Number()` seul accepterait 0x10 ou 1e3.
+    if (!/^-?\d+([.,]\d+)?$/.test(brut))
       throw new Error('Nombre décimal attendu (ex. 0.45).');
-    return n;
+    return Number(brut.replace(',', '.'));
   }
   if (type_valeur === 'time') {
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(brut))
       throw new Error('Heure au format HH:MM attendue (ex. 07:00).');
     return brut;
   }
-  if (type_valeur === 'text[]' || type_valeur === 'json') {
+  if (type_valeur === 'text[]') {
     let parsed: unknown;
     try {
       parsed = JSON.parse(brut);
     } catch {
       throw new Error('Liste JSON attendue, ex. ["75","92","93"].');
     }
-    if (
-      type_valeur === 'text[]' &&
-      !(Array.isArray(parsed) && parsed.every((x) => typeof x === 'string'))
-    )
+    if (!(Array.isArray(parsed) && parsed.every((x) => typeof x === 'string')))
       throw new Error('Liste de chaînes attendue, ex. ["75","92","93"].');
     return parsed;
   }
+  // `string` (seul autre type admis par le CHECK de parametres_algo.type_valeur).
   return brut;
 }

@@ -144,13 +144,15 @@ describe('M2.3 / convertirSaisie — table de conversion par type', () => {
     ['decimal', '0,45', 0.45],
     ['time', '20:00', '20:00'],
     ['text[]', '["75","92"]', ['75', '92']],
-    ['json', '{"a":1}', { a: 1 }],
+    ['string', 'nb_collectes_6_mois_asc', 'nb_collectes_6_mois_asc'],
   ])('%s : %j → %j', (type, saisie, attendu) => {
     expect(convertirSaisie(type, saisie)).toEqual(attendu);
   });
 
   it.each([
     ['int', '600.5'],
+    ['decimal', '0x10'],
+    ['decimal', '1e3'],
     ['int', 'abc'],
     ['decimal', ''],
     ['time', '25:00'],

@@ -788,6 +788,19 @@ describe('M2.3 / PATCH /parametres-algo', () => {
     expect(res.status).toBe(200);
   });
 
+  it('retourne 422 si cle n’est pas une chaîne, sans lecture ni mise à jour', async () => {
+    const { PATCH } =
+      await import('@/app/api/v1/admin/parametres-algo/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/parametres-algo', {
+        cle: { $ne: '' },
+        valeur: 1,
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
+  });
+
   it('retourne 404 si la clé est inconnue, sans tenter de mise à jour', async () => {
     mockSupabaseChain.maybeSingle.mockResolvedValue({
       data: null,

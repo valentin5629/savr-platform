@@ -432,6 +432,28 @@ async function handleEventType(
         break;
       }
 
+      // Coordonnées du coursier → tournée de la mission (bloc « Chauffeur »
+      // des fiches collecte, comme l'adapter MTS-1 avec le référentiel carrier
+      // — décision Val 2026-10-02). La valeur Everest fait foi quand elle
+      // arrive ; une colonne non fournie n'est pas touchée (saisie Admin
+      // conservée). Best-effort : pas une transition d'état, tracé si refusé.
+      if (coursierNom || coursierTel) {
+        const coordonnees: Record<string, string> = {};
+        if (coursierNom) coordonnees['chauffeur_nom'] = coursierNom;
+        if (coursierTel) coordonnees['chauffeur_telephone'] = coursierTel;
+        const { error: coordErr } = await supabase
+          .from('tournees')
+          .update(coordonnees)
+          .eq('id', mission.tournee_id);
+        if (coordErr) {
+          logger.error('webhooks.everest.coursier_non_propage', {
+            mission_id: missionId,
+            tournee_id: mission.tournee_id,
+            error_code: coordErr.code,
+          });
+        }
+      }
+
       // Passer statut_tms → 'acceptee' si pas encore acceptée
       // (trigger fn_sync_statut_collecte_from_tms dérive collectes.statut)
       if (lue.etat.statut_tms === 'attribuee_en_attente_acceptation') {

@@ -402,6 +402,51 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     ).toBe(true);
   });
 
+  it('mission_dispatched — coursier_nom / coursier_telephone propagés sur la tournée de la mission (bloc « Chauffeur » des fiches)', async () => {
+    mockMissionRow = {
+      id: 'em-001',
+      tournee_id: 'tour-001',
+      collecte_id: 'col-001',
+      statut_everest: 'created',
+    };
+    mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-001',
+        event_type: 'mission_dispatched',
+        occurred_at: '2026-07-20T22:05:00Z',
+        coursier_nom: 'Jean Vélo',
+        coursier_telephone: '+33700000001',
+      }),
+    );
+    expect(resp.status).toBe(200);
+
+    const tourneeUpdates = updatedRows['tournees'] ?? [];
+    expect(tourneeUpdates).toEqual([
+      { chauffeur_nom: 'Jean Vélo', chauffeur_telephone: '+33700000001' },
+    ]);
+  });
+
+  it('mission_dispatched — sans coursier dans le payload → la tournée n’est pas touchée (saisie Admin conservée)', async () => {
+    mockMissionRow = {
+      id: 'em-001',
+      tournee_id: 'tour-001',
+      collecte_id: 'col-001',
+      statut_everest: 'created',
+    };
+    mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
+
+    await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-001',
+        event_type: 'mission_dispatched',
+        occurred_at: '2026-07-20T22:05:00Z',
+      }),
+    );
+    expect(updatedRows['tournees'] ?? []).toEqual([]);
+  });
+
   it('mission_dispatched — déjà acceptée → pas de double update statut_tms', async () => {
     mockMissionRow = {
       id: 'em-002',

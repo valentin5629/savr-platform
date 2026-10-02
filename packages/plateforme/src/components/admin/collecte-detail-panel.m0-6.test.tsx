@@ -1351,10 +1351,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         within(infos).getByRole('link', { name: '06 11 22 33 44' }),
       ).toHaveAttribute('href', 'tel:0611223344');
       expect(within(infos).getByText('Non renseigné')).toBeInTheDocument();
-      // Sans contrôle d'accès : aucune info chauffeur demandée.
+      // Les coordonnées chauffeur ont quitté l'onglet Informations pour le bloc
+      // « Chauffeur » de l'onglet Logistique (décision Val 2026-10-02).
+      expect(within(infos).queryByText(/Informations chauffeur/)).toBeNull();
       expect(
-        within(infos).getByText(/aucune information chauffeur/),
-      ).toBeInTheDocument();
+        within(infos).queryByText(/aucune information chauffeur/),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -1715,6 +1717,191 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
       expect(
         screen.queryByRole('button', { name: 'Acceptation manuelle' }),
       ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// ============================================================================
+// Bloc « Chauffeur » de l'onglet Logistique (décision Val 2026-10-02) : même
+// bloc que la fiche client (§06.04 « Logistique ») — nom, plaque, téléphone par
+// camion, remontés automatiquement du prestataire (MTS-1 référentiel carrier,
+// Everest coursier) et complétés par l'Admin. Remplace la card « Informations
+// chauffeur » de l'onglet Informations (réservée au contrôle d'accès).
+// ============================================================================
+
+describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const tourneeMts1 = {
+    rang: 1,
+    tournees: {
+      id: 'tour-1',
+      statut: 'planifiee',
+      tms_reference: 'TMS-42',
+      external_ref_commande: 'CMD-42',
+      plaque_immatriculation: 'AB-123-CD',
+      chauffeur_nom: 'Paul Martin',
+      chauffeur_telephone: '0612345678',
+      accompagnant_nom: null,
+      accompagnant_telephone: null,
+      type_vehicule: 'camion_16m3',
+    },
+  };
+
+  it(
+    'sans tournée : « Chauffeur pas encore affecté », trois champs vides, aucun bouton de saisie',
+    async () => {
+      mockFetch({ ...collecteAg, collecte_tournees: [] });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          'Chauffeur pas encore affecté',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Plaque')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Modifier les coordonnées' }),
+      ).toBeNull();
+      expect(screen.queryByText('En attente')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'tournée MTS-1 renseignée : nom, plaque et téléphone cliquable ; sans contrôle d’accès, pas de mention email',
+    async () => {
+      mockFetch({ ...collecteAg, collecte_tournees: [tourneeMts1] });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = (await screen.findByTestId(
+        'camion-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLElement;
+      expect(within(bloc).getByText('Paul Martin')).toBeInTheDocument();
+      expect(within(bloc).getByText('AB-123-CD')).toBeInTheDocument();
+      expect(
+        within(bloc).getByRole('link', { name: '0612345678' }),
+      ).toHaveAttribute('href', 'tel:0612345678');
+      expect(within(bloc).queryByText('En attente')).toBeNull();
+      // Un seul camion : pas d'en-tête « Camion 1 ».
+      expect(within(bloc).queryByText(/^Camion 1$/)).toBeNull();
+      // Titre au singulier (un seul camion) — « Chauffeur » est aussi le label
+      // du champ, d'où getAll.
+      expect(screen.getAllByText('Chauffeur').length).toBeGreaterThanOrEqual(2);
+      expect(screen.queryByText('Chauffeurs')).toBeNull();
+      expect(screen.queryByText(/contrôle d’accès/)).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'vélo cargo sans plaque, coursier pas encore communiqué : « Sans objet (vélo cargo) » et « En attente » sur nom et téléphone',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        collecte_tournees: [
+          {
+            ...tourneeMts1,
+            tournees: {
+              ...tourneeMts1.tournees,
+              plaque_immatriculation: null,
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+              type_vehicule: 'velo_cargo',
+            },
+          },
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = (await screen.findByTestId(
+        'camion-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLElement;
+      expect(
+        within(bloc).getByText('Sans objet (vélo cargo)'),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByText('En attente')).toHaveLength(2);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'contrôle d’accès requis : mention de l’email récap, « Modifier les coordonnées » ouvre le formulaire et PATCH infos-acces',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        controle_acces_requis: true,
+        infos_acces_email_envoye_at: null,
+        collecte_tournees: [
+          {
+            ...tourneeMts1,
+            tournees: {
+              ...tourneeMts1.tournees,
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+            },
+          },
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          /exige un contrôle d’accès/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/infos à compléter avant envoi/),
+      ).toBeInTheDocument();
+      // Deux camions : en-tête « Camion N » ; ici un seul → en attente ×2.
+      expect(screen.getAllByText('En attente')).toHaveLength(2);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      fireEvent.change(screen.getByLabelText('Nom du chauffeur'), {
+        target: { value: 'Paul Martin' },
+      });
+      fireEvent.change(screen.getByLabelText('Téléphone du chauffeur'), {
+        target: { value: '0612345678' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, string>>;
+        };
+        expect(body.tournees).toHaveLength(1);
+        expect(body.tournees[0]).toMatchObject({
+          tournee_id: 'tour-1',
+          plaque_immatriculation: 'AB-123-CD',
+          chauffeur_nom: 'Paul Martin',
+          chauffeur_telephone: '0612345678',
+        });
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

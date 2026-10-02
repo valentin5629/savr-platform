@@ -64,6 +64,7 @@ import {
   EnTeteMention,
   FicheEnTete,
   InfoItem,
+  TelephoneLien,
   typeCollecteLabel,
 } from '@/components/collecte/fiche-blocs';
 import { refCourteCollecte } from '@/lib/collecte-ref';
@@ -208,6 +209,7 @@ interface CollecteDetail {
       chauffeur_telephone: string | null;
       accompagnant_nom: string | null;
       accompagnant_telephone: string | null;
+      type_vehicule: string | null;
     };
   }[];
   // factures_collectes = lignes de facture ; le statut vit sur la facture parente
@@ -1214,232 +1216,6 @@ export function CollecteDetailPanel({
                 </InfoItem>
               </dl>
             </Card>
-
-            {/* Informations chauffeur demandées — saisie par tournée si le lieu
-                exige un contrôle d'accès. */}
-            {collecte.controle_acces_requis ? (
-              <Card padding="md" className="space-y-4">
-                <BlocHeader
-                  icon={KeyRound}
-                  title="Informations chauffeur"
-                  action={
-                    !editInfosAcces && collecte.collecte_tournees.length > 0 ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={openEditInfosAcces}
-                      >
-                        Éditer les infos
-                      </Button>
-                    ) : undefined
-                  }
-                />
-                <Text>
-                  Ce lieu exige un contrôle d’accès. Renseignez le nom et le
-                  téléphone du chauffeur (et l’accompagnant s’il y en a un) pour
-                  chaque camion : un email récapitulatif est envoyé au
-                  programmateur dès que toutes les tournées sont complètes.
-                </Text>
-
-                {collecte.infos_acces_email_envoye_at ? (
-                  <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
-                    <Send className="h-4 w-4 shrink-0" />
-                    Email envoyé au programmateur le{' '}
-                    {new Date(
-                      collecte.infos_acces_email_envoye_at,
-                    ).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}
-                  </div>
-                ) : (
-                  <Text
-                    as="div"
-                    tone="soft"
-                    className="flex items-center gap-2"
-                  >
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
-                    En attente : infos à compléter avant envoi de l’email.
-                  </Text>
-                )}
-
-                {infosAccesFeedback && (
-                  <AlertBar variant="info">{infosAccesFeedback}</AlertBar>
-                )}
-                {infosAccesError && (
-                  <AlertBar variant="err">{infosAccesError}</AlertBar>
-                )}
-
-                {collecte.collecte_tournees.length === 0 ? (
-                  <Text>
-                    Aucune tournée dispatchée pour le moment — les infos
-                    pourront être saisies une fois le prestataire attribué.
-                  </Text>
-                ) : !editInfosAcces ? (
-                  <div className="space-y-2">
-                    {collecte.collecte_tournees.map((ct) => (
-                      <div
-                        key={ct.tournees.id}
-                        className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
-                      >
-                        <p className="mb-1.5 font-medium">Camion {ct.rang}</p>
-                        <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-savr-neutral-700">
-                          <div>
-                            <Text as="dt" variant="hint">
-                              Plaque
-                            </Text>
-                            <dd>{ct.tournees.plaque_immatriculation ?? '—'}</dd>
-                          </div>
-                          <div>
-                            <Text as="dt" variant="hint">
-                              Chauffeur
-                            </Text>
-                            <dd>{ct.tournees.chauffeur_nom ?? '—'}</dd>
-                          </div>
-                          <div>
-                            <Text as="dt" variant="hint">
-                              Téléphone
-                            </Text>
-                            <dd>{ct.tournees.chauffeur_telephone ?? '—'}</dd>
-                          </div>
-                          {(ct.tournees.accompagnant_nom ||
-                            ct.tournees.accompagnant_telephone) && (
-                            <>
-                              <div>
-                                <Text as="dt" variant="hint">
-                                  Accompagnant
-                                </Text>
-                                <dd>{ct.tournees.accompagnant_nom ?? '—'}</dd>
-                              </div>
-                              <div>
-                                <Text as="dt" variant="hint">
-                                  Tél. accompagnant
-                                </Text>
-                                <dd>
-                                  {ct.tournees.accompagnant_telephone ?? '—'}
-                                </dd>
-                              </div>
-                            </>
-                          )}
-                        </dl>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <form
-                    onSubmit={(e) => void handleSaveInfosAcces(e)}
-                    className="space-y-3"
-                  >
-                    {collecte.collecte_tournees.map((ct) => {
-                      const v = infosAccesInput[ct.tournees.id] ?? {
-                        plaque_immatriculation: '',
-                        chauffeur_nom: '',
-                        chauffeur_telephone: '',
-                        accompagnant_nom: '',
-                        accompagnant_telephone: '',
-                      };
-                      const setField = (
-                        field: keyof typeof v,
-                        val: string,
-                      ): void =>
-                        setInfosAccesInput((prev) => ({
-                          ...prev,
-                          [ct.tournees.id]: {
-                            ...v,
-                            ...prev[ct.tournees.id],
-                            [field]: val,
-                          },
-                        }));
-                      return (
-                        <div
-                          key={ct.tournees.id}
-                          className="space-y-2.5 rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-3"
-                        >
-                          <p className="text-sm font-medium">
-                            Camion {ct.rang}
-                          </p>
-                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
-                              <span>Plaque d’immatriculation</span>
-                              <Input
-                                value={v.plaque_immatriculation}
-                                onChange={(e) =>
-                                  setField(
-                                    'plaque_immatriculation',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                            </label>
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
-                              <span>Nom du chauffeur</span>
-                              <Input
-                                value={v.chauffeur_nom}
-                                onChange={(e) =>
-                                  setField('chauffeur_nom', e.target.value)
-                                }
-                              />
-                            </label>
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
-                              <span>Téléphone du chauffeur</span>
-                              <Input
-                                type="tel"
-                                value={v.chauffeur_telephone}
-                                onChange={(e) =>
-                                  setField(
-                                    'chauffeur_telephone',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                            </label>
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
-                              <span>Nom de l’accompagnant (facultatif)</span>
-                              <Input
-                                value={v.accompagnant_nom}
-                                onChange={(e) =>
-                                  setField('accompagnant_nom', e.target.value)
-                                }
-                              />
-                            </label>
-                            <label className="space-y-1 text-xs text-savr-neutral-500">
-                              <span>
-                                Téléphone de l’accompagnant (facultatif)
-                              </span>
-                              <Input
-                                type="tel"
-                                value={v.accompagnant_telephone}
-                                onChange={(e) =>
-                                  setField(
-                                    'accompagnant_telephone',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                            </label>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <FormActions
-                      cancel={{
-                        label: 'Annuler',
-                        size: 'sm',
-                        onClick: () => setEditInfosAcces(false),
-                      }}
-                      submit={{ label: 'Enregistrer', size: 'sm' }}
-                      loading={infosAccesSaving}
-                      loadingText="Enregistrement…"
-                    />
-                  </form>
-                )}
-              </Card>
-            ) : (
-              <Card padding="md" className="space-y-4">
-                <BlocHeader icon={KeyRound} title="Informations chauffeur" />
-                <Text>
-                  Ce lieu n&apos;exige pas de contrôle d&apos;accès : aucune
-                  information chauffeur n&apos;est demandée.
-                </Text>
-              </Card>
-            )}
           </TabsContent>
 
           <TabsContent value="logistique" className="space-y-4">
@@ -1793,6 +1569,250 @@ export function CollecteDetailPanel({
                 )}
               </Card>
             )}
+            {/* Chauffeur(s) par camion — même bloc que la fiche client (§06.04
+            « Logistique », décision Val 2026-10-02) : nom, plaque, téléphone
+            remontés automatiquement du prestataire (MTS-1 : référentiel carrier
+            au polling ; A Toutes! : coursier du webhook Everest), complétés par
+            l'Admin si besoin (contrôle d'accès, transporteur manuel). Remplace
+            la card « Informations chauffeur » de l'onglet Informations. */}
+            <Card padding="md" className="space-y-4">
+              <BlocHeader
+                icon={KeyRound}
+                title={
+                  collecte.collecte_tournees.length === 0
+                    ? 'Chauffeur pas encore affecté'
+                    : collecte.collecte_tournees.length > 1
+                      ? 'Chauffeurs'
+                      : 'Chauffeur'
+                }
+                action={
+                  !editInfosAcces && collecte.collecte_tournees.length > 0 ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={openEditInfosAcces}
+                    >
+                      Modifier les coordonnées
+                    </Button>
+                  ) : undefined
+                }
+              />
+              {collecte.controle_acces_requis ? (
+                <>
+                  <Text>
+                    Ce lieu exige un contrôle d’accès : nom et téléphone du
+                    chauffeur (et de l’accompagnant s’il y en a un) pour chaque
+                    camion — un email récapitulatif est envoyé au programmateur
+                    dès que toutes les tournées sont complètes.
+                  </Text>
+                  {collecte.infos_acces_email_envoye_at ? (
+                    <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
+                      <Send className="h-4 w-4 shrink-0" />
+                      Email envoyé au programmateur le{' '}
+                      {new Date(
+                        collecte.infos_acces_email_envoye_at,
+                      ).toLocaleDateString('fr-FR', {
+                        timeZone: 'Europe/Paris',
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-savr-neutral-600">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
+                      En attente : infos à compléter avant envoi de l’email.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Text>
+                  Les coordonnées remontent automatiquement du prestataire dès
+                  l’affectation du chauffeur ; complétez-les si elles manquent.
+                </Text>
+              )}
+
+              {infosAccesFeedback && (
+                <AlertBar variant="info">{infosAccesFeedback}</AlertBar>
+              )}
+              {infosAccesError && (
+                <AlertBar variant="err">{infosAccesError}</AlertBar>
+              )}
+
+              {collecte.collecte_tournees.length === 0 ? (
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-3">
+                  <InfoItem label="Chauffeur">
+                    <span className="text-savr-neutral-400">—</span>
+                  </InfoItem>
+                  <InfoItem label="Plaque">
+                    <span className="text-savr-neutral-400">—</span>
+                  </InfoItem>
+                  <InfoItem label="Téléphone">
+                    <span className="text-savr-neutral-400">—</span>
+                  </InfoItem>
+                </dl>
+              ) : !editInfosAcces ? (
+                <div className="space-y-2">
+                  {collecte.collecte_tournees.map((ct) => {
+                    const t = ct.tournees;
+                    const enAttente = (
+                      <span className="text-savr-neutral-400">En attente</span>
+                    );
+                    return (
+                      <div
+                        key={t.id}
+                        data-testid="camion-chauffeur"
+                        className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
+                      >
+                        {collecte.collecte_tournees.length > 1 && (
+                          <p className="mb-1.5 font-medium">Camion {ct.rang}</p>
+                        )}
+                        <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+                          <InfoItem label="Chauffeur">
+                            {t.chauffeur_nom?.trim() || enAttente}
+                          </InfoItem>
+                          <InfoItem label="Plaque d’immatriculation">
+                            {t.plaque_immatriculation?.trim() ||
+                              (t.type_vehicule === 'velo_cargo' ? (
+                                // Vélo cargo : jamais de plaque, jamais « En attente ».
+                                <span className="text-savr-neutral-400">
+                                  Sans objet (vélo cargo)
+                                </span>
+                              ) : (
+                                enAttente
+                              ))}
+                          </InfoItem>
+                          <InfoItem label="Téléphone">
+                            {t.chauffeur_telephone?.trim() ? (
+                              <TelephoneLien
+                                telephone={t.chauffeur_telephone}
+                              />
+                            ) : (
+                              enAttente
+                            )}
+                          </InfoItem>
+                          {(t.accompagnant_nom || t.accompagnant_telephone) && (
+                            <>
+                              <InfoItem label="Accompagnant">
+                                {t.accompagnant_nom?.trim() || enAttente}
+                              </InfoItem>
+                              <InfoItem label="Tél. accompagnant">
+                                {t.accompagnant_telephone?.trim() ? (
+                                  <TelephoneLien
+                                    telephone={t.accompagnant_telephone}
+                                  />
+                                ) : (
+                                  enAttente
+                                )}
+                              </InfoItem>
+                            </>
+                          )}
+                        </dl>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <form
+                  onSubmit={(e) => void handleSaveInfosAcces(e)}
+                  className="space-y-3"
+                >
+                  {collecte.collecte_tournees.map((ct) => {
+                    const v = infosAccesInput[ct.tournees.id] ?? {
+                      plaque_immatriculation: '',
+                      chauffeur_nom: '',
+                      chauffeur_telephone: '',
+                      accompagnant_nom: '',
+                      accompagnant_telephone: '',
+                    };
+                    const setField = (
+                      field: keyof typeof v,
+                      val: string,
+                    ): void =>
+                      setInfosAccesInput((prev) => ({
+                        ...prev,
+                        [ct.tournees.id]: {
+                          ...v,
+                          ...prev[ct.tournees.id],
+                          [field]: val,
+                        },
+                      }));
+                    return (
+                      <div
+                        key={ct.tournees.id}
+                        className="space-y-2.5 rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-3"
+                      >
+                        <p className="text-sm font-medium">Camion {ct.rang}</p>
+                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                          <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <span>Plaque d’immatriculation</span>
+                            <Input
+                              value={v.plaque_immatriculation}
+                              onChange={(e) =>
+                                setField(
+                                  'plaque_immatriculation',
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </label>
+                          <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <span>Nom du chauffeur</span>
+                            <Input
+                              value={v.chauffeur_nom}
+                              onChange={(e) =>
+                                setField('chauffeur_nom', e.target.value)
+                              }
+                            />
+                          </label>
+                          <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <span>Téléphone du chauffeur</span>
+                            <Input
+                              type="tel"
+                              value={v.chauffeur_telephone}
+                              onChange={(e) =>
+                                setField('chauffeur_telephone', e.target.value)
+                              }
+                            />
+                          </label>
+                          <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <span>Nom de l’accompagnant (facultatif)</span>
+                            <Input
+                              value={v.accompagnant_nom}
+                              onChange={(e) =>
+                                setField('accompagnant_nom', e.target.value)
+                              }
+                            />
+                          </label>
+                          <label className="space-y-1 text-xs text-savr-neutral-500">
+                            <span>
+                              Téléphone de l’accompagnant (facultatif)
+                            </span>
+                            <Input
+                              type="tel"
+                              value={v.accompagnant_telephone}
+                              onChange={(e) =>
+                                setField(
+                                  'accompagnant_telephone',
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <FormActions
+                    cancel={{
+                      label: 'Annuler',
+                      size: 'sm',
+                      onClick: () => setEditInfosAcces(false),
+                    }}
+                    submit={{ label: 'Enregistrer', size: 'sm' }}
+                    loading={infosAccesSaving}
+                    loadingText="Enregistrement…"
+                  />
+                </form>
+              )}
+            </Card>
             {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
             {collecte.type === 'zero_dechet' && (
               <Card padding="md" className="space-y-4">

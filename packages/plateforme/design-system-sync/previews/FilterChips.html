@@ -1,0 +1,9 @@
+<!-- @dsCard group="Affichage" height=80 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(function(){const [k,setK]=React.useState('all');return h(S.FilterChips,{activeKey:k,onSelect:setK,
+  chips:[{key:'all',label:'Toutes',count:48},{key:'todo',label:'À valider',count:3},{key:'done',label:'Réalisées',count:41}]})})
+);
+</script>

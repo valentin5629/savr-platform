@@ -1,0 +1,12 @@
+<!-- @dsCard group="Marque" height=440 -->
+<div id="root" style="padding:20px;background:linear-gradient(to bottom,var(--color-savr-neutral-50),var(--color-savr-primary-50),var(--color-savr-accent-50))"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'mx-auto max-w-sm'},h(S.AuthCard,{titre:'Connexion',description:'Accédez à votre espace Savr.',
+  pied:h(S.Button,{className:'w-full'},'Se connecter'),
+  sousCarte:h('a',{href:'#',className:S.authLienClass},'Mot de passe oublié ?')},
+  h(S.FormField,{label:'Email',htmlFor:'ac-email'},h(S.Input,{id:'ac-email',type:'email',placeholder:'prenom@traiteur.fr'})),
+  h(S.FormField,{label:'Mot de passe',htmlFor:'ac-mdp'},h(S.Input,{id:'ac-mdp',type:'password',defaultValue:'••••••••'}))))
+);
+</script>

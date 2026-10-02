@@ -1,0 +1,14 @@
+<!-- @dsCard group="Filtres" height=100 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+const LIEUX=[{id:'l1',nom:'[Lieu A]'},{id:'l2',nom:'[Lieu B]'},{id:'l3',nom:'[Lieu C]'},{id:'l4',nom:'[Lieu D]'},{id:'l5',nom:'[Lieu E]'},{id:'l6',nom:'[Lieu F]'},{id:'l7',nom:'[Lieu G]'},{id:'l8',nom:'[Lieu H]'}];
+function Demo(){
+  const [a,setA]=React.useState(['l1','l3']); const [b,setB]=React.useState([]);
+  return h('div',{className:'flex flex-wrap items-center gap-6'},
+    h(S.FiltreCoches,{label:'Lieu',options:LIEUX,selected:a,onChange:setA}),
+    h(S.FiltreCoches,{label:'Statut',options:[{id:'programmee',nom:'Programmée'},{id:'validee',nom:'Validée'}],selected:b,onChange:setB}),
+    h('span',{className:'text-xs text-savr-neutral-500'},'8 options et plus : champ de recherche dans la liste'));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>

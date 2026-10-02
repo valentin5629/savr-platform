@@ -1,0 +1,11 @@
+<!-- @dsCard group="Affichage" height=160 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.StatCardGrid,{desktopCols:3},
+  h(S.StatCard,{label:'Poids collecté',value:'12,4 t',variation:{value:8.2,label:'vs mois dernier'},icon:h(S.Scale,{className:'h-5 w-5'})}),
+  h(S.StatCard,{label:'Repas redistribués',value:'3 480',variation:{value:-2.1},icon:h(S.HandHeart,{className:'h-5 w-5'})}),
+  h(S.StatCard,{label:'Taux de recyclage',value:'71 %',icon:h(S.Recycle,{className:'h-5 w-5'})}))
+);
+</script>

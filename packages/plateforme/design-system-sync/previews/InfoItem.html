@@ -1,0 +1,11 @@
+<!-- @dsCard group="Fiches" height=150 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('dl',{className:'grid max-w-md grid-cols-2 gap-x-6 gap-y-3 text-sm'},
+  h(S.InfoItem,{label:'Date'},'Samedi 26 septembre 2026'),h(S.InfoItem,{label:'Heure'},'23:30'),
+  h(S.InfoItem,{label:'Convives'},'250 pax'),h(S.InfoItem,{label:'Transporteur'},'[Transporteur]'),
+  h(S.InfoItem,{label:'Adresse',pleineLargeur:true},'[Adresse, 75008 Paris]'))
+);
+</script>

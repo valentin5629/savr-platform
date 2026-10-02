@@ -1,0 +1,11 @@
+<!-- @dsCard group="Feedback" height=360 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(function(){const [o,setO]=React.useState(true);return h('div',null,h(S.Button,{onClick:()=>setO(true)},'Ouvrir'),
+  h(S.Modal,{open:o,title:'Annuler la collecte ?',onClose:()=>setO(false),
+    footer:h('div',{className:'flex justify-end gap-2'},h(S.Button,{variant:'secondary',onClick:()=>setO(false)},'Retour'),h(S.Button,{variant:'destructive',onClick:()=>setO(false)},'Annuler la collecte'))},
+    h('p',{className:'text-sm text-savr-neutral-600'},'Une annulation à moins de 12 h débite un crédit du pack AG.')))})
+);
+</script>

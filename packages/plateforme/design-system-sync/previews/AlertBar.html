@@ -1,0 +1,12 @@
+<!-- @dsCard group="Feedback" height=200 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'grid max-w-2xl gap-3'},
+  h(S.AlertBar,{variant:'warn'},'Pesées incomplètes — le bordereau sera généré dès réception de toutes les pesées.'),
+  h(S.AlertBar,{variant:'err'},'Échec de synchronisation Pennylane.'),
+  h(S.AlertBar,{variant:'info'},'Nouveau : export CSV du registre.'),
+  h(S.AlertBar,null,'Message neutre.'))
+);
+</script>

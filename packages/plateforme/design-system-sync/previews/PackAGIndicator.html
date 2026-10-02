@@ -1,0 +1,8 @@
+<!-- @dsCard group="Métier" height=120 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'max-w-sm'},h(S.PackAGIndicator,{total:25,restant:7}))
+);
+</script>

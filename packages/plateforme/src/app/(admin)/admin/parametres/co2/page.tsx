@@ -10,6 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface FacteurCo2 {
   id: string;
@@ -241,94 +249,99 @@ export default function ParametresCo2Page() {
           La ligne &ldquo;emballage&rdquo; a ses FE induit/évité dérivés du mix
           (lecture seule) ; seule son énergie primaire est éditable.
         </Text>
-        <Text
-          as="div"
-          variant="faint"
-          className="grid grid-cols-[10rem_repeat(3,8rem)] items-center gap-2 font-medium"
-        >
-          <span>Flux</span>
-          <span>FE induit</span>
-          <span>FE évité</span>
-          <span>Énergie évitée</span>
-        </Text>
-        <div className="space-y-2">
-          {facteursDraft.map((f, i) => {
-            const derive = f.code_flux === 'emballage';
-            return (
-              <div
-                key={f.id}
-                className="grid grid-cols-[10rem_repeat(3,8rem)] items-center gap-2"
-              >
-                <Text as="span" variant="body" className="font-medium">
-                  {f.code_flux}
-                </Text>
-                {derive ? (
-                  <>
-                    <Text as="span" tone="faint" className="italic">
-                      {f.fe_induit_kg_t} (calculé)
-                    </Text>
-                    <Text as="span" tone="faint" className="italic">
-                      {f.fe_evite_kg_t} (calculé)
-                    </Text>
-                  </>
-                ) : (
-                  <>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Flux</TableHead>
+              <TableHead>FE induit</TableHead>
+              <TableHead>FE évité</TableHead>
+              <TableHead>Énergie évitée</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {facteursDraft.map((f, i) => {
+              const derive = f.code_flux === 'emballage';
+              return (
+                <TableRow key={f.id}>
+                  <TableCell className="font-medium">{f.code_flux}</TableCell>
+                  {derive ? (
+                    <>
+                      <TableCell>
+                        <Text as="span" tone="faint" className="italic">
+                          {f.fe_induit_kg_t} (calculé)
+                        </Text>
+                      </TableCell>
+                      <TableCell>
+                        <Text as="span" tone="faint" className="italic">
+                          {f.fe_evite_kg_t} (calculé)
+                        </Text>
+                      </TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-28"
+                          aria-label={`FE induit ${f.code_flux} (kg CO₂/t)`}
+                          value={f.fe_induit_kg_t}
+                          onChange={(e) => {
+                            const next = [...facteursDraft];
+                            next[i] = {
+                              ...f,
+                              fe_induit_kg_t: parseFloat(e.target.value) || 0,
+                            };
+                            setFacteursDraft(next);
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-28"
+                          aria-label={`FE évité ${f.code_flux} (kg CO₂/t)`}
+                          value={f.fe_evite_kg_t}
+                          onChange={(e) => {
+                            const next = [...facteursDraft];
+                            next[i] = {
+                              ...f,
+                              fe_evite_kg_t: parseFloat(e.target.value) || 0,
+                            };
+                            setFacteursDraft(next);
+                          }}
+                        />
+                      </TableCell>
+                    </>
+                  )}
+                  {/* Énergie primaire : éditable pour tous les flux, emballage inclus. */}
+                  <TableCell>
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
                       className="w-28"
-                      aria-label={`FE induit ${f.code_flux} (kg CO₂/t)`}
-                      value={f.fe_induit_kg_t}
+                      aria-label={`Énergie évitée ${f.code_flux} (kWh/t)`}
+                      value={f.energie_primaire_evitee_kwh_t}
                       onChange={(e) => {
                         const next = [...facteursDraft];
                         next[i] = {
                           ...f,
-                          fe_induit_kg_t: parseFloat(e.target.value) || 0,
+                          energie_primaire_evitee_kwh_t:
+                            parseFloat(e.target.value) || 0,
                         };
                         setFacteursDraft(next);
                       }}
                     />
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="w-28"
-                      aria-label={`FE évité ${f.code_flux} (kg CO₂/t)`}
-                      value={f.fe_evite_kg_t}
-                      onChange={(e) => {
-                        const next = [...facteursDraft];
-                        next[i] = {
-                          ...f,
-                          fe_evite_kg_t: parseFloat(e.target.value) || 0,
-                        };
-                        setFacteursDraft(next);
-                      }}
-                    />
-                  </>
-                )}
-                {/* Énergie primaire : éditable pour tous les flux, emballage inclus. */}
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="w-28"
-                  aria-label={`Énergie évitée ${f.code_flux} (kWh/t)`}
-                  value={f.energie_primaire_evitee_kwh_t}
-                  onChange={(e) => {
-                    const next = [...facteursDraft];
-                    next[i] = {
-                      ...f,
-                      energie_primaire_evitee_kwh_t:
-                        parseFloat(e.target.value) || 0,
-                    };
-                    setFacteursDraft(next);
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
         <CommentaireInput
           value={commentFacteurs}
           onChange={setCommentFacteurs}
@@ -365,74 +378,80 @@ export default function ParametresCo2Page() {
           <p className="text-savr-error-strong text-sm">{mixError}</p>
         )}
 
-        <Text
-          as="div"
-          variant="faint"
-          className="grid grid-cols-[10rem_5rem_8rem_8rem] items-center gap-2 font-medium"
-        >
-          <span>Matériau</span>
-          <span>Part %</span>
-          <span>FE induit</span>
-          <span>FE évité</span>
-        </Text>
-        <div className="space-y-2">
-          {mixDraft.map((m, i) => (
-            <div
-              key={m.id}
-              className="grid grid-cols-[10rem_5rem_8rem_8rem] items-center gap-2"
-            >
-              <Text as="span" variant="body" className="font-medium">
-                {m.nom_materiau ?? m.code_materiau}
-              </Text>
-              <Input
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                className="w-20"
-                aria-label={`Part ${m.nom_materiau ?? m.code_materiau} (%)`}
-                value={m.part_pct}
-                onChange={(e) => {
-                  const next = [...mixDraft];
-                  next[i] = { ...m, part_pct: parseFloat(e.target.value) || 0 };
-                  setMixDraft(next);
-                }}
-              />
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                className="w-28"
-                aria-label={`FE induit ${m.nom_materiau ?? m.code_materiau} (kg CO₂/t)`}
-                value={m.fe_induit_kg_t}
-                onChange={(e) => {
-                  const next = [...mixDraft];
-                  next[i] = {
-                    ...m,
-                    fe_induit_kg_t: parseFloat(e.target.value) || 0,
-                  };
-                  setMixDraft(next);
-                }}
-              />
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                className="w-28"
-                aria-label={`FE évité ${m.nom_materiau ?? m.code_materiau} (kg CO₂/t)`}
-                value={m.fe_evite_kg_t}
-                onChange={(e) => {
-                  const next = [...mixDraft];
-                  next[i] = {
-                    ...m,
-                    fe_evite_kg_t: parseFloat(e.target.value) || 0,
-                  };
-                  setMixDraft(next);
-                }}
-              />
-            </div>
-          ))}
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Matériau</TableHead>
+              <TableHead>Part %</TableHead>
+              <TableHead>FE induit</TableHead>
+              <TableHead>FE évité</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {mixDraft.map((m, i) => (
+              <TableRow key={m.id}>
+                <TableCell className="font-medium">
+                  {m.nom_materiau ?? m.code_materiau}
+                </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    className="w-20"
+                    aria-label={`Part ${m.nom_materiau ?? m.code_materiau} (%)`}
+                    value={m.part_pct}
+                    onChange={(e) => {
+                      const next = [...mixDraft];
+                      next[i] = {
+                        ...m,
+                        part_pct: parseFloat(e.target.value) || 0,
+                      };
+                      setMixDraft(next);
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="w-28"
+                    aria-label={`FE induit ${m.nom_materiau ?? m.code_materiau} (kg CO₂/t)`}
+                    value={m.fe_induit_kg_t}
+                    onChange={(e) => {
+                      const next = [...mixDraft];
+                      next[i] = {
+                        ...m,
+                        fe_induit_kg_t: parseFloat(e.target.value) || 0,
+                      };
+                      setMixDraft(next);
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="w-28"
+                    aria-label={`FE évité ${m.nom_materiau ?? m.code_materiau} (kg CO₂/t)`}
+                    value={m.fe_evite_kg_t}
+                    onChange={(e) => {
+                      const next = [...mixDraft];
+                      next[i] = {
+                        ...m,
+                        fe_evite_kg_t: parseFloat(e.target.value) || 0,
+                      };
+                      setMixDraft(next);
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
         <CommentaireInput value={commentMix} onChange={setCommentMix} />
       </Card>
 

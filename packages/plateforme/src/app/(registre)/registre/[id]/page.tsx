@@ -8,6 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 // Détail d'une collecte au registre (§06.03, 8 blocs snapshot lecture seule).
 
@@ -219,32 +228,32 @@ export default function RegistreDetailPage({
         <Heading level={2} size="inherit" tone="inherit" className="mb-3">
           Bloc 6 — Détail des flux
         </Heading>
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase text-savr-neutral-500">
-            <tr>
-              <th className="py-1">Flux</th>
-              <th className="py-1">Code</th>
-              <th className="py-1">Filière</th>
-              <th className="py-1">Poids réel</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Flux</TableHead>
+              <TableHead>Code</TableHead>
+              <TableHead>Filière</TableHead>
+              <TableHead>Poids réel</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.flux.map((f) => (
-              <tr key={f.code} className="border-t border-savr-neutral-100">
-                <td className="py-1">{f.libelle}</td>
-                <td className="py-1">{f.code}</td>
-                <td className="py-1">{f.filiere}</td>
-                <td className="py-1">{poidsFr(f.poids_kg)}</td>
-              </tr>
+              <TableRow key={f.code}>
+                <TableCell>{f.libelle}</TableCell>
+                <TableCell>{f.code}</TableCell>
+                <TableCell>{f.filiere}</TableCell>
+                <TableCell>{poidsFr(f.poids_kg)}</TableCell>
+              </TableRow>
             ))}
-            <tr className="border-t border-savr-neutral-200 font-medium">
-              <td className="py-1" colSpan={3}>
-                Total
-              </td>
-              <td className="py-1">{poidsFr(data.poids_total_kg)}</td>
-            </tr>
-          </tbody>
-        </table>
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={3}>Total</TableCell>
+              <TableCell>{poidsFr(data.poids_total_kg)}</TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
       </Card>
 
       <Card padding="sm">

@@ -17,6 +17,7 @@ import {
   type OptionFiltre,
 } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
@@ -329,7 +330,7 @@ function RegistreContent() {
           « Titre  valeur ▾ » (décision Val 2026-09-30). */}
       <FilterBar
         data-testid="registre-filtres"
-        count={`${total} ligne${total > 1 ? 's' : ''}`}
+        count={compteurResultats(total, 'ligne', 'lignes')}
         actif={filtresActifs}
         onReset={reset}
       >

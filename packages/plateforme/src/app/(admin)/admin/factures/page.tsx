@@ -20,6 +20,7 @@ import { FilterChips } from '@/components/ui/filter-chips';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
 import type { Database } from '@savr/shared/src/database.types.js';
 import { fmtMontant } from '@/lib/format';
@@ -229,7 +230,12 @@ const FILTRES = {
 };
 
 export default function FacturesPage() {
-  const { valeurs: f, set, reset } = useFiltresUrl(FILTRES);
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
   const [orgs, setOrgs] = useState<{ id: string; label: string }[]>([]);
 
   // Liste complète des organisations pour le filtre (§06.08 §4/§8). Boucle de
@@ -281,13 +287,6 @@ export default function FacturesPage() {
   } = useListePaginee<Facture>(
     `/api/v1/admin/factures?${qs ? `${qs}&` : ''}page=${f.page}`,
   );
-  const filtresActifs = Boolean(
-    f.date_debut ||
-    f.date_fin ||
-    f.types.length > 0 ||
-    f.organisation_ids.length > 0,
-  );
-
   function exportCsv() {
     window.open(`/api/v1/exports/factures${qs ? `?${qs}` : ''}`);
   }
@@ -297,11 +296,7 @@ export default function FacturesPage() {
       <PageHero
         icon={<FileText className="h-6 w-6 text-savr-primary-200" />}
         title="Factures"
-        subtitle={
-          total > 0
-            ? `${total} facture${total > 1 ? 's' : ''}`
-            : 'Brouillons, émissions et avoirs'
-        }
+        subtitle="Brouillons, émissions et avoirs"
         actions={
           <Button variant="secondary" onClick={exportCsv}>
             <Download />
@@ -319,13 +314,10 @@ export default function FacturesPage() {
 
       <FilterBar
         data-testid="factures-filtres"
-        count={`${total} facture${total > 1 ? 's' : ''}`}
+        count={compteurResultats(total, 'facture', 'factures')}
         actif={filtresActifs}
-        onReset={() => {
-          // La pastille de statut n'est pas un filtre de la barre : conservée.
-          reset();
-          set({ statut: f.statut });
-        }}
+        // Remet aussi la pastille de statut à « Tout » (R-UI-4b, D5).
+        onReset={reset}
       >
         {/* « Période » en premier (décision Val 2026-09-30), puis filtres à
             choix multiple avec case « Tous ». */}

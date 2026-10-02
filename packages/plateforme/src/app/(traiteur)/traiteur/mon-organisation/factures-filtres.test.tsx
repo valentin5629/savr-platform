@@ -25,7 +25,78 @@ function urlsFactures(fetchMock: ReturnType<typeof vi.fn>): string[] {
 }
 
 describe('M3.1 — Mon organisation : filtres Factures en ligne', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    // `useFiltresUrl` recopie les filtres dans l'URL jsdom, qui survit d'un
+    // test à l'autre : on la remet à plat.
+    window.history.replaceState(null, '', '/traiteur/mon-organisation');
+  });
+
+  it(
+    'R-UI-4b D5 — onglets du DS ; FilterBar complète : compteur, « Réinitialiser les filtres », filtres dans l’URL',
+    async () => {
+      const facture = (id: string) => ({
+        id,
+        numero_facture: `F-${id}`,
+        type: 'zero_dechet',
+        statut: 'payee',
+        montant_ttc: 12,
+        date_emission: '2026-09-01',
+        date_echeance: null,
+        pdf_url_pennylane: null,
+        pdf_url_savr: null,
+      });
+      const fetchMock = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [facture('a'), facture('b')] }),
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+      render(<MonOrganisationClient isManager userId="u1" />);
+
+      // D4 : onglets Radix, mêmes libellés, même ordre.
+      expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+        'Informations légales',
+        'Équipe',
+        'Facturation',
+        'Préférences',
+      ]);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Facturation' }));
+      expect(screen.getByRole('tab', { name: 'Facturation' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+
+      // D5 : compteur dans le pied de la FilterBar, un seul emplacement.
+      await waitFor(
+        () =>
+          expect(
+            screen.getByTestId('factures-filtres-count'),
+          ).toHaveTextContent('2 factures'),
+        ATTENTE_UI,
+      );
+      expect(window.location.search).toBe('');
+
+      fireEvent.click(screen.getByTestId('factures-statut'));
+      fireEvent.click(
+        within(
+          await screen.findByRole('list', { name: 'Statut' }, ATTENTE_UI),
+        ).getByRole('checkbox', { name: 'Payée' }),
+      );
+      await waitFor(
+        () => expect(window.location.search).toBe('?statuts=payee'),
+        ATTENTE_UI,
+      );
+      // Libellé de reset unique (D5).
+      const reset = screen.getByTestId('factures-filtres-reset');
+      expect(reset).toHaveTextContent('Réinitialiser les filtres');
+      fireEvent.click(reset);
+      await waitFor(() => expect(window.location.search).toBe(''), ATTENTE_UI);
+      expect(screen.queryByTestId('factures-filtres-reset')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it(
     'statut choisi → paramètre statuts ; Réinitialiser → plus aucun paramètre',
@@ -36,7 +107,7 @@ describe('M3.1 — Mon organisation : filtres Factures en ligne', () => {
       vi.stubGlobal('fetch', fetchMock);
       render(<MonOrganisationClient isManager userId="u1" />);
 
-      fireEvent.click(screen.getByRole('button', { name: 'Facturation' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Facturation' }));
       // Filtre en ligne « Statut  Tous ▾ », sans libellé au-dessus.
       const statut = await screen.findByTestId(
         'factures-statut',
@@ -83,7 +154,7 @@ describe('M3.1 — Mon organisation : filtres Factures en ligne', () => {
         new URL(String(urlsFactures(fetchMock).at(-1)), 'http://localhost')
           .searchParams;
       render(<MonOrganisationClient isManager userId="u1" />);
-      fireEvent.click(screen.getByRole('button', { name: 'Facturation' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Facturation' }));
       const barre = await screen.findByTestId(
         'factures-filtres',
         undefined,
@@ -172,7 +243,7 @@ describe('M3.1 — Mon organisation : filtres Factures en ligne', () => {
       });
       vi.stubGlobal('fetch', fetchMock);
       render(<MonOrganisationClient isManager userId="u1" />);
-      fireEvent.click(screen.getByRole('button', { name: 'Facturation' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Facturation' }));
 
       fireEvent.click(
         await screen.findByTestId('factures-statut', undefined, ATTENTE_UI),

@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  CollecteTypeTabs,
   DashboardFilterBar,
   TonnageDisplay,
   EmptyDashboardState,
   type CollecteType,
   type DashboardFilters,
 } from '@/components/dashboards/index.js';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
 import { StatCard } from '@/components/ui/stat-card';
 import { Button } from '@/components/ui/button';
@@ -170,7 +170,7 @@ export default function ClientOrganisateurDashboardPage() {
         storageKey="organisateur-dashboard"
         onChange={handleFilters}
       />
-      <CollecteTypeTabs value={tab} onChange={setTab} />
+      <ToggleTypeCollecte value={tab} onChange={setTab} />
 
       {loading ? (
         <Text>Chargement…</Text>

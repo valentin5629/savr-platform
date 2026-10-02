@@ -1,12 +1,13 @@
 'use client';
 
 import { libelleTypePack } from '@/lib/libelles/pack';
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Building2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -143,15 +144,6 @@ export default function ClientsPage() {
     actif: filtresActifs,
   } = useFiltresUrl(FILTRES);
   const [modalOpen, setModalOpen] = useState(false);
-  // Recherche envoyée après une courte pause de frappe (pas un appel par touche).
-  const [search, setSearch] = useState(f.q);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (search.trim() !== f.q) set({ q: search.trim() });
-    }, 300);
-    return () => clearTimeout(t);
-    // `f.q` ne sert qu'à éviter un `set` redondant au montage.
-  }, [search]);
   const url = useMemo(() => {
     const params = new URLSearchParams({ page: String(f.page) });
     if (f.types.length > 0) params.set('types', f.types.join(','));
@@ -173,13 +165,9 @@ export default function ClientsPage() {
   return (
     <div className="space-y-6">
       {/* Bandeau d'en-tête — composant DS PageHero (§10 §5.6, aplat primary-700) */}
+      {/* Pas de compteur ici : il vit dans le pied de la FilterBar (D5). */}
       <PageHero
         title="Clients"
-        subtitle={
-          loading
-            ? 'Chargement…'
-            : `${total} organisation${total !== 1 ? 's' : ''}`
-        }
         actions={
           // admin_savr ET ops_savr (§06.06 + matrice ops §09) : le layout
           // (admin) et requireStaff bornent déjà aux 2 rôles staff.
@@ -196,17 +184,15 @@ export default function ClientsPage() {
       {/* Filtres */}
       <FilterBar
         data-testid="clients-filtres"
-        count={`${total} organisation${total !== 1 ? 's' : ''}`}
+        count={compteurResultats(total, 'organisation', 'organisations')}
         actif={filtresActifs}
-        onReset={() => {
-          setSearch('');
-          reset();
-        }}
+        onReset={reset}
       >
+        {/* Debounce (300 ms) et ✕ intégrés au composant (R-UI-4b, D7). */}
         <FiltreRecherche
           id="clients-recherche"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={f.q}
+          onValueChange={(q) => set({ q })}
         />
         <FiltreCoches
           label="Type"
@@ -244,7 +230,7 @@ export default function ClientsPage() {
             icon={<Building2 />}
             title="Aucune organisation"
             description={
-              search
+              f.q
                 ? 'Aucun résultat pour cette recherche.'
                 : 'Créez la première organisation.'
             }

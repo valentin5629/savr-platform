@@ -413,7 +413,7 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
       await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI);
 
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
 
       expect(

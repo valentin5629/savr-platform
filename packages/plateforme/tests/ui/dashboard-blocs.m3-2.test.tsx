@@ -110,7 +110,7 @@ describe('M3.2 / dashboard gestionnaire — Bloc 2/4 §11 (BL-P1-PARITE-01)', ()
       render(<GestionnaireDashboardPage />);
       await screen.findByTestId('bloc-2-gestionnaire', undefined, ATTENTE_UI);
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       expect(
         await screen.findByTestId('bloc-2-gestionnaire', undefined, ATTENTE_UI),

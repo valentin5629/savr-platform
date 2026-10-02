@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { Badge } from '@/components/ui/badge';
 import { PageHero } from '@/components/ui/page-hero';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -362,7 +363,7 @@ export default function LieuxPage() {
         <TabsContent value="referentiel" className="space-y-4">
           <FilterBar
             data-testid="lieux-filtres"
-            count={`${total} lieu${total > 1 ? 'x' : ''}`}
+            count={compteurResultats(total, 'lieu', 'lieux')}
             actif={filtresActifs}
             onReset={reset}
           >
@@ -370,7 +371,7 @@ export default function LieuxPage() {
               id="lieux-recherche"
               placeholder="Rechercher un lieu…"
               value={f.q}
-              onChange={(e) => set({ q: e.target.value })}
+              onValueChange={(q) => set({ q })}
             />
             <FiltreCoches
               label="Statut"

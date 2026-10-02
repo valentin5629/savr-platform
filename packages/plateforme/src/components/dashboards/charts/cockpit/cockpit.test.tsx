@@ -4,7 +4,7 @@
  * exposent leurs valeurs/structures signature (SVG, chiffres FR, états).
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import type {
   FluxSeriePoint,
   RepasSeriePoint,
@@ -148,8 +148,13 @@ it('Co2MethodePanel — affiche la méthode + le tableau des facteurs par matiè
   ).toBeInTheDocument();
   // Forfait transport injecté depuis les variables serveur.
   expect(screen.getByText(/50 km/)).toBeInTheDocument();
-  // Ligne du tableau des facteurs.
-  expect(screen.getByText('Biodéchets')).toBeInTheDocument();
+  // Ligne du tableau des facteurs — primitive Table du DS (R-UI-4b) :
+  // sémantique table / columnheader / cell conservée.
+  const table = screen.getByRole('table');
+  expect(within(table).getAllByRole('columnheader')).toHaveLength(4);
+  expect(
+    within(table).getByRole('cell', { name: 'Biodéchets' }),
+  ).toBeInTheDocument();
 });
 
 it('StatCard — href rend un lien cliquable', () => {

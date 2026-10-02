@@ -198,8 +198,12 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       expect(screen.queryByTestId('revenus-export-csv')).toBeNull();
       expect(screen.queryByText('Exporter CSV')).toBeNull();
       expect(screen.queryByText('7 derniers jours')).toBeNull();
-      expect(screen.queryByText('12 derniers mois')).toBeNull();
       expect(screen.queryByText('Année civile')).toBeNull();
+      // Défaut aligné au 1er du mois (§06.06 l.76) : ne correspond à aucun
+      // raccourci, le déclencheur affiche des dates (§11 l.38).
+      expect(screen.queryByText('12 derniers mois')).toBeNull();
+      // Période au défaut → pas de « Réinitialiser les filtres » (D5, actif).
+      expect(screen.queryByTestId('revenus-reinitialiser')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

@@ -773,7 +773,10 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       );
       expect(bloc.textContent).toContain('Biodéchets');
       expect(bloc.textContent).toContain('Déchet résiduel');
-      expect(bloc.textContent).toContain('Réinitialiser');
+      // Filtres benchmark au défaut → pas de « Réinitialiser les filtres »
+      // (R-UI-4b, D5 : `FilterBar actif`).
+      expect(bloc.textContent).toContain('Comparer avec');
+      expect(bloc.textContent).not.toContain('Réinitialiser');
       await waitFor(() => {
         expect(bloc.textContent).toContain('0,40');
       }, ATTENTE_UI);

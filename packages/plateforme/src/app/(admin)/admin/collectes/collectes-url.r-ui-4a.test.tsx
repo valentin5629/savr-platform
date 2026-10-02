@@ -118,15 +118,8 @@ describe('R-UI-4a — Collectes admin : filtres dans l’URL', () => {
       );
       await table.findAllByText('Traiteur Beta', undefined, ATTENTE_UI);
 
-      // Filtre Type → Zéro Déchet (case à cocher du filtre en ligne).
-      fireEvent.click(screen.getByTestId('collectes-filtre-type'));
-      fireEvent.click(
-        await screen.findByRole(
-          'checkbox',
-          { name: 'Zéro Déchet' },
-          ATTENTE_UI,
-        ),
-      );
+      // Filtre Type → Zéro Déchet (segmenté de la FilterBar, R-UI-4b D1).
+      fireEvent.click(screen.getByRole('radio', { name: 'Zéro Déchet' }));
       await waitFor(
         () => expect(window.location.search).toContain('type=zero_dechet'),
         ATTENTE_UI,

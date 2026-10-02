@@ -157,7 +157,12 @@ describe('FilterBar', () => {
   it('ds/filterbar_reinitialiser_visible_seulement_si_actif', () => {
     const onReset = vi.fn();
     const { rerender } = render(
-      <FilterBar data-testid="fb" count="3 résultats" onReset={onReset}>
+      <FilterBar
+        data-testid="fb"
+        count="3 résultats"
+        actif={false}
+        onReset={onReset}
+      >
         <div>champ</div>
       </FilterBar>,
     );
@@ -179,6 +184,7 @@ describe('FilterBar', () => {
       <FilterBar
         data-testid="fb"
         tabs={<div>onglets</div>}
+        count={null}
         actif
         onReset={vi.fn()}
       >

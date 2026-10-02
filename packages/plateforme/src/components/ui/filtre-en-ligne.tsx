@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -71,7 +71,8 @@ export function BarreFiltres({
   intro,
   children,
   onReset,
-  resetLabel = 'Réinitialiser',
+  // Libellé unique de remise à zéro (R-UI-4b, D5 : 2 libellés → 1).
+  resetLabel = 'Réinitialiser les filtres',
   resetTestId,
   surface = 'carte',
   className,
@@ -280,12 +281,32 @@ export function FiltreCoches({
   );
 }
 
-type FiltreRechercheProps = Omit<
-  React.InputHTMLAttributes<HTMLInputElement>,
-  'type'
->;
+/** Délai de frappe (ms) avant d'émettre la recherche. */
+export const DELAI_RECHERCHE_MS = 300;
 
-/** Recherche libre en tête de barre : loupe, sans titre au-dessus. */
+interface FiltreRechercheProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'type' | 'value'
+> {
+  /** Valeur appliquée (ex. `q` de `useFiltresUrl`). */
+  value?: string;
+  /**
+   * Valeur émise après `delai` ms sans frappe (sans espaces de bord, une seule
+   * fois par valeur) ; immédiatement à l'effacement (✕). Le `onChange` natif,
+   * s'il est fourni, reste appelé à chaque frappe.
+   */
+  onValueChange?: (valeur: string) => void;
+  /** Délai du debounce (défaut `DELAI_RECHERCHE_MS`). */
+  delai?: number;
+}
+
+/**
+ * Recherche libre en tête de barre : loupe, sans titre au-dessus. Debounce
+ * intégré (R-UI-4b, D7 : avant, 1 écran sur 4 en avait un, chacun le sien) et
+ * bouton effacer ✕ commun, à droite du champ, visible dès qu'il y a du texte.
+ * La saisie est locale : `value` ne la remplace que lorsqu'il change de
+ * l'extérieur (reset, URL), jamais quand il ne fait qu'écho à la valeur émise.
+ */
 export const FiltreRecherche = React.forwardRef<
   HTMLInputElement,
   FiltreRechercheProps
@@ -295,24 +316,93 @@ export const FiltreRecherche = React.forwardRef<
       className,
       placeholder = 'Rechercher…',
       'aria-label': ariaLabel = 'Rechercher',
+      value = '',
+      onValueChange,
+      delai = DELAI_RECHERCHE_MS,
+      onChange,
       ...props
     },
     ref,
-  ) => (
-    <div className="relative w-full sm:mr-2 sm:w-60">
-      <Search
-        className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400"
-        aria-hidden="true"
-      />
-      <Input
-        ref={ref}
-        type="search"
-        aria-label={ariaLabel}
-        placeholder={placeholder}
-        className={cn('pl-8 sm:h-9', className)}
-        {...props}
-      />
-    </div>
-  ),
+  ) => {
+    const [saisie, setSaisie] = React.useState(value);
+    // Dernière valeur appliquée (reçue ou émise) : un `value` qui ne fait que
+    // la répéter ne doit pas écraser la saisie en cours.
+    const appliquee = React.useRef(value);
+    const minuteur = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const onValueChangeRef = React.useRef(onValueChange);
+    onValueChangeRef.current = onValueChange;
+
+    const annuler = () => {
+      if (minuteur.current !== null) {
+        clearTimeout(minuteur.current);
+        minuteur.current = null;
+      }
+    };
+    React.useEffect(() => {
+      if (value !== appliquee.current) {
+        // Valeur externe (reset, URL) : une saisie en vol ne doit pas la
+        // ré-émettre après coup (revue principale #481).
+        annuler();
+        appliquee.current = value;
+        setSaisie(value);
+      }
+    }, [value]);
+    React.useEffect(() => annuler, []);
+
+    const emettre = (valeur: string) => {
+      const nette = valeur.trim();
+      if (nette === appliquee.current) return;
+      appliquee.current = nette;
+      onValueChangeRef.current?.(nette);
+    };
+
+    const effacer = () => {
+      annuler();
+      setSaisie('');
+      emettre('');
+    };
+
+    return (
+      <div className="relative w-full sm:mr-2 sm:w-60">
+        <Search
+          className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400"
+          aria-hidden="true"
+        />
+        <Input
+          ref={ref}
+          type="search"
+          aria-label={ariaLabel}
+          placeholder={placeholder}
+          value={saisie}
+          onChange={(e) => {
+            const v = e.target.value;
+            setSaisie(v);
+            onChange?.(e);
+            annuler();
+            minuteur.current = setTimeout(() => {
+              minuteur.current = null;
+              emettre(v);
+            }, delai);
+          }}
+          className={cn(
+            // Le ✕ natif de WebKit doublerait le bouton commun.
+            'pl-8 pr-8 sm:h-9 [&::-webkit-search-cancel-button]:appearance-none',
+            className,
+          )}
+          {...props}
+        />
+        {saisie && (
+          <button
+            type="button"
+            aria-label="Effacer la recherche"
+            onClick={effacer}
+            className="absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-savr-sm text-savr-neutral-500 hover:bg-savr-neutral-100 hover:text-savr-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+    );
+  },
 );
 FiltreRecherche.displayName = 'FiltreRecherche';

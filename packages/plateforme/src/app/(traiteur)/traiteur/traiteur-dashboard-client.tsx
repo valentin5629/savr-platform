@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
-  CollecteTypeTabs,
   DashboardFilterBar,
   BenchmarkFilterBar,
   EmptyDashboardState,
@@ -16,6 +15,7 @@ import {
   type BenchmarkFilterOptions,
   type BlocsData,
 } from '@/components/dashboards/index.js';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import type {
   FluxSeriePoint,
   RepasSeriePoint,
@@ -361,7 +361,7 @@ export function TraiteurDashboardClient({
         storageKey="traiteur-dashboard"
         onChange={handleFilters}
       />
-      <CollecteTypeTabs value={tab} onChange={setTab} />
+      <ToggleTypeCollecte value={tab} onChange={setTab} />
 
       {!loading && (
         <Text data-testid="dashboard-collectes-count">

@@ -8,7 +8,6 @@ import {
 } from './ParcMultiSelects.js';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
-import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 export interface DashboardFilters {
@@ -30,11 +29,23 @@ interface DashboardFilterBarProps {
   parcOptions?: ParcFilterOptions;
   /** Filtres propres au consommateur, placés juste après « Période ». */
   children?: ReactNode;
+  /**
+   * Slot `toggle` de `FilterBar` (en-tête, calé à droite) : le segmenté ZD/AG
+   * (`ToggleTypeCollecte`) des dashboards s'y range.
+   */
+  toggle?: ReactNode;
   /** Appelé en plus du retour à la période par défaut (« Réinitialiser »). */
   onReset?: () => void;
   /**
-   * Barre des listes (`FilterBar` : carte blanche + bandeau) au lieu du
-   * bandeau seul — Dashboard Client Admin (décision Val 2026-09-30).
+   * Au moins un filtre du consommateur (`children`) est posé : fait apparaître
+   * « Réinitialiser les filtres » même quand période et filtres parc sont au
+   * défaut. Omis avec des `children` : la barre ne peut pas connaître leur
+   * état → bouton toujours affiché.
+   */
+  enfantsActifs?: boolean;
+  /**
+   * Carte blanche des listes (`FilterBar surface="carte"`) au lieu du bandeau
+   * posé sur la page — Dashboard Client Admin (décision Val 2026-09-30).
    */
   enCarte?: boolean;
   className?: string;
@@ -58,6 +69,14 @@ function douzeDerniersMois(): { from: string; to: string } {
   return periodeDerniers(12, 'mois')!;
 }
 
+/** Au moins un filtre diffère du défaut (période ≠ 12 derniers mois ou filtre parc posé). */
+function filtresPoses(f: DashboardFilters): boolean {
+  const defaut = douzeDerniersMois();
+  if (f.from !== defaut.from || f.to !== defaut.to) return true;
+  const parc = parcValue(f);
+  return Object.values(parc).some((ids) => ids.length > 0);
+}
+
 function parcValue(f: DashboardFilters): ParcFilterValue {
   return {
     lieu_ids: f.lieu_ids ?? [],
@@ -77,13 +96,18 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
  * Barre de filtres du dashboard — persistance localStorage (sobriété B1, pas de table).
  * Sans `parcOptions` : Période seule (12 derniers mois par défaut, §11 §8). Avec `parcOptions` :
  * Période + Lieux + Traiteurs + Type + Taille (§06.05 §1, 5 filtres globaux).
+ * Toujours bâtie sur `FilterBar` (R-UI-4b, D5 façon C) : `count={null}` (pas
+ * de liste à compter), « Réinitialiser les filtres » seulement si un filtre
+ * diffère du défaut.
  */
 export function DashboardFilterBar({
   storageKey,
   onChange,
   parcOptions,
   children,
+  toggle,
   onReset,
+  enfantsActifs,
   enCarte = false,
   className,
 }: DashboardFilterBarProps) {
@@ -123,8 +147,22 @@ export function DashboardFilterBar({
     onReset?.();
   }
 
-  const filtres = (
-    <>
+  // Enfants fournis sans `enfantsActifs` : état inconnu → bouton affiché.
+  const actif =
+    filtresPoses(filters) ||
+    (enfantsActifs ?? (children !== undefined && children !== null));
+
+  return (
+    <FilterBar
+      surface={enCarte ? 'carte' : 'page'}
+      toggle={toggle}
+      data-testid="dashboard-filter-bar"
+      resetTestId="dashboard-filter-reinitialiser"
+      className={className}
+      count={null}
+      actif={actif}
+      onReset={reinitialiser}
+    >
       {/* Format unique des barres de filtres (décision Val 2026-09-30) :
           « Période  12 derniers mois ▾ » EN PREMIER, raccourcis dans le
           panneau ; les filtres du consommateur suivent. */}
@@ -151,31 +189,6 @@ export function DashboardFilterBar({
           testidPrefix="dashboard-filter"
         />
       )}
-    </>
-  );
-
-  if (enCarte) {
-    return (
-      <FilterBar
-        data-testid="dashboard-filter-bar"
-        className={className}
-        actif
-        onReset={reinitialiser}
-      >
-        {filtres}
-      </FilterBar>
-    );
-  }
-
-  return (
-    <BarreFiltres
-      surface="page"
-      data-testid="dashboard-filter-bar"
-      className={className}
-      onReset={reinitialiser}
-      resetTestId="dashboard-filter-reinitialiser"
-    >
-      {filtres}
-    </BarreFiltres>
+    </FilterBar>
   );
 }

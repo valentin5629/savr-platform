@@ -334,7 +334,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       renderTraiteur(blocsZd());
       await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       // Bloc 3 AG = top associations ; Bloc 7 commerciaux présent.
       expect(
@@ -397,7 +397,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       renderTraiteur(blocsZd());
       await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       fireEvent.click(
         await screen.findByRole('button', { name: /CO₂ évité/ }, ATTENTE_UI),
@@ -440,7 +440,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       renderTraiteur(blocsZd());
       await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       // Onglet AG chargé (carte « Repas donnés » propre à l'AG), puis attente que
       // les données AG (Σ = 0) rendent la carte CO₂ non cliquable (plus de bouton).
@@ -486,7 +486,7 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
       render(<AgenceDashboardPage />);
       await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       expect(
         await screen.findByTestId(
@@ -552,7 +552,7 @@ describe('M3.2 / gestionnaire — top traiteurs', () => {
       render(<GestionnaireDashboardPage />);
       await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       expect(
         await screen.findByTestId(

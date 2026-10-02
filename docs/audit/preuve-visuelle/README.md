@@ -44,7 +44,13 @@ for f in kpi evolution …; do compare -metric AE /tmp/pv/shots-avant/$f.png /tm
   n'existent plus après), `entry-r-ui-4a-avant.tsx` / `entry-r-ui-4a-apres.tsx`
   (R-UI-4a : `FilterBar` compteur + reset, `ListFooter`, `DataGrid` erreur /
   vide / `columnsToggle` opt-in ; avant = pied H1 recopié, pagination maison du
-  registre, état Error recopié). Fixtures communes dans `common-6b.tsx`.
+  registre, état Error recopié), `entry-r-ui-4b-avant.tsx` / `entry-r-ui-4b-apres.tsx`
+  (R-UI-4b : segmenté ZD/AG unique `ToggleTypeCollecte`, `FilterChips` dans
+  `FilterBar`, `Tabs` DS, `FilterBar surface="page"`, `FiltreRecherche` ✕,
+  raccourcis de période + `Combobox titre`, primitive `Table` ; avant = clones
+  maison recopiés tels qu'ils étaient sur `main`, `CollecteTypeTabs` et
+  `MultiSelectFilter` importés depuis le worktree avant suppression).
+  Fixtures communes dans `common-6b.tsx`.
 - `VIEWPORTS=dialog,dialog-collecte` (shoot.mjs) : l'entrée rend une modale
   plein écran sous `#<nom>` → capture du viewport entier (une `fixed inset-0`
   n'est pas capturable par section).

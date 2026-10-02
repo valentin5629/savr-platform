@@ -5,6 +5,7 @@ import * as Popover from '@radix-ui/react-popover';
 import { Search, User, PlusCircle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 
 export interface ContactOption {
   id: string;
@@ -87,9 +88,11 @@ export function ContactCombobox({
         >
           <div className="flex items-center border-b border-savr-neutral-100 px-3">
             <Search className="h-4 w-4 text-savr-neutral-400 shrink-0 mr-2" />
-            <input
+            {/* Champ du DS, sans bordure propre : la ligne porte la sienne
+                (R-UI-4b, D7 : avant, <input> brut). */}
+            <Input
               autoFocus
-              className="h-11 flex-1 text-sm placeholder:text-savr-neutral-400 sm:h-10"
+              className="flex-1 border-0 px-0"
               placeholder="Prénom, nom ou téléphone…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

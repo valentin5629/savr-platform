@@ -5,7 +5,7 @@ import { LayoutDashboard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
+import { FilterBar } from '@/components/ui/filter-bar';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { ListFooter } from '@/components/ui/list-footer';
@@ -70,8 +70,11 @@ function badgeVeille(v: number, labelActif: string) {
 }
 
 // Période par défaut du bloc Revenus : 12 derniers mois glissants, alignés au 1er du
-// mois (12 buckets pleins pour l'histogramme). Cette MÊME fenêtre pilote l'histogramme
-// ET le tableau (filtre unique, revue E2E Val 2026-07-18) ; « Réinitialiser » y revient.
+// mois (12 buckets pleins pour l'histogramme — §06.06 l.76 / §11 l.38, décision Val
+// 2026-07-18 réaffirmée 2026-09-30 : ne correspond à aucun raccourci, le déclencheur
+// affiche des dates ; le plan R-UI-4b D8 proposait l'inverse → arbitrage Val, PR #481).
+// Cette MÊME fenêtre pilote l'histogramme ET le tableau (filtre unique) ;
+// « Réinitialiser les filtres » y revient.
 function defaultPeriode(): { from: string; to: string } {
   const now = new Date();
   const iso = (d: Date) => jourParis(d);
@@ -79,6 +82,12 @@ function defaultPeriode(): { from: string; to: string } {
     from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
     to: iso(now),
   };
+}
+
+/** Période ≠ défaut : « Réinitialiser les filtres » visible. */
+function periodePosee(p: { from: string; to: string }): boolean {
+  const d = defaultPeriode();
+  return p.from !== d.from || p.to !== d.to;
 }
 
 const revenusColumns: Column<RevenusRow>[] = [
@@ -270,10 +279,15 @@ export default function DashboardAdminPage() {
 
         {/* Filtre de période COMMUN — pilote le graphe ET le tableau (revue E2E Val
             2026-07-18). Un seul filtre « Période » en ligne (décision Val
-            2026-09-30) + « Réinitialiser » (retour au défaut 12 mois). */}
-        <BarreFiltres
+            2026-09-30) dans la barre standard des dashboards (`FilterBar
+            surface="page"`, R-UI-4b D5 façon C : pas de liste à compter →
+            `count={null}`) ; « Réinitialiser les filtres » (retour au défaut 12
+            mois) seulement si la période en diffère. */}
+        <FilterBar
           surface="page"
           data-testid="revenus-orgs-controls"
+          count={null}
+          actif={periodePosee(periode)}
           onReset={() => {
             setPeriode(defaultPeriode());
             setPage(1);
@@ -287,7 +301,7 @@ export default function DashboardAdminPage() {
             value={periode}
             onChange={setPeriodeManuelle}
           />
-        </BarreFiltres>
+        </FilterBar>
 
         {/* Graphe (50 %) + tableau (50 %) sur la même ligne ≥ lg (revue E2E Val
             2026-07-18) — empilés en dessous. `items-start` : chaque colonne garde

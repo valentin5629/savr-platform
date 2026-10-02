@@ -1,7 +1,7 @@
 'use client';
 
 import { libelleTypePack } from '@/lib/libelles/pack';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Building2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -10,8 +10,15 @@ import { valeurUnique } from '@/lib/filtre-csv';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Pagination } from '@/components/ui/pagination';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ListFooter } from '@/components/ui/list-footer';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
 import { PageHero } from '@/components/ui/page-hero';
 import {
@@ -114,67 +121,54 @@ const columns: Column<Organisation>[] = [
   },
 ];
 
+// Filtres de la liste, miroir dans l'URL (R-UI-4a) : choix multiple, case
+// « Tous » = sélection vide (décision Val 2026-09-30, divergence
+// M0.8_20260930_filtres-choix-multiple-tous). Liste paginée côté serveur :
+// recherche, tri et page sont envoyés à l'API (avant, seule la 1re page était
+// chargée et la recherche filtrait ces 50 lignes).
+const FILTRES = {
+  q: texte(''),
+  types: liste(),
+  actif: liste(),
+  page: navigation(entier(1)),
+  tri: navigation(texte('raison_sociale')),
+  ordre: navigation(texte('asc')),
+};
+
 export default function ClientsPage() {
-  const [orgs, setOrgs] = useState<Organisation[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  // Filtres à choix multiple, case « Tous » = sélection vide (décision Val
-  // 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous).
-  const [types, setTypes] = useState<string[]>([]);
-  const [actifs, setActifs] = useState<string[]>([]);
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
   const [modalOpen, setModalOpen] = useState(false);
-  // Liste paginée côté serveur (50 par page) : recherche, tri et page sont
-  // envoyés à l'API. Avant, seule la 1re page était chargée et la recherche
-  // filtrait ces 50 lignes → les organisations suivantes étaient invisibles.
-  const [page, setPage] = useState(1);
-  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
-    cle: 'raison_sociale',
-    ordre: 'asc',
-  });
   // Recherche envoyée après une courte pause de frappe (pas un appel par touche).
-  const [q, setQ] = useState('');
+  const [search, setSearch] = useState(f.q);
   useEffect(() => {
     const t = setTimeout(() => {
-      setQ(search.trim());
-      setPage(1);
+      if (search.trim() !== f.q) set({ q: search.trim() });
     }, 300);
     return () => clearTimeout(t);
+    // `f.q` ne sert qu'à éviter un `set` redondant au montage.
   }, [search]);
-
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
-
-  const fetchOrgs = useCallback(async () => {
-    const numero = ++derniereRequete.current;
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page) });
-    if (types.length > 0) params.set('types', types.join(','));
-    const actif = valeurUnique(actifs);
+  const url = useMemo(() => {
+    const params = new URLSearchParams({ page: String(f.page) });
+    if (f.types.length > 0) params.set('types', f.types.join(','));
+    const actif = valeurUnique(f.actif);
     if (actif) params.set('actif', actif);
-    if (q) params.set('q', q);
-    params.set('tri', tri.cle);
-    params.set('ordre', tri.ordre);
-
-    try {
-      const res = await fetch(
-        `/api/v1/admin/organisations?${params.toString()}`,
-      );
-      const json = res.ok
-        ? ((await res.json()) as { data: Organisation[]; total: number })
-        : null;
-      if (numero !== derniereRequete.current || !json) return;
-      setOrgs(json.data);
-      setTotal(json.total);
-    } finally {
-      if (numero === derniereRequete.current) setLoading(false);
-    }
-  }, [types, actifs, q, tri, page]);
-
-  useEffect(() => {
-    void fetchOrgs();
-  }, [fetchOrgs]);
+    if (f.q) params.set('q', f.q);
+    params.set('tri', f.tri);
+    params.set('ordre', f.ordre);
+    return `/api/v1/admin/organisations?${params.toString()}`;
+  }, [f]);
+  const {
+    data: orgs,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<Organisation>(url);
 
   return (
     <div className="space-y-6">
@@ -200,7 +194,15 @@ export default function ClientsPage() {
       <ImpersonationLauncher />
 
       {/* Filtres */}
-      <FilterBar data-testid="clients-filtres">
+      <FilterBar
+        data-testid="clients-filtres"
+        count={`${total} organisation${total !== 1 ? 's' : ''}`}
+        actif={filtresActifs}
+        onReset={() => {
+          setSearch('');
+          reset();
+        }}
+      >
         <FiltreRecherche
           id="clients-recherche"
           value={search}
@@ -215,11 +217,8 @@ export default function ClientsPage() {
               nom,
             }),
           )}
-          selected={types}
-          onChange={(ids) => {
-            setTypes(ids);
-            setPage(1);
-          }}
+          selected={f.types}
+          onChange={(ids) => set({ types: ids })}
         />
         <FiltreCoches
           label="Statut"
@@ -228,58 +227,44 @@ export default function ClientsPage() {
             { id: 'true', nom: 'Actifs' },
             { id: 'false', nom: 'Inactifs' },
           ]}
-          selected={actifs}
-          onChange={(ids) => {
-            setActifs(ids);
-            setPage(1);
-          }}
+          selected={f.actif}
+          onChange={(ids) => set({ actif: ids })}
         />
       </FilterBar>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : orgs.length === 0 ? (
-        <EmptyState
-          icon={<Building2 />}
-          title="Aucune organisation"
-          description={
-            search
-              ? 'Aucun résultat pour cette recherche.'
-              : 'Créez la première organisation.'
-          }
-        />
-      ) : (
-        <>
-          <DataTable
-            columns={columns}
-            data={orgs}
-            keyExtractor={(row) => row.id}
-            onSort={(cle, ordre) => {
-              setTri({ cle, ordre });
-              setPage(1);
-            }}
-            sortKey={tri.cle}
-            sortDirection={tri.ordre}
+      <DataTable
+        columns={columns}
+        data={orgs}
+        keyExtractor={(row) => row.id}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={
+          <EmptyState
+            icon={<Building2 />}
+            title="Aucune organisation"
+            description={
+              search
+                ? 'Aucun résultat pour cette recherche.'
+                : 'Créez la première organisation.'
+            }
           />
-          {total > 50 && (
-            <Pagination
-              page={page}
-              pageCount={Math.ceil(total / 50)}
-              onPageChange={setPage}
-              className="justify-end"
-            />
-          )}
-        </>
-      )}
+        }
+        columnsToggle
+        onSort={(cle, ordre) => set({ tri: cle, ordre })}
+        sortKey={f.tri}
+        sortDirection={f.ordre as 'asc' | 'desc'}
+      />
+      <ListFooter
+        total={total}
+        page={f.page}
+        onPageChange={(page) => set({ page })}
+      />
 
       <OrganisationModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onCreated={() => void fetchOrgs()}
+        onCreated={recharger}
       />
     </div>
   );

@@ -16,7 +16,7 @@ export function PlaqueTmsPicto({
       data-testid="picto-plaque-tms"
       className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
         complete
-          ? 'bg-savr-success-subtle text-savr-success-600'
+          ? 'bg-savr-success-subtle text-savr-success-strong'
           : 'bg-savr-neutral-100 text-savr-neutral-400'
       }`}
       title={

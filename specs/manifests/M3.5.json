@@ -36,9 +36,9 @@
       "id": "M3.5-charts-lib",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:84",
       "artefact": "packages/plateforme/src/components/dashboards/charts/",
-      "test": "M3.5/chart_donut_total_centre — total au centre = somme des flux",
+      "test": "TonnagesDonut — rend le total au centre et la légende des 5 flux",
       "statut": "implemented",
-      "libelle": "Lib charting (recharts, lazy-load) + composants §11 partagés réutilisés par rôle (EvolutionFluxChart, EvolutionRepasChart, TonnagesDonut, palette FLUX_ZD)"
+      "libelle": "Lib charting SVG Cockpit (cockpit/EvolutionZdChart, EvolutionAgChart, TonnagesDonut, Sparkline, fmt) + palette FLUX_ZD, réutilisée par rôle. Variantes recharts legacy (EvolutionFluxChart, EvolutionRepasChart, TonnagesDonut racine, lazy) supprimées R-UI-0 : importées nulle part hors tests."
     },
     {
       "id": "M3.5-evolution-endpoint",

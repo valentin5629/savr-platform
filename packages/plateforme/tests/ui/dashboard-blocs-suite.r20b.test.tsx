@@ -27,12 +27,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/',
 }));
 
-vi.mock('@/components/dashboards/charts/lazy.js', () => ({
-  EvolutionFluxChart: () => <div data-testid="stub-flux" />,
-  EvolutionRepasChart: () => <div data-testid="stub-repas" />,
-  TonnagesDonut: () => <div data-testid="stub-donut" />,
-}));
-
 import { TraiteurDashboardClient } from '@/app/(traiteur)/traiteur/traiteur-dashboard-client';
 import AgenceDashboardPage from '@/app/(agence)/agence/page.js';
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';

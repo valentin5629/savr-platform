@@ -1,5 +1,6 @@
 'use client';
 
+import { fmtKg } from '@/lib/format';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -66,7 +67,7 @@ type SortKey =
 
 function poidsFr(kg: number | null): string {
   if (kg == null) return '—';
-  return `${kg.toFixed(2).replace('.', ',')} kg`;
+  return fmtKg(kg, 2);
 }
 function dateFr(d: string | null): string {
   if (!d) return '—';

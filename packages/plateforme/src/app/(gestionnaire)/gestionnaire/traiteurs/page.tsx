@@ -1,5 +1,6 @@
 'use client';
 
+import { fmtKg, fmtPct } from '@/lib/format';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat } from 'lucide-react';
@@ -100,11 +101,7 @@ export default function GestionnaireTraiteursPage() {
       header: 'Tonnage ZD 12 m',
       accessorFn: (t) => t.tonnage_12m_kg,
       cell: ({ row: { original: t } }) =>
-        t.tonnage_12m_kg > 0 ? (
-          `${t.tonnage_12m_kg.toFixed(0)} kg`
-        ) : (
-          <CelluleVide />
-        ),
+        t.tonnage_12m_kg > 0 ? fmtKg(t.tonnage_12m_kg) : <CelluleVide />,
     },
     {
       id: 'taux',
@@ -113,7 +110,7 @@ export default function GestionnaireTraiteursPage() {
       accessorFn: (t) => t.taux_recyclage_moyen ?? -1,
       cell: ({ row: { original: t } }) =>
         t.taux_recyclage_moyen != null ? (
-          `${t.taux_recyclage_moyen.toFixed(1)} %`
+          fmtPct(t.taux_recyclage_moyen)
         ) : (
           <CelluleVide />
         ),

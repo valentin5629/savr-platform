@@ -88,10 +88,10 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
               Mettre à jour
             </Button>
             {msg && (
-              <span className="text-xs text-savr-success-600">{msg}</span>
+              <span className="text-xs text-savr-success-strong">{msg}</span>
             )}
             {erreur && (
-              <span className="text-xs text-savr-error-600">{erreur}</span>
+              <span className="text-xs text-savr-error-strong">{erreur}</span>
             )}
           </div>
         </form>

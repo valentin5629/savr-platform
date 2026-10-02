@@ -1,5 +1,6 @@
 'use client';
 
+import { fmtKg } from '@/lib/format';
 import { use, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,7 +60,7 @@ function dateFr(d: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : d;
 }
 function poidsFr(kg: number | null): string {
-  return kg == null ? '—' : `${kg.toFixed(2).replace('.', ',')} kg`;
+  return kg == null ? '—' : fmtKg(kg, 2);
 }
 
 function Field({

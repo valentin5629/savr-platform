@@ -1,5 +1,6 @@
 'use client';
 
+import { fmtKg } from '@/lib/format';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, TriangleAlert } from 'lucide-react';
@@ -80,8 +81,7 @@ export default function GestionnaireLieuxPage() {
     {
       key: 'tonnage_12m_kg',
       header: 'Tonnage ZD 12 m',
-      render: (l) =>
-        l.tonnage_12m_kg > 0 ? `${l.tonnage_12m_kg.toFixed(0)} kg` : '—',
+      render: (l) => (l.tonnage_12m_kg > 0 ? fmtKg(l.tonnage_12m_kg) : '—'),
     },
   ];
 

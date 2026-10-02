@@ -269,7 +269,7 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
       // Déchets labo estimés : affichés avec leur tooltip explicatif (§06.05 §3).
       // Le coefficient brut du traiteur (0.15) ne doit jamais apparaître.
       const labo = screen.getByText(/Est\. labo/);
-      expect(normalise(labo.textContent)).toBe('Est. labo : 45.0 kg');
+      expect(normalise(labo.textContent)).toBe('Est. labo : 45,0 kg');
       expect(labo.getAttribute('title')).toContain('Estimation amont');
 
       // Logo traiteur : servi par le proxy scopé, jamais la clé R2 (#367).
@@ -298,7 +298,7 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
         expect(page).toContain(`${nom} : ${kg} kg`);
       }
       expect(page).toContain('Taux de recyclage');
-      expect(page).toContain('72.5 %');
+      expect(page).toContain('72,5 %'); // format FR (R-UI-0 B6), `page` normalise les espaces
 
       // ── Sous-bloc AG : repas donnés + association avec ville ET distance ──
       expect(page).toContain('Les Restos · Versailles · 12 km — 200 repas');
@@ -374,7 +374,7 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
       await screen.findByText('Salon Auto', undefined, ATTENTE_UI);
 
       const labo = screen.getByText(/Est\. labo/);
-      expect(normalise(labo.textContent)).toBe('Est. labo : 0.0 kg');
+      expect(normalise(labo.textContent)).toBe('Est. labo : 0,0 kg');
       expect(normalise(labo.textContent)).not.toContain('—');
     },
     ATTENTE_CAS_MS,

@@ -1,5 +1,15 @@
 'use client';
 
+import {
+  libelleVerificationSiret,
+  variantVerificationSiret,
+} from '@/lib/libelles/organisation';
+import {
+  libelleStatutPack,
+  libelleTypePack,
+  variantStatutPack,
+} from '@/lib/libelles/pack';
+import { libelleRole } from '@/lib/libelles/role';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -123,18 +133,6 @@ const ONGLETS = [
 
 type OngletKey = (typeof ONGLETS)[number]['key'];
 
-const STATUT_PACK_BADGE: Record<string, 'success' | 'neutral' | 'error'> = {
-  actif: 'success',
-  epuise: 'neutral',
-  annule: 'error',
-};
-
-const SIRET_BADGE: Record<string, 'success' | 'warning' | 'error'> = {
-  verifie: 'success',
-  en_attente: 'warning',
-  echec: 'error',
-};
-
 type ModalType = 'creer' | 'ajuster' | 'annuler' | null;
 
 const TYPES_PACK = [
@@ -175,7 +173,7 @@ const COLONNES_USERS: ColumnDef<UserRow, unknown>[] = [
     accessorFn: (u) => u.role,
     cell: ({ row: { original: u } }) => (
       <Badge variant="neutral" className="text-xs">
-        {u.role}
+        {libelleRole(u.role)}
       </Badge>
     ),
   },
@@ -221,11 +219,8 @@ const COLONNES_PACKS: ColumnDef<PackRow, unknown>[] = [
     header: 'Statut',
     accessorFn: (p) => p.statut,
     cell: ({ row: { original: p } }) => (
-      <Badge
-        variant={STATUT_PACK_BADGE[p.statut] ?? 'neutral'}
-        className="text-xs"
-      >
-        {p.statut}
+      <Badge variant={variantStatutPack(p.statut)} className="text-xs">
+        {libelleStatutPack(p.statut)}
       </Badge>
     ),
   },
@@ -548,12 +543,12 @@ export default function ClientFichePage({
                         {ef.siret}
                       </span>
                       <Badge
-                        variant={
-                          SIRET_BADGE[ef.siret_verification] ?? 'neutral'
-                        }
+                        variant={variantVerificationSiret(
+                          ef.siret_verification,
+                        )}
                         className="text-xs"
                       >
-                        {ef.siret_verification}
+                        {libelleVerificationSiret(ef.siret_verification)}
                       </Badge>
                       {ef.entite_par_defaut && (
                         <Badge variant="neutral" className="text-xs">
@@ -654,7 +649,9 @@ export default function ClientFichePage({
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="font-medium">Pack actif</h3>
                 <div className="flex items-center gap-2">
-                  <Badge variant="success">{packActif.type_pack}</Badge>
+                  <Badge variant="success">
+                    {libelleTypePack(packActif.type_pack)}
+                  </Badge>
                   <Button
                     size="sm"
                     variant="secondary"

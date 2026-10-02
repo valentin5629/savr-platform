@@ -6,10 +6,15 @@
  * /api/v1/admin/users crée le compte immédiatement (rôle + organisation imposés)
  * et envoie le lien d'activation côté serveur. L'`admin_savr` ne peut être créé
  * que par un admin_savr (le serveur ré-applique la garde ; option masquée ici).
+ *
+ * Habillage Design System (R-UI-0 B5) : `Modal` (role="dialog", focus trap,
+ * Échap, clic overlay) + `AlertBar` — même structure que la variante scopée
+ * `clients/[id]/invite-user-modal.tsx`.
  */
 
 import * as React from 'react';
-import { X } from 'lucide-react';
+import { Modal } from '@/components/ui/modal';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -18,15 +23,16 @@ import {
   Autocomplete,
   type AutocompleteOption,
 } from '@/components/ui/autocomplete';
+import { libelleRole } from '@/lib/libelles/role';
 
-const ROLE_OPTIONS: { value: string; label: string; adminOnly?: boolean }[] = [
-  { value: 'admin_savr', label: 'Admin Savr', adminOnly: true },
-  { value: 'ops_savr', label: 'Ops Savr' },
-  { value: 'traiteur_manager', label: 'Traiteur (manager)' },
-  { value: 'traiteur_commercial', label: 'Traiteur (commercial)' },
-  { value: 'agence', label: 'Agence' },
-  { value: 'gestionnaire_lieux', label: 'Gestionnaire lieux' },
-  { value: 'client_organisateur', label: 'Client organisateur' },
+const ROLE_OPTIONS: { value: string; adminOnly?: boolean }[] = [
+  { value: 'admin_savr', adminOnly: true },
+  { value: 'ops_savr' },
+  { value: 'traiteur_manager' },
+  { value: 'traiteur_commercial' },
+  { value: 'agence' },
+  { value: 'gestionnaire_lieux' },
+  { value: 'client_organisateur' },
 ];
 
 export function InviteUserModal({
@@ -111,99 +117,94 @@ export function InviteUserModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Inviter un membre</h2>
-          <button
+    <Modal
+      open
+      title="Inviter un membre"
+      onClose={onClose}
+      footer={
+        <>
+          <Button
             type="button"
-            aria-label="Fermer"
+            variant="secondary"
+            disabled={saving}
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-900"
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            Annuler
+          </Button>
+          <Button type="submit" form="invite-membre-form" disabled={saving}>
+            {saving ? 'Invitation…' : 'Inviter'}
+          </Button>
+        </>
+      }
+    >
+      {error && (
+        <AlertBar variant="err" className="mb-4">
+          {error}
+        </AlertBar>
+      )}
 
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={(e) => void submit(e)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Prénom" htmlFor="invite-membre-prenom">
-              <Input
-                id="invite-membre-prenom"
-                value={prenom}
-                aria-label="Prénom"
-                onChange={(e) => setPrenom(e.target.value)}
-                required
-              />
-            </FormField>
-            <FormField label="Nom" htmlFor="invite-membre-nom">
-              <Input
-                id="invite-membre-nom"
-                value={nom}
-                aria-label="Nom"
-                onChange={(e) => setNom(e.target.value)}
-                required
-              />
-            </FormField>
-          </div>
-
-          <FormField label="Email" htmlFor="invite-membre-email">
+      <form
+        id="invite-membre-form"
+        onSubmit={(e) => void submit(e)}
+        className="space-y-4"
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Prénom" htmlFor="invite-membre-prenom" required>
             <Input
-              id="invite-membre-email"
-              type="email"
-              value={email}
-              aria-label="Email"
-              onChange={(e) => setEmail(e.target.value)}
+              id="invite-membre-prenom"
+              value={prenom}
+              aria-label="Prénom"
+              onChange={(e) => setPrenom(e.target.value)}
               required
             />
           </FormField>
-
-          <FormField label="Rôle" htmlFor="invite-membre-role">
-            <Combobox
-              id="invite-membre-role"
-              aria-label="Rôle"
-              icon={null}
-              options={roleOptions.map((r) => ({
-                value: r.value,
-                label: r.label,
-              }))}
-              value={role}
-              onChange={setRole}
+          <FormField label="Nom" htmlFor="invite-membre-nom" required>
+            <Input
+              id="invite-membre-nom"
+              value={nom}
+              aria-label="Nom"
+              onChange={(e) => setNom(e.target.value)}
+              required
             />
           </FormField>
+        </div>
 
-          <FormField label="Organisation" htmlFor="invite-organisation">
-            <Autocomplete
-              id="invite-organisation"
-              aria-label="Organisation"
-              placeholder="Rechercher une organisation…"
-              fetchOptions={fetchOrgs}
-              selected={org}
-              onChange={setOrg}
-            />
-          </FormField>
+        <FormField label="Email" htmlFor="invite-membre-email" required>
+          <Input
+            id="invite-membre-email"
+            type="email"
+            value={email}
+            aria-label="Email"
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </FormField>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={saving}
-              onClick={onClose}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Invitation…' : 'Inviter'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <FormField label="Rôle" htmlFor="invite-membre-role">
+          <Combobox
+            id="invite-membre-role"
+            aria-label="Rôle"
+            icon={null}
+            options={roleOptions.map((r) => ({
+              value: r.value,
+              label: libelleRole(r.value),
+            }))}
+            value={role}
+            onChange={setRole}
+          />
+        </FormField>
+
+        <FormField label="Organisation" htmlFor="invite-organisation" required>
+          <Autocomplete
+            id="invite-organisation"
+            aria-label="Organisation"
+            placeholder="Rechercher une organisation…"
+            fetchOptions={fetchOrgs}
+            selected={org}
+            onChange={setOrg}
+          />
+        </FormField>
+      </form>
+    </Modal>
   );
 }

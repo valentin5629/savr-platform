@@ -10,17 +10,3 @@ export function formatPeriode(periode: string, g: Granularite): string {
     ? formatJour(jour, { month: 'short', year: '2-digit' })
     : formatJour(jour, { day: '2-digit', month: '2-digit' });
 }
-
-/** Formatage kg / t avec bascule automatique au-delà de 10 000 kg (§06.04 Bloc 2). */
-export function formatMasse(kg: number, useTonnes: boolean): string {
-  if (useTonnes) {
-    return `${(kg / 1000).toLocaleString('fr-FR', {
-      maximumFractionDigits: 1,
-    })} t`;
-  }
-  return `${Math.round(kg).toLocaleString('fr-FR')} kg`;
-}
-
-export function formatKg(kg: number): string {
-  return `${Math.round(kg).toLocaleString('fr-FR')} kg`;
-}

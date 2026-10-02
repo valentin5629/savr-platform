@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Leaf } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { AttributionAgForm } from '@/components/admin/attribution-ag-form';
 
 export default function AttributionDetailPage() {
@@ -27,9 +27,9 @@ export default function AttributionDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <IconButton aria-label="Retour" onClick={() => router.back()}>
+          <ArrowLeft />
+        </IconButton>
         <div className="flex items-center gap-2">
           <Leaf className="h-5 w-5 text-savr-success" />
           <h1 className="text-xl font-semibold text-savr-neutral-900">

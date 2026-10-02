@@ -1,5 +1,6 @@
 'use client';
 
+import { libelleRole } from '@/lib/libelles/role';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Users, Plus } from 'lucide-react';
@@ -35,7 +36,7 @@ const columns: Column<StaffUser>[] = [
   {
     key: 'role',
     header: 'Rôle',
-    render: (row) => <Badge variant="neutral">{row.role}</Badge>,
+    render: (row) => <Badge variant="neutral">{libelleRole(row.role)}</Badge>,
   },
   {
     key: 'actif',

@@ -1,5 +1,6 @@
 'use client';
 
+import { fmtPct } from '@/lib/format';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Download, Truck } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -107,7 +108,7 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
           meta: { className: 'text-right tabular-nums' },
           cell: ({ row: { original: c } }) =>
             c.taux_recyclage != null ? (
-              `${c.taux_recyclage.toFixed(1)} %`
+              fmtPct(c.taux_recyclage)
             ) : (
               <CelluleVide />
             ),

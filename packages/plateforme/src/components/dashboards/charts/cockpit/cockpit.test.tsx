@@ -250,6 +250,26 @@ it('TonnagesDonut — rend le total au centre et la légende des 5 flux', () => 
   const { container } = render(<TonnagesDonut series={zd} />);
   expect(container.querySelectorAll('circle').length).toBeGreaterThanOrEqual(5);
   expect(screen.getByText('Biodéchets')).toBeInTheDocument();
+  // Total au centre = somme des 5 flux sur les 2 périodes (9 170 + 10 410 =
+  // 19 580 kg), basculée en tonnes au-delà de 10 000 kg (§11) : « 19,6 t ».
+  expect(
+    screen.getByLabelText('Répartition des tonnages, total 19,6 t'),
+  ).toBeInTheDocument();
+  expect(screen.getByText('19,6')).toBeInTheDocument();
+  expect(screen.getByText('tonnes')).toBeInTheDocument();
+});
+
+it('TonnagesDonut — sans pesée : « — » au centre et mention « aucune pesée »', () => {
+  render(<TonnagesDonut series={[]} />);
+  expect(screen.getByText('aucune pesée')).toBeInTheDocument();
+  expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
+});
+
+it('EvolutionAgChart — sans série : état vide explicite', () => {
+  render(<EvolutionAgChart series={[]} granularite="mois" />);
+  expect(
+    screen.getByText('Aucune collecte Anti-Gaspi sur la période.'),
+  ).toBeInTheDocument();
 });
 
 it('BenchmarkRadar — rend 5 axes dont un état insuffisant (données manquantes)', () => {

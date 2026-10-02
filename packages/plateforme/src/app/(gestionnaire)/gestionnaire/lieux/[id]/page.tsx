@@ -1,5 +1,7 @@
 'use client';
 
+import { fmtInt, fmtKg } from '@/lib/format';
+import { VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
@@ -177,7 +179,7 @@ export default function LieuDetailPage({
     {
       key: 'tonnage',
       header: 'Tonnage (kg)',
-      render: (t) => t.tonnage.toFixed(0),
+      render: (t) => fmtInt(t.tonnage),
     },
   ];
 
@@ -211,7 +213,10 @@ export default function LieuDetailPage({
             </Champ>
             <Champ libelle="Véhicule max">
               {lieu.type_vehicule_max ? (
-                <Badge variant="neutral">{lieu.type_vehicule_max}</Badge>
+                <Badge variant="neutral">
+                  {VEHICULE_LABEL[lieu.type_vehicule_max] ??
+                    lieu.type_vehicule_max}
+                </Badge>
               ) : (
                 '—'
               )}
@@ -286,7 +291,7 @@ export default function LieuDetailPage({
                       <div
                         className="w-full rounded-t bg-savr-primary-500"
                         style={{ height: `${(d.kg / max) * 96 + 2}px` }}
-                        title={`${d.mois} : ${d.kg.toFixed(0)} kg`}
+                        title={`${d.mois} : ${fmtKg(d.kg)}`}
                       />
                       <span className="mt-1 text-[10px] text-savr-neutral-500">
                         {d.mois}

@@ -11,5 +11,8 @@
   "enum-collecte-type": 0,
   "fetch-path-encoding": 0,
   "api-error-leak": 0,
-  "types-snapshot": 0
+  "types-snapshot": 0,
+  "ds-classes": 180,
+  "ds-primitives": 107,
+  "orphan-ui": 15
 }

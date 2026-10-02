@@ -137,8 +137,8 @@
     },
     {
       "id": "M0.7-reset-referentiel-preserve",
-      "ref_cdc": "specs/fixtures/01 - Catalogue.md:15",
-      "artefact": "packages/shared/src/seed/reset.ts (TABLES_REFERENTIEL_PRESERVEES : parametres_algo + parametres_co2_divers photographiées avant le vidage et restaurées après, valide_par neutralisé — le CASCADE posé sur users les emportait via leur FK valide_par et le seed ne les réinsère jamais ; mesuré 0 ligne sur savr-dev le 2026-10-02) ; packages/shared/src/seed/check.ts (check « Référentiel préservé par le reset »)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1316",
+      "artefact": "packages/shared/src/seed/reset.ts (TABLES_REFERENTIEL_PRESERVEES : parametres_algo + parametres_co2_divers photographiées avant le vidage et restaurées après, valide_par neutralisé — le CASCADE posé sur users les emportait via leur FK valide_par et le seed ne les réinsère jamais ; mesuré 0 ligne sur savr-dev le 2026-10-02) — référentiel « seed technique placeholder, identique dans les 2 datasets » (Fixtures §01 Catalogue l.15, Vault) ; packages/shared/src/seed/check.ts (check « Référentiel préservé par le reset »)",
       "test": "packages/shared/src/seed/seed-reset-audit-log.test.ts — préserve les tables référentiel emportées par le CASCADE (photo AVANT, restauration APRÈS, valide_par neutralisé) ; émet EXACTEMENT la séquence attendue",
       "statut": "implemented",
       "libelle": "Reset seed : les paramètres référentiel (algo AG, constantes CO₂) survivent au vidage des tables métier"

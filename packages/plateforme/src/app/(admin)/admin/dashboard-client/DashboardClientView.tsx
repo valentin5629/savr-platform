@@ -187,15 +187,8 @@ export function DashboardClientView() {
   const [benchFilters, setBenchFilters] = useState<BenchmarkFilters | null>(
     null,
   );
-  // La barre ré-émet au (re)montage un objet neuf : même contenu → même état
-  // (pas de re-fetch), sinon on remplace.
-  const handleBenchFilters = useCallback(
-    (f: BenchmarkFilters) =>
-      setBenchFilters((prev) =>
-        prev && benchmarkQuery(prev) === benchmarkQuery(f) ? prev : f,
-      ),
-    [],
-  );
+  // Au remontage, la barre repart de `initialFilters` (le MÊME objet) et le
+  // ré-émet : setState identique = pas de rendu, pas de re-fetch.
   const [loading, setLoading] = useState(true);
   // Modales « Impact carbone » (méthode de calcul) — ZD et AG distinctes.
   const [co2ModalOpen, setCo2ModalOpen] = useState(false);
@@ -605,7 +598,7 @@ export function DashboardClientView() {
             filtersSlot={
               <div className="space-y-2">
                 <BenchmarkFilterBar
-                  onChange={handleBenchFilters}
+                  onChange={setBenchFilters}
                   filtresEndpoint={BENCHMARK_FILTRES_ENDPOINT}
                   avertissementComparaisonSoi={false}
                   // Le bloc ZD se démonte pendant « Chargement… » (changement de

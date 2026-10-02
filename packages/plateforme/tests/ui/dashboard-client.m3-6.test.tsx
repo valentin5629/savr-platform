@@ -492,6 +492,37 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
       expect(screen.queryByTestId('benchmark-comparaison-soi')).toBeNull();
       // Le périmètre « Vous » n'est pas touché par l'encart.
       expect(orgIdsDerniereRequete()).toEqual([]);
+
+      // Comparaison traiteur contre traiteur : le périmètre passe à Traiteur
+      // Alpha (« Vous »). Le bloc ZD se démonte pendant « Chargement… » — la
+      // sélection de l'encart (Traiteur Bêta) doit SURVIVRE au remontage
+      // (défaut vu en preview le 2026-10-02 : encart remis à « Tous »).
+      const nbAppelsAvant = benchmarkCalls().length;
+      fireEvent.click(screen.getByTestId('org-filtre-traiteur'));
+      fireEvent.click(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Traiteur Alpha' },
+          ATTENTE_UI,
+        ),
+      );
+      await waitFor(
+        () => expect(orgIdsDerniereRequete()).toEqual(['o1']),
+        ATTENTE_UI,
+      );
+      expect(
+        await screen.findByTestId(
+          'benchmark-filter-traiteurs',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toHaveTextContent(/Traiteur Bêta/);
+      expect(screen.getByText('Périmètre comparé')).toBeInTheDocument();
+      // Même sélection ré-émise au remontage → aucun re-fetch de la référence.
+      expect(benchmarkCalls().length).toBe(nbAppelsAvant);
+      expect(benchmarkCalls().at(-1)).toMatch(
+        new RegExp(`traiteur_ids=${TRAITEUR_B}`),
+      );
     },
     ATTENTE_CAS_MS,
   );

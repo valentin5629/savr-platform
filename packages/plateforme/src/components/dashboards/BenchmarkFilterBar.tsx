@@ -67,6 +67,12 @@ interface BenchmarkFilterBarProps {
    * parc et n'a pas de « propres » lieux ou traiteurs.
    */
   avertissementComparaisonSoi?: boolean;
+  /**
+   * État initial complet (ré-hydratation après un remontage de la carte, ex.
+   * Dashboard Client Admin dont le bloc ZD se démonte pendant « Chargement… »).
+   * Prioritaire sur l'héritage Type/Taille ; « Réinitialiser » revient à l'héritage.
+   */
+  initialFilters?: BenchmarkFilters;
 }
 
 /**
@@ -85,9 +91,12 @@ export function BenchmarkFilterBar({
   initialOptions,
   masquerTraiteurs = false,
   avertissementComparaisonSoi = true,
+  initialFilters,
 }: BenchmarkFilterBarProps) {
-  const [filters, setFilters] = useState<BenchmarkFilters>(() =>
-    defaultFilters(initialTypeEvenementIds, initialTailleCodes),
+  const [filters, setFilters] = useState<BenchmarkFilters>(
+    () =>
+      initialFilters ??
+      defaultFilters(initialTypeEvenementIds, initialTailleCodes),
   );
   const [lieux, setLieux] = useState<OptionFiltre[]>(
     () => initialOptions?.lieux ?? [],

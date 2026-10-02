@@ -185,8 +185,13 @@ export function DashboardClientView() {
   const [benchFilters, setBenchFilters] = useState<BenchmarkFilters | null>(
     null,
   );
+  // La barre ré-émet au (re)montage un objet neuf : même contenu → même état
+  // (pas de re-fetch), sinon on remplace.
   const handleBenchFilters = useCallback(
-    (f: BenchmarkFilters) => setBenchFilters(f),
+    (f: BenchmarkFilters) =>
+      setBenchFilters((prev) =>
+        prev && benchmarkQuery(prev) === benchmarkQuery(f) ? prev : f,
+      ),
     [],
   );
   const [loading, setLoading] = useState(true);
@@ -592,6 +597,9 @@ export function DashboardClientView() {
                   onChange={handleBenchFilters}
                   filtresEndpoint={BENCHMARK_FILTRES_ENDPOINT}
                   avertissementComparaisonSoi={false}
+                  // Le bloc ZD se démonte pendant « Chargement… » (changement de
+                  // périmètre/période) : la barre repart de la dernière sélection.
+                  initialFilters={benchFilters ?? undefined}
                 />
                 {reference && (
                   <Text

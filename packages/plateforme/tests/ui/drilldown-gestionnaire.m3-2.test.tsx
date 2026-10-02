@@ -189,7 +189,7 @@ async function cliqueTopListe(onglet: 'ZD' | 'AG', libelleCible: string) {
     ATTENTE_UI,
   );
   if (onglet === 'AG') {
-    fireEvent.click(screen.getByRole('tab', { name: 'Anti-gaspi' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
     await screen.findAllByLabelText(
       `Voir les collectes — ${LIEU.nom}`,
       undefined,

@@ -1,6 +1,6 @@
 /**
  * M3.5 — Tests Playwright composants dashboards communs
- * P1 : TonnageDisplay bascule 999kg/1000kg, EmptyDashboardState message exact, CollecteTypeTabs change onglet
+ * P1 : TonnageDisplay bascule 999kg/1000kg, EmptyDashboardState message exact, ToggleTypeCollecte change de type
  */
 import { test, expect } from '@playwright/test';
 
@@ -45,20 +45,22 @@ test.describe('M3.5 — EmptyDashboardState', () => {
   });
 });
 
-test.describe('M3.5 — CollecteTypeTabs', () => {
-  test('onglet ZD sélectionné par défaut', async ({ page }) => {
+test.describe('M3.5 — ToggleTypeCollecte', () => {
+  // Segmenté ZD / AG partagé (R-UI-4b, D1) : ToggleGroup Radix → items
+  // `role=radio`, état actif `aria-checked` / `data-state="on"`.
+  test('type ZD sélectionné par défaut', async ({ page }) => {
     await page.goto(`${BASE_URL}/dev/test-dashboard-components`);
-    const zdTab = page.locator('[role="tab"][data-value="zero_dechet"]');
-    await expect(zdTab).toHaveAttribute('aria-selected', 'true');
+    const zd = page.getByRole('radio', { name: 'Zéro Déchet' });
+    await expect(zd).toHaveAttribute('aria-checked', 'true');
   });
 
   test('clic AG change la sélection', async ({ page }) => {
     await page.goto(`${BASE_URL}/dev/test-dashboard-components`);
-    const agTab = page.locator('[role="tab"][data-value="anti_gaspi"]');
-    await agTab.click();
-    await expect(agTab).toHaveAttribute('aria-selected', 'true');
+    const ag = page.getByRole('radio', { name: 'Anti-Gaspi' });
+    await ag.click();
+    await expect(ag).toHaveAttribute('aria-checked', 'true');
 
-    const zdTab = page.locator('[role="tab"][data-value="zero_dechet"]');
-    await expect(zdTab).toHaveAttribute('aria-selected', 'false');
+    const zd = page.getByRole('radio', { name: 'Zéro Déchet' });
+    await expect(zd).toHaveAttribute('aria-checked', 'false');
   });
 });

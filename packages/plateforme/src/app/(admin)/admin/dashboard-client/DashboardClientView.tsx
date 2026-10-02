@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation';
 import { Eye } from 'lucide-react';
 import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
-  CollecteTypeTabs,
   DashboardFilterBar,
   EmptyDashboardState,
   FLUX_ZD,
   type CollecteType,
   type DashboardFilters,
 } from '@/components/dashboards/index.js';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import type {
   FluxSeriePoint,
   RepasSeriePoint,
@@ -465,7 +465,7 @@ export function DashboardClientView() {
       </DashboardFilterBar>
 
       <div className="flex justify-end">
-        <CollecteTypeTabs value={tab} onChange={setTab} />
+        <ToggleTypeCollecte value={tab} onChange={setTab} />
       </div>
 
       {loading ? (

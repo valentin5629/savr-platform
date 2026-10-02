@@ -35,17 +35,19 @@ import {
   fmtMasse,
 } from '@/components/dashboards/charts/cockpit/fmt';
 import {
-  aggregateBenchmarkPerFlux,
   benchmarkItems,
   co2Equivalences,
   FACTEURS_CO2_DEFAUT,
   previousWindow,
   sparkFromSeries,
   variationPct,
-  type BenchmarkRow,
   type Co2Totals,
   type FacteursCo2,
 } from '@/lib/dashboards/cockpit-derive';
+import {
+  BenchmarkFilterBar,
+  type BenchmarkFilters,
+} from '@/components/dashboards/BenchmarkFilterBar.js';
 import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Info } from 'lucide-react';
@@ -131,6 +133,26 @@ interface AdminPayload {
 
 const STORAGE_KEY = 'savr.dashboard-client.organisations';
 const BENCHMARK_ENDPOINT = '/api/v1/admin/dashboard-client/benchmark';
+const BENCHMARK_FILTRES_ENDPOINT = `${BENCHMARK_ENDPOINT}/filtres`;
+
+// Ligne de référence du radar (réponse de BENCHMARK_ENDPOINT).
+interface ReferenceRadar {
+  kgParPaxParFlux: Record<string, number>;
+  nbCollectes: number;
+  periode: { debut: string; fin: string };
+}
+
+/** Paramètres de requête de la ligne de référence (CSV, vides omis). */
+function benchmarkQuery(f: BenchmarkFilters): string {
+  const p = new URLSearchParams();
+  if (f.traiteur_ids.length) p.set('traiteur_ids', f.traiteur_ids.join(','));
+  if (f.lieu_ids.length) p.set('lieu_ids', f.lieu_ids.join(','));
+  if (f.type_evenement_ids.length)
+    p.set('type_evenement_ids', f.type_evenement_ids.join(','));
+  if (f.taille_evenement_codes.length)
+    p.set('taille_evenement_codes', f.taille_evenement_codes.join(','));
+  return p.toString();
+}
 
 /**
  * Dashboard Client (§06.06 §2) — vue Admin LECTURE SEULE répliquant le dashboard
@@ -157,7 +179,16 @@ export function DashboardClientView() {
   // Même périmètre, période précédente équivalente (N-1) — variation des cartes
   // KPI (§06.05 l.136, dont le Dashboard Client est la reprise exacte §06.06 §2).
   const [payloadPrev, setPayloadPrev] = useState<AdminPayload | null>(null);
-  const [benchmarkRows, setBenchmarkRows] = useState<BenchmarkRow[]>([]);
+  // Ligne de référence du radar + filtres « Comparer avec » (émis par la barre
+  // au montage, puis à chaque changement).
+  const [reference, setReference] = useState<ReferenceRadar | null>(null);
+  const [benchFilters, setBenchFilters] = useState<BenchmarkFilters | null>(
+    null,
+  );
+  const handleBenchFilters = useCallback(
+    (f: BenchmarkFilters) => setBenchFilters(f),
+    [],
+  );
   const [loading, setLoading] = useState(true);
   // Modales « Impact carbone » (méthode de calcul) — ZD et AG distinctes.
   const [co2ModalOpen, setCo2ModalOpen] = useState(false);
@@ -262,20 +293,30 @@ export function DashboardClientView() {
     };
   }, [filters, tab, selectedOrgs]);
 
-  // Repère parc benchmark (Bloc 3 ZD) — parc global anonymisé (k≥5), indépendant
-  // du périmètre sélectionné. Chargé sur l'onglet ZD.
+  // Ligne de référence du radar (Bloc 3 ZD) — « Moyenne parc » paramétrable par
+  // l'encart « Comparer avec » (décision Val 2026-10-02) : parc entier par défaut,
+  // ou le périmètre des filtres (ex. un autre traiteur), sans k-anonymat côté
+  // Admin. Indépendante du périmètre sélectionné (ligne « Vous »). Onglet ZD seul.
   useEffect(() => {
-    if (tab !== 'zero_dechet') {
-      setBenchmarkRows([]);
+    if (tab !== 'zero_dechet' || !benchFilters) {
+      setReference(null);
       return;
     }
-    fetch(BENCHMARK_ENDPOINT)
+    const qs = benchmarkQuery(benchFilters);
+    let perimee = false;
+    fetch(qs ? `${BENCHMARK_ENDPOINT}?${qs}` : BENCHMARK_ENDPOINT)
       .then((r) => r.json())
-      .then((j: { data?: BenchmarkRow[] }) =>
-        setBenchmarkRows((j.data ?? []) as BenchmarkRow[]),
-      )
-      .catch(() => setBenchmarkRows([]));
-  }, [tab]);
+      .then((j: { data?: ReferenceRadar }) => {
+        if (perimee) return;
+        setReference(j.data?.kgParPaxParFlux ? j.data : null);
+      })
+      .catch(() => {
+        if (!perimee) setReference(null);
+      });
+    return () => {
+      perimee = true;
+    };
+  }, [tab, benchFilters]);
 
   const kpi = payload?.kpi ?? null;
   const isEmpty = !kpi || kpi.nb_collectes === 0;
@@ -342,8 +383,15 @@ export function DashboardClientView() {
   const gaugeItems = benchmarkItems(
     FLUX_ZD.map((f) => ({ code: f.code, label: f.label })),
     payload?.kgParPaxParFlux ?? {},
-    aggregateBenchmarkPerFlux(benchmarkRows),
+    reference?.kgParPaxParFlux ?? {},
   );
+  // Référence « ciblée » dès qu'un lieu ou un traiteur est filtré : la ligne ne
+  // décrit plus la moyenne du parc mais le périmètre comparé.
+  const referenceCiblee =
+    !!benchFilters &&
+    (benchFilters.traiteur_ids.length > 0 || benchFilters.lieu_ids.length > 0);
+  const referenceLabel = referenceCiblee ? 'Périmètre comparé' : 'Moyenne parc';
+  const nbRef = reference?.nbCollectes ?? 0;
 
   // Drill-down Top listes → /admin/collectes filtrée (miroir EXACT du chiffre :
   // type + statut cloturee + période + MÊME périmètre d'organisations sélectionné).
@@ -530,8 +578,38 @@ export function DashboardClientView() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — radar Cockpit vs benchmark parc (anonymisé k≥5) */}
-          <BenchmarkRadar items={gaugeItems} />
+          {/* Bloc 3 ZD — radar Cockpit : périmètre sélectionné (« Vous ») vs
+              ligne de référence paramétrable (encart « Comparer avec », sans
+              k-anonymat côté Admin — décision Val 2026-10-02). */}
+          <BenchmarkRadar
+            items={gaugeItems}
+            subtitle="Indice : référence = 100 (parc Savr entier, ou périmètre des filtres « Comparer avec »). À l'intérieur du repère, le périmètre sélectionné produit moins que la référence."
+            referenceLabel={referenceLabel}
+            referenceCourt={referenceCiblee ? 'Comparé' : 'Parc'}
+            filtersSlot={
+              <div className="space-y-2">
+                <BenchmarkFilterBar
+                  onChange={handleBenchFilters}
+                  filtresEndpoint={BENCHMARK_FILTRES_ENDPOINT}
+                  avertissementComparaisonSoi={false}
+                />
+                {reference && (
+                  <Text
+                    as="p"
+                    variant="hint"
+                    size="2xs"
+                    data-testid="benchmark-reference-echantillon"
+                  >
+                    Référence : {fmtInt(nbRef)} collecte{nbRef > 1 ? 's' : ''}{' '}
+                    clôturée{nbRef > 1 ? 's' : ''} Zéro Déchet du{' '}
+                    {frDate(reference.periode.debut)} au{' '}
+                    {frDate(reference.periode.fin)}, sans seuil d'anonymisation
+                    (vue Admin).
+                  </Text>
+                )}
+              </div>
+            }
+          />
 
           {/* Bloc 4 donut + Bloc 6 top lieux + Bloc 7 top traiteurs */}
           <div className="grid gap-6 lg:grid-cols-3">

@@ -61,6 +61,12 @@ interface BenchmarkFilterBarProps {
   initialOptions?: BenchmarkFilterOptions;
   /** Masque le filtre Traiteurs même pour un rôle qui y a droit (fiche collecte). */
   masquerTraiteurs?: boolean;
+  /**
+   * Avertissement « comparaison à soi-même » (§06.05 l.176) quand Lieux ou
+   * Traiteurs sont filtrés. `false` pour l'Admin, qui compare deux périmètres du
+   * parc et n'a pas de « propres » lieux ou traiteurs.
+   */
+  avertissementComparaisonSoi?: boolean;
 }
 
 /**
@@ -78,6 +84,7 @@ export function BenchmarkFilterBar({
   initialTailleCodes,
   initialOptions,
   masquerTraiteurs = false,
+  avertissementComparaisonSoi = true,
 }: BenchmarkFilterBarProps) {
   const [filters, setFilters] = useState<BenchmarkFilters>(() =>
     defaultFilters(initialTypeEvenementIds, initialTailleCodes),
@@ -136,7 +143,7 @@ export function BenchmarkFilterBar({
     [filters.lieu_ids, filters.traiteur_ids],
   );
 
-  const avertissementSoi = comparaisonSoi && (
+  const avertissementSoi = avertissementComparaisonSoi && comparaisonSoi && (
     <p
       data-testid="benchmark-comparaison-soi"
       className="rounded-savr-md border border-savr-warning/30 bg-savr-warning-subtle px-3 py-2 text-xs text-savr-warning-strong"

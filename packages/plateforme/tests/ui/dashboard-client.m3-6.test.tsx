@@ -388,3 +388,111 @@ describe('M3.6 / Dashboard Client / UI', () => {
     ATTENTE_CAS_MS,
   );
 });
+
+// ─── Bloc 3 ZD — ligne de référence paramétrable (décision Val 2026-10-02) ────
+
+const TRAITEUR_B = '22222222-2222-4222-8222-222222222222';
+
+function benchmarkCalls(): string[] {
+  return fetchMock.mock.calls
+    .map((c) => String(c[0]))
+    .filter((u) => /\/dashboard-client\/benchmark(\?|$)/.test(u));
+}
+
+describe('M3.6 / Dashboard Client / référence radar', () => {
+  it(
+    'M3.6/benchmark_admin_reference_filtres_sans_k_anonymat — encart « Comparer avec » admin : traiteur ciblé → requête filtrée, ligne « Périmètre comparé », échantillon affiché, pas d’avertissement « vos données »',
+    async () => {
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/dashboard-client/organisations'))
+          return jsonResponse({ data: ORGS });
+        // Avant le test générique « /benchmark » : l'URL des filtres le contient.
+        if (url.includes('/dashboard-client/benchmark/filtres'))
+          return jsonResponse({
+            data: {
+              lieux: [{ id: 'l1', nom: 'Pavillon Gabriel' }],
+              traiteurs: [{ id: TRAITEUR_B, nom: 'Traiteur Bêta' }],
+              types: [{ id: 'ty1', libelle: 'Cocktail' }],
+            },
+          });
+        if (url.includes('/dashboard-client/benchmark'))
+          return jsonResponse({
+            data: {
+              kgParPaxParFlux: {
+                biodechet: url.includes('traiteur_ids') ? 0.2 : 0.1,
+              },
+              nbCollectes: url.includes('traiteur_ids') ? 2 : 7,
+              periode: { debut: '2024-10-02', fin: '2026-10-02' },
+            },
+          });
+        if (url.includes('/dashboard-client'))
+          return jsonResponse({
+            data: { kpi: KPI_AGREGE, kgParPaxParFlux: { biodechet: 0.12 } },
+          });
+        return jsonResponse({});
+      });
+      render(<DashboardClientView />);
+
+      // L'encart est DANS la carte du radar ; défaut = parc entier.
+      expect(
+        await screen.findByTestId(
+          'benchmark-filter-bar',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Moyenne parc')).toBeInTheDocument();
+      await waitFor(
+        () => expect(benchmarkCalls().length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+      expect(benchmarkCalls().at(-1)).not.toMatch(/traiteur_ids/);
+      // Échantillon de la référence, SANS seuil d'anonymisation (vue Admin).
+      expect(
+        await screen.findByTestId(
+          'benchmark-reference-echantillon',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toHaveTextContent(/7 collectes clôturées Zéro Déchet .* sans seuil/);
+
+      // Le filtre Traiteurs est servi par la route Admin (liste non vide).
+      fireEvent.click(
+        await screen.findByTestId(
+          'benchmark-filter-traiteurs',
+          undefined,
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Traiteur Bêta' }));
+
+      // → référence re-chargée sur CE traiteur (2 collectes d'un seul acteur :
+      //   publiées quand même côté Admin), ligne renommée.
+      await waitFor(
+        () =>
+          expect(benchmarkCalls().at(-1)).toMatch(
+            new RegExp(`traiteur_ids=${TRAITEUR_B}`),
+          ),
+        ATTENTE_UI,
+      );
+      expect(
+        await screen.findByText('Périmètre comparé', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Moyenne parc')).toBeNull();
+      await waitFor(
+        () =>
+          expect(
+            screen.getByTestId('benchmark-reference-echantillon'),
+          ).toHaveTextContent(/2 collectes/),
+        ATTENTE_UI,
+      );
+      // Pas d'avertissement « vos propres données » : l'Admin n'a pas de
+      // lieux/traiteurs à lui (§06.05 l.176 ne s'applique pas).
+      expect(screen.queryByTestId('benchmark-comparaison-soi')).toBeNull();
+      // Le périmètre « Vous » n'est pas touché par l'encart.
+      expect(orgIdsDerniereRequete()).toEqual([]);
+    },
+    ATTENTE_CAS_MS,
+  );
+});

@@ -91,11 +91,11 @@
     },
     {
       "id": "M2.5-coursier-propage-tournee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:127",
-      "artefact": "packages/plateforme/src/app/api/webhooks/everest/route.ts (mission_dispatched : coursier_nom / coursier_telephone fournis → UPDATE tournees.chauffeur_nom / chauffeur_telephone de la tournée de la mission, après la garde mission courante ; colonne non fournie non touchée ; best-effort tracé webhooks.everest.coursier_non_propage)",
-      "test": "mission_dispatched — coursier_nom / coursier_telephone propagés sur la tournée de la mission (bloc « Chauffeur » des fiches) + mission_dispatched — sans coursier dans le payload → la tournée n’est pas touchée (saisie Admin conservée)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:285",
+      "artefact": "packages/plateforme/src/app/api/webhooks/everest/route.ts (mission_dispatched, après la garde mission courante : coursier RELU sur l'API Everest via fetchEverestMissionDetails — jamais pris du payload — → UPDATE tournees.chauffeur_nom + chauffeur_telephone (couple écrit ensemble, téléphone null si absent) WHERE id = tournee de la mission AND external_ref_commande = mission_id ; API sans coursier = aucune écriture ; re-fetch KO ou UPDATE refusé = tracé, 200)",
+      "test": "mission_dispatched — coursier relu sur l’API Everest → tournees.chauffeur_nom / chauffeur_telephone, garde WHERE sur la mission, JAMAIS depuis le payload + mission_dispatched — API Everest sans coursier (ou téléphone seul) → la tournée n’est pas touchée (saisie Admin conservée) + mission_dispatched — re-fetch Everest en échec → rien d’écrit sur la tournée (payload ignoré), mission quand même assigned, 200 + mission_dispatched après réattribution, coursier présent sur l’API → aucune écriture sur la tournée (garde mission courante AVANT la propagation)",
       "statut": "implemented",
-      "libelle": "Le coursier A Toutes! assigné (webhook Everest mission_dispatched) alimente tournees.chauffeur_nom / chauffeur_telephone, ce que lisent les blocs « Chauffeur » des fiches client (§06.04) et Admin (§06.06). Avant : écrit dans everest_missions seulement → « En attente » permanent côté fiches pour toute collecte A Toutes!. Décision Val 2026-10-02, divergence M0.6_20261002_bloc-chauffeur-onglet-logistique (volet §08)."
+      "libelle": "Le coursier A Toutes! assigné (webhook Everest mission_dispatched = signal → coursier relu sur l'API, CDC §08 §3) alimente tournees.chauffeur_nom / chauffeur_telephone de la tournée qui porte encore la mission, ce que lisent les blocs « Chauffeur » des fiches client (§06.04) et Admin (§06.06). Avant : écrit dans everest_missions seulement → « En attente » permanent côté fiches pour toute collecte A Toutes!. Décision Val 2026-10-02, divergence M0.6_20261002_bloc-chauffeur-onglet-logistique (volet §08)."
     }
   ],
   "cdc_source_hash": {

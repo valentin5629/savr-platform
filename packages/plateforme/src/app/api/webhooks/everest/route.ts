@@ -433,24 +433,54 @@ async function handleEventType(
       }
 
       // Coordonnées du coursier → tournée de la mission (bloc « Chauffeur »
-      // des fiches collecte, comme l'adapter MTS-1 avec le référentiel carrier
-      // — décision Val 2026-10-02). La valeur Everest fait foi quand elle
-      // arrive ; une colonne non fournie n'est pas touchée (saisie Admin
-      // conservée). Best-effort : pas une transition d'état, tracé si refusé.
-      if (coursierNom || coursierTel) {
-        const coordonnees: Record<string, string> = {};
-        if (coursierNom) coordonnees['chauffeur_nom'] = coursierNom;
-        if (coursierTel) coordonnees['chauffeur_telephone'] = coursierTel;
-        const { error: coordErr } = await supabase
-          .from('tournees')
-          .update(coordonnees)
-          .eq('id', mission.tournee_id);
-        if (coordErr) {
-          logger.error('webhooks.everest.coursier_non_propage', {
+      // des fiches collecte client et Admin, comme l'adapter MTS-1 avec le
+      // référentiel carrier — décision Val 2026-10-02). Webhook = SIGNAL : nom
+      // et téléphone sont RELUS sur l'API Everest (CDC §08 §3 « ne jamais faire
+      // confiance au payload »), jamais pris du payload non signé. Garde dans le
+      // WHERE (#348) : la tournée doit encore porter CETTE mission — une
+      // réattribution entre la lecture et l'UPDATE = 0 ligne. Le couple nom +
+      // téléphone est écrit ensemble (téléphone null si l'API ne l'expose pas) :
+      // jamais un nom neuf associé à un ancien téléphone saisi par l'Admin.
+      // Best-effort (pas une transition d'état) : re-fetch KO ou UPDATE refusé
+      // = tracé, rien d'écrit, réponse 200.
+      {
+        let coursier: { nom: string; telephone: string | null } | null = null;
+        try {
+          const detail = await fetchEverestMissionDetails(
+            missionId,
+            supabase,
+            missionId,
+          );
+          const nom = detail.coursier_nom?.trim() || null;
+          if (nom) {
+            coursier = {
+              nom,
+              telephone: detail.coursier_telephone?.trim() || null,
+            };
+          }
+        } catch (err) {
+          logger.error('webhooks.everest.coursier_refetch_failed', {
             mission_id: missionId,
             tournee_id: mission.tournee_id,
-            error_code: coordErr.code,
+            error: err instanceof Error ? err.message : String(err),
           });
+        }
+        if (coursier) {
+          const { error: coordErr } = await supabase
+            .from('tournees')
+            .update({
+              chauffeur_nom: coursier.nom,
+              chauffeur_telephone: coursier.telephone,
+            })
+            .eq('id', mission.tournee_id)
+            .eq('external_ref_commande', missionId);
+          if (coordErr) {
+            logger.error('webhooks.everest.coursier_non_propage', {
+              mission_id: missionId,
+              tournee_id: mission.tournee_id,
+              error_code: coordErr.code,
+            });
+          }
         }
       }
 

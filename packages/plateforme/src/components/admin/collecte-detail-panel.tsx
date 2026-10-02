@@ -7,7 +7,6 @@ import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
 import {
   Truck,
   Send,
-  KeyRound,
   AlertTriangle,
   Settings2,
   FileText,
@@ -23,6 +22,7 @@ import {
   DoorOpen,
   Users,
   Building2,
+  UserRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +54,11 @@ import {
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
-import { libelleDispatch, libelleTypeTms } from '@/lib/type-tms-labels';
+import {
+  libelleCanalEnvoi,
+  libelleDispatch,
+  libelleTypeTms,
+} from '@/lib/type-tms-labels';
 import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
   BadgeTypeCollecte,
@@ -930,6 +934,9 @@ export function CollecteDetailPanel({
   // `prestataire_logistique_id` est NULL : transporteur sans pont (par mail, par
   // téléphone, autre) de l'attribution AG validée.
   const currentTransporteur = collecte.prestataire_actuel ?? undefined;
+  // Canal qui remonte les coordonnées chauffeur (MTS-1 / A Toutes!) ; null =
+  // transporteur manuel, rien ne remonte automatiquement.
+  const canalChauffeur = libelleCanalEnvoi(currentTransporteur?.type_tms);
   // « Non attribué » ne se dit que d'une collecte SANS prestataire : si elle en a
   // un dont le nom manque dans la réponse, on le dit tel quel.
   const libelleSansNom =
@@ -1577,7 +1584,7 @@ export function CollecteDetailPanel({
             la card « Informations chauffeur » de l'onglet Informations. */}
             <Card padding="md" className="space-y-4">
               <BlocHeader
-                icon={KeyRound}
+                icon={UserRound}
                 title={
                   collecte.collecte_tournees.length === 0
                     ? 'Chauffeur pas encore affecté'
@@ -1616,16 +1623,31 @@ export function CollecteDetailPanel({
                       })}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-sm text-savr-neutral-600">
+                    <Text
+                      as="div"
+                      tone="soft"
+                      className="flex items-center gap-2"
+                    >
                       <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
                       En attente : infos à compléter avant envoi de l’email.
-                    </div>
+                    </Text>
                   )}
                 </>
+              ) : collecte.collecte_tournees.length === 0 ? (
+                <Text>
+                  Aucune tournée dispatchée pour le moment — les coordonnées
+                  pourront être saisies une fois le prestataire attribué.
+                </Text>
+              ) : canalChauffeur ? (
+                <Text>
+                  Les coordonnées remontent automatiquement de {canalChauffeur}{' '}
+                  dès l’affectation du chauffeur ; complétez-les si elles
+                  manquent.
+                </Text>
               ) : (
                 <Text>
-                  Les coordonnées remontent automatiquement du prestataire dès
-                  l’affectation du chauffeur ; complétez-les si elles manquent.
+                  Transporteur sans TMS connecté : coordonnées à saisir par
+                  l’équipe Ops.
                 </Text>
               )}
 

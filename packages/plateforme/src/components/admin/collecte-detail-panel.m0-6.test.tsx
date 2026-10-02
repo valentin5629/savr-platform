@@ -1764,7 +1764,14 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
-      expect(screen.getByText('Plaque')).toBeInTheDocument();
+      // Trois champs, trois « — », et l'explication de l'absence de saisie.
+      for (const label of ['Chauffeur', 'Plaque', 'Téléphone']) {
+        expect(screen.getByText(label)).toBeInTheDocument();
+      }
+      expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
+      expect(
+        screen.getByText(/Aucune tournée dispatchée pour le moment/),
+      ).toBeInTheDocument();
       expect(
         screen.queryByRole('button', { name: 'Modifier les coordonnées' }),
       ).toBeNull();
@@ -1776,7 +1783,16 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   it(
     'tournée MTS-1 renseignée : nom, plaque et téléphone cliquable ; sans contrôle d’accès, pas de mention email',
     async () => {
-      mockFetch({ ...collecteAg, collecte_tournees: [tourneeMts1] });
+      mockFetch({
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-mts1',
+        prestataire_actuel: {
+          transporteur_id: 't-mts1',
+          nom: 'Strike',
+          type_tms: 'mts1',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
@@ -1785,6 +1801,10 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
         undefined,
         ATTENTE_UI,
       )) as HTMLElement;
+      // Le canal nommé : MTS-1 (jamais « du prestataire » générique).
+      expect(
+        screen.getByText(/remontent automatiquement de MTS-1/),
+      ).toBeInTheDocument();
       expect(within(bloc).getByText('Paul Martin')).toBeInTheDocument();
       expect(within(bloc).getByText('AB-123-CD')).toBeInTheDocument();
       expect(
@@ -1840,6 +1860,58 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   );
 
   it(
+    'deux camions chez un transporteur manuel : « Chauffeurs », en-tête « Camion N », accompagnant affiché, coordonnées « à saisir par l’équipe Ops »',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        prestataire_logistique_id: null,
+        prestataire_actuel: {
+          transporteur_id: 't-province',
+          nom: 'Transports Dupont',
+          type_tms: 'par_mail',
+        },
+        collecte_tournees: [
+          tourneeMts1,
+          {
+            rang: 2,
+            tournees: {
+              ...tourneeMts1.tournees,
+              id: 'tour-2',
+              chauffeur_nom: 'Léa Durand',
+              chauffeur_telephone: null,
+              plaque_immatriculation: 'CD-456-EF',
+              accompagnant_nom: 'Marc Petit',
+              accompagnant_telephone: '0699887766',
+            },
+          },
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const camions = (await screen.findAllByTestId(
+        'camion-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLElement[];
+      expect(camions).toHaveLength(2);
+      expect(screen.getByText('Chauffeurs')).toBeInTheDocument();
+      expect(within(camions[0]!).getByText('Camion 1')).toBeInTheDocument();
+      expect(within(camions[1]!).getByText('Camion 2')).toBeInTheDocument();
+      // Accompagnant du camion 2, absent du camion 1.
+      expect(within(camions[1]!).getByText('Marc Petit')).toBeInTheDocument();
+      expect(
+        within(camions[1]!).getByRole('link', { name: '0699887766' }),
+      ).toHaveAttribute('href', 'tel:0699887766');
+      expect(within(camions[0]!).queryByText('Accompagnant')).toBeNull();
+      // Transporteur manuel : rien ne remonte automatiquement.
+      expect(screen.getByText(/à saisir par l’équipe Ops/)).toBeInTheDocument();
+      expect(screen.queryByText(/remontent automatiquement/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'contrôle d’accès requis : mention de l’email récap, « Modifier les coordonnées » ouvre le formulaire et PATCH infos-acces',
     async () => {
       const fetchMock = mockFetch({
@@ -1870,7 +1942,7 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
       expect(
         screen.getByText(/infos à compléter avant envoi/),
       ).toBeInTheDocument();
-      // Deux camions : en-tête « Camion N » ; ici un seul → en attente ×2.
+      // Un seul camion, nom et téléphone manquants → « En attente » ×2.
       expect(screen.getAllByText('En attente')).toHaveLength(2);
 
       fireEvent.click(

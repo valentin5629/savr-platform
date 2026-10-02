@@ -714,6 +714,9 @@ export function CollecteDetailPanel({
       await refetch();
       setSelectedTransporteurId('');
       setMotifOverride('');
+      // Mode « changer » ouvert → il se referme : rendre le focus au bouton
+      // « Changer de prestataire » plutôt que de le perdre en haut de page.
+      retourFocusChangerRef.current = changerPrestataire;
       setChangerPrestataire(false);
     } else {
       const errBody = (await res.json()) as { error: string };

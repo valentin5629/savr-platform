@@ -840,6 +840,8 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       expect(carteStrike).toHaveAttribute('aria-checked', 'true');
       expect(within(carteStrike).getByText('Actuel')).toBeInTheDocument();
+      // Le bouton cliqué a disparu : le focus est passé sur la carte cochée.
+      expect(carteStrike).toHaveFocus();
       // Même prestataire → renvoi ; un autre prestataire → envoi chez lui.
       expect(
         screen.getByRole('button', { name: 'Renvoyer à MTS-1' }),
@@ -853,9 +855,10 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         screen.getByRole('button', { name: 'Garder le prestataire actuel' }),
       );
       expect(screen.queryByRole('radiogroup')).toBeNull();
+      // « Garder » a disparu à son tour : le focus revient sur « Changer ».
       expect(
         screen.getByRole('button', { name: 'Changer de prestataire' }),
-      ).toBeInTheDocument();
+      ).toHaveFocus();
       expect(
         fetchMock.mock.calls.some(([u]) => String(u).includes('/dispatch')),
       ).toBe(false);

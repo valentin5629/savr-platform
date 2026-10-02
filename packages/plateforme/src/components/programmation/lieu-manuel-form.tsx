@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
 import type { LieuOption } from '@/components/programmation/lieu-combobox';
 import { AdresseAutocompleteInput } from '@/components/programmation/adresse-autocomplete-input';
+import { FormActions } from '@/components/ui/form-actions';
 
 const OPTIONS_VEHICULE = [
   { value: '', label: 'Optionnel' },
@@ -167,14 +167,15 @@ export function LieuManuelForm({
         </FormField>
       </div>
       {error && <FormError>{error}</FormError>}
-      <div className="flex gap-2 justify-end pt-1">
-        <Button variant="secondary" onClick={onCancel}>
-          Annuler
-        </Button>
-        <Button onClick={() => void handleSave()} disabled={!valid || loading}>
-          Ajouter ce lieu
-        </Button>
-      </div>
+      <FormActions
+        cancel={{ label: 'Annuler', onClick: onCancel }}
+        submit={{
+          label: 'Ajouter ce lieu',
+          onClick: () => void handleSave(),
+          disabled: !valid || loading,
+        }}
+        className="pt-1"
+      />
     </div>
   );
 }

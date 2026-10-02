@@ -230,12 +230,11 @@ export default function ParametresCo2Page() {
           <Button
             size="sm"
             onClick={() => void handleSaveFacteurs()}
-            disabled={
-              savingFacteurs || commentFacteurs.trim().length < MIN_COMMENT
-            }
+            disabled={commentFacteurs.trim().length < MIN_COMMENT}
+            loading={savingFacteurs}
+            loadingText="Enregistrement…"
           >
-            <Save className="h-4 w-4 mr-2" />
-            {savingFacteurs ? 'Enregistrement…' : 'Enregistrer'}
+            <Save /> Enregistrer
           </Button>
         </div>
         <Text variant="hint">
@@ -345,12 +344,11 @@ export default function ParametresCo2Page() {
           <Button
             size="sm"
             onClick={() => void handleSaveMix()}
-            disabled={
-              savingMix || !mixValid || commentMix.trim().length < MIN_COMMENT
-            }
+            disabled={!mixValid || commentMix.trim().length < MIN_COMMENT}
+            loading={savingMix}
+            loadingText="Enregistrement…"
           >
-            <Save className="h-4 w-4 mr-2" />
-            {savingMix ? 'Enregistrement…' : 'Enregistrer'}
+            <Save /> Enregistrer
           </Button>
         </div>
 
@@ -448,10 +446,11 @@ export default function ParametresCo2Page() {
             <Button
               size="sm"
               onClick={() => void handleSaveAg()}
-              disabled={savingAg || commentAg.trim().length < MIN_COMMENT}
+              disabled={commentAg.trim().length < MIN_COMMENT}
+              loading={savingAg}
+              loadingText="Enregistrement…"
             >
-              <Save className="h-4 w-4 mr-2" />
-              {savingAg ? 'Enregistrement…' : 'Enregistrer'}
+              <Save /> Enregistrer
             </Button>
           </div>
           <FormField
@@ -483,12 +482,11 @@ export default function ParametresCo2Page() {
             <Button
               size="sm"
               onClick={() => void handleSaveDivers()}
-              disabled={
-                savingDivers || commentDivers.trim().length < MIN_COMMENT
-              }
+              disabled={commentDivers.trim().length < MIN_COMMENT}
+              loading={savingDivers}
+              loadingText="Enregistrement…"
             >
-              <Save className="h-4 w-4 mr-2" />
-              {savingDivers ? 'Enregistrement…' : 'Enregistrer'}
+              <Save /> Enregistrer
             </Button>
           </div>
           {/* Libellé au-dessus du champ (DS « Mise en page des formulaires »),

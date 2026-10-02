@@ -81,6 +81,8 @@ import {
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { Text } from '@/components/ui/text';
+import { FormActions } from '@/components/ui/form-actions';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -408,7 +410,6 @@ export function CollecteDetailPanel({
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [annulerCreditModal, setAnnulerCreditModal] = useState(false);
-  const [annulerCreditMotif, setAnnulerCreditMotif] = useState('');
   const [annulerCreditSubmitting, setAnnulerCreditSubmitting] = useState(false);
   const [annulerCreditError, setAnnulerCreditError] = useState<string | null>(
     null,
@@ -663,8 +664,7 @@ export function CollecteDetailPanel({
     attributionAbsente,
   ]);
 
-  const handleAnnulerCredit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAnnulerCredit = async (motif: string) => {
     setAnnulerCreditSubmitting(true);
     setAnnulerCreditError(null);
     const res = await fetch(
@@ -672,7 +672,7 @@ export function CollecteDetailPanel({
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ motif: annulerCreditMotif }),
+        body: JSON.stringify({ motif }),
       },
     );
     if (res.ok) {
@@ -1483,23 +1483,16 @@ export function CollecteDetailPanel({
                         </div>
                       );
                     })}
-                    <div className="flex gap-2">
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={infosAccesSaving}
-                      >
-                        {infosAccesSaving ? 'Enregistrement…' : 'Enregistrer'}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setEditInfosAcces(false)}
-                      >
-                        Annuler
-                      </Button>
-                    </div>
+                    <FormActions
+                      cancel={{
+                        label: 'Annuler',
+                        size: 'sm',
+                        onClick: () => setEditInfosAcces(false),
+                      }}
+                      submit={{ label: 'Enregistrer', size: 'sm' }}
+                      loading={infosAccesSaving}
+                      loadingText="Enregistrement…"
+                    />
                   </form>
                 )}
               </Card>
@@ -1839,7 +1832,7 @@ export function CollecteDetailPanel({
                         setAcceptationModal(true);
                       }}
                     >
-                      <PhoneCall className="h-4 w-4 mr-2" />
+                      <PhoneCall />
                       Acceptation manuelle
                     </Button>
                   )}
@@ -1852,7 +1845,7 @@ export function CollecteDetailPanel({
                       variant="secondary"
                       onClick={() => setChangerPrestataire(true)}
                     >
-                      <Truck className="h-4 w-4 mr-2" />
+                      <Truck />
                       Changer de prestataire
                     </Button>
                   ) : (
@@ -1871,15 +1864,12 @@ export function CollecteDetailPanel({
                         </Button>
                       )}
                       <Button
-                        disabled={
-                          isTerminal || dispatching || overrideMotifManquant
-                        }
+                        disabled={isTerminal || overrideMotifManquant}
                         onClick={() => void handleDispatch()}
+                        loading={dispatching}
+                        loadingText="Envoi…"
                       >
-                        <Send className="h-4 w-4 mr-2" />
-                        {dispatching
-                          ? 'Envoi…'
-                          : libelleDispatch(forkTypeTms, renvoi)}
+                        <Send /> {libelleDispatch(forkTypeTms, renvoi)}
                       </Button>
                     </>
                   )}
@@ -2033,19 +2023,15 @@ export function CollecteDetailPanel({
                     {peseesError && (
                       <AlertBar variant="err">{peseesError}</AlertBar>
                     )}
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setEditPesees(false)}
-                        disabled={peseesSaving}
-                      >
-                        Annuler
-                      </Button>
-                      <Button type="submit" disabled={peseesSaving}>
-                        {peseesSaving ? 'Enregistrement…' : 'Enregistrer'}
-                      </Button>
-                    </div>
+                    <FormActions
+                      cancel={{
+                        label: 'Annuler',
+                        onClick: () => setEditPesees(false),
+                      }}
+                      submit={{ label: 'Enregistrer' }}
+                      loading={peseesSaving}
+                      loadingText="Enregistrement…"
+                    />
                   </form>
                 )}
               </Card>
@@ -2108,27 +2094,20 @@ export function CollecteDetailPanel({
                       )
                     }
                   >
-                    <Download className="h-4 w-4 mr-1" />
+                    <Download />
                     Télécharger
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    disabled={
-                      !documents?.rapport ||
-                      regenerating === 'rapport-recyclage-zd'
-                    }
+                    disabled={!documents?.rapport}
+                    loading={regenerating === 'rapport-recyclage-zd'}
+                    loadingText="Régénérer"
                     onClick={() =>
                       void handleRegenerate('rapport-recyclage-zd')
                     }
                   >
-                    <RotateCw
-                      className={`h-4 w-4 mr-1 ${
-                        regenerating === 'rapport-recyclage-zd'
-                          ? 'animate-spin'
-                          : ''
-                      }`}
-                    />
+                    <RotateCw />
                     Régénérer
                   </Button>
                 </div>
@@ -2166,22 +2145,18 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download className="h-4 w-4 mr-1" />
+                      <Download />
                       Télécharger
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={
-                        !documents?.bordereau || regenerating === 'bordereau-zd'
-                      }
+                      disabled={!documents?.bordereau}
+                      loading={regenerating === 'bordereau-zd'}
+                      loadingText="Régénérer"
                       onClick={() => void handleRegenerate('bordereau-zd')}
                     >
-                      <RotateCw
-                        className={`h-4 w-4 mr-1 ${
-                          regenerating === 'bordereau-zd' ? 'animate-spin' : ''
-                        }`}
-                      />
+                      <RotateCw />
                       Régénérer
                     </Button>
                   </div>
@@ -2220,25 +2195,18 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download className="h-4 w-4 mr-1" />
+                      <Download />
                       Télécharger
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={
-                        !documents?.attestation ||
-                        regenerating === 'attestation-don'
-                      }
+                      disabled={!documents?.attestation}
+                      loading={regenerating === 'attestation-don'}
+                      loadingText="Régénérer"
                       onClick={() => void handleRegenerate('attestation-don')}
                     >
-                      <RotateCw
-                        className={`h-4 w-4 mr-1 ${
-                          regenerating === 'attestation-don'
-                            ? 'animate-spin'
-                            : ''
-                        }`}
-                      />
+                      <RotateCw />
                       Régénérer
                     </Button>
                   </div>
@@ -2286,7 +2254,6 @@ export function CollecteDetailPanel({
                         variant="destructive"
                         size="sm"
                         onClick={() => {
-                          setAnnulerCreditMotif('');
                           setAnnulerCreditError(null);
                           setAnnulerCreditModal(true);
                         }}
@@ -2416,74 +2383,40 @@ export function CollecteDetailPanel({
             setForceStatutModal(true);
           }}
         >
-          <Settings2 className="h-4 w-4" />
+          <Settings2 />
           Forcer le statut
         </Button>
       </footer>
 
       {/* Modale — Annuler le crédit AG */}
-      <Modal
+      <ConfirmDialog
         open={annulerCreditModal}
         title="Annuler le crédit AG"
-        onClose={() => setAnnulerCreditModal(false)}
+        confirmLabel="Confirmer l’annulation"
+        cancelLabel="Retour"
+        variant="destructive"
+        loading={annulerCreditSubmitting}
+        loadingText="Annulation…"
+        error={annulerCreditError}
+        motif={{ label: 'Motif', minLength: 10 }}
+        onConfirm={(motif) => void handleAnnulerCredit(motif)}
+        onCancel={() => setAnnulerCreditModal(false)}
       >
-        {annulerCreditError && (
-          <AlertBar variant="err" className="mb-4">
-            {annulerCreditError}
-          </AlertBar>
-        )}
-        <form
-          onSubmit={(e) => void handleAnnulerCredit(e)}
-          className="space-y-4"
-        >
-          <Text>
-            Le crédit AG sera annulé côté Savr. La collecte reste à{' '}
-            <strong>réalisée</strong> — seul le décompte du pack est rétabli.
-            {collecte.packs_antgaspi && (
-              <>
-                {' '}
-                Pack : <strong>
-                  {collecte.packs_antgaspi.type_pack}
-                </strong> — {collecte.packs_antgaspi.credits_restants} crédit
-                {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}{' '}
-                restant
-                {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}.
-              </>
-            )}
-          </Text>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
-              Motif (≥ 10 caractères)
-            </label>
-            <Textarea
-              value={annulerCreditMotif}
-              onChange={(e) => setAnnulerCreditMotif(e.target.value)}
-              rows={3}
-              minLength={10}
-              required
-            />
-          </div>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setAnnulerCreditModal(false)}
-              disabled={annulerCreditSubmitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              variant="destructive"
-              disabled={annulerCreditSubmitting}
-            >
-              {annulerCreditSubmitting
-                ? 'Annulation…'
-                : "Confirmer l'annulation"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        <Text>
+          Le crédit AG sera annulé côté Savr. La collecte reste à{' '}
+          <strong>réalisée</strong> — seul le décompte du pack est rétabli.
+          {collecte.packs_antgaspi && (
+            <>
+              {' '}
+              Pack : <strong>{collecte.packs_antgaspi.type_pack}</strong> —{' '}
+              {collecte.packs_antgaspi.credits_restants} crédit
+              {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}{' '}
+              restant
+              {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}.
+            </>
+          )}
+        </Text>
+      </ConfirmDialog>
 
       {/* Modale — Forcer le statut (RM-08) */}
       <Modal
@@ -2530,26 +2463,20 @@ export function CollecteDetailPanel({
               required
             />
           </div>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setForceStatutModal(false)}
-              disabled={forceStatutSubmitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                forceStatutSubmitting ||
-                forceStatutMotif.trim().length < 10 ||
-                forceStatutValue === ''
-              }
-            >
-              {forceStatutSubmitting ? 'Application…' : 'Confirmer le forçage'}
-            </Button>
-          </div>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setForceStatutModal(false),
+            }}
+            submit={{
+              label: 'Confirmer le forçage',
+              disabled:
+                forceStatutMotif.trim().length < 10 || forceStatutValue === '',
+            }}
+            loading={forceStatutSubmitting}
+            loadingText="Application…"
+            bordered
+          />
         </form>
       </Modal>
 
@@ -2658,24 +2585,19 @@ export function CollecteDetailPanel({
               maxLength={1000}
             />
           </div>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setAcceptationModal(false)}
-              disabled={acceptationSubmitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              disabled={acceptationSubmitting || acceptationIncomplete}
-            >
-              {acceptationSubmitting
-                ? 'Enregistrement…'
-                : "Enregistrer l'acceptation"}
-            </Button>
-          </div>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setAcceptationModal(false),
+            }}
+            submit={{
+              label: "Enregistrer l'acceptation",
+              disabled: acceptationIncomplete,
+            }}
+            loading={acceptationSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
         </form>
       </Modal>
 
@@ -2717,26 +2639,21 @@ export function CollecteDetailPanel({
               required
             />
           </div>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setNbCamionsModal(false)}
-              disabled={nbCamionsSubmitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                nbCamionsSubmitting ||
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setNbCamionsModal(false),
+            }}
+            submit={{
+              label: 'Enregistrer',
+              disabled:
                 Number(nbCamionsValue) < 1 ||
-                !Number.isInteger(Number(nbCamionsValue))
-              }
-            >
-              {nbCamionsSubmitting ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </div>
+                !Number.isInteger(Number(nbCamionsValue)),
+            }}
+            loading={nbCamionsSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
         </form>
       </Modal>
     </div>

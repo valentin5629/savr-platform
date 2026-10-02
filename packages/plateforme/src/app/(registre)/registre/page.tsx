@@ -21,6 +21,7 @@ import {
 import { valeurUnique } from '@/lib/filtre-csv';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — vue liste : tableau chronologique des
@@ -305,13 +306,9 @@ function RegistreContent() {
       meta: { interactive: true },
       cell: ({ row: { original: r } }) =>
         r.bordereau_id && bordereauDispo(r.bordereau_statut) ? (
-          <button
-            type="button"
-            className="text-savr-primary-700 underline"
-            onClick={() => downloadBordereau(r.bordereau_id!)}
-          >
+          <TextLink onClick={() => downloadBordereau(r.bordereau_id!)}>
             {r.bordereau_numero ?? 'PDF'} ⬇
-          </button>
+          </TextLink>
         ) : (
           <span className="text-savr-neutral-400">Manquant</span>
         ),

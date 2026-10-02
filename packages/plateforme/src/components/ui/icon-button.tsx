@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // IconButton — bouton icône seule (§10 §6 « IconButton », actions de tableau).
@@ -41,16 +42,38 @@ export interface IconButtonProps
     VariantProps<typeof iconButtonVariants> {
   /** Libellé accessible (§9 — icône seule). */
   'aria-label': string;
+  /** Action en cours : spinner à la place de l'icône, bouton désactivé, `aria-busy` (R-UI-3, B1). */
+  loading?: boolean;
 }
 
 const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
-  ({ className, variant, size, type = 'button', ...props }, ref) => (
+  (
+    {
+      className,
+      variant,
+      size,
+      type = 'button',
+      loading,
+      disabled,
+      children,
+      ...props
+    },
+    ref,
+  ) => (
     <button
       ref={ref}
       type={type}
       className={cn(iconButtonVariants({ variant, size, className }))}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
-    />
+    >
+      {loading ? (
+        <Loader2 className="animate-spin" aria-hidden="true" />
+      ) : (
+        children
+      )}
+    </button>
   ),
 );
 IconButton.displayName = 'IconButton';

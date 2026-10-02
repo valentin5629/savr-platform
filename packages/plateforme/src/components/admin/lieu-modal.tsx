@@ -12,7 +12,6 @@ import {
   Truck,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -32,6 +31,8 @@ import {
 } from '@/components/collecte/fiche-blocs';
 import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
 
 // Modale création/édition d'un lieu — remplace la fiche + les pages nouveau/modifier
 // (point unique, ouverte depuis la liste /admin/lieux). En édition, les champs sont
@@ -504,27 +505,17 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   const photos = lieuCharge?.photos_urls ?? [];
 
   const footer = (
-    <>
-      <Button
-        type="button"
-        variant="secondary"
-        onClick={onClose}
-        disabled={submitting}
-      >
-        Annuler
-      </Button>
-      <Button
-        type="button"
-        onClick={() => void submitForm()}
-        disabled={submitting || (isEdition && !lieuCharge)}
-      >
-        {submitting
-          ? 'Enregistrement…'
-          : isEdition
-            ? 'Enregistrer'
-            : 'Créer le lieu'}
-      </Button>
-    </>
+    <FormActions
+      cancel={{ label: 'Annuler', onClick: onClose }}
+      submit={{
+        label: isEdition ? 'Enregistrer' : 'Créer le lieu',
+        type: 'button',
+        onClick: () => void submitForm(),
+        disabled: isEdition && !lieuCharge,
+      }}
+      loading={submitting}
+      loadingText="Enregistrement…"
+    />
   );
 
   return (
@@ -895,14 +886,14 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     <ul className="space-y-1 text-sm">
                       {photos.map((url, i) => (
                         <li key={url}>
-                          <a
+                          <TextLink
                             href={url}
+                            external
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-savr-primary-700 hover:underline"
                           >
                             Photo {i + 1}
-                          </a>
+                          </TextLink>
                         </li>
                       ))}
                     </ul>

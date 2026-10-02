@@ -18,6 +18,7 @@ import {
   OrganisationModal,
   TYPE_ORGANISATION_LABELS,
 } from '@/components/admin/organisation-modal';
+import { TextLink } from '@/components/ui/text-link';
 
 interface PackActif {
   type_pack: string;
@@ -53,9 +54,9 @@ const columns: Column<Organisation>[] = [
     sortable: true,
     header: 'Nom',
     render: (row) => (
-      <a
+      <TextLink
         href={`/admin/clients/${row.id}`}
-        className="flex items-center gap-3 font-medium text-savr-primary-700 hover:underline"
+        className="flex gap-3 font-medium"
       >
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-100 text-xs font-bold text-savr-primary-700"
@@ -64,7 +65,7 @@ const columns: Column<Organisation>[] = [
           {initiales(row.raison_sociale)}
         </span>
         {row.raison_sociale}
-      </a>
+      </TextLink>
     ),
   },
   {
@@ -189,7 +190,7 @@ export default function ClientsPage() {
           // admin_savr ET ops_savr (§06.06 + matrice ops §09) : le layout
           // (admin) et requireStaff bornent déjà aux 2 rôles staff.
           <Button variant="accent" onClick={() => setModalOpen(true)}>
-            <Plus className="w-4 h-4" />
+            <Plus />
             Nouvelle organisation
           </Button>
         }

@@ -15,6 +15,7 @@ import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { FormActions } from '@/components/ui/form-actions';
 
 interface TauxRecyclage {
   id: string;
@@ -235,7 +236,7 @@ export default function TauxRecyclagePage() {
                     variant="secondary"
                     onClick={() => openHistory(f)}
                   >
-                    <History className="h-4 w-4 mr-1" />
+                    <History />
                     Historique
                   </Button>
                   {canEdit && (
@@ -244,7 +245,7 @@ export default function TauxRecyclagePage() {
                       variant="secondary"
                       onClick={() => openModal(f)}
                     >
-                      <Edit className="h-4 w-4 mr-1" />
+                      <Edit />
                       Modifier
                     </Button>
                   )}
@@ -274,17 +275,16 @@ export default function TauxRecyclagePage() {
         title={`Modifier — ${modal.filiere?.nom_filiere ?? ''}`}
         onClose={closeModal}
         footer={
-          <>
-            <Button variant="secondary" onClick={closeModal}>
-              Annuler
-            </Button>
-            <Button
-              onClick={() => void handleSave()}
-              disabled={modal.saving || modal.commentaire.length < 5}
-            >
-              {modal.saving ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: closeModal }}
+            submit={{
+              label: 'Enregistrer',
+              onClick: () => void handleSave(),
+              disabled: modal.commentaire.length < 5,
+            }}
+            loading={modal.saving}
+            loadingText="Enregistrement…"
+          />
         }
       >
         <div className="space-y-3">

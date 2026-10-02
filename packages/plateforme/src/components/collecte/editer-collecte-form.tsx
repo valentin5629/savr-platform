@@ -1,19 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { TimePicker } from '@/components/ui/time-picker';
-import { Modal } from '@/components/ui/modal';
 import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { typeCollecteLabel } from '@/components/collecte/fiche-blocs';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { FormActions } from '@/components/ui/form-actions';
 
 interface TypeEvenement {
   id: string;
@@ -383,59 +383,51 @@ export function EditerCollecteForm({
         )}
         {error && <p className="text-sm text-savr-error">{error}</p>}
 
-        <div className="flex gap-2">
-          <Button onClick={onSubmitClick} disabled={saving}>
-            {saving ? 'Enregistrement…' : 'Confirmer la modification'}
-          </Button>
-          {onCancel && (
-            <Button variant="ghost" onClick={onCancel} disabled={saving}>
-              Annuler
-            </Button>
-          )}
-        </div>
+        <FormActions
+          cancel={
+            onCancel
+              ? { label: 'Annuler', variant: 'ghost', onClick: onCancel }
+              : undefined
+          }
+          submit={{
+            label: 'Confirmer la modification',
+            type: 'button',
+            onClick: onSubmitClick,
+          }}
+          loading={saving}
+          loadingText="Enregistrement…"
+        />
 
         {/* Modal de confirmation unique (§06.04 l.501-507) — empile les
             avertissements applicables avant la sauvegarde. */}
-        <Modal
+        <ConfirmDialog
           open={confirmOpen}
           title="Confirmer la modification"
-          onClose={() => setConfirmOpen(false)}
+          confirmLabel="Confirmer la modification"
+          cancelLabel="Annuler"
+          variant="primary"
+          loading={saving}
+          onConfirm={() => {
+            setConfirmOpen(false);
+            void save();
+          }}
+          onCancel={() => setConfirmOpen(false)}
         >
-          <div className="space-y-3">
-            <ul className="list-disc space-y-2 pl-5 text-sm text-savr-neutral-700">
-              {urgence && (
-                <li>
-                  Cette modification a lieu moins de 12h avant la collecte.
-                  Notre équipe Ops sera alertée en urgence.
-                </li>
-              )}
-              {reacceptation && (
-                <li>
-                  Ce nouveau créneau devra être reconfirmé par notre équipe
-                  logistique.
-                </li>
-              )}
-            </ul>
-            <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-              <Button
-                variant="secondary"
-                onClick={() => setConfirmOpen(false)}
-                disabled={saving}
-              >
-                Annuler
-              </Button>
-              <Button
-                onClick={() => {
-                  setConfirmOpen(false);
-                  void save();
-                }}
-                disabled={saving}
-              >
-                Confirmer la modification
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-savr-neutral-700">
+            {urgence && (
+              <li>
+                Cette modification a lieu moins de 12h avant la collecte. Notre
+                équipe Ops sera alertée en urgence.
+              </li>
+            )}
+            {reacceptation && (
+              <li>
+                Ce nouveau créneau devra être reconfirmé par notre équipe
+                logistique.
+              </li>
+            )}
+          </ul>
+        </ConfirmDialog>
       </CardContent>
     </Card>
   );

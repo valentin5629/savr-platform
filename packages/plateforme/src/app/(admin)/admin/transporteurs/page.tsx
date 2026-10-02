@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Truck, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
@@ -206,17 +207,16 @@ export default function TransporteursPage() {
       header: '',
       render: (row) => (
         <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="icon"
+          <IconButton
+            size="sm"
             aria-label={`Modifier ${row.nom}`}
             onClick={(e) => {
               e.stopPropagation();
               openEdit(row);
             }}
           >
-            <Pencil className="h-4 w-4" />
-          </Button>
+            <Pencil />
+          </IconButton>
         </div>
       ),
     },
@@ -230,7 +230,7 @@ export default function TransporteursPage() {
         icon={<Truck className="h-6 w-6 text-savr-neutral-600" />}
         actions={
           <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus />
             Nouveau transporteur
           </Button>
         }

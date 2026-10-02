@@ -16,6 +16,8 @@ import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
+import { IconButton } from '@/components/ui/icon-button';
+import { FormActions } from '@/components/ui/form-actions';
 
 type Mode = 'paliers' | 'fixe_variable';
 
@@ -196,7 +198,7 @@ export default function GrillesZdPage() {
         actions={
           canEdit ? (
             <Button onClick={openModal}>
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus />
               Créer une grille
             </Button>
           ) : undefined
@@ -289,7 +291,7 @@ export default function GrillesZdPage() {
                 variant="secondary"
                 onClick={addPalier}
               >
-                <Plus className="h-3.5 w-3.5 mr-1" />
+                <Plus />
                 Ajouter un palier
               </Button>
             </div>
@@ -357,14 +359,14 @@ export default function GrillesZdPage() {
                     />
                   </FormField>
                 )}
-                <button
-                  type="button"
+                <IconButton
+                  size="sm"
+                  variant="destructive"
                   onClick={() => removePalier(i)}
                   aria-label="Supprimer le palier"
-                  className="p-2 text-savr-neutral-400 hover:text-savr-error-strong"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  <Trash2 />
+                </IconButton>
               </div>
             ))}
           </div>
@@ -373,18 +375,13 @@ export default function GrillesZdPage() {
             <p className="text-savr-error-strong text-sm">{formError}</p>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(false)}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={submitting || !fNom}>
-              {submitting ? 'Création…' : 'Créer la grille'}
-            </Button>
-          </div>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(false) }}
+            submit={{ label: 'Créer la grille', disabled: !fNom }}
+            loading={submitting}
+            loadingText="Création…"
+            className="pt-2"
+          />
         </form>
       </Modal>
     </div>

@@ -15,7 +15,6 @@
 import * as React from 'react';
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
-import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
@@ -24,6 +23,7 @@ import {
   type AutocompleteOption,
 } from '@/components/ui/autocomplete';
 import { libelleRole } from '@/lib/libelles/role';
+import { FormActions } from '@/components/ui/form-actions';
 
 const ROLE_OPTIONS: { value: string; adminOnly?: boolean }[] = [
   { value: 'admin_savr', adminOnly: true },
@@ -122,19 +122,12 @@ export function InviteUserModal({
       title="Inviter un membre"
       onClose={onClose}
       footer={
-        <>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={saving}
-            onClick={onClose}
-          >
-            Annuler
-          </Button>
-          <Button type="submit" form="invite-membre-form" disabled={saving}>
-            {saving ? 'Invitation…' : 'Inviter'}
-          </Button>
-        </>
+        <FormActions
+          cancel={{ label: 'Annuler', onClick: onClose }}
+          submit={{ label: 'Inviter', form: 'invite-membre-form' }}
+          loading={saving}
+          loadingText="Invitation…"
+        />
       }
     >
       {error && (

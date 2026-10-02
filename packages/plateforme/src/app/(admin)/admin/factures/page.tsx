@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { FileText, Download } from 'lucide-react';
-import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
@@ -17,6 +16,7 @@ import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
 import type { Database } from '@savr/shared/src/database.types.js';
 import { fmtMontant } from '@/lib/format';
+import { TextLink } from '@/components/ui/text-link';
 
 type Enums = Database['plateforme']['Enums'];
 
@@ -102,12 +102,9 @@ const columns: Column<Facture>[] = [
     sortable: true,
     header: 'Numéro',
     render: (row) => (
-      <Link
-        href={`/admin/factures/${row.id}`}
-        className="font-medium text-savr-primary-700 hover:underline"
-      >
+      <TextLink href={`/admin/factures/${row.id}`} className="font-medium">
         {row.numero_facture ?? '— brouillon —'}
-      </Link>
+      </TextLink>
     ),
   },
   {
@@ -198,14 +195,10 @@ const columns: Column<Facture>[] = [
     header: 'PDF Savr',
     render: (row) =>
       row.pdf_url_savr ? (
-        <button
-          type="button"
-          onClick={() => downloadPdfSavr(row.id)}
-          className="inline-flex items-center gap-1 text-sm text-savr-primary-700 hover:underline"
-        >
+        <TextLink onClick={() => downloadPdfSavr(row.id)} className="text-sm">
           <Download className="h-3.5 w-3.5" />
           PDF
-        </button>
+        </TextLink>
       ) : (
         <span className="text-savr-neutral-400">—</span>
       ),
@@ -319,7 +312,7 @@ export default function FacturesPage() {
         }
         actions={
           <Button variant="secondary" onClick={exportCsv}>
-            <Download className="h-4 w-4" />
+            <Download />
             Exporter CSV
           </Button>
         }

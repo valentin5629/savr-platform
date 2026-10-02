@@ -6,6 +6,7 @@ import { Menu, Bell, LogOut } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { IconButton } from '@/components/ui/icon-button';
 
 interface TopBarProps {
   title?: string;
@@ -50,13 +51,14 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
       >
         <div className="flex items-center gap-3">
           {onMenuToggle && (
-            <button
+            <IconButton
+              size="sm"
               onClick={onMenuToggle}
-              className="flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-neutral-600 hover:bg-savr-neutral-100 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 lg:hidden"
+              className="lg:hidden"
               aria-label="Ouvrir le menu"
             >
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            </button>
+              <Menu aria-hidden="true" />
+            </IconButton>
           )}
           {title && (
             <Heading level={1} size="xl" tight>
@@ -66,12 +68,9 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            className="flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-neutral-600 hover:bg-savr-neutral-100 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5" aria-hidden="true" />
-          </button>
+          <IconButton size="sm" aria-label="Notifications">
+            <Bell aria-hidden="true" />
+          </IconButton>
 
           {userName && (
             <Text

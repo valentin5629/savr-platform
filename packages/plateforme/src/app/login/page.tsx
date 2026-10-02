@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { safeNextPath } from '@/lib/safe-next-path';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -9,7 +8,8 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { AuthCard, AuthPage, authLienClass } from '@/components/auth/auth-card';
+import { AuthCard, AuthPage } from '@/components/auth/auth-card';
+import { TextLink } from '@/components/ui/text-link';
 
 // Motifs posés par `api/auth/verify-email` quand le lien d'activation n'aboutit
 // pas. Ils arrivaient déjà en `?error=` mais n'étaient affichés nulle part :
@@ -113,14 +113,19 @@ function LoginForm() {
       titre="Connexion à Savr"
       sousCarte={
         // Sans ce lien, /signup n'était atteignable qu'en tapant l'URL.
-        <Link href="/signup" className={authLienClass}>
+        <TextLink href="/signup" strong touch className="text-sm">
           Créer un compte
-        </Link>
+        </TextLink>
       }
       onSubmit={(e) => void handleSubmit(e)}
       pied={
-        <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Connexion…' : 'Se connecter'}
+        <Button
+          type="submit"
+          className="w-full"
+          loading={loading}
+          loadingText="Connexion…"
+        >
+          Se connecter
         </Button>
       }
     >
@@ -151,9 +156,9 @@ function LoginForm() {
           onChange={(e) => setMotDePasse(e.target.value)}
         />
         <div className="flex justify-end pt-2">
-          <Link href="/reset-password" className={authLienClass}>
+          <TextLink href="/reset-password" strong touch className="text-sm">
             Mot de passe oublié ?
-          </Link>
+          </TextLink>
         </div>
       </div>
       {erreur && <p className="text-sm text-savr-error">{erreur}</p>}

@@ -121,8 +121,13 @@ export default function ResetPasswordConfirmPage() {
         description={`Choisissez un mot de passe : au moins ${PASSWORD_MIN_LENGTH} caractères, avec une majuscule, un chiffre et un caractère spécial.`}
         onSubmit={(e) => void handleSubmit(e)}
         pied={
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Enregistrement…' : 'Enregistrer le mot de passe'}
+          <Button
+            type="submit"
+            className="w-full"
+            loading={loading}
+            loadingText="Enregistrement…"
+          >
+            Enregistrer le mot de passe
           </Button>
         }
       >

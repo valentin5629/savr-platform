@@ -249,7 +249,7 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
       fireEvent.click(
         await screen.findByRole(
           'button',
-          { name: "Confirmer l'annulation" },
+          { name: 'Confirmer l’annulation' },
           ATTENTE_UI,
         ),
       );

@@ -3,7 +3,13 @@
 import { fmtEuro, fmtPax, fmtKgAuto } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { libelleStatutTournee } from '@/lib/libelles/tournee';
-import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from 'react';
 import {
   Truck,
   Send,
@@ -437,6 +443,24 @@ export function CollecteDetailPanel({
   // Ordre en file d'envoi : les cartes prestataire et le bouton d'envoi ne
   // reviennent que sur demande explicite (« Changer de prestataire »).
   const [changerPrestataire, setChangerPrestataire] = useState(false);
+  // Focus clavier : à l'ouverture, sur la carte cochée ; à la fermeture, de
+  // retour sur « Changer de prestataire » (les deux boutons disparaissent au clic).
+  const dispatchChoixRef = useRef<HTMLDivElement>(null);
+  const changerPrestataireBtnRef = useRef<HTMLButtonElement>(null);
+  const retourFocusChangerRef = useRef(false);
+  useEffect(() => {
+    if (changerPrestataire) {
+      const zone = dispatchChoixRef.current;
+      (
+        zone?.querySelector<HTMLElement>(
+          '[role="radio"][aria-checked="true"]',
+        ) ?? zone?.querySelector<HTMLElement>('[role="radio"]')
+      )?.focus();
+    } else if (retourFocusChangerRef.current) {
+      retourFocusChangerRef.current = false;
+      changerPrestataireBtnRef.current?.focus();
+    }
+  }, [changerPrestataire]);
   const [motifOverride, setMotifOverride] = useState('');
   const [reco, setReco] = useState<RecoAlgo | null>(null);
   // RM-08 — forçage manuel du statut
@@ -964,16 +988,24 @@ export function CollecteDetailPanel({
     !isTerminal &&
     currentTransporteur?.type_tms === 'a_toutes' &&
     !collecte.tms_reference;
-  // Ordre en file d'envoi (décision Val 2026-10-02, C1) : prestataire posé chez
-  // un adapter (MTS-1 / A Toutes!), commande pas encore partie (le worker outbox
-  // tourne toutes les 15 min : `tms_reference` vide, `statut_tms` encore
-  // « non envoyé » — §06.09 §3 pt 3). À ce stade la fiche DIT la collecte
-  // envoyée et ne rouvre le choix du prestataire que sur demande : avant, elle
-  // réaffichait « Prestataire à attribuer » + « Envoyer », comme si rien n'était
-  // parti. Les transporteurs manuels (mail / téléphone / autre) gardent l'écran
-  // d'attribution : rien ne part automatiquement pour eux.
+  // Ordre en file d'envoi (décision Val 2026-10-02, C1) : AG dont l'attribution
+  // validée a posé le prestataire chez un adapter (MTS-1 / A Toutes!) et dont la
+  // commande n'est pas encore partie (le worker outbox tourne toutes les 15 min :
+  // `tms_reference` vide, `statut_tms` encore « non envoyé » — §06.09 §3 pt 3).
+  // À ce stade la fiche DIT la collecte envoyée et ne rouvre le choix du
+  // prestataire que sur demande : avant, elle réaffichait « Prestataire à
+  // attribuer » + « Envoyer », comme si rien n'était parti.
+  // Gardes = celles du worker : `prestataire_logistique_id` posé (sans lui le
+  // worker sort en no-op — un transporteur sans pont servi par le repli
+  // `prestataire_actuel` n'a rien en file) et collecte encore `programmee` /
+  // `validee`. ZD exclue : en V1 aucun chemin ne pose de prestataire sur une ZD
+  // (création, PATCH, dispatch à corps vide) — l'état n'existe que par seed, sans
+  // event en file. Transporteurs manuels (mail / téléphone / autre) exclus :
+  // rien ne part automatiquement pour eux.
   const ordreEnFileEnvoi =
-    !isTerminal &&
+    collecte.type === 'anti_gaspi' &&
+    ['programmee', 'validee'].includes(collecte.statut) &&
+    collecte.prestataire_logistique_id != null &&
     envoiAutomatique(currentTransporteur?.type_tms) &&
     !collecte.tms_reference &&
     collecte.statut_tms === 'non_envoye';
@@ -1671,13 +1703,17 @@ export function CollecteDetailPanel({
 
                 {ordreEnFileEnvoi && (
                   <AlertBar variant="info">
-                    <span className="font-semibold">
-                      Collecte envoyée à {currentTransporteur?.nom}.
-                    </span>{' '}
-                    La commande part automatiquement vers {canalEnvoi} (toutes
-                    les 15 minutes) : la référence TMS et le statut « Attente
-                    acceptation presta » s&apos;afficheront ici dès sa prise en
-                    compte.
+                    <span>
+                      Collecte envoyée à {currentTransporteur?.nom}
+                      {currentTransporteur?.nom?.endsWith('!') ? '' : '.'}{' '}
+                      <span className="font-normal">
+                        La commande part automatiquement vers {canalEnvoi}{' '}
+                        (prochain passage sous 15 minutes, reprises automatiques
+                        en cas d&apos;erreur) : la référence TMS et le statut «
+                        Attente acceptation presta » s&apos;afficheront ici dès
+                        sa prise en compte.
+                      </span>
+                    </span>
                   </AlertBar>
                 )}
 
@@ -1689,13 +1725,16 @@ export function CollecteDetailPanel({
                 {collecte.type === 'anti_gaspi' &&
                   !isTerminal &&
                   !dispatchEnLecture && (
-                    <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
+                    <div
+                      ref={dispatchChoixRef}
+                      className="space-y-3 border-t border-savr-neutral-100 pt-4"
+                    >
                       <Text
                         tone="strong"
                         className="font-semibold"
                         id="dispatch-transporteur-label"
                       >
-                        {currentTransporteur
+                        {ordreEnFileEnvoi
                           ? 'Changer de prestataire'
                           : 'Prestataire à attribuer'}
                       </Text>
@@ -1801,34 +1840,23 @@ export function CollecteDetailPanel({
                   )}
                   {dispatchEnLecture ? (
                     // Ordre en file d'envoi : pas de bouton primaire d'envoi (il
-                    // est déjà parti). AG → rouvrir le choix du prestataire ;
-                    // ZD → réémission idempotente seule (pas de choix V1).
-                    collecte.type === 'anti_gaspi' ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() => setChangerPrestataire(true)}
-                      >
-                        <Truck className="h-4 w-4 mr-2" />
-                        Changer de prestataire
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        disabled={dispatching}
-                        onClick={() => void handleDispatch()}
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        {dispatching
-                          ? 'Envoi…'
-                          : libelleDispatch(forkTypeTms, true)}
-                      </Button>
-                    )
+                    // est déjà parti) — seule action : rouvrir le choix du
+                    // prestataire.
+                    <Button
+                      ref={changerPrestataireBtnRef}
+                      variant="secondary"
+                      onClick={() => setChangerPrestataire(true)}
+                    >
+                      <Truck className="h-4 w-4 mr-2" />
+                      Changer de prestataire
+                    </Button>
                   ) : (
                     <>
                       {ordreEnFileEnvoi && (
                         <Button
                           variant="ghost"
                           onClick={() => {
+                            retourFocusChangerRef.current = true;
                             setChangerPrestataire(false);
                             setSelectedTransporteurId('');
                             setMotifOverride('');

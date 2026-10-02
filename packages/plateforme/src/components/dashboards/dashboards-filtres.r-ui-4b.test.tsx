@@ -13,7 +13,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 import { DashboardFilterBar } from './DashboardFilterBar';
 import { BenchmarkFilterBar } from './BenchmarkFilterBar';
 import { ExportSyntheseBloc } from './ExportSyntheseBloc';
@@ -88,30 +88,34 @@ describe('BenchmarkFilterBar — FilterBar surface encart', () => {
     types: [{ id: 't1', libelle: 'Gala' }],
   };
 
-  it('héritage pur → pas de reset ; un lieu coché → reset visible, puis retour à l’héritage', async () => {
-    const onChange = vi.fn();
-    render(
-      <BenchmarkFilterBar
-        onChange={onChange}
-        initialOptions={options}
-        initialTypeEvenementIds={['t1']}
-      />,
-    );
-    expect(screen.getByText('Comparer avec')).toBeInTheDocument();
-    expect(screen.queryByTestId('benchmark-reinitialiser')).toBeNull();
-    fireEvent.click(screen.getByTestId('benchmark-filter-lieux'));
-    fireEvent.click(
-      within(
-        await screen.findByRole('list', { name: 'Lieux' }, ATTENTE_UI),
-      ).getByRole('checkbox', { name: 'Lieu Un' }),
-    );
-    fireEvent.click(screen.getByTestId('benchmark-reinitialiser'));
-    expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
-      lieu_ids: [],
-      type_evenement_ids: ['t1'],
-    });
-    expect(screen.queryByTestId('benchmark-reinitialiser')).toBeNull();
-  });
+  it(
+    'héritage pur → pas de reset ; un lieu coché → reset visible, puis retour à l’héritage',
+    async () => {
+      const onChange = vi.fn();
+      render(
+        <BenchmarkFilterBar
+          onChange={onChange}
+          initialOptions={options}
+          initialTypeEvenementIds={['t1']}
+        />,
+      );
+      expect(screen.getByText('Comparer avec')).toBeInTheDocument();
+      expect(screen.queryByTestId('benchmark-reinitialiser')).toBeNull();
+      fireEvent.click(screen.getByTestId('benchmark-filter-lieux'));
+      fireEvent.click(
+        within(
+          await screen.findByRole('list', { name: 'Lieux' }, ATTENTE_UI),
+        ).getByRole('checkbox', { name: 'Lieu Un' }),
+      );
+      fireEvent.click(screen.getByTestId('benchmark-reinitialiser'));
+      expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
+        lieu_ids: [],
+        type_evenement_ids: ['t1'],
+      });
+      expect(screen.queryByTestId('benchmark-reinitialiser')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 describe('ExportSyntheseBloc — raccourcis standard (D8) et Combobox titre (D9)', () => {
@@ -167,22 +171,33 @@ describe('ExportSyntheseBloc — raccourcis standard (D8) et Combobox titre (D9)
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('étape Filtres : « Client organisateur  Tous les clients ▾ » (Combobox titre multiple)', async () => {
-    stubFiltres();
-    render(<ExportSyntheseBloc filters={filtresDashboard} tab="zero_dechet" />);
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Exporter une synthèse PDF' }),
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Précédent' }));
-    const clients = await screen.findByRole(
-      'combobox',
-      { name: 'Client organisateur' },
-      ATTENTE_UI,
-    );
-    expect(clients).toHaveTextContent('Tous les clients');
-    fireEvent.click(clients);
-    fireEvent.click(await screen.findByRole('option', { name: 'Client Un' }));
-    await waitFor(() => expect(clients).toHaveTextContent('Client Un'));
-    expect(screen.queryByTestId('synthese-filtre-commerciaux')).toBeNull();
-  });
+  it(
+    'étape Filtres : « Client organisateur  Tous les clients ▾ » (Combobox titre multiple)',
+    async () => {
+      stubFiltres();
+      render(
+        <ExportSyntheseBloc filters={filtresDashboard} tab="zero_dechet" />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Exporter une synthèse PDF' }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Précédent' }));
+      const clients = await screen.findByRole(
+        'combobox',
+        { name: 'Client organisateur' },
+        ATTENTE_UI,
+      );
+      expect(clients).toHaveTextContent('Tous les clients');
+      fireEvent.click(clients);
+      fireEvent.click(
+        await screen.findByRole('option', { name: 'Client Un' }, ATTENTE_UI),
+      );
+      await waitFor(
+        () => expect(clients).toHaveTextContent('Client Un'),
+        ATTENTE_UI,
+      );
+      expect(screen.queryByTestId('synthese-filtre-commerciaux')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

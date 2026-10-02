@@ -3,6 +3,7 @@
 // navigation clavier par flèches (absente de l'ancien `CollecteTypeTabs`).
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 import TestDashboardComponentsPage from '@/app/dev/test-dashboard-components/page';
 
 describe('Dashboards — ToggleTypeCollecte (R-UI-4b D1)', () => {
@@ -30,16 +31,20 @@ describe('Dashboards — ToggleTypeCollecte (R-UI-4b D1)', () => {
     expect(screen.getByText('Onglet actif : anti_gaspi')).toBeInTheDocument();
   });
 
-  it('les flèches déplacent le focus entre les deux types', async () => {
-    render(<TestDashboardComponentsPage />);
-    const zd = screen.getByRole('radio', { name: 'Zéro Déchet' });
-    const ag = screen.getByRole('radio', { name: 'Anti-Gaspi' });
-    zd.focus();
-    expect(zd).toHaveFocus();
-    // Roving focus Radix : le déplacement est différé (setTimeout).
-    fireEvent.keyDown(zd, { key: 'ArrowRight' });
-    await waitFor(() => expect(ag).toHaveFocus());
-    fireEvent.keyDown(ag, { key: 'ArrowLeft' });
-    await waitFor(() => expect(zd).toHaveFocus());
-  });
+  it(
+    'les flèches déplacent le focus entre les deux types',
+    async () => {
+      render(<TestDashboardComponentsPage />);
+      const zd = screen.getByRole('radio', { name: 'Zéro Déchet' });
+      const ag = screen.getByRole('radio', { name: 'Anti-Gaspi' });
+      zd.focus();
+      expect(zd).toHaveFocus();
+      // Roving focus Radix : le déplacement est différé (setTimeout).
+      fireEvent.keyDown(zd, { key: 'ArrowRight' });
+      await waitFor(() => expect(ag).toHaveFocus(), ATTENTE_UI);
+      fireEvent.keyDown(ag, { key: 'ArrowLeft' });
+      await waitFor(() => expect(zd).toHaveFocus(), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 });

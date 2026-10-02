@@ -3,12 +3,12 @@
 import * as React from 'react';
 import { Building2, Mail, MapPin, type LucideIcon } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { normaliserSiretOrganisation } from '@/lib/siret-organisation';
 import { Heading } from '@/components/ui/heading';
+import { FormActions } from '@/components/ui/form-actions';
 
 // Libellés des 4 types d'organisation (enum `organisation_type`), mêmes
 // libellés que le filtre de la liste Clients.
@@ -169,24 +169,16 @@ export function OrganisationModal({
   };
 
   const footer = (
-    <>
-      <Button
-        type="button"
-        variant="secondary"
-        onClick={onClose}
-        disabled={submitting}
-      >
-        Annuler
-      </Button>
-      <Button
-        type="button"
-        onClick={() => void submitForm()}
-        loading={submitting}
-        loadingText="Création…"
-      >
-        Créer l’organisation
-      </Button>
-    </>
+    <FormActions
+      cancel={{ label: 'Annuler', onClick: onClose }}
+      submit={{
+        label: 'Créer l’organisation',
+        type: 'button',
+        onClick: () => void submitForm(),
+      }}
+      loading={submitting}
+      loadingText="Création…"
+    />
   );
 
   return (

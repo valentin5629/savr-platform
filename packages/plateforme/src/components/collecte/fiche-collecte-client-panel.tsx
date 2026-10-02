@@ -38,6 +38,7 @@ import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
 import { fmtPax } from '@/lib/format';
 import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
 
 // Pop-up fiche collecte COMMUN aux rôles clients — traiteur (§06.04), agence
 // (§06.11) et gestionnaire de lieux (§06.05) — refonte Val 2026-09-29, au
@@ -456,22 +457,22 @@ export function FicheCollecteClientPanel({
               {annulErreur}
             </p>
           )}
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setAnnulOpen(false)}
-              disabled={annulEnCours}
-            >
-              Retour
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void confirmerAnnulation()}
-              disabled={annulEnCours}
-            >
-              {demande ? 'Confirmer la demande' : 'Confirmer l’annulation'}
-            </Button>
-          </div>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setAnnulOpen(false),
+              disabled: annulEnCours,
+            }}
+            submit={{
+              label: demande
+                ? 'Confirmer la demande'
+                : 'Confirmer l’annulation',
+              variant: 'destructive',
+              onClick: () => void confirmerAnnulation(),
+              disabled: annulEnCours,
+            }}
+            bordered
+          />
         </div>
       </Modal>
 
@@ -505,17 +506,15 @@ export function FicheCollecteClientPanel({
               error={siretErreur !== null}
             />
           </FormField>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button variant="secondary" onClick={() => setSiretOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              disabled={siretEnCours || siret.length !== 14}
-              onClick={() => void enregistrerSiret()}
-            >
-              Enregistrer
-            </Button>
-          </div>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setSiretOpen(false) }}
+            submit={{
+              label: 'Enregistrer',
+              disabled: siretEnCours || siret.length !== 14,
+              onClick: () => void enregistrerSiret(),
+            }}
+            bordered
+          />
         </div>
       </Modal>
     </div>

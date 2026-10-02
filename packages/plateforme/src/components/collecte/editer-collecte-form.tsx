@@ -14,6 +14,7 @@ import { instantParis } from '@savr/shared/src/temps/index.js';
 import { typeCollecteLabel } from '@/components/collecte/fiche-blocs';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { FormActions } from '@/components/ui/form-actions';
 
 interface TypeEvenement {
   id: string;
@@ -420,24 +421,21 @@ export function EditerCollecteForm({
                 </li>
               )}
             </ul>
-            <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-              <Button
-                variant="secondary"
-                onClick={() => setConfirmOpen(false)}
-                disabled={saving}
-              >
-                Annuler
-              </Button>
-              <Button
-                onClick={() => {
+            <FormActions
+              cancel={{
+                label: 'Annuler',
+                onClick: () => setConfirmOpen(false),
+              }}
+              submit={{
+                label: 'Confirmer la modification',
+                onClick: () => {
                   setConfirmOpen(false);
                   void save();
-                }}
-                loading={saving}
-              >
-                Confirmer la modification
-              </Button>
-            </div>
+                },
+              }}
+              loading={saving}
+              bordered
+            />
           </div>
         </Modal>
       </CardContent>

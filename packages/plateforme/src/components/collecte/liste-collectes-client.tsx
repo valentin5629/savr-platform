@@ -36,6 +36,7 @@ import {
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { valeurUnique } from '@/lib/filtre-csv';
 import { Text } from '@/components/ui/text';
+import { FormActions } from '@/components/ui/form-actions';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
 // actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
@@ -646,22 +647,22 @@ export function ListeCollectesClient({
               onChange={(e) => setAnnulMotif(e.target.value)}
             />
           </FormField>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setAnnulTarget(null)}
-              disabled={annulEnCours}
-            >
-              Retour
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void confirmerAnnulation()}
-              disabled={annulEnCours}
-            >
-              {estDemande ? 'Confirmer la demande' : "Confirmer l'annulation"}
-            </Button>
-          </div>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setAnnulTarget(null),
+              disabled: annulEnCours,
+            }}
+            submit={{
+              label: estDemande
+                ? 'Confirmer la demande'
+                : "Confirmer l'annulation",
+              variant: 'destructive',
+              onClick: () => void confirmerAnnulation(),
+              disabled: annulEnCours,
+            }}
+            bordered
+          />
         </div>
       </Modal>
     </div>

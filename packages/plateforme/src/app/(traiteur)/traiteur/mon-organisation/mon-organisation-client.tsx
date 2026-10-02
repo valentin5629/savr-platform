@@ -24,6 +24,7 @@ import { LogoCard } from '@/components/organisation/logo-card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
 
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
@@ -458,18 +459,16 @@ function EntitesCard({
                 </FormField>
               </div>
               {msg && <p className="text-sm text-savr-error">{msg}</p>}
-              <div className="flex gap-2">
-                <Button type="submit" loading={saving} loadingText="Ajout…">
-                  Ajouter
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowForm(false)}
-                >
-                  Annuler
-                </Button>
-              </div>
+              <FormActions
+                cancel={{
+                  label: 'Annuler',
+                  variant: 'ghost',
+                  onClick: () => setShowForm(false),
+                }}
+                submit={{ label: 'Ajouter' }}
+                loading={saving}
+                loadingText="Ajout…"
+              />
             </form>
           ) : (
             <Button variant="secondary" onClick={() => setShowForm(true)}>

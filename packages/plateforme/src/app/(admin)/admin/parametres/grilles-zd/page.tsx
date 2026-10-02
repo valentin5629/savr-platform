@@ -17,6 +17,7 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
+import { FormActions } from '@/components/ui/form-actions';
 
 type Mode = 'paliers' | 'fixe_variable';
 
@@ -374,23 +375,13 @@ export default function GrillesZdPage() {
             <p className="text-savr-error-strong text-sm">{formError}</p>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              disabled={!fNom}
-              loading={submitting}
-              loadingText="Création…"
-            >
-              Créer la grille
-            </Button>
-          </div>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(false) }}
+            submit={{ label: 'Créer la grille', disabled: !fNom }}
+            loading={submitting}
+            loadingText="Création…"
+            className="pt-2"
+          />
         </form>
       </Modal>
     </div>

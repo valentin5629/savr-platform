@@ -69,6 +69,7 @@ import {
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { Text } from '@/components/ui/text';
+import { FormActions } from '@/components/ui/form-actions';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -1418,24 +1419,16 @@ export function CollecteDetailPanel({
                         </div>
                       );
                     })}
-                    <div className="flex gap-2">
-                      <Button
-                        type="submit"
-                        size="sm"
-                        loading={infosAccesSaving}
-                        loadingText="Enregistrement…"
-                      >
-                        Enregistrer
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setEditInfosAcces(false)}
-                      >
-                        Annuler
-                      </Button>
-                    </div>
+                    <FormActions
+                      cancel={{
+                        label: 'Annuler',
+                        size: 'sm',
+                        onClick: () => setEditInfosAcces(false),
+                      }}
+                      submit={{ label: 'Enregistrer', size: 'sm' }}
+                      loading={infosAccesSaving}
+                      loadingText="Enregistrement…"
+                    />
                   </form>
                 )}
               </Card>
@@ -1912,23 +1905,15 @@ export function CollecteDetailPanel({
                     {peseesError && (
                       <AlertBar variant="err">{peseesError}</AlertBar>
                     )}
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setEditPesees(false)}
-                        disabled={peseesSaving}
-                      >
-                        Annuler
-                      </Button>
-                      <Button
-                        type="submit"
-                        loading={peseesSaving}
-                        loadingText="Enregistrement…"
-                      >
-                        Enregistrer
-                      </Button>
-                    </div>
+                    <FormActions
+                      cancel={{
+                        label: 'Annuler',
+                        onClick: () => setEditPesees(false),
+                      }}
+                      submit={{ label: 'Enregistrer' }}
+                      loading={peseesSaving}
+                      loadingText="Enregistrement…"
+                    />
                   </form>
                 )}
               </Card>
@@ -2328,24 +2313,16 @@ export function CollecteDetailPanel({
               required
             />
           </div>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setAnnulerCreditModal(false)}
-              disabled={annulerCreditSubmitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              variant="destructive"
-              loading={annulerCreditSubmitting}
-              loadingText="Annulation…"
-            >
-              {"Confirmer l'annulation"}
-            </Button>
-          </div>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setAnnulerCreditModal(false),
+            }}
+            submit={{ label: "Confirmer l'annulation", variant: 'destructive' }}
+            loading={annulerCreditSubmitting}
+            loadingText="Annulation…"
+            bordered
+          />
         </form>
       </Modal>
 
@@ -2394,26 +2371,20 @@ export function CollecteDetailPanel({
               required
             />
           </div>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setForceStatutModal(false)}
-              disabled={forceStatutSubmitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                forceStatutMotif.trim().length < 10 || forceStatutValue === ''
-              }
-              loading={forceStatutSubmitting}
-              loadingText="Application…"
-            >
-              Confirmer le forçage
-            </Button>
-          </div>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setForceStatutModal(false),
+            }}
+            submit={{
+              label: 'Confirmer le forçage',
+              disabled:
+                forceStatutMotif.trim().length < 10 || forceStatutValue === '',
+            }}
+            loading={forceStatutSubmitting}
+            loadingText="Application…"
+            bordered
+          />
         </form>
       </Modal>
 
@@ -2522,24 +2493,19 @@ export function CollecteDetailPanel({
               maxLength={1000}
             />
           </div>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setAcceptationModal(false)}
-              disabled={acceptationSubmitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              disabled={acceptationIncomplete}
-              loading={acceptationSubmitting}
-              loadingText="Enregistrement…"
-            >
-              {"Enregistrer l'acceptation"}
-            </Button>
-          </div>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setAcceptationModal(false),
+            }}
+            submit={{
+              label: "Enregistrer l'acceptation",
+              disabled: acceptationIncomplete,
+            }}
+            loading={acceptationSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
         </form>
       </Modal>
 
@@ -2581,27 +2547,21 @@ export function CollecteDetailPanel({
               required
             />
           </div>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setNbCamionsModal(false)}
-              disabled={nbCamionsSubmitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              disabled={
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setNbCamionsModal(false),
+            }}
+            submit={{
+              label: 'Enregistrer',
+              disabled:
                 Number(nbCamionsValue) < 1 ||
-                !Number.isInteger(Number(nbCamionsValue))
-              }
-              loading={nbCamionsSubmitting}
-              loadingText="Enregistrement…"
-            >
-              Enregistrer
-            </Button>
-          </div>
+                !Number.isInteger(Number(nbCamionsValue)),
+            }}
+            loading={nbCamionsSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
         </form>
       </Modal>
     </div>

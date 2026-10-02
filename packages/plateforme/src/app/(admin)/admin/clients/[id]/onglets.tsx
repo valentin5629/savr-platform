@@ -51,6 +51,7 @@ import { formatDateParis, jourParis } from '@savr/shared/src/temps/index.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { fmtEuro, fmtDec } from '@/lib/format';
+import { FormActions } from '@/components/ui/form-actions';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
 // OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
@@ -851,24 +852,12 @@ export function OngletCoefficients({
           }
           onClose={() => setModal(null)}
           footer={
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={saving}
-                onClick={() => setModal(null)}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                form="coef-form"
-                loading={saving}
-                loadingText="Enregistrement…"
-              >
-                Enregistrer
-              </Button>
-            </>
+            <FormActions
+              cancel={{ label: 'Annuler', onClick: () => setModal(null) }}
+              submit={{ label: 'Enregistrer', form: 'coef-form' }}
+              loading={saving}
+              loadingText="Enregistrement…"
+            />
           }
         >
           {error && (
@@ -1243,24 +1232,15 @@ export function OngletRemises({
           title={edition ? 'Modifier la remise' : 'Créer une remise'}
           onClose={() => setModal(false)}
           footer={
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={saving}
-                onClick={() => setModal(false)}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                form="remise-form"
-                loading={saving}
-                loadingText="Enregistrement…"
-              >
-                {edition ? 'Enregistrer' : 'Créer'}
-              </Button>
-            </>
+            <FormActions
+              cancel={{ label: 'Annuler', onClick: () => setModal(false) }}
+              submit={{
+                label: edition ? 'Enregistrer' : 'Créer',
+                form: 'remise-form',
+              }}
+              loading={saving}
+              loadingText="Enregistrement…"
+            />
           }
         >
           {error && (

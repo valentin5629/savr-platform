@@ -18,6 +18,7 @@ import { formatDateParis, jourParis } from '@savr/shared/src/temps/index.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { fmtEuro } from '@/lib/format';
+import { FormActions } from '@/components/ui/form-actions';
 
 interface TarifPackAG {
   id: string;
@@ -455,23 +456,13 @@ export default function TarifsPacksAGPage() {
               />
             </FormField>
           )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(false)}
-              disabled={submitting}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              loading={submitting}
-              loadingText="Enregistrement…"
-            >
-              Publier le tarif
-            </Button>
-          </div>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(false) }}
+            submit={{ label: 'Publier le tarif' }}
+            loading={submitting}
+            loadingText="Enregistrement…"
+            className="pt-2"
+          />
         </form>
       </Modal>
 

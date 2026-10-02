@@ -19,7 +19,7 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
-import { Button } from '@/components/ui/button';
+import { FormActions } from '@/components/ui/form-actions';
 
 // Rôles proposables selon le type d'organisation cliente.
 export function rolesForOrgType(type: string): string[] {
@@ -96,24 +96,12 @@ export function ClientInviteUserModal({
       title="Ajouter un utilisateur"
       onClose={onClose}
       footer={
-        <>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={saving}
-            onClick={onClose}
-          >
-            Annuler
-          </Button>
-          <Button
-            type="submit"
-            form="invite-user-form"
-            loading={saving}
-            loadingText="Invitation…"
-          >
-            Inviter
-          </Button>
-        </>
+        <FormActions
+          cancel={{ label: 'Annuler', onClick: onClose }}
+          submit={{ label: 'Inviter', form: 'invite-user-form' }}
+          loading={saving}
+          loadingText="Invitation…"
+        />
       }
     >
       {error && (

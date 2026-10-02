@@ -44,6 +44,7 @@ import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
 
 const STEPS = [
   { label: 'Événement' },
@@ -642,23 +643,19 @@ export default function NouveauProgrammationPage() {
             title="Traiteur hors référentiel"
             onClose={() => setShowShadowModal(false)}
             footer={
-              <>
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowShadowModal(false)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  onClick={() => void handleCreateShadow()}
-                  disabled={
+              <FormActions
+                cancel={{
+                  label: 'Annuler',
+                  onClick: () => setShowShadowModal(false),
+                }}
+                submit={{
+                  label: 'Créer le traiteur',
+                  onClick: () => void handleCreateShadow(),
+                  disabled:
                     !shadowForm.raison_sociale.trim() ||
-                    shadowForm.nom_commercial.trim().length < 2
-                  }
-                >
-                  Créer le traiteur
-                </Button>
-              </>
+                    shadowForm.nom_commercial.trim().length < 2,
+                }}
+              />
             }
           >
             <div className="space-y-4">
@@ -811,27 +808,22 @@ export default function NouveauProgrammationPage() {
             title="Nouveau contact"
             onClose={() => setShowContactForm(null)}
             footer={
-              <>
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowContactForm(null)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  onClick={() =>
+              <FormActions
+                cancel={{
+                  label: 'Annuler',
+                  onClick: () => setShowContactForm(null),
+                }}
+                submit={{
+                  label: 'Ajouter',
+                  onClick: () =>
                     showContactForm &&
-                    void handleAddContactInline(showContactForm)
-                  }
-                  disabled={
+                    void handleAddContactInline(showContactForm),
+                  disabled:
                     !newContact.prenom ||
                     !newContact.nom ||
-                    !newContact.telephone
-                  }
-                >
-                  Ajouter
-                </Button>
-              </>
+                    !newContact.telephone,
+                }}
+              />
             }
           >
             <div className="space-y-4">

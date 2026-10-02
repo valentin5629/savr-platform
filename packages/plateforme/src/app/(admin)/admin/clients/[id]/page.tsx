@@ -54,6 +54,7 @@ import { ClientInviteUserModal } from './invite-user-modal';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
+import { FormActions } from '@/components/ui/form-actions';
 
 interface OrgDetail {
   id: string;
@@ -813,24 +814,12 @@ export default function ClientFichePage({
         title="Créer un pack AG"
         onClose={() => setModal(null)}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(null)}
-              disabled={submitting}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              form="creer-pack-form"
-              loading={submitting}
-              loadingText="Création…"
-            >
-              Créer le pack
-            </Button>
-          </>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(null) }}
+            submit={{ label: 'Créer le pack', form: 'creer-pack-form' }}
+            loading={submitting}
+            loadingText="Création…"
+          />
         }
       >
         {formError && (
@@ -915,24 +904,12 @@ export default function ClientFichePage({
         title="Ajuster les crédits"
         onClose={() => setModal(null)}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(null)}
-              disabled={submitting}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              form="ajuster-pack-form"
-              loading={submitting}
-              loadingText="Enregistrement…"
-            >
-              Ajuster
-            </Button>
-          </>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(null) }}
+            submit={{ label: 'Ajuster', form: 'ajuster-pack-form' }}
+            loading={submitting}
+            loadingText="Enregistrement…"
+          />
         }
       >
         {formError && (
@@ -997,25 +974,16 @@ export default function ClientFichePage({
         title="Annuler le pack"
         onClose={() => setModal(null)}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(null)}
-              disabled={submitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              form="annuler-pack-form"
-              variant="destructive"
-              loading={submitting}
-              loadingText="Annulation…"
-            >
-              {"Confirmer l'annulation"}
-            </Button>
-          </>
+          <FormActions
+            cancel={{ label: 'Retour', onClick: () => setModal(null) }}
+            submit={{
+              label: "Confirmer l'annulation",
+              form: 'annuler-pack-form',
+              variant: 'destructive',
+            }}
+            loading={submitting}
+            loadingText="Annulation…"
+          />
         }
       >
         {formError && (

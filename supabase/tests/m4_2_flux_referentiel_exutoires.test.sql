@@ -17,15 +17,26 @@ SELECT is(
   'flux_referentiel_adresse_decoupable — adresse au format « voie, code postal ville »');
 
 SELECT results_eq(
-  $$SELECT code, code_dechet_europeen, code_traitement, filiere_valorisation::text
+  $$SELECT code, code_dechet_europeen, code_traitement, filiere_valorisation::text,
+           exutoire, exutoire_adresse
       FROM plateforme.flux_dechets WHERE actif ORDER BY code$$,
   $$VALUES
-      ('biodechet',       '20 01 08', 'R3',    'methanisation'),
-      ('carton',          '15 01 01', 'R3',    'recyclage'),
-      ('dechet_residuel', '20 03 01', 'R1',    'valorisation_energetique'),
-      ('emballage',       '15 01 06', 'R3/R5', 'recyclage'),
-      ('verre',           '15 01 07', 'R5',    'recyclage')$$,
-  'flux_referentiel_codes — codes déchets, codes de traitement et filières des 5 flux');
+      ('biodechet', '20 01 08', 'R3', 'methanisation',
+       'GENERIS VSG DCDT',
+       'ZI des Graviers, 6 avenue Winston Churchill, 94190 Villeneuve-Saint-Georges'),
+      ('carton', '15 01 01', 'R3', 'recyclage',
+       'TAIS VILLENEUVE LE ROI TDI',
+       '6 rue des Vœux Saint-Georges, 94290 Villeneuve-le-Roi'),
+      ('dechet_residuel', '20 03 01', 'R1', 'valorisation_energetique',
+       'NOVAZUR ARGENTEUIL UVEND',
+       '2 rue du Chemin Vert, 95100 Argenteuil'),
+      ('emballage', '15 01 06', 'R3/R5', 'recyclage',
+       'CENTRE DE TRI SELECTIF PAPREC TRIVALO 93',
+       '10 rue de la Victoire, 93150 Le Blanc-Mesnil'),
+      ('verre', '15 01 07', 'R5', 'recyclage',
+       'REVIVAL GENNEVILLIERS TRSFT',
+       '9 route du Môle Central, 92230 Gennevilliers')$$,
+  'flux_referentiel_codes — codes, filières, exutoires et adresses des 5 flux');
 
 -- Lecture sous un rôle client (gestionnaire de lieux), comme la route d'export.
 -- Le claim `role` est celui d'un vrai jeton : la policy fd_read lit auth.role().

@@ -299,6 +299,22 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     rls.push({ error: null });
 
     const [, ...lignes] = await lignesCsv(await callCsv());
+    // Le référentiel vient de la requête, pas du mock : chaque colonne lue par
+    // l'export doit être demandée à la base.
+    const selectPesees = (rls.__calls.select ?? [])
+      .map((a) => String(a[0]))
+      .find((s) => s.includes('flux_dechets'));
+    for (const colonne of [
+      'code',
+      'nom',
+      'code_dechet_europeen',
+      'filiere_valorisation',
+      'code_traitement',
+      'exutoire',
+      'exutoire_adresse',
+    ]) {
+      expect(selectPesees).toMatch(new RegExp(`\\b${colonne}\\b`));
+    }
     const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
     expect(lignes).toEqual([
       [

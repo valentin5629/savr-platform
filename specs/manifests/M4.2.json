@@ -154,7 +154,7 @@
     },
     {
       "id": "M4.2-flux-referentiel-exutoires-codes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:90",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1036",
       "artefact": "supabase/migrations/20261004203000_plateforme_flux_dechets_exutoires_codes.sql (flux_dechets : + code_traitement ; exutoire, adresse, code déchet, code de traitement et filière des 5 flux)",
       "test": "flux_referentiel_adresse_decoupable + flux_referentiel_codes + flux_referentiel_lisible_client",
       "statut": "implemented",

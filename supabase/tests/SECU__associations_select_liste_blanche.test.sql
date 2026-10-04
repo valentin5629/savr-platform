@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Tests pgTAP — associations : SELECT en liste blanche colonne-level
--- Migration prouvée : 20261005100000_plateforme_associations_select_liste_blanche
+-- Migration prouvée : 20261004200000_plateforme_associations_select_liste_blanche
 -- =============================================================================
 -- Fuite fermée (reviewer-rls-securite, 2026-10-04) : la policy `asso_read`
 -- (auth.role() = 'authenticated') rend toutes les lignes du référentiel à tout
@@ -22,20 +22,25 @@
 --     sans toucher au test.
 --
 -- NON-VACUITÉ (mesurée le 2026-10-04 sur une base rejouée depuis zéro, 172
--- migrations de main, SANS cette migration) : 26 assertions tombent en `not ok`
--- — 1, 2, 8-17, 19, 26-35, 42, 43, 46 : toutes celles qui affirment une
--- fermeture (les SELECT passent). Les 21 autres restent vertes : ce sont les
--- contrôles positifs (3-7, 18, 20-25, 36-41, 44, 45, 47), qui tiennent avant
--- comme après. Ils prouvent que chaque refus vient du privilège colonne, pas
--- d'une ligne invisible ni d'une fixture invalide : sous la même identité, la
--- même ligne se lit par les colonnes de la liste blanche. AVEC la migration :
--- 47 sur 47.
+-- migrations de main, SANS cette migration) : 27 assertions tombent en `not ok`
+-- — 1, 2, 8-17, 19, 26-35, 42, 44, 45, 48 : toutes celles qui affirment une
+-- fermeture (les SELECT passent). Les 22 autres restent vertes : ce sont les
+-- contrôles positifs (3-7, 18, 20-25, 36-41, 43, 46, 47, 49), qui tiennent
+-- avant comme après. Ils prouvent que chaque refus vient du privilège colonne,
+-- pas d'une ligne invisible ni d'une fixture invalide : sous la même identité,
+-- la même ligne se lit par les colonnes de la liste blanche. AVEC la
+-- migration : 49 sur 49.
+-- Sondes de mutation sur la base migrée (même date) : policy asso_read retirée
+-- → 6, 7, 17, 18, 21-25, 28, 30, 32, 34, 36 rougissent (la visibilité de la
+-- ligne est tenue pour chaque rôle client) ; une colonne fermée rouverte
+-- (contact_email) → 2, 9, 16, 17, 26-35, 45 ; une policy UPDATE ouverte aux
+-- clients → 37, 40, 41.
 --
 -- ⚠ JWT au format PRODUCTION (claim réservé `role` + claim métier `user_role`).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(47);
+SELECT plan(49);
 
 -- Helpers ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION test_set_jwt_prod(
@@ -73,11 +78,16 @@ END $$;
 -- tente un SELECT réel de la ligne de la fixture sous le rôle COURANT (fonction
 -- SECURITY INVOKER). Rend les colonnes lues (p_lisibles = true) ou refusées en
 -- 42501 (p_lisibles = false). Toute autre erreur remonte et fait échouer le test.
+-- « Lue » exige que la LIGNE revienne : une colonne dont le privilège passe mais
+-- dont la ligne est invisible (policy asso_read retirée) sort suffixée
+-- « [ligne invisible] » — la comparaison rougit avec un diagnostic lisible, au
+-- lieu de rester verte sur le seul privilège.
 CREATE OR REPLACE FUNCTION test_asso_colonnes(p_lisibles boolean)
 RETURNS text[] LANGUAGE plpgsql AS $$
 DECLARE
   v_col text;
   v_lue boolean;
+  v_lignes int;
   v_res text[] := ARRAY[]::text[];
 BEGIN
   FOR v_col IN
@@ -86,16 +96,18 @@ BEGIN
      WHERE attrelid = 'plateforme.associations'::regclass AND attnum > 0 AND NOT attisdropped
      ORDER BY attname
   LOOP
+    v_lignes := NULL;
     BEGIN
       EXECUTE format(
-        'SELECT %I FROM plateforme.associations WHERE id = %L',
-        v_col, 'a55aa001-0000-0000-0000-0000000000a5');
+        'SELECT count(*)::int FROM (SELECT %I FROM plateforme.associations WHERE id = %L) s',
+        v_col, 'a55aa001-0000-0000-0000-0000000000a5') INTO v_lignes;
       v_lue := true;
     EXCEPTION WHEN insufficient_privilege THEN
       v_lue := false;
     END;
     IF v_lue = p_lisibles THEN
-      v_res := v_res || v_col;
+      v_res := v_res || CASE WHEN v_lue AND v_lignes = 0
+                             THEN v_col || ' [ligne invisible]' ELSE v_col END;
     END IF;
   END LOOP;
   RETURN v_res;
@@ -439,7 +451,7 @@ SELECT is(
   '40. contrôle (superuser) : la ligne est intacte après les tentatives 37 et 39');
 
 -- =============================================================================
--- 41-45 — staff et service_role
+-- 41-47 — staff et service_role
 -- =============================================================================
 SELECT test_set_jwt_prod('admin_savr', NULL);
 
@@ -453,13 +465,30 @@ SELECT is(
 SELECT throws_ok($$ SELECT commentaires_internes FROM plateforme.associations WHERE id = 'a55aa001-0000-0000-0000-0000000000a5' $$,
   '42501', NULL, '42. admin_savr (JWT, PostgREST direct) : commentaires_internes fermé aussi — le back-office lit en service_role');
 
+-- Écriture staff par JWT (policy asso_admin) : conservée, mais sans relecture des
+-- colonnes fermées. Aucun code du dépôt n'écrit associations sous JWT ; épinglé
+-- pour qu'une route qui le ferait un jour sache à quoi s'attendre.
+WITH u AS (
+  UPDATE plateforme.associations SET derniere_verification = '2026-09-30'
+   WHERE id = 'a55aa001-0000-0000-0000-0000000000a5' RETURNING 1
+)
+SELECT is(
+  (SELECT count(*)::int FROM u),
+  1,
+  '43. admin_savr (JWT) : UPDATE d''une colonne fermée filtré sur id = 1 ligne (écriture staff conservée)');
+
+SELECT throws_ok(
+  $$ UPDATE plateforme.associations SET derniere_verification = '2026-09-29'
+      WHERE id = 'a55aa001-0000-0000-0000-0000000000a5' RETURNING commentaires_internes $$,
+  '42501', NULL, '44. admin_savr (JWT) : le même UPDATE avec RETURNING d''une colonne fermée est refusé (PostgREST return=representation)');
+
 SELECT test_set_jwt_prod('ops_savr', NULL);
 SELECT is(array_length(test_asso_colonnes(false), 1), 19,
-  '43. ops_savr (JWT, PostgREST direct) : mêmes 19 colonnes refusées');
+  '45. ops_savr (JWT, PostgREST direct) : mêmes 19 colonnes refusées');
 
 SELECT test_as_service_role();
 SELECT is(array_length(test_asso_colonnes(true), 1), 26,
-  '44. service_role : lit les 26 colonnes — la fiche entière des écrans Admin Associations');
+  '46. service_role : lit les 26 colonnes — la fiche entière des écrans Admin Associations');
 
 SELECT is(
   (SELECT commentaires_internes || '|' || contact_nom || '|' || contact_email || '|' || contact_telephone
@@ -468,20 +497,20 @@ SELECT is(
      FROM plateforme.associations WHERE id = 'a55aa001-0000-0000-0000-0000000000a5'),
   'NOTE ADMIN A5|Contact Asso A5|contact@a5-asso.test|0655555555|PT-A5-042|555900005|'
     || 'Interphone A5, 2e porte|5 rue Asso|RUP-A5-1901|true',
-  '45. service_role : les colonnes retirées se lisent avec leurs valeurs (aucune donnée touchée)');
+  '47. service_role : les colonnes retirées se lisent avec leurs valeurs (aucune donnée touchée)');
 
 -- =============================================================================
--- 46-47 — Fail-closed : une colonne ajoutée plus tard n'est pas lisible par défaut
+-- 48-49 — Fail-closed : une colonne ajoutée plus tard n'est pas lisible par défaut
 -- =============================================================================
 SELECT test_as_superuser();
 ALTER TABLE plateforme.associations ADD COLUMN sonde_a5_fail_closed text;
 
 SELECT ok(
   NOT has_column_privilege('authenticated', 'plateforme.associations', 'sonde_a5_fail_closed', 'SELECT'),
-  '46. fail-closed : une colonne ajoutée à associations n''est pas lisible par authenticated');
+  '48. fail-closed : une colonne ajoutée à associations n''est pas lisible par authenticated');
 SELECT ok(
   has_column_privilege('service_role', 'plateforme.associations', 'sonde_a5_fail_closed', 'SELECT'),
-  '47. contrôle positif de la sonde : service_role, lui, lit la nouvelle colonne (privilège table-level)');
+  '49. contrôle positif de la sonde : service_role, lui, lit la nouvelle colonne (privilège table-level)');
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -14,7 +14,8 @@
 --   - PostgREST local, `GET /rest/v1/associations?select=*`, Accept-Profile
 --     plateforme, JWT signé pour chacun des 5 rôles clients (gestionnaire_lieux,
 --     traiteur_manager, traiteur_commercial, agence, client_organisateur) :
---     HTTP 200, 5 lignes sur 5, 26 colonnes — dont commentaires_internes,
+--     HTTP 200, les 5 associations du jeu local (seed minimal), 26 colonnes —
+--     dont commentaires_internes,
 --     contact_nom, contact_email, contact_telephone, id_point_collecte_mts1,
 --     siren, instructions_acces. Témoin anon : 401 / 42501.
 --
@@ -102,8 +103,12 @@
 --     les droits de son propriétaire ; ses routes embarquent
 --     `associations(latitude, longitude)` et
 --     `associations(description_rapport_impact)` sous l'identité du
---     gestionnaire — colonnes de la liste blanche. Compatible dans les deux
---     ordres de merge.
+--     gestionnaire — colonnes de la liste blanche. Fonctionnellement
+--     compatible dans les deux ordres d'application (mesuré : ses 2 fichiers
+--     pgTAP et celui-ci verts dans chaque ordre). L'ordre de MERGE, lui, est
+--     contraint par les préfixes : ce lot (20261004200000) se merge APRÈS
+--     20261004190000 et laisse passer derrière lui toute migration au préfixe
+--     supérieur.
 --
 -- CE QUE CE LOT NE CHANGE PAS (relevé, hors périmètre — arbitrages Val) :
 --   - les LIGNES : `asso_read` rend toujours tout le référentiel (associations
@@ -121,6 +126,12 @@
 -- leur sont fermées (42501) — même conséquence que tournees (#436),
 -- organisations (#360) et evenements (#456). Le back-office lit associations
 -- exclusivement en service_role : aucun écran Admin n'est touché.
+-- Conséquence sur l'ÉCRITURE par JWT staff (mesuré sous admin_savr, épinglé par
+-- le test) : un UPDATE d'une colonne fermée filtré sur `id` passe toujours ;
+-- le même UPDATE avec `RETURNING` d'une colonne fermée ou `RETURNING *` — ce que
+-- fait PostgREST sur `Prefer: return=representation` sans `select=` — est
+-- refusé (42501), comme un WHERE sur une colonne fermée. Aucun code du dépôt
+-- n'écrit associations sous JWT.
 --
 -- NON DESTRUCTIF : aucune donnée touchée, aucune colonne supprimée ou renommée.
 -- FERME un accès (CLAUDE.md §12-2bis) — GO reviewer-rls-securite + pgTAP de
@@ -137,7 +148,7 @@
 -- dashboards, du détail événement et du pack AG rendent la même réponse
 -- qu'avant ; un embed demandant contact et notes internes depuis une
 -- attribution visible → 403 ; service_role lit les 26 colonnes. Suite pgTAP
--- complète : 116 fichiers / 1860 assertions avant, 117 / 1907 après, 0 échec —
+-- complète : 116 fichiers / 1860 assertions avant, 117 / 1909 après, 0 échec —
 -- aucun test existant à recaler.
 -- =============================================================================
 
@@ -154,13 +165,13 @@ GRANT SELECT (
 ) ON plateforme.associations TO authenticated;
 
 COMMENT ON TABLE plateforme.associations IS
-  'Référentiel des associations Anti-Gaspi, géré par Admin Savr. Lecture : depuis 20261005100000, `authenticated` n''a plus le SELECT table-level mais une LISTE BLANCHE de 7 colonnes (id, nom, ville, region, latitude, longitude, description_rapport_impact), épinglée par SECU__associations_select_liste_blanche. Contacts, notes internes, SIREN, habilitation, horaires, capacité, instructions d''accès et point de collecte sont hors privilège : le back-office les lit en service_role. Toute colonne ajoutée est fermée par défaut ; l''ouvrir est une ouverture d''accès (décision Val).';
+  'Référentiel des associations Anti-Gaspi, géré par Admin Savr. Lecture : depuis 20261004200000, `authenticated` n''a plus le SELECT table-level mais une LISTE BLANCHE de 7 colonnes (id, nom, ville, region, latitude, longitude, description_rapport_impact), épinglée par SECU__associations_select_liste_blanche. Contacts, notes internes, SIREN, habilitation, horaires, capacité, instructions d''accès et point de collecte sont hors privilège : le back-office les lit en service_role. Toute colonne ajoutée est fermée par défaut ; l''ouvrir est une ouverture d''accès (décision Val).';
 
 COMMENT ON COLUMN plateforme.associations.commentaires_internes IS
-  'Notes Admin Savr (§04). Hors GRANT SELECT authenticated depuis 20261005100000 : illisible par PostgREST direct, staff compris. Lue par le back-office en service_role. Aucune route servant un rôle client ne doit la rendre.';
+  'Notes Admin Savr (§04). Hors GRANT SELECT authenticated depuis 20261004200000 : illisible par PostgREST direct, staff compris. Lue par le back-office en service_role. Aucune route servant un rôle client ne doit la rendre.';
 
 COMMENT ON COLUMN plateforme.associations.contact_telephone IS
-  'Téléphone du contact de l''association. Hors GRANT SELECT authenticated depuis 20261005100000 (comme contact_nom et contact_email) : lu en service_role par le back-office et par le worker qui transmet l''ordre au transporteur.';
+  'Téléphone du contact de l''association. Hors GRANT SELECT authenticated depuis 20261004200000 (comme contact_nom et contact_email) : lu en service_role par le back-office et par le worker qui transmet l''ordre au transporteur.';
 
 -- ROLLBACK (rouvre des accès : décision explicite de Val, CLAUDE.md §12-2bis) :
 --   GRANT SELECT ON plateforme.associations TO authenticated;

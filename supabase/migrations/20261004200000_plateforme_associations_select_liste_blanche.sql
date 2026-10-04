@@ -14,10 +14,10 @@
 --   - PostgREST local, `GET /rest/v1/associations?select=*`, Accept-Profile
 --     plateforme, JWT signé pour chacun des 5 rôles clients (gestionnaire_lieux,
 --     traiteur_manager, traiteur_commercial, agence, client_organisateur) :
---     HTTP 200, les 5 associations du jeu local (seed minimal), 26 colonnes —
---     dont commentaires_internes,
---     contact_nom, contact_email, contact_telephone, id_point_collecte_mts1,
---     siren, instructions_acces. Témoin anon : 401 / 42501.
+--     HTTP 200, les 5 associations présentes dans la base locale, 26 colonnes
+--     — dont commentaires_internes, contact_nom, contact_email,
+--     contact_telephone, id_point_collecte_mts1, siren, instructions_acces.
+--     Témoin anon : 401 / 42501.
 --
 -- §04 : `commentaires_internes` = « Notes Admin Savr ». §09 (dette ouverte le
 -- 2026-09-14) : « associations et transporteurs exposent noms, coordonnées et
@@ -45,10 +45,10 @@
 --     détail événement et pack AG du gestionnaire, export CSV ;
 --   - region : export CSV « Associations bénéficiaires AG » du traiteur_manager
 --     (§12 : « Association, Ville, Région, Nb collectes, Repas donnés ») ;
---   - description_rapport_impact : fiche collecte client (§04 : « description
---     publique de l'association, copiée dans le rapport AG ») ;
+--   - description_rapport_impact : fiche collecte client (§04 : « Description
+--     publique de l'association, copiée dans rapport AG ») ;
 --   - latitude, longitude : détail événement du gestionnaire, pour CALCULER la
---     distance association ↔ lieu (§06.05 §3, arbitrage Val 2026-09-21 option b).
+--     distance association ↔ lieu (§06.05 §3, arbitrage Val 2026-09-21).
 --     La route ne les restitue pas ; elles restent lisibles en direct, comme
 --     avant ce lot.
 --
@@ -111,6 +111,10 @@
 --     supérieur.
 --
 -- CE QUE CE LOT NE CHANGE PAS (relevé, hors périmètre — arbitrages Val) :
+--   - latitude / longitude restent lisibles en direct : des coordonnées
+--     précises permettent de retrouver l'adresse, que ce lot ferme. Les fermer
+--     demande de servir la distance côté serveur (route du détail événement,
+--     vue v_attributions_gestionnaire) ;
 --   - les LIGNES : `asso_read` rend toujours tout le référentiel (associations
 --     inactives comprises) à tout utilisateur connecté, sur les 7 colonnes ;
 --   - l'ÉCRITURE : authenticated garde INSERT / UPDATE / DELETE table-level,
@@ -135,9 +139,12 @@
 --
 -- NON DESTRUCTIF : aucune donnée touchée, aucune colonne supprimée ou renommée.
 -- FERME un accès (CLAUDE.md §12-2bis) — GO reviewer-rls-securite + pgTAP de
--- preuve. ORDRE DE DÉPLOIEMENT : indifférent. Aucune route ne lit sous
+-- preuve. ORDRE code / migration : indifférent. Aucune route ne lit sous
 -- l'identité de l'utilisateur une colonne fermée ici ; l'ancien code comme le
--- nouveau fonctionnent avant et après la migration.
+-- nouveau fonctionnent avant et après la migration. ORDRE entre migrations :
+-- imposé par les préfixes (cf. « Lot en vol » plus haut) — ne pas pousser
+-- celle-ci sur une base avant que 20261004190000 y soit passée, son db push y
+-- serait refusé.
 -- APRÈS APPLICATION, mesurer sur la base : has_table_privilege('authenticated',
 -- 'plateforme.associations', 'SELECT') = false et 7 colonnes lisibles.
 --
@@ -165,15 +172,16 @@ GRANT SELECT (
 ) ON plateforme.associations TO authenticated;
 
 COMMENT ON TABLE plateforme.associations IS
-  'Référentiel des associations Anti-Gaspi, géré par Admin Savr. Lecture : depuis 20261004200000, `authenticated` n''a plus le SELECT table-level mais une LISTE BLANCHE de 7 colonnes (id, nom, ville, region, latitude, longitude, description_rapport_impact), épinglée par SECU__associations_select_liste_blanche. Contacts, notes internes, SIREN, habilitation, horaires, capacité, instructions d''accès et point de collecte sont hors privilège : le back-office les lit en service_role. Toute colonne ajoutée est fermée par défaut ; l''ouvrir est une ouverture d''accès (décision Val).';
+  'Référentiel des associations Anti-Gaspi, géré par Admin Savr. Lecture : depuis la fermeture du 2026-10-04 (migration associations_select_liste_blanche), `authenticated` n''a plus le SELECT table-level mais une LISTE BLANCHE de 7 colonnes (id, nom, ville, region, latitude, longitude, description_rapport_impact), épinglée par SECU__associations_select_liste_blanche. Contacts, notes internes, SIREN, habilitation, horaires, capacité, instructions d''accès et point de collecte sont hors privilège : le back-office les lit en service_role. Toute colonne ajoutée est fermée par défaut ; l''ouvrir est une ouverture d''accès (décision Val).';
 
 COMMENT ON COLUMN plateforme.associations.commentaires_internes IS
-  'Notes Admin Savr (§04). Hors GRANT SELECT authenticated depuis 20261004200000 : illisible par PostgREST direct, staff compris. Lue par le back-office en service_role. Aucune route servant un rôle client ne doit la rendre.';
+  'Notes Admin Savr (§04). Hors GRANT SELECT authenticated depuis la fermeture du 2026-10-04 (migration associations_select_liste_blanche) : illisible par PostgREST direct, staff compris. Lue par le back-office en service_role. Aucune route servant un rôle client ne doit la rendre.';
 
 COMMENT ON COLUMN plateforme.associations.contact_telephone IS
-  'Téléphone du contact de l''association. Hors GRANT SELECT authenticated depuis 20261004200000 (comme contact_nom et contact_email) : lu en service_role par le back-office et par le worker qui transmet l''ordre au transporteur.';
+  'Téléphone du contact de l''association. Hors GRANT SELECT authenticated, comme contact_nom et contact_email, depuis la fermeture du 2026-10-04 (migration associations_select_liste_blanche) : lu en service_role par le back-office et par le worker qui transmet l''ordre au transporteur.';
 
 -- ROLLBACK (rouvre des accès : décision explicite de Val, CLAUDE.md §12-2bis) :
 --   GRANT SELECT ON plateforme.associations TO authenticated;
 --   (le grant colonne-level des 7 colonnes devient alors redondant : le retirer
---   est optionnel et purement cosmétique.)
+--   est optionnel et purement cosmétique. Les trois commentaires posés
+--   ci-dessus deviennent faux : les réécrire dans la même migration.)

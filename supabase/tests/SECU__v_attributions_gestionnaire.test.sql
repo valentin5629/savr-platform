@@ -11,20 +11,27 @@
 --   v_attributions_gest_own_lieu_ok                    (1, 3)
 --   v_attributions_gest_autre_lieu_denied              (4, 5)
 --   v_attributions_gest_colonnes_whitelist_ok          (14, 15)
---   v_attributions_gest_role_non_gestionnaire_denied   (7, 8)
+--   v_attributions_gest_role_non_gestionnaire_denied   (7, 8, 9, 11-13b)
 --   attributions_ag_gestionnaire_denied (T18) inchangé (2, 20)
 --
 -- Oracle : la TABLE reste fermée au gestionnaire (2, 20) ; la VUE lui rend les
 -- attributions des collectes de SES lieux, événement d'un tiers compris (1, 3),
--- jamais celles d'un autre lieu (4) ni d'un événement sans date (6), seulement 5 colonnes
--- (14, 15), et rien à aucun autre rôle (7, 9, 11-13). Chaque refus a son contrôle
--- positif (5, 8, 10, 22) : il porte sur le périmètre, pas sur une fixture vide.
+-- jamais celles d'un autre lieu (4) ni d'un événement sans date (6), seulement 5
+-- colonnes (14, 15), et rien à aucun autre rôle (7, 9, 11-13b) ni sans
+-- organisation (8b). Chaque refus a son contrôle positif : 5 (lieu), 22 (date),
+-- 8 (rôle — l'organisation des cas 7, 9, 11, 13, 13b rend 1 ligne au rôle
+-- gestionnaire), 1 (l'organisation du cas 12 aussi).
+--
+-- ⚠ La garde de rôle se teste sur une organisation RATTACHÉE au lieu. Sur une
+-- organisation sans lieu, le bornage par organisation vide déjà la vue : le test
+-- resterait vert avec une garde élargie à ce rôle (revue sécurité 2026-10-04 —
+-- garde passée en liste noire, 22 tests verts sur 22).
 --
 -- ⚠ JWT au format PRODUCTION (claim réservé `role` + claim métier `user_role`).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(22);
+SELECT plan(24);
 
 -- Helpers ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION test_set_jwt_prod(
@@ -224,30 +231,45 @@ SELECT is(
   (SELECT count(*)::int FROM plateforme.v_attributions_gestionnaire),
   1, '8. même rattachement, rôle gestionnaire_lieux : 1 ligne (le refus du cas 7 porte sur le rôle)');
 
--- =============================================================================
--- 9-13 — aucun autre rôle ne lit la vue ; le traiteur garde la table
--- =============================================================================
-SELECT test_set_jwt_prod('traiteur_manager', '7a9a0003-0000-0000-0000-0000000000d4'::uuid);
-SELECT is_empty($$ SELECT collecte_id FROM plateforme.v_attributions_gestionnaire $$,
-  '9. traiteur_manager programmateur : vue vide');
+-- 8b. Rôle gestionnaire SANS organisation dans le JWT : échec fermé
+SELECT test_set_jwt_prod('gestionnaire_lieux');
+SELECT is_empty(
+  $$ SELECT collecte_id FROM plateforme.v_attributions_gestionnaire $$,
+  '8b. gestionnaire_lieux sans organisation_id : vue vide');
 
--- 10. … et lit toujours ses attributions par la table (aa_select inchangée) : c'est
--- ce qui impose le branchement par rôle des chargeurs partagés (arbitrage option A).
+-- =============================================================================
+-- 9-13b — aucun autre rôle ne lit la vue ; le traiteur garde la table
+-- =============================================================================
+-- Chaque rôle est posé sur l'organisation RATTACHÉE à L1 (…0004, qui rend 1 ligne
+-- au rôle gestionnaire — cas 8) : seul le rôle diffère, seule la garde de rôle
+-- peut vider la vue.
+SELECT test_set_jwt_prod('traiteur_manager', '7a9a0004-0000-0000-0000-0000000000d4'::uuid);
+SELECT is_empty($$ SELECT collecte_id FROM plateforme.v_attributions_gestionnaire $$,
+  '9. traiteur_manager sur une organisation rattachée au lieu : vue vide');
+
+-- 10. Le traiteur programmateur lit toujours ses attributions par la TABLE
+-- (aa_select inchangée) : c'est ce qui impose le branchement par rôle des
+-- chargeurs partagés (arbitrage option A).
+SELECT test_set_jwt_prod('traiteur_manager', '7a9a0003-0000-0000-0000-0000000000d4'::uuid);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.attributions_antgaspi),
   3, '10. traiteur_manager programmateur : ses 3 attributions restent lisibles par la table');
 
-SELECT test_set_jwt_prod('traiteur_commercial', '7a9a0003-0000-0000-0000-0000000000d4'::uuid);
+SELECT test_set_jwt_prod('traiteur_commercial', '7a9a0004-0000-0000-0000-0000000000d4'::uuid);
 SELECT is_empty($$ SELECT collecte_id FROM plateforme.v_attributions_gestionnaire $$,
-  '11. traiteur_commercial : vue vide');
+  '11. traiteur_commercial sur une organisation rattachée au lieu : vue vide');
 
 SELECT test_set_jwt_prod('agence', '7a9a0001-0000-0000-0000-0000000000d4'::uuid);
 SELECT is_empty($$ SELECT collecte_id FROM plateforme.v_attributions_gestionnaire $$,
   '12. rôle agence sur une organisation rattachée au lieu : vue vide');
 
-SELECT test_set_jwt_prod('admin_savr');
+SELECT test_set_jwt_prod('admin_savr', '7a9a0004-0000-0000-0000-0000000000d4'::uuid);
 SELECT is_empty($$ SELECT collecte_id FROM plateforme.v_attributions_gestionnaire $$,
-  '13. admin_savr : vue vide (le staff lit la table)');
+  '13. admin_savr sur une organisation rattachée au lieu : vue vide (le staff lit la table)');
+
+SELECT test_set_jwt_prod('ops_savr', '7a9a0004-0000-0000-0000-0000000000d4'::uuid);
+SELECT is_empty($$ SELECT collecte_id FROM plateforme.v_attributions_gestionnaire $$,
+  '13b. ops_savr sur une organisation rattachée au lieu : vue vide');
 
 -- =============================================================================
 -- 14-15 — v_attributions_gest_colonnes_whitelist_ok

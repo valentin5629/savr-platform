@@ -1214,6 +1214,14 @@
       "libelle": "evenements : SELECT authenticated en liste blanche — contacts sur place (nom + téléphone, principal et secours), référence d'affaire, notes internes et entité de facturation hors privilège (arbitrages Val C1-C5 2026-10-01)"
     },
     {
+      "id": "M0.6-associations-select-liste-blanche",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:291",
+      "artefact": "supabase/migrations/20261005100000_plateforme_associations_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 7 colonnes : id, nom, ville, region, latitude, longitude, description_rapport_impact)",
+      "test": "supabase/tests/SECU__associations_select_liste_blanche.test.sql (1-4 privilèges + liste blanche exacte ; 5 non-vacuité ; 6-20 gestionnaire : ligne visible, 7 colonnes lues avec leurs valeurs, 19 colonnes refusées en 42501 par SELECT réel de chaque colonne, select=* refusé, embeds attestations_don et attributions ; 21-27 traiteur : lectures réelles de la fiche collecte, de l'export CSV, des dashboards et du détail événement ; 28-36 traiteur_commercial / agence / client organisateur / traiteur sans lien : mêmes 7 lues, mêmes 19 refusées, ligne visible ; 37-40 aucune écriture cliente ; 41-45 admin_savr et ops_savr JWT fermés, service_role lit les 26 colonnes ; 46-47 fail-closed colonne ajoutée)",
+      "statut": "implemented",
+      "libelle": "associations : SELECT authenticated en liste blanche — contact (nom, email, téléphone), notes internes, SIREN, habilitation fiscale, n° RUP, adresse, horaires, capacité, instructions d'accès, point de collecte transporteur et logo hors privilège (dette §09 du 2026-09-14, volet colonnes)"
+    },
+    {
       "id": "M0.6-attestation-delete-deny",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:258",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql",

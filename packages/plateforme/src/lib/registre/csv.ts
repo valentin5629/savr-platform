@@ -5,7 +5,13 @@ import {
   type CsvColumn,
 } from '@savr/shared/src/csv/index.js';
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { FLUX_ORDER, FLUX_LABELS, type RegistreRow } from './registre.js';
+import {
+  FLUX_ORDER,
+  FLUX_LABELS,
+  FILIERE_LABELS,
+  bordereauDisponible,
+  type RegistreRow,
+} from './registre.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -39,9 +45,11 @@ type FluxByCollecte = Map<string, FluxPese[]>;
 
 // Les pesées se lisent par tranches de collectes : une réponse est plafonnée à
 // 1000 lignes, sans erreur. Mesuré sur savr-dev le 2026-10-04 : 345 collectes
-// demandées en une fois → 1000 pesées reçues sur 1725. 100 collectes × 5 flux
-// restent sous le plafond, et l'URL (un UUID = 37 caractères) reste courte.
+// demandées en une fois → 1000 pesées reçues sur 1725. Une collecte a au plus
+// une pesée par flux (uniq_collecte_flux) et il existe 5 flux : 100 collectes
+// donnent au plus 500 lignes, pour une URL d'environ 4 000 caractères.
 const TRANCHE_COLLECTES = 100;
+const PLAFOND_LIGNES_REPONSE = 1000;
 
 /**
  * Charge les pesées par flux des collectes données, avec le référentiel du flux
@@ -62,34 +70,37 @@ export async function fetchFluxDetail(
       )
       .in('collecte_id', collecteIds.slice(i, i + TRANCHE_COLLECTES));
     if (error) throw erreurInterne(error, 'registre.csv');
+    const pesees = (data ?? []) as Record<string, unknown>[];
+    // Une tranche au plafond serait une réponse amputée : plutôt une erreur
+    // qu'un registre incomplet.
+    if (pesees.length >= PLAFOND_LIGNES_REPONSE) {
+      throw erreurInterne(
+        new Error('pesées : tranche au plafond de lignes'),
+        'registre.csv',
+      );
+    }
 
-    for (const row of (data ?? []) as Record<string, unknown>[]) {
+    for (const row of pesees) {
       const cid = row.collecte_id as string;
       const fd = (
         Array.isArray(row.flux_dechets) ? row.flux_dechets[0] : row.flux_dechets
       ) as ({ code?: string } & Partial<FluxReferentiel>) | null;
       const code = fd?.code;
       if (!code) continue;
-      const pesees = out.get(cid) ?? [];
-      const poidsKg = Number(row.poids_reel_kg ?? 0);
-      const dejaVu = pesees.find((p) => p.code === code);
-      if (dejaVu) {
-        dejaVu.poidsKg += poidsKg;
-      } else {
-        pesees.push({
-          code,
-          poidsKg,
-          ref: {
-            nom: fd.nom ?? null,
-            code_dechet_europeen: fd.code_dechet_europeen ?? null,
-            filiere_valorisation: fd.filiere_valorisation ?? null,
-            code_traitement: fd.code_traitement ?? null,
-            exutoire: fd.exutoire ?? null,
-            exutoire_adresse: fd.exutoire_adresse ?? null,
-          },
-        });
-      }
-      out.set(cid, pesees);
+      const fluxCollecte = out.get(cid) ?? [];
+      fluxCollecte.push({
+        code,
+        poidsKg: Number(row.poids_reel_kg ?? 0),
+        ref: {
+          nom: fd.nom ?? null,
+          code_dechet_europeen: fd.code_dechet_europeen ?? null,
+          filiere_valorisation: fd.filiere_valorisation ?? null,
+          code_traitement: fd.code_traitement ?? null,
+          exutoire: fd.exutoire ?? null,
+          exutoire_adresse: fd.exutoire_adresse ?? null,
+        },
+      });
+      out.set(cid, fluxCollecte);
     }
   }
   return out;
@@ -156,17 +167,13 @@ function colonnesEtablissement(
   ];
 }
 
-// Filière en clair. Le modèle des gestionnaires attend une classification à
-// lettres (« C - Valorisation énergétique ») dont la liste n'est pas connue au
-// 2026-10-04 : le libellé de la filière la remplace d'ici là.
-const FILIERE_LABELS: Record<string, string> = {
-  recyclage: 'Recyclage',
-  compostage: 'Compostage',
-  methanisation: 'Méthanisation',
-  valorisation_energetique: 'Valorisation énergétique',
-  enfouissement: 'Enfouissement',
-  don_alimentaire: 'Don alimentaire',
-};
+// N° du bordereau ÉMIS seulement : un brouillon porte déjà un numéro, mais
+// l'écran le dit « manquant » tant qu'il n'est pas émis.
+function numeroBordereau(row: RegistreRow): string {
+  return bordereauDisponible(row.bordereau_statut)
+    ? (row.bordereau_numero ?? '')
+    : '';
+}
 
 const COLUMNS: CsvColumn<LigneFlux>[] = [
   {
@@ -191,6 +198,9 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
     header: 'Quantité (tonnage)',
     value: (l) => formatNombreFr(l.flux.poidsKg / 1000, 6),
   },
+  // Le modèle attend une classification à lettres (« C - Valorisation
+  // énergétique ») dont la liste n'est pas connue au 2026-10-04 : le libellé de
+  // la filière la remplace d'ici là.
   {
     header: 'Filière de traitement finale',
     value: (l) => {
@@ -203,7 +213,7 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
     value: (l) => l.flux.ref.code_traitement ?? '',
   },
   // Pas de BSD pour ces déchets : le bordereau Savr en tient lieu.
-  { header: 'Numéro de BSD', value: (l) => l.row.bordereau_numero ?? '' },
+  { header: 'Numéro de BSD', value: (l) => numeroBordereau(l.row) },
   ...colonnesEtablissement('Transporteur', () => TRANSPORTEUR),
   ...colonnesEtablissement(
     'Exutoire intermédiaire',
@@ -217,26 +227,32 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
     header: 'Date événement',
     value: (l) => formatDateFr(l.row.date_evenement),
   },
-  { header: 'N° bordereau', value: (l) => l.row.bordereau_numero ?? '' },
+  { header: 'N° bordereau', value: (l) => numeroBordereau(l.row) },
 ];
 
-function rangFlux(code: string): number {
-  const i = (FLUX_ORDER as readonly string[]).indexOf(code);
-  return i === -1 ? FLUX_ORDER.length : i;
-}
+const rangFlux = (code: string): number =>
+  (FLUX_ORDER as readonly string[]).indexOf(code);
 
 /**
  * Sérialise le registre filtré en CSV canonique Savr, une ligne par flux pesé.
  * Un flux sans poids (0 ou non pesé) n'a pas de ligne : rien n'a été expédié.
+ * Filtre Flux actif (`fluxFiltres`) : seules les lignes de ces flux sortent — la
+ * liste, au grain collecte, garde les collectes qui en contiennent ; au grain
+ * flux, « les lignes filtrées » sont celles de ces flux.
  * `nbLignes` = lignes de données du fichier (exports_registre.nb_lignes).
  */
 export function buildRegistreCsv(
   rows: RegistreRow[],
   fluxByCollecte: FluxByCollecte,
+  fluxFiltres: string[] = [],
 ): { csv: string; nbLignes: number } {
   const lignes: LigneFlux[] = rows.flatMap((row) =>
     (fluxByCollecte.get(row.collecte_id) ?? [])
-      .filter((flux) => flux.poidsKg > 0)
+      .filter(
+        (flux) =>
+          flux.poidsKg > 0 &&
+          (fluxFiltres.length === 0 || fluxFiltres.includes(flux.code)),
+      )
       .sort((a, b) => rangFlux(a.code) - rangFlux(b.code))
       .map((flux) => ({ row, flux })),
   );

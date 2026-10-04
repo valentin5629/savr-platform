@@ -34,7 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       supabase,
       rows.map((r) => r.collecte_id),
     );
-    const { csv, nbLignes } = buildRegistreCsv(rows, flux);
+    const { csv, nbLignes } = buildRegistreCsv(rows, flux, filters.fluxCodes);
 
     await traceExport(supabase, {
       userId: auth.ctx.userId,

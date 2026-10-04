@@ -119,6 +119,12 @@ async function callCsv(query = '') {
   const { GET } = await import('@/app/api/v1/registre/export-csv/route.js');
   return GET(makeReq(`/api/v1/registre/export-csv${query}`));
 }
+async function callDetail(id: string) {
+  const { GET } = await import('@/app/api/v1/registre/[id]/route.js');
+  return GET(makeReq(`/api/v1/registre/${id}`), {
+    params: Promise.resolve({ id }),
+  });
+}
 async function callZip(query = '') {
   const { GET } = await import('@/app/api/v1/registre/export-zip/route.js');
   return GET(makeReq(`/api/v1/registre/export-zip${query}`));
@@ -248,7 +254,7 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     });
     rls.push({ error: null }); // trace insert
 
-    const res = await callCsv('?from=2026-05-01&to=2026-05-31&flux=biodechet');
+    const res = await callCsv('?from=2026-05-01&to=2026-05-31');
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toContain('text/csv');
     expect(res.headers.get('Content-Disposition')).toMatch(
@@ -332,6 +338,86 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     expect(tranches.map((t) => t.length)).toEqual([100, 100, 50]);
     expect(tranches.flat()).toEqual(collectes.map((c) => c.collecte_id));
     expect(lignes).toHaveLength(3);
+    // Staff : l'export n'est pas tracé dans exports_registre (audit_log).
+    expect(rls.__calls.insert).toBeUndefined();
+  });
+
+  it('M4.2/export_csv_filtre_flux — filtre Flux actif : seules les lignes de ces flux sortent', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
+    rls.push({
+      data: [
+        { collecte_id: 'c1', poids_reel_kg: 468.7, flux_dechets: REF_VERRE },
+        { collecte_id: 'c1', poids_reel_kg: 36, flux_dechets: REF_BIODECHET },
+        { collecte_id: 'c1', poids_reel_kg: 12, flux_dechets: REF_CARTON },
+      ],
+      error: null,
+    });
+    rls.push({ error: null });
+
+    const [, ...lignes] = await lignesCsv(await callCsv('?flux=verre,carton'));
+    expect(lignes.map((l) => l.split(';')[0])).toEqual(['Cartons', 'Verre']);
+    const insertArgs = (rls.__calls.insert ?? [])[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(insertArgs?.nb_lignes).toBe(2);
+  });
+
+  it('M4.2/export_csv_bordereau_non_emis — bordereau en brouillon : aucun numéro ; référentiel incomplet : cellules vides', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({
+      data: [{ ...LIGNE_REGISTRE, bordereau_statut: 'brouillon' }],
+      count: 1,
+      error: null,
+    });
+    rls.push({
+      data: [
+        {
+          collecte_id: 'c1',
+          poids_reel_kg: 12,
+          flux_dechets: { code: 'emballage', nom: 'Emballages' },
+        },
+      ],
+      error: null,
+    });
+    rls.push({ error: null });
+
+    const [, ...lignes] = await lignesCsv(await callCsv());
+    const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
+    expect(lignes).toEqual([
+      [
+        'Emballages;;Pavillon Cambon;13/05/2026;0,012;;;',
+        `Savr;${entrepot}`,
+        `Entrepôt Savr;${entrepot}`,
+        ';;;',
+        'Pavillon Cambon;Kaspia SARL;12/05/2026;',
+      ].join(';'),
+    ]);
+  });
+
+  it('M4.2/export_csv_erreur_tranche — une tranche en erreur ou au plafond : 500, ni fichier partiel ni trace', async () => {
+    setupAuth('traiteur_manager', 'org-a');
+    rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
+    rls.push({ data: null, error: { code: 'XX000', message: 'boom' } });
+    const enErreur = await callCsv();
+    expect(enErreur.status).toBe(500);
+    expect(enErreur.headers.get('Content-Type')).not.toContain('text/csv');
+    expect(rls.__calls.insert).toBeUndefined();
+
+    // Une réponse de 1000 lignes est une réponse amputée (plafond PostgREST).
+    rls = makeChain();
+    rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
+    rls.push({
+      data: Array.from({ length: 1000 }, () => ({
+        collecte_id: 'c1',
+        poids_reel_kg: 1,
+        flux_dechets: REF_VERRE,
+      })),
+      error: null,
+    });
+    const auPlafond = await callCsv();
+    expect(auPlafond.status).toBe(500);
+    expect(rls.__calls.insert).toBeUndefined();
   });
 
   it('M4.2/export_csv_adresse_exutoire — adresse découpée, format inconnu laissé entier', async () => {
@@ -405,6 +491,39 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
       | Record<string, unknown>
       | undefined;
     expect(insertArgs?.nb_lignes).toBe(0);
+  });
+});
+
+// ── Fiche détail : filière en clair ─────────────────────────────────────────
+describe('M4.2 / détail du registre', () => {
+  it('M4.2/detail_registre_filiere_en_clair — bloc 6 : la filière est un libellé, pas la valeur technique', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({ data: LIGNE_REGISTRE, error: null }); // ligne registre
+    rls.push({ data: null, error: null }); // bordereau
+    rls.push({
+      data: [
+        { poids_reel_kg: 36, flux_dechets: REF_BIODECHET },
+        {
+          poids_reel_kg: 10,
+          flux_dechets: {
+            code: 'dechet_residuel',
+            nom: 'Déchet résiduel',
+            filiere_valorisation: 'valorisation_energetique',
+          },
+        },
+      ],
+      error: null,
+    }); // flux
+    rls.push({ data: null, error: null }); // collecte
+    rls.push({ data: [], error: null }); // audit
+
+    const res = await callDetail('c1');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { flux: { filiere: string }[] };
+    expect(body.flux.map((f) => f.filiere)).toEqual([
+      'Méthanisation',
+      'Valorisation énergétique',
+    ]);
   });
 });
 

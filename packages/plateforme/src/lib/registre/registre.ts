@@ -45,6 +45,16 @@ export const FLUX_LABELS: Record<string, string> = {
   dechet_residuel: 'Déchet résiduel',
 };
 
+// Filières de valorisation en clair (enum plateforme.filiere_valorisation).
+export const FILIERE_LABELS: Record<string, string> = {
+  recyclage: 'Recyclage',
+  compostage: 'Compostage',
+  methanisation: 'Méthanisation',
+  valorisation_energetique: 'Valorisation énergétique',
+  enfouissement: 'Enfouissement',
+  don_alimentaire: 'Don alimentaire',
+};
+
 export interface RegistreRow {
   collecte_id: string;
   date_evenement: string | null;

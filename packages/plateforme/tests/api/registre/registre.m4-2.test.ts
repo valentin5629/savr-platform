@@ -336,13 +336,43 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
 
   it('M4.2/export_csv_adresse_exutoire — adresse découpée, format inconnu laissé entier', async () => {
     const { decouperAdresse } = await import('@/lib/registre/csv.js');
-    expect(
-      decouperAdresse('10 rue de la Victoire, 93150 Le Blanc-Mesnil'),
-    ).toEqual({
-      voie: '10 rue de la Victoire',
-      codePostal: '93150',
-      ville: 'Le Blanc-Mesnil',
-    });
+    // Les 5 adresses posées par la migration 20261004203000 : aucune ne doit
+    // retomber dans le repli « tout dans la voie ».
+    const adressesDuReferentiel: [string, string, string, string][] = [
+      [
+        'ZI des Graviers, 6 avenue Winston Churchill, 94190 Villeneuve-Saint-Georges',
+        'ZI des Graviers, 6 avenue Winston Churchill',
+        '94190',
+        'Villeneuve-Saint-Georges',
+      ],
+      [
+        '10 rue de la Victoire, 93150 Le Blanc-Mesnil',
+        '10 rue de la Victoire',
+        '93150',
+        'Le Blanc-Mesnil',
+      ],
+      [
+        '6 rue des Vœux Saint-Georges, 94290 Villeneuve-le-Roi',
+        '6 rue des Vœux Saint-Georges',
+        '94290',
+        'Villeneuve-le-Roi',
+      ],
+      [
+        '9 route du Môle Central, 92230 Gennevilliers',
+        '9 route du Môle Central',
+        '92230',
+        'Gennevilliers',
+      ],
+      [
+        '2 rue du Chemin Vert, 95100 Argenteuil',
+        '2 rue du Chemin Vert',
+        '95100',
+        'Argenteuil',
+      ],
+    ];
+    for (const [adresse, voie, codePostal, ville] of adressesDuReferentiel) {
+      expect(decouperAdresse(adresse)).toEqual({ voie, codePostal, ville });
+    }
     // Un nombre à 5 chiffres dans la voie n'est pas pris pour le code postal.
     expect(
       decouperAdresse('BP 12345, 2 rue du Port, 95100 Argenteuil'),

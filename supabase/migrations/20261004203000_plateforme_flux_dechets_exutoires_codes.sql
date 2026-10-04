@@ -28,9 +28,20 @@
 -- `exutoire_adresse` suit le format « voie, code postal ville » : l'export du
 -- registre en tire trois colonnes (adresse, code postal, ville).
 --
--- Additif et backward-compatible : une colonne texte nullable + UPDATE de 5
--- lignes de référentiel. Aucun droit touché (lecture déjà ouverte au niveau
--- table par la policy fd_read). Idempotent.
+-- Backward-compatible : une colonne texte nullable + UPDATE de 5 lignes de
+-- référentiel, dont deux filières qui changent de valeur (biodéchets,
+-- résiduel). Aucun droit touché (lecture déjà ouverte au niveau table par la
+-- policy fd_read). Idempotent : un rejeu repose les mêmes valeurs — une
+-- correction de ces valeurs doit donc passer par une migration, pas par une
+-- écriture directe en base.
+--
+-- Retour arrière : revenir d'abord sur le code (l'export sélectionne
+-- code_traitement), puis remettre à NULL code_dechet_europeen, code_traitement,
+-- exutoire et exutoire_adresse des 5 lignes, et filiere_valorisation à
+-- 'compostage' (biodechet) et 'enfouissement' (dechet_residuel) — les valeurs
+-- du seed bloc8. La colonne code_traitement peut rester (nullable, sans
+-- lecteur) ; son retrait se ferait par une migration dédiée, après une release
+-- sans usage.
 -- =============================================================================
 
 ALTER TABLE plateforme.flux_dechets
@@ -38,7 +49,7 @@ ALTER TABLE plateforme.flux_dechets
 
 COMMENT ON COLUMN plateforme.flux_dechets.code_traitement IS
   'Code de traitement final du flux (opération de valorisation R ou d''élimination D, '
-  'ex. R3). Colonne V1 absente du DDL cible — divergence tracée M4.2_20261004.';
+  'ex. R3). Ajout 2026-10-04, divergence M4.2_20261004.';
 
 UPDATE plateforme.flux_dechets SET
   code_dechet_europeen = '20 01 08',
@@ -76,3 +87,26 @@ UPDATE plateforme.flux_dechets SET
   exutoire             = 'NOVAZUR ARGENTEUIL UVEND',
   exutoire_adresse     = '2 rue du Chemin Vert, 95100 Argenteuil'
 WHERE code = 'dechet_residuel';
+
+-- Contrôle de fin. La table est en FORCE ROW LEVEL SECURITY : un rôle de
+-- migration sans BYPASSRLS mettrait à jour 0 ligne sans erreur, la migration
+-- serait enregistrée et l'export sortirait des colonnes vides. On compte les
+-- lignes COMPLÈTES (et non les incomplètes) : un rôle qui ne voit aucune ligne
+-- échoue lui aussi.
+DO $$
+DECLARE
+  v_complets integer;
+BEGIN
+  SELECT count(*) INTO v_complets
+    FROM plateforme.flux_dechets
+   WHERE code IN ('biodechet', 'emballage', 'carton', 'verre', 'dechet_residuel')
+     AND code_dechet_europeen IS NOT NULL
+     AND code_traitement IS NOT NULL
+     AND exutoire IS NOT NULL
+     AND exutoire_adresse IS NOT NULL;
+  IF v_complets <> 5 THEN
+    RAISE EXCEPTION
+      'flux_dechets : % flux renseigné(s) sur 5 après mise à jour — le rôle de migration écrit-il sous RLS ?',
+      v_complets;
+  END IF;
+END $$;

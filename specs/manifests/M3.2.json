@@ -159,7 +159,7 @@
     "M3.2/drilldown_gestionnaire_propage_periode_type_et_taille",
     "M3.2/drilldown_gestionnaire_libelle_memorise_en_sessionstorage",
     "M3.2/collectes_relaie_type_et_taille_devenement",
-    "M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille",
+    "M3.2/collectes_reinitialiser_retire_aussi_type_et_taille",
     "M3.2/collectes_route_filtre_type_evenement",
     "M3.2/collectes_route_filtre_taille_evenement",
     "M3.2/collectes_route_taille_xs_inclut_pax_null",
@@ -169,7 +169,7 @@
     "M3.2/collectes_route_sans_filtres_evenement",
     "M3.2/collectes_route_type_et_taille_se_cumulent",
     "M3.2/collectes_route_drilldown_gestionnaire_sans_statut_ni_type",
-    "M3.2/collectes_chip_affiche_les_filtres_devenement",
+    "M3.2/collectes_barre_affiche_les_filtres_devenement",
     "M3.2/collectes_changement_type_taille_revient_page_1",
     "M3.2/fiche_redirect_modale",
     "M3.2/fiche_redirect_edit",
@@ -600,15 +600,15 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx (drillUrl, monté sur les 4 blocs Top listes ZD+AG)",
       "test": "M3.2/drilldown_gestionnaire_tous_statuts_type_non_fige + M3.2/drilldown_gestionnaire_propage_periode_type_et_taille + M3.2/drilldown_gestionnaire_libelle_memorise_en_sessionstorage + M3.2/collectes_route_drilldown_gestionnaire_sans_statut_ni_type",
       "statut": "implemented",
-      "libelle": "Drill-down « Top listes → liste Collectes » du GESTIONNAIRE (Blocs 6/7 ZD+AG, l.209/215/267/273) : liste plate, **tous statuts, type ZD/AG NON figé**, filtres du dashboard propagés (période + Type/Taille d'événement), chip « Filtre actif » dont le libellé transite par sessionStorage. ⚠ C'est l'INVERSE du §06.04 traiteur (« miroir 5/5 » : type + statut `cloturee` figés, l.193/201/233/278) — les deux espaces divergent EXPRÈS. Le code appliquait la règle traiteur au gestionnaire depuis 53bec7c (2026-07-14) et AUCUN test ne couvrait ce chemin (`grep drillScope tests/` = 0) : le gestionnaire ne voyait que les collectes clôturées du type de l'onglet actif, et les deux filtres d'événement étaient perdus au clic."
+      "libelle": "Drill-down « Top listes → liste Collectes » du GESTIONNAIRE (Blocs 6/7 ZD+AG, l.209/215/267/273) : liste plate, **tous statuts, type ZD/AG NON figé**, filtres du dashboard propagés (période + Type/Taille d'événement), chip « Filtre actif » dont le libellé transite par sessionStorage. ⚠ ÉCART OUVERT depuis #481 (R-UI-4b D10) : la liste gestionnaire ne rend plus le chip — la cible du drill-down est nommée par le contrôle Lieu / Traiteur de la barre, et le libellé écrit en sessionStorage par le dashboard n'est plus lu par cet écran (les listes traiteur, agence et admin, elles, gardent le chip). Aucune preuve de ce livrable ne porte sur le rendu du chip. Arbitrage Val attendu : _Divergences/M3.2_20261004_chip-filtre-actif-liste-gestionnaire.md. ⚠ C'est l'INVERSE du §06.04 traiteur (« miroir 5/5 » : type + statut `cloturee` figés, l.193/201/233/278) — les deux espaces divergent EXPRÈS. Le code appliquait la règle traiteur au gestionnaire depuis 53bec7c (2026-07-14) et AUCUN test ne couvrait ce chemin (`grep drillScope tests/` = 0) : le gestionnaire ne voyait que les collectes clôturées du type de l'onglet actif, et les deux filtres d'événement étaient perdus au clic."
     },
     {
       "id": "M3.2-collectes-filtres-type-taille",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:118",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
-      "test": "M3.2/collectes_route_filtre_type_evenement + M3.2/collectes_route_filtre_taille_evenement + M3.2/collectes_route_taille_xs_inclut_pax_null + M3.2/collectes_route_taille_brackets_non_contigus + M3.2/collectes_route_taille_inconnue_ne_desarme_pas_le_filtre + M3.2/collectes_route_taille_cle_heritee_rejetee + M3.2/collectes_route_sans_filtres_evenement + M3.2/collectes_route_type_et_taille_se_cumulent + M3.2/collectes_relaie_type_et_taille_devenement + M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille + M3.2/collectes_chip_affiche_les_filtres_devenement + M3.2/collectes_changement_type_taille_revient_page_1",
+      "test": "M3.2/collectes_route_filtre_type_evenement + M3.2/collectes_route_filtre_taille_evenement + M3.2/collectes_route_taille_xs_inclut_pax_null + M3.2/collectes_route_taille_brackets_non_contigus + M3.2/collectes_route_taille_inconnue_ne_desarme_pas_le_filtre + M3.2/collectes_route_taille_cle_heritee_rejetee + M3.2/collectes_route_sans_filtres_evenement + M3.2/collectes_route_type_et_taille_se_cumulent + M3.2/collectes_relaie_type_et_taille_devenement + M3.2/collectes_reinitialiser_retire_aussi_type_et_taille + M3.2/collectes_barre_affiche_les_filtres_devenement + M3.2/collectes_changement_type_taille_revient_page_1",
       "statut": "implemented",
-      "libelle": "Filtres « Type d'événement » et « Taille d'événement » acceptés de bout en bout par la liste Collectes gestionnaire (`type_evenement_ids[]`, `taille_evenements[]`), mêmes noms de paramètres que `gestionnaire/evenements`. La TAILLE est un bracket calculé sur `evenements.pax` (XS [0-249] … XL [1000+], l.115) traduit en prédicats `.or(…, { referencedTable: 'evenements' })` — **en SQL et non en post-traitement JS** : la route est paginée, un filtrage après `.range()` filtrerait une page au lieu de l'ensemble et laisserait `total` non filtré. `pax` NULL compte XS, comme `tailleBracket(pax ?? 0)` de la liste Événements, sans quoi le même filtre donnerait deux périmètres selon l'écran. Un code de bracket inconnu renvoie une liste vide plutôt que le parc complet. L'écran relaie les deux paramètres, les intègre à la signature de pagination et les retire au « Retirer le filtre »."
+      "libelle": "Filtres « Type d'événement » et « Taille d'événement » acceptés de bout en bout par la liste Collectes gestionnaire (`type_evenement_ids[]`, `taille_evenements[]`), mêmes noms de paramètres que `gestionnaire/evenements`. La TAILLE est un bracket calculé sur `evenements.pax` (XS [0-249] … XL [1000+], l.115) traduit en prédicats `.or(…, { referencedTable: 'evenements' })` — **en SQL et non en post-traitement JS** : la route est paginée, un filtrage après `.range()` filtrerait une page au lieu de l'ensemble et laisserait `total` non filtré. `pax` NULL compte XS, comme `tailleBracket(pax ?? 0)` de la liste Événements, sans quoi le même filtre donnerait deux périmètres selon l'écran. Un code de bracket inconnu renvoie une liste vide plutôt que le parc complet. L'écran relaie les deux paramètres, les intègre à la signature de pagination, les AFFICHE comme contrôles de sa barre de filtres (« Type d'événement », « Taille d'événement » — R-UI-4b D10, #481 : un filtre appliqué est un filtre visible) et les retire au « Réinitialiser les filtres », y compris les anciennes clés `x[]` de l'URL. Avant #481 ces deux preuves portaient sur le chip « Filtre actif » (`…chip_affiche…`, `…retirer_le_filtre…`) ; les tests ont été renommés avec l'écran."
     },
     {
       "id": "M3.2-kpi-sparkline-n1",

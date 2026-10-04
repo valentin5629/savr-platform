@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Tests pgTAP — associations : SELECT en liste blanche colonne-level
--- Migration prouvée : 20261004200000_plateforme_associations_select_liste_blanche
+-- Migration prouvée : 20261004100000_plateforme_associations_select_liste_blanche
 -- =============================================================================
 -- Fuite fermée (reviewer-rls-securite, 2026-10-04) : la policy `asso_read`
 -- (auth.role() = 'authenticated') rend toutes les lignes du référentiel à tout

@@ -106,9 +106,11 @@
 --     gestionnaire — colonnes de la liste blanche. Fonctionnellement
 --     compatible dans les deux ordres d'application (mesuré : ses 2 fichiers
 --     pgTAP et celui-ci verts dans chaque ordre). L'ordre de MERGE, lui, est
---     contraint par les préfixes : ce lot (20261004200000) se merge APRÈS
---     20261004190000 et laisse passer derrière lui toute migration au préfixe
---     supérieur.
+--     contraint par les préfixes : celui de ce lot (20261004100000) est
+--     inférieur à ceux des deux lots en vol à cette date (20261004190000 et
+--     20261004203000). Ce lot se merge donc AVANT eux, qui passent derrière
+--     sans changer de préfixe ; si l'un d'eux est mergé d'abord, c'est ce lot
+--     qui en change.
 --
 -- CE QUE CE LOT NE CHANGE PAS (relevé, hors périmètre — arbitrages Val) :
 --   - latitude / longitude restent lisibles en direct : des coordonnées
@@ -142,9 +144,10 @@
 -- preuve. ORDRE code / migration : indifférent. Aucune route ne lit sous
 -- l'identité de l'utilisateur une colonne fermée ici ; l'ancien code comme le
 -- nouveau fonctionnent avant et après la migration. ORDRE entre migrations :
--- imposé par les préfixes (cf. « Lot en vol » plus haut) — ne pas pousser
--- celle-ci sur une base avant que 20261004190000 y soit passée, son db push y
--- serait refusé.
+-- imposé par les préfixes (cf. « Lot en vol » plus haut) — sur une base, cette
+-- migration passe AVANT celles de préfixe supérieur. Si l'une d'elles y est
+-- déjà inscrite au registre, le db push de celle-ci est refusé (migration à
+-- insérer avant la dernière appliquée) : mesurer le registre avant de pousser.
 -- APRÈS APPLICATION, mesurer sur la base : has_table_privilege('authenticated',
 -- 'plateforme.associations', 'SELECT') = false et 7 colonnes lisibles.
 --

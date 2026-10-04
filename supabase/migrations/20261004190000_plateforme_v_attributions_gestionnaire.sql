@@ -47,13 +47,17 @@
 -- ORDRE DE DÉPLOIEMENT : cette migration doit être appliquée AVANT que le code
 -- du lot soit en ligne (dev, puis prod). L'ancien code fonctionne avec la base
 -- migrée — rien ne lit la vue avant ce lot. Le nouveau code EXIGE la vue : sans
--- elle, PostgREST refuse l'embed (PGRST200, HTTP 400) et les écrans du
--- gestionnaire passent en erreur au lieu d'afficher zéro. Les autres rôles ne
--- sont pas touchés (les chargeurs partagés branchent par rôle).
+-- elle, PostgREST refuse l'embed (PGRST200, HTTP 400) sur 10 des 11 lectures et
+-- ces écrans du gestionnaire passent en erreur au lieu d'afficher zéro ; la
+-- 11e, la fiche collecte, lit la vue en direct et n'en contrôle pas l'erreur :
+-- elle afficherait « — » sans repas ni association. Les autres rôles ne sont
+-- pas touchés (les chargeurs partagés branchent par rôle).
 -- APRÈS APPLICATION, mesurer sur la base : la vue existe, ses 5 colonnes, ACL
 -- authenticated = SELECT seul, rien pour anon ; puis, sous le jeton d'un
 -- gestionnaire, count(*) de la vue = nombre d'attributions des collectes de ses
--- lieux (savr-dev, Viparis, 2026-10-04 : 127 lignes attendues, 10 425 repas).
+-- lieux à événement daté, TOUS STATUTS (la vue ne filtre pas le statut). Mesuré
+-- sur savr-dev pour Viparis le 2026-10-04 : 153 lignes, dont 127 sur collectes
+-- clôturées — ces 127 portent les 10 425 repas du KPI du dashboard.
 -- ROLLBACK : en fin de fichier.
 -- =============================================================================
 

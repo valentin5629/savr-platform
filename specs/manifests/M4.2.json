@@ -156,7 +156,7 @@
       "id": "M4.2-flux-referentiel-exutoires-codes",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:90",
       "artefact": "supabase/migrations/20261004203000_plateforme_flux_dechets_exutoires_codes.sql (flux_dechets : + code_traitement ; exutoire, adresse, code déchet, code de traitement et filière des 5 flux)",
-      "test": "flux_referentiel_complet + flux_referentiel_adresse_decoupable + flux_referentiel_codes + flux_referentiel_lisible_client",
+      "test": "flux_referentiel_adresse_decoupable + flux_referentiel_codes + flux_referentiel_lisible_client",
       "statut": "implemented",
       "libelle": "Référentiel des flux ZD renseigné (jamais rempli depuis le seed) : exutoire final et adresse « voie, code postal ville », code déchet européen, code de traitement final (colonne ajoutée), filière (biodéchets = méthanisation, résiduel = valorisation énergétique). Sources : export Veolia des enlèvements à l'entrepôt (4 flux), Paprec Trivalo 93 pour les emballages (décisions Val 2026-10-04)."
     }

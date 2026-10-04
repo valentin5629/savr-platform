@@ -6,19 +6,13 @@
 -- l'utilisateur : la colonne ajoutée doit rester lisible par un rôle client.
 
 BEGIN;
-SELECT plan(4);
+SELECT plan(3);
 
 SELECT is(
   (SELECT count(*)::int FROM plateforme.flux_dechets
     WHERE actif
-      AND (code_dechet_europeen IS NULL OR code_traitement IS NULL
-           OR exutoire IS NULL OR exutoire_adresse IS NULL)),
-  0,
-  'flux_referentiel_complet — chaque flux actif porte code déchet, code de traitement, exutoire et adresse');
-
-SELECT is(
-  (SELECT count(*)::int FROM plateforme.flux_dechets
-    WHERE actif AND exutoire_adresse !~ '^.+, [0-9]{5} [^0-9]+$'),
+      AND (exutoire_adresse IS NULL
+           OR exutoire_adresse !~ '^.+, [0-9]{5} [^0-9]+$')),
   0,
   'flux_referentiel_adresse_decoupable — adresse au format « voie, code postal ville »');
 

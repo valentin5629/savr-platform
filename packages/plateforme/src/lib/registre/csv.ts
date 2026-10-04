@@ -25,28 +25,23 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 // @savr/shared/src/csv.
 // ---------------------------------------------------------------------------
 
-/** Référentiel d'un flux (plateforme.flux_dechets), tel que l'export le lit. */
-interface FluxReferentiel {
-  nom: string | null;
-  code_dechet_europeen: string | null;
-  filiere_valorisation: string | null;
-  code_traitement: string | null;
-  exutoire: string | null;
-  exutoire_adresse: string | null;
-}
-
+/** Pesée d'un flux, avec les champs de plateforme.flux_dechets lus par l'export. */
 interface FluxPese {
   code: string;
   poidsKg: number;
-  ref: FluxReferentiel;
+  nom?: string | null;
+  code_dechet_europeen?: string | null;
+  filiere_valorisation?: string | null;
+  code_traitement?: string | null;
+  exutoire?: string | null;
+  exutoire_adresse?: string | null;
 }
 // collecte_id → flux pesés de la collecte
 type FluxByCollecte = Map<string, FluxPese[]>;
 
-// Les pesées se lisent par tranches de collectes : une réponse est plafonnée à
-// 1000 lignes, sans erreur. Mesuré sur savr-dev le 2026-10-04 : 345 collectes
-// demandées en une fois → 1000 pesées reçues sur 1725. Une collecte a au plus
-// une pesée par flux (uniq_collecte_flux) et il existe 5 flux : 100 collectes
+// Les pesées se lisent par tranches de collectes : PostgREST plafonne une
+// réponse à 1000 lignes (max_rows), sans erreur. Une collecte a au plus une
+// pesée par flux (uniq_collecte_flux) et il existe 5 flux : 100 collectes
 // donnent au plus 500 lignes, pour une URL d'environ 4 000 caractères.
 const TRANCHE_COLLECTES = 100;
 const PLAFOND_LIGNES_REPONSE = 1000;
@@ -84,21 +79,13 @@ export async function fetchFluxDetail(
       const cid = row.collecte_id as string;
       const fd = (
         Array.isArray(row.flux_dechets) ? row.flux_dechets[0] : row.flux_dechets
-      ) as ({ code?: string } & Partial<FluxReferentiel>) | null;
-      const code = fd?.code;
-      if (!code) continue;
+      ) as Partial<FluxPese> | null;
+      if (!fd?.code) continue;
       const fluxCollecte = out.get(cid) ?? [];
       fluxCollecte.push({
-        code,
+        ...fd,
+        code: fd.code,
         poidsKg: Number(row.poids_reel_kg ?? 0),
-        ref: {
-          nom: fd.nom ?? null,
-          code_dechet_europeen: fd.code_dechet_europeen ?? null,
-          filiere_valorisation: fd.filiere_valorisation ?? null,
-          code_traitement: fd.code_traitement ?? null,
-          exutoire: fd.exutoire ?? null,
-          exutoire_adresse: fd.exutoire_adresse ?? null,
-        },
       });
       out.set(cid, fluxCollecte);
     }
@@ -139,7 +126,7 @@ const EXUTOIRE_INTERMEDIAIRE: Etablissement = {
  * plutôt qu'un code postal deviné.
  */
 export function decouperAdresse(
-  adresse: string | null,
+  adresse: string | null | undefined,
 ): Omit<Etablissement, 'nom'> {
   const m = /^(.*?),?\s*(\d{5})\s+(\D+)$/.exec((adresse ?? '').trim());
   if (!m) return { voie: (adresse ?? '').trim(), codePostal: '', ville: '' };
@@ -149,8 +136,8 @@ export function decouperAdresse(
 
 function exutoireFinal(l: LigneFlux): Etablissement {
   return {
-    nom: l.flux.ref.exutoire ?? '',
-    ...decouperAdresse(l.flux.ref.exutoire_adresse),
+    nom: l.flux.exutoire ?? '',
+    ...decouperAdresse(l.flux.exutoire_adresse),
   };
 }
 
@@ -178,11 +165,11 @@ function numeroBordereau(row: RegistreRow): string {
 const COLUMNS: CsvColumn<LigneFlux>[] = [
   {
     header: 'Nature du déchet',
-    value: (l) => FLUX_LABELS[l.flux.code] ?? l.flux.ref.nom ?? l.flux.code,
+    value: (l) => FLUX_LABELS[l.flux.code] ?? l.flux.nom ?? l.flux.code,
   },
   {
     header: 'Code nomenclature déchets',
-    value: (l) => l.flux.ref.code_dechet_europeen ?? '',
+    value: (l) => l.flux.code_dechet_europeen ?? '',
   },
   // Producteur au sens du modèle = le site où le déchet est produit.
   {
@@ -204,13 +191,13 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
   {
     header: 'Filière de traitement finale',
     value: (l) => {
-      const f = l.flux.ref.filiere_valorisation ?? '';
+      const f = l.flux.filiere_valorisation ?? '';
       return FILIERE_LABELS[f] ?? f;
     },
   },
   {
     header: 'Code D&R de traitement finale',
-    value: (l) => l.flux.ref.code_traitement ?? '',
+    value: (l) => l.flux.code_traitement ?? '',
   },
   // Pas de BSD pour ces déchets : le bordereau Savr en tient lieu.
   { header: 'Numéro de BSD', value: (l) => numeroBordereau(l.row) },
@@ -244,7 +231,7 @@ const rangFlux = (code: string): number =>
 export function buildRegistreCsv(
   rows: RegistreRow[],
   fluxByCollecte: FluxByCollecte,
-  fluxFiltres: string[] = [],
+  fluxFiltres: string[],
 ): { csv: string; nbLignes: number } {
   const lignes: LigneFlux[] = rows.flatMap((row) =>
     (fluxByCollecte.get(row.collecte_id) ?? [])

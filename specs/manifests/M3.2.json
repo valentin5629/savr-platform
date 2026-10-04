@@ -736,7 +736,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx, packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": "M3.2/collectes_colonnes_identiques_liste_traiteur + M3.2/collectes_route_colonnes_liste_traiteur",
       "statut": "implemented",
-      "libelle": "Liste Collectes gestionnaire aux colonnes de la liste traiteur, plus « Traiteur » (décisions Val, revue écran E2E 2026-10-01 : mêmes colonnes dans l'écran existant — liste plate paginée conservée ; « Type » gardé car ZD et AG sont mêlés ; « Événement » retiré ; aucun picto d'action — divergence M3.1_20261001_liste-colonne-client). Colonnes : Date · Lieu (nom + adresse) · Client · Traiteur · Pax · Résultats · Type · Statut ; les cellules Lieu et Résultats sont celles de la liste traiteur (composants partagés), et un test de parité échoue si une colonne ajoutée côté traiteur n'est pas reprise. Traiteur lu par la vue restreinte v_traiteurs_gestionnaire (nom seul). Résultats sur collecte clôturée : poids ZD = Σ collecte_flux, taux de recyclage, CO₂ évité ; repas AG = attribution quand elle est lisible, sinon dernière version de l'attestation de don servie au gestionnaire (même règle que la fiche, D13 — sur une collecte d'un traiteur tiers l'attribution lui est refusée par aa_select, jamais élargie). Téléchargement du rapport depuis la ligne (route gestionnaire existante, documents sous sa RLS, §06.05 l.619) : jamais « réservé au donneur d'ordre ». Les embeds bruts ne sortent pas de la route. Seules Date / Type / Statut restent triables (tri serveur)."
+      "libelle": "Liste Collectes gestionnaire aux colonnes de la liste traiteur, plus « Traiteur » (décisions Val, revue écran E2E 2026-10-01 : mêmes colonnes dans l'écran existant — liste plate paginée conservée ; « Type » gardé car ZD et AG sont mêlés ; « Événement » retiré ; aucun picto d'action — divergence M3.1_20261001_liste-colonne-client). Colonnes : Date · Lieu (nom + adresse) · Client · Traiteur · Pax · Résultats · Type · Statut ; les cellules Lieu et Résultats sont celles de la liste traiteur (composants partagés), et un test de parité échoue si une colonne ajoutée côté traiteur n'est pas reprise. Traiteur lu par la vue restreinte v_traiteurs_gestionnaire (nom seul). Résultats sur collecte clôturée : poids ZD = Σ collecte_flux, taux de recyclage, CO₂ évité ; repas AG = volume de l'attribution lu par la vue v_attributions_gestionnaire (même source que la fiche ; sur une collecte d'un traiteur tiers la table lui est refusée par aa_select, jamais élargie — le repli D13 sur l'attestation de don est retiré depuis la migration 20261004190000). Téléchargement du rapport depuis la ligne (route gestionnaire existante, documents sous sa RLS, §06.05 l.619) : jamais « réservé au donneur d'ordre ». Les embeds bruts ne sortent pas de la route. Seules Date / Type / Statut restent triables (tri serveur)."
     },
     {
       "id": "M3.2-vue-attributions-gestionnaire",
@@ -777,6 +777,22 @@
       "test": "M3.2/synthese_gestionnaire_ag_par_vue",
       "statut": "implemented",
       "libelle": "Synthèse PDF Anti-Gaspi du gestionnaire : repas donnés et ventilation par association lus par la vue v_attributions_gestionnaire (branchement par rôle). 9e point d'appel, absent du décompte « 8 » du §04 : la route est ouverte au gestionnaire et lisait la table, refusée sur un traiteur tiers."
+    },
+    {
+      "id": "M3.2-bloc6-ag-top-lieux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:269",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, topLieuxFrom) + packages/plateforme/src/lib/dashboards/attributions-ag.ts",
+      "test": "M3.2/blocs_gestionnaire_ag_par_vue",
+      "statut": "implemented",
+      "libelle": "Bloc 6 AG gestionnaire — top lieux AG : nombre de collectes, repas donnés et repas/pax par lieu, repas lus par la vue v_attributions_gestionnaire (événements de traiteurs tiers compris)."
+    },
+    {
+      "id": "M3.2-bloc7-ag-top-traiteurs",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:275",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, aggregateActeurs) + packages/plateforme/src/lib/dashboards/attributions-ag.ts",
+      "test": "M3.2/blocs_gestionnaire_ag_par_vue",
+      "statut": "implemented",
+      "libelle": "Bloc 7 AG gestionnaire — top traiteurs AG : nombre de collectes AG, repas donnés et repas/pax par traiteur opérationnel, repas lus par la vue v_attributions_gestionnaire."
     }
   ],
   "cdc_source_hash": {

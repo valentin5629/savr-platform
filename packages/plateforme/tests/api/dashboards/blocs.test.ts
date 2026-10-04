@@ -479,8 +479,23 @@ describe('blocs AG — attributions lues par rôle (vue gestionnaire / table)', 
         repas_recus: 70,
       },
     ]);
-    // Bloc 6 AG : repas par lieu — Lieu A (130) devant Lieu B (40).
+    // Bloc 6 AG (§06.05 l.269) : repas et repas/pax par lieu — Lieu A (130 repas
+    // sur 2 événements de 100 pax) devant Lieu B (40 repas, 100 pax).
     expect(j.data.topLieux.map((l) => l.repas_donnes)).toEqual([130, 40]);
+    expect(j.data.topLieux.map((l) => l.repas_par_pax)).toEqual([0.65, 0.4]);
+    // Bloc 7 AG (§06.05 l.275) : traiteurs par nombre de collectes AG — t1 (2
+    // collectes, 70 repas, 200 pax) devant t2 (1 collecte, 100 repas, 100 pax).
+    expect(
+      j.data.topActeurs!.map((a) => [
+        a.id,
+        a.nb_collectes,
+        a.repas_donnes,
+        a.repas_par_pax,
+      ]),
+    ).toEqual([
+      ['t1', 2, 70, 0.35],
+      ['t2', 1, 100, 1],
+    ]);
   });
 
   it.each([

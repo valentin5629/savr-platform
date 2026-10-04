@@ -517,12 +517,12 @@ describe('M3.2 / P2 liste événements colonnes', () => {
   });
 });
 
-// ── Liste Événements : « Repas donnés » (D13, arbitrage Val 2026-09-30) ───────
-// Même règle que la fiche collecte du rôle : l'attribution quand elle est
-// lisible, sinon la dernière version de l'attestation de don. Les formes sont
-// celles que PostgREST rend réellement sous le jeton d'un gestionnaire (rejeu
-// savr-dev du 2026-10-01) : attribution refusée par aa_select = `null` (embed
-// to-one), attestations = tableau (une ligne par version).
+// ── Liste Événements : « Repas donnés » ───────────────────────────────────────
+// Même source que la fiche collecte du rôle : le volume de l'attribution, lu
+// par la vue v_attributions_gestionnaire (§04). Les formes sont celles que
+// PostgREST rend réellement sous le jeton d'un gestionnaire (mesure sur base
+// vierge, 2026-10-04) : embed to-one de la vue = OBJET, ou `null` quand la vue
+// ne rend rien. Le repli sur l'attestation de don (D13) est retiré.
 describe('M3.2 / liste événements — repas donnés', () => {
   // `attributions_antgaspi` = l'embed de la vue v_attributions_gestionnaire sous
   // son alias : objet (to-one), ou null quand la vue ne rend rien.

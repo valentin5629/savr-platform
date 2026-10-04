@@ -19,8 +19,32 @@ import { BenchmarkFilterBar } from './BenchmarkFilterBar';
 import { ExportSyntheseBloc } from './ExportSyntheseBloc';
 import { periodeDerniers, raccourcisPeriode } from '@/lib/periodes-raccourcis';
 
+// localStorage en mémoire, neuf à chaque cas (même idiome que les autres tests
+// de dashboards). Sous Node 25 (poste local ; la CI est en Node 20), le
+// `localStorage` global n'expose pas clear() : l'appeler ici faisait échouer
+// les 6 cas avant leur première ligne.
+function makeLocalStorage(): Storage {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (k: string) => (k in store ? store[k] : null),
+    setItem: (k: string, v: string) => {
+      store[k] = String(v);
+    },
+    removeItem: (k: string) => {
+      delete store[k];
+    },
+    clear: () => {
+      store = {};
+    },
+    key: (i: number) => Object.keys(store)[i] ?? null,
+    get length() {
+      return Object.keys(store).length;
+    },
+  } as Storage;
+}
+
 beforeEach(() => {
-  localStorage.clear();
+  vi.stubGlobal('localStorage', makeLocalStorage());
 });
 
 afterEach(() => {

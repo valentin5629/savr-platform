@@ -395,6 +395,29 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     ]);
   });
 
+  it('M4.2/export_csv_agence_denied — agence refusée (403), aucune lecture', async () => {
+    setupAuth('agence', 'org-a');
+    expect((await callCsv()).status).toBe(403);
+    expect(rls.__calls.from).toBeUndefined();
+  });
+
+  it('M4.2/export_csv_registre_ampute — moins de collectes reçues que le décompte : 500, jamais un export incomplet', async () => {
+    setupAuth('admin_savr', null);
+    // La réponse est plafonnée à 1000 lignes ; le décompte exact en annonce 1200.
+    rls.push({
+      data: Array.from({ length: 1000 }, (_, i) => ({
+        ...LIGNE_REGISTRE,
+        collecte_id: `c${i}`,
+      })),
+      count: 1200,
+      error: null,
+    });
+    const res = await callCsv();
+    expect(res.status).toBe(500);
+    expect(res.headers.get('Content-Type')).not.toContain('text/csv');
+    expect(rls.__calls.in).toBeUndefined(); // aucune pesée lue
+  });
+
   it('M4.2/export_csv_erreur_tranche — une tranche en erreur ou au plafond : 500, ni fichier partiel ni trace', async () => {
     setupAuth('traiteur_manager', 'org-a');
     rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });

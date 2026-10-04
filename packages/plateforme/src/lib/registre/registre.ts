@@ -190,8 +190,18 @@ export async function fetchRegistre(
 
   const { data, count, error } = await q;
   if (error) throw erreurInterne(error, 'registre.lecture');
+  const rows = (data ?? []) as unknown as RegistreRow[];
+  // Lecture complète (exports) : PostgREST plafonne une réponse (max_rows) sans
+  // erreur. Moins de lignes que le décompte = registre amputé → erreur, jamais
+  // un export incomplet.
+  if (opts.all && rows.length < (count ?? 0)) {
+    throw erreurInterne(
+      new Error('registre : lecture complète amputée'),
+      'registre.lecture',
+    );
+  }
   return {
-    rows: (data ?? []) as unknown as RegistreRow[],
+    rows,
     total: count ?? 0,
     page: f.page,
     pageSize: f.pageSize,

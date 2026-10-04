@@ -405,3 +405,107 @@ describe('M3.2 / blocs gestionnaire — traiteurs + périmètre parc', () => {
     ]);
   });
 });
+
+// §04 « Vue SQL : v_attributions_gestionnaire » (arbitrage Val 2026-09-22, option
+// A) : le chargeur branche PAR RÔLE. La vue est vide pour tout autre rôle que le
+// gestionnaire (garde de rôle) ; la table lui est refusée sur un traiteur tiers
+// (aa_select, C-1). Un rôle envoyé sur le mauvais chemin lit zéro repas sans
+// erreur — d'où l'assertion sur le `select` réellement demandé.
+describe('blocs AG — attributions lues par rôle (vue gestionnaire / table)', () => {
+  const VUE = 'attributions_antgaspi:v_attributions_gestionnaire(';
+  const TABLE = /attributions_antgaspi\s*\(/;
+  // Le `select` de la requête `collectes` (d'autres tables suivent : noms des
+  // traiteurs / commerciaux).
+  const selectCollectes = () =>
+    (calls.select ?? [])
+      .map((a) => String(a[0]))
+      .find((x) => x.includes('date_collecte')) ?? '';
+  const URL_AG =
+    '/api/v1/dashboards/blocs?type=anti_gaspi&from=2026-06-01&to=2026-06-30';
+
+  it('M3.2/blocs_gestionnaire_ag_par_vue — traiteur tiers : top associations et repas par lieu lus par la vue', async () => {
+    setupAuth('gestionnaire_lieux', 'org-7');
+    queues['organisations_lieux'] = [
+      { data: [{ lieu_id: 'A' }, { lieu_id: 'B' }], error: null },
+    ];
+    // Forme réelle de la vue : association À PLAT, embed to-one en OBJET.
+    const parVue = (
+      id: string,
+      e: EvtOpts,
+      repas: number,
+      asso: { id: string; nom: string; ville: string | null },
+    ) => ({
+      ...ag(id, e, repas, asso),
+      attributions_antgaspi: {
+        volume_repas_realise: repas,
+        association_id: asso.id,
+        association_nom: asso.nom,
+        association_ville: asso.ville,
+      },
+    });
+    const asso1 = { id: 'a1', nom: 'Asso Un', ville: 'Paris' };
+    const asso2 = { id: 'a2', nom: 'Asso Deux', ville: null };
+    queues['collectes'] = [
+      {
+        data: [
+          parVue('c1', { id: 'e1', lieu_id: 'A', traiteur: 't1' }, 30, asso1),
+          parVue('c2', { id: 'e2', lieu_id: 'B', traiteur: 't1' }, 40, asso1),
+          parVue('c3', { id: 'e3', lieu_id: 'A', traiteur: 't2' }, 100, asso2),
+        ],
+        error: null,
+      },
+    ];
+    queues['v_referentiel_traiteurs'] = [{ data: [], error: null }];
+    const GET = await loadGET();
+    const res = await GET(req(URL_AG));
+    const j = (await res.json()) as BlocsJson;
+
+    expect(selectCollectes()).toContain(VUE);
+    expect(selectCollectes()).not.toMatch(TABLE);
+    // Bloc 3 AG : ordre repas reçus décroissant, nom et ville de la vue.
+    expect(j.data.topAssociations).toEqual([
+      {
+        association_id: 'a2',
+        nom: 'Asso Deux',
+        ville: null,
+        nb_collectes: 1,
+        repas_recus: 100,
+      },
+      {
+        association_id: 'a1',
+        nom: 'Asso Un',
+        ville: 'Paris',
+        nb_collectes: 2,
+        repas_recus: 70,
+      },
+    ]);
+    // Bloc 6 AG : repas par lieu — Lieu A (130) devant Lieu B (40).
+    expect(j.data.topLieux.map((l) => l.repas_donnes)).toEqual([130, 40]);
+  });
+
+  it.each([
+    ['M3.1/blocs_traiteur_ag_lit_la_table', 'traiteur_manager'],
+    ['M3.1/blocs_commercial_ag_lit_la_table', 'traiteur_commercial'],
+    ['M3.3/blocs_agence_ag_lit_la_table', 'agence'],
+  ])('%s — %s : la table, jamais la vue', async (_id, role) => {
+    setupAuth(role, 'org-1');
+    const asso = { id: 'a1', nom: 'Asso Un', ville: 'Paris' };
+    queues['collectes'] = [
+      { data: [ag('c1', { id: 'e1' }, 30, asso)], error: null },
+    ];
+    queues['users'] = [{ data: [], error: null }];
+    const GET = await loadGET();
+    const res = await GET(req(URL_AG));
+    const j = (await res.json()) as BlocsJson;
+
+    expect(selectCollectes()).toMatch(TABLE);
+    expect(selectCollectes()).toContain(
+      'associations!association_id(id, nom, ville)',
+    );
+    expect(selectCollectes()).not.toContain('v_attributions_gestionnaire');
+    expect(j.data.topAssociations![0]).toMatchObject({
+      nom: 'Asso Un',
+      repas_recus: 30,
+    });
+  });
+});

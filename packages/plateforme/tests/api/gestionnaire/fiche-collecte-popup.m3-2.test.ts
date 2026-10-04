@@ -3,8 +3,9 @@
  * le pop-up §06.04, refonte Val 2026-09-29), côté API.
  *
  * Exigences de la revue sécurité du sync 2026-09-29 :
- *  · association bénéficiaire ABSENTE de la réponse (Q7) — pas seulement cachée :
- *    ni lue (aa_select jamais élargie, pas de service-role), ni sérialisée ;
+ *  · attribution AG (repas, association) lue par la vue
+ *    v_attributions_gestionnaire (§04) — jamais par la table (aa_select jamais
+ *    élargie), jamais en service-role ;
  *  · radar : f_benchmark_single_collecte refuse les collectes de traiteurs tiers →
  *    « pas de radar » (200, data null), JAMAIS de contournement ;
  *  · documents lus sous la RLS du gestionnaire, jamais en service-role ;
@@ -70,30 +71,39 @@ beforeEach(() => {
   mockPresigned.mockResolvedValue('https://r2.example/rapport.pdf');
 });
 
-describe('M3.2 / fiche client gestionnaire — association (Q7)', () => {
-  it('M3.2/fiche_get_association_absente — AG validée : ni lue ni servie, même si l’attribution est lisible', async () => {
+describe('M3.2 / fiche client gestionnaire — association (vue v_attributions_gestionnaire)', () => {
+  it('M3.2/fiche_get_association_par_vue — AG d’un traiteur tiers : association servie, lue par la vue et jamais par la table', async () => {
     rls.results.collectes = {
-      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee' }),
+      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee', ...TIERS }),
       error: null,
     };
-    // Piège : la table renverrait une association si on la demandait.
-    rls.results.attributions_antgaspi = {
+    // La vue porte nom et ville à plat ; la description vient d'`associations`.
+    rls.results.v_attributions_gestionnaire = {
       data: {
         volume_repas_realise: 840,
-        association: {
-          nom: 'Les Restos du Cœur',
-          ville: 'Paris',
-          description_rapport_impact: 'x',
-        },
+        association_nom: 'Les Restos du Cœur',
+        association_ville: 'Paris',
+        association: { description_rapport_impact: 'Aide alimentaire.' },
       },
       error: null,
     };
+    // Piège : aa_select refuse la table au gestionnaire (C-1) — la lire rendrait
+    // un bloc vide en production.
+    rls.results.attributions_antgaspi = { data: null, error: null };
     const { json } = await getFiche();
-    expect(Object.hasOwn(json.data, 'association')).toBe(false);
-    expect(JSON.stringify(json)).not.toContain('Restos');
-    // La lecture ne demande que le volume de repas — jamais l'association.
-    expect(rls.selects.attributions_antgaspi).toEqual(['volume_repas_realise']);
+    expect(json.data.association).toEqual({
+      nom: 'Les Restos du Cœur',
+      ville: 'Paris',
+      description: 'Aide alimentaire.',
+    });
+    expect(rls.calls).toContain('v_attributions_gestionnaire');
+    expect(rls.calls).not.toContain('attributions_antgaspi');
+    expect(rls.eqs.v_attributions_gestionnaire).toEqual([
+      ['collecte_id', 'c1'],
+    ]);
+    // Aucune lecture élargie : ni la table ni la vue en service-role.
     expect(admin.calls).not.toContain('attributions_antgaspi');
+    expect(admin.calls).not.toContain('v_attributions_gestionnaire');
     expect(admin.calls).not.toContain('associations');
   });
 });
@@ -148,15 +158,47 @@ describe('M3.2 / fiche client gestionnaire — contacts et référence d’affai
   });
 });
 
-describe('M3.2 / fiche client gestionnaire — repas des collectes tierces (D13)', () => {
-  it('M3.2/fiche_get_repas_tiers_depuis_attestation — AG d’un traiteur tiers : repas lus dans l’attestation servie au gestionnaire', async () => {
+describe('M3.2 / fiche client gestionnaire — repas des collectes tierces (vue)', () => {
+  it('M3.2/fiche_get_repas_tiers_par_vue — AG d’un traiteur tiers : volume de l’attribution lu par la vue, pas dans l’attestation', async () => {
     rls.results.collectes = {
       data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee', ...TIERS }),
       error: null,
     };
-    // aa_select exclut le gestionnaire sur une collecte tierce (C-1)…
-    rls.results.attributions_antgaspi = { data: null, error: null };
-    // …mais att_gestionnaire_select lui sert l'attestation (§06.05 l.619).
+    rls.results.v_attributions_gestionnaire = {
+      data: {
+        volume_repas_realise: 150,
+        association_nom: 'Asso',
+        association_ville: null,
+        association: null,
+      },
+      error: null,
+    };
+    // Piège : une attestation au chiffre différent ne doit plus servir de source.
+    rls.results.attestations_don = {
+      data: {
+        eligible_at: '2020-01-01T00:00:00Z',
+        pdf_url: 'att.pdf',
+        nb_repas: 999,
+      },
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.repas_donnes).toBe(150);
+    expect(rls.selects.attestations_don?.[0]).not.toContain('nb_repas');
+    expect(rls.selects.v_attributions_gestionnaire?.[0]).toContain(
+      'volume_repas_realise',
+    );
+    expect(admin.calls).not.toContain('attestations_don');
+    expect(admin.calls).not.toContain('attributions_antgaspi');
+  });
+
+  it('M3.2/fiche_get_repas_tiers_sans_attribution — la vue ne rend rien : « — », pas d’association', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee', ...TIERS }),
+      error: null,
+    };
+    rls.results.v_attributions_gestionnaire = { data: null, error: null };
+    // Piège : l'attestation existe, mais elle n'est plus un repli.
     rls.results.attestations_don = {
       data: {
         eligible_at: '2020-01-01T00:00:00Z',
@@ -166,26 +208,11 @@ describe('M3.2 / fiche client gestionnaire — repas des collectes tierces (D13)
       error: null,
     };
     const { json } = await getFiche();
-    expect(json.data.repas_donnes).toBe(150);
-    expect(rls.selects.attestations_don?.[0]).toContain('nb_repas');
-    // Aucune lecture service-role, aucune association sérialisée (Q7).
-    expect(admin.calls).not.toContain('attestations_don');
-    expect(admin.calls).not.toContain('attributions_antgaspi');
-    expect(Object.hasOwn(json.data, 'association')).toBe(false);
-  });
-
-  it('M3.2/fiche_get_repas_tiers_sans_attestation — attestation pas encore générée : « — »', async () => {
-    rls.results.collectes = {
-      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee', ...TIERS }),
-      error: null,
-    };
-    rls.results.attributions_antgaspi = { data: null, error: null };
-    rls.results.attestations_don = { data: null, error: null };
-    const { json } = await getFiche();
     expect(json.data.repas_donnes).toBeNull();
+    expect(json.data.association).toBeNull();
   });
 
-  it('M3.2/fiche_get_repas_propre_programmation — AG programmée par le gestionnaire : volume de l’attribution', async () => {
+  it('M3.2/fiche_get_repas_propre_programmation — AG programmée par le gestionnaire : même chemin, la vue', async () => {
     rls.results.collectes = {
       data: ligneCollecte({
         type: 'anti_gaspi',
@@ -197,21 +224,18 @@ describe('M3.2 / fiche client gestionnaire — repas des collectes tierces (D13)
       }),
       error: null,
     };
-    rls.results.attributions_antgaspi = {
-      data: { volume_repas_realise: 320 },
-      error: null,
-    };
-    rls.results.attestations_don = {
+    rls.results.v_attributions_gestionnaire = {
       data: {
-        eligible_at: '2020-01-01T00:00:00Z',
-        pdf_url: 'att.pdf',
-        nb_repas: 999,
+        volume_repas_realise: 320,
+        association_nom: 'Asso',
+        association_ville: 'Lyon',
+        association: null,
       },
       error: null,
     };
     const { json } = await getFiche();
-    // L'attribution prime : l'attestation n'est qu'un repli.
     expect(json.data.repas_donnes).toBe(320);
+    expect(rls.calls).not.toContain('attributions_antgaspi');
   });
 });
 

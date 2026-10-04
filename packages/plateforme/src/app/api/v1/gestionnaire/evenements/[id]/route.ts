@@ -28,10 +28,15 @@ export async function GET(
   const supabase = createSupabaseServerClient();
 
   // Événement + collectes + documents. Colonnes alignées sur §04 (G7) :
+  // - attributions AG : lues par la vue `v_attributions_gestionnaire` (§04) —
+  //   `aa_select` refuse la table au gestionnaire dès que l'événement vient d'un
+  //   traiteur tiers (C-1), la vue lui rend repas + association sur SES lieux.
+  //   L'alias garde la clé `attributions_antgaspi` (embed to-one, OBJET) ;
   // - associations : latitude/longitude lues pour CALCULER la distance au lieu
-  //   (§06.05 §3 « Pour AG », arbitrage Val 2026-09-21 option b). Il n'existe
-  //   aucune colonne `associations.distance_km` — rien n'est stocké — et les
-  //   coordonnées ne sortent PAS de la route (cf. attributionAvecDistance) ;
+  //   (§06.05 §3 « Pour AG », arbitrage Val 2026-09-21 option b), par
+  //   l'`association_id` de la vue. Il n'existe aucune colonne
+  //   `associations.distance_km` — rien n'est stocké — et les coordonnées ne
+  //   sortent PAS de la route (cf. attributionAvecDistance) ;
   // - bordereaux_savr : `numero` (pas numero_bordereau), PDF via pdf_fichier_id →
   //   téléchargement par /api/v1/registre/bordereaux/:id/download ;
   // - rapports_rse : pas de colonne statut.
@@ -47,9 +52,9 @@ export async function GET(
        collectes(
          id, type, statut, date_collecte, heure_collecte, taux_recyclage, realisee_at,
          collecte_flux(poids_reel_kg, flux_dechets!flux_id(code, nom)),
-         attributions_antgaspi(
-           id, volume_repas_realise,
-           associations!association_id(nom, ville, latitude, longitude)
+         attributions_antgaspi:v_attributions_gestionnaire(
+           collecte_id, volume_repas_realise, association_nom, association_ville,
+           associations(latitude, longitude)
          ),
          bordereaux_savr(id, numero, statut),
          rapports_rse(id, pdf_url),
@@ -129,9 +134,14 @@ function unEmbed<T>(v: unknown): T | null {
   return v as T;
 }
 
-interface AssociationEmbed extends Coordonnees {
-  nom?: string | null;
-  ville?: string | null;
+// Ligne de `v_attributions_gestionnaire` telle que l'embed la rend : nom et ville
+// de l'association À PLAT, coordonnées par l'embed `associations`.
+interface AttributionVue {
+  collecte_id: string;
+  volume_repas_realise: number | null;
+  association_nom: string | null;
+  association_ville: string | null;
+  associations?: unknown;
 }
 
 // Distance association ↔ lieu de l'événement — §06.05 §3 « Pour AG » (arbitrage
@@ -142,27 +152,29 @@ interface AssociationEmbed extends Coordonnees {
 // pas de 2e formule, pas de colonne stockée. Arrondi à l'entier le plus proche
 // (« 12 km » côté UI) ; null si l'association OU le lieu n'est pas géocodé
 // (« — » côté UI, jamais 0, jamais d'estimation).
-// La réponse est construite en LISTE BLANCHE (nom + ville + distance) : les
-// coordonnées lues pour le calcul ne ressortent pas. C'est de l'hygiène de
+// La réponse est construite en LISTE BLANCHE (repas + nom + ville + distance) :
+// les coordonnées lues pour le calcul ne ressortent pas. `id` = collecte_id
+// (une attribution par collecte) : la vue n'expose pas l'id de l'attribution. C'est de l'hygiène de
 // réponse, PAS une barrière — la policy `asso_read` (20260611180000) autorise
 // déjà tout rôle authentifié à lire `associations.latitude/longitude` en direct.
 // Ne jamais s'appuyer là-dessus comme sur un cloisonnement : la garde réelle est
 // la RLS, et cette route n'en change rien.
 function attributionAvecDistance(att: unknown, coordsLieu: Coordonnees) {
-  const asso = unEmbed<AssociationEmbed>(
-    (att as { associations?: unknown }).associations,
-  );
-  const d = asso
+  const a = att as AttributionVue;
+  const coords = unEmbed<Coordonnees>(a.associations);
+  const d = coords
     ? distanceKm(coordsLieu, {
-        latitude: asso.latitude ?? null,
-        longitude: asso.longitude ?? null,
+        latitude: coords.latitude ?? null,
+        longitude: coords.longitude ?? null,
       })
     : null;
   return {
-    ...(att as Record<string, unknown>),
-    associations: asso
-      ? { nom: asso.nom ?? null, ville: asso.ville ?? null }
-      : null,
+    id: a.collecte_id,
+    volume_repas_realise: a.volume_repas_realise ?? null,
+    associations: {
+      nom: a.association_nom ?? null,
+      ville: a.association_ville ?? null,
+    },
     distance_km: d == null ? null : Math.round(d),
   };
 }

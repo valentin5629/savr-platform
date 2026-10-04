@@ -345,3 +345,83 @@ describe('M3.2 / synthèse gestionnaire — lieux du parc + programmées + secti
     ]);
   });
 });
+
+// §04 « Vue SQL : v_attributions_gestionnaire » — 9e point d'appel (absent du
+// décompte « 8 » du §04) : la synthèse PDF est ouverte au gestionnaire et lisait
+// la table, que aa_select lui refuse sur un traiteur tiers (C-1).
+describe('synthèse PDF AG — attributions lues par rôle (vue gestionnaire / table)', () => {
+  const VUE = 'attributions_antgaspi:v_attributions_gestionnaire(';
+  const TABLE = /attributions_antgaspi\s*\(/;
+  const selects = (calls: Record<string, unknown[][]>) =>
+    (calls['select'] ?? []).map((a) => String(a[0]));
+
+  it('M3.2/synthese_gestionnaire_ag_par_vue — traiteur tiers : repas et associations de la synthèse', async () => {
+    const { client, calls } = makeSupabase({
+      organisations_lieux: { data: [{ lieu_id: 'l2' }], error: null },
+      collectes: {
+        data: [
+          {
+            ...AG_COLLECTE,
+            // Forme réelle de la vue : association À PLAT, embed to-one en OBJET.
+            attributions_antgaspi: {
+              volume_repas_realise: 150,
+              association_id: 'a1',
+              association_nom: 'Restos du Cœur',
+              association_ville: 'Paris',
+            },
+          },
+        ],
+        error: null,
+      },
+      v_referentiel_traiteurs: { data: [], error: null },
+    });
+    const snap = await buildSyntheseSnapshot(
+      client,
+      {
+        role: 'gestionnaire_lieux',
+        organisationId: 'gest-1',
+        organisationNom: 'Palais',
+      },
+      baseParams({ types: ['anti_gaspi'] }),
+      CLOCK,
+    );
+    const collectes = selects(calls).filter((s) => s.includes('date_collecte'));
+    expect(collectes.length).toBeGreaterThan(0);
+    for (const s of collectes) {
+      expect(s).toContain(VUE);
+      expect(s).not.toMatch(TABLE);
+    }
+    expect(snap.nb_repas_donnes).toBe(150);
+    expect(snap.associations_ag).toEqual([
+      {
+        association_nom: 'Restos du Cœur',
+        nb_collectes: 1,
+        repas_donnes: 150,
+        poids_kg: 80,
+      },
+    ]);
+  });
+
+  it.each([
+    ['M3.1/synthese_traiteur_ag_lit_la_table', 'traiteur_manager'],
+    ['M3.1/synthese_commercial_ag_lit_la_table', 'traiteur_commercial'],
+    ['M3.3/synthese_agence_ag_lit_la_table', 'agence'],
+  ] as const)('%s — %s : la table, jamais la vue', async (_id, role) => {
+    const { client, calls } = makeSupabase({
+      collectes: { data: [AG_COLLECTE], error: null },
+    });
+    const snap = await buildSyntheseSnapshot(
+      client,
+      { role, organisationId: 'org-1', organisationNom: 'Org' },
+      baseParams({ types: ['anti_gaspi'] }),
+      CLOCK,
+    );
+    const collectes = selects(calls).filter((s) => s.includes('date_collecte'));
+    expect(collectes.length).toBeGreaterThan(0);
+    for (const s of collectes) {
+      expect(s).toMatch(TABLE);
+      expect(s).not.toContain('v_attributions_gestionnaire');
+    }
+    expect(snap.nb_repas_donnes).toBe(150);
+  });
+});

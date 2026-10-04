@@ -20,6 +20,12 @@
 
 import type { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import {
+  attributionsAgOf,
+  embedAttributionsAg,
+  type AttributionAgEmbed,
+  type AttributionsAgLues,
+} from './attributions-ag.js';
 
 type Supa = ReturnType<typeof createSupabaseServerClient>;
 
@@ -143,14 +149,6 @@ interface EvtEmbed {
   created_by: string | null;
   lieux: { id: string; nom: string } | { id: string; nom: string }[] | null;
 }
-interface AttrEmbed {
-  volume_repas_realise: number | null;
-  association_id: string | null;
-  associations:
-    | { id: string; nom: string; ville: string | null }
-    | { id: string; nom: string; ville: string | null }[]
-    | null;
-}
 interface CollecteRow {
   id: string;
   type: string;
@@ -165,17 +163,22 @@ interface CollecteRow {
   collecte_flux:
     | { poids_reel_kg: number | null; flux_dechets: { code: string } | null }[]
     | null;
-  attributions_antgaspi: AttrEmbed[] | AttrEmbed | null;
+  // Table (traiteur, agence) ou vue du gestionnaire — cf. attributions-ag.ts.
+  attributions_antgaspi: AttributionsAgLues;
 }
 
-const SELECT = `id, type, taux_recyclage, date_collecte,
+// Attributions AG par rôle : la vue v_attributions_gestionnaire pour le
+// gestionnaire (aa_select lui refuse la table sur un traiteur tiers), la table
+// pour traiteur et agence.
+const selectPour = (
+  role: SyntheseRole,
+): string => `id, type, taux_recyclage, date_collecte,
   co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh, co2_facteurs_snapshot,
   evenements!inner(id, nom_evenement, date_evenement, lieu_id, pax, organisation_id,
     client_organisateur_organisation_id, type_evenement_id,
     traiteur_operationnel_organisation_id, created_by, lieux(id, nom)),
   collecte_flux(poids_reel_kg, flux_dechets(code)),
-  attributions_antgaspi(volume_repas_realise, association_id,
-    associations!association_id(id, nom, ville))`;
+  ${embedAttributionsAg(role)}`;
 
 // ── Helpers de normalisation embed PostgREST ─────────────────────────────────
 function firstOf<T>(v: T | T[] | null | undefined): T | null {
@@ -185,9 +188,8 @@ function firstOf<T>(v: T | T[] | null | undefined): T | null {
 function evtOf(c: CollecteRow): EvtEmbed | null {
   return firstOf(c.evenements);
 }
-function attrsOf(c: CollecteRow): AttrEmbed[] {
-  const a = c.attributions_antgaspi;
-  return Array.isArray(a) ? a : a ? [a] : [];
+function attrsOf(c: CollecteRow): AttributionAgEmbed[] {
+  return attributionsAgOf(c.attributions_antgaspi);
 }
 function kgOf(c: CollecteRow): number {
   const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
@@ -370,7 +372,9 @@ async function fetchScopedRows(
   };
 
   const runQuery = async (scope: (q: FB) => FB): Promise<CollecteRow[]> => {
-    const base = supabase.from('collectes').select(SELECT) as unknown as FB;
+    const base = supabase
+      .from('collectes')
+      .select(selectPour(ctx.role)) as unknown as FB;
     const q = scope(applyCommon(base));
     const { data, error } = await (q as unknown as Promise<{
       data: unknown;

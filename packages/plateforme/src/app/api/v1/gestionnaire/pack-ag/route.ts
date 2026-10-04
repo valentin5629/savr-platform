@@ -75,9 +75,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       `id, date_collecte, statut,
        evenements!inner(nom_evenement, date_evenement,
          lieux!lieu_id(nom)),
-       attributions_antgaspi(
-         id, volume_repas_realise,
-         associations!association_id(nom))`,
+       attributions_antgaspi:v_attributions_gestionnaire(
+         volume_repas_realise, association_nom)`,
     )
     .eq('type', 'anti_gaspi')
     .in('statut', ['realisee', 'cloturee'])
@@ -96,7 +95,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           ? c.evenements[0]
           : c.evenements;
         const lieu = (evt as { lieux?: { nom?: string } })?.lieux;
-        // Embed to-one (collecte_id UNIQUE) → objet PostgREST : l'envelopper.
+        // Vue `v_attributions_gestionnaire` (§04) sous la clé `attributions_antgaspi` :
+        // embed to-one → objet PostgREST, à envelopper ; nom de l'association à plat.
         const attrs = Array.isArray(c.attributions_antgaspi)
           ? c.attributions_antgaspi
           : c.attributions_antgaspi
@@ -115,9 +115,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             0,
           ),
           associations: attrs.map((a) => ({
-            nom:
-              (a as { associations?: { nom?: string } })?.associations?.nom ??
-              null,
+            nom: (a as { association_nom?: string }).association_nom ?? null,
             repas:
               (a as { volume_repas_realise?: number }).volume_repas_realise ??
               0,

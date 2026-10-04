@@ -47,11 +47,13 @@
 -- ORDRE DE DÉPLOIEMENT : cette migration doit être appliquée AVANT que le code
 -- du lot soit en ligne (dev, puis prod). L'ancien code fonctionne avec la base
 -- migrée — rien ne lit la vue avant ce lot. Le nouveau code EXIGE la vue : sans
--- elle, PostgREST refuse l'embed (PGRST200, HTTP 400) sur 10 des 11 lectures et
--- ces écrans du gestionnaire passent en erreur au lieu d'afficher zéro ; la
--- 11e, la fiche collecte, lit la vue en direct et n'en contrôle pas l'erreur :
--- elle afficherait « — » sans repas ni association. Les autres rôles ne sont
--- pas touchés (les chargeurs partagés branchent par rôle).
+-- elle, PostgREST refuse l'embed (PGRST200) ou la lecture directe (PGRST205).
+-- Relevé dans le code, lecture par lecture : 9 des 11 lectures contrôlent
+-- l'erreur de la requête et rendent une erreur à l'écran du gestionnaire au
+-- lieu d'afficher zéro ; 2 ne la contrôlent pas et restent muettes — « Mon pack
+-- AG » (historique de consommation vide) et la fiche collecte (« — », sans
+-- repas ni association). Les autres rôles ne sont pas touchés (les chargeurs
+-- partagés branchent par rôle).
 -- APRÈS APPLICATION, mesurer sur la base : la vue existe, ses 5 colonnes, ACL
 -- authenticated = SELECT seul, rien pour anon ; puis, sous le jeton d'un
 -- gestionnaire, count(*) de la vue = nombre d'attributions des collectes de ses

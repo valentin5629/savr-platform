@@ -329,7 +329,7 @@ SELECT ok(
           AND qual NOT LIKE '%lieu_id%'
      FROM pg_policies
     WHERE schemaname = 'plateforme' AND tablename = 'attributions_antgaspi' AND policyname = 'aa_select'),
-  '20. aa_select : aucune branche par le lieu (C-1 portée par la table, accès gestionnaire par la vue seule)');
+  '20. aa_select : aucune branche par le lieu (C-1 portée par la table ; les collectes d''un tiers ne s''ouvrent au gestionnaire que par la vue)');
 
 -- =============================================================================
 -- 21-22 — non-vacuité du cas 6 : l'événement, une fois daté, devient visible

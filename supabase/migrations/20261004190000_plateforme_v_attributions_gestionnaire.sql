@@ -43,6 +43,18 @@
 -- NON DESTRUCTIF (aucune donnée, aucune colonne). OUVRE un accès en lecture
 -- (§12-2bis) : SQL validé par Val avant écriture (2026-10-04). Preuve :
 -- supabase/tests/SECU__v_attributions_gestionnaire.test.sql.
+--
+-- ORDRE DE DÉPLOIEMENT : cette migration doit être appliquée AVANT que le code
+-- du lot soit en ligne (dev, puis prod). L'ancien code fonctionne avec la base
+-- migrée — rien ne lit la vue avant ce lot. Le nouveau code EXIGE la vue : sans
+-- elle, PostgREST refuse l'embed (PGRST200, HTTP 400) et les écrans du
+-- gestionnaire passent en erreur au lieu d'afficher zéro. Les autres rôles ne
+-- sont pas touchés (les chargeurs partagés branchent par rôle).
+-- APRÈS APPLICATION, mesurer sur la base : la vue existe, ses 5 colonnes, ACL
+-- authenticated = SELECT seul, rien pour anon ; puis, sous le jeton d'un
+-- gestionnaire, count(*) de la vue = nombre d'attributions des collectes de ses
+-- lieux (savr-dev, Viparis, 2026-10-04 : 127 lignes attendues, 10 425 repas).
+-- ROLLBACK : en fin de fichier.
 -- =============================================================================
 
 -- security_invoker = false : lit attributions_antgaspi avec les droits du
@@ -78,4 +90,9 @@ REVOKE ALL ON plateforme.v_attributions_gestionnaire FROM PUBLIC, anon, authenti
 GRANT SELECT ON plateforme.v_attributions_gestionnaire TO authenticated;
 
 COMMENT ON VIEW plateforme.v_attributions_gestionnaire IS
-  'Données Anti-Gaspi lues par un gestionnaire_lieux sur les collectes de SES lieux, y compris quand l''événement est programmé par un traiteur tiers (§04, §06.05 §3). Seul chemin de lecture pour ce rôle : aa_select n''est jamais élargie (C-1, §09). Toute colonne ajoutée ici élargit l''accès : revue sécurité + pgTAP SECU__v_attributions_gestionnaire.';
+  'Données Anti-Gaspi lues par un gestionnaire_lieux sur les collectes de SES lieux, y compris quand l''événement est programmé par un traiteur tiers (§04, §06.05 §3). Seul chemin de lecture, pour ce rôle, des collectes programmées par un tiers : aa_select n''est jamais élargie (C-1, §09). Toute colonne ajoutée ici élargit l''accès : revue sécurité + pgTAP SECU__v_attributions_gestionnaire.';
+
+-- ROLLBACK (ferme l'accès ouvert ici) :
+--   DROP VIEW plateforme.v_attributions_gestionnaire;
+-- À jouer APRÈS le retour arrière du code du lot : tant que le code lit la vue,
+-- la retirer fait tomber en erreur les 11 lectures du gestionnaire.

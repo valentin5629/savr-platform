@@ -2331,6 +2331,7 @@ export type Database = {
           actif: boolean
           code: string
           code_dechet_europeen: string | null
+          code_traitement: string | null
           eligible_citeo: boolean | null
           exutoire: string | null
           exutoire_adresse: string | null
@@ -2345,6 +2346,7 @@ export type Database = {
           actif?: boolean
           code: string
           code_dechet_europeen?: string | null
+          code_traitement?: string | null
           eligible_citeo?: boolean | null
           exutoire?: string | null
           exutoire_adresse?: string | null
@@ -2359,6 +2361,7 @@ export type Database = {
           actif?: boolean
           code?: string
           code_dechet_europeen?: string | null
+          code_traitement?: string | null
           eligible_citeo?: boolean | null
           exutoire?: string | null
           exutoire_adresse?: string | null

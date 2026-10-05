@@ -45,6 +45,16 @@ export const FLUX_LABELS: Record<string, string> = {
   dechet_residuel: 'Déchet résiduel',
 };
 
+// Filières de valorisation en clair (enum plateforme.filiere_valorisation).
+export const FILIERE_LABELS: Record<string, string> = {
+  recyclage: 'Recyclage',
+  compostage: 'Compostage',
+  methanisation: 'Méthanisation',
+  valorisation_energetique: 'Valorisation énergétique',
+  enfouissement: 'Enfouissement',
+  don_alimentaire: 'Don alimentaire',
+};
+
 export interface RegistreRow {
   collecte_id: string;
   date_evenement: string | null;
@@ -180,8 +190,18 @@ export async function fetchRegistre(
 
   const { data, count, error } = await q;
   if (error) throw erreurInterne(error, 'registre.lecture');
+  const rows = (data ?? []) as unknown as RegistreRow[];
+  // Lecture complète (exports) : PostgREST plafonne une réponse (max_rows) sans
+  // erreur. Moins de lignes que le décompte = registre amputé → erreur, jamais
+  // un export incomplet.
+  if (opts.all && rows.length < (count ?? 0)) {
+    throw erreurInterne(
+      new Error('registre : lecture complète amputée'),
+      'registre.lecture',
+    );
+  }
   return {
-    rows: (data ?? []) as unknown as RegistreRow[],
+    rows,
     total: count ?? 0,
     page: f.page,
     pageSize: f.pageSize,

@@ -9,7 +9,7 @@ import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { requireRegistreUser } from '@/lib/registre/guard.js';
-import { FLUX_LABELS } from '@/lib/registre/registre.js';
+import { FLUX_LABELS, FILIERE_LABELS } from '@/lib/registre/registre.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,7 +64,10 @@ export async function GET(
     return {
       code,
       libelle: FLUX_LABELS[code] ?? (fd.nom as string) ?? code,
-      filiere: (fd.filiere_valorisation as string) ?? '',
+      filiere:
+        FILIERE_LABELS[fd.filiere_valorisation as string] ??
+        (fd.filiere_valorisation as string) ??
+        '',
       poids_kg: Number(f.poids_reel_kg ?? 0),
     };
   });

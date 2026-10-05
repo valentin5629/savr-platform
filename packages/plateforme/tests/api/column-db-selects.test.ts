@@ -236,11 +236,12 @@ describe('G7 / gestionnaire', () => {
     });
     expect(res.status).toBe(200);
     const s = norm(selects()[0]!);
-    // + latitude/longitude depuis la restitution de la distance au gestionnaire
-    // (§06.05 §3, arbitrage Val 2026-09-21) : colonnes réelles de
-    // plateforme.associations, lues pour le calcul et retirées de la réponse.
+    // Attribution AG lue par la vue v_attributions_gestionnaire (§04) : colonnes
+    // réelles de la vue, association à plat. + latitude/longitude d'associations
+    // (§06.05 §3, arbitrage Val 2026-09-21), par l'association_id de la vue : lues
+    // pour le calcul de la distance et retirées de la réponse.
     expect(s).toContain(
-      'associations!association_id(nom, ville, latitude, longitude)',
+      'attributions_antgaspi:v_attributions_gestionnaire( collecte_id, volume_repas_realise, association_nom, association_ville, associations(latitude, longitude) )',
     );
     expect(s).toContain('bordereaux_savr(id, numero, statut)');
     expect(s).toContain('rapports_rse(id, pdf_url)');

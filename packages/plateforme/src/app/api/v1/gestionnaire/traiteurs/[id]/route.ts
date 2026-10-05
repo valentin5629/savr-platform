@@ -55,7 +55,7 @@ export async function GET(
        evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom)),
        collecte_flux(poids_reel_kg),
-       attributions_antgaspi(volume_repas_realise)`,
+       attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)`,
     )
     .eq('statut', 'cloturee')
     .eq('evenements.traiteur_operationnel_organisation_id', id)

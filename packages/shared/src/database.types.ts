@@ -4216,6 +4216,45 @@ export type Database = {
         }
         Relationships: []
       }
+      v_attributions_gestionnaire: {
+        Row: {
+          association_id: string | null
+          association_nom: string | null
+          association_ville: string | null
+          collecte_id: string | null
+          volume_repas_realise: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attributions_antgaspi_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attributions_antgaspi_collecte_id_fkey"
+            columns: ["collecte_id"]
+            isOneToOne: true
+            referencedRelation: "collectes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attributions_antgaspi_collecte_id_fkey"
+            columns: ["collecte_id"]
+            isOneToOne: true
+            referencedRelation: "v_collectes_gestionnaire_lieux"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attributions_antgaspi_collecte_id_fkey"
+            columns: ["collecte_id"]
+            isOneToOne: true
+            referencedRelation: "v_registre_dechets"
+            referencedColumns: ["collecte_id"]
+          },
+        ]
+      }
       v_collectes_gestionnaire_lieux: {
         Row: {
           aucun_repas_motif: string | null

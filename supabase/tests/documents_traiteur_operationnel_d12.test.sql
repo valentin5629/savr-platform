@@ -17,9 +17,10 @@
 --   · miroirs positifs : programmateur (manager, commercial non créateur),
 --     agence donneuse d'ordre ; cross-org et gestionnaire d'un autre lieu = 0 ;
 --   · gestionnaire du lieu : attestations servies (§06.05 l.619, D9 non fermé),
---     attributions refusées (aa_select, C-1 intacte) ; la requête exacte de la
---     fiche lui rend nb_repas de l'attestation, source des « Repas donnés » sur
---     une collecte tierce (D13, 2e arbitrage Val 2026-09-30).
+--     attributions refusées par la TABLE (aa_select, C-1 intacte) ; nb_repas de
+--     l'attestation lui reste lisible (document servi). Depuis 20261004190000,
+--     « Repas donnés » sur une collecte tierce est lu par la vue
+--     v_attributions_gestionnaire, plus par l'attestation (ex-repli D13).
 -- Requêtes q_* = requêtes EXACTES des chemins applicatifs (fiche + route).
 -- Témoins de non-vacuité NV1-NV3 : un 0 est un refus RLS, pas une absence.
 -- Sonde écrite par reviewer-rls-securite (revue 2026-09-30), reprise ici.
@@ -157,7 +158,7 @@ SELECT is((SELECT count(*)::int FROM plateforme.collectes WHERE id::text LIKE 'd
 SELECT is((SELECT count(*)::int FROM plateforme.attestations_don WHERE id::text LIKE 'd129%'), 2, 'GST : 2 attestations (D9, att_gestionnaire_select, CDC l.619)');
 SELECT is((SELECT count(*)::int FROM plateforme.rapports_rse WHERE id::text LIKE 'd12a%'), 4, 'GST : 4 rapports');
 SELECT is((SELECT count(*)::int FROM plateforme.attributions_antgaspi WHERE collecte_id::text LIKE 'd126%'), 0, 'GST : 0 attribution (aa_select intacte, C-1)');
-SELECT is((SELECT nb_repas FROM plateforme.attestations_don WHERE collecte_id = 'd1260000-0000-0000-0000-0000000000b1' ORDER BY version DESC LIMIT 1), 90, 'GST : nb_repas de l''attestation d''un traiteur tiers lisible par la requête de la fiche (repli D13)');
+SELECT is((SELECT nb_repas FROM plateforme.attestations_don WHERE collecte_id = 'd1260000-0000-0000-0000-0000000000b1' ORDER BY version DESC LIMIT 1), 90, 'GST : nb_repas de l''attestation d''un traiteur tiers lisible (att_gestionnaire_select ; ex-repli D13, les écrans lisent la vue)');
 SELECT is((SELECT count(*)::int FROM plateforme.evenements WHERE id::text LIKE 'd125%' AND organisation_id <> 'd1200000-0000-0000-0000-0000000000a5'), 2, 'GST : organisation_id des événements tiers déjà lisible (drapeaux sans info nouvelle)');
 SELECT test_set_jwt('gestionnaire_lieux','d1200000-0000-0000-0000-0000000000a6');
 SELECT is((SELECT count(*)::int FROM plateforme.collectes WHERE id::text LIKE 'd126%'), 0, 'GX : 0 collecte');

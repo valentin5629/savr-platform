@@ -279,14 +279,14 @@ describe('M3.2 / P2 liste événements colonnes', () => {
             statut: 'cloturee',
             date_collecte: '2026-06-01',
             collecte_flux: [],
-            // ⚠ OBJET, pas tableau — forme réelle PostgREST.
+            // ⚠ OBJET, pas tableau — forme réelle PostgREST (mesurée sur la
+            // vue v_attributions_gestionnaire : association à plat).
             attributions_antgaspi: {
-              id: 'a1',
+              collecte_id: 'c-ag',
               volume_repas_realise: 88,
-              associations: {
-                nom: 'Les Restos',
-                ville: 'Paris',
-              },
+              association_nom: 'Les Restos',
+              association_ville: 'Paris',
+              associations: { latitude: null, longitude: null },
             },
           },
         ],
@@ -321,9 +321,10 @@ describe('M3.2 / P2 liste événements colonnes', () => {
   // de l'algo d'attribution AG (fn_calculer_algo_attribution_ag).
   it('M3.2/detail_evenement_ag_distance_association — haversine association↔lieu, arrondie au km entier, coordonnées jamais exposées', async () => {
     setupAuth();
-    // Sonde du SELECT : sans `latitude, longitude` dans l'embed associations,
-    // PostgREST ne renverrait pas les coordonnées et la distance serait null en
-    // prod — le mock, lui, ne s'en apercevrait pas.
+    // Sonde du SELECT : sans la vue v_attributions_gestionnaire, aa_select rend
+    // le bloc vide sur un traiteur tiers ; sans `latitude, longitude` dans
+    // l'embed associations, la distance serait null en prod — le mock, lui, ne
+    // s'en apercevrait pas.
     const selects: string[] = [];
     (rls as unknown as Record<string, unknown>).select = (sql: string) => {
       selects.push(sql);
@@ -354,25 +355,19 @@ describe('M3.2 / P2 liste événements colonnes', () => {
             collecte_flux: [],
             attributions_antgaspi: [
               {
-                id: 'a1',
+                collecte_id: 'c-ag',
                 volume_repas_realise: 88,
+                association_nom: 'Les Restos',
+                association_ville: 'Versailles',
                 // Versailles — 12,6053 km du lieu (haversine, R = 6371 km).
-                associations: {
-                  nom: 'Les Restos',
-                  ville: 'Versailles',
-                  latitude: 48.8049,
-                  longitude: 2.1204,
-                },
+                associations: { latitude: 48.8049, longitude: 2.1204 },
               },
               {
-                id: 'a2',
+                collecte_id: 'c-ag-2',
                 volume_repas_realise: 12,
-                associations: {
-                  nom: 'Asso non géocodée',
-                  ville: 'Paris',
-                  latitude: null,
-                  longitude: null,
-                },
+                association_nom: 'Asso non géocodée',
+                association_ville: 'Paris',
+                associations: { latitude: null, longitude: null },
               },
             ],
           },
@@ -400,11 +395,12 @@ describe('M3.2 / P2 liste événements colonnes', () => {
     };
     const attrs = json.data.collectes[0]!.attributions_antgaspi;
 
-    // Les coordonnées doivent être DEMANDÉES à PostgREST…
+    // L'attribution est lue par la VUE (jamais la table, que aa_select refuse
+    // sur un traiteur tiers), et les coordonnées sont DEMANDÉES à PostgREST…
     const sql = selects.join(' ');
-    expect(sql).toContain(
-      'associations!association_id(nom, ville, latitude, longitude)',
-    );
+    expect(sql).toContain('attributions_antgaspi:v_attributions_gestionnaire(');
+    expect(sql).not.toMatch(/attributions_antgaspi\s*\(/);
+    expect(sql).toContain('associations(latitude, longitude)');
     // …et aucune colonne `associations.distance_km` n'existe (G7, #359).
     expect(sql).not.toContain('distance_km');
 
@@ -417,6 +413,7 @@ describe('M3.2 / P2 liste événements colonnes', () => {
       nom: 'Les Restos',
       ville: 'Versailles',
     });
+    expect(JSON.stringify(attrs)).not.toContain('latitude');
   });
 
   it('M3.2/detail_evenement_ag_distance_lieu_non_geocode — lieu sans GPS : distance null même si l’association est géocodée', async () => {
@@ -444,14 +441,11 @@ describe('M3.2 / P2 liste événements colonnes', () => {
             date_collecte: '2026-06-01',
             collecte_flux: [],
             attributions_antgaspi: {
-              id: 'a1',
+              collecte_id: 'c-ag',
               volume_repas_realise: 88,
-              associations: {
-                nom: 'Les Restos',
-                ville: 'Versailles',
-                latitude: 48.8049,
-                longitude: 2.1204,
-              },
+              association_nom: 'Les Restos',
+              association_ville: 'Versailles',
+              associations: { latitude: 48.8049, longitude: 2.1204 },
             },
           },
         ],
@@ -523,21 +517,18 @@ describe('M3.2 / P2 liste événements colonnes', () => {
   });
 });
 
-// ── Liste Événements : « Repas donnés » (D13, arbitrage Val 2026-09-30) ───────
-// Même règle que la fiche collecte du rôle : l'attribution quand elle est
-// lisible, sinon la dernière version de l'attestation de don. Les formes sont
-// celles que PostgREST rend réellement sous le jeton d'un gestionnaire (rejeu
-// savr-dev du 2026-10-01) : attribution refusée par aa_select = `null` (embed
-// to-one), attestations = tableau (une ligne par version).
+// ── Liste Événements : « Repas donnés » ───────────────────────────────────────
+// Même source que la fiche collecte du rôle : le volume de l'attribution, lu
+// par la vue v_attributions_gestionnaire (§04). Les formes sont celles que
+// PostgREST rend réellement sous le jeton d'un gestionnaire (mesure sur base
+// vierge, 2026-10-04) : embed to-one de la vue = OBJET, ou `null` quand la vue
+// ne rend rien. Le repli sur l'attestation de don (D13) est retiré.
 describe('M3.2 / liste événements — repas donnés', () => {
+  // `attributions_antgaspi` = l'embed de la vue v_attributions_gestionnaire sous
+  // son alias : objet (to-one), ou null quand la vue ne rend rien.
   type Attribution = { volume_repas_realise: number | null } | null;
-  type Attestation = { nb_repas: number | null; version: number };
 
-  function collecteAg(
-    id: string,
-    attribution: Attribution,
-    attestations: Attestation[],
-  ) {
+  function collecteAg(id: string, attribution: Attribution) {
     return {
       id,
       type: 'anti_gaspi',
@@ -545,7 +536,6 @@ describe('M3.2 / liste événements — repas donnés', () => {
       date_collecte: '2026-06-01',
       collecte_flux: [],
       attributions_antgaspi: attribution,
-      attestations_don: attestations,
     };
   }
 
@@ -591,76 +581,54 @@ describe('M3.2 / liste événements — repas donnés', () => {
     return { ligne: json.data[0]!, selectEvenements: selects[1] ?? '' };
   }
 
-  it('M3.2/evenements_repas_attribution_lisible — l’attribution prime sur l’attestation', async () => {
-    // Collecte programmée par le gestionnaire lui-même : aa_select la lui sert.
-    // Le chiffre de l'attestation (volontairement différent) ne doit pas sortir.
+  it('M3.2/evenements_repas_attribution_lisible — collecte programmée par le gestionnaire : volume de l’attribution', async () => {
     const { ligne } = await listeAvec([
-      collecteAg('c1', { volume_repas_realise: 40 }, [
-        { nb_repas: 999, version: 1 },
-      ]),
+      collecteAg('c1', { volume_repas_realise: 40 }),
     ]);
     expect(ligne.repas_donnes).toBe(40);
   });
 
-  it('M3.2/evenements_repas_tiers_depuis_attestation — attribution refusée : repas lus dans l’attestation servie au gestionnaire', async () => {
+  it('M3.2/evenements_repas_tiers_par_vue — traiteur tiers : repas lus par la vue v_attributions_gestionnaire, plus dans l’attestation', async () => {
     const { ligne, selectEvenements } = await listeAvec([
-      collecteAg('c1', null, [{ nb_repas: 129, version: 1 }]),
+      collecteAg('c1', { volume_repas_realise: 129 }),
     ]);
     expect(ligne.repas_donnes).toBe(129);
-    // La route DEMANDE l'attestation : sans cet embed dans le select, PostgREST
-    // ne la rendrait jamais et le repli resterait lettre morte.
-    expect(selectEvenements).toContain('attestations_don(nb_repas, version)');
+    // La route DEMANDE la vue : la table, que aa_select refuse au gestionnaire
+    // sur un traiteur tiers (C-1), rendrait null et la colonne resterait à « — ».
     expect(selectEvenements).toContain(
-      'attributions_antgaspi(volume_repas_realise)',
+      'attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)',
     );
+    expect(selectEvenements).not.toMatch(/attributions_antgaspi\s*\(/);
+    // Le repli sur l'attestation de don (D13) est retiré avec la vue.
+    expect(selectEvenements).not.toContain('attestations_don');
   });
 
-  it('M3.2/evenements_repas_attestation_derniere_version — plusieurs versions : la plus haute fait foi, quel que soit l’ordre reçu', async () => {
-    const { ligne } = await listeAvec([
-      collecteAg('c1', null, [
-        { nb_repas: 100, version: 2 },
-        { nb_repas: 120, version: 3 },
-        { nb_repas: 80, version: 1 },
-      ]),
-    ]);
-    expect(ligne.repas_donnes).toBe(120);
-  });
-
-  it('M3.2/evenements_repas_sans_attribution_ni_attestation — ni l’une ni l’autre : 0, que l’écran rend « — »', async () => {
-    const { ligne } = await listeAvec([collecteAg('c1', null, [])]);
+  it('M3.2/evenements_repas_sans_attribution — la vue ne rend rien : 0, que l’écran rend « — »', async () => {
+    const { ligne } = await listeAvec([collecteAg('c1', null)]);
     expect(ligne.repas_donnes).toBe(0);
     expect(ligne.nb_collectes_ag).toBe(1);
   });
 
-  it('M3.2/evenements_repas_somme_par_evenement — repli décidé collecte par collecte, puis somme sur l’événement', async () => {
+  it('M3.2/evenements_repas_somme_par_evenement — somme des volumes des collectes AG de l’événement', async () => {
     const { ligne } = await listeAvec([
-      // Attribution lisible.
-      collecteAg('c1', { volume_repas_realise: 40 }, []),
-      // Attribution refusée → attestation.
-      collecteAg('c2', null, [{ nb_repas: 25, version: 1 }]),
-      // Attribution lisible à 0 repas : un vrai zéro, pas un repli.
-      collecteAg('c3', { volume_repas_realise: 0 }, [
-        { nb_repas: 7, version: 1 },
-      ]),
-      // Rien de lisible.
-      collecteAg('c4', null, []),
-      // Attribution lisible mais volume non renseigné : ce n'est pas un zéro,
-      // l'attestation est lue (même chaîne que la fiche).
-      collecteAg('c5', { volume_repas_realise: null }, [
-        { nb_repas: 3, version: 1 },
-      ]),
-      // Une collecte ZD ne compte jamais, même avec une attestation parasite.
+      collecteAg('c1', { volume_repas_realise: 40 }),
+      collecteAg('c2', { volume_repas_realise: 25 }),
+      // Volume à 0 : un vrai zéro.
+      collecteAg('c3', { volume_repas_realise: 0 }),
+      // Pas d'attribution, ou volume non saisi : rien à ajouter.
+      collecteAg('c4', null),
+      collecteAg('c5', { volume_repas_realise: null }),
+      // Une collecte ZD ne compte jamais, même avec un volume parasite.
       {
-        ...collecteAg('c6', null, [{ nb_repas: 500, version: 1 }]),
+        ...collecteAg('c6', { volume_repas_realise: 500 }),
         type: 'zero_dechet',
       },
     ]);
-    expect(ligne.repas_donnes).toBe(68);
+    expect(ligne.repas_donnes).toBe(65);
     expect(ligne.nb_collectes_ag).toBe(5);
   });
 });
 
-// ── Liste Traiteurs : lieux d'intervention ────────────────────────────────────
 describe('M3.2 / P2 liste traiteurs', () => {
   it("M3.2/P2_traiteurs_lieux_intervention_noms — { id, nom } résolus depuis l'embed", async () => {
     setupAuth();

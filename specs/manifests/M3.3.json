@@ -84,7 +84,10 @@
     "M3.3/liste_agence_telecharger_et_export",
     "M3.3/liste_agence_ancien_lien_sans_onglet",
     "M3.3/liste_agence_statut_hors_onglet_jamais_vide",
-    "M3.3/liste_agence_colonne_client"
+    "M3.3/liste_agence_colonne_client",
+    "M3.3/blocs_agence_ag_lit_la_table",
+    "M3.3/evolution_agence_ag_lit_la_table",
+    "M3.3/synthese_agence_ag_lit_la_table"
   ],
   "deliverables": [
     {

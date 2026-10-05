@@ -173,12 +173,11 @@ export interface FicheCollecteClient {
   coordonnees_urgence_demandee: boolean;
   // ZD « Réalisée » : kg par code de flux (biodechet, emballage…).
   bilan_flux: Record<string, number> | null;
-  // AG : repas donnés (attribution sous RLS ; à défaut, attestation de don —
-  // cas du gestionnaire sur une collecte de traiteur tiers, D13).
+  // AG : repas donnés et association bénéficiaire, lus dans l'attribution sous
+  // RLS — table pour traiteur et agence, vue v_attributions_gestionnaire pour
+  // le gestionnaire.
   repas_donnes: number | null;
-  // Absente pour le gestionnaire (Q7 : tant que v_attributions_gestionnaire
-  // n'existe pas, la clé n'est même pas dans la réponse).
-  association?: AssociationFiche | null;
+  association: AssociationFiche | null;
   rapport_rse_disponible: boolean;
   rapport_rse_regenere: boolean;
   // Traiteur opérationnel d'une collecte AG programmée par une autre

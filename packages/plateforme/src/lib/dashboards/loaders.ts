@@ -31,6 +31,13 @@ import {
   premierDuMois,
 } from '@savr/shared/src/temps/index.js';
 import { periodeBenchmark } from './periode-benchmark.js';
+import {
+  attributionsAgOf,
+  embedAttributionsAg,
+  embedRepasAg,
+  type AttributionAgEmbed,
+  type AttributionsAgLues,
+} from './attributions-ag.js';
 
 /** Client Supabase serveur (schéma `plateforme`, RLS sous l'identité appelant). */
 export type DbClient = ReturnType<typeof createSupabaseServerClient>;
@@ -466,7 +473,7 @@ export async function loadEvolution(
        evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
          traiteur_operationnel_organisation_id),
        collecte_flux(poids_reel_kg, flux_dechets(code)),
-       attributions_antgaspi(volume_repas_realise)`,
+       ${embedRepasAg(ctx.role)}`,
     )
     .eq('statut', 'cloturee')
     .eq('type', type);
@@ -640,15 +647,6 @@ interface BlocsEvtEmbed {
   lieux: { id: string; nom: string } | { id: string; nom: string }[] | null;
 }
 
-interface AttrEmbed {
-  volume_repas_realise: number | null;
-  association_id: string | null;
-  associations:
-    | { id: string; nom: string; ville: string | null }
-    | { id: string; nom: string; ville: string | null }[]
-    | null;
-}
-
 export interface BlocsCollecteRow {
   id: string;
   type: string;
@@ -658,12 +656,12 @@ export interface BlocsCollecteRow {
   collecte_flux:
     | { poids_reel_kg: number | null; flux_dechets?: { code: string } | null }[]
     | null;
-  attributions_antgaspi: AttrEmbed[] | AttrEmbed | null;
+  // Table (traiteur, agence, Admin) ou vue du gestionnaire — cf. attributions-ag.ts.
+  attributions_antgaspi: AttributionsAgLues;
 }
 
-function attrsOf(c: BlocsCollecteRow): AttrEmbed[] {
-  const a = c.attributions_antgaspi;
-  return Array.isArray(a) ? a : a ? [a] : [];
+function attrsOf(c: BlocsCollecteRow): AttributionAgEmbed[] {
+  return attributionsAgOf(c.attributions_antgaspi);
 }
 
 function kgOf(c: BlocsCollecteRow): number {
@@ -1059,8 +1057,7 @@ export async function loadBlocs(
       : `id, type, taux_recyclage, date_collecte,
          evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
            traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
-         attributions_antgaspi(volume_repas_realise, association_id,
-           associations!association_id(id, nom, ville))`;
+         ${embedAttributionsAg(role)}`;
 
   let qHist = supabase
     .from('collectes')

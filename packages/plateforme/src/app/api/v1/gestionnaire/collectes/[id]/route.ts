@@ -60,8 +60,8 @@ export async function GET(
   const { id } = await params;
 
   // Socle commun des fiches clientes (pop-up §06.04 repris par §06.05). Pour le
-  // gestionnaire, l'association bénéficiaire n'est PAS dans la réponse (Q7) et
-  // ses documents sont lus sous sa RLS.
+  // gestionnaire, repas donnés et association bénéficiaire sont lus par la vue
+  // v_attributions_gestionnaire (§04) ; ses documents sont lus sous sa RLS.
   const r = await chargerFicheCollecteClient(id, auth.ctx, 'gestionnaire');
   if ('erreur' in r) return serverError(r.erreur, 'gestionnaire.collectes.get');
   if ('introuvable' in r)

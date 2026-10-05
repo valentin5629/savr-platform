@@ -899,11 +899,11 @@ describe('M3.2 / pack AG', () => {
             date_evenement: '2026-06-01',
             lieux: { nom: 'Palais' },
           },
-          // ⚠ OBJET, pas tableau — forme réelle PostgREST.
+          // ⚠ OBJET, pas tableau — forme réelle PostgREST, sur la vue
+          // v_attributions_gestionnaire (nom de l'association à plat).
           attributions_antgaspi: {
-            id: 'a1',
             volume_repas_realise: 55,
-            associations: { nom: 'Les Restos' },
+            association_nom: 'Les Restos',
           },
         },
       ],

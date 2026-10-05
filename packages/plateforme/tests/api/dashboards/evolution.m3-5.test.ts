@@ -266,3 +266,67 @@ describe('M3.5 / dashboards/evolution', () => {
     expect([401, 403]).toContain(res.status);
   });
 });
+
+// §04 « Vue SQL : v_attributions_gestionnaire » (option A, 2026-09-22) : la courbe
+// « Évolution Anti-Gaspi » du gestionnaire lit la vue ; traiteur et agence la table.
+describe('dashboards/evolution AG — attributions lues par rôle', () => {
+  const VUE =
+    'attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)';
+  const TABLE = /attributions_antgaspi\s*\(/;
+  const selectCollectes = () => String((calls.select ?? []).at(-1)?.[0] ?? '');
+  const URL_AG =
+    '/api/v1/dashboards/evolution?type=anti_gaspi&from=2025-06-01&to=2026-06-30';
+  const collecte = (id: string, e: string, repas: number) => ({
+    id,
+    type: 'anti_gaspi',
+    taux_recyclage: null,
+    date_collecte: '2026-06-10',
+    evenements: evt(e, { pax: 1000 }),
+    collecte_flux: [],
+    attributions_antgaspi: { volume_repas_realise: repas },
+  });
+
+  it('M3.2/evolution_gestionnaire_ag_par_vue — traiteur tiers : repas et ratio repas/pax de la courbe', async () => {
+    setupAuth('gestionnaire_lieux', 'org-7');
+    results['organisations_lieux'] = {
+      data: [{ lieu_id: 'lieu-1' }],
+      error: null,
+    };
+    results['collectes'] = {
+      data: [collecte('c1', 'evt-1', 120), collecte('c2', 'evt-2', 80)],
+      error: null,
+    };
+    const GET = await loadGET();
+    const res = await GET(req(URL_AG));
+    const json = (await res.json()) as {
+      data: { series: Array<Record<string, number | null>> };
+    };
+    expect(selectCollectes()).toContain(VUE);
+    expect(selectCollectes()).not.toMatch(TABLE);
+    const bucket = json.data.series[0]!;
+    expect(bucket.repas_donnes).toBe(200);
+    expect(bucket.ratio).toBeCloseTo(0.1, 5);
+  });
+
+  it.each([
+    ['M3.1/evolution_traiteur_ag_lit_la_table', 'traiteur_manager'],
+    ['M3.1/evolution_commercial_ag_lit_la_table', 'traiteur_commercial'],
+    ['M3.3/evolution_agence_ag_lit_la_table', 'agence'],
+  ])('%s — %s : la table, jamais la vue', async (_id, role) => {
+    setupAuth(role, 'org-1');
+    results['collectes'] = {
+      data: [collecte('c1', 'evt-1', 30)],
+      error: null,
+    };
+    const GET = await loadGET();
+    const res = await GET(req(URL_AG));
+    const json = (await res.json()) as {
+      data: { series: Array<Record<string, number | null>> };
+    };
+    expect(selectCollectes()).toContain(
+      'attributions_antgaspi(volume_repas_realise)',
+    );
+    expect(selectCollectes()).not.toContain('v_attributions_gestionnaire');
+    expect(json.data.series[0]!.repas_donnes).toBe(30);
+  });
+});

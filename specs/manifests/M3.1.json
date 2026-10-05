@@ -206,7 +206,14 @@
     "M3.1/fiche_popup_document_a_venir",
     "M3.1/fiche_popup_document_en_preparation",
     "M3.1/fiche_popup_document_disponible",
-    "M3.1/liste_colonne_client"
+    "M3.1/liste_colonne_client",
+    "M3.1/attributions_embed_autres_roles_table",
+    "M3.1/blocs_traiteur_ag_lit_la_table",
+    "M3.1/blocs_commercial_ag_lit_la_table",
+    "M3.1/evolution_traiteur_ag_lit_la_table",
+    "M3.1/evolution_commercial_ag_lit_la_table",
+    "M3.1/synthese_traiteur_ag_lit_la_table",
+    "M3.1/synthese_commercial_ag_lit_la_table"
   ],
   "deliverables": [
     {

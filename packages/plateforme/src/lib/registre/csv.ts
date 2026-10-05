@@ -21,7 +21,7 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 // collecte de données que les gestionnaires de lieux tiennent pour leur propre
 // registre (nature, code, producteur, date, tonnage, filière, code de
 // traitement, n° de bordereau, puis transporteur / exutoire intermédiaire /
-// exutoire final) ; 4 colonnes Savr suivent. Format canonique Savr garanti par
+// exutoire final) ; 2 colonnes Savr suivent (traiteur, date de l'événement). Format canonique Savr garanti par
 // @savr/shared/src/csv.
 // ---------------------------------------------------------------------------
 
@@ -207,14 +207,13 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
     () => EXUTOIRE_INTERMEDIAIRE,
   ),
   ...colonnesEtablissement('Exutoire final', exutoireFinal),
-  // Colonnes Savr, hors modèle.
-  { header: 'Lieu', value: (l) => l.row.lieu_nom ?? '' },
+  // Colonnes Savr, hors modèle. Le lieu et le n° de bordereau n'y figurent pas :
+  // ils sont déjà dans « Identité du producteur » et « Numéro de BSD ».
   { header: 'Traiteur', value: (l) => l.row.traiteur_raison_sociale ?? '' },
   {
     header: 'Date événement',
     value: (l) => formatDateFr(l.row.date_evenement),
   },
-  { header: 'N° bordereau', value: (l) => numeroBordereau(l.row) },
 ];
 
 const rangFlux = (code: string): number =>

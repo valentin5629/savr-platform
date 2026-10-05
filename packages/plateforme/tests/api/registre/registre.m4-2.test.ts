@@ -228,10 +228,8 @@ const EN_TETES_CSV = [
   'Exutoire final - Adresse',
   'Exutoire final - Code postal',
   'Exutoire final - Ville',
-  'Lieu',
   'Traiteur',
   'Date événement',
-  'N° bordereau',
 ].join(';');
 
 async function lignesCsv(res: Response): Promise<string[]> {
@@ -279,7 +277,7 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     expect(insertArgs?.organisation_id).toBe('org-a');
   });
 
-  it('M4.2/export_csv_ligne_par_flux — une ligne par flux pesé, 20 colonnes du modèle + 4 colonnes Savr', async () => {
+  it('M4.2/export_csv_ligne_par_flux — une ligne par flux pesé, 20 colonnes du modèle + 2 colonnes Savr', async () => {
     setupAuth('gestionnaire_lieux', 'org-a');
     rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
     rls.push({
@@ -322,14 +320,14 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
         `Savr;${entrepot}`,
         `Entrepôt Savr;${entrepot}`,
         'GENERIS VSG DCDT;ZI des Graviers, 6 avenue Winston Churchill;94190;Villeneuve-Saint-Georges',
-        'Pavillon Cambon;Kaspia SARL;12/05/2026;BSAV-2026-00001',
+        'Kaspia SARL;12/05/2026',
       ].join(';'),
       [
         'Verre;15 01 07;Pavillon Cambon;13/05/2026;0,4687;Recyclage;R5;BSAV-2026-00001',
         `Savr;${entrepot}`,
         `Entrepôt Savr;${entrepot}`,
         'REVIVAL GENNEVILLIERS TRSFT;9 route du Môle Central;92230;Gennevilliers',
-        'Pavillon Cambon;Kaspia SARL;12/05/2026;BSAV-2026-00001',
+        'Kaspia SARL;12/05/2026',
       ].join(';'),
     ]);
   });
@@ -406,7 +404,7 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
         `Savr;${entrepot}`,
         `Entrepôt Savr;${entrepot}`,
         ';;;',
-        'Pavillon Cambon;Kaspia SARL;12/05/2026;',
+        'Kaspia SARL;12/05/2026',
       ].join(';'),
     ]);
   });

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Tests pgTAP — associations : SELECT en liste blanche colonne-level
--- Migration prouvée : 20261004100000_plateforme_associations_select_liste_blanche
+-- Migration prouvée : 20261004200000_plateforme_associations_select_liste_blanche
 -- =============================================================================
 -- Fuite fermée (reviewer-rls-securite, 2026-10-04) : la policy `asso_read`
 -- (auth.role() = 'authenticated') rend toutes les lignes du référentiel à tout
@@ -29,7 +29,8 @@
 -- avant comme après. Ils prouvent que chaque refus vient du privilège colonne,
 -- pas d'une ligne invisible ni d'une fixture invalide : sous la même identité,
 -- la même ligne se lit par les colonnes de la liste blanche. AVEC la
--- migration : 49 sur 49.
+-- migration : 49 sur 49. Re-mesuré à l'identique le 2026-10-05 sur 173
+-- migrations (vue v_attributions_gestionnaire de #483 comprise).
 -- Sondes de mutation sur la base migrée (même date) : policy asso_read retirée
 -- → 6, 7, 17, 18, 21-25, 28, 30, 32, 34, 36 rougissent (la visibilité de la
 -- ligne est tenue pour chaque rôle client) ; une colonne fermée rouverte

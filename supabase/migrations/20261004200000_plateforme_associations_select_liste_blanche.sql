@@ -35,14 +35,15 @@
 -- celui de 0.4a. La liste est épinglée à l'identique par
 -- SECU__associations_select_liste_blanche.test.sql.
 --
--- LISTE BLANCHE (7 colonnes) = exactement ce que les rôles clients lisent sous
--- leur identité aujourd'hui, ni plus ni moins :
+-- LISTE BLANCHE (7 colonnes, validée par Val le 2026-10-05 — arbitrage C1 de la
+-- divergence SECU-RLS_20261004) = exactement ce que les rôles clients lisent
+-- sous leur identité aujourd'hui, ni plus ni moins :
 --   - id : clé de jointure de tous les embeds PostgREST
 --     (`associations!association_id(...)` → WHERE associations.id = …, qui exige
 --     le privilège sur la colonne) et clé de regroupement des « Top associations
 --     bénéficiaires » ;
 --   - nom, ville : fiche collecte client, dashboards (blocs AG, synthèse PDF),
---     détail événement et pack AG du gestionnaire, export CSV ;
+--     attestation du détail événement (nom), export CSV ;
 --   - region : export CSV « Associations bénéficiaires AG » du traiteur_manager
 --     (§12 : « Association, Ville, Région, Nb collectes, Repas donnés ») ;
 --   - description_rapport_impact : fiche collecte client (§04 : « Description
@@ -72,19 +73,21 @@
 --     par aucun générateur de PDF aujourd'hui (les logos des PDF viennent de
 --     organisations).
 --
--- LECTEURS RECENSÉS (2026-10-04, sans troncature) — 81 fichiers source du dépôt
--- (ts, tsx, mjs, js) mentionnent « associations ». Hors tests, les lectures de
--- la table s'y réduisent à 7 `.from('associations')` et 13 embeds
--- (`associations!association_id(...)`, `associations (...)`,
+-- LECTEURS RECENSÉS (2026-10-04 sur main, refait le 2026-10-05 après la fusion
+-- de #483, sans troncature) — 84 fichiers source du dépôt (ts, tsx, mjs, js)
+-- mentionnent « associations ». Hors tests, les lectures de la table s'y
+-- réduisent à 7 `.from('associations')` et 12 embeds
+-- (`associations!association_id(...)`, `associations(...)`,
 -- `associations:association_id(...)`) ; le reste : libellés, types, tests et
 -- seed (connexion directe, hors PostgREST).
---   Sous l'identité de l'utilisateur (createSupabaseServerClient) — 7 embeds
---   dans 6 fichiers, tous dans la liste blanche :
---     gestionnaire/evenements/[id] (nom, ville, latitude, longitude ; nom),
---     gestionnaire/pack-ag (nom), lib/collectes/fiche-client (nom, ville,
---     description_rapport_impact), lib/exports/builders branche traiteur_manager
---     (nom, ville, region), lib/dashboards/loaders et synthese-snapshot
---     (id, nom, ville).
+--   Sous l'identité de l'utilisateur (createSupabaseServerClient) — 6 embeds
+--   dans 4 fichiers, tous dans la liste blanche :
+--     gestionnaire/evenements/[id] (latitude, longitude depuis la vue ; nom
+--     depuis attestations_don), lib/collectes/fiche-client (traiteur et agence :
+--     nom, ville, description_rapport_impact ; gestionnaire :
+--     description_rapport_impact depuis la vue), lib/exports/builders branche
+--     traiteur_manager (nom, ville, region), lib/dashboards/attributions-ag —
+--     fragment partagé par loaders et synthese-snapshot (id, nom, ville).
 --   En service_role (privilèges intacts) — les 7 `.from('associations')` et les
 --   6 autres embeds : routes admin/associations (liste `select=*`, fiche,
 --     création, édition), admin/attributions-ag/[collecteId]/associations,
@@ -92,25 +95,23 @@
 --     (email à l'association), lib/pdf/batch-pdf-j1-ag (attestation de don),
 --     lib/exports/builders branche staff, lib/dashboards/admin-dashboard-client,
 --     et le worker outbox des adapters (point de collecte, adresse, contact).
---   Catalogue (base rejouée depuis main) : aucune vue ne dépend de la table ;
---     aucune policy d'une autre table ne la relit ; deux fonctions la lisent
---     (fn_calculer_algo_attribution_ag, rpc_evaluer_auto_accept_ag), toutes deux
---     SECURITY DEFINER et sans EXECUTE pour authenticated ; aucune fonction ne
---     rend le type ligne ; les deux triggers de la table
---     (trg_ops_immutable_cols, trg_garde_format_logo) ne lisent que OLD / NEW.
---   Lot en vol v_attributions_gestionnaire (20261004190000, non mergé à cette
---     date) : la vue est security_invoker = false, elle lit nom et ville avec
---     les droits de son propriétaire ; ses routes embarquent
---     `associations(latitude, longitude)` et
---     `associations(description_rapport_impact)` sous l'identité du
---     gestionnaire — colonnes de la liste blanche. Fonctionnellement
---     compatible dans les deux ordres d'application (mesuré : ses 2 fichiers
---     pgTAP et celui-ci verts dans chaque ordre). L'ordre de MERGE, lui, est
---     contraint par les préfixes : celui de ce lot (20261004100000) est
---     inférieur à ceux des deux lots en vol à cette date (20261004190000 et
---     20261004203000). Ce lot se merge donc AVANT eux, qui passent derrière
---     sans changer de préfixe ; si l'un d'eux est mergé d'abord, c'est ce lot
---     qui en change.
+--   Catalogue (base rejouée depuis main) : une seule vue dépend de la table,
+--     v_attributions_gestionnaire (ci-dessous) ; aucune policy d'une autre table
+--     ne la relit ; deux fonctions la lisent (fn_calculer_algo_attribution_ag,
+--     rpc_evaluer_auto_accept_ag), toutes deux SECURITY DEFINER et sans EXECUTE
+--     pour authenticated ; aucune fonction ne rend le type ligne ; les deux
+--     triggers de la table (trg_ops_immutable_cols, trg_garde_format_logo) ne
+--     lisent que OLD / NEW.
+--   Vue v_attributions_gestionnaire (20261004190000, #483, mergée avant ce
+--     lot) : security_invoker = false, elle lit `nom` et `ville` avec les
+--     droits de son propriétaire et les rend à plat au gestionnaire ; les routes
+--     du gestionnaire embarquent depuis elle `associations(latitude, longitude)`
+--     et `associations(description_rapport_impact)` sous son identité —
+--     colonnes de la liste blanche. Les deux migrations sont compatibles dans
+--     les deux ordres d'application (mesuré : ses 2 fichiers pgTAP et celui-ci
+--     verts dans chaque ordre). Préfixes : ce lot (20261004200000) passe après
+--     elle ; le lot d'export registre (20261004203000, PR #485) garde le sien
+--     et passe derrière.
 --
 -- CE QUE CE LOT NE CHANGE PAS (relevé, hors périmètre — arbitrages Val) :
 --   - latitude / longitude restent lisibles en direct : des coordonnées
@@ -144,10 +145,11 @@
 -- preuve. ORDRE code / migration : indifférent. Aucune route ne lit sous
 -- l'identité de l'utilisateur une colonne fermée ici ; l'ancien code comme le
 -- nouveau fonctionnent avant et après la migration. ORDRE entre migrations :
--- imposé par les préfixes (cf. « Lot en vol » plus haut) — sur une base, cette
+-- imposé par les préfixes (cf. « Préfixes » plus haut) — sur une base, cette
 -- migration passe AVANT celles de préfixe supérieur. Si l'une d'elles y est
--- déjà inscrite au registre, le db push de celle-ci est refusé (migration à
--- insérer avant la dernière appliquée) : mesurer le registre avant de pousser.
+-- déjà inscrite au registre, le db push de la présente migration est refusé
+-- (migration à insérer avant la dernière appliquée) : mesurer le registre avant
+-- de pousser.
 -- APRÈS APPLICATION, mesurer sur la base : has_table_privilege('authenticated',
 -- 'plateforme.associations', 'SELECT') = false et 7 colonnes lisibles.
 --
@@ -158,8 +160,9 @@
 -- dashboards, du détail événement et du pack AG rendent la même réponse
 -- qu'avant ; un embed demandant contact et notes internes depuis une
 -- attribution visible → 403 ; service_role lit les 26 colonnes. Suite pgTAP
--- complète : 116 fichiers / 1860 assertions avant, 117 / 1909 après, 0 échec —
--- aucun test existant à recaler.
+-- complète, rejouée le 2026-10-05 sur l'arbre fusionné avec #483 (173
+-- migrations, celle-ci appliquée après la vue) : 117 fichiers / 1884 assertions
+-- avant, 118 / 1933 après, 0 échec — aucun test existant à recaler.
 -- =============================================================================
 
 REVOKE SELECT ON plateforme.associations FROM authenticated;

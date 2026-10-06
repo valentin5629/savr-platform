@@ -11,31 +11,39 @@ import {
   BadgeCheck,
   Settings2,
   UtensilsCrossed,
-  type LucideIcon,
 } from 'lucide-react';
-import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
+import { SectionCard } from '@/components/ui/section-header';
 import {
   EnTeteMention,
   EnTetePuce,
   FicheEnTete,
-  OngletAvecErreurs,
-} from '@/components/collecte/fiche-blocs';
+} from '@/components/ui/fiche/fiche-en-tete';
+import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
+import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
 import { LogoUpload } from '@/components/admin/logo-upload';
 import {
   HorairesOuvertureEditor,
   horairesParDefaut,
   type JourHoraire,
 } from '@/components/admin/horaires-ouverture-editor';
-import { Heading } from '@/components/ui/heading';
 import { ActifBadge } from '@/components/ui/actif-badge';
+import { estSiren } from '@savr/shared/src/validation/index.js';
+import {
+  MESSAGE_FORMAT_SIREN,
+  messageLongueurMin,
+  messageObligatoire,
+} from '@/lib/libelles/validation';
 
 // Enregistrement association complet, aligné sur le select('*') de l'API liste —
 // sert à préremplir la modale d'édition sans re-fetch (toutes les colonnes sont
@@ -153,34 +161,6 @@ type Erreurs = Partial<Record<ChampValide, string>>;
 // d'onglet.
 const PANNEAU_ONGLET = 'space-y-4 data-[state=inactive]:hidden';
 
-// Bloc thématique — gabarit Design System partagé avec les fiches (#226/#231) :
-// carte bordée (levier §10 #5) + en-tête « pastille primary + titre extrabold
-// tracking serré » (leviers §10 #2/#7). Regroupe visuellement les champs par
-// thème dans la modale (au lieu d'un simple libellé), demande revue E2E Val.
-function Bloc({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-savr-md border border-savr-neutral-200 bg-savr-white p-4 sm:p-5">
-      <div className="mb-4 flex items-center gap-2.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
-          <Icon className="h-[18px] w-[18px]" />
-        </span>
-        <Heading level={3} weight="extrabold" className="tracking-[-0.01em]">
-          {title}
-        </Heading>
-      </div>
-      <div className="space-y-4">{children}</div>
-    </section>
-  );
-}
-
 interface AssociationModalProps {
   open: boolean;
   /** Association à éditer, ou null pour une création. */
@@ -240,23 +220,25 @@ export function AssociationModal({
 
   function validate(): Erreurs {
     const next: Erreurs = {};
-    if (!values.nom.trim()) next.nom = 'Nom obligatoire';
-    if (!values.adresse.trim()) next.adresse = 'Adresse obligatoire';
-    if (!values.region) next.region = 'Région obligatoire';
-    if (!values.ville.trim()) next.ville = 'Ville obligatoire';
+    if (!values.nom.trim()) next.nom = messageObligatoire('Nom');
+    if (!values.adresse.trim()) next.adresse = messageObligatoire('Adresse');
+    if (!values.region) next.region = messageObligatoire('Région');
+    if (!values.ville.trim()) next.ville = messageObligatoire('Ville');
     if (!values.contact_nom.trim())
-      next.contact_nom = 'Nom du contact obligatoire';
+      next.contact_nom = messageObligatoire('Nom du contact');
     if (!values.contact_telephone.trim())
-      next.contact_telephone = 'Numéro de contact obligatoire';
+      next.contact_telephone = messageObligatoire('Numéro de contact');
     if (!values.contact_email.trim())
-      next.contact_email = 'Email de contact obligatoire';
+      next.contact_email = messageObligatoire('Email de contact');
     if (!values.capacite_max_beneficiaires.trim())
-      next.capacite_max_beneficiaires = 'Capacité max obligatoire';
+      next.capacite_max_beneficiaires = messageObligatoire('Capacité max');
     if (values.description_rapport_impact.trim().length < 30)
-      next.description_rapport_impact =
-        'Description du rapport d’impact : 30 caractères minimum';
-    if (values.siren.trim() !== '' && !/^\d{9}$/.test(values.siren.trim()))
-      next.siren = 'SIREN : 9 chiffres';
+      next.description_rapport_impact = messageLongueurMin(
+        'Description du rapport d’impact',
+        30,
+      );
+    if (values.siren.trim() !== '' && !estSiren(values.siren.trim()))
+      next.siren = MESSAGE_FORMAT_SIREN;
     setErrors(next);
     return next;
   }
@@ -363,9 +345,6 @@ export function AssociationModal({
     onClose();
   }
 
-  const checkboxClass =
-    'h-4 w-4 rounded-savr-sm border-savr-neutral-300 text-savr-primary-700 focus:outline-2 focus:outline-savr-primary-500';
-
   const footer = (
     <>
       <Button
@@ -409,7 +388,10 @@ export function AssociationModal({
   );
 
   return (
-    <Modal
+    // Même shell que les fiches transporteur et lieu (FicheModal) : grand
+    // en-tête fixe, corps défilant, hauteur fixe dès md (la modale ne bouge
+    // pas d'un onglet à l'autre).
+    <FicheModal
       open={open}
       onClose={onClose}
       title={
@@ -417,12 +399,6 @@ export function AssociationModal({
           ? `Fiche association — ${association!.nom}`
           : 'Nouvelle association'
       }
-      // Même cadre que les fiches transporteur et lieu : grand en-tête fixe,
-      // corps défilant, hauteur fixe dès md (la modale ne bouge pas d'un
-      // onglet à l'autre).
-      hideTitle
-      bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
-      className="max-w-5xl md:h-[min(90vh,48rem)]"
       footer={footer}
     >
       {isEdition ? (
@@ -459,7 +435,7 @@ export function AssociationModal({
           description="Renseignez les onglets, puis créez l’association."
         />
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+      <FicheCorps>
         <form onSubmit={handleFormSubmit} noValidate>
           {serverError && (
             <AlertBar
@@ -494,8 +470,8 @@ export function AssociationModal({
               forceMount
               className={PANNEAU_ONGLET}
             >
-              <Bloc icon={Heart} title="Identité">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <SectionCard icon={Heart} title="Identité">
+                <FormGrid>
                   <FormField
                     label="Nom de l'association"
                     htmlFor="am_nom"
@@ -504,6 +480,7 @@ export function AssociationModal({
                   >
                     <Input
                       id="am_nom"
+                      required
                       value={values.nom}
                       onChange={(e) => set('nom', e.target.value)}
                       error={Boolean(errors.nom)}
@@ -518,6 +495,7 @@ export function AssociationModal({
                   >
                     <Input
                       id="am_capacite_max_beneficiaires"
+                      required
                       type="number"
                       min={0}
                       value={values.capacite_max_beneficiaires}
@@ -527,21 +505,22 @@ export function AssociationModal({
                       error={Boolean(errors.capacite_max_beneficiaires)}
                     />
                   </FormField>
-                </div>
-              </Bloc>
+                </FormGrid>
+              </SectionCard>
 
-              <Bloc icon={MapPin} title="Adresse">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <SectionCard icon={MapPin} title="Adresse">
+                <FormGrid cols={3}>
                   <FormField
                     label="Adresse"
                     htmlFor="am_adresse"
                     required
                     error={errors.adresse}
                     hint="Géocodée automatiquement à l'enregistrement"
-                    className="md:col-span-2"
+                    className="sm:col-span-2"
                   >
                     <Input
                       id="am_adresse"
+                      required
                       value={values.adresse}
                       onChange={(e) => set('adresse', e.target.value)}
                       error={Boolean(errors.adresse)}
@@ -555,6 +534,7 @@ export function AssociationModal({
                   >
                     <Input
                       id="am_ville"
+                      required
                       value={values.ville}
                       onChange={(e) => set('ville', e.target.value)}
                       error={Boolean(errors.ville)}
@@ -576,11 +556,11 @@ export function AssociationModal({
                       options={REGIONS}
                     />
                   </FormField>
-                </div>
-              </Bloc>
+                </FormGrid>
+              </SectionCard>
 
-              <Bloc icon={User} title="Contact">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <SectionCard icon={User} title="Contact">
+                <FormGrid cols={3}>
                   <FormField
                     label="Nom prénom du contact"
                     htmlFor="am_contact_nom"
@@ -589,6 +569,7 @@ export function AssociationModal({
                   >
                     <Input
                       id="am_contact_nom"
+                      required
                       value={values.contact_nom}
                       onChange={(e) => set('contact_nom', e.target.value)}
                       error={Boolean(errors.contact_nom)}
@@ -602,6 +583,7 @@ export function AssociationModal({
                   >
                     <Input
                       id="am_contact_telephone"
+                      required
                       value={values.contact_telephone}
                       onChange={(e) => set('contact_telephone', e.target.value)}
                       error={Boolean(errors.contact_telephone)}
@@ -616,13 +598,14 @@ export function AssociationModal({
                   >
                     <Input
                       id="am_contact_email"
+                      required
                       value={values.contact_email}
                       onChange={(e) => set('contact_email', e.target.value)}
                       error={Boolean(errors.contact_email)}
                     />
                   </FormField>
-                </div>
-              </Bloc>
+                </FormGrid>
+              </SectionCard>
             </TabsContent>
 
             <TabsContent
@@ -630,14 +613,14 @@ export function AssociationModal({
               forceMount
               className={PANNEAU_ONGLET}
             >
-              <Bloc icon={Clock} title="Horaires d'ouverture">
+              <SectionCard icon={Clock} title="Horaires d'ouverture">
                 <HorairesOuvertureEditor
                   value={values.horaires_ouverture}
                   onChange={(v) => set('horaires_ouverture', v)}
                 />
-              </Bloc>
+              </SectionCard>
 
-              <Bloc icon={DoorOpen} title="Accès et réception">
+              <SectionCard icon={DoorOpen} title="Accès et réception">
                 <FormField
                   label="Instructions d'accès (pour le transporteur)"
                   htmlFor="am_instructions_acces"
@@ -649,7 +632,7 @@ export function AssociationModal({
                     onChange={(e) => set('instructions_acces', e.target.value)}
                   />
                 </FormField>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FormGrid>
                   <FormField
                     label="Types d'aliments acceptés"
                     htmlFor="am_types_aliments_acceptes"
@@ -676,12 +659,12 @@ export function AssociationModal({
                       }
                     />
                   </FormField>
-                </div>
-              </Bloc>
+                </FormGrid>
+              </SectionCard>
             </TabsContent>
 
             <TabsContent value="rapport" forceMount className={PANNEAU_ONGLET}>
-              <Bloc icon={FileText} title="Rapport d'impact">
+              <SectionCard icon={FileText} title="Rapport d'impact">
                 <FormField
                   label="Description pour le rapport d'impact (pour le client)"
                   htmlFor="am_description_rapport_impact"
@@ -691,6 +674,7 @@ export function AssociationModal({
                 >
                   <Textarea
                     id="am_description_rapport_impact"
+                    required
                     rows={5}
                     value={values.description_rapport_impact}
                     onChange={(e) =>
@@ -710,7 +694,7 @@ export function AssociationModal({
                     onChange={(v) => set('logo_url', v)}
                   />
                 </FormField>
-              </Bloc>
+              </SectionCard>
             </TabsContent>
 
             <TabsContent
@@ -718,19 +702,20 @@ export function AssociationModal({
               forceMount
               className={PANNEAU_ONGLET}
             >
-              <Bloc icon={BadgeCheck} title="Habilitation fiscale">
-                <label className="flex items-center gap-2 text-sm font-medium text-savr-neutral-700">
-                  <input
-                    type="checkbox"
+              <SectionCard icon={BadgeCheck} title="Habilitation fiscale">
+                <Label
+                  variant="choice"
+                  className="flex items-center gap-2 font-medium"
+                >
+                  <Checkbox
                     checked={values.habilitee_attestation_fiscale}
-                    onChange={(e) =>
-                      set('habilitee_attestation_fiscale', e.target.checked)
+                    onCheckedChange={(v) =>
+                      set('habilitee_attestation_fiscale', v === true)
                     }
-                    className={checkboxClass}
                   />
                   Habilitation 2041-GE (attestation fiscale)
-                </label>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                </Label>
+                <FormGrid>
                   <FormField
                     label="Date d'expiration habilitation 2041-GE"
                     htmlFor="am_date_expiration_habilitation"
@@ -753,11 +738,14 @@ export function AssociationModal({
                       onChange={(e) => set('numero_rup', e.target.value)}
                     />
                   </FormField>
-                </div>
-              </Bloc>
+                </FormGrid>
+              </SectionCard>
 
-              <Bloc icon={Settings2} title="Identification et suivi interne">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <SectionCard
+                icon={Settings2}
+                title="Identification et suivi interne"
+              >
+                <FormGrid>
                   <FormField
                     label="SIREN"
                     htmlFor="am_siren"
@@ -784,12 +772,12 @@ export function AssociationModal({
                       }
                     />
                   </FormField>
-                </div>
-              </Bloc>
+                </FormGrid>
+              </SectionCard>
             </TabsContent>
           </Tabs>
         </form>
-      </div>
-    </Modal>
+      </FicheCorps>
+    </FicheModal>
   );
 }

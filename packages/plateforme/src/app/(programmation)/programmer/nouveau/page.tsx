@@ -20,6 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { FormStepIndicator } from '@/components/programmation/form-step-indicator';
@@ -507,18 +508,20 @@ export default function NouveauProgrammationPage() {
           <FormField label="Nom du client final" htmlFor="nom-client" required>
             <Input
               id="nom-client"
+              required
               value={nomClient}
               onChange={(e) => setNomClient(e.target.value)}
               placeholder="Ex : Entreprise Dupont"
             />
           </FormField>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormGrid>
             <FormField label="Nombre de convives" htmlFor="pax" required>
               <Input
                 id="pax"
                 type="number"
                 min="1"
+                required
                 value={pax}
                 onChange={(e) => setPax(e.target.value)}
                 placeholder="Ex : 80"
@@ -544,7 +547,7 @@ export default function NouveauProgrammationPage() {
                 onChange={setTypeEvenementId}
               />
             </FormField>
-          </div>
+          </FormGrid>
 
           <div className="space-y-2">
             <Label required>Type(s) de collecte</Label>
@@ -557,14 +560,14 @@ export default function NouveauProgrammationPage() {
                     setTypesCollecte((p) => ({ ...p, zd: c === true }))
                   }
                 />
-                <label htmlFor="type-zd" className="text-sm cursor-pointer">
+                <Label variant="choice" htmlFor="type-zd">
                   <span className="font-medium">
                     {libelleCompletTypeCollecte('zero_dechet')}
                   </span>
                   <span className="text-savr-neutral-500 ml-1">
                     — compostage / méthanisation
                   </span>
-                </label>
+                </Label>
               </div>
 
               <div className="flex items-start gap-3">
@@ -574,7 +577,7 @@ export default function NouveauProgrammationPage() {
                   checked={typesCollecte.ag}
                   onCheckedChange={(c) => void handleAgCheck(c === true)}
                 />
-                <label htmlFor="type-ag" className="text-sm cursor-pointer">
+                <Label variant="choice" htmlFor="type-ag">
                   <span className="font-medium">
                     {libelleCompletTypeCollecte('anti_gaspi')}
                   </span>
@@ -587,7 +590,7 @@ export default function NouveauProgrammationPage() {
                       continuer.
                     </FormError>
                   )}
-                </label>
+                </Label>
               </div>
             </div>
           </div>
@@ -670,6 +673,7 @@ export default function NouveauProgrammationPage() {
               <FormField label="Nom commercial" htmlFor="shadow-nom" required>
                 <Input
                   id="shadow-nom"
+                  required
                   value={shadowForm.nom_commercial}
                   onChange={(e) =>
                     setShadowForm((p) => ({
@@ -683,6 +687,7 @@ export default function NouveauProgrammationPage() {
               <FormField label="Raison sociale" htmlFor="shadow-rs" required>
                 <Input
                   id="shadow-rs"
+                  required
                   value={shadowForm.raison_sociale}
                   onChange={(e) =>
                     setShadowForm((p) => ({
@@ -771,12 +776,9 @@ export default function NouveauProgrammationPage() {
                 checked={controleAcces}
                 onCheckedChange={(c) => setControleAcces(c === true)}
               />
-              <label
-                className="text-sm cursor-pointer text-savr-neutral-700"
-                htmlFor="controle-acces"
-              >
+              <Label variant="choice" htmlFor="controle-acces">
                 Plaque d'immatriculation et nom du chauffeur requis pour ce lieu
-              </label>
+              </Label>
             </div>
           </div>
 
@@ -831,10 +833,11 @@ export default function NouveauProgrammationPage() {
             }
           >
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormGrid>
                 <FormField label="Prénom" htmlFor="contact-prenom" required>
                   <Input
                     id="contact-prenom"
+                    required
                     value={newContact.prenom}
                     onChange={(e) =>
                       setNewContact((p) => ({ ...p, prenom: e.target.value }))
@@ -845,6 +848,7 @@ export default function NouveauProgrammationPage() {
                 <FormField label="Nom" htmlFor="contact-nom" required>
                   <Input
                     id="contact-nom"
+                    required
                     value={newContact.nom}
                     onChange={(e) =>
                       setNewContact((p) => ({ ...p, nom: e.target.value }))
@@ -852,11 +856,12 @@ export default function NouveauProgrammationPage() {
                     placeholder="Nom"
                   />
                 </FormField>
-              </div>
+              </FormGrid>
               <FormField label="Téléphone" htmlFor="contact-tel" required>
                 <Input
                   id="contact-tel"
                   type="tel"
+                  required
                   value={newContact.telephone}
                   onChange={(e) =>
                     setNewContact((p) => ({ ...p, telephone: e.target.value }))

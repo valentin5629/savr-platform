@@ -18,6 +18,9 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
+import { FormGrid } from '@/components/ui/form-grid';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { AuthCard, AuthPage } from '@/components/auth/auth-card';
 import { PASSWORD_MIN_LENGTH, validatePasswordStrength } from '@/lib/password';
 import {
@@ -269,25 +272,25 @@ export default function SignupPage() {
       >
         {etape === 1 && (
           <>
-            <fieldset className="space-y-3">
-              <legend className="sr-only">Type de profil</legend>
+            <RadioGroup
+              name="type_profil"
+              value={typeProfil}
+              onValueChange={(v) => setTypeProfil(v as Profil)}
+              legend="Type de profil"
+              legendClassName="sr-only"
+              className="space-y-3"
+            >
               {PROFILS.map((p) => (
-                <label
+                <Label
                   key={p.valeur}
-                  className={`flex cursor-pointer gap-3 rounded-savr-md border p-4 transition-colors ${
+                  variant="choice"
+                  className={`flex gap-3 rounded-savr-md border p-4 transition-colors ${
                     typeProfil === p.valeur
                       ? 'border-savr-primary-700 bg-savr-primary-50'
                       : 'border-savr-neutral-200 hover:border-savr-neutral-300'
                   }`}
                 >
-                  <input
-                    type="radio"
-                    name="type_profil"
-                    value={p.valeur}
-                    checked={typeProfil === p.valeur}
-                    onChange={() => setTypeProfil(p.valeur)}
-                    className="mt-1 h-4 w-4 accent-savr-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-                  />
+                  <RadioGroupItem value={p.valeur} className="mt-0.5" />
                   <span>
                     <Text as="span" tone="ink" className="block font-semibold">
                       {p.titre}
@@ -296,9 +299,9 @@ export default function SignupPage() {
                       {p.detail}
                     </Text>
                   </span>
-                </label>
+                </Label>
               ))}
-            </fieldset>
+            </RadioGroup>
 
             <FormError>{erreur}</FormError>
           </>
@@ -306,7 +309,7 @@ export default function SignupPage() {
 
         {etape === 2 && (
           <>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <FormGrid>
               <FormField label="Prénom" htmlFor="prenom" required>
                 <Input
                   id="prenom"
@@ -327,7 +330,7 @@ export default function SignupPage() {
                   onChange={(e) => setNom(e.target.value)}
                 />
               </FormField>
-            </div>
+            </FormGrid>
 
             <FormField
               label="Email professionnel"
@@ -413,17 +416,13 @@ export default function SignupPage() {
                 onCheckedChange={(v) => setCgu(v === true)}
                 aria-describedby="cgu-label"
               />
-              <label
-                className="cursor-pointer text-sm text-savr-neutral-700"
-                id="cgu-label"
-                htmlFor="cgu"
-              >
+              <Label variant="choice" id="cgu-label" htmlFor="cgu">
                 J&apos;accepte les{' '}
                 <TextLink href={ROUTES.cgu} target="_blank" strong>
                   Conditions Générales d&apos;Utilisation
                 </TextLink>
                 . Cette acceptation est horodatée et conservée.
-              </label>
+              </Label>
             </div>
 
             <FormError>{erreur}</FormError>

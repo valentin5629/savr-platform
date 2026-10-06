@@ -15,9 +15,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
+import { Text, textClasses } from '@/components/ui/text';
+import { InfoItem } from '@/components/ui/info-item';
 import { ROUTES } from '@/lib/routes';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+
+// Valeur du récapitulatif événement : texte courant neutral-900.
+const VALEUR_RECAP = textClasses({ tone: 'ink' });
 
 type CollecteRecap = {
   id: string;
@@ -156,30 +160,30 @@ function ConfirmationContent() {
             Événement
           </Heading>
           <dl className="grid gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3 sm:grid-cols-3">
-            <div className="space-y-0.5 sm:col-span-3">
-              <Text as="dt" variant="hint">
-                Lieu
-              </Text>
-              <Text as="dd" tone="ink">
-                {formatLieu(evenement.lieux)}
-              </Text>
-            </div>
-            <div className="space-y-0.5">
-              <Text as="dt" variant="hint">
-                Nombre de pax
-              </Text>
-              <Text as="dd" tone="ink">
-                {evenement.pax ?? '—'}
-              </Text>
-            </div>
-            <div className="space-y-0.5 sm:col-span-2">
-              <Text as="dt" variant="hint">
-                Contact principal
-              </Text>
-              <Text as="dd" tone="ink">
-                {evenement.contact_principal_nom || '—'}
-              </Text>
-            </div>
+            <InfoItem
+              variant="hint"
+              label="Lieu"
+              className="space-y-0.5 sm:col-span-3"
+              valueClassName={VALEUR_RECAP}
+            >
+              {formatLieu(evenement.lieux)}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Nombre de pax"
+              className="space-y-0.5"
+              valueClassName={VALEUR_RECAP}
+            >
+              {evenement.pax ?? '—'}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Contact principal"
+              className="space-y-0.5 sm:col-span-2"
+              valueClassName={VALEUR_RECAP}
+            >
+              {evenement.contact_principal_nom || '—'}
+            </InfoItem>
           </dl>
         </div>
       )}

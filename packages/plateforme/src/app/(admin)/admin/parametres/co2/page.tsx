@@ -6,6 +6,7 @@ import { Leaf, Save, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { LoadingState } from '@/components/ui/loading-state';
@@ -514,7 +515,7 @@ export default function ParametresCo2Page() {
           </div>
           {/* Libellé au-dessus du champ (DS « Mise en page des formulaires »),
               unité en aide ; grille de 3 colonnes max. */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <FormGrid cols={3}>
             {diversDraft.map((d, i) => (
               <FormField
                 key={d.id}
@@ -535,7 +536,7 @@ export default function ParametresCo2Page() {
                 />
               </FormField>
             ))}
-          </div>
+          </FormGrid>
           <CommentaireInput value={commentDivers} onChange={setCommentDivers} />
         </Card>
       )}
@@ -554,10 +555,11 @@ function CommentaireInput({
 }) {
   const id = useId();
   return (
-    <FormField label="Commentaire de modification (obligatoire)" htmlFor={id}>
+    <FormField label="Commentaire de modification" htmlFor={id} required>
       <Input
         id={id}
         type="text"
+        required
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Motif / source de la mise à jour"

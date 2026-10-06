@@ -20,6 +20,7 @@ import { Minus, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,6 +37,7 @@ import {
 } from '@/lib/type-tms-labels';
 import { Text } from '@/components/ui/text';
 import { fmtPax, fmtInt } from '@/lib/format';
+import { messageObligatoire } from '@/lib/libelles/validation';
 
 interface AssociationSuggestion {
   id: string;
@@ -440,7 +442,9 @@ export function AttributionAgForm({
   const handleValider = async () => {
     if (!selectedAsso || !selectedTransp || !algo) return;
     if (isOverride && !motifOk) {
-      setError('Motif override obligatoire (min 10 car. si « Autre »)');
+      setError(
+        messageObligatoire('Motif override', '(min 10 car. si « Autre »)'),
+      );
       return;
     }
     if (!nbVehiculesOk) {
@@ -568,7 +572,7 @@ export function AttributionAgForm({
 
             {/* Ligne 2 : champs — gauche = critères de l'algo (lecture seule),
                 droite = besoin véhicule */}
-            <div className="grid grid-cols-2 gap-4">
+            <FormGrid>
               <FormField label="Volume estimé" htmlFor="attribution-volume">
                 <Input id="attribution-volume" value={volumeLabel} readOnly />
               </FormField>
@@ -587,14 +591,14 @@ export function AttributionAgForm({
               </FormField>
               {contexteEtat === 'erreur' && (
                 <ErrorState
-                  className="col-span-2"
+                  className="sm:col-span-2"
                   message="Impossible de lire la collecte : le besoin véhicule ne sera envoyé que si vous le modifiez ici."
                   onRetry={() => void chargerContexte()}
                   retryLabel="Recharger la collecte"
                 />
               )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+            </FormGrid>
+            <FormGrid>
               <FormField
                 label="Type de véhicule souhaité"
                 htmlFor="type-vehicule-select"
@@ -665,7 +669,7 @@ export function AttributionAgForm({
                     : `Nombre invalide : entier entre 1 et ${NB_VEHICULES_MAX}.`}
                 </p>
               </FormField>
-            </div>
+            </FormGrid>
 
             {/* Ligne 3 : recommandations (même structure, même hauteur) */}
             <div>
@@ -823,7 +827,7 @@ export function AttributionAgForm({
               <p className="text-xs font-semibold text-savr-warning-strong">
                 Choix hors recommandation — motif obligatoire
               </p>
-              <div className="grid gap-4 lg:grid-cols-2">
+              <FormGrid>
                 <FormField label="Motif" htmlFor="motif-override-select">
                   <Combobox
                     id="motif-override-select"
@@ -851,7 +855,7 @@ export function AttributionAgForm({
                     />
                   </FormField>
                 )}
-              </div>
+              </FormGrid>
             </div>
           )}
 

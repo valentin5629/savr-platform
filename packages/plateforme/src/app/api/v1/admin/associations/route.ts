@@ -7,6 +7,7 @@ import { champsAdminPoses } from '@/lib/associations-champs-admin.js';
 import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { estSiren } from '@savr/shared/src/validation/index.js';
 import { lireTri } from '@/lib/tri-liste.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -159,7 +160,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (
     typeof body.siren === 'string' &&
     body.siren !== '' &&
-    !/^\d{9}$/.test(body.siren)
+    !estSiren(body.siren)
   ) {
     return NextResponse.json(
       { error: 'siren doit contenir 9 chiffres' },

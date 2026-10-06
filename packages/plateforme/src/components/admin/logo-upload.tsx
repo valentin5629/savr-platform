@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Upload, Check, X } from 'lucide-react';
+import { FormError } from '@/components/ui/form-error';
 import { Text } from '@/components/ui/text';
 
 // Upload logo (association / organisation) vers R2 via /api/v1/admin/uploads/logo.
@@ -90,7 +91,7 @@ export function LogoUpload({
           </Text>
         )}
       </div>
-      {error && <p className="text-xs text-savr-error-strong">{error}</p>}
+      <FormError>{error}</FormError>
     </div>
   );
 }

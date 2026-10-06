@@ -13,7 +13,8 @@ const browser = await chromium.launch({
   args: ['--no-sandbox'],
 });
 const page = await browser.newPage({
-  viewport: { width: 1200, height: 900 },
+  // WIDTH=375 : capture mobile (sous la limite `sm` 640 px du DS §8).
+  viewport: { width: Number(process.env.WIDTH || 1200), height: 900 },
   deviceScaleFactor: 1,
 });
 page.on('pageerror', (e) => console.error('PAGEERROR', e.message));

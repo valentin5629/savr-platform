@@ -11,7 +11,6 @@ import {
   MapPin,
   Truck,
 } from 'lucide-react';
-import { Modal } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -21,17 +20,25 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
+import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
+import { SectionHeader } from '@/components/ui/section-header';
 import {
-  BlocHeader,
   EnTeteMention,
   EnTetePuce,
   FicheEnTete,
-  OngletAvecErreurs,
-} from '@/components/collecte/fiche-blocs';
+} from '@/components/ui/fiche/fiche-en-tete';
+import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
+import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
 import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
+import { estSiren } from '@savr/shared/src/validation/index.js';
+import {
+  MESSAGE_FORMAT_SIREN,
+  messageObligatoire,
+} from '@/lib/libelles/validation';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
@@ -261,13 +268,14 @@ function Interrupteur({
 }) {
   return (
     // Toute la ligne est le libellé : zone cliquable de 44 px de haut (DS §10 Accessibilité).
-    <label
-      className="inline-flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-savr-neutral-700"
+    <Label
+      variant="choice"
+      className="inline-flex min-h-11 items-center gap-3 font-medium"
       htmlFor={id}
     >
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
       {label}
-    </label>
+    </Label>
   );
 }
 
@@ -383,16 +391,16 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
   function validate(): boolean {
     const next: Record<string, string> = {};
-    if (!values.nom.trim()) next.nom = 'Nom obligatoire';
+    if (!values.nom.trim()) next.nom = messageObligatoire('Nom');
     if (!values.adresse_acces.trim())
-      next.adresse_acces = 'Adresse accès livraison obligatoire';
+      next.adresse_acces = messageObligatoire('Adresse accès livraison');
     if (!values.code_postal.trim())
-      next.code_postal = 'Code postal obligatoire';
-    if (!values.ville.trim()) next.ville = 'Ville obligatoire';
+      next.code_postal = messageObligatoire('Code postal');
+    if (!values.ville.trim()) next.ville = messageObligatoire('Ville');
     if (!values.type_vehicule_max)
-      next.type_vehicule_max = 'Type de véhicule max obligatoire';
-    if (values.siren.trim() !== '' && !/^\d{9}$/.test(values.siren.trim()))
-      next.siren = 'SIREN : 9 chiffres';
+      next.type_vehicule_max = messageObligatoire('Type de véhicule max');
+    if (values.siren.trim() !== '' && !estSiren(values.siren.trim()))
+      next.siren = MESSAGE_FORMAT_SIREN;
     setErrors(next);
     const premierOngletEnErreur = ONGLETS.find(({ value }) =>
       Object.keys(next).some((champ) => ONGLET_DU_CHAMP[champ] === value),
@@ -521,7 +529,10 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   );
 
   return (
-    <Modal
+    // Shell commun des fiches (FicheModal) : grand en-tête fixe dans le corps,
+    // qui défile en dessous ; hauteur fixe dès md, la modale ne change ni de
+    // taille ni de place d'un onglet à l'autre.
+    <FicheModal
       open={open}
       onClose={onClose}
       title={
@@ -531,12 +542,6 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
             : 'Fiche lieu'
           : 'Nouveau lieu'
       }
-      // Même cadre que la fiche transporteur : grand en-tête fixe dans le
-      // corps, qui défile en dessous ; hauteur fixe dès md, la modale ne
-      // change ni de taille ni de place d'un onglet à l'autre.
-      hideTitle
-      bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
-      className="max-w-5xl md:h-[min(90vh,48rem)]"
       footer={footer}
     >
       {isEdition ? (
@@ -591,7 +596,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
           description="Renseignez les onglets, puis créez le lieu."
         />
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+      <FicheCorps>
         {hydrating ? (
           <LoadingState
             label="Chargement du lieu…"
@@ -635,8 +640,8 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
               <TabsContent value="informations" className="space-y-4">
                 <Card padding="md" className="space-y-4">
-                  <BlocHeader icon={Building2} title="Identité" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <SectionHeader icon={Building2} title="Identité" />
+                  <FormGrid>
                     <FormField
                       label="Nom du lieu"
                       htmlFor="lm_nom"
@@ -645,6 +650,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     >
                       <Input
                         id="lm_nom"
+                        required
                         value={values.nom}
                         onChange={(e) => set('nom', e.target.value)}
                         error={Boolean(errors.nom)}
@@ -664,7 +670,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       label="Gestionnaire de lieux"
                       htmlFor="lm_gestionnaire"
                       hint="Organisation gestionnaire rattachée — optionnel"
-                      className="md:col-span-2"
+                      className="sm:col-span-2"
                     >
                       <Combobox
                         id="lm_gestionnaire"
@@ -681,7 +687,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         ]}
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                   <Interrupteur
                     id="lm_actif"
                     label="Actif"
@@ -691,18 +697,19 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                 </Card>
 
                 <Card padding="md" className="space-y-4">
-                  <BlocHeader icon={MapPin} title="Adresse" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <SectionHeader icon={MapPin} title="Adresse" />
+                  <FormGrid cols={3}>
                     <FormField
                       label="Adresse accès livraison"
                       htmlFor="lm_adresse_acces"
                       required
                       error={errors.adresse_acces}
                       hint="Géocodée automatiquement à l'enregistrement"
-                      className="md:col-span-2"
+                      className="sm:col-span-2"
                     >
                       <Input
                         id="lm_adresse_acces"
+                        required
                         value={values.adresse_acces}
                         onChange={(e) => set('adresse_acces', e.target.value)}
                         error={Boolean(errors.adresse_acces)}
@@ -732,6 +739,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     >
                       <Input
                         id="lm_code_postal"
+                        required
                         value={values.code_postal}
                         onChange={(e) => set('code_postal', e.target.value)}
                         error={Boolean(errors.code_postal)}
@@ -745,19 +753,20 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     >
                       <Input
                         id="lm_ville"
+                        required
                         value={values.ville}
                         onChange={(e) => set('ville', e.target.value)}
                         error={Boolean(errors.ville)}
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                 </Card>
               </TabsContent>
 
               <TabsContent value="acces" className="space-y-4">
                 <Card padding="md" className="space-y-4">
-                  <BlocHeader icon={KeyRound} title="Accès au lieu" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <SectionHeader icon={KeyRound} title="Accès au lieu" />
+                  <FormGrid cols={3}>
                     <FormField
                       label="Type de véhicule max"
                       htmlFor="lm_type_vehicule_max"
@@ -804,7 +813,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         options={OPTIONS_DIFFICULTE}
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                   <Interrupteur
                     id="lm_controle_acces"
                     label="Contrôle d'accès requis (plaque + nom chauffeur)"
@@ -826,8 +835,8 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                 </Card>
 
                 <Card padding="md" className="space-y-4">
-                  <BlocHeader icon={Truck} title="Capacité et contraintes" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <SectionHeader icon={Truck} title="Capacité et contraintes" />
+                  <FormGrid cols={3}>
                     <FormField
                       label="Capacité maximum"
                       htmlFor="lm_capacite_maximum"
@@ -867,7 +876,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         }
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                   <FormField
                     label="Flux autorisés"
                     htmlFor="lm_flux_autorises"
@@ -884,7 +893,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                 {/* Photos — lecture seule (upload géré hors formulaire, stockage R2). */}
                 {photos.length > 0 && (
                   <Card padding="md" className="space-y-3">
-                    <BlocHeader
+                    <SectionHeader
                       icon={ImageIcon}
                       title={`Photos (${photos.length})`}
                     />
@@ -913,7 +922,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                   (traiteur, agence, gestionnaire, client organisateur).
                 </AlertBar>
                 <Card padding="md" className="space-y-4">
-                  <BlocHeader icon={Lock} title="Réservé à l'équipe Savr" />
+                  <SectionHeader icon={Lock} title="Réservé à l'équipe Savr" />
                   <FormField
                     label="Commentaire sur le lieu"
                     htmlFor="lm_commentaire_lieu"
@@ -940,7 +949,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       }
                     />
                   </FormField>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormGrid>
                     <FormField
                       label="SIREN"
                       htmlFor="lm_siren"
@@ -967,7 +976,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         }
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                   <Interrupteur
                     id="lm_reference_citeo"
                     label="Référencé Citeo (REP emballages)"
@@ -991,7 +1000,10 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                   ) : (
                     <>
                       <Card padding="md" className="space-y-4">
-                        <BlocHeader icon={ChefHat} title="Traiteurs opérant" />
+                        <SectionHeader
+                          icon={ChefHat}
+                          title="Traiteurs opérant"
+                        />
                         {activite.traiteurs.length === 0 ? (
                           <EmptyState
                             size="inline"
@@ -1020,7 +1032,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       </Card>
 
                       <Card padding="md" className="space-y-4">
-                        <BlocHeader
+                        <SectionHeader
                           icon={History}
                           title="Historique des modifications"
                         />
@@ -1076,7 +1088,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
             </Tabs>
           </form>
         )}
-      </div>
-    </Modal>
+      </FicheCorps>
+    </FicheModal>
   );
 }

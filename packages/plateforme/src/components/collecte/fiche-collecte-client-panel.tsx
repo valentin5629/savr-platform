@@ -25,11 +25,12 @@ import {
   type FicheClientDonnees,
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
+import { dateLongueCapitalisee } from '@/components/collecte/fiche-blocs';
 import {
-  dateLongueCapitalisee,
   EnTeteMention,
   FicheEnTete,
-} from '@/components/collecte/fiche-blocs';
+} from '@/components/ui/fiche/fiche-en-tete';
+import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
@@ -270,7 +271,7 @@ export function FicheCollecteClientPanel({
       />
 
       {editing && evt ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-8">
+        <FicheCorps className="py-6">
           <EditerCollecteForm
             collecte={{
               id: c.id,
@@ -303,11 +304,11 @@ export function FicheCollecteClientPanel({
             onCancel={() => setEditing(false)}
             onConfirmOpenChange={setEditConfirmOpen}
           />
-        </div>
+        </FicheCorps>
       ) : (
         // Même barre d'onglets horizontale que les fiches Admin (décision Val
         // 2026-10-01), fixe au défilement du corps.
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+        <FicheCorps>
           <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
             <TabsList
               aria-label="Sections de la fiche collecte"
@@ -355,11 +356,11 @@ export function FicheCollecteClientPanel({
               <OngletBilan c={c} base={base} espace={espace} />
             </TabsContent>
           </Tabs>
-        </div>
+        </FicheCorps>
       )}
 
       {piedVisible && (
-        <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
+        <FichePied>
           {actions.annuler !== 'absent' && (
             <Button
               variant="outline-destructive"
@@ -386,7 +387,7 @@ export function FicheCollecteClientPanel({
               Modifier la collecte
             </Button>
           )}
-        </footer>
+        </FichePied>
       )}
 
       {/* Modale info « Programmée par » (§06.04) — informative, sans action. */}
@@ -450,6 +451,7 @@ export function FicheCollecteClientPanel({
               id="fiche-siret-traiteur"
               type="text"
               inputMode="numeric"
+              required
               maxLength={14}
               value={siret}
               onChange={(e) =>

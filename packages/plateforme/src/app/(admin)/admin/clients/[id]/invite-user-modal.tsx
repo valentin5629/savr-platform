@@ -9,17 +9,11 @@
  * direct `POST /api/v1/admin/users` (compte créé + email d'invitation côté
  * serveur, `requireStaff`). Rôles proposés = ceux du type d'organisation
  * (les rôles internes Savr admin_savr/ops_savr ne se rattachent pas à une org
- * cliente). Habillage Design System (Modal + form-kit + AlertBar).
+ * cliente). Composant commun `InviterUtilisateurModal` (R-UI-5, G5).
  */
 
-import { libelleRole } from '@/lib/libelles/role';
 import * as React from 'react';
-import { Modal } from '@/components/ui/modal';
-import { AlertBar } from '@/components/ui/alert-bar';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
-import { Combobox } from '@/components/ui/combobox';
-import { FormActions } from '@/components/ui/form-actions';
+import { InviterUtilisateurModal } from '@/components/organisation/inviter-utilisateur-modal';
 
 // Rôles proposables selon le type d'organisation cliente.
 export function rolesForOrgType(type: string): string[] {
@@ -55,105 +49,17 @@ export function ClientInviteUserModal({
   onCreated: () => void;
 }): React.ReactElement {
   const roles = rolesForOrgType(orgType);
-  const [prenom, setPrenom] = React.useState('');
-  const [nom, setNom] = React.useState('');
-  const [email, setEmail] = React.useState('');
-  const [role, setRole] = React.useState(roles[0] ?? 'agence');
-  const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/v1/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // organisation_id imposé = celle de la fiche (jamais choisi par l'UI).
-        body: JSON.stringify({
-          prenom,
-          nom,
-          email,
-          role,
-          organisation_id: organisationId,
-        }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        setError(j.error ?? "Erreur lors de l'invitation");
-        return;
-      }
-      onCreated();
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <Modal
-      open
-      title="Ajouter un utilisateur"
+    // organisation_id imposé = celle de la fiche (jamais choisi par l'UI).
+    <InviterUtilisateurModal
+      titre="Ajouter un utilisateur"
+      roles={roles}
+      roleInitial={roles[0] ?? 'agence'}
+      organisationId={organisationId}
+      idPrefix="invite"
+      formId="invite-user-form"
       onClose={onClose}
-      footer={
-        <FormActions
-          cancel={{ label: 'Annuler', onClick: onClose }}
-          submit={{ label: 'Inviter', form: 'invite-user-form' }}
-          loading={saving}
-          loadingText="Invitation…"
-        />
-      }
-    >
-      {error && (
-        <AlertBar variant="err" className="mb-4">
-          {error}
-        </AlertBar>
-      )}
-      <form
-        id="invite-user-form"
-        onSubmit={(e) => void submit(e)}
-        className="space-y-4"
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Prénom" htmlFor="invite-prenom" required>
-            <Input
-              id="invite-prenom"
-              value={prenom}
-              onChange={(e) => setPrenom(e.target.value)}
-              required
-            />
-          </FormField>
-          <FormField label="Nom" htmlFor="invite-nom" required>
-            <Input
-              id="invite-nom"
-              value={nom}
-              onChange={(e) => setNom(e.target.value)}
-              required
-            />
-          </FormField>
-        </div>
-        <FormField label="Email" htmlFor="invite-email" required>
-          <Input
-            id="invite-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </FormField>
-        <FormField label="Rôle" htmlFor="invite-role">
-          <Combobox
-            id="invite-role"
-            icon={null}
-            options={roles.map((r) => ({
-              value: r,
-              label: libelleRole(r),
-            }))}
-            value={role}
-            onChange={setRole}
-          />
-        </FormField>
-      </form>
-    </Modal>
+      onCreated={onCreated}
+    />
   );
 }

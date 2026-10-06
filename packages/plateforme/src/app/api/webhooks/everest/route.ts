@@ -492,7 +492,7 @@ async function handleEventType(
           // Téléphone : valeur API si fournie ; sinon conservé tant que le nom
           // ne change pas (saisie Admin épargnée, comme MTS-1), remis à null si
           // le coursier change (jamais un nom neuf avec l'ancien téléphone).
-          const { data: courant } = await supabase
+          const { data: courant, error: lectureErr } = await supabase
             .from('tournees')
             .select('chauffeur_nom, chauffeur_telephone')
             .eq('id', mission.tournee_id)
@@ -506,7 +506,9 @@ async function handleEventType(
           };
           if (coursier.telephone) {
             coordonnees['chauffeur_telephone'] = coursier.telephone;
-          } else if (nomCourant !== coursier.nom) {
+          } else if (!lectureErr && nomCourant !== coursier.nom) {
+            // Lecture en échec = on ne sait pas si le coursier change → le
+            // téléphone (peut-être saisi par l'Admin) n'est pas touché.
             coordonnees['chauffeur_telephone'] = null;
           }
           const { error: coordErr } = await supabase

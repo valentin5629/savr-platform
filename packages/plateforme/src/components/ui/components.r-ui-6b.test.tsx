@@ -8,6 +8,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
+import { renderAvecToasts } from '@/test-utils/toasts';
 import { Heading, headingClasses } from '@/components/ui/heading';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text, textClasses } from '@/components/ui/text';
@@ -338,7 +339,7 @@ describe('LogoCard — bloc logo partagé', () => {
         json: async () => ({ logo_url: 'org/new.png' }),
       }));
       vi.stubGlobal('fetch', fetchMock);
-      const { container } = render(
+      const { container } = renderAvecToasts(
         <LogoCard
           logoKey={null}
           uploadUrl="/u"

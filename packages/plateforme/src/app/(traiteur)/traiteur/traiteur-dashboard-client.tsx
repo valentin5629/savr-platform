@@ -24,12 +24,10 @@ import type {
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
 import { StatCard } from '@/components/ui/stat-card';
-import { Co2HeroCard } from '@/components/dashboards/charts/cockpit/Co2HeroCard';
 import {
-  Co2MethodePanel,
-  type Co2FluxFactor,
-} from '@/components/dashboards/charts/cockpit/Co2MethodePanel';
-import { Co2MethodePanelAg } from '@/components/dashboards/charts/cockpit/Co2MethodePanelAg';
+  Co2DetailModal,
+  type Co2Methode,
+} from '@/components/dashboards/charts/cockpit/Co2DetailModal';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
@@ -44,7 +42,6 @@ import {
 import {
   aggregateKpis,
   co2Totals,
-  co2Equivalences,
   variationPct,
   sparkFromRows,
   aggregateBenchmarkPerFlux,
@@ -56,7 +53,6 @@ import {
 } from '@/lib/dashboards/cockpit-derive';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Modal } from '@/components/ui/modal';
 import { Info } from 'lucide-react';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
@@ -64,19 +60,6 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
-
-// Variables du calcul CO₂ renvoyées par l'endpoint kpi-traiteur (modale méthode).
-// `ag` = facteur anti-gaspi par repas (méthode « évité seul » V1, §11 l.163).
-interface Co2Methode {
-  forfait: { km: number; fe_camion: number };
-  flux: Co2FluxFactor[];
-  ag?: { facteur_par_repas: number; source: string | null };
-}
-
-/** ISO `YYYY-MM-DD` → `DD/MM/YYYY` (affichage FR de la période analysée). */
-function frDate(iso?: string): string {
-  return iso ? iso.split('-').reverse().join('/') : '—';
-}
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -248,7 +231,6 @@ export function TraiteurDashboardClient({
   const co2 = co2Totals(rows);
   const co2Prev = co2Totals(prevRows);
   const co2Masse = fmtMasse(co2.eviteKg);
-  const equivalences = co2Equivalences(co2, facteursCo2);
 
   const seuilBas =
     pack?.pack_actif &&
@@ -449,35 +431,17 @@ export function TraiteurDashboardClient({
           {/* Modale « Impact carbone » — ouverte au clic sur la carte KPI CO₂
               évité (retour Val) : héros CO₂ (grandeurs figées v_kpi_traiteur) +
               méthode de calcul et variables utilisées. */}
-          <Modal
+          <Co2DetailModal
             open={co2ModalOpen}
             onClose={() => setCo2ModalOpen(false)}
-            title="Détail de l'impact carbone"
-            wide
-          >
-            <div className="space-y-5">
-              <Text size="xs-plus">
-                Période analysée :{' '}
-                <span className="font-semibold text-savr-neutral-700">
-                  du {frDate(filters.from)} au {frDate(filters.to)}
-                </span>{' '}
-                · {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
-                clôturée{agg.nbCollectes > 1 ? 's' : ''} Zéro Déchet
-              </Text>
-              <Co2HeroCard
-                eviteKg={co2.eviteKg}
-                induitKg={co2.induitKg}
-                netKg={co2.netKg}
-                energiePrimaireKwh={co2.energieKwh}
-                equivalences={equivalences}
-              />
-              <Co2MethodePanel
-                forfait={co2Methode?.forfait ?? { km: 50, fe_camion: 2.1 }}
-                fluxFactors={co2Methode?.flux ?? []}
-                equivalences={facteursCo2}
-              />
-            </div>
-          </Modal>
+            type="zero_dechet"
+            from={filters.from}
+            to={filters.to}
+            nbCollectes={agg.nbCollectes}
+            co2={co2}
+            facteursCo2={facteursCo2}
+            co2Methode={co2Methode}
+          />
 
           {/* Bloc 2 — Évolution mensuelle ZD */}
           <div data-testid="bloc-2-traiteur">
@@ -591,38 +555,18 @@ export function TraiteurDashboardClient({
           {/* Modale « Impact carbone » AG — héros allégé (évité seul) + méthode
               par repas (facteur FAO figé × repas donnés), ouverte au clic sur la
               carte KPI CO₂ évité. */}
-          <Modal
+          <Co2DetailModal
             open={co2AgModalOpen}
             onClose={() => setCo2AgModalOpen(false)}
-            title="Détail de l'impact carbone"
-            wide
-          >
-            <div className="space-y-5">
-              <Text size="xs-plus">
-                Période analysée :{' '}
-                <span className="font-semibold text-savr-neutral-700">
-                  du {frDate(filters.from)} au {frDate(filters.to)}
-                </span>{' '}
-                · {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
-                clôturée{agg.nbCollectes > 1 ? 's' : ''} Anti-Gaspi
-              </Text>
-              <Co2HeroCard
-                variant="ag"
-                eviteKg={co2.eviteKg}
-                equivalences={{
-                  kmVoiture: equivalences.kmVoiture,
-                  repasBoeuf: equivalences.repasBoeuf,
-                }}
-              />
-              <Co2MethodePanelAg
-                facteurParRepas={co2Methode?.ag?.facteur_par_repas ?? 2.5}
-                source={co2Methode?.ag?.source ?? null}
-                repasDonnes={agg.repas}
-                eviteKg={co2.eviteKg}
-                equivalences={facteursCo2}
-              />
-            </div>
-          </Modal>
+            type="anti_gaspi"
+            from={filters.from}
+            to={filters.to}
+            nbCollectes={agg.nbCollectes}
+            co2={co2}
+            facteursCo2={facteursCo2}
+            co2Methode={co2Methode}
+            repasDonnes={agg.repas}
+          />
 
           {/* Bloc 2 — Évolution Anti-Gaspi */}
           <div data-testid="bloc-2-traiteur">

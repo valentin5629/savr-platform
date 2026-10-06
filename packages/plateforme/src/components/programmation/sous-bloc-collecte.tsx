@@ -9,6 +9,8 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
+import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -85,7 +87,7 @@ export function SousBlocCollecte({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <FormGrid>
         <FormField label="Date de collecte" htmlFor={`date-${type}`} required>
           <DatePicker
             id={`date-${type}`}
@@ -112,7 +114,7 @@ export function SousBlocCollecte({
             required
           />
         </FormField>
-      </div>
+      </FormGrid>
 
       <FormField
         label="Informations supplémentaires (optionnel)"
@@ -124,7 +126,10 @@ export function SousBlocCollecte({
           onChange={(e) =>
             onChange({
               ...data,
-              informations_supplementaires: e.target.value.slice(0, 1000),
+              informations_supplementaires: e.target.value.slice(
+                0,
+                BORNES_TEXTE_LIBRE.informations_supplementaires.max,
+              ),
             })
           }
           rows={3}
@@ -132,7 +137,8 @@ export function SousBlocCollecte({
           className="resize-none"
         />
         <Text variant="faint" className="mt-1 text-right">
-          {data.informations_supplementaires.length}/1000
+          {data.informations_supplementaires.length}/
+          {BORNES_TEXTE_LIBRE.informations_supplementaires.max}
         </Text>
       </FormField>
     </div>

@@ -10,8 +10,10 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useUserRole } from '@/lib/use-user-role';
@@ -409,16 +411,14 @@ export default function TarifsPacksAGPage() {
             />
           </FormField>
           <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               id="mensualisable"
               checked={fMensualisable}
-              onChange={(e) => setFMensualisable(e.target.checked)}
-              className="rounded-savr-sm"
+              onCheckedChange={(v) => setFMensualisable(v === true)}
             />
-            <label htmlFor="mensualisable" className="text-sm">
+            <Label variant="choice" htmlFor="mensualisable">
               Mensualisation disponible
-            </label>
+            </Label>
           </div>
           {fMensualisable && (
             <FormField

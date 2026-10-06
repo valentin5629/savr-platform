@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { TextLink } from '@/components/ui/text-link';
+import { InfoItem } from '@/components/ui/info-item';
 import {
   Table,
   TableBody,
@@ -75,21 +76,6 @@ function dateFr(d: string | null | undefined): string {
 }
 function poidsFr(kg: number | null): string {
   return kg == null ? '—' : fmtKg(kg, 2);
-}
-
-function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number | null | undefined;
-}) {
-  return (
-    <div>
-      <dt className="text-xs uppercase text-savr-neutral-500">{label}</dt>
-      <dd className="text-sm">{value ?? '—'}</dd>
-    </div>
-  );
 }
 
 export default function RegistreDetailPage({
@@ -164,15 +150,24 @@ export default function RegistreDetailPage({
           Bloc 1 — Événement
         </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="Nom" value={data.evenement.nom} />
-          <Field label="Date" value={dateFr(data.evenement.date)} />
-          <Field label="Horaire" value={data.evenement.heure?.slice(0, 5)} />
-          <Field label="Pax" value={data.evenement.pax} />
-          <Field label="Type" value={data.evenement.type_evenement} />
-          <Field
-            label="Client organisateur"
-            value={data.evenement.client_organisateur}
-          />
+          <InfoItem variant="caps" label="Nom">
+            {data.evenement.nom ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Date">
+            {dateFr(data.evenement.date) ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Horaire">
+            {data.evenement.heure?.slice(0, 5) ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Pax">
+            {data.evenement.pax ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Type">
+            {data.evenement.type_evenement ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Client organisateur">
+            {data.evenement.client_organisateur ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
@@ -181,12 +176,15 @@ export default function RegistreDetailPage({
           Bloc 2 — Producteur de déchets
         </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field
-            label="Raison sociale"
-            value={data.producteur.raison_sociale}
-          />
-          <Field label="SIRET" value={data.producteur.siret} />
-          <Field label="Adresse" value={data.producteur.adresse} />
+          <InfoItem variant="caps" label="Raison sociale">
+            {data.producteur.raison_sociale ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="SIRET">
+            {data.producteur.siret ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Adresse">
+            {data.producteur.adresse ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
@@ -195,13 +193,14 @@ export default function RegistreDetailPage({
           Bloc 3 — Lieu
         </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="Nom" value={data.lieu.nom} />
-          <Field
-            label="Adresse"
-            value={[data.lieu.adresse, data.lieu.code_postal, data.lieu.ville]
+          <InfoItem variant="caps" label="Nom">
+            {data.lieu.nom ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Adresse">
+            {[data.lieu.adresse, data.lieu.code_postal, data.lieu.ville]
               .filter(Boolean)
-              .join(' ')}
-          />
+              .join(' ') ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
@@ -210,8 +209,12 @@ export default function RegistreDetailPage({
           Bloc 4 — Transporteur
         </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="Nom" value={data.transporteur.nom} />
-          <Field label="SIRET" value={data.transporteur.siret} />
+          <InfoItem variant="caps" label="Nom">
+            {data.transporteur.nom ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="SIRET">
+            {data.transporteur.siret ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
@@ -220,9 +223,15 @@ export default function RegistreDetailPage({
           Bloc 5 — Exutoire
         </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="Nom" value={data.exutoire.nom} />
-          <Field label="SIRET" value={data.exutoire.siret} />
-          <Field label="Adresse" value={data.exutoire.adresse} />
+          <InfoItem variant="caps" label="Nom">
+            {data.exutoire.nom ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="SIRET">
+            {data.exutoire.siret ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Adresse">
+            {data.exutoire.adresse ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
@@ -263,12 +272,15 @@ export default function RegistreDetailPage({
           Bloc 7 — Documents
         </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="N° bordereau" value={data.documents.numero} />
-          <Field
-            label="Date émission"
-            value={dateFr(data.documents.date_emission)}
-          />
-          <Field label="Version" value={data.documents.version} />
+          <InfoItem variant="caps" label="N° bordereau">
+            {data.documents.numero ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Date émission">
+            {dateFr(data.documents.date_emission) ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Version">
+            {data.documents.version ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 

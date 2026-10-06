@@ -307,11 +307,13 @@ export default function TauxRecyclagePage() {
             />
           </FormField>
           <FormField
-            label="Commentaire de modification (obligatoire)"
+            label="Commentaire de modification"
             htmlFor="taux-recyclage-commentaire"
+            required
           >
             <Textarea
               id="taux-recyclage-commentaire"
+              required
               className="resize-none"
               rows={3}
               placeholder="Motif de la modification…"

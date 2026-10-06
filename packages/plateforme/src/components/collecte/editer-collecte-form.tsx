@@ -5,8 +5,12 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
@@ -234,7 +238,7 @@ export function EditerCollecteForm({
               onChange={(ev) => setNomEvenement(ev.target.value)}
             />
           </FormField>
-          <div className="grid grid-cols-2 gap-4">
+          <FormGrid>
             <FormField label="Nombre de convives (pax)" htmlFor="edit-evt-pax">
               <Input
                 id="edit-evt-pax"
@@ -251,7 +255,7 @@ export function EditerCollecteForm({
                 onChange={(ev) => setNomClient(ev.target.value)}
               />
             </FormField>
-          </div>
+          </FormGrid>
           <FormField label="Type d'événement" htmlFor="edit-evt-type">
             <Combobox
               id="edit-evt-type"
@@ -279,7 +283,7 @@ export function EditerCollecteForm({
             <Text tone="strong" className="font-semibold">
               Contact principal
             </Text>
-            <div className="grid grid-cols-2 gap-4">
+            <FormGrid>
               <FormField label="Prénom et nom" htmlFor="edit-cp-nom">
                 <Input
                   id="edit-cp-nom"
@@ -294,14 +298,14 @@ export function EditerCollecteForm({
                   onChange={(ev) => setCpTel(ev.target.value)}
                 />
               </FormField>
-            </div>
+            </FormGrid>
           </div>
           {/* Contact de secours (sous-bloc) */}
           <div className="space-y-3 rounded-savr-md border border-savr-neutral-200 p-3">
             <Text tone="strong" className="font-semibold">
               Contact de secours
             </Text>
-            <div className="grid grid-cols-2 gap-4">
+            <FormGrid>
               <FormField label="Prénom et nom" htmlFor="edit-cs-nom">
                 <Input
                   id="edit-cs-nom"
@@ -316,7 +320,7 @@ export function EditerCollecteForm({
                   onChange={(ev) => setCsTel(ev.target.value)}
                 />
               </FormField>
-            </div>
+            </FormGrid>
           </div>
         </section>
 
@@ -325,7 +329,7 @@ export function EditerCollecteForm({
           <Heading level={3} size="sm">
             Collecte
           </Heading>
-          <div className="grid grid-cols-2 gap-4">
+          <FormGrid>
             <FormField label="Date de collecte" htmlFor="edit-date-collecte">
               <DatePicker
                 id="edit-date-collecte"
@@ -340,16 +344,14 @@ export function EditerCollecteForm({
                 onChange={setHeureCollecte}
               />
             </FormField>
-          </div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded-savr-sm border-savr-neutral-300 text-savr-primary-700"
+          </FormGrid>
+          <Label variant="choice" className="flex items-center gap-3">
+            <Checkbox
               checked={controleAcces}
-              onChange={(ev) => setControleAcces(ev.target.checked)}
+              onCheckedChange={(v) => setControleAcces(v === true)}
             />
-            <span className="text-sm">Contrôle d&apos;accès requis</span>
-          </label>
+            <span>Contrôle d&apos;accès requis</span>
+          </Label>
           <FormField
             label="Informations supplémentaires"
             htmlFor="edit-infos-suppl"
@@ -357,7 +359,7 @@ export function EditerCollecteForm({
             <Textarea
               id="edit-infos-suppl"
               rows={3}
-              maxLength={1000}
+              maxLength={BORNES_TEXTE_LIBRE.informations_supplementaires.max}
               value={infosSuppl}
               onChange={(ev) => setInfosSuppl(ev.target.value)}
             />

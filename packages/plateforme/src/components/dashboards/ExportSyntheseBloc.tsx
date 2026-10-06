@@ -2,11 +2,14 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterChips } from '@/components/ui/filter-chips';
+import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
 import type { OptionFiltre } from '@/components/ui/filtre-en-ligne';
+import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import type { CollecteType } from '@/components/collecte/toggle-type-collecte';
 import type { DashboardFilters } from './DashboardFilterBar.js';
@@ -242,14 +245,13 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
               <Text tone="soft">
                 Figé sur <strong>{typeLabel}</strong> (onglet actif).
               </Text>
-              <label className="mt-1 flex items-center gap-2 text-sm text-savr-neutral-700">
-                <input
-                  type="checkbox"
+              <Label variant="choice" className="mt-1 flex items-center gap-2">
+                <Checkbox
                   checked={includeBoth}
-                  onChange={(e) => setIncludeBoth(e.target.checked)}
+                  onCheckedChange={(v) => setIncludeBoth(v === true)}
                 />
                 Inclure les deux types (Zéro-Déchet + Anti-Gaspi)
-              </label>
+              </Label>
             </div>
             {/* Filtres modale-natifs au format en ligne « Titre  valeur ▾ »
                 (`Combobox titre` multiple, R-UI-4b D9) ; vide = « Tous ». */}
@@ -338,7 +340,7 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
                 Génération en cours… (jusqu'à 2 min)
               </p>
             )}
-            {error && <p className="text-sm text-savr-error">{error}</p>}
+            <FormError>{error}</FormError>
           </Text>
         )}
       </Modal>

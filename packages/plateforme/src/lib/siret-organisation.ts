@@ -8,6 +8,8 @@
 //
 // Module pur (aucun import serveur) : utilisable par les routes ET par l'UI.
 
+import { estSiret } from '@savr/shared/src/validation/index.js';
+
 export type SiretOrganisationNormalise =
   | { readonly valide: true; readonly siret: string | null }
   | { readonly valide: false };
@@ -28,7 +30,9 @@ export function normaliserSiretOrganisation(
   if (typeof valeur !== 'string') return { valide: false };
   const compact = valeur.replace(/\s/g, '');
   if (compact === '') return { valide: true, siret: null };
-  return /^[0-9]{14}$/.test(compact)
+  // Regex partagée (R-UI-5 F9) ; le retrait de TOUS les blancs reste propre à
+  // ce site (`isValidSiretFormat` ne trimme que les bords).
+  return estSiret(compact)
     ? { valide: true, siret: compact }
     : { valide: false };
 }

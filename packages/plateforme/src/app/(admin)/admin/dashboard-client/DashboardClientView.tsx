@@ -23,12 +23,10 @@ import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/Evoluti
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
 import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
 import { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
-import { Co2HeroCard } from '@/components/dashboards/charts/cockpit/Co2HeroCard';
 import {
-  Co2MethodePanel,
-  type Co2FluxFactor,
-} from '@/components/dashboards/charts/cockpit/Co2MethodePanel';
-import { Co2MethodePanelAg } from '@/components/dashboards/charts/cockpit/Co2MethodePanelAg';
+  Co2DetailModal,
+  type Co2Methode,
+} from '@/components/dashboards/charts/cockpit/Co2DetailModal';
 import {
   fmtInt,
   fmtDec,
@@ -36,7 +34,6 @@ import {
 } from '@/components/dashboards/charts/cockpit/fmt';
 import {
   benchmarkItems,
-  co2Equivalences,
   FACTEURS_CO2_DEFAUT,
   previousWindow,
   sparkFromSeries,
@@ -49,7 +46,6 @@ import {
   type BenchmarkFilters,
 } from '@/components/dashboards/BenchmarkFilterBar.js';
 import { Badge } from '@/components/ui/badge';
-import { Modal } from '@/components/ui/modal';
 import { Info } from 'lucide-react';
 import {
   OrganisationSelector,
@@ -62,13 +58,6 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { fmtPct } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
-
-// Variables de la modale « méthode CO₂ » renvoyées par l'endpoint admin.
-interface Co2Methode {
-  forfait: { km: number; fe_camion: number };
-  flux: Co2FluxFactor[];
-  ag?: { facteur_par_repas: number; source: string | null };
-}
 
 /** ISO `YYYY-MM-DD` → `DD/MM/YYYY` (affichage FR de la période analysée). */
 function frDate(iso?: string): string {
@@ -433,7 +422,6 @@ export function DashboardClientView() {
   const facteursCo2 = payload?.facteursCo2 ?? FACTEURS_CO2_DEFAUT;
   const co2Methode = payload?.co2Methode;
   const co2Masse = fmtMasse(co2.eviteKg);
-  const equivalences = co2Equivalences(co2, facteursCo2);
   const periodeFrom = filters?.from;
   const periodeTo = filters?.to;
   const nbCollectes = kpi?.nb_collectes ?? 0;
@@ -548,35 +536,17 @@ export function DashboardClientView() {
           </div>
 
           {/* Modale « Impact carbone » ZD — héros CO₂ + méthode de calcul. */}
-          <Modal
+          <Co2DetailModal
             open={co2ModalOpen}
             onClose={() => setCo2ModalOpen(false)}
-            title="Détail de l'impact carbone"
-            wide
-          >
-            <div className="space-y-5">
-              <Text size="xs-plus">
-                Période analysée :{' '}
-                <span className="font-semibold text-savr-neutral-700">
-                  du {frDate(periodeFrom)} au {frDate(periodeTo)}
-                </span>{' '}
-                · {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} clôturée
-                {nbCollectes > 1 ? 's' : ''} Zéro Déchet
-              </Text>
-              <Co2HeroCard
-                eviteKg={co2.eviteKg}
-                induitKg={co2.induitKg}
-                netKg={co2.netKg}
-                energiePrimaireKwh={co2.energieKwh}
-                equivalences={equivalences}
-              />
-              <Co2MethodePanel
-                forfait={co2Methode?.forfait ?? { km: 50, fe_camion: 2.1 }}
-                fluxFactors={co2Methode?.flux ?? []}
-                equivalences={facteursCo2}
-              />
-            </div>
-          </Modal>
+            type="zero_dechet"
+            from={periodeFrom}
+            to={periodeTo}
+            nbCollectes={nbCollectes}
+            co2={co2}
+            facteursCo2={facteursCo2}
+            co2Methode={co2Methode}
+          />
 
           {/* Bloc 2 — Évolution mensuelle ZD */}
           <div data-testid="bloc-2-dashboard-client">
@@ -725,38 +695,18 @@ export function DashboardClientView() {
 
           {/* Modale « Impact carbone » AG — héros allégé (évité seul) + méthode
               par repas (facteur FAO × repas donnés). */}
-          <Modal
+          <Co2DetailModal
             open={co2AgModalOpen}
             onClose={() => setCo2AgModalOpen(false)}
-            title="Détail de l'impact carbone"
-            wide
-          >
-            <div className="space-y-5">
-              <Text size="xs-plus">
-                Période analysée :{' '}
-                <span className="font-semibold text-savr-neutral-700">
-                  du {frDate(periodeFrom)} au {frDate(periodeTo)}
-                </span>{' '}
-                · {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} clôturée
-                {nbCollectes > 1 ? 's' : ''} Anti-Gaspi
-              </Text>
-              <Co2HeroCard
-                variant="ag"
-                eviteKg={co2.eviteKg}
-                equivalences={{
-                  kmVoiture: equivalences.kmVoiture,
-                  repasBoeuf: equivalences.repasBoeuf,
-                }}
-              />
-              <Co2MethodePanelAg
-                facteurParRepas={co2Methode?.ag?.facteur_par_repas ?? 2.5}
-                source={co2Methode?.ag?.source ?? null}
-                repasDonnes={agKpi.nb_repas_donnes ?? 0}
-                eviteKg={co2.eviteKg}
-                equivalences={facteursCo2}
-              />
-            </div>
-          </Modal>
+            type="anti_gaspi"
+            from={periodeFrom}
+            to={periodeTo}
+            nbCollectes={nbCollectes}
+            co2={co2}
+            facteursCo2={facteursCo2}
+            co2Methode={co2Methode}
+            repasDonnes={agKpi.nb_repas_donnes ?? 0}
+          />
 
           {/* Bloc 2 — Évolution Anti-Gaspi */}
           <div data-testid="bloc-2-dashboard-client">

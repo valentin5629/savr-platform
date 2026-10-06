@@ -74,7 +74,7 @@
     },
     {
       "id": "BL-P2-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:94",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -82,7 +82,7 @@
     },
     {
       "id": "BL-P2-43",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:94",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -90,7 +90,7 @@
     },
     {
       "id": "M3.5-blocs-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:78",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_sans_prochaines_collectes",
       "statut": "implemented",

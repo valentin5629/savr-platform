@@ -178,7 +178,7 @@
     },
     {
       "id": "M0.4-signup-ecran-inscription",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:941-954",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:943-956",
       "artefact": "packages/plateforme/src/app/signup/page.tsx (3 étapes : profil → identité/entreprise → mot de passe + CGU ; écran « vérifiez votre boîte mail ») + packages/plateforme/src/app/login/page.tsx (lien « Créer un compte »)",
       "test": "M0.4 — /signup : parcours complet (CDC §05 §8 étape 1) > envoie à la route les 7 champs du CDC, avec le type de profil choisi",
       "statut": "implemented",
@@ -194,7 +194,7 @@
     },
     {
       "id": "M0.4-signup-formats-champs-identite",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:945-951",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:947-953",
       "artefact": "packages/plateforme/src/lib/identite-signup.ts (isValidEmailFormat / isValidNomOuPrenom / isValidTelephoneFr, NOM_MIN_LENGTH) + packages/plateforme/src/app/api/auth/signup/route.ts (422 avant toute création) + packages/plateforme/src/app/signup/page.tsx (mêmes règles, avant le réseau)",
       "test": "M0.4 — formats des champs d’identité au signup (CDC §05 §8)",
       "statut": "implemented",
@@ -242,7 +242,7 @@
     },
     {
       "id": "M0.4-signup-autocompletion-raison-sociale",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:951",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:953",
       "artefact": null,
       "test": null,
       "statut": "descoped",

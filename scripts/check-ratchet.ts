@@ -72,8 +72,10 @@ function runGate(cmd: string[]): number | null {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   });
-  const out = `${res.stdout ?? ''}${res.stderr ?? ''}`;
-  const matches = [...out.matchAll(/RATCHET_COUNT=(\d+)/g)];
+  // stdout seul, compteur en début de ligne : un avertissement d'outil ou un
+  // nom de fichier contenant « RATCHET_COUNT=0 » ne doit pas pouvoir se faire
+  // passer pour le compteur du gate.
+  const matches = [...(res.stdout ?? '').matchAll(/^RATCHET_COUNT=(\d+)/gm)];
   if (matches.length === 0) return null;
   return Number(matches[matches.length - 1]![1]); // dernière occurrence
 }

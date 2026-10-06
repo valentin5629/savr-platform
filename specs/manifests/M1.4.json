@@ -229,7 +229,7 @@
     },
     {
       "id": "BL-P1-RM-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:244",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:246",
       "artefact": "supabase/migrations/20260702000000_plateforme_r16a_cloture_embargo.sql (fn_cloturer_collectes_embargo), packages/plateforme/src/app/api/cron/cloture-embargo/route.ts, packages/plateforme/vercel.json",
       "test": "supabase/tests/r16a_machine_etats.test.sql (RM-01 : realisee+H+24→cloturee ; <H+24 reste realisee ; realisee_sans_collecte exclu) ; M1.8/RM-01 — cron appelle fn_cloturer_collectes_embargo et renvoie nb_traite",
       "statut": "implemented",

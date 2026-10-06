@@ -522,7 +522,7 @@
     },
     {
       "id": "M3.1-bloc3-zd-benchmark",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:135",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:137",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
       "test": "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
@@ -571,7 +571,7 @@
     },
     {
       "id": "M3.1-cockpit-page",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-288",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:86-288",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/*",
       "test": "M3.1/dash_bloc2_bloc4_zd_montes + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel + M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
       "statut": "implemented",
@@ -579,7 +579,7 @@
     },
     {
       "id": "M3.1-cockpit-co2-hero",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-288",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:86-288",
       "artefact": "packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCard.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanel.tsx + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts + packages/plateforme/src/lib/dashboards/cockpit-derive.ts",
       "test": "M3.1/dash_cockpit_co2_equivalences_facteurs_ademe",
       "statut": "implemented",
@@ -587,7 +587,7 @@
     },
     {
       "id": "M3.1-cockpit-co2-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-113",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:86-124",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCardAg.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanelAg.tsx + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts",
       "test": "M3.1/dash_cockpit_co2_ag_carte_modale",
       "statut": "implemented",
@@ -595,7 +595,7 @@
     },
     {
       "id": "M3.1-cockpit-kpi-sparkline-n1",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-113",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:86-124",
       "artefact": "packages/plateforme/src/lib/dashboards/cockpit-derive.ts + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts",
       "test": "M3.1/dash_cockpit_variation_n1 + M3.1/dash_cockpit_sparkline_triee_min_2_points + M3.1/dash_cockpit_fenetre_n1_equivalente",
       "statut": "implemented",

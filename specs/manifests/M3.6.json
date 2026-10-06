@@ -159,7 +159,7 @@
     },
     {
       "id": "M3.6-benchmark-admin-reference",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:140",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:141",
       "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (loadAdminBenchmarkComparaison + loadAdminBenchmarkFiltres) + packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/route.ts + packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/filtres/route.ts + packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx (avertissementComparaisonSoi) + packages/plateforme/src/components/dashboards/charts/cockpit/BenchmarkRadar.tsx (referenceLabel/referenceCourt)",
       "test": "M3.6/benchmark_admin_reference_filtres_sans_k_anonymat + M3.6/benchmark_admin_filtres_options + M3.6/benchmark_staff_service_role",
       "statut": "implemented",

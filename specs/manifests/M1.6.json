@@ -279,7 +279,7 @@
     },
     {
       "id": "M1.6-email-rapport-disponible",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:133",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:134",
       "artefact": "supabase/migrations/20261002100000_plateforme_email_template_rapport_disponible.sql + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (étape 10) + packages/shared/src/seed/constants.ts",
       "test": "envoi_rapport_disponible_apres_batch_j1 + M1.6/seed_slug_rapport_disponible_pas_bordereau + supabase/tests/email_template_rapport_disponible.test.sql",
       "statut": "implemented",

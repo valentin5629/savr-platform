@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { FicheEnTete } from './fiche-blocs';
+import { FicheEnTete } from '@/components/ui/fiche/fiche-en-tete';
 
 describe('M1.1b — FicheEnTete (grand en-tête commun des fiches)', () => {
   it('avec sur-titre : le statut partage sa ligne, le titre garde toute la largeur', () => {

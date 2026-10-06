@@ -3,6 +3,7 @@
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import type { LieuOption } from './lieu-combobox';
 import { Text } from '@/components/ui/text';
 
@@ -108,7 +109,7 @@ export function LieuChampsEditables({
         />
       </FormField>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <FormGrid>
         <FormField label="Code postal" htmlFor="edit-cp">
           <Input
             id="edit-cp"
@@ -123,7 +124,7 @@ export function LieuChampsEditables({
             onChange={(e) => set('ville', e.target.value)}
           />
         </FormField>
-      </div>
+      </FormGrid>
 
       <FormField label="Détails d'accès" htmlFor="edit-acces-details">
         <Input
@@ -134,7 +135,7 @@ export function LieuChampsEditables({
         />
       </FormField>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <FormGrid>
         <FormField label="Stationnement" htmlFor="edit-stationnement">
           <Combobox
             id="edit-stationnement"
@@ -155,7 +156,7 @@ export function LieuChampsEditables({
             onChange={(v) => set('acces_office', v)}
           />
         </FormField>
-      </div>
+      </FormGrid>
 
       <FormField label="Type de véhicule max" htmlFor="edit-vehicule">
         <Combobox

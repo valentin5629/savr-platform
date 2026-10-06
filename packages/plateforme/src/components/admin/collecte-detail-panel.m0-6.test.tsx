@@ -304,8 +304,14 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+      // L'en-tête est rendu par le panneau ; les champs attendent la fin du
+      // chargement du formulaire (LoadingState) — attente explicite.
       expect(
-        screen.getByLabelText('Type de véhicule souhaité'),
+        await screen.findByLabelText(
+          'Type de véhicule souhaité',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toBeInTheDocument();
       expect(screen.getByLabelText('Nombre de véhicules')).toHaveValue('1');
       expect(
@@ -1077,14 +1083,16 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       // Combobox : options portées dans un portail (screen, pas within).
       fireEvent.click(
-        within(dialog).getByRole('combobox', { name: 'Nouveau statut' }),
+        // R-UI-5 F7 : champ obligatoire = astérisque (`FormField required`).
+        within(dialog).getByRole('combobox', { name: 'Nouveau statut *' }),
       );
       fireEvent.click(
         screen
           .getAllByRole('option')
           .find((o) => o.getAttribute('data-value') === 'validee')!,
       );
-      fireEvent.change(within(dialog).getByLabelText(/Motif \(obligatoire/), {
+      // R-UI-5 F7 : « (obligatoire) » retiré du libellé, astérisque à la place.
+      fireEvent.change(within(dialog).getByLabelText(/^Motif \(≥ 10/), {
         target: { value: 'Validation manuelle après échange traiteur' },
       });
       expect(confirmer).not.toBeDisabled();
@@ -1149,7 +1157,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       const dialog = screen
         .getByText('Modifier le nombre de camions')
         .closest('div') as HTMLElement;
-      fireEvent.change(within(dialog).getByLabelText('Nombre de camions'), {
+      fireEvent.change(within(dialog).getByLabelText('Nombre de camions*'), {
         target: { value: '3' },
       });
       fireEvent.click(

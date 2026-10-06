@@ -11,7 +11,6 @@ import {
   UserRound,
   Workflow,
 } from 'lucide-react';
-import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -19,17 +18,29 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
+import { SectionHeader } from '@/components/ui/section-header';
 import {
-  BlocHeader,
   EnTeteMention,
   EnTetePuce,
   FicheEnTete,
-  OngletAvecErreurs,
-} from '@/components/collecte/fiche-blocs';
+} from '@/components/ui/fiche/fiche-en-tete';
+import {
+  FicheCorps,
+  FicheModal,
+  FichePied,
+} from '@/components/ui/fiche/fiche-modal';
+import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
 import { cn } from '@/lib/utils';
 import { TYPES_TMS_AVEC_PRESTATAIRE } from '@/lib/transporteur-lien-prestataire';
 import { VEHICULE_LABEL } from '@/lib/lieux-labels';
+import { estSiren } from '@savr/shared/src/validation/index.js';
+import {
+  MESSAGE_FORMAT_SIREN,
+  messageAuMoinsUn,
+  messageObligatoire,
+} from '@/lib/libelles/validation';
 import { libelleCompletTypeCollecte } from '@/lib/libelles/type-collecte';
 import {
   LIBELLE_OPTION_TYPE_TMS,
@@ -121,8 +132,6 @@ const SANS_AUTOREMPLISSAGE = {
   autoComplete: 'off',
   'data-bwignore': 'true',
 } as const;
-
-const GRILLE_2 = 'grid grid-cols-1 gap-4 md:grid-cols-2';
 
 interface FormValues {
   nom: string;
@@ -290,24 +299,26 @@ export function TransporteurModal({
 
   function validate(): boolean {
     const next: Record<string, string> = {};
-    if (!values.nom.trim()) next.nom = 'Nom obligatoire';
-    if (!/^\d{9}$/.test(values.siren.trim())) next.siren = 'SIREN : 9 chiffres';
+    if (!values.nom.trim()) next.nom = messageObligatoire('Nom');
+    if (!estSiren(values.siren.trim())) next.siren = MESSAGE_FORMAT_SIREN;
     if (!values.contact_nom.trim())
-      next.contact_nom = 'Nom du contact obligatoire';
+      next.contact_nom = messageObligatoire('Nom du contact');
     if (!values.contact_telephone.trim())
-      next.contact_telephone = 'Téléphone obligatoire';
+      next.contact_telephone = messageObligatoire('Téléphone');
     if (!values.contact_email.trim())
-      next.contact_email = 'Email de contact obligatoire';
-    if (!values.adresse.trim()) next.adresse = 'Adresse obligatoire';
+      next.contact_email = messageObligatoire('Email de contact');
+    if (!values.adresse.trim()) next.adresse = messageObligatoire('Adresse');
     if (!values.code_postal.trim())
-      next.code_postal = 'Code postal obligatoire';
-    if (!values.ville.trim()) next.ville = 'Ville obligatoire';
+      next.code_postal = messageObligatoire('Code postal');
+    if (!values.ville.trim()) next.ville = messageObligatoire('Ville');
     if (values.types_vehicules.length === 0)
-      next.types_vehicules = 'Au moins un type de véhicule';
-    if (!values.type_tms) next.type_tms = 'Type de TMS obligatoire';
+      next.types_vehicules = messageAuMoinsUn('type de véhicule');
+    if (!values.type_tms) next.type_tms = messageObligatoire('Type de TMS');
     if (values.type_tms === 'mts1' && !values.code_transporteur_mts1.trim())
-      next.code_transporteur_mts1 =
-        'Code transporteur MTS-1 obligatoire pour type_tms = mts1';
+      next.code_transporteur_mts1 = messageObligatoire(
+        'Code transporteur MTS-1',
+        'pour type_tms = mts1',
+      );
     // Exigé à la création seulement : en édition le lien n'est plus modifiable,
     // et un transporteur antérieur à ce contrôle doit rester éditable.
     if (
@@ -315,8 +326,10 @@ export function TransporteurModal({
       TYPES_TMS_AVEC_PRESTATAIRE.includes(values.type_tms) &&
       !values.prestataire_logistique_id
     )
-      next.prestataire_logistique_id =
-        'Prestataire logistique obligatoire pour ce type de TMS';
+      next.prestataire_logistique_id = messageObligatoire(
+        'Prestataire logistique',
+        'pour ce type de TMS',
+      );
     setErrors(next);
     // Sinon « Enregistrer » ne fait rien de visible quand l'erreur est ailleurs.
     const premier = ONGLETS.find((o) =>
@@ -427,7 +440,10 @@ export function TransporteurModal({
     );
 
   return (
-    <Modal
+    // Même shell que le pop-up fiche collecte (FicheModal) : l'en-tête visuel
+    // est dans le corps, qui fournit onglets et pied et gère lui-même le
+    // défilement.
+    <FicheModal
       open={open}
       onClose={onClose}
       title={
@@ -435,11 +451,6 @@ export function TransporteurModal({
           ? `Fiche transporteur — ${transporteur!.nom}`
           : 'Nouveau transporteur'
       }
-      // Même cadre que le pop-up fiche collecte : l'en-tête visuel est dans le
-      // corps, qui fournit onglets et pied et gère lui-même le défilement.
-      hideTitle
-      bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
-      className="max-w-5xl md:h-[min(90vh,48rem)]"
     >
       <form
         onSubmit={handleFormSubmit}
@@ -450,7 +461,7 @@ export function TransporteurModal({
 
         {/* Même barre d'onglets horizontale que les fiches lieu et association
             (décision Val 2026-09-30), fixe au défilement du corps. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+        <FicheCorps>
           <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
             <TabsList
               aria-label="Sections de la fiche transporteur"
@@ -472,8 +483,8 @@ export function TransporteurModal({
 
             <TabsContent value="identite" className="space-y-3">
               <Card padding="md" className="space-y-4">
-                <BlocHeader icon={Building2} title="Société" />
-                <div className={GRILLE_2}>
+                <SectionHeader icon={Building2} title="Société" />
+                <FormGrid>
                   <FormField
                     label="Nom du transporteur"
                     htmlFor="tm_nom"
@@ -482,6 +493,7 @@ export function TransporteurModal({
                   >
                     <Input
                       id="tm_nom"
+                      required
                       value={values.nom}
                       onChange={(e) => set('nom', e.target.value)}
                       error={Boolean(errors.nom)}
@@ -497,17 +509,18 @@ export function TransporteurModal({
                   >
                     <Input
                       id="tm_siren"
+                      required
                       value={values.siren}
                       onChange={(e) => set('siren', e.target.value)}
                       error={Boolean(errors.siren)}
                     />
                   </FormField>
-                </div>
+                </FormGrid>
               </Card>
 
               <Card padding="md" className="space-y-4">
-                <BlocHeader icon={UserRound} title="Contact jour J" />
-                <div className={GRILLE_2}>
+                <SectionHeader icon={UserRound} title="Contact jour J" />
+                <FormGrid>
                   <FormField
                     label="Nom du contact"
                     htmlFor="tm_contact_nom"
@@ -516,6 +529,7 @@ export function TransporteurModal({
                   >
                     <Input
                       id="tm_contact_nom"
+                      required
                       value={values.contact_nom}
                       onChange={(e) => set('contact_nom', e.target.value)}
                       error={Boolean(errors.contact_nom)}
@@ -531,6 +545,7 @@ export function TransporteurModal({
                   >
                     <Input
                       id="tm_contact_telephone"
+                      required
                       value={values.contact_telephone}
                       onChange={(e) => set('contact_telephone', e.target.value)}
                       error={Boolean(errors.contact_telephone)}
@@ -542,10 +557,11 @@ export function TransporteurModal({
                     htmlFor="tm_contact_email"
                     required
                     error={errors.contact_email}
-                    className="md:col-span-2"
+                    className="sm:col-span-2"
                   >
                     <Input
                       id="tm_contact_email"
+                      required
                       type="email"
                       value={values.contact_email}
                       onChange={(e) => set('contact_email', e.target.value)}
@@ -553,22 +569,23 @@ export function TransporteurModal({
                       {...SANS_AUTOREMPLISSAGE}
                     />
                   </FormField>
-                </div>
+                </FormGrid>
               </Card>
 
               <Card padding="md" className="space-y-4">
-                <BlocHeader icon={MapPin} title="Adresse" />
-                <div className={GRILLE_2}>
+                <SectionHeader icon={MapPin} title="Adresse" />
+                <FormGrid>
                   <FormField
                     label="Adresse"
                     htmlFor="tm_adresse"
                     required
                     error={errors.adresse}
                     hint="Géocodée automatiquement à l'enregistrement"
-                    className="md:col-span-2"
+                    className="sm:col-span-2"
                   >
                     <Input
                       id="tm_adresse"
+                      required
                       value={values.adresse}
                       onChange={(e) => set('adresse', e.target.value)}
                       error={Boolean(errors.adresse)}
@@ -583,6 +600,7 @@ export function TransporteurModal({
                   >
                     <Input
                       id="tm_code_postal"
+                      required
                       value={values.code_postal}
                       onChange={(e) => set('code_postal', e.target.value)}
                       error={Boolean(errors.code_postal)}
@@ -597,19 +615,20 @@ export function TransporteurModal({
                   >
                     <Input
                       id="tm_ville"
+                      required
                       value={values.ville}
                       onChange={(e) => set('ville', e.target.value)}
                       error={Boolean(errors.ville)}
                       {...SANS_AUTOREMPLISSAGE}
                     />
                   </FormField>
-                </div>
+                </FormGrid>
               </Card>
             </TabsContent>
 
             <TabsContent value="capacites" className="space-y-3">
               <Card padding="md" className="space-y-4">
-                <BlocHeader icon={Truck} title="Véhicules et flux" />
+                <SectionHeader icon={Truck} title="Véhicules et flux" />
                 <FormField
                   label="Type(s) de véhicule"
                   htmlFor="tm_types_vehicules"
@@ -668,7 +687,10 @@ export function TransporteurModal({
               </Card>
 
               <Card padding="md" className="space-y-4">
-                <BlocHeader icon={ClipboardList} title="Process de collecte" />
+                <SectionHeader
+                  icon={ClipboardList}
+                  title="Process de collecte"
+                />
                 <FormField
                   label="Description du process de collecte"
                   htmlFor="tm_description"
@@ -698,11 +720,11 @@ export function TransporteurModal({
               </AlertBar>
 
               <Card padding="md" className="space-y-4">
-                <BlocHeader
+                <SectionHeader
                   icon={Workflow}
                   title="Transmission des collectes"
                 />
-                <div className={GRILLE_2}>
+                <FormGrid>
                   <FormField
                     label="Type de TMS"
                     htmlFor="tm_type_tms"
@@ -738,6 +760,7 @@ export function TransporteurModal({
                     >
                       <Input
                         id="tm_code_transporteur_mts1"
+                        required
                         value={values.code_transporteur_mts1}
                         onChange={(e) =>
                           set('code_transporteur_mts1', e.target.value)
@@ -753,7 +776,7 @@ export function TransporteurModal({
                       values.type_tms,
                     )}
                     error={errors.prestataire_logistique_id}
-                    className="md:col-span-2"
+                    className="sm:col-span-2"
                     hint={
                       isEdition
                         ? 'Fixé à la création'
@@ -798,13 +821,13 @@ export function TransporteurModal({
                       ]}
                     />
                   </FormField>
-                </div>
+                </FormGrid>
               </Card>
             </TabsContent>
           </Tabs>
-        </div>
+        </FicheCorps>
 
-        <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
+        <FichePied>
           {serverError && (
             <AlertBar variant="err" role="alert" className="mr-auto">
               {serverError}
@@ -846,8 +869,8 @@ export function TransporteurModal({
           >
             {isEdition ? 'Enregistrer' : 'Créer le transporteur'}
           </Button>
-        </footer>
+        </FichePied>
       </form>
-    </Modal>
+    </FicheModal>
   );
 }

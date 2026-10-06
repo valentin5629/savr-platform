@@ -5,6 +5,7 @@ import { Copy, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { IconButton } from '@/components/ui/icon-button';
+import { Label } from '@/components/ui/label';
 import {
   Popover,
   PopoverContent,
@@ -275,8 +276,9 @@ function CopierHoraires({
           {JOURS.filter((j) => j !== source).map((j) => {
             const id = `copier-${source}-${j}`;
             return (
-              <label
-                className="flex h-10 cursor-pointer items-center justify-between rounded-savr-md px-2 text-sm text-savr-neutral-700 hover:bg-savr-neutral-100"
+              <Label
+                variant="choice"
+                className="flex h-10 items-center justify-between rounded-savr-md px-2 hover:bg-savr-neutral-100"
                 key={j}
                 htmlFor={id}
               >
@@ -290,7 +292,7 @@ function CopierHoraires({
                     )
                   }
                 />
-              </label>
+              </Label>
             );
           })}
         </div>

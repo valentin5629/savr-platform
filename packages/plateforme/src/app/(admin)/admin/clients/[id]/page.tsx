@@ -30,7 +30,6 @@ import {
   FlaskConical,
   ArrowLeft,
   UserPlus,
-  type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -58,6 +57,8 @@ import {
 } from './onglets';
 import { ClientInviteUserModal } from './invite-user-modal';
 import { Heading } from '@/components/ui/heading';
+import { SectionHeader } from '@/components/ui/section-header';
+import { InfoItem } from '@/components/ui/info-item';
 import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
 import { FormActions } from '@/components/ui/form-actions';
@@ -219,33 +220,6 @@ const COLONNES_PACKS: ColumnDef<PackRow, unknown>[] = [
       }),
   },
 ];
-
-// BlocHeader — gabarit Design System partagé avec les fiches association (#255)
-// et collecte (#226/#257) : pastille primary + titre extrabold tracking serré
-// (leviers §10 #2/#7).
-function BlocHeader({
-  icon: Icon,
-  title,
-}: {
-  icon: LucideIcon;
-  title: string;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <Heading
-        level={2}
-        size="base"
-        weight="extrabold"
-        className="truncate tracking-[-0.01em]"
-      >
-        {title}
-      </Heading>
-    </div>
-  );
-}
 
 export default function ClientFichePage({
   params,
@@ -470,35 +444,25 @@ export default function ClientFichePage({
         <TabsContent value="informations" className="space-y-4">
           <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
             <Card padding="lg" className="space-y-4">
-              <BlocHeader icon={Building2} title="Informations légales" />
+              <SectionHeader icon={Building2} title="Informations légales" />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-savr-neutral-500">SIREN/SIRET</dt>
-                  <dd className="mt-1 font-mono font-medium">
-                    {org.siret ?? '—'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Type</dt>
-                  <dd className="mt-1 font-medium">
-                    {libelleTypeOrganisation(org.type)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Email</dt>
-                  <dd className="mt-1 font-medium">
-                    {org.email_principal ?? '—'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Téléphone</dt>
-                  <dd className="mt-1 font-medium">{org.telephone ?? '—'}</dd>
-                </div>
+                <InfoItem label="SIREN/SIRET" valueClassName="mt-1 font-mono">
+                  {org.siret ?? '—'}
+                </InfoItem>
+                <InfoItem label="Type" valueClassName="mt-1">
+                  {libelleTypeOrganisation(org.type)}
+                </InfoItem>
+                <InfoItem label="Email" valueClassName="mt-1">
+                  {org.email_principal ?? '—'}
+                </InfoItem>
+                <InfoItem label="Téléphone" valueClassName="mt-1">
+                  {org.telephone ?? '—'}
+                </InfoItem>
               </dl>
             </Card>
 
             <Card padding="lg" className="space-y-4">
-              <BlocHeader icon={CreditCard} title="Entités de facturation" />
+              <SectionHeader icon={CreditCard} title="Entités de facturation" />
               {org.entites_facturation.length === 0 ? (
                 <EmptyState
                   size="inline"
@@ -536,7 +500,7 @@ export default function ClientFichePage({
             {/* Domaines email — fusionnés dans « Informations légales »
                 (décision Val 2026-07-03, onglet Domaines supprimé). */}
             <Card padding="lg" className="space-y-4 md:col-span-2">
-              <BlocHeader icon={Tag} title="Domaines email" />
+              <SectionHeader icon={Tag} title="Domaines email" />
               {org.organisations_domaines_email.length === 0 ? (
                 <EmptyState
                   size="inline"
@@ -563,13 +527,16 @@ export default function ClientFichePage({
         {/* Utilisateurs */}
         <TabsContent value="users">
           <Card padding="lg" className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <BlocHeader icon={Users} title="Utilisateurs" />
-              <Button size="sm" onClick={() => setInviteOpen(true)}>
-                <UserPlus />
-                Ajouter un utilisateur
-              </Button>
-            </div>
+            <SectionHeader
+              icon={Users}
+              title="Utilisateurs"
+              action={
+                <Button size="sm" onClick={() => setInviteOpen(true)}>
+                  <UserPlus />
+                  Ajouter un utilisateur
+                </Button>
+              }
+            />
             {org.users.length === 0 ? (
               <EmptyState
                 icon={<Users />}

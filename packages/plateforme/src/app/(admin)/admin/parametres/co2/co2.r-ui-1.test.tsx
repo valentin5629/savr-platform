@@ -68,8 +68,9 @@ describe('R-UI-1 — Paramètres CO₂', () => {
       await screen.findByText('Mix emballages (7 matériaux)', {}, ATTENTE_UI);
       expect(screen.queryByText(LECTURE_SEULE)).not.toBeInTheDocument();
 
+      // R-UI-5 F7 : marqueur obligatoire = astérisque (`Label required`).
       const commentaires = screen.getAllByLabelText(
-        'Commentaire de modification (obligatoire)',
+        /^Commentaire de modification\*$/,
       );
       fireEvent.change(commentaires[1]!, {
         target: { value: 'Mise à jour ADEME' },

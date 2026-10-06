@@ -6,6 +6,7 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -124,7 +125,7 @@ export function RgpdComptePanel({
         </CardHeader>
         <CardContent>
           <form onSubmit={enregistrerProfil} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <FormGrid>
               <FormField label="Prénom" htmlFor="profil-prenom">
                 <Input
                   id="profil-prenom"
@@ -153,7 +154,7 @@ export function RgpdComptePanel({
                   disabled={chargement || chargementKo}
                 />
               </FormField>
-            </div>
+            </FormGrid>
             <FormError>{profilErreur}</FormError>
             <Button
               type="submit"

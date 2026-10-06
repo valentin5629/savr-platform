@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFiltresUrl } from '@/lib/hooks/use-filtres-url';
@@ -28,6 +29,7 @@ import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { LogoCard } from '@/components/organisation/logo-card';
+import { InviterUtilisateurCarte } from '@/components/organisation/inviter-utilisateur-modal';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
@@ -382,7 +384,7 @@ function EntitesCard({
               onSubmit={add}
               className="space-y-2 rounded-savr-sm border border-savr-neutral-200 p-3"
             >
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormGrid>
                 <FormField
                   label="Raison sociale"
                   htmlFor="entite-raison-sociale"
@@ -416,7 +418,7 @@ function EntitesCard({
                   label="Adresse de facturation"
                   htmlFor="entite-adresse"
                   required
-                  className="md:col-span-2"
+                  className="sm:col-span-2"
                 >
                   <Input
                     id="entite-adresse"
@@ -455,7 +457,7 @@ function EntitesCard({
                   label="Contact facturation"
                   htmlFor="entite-email-facturation"
                   hint="Email qui reçoit les factures"
-                  className="md:col-span-2"
+                  className="sm:col-span-2"
                 >
                   <Input
                     id="entite-email-facturation"
@@ -466,7 +468,7 @@ function EntitesCard({
                     }
                   />
                 </FormField>
-              </div>
+              </FormGrid>
               {msg && (
                 <AlertBar variant="err" role="alert">
                   {msg}
@@ -730,90 +732,20 @@ function EquipeTab({ userId }: { userId: string }) {
         </CardContent>
       </Card>
 
-      <InviteCard onInvited={reload} />
-      <TransfertCard users={users} onDone={reload} />
-    </div>
-  );
-}
-
-function InviteCard({ onInvited }: { onInvited: () => void }) {
-  const [prenom, setPrenom] = useState('');
-  const [nom, setNom] = useState('');
-  const [email, setEmail] = useState('');
-  const [erreur, setErreur] = useState('');
-  const [busy, setBusy] = useState(false);
-  const { toast } = useToast();
-
-  async function invite(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setErreur('');
-    const res = await fetch('/api/v1/traiteur/equipe/invitation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prenom, nom, email }),
-    });
-    if (res.ok) {
-      toast({ title: 'Invitation envoyée.', variant: 'success' });
-      setPrenom('');
-      setNom('');
-      setEmail('');
-      onInvited();
-    } else {
-      const j = (await res.json()) as { error?: string };
-      setErreur(j.error ?? 'Erreur.');
-    }
-    setBusy(false);
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Inviter un collaborateur</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={invite} className="space-y-3">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <FormField label="Prénom" htmlFor="invite-prenom" required>
-              <Input
-                id="invite-prenom"
-                value={prenom}
-                onChange={(e) => setPrenom(e.target.value)}
-                required
-              />
-            </FormField>
-            <FormField label="Nom" htmlFor="invite-nom" required>
-              <Input
-                id="invite-nom"
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-                required
-              />
-            </FormField>
-            <FormField label="Email" htmlFor="invite-email" required>
-              <Input
-                id="invite-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </FormField>
-          </div>
+      <InviterUtilisateurCarte
+        titre="Inviter un collaborateur"
+        endpoint="/api/v1/traiteur/equipe/invitation"
+        erreurParDefaut="Erreur."
+        libelleBouton="Envoyer l’invitation"
+        aide={
           <Text variant="faint">
             Le collaborateur est ajouté avec le rôle Commercial.
           </Text>
-          {erreur && (
-            <AlertBar variant="err" role="alert">
-              {erreur}
-            </AlertBar>
-          )}
-          <Button type="submit" loading={busy} loadingText="Envoi…">
-            Envoyer l’invitation
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        }
+        onInvited={reload}
+      />
+      <TransfertCard users={users} onDone={reload} />
+    </div>
   );
 }
 
@@ -871,7 +803,7 @@ function TransfertCard({
           départ) vers un autre membre de l’équipe.
         </Text>
         <form onSubmit={transfer} className="space-y-2">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FormGrid>
             <FormField label="Depuis" htmlFor="transfert-source" required>
               <Combobox
                 id="transfert-source"
@@ -894,7 +826,7 @@ function TransfertCard({
                 onChange={setCible}
               />
             </FormField>
-          </div>
+          </FormGrid>
           {erreur && (
             <AlertBar variant="err" role="alert">
               {erreur}

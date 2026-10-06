@@ -35,6 +35,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -80,14 +81,17 @@ import {
 } from '@/lib/type-tms-labels';
 import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
-  BlocHeader,
   ContactLigne,
   dateLongueCapitalisee,
-  EnTeteMention,
-  FicheEnTete,
-  InfoItem,
   TelephoneLien,
 } from '@/components/collecte/fiche-blocs';
+import { SectionHeader } from '@/components/ui/section-header';
+import { InfoItem } from '@/components/ui/info-item';
+import {
+  EnTeteMention,
+  FicheEnTete,
+} from '@/components/ui/fiche/fiche-en-tete';
+import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { refCourteCollecte } from '@/lib/collecte-ref';
@@ -1176,7 +1180,7 @@ export function CollecteDetailPanel({
 
       {/* Onglets seuls, sans colonne : même barre horizontale que les autres
           fiches, fixe au défilement du corps. */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+      <FicheCorps>
         <Tabs defaultValue="informations">
           <TabsList
             aria-label="Sections de la fiche collecte"
@@ -1198,7 +1202,7 @@ export function CollecteDetailPanel({
 
           <TabsContent value="informations" className="space-y-4">
             <Card padding="md" className="space-y-4">
-              <BlocHeader icon={CalendarDays} title="Événement" />
+              <SectionHeader icon={CalendarDays} title="Événement" />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <InfoItem label="Date et heure de collecte">
                   {dateCollecteLongue}
@@ -1235,7 +1239,7 @@ export function CollecteDetailPanel({
             {/* Lieu effectif = référence `lieux` + surcharge de cette collecte
                 (`lieu_overrides`, §04 : le lieu officiel n'est jamais modifié). */}
             <Card padding="md" className="space-y-4">
-              <BlocHeader
+              <SectionHeader
                 icon={MapPin}
                 title="Lieu"
                 action={
@@ -1276,7 +1280,7 @@ export function CollecteDetailPanel({
             </Card>
 
             <Card padding="md" className="space-y-4">
-              <BlocHeader icon={DoorOpen} title="Instructions d'accès" />
+              <SectionHeader icon={DoorOpen} title="Instructions d'accès" />
               <dl className="space-y-3 text-sm">
                 <InfoItem label="Accès au lieu (badge, code, interphone, gardien…)">
                   {lieu.acces_details ? (
@@ -1307,7 +1311,7 @@ export function CollecteDetailPanel({
             </Card>
 
             <Card padding="md" className="space-y-4">
-              <BlocHeader icon={Users} title="Contacts" />
+              <SectionHeader icon={Users} title="Contacts" />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <InfoItem label="Contact principal">
                   <ContactLigne
@@ -1331,7 +1335,7 @@ export function CollecteDetailPanel({
             véhicule, prestataire, un seul bouton « Valider et envoyer ». */}
             {attributionManquante && collecte.statut === 'programmee' && (
               <Card padding="md" className="space-y-4">
-                <BlocHeader
+                <SectionHeader
                   icon={HeartHandshake}
                   title="Attribution & dispatch"
                 />
@@ -1364,7 +1368,7 @@ export function CollecteDetailPanel({
               collecte.statut !== 'programmee' &&
               !isTerminal && (
                 <Card padding="md" className="space-y-4">
-                  <BlocHeader
+                  <SectionHeader
                     icon={HeartHandshake}
                     title="Attribution & dispatch"
                   />
@@ -1379,141 +1383,108 @@ export function CollecteDetailPanel({
             Dispatch » (décision Val 2026-10-01). */}
             {collecte.type === 'anti_gaspi' && !attributionManquante && (
               <Card padding="md" className="space-y-4">
-                <BlocHeader icon={HeartHandshake} title="Attribution AG" />
+                <SectionHeader icon={HeartHandshake} title="Attribution AG" />
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-savr-neutral-500">
-                      Association retenue
-                    </dt>
-                    <dd className="font-medium">
-                      {collecte.attributions_antgaspi?.associations?.nom ?? (
-                        <span className="text-savr-neutral-400">
-                          Aucune (en attente d’attribution)
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-savr-neutral-500">
-                      Transporteur retenu
-                    </dt>
-                    <dd className="font-medium">
-                      {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                        <span className="text-savr-neutral-400">—</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-savr-neutral-500">Validation</dt>
-                    <dd className="font-medium">
-                      {collecte.attributions_antgaspi?.valide_at ? (
-                        <>
-                          {collecte.attributions_antgaspi.mode_validation} —{' '}
-                          {new Date(
-                            collecte.attributions_antgaspi.valide_at,
-                          ).toLocaleDateString('fr-FR', {
-                            timeZone: 'Europe/Paris',
-                          })}
-                        </>
-                      ) : (
-                        <Badge variant="warning">
-                          En attente de validation
-                        </Badge>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-savr-neutral-500">
-                      Volume repas (estimé / réalisé)
-                    </dt>
-                    <dd className="font-medium">
-                      {collecte.volume_estime_repas ?? '—'} /{' '}
-                      {collecte.attributions_antgaspi?.volume_repas_realise ??
-                        '—'}
-                    </dd>
-                  </div>
+                  <InfoItem label="Association retenue">
+                    {collecte.attributions_antgaspi?.associations?.nom ?? (
+                      <span className="text-savr-neutral-400">
+                        Aucune (en attente d’attribution)
+                      </span>
+                    )}
+                  </InfoItem>
+                  <InfoItem label="Transporteur retenu">
+                    {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
+                      <span className="text-savr-neutral-400">—</span>
+                    )}
+                  </InfoItem>
+                  <InfoItem label="Validation">
+                    {collecte.attributions_antgaspi?.valide_at ? (
+                      <>
+                        {collecte.attributions_antgaspi.mode_validation} —{' '}
+                        {new Date(
+                          collecte.attributions_antgaspi.valide_at,
+                        ).toLocaleDateString('fr-FR', {
+                          timeZone: 'Europe/Paris',
+                        })}
+                      </>
+                    ) : (
+                      <Badge variant="warning">En attente de validation</Badge>
+                    )}
+                  </InfoItem>
+                  <InfoItem label="Volume repas (estimé / réalisé)">
+                    {collecte.volume_estime_repas ?? '—'} /{' '}
+                    {collecte.attributions_antgaspi?.volume_repas_realise ??
+                      '—'}
+                  </InfoItem>
                 </dl>
               </Card>
             )}
             {!(attributionManquante && !isTerminal) && (
               <Card padding="md" className="space-y-4">
-                <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
+                <SectionHeader icon={Truck} title="Prestataire & Dispatch" />
                 {dispatchError && (
                   <AlertBar variant="err">{dispatchError}</AlertBar>
                 )}
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  <div>
-                    <dt className="text-savr-neutral-500">
-                      Prestataire actuel
-                    </dt>
-                    <dd className="font-medium flex items-center gap-2">
-                      {currentTransporteur?.nom ?? (
-                        <span className="text-savr-neutral-400">
-                          {libelleSansNom ?? 'Aucun prestataire attribué'}
-                        </span>
-                      )}
-                      {currentTransporteur?.type_tms && (
-                        <Badge size="sm" variant="neutral">
-                          {libelleTypeTms(currentTransporteur.type_tms)}
-                        </Badge>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-savr-neutral-500">Statut TMS</dt>
-                    <dd className="font-medium">
-                      <Badge variant={statutTms.variant}>
-                        {statutTms.label}
+                  <InfoItem
+                    label="Prestataire actuel"
+                    valueClassName="flex items-center gap-2"
+                  >
+                    {currentTransporteur?.nom ?? (
+                      <span className="text-savr-neutral-400">
+                        {libelleSansNom ?? 'Aucun prestataire attribué'}
+                      </span>
+                    )}
+                    {currentTransporteur?.type_tms && (
+                      <Badge size="sm" variant="neutral">
+                        {libelleTypeTms(currentTransporteur.type_tms)}
                       </Badge>
-                      {collecte.statut_tms_at && (
-                        <Text as="span" variant="faint" className="ml-1">
-                          (
-                          {new Date(collecte.statut_tms_at).toLocaleString(
-                            'fr-FR',
-                            {
-                              timeZone: 'Europe/Paris',
-                            },
-                          )}
-                          )
-                        </Text>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-savr-neutral-500">Référence TMS</dt>
-                    <dd className="font-mono font-medium">
-                      {collecte.tms_reference ?? '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-savr-neutral-500">Nb camions</dt>
-                    <dd className="flex items-center gap-2 font-medium">
-                      {collecte.nb_camions_demande}
-                      {nbCamionsEditable && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setNbCamionsValue(
-                              String(collecte.nb_camions_demande),
-                            );
-                            setNbCamionsError(null);
-                            setNbCamionsModal(true);
-                          }}
-                        >
-                          Modifier
-                        </Button>
-                      )}
-                    </dd>
-                  </div>
+                    )}
+                  </InfoItem>
+                  <InfoItem label="Statut TMS">
+                    <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
+                    {collecte.statut_tms_at && (
+                      <Text as="span" variant="faint" className="ml-1">
+                        (
+                        {new Date(collecte.statut_tms_at).toLocaleString(
+                          'fr-FR',
+                          {
+                            timeZone: 'Europe/Paris',
+                          },
+                        )}
+                        )
+                      </Text>
+                    )}
+                  </InfoItem>
+                  <InfoItem label="Référence TMS" valueClassName="font-mono">
+                    {collecte.tms_reference ?? '—'}
+                  </InfoItem>
+                  <InfoItem
+                    label="Nb camions"
+                    valueClassName="flex items-center gap-2"
+                  >
+                    {collecte.nb_camions_demande}
+                    {nbCamionsEditable && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setNbCamionsValue(
+                            String(collecte.nb_camions_demande),
+                          );
+                          setNbCamionsError(null);
+                          setNbCamionsModal(true);
+                        }}
+                      >
+                        Modifier
+                      </Button>
+                    )}
+                  </InfoItem>
                   {collecte.motif_override_prestataire && (
-                    <div className="col-span-2">
-                      <dt className="text-savr-neutral-500">Motif override</dt>
-                      <dd className="font-medium">
-                        {collecte.motif_override_prestataire}
-                      </dd>
-                    </div>
+                    <InfoItem label="Motif override" className="col-span-2">
+                      {collecte.motif_override_prestataire}
+                    </InfoItem>
                   )}
                 </dl>
 
@@ -1606,22 +1577,20 @@ export function CollecteDetailPanel({
                         </div>
                       )}
                       {overrideActif && (
-                        <div>
-                          <label
-                            className="block text-sm font-medium text-savr-neutral-700 mb-1"
-                            htmlFor="dispatch-motif"
-                          >
-                            Motif override (obligatoire ≥ 5 car. — prestataire ≠
-                            reco algo)
-                          </label>
+                        <FormField
+                          label="Motif override (≥ 5 car. — prestataire ≠ reco algo)"
+                          htmlFor="dispatch-motif"
+                          required
+                        >
                           <Textarea
                             id="dispatch-motif"
                             rows={2}
+                            required
                             value={motifOverride}
                             onChange={(e) => setMotifOverride(e.target.value)}
                             placeholder="Raison du choix d'un prestataire différent de la recommandation…"
                           />
-                        </div>
+                        </FormField>
                       )}
                     </div>
                   )}
@@ -1726,12 +1695,16 @@ export function CollecteDetailPanel({
               className="space-y-4"
               data-testid="bloc-chauffeur"
             >
-              <BlocHeader
+              <SectionHeader
                 icon={UserRound}
                 title={titreChauffeur}
                 action={
                   !editInfosAcces && saisieChauffeurPossible ? (
-                    <Button variant="secondary" onClick={openEditInfosAcces}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={openEditInfosAcces}
+                    >
                       Modifier les coordonnées
                     </Button>
                   ) : undefined
@@ -1865,10 +1838,13 @@ export function CollecteDetailPanel({
                             </Text>
                           )}
                         </p>
-                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                          <label className="space-y-1 text-xs text-savr-neutral-500">
-                            <span>Plaque d’immatriculation</span>
+                        <FormGrid>
+                          <FormField
+                            label="Plaque d’immatriculation"
+                            htmlFor={`infos-acces-${cle}-plaque`}
+                          >
                             <Input
+                              id={`infos-acces-${cle}-plaque`}
                               value={v.plaque_immatriculation}
                               onChange={(e) =>
                                 setField(
@@ -1877,36 +1853,45 @@ export function CollecteDetailPanel({
                                 )
                               }
                             />
-                          </label>
-                          <label className="space-y-1 text-xs text-savr-neutral-500">
-                            <span>Nom du chauffeur</span>
+                          </FormField>
+                          <FormField
+                            label="Nom du chauffeur"
+                            htmlFor={`infos-acces-${cle}-chauffeur-nom`}
+                          >
                             <Input
+                              id={`infos-acces-${cle}-chauffeur-nom`}
                               value={v.chauffeur_nom}
                               onChange={(e) =>
                                 setField('chauffeur_nom', e.target.value)
                               }
                             />
-                          </label>
-                          <label className="space-y-1 text-xs text-savr-neutral-500">
-                            <span>Téléphone du chauffeur</span>
+                          </FormField>
+                          <FormField
+                            label="Téléphone du chauffeur"
+                            htmlFor={`infos-acces-${cle}-chauffeur-tel`}
+                          >
                             <Input
+                              id={`infos-acces-${cle}-chauffeur-tel`}
                               type="tel"
                               value={v.chauffeur_telephone}
                               onChange={(e) =>
                                 setField('chauffeur_telephone', e.target.value)
                               }
                             />
-                          </label>
-                          <label className="space-y-1 text-xs text-savr-neutral-500">
-                            <span>Nom de l’accompagnant (facultatif)</span>
+                          </FormField>
+                          <FormField
+                            label="Nom de l’accompagnant (facultatif)"
+                            htmlFor={`infos-acces-${cle}-accompagnant-nom`}
+                          >
                             <Input
+                              id={`infos-acces-${cle}-accompagnant-nom`}
                               value={v.accompagnant_nom}
                               onChange={(e) =>
                                 setField('accompagnant_nom', e.target.value)
                               }
                             />
-                          </label>
-                        </div>
+                          </FormField>
+                        </FormGrid>
                       </div>
                     );
                   })}
@@ -1926,7 +1911,7 @@ export function CollecteDetailPanel({
             {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
             {collecte.type === 'zero_dechet' && (
               <Card padding="md" className="space-y-4">
-                <BlocHeader
+                <SectionHeader
                   icon={Scale}
                   title="Pesées ZD"
                   action={
@@ -2013,18 +1998,20 @@ export function CollecteDetailPanel({
                         ))}
                       </TableBody>
                     </Table>
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
-                        Motif (obligatoire, ≥ 10 caractères)
-                      </label>
+                    <FormField
+                      label="Motif (≥ 10 caractères)"
+                      htmlFor="pesees-motif"
+                      required
+                    >
                       <Textarea
+                        id="pesees-motif"
                         value={peseesMotif}
                         onChange={(e) => setPeseesMotif(e.target.value)}
                         rows={2}
                         minLength={10}
                         required
                       />
-                    </div>
+                    </FormField>
                     {peseesError && (
                       <AlertBar variant="err">{peseesError}</AlertBar>
                     )}
@@ -2046,7 +2033,7 @@ export function CollecteDetailPanel({
           <TabsContent value="documents">
             {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
             <Card padding="md" className="space-y-4">
-              <BlocHeader icon={FileText} title="Documents" />
+              <SectionHeader icon={FileText} title="Documents" />
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
               <div className="divide-y divide-savr-neutral-100">
@@ -2332,7 +2319,7 @@ export function CollecteDetailPanel({
           <TabsContent value="historique">
             {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
             <Card padding="md" className="space-y-4">
-              <BlocHeader icon={History} title="Historique & audit" />
+              <SectionHeader icon={History} title="Historique & audit" />
               {audit.length === 0 ? (
                 <EmptyState
                   size="inline"
@@ -2381,11 +2368,11 @@ export function CollecteDetailPanel({
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+      </FicheCorps>
 
       {/* Pied d'actions (cadre commun des fiches) — RM-08 forçage manuel du
           statut (motif obligatoire). */}
-      <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
+      <FichePied>
         <Button
           variant="secondary"
           onClick={() => {
@@ -2398,7 +2385,7 @@ export function CollecteDetailPanel({
           <Settings2 />
           Forcer le statut
         </Button>
-      </footer>
+      </FichePied>
 
       {/* Modale — Annuler le crédit AG */}
       <ConfirmDialog
@@ -2446,7 +2433,11 @@ export function CollecteDetailPanel({
             Bascule manuelle hors machine à états. L&apos;action est tracée dans
             l&apos;audit (motif obligatoire).
           </Text>
-          <FormField label="Nouveau statut" htmlFor="force-statut-select">
+          <FormField
+            label="Nouveau statut"
+            htmlFor="force-statut-select"
+            required
+          >
             <Combobox
               id="force-statut-select"
               icon={null}
@@ -2459,13 +2450,11 @@ export function CollecteDetailPanel({
               }))}
             />
           </FormField>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
-              htmlFor="force-statut-motif"
-            >
-              Motif (obligatoire, ≥ 10 caractères)
-            </label>
+          <FormField
+            label="Motif (≥ 10 caractères)"
+            htmlFor="force-statut-motif"
+            required
+          >
             <Textarea
               id="force-statut-motif"
               value={forceStatutMotif}
@@ -2474,7 +2463,7 @@ export function CollecteDetailPanel({
               minLength={10}
               required
             />
-          </div>
+          </FormField>
           <FormActions
             cancel={{
               label: 'Retour',
@@ -2512,13 +2501,12 @@ export function CollecteDetailPanel({
             calée par téléphone avec A Toutes!. La référence de mission permet
             ensuite de renvoyer une modification ou d&apos;annuler la course.
           </Text>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
-              htmlFor="acceptation-reference"
-            >
-              Référence de mission communiquée par A Toutes! (obligatoire)
-            </label>
+          <FormField
+            label="Référence de mission communiquée par A Toutes!"
+            htmlFor="acceptation-reference"
+            required
+            hint="Sans espace, 64 caractères maximum."
+          >
             <Input
               id="acceptation-reference"
               value={acceptationSaisie.reference_mission}
@@ -2533,17 +2521,12 @@ export function CollecteDetailPanel({
               className="font-mono"
               required
             />
-            <Text variant="hint" className="mt-1">
-              Sans espace, 64 caractères maximum.
-            </Text>
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
-              htmlFor="acceptation-contact"
-            >
-              Contact joint chez A Toutes! (obligatoire)
-            </label>
+          </FormField>
+          <FormField
+            label="Contact joint chez A Toutes!"
+            htmlFor="acceptation-contact"
+            required
+          >
             <Input
               id="acceptation-contact"
               value={acceptationSaisie.contact_joint}
@@ -2556,14 +2539,8 @@ export function CollecteDetailPanel({
               maxLength={120}
               required
             />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
-              htmlFor="acceptation-heure"
-            >
-              Heure de l&apos;appel
-            </label>
+          </FormField>
+          <FormField label="Heure de l'appel" htmlFor="acceptation-heure">
             <Input
               id="acceptation-heure"
               type="time"
@@ -2576,14 +2553,8 @@ export function CollecteDetailPanel({
               }
               className="w-32"
             />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
-              htmlFor="acceptation-commentaire"
-            >
-              Commentaire
-            </label>
+          </FormField>
+          <FormField label="Commentaire" htmlFor="acceptation-commentaire">
             <Textarea
               id="acceptation-commentaire"
               value={acceptationSaisie.commentaire}
@@ -2596,7 +2567,7 @@ export function CollecteDetailPanel({
               rows={3}
               maxLength={1000}
             />
-          </div>
+          </FormField>
           <FormActions
             cancel={{
               label: 'Retour',
@@ -2633,13 +2604,11 @@ export function CollecteDetailPanel({
             d&apos;1 h de la mission est bloqué (alerte Ops). Non modifiable sur
             un statut terminal.
           </Text>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-savr-neutral-700"
-              htmlFor="nb-camions-input"
-            >
-              Nombre de camions
-            </label>
+          <FormField
+            label="Nombre de camions"
+            htmlFor="nb-camions-input"
+            required
+          >
             <Input
               id="nb-camions-input"
               type="number"
@@ -2650,7 +2619,7 @@ export function CollecteDetailPanel({
               className="w-32"
               required
             />
-          </div>
+          </FormField>
           <FormActions
             cancel={{
               label: 'Retour',

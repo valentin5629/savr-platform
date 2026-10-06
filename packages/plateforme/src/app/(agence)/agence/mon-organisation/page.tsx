@@ -2,7 +2,7 @@ import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FacturesAgenceTable } from './factures-table';
 import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
-import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 
 const AGENCE_ROLES = ['agence'] as const;
 
@@ -18,9 +18,7 @@ export default async function MonOrganisationAgencePage() {
 
   return (
     <div className="space-y-6">
-      <Heading level={1} tone="primary">
-        Mon organisation
-      </Heading>
+      <PageHeader title="Mon organisation" />
 
       <InfosLegalesOrganisation urlProfil="/api/v1/agence/mon-organisation/profil" />
 

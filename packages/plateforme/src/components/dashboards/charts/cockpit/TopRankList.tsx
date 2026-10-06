@@ -75,13 +75,13 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                 const inner = (
                   <>
                     <span
-                      className="w-5 text-[13px] font-extrabold tabular-nums"
+                      className="w-5 text-sm font-extrabold tabular-nums"
                       style={{ color }}
                     >
                       {i + 1}
                     </span>
                     <span
-                      className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center text-[11px] font-extrabold ${avatarRadius}`}
+                      className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center text-xs font-extrabold ${avatarRadius}`}
                       style={{
                         background: tint.background,
                         color: tint.color,
@@ -93,13 +93,12 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                       <div className="mb-1 flex justify-between gap-2">
                         <Text
                           as="span"
-                          size="xs-plus"
                           tone="strong"
                           className="truncate font-bold"
                         >
                           {item.label}
                         </Text>
-                        <span className="text-[13px] font-extrabold tabular-nums">
+                        <span className="text-sm font-extrabold tabular-nums">
                           {item.value}
                         </span>
                       </div>
@@ -107,7 +106,6 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                         <Text
                           as="div"
                           variant="hint"
-                          size="2xs"
                           className="mb-1 truncate tabular-nums"
                         >
                           {item.secondary}

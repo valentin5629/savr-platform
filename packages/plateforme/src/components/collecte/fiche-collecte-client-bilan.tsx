@@ -25,6 +25,7 @@ import {
   fmtInt,
   fmtMasse,
 } from '@/components/dashboards/charts/cockpit/fmt';
+import { UNITE_KG_CO2E } from '@/lib/format';
 import {
   LIBELLE_ETAT_RAPPORT,
   STATUTS_ANNULES,
@@ -92,7 +93,7 @@ function GrapheEnAttente({ titre }: { titre: string }) {
 }
 
 // Carte KPI : chiffre en grand + unité plus petite, sur UNE seule ligne
-// (retour Val 2026-09-30 : « −100 kgCO₂e » ne doit jamais passer à la ligne).
+// (retour Val 2026-09-30 : « −100 kg CO₂e » ne doit jamais passer à la ligne).
 function Kpi({
   label,
   nombre,
@@ -350,7 +351,7 @@ export function OngletBilan({
                   ? fmtInt(c.co2_evite_kg)
                   : '—'
               }
-              unite="kgCO₂e"
+              unite={UNITE_KG_CO2E}
             />
           </div>
           {realisee && c.association && (
@@ -373,7 +374,7 @@ export function OngletBilan({
               nombre={
                 realisee && c.co2_net_kg != null ? fmtInt(c.co2_net_kg) : '—'
               }
-              unite="kgCO₂e"
+              unite={UNITE_KG_CO2E}
             />
             <Kpi
               label="Taux de recyclage"
@@ -446,7 +447,7 @@ export function OngletBilan({
             <p className="text-[15px] font-semibold text-savr-neutral-900">
               {rapportNom}
             </p>
-            <Text size="xs-plus">
+            <Text>
               {LIBELLE_ETAT_RAPPORT[c.rapport_etat]}
               {c.rapport_rse_regenere && (
                 <span data-testid="rapport-regenere">
@@ -494,7 +495,7 @@ export function OngletBilan({
               <p className="text-[15px] font-semibold text-savr-neutral-900">
                 Facture {f.numero_facture}
               </p>
-              <Text size="xs-plus">PDF</Text>
+              <Text>PDF</Text>
             </div>
             <Button
               variant="secondary"

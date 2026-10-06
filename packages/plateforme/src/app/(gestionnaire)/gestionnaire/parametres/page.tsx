@@ -1,7 +1,7 @@
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
-import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 
 // Paramètres gestionnaire (§06.05 §9) — préférences personnelles utilisateur.
 // V1 = langue seule (le bloc notifications email a été supprimé V1, §06.05 l.472-474 ;
@@ -14,9 +14,7 @@ import { Heading } from '@/components/ui/heading';
 export default function ParametresPage() {
   return (
     <div className="space-y-6">
-      <Heading level={1} tone="primary">
-        Paramètres
-      </Heading>
+      <PageHeader title="Paramètres" />
       <RgpdComptePanel />
       <PreferencesLangueCard />
       <SecuriteAccesPanel />

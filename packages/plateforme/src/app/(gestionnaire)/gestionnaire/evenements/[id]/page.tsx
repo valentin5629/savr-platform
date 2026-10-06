@@ -205,7 +205,7 @@ export default function EvenementDetailPage({
                   src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(traiteur.id)}/logo`}
                   alt=""
                   onError={() => setLogoKo(true)}
-                  className="h-8 w-8 rounded-full object-cover"
+                  className="h-8 w-8 rounded-savr-full object-cover"
                 />
               )}
               <span>{traiteur?.nom ?? '—'}</span>
@@ -283,9 +283,13 @@ export default function EvenementDetailPage({
             <CardContent className="space-y-3">
               {c.type === 'zero_dechet' && c.collecte_flux.length > 0 && (
                 <div>
-                  <div className="mb-1 text-xs font-medium text-savr-neutral-500 uppercase">
+                  <Text
+                    as="div"
+                    variant="hint"
+                    className="mb-1 font-medium uppercase"
+                  >
                     Pesées
-                  </div>
+                  </Text>
                   <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                     {c.collecte_flux.map((f, i) => (
                       <div
@@ -314,9 +318,13 @@ export default function EvenementDetailPage({
               {c.type === 'anti_gaspi' &&
                 c.attributions_antgaspi.length > 0 && (
                   <div>
-                    <div className="mb-1 text-xs font-medium text-savr-neutral-500 uppercase">
+                    <Text
+                      as="div"
+                      variant="hint"
+                      className="mb-1 font-medium uppercase"
+                    >
                       Attributions
-                    </div>
+                    </Text>
                     {c.attributions_antgaspi.map((a) => (
                       <div key={a.id} className="text-sm">
                         {a.associations?.nom ?? '—'}

@@ -14,6 +14,7 @@ import {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { CalendarDays, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import {
@@ -23,7 +24,7 @@ import {
 } from '@/components/dashboards/index.js';
 import { lireTypesCollecte } from '@/lib/evenements-type-collecte';
 import { variantStatutEvenement } from '@/lib/libelles/evenement';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { ROUTES } from '@/lib/routes';
 
@@ -260,10 +261,12 @@ function EvenementsContent() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
+      <PageHero
+        icon={<CalendarDays className="h-6 w-6 text-savr-primary-200" />}
         title="Événements"
         actions={
-          <Button variant="ghost" onClick={exportCsv}>
+          <Button variant="secondary" onClick={exportCsv}>
+            <Download />
             Exporter CSV
           </Button>
         }

@@ -51,10 +51,7 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
 
   const hero = (
     <div>
-      <div
-        className="mb-1 text-[13px] font-semibold"
-        style={{ color: CO2.label }}
-      >
+      <div className="mb-1 text-sm font-semibold" style={{ color: CO2.label }}>
         {GRAPHIE_CO2}
       </div>
       <div className="text-[44px] font-black leading-[0.9] tracking-[-0.03em] tabular-nums sm:text-[64px]">
@@ -89,7 +86,7 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
 
       {/* Suréditeur */}
       <div
-        className="mb-3.5 text-[11px] font-bold uppercase tracking-[0.08em]"
+        className="mb-3.5 text-xs font-bold uppercase tracking-[0.08em]"
         style={{ color: CO2.labelSoft }}
       >
         {ag
@@ -150,7 +147,7 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
       </div>
 
       {/* Note bas */}
-      <div className="mt-4 text-[11px]" style={{ color: CO2.labelFaint }}>
+      <div className="mt-4 text-xs" style={{ color: CO2.labelFaint }}>
         {ag
           ? "Empreinte carbone moyenne d'un repas sauvé du gaspillage (méthode FAO). Évité seul en V1 — aucun bilan net n'est annoncé. Incertitude ± 50 %."
           : "Incertitude ADEME ± 50 %. L'évité et l'induit ne sont jamais soustraits pour annoncer une compensation."}
@@ -176,7 +173,7 @@ function LignesAbc({
   return (
     <div className="flex flex-col gap-2.5 pb-1">
       <div className="flex items-baseline gap-2.5">
-        <span className="text-[13px]" style={{ width: 120, color: CO2.label }}>
+        <span className="text-sm" style={{ width: 120, color: CO2.label }}>
           CO₂ induit
         </span>
         <span className="text-lg font-extrabold tabular-nums">
@@ -187,7 +184,7 @@ function LignesAbc({
         className="flex items-baseline gap-2.5"
         style={{ paddingTop: 8, borderTop: `1px solid ${CO2.border}` }}
       >
-        <span className="text-[13px]" style={{ width: 120, color: CO2.label }}>
+        <span className="text-sm" style={{ width: 120, color: CO2.label }}>
           Bilan net
         </span>
         <span
@@ -198,7 +195,7 @@ function LignesAbc({
         </span>
       </div>
       <div className="flex items-baseline gap-2.5">
-        <span className="text-[13px]" style={{ width: 120, color: CO2.label }}>
+        <span className="text-sm" style={{ width: 120, color: CO2.label }}>
           Énergie primaire évitée
         </span>
         <span className="text-lg font-extrabold tabular-nums">

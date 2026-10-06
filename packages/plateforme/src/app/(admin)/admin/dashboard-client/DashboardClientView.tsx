@@ -580,7 +580,6 @@ export function DashboardClientView() {
                   <Text
                     as="p"
                     variant="hint"
-                    size="2xs"
                     data-testid="benchmark-reference-echantillon"
                   >
                     Référence : {fmtInt(nbRef)} collecte{nbRef > 1 ? 's' : ''}{' '}

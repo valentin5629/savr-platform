@@ -12,7 +12,7 @@ import {
   type ColumnDef,
 } from '@/components/ui/data-grid';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
-import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 
 interface PackActif {
@@ -152,9 +152,7 @@ export default function MonPackAgPage() {
 
   return (
     <div className="space-y-6">
-      <Heading level={1} tone="primary">
-        Mon pack AG
-      </Heading>
+      <PageHeader title="Mon pack AG" />
 
       {!pack ? (
         <Card>
@@ -201,9 +199,9 @@ export default function MonPackAgPage() {
             </div>
 
             {/* Barre de progression */}
-            <div className="h-2 w-full overflow-hidden rounded-full bg-savr-neutral-200">
+            <div className="h-2 w-full overflow-hidden rounded-savr-full bg-savr-neutral-200">
               <div
-                className="h-full rounded-full bg-savr-primary-500 transition-all"
+                className="h-full rounded-savr-full bg-savr-primary-500 transition-all"
                 style={{
                   width: `${Math.max(0, (pack.nb_collectes_restantes / pack.nb_collectes_total) * 100)}%`,
                 }}

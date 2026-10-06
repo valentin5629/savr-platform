@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { ROUTES } from '@/lib/routes';
 
@@ -80,7 +81,7 @@ const SECTIONS: ParamLink[] = [
 export default function ParametresIndexPage() {
   return (
     <div className="space-y-6">
-      <Heading level={1}>Paramètres</Heading>
+      <PageHeader title="Paramètres" tone="neutral" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {SECTIONS.map((s) => {
           const Icon = s.icon;

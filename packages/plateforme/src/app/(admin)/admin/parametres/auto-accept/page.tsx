@@ -8,8 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { LoadingState } from '@/components/ui/loading-state';
 import { useToast } from '@/components/ui/toast';
-import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
+import { PageHeader } from '@/components/ui/page-header';
 import { ActifBadge } from '@/components/ui/actif-badge';
 
 interface ConfigAutoAccept {
@@ -148,21 +147,20 @@ export default function AutoAcceptPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Zap className="h-6 w-6 text-savr-warning" />
-          <div>
-            <Heading level={1} size="xl" weight="semibold">
-              Configuration auto-accept
-            </Heading>
-            <Text>Activation de la validation automatique par traiteur</Text>
-          </div>
-        </div>
-        <Button size="sm" variant="secondary" disabled>
-          <Plus />
-          Nouvelle config
-        </Button>
-      </div>
+      <PageHeader
+        title="Configuration auto-accept"
+        description="Activation de la validation automatique par traiteur"
+        tone="neutral"
+        size="xl"
+        weight="semibold"
+        icon={<Zap className="h-6 w-6 text-savr-warning" />}
+        actions={
+          <Button size="sm" variant="secondary" disabled>
+            <Plus />
+            Nouvelle config
+          </Button>
+        }
+      />
 
       {error && (
         <AlertBar

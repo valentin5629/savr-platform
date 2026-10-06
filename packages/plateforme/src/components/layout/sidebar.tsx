@@ -100,7 +100,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     {/* Barre accent gauche sur item actif */}
                     {isActive && (
                       <span
-                        className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-full bg-savr-accent-500"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-savr-full bg-savr-accent-500"
                         aria-hidden="true"
                       />
                     )}
@@ -117,7 +117,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                       {/* Collapsé : point rouge (le compteur n'a pas la place). */}
                       {collapsed && badgeCount > 0 && (
                         <span
-                          className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-savr-error ring-2 ring-savr-primary-800"
+                          className="absolute -right-1 -top-1 h-2 w-2 rounded-savr-full bg-savr-error ring-2 ring-savr-primary-800"
                           aria-hidden="true"
                         />
                       )}

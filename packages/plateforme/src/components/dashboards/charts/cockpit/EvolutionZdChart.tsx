@@ -16,6 +16,7 @@ import {
   WHITE,
 } from './palette';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
 import { ToggleChip } from '@/components/ui/toggle-chip';
 import { fmtPct, fmtKg } from '@/lib/format';
@@ -109,9 +110,11 @@ const EvolutionZdChart = React.forwardRef<
       }
     >
       {empty ? (
-        <Text className="py-10 text-center">
-          Aucune collecte ZD sur la période.
-        </Text>
+        <EmptyState
+          size="inline"
+          title="Aucune collecte ZD sur la période."
+          className="py-10 text-center"
+        />
       ) : (
         <>
           <div className="relative">

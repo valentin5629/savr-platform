@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 
 // Panneau « Mon compte » RGPD (transverse, tous rôles) — câble les droits :
 //   · Art.16 Rectification  → PATCH /api/me/profil  (prénom / nom)
@@ -26,9 +28,14 @@ export function RgpdComptePanel({
   // Chargement en échec : formulaire bloqué — l'enregistrer tel quel (vide)
   // effacerait le téléphone.
   const [chargementKo, setChargementKo] = useState(false);
-  const [profilMsg, setProfilMsg] = useState<string | null>(null);
   const [profilErreur, setProfilErreur] = useState<string | null>(null);
-  const [suppressionMsg, setSuppressionMsg] = useState<string | null>(null);
+  // Demande de suppression : statut persistant (validation Admin sous 48 h
+  // ouvrées, §15) → bandeau, pas un toast éphémère (revue conformité #488).
+  const [suppressionDemandee, setSuppressionDemandee] = useState(false);
+  const [suppressionErreur, setSuppressionErreur] = useState<string | null>(
+    null,
+  );
+  const { toast } = useToast();
   const [enCours, setEnCours] = useState(false);
 
   useEffect(() => {
@@ -54,7 +61,6 @@ export function RgpdComptePanel({
   async function enregistrerProfil(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     setEnCours(true);
-    setProfilMsg(null);
     setProfilErreur(null);
     try {
       const res = await fetch('/api/me/profil', {
@@ -62,7 +68,7 @@ export function RgpdComptePanel({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ prenom, nom, telephone }),
       });
-      if (res.ok) setProfilMsg('Profil mis à jour.');
+      if (res.ok) toast({ title: 'Profil mis à jour.', variant: 'success' });
       else setProfilErreur('Échec de la mise à jour du profil.');
     } catch {
       setProfilErreur('Échec de la mise à jour du profil.');
@@ -97,16 +103,13 @@ export function RgpdComptePanel({
       return;
     }
     setEnCours(true);
-    setSuppressionMsg(null);
+    setSuppressionErreur(null);
     try {
       const res = await fetch('/api/me/demande-suppression', {
         method: 'POST',
       });
-      setSuppressionMsg(
-        res.ok
-          ? 'Demande enregistrée — en attente de validation Admin (48h ouvrées).'
-          : 'Échec de l’enregistrement de la demande.',
-      );
+      if (res.ok) setSuppressionDemandee(true);
+      else setSuppressionErreur('Échec de l’enregistrement de la demande.');
     } finally {
       setEnCours(false);
     }
@@ -152,11 +155,6 @@ export function RgpdComptePanel({
               </FormField>
             </div>
             <FormError>{profilErreur}</FormError>
-            {profilMsg && (
-              <p role="status" className="text-sm text-savr-success-strong">
-                {profilMsg}
-              </p>
-            )}
             <Button
               type="submit"
               disabled={enCours || chargement || chargementKo}
@@ -195,15 +193,21 @@ export function RgpdComptePanel({
             >
               Demander la suppression de mon compte
             </Button>
-            {suppressionMsg ? (
-              <Text variant="hint">{suppressionMsg}</Text>
-            ) : (
-              <Text variant="hint">
-                Validation Admin sous 48h ouvrées, puis anonymisation des
-                données personnelles. Les factures et bordereaux légaux sont
-                conservés.
-              </Text>
+            {suppressionDemandee && (
+              <AlertBar variant="success">
+                Demande enregistrée — en attente de validation Admin (48h
+                ouvrées).
+              </AlertBar>
             )}
+            {suppressionErreur && (
+              <AlertBar variant="err" role="alert">
+                {suppressionErreur}
+              </AlertBar>
+            )}
+            <Text variant="hint">
+              Validation Admin sous 48h ouvrées, puis anonymisation des données
+              personnelles. Les factures et bordereaux légaux sont conservés.
+            </Text>
           </CardContent>
         </Card>
       )}

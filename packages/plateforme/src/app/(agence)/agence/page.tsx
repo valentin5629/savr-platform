@@ -1,5 +1,6 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
@@ -253,7 +254,7 @@ export default function AgenceDashboardPage() {
       )}
 
       {loading ? (
-        <Text>Chargement…</Text>
+        <LoadingState />
       ) : nbCollectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (

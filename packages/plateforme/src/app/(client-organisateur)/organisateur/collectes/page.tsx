@@ -1,5 +1,6 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
 import { fmtPct } from '@/lib/format';
 import { Suspense, useMemo } from 'react';
 import { Download, Truck } from 'lucide-react';
@@ -249,7 +250,7 @@ function CollectesContent() {
 
 export default function ClientOrganisateurCollectesPage() {
   return (
-    <Suspense fallback={<p className="p-4 text-sm">Chargement…</p>}>
+    <Suspense fallback={<LoadingState className="p-4" />}>
       <CollectesContent />
     </Suspense>
   );

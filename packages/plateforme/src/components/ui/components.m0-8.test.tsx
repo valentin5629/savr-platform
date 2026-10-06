@@ -982,8 +982,9 @@ describe('R-UI-0 — AlertBar : succès et erreur discernables (B8)', () => {
     expect(screen.getByRole('status').className).toContain(
       'text-savr-success-strong',
     );
+    // L'erreur est annoncée immédiatement : role=alert par défaut (R-UI-1).
     rerender(<AlertBar variant="err">Erreur.</AlertBar>);
-    expect(screen.getByRole('status').className).toContain(
+    expect(screen.getByRole('alert').className).toContain(
       'text-savr-error-strong',
     );
   });

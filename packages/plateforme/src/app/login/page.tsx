@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { safeNextPath } from '@/lib/safe-next-path';
 import { AlertBar } from '@/components/ui/alert-bar';
+import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -161,7 +162,7 @@ function LoginForm() {
           </TextLink>
         </div>
       </div>
-      {erreur && <p className="text-sm text-savr-error">{erreur}</p>}
+      <FormError>{erreur}</FormError>
     </AuthCard>
   );
 }

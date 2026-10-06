@@ -10,6 +10,7 @@ import {
 import { CalendarDays, Pencil, Users, XCircle } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/error-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
@@ -216,20 +217,17 @@ export function FicheCollecteClientPanel({
     );
   if (erreur)
     return (
-      <div className="space-y-4 p-6" data-testid="fiche-erreur">
-        <AlertBar variant="err">{erreur}</AlertBar>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            setLoading(true);
-            reload();
-          }}
-        >
-          Réessayer
-        </Button>
-      </div>
+      <ErrorState
+        className="p-6"
+        data-testid="fiche-erreur"
+        message={erreur}
+        onRetry={() => {
+          setLoading(true);
+          reload();
+        }}
+      />
     );
-  if (!c) return <p className="p-6 text-sm">Collecte introuvable.</p>;
+  if (!c) return <ErrorState className="p-6" message="Collecte introuvable." />;
 
   const evt = c.evenement;
   const lieu = evt?.lieu ?? null;

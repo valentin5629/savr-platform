@@ -435,11 +435,16 @@ describe('M3.2 / P2 listes colonnes', () => {
 
       expect(
         await screen.findByText(
-          'Impossible de charger vos lieux',
+          /Impossible de charger vos lieux/,
           undefined,
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+      // ErrorState (R-UI-1 H5) : bandeau role=alert + « Réessayer ».
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Impossible de charger vos lieux',
+      );
+      expect(screen.getByRole('button', { name: 'Réessayer' })).toBeTruthy();
       expect(enEchec).toHaveBeenCalled();
       expect(screen.queryByText('Aucun lieu associé')).toBeNull();
 

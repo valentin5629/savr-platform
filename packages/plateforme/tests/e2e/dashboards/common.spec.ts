@@ -39,8 +39,12 @@ test.describe('M3.5 — EmptyDashboardState', () => {
   test('affiche le message exact §11 §8', async ({ page }) => {
     await page.goto(`${BASE_URL}/dev/test-dashboard-components`);
     const el = page.locator('[data-testid="empty-dashboard-state"]');
+    // Message §11 §8 : titre + consigne (EmptyState, R-UI-1).
     await expect(el).toContainText(
-      'Aucune collecte sur la période sélectionnée. Ajustez les filtres ou programmez votre première collecte.',
+      'Aucune collecte sur la période sélectionnée.',
+    );
+    await expect(el).toContainText(
+      'Ajustez les filtres ou programmez votre première collecte.',
     );
   });
 });

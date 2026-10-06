@@ -1,5 +1,6 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
 import { useCallback, useEffect, useState } from 'react';
 import {
   DashboardFilterBar,
@@ -16,7 +17,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 import { fmtInt, fmtDec } from '@/lib/format';
 
 // §11 §7 — Dashboard client_organisateur : impact RSE, lecture seule.
@@ -173,7 +173,7 @@ export default function ClientOrganisateurDashboardPage() {
       <ToggleTypeCollecte value={tab} onChange={setTab} />
 
       {loading ? (
-        <Text>Chargement…</Text>
+        <LoadingState />
       ) : nbCollectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (

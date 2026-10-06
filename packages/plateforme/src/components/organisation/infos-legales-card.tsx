@@ -7,6 +7,9 @@ import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { ErrorState } from '@/components/ui/error-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { useToast } from '@/components/ui/toast';
 
 // « Informations légales » de SA propre organisation, partagé par les espaces
 // clients. Raison sociale, SIRET et adresse modifiables par tous les rôles
@@ -60,7 +63,8 @@ export function InfosLegalesCard({
   const [valeurs, setValeurs] = useState(() => valeursDe(profil));
   const [saving, setSaving] = useState(false);
   const [erreur, setErreur] = useState('');
-  const [succes, setSucces] = useState('');
+  // Succès = toast 4 s (R-UI-1 H1).
+  const { toast } = useToast();
 
   // Réaligné sur les seules valeurs légales : un nouvel objet `profil` venu d'un
   // envoi de logo n'écrase pas une saisie en cours. Et seulement quand elles
@@ -88,7 +92,6 @@ export function InfosLegalesCard({
     e.preventDefault();
     setSaving(true);
     setErreur('');
-    setSucces('');
     try {
       // Seuls les champs modifiés partent : pas d'audit pour une valeur inchangée.
       const patch = Object.fromEntries(
@@ -104,7 +107,7 @@ export function InfosLegalesCard({
         error?: string;
       };
       if (!res.ok || !j.data) throw new Error(j.error ?? ERREUR_ENREGISTREMENT);
-      setSucces('Informations enregistrées.');
+      toast({ title: 'Informations enregistrées.', variant: 'success' });
       // Valeurs nettoyées par le serveur (espaces retirés), même si inchangées.
       setValeurs(valeursDe(j.data));
       onSaved(j.data);
@@ -136,18 +139,12 @@ export function InfosLegalesCard({
                 maxLength={500}
                 onChange={(e) => {
                   setValeurs((v) => ({ ...v, [cle]: e.target.value }));
-                  setSucces('');
                   setErreur('');
                 }}
               />
             </FormField>
           ))}
           <FormError>{erreur}</FormError>
-          {succes && (
-            <p role="status" className="text-sm text-savr-success-strong">
-              {succes}
-            </p>
-          )}
           <Button
             type="submit"
             disabled={modifies.length === 0}
@@ -205,15 +202,15 @@ export function InfosLegalesOrganisation({ urlProfil }: { urlProfil: string }) {
     return (
       <Card>
         <CardContent className="py-4">
-          <FormError>{erreur}</FormError>
+          <ErrorState message={erreur} />
         </CardContent>
       </Card>
     );
   if (!profil)
     return (
       <Card>
-        <CardContent className="py-4 text-sm text-savr-neutral-500">
-          Chargement…
+        <CardContent className="py-4">
+          <LoadingState />
         </CardContent>
       </Card>
     );

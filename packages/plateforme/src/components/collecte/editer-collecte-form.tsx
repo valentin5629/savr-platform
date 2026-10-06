@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -376,12 +377,16 @@ export function EditerCollecteForm({
         </section>
 
         {urgence && (
-          <p className="rounded-savr-md bg-savr-warning-subtle px-3 py-2 text-sm text-savr-warning-strong">
+          <AlertBar variant="warn">
             Cette modification a lieu moins de 12h avant la collecte. Notre
             équipe Ops sera alertée en urgence.
-          </p>
+          </AlertBar>
         )}
-        {error && <p className="text-sm text-savr-error">{error}</p>}
+        {error && (
+          <AlertBar variant="err" role="alert">
+            {error}
+          </AlertBar>
+        )}
 
         <FormActions
           cancel={

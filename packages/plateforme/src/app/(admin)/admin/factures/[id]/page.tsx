@@ -22,10 +22,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { tempsEcouleFr } from '@/lib/facturation/facture-ui';
 import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 import { fmtMontant } from '@/lib/format';
 import { TextLink } from '@/components/ui/text-link';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { LoadingState } from '@/components/ui/loading-state';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Ligne {
   id: string;
@@ -264,8 +266,9 @@ export default function FactureDetailPage() {
     await doAction('avoir', { motif });
   }
 
-  if (loading) return <Text as="div">Chargement…</Text>;
-  if (!facture) return <Text as="div">Facture introuvable.</Text>;
+  if (loading) return <LoadingState />;
+  if (!facture)
+    return <EmptyState size="inline" title="Facture introuvable." />;
 
   const fmt = (n: number): string => fmtMontant(n, facture.devise);
   const factureReference =
@@ -292,57 +295,57 @@ export default function FactureDetailPage() {
       </div>
 
       {error && (
-        <div className="rounded-savr-md bg-savr-error-subtle border border-savr-error-soft px-4 py-3 text-sm text-savr-error-strong">
+        <AlertBar variant="err" className="font-normal">
           {error}
-        </div>
+        </AlertBar>
       )}
 
       {/* Bandeau SLA Pennylane §06.08 §2.3 — en_attente_pennylane : « dernier essai
           il y a Xmin » + bouton Renvoyer. echec_final (retry épuisé) = intervention. */}
-      {/* ds-classes: valeur unique (orange-50/300/800, hors sémantique warning), à arbitrer — encart remplacé par AlertBar en R-UI-1 */}
+      {/* R-UI-1 H2 : orange brut (hors sémantique) → AlertBar warn. Le bouton
+          Renvoyer est poussé à droite : le contenu de l'AlertBar prend toute la
+          largeur ([&>span]:flex-1, AlertBar n'a pas de prop « action »). */}
       {facture.statut === 'en_attente_pennylane' && (
-        <div className="rounded-savr-md bg-orange-50 border border-orange-300 px-4 py-3 text-sm text-orange-800 flex items-start justify-between gap-4">
-          <div>
-            <strong>En attente d’envoi Pennylane</strong>
-            {facture.derniere_tentative_pennylane_at && (
-              <>
-                {' '}
-                — dernier essai :{' '}
-                {tempsEcouleFr(
-                  facture.derniere_tentative_pennylane_at,
-                  Date.now(),
-                )}
-              </>
-            )}
-            {facture.pennylane_statut === 'echec_final' && (
-              <div className="mt-1 font-medium">
-                Échec après 3 tentatives — renvoi manuel requis.
-              </div>
-            )}
-            {/* ds-classes: valeur unique (orange-700), à arbitrer */}
-            {facture.erreur_synchro && (
-              <div className="mt-1 text-orange-700">
-                {facture.erreur_synchro}
-              </div>
-            )}
+        <AlertBar variant="warn" className="font-normal [&>span]:flex-1">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <strong>En attente d’envoi Pennylane</strong>
+              {facture.derniere_tentative_pennylane_at && (
+                <>
+                  {' '}
+                  — dernier essai :{' '}
+                  {tempsEcouleFr(
+                    facture.derniere_tentative_pennylane_at,
+                    Date.now(),
+                  )}
+                </>
+              )}
+              {facture.pennylane_statut === 'echec_final' && (
+                <div className="mt-1 font-medium">
+                  Échec après 3 tentatives — renvoi manuel requis.
+                </div>
+              )}
+              {facture.erreur_synchro && (
+                <div className="mt-1">{facture.erreur_synchro}</div>
+              )}
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => doAction('renvoyer')}
+              disabled={actionLoading !== null}
+              loading={actionLoading === 'renvoyer'}
+              loadingText="Envoi…"
+            >
+              <RotateCcw /> Renvoyer
+            </Button>
           </div>
-          <Button
-            variant="secondary"
-            onClick={() => doAction('renvoyer')}
-            disabled={actionLoading !== null}
-            loading={actionLoading === 'renvoyer'}
-            loadingText="Envoi…"
-          >
-            <RotateCcw /> Renvoyer
-          </Button>
-        </div>
+        </AlertBar>
       )}
 
-      {/* ds-classes: valeur unique (border amber-200), à arbitrer — encart remplacé par AlertBar en R-UI-1 */}
       {facture.statut !== 'en_attente_pennylane' && facture.erreur_synchro && (
-        <div className="rounded-savr-md bg-savr-warning-subtle border border-amber-200 px-4 py-3 text-sm text-savr-warning-deep">
+        <AlertBar variant="warn" className="font-normal">
           <strong>Erreur Pennylane :</strong> {facture.erreur_synchro}
-        </div>
+        </AlertBar>
       )}
 
       {/* Bloc 1 — En-tête */}
@@ -404,7 +407,11 @@ export default function FactureDetailPage() {
         </Heading>
         <div className="rounded-savr-md border divide-y text-sm">
           {facture.factures_collectes.length === 0 && (
-            <div className="px-4 py-3 text-savr-neutral-500">Aucune ligne.</div>
+            <EmptyState
+              size="inline"
+              title="Aucune ligne."
+              className="px-4 py-3"
+            />
           )}
           {facture.factures_collectes.map((fc) => (
             <LigneRow
@@ -547,7 +554,7 @@ export default function FactureDetailPage() {
           </Button>
         )}
 
-        {/* Renvoi manuel §06.08 §2.3 : porté par le bandeau orange en_attente_pennylane
+        {/* Renvoi manuel §06.08 §2.3 : porté par le bandeau d'avertissement en_attente_pennylane
             (ci-dessus), pas de doublon dans le Bloc Actions. */}
 
         {['emise', 'payee'].includes(facture.statut) && (

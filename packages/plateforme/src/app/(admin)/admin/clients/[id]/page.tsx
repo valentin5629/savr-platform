@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { PageHero } from '@/components/ui/page-hero';
@@ -317,14 +317,7 @@ export default function ClientFichePage({
       .catch(() => setLoading(false));
   }, [id]);
 
-  if (loading)
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+  if (loading) return <LoadingState variant="bloc" />;
   if (!org)
     return (
       <EmptyState
@@ -534,7 +527,10 @@ export default function ClientFichePage({
             <Card padding="lg" className="space-y-4">
               <BlocHeader icon={CreditCard} title="Entités de facturation" />
               {org.entites_facturation.length === 0 ? (
-                <Text>Aucune entité de facturation.</Text>
+                <EmptyState
+                  size="inline"
+                  title="Aucune entité de facturation."
+                />
               ) : (
                 <div className="space-y-1">
                   {org.entites_facturation.map((ef) => (
@@ -572,7 +568,10 @@ export default function ClientFichePage({
             <Card padding="lg" className="space-y-4 md:col-span-2">
               <BlocHeader icon={Tag} title="Domaines email" />
               {org.organisations_domaines_email.length === 0 ? (
-                <Text>Aucun domaine whitelisté pour cette organisation.</Text>
+                <EmptyState
+                  size="inline"
+                  title="Aucun domaine whitelisté pour cette organisation."
+                />
               ) : (
                 <ul className="flex flex-wrap gap-2">
                   {org.organisations_domaines_email.map(({ domaine }) => (

@@ -58,6 +58,8 @@ import {
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
+import { LoadingState } from '@/components/ui/loading-state';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { fmtPct } from '@/lib/format';
 
 // Variables de la modale « méthode CO₂ » renvoyées par l'endpoint admin.
@@ -467,7 +469,7 @@ export function DashboardClientView() {
       </DashboardFilterBar>
 
       {loading ? (
-        <Text>Chargement…</Text>
+        <LoadingState />
       ) : isEmpty ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' && zdKpi ? (
@@ -618,15 +620,14 @@ export function DashboardClientView() {
                   </Text>
                 )}
                 {referenceErreur && (
-                  <Text
-                    as="p"
-                    size="2xs"
-                    className="text-savr-error"
+                  <AlertBar
+                    variant="err"
+                    className="font-normal"
                     data-testid="benchmark-reference-erreur"
                   >
                     Référence indisponible pour le moment : les écarts ne
                     peuvent pas être calculés.
-                  </Text>
+                  </AlertBar>
                 )}
               </div>
             }

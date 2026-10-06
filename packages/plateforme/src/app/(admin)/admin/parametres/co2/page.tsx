@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { LoadingState } from '@/components/ui/loading-state';
+import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
+import { useUserRole } from '@/lib/use-user-role';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import {
@@ -52,6 +55,11 @@ interface Co2Divers {
 const MIN_COMMENT = 5;
 
 export default function ParametresCo2Page() {
+  // Écriture admin-only (PUT requireAdmin), lecture staff (GET requireStaff) :
+  // ops_savr = lecture seule + bandeau, comme les autres sous-sections
+  // Paramètres (R-UI-1 H6 ; §9 « admin-only en écriture »).
+  const role = useUserRole();
+  const canEdit = role === 'admin_savr';
   const [facteurAg, setFacteurAg] = useState<FacteurAg | null>(null);
   const [loading, setLoading] = useState(true);
   const [mixDraft, setMixDraft] = useState<MixEmballage[]>([]);
@@ -212,15 +220,7 @@ export default function ParametresCo2Page() {
     setSavingDivers(false);
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingState variant="bloc" />;
 
   return (
     <div className="space-y-8">
@@ -228,6 +228,8 @@ export default function ParametresCo2Page() {
         <Leaf className="h-6 w-6 text-savr-neutral-600" />
         <Heading level={1}>Paramètres — CO₂</Heading>
       </div>
+
+      {!canEdit && <OpsReadOnlyBanner />}
 
       {/* Facteurs CO2 par flux */}
       <Card padding="lg" className="space-y-4">
@@ -375,7 +377,9 @@ export default function ParametresCo2Page() {
         </div>
 
         {mixError && (
-          <p className="text-savr-error-strong text-sm">{mixError}</p>
+          <AlertBar variant="err" className="font-normal">
+            {mixError}
+          </AlertBar>
         )}
 
         <Table>

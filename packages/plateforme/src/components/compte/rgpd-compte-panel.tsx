@@ -14,9 +14,10 @@ import { useToast } from '@/components/ui/toast';
 
 // Panneau « Mon compte » RGPD (transverse, tous rôles) — câble les droits :
 //   · Art.16 Rectification  → PATCH /api/me/profil  (prénom / nom)
-//   · Art.15/20 Accès/Porta → GET   /api/me/export-rgpd  (téléchargement JSON)
 //   · Art.17 Suppression    → POST  /api/me/demande-suppression  (workflow Admin 48h)
-// Remplace les boutons inertes des pages mon-profil (BL-P0-09 / OBS-04 / P2-27).
+// Remplace les boutons inertes des pages mon-profil (BL-P0-09 / P2-27).
+// Export Art.15/20 : plus de bloc à l'écran (décision Val 2026-10-06) — la route
+// GET /api/me/export-rgpd reste servie.
 // `avecSuppression=false` : pas de demande de suppression de compte (profil staff —
 // décision Val 2026-09-28 : un compte Admin ne se supprime pas en self-service).
 export function RgpdComptePanel({
@@ -76,18 +77,6 @@ export function RgpdComptePanel({
     } finally {
       setEnCours(false);
     }
-  }
-
-  async function exporter(): Promise<void> {
-    const res = await fetch('/api/me/export-rgpd');
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mes-donnees-savr.json';
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   const { confirmer, dialogue } = useConfirm();
@@ -163,21 +152,6 @@ export function RgpdComptePanel({
               Enregistrer
             </Button>
           </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Mes données (RGPD)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button variant="secondary" onClick={exporter}>
-            Exporter mes données (JSON)
-          </Button>
-          <Text variant="hint">
-            Téléchargez l’ensemble de vos données personnelles (droit d’accès et
-            de portabilité).
-          </Text>
         </CardContent>
       </Card>
 

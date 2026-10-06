@@ -131,7 +131,7 @@
     {
       "id": "BL-P1-OBS-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:105",
-      "artefact": "packages/plateforme/src/app/api/me/export-rgpd/route.ts (GET self, RLS, téléchargement JSON Art.15/20) + composant RgpdComptePanel (bouton Exporter)",
+      "artefact": "packages/plateforme/src/app/api/me/export-rgpd/route.ts (GET self, RLS, téléchargement JSON Art.15/20) ; bouton « Exporter mes données » retiré de RgpdComptePanel, tous rôles (décision Val 2026-10-06, divergence M0.4_20261006_retrait-bloc-export-donnees) — la route reste servie",
       "test": "packages/plateforme/tests/api/me/rgpd.test.ts « M0.4 — RGPD … GET export-rgpd renvoie les PII de l'utilisateur (self) »",
       "statut": "implemented",
       "libelle": "RGPD export JSON (droit d'accès)"

@@ -5,7 +5,9 @@ import { History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { LoadingState } from '@/components/ui/loading-state';
+import { EmptyState } from '@/components/ui/empty-state';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/ui/form-field';
@@ -204,14 +206,7 @@ export default function TarifsPacksAGPage() {
     setModal(true);
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-48 w-full" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingState variant="bloc" />;
 
   // Grouper par type_pack pour affichage
   const byType = TYPES_PACK.map((t) => ({
@@ -353,9 +348,9 @@ export default function TarifsPacksAGPage() {
         onClose={() => setModal(false)}
       >
         {formError && (
-          <div className="mb-4 rounded-savr-md border border-savr-error/40 bg-savr-error-subtle px-4 py-2 text-sm text-savr-error-strong">
+          <AlertBar variant="err" className="mb-4 font-normal">
             {formError}
-          </div>
+          </AlertBar>
         )}
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
@@ -481,7 +476,9 @@ export default function TarifsPacksAGPage() {
           data={hist.rows}
           getRowId={(r) => r.id}
           loading={hist.loading}
-          empty={<Text>Aucune version enregistrée.</Text>}
+          empty={
+            <EmptyState size="inline" title="Aucune version enregistrée." />
+          }
         />
       </Modal>
     </div>

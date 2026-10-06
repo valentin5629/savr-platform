@@ -13,6 +13,7 @@
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export interface OpsIntegration {
   service: string;
@@ -121,7 +122,12 @@ export function TableauIntegrations({
       columns={COLONNES_INTEGRATIONS}
       data={integrations}
       getRowId={(i) => i.service}
-      empty={<Text>Aucune intégration suivie pour le moment.</Text>}
+      empty={
+        <EmptyState
+          size="inline"
+          title="Aucune intégration suivie pour le moment."
+        />
+      }
     />
   );
 }
@@ -133,7 +139,9 @@ export function TableauBatchs({ batchs }: { batchs: OpsBatch[] }) {
       columns={COLONNES_BATCHS}
       data={batchs}
       getRowId={(b) => b.job_name}
-      empty={<Text>Aucun batch exécuté pour le moment.</Text>}
+      empty={
+        <EmptyState size="inline" title="Aucun batch exécuté pour le moment." />
+      }
     />
   );
 }

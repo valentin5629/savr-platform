@@ -5,6 +5,8 @@ import * as Popover from '@radix-ui/react-popover';
 import { Search, MapPin, PlusCircle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { Input } from '@/components/ui/input';
 
 export interface LieuOption {
@@ -106,14 +108,18 @@ export function LieuCombobox({
 
           <ul role="listbox" className="max-h-60 overflow-y-auto py-1">
             {loading && (
-              <Text as="li" tone="faint" className="px-3 py-2">
-                Chargement…
-              </Text>
+              <li className="px-3 py-2">
+                <LoadingState className="text-savr-neutral-400" />
+              </li>
             )}
             {!loading && options.length === 0 && (
-              <Text as="li" tone="faint" className="px-3 py-2">
-                Aucun lieu trouvé
-              </Text>
+              <li className="px-3 py-2">
+                <EmptyState
+                  size="inline"
+                  title="Aucun lieu trouvé"
+                  className="text-savr-neutral-400"
+                />
+              </li>
             )}
             {options.map((l) => (
               <li

@@ -30,7 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/ui/loading-state';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import {
   DataGrid,
@@ -169,7 +169,7 @@ export function OngletCollectes({
   // Squelette au 1er chargement seulement : un re-tri garde le tableau (et
   // ses en-têtes) à l'écran pendant l'aller-retour serveur.
   if (loading && rows.length === 0 && !erreur)
-    return <Skeleton className="h-40 w-full" />;
+    return <LoadingState variant="bloc" />;
   if (!loading && !erreur && rows.length === 0)
     return (
       <Card padding="lg">
@@ -309,7 +309,7 @@ export function OngletFactures({
     },
   ];
 
-  if (loading) return <Skeleton className="h-40 w-full" />;
+  if (loading) return <LoadingState variant="bloc" />;
   if (rows.length === 0)
     return (
       <Card padding="lg">
@@ -447,7 +447,7 @@ export function OngletGrilleZd({
     }
   }
 
-  if (loading) return <Skeleton className="h-40 w-full" />;
+  if (loading) return <LoadingState variant="bloc" />;
 
   return (
     <Card padding="lg" className="space-y-4">
@@ -492,7 +492,11 @@ export function OngletGrilleZd({
             s'applique.
           </Text>
         )}
-        {error && <p className="text-sm text-savr-error mt-1">{error}</p>}
+        {error && (
+          <AlertBar variant="err" className="mt-2 font-normal">
+            {error}
+          </AlertBar>
+        )}
       </div>
 
       {affectee && affectee.tarifs_zero_dechet.length > 0 && (
@@ -635,7 +639,11 @@ export function OngletTarifRefacture({
             )}
           </div>
         )}
-        {error && <p className="text-sm text-savr-error mt-2">{error}</p>}
+        {error && (
+          <AlertBar variant="err" className="mt-2 font-normal">
+            {error}
+          </AlertBar>
+        )}
       </div>
     </Card>
   );
@@ -820,7 +828,7 @@ export function OngletCoefficients({
     }
   }
 
-  if (loading) return <Skeleton className="h-40 w-full" />;
+  if (loading) return <LoadingState variant="bloc" />;
 
   return (
     <Card padding="lg" className="space-y-4">

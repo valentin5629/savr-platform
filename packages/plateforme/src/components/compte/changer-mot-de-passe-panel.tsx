@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { FormError } from '@/components/ui/form-error';
+import { useToast } from '@/components/ui/toast';
 
 // Panneau « Changer mon mot de passe » (transverse, tous rôles) — CDC §06.04 §7.
 // Câble le changement de mot de passe IN-APP pour l'utilisateur connecté :
@@ -18,13 +20,13 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
   const idConfirmation = useId();
   const [motDePasse, setMotDePasse] = useState('');
   const [confirmation, setConfirmation] = useState('');
-  const [msg, setMsg] = useState<string | null>(null);
+  // Succès = toast 4 s (R-UI-1 H1).
+  const { toast } = useToast();
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
   async function soumettre(e: React.FormEvent): Promise<void> {
     e.preventDefault();
-    setMsg(null);
     setErreur(null);
     if (motDePasse !== confirmation) {
       setErreur('Les deux mots de passe ne correspondent pas.');
@@ -38,7 +40,7 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
         body: JSON.stringify({ mot_de_passe: motDePasse }),
       });
       if (res.ok) {
-        setMsg('Mot de passe mis à jour.');
+        toast({ title: 'Mot de passe mis à jour.', variant: 'success' });
         setMotDePasse('');
         setConfirmation('');
       } else {
@@ -88,12 +90,7 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
             >
               Mettre à jour
             </Button>
-            {msg && (
-              <span className="text-xs text-savr-success-strong">{msg}</span>
-            )}
-            {erreur && (
-              <span className="text-xs text-savr-error-strong">{erreur}</span>
-            )}
+            <FormError>{erreur}</FormError>
           </div>
         </form>
       </CardContent>

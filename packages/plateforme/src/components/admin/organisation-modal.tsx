@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Building2, Mail, MapPin, type LucideIcon } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
@@ -296,9 +297,9 @@ export function OrganisationModal({
         </Bloc>
 
         {serverError && (
-          <p className="text-sm text-savr-error-strong" role="alert">
+          <AlertBar variant="err" role="alert">
             {serverError}
-          </p>
+          </AlertBar>
         )}
       </form>
     </Modal>

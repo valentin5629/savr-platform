@@ -16,6 +16,8 @@ import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { FormActions } from '@/components/ui/form-actions';
 
@@ -216,8 +218,8 @@ export default function GrillesZdPage() {
         loading={loading}
         rowClassName={(g) => (g.actif ? undefined : 'opacity-60')}
         empty={
-          <Card className="p-8 text-center text-savr-neutral-500">
-            Aucune grille tarifaire ZD.
+          <Card className="p-8 text-center">
+            <EmptyState size="inline" title="Aucune grille tarifaire ZD." />
           </Card>
         }
       />
@@ -372,7 +374,9 @@ export default function GrillesZdPage() {
           </div>
 
           {formError && (
-            <p className="text-savr-error-strong text-sm">{formError}</p>
+            <AlertBar variant="err" className="font-normal">
+              {formError}
+            </AlertBar>
           )}
 
           <FormActions

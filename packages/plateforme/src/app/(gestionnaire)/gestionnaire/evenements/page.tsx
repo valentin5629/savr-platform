@@ -1,5 +1,8 @@
 'use client';
 
+import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { fmtKg } from '@/lib/format';
 import {
   Suspense,
@@ -10,7 +13,6 @@ import {
   useState,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
@@ -279,12 +281,11 @@ function EvenementsContent() {
       {/* États système §10 §7 — Error = message + « Réessayer », distinct de
           l'état Empty : une panne ne doit jamais se lire comme une liste vide. */}
       {erreur ? (
-        <div className="space-y-4" data-testid="evenements-erreur">
-          <AlertBar variant="err">{erreur}</AlertBar>
-          <Button variant="secondary" onClick={charger}>
-            Réessayer
-          </Button>
-        </div>
+        <ErrorState
+          data-testid="evenements-erreur"
+          message={erreur}
+          onRetry={charger}
+        />
       ) : (
         <DataGrid
           data-testid="evenements-table"
@@ -292,7 +293,7 @@ function EvenementsContent() {
           data={rows}
           getRowId={(e) => e.id}
           loading={loading}
-          empty={<Text>Aucun événement.</Text>}
+          empty={<EmptyState size="inline" title="Aucun événement." />}
           onRowClick={(e) => router.push(`/gestionnaire/evenements/${e.id}`)}
           rowLabel={(e) =>
             `Ouvrir l'événement${e.nom_evenement ? ` ${e.nom_evenement}` : ''}`
@@ -305,7 +306,7 @@ function EvenementsContent() {
 
 export default function GestionnaireEvenementsPage() {
   return (
-    <Suspense fallback={<p className="p-4 text-sm">Chargement…</p>}>
+    <Suspense fallback={<LoadingState className="p-4" />}>
       <EvenementsContent />
     </Suspense>
   );

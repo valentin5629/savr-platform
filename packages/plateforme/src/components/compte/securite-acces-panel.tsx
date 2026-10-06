@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 
 type Acces = { accede_le: string; type_acces: string };
 
@@ -40,11 +42,15 @@ export function SecuriteAccesPanel(): React.JSX.Element {
           compte pour résoudre un incident.
         </Text>
         {chargement ? (
-          <Text>Chargement…</Text>
+          <LoadingState />
         ) : acces.length === 0 ? (
-          <Text data-testid="acces-vide">
-            Aucun accès administrateur enregistré.
-          </Text>
+          // EmptyState ne relaie pas data-testid : porté par l'enveloppe.
+          <div data-testid="acces-vide">
+            <EmptyState
+              size="inline"
+              title="Aucun accès administrateur enregistré."
+            />
+          </div>
         ) : (
           <ul className="space-y-1" data-testid="acces-liste">
             {acces.map((a, i) => (

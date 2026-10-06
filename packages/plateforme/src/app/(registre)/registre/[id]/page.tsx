@@ -1,12 +1,13 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { fmtKg } from '@/lib/format';
 import { use, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import {
   Table,
@@ -122,7 +123,7 @@ export default function RegistreDetailPage({
     if (j.url) window.open(j.url, '_blank');
   }
 
-  if (loading) return <p className="p-4 text-sm">Chargement…</p>;
+  if (loading) return <LoadingState className="p-4" />;
   if (notFound || !data)
     return <p className="p-4 text-sm">Collecte introuvable.</p>;
 
@@ -275,7 +276,7 @@ export default function RegistreDetailPage({
           Bloc 8 — Historique
         </Heading>
         {data.historique.length === 0 ? (
-          <Text>Aucun événement d&apos;audit visible.</Text>
+          <EmptyState size="inline" title="Aucun événement d'audit visible." />
         ) : (
           <ul className="space-y-1 text-sm">
             {data.historique.map((h, i) => (

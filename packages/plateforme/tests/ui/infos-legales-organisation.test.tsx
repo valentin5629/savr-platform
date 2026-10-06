@@ -14,6 +14,7 @@ import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel.js';
 import { NAV_CONFIG } from '@/lib/nav-config.js';
 import { messageDeRole } from '@/test-utils/message-role';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { renderAvecToasts } from '@/test-utils/toasts';
 
 const URL_PROFIL = '/api/v1/agence/mon-organisation/profil';
 const PROFIL = {
@@ -73,14 +74,19 @@ describe('Informations légales — carte partagée', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      render(<InfosLegalesOrganisation urlProfil={URL_PROFIL} />);
+      // Succès = toast (R-UI-1 H1) : rendu sous ToastProvider.
+      renderAvecToasts(<InfosLegalesOrganisation urlProfil={URL_PROFIL} />);
       const champ = await screen.findByLabelText('SIRET', {}, ATTENTE_UI);
       fireEvent.change(champ, { target: { value: '12345678900011' } });
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+      // Toast de succès (R-UI-1 H1).
       expect(
-        (await messageDeRole('status', 'Informations enregistrées.'))
-          .textContent,
-      ).toBe('Informations enregistrées.');
+        await screen.findByText(
+          'Informations enregistrées.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
       const patch = fetchMock.mock.calls.find(([, i]) => i?.method === 'PATCH');
       expect(patch?.[0]).toBe(URL_PROFIL);
       expect(JSON.parse(String(patch?.[1]?.body))).toEqual({

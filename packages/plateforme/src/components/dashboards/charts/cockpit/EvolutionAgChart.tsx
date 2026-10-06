@@ -16,6 +16,7 @@ import {
   WHITE,
 } from './palette';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
 import { ToggleChip } from '@/components/ui/toggle-chip';
 
@@ -115,9 +116,11 @@ const EvolutionAgChart = React.forwardRef<
       }
     >
       {empty ? (
-        <Text className="py-10 text-center">
-          Aucune collecte Anti-Gaspi sur la période.
-        </Text>
+        <EmptyState
+          size="inline"
+          title="Aucune collecte Anti-Gaspi sur la période."
+          className="py-10 text-center"
+        />
       ) : (
         <div className="relative">
           <svg

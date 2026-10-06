@@ -5,6 +5,7 @@ import { ChartCard } from './ChartCard';
 import { initiales } from './fmt';
 import { RANK, TINT, TRACK } from './palette';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // TopRankList — liste-classement Cockpit (R24) : rang coloré (dégradé navy par
 // position), avatar initiales, nom, mini-barre optionnelle et valeur déjà
@@ -64,7 +65,7 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
       <ChartCard title={title} subtitle={subtitle}>
         <div ref={ref}>
           {items.length === 0 ? (
-            <Text>Aucune donnée sur la période.</Text>
+            <EmptyState size="inline" title="Aucune donnée sur la période." />
           ) : (
             <div className="flex flex-col gap-3.5">
               {items.map((item, i) => {

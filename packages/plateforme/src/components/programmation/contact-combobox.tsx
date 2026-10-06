@@ -5,6 +5,8 @@ import * as Popover from '@radix-ui/react-popover';
 import { Search, User, PlusCircle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { Input } from '@/components/ui/input';
 
 export interface ContactOption {
@@ -101,14 +103,18 @@ export function ContactCombobox({
 
           <ul role="listbox" className="max-h-52 overflow-y-auto py-1">
             {loading && (
-              <Text as="li" tone="faint" className="px-3 py-2">
-                Chargement…
-              </Text>
+              <li className="px-3 py-2">
+                <LoadingState className="text-savr-neutral-400" />
+              </li>
             )}
             {!loading && options.length === 0 && (
-              <Text as="li" tone="faint" className="px-3 py-2">
-                Aucun contact trouvé
-              </Text>
+              <li className="px-3 py-2">
+                <EmptyState
+                  size="inline"
+                  title="Aucun contact trouvé"
+                  className="text-savr-neutral-400"
+                />
+              </li>
             )}
             {options.map((c) => (
               <li

@@ -215,23 +215,23 @@
     },
     {
       "id": "BL-P1-RPT-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:69",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:72",
       "artefact": "supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql (f_rapport_benchmark_zd) + packages/plateforme/src/lib/pdf/rapport-benchmark.ts + apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (benchmarkBlock 5 jauges)",
       "test": "M1.6 / rapport recyclage §1.2 — benchmark : 5 jauges benchmark (point rouge parc si ≥5, « Données insuffisantes » sinon) + M1.6 / resolveRapportBenchmark (défaut + filtres surchargés)",
-      "statut": "implemented",
-      "libelle": "Bloc benchmark kg/pax × parc alimenté : 5 jauges (1/flux) + point rouge (moyenne pondérée f_benchmark_kg_pax_zd, k-anonymat ≥5) + légende des filtres + snapshot rapports_rse.filtres_benchmark (reproductibilité). Défaut batch = segment type+taille ; filtres choisis à la régénération."
+      "statut": "partial",
+      "libelle": "Bloc benchmark kg/pax × parc alimenté : 5 jauges (1/flux) + point rouge (moyenne pondérée f_benchmark_kg_pax_zd, k-anonymat ≥ 5 collectes et ≥ 3 acteurs) + légende des filtres + snapshot rapports_rse.filtres_benchmark (reproductibilité). Défaut batch = segment type+taille ; filtres choisis à la régénération. — PARTIEL depuis le sync CDC du 2026-10-06 : le CDC décrit désormais le gabarit @3 (radar base 100, bloc optionnel) ; le code rend toujours les 5 jauges du gabarit @2. Écart tracé : divergence M1.6_20261002_rapport-recyclage-refonte-contenu (lot rapport @3 à livrer)."
     },
     {
       "id": "BL-P2-18",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:65",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:66",
       "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (co2Block équivalences + comparaisonBlock + camembert SVG + benchmark légende) ; packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (buildEquivalences) ; supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql (f_taux_recyclage_moyen_parc) ; item (3) AG = attestation → voir M2.4-p2-18-ag-attestation",
       "test": "M1.6 / rapport recyclage §1.2 : équivalences pédagogiques du CO₂ évité + comparaison vs moyenne Savr anonymisée (≥3 acteurs) + camembert par flux (§1.2 l.68) ; M1.6 / buildEquivalences : convertit les FACTEURS figés en comptes",
-      "statut": "implemented",
-      "libelle": "Contenu §1.2 : (1) équivalences pédagogiques CO₂ évité (km voiture/repas bœuf/foyers, depuis co2_facteurs_snapshot) ; (2) comparaison vs moyenne Savr anonymisée ≥3 acteurs (f_taux_recyclage_moyen_parc, distinct du benchmark k≥5) ; (3) rapport AG = attestation standalone (option a Val, cf. M2.4) ; (4) camembert par flux + légende benchmark détaillée."
+      "statut": "partial",
+      "libelle": "Contenu §1.2 : (1) équivalences pédagogiques CO₂ évité (km voiture/repas bœuf/foyers, depuis co2_facteurs_snapshot) ; (2) comparaison vs moyenne Savr anonymisée ≥3 acteurs (f_taux_recyclage_moyen_parc, distinct du benchmark, k-anonymat ≥ 5 collectes et ≥ 3 acteurs) ; (3) rapport AG = attestation standalone (option a Val, cf. M2.4) ; (4) camembert par flux + légende benchmark détaillée. — PARTIEL depuis le sync CDC du 2026-10-06 : le CDC ne garde que l'équivalence km voiture (repas bœuf retirée, décision Val 2026-10-02) et retire le nombre d'organisations de la mention de comparaison ; le gabarit @2 rend toujours « repas avec bœuf » et ce nombre. Écart tracé : divergence M1.6_20261002_rapport-recyclage-refonte-contenu (lot rapport @3 à livrer)."
     },
     {
       "id": "BL-P2-16",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:32",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:33",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls)",
       "test": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
       "statut": "implemented",
@@ -239,23 +239,23 @@
     },
     {
       "id": "BL-P2-20",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:209",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:211",
       "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le) + apps/pdf-renderer/src/templates/{rapport-recyclage-zd,bordereau-zd,attestation-don}.ts (mention pied de page)",
       "test": "M1.6 / rapport recyclage : BL-P2-20 mention pied de page uniquement sur un rapport régénéré + M0.6 — succès rapport RSE (payload figé + regenere_le)",
-      "statut": "implemented",
-      "libelle": "Mention pied de page « Version mise à jour — générée le … » injectée par regenerate.ts et rendue par les 3 templates uniquement sur un document régénéré (§12 §1.4)."
+      "statut": "partial",
+      "libelle": "Mention pied de page « Version mise à jour — générée le … » injectée par regenerate.ts et rendue par les 3 templates uniquement sur un document régénéré (§12 §1.4). — PARTIEL depuis le sync CDC du 2026-10-06 : le CDC retire la mention de pied de page du rapport de recyclage (conservée sur le bordereau et l'attestation, décision Val 2026-10-02) ; le gabarit du rapport la rend toujours. Écart tracé : divergence M1.6_20261002_rapport-recyclage-refonte-contenu (lot rapport @3 à livrer)."
     },
     {
       "id": "BL-P1-RPT-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:94",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:96",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/documents/[type]/regenerate/route.ts + fiche traiteur (picto « rapport régénéré » + bouton Régénérer manager)",
       "test": "M1.6 / régénération rapport traiteur (RPT-04) : manager + collecte visible → 202 ; cross-org → 403 ; inexistante → 404",
-      "statut": "implemented",
-      "libelle": "Régénération rapport RSE par le traiteur_manager (décision Val 2026-07-07 : §12 §1.2 prime sur §06.04 l.415) : route SERVICE_ROLE + contrôle applicatif du périmètre (4 chemins org RLS) + cross-org 403 + picto/bouton côté espace traiteur."
+      "statut": "partial",
+      "libelle": "Régénération rapport RSE par le traiteur_manager (décision Val 2026-07-07 : §12 §1.2 prime sur §06.04 l.415) : route SERVICE_ROLE + contrôle applicatif du périmètre (4 chemins org RLS) + cross-org 403 + picto/bouton côté espace traiteur. — PARTIEL depuis le sync CDC du 2026-10-06 : le CDC étend la régénération à tout utilisateur autorisé à télécharger le rapport (décision Val 2026-10-02) ; la route la réserve toujours au traiteur_manager (REGEN_ROLES). Écart tracé : divergence M1.6_20261002_rapport-recyclage-refonte-contenu (lot rapport @3 à livrer)."
     },
     {
       "id": "BL-P2-21",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:96",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:98",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.1/rapport_download_ok — URL pré-signée (embargo levé) + M3.1/rapport_download_embargo — 425",
       "statut": "implemented",
@@ -263,7 +263,7 @@
     },
     {
       "id": "BL-P2-19",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:49",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:50",
       "artefact": "packages/plateforme/src/lib/pdf/logo-cascade.ts (resolveRapportLogo) + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (SELECT type/logo_url + rapportPayload.logo_url) ; réutilisé par batch-pdf-sans-excedent.ts (cohérence AG)",
       "test": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19) : programmateur agence → logo agence dans le payload",
       "statut": "implemented",
@@ -271,7 +271,7 @@
     },
     {
       "id": "M1.6-rpt-01-sql",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:69",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:72",
       "artefact": "supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql",
       "test": "supabase/tests/m1_6_rapport_benchmark.test.sql (pgTAP : f_rapport_benchmark_zd grain flux + k-anonymat ; f_taux_recyclage_moyen_parc gate ≥3 ; service_role only)",
       "statut": "implemented",
@@ -287,8 +287,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "e718bf8778bbecddcedda53f29fc7b94bd012ba43e1f951841254578dfdd5c1d",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "f3dadaa9a7279e120c3d190395420044f968a7b69d1ac324222924453e57ae99"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "635965061c559a268b51586d881054381f4a6ad7a4cfdf784f7a6e3709bca345",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "87b52982e648da1cfe74d0cea8a049cda073c246dbc4252b0bb4cb4884804760"
   }
 }

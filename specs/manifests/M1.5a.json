@@ -195,7 +195,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:544",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:545",
       "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
       "test": "OUTBOX-01 skip/requeue/resolve : dead → débloqué + audit_log + gardes admin/motif/dead [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -211,7 +211,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:544",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:545",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "R9 worker reaper + alerte anticipée J-1 + DLQ critique (vrai runOutboxWorker, SANS mock du worker — G5) [outbox-worker.r9.test.ts] + OUTBOX-03 reaper [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -219,7 +219,7 @@
     },
     {
       "id": "M1.5a-alerte-anticipee-lieu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2466",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2479",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "alerte anticipée events lieu (E5) : date de référence = plus proche collecte future non terminale du lieu, seuil/canal inchangés, 1 alerte par event, pas de doublon DLQ (vrai runOutboxWorker — G5) [outbox-worker.alerte-anticipee-lieu.test.ts]",
       "statut": "implemented",
@@ -235,7 +235,7 @@
     },
     {
       "id": "BL-P1-API-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:366",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:367",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5a / dispatch AG — point B (asso) sur le stuff Don alimentaire (relatedAddress) + M1.5a / dispatch AG — pas de point favori → adresse de l’association inline en point B + M1.5a / dispatch AG — sans association attribuée → LogistiquePermanentError, aucun POST [adapter.m1-5a.test.ts] + M2.3 / worker — point B : l’adresse de l’association attribuée est résolue et transmise à l’adapter + M2.3 / worker — AG sans attribution : champs association_* null transmis à l’adapter + M2.3 / worker — lecture attribution en erreur (blip PostgREST) → failed + retry, jamais dead ni « sans association » [outbox-worker.m2-3.test.ts]",
       "statut": "implemented",
@@ -252,7 +252,7 @@
     },
     {
       "id": "BL-P1-RM-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:375",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:376",
       "artefact": "packages/adapters/src/mts1/adapter.ts (updateCollecte — création des rangs manquants 1..N via dispatchCollecte)",
       "test": "M1.5a / RM-03 augmentation N→N+k — crée les rangs manquants via dispatchCollecte",
       "statut": "implemented",
@@ -268,9 +268,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "807240f53d36baff435d4692b2ce738e82438988f0b27370d5ee70d6084ecf36",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "ba8f6144320893a39f67dbc33a78894ee31bf2caa482586271e453de87979bfb",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "81b4328dfe14fa1e73ab8c37697f0222d02d73b73b74dfb6584e3f2fb0bd0518",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
     "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "4f01f41edc935ce46ee8eae438e27608d2ae5e0da9fd5534fe767aa78429c7b0"
   }
 }

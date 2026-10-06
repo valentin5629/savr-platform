@@ -858,13 +858,18 @@ export function CollecteDetailPanel({
   const openEditInfosAcces = () => {
     if (!collecte) return;
     const prefill: typeof infosAccesInput = {};
-    for (const ct of collecte.collecte_tournees) {
-      prefill[ct.tournees.id] = {
-        plaque_immatriculation: ct.tournees.plaque_immatriculation ?? '',
-        chauffeur_nom: ct.tournees.chauffeur_nom ?? '',
-        chauffeur_telephone: ct.tournees.chauffeur_telephone ?? '',
-        accompagnant_nom: ct.tournees.accompagnant_nom ?? '',
-        accompagnant_telephone: ct.tournees.accompagnant_telephone ?? '',
+    const parRang = new Map(
+      collecte.collecte_tournees.map((ct) => [ct.rang, ct] as const),
+    );
+    const nb = Math.max(1, collecte.nb_camions_demande ?? 1, ...parRang.keys());
+    for (let rang = 1; rang <= nb; rang++) {
+      const ct = parRang.get(rang);
+      prefill[ct?.tournees.id ?? `rang:${rang}`] = {
+        plaque_immatriculation: ct?.tournees.plaque_immatriculation ?? '',
+        chauffeur_nom: ct?.tournees.chauffeur_nom ?? '',
+        chauffeur_telephone: ct?.tournees.chauffeur_telephone ?? '',
+        accompagnant_nom: ct?.tournees.accompagnant_nom ?? '',
+        accompagnant_telephone: ct?.tournees.accompagnant_telephone ?? '',
       };
     }
     setInfosAccesInput(prefill);
@@ -876,8 +881,11 @@ export function CollecteDetailPanel({
     e.preventDefault();
     setInfosAccesSaving(true);
     setInfosAccesError(null);
-    const tournees = Object.entries(infosAccesInput).map(([tournee_id, v]) => ({
-      tournee_id,
+    const tournees = Object.entries(infosAccesInput).map(([cle, v]) => ({
+      // Camion sans tournée : la route la crée (rang ≤ nb_camions_demande).
+      ...(cle.startsWith('rang:')
+        ? { rang: Number(cle.slice(5)) }
+        : { tournee_id: cle }),
       plaque_immatriculation: v.plaque_immatriculation,
       chauffeur_nom: v.chauffeur_nom,
       chauffeur_telephone: v.chauffeur_telephone,
@@ -1027,24 +1035,45 @@ export function CollecteDetailPanel({
   const renvoi =
     !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
   const canalEnvoi = libelleCanalEnvoi(currentTransporteur?.type_tms);
-  // Bloc « Chauffeur » : titre et texte d'aide selon le cas (4 cas).
-  const sansTournee = collecte.collecte_tournees.length === 0;
-  const titreChauffeur = sansTournee
-    ? isTerminal
+  // Bloc « Chauffeur » : une ligne par camion DEMANDÉ (rangs 1..N, décision Val
+  // 2026-10-06 C2), qu'il ait déjà sa tournée (créée par l'adapter au dispatch)
+  // ou non (la saisie Admin crée alors la tournée du rang, que l'adapter
+  // reprend ensuite). Collecte terminée : seules les tournées existantes.
+  const tourneeParRang = new Map(
+    collecte.collecte_tournees.map((ct) => [ct.rang, ct] as const),
+  );
+  const nbCamionsVises = isTerminal
+    ? 0
+    : Math.max(1, collecte.nb_camions_demande ?? 1);
+  const rangsChauffeur = Array.from(
+    { length: Math.max(nbCamionsVises, ...tourneeParRang.keys(), 0) },
+    (_, i) => i + 1,
+  ).filter((rang) => !isTerminal || tourneeParRang.has(rang));
+  // Saisie possible : au moins un camion, et un prestataire posé si une tournée
+  // doit être créée (tournees.prestataire_logistique_id NOT NULL).
+  const saisieChauffeurPossible =
+    rangsChauffeur.length > 0 &&
+    (rangsChauffeur.every((rang) => tourneeParRang.has(rang)) ||
+      collecte.prestataire_logistique_id != null);
+  const titreChauffeur =
+    rangsChauffeur.length === 0
       ? 'Aucun chauffeur enregistré'
-      : 'Chauffeur pas encore affecté'
-    : collecte.collecte_tournees.length > 1
-      ? 'Chauffeurs'
-      : 'Chauffeur';
-  const aideChauffeur = sansTournee
-    ? isTerminal
+      : rangsChauffeur.length > 1
+        ? 'Chauffeurs'
+        : 'Chauffeur';
+  const aideChauffeur =
+    rangsChauffeur.length === 0
       ? 'Aucune tournée enregistrée pour cette collecte.'
-      : 'Aucune tournée pour le moment — les coordonnées pourront être saisies dès que le prestataire aura pris en charge la commande (création de la tournée).'
-    : collecte.controle_acces_requis
-      ? null
-      : canalEnvoi
-        ? `Les coordonnées remontent automatiquement de ${canalEnvoi} dès l’affectation du chauffeur ; complétez-les si elles manquent.`
-        : 'Coordonnées à saisir par l’équipe Ops.';
+      : !saisieChauffeurPossible
+        ? 'Attribuez d’abord un prestataire : les coordonnées se saisissent ensuite camion par camion.'
+        : collecte.controle_acces_requis
+          ? null
+          : canalEnvoi
+            ? `Les coordonnées remontent automatiquement de ${canalEnvoi} dès l’affectation du chauffeur ; complétez-les si elles manquent.`
+            : 'Coordonnées à saisir par l’équipe Ops.';
+  // Clé de saisie : id de tournée, ou `rang:N` pour un camion sans tournée.
+  const cleSaisie = (rang: number): string =>
+    tourneeParRang.get(rang)?.tournees.id ?? `rang:${rang}`;
   const referenceSaisie = acceptationSaisie.reference_mission.trim();
   const acceptationIncomplete =
     referenceSaisie === '' ||
@@ -1723,7 +1752,7 @@ export function CollecteDetailPanel({
                 icon={UserRound}
                 title={titreChauffeur}
                 action={
-                  !editInfosAcces && collecte.collecte_tournees.length > 0 ? (
+                  !editInfosAcces && saisieChauffeurPossible ? (
                     <Button variant="secondary" onClick={openEditInfosAcces}>
                       Modifier les coordonnées
                     </Button>
@@ -1766,41 +1795,35 @@ export function CollecteDetailPanel({
                 <AlertBar variant="err">{infosAccesError}</AlertBar>
               )}
 
-              {collecte.collecte_tournees.length === 0 ? (
-                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-3">
-                  <InfoItem label="Chauffeur">
-                    <span className="text-savr-neutral-400">—</span>
-                  </InfoItem>
-                  <InfoItem label="Plaque">
-                    <span className="text-savr-neutral-400">—</span>
-                  </InfoItem>
-                  <InfoItem label="Téléphone">
-                    <span className="text-savr-neutral-400">—</span>
-                  </InfoItem>
-                </dl>
-              ) : !editInfosAcces ? (
+              {rangsChauffeur.length === 0 ? null : !editInfosAcces ? (
                 <div className="space-y-2">
-                  {collecte.collecte_tournees.map((ct) => {
-                    const t = ct.tournees;
+                  {rangsChauffeur.map((rang) => {
+                    const t = tourneeParRang.get(rang)?.tournees ?? null;
                     const enAttente = (
                       <span className="text-savr-neutral-400">En attente</span>
                     );
                     return (
                       <div
-                        key={t.id}
+                        key={rang}
                         data-testid="camion-chauffeur"
                         className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
                       >
-                        {collecte.collecte_tournees.length > 1 && (
-                          <p className="mb-1.5 font-medium">Camion {ct.rang}</p>
+                        {rangsChauffeur.length > 1 && (
+                          <p className="mb-1.5 font-medium">Camion {rang}</p>
+                        )}
+                        {t === null && (
+                          <Text variant="hint" tone="soft" className="mb-1.5">
+                            Tournée pas encore créée par le prestataire — la
+                            saisie la crée.
+                          </Text>
                         )}
                         <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3">
                           <InfoItem label="Chauffeur">
-                            {t.chauffeur_nom?.trim() || enAttente}
+                            {t?.chauffeur_nom?.trim() || enAttente}
                           </InfoItem>
                           <InfoItem label="Plaque d’immatriculation">
-                            {t.plaque_immatriculation?.trim() ||
-                              (t.type_vehicule === 'velo_cargo' ? (
+                            {t?.plaque_immatriculation?.trim() ||
+                              (t?.type_vehicule === 'velo_cargo' ? (
                                 // Vélo cargo : jamais de plaque, jamais « En attente ».
                                 <span className="text-savr-neutral-400">
                                   Sans objet (vélo cargo)
@@ -1810,7 +1833,7 @@ export function CollecteDetailPanel({
                               ))}
                           </InfoItem>
                           <InfoItem label="Téléphone">
-                            {t.chauffeur_telephone?.trim() ? (
+                            {t?.chauffeur_telephone?.trim() ? (
                               <TelephoneLien
                                 telephone={t.chauffeur_telephone}
                               />
@@ -1818,7 +1841,7 @@ export function CollecteDetailPanel({
                               enAttente
                             )}
                           </InfoItem>
-                          {t.accompagnant_nom?.trim() && (
+                          {t?.accompagnant_nom?.trim() && (
                             <InfoItem label="Accompagnant">
                               {t.accompagnant_nom}
                             </InfoItem>
@@ -1833,8 +1856,9 @@ export function CollecteDetailPanel({
                   onSubmit={(e) => void handleSaveInfosAcces(e)}
                   className="space-y-3"
                 >
-                  {collecte.collecte_tournees.map((ct) => {
-                    const v = infosAccesInput[ct.tournees.id] ?? {
+                  {rangsChauffeur.map((rang) => {
+                    const cle = cleSaisie(rang);
+                    const v = infosAccesInput[cle] ?? {
                       plaque_immatriculation: '',
                       chauffeur_nom: '',
                       chauffeur_telephone: '',
@@ -1847,18 +1871,22 @@ export function CollecteDetailPanel({
                     ): void =>
                       setInfosAccesInput((prev) => ({
                         ...prev,
-                        [ct.tournees.id]: {
-                          ...v,
-                          ...prev[ct.tournees.id],
-                          [field]: val,
-                        },
+                        [cle]: { ...v, ...prev[cle], [field]: val },
                       }));
                     return (
                       <div
-                        key={ct.tournees.id}
+                        key={cle}
                         className="space-y-2.5 rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-3"
                       >
-                        <p className="text-sm font-medium">Camion {ct.rang}</p>
+                        <p className="text-sm font-medium">
+                          Camion {rang}
+                          {!tourneeParRang.has(rang) && (
+                            <Text as="span" variant="hint" tone="soft">
+                              {' '}
+                              · tournée créée à l’enregistrement
+                            </Text>
+                          )}
+                        </p>
                         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                           <label className="space-y-1 text-xs text-savr-neutral-500">
                             <span>Plaque d’immatriculation</span>

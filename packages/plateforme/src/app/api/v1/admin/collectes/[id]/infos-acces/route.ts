@@ -1,3 +1,4 @@
+import { jourParis } from '@savr/shared/src/temps/index.js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
@@ -15,6 +16,19 @@ const CHAMPS = [
 type ChampInfosAcces = (typeof CHAMPS)[number];
 
 // '' → null (effacement), string → trim, sinon on ne touche pas au champ.
+// Créneau d'une tournée créée par l'Admin, dérivé de l'heure de collecte (les
+// collectes sont de nuit : défaut `nuit`, comme l'adapter MTS-1).
+function creneauDepuisHeure(
+  heure: string | null,
+): 'matin' | 'apres_midi' | 'soir' | 'nuit' {
+  const h = Number.parseInt(heure?.slice(0, 2) ?? '', 10);
+  if (Number.isNaN(h)) return 'nuit';
+  if (h < 12) return 'matin';
+  if (h < 18) return 'apres_midi';
+  if (h < 22) return 'soir';
+  return 'nuit';
+}
+
 function normaliser(v: unknown): string | null | undefined {
   if (v === null) return null;
   if (typeof v !== 'string') return undefined;
@@ -31,6 +45,13 @@ function normaliser(v: unknown): string | null | undefined {
  *
  * Body : { tournees: [{ tournee_id, chauffeur_nom?, chauffeur_telephone?,
  *          accompagnant_nom?, accompagnant_telephone? }] }
+ *
+ * Camion sans tournée (décision Val 2026-10-06, C2) : un item peut porter
+ * `rang` (1..nb_camions_demande) au lieu de `tournee_id` → la tournée est créée
+ * ici (ADM-{collecte}-{rang}, planifiee, prestataire = celui de la collecte) et
+ * liée au rang ; l'adapter la REPREND ensuite au dispatch (findTournee par rang
+ * → UPDATE external_ref, jamais une seconde tournée). Sans prestataire posé sur
+ * la collecte → 422 (tournees.prestataire_logistique_id NOT NULL).
  */
 async function patchHandler(
   req: NextRequest,
@@ -58,7 +79,9 @@ async function patchHandler(
   // Collecte existante ?
   const { data: collecte, error: collErr } = await supabase
     .from('collectes')
-    .select('id, controle_acces_requis')
+    .select(
+      'id, controle_acces_requis, nb_camions_demande, prestataire_logistique_id, date_collecte, heure_collecte',
+    )
     .eq('id', id)
     .single();
   if (collErr?.code === 'PGRST116' || !collecte) {
@@ -73,12 +96,23 @@ async function patchHandler(
   const { data: liens, error: liensErr } = await supabase
     .from('collecte_tournees')
     .select(
-      'tournee_id, tournees(id, chauffeur_nom, chauffeur_telephone, accompagnant_nom, accompagnant_telephone)',
+      'tournee_id, rang, tournees(id, chauffeur_nom, chauffeur_telephone, accompagnant_nom, accompagnant_telephone)',
     )
     .eq('collecte_id', id);
   if (liensErr) return serverError(liensErr, 'admin.infos_acces.get_tournees');
 
   const autorisees = new Set((liens ?? []).map((l) => l.tournee_id as string));
+  const rangsPris = new Set(
+    (liens ?? []).map((l) => (l as { rang?: number }).rang ?? 0),
+  );
+  const coll = collecte as {
+    nb_camions_demande?: number | null;
+    prestataire_logistique_id?: string | null;
+    date_collecte?: string | null;
+    heure_collecte?: string | null;
+  };
+  const nbCamions = Math.max(1, coll.nb_camions_demande ?? 1);
+  const tourneesCreees: Array<{ rang: number; tournee_id: string }> = [];
 
   // Construire les updates par tournée + valider l'appartenance.
   const updatesParTournee: Array<{
@@ -86,8 +120,69 @@ async function patchHandler(
     updates: Partial<Record<ChampInfosAcces, string | null>>;
   }> = [];
   for (const item of body.tournees) {
-    const tourneeId =
-      typeof item.tournee_id === 'string' ? item.tournee_id : '';
+    let tourneeId = typeof item.tournee_id === 'string' ? item.tournee_id : '';
+    if (!tourneeId && typeof item.rang === 'number') {
+      // Camion demandé sans tournée : création Admin (C2).
+      const rang = item.rang;
+      if (!Number.isInteger(rang) || rang < 1 || rang > nbCamions) {
+        return NextResponse.json(
+          {
+            error: `rang invalide : la collecte demande ${nbCamions} camion(s)`,
+          },
+          { status: 422 },
+        );
+      }
+      if (rangsPris.has(rang)) {
+        return NextResponse.json(
+          {
+            error: `le camion ${rang} a déjà une tournée : utilisez tournee_id`,
+          },
+          { status: 422 },
+        );
+      }
+      if (!coll.prestataire_logistique_id) {
+        return NextResponse.json(
+          {
+            error:
+              'Aucun prestataire logistique sur la collecte : attribuez un prestataire avant de saisir le chauffeur.',
+          },
+          { status: 422 },
+        );
+      }
+      const { data: creee, error: creeErr } = await supabase
+        .from('tournees')
+        .upsert(
+          {
+            reference_interne: `ADM-${id}-${rang}`,
+            date_tournee: coll.date_collecte ?? jourParis(),
+            creneau: creneauDepuisHeure(coll.heure_collecte ?? null),
+            prestataire_logistique_id: coll.prestataire_logistique_id,
+            statut: 'planifiee',
+          },
+          { onConflict: 'reference_interne' },
+        )
+        .select('id')
+        .single();
+      if (creeErr || !creee) {
+        return serverError(
+          creeErr ?? new Error('tournée non créée'),
+          'admin.infos_acces.creer_tournee',
+        );
+      }
+      const nouvelId = (creee as { id: string }).id;
+      const { error: lienErr } = await supabase
+        .from('collecte_tournees')
+        .upsert(
+          { collecte_id: id, tournee_id: nouvelId, rang },
+          { onConflict: 'collecte_id,rang' },
+        );
+      if (lienErr)
+        return serverError(lienErr, 'admin.infos_acces.lier_tournee');
+      rangsPris.add(rang);
+      autorisees.add(nouvelId);
+      tourneesCreees.push({ rang, tournee_id: nouvelId });
+      tourneeId = nouvelId;
+    }
     if (!tourneeId || !autorisees.has(tourneeId)) {
       return NextResponse.json(
         { error: 'tournee_id inconnu pour cette collecte' },
@@ -129,7 +224,10 @@ async function patchHandler(
     action: 'infos_acces_chauffeur_maj',
     user_id: auth.ctx.userId,
     old_values: { tournees: liens ?? [] },
-    new_values: { tournees: updatesParTournee },
+    new_values: {
+      tournees: updatesParTournee,
+      tournees_creees: tourneesCreees,
+    },
   });
 
   // Ré-évaluation complétude → email récap si complet (best-effort, non bloquant).
@@ -144,7 +242,11 @@ async function patchHandler(
     .eq('collecte_id', id)
     .order('rang');
 
-  return NextResponse.json({ tournees: apres ?? [], email_envoye: envoye });
+  return NextResponse.json({
+    tournees: apres ?? [],
+    email_envoye: envoye,
+    tournees_creees: tourneesCreees,
+  });
 }
 
 export const PATCH = withApiTrace(patchHandler);

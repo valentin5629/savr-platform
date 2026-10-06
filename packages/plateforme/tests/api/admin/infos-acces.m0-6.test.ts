@@ -18,6 +18,7 @@ function makeClient() {
       eq: () => c,
       order: () => c,
       insert: () => c,
+      upsert: () => c,
       update: () => c,
       maybeSingle: () => Promise.resolve(res()),
       single: () => Promise.resolve(res()),
@@ -150,6 +151,82 @@ describe('M0.6 / PATCH infos-acces — écriture + email de complétude', () => 
     };
     const res = await PATCH(makeReq({ tournees: [{ tournee_id: 'T1' }] }), ctx);
     expect(res.status).toBe(422);
+    expect(mockEvaluer).not.toHaveBeenCalled();
+  });
+});
+
+describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création Admin, C2 Val 2026-10-06)', () => {
+  const collecte2Camions = {
+    id: 'coll-1',
+    controle_acces_requis: false,
+    nb_camions_demande: 2,
+    prestataire_logistique_id: 'presta-1',
+    date_collecte: '2026-10-01',
+    heure_collecte: '22:00:00',
+  };
+
+  it('rang 2 sans tournée → tournée ADM-coll-1-2 créée, liée au rang, coordonnées écrites, tournees_creees renvoyé', async () => {
+    admin.results['collectes'] = { data: collecte2Camions, error: null };
+    admin.results['collecte_tournees'] = {
+      data: [{ tournee_id: 'T1', rang: 1, tournees: { id: 'T1' } }],
+      error: null,
+    };
+    admin.results['tournees'] = { data: { id: 'T-NEW' }, error: null };
+    mockEvaluer.mockResolvedValue({ envoye: false });
+
+    const res = await PATCH(
+      makeReq({
+        tournees: [
+          { rang: 2, chauffeur_nom: 'Léa', chauffeur_telephone: '0622' },
+        ],
+      }),
+      ctx,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      tournees_creees: Array<{ rang: number; tournee_id: string }>;
+    };
+    expect(body.tournees_creees).toEqual([{ rang: 2, tournee_id: 'T-NEW' }]);
+    expect(mockEvaluer).toHaveBeenCalledWith(expect.anything(), 'coll-1');
+  });
+
+  it('rang au-delà du nombre de camions demandé → 422, rien créé', async () => {
+    admin.results['collectes'] = { data: collecte2Camions, error: null };
+    admin.results['collecte_tournees'] = { data: [], error: null };
+    const res = await PATCH(
+      makeReq({ tournees: [{ rang: 3, chauffeur_nom: 'X' }] }),
+      ctx,
+    );
+    expect(res.status).toBe(422);
+    expect(mockEvaluer).not.toHaveBeenCalled();
+  });
+
+  it('rang déjà lié à une tournée → 422 (passer par tournee_id)', async () => {
+    admin.results['collectes'] = { data: collecte2Camions, error: null };
+    admin.results['collecte_tournees'] = {
+      data: [{ tournee_id: 'T1', rang: 1, tournees: { id: 'T1' } }],
+      error: null,
+    };
+    const res = await PATCH(
+      makeReq({ tournees: [{ rang: 1, chauffeur_nom: 'X' }] }),
+      ctx,
+    );
+    expect(res.status).toBe(422);
+  });
+
+  it('collecte sans prestataire logistique → 422 explicite, aucune tournée créée', async () => {
+    admin.results['collectes'] = {
+      data: { ...collecte2Camions, prestataire_logistique_id: null },
+      error: null,
+    };
+    admin.results['collecte_tournees'] = { data: [], error: null };
+    const res = await PATCH(
+      makeReq({ tournees: [{ rang: 1, chauffeur_nom: 'X' }] }),
+      ctx,
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/prestataire/);
     expect(mockEvaluer).not.toHaveBeenCalled();
   });
 });

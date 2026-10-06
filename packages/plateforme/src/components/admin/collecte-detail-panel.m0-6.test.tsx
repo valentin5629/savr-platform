@@ -2013,33 +2013,36 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   };
 
   it(
-    'sans tournée : « Chauffeur pas encore affecté », trois champs vides, aucun bouton de saisie',
+    'sans tournée ni prestataire : une ligne « Camion » en attente, saisie impossible (« Attribuez d’abord un prestataire »)',
     async () => {
+      // Un camion demandé (N = 1), aucune tournée, aucun prestataire posé :
+      // la ligne existe (C2 Val 2026-10-06) mais la tournée ne peut pas être
+      // créée sans prestataire (tournees.prestataire_logistique_id NOT NULL).
       mockFetch({ ...collecteAg, collecte_tournees: [] });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
+      const bloc = await screen.findByTestId(
+        'bloc-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      );
       expect(
-        await screen.findByText(
-          'Chauffeur pas encore affecté',
-          undefined,
-          ATTENTE_UI,
-        ),
+        within(bloc).getByRole('heading', { name: 'Chauffeur' }),
       ).toBeInTheDocument();
-      // Trois champs, trois « — », et l'explication de l'absence de saisie.
-      for (const label of ['Chauffeur', 'Plaque', 'Téléphone']) {
-        expect(screen.getByText(label)).toBeInTheDocument();
-      }
+      expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(1);
       expect(
-        within(screen.getByTestId('bloc-chauffeur')).getAllByText('—'),
-      ).toHaveLength(3);
-      expect(
-        screen.getByText(/Aucune tournée pour le moment/),
+        within(bloc).getByText(/Attribuez d’abord un prestataire/),
       ).toBeInTheDocument();
+      expect(
+        within(bloc).getByText(/Tournée pas encore créée par le prestataire/),
+      ).toBeInTheDocument();
+      // Chauffeur, plaque, téléphone : trois « En attente », aucune saisie.
+      expect(within(bloc).getAllByText('En attente')).toHaveLength(3);
       expect(
         screen.queryByRole('button', { name: 'Modifier les coordonnées' }),
       ).toBeNull();
-      expect(screen.queryByText('En attente')).toBeNull();
+      expect(screen.queryByText('Chauffeur pas encore affecté')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -2198,30 +2201,69 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   );
 
   it(
-    'contrôle d’accès requis sans tournée : mention de l’email ET explication de l’absence de saisie',
+    'deux camions demandés, une seule tournée : deux lignes, la saisie du camion 2 crée sa tournée (PATCH avec rang)',
     async () => {
-      mockFetch({
+      // Cas écran « Palais des Congrès » (Val 2026-10-06) : N = 2, l'adapter
+      // n'a créé que la tournée du rang 1 → le rang 2 est saisissable quand
+      // même, la route crée sa tournée (option C2).
+      const fetchMock = mockFetch({
         ...collecteAg,
-        controle_acces_requis: true,
-        infos_acces_email_envoye_at: null,
-        collecte_tournees: [],
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-mts1',
+        prestataire_actuel: {
+          transporteur_id: 't-strike',
+          nom: 'Strike',
+          type_tms: 'mts1',
+        },
+        collecte_tournees: [tourneeMts1],
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
+      const bloc = await screen.findByTestId(
+        'bloc-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      );
       expect(
-        await screen.findByText(
-          /exige un contrôle d’accès/,
-          undefined,
-          ATTENTE_UI,
-        ),
+        within(bloc).getByRole('heading', { name: 'Chauffeurs' }),
       ).toBeInTheDocument();
+      expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(2);
+      expect(within(bloc).getByText('Camion 2')).toBeInTheDocument();
       expect(
-        screen.getByText(/Aucune tournée pour le moment/),
+        within(bloc).getByText(/Tournée pas encore créée par le prestataire/),
       ).toBeInTheDocument();
+      expect(screen.queryByText(/Attribuez d’abord un prestataire/)).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
       expect(
-        screen.queryByRole('button', { name: 'Modifier les coordonnées' }),
-      ).toBeNull();
+        screen.getByText(/tournée créée à l’enregistrement/),
+      ).toBeInTheDocument();
+      const noms = screen.getAllByLabelText('Nom du chauffeur');
+      expect(noms).toHaveLength(2);
+      fireEvent.change(noms[1]!, { target: { value: 'Léa Durand' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        expect(body.tournees).toHaveLength(2);
+        expect(body.tournees[0]).toMatchObject({ tournee_id: 'tour-1' });
+        expect(body.tournees[1]).toMatchObject({
+          rang: 2,
+          chauffeur_nom: 'Léa Durand',
+        });
+        expect(body.tournees[1]).not.toHaveProperty('tournee_id');
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

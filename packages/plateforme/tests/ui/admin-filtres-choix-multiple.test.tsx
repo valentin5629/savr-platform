@@ -139,7 +139,7 @@ describe('M1.1a — liste Clients : filtres à choix multiple', () => {
       for (const nom of [
         'Traiteur',
         'Agence',
-        'Gestionnaire lieux',
+        'Gestionnaire de lieux',
         'Client organisateur',
       ])
         fireEvent.click(liste.getByRole('checkbox', { name: nom }));

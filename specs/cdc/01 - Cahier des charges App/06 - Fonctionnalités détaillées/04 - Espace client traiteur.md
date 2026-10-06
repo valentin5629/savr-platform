@@ -177,23 +177,15 @@ Encart compact "Filtres benchmark" affichant **3 critères** (et non 4 comme cô
 
 Donut affichant la part relative des 5 flux ZD sur la période filtrée. Tooltip au survol : kg + %. Total au centre = tonnage total.
 
-#### Bloc 5 ZD — Prochaines collectes ZD programmées
+#### Bloc 5 ZD — retiré
 
-Liste des collectes ZD à venir sur les 30 prochains jours, filtrée selon les filtres globaux. Grain = collecte (1 ligne = 1 collecte) :
-- Date + heure
-- Événement
-- Lieu
-- Statut (badge)
-
-> **Sobriété B3 2026-05-04** : badge "Compléter infos" rouge **retiré** de la vue liste. Le bandeau orange est conservé sur la fiche collecte (signalement plus pédagogique avec la liste des champs manquants). Évite double-rendu et incohérence couleur.
-
-Clic sur une ligne → fiche collecte.
+> **Retiré le 2026-10-01 (décision Val)** : la liste « Prochaines collectes » ne figure plus sur le dashboard. Les collectes à venir se lisent dans l'onglet Collectes. Les blocs 6, 7 et 8 gardent leur numéro.
 
 #### Bloc 6 ZD — Top 5 lieux ZD
 
 Tableau ordonné par tonnage, période filtrée :
 - Lieu · Nombre de collectes ZD · Tonnage · Taux de recyclage *(moyenne pondérée par tonnage)*
-- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le lieu** *(drill-down, décision Val 2026-07-14)*. Miroir **5/5** du calcul du Top liste : type (onglet ZD/AG) + période + statut `cloturee` + `perimetre=organisation` + **Type d'événement + Taille d'événement**. Chip « Filtre actif » en tête de liste ; libellé du lieu via `sessionStorage` (jamais en query string, seul l'ID opaque transite).
+- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le lieu** *(drill-down, décision Val 2026-07-14)*. Miroir **5/5** du calcul du Top liste : type (onglet ZD/AG) + période + statut `cloturee` + `perimetre=organisation` + **Type d'événement + Taille d'événement**. Chip « Filtre actif » en tête de liste ; libellé du lieu via `sessionStorage` (jamais en query string, seul l'ID opaque transite). **Sortie du drill-down** *(2026-10-01, confirmé Val)* : le chip reste affiché tant que la barre filtre sur le seul lieu reçu. Dès qu'un autre lieu est coché, que le lieu est décoché ou que les filtres sont réinitialisés, l'utilisateur sort du drill-down : le chip disparaît et le périmètre miroir du Top liste (événements possédés par l'organisation) n'est plus appliqué ; le statut et la période, visibles dans la barre, restent posés.
 
 #### Bloc 7 ZD — Top 5 commerciaux ZD
 
@@ -264,15 +256,9 @@ Visible uniquement aux organisations avec un pack actif.
 - Badge orange si **solde ≤ 10 % des crédits initiaux** (ex : Pack 20 → badge dès 2 crédits restants ; Pack 60 → dès 6)
 - Badge rouge "Pack épuisé" si solde = 0 → la programmation AG est bloquée jusqu'au renouvellement (la programmation ZD reste possible)
 
-#### Bloc 5 AG — Prochaines collectes AG programmées
+#### Bloc 5 AG — retiré
 
-Liste des collectes AG à venir sur les 30 prochains jours, filtrée selon les filtres globaux. Grain = collecte (1 ligne = 1 collecte) :
-- Date + heure
-- Événement
-- Lieu
-- Statut (badge)
-
-Clic sur une ligne → fiche collecte.
+> **Retiré le 2026-10-01 (décision Val)** : même décision que le Bloc 5 ZD.
 
 #### Bloc 6 AG — Top 5 lieux AG
 
@@ -326,17 +312,17 @@ Au-dessus de la liste, à droite, **un bouton unique [ Programmer un événement
 
 ### Vue liste (Data Table, décision Val 2026-09-28 — remplace la vue cartes)
 
-Les collectes s'affichent dans une **Data Table** (colonnes Date · Lieu · Pax · Résultats (onglet Historique) · Statut · Actions), triée par défaut par date décroissante (plus récentes en premier), colonnes triables. Plus de groupement par semaine. Les icônes d'action Modifier / Annuler / Dupliquer restent visibles sur la ligne (arbitrage 2026-07-15). Le reste de la section est inchangé ; « Carte simplifiée » se lit « Ligne ».
+Les collectes s'affichent dans une **Data Table** (colonnes Date · Lieu · Client · Pax · Résultats (onglet Historique) · Statut · Actions), triée par défaut par date décroissante (plus récentes en premier), colonnes triables. Plus de groupement par semaine. Les icônes d'action Modifier / Annuler / Dupliquer restent visibles sur la ligne (arbitrage 2026-07-15). Le reste de la section est inchangé ; « Carte simplifiée » se lit « Ligne ».
 
 **Carte simplifiée** — affiche :
-- **Date · Heure · Lieu · Pax · Statut** (badge coloré, libellés selon le mapping canonique ci-dessous ; badge dédié « Sans excédents » pour `realisee_sans_collecte`, AG uniquement).
-- **Indicateur « programmée par un tiers »** : picto orange « user-tag » si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, tooltip « Programmée par {{nom organisation}} ».
+- **Date · Heure · Lieu · Client · Pax · Statut** (badge coloré, libellés selon le mapping canonique ci-dessous ; badge dédié « Sans excédents » pour `realisee_sans_collecte`, AG uniquement). *(Ajout 2026-10-01, revue écran E2E — décision Val)* **Client** = client organisateur de l'événement (`evenements.nom_client_organisateur`), placé à droite du lieu ; « — » si non renseigné.
+- **Indicateur « programmée par un tiers »** : picto orange « user-tag » si l'utilisateur est le traiteur opérationnel (`traiteur_operationnel_organisation_id` = son organisation) et que l'événement a été programmé par une autre organisation (`evenements.organisation_id ≠` son organisation) — jamais affiché côté agence (§06.11), qui programme toutes ses collectes ; tooltip « Programmée par {{nom organisation}} ».
 - **Bande de résultats sur collectes réalisées** *(ajout 2026-07-15, divergence M3.1 — revue écran)* : sur les collectes **`cloturee`** (badge « Réalisée »), afficher **à gauche du badge** les résultats — **ZD** = poids total (Σ `collecte_flux.poids_reel_kg`) · taux de recyclage (`collectes.taux_recyclage`) · CO₂ évité (`collectes.co2_evite_kg`) ; **AG** = repas donnés (Σ `attributions_antgaspi.volume_repas_realise`) · CO₂ évité. Mêmes sources que la fiche Admin et les loaders dashboards (aucune nouvelle règle de calcul). `realisee_sans_collecte` non concerné (badge « Sans excédents » distinct).
 
 **Actions par carte** *(icône seule — refonte 2026-07-15, divergence M3.1)* : les actions sont rendues via le composant DS `IconButton` (icône seule, `aria-label` obligatoire, libellé au survol via `title`, cf. [[10 - Design System]] §6). **Une action indisponible est masquée** (retirée de la carte), et non grisée (nuance §7 États). Les gates de statut (`STATUTS_EDITABLES` / `STATUTS_ANNULABLES`) sont inchangés — seul le rendu change.
 - **Modifier** → ouvre la fiche en édition (statuts `programmee` / `validee`).
-- **Annuler** → modale + motif obligatoire (statuts `brouillon` / `programmee` / `validee` ; `validee` = demande soumise à l'Admin, cf. §Annulation).
-- **Dupliquer** *(nouveau 2026-07-05)* → pré-remplit le formulaire de programmation (`/programmer/nouveau?from=<collecteId>`), **date laissée vide** ; rien n'est créé tant que l'utilisateur ne valide pas (réutilise tout le flux §06.01 : tarif ZD, vérif pack AG). Toujours présent.
+- **Annuler** → modale + motif facultatif (optionnel V1, cf. §Annulation) (statuts `brouillon` / `programmee` / `validee` ; `validee` = demande soumise à l'Admin, cf. §Annulation).
+- **Dupliquer** *(nouveau 2026-07-05)* → pré-remplit le formulaire de programmation (`/programmer/nouveau?from=<collecteId>`), **date laissée vide** ; côté agence (§06.11), le traiteur opérationnel de la collecte source est pré-sélectionné (modifiable) ; rien n'est créé tant que l'utilisateur ne valide pas (réutilise tout le flux §06.01 : tarif ZD, vérif pack AG). Toujours présent.
 - **Télécharger le rapport** *(réintroduit dans la liste 2026-07-15, divergence M3.1)* → sur les collectes **`cloturee`** uniquement, **sauf** rapport de don réservé au donneur d'ordre (traiteur opérationnel d'une collecte AG hors « sans excédent » programmée par une autre organisation — D12 2026-09-30) : picto retiré (action indisponible, exception densité §10 §7) et mention « Réservé à l'organisation qui a programmé la collecte » à sa place (précédée du picto document), même règle que la fiche (`rapport_reserve_donneur_ordre` exposé par `GET /api/v1/traiteur/collectes`). Sinon picto Téléchargement à gauche du badge « Réalisée », branché sur la route `api/v1/traiteur/collectes/[id]/rapport-rse/download` (ZD = rapport recyclage, AG = attestation ; embargo H+24 conservé).
 
 > **Téléchargement du rapport — de nouveau accessible depuis la liste** *(révision 2026-07-15, divergence M3.1 — supersede le retrait 2026-05-04)* : le rapport de la collecte réalisée (`cloturee`) est téléchargeable directement depuis la carte (picto ci-dessus), **en plus** de la fiche collecte — sauf rapport de don réservé au donneur d'ordre (ni picto dans la liste, ni bouton dans la fiche, D12 2026-09-30). La facture reste, elle, accessible depuis la **fiche** (cf. §Actions fiche, BL-P1-TRAIT-03).
@@ -376,15 +362,16 @@ Ces informations sont visibles par le traiteur (contexte sur sa propre collecte)
 
 **Filtres disponibles** :
 - — **retiré 2026-05-07**, géré par le sélecteur de type ZD / AG en haut de page
+- Période — **en premier** dans la barre (décision Val 2026-09-30)
 - Statut (multi — inclut `realisee_sans_collecte` AG-only)
-- Période
-- Lieu
-- Client Organisateur
-- "Info incomplète" oui/non
+- Lieu (**choix multiple**, case « Tous »)
+- Client Organisateur (**choix multiple**, case « Tous » ; filtre sur le nom saisi à la programmation)
+- "Info incomplète" (deux cases Oui / Non, case « Toutes » ; une seule cochée filtre)
 - **Programmée par** (multi : "Mon organisation" / "Agence : {{nom}}" / "Gestionnaire : {{nom}}") — ajout 2026-05-07. Permet au traiteur de filtrer les collectes programmées par des tiers (cas où il opère pour le compte d'une agence ou d'un gestionnaire de lieux).
-- **Persistance (2026-09-28)** : filtres synchronisés dans l'URL (`statut`, `from`, `to`, `lieu`, `client`, `info`, `par` — deep-linkable, survivent au rechargement), clés partagées avec le drill-down des Top listes. Rendu via `FilterBar` (§10).
+- **Persistance (2026-09-28, formes précisées 2026-10-01)** : filtres synchronisés dans l'URL (`statut`, `from`, `to`, `lieu`, `client`, `info`, `par` — deep-linkable, survivent au rechargement), clés partagées avec le drill-down des Top listes. `statut`, `lieu` et `par` sont des listes séparées par des virgules ; `client` est répété (`?client=A&client=B`, un nom peut contenir une virgule). Un lien à valeur unique (`?lieu=<id>`, `?client=<nom>`) reste valide : liste d'un élément. Rendu via `FilterBar` (§10).
+- Le sélecteur de type ZD / AG et les onglets Programmées / Historique restent à valeur unique : ce sont des axes de vue, pas des filtres de la barre *(confirmé Val)*.
 
-**Indicateur sur la carte (ajout 2026-05-07, vue cartes 2026-07-05)** : si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, picto orange à côté du nom du lieu (icône "user-tag"). Tooltip "Programmée par {{nom organisation programmatrice}}".
+**Indicateur sur la carte (ajout 2026-05-07, vue cartes 2026-07-05)** : si l'utilisateur est le traiteur opérationnel (`traiteur_operationnel_organisation_id` = son organisation) et que l'événement a été programmé par une autre organisation (`evenements.organisation_id ≠` son organisation), picto orange à côté du nom du lieu (icône "user-tag") — jamais affiché côté agence (§06.11), qui programme toutes ses collectes *(précisé 2026-09-30, décision Val)*. Tooltip "Programmée par {{nom organisation programmatrice}}".
 
 **Tri par défaut** : date décroissante (les plus récentes en premier).
 
@@ -398,7 +385,7 @@ Pour le `traiteur_commercial` *(révision 2026-05-29)* : la liste affiche **tout
 > - **En-tête** : badge type (**ZD navy `primary-700`** / **AG orange `accent-500`**, texte `primary-950` — aligné DS dataviz-1/2 ; remplace le cadre orange/vert) + « Réf. », titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax » ; **frise de statut discrète en vocabulaire client** en haut à droite (Créée · Validée · En cours · Réalisée, « Sans excédents » en AG, « Annulée » — jamais Programmée/Clôturée, collapse 2026-06-30 ; étape courante pleine opacité + gras) ; croix de fermeture isolée. Le composite « Date - Lieu - Client organisateur - pax » est remplacé ; le client organisateur passe en champ « Client » de l'onglet Informations.
 > - **Navigation** : onglets en **barre horizontale** sous l'en-tête, fixe au défilement — cadre commun des fiches, décision Val 2026-10-01 (modale `max-w-5xl`, hauteur fixe) : **Informations / Logistique / Bilan & documents**.
 > - **Pied** : « Demander l'annulation » (contour rouge) puis « Modifier la collecte » (primaire), en bas à droite — selon les droits du rôle.
-> - **Informations** : Événement (Client, Date et heure, Pax, Type) ; Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = `acces_details` effectif du lieu, surcharge `lieu_overrides` de la collecte comprise, + `collectes.informations_supplementaires` ; jamais les notes internes — D5 2026-09-30) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** (`evenements.contact_secours_*`) — ligne masquée si vide, D6 2026-09-30).
+> - **Informations** : Événement (Client, Date et heure, Pax, Type) ; Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = `acces_details` effectif du lieu, surcharge `lieu_overrides` de la collecte comprise, + `collectes.informations_supplementaires` ; jamais les notes internes — D5 2026-09-30) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** (`evenements.contact_secours_*`) — ligne masquée si vide, D6 2026-09-30). *(Arbitrages Val C2/C3/C5 2026-10-01)* Les contacts sont servis par la route de la fiche (jamais lisibles par PostgREST direct) : au traiteur (programmateur ou opérationnel) et à l'agence toujours, au gestionnaire sur ses seules programmations — bloc absent sinon. La référence d'affaire n'est servie qu'à l'organisation programmatrice (formulaire d'édition).
 > - **Logistique** : voir bloc « Logistique » ci-dessous (chauffeur / plaque / téléphone). Wording 100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un prestataire (« Nous affectons votre chauffeur avant la collecte… »). Bouton **« Demander les coordonnées en urgence »** → alerte **in-app Ops seule** (pas d'email, pas de Slack), **1 demande OUVERTE à la fois par collecte** (D10 2026-09-30 : tant que l'alerte Ops est ouverte, un nouveau clic ne crée rien ; après clôture — coordonnées reçues puis perdues, ou clôture manuelle Ops — une nouvelle demande ouvre une nouvelle alerte), confirmation « Demande envoyée à l'équipe Savr », alerte **clôturée automatiquement** à réception des coordonnées. AG : bloc **Association bénéficiaire** (nom, ville, présentation = `associations.description_rapport_impact`) dès la validation — **masqué au gestionnaire** tant que `v_attributions_gestionnaire` n'est pas implémentée.
 > - **Collecte annulée** (`annulee`, `annulation_demandee`) *(C3 2026-09-29)* : frise « Créée · Annulée », onglet Bilan « Collecte annulée : aucun bilan ni document. », aucune action en pied.
 > - **Bilan affiché quand la collecte est « Réalisée » côté client (`cloturee`)** ; `realisee` DB (« En cours » client) = blocs estompés *(D4 2026-09-30)*.
@@ -739,7 +726,7 @@ Tableau lecture seule :
 |--------|--------------|---------|------------|--------|-----|
 | FZD-2026-00124 | 12 avr 2026 | 12 mai 2026 | 1 032,00 € | Émise | Télécharger |
 
-**Filtres** : statut, type (ZD/AG/Pack/Avoir), période.
+**Filtres** : période (en premier), statut, type (ZD/AG/Pack/Avoir) — statut et type à choix multiple avec case « Tous ».
 
 Toutes les factures de l'organisation sont visibles (factures par collecte, factures groupées, achats de pack, avoirs), **à l'exception des brouillons** (encore éditables par Savr, non numérotés) — arbitrage Val 2026-09-18. S'applique aussi à l'espace gestionnaire de lieux (§06.05 nav 8, réutilisation du composant).
 
@@ -931,13 +918,14 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 | **RÉVISÉ 2026-05-29** : commercial accède à la vue liste complète (toutes factures orga) en lecture seule + fiche collecte | A. Coupure totale ; B. Mon orga partiel | Option C levée : lecture commercial alignée Manager. Le commercial ne peut toujours pas éditer les paramètres de facturation |
 | **Suppression batchs auto synthèses + table `rapports_synthese`** (option A) | B. Conservation batchs sans UI ; C. Batchs envoyés par email | Sobriété V1 max. Si traiteur veut une synthèse régulière → 1 clic depuis le dashboard avec filtres pré-remplis |
 | **Bloc 3 ZD jauges sur fiche collecte ZD terminée** + filtres benchmark modifiables intégrés au PDF rapport RSE | Pas de jauge sur fiche, lecture KPI seulement | Apporte le benchmark au grain collecte unique, support visuel pour le rapport RSE envoyé au client |
-| **Refonte Dashboard 2026-05-10 — blocs communs rattachés aux onglets ZD/AG** | Conserver section "Bloc commun (sous les onglets)" | Cohérence stricte avec §06.05 et §06.11 : un onglet actif filtre tout le contenu visible. Numérotation suffixée `Bloc 5/6/7 ZD` et `Bloc 5/6/7 AG`. Bloc 7 (Top 5 commerciaux) **visible Manager et Commercial** dans les 2 onglets *(révision 2026-05-29)*. |
+| **Refonte Dashboard 2026-05-10 — blocs communs rattachés aux onglets ZD/AG** | Conserver section "Bloc commun (sous les onglets)" | Cohérence stricte avec §06.05 et §06.11 : un onglet actif filtre tout le contenu visible. Numérotation suffixée `Bloc 6/7 ZD` et `Bloc 6/7 AG` *(Bloc 5 retiré le 2026-10-01)*. Bloc 7 (Top 5 commerciaux) **visible Manager et Commercial** dans les 2 onglets *(révision 2026-05-29)*. |
 | **Refonte Dashboard 2026-05-10 — bouton bandeau "Exporter synthèse PDF" retiré, remplacé par Bloc 8 ZD/Bloc 8 AG** | Conserver le bouton bandeau (en plus ou en remplacement des blocs) | Évite double mécanisme. Pattern strictement aligné §06.05/§06.11. Synthèse globale ZD+AG accessible en décochant le filtre "Type de collecte" dans la modal §4 Section Rapports (étape 2). |
 | **Persistance filtres benchmark `rapports_rse.filtres_benchmark` jsonb + légende des filtres sous le graphe PDF (rétabli 2026-06-03, arbitrage Val)** | A. Calcul à la volée (revue §12 B2, parc courant, colonne supprimée) — **annulée** ; B. Pas de benchmark sur le PDF | Val veut un benchmark **personnalisable et reproductible** sur le rapport client : les filtres choisis sont figés (snapshot jsonb), le PDF est reproductible, et une légende sous le graphe précise le segment de comparaison. La revue §12 B2 du même jour (à la volée) est annulée. |
 | **Titre fiche collecte composite** "Date - Lieu - Client - Pax" | Numéro de collecte | Numéro orienté support, titre composite orienté utilisateur métier (reconnaît sa collecte au premier coup d'œil) |
 | **Suppression Type de pesée** champ orphelin | Conservation pour V2 | Champ jamais défini en data model, jamais utilisé côté TMS, mention en 3 endroits seulement → nettoyage |
 | **Adresse + contacts en entête fiche collecte** | Bloc séparé en bas | Infos pilotantes sur le champ : tel chauffeur, adresse pour Ops, contact secours pour le jour J |
 | **Liste collectes : suppression colonne Événement, Lieu = nom + adresse, ajout Pax** | Conservation 8 colonnes existantes | Lieu = info pilotante (où aller), pax = dimension événement, nom événement remonté dans titre fiche |
+| **Liste collectes : ajout colonne Client (2026-10-01, revue écran E2E)** | Conserver Date · Heure · Lieu · Pax · Statut | Le client organisateur identifie l'événement aussi sûrement que le lieu ; il était déjà un filtre de la liste. Colonne reprise par l'agence (§06.11, parité) et par le gestionnaire (§06.05). Pas de colonne côté client organisateur (elle afficherait son propre nom). |
 | **Bloc 3 AG : suppression Distance moyenne** | Conservation | Donnée non actionnable côté traiteur (pas de levier sur la distance asso<>lieu) |
 | **Bloc 4 AG : 1 seul pack actif à la fois (pas de FIFO)** | Multi-packs FIFO | Règle métier : pack suivant activé après épuisement du précédent. Simplifie l'affichage et la logique de débit |
 | **Notification info-only collecte programmée par tiers (2026-05-07)** | Validation explicite par le traiteur | Ouverture programmation aux agences/gestionnaires : le traiteur opérationnel reçoit un email récap (cf. §05 §9), pas de validation requise. Droit de retrait conservé via workflow annulation existant |

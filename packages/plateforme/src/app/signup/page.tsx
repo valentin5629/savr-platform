@@ -28,25 +28,27 @@ import {
 } from '@/lib/identite-signup';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
+import { libelleTypeOrganisation } from '@/lib/libelles/organisation';
 
 // Les 3 valeurs de `type_profil` acceptées par la route. Toute autre valeur y
 // est refusée en 422 : l'écran n'en propose donc pas d'autre.
 const PROFILS = [
   {
     valeur: 'traiteur',
-    titre: 'Traiteur',
+    titre: libelleTypeOrganisation('traiteur'),
     detail:
       'Vous produisez les réceptions et vous programmez les collectes de vos événements.',
   },
   {
     valeur: 'agence',
-    titre: 'Agence',
+    titre: libelleTypeOrganisation('agence'),
     detail:
       'Vous organisez des événements pour vos clients et pilotez les collectes associées.',
   },
   {
     valeur: 'gestionnaire_lieux',
-    titre: 'Gestionnaire de lieux',
+    titre: libelleTypeOrganisation('gestionnaire_lieux'),
     detail:
       'Vous exploitez un ou plusieurs lieux et suivez ce qui y est collecté.',
   },
@@ -176,7 +178,7 @@ export default function SignupPage() {
         <AuthCard
           titre="Vérifiez votre boîte mail"
           sousCarte={
-            <TextLink href="/login" strong touch className="text-sm">
+            <TextLink href={ROUTES.login} strong touch className="text-sm">
               Aller à la connexion
             </TextLink>
           }
@@ -227,7 +229,7 @@ export default function SignupPage() {
         }
         className={etape === 1 ? 'max-w-lg' : undefined}
         sousCarte={
-          <TextLink href="/login" strong touch className="text-sm">
+          <TextLink href={ROUTES.login} strong touch className="text-sm">
             J&apos;ai déjà un compte
           </TextLink>
         }
@@ -417,7 +419,7 @@ export default function SignupPage() {
                 htmlFor="cgu"
               >
                 J&apos;accepte les{' '}
-                <TextLink href="/cgu" target="_blank" strong>
+                <TextLink href={ROUTES.cgu} target="_blank" strong>
                   Conditions Générales d&apos;Utilisation
                 </TextLink>
                 . Cette acceptation est horodatée et conservée.

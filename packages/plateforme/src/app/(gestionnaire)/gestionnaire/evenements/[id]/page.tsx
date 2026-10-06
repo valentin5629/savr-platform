@@ -14,6 +14,7 @@ import { formatDateHeureParis } from '@savr/shared/src/temps/index.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 interface Attribution {
   id: string;
@@ -271,9 +272,7 @@ export default function EvenementDetailPage({
           <Card key={c.id}>
             <CardHeader>
               <CardTitle size="base" className="flex items-center gap-2">
-                {c.type === 'zero_dechet'
-                  ? 'Collecte Zéro Déchet'
-                  : 'Collecte Anti-Gaspi'}
+                {`Collecte ${libelleTypeCollecte(c.type)}`}
                 <Text as="span" className="font-normal">
                   {c.date_collecte ?? '—'}
                   {c.heure_collecte ? ` · ${c.heure_collecte.slice(0, 5)}` : ''}

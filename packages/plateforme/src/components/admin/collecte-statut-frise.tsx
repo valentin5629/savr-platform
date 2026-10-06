@@ -3,23 +3,24 @@ import {
   FriseEtapes,
   type EtapeFrise,
 } from '@/components/collecte/frise-etapes';
-import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
+import {
+  ETAPES_STATUT_COLLECTE,
+  RANG_STATUT_COLLECTE,
+  statutCollecteDisplay,
+  type StatutCollecteDb,
+} from '@/lib/statut-collecte-labels';
 
-// Parcours nominal d'une collecte (machine à états §05, CLAUDE.md §3) :
-// programmee → validee → en_cours → realisee → cloturee.
-const ETAPES = [
-  { statut: 'programmee', label: 'Programmée' },
-  { statut: 'validee', label: 'Validée' },
-  { statut: 'en_cours', label: 'En cours' },
-  { statut: 'realisee', label: 'Réalisée' },
-  { statut: 'cloturee', label: 'Clôturée' },
-] as const;
+// Parcours nominal d'une collecte (machine à états §05, CLAUDE.md §3) — étapes,
+// rangs et libellés : source unique `lib/statut-collecte-labels` (R-UI-2 C1).
+const ETAPES = ETAPES_STATUT_COLLECTE.map((statut) => ({
+  statut,
+  label: statutCollecteDisplay(statut, 'admin').label,
+}));
 
 function indexEtape(statut: string): number {
   // AG « réalisée sans collecte » : même rang que « Réalisée » (étape terminale
-  // de la réalisation), libellé propre ci-dessous.
-  if (statut === 'realisee_sans_collecte') return 3;
-  return ETAPES.findIndex((e) => e.statut === statut);
+  // de la réalisation), libellé propre ci-dessous. Hors parcours → -1.
+  return (RANG_STATUT_COLLECTE[statut as StatutCollecteDb] ?? 0) - 1;
 }
 
 // Frise d'avancement de la fiche collecte Admin (décision Val C2 2026-09-29) :

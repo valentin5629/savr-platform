@@ -7,7 +7,7 @@ import {
   DataGrid,
   type ColumnDef,
 } from '@/components/ui/data-grid';
-import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 
 export interface HistoriqueCollecte {

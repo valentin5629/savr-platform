@@ -24,6 +24,7 @@ import {
   CLE_IMPERSONATION_EN_ATTENTE,
   verifierImpersonation,
 } from '@/lib/impersonation.js';
+import { ROUTES } from '@/lib/routes';
 
 const IMPERSONATION_TTL_MS = 60 * 60 * 1000; // 1h (§09 §7)
 
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (!tokenHash || type !== 'magiclink' || !impersonatorId || !jeton) {
     return NextResponse.redirect(
-      new URL('/login?error=impersonation_lien_invalide', req.url),
+      new URL(`${ROUTES.login}?error=impersonation_lien_invalide`, req.url),
     );
   }
 
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (error || !data.user) {
     return NextResponse.redirect(
-      new URL('/login?error=impersonation_echouee', req.url),
+      new URL(`${ROUTES.login}?error=impersonation_echouee`, req.url),
     );
   }
 
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const refuser = async (): Promise<NextResponse> => {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
     return NextResponse.redirect(
-      new URL('/login?error=impersonation_echouee', req.url),
+      new URL(`${ROUTES.login}?error=impersonation_echouee`, req.url),
     );
   };
 

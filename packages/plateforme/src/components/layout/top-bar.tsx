@@ -7,6 +7,7 @@ import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
+import { ROUTES } from '@/lib/routes';
 
 interface TopBarProps {
   title?: string;
@@ -38,7 +39,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
       } catch {
         /* on redirige vers /login même si le signOut échoue */
       }
-      window.location.href = '/login';
+      window.location.href = ROUTES.login;
     }, [onLogout]);
 
     return (

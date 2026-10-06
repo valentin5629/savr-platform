@@ -445,7 +445,7 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 - **FR uniquement V1**.
 - **Agence (2026-05-07)** : "Traiteur opérant" + option shadow (alerte SIRET vide).
 - **Gestionnaire de lieux (2026-05-07)** : "Traiteur opérant" sans option shadow, combobox lieu filtrée à son parc.
-- **Duplication d'une collecte → V1.1 (2026-05-29)** : le bouton "Dupliquer" (pré-remplissage depuis une collecte passée) est reporté en V1.1. Confort, non bloquant ; le brouillon persistant couvre déjà la friction de saisie. Tranche la question ouverte 1.
+- **Duplication d'une collecte → V1 (2026-07-05, remplace l'arbitrage V1.1 du 2026-05-29)** : bouton « Dupliquer » sur la liste Collectes client (§06.04 §3) → `/programmer/nouveau?from=<collecteId>`, formulaire pré-rempli, date laissée vide, rien n'est créé avant validation.
 - **Normalisation des lieux saisis manuellement = best-effort, pas de SLA formel (2026-05-29)** : un lieu hors référentiel est créé `actif = false` puis normalisé par l'Admin sans délai engagé (la collecte est programmée plusieurs jours à l'avance, la normalisation n'est pas bloquante). Aucun SLA contractuel à respecter en V1. Tranche la question ouverte 2.
 - **Matching AG sans `contraintes_aliments` = géographie + capacité créneau uniquement (2026-05-29)** : l'algo d'attribution association ne s'appuie que sur la proximité géographique et la capacité de l'association sur le créneau. `contraintes_aliments` ayant été retiré volontairement (refonte 2026-05-03), aucun critère de type alimentaire n'est réintroduit (associations généralistes). Tranche la question ouverte 4. Cf. [[09 - Flux algo attribution AG (Admin)]].
 
@@ -453,7 +453,7 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 
 ## Questions ouvertes
 
-1. **Tranchée 2026-05-29 (Val) : V1.1** — cf. Décisions prises.
+1. **Tranchée 2026-05-29 (Val) : V1.1** — cf. Décisions prises. **Révisé 2026-07-05 : livrée en V1** (bouton « Dupliquer », §06.04 §3) — cf. Décisions prises.
 2. **Tranchée 2026-05-29 (Val) : best-effort, pas de SLA formel** — cf. Décisions prises.
 3. **Caduque 2026-05-29** : la table `lieux_modifications_en_attente` et son workflow d'approbation ont été supprimés (audit sobriété §04 2026-05-25 B1). Les modifs lieu passent désormais par un override per-collecte (`collectes.lieu_overrides`) + signalement Admin léger, sans machine à états ni SLA. Plus aucun workflow « en attente » à cadencer.
 4. **Tranchée 2026-05-29 (Val) : géographie + capacité créneau uniquement** — cf. Décisions prises.

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
 import { Heading } from '@/components/ui/heading';
+import { ROUTES } from '@/lib/routes';
 
 const AGENCE_ROLES = ['agence'] as const;
 
@@ -38,7 +39,7 @@ export default async function MonProfilAgencePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <Button variant="secondary" asChild>
-            <a href="/login">Changer mon mot de passe</a>
+            <a href={ROUTES.login}>Changer mon mot de passe</a>
           </Button>
         </CardContent>
       </Card>

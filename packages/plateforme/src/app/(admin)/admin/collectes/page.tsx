@@ -51,6 +51,7 @@ import { formatDateHeure } from '@/lib/format-date-collecte';
 import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
 import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
 import { Text } from '@/components/ui/text';
+import { ROUTES } from '@/lib/routes';
 
 // Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
 const STATUTS_PROGRAMMEES = ['programmee', 'validee', 'en_cours'];
@@ -477,7 +478,9 @@ export default function CollectesPage() {
       if (id) sp.set('collecte', id);
       else sp.delete('collecte');
       const qs = sp.toString();
-      router.replace(qs ? `/admin/collectes?${qs}` : '/admin/collectes');
+      router.replace(
+        qs ? `${ROUTES.admin.collectes}?${qs}` : ROUTES.admin.collectes,
+      );
     },
     [params, router],
   );
@@ -571,7 +574,7 @@ export default function CollectesPage() {
         subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
         actions={
           <Button asChild variant="accent">
-            <Link href="/programmer/nouveau">
+            <Link href={ROUTES.programmer.nouveau}>
               <Plus />
               Programmer une collecte
             </Link>

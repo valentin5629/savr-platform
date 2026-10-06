@@ -2,6 +2,8 @@
 // + dérive statut collecte (miroir du trigger fn_sync_statut_collecte_from_tms).
 // Utilisé par le polling adapter M1.5b.
 
+import type { StatutCollecteDb } from './statut-collecte-labels';
+
 export type Mts1OrderStatus =
   | 'QUOTE'
   | 'DRAFT'
@@ -24,17 +26,8 @@ export type StatutTmsEnum =
   | 'annulee_par_traiteur'
   | 'rejetee_par_tms';
 
-export type CollecteStatutEnum =
-  | 'brouillon'
-  | 'programmee'
-  | 'validee'
-  | 'en_cours'
-  | 'realisee'
-  | 'realisee_sans_collecte'
-  | 'cloturee'
-  | 'annulation_demandee'
-  | 'annulee'
-  | 'rejetee_par_prestataire';
+/** Alias historique — type unique : `StatutCollecteDb` (R-UI-2 C1). */
+export type CollecteStatutEnum = StatutCollecteDb;
 
 /** Statuts MTS-1 terminaux — agrégation déclenchée quand TOUS les tours y sont. */
 export const MTS1_TERMINAL_STATUSES: ReadonlySet<Mts1OrderStatus> = new Set([

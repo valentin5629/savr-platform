@@ -27,6 +27,7 @@ import {
 } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
 import { fmtInt } from '@/lib/format';
+import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
 
 // Onglets Informations et Logistique du pop-up fiche collecte CLIENT (§06.04
 // « Fiche collecte (vue détail) », refonte Val 2026-09-29). Wording 100 % Savr :
@@ -62,12 +63,6 @@ export interface FicheClientDonnees extends FicheCollecteClient {
   can_regenerate?: boolean;
   traiteur_operationnel?: TraiteurOperationnel | null;
 }
-
-// Libellés des organisations programmatrices tierces (§06.04 « Programmée par »).
-export const TYPE_ORGA_LABEL: Record<string, string> = {
-  agence: 'agence',
-  gestionnaire_lieux: 'gestionnaire de lieux',
-};
 
 const GRILLE_4 =
   'grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-4';
@@ -109,7 +104,7 @@ export function OngletInformations({
   );
   const traiteurOp = c.traiteur_operationnel;
   const progTypeLabel = c.programmee_par
-    ? (TYPE_ORGA_LABEL[c.programmee_par.type] ?? c.programmee_par.type)
+    ? libelleTypeOrganisationMinuscule(c.programmee_par.type)
     : null;
 
   return (

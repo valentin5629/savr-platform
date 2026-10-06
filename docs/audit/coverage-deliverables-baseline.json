@@ -252,11 +252,7 @@
       "M1.6-10": "Download rapport Admin après embargo → URL pré-signée 15min",
       "M1.6-11": "f_next_numero_bordereau gapless BSAV-YYYY-NNNNN",
       "M1.6-12": "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)",
-      "BL-P1-RPT-01": "M1.6 / rapport recyclage §1.2 — benchmark : 5 jauges benchmark (point rouge parc si ≥5, « Données insuffisantes » sinon) + M1.6 / resolveRapportBenchmark (défaut + filtres surchargés)",
-      "BL-P2-18": "M1.6 / rapport recyclage §1.2 : équivalences pédagogiques du CO₂ évité + comparaison vs moyenne Savr anonymisée (≥3 acteurs) + camembert par flux (§1.2 l.68) ; M1.6 / buildEquivalences : convertit les FACTEURS figés en comptes",
       "BL-P2-16": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
-      "BL-P2-20": "M1.6 / rapport recyclage : BL-P2-20 mention pied de page uniquement sur un rapport régénéré + M0.6 — succès rapport RSE (payload figé + regenere_le)",
-      "BL-P1-RPT-04": "M1.6 / régénération rapport traiteur (RPT-04) : manager + collecte visible → 202 ; cross-org → 403 ; inexistante → 404",
       "BL-P2-19": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19) : programmateur agence → logo agence dans le payload"
     },
     "M1.7": {

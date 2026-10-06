@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
-import { typeCollecteLabel } from '@/components/collecte/fiche-blocs';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -368,7 +368,7 @@ export function EditerCollecteForm({
         <section className="space-y-2 rounded-savr-md bg-savr-neutral-50 p-3">
           <Text variant="hint">
             Lieu : <strong>{collecte.lieu_nom ?? '—'}</strong> · Type :{' '}
-            <strong>{typeCollecteLabel(collecte.type)}</strong>
+            <strong>{libelleTypeCollecte(collecte.type)}</strong>
           </Text>
           <Text variant="faint">
             Pour changer le lieu ou le type de collecte, annulez cette collecte

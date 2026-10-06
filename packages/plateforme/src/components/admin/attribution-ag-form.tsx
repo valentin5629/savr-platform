@@ -685,9 +685,7 @@ export function AttributionAgForm({
                       <span className="font-bold text-savr-neutral-900">
                         {assoTop1.nom}
                       </span>
-                      <Badge variant="success" className="text-xs">
-                        Recommandée
-                      </Badge>
+                      <Badge variant="success">Recommandée</Badge>
                     </span>
                     <Text as="span" variant="hint" tone="soft">
                       <span>{formatDistance(assoTop1.distance_km)}</span> ·
@@ -723,9 +721,7 @@ export function AttributionAgForm({
                       <span className="font-bold text-savr-neutral-900">
                         {transpReco.nom}
                       </span>
-                      <Badge variant="success" className="text-xs">
-                        Recommandé
-                      </Badge>
+                      <Badge variant="success">Recommandé</Badge>
                     </span>
                     <Text as="span" variant="hint" tone="soft">
                       Branche : {BRANCHE_LABELS[algo.branche] ?? algo.branche} ·

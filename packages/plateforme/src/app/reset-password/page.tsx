@@ -15,6 +15,7 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { AuthCard, AuthPage } from '@/components/auth/auth-card';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
 
 function DemandeResetForm() {
   const searchParams = useSearchParams();
@@ -61,7 +62,7 @@ function DemandeResetForm() {
       <AuthCard
         titre="Vérifiez votre boîte mail"
         sousCarte={
-          <TextLink href="/login" strong touch className="text-sm">
+          <TextLink href={ROUTES.login} strong touch className="text-sm">
             Retour à la connexion
           </TextLink>
         }
@@ -84,7 +85,7 @@ function DemandeResetForm() {
       titre="Mot de passe oublié"
       description="Indiquez votre adresse email : nous vous envoyons un lien pour choisir un nouveau mot de passe."
       sousCarte={
-        <TextLink href="/login" strong touch className="text-sm">
+        <TextLink href={ROUTES.login} strong touch className="text-sm">
           Retour à la connexion
         </TextLink>
       }

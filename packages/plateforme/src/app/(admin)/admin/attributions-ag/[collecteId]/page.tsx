@@ -12,6 +12,7 @@ import { ArrowLeft, Leaf } from 'lucide-react';
 import { IconButton } from '@/components/ui/icon-button';
 import { AttributionAgForm } from '@/components/admin/attribution-ag-form';
 import { Heading } from '@/components/ui/heading';
+import { ROUTES } from '@/lib/routes';
 
 export default function AttributionDetailPage() {
   const { collecteId } = useParams<{ collecteId: string }>();
@@ -45,7 +46,10 @@ export default function AttributionDetailPage() {
           // La file d'attribution vit dans Collectes (chip « AG en attente
           // attribution », §06.09 §1) : il n'existe pas de page /admin/attributions-ag.
           redirectionRef.current = setTimeout(
-            () => router.push('/admin/collectes?chip=ag_attente_attribution'),
+            () =>
+              router.push(
+                `${ROUTES.admin.collectes}?chip=ag_attente_attribution`,
+              ),
             2000,
           );
         }}

@@ -2,6 +2,7 @@ import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { urlCanonique } from '@/lib/url-application.js';
+import { ROUTES } from '@/lib/routes';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -128,7 +129,7 @@ export async function traiterAlertesPackEtat(
           niveau_bas: estBas ? 'true' : '',
           niveau_epuise: estBas ? '' : 'true',
           lien_fiche_org: urlCanonique(
-            `/admin/organisations/${p.organisation_id}`,
+            ROUTES.admin.organisation(p.organisation_id),
           ),
         },
         { entityType: 'pack_antgaspi', entityId: a.entity_id },

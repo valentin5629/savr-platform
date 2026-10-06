@@ -16,7 +16,6 @@ import {
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
@@ -36,6 +35,7 @@ import {
   type JourHoraire,
 } from '@/components/admin/horaires-ouverture-editor';
 import { Heading } from '@/components/ui/heading';
+import { ActifBadge } from '@/components/ui/actif-badge';
 
 // Enregistrement association complet, aligné sur le select('*') de l'API liste —
 // sert à préremplir la modale d'édition sans re-fetch (toutes les colonnes sont
@@ -451,11 +451,7 @@ export function AssociationModal({
                   : '—',
             },
           ]}
-          statut={
-            <Badge variant={association!.actif ? 'success' : 'neutral'}>
-              {association!.actif ? 'Active' : 'Inactive'}
-            </Badge>
-          }
+          statut={<ActifBadge actif={association!.actif} sujet="association" />}
         />
       ) : (
         <FicheEnTete

@@ -22,11 +22,15 @@ import {
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
 import { PageHero } from '@/components/ui/page-hero';
+import { OrganisationModal } from '@/components/admin/organisation-modal';
+import { ActifBadge } from '@/components/ui/actif-badge';
+import { OPTIONS_FILTRE_ACTIF } from '@/lib/libelles/actif';
 import {
-  OrganisationModal,
-  TYPE_ORGANISATION_LABELS,
-} from '@/components/admin/organisation-modal';
+  libelleTypeOrganisation,
+  LIBELLE_TYPE_ORGANISATION,
+} from '@/lib/libelles/organisation';
 import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
 
 interface PackActif {
   type_pack: string;
@@ -63,7 +67,7 @@ const columns: Column<Organisation>[] = [
     header: 'Nom',
     render: (row) => (
       <TextLink
-        href={`/admin/clients/${row.id}`}
+        href={ROUTES.admin.client(row.id)}
         className="flex gap-3 font-medium"
       >
         <span
@@ -81,9 +85,7 @@ const columns: Column<Organisation>[] = [
     sortable: true,
     header: 'Type',
     render: (row) => (
-      <Badge variant="neutral">
-        {TYPE_ORGANISATION_LABELS[row.type] ?? row.type}
-      </Badge>
+      <Badge variant="neutral">{libelleTypeOrganisation(row.type)}</Badge>
     ),
   },
   { key: 'nb_users', header: 'Users' },
@@ -113,12 +115,7 @@ const columns: Column<Organisation>[] = [
     key: 'actif',
     sortable: true,
     header: 'Statut',
-    render: (row) =>
-      row.actif ? (
-        <Badge variant="success">Actif</Badge>
-      ) : (
-        <Badge variant="neutral">Inactif</Badge>
-      ),
+    render: (row) => <ActifBadge actif={row.actif} />,
   },
 ];
 
@@ -197,7 +194,7 @@ export default function ClientsPage() {
         <FiltreCoches
           label="Type"
           testid="clients-type"
-          options={Object.entries(TYPE_ORGANISATION_LABELS).map(
+          options={Object.entries(LIBELLE_TYPE_ORGANISATION).map(
             ([id, nom]) => ({
               id,
               nom,
@@ -209,10 +206,7 @@ export default function ClientsPage() {
         <FiltreCoches
           label="Statut"
           testid="clients-statut"
-          options={[
-            { id: 'true', nom: 'Actifs' },
-            { id: 'false', nom: 'Inactifs' },
-          ]}
+          options={OPTIONS_FILTRE_ACTIF}
           selected={f.actif}
           onChange={(ids) => set({ actif: ids })}
         />

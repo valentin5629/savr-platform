@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { ROLE_PREFIXES, ROUTES } from '@/lib/routes';
 
 // ⚠ EMPLACEMENT : ce fichier DOIT rester dans `src/`. Next 15 cherche le middleware
 // dans `path.join(pagesDir || appDir, '..')` ; l'app vivant dans `src/app` (sans
@@ -10,40 +11,9 @@ import { createServerClient } from '@supabase/ssr';
 
 // Gating par espace (§09). Doit rester aligné sur les gardes serveur des layouts
 // (requireStaffPage / requirePageSession) et des routes API correspondantes.
-export const ROLE_PREFIXES: Record<string, string[]> = {
-  '/admin': ['admin_savr', 'ops_savr'],
-  '/traiteur': ['traiteur_manager', 'traiteur_commercial'],
-  '/agence': ['agence'],
-  '/gestionnaire': ['gestionnaire_lieux'],
-  '/organisateur': ['client_organisateur'],
-  // Registre ZD : tous les rôles clients sauf l'agence (§09 F6) — miroir du
-  // layout (registre).
-  '/registre': [
-    'traiteur_manager',
-    'traiteur_commercial',
-    'gestionnaire_lieux',
-    'client_organisateur',
-  ],
-  // Programmation : rôles programmateurs + staff en support. `ops_savr` aligné
-  // sur les routes /api/v1/programmation/* (requireProgrammateurOuAdmin) et le
-  // bouton « Programmer une collecte » du back-office, qui l'autorisent déjà.
-  '/programmer': [
-    'traiteur_commercial',
-    'traiteur_manager',
-    'agence',
-    'gestionnaire_lieux',
-    'admin_savr',
-    'ops_savr',
-  ],
-  '/brouillons': [
-    'traiteur_commercial',
-    'traiteur_manager',
-    'agence',
-    'gestionnaire_lieux',
-    'admin_savr',
-    'ops_savr',
-  ],
-};
+// Table dérivée de la définition unique rôle → espace (`lib/routes.ts`, module
+// pur compatible Edge) ; réexportée pour les tests et appelants existants.
+export { ROLE_PREFIXES };
 
 function matchesPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(prefix + '/');
@@ -67,13 +37,13 @@ export function getRolesForPath(pathname: string): string[] | null {
 const PUBLIC_PREFIXES = [
   '/api',
   '/auth',
-  '/login',
-  '/signup',
-  '/verify-email',
-  '/reset-password',
+  ROUTES.login,
+  ROUTES.signup,
+  ROUTES.verifyEmail,
+  ROUTES.resetPassword,
   // Texte des CGU : accepté à l'inscription, donc lisible AVANT d'avoir un compte.
-  '/cgu',
-  '/403',
+  ROUTES.cgu,
+  ROUTES.interdit,
   // Pages de smoke-test de composants (dev-only, présentationnel, sans donnée
   // sensible) — délibérément hors du gating /admin/* réservé admin_savr/ops_savr.
   // 404 sur tout build de production : garde dans src/app/dev/layout.tsx.
@@ -153,7 +123,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   // Non authentifié → /login
   if (!user) {
     const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = '/login';
+    loginUrl.pathname = ROUTES.login;
     loginUrl.search = '';
     loginUrl.searchParams.set('next', pathname);
     return redirect(loginUrl);
@@ -162,7 +132,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   // Email non vérifié → /verify-email (§09 : un compte non vérifié ne programme pas)
   if (!user.email_confirmed_at) {
     const verifyUrl = req.nextUrl.clone();
-    verifyUrl.pathname = '/verify-email';
+    verifyUrl.pathname = ROUTES.verifyEmail;
     verifyUrl.search = '';
     return redirect(verifyUrl);
   }
@@ -177,7 +147,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 
   // app_domain != 'plateforme' → 403 (§09 : un compte TMS ne se logue jamais ici)
   if (appDomain !== null && appDomain !== 'plateforme') {
-    return redirect(new URL('/403', req.url));
+    return redirect(new URL(ROUTES.interdit, req.url));
   }
 
   // Vérification du rôle requis pour le préfixe de route (fail-closed) : si la
@@ -188,7 +158,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     requiredRoles !== null &&
     (role === null || !requiredRoles.includes(role))
   ) {
-    return redirect(new URL('/403', req.url));
+    return redirect(new URL(ROUTES.interdit, req.url));
   }
 
   return response;

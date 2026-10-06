@@ -5,9 +5,10 @@ import { compteurResultats } from '@/lib/compteur-resultats';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { liste, texte, type ValeursFiltres } from '@/lib/hooks/use-filtres-url';
-import type { Database } from '@savr/shared/src/database.types.js';
-
-type Enums = Database['plateforme']['Enums'];
+import {
+  optionsStatutFacture,
+  optionsTypeFacture,
+} from '@/lib/libelles/facture';
 
 // FacturesFiltresBar — barre de filtres des listes Factures de « Mon
 // organisation » (R-UI-4b, D10 : parité entre rôles). Reprend À L'IDENTIQUE la
@@ -35,19 +36,15 @@ export type FiltresFactures = ValeursFiltres<typeof FILTRES_FACTURES>;
 // Valeurs = enums réels plateforme.facture_statut / facture_type (brouillon
 // exclu par les routes ; « En retard » est un badge dérivé de date_echeance,
 // pas un statut stocké → non filtrable).
-export const STATUTS_FACTURE_OPTIONS = [
-  { id: 'en_attente_pennylane', nom: 'En attente' },
-  { id: 'emise', nom: 'Émise' },
-  { id: 'payee', nom: 'Payée' },
-  { id: 'annulee', nom: 'Annulée' },
-] satisfies { id: Enums['facture_statut']; nom: string }[];
+// Libellés = `lib/libelles/facture` (R-UI-2 C3/C4) : statut long, type court.
+export const STATUTS_FACTURE_OPTIONS = optionsStatutFacture([
+  'en_attente_pennylane',
+  'emise',
+  'payee',
+  'annulee',
+] as const);
 
-export const TYPES_FACTURE_OPTIONS = [
-  { id: 'zero_dechet', nom: 'ZD' },
-  { id: 'collecte_antigaspi', nom: 'AG' },
-  { id: 'achat_pack_antigaspi', nom: 'Pack' },
-  { id: 'avoir', nom: 'Avoir' },
-] satisfies { id: Enums['facture_type']; nom: string }[];
+export const TYPES_FACTURE_OPTIONS = optionsTypeFacture('court');
 
 interface FactureFiltrable {
   statut: string;

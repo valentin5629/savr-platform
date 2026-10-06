@@ -6,6 +6,42 @@ import type { Database } from '@savr/shared/src/database.types.js';
 import type { VarianteBadge as Variant } from './types';
 
 type VerifSiret = Database['plateforme']['Enums']['statut_verification_siret'];
+type TypeOrganisation = Database['plateforme']['Enums']['organisation_type'];
+
+/**
+ * Type d'organisation (R-UI-2 C8) : une seule graphie par type, alignée sur
+ * `LIBELLE_ROLE` (« Gestionnaire de lieux », fin de « Gestionnaire lieux »).
+ */
+export const LIBELLE_TYPE_ORGANISATION: Record<string, string> = {
+  traiteur: 'Traiteur',
+  agence: 'Agence',
+  gestionnaire_lieux: 'Gestionnaire de lieux',
+  client_organisateur: 'Client organisateur',
+} satisfies Record<TypeOrganisation, string>;
+
+/** Préfixe court « Agence : X » / « Gestionnaire : X » (filtre Programmée par). */
+export const LIBELLE_COURT_TYPE_ORGANISATION: Record<string, string> = {
+  traiteur: 'Traiteur',
+  agence: 'Agence',
+  gestionnaire_lieux: 'Gestionnaire',
+  client_organisateur: 'Client',
+} satisfies Record<TypeOrganisation, string>;
+
+export function libelleTypeOrganisation(
+  type: string | null | undefined,
+): string {
+  if (!type) return '—';
+  return LIBELLE_TYPE_ORGANISATION[type] ?? type;
+}
+
+/** Libellé en cours de phrase (« Programmée par l'agence X ») : minuscule. */
+export function libelleTypeOrganisationMinuscule(
+  type: string | null | undefined,
+): string {
+  if (!type) return '—';
+  const l = LIBELLE_TYPE_ORGANISATION[type];
+  return l ? l.toLowerCase() : type;
+}
 
 export const LIBELLE_VERIFICATION_SIRET: Record<string, string> = {
   en_attente: 'En attente',

@@ -13,6 +13,7 @@ import type { DashboardFilters } from './DashboardFilterBar.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { Text } from '@/components/ui/text';
 import { raccourciDe, raccourcisPeriode } from '@/lib/periodes-raccourcis';
+import { libelleCompletTypeCollecte } from '@/lib/libelles/type-collecte';
 
 /**
  * Bloc 8 — « Exporter une synthèse PDF » (§06.04 / §06.05 / §06.11 Bloc 8 ZD/AG).
@@ -96,8 +97,7 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
     setTo(r.periode.to);
   };
 
-  const typeLabel =
-    tab === 'zero_dechet' ? 'Zéro-Déchet (ZD)' : 'Anti-Gaspi (AG)';
+  const typeLabel = libelleCompletTypeCollecte(tab, 'cdc');
 
   const inheritedFilters: string[] = [];
   if ((filters?.lieu_ids?.length ?? 0) > 0)

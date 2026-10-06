@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Zap, AlertTriangle, Plus, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -11,6 +10,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { useToast } from '@/components/ui/toast';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { ActifBadge } from '@/components/ui/actif-badge';
 
 interface ConfigAutoAccept {
   id: string;
@@ -66,12 +66,7 @@ const columns: Column<ConfigAutoAccept>[] = [
     key: 'auto_accept_actif',
     header: 'Auto-accept',
     sortable: true,
-    render: (row) =>
-      row.auto_accept_actif ? (
-        <Badge variant="success">Actif</Badge>
-      ) : (
-        <Badge variant="neutral">Inactif</Badge>
-      ),
+    render: (row) => <ActifBadge actif={row.auto_accept_actif} />,
   },
   {
     key: 'notes',

@@ -78,7 +78,7 @@ Pour chaque collecte Anti-Gaspi programmée, l'algorithme recommande une associa
 
 **Tri** :
 - Primaire : distance Haversine ASC
-- Secondaire : `prestataires.nb_collectes_6_mois_cache` ASC (audit cohérence B3 2026-05-09 — répartit la charge entre prestataires équidistants, aligné TMS M12 §4.7). Algorithme paramétrable via `parametres_algo.province_tri_secondaire_code`.
+- Secondaire : `prestataires.nb_collectes_6_mois_cache` ASC (audit cohérence B3 2026-05-09 — répartit la charge entre prestataires équidistants, aligné TMS M12 §4.7). Tri secondaire **codé en dur V1**, non pilotable (paramétrable V2 si besoin — décision Val 2026-10-02, divergence M2.3 ; l'ex-paramètre `province_tri_secondaire_code` est retiré de `parametres_algo`).
 
 **Code branche stocké** : `attributions_antgaspi.branche_attribution = 'ag_province_proximite'` (audit cohérence A3 2026-05-09 — alignement TMS M12, ex-`province` générique déprécié).
 
@@ -488,9 +488,9 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 **Règle embargo H+24** : le rapport de recyclage n'est ni généré ni accessible avant H+24 après la fin de la collecte. Ce délai laisse à l'Admin Savr le temps de corriger une pesée erronée transmise par le TMS. La génération automatique est intégrée au **batch J+1 à 6h** (même timing que bordereau et attestation), ce qui garantit dans la quasi-totalité des cas le respect de l'embargo.
 
-**Régénération manuelle** : disponible pour le `traiteur_manager` depuis son espace client, à tout moment post-génération initiale. Cas typique : correction de pesée post-génération, intégration d'une donnée manquante.
+**Régénération manuelle** : disponible depuis la fiche collecte pour tout utilisateur autorisé à télécharger le rapport *(étendu 2026-10-02, décision Val — ex `traiteur_manager` seul ; cf. §12 §1.2)*, à tout moment post-génération initiale. Cas typique : correction de pesée post-génération, intégration d'une donnée manquante.
 
-**Indicateur de mise à jour** : si le rapport est régénéré après sa première émission automatique, un picto ⟳ accompagné de la mention "Mis à jour le [date]" est affiché dans l'espace client. Le PDF lui-même porte en pied de page "Version mise à jour — générée le [date]". La traçabilité complète de chaque régénération est enregistrée dans `audit_log`.
+**Indicateur de mise à jour** : si le rapport est régénéré après sa première émission automatique, un picto ⟳ accompagné de la mention "Mis à jour le [date]" est affiché dans l'espace client. Le bordereau et l'attestation de don portent en pied de page "Version mise à jour — générée le [date]" ; **le rapport de recyclage ne porte plus cette mention** *(décision Val 2026-10-02, cf. §12 §1.4)*. La traçabilité complète de chaque régénération est enregistrée dans `audit_log`.
 
 **Partage (V1)** : pas de lien de partage public natif en V1. Le `traiteur_manager` télécharge le PDF et le transmet lui-même au client final par email. **Lien de partage public horodaté (90 jours) reporté V1.1** (revue sobriété §12 2026-06-03, A1 — aligné sur le QR code de vérification, lui aussi V1.1). Voir [[12 - Reporting et exports#1.2]].
 
@@ -1252,12 +1252,12 @@ END IF;
 - **SLAs V1** : rapport post-collecte max 24h (embargo H+24), bordereau et attestation batch J+1 6h. **Pas de SLA sur brouillon facture** (décision Val 2026-04-28 — pas d'engagement contractuel), ni sur délai programmation ni validation Admin
 - **Dashboards gestionnaires de lieux** : vue agrégée par défaut, filtres période/lieu/traiteur/type événement, drill-down, données nominatives, KPIs V1 (taux de recyclage ZD-only formule à captation, tonnage par flux, CO₂e évité, nombre collectes/événements)
 - **Remises négociées `tarifs_negocie`** (refonte 2026-05-26) : la table ne porte plus que des **remises %** (`remise_pct`), ZD + AG (AG = collectes unitaires uniquement), × scope organisation (programmateur) + scope gestionnaire (lieu). **Pas de cumul** : seule la remise la plus élevée s'applique sur la base (catalogue de grilles ZD / tarif unitaire AG) : `prix = base × (1 − max(remise_pct))` (arbitrage Val 2026-09-17). Plus de prix absolu. Versioning par fermeture + nouvelle ligne. Pas de pouvoir de commande accordé au gestionnaire (décision Val 2026-04-28, maintenue)
-- **`reference_affaire` sur événements** : champ optionnel texte libre, saisi par `traiteur_commercial` ou `traiteur_manager` à la programmation. Reporté sur facture Pennylane (champ "Référence") et PDF Savr. Disponible pour tous les clients (décision Val 2026-04-28)
+- **`reference_affaire` sur événements** : champ optionnel texte libre, saisi par `traiteur_commercial` ou `traiteur_manager` à la programmation. Reporté sur facture Pennylane (champ "Référence") et PDF Savr. Saisissable par tous les clients programmateurs (décision Val 2026-04-28). Lecture réservée à l'organisation programmatrice (arbitrage Val C3 2026-10-01).
 - **Suppression de comptes** : demande possible par l'utilisateur ou l'Admin, validation systématique Admin (SLA 48h). Deux niveaux : soft-delete (défaut) ou suppression dure / anonymisation PII (sur demande RGPD explicite). Données comptables légales conservées
 - **Archivage** : aucune durée de conservation fixée en V1. Obligations légales min : 10 ans factures/bordereaux, 5 ans registre déchets
 - **Bordereau, attestation et rapport de recyclage** : émission batch J+1 6h. Embargo H+24 strict sur le rapport de recyclage (pas généré ni accessible avant).
 - : **supprimée V1 (décision Val 2026-06-15)** — type `alerte_ops_pesee_anormale` seedé mais jamais déclenché. V1.1 si besoin.
-- **Régénération rapport** : disponible pour `traiteur_manager`. Picto ⟳ + mention "Mis à jour le [date]" sur l'interface et en pied de PDF. Traçabilité dans `audit_log`.
+- **Régénération rapport** : disponible pour tout utilisateur autorisé à télécharger le rapport *(étendu 2026-10-02 — ex `traiteur_manager` seul)*. Picto ⟳ + mention "Mis à jour le [date]" sur l'interface ; mention en pied de PDF sur le bordereau et l'attestation seulement (retirée du rapport de recyclage, 2026-10-02). Traçabilité dans `audit_log`.
 - **Export CSV** : disponible pour tous les profils, filtré par RLS (chaque profil exporte uniquement ses données)
 - **Seuil alerte pack AG bas** : ≤ 10% des crédits initiaux restants
 - **Pas de pénalité d'annulation** au-delà des règles 12h / post-mandat prestataire en V1

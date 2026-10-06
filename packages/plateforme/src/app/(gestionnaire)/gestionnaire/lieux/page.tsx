@@ -9,6 +9,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
+import { ROUTES } from '@/lib/routes';
 
 interface LieuRow {
   id: string;
@@ -104,7 +105,7 @@ export default function GestionnaireLieuxPage() {
       data={rows}
       loading={loading}
       keyExtractor={(row) => row.id}
-      onRowClick={(row) => router.push(`/gestionnaire/lieux/${row.id}`)}
+      onRowClick={(row) => router.push(ROUTES.gestionnaire.lieu(row.id))}
     />
   );
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
+import { FLUX_ZD_CODES } from '@/lib/libelles/flux.js';
 
 // Saisie / édition manuelle des pesées ZD par flux (§06.06 fiche collecte Bloc 2/3 :
 // « Modifier les pesées par flux manuellement (ZD) », admin_savr + ops_savr, motif
@@ -13,13 +14,8 @@ import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 // après clôture (§04 + §08 3bis.7) → 409 (la correction post-clôture passe par le
 // flux avoir, hors de cet endpoint).
 
-const ZD_FLUX_CODES = [
-  'biodechet',
-  'emballage',
-  'carton',
-  'verre',
-  'dechet_residuel',
-] as const;
+// Codes des 5 flux ZD V1 : source unique `lib/libelles/flux` (R-UI-2 C12).
+const ZD_FLUX_CODES = FLUX_ZD_CODES;
 
 interface PeseeInput {
   flux_code: string;

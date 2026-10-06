@@ -157,7 +157,7 @@ Belle suite,
 L'équipe Savr
 ```
 
-**Variables** : `prenom`, `date_collecte`, `lieu_nom`, `poids_total`, `co2_evite`, `taux_recyclage` *(renommé 2026-05-06 — ex `taux_valorisation`. Lecture directe `collectes.taux_recyclage` formule à captation par filière)*, `lien_rapport`
+**Variables** : `prenom`, `date_collecte`, `lieu_nom`, `poids_total`, `co2_evite`, `taux_recyclage` *(renommé 2026-05-06 — ex `taux_valorisation`. Lecture directe `collectes.taux_recyclage` formule à captation par filière)*, `lien_rapport` *(URL absolue de la fiche collecte dans l'espace du programmeur — traiteur, agence ou gestionnaire de lieux selon `organisations.type` de l'organisation programmatrice ; page sous login, sans jeton ; le téléchargement du PDF se fait depuis cette fiche, sous embargo H+24 — précisé 2026-10-02, validé Val)*
 
 ---
 

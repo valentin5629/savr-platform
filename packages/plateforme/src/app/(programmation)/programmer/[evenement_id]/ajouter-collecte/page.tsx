@@ -11,6 +11,7 @@ import {
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { Heading } from '@/components/ui/heading';
 import { FormActions } from '@/components/ui/form-actions';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
@@ -103,7 +104,7 @@ export default function AjouterCollectePage() {
                 : 'border-savr-neutral-200 text-savr-neutral-600 hover:border-savr-neutral-300'
             }`}
           >
-            {t === 'zd' ? 'Zéro Déchet' : 'Anti-Gaspi'}
+            {libelleTypeCollecte(t)}
           </button>
         ))}
       </div>

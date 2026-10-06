@@ -8,6 +8,8 @@
 // que ces alertes FONCTIONNELLES restent in-app (« le canal d'action est l'écran
 // Admin »), jamais poussées sur Slack. Cet écran est ce canal.
 
+import { ROUTES } from '@/lib/routes';
+
 export type AlerteSeverite = 'critique' | 'attention' | 'info';
 
 // Sévérité par code connu. Un code absent retombe sur le classifieur par
@@ -83,15 +85,15 @@ export function entiteHref(
     // Le pluriel/singulier varie selon l'émetteur (collecte vs collectes).
     case 'collecte':
     case 'collectes':
-      return `/admin/collectes/${entityId}`;
+      return ROUTES.admin.collecte(entityId);
     case 'organisations':
-      return `/admin/clients/${entityId}`;
+      return ROUTES.admin.client(entityId);
     case 'factures':
-      return `/admin/factures/${entityId}`;
+      return ROUTES.admin.facture(entityId);
     case 'lieux':
       // La fiche lieu est une modale ouverte sur la liste (pas de page dédiée) :
       // ?edit={id} ouvre directement la modale d'édition.
-      return `/admin/lieux?edit=${entityId}`;
+      return `${ROUTES.admin.lieux}?edit=${entityId}`;
     default:
       return null;
   }

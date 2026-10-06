@@ -457,15 +457,27 @@ async function handleEventType(
       // des fiches collecte client et Admin, comme l'adapter MTS-1 avec le
       // référentiel carrier — décision Val 2026-10-02). Webhook = SIGNAL : nom
       // et téléphone sont RELUS sur l'API Everest (CDC §08 §3 « ne jamais faire
-      // confiance au payload »), jamais pris du payload non signé. Garde dans le
-      // WHERE (#348) : la tournée doit encore porter CETTE mission — une
-      // réattribution entre la lecture et l'UPDATE = 0 ligne. Le couple nom +
-      // téléphone est écrit ensemble (téléphone null si l'API ne l'expose pas) :
-      // jamais un nom neuf associé à un ancien téléphone saisi par l'Admin.
+      // confiance au payload »), jamais pris du payload non signé.
+      // Règle d'écriture = celle de MTS-1 (garde-fou 2, même sémantique) : on
+      // n'écrit que ce que l'API donne — le nom toujours, le téléphone seulement
+      // s'il est fourni. Compromis assumé : si l'API ne renvoie pas le téléphone
+      // d'un coursier qui en remplace un autre, l'ancien numéro (peut-être saisi
+      // par l'Admin) reste affiché avec le nouveau nom — exactement comme avec
+      // MTS-1 aujourd'hui (addendum de divergence 2026-10-06, à arbitrer Val).
+      // Garde dans le WHERE (#348) : la tournée doit encore porter CETTE
+      // référence de mission — couvre la remise à zéro sur place d'une tournée
+      // rejetée / annulée (20260921220000) ; ne couvre PAS une réattribution vers
+      // MTS-1 d'une mission encore vivante (la tournée EVR garde sa référence) :
+      // on écrit alors le vrai coursier de la mission que porte cette tournée,
+      // même collecte, même organisation.
+      // Collecte annulée : rien n'est écrit et aucun email récap ne part (le
+      // téléphone du coursier n'a plus d'objet « coordination sur place »,
+      // §06.04 RGPD) — l'annulation peut mettre jusqu'à 24 h à atteindre Everest.
       // Best-effort (pas une transition d'état) : re-fetch KO ou UPDATE refusé
       // = tracé, rien d'écrit, réponse 200. Placé APRÈS la transition
       // `statut_tms → acceptee` (l'étape principale) : la relecture API (jusqu'à
       // 80 s avec un 401 puis un nouvel essai) ne retarde pas l'acceptation.
+      if (lue.etat.statut === 'annulee') break;
       {
         let coursier: { nom: string; telephone: string | null } | null = null;
         try {

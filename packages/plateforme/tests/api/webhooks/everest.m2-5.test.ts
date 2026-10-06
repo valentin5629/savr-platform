@@ -631,6 +631,42 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     ).toBe(false);
   });
 
+  it('mission_dispatched — collecte déjà annulée côté Savr → ni coursier écrit, ni email récap, ni appel API (annulation pas encore parvenue à Everest)', async () => {
+    mockMissionRow = {
+      id: 'em-001',
+      tournee_id: 'tour-001',
+      collecte_id: 'col-001',
+      statut_everest: 'created',
+    };
+    mockCollecteRow = { statut: 'annulee', statut_tms: 'annulee_par_traiteur' };
+    const handlers = _getEverestHandlers()!;
+    const getMission = vi.fn(handlers.getMission);
+    _setEverestHandlers({ ...handlers, getMission });
+    mockState.details.set('EVR-001', {
+      mission_id: 'EVR-001',
+      status: 'assigned',
+      cout_ht: null,
+      preuve_url: null,
+      coursier_nom: 'Jean Vélo',
+      coursier_telephone: '+33700000001',
+      vehicule_type: null,
+    });
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-001',
+        event_type: 'mission_dispatched',
+        occurred_at: '2026-07-20T22:05:00Z',
+      }),
+    );
+    expect(resp.status).toBe(200);
+    expect(updatedRows['tournees'] ?? []).toEqual([]);
+    expect(getMission).not.toHaveBeenCalled();
+    expect(
+      rpcCalls.some((c) => c.name === 'fn_infos_acces_marquer_si_complet'),
+    ).toBe(false);
+  });
+
   it('mission_dispatched — déjà acceptée → pas de double update statut_tms', async () => {
     mockMissionRow = {
       id: 'em-002',

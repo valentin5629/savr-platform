@@ -18,17 +18,20 @@
 --   9-10   gestionnaire A : lieu d'un tiers refusé, seul ou mêlé à l'un des siens ;
 --   11-13  gestionnaire A : traiteurs intervenus acceptés, traiteur jamais intervenu
 --          refusé, seul ou mêlé ;
---   14-16  bords : tableaux vides acceptés, élément NULL refusé, jeton sans
---          organisation refusé ;
---   17-19  gestionnaire B : la garde suit l'organisation du jeton (miroir de A) ;
---   20-22  la garde ne touche ni le rôle traiteur, ni le staff, ni un appel sans
---          rôle applicatif (rafraîchissement de la vue matérialisée, PDF) ;
---   23-25  durcissement conservé par les trois CREATE OR REPLACE : SECURITY
+--   14-17  bords : tableaux vides acceptés, élément NULL refusé (lieux, puis
+--          traiteurs), jeton sans organisation refusé ;
+--   18-20  gestionnaire B : la garde suit l'organisation du jeton (miroir de A) ;
+--   21-24  la garde ne touche ni le rôle traiteur, ni le staff, ni un appel en
+--          service_role (rafraîchissement de la vue matérialisée, PDF), ni la
+--          fiche collecte du gestionnaire (f_benchmark_single_collecte, qui
+--          appelle le calcul sous SON jeton, sans lieu ni traiteur) ;
+--   25-27  durcissement conservé par les trois CREATE OR REPLACE : SECURITY
 --          DEFINER + search_path, bénéficiaires d'EXECUTE, contrat de sortie.
 --
--- Mesuré sur une base rejouée SANS la migration : 10 cas rouges (2, 3, 9, 10, 12,
--- 13, 15, 16, 18, 19) — chacun rendait une liste ou un segment au lieu de refuser.
--- Les 15 autres sont verts avant comme après : ils bornent ce qui ne doit pas bouger.
+-- Mesuré sur une base rejouée SANS la migration : 11 cas rouges (2, 3, 9, 10, 12,
+-- 13, 15, 16, 17, 19, 20) — chacun rendait une liste ou un segment au lieu de
+-- refuser. Les 16 autres sont verts avant comme après : ils bornent ce qui ne doit
+-- pas bouger.
 --
 -- Fixture : deux gestionnaires (A, lieu LA ; B, lieu LB), quatre traiteurs.
 --   LA : T1, T2, T3, T1, T2     → T1, T2, T3 intervenus chez A ;
@@ -39,7 +42,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(25);
+SELECT plan(27);
 
 CREATE OR REPLACE FUNCTION _bfr_jwt(p_role text, p_org uuid DEFAULT NULL)
 RETURNS void LANGUAGE plpgsql AS $$
@@ -221,44 +224,66 @@ SELECT throws_ok(
   $$SELECT _bfr_nb(ARRAY[NULL]::uuid[])$$,
   '42501', 'Filtre lieu_ids hors des lieux rattaches au gestionnaire',
   '15. gestionnaire A : un élément NULL dans lieu_ids est refusé (fail-closed)');
+SELECT throws_ok(
+  $$SELECT _bfr_nb(NULL, ARRAY[NULL]::uuid[])$$,
+  '42501', 'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire',
+  '16. gestionnaire A : un élément NULL dans traiteur_ids est refusé (fail-closed)');
 SELECT _bfr_jwt('gestionnaire_lieux', NULL);
 SELECT throws_ok(
   $$SELECT _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c1'::uuid])$$,
   '42501', 'Filtre lieu_ids hors des lieux rattaches au gestionnaire',
-  '16. gestionnaire sans organisation dans le jeton : tout lieu nommé est refusé');
+  '17. gestionnaire sans organisation dans le jeton : tout lieu nommé est refusé');
 
--- 17-19. Gestionnaire B : miroir ----------------------------------------------
+-- 18-20. Gestionnaire B : miroir ----------------------------------------------
 SELECT _bfr_jwt('gestionnaire_lieux', 'ba9c0000-0000-0000-0000-0000000000a2');
 SELECT is(
   _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid]), 5,
-  '17. gestionnaire B : LB, refusé à A, lui est accepté (la garde suit le jeton)');
+  '18. gestionnaire B : LB, refusé à A, lui est accepté (la garde suit le jeton)');
 SELECT throws_ok(
   $$SELECT _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c1'::uuid])$$,
   '42501', 'Filtre lieu_ids hors des lieux rattaches au gestionnaire',
-  '18. gestionnaire B : LA, accepté à A, lui est refusé');
+  '19. gestionnaire B : LA, accepté à A, lui est refusé');
 SELECT throws_ok(
   $$SELECT _bfr_nb(NULL, ARRAY['ba9c0000-0000-0000-0000-0000000000b1'::uuid])$$,
   '42501', 'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire',
-  '19. gestionnaire B : T1, accepté à A, lui est refusé (jamais intervenu sur LB)');
+  '20. gestionnaire B : T1, accepté à A, lui est refusé (jamais intervenu sur LB)');
 
--- 20-22. La garde ne déborde pas ----------------------------------------------
+-- 21-24. La garde ne déborde pas ----------------------------------------------
 SELECT _bfr_jwt('traiteur_manager', 'ba9c0000-0000-0000-0000-0000000000b1');
 SELECT is(
   _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid]), 5,
-  '20. rôle traiteur : filtre toujours sur un lieu du parc où il n''est jamais intervenu');
+  '21. rôle traiteur : filtre toujours sur un lieu du parc où il n''est jamais intervenu');
 SELECT _bfr_jwt('ops_savr');
 SELECT is(
   _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid],
           ARRAY['ba9c0000-0000-0000-0000-0000000000b2'::uuid,
                 'ba9c0000-0000-0000-0000-0000000000b3'::uuid,
                 'ba9c0000-0000-0000-0000-0000000000b4'::uuid]), 5,
-  '21. staff : nomme librement lieu et traiteurs');
-SELECT _bfr_superuser();
+  '22. staff : nomme librement lieu et traiteurs');
+-- Chemin réel du rafraîchissement de la vue matérialisée et du PDF : jeton de
+-- service, sans rôle applicatif.
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
+SELECT set_config('role', 'service_role', true);
 SELECT is(
   _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid]), 5,
-  '22. appel sans rôle applicatif (vue matérialisée, PDF) : non concerné par la garde');
+  '23. appel en service_role (vue matérialisée, PDF) : non concerné par la garde');
+-- Fiche collecte : f_benchmark_single_collecte appelle le calcul sous le jeton
+-- du gestionnaire, sans lieu ni traiteur. Collecte programmée par A sur son lieu
+-- (la fonction n'accepte que l'organisation programmatrice ou opérationnelle).
+SELECT _bfr_superuser();
+UPDATE plateforme.evenements
+   SET organisation_id = 'ba9c0000-0000-0000-0000-0000000000a1'
+ WHERE id = 'ba9c0000-0000-0000-0000-0000000003e0';
+SELECT _bfr_jwt('gestionnaire_lieux', 'ba9c0000-0000-0000-0000-0000000000a1');
+SELECT is(
+  (SELECT nb_collectes_segment
+     FROM plateforme.f_benchmark_single_collecte('ba9c0000-0000-0000-0000-0000000004c0')
+    WHERE flux_code = 'biodechet'),
+  10,
+  '24. fiche collecte du gestionnaire : repère parc toujours servi (10 collectes), la garde ne lève pas');
 
--- 23-25. Durcissement conservé ------------------------------------------------
+-- 25-27. Durcissement conservé ------------------------------------------------
+SELECT _bfr_superuser();
 SELECT is(
   (SELECT count(*)::int
      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -267,7 +292,7 @@ SELECT is(
       AND p.prosecdef
       AND 'search_path=plateforme, pg_catalog' = ANY(coalesce(p.proconfig, '{}'))),
   3,
-  '23. les trois fonctions restent SECURITY DEFINER avec search_path verrouillé');
+  '25. les trois fonctions restent SECURITY DEFINER avec search_path verrouillé');
 
 SELECT is(
   (SELECT array_agg(DISTINCT beneficiaires)
@@ -283,7 +308,7 @@ SELECT is(
               AND a.privilege_type = 'EXECUTE'
             GROUP BY p.proname) t),
   ARRAY['authenticated,postgres,service_role'],
-  '24. bénéficiaires d''EXECUTE inchangés sur les trois fonctions (PUBLIC et anon absents)');
+  '26. bénéficiaires d''EXECUTE inchangés sur les trois fonctions (PUBLIC et anon absents)');
 
 SELECT is(
   (SELECT pg_get_function_identity_arguments(p.oid) || ' -> ' || pg_get_function_result(p.oid)
@@ -291,7 +316,7 @@ SELECT is(
     WHERE n.nspname = 'plateforme' AND p.proname = 'f_benchmark_kg_pax_zd'),
   'p_flux_id uuid, p_type_evenement_ids uuid[], p_taille_evenement_codes text[], p_periode_debut date, p_periode_fin date, p_lieu_ids uuid[], p_traiteur_ids uuid[]'
     || ' -> TABLE(flux_id uuid, flux_code text, type_evenement_id uuid, taille_evenement text, kg_par_pax_moyen numeric, nb_collectes_segment integer, nb_organisations_distinctes integer)',
-  '25. f_benchmark_kg_pax_zd : 7 paramètres et colonnes de sortie inchangés');
+  '27. f_benchmark_kg_pax_zd : 7 paramètres et colonnes de sortie inchangés');
 
 SELECT * FROM finish();
 ROLLBACK;

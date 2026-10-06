@@ -30,9 +30,12 @@
 -- Dashboard Client Admin lit ses listes par ses propres requêtes) : elle reste en
 -- place, réduite au staff.
 --
--- CE QUI NE CHANGE PAS : les rôles traiteur et agence (liste des lieux du parc, garde
--- compétitive sur `p_traiteur_ids`), le staff, le k-anonymat, la formule, les 7
--- paramètres et les colonnes de sortie. Un appel sans rôle gestionnaire ne traverse
+-- CE QUI NE CHANGE PAS : les rôles traiteur et agence (liste des lieux du parc), la
+-- garde compétitive sur `p_traiteur_ids` (elle vise `traiteur_manager` et
+-- `traiteur_commercial`, pas `agence` : dette connue, hors de ce lot), le staff, le
+-- k-anonymat, la formule, les 7 paramètres et les colonnes de sortie. La nouvelle
+-- garde ne vise que `gestionnaire_lieux` : tout autre appelant nomme lieux et
+-- traiteurs comme avant. Un appel sans rôle gestionnaire ne traverse
 -- pas la nouvelle garde : rafraîchissement de `mv_benchmark_kg_pax_zd_base`,
 -- `f_rapport_benchmark_zd` (PDF, service_role) et `f_benchmark_single_collecte`, qui
 -- ne passe ni lieu ni traiteur.
@@ -44,6 +47,9 @@
 -- les deux listes blanches et l'ajout du bloc de garde.
 --
 -- ROLLBACK : rejouer les trois fonctions depuis les migrations citées ci-dessus.
+-- ⚠ Ce rejeu ROUVRE au gestionnaire les deux listes du parc et le filtre sur
+-- n'importe quel lieu ou traiteur : c'est une migration qui élargit un accès, donc
+-- un arbitrage de Val (CLAUDE.md §12 2bis), pas un geste technique.
 -- ---------------------------------------------------------------------------
 
 BEGIN;
@@ -78,6 +84,8 @@ RETURNS TABLE (id uuid, nom text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = plateforme, pg_catalog AS $$
 BEGIN
+  -- Fail-closed : sans ce test, NULL NOT IN (…) vaut NULL et un jeton sans rôle
+  -- métier obtenait la liste complète des traiteurs concurrents.
   IF plateforme.f_app_role() IS NULL THEN
     RAISE EXCEPTION 'Role applicatif absent (acces refuse)';
   END IF;
@@ -133,7 +141,7 @@ BEGIN
   -- laisse le repère sur tout le parc ; vide ne rend aucun segment, comme avant
   -- (`= ANY('{}')`). Un élément NULL, ou un jeton sans organisation, est refusé.
   IF plateforme.f_app_role() = 'gestionnaire_lieux' THEN
-    v_org := (auth.jwt()->>'organisation_id')::uuid;
+    v_org := NULLIF(auth.jwt()->>'organisation_id', '')::uuid;
     IF EXISTS (
       SELECT 1
       FROM unnest(p_lieu_ids) AS demande(lieu_demande)
@@ -199,6 +207,6 @@ BEGIN
 END $$;
 
 COMMENT ON FUNCTION plateforme.f_benchmark_kg_pax_zd(uuid, uuid[], text[], date, date, uuid[], uuid[]) IS
-  'Benchmark parc kg/pax ZD — grain (flux x type_evenement x taille), moyenne ponderee par tonnage (SUM poids / SUM pax), 7 filtres CDC 04/11. k-anonymat DOUBLE (durci 2026-09-22) : >=5 collectes ET >=3 acteurs distincts sur les deux colonnes (organisation programmatrice ET traiteur operationnel). SECURITY DEFINER + garde competitive role traiteur + garde de perimetre gestionnaire_lieux (2026-10-06 : lieux rattaches et traiteurs intervenus seulement, SQLSTATE 42501).';
+  'Benchmark parc kg/pax ZD — grain (flux x type_evenement x taille), moyenne ponderee par tonnage (SUM poids / SUM pax), 7 filtres CDC 04/11. k-anonymat DOUBLE (durci 2026-09-22) : >=5 collectes ET >=3 acteurs distincts sur les deux colonnes (organisation programmatrice ET traiteur operationnel) — 5 collectes d''un acteur unique publiaient sa performance individuelle. SECURITY DEFINER + garde competitive role traiteur + garde de perimetre gestionnaire_lieux (2026-10-06 : lieux rattaches et traiteurs intervenus seulement, SQLSTATE 42501).';
 
 COMMIT;

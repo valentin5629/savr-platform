@@ -81,7 +81,7 @@
     },
     {
       "id": "M2.4-p2-18-ag-attestation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:74",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:78",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts (branche AG) + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts (disponibilité AG via attestations_don)",
       "test": "M2.4 / rapport RSE AG = attestation standalone (option a Val) : collecte AG → sert l'attestation ; embargo H+24 → 425",
       "statut": "implemented",
@@ -89,7 +89,7 @@
     },
     {
       "id": "M2.4-p2-20-attestation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:209",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:211",
       "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts (mention de régénération)",
       "test": "M2.4 / attestation de don — mention de régénération : présente uniquement si régénérée",
       "statut": "implemented",

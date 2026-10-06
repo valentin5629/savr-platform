@@ -1215,7 +1215,7 @@
     },
     {
       "id": "M0.6-associations-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:291",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:294",
       "artefact": "supabase/migrations/20261004200000_plateforme_associations_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 7 colonnes : id, nom, ville, region, latitude, longitude, description_rapport_impact)",
       "test": "supabase/tests/SECU__associations_select_liste_blanche.test.sql (1-4 privilèges + liste blanche exacte ; 5 non-vacuité ; 6-20 gestionnaire : ligne visible, 7 colonnes lues avec leurs valeurs, 19 colonnes refusées en 42501 par SELECT réel de chaque colonne, select=* refusé, embeds attestations_don et attributions ; 21-27 traiteur : lectures réelles de la fiche collecte, de l'export CSV, des dashboards et du détail événement ; 28-36 traiteur_commercial / agence / client organisateur / traiteur sans lien : mêmes 7 lues, mêmes 19 refusées, ligne visible ; 37-40 aucune écriture cliente ; 41-47 admin_savr et ops_savr JWT fermés en lecture, UPDATE staff par JWT conservé mais RETURNING d'une colonne fermée refusé, service_role lit les 26 colonnes ; 48-49 fail-closed colonne ajoutée)",
       "statut": "implemented",
@@ -1223,7 +1223,7 @@
     },
     {
       "id": "M0.6-transporteurs-lecture-cliente-fermee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:621",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:628",
       "artefact": "supabase/migrations/20261005100000_plateforme_transporteurs_lecture_cliente_fermee.sql (retrait de la policy transp_read — auth.role() = 'authenticated' — qui rendait toutes les lignes à tout utilisateur connecté ; restent transp_admin, transp_ops_select, transp_ops_write)",
       "test": "supabase/tests/SECU__transporteurs_lecture_cliente_fermee.test.sql (1-8 catalogue : transp_read absente, cliquet sur chaque policy prédicat compris, RLS activée et forcée, privilèges, aucune vue dépendante, aucune fonction SECURITY DEFINER atteignant la table exécutable par un client ; 9-11 non-vacuité ; 12-17 gestionnaire : JWT conforme, 0 ligne, aucune colonne ne rend la ligne par SELECT réel de chaque colonne, pas d'oracle par filtre, témoin types_evenements ; 18-23 traiteur programmateur : 0 ligne, et l'embed depuis sa propre attribution rend l'attribution sans le transporteur ; 24-33 traiteur_commercial / agence / client organisateur / traiteur sans lien : 0 ligne ; 34-37 aucune écriture cliente, par des ordres sans WHERE ni RETURNING ; 38-44 admin_savr et ops_savr par JWT : lecture des 22 colonnes et écriture conservées ; 45-49 service_role : fiche entière, résolution par prestataire, embed depuis l'attribution)",
       "statut": "implemented",
@@ -1375,7 +1375,7 @@
     },
     {
       "id": "M0.6-tuile-a-dispatcher-clic",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:203",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:209",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (basculerADispatcher : clic sur une tuile « AG / ZD à dispatcher » = chip non_transmises_ag / non_transmises_zd + filtre Type effacé)",
       "test": "M0.6 — kpi_a_dispatcher_predicat_unique : clic sur une tuile « à dispatcher »",
       "statut": "implemented",
@@ -1391,7 +1391,7 @@
     },
     {
       "id": "M0.6-bloc-dispatch-ordre-en-file-envoi",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:252",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:260",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (état dérivé ordreEnFileEnvoi : AG programmee/validee + prestataire_logistique_id posé chez un adapter mts1/a_toutes + tms_reference NULL + statut_tms non_envoye → badge « Envoyée » en en-tête et ligne Statut TMS, encart « Collecte envoyée à … », cartes + bouton d'envoi masqués, action secondaire « Changer de prestataire » (titre « Changer de prestataire », « Renvoyer à … » si même prestataire, « Garder le prestataire actuel », focus clavier géré) ; ZD, transporteurs manuels et sans pont exclus), packages/plateforme/src/lib/type-tms-labels.ts (libelleCanalEnvoi)",
       "test": "AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au prestataire, ni carte ni bouton d’envoi + AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer + AG en file d’envoi : envoyer chez un autre prestataire (motif override) POST le dispatch, puis le mode « changer » se referme + ZD avec prestataire et sans référence (fixture seed col_dispatch_non_envoye) : pas « envoyée » — rien ne pose de prestataire sur une ZD en V1, aucun ordre en file + pas d’état « en file d’envoi »",
       "statut": "à-vérifier",

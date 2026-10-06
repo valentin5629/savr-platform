@@ -358,7 +358,7 @@
     },
     {
       "id": "M0.8-tabs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:387",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:398",
       "artefact": null,
       "test": "M0.8-30 — Tabs affiche le panneau de l’onglet actif",
       "statut": "à-vérifier",
@@ -374,7 +374,7 @@
     },
     {
       "id": "M0.8-date-picker",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:355",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:371",
       "artefact": null,
       "test": "M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel",
       "statut": "à-vérifier",
@@ -599,7 +599,7 @@
     },
     {
       "id": "M0.8-filtres-choix-multiple-toutes-barres",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:283",
       "artefact": "packages/plateforme/src/components/ui/filtre-en-ligne.tsx (FiltreCoches, case « Tous ») + écrans PR 1 (#444 : Admin Collectes, Dashboard Client) et PR 2 (Admin Clients, Transporteurs, Associations, Lieux, Factures ; Registre ; Facturation traiteur ; Événements gestionnaire) et PR 3 (listes Collectes traiteur et agence : components/collecte/collecte-filtres-bar.tsx)",
       "test": "ds/filtre_coches_case_tous_cochee_par_defaut_efface_la_selection",
       "statut": "implemented",

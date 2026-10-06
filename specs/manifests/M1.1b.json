@@ -417,7 +417,7 @@
     },
     {
       "id": "M1.1b-lieu-activite",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:586",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:642",
       "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/[id]/activite/route.ts",
       "test": "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes + M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur + M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte + M1.1b/lieux/activite — réponse minimale : jamais les valeurs avant/après de l'audit (champs admin-only)",
       "statut": "implemented",
@@ -457,7 +457,7 @@
     },
     {
       "id": "M1.1b-lieux-filtre-statut-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:563",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:610",
       "artefact": "packages/plateforme/src/app/(admin)/admin/lieux/page.tsx (Statut en FiltreCoches, « Actifs » pré-coché ; route inchangée)",
       "test": "M1.1b — Lieux : Statut « Actifs » pré-coché",
       "statut": "à-vérifier",

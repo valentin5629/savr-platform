@@ -540,7 +540,7 @@
     },
     {
       "id": "M3.2-cockpit-page",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:1-266",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:1-252",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/*",
       "test": "M3.2/dash_bloc2_bloc4_zd_montes + M3.2/blocs_gestionnaire_zd_top_traiteurs_sans_prochaines + M3.2/P2_dashboard_carte_kpi_non_cliquable",
       "statut": "implemented",
@@ -588,7 +588,7 @@
     },
     {
       "id": "M3.2-detail-evenement-lecture-seule",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:334-354",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:320-340",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + supabase/migrations/20260921190000_plateforme_dechets_labo_null_sans_coefficient.sql",
       "test": "M3.2/detail_evenement_consultation_lecture_seule — en-tête, sous-blocs ZD et AG, documents, aucune action + M3.2/detail_evenement_consultation_lecture_seule — client organisateur non renseigné : cellule absente ; estimation labo indisponible : « — », jamais « 0.0 kg » + M3.2/detail_evenement_coefficient_declare_zero — coefficient déclaré à 0 : « 0.0 kg », jamais « — » + supabase/tests/dechets_labo_null_sans_coefficient.test.sql (cas 1-4 : valeur / sans coefficient → NULL / zéro déclaré → 0 / hors périmètre → NULL, avec leurs contre-épreuves de non-vacuité 5-6)",
       "statut": "implemented",
@@ -652,7 +652,7 @@
     },
     {
       "id": "M3.2-popup-sans-annulation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:354",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:340",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.2/fiche_popup_gestionnaire_sans_annulation",
       "statut": "implemented",
@@ -676,7 +676,7 @@
     },
     {
       "id": "M3.2-popup-coordonnees-urgence",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/coordonnees-urgence/route.ts",
       "test": "M3.2/urgence_gestionnaire_ok",
       "statut": "implemented",
@@ -684,7 +684,7 @@
     },
     {
       "id": "M3.2-popup-marque-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": "M3.2/fiche_popup_gestionnaire_marque_blanche",
       "statut": "implemented",
@@ -708,7 +708,7 @@
     },
     {
       "id": "M3.2-evenements-type-collecte-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:312",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:298",
       "artefact": "packages/plateforme/src/components/dashboards/EvenementsFilterBar.tsx (FiltreCoches « ZD seul / AG seul / ZD et AG ») + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx (URL types_collecte[], ancien type_collecte relu) + packages/plateforme/src/lib/evenements-type-collecte.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/export-csv/route.ts",
       "test": "M3.2 — ancien lien ?type_collecte=avec_zd + M3.2 — « AG seul » coché + M3.2/evenements_types_collecte_partition + M3.2/evenements_type_collecte_ancien_lien + M3.2/evenements_types_collecte_hors_liste_ecartes + M3.2/evenements_types_collecte_prioritaire_sur_ancien + M3.2/P2_export_csv_types_collecte",
       "statut": "à-vérifier",
@@ -764,7 +764,7 @@
     },
     {
       "id": "M3.2-pack-ag-consommation-par-vue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2106",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2117",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts",
       "test": "M3.2/pack_ag_consommation_par_vue + M3.2/pack_ag_consommation_repas_objet",
       "statut": "implemented",

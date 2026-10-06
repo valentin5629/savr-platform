@@ -43,10 +43,11 @@ SELECT ok(
        AND tablename = 'alertes_admin'
        AND indexname = 'uniq_alerte_lieu_modification_ouverte'
        AND indexdef ILIKE '%UNIQUE%'
+       AND indexdef ILIKE '%(entity_id)%'
        AND indexdef ILIKE '%lieu_modification_demandee%'
        AND indexdef ILIKE '%ouverte%'
   ),
-  'LIEU_MODIF/index_unique_partiel_present — index unique partiel sur les alertes ouvertes du code'
+  'LIEU_MODIF/index_unique_partiel_present — index unique partiel, par lieu, sur les alertes ouvertes du code'
 );
 
 SELECT lives_ok(

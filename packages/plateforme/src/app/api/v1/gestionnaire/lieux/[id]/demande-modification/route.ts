@@ -42,7 +42,7 @@ const dejaEnCours = () =>
 //    placé entre guillemets, après le préfixe écrit ici ; l'écran Admin
 //    l'affiche en texte brut, sauts de ligne repliés ;
 //  · une demande OUVERTE par lieu : garantie par l'index unique partiel
-//    `uniq_alerte_lieu_modification_ouverte` (migration 20261006220000). La
+//    `uniq_alerte_lieu_modification_ouverte` (migration 20261006231500). La
 //    route lit d'abord s'il en existe une (réponse 409 sans écriture) ; N
 //    envois au même instant franchissent cette lecture, un seul insert passe,
 //    les autres échouent en 23505 et reçoivent le même 409. L'alerte est

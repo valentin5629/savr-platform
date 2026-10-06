@@ -489,27 +489,14 @@ async function handleEventType(
           });
         }
         if (coursier) {
-          // Téléphone : valeur API si fournie ; sinon conservé tant que le nom
-          // ne change pas (saisie Admin épargnée, comme MTS-1), remis à null si
-          // le coursier change (jamais un nom neuf avec l'ancien téléphone).
-          const { data: courant, error: lectureErr } = await supabase
-            .from('tournees')
-            .select('chauffeur_nom, chauffeur_telephone')
-            .eq('id', mission.tournee_id)
-            .eq('external_ref_commande', missionId)
-            .maybeSingle();
-          const nomCourant =
-            (courant as { chauffeur_nom?: string | null } | null)
-              ?.chauffeur_nom ?? null;
-          const coordonnees: Record<string, string | null> = {
+          // Même règle que l'adapter MTS-1 (garde-fou 2 : même sémantique pour
+          // les deux prestataires) : on n'écrit que ce que l'API donne — le
+          // téléphone n'est touché que s'il est fourni (saisie Admin conservée).
+          const coordonnees: Record<string, string> = {
             chauffeur_nom: coursier.nom,
           };
           if (coursier.telephone) {
             coordonnees['chauffeur_telephone'] = coursier.telephone;
-          } else if (!lectureErr && nomCourant !== coursier.nom) {
-            // Lecture en échec = on ne sait pas si le coursier change → le
-            // téléphone (peut-être saisi par l'Admin) n'est pas touché.
-            coordonnees['chauffeur_telephone'] = null;
           }
           const { error: coordErr } = await supabase
             .from('tournees')

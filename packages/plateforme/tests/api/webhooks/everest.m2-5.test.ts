@@ -32,11 +32,6 @@ let mockAuditRow: unknown = null;
 const PRESTA_EVEREST = 'presta-a-toutes';
 let lastMissionId = '';
 let mockTransporteurRow: unknown = { type_tms: 'a_toutes' };
-// Tournée « en base » lue avant l'écriture du coursier (nom / téléphone courants).
-let mockTourneeRow: {
-  chauffeur_nom: string | null;
-  chauffeur_telephone: string | null;
-} | null = null;
 let mockRefTournee: string | null | undefined;
 let mockLienAbsent = false;
 let mockLienSurcharge: Record<string, unknown> = {};
@@ -205,7 +200,6 @@ const makeQuery = (table: string) => {
     }
     if (table === 'transporteurs')
       return { data: mockTransporteurRow, error: null };
-    if (table === 'tournees') return { data: mockTourneeRow, error: null };
     if (table === 'collecte_tournees') {
       // Le lien « en base » appartient à la collecte et à la tournée de la
       // mission (sauf surcharge) ; les filtres eq de la lecture sont évalués.
@@ -381,7 +375,6 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
     vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
     mockAuditRow = null;
-    mockTourneeRow = null;
     rpcCalls.length = 0;
     updateErrors = {};
     mockState = setupEverestMock();
@@ -533,7 +526,7 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     ).toBe(true);
   });
 
-  it('mission_dispatched — même coursier, API sans téléphone → le téléphone saisi par l’Admin est conservé (seul le nom est réécrit)', async () => {
+  it('mission_dispatched — API sans téléphone → seul le nom est écrit (le téléphone, peut-être saisi par l’Admin, n’est pas touché — même règle que MTS-1)', async () => {
     mockMissionRow = {
       id: 'em-001',
       tournee_id: 'tour-001',
@@ -541,10 +534,6 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
       statut_everest: 'created',
     };
     mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
-    mockTourneeRow = {
-      chauffeur_nom: 'Jean Vélo',
-      chauffeur_telephone: '+33611111111',
-    };
     mockState.details.set('EVR-001', {
       mission_id: 'EVR-001',
       status: 'assigned',
@@ -560,44 +549,11 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
         mission_id: 'EVR-001',
         event_type: 'mission_dispatched',
         occurred_at: '2026-07-20T22:05:00Z',
+        coursier_telephone: '+33600000000',
       }),
     );
     expect(updatedRows['tournees'] ?? []).toEqual([
       { chauffeur_nom: 'Jean Vélo' },
-    ]);
-  });
-
-  it('mission_dispatched — coursier différent, API sans téléphone → téléphone remis à null (jamais un nom neuf avec l’ancien téléphone)', async () => {
-    mockMissionRow = {
-      id: 'em-001',
-      tournee_id: 'tour-001',
-      collecte_id: 'col-001',
-      statut_everest: 'created',
-    };
-    mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
-    mockTourneeRow = {
-      chauffeur_nom: 'Ancien Coursier',
-      chauffeur_telephone: '+33611111111',
-    };
-    mockState.details.set('EVR-001', {
-      mission_id: 'EVR-001',
-      status: 'assigned',
-      cout_ht: null,
-      preuve_url: null,
-      coursier_nom: 'Jean Vélo',
-      coursier_telephone: null,
-      vehicule_type: null,
-    });
-
-    await POST(
-      makeWebhookRequest({
-        mission_id: 'EVR-001',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
-      }),
-    );
-    expect(updatedRows['tournees'] ?? []).toEqual([
-      { chauffeur_nom: 'Jean Vélo', chauffeur_telephone: null },
     ]);
   });
 
@@ -673,40 +629,6 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     expect(
       rpcCalls.some((c) => c.name === 'fn_infos_acces_marquer_si_complet'),
     ).toBe(false);
-  });
-
-  it('mission_dispatched — lecture préalable de la tournée en échec, API sans téléphone → seul le nom est réécrit (téléphone Admin jamais effacé sur un incident de lecture)', async () => {
-    mockMissionRow = {
-      id: 'em-001',
-      tournee_id: 'tour-001',
-      collecte_id: 'col-001',
-      statut_everest: 'created',
-    };
-    mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
-    mockState.details.set('EVR-001', {
-      mission_id: 'EVR-001',
-      status: 'assigned',
-      cout_ht: null,
-      preuve_url: null,
-      coursier_nom: 'Nouveau Coursier',
-      coursier_telephone: null,
-      vehicule_type: null,
-    });
-    readErrors['tournees'] = { code: '57014', message: 'canceling statement' };
-    try {
-      await POST(
-        makeWebhookRequest({
-          mission_id: 'EVR-001',
-          event_type: 'mission_dispatched',
-          occurred_at: '2026-07-20T22:05:00Z',
-        }),
-      );
-    } finally {
-      delete readErrors['tournees'];
-    }
-    expect(updatedRows['tournees'] ?? []).toEqual([
-      { chauffeur_nom: 'Nouveau Coursier' },
-    ]);
   });
 
   it('mission_dispatched — déjà acceptée → pas de double update statut_tms', async () => {

@@ -973,9 +973,6 @@ export function CollecteDetailPanel({
   // `prestataire_logistique_id` est NULL : transporteur sans pont (par mail, par
   // téléphone, autre) de l'attribution AG validée.
   const currentTransporteur = collecte.prestataire_actuel ?? undefined;
-  // Canal qui remonte les coordonnées chauffeur (MTS-1 / A Toutes!) ; null =
-  // transporteur manuel, rien ne remonte automatiquement.
-  const canalChauffeur = libelleCanalEnvoi(currentTransporteur?.type_tms);
   // « Non attribué » ne se dit que d'une collecte SANS prestataire : si elle en a
   // un dont le nom manque dans la réponse, on le dit tel quel.
   const libelleSansNom =
@@ -1029,6 +1026,24 @@ export function CollecteDetailPanel({
   const renvoi =
     !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
   const canalEnvoi = libelleCanalEnvoi(currentTransporteur?.type_tms);
+  // Bloc « Chauffeur » : titre et texte d'aide selon le cas (4 cas).
+  const sansTournee = collecte.collecte_tournees.length === 0;
+  const titreChauffeur = sansTournee
+    ? isTerminal
+      ? 'Aucun chauffeur enregistré'
+      : 'Chauffeur pas encore affecté'
+    : collecte.collecte_tournees.length > 1
+      ? 'Chauffeurs'
+      : 'Chauffeur';
+  const aideChauffeur = sansTournee
+    ? isTerminal
+      ? 'Aucune tournée enregistrée pour cette collecte.'
+      : 'Aucune tournée pour le moment — les coordonnées pourront être saisies dès que le prestataire aura pris en charge la commande (création de la tournée).'
+    : collecte.controle_acces_requis
+      ? null
+      : canalEnvoi
+        ? `Les coordonnées remontent automatiquement de ${canalEnvoi} dès l’affectation du chauffeur ; complétez-les si elles manquent.`
+        : 'Coordonnées à saisir par l’équipe Ops.';
   const referenceSaisie = acceptationSaisie.reference_mission.trim();
   const acceptationIncomplete =
     referenceSaisie === '' ||
@@ -1697,18 +1712,14 @@ export function CollecteDetailPanel({
             au polling ; A Toutes! : coursier du webhook Everest), complétés par
             l'Admin si besoin (contrôle d'accès, transporteur manuel). Remplace
             la card « Informations chauffeur » de l'onglet Informations. */}
-            <Card padding="md" className="space-y-4">
+            <Card
+              padding="md"
+              className="space-y-4"
+              data-testid="bloc-chauffeur"
+            >
               <BlocHeader
                 icon={UserRound}
-                title={
-                  collecte.collecte_tournees.length === 0
-                    ? isTerminal
-                      ? 'Aucun chauffeur enregistré'
-                      : 'Chauffeur pas encore affecté'
-                    : collecte.collecte_tournees.length > 1
-                      ? 'Chauffeurs'
-                      : 'Chauffeur'
-                }
+                title={titreChauffeur}
                 action={
                   !editInfosAcces && collecte.collecte_tournees.length > 0 ? (
                     <Button variant="secondary" onClick={openEditInfosAcces}>
@@ -1717,7 +1728,7 @@ export function CollecteDetailPanel({
                   ) : undefined
                 }
               />
-              {collecte.controle_acces_requis ? (
+              {collecte.controle_acces_requis && (
                 <>
                   <Text>
                     Ce lieu exige un contrôle d’accès : nom et téléphone du
@@ -1745,34 +1756,9 @@ export function CollecteDetailPanel({
                       En attente : infos à compléter avant envoi de l’email.
                     </Text>
                   )}
-                  {collecte.collecte_tournees.length === 0 && (
-                    <Text>
-                      {isTerminal
-                        ? 'Aucune tournée enregistrée pour cette collecte.'
-                        : 'Aucune tournée pour le moment — les coordonnées pourront être saisies dès que le prestataire aura pris en charge la commande (création de la tournée).'}
-                    </Text>
-                  )}
                 </>
-              ) : collecte.collecte_tournees.length === 0 ? (
-                <Text>
-                  {isTerminal
-                    ? 'Aucune tournée enregistrée pour cette collecte.'
-                    : 'Aucune tournée pour le moment — les coordonnées pourront être saisies dès que le prestataire aura pris en charge la commande (création de la tournée).'}
-                </Text>
-              ) : canalChauffeur ? (
-                <Text>
-                  Les coordonnées remontent automatiquement de {canalChauffeur}{' '}
-                  dès l’affectation du chauffeur ; complétez-les si elles
-                  manquent.
-                </Text>
-              ) : currentTransporteur ? (
-                <Text>
-                  Transporteur sans TMS connecté : coordonnées à saisir par
-                  l’équipe Ops.
-                </Text>
-              ) : (
-                <Text>Coordonnées à saisir par l’équipe Ops.</Text>
               )}
+              {aideChauffeur && <Text>{aideChauffeur}</Text>}
 
               {infosAccesFeedback && (
                 <AlertBar variant="info">{infosAccesFeedback}</AlertBar>

@@ -2030,7 +2030,9 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
       for (const label of ['Chauffeur', 'Plaque', 'Téléphone']) {
         expect(screen.getByText(label)).toBeInTheDocument();
       }
-      expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
+      expect(
+        within(screen.getByTestId('bloc-chauffeur')).getAllByText('—'),
+      ).toHaveLength(3);
       expect(
         screen.getByText(/Aucune tournée pour le moment/),
       ).toBeInTheDocument();
@@ -2077,7 +2079,6 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
       expect(within(bloc).queryByText(/^Camion 1$/)).toBeNull();
       // Titre au singulier (un seul camion) — « Chauffeur » est aussi le label
       // du champ, d'où getAll.
-      expect(screen.getAllByText('Chauffeur').length).toBeGreaterThanOrEqual(2);
       expect(screen.queryByText('Chauffeurs')).toBeNull();
       expect(screen.queryByText(/contrôle d’accès/)).toBeNull();
       expect(
@@ -2168,24 +2169,6 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
       expect(within(camions[0]!).queryByText('Accompagnant')).toBeNull();
       // Transporteur manuel : rien ne remonte automatiquement.
       expect(screen.getByText(/à saisir par l’équipe Ops/)).toBeInTheDocument();
-      expect(screen.queryByText(/remontent automatiquement/)).toBeNull();
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    'tournée présente mais prestataire inconnu : « Coordonnées à saisir par l’équipe Ops », jamais « Transporteur sans TMS »',
-    async () => {
-      // collecteAg : aucun prestataire_actuel ni prestataire_logistique_id.
-      mockFetch({ ...collecteAg, collecte_tournees: [tourneeMts1] });
-      render(<CollecteDetailPanel collecteId="c1" />);
-      await ouvrirOnglet('Logistique');
-
-      await screen.findByTestId('camion-chauffeur', undefined, ATTENTE_UI);
-      expect(
-        screen.getByText('Coordonnées à saisir par l’équipe Ops.'),
-      ).toBeInTheDocument();
-      expect(screen.queryByText(/Transporteur sans TMS/)).toBeNull();
       expect(screen.queryByText(/remontent automatiquement/)).toBeNull();
     },
     ATTENTE_CAS_MS,

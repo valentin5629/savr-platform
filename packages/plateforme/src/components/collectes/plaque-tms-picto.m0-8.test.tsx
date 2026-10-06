@@ -9,8 +9,8 @@ import { render, screen } from '@testing-library/react';
 import { plaqueTmsComplete } from '@/lib/statut-tms-labels';
 import { PlaqueTmsPicto } from './plaque-tms-picto';
 
-const t = (plaque: string | null) => ({
-  tournees: { plaque_immatriculation: plaque },
+const t = (plaque: string | null, type_vehicule: string | null = null) => ({
+  tournees: { plaque_immatriculation: plaque, type_vehicule },
 });
 
 describe('M0.8-60 — Picto plaque TMS : vert ssi toutes les tournées ont leur plaque (BL-P3-12)', () => {
@@ -21,27 +21,10 @@ describe('M0.8-60 — Picto plaque TMS : vert ssi toutes les tournées ont leur 
     expect(plaqueTmsComplete([t('AB-123-CD'), t(null)])).toBe(false); // une manque
     expect(plaqueTmsComplete([t(null)])).toBe(false);
     // Vélo cargo (A Toutes!) : pas de plaque attendue → complet.
-    expect(
-      plaqueTmsComplete([
-        {
-          tournees: {
-            plaque_immatriculation: null,
-            type_vehicule: 'velo_cargo',
-          },
-        },
-      ]),
-    ).toBe(true);
-    expect(
-      plaqueTmsComplete([
-        t('AB-123-CD'),
-        {
-          tournees: {
-            plaque_immatriculation: null,
-            type_vehicule: 'velo_cargo',
-          },
-        },
-      ]),
-    ).toBe(true);
+    expect(plaqueTmsComplete([t(null, 'velo_cargo')])).toBe(true);
+    expect(plaqueTmsComplete([t('AB-123-CD'), t(null, 'velo_cargo')])).toBe(
+      true,
+    );
   });
 
   it('rendu vert quand toutes les plaques sont communiquées', () => {

@@ -11,7 +11,7 @@ export function PlaqueTmsPicto({
   tournees: {
     tournees: {
       plaque_immatriculation: string | null;
-      type_vehicule?: string | null;
+      type_vehicule: string | null;
     };
   }[];
 }) {

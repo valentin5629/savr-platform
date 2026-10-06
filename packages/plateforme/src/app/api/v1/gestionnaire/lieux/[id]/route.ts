@@ -66,8 +66,9 @@ function poidsDe(c: CollecteDuLieu): number {
 //     un lieu détaché depuis) reste en consultation ;
 //   - `demande_modification_en_cours` : une demande de modification attend
 //     l'équipe Savr (le bouton de la fiche est alors neutralisé). Toujours
-//     `false` hors parc : l'état d'un lieu ne se lit pas d'une organisation à
-//     l'autre.
+//     `false` hors parc. Un lieu n'ayant qu'un gestionnaire rattaché (règle
+//     tenue par la route Admin des lieux, pas par une contrainte de base),
+//     cet état ne se lit pas d'une organisation à l'autre.
 // Toutes les collectes sont lues avec la session de l'utilisateur : la RLS de
 // `collectes` et de `evenements` borne ce qu'il lit.
 export async function GET(

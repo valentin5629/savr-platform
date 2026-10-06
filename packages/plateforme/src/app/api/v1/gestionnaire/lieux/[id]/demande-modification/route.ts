@@ -38,8 +38,9 @@ const dejaEnCours = () =>
 //  · Une demande OUVERTE par lieu : index unique partiel
 //    `uniq_alerte_lieu_modification_ouverte` (migration 20261006231500), dont
 //    la violation (23505) vaut « déjà en cours ». La lecture préalable donne la
-//    même réponse sans écrire, et tient seule la règle sur un environnement où
-//    la migration n'est pas encore appliquée. Insert direct : la fonction
+//    même réponse sans écrire ; sur un environnement où la migration n'est pas
+//    encore appliquée, elle est seule à s'y opposer et des envois simultanés
+//    peuvent encore ouvrir plusieurs alertes. Insert direct : la fonction
 //    f_upsert_alerte_admin ignorerait un doublon en silence.
 //  · Aucune donnée personnelle recopiée par la route : le message nomme le
 //    lieu et l'organisation ; l'auteur est tracé par audit_log (user_id), où

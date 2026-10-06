@@ -606,6 +606,14 @@ describe('M3.2 / fiche lieu — demande de modification', () => {
     }
   });
 
+  it('M3.2/demande_modification_lieu_du_parc_illisible_404 — lieu rattaché mais non servi par la vue : 404, rien n’est écrit', async () => {
+    rls.push(DU_PARC);
+    rls.push(RIEN); // v_lieux_clients ne rend pas le lieu
+    const res = await postDemande({ texte: MESSAGE });
+    expect(res.status).toBe(404);
+    expect(admin.appels).toHaveLength(0);
+  });
+
   it('M3.2/demande_modification_lieu_audit_en_echec_demande_conservee — l’alerte posée, un audit en échec ne fait pas échouer la demande', async () => {
     preparerDemande();
     admin.push(RIEN); // alerte OK

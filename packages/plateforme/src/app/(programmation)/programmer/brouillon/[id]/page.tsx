@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { FormActions } from '@/components/ui/form-actions';
+import { ROUTES } from '@/lib/routes';
 
 interface BrouillonDetail {
   id: string;
@@ -51,7 +52,7 @@ export default function RepriseBrouillonPage() {
         setError(json.error ?? 'Erreur lors de la confirmation');
         return;
       }
-      router.push('/brouillons');
+      router.push(ROUTES.brouillons);
     } finally {
       setConfirming(false);
     }
@@ -73,7 +74,10 @@ export default function RepriseBrouillonPage() {
         <AlertBar variant="err" role="alert">
           {error ?? 'Brouillon introuvable.'}
         </AlertBar>
-        <Button variant="secondary" onClick={() => router.push('/brouillons')}>
+        <Button
+          variant="secondary"
+          onClick={() => router.push(ROUTES.brouillons)}
+        >
           Retour aux brouillons
         </Button>
       </div>
@@ -123,7 +127,10 @@ export default function RepriseBrouillonPage() {
       )}
 
       <FormActions
-        cancel={{ label: 'Annuler', onClick: () => router.push('/brouillons') }}
+        cancel={{
+          label: 'Annuler',
+          onClick: () => router.push(ROUTES.brouillons),
+        }}
         submit={{
           label: (
             <>

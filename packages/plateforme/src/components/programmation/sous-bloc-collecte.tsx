@@ -12,6 +12,7 @@ import { FormField } from '@/components/ui/form-field';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 export interface CollecteFormData {
   type: 'zd' | 'ag';
@@ -35,7 +36,8 @@ interface SousBlocCollecteProps {
   className?: string;
 }
 
-const TYPE_LABELS = { zd: 'Zéro Déchet', ag: 'Anti-Gaspi' };
+// Cadre du sous-bloc (pas un badge) : ZD vert / AG navy — hors
+// `VARIANT_TYPE_COLLECTE`, suit l'arbitrage Q1 (couleur du type de collecte).
 const TYPE_COLORS = {
   zd: 'border-savr-success bg-savr-success-subtle',
   ag: 'border-savr-primary-400 bg-savr-primary-50',
@@ -64,7 +66,7 @@ export function SousBlocCollecte({
       )}
     >
       <Heading level={3} size="inherit">
-        Collecte {TYPE_LABELS[type]}
+        Collecte {libelleTypeCollecte(type)}
       </Heading>
 
       {type === 'ag' && pack && (

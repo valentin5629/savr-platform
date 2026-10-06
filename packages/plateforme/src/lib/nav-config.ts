@@ -1,4 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
+import type { NavRole } from '@/lib/roles';
+import { ROUTES } from '@/lib/routes';
 import {
   LayoutDashboard,
   Building2,
@@ -17,14 +19,6 @@ import {
   Bell,
 } from 'lucide-react';
 
-export type Role =
-  | 'admin_savr'
-  | 'traiteur_manager'
-  | 'traiteur_commercial'
-  | 'agence'
-  | 'gestionnaire_lieux'
-  | 'client_organisateur';
-
 export interface NavItem {
   label: string;
   href: string;
@@ -37,32 +31,36 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-export const NAV_CONFIG: Record<Role, NavGroup[]> = {
+export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
   admin_savr: [
     {
       items: [
         {
           label: 'Dashboard Admin',
-          href: '/admin/dashboard',
+          href: ROUTES.admin.dashboard,
           icon: LayoutDashboard,
         },
         {
           label: 'Dashboard Client',
-          href: '/admin/dashboard-client',
+          href: ROUTES.admin.dashboardClient,
           icon: BarChart3,
         },
-        { label: 'Collectes', href: '/admin/collectes', icon: Truck },
-        { label: 'Facturation', href: '/admin/factures', icon: Receipt },
-        { label: 'Associations', href: '/admin/associations', icon: Heart },
-        { label: 'Transporteurs', href: '/admin/transporteurs', icon: Truck },
-        { label: 'Lieux', href: '/admin/lieux', icon: MapPin },
-        { label: 'Clients', href: '/admin/clients', icon: Building2 },
-        { label: 'Paramètres', href: '/admin/parametres', icon: Settings },
-        { label: 'Mon profil', href: '/admin/mon-profil', icon: UserCircle },
-        { label: 'Alertes', href: '/admin/alertes', icon: Bell },
+        { label: 'Collectes', href: ROUTES.admin.collectes, icon: Truck },
+        { label: 'Facturation', href: ROUTES.admin.factures, icon: Receipt },
+        { label: 'Associations', href: ROUTES.admin.associations, icon: Heart },
+        {
+          label: 'Transporteurs',
+          href: ROUTES.admin.transporteurs,
+          icon: Truck,
+        },
+        { label: 'Lieux', href: ROUTES.admin.lieux, icon: MapPin },
+        { label: 'Clients', href: ROUTES.admin.clients, icon: Building2 },
+        { label: 'Paramètres', href: ROUTES.admin.parametres, icon: Settings },
+        { label: 'Mon profil', href: ROUTES.admin.monProfil, icon: UserCircle },
+        { label: 'Alertes', href: ROUTES.admin.alertes, icon: Bell },
         {
           label: 'Santé système',
-          href: '/admin/sante-systeme',
+          href: ROUTES.admin.santeSysteme,
           icon: Activity,
         },
       ],
@@ -76,14 +74,22 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
   traiteur_manager: [
     {
       items: [
-        { label: 'Dashboard', href: '/traiteur', icon: LayoutDashboard },
-        { label: 'Collectes', href: '/traiteur/collectes', icon: Truck },
+        {
+          label: 'Dashboard',
+          href: ROUTES.traiteur.racine,
+          icon: LayoutDashboard,
+        },
+        { label: 'Collectes', href: ROUTES.traiteur.collectes, icon: Truck },
         {
           label: 'Mon organisation',
-          href: '/traiteur/mon-organisation',
+          href: ROUTES.traiteur.monOrganisation,
           icon: Building2,
         },
-        { label: 'Mon profil', href: '/traiteur/mon-profil', icon: Settings },
+        {
+          label: 'Mon profil',
+          href: ROUTES.traiteur.monProfil,
+          icon: Settings,
+        },
       ],
     },
   ],
@@ -91,14 +97,22 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
   traiteur_commercial: [
     {
       items: [
-        { label: 'Dashboard', href: '/traiteur', icon: LayoutDashboard },
-        { label: 'Collectes', href: '/traiteur/collectes', icon: Truck },
+        {
+          label: 'Dashboard',
+          href: ROUTES.traiteur.racine,
+          icon: LayoutDashboard,
+        },
+        { label: 'Collectes', href: ROUTES.traiteur.collectes, icon: Truck },
         {
           label: 'Mon organisation',
-          href: '/traiteur/mon-organisation',
+          href: ROUTES.traiteur.monOrganisation,
           icon: Building2,
         },
-        { label: 'Mon profil', href: '/traiteur/mon-profil', icon: Settings },
+        {
+          label: 'Mon profil',
+          href: ROUTES.traiteur.monProfil,
+          icon: Settings,
+        },
       ],
     },
   ],
@@ -109,14 +123,18 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
   agence: [
     {
       items: [
-        { label: 'Dashboard', href: '/agence', icon: LayoutDashboard },
-        { label: 'Collectes', href: '/agence/collectes', icon: Truck },
+        {
+          label: 'Dashboard',
+          href: ROUTES.agence.racine,
+          icon: LayoutDashboard,
+        },
+        { label: 'Collectes', href: ROUTES.agence.collectes, icon: Truck },
         {
           label: 'Mon organisation',
-          href: '/agence/mon-organisation',
+          href: ROUTES.agence.monOrganisation,
           icon: Building2,
         },
-        { label: 'Mon profil', href: '/agence/mon-profil', icon: Settings },
+        { label: 'Mon profil', href: ROUTES.agence.monProfil, icon: Settings },
       ],
     },
   ],
@@ -131,37 +149,45 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
   gestionnaire_lieux: [
     {
       items: [
-        { label: 'Dashboard', href: '/gestionnaire', icon: LayoutDashboard },
+        {
+          label: 'Dashboard',
+          href: ROUTES.gestionnaire.racine,
+          icon: LayoutDashboard,
+        },
         {
           label: 'Événements',
-          href: '/gestionnaire/evenements',
+          href: ROUTES.gestionnaire.evenements,
           icon: CalendarDays,
         },
-        { label: 'Mes lieux', href: '/gestionnaire/lieux', icon: MapPin },
+        { label: 'Mes lieux', href: ROUTES.gestionnaire.lieux, icon: MapPin },
         {
           label: 'Collectes',
-          href: '/gestionnaire/collectes',
+          href: ROUTES.gestionnaire.collectes,
           icon: ClipboardList,
         },
         {
           label: 'Registre réglementaire',
-          href: '/registre',
+          href: ROUTES.registre,
           icon: FileText,
         },
-        { label: 'Traiteurs', href: '/gestionnaire/traiteurs', icon: Truck },
+        {
+          label: 'Traiteurs',
+          href: ROUTES.gestionnaire.traiteurs,
+          icon: Truck,
+        },
         {
           label: 'Mon pack AG',
-          href: '/gestionnaire/mon-pack-ag',
+          href: ROUTES.gestionnaire.monPackAg,
           icon: Package,
         },
         {
           label: 'Mon organisation',
-          href: '/gestionnaire/mon-organisation',
+          href: ROUTES.gestionnaire.monOrganisation,
           icon: Building2,
         },
         {
           label: 'Paramètres',
-          href: '/gestionnaire/parametres',
+          href: ROUTES.gestionnaire.parametres,
           icon: Settings,
         },
       ],
@@ -171,26 +197,34 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
   client_organisateur: [
     {
       items: [
-        { label: 'Mes événements', href: '/organisateur', icon: CalendarDays },
+        {
+          label: 'Mes événements',
+          href: ROUTES.organisateur.racine,
+          icon: CalendarDays,
+        },
         {
           label: 'Collectes',
-          href: '/organisateur/collectes',
+          href: ROUTES.organisateur.collectes,
           icon: ClipboardList,
         },
-        { label: 'Documents', href: '/organisateur/documents', icon: FileText },
+        {
+          label: 'Documents',
+          href: ROUTES.organisateur.documents,
+          icon: FileText,
+        },
         {
           label: 'Registre réglementaire',
-          href: '/registre',
+          href: ROUTES.registre,
           icon: ClipboardList,
         },
         {
           label: 'Mon organisation',
-          href: '/organisateur/mon-organisation',
+          href: ROUTES.organisateur.monOrganisation,
           icon: Building2,
         },
         {
           label: 'Mon profil',
-          href: '/organisateur/mon-profil',
+          href: ROUTES.organisateur.monProfil,
           icon: Settings,
         },
       ],
@@ -198,6 +232,6 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
   ],
 };
 
-export function getNavItems(role: Role): NavItem[] {
+export function getNavItems(role: NavRole): NavItem[] {
   return NAV_CONFIG[role]?.flatMap((g) => g.items) ?? [];
 }

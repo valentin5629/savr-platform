@@ -63,7 +63,7 @@ import { Input } from '@/components/ui/input';
 import { StatCard, StatCardGrid } from '@/components/ui/stat-card';
 import { Sidebar } from '@/components/layout/sidebar';
 import { getNavItems } from '@/lib/nav-config';
-import type { Role } from '@/lib/nav-config';
+import type { NavRole as Role } from '@/lib/roles';
 
 // ── Tokens CSS ──────────────────────────────────────────────────────────────
 

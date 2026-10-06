@@ -32,6 +32,7 @@ import {
 } from '@/lib/dashboards/collecte-filtre-label';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { API_COLLECTES as API_COLLECTES_ESPACE, ROUTES } from '@/lib/routes';
 import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
@@ -49,11 +50,10 @@ type EspaceListeCollectes = Extract<EspaceClient, 'traiteur' | 'agence'>;
 
 // Bases LITTÉRALES (jamais l'espace interpolé dans le chemin) : les segments
 // ajoutés ensuite sont des ids passés par encodeURIComponent (cf.
-// scripts/check-fetch-path-encoding.ts, points de composition).
-const API_COLLECTES: Record<EspaceListeCollectes, string> = {
-  traiteur: '/api/v1/traiteur/collectes',
-  agence: '/api/v1/agence/collectes',
-};
+// scripts/check-fetch-path-encoding.ts, points de composition). Table fermée
+// dérivée de la définition unique des espaces (`lib/routes.ts`).
+const API_COLLECTES: Record<EspaceListeCollectes, string> =
+  API_COLLECTES_ESPACE;
 
 // Répartition des statuts par onglet (aligné Admin, + brouillon/annulation_demandee).
 const STATUTS_PROGRAMMEES = ['brouillon', 'programmee', 'validee', 'en_cours'];
@@ -505,7 +505,8 @@ export function ListeCollectesClient({
           setAnnulErreur(null);
           setAnnulTarget(rows.find((r) => r.id === c.id) ?? null);
         },
-        onDupliquer: (c) => router.push(`/programmer/nouveau?from=${c.id}`),
+        onDupliquer: (c) =>
+          router.push(`${ROUTES.programmer.nouveau}?from=${c.id}`),
         onTelecharger: (c) => void telechargerRapport(c.id),
       }),
     // telechargerRapport ne dépend que de `api` (aucune dépendance d'état).
@@ -529,7 +530,7 @@ export function ListeCollectesClient({
               Exporter CSV
             </Button>
             <Button variant="accent" asChild>
-              <a href={`/programmer/nouveau?type=${typeFiltre}`}>
+              <a href={`${ROUTES.programmer.nouveau}?type=${typeFiltre}`}>
                 Programmer un événement
               </a>
             </Button>

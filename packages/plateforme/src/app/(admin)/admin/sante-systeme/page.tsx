@@ -12,8 +12,8 @@ import {
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
-
-const ALLOWED_ROLES = ['admin_savr', 'ops_savr'];
+import { isStaff } from '@/lib/roles';
+import { ROUTES } from '@/lib/routes';
 
 interface OpsOutbox {
   nb_pending: number;
@@ -100,14 +100,14 @@ export default async function SanteSystemePage() {
   const {
     data: { user },
   } = await authClient.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(ROUTES.login);
 
   const {
     data: { session },
   } = await authClient.auth.getSession();
   const claims = parseJwtClaims(session?.access_token ?? '');
   const role = claims['user_role'] as string | undefined;
-  if (!role || !ALLOWED_ROLES.includes(role)) redirect('/403');
+  if (!isStaff(role)) redirect(ROUTES.interdit);
 
   const data = await fetchOpsData();
 

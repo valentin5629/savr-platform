@@ -10,6 +10,7 @@ import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
 import type { TypeCollecteEvenement } from '@/lib/evenements-type-collecte';
+import { OPTIONS_STATUT_EVENEMENT } from '@/lib/libelles/evenement';
 
 // Filtres de la liste Événements gestionnaire (§06.05 §2 l.280-293) :
 // 5 filtres globaux (Période + Lieux + Traiteurs + Type + Taille) + 2 spécifiques
@@ -25,11 +26,8 @@ export interface EvenementsListFilters {
   statut_consolide: string[];
 }
 
-const STATUT_OPTIONS = [
-  { id: 'En cours', nom: 'En cours' },
-  { id: 'Terminé', nom: 'Terminé' },
-  { id: 'Annulé', nom: 'Annulé' },
-];
+// Statut consolidé : source unique `lib/libelles/evenement` (R-UI-2 C13).
+const STATUT_OPTIONS = OPTIONS_STATUT_EVENEMENT;
 
 // Partition (arbitrage Val F1 2026-10-01) : chaque événement est dans une seule
 // case. « Avec ZD » = ZD seul + ZD et AG ; « Avec AG » = AG seul + ZD et AG.

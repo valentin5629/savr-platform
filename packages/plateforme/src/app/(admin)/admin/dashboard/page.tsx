@@ -22,6 +22,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { fmtEuro } from '@/lib/format';
+import { ROUTES } from '@/lib/routes';
 
 interface KpiData {
   non_transmises_zd: number;
@@ -208,7 +209,7 @@ export default function DashboardAdminPage() {
               reserveTwoLineLabel
               label="Non transmises ZD"
               value={fmtInt(kpi.non_transmises_zd)}
-              href="/admin/collectes?chip=non_transmises_zd"
+              href={`${ROUTES.admin.collectes}?chip=non_transmises_zd`}
               dotColor={
                 kpi.non_transmises_zd > 0 ? OPS_DOT.warn : OPS_DOT.success
               }
@@ -222,7 +223,7 @@ export default function DashboardAdminPage() {
               reserveTwoLineLabel
               label="Non transmises AG"
               value={fmtInt(kpi.non_transmises_ag)}
-              href="/admin/collectes?chip=non_transmises_ag"
+              href={`${ROUTES.admin.collectes}?chip=non_transmises_ag`}
               dotColor={
                 kpi.non_transmises_ag > 0 ? OPS_DOT.warn : OPS_DOT.success
               }
@@ -236,7 +237,7 @@ export default function DashboardAdminPage() {
               reserveTwoLineLabel
               label="Attente prestataire"
               value={fmtInt(kpi.attente_prestataire)}
-              href="/admin/collectes?chip=attente_prestataire"
+              href={`${ROUTES.admin.collectes}?chip=attente_prestataire`}
               dotColor={
                 kpi.attente_prestataire > 0 ? OPS_DOT.info : OPS_DOT.neutral
               }
@@ -246,7 +247,7 @@ export default function DashboardAdminPage() {
               reserveTwoLineLabel
               label="Dirty TMS"
               value={fmtInt(kpi.dirty_tms)}
-              href="/admin/collectes?chip=dirty_tms"
+              href={`${ROUTES.admin.collectes}?chip=dirty_tms`}
               dotColor={kpi.dirty_tms > 0 ? OPS_DOT.error : OPS_DOT.success}
               footer={badgeAlerte(kpi.dirty_tms, 'error', 'À resynchroniser')}
             />
@@ -256,7 +257,7 @@ export default function DashboardAdminPage() {
               reserveTwoLineLabel
               label="Collecte <48h non validée"
               value={fmtInt(kpi.collectes_48h_non_validees)}
-              href="/admin/collectes?chip=collectes_48h_non_validees"
+              href={`${ROUTES.admin.collectes}?chip=collectes_48h_non_validees`}
               dotColor={
                 kpi.collectes_48h_non_validees > 0
                   ? OPS_DOT.warn

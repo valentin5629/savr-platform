@@ -20,12 +20,17 @@
 
 import type { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import { estFluxZd, FLUX_ZD_CODES, libelleFlux } from '@/lib/libelles/flux.js';
 import {
   attributionsAgOf,
   embedAttributionsAg,
   type AttributionAgEmbed,
   type AttributionsAgLues,
 } from './attributions-ag.js';
+import {
+  libelleCourtTypeCollecte,
+  libelleCdcTypeCollecte,
+} from '@/lib/libelles/type-collecte.js';
 
 type Supa = ReturnType<typeof createSupabaseServerClient>;
 
@@ -113,20 +118,6 @@ export interface SyntheseSnapshot {
   co2_facteurs_snapshot?: Record<string, unknown> | null;
 }
 
-const FLUX_LABELS: Record<string, string> = {
-  biodechet: 'Biodéchets',
-  emballage: 'Emballages',
-  carton: 'Carton',
-  verre: 'Verre',
-  dechet_residuel: 'Déchet résiduel',
-};
-const FLUX_ORDER = [
-  'biodechet',
-  'emballage',
-  'carton',
-  'verre',
-  'dechet_residuel',
-];
 const TOP_ASSOS = 3;
 const PERIMETRE_LABELS: Record<SyntheseRole, string> = {
   traiteur_manager: 'traiteur',
@@ -446,16 +437,16 @@ function ventilationFlux(zdRows: CollecteRow[]): SyntheseFluxLigne[] {
       if (code) parCode[code] = (parCode[code] ?? 0) + num(f.poids_reel_kg);
     }
   }
-  const ordered = FLUX_ORDER.filter((code) => (parCode[code] ?? 0) > 0).map(
+  const ordered = FLUX_ZD_CODES.filter((code) => (parCode[code] ?? 0) > 0).map(
     (code) => ({
-      nom: FLUX_LABELS[code] ?? code,
+      nom: libelleFlux(code),
       poids_kg: parCode[code] ?? 0,
     }),
   );
   // Flux hors nomenclature connue (défensif).
   for (const [code, poids] of Object.entries(parCode)) {
-    if (!FLUX_ORDER.includes(code) && poids > 0)
-      ordered.push({ nom: FLUX_LABELS[code] ?? code, poids_kg: poids });
+    if (!estFluxZd(code) && poids > 0)
+      ordered.push({ nom: libelleFlux(code), poids_kg: poids });
   }
   return ordered;
 }
@@ -620,13 +611,13 @@ function detailParEvenement(rows: CollecteRow[]): SyntheseDetailLigne[] {
     const kg = kgOf(c);
     g.tonnage += kg;
     if (c.type === 'zero_dechet') {
-      g.types.add('ZD');
+      g.types.add(libelleCourtTypeCollecte('zero_dechet'));
       if (c.taux_recyclage != null && kg > 0) {
         g.tauxNum += c.taux_recyclage * kg;
         g.tauxDen += kg;
       }
     } else {
-      g.types.add('AG');
+      g.types.add(libelleCourtTypeCollecte('anti_gaspi'));
       g.repas += attrsOf(c).reduce(
         (s, a) => s + num(a.volume_repas_realise),
         0,
@@ -640,7 +631,9 @@ function detailParEvenement(rows: CollecteRow[]): SyntheseDetailLigne[] {
     type: [...g.types].sort().join(' + '),
     tonnage_kg: g.tonnage > 0 ? g.tonnage : null,
     taux_recyclage: g.tauxDen > 0 ? g.tauxNum / g.tauxDen : null,
-    repas_donnes: g.types.has('AG') ? g.repas : null,
+    repas_donnes: g.types.has(libelleCourtTypeCollecte('anti_gaspi'))
+      ? g.repas
+      : null,
   }));
   // Antéchronologique sur date_evenement (§1.6 l.310).
   list.sort((a, b) => b.date_evenement.localeCompare(a.date_evenement));
@@ -695,7 +688,9 @@ function buildFiltresLabel(
   if (params.clientOrgaIds.length > 0)
     parts.push(`Clients : ${params.clientOrgaIds.length} sélectionné(s)`);
   if (!(includeZd && includeAg)) {
-    parts.push(`Type : ${includeZd ? 'Zéro-Déchet' : 'Anti-Gaspi'}`);
+    parts.push(
+      `Type : ${libelleCdcTypeCollecte(includeZd ? 'zero_dechet' : 'anti_gaspi')}`,
+    );
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }

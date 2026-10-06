@@ -9,16 +9,8 @@ import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { normaliserSiretOrganisation } from '@/lib/siret-organisation';
 import { Heading } from '@/components/ui/heading';
+import { LIBELLE_TYPE_ORGANISATION } from '@/lib/libelles/organisation';
 import { FormActions } from '@/components/ui/form-actions';
-
-// Libellés des 4 types d'organisation (enum `organisation_type`), mêmes
-// libellés que le filtre de la liste Clients.
-export const TYPE_ORGANISATION_LABELS: Record<string, string> = {
-  traiteur: 'Traiteur',
-  agence: 'Agence',
-  gestionnaire_lieux: 'Gestionnaire lieux',
-  client_organisateur: 'Client organisateur',
-};
 
 interface FormValues {
   nom: string;
@@ -233,7 +225,7 @@ export function OrganisationModal({
                 value={values.type}
                 onChange={(v) => set('type', v)}
                 error={Boolean(errors.type)}
-                options={Object.entries(TYPE_ORGANISATION_LABELS).map(
+                options={Object.entries(LIBELLE_TYPE_ORGANISATION).map(
                   ([k, v]) => ({ value: k, label: v }),
                 )}
               />

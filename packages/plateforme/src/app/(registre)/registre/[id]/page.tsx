@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ROUTES } from '@/lib/routes';
 
 // Détail d'une collecte au registre (§06.03, 8 blocs snapshot lecture seule).
 
@@ -134,7 +135,7 @@ export default function RegistreDetailPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <TextLink href="/registre" className="text-sm">
+          <TextLink href={ROUTES.registre} className="text-sm">
             ← Registre
           </TextLink>
           <Heading level={1} tone="primary">

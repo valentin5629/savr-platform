@@ -46,6 +46,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
 import { Card } from '@/components/ui/card';
+import { ROUTES } from '@/lib/routes';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -271,7 +272,7 @@ export default function GestionnaireDashboardPage() {
         qs.append('taille_evenements[]', v),
       );
     }
-    return `/gestionnaire/collectes?${qs}`;
+    return `${ROUTES.gestionnaire.collectes}?${qs}`;
   };
   const goToLieu = (i: number) => {
     const l = blocs?.topLieux?.[i];
@@ -298,7 +299,7 @@ export default function GestionnaireDashboardPage() {
         title="Dashboard"
         actions={
           <Button asChild>
-            <a href="/programmer/nouveau">Programmer un événement</a>
+            <a href={ROUTES.programmer.nouveau}>Programmer un événement</a>
           </Button>
         }
       />

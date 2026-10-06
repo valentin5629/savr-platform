@@ -17,6 +17,7 @@
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { messageErreur } from '@/lib/api-helpers.js';
+import { FLUX_ZD_CODES } from '@/lib/libelles/flux.js';
 import {
   createSupabaseServerClient,
   type UserAuthContext,
@@ -362,13 +363,8 @@ export async function loadKpiTraiteur(
 // ÉVOLUTION — Bloc 2 (série temporelle) + Bloc 4 (donut), partagé 3 contextes
 // ══════════════════════════════════════════════════════════════════════════
 
-const FLUX_CODES = [
-  'biodechet',
-  'emballage',
-  'carton',
-  'verre',
-  'dechet_residuel',
-] as const;
+// Ordre des 5 flux ZD : source unique `lib/libelles/flux` (R-UI-2 C12).
+const FLUX_CODES = FLUX_ZD_CODES;
 
 type Granularite = 'jour' | 'semaine' | 'mois';
 

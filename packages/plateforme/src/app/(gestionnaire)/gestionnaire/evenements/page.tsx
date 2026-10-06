@@ -22,8 +22,10 @@ import {
   type EvenementsListFilters,
 } from '@/components/dashboards/index.js';
 import { lireTypesCollecte } from '@/lib/evenements-type-collecte';
+import { variantStatutEvenement } from '@/lib/libelles/evenement';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
+import { ROUTES } from '@/lib/routes';
 
 interface EvenementRow {
   id: string;
@@ -65,7 +67,7 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
         <div className="font-medium">
           {e.nom_evenement ?? '—'}
           {e.programmee_par_moi && (
-            <Badge variant="info" className="ml-1 text-xs">
+            <Badge variant="info" className="ml-1">
               Moi
             </Badge>
           )}
@@ -155,15 +157,7 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
     header: 'Statut',
     accessorFn: (e) => e.statut_consolide,
     cell: ({ row: { original: e } }) => (
-      <Badge
-        variant={
-          e.statut_consolide === 'Terminé'
-            ? 'success'
-            : e.statut_consolide === 'Annulé'
-              ? 'neutral'
-              : 'info'
-        }
-      >
+      <Badge variant={variantStatutEvenement(e.statut_consolide)}>
         {e.statut_consolide}
       </Badge>
     ),
@@ -248,9 +242,12 @@ function EvenementsContent() {
 
   useEffect(() => {
     // Reflète les filtres dans l'URL (deep-linkable §06.05 l.99), sans rechargement.
-    router.replace(`/gestionnaire/evenements?${toQueryString(filters)}`, {
-      scroll: false,
-    });
+    router.replace(
+      `${ROUTES.gestionnaire.evenements}?${toQueryString(filters)}`,
+      {
+        scroll: false,
+      },
+    );
     charger();
     // router hors deps (référence stable Next) : refetch au changement de filtres
     // (`charger` est recréé à chaque changement de `filters`).
@@ -294,7 +291,7 @@ function EvenementsContent() {
           getRowId={(e) => e.id}
           loading={loading}
           empty={<EmptyState size="inline" title="Aucun événement." />}
-          onRowClick={(e) => router.push(`/gestionnaire/evenements/${e.id}`)}
+          onRowClick={(e) => router.push(ROUTES.gestionnaire.evenement(e.id))}
           rowLabel={(e) =>
             `Ouvrir l'événement${e.nom_evenement ? ` ${e.nom_evenement}` : ''}`
           }

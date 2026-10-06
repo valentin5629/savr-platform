@@ -12,6 +12,7 @@ import {
   evenementsToCsv,
 } from '@/lib/exports/evenements.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { statutEvenementConsolide } from '@/lib/libelles/evenement.js';
 import {
   lireTypesCollecte,
   passeTypesCollecte,
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (!passeTypesCollecte(typesCollecte, hasZd, hasAg)) return false;
     if (
       statutFiltres.length > 0 &&
-      !statutFiltres.includes(exportStatutConsolide(cs))
+      !statutFiltres.includes(statutEvenementConsolide(cs))
     )
       return false;
     return true;
@@ -107,16 +108,4 @@ function exportTaille(pax: number): string {
   if (pax < 750) return 'M';
   if (pax < 1000) return 'L';
   return 'XL';
-}
-
-function exportStatutConsolide(collectes: { statut: string }[]): string {
-  if (collectes.length === 0) return 'En cours';
-  if (collectes.every((c) => c.statut === 'annulee')) return 'Annulé';
-  const terminaux = new Set(['realisee', 'cloturee', 'annulee']);
-  const tousTerminaux = collectes.every((c) => terminaux.has(c.statut));
-  const auMoinsUnRealise = collectes.some(
-    (c) => c.statut === 'realisee' || c.statut === 'cloturee',
-  );
-  if (tousTerminaux && auMoinsUnRealise) return 'Terminé';
-  return 'En cours';
 }

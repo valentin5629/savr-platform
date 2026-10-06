@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { Badge } from '@/components/ui/badge';
 
 // Briques de mise en page des fiches en pop-up : en-tête de bloc et champs
 // label/valeur, grand en-tête (fiches collecte Admin et client, fiches Admin
@@ -202,11 +203,6 @@ export function EnTetePuce({
   );
 }
 
-// Libellé d'affichage du type de collecte (UX — la DB garde l'enum).
-export function typeCollecteLabel(type: string): string {
-  return type === 'zero_dechet' ? 'Zéro Déchet' : 'Anti-Gaspi';
-}
-
 // Date de collecte de l'en-tête des fiches : « Samedi 26 septembre 2026 ».
 export function dateLongueCapitalisee(dateIso: string): string {
   const d = new Date(dateIso).toLocaleDateString('fr-FR', {
@@ -217,26 +213,6 @@ export function dateLongueCapitalisee(dateIso: string): string {
     timeZone: 'Europe/Paris',
   });
   return d.charAt(0).toUpperCase() + d.slice(1);
-}
-
-// Badge de type du sur-titre des fiches collecte (§06.04 Q2, remplace le cadre
-// orange/vert) : ZD navy primary-700 texte blanc / AG orange accent-500 texte
-// primary-950 — aligné DS dataviz-1/2.
-export function BadgeTypeCollecte({ type }: { type: string }) {
-  const ag = type === 'anti_gaspi';
-  return (
-    <span
-      data-testid="badge-type-collecte"
-      className={cn(
-        'rounded-savr-sm px-2 py-0.5 text-xs font-bold uppercase tracking-[0.04em]',
-        ag
-          ? 'bg-savr-accent-500 text-savr-primary-950'
-          : 'bg-savr-primary-700 text-savr-white',
-      )}
-    >
-      {typeCollecteLabel(type)}
-    </span>
-  );
 }
 
 // Mention discrète du sur-titre (SIREN, gestionnaire…).
@@ -267,12 +243,9 @@ export function OngletAvecErreurs({
       {children}
       {nbErreurs > 0 && (
         <>
-          <span
-            aria-hidden="true"
-            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-savr-error-strong px-1.5 text-xs font-bold text-savr-white"
-          >
+          <Badge variant="count" aria-hidden="true">
             {nbErreurs}
-          </span>
+          </Badge>
           <span className="sr-only">
             {nbErreurs > 1
               ? ` (${nbErreurs} champs à corriger)`

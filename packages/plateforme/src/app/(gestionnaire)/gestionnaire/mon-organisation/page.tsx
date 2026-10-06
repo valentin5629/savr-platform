@@ -26,6 +26,8 @@ import {
   filtrerFactures,
 } from '@/components/facture/factures-filtres-bar';
 import { useFiltresUrl } from '@/lib/hooks/use-filtres-url';
+import { ActifBadge } from '@/components/ui/actif-badge';
+import { libelleActif } from '@/lib/libelles/actif';
 
 type OrgTab = 'profil' | 'membres' | 'factures';
 
@@ -261,12 +263,8 @@ export default function MonOrganisationPage() {
     {
       id: 'statut',
       header: 'Statut',
-      accessorFn: (u) => (u.actif ? 'Actif' : 'Désactivé'),
-      cell: ({ row: { original: u } }) => (
-        <Badge variant={u.actif ? 'success' : 'neutral'}>
-          {u.actif ? 'Actif' : 'Désactivé'}
-        </Badge>
-      ),
+      accessorFn: (u) => libelleActif(u.actif),
+      cell: ({ row: { original: u } }) => <ActifBadge actif={u.actif} />,
     },
     {
       id: 'actions',

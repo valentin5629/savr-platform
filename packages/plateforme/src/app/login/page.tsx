@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { AuthCard, AuthPage } from '@/components/auth/auth-card';
 import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
 
 // Motifs posés par `api/auth/verify-email` quand le lien d'activation n'aboutit
 // pas. Ils arrivaient déjà en `?error=` mais n'étaient affichés nulle part :
@@ -114,7 +115,7 @@ function LoginForm() {
       titre="Connexion à Savr"
       sousCarte={
         // Sans ce lien, /signup n'était atteignable qu'en tapant l'URL.
-        <TextLink href="/signup" strong touch className="text-sm">
+        <TextLink href={ROUTES.signup} strong touch className="text-sm">
           Créer un compte
         </TextLink>
       }
@@ -157,7 +158,12 @@ function LoginForm() {
           onChange={(e) => setMotDePasse(e.target.value)}
         />
         <div className="flex justify-end pt-2">
-          <TextLink href="/reset-password" strong touch className="text-sm">
+          <TextLink
+            href={ROUTES.resetPassword}
+            strong
+            touch
+            className="text-sm"
+          >
             Mot de passe oublié ?
           </TextLink>
         </div>

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { PackAGIndicator } from '@/components/ui/pack-ag-indicator';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
@@ -75,9 +76,9 @@ export function SousBlocCollecte({
               label="Crédits pack AG restants"
             />
           ) : (
-            <p className="text-sm text-savr-error-strong font-medium">
+            <AlertBar variant="err">
               Aucun pack Anti-Gaspi actif — contactez votre responsable.
-            </p>
+            </AlertBar>
           )}
         </div>
       )}

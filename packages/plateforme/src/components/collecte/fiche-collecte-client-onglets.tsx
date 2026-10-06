@@ -9,7 +9,9 @@ import {
   Truck,
   Users,
 } from 'lucide-react';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -295,9 +297,10 @@ export function OngletLogistique({
           }
         />
         {!fenetre ? (
-          <Text>
-            Aucune information logistique à afficher pour cette collecte.
-          </Text>
+          <EmptyState
+            size="inline"
+            title="Aucune information logistique à afficher pour cette collecte."
+          />
         ) : tournees.length === 0 ? (
           <>
             <Text tone="soft" className="leading-relaxed">
@@ -399,9 +402,9 @@ export function OngletLogistique({
           </div>
         )}
         {urgenceErreur && (
-          <p className="text-sm text-savr-error-strong" role="alert">
+          <AlertBar variant="err" role="alert">
             {urgenceErreur}
-          </p>
+          </AlertBar>
         )}
       </Card>
 

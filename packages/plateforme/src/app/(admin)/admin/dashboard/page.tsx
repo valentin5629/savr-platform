@@ -20,6 +20,7 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { OPS_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
 import { fmtEuro } from '@/lib/format';
 
 interface KpiData {
@@ -334,7 +335,11 @@ export default function DashboardAdminPage() {
                 erreur={erreurRevenus}
                 onRecharger={rechargerRevenus}
                 empty={
-                  <Text className="p-6">Aucune donnée sur la période.</Text>
+                  <EmptyState
+                    size="inline"
+                    title="Aucune donnée sur la période."
+                    className="p-6"
+                  />
                 }
                 toolbar={
                   !loadingRevenus && total > 0 ? (

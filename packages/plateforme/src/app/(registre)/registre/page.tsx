@@ -1,5 +1,7 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { fmtKg } from '@/lib/format';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -19,7 +21,6 @@ import {
 import { valeurUnique } from '@/lib/filtre-csv';
 import { compteurResultats } from '@/lib/compteur-resultats';
 import { PageHeader } from '@/components/ui/page-header';
-import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { ListFooter } from '@/components/ui/list-footer';
 import {
@@ -393,7 +394,12 @@ function RegistreContent() {
         loading={loading}
         erreur={erreur}
         onRecharger={recharger}
-        empty={<Text>Aucune collecte au registre pour ces critères.</Text>}
+        empty={
+          <EmptyState
+            size="inline"
+            title="Aucune collecte au registre pour ces critères."
+          />
+        }
         manualSorting
         sorting={sorting}
         onSortingChange={(updater) => {
@@ -424,7 +430,7 @@ function RegistreContent() {
 
 export default function RegistrePage() {
   return (
-    <Suspense fallback={<p className="p-4 text-sm">Chargement…</p>}>
+    <Suspense fallback={<LoadingState className="p-4" />}>
       <RegistreContent />
     </Suspense>
   );

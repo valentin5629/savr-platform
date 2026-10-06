@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -206,7 +207,7 @@ export function AssociationModal({
   const ongletsRef = React.useRef<
     Partial<Record<Onglet, HTMLButtonElement | null>>
   >({});
-  const alerteRef = React.useRef<HTMLParagraphElement>(null);
+  const alerteRef = React.useRef<HTMLDivElement>(null);
 
   // (Ré)initialise le formulaire à chaque ouverture / changement de cible.
   React.useEffect(() => {
@@ -465,13 +466,14 @@ export function AssociationModal({
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
         <form onSubmit={handleFormSubmit} noValidate>
           {serverError && (
-            <p
+            <AlertBar
               ref={alerteRef}
+              variant="err"
               role="alert"
-              className="mb-4 rounded-savr-md bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong"
+              className="mb-4"
             >
               {serverError}
-            </p>
+            </AlertBar>
           )}
 
           <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>

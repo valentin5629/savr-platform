@@ -5,6 +5,12 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface EmptyStateProps {
+  /**
+   * 'bloc' (défaut) : état vide centré avec icône/titre/action (§10 §7).
+   * 'inline' : une ligne « Aucun… » discrète dans une carte ou un onglet
+   * (R-UI-1 H4 : 48 recettes inline avant, `text-sm text-savr-neutral-500` ×33).
+   */
+  size?: 'bloc' | 'inline';
   icon?: React.ReactNode;
   title: string;
   description?: string;
@@ -16,32 +22,42 @@ interface EmptyStateProps {
 }
 
 const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
-  ({ icon, title, description, action, className }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        'flex flex-col items-center justify-center gap-4 py-16 px-8 text-center',
-        className,
-      )}
-    >
-      {icon && (
-        <div className="text-savr-primary-300 [&>svg]:h-12 [&>svg]:w-12 [&>svg]:stroke-[1.5]">
-          {icon}
+  ({ size = 'bloc', icon, title, description, action, className }, ref) =>
+    size === 'inline' ? (
+      <p
+        ref={ref as React.Ref<HTMLParagraphElement>}
+        className={cn('text-sm text-savr-neutral-500', className)}
+      >
+        {title}
+      </p>
+    ) : (
+      <div
+        ref={ref}
+        className={cn(
+          'flex flex-col items-center justify-center gap-4 py-16 px-8 text-center',
+          className,
+        )}
+      >
+        {icon && (
+          <div className="text-savr-primary-300 [&>svg]:h-12 [&>svg]:w-12 [&>svg]:stroke-[1.5]">
+            {icon}
+          </div>
+        )}
+        <div className="space-y-1">
+          <p className="text-base font-semibold text-savr-neutral-900">
+            {title}
+          </p>
+          {description && (
+            <p className="text-sm text-savr-neutral-500">{description}</p>
+          )}
         </div>
-      )}
-      <div className="space-y-1">
-        <p className="text-base font-semibold text-savr-neutral-900">{title}</p>
-        {description && (
-          <p className="text-sm text-savr-neutral-500">{description}</p>
+        {action && (
+          <Button variant="secondary" size="md" onClick={action.onClick}>
+            {action.label}
+          </Button>
         )}
       </div>
-      {action && (
-        <Button variant="secondary" size="md" onClick={action.onClick}>
-          {action.label}
-        </Button>
-      )}
-    </div>
-  ),
+    ),
 );
 EmptyState.displayName = 'EmptyState';
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { AlertBar } from '@/components/ui/alert-bar';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle, AlertTriangle, CalendarDays, MapPin } from 'lucide-react';
@@ -69,7 +70,9 @@ export default function RepriseBrouillonPage() {
   if (!evt) {
     return (
       <div className="max-w-xl mx-auto space-y-4">
-        <p className="text-savr-error">{error ?? 'Brouillon introuvable.'}</p>
+        <AlertBar variant="err" role="alert">
+          {error ?? 'Brouillon introuvable.'}
+        </AlertBar>
         <Button variant="secondary" onClick={() => router.push('/brouillons')}>
           Retour aux brouillons
         </Button>
@@ -114,10 +117,9 @@ export default function RepriseBrouillonPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-savr-md bg-savr-error-subtle border border-savr-error px-3 py-2 text-sm text-savr-error">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
           {error}
-        </div>
+        </AlertBar>
       )}
 
       <FormActions

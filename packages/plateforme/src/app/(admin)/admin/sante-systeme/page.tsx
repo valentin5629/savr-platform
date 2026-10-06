@@ -11,6 +11,7 @@ import {
 } from './tableaux-sante';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
 
 const ALLOWED_ROLES = ['admin_savr', 'ops_savr'];
 
@@ -213,9 +214,10 @@ export default async function SanteSystemePage() {
           </CardHeader>
           <CardContent className="text-sm">
             {data.facturesBloquees.length === 0 ? (
-              <p className="text-savr-neutral-500">
-                Aucune facture en attente &gt; 48h
-              </p>
+              <EmptyState
+                size="inline"
+                title="Aucune facture en attente > 48h"
+              />
             ) : (
               <ul className="space-y-1">
                 {data.facturesBloquees.slice(0, 5).map((f) => (

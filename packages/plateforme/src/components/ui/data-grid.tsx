@@ -17,7 +17,7 @@ import {
 import { ChevronDown, ChevronUp, ChevronsUpDown, Columns3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { AlertBar } from '@/components/ui/alert-bar';
+import { ErrorState } from '@/components/ui/error-state';
 import {
   Dropdown,
   DropdownCheckboxItem,
@@ -249,17 +249,11 @@ function DataGrid<T>({
       )}
 
       {erreur ? (
-        <div
-          className="space-y-4"
+        <ErrorState
+          message={erreur}
+          onRetry={onRecharger}
           data-testid={testId ? `${testId}-erreur` : undefined}
-        >
-          <AlertBar variant="err">{erreur}</AlertBar>
-          {onRecharger && (
-            <Button variant="secondary" onClick={onRecharger}>
-              Réessayer
-            </Button>
-          )}
-        </div>
+        />
       ) : loading ? (
         <div className="space-y-2" aria-busy="true">
           {Array.from({ length: 6 }).map((_, i) => (

@@ -1,5 +1,6 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
@@ -371,7 +372,7 @@ export function TraiteurDashboardClient({
       )}
 
       {loading ? (
-        <Text>Chargement…</Text>
+        <LoadingState />
       ) : agg.nbCollectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (

@@ -1,11 +1,12 @@
 'use client';
 
+import { ErrorState } from '@/components/ui/error-state';
 import { fmtInt, fmtKg } from '@/lib/format';
 import { VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
-import { MapPin, TriangleAlert } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
@@ -146,11 +147,9 @@ export default function LieuDetailPage({
 
   if (erreur)
     return (
-      <EmptyState
-        icon={<TriangleAlert className="h-8 w-8" />}
-        title="Impossible de charger ce lieu"
-        description="Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
-        action={{ label: 'Réessayer', onClick: charger }}
+      <ErrorState
+        message="Impossible de charger ce lieu. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
+        onRetry={charger}
       />
     );
 

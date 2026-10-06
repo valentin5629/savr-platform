@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Mail } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/ui/loading-state';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 
@@ -49,7 +49,7 @@ export default function TemplatesEmailPage() {
       </div>
 
       {loading ? (
-        <Skeleton className="h-96 w-full" />
+        <LoadingState variant="bloc" />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Liste */}

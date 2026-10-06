@@ -620,7 +620,7 @@
       "artefact": "packages/plateforme/src/lib/nav-config.ts (hrefNavActif) + packages/plateforme/src/components/layout/sidebar.tsx + packages/plateforme/src/components/layout/bottom-nav.tsx",
       "test": "M0.8-67 + M0.8-68 + M0.8-69 + M0.8-70 + M0.8-71",
       "statut": "implemented",
-      "libelle": "Menu (barre latérale et barre mobile) — une seule entrée active, celle dont l'adresse correspond le plus précisément à la page courante. Le Dashboard des espaces client vit à la racine de l'espace (/gestionnaire, /traiteur, /agence, /organisateur) et préfixe toutes ses voisines : décidée au préfixe, l'entrée active était double (Dashboard + page courante) sur toutes les pages de ces espaces (défaut E2E 2026-10-06)."
+      "libelle": "Menu (barre latérale et barre mobile) — une seule entrée active, celle dont l'adresse correspond le plus précisément à la page courante. L'entrée d'accueil des espaces client (« Dashboard » ; « Mes événements » pour le client organisateur) vit à la racine de l'espace (/gestionnaire, /traiteur, /agence, /organisateur) et préfixe toutes ses voisines : décidée au préfixe, l'entrée active était double (accueil + page courante) sur toutes les pages de ces espaces (défaut E2E 2026-10-06). Règle d'unicité et de correspondance non écrite au Design System : divergence M0.8_20261006_menu-entree-active-sections-transverses."
     }
   ],
   "cdc_source_hash": {

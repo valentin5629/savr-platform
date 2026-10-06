@@ -139,13 +139,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
     },
   ],
 
-  // §06.05 §Navigation. Le CDC fige 7 sections (sans Collectes ni Registre), mais
-  // Val a demandé le 2026-07-06 de CONSERVER « Collectes » + « Registre réglementaire »
-  // (override explicite de la décision CDC l.79 « Pas de section Collectes » —
-  // cf. _Divergences/M3.2_20260706_nav_collectes_registre.md, type: ambigu).
-  // → 9 entrées. Seule règle CDC-conforme appliquée ici : « Mon pack AG » masqué si
-  // l'organisation n'a aucun pack (filtrage `hiddenNavHrefs` calculé côté layout,
-  // appliqué dans Sidebar/BottomNav — CDC l.75).
+  // §06.05 §Navigation (l.66-76) : 9 sections, dont « Collectes » et « Registre
+  // réglementaire », réintégrées par Val le 2026-07-06 (CDC re-synchronisé depuis).
+  // « Mon pack AG » est masqué si l'organisation n'a aucun pack (CDC l.75) :
+  // `hiddenNavHrefs` est calculé par `entreesNavMasquees` (lib/nav-masquee.ts) dans
+  // chaque layout qui monte ce menu, puis appliqué dans Sidebar/BottomNav.
   gestionnaire_lieux: [
     {
       items: [

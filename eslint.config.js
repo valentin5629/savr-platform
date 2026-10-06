@@ -85,6 +85,23 @@ const SELECTEURS_DS = [
   },
 ];
 
+// Sélecteurs routes (R-UI-2 J4) — tout chemin de page `/admin/…` passe par
+// `ROUTES` de '@/lib/routes' (source unique, dérivée de `lib/roles.ts`). Visent
+// les chaînes commençant EXACTEMENT par `/admin/` : les chemins d'API
+// (`/api/v1/admin/…`) ne sont pas concernés.
+const SELECTEURS_ROUTES = [
+  {
+    selector: 'Literal[value=/^\\/admin\\//]',
+    message:
+      "Chemin de page « /admin/… » écrit en dur : utiliser ROUTES.admin.* de '@/lib/routes' (source unique des routes).",
+  },
+  {
+    selector: 'TemplateLiteral[quasis.0.value.raw=/^\\/admin\\//]',
+    message:
+      "Chemin de page « /admin/… » écrit en dur dans un gabarit : utiliser ROUTES.admin.* de '@/lib/routes' (ex. `${ROUTES.admin.collectes}?chip=…`, ROUTES.admin.collecte(id)).",
+  },
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -145,6 +162,29 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  // Routes en dur (R-UI-2 J4) : code applicatif de la Plateforme seulement.
+  // Exclus : la source elle-même, les handlers d'API (libellés d'endpoint et
+  // liens d'email, hors périmètre du lot) et les tests (oracles en clair — le
+  // bloc des tests redéclare de toute façon la liste).
+  {
+    files: ['packages/plateforme/src/**/*.{ts,tsx}'],
+    ignores: [
+      'packages/plateforme/src/lib/routes.ts',
+      'packages/plateforme/src/app/api/**',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...SELECTEURS_TEMPS,
+        ...SELECTEURS_DS,
+        ...SELECTEURS_ROUTES,
       ],
     },
   },

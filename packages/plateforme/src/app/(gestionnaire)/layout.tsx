@@ -1,6 +1,7 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { requirePageSession } from '@/lib/page-auth';
 import { createSupabaseServerClient } from '@/lib/api-auth';
+import { ROUTES } from '@/lib/routes';
 
 const GESTIONNAIRE_ROLES = ['gestionnaire_lieux'] as const;
 
@@ -19,7 +20,8 @@ export default async function GestionnaireLayout({
   const { count } = await supabase
     .from('packs_antgaspi')
     .select('id', { count: 'exact', head: true });
-  const hiddenNavHrefs = (count ?? 0) > 0 ? [] : ['/gestionnaire/mon-pack-ag'];
+  const hiddenNavHrefs =
+    (count ?? 0) > 0 ? [] : [ROUTES.gestionnaire.monPackAg];
 
   return (
     <AppShell

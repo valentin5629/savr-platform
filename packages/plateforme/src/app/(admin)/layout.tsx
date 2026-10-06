@@ -1,6 +1,7 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { requireStaffPage } from '@/lib/page-auth';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { ROUTES } from '@/lib/routes';
 
 // Pastille nav « Alertes » : nombre d'alertes Admin in-app ouvertes. Requêté
 // côté serveur (count-only) pour éviter le flash client, réservé à admin_savr
@@ -32,7 +33,7 @@ export default async function AdminLayout({
 
   const navBadges =
     session.role === 'admin_savr'
-      ? { '/admin/alertes': await fetchAlertesOuvertes() }
+      ? { [ROUTES.admin.alertes]: await fetchAlertesOuvertes() }
       : undefined;
 
   return (

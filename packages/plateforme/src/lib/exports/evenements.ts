@@ -14,6 +14,7 @@ import {
   unwrap,
 } from './shared.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import { statutEvenementConsolide } from '@/lib/libelles/evenement.js';
 
 // Export Événements — grain ÉVÉNEMENT (1 ligne = 1 événement, données agrégées).
 // Colonnes FIGÉES par §12 §2. Module partagé entre l'endpoint unifié (tous rôles
@@ -60,18 +61,6 @@ function tailleBracket(pax: number): string {
   if (pax < 750) return 'M';
   if (pax < 1000) return 'L';
   return 'XL';
-}
-
-function statutConsolide(collectes: { statut: string }[]): string {
-  if (collectes.length === 0) return 'En cours';
-  if (collectes.every((c) => c.statut === 'annulee')) return 'Annulé';
-  const terminaux = new Set(['realisee', 'cloturee', 'annulee']);
-  const tousTerminaux = collectes.every((c) => terminaux.has(c.statut));
-  const auMoinsUnRealise = collectes.some(
-    (c) => c.statut === 'realisee' || c.statut === 'cloturee',
-  );
-  if (tousTerminaux && auMoinsUnRealise) return 'Terminé';
-  return 'En cours';
 }
 
 const COLUMNS: CsvColumn<EvenementRow>[] = [
@@ -168,7 +157,7 @@ export async function evenementsToCsv(
       tonnage_zd_kg: formatPoidsKg(tonnage),
       taux_recyclage_pct: tauxPct,
       repas_ag: repas,
-      statut_consolide: statutConsolide(collectes),
+      statut_consolide: statutEvenementConsolide(collectes),
       premiere_collecte: dates[0] ?? '',
       derniere_collecte: dates[dates.length - 1] ?? '',
     };

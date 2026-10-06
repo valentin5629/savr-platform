@@ -18,6 +18,7 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { Heading } from '@/components/ui/heading';
 import { fmtInt, fmtDec } from '@/lib/format';
+import { ROUTES } from '@/lib/routes';
 
 // §11 §7 — Dashboard client_organisateur : impact RSE, lecture seule.
 // Pas de données financières, pas de benchmark (le rôle n'a aucun intérêt à se comparer).
@@ -161,7 +162,9 @@ export default function ClientOrganisateurDashboardPage() {
             />
           </div>
           <Button variant="ghost" asChild>
-            <a href="/organisateur/documents">Voir mes rapports d’impact PDF</a>
+            <a href={ROUTES.organisateur.documents}>
+              Voir mes rapports d’impact PDF
+            </a>
           </Button>
         </CardContent>
       </Card>
@@ -186,7 +189,7 @@ export default function ClientOrganisateurDashboardPage() {
               label="Événements ZD"
               value={nbEvenements}
               dotColor={KPI_DOT.navy}
-              href="/organisateur/collectes?type=zero_dechet"
+              href={`${ROUTES.organisateur.collectes}?type=zero_dechet`}
             />
             <StatCard
               label="Déchets détournés"
@@ -253,7 +256,7 @@ export default function ClientOrganisateurDashboardPage() {
             label="Événements AG"
             value={nbEvenements}
             dotColor={KPI_DOT.navy}
-            href="/organisateur/collectes?type=anti_gaspi"
+            href={`${ROUTES.organisateur.collectes}?type=anti_gaspi`}
           />
           <StatCard
             label="Repas détournés"

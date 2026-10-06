@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserRole } from '@/lib/use-user-role';
+import { isStaff } from '@/lib/roles';
+import { ROUTES } from '@/lib/routes';
 import {
   ChevronLeft,
   ChevronRight,
@@ -45,6 +47,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
+import { libelleCompletTypeCollecte } from '@/lib/libelles/type-collecte';
 
 const STEPS = [
   { label: 'Événement' },
@@ -124,7 +127,7 @@ export default function NouveauProgrammationPage() {
   // traiteur/admin masqué.
   const role = useUserRole() ?? '';
   // Admin support : programmation « pour le compte d'un traiteur » (§06.01 l.15).
-  const isAdmin = role === 'admin_savr' || role === 'ops_savr';
+  const isAdmin = isStaff(role);
   const needsTraiteurSelector =
     role === 'agence' || role === 'gestionnaire_lieux' || isAdmin;
 
@@ -305,12 +308,7 @@ export default function NouveauProgrammationPage() {
   // Chargement des traiteurs pour les rôles qui programment pour le compte d'un
   // tiers (agence / gestionnaire_lieux) ou en support (admin_savr / ops_savr).
   useEffect(() => {
-    if (
-      role === 'agence' ||
-      role === 'gestionnaire_lieux' ||
-      role === 'admin_savr' ||
-      role === 'ops_savr'
-    ) {
+    if (role === 'agence' || role === 'gestionnaire_lieux' || isStaff(role)) {
       void fetch('/api/v1/programmation/organisations/traiteurs')
         .then((res) => res.json() as Promise<TraiteurOption[]>)
         .then(setTraiteurs);
@@ -486,9 +484,11 @@ export default function NouveauProgrammationPage() {
       // Confirmée → écran de confirmation dédié (récap + actions, §06.01).
       // Brouillon → liste des brouillons.
       if (confirmer) {
-        router.push(`/programmer/confirmation?id=${data.evenement_id ?? ''}`);
+        router.push(
+          `${ROUTES.programmer.confirmation}?id=${data.evenement_id ?? ''}`,
+        );
       } else {
-        router.push('/brouillons');
+        router.push(ROUTES.brouillons);
       }
     } finally {
       setSubmitting(false);
@@ -558,7 +558,9 @@ export default function NouveauProgrammationPage() {
                   }
                 />
                 <label htmlFor="type-zd" className="text-sm cursor-pointer">
-                  <span className="font-medium">Zéro Déchet (ZD)</span>
+                  <span className="font-medium">
+                    {libelleCompletTypeCollecte('zero_dechet')}
+                  </span>
                   <span className="text-savr-neutral-500 ml-1">
                     — compostage / méthanisation
                   </span>
@@ -573,7 +575,9 @@ export default function NouveauProgrammationPage() {
                   onCheckedChange={(c) => void handleAgCheck(c === true)}
                 />
                 <label htmlFor="type-ag" className="text-sm cursor-pointer">
-                  <span className="font-medium">Anti-Gaspi (AG)</span>
+                  <span className="font-medium">
+                    {libelleCompletTypeCollecte('anti_gaspi')}
+                  </span>
                   <span className="text-savr-neutral-500 ml-1">
                     — don à association
                   </span>

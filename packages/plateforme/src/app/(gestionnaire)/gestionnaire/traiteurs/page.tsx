@@ -14,6 +14,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { ROUTES } from '@/lib/routes';
 
 interface TraiteurRow {
   id: string;
@@ -171,7 +172,7 @@ export default function GestionnaireTraiteursPage() {
               description="Aucun traiteur n'est intervenu sur vos lieux au cours des 24 derniers mois."
             />
           }
-          onRowClick={(t) => router.push(`/gestionnaire/traiteurs/${t.id}`)}
+          onRowClick={(t) => router.push(ROUTES.gestionnaire.traiteur(t.id))}
           rowLabel={(t) => `Ouvrir la fiche du traiteur ${t.nom}`}
         />
       )}

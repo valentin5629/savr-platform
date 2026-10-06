@@ -5,6 +5,7 @@ import {
   FiltreCoches,
   type OptionFiltre,
 } from '@/components/ui/filtre-en-ligne';
+import { libelleTypeOrganisation } from '@/lib/libelles/organisation';
 
 export interface OrganisationOption {
   id: string;
@@ -31,11 +32,21 @@ interface OrganisationSelectorProps {
 // organisations), « Aucun / Aucune » dès qu'un autre type a une sélection
 // (le périmètre est l'union des organisations cochées).
 const FILTRES = [
-  { type: 'traiteur', titre: 'Traiteur', tous: 'Tous', aucun: 'Aucun' },
-  { type: 'agence', titre: 'Agence', tous: 'Toutes', aucun: 'Aucune' },
+  {
+    type: 'traiteur',
+    titre: libelleTypeOrganisation('traiteur'),
+    tous: 'Tous',
+    aucun: 'Aucun',
+  },
+  {
+    type: 'agence',
+    titre: libelleTypeOrganisation('agence'),
+    tous: 'Toutes',
+    aucun: 'Aucune',
+  },
   {
     type: 'gestionnaire_lieux',
-    titre: 'Gestionnaire de lieux',
+    titre: libelleTypeOrganisation('gestionnaire_lieux'),
     tous: 'Tous',
     aucun: 'Aucun',
   },

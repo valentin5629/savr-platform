@@ -15,6 +15,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { ROUTES } from '@/lib/routes';
 
 interface ParamLink {
   label: string;
@@ -28,49 +29,49 @@ interface ParamLink {
 const SECTIONS: ParamLink[] = [
   {
     label: 'Utilisateurs',
-    href: '/admin/settings/users',
+    href: ROUTES.admin.settingsUsers,
     icon: Users,
     description: 'Comptes staff Savr (admin / ops)',
   },
   {
     label: 'Grilles tarifaires ZD',
-    href: '/admin/parametres/grilles-zd',
+    href: ROUTES.admin.parametresGrillesZd,
     icon: Table2,
     description: 'Catalogue des grilles ZD + versionnement',
   },
   {
     label: 'Tarifs packs AG',
-    href: '/admin/parametres/tarifs-ag',
+    href: ROUTES.admin.parametresTarifsAg,
     icon: Package,
     description: 'Grille publique des packs Anti-Gaspi',
   },
   {
     label: 'Taux de recyclage',
-    href: '/admin/parametres/taux-recyclage',
+    href: ROUTES.admin.parametresTauxRecyclage,
     icon: Recycle,
     description: 'Taux de captation par filière',
   },
   {
     label: 'Facteurs CO₂',
-    href: '/admin/parametres/co2',
+    href: ROUTES.admin.parametresCo2,
     icon: Leaf,
     description: 'Facteurs ADEME, mix emballages, forfaits',
   },
   {
     label: 'Algo attribution AG',
-    href: '/admin/parametres/algo-ag',
+    href: ROUTES.admin.parametresAlgoAg,
     icon: Sparkles,
     description: 'Paramètres pilotables de l’algo AG',
   },
   {
     label: 'Auto-accept AG',
-    href: '/admin/parametres/auto-accept',
+    href: ROUTES.admin.parametresAutoAccept,
     icon: CheckCheck,
     description: 'Combinaisons association × type d’événement',
   },
   {
     label: 'Templates emails',
-    href: '/admin/parametres/templates',
+    href: ROUTES.admin.parametresTemplates,
     icon: Mail,
     description: '20 templates actifs (consultation)',
   },

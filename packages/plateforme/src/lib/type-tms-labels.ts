@@ -4,6 +4,39 @@
 // packages/adapters/ — fichier allowlisté (scripts/coupling-allowlist.txt),
 // aucun appel ni couplage : du texte pour l'Admin.
 
+import type { Database } from '@savr/shared/src/database.types.js';
+
+type TypeTms = Database['plateforme']['Enums']['type_tms'];
+
+// Libellé court du type TMS (colonne / filtre de la liste Transporteurs, badge
+// d'en-tête de la fiche transporteur) — R-UI-2 C11, source unique.
+export const LIBELLE_TYPE_TMS: Record<string, string> = {
+  mts1: 'MTS-1',
+  a_toutes: 'A Toutes!',
+  autre: 'Autre',
+  par_mail: 'Par mail',
+  par_telephone: 'Par téléphone',
+} satisfies Record<TypeTms, string>;
+
+// Libellé détaillé du sélecteur « Type TMS » de la fiche transporteur.
+export const LIBELLE_OPTION_TYPE_TMS: Record<string, string> = {
+  mts1: 'MTS-1 (Strike / Marathon)',
+  a_toutes: 'A Toutes! (vélo cargo)',
+  autre: 'Autre (province — email/téléphone)',
+  par_mail: 'Par mail (validation Admin manuelle)',
+  par_telephone: 'Par téléphone (validation Admin manuelle)',
+} satisfies Record<TypeTms, string>;
+
+/** Ordre d'affichage des types TMS (options). */
+export const TYPES_TMS = Object.keys(LIBELLE_TYPE_TMS) as TypeTms[];
+
+export function libelleCourtTypeTms(
+  typeTms: string | null | undefined,
+): string {
+  if (!typeTms) return '—';
+  return LIBELLE_TYPE_TMS[typeTms] ?? typeTms;
+}
+
 // Bouton d'envoi TMS forké par type_tms (§06.06 §3 « Spec V1 fork » : MTS-1 pour
 // Strike/Marathon, A Toutes! pour le vélo cargo, manuel sinon).
 export function libelleDispatch(

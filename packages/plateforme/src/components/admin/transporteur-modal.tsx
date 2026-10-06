@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -30,6 +29,14 @@ import {
 } from '@/components/collecte/fiche-blocs';
 import { cn } from '@/lib/utils';
 import { TYPES_TMS_AVEC_PRESTATAIRE } from '@/lib/transporteur-lien-prestataire';
+import { VEHICULE_LABEL } from '@/lib/lieux-labels';
+import { libelleCompletTypeCollecte } from '@/lib/libelles/type-collecte';
+import {
+  LIBELLE_OPTION_TYPE_TMS,
+  libelleCourtTypeTms,
+  TYPES_TMS,
+} from '@/lib/type-tms-labels';
+import { ActifBadge } from '@/components/ui/actif-badge';
 
 // Enregistrement transporteur complet, aligné sur le select('*') de l'API liste —
 // sert à préremplir la modale d'édition sans re-fetch (toutes les colonnes sont
@@ -64,40 +71,22 @@ export interface PrestataireOption {
   transporteur_nom: string | null;
 }
 
-const TYPES_VEHICULES = [
-  { value: 'velo_cargo', label: 'Vélo cargo' },
-  { value: 'camionnette', label: 'Camionnette' },
-  { value: 'fourgon', label: 'Fourgon' },
-  { value: 'vul', label: 'VUL' },
-  { value: 'poids_lourd', label: 'Poids lourd' },
-] as const;
+// Options = sources uniques (R-UI-2 C2/C10/C11) : véhicules `lib/lieux-labels`,
+// type de collecte `lib/libelles/type-collecte`, type TMS `lib/type-tms-labels`.
+const TYPES_VEHICULES = Object.entries(VEHICULE_LABEL).map(
+  ([value, label]) => ({
+    value,
+    label,
+  }),
+);
 
 // Flux gérés — valeurs alignées sur collectes.type (multi, décision Val 2026-07-02).
-const TYPES_COLLECTE = [
-  { value: 'anti_gaspi', label: 'Anti-Gaspi (AG)' },
-  { value: 'zero_dechet', label: 'Zéro Déchet (ZD)' },
-] as const;
-
-// `label` = option du sélecteur, `court` = badge de l'en-tête de la fiche.
-const TYPES_TMS = [
-  { value: 'mts1', label: 'MTS-1 (Strike / Marathon)', court: 'MTS-1' },
-  { value: 'a_toutes', label: 'A Toutes! (vélo cargo)', court: 'A Toutes!' },
-  {
-    value: 'autre',
-    label: 'Autre (province — email/téléphone)',
-    court: 'Autre',
-  },
-  {
-    value: 'par_mail',
-    label: 'Par mail (validation Admin manuelle)',
-    court: 'Par mail',
-  },
-  {
-    value: 'par_telephone',
-    label: 'Par téléphone (validation Admin manuelle)',
-    court: 'Par téléphone',
-  },
-] as const;
+const TYPES_COLLECTE = (['anti_gaspi', 'zero_dechet'] as const).map(
+  (value) => ({
+    value,
+    label: libelleCompletTypeCollecte(value),
+  }),
+);
 
 // Fiche en 3 onglets au format du pop-up fiche collecte (décision Val
 // 2026-09-30, C1/C2) : ce qu'on modifie souvent / ce que le transporteur sait
@@ -197,9 +186,8 @@ function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
       />
     );
   }
-  const typeTms = TYPES_TMS.find((t) => t.value === transporteur.type_tms);
   const vehicules = transporteur.types_vehicules
-    .map((v) => TYPES_VEHICULES.find((t) => t.value === v)?.label ?? v)
+    .map((v) => VEHICULE_LABEL[v] ?? v)
     .join(', ');
   const lieu = [transporteur.ville, transporteur.code_postal]
     .filter(Boolean)
@@ -209,7 +197,7 @@ function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
       surtitre={
         <>
           <EnTetePuce data-testid="badge-type-tms">
-            {typeTms?.court ?? transporteur.type_tms}
+            {libelleCourtTypeTms(transporteur.type_tms)}
           </EnTetePuce>
           <EnTeteMention>
             SIREN {transporteur.siren.replace(/(\d{3})(?=\d)/g, '$1 ')}
@@ -223,13 +211,7 @@ function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
         { icon: Truck, texte: vehicules || '—' },
         { icon: Phone, texte: transporteur.contact_telephone || '—' },
       ]}
-      statut={
-        transporteur.actif ? (
-          <Badge variant="success">Actif</Badge>
-        ) : (
-          <Badge variant="neutral">Inactif</Badge>
-        )
-      }
+      statut={<ActifBadge actif={transporteur.actif} />}
     />
   );
 }
@@ -740,9 +722,9 @@ export function TransporteurModal({
                       onChange={(v) => set('type_tms', v)}
                       error={Boolean(errors.type_tms)}
                       disabled={isEdition}
-                      options={TYPES_TMS.map(({ value, label }) => ({
+                      options={TYPES_TMS.map((value) => ({
                         value,
-                        label,
+                        label: LIBELLE_OPTION_TYPE_TMS[value] ?? value,
                       }))}
                     />
                   </FormField>

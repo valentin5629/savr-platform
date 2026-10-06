@@ -25,6 +25,13 @@ import { LieuModal } from '@/components/admin/lieu-modal';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { TextLink } from '@/components/ui/text-link';
 import { IconButton } from '@/components/ui/icon-button';
+import {
+  DIFFICULTE_LABEL,
+  DIFFICULTE_VARIANT,
+  VEHICULE_LABEL,
+} from '@/lib/lieux-labels';
+import { OPTIONS_FILTRE_ACTIF } from '@/lib/libelles/actif';
+import { ROUTES } from '@/lib/routes';
 
 interface Lieu {
   id: string;
@@ -42,24 +49,7 @@ interface Lieu {
 }
 
 // Enums §04 / §06.06 §7 — difficulté d'accès (accès office + stationnement) et
-// hiérarchie véhicule. Rendus en libellés lisibles + pastilles couleur (maquette).
-const DIFFICULTE_LABEL: Record<string, string> = {
-  facile: 'Facile',
-  difficile: 'Difficile',
-  tres_difficile: 'Très difficile',
-};
-const DIFFICULTE_VARIANT: Record<string, 'success' | 'warning' | 'error'> = {
-  facile: 'success',
-  difficile: 'warning',
-  tres_difficile: 'error',
-};
-const VEHICULE_LABEL: Record<string, string> = {
-  velo_cargo: 'Vélo cargo',
-  camionnette: 'Camionnette',
-  fourgon: 'Fourgon',
-  vul: 'VUL',
-  poids_lourd: 'Poids lourd',
-};
+// hiérarchie véhicule : libellés + pastilles de `lib/lieux-labels` (R-UI-2 C10).
 
 function DifficulteCell({ value }: { value: string | null }) {
   if (!value) return <CelluleVide />;
@@ -153,7 +143,7 @@ export default function LieuxPage() {
     const editId = new URLSearchParams(window.location.search).get('edit');
     if (editId) {
       openEdit(editId);
-      window.history.replaceState(null, '', '/admin/lieux');
+      window.history.replaceState(null, '', ROUTES.admin.lieux);
     }
   }, []);
 
@@ -376,10 +366,7 @@ export default function LieuxPage() {
             <FiltreCoches
               label="Statut"
               testid="lieux-statut"
-              options={[
-                { id: 'true', nom: 'Actifs' },
-                { id: 'false', nom: 'Inactifs' },
-              ]}
+              options={OPTIONS_FILTRE_ACTIF}
               selected={f.actif}
               onChange={(ids) => set({ actif: ids })}
             />

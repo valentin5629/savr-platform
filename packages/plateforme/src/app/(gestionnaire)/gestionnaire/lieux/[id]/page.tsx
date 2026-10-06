@@ -16,6 +16,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HistoriqueCollectesTable } from '@/components/collecte/historique-collectes-table';
 import { Text } from '@/components/ui/text';
+import { ROUTES } from '@/lib/routes';
 
 interface LieuDetail {
   id: string;
@@ -161,7 +162,7 @@ export default function LieuDetailPage({
         description="Ce lieu n'existe pas ou n'est pas rattaché à votre organisation."
         action={{
           label: 'Retour aux lieux',
-          onClick: () => router.push('/gestionnaire/lieux'),
+          onClick: () => router.push(ROUTES.gestionnaire.lieux),
         }}
       />
     );
@@ -187,7 +188,7 @@ export default function LieuDetailPage({
     <div className="space-y-5">
       <Breadcrumb
         items={[
-          { label: 'Lieux', href: '/gestionnaire/lieux' },
+          { label: 'Lieux', href: ROUTES.gestionnaire.lieux },
           { label: lieu.nom },
         ]}
       />

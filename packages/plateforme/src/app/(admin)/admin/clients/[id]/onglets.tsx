@@ -37,7 +37,9 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@/components/ui/data-grid';
-import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
+import { FactureStatutBadge } from '@/components/ui/facture-statut-badge';
+import { libelleCourtTypeFacture } from '@/lib/libelles/facture';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Modal } from '@/components/ui/modal';
@@ -54,6 +56,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { fmtEuro, fmtDec } from '@/lib/format';
 import { FormActions } from '@/components/ui/form-actions';
+import { ROUTES } from '@/lib/routes';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
 // OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
@@ -202,7 +205,7 @@ export function OngletCollectes({
           setSorting(next);
           setPage(1);
         }}
-        onRowClick={(row) => router.push(`/admin/collectes/${row.id}`)}
+        onRowClick={(row) => router.push(ROUTES.admin.collecte(row.id))}
         rowLabel={(row) =>
           `Ouvrir la collecte${row.evenements?.nom_evenement ? ` ${row.evenements.nom_evenement}` : ''}`
         }
@@ -222,20 +225,6 @@ interface FactureRow {
   montant_ttc: number | null;
   date_emission: string | null;
 }
-
-const FACTURE_STATUT: Record<
-  string,
-  {
-    label: string;
-    variant: 'neutral' | 'warning' | 'info' | 'success' | 'error';
-  }
-> = {
-  brouillon: { label: 'Brouillon', variant: 'neutral' },
-  en_attente_pennylane: { label: 'En attente', variant: 'warning' },
-  emise: { label: 'Émise', variant: 'info' },
-  payee: { label: 'Payée', variant: 'success' },
-  annulee: { label: 'Annulée', variant: 'error' },
-};
 
 export function OngletFactures({
   organisationId,
@@ -278,18 +267,12 @@ export function OngletFactures({
     {
       key: 'type',
       header: 'Type',
-      render: (row) => row.type ?? '—',
+      render: (row) => libelleCourtTypeFacture(row.type),
     },
     {
       key: 'statut',
       header: 'Statut',
-      render: (row) => {
-        const s = FACTURE_STATUT[row.statut] ?? {
-          label: row.statut,
-          variant: 'neutral' as const,
-        };
-        return <Badge variant={s.variant}>{s.label}</Badge>;
-      },
+      render: (row) => <FactureStatutBadge statut={row.statut} />,
     },
     {
       key: 'montant_ttc',
@@ -327,7 +310,7 @@ export function OngletFactures({
         columns={columns}
         data={rows}
         keyExtractor={(row) => row.id}
-        onRowClick={(row) => router.push(`/admin/factures/${row.id}`)}
+        onRowClick={(row) => router.push(ROUTES.admin.facture(row.id))}
       />
     </Card>
   );
@@ -1142,9 +1125,7 @@ export function OngletRemises({
         r.valide_jusqu_au ? (
           formatDateParis(r.valide_jusqu_au)
         ) : (
-          <Badge variant="success" className="text-xs">
-            Active
-          </Badge>
+          <Badge variant="success">Active</Badge>
         ),
     },
     {

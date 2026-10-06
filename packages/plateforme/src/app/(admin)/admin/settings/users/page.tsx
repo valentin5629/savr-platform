@@ -14,6 +14,8 @@ import { InviteUserModal } from './invite-user-modal';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
+import { ActifBadge } from '@/components/ui/actif-badge';
 
 interface StaffUser {
   id: string;
@@ -44,12 +46,7 @@ const columns: Column<StaffUser>[] = [
   {
     key: 'actif',
     header: 'Statut',
-    render: (row) =>
-      row.actif ? (
-        <Badge variant="success">Actif</Badge>
-      ) : (
-        <Badge variant="neutral">Suspendu</Badge>
-      ),
+    render: (row) => <ActifBadge actif={row.actif} />,
   },
   {
     key: 'derniere_connexion',
@@ -111,10 +108,10 @@ export default function SettingsUsersPage() {
       {/* Paramètres avancés (algo AG) — accès depuis la page Paramètres */}
       <div className="flex flex-wrap items-center gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 px-4 py-3 text-sm">
         <span className="font-medium text-savr-neutral-700">Paramètres :</span>
-        <TextLink href="/admin/parametres/algo-ag">
+        <TextLink href={ROUTES.admin.parametresAlgoAg}>
           Paramètres algorithme →
         </TextLink>
-        <TextLink href="/admin/parametres/auto-accept">
+        <TextLink href={ROUTES.admin.parametresAutoAccept}>
           Configuration auto-accept →
         </TextLink>
       </div>

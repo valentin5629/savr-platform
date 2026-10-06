@@ -3,6 +3,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { FileText, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { FactureStatutBadge } from '@/components/ui/facture-statut-badge';
+import {
+  LIBELLE_STATUT_FACTURE_PLURIEL,
+  libelleCourtTypeFacture,
+  optionsTypeFacture,
+  STATUTS_FACTURE,
+} from '@/lib/libelles/facture';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { ListFooter } from '@/components/ui/list-footer';
@@ -22,11 +29,9 @@ import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { compteurResultats } from '@/lib/compteur-resultats';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
-import type { Database } from '@savr/shared/src/database.types.js';
 import { fmtMontant } from '@/lib/format';
 import { TextLink } from '@/components/ui/text-link';
-
-type Enums = Database['plateforme']['Enums'];
+import { ROUTES } from '@/lib/routes';
 
 interface Facture {
   id: string;
@@ -49,51 +54,22 @@ interface Facture {
   factures_collectes: { count: number }[] | null;
 }
 
-type BadgeVariant =
-  | 'success'
-  | 'warning'
-  | 'error'
-  | 'info'
-  | 'action'
-  | 'neutral'
-  | 'primary';
-
-const STATUT_LABELS: Record<string, { label: string; variant: BadgeVariant }> =
-  {
-    brouillon: { label: 'Brouillon', variant: 'neutral' },
-    en_attente_pennylane: { label: 'En attente', variant: 'warning' },
-    emise: { label: 'Émise', variant: 'info' },
-    payee: { label: 'Payée', variant: 'success' },
-    annulee: { label: 'Annulée', variant: 'error' },
-  };
-
-const TYPE_LABELS: Record<string, string> = {
-  zero_dechet: 'ZD',
-  collecte_antigaspi: 'AG',
-  achat_pack_antigaspi: 'Pack',
-  avoir: 'Avoir',
-};
-
 // Filtre statut (§06.08 §4/§2.3). '__erreur__' = pseudo-filtre « En erreur »
-// (factures portant une erreur de synchro Pennylane).
+// (factures portant une erreur de synchro Pennylane), inséré après « En attente
+// Pennylane ». Libellés + options = `lib/libelles/facture` (R-UI-2 C3/C4).
 const PASTILLES_STATUT = [
   { key: '', label: 'Tout' },
-  { key: 'brouillon', label: 'Brouillons' },
-  { key: 'en_attente_pennylane', label: 'En attente Pennylane' },
-  { key: '__erreur__', label: 'En erreur' },
-  { key: 'emise', label: 'Émises' },
-  { key: 'payee', label: 'Payées' },
-  { key: 'annulee', label: 'Annulées' },
+  ...STATUTS_FACTURE.flatMap((key) => {
+    const p = { key, label: LIBELLE_STATUT_FACTURE_PLURIEL[key]! };
+    return key === 'en_attente_pennylane'
+      ? [p, { key: '__erreur__', label: 'En erreur' }]
+      : [p];
+  }),
 ];
 
 // Ids typés par l'enum DB : un renommage d'enum casse la compilation au lieu
 // de devenir un filtre ignoré en silence par la route (liste blanche).
-const TYPE_OPTIONS = [
-  { id: 'zero_dechet', nom: 'Zéro Déchet' },
-  { id: 'collecte_antigaspi', nom: 'Anti-Gaspi' },
-  { id: 'achat_pack_antigaspi', nom: 'Achat Pack AG' },
-  { id: 'avoir', nom: 'Avoir' },
-] satisfies { id: Enums['facture_type']; nom: string }[];
+const TYPE_OPTIONS = optionsTypeFacture('long');
 
 async function downloadPdfSavr(id: string): Promise<void> {
   const res = await fetch(
@@ -110,7 +86,7 @@ const columns: Column<Facture>[] = [
     sortable: true,
     header: 'Numéro',
     render: (row) => (
-      <TextLink href={`/admin/factures/${row.id}`} className="font-medium">
+      <TextLink href={ROUTES.admin.facture(row.id)} className="font-medium">
         {row.numero_facture ?? '— brouillon —'}
       </TextLink>
     ),
@@ -124,7 +100,7 @@ const columns: Column<Facture>[] = [
     key: 'type',
     sortable: true,
     header: 'Type',
-    render: (row) => TYPE_LABELS[row.type] ?? row.type,
+    render: (row) => libelleCourtTypeFacture(row.type),
   },
   {
     key: 'lignes',
@@ -170,10 +146,6 @@ const columns: Column<Facture>[] = [
     sortable: true,
     header: 'Statut',
     render: (row) => {
-      const s = STATUT_LABELS[row.statut] ?? {
-        label: row.statut,
-        variant: 'neutral' as BadgeVariant,
-      };
       // §06.08 §10 — borne stricte au grain jour (échéance du jour ≠ en retard).
       const enRetard = estEnRetard(row.statut, row.date_echeance, Date.now());
       // Pastille orange §06.08 §2.3/§4 : en_attente_pennylane depuis > 2h.
@@ -192,7 +164,7 @@ const columns: Column<Facture>[] = [
               className="inline-block h-2.5 w-2.5 rounded-savr-full bg-savr-warning"
             />
           )}
-          <Badge variant={s.variant}>{s.label}</Badge>
+          <FactureStatutBadge statut={row.statut} />
           {enRetard && <Badge variant="error">En retard</Badge>}
         </span>
       );

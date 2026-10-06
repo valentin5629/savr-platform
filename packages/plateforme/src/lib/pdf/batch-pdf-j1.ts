@@ -20,6 +20,7 @@ import {
   jourParis,
 } from '@savr/shared/src/temps/index.js';
 import { urlCanonique } from '@/lib/url-application.js';
+import { ROUTES } from '@/lib/routes';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -551,8 +552,8 @@ function cheminFicheCollecte(
   typeOrganisation: string | null | undefined,
   collecteId: string,
 ): string {
-  if (typeOrganisation === 'agence') return `/agence/collectes/${collecteId}`;
+  if (typeOrganisation === 'agence') return ROUTES.agence.collecte(collecteId);
   if (typeOrganisation === 'gestionnaire_lieux')
-    return `/gestionnaire/collectes/${collecteId}`;
-  return `/traiteur/collectes/${collecteId}`;
+    return ROUTES.gestionnaire.collecte(collecteId);
+  return ROUTES.traiteur.collecte(collecteId);
 }

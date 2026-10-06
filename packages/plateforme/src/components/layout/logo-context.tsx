@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { ROUTES } from '@/lib/routes';
 
 /**
  * Contexte de teinte du logo Savr.
@@ -67,5 +68,7 @@ export function useSignalZdSelection(active: boolean): void {
  * nouvelles sections purement ZD apparaissent.
  */
 export function isZdSectionPath(pathname: string): boolean {
-  return pathname === '/registre' || pathname.startsWith('/registre/');
+  return (
+    pathname === ROUTES.registre || pathname.startsWith(`${ROUTES.registre}/`)
+  );
 }

@@ -4,10 +4,11 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { type Role, NAV_CONFIG } from '@/lib/nav-config';
+import { NAV_CONFIG } from '@/lib/nav-config';
+import type { NavRole } from '@/lib/roles';
 
 interface BottomNavProps {
-  role: Role;
+  role: NavRole;
   /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack — §06.05 l.71). */
   hiddenNavHrefs?: string[];
   className?: string;

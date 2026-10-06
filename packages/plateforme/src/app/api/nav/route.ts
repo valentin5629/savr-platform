@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { NAV_CONFIG, type Role } from '@/lib/nav-config';
+import { NAV_CONFIG } from '@/lib/nav-config';
+import type { NavRole as Role } from '@/lib/roles';
 
 const VALID_ROLES: Role[] = [
   'admin_savr',

@@ -61,6 +61,7 @@ import { Text } from '@/components/ui/text';
 import { LoadingState } from '@/components/ui/loading-state';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { fmtPct } from '@/lib/format';
+import { ROUTES } from '@/lib/routes';
 
 // Variables de la modale « méthode CO₂ » renvoyées par l'endpoint admin.
 interface Co2Methode {
@@ -413,13 +414,13 @@ export function DashboardClientView() {
     const l = blocs?.topLieux?.[i];
     if (!l) return;
     setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
-    router.push(`/admin/collectes?lieu=${l.lieu_id}&${drillScope}`);
+    router.push(`${ROUTES.admin.collectes}?lieu=${l.lieu_id}&${drillScope}`);
   };
   const goToTraiteur = (i: number) => {
     const a = blocs?.topActeurs?.[i];
     if (!a) return;
     setCollecteFiltreLabel({ kind: 'traiteur', id: a.id, label: a.label });
-    router.push(`/admin/collectes?traiteur=${a.id}&${drillScope}`);
+    router.push(`${ROUTES.admin.collectes}?traiteur=${a.id}&${drillScope}`);
   };
 
   // ── CO₂ évité (5e carte KPI + modale « Impact carbone ») ─────────────────────

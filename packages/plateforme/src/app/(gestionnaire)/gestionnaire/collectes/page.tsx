@@ -31,7 +31,7 @@ import {
   type CollecteFiltresOptions,
 } from '@/components/collecte/collecte-filtres-bar';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
-import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
 import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
@@ -49,6 +49,7 @@ import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
 import { fmtPax } from '@/lib/format';
+import { ROUTES } from '@/lib/routes';
 
 interface CollecteRow {
   id: string;
@@ -379,7 +380,7 @@ function GestionnaireCollectesContent() {
     if (f) usp.set('collecte', f.id);
     else usp.delete('collecte');
     const s = usp.toString();
-    router.replace(`/gestionnaire/collectes${s ? `?${s}` : ''}`);
+    router.replace(`${ROUTES.gestionnaire.collectes}${s ? `?${s}` : ''}`);
   }
   function ouvrirFiche(id: string) {
     const f = { id, edit: false };

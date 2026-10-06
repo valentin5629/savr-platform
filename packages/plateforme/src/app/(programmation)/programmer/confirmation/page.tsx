@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { ROUTES } from '@/lib/routes';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 type CollecteRecap = {
   id: string;
@@ -42,13 +44,9 @@ type EvenementRecap = {
   collectes: CollecteRecap[];
 };
 
-// Libellés type collecte — tolère l'enum DB (zero_dechet/anti_gaspi) et les
-// alias UI (zd/ag) pour être robuste à la forme renvoyée par l'API.
-function libelleType(type: string): string {
-  if (type === 'anti_gaspi' || type === 'ag') return 'Anti-Gaspi';
-  if (type === 'zero_dechet' || type === 'zd') return 'Zéro Déchet';
-  return type;
-}
+// Libellés type collecte : `libelleTypeCollecte` tolère l'enum DB
+// (zero_dechet/anti_gaspi) et les alias UI (zd/ag) renvoyés par l'API.
+const libelleType = libelleTypeCollecte;
 
 function formatDate(date: string | null): string {
   if (!date) return '—';
@@ -228,14 +226,14 @@ function ConfirmationContent() {
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         {evenement && (
           <Button asChild>
-            <Link href={`/programmer/${evenement.id}/ajouter-collecte`}>
+            <Link href={ROUTES.programmer.ajouterCollecte(evenement.id)}>
               <PlusCircle />
               Ajouter une collecte à cet événement
             </Link>
           </Button>
         )}
         <Button asChild variant="secondary">
-          <Link href="/programmer/nouveau">
+          <Link href={ROUTES.programmer.nouveau}>
             <CalendarPlus />
             Programmer un autre événement
           </Link>

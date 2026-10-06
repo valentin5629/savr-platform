@@ -6,10 +6,10 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { TopBar } from '@/components/layout/top-bar';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { LogoZdProvider } from '@/components/layout/logo-context';
-import { type Role } from '@/lib/nav-config';
+import type { NavRole } from '@/lib/roles';
 
 interface AppShellProps {
-  role: Role;
+  role: NavRole;
   userName?: string;
   pageTitle?: string;
   onLogout?: () => void;

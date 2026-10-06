@@ -2,6 +2,8 @@ import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { urlCanonique } from '@/lib/url-application.js';
+import { ROUTES } from '@/lib/routes';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -24,9 +26,7 @@ const TRAITEUR_TEAM_ROLES = ['traiteur_manager', 'traiteur_commercial'];
 // (lib/url-application.ts), seule source possible du domaine hors requête.
 
 function libelleType(type: string | null | undefined): string {
-  if (type === 'zero_dechet') return 'Zéro Déchet';
-  if (type === 'anti_gaspi') return 'Anti-Gaspi';
-  return type ?? '';
+  return type ? libelleTypeCollecte(type) : '';
 }
 
 /**
@@ -197,7 +197,7 @@ export async function notifierTraiteurOperationnel(
     supabase,
     params.acteurOrgId as string,
   );
-  const lienCollecte = urlCanonique(`/traiteur/collectes/${ctx.collecteId}`);
+  const lienCollecte = urlCanonique(ROUTES.traiteur.collecte(ctx.collecteId));
 
   if (params.changement.kind === 'programmation') {
     let programmeurNom = orgProgrammatrice;
@@ -359,7 +359,7 @@ export async function notifierAdminAnnulation(
       delai_avant_creneau: tardive ? 'moins de 12h' : '12h ou plus',
       info_facturation: params.infoFacturation ?? '',
       annulation_tardive: tardive ? 'true' : 'false',
-      lien_backoffice: urlCanonique(`/admin/collectes/${params.collecteId}`),
+      lien_backoffice: urlCanonique(ROUTES.admin.collecte(params.collecteId)),
     },
     { entityType: 'collecte', entityId: params.collecteId },
   );

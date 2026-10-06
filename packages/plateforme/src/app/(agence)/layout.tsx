@@ -15,6 +15,7 @@ export default async function AgenceLayout({
       role={session.role}
       userName={session.email}
       pageTitle="Espace agence"
+      hiddenNavHrefs={[]}
     >
       {children}
     </AppShell>

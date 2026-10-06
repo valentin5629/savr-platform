@@ -145,7 +145,7 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
   // cf. _Divergences/M3.2_20260706_nav_collectes_registre.md, type: ambigu).
   // → 9 entrées. Seule règle CDC-conforme appliquée ici : « Mon pack AG » masqué si
   // l'organisation n'a aucun pack (filtrage `hiddenNavHrefs` calculé côté layout,
-  // appliqué dans Sidebar/BottomNav — CDC l.71).
+  // appliqué dans Sidebar/BottomNav — CDC l.75).
   gestionnaire_lieux: [
     {
       items: [
@@ -237,7 +237,7 @@ export function getNavItems(role: NavRole): NavItem[] {
 }
 
 /**
- * Entrée du menu active pour un chemin : UNE seule (Design System §8,
+ * Entrée du menu active pour un chemin : UNE seule (Design System §10,
  * `aria-current` sur l'item de nav actif). Plusieurs entrées peuvent préfixer le
  * chemin courant — le Dashboard d'un espace client vit à la racine de l'espace
  * (`/gestionnaire`), donc préfixe toutes ses voisines (`/gestionnaire/collectes`).

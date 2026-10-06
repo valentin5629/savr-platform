@@ -1,5 +1,5 @@
 /**
- * M0.8 — Menu : UNE seule entrée active (Design System §8, `aria-current` sur
+ * M0.8 — Menu : UNE seule entrée active (Design System §10, `aria-current` sur
  * l'item de nav actif).
  *
  * Défaut E2E (2026-10-06) : sur `/gestionnaire/collectes`, « Dashboard » restait
@@ -89,5 +89,17 @@ it('M0.8-70 — Barre mobile : même règle, et rien d’allumé quand la page c
   cleanup();
   etat.pathname = '/gestionnaire/traiteurs';
   render(<BottomNav role="gestionnaire_lieux" />);
+  expect(entreesActives()).toEqual([]);
+});
+
+it('M0.8-71 — Menu : sur la page d’une entrée masquée, aucune autre entrée ne s’allume à sa place', () => {
+  etat.pathname = '/gestionnaire/mon-pack-ag';
+  render(
+    <Sidebar
+      role="gestionnaire_lieux"
+      hiddenNavHrefs={['/gestionnaire/mon-pack-ag']}
+    />,
+  );
+  expect(screen.queryByText('Mon pack AG')).not.toBeInTheDocument();
   expect(entreesActives()).toEqual([]);
 });

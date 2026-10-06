@@ -9,6 +9,9 @@
  * Les tests BL-P2-13 d'origine nourrissent la Sidebar à la main
  * (`hiddenNavHrefs=…`) : ils prouvent que le menu sait masquer, pas que chaque
  * layout le lui demande. Ici on rend les LAYOUTS, et on compare leurs menus.
+ *
+ * M0.8 (navigation par rôle) — le layout `(programmation)` lit désormais le rôle
+ * côté serveur : staff et rôle illisible y sont couverts en fin de fichier.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
@@ -18,6 +21,7 @@ const etat = vi.hoisted(() => ({
   role: 'gestionnaire_lieux' as string | undefined,
   nbPacks: 0 as number | null,
   tablesLues: [] as string[],
+  optionsClient: [] as unknown[],
 }));
 
 vi.mock('next/navigation', () => ({
@@ -38,14 +42,17 @@ vi.mock('@/lib/page-auth', () => ({
 
 vi.mock('@/lib/api-auth', () => ({
   // Frontière externe : le comptage RLS des packs de l'organisation.
-  createSupabaseServerClient: () => ({
-    from: (table: string) => ({
-      select: () => {
-        etat.tablesLues.push(table);
-        return Promise.resolve({ count: etat.nbPacks, error: null });
-      },
-    }),
-  }),
+  createSupabaseServerClient: (options?: unknown) => {
+    etat.optionsClient.push(options);
+    return {
+      from: (table: string) => ({
+        select: () => {
+          etat.tablesLues.push(table);
+          return Promise.resolve({ count: etat.nbPacks, error: null });
+        },
+      }),
+    };
+  },
   getVerifiedClaims: vi.fn(() =>
     Promise.resolve(
       etat.role
@@ -59,6 +66,8 @@ import GestionnaireLayout from '@/app/(gestionnaire)/layout.js';
 import RegistreLayout from '@/app/(registre)/layout.js';
 import ProgrammationLayout from '@/app/(programmation)/layout.js';
 import { entreesNavMasquees } from '@/lib/nav-masquee.js';
+import { getNavItems } from '@/lib/nav-config.js';
+import type { NavRole } from '@/lib/roles.js';
 
 type Layout = (props: {
   children: React.ReactNode;
@@ -83,7 +92,13 @@ beforeEach(() => {
   etat.role = 'gestionnaire_lieux';
   etat.nbPacks = 0;
   etat.tablesLues = [];
+  etat.optionsClient = [];
 });
+
+/** Libellés du menu d'un rôle, tel que la config le déclare. */
+function menuDuRole(role: NavRole): string[] {
+  return getNavItems(role).map((entree) => entree.label);
+}
 
 describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
   it('M3.2/nav_pack_registre_masque_sans_pack — sur le registre, un gestionnaire sans pack ne voit pas « Mon pack AG »', async () => {
@@ -135,6 +150,8 @@ describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
       '/gestionnaire/mon-pack-ag',
     ]);
     expect(etat.tablesLues).toEqual(['packs_antgaspi']);
+    // Rendu de page : le client ne doit pas tenter d'écrire de cookies.
+    expect(etat.optionsClient).toEqual([{ readonly: true }]);
 
     etat.nbPacks = 3;
     expect(await entreesNavMasquees('gestionnaire_lieux')).toEqual([]);
@@ -150,12 +167,26 @@ describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
       expect(await entreesNavMasquees(role)).toEqual([]);
     expect(etat.tablesLues).toEqual([]);
   });
+});
 
-  it('M3.2/nav_programmation_role_illisible — sans rôle lisible, le formulaire garde le menu par défaut (traiteur commercial)', async () => {
+describe('M0.8 / nav du formulaire de programmation — rôle lu côté serveur', () => {
+  it('M0.8-72 — Formulaire de programmation : le staff (admin, ops) garde le menu du back-office', async () => {
+    const backOffice = menuDuRole('admin_savr');
+    expect(backOffice.length).toBeGreaterThan(0);
+    for (const role of ['admin_savr', 'ops_savr']) {
+      etat.role = role;
+      expect(await menuDe(ProgrammationLayout, '/programmer/nouveau')).toEqual(
+        backOffice,
+      );
+    }
+    expect(etat.tablesLues).toEqual([]);
+  });
+
+  it('M0.8-73 — Formulaire de programmation : sans rôle lisible, menu par défaut du traiteur commercial', async () => {
     etat.role = undefined;
-    const menu = await menuDe(ProgrammationLayout, '/programmer/nouveau');
-    expect(menu).not.toContain('Mes lieux');
-    expect(menu.length).toBeGreaterThan(0);
+    expect(await menuDe(ProgrammationLayout, '/programmer/nouveau')).toEqual(
+      menuDuRole('traiteur_commercial'),
+    );
     expect(etat.tablesLues).toEqual([]);
   });
 });

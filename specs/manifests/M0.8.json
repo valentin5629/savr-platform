@@ -39,7 +39,8 @@
     "packages/plateforme/src/components/ui/components.m0-8.test.tsx",
     "packages/plateforme/src/components/r23b-cosmetics.m0-8.test.tsx",
     "packages/plateforme/src/lib/pdf/logo-inline.m0-8.test.ts",
-    "packages/plateforme/tests/ui/nav-entree-active.m0-8.test.tsx"
+    "packages/plateforme/tests/ui/nav-entree-active.m0-8.test.tsx",
+    "packages/plateforme/tests/ui/nav-sections-transverses.test.tsx"
   ],
   "tests_playwright": [
     "e2e/m0-8.nav-par-role.spec.ts"
@@ -90,7 +91,14 @@
     "M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowClick (desktop + mobile)",
     "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
     "M0.8-65 — DataTable : une ligne sans onRowClick n'entre pas dans l'ordre de tabulation",
-    "M0.8-66 — DataTable : Entrée sur un bouton de cellule n'active pas la ligne (pas de double activation)"
+    "M0.8-66 — DataTable : Entrée sur un bouton de cellule n'active pas la ligne (pas de double activation)",
+    "M0.8-67 — Menu : sur une page d’un espace client, seule son entrée est active (le Dashboard ne s’allume plus avec elle)",
+    "M0.8-68 — Menu : la racine de l’espace allume le Dashboard, une sous-page allume l’entrée qui la contient",
+    "M0.8-69 — Menu : pour chaque rôle, chaque entrée est seule active sur sa propre page",
+    "M0.8-70 — Barre mobile : même règle, et rien d’allumé quand la page courante n’est pas dans les 4 entrées affichées",
+    "M0.8-71 — Menu : sur la page d’une entrée masquée, aucune autre entrée ne s’allume à sa place",
+    "M0.8-72 — Formulaire de programmation : le staff (admin, ops) garde le menu du back-office",
+    "M0.8-73 — Formulaire de programmation : sans rôle lisible, menu par défaut du traiteur commercial"
   ],
   "deliverables": [
     {
@@ -610,7 +618,7 @@
       "id": "M0.8-nav-entree-active-unique",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:473",
       "artefact": "packages/plateforme/src/lib/nav-config.ts (hrefNavActif) + packages/plateforme/src/components/layout/sidebar.tsx + packages/plateforme/src/components/layout/bottom-nav.tsx",
-      "test": "M0.8-67 + M0.8-68 + M0.8-69 + M0.8-70",
+      "test": "M0.8-67 + M0.8-68 + M0.8-69 + M0.8-70 + M0.8-71",
       "statut": "implemented",
       "libelle": "Menu (barre latérale et barre mobile) — une seule entrée active, celle dont l'adresse correspond le plus précisément à la page courante. Le Dashboard des espaces client vit à la racine de l'espace (/gestionnaire, /traiteur, /agence, /organisateur) et préfixe toutes ses voisines : décidée au préfixe, l'entrée active était double (Dashboard + page courante) sur toutes les pages de ces espaces (défaut E2E 2026-10-06)."
     }

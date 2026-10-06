@@ -41,6 +41,7 @@ export default async function AdminLayout({
       role="admin_savr"
       userName={session.email}
       pageTitle="Back-office Admin"
+      hiddenNavHrefs={[]}
       navBadges={navBadges}
     >
       {children}

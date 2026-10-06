@@ -246,7 +246,7 @@ SELECT is(
     WHERE e.lieu_id IN ('cc000000-0000-0000-0000-000000000b01'::uuid,
                         'cc000000-0000-0000-0000-000000000b03'::uuid)),
   ARRAY['cc000000-0000-0000-0000-0000000000c1'::uuid],
-  'M3.2/rls_collectes_liste_lieux_parc_et_hors_parc — seul le lieu du parc contribue'
+  'M3.2/rls_collectes_liste_lieux_parc_et_hors_parc — sans programmation propre hors parc, seul le lieu du parc contribue'
 );
 
 -- T3d : traiteur commun aux deux gestionnaires (Kaspia opère sur Palais des
@@ -258,7 +258,7 @@ SELECT is(
     WHERE e.traiteur_operationnel_organisation_id
           IN ('cc000000-0000-0000-0000-00000000000c'::uuid)),
   ARRAY['cc000000-0000-0000-0000-0000000000c1'::uuid],
-  'M3.2/rls_collectes_liste_traiteur_commun — le filtre traiteur ne sort pas du parc'
+  'M3.2/rls_collectes_liste_traiteur_commun — sans programmation propre hors parc, le filtre traiteur ne sort pas du parc'
 );
 
 -- ════════════════════════════════════════════════════════════════════════════

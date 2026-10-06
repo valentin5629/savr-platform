@@ -30,3 +30,23 @@ UPDATE plateforme.flux_dechets
    SET unite_mesure = 'kg'
  WHERE code = 'emballage'
    AND unite_mesure <> 'kg';
+
+-- Contrôle de fin, comme la migration 20261004203000 : la table est en FORCE
+-- ROW LEVEL SECURITY, un rôle de migration sans BYPASSRLS mettrait à jour
+-- 0 ligne sans erreur et la migration serait enregistrée. On compte les flux
+-- EN kg (et non ceux qui ne le sont pas) : un rôle qui ne voit aucune ligne
+-- échoue lui aussi.
+DO $$
+DECLARE
+  v_en_kg integer;
+BEGIN
+  SELECT count(*) INTO v_en_kg
+    FROM plateforme.flux_dechets
+   WHERE code IN ('biodechet', 'emballage', 'carton', 'verre', 'dechet_residuel')
+     AND unite_mesure = 'kg';
+  IF v_en_kg <> 5 THEN
+    RAISE EXCEPTION
+      'flux_dechets : % flux en kg sur 5 après mise à jour — le rôle de migration écrit-il sous RLS ?',
+      v_en_kg;
+  END IF;
+END $$;

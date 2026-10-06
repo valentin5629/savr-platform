@@ -3,12 +3,12 @@
 import { ErrorState } from '@/components/ui/error-state';
 import { fmtKg } from '@/lib/format';
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { MapPin } from 'lucide-react';
 import { PageHero } from '@/components/ui/page-hero';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
+import { FicheLieuModal } from '@/components/gestionnaire/fiche-lieu-modal';
 import { ROUTES } from '@/lib/routes';
 
 interface LieuRow {
@@ -25,10 +25,29 @@ interface LieuRow {
 }
 
 export default function GestionnaireLieuxPage() {
-  const router = useRouter();
   const [rows, setRows] = useState<LieuRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState(false);
+
+  // Fiche lieu en pop-up (§06.05 §3 — arbitrage Val 2026-10-06). L'adresse porte
+  // la fiche ouverte (?lieu=<id>) : un lien direct, un rechargement ou l'ancienne
+  // route /gestionnaire/lieux/<id> (qui redirige ici) rouvrent la même fiche.
+  const [lieuOuvert, setLieuOuvert] = useState<string | null>(null);
+  useEffect(() => {
+    setLieuOuvert(new URLSearchParams(window.location.search).get('lieu'));
+  }, []);
+  const ouvrirFiche = (id: string) => {
+    setLieuOuvert(id);
+    window.history.replaceState(
+      null,
+      '',
+      `${ROUTES.gestionnaire.lieux}?lieu=${encodeURIComponent(id)}`,
+    );
+  };
+  const fermerFiche = useCallback(() => {
+    setLieuOuvert(null);
+    window.history.replaceState(null, '', ROUTES.gestionnaire.lieux);
+  }, []);
 
   const charger = useCallback(() => {
     setLoading(true);
@@ -105,7 +124,7 @@ export default function GestionnaireLieuxPage() {
       data={rows}
       loading={loading}
       keyExtractor={(row) => row.id}
-      onRowClick={(row) => router.push(ROUTES.gestionnaire.lieu(row.id))}
+      onRowClick={(row) => ouvrirFiche(row.id)}
     />
   );
 
@@ -124,6 +143,10 @@ export default function GestionnaireLieuxPage() {
       <div className="rounded-savr-md border border-savr-neutral-200 bg-savr-white p-2 sm:p-4">
         {contenu}
       </div>
+
+      {lieuOuvert && (
+        <FicheLieuModal lieuId={lieuOuvert} onClose={fermerFiche} />
+      )}
     </div>
   );
 }

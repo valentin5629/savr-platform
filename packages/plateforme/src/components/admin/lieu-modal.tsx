@@ -34,6 +34,7 @@ import {
 import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
 import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
 import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
+import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
 import { estSiren } from '@savr/shared/src/validation/index.js';
 import {
   MESSAGE_FORMAT_SIREN,
@@ -174,6 +175,7 @@ const LIBELLE_ACTION: Record<string, string> = {
   UPDATE: 'Modification',
   NORMALISE: 'Lieu normalisé',
   lieu_override_programmation: 'Modification signalée à la programmation',
+  [CODE_ALERTE_LIEU_MODIFICATION]: 'Modification demandée par le gestionnaire',
 };
 
 const LIBELLE_CHAMP: Record<string, string> = {

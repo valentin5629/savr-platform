@@ -826,63 +826,8 @@ describe('M3.2 / P2 export CSV filtres', () => {
   });
 });
 
-// ── Détail Lieu : capacité + photos + collectes (graphique) ───────────────────
-describe('M3.2 / P2 détail lieu', () => {
-  it('M3.2/P2_lieu_detail_capacite_photos_collectes — champs rendus retournés', async () => {
-    setupAuth();
-    rls.push({
-      data: {
-        id: 'lieu-1',
-        nom: 'Palais',
-        adresse_acces: '2 place',
-        code_postal: '75017',
-        ville: 'Paris',
-        region: 'ile_de_france',
-        type_vehicule_max: 'poids_lourd',
-        capacite_maximum: 3500,
-        acces_office: true,
-        stationnement: 'facile',
-        photos_urls: ['https://r2/p1.jpg'],
-        flux_autorises: ['biodechet'],
-      },
-      error: null,
-    }); // v_lieux_clients maybeSingle
-    rls.push({
-      data: [
-        {
-          id: 'c1',
-          type: 'zero_dechet',
-          statut: 'cloturee',
-          date_collecte: '2026-06-01',
-          taux_recyclage: 0.9,
-          evenements: {
-            lieu_id: 'lieu-1',
-            organisations: { id: 'tr1', nom: 'Kaspia' },
-          },
-          collecte_flux: [{ poids_reel_kg: 250 }],
-        },
-      ],
-      error: null,
-    }); // collectes
-
-    const { GET } =
-      await import('@/app/api/v1/gestionnaire/lieux/[id]/route.js');
-    const res = await GET(makeReq('/api/v1/gestionnaire/lieux/lieu-1'), {
-      params: Promise.resolve({ id: 'lieu-1' }),
-    });
-    const json = (await res.json()) as {
-      data: {
-        capacite_maximum: number;
-        photos_urls: string[];
-        collectes: { collecte_flux: { poids_reel_kg: number }[] }[];
-      };
-    };
-    expect(json.data.capacite_maximum).toBe(3500);
-    expect(json.data.photos_urls).toEqual(['https://r2/p1.jpg']);
-    expect(json.data.collectes).toHaveLength(1);
-    expect(json.data.collectes[0]?.collecte_flux[0]?.poids_reel_kg).toBe(250);
-  });
-});
+// Détail Lieu (M3.2/P2_lieu_detail_capacite_photos_collectes) : déplacé dans
+// fiche-lieu-modale.m3-2.test.ts avec la fiche en pop-up (2026-10-06).
 
 // ── Détail Traiteur : historique collectes (§06.05 l.439) ─────────────────────
 describe('M3.2 / P2 détail traiteur', () => {

@@ -1,10 +1,10 @@
 'use client';
 
+import { ErrorState } from '@/components/ui/error-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
-import { AlertBar } from '@/components/ui/alert-bar';
-import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Combobox } from '@/components/ui/combobox';
 import {
@@ -38,7 +38,6 @@ import {
   useFiltresUrl,
 } from '@/lib/hooks/use-filtres-url';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
-import { Skeleton } from '@/components/ui/skeleton';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
 import { fmtPax } from '@/lib/format';
@@ -137,11 +136,7 @@ function purgerCrochets(): void {
 // Un seul squelette pour les deux moments de chargement de l'écran : le fallback
 // du Suspense (résolution de useSearchParams) et l'attente de la réponse.
 const SqueletteListe = () => (
-  <div className="space-y-2" data-testid="collectes-skeleton">
-    {[...Array(5)].map((_, i) => (
-      <Skeleton key={i} className="h-12 w-full" />
-    ))}
-  </div>
+  <LoadingState variant="bloc" lignes={5} data-testid="collectes-skeleton" />
 );
 
 function GestionnaireCollectesContent() {
@@ -425,12 +420,11 @@ function GestionnaireCollectesContent() {
   // message + « Réessayer », Empty = EmptyState illustré. Les trois sont
   // distincts : une panne ne doit jamais se lire comme une liste vide.
   const contenu = erreur ? (
-    <div className="space-y-4" data-testid="collectes-erreur">
-      <AlertBar variant="err">{erreur}</AlertBar>
-      <Button variant="secondary" onClick={charger}>
-        Réessayer
-      </Button>
-    </div>
+    <ErrorState
+      data-testid="collectes-erreur"
+      message={erreur}
+      onRetry={charger}
+    />
   ) : loading ? (
     <SqueletteListe />
   ) : rows.length === 0 ? (

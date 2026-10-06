@@ -1,5 +1,6 @@
 'use client';
 
+import { AlertBar } from '@/components/ui/alert-bar';
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
@@ -114,12 +115,11 @@ export default function AjouterCollectePage() {
       />
 
       {agDoublonWarning && (
-        <div className="rounded-savr-md border border-savr-warning bg-savr-warning-subtle px-4 py-3 space-y-3">
-          <p className="flex items-start gap-2 text-sm text-savr-warning-deep">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+        <div className="space-y-3">
+          <AlertBar variant="warn" icon={<AlertTriangle />}>
             Cet événement a déjà une collecte Anti-Gaspi. Confirmer l&apos;ajout
             d&apos;une seconde&nbsp;?
-          </p>
+          </AlertBar>
           <FormActions
             cancel={{
               label: 'Annuler',
@@ -140,10 +140,9 @@ export default function AjouterCollectePage() {
       )}
 
       {error && (
-        <div className="flex items-center gap-2 rounded-savr-md bg-savr-error-subtle border border-savr-error px-3 py-2 text-sm text-savr-error">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
           {error}
-        </div>
+        </AlertBar>
       )}
 
       <FormActions

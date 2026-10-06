@@ -1,12 +1,11 @@
 'use client';
 
+import { ErrorState } from '@/components/ui/error-state';
 import { fmtKg, fmtPct } from '@/lib/format';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat } from 'lucide-react';
-import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   CelluleVide,
   DataGrid,
@@ -153,12 +152,11 @@ export default function GestionnaireTraiteursPage() {
       <Text>Traiteurs intervenus sur vos lieux (24 derniers mois).</Text>
 
       {erreur ? (
-        <div className="space-y-4" data-testid="traiteurs-erreur">
-          <AlertBar variant="err">{erreur}</AlertBar>
-          <Button variant="secondary" onClick={charger}>
-            Réessayer
-          </Button>
-        </div>
+        <ErrorState
+          data-testid="traiteurs-erreur"
+          message={erreur}
+          onRetry={charger}
+        />
       ) : (
         <DataGrid
           data-testid="traiteurs-table"

@@ -1,12 +1,12 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PlusCircle, FileEdit, CalendarDays, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -68,13 +68,7 @@ export default function BrouillonsPage() {
         }
       />
 
-      {loading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-savr-lg" />
-          ))}
-        </div>
-      )}
+      {loading && <LoadingState variant="bloc" />}
 
       {!loading && rows.length === 0 && (
         <EmptyState

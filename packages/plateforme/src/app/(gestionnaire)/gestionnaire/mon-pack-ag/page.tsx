@@ -1,5 +1,7 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { libelleStatutPack, variantStatutPack } from '@/lib/libelles/pack';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -139,7 +141,7 @@ export default function MonPackAgPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <Text>Chargement…</Text>;
+  if (loading) return <LoadingState />;
 
   const pack = data?.pack_actif;
   const packEpuise = pack && pack.nb_collectes_restantes === 0;
@@ -156,8 +158,12 @@ export default function MonPackAgPage() {
 
       {!pack ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-savr-neutral-500">
-            Aucun pack Anti-Gaspi actif. Contactez votre responsable Savr.
+          <CardContent className="py-8">
+            <EmptyState
+              size="inline"
+              className="text-center"
+              title="Aucun pack Anti-Gaspi actif. Contactez votre responsable Savr."
+            />
           </CardContent>
         </Card>
       ) : (

@@ -493,11 +493,19 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       render(<CollectesPage />);
 
       // §10 §7 : « Skeleton screens […] jamais spinner seul ». Le texte
-      // « Chargement… » que rendait l'écran d'avant ne doit plus apparaître.
-      expect(
-        await screen.findByTestId('collectes-skeleton', {}, ATTENTE_UI),
-      ).toBeTruthy();
-      expect(screen.queryByText('Chargement…')).toBeNull();
+      // « Chargement… » que rendait l'écran d'avant ne doit plus apparaître
+      // visiblement : `LoadingState bloc` ne le garde que pour les lecteurs
+      // d'écran (sr-only), à côté des squelettes.
+      const squelette = await screen.findByTestId(
+        'collectes-skeleton',
+        {},
+        ATTENTE_UI,
+      );
+      expect(squelette.querySelectorAll('[aria-hidden]').length).toBe(5);
+      const libelle = screen.queryByText('Chargement…');
+      expect(libelle === null || libelle.classList.contains('sr-only')).toBe(
+        true,
+      );
     },
     ATTENTE_CAS_MS,
   );

@@ -1,11 +1,11 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 
 interface DocItem {
   type: 'rapport' | 'bordereau' | 'attestation';
@@ -119,7 +119,12 @@ export default function ClientOrganisateurDocumentsPage() {
         data={items}
         getRowId={cle}
         loading={loading}
-        empty={<Text>Aucun document disponible pour le moment.</Text>}
+        empty={
+          <EmptyState
+            size="inline"
+            title="Aucun document disponible pour le moment."
+          />
+        }
       />
     </div>
   );

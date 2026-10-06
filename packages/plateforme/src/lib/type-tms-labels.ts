@@ -64,8 +64,8 @@ export function envoiAutomatique(typeTms: string | null | undefined): boolean {
   return typeTms === 'mts1' || typeTms === 'a_toutes';
 }
 
-// Nom du canal qui reçoit la commande d'un envoi automatique (texte Admin,
-// bloc « ordre en file d'envoi » de la fiche collecte). Manuel → null.
+// Nom du canal d'un envoi automatique (texte Admin de la fiche collecte :
+// bloc « ordre en file d'envoi », bloc « Chauffeur »). Manuel → null.
 export function libelleCanalEnvoi(
   typeTms: string | null | undefined,
 ): string | null {

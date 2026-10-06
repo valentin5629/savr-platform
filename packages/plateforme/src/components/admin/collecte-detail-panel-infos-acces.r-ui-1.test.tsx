@@ -15,7 +15,7 @@ import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import { renderAvecToasts } from '@/test-utils/toasts';
 
 // Fixture alignée sur collecte-detail-panel.m0-6.test.tsx, avec un lieu à
-// contrôle d'accès et une tournée dispatchée (bouton « Éditer les infos »).
+// contrôle d'accès et une tournée dispatchée (bouton « Modifier les coordonnées »).
 const collecteControleAcces = {
   id: 'c1',
   type: 'anti_gaspi',
@@ -138,8 +138,19 @@ function mockFetch(emailEnvoye: boolean) {
 }
 
 async function enregistrerInfosAcces(): Promise<void> {
+  // La saisie vit dans le bloc « Chauffeur » de l'onglet Logistique
+  // (décision Val 2026-10-02 — plus de card « Informations chauffeur »).
+  // Radix active un onglet au mousedown (bouton gauche), pas au click.
+  fireEvent.mouseDown(
+    await screen.findByRole('tab', { name: 'Logistique' }, ATTENTE_UI),
+    { button: 0 },
+  );
   fireEvent.click(
-    await screen.findByRole('button', { name: 'Éditer les infos' }, ATTENTE_UI),
+    await screen.findByRole(
+      'button',
+      { name: 'Modifier les coordonnées' },
+      ATTENTE_UI,
+    ),
   );
   fireEvent.click(
     await screen.findByRole('button', { name: 'Enregistrer' }, ATTENTE_UI),

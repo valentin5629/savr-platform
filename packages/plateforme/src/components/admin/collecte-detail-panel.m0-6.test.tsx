@@ -1621,10 +1621,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         within(infos).getByRole('link', { name: '06 11 22 33 44' }),
       ).toHaveAttribute('href', 'tel:0611223344');
       expect(within(infos).getByText('Non renseigné')).toBeInTheDocument();
-      // Sans contrôle d'accès : aucune info chauffeur demandée.
+      // Les coordonnées chauffeur ont quitté l'onglet Informations pour le bloc
+      // « Chauffeur » de l'onglet Logistique (décision Val 2026-10-02).
+      expect(within(infos).queryByText(/Informations chauffeur/)).toBeNull();
       expect(
-        within(infos).getByText(/aucune information chauffeur/),
-      ).toBeInTheDocument();
+        within(infos).queryByText(/aucune information chauffeur/),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -1985,6 +1987,570 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
       expect(
         screen.queryByRole('button', { name: 'Acceptation manuelle' }),
       ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// ============================================================================
+// Bloc « Chauffeur » de l'onglet Logistique (décision Val 2026-10-02) : même
+// bloc que la fiche client (§06.04 « Logistique ») — nom, plaque, téléphone par
+// camion, remontés automatiquement du prestataire (MTS-1 référentiel carrier,
+// Everest coursier) et complétés par l'Admin. Remplace la card « Informations
+// chauffeur » de l'onglet Informations (réservée au contrôle d'accès).
+// ============================================================================
+
+describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const tourneeMts1 = {
+    rang: 1,
+    tournees: {
+      id: 'tour-1',
+      statut: 'planifiee',
+      tms_reference: 'TMS-42',
+      external_ref_commande: 'CMD-42',
+      plaque_immatriculation: 'AB-123-CD',
+      chauffeur_nom: 'Paul Martin',
+      chauffeur_telephone: '0612345678',
+      accompagnant_nom: null,
+      accompagnant_telephone: null,
+      type_vehicule: 'camion_16m3',
+    },
+  };
+
+  it(
+    'sans tournée ni prestataire : une ligne « Camion » en attente, saisie impossible (« Attribuez d’abord un prestataire »)',
+    async () => {
+      // Un camion demandé (N = 1), aucune tournée, aucun prestataire posé :
+      // la ligne existe (C2 Val 2026-10-06) mais la tournée ne peut pas être
+      // créée sans prestataire (tournees.prestataire_logistique_id NOT NULL).
+      mockFetch({ ...collecteAg, collecte_tournees: [] });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId(
+        'bloc-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(bloc).getByRole('heading', { name: 'Chauffeur' }),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(1);
+      expect(
+        within(bloc).getByText(/Attribuez d’abord un prestataire/),
+      ).toBeInTheDocument();
+      expect(
+        within(bloc).getByText(/Tournée pas encore créée par le prestataire/),
+      ).toBeInTheDocument();
+      // Chauffeur, plaque, téléphone : trois « En attente », aucune saisie.
+      expect(within(bloc).getAllByText('En attente')).toHaveLength(3);
+      expect(
+        screen.queryByRole('button', { name: 'Modifier les coordonnées' }),
+      ).toBeNull();
+      expect(screen.queryByText('Chauffeur pas encore affecté')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'tournée MTS-1 renseignée : nom, plaque et téléphone cliquable ; sans contrôle d’accès, pas de mention email',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-mts1',
+        prestataire_actuel: {
+          transporteur_id: 't-mts1',
+          nom: 'Strike',
+          type_tms: 'mts1',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = (await screen.findByTestId(
+        'camion-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLElement;
+      // Le canal nommé : MTS-1 (jamais « du prestataire » générique).
+      expect(
+        screen.getByText(/remontent automatiquement de MTS-1/),
+      ).toBeInTheDocument();
+      expect(within(bloc).getByText('Paul Martin')).toBeInTheDocument();
+      expect(within(bloc).getByText('AB-123-CD')).toBeInTheDocument();
+      expect(
+        within(bloc).getByRole('link', { name: '0612345678' }),
+      ).toHaveAttribute('href', 'tel:0612345678');
+      expect(within(bloc).queryByText('En attente')).toBeNull();
+      // Un seul camion : pas d'en-tête « Camion 1 ».
+      expect(within(bloc).queryByText(/^Camion 1$/)).toBeNull();
+      // Titre au singulier (un seul camion) — « Chauffeur » est aussi le label
+      // du champ, d'où getAll.
+      expect(screen.queryByText('Chauffeurs')).toBeNull();
+      expect(screen.queryByText(/contrôle d’accès/)).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'vélo cargo sans plaque, coursier pas encore communiqué : « Sans objet (vélo cargo) » et « En attente » sur nom et téléphone',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        collecte_tournees: [
+          {
+            ...tourneeMts1,
+            tournees: {
+              ...tourneeMts1.tournees,
+              plaque_immatriculation: null,
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+              type_vehicule: 'velo_cargo',
+            },
+          },
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = (await screen.findByTestId(
+        'camion-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLElement;
+      expect(
+        within(bloc).getByText('Sans objet (vélo cargo)'),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByText('En attente')).toHaveLength(2);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'deux camions chez un transporteur manuel : « Chauffeurs », en-tête « Camion N », accompagnant affiché, coordonnées « à saisir par l’équipe Ops »',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        prestataire_logistique_id: null,
+        prestataire_actuel: {
+          transporteur_id: 't-province',
+          nom: 'Transports Dupont',
+          type_tms: 'par_mail',
+        },
+        collecte_tournees: [
+          tourneeMts1,
+          {
+            rang: 2,
+            tournees: {
+              ...tourneeMts1.tournees,
+              id: 'tour-2',
+              chauffeur_nom: 'Léa Durand',
+              chauffeur_telephone: null,
+              plaque_immatriculation: 'CD-456-EF',
+              accompagnant_nom: 'Marc Petit',
+              accompagnant_telephone: '0699887766',
+            },
+          },
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const camions = (await screen.findAllByTestId(
+        'camion-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLElement[];
+      expect(camions).toHaveLength(2);
+      expect(screen.getByText('Chauffeurs')).toBeInTheDocument();
+      expect(within(camions[0]!).getByText('Camion 1')).toBeInTheDocument();
+      expect(within(camions[1]!).getByText('Camion 2')).toBeInTheDocument();
+      // Accompagnant du camion 2, absent du camion 1.
+      expect(within(camions[1]!).getByText('Marc Petit')).toBeInTheDocument();
+      // Plus de téléphone d'accompagnant à l'écran (retiré par Val 2026-10-06).
+      expect(within(camions[1]!).queryByText('Tél. accompagnant')).toBeNull();
+      expect(within(camions[1]!).queryByText('0699887766')).toBeNull();
+      expect(within(camions[0]!).queryByText('Accompagnant')).toBeNull();
+      // Transporteur manuel : rien ne remonte automatiquement.
+      expect(screen.getByText(/à saisir par l’équipe Ops/)).toBeInTheDocument();
+      expect(screen.queryByText(/remontent automatiquement/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'collecte terminée sans tournée : « Aucun chauffeur enregistré », aucune phrase au futur',
+    async () => {
+      mockFetch({ ...collecteAg, statut: 'annulee', collecte_tournees: [] });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          'Aucun chauffeur enregistré',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Aucune tournée enregistrée pour cette collecte.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/pourront être saisies/)).toBeNull();
+      expect(screen.queryByText('Chauffeur pas encore affecté')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'deux camions demandés, une seule tournée, seul le camion 1 corrigé : le camion 2 laissé vide n’est pas envoyé (aucune tournée vide créée)',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-1',
+        prestataire_actuel: {
+          transporteur_id: 't-1',
+          nom: 'Transporteur manuel',
+          type_tms: 'autre',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByTestId('bloc-chauffeur', undefined, ATTENTE_UI);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      const noms = screen.getAllByLabelText('Nom du chauffeur');
+      expect(noms).toHaveLength(2);
+      fireEvent.change(noms[0]!, { target: { value: 'Paul Martin-Durand' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        expect(body.tournees).toHaveLength(1);
+        expect(body.tournees[0]).toMatchObject({
+          tournee_id: 'tour-1',
+          chauffeur_nom: 'Paul Martin-Durand',
+        });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'collecte terminée, deux camions demandés, une seule tournée : une seule ligne, et la saisie ne concerne que la tournée existante (PATCH sans rang)',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        statut: 'realisee',
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-1',
+        prestataire_actuel: {
+          transporteur_id: 't-1',
+          nom: 'Transporteur manuel',
+          type_tms: 'autre',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId(
+        'bloc-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(bloc).getByRole('heading', { name: 'Chauffeur' }),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(1);
+      expect(within(bloc).queryByText('Camion 2')).toBeNull();
+      expect(within(bloc).queryByText(/Tournée pas encore créée/)).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      expect(screen.getAllByLabelText('Nom du chauffeur')).toHaveLength(1);
+      fireEvent.change(screen.getByLabelText('Nom du chauffeur'), {
+        target: { value: 'Paul Martin' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        expect(body.tournees).toHaveLength(1);
+        expect(body.tournees[0]).toMatchObject({ tournee_id: 'tour-1' });
+        expect(body.tournees[0]).not.toHaveProperty('rang');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'erreur à l’enregistrement (le prestataire a créé la tournée du camion 2 entre-temps) : message affiché, fiche rechargée, la saisie se rattache à la tournée créée — nom saisi conservé, plaque remontée reprise',
+    async () => {
+      const avant = {
+        ...collecteAg,
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-1',
+        prestataire_actuel: {
+          transporteur_id: 't-1',
+          nom: 'Transporteur manuel',
+          type_tms: 'autre',
+        },
+        collecte_tournees: [tourneeMts1],
+      };
+      const apres = {
+        ...avant,
+        collecte_tournees: [
+          tourneeMts1,
+          {
+            rang: 2,
+            tournees: {
+              ...tourneeMts1.tournees,
+              id: 'tour-2',
+              plaque_immatriculation: 'ZZ-999-ZZ',
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+            },
+          },
+        ],
+      };
+      let patchs = 0;
+      let fiche: object = avant;
+      const fetchMock = mockFetch(() => fiche) as unknown as ReturnType<
+        typeof vi.fn
+      >;
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(
+        (url: string, opts?: { method?: string; body?: string }) => {
+          if (url.endsWith('/infos-acces') && opts?.method === 'PATCH') {
+            patchs += 1;
+            if (patchs === 1) {
+              // Le rang 2 vient d'être pris par le prestataire.
+              fiche = apres;
+              return Promise.resolve({
+                ok: false,
+                status: 409,
+                json: async () => ({
+                  error:
+                    'Le prestataire vient de créer la tournée du camion 2 : rechargez la fiche avant de saisir.',
+                }),
+              });
+            }
+            return Promise.resolve({
+              ok: true,
+              json: async () => ({ email_envoye: false }),
+            });
+          }
+          return base(url, opts);
+        },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByTestId('bloc-chauffeur', undefined, ATTENTE_UI);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      fireEvent.change(screen.getAllByLabelText('Nom du chauffeur')[1]!, {
+        target: { value: 'Léa Durand' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      // Erreur affichée, formulaire toujours ouvert, fiche rechargée : la
+      // plaque remontée par le prestataire apparaît dans le champ laissé vide.
+      expect(
+        await screen.findByText(/rechargez la fiche/, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.getAllByLabelText('Plaque d’immatriculation')[1],
+        ).toHaveValue('ZZ-999-ZZ');
+      }, ATTENTE_UI);
+      expect(screen.getAllByLabelText('Nom du chauffeur')[1]).toHaveValue(
+        'Léa Durand',
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+      await waitFor(() => {
+        const calls = fetchMock.mock.calls.filter(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(calls).toHaveLength(2);
+        const body = JSON.parse((calls[1]![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        const camion2 = body.tournees.find((t) => t.tournee_id === 'tour-2');
+        expect(camion2).toMatchObject({
+          tournee_id: 'tour-2',
+          chauffeur_nom: 'Léa Durand',
+          plaque_immatriculation: 'ZZ-999-ZZ',
+        });
+        expect(body.tournees.some((t) => 'rang' in t)).toBe(false);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'deux camions demandés, une seule tournée : deux lignes, la saisie du camion 2 crée sa tournée (PATCH avec rang)',
+    async () => {
+      // Cas écran « Palais des Congrès » (Val 2026-10-06) : N = 2, l'adapter
+      // n'a créé que la tournée du rang 1 → le rang 2 est saisissable quand
+      // même, la route crée sa tournée (option C2).
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-mts1',
+        prestataire_actuel: {
+          transporteur_id: 't-strike',
+          nom: 'Strike',
+          type_tms: 'mts1',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId(
+        'bloc-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(bloc).getByRole('heading', { name: 'Chauffeurs' }),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(2);
+      expect(within(bloc).getByText('Camion 2')).toBeInTheDocument();
+      expect(
+        within(bloc).getByText(/Tournée pas encore créée par le prestataire/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Attribuez d’abord un prestataire/)).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      expect(
+        screen.getByText(/tournée créée à l’enregistrement/),
+      ).toBeInTheDocument();
+      const noms = screen.getAllByLabelText('Nom du chauffeur');
+      expect(noms).toHaveLength(2);
+      fireEvent.change(noms[1]!, { target: { value: 'Léa Durand' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        expect(body.tournees).toHaveLength(2);
+        expect(body.tournees[0]).toMatchObject({ tournee_id: 'tour-1' });
+        expect(body.tournees[1]).toMatchObject({
+          rang: 2,
+          chauffeur_nom: 'Léa Durand',
+        });
+        expect(body.tournees[1]).not.toHaveProperty('tournee_id');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'contrôle d’accès requis : mention de l’email récap, « Modifier les coordonnées » ouvre le formulaire et PATCH infos-acces',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        controle_acces_requis: true,
+        infos_acces_email_envoye_at: null,
+        collecte_tournees: [
+          {
+            ...tourneeMts1,
+            tournees: {
+              ...tourneeMts1.tournees,
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+            },
+          },
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          /exige un contrôle d’accès/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/infos à compléter avant envoi/),
+      ).toBeInTheDocument();
+      // Un seul camion, nom et téléphone manquants → « En attente » ×2.
+      expect(screen.getAllByText('En attente')).toHaveLength(2);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      fireEvent.change(screen.getByLabelText('Nom du chauffeur'), {
+        target: { value: 'Paul Martin' },
+      });
+      fireEvent.change(screen.getByLabelText('Téléphone du chauffeur'), {
+        target: { value: '0612345678' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, string>>;
+        };
+        expect(body.tournees).toHaveLength(1);
+        expect(body.tournees[0]).toMatchObject({
+          tournee_id: 'tour-1',
+          plaque_immatriculation: 'AB-123-CD',
+          chauffeur_nom: 'Paul Martin',
+          chauffeur_telephone: '0612345678',
+        });
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

@@ -8,7 +8,12 @@ import { plaqueTmsComplete } from '@/lib/statut-tms-labels';
 export function PlaqueTmsPicto({
   tournees,
 }: {
-  tournees: { tournees: { plaque_immatriculation: string | null } }[];
+  tournees: {
+    tournees: {
+      plaque_immatriculation: string | null;
+      type_vehicule: string | null;
+    };
+  }[];
 }) {
   const complete = plaqueTmsComplete(tournees);
   return (

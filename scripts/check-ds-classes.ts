@@ -13,13 +13,17 @@
  *   1. classes de palette Tailwind brute : `text-red-600`, `bg-neutral-100`… ;
  *   2. blanc / noir bruts : `bg-white`, `text-white`, `bg-black/40`… (le token
  *      est `*-savr-white` ; un voile noir passe par un token dédié) ;
- *   3. rayons bruts : `rounded`, `rounded-lg`, `rounded-t-xl`… (sauf
- *      `rounded-savr-*` et `rounded-full`) ;
+ *   3. rayons bruts : `rounded`, `rounded-lg`, `rounded-t-xl`, `rounded-full`…
+ *      (sauf `rounded-savr-*` ; le rayon plein passe par `rounded-savr-full`
+ *      depuis R-UI-6c — l'ancienne exception `rounded-full` est retirée) ;
  *   4. ombres brutes : `shadow`, `shadow-sm`, `shadow-xl`… (sauf `shadow-savr-*`) ;
  *   5. couleurs hexadécimales en dur : `#1f2937`, `#fff`, `#223870cc`
  *      (3, 4, 6 ou 8 chiffres) et fonctions `rgb()` / `rgba()` / `hsl()` ;
  *   6. durées de transition brutes : `duration-150`, `duration-[120ms]`
- *      (au lieu de `duration-savr-fast|base|slow`).
+ *      (au lieu de `duration-savr-fast|base|slow`) ;
+ *   7. tailles de texte arbitraires 11 / 13 px : `text-[11px]`, `text-[13px]`
+ *      (arbitrage Q9 tranché (b) le 2026-10-06 : 11 → `text-xs`,
+ *      13 → `text-sm` ; `text-[10px]` reste hors arbitrage, non compté).
  *
  * Cas assumés (R-UI-6a) : une valeur unique sans token de même rendu reste en
  * place, précédée d'un commentaire `ds-classes: valeur unique, à arbitrer`.
@@ -56,8 +60,10 @@ const UTILS =
 // (variante `hover:`) ou `${`/`}` dans un template literal.
 // (Un hex dans une valeur arbitraire — `bg-[#223870]`, `shadow-[0_0_0_1px_#000]`
 // — est attrapé par la catégorie `hex`, dont les délimiteurs incluent `[` et `_`.)
-const AVANT = '(?<=["\'`\\s:}]|^)';
-const APRES = '(?=["\'`\\s$]|$)';
+// `!` (important Tailwind, ex. `!rounded-full`) avant ; `/` (opacité ou
+// interlignage, ex. `text-[11px]/4`) après (R-UI-6c, revue principale m7).
+const AVANT = '(?<=["\'`\\s:}!]|^)';
+const APRES = '(?=["\'`\\s$/]|$)';
 
 const CATEGORIES: { key: string; libelle: string; re: RegExp }[] = [
   {
@@ -80,9 +86,9 @@ const CATEGORIES: { key: string; libelle: string; re: RegExp }[] = [
   {
     key: 'rayon',
     libelle:
-      'rayon brut (ex. rounded-lg, rounded-[6px]) au lieu de rounded-savr-*',
+      'rayon brut (ex. rounded-lg, rounded-full, rounded-[6px]) au lieu de rounded-savr-*',
     re: new RegExp(
-      `${AVANT}rounded(?:-(?:t|b|l|r|tl|tr|bl|br|s|e|ss|se|es|ee))?(?:-(?:none|xs|sm|md|lg|xl|2xl|3xl|4xl)|-\\[(?!var\\(--)[^\\]]+\\])?${APRES}`,
+      `${AVANT}rounded(?:-(?:t|b|l|r|tl|tr|bl|br|s|e|ss|se|es|ee))?(?:-(?:none|xs|sm|md|lg|xl|2xl|3xl|4xl|full)|-\\[(?!var\\(--)[^\\]]+\\])?${APRES}`,
       'g',
     ),
   },
@@ -100,6 +106,12 @@ const CATEGORIES: { key: string; libelle: string; re: RegExp }[] = [
     libelle:
       'durée de transition brute (ex. duration-150, duration-[120ms]) au lieu de duration-savr-*',
     re: new RegExp(`${AVANT}duration-(?:\\d+|\\[[^\\]]+\\])${APRES}`, 'g'),
+  },
+  {
+    key: 'taille-texte',
+    libelle:
+      'taille de texte arbitraire 11/13 px (text-[11px], text-[13px]) au lieu de text-xs / text-sm (Q9 b)',
+    re: new RegExp(`${AVANT}text-\\[1[13]px\\]${APRES}`, 'g'),
   },
   {
     key: 'hex',

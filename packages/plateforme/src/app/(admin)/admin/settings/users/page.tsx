@@ -11,8 +11,7 @@ import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useUserRole } from '@/lib/use-user-role';
 import { InviteUserModal } from './invite-user-modal';
-import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
+import { PageHero } from '@/components/ui/page-hero';
 import { TextLink } from '@/components/ui/text-link';
 import { ROUTES } from '@/lib/routes';
 import { ActifBadge } from '@/components/ui/actif-badge';
@@ -79,20 +78,17 @@ export default function SettingsUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Heading level={1} weight="semibold" tone="primary-deep">
-            Utilisateurs Savr
-          </Heading>
-          <Text className="mt-1">
-            {total} membre{total !== 1 ? 's' : ''} de l&apos;équipe
-          </Text>
-        </div>
-        <Button onClick={() => setShowInvite(true)}>
-          <Plus />
-          Inviter un membre
-        </Button>
-      </div>
+      <PageHero
+        icon={<Users className="h-6 w-6 text-savr-primary-200" />}
+        title="Utilisateurs Savr"
+        subtitle={`${total} membre${total !== 1 ? 's' : ''} de l'équipe`}
+        actions={
+          <Button variant="accent" onClick={() => setShowInvite(true)}>
+            <Plus />
+            Inviter un membre
+          </Button>
+        }
+      />
 
       {showInvite && (
         <InviteUserModal

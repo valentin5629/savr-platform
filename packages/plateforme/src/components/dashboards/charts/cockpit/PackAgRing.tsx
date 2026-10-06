@@ -58,7 +58,7 @@ export function PackAgRing({
           <div className="text-[15px] font-extrabold text-savr-neutral-900">
             Mon pack Anti-Gaspi
           </div>
-          <Text as="div" size="xs-plus" className="mt-0.5">
+          <Text as="div" className="mt-0.5">
             <span className="font-extrabold tabular-nums text-savr-neutral-800">
               {fmtInt(consommes)}
             </span>
@@ -98,13 +98,7 @@ export function PackAgRing({
       </div>
 
       <div className="mt-2.5 flex items-center justify-between gap-3">
-        <Text
-          as="span"
-          variant="hint"
-          size="2xs"
-          tone="faint"
-          className="tabular-nums"
-        >
+        <Text as="span" variant="hint" tone="faint" className="tabular-nums">
           {`${fmtPct(pctRestant * 100, 0)} du pack restant`}
         </Text>
         {badge}

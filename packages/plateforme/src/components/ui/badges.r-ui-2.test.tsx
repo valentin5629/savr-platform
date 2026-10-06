@@ -30,7 +30,7 @@ describe('R-UI-2 — TypeCollecteBadge (C2)', () => {
     expect(badge.textContent).toBe('ZD');
     expect(badge.className).toContain('bg-savr-success-subtle');
     expect(badge.querySelector('svg')).not.toBeNull();
-    expect(badge.querySelector('.rounded-full')).toBeNull();
+    expect(badge.querySelector('.rounded-savr-full')).toBeNull();
 
     rerender(<TypeCollecteBadge type="anti_gaspi" />);
     badge = screen.getByText('AG').closest('span')!;
@@ -100,11 +100,25 @@ describe('R-UI-2 — ActifBadge (C6)', () => {
 });
 
 describe('R-UI-2 — Badge : size="sm" (C14) et variant="count" (C15)', () => {
-  it('size="sm" passe le texte à 11 px (text-xs retiré par twMerge)', () => {
+  it('size="sm" : texte à 12 px (Q9 b — 11 px arrondi à text-xs), padding conservé', () => {
     render(<Badge size="sm">Dense</Badge>);
     const badge = screen.getByText('Dense');
-    expect(badge.className).toContain('text-[11px]');
-    expect(badge.className).not.toContain('text-xs');
+    expect(badge.className).toContain('text-xs');
+    expect(badge.className).not.toContain('text-[11px]');
+    expect(badge.className).toContain('px-2');
+    expect(badge.className).toContain('py-0.5');
+  });
+
+  it('size="sm" rend exactement comme la taille par défaut (alias Q9 b)', () => {
+    render(
+      <>
+        <Badge size="sm">A</Badge>
+        <Badge>B</Badge>
+      </>,
+    );
+    const classes = (t: string) =>
+      screen.getByText(t).className.split(/\s+/).sort().join(' ');
+    expect(classes('A')).toBe(classes('B'));
   });
 
   it('taille par défaut inchangée (text-xs)', () => {

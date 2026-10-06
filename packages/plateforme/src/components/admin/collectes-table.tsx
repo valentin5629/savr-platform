@@ -314,9 +314,13 @@ export function colonnesCollectesAdmin({
               {l.nom}
             </div>
             {adresse && (
-              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-savr-neutral-500">
+              <Text
+                as="div"
+                variant="hint"
+                className="overflow-hidden text-ellipsis whitespace-nowrap"
+              >
                 {adresse}
-              </div>
+              </Text>
             )}
           </div>
         );

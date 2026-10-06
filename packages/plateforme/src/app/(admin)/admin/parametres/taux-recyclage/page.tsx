@@ -14,6 +14,7 @@ import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -211,10 +212,11 @@ export default function TauxRecyclagePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Recycle className="h-6 w-6 text-savr-neutral-600" />
-        <Heading level={1}>Paramètres — Taux de recyclage</Heading>
-      </div>
+      <PageHeader
+        title="Paramètres — Taux de recyclage"
+        tone="neutral"
+        icon={<Recycle className="h-6 w-6 text-savr-neutral-600" />}
+      />
 
       {!canEdit && <OpsReadOnlyBanner />}
 

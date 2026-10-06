@@ -16,8 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
-import { Heading } from '@/components/ui/heading';
-import { fmtInt, fmtDec } from '@/lib/format';
+import { PageHeader } from '@/components/ui/page-header';
+import { fmtInt, fmtDec, fmtMasse, uniteCo2 } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 
 // §11 §7 — Dashboard client_organisateur : impact RSE, lecture seule.
@@ -39,16 +39,15 @@ interface KpiRow {
 const sum = (rows: KpiRow[], f: (r: KpiRow) => number | null | undefined) =>
   rows.reduce((s, r) => s + (f(r) ?? 0), 0);
 
+// Bascule kg → t à `SEUIL_TONNES_KG` (10 000 kg, CDC §11 ; Q5 tranché 2026-10-06).
 function Co2Display({ kg }: { kg: number }) {
-  if (kg >= 1000)
-    return (
-      <>
-        {(kg / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} t
-        CO₂e
-      </>
-    );
+  const m = fmtMasse(kg);
   return (
-    <>{kg.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} kg CO₂e</>
+    <>
+      {m.value}
+      {'\u00a0'}
+      {uniteCo2(m.unit)}
+    </>
   );
 }
 
@@ -126,9 +125,7 @@ export default function ClientOrganisateurDashboardPage() {
 
   return (
     <div className="space-y-6" data-testid="organisateur-dashboard">
-      <Heading level={1} tone="primary">
-        Mon impact RSE
-      </Heading>
+      <PageHeader title="Mon impact RSE" />
 
       {/* Bandeau de tête — synthèse RSE annuelle (YTD), commun aux 2 onglets */}
       <Card data-testid="organisateur-bandeau-ytd">

@@ -4,12 +4,14 @@ import { cn } from '@/lib/utils';
 // Text — texte courant de l'app (R-UI-6b, A6/A8/A9, arbitrage Q10 option (a)
 // « composant »). Un seul endroit porte les recettes « taille + gris
 // neutre » relevées dans le code (290 occurrences, 3 gris
-// concurrents 400/500/600 pour le même rôle) et les tailles arbitraires 11 px /
-// 13 px (arbitrage Q9 : centralisées telles quelles, pas arrondies).
+// concurrents 400/500/600 pour le même rôle). Tailles : arbitrage Q9 tranché
+// (b) le 2026-10-06 — les tailles arbitraires 11 px / 13 px sont arrondies à
+// l'échelle Tailwind (11 → 12 px `xs`, 13 → 14 px `sm`) ; les tailles `2xs` /
+// `xs-plus` sont supprimées. `3xs` (10 px) reste, hors arbitrage.
 // Les variantes = recettes majoritaires actuelles (iso-rendu) ; `size` / `tone`
 // les surchargent pour les recettes minoritaires, en attendant l'arbitrage.
 export type TextVariant = 'body' | 'muted' | 'hint' | 'faint' | 'overline';
-export type TextSize = '3xs' | '2xs' | 'xs' | 'xs-plus' | 'sm' | 'base';
+export type TextSize = '3xs' | 'xs' | 'sm' | 'base';
 export type TextTone =
   | 'inherit'
   | 'faint' // neutral-400
@@ -29,9 +31,7 @@ const VARIANT: Record<TextVariant, { size: TextSize; tone: TextTone }> = {
 };
 const SIZE: Record<TextSize, string> = {
   '3xs': 'text-[10px]',
-  '2xs': 'text-[11px]',
   xs: 'text-xs',
-  'xs-plus': 'text-[13px]',
   sm: 'text-sm',
   base: 'text-base',
 };

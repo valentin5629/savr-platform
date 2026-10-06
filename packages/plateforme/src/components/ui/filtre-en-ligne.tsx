@@ -90,7 +90,7 @@ export function BarreFiltres({
       )}
     >
       {intro && (
-        <span className="mr-1 whitespace-nowrap text-[13px] font-semibold text-savr-neutral-500">
+        <span className="mr-1 whitespace-nowrap text-sm font-semibold text-savr-neutral-500">
           {intro}
         </span>
       )}
@@ -117,6 +117,21 @@ export interface OptionFiltre {
   nom: string;
   /** Libellé court affiché dans le déclencheur (défaut : `nom`). */
   court?: string;
+  /**
+   * Valeur cochée que la liste d'options ne proposait pas (lien reçu, option
+   * sortie de la liste). Tant qu'elle est là, les options ne couvrent pas tout :
+   * les cocher toutes n'est pas « Tous ».
+   */
+  horsListe?: boolean;
+}
+
+/** Cocher toutes les options vaut « Tous » : plusieurs options, aucune hors liste. */
+function toutesValentTous(options: OptionFiltre[], ids: string[]): boolean {
+  return (
+    options.length > 1 &&
+    !options.some((o) => o.horsListe) &&
+    options.every((o) => ids.includes(o.id))
+  );
 }
 
 interface FiltreCochesProps {
@@ -150,8 +165,7 @@ function resumeSelection(
   libelleTous: string,
 ): string {
   if (selected.length === 0) return libelleVide;
-  if (options.length > 1 && options.every((o) => selected.includes(o.id)))
-    return libelleTous;
+  if (toutesValentTous(options, selected)) return libelleTous;
   if (selected.length === 1) {
     const o = options.find((x) => x.id === selected[0]);
     return o ? (o.court ?? o.nom) : '1 sélectionné';
@@ -203,12 +217,13 @@ export function FiltreCoches({
       ? [...selected, id]
       : selected.filter((x) => x !== id);
     // Toutes les options cochées = « Tous » (mode par défaut seulement : un
-    // consommateur qui pilote `tous` garde sa sélection explicite).
-    const toutes =
-      !tous &&
-      options.length > 1 &&
-      options.every((o) => suivants.includes(o.id));
-    onChange(toutes ? [] : suivants);
+    // consommateur qui pilote `tous` garde sa sélection explicite). Une option
+    // hors liste que l'on décoche quitte la liste : on juge sur celles qui
+    // restent, sinon le déclencheur afficherait « Tous » sur un filtre gardé.
+    const restantes = options.filter(
+      (o) => !o.horsListe || suivants.includes(o.id),
+    );
+    onChange(!tous && toutesValentTous(restantes, suivants) ? [] : suivants);
   }
   return (
     <Popover onOpenChange={(o) => !o && setRecherche('')}>

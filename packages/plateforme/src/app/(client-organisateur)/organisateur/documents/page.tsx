@@ -2,10 +2,11 @@
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useState } from 'react';
+import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
-import { Heading } from '@/components/ui/heading';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface DocItem {
   type: 'rapport' | 'bordereau' | 'attestation';
@@ -107,9 +108,10 @@ export default function ClientOrganisateurDocumentsPage() {
 
   return (
     <div className="space-y-4">
-      <Heading level={1} tone="primary">
-        Mes documents
-      </Heading>
+      <PageHero
+        icon={<FileText className="h-6 w-6 text-savr-primary-200" />}
+        title="Mes documents"
+      />
 
       {/* Data Table commune. Tri côté navigateur : la route renvoie la liste
           complète des documents (aucune pagination ni `.limit()`). Ordre

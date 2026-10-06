@@ -68,7 +68,7 @@ export function Co2DetailModal({
       wide
     >
       <div className="space-y-5">
-        <Text size="xs-plus">
+        <Text>
           Période analysée :{' '}
           <span className="font-semibold text-savr-neutral-700">
             du {frDate(from)} au {frDate(to)}

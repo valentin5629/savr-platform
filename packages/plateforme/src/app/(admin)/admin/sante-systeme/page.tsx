@@ -9,7 +9,7 @@ import {
   type OpsBatch,
   type OpsIntegration,
 } from './tableaux-sante';
-import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { isStaff } from '@/lib/roles';
@@ -117,9 +117,7 @@ export default async function SanteSystemePage() {
 
   return (
     <div className="space-y-6">
-      <Heading level={1} tone="primary">
-        Santé système
-      </Heading>
+      <PageHeader title="Santé système" />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {/* Outbox */}

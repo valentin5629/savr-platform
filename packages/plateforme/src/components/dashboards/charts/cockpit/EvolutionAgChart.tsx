@@ -92,7 +92,6 @@ const EvolutionAgChart = React.forwardRef<
         <Text
           as="div"
           variant="hint"
-          size="2xs"
           tone="soft"
           className="flex gap-2 font-semibold"
         >
@@ -284,13 +283,12 @@ const EvolutionAgChart = React.forwardRef<
                   <Text
                     as="div"
                     variant="hint"
-                    size="2xs"
                     tone="ink"
                     className="mb-1.5 font-bold"
                   >
                     {formatPeriode(p.periode, granularite)}
                   </Text>
-                  <div className="flex flex-col gap-1 text-[11px] tabular-nums">
+                  <div className="flex flex-col gap-1 text-xs tabular-nums">
                     <div className="flex items-center justify-between gap-5">
                       <span className="flex items-center gap-1.5 text-savr-neutral-600">
                         <span

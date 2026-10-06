@@ -30,7 +30,7 @@ import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { LogoCard } from '@/components/organisation/logo-card';
 import { InviterUtilisateurCarte } from '@/components/organisation/inviter-utilisateur-modal';
-import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
@@ -107,9 +107,7 @@ export function MonOrganisationClient({
 
   return (
     <div className="space-y-6">
-      <Heading level={1} tone="primary">
-        Mon organisation
-      </Heading>
+      <PageHeader title="Mon organisation" />
       {!isManager && (
         <Text>
           Vous pouvez modifier les informations légales. Le logo, les entités de

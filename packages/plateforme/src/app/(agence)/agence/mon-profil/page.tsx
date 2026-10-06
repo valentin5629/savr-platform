@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
-import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { ROUTES } from '@/lib/routes';
 
 const AGENCE_ROLES = ['agence'] as const;
@@ -13,9 +13,7 @@ export default async function MonProfilAgencePage() {
 
   return (
     <div className="space-y-6">
-      <Heading level={1} tone="primary">
-        Mon profil
-      </Heading>
+      <PageHeader title="Mon profil" />
 
       <Card>
         <CardHeader>

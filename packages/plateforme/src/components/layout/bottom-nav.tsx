@@ -9,7 +9,7 @@ import type { NavRole } from '@/lib/roles';
 
 interface BottomNavProps {
   role: NavRole;
-  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack — §06.05 l.75). */
+  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack). */
   hiddenNavHrefs?: string[];
   className?: string;
 }

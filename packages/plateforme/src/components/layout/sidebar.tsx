@@ -15,7 +15,7 @@ interface SidebarProps {
   role: NavRole;
   collapsed?: boolean;
   onToggle?: () => void;
-  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack — §06.05 l.75). */
+  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack). */
   hiddenNavHrefs?: string[];
   /** Compteurs par href (ex : { '/admin/alertes': 3 }) → pastille sur l'item. */
   navBadges?: Record<string, number>;

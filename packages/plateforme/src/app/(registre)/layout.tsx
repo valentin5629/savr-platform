@@ -19,8 +19,8 @@ export default async function RegistreLayout({
 }) {
   const session = await requirePageSession(REGISTRE_ROLES);
 
-  // Section transverse : le menu affiché est celui de l'espace du rôle, avec
-  // les mêmes entrées masquées que dans cet espace (§06.05 l.75, « Mon pack AG »).
+  // Section transverse : le menu est celui de l'espace du rôle, avec les mêmes
+  // entrées masquées que dans cet espace.
   const hiddenNavHrefs = await entreesNavMasquees(session.role);
 
   return (

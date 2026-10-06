@@ -163,7 +163,7 @@ describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
     ]);
 
     etat.tablesLues = [];
-    for (const role of ['traiteur_manager', 'agence', 'admin_savr', undefined])
+    for (const role of ['traiteur_manager', 'agence', 'admin_savr'] as const)
       expect(await entreesNavMasquees(role)).toEqual([]);
     expect(etat.tablesLues).toEqual([]);
   });

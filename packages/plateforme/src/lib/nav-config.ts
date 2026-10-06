@@ -141,9 +141,9 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
 
   // §06.05 §Navigation (l.66-76) : 9 sections, dont « Collectes » et « Registre
   // réglementaire », réintégrées par Val le 2026-07-06 (CDC re-synchronisé depuis).
-  // « Mon pack AG » est masqué si l'organisation n'a aucun pack (CDC l.75) :
-  // `hiddenNavHrefs` est calculé par `entreesNavMasquees` (lib/nav-masquee.ts) dans
-  // chaque layout qui monte ce menu, puis appliqué dans Sidebar/BottomNav.
+  // « Mon pack AG » est masqué si l'organisation n'a aucun pack : `hiddenNavHrefs`
+  // est calculé par `entreesNavMasquees` (lib/nav-masquee.ts) dans chaque layout
+  // qui monte ce menu, puis appliqué dans Sidebar/BottomNav.
   gestionnaire_lieux: [
     {
       items: [

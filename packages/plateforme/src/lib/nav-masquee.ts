@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/api-auth';
+import type { NavRole } from '@/lib/roles';
 import { ROUTES } from '@/lib/routes';
 
 /**
@@ -7,18 +8,14 @@ import { ROUTES } from '@/lib/routes';
  *
  * Règle UNIQUE, appelée par chaque layout qui monte le menu d'un gestionnaire de
  * lieux : son espace `(gestionnaire)`, mais aussi les sections transverses
- * `(registre)` et `(programmation)`, qui ont leur propre layout. Quand le calcul
- * vivait dans le seul layout `(gestionnaire)`, « Mon pack AG » réapparaissait dès
- * que le gestionnaire ouvrait le registre ou le formulaire de programmation.
+ * `(registre)` et `(programmation)`, qui ont leur propre layout.
  *
  * §06.05 l.75 — « Mon pack AG » masqué si l'organisation n'a AUCUN pack
  * (packs_antgaspi WHERE organisation_id = current_org). La RLS scope déjà
  * packs_antgaspi à l'organisation de l'appelant → un simple count des lignes
  * visibles suffit (pattern identique à la route pack-ag).
  */
-export async function entreesNavMasquees(
-  role: string | undefined,
-): Promise<string[]> {
+export async function entreesNavMasquees(role: NavRole): Promise<string[]> {
   if (role !== 'gestionnaire_lieux') return [];
 
   const supabase = createSupabaseServerClient({ readonly: true });

@@ -11,7 +11,6 @@ export default async function GestionnaireLayout({
 }) {
   const session = await requirePageSession(GESTIONNAIRE_ROLES);
 
-  // §06.05 l.75 — « Mon pack AG » masqué si l'organisation n'a aucun pack.
   const hiddenNavHrefs = await entreesNavMasquees(session.role);
 
   return (

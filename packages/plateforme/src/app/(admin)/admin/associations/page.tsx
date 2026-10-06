@@ -7,6 +7,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { ListFooter } from '@/components/ui/list-footer';
 import {
@@ -164,14 +165,14 @@ export default function AssociationsPage() {
 
       <FilterBar
         data-testid="associations-filtres"
-        count={`${total} association${total > 1 ? 's' : ''}`}
+        count={compteurResultats(total, 'association', 'associations')}
         actif={filtresActifs}
         onReset={reset}
       >
         <FiltreRecherche
           id="associations-recherche"
           value={f.q}
-          onChange={(e) => set({ q: e.target.value })}
+          onValueChange={(q) => set({ q })}
         />
         <FiltreCoches
           label="Statut"

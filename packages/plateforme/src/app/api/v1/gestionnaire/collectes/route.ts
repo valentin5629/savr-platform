@@ -64,7 +64,6 @@ function un<T>(v: UnOuListe<T>): T | null {
 type LigneBrute = Record<string, unknown> & {
   collecte_flux: { poids_reel_kg: number | null }[] | null;
   attributions_antgaspi: UnOuListe<{ volume_repas_realise: number | null }>;
-  attestations_don: UnOuListe<{ nb_repas: number | null; version: number }>;
   evenements: UnOuListe<{
     nom_evenement: string | null;
     nom_client_organisateur: string | null;
@@ -138,15 +137,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const filtree = () => {
     // Mêmes colonnes que la liste traiteur, plus le traiteur (décision Val
     // 2026-10-01) : pax, adresse du lieu, résultats de la collecte réalisée
-    // (poids ZD = Σ collecte_flux ; repas AG = attribution, à défaut attestation
-    // de don — cf. aplatissement). Le traiteur passe par la vue restreinte
-    // v_traiteurs_gestionnaire (nom seul), comme les autres écrans du rôle.
+    // (poids ZD = Σ collecte_flux ; repas AG = volume de l'attribution, lu par la
+    // vue v_attributions_gestionnaire — cf. aplatissement). Le traiteur passe par
+    // la vue restreinte v_traiteurs_gestionnaire (nom seul), comme les autres
+    // écrans du rôle.
     let q = supabase.from('collectes').select(
       `id, evenement_id, type, statut, statut_tms, date_collecte,
        heure_collecte, taux_recyclage, co2_evite_kg, realisee_at,
        collecte_flux(poids_reel_kg),
-       attributions_antgaspi(volume_repas_realise),
-       attestations_don(nb_repas, version),
+       attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise),
        evenements!inner(
          nom_evenement, nom_client_organisateur, pax, lieu_id,
          traiteur_operationnel_organisation_id,
@@ -209,19 +208,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Aplatissement : les embeds bruts ne sortent pas de la route, l'écran n'en
   // lit que les agrégats.
   const rows = ((data ?? []) as unknown as LigneBrute[]).map((c) => {
-    const {
-      evenements,
-      collecte_flux,
-      attributions_antgaspi,
-      attestations_don,
-      ...rest
-    } = c;
+    const { evenements, collecte_flux, attributions_antgaspi, ...rest } = c;
     const evt = un(evenements);
     const lieu = un(evt?.lieux ?? null);
-    // Dernière version de l'attestation (une par régénération).
-    const attestation = [attestations_don ?? []]
-      .flat()
-      .sort((a, b) => b.version - a.version)[0];
     return {
       ...rest,
       evenement_nom: evt?.nom_evenement ?? null,
@@ -240,14 +229,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         (s, f) => s + (f.poids_reel_kg ?? 0),
         0,
       ),
-      // Repas donnés — même règle que la fiche (D13, arbitrage Val 2026-09-30) :
-      // l'attribution quand elle est lisible ; sur une collecte programmée par
-      // un traiteur tiers, aa_select la refuse (C-1) et l'attestation de don
-      // servie au gestionnaire (att_gestionnaire_select) porte le même chiffre.
-      nb_repas_donnes:
-        un(attributions_antgaspi)?.volume_repas_realise ??
-        attestation?.nb_repas ??
-        null,
+      // Repas donnés — volume de l'attribution, par la vue
+      // v_attributions_gestionnaire (§04) : aa_select refuse la table au
+      // gestionnaire sur une collecte d'un traiteur tiers (C-1), la vue rend le
+      // volume des collectes de SES lieux. Même source que la fiche et l'export.
+      nb_repas_donnes: un(attributions_antgaspi)?.volume_repas_realise ?? null,
     };
   });
 

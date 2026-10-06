@@ -2,14 +2,17 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FilterChips } from '@/components/ui/filter-chips';
 import { FormField } from '@/components/ui/form-field';
+import type { OptionFiltre } from '@/components/ui/filtre-en-ligne';
 import { Modal } from '@/components/ui/modal';
-import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
-import type { CollecteType } from './CollecteTypeTabs.js';
+import type { CollecteType } from '@/components/collecte/toggle-type-collecte';
 import type { DashboardFilters } from './DashboardFilterBar.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { Text } from '@/components/ui/text';
+import { raccourciDe, raccourcisPeriode } from '@/lib/periodes-raccourcis';
 
 /**
  * Bloc 8 — « Exporter une synthèse PDF » (§06.04 / §06.05 / §06.11 Bloc 8 ZD/AG).
@@ -24,52 +27,11 @@ import { Text } from '@/components/ui/text';
  * et la visibilité des filtres sont appliqués côté serveur selon le JWT du rôle.
  */
 
-type Preset = '7j' | '30j' | 'trimestre' | '12mois' | 'annee' | 'perso';
-
-const PRESET_LABELS: { key: Preset; label: string }[] = [
-  { key: '7j', label: '7 jours' },
-  { key: '30j', label: '30 jours' },
-  { key: 'trimestre', label: 'Trimestre en cours' },
-  { key: '12mois', label: '12 derniers mois' },
-  { key: 'annee', label: 'Année civile' },
-  { key: 'perso', label: 'Personnalisée' },
-];
-
-function iso(d: Date): string {
-  return jourParis(d);
-}
-
-function presetRange(
-  preset: Preset,
-  current: { from: string; to: string },
-): {
-  from: string;
-  to: string;
-} {
-  const today = new Date();
-  const to = iso(today);
-  const start = new Date(today);
-  switch (preset) {
-    case '7j':
-      start.setDate(start.getDate() - 7);
-      return { from: iso(start), to };
-    case '30j':
-      start.setDate(start.getDate() - 30);
-      return { from: iso(start), to };
-    case 'trimestre': {
-      const q = Math.floor(today.getMonth() / 3) * 3;
-      return { from: iso(new Date(today.getFullYear(), q, 1)), to };
-    }
-    case '12mois':
-      start.setFullYear(start.getFullYear() - 1);
-      return { from: iso(start), to };
-    case 'annee':
-      return { from: iso(new Date(today.getFullYear(), 0, 1)), to };
-    case 'perso':
-    default:
-      return current;
-  }
-}
+// Raccourcis de période de l'étape 1 : la liste STANDARD des filtres de date
+// (`lib/periodes-raccourcis`, jours parisiens, « Année civile » = 1er janvier →
+// 31 décembre), en `FilterChips` + « Personnalisée » (= toute autre période,
+// posée dans le calendrier). Le chip actif se DÉDUIT de la période courante.
+const CHIP_PERSONNALISEE = 'perso';
 
 interface Props {
   filters: DashboardFilters | null;
@@ -80,7 +42,6 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
   const [open, setOpen] = useState(false);
   // Ouverture directe en étape 3 (§06.05 Bloc 8 l.214), retour 1-2 possible.
   const [step, setStep] = useState(2);
-  const [preset, setPreset] = useState<Preset>('perso');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [includeBoth, setIncludeBoth] = useState(false);
@@ -88,8 +49,10 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
   const [error, setError] = useState<string | null>(null);
   // Filtres modale-natifs (§1.6 étape 2, absents de la barre dashboard traiteur/agence) :
   // options chargées à l'ouverture depuis /synthese-pdf/filtres (scopées par rôle).
-  const [clientOptions, setClientOptions] = useState<MultiOption[]>([]);
-  const [commercialOptions, setCommercialOptions] = useState<MultiOption[]>([]);
+  const [clientOptions, setClientOptions] = useState<OptionFiltre[]>([]);
+  const [commercialOptions, setCommercialOptions] = useState<OptionFiltre[]>(
+    [],
+  );
   const [clientIds, setClientIds] = useState<string[]>([]);
   const [commercialIds, setCommercialIds] = useState<string[]>([]);
 
@@ -97,7 +60,6 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
     // Pré-remplissage depuis les filtres globaux du dashboard.
     setFrom(filters?.from ?? '');
     setTo(filters?.to ?? '');
-    setPreset('perso');
     setIncludeBoth(false);
     setClientIds([]);
     setCommercialIds([]);
@@ -111,7 +73,7 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
       )
       .then(
         (j: {
-          data?: { clients?: MultiOption[]; commerciaux?: MultiOption[] };
+          data?: { clients?: OptionFiltre[]; commerciaux?: OptionFiltre[] };
         }) => {
           setClientOptions(j.data?.clients ?? []);
           setCommercialOptions(j.data?.commerciaux ?? []);
@@ -123,13 +85,15 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
       });
   };
 
-  const applyPreset = (p: Preset) => {
-    setPreset(p);
-    if (p !== 'perso') {
-      const r = presetRange(p, { from, to });
-      setFrom(r.from);
-      setTo(r.to);
-    }
+  // Recalculés à chaque rendu : « 7 derniers jours » se lit par rapport à aujourd'hui.
+  const raccourcis = raccourcisPeriode();
+  const chipActif =
+    raccourciDe({ from, to }, raccourcis)?.cle ?? CHIP_PERSONNALISEE;
+  const choisirRaccourci = (cle: string) => {
+    const r = raccourcis.find((x) => x.cle === cle);
+    if (!r) return; // « Personnalisée » : la période se pose dans le calendrier.
+    setFrom(r.periode.from);
+    setTo(r.periode.to);
   };
 
   const typeLabel =
@@ -245,30 +209,22 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
         {step === 0 && (
           <div className="space-y-3">
             <Text tone="soft">Choisissez la période du rapport.</Text>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_LABELS.map((p) => (
-                <button
-                  key={p.key}
-                  type="button"
-                  onClick={() => applyPreset(p.key)}
-                  className={`rounded-savr-md border px-3 py-1.5 text-sm ${
-                    preset === p.key
-                      ? 'border-savr-primary-500 bg-savr-primary-50 text-savr-primary-700'
-                      : 'border-savr-neutral-300 text-savr-neutral-700 hover:bg-savr-neutral-100'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            <FilterChips
+              ariaLabel="Raccourcis de période"
+              chips={[
+                ...raccourcis.map((r) => ({ key: r.cle, label: r.libelle })),
+                { key: CHIP_PERSONNALISEE, label: 'Personnalisée' },
+              ]}
+              activeKey={chipActif}
+              onSelect={choisirRaccourci}
+            />
             <FormField label="Période" htmlFor="synthese-periode">
               <DateRangePicker
                 id="synthese-periode"
                 data-testid="synthese-periode"
                 value={{ from, to }}
-                max={iso(new Date())}
+                max={jourParis(new Date())}
                 onChange={(p) => {
-                  setPreset('perso');
                   setFrom(p.from);
                   setTo(p.to);
                 }}
@@ -295,25 +251,45 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
                 Inclure les deux types (Zéro-Déchet + Anti-Gaspi)
               </label>
             </div>
-            {clientOptions.length > 0 && (
-              <MultiSelectFilter
-                label="Client organisateur"
-                options={clientOptions}
-                selected={clientIds}
-                onChange={setClientIds}
-                allLabel="Tous les clients"
-                testid="synthese-filtre-clients"
-              />
-            )}
-            {commercialOptions.length > 0 && (
-              <MultiSelectFilter
-                label="Commercial"
-                options={commercialOptions}
-                selected={commercialIds}
-                onChange={setCommercialIds}
-                allLabel="Tous les commerciaux"
-                testid="synthese-filtre-commerciaux"
-              />
+            {/* Filtres modale-natifs au format en ligne « Titre  valeur ▾ »
+                (`Combobox titre` multiple, R-UI-4b D9) ; vide = « Tous ». */}
+            {(clientOptions.length > 0 || commercialOptions.length > 0) && (
+              <div className="flex flex-wrap items-center gap-1">
+                {clientOptions.length > 0 && (
+                  <Combobox
+                    multiple
+                    titre="Client organisateur"
+                    id="synthese-filtre-clients"
+                    data-testid="synthese-filtre-clients"
+                    icon={null}
+                    placeholder="Tous les clients"
+                    emptyText="Aucune option."
+                    options={clientOptions.map((o) => ({
+                      value: o.id,
+                      label: o.nom,
+                    }))}
+                    value={clientIds}
+                    onChange={setClientIds}
+                  />
+                )}
+                {commercialOptions.length > 0 && (
+                  <Combobox
+                    multiple
+                    titre="Commercial"
+                    id="synthese-filtre-commerciaux"
+                    data-testid="synthese-filtre-commerciaux"
+                    icon={null}
+                    placeholder="Tous les commerciaux"
+                    emptyText="Aucune option."
+                    options={commercialOptions.map((o) => ({
+                      value: o.id,
+                      label: o.nom,
+                    }))}
+                    value={commercialIds}
+                    onChange={setCommercialIds}
+                  />
+                )}
+              </div>
             )}
             <div>
               <Text tone="strong" className="font-medium">

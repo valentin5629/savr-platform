@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
-  CollecteTypeTabs,
   DashboardFilterBar,
   BenchmarkFilterBar,
   EmptyDashboardState,
@@ -17,6 +16,7 @@ import {
   type ParcFilterOptions,
   type BlocsData,
 } from '@/components/dashboards/index.js';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
 import { StatCard } from '@/components/ui/stat-card';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
@@ -313,7 +313,7 @@ export default function GestionnaireDashboardPage() {
           correspond{kpi.nb_collectes > 1 ? 'ent' : ''}
         </Text>
       )}
-      <CollecteTypeTabs value={tab} onChange={setTab} />
+      <ToggleTypeCollecte value={tab} onChange={setTab} />
 
       {loading ? (
         <Text>Chargement…</Text>

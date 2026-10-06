@@ -111,7 +111,7 @@ export function EvenementsFilterBar({
             {resultCount} événement{resultCount > 1 ? 's' : ''} correspond
             {resultCount > 1 ? 'ent' : ''}
           </span>
-        ) : undefined
+        ) : null
       }
     >
       <DateRangePicker

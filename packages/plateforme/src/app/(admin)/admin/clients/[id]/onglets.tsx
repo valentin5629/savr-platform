@@ -1189,11 +1189,15 @@ export function OngletRemises({
           Remises négociées
         </Heading>
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-savr-neutral-600">
-            <input
-              type="checkbox"
+          {/* Filtre « Actives uniquement » : Checkbox du DS (R-UI-4b, D11). */}
+          <label
+            htmlFor="remises-actives-only"
+            className="flex items-center gap-2 text-sm text-savr-neutral-600"
+          >
+            <Checkbox
+              id="remises-actives-only"
               checked={activesOnly}
-              onChange={(e) => setActivesOnly(e.target.checked)}
+              onCheckedChange={(v) => setActivesOnly(v === true)}
             />
             Actives uniquement
           </label>

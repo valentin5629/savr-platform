@@ -6,30 +6,41 @@ import { ClipboardList } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { Combobox } from '@/components/ui/combobox';
 import {
   CelluleVide,
   DataGrid,
   type ColumnDef,
   type SortingState,
 } from '@/components/ui/data-grid';
+import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import {
   CelluleLieu,
   ResultatsCollecte,
 } from '@/components/collecte/collectes-traiteur-table';
+import {
+  CollecteFiltresBar,
+  FILTRES_COLLECTE_VIDES,
+  type CollecteFiltresOptions,
+} from '@/components/collecte/collecte-filtres-bar';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
 import { ListFooter } from '@/components/ui/list-footer';
+import {
+  entier,
+  liste,
+  navigation,
+  texte,
+  useFiltresUrl,
+} from '@/lib/hooks/use-filtres-url';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
-import {
-  readCollecteFiltreLabel,
-  periodeCourte,
-} from '@/lib/dashboards/collecte-filtre-label';
 import { fmtPax } from '@/lib/format';
 
 interface CollecteRow {
@@ -51,6 +62,78 @@ interface CollecteRow {
   nb_repas_donnes: number | null;
 }
 
+/** Options de la barre (route `/gestionnaire/filtres`, même source que le dashboard et la liste Événements). */
+interface OptionsFiltres {
+  lieux: { id: string; nom: string }[];
+  traiteurs: { id: string; nom: string }[];
+  types: { id: string; libelle: string }[];
+}
+const OPTIONS_VIDES: OptionsFiltres = { lieux: [], traiteurs: [], types: [] };
+// Les filtres standards de `CollecteFiltresBar` sont masqués (route à valeur
+// unique, cf. FILTRES ci-dessous) : la barre ne lit donc jamais ces options.
+const OPTIONS_BARRE: CollecteFiltresOptions = {
+  lieux: [],
+  clients: [],
+  programmateurs: [],
+};
+
+// Filtres de la liste, miroir de l'URL (R-UI-4b, D6/D10) — mêmes clés que le
+// drill-down du dashboard (`lieu`, `traiteur`, `from`, `to`). La route
+// `gestionnaire/collectes` n'accepte qu'UNE valeur pour `type`, `statut`,
+// `lieu_id` et `traiteur_id` : Lieu et Traiteur sont donc des choix uniques
+// (Combobox), Type un segmenté levable (« Toutes »), et il n'y a ni onglets
+// Programmées / Historique ni filtre Statut (ils demandent une liste de
+// statuts) — reliquat route. `statut` reste lu et transmis : une URL écrite à
+// la main doit filtrer comme elle l'annonce. Type / Taille d'événement
+// (§06.05 l.209) sont en CSV dans l'URL ; les liens `x[]` (dashboard,
+// favoris) restent lus, cf. `lireHeritageCrochets`.
+const FILTRES = {
+  lieu: texte(),
+  traiteur: texte(),
+  type: texte(),
+  statut: texte(),
+  from: texte(),
+  to: texte(),
+  type_evenement_ids: liste(),
+  taille_evenements: liste(),
+  // Tri de la Data Table, envoyé à l'API (liste paginée : trier la seule page
+  // chargée donnerait un ordre faux). Défaut = date décroissante, comme la route.
+  tri: navigation(texte('date')),
+  ordre: navigation(texte('desc')),
+  page: navigation(entier(1, 1)),
+};
+
+const CLES_CROCHETS = ['type_evenement_ids[]', 'taille_evenements[]'] as const;
+interface HeritageCrochets {
+  type_evenement_ids: string[];
+  taille_evenements: string[];
+}
+const HERITAGE_VIDE: HeritageCrochets = {
+  type_evenement_ids: [],
+  taille_evenements: [],
+};
+/** Ancienne convention `x[]` (paramètre répété) : lue au montage, jamais écrite. */
+function lireHeritageCrochets(
+  params: URLSearchParams | null,
+): HeritageCrochets {
+  return {
+    type_evenement_ids: params?.getAll('type_evenement_ids[]') ?? [],
+    taille_evenements: params?.getAll('taille_evenements[]') ?? [],
+  };
+}
+/** Retire les clés `x[]` de l'URL courante : l'état CSV prend le relais. */
+function purgerCrochets(): void {
+  if (typeof window === 'undefined') return;
+  const usp = new URLSearchParams(window.location.search);
+  for (const k of CLES_CROCHETS) usp.delete(k);
+  const qs = usp.toString();
+  window.history.replaceState(
+    null,
+    '',
+    `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`,
+  );
+}
+
 // Un seul squelette pour les deux moments de chargement de l'écran : le fallback
 // du Suspense (résolution de useSearchParams) et l'attente de la réponse.
 const SqueletteListe = () => (
@@ -70,58 +153,55 @@ function GestionnaireCollectesContent() {
       return id ? { id, edit: params.get('edit') === '1' } : null;
     },
   );
-  // Drill-down depuis les Top listes du dashboard (lieu / traiteur). §06.05 l.209 :
-  // « tous statuts, type ZD/AG non figé ; filtres du dashboard propagés (période +
-  // Type/Taille d'événement) ». Le dashboard ne fige donc NI `type` NI `statut` —
-  // l'écart qui les forçait (règle §06.04 traiteur appliquée par erreur au
-  // gestionnaire) est corrigé dans ce lot, côté `drillUrl` du dashboard.
-  //
-  // `type` / `statut` restent lus et transmis : la route les accepte toujours, et
-  // une URL écrite à la main — ou un favori d'avant ce lot — doit filtrer comme
-  // elle l'annonce plutôt qu'ignorer en silence les paramètres qu'elle porte.
-  const lieuFiltre = params.get('lieu');
-  const traiteurFiltre = params.get('traiteur');
-  const typeFiltre = params.get('type');
-  const statutFiltre = params.get('statut');
-  const fromFiltre = params.get('from');
-  const toFiltre = params.get('to');
-  // Multi-valués (§06.05 l.209). `getAll` rend un TABLEAU NEUF à chaque rendu :
-  // placé tel quel dans les dépendances de `charger`, il recréerait le callback à
-  // chaque rendu et l'effet partirait en requêtes infinies. On dérive donc une clé
-  // TEXTE stable et on reconstruit les tableaux à partir d'elle. Ni un UUID ni un
-  // code de bracket (XS…XL) ne contient de virgule : le join/split est réversible.
-  const typeEvtKey = params.getAll('type_evenement_ids[]').join(',');
-  const tailleKey = params.getAll('taille_evenements[]').join(',');
-  const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
-  // Tri de la Data Table, envoyé à l'API (liste paginée : trier la seule page
-  // chargée donnerait un ordre faux). Défaut = date décroissante, comme la route.
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: 'date', desc: true },
-  ]);
-  const tri = sorting[0];
-  const triKey = tri ? `${tri.id}:${tri.desc ? 'desc' : 'asc'}` : '';
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
+  // Liens `x[]` d'avant ce lot : appliqués tels quels tant que l'utilisateur ne
+  // touche pas à la barre ; au premier changement (ou reset) ils basculent en
+  // CSV dans l'URL et les clés `x[]` sont retirées.
+  const [heritage, setHeritage] = useState<HeritageCrochets>(() =>
+    lireHeritageCrochets(params),
+  );
+  const heritageActif =
+    heritage.type_evenement_ids.length > 0 ||
+    heritage.taille_evenements.length > 0;
+  const typeEvtIds =
+    f.type_evenement_ids.length > 0
+      ? f.type_evenement_ids
+      : heritage.type_evenement_ids;
+  const tailles =
+    f.taille_evenements.length > 0
+      ? f.taille_evenements
+      : heritage.taille_evenements;
+  const actif = filtresActifs || heritageActif;
 
-  // La page courante n'a de sens QUE pour le périmètre qui l'a produite : rester
-  // en page 3 après avoir appliqué un filtre qui ne ramène qu'une page afficherait
-  // une liste vide sur un parc non vide. On mémorise donc la page AVEC la
-  // signature des filtres, et on retombe sur 1 dès que la signature change — au
-  // même rendu, donc sans second appel réseau.
-  const filtresKey = [
-    lieuFiltre,
-    traiteurFiltre,
-    typeFiltre,
-    statutFiltre,
-    fromFiltre,
-    toFiltre,
-    typeEvtKey,
-    tailleKey,
-    // Changer de tri renvoie aussi en page 1 (la page 3 d'un autre ordre n'a
-    // aucun rapport avec celle qu'on regardait).
-    triKey,
-  ].join('|');
-  const [pagination, setPagination] = useState({ key: filtresKey, page: 1 });
-  const page = pagination.key === filtresKey ? pagination.page : 1;
-  const allerPage = (p: number) => setPagination({ key: filtresKey, page: p });
+  function poser(patch: Partial<typeof f>) {
+    if (heritageActif) {
+      purgerCrochets();
+      setHeritage(HERITAGE_VIDE);
+      set({
+        type_evenement_ids: typeEvtIds,
+        taille_evenements: tailles,
+        ...patch,
+      });
+    } else {
+      set(patch);
+    }
+  }
+  function reinitialiser() {
+    if (heritageActif) {
+      purgerCrochets();
+      setHeritage(HERITAGE_VIDE);
+    }
+    reset();
+  }
+
+  const page = f.page;
+  const allerPage = (p: number) => set({ page: p });
+  const sorting: SortingState = [{ id: f.tri, desc: f.ordre === 'desc' }];
 
   // Liste paginée serveur (R-UI-4a) : URL mémoïsée, garde anti-réponse périmée
   // et état Error portés par `useListePaginee`. Sans la garde `!r.ok`, un 500
@@ -129,36 +209,31 @@ function GestionnaireCollectesContent() {
   // une panne serveur se lisait comme un parc sans collecte (§10 §7).
   const urlListe = useMemo(() => {
     const qs = new URLSearchParams();
-    if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
-    if (traiteurFiltre) qs.set('traiteur_id', traiteurFiltre);
-    if (typeFiltre) qs.set('type', typeFiltre);
-    if (statutFiltre) qs.set('statut', statutFiltre);
-    if (fromFiltre) qs.set('from', fromFiltre);
-    if (toFiltre) qs.set('to', toFiltre);
-    if (typeEvtKey)
-      typeEvtKey
-        .split(',')
-        .forEach((v) => qs.append('type_evenement_ids[]', v));
-    if (tailleKey)
-      tailleKey.split(',').forEach((v) => qs.append('taille_evenements[]', v));
-    if (triKey) {
-      const [triId, ordre] = triKey.split(':');
-      qs.set('tri', triId!);
-      qs.set('ordre', ordre!);
-    }
+    if (f.lieu) qs.set('lieu_id', f.lieu);
+    if (f.traiteur) qs.set('traiteur_id', f.traiteur);
+    if (f.type) qs.set('type', f.type);
+    if (f.statut) qs.set('statut', f.statut);
+    if (f.from) qs.set('from', f.from);
+    if (f.to) qs.set('to', f.to);
+    // La route lit ces deux filtres en paramètre RÉPÉTÉ (`getAll('x[]')`), pas
+    // en CSV : l'appel est construit en `x[]` depuis l'état CSV.
+    typeEvtIds.forEach((v) => qs.append('type_evenement_ids[]', v));
+    tailles.forEach((v) => qs.append('taille_evenements[]', v));
+    qs.set('tri', f.tri);
+    qs.set('ordre', f.ordre);
     if (page > 1) qs.set('page', String(page));
-    const suffix = qs.toString() ? `?${qs}` : '';
-    return `/api/v1/gestionnaire/collectes${suffix}`;
+    return `/api/v1/gestionnaire/collectes?${qs}`;
   }, [
-    lieuFiltre,
-    traiteurFiltre,
-    typeFiltre,
-    statutFiltre,
-    fromFiltre,
-    toFiltre,
-    typeEvtKey,
-    tailleKey,
-    triKey,
+    f.lieu,
+    f.traiteur,
+    f.type,
+    f.statut,
+    f.from,
+    f.to,
+    f.tri,
+    f.ordre,
+    typeEvtIds,
+    tailles,
     page,
   ]);
   const {
@@ -180,6 +255,25 @@ function GestionnaireCollectesContent() {
     },
     messageErreur: 'Le chargement des collectes a échoué.',
   });
+
+  // Options des filtres (lieux / traiteurs / types d'événement) — périmètre du
+  // parc, chargées une fois, après la liste (elle seule compte pour l'écran).
+  const [options, setOptions] = useState<OptionsFiltres>(OPTIONS_VIDES);
+  useEffect(() => {
+    fetch('/api/v1/gestionnaire/filtres')
+      .then((r) => r.json())
+      .then((j: { data?: Partial<OptionsFiltres> }) => {
+        if (j?.data)
+          setOptions({
+            lieux: j.data.lieux ?? [],
+            traiteurs: j.data.traiteurs ?? [],
+            types: j.data.types ?? [],
+          });
+      })
+      .catch(() => {
+        /* options indisponibles : la barre reste utilisable (listes vides). */
+      });
+  }, []);
 
   // Page devenue hors bornes — la liste a rétréci pendant qu'on la consultait
   // (une collecte annulée ailleurs, un parc réduit). Le serveur répond alors
@@ -206,19 +300,12 @@ function GestionnaireCollectesContent() {
       setEnRedirection(true);
       allerPage(dernierePage);
     }
-    // allerPage change à chaque rendu (filtresKey) : la condition seule compte.
+    // allerPage dépend de `set` (stable) : la condition seule compte.
   }, [redirige, dernierePage]);
   useEffect(() => {
     if (chargement) setEnRedirection(false);
   }, [chargement]);
   const loading = chargement || redirige || enRedirection;
-
-  useEffect(() => {
-    if (lieuFiltre) setFiltreLabel(readCollecteFiltreLabel('lieu', lieuFiltre));
-    else if (traiteurFiltre)
-      setFiltreLabel(readCollecteFiltreLabel('traiteur', traiteurFiltre));
-    else setFiltreLabel(null);
-  }, [lieuFiltre, traiteurFiltre]);
 
   // Fiche collecte en pop-up (refonte Val 2026-09-29, pop-up client commun) :
   // ouverte depuis l'URL (?collecte=<id>[&edit=1]) → l'ancienne route [id], les
@@ -244,47 +331,6 @@ function GestionnaireCollectesContent() {
     majUrlFiche(null);
     charger();
   }
-
-  function clearFiltre() {
-    const usp = new URLSearchParams(Array.from(params.entries()));
-    [
-      'lieu',
-      'traiteur',
-      'type',
-      'statut',
-      'from',
-      'to',
-      // Sans ces deux-là, « Retirer le filtre » laissait la liste filtrée sur des
-      // critères que plus rien n'affiche : un cul-de-sac silencieux.
-      'type_evenement_ids[]',
-      'taille_evenements[]',
-    ].forEach((k) => usp.delete(k));
-    const s = usp.toString();
-    router.replace(`/gestionnaire/collectes${s ? `?${s}` : ''}`);
-  }
-
-  const chipLabel = lieuFiltre
-    ? `Lieu : ${filtreLabel ?? rows[0]?.lieu_nom ?? 'lieu sélectionné'}`
-    : traiteurFiltre
-      ? `Traiteur : ${filtreLabel ?? 'traiteur sélectionné'}`
-      : null;
-  const chipScope = (() => {
-    const parts: string[] = [];
-    if (statutFiltre === 'cloturee') parts.push('clôturées');
-    const per = periodeCourte(fromFiltre, toFiltre);
-    if (per) parts.push(per);
-    // Type/Taille d'événement viennent des filtres globaux du dashboard (§06.05
-    // l.209) et n'ont aucun contrôle sur cet écran. Sans cette mention, la liste
-    // serait restreinte par des critères invisibles : le gestionnaire chercherait
-    // des collectes qu'il voit au dashboard et que cette liste écarte.
-    const nbType = typeEvtKey ? typeEvtKey.split(',').length : 0;
-    const nbTaille = tailleKey ? tailleKey.split(',').length : 0;
-    if (nbType > 0)
-      parts.push(`${nbType} type${nbType > 1 ? 's' : ''} d'événement`);
-    if (nbTaille > 0)
-      parts.push(`${nbTaille} taille${nbTaille > 1 ? 's' : ''} d'événement`);
-    return parts.length ? parts.join(' · ') : undefined;
-  })();
 
   // Téléchargement du rapport de la collecte réalisée (ZD = rapport recyclage,
   // AG = attestation de don) — miroir de la liste traiteur : URL R2 pré-signée,
@@ -402,26 +448,30 @@ function GestionnaireCollectesContent() {
         getRowId={(c) => c.id}
         manualSorting
         sorting={sorting}
-        onSortingChange={setSorting}
+        onSortingChange={(u) => {
+          const suivant = typeof u === 'function' ? u(sorting) : u;
+          const t = suivant[0];
+          // Tri retiré (cycle TanStack) = tri par défaut de la route. Changer
+          // de tri renvoie aussi en page 1 (`set` sans `page`).
+          set(
+            t
+              ? { tri: t.id, ordre: t.desc ? 'desc' : 'asc' }
+              : { tri: 'date', ordre: 'desc' },
+          );
+        }}
         onRowClick={(c) => ouvrirFiche(c.id)}
         rowLabel={(c) =>
           `Ouvrir la collecte${c.evenement_nom ? ` ${c.evenement_nom}` : ''}${c.lieu_nom ? ` — ${c.lieu_nom}` : ''}`
         }
       />
-      {total > PAGE_SIZE && (
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 text-sm">
-          <span className="text-savr-neutral-500" data-testid="collectes-total">
-            {total} collectes
-          </span>
-          <ListFooter
-            total={total}
-            page={page}
-            onPageChange={allerPage}
-            taillePage={PAGE_SIZE}
-            className="pt-0"
-          />
-        </div>
-      )}
+      {/* Le compteur vit dans la barre de filtres (D5), le pied ne porte que
+          la pagination. */}
+      <ListFooter
+        total={total}
+        page={page}
+        onPageChange={allerPage}
+        taillePage={PAGE_SIZE}
+      />
     </>
   );
 
@@ -433,13 +483,76 @@ function GestionnaireCollectesContent() {
         subtitle="Collectes sur les lieux de votre organisation · cliquez une ligne pour ouvrir la fiche"
       />
 
-      {chipLabel && (
-        <CollecteFiltreActif
-          label={chipLabel}
-          scope={chipScope}
-          onClear={clearFiltre}
+      {/* Barre de filtres DS (D10 : la même que traiteur / agence) : type
+          ZD / AG levable en en-tête, puis Période · Lieu · Traiteur · Type et
+          Taille d'événement (§06.05 l.209), compteur et réinitialisation en
+          pied. Sans onglets Programmées / Historique ni filtre Statut : la
+          route n'accepte qu'un statut (cf. FILTRES). */}
+      <CollecteFiltresBar
+        toggle={
+          <ToggleTypeCollecte
+            avecTous
+            value={
+              f.type === 'zero_dechet' || f.type === 'anti_gaspi'
+                ? f.type
+                : 'tous'
+            }
+            onChange={(t) => poser({ type: t === 'tous' ? '' : t })}
+          />
+        }
+        statutsOnglet={[]}
+        filtres={{
+          statut: false,
+          lieu: false,
+          client: false,
+          infoIncomplete: false,
+          programmeePar: false,
+        }}
+        options={OPTIONS_BARRE}
+        value={{ ...FILTRES_COLLECTE_VIDES, from: f.from, to: f.to }}
+        onChange={(v) => poser({ from: v.from, to: v.to })}
+        actif={actif}
+        onReset={reinitialiser}
+        resultats={total}
+      >
+        {/* Choix uniques (route à valeur unique) : Combobox en mode filtre. */}
+        <Combobox
+          titre="Lieu"
+          icon={null}
+          data-testid="filtre-lieu"
+          options={[
+            { value: '', label: 'Tous' },
+            ...options.lieux.map((l) => ({ value: l.id, label: l.nom })),
+          ]}
+          value={f.lieu}
+          onChange={(v) => poser({ lieu: v })}
         />
-      )}
+        <Combobox
+          titre="Traiteur"
+          icon={null}
+          data-testid="filtre-traiteur"
+          options={[
+            { value: '', label: 'Tous' },
+            ...options.traiteurs.map((t) => ({ value: t.id, label: t.nom })),
+          ]}
+          value={f.traiteur}
+          onChange={(v) => poser({ traiteur: v })}
+        />
+        <FiltreCoches
+          label="Type d'événement"
+          testid="filtre-type-evenement"
+          options={options.types.map((t) => ({ id: t.id, nom: t.libelle }))}
+          selected={typeEvtIds}
+          onChange={(ids) => poser({ type_evenement_ids: ids })}
+        />
+        <FiltreCoches
+          label="Taille d'événement"
+          testid="filtre-taille-evenement"
+          options={TAILLE_OPTIONS}
+          selected={tailles}
+          onChange={(ids) => poser({ taille_evenements: ids })}
+        />
+      </CollecteFiltresBar>
 
       {contenu}
 

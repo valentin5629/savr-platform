@@ -43,7 +43,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
          lieux!lieu_id(id, nom),
          organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url)),
        collecte_flux(poids_reel_kg),
-       attributions_antgaspi(volume_repas_realise)`,
+       attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)`,
     )
     .eq('statut', 'cloturee')
     .in('evenements.lieu_id', lieuIds)

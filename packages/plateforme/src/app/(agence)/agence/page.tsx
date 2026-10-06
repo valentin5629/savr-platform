@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
-  CollecteTypeTabs,
   DashboardFilterBar,
   BenchmarkFilterBar,
   EmptyDashboardState,
@@ -16,6 +15,7 @@ import {
   type BenchmarkFilters,
   type BlocsData,
 } from '@/components/dashboards/index.js';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
 import { StatCard } from '@/components/ui/stat-card';
@@ -242,7 +242,7 @@ export default function AgenceDashboardPage() {
         storageKey="agence-dashboard"
         onChange={handleFilters}
       />
-      <CollecteTypeTabs value={tab} onChange={setTab} />
+      <ToggleTypeCollecte value={tab} onChange={setTab} />
 
       {/* Compteur « X collectes correspondent » (BL-P3-02) — parité gestionnaire. */}
       {!loading && filters && (

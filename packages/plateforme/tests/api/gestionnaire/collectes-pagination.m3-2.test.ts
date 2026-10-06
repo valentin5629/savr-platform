@@ -194,7 +194,6 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
             { poids_reel_kg: null },
           ],
           attributions_antgaspi: null,
-          attestations_don: [],
           evenements: {
             ...base.evenements,
             pax: 500,
@@ -208,59 +207,48 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
             organisations: [{ nom: 'Fleurdemets' }],
           },
         },
-        // AG programmée par le gestionnaire : l'attribution est lisible et
-        // prime sur l'attestation.
+        // AG programmée par le gestionnaire : volume de l'attribution, rendu
+        // par la vue v_attributions_gestionnaire sous l'alias de l'embed.
         {
           ...base,
           id: 'ag-propre',
           type: 'anti_gaspi',
           collecte_flux: [],
           attributions_antgaspi: { volume_repas_realise: 180 },
-          attestations_don: [{ nb_repas: 175, version: 1 }],
         },
-        // AG d'un traiteur tiers : l'attribution lui est refusée par la RLS
-        // (embed vide) ; l'attestation de don porte le chiffre — dernière
-        // version, quel que soit l'ordre de retour.
+        // AG d'un traiteur tiers : même chemin — la vue rend le volume que la
+        // table lui refuse (aa_select, C-1).
         {
           ...base,
           id: 'ag-tiers',
           type: 'anti_gaspi',
           collecte_flux: [],
-          attributions_antgaspi: null,
-          attestations_don: [
-            { nb_repas: 140, version: 1 },
-            { nb_repas: 152, version: 3 },
-            { nb_repas: 150, version: 2 },
-          ],
+          attributions_antgaspi: { volume_repas_realise: 152 },
         },
-        // AG sans attribution lisible ni attestation : non renseigné, pas 0.
+        // AG sans attribution : non renseigné, pas 0 (to-one rendu en tableau
+        // vide : même lecture).
         {
           ...base,
           id: 'ag-rien',
           type: 'anti_gaspi',
           collecte_flux: null,
           attributions_antgaspi: [],
-          attestations_don: null,
         },
-        // Attribution lisible à 0 repas : c'est une valeur, elle prime (un `||`
-        // la remplacerait par l'attestation).
+        // Volume à 0 repas : c'est une valeur (un `||` la perdrait).
         {
           ...base,
           id: 'ag-zero',
           type: 'anti_gaspi',
           collecte_flux: [],
           attributions_antgaspi: { volume_repas_realise: 0 },
-          attestations_don: [{ nb_repas: 12, version: 1 }],
         },
-        // Attribution lisible mais volume non saisi : repli sur l'attestation,
-        // ici rendue en OBJET par PostgREST (même lecture que le tableau).
+        // Volume non saisi : non renseigné.
         {
           ...base,
           id: 'ag-volume-null',
           type: 'anti_gaspi',
           collecte_flux: [],
           attributions_antgaspi: { volume_repas_realise: null },
-          attestations_don: { nb_repas: 90, version: 1 },
         },
       ],
       error: null,
@@ -279,10 +267,12 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
       'lieux!lieu_id(nom, adresse_acces, code_postal, ville)',
       'organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(nom)',
       'collecte_flux(poids_reel_kg)',
-      'attributions_antgaspi(volume_repas_realise)',
-      'attestations_don(nb_repas, version)',
+      'attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)',
     ])
       expect(select).toContain(attendu);
+    // Ni la table (refusée sur un traiteur tiers), ni le repli attestation (D13).
+    expect(select).not.toMatch(/attributions_antgaspi\s*\(/);
+    expect(select).not.toContain('attestations_don');
 
     expect(data[0]).toMatchObject({
       id: 'zd',
@@ -301,7 +291,7 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
       152,
       null,
       0,
-      90,
+      null,
     ]);
     // Lignes sans traiteur nommé ni pax (fixture de base) : null, pas d'erreur.
     expect(data[1]).toMatchObject({
@@ -316,7 +306,6 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
         'evenements',
         'collecte_flux',
         'attributions_antgaspi',
-        'attestations_don',
       ])
         expect(c).not.toHaveProperty(brut);
   });

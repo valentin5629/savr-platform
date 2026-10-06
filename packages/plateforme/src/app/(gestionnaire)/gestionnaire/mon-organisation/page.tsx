@@ -11,11 +11,18 @@ import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { LogoCard } from '@/components/organisation/logo-card';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import {
+  FacturesFiltresBar,
+  FILTRES_FACTURES,
+  filtrerFactures,
+} from '@/components/facture/factures-filtres-bar';
+import { useFiltresUrl } from '@/lib/hooks/use-filtres-url';
 
 type OrgTab = 'profil' | 'membres' | 'factures';
 
@@ -281,13 +288,6 @@ export default function MonOrganisationPage() {
     },
   ];
 
-  const tabCls = (t: OrgTab) =>
-    `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-      tab === t
-        ? 'border-savr-primary-600 text-savr-primary-700'
-        : 'border-transparent text-savr-neutral-500 hover:text-savr-neutral-700'
-    }`;
-
   return (
     <div className="space-y-6">
       {dialogue}
@@ -295,143 +295,161 @@ export default function MonOrganisationPage() {
         Mon organisation
       </Heading>
 
-      <div className="flex border-b border-savr-neutral-200">
-        <button className={tabCls('profil')} onClick={() => setTab('profil')}>
-          Profil
-        </button>
-        <button className={tabCls('membres')} onClick={() => setTab('membres')}>
-          Membres
-        </button>
-        <button
-          className={tabCls('factures')}
-          onClick={() => setTab('factures')}
-        >
-          Factures
-        </button>
-      </div>
+      {/* Onglets du DS (R-UI-4b, D4). Chargement et erreur sont communs aux
+          trois onglets : affichés sous la barre, hors contenu d'onglet. */}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as OrgTab)}>
+        <TabsList className="w-full justify-start">
+          <TabsTrigger value="profil">Profil</TabsTrigger>
+          <TabsTrigger value="membres">Membres</TabsTrigger>
+          <TabsTrigger value="factures">Factures</TabsTrigger>
+        </TabsList>
 
-      {loading && <Text>Chargement…</Text>}
+        {loading && <Text className="mt-4">Chargement…</Text>}
 
-      {!loading && erreur && (
-        <p role="alert" className="text-sm text-savr-error">
-          {erreur}
-        </p>
-      )}
+        {!loading && erreur && (
+          <p role="alert" className="mt-4 text-sm text-savr-error">
+            {erreur}
+          </p>
+        )}
 
-      {/* Onglet Profil */}
-      {!loading && !erreur && tab === 'profil' && profil && (
-        <div className="space-y-4">
-          <InfosLegalesCard
-            profil={profil}
-            urlProfil={PROFIL_URL}
-            onSaved={setProfil}
-          />
-          <LogoCard
-            logoKey={profil.logo_url}
-            uploadUrl={LOGO_URL}
-            previewSrc={(k) => `${LOGO_URL}?v=${encodeURIComponent(k)}`}
-            onUploaded={async (k) => {
-              // Le logo est déjà sur R2 : un échec du PATCH ne doit pas être
-              // confondu avec un échec d'envoi (message dédié, §06.05).
-              const p = await patchProfil({ logo_url: k }).catch(() => {
-                throw new Error(
-                  'Logo envoyé mais non enregistré. Veuillez réessayer.',
-                );
-              });
-              setProfil(p);
-            }}
-          />
-        </div>
-      )}
-
-      {/* Onglet Membres */}
-      {!loading && !erreur && tab === 'membres' && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Membres</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DataGrid
-                columnsToggle={false}
-                columns={colonnesMembres}
-                data={users}
-                getRowId={(u) => u.id}
-                empty={<Text>Aucun membre.</Text>}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Invitation */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Inviter un membre</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleInvite} className="space-y-3">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <FormField label="Prénom" htmlFor="invite-prenom" required>
-                    <Input
-                      id="invite-prenom"
-                      type="text"
-                      autoComplete="given-name"
-                      value={prenom}
-                      onChange={(e) => setPrenom(e.target.value)}
-                      required
-                    />
-                  </FormField>
-                  <FormField label="Nom" htmlFor="invite-nom" required>
-                    <Input
-                      id="invite-nom"
-                      type="text"
-                      autoComplete="family-name"
-                      value={nom}
-                      onChange={(e) => setNom(e.target.value)}
-                      required
-                    />
-                  </FormField>
-                  <FormField label="Email" htmlFor="invite-email" required>
-                    <Input
-                      id="invite-email"
-                      type="email"
-                      autoComplete="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </FormField>
-                </div>
-                {inviteMsg && (
-                  <AlertBar variant={inviteMsg.ok ? 'success' : 'err'}>
-                    {inviteMsg.text}
-                  </AlertBar>
-                )}
-                <Button type="submit" loading={inviting} loadingText="Envoi…">
-                  {"Envoyer l'invitation"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Onglet Factures */}
-      {!loading && !erreur && tab === 'factures' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Factures</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataGrid
-              columnsToggle={false}
-              columns={COLONNES_FACTURES}
-              data={factures}
-              getRowId={(f) => f.id}
-              empty={<Text>Aucune facture.</Text>}
+        {/* Onglet Profil */}
+        {!loading && !erreur && profil && (
+          <TabsContent value="profil" className="space-y-4">
+            <InfosLegalesCard
+              profil={profil}
+              urlProfil={PROFIL_URL}
+              onSaved={setProfil}
             />
-          </CardContent>
-        </Card>
-      )}
+            <LogoCard
+              logoKey={profil.logo_url}
+              uploadUrl={LOGO_URL}
+              previewSrc={(k) => `${LOGO_URL}?v=${encodeURIComponent(k)}`}
+              onUploaded={async (k) => {
+                // Le logo est déjà sur R2 : un échec du PATCH ne doit pas être
+                // confondu avec un échec d'envoi (message dédié, §06.05).
+                const p = await patchProfil({ logo_url: k }).catch(() => {
+                  throw new Error(
+                    'Logo envoyé mais non enregistré. Veuillez réessayer.',
+                  );
+                });
+                setProfil(p);
+              }}
+            />
+          </TabsContent>
+        )}
+
+        {/* Onglet Membres */}
+        {!loading && !erreur && (
+          <TabsContent value="membres" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Membres</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataGrid
+                  columnsToggle={false}
+                  columns={colonnesMembres}
+                  data={users}
+                  getRowId={(u) => u.id}
+                  empty={<Text>Aucun membre.</Text>}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Invitation */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Inviter un membre</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleInvite} className="space-y-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <FormField label="Prénom" htmlFor="invite-prenom" required>
+                      <Input
+                        id="invite-prenom"
+                        type="text"
+                        autoComplete="given-name"
+                        value={prenom}
+                        onChange={(e) => setPrenom(e.target.value)}
+                        required
+                      />
+                    </FormField>
+                    <FormField label="Nom" htmlFor="invite-nom" required>
+                      <Input
+                        id="invite-nom"
+                        type="text"
+                        autoComplete="family-name"
+                        value={nom}
+                        onChange={(e) => setNom(e.target.value)}
+                        required
+                      />
+                    </FormField>
+                    <FormField label="Email" htmlFor="invite-email" required>
+                      <Input
+                        id="invite-email"
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </FormField>
+                  </div>
+                  {inviteMsg && (
+                    <AlertBar variant={inviteMsg.ok ? 'success' : 'err'}>
+                      {inviteMsg.text}
+                    </AlertBar>
+                  )}
+                  <Button type="submit" loading={inviting} loadingText="Envoi…">
+                    {"Envoyer l'invitation"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Onglet Factures */}
+        {!loading && !erreur && (
+          <TabsContent value="factures">
+            <OngletFactures factures={factures} />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
+  );
+}
+
+// Onglet Factures — mêmes filtres que le traiteur (R-UI-4b, D10 :
+// `FacturesFiltresBar`), appliqués côté client aux factures déjà chargées par
+// la page : la route `/gestionnaire/mon-organisation/factures` n'accepte qu'un
+// `statut` unique et ne renvoie pas `type` (filtre Type masqué) — reliquat.
+function OngletFactures({ factures }: { factures: FactureRow[] }) {
+  const { valeurs, set, reset, actif } = useFiltresUrl(FILTRES_FACTURES);
+  const visibles = filtrerFactures(factures, valeurs);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Factures</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <FacturesFiltresBar
+          className="mb-4"
+          value={valeurs}
+          set={set}
+          actif={actif}
+          onReset={reset}
+          count={visibles.length}
+          filtres={{ type: false }}
+        />
+        <DataGrid
+          columnsToggle={false}
+          columns={COLONNES_FACTURES}
+          data={visibles}
+          getRowId={(f) => f.id}
+          empty={<Text>Aucune facture.</Text>}
+        />
+      </CardContent>
+    </Card>
   );
 }

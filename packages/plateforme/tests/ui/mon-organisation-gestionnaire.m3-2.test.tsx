@@ -279,7 +279,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       render(<MonOrganisationPage />);
-      fireEvent.click(screen.getByRole('button', { name: 'Factures' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       // DataGrid rend chaque ligne deux fois (tableau + carte mobile) : on
       // borne les assertions au tableau.
       const tableau = await screen.findByRole('table', {}, ATTENTE_UI);
@@ -326,7 +326,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       render(<MonOrganisationPage />);
-      fireEvent.click(screen.getByRole('button', { name: 'Factures' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       expect(
         await screen.findByText('Aucune facture.', {}, ATTENTE_UI),
       ).toBeTruthy();

@@ -1,5 +1,6 @@
 // GET /api/v1/registre/export-csv — export CSV du registre filtré (§06.03).
-// Toutes les lignes filtrées (pas de pagination) + trace exports_registre.
+// Toutes les collectes filtrées (pas de pagination), une ligne par flux pesé,
+// + trace exports_registre.
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       supabase,
       rows.map((r) => r.collecte_id),
     );
-    const csv = buildRegistreCsv(rows, flux);
+    const { csv, nbLignes } = buildRegistreCsv(rows, flux, filters.fluxCodes);
 
     await traceExport(supabase, {
       userId: auth.ctx.userId,
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       isStaff: auth.ctx.isStaff,
       typeExport: 'registre_dechets',
       format: 'csv',
-      nbLignes: rows.length,
+      nbLignes,
       filters,
       dates: rows.map((r) => r.date_evenement),
       now: new Date(),

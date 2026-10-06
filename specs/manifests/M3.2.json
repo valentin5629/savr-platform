@@ -63,7 +63,12 @@
     "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/rapport-rse/download/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/coordonnees-urgence/route.ts",
     "packages/plateforme/tests/ui/fiche-collecte-client.m3-2.test.tsx",
-    "packages/plateforme/tests/api/gestionnaire/fiche-collecte-popup.m3-2.test.ts"
+    "packages/plateforme/tests/api/gestionnaire/fiche-collecte-popup.m3-2.test.ts",
+    "supabase/migrations/20261004190000_plateforme_v_attributions_gestionnaire.sql",
+    "supabase/tests/SECU__v_attributions_gestionnaire.test.sql",
+    "packages/plateforme/src/lib/dashboards/attributions-ag.ts",
+    "packages/plateforme/src/lib/dashboards/attributions-ag.test.ts",
+    "packages/plateforme/tests/api/gestionnaire/attributions-vue.m3-2.test.ts"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -105,9 +110,6 @@
     "M3.2/P2_evenements_colonnes_et_champs_plats",
     "M3.2/P2_evenements_filtre_taille",
     "M3.2/evenements_repas_attribution_lisible",
-    "M3.2/evenements_repas_tiers_depuis_attestation",
-    "M3.2/evenements_repas_attestation_derniere_version",
-    "M3.2/evenements_repas_sans_attribution_ni_attestation",
     "M3.2/evenements_repas_somme_par_evenement",
     "M3.2/evenements_repas_colonne_rendue",
     "M3.2/P2_traiteurs_lieux_intervention_noms",
@@ -159,7 +161,7 @@
     "M3.2/drilldown_gestionnaire_propage_periode_type_et_taille",
     "M3.2/drilldown_gestionnaire_libelle_memorise_en_sessionstorage",
     "M3.2/collectes_relaie_type_et_taille_devenement",
-    "M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille",
+    "M3.2/collectes_reinitialiser_retire_aussi_type_et_taille",
     "M3.2/collectes_route_filtre_type_evenement",
     "M3.2/collectes_route_filtre_taille_evenement",
     "M3.2/collectes_route_taille_xs_inclut_pax_null",
@@ -169,12 +171,11 @@
     "M3.2/collectes_route_sans_filtres_evenement",
     "M3.2/collectes_route_type_et_taille_se_cumulent",
     "M3.2/collectes_route_drilldown_gestionnaire_sans_statut_ni_type",
-    "M3.2/collectes_chip_affiche_les_filtres_devenement",
+    "M3.2/collectes_barre_affiche_les_filtres_devenement",
     "M3.2/collectes_changement_type_taille_revient_page_1",
     "M3.2/fiche_redirect_modale",
     "M3.2/fiche_redirect_edit",
     "M3.2/fiche_redirect_encode",
-    "M3.2/fiche_get_association_absente",
     "M3.2/fiche_get_documents_sous_rls",
     "M3.2/fiche_get_actions_gestionnaire",
     "M3.2/rapport_download_gestionnaire_sous_rls",
@@ -182,15 +183,30 @@
     "M3.2/fiche_benchmark_hors_perimetre_404",
     "M3.2/urgence_gestionnaire_ok",
     "M3.2/fiche_popup_gestionnaire_sans_annulation",
-    "M3.2/fiche_popup_gestionnaire_sans_association",
     "M3.2/fiche_popup_gestionnaire_radar_masque_tiers",
     "M3.2/fiche_popup_gestionnaire_marque_blanche",
-    "M3.2/fiche_get_repas_tiers_depuis_attestation",
-    "M3.2/fiche_get_repas_tiers_sans_attestation",
     "M3.2/fiche_get_repas_propre_programmation",
     "M3.2/collectes_route_renvoie_le_client_organisateur",
     "M3.2/collectes_route_colonnes_liste_traiteur",
-    "M3.2/collectes_colonnes_identiques_liste_traiteur"
+    "M3.2/collectes_colonnes_identiques_liste_traiteur",
+    "M3.2/evenements_repas_tiers_par_vue",
+    "M3.2/evenements_repas_sans_attribution",
+    "M3.2/fiche_get_association_par_vue",
+    "M3.2/fiche_popup_gestionnaire_association_affichee",
+    "M3.2/fiche_popup_gestionnaire_sans_attribution",
+    "M3.2/fiche_get_repas_tiers_par_vue",
+    "M3.2/fiche_get_repas_tiers_sans_attribution",
+    "M3.2/dashboard_ag_repas_par_vue",
+    "M3.2/traiteurs_liste_repas_par_vue",
+    "M3.2/traiteur_detail_repas_par_vue",
+    "M3.2/pack_ag_consommation_par_vue",
+    "M3.2/blocs_gestionnaire_ag_par_vue",
+    "M3.2/evolution_gestionnaire_ag_par_vue",
+    "M3.2/synthese_gestionnaire_ag_par_vue",
+    "M3.2/attributions_embed_gestionnaire_vue",
+    "M3.2/attributions_forme_commune_vue",
+    "M3.2/attributions_forme_commune_table",
+    "M3.2/attributions_forme_commune_vide"
   ],
   "deliverables": [
     {
@@ -445,9 +461,9 @@
       "id": "M3.2-evenements-repas-tiers",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:331",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx (colonne inchangée)",
-      "test": "M3.2/evenements_repas_tiers_depuis_attestation + M3.2/evenements_repas_attribution_lisible + M3.2/evenements_repas_attestation_derniere_version + M3.2/evenements_repas_sans_attribution_ni_attestation + M3.2/evenements_repas_somme_par_evenement + M3.2/evenements_repas_colonne_rendue",
+      "test": "M3.2/evenements_repas_tiers_par_vue + M3.2/evenements_repas_attribution_lisible + M3.2/evenements_repas_sans_attribution + M3.2/evenements_repas_somme_par_evenement + M3.2/evenements_repas_colonne_rendue",
       "statut": "implemented",
-      "libelle": "Colonne « Repas donnés » de la liste Événements gestionnaire (§06.05 §2, l.331) sur les collectes AG programmées par un traiteur TIERS. La route ne lisait que attributions_antgaspi.volume_repas_realise, que aa_select refuse au gestionnaire (C-1, pgTAP T18, jamais élargie) : la colonne affichait « — » là où la fiche collecte et la liste Collectes du même rôle donnent le chiffre. Règle D13 (arbitrage Val 2026-09-30, déjà appliquée à la fiche — livrable M3.2-popup-bilan-ag-tiers) étendue à cette liste : par collecte, l'attribution quand elle est lisible, sinon la version la plus haute de attestations_don.nb_repas (servie par att_gestionnaire_select, §06.05 l.619) ; somme par événement ; ni l'une ni l'autre → 0, rendu « — ». Aucune migration, aucune policy, aucune lecture élargie : un embed de plus sous la RLS de l'appelant. Mesuré sur savr-dev le 2026-10-01 sous les deux jetons gestionnaire de test (lecture seule) : 178 collectes AG clôturées, attribution lisible sur 0, attestation lisible sur 178 ; événements avec repas affichés 0 → 129 (Viparis) et 0 → 49 (Arts Forains). Hors lot, tracé dans _Divergences/M3.2_20261001_liste-evenements-repas-attestation.md : l'export CSV de cette même liste lit les repas par f_volume_repas_realise (attribution) et non par l'attestation. Le batch J+1 copie l'attribution dans l'attestation (lib/pdf/batch-pdf-j1-ag.ts) et le trigger fn_trg_regenerer_attestation en émet une nouvelle version quand le volume d'une attestation ÉMISE est corrigé : les deux sources coïncident à la génération et après chaque correction d'une attestation émise, pas pendant la fenêtre brouillon ni si le PDF échoue ; l'export donne en outre déjà un chiffre sur une collecte pesée sans attestation ; sur savr-dev elles divergent sur toutes les collectes comparées, parce que seed_demo pose nb_repas à 10 % du pax sans lire l'attribution (donnée de seed, pas un défaut de la route). Les 8 autres points d'appel du rôle (détail événement, dashboard, pack AG, traiteurs, fiche traiteur, dashboards/evolution, dashboards/blocs, dashboards/synthese-pdf) gardent le zéro silencieux jusqu'au lot v_attributions_gestionnaire : pour un même événement tiers clôturé, la liste affiche désormais N repas quand le détail de cet événement et le KPI du dashboard n'en affichent aucun. Rendu sur données réelles (savr-dev, tableau et carte mobile) à constater par Val : login requis."
+      "libelle": "Colonne « Repas donnés » de la liste Événements gestionnaire (§06.05 §2, l.331) sur les collectes AG programmées par un traiteur TIERS : volume de l'attribution lu par la vue v_attributions_gestionnaire (§04, migration 20261004190000), sommé par événement ; pas d'attribution → 0, rendu « — ». Le repli D13 sur l'attestation de don (PR #457) est retiré : écran, détail, dashboard et export CSV lisent désormais la même grandeur. Même règle sur la liste Collectes du rôle (M3.2/collectes_route_colonnes_liste_traiteur)."
     },
     {
       "id": "BL-P2-13",
@@ -468,10 +484,10 @@
     {
       "id": "M3.2-bloc2-ag",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:238",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionAgChart.tsx",
-      "test": "M3.2/dash_bloc4_zd_only — pas de donut sur l’onglet AG",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadEvolution) + packages/plateforme/src/lib/dashboards/attributions-ag.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionAgChart.tsx",
+      "test": "M3.2/evolution_gestionnaire_ag_par_vue + M3.2/attributions_embed_gestionnaire_vue + M3.2/dash_bloc4_zd_only — pas de donut sur l’onglet AG",
       "statut": "implemented",
-      "libelle": "Bloc 2 AG — évolution mensuelle : courbe repas donnés + ratio repas/pax (composant §11 partagé)"
+      "libelle": "Bloc 2 AG — évolution mensuelle : courbe repas donnés + ratio repas/pax (composant §11 partagé). Pour le gestionnaire, le chargeur partagé lit les repas par la vue v_attributions_gestionnaire (branchement par rôle, arbitrage Val 2026-09-22 option A) : la table lui est refusée sur un traiteur tiers (aa_select, C-1) et la courbe restait plate à 0 pour le persona nominal (mesuré savr-dev 2026-10-04, Viparis : 127 collectes AG, 10 425 repas en base, 0 lisible)."
     },
     {
       "id": "M3.2-bloc4-donut",
@@ -509,10 +525,10 @@
     {
       "id": "M3.2-bloc3ag-associations",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:247",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopAssociationsBloc.tsx supprimé en R24c)",
-      "test": "M3.2/blocs_gestionnaire_ag_associations",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, topAssociationsFrom) + packages/plateforme/src/lib/dashboards/attributions-ag.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopAssociationsBloc.tsx supprimé en R24c)",
+      "test": "M3.2/blocs_gestionnaire_ag_par_vue + M3.2/attributions_forme_commune_vue + M3.2/blocs_gestionnaire_ag_associations",
       "statut": "implemented",
-      "libelle": "Bloc 3 AG gestionnaire — top associations bénéficiaires (périmètre parc). Colonne « Distance moyenne (km) » (§06.05 l.52) NON rendue (décision Val 2026-07-07 : la distance lieu↔asso reste un critère INTERNE à l'algo d'attribution AG — Haversine dans fn_calculer_algo_attribution_ag — et n'est pas restituée aux dashboards clients ; ce n'est PAS un manque de données, lieux+associations sont géocodées ; cf. _Divergences M3.2_20260707)."
+      "libelle": "Bloc 3 AG gestionnaire — top associations bénéficiaires (périmètre parc). Pour le gestionnaire, le chargeur partagé lit les attributions par la vue v_attributions_gestionnaire (association à plat, ramenée à la forme imbriquée de la table par attributionsAgOf) : la table lui est refusée sur un traiteur tiers (aa_select, C-1) et le bloc restait vide pour le persona nominal. Colonne « Distance moyenne (km) » (§06.05 l.52) NON rendue (décision Val 2026-07-07 : la distance lieu↔asso reste un critère INTERNE à l'algo d'attribution AG — Haversine dans fn_calculer_algo_attribution_ag — et n'est pas restituée aux dashboards clients ; ce n'est PAS un manque de données, lieux+associations sont géocodées ; cf. _Divergences M3.2_20260707)."
     },
     {
       "id": "M3.2-bloc8-export-pdf",
@@ -567,8 +583,8 @@
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:347",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx",
       "test": "M3.2/detail_evenement_ag_distance_association + M3.2/detail_evenement_ag_distance_lieu_non_geocode + M3.2/detail_evenement_ag_distance_affichee_km + M3.2/detail_evenement_ag_distance_absente_tiret",
-      "statut": "partial",
-      "libelle": "§3 Détail événement > « Pour AG » : distance association ↔ lieu de l'événement restituée au gestionnaire (arbitrage Val 2026-09-21, option b). Orthodromie haversine calculée à la volée par distanceKm (lib/attribution-ag/associations-par-distance.ts, même formule que fn_calculer_algo_attribution_ag), arrondie à l'entier et affichée « 12 km » ; aucune colonne stockée, « — » si l'association ou le lieu n'est pas géocodé. Les coordonnées de l'association ne sortent pas de la route (liste blanche nom + ville) — hygiène de réponse, pas une barrière : asso_read ouvre déjà ces colonnes à tout rôle authentifié. ⚠ Portée réelle mesurée : le sous-bloc AG n'apparaît que sur les événements de l'organisation du gestionnaire — aa_select (décision C-1, §09 + pgTAP T18 rls_0_4_smoke) refuse attributions_antgaspi sur l'événement d'un traiteur tiers, même sur son propre lieu. Contradiction §06.05 §3 × C-1 tracée dans _Divergences/M3.2_20260921_detail-evenement-bloc-ag-invisible-gestionnaire.md."
+      "statut": "implemented",
+      "libelle": "§3 Détail événement > « Pour AG » : repas donnés, association(s) avec ville et distance restitués au gestionnaire, y compris sur l'événement d'un traiteur TIERS. Attribution lue par la vue v_attributions_gestionnaire (§04, migration 20261004190000) sous l'alias d'embed attributions_antgaspi ; aa_select n'est pas élargie (C-1, pgTAP T18 vert). Distance = orthodromie haversine calculée à la volée par distanceKm (lib/attribution-ag/associations-par-distance.ts, même formule que fn_calculer_algo_attribution_ag), arrondie à l'entier et affichée « 12 km » ; aucune colonne stockée, « — » si l'association ou le lieu n'est pas géocodé. Coordonnées lues par l'association_id de la vue (associations, policy asso_read) ; elles ne sortent pas de la route (liste blanche repas + nom + ville + distance) — hygiène de réponse, pas une barrière. Mesuré sur base vierge sous JWT gestionnaire (PostgREST) : embed de la vue rendu en OBJET, association à plat, embed associations(latitude, longitude) résolu."
     },
     {
       "id": "M3.2-detail-evenement-lecture-seule",
@@ -584,7 +600,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": "M3.2/collectes_liste_rendue_au_design_system + M3.2/collectes_erreur_chargement_message_et_reessayer + M3.2/collectes_liste_vide_empty_state + M3.2/collectes_etat_chargement_skeleton + M3.2/collectes_ligne_ouvre_la_fiche + M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche + M3.2/collectes_pagination_total_affiche_au_dela_dune_page + M3.2/collectes_pagination_demande_la_page_suivante_au_serveur + M3.2/collectes_pagination_absente_sous_le_seuil + M3.2/collectes_changement_de_filtre_revient_page_1 + M3.2/collectes_page_devenue_hors_bornes_revient_sur_la_derniere_valide + M3.2/collectes_derniere_page_vide_ne_bloque_pas_lecran",
       "statut": "à-vérifier",
-      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70, section réintégrée l.81 ; liste plate, chip « Filtre actif » du drill-down l.209) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty). Pagination DS au-delà d'une page, avec le total exact affiché (décision Val 2026-09-22) ; la page courante est ancrée au périmètre des filtres, donc un drill-down repart en page 1. Une page devenue hors bornes (liste rétrécie pendant la consultation) ramène sur la dernière page valide, au lieu d'afficher l'état vide sans pagination pour en sortir."
+      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70, section réintégrée l.81 ; liste plate, chip « Filtre actif » du drill-down l.209 — ⚠ non rendu par cet écran depuis #481, écart tracé au livrable M3.2-drilldown-top-listes) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty). Pagination DS au-delà d'une page, avec le total exact affiché (décision Val 2026-09-22) ; la page courante est ancrée au périmètre des filtres, donc un drill-down repart en page 1. Une page devenue hors bornes (liste rétrécie pendant la consultation) ramène sur la dernière page valide, au lieu d'afficher l'état vide sans pagination pour en sortir."
     },
     {
       "id": "M3.2-collectes-pagination-serveur",
@@ -599,16 +615,16 @@
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:215",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx (drillUrl, monté sur les 4 blocs Top listes ZD+AG)",
       "test": "M3.2/drilldown_gestionnaire_tous_statuts_type_non_fige + M3.2/drilldown_gestionnaire_propage_periode_type_et_taille + M3.2/drilldown_gestionnaire_libelle_memorise_en_sessionstorage + M3.2/collectes_route_drilldown_gestionnaire_sans_statut_ni_type",
-      "statut": "implemented",
-      "libelle": "Drill-down « Top listes → liste Collectes » du GESTIONNAIRE (Blocs 6/7 ZD+AG, l.209/215/267/273) : liste plate, **tous statuts, type ZD/AG NON figé**, filtres du dashboard propagés (période + Type/Taille d'événement), chip « Filtre actif » dont le libellé transite par sessionStorage. ⚠ C'est l'INVERSE du §06.04 traiteur (« miroir 5/5 » : type + statut `cloturee` figés, l.193/201/233/278) — les deux espaces divergent EXPRÈS. Le code appliquait la règle traiteur au gestionnaire depuis 53bec7c (2026-07-14) et AUCUN test ne couvrait ce chemin (`grep drillScope tests/` = 0) : le gestionnaire ne voyait que les collectes clôturées du type de l'onglet actif, et les deux filtres d'événement étaient perdus au clic."
+      "statut": "partial",
+      "libelle": "Drill-down « Top listes → liste Collectes » du GESTIONNAIRE (Blocs 6/7 ZD+AG, l.209/215/267/273) : liste plate, **tous statuts, type ZD/AG NON figé**, filtres du dashboard propagés (période + Type/Taille d'événement), chip « Filtre actif » dont le libellé transite par sessionStorage. ⚠ ÉCART OUVERT depuis #481 (R-UI-4b D10) : la liste gestionnaire ne rend plus le chip — la cible du drill-down est nommée par le contrôle Lieu / Traiteur de la barre, et le libellé écrit en sessionStorage par le dashboard n'est plus lu par cet écran (les listes traiteur, agence et admin, elles, gardent le chip). Aucune preuve de ce livrable ne porte sur le rendu du chip (elles couvrent l'URL poussée par le dashboard, l'écriture du libellé et la route) : statut `partial` tant que l'arbitrage Val n'est pas appliqué, à repasser `implemented` ensuite — _Divergences/M3.2_20261004_chip-filtre-actif-liste-gestionnaire.md. ⚠ C'est l'INVERSE du §06.04 traiteur (« miroir 5/5 » : type + statut `cloturee` figés, l.193/201/233/278) — les deux espaces divergent EXPRÈS. Le code appliquait la règle traiteur au gestionnaire depuis 53bec7c (2026-07-14) et AUCUN test ne couvrait ce chemin (`grep drillScope tests/` = 0) : le gestionnaire ne voyait que les collectes clôturées du type de l'onglet actif, et les deux filtres d'événement étaient perdus au clic."
     },
     {
       "id": "M3.2-collectes-filtres-type-taille",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:118",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
-      "test": "M3.2/collectes_route_filtre_type_evenement + M3.2/collectes_route_filtre_taille_evenement + M3.2/collectes_route_taille_xs_inclut_pax_null + M3.2/collectes_route_taille_brackets_non_contigus + M3.2/collectes_route_taille_inconnue_ne_desarme_pas_le_filtre + M3.2/collectes_route_taille_cle_heritee_rejetee + M3.2/collectes_route_sans_filtres_evenement + M3.2/collectes_route_type_et_taille_se_cumulent + M3.2/collectes_relaie_type_et_taille_devenement + M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille + M3.2/collectes_chip_affiche_les_filtres_devenement + M3.2/collectes_changement_type_taille_revient_page_1",
+      "test": "M3.2/collectes_route_filtre_type_evenement + M3.2/collectes_route_filtre_taille_evenement + M3.2/collectes_route_taille_xs_inclut_pax_null + M3.2/collectes_route_taille_brackets_non_contigus + M3.2/collectes_route_taille_inconnue_ne_desarme_pas_le_filtre + M3.2/collectes_route_taille_cle_heritee_rejetee + M3.2/collectes_route_sans_filtres_evenement + M3.2/collectes_route_type_et_taille_se_cumulent + M3.2/collectes_relaie_type_et_taille_devenement + M3.2/collectes_reinitialiser_retire_aussi_type_et_taille + M3.2/collectes_barre_affiche_les_filtres_devenement + M3.2/collectes_changement_type_taille_revient_page_1",
       "statut": "implemented",
-      "libelle": "Filtres « Type d'événement » et « Taille d'événement » acceptés de bout en bout par la liste Collectes gestionnaire (`type_evenement_ids[]`, `taille_evenements[]`), mêmes noms de paramètres que `gestionnaire/evenements`. La TAILLE est un bracket calculé sur `evenements.pax` (XS [0-249] … XL [1000+], l.115) traduit en prédicats `.or(…, { referencedTable: 'evenements' })` — **en SQL et non en post-traitement JS** : la route est paginée, un filtrage après `.range()` filtrerait une page au lieu de l'ensemble et laisserait `total` non filtré. `pax` NULL compte XS, comme `tailleBracket(pax ?? 0)` de la liste Événements, sans quoi le même filtre donnerait deux périmètres selon l'écran. Un code de bracket inconnu renvoie une liste vide plutôt que le parc complet. L'écran relaie les deux paramètres, les intègre à la signature de pagination et les retire au « Retirer le filtre »."
+      "libelle": "Filtres « Type d'événement » et « Taille d'événement » acceptés de bout en bout par la liste Collectes gestionnaire (`type_evenement_ids[]`, `taille_evenements[]`), mêmes noms de paramètres que `gestionnaire/evenements`. La TAILLE est un bracket calculé sur `evenements.pax` (XS [0-249] … XL [1000+], l.115) traduit en prédicats `.or(…, { referencedTable: 'evenements' })` — **en SQL et non en post-traitement JS** : la route est paginée, un filtrage après `.range()` filtrerait une page au lieu de l'ensemble et laisserait `total` non filtré. `pax` NULL compte XS, comme `tailleBracket(pax ?? 0)` de la liste Événements, sans quoi le même filtre donnerait deux périmètres selon l'écran. Un code de bracket inconnu renvoie une liste vide plutôt que le parc complet. L'écran relaie les deux paramètres, revient en page 1 quand l'un d'eux change, les AFFICHE comme contrôles de sa barre de filtres (« Type d'événement », « Taille d'événement » — R-UI-4b D10, #481 : un filtre appliqué est un filtre visible) et les retire de l'appel au « Réinitialiser les filtres », y compris quand ils viennent d'un ancien lien du dashboard en `x[]`. Avant #481 ces deux preuves portaient sur le chip « Filtre actif » (`…chip_affiche…`, `…retirer_le_filtre…`) ; les tests ont été renommés avec l'écran."
     },
     {
       "id": "M3.2-kpi-sparkline-n1",
@@ -629,10 +645,10 @@
     {
       "id": "M3.2-popup-association-absente-api",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:85",
-      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",
-      "test": "M3.2/fiche_get_association_absente",
+      "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts + packages/plateforme/src/lib/collectes/fiche-client-types.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx (BlocAssociation, inchangé)",
+      "test": "M3.2/fiche_get_association_par_vue + M3.2/fiche_popup_gestionnaire_association_affichee + M3.2/fiche_popup_gestionnaire_sans_attribution",
       "statut": "implemented",
-      "libelle": "Q7 : bloc Association bénéficiaire masqué au gestionnaire tant que v_attributions_gestionnaire n'existe pas — la clé n'est même pas dans la réponse API ; seul volume_repas_realise est lu, sous sa RLS (aa_select jamais élargie, aucun service-role). UI : M3.2/fiche_popup_gestionnaire_sans_association."
+      "libelle": "Fiche collecte du gestionnaire — bloc « Association bénéficiaire » AFFICHÉ (§06.05 l.85 : le masquage était une limite technique temporaire, levée par la vue). L'attribution est lue par v_attributions_gestionnaire sous la RLS de l'utilisateur (nom et ville à plat ; description par l'association_id de la vue, associations / asso_read) — jamais par la table (aa_select jamais élargie), jamais en service-role. Sans attribution rendue par la vue : association null, bloc absent. L'id du livrable est conservé (historique : Q7, clé absente de la réponse)."
     },
     {
       "id": "M3.2-popup-sans-annulation",
@@ -678,9 +694,9 @@
       "id": "M3.2-popup-bilan-ag-tiers",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:407",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
-      "test": "M3.2/fiche_get_repas_tiers_depuis_attestation",
+      "test": "M3.2/fiche_get_repas_tiers_par_vue + M3.2/fiche_get_repas_tiers_sans_attribution + M3.2/fiche_get_repas_propre_programmation",
       "statut": "implemented",
-      "libelle": "Bilan AG du gestionnaire sur une collecte programmée par un traiteur TIERS : volume_repas_realise lui est refusé sous sa RLS (aa_select — C-1, pgTAP T18, jamais élargie), seul le bloc Association étant exempté par §06.05 l.85. Arbitrage Val 2026-09-30 (D13) : « Repas donnés » / « Repas par pax » lus dans l'attestation de don qui lui est déjà servie (att_gestionnaire_select, §06.05 l.619) — attestations_don.nb_repas, copié de l'attribution au batch J+1 ; « — » tant que l'attestation n'existe pas ; l'attribution prime quand elle est lisible. Aucune lecture élargie. Preuve base : supabase/tests/documents_traiteur_operationnel_d12.test.sql (bloc Gestionnaire : attestation servie, attribution refusée, nb_repas lu par la requête de la fiche). Le radar ZD reste masqué sur les collectes tierces (garde f_benchmark_single_collecte non élargie)."
+      "libelle": "Bilan AG du gestionnaire sur une collecte programmée par un traiteur TIERS : « Repas donnés » / « Repas par pax » = volume de l'attribution, lu par la vue v_attributions_gestionnaire (§04) — la table lui est refusée sous sa RLS (aa_select, C-1, pgTAP T18, jamais élargie). Le repli sur l'attestation de don (D13, arbitrage Val 2026-09-30) est RETIRÉ avec la vue : l'attestation n'est plus lue que pour le document ; « — » quand la vue ne rend rien. Même source que le détail événement, le dashboard et l'export CSV. Preuve base : supabase/tests/SECU__v_attributions_gestionnaire.test.sql. Le radar ZD reste masqué sur les collectes tierces (garde f_benchmark_single_collecte non élargie)."
     },
     {
       "id": "M3.2-popup-contacts-tiers-masques",
@@ -720,7 +736,63 @@
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx, packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": "M3.2/collectes_colonnes_identiques_liste_traiteur + M3.2/collectes_route_colonnes_liste_traiteur",
       "statut": "implemented",
-      "libelle": "Liste Collectes gestionnaire aux colonnes de la liste traiteur, plus « Traiteur » (décisions Val, revue écran E2E 2026-10-01 : mêmes colonnes dans l'écran existant — liste plate paginée conservée ; « Type » gardé car ZD et AG sont mêlés ; « Événement » retiré ; aucun picto d'action — divergence M3.1_20261001_liste-colonne-client). Colonnes : Date · Lieu (nom + adresse) · Client · Traiteur · Pax · Résultats · Type · Statut ; les cellules Lieu et Résultats sont celles de la liste traiteur (composants partagés), et un test de parité échoue si une colonne ajoutée côté traiteur n'est pas reprise. Traiteur lu par la vue restreinte v_traiteurs_gestionnaire (nom seul). Résultats sur collecte clôturée : poids ZD = Σ collecte_flux, taux de recyclage, CO₂ évité ; repas AG = attribution quand elle est lisible, sinon dernière version de l'attestation de don servie au gestionnaire (même règle que la fiche, D13 — sur une collecte d'un traiteur tiers l'attribution lui est refusée par aa_select, jamais élargie). Téléchargement du rapport depuis la ligne (route gestionnaire existante, documents sous sa RLS, §06.05 l.619) : jamais « réservé au donneur d'ordre ». Les embeds bruts ne sortent pas de la route. Seules Date / Type / Statut restent triables (tri serveur)."
+      "libelle": "Liste Collectes gestionnaire aux colonnes de la liste traiteur, plus « Traiteur » (décisions Val, revue écran E2E 2026-10-01 : mêmes colonnes dans l'écran existant — liste plate paginée conservée ; « Type » gardé car ZD et AG sont mêlés ; « Événement » retiré ; aucun picto d'action — divergence M3.1_20261001_liste-colonne-client). Colonnes : Date · Lieu (nom + adresse) · Client · Traiteur · Pax · Résultats · Type · Statut ; les cellules Lieu et Résultats sont celles de la liste traiteur (composants partagés), et un test de parité échoue si une colonne ajoutée côté traiteur n'est pas reprise. Traiteur lu par la vue restreinte v_traiteurs_gestionnaire (nom seul). Résultats sur collecte clôturée : poids ZD = Σ collecte_flux, taux de recyclage, CO₂ évité ; repas AG = volume de l'attribution lu par la vue v_attributions_gestionnaire (même source que la fiche ; sur une collecte d'un traiteur tiers la table lui est refusée par aa_select, jamais élargie — le repli D13 sur l'attestation de don est retiré depuis la migration 20261004190000). Téléchargement du rapport depuis la ligne (route gestionnaire existante, documents sous sa RLS, §06.05 l.619) : jamais « réservé au donneur d'ordre ». Les embeds bruts ne sortent pas de la route. Seules Date / Type / Statut restent triables (tri serveur)."
+    },
+    {
+      "id": "M3.2-vue-attributions-gestionnaire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2098",
+      "artefact": "supabase/migrations/20261004190000_plateforme_v_attributions_gestionnaire.sql (vue security_invoker = false + security_barrier = true ; 5 colonnes ; garde de rôle f_app_role() = 'gestionnaire_lieux' + bornage organisations_lieux + événement daté ; REVOKE ALL FROM PUBLIC, anon, authenticated puis GRANT SELECT TO authenticated) + packages/shared/src/database.types.ts",
+      "test": "supabase/tests/SECU__v_attributions_gestionnaire.test.sql (24 assertions sous rôle authenticated + claims, base vierge : 1-3 v_attributions_gest_own_lieu_ok ; 4-5 v_attributions_gest_autre_lieu_denied avec contrôle positif ; 6, 21-22 événement sans date ; 7-8 v_attributions_gest_role_non_gestionnaire_denied avec non-vacuité, 8b JWT sans organisation ; 9, 11-13b autres rôles posés sur une organisation RATTACHÉE au lieu ; 10 le traiteur garde la table ; 14-15 v_attributions_gest_colonnes_whitelist_ok ; 16-19 options de vue et privilèges ; 20 aa_select sans branche lieu)",
+      "statut": "implemented",
+      "libelle": "Vue SQL v_attributions_gestionnaire (§04, arbitrage Val 2026-09-21 option b) : données Anti-Gaspi lues par un gestionnaire_lieux sur les collectes tenues sur SES lieux, événement d'un traiteur tiers compris. aa_select n'est jamais élargie : C-1 reste vraie au niveau de la table (T17/T18 de rls_0_4_smoke.test.sql verts). Écart assumé à la lettre du §04 : la vue ajoute la garde e.date_evenement IS NOT NULL, identique à f_collecte_visible (un événement sans date — brouillon ou collectes toutes annulées — n'est pas visible du gestionnaire par la table collectes) ; validé Val 2026-10-04, tracé dans _Divergences/M3.2_20261004_v-attributions-gestionnaire-implementee.md. Sondes de mutation (base vierge) : sans garde de rôle → 7, 9, 11, 12, 13, 13b rouges ; garde élargie à d'autres rôles ou passée en liste noire → 9, 11, 13, 13b ; sans garde de date → 1, 6, 8 ; sans bornage organisation → 1, 4, 5, 8, 8b. Limite connue, tracée dans la divergence : une attribution que le gestionnaire lisait par la table (collecte qu'il a programmée) n'est plus rendue si le lieu a été détaché de son organisation après coup, ou si l'événement n'a plus de date."
+    },
+    {
+      "id": "M3.2-dashboard-kpi-ag-par-vue",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:132",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts",
+      "test": "M3.2/dashboard_ag_repas_par_vue",
+      "statut": "implemented",
+      "libelle": "Bloc 1 KPI, onglet Anti-gaspi : « Repas donnés » (Σ repas AG) et « Repas/pax moyen » lus par la vue v_attributions_gestionnaire. Constat d'origine (savr-dev, 2026-10-04, Viparis) : 127 collectes AG clôturées, 10 425 repas en base, 0 attribution lisible par la table → KPI à 0 et ratio à 0,00."
+    },
+    {
+      "id": "M3.2-traiteurs-repas-par-vue",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:450",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/route.ts",
+      "test": "M3.2/traiteurs_liste_repas_par_vue + M3.2/traiteur_detail_repas_par_vue",
+      "statut": "implemented",
+      "libelle": "Section Traiteurs : « Repas donnés 12 mois » (liste) et repas des 12 derniers mois (fiche traiteur) lus par la vue v_attributions_gestionnaire — par construction ces écrans ne montrent que des traiteurs tiers, pour lesquels la table était refusée (aa_select, C-1)."
+    },
+    {
+      "id": "M3.2-pack-ag-consommation-par-vue",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2106",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts",
+      "test": "M3.2/pack_ag_consommation_par_vue + M3.2/pack_ag_consommation_repas_objet",
+      "statut": "implemented",
+      "libelle": "Mon pack AG — historique de consommation : repas et nom de l'association lus par la vue v_attributions_gestionnaire (point d'appel pack-ag/ du §04)."
+    },
+    {
+      "id": "M3.2-synthese-pdf-ag-par-vue",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:281",
+      "artefact": "packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (buildSyntheseSnapshot, route POST /api/v1/dashboards/synthese-pdf) + packages/plateforme/src/lib/dashboards/attributions-ag.ts",
+      "test": "M3.2/synthese_gestionnaire_ag_par_vue",
+      "statut": "implemented",
+      "libelle": "Synthèse PDF Anti-Gaspi du gestionnaire : repas donnés et ventilation par association lus par la vue v_attributions_gestionnaire (branchement par rôle). 9e point d'appel, absent du décompte « 8 » du §04 : la route est ouverte au gestionnaire et lisait la table, refusée sur un traiteur tiers."
+    },
+    {
+      "id": "M3.2-bloc6-ag-top-lieux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:269",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, topLieuxFrom) + packages/plateforme/src/lib/dashboards/attributions-ag.ts",
+      "test": "M3.2/blocs_gestionnaire_ag_par_vue",
+      "statut": "implemented",
+      "libelle": "Bloc 6 AG gestionnaire — top lieux AG : nombre de collectes, repas donnés et repas/pax par lieu, repas lus par la vue v_attributions_gestionnaire (événements de traiteurs tiers compris)."
+    },
+    {
+      "id": "M3.2-bloc7-ag-top-traiteurs",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:275",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, aggregateActeurs) + packages/plateforme/src/lib/dashboards/attributions-ag.ts",
+      "test": "M3.2/blocs_gestionnaire_ag_par_vue",
+      "statut": "implemented",
+      "libelle": "Bloc 7 AG gestionnaire — top traiteurs AG : nombre de collectes AG, repas donnés et repas/pax par traiteur opérationnel, repas lus par la vue v_attributions_gestionnaire."
     }
   ],
   "cdc_source_hash": {

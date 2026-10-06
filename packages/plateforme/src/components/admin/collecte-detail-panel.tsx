@@ -42,6 +42,14 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { Modal } from '@/components/ui/modal';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { CollecteStatutFrise } from './collecte-statut-frise';
 import { AttributionAgForm } from './attribution-ag-form';
@@ -1973,30 +1981,25 @@ export function CollecteDetailPanel({
                 />
 
                 {!editPesees ? (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-savr-neutral-200">
-                        <th className="text-left py-2 text-savr-neutral-500 font-medium">
-                          Flux
-                        </th>
-                        <th className="text-right py-2 text-savr-neutral-500 font-medium">
-                          Poids (kg)
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Flux</TableHead>
+                        <TableHead className="text-right">Poids (kg)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {ZD_FLUX.map((flux) => {
                         const ligne = collecte.collecte_flux.find(
                           (f) => f.flux_dechets?.code === flux.code,
                         );
                         const poids = ligne?.poids_reel_kg ?? null;
                         return (
-                          <tr
-                            key={flux.code}
-                            className="border-b border-savr-neutral-100"
-                          >
-                            <td className="py-2 font-medium">{flux.nom}</td>
-                            <td className="py-2 text-right">
+                          <TableRow key={flux.code}>
+                            <TableCell className="font-medium">
+                              {flux.nom}
+                            </TableCell>
+                            <TableCell className="text-right">
                               {poids !== null ? (
                                 <span className="font-medium">
                                   {fmtKgAuto(poids)}
@@ -2006,26 +2009,25 @@ export function CollecteDetailPanel({
                                   En attente
                                 </span>
                               )}
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 ) : (
                   <form
                     onSubmit={(e) => void handleSavePesees(e)}
                     className="space-y-3"
                   >
-                    <table className="w-full text-sm">
-                      <tbody>
+                    <Table>
+                      <TableBody>
                         {ZD_FLUX.map((flux) => (
-                          <tr
-                            key={flux.code}
-                            className="border-b border-savr-neutral-100"
-                          >
-                            <td className="py-2 font-medium">{flux.nom}</td>
-                            <td className="py-2 text-right">
+                          <TableRow key={flux.code}>
+                            <TableCell className="font-medium">
+                              {flux.nom}
+                            </TableCell>
+                            <TableCell className="text-right">
                               <Input
                                 type="number"
                                 min={0}
@@ -2041,11 +2043,11 @@ export function CollecteDetailPanel({
                                 className="ml-auto w-28 text-right"
                                 placeholder="kg"
                               />
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
                         Motif (obligatoire, ≥ 10 caractères)

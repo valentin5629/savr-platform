@@ -2,8 +2,15 @@
 
 import * as React from 'react';
 import { fmtDec } from './fmt';
-import { TEXT_MUTED } from './palette';
 import { Text } from '@/components/ui/text';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 // Co2MethodePanel — explique la MÉTHODE de calcul CO₂ (ABC ADEME) et affiche les
 // VARIABLES réellement utilisées (forfait transport + facteurs d'émission par
@@ -107,42 +114,32 @@ export function Co2MethodePanel({
           <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-savr-neutral-500">
             Facteurs d'émission par matière (ADEME Base Carbone)
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] border-collapse text-[13px]">
-              <thead>
-                <tr className="text-left" style={{ color: TEXT_MUTED }}>
-                  <th className="py-1.5 pr-3 font-semibold">Matière</th>
-                  <th className="py-1.5 pr-3 text-right font-semibold">
-                    Évité (kgCO₂e/t)
-                  </th>
-                  <th className="py-1.5 pr-3 text-right font-semibold">
-                    Induit (kgCO₂e/t)
-                  </th>
-                  <th className="py-1.5 text-right font-semibold">
-                    Énergie (kWh/t)
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {fluxFactors.map((f) => (
-                  <tr key={f.code} className="border-t border-savr-neutral-200">
-                    <td className="py-1.5 pr-3 font-semibold text-savr-neutral-800">
-                      {f.nom}
-                    </td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-savr-neutral-700">
-                      {fmtDec(f.fe_evite, 0)}
-                    </td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-savr-neutral-700">
-                      {fmtDec(f.fe_induit, 0)}
-                    </td>
-                    <td className="py-1.5 text-right tabular-nums text-savr-neutral-700">
-                      {fmtDec(f.energie, 0)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table className="min-w-[420px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Matière</TableHead>
+                <TableHead className="text-right">Évité (kgCO₂e/t)</TableHead>
+                <TableHead className="text-right">Induit (kgCO₂e/t)</TableHead>
+                <TableHead className="text-right">Énergie (kWh/t)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {fluxFactors.map((f) => (
+                <TableRow key={f.code}>
+                  <TableCell className="font-semibold">{f.nom}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fmtDec(f.fe_evite, 0)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fmtDec(f.fe_induit, 0)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fmtDec(f.energie, 0)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
     </section>

@@ -89,9 +89,9 @@ describe('M3.3 / dashboard agence — bouton renouvellement pack AG (BL-P1-AGENC
     'M3.3/AGENCE01_bouton_renouvellement_onglet_ag — présent dans le bloc pack AG',
     async () => {
       render(<AgenceDashboardPage />);
-      // Basculer sur l'onglet Anti-gaspi → bloc « Mon pack Anti-Gaspi ».
+      // Basculer sur le type Anti-Gaspi → bloc « Mon pack Anti-Gaspi ».
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       expect(
         await screen.findByText('Mon pack Anti-Gaspi', undefined, ATTENTE_UI),
@@ -108,7 +108,7 @@ describe('M3.3 / dashboard agence — bouton renouvellement pack AG (BL-P1-AGENC
     async () => {
       render(<AgenceDashboardPage />);
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       const bouton = await screen.findByRole(
         'button',

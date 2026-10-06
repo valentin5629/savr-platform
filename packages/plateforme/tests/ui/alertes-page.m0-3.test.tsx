@@ -9,12 +9,15 @@ import {
   screen,
   fireEvent,
   waitFor,
+  within,
   cleanup,
 } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/admin/alertes',
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  // `useFiltresUrl` lit l'URL au montage : défauts (statut=ouverte).
+  useSearchParams: () => null,
 }));
 
 import AlertesPage from '@/app/(admin)/admin/alertes/page.js';
@@ -60,7 +63,14 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  // L'URL jsdom survit d'un test à l'autre : on la remet à plat.
+  window.history.replaceState(null, '', '/admin/alertes');
 });
+
+const urlsListe = () =>
+  fetchMock.mock.calls
+    .map((c) => String(c[0]))
+    .filter((u) => u.startsWith('/api/v1/admin/alertes?'));
 
 describe('AlertesPage', () => {
   it(
@@ -80,9 +90,59 @@ describe('AlertesPage', () => {
       // pack_ag_epuise → sévérité critique
       expect(screen.getAllByText('Critique').length).toBeGreaterThan(0);
       // filtre par défaut = ouverte
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/admin/alertes?statut=ouverte',
+      expect(urlsListe()).toContain('/api/v1/admin/alertes?statut=ouverte');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'R-UI-4b D3 — le filtre statut est un group aria-pressed, l’URL porte ?statut=…',
+    async () => {
+      render(<AlertesPage />);
+      await screen.findAllByText(
+        'Pack Anti-Gaspi épuisé',
+        undefined,
+        ATTENTE_UI,
       );
+      const groupe = screen.getByRole('group', { name: 'Filtrer par statut' });
+      const ouvertes = within(groupe).getByRole('button', { name: 'Ouvertes' });
+      const resolues = within(groupe).getByRole('button', { name: 'Résolues' });
+      expect(ouvertes).toHaveAttribute('aria-pressed', 'true');
+      expect(resolues).toHaveAttribute('aria-pressed', 'false');
+      // Défaut : pas de « Réinitialiser », URL vierge.
+      expect(screen.queryByTestId('alertes-filtres-reset')).toBeNull();
+      expect(window.location.search).toBe('');
+
+      fireEvent.click(resolues);
+      await waitFor(
+        () =>
+          expect(urlsListe().at(-1)).toBe(
+            '/api/v1/admin/alertes?statut=resolue',
+          ),
+        ATTENTE_UI,
+      );
+      expect(resolues).toHaveAttribute('aria-pressed', 'true');
+      expect(window.location.search).toBe('?statut=resolue');
+      // Compteur dans le pied de la FilterBar (D5), un seul emplacement.
+      await waitFor(
+        () =>
+          expect(screen.getByTestId('alertes-filtres-count')).toHaveTextContent(
+            '1 alerte',
+          ),
+        ATTENTE_UI,
+      );
+
+      // « Réinitialiser les filtres » → retour au défaut (Ouvertes), URL vierge.
+      fireEvent.click(screen.getByTestId('alertes-filtres-reset'));
+      await waitFor(
+        () =>
+          expect(urlsListe().at(-1)).toBe(
+            '/api/v1/admin/alertes?statut=ouverte',
+          ),
+        ATTENTE_UI,
+      );
+      expect(ouvertes).toHaveAttribute('aria-pressed', 'true');
+      expect(window.location.search).toBe('');
     },
     ATTENTE_CAS_MS,
   );

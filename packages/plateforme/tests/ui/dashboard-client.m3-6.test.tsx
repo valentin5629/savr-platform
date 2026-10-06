@@ -314,10 +314,9 @@ describe('M3.6 / Dashboard Client / UI', () => {
         ATTENTE_UI,
       );
 
-      // « Réinitialiser » → période par défaut + les 3 filtres à « Tous/Toutes ».
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Réinitialiser les filtres' }),
-      );
+      // « Réinitialiser » de la barre globale (celui du benchmark porte le même
+      // libellé unique) → période par défaut + les 3 filtres à « Tous/Toutes ».
+      fireEvent.click(screen.getByTestId('dashboard-filter-reinitialiser'));
       await waitFor(() => {
         expect(traiteur).toHaveTextContent('TraiteurTous');
         expect(agence).toHaveTextContent('AgenceToutes');

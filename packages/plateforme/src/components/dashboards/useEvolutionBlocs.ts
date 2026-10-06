@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { CollecteType } from './CollecteTypeTabs.js';
+import type { CollecteType } from '@/components/collecte/toggle-type-collecte';
 import type { DashboardFilters } from './DashboardFilterBar.js';
 
 export type EvolutionType = CollecteType;

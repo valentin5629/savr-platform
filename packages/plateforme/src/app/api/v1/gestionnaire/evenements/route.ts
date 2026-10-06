@@ -75,8 +75,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        types_evenements!type_evenement_id(id, libelle),
        collectes(id, type, statut, date_collecte,
          collecte_flux(poids_reel_kg),
-         attributions_antgaspi(volume_repas_realise),
-         attestations_don(nb_repas, version))`,
+         attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise))`,
     )
     .in('lieu_id', lieuFilter)
     .order('date_evenement', { ascending: false });
@@ -217,32 +216,24 @@ function pickOne(v: unknown): unknown {
   return Array.isArray(v) ? v[0] : v;
 }
 
-// Les deux embeds d'où sortent les repas d'une collecte AG. PostgREST rend
-// `attributions_antgaspi` en OBJET (to-one, collecte_id UNIQUE) et
-// `attestations_don` en TABLEAU (une ligne par version) ; les deux formes sont
-// acceptées des deux côtés, la forme dépendant du cache de schéma.
+// L'embed d'où sortent les repas d'une collecte AG : la vue
+// `v_attributions_gestionnaire`, sous la clé `attributions_antgaspi`. PostgREST
+// la rend en OBJET (to-one par collecte_id) ; le tableau est accepté aussi, la
+// forme dépendant du cache de schéma.
 type UnOuListe<T> = T | T[] | null | undefined;
 interface EmbedsRepas {
   attributions_antgaspi?: UnOuListe<{ volume_repas_realise?: number | null }>;
-  attestations_don?: UnOuListe<{ nb_repas?: number | null; version: number }>;
 }
 function enListe<T>(v: UnOuListe<T>): T[] {
   return Array.isArray(v) ? v : v ? [v] : [];
 }
 
-// Repas donnés d'une collecte AG — même règle que la fiche collecte du rôle
-// (lib/collectes/fiche-client.ts ; D13, arbitrage Val 2026-09-30) : l'attribution
-// quand elle est lisible. Sur une collecte programmée par un traiteur TIERS — le
-// cas nominal du gestionnaire — aa_select la lui refuse (C-1, jamais élargie) ;
-// l'attestation de don qui lui est servie (att_gestionnaire_select, §06.05 l.619)
-// porte le même chiffre, copié de l'attribution au batch J+1. Une ligne par
-// régénération : la version la plus haute fait foi. Ni l'une ni l'autre → 0, que
-// l'écran rend « — ». Aucune lecture élargie : les deux embeds passent par la
-// RLS de l'appelant.
+// Repas donnés d'une collecte AG — le volume de l'attribution, lu par la vue
+// `v_attributions_gestionnaire` (§04) : sur une collecte programmée par un
+// traiteur TIERS — le cas nominal du gestionnaire — aa_select refuse la table
+// (C-1, jamais élargie), la vue rend le volume des collectes de SES lieux. Même
+// source que le détail événement, le dashboard et l'export. Pas d'attribution, ou
+// volume non saisi → 0, que l'écran rend « — ».
 function repasCollecte(c: EmbedsRepas): number {
-  const attribution = enListe(c.attributions_antgaspi)[0];
-  const attestation = [...enListe(c.attestations_don)].sort(
-    (a, b) => b.version - a.version,
-  )[0];
-  return attribution?.volume_repas_realise ?? attestation?.nb_repas ?? 0;
+  return enListe(c.attributions_antgaspi)[0]?.volume_repas_realise ?? 0;
 }

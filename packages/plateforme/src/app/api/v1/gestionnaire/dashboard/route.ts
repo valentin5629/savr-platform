@@ -49,7 +49,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        evenements!inner(id, lieu_id, pax, type_evenement_id,
          traiteur_operationnel_organisation_id),
        collecte_flux(poids_reel_kg, flux_dechets(code)),
-       attributions_antgaspi(volume_repas_realise)`,
+       attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)`,
     )
     .eq('statut', 'cloturee')
     .eq('type', type)

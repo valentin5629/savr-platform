@@ -1214,6 +1214,22 @@
       "libelle": "evenements : SELECT authenticated en liste blanche — contacts sur place (nom + téléphone, principal et secours), référence d'affaire, notes internes et entité de facturation hors privilège (arbitrages Val C1-C5 2026-10-01)"
     },
     {
+      "id": "M0.6-associations-select-liste-blanche",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:291",
+      "artefact": "supabase/migrations/20261004200000_plateforme_associations_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 7 colonnes : id, nom, ville, region, latitude, longitude, description_rapport_impact)",
+      "test": "supabase/tests/SECU__associations_select_liste_blanche.test.sql (1-4 privilèges + liste blanche exacte ; 5 non-vacuité ; 6-20 gestionnaire : ligne visible, 7 colonnes lues avec leurs valeurs, 19 colonnes refusées en 42501 par SELECT réel de chaque colonne, select=* refusé, embeds attestations_don et attributions ; 21-27 traiteur : lectures réelles de la fiche collecte, de l'export CSV, des dashboards et du détail événement ; 28-36 traiteur_commercial / agence / client organisateur / traiteur sans lien : mêmes 7 lues, mêmes 19 refusées, ligne visible ; 37-40 aucune écriture cliente ; 41-47 admin_savr et ops_savr JWT fermés en lecture, UPDATE staff par JWT conservé mais RETURNING d'une colonne fermée refusé, service_role lit les 26 colonnes ; 48-49 fail-closed colonne ajoutée)",
+      "statut": "implemented",
+      "libelle": "associations : SELECT authenticated en liste blanche — contact (nom, email, téléphone), notes internes, SIREN, habilitation fiscale, n° RUP, adresse, horaires, capacité, instructions d'accès, point de collecte transporteur et logo hors privilège (dette §09 du 2026-09-14, volet colonnes)"
+    },
+    {
+      "id": "M0.6-transporteurs-lecture-cliente-fermee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:621",
+      "artefact": "supabase/migrations/20261005100000_plateforme_transporteurs_lecture_cliente_fermee.sql (retrait de la policy transp_read — auth.role() = 'authenticated' — qui rendait toutes les lignes à tout utilisateur connecté ; restent transp_admin, transp_ops_select, transp_ops_write)",
+      "test": "supabase/tests/SECU__transporteurs_lecture_cliente_fermee.test.sql (1-8 catalogue : transp_read absente, cliquet sur chaque policy prédicat compris, RLS activée et forcée, privilèges, aucune vue dépendante, aucune fonction SECURITY DEFINER atteignant la table exécutable par un client ; 9-11 non-vacuité ; 12-17 gestionnaire : JWT conforme, 0 ligne, aucune colonne ne rend la ligne par SELECT réel de chaque colonne, pas d'oracle par filtre, témoin types_evenements ; 18-23 traiteur programmateur : 0 ligne, et l'embed depuis sa propre attribution rend l'attribution sans le transporteur ; 24-33 traiteur_commercial / agence / client organisateur / traiteur sans lien : 0 ligne ; 34-37 aucune écriture cliente, par des ordres sans WHERE ni RETURNING ; 38-44 admin_savr et ops_savr par JWT : lecture des 22 colonnes et écriture conservées ; 45-49 service_role : fiche entière, résolution par prestataire, embed depuis l'attribution)",
+      "statut": "implemented",
+      "libelle": "transporteurs : lecture réservée au staff — aucun rôle client ne lit plus le référentiel (nom du prestataire, contact, prix d'achat, notes internes, SIREN, code chez le TMS externe) ; marque blanche tenue aussi par l'accès direct (dette §09 du 2026-09-14)"
+    },
+    {
       "id": "M0.6-attestation-delete-deny",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:258",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql",

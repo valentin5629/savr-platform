@@ -4,9 +4,11 @@
 -- l'adresse de l'exutoire : elle doit suivre « voie, code postal ville »
 -- (lib/registre/csv.ts, decouperAdresse). Le CSV est produit sous le JWT de
 -- l'utilisateur : la colonne ajoutée doit rester lisible par un rôle client.
+-- Unité de mesure : les 5 flux V1 sont en kg (§04 « Valeurs initiales ») — le
+-- seed bloc8 avait posé les Emballages en 'bac' (migration 20261006130000).
 
 BEGIN;
-SELECT plan(3);
+SELECT plan(4);
 
 SELECT is(
   (SELECT count(*)::int FROM plateforme.flux_dechets
@@ -37,6 +39,12 @@ SELECT results_eq(
        'REVIVAL GENNEVILLIERS TRSFT',
        '9 route du Môle Central, 92230 Gennevilliers')$$,
   'flux_referentiel_codes — codes, filières, exutoires et adresses des 5 flux');
+
+SELECT results_eq(
+  $$SELECT code, unite_mesure::text FROM plateforme.flux_dechets WHERE actif ORDER BY code$$,
+  $$VALUES ('biodechet', 'kg'), ('carton', 'kg'), ('dechet_residuel', 'kg'),
+           ('emballage', 'kg'), ('verre', 'kg')$$,
+  'flux_referentiel_unite_kg — les 5 flux V1 sont mesurés en kg');
 
 -- Lecture sous un rôle client (gestionnaire de lieux), comme la route d'export.
 -- Le claim `role` est celui d'un vrai jeton : la policy fd_read lit auth.role().

@@ -109,9 +109,5 @@ export function EnTetePuce({
 
 // Mention discrète du sur-titre (SIREN, gestionnaire…).
 export function EnTeteMention({ children }: { children: React.ReactNode }) {
-  return (
-    <Text as="span" size="xs-plus">
-      {children}
-    </Text>
-  );
+  return <Text as="span">{children}</Text>;
 }

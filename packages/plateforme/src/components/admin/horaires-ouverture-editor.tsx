@@ -168,7 +168,7 @@ export function HorairesOuvertureEditor({
             data-testid={`horaires-${jour.jour}`}
           >
             <span
-              className="mt-1 inline-flex h-9 w-12 shrink-0 items-center justify-center rounded-full bg-savr-primary-700 text-xs font-semibold text-savr-white"
+              className="mt-1 inline-flex h-9 w-12 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-700 text-xs font-semibold text-savr-white"
               title={label}
             >
               <span aria-hidden="true">{label.slice(0, 3)}</span>

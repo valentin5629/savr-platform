@@ -104,7 +104,7 @@ const EvolutionZdChart = React.forwardRef<
       title="Évolution mensuelle Zéro Déchet"
       subtitle="Tonnages par flux · taux de recyclage superposé"
       headerRight={
-        <Text as="span" size="xs-plus" tone="faint" className="tabular-nums">
+        <Text as="span" tone="faint" className="tabular-nums">
           kg
         </Text>
       }
@@ -335,12 +335,11 @@ const EvolutionZdChart = React.forwardRef<
                       <Text
                         as="div"
                         variant="hint"
-                        size="2xs"
                         className="mb-1 font-semibold"
                       >
                         {formatPeriode(p.periode, granularite)}
                       </Text>
-                      <div className="flex items-center justify-between gap-5 text-[13px]">
+                      <div className="flex items-center justify-between gap-5 text-sm">
                         <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
                           <span
                             style={{
@@ -374,12 +373,11 @@ const EvolutionZdChart = React.forwardRef<
                     <Text
                       as="div"
                       variant="hint"
-                      size="2xs"
                       className="mb-1 font-semibold"
                     >
                       {formatPeriode(p.periode, granularite)}
                     </Text>
-                    <div className="flex items-center justify-between gap-5 text-[13px]">
+                    <div className="flex items-center justify-between gap-5 text-sm">
                       <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
                         <span
                           style={{
@@ -398,13 +396,12 @@ const EvolutionZdChart = React.forwardRef<
                     <Text
                       as="div"
                       variant="hint"
-                      size="2xs"
                       className="mt-0.5 text-right tabular-nums"
                     >
                       {fmtDec(pct, 0)} % du mois
                     </Text>
                     {p.taux_recyclage != null && (
-                      <div className="mt-1 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1 text-[11px]">
+                      <div className="mt-1 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1 text-xs">
                         <span className="text-savr-neutral-600">
                           Taux de recyclage
                         </span>

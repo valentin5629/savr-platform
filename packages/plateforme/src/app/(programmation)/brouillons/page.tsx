@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { PlusCircle, FileEdit, CalendarDays, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ROUTES } from '@/lib/routes';
@@ -55,12 +55,11 @@ export default function BrouillonsPage() {
   return (
     <div className="space-y-6">
       {dialogue}
-      <PageHeader
+      <PageHero
+        icon={<FileEdit className="h-6 w-6 text-savr-primary-200" />}
         title="Mes brouillons"
-        tone="neutral"
-        size="xl"
         actions={
-          <Button asChild>
+          <Button variant="accent" asChild>
             <Link href={ROUTES.programmer.nouveau}>
               <PlusCircle />
               Nouvelle programmation

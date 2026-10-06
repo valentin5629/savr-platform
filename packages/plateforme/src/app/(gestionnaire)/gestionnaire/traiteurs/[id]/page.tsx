@@ -9,7 +9,7 @@ import { use } from 'react';
 import { IconButton } from '@/components/ui/icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HistoriqueCollectesTable } from '@/components/collecte/historique-collectes-table';
-import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 
 interface TraiteurDetail {
@@ -68,26 +68,26 @@ export default function TraiteurDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <IconButton aria-label="Retour" onClick={() => router.back()}>
-          <ArrowLeft />
-        </IconButton>
-        <div className="flex items-center gap-3">
-          {traiteur.logo_url && !logoKo && (
-            <img
-              // logo_url porte une CLÉ R2, pas une URL : seul le proxy la résout,
-              // dans le périmètre v_traiteurs_gestionnaire.
-              src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(id)}/logo`}
-              alt=""
-              onError={() => setLogoKo(true)}
-              className="h-10 w-10 rounded-full object-cover"
-            />
-          )}
-          <Heading level={1} tone="primary">
-            {traiteur.nom}
-          </Heading>
-        </div>
-      </div>
+      <PageHeader
+        title={traiteur.nom}
+        icon={
+          <>
+            <IconButton aria-label="Retour" onClick={() => router.back()}>
+              <ArrowLeft />
+            </IconButton>
+            {traiteur.logo_url && !logoKo && (
+              <img
+                // logo_url porte une CLÉ R2, pas une URL : seul le proxy la résout,
+                // dans le périmètre v_traiteurs_gestionnaire.
+                src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(id)}/logo`}
+                alt=""
+                onError={() => setLogoKo(true)}
+                className="h-10 w-10 rounded-savr-full object-cover"
+              />
+            )}
+          </>
+        }
+      />
 
       <Card>
         <CardHeader>

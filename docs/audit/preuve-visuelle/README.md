@@ -59,6 +59,11 @@ for f in kpi evolution …; do compare -metric AE /tmp/pv/shots-avant/$f.png /tm
   `FormField`/`FormGrid`/`Checkbox`/`Label`, en-tête de section et paires
   libellé/valeur ; « avant » importe `BlocHeader`/`InfoItem` de `fiche-blocs` sur `main`).
   Fixtures communes dans `common-6b.tsx`.
+  `entry-r-ui-6c-avant.tsx` / `entry-r-ui-6c-apres.tsx` (R-UI-6c : en-têtes
+  PageHero des listes / PageHeader iso, tailles Q9 12/14 px, seuil kg→t et
+  « kg CO₂e », résidus `rounded-savr-full` ; fixtures `common-6c.tsx` ; le stub
+  `usePathname` lit `globalThis.__PV_PATHNAME` pour l'item actif de la Sidebar ;
+  sections mobiles `listes-mobile,tailles-mobile` à shooter avec `WIDTH=375`).
 - `VIEWPORTS=dialog,dialog-collecte` (shoot.mjs) : l'entrée rend une modale
   plein écran sous `#<nom>` → capture du viewport entier (une `fixed inset-0`
   n'est pas capturable par section).

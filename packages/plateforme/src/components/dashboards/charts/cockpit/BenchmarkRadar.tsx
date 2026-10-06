@@ -137,7 +137,6 @@ function LegendLine({
     <Text
       as="span"
       variant="hint"
-      size="2xs"
       tone="soft"
       className="flex items-center gap-1.5 font-semibold"
     >
@@ -162,7 +161,6 @@ function LegendDot({
     <Text
       as="span"
       variant="hint"
-      size="2xs"
       tone="soft"
       className="flex items-center gap-1.5 font-semibold"
     >
@@ -217,7 +215,7 @@ function Tooltip({
       <div className="mb-1.5 text-[12px] font-bold text-savr-neutral-900">
         {item.label}
       </div>
-      <div className="flex flex-col gap-1 text-[11px] tabular-nums">
+      <div className="flex flex-col gap-1 text-xs tabular-nums">
         <Serie
           color={VOUS}
           label="Vous"
@@ -277,13 +275,13 @@ function LigneFlux({
         <div
           className={
             statut
-              ? 'text-[13px] font-bold text-savr-neutral-800'
-              : 'text-[13px] font-bold text-savr-neutral-400'
+              ? 'text-sm font-bold text-savr-neutral-800'
+              : 'text-sm font-bold text-savr-neutral-400'
           }
         >
           {item.label}
         </div>
-        <Text as="div" variant="hint" size="2xs" className="tabular-nums">
+        <Text as="div" variant="hint" className="tabular-nums">
           {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
           {' · '}
           {fini(item.benchmark)
@@ -293,14 +291,14 @@ function LigneFlux({
       </div>
       {statut && ratio != null ? (
         <span
-          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
+          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-xs font-semibold tabular-nums"
           style={{ color: statut.badge, background: statut.bg }}
         >
           {ecartTxt(ratio)}
         </span>
       ) : (
         <span
-          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-[11px] font-semibold"
+          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-xs font-semibold"
           style={{ color: TEXT_MUTED, background: GRID }}
         >
           Données manquantes

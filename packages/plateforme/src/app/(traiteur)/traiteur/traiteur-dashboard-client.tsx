@@ -58,7 +58,7 @@ import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
-import { fmtPct } from '@/lib/format';
+import { fmtPct, uniteCo2 } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 
 function masseStr(kg: number): string {
@@ -401,7 +401,7 @@ export function TraiteurDashboardClient({
             <StatCard
               label="CO₂ évité"
               value={co2Masse.value}
-              unit={`${co2Masse.unit} CO₂e`}
+              unit={uniteCo2(co2Masse.unit)}
               dotColor={KPI_DOT.green}
               variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
               sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
@@ -536,7 +536,7 @@ export function TraiteurDashboardClient({
             <StatCard
               label="CO₂ évité"
               value={co2Masse.value}
-              unit={`${co2Masse.unit} CO₂e`}
+              unit={uniteCo2(co2Masse.unit)}
               dotColor={KPI_DOT.green}
               variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
               sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}

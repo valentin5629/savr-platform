@@ -25,14 +25,14 @@ export default function TestDashboardComponentsPage() {
       <section>
         <h2 className="mb-2 text-sm font-semibold">TonnageDisplay</h2>
         <div className="flex gap-4">
-          <span data-testid="tonnage-999">
-            <TonnageDisplay kg={999} />
+          <span data-testid="tonnage-9999">
+            <TonnageDisplay kg={9999} />
           </span>
-          <span data-testid="tonnage-1000">
-            <TonnageDisplay kg={1000} />
+          <span data-testid="tonnage-10000">
+            <TonnageDisplay kg={10000} />
           </span>
-          <span data-testid="tonnage-2500">
-            <TonnageDisplay kg={2500} />
+          <span data-testid="tonnage-25000">
+            <TonnageDisplay kg={25000} />
           </span>
           <span data-testid="tonnage-null">
             <TonnageDisplay kg={null} />

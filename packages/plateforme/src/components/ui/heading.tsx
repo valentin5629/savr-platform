@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 // Heading — titres h1/h2/h3 de l'app (R-UI-6b, I1/I2). Un seul endroit porte
 // les recettes de taille / graisse / couleur relevées dans le code ; les
 // valeurs par défaut sont les recettes majoritaires de chaque niveau, les
-// autres recettes se déclarent par props (iso-rendu : rien n'est redessiné,
-// l'arbitrage Q3 « PageHero navy partout ? » reste ouvert). Le letter-spacing
+// autres recettes se déclarent par props (iso-rendu : rien n'est redessiné ;
+// Q3 tranché b le 2026-10-06 : titre de page = PageHero (listes) ou PageHeader). Le letter-spacing
 // serré des titres (-0.02em, levier #7) vient de la règle globale h1/h2/h3 de
 // globals.css.
 type HeadingLevel = 1 | 2 | 3;

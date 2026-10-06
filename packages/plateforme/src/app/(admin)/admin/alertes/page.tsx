@@ -16,7 +16,7 @@ import {
   severiteParCode,
   entiteHref,
 } from '@/lib/alertes-admin.js';
-import { Heading } from '@/components/ui/heading';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 
@@ -106,12 +106,7 @@ export default function AlertesPage() {
               {row.message}
             </Text>
           )}
-          <Text
-            variant="hint"
-            size="2xs"
-            tone="faint"
-            className="mt-0.5 font-mono"
-          >
+          <Text variant="hint" tone="faint" className="mt-0.5 font-mono">
             {row.code}
           </Text>
         </div>
@@ -172,19 +167,11 @@ export default function AlertesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Bell className="h-6 w-6 text-savr-primary-600" />
-        <div>
-          <Heading level={1} weight="semibold" tone="inherit">
-            Alertes
-          </Heading>
-          <Text>
-            Alertes Admin in-app à traiter (packs, pesées, PDF, facturation,
-            dispatch…). Le canal d&apos;action des alertes fonctionnelles est
-            cet écran, pas Slack.
-          </Text>
-        </div>
-      </div>
+      <PageHero
+        icon={<Bell className="h-6 w-6 text-savr-primary-200" />}
+        title="Alertes"
+        subtitle="Alertes Admin in-app à traiter (packs, pesées, PDF, facturation, dispatch…). Le canal d'action des alertes fonctionnelles est cet écran, pas Slack."
+      />
 
       <FilterBar
         data-testid="alertes-filtres"

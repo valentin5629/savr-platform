@@ -437,6 +437,62 @@ function rangsChauffeurDe(c: {
 
 // Clé de saisie d'un camion : id de tournée, ou `rang:N` sans tournée.
 const CLE_RANG = 'rang:';
+
+type SaisieChauffeur = {
+  plaque_immatriculation: string;
+  chauffeur_nom: string;
+  chauffeur_telephone: string;
+  accompagnant_nom: string;
+  accompagnant_telephone: string;
+};
+const CHAMPS_SAISIE_CHAUFFEUR = [
+  'plaque_immatriculation',
+  'chauffeur_nom',
+  'chauffeur_telephone',
+  'accompagnant_nom',
+  'accompagnant_telephone',
+] as const;
+
+// Après une erreur d'enregistrement, la fiche rechargée peut avoir gagné des
+// tournées (créées par le prestataire) ou perdu des camions (collecte
+// terminée) : les clés `rang:N` sont ré-ancrées sur la tournée du rang — la
+// saisie de l'Admin prime, un champ laissé vide prend la valeur remontée — et
+// les camions qui ne sont plus listés sont retirés.
+function reancrerSaisieChauffeur(
+  prev: Record<string, SaisieChauffeur>,
+  fraiche: {
+    statut: string;
+    nb_camions_demande: number | null;
+    collecte_tournees: Array<{
+      rang: number;
+      tournees: { id: string } & Partial<
+        Record<(typeof CHAMPS_SAISIE_CHAUFFEUR)[number], string | null>
+      >;
+    }>;
+  },
+): Record<string, SaisieChauffeur> {
+  const rangs = new Set(rangsChauffeurDe(fraiche));
+  const suivant: Record<string, SaisieChauffeur> = {};
+  for (const [cle, v] of Object.entries(prev)) {
+    if (!cle.startsWith(CLE_RANG)) {
+      suivant[cle] = v;
+      continue;
+    }
+    const rang = Number(cle.slice(CLE_RANG.length));
+    if (!rangs.has(rang)) continue;
+    const ct = fraiche.collecte_tournees.find((x) => x.rang === rang);
+    if (!ct) {
+      suivant[cle] = v;
+      continue;
+    }
+    const fusion = { ...v };
+    for (const champ of CHAMPS_SAISIE_CHAUFFEUR) {
+      if (v[champ].trim() === '') fusion[champ] = ct.tournees[champ] ?? '';
+    }
+    suivant[ct.tournees.id] = fusion;
+  }
+  return suivant;
+}
 function cleSaisieDe(
   c: { collecte_tournees: Array<{ rang: number; tournees: { id: string } }> },
   rang: number,
@@ -961,23 +1017,17 @@ export function CollecteDetailPanel({
       setInfosAccesError(body?.error ?? 'Enregistrement impossible.');
       // La fiche est rechargée : si le prestataire a créé la tournée d'un
       // camion entre-temps (409/422), la saisie en cours se rattache à elle
-      // au lieu de rester bloquée sur une clé `rang:N` périmée.
+      // au lieu de rester bloquée sur une clé `rang:N` périmée — champ par
+      // champ : ce que l'Admin a tapé prime, un champ laissé vide prend ce que
+      // le prestataire a remonté (sinon le ré-enregistrement l'effacerait).
+      // Un camion qui n'est plus listé (collecte devenue terminée) est retiré.
       const updated = await fetch(
         `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
       );
       if (updated.ok) {
         const fraiche = (await updated.json()) as CollecteDetail;
         setCollecte(fraiche);
-        setInfosAccesInput((prev) =>
-          Object.fromEntries(
-            Object.entries(prev).map(([cle, v]) => [
-              cle.startsWith(CLE_RANG)
-                ? cleSaisieDe(fraiche, Number(cle.slice(CLE_RANG.length)))
-                : cle,
-              v,
-            ]),
-          ),
-        );
+        setInfosAccesInput((prev) => reancrerSaisieChauffeur(prev, fraiche));
       }
     }
     setInfosAccesSaving(false);

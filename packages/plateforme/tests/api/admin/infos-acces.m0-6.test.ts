@@ -19,20 +19,31 @@ type Ecriture = {
 
 function makeClient() {
   const results: Record<string, Result> = {};
-  // Résultat spécifique d'une écriture (ex. 23505 sur l'INSERT du lien).
+  // Résultat spécifique d'une écriture (ex. 23505 sur l'INSERT du lien) ; une
+  // fonction reçoit le numéro d'appel (1, 2, …) de cette écriture sur la table.
   const resultsEcriture: Partial<
-    Record<`${string}.${Ecriture['op']}`, Result>
+    Record<`${string}.${Ecriture['op']}`, Result | ((n: number) => Result)>
   > = {};
+  const compteurs: Record<string, number> = {};
   const ecritures: Ecriture[] = [];
   function chain(table: string): Record<string, unknown> {
     let courante: Ecriture | null = null;
-    const res = (): Result =>
-      (courante && resultsEcriture[`${table}.${courante.op}`]) ??
-      results[table] ?? { data: null, error: null };
+    let numero = 0;
+    const res = (): Result => {
+      if (courante) {
+        const specifique = resultsEcriture[`${table}.${courante.op}`];
+        if (typeof specifique === 'function') return specifique(numero);
+        if (specifique) return specifique;
+      }
+      return results[table] ?? { data: null, error: null };
+    };
     const ecrire =
       (op: Ecriture['op']) =>
       (payload?: unknown, opts?: unknown): Record<string, unknown> => {
         courante = { table, op, payload, opts, filtres: {} };
+        const k = `${table}.${op}`;
+        compteurs[k] = (compteurs[k] ?? 0) + 1;
+        numero = compteurs[k];
         ecritures.push(courante);
         return c;
       };
@@ -407,6 +418,41 @@ describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création 
     );
     expect(res.status).toBe(422);
     expect(ecrituresDe()).toEqual([]);
+  });
+
+  it('deux camions nouveaux, le lien du 2e tombe en 23505 : le 1er a déjà reçu ses coordonnées (jamais de tournée créée sans coordonnées), 409 renvoyé', async () => {
+    admin.results['collectes'] = { data: collecte2Camions, error: null };
+    admin.results['collecte_tournees'] = { data: [], error: null };
+    admin.results['tournees'] = { data: { id: 'T-ADM' }, error: null };
+    admin.resultsEcriture['collecte_tournees.insert'] = (n) =>
+      n === 2
+        ? {
+            data: null,
+            error: { code: '23505', message: 'uniq_collecte_tournee_rang' },
+          }
+        : { data: null, error: null };
+    const res = await PATCH(
+      makeReq({
+        tournees: [
+          { rang: 1, chauffeur_nom: 'Paul' },
+          { rang: 2, chauffeur_nom: 'Léa' },
+        ],
+      }),
+      ctx,
+    );
+    expect(res.status).toBe(409);
+    expect(ecrituresDe().map((e) => `${e.table}.${e.op}`)).toEqual([
+      'tournees.upsert',
+      'collecte_tournees.insert',
+      'tournees.update',
+      'tournees.upsert',
+      'collecte_tournees.insert',
+      'tournees.delete',
+    ]);
+    expect(ecrituresDe('update')[0]!.payload).toEqual({
+      chauffeur_nom: 'Paul',
+    });
+    expect(mockEvaluer).not.toHaveBeenCalled();
   });
 
   it('course avec l’adapter : le rang a été lié entre la lecture et l’écriture (23505 sur le lien) → 409 « rechargez », tournée Admin retirée, lien du prestataire intact, aucune coordonnée écrite', async () => {

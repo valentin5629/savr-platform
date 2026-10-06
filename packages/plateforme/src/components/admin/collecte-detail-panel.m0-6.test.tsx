@@ -2312,6 +2312,115 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   );
 
   it(
+    'erreur à l’enregistrement (le prestataire a créé la tournée du camion 2 entre-temps) : message affiché, fiche rechargée, la saisie se rattache à la tournée créée — nom saisi conservé, plaque remontée reprise',
+    async () => {
+      const avant = {
+        ...collecteAg,
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-1',
+        prestataire_actuel: {
+          transporteur_id: 't-1',
+          nom: 'Transporteur manuel',
+          type_tms: 'autre',
+        },
+        collecte_tournees: [tourneeMts1],
+      };
+      const apres = {
+        ...avant,
+        collecte_tournees: [
+          tourneeMts1,
+          {
+            rang: 2,
+            tournees: {
+              ...tourneeMts1.tournees,
+              id: 'tour-2',
+              plaque_immatriculation: 'ZZ-999-ZZ',
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+            },
+          },
+        ],
+      };
+      let patchs = 0;
+      let fiche: object = avant;
+      const fetchMock = mockFetch(() => fiche) as unknown as ReturnType<
+        typeof vi.fn
+      >;
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(
+        (url: string, opts?: { method?: string; body?: string }) => {
+          if (url.endsWith('/infos-acces') && opts?.method === 'PATCH') {
+            patchs += 1;
+            if (patchs === 1) {
+              // Le rang 2 vient d'être pris par le prestataire.
+              fiche = apres;
+              return Promise.resolve({
+                ok: false,
+                status: 409,
+                json: async () => ({
+                  error:
+                    'Le prestataire vient de créer la tournée du camion 2 : rechargez la fiche avant de saisir.',
+                }),
+              });
+            }
+            return Promise.resolve({
+              ok: true,
+              json: async () => ({ email_envoye: false }),
+            });
+          }
+          return base(url, opts);
+        },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByTestId('bloc-chauffeur', undefined, ATTENTE_UI);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      fireEvent.change(screen.getAllByLabelText('Nom du chauffeur')[1]!, {
+        target: { value: 'Léa Durand' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      // Erreur affichée, formulaire toujours ouvert, fiche rechargée : la
+      // plaque remontée par le prestataire apparaît dans le champ laissé vide.
+      expect(
+        await screen.findByText(/rechargez la fiche/, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.getAllByLabelText('Plaque d’immatriculation')[1],
+        ).toHaveValue('ZZ-999-ZZ');
+      }, ATTENTE_UI);
+      expect(screen.getAllByLabelText('Nom du chauffeur')[1]).toHaveValue(
+        'Léa Durand',
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+      await waitFor(() => {
+        const calls = fetchMock.mock.calls.filter(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(calls).toHaveLength(2);
+        const body = JSON.parse((calls[1]![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        const camion2 = body.tournees.find((t) => t.tournee_id === 'tour-2');
+        expect(camion2).toMatchObject({
+          tournee_id: 'tour-2',
+          chauffeur_nom: 'Léa Durand',
+          plaque_immatriculation: 'ZZ-999-ZZ',
+        });
+        expect(body.tournees.some((t) => 'rang' in t)).toBe(false);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'deux camions demandés, une seule tournée : deux lignes, la saisie du camion 2 crée sa tournée (PATCH avec rang)',
     async () => {
       // Cas écran « Palais des Congrès » (Val 2026-10-06) : N = 2, l'adapter

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { evaluerInfosAccesEtEnvoyer } from '@/lib/infos-acces/notify.js';
 
 const CHAMPS = [
@@ -225,74 +226,84 @@ async function patchHandler(
     );
   }
 
-  // ── Passe 2 : création des tournées des camions sans tournée. La tournée est
-  // retrouvée par sa référence (rejeu sûr) ; le lien est un INSERT strict : si
-  // l'adapter a lié ce rang entre la lecture et l'écriture (worker outbox juste
-  // après « Valider et envoyer »), un upsert aurait DÉTACHÉ la tournée du
-  // prestataire — on refuse (409) et l'écran recharge.
+  // ── Passe 2 : écritures, camion par camion. Pour un camion sans tournée :
+  // la tournée est retrouvée par sa référence (rejeu sûr), puis liée par un
+  // INSERT strict — si l'adapter a lié ce rang entre la lecture et l'écriture
+  // (worker outbox juste après « Valider et envoyer »), un upsert aurait DÉTACHÉ
+  // la tournée du prestataire : on refuse (409) et l'écran recharge. Les
+  // coordonnées sont écrites aussitôt après le lien : un 409 sur un camion
+  // suivant ne laisse jamais une tournée créée sans coordonnées.
   const tourneesCreees: Array<{ rang: number; tournee_id: string }> = [];
+  const updatesParTournee: Array<{
+    tourneeId: string;
+    updates: Partial<Record<ChampInfosAcces, string | null>>;
+  }> = [];
   for (const item of plan) {
-    if (item.rang === null) continue;
-    const rang = item.rang;
-    const referenceInterne = `ADM-${id}-${rang}`;
-    const { data: creee, error: creeErr } = await supabase
-      .from('tournees')
-      .upsert(
-        {
-          reference_interne: referenceInterne,
-          date_tournee: coll.date_collecte ?? jourParis(),
-          creneau: creneauDepuisHeure(coll.heure_collecte ?? null),
-          prestataire_logistique_id: coll.prestataire_logistique_id,
-          statut: 'planifiee',
-        },
-        { onConflict: 'reference_interne' },
-      )
-      .select('id')
-      .single();
-    if (creeErr || !creee) {
-      return serverError(
-        creeErr ?? new Error('tournée non créée'),
-        'admin.infos_acces.creer_tournee',
-      );
-    }
-    const nouvelId = (creee as { id: string }).id;
-    const { error: lienErr } = await supabase
-      .from('collecte_tournees')
-      .insert({ collecte_id: id, tournee_id: nouvelId, rang });
-    if (lienErr) {
-      if ((lienErr as { code?: string }).code === '23505') {
-        // Rang pris entre-temps : la tournée Admin, jamais liée, est retirée
-        // (par sa référence, jamais celle du prestataire) ; best-effort.
-        await supabase
-          .from('tournees')
-          .delete()
-          .eq('id', nouvelId)
-          .eq('reference_interne', referenceInterne);
-        return NextResponse.json(
+    let tourneeId = item.tourneeId;
+    if (tourneeId === null && item.rang !== null) {
+      const rang = item.rang;
+      const referenceInterne = `ADM-${id}-${rang}`;
+      const { data: creee, error: creeErr } = await supabase
+        .from('tournees')
+        .upsert(
           {
-            error: `Le prestataire vient de créer la tournée du camion ${rang} : rechargez la fiche avant de saisir.`,
+            reference_interne: referenceInterne,
+            date_tournee: coll.date_collecte ?? jourParis(),
+            creneau: creneauDepuisHeure(coll.heure_collecte ?? null),
+            prestataire_logistique_id: coll.prestataire_logistique_id,
+            statut: 'planifiee',
           },
-          { status: 409 },
+          { onConflict: 'reference_interne' },
+        )
+        .select('id')
+        .single();
+      if (creeErr || !creee) {
+        return serverError(
+          creeErr ?? new Error('tournée non créée'),
+          'admin.infos_acces.creer_tournee',
         );
       }
-      return serverError(lienErr, 'admin.infos_acces.lier_tournee');
+      const nouvelId = (creee as { id: string }).id;
+      const { error: lienErr } = await supabase
+        .from('collecte_tournees')
+        .insert({ collecte_id: id, tournee_id: nouvelId, rang });
+      if (lienErr) {
+        if ((lienErr as { code?: string }).code === '23505') {
+          // Rang pris entre-temps : la tournée Admin, jamais liée, est retirée
+          // (par sa référence, jamais celle du prestataire) ; best-effort —
+          // un échec la laisse orpheline, reprise par l'upsert au rejeu.
+          const { error: delErr } = await supabase
+            .from('tournees')
+            .delete()
+            .eq('id', nouvelId)
+            .eq('reference_interne', referenceInterne);
+          if (delErr) {
+            logger.warn('admin.infos_acces.tournee_admin_orpheline', {
+              collecte_id: id,
+              tournee_id: nouvelId,
+              rang,
+              error: delErr.message,
+            });
+          }
+          return NextResponse.json(
+            {
+              error: `Le prestataire vient de créer la tournée du camion ${rang} : rechargez la fiche avant de saisir.`,
+            },
+            { status: 409 },
+          );
+        }
+        return serverError(lienErr, 'admin.infos_acces.lier_tournee');
+      }
+      tourneesCreees.push({ rang, tournee_id: nouvelId });
+      tourneeId = nouvelId;
     }
-    tourneesCreees.push({ rang, tournee_id: nouvelId });
-    item.tourneeId = nouvelId;
-  }
-
-  // ── Passe 3 : coordonnées (N petit = nb camions). Chaque tournée est bornée
-  // à la collecte (lien lu ou créé ci-dessus).
-  const updatesParTournee = plan.map(({ tourneeId, updates }) => ({
-    tourneeId: tourneeId as string,
-    updates,
-  }));
-  for (const { tourneeId, updates } of updatesParTournee) {
+    if (tourneeId === null) continue; // impossible après la passe 1
     const { error: updErr } = await supabase
       .from('tournees')
-      .update(updates)
+      .update(item.updates)
       .eq('id', tourneeId);
     if (updErr) return serverError(updErr, 'admin.infos_acces.update_tournee');
+    updatesParTournee.push({ tourneeId, updates: item.updates });
   }
 
   // Audit (écriture sensible : coordonnées chauffeur, contrôle d'accès site).

@@ -1,5 +1,9 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { useToast } from '@/components/ui/toast';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { fmtEuro } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
@@ -14,7 +18,6 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
@@ -154,10 +157,8 @@ export default function MonOrganisationPage() {
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
   const [inviting, setInviting] = useState(false);
-  const [inviteMsg, setInviteMsg] = useState<{
-    ok: boolean;
-    text: string;
-  } | null>(null);
+  const [inviteErreur, setInviteErreur] = useState('');
+  const { toast } = useToast();
 
   useEffect(() => {
     // Ignore la réponse d'un onglet quitté entre-temps (sinon son erreur ou
@@ -193,14 +194,14 @@ export default function MonOrganisationPage() {
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     setInviting(true);
-    setInviteMsg(null);
+    setInviteErreur('');
     const res = await fetch('/api/v1/gestionnaire/mon-organisation/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, prenom, nom, role: 'gestionnaire_lieux' }),
     });
     if (res.ok) {
-      setInviteMsg({ ok: true, text: 'Invitation envoyée.' });
+      toast({ title: 'Invitation envoyée.', variant: 'success' });
       setEmail('');
       setPrenom('');
       setNom('');
@@ -210,10 +211,7 @@ export default function MonOrganisationPage() {
       setUsers((j.data ?? []) as UserRow[]);
     } else {
       const j = (await res.json()) as { error?: string };
-      setInviteMsg({
-        ok: false,
-        text: j.error ?? "Erreur lors de l'invitation.",
-      });
+      setInviteErreur(j.error ?? "Erreur lors de l'invitation.");
     }
     setInviting(false);
   }
@@ -304,13 +302,9 @@ export default function MonOrganisationPage() {
           <TabsTrigger value="factures">Factures</TabsTrigger>
         </TabsList>
 
-        {loading && <Text className="mt-4">Chargement…</Text>}
+        {loading && <LoadingState className="mt-4" />}
 
-        {!loading && erreur && (
-          <p role="alert" className="mt-4 text-sm text-savr-error">
-            {erreur}
-          </p>
-        )}
+        {!loading && erreur && <ErrorState className="mt-4" message={erreur} />}
 
         {/* Onglet Profil */}
         {!loading && !erreur && profil && (
@@ -351,7 +345,7 @@ export default function MonOrganisationPage() {
                   columns={colonnesMembres}
                   data={users}
                   getRowId={(u) => u.id}
-                  empty={<Text>Aucun membre.</Text>}
+                  empty={<EmptyState size="inline" title="Aucun membre." />}
                 />
               </CardContent>
             </Card>
@@ -395,9 +389,9 @@ export default function MonOrganisationPage() {
                       />
                     </FormField>
                   </div>
-                  {inviteMsg && (
-                    <AlertBar variant={inviteMsg.ok ? 'success' : 'err'}>
-                      {inviteMsg.text}
+                  {inviteErreur && (
+                    <AlertBar variant="err" role="alert">
+                      {inviteErreur}
                     </AlertBar>
                   )}
                   <Button type="submit" loading={inviting} loadingText="Envoi…">
@@ -447,7 +441,7 @@ function OngletFactures({ factures }: { factures: FactureRow[] }) {
           columns={COLONNES_FACTURES}
           data={visibles}
           getRowId={(f) => f.id}
-          empty={<Text>Aucune facture.</Text>}
+          empty={<EmptyState size="inline" title="Aucune facture." />}
         />
       </CardContent>
     </Card>

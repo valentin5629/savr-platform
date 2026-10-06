@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Ban, Clock3, FileText, Info, MinusCircle } from 'lucide-react';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { StatCard } from '@/components/ui/stat-card';
@@ -508,9 +509,9 @@ export function OngletBilan({
           </div>
         ))}
         {telechargement && (
-          <p className="px-5 py-3 text-sm text-savr-error-strong" role="alert">
+          <AlertBar variant="err" role="alert" className="mx-5 my-3">
             {telechargement}
-          </p>
+          </AlertBar>
         )}
       </Card>
     </div>

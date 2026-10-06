@@ -1,10 +1,10 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
 import { fmtEuro } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
-import { Text } from '@/components/ui/text';
 import {
   FacturesFiltresBar,
   FILTRES_FACTURES,
@@ -88,7 +88,7 @@ export function FacturesAgenceTable() {
         erreur={erreur}
         onRecharger={recharger}
         getRowId={(f) => f.id}
-        empty={<Text>Aucune facture.</Text>}
+        empty={<EmptyState size="inline" title="Aucune facture." />}
       />
     </>
   );

@@ -39,6 +39,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertBar } from '@/components/ui/alert-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -446,9 +448,8 @@ export function CollecteDetailPanel({
   >({});
   const [infosAccesSaving, setInfosAccesSaving] = useState(false);
   const [infosAccesError, setInfosAccesError] = useState<string | null>(null);
-  const [infosAccesFeedback, setInfosAccesFeedback] = useState<string | null>(
-    null,
-  );
+  // Succès de l'enregistrement des infos d'accès = toast (R-UI-1 H1).
+  const { toast } = useToast();
   // Bloc 0 — dispatch prestataire (BOA-06)
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [selectedTransporteurId, setSelectedTransporteurId] = useState('');
@@ -868,7 +869,6 @@ export function CollecteDetailPanel({
     }
     setInfosAccesInput(prefill);
     setInfosAccesError(null);
-    setInfosAccesFeedback(null);
     setEditInfosAcces(true);
   };
 
@@ -898,11 +898,12 @@ export function CollecteDetailPanel({
         `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
       );
       if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
-      setInfosAccesFeedback(
-        body.email_envoye
+      toast({
+        title: body.email_envoye
           ? 'Infos enregistrées — email récapitulatif envoyé au programmateur.'
           : 'Infos enregistrées.',
-      );
+        variant: 'success',
+      });
       setEditInfosAcces(false);
     } else {
       const body = (await res.json()) as { error: string };
@@ -1539,9 +1540,10 @@ export function CollecteDetailPanel({
                           : 'Prestataire à attribuer'}
                       </Text>
                       {transporteursOrdonnes.length === 0 ? (
-                        <Text>
-                          Aucun transporteur actif dans le référentiel.
-                        </Text>
+                        <EmptyState
+                          size="inline"
+                          title="Aucun transporteur actif dans le référentiel."
+                        />
                       ) : (
                         <div
                           role="radiogroup"
@@ -1760,9 +1762,6 @@ export function CollecteDetailPanel({
               )}
               {aideChauffeur && <Text>{aideChauffeur}</Text>}
 
-              {infosAccesFeedback && (
-                <AlertBar variant="info">{infosAccesFeedback}</AlertBar>
-              )}
               {infosAccesError && (
                 <AlertBar variant="err">{infosAccesError}</AlertBar>
               )}
@@ -2245,7 +2244,7 @@ export function CollecteDetailPanel({
                   Facture
                 </Text>
                 {collecte.factures_collectes.length === 0 ? (
-                  <Text>Aucune facture générée.</Text>
+                  <EmptyState size="inline" title="Aucune facture générée." />
                 ) : (
                   <div className="space-y-2">
                     {collecte.factures_collectes.map((f) => (
@@ -2340,7 +2339,11 @@ export function CollecteDetailPanel({
                     )}
                   </div>
                 ) : (
-                  <Text tone="faint">Aucune photo importée.</Text>
+                  <EmptyState
+                    size="inline"
+                    title="Aucune photo importée."
+                    className="text-savr-neutral-400"
+                  />
                 )}
               </div>
             </Card>
@@ -2351,7 +2354,10 @@ export function CollecteDetailPanel({
             <Card padding="md" className="space-y-4">
               <BlocHeader icon={History} title="Historique & audit" />
               {audit.length === 0 ? (
-                <Text>Aucune action enregistrée sur cette collecte.</Text>
+                <EmptyState
+                  size="inline"
+                  title="Aucune action enregistrée sur cette collecte."
+                />
               ) : (
                 <Timeline>
                   {audit.map((e) => {

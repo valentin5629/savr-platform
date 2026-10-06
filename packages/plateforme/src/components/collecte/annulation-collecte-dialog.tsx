@@ -1,5 +1,6 @@
 'use client';
 
+import { AlertBar } from '@/components/ui/alert-bar';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Text } from '@/components/ui/text';
 
@@ -47,13 +48,12 @@ export function AnnulationCollecteDialog({
           : 'Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
       </Text>
       {antiGaspi && (
-        <p
-          data-testid="mention-credit-ag"
-          className="rounded-savr-md bg-savr-success-subtle px-3 py-2 text-sm text-savr-success-strong"
-        >
+        // Information persistante dans la confirmation (pas un succès
+        // d'action) : bandeau AlertBar success, pas un toast (R-UI-1 H1/H2).
+        <AlertBar variant="success" data-testid="mention-credit-ag">
           Votre crédit Anti-Gaspi sera préservé : il n’a pas encore été débité
           (annulation avant réalisation de la collecte).
-        </p>
+        </AlertBar>
       )}
     </ConfirmDialog>
   );

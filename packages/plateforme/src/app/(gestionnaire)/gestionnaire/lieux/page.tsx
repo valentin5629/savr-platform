@@ -1,9 +1,10 @@
 'use client';
 
+import { ErrorState } from '@/components/ui/error-state';
 import { fmtKg } from '@/lib/format';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, TriangleAlert } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { PageHero } from '@/components/ui/page-hero';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -87,11 +88,9 @@ export default function GestionnaireLieuxPage() {
   ];
 
   const contenu = erreur ? (
-    <EmptyState
-      icon={<TriangleAlert className="h-8 w-8" />}
-      title="Impossible de charger vos lieux"
-      description="Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
-      action={{ label: 'Réessayer', onClick: charger }}
+    <ErrorState
+      message="Impossible de charger vos lieux. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
+      onRetry={charger}
     />
   ) : !loading && rows.length === 0 ? (
     <EmptyState

@@ -15,6 +15,8 @@ import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { EmptyState } from '@/components/ui/empty-state';
 import { FormActions } from '@/components/ui/form-actions';
 
 interface TauxRecyclage {
@@ -320,7 +322,9 @@ export default function TauxRecyclagePage() {
             />
           </FormField>
           {modal.error && (
-            <p className="text-savr-error-strong text-sm">{modal.error}</p>
+            <AlertBar variant="err" className="font-normal">
+              {modal.error}
+            </AlertBar>
           )}
         </div>
       </Modal>
@@ -340,7 +344,12 @@ export default function TauxRecyclagePage() {
           data={hist.rows}
           getRowId={(r) => r.id}
           loading={hist.loading}
-          empty={<Text>Aucune modification enregistrée.</Text>}
+          empty={
+            <EmptyState
+              size="inline"
+              title="Aucune modification enregistrée."
+            />
+          }
         />
       </Modal>
     </div>

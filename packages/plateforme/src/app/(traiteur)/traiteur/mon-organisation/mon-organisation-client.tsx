@@ -1,6 +1,9 @@
 'use client';
 
 import { AlertBar } from '@/components/ui/alert-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { useToast } from '@/components/ui/toast';
 import { fmtEuro } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import {
@@ -182,8 +185,8 @@ function InfosTab({ isManager }: { isManager: boolean }) {
         />
       ) : (
         <Card>
-          <CardContent className="py-4 text-sm text-savr-neutral-500">
-            Chargement…
+          <CardContent className="py-4">
+            <LoadingState />
           </CardContent>
         </Card>
       )}
@@ -368,7 +371,7 @@ function EntitesCard({
           columns={colonnes}
           data={actives}
           getRowId={(e) => e.id}
-          empty={<Text>Aucune entité.</Text>}
+          empty={<EmptyState size="inline" title="Aucune entité." />}
         />
 
         {isManager &&
@@ -462,7 +465,11 @@ function EntitesCard({
                   />
                 </FormField>
               </div>
-              {msg && <p className="text-sm text-savr-error">{msg}</p>}
+              {msg && (
+                <AlertBar variant="err" role="alert">
+                  {msg}
+                </AlertBar>
+              )}
               <FormActions
                 cancel={{
                   label: 'Annuler',
@@ -535,7 +542,7 @@ function DomainesCard({
           rattachés automatiquement à l’organisation.
         </Text>
         {domaines.length === 0 ? (
-          <Text>Aucun domaine.</Text>
+          <EmptyState size="inline" title="Aucun domaine." />
         ) : (
           <ul className="space-y-1 text-sm">
             {domaines.map((d) => (
@@ -575,7 +582,11 @@ function DomainesCard({
             <Button type="submit">Ajouter</Button>
           </form>
         )}
-        {msg && <p className="text-sm text-savr-error">{msg}</p>}
+        {msg && (
+          <AlertBar variant="err" role="alert">
+            {msg}
+          </AlertBar>
+        )}
       </CardContent>
     </Card>
   );
@@ -716,7 +727,7 @@ function EquipeTab({ userId }: { userId: string }) {
             columns={colonnes}
             data={users}
             getRowId={(u) => u.id}
-            empty={<Text>Aucun membre.</Text>}
+            empty={<EmptyState size="inline" title="Aucun membre." />}
           />
         </CardContent>
       </Card>
@@ -731,27 +742,28 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [erreur, setErreur] = useState('');
   const [busy, setBusy] = useState(false);
+  const { toast } = useToast();
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setMsg(null);
+    setErreur('');
     const res = await fetch('/api/v1/traiteur/equipe/invitation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prenom, nom, email }),
     });
     if (res.ok) {
-      setMsg({ ok: true, text: 'Invitation envoyée.' });
+      toast({ title: 'Invitation envoyée.', variant: 'success' });
       setPrenom('');
       setNom('');
       setEmail('');
       onInvited();
     } else {
       const j = (await res.json()) as { error?: string };
-      setMsg({ ok: false, text: j.error ?? 'Erreur.' });
+      setErreur(j.error ?? 'Erreur.');
     }
     setBusy(false);
   }
@@ -793,8 +805,10 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
           <Text variant="faint">
             Le collaborateur est ajouté avec le rôle Commercial.
           </Text>
-          {msg && (
-            <AlertBar variant={msg.ok ? 'success' : 'err'}>{msg.text}</AlertBar>
+          {erreur && (
+            <AlertBar variant="err" role="alert">
+              {erreur}
+            </AlertBar>
           )}
           <Button type="submit" loading={busy} loadingText="Envoi…">
             Envoyer l’invitation
@@ -814,7 +828,8 @@ function TransfertCard({
 }) {
   const [source, setSource] = useState('');
   const [cible, setCible] = useState('');
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [erreur, setErreur] = useState('');
+  const { toast } = useToast();
 
   const userOptions = users.map((u) => ({
     value: u.id,
@@ -823,13 +838,10 @@ function TransfertCard({
 
   async function transfer(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
+    setErreur('');
     // Les deux champs sont obligatoires (ex-`required` des <select> natifs).
     if (!source || !cible) {
-      setMsg({
-        ok: false,
-        text: 'Choisissez le collaborateur de départ et celui d’arrivée.',
-      });
+      setErreur('Choisissez le collaborateur de départ et celui d’arrivée.');
       return;
     }
     const res = await fetch('/api/v1/traiteur/equipe/transfert', {
@@ -839,14 +851,14 @@ function TransfertCard({
     });
     if (res.ok) {
       const j = (await res.json()) as { data?: { transferes?: number } };
-      setMsg({
-        ok: true,
-        text: `${j.data?.transferes ?? 0} événement(s) transféré(s).`,
+      toast({
+        title: `${j.data?.transferes ?? 0} événement(s) transféré(s).`,
+        variant: 'success',
       });
       onDone();
     } else {
       const j = (await res.json()) as { error?: string };
-      setMsg({ ok: false, text: j.error ?? 'Erreur.' });
+      setErreur(j.error ?? 'Erreur.');
     }
   }
 
@@ -885,8 +897,10 @@ function TransfertCard({
               />
             </FormField>
           </div>
-          {msg && (
-            <AlertBar variant={msg.ok ? 'success' : 'err'}>{msg.text}</AlertBar>
+          {erreur && (
+            <AlertBar variant="err" role="alert">
+              {erreur}
+            </AlertBar>
           )}
           <Button type="submit">Transférer</Button>
         </form>
@@ -1023,7 +1037,7 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
             erreur={erreur}
             onRecharger={recharger}
             getRowId={(f) => f.id}
-            empty={<Text>Aucune facture.</Text>}
+            empty={<EmptyState size="inline" title="Aucune facture." />}
           />
         </CardContent>
       </Card>

@@ -1,5 +1,7 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { fmtKg, fmtPct, fmtKgAuto } from '@/lib/format';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -145,7 +147,7 @@ export default function EvenementDetailPage({
     if (j.url) window.open(j.url, '_blank');
   }
 
-  if (loading) return <Text>Chargement…</Text>;
+  if (loading) return <LoadingState />;
   if (notFound) return <Text>Événement non trouvé.</Text>;
   if (!evt) return null;
 
@@ -263,7 +265,7 @@ export default function EvenementDetailPage({
 
       {/* Collectes */}
       {evt.collectes.length === 0 ? (
-        <Text>Aucune collecte associée.</Text>
+        <EmptyState size="inline" title="Aucune collecte associée." />
       ) : (
         evt.collectes.map((c) => (
           <Card key={c.id}>

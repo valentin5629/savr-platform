@@ -37,7 +37,9 @@ const AlertBar = React.forwardRef<HTMLDivElement, AlertBarProps>(
   ({ className, variant, icon, children, ...props }, ref) => (
     <div
       ref={ref}
-      role="status"
+      // Erreur = annoncée immédiatement (`alert`) ; le reste = `status`
+      // (R-UI-1, revue conformité #488). Surchargeable via `role`.
+      role={variant === 'err' ? 'alert' : 'status'}
       className={cn(alertBarVariants({ variant }), className)}
       {...props}
     >

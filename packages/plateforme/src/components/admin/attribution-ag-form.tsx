@@ -15,7 +15,7 @@
 // ligne à ligne — titres / champs / recommandations / listes / aides.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Minus, Plus, Search } from 'lucide-react';
+import { Minus, Plus, Search } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,9 @@ import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertBar } from '@/components/ui/alert-bar';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/ui/error-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { formatJour } from '@savr/shared/src/temps/index.js';
 import {
@@ -210,7 +212,9 @@ export function AttributionAgForm({
   const [motif, setMotif] = useState('');
   const [motifLibre, setMotifLibre] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // Succès = toast (R-UI-1 H1) ; l'état ne sert qu'à bloquer un second POST.
+  const [validee, setValidee] = useState(false);
+  const { toast } = useToast();
 
   // Liste déroulante association (BL-P1-ALGO-03) : toutes les associations
   // actives, triées par distance croissante au lieu de la collecte.
@@ -483,11 +487,14 @@ export function AttributionAgForm({
         throw new Error(json?.error ?? `Erreur validation (${res.status})`);
       }
       const envoiAuto = envoiAutomatique(selectedTranspTypeTms);
-      setSuccessMsg(
-        envoiAuto
-          ? "Attribution validée. L'ordre part au prestataire, les emails sont en cours d'envoi."
-          : "Attribution validée. Dispatch manuel à réaliser auprès du prestataire ; les emails sont en cours d'envoi.",
-      );
+      setValidee(true);
+      toast({
+        title: 'Attribution validée.',
+        description: envoiAuto
+          ? "L'ordre part au prestataire, les emails sont en cours d'envoi."
+          : "Dispatch manuel à réaliser auprès du prestataire ; les emails sont en cours d'envoi.",
+        variant: 'success',
+      });
       onValidee?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue');
@@ -520,22 +527,17 @@ export function AttributionAgForm({
 
   if (loading) {
     return (
-      <div className="space-y-3">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
+      <LoadingState
+        variant="bloc"
+        lignes={2}
+        className="space-y-3 [&>div]:h-24"
+      />
     );
   }
 
   return (
     <div className="space-y-5">
       {error && <AlertBar variant="err">{error}</AlertBar>}
-      {successMsg && (
-        <div className="flex items-center gap-2 rounded-savr-md border border-savr-success/40 bg-savr-success-subtle px-3 py-2 text-sm text-savr-success-strong">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {successMsg}
-        </div>
-      )}
 
       {algo && (
         <>
@@ -584,19 +586,12 @@ export function AttributionAgForm({
                 />
               </FormField>
               {contexteEtat === 'erreur' && (
-                <div className="col-span-2 flex items-center justify-between gap-2 rounded-savr-md border border-savr-error/40 bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong">
-                  <span>
-                    Impossible de lire la collecte : le besoin véhicule ne sera
-                    envoyé que si vous le modifiez ici.
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => void chargerContexte()}
-                  >
-                    Recharger la collecte
-                  </Button>
-                </div>
+                <ErrorState
+                  className="col-span-2"
+                  message="Impossible de lire la collecte : le besoin véhicule ne sera envoyé que si vous le modifiez ici."
+                  onRetry={() => void chargerContexte()}
+                  retryLabel="Recharger la collecte"
+                />
               )}
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -705,10 +700,10 @@ export function AttributionAgForm({
                   </span>
                 </button>
               ) : (
-                <div className="rounded-savr-md border border-savr-warning/40 bg-savr-warning-subtle p-3 text-sm text-savr-warning-strong">
+                <AlertBar variant="warn">
                   Aucune association disponible pour ce créneau. Traitement
                   manuel requis.
-                </div>
+                </AlertBar>
               )}
             </div>
             <div>
@@ -746,10 +741,10 @@ export function AttributionAgForm({
                   </span>
                 </button>
               ) : (
-                <div className="rounded-savr-md border border-savr-warning/40 bg-savr-warning-subtle p-3 text-sm text-savr-warning-strong">
+                <AlertBar variant="warn">
                   Aucun prestataire éligible — traitement manuel. Sélectionnez
                   un transporteur dans la liste ci-dessous.
-                </div>
+                </AlertBar>
               )}
             </div>
 
@@ -779,16 +774,11 @@ export function AttributionAgForm({
                 onChange={choisirAssociation}
               />
               {assoErreur && (
-                <div className="mt-2 flex items-center justify-between gap-2 rounded-savr-md border border-savr-error/40 bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong">
-                  <span>Impossible de charger la liste des associations.</span>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => void chargerAssociations()}
-                  >
-                    Réessayer
-                  </Button>
-                </div>
+                <ErrorState
+                  className="mt-2"
+                  message="Impossible de charger la liste des associations."
+                  onRetry={() => void chargerAssociations()}
+                />
               )}
             </FormField>
             <FormField label="Transporteur" htmlFor="transporteur-select">
@@ -813,16 +803,11 @@ export function AttributionAgForm({
                 onChange={choisirTransporteur}
               />
               {transpErreur && (
-                <div className="mt-2 flex items-center justify-between gap-2 rounded-savr-md border border-savr-error/40 bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong">
-                  <span>Impossible de charger la liste des transporteurs.</span>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => void chargerTransporteurs()}
-                  >
-                    Réessayer
-                  </Button>
-                </div>
+                <ErrorState
+                  className="mt-2"
+                  message="Impossible de charger la liste des transporteurs."
+                  onRetry={() => void chargerTransporteurs()}
+                />
               )}
             </FormField>
 
@@ -900,7 +885,7 @@ export function AttributionAgForm({
                 !motifOk ||
                 !nbVehiculesOk ||
                 // Déjà validée : pas de second POST.
-                !!successMsg
+                validee
               }
               onClick={() => void handleValider()}
               loading={submitting}

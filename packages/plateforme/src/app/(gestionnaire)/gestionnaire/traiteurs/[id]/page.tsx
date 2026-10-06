@@ -1,5 +1,6 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
 import { fmtKg, fmtPct } from '@/lib/format';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -59,7 +60,7 @@ export default function TraiteurDetailPage({
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <Text>Chargement…</Text>;
+  if (loading) return <LoadingState />;
   if (notFound) return <Text>Traiteur non trouvé.</Text>;
   if (!traiteur) return null;
 

@@ -6,6 +6,8 @@ import { Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormError } from '@/components/ui/form-error';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 
 // LogoCard — bloc « Logo » de la fiche organisation (R-UI-6b, I9 : ex-copies
 // locales traiteur / gestionnaire de lieux, §06.04 et §06.05 §6 Bloc
@@ -35,7 +37,8 @@ export function LogoCard({
 }: LogoCardProps): React.ReactElement {
   const [uploading, setUploading] = useState(false);
   const [erreur, setErreur] = useState('');
-  const [succes, setSucces] = useState('');
+  // Succès = toast 4 s (R-UI-1 H1).
+  const { toast } = useToast();
   // Clé dont l'aperçu n'a pas pu être chargé (fichier absent côté R2).
   const [apercuKo, setApercuKo] = useState<string | null>(null);
 
@@ -45,7 +48,6 @@ export function LogoCard({
     if (!file) return;
     setUploading(true);
     setErreur('');
-    setSucces('');
     try {
       const form = new FormData();
       form.append('file', file);
@@ -58,7 +60,7 @@ export function LogoCard({
         throw new Error(j.error ?? 'Échec de l’envoi du logo.');
       // L'appelant enregistre la clé sur le profil ; son rejet porte le message affiché.
       await onUploaded(j.logo_url);
-      setSucces('Logo mis à jour.');
+      toast({ title: 'Logo mis à jour.', variant: 'success' });
     } catch (err) {
       setErreur((err as Error).message);
     } finally {
@@ -83,7 +85,7 @@ export function LogoCard({
             className="h-16 w-auto rounded-savr-md border border-savr-neutral-200 object-contain"
           />
         ) : (
-          <Text variant="muted">Aucun logo.</Text>
+          <EmptyState size="inline" title="Aucun logo." />
         )}
         {canEdit && (
           <div className="space-y-1">
@@ -108,11 +110,6 @@ export function LogoCard({
             </label>
             <Text variant="hint">JPG ou PNG, 2 Mo max.</Text>
             <FormError>{erreur}</FormError>
-            {succes && (
-              <p role="status" className="text-sm text-savr-success-strong">
-                {succes}
-              </p>
-            )}
           </div>
         )}
       </CardContent>

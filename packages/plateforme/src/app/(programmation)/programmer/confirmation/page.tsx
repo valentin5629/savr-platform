@@ -1,5 +1,7 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -117,7 +119,7 @@ function ConfirmationContent() {
   }, [id]);
 
   if (loading) {
-    return <Text>Chargement du récapitulatif…</Text>;
+    return <LoadingState label="Chargement du récapitulatif…" />;
   }
 
   const collectes = evenement?.collectes ?? [];
@@ -143,10 +145,9 @@ function ConfirmationContent() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-savr-md border border-savr-error bg-savr-error-subtle px-3 py-2 text-sm text-savr-error">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
           {error}
-        </div>
+        </AlertBar>
       )}
 
       {/* Détails de l'événement — lieu / pax / contact sont portés par
@@ -249,7 +250,7 @@ function ConfirmationContent() {
 
 export default function ConfirmationProgrammationPage() {
   return (
-    <Suspense fallback={<Text>Chargement du récapitulatif…</Text>}>
+    <Suspense fallback={<LoadingState label="Chargement du récapitulatif…" />}>
       <ConfirmationContent />
     </Suspense>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { FilterBar } from '@/components/ui/filter-bar';
 import {
   FiltreCoches,
@@ -168,13 +169,14 @@ export function BenchmarkFilterBar({
   );
 
   const avertissementSoi = avertissementComparaisonSoi && comparaisonSoi && (
-    <p
+    <AlertBar
+      variant="warn"
       data-testid="benchmark-comparaison-soi"
-      className="rounded-savr-md border border-savr-warning/30 bg-savr-warning-subtle px-3 py-2 text-xs text-savr-warning-strong"
+      className="px-3 py-2 text-xs"
     >
       ⚠ Si vous filtrez sur vos propres lieux/traiteurs, le benchmark compare
       vos données à vos propres données — il perd son rôle de référence parc.
-    </p>
+    </AlertBar>
   );
   const traiteursVisibles = !masquerTraiteurs && traiteurs.length > 0;
   const actif = criteresPoses(

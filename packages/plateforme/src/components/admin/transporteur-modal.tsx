@@ -824,9 +824,9 @@ export function TransporteurModal({
 
         <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
           {serverError && (
-            <p role="alert" className="mr-auto text-sm text-savr-error-strong">
+            <AlertBar variant="err" role="alert" className="mr-auto">
               {serverError}
-            </p>
+            </AlertBar>
           )}
           <Button
             type="button"

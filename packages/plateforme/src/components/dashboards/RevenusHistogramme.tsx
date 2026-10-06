@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { cn } from '@/lib/utils';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
 import { fmtEuro, fmtInt } from '@/lib/format';
 
@@ -105,18 +108,22 @@ export function RevenusHistogramme({
 
   if (loading) {
     return (
-      <div
-        className={`h-48 animate-pulse rounded-savr-md bg-savr-neutral-100 ${className ?? ''}`}
-        aria-busy
+      // Squelette DS à la hauteur du graphique (R-UI-1 H3).
+      <LoadingState
+        variant="bloc"
+        lignes={1}
+        className={cn('[&>div]:h-48', className)}
       />
     );
   }
 
   if (moisSet.length === 0) {
     return (
-      <p className={`text-sm text-savr-neutral-500 ${className ?? ''}`}>
-        Aucune donnée sur la période.
-      </p>
+      <EmptyState
+        size="inline"
+        title="Aucune donnée sur la période."
+        className={className}
+      />
     );
   }
 

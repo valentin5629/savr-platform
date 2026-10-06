@@ -17,6 +17,7 @@ vi.mock('next/navigation', () => ({
 
 import AttributionDetailPage from './page';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { renderAvecToasts } from '@/test-utils/toasts';
 
 const ALGO = {
   associations: [
@@ -280,13 +281,14 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
     'après succès, le bouton Valider est désactivé (pas de second envoi)',
     async () => {
       installFetch();
-      render(<AttributionDetailPage />);
+      renderAvecToasts(<AttributionDetailPage />);
       await selectAssociation();
       const valider = screen.getByRole('button', {
         name: /^Valider/,
       }) as HTMLButtonElement;
       fireEvent.click(valider);
-      await screen.findByText(/Attribution validée/, undefined, ATTENTE_UI);
+      // Succès = toast (R-UI-1 H1).
+      await screen.findByText('Attribution validée.', undefined, ATTENTE_UI);
       expect(
         (
           screen.getByRole('button', {

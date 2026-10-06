@@ -15,6 +15,8 @@ import { Modal } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { AlertBar } from '@/components/ui/alert-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
@@ -591,7 +593,10 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       )}
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
         {hydrating ? (
-          <Text className="py-8 text-center">Chargement du lieu…</Text>
+          <LoadingState
+            label="Chargement du lieu…"
+            className="py-8 text-center"
+          />
         ) : chargementEchoue ? (
           <AlertBar variant="err" role="alert">
             Erreur lors du chargement du lieu. Fermez la fiche et réessayez.
@@ -979,17 +984,19 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       Impossible de charger l&apos;activité du lieu.
                     </AlertBar>
                   ) : !activite ? (
-                    <Text className="py-6 text-center">
-                      Chargement de l&apos;activité…
-                    </Text>
+                    <LoadingState
+                      label="Chargement de l'activité…"
+                      className="py-6 text-center"
+                    />
                   ) : (
                     <>
                       <Card padding="md" className="space-y-4">
                         <BlocHeader icon={ChefHat} title="Traiteurs opérant" />
                         {activite.traiteurs.length === 0 ? (
-                          <Text>
-                            Aucune collecte sur ce lieu pour l&apos;instant.
-                          </Text>
+                          <EmptyState
+                            size="inline"
+                            title="Aucune collecte sur ce lieu pour l'instant."
+                          />
                         ) : (
                           <ul className="divide-y divide-savr-neutral-100 text-sm">
                             {activite.traiteurs.map((t) => (
@@ -1018,9 +1025,10 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                           title="Historique des modifications"
                         />
                         {activite.historique.length === 0 ? (
-                          <Text>
-                            Aucune modification enregistrée sur ce lieu.
-                          </Text>
+                          <EmptyState
+                            size="inline"
+                            title="Aucune modification enregistrée sur ce lieu."
+                          />
                         ) : (
                           <Timeline>
                             {activite.historique.map((h) => (

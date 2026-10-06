@@ -147,7 +147,7 @@
     },
     {
       "id": "M4.2-export-csv-ligne-par-flux",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:118",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:118-122",
       "artefact": "packages/plateforme/src/lib/registre/csv.ts (buildRegistreCsv : une ligne par flux pesé, les 20 colonnes du modèle + la colonne Lieu après le producteur ; fetchFluxDetail : lecture par tranches de 100 collectes) + packages/plateforme/src/app/api/v1/registre/export-csv/route.ts (nb_lignes = lignes du fichier) + packages/plateforme/src/lib/registre/registre.ts (FILIERE_LABELS) + packages/plateforme/src/app/api/v1/registre/[id]/route.ts (filière en clair)",
       "test": "M4.2/export_csv_ligne_par_flux + M4.2/export_csv_flux_par_tranches + M4.2/export_csv_adresse_exutoire + M4.2/export_csv_filtre_flux + M4.2/export_csv_bordereau_non_emis + M4.2/export_csv_erreur_tranche + M4.2/export_csv_registre_ampute + M4.2/export_csv_agence_denied + M4.2/detail_registre_filiere_en_clair",
       "statut": "implemented",

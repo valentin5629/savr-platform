@@ -126,7 +126,7 @@
     },
     {
       "id": "M0.8-04b",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:241-242",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:244-245",
       "artefact": "packages/plateforme/src/components/ui/button.tsx + packages/plateforme/src/components/ui/icon-button.tsx",
       "test": "M0.8-4b — l'anneau de focus est uniforme : aucune variante ne pose sa propre couleur",
       "statut": "à-vérifier",
@@ -142,7 +142,7 @@
     },
     {
       "id": "M0.8-04d",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:241-242",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:244-245",
       "artefact": "packages/plateforme/src/components/ui/components.m0-8.test.tsx (cliquet transverse)",
       "test": "M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uniforme)",
       "statut": "implemented",
@@ -543,7 +543,7 @@
     },
     {
       "id": "BL-P3-10",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:42",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:44",
       "artefact": "packages/plateforme/src/app/(registre)/registre/page.tsx (raccourci du panneau Période) ; packages/plateforme/src/lib/periodes-raccourcis.ts",
       "test": "M0.8-58 — Registre : preset « 30 derniers jours » (BL-P3-10)",
       "statut": "implemented",

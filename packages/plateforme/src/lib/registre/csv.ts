@@ -108,8 +108,8 @@ interface Etablissement {
 // Chaîne logistique ZD (décisions Val 2026-10-04 et 2026-10-06) : Savr enlève
 // sur le lieu, massifie à son entrepôt, puis le site de traitement du flux
 // reçoit le déchet. Le transporteur affiché est Savr — choix provisoire, la
-// question du nom du prestataire attend le juriste — à l'adresse donnée par
-// Val, qui n'est pas celle de l'entrepôt.
+// question du nom du prestataire attend le juriste — à l'adresse de son siège
+// social (la même que dans content/cgu-v1.ts), et non à celle de l'entrepôt.
 const TRANSPORTEUR: Etablissement = {
   nom: 'Savr',
   voie: '50 rue des Moines',
@@ -174,8 +174,9 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
     header: 'Code nomenclature déchets',
     value: (l) => l.flux.code_dechet_europeen ?? '',
   },
-  // Producteur = le traiteur opérationnel (décision Val 2026-10-06), comme sur
-  // le bordereau.
+  // Producteur = le traiteur opérationnel (décision Val 2026-10-06) : la même
+  // entité que sur le bordereau, mais lue dans la vue (valeur courante), pas
+  // dans la valeur figée à l'émission du bordereau.
   {
     header: 'Identité du producteur de déchet',
     value: (l) => l.row.traiteur_raison_sociale ?? '',

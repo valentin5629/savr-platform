@@ -228,8 +228,6 @@ const EN_TETES_CSV = [
   'Exutoire final - Adresse',
   'Exutoire final - Code postal',
   'Exutoire final - Ville',
-  'Traiteur',
-  'Date événement',
 ].join(';');
 
 async function lignesCsv(res: Response): Promise<string[]> {
@@ -277,7 +275,7 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     expect(insertArgs?.organisation_id).toBe('org-a');
   });
 
-  it('M4.2/export_csv_ligne_par_flux — une ligne par flux pesé, 20 colonnes du modèle + 2 colonnes Savr', async () => {
+  it('M4.2/export_csv_ligne_par_flux — une ligne par flux pesé, les 20 colonnes du modèle, sans colonne ajoutée', async () => {
     setupAuth('gestionnaire_lieux', 'org-a');
     rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
     rls.push({
@@ -316,18 +314,16 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
     expect(lignes).toEqual([
       [
-        'Biodéchets;20 01 08;Pavillon Cambon;13/05/2026;0,036;Méthanisation;R3;BSAV-2026-00001',
-        `Savr;${entrepot}`,
+        'Biodéchets;20 01 08;Kaspia SARL;13/05/2026;0,036;Méthanisation;R3;BSAV-2026-00001',
+        'Savr;50 rue des Moines;75017;Paris',
         `Entrepôt Savr;${entrepot}`,
         'GENERIS VSG DCDT;ZI des Graviers, 6 avenue Winston Churchill;94190;Villeneuve-Saint-Georges',
-        'Kaspia SARL;12/05/2026',
       ].join(';'),
       [
-        'Verre;15 01 07;Pavillon Cambon;13/05/2026;0,4687;Recyclage;R5;BSAV-2026-00001',
-        `Savr;${entrepot}`,
+        'Verre;15 01 07;Kaspia SARL;13/05/2026;0,4687;Recyclage;R5;BSAV-2026-00001',
+        'Savr;50 rue des Moines;75017;Paris',
         `Entrepôt Savr;${entrepot}`,
         'REVIVAL GENNEVILLIERS TRSFT;9 route du Môle Central;92230;Gennevilliers',
-        'Kaspia SARL;12/05/2026',
       ].join(';'),
     ]);
   });
@@ -400,11 +396,10 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
     expect(lignes).toEqual([
       [
-        'Emballages;;Pavillon Cambon;13/05/2026;0,012;;;',
-        `Savr;${entrepot}`,
+        'Emballages;;Kaspia SARL;13/05/2026;0,012;;;',
+        'Savr;50 rue des Moines;75017;Paris',
         `Entrepôt Savr;${entrepot}`,
         ';;;',
-        'Kaspia SARL;12/05/2026',
       ].join(';'),
     ]);
   });

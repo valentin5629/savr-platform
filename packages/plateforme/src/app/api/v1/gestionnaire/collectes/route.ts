@@ -82,9 +82,13 @@ type LigneBrute = Record<string, unknown> & {
 // GET /api/v1/gestionnaire/collectes
 // Liste des collectes sur les lieux du gestionnaire. On interroge `collectes`
 // DIRECTEMENT avec l'embed `evenements!inner` (même pattern éprouvé que la route
-// /gestionnaire/filtres) : la RLS col_select (f_collecte_visible) scope au parc du
-// gestionnaire, identique à la vue v_collectes_gestionnaire_lieux (= SELECT nu sur
-// collectes, security_invoker). Bénéfice : les filtres lieu / traiteur (drill-down
+// /gestionnaire/filtres). Ce que la session lit est borné par DEUX RLS, celle de
+// `collectes` (col_select, f_collecte_visible) et celle de `evenements`
+// (evt_gestionnaire_select, appliquée par l'embed `!inner`) : les événements que
+// son organisation a programmés, quel que soit le lieu, et les événements datés
+// tenus sur ses lieux (`organisations_lieux`). C'est plus étroit que la vue
+// v_collectes_gestionnaire_lieux (SELECT nu sur collectes, security_invoker), qui
+// ne passe que par col_select. Bénéfice : les filtres lieu / traiteur (drill-down
 // des Top listes du dashboard) sont applicables ET les noms lieu/événement sont
 // enfin renvoyés (la vue ne les portait pas → colonnes « — »).
 // Paramètres : type, statut, from, to, lieu_ids, traiteur_ids, page,
@@ -94,10 +98,12 @@ type LigneBrute = Record<string, unknown> & {
 // Val 2026-09-30) : `lieu_ids` / `traiteur_ids` en CSV, convention de
 // `lib/filtre-csv` partagée avec les listes traiteur et agence. Les anciens
 // `lieu_id` / `traiteur_id` à valeur unique restent lus comme une liste d'un
-// élément. Ces listes ne font que RESTREINDRE : la requête part avec la session
-// de l'utilisateur, donc la RLS de `collectes` et de `evenements` borne toujours
-// la lecture à son parc — un identifiant d'un lieu qui n'est pas le sien ne rend
-// aucune ligne.
+// élément. Ces listes ne font que RESTREINDRE : un `.in()` est une condition de
+// plus sur la même requête, il ne retire que des lignes à ce que la session lit
+// sans filtre et n'en ajoute jamais. Nommer le lieu d'un autre gestionnaire ne
+// rend donc aucune collecte d'un tiers — seulement, s'il y en a, ses propres
+// programmations sur ce lieu, déjà lisibles sans filtre. « Ce lieu rend des
+// lignes » ne prouve pas qu'il est dans son parc.
 //
 // Pagination SERVEUR (`count: 'exact'` + `range`), pattern §06.06 admin/lieux.
 // Décision Val 2026-09-22 : le §06.05 ne spécifie pas la taille de cette liste,

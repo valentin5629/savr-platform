@@ -9,9 +9,11 @@
  *
  * Ces sondes mesurent la REQUÊTE envoyée à PostgREST. Le cloisonnement, lui,
  * n'est pas porté par ces filtres : la requête part avec la session de
- * l'utilisateur et la RLS de `collectes` et de `evenements` borne la lecture à
- * son parc. Un filtre `.in()` s'ajoute à cette borne, il ne la remplace pas
- * (pgTAP `m3_2_gestionnaire_lieux.test.sql`, `M3.2/rls_collectes_liste_*`).
+ * l'utilisateur, et la RLS de `collectes` et de `evenements` borne ce qu'elle
+ * lit (ses propres programmations, et les événements datés tenus sur ses
+ * lieux). Un filtre `.in()` est une condition de plus : il ne retire que des
+ * lignes à cette lecture, il n'en ajoute jamais (pgTAP
+ * `m3_2_gestionnaire_lieux.test.sql`, `M3.2/rls_collectes_liste_*`).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -160,11 +162,11 @@ describe('M3.2 / liste Collectes gestionnaire — Lieu et Traiteur à choix mult
 
   it('M3.2/collectes_route_lue_par_la_session_seule — une seule requête, par le client de session', async () => {
     // Un lieu qui n'est pas celui du gestionnaire est un UUID comme un autre :
-    // la route ne le reconnaît pas, c'est la RLS qui ne rend aucune ligne pour
-    // lui (prouvé en base par pgTAP, pas ici — le client est simulé). Ce qui
-    // doit tenir ici : UNE requête, sur `collectes`, par le client de session
-    // (jamais un client de service qui lirait hors RLS), et le filtre posé sur
-    // cette même requête.
+    // la route ne le reconnaît pas, c'est la RLS qui ne rend pour lui aucune
+    // collecte d'un tiers (prouvé en base par pgTAP, pas ici — le client est
+    // simulé). Ce qui doit tenir ici : UNE requête, sur `collectes`, par le
+    // client de session (jamais un client de service qui lirait hors RLS), et
+    // le filtre posé sur cette même requête.
     await appel(`?lieu_ids=${LIEU_A},${LIEU_B}`);
     expect(fabriqueSession).toHaveBeenCalledTimes(1);
     expect(rls.__calls.from).toEqual([['collectes']]);

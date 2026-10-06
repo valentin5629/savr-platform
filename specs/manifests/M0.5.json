@@ -188,7 +188,7 @@
     },
     {
       "id": "BL-P1-API-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:611",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:612",
       "artefact": "packages/shared/src/email/index.ts",
       "test": "variable requise absente → aucun envoi, aucune ligne emails_envoyes, trace MISSING_VARIABLE",
       "statut": "implemented",
@@ -196,7 +196,7 @@
     },
     {
       "id": "M0.5-resend-template-not-found-skip",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:613",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:614",
       "artefact": "packages/shared/src/email/index.ts",
       "test": "slug inexistant → aucun envoi, throw + trace TEMPLATE_NOT_FOUND (CDC l.548)",
       "statut": "implemented",
@@ -204,7 +204,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "807240f53d36baff435d4692b2ce738e82438988f0b27370d5ee70d6084ecf36",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7"
   }
 }

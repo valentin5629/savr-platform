@@ -304,8 +304,14 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+      // L'en-tête est rendu par le panneau ; les champs attendent la fin du
+      // chargement du formulaire (LoadingState) — attente explicite.
       expect(
-        screen.getByLabelText('Type de véhicule souhaité'),
+        await screen.findByLabelText(
+          'Type de véhicule souhaité',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toBeInTheDocument();
       expect(screen.getByLabelText('Nombre de véhicules')).toHaveValue('1');
       expect(

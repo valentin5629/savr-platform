@@ -7,6 +7,8 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { EmptyDashboardState } from '@/components/dashboards/EmptyDashboardState';
+import { RouteError, RouteLoading } from '@/components/layout/route-states';
+import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 
 // R-UI-1 « après » : mêmes sections, primitives du DS. Le toast est déclenché
 // au montage (viewport fixe : capture plein écran `toast`).
@@ -56,6 +58,30 @@ function App() {
           <div className="space-y-3 rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
             <EmptyState size="inline" title="Aucun membre." />
             <EmptyDashboardState />
+          </div>
+        </Section>
+        <Section id="route" title="Route : loading.tsx et error.tsx (H3/H5)">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
+              <RouteLoading />
+            </div>
+            <div className="rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
+              <RouteError
+                error={new Error('détail serveur masqué')}
+                reset={() => undefined}
+              />
+            </div>
+          </div>
+        </Section>
+        <Section
+          id="ops-erreur-normale"
+          title="Paramètres CO₂ en ops_savr (H6) + erreur font-normal"
+        >
+          <div className="space-y-3 rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
+            <OpsReadOnlyBanner />
+            <AlertBar variant="err" className="font-normal">
+              La mise à jour du mix d'emballages a échoué.
+            </AlertBar>
           </div>
         </Section>
         <Section id="erreur" title="Erreur de chargement — ErrorState (H5)">

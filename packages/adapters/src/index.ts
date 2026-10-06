@@ -189,7 +189,11 @@ export type { EverestMissionDetail } from './everest/mock.js';
 // Mock injectable (test-only, no-op en prod tant qu'aucun handler n'est posé) —
 // ré-exporté ici pour que les tests cross-package (webhook) partagent le MÊME
 // singleton de handlers que fetchEverestMissionDetails (même specifier).
-export { setupEverestMock, _setEverestHandlers } from './everest/mock.js';
+export {
+  setupEverestMock,
+  _setEverestHandlers,
+  _getEverestHandlers,
+} from './everest/mock.js';
 
 export function getLogistiqueProvider(
   transporteur: Transporteur,

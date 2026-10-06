@@ -34,6 +34,7 @@ import {
 } from '../provider-tournees.js';
 import type { CreateMissionPayload } from './client.js';
 import { EverestClient } from './client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 // Mapping branche_attribution → service_id Everest (§08 §3 V1, tableau l.264-269).
 // BL-P1-API-04 — service 77 (camion express > 3,5h, Marathon indisponible) mappé
@@ -63,6 +64,16 @@ interface TourneeRow {
   statut: string;
   rang: number;
   prestataire_logistique_id: string | null;
+  /** Lu par findTournees seulement ; `undefined` = colonne non lue. */
+  type_vehicule?: string | null;
+}
+
+// Service Everest → type de véhicule de la tournée (91/77 = poids lourd, sinon
+// vélo cargo) ; la fiche en déduit « Sans objet (vélo cargo) » pour la plaque.
+function typeVehiculeDuService(
+  serviceId: number,
+): 'poids_lourd' | 'velo_cargo' {
+  return serviceId === 91 || serviceId === 77 ? 'poids_lourd' : 'velo_cargo';
 }
 
 interface AttributionRow {
@@ -178,6 +189,22 @@ export class AdapterEverest implements LogistiqueProvider {
     // son rattachement au rang déjà pris échouerait.
     const tournee =
       tourneeExistante ?? (await this.upsertTournee(collecte, rang, serviceId));
+    // Tournée créée par l'Admin (saisie chauffeur avant dispatch, C2 Val
+    // 2026-10-06) : son type de véhicule est NULL — posé ici, sinon la plaque
+    // resterait « En attente » à vie sur un vélo cargo. Seule la colonne lue
+    // à NULL déclenche l'écriture ; une erreur ne bloque pas le dispatch.
+    if (tourneeExistante && tourneeExistante.type_vehicule === null) {
+      const { error: errType } = await this.supabase
+        .from('tournees')
+        .update({ type_vehicule: typeVehiculeDuService(serviceId) })
+        .eq('id', tourneeExistante.id);
+      if (errType) {
+        logger.warn('adapters.everest.type_vehicule_non_pose', {
+          tournee_id: tourneeExistante.id,
+          error: errType.message,
+        });
+      }
+    }
 
     // POST /missions/create
     let missionId: string | null = null;
@@ -497,7 +524,7 @@ export class AdapterEverest implements LogistiqueProvider {
     const { data, error } = await this.supabase
       .from('collecte_tournees')
       .select(
-        'rang, tournees!inner(id, external_ref_commande, statut, prestataire_logistique_id)',
+        'rang, tournees!inner(id, external_ref_commande, statut, prestataire_logistique_id, type_vehicule)',
       )
       .eq('collecte_id', collecteId);
 
@@ -548,8 +575,7 @@ export class AdapterEverest implements LogistiqueProvider {
     serviceId: number,
   ): Promise<TourneeRow> {
     const referenceInterne = `EVR-${collecte.id}-${rang}`;
-    const typeVehicule =
-      serviceId === 91 || serviceId === 77 ? 'poids_lourd' : 'velo_cargo';
+    const typeVehicule = typeVehiculeDuService(serviceId);
 
     const { data: existante } = await this.supabase
       .from('tournees')

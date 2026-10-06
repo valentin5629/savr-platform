@@ -29,6 +29,7 @@ import { fetchEverestMissionDetails } from '@savr/adapters/src/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { serverError, withApiTrace } from '@/lib/api-helpers.js';
+import { evaluerInfosAccesEtEnvoyer } from '@/lib/infos-acces/notify.js';
 
 type SupabaseAdmin = ReturnType<typeof createAdminSupabaseClient>;
 type ErreurDb = { code?: string; message: string };
@@ -452,6 +453,84 @@ async function handleEventType(
           },
         );
       }
+      // Coordonnées du coursier → tournée de la mission (bloc « Chauffeur »
+      // des fiches collecte client et Admin, comme l'adapter MTS-1 avec le
+      // référentiel carrier — décision Val 2026-10-02). Webhook = SIGNAL : nom
+      // et téléphone sont RELUS sur l'API Everest (CDC §08 §3 « ne jamais faire
+      // confiance au payload »), jamais pris du payload non signé.
+      // Règle d'écriture = celle de MTS-1 (garde-fou 2, même sémantique) : on
+      // n'écrit que ce que l'API donne — le nom toujours, le téléphone seulement
+      // s'il est fourni. Compromis assumé : si l'API ne renvoie pas le téléphone
+      // d'un coursier qui en remplace un autre, l'ancien numéro (peut-être saisi
+      // par l'Admin) reste affiché avec le nouveau nom — exactement comme avec
+      // MTS-1 aujourd'hui (addendum de divergence 2026-10-06, à arbitrer Val).
+      // Garde dans le WHERE (#348) : la tournée doit encore porter CETTE
+      // référence de mission — couvre la remise à zéro sur place d'une tournée
+      // rejetée / annulée (20260921220000) ; ne couvre PAS une réattribution vers
+      // MTS-1 d'une mission encore vivante (la tournée EVR garde sa référence) :
+      // on écrit alors le vrai coursier de la mission que porte cette tournée,
+      // même collecte, même organisation.
+      // Collecte annulée : rien n'est écrit et aucun email récap ne part (le
+      // téléphone du coursier n'a plus d'objet « coordination sur place »,
+      // §06.04 RGPD) — l'annulation peut mettre jusqu'à 24 h à atteindre Everest.
+      // Best-effort (pas une transition d'état) : re-fetch KO ou UPDATE refusé
+      // = tracé, rien d'écrit, réponse 200. Placé APRÈS la transition
+      // `statut_tms → acceptee` (l'étape principale) : la relecture API (jusqu'à
+      // 80 s avec un 401 puis un nouvel essai) ne retarde pas l'acceptation.
+      if (lue.etat.statut === 'annulee') break;
+      {
+        let coursier: { nom: string; telephone: string | null } | null = null;
+        try {
+          const detail = await fetchEverestMissionDetails(
+            missionId,
+            supabase,
+            missionId,
+          );
+          const nom = detail.coursier_nom?.trim() || null;
+          if (nom) {
+            coursier = {
+              nom,
+              telephone: detail.coursier_telephone?.trim() || null,
+            };
+          }
+        } catch (err) {
+          logger.error('webhooks.everest.coursier_refetch_failed', {
+            mission_id: missionId,
+            tournee_id: mission.tournee_id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+        if (coursier) {
+          // Même règle que l'adapter MTS-1 (garde-fou 2 : même sémantique pour
+          // les deux prestataires) : on n'écrit que ce que l'API donne — le
+          // téléphone n'est touché que s'il est fourni (saisie Admin conservée).
+          const coordonnees: Record<string, string> = {
+            chauffeur_nom: coursier.nom,
+          };
+          if (coursier.telephone) {
+            coordonnees['chauffeur_telephone'] = coursier.telephone;
+          }
+          const { error: coordErr } = await supabase
+            .from('tournees')
+            .update(coordonnees)
+            .eq('id', mission.tournee_id)
+            .eq('external_ref_commande', missionId);
+          if (coordErr) {
+            logger.error('webhooks.everest.coursier_non_propage', {
+              mission_id: missionId,
+              tournee_id: mission.tournee_id,
+              error_code: coordErr.code,
+            });
+          } else {
+            // Contrôle d'accès : les coordonnées viennent peut-être de rendre la
+            // collecte complète → même évaluation que le PATCH Admin (email récap
+            // au programmateur si requis + complet, idempotent, ne throw jamais).
+            // Déclenché par la valeur RELUE sur l'API, pas par le payload.
+            await evaluerInfosAccesEtEnvoyer(supabase, mission.collecte_id);
+          }
+        }
+      }
+
       break;
     }
 

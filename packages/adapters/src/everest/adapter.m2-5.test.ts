@@ -76,6 +76,8 @@ interface SupabaseMockOpts {
     // Explicite dans chaque fixture (jamais posé d'office par le mock) : c'est
     // la colonne sur laquelle findTournees cloisonne par provider.
     prestataire_logistique_id: string | null;
+    /** `null` = tournée créée par l'Admin (C2) ; absent = colonne non lue. */
+    type_vehicule?: string | null;
   } | null;
   missionExistante?: {
     id: string;
@@ -548,6 +550,51 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     await adapter.dispatchCollecte(COLLECTE_AG, 1);
 
     expect(missions.size).toBe(0);
+  });
+
+  it('tournée créée par l’Admin (type_vehicule NULL, saisie chauffeur avant dispatch — C2 Val 2026-10-06) : reprise telle quelle, type de véhicule posé, une seule mission', async () => {
+    const { missions } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        id: 'tournee-admin-001',
+        external_ref_commande: null,
+        statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
+        type_vehicule: null,
+      },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+
+    expect(missions.size).toBe(1);
+    // Aucune seconde tournée : la tournée Admin porte la mission.
+    expect(supabase._inserted['tournees']).toBeUndefined();
+    expect(supabase._updated['tournees']).toContainEqual({
+      type_vehicule: 'velo_cargo',
+    });
+  });
+
+  it('tournée existante dont le type de véhicule n’a pas été lu : aucune écriture de type_vehicule', async () => {
+    setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        id: 'tournee-existing-001',
+        external_ref_commande: 'EVR-MOCK-EXISTING',
+        statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
+      },
+      missionExistante: { id: 'em-001', statut_everest: 'created' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+
+    expect(
+      (supabase._updated['tournees'] ?? []).some(
+        (u) => (u as Record<string, unknown>)['type_vehicule'] !== undefined,
+      ),
+    ).toBe(false);
   });
 
   it('pas d attribution → LogistiquePermanentError', async () => {

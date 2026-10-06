@@ -13,7 +13,6 @@ import {
 import {
   Truck,
   Send,
-  KeyRound,
   AlertTriangle,
   Settings2,
   FileText,
@@ -29,6 +28,7 @@ import {
   DoorOpen,
   Users,
   Building2,
+  UserRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -83,6 +83,7 @@ import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
   ContactLigne,
   dateLongueCapitalisee,
+  TelephoneLien,
 } from '@/components/collecte/fiche-blocs';
 import { SectionHeader } from '@/components/ui/section-header';
 import { InfoItem } from '@/components/ui/info-item';
@@ -235,6 +236,7 @@ interface CollecteDetail {
       chauffeur_telephone: string | null;
       accompagnant_nom: string | null;
       accompagnant_telephone: string | null;
+      type_vehicule: string | null;
     };
   }[];
   // factures_collectes = lignes de facture ; le statut vit sur la facture parente
@@ -406,6 +408,101 @@ interface CollecteDetailPanelProps {
   blockCloseRef?: MutableRefObject<boolean>;
 }
 
+const STATUTS_TERMINAUX = [
+  'realisee',
+  'cloturee',
+  'annulee',
+  'realisee_sans_collecte',
+];
+
+// Bloc « Chauffeur » : une ligne par camion DEMANDÉ (rangs 1..N, décision Val
+// 2026-10-06 C2), qu'il ait déjà sa tournée (créée par l'adapter au dispatch)
+// ou non (la saisie Admin crée alors la tournée du rang, que l'adapter reprend
+// ensuite). Collecte terminée : seules les tournées existantes — même liste
+// pour l'affichage ET le pré-remplissage du formulaire (jamais de tournée
+// créée sur une collecte finie).
+function rangsChauffeurDe(c: {
+  statut: string;
+  nb_camions_demande: number | null;
+  collecte_tournees: Array<{ rang: number }>;
+}): number[] {
+  const terminal = STATUTS_TERMINAUX.includes(c.statut);
+  const rangsExistants = new Set(c.collecte_tournees.map((ct) => ct.rang));
+  const nbVises = terminal ? 0 : Math.max(1, c.nb_camions_demande ?? 1);
+  return Array.from(
+    { length: Math.max(nbVises, ...rangsExistants, 0) },
+    (_, i) => i + 1,
+  ).filter((rang) => !terminal || rangsExistants.has(rang));
+}
+
+// Clé de saisie d'un camion : id de tournée, ou `rang:N` sans tournée.
+const CLE_RANG = 'rang:';
+
+type SaisieChauffeur = {
+  plaque_immatriculation: string;
+  chauffeur_nom: string;
+  chauffeur_telephone: string;
+  accompagnant_nom: string;
+  accompagnant_telephone: string;
+};
+const CHAMPS_SAISIE_CHAUFFEUR = [
+  'plaque_immatriculation',
+  'chauffeur_nom',
+  'chauffeur_telephone',
+  'accompagnant_nom',
+  'accompagnant_telephone',
+] as const;
+
+// Après une erreur d'enregistrement, la fiche rechargée peut avoir gagné des
+// tournées (créées par le prestataire) ou perdu des camions (collecte
+// terminée) : les clés `rang:N` sont ré-ancrées sur la tournée du rang — la
+// saisie de l'Admin prime, un champ laissé vide prend la valeur remontée — et
+// les camions qui ne sont plus listés sont retirés.
+function reancrerSaisieChauffeur(
+  prev: Record<string, SaisieChauffeur>,
+  fraiche: {
+    statut: string;
+    nb_camions_demande: number | null;
+    collecte_tournees: Array<{
+      rang: number;
+      tournees: { id: string } & Partial<
+        Record<(typeof CHAMPS_SAISIE_CHAUFFEUR)[number], string | null>
+      >;
+    }>;
+  },
+): Record<string, SaisieChauffeur> {
+  const rangs = new Set(rangsChauffeurDe(fraiche));
+  const suivant: Record<string, SaisieChauffeur> = {};
+  for (const [cle, v] of Object.entries(prev)) {
+    if (!cle.startsWith(CLE_RANG)) {
+      suivant[cle] = v;
+      continue;
+    }
+    const rang = Number(cle.slice(CLE_RANG.length));
+    if (!rangs.has(rang)) continue;
+    const ct = fraiche.collecte_tournees.find((x) => x.rang === rang);
+    if (!ct) {
+      suivant[cle] = v;
+      continue;
+    }
+    const fusion = { ...v };
+    for (const champ of CHAMPS_SAISIE_CHAUFFEUR) {
+      if (v[champ].trim() === '') fusion[champ] = ct.tournees[champ] ?? '';
+    }
+    suivant[ct.tournees.id] = fusion;
+  }
+  return suivant;
+}
+function cleSaisieDe(
+  c: { collecte_tournees: Array<{ rang: number; tournees: { id: string } }> },
+  rang: number,
+): string {
+  return (
+    c.collecte_tournees.find((ct) => ct.rang === rang)?.tournees.id ??
+    `${CLE_RANG}${rang}`
+  );
+}
+
 export function CollecteDetailPanel({
   collecteId,
   onLoaded,
@@ -496,13 +593,6 @@ export function CollecteDetailPanel({
   const [regenerating, setRegenerating] = useState<PdfType | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
-
-  const STATUTS_TERMINAUX = [
-    'realisee',
-    'cloturee',
-    'annulee',
-    'realisee_sans_collecte',
-  ];
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -853,13 +943,17 @@ export function CollecteDetailPanel({
   const openEditInfosAcces = () => {
     if (!collecte) return;
     const prefill: typeof infosAccesInput = {};
-    for (const ct of collecte.collecte_tournees) {
-      prefill[ct.tournees.id] = {
-        plaque_immatriculation: ct.tournees.plaque_immatriculation ?? '',
-        chauffeur_nom: ct.tournees.chauffeur_nom ?? '',
-        chauffeur_telephone: ct.tournees.chauffeur_telephone ?? '',
-        accompagnant_nom: ct.tournees.accompagnant_nom ?? '',
-        accompagnant_telephone: ct.tournees.accompagnant_telephone ?? '',
+    const parRang = new Map(
+      collecte.collecte_tournees.map((ct) => [ct.rang, ct] as const),
+    );
+    for (const rang of rangsChauffeurDe(collecte)) {
+      const ct = parRang.get(rang);
+      prefill[cleSaisieDe(collecte, rang)] = {
+        plaque_immatriculation: ct?.tournees.plaque_immatriculation ?? '',
+        chauffeur_nom: ct?.tournees.chauffeur_nom ?? '',
+        chauffeur_telephone: ct?.tournees.chauffeur_telephone ?? '',
+        accompagnant_nom: ct?.tournees.accompagnant_nom ?? '',
+        accompagnant_telephone: ct?.tournees.accompagnant_telephone ?? '',
       };
     }
     setInfosAccesInput(prefill);
@@ -871,14 +965,30 @@ export function CollecteDetailPanel({
     e.preventDefault();
     setInfosAccesSaving(true);
     setInfosAccesError(null);
-    const tournees = Object.entries(infosAccesInput).map(([tournee_id, v]) => ({
-      tournee_id,
-      plaque_immatriculation: v.plaque_immatriculation,
-      chauffeur_nom: v.chauffeur_nom,
-      chauffeur_telephone: v.chauffeur_telephone,
-      accompagnant_nom: v.accompagnant_nom,
-      accompagnant_telephone: v.accompagnant_telephone,
-    }));
+    const tournees = Object.entries(infosAccesInput)
+      // Camion sans tournée laissé vide : rien à créer (la route refuserait,
+      // et une tournée vide occuperait le rang pour l'adapter).
+      .filter(
+        ([cle, v]) =>
+          !cle.startsWith(CLE_RANG) ||
+          Object.values(v).some((val) => val.trim() !== ''),
+      )
+      .map(([cle, v]) => ({
+        // Camion sans tournée : la route la crée (rang ≤ nb_camions_demande).
+        ...(cle.startsWith(CLE_RANG)
+          ? { rang: Number(cle.slice(CLE_RANG.length)) }
+          : { tournee_id: cle }),
+        plaque_immatriculation: v.plaque_immatriculation,
+        chauffeur_nom: v.chauffeur_nom,
+        chauffeur_telephone: v.chauffeur_telephone,
+        accompagnant_nom: v.accompagnant_nom,
+        accompagnant_telephone: v.accompagnant_telephone,
+      }));
+    if (tournees.length === 0) {
+      setInfosAccesError('Aucune coordonnée saisie.');
+      setInfosAccesSaving(false);
+      return;
+    }
     const res = await fetch(
       `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/infos-acces`,
       {
@@ -901,8 +1011,24 @@ export function CollecteDetailPanel({
       });
       setEditInfosAcces(false);
     } else {
-      const body = (await res.json()) as { error: string };
-      setInfosAccesError(body.error);
+      const body = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setInfosAccesError(body?.error ?? 'Enregistrement impossible.');
+      // La fiche est rechargée : si le prestataire a créé la tournée d'un
+      // camion entre-temps (409/422), la saisie en cours se rattache à elle
+      // au lieu de rester bloquée sur une clé `rang:N` périmée — champ par
+      // champ : ce que l'Admin a tapé prime, un champ laissé vide prend ce que
+      // le prestataire a remonté (sinon le ré-enregistrement l'effacerait).
+      // Un camion qui n'est plus listé (collecte devenue terminée) est retiré.
+      const updated = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      );
+      if (updated.ok) {
+        const fraiche = (await updated.json()) as CollecteDetail;
+        setCollecte(fraiche);
+        setInfosAccesInput((prev) => reancrerSaisieChauffeur(prev, fraiche));
+      }
     }
     setInfosAccesSaving(false);
   };
@@ -1022,6 +1148,34 @@ export function CollecteDetailPanel({
   const renvoi =
     !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
   const canalEnvoi = libelleCanalEnvoi(currentTransporteur?.type_tms);
+  // Bloc « Chauffeur » : une ligne par camion demandé (cf. rangsChauffeurDe).
+  const tourneeParRang = new Map(
+    collecte.collecte_tournees.map((ct) => [ct.rang, ct] as const),
+  );
+  const rangsChauffeur = rangsChauffeurDe(collecte);
+  // Saisie possible : au moins un camion, et un prestataire posé si une tournée
+  // doit être créée (tournees.prestataire_logistique_id NOT NULL).
+  const saisieChauffeurPossible =
+    rangsChauffeur.length > 0 &&
+    (rangsChauffeur.every((rang) => tourneeParRang.has(rang)) ||
+      collecte.prestataire_logistique_id != null);
+  const titreChauffeur =
+    rangsChauffeur.length === 0
+      ? 'Aucun chauffeur enregistré'
+      : rangsChauffeur.length > 1
+        ? 'Chauffeurs'
+        : 'Chauffeur';
+  const aideChauffeur =
+    rangsChauffeur.length === 0
+      ? 'Aucune tournée enregistrée pour cette collecte.'
+      : !saisieChauffeurPossible
+        ? 'Attribuez d’abord un prestataire : les coordonnées se saisissent ensuite camion par camion.'
+        : collecte.controle_acces_requis
+          ? null
+          : canalEnvoi
+            ? `Les coordonnées remontent automatiquement de ${canalEnvoi} dès l’affectation du chauffeur ; complétez-les si elles manquent.`
+            : 'Coordonnées à saisir par l’équipe Ops.';
+  const cleSaisie = (rang: number): string => cleSaisieDe(collecte, rang);
   const referenceSaisie = acceptationSaisie.reference_mission.trim();
   const acceptationIncomplete =
     referenceSaisie === '' ||
@@ -1278,228 +1432,6 @@ export function CollecteDetailPanel({
                 </InfoItem>
               </dl>
             </Card>
-
-            {/* Informations chauffeur demandées — saisie par tournée si le lieu
-                exige un contrôle d'accès. */}
-            {collecte.controle_acces_requis ? (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader
-                  icon={KeyRound}
-                  title="Informations chauffeur"
-                  action={
-                    !editInfosAcces && collecte.collecte_tournees.length > 0 ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={openEditInfosAcces}
-                      >
-                        Éditer les infos
-                      </Button>
-                    ) : undefined
-                  }
-                />
-                <Text>
-                  Ce lieu exige un contrôle d’accès. Renseignez le nom et le
-                  téléphone du chauffeur (et l’accompagnant s’il y en a un) pour
-                  chaque camion : un email récapitulatif est envoyé au
-                  programmateur dès que toutes les tournées sont complètes.
-                </Text>
-
-                {collecte.infos_acces_email_envoye_at ? (
-                  <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
-                    <Send className="h-4 w-4 shrink-0" />
-                    Email envoyé au programmateur le{' '}
-                    {new Date(
-                      collecte.infos_acces_email_envoye_at,
-                    ).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}
-                  </div>
-                ) : (
-                  <Text
-                    as="div"
-                    tone="soft"
-                    className="flex items-center gap-2"
-                  >
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
-                    En attente : infos à compléter avant envoi de l’email.
-                  </Text>
-                )}
-
-                {infosAccesError && (
-                  <AlertBar variant="err">{infosAccesError}</AlertBar>
-                )}
-
-                {collecte.collecte_tournees.length === 0 ? (
-                  <EmptyState
-                    size="inline"
-                    title="Aucune tournée dispatchée pour le moment — les infos pourront être saisies une fois le prestataire attribué."
-                  />
-                ) : !editInfosAcces ? (
-                  <div className="space-y-2">
-                    {collecte.collecte_tournees.map((ct) => (
-                      <div
-                        key={ct.tournees.id}
-                        className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
-                      >
-                        <p className="mb-1.5 font-medium">Camion {ct.rang}</p>
-                        <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-savr-neutral-700">
-                          <InfoItem variant="hint" label="Plaque">
-                            {ct.tournees.plaque_immatriculation ?? '—'}
-                          </InfoItem>
-                          <InfoItem variant="hint" label="Chauffeur">
-                            {ct.tournees.chauffeur_nom ?? '—'}
-                          </InfoItem>
-                          <InfoItem variant="hint" label="Téléphone">
-                            {ct.tournees.chauffeur_telephone ?? '—'}
-                          </InfoItem>
-                          {(ct.tournees.accompagnant_nom ||
-                            ct.tournees.accompagnant_telephone) && (
-                            <>
-                              <InfoItem variant="hint" label="Accompagnant">
-                                {ct.tournees.accompagnant_nom ?? '—'}
-                              </InfoItem>
-                              <InfoItem
-                                variant="hint"
-                                label="Tél. accompagnant"
-                              >
-                                {ct.tournees.accompagnant_telephone ?? '—'}
-                              </InfoItem>
-                            </>
-                          )}
-                        </dl>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <form
-                    onSubmit={(e) => void handleSaveInfosAcces(e)}
-                    className="space-y-3"
-                  >
-                    {collecte.collecte_tournees.map((ct) => {
-                      const v = infosAccesInput[ct.tournees.id] ?? {
-                        plaque_immatriculation: '',
-                        chauffeur_nom: '',
-                        chauffeur_telephone: '',
-                        accompagnant_nom: '',
-                        accompagnant_telephone: '',
-                      };
-                      const setField = (
-                        field: keyof typeof v,
-                        val: string,
-                      ): void =>
-                        setInfosAccesInput((prev) => ({
-                          ...prev,
-                          [ct.tournees.id]: {
-                            ...v,
-                            ...prev[ct.tournees.id],
-                            [field]: val,
-                          },
-                        }));
-                      return (
-                        <div
-                          key={ct.tournees.id}
-                          className="space-y-2.5 rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-3"
-                        >
-                          <p className="text-sm font-medium">
-                            Camion {ct.rang}
-                          </p>
-                          <FormGrid>
-                            <FormField
-                              label="Plaque d’immatriculation"
-                              htmlFor={`infos-acces-${ct.tournees.id}-plaque`}
-                            >
-                              <Input
-                                id={`infos-acces-${ct.tournees.id}-plaque`}
-                                value={v.plaque_immatriculation}
-                                onChange={(e) =>
-                                  setField(
-                                    'plaque_immatriculation',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                            </FormField>
-                            <FormField
-                              label="Nom du chauffeur"
-                              htmlFor={`infos-acces-${ct.tournees.id}-chauffeur-nom`}
-                            >
-                              <Input
-                                id={`infos-acces-${ct.tournees.id}-chauffeur-nom`}
-                                value={v.chauffeur_nom}
-                                onChange={(e) =>
-                                  setField('chauffeur_nom', e.target.value)
-                                }
-                              />
-                            </FormField>
-                            <FormField
-                              label="Téléphone du chauffeur"
-                              htmlFor={`infos-acces-${ct.tournees.id}-chauffeur-tel`}
-                            >
-                              <Input
-                                id={`infos-acces-${ct.tournees.id}-chauffeur-tel`}
-                                type="tel"
-                                value={v.chauffeur_telephone}
-                                onChange={(e) =>
-                                  setField(
-                                    'chauffeur_telephone',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                            </FormField>
-                            <FormField
-                              label="Nom de l’accompagnant (facultatif)"
-                              htmlFor={`infos-acces-${ct.tournees.id}-accompagnant-nom`}
-                            >
-                              <Input
-                                id={`infos-acces-${ct.tournees.id}-accompagnant-nom`}
-                                value={v.accompagnant_nom}
-                                onChange={(e) =>
-                                  setField('accompagnant_nom', e.target.value)
-                                }
-                              />
-                            </FormField>
-                            <FormField
-                              label="Téléphone de l’accompagnant (facultatif)"
-                              htmlFor={`infos-acces-${ct.tournees.id}-accompagnant-tel`}
-                            >
-                              <Input
-                                id={`infos-acces-${ct.tournees.id}-accompagnant-tel`}
-                                type="tel"
-                                value={v.accompagnant_telephone}
-                                onChange={(e) =>
-                                  setField(
-                                    'accompagnant_telephone',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                            </FormField>
-                          </FormGrid>
-                        </div>
-                      );
-                    })}
-                    <FormActions
-                      cancel={{
-                        label: 'Annuler',
-                        size: 'sm',
-                        onClick: () => setEditInfosAcces(false),
-                      }}
-                      submit={{ label: 'Enregistrer', size: 'sm' }}
-                      loading={infosAccesSaving}
-                      loadingText="Enregistrement…"
-                    />
-                  </form>
-                )}
-              </Card>
-            ) : (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader icon={KeyRound} title="Informations chauffeur" />
-                <Text>
-                  Ce lieu n&apos;exige pas de contrôle d&apos;accès : aucune
-                  information chauffeur n&apos;est demandée.
-                </Text>
-              </Card>
-            )}
           </TabsContent>
 
           <TabsContent value="logistique" className="space-y-4">
@@ -1850,14 +1782,6 @@ export function CollecteDetailPanel({
                           <Text as="span" variant="hint" className="font-mono">
                             {ct.tournees.external_ref_commande ?? '—'}
                           </Text>
-                          <Text
-                            as="span"
-                            variant="hint"
-                            tone="soft"
-                            className="font-mono"
-                          >
-                            {ct.tournees.plaque_immatriculation ?? 'plaque —'}
-                          </Text>
                         </div>
                       ))}
                     </div>
@@ -1865,6 +1789,230 @@ export function CollecteDetailPanel({
                 )}
               </Card>
             )}
+            {/* Chauffeur(s) par camion — même bloc que la fiche client (§06.04
+            « Logistique », décision Val 2026-10-02) : nom, plaque, téléphone
+            remontés automatiquement du prestataire (MTS-1 : référentiel carrier
+            au polling ; A Toutes! : coursier du webhook Everest), complétés par
+            l'Admin si besoin (contrôle d'accès, transporteur manuel). Remplace
+            la card « Informations chauffeur » de l'onglet Informations. */}
+            <Card
+              padding="md"
+              className="space-y-4"
+              data-testid="bloc-chauffeur"
+            >
+              <SectionHeader
+                icon={UserRound}
+                title={titreChauffeur}
+                action={
+                  !editInfosAcces && saisieChauffeurPossible ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={openEditInfosAcces}
+                    >
+                      Modifier les coordonnées
+                    </Button>
+                  ) : undefined
+                }
+              />
+              {collecte.controle_acces_requis && (
+                <>
+                  <Text>
+                    Ce lieu exige un contrôle d’accès : nom et téléphone du
+                    chauffeur (et nom de l’accompagnant s’il y en a un) pour
+                    chaque camion — un email récapitulatif est envoyé au
+                    programmateur dès que toutes les tournées sont complètes.
+                  </Text>
+                  {collecte.infos_acces_email_envoye_at ? (
+                    <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
+                      <Send className="h-4 w-4 shrink-0" />
+                      Email envoyé au programmateur le{' '}
+                      {new Date(
+                        collecte.infos_acces_email_envoye_at,
+                      ).toLocaleDateString('fr-FR', {
+                        timeZone: 'Europe/Paris',
+                      })}
+                    </div>
+                  ) : (
+                    <Text
+                      as="div"
+                      tone="soft"
+                      className="flex items-center gap-2"
+                    >
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
+                      En attente : infos à compléter avant envoi de l’email.
+                    </Text>
+                  )}
+                </>
+              )}
+              {aideChauffeur && <Text>{aideChauffeur}</Text>}
+
+              {infosAccesError && (
+                <AlertBar variant="err">{infosAccesError}</AlertBar>
+              )}
+
+              {rangsChauffeur.length === 0 ? null : !editInfosAcces ? (
+                <div className="space-y-2">
+                  {rangsChauffeur.map((rang) => {
+                    const t = tourneeParRang.get(rang)?.tournees ?? null;
+                    const enAttente = (
+                      <span className="text-savr-neutral-400">En attente</span>
+                    );
+                    return (
+                      <div
+                        key={rang}
+                        data-testid="camion-chauffeur"
+                        className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
+                      >
+                        {rangsChauffeur.length > 1 && (
+                          <p className="mb-1.5 font-medium">Camion {rang}</p>
+                        )}
+                        {t === null && (
+                          <Text variant="hint" tone="soft" className="mb-1.5">
+                            Tournée pas encore créée par le prestataire — la
+                            saisie la crée.
+                          </Text>
+                        )}
+                        <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+                          <InfoItem label="Chauffeur">
+                            {t?.chauffeur_nom?.trim() || enAttente}
+                          </InfoItem>
+                          <InfoItem label="Plaque d’immatriculation">
+                            {t?.plaque_immatriculation?.trim() ||
+                              (t?.type_vehicule === 'velo_cargo' ? (
+                                // Vélo cargo : jamais de plaque, jamais « En attente ».
+                                <span className="text-savr-neutral-400">
+                                  Sans objet (vélo cargo)
+                                </span>
+                              ) : (
+                                enAttente
+                              ))}
+                          </InfoItem>
+                          <InfoItem label="Téléphone">
+                            {t?.chauffeur_telephone?.trim() ? (
+                              <TelephoneLien
+                                telephone={t.chauffeur_telephone}
+                              />
+                            ) : (
+                              enAttente
+                            )}
+                          </InfoItem>
+                          {t?.accompagnant_nom?.trim() && (
+                            <InfoItem label="Accompagnant">
+                              {t.accompagnant_nom}
+                            </InfoItem>
+                          )}
+                        </dl>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <form
+                  onSubmit={(e) => void handleSaveInfosAcces(e)}
+                  className="space-y-3"
+                >
+                  {rangsChauffeur.map((rang) => {
+                    const cle = cleSaisie(rang);
+                    const v = infosAccesInput[cle] ?? {
+                      plaque_immatriculation: '',
+                      chauffeur_nom: '',
+                      chauffeur_telephone: '',
+                      accompagnant_nom: '',
+                      accompagnant_telephone: '',
+                    };
+                    const setField = (
+                      field: keyof typeof v,
+                      val: string,
+                    ): void =>
+                      setInfosAccesInput((prev) => ({
+                        ...prev,
+                        [cle]: { ...v, ...prev[cle], [field]: val },
+                      }));
+                    return (
+                      <div
+                        key={cle}
+                        className="space-y-2.5 rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-3"
+                      >
+                        <p className="text-sm font-medium">
+                          Camion {rang}
+                          {!tourneeParRang.has(rang) && (
+                            <Text as="span" variant="hint" tone="soft">
+                              {' '}
+                              · tournée créée à l’enregistrement
+                            </Text>
+                          )}
+                        </p>
+                        <FormGrid>
+                          <FormField
+                            label="Plaque d’immatriculation"
+                            htmlFor={`infos-acces-${cle}-plaque`}
+                          >
+                            <Input
+                              id={`infos-acces-${cle}-plaque`}
+                              value={v.plaque_immatriculation}
+                              onChange={(e) =>
+                                setField(
+                                  'plaque_immatriculation',
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </FormField>
+                          <FormField
+                            label="Nom du chauffeur"
+                            htmlFor={`infos-acces-${cle}-chauffeur-nom`}
+                          >
+                            <Input
+                              id={`infos-acces-${cle}-chauffeur-nom`}
+                              value={v.chauffeur_nom}
+                              onChange={(e) =>
+                                setField('chauffeur_nom', e.target.value)
+                              }
+                            />
+                          </FormField>
+                          <FormField
+                            label="Téléphone du chauffeur"
+                            htmlFor={`infos-acces-${cle}-chauffeur-tel`}
+                          >
+                            <Input
+                              id={`infos-acces-${cle}-chauffeur-tel`}
+                              type="tel"
+                              value={v.chauffeur_telephone}
+                              onChange={(e) =>
+                                setField('chauffeur_telephone', e.target.value)
+                              }
+                            />
+                          </FormField>
+                          <FormField
+                            label="Nom de l’accompagnant (facultatif)"
+                            htmlFor={`infos-acces-${cle}-accompagnant-nom`}
+                          >
+                            <Input
+                              id={`infos-acces-${cle}-accompagnant-nom`}
+                              value={v.accompagnant_nom}
+                              onChange={(e) =>
+                                setField('accompagnant_nom', e.target.value)
+                              }
+                            />
+                          </FormField>
+                        </FormGrid>
+                      </div>
+                    );
+                  })}
+                  <FormActions
+                    cancel={{
+                      label: 'Annuler',
+                      size: 'sm',
+                      onClick: () => setEditInfosAcces(false),
+                    }}
+                    submit={{ label: 'Enregistrer', size: 'sm' }}
+                    loading={infosAccesSaving}
+                    loadingText="Enregistrement…"
+                  />
+                </form>
+              )}
+            </Card>
             {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
             {collecte.type === 'zero_dechet' && (
               <Card padding="md" className="space-y-4">

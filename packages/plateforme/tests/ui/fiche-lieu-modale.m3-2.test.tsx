@@ -382,7 +382,7 @@ describe('M3.2 / fiche lieu — demande de modification', () => {
       expect(f.getByRole('button', { name: BOUTON })).toBeDisabled();
       expect(
         f.getByText(
-          'Demande envoyée, en cours de traitement par l’équipe Savr.',
+          'Une demande de modification est en cours de traitement par l’équipe Savr.',
         ),
       ).toBeTruthy();
     },
@@ -399,7 +399,7 @@ describe('M3.2 / fiche lieu — demande de modification', () => {
       expect(f.getByRole('button', { name: BOUTON })).toBeDisabled();
       expect(
         f.getByText(
-          'Demande envoyée, en cours de traitement par l’équipe Savr.',
+          'Une demande de modification est en cours de traitement par l’équipe Savr.',
         ),
       ).toBeTruthy();
     },

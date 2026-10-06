@@ -32,11 +32,16 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 //  · le seul texte libre lu dans la requête est `texte`, borné et validé
 //    (lib/lieux/demande-modification) ; il est affiché en texte brut par
 //    l'écran Admin des alertes ;
-//  · une demande OUVERTE par lieu : tant que l'Admin n'a pas résolu l'alerte,
-//    une nouvelle demande est refusée (409) au lieu d'être perdue en silence
-//    (f_upsert_alerte_admin n'insère pas de doublon ouvert) ;
-//  · l'auteur est tracé dans audit_log (historique de la fiche lieu Admin),
-//    alertes_admin ne portant pas de colonne auteur.
+//  · une demande ouverte par lieu, AU MIEUX : la route lit s'il en existe une
+//    et refuse alors la nouvelle (409). Cette lecture n'est pas verrouillée et
+//    aucun index unique ne la double : deux envois au même instant peuvent
+//    ouvrir deux alertes. Aucune n'est perdue — l'alerte est insérée telle
+//    quelle (pas de f_upsert_alerte_admin, qui ignorerait la seconde en
+//    silence), l'Admin les voit toutes les deux ;
+//  · aucune donnée personnelle n'est recopiée : le message nomme le lieu et
+//    l'ORGANISATION qui demande. L'auteur est tracé par audit_log.user_id (qui,
+//    quand), que l'historique de la fiche lieu Admin résout à la lecture ; le
+//    texte saisi n'est pas recopié dans audit_log, journal non modifiable.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -86,38 +91,29 @@ export async function POST(
       { status: 409 },
     );
 
-  // Qui demande : lu avec la session (sa propre ligne, sa propre organisation).
-  const [{ data: demandeur }, { data: organisation }] = await Promise.all([
-    rls
-      .from('users')
-      .select('prenom, nom, email')
-      .eq('id', auth.ctx.userId)
-      .maybeSingle(),
-    rls
-      .from('organisations')
-      .select('nom')
-      .eq('id', auth.ctx.organisationId)
-      .maybeSingle(),
-  ]);
-  const d = demandeur as {
-    prenom: string | null;
-    nom: string | null;
-    email: string | null;
-  } | null;
-  const nomComplet = `${d?.prenom ?? ''} ${d?.nom ?? ''}`.trim();
-  const identite =
-    [nomComplet, d?.email].filter(Boolean).join(', ') ||
-    'un utilisateur du gestionnaire';
-  const orgNom = (organisation as { nom: string | null } | null)?.nom;
+  // Organisation qui demande : sa propre ligne, lue avec la session. Illisible
+  // (erreur ou absence) : la demande part quand même, avec un libellé de repli.
+  const { data: organisation, error: orgErr } = await rls
+    .from('organisations')
+    .select('nom')
+    .eq('id', auth.ctx.organisationId)
+    .maybeSingle();
+  if (orgErr)
+    logger.warn('gestionnaire.lieux.demande_modification.organisation_echec', {
+      lieu_id: id,
+      code: orgErr.code,
+    });
+  const demandeur =
+    (organisation as { nom: string | null } | null)?.nom ?? 'son gestionnaire';
 
-  const { error: alerteErr } = await admin.rpc('f_upsert_alerte_admin', {
-    p_code: CODE_ALERTE_LIEU_MODIFICATION,
-    p_titre: 'Modification d’un lieu demandée par son gestionnaire',
-    p_message:
+  const { error: alerteErr } = await admin.from('alertes_admin').insert({
+    code: CODE_ALERTE_LIEU_MODIFICATION,
+    titre: 'Modification d’un lieu demandée par son gestionnaire',
+    message:
       `Lieu « ${(lieu as { nom: string | null }).nom ?? id} » — demande de ` +
-      `${identite}${orgNom ? ` (${orgNom})` : ''} : ${demande.texte}`,
-    p_entity_type: ENTITE_ALERTE_LIEU,
-    p_entity_id: id,
+      `${demandeur} : ${demande.texte}`,
+    entity_type: ENTITE_ALERTE_LIEU,
+    entity_id: id,
   });
   if (alerteErr)
     return serverError(
@@ -136,7 +132,6 @@ export async function POST(
     user_id: auth.ctx.userId,
     role: auth.ctx.role,
     impersonator_id: auth.ctx.impersonatorId ?? null,
-    new_values: { demande: demande.texte },
   });
   if (auditErr)
     logger.warn('gestionnaire.lieux.demande_modification.audit_echec', {

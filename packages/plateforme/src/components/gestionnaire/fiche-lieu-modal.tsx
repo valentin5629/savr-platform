@@ -30,7 +30,7 @@ import {
   type HistoriqueCollecte,
 } from '@/components/collecte/historique-collectes-table';
 import { fmtKg } from '@/lib/format';
-import { LIBELLE_FLUX, type FluxZdCode } from '@/lib/libelles/flux';
+import { libelleFlux } from '@/lib/libelles/flux';
 import { LONGUEUR_MIN_DEMANDE } from '@/lib/lieux/demande-modification';
 import {
   DIFFICULTE_LABEL,
@@ -45,8 +45,10 @@ import {
 //
 // Lecture seule : le référentiel lieux est tenu par l'Admin Savr (§04). Le pied
 // porte un seul bouton, « Demande de modification d'information », qui dépose
-// une alerte dans la file de l'Admin ; tant qu'elle n'est pas traitée, le
-// bouton est neutralisé.
+// une alerte dans la file de l'Admin ; tant qu'une demande est ouverte pour ce
+// lieu — la sienne, celle d'un collègue ou d'une autre organisation qui voit
+// le lieu — le bouton est neutralisé, d'où une mention qui ne dit pas « votre
+// demande ».
 
 interface CollecteFiche extends HistoriqueCollecte {
   collecte_flux?: { poids_reel_kg?: number | null }[];
@@ -262,7 +264,8 @@ export function FicheLieuModal({
             <>
               {lieu.demande_modification_en_cours && (
                 <Text variant="hint" className="mr-auto self-center">
-                  Demande envoyée, en cours de traitement par l’équipe Savr.
+                  Une demande de modification est en cours de traitement par
+                  l’équipe Savr.
                 </Text>
               )}
               <Button
@@ -431,7 +434,7 @@ export function FicheLieuModal({
                           >
                             {lieu.flux_autorises.map((f) => (
                               <Badge key={f} variant="neutral">
-                                {LIBELLE_FLUX[f as FluxZdCode] ?? f}
+                                {libelleFlux(f)}
                               </Badge>
                             ))}
                           </InfoItem>
@@ -476,7 +479,8 @@ export function FicheLieuModal({
                       <>
                         <Text variant="hint">
                           Liste établie à partir des collectes programmées sur
-                          ce lieu, tous statuts confondus.
+                          ce lieu, tous statuts confondus. Tonnage : collectes
+                          clôturées.
                         </Text>
                         <DataTable
                           columnsToggle={false}

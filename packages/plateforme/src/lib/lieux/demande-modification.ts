@@ -19,8 +19,10 @@ export const LONGUEUR_MAX_DEMANDE = 1000;
 
 // Mêmes refus que `lib/champs-texte-libre` (champ multiligne) : caractères de
 // contrôle C0/DEL/C1 hors tabulation et sauts de ligne — un NUL fait échouer
-// l'écriture Postgres — et demi-surrogate orphelin, que l'analyse JSON de la
-// RPC rejetterait en 500 alors que la saisie mérite un 422.
+// l'écriture Postgres — et demi-surrogate orphelin, que l'analyse JSON de
+// l'écriture rejetterait en 500 alors que la saisie mérite un 422. Les deux
+// expressions sont recopiées : ce module est aussi importé côté client (borne
+// minimale du champ), `champs-texte-libre` est un module serveur.
 /* eslint-disable no-control-regex -- désigner ces plages EST l'objet de la garde. */
 const CONTROLE_HORS_BLANCS =
   /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/;

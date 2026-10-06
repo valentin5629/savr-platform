@@ -5,7 +5,8 @@
  *    (calculés depuis les collectes du lieu, tous statuts), activité 12 mois,
  *    état « demande de modification en cours » ;
  *  - POST /api/v1/gestionnaire/lieux/[id]/demande-modification : alerte in-app
- *    Admin, jamais d'écriture du référentiel lieux.
+ *    Admin, jamais d'écriture du référentiel lieux, aucune donnée personnelle
+ *    recopiée.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -219,7 +220,7 @@ describe('M3.2 / fiche lieu — lecture', () => {
     expect(data.collectes).toHaveLength(1);
     expect(data.collectes[0]?.collecte_flux[0]?.poids_reel_kg).toBe(250);
     // La fiche lit la vue masquée, jamais la table lieux.
-    expect(tables(rls)).toEqual(['v_lieux_clients', 'collectes']);
+    expect([...new Set(tables(rls))]).toEqual(['v_lieux_clients', 'collectes']);
   });
 
   it('M3.2/fiche_lieu_traiteurs_tous_statuts_tries — liste complète, tous statuts, sans limite de date', async () => {
@@ -231,7 +232,9 @@ describe('M3.2 / fiche lieu — lecture', () => {
         // Hors fenêtre de 12 mois : compte pour la liste des traiteurs.
         collecte('c3', KASPIA, { date: joursAvant(900), kg: 200 }),
         collecte('c4', BUTARD, { statut: 'programmee' }),
-        // Ex æquo avec Butard : départagés par le nom.
+        // Réalisée, pas encore clôturée : comptée, mais ses pesées ne sont pas
+        // sommées (le tonnage suit la règle de la liste Lieux : clôturées).
+        collecte('c7', BUTARD, { statut: 'realisee', kg: 999 }),
         collecte('c5', ARPEGE, { statut: 'validee' }),
         // Traiteur illisible pour la session : ligne ignorée, pas d'erreur.
         collecte('c6', null),
@@ -241,18 +244,18 @@ describe('M3.2 / fiche lieu — lecture', () => {
     const { data } = (await (await getFiche()).json()) as { data: Fiche };
     expect(data.traiteurs).toEqual([
       { id: KASPIA.id, nom: 'Kaspia', nb_collectes: 3, tonnage_kg: 500 },
+      { id: BUTARD.id, nom: 'Butard', nb_collectes: 2, tonnage_kg: 0 },
       { id: ARPEGE.id, nom: 'Arpège', nb_collectes: 1, tonnage_kg: 0 },
-      { id: BUTARD.id, nom: 'Butard', nb_collectes: 1, tonnage_kg: 0 },
     ]);
     // L'ancien « top 5 sur 12 mois » n'est plus servi.
     expect(data.top_traiteurs).toBeUndefined();
     // La lecture ne filtre ni le statut ni la date : seul le lieu est filtré.
-    const filtres = appelsDe(rls, 'eq').map((a) => a.args[0]);
-    expect(filtres).toEqual(['id', 'evenements.lieu_id']);
+    const filtres = new Set(appelsDe(rls, 'eq').map((a) => a.args[0]));
+    expect([...filtres]).toEqual(['id', 'evenements.lieu_id']);
     expect(appelsDe(rls, 'gte')).toHaveLength(0);
   });
 
-  it('M3.2/fiche_lieu_traiteurs_lecture_paginee — au-delà de 1 000 collectes, la page suivante est lue', async () => {
+  it('M3.2/fiche_lieu_traiteurs_lecture_paginee — au-delà de 1 000 collectes, les tranches suivantes sont lues', async () => {
     rls.push({ data: LIEU_ROW, error: null });
     rls.push({
       data: Array.from({ length: 1000 }, (_, i) =>
@@ -264,11 +267,36 @@ describe('M3.2 / fiche lieu — lecture', () => {
       data: [collecte('p2-0', KASPIA, { statut: 'programmee' })],
       error: null,
     });
+    // 3e tranche : vide (file épuisée) → fin de lecture.
     const { data } = (await (await getFiche()).json()) as { data: Fiche };
     expect(data.traiteurs[0]?.nb_collectes).toBe(1001);
     expect(appelsDe(rls, 'range').map((a) => a.args)).toEqual([
       [0, 999],
       [1000, 1999],
+      [1001, 2000],
+    ]);
+  });
+
+  it('M3.2/fiche_lieu_traiteurs_plafond_inferieur — un plafond de réponse plus bas que la tranche ne tronque rien', async () => {
+    // Projet dont `max_rows` vaut 100 : chaque réponse est plafonnée, la
+    // lecture avance du nombre de lignes REÇUES jusqu'à une tranche vide.
+    rls.push({ data: LIEU_ROW, error: null });
+    for (const [prefixe, n] of [
+      ['a', 100],
+      ['b', 100],
+      ['c', 40],
+    ] as const) {
+      rls.push({
+        data: Array.from({ length: n }, (_, i) =>
+          collecte(`${prefixe}-${i}`, KASPIA, { statut: 'programmee' }),
+        ),
+        error: null,
+      });
+    }
+    const { data } = (await (await getFiche()).json()) as { data: Fiche };
+    expect(data.traiteurs[0]?.nb_collectes).toBe(240);
+    expect(appelsDe(rls, 'range').map((a) => a.args[0])).toEqual([
+      0, 100, 200, 240,
     ]);
   });
 
@@ -317,6 +345,14 @@ describe('M3.2 / fiche lieu — lecture', () => {
     expect(libre.data.demande_modification_en_cours).toBe(false);
   });
 
+  it('M3.2/fiche_lieu_demande_lecture_en_echec_500 — l’état de la demande illisible n’est pas rendu comme « aucune demande »', async () => {
+    rls.push({ data: LIEU_ROW, error: null });
+    rls.push({ data: [], error: null });
+    admin.push({ data: null, error: { message: 'boom', code: 'XX000' } });
+    const res = await getFiche();
+    expect(res.status).toBe(500);
+  });
+
   it('M3.2/fiche_lieu_hors_perimetre_sans_lecture_service_role — un lieu que la session ne lit pas : 404, file Admin jamais interrogée', async () => {
     rls.push({ data: null, error: null });
     const res = await getFiche();
@@ -353,10 +389,6 @@ describe('M3.2 / fiche lieu — demande de modification', () => {
   function preparerDemande() {
     rls.push({ data: { id: LIEU, nom: 'CNIT Forest' }, error: null }); // lieu
     admin.push({ data: null, error: null }); // aucune alerte ouverte
-    rls.push({
-      data: { prenom: 'Camille', nom: 'Martin', email: 'c.martin@viparis.fr' },
-      error: null,
-    }); // demandeur
     rls.push({ data: { nom: 'Viparis' }, error: null }); // organisation
   }
 
@@ -366,18 +398,15 @@ describe('M3.2 / fiche lieu — demande de modification', () => {
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ data: { demandee: true } });
 
-    const [rpc] = appelsDe(admin, 'rpc');
-    expect(rpc?.args[0]).toBe('f_upsert_alerte_admin');
-    const p = rpc?.args[1] as Record<string, string>;
-    expect(p.p_code).toBe('lieu_modification_demandee');
-    expect(p.p_entity_type).toBe('lieux');
-    expect(p.p_entity_id).toBe(LIEU);
-    expect(p.p_message).toBe(
-      `Lieu « CNIT Forest » — demande de Camille Martin, c.martin@viparis.fr (Viparis) : ${MESSAGE}`,
-    );
-
-    // Trace d'auteur : historique de la fiche lieu Admin.
-    const [audit] = appelsDe(admin, 'insert');
+    const [alerte, audit] = appelsDe(admin, 'insert');
+    expect(alerte?.args[0]).toEqual({
+      code: 'lieu_modification_demandee',
+      titre: 'Modification d’un lieu demandée par son gestionnaire',
+      message: `Lieu « CNIT Forest » — demande de Viparis : ${MESSAGE}`,
+      entity_type: 'lieux',
+      entity_id: LIEU,
+    });
+    // Trace d'auteur : historique de la fiche lieu Admin (qui, quand).
     expect(audit?.args[0]).toEqual({
       table_name: 'lieux',
       record_id: LIEU,
@@ -385,22 +414,46 @@ describe('M3.2 / fiche lieu — demande de modification', () => {
       user_id: 'user-gl',
       role: 'gestionnaire_lieux',
       impersonator_id: null,
-      new_values: { demande: MESSAGE },
     });
+    // Insertion directe : f_upsert_alerte_admin ignorerait en silence une
+    // seconde demande simultanée.
+    expect(appelsDe(admin, 'rpc')).toHaveLength(0);
+  });
+
+  it('M3.2/demande_modification_lieu_sans_donnee_personnelle — ni nom, ni email du demandeur dans l’alerte ; le texte saisi hors du journal d’audit', async () => {
+    preparerDemande();
+    await postDemande({ texte: MESSAGE });
+    // La table users n'est pas lue : rien à recopier.
+    expect(tables(rls)).not.toContain('users');
+    const [alerte, audit] = appelsDe(admin, 'insert');
+    expect(Object.keys(alerte?.args[0] as object).sort()).toEqual([
+      'code',
+      'entity_id',
+      'entity_type',
+      'message',
+      'titre',
+    ]);
+    // audit_log est non modifiable : le texte libre n'y est pas recopié.
+    expect(JSON.stringify(audit?.args[0])).not.toContain(MESSAGE);
+    expect(audit?.args[0]).not.toHaveProperty('new_values');
   });
 
   it('M3.2/demande_modification_lieu_n_ecrit_pas_le_referentiel — la table lieux n’est ni lue en direct ni écrite', async () => {
     preparerDemande();
     await postDemande({ texte: MESSAGE });
-    expect(tables(rls)).toEqual(['v_lieux_clients', 'users', 'organisations']);
-    expect(tables(admin)).toEqual(['alertes_admin', 'audit_log']);
+    expect(tables(rls)).toEqual(['v_lieux_clients', 'organisations']);
+    // Lecture « demande ouverte ? », puis les deux seules écritures.
+    expect(tables(admin)).toEqual([
+      'alertes_admin',
+      'alertes_admin',
+      'audit_log',
+    ]);
     for (const client of [rls, admin]) {
       expect(appelsDe(client, 'update')).toHaveLength(0);
       expect(appelsDe(client, 'delete')).toHaveLength(0);
     }
-    // Seule écriture directe : la trace d'audit.
     expect(appelsDe(rls, 'insert')).toHaveLength(0);
-    expect(appelsDe(admin, 'insert')).toHaveLength(1);
+    expect(appelsDe(admin, 'insert')).toHaveLength(2);
   });
 
   it('M3.2/demande_modification_lieu_hors_perimetre_404 — un lieu que la session ne lit pas : rien n’est écrit', async () => {
@@ -418,7 +471,6 @@ describe('M3.2 / fiche lieu — demande de modification', () => {
     expect(await res.json()).toEqual({
       error: 'Une demande est déjà en cours de traitement pour ce lieu.',
     });
-    expect(appelsDe(admin, 'rpc')).toHaveLength(0);
     expect(appelsDe(admin, 'insert')).toHaveLength(0);
   });
 
@@ -470,34 +522,54 @@ describe('M3.2 / fiche lieu — demande de modification', () => {
   });
 
   it('M3.2/demande_modification_lieu_alerte_en_echec_500 — l’échec de l’alerte n’est pas annoncé comme un succès', async () => {
-    rls.push({ data: { id: LIEU, nom: 'CNIT Forest' }, error: null });
-    admin.push({ data: null, error: null }); // aucune alerte ouverte
-    rls.push({ data: null, error: null }); // demandeur
-    rls.push({ data: null, error: null }); // organisation
-    admin.push({ data: null, error: { message: 'boom', code: 'XX000' } }); // rpc
+    preparerDemande();
+    admin.push({ data: null, error: { message: 'boom', code: 'XX000' } }); // alerte
     const res = await postDemande({ texte: MESSAGE });
     expect(res.status).toBe(500);
+    // Pas de trace d'audit pour une demande qui n'existe pas.
+    expect(appelsDe(admin, 'insert')).toHaveLength(1);
+  });
+
+  it('M3.2/demande_modification_lieu_lectures_en_echec_500 — lieu ou demande ouverte illisibles : rien n’est écrit', async () => {
+    rls.push({ data: null, error: { message: 'boom', code: 'XX000' } }); // lieu
+    expect((await postDemande({ texte: MESSAGE })).status).toBe(500);
+    expect(admin.appels).toHaveLength(0);
+
+    rls = makeChain();
+    admin = makeChain();
+    rls.push({ data: { id: LIEU, nom: 'CNIT Forest' }, error: null });
+    admin.push({ data: null, error: { message: 'boom', code: 'XX000' } }); // ouverte ?
+    expect((await postDemande({ texte: MESSAGE })).status).toBe(500);
     expect(appelsDe(admin, 'insert')).toHaveLength(0);
   });
 
   it('M3.2/demande_modification_lieu_audit_en_echec_demande_conservee — l’alerte posée, un audit en échec ne fait pas échouer la demande', async () => {
     preparerDemande();
-    admin.push({ data: null, error: null }); // rpc OK
+    admin.push({ data: null, error: null }); // alerte OK
     admin.push({ data: null, error: { message: 'boom', code: 'XX000' } }); // audit
     const res = await postDemande({ texte: MESSAGE });
     expect(res.status).toBe(201);
   });
 
-  it('M3.2/demande_modification_lieu_demandeur_illisible — identité de repli, jamais « undefined »', async () => {
-    rls.push({ data: { id: LIEU, nom: 'CNIT Forest' }, error: null });
-    admin.push({ data: null, error: null });
-    rls.push({ data: null, error: null }); // demandeur illisible
-    rls.push({ data: null, error: null }); // organisation illisible
-    await postDemande({ texte: MESSAGE });
-    const p = appelsDe(admin, 'rpc')[0]?.args[1] as Record<string, string>;
-    expect(p.p_message).toBe(
-      `Lieu « CNIT Forest » — demande de un utilisateur du gestionnaire : ${MESSAGE}`,
-    );
+  it('M3.2/demande_modification_lieu_organisation_illisible — organisation absente ou en erreur : la demande part avec un libellé de repli', async () => {
+    for (const organisation of [
+      { data: null, error: null },
+      { data: null, error: { message: 'boom', code: '42501' } },
+    ]) {
+      rls = makeChain();
+      admin = makeChain();
+      rls.push({ data: { id: LIEU, nom: 'CNIT Forest' }, error: null });
+      admin.push({ data: null, error: null });
+      rls.push(organisation);
+      const res = await postDemande({ texte: MESSAGE });
+      expect(res.status).toBe(201);
+      const alerte = appelsDe(admin, 'insert')[0]?.args[0] as {
+        message: string;
+      };
+      expect(alerte.message).toBe(
+        `Lieu « CNIT Forest » — demande de son gestionnaire : ${MESSAGE}`,
+      );
+    }
   });
 });
 

@@ -15,10 +15,11 @@ import {
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
-// Taille de page de la lecture des collectes du lieu : PostgREST plafonne une
-// réponse (1 000 lignes), on lit donc par pages jusqu'à épuisement plutôt que
-// de tronquer en silence la liste des traiteurs d'un lieu très actif.
-const PAGE = 1000;
+// Lecture des collectes du lieu par tranches, jusqu'à une tranche vide :
+// PostgREST plafonne une réponse (`max_rows` du projet), et rien ne doit être
+// tronqué en silence quel que soit ce plafond (même patron que
+// lib/registre/registre.ts).
+const TRANCHE = 1000;
 
 interface CollecteDuLieu {
   id: string;
@@ -52,7 +53,9 @@ function poidsDe(c: CollecteDuLieu): number {
 //   - `traiteurs` : traiteurs opérant sur le lieu, calculés à la lecture depuis
 //     ses collectes (traiteur opérationnel de l'événement, tous statuts, sans
 //     limite de date — même règle que la fiche lieu Admin, §04 note sous la
-//     table `lieux`), avec leur nombre de collectes et leur tonnage ZD ;
+//     table `lieux`), avec leur nombre de collectes et leur tonnage ZD. Le
+//     tonnage ne somme que les collectes clôturées, comme le « Tonnage ZD »
+//     de la liste Lieux et l'onglet Activité (pesées validées) ;
 //   - `collectes` : collectes clôturées des 12 derniers mois (onglet Activité) ;
 //   - `demande_modification_en_cours` : une demande de modification attend
 //     l'équipe Savr (le bouton de la fiche est alors neutralisé).
@@ -88,7 +91,7 @@ export async function GET(
     return NextResponse.json({ error: 'Lieu non trouvé' }, { status: 404 });
 
   const toutes: CollecteDuLieu[] = [];
-  for (let debut = 0; ; debut += PAGE) {
+  for (let debut = 0; ; ) {
     const { data: page, error: collectesErr } = await supabase
       .from('collectes')
       .select(
@@ -100,12 +103,13 @@ export async function GET(
       .eq('evenements.lieu_id', id)
       .order('date_collecte', { ascending: false })
       .order('id')
-      .range(debut, debut + PAGE - 1);
+      .range(debut, debut + TRANCHE - 1);
     if (collectesErr)
       return serverError(collectesErr, 'gestionnaire.lieux.get.collectes');
     const lignes = (page ?? []) as unknown as CollecteDuLieu[];
+    if (lignes.length === 0) break;
     toutes.push(...lignes);
-    if (lignes.length < PAGE) break;
+    debut += lignes.length;
   }
 
   const parTraiteur = new Map<
@@ -121,7 +125,7 @@ export async function GET(
       tonnage_kg: 0,
     };
     cur.nb_collectes += 1;
-    cur.tonnage_kg += poidsDe(c);
+    if (c.statut === 'cloturee') cur.tonnage_kg += poidsDe(c);
     parTraiteur.set(traiteur.id, cur);
   }
   const traiteurs = [...parTraiteur.entries()]

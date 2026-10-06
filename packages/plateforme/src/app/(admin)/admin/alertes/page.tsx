@@ -102,7 +102,7 @@ export default function AlertesPage() {
         <div className="max-w-xl">
           <p className="font-medium text-savr-neutral-900">{row.titre}</p>
           {row.message && (
-            <Text variant="hint" className="mt-0.5">
+            <Text variant="hint" className="mt-0.5 whitespace-pre-line">
               {row.message}
             </Text>
           )}

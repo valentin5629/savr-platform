@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { StatCard } from '@/components/ui/stat-card';
 import { Tooltip } from '@/components/ui/tooltip';
-import { BlocHeader, InfoItem } from '@/components/collecte/fiche-blocs';
+import { SectionHeader } from '@/components/ui/section-header';
+import { InfoItem } from '@/components/ui/info-item';
 import {
   BlocAssociation,
   type FicheClientDonnees,
@@ -299,7 +300,7 @@ export function OngletBilan({
 
       {sansExcedent ? (
         <Card padding="md" className="space-y-4" data-testid="bloc-aucun-repas">
-          <BlocHeader icon={MinusCircle} title="Aucun repas collecté" />
+          <SectionHeader icon={MinusCircle} title="Aucun repas collecté" />
           <Text tone="soft" className="leading-relaxed">
             Notre chauffeur s’est présenté sur place, mais il n’y avait pas
             d’excédent alimentaire à donner. Aucune attestation de don n’est

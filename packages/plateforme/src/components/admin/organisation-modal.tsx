@@ -1,15 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import { Building2, Mail, MapPin, type LucideIcon } from 'lucide-react';
+import { Building2, Mail, MapPin } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { normaliserSiretOrganisation } from '@/lib/siret-organisation';
-import { Heading } from '@/components/ui/heading';
+import { SectionCard } from '@/components/ui/section-header';
 import { LIBELLE_TYPE_ORGANISATION } from '@/lib/libelles/organisation';
+import {
+  MESSAGE_FORMAT_SIRET,
+  messageObligatoire,
+} from '@/lib/libelles/validation';
 import { FormActions } from '@/components/ui/form-actions';
 
 interface FormValues {
@@ -31,32 +36,6 @@ const VIDE: FormValues = {
   telephone: '',
   adresse: '',
 };
-
-// Bloc thématique — même gabarit Design System que la modale association
-// (carte bordée + pastille primary + titre extrabold, §10).
-function Bloc({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-savr-md border border-savr-neutral-200 bg-savr-white p-4 sm:p-5">
-      <div className="mb-4 flex items-center gap-2.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
-          <Icon className="h-[18px] w-[18px]" />
-        </span>
-        <Heading level={3} weight="extrabold" className="tracking-[-0.01em]">
-          {title}
-        </Heading>
-      </div>
-      <div className="space-y-4">{children}</div>
-    </section>
-  );
-}
 
 interface OrganisationModalProps {
   open: boolean;
@@ -95,16 +74,16 @@ export function OrganisationModal({
 
   function validate(): boolean {
     const next: Record<string, string> = {};
-    if (!values.nom.trim()) next.nom = 'Nom obligatoire';
+    if (!values.nom.trim()) next.nom = messageObligatoire('Nom');
     if (!values.raison_sociale.trim())
-      next.raison_sociale = 'Raison sociale obligatoire';
-    if (!values.type) next.type = 'Type obligatoire';
+      next.raison_sociale = messageObligatoire('Raison sociale');
+    if (!values.type) next.type = messageObligatoire('Type');
     if (!values.email_principal.trim())
-      next.email_principal = 'Email principal obligatoire';
+      next.email_principal = messageObligatoire('Email principal');
     // Même normalisation que POST/PATCH /admin/organisations (§06.06) : le
     // contrôle client ne peut pas diverger du contrôle serveur.
     if (!normaliserSiretOrganisation(values.siret).valide)
-      next.siret = 'SIRET : 14 chiffres';
+      next.siret = MESSAGE_FORMAT_SIRET;
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -183,8 +162,8 @@ export function OrganisationModal({
       footer={footer}
     >
       <form onSubmit={handleFormSubmit} noValidate className="space-y-4">
-        <Bloc icon={Building2} title="Identité">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <SectionCard icon={Building2} title="Identité">
+          <FormGrid>
             <FormField
               label="Nom"
               htmlFor="om_nom"
@@ -194,6 +173,7 @@ export function OrganisationModal({
             >
               <Input
                 id="om_nom"
+                required
                 value={values.nom}
                 onChange={(e) => set('nom', e.target.value)}
                 error={Boolean(errors.nom)}
@@ -207,6 +187,7 @@ export function OrganisationModal({
             >
               <Input
                 id="om_raison_sociale"
+                required
                 value={values.raison_sociale}
                 onChange={(e) => set('raison_sociale', e.target.value)}
                 error={Boolean(errors.raison_sociale)}
@@ -244,11 +225,11 @@ export function OrganisationModal({
                 error={Boolean(errors.siret)}
               />
             </FormField>
-          </div>
-        </Bloc>
+          </FormGrid>
+        </SectionCard>
 
-        <Bloc icon={Mail} title="Contact">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <SectionCard icon={Mail} title="Contact">
+          <FormGrid>
             <FormField
               label="Email principal"
               htmlFor="om_email_principal"
@@ -258,6 +239,7 @@ export function OrganisationModal({
               <Input
                 id="om_email_principal"
                 type="email"
+                required
                 value={values.email_principal}
                 onChange={(e) => set('email_principal', e.target.value)}
                 error={Boolean(errors.email_principal)}
@@ -271,10 +253,10 @@ export function OrganisationModal({
                 onChange={(e) => set('telephone', e.target.value)}
               />
             </FormField>
-          </div>
-        </Bloc>
+          </FormGrid>
+        </SectionCard>
 
-        <Bloc icon={MapPin} title="Adresse">
+        <SectionCard icon={MapPin} title="Adresse">
           <FormField
             label="Adresse"
             htmlFor="om_adresse"
@@ -286,7 +268,7 @@ export function OrganisationModal({
               onChange={(e) => set('adresse', e.target.value)}
             />
           </FormField>
-        </Bloc>
+        </SectionCard>
 
         {serverError && (
           <AlertBar variant="err" role="alert">

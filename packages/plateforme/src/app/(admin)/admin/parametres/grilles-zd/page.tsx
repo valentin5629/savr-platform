@@ -7,8 +7,11 @@ import { Modal } from '@/components/ui/modal';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useUserRole } from '@/lib/use-user-role';
@@ -242,7 +245,7 @@ export default function GrillesZdPage() {
             />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-4">
+          <FormGrid>
             <FormField label="Mode" htmlFor="grille-mode">
               <Combobox
                 id="grille-mode"
@@ -270,17 +273,16 @@ export default function GrillesZdPage() {
                 required
               />
             </FormField>
-          </div>
+          </FormGrid>
 
-          <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
-            <input
-              type="checkbox"
+          <Label variant="choice" className="flex items-center gap-2">
+            <Checkbox
               checked={fDefaut}
-              onChange={(e) => setFDefaut(e.target.checked)}
+              onCheckedChange={(v) => setFDefaut(v === true)}
             />
             Définir comme grille par défaut (ferme la grille par défaut actuelle
             — non rétroactif)
-          </label>
+          </Label>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -302,6 +304,7 @@ export default function GrillesZdPage() {
                 <FormField
                   label="Pax min"
                   htmlFor={`palier-${i}-pax-min`}
+                  required
                   className="flex-1"
                 >
                   <Input
@@ -329,6 +332,7 @@ export default function GrillesZdPage() {
                 <FormField
                   label="Prix fixe HT"
                   htmlFor={`palier-${i}-prix-base`}
+                  required
                   className="flex-1"
                 >
                   <Input

@@ -5,6 +5,7 @@ import { requireStaff } from '@/lib/api-auth.js';
 import { ASSOCIATIONS_ADMIN_FIELDS } from '@/lib/associations-champs-admin.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { estSiren } from '@savr/shared/src/validation/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(
@@ -140,7 +141,7 @@ export async function PATCH(
   if (
     typeof updates.siren === 'string' &&
     updates.siren !== '' &&
-    !/^\d{9}$/.test(updates.siren)
+    !estSiren(updates.siren)
   ) {
     return NextResponse.json(
       { error: 'siren doit contenir 9 chiffres' },

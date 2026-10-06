@@ -4,10 +4,12 @@ import { useId, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { FormError } from '@/components/ui/form-error';
 import { useToast } from '@/components/ui/toast';
+import { validatePasswordStrength } from '@/lib/password';
 
 // Panneau « Changer mon mot de passe » (transverse, tous rôles) — CDC §06.04 §7.
 // Câble le changement de mot de passe IN-APP pour l'utilisateur connecté :
@@ -15,6 +17,9 @@ import { useToast } from '@/components/ui/toast';
 // 10 caractères + majuscule + chiffre + spécial — est vérifiée côté serveur par
 // validatePasswordStrength, même helper que le signup). Remplace le lien inerte
 // « <a href="/login"> » de la carte Sécurité (BL-P1-TRAIT-02).
+// R-UI-5 F9 : la même fonction est rejouée ici avant le réseau, APRÈS le
+// contrôle de confirmation (ordre inchangé pour l'utilisateur) — jamais en
+// remplacement du contrôle serveur.
 export function ChangerMotDePassePanel(): React.JSX.Element {
   const idMotDePasse = useId();
   const idConfirmation = useId();
@@ -30,6 +35,11 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
     setErreur(null);
     if (motDePasse !== confirmation) {
       setErreur('Les deux mots de passe ne correspondent pas.');
+      return;
+    }
+    const force = validatePasswordStrength(motDePasse);
+    if (!force.ok) {
+      setErreur(force.error);
       return;
     }
     setEnCours(true);
@@ -59,7 +69,7 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
       </CardHeader>
       <CardContent>
         <form onSubmit={soumettre} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <FormGrid>
             <FormField label="Nouveau mot de passe" htmlFor={idMotDePasse}>
               <Input
                 id={idMotDePasse}
@@ -78,7 +88,7 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
                 autoComplete="new-password"
               />
             </FormField>
-          </div>
+          </FormGrid>
           <Text variant="hint">
             Au moins 10 caractères, dont une majuscule, un chiffre et un
             caractère spécial.

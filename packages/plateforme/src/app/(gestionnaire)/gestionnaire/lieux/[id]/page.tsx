@@ -16,6 +16,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HistoriqueCollectesTable } from '@/components/collecte/historique-collectes-table';
 import { Text } from '@/components/ui/text';
+import { InfoItem } from '@/components/ui/info-item';
 import { ROUTES } from '@/lib/routes';
 
 interface LieuDetail {
@@ -75,28 +76,6 @@ function evolutionMensuelle(
     bucket.kg += kg;
   }
   return buckets.map((b) => ({ mois: b.mois, kg: b.kg }));
-}
-
-// Libellé « clé : valeur » de la card Informations (§10 §2.3 neutres tintés).
-function Champ({
-  libelle,
-  children,
-  large = false,
-}: {
-  libelle: string;
-  children: React.ReactNode;
-  large?: boolean;
-}) {
-  return (
-    <div className={large ? 'sm:col-span-2' : undefined}>
-      <Text as="dt" variant="overline">
-        {libelle}
-      </Text>
-      <dd className="mt-0.5 flex flex-wrap items-center gap-1 text-savr-neutral-900">
-        {children}
-      </dd>
-    </div>
-  );
 }
 
 export default function LieuDetailPage({
@@ -205,14 +184,18 @@ export default function LieuDetailPage({
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-            <Champ libelle="Adresse">{adresseComplete}</Champ>
-            <Champ libelle="Région">{lieu.region ?? '—'}</Champ>
-            <Champ libelle="Capacité">
+            <InfoItem variant="overline" label="Adresse">
+              {adresseComplete}
+            </InfoItem>
+            <InfoItem variant="overline" label="Région">
+              {lieu.region ?? '—'}
+            </InfoItem>
+            <InfoItem variant="overline" label="Capacité">
               {lieu.capacite_maximum != null
                 ? `${lieu.capacite_maximum} pers.`
                 : '—'}
-            </Champ>
-            <Champ libelle="Véhicule max">
+            </InfoItem>
+            <InfoItem variant="overline" label="Véhicule max">
               {lieu.type_vehicule_max ? (
                 <Badge variant="neutral">
                   {VEHICULE_LABEL[lieu.type_vehicule_max] ??
@@ -221,33 +204,39 @@ export default function LieuDetailPage({
               ) : (
                 '—'
               )}
-            </Champ>
-            <Champ libelle="Stationnement">{lieu.stationnement ?? '—'}</Champ>
-            <Champ libelle="Accès office">
+            </InfoItem>
+            <InfoItem variant="overline" label="Stationnement">
+              {lieu.stationnement ?? '—'}
+            </InfoItem>
+            <InfoItem variant="overline" label="Accès office">
               {lieu.acces_office == null
                 ? '—'
                 : lieu.acces_office
                   ? 'Oui'
                   : 'Non'}
-            </Champ>
+            </InfoItem>
             {lieu.acces_details && (
-              <Champ libelle="Détails accès" large>
+              <InfoItem variant="overline" label="Détails accès" pleineLargeur>
                 {lieu.acces_details}
-              </Champ>
+              </InfoItem>
             )}
             {lieu.contraintes_horaires && (
-              <Champ libelle="Contraintes horaires" large>
+              <InfoItem
+                variant="overline"
+                label="Contraintes horaires"
+                pleineLargeur
+              >
                 {lieu.contraintes_horaires}
-              </Champ>
+              </InfoItem>
             )}
             {lieu.flux_autorises && lieu.flux_autorises.length > 0 && (
-              <Champ libelle="Flux autorisés" large>
+              <InfoItem variant="overline" label="Flux autorisés" pleineLargeur>
                 {lieu.flux_autorises.map((f) => (
                   <Badge key={f} variant="neutral">
                     {f}
                   </Badge>
                 ))}
-              </Champ>
+              </InfoItem>
             )}
           </dl>
         </CardContent>

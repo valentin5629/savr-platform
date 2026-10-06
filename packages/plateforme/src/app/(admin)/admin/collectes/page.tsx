@@ -18,6 +18,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
@@ -724,7 +725,10 @@ export default function CollectesPage() {
 
         {/* Booléens — case DS (§6 Checkbox), cible 44px mobile */}
         <div className="flex flex-wrap gap-x-4 px-2">
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
+          <Label
+            variant="choice"
+            className="flex min-h-11 items-center gap-2 sm:min-h-9"
+          >
             <Checkbox
               checked={infoIncomplete}
               onCheckedChange={(v) =>
@@ -732,8 +736,11 @@ export default function CollectesPage() {
               }
             />
             Info incomplète
-          </label>
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
+          </Label>
+          <Label
+            variant="choice"
+            className="flex min-h-11 items-center gap-2 sm:min-h-9"
+          >
             <Checkbox
               checked={rapportNonConsulte}
               onCheckedChange={(v) =>
@@ -741,7 +748,7 @@ export default function CollectesPage() {
               }
             />
             Rapport non consulté
-          </label>
+          </Label>
         </div>
       </FilterBar>
 

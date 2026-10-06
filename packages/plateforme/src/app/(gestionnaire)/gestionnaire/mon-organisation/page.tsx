@@ -3,8 +3,6 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
-import { useToast } from '@/components/ui/toast';
-import { AlertBar } from '@/components/ui/alert-bar';
 import { fmtEuro } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { useEffect, useState } from 'react';
@@ -13,8 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { LogoCard } from '@/components/organisation/logo-card';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
+import { InviterUtilisateurCarte } from '@/components/organisation/inviter-utilisateur-modal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { Heading } from '@/components/ui/heading';
@@ -154,14 +151,6 @@ export default function MonOrganisationPage() {
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState('');
 
-  // Invitation form
-  const [email, setEmail] = useState('');
-  const [prenom, setPrenom] = useState('');
-  const [nom, setNom] = useState('');
-  const [inviting, setInviting] = useState(false);
-  const [inviteErreur, setInviteErreur] = useState('');
-  const { toast } = useToast();
-
   useEffect(() => {
     // Ignore la réponse d'un onglet quitté entre-temps (sinon son erreur ou
     // sa fin de chargement s'appliquerait à l'onglet courant).
@@ -193,29 +182,13 @@ export default function MonOrganisationPage() {
     };
   }, [tab]);
 
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault();
-    setInviting(true);
-    setInviteErreur('');
-    const res = await fetch('/api/v1/gestionnaire/mon-organisation/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, prenom, nom, role: 'gestionnaire_lieux' }),
-    });
-    if (res.ok) {
-      toast({ title: 'Invitation envoyée.', variant: 'success' });
-      setEmail('');
-      setPrenom('');
-      setNom('');
-      const j = await fetch('/api/v1/gestionnaire/mon-organisation/users').then(
-        (r) => r.json(),
-      );
-      setUsers((j.data ?? []) as UserRow[]);
-    } else {
-      const j = (await res.json()) as { error?: string };
-      setInviteErreur(j.error ?? "Erreur lors de l'invitation.");
-    }
-    setInviting(false);
+  // Après une invitation (formulaire commun InviterUtilisateurCarte) : liste
+  // des membres rechargée.
+  async function rechargerMembres() {
+    const j = await fetch('/api/v1/gestionnaire/mon-organisation/users').then(
+      (r) => r.json(),
+    );
+    setUsers((j.data ?? []) as UserRow[]);
   }
 
   const { confirmer, dialogue } = useConfirm();
@@ -349,55 +322,20 @@ export default function MonOrganisationPage() {
             </Card>
 
             {/* Invitation */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Inviter un membre</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleInvite} className="space-y-3">
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <FormField label="Prénom" htmlFor="invite-prenom" required>
-                      <Input
-                        id="invite-prenom"
-                        type="text"
-                        autoComplete="given-name"
-                        value={prenom}
-                        onChange={(e) => setPrenom(e.target.value)}
-                        required
-                      />
-                    </FormField>
-                    <FormField label="Nom" htmlFor="invite-nom" required>
-                      <Input
-                        id="invite-nom"
-                        type="text"
-                        autoComplete="family-name"
-                        value={nom}
-                        onChange={(e) => setNom(e.target.value)}
-                        required
-                      />
-                    </FormField>
-                    <FormField label="Email" htmlFor="invite-email" required>
-                      <Input
-                        id="invite-email"
-                        type="email"
-                        autoComplete="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                      />
-                    </FormField>
-                  </div>
-                  {inviteErreur && (
-                    <AlertBar variant="err" role="alert">
-                      {inviteErreur}
-                    </AlertBar>
-                  )}
-                  <Button type="submit" loading={inviting} loadingText="Envoi…">
-                    {"Envoyer l'invitation"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            <InviterUtilisateurCarte
+              titre="Inviter un membre"
+              endpoint="/api/v1/gestionnaire/mon-organisation/users"
+              corps={({ prenom, nom, email }) => ({
+                email,
+                prenom,
+                nom,
+                role: 'gestionnaire_lieux',
+              })}
+              erreurParDefaut="Erreur lors de l'invitation."
+              libelleBouton="Envoyer l'invitation"
+              autoComplete
+              onInvited={rechargerMembres}
+            />
           </TabsContent>
         )}
 

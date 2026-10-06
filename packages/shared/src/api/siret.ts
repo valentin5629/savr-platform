@@ -2,14 +2,16 @@ import {
   logIntegration,
   type IntegrationLogEntry,
 } from './integrations-log.js';
+import { estSiret } from '../validation/index.js';
 
 export type SiretVerificationResult = 'verifie' | 'echec' | 'down';
 
 // Format SIRET : 14 chiffres exactement (5 SIREN + 5 + 4 NIC). Garde de saisie en amont
 // de l'appel INSEE — un format invalide est une erreur utilisateur (422), pas un 'echec' INSEE.
 // Aligné §06.11 RPC f_completer_siret_shadow (« format 14 chiffres »).
+// Regex partagée (R-UI-5 F9) ; le trim des bords reste propre à ce site.
 export function isValidSiretFormat(siret: string): boolean {
-  return /^\d{14}$/.test(siret.trim());
+  return estSiret(siret.trim());
 }
 
 // En test, le mock prend le relais via mockInseeVerify()

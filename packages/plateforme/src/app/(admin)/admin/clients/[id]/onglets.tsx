@@ -1179,9 +1179,10 @@ export function OngletRemises({
         </Heading>
         <div className="flex items-center gap-4">
           {/* Filtre « Actives uniquement » : Checkbox du DS (R-UI-4b, D11). */}
-          <label
+          <Label
+            variant="choice"
             htmlFor="remises-actives-only"
-            className="flex items-center gap-2 text-sm text-savr-neutral-600"
+            className="flex items-center gap-2 text-savr-neutral-600"
           >
             <Checkbox
               id="remises-actives-only"
@@ -1189,7 +1190,7 @@ export function OngletRemises({
               onCheckedChange={(v) => setActivesOnly(v === true)}
             />
             Actives uniquement
-          </label>
+          </Label>
           {canEdit && (
             <Button size="sm" onClick={openCreer}>
               Créer une remise
@@ -1280,7 +1281,10 @@ export function OngletRemises({
                   Lieux concernés
                 </legend>
                 <div className="mt-2 max-h-60 space-y-2 overflow-y-auto rounded-savr-md border border-savr-neutral-200 p-3">
-                  <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
+                  <Label
+                    variant="choice"
+                    className="flex min-h-11 items-center gap-3 font-medium"
+                  >
                     <Checkbox
                       checked={fLieuIds.length === 0}
                       onCheckedChange={(v) => {
@@ -1288,11 +1292,12 @@ export function OngletRemises({
                       }}
                     />
                     Tous les lieux du gestionnaire
-                  </label>
+                  </Label>
                   {lieuxGestionnaire.map((l) => (
-                    <label
+                    <Label
                       key={l.id}
-                      className="flex min-h-11 items-center gap-3 text-sm"
+                      variant="choice"
+                      className="flex min-h-11 items-center gap-3"
                     >
                       <Checkbox
                         checked={fLieuIds.includes(l.id)}
@@ -1305,7 +1310,7 @@ export function OngletRemises({
                         }
                       />
                       {l.nom}
-                    </label>
+                    </Label>
                   ))}
                 </div>
                 <Text variant="hint" className="mt-1">

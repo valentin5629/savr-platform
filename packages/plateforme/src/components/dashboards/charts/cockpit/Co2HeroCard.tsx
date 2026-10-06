@@ -32,7 +32,7 @@ interface Co2HeroCardAgProps {
 }
 type Co2HeroCardProps = Co2HeroCardZdProps | Co2HeroCardAgProps;
 
-const GRAPHIE_CO2 = 'CO₂e évité'; // graphie CO₂ = arbitrage Q6 ouvert
+const GRAPHIE_CO2 = 'CO₂e évité'; // graphie CO₂ : Q6 tranché « CO₂e » (2026-10-06)
 
 export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
   const ag = props.variant === 'ag';

@@ -28,7 +28,8 @@ const badgeVariants = cva(
       },
       // Taille (R-UI-2 C14) : `sm` = badge dense des tableaux, remplace les
       // tailles ad hoc 11 px / 10 px. Q9 (b, 2026-10-06) :
-      // 11 px arrondi à 12 px (`text-xs`) ; `sm` garde le padding du badge.
+      // 11 px arrondi à 12 px (`text-xs`) : `sm` rend désormais comme `md`
+      // (alias conservé pour les tableaux denses, rendu identique testé).
       size: {
         md: '',
         sm: 'text-xs',

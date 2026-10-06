@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
-import { SEUIL_TONNES_KG, UNITE_KG_CO2E } from '@/lib/format';
+import { SEUIL_TONNES_KG, UNITE_KG_CO2E, uniteCo2 } from '@/lib/format';
 import { TonnageDisplay } from './TonnageDisplay';
 import { fmtMasse } from './charts/cockpit/fmt';
 
@@ -24,12 +24,15 @@ describe('R-UI-6c — Q5 seuil kg → t', () => {
 
   it('fmtMasse (cockpit) bascule au même seuil', () => {
     expect(fmtMasse(9999).unit).toBe('kg');
-    expect(fmtMasse(10_000).unit).toBe('t');
+    // Scénario 11-12 : 10 000 kg → « 10 t » (0-1 décimale, comme TonnageDisplay).
+    expect(fmtMasse(10_000)).toEqual({ value: '10', unit: 't' });
+    expect(fmtMasse(48_600)).toEqual({ value: '48,6', unit: 't' });
   });
 });
 
 describe('R-UI-6c — Q6 graphie CO₂', () => {
   it('« kg CO₂e » avec espace insécable', () => {
-    expect(UNITE_KG_CO2E).toBe('kg CO₂e');
+    expect(UNITE_KG_CO2E).toBe('kg\u00a0CO₂e');
+    expect(uniteCo2('t')).toBe('t\u00a0CO₂e');
   });
 });

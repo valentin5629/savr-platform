@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { uniteCo2 } from '@/lib/format';
 import { fmtDec, fmtInt, fmtMasse } from './fmt';
 import { Text } from '@/components/ui/text';
 
@@ -9,7 +10,7 @@ import { Text } from '@/components/ui/text';
 // UNIQUE par repas (facteur FAO figé × repas donnés), sans induit / net / énergie
 // ni tableau de facteurs par matière (ceux-ci sont ZD, méthode ABC ADEME). Purement
 // présentationnel : le facteur par repas est lu côté serveur (service_role) dans
-// `plateforme.parametres_facteurs_co2_ag` (repli 2,5 kgCO₂e/repas, FAO 2023).
+// `plateforme.parametres_facteurs_co2_ag` (repli 2,5 kg CO₂e/repas, FAO 2023).
 interface Co2MethodePanelAgProps {
   /** Facteur d'émission évité par repas (kg CO₂e/repas), figé à la clôture. */
   facteurParRepas: number;
@@ -75,7 +76,7 @@ export function Co2MethodePanelAg({
           {fmtInt(repasDonnes)} repas × {fmtDec(facteurParRepas, 2)}{' '}
           kg&nbsp;CO₂e/repas ={' '}
           <b className="text-savr-neutral-800">
-            {evite.value} {evite.unit} CO₂e
+            {evite.value}&nbsp;{uniteCo2(evite.unit)}
           </b>
           .
         </Formule>

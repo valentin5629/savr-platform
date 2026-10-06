@@ -5,8 +5,8 @@ import { Text } from './text';
 
 // PageHeader — en-tête d'écran sobre (R-UI-6b, I1) : titre h1 + description
 // optionnelle, icône à gauche, actions à droite. Alternative au bandeau navy
-// `PageHero` pour les écrans non-liste (dashboards, profil, paramètres) ; le
-// choix « PageHero partout ou PageHeader » = arbitrage Q3, ouvert : ce
+// `PageHero` pour les écrans non-liste (dashboards, profil, paramètres) ; Q3
+// tranché b (2026-10-06) : PageHero réservé aux listes, PageHeader ailleurs. Ce
 // composant reproduit les recettes actuelles (`text-2xl font-bold
 // text-savr-primary-800` ×23, `…neutral-900` ×8) sans en changer le rendu.
 interface PageHeaderProps {

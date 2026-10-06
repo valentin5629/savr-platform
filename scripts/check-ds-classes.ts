@@ -60,8 +60,10 @@ const UTILS =
 // (variante `hover:`) ou `${`/`}` dans un template literal.
 // (Un hex dans une valeur arbitraire — `bg-[#223870]`, `shadow-[0_0_0_1px_#000]`
 // — est attrapé par la catégorie `hex`, dont les délimiteurs incluent `[` et `_`.)
-const AVANT = '(?<=["\'`\\s:}]|^)';
-const APRES = '(?=["\'`\\s$]|$)';
+// `!` (important Tailwind, ex. `!rounded-full`) avant ; `/` (opacité ou
+// interlignage, ex. `text-[11px]/4`) après (R-UI-6c, revue principale m7).
+const AVANT = '(?<=["\'`\\s:}!]|^)';
+const APRES = '(?=["\'`\\s$/]|$)';
 
 const CATEGORIES: { key: string; libelle: string; re: RegExp }[] = [
   {

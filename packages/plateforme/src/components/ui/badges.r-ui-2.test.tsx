@@ -109,6 +109,18 @@ describe('R-UI-2 — Badge : size="sm" (C14) et variant="count" (C15)', () => {
     expect(badge.className).toContain('py-0.5');
   });
 
+  it('size="sm" rend exactement comme la taille par défaut (alias Q9 b)', () => {
+    render(
+      <>
+        <Badge size="sm">A</Badge>
+        <Badge>B</Badge>
+      </>,
+    );
+    const classes = (t: string) =>
+      screen.getByText(t).className.split(/\s+/).sort().join(' ');
+    expect(classes('A')).toBe(classes('B'));
+  });
+
   it('taille par défaut inchangée (text-xs)', () => {
     render(<Badge>Normal</Badge>);
     expect(screen.getByText('Normal').className).toContain('text-xs');

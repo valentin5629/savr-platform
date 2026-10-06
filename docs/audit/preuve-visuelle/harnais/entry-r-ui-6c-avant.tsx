@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
-import { Bell, BookOpen, Plus, Truck } from 'lucide-react';
+import { Bell, Plus, Truck } from 'lucide-react';
 import {
   Sec,
   Legende,

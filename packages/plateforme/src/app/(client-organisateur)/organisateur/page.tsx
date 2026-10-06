@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHeader } from '@/components/ui/page-header';
-import { fmtInt, fmtDec, SEUIL_TONNES_KG } from '@/lib/format';
+import { fmtInt, fmtDec, fmtMasse, uniteCo2 } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 
 // §11 §7 — Dashboard client_organisateur : impact RSE, lecture seule.
@@ -41,15 +41,13 @@ const sum = (rows: KpiRow[], f: (r: KpiRow) => number | null | undefined) =>
 
 // Bascule kg → t à `SEUIL_TONNES_KG` (10 000 kg, CDC §11 ; Q5 tranché 2026-10-06).
 function Co2Display({ kg }: { kg: number }) {
-  if (kg >= SEUIL_TONNES_KG)
-    return (
-      <>
-        {(kg / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} t
-        CO₂e
-      </>
-    );
+  const m = fmtMasse(kg);
   return (
-    <>{kg.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} kg CO₂e</>
+    <>
+      {m.value}
+      {'\u00a0'}
+      {uniteCo2(m.unit)}
+    </>
   );
 }
 

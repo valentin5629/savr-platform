@@ -7,9 +7,15 @@
  *
  * Périmètre : entiers, décimales, €, montants en devise, %, kg, pax (R-UI-6b,
  * J2 : plus aucun `Intl.NumberFormat` local ni concaténation « ${n} € / % / kg »
- * dans l'app). Restent à arbitrer, et donc hors d'ici : le seuil kg→t
- * (`cockpit/fmt.ts` `fmtMasse`, Q5) et la graphie CO₂ (Q6).
+ * dans l'app). Seuil kg→t : `SEUIL_TONNES_KG` (Q5 tranché 2026-10-06 : 10 000 kg,
+ * CDC §11) ; graphie CO₂ : « kg CO₂e » / « t CO₂e » (Q6 tranché 2026-10-06).
  */
+
+/** Seuil de bascule kg → t des masses affichées (CDC §11 : à partir de 10 000 kg). */
+export const SEUIL_TONNES_KG = 10_000;
+
+/** Unité CO₂ en kg (Q6 : « kg CO₂e », espace insécable : ne se coupe jamais). */
+export const UNITE_KG_CO2E = `kg${'\u00a0'}CO₂e`;
 
 const NBSP = '\u00a0';
 

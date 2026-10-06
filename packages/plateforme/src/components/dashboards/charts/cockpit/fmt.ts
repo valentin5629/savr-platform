@@ -3,7 +3,7 @@
  * en tabular-nums côté rendu. Source unique pour barres / donut / jauges / KPI.
  */
 
-import { fmtDec, fmtInt } from '@/lib/format';
+import { fmtDec, fmtInt, SEUIL_TONNES_KG } from '@/lib/format';
 
 // Entier / décimal fr : source unique `lib/format` (R-UI-0), ré-exportés ici
 // pour les graphes Cockpit.
@@ -14,10 +14,10 @@ export { fmtDec, fmtInt };
 
 /**
  * Masse : rend une valeur en kg → { value, unit }, bascule kg→t au-delà de
- * 10 000 kg (règle §11). Ex. 48 600 → { '48,6', 't' } ; 840 → { '840', 'kg' }.
+ * `SEUIL_TONNES_KG` = 10 000 kg (règle §11). Ex. 48 600 → { '48,6', 't' } ; 840 → { '840', 'kg' }.
  */
 export function fmtMasse(kg: number): { value: string; unit: 't' | 'kg' } {
-  if (kg >= 10_000) return { value: fmtDec(kg / 1000, 1), unit: 't' };
+  if (kg >= SEUIL_TONNES_KG) return { value: fmtDec(kg / 1000, 1), unit: 't' };
   return { value: fmtInt(kg), unit: 'kg' };
 }
 

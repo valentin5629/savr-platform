@@ -13,6 +13,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { useUserRole } from '@/lib/use-user-role';
 import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import {
   Table,
@@ -225,10 +226,11 @@ export default function ParametresCo2Page() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <Leaf className="h-6 w-6 text-savr-neutral-600" />
-        <Heading level={1}>Paramètres — CO₂</Heading>
-      </div>
+      <PageHeader
+        title="Paramètres — CO₂"
+        tone="neutral"
+        icon={<Leaf className="h-6 w-6 text-savr-neutral-600" />}
+      />
 
       {!canEdit && <OpsReadOnlyBanner />}
 
@@ -288,7 +290,7 @@ export default function ParametresCo2Page() {
                           step="0.01"
                           min="0"
                           className="w-28"
-                          aria-label={`FE induit ${f.code_flux} (kg CO₂/t)`}
+                          aria-label={`FE induit ${f.code_flux} (kg CO₂e/t)`}
                           value={f.fe_induit_kg_t}
                           onChange={(e) => {
                             const next = [...facteursDraft];
@@ -306,7 +308,7 @@ export default function ParametresCo2Page() {
                           step="0.01"
                           min="0"
                           className="w-28"
-                          aria-label={`FE évité ${f.code_flux} (kg CO₂/t)`}
+                          aria-label={`FE évité ${f.code_flux} (kg CO₂e/t)`}
                           value={f.fe_evite_kg_t}
                           onChange={(e) => {
                             const next = [...facteursDraft];
@@ -423,7 +425,7 @@ export default function ParametresCo2Page() {
                     step="0.01"
                     min="0"
                     className="w-28"
-                    aria-label={`FE induit ${m.nom_materiau ?? m.code_materiau} (kg CO₂/t)`}
+                    aria-label={`FE induit ${m.nom_materiau ?? m.code_materiau} (kg CO₂e/t)`}
                     value={m.fe_induit_kg_t}
                     onChange={(e) => {
                       const next = [...mixDraft];
@@ -441,7 +443,7 @@ export default function ParametresCo2Page() {
                     step="0.01"
                     min="0"
                     className="w-28"
-                    aria-label={`FE évité ${m.nom_materiau ?? m.code_materiau} (kg CO₂/t)`}
+                    aria-label={`FE évité ${m.nom_materiau ?? m.code_materiau} (kg CO₂e/t)`}
                     value={m.fe_evite_kg_t}
                     onChange={(e) => {
                       const next = [...mixDraft];
@@ -465,7 +467,7 @@ export default function ParametresCo2Page() {
         <Card padding="lg" className="space-y-4">
           <div className="flex items-center justify-between">
             <Heading level={2} size="inherit" tone="strong">
-              Facteur CO₂ évité AG (kg CO₂ / repas)
+              Facteur CO₂ évité AG (kg CO₂e / repas)
             </Heading>
             <Button
               size="sm"
@@ -478,7 +480,7 @@ export default function ParametresCo2Page() {
             </Button>
           </div>
           <FormField
-            label="Facteur CO₂ évité (kg CO₂ / repas)"
+            label="Facteur CO₂ évité (kg CO₂e / repas)"
             htmlFor="co2-facteur-ag"
             hint="Source FAO"
             className="max-w-xs"

@@ -696,7 +696,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       expect(t).toContain('Poids total collecté');
       // StatCard (R-UI-6b) : chiffre et unité dans deux spans d'une même rangée flex.
       expect(t).toMatch(/870\s*kg/);
-      expect(t).toMatch(/312\s*kgCO₂e/);
+      expect(t).toMatch(/312\s*kg\sCO₂e/);
       expect(t).toMatch(/78,4\s*%/);
       // 870 kg / 4 200 pax = 207 g
       expect(t).toMatch(/207\s*g/);
@@ -720,12 +720,14 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       await ouvrirOnglet('Bilan & documents');
 
       const kpi = await screen.findByTestId('kpi-zd', {}, ATTENTE_UI);
-      // « −100 kgCO₂e » : chiffre et unité dans la même valeur insécable.
-      const unite = within(kpi).getAllByText('kgCO₂e')[0]!;
+      // « −100 kg CO₂e » (Q6 : « kg CO₂e », espace insécable) : chiffre et unité dans la même valeur insécable.
+      const unite = within(kpi).getAllByText(/^kg\sCO₂e$/)[0]!;
       const valeur = unite.parentElement!;
       // Rangée flex sans retour à la ligne (StatCard R-UI-6b, ex-`whitespace-nowrap`).
       expect(valeur.className).toMatch(/\bflex\b.*items-baseline/);
-      expect(valeur.textContent?.replace(/\s/g, ' ')).toMatch(/^-100 ?kgCO₂e$/);
+      expect(valeur.textContent?.replace(/\s/g, ' ')).toMatch(
+        /^-100 ?kg CO₂e$/,
+      );
       // L'unité est plus petite que le chiffre (span dédié).
       expect(unite.className).toMatch(/text-(base|\[17px\])/); // unité plus petite que la valeur (34 px)
 
@@ -842,7 +844,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       expect(t).toMatch(/840\s*repas/);
       // 840 / 4 200 = 0,20
       expect(t).toContain('0,20');
-      expect(t).toMatch(/2 100\s*kgCO₂e/);
+      expect(t).toMatch(/2 100\s*kg\sCO₂e/);
       expect(screen.getByTestId('bloc-association').textContent).toContain(
         'Les Restos du Cœur',
       );

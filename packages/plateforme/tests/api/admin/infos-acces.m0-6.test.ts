@@ -452,6 +452,15 @@ describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création 
     expect(ecrituresDe('update')[0]!.payload).toEqual({
       chauffeur_nom: 'Paul',
     });
+    // Les coordonnées du camion 1 sont écrites : elles sont auditées malgré le 409.
+    const audit = admin.ecritures.find((e) => e.table === 'audit_log');
+    expect(audit?.payload).toMatchObject({
+      action: 'infos_acces_chauffeur_maj',
+      new_values: {
+        tournees: [{ tourneeId: 'T-ADM', updates: { chauffeur_nom: 'Paul' } }],
+        tournees_creees: [{ rang: 1, tournee_id: 'T-ADM' }],
+      },
+    });
     expect(mockEvaluer).not.toHaveBeenCalled();
   });
 
@@ -488,6 +497,7 @@ describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création 
       reference_interne: 'ADM-coll-1-2',
     });
     expect(ecrituresDe('update')).toEqual([]);
+    expect(admin.ecritures.some((e) => e.table === 'audit_log')).toBe(false);
     expect(mockEvaluer).not.toHaveBeenCalled();
   });
 });

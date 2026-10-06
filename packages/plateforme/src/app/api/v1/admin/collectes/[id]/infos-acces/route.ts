@@ -238,6 +238,23 @@ async function patchHandler(
     tourneeId: string;
     updates: Partial<Record<ChampInfosAcces, string | null>>;
   }> = [];
+  // Agrégat audité = la collecte (record_id) ; le détail par tournée est dans
+  // new_values. Appelé aussi sur un 409 survenu APRÈS des coordonnées déjà
+  // écrites (camions précédents) : l'historique garde leurs anciennes valeurs.
+  const auditer = async (): Promise<void> => {
+    if (updatesParTournee.length === 0 && tourneesCreees.length === 0) return;
+    await supabase.from('audit_log').insert({
+      table_name: 'collectes',
+      record_id: id,
+      action: 'infos_acces_chauffeur_maj',
+      user_id: auth.ctx.userId,
+      old_values: { tournees: liens ?? [] },
+      new_values: {
+        tournees: updatesParTournee,
+        tournees_creees: tourneesCreees,
+      },
+    });
+  };
   for (const item of plan) {
     let tourneeId = item.tourneeId;
     if (tourneeId === null && item.rang !== null) {
@@ -285,6 +302,7 @@ async function patchHandler(
               error: delErr.message,
             });
           }
+          await auditer();
           return NextResponse.json(
             {
               error: `Le prestataire vient de créer la tournée du camion ${rang} : rechargez la fiche avant de saisir.`,
@@ -307,18 +325,7 @@ async function patchHandler(
   }
 
   // Audit (écriture sensible : coordonnées chauffeur, contrôle d'accès site).
-  // Agrégat audité = la collecte (record_id) ; le détail par tournée est dans new_values.
-  await supabase.from('audit_log').insert({
-    table_name: 'collectes',
-    record_id: id,
-    action: 'infos_acces_chauffeur_maj',
-    user_id: auth.ctx.userId,
-    old_values: { tournees: liens ?? [] },
-    new_values: {
-      tournees: updatesParTournee,
-      tournees_creees: tourneesCreees,
-    },
-  });
+  await auditer();
 
   // Ré-évaluation complétude → email récap si complet (best-effort, non bloquant).
   const { envoye } = await evaluerInfosAccesEtEnvoyer(supabase, id);

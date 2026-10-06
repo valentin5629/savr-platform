@@ -2209,6 +2209,109 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   );
 
   it(
+    'deux camions demandés, une seule tournée, seul le camion 1 corrigé : le camion 2 laissé vide n’est pas envoyé (aucune tournée vide créée)',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-1',
+        prestataire_actuel: {
+          transporteur_id: 't-1',
+          nom: 'Transporteur manuel',
+          type_tms: 'autre',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByTestId('bloc-chauffeur', undefined, ATTENTE_UI);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      const noms = screen.getAllByLabelText('Nom du chauffeur');
+      expect(noms).toHaveLength(2);
+      fireEvent.change(noms[0]!, { target: { value: 'Paul Martin-Durand' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        expect(body.tournees).toHaveLength(1);
+        expect(body.tournees[0]).toMatchObject({
+          tournee_id: 'tour-1',
+          chauffeur_nom: 'Paul Martin-Durand',
+        });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'collecte terminée, deux camions demandés, une seule tournée : une seule ligne, et la saisie ne concerne que la tournée existante (PATCH sans rang)',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        statut: 'realisee',
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-1',
+        prestataire_actuel: {
+          transporteur_id: 't-1',
+          nom: 'Transporteur manuel',
+          type_tms: 'autre',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId(
+        'bloc-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(bloc).getByRole('heading', { name: 'Chauffeur' }),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(1);
+      expect(within(bloc).queryByText('Camion 2')).toBeNull();
+      expect(within(bloc).queryByText(/Tournée pas encore créée/)).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      expect(screen.getAllByLabelText('Nom du chauffeur')).toHaveLength(1);
+      fireEvent.change(screen.getByLabelText('Nom du chauffeur'), {
+        target: { value: 'Paul Martin' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        expect(body.tournees).toHaveLength(1);
+        expect(body.tournees[0]).toMatchObject({ tournee_id: 'tour-1' });
+        expect(body.tournees[0]).not.toHaveProperty('rang');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'deux camions demandés, une seule tournée : deux lignes, la saisie du camion 2 crée sa tournée (PATCH avec rang)',
     async () => {
       // Cas écran « Palais des Congrès » (Val 2026-10-06) : N = 2, l'adapter

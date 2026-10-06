@@ -408,6 +408,45 @@ interface CollecteDetailPanelProps {
   blockCloseRef?: MutableRefObject<boolean>;
 }
 
+const STATUTS_TERMINAUX = [
+  'realisee',
+  'cloturee',
+  'annulee',
+  'realisee_sans_collecte',
+];
+
+// Bloc « Chauffeur » : une ligne par camion DEMANDÉ (rangs 1..N, décision Val
+// 2026-10-06 C2), qu'il ait déjà sa tournée (créée par l'adapter au dispatch)
+// ou non (la saisie Admin crée alors la tournée du rang, que l'adapter reprend
+// ensuite). Collecte terminée : seules les tournées existantes — même liste
+// pour l'affichage ET le pré-remplissage du formulaire (jamais de tournée
+// créée sur une collecte finie).
+function rangsChauffeurDe(c: {
+  statut: string;
+  nb_camions_demande: number | null;
+  collecte_tournees: Array<{ rang: number }>;
+}): number[] {
+  const terminal = STATUTS_TERMINAUX.includes(c.statut);
+  const rangsExistants = new Set(c.collecte_tournees.map((ct) => ct.rang));
+  const nbVises = terminal ? 0 : Math.max(1, c.nb_camions_demande ?? 1);
+  return Array.from(
+    { length: Math.max(nbVises, ...rangsExistants, 0) },
+    (_, i) => i + 1,
+  ).filter((rang) => !terminal || rangsExistants.has(rang));
+}
+
+// Clé de saisie d'un camion : id de tournée, ou `rang:N` sans tournée.
+const CLE_RANG = 'rang:';
+function cleSaisieDe(
+  c: { collecte_tournees: Array<{ rang: number; tournees: { id: string } }> },
+  rang: number,
+): string {
+  return (
+    c.collecte_tournees.find((ct) => ct.rang === rang)?.tournees.id ??
+    `${CLE_RANG}${rang}`
+  );
+}
+
 export function CollecteDetailPanel({
   collecteId,
   onLoaded,
@@ -498,13 +537,6 @@ export function CollecteDetailPanel({
   const [regenerating, setRegenerating] = useState<PdfType | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
-
-  const STATUTS_TERMINAUX = [
-    'realisee',
-    'cloturee',
-    'annulee',
-    'realisee_sans_collecte',
-  ];
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -858,10 +890,9 @@ export function CollecteDetailPanel({
     const parRang = new Map(
       collecte.collecte_tournees.map((ct) => [ct.rang, ct] as const),
     );
-    const nb = Math.max(1, collecte.nb_camions_demande ?? 1, ...parRang.keys());
-    for (let rang = 1; rang <= nb; rang++) {
+    for (const rang of rangsChauffeurDe(collecte)) {
       const ct = parRang.get(rang);
-      prefill[ct?.tournees.id ?? `rang:${rang}`] = {
+      prefill[cleSaisieDe(collecte, rang)] = {
         plaque_immatriculation: ct?.tournees.plaque_immatriculation ?? '',
         chauffeur_nom: ct?.tournees.chauffeur_nom ?? '',
         chauffeur_telephone: ct?.tournees.chauffeur_telephone ?? '',
@@ -878,17 +909,30 @@ export function CollecteDetailPanel({
     e.preventDefault();
     setInfosAccesSaving(true);
     setInfosAccesError(null);
-    const tournees = Object.entries(infosAccesInput).map(([cle, v]) => ({
-      // Camion sans tournée : la route la crée (rang ≤ nb_camions_demande).
-      ...(cle.startsWith('rang:')
-        ? { rang: Number(cle.slice(5)) }
-        : { tournee_id: cle }),
-      plaque_immatriculation: v.plaque_immatriculation,
-      chauffeur_nom: v.chauffeur_nom,
-      chauffeur_telephone: v.chauffeur_telephone,
-      accompagnant_nom: v.accompagnant_nom,
-      accompagnant_telephone: v.accompagnant_telephone,
-    }));
+    const tournees = Object.entries(infosAccesInput)
+      // Camion sans tournée laissé vide : rien à créer (la route refuserait,
+      // et une tournée vide occuperait le rang pour l'adapter).
+      .filter(
+        ([cle, v]) =>
+          !cle.startsWith(CLE_RANG) ||
+          Object.values(v).some((val) => val.trim() !== ''),
+      )
+      .map(([cle, v]) => ({
+        // Camion sans tournée : la route la crée (rang ≤ nb_camions_demande).
+        ...(cle.startsWith(CLE_RANG)
+          ? { rang: Number(cle.slice(CLE_RANG.length)) }
+          : { tournee_id: cle }),
+        plaque_immatriculation: v.plaque_immatriculation,
+        chauffeur_nom: v.chauffeur_nom,
+        chauffeur_telephone: v.chauffeur_telephone,
+        accompagnant_nom: v.accompagnant_nom,
+        accompagnant_telephone: v.accompagnant_telephone,
+      }));
+    if (tournees.length === 0) {
+      setInfosAccesError('Aucune coordonnée saisie.');
+      setInfosAccesSaving(false);
+      return;
+    }
     const res = await fetch(
       `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/infos-acces`,
       {
@@ -911,8 +955,30 @@ export function CollecteDetailPanel({
       });
       setEditInfosAcces(false);
     } else {
-      const body = (await res.json()) as { error: string };
-      setInfosAccesError(body.error);
+      const body = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setInfosAccesError(body?.error ?? 'Enregistrement impossible.');
+      // La fiche est rechargée : si le prestataire a créé la tournée d'un
+      // camion entre-temps (409/422), la saisie en cours se rattache à elle
+      // au lieu de rester bloquée sur une clé `rang:N` périmée.
+      const updated = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      );
+      if (updated.ok) {
+        const fraiche = (await updated.json()) as CollecteDetail;
+        setCollecte(fraiche);
+        setInfosAccesInput((prev) =>
+          Object.fromEntries(
+            Object.entries(prev).map(([cle, v]) => [
+              cle.startsWith(CLE_RANG)
+                ? cleSaisieDe(fraiche, Number(cle.slice(CLE_RANG.length)))
+                : cle,
+              v,
+            ]),
+          ),
+        );
+      }
     }
     setInfosAccesSaving(false);
   };
@@ -1032,20 +1098,11 @@ export function CollecteDetailPanel({
   const renvoi =
     !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
   const canalEnvoi = libelleCanalEnvoi(currentTransporteur?.type_tms);
-  // Bloc « Chauffeur » : une ligne par camion DEMANDÉ (rangs 1..N, décision Val
-  // 2026-10-06 C2), qu'il ait déjà sa tournée (créée par l'adapter au dispatch)
-  // ou non (la saisie Admin crée alors la tournée du rang, que l'adapter
-  // reprend ensuite). Collecte terminée : seules les tournées existantes.
+  // Bloc « Chauffeur » : une ligne par camion demandé (cf. rangsChauffeurDe).
   const tourneeParRang = new Map(
     collecte.collecte_tournees.map((ct) => [ct.rang, ct] as const),
   );
-  const nbCamionsVises = isTerminal
-    ? 0
-    : Math.max(1, collecte.nb_camions_demande ?? 1);
-  const rangsChauffeur = Array.from(
-    { length: Math.max(nbCamionsVises, ...tourneeParRang.keys(), 0) },
-    (_, i) => i + 1,
-  ).filter((rang) => !isTerminal || tourneeParRang.has(rang));
+  const rangsChauffeur = rangsChauffeurDe(collecte);
   // Saisie possible : au moins un camion, et un prestataire posé si une tournée
   // doit être créée (tournees.prestataire_logistique_id NOT NULL).
   const saisieChauffeurPossible =
@@ -1068,9 +1125,7 @@ export function CollecteDetailPanel({
           : canalEnvoi
             ? `Les coordonnées remontent automatiquement de ${canalEnvoi} dès l’affectation du chauffeur ; complétez-les si elles manquent.`
             : 'Coordonnées à saisir par l’équipe Ops.';
-  // Clé de saisie : id de tournée, ou `rang:N` pour un camion sans tournée.
-  const cleSaisie = (rang: number): string =>
-    tourneeParRang.get(rang)?.tournees.id ?? `rang:${rang}`;
+  const cleSaisie = (rang: number): string => cleSaisieDe(collecte, rang);
   const referenceSaisie = acceptationSaisie.reference_mission.trim();
   const acceptationIncomplete =
     referenceSaisie === '' ||
@@ -1714,9 +1769,9 @@ export function CollecteDetailPanel({
                 <>
                   <Text>
                     Ce lieu exige un contrôle d’accès : nom et téléphone du
-                    chauffeur (et de l’accompagnant s’il y en a un) pour chaque
-                    camion — un email récapitulatif est envoyé au programmateur
-                    dès que toutes les tournées sont complètes.
+                    chauffeur (et nom de l’accompagnant s’il y en a un) pour
+                    chaque camion — un email récapitulatif est envoyé au
+                    programmateur dès que toutes les tournées sont complètes.
                   </Text>
                   {collecte.infos_acces_email_envoye_at ? (
                     <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">

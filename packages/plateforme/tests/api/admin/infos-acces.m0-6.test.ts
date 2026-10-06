@@ -9,24 +9,51 @@ import { NextRequest } from 'next/server';
 
 type Result = { data: unknown; error: unknown };
 
+type Ecriture = {
+  table: string;
+  op: 'insert' | 'upsert' | 'update' | 'delete';
+  payload?: unknown;
+  opts?: unknown;
+  filtres: Record<string, unknown>;
+};
+
 function makeClient() {
   const results: Record<string, Result> = {};
+  // Résultat spécifique d'une écriture (ex. 23505 sur l'INSERT du lien).
+  const resultsEcriture: Partial<
+    Record<`${string}.${Ecriture['op']}`, Result>
+  > = {};
+  const ecritures: Ecriture[] = [];
   function chain(table: string): Record<string, unknown> {
-    const res = (): Result => results[table] ?? { data: null, error: null };
+    let courante: Ecriture | null = null;
+    const res = (): Result =>
+      (courante && resultsEcriture[`${table}.${courante.op}`]) ??
+      results[table] ?? { data: null, error: null };
+    const ecrire =
+      (op: Ecriture['op']) =>
+      (payload?: unknown, opts?: unknown): Record<string, unknown> => {
+        courante = { table, op, payload, opts, filtres: {} };
+        ecritures.push(courante);
+        return c;
+      };
     const c: Record<string, unknown> = {
       select: () => c,
-      eq: () => c,
+      eq: (col: string, val: unknown) => {
+        if (courante) courante.filtres[col] = val;
+        return c;
+      },
       order: () => c,
-      insert: () => c,
-      upsert: () => c,
-      update: () => c,
+      insert: ecrire('insert'),
+      upsert: ecrire('upsert'),
+      update: ecrire('update'),
+      delete: ecrire('delete'),
       maybeSingle: () => Promise.resolve(res()),
       single: () => Promise.resolve(res()),
       then: (resolve: (v: Result) => unknown) => resolve(res()),
     };
     return c;
   }
-  return { from: (t: string) => chain(t), results };
+  return { from: (t: string) => chain(t), results, resultsEcriture, ecritures };
 }
 
 let admin = makeClient();
@@ -158,19 +185,25 @@ describe('M0.6 / PATCH infos-acces — écriture + email de complétude', () => 
 describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création Admin, C2 Val 2026-10-06)', () => {
   const collecte2Camions = {
     id: 'coll-1',
+    statut: 'validee',
     controle_acces_requis: false,
     nb_camions_demande: 2,
     prestataire_logistique_id: 'presta-1',
     date_collecte: '2026-10-01',
     heure_collecte: '22:00:00',
   };
+  const lienRang1 = {
+    data: [{ tournee_id: 'T1', rang: 1, tournees: { id: 'T1' } }],
+    error: null,
+  };
+  const ecrituresDe = (op?: Ecriture['op']) =>
+    admin.ecritures.filter(
+      (e) => e.table !== 'audit_log' && (op === undefined || e.op === op),
+    );
 
-  it('rang 2 sans tournée → tournée ADM-coll-1-2 créée, liée au rang, coordonnées écrites, tournees_creees renvoyé', async () => {
+  it('rang 2 sans tournée → tournée ADM-coll-1-2 créée (planifiée, prestataire et date de la collecte, créneau nuit), liée au rang 2, coordonnées écrites sur elle, tournees_creees renvoyé', async () => {
     admin.results['collectes'] = { data: collecte2Camions, error: null };
-    admin.results['collecte_tournees'] = {
-      data: [{ tournee_id: 'T1', rang: 1, tournees: { id: 'T1' } }],
-      error: null,
-    };
+    admin.results['collecte_tournees'] = lienRang1;
     admin.results['tournees'] = { data: { id: 'T-NEW' }, error: null };
     mockEvaluer.mockResolvedValue({ envoye: false });
 
@@ -188,9 +221,60 @@ describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création 
     };
     expect(body.tournees_creees).toEqual([{ rang: 2, tournee_id: 'T-NEW' }]);
     expect(mockEvaluer).toHaveBeenCalledWith(expect.anything(), 'coll-1');
+
+    // Ce qui est réellement écrit, dans l'ordre : tournée, lien, coordonnées.
+    expect(ecrituresDe().map((e) => `${e.table}.${e.op}`)).toEqual([
+      'tournees.upsert',
+      'collecte_tournees.insert',
+      'tournees.update',
+    ]);
+    const [creation, lien, coord] = ecrituresDe();
+    expect(creation!.payload).toEqual({
+      reference_interne: 'ADM-coll-1-2',
+      date_tournee: '2026-10-01',
+      creneau: 'nuit',
+      prestataire_logistique_id: 'presta-1',
+      statut: 'planifiee',
+    });
+    expect(creation!.opts).toEqual({ onConflict: 'reference_interne' });
+    expect(lien!.payload).toEqual({
+      collecte_id: 'coll-1',
+      tournee_id: 'T-NEW',
+      rang: 2,
+    });
+    expect(coord!.payload).toEqual({
+      chauffeur_nom: 'Léa',
+      chauffeur_telephone: '0622',
+    });
+    expect(coord!.filtres).toEqual({ id: 'T-NEW' });
   });
 
-  it('rang au-delà du nombre de camions demandé → 422, rien créé', async () => {
+  it.each([
+    ['08:30:00', 'matin'],
+    ['14:00:00', 'apres_midi'],
+    ['19:00:00', 'soir'],
+    [null, 'nuit'],
+  ])(
+    'créneau de la tournée créée dérivé de l’heure de collecte (%s → %s)',
+    async (heure, creneau) => {
+      admin.results['collectes'] = {
+        data: { ...collecte2Camions, heure_collecte: heure },
+        error: null,
+      };
+      admin.results['collecte_tournees'] = { data: [], error: null };
+      admin.results['tournees'] = { data: { id: 'T-NEW' }, error: null };
+      const res = await PATCH(
+        makeReq({ tournees: [{ rang: 1, chauffeur_nom: 'X' }] }),
+        ctx,
+      );
+      expect(res.status).toBe(200);
+      expect(
+        (ecrituresDe('upsert')[0]!.payload as { creneau: string }).creneau,
+      ).toBe(creneau);
+    },
+  );
+
+  it('rang au-delà du nombre de camions demandé → 422, aucune écriture', async () => {
     admin.results['collectes'] = { data: collecte2Camions, error: null };
     admin.results['collecte_tournees'] = { data: [], error: null };
     const res = await PATCH(
@@ -198,23 +282,25 @@ describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création 
       ctx,
     );
     expect(res.status).toBe(422);
+    expect(ecrituresDe()).toEqual([]);
     expect(mockEvaluer).not.toHaveBeenCalled();
   });
 
-  it('rang déjà lié à une tournée → 422 (passer par tournee_id)', async () => {
+  it('rang déjà lié à une tournée → 422 « rechargez la fiche », aucune écriture', async () => {
     admin.results['collectes'] = { data: collecte2Camions, error: null };
-    admin.results['collecte_tournees'] = {
-      data: [{ tournee_id: 'T1', rang: 1, tournees: { id: 'T1' } }],
-      error: null,
-    };
+    admin.results['collecte_tournees'] = lienRang1;
     const res = await PATCH(
       makeReq({ tournees: [{ rang: 1, chauffeur_nom: 'X' }] }),
       ctx,
     );
     expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toMatch(
+      /rechargez la fiche/,
+    );
+    expect(ecrituresDe()).toEqual([]);
   });
 
-  it('collecte sans prestataire logistique → 422 explicite, aucune tournée créée', async () => {
+  it('collecte sans prestataire logistique → 422 explicite, aucune écriture', async () => {
     admin.results['collectes'] = {
       data: { ...collecte2Camions, prestataire_logistique_id: null },
       error: null,
@@ -227,6 +313,135 @@ describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création 
     expect(res.status).toBe(422);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/prestataire/);
+    expect(ecrituresDe()).toEqual([]);
+    expect(mockEvaluer).not.toHaveBeenCalled();
+  });
+
+  it.each(['realisee', 'cloturee', 'annulee', 'realisee_sans_collecte'])(
+    'collecte terminée (%s) : un item { rang } → 422, aucune tournée créée (les tournées existantes restent corrigeables)',
+    async (statut) => {
+      admin.results['collectes'] = {
+        data: { ...collecte2Camions, statut },
+        error: null,
+      };
+      admin.results['collecte_tournees'] = lienRang1;
+      const res = await PATCH(
+        makeReq({ tournees: [{ rang: 2, chauffeur_nom: 'X' }] }),
+        ctx,
+      );
+      expect(res.status).toBe(422);
+      expect(((await res.json()) as { error: string }).error).toMatch(
+        /terminée/,
+      );
+      expect(ecrituresDe()).toEqual([]);
+
+      // La tournée existante, elle, se corrige toujours.
+      admin = makeClient();
+      admin.results['collectes'] = {
+        data: { ...collecte2Camions, statut },
+        error: null,
+      };
+      admin.results['collecte_tournees'] = lienRang1;
+      const ok = await PATCH(
+        makeReq({ tournees: [{ tournee_id: 'T1', chauffeur_nom: 'X' }] }),
+        ctx,
+      );
+      expect(ok.status).toBe(200);
+      expect(ecrituresDe().map((e) => `${e.table}.${e.op}`)).toEqual([
+        'tournees.update',
+      ]);
+    },
+  );
+
+  it('item { rang } sans aucune coordonnée (champs vides) → 422, aucune tournée créée', async () => {
+    admin.results['collectes'] = { data: collecte2Camions, error: null };
+    admin.results['collecte_tournees'] = lienRang1;
+    const res = await PATCH(
+      makeReq({
+        tournees: [
+          { tournee_id: 'T1', chauffeur_nom: 'Paul' },
+          {
+            rang: 2,
+            plaque_immatriculation: '',
+            chauffeur_nom: '  ',
+            chauffeur_telephone: '',
+          },
+        ],
+      }),
+      ctx,
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toMatch(/camion 2/);
+    expect(ecrituresDe()).toEqual([]);
+  });
+
+  it('validation complète avant toute écriture : item 1 valide (rang), item 2 invalide (tournee_id inconnu) → 422 et rien n’est créé', async () => {
+    admin.results['collectes'] = { data: collecte2Camions, error: null };
+    admin.results['collecte_tournees'] = { data: [], error: null };
+    admin.results['tournees'] = { data: { id: 'T-NEW' }, error: null };
+    const res = await PATCH(
+      makeReq({
+        tournees: [
+          { rang: 1, chauffeur_nom: 'Léa' },
+          { tournee_id: 'T-INCONNUE', chauffeur_nom: 'X' },
+        ],
+      }),
+      ctx,
+    );
+    expect(res.status).toBe(422);
+    expect(ecrituresDe()).toEqual([]);
+    expect(mockEvaluer).not.toHaveBeenCalled();
+  });
+
+  it('le même rang deux fois dans le body → 422, aucune écriture', async () => {
+    admin.results['collectes'] = { data: collecte2Camions, error: null };
+    admin.results['collecte_tournees'] = { data: [], error: null };
+    const res = await PATCH(
+      makeReq({
+        tournees: [
+          { rang: 1, chauffeur_nom: 'A' },
+          { rang: 1, chauffeur_nom: 'B' },
+        ],
+      }),
+      ctx,
+    );
+    expect(res.status).toBe(422);
+    expect(ecrituresDe()).toEqual([]);
+  });
+
+  it('course avec l’adapter : le rang a été lié entre la lecture et l’écriture (23505 sur le lien) → 409 « rechargez », tournée Admin retirée, lien du prestataire intact, aucune coordonnée écrite', async () => {
+    admin.results['collectes'] = { data: collecte2Camions, error: null };
+    admin.results['collecte_tournees'] = lienRang1;
+    admin.results['tournees'] = { data: { id: 'T-ADM' }, error: null };
+    admin.resultsEcriture['collecte_tournees.insert'] = {
+      data: null,
+      error: {
+        code: '23505',
+        message:
+          'duplicate key value violates unique constraint "uniq_collecte_tournee_rang"',
+      },
+    };
+    const res = await PATCH(
+      makeReq({ tournees: [{ rang: 2, chauffeur_nom: 'Léa' }] }),
+      ctx,
+    );
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toMatch(
+      /rechargez la fiche/,
+    );
+    expect(ecrituresDe().map((e) => `${e.table}.${e.op}`)).toEqual([
+      'tournees.upsert',
+      'collecte_tournees.insert',
+      'tournees.delete',
+    ]);
+    // Jamais un upsert du lien (il aurait DÉTACHÉ la tournée du prestataire).
+    expect(ecrituresDe('upsert').map((e) => e.table)).toEqual(['tournees']);
+    const suppression = ecrituresDe('delete')[0]!;
+    expect(suppression.filtres).toEqual({
+      id: 'T-ADM',
+      reference_interne: 'ADM-coll-1-2',
+    });
+    expect(ecrituresDe('update')).toEqual([]);
     expect(mockEvaluer).not.toHaveBeenCalled();
   });
 });

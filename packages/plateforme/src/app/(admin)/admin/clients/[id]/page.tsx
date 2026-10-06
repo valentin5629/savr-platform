@@ -1,14 +1,20 @@
 'use client';
 
 import {
+  libelleTypeOrganisation,
   libelleVerificationSiret,
   variantVerificationSiret,
 } from '@/lib/libelles/organisation';
 import {
+  CREDITS_TYPE_PACK,
+  libelleLongTypePack,
   libelleStatutPack,
   libelleTypePack,
+  TYPES_PACK,
   variantStatutPack,
 } from '@/lib/libelles/pack';
+import { libelleActif } from '@/lib/libelles/actif';
+import { ActifBadge } from '@/components/ui/actif-badge';
 import { libelleRole } from '@/lib/libelles/role';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
@@ -116,14 +122,6 @@ interface OrgDetail {
   organisations_lieux?: { lieux: { id: string; nom: string } | null }[];
 }
 
-// Libellé lisible du type d'organisation (aligné sur la liste Clients).
-const TYPE_LABELS: Record<string, string> = {
-  traiteur: 'Traiteur',
-  agence: 'Agence',
-  gestionnaire_lieux: 'Gestionnaire de lieux',
-  client_organisateur: 'Client organisateur',
-};
-
 const ONGLETS = [
   { key: 'informations', label: 'Informations légales', icon: Building2 },
   { key: 'users', label: 'Utilisateurs', icon: Users },
@@ -139,14 +137,6 @@ const ONGLETS = [
 type OngletKey = (typeof ONGLETS)[number]['key'];
 
 type ModalType = 'creer' | 'ajuster' | 'annuler' | null;
-
-const TYPES_PACK = [
-  { value: 'unitaire', label: '1 collecte (Unitaire)' },
-  { value: 'pack_10', label: '10 collectes' },
-  { value: 'pack_30', label: '30 collectes' },
-  { value: 'pack_60', label: '60 collectes' },
-  { value: 'personnalise', label: 'Personnalisé' },
-] as const;
 
 type UserRow = OrgDetail['users'][number];
 type PackRow = OrgDetail['packs_antgaspi'][number];
@@ -177,25 +167,14 @@ const COLONNES_USERS: ColumnDef<UserRow, unknown>[] = [
     header: 'Rôle',
     accessorFn: (u) => u.role,
     cell: ({ row: { original: u } }) => (
-      <Badge variant="neutral" className="text-xs">
-        {libelleRole(u.role)}
-      </Badge>
+      <Badge variant="neutral">{libelleRole(u.role)}</Badge>
     ),
   },
   {
     id: 'statut',
     header: 'Statut',
-    accessorFn: (u) => (u.actif ? 'Actif' : 'Suspendu'),
-    cell: ({ row: { original: u } }) =>
-      u.actif ? (
-        <Badge variant="success" className="text-xs">
-          Actif
-        </Badge>
-      ) : (
-        <Badge variant="neutral" className="text-xs">
-          Suspendu
-        </Badge>
-      ),
+    accessorFn: (u) => libelleActif(u.actif),
+    cell: ({ row: { original: u } }) => <ActifBadge actif={u.actif} />,
   },
 ];
 
@@ -205,7 +184,7 @@ const COLONNES_PACKS: ColumnDef<PackRow, unknown>[] = [
     header: 'Type',
     accessorFn: (p) => p.type_pack,
     meta: { className: 'font-medium' },
-    cell: ({ row: { original: p } }) => p.type_pack,
+    cell: ({ row: { original: p } }) => libelleTypePack(p.type_pack),
   },
   {
     id: 'credits_initiaux',
@@ -224,7 +203,7 @@ const COLONNES_PACKS: ColumnDef<PackRow, unknown>[] = [
     header: 'Statut',
     accessorFn: (p) => p.statut,
     cell: ({ row: { original: p } }) => (
-      <Badge variant={variantStatutPack(p.statut)} className="text-xs">
+      <Badge variant={variantStatutPack(p.statut)}>
         {libelleStatutPack(p.statut)}
       </Badge>
     ),
@@ -468,14 +447,8 @@ export default function ClientFichePage({
           </div>
         }
         title={org.raison_sociale}
-        subtitle={TYPE_LABELS[org.type] ?? org.type}
-        actions={
-          org.actif ? (
-            <Badge variant="success">Actif</Badge>
-          ) : (
-            <Badge variant="neutral">Inactif</Badge>
-          )
-        }
+        subtitle={libelleTypeOrganisation(org.type)}
+        actions={<ActifBadge actif={org.actif} />}
       />
 
       {/* Navigation onglets — DS Tabs (Radix, §10 §6) */}
@@ -508,7 +481,7 @@ export default function ClientFichePage({
                 <div>
                   <dt className="text-savr-neutral-500">Type</dt>
                   <dd className="mt-1 font-medium">
-                    {TYPE_LABELS[org.type] ?? org.type}
+                    {libelleTypeOrganisation(org.type)}
                   </dd>
                 </div>
                 <div>
@@ -548,14 +521,11 @@ export default function ClientFichePage({
                         variant={variantVerificationSiret(
                           ef.siret_verification,
                         )}
-                        className="text-xs"
                       >
                         {libelleVerificationSiret(ef.siret_verification)}
                       </Badge>
                       {ef.entite_par_defaut && (
-                        <Badge variant="neutral" className="text-xs">
-                          Défaut
-                        </Badge>
+                        <Badge variant="neutral">Défaut</Badge>
                       )}
                     </div>
                   ))}
@@ -835,20 +805,15 @@ export default function ClientFichePage({
             <Combobox
               id="pack-type"
               icon={null}
-              options={TYPES_PACK.map((t) => ({
-                value: t.value,
-                label: t.label,
+              options={TYPES_PACK.map((value) => ({
+                value,
+                label: libelleLongTypePack(value),
               }))}
               value={fTypePack}
               onChange={(t) => {
                 setFTypePack(t);
-                const preset: Record<string, number> = {
-                  unitaire: 1,
-                  pack_10: 10,
-                  pack_30: 30,
-                  pack_60: 60,
-                };
-                if (preset[t]) setFCredits(preset[t]);
+                const credits = CREDITS_TYPE_PACK[t];
+                if (credits) setFCredits(credits);
               }}
             />
           </FormField>

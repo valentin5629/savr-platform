@@ -21,6 +21,11 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { fmtEuro } from '@/lib/format';
 import { FormActions } from '@/components/ui/form-actions';
+import {
+  CREDITS_TYPE_PACK,
+  libelleLongTypePack,
+  TYPES_PACK_GRILLE,
+} from '@/lib/libelles/pack';
 
 interface TarifPackAG {
   id: string;
@@ -46,14 +51,8 @@ interface HistState {
   loading: boolean;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  unitaire: 'Unitaire (1 collecte)',
-  pack_10: 'Pack 10 collectes',
-  pack_30: 'Pack 30 collectes',
-  pack_60: 'Pack 60 collectes',
-};
-
-const TYPES_PACK = ['unitaire', 'pack_10', 'pack_30', 'pack_60'] as const;
+// Types de la grille + libellés + crédits pré-remplis : `lib/libelles/pack`.
+const TYPES_PACK = TYPES_PACK_GRILLE;
 
 const eurosHt = (v: number): string => fmtEuro(v);
 
@@ -187,15 +186,9 @@ export default function TarifsPacksAGPage() {
   }
 
   const openModal = (type?: string) => {
-    const preset: Record<string, number> = {
-      unitaire: 1,
-      pack_10: 10,
-      pack_30: 30,
-      pack_60: 60,
-    };
     const t = type ?? 'pack_10';
     setFType(t);
-    setFCredits(preset[t] ?? 10);
+    setFCredits(CREDITS_TYPE_PACK[t] ?? 10);
     setFPrix('');
     setFMensualisable(false);
     setFNbMensualites(12);
@@ -211,7 +204,7 @@ export default function TarifsPacksAGPage() {
   // Grouper par type_pack pour affichage
   const byType = TYPES_PACK.map((t) => ({
     type: t,
-    label: TYPE_LABELS[t] ?? t,
+    label: libelleLongTypePack(t),
     tarif: tarifs.find((ta) => ta.type_pack === t),
   }));
 
@@ -250,16 +243,14 @@ export default function TarifsPacksAGPage() {
                 </Text>
               </div>
               {tarif ? (
-                <Badge variant="success" className="text-xs">
+                <Badge variant="success">
                   Actif depuis{' '}
                   {new Date(tarif.valide_du).toLocaleDateString('fr-FR', {
                     timeZone: 'Europe/Paris',
                   })}
                 </Badge>
               ) : (
-                <Badge variant="neutral" className="text-xs">
-                  Aucun tarif
-                </Badge>
+                <Badge variant="neutral">Aucun tarif</Badge>
               )}
             </div>
             {tarif ? (
@@ -344,7 +335,7 @@ export default function TarifsPacksAGPage() {
           ferment ; le formulaire (boutons inclus) reste dans le corps. */}
       <Modal
         open={modal}
-        title={`Nouveau tarif — ${TYPE_LABELS[fType] ?? fType}`}
+        title={`Nouveau tarif — ${libelleLongTypePack(fType)}`}
         onClose={() => setModal(false)}
       >
         {formError && (
@@ -360,18 +351,13 @@ export default function TarifsPacksAGPage() {
               icon={null}
               options={TYPES_PACK.map((t) => ({
                 value: t,
-                label: TYPE_LABELS[t] ?? t,
+                label: libelleLongTypePack(t),
               }))}
               value={fType}
               onChange={(t) => {
-                const preset: Record<string, number> = {
-                  unitaire: 1,
-                  pack_10: 10,
-                  pack_30: 30,
-                  pack_60: 60,
-                };
                 setFType(t);
-                if (preset[t]) setFCredits(preset[t]);
+                const credits = CREDITS_TYPE_PACK[t];
+                if (credits) setFCredits(credits);
               }}
             />
           </FormField>
@@ -464,7 +450,7 @@ export default function TarifsPacksAGPage() {
       {/* Modale historique (versions de la grille — lecture seule, CDC §9 l.726-729) */}
       <Modal
         open={hist.open && hist.type !== null}
-        title={`Historique — ${hist.type ? (TYPE_LABELS[hist.type] ?? hist.type) : ''}`}
+        title={`Historique — ${hist.type ? libelleLongTypePack(hist.type) : ''}`}
         onClose={closeHistory}
         wide
       >

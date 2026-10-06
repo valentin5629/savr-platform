@@ -56,7 +56,7 @@ Un user `gestionnaire_lieux` **ne voit pas** :
 - Les coûts logistiques
 - Les marges
 - Les données des autres organisations gestionnaire_lieux
-- Les données commerciales/personnelles des traiteurs au-delà du nom/logo
+- Les données commerciales/personnelles des traiteurs au-delà du nom/logo — dont, sur les événements programmés par un tiers : contacts sur place (nom, téléphone), référence d'affaire, entité de facturation *(arbitrages Val C1-C3 2026-10-01 ; fermé en base par liste blanche de colonnes, cf. [[09 - Authentification et permissions]])*
 
 **RLS** : filtre sur `users.organisation_id` + jointure `organisations_lieux`. Les requêtes coté collectes passent par une vue dédiée qui expose uniquement les colonnes non-financières.
 
@@ -80,9 +80,9 @@ Barre latérale gauche, **9 sections** *(Val 2026-07-06, divergence M3.2 R19b-P2
 
 **Bouton primaire dashboard "Programmer un événement"** *(refonte 2026-05-21 — formulaire unique événement-centré, ex 2 sous-boutons ZD/AG)* : ouvre le formulaire unique §06.01 (choix ☐ZD ☐AG en étape 1) avec les contraintes Cas Gestionnaire (combobox lieu filtrée à `organisations_lieux`, combobox traiteur opérationnel restreinte au référentiel sans option shadow). Si la case Anti-Gaspi est cochée sans pack actif, la soumission AG est bloquée (alerte "Contactez Savr pour négocier un pack AG") — la collecte ZD reste programmable.
 
-**Section Collectes réintégrée (Val 2026-07-06 — divergence M3.2, override de la décision 2026-05-03)** : le gestionnaire dispose d'une entrée nav Collectes dédiée (`/gestionnaire/collectes`). Le détail d'une collecte (pesées par flux, repas, bordereau, rapport recyclage, attestation don) reste **également** accessible depuis le détail événement parent.
+**Section Collectes réintégrée (Val 2026-07-06 — divergence M3.2, override de la décision 2026-05-03)** : le gestionnaire dispose d'une entrée nav Collectes dédiée (`/gestionnaire/collectes`). **Colonnes de la liste** *(décision Val 2026-10-01, revue écran E2E)* : celles de la liste Collectes traiteur (§06.04 §3) plus le traiteur — **Date · Lieu (nom + adresse) · Client · Traiteur · Pax · Résultats · Type · Statut**. **Client** = client organisateur, si renseigné par le traiteur (« — » sinon) ; **Traiteur** = nom du traiteur opérationnel ; **Résultats** = ceux de la liste traiteur sur une collecte réalisée (ZD : poids · taux de recyclage · CO₂ évité ; AG : repas donnés · CO₂ évité), avec le téléchargement du rapport ; les repas d'une collecte programmée par un traiteur tiers sont lus dans l'attribution par la vue `v_attributions_gestionnaire` (même règle que la fiche ; l'ancien repli sur l'attestation de don, D13, est retiré depuis le 2026-10-04) ; **Type** est gardé parce que la liste mêle ZD et AG. Pas de colonne « Événement », **aucun picto d'action** (la fiche porte « Modifier » pour ses propres programmations, D7). La liste reste plate et paginée (décisions 2026-07-14 et 2026-09-22 inchangées). Le détail d'une collecte (pesées par flux, repas, bordereau, rapport recyclage, attestation don) reste **également** accessible depuis le détail événement parent.
 
-> **Fiche collecte (décision Val 2026-09-29)** : la fiche collecte reprend le pop-up client §06.04 « Fiche collecte (vue détail) » (en-tête, frise client, onglets Informations / Logistique / Bilan & documents) ; seules changent les actions autorisées au rôle. **Exception** : bloc « Association bénéficiaire » masqué tant que `v_attributions_gestionnaire` n'est pas implémentée. *(D13 + D9 2026-09-30)* Collecte AG programmée par une autre organisation : « Repas donnés » / « Repas par pax » lus dans l'attestation de don servie au gestionnaire (`attestations_don.nb_repas`) tant que la vue n'est pas implémentée (« — » avant génération de l'attestation) ; radar ZD masqué (garde `f_benchmark_single_collecte`). Le masquage du bloc Association est une limite technique temporaire, pas une règle de confidentialité : l'attestation de don reste servie (l.619) et l'association est visible sur le détail événement (l.347).
+> **Fiche collecte (décision Val 2026-09-29)** : la fiche collecte reprend le pop-up client §06.04 « Fiche collecte (vue détail) » (en-tête, frise client, onglets Informations / Logistique / Bilan & documents) ; seules changent les actions autorisées au rôle. **Exception** *(arbitrage Val C2 2026-10-01)* : bloc « Contacts sur place » **absent** sur la collecte programmée par un tiers (traiteur ou agence) — le gestionnaire ne voit pas les données personnelles des traiteurs (cf. « ne voit pas » ci-dessus) ; le bloc reste affiché sur ses propres programmations (`evenements.organisation_id = self`). _(2026-10-04 — vue `v_attributions_gestionnaire` implémentée)_ Collecte AG programmée par une autre organisation : « Repas donnés », « Repas par pax » et le bloc « Association bénéficiaire » (nom, ville, présentation) sont lus dans l'attribution par la vue `v_attributions_gestionnaire` (« — » et pas de bloc tant qu'aucune attribution n'existe) ; radar ZD masqué (garde `f_benchmark_single_collecte`). L'ancien repli sur l'attestation de don (D13) et le masquage du bloc Association sont retirés.
 
 
 > **Pagination** : liste paginée côté serveur, **50 collectes par page** (aligné §06.06 Back-office Admin). Au-delà d'une page, l'écran affiche le **nombre total de collectes du périmètre filtré** et le composant Pagination du Design System (§10 §6). Le total affiché est celui de la base, pas celui de la page : c'est lui qui rend la troncature visible, la liste étant volontairement large (« tous statuts, type ZD/AG non figé », cf. drill-down des Top listes). Un changement de filtre (dont un drill-down) **réinitialise la pagination à la page 1**. Tri départagé (`date_collecte` puis `id`) : `date_collecte` n'est pas unique, sans départage deux pages successives peuvent réordonner les ex æquo et faire disparaître une ligne. *(décision Val 2026-09-22 — la section réintégrée le 2026-07-06 ne spécifiait pas la taille de la liste ; la route coupait à 100 lignes sans le signaler.)*
@@ -197,16 +197,9 @@ Encart compact "Filtres benchmark" affichant **4 critères** (lieux, traiteurs, 
 
 Donut affichant la part relative des 5 flux ZD sur la période filtrée. Tooltip au survol : kg + %. Total au centre = tonnage total.
 
-#### Bloc 5 ZD — Prochaines collectes ZD programmées
+#### Bloc 5 ZD — retiré
 
-Liste des collectes ZD à venir sur les 30 prochains jours, filtrée selon les filtres globaux. Grain **collecte** (1 ligne = 1 collecte) :
-- Date + heure début
-- Événement
-- Lieu
-- Traiteur
-- Statut
-
-Lecture seule. **Clic → détail de l'événement parent** *(correction 2026-07-14 — la page Collectes gestionnaire existe (nav §1 + section « Liste Collectes ») ; le clic pointe vers l'événement par choix UX, non par absence de page Collectes)*.
+> **Retiré le 2026-10-01 (décision Val)** : la liste « Prochaines collectes » ne figure plus sur le dashboard. Les collectes à venir se lisent dans l'onglet Collectes. Les blocs 6, 7 et 8 gardent leur numéro.
 
 #### Bloc 6 ZD — Top 5 lieux ZD
 
@@ -253,18 +246,11 @@ Source : `attributions_antgaspi` jointe à `associations`.
 
 > **Correction 2026-07-07** : colonne `Distance moyenne (km)` supprimée (alignement §06.04 traiteur — donnée non restituée au client, reste un critère interne de l'algo d'attribution AG).
 
-> **Note numérotation** : pas de Bloc 4 AG (pas de donut côté AG, AG = un seul flux `don_alimentaire`). On saute directement à Bloc 5 AG pour préserver l'alignement des numéros entre onglets sur les blocs partagés (5/6/7/8).
+> **Note numérotation** : pas de Bloc 4 AG (pas de donut côté AG, AG = un seul flux `don_alimentaire`). On saute directement à Bloc 6 AG pour préserver l'alignement des numéros entre onglets sur les blocs partagés (6/7/8) — le Bloc 5 est retiré depuis le 2026-10-01.
 
-#### Bloc 5 AG — Prochaines collectes AG programmées
+#### Bloc 5 AG — retiré
 
-Liste des collectes AG à venir sur les 30 prochains jours, filtrée selon les filtres globaux. Grain **collecte** (1 ligne = 1 collecte) :
-- Date + heure début
-- Événement
-- Lieu
-- Traiteur
-- Statut
-
-Lecture seule. **Clic → détail de l'événement parent**.
+> **Retiré le 2026-10-01 (décision Val)** : même décision que le Bloc 5 ZD.
 
 #### Bloc 6 AG — Top 5 lieux AG
 
@@ -309,7 +295,7 @@ Filtres complémentaires propres à la liste Événements :
 
 | Filtre | Type | Valeurs |
 |---|---|---|
-| Type de collecte | Single-select | "Avec ZD" / "Avec AG" / "ZD et AG" / "Toutes" (défaut) — un événement avec au moins une collecte ZD entre dans "Avec ZD" ; idem AG |
+| Type de collecte | Multi-select (case « Toutes » = aucun filtre) | "ZD seul" / "AG seul" / "ZD et AG" — partition : chaque événement est dans une seule case selon les types de ses collectes ; « avec au moins une ZD » = ZD seul + ZD et AG ; idem AG. Un événement sans collecte ZD ni AG n'apparaît qu'avec « Toutes » (arbitrage Val F1 2026-10-01). API : `types_collecte[]` ; l'ancien `type_collecte=avec_zd\|avec_ag\|zd_et_ag` reste lu pour les liens existants. |
 | Statut consolidé | Multi-select | En cours / Terminé / Annulé |
 
 Bouton "Réinitialiser" ramène aux valeurs par défaut. Compteur "X événements correspondent" sous la barre.
@@ -522,7 +508,7 @@ Le reste des données nécessaires est déjà modélisé :
 - `organisations` (type `gestionnaire_lieux`)
 - `users` (role `gestionnaire_lieux`)
 - `organisations_lieux` (rattachement N-N)
-- `lieux`, `evenements`, `collectes`, `collecte_flux`, `attributions_antgaspi`, `courses_logistiques` (consultation uniquement, pas les champs financiers)
+- `lieux`, `evenements`, `collectes`, `collecte_flux`, `v_attributions_gestionnaire` (vue en liste blanche — la table `attributions_antgaspi` reste fermée au rôle, C-1 §09), `courses_logistiques` (consultation uniquement, pas les champs financiers)
 - : table supprimée refonte 2026-05-05 (synthèses générées à la demande, non archivées)
 - `rapports_rse` (lecture selon `organisation_id` traiteur ≠ gestionnaire — à arbitrer, voir Questions ouvertes)
 - `types_evenements` (filtre dashboard "type d'événement" — référentiel extensible Admin)

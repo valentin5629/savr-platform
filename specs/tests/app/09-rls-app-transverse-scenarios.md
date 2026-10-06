@@ -357,6 +357,50 @@ Scénario : rpc_security_definer_pas_oracle_existence
   # ⚠ La fonction est SECURITY DEFINER : la RLS de l'appelant ne s'y applique pas, le contrôle d'organisation est explicite dans le corps
 ```
 
+```gherkin
+# Source : §09 §3 Table evenements — privilège colonne (arbitrages C1-C5, Val 2026-10-01)
+# Couche : db (pgTAP SECU__evenements_select_liste_blanche)
+# Priorité : P0-bloquant
+
+Scénario : evenements_colonnes_sensibles_fermees_clients
+  Étant donné un événement programmé par une agence, opéré par un traiteur, tenu sur le lieu d'un gestionnaire, pour un client organisateur doté d'un compte
+  Et l'événement porte contacts sur place, référence d'affaire, notes internes et entité de facturation
+  Quand chacun de ces quatre rôles lit l'événement par PostgREST direct
+  Alors la ligne est visible (nom, date, pax, lieu, client final)
+  Mais la lecture de contact_principal_telephone, reference_affaire, notes_internes ou entite_facturation_id est refusée (42501)
+  Et select=* est refusé (42501)
+```
+
+```gherkin
+# Source : §09 §3 Tables référentiel — privilège colonne sur associations (7 colonnes, arbitrages Val 2026-10-05)
+# Couche : db (pgTAP SECU__associations_select_liste_blanche)
+# Priorité : P0-bloquant
+
+Scénario : associations_colonnes_sensibles_fermees_clients
+  Étant donné une association dont le contact, les notes internes, le SIREN et les instructions d'accès sont renseignés
+  Et bénéficiaire d'une collecte Anti-Gaspi clôturée d'un traiteur
+  Quand un gestionnaire, un traiteur, une agence ou un client organisateur lit l'association par PostgREST direct
+  Alors la ligne est visible (nom, ville, région, coordonnées, description publique)
+  Mais la lecture de contact_email, contact_telephone, commentaires_internes, siren ou instructions_acces est refusée (42501)
+  Et select=* est refusé (42501)
+  Et le traiteur lit toujours le nom, la ville et la description de l'association sur la fiche de sa collecte
+  Et le back-office (service_role) lit toujours la fiche entière
+```
+
+```gherkin
+# Source : §09 §3 Tables référentiel + `plateforme.transporteurs` — policies (lecture cliente fermée, arbitrage C1 Val 2026-10-06)
+# Couche : db (pgTAP SECU__transporteurs_lecture_cliente_fermee)
+# Priorité : P0-bloquant
+
+Scénario : transporteurs_illisibles_par_les_roles_clients
+  Étant donné deux transporteurs dans le référentiel, dont un attribué à la collecte Anti-Gaspi d'un traiteur
+  Quand un gestionnaire, un traiteur, une agence ou un client organisateur lit transporteurs par PostgREST direct
+  Alors la réponse est une liste vide
+  Et le traiteur qui lit l'attribution de sa collecte avec le transporteur embarqué reçoit l'attribution sans le transporteur
+  Et un administrateur et un opérateur Savr lisent toujours les deux transporteurs avec toutes leurs colonnes
+  Et le back-office (service_role) lit toujours la fiche entière
+```
+
 ---
 
 ## Catégorie 5 — Idempotence et états

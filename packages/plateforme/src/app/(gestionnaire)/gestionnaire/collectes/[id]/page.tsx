@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { ROUTES } from '@/lib/routes';
 
 // La fiche collecte s'affiche désormais dans le pop-up client commun (même
 // format que le traiteur — refonte Val 2026-09-29) sur la liste
@@ -16,5 +17,5 @@ export default async function FicheCollecteGestionnaireRedirect({
   const { edit } = await searchParams;
   const qs = new URLSearchParams({ collecte: id });
   if (edit === '1') qs.set('edit', '1');
-  redirect(`/gestionnaire/collectes?${qs.toString()}`);
+  redirect(`${ROUTES.gestionnaire.collectes}?${qs.toString()}`);
 }

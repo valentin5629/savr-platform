@@ -45,6 +45,7 @@ import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
+import { ROUTES } from '@/lib/routes';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -218,7 +219,7 @@ export default function AgenceDashboardPage() {
     if (!l) return;
     setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
     router.push(
-      `/agence/collectes?onglet=historique&lieu=${l.lieu_id}&${drillScope}`,
+      `${ROUTES.agence.collectes}?onglet=historique&lieu=${l.lieu_id}&${drillScope}`,
     );
   };
 
@@ -234,7 +235,7 @@ export default function AgenceDashboardPage() {
         title="Dashboard"
         actions={
           <Button asChild>
-            <a href="/programmer/nouveau">Programmer un événement</a>
+            <a href={ROUTES.programmer.nouveau}>Programmer un événement</a>
           </Button>
         }
       />

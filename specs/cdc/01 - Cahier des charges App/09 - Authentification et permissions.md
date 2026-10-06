@@ -56,6 +56,7 @@ Le rôle `ops_savr` peut désormais exister **simultanément** côté Plateforme
 
 - **Levé 2026-06-07 (F3)** : `transporteurs.siren` est en SELECT + UPDATE pour `admin_savr` **et** `ops_savr` (alignement sur la ligne matrice « Lieux / Transporteurs : lecture / écriture / désactivation : ops Oui », qui fait foi).
 - **Levé 2026-06-07 (F3)** : `ops_savr` peut désactiver un transporteur (`actif=false`). Aucun trigger/policy de restriction.
+- **Fermé 2026-10-05** : aucun rôle client ne lit `transporteurs`. La policy `transp_read` (`auth.role() = 'authenticated'`) est retirée par la migration `20261005100000` ; restent `transp_admin` (admin_savr), `transp_ops_select` et `transp_ops_write` (ops_savr).
 
 ### Tests pgTAP bloquants CI — nouveaux (révision 2026-04-28 + 2026-05-08)
 
@@ -197,6 +198,8 @@ Principe : chaque table sensible a une policy qui filtre les lignes visibles sel
 | **traiteur_commercial** *(extension 2026-05-07, élargie 2026-05-29)* | SELECT déjà org-wide (`organisation_id = self`) + OU `traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'` (collectes programmées par tiers chez son traiteur opérationnel) | — | — | — |
 | client_organisateur | `client_organisateur_organisation_id = auth.jwt()->>'organisation_id'` | — | — | — |
 
+**Privilège colonne (2026-10-01, arbitrages Val C1-C5)** : la RLS filtre les lignes, pas les colonnes. Le SELECT table-level d'`authenticated` est retiré au profit d'une liste blanche de 14 colonnes : `id`, `organisation_id`, `traiteur_operationnel_organisation_id`, `client_organisateur_organisation_id`, `lieu_id`, `created_by`, `nom_evenement`, `type_evenement_id`, `date_evenement`, `pax`, `nom_client_organisateur`, `logo_client_organisateur_url`, `created_at`, `updated_at`. **Hors privilège** : `contact_principal_nom`, `contact_principal_telephone`, `contact_secours_nom`, `contact_secours_telephone`, `reference_affaire` (servis par la route de la fiche collecte, service_role, selon le rôle et la propriété de l'événement), `notes_internes`, `entite_facturation_id` (aucun lecteur client). Ce privilège vaut pour **tous** les rôles PG `authenticated`, staff compris : `admin_savr ALL` s'entend via les routes back-office (service_role). Toute colonne ajoutée à `evenements` est fermée par défaut.
+
 ### Table `collectes`
 
 Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. **Précision 2026-05-07** : la jointure passe par `evenements.organisation_id` (programmateur) ET `evenements.traiteur_operationnel_organisation_id` (traiteur opérationnel) pour les rôles traiteur. Les autres rôles (agence, gestionnaire_lieux) n'utilisent que `organisation_id`. Le rôle `traiteur` voit toutes les collectes où il est opérationnel, peu importe le programmateur.
@@ -288,17 +291,21 @@ Même logique que `bordereaux_savr` (y compris la ligne `client_organisateur`, B
 >
 > ✅ **Autocomplétion Lieux alignée (PR #374 `619926b` + #376 `3c232d2`, mergées 2026-09-21)** : le chemin client de `/api/v1/programmation/lieux` lit `v_lieux_clients` sous le JWT utilisateur (`security_invoker = true`) — la RLS est la seule source de vérité, branche 4 comprise. Le chemin **admin support** (`?organisation_id=`, `service_role`) transcrit les branches 1, 2 et 4 ; la branche 3 « client organisateur » n'est volontairement pas transcrite (tout `lieu_id` qu'elle atteint pour ces rôles est déjà couvert par 1, 2 ou 4 — équivalence d'ensembles mesurée sur les 4 rôles). La garde de rôle de la branche 4 y est approximée par `organisations.type = 'traiteur'` : approximation assumée et commentée, jamais une fuite (l'admin lit déjà tous les lieux). Verrou : cliquet pgTAP `lieux_clients_select_cliquet.test.sql`.
 
-### Tables référentiel (`associations`, `transporteurs`, `flux_dechets`, `types_evenements`)
+### Tables référentiel (`associations`, `flux_dechets`, `types_evenements`)
 
 > ⚠ **`contacts_traiteurs` n'est PAS un référentiel public (divergence M0.6, 2026-06-22)** : la table est **org-scopée** (`organisation_id NOT NULL`) et porte des **PII** (`prenom`, `nom`, `telephone`, `email`). Lecture réservée à `admin_savr`, `ops_savr` et aux `traiteur_manager`/`traiteur_commercial` de l'organisation propriétaire (scopé `organisation_id`). La policy littérale `ct_read` (`auth.role() = 'authenticated'`) ouvrait par erreur la lecture cross-organisation → fuite PII (viole §09 cloisonnement + §15 RGPD). Corrigée par migration `20260622150000` (DROP `ct_read`, retour DENY ALL). pgTAP : DENY cross-org `M0_6__cat_4.test.sql` T63/T64.
 
 > ⚠ **`prestataires_logistiques` retirée de cette ligne (audit RLS 2026-06-11, B-4)** : la table est migrée vers `shared.prestataires` (2026-04-23) dont le SELECT est **`admin_savr`/`ops_savr` uniquement** (addendum cross-schema en tête de ce document). L'ancienne mention ici ouvrait par erreur la lecture du réseau logistique Savr à tous les rôles clients. pgTAP : `prestataires_client_roles_denied`.
 
+> ⚠ **`transporteurs` n'est PAS un référentiel lisible par les clients (2026-10-05, arbitrage Val C1 du 2026-10-06)** : la table porte le nom des prestataires (marque blanche, §06.04), leur contact, le prix d'achat (`tarif_par_course`) et des notes internes. Lecture réservée à `admin_savr` (`transp_admin`) et `ops_savr` (`transp_ops_select`) ; le back-office, les crons et les adapters lisent en `service_role`. La policy `transp_read` (`auth.role() = 'authenticated'`) ouvrait la table entière à tout utilisateur connecté ; la migration `20261005100000` la retire. Aucun écran client ne lit cette table. Ajouter une policy de lecture pour un rôle client est une ouverture d'accès (décision Val). pgTAP : `SECU__transporteurs_lecture_cliente_fermee`.
+
 | Rôle | SELECT | INSERT | UPDATE | DELETE |
 |------|--------|--------|--------|--------|
 | admin_savr | ALL | ALL | ALL | ALL |
-| traiteur_manager / traiteur_commercial | ALL référentiels + `contacts_traiteurs` limité à `organisation_id = auth.jwt()->>'organisation_id'` | `contacts_traiteurs` (organisation_id = sien) | `contacts_traiteurs` (organisation_id = sien) | — (soft seulement) |
-| autres | **Référentiels globaux uniquement** (`associations`, `transporteurs`, `flux_dechets`, `types_evenements`) en lecture. **Aucun accès à `contacts_traiteurs`** (org-scopé, PII — lecture réservée à `admin_savr`, `ops_savr` et aux traiteurs de l'organisation propriétaire). | — | — | — |
+| traiteur_manager / traiteur_commercial | Référentiels `associations` (7 colonnes), `flux_dechets`, `types_evenements` + `contacts_traiteurs` limité à `organisation_id = auth.jwt()->>'organisation_id'` — **aucun accès à `transporteurs`** | `contacts_traiteurs` (organisation_id = sien) | `contacts_traiteurs` (organisation_id = sien) | — (soft seulement) |
+| autres | **Référentiels globaux uniquement** (`associations` — 7 colonnes, `flux_dechets`, `types_evenements`) en lecture. **Aucun accès à `transporteurs`** (staff seul). **Aucun accès à `contacts_traiteurs`** (org-scopé, PII — lecture réservée à `admin_savr`, `ops_savr` et aux traiteurs de l'organisation propriétaire). | — | — | — |
+
+**Privilège colonne sur `associations` (2026-10-04)** : la RLS filtre les lignes, pas les colonnes. Le SELECT table-level d'`authenticated` est retiré au profit d'une liste blanche de 7 colonnes : `id`, `nom`, `ville`, `region`, `latitude`, `longitude`, `description_rapport_impact`. Contact (nom, email, téléphone), notes internes, SIREN, habilitation fiscale, n° RUP, adresse, horaires, capacité, types d'aliments, instructions d'accès, point de collecte transporteur, logo, `actif`, dates techniques : hors privilège, lus par le back-office en `service_role`. Toute colonne ajoutée à la table est fermée par défaut ; l'ouvrir est une ouverture d'accès (décision Val). Migration `20261004200000`, pgTAP `SECU__associations_select_liste_blanche`.
 
 ### Table `tournees`
 
@@ -618,7 +625,7 @@ CREATE POLICY tarif_cat_write ON plateforme.<table> FOR ALL
 
 > Le prix résolu n'est jamais affiché au formulaire (Sujet 5) — c'est une règle UI, pas RLS. **Le catalogue n'est PAS un référentiel partagé** (cf. encadré ci-dessus). Le **détail négocié** vit à deux endroits : les remises % dans `tarifs_negocie` (§3, déjà restreint) **et la base négociée elle-même dans le catalogue**, d'où la fermeture ; le prix résolu est restitué par `factures_collectes.tarif_detail` (A4).
 >
-> ⚠ **Dette de sécurité à arbitrer avant go-live (ouverte 2026-09-14, lot dédié)** : quatre policies restent en `auth.role() = 'authenticated'` — `associations.asso_read`, `flux_dechets.fd_read`, `transporteurs.transp_read`, `types_evenements.te_read`. `transporteurs` et `types_evenements` servent plausiblement le formulaire de programmation (une fermeture hâtive le casserait) ; `associations` et `transporteurs` exposent noms, coordonnées et rattachements à tout utilisateur connecté. **Recenser les consommateurs réels avant de trancher.**
+> ⚠ **Dette de sécurité à arbitrer avant go-live (ouverte 2026-09-14, lot dédié)** : **soldée pour `transporteurs` le 2026-10-05** (recensement fait : aucun lecteur client ; policy `transp_read` retirée par la migration `20261005100000`, arbitrage Val C1 du 2026-10-06) et, pour les colonnes d'`associations`, le 2026-10-04 (recensement fait ; liste blanche de 7 colonnes, migration `20261004200000`). Restent en `auth.role() = 'authenticated'` : `associations.asso_read` (les lignes — tout le référentiel reste visible, lot séparé), `flux_dechets.fd_read` et `types_evenements.te_read`. `flux_dechets` et `types_evenements` restent ouvertes par décision — arbitrage Val (C2, 2026-10-06) : référentiels lus par les écrans clients, sans donnée sensible ; la dette est close pour elles.
 
 ### A6/A7 — `collecte_flux` + `attributions_antgaspi`
 
@@ -655,14 +662,11 @@ CREATE POLICY aa_select ON plateforme.attributions_antgaspi FOR SELECT
 -- Le besoin « le gestionnaire voit repas donnés / association / ville / distance sur les
 -- collectes AG de SES lieux, y compris quand l'événement est programmé par un traiteur tiers »
 -- passe par la VUE dédiée `v_attributions_gestionnaire` (`security_invoker = false` +
--- `security_barrier = true`, liste blanche de colonnes, DEUX bornages cumulatifs : garde de rôle
--- `f_app_role() = 'gestionnaire_lieux'` OBLIGATOIRE **et** bornage par `organisations_lieux`
--- — sans la garde de rôle, un `client_organisateur` rattaché à un lieu contournerait C-1)
--- — cf. §04 Data Model. Modèle repris de `v_traiteurs_gestionnaire` (#363). Portée à câbler :
--- 8 points d'appel (mesure corrigée 2026-09-22) — détail événement, liste Événements,
--- dashboard KPI repas donnés, Mon pack AG, liste Traiteurs, fiche Traiteur, plus les routes
--- partagées `dashboards/evolution` et `dashboards/blocs` (`lib/dashboards/loaders.ts`, servant
--- aussi traiteur/agence) — chiffrage d'un seul lot, pas écran par écran.
+-- `security_barrier = true`, liste blanche de colonnes, TROIS bornages cumulatifs : garde de rôle
+-- `f_app_role() = 'gestionnaire_lieux'` OBLIGATOIRE, bornage par `organisations_lieux`, événement
+-- daté (`e.date_evenement IS NOT NULL`) — sans la garde de rôle, un `client_organisateur` rattaché
+-- à un lieu contournerait C-1) — cf. §04 Data Model. Modèle repris de `v_traiteurs_gestionnaire` (#363).
+-- Implémentée le 2026-10-04 (migration `20261004190000`), 11 points d'appel repointés — cf. §04.
 CREATE POLICY aa_write_admin ON plateforme.attributions_antgaspi FOR ALL
   USING (auth.jwt()->>'role' = 'admin_savr') WITH CHECK (auth.jwt()->>'role' = 'admin_savr');
 -- ops_savr : UPDATE limité aux colonnes poids/volume uniquement (colonne-level via vue ou applicatif)
@@ -676,7 +680,7 @@ CREATE POLICY aa_write_ops_poids ON plateforme.attributions_antgaspi FOR UPDATE
 
 Org-scoped via événement. Lecture par l'organisation de l'événement (l'embargo H+24 `disponible_a` est un contrôle **applicatif**, pas RLS). Écriture système (batch J+1) + Admin (régénération).
 
-> **Régénération manuelle traiteur_manager (tranché 2026-06-07, F3 test-scenarios lot ⑫)** : la régénération §12 §1.2 ouverte au manager passe par une **Next.js API Route SERVICE_ROLE** qui contrôle applicativement le périmètre du demandeur (mêmes 4 chemins org que `rr_select`) avant d'écrire. La policy `rr_write_admin` ci-dessous reste **inchangée** — aucune écriture client directe. pgTAP/Vitest P1 bloquant CI : `test_rapports_rse_regen_cross_org_denied` (manager org B tente la régénération d'un rapport org A → 403, ligne intacte).
+> **Régénération manuelle traiteur_manager — étendue le 2026-10-02 à tout utilisateur autorisé à télécharger le rapport (décision Val, cf. §12 §1.2) — (tranché 2026-06-07, F3 test-scenarios lot ⑫)** : la régénération §12 §1.2 ouverte au manager passe par une **Next.js API Route SERVICE_ROLE** qui contrôle applicativement le périmètre du demandeur (mêmes 4 chemins org que `rr_select`) avant d'écrire. La policy `rr_write_admin` ci-dessous reste **inchangée** — aucune écriture client directe. pgTAP/Vitest P1 bloquant CI : `test_rapports_rse_regen_cross_org_denied` (manager org B tente la régénération d'un rapport org A → 403, ligne intacte).
 
 ```sql
 ALTER TABLE plateforme.rapports_rse ENABLE ROW LEVEL SECURITY;

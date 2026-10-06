@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { ROUTES } from '@/lib/routes';
 
 interface BrouillonRow {
   id: string;
@@ -60,7 +61,7 @@ export default function BrouillonsPage() {
         size="xl"
         actions={
           <Button asChild>
-            <Link href="/programmer/nouveau">
+            <Link href={ROUTES.programmer.nouveau}>
               <PlusCircle />
               Nouvelle programmation
             </Link>
@@ -77,7 +78,7 @@ export default function BrouillonsPage() {
           description="Vos programmations enregistrées en brouillon apparaîtront ici."
           action={{
             label: 'Programmer une collecte',
-            onClick: () => router.push('/programmer/nouveau'),
+            onClick: () => router.push(ROUTES.programmer.nouveau),
           }}
         />
       )}
@@ -111,7 +112,7 @@ export default function BrouillonsPage() {
               </div>
               <div className="flex gap-2 shrink-0">
                 <Button variant="secondary" size="sm" asChild>
-                  <Link href={`/programmer/brouillon/${row.id}`}>
+                  <Link href={ROUTES.programmer.brouillon(row.id)}>
                     Reprendre
                   </Link>
                 </Button>

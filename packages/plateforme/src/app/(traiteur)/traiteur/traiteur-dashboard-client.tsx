@@ -63,6 +63,7 @@ import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
+import { ROUTES } from '@/lib/routes';
 
 // Variables du calcul CO₂ renvoyées par l'endpoint kpi-traiteur (modale méthode).
 // `ag` = facteur anti-gaspi par repas (méthode « évité seul » V1, §11 l.163).
@@ -315,7 +316,7 @@ export function TraiteurDashboardClient({
     if (!l) return;
     setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
     router.push(
-      `/traiteur/collectes?onglet=historique&lieu=${l.lieu_id}${drillScope}`,
+      `${ROUTES.traiteur.collectes}?onglet=historique&lieu=${l.lieu_id}${drillScope}`,
     );
   };
   const goToActeur = (i: number) => {
@@ -323,7 +324,7 @@ export function TraiteurDashboardClient({
     if (!a) return;
     setCollecteFiltreLabel({ kind: 'commercial', id: a.id, label: a.label });
     router.push(
-      `/traiteur/collectes?onglet=historique&commercial=${a.id}${drillScope}`,
+      `${ROUTES.traiteur.collectes}?onglet=historique&commercial=${a.id}${drillScope}`,
     );
   };
   // Bloc 3 AG — clic sur une association bénéficiaire → collectes AG filtrées.
@@ -336,7 +337,7 @@ export function TraiteurDashboardClient({
       label: a.nom,
     });
     router.push(
-      `/traiteur/collectes?onglet=historique&association=${a.association_id}${drillScope}`,
+      `${ROUTES.traiteur.collectes}?onglet=historique&association=${a.association_id}${drillScope}`,
     );
   };
 
@@ -353,7 +354,7 @@ export function TraiteurDashboardClient({
         title="Dashboard"
         actions={
           <Button asChild>
-            <a href="/programmer/nouveau">Programmer un événement</a>
+            <a href={ROUTES.programmer.nouveau}>Programmer un événement</a>
           </Button>
         }
       />

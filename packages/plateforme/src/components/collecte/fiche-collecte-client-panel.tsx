@@ -22,17 +22,17 @@ import { FriseStatutClient } from '@/components/collecte/frise-statut-client';
 import {
   OngletInformations,
   OngletLogistique,
-  TYPE_ORGA_LABEL,
   type FicheClientDonnees,
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
 import {
-  BadgeTypeCollecte,
   dateLongueCapitalisee,
   EnTeteMention,
   FicheEnTete,
-  typeCollecteLabel,
 } from '@/components/collecte/fiche-blocs';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
@@ -133,7 +133,7 @@ export function FicheCollecteClientPanel({
     const lieu = c.evenement?.lieu;
     onLoaded?.({
       title: [
-        `Collecte ${typeCollecteLabel(c.type)}`,
+        `Collecte ${libelleTypeCollecte(c.type)}`,
         lieu?.nom,
         dateLongueCapitalisee(c.date_collecte),
       ]
@@ -241,7 +241,7 @@ export function FicheCollecteClientPanel({
       ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
       : 'Seule l’organisation qui a programmé la collecte peut la modifier.';
   const progTypeLabel = c.programmee_par
-    ? (TYPE_ORGA_LABEL[c.programmee_par.type] ?? c.programmee_par.type)
+    ? libelleTypeOrganisationMinuscule(c.programmee_par.type)
     : null;
 
   return (
@@ -249,7 +249,7 @@ export function FicheCollecteClientPanel({
       <FicheEnTete
         surtitre={
           <>
-            <BadgeTypeCollecte type={c.type} />
+            <TypeCollecteBadge type={c.type} forme="plein" />
             <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
           </>
         }

@@ -4,6 +4,10 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { parseLimit, parsePage } from '@/lib/pagination.js';
+import {
+  FLUX_ZD_CODES as FLUX_ORDER,
+  LIBELLE_FLUX,
+} from '@/lib/libelles/flux.js';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — types, filtres, requête.
@@ -28,22 +32,11 @@ export function isRegistreRole(role: AnyRole): boolean {
   return REGISTRE_ROLES.includes(role);
 }
 
-// Les 5 flux ZD V1, dans l'ordre d'affichage (badges + colonnes CSV).
-export const FLUX_ORDER = [
-  'biodechet',
-  'emballage',
-  'carton',
-  'verre',
-  'dechet_residuel',
-] as const;
+// Les 5 flux ZD V1, dans l'ordre d'affichage (badges + colonnes CSV) : source
+// unique `lib/libelles/flux` (R-UI-2 C12), ré-exportée sous les noms historiques.
 
-export const FLUX_LABELS: Record<string, string> = {
-  biodechet: 'Biodéchets',
-  emballage: 'Emballages',
-  carton: 'Cartons',
-  verre: 'Verre',
-  dechet_residuel: 'Déchet résiduel',
-};
+export { FLUX_ORDER };
+export const FLUX_LABELS: Record<string, string> = LIBELLE_FLUX;
 
 // Filières de valorisation en clair (enum plateforme.filiere_valorisation).
 export const FILIERE_LABELS: Record<string, string> = {

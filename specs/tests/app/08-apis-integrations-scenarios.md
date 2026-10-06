@@ -1184,6 +1184,29 @@ Scénario : mts1_chaine_polling_complete
     Et integrations_inbox contient 3 entrées (PLANNED, STARTED, OK) avec statut=traite
 ```
 
+```gherkin
+# Source : §08 §3 V1 — Everest `mission_dispatched` : coursier relu sur l'API → tournée (décision Val 2026-10-02)
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : everest_mission_dispatched_coursier_relu_api_propage_tournee
+  Étant donné une collecte AG attribuée à A Toutes! dont la tournée porte external_ref_commande = mission_id (mission courante)
+    Et la tournée porte déjà chauffeur_nom = "Saisie Ops" et chauffeur_telephone = "0600000000" (saisie Admin)
+    Et Everest envoie un webhook mission_dispatched dont le payload annonce coursier_nom = "Faux Payload"
+    Et le re-fetch de la mission sur l'API Everest retourne le coursier "Léa Martin", sans téléphone
+  Quand l'adapter Everest traite le webhook (re-fetch mission, jamais le payload)
+  Alors tournees.chauffeur_nom = "Léa Martin" et tournees.chauffeur_telephone = NULL (couple écrit ensemble, jamais un nom neuf avec l'ancien téléphone)
+    Et "Faux Payload" n'est écrit nulle part
+    Et tournees.plaque_immatriculation est inchangée (plaque non propagée, vélo cargo)
+    Et l'UPDATE porte sa garde (id = tournée de la mission ET external_ref_commande = mission_id)
+  Quand l'API Everest ne retourne aucun coursier
+  Alors aucune écriture sur la tournée (saisie Admin conservée)
+  Quand le re-fetch échoue
+  Alors rien n'est écrit, une trace coursier_refetch_failed est enregistrée, la réponse est 200 et la mission passe quand même assigned
+  Quand la mission n'est pas la mission courante de la collecte
+  Alors l'API Everest n'est pas appelée pour le coursier et la tournée est intacte
+```
+
 ---
 
 ### Catégorie 7 — Scénarios de migration

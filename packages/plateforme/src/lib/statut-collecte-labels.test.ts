@@ -4,7 +4,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  ETAPES_STATUT_COLLECTE,
   friseStatutClient,
+  LIBELLE_STATUT_COLLECTE,
+  RANG_STATUT_COLLECTE,
   statutCollecteDisplay,
 } from './statut-collecte-labels';
 
@@ -131,5 +134,43 @@ describe('M3.1 / frise de statut client', () => {
       'courante',
       'a_venir',
     ]);
+  });
+});
+
+describe('R-UI-2 C1 — source unique statut collecte (étapes, rangs, export)', () => {
+  it('parcours nominal = 5 étapes, rang = position + 1', () => {
+    expect(ETAPES_STATUT_COLLECTE).toEqual([
+      'programmee',
+      'validee',
+      'en_cours',
+      'realisee',
+      'cloturee',
+    ]);
+    ETAPES_STATUT_COLLECTE.forEach((s, i) =>
+      expect(RANG_STATUT_COLLECTE[s]).toBe(i + 1),
+    );
+  });
+
+  it('hors parcours = rang 0, sans excédents = rang de « Réalisée »', () => {
+    for (const s of [
+      'brouillon',
+      'annulation_demandee',
+      'annulee',
+      'rejetee_par_prestataire',
+    ] as const)
+      expect(RANG_STATUT_COLLECTE[s]).toBe(0);
+    expect(RANG_STATUT_COLLECTE.realisee_sans_collecte).toBe(
+      RANG_STATUT_COLLECTE.realisee,
+    );
+  });
+
+  it('libellés export CSV = vue admin', () => {
+    for (const [statut, label] of Object.entries(LIBELLE_STATUT_COLLECTE))
+      expect(label).toBe(statutCollecteDisplay(statut, 'admin').label);
+    expect(LIBELLE_STATUT_COLLECTE.brouillon).toBe('Créée');
+    expect(LIBELLE_STATUT_COLLECTE.realisee_sans_collecte).toBe(
+      'Sans excédents',
+    );
+    expect(Object.keys(LIBELLE_STATUT_COLLECTE)).toHaveLength(10);
   });
 });

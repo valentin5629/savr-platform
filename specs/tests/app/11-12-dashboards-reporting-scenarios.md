@@ -108,9 +108,11 @@ Scénario : dashboard_admin_bloc_couts_et_marge
 # Priorité : P1-critique
 
 Scénario : batch_j1_genere_bordereau_et_rapport_rse
-  Étant donné une collecte ZD Kaspia passée à "realisee" hier à 14h (realisee_at figé) avec 5 pesées de flux agrégées, puis "cloturee"
+  Étant donné une collecte ZD Kaspia avec date_collecte = J-1, passée à "realisee" hier à 14h (realisee_at figé) avec 5 pesées de flux agrégées, puis "cloturee"
   Quand le batch automatique J+1 tourne à 6h00
   Alors une ligne `bordereaux_savr` est créée (statut "emis", numero séquence BSAV, detail_flux jsonb 5 flux, poids_total_kg = somme)
+  Et `bordereaux_savr.date_collecte` = `collectes.date_collecte` (J-1, snapshot §04) et `date_emission` = jour du batch (J)
+  Et les payloads PDF du bordereau et du rapport portent date_collecte = J-1 au format JJ/MM/AAAA (mention « Intervention le … » si ≠ date_evenement, §12 §1.1) — jamais la date d'exécution du batch
   Et une ligne `rapports_rse` est créée avec genere_par="automatique", version=1, disponible_a = realisee_at + 24h
   Et l'email `rapport_disponible` est envoyé au traiteur avec taux_recyclage et co2_evite
 ```
@@ -310,7 +312,8 @@ Scénario : benchmark_periode_fixe_24_mois_serveur
   Étant donné un appel à /api/v1/dashboards/benchmark avec periode_debut = 2020-01-01 et periode_fin = 2020-12-31
   Quand la route calcule le repère parc un 29/09/2026 (jour civil Paris)
   Alors la RPC est appelée avec p_periode_debut = 2024-09-29 et p_periode_fin = 2026-09-29 (paramètres reçus ignorés)
-  Et il en va de même pour /api/v1/admin/dashboard-client/benchmark (plus jamais « tout l'historique »), la fiche collecte et le rapport PDF (légende « période : AAAA-MM-JJ → AAAA-MM-JJ »)
+  Et il en va de même pour la fiche collecte et le rapport PDF (légende « période : AAAA-MM-JJ → AAAA-MM-JJ »)
+  Et /api/v1/admin/dashboard-client/benchmark applique la même fenêtre fixe de 24 mois (plus jamais « tout l'historique ») sans appeler la RPC : référence calculée sans k-anonymat (cf. benchmark_admin_reference_filtres_sans_k_anonymat, lot ⑥)
   Et un 29 février, la borne de début est le 28 février deux ans plus tôt
   Et l'encart « Filtres benchmark » n'affiche aucun choix de période
 ```
@@ -431,6 +434,21 @@ Scénario : benchmark_avertissement_comparaison_a_soi
   Étant donné un gestionnaire qui applique p_lieu_ids = ses propres lieux uniquement
   Quand le radar Bloc 3 ZD se charge
   Alors le tooltip "Vous comparez vos données à vos propres données" s'affiche, sans blocage SQL
+```
+
+```gherkin
+# Source : §12 §1.2 page 1 — refonte du contenu (décision Val 2026-10-02)
+# Couche : api (gabarit rapport-recyclage-zd@3)
+# Priorité : P2-important
+
+Scénario : rapport_recyclage_radar_flux_masque_retire
+  Étant donné une collecte ZD cloturee sans verre collecté, dont le repère parc « carton » est masqué (k-anonymat)
+  Quand le rapport de recyclage est généré avec le bloc benchmark coché
+  Alors le radar base 100 porte 3 axes (biodéchets, emballages, déchet résiduel) et la liste à droite donne kg/convive, repère parc, badge d'écart et nombre de collectes du segment
+  Et avec moins de 3 axes exploitables la liste est affichée seule, sans radar
+  Et l'en-tête affiche le nom du client organisateur, la date de collecte (pas la date de l'événement), l'adresse du lieu et le poids par convive
+  Et le bloc carbone ne porte ni équivalence « repas bœuf » ni mention d'incertitude (±50 % figure dans la méthodologie)
+  Et au plus 3 photos sont affichées, et la comparaison au parc ne cite pas le nombre d'organisations
 ```
 
 ---
@@ -699,7 +717,8 @@ Scénario : regeneration_rapport_rse_versionnee_pas_dupliquee
   Étant donné un rapport RSE version=1 généré automatiquement
   Quand l'admin corrige une pesée et régénère
   Alors la MÊME ligne `rapports_rse` est mise à jour : version=2, regenere_at posé, regenere_par_user_id renseigné (UPDATE, pas de 2e ligne)
-  Et l'UI affiche le picto ⟳ + "Mis à jour le …" et le PDF porte la mention pied de page "Version mise à jour — générée le …"
+  Et l'UI affiche le picto ⟳ + "Mis à jour le …"
+  Et le PDF du rapport de recyclage ne porte AUCUNE mention de régénération (le bordereau unitaire conserve "Version mise à jour — générée le …")
   Et l'audit_log trace qui / quel profil / quand
 ```
 
@@ -758,7 +777,7 @@ Scénario : recalcul_apres_correction_pesee_facteurs_du_moment
 Scénario : benchmark_pdf_reproductible_via_snapshot
   Étant donné un rapport RSE généré avec filtres benchmark figés dans `rapports_rse.filtres_benchmark`
   Quand de nouvelles collectes parc modifient la moyenne benchmark, puis le traiteur re-télécharge le même PDF
-  Alors les jauges benchmark du PDF affichent exactement les valeurs d'origine (snapshot)
+  Alors le radar benchmark du PDF et sa liste par flux affichent exactement les valeurs d'origine (snapshot)
   Et la légende sous le graphe liste les filtres appliqués (période, lieux, type, taille — jamais traiteurs)
 ```
 
@@ -822,6 +841,22 @@ Scénario : consulte_par_user_at_pose_une_seule_fois
   Quand le traiteur l'ouvre 2 fois
   Alors consulte_par_user_at est posé à la 1re consultation et n'est PAS écrasé à la 2e
   Et le back-office Admin affiche l'indicateur "rapport consulté"
+```
+
+```gherkin
+# Source : §12 §1.2 Blocs optionnels + Régénération manuelle (décision Val 2026-10-02) + §04 rapports_rse.options_rapport
+# Couche : api + ui
+# Priorité : P1-critique
+
+Scénario : regeneration_rapport_blocs_optionnels_figes
+  Étant donné un rapport de recyclage généré par le batch J+1 (options_rapport NULL = tout affiché)
+  Quand un utilisateur autorisé à télécharger le rapport (traiteur, agence ou gestionnaire programmateur, client organisateur) ouvre la boîte de dialogue de régénération
+  Alors les cases « Comparaison au parc », « Benchmark » et « Photos » sont cochées par défaut
+  Quand il décoche « Benchmark » et « Photos » et régénère
+  Alors rapports_rse.options_rapport = {"comparaison_parc": true, "benchmark": false, "photos": false} et version = version + 1
+  Et le PDF ne contient ni radar benchmark ni photos, mais toujours le taux, les tonnages, le bloc carbone, l'en-tête, la méthodologie et la page 2
+  Et tout téléchargement ultérieur reproduit le même document
+  Et une régénération demandée par un utilisateur d'une autre organisation répond 403
 ```
 
 ---

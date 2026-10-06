@@ -59,7 +59,7 @@
     },
     {
       "id": "M2.5-acceptation-manuelle-reference",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:254-274",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:274-294",
       "artefact": "supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql (fn_accepter_mission_everest_manuelle : tournees.external_ref_commande + collectes.tms_reference + everest_missions created_manually, atomique) ; packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts + packages/plateforme/src/lib/acceptation-manuelle-mission.ts (référence obligatoire, bornée) ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (modale « Acceptation manuelle »)",
       "test": "everest_acceptation_manuelle_reference.test.sql (A1 422 sans référence, A2 référence posée, A3 sort des non transmises, A4 renvoi = E2, A7 uniq_tournee_par_external_ref atomique, A9 annulation = E3, A11 tournée Everest visée) + adapter.m2-5.test.ts « mission acceptée manuellement AVEC référence » (cancelCollecte annule chez A Toutes!, E1 no-op) + everest-manual-accept.m2-5.test.ts + collecte-detail-panel.m0-6.test.tsx §06.06 Bloc 0",
       "statut": "implemented",
@@ -75,7 +75,7 @@
     },
     {
       "id": "M2.5-acceptation-manuelle-plans",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:264-270",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:284-290",
       "artefact": "supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql (refus P0003 depuis rejetee_par_prestataire)",
       "test": "everest_acceptation_manuelle_plans.test.sql (statut_depart : a_attribuer / attribuee_en_attente_acceptation → acceptee, rejetee_par_prestataire → refus ; refus_409 : realisee / cloturee / annulee, aucune écriture) + everest_acceptation_manuelle_reference.test.sql (non_envoye A2c, non a_toutes A8b, mission API A8, autre référence A5c, référence d'une autre tournée A7) + everest-manual-accept.m2-5.test.ts (P0003 → 409, formats 422)",
       "statut": "implemented",
@@ -99,8 +99,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "01a8018a9b56b7080470bc2005a7e7027bb9b547842d3ecbcde70536667c38ff",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a217d2a2fc80d1152d1bb6417705a8a5dd72dd09a5923415b96807803c2c27cb",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "65773f43050134ec19709eea830bf5cc266b269c516caf55dd2b656b75633ec7",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
     "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "f27893604204edd42c80f59795ff3e93e81eecf9557ccd9904f3dbac6c071cde"
   }
 }

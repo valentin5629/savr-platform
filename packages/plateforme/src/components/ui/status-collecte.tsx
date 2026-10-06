@@ -4,6 +4,8 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import {
+  ETAPES_STATUT_COLLECTE,
+  RANG_STATUT_COLLECTE,
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
@@ -13,19 +15,9 @@ import {
 // composant n'ajoute que la timeline (étapes).
 export type StatutCollecte = StatutCollecteDb;
 
-// Position sur la timeline (0 = hors timeline : brouillon, annulée, rejetée…).
-const STEP: Record<StatutCollecteDb, number> = {
-  brouillon: 0,
-  programmee: 1,
-  validee: 2,
-  en_cours: 3,
-  realisee: 4,
-  realisee_sans_collecte: 4,
-  cloturee: 5,
-  annulation_demandee: 0,
-  annulee: 0,
-  rejetee_par_prestataire: 0,
-};
+// Position sur la timeline (0 = hors timeline : brouillon, annulée, rejetée…) —
+// source unique `lib/statut-collecte-labels` (R-UI-2 C1).
+const STEP = RANG_STATUT_COLLECTE;
 
 // Conservé (export) pour rétro-compat d'éventuels consommateurs : label+variant
 // dérivés du module partagé (vue admin) + step.
@@ -43,13 +35,7 @@ const STATUT_CONFIG = Object.fromEntries(
   }
 >;
 
-const TIMELINE_STEPS: StatutCollecteDb[] = [
-  'programmee',
-  'validee',
-  'en_cours',
-  'realisee',
-  'cloturee',
-];
+const TIMELINE_STEPS: readonly StatutCollecteDb[] = ETAPES_STATUT_COLLECTE;
 
 interface StatusCollecteProps {
   statut: StatutCollecte;

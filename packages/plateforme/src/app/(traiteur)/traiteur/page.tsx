@@ -13,6 +13,7 @@ import type { BenchmarkRow } from '@/lib/dashboards/cockpit-derive';
 import { TraiteurDashboardClient } from './traiteur-dashboard-client';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
 import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark';
+import { ROUTES } from '@/lib/routes';
 
 // Lecture cookies + agrégats live par utilisateur → jamais statique.
 export const dynamic = 'force-dynamic';
@@ -41,14 +42,14 @@ export default async function TraiteurDashboardPage() {
   // Défense en profondeur (le layout garde déjà /traiteur/*) — auth LOCALE.
   const supabase = createSupabaseServerClient({ readonly: true });
   const claims = await getVerifiedClaims(supabase);
-  if (!claims) redirect('/login');
+  if (!claims) redirect(ROUTES.login);
   if (
     claims.role !== 'traiteur_manager' &&
     claims.role !== 'traiteur_commercial'
   ) {
-    redirect('/403');
+    redirect(ROUTES.interdit);
   }
-  if (!claims.organisationId) redirect('/403');
+  if (!claims.organisationId) redirect(ROUTES.interdit);
 
   const ctx: LoaderCtx = {
     userId: claims.userId,

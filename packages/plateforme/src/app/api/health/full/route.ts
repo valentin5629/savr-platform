@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-
-const ALLOWED_ROLES = ['admin_savr', 'ops_savr'];
+import { isStaff } from '@/lib/roles';
 
 function parseJwtClaims(token: string): Record<string, unknown> {
   try {
@@ -56,7 +55,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     } = await supabase.auth.getSession();
     const claims = parseJwtClaims(session?.access_token ?? '');
     const role = claims['user_role'] as string | undefined;
-    if (!role || !ALLOWED_ROLES.includes(role)) {
+    if (!isStaff(role)) {
       return NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 });
     }
   }

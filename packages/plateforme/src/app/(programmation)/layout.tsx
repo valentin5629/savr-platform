@@ -1,7 +1,7 @@
 'use client';
 
 import { AppShell } from '@/components/layout/app-shell';
-import type { Role } from '@/lib/nav-config';
+import type { NavRole } from '@/lib/roles';
 import { useUserRole } from '@/lib/use-user-role';
 
 export default function ProgrammationLayout({
@@ -14,7 +14,7 @@ export default function ProgrammationLayout({
   // échouait silencieusement côté client (Buffer absent du bundle) → le rôle
   // restait bloqué sur le défaut `traiteur_commercial` : admin/agence/gestionnaire
   // voyaient la nav traiteur et le formulaire n'affichait pas leur sélecteur.
-  const role = (useUserRole() ?? 'traiteur_commercial') as Role;
+  const role = (useUserRole() ?? 'traiteur_commercial') as NavRole;
 
   return (
     <AppShell role={role} pageTitle="Programmer une collecte">

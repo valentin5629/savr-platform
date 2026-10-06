@@ -69,6 +69,7 @@ import {
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
+import { FLUX_ZD } from '@/lib/libelles/flux';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import { estADispatcher } from '@/lib/collectes-chips';
 import {
@@ -79,7 +80,6 @@ import {
 } from '@/lib/type-tms-labels';
 import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
-  BadgeTypeCollecte,
   BlocHeader,
   ContactLigne,
   dateLongueCapitalisee,
@@ -87,8 +87,9 @@ import {
   FicheEnTete,
   InfoItem,
   TelephoneLien,
-  typeCollecteLabel,
 } from '@/components/collecte/fiche-blocs';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { Text } from '@/components/ui/text';
@@ -243,16 +244,11 @@ interface CollecteDetail {
   }[];
 }
 
-// Référentiel des 5 flux ZD V1 (figé — seed flux_dechets). Sert à afficher tous
-// les flux dans Bloc 3 même quand collecte_flux n'a pas encore de ligne (pesées
-// dérivées de pesees_tournees à l'agrégation, ou saisie manuelle Admin).
-const ZD_FLUX = [
-  { code: 'biodechet', nom: 'Biodéchets' },
-  { code: 'emballage', nom: 'Emballages' },
-  { code: 'carton', nom: 'Cartons' },
-  { code: 'verre', nom: 'Verre' },
-  { code: 'dechet_residuel', nom: 'Déchet résiduel' },
-] as const;
+// Référentiel des 5 flux ZD V1 (figé — seed flux_dechets ; source unique
+// `lib/libelles/flux`, R-UI-2 C12). Sert à afficher tous les flux dans Bloc 3
+// même quand collecte_flux n'a pas encore de ligne (pesées dérivées de
+// pesees_tournees à l'agrégation, ou saisie manuelle Admin).
+const ZD_FLUX = FLUX_ZD.map((f) => ({ code: f.code, nom: f.label }));
 
 // Bloc 3 — Documents (GET /[id]/documents).
 interface RapportDoc {
@@ -310,10 +306,7 @@ type PdfType = 'rapport-recyclage-zd' | 'bordereau-zd' | 'attestation-don';
 function DifficulteBadge({ valeur }: { valeur?: string | null }) {
   if (!valeur) return <>—</>;
   return (
-    <Badge
-      variant={DIFFICULTE_VARIANT[valeur] ?? 'neutral'}
-      className="text-xs"
-    >
+    <Badge variant={DIFFICULTE_VARIANT[valeur] ?? 'neutral'}>
       {DIFFICULTE_LABEL[valeur] ?? valeur}
     </Badge>
   );
@@ -932,7 +925,7 @@ export function CollecteDetailPanel({
       : '';
     const lieu = collecte.evenements.lieux;
     onLoaded?.({
-      title: `Collecte ${typeCollecteLabel(collecte.type)} · ${d}${h} · ${collecte.evenements.organisations.raison_sociale} · ${lieu.nom} (${lieu.ville}) · jusqu'à ${fmtPax(collecte.evenements.pax)}`,
+      title: `Collecte ${libelleTypeCollecte(collecte.type)} · ${d}${h} · ${collecte.evenements.organisations.raison_sociale} · ${lieu.nom} (${lieu.ville}) · jusqu'à ${fmtPax(collecte.evenements.pax)}`,
     });
   }, [collecte, onLoaded]);
 
@@ -1127,13 +1120,10 @@ export function CollecteDetailPanel({
       <FicheEnTete
         surtitre={
           <>
-            <BadgeTypeCollecte type={collecte.type} />
+            <TypeCollecteBadge type={collecte.type} forme="plein" />
             <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
             {collecte.dirty_tms && (
-              <Badge
-                variant="warning"
-                className="flex items-center gap-1 text-xs"
-              >
+              <Badge variant="warning" className="flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 Modifiée — renvoi requis
               </Badge>
@@ -1165,9 +1155,7 @@ export function CollecteDetailPanel({
                 {currentTransporteur?.nom ??
                   libelleSansNom ??
                   'Prestataire non attribué'}
-                <Badge variant={statutTms.variant} className="text-xs">
-                  {statutTms.label}
-                </Badge>
+                <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
               </span>
             ),
           },
@@ -1252,9 +1240,7 @@ export function CollecteDetailPanel({
                 title="Lieu"
                 action={
                   lieuSurcharge ? (
-                    <Badge variant="info" className="text-xs">
-                      Modifié pour cette collecte
-                    </Badge>
+                    <Badge variant="info">Modifié pour cette collecte</Badge>
                   ) : undefined
                 }
               />
@@ -1430,7 +1416,7 @@ export function CollecteDetailPanel({
                           })}
                         </>
                       ) : (
-                        <Badge variant="warning" className="text-xs">
+                        <Badge variant="warning">
                           En attente de validation
                         </Badge>
                       )}
@@ -1467,7 +1453,7 @@ export function CollecteDetailPanel({
                         </span>
                       )}
                       {currentTransporteur?.type_tms && (
-                        <Badge variant="neutral" className="text-[10px]">
+                        <Badge size="sm" variant="neutral">
                           {libelleTypeTms(currentTransporteur.type_tms)}
                         </Badge>
                       )}
@@ -1476,7 +1462,7 @@ export function CollecteDetailPanel({
                   <div>
                     <dt className="text-savr-neutral-500">Statut TMS</dt>
                     <dd className="font-medium">
-                      <Badge variant={statutTms.variant} className="text-xs">
+                      <Badge variant={statutTms.variant}>
                         {statutTms.label}
                       </Badge>
                       {collecte.statut_tms_at && (
@@ -1605,20 +1591,12 @@ export function CollecteDetailPanel({
                                 badges={
                                   <>
                                     {t.id === recommendedTransporteurId && (
-                                      <Badge
-                                        variant="primary"
-                                        className="text-xs"
-                                      >
+                                      <Badge variant="primary">
                                         Recommandé
                                       </Badge>
                                     )}
                                     {estActuel && (
-                                      <Badge
-                                        variant="neutral"
-                                        className="text-xs"
-                                      >
-                                        Actuel
-                                      </Badge>
+                                      <Badge variant="neutral">Actuel</Badge>
                                     )}
                                   </>
                                 }
@@ -1724,7 +1702,7 @@ export function CollecteDetailPanel({
                           className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded-savr-sm px-3 py-2"
                         >
                           <span className="font-medium">Camion {ct.rang}</span>
-                          <Badge variant="neutral" className="text-xs">
+                          <Badge variant="neutral">
                             {libelleStatutTournee(ct.tournees.statut)}
                           </Badge>
                           <Text as="span" variant="hint" className="font-mono">
@@ -2270,7 +2248,7 @@ export function CollecteDetailPanel({
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" size="sm" disabled>
                     Valider & envoyer Pennylane
-                    <Badge variant="neutral" className="ml-2 text-xs">
+                    <Badge variant="neutral" className="ml-2">
                       M1.7
                     </Badge>
                   </Button>

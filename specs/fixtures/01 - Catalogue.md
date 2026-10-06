@@ -87,6 +87,7 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 | `evenements` à venir | 4 | 30 | dont 1 `date_evenement` NULL, 1 AG bloqué coche étape 1 |
 | `evenements` passés | 14 | ~440 | support des 478 collectes (qq événements multi-collectes) |
 | `evenements` annulés | 2 | 12 | dont 1 AG < 12 h (débit crédit pack) |
+| `evenements.nom_client_organisateur` | non posé | ~70 % des événements | *(ajout 2026-10-01, décision Val)* 8 noms inventés réutilisés, les ~30 % restants à NULL — alimente la colonne « Client » des listes Collectes et le filtre « Client organisateur ». `client_organisateur_organisation_id` (rattachement réservé Admin) jamais posé par le seed. |
 | `collectes` brouillon | 2 | 6 | dont 1 brouillon tiers (exclu vues gestionnaire) |
 | `collectes` à venir (programmee/acceptee) | 3 | 20 | |
 | `collectes` realisee (non clôturées) | 2 | 25 | attente facturation/clôture |
@@ -102,7 +103,7 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 | `factures_collectes` (lignes) | 12 | ~260 | dont ligne `collecte_id` NULL (designation libre) |
 | `sequences_facturation` | 1/entité | idem | alignées gapless sur factures seedées |
 | `bordereaux_savr` | 3 | 60 | ZD clôturées (sous-ensemble demo) |
-| `attestations_don` | 2 | 80 | habilitée vs non habilitée |
+| `attestations_don` | 2 | 80 | habilitée vs non habilitée. *(ajout 2026-10-01)* Une attestation seedée recopie l'attribution de la même collecte : même association, `nb_repas` = `attributions_antgaspi.volume_repas_realise` — comme le batch J+1. Jamais de second calcul. *(2026-10-04)* Le gestionnaire de lieux lit désormais les repas dans l'attribution par la vue `v_attributions_gestionnaire` (plus dans l'attestation de don) ; le traiteur les lit dans l'attribution. |
 | `rapports_rse` | 1 | 12 | dont 1 « sans excédent », 1 régénéré manager |
 | `exports_registre` | 3 | 6 | 1 par format : csv, zip, pdf |
 | `documents_generaux_savr` | 2 | 4 | |

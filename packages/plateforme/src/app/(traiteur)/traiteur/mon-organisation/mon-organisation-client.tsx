@@ -33,6 +33,8 @@ import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { ActifBadge } from '@/components/ui/actif-badge';
+import { libelleActif } from '@/lib/libelles/actif';
 
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
@@ -687,12 +689,8 @@ function EquipeTab({ userId }: { userId: string }) {
     {
       id: 'statut',
       header: 'Statut',
-      accessorFn: (u) => (u.actif ? 'Actif' : 'Suspendu'),
-      cell: ({ row: { original: u } }) => (
-        <Badge variant={u.actif ? 'success' : 'neutral'}>
-          {u.actif ? 'Actif' : 'Suspendu'}
-        </Badge>
-      ),
+      accessorFn: (u) => libelleActif(u.actif),
+      cell: ({ row: { original: u } }) => <ActifBadge actif={u.actif} />,
     },
     {
       id: 'actions',

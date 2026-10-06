@@ -245,6 +245,8 @@ Les composants viennent de shadcn/ui ; ces recettes définissent **comment on le
 | `destructive` | fond `error`, texte blanc | fond `error-strong` | fond `error-strong` | anneau `primary-500` offset 2px (levier #4 — anneau uniforme) |
 | `ghost` | transparent, texte `primary-700` | fond `primary-50` | fond `primary-100` | anneau `primary-500` offset 2px |
 
+- **Action destructive secondaire** *(décision Val 2026-09-30, fiches Admin)* : bouton `secondary` à contour et texte `error` — « Annuler la collecte », « Désactiver » (fiches association et transporteur). « Réactiver » = `secondary` neutre.
+
 - Hauteur : 40px (`md`), 44px sur mobile (cible tactile). Padding horizontal `--space-4`/`--space-6`.
 - Transition : `--motion-fast` sur `background-color` + `transform`. **Pas** d'ombre diffuse au hover.
 - Texte sur `accent-500` = `primary-950` (navy quasi-noir), jamais blanc (contraste).
@@ -278,7 +280,7 @@ Pattern signature institutionnel — sidebar, hero d'écran, bandeau de page.
 - Erreur : bordure `error` + `FormError` `error-strong` dessous + icône.
 - Label `--text-sm` poids 600 `neutral-700`, au-dessus du champ.
 
-**Mise en page des formulaires et filtres (2026-09-28)** : (1) **formulaires de saisie** : libellé au-dessus via `FormField`, jamais à gauche, jamais de placeholder-libellé ; (2) une seule hauteur de contrôle : 40px desktop / 44px mobile (`h-11 sm:h-10`) ; (3) un composant par besoin (Combobox / DatePicker / DateRangePicker / TimePicker) — aucun `<select>` ni `<input type="date">` natif ; (4) **formulaires de saisie** : grille 3 colonnes max, gap 16px ; formulaire de saisie 2 colonnes max ; (5) tous les champs d'une ligne ont un libellé ; (6) Tabs pour changer de vue, ToggleGroup pour filtrer ; (7) **barres de filtres = filtres en ligne** (décision Val 2026-09-30) : chaque filtre est un titre cliquable suivi de sa valeur courante (« Statut Actif ▾ »), jamais un libellé au-dessus d'un champ ; filtres rangés sur une ligne dans un bandeau neutral-50 (`BarreFiltres`, dans `FilterBar` pour les listes), « Réinitialiser » calé à droite. Choix multiple = liste à cocher (`FiltreCoches`, recherche au-delà de 7 options) ; choix unique = liste avec coche, fermeture au clic (`Combobox titre`) ; Période = panneau « raccourcis + calendrier » (`DateRangePicker titre`, cf. §6 Panneau Période) ; recherche libre = champ loupe en tête de barre (`FiltreRecherche`), sur les écrans qui en ont une. Déclencheur 44 px mobile / 36 px desktop. **Exception** : les rangées de pastilles rapides à compteur `FilterChips` (§5.7 — Admin Collectes, Admin Factures « Filtrer par statut », Admin Alertes) restent des pastilles (arbitrage Val 2026-09-30) ; (8) actions de formulaire en bas à droite, secondaire puis primaire. Voix : vouvoiement conservé (tutoiement Claude Design non retenu à ce stade).
+**Mise en page des formulaires et filtres (2026-09-28)** : (1) **formulaires de saisie** : libellé au-dessus via `FormField`, jamais à gauche, jamais de placeholder-libellé ; (2) une seule hauteur de contrôle : 40px desktop / 44px mobile (`h-11 sm:h-10`) ; (3) un composant par besoin (Combobox / DatePicker / DateRangePicker / TimePicker) — aucun `<select>` ni `<input type="date">` natif ; (4) **formulaires de saisie** : grille 3 colonnes max, gap 16px ; formulaire de saisie 2 colonnes max ; (5) tous les champs d'une ligne ont un libellé ; (6) Tabs pour changer de vue, ToggleGroup pour filtrer ; (7) **barres de filtres = filtres en ligne** (décision Val 2026-09-30) : chaque filtre est un titre cliquable suivi de sa valeur courante (« Statut Actif ▾ »), jamais un libellé au-dessus d'un champ ; filtres rangés sur une ligne dans un bandeau neutral-50 (`BarreFiltres`, dans `FilterBar` pour les listes), « Réinitialiser » calé à droite. **« Période » en premier** sur toute barre qui en a une (décision Val 2026-09-30). **Tous les filtres sont à choix multiple** (décision Val 2026-09-30, remplace « choix unique = liste avec coche ») : liste à cocher (`FiltreCoches`, recherche au-delà de 7 options) avec une case **« Tous »** en tête — cochée tant qu'aucune valeur n'est choisie (= aucun filtre) ; cocher une valeur la décoche et ne garde que cette valeur ; la recocher efface la sélection ; cocher toutes les options revient à « Tous » ; masquée pendant une recherche dans la liste. **Exception au défaut « Tous »** (confirmée Val 2026-10-01) : sur les listes Admin Associations, Transporteurs et Lieux, le filtre Statut démarre avec **« Actives » / « Actifs » pré-coché** (« Tous » décochée). Le sélecteur de type ZD / AG et les onglets Programmées / Historique restent à valeur unique : ce sont des axes de vue (règle 6), pas des filtres de la barre (confirmé Val). Période = panneau « raccourcis + calendrier » (`DateRangePicker titre`, cf. §6 Panneau Période) ; recherche libre = champ loupe en tête de barre (`FiltreRecherche`), sur les écrans qui en ont une. Déclencheur 44 px mobile / 36 px desktop. **Exception** : les rangées de pastilles rapides à compteur `FilterChips` (§5.7 — Admin Collectes, Admin Factures « Filtrer par statut », Admin Alertes) restent des pastilles (arbitrage Val 2026-09-30) ; (8) actions de formulaire en bas à droite, secondaire puis primaire. Voix : vouvoiement conservé (tutoiement Claude Design non retenu à ce stade).
 
 ### 5.6 PageHero (bandeau d'écran)
 
@@ -325,6 +327,15 @@ Détaille le volet timeline de `StatusCollecte` (§6) et l'historique fiche coll
 - Bordure gauche `neutral-200` continue.
 - Points d'étape `primary-400` (étape courante `primary-700`).
 - Item = horodatage `neutral-500` (`--text-xs`) + libellé `neutral-900`.
+
+### 5.11 En-tête de fiche
+
+Grand en-tête des modales de fiche *(décisions Val 2026-09-30 et 2026-10-01 — brique `FicheEnTete`)*.
+
+- Sur-titre (puce + mention), nom en `text-2xl` extrabold, ligne d'infos à pictos 16 px, badge de statut à droite, bordure basse.
+- Décrit l'objet **enregistré** : il ne suit pas la saisie en cours.
+- Fiches Admin transporteur, association, lieu : cadre commun décrit dans [[06 - Back-office Admin Savr]] §5.
+- Utilisé aussi par les fiches collecte (Admin et client) : le statut peut être une frise d'étapes (frise compacte : étape courante en gras, autres estompées), placée à droite du sur-titre sur grand écran seulement, sous les infos en dessous ; badge de type de collecte en sur-titre.
 
 ---
 
@@ -384,7 +395,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 
 | Composant | Description |
 |---|---|
-| `Tabs` | AG / ZD / Vue consolidée (dashboards) ; onglets de fiche. **44 px de haut sur mobile, 40 px au-delà** (cible tactile §10), pour tous les écrans à onglets *(décision Val 2026-10-01)* |
+| `Tabs` | AG / ZD / Vue consolidée (dashboards) ; onglets de fiche. **44 px de haut sur mobile, 40 px au-delà** (cible tactile §10), pour tous les écrans à onglets *(décision Val 2026-10-01)*. **Onglet à compteur d'erreurs** (onglets de formulaire — fiches Admin association, transporteur, lieu ; décision Val 2026-09-30, brique `OngletAvecErreurs`) : pastille ronde `error-strong`, chiffre blanc gras `text-xs`, masquée aux lecteurs d'écran au profit d'un texte « (N champs à corriger) » dans le nom de l'onglet ; à l'échec de validation, le focus est posé sur le premier onglet fautif ; le compteur disparaît dès que le champ est corrigé. |
 | `Pagination` | Entre pages de tableau |
 | `Accordion` | Contenu dépliable (aide, détails) |
 
@@ -411,7 +422,7 @@ Chaque écran gère 5 états — aucun laissé sans UI.
 | **Success** | Action confirmée | Toast (disparaît après 4s) |
 | **Disabled** | Action impossible | Bouton grisé + tooltip ("Pack AG épuisé — contacter Savr") |
 
-> **Exception densité — actions de ligne de la liste Collectes traiteur** *(revue écran 2026-07-15, divergence M3.1)* : sur cette liste, une action indisponible est **retirée** de la carte (et non grisée), pour la densité/lisibilité. L'état Disabled « grisé + tooltip » reste la règle par défaut partout ailleurs.
+> **Exception densité — actions de ligne des listes Collectes traiteur et agence** *(revues écran 2026-07-15 et 2026-10-01, divergences M3.1)* : sur ces listes, une action indisponible est **retirée** de la carte (et non grisée), et les pictos des actions disponibles sont rendus à 10 px (cible tactile inchangée), pour la densité/lisibilité. L'état Disabled « grisé + tooltip » reste la règle par défaut partout ailleurs.
 
 **Skeleton** : blocs `neutral-100` animés (shimmer subtil), jamais spinner seul.
 
@@ -445,7 +456,7 @@ Desktop-first, adaptation mobile soignée. Tous les écrans fonctionnent sur mob
 
 ~1 000 icônes cohérentes, trait fin, SVG. Stroke `1.5`–`2px`, jamais de mélange avec d'autres familles d'icônes (cohérence = identité).
 
-**Tailles** : `16px` (badges, tables) · `20px` (boutons, nav) · `24px` (actions principales, titres).
+**Tailles** : `16px` (badges, tables) · `20px` (boutons, nav) · `24px` (actions principales, titres). **Exception (revue écran 2026-10-01, décision Val)** : les pictos d'action de ligne Modifier / Annuler / Dupliquer des listes Collectes traiteur et agence sont rendus à **10 px** dans un `IconButton` dont la cible tactile reste 44/40 px ; les colonnes Statut et Actions de ces listes sont ajustées à leur contenu (pas de vide entre le badge et les pictos).
 
 **Règle** : toujours un label texte ou un tooltip — jamais d'icône seule, sauf picto universel (corbeille = supprimer).
 

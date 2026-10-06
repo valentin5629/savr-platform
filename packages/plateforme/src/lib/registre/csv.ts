@@ -16,13 +16,13 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Export CSV du registre réglementaire (§06.03 Exports). Grain FLUX : une ligne
-// par flux pesé de chaque collecte (décision Val 2026-10-04). Les 20 colonnes
-// sont celles, dans l'ordre, du modèle de collecte de données que les
-// gestionnaires de lieux tiennent pour leur propre registre (nature, code,
-// producteur, date, tonnage, filière, code de traitement, n° de bordereau, puis
-// transporteur / exutoire intermédiaire / exutoire final) — rien d'autre
-// (décision Val 2026-10-06, divergence M4.2_20261006). Format canonique Savr
-// garanti par @savr/shared/src/csv.
+// par flux pesé de chaque collecte (décision Val 2026-10-04). Les colonnes sont
+// celles, dans l'ordre, du modèle de collecte de données que les gestionnaires
+// de lieux tiennent pour leur propre registre (nature, code, producteur, date,
+// tonnage, filière, code de traitement, n° de bordereau, puis transporteur /
+// exutoire intermédiaire / exutoire final), plus une seule colonne ajoutée : le
+// lieu, juste après le producteur (décisions Val 2026-10-06, divergence
+// M4.2_20261006). Format canonique Savr garanti par @savr/shared/src/csv.
 // ---------------------------------------------------------------------------
 
 /** Pesée d'un flux, avec les champs de plateforme.flux_dechets lus par l'export. */
@@ -181,6 +181,10 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
     header: 'Identité du producteur de déchet',
     value: (l) => l.row.traiteur_raison_sociale ?? '',
   },
+  // Seule colonne hors modèle, placée à côté du producteur à la demande de Val
+  // (2026-10-06) : sans elle, un gestionnaire de plusieurs sites ne les
+  // distingue plus dans le fichier.
+  { header: 'Lieu', value: (l) => l.row.lieu_nom ?? '' },
   {
     header: "Date d'expédition",
     value: (l) => formatDateFr(l.row.date_collecte),

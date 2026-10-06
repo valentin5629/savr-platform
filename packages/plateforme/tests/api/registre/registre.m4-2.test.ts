@@ -215,6 +215,7 @@ const EN_TETES_CSV = [
   'Nature du déchet',
   'Code nomenclature déchets',
   'Identité du producteur de déchet',
+  'Lieu',
   "Date d'expédition",
   'Quantité (tonnage)',
   'Filière de traitement finale',
@@ -279,7 +280,7 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     expect(insertArgs?.organisation_id).toBe('org-a');
   });
 
-  it('M4.2/export_csv_ligne_par_flux — une ligne par flux pesé, les 20 colonnes du modèle, sans colonne ajoutée', async () => {
+  it('M4.2/export_csv_ligne_par_flux — une ligne par flux pesé, les 20 colonnes du modèle + le lieu après le producteur', async () => {
     setupAuth('gestionnaire_lieux', 'org-a');
     rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
     rls.push({
@@ -318,13 +319,13 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
     expect(lignes).toEqual([
       [
-        'Biodéchets;20 01 08;Kaspia SARL;13/05/2026;0,036;Méthanisation;R3;BSAV-2026-00001',
+        'Biodéchets;20 01 08;Kaspia SARL;Pavillon Cambon;13/05/2026;0,036;Méthanisation;R3;BSAV-2026-00001',
         'Savr;50 rue des Moines;75017;Paris',
         `Entrepôt Savr;${entrepot}`,
         'GENERIS VSG DCDT;ZI des Graviers, 6 avenue Winston Churchill;94190;Villeneuve-Saint-Georges',
       ].join(';'),
       [
-        'Verre;15 01 07;Kaspia SARL;13/05/2026;0,4687;Recyclage;R5;BSAV-2026-00001',
+        'Verre;15 01 07;Kaspia SARL;Pavillon Cambon;13/05/2026;0,4687;Recyclage;R5;BSAV-2026-00001',
         'Savr;50 rue des Moines;75017;Paris',
         `Entrepôt Savr;${entrepot}`,
         'REVIVAL GENNEVILLIERS TRSFT;9 route du Môle Central;92230;Gennevilliers',
@@ -400,7 +401,7 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
     expect(lignes).toEqual([
       [
-        'Emballages;;Kaspia SARL;13/05/2026;0,012;;;',
+        'Emballages;;Kaspia SARL;Pavillon Cambon;13/05/2026;0,012;;;',
         'Savr;50 rue des Moines;75017;Paris',
         `Entrepôt Savr;${entrepot}`,
         ';;;',

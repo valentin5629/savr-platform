@@ -8,7 +8,7 @@
 -- Catégorie 3 : programmation lieu hors périmètre.
 
 BEGIN;
-SELECT plan(37);
+SELECT plan(41);
 
 -- ── Helpers JWT ─────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -215,6 +215,50 @@ SELECT is(
    WHERE id = 'cc000000-0000-0000-0000-0000000000c4'::uuid),
   0,
   'T3 : v_collectes_gestionnaire_lieux — collecte hors périmètre exclue'
+);
+
+-- T3b–T3d : la liste Collectes du gestionnaire filtre sur des LISTES de lieux et
+-- de traiteurs (route gestionnaire/collectes, `lieu_ids` / `traiteur_ids`). Une
+-- liste est une condition de plus : elle ne retire que des lignes à ce que la
+-- session lit sans filtre, elle n'en ajoute jamais. Y nommer le lieu d'un autre
+-- gestionnaire ne rend donc aucune collecte d'un TIERS. Même forme que la requête
+-- de la route (collectes jointes à leur événement, filtre sur l'événement) : la
+-- borne mesurée est celle des DEUX tables jointes, pas de col_select isolée (T2,
+-- T3). Ces trois cas portent sur le régime « événement daté tenu sur mes lieux » ;
+-- le régime « ma propre programmation, quel que soit le lieu » est en fin de
+-- fichier (…_programmation_propre).
+
+-- T3b : lieu hors parc SEUL (GL Arena), où Viparis n'a rien programmé → aucune ligne
+SELECT is(
+  (SELECT COUNT(*)::int
+     FROM plateforme.collectes c
+     JOIN plateforme.evenements e ON e.id = c.evenement_id
+    WHERE e.lieu_id IN ('cc000000-0000-0000-0000-000000000b03'::uuid)),
+  0,
+  'M3.2/rls_collectes_liste_lieu_hors_parc_seul — sans programmation propre sur ce lieu, filtrer sur le lieu d''un autre gestionnaire ne rend rien'
+);
+
+-- T3c : lieu du parc + lieu hors parc → seule la collecte du parc
+SELECT is(
+  (SELECT array_agg(c.id ORDER BY c.id)
+     FROM plateforme.collectes c
+     JOIN plateforme.evenements e ON e.id = c.evenement_id
+    WHERE e.lieu_id IN ('cc000000-0000-0000-0000-000000000b01'::uuid,
+                        'cc000000-0000-0000-0000-000000000b03'::uuid)),
+  ARRAY['cc000000-0000-0000-0000-0000000000c1'::uuid],
+  'M3.2/rls_collectes_liste_lieux_parc_et_hors_parc — sans programmation propre hors parc, seul le lieu du parc contribue'
+);
+
+-- T3d : traiteur commun aux deux gestionnaires (Kaspia opère sur Palais des
+-- Congrès ET sur GL Arena) → sa collecte chez l'autre gestionnaire reste invisible
+SELECT is(
+  (SELECT array_agg(c.id ORDER BY c.id)
+     FROM plateforme.collectes c
+     JOIN plateforme.evenements e ON e.id = c.evenement_id
+    WHERE e.traiteur_operationnel_organisation_id
+          IN ('cc000000-0000-0000-0000-00000000000c'::uuid)),
+  ARRAY['cc000000-0000-0000-0000-0000000000c1'::uuid],
+  'M3.2/rls_collectes_liste_traiteur_commun — sans programmation propre hors parc, le filtre traiteur ne sort pas du parc'
 );
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -512,6 +556,54 @@ SELECT is(plateforme.taille_evenement_bracket(500), 'M',  'T32 : bracket(500) = 
 SELECT is(plateforme.taille_evenement_bracket(749), 'M',  'T33 : bracket(749) = M');
 SELECT is(plateforme.taille_evenement_bracket(750), 'L',  'T34 : bracket(750) = L');
 SELECT is(plateforme.taille_evenement_bracket(1000), 'XL', 'T35 : bracket(1000) = XL');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- T38 : filtre « liste de lieux » et programmation PROPRE hors parc (Catégorie 4)
+-- ════════════════════════════════════════════════════════════════════════════
+-- La lecture du gestionnaire a deux régimes : (a) les événements programmés par
+-- son organisation, quel que soit le lieu ; (b) les événements datés tenus sur
+-- ses lieux. T3b–T3d couvrent (b). Ici (a) : Viparis a programmé un événement sur
+-- GL Arena, lieu d'un autre gestionnaire (lieu détaché de son parc après coup,
+-- par exemple). Filtrer sur ce lieu rend SA collecte — elle lui est déjà lisible
+-- sans filtre — et toujours pas celle du tiers (c4) : « ce lieu rend des lignes »
+-- ne prouve donc pas que le lieu est dans le parc. Placé en fin de fichier : la
+-- fixture ajoutée fausserait les comptes des cas précédents (T16).
+SELECT test_as_superuser();
+
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, created_by, lieu_id, type_evenement_id,
+  nom_evenement, date_evenement, pax, contact_principal_nom, contact_principal_telephone
+) VALUES
+  ('cc000000-0000-0000-0000-0000000000e5'::uuid,
+   'cc000000-0000-0000-0000-00000000000a'::uuid,
+   'cc000000-0000-0000-0000-00000000000c'::uuid,
+   'cc000000-0000-0000-0000-0000000000f5'::uuid,
+   'cc000000-0000-0000-0000-000000000a01'::uuid,
+   'cc000000-0000-0000-0000-000000000b03'::uuid,
+   'cc000000-0000-0000-0000-000000000bee'::uuid,
+   'Viparis hors les murs', '2026-06-25', 150, 'Contact', '0600000005');
+
+INSERT INTO plateforme.collectes
+  (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte,
+   notes_internes, dirty_tms, annulee_cote_savr)
+VALUES
+  ('cc000000-0000-0000-0000-0000000000c5'::uuid,
+   'cc000000-0000-0000-0000-0000000000e5'::uuid,
+   'zero_dechet', 'programmee', 'non_envoye', '2026-06-25', '21:00',
+   NULL, false, false);
+
+SELECT test_set_jwt('gestionnaire_lieux', 'cc000000-0000-0000-0000-00000000000a'::uuid,
+                    'cc000000-0000-0000-0000-000000000a01'::uuid);
+
+SELECT is(
+  (SELECT array_agg(c.id ORDER BY c.id)
+     FROM plateforme.collectes c
+     JOIN plateforme.evenements e ON e.id = c.evenement_id
+    WHERE e.lieu_id IN ('cc000000-0000-0000-0000-000000000b03'::uuid)),
+  ARRAY['cc000000-0000-0000-0000-0000000000c5'::uuid],
+  'M3.2/rls_collectes_liste_lieu_hors_parc_programmation_propre — le lieu d''un autre gestionnaire rend sa propre programmation, jamais la collecte du tiers'
+);
 
 SELECT * FROM finish();
 ROLLBACK;

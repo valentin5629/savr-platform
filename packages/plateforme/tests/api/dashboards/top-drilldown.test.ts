@@ -1,7 +1,8 @@
 /**
  * Drill-down « Top listes → liste Collectes filtrée » — filtres serveur.
  *  - API traiteur : commercial_id → filtre evenements.created_by (lieu_id déjà couvert).
- *  - API gestionnaire : lieu_id / traiteur_id → filtres evenements.* + aplatissement
+ *  - API gestionnaire : lieu_id / traiteur_id (lien du drill-down, lu comme une
+ *    liste d'un élément) → filtres evenements.* + aplatissement
  *    des noms (lieu_nom / evenement_nom) via l'embed evenements!inner + lieux,
  *    plus Type/Taille d'événement propagés depuis les filtres globaux du
  *    dashboard (§06.05 l.209) — la taille est un bracket sur `evenements.pax`.
@@ -89,6 +90,7 @@ beforeEach(() => {
 // Le drill-down Top lieux envoie un identifiant de lieu : la route le valide
 // (UUID) et le lit comme une liste d'un élément (filtres à choix multiple).
 const LIEU_1 = '11111111-1111-4111-8111-111111111111';
+const TRAITEUR_1 = '22222222-2222-4222-8222-222222222222';
 
 describe('API traiteur/collectes — filtre commercial (drill-down Top 5 commerciaux)', () => {
   async function call(url: string) {
@@ -200,33 +202,35 @@ describe('API gestionnaire/collectes — filtres lieu / traiteur + noms', () => 
     realisee_at: null,
     evenements: {
       nom_evenement: 'Gala',
-      lieu_id: 'lieu-1',
-      traiteur_operationnel_organisation_id: 't1',
+      lieu_id: LIEU_1,
+      traiteur_operationnel_organisation_id: TRAITEUR_1,
       lieux: { nom: 'Le Pavillon' },
     },
   };
 
-  it('lieu_id → filtre evenements.lieu_id + aplatit lieu_nom/evenement_nom', async () => {
+  it('lieu_id → filtre evenements.lieu_id (liste d’un élément) + aplatit lieu_nom/evenement_nom', async () => {
     rls = makeChain({ data: [oneRow], error: null });
     const res = await call(
-      'http://localhost/api/v1/gestionnaire/collectes?lieu_id=lieu-1',
+      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}`,
     );
     const body = (await res.json()) as {
       data: Array<Record<string, unknown>>;
     };
-    expect(rls.__eq).toContainEqual(['evenements.lieu_id', 'lieu-1']);
+    expect(rls.__in).toContainEqual(['evenements.lieu_id', [LIEU_1]]);
     expect(body.data[0]!.lieu_nom).toBe('Le Pavillon');
     expect(body.data[0]!.evenement_nom).toBe('Gala');
     // L'objet embarqué brut n'est pas renvoyé (aplati).
     expect(body.data[0]!.evenements).toBeUndefined();
   });
 
-  it('traiteur_id → filtre evenements.traiteur_operationnel_organisation_id', async () => {
+  it('traiteur_id → filtre evenements.traiteur_operationnel_organisation_id (liste d’un élément)', async () => {
     rls = makeChain({ data: [oneRow], error: null });
-    await call('http://localhost/api/v1/gestionnaire/collectes?traiteur_id=t1');
-    expect(rls.__eq).toContainEqual([
+    await call(
+      `http://localhost/api/v1/gestionnaire/collectes?traiteur_id=${TRAITEUR_1}`,
+    );
+    expect(rls.__in).toContainEqual([
       'evenements.traiteur_operationnel_organisation_id',
-      't1',
+      [TRAITEUR_1],
     ]);
   });
 
@@ -238,8 +242,8 @@ describe('API gestionnaire/collectes — filtres lieu / traiteur + noms', () => 
           evenements: [
             {
               nom_evenement: 'Gala',
-              lieu_id: 'lieu-1',
-              traiteur_operationnel_organisation_id: 't1',
+              lieu_id: LIEU_1,
+              traiteur_operationnel_organisation_id: TRAITEUR_1,
               lieux: [{ nom: 'Le Pavillon' }],
             },
           ],
@@ -248,7 +252,7 @@ describe('API gestionnaire/collectes — filtres lieu / traiteur + noms', () => 
       error: null,
     });
     const res = await call(
-      'http://localhost/api/v1/gestionnaire/collectes?lieu_id=lieu-1',
+      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}`,
     );
     const body = (await res.json()) as {
       data: Array<Record<string, unknown>>;
@@ -288,7 +292,7 @@ describe('API gestionnaire/collectes — Type / Taille d’événement (§06.05 
   it('M3.2/collectes_route_filtre_type_evenement — type_evenement_ids[] → .in(evenements.type_evenement_id)', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
-      'http://localhost/api/v1/gestionnaire/collectes?lieu_id=lieu-1&type_evenement_ids[]=ty-gala&type_evenement_ids[]=ty-cocktail',
+      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}&type_evenement_ids[]=ty-gala&type_evenement_ids[]=ty-cocktail`,
     );
     expect(rls.__in).toContainEqual([
       'evenements.type_evenement_id',
@@ -362,7 +366,9 @@ describe('API gestionnaire/collectes — Type / Taille d’événement (§06.05 
 
   it('M3.2/collectes_route_sans_filtres_evenement — aucun .or(), aucun .in sur type_evenement_id', async () => {
     rls = makeChain({ data: [], error: null });
-    await call('http://localhost/api/v1/gestionnaire/collectes?lieu_id=lieu-1');
+    await call(
+      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}`,
+    );
     expect(rls.__or).toHaveLength(0);
     expect(
       rls.__in.some(([col]) => col === 'evenements.type_evenement_id'),
@@ -372,9 +378,9 @@ describe('API gestionnaire/collectes — Type / Taille d’événement (§06.05 
   it('M3.2/collectes_route_type_et_taille_se_cumulent — les deux filtres coexistent avec lieu + période', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
-      'http://localhost/api/v1/gestionnaire/collectes?lieu_id=lieu-1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&taille_evenements[]=L',
+      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&taille_evenements[]=L`,
     );
-    expect(rls.__eq).toContainEqual(['evenements.lieu_id', 'lieu-1']);
+    expect(rls.__in).toContainEqual(['evenements.lieu_id', [LIEU_1]]);
     expect(rls.__gte).toContainEqual(['date_collecte', '2026-01-01']);
     expect(rls.__lte).toContainEqual(['date_collecte', '2026-06-30']);
     expect(rls.__in).toContainEqual([
@@ -388,7 +394,7 @@ describe('API gestionnaire/collectes — Type / Taille d’événement (§06.05 
     rls = makeChain({ data: [], error: null });
     // URL telle que `drillUrl` la construit désormais (§06.05 l.209).
     await call(
-      'http://localhost/api/v1/gestionnaire/collectes?lieu_id=lieu-1&from=2026-01-01&to=2026-06-30',
+      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}&from=2026-01-01&to=2026-06-30`,
     );
     // Aucun filtre de statut ni de type de collecte : liste large.
     expect(rls.__eq.some(([col]) => col === 'statut')).toBe(false);

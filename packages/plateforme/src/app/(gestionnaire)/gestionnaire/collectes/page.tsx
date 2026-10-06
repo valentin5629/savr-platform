@@ -1,6 +1,12 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -18,6 +24,7 @@ import {
   CelluleLieu,
   ResultatsCollecte,
 } from '@/components/collecte/collectes-traiteur-table';
+import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
   CollecteFiltresBar,
   FILTRES_COLLECTE_VIDES,
@@ -26,6 +33,7 @@ import {
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
 import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
+import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
@@ -121,6 +129,21 @@ function lireHeritageCrochets(
     taille_evenements: params?.getAll('taille_evenements[]') ?? [],
   };
 }
+/** Cible d'un drill-down de Top liste du dashboard (§06.05 l.215). */
+interface CibleDrill {
+  cle: 'lieu' | 'traiteur';
+  id: string;
+}
+function lireCibleDrill(params: URLSearchParams | null): CibleDrill | null {
+  for (const cle of ['lieu', 'traiteur'] as const) {
+    const id = params?.get(cle);
+    if (id) return { cle, id };
+  }
+  return null;
+}
+// sessionStorage ne prévient pas de ses changements : rien à écouter.
+const sansAbonnement = () => () => {};
+
 /** Retire les clés `x[]` de l'URL courante : l'état CSV prend le relais. */
 function purgerCrochets(): void {
   if (typeof window === 'undefined') return;
@@ -177,6 +200,20 @@ function GestionnaireCollectesContent() {
       ? f.taille_evenements
       : heritage.taille_evenements;
   const actif = filtresActifs || heritageActif;
+  // Lieu ou traiteur présent dans l'URL à l'arrivée (clic sur une Top liste du
+  // dashboard, lien partagé, rechargement), figé au montage. Le chip « Filtre
+  // actif » l'annonce tant que la barre filtre encore dessus : en choisir un
+  // autre, ou réinitialiser, sort du drill-down.
+  const [drill] = useState(() => lireCibleDrill(params));
+  const cible = drill && f[drill.cle] === drill.id ? drill : null;
+  // Nom mémorisé par le dashboard au clic (sessionStorage, jamais l'URL). Le
+  // serveur ne le connaît pas : le lire dans un état initial ferait diverger le
+  // HTML servi du premier rendu client à chaque rechargement.
+  const libelleCible = useSyncExternalStore(
+    sansAbonnement,
+    () => (cible ? readCollecteFiltreLabel(cible.cle, cible.id) : null),
+    () => null,
+  );
 
   function poser(patch: Partial<typeof f>) {
     if (heritageActif) {
@@ -274,6 +311,36 @@ function GestionnaireCollectesContent() {
         /* options indisponibles : la barre reste utilisable (listes vides). */
       });
   }, []);
+
+  const optionsLieu = options.lieux.map((l) => ({ value: l.id, label: l.nom }));
+  const optionsTraiteur = options.traiteurs.map((t) => ({
+    value: t.id,
+    label: t.nom,
+  }));
+  // Nom de la cible : celui du clic sur le dashboard, sinon celui des options
+  // de la barre (lien partagé) ; inconnu sinon.
+  const nomCible = cible
+    ? (libelleCible ??
+      (cible.cle === 'lieu' ? optionsLieu : optionsTraiteur).find(
+        (o) => o.value === cible.id,
+      )?.label)
+    : undefined;
+  // Une valeur filtrée absente des options (traiteur hors de la fenêtre de
+  // 24 mois, options pas encore ou jamais chargées) garde une entrée dans son
+  // contrôle : sans elle, il afficherait « Tous » sur une liste filtrée.
+  const avecValeur = (
+    cle: CibleDrill['cle'],
+    opts: { value: string; label: string }[],
+  ) =>
+    f[cle] && !opts.some((o) => o.value === f[cle])
+      ? [
+          ...opts,
+          {
+            value: f[cle],
+            label: (cible?.cle === cle && nomCible) || 'Sélectionné',
+          },
+        ]
+      : opts;
 
   // Page devenue hors bornes — la liste a rétréci pendant qu'on la consultait
   // (une collecte annulée ailleurs, un parc réduit). Le serveur répond alors
@@ -483,6 +550,19 @@ function GestionnaireCollectesContent() {
         subtitle="Collectes sur les lieux de votre organisation · cliquez une ligne pour ouvrir la fiche"
       />
 
+      {/* Filtre actif à l'arrivée d'un drill-down (§06.05 l.215) : nomme la
+          cible et en sort d'un clic, avec tous les filtres reçus. */}
+      {cible && (
+        <CollecteFiltreActif
+          label={
+            cible.cle === 'lieu'
+              ? `Lieu : ${nomCible ?? 'lieu sélectionné'}`
+              : `Traiteur : ${nomCible ?? 'traiteur sélectionné'}`
+          }
+          onClear={reinitialiser}
+        />
+      )}
+
       {/* Barre de filtres DS (D10 : la même que traiteur / agence) : type
           ZD / AG levable en en-tête, puis Période · Lieu · Traiteur · Type et
           Taille d'événement (§06.05 l.209), compteur et réinitialisation en
@@ -522,7 +602,7 @@ function GestionnaireCollectesContent() {
           data-testid="filtre-lieu"
           options={[
             { value: '', label: 'Tous' },
-            ...options.lieux.map((l) => ({ value: l.id, label: l.nom })),
+            ...avecValeur('lieu', optionsLieu),
           ]}
           value={f.lieu}
           onChange={(v) => poser({ lieu: v })}
@@ -533,7 +613,7 @@ function GestionnaireCollectesContent() {
           data-testid="filtre-traiteur"
           options={[
             { value: '', label: 'Tous' },
-            ...options.traiteurs.map((t) => ({ value: t.id, label: t.nom })),
+            ...avecValeur('traiteur', optionsTraiteur),
           ]}
           value={f.traiteur}
           onChange={(v) => poser({ traiteur: v })}

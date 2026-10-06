@@ -354,7 +354,7 @@
     },
     {
       "id": "BL-P1-TRAIT-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:777-787",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:764-774",
       "artefact": "packages/plateforme/src/app/api/me/profil/route.ts",
       "test": "M3.1/profil_telephone_editable",
       "statut": "implemented",
@@ -362,7 +362,7 @@
     },
     {
       "id": "BL-P1-TRAIT-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:442-557",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:429-544",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_get_augmente",
       "statut": "implemented",
@@ -370,7 +370,7 @@
     },
     {
       "id": "BL-P1-TRAIT-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:529-555",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:516-542",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/edition_alerte_ops_priorite_normale",
       "statut": "implemented",
@@ -378,7 +378,7 @@
     },
     {
       "id": "BL-P2-14",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:309-391",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:295-378",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/card_traiteur_champs",
       "statut": "implemented",
@@ -386,7 +386,7 @@
     },
     {
       "id": "M3.1-liste-carte-simplifiee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:308-369",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:313-378",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": "M3.1/card_traiteur_gating_readonly",
       "statut": "implemented",
@@ -394,7 +394,7 @@
     },
     {
       "id": "M3.1-dupliquer-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:309-391",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:295-378",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -402,7 +402,7 @@
     },
     {
       "id": "BL-P1-TRAIT-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:696-722",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:683-709",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client.tsx",
       "test": "M3.1/trait_monorga_profil_patch_audit",
       "statut": "implemented",
@@ -410,7 +410,7 @@
     },
     {
       "id": "M3.1-trait-monorga-infos-legales-edit-audit",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:710-711",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:697-698",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/profil/route.ts",
       "test": "M3.1/trait_monorga_profil_patch_audit",
       "statut": "implemented",
@@ -418,7 +418,7 @@
     },
     {
       "id": "M3.1-trait-monorga-entites-facturation-crud",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:712",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:699",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/entites-facturation/route.ts",
       "test": "M3.1/trait_monorga_entites_create",
       "statut": "implemented",
@@ -426,7 +426,7 @@
     },
     {
       "id": "M3.1-trait-monorga-domaines-email-crud",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:685",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:700",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/domaines-email/route.ts",
       "test": "M3.1/trait_monorga_domaines_create",
       "statut": "implemented",
@@ -434,7 +434,7 @@
     },
     {
       "id": "M3.1-trait-monorga-logo-upload",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:714",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:701",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/logo/route.ts",
       "test": "M3.1/trait_monorga_logo_upload",
       "statut": "implemented",
@@ -442,7 +442,7 @@
     },
     {
       "id": "M3.1-trait-monorga-equipe-role",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:684",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:707",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/equipe/[id]/route.ts",
       "test": "M3.1/trait_monorga_equipe_role",
       "statut": "implemented",
@@ -450,7 +450,7 @@
     },
     {
       "id": "M3.1-trait-monorga-equipe-suspend",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:721",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:708",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/equipe/[id]/route.ts",
       "test": "M3.1/trait_monorga_equipe_suspend",
       "statut": "implemented",
@@ -458,7 +458,7 @@
     },
     {
       "id": "M3.1-trait-monorga-equipe-transfert",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:722",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:709",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/equipe/transfert/route.ts",
       "test": "M3.1/trait_monorga_transfert",
       "statut": "implemented",
@@ -466,7 +466,7 @@
     },
     {
       "id": "M3.1-trait-monorga-equipe-invite",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:719",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:706",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/equipe/invitation/route.ts",
       "test": "M3.1/invitation_collaborateur_flux_complet",
       "statut": "implemented",
@@ -474,7 +474,7 @@
     },
     {
       "id": "M3.1-trait-monorga-commercial-readonly",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:675-676",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:689-691",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/profil/route.ts",
       "test": "M3.1/trait_monorga_profil_commercial_infos_legales + M3.1/trait_monorga_profil_commercial_logo_refuse",
       "statut": "implemented",
@@ -482,7 +482,7 @@
     },
     {
       "id": "M3.1-trait-monorga-rls-entites-domaines",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:684-685",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:699-700",
       "artefact": "supabase/migrations/20260705120000_plateforme_r19a_trait01_monorga.sql",
       "test": "supabase/tests/r19a_trait01_monorga.test.sql",
       "statut": "implemented",
@@ -490,7 +490,7 @@
     },
     {
       "id": "M3.1-trait-monorga-facturation-params-contact",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:728-742",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:715-729",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/factures/route.ts",
       "test": "M3.1/trait_monorga_factures_filtres",
       "statut": "partial",
@@ -506,7 +506,7 @@
     },
     {
       "id": "M3.1-bloc2-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:223",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:215",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionAgChart.tsx",
       "test": "M3.1/dash_bloc4_zd_only — pas de donut sur l’onglet AG (un seul flux)",
       "statut": "implemented",
@@ -539,7 +539,7 @@
     },
     {
       "id": "M3.1-bloc6-top-lieux",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:192",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:184",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; ex-TopLieuxBloc.tsx supprimé en R24c — agence migrée, plus aucun consommateur)",
       "test": "M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
@@ -547,7 +547,7 @@
     },
     {
       "id": "M3.1-bloc7-top-commerciaux",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:198",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:190",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; ex-TopActeursBloc.tsx déjà supprimé, plus aucun consommateur)",
       "test": "M3.1/blocs_top_commerciaux_ordre_nb_et_noms + M3.1/blocs_traiteur_ag_associations_et_top7",
       "statut": "implemented",
@@ -555,7 +555,7 @@
     },
     {
       "id": "M3.1-bloc3ag-associations",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:232",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:224",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; ex-TopAssociationsBloc.tsx supprimé en R24c — agence migrée, plus aucun consommateur)",
       "test": "M3.1/blocs_top_associations_ordre_repas + M3.1/blocs_traiteur_ag_associations_et_top7",
       "statut": "implemented",
@@ -563,7 +563,7 @@
     },
     {
       "id": "M3.1-bloc8-export-pdf",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:208",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:200",
       "artefact": "packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/filtres/route.ts + packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
       "test": "M3.1 / synthèse traiteur — périmètre opérationnel (0 fuite inter-org) + M3.1 / synthèse — options filtres modale (client organisateur + commercial)",
       "statut": "implemented",
@@ -571,7 +571,7 @@
     },
     {
       "id": "M3.1-cockpit-page",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-283",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-288",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/*",
       "test": "M3.1/dash_bloc2_bloc4_zd_montes + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel + M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
       "statut": "implemented",
@@ -579,7 +579,7 @@
     },
     {
       "id": "M3.1-cockpit-co2-hero",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-283",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-288",
       "artefact": "packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCard.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanel.tsx + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts + packages/plateforme/src/lib/dashboards/cockpit-derive.ts",
       "test": "M3.1/dash_cockpit_co2_equivalences_facteurs_ademe",
       "statut": "implemented",
@@ -603,7 +603,7 @@
     },
     {
       "id": "M3.1-liste-filtres",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:377-389",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:363-376",
       "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx",
       "test": "R25a/statut_selectionne_rend_tous_les_statuts_db_du_groupe",
       "statut": "implemented",
@@ -611,7 +611,7 @@
     },
     {
       "id": "M3.1-liste-filtres-options",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:377-389",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:363-376",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/filtres/route.ts",
       "test": "R25a/options_service_role_borne_aux_ids_du_perimetre",
       "statut": "implemented",
@@ -619,7 +619,7 @@
     },
     {
       "id": "M3.1-lieux-select-traiteur-operationnel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:257",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:285",
       "artefact": "supabase/migrations/20260921140000_plateforme_lieux_select_traiteur_operationnel.sql",
       "test": "supabase/tests/lieux_traiteur_operationnel.test.sql",
       "statut": "implemented",
@@ -635,7 +635,7 @@
     },
     {
       "id": "M3.1-liste-tri-date-decroissante",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:329 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:315 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:376",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
       "statut": "implemented",
@@ -643,7 +643,7 @@
     },
     {
       "id": "M3.1-lieux-autocomplete-preuve-comportement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:279-284",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:282-287",
       "artefact": "supabase/tests/programmation_lieux_autocompletion.test.sql",
       "test": "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non",
       "statut": "implemented",
@@ -651,7 +651,7 @@
     },
     {
       "id": "M3.1-fiche-entete-type-taille",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:431",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:418",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_entete_type_et_taille_bracket",
       "statut": "implemented",
@@ -659,7 +659,7 @@
     },
     {
       "id": "M3.1-fiche-entete-programmee-par",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:434",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:421",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_entete_programmee_par_tiers",
       "statut": "implemented",
@@ -667,15 +667,15 @@
     },
     {
       "id": "M3.1-fiche-bloc3-zd-benchmark",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:445-476",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:456-487",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/benchmark/route.ts",
       "test": "M3.1/fiche_bloc3_ratio_et_repere",
       "statut": "implemented",
-      "libelle": "Bloc 3 ZD de la FICHE collecte (grain single_collecte) — jamais câblé jusqu'ici (§04 l.2175 : fonction livrée mais « 0 consommateur front »). Radar kg/pax des 5 flux ZD de CETTE collecte × repère parc, encart de filtres du repère imbriqué dans la carte et initialisé sur le segment de la collecte (type × taille), k-anonymat ≥5 côté serveur ⇒ repère masqué, garde traiteur_ids[] interdite au traiteur. Réutilise BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28) + BenchmarkFilterBar + loadBenchmark des dashboards (aucun composant de graphe nouveau)."
+      "libelle": "Bloc 3 ZD de la FICHE collecte (grain single_collecte) — jamais câblé jusqu'ici (§04 l.2175 : fonction livrée mais « 0 consommateur front »). Radar kg/pax des 5 flux ZD de CETTE collecte × repère parc, encart de filtres du repère imbriqué dans la carte et initialisé sur le segment de la collecte (type × taille), k-anonymat ≥ 5 collectes et ≥ 3 acteurs côté serveur ⇒ repère masqué, garde traiteur_ids[] interdite au traiteur. Réutilise BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28) + BenchmarkFilterBar + loadBenchmark des dashboards (aucun composant de graphe nouveau)."
     },
     {
       "id": "M3.1-fiche-benchmark-colonnes-canoniques",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2158-2199",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2171-2212",
       "artefact": "supabase/migrations/20260922100000_plateforme_benchmark_single_collecte_colonnes_canoniques.sql",
       "test": "M3.1/fiche_bloc3_ratio_et_repere",
       "statut": "implemented",
@@ -683,7 +683,7 @@
     },
     {
       "id": "M3.1-fiche-etats-systeme-ds",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:402-421",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:413-432",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_ui_erreur_reessayer",
       "statut": "implemented",
@@ -691,7 +691,7 @@
     },
     {
       "id": "M3.1-fiche-popup-logistique",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:557-582",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:544-569",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-modal.tsx, packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_ui_logistique_chauffeur_plaque_tel",
       "statut": "implemented",
@@ -699,7 +699,7 @@
     },
     {
       "id": "M3.1-popup-client-entete",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:398",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:385",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.1/fiche_popup_entete_badge_frise",
       "statut": "implemented",
@@ -707,7 +707,7 @@
     },
     {
       "id": "M3.1-popup-client-frise-vocabulaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:398",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:385",
       "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts, packages/plateforme/src/components/collecte/frise-statut-client.tsx",
       "test": "M3.1/frise_client_vocabulaire",
       "statut": "implemented",
@@ -715,7 +715,7 @@
     },
     {
       "id": "M3.1-popup-client-frise-annulee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:398",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:385",
       "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_popup_annulee",
       "statut": "implemented",
@@ -723,7 +723,7 @@
     },
     {
       "id": "M3.1-popup-client-navigation-onglets",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:399",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:386",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.1/fiche_popup_onglets_horizontaux",
       "statut": "implemented",
@@ -731,7 +731,7 @@
     },
     {
       "id": "M3.1-popup-client-pied-actions",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:400",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:387",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.1/fiche_popup_pied_actions",
       "statut": "implemented",
@@ -739,7 +739,7 @@
     },
     {
       "id": "M3.1-fiche-droits-actions-serveur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:400",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:387",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_get_actions_par_role",
       "statut": "implemented",
@@ -747,7 +747,7 @@
     },
     {
       "id": "M3.1-popup-client-informations",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:401",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:388",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_popup_informations_blocs",
       "statut": "implemented",
@@ -755,7 +755,7 @@
     },
     {
       "id": "M3.1-popup-client-contact-secours",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:401",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:388",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": "M3.1/fiche_popup_contact_secours",
       "statut": "implemented",
@@ -763,7 +763,7 @@
     },
     {
       "id": "M3.1-popup-client-logistique-savr",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": "M3.1/fiche_popup_aucun_mot_transporteur",
       "statut": "implemented",
@@ -771,7 +771,7 @@
     },
     {
       "id": "M3.1-popup-marque-blanche-sous-modales",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/editer-collecte-form.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/fiche_popup_sous_modales_marque_blanche",
       "statut": "implemented",
@@ -779,7 +779,7 @@
     },
     {
       "id": "M3.1-fiche-get-sans-notes-ni-prestataire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1511",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1521",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_get_sans_notes_ni_prestataire",
       "statut": "implemented",
@@ -787,7 +787,7 @@
     },
     {
       "id": "M3.1-fiche-colonnes-reservees-service-role",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:401",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:388",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
       "test": "M3.1/fiche_get_reference_affaire_programmateur_seul + M3.1/fiche_get_contacts_service_role + M3.1/fiche_get_contacts_erreur_500",
       "statut": "implemented",
@@ -795,7 +795,7 @@
     },
     {
       "id": "M3.1-fiche-telephone-fenetre-serveur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:559",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:546",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_get_telephone_hors_fenetre",
       "statut": "implemented",
@@ -803,7 +803,7 @@
     },
     {
       "id": "M3.1-edition-notes-internes-fermee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1511",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1521",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/agence/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts, packages/plateforme/src/components/collecte/editer-collecte-form.tsx",
       "test": "M3.1/edition_notes_internes_refusee",
       "statut": "implemented",
@@ -811,7 +811,7 @@
     },
     {
       "id": "M3.1-coordonnees-urgence-route",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
       "artefact": "packages/plateforme/src/lib/collectes/coordonnees-urgence.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/coordonnees-urgence/route.ts",
       "test": "M3.1/urgence_insert_alerte_ops",
       "statut": "implemented",
@@ -819,7 +819,7 @@
     },
     {
       "id": "M3.1-coordonnees-urgence-une-par-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
       "artefact": "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql, supabase/migrations/20260930170000_plateforme_alerte_coordonnees_urgence_une_ouverte.sql",
       "test": "M3.1/urgence_doublon_idempotent",
       "statut": "implemented",
@@ -827,7 +827,7 @@
     },
     {
       "id": "M3.1-coordonnees-urgence-cloture-auto",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
       "artefact": "supabase/migrations/20260929160000_plateforme_alerte_coordonnees_urgence.sql",
       "test": "supabase/tests/coordonnees_urgence_alerte.test.sql",
       "statut": "implemented",
@@ -835,7 +835,7 @@
     },
     {
       "id": "M3.1-popup-client-association-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_popup_association_logistique_ag",
       "statut": "implemented",
@@ -843,7 +843,7 @@
     },
     {
       "id": "M3.1-popup-client-bilan-zd",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:393",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_popup_bilan_zd_realisee",
       "statut": "implemented",
@@ -851,7 +851,7 @@
     },
     {
       "id": "M3.1-popup-client-radar-filtres-ligne",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:393",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx, packages/plateforme/src/components/ui/filtre-en-ligne.tsx, packages/plateforme/src/lib/collectes/benchmark-fiche.ts",
       "test": "M3.1/fiche_ui_bloc3_filtres_initialises_sur_la_collecte",
       "statut": "implemented",
@@ -859,7 +859,7 @@
     },
     {
       "id": "M3.1-popup-client-bilan-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:407",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:394",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_ui_bloc3_masque_en_ag",
       "statut": "implemented",
@@ -867,7 +867,7 @@
     },
     {
       "id": "M3.1-popup-client-sans-excedent",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:407",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:394",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_popup_sans_excedent",
       "statut": "implemented",
@@ -875,7 +875,7 @@
     },
     {
       "id": "M3.1-popup-client-avant-realisation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:408",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:395",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_popup_bilan_estompe_avant_realisation",
       "statut": "implemented",
@@ -883,7 +883,7 @@
     },
     {
       "id": "M3.1-popup-telechargement-rapport",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:393",
       "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.1/fiche_popup_telechargement_rapport",
       "statut": "implemented",
@@ -891,7 +891,7 @@
     },
     {
       "id": "M3.1-popup-attestation-donneur-ordre-reservee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:258",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:261",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_get_attestation_donneur_ordre_reservee",
       "statut": "implemented",
@@ -899,7 +899,7 @@
     },
     {
       "id": "M3.1-popup-document-etat-serveur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:409",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:396",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client-types.ts, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/rapport_etat_echeance_h24",
       "statut": "implemented",
@@ -907,7 +907,7 @@
     },
     {
       "id": "M3.1-popup-document-a-venir",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:409",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:396",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
       "test": "M3.1/fiche_popup_document_a_venir",
       "statut": "implemented",
@@ -915,7 +915,7 @@
     },
     {
       "id": "M3.1-popup-document-en-preparation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:409",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:396",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
       "test": "M3.1/fiche_popup_document_en_preparation",
       "statut": "implemented",
@@ -923,7 +923,7 @@
     },
     {
       "id": "M3.1-liste-rapport-reserve-api",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:340",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:326",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/route.ts, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
       "test": "M3.1/liste_rapport_reserve_donneur_ordre",
       "statut": "implemented",
@@ -931,7 +931,7 @@
     },
     {
       "id": "M3.1-liste-rapport-reserve-picto",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:414",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:425",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/liste_rapport_reserve_donneur_ordre_picto_retire",
       "statut": "implemented",
@@ -939,7 +939,7 @@
     },
     {
       "id": "M3.1-liste-rapport-reserve-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:414",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:425",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -947,7 +947,7 @@
     },
     {
       "id": "M3.1-popup-client-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:377",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:388",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -955,7 +955,7 @@
     },
     {
       "id": "M3.1-fiche-factures-sous-rls",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:446",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:433",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_get_factures_sous_rls_traiteur_operationnel",
       "statut": "implemented",
@@ -963,7 +963,7 @@
     },
     {
       "id": "M3.1-popup-rgpd-telephone-chauffeur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:410",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:397",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -971,7 +971,7 @@
     },
     {
       "id": "M3.1-facturation-filtres-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:742",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:729",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client.tsx (FacturationTab : Période en premier, Statut / Type en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/traiteur/factures/route.ts (statuts / types CSV en liste blanche des enums, statut / type lus comme des listes d'un élément ; RLS et .neq brouillon inchangés)",
       "test": "M3.1 — Facturation : Période en premier + M3.1/trait_monorga_factures_filtres_choix_multiple + M3.1/trait_monorga_factures_filtres_valeurs_toutes_invalides + M3.1/trait_monorga_factures_filtres_listes_prioritaires_sur_mono + M3.1 — Facturation : une réponse plus ancienne",
       "statut": "à-vérifier",
@@ -979,7 +979,7 @@
     },
     {
       "id": "M3.1-liste-colonne-client",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:332",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:318",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/liste_colonne_client",
       "statut": "implemented",
@@ -987,7 +987,7 @@
     },
     {
       "id": "M3.1-liste-colonne-client-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:349",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:360",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -995,7 +995,7 @@
     },
     {
       "id": "M3.1-liste-filtres-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:377-385",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:363-371",
       "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx (Période en premier ; Lieu, Client organisateur, Info incomplète en FiltreCoches ; adresse de la page : `lieu` CSV, `client` répété) + packages/plateforme/src/components/collecte/liste-collectes-client.tsx (lieu_ids CSV et client répété envoyés à la liste ET à l'export, réponse périmée ignorée, chip de drill-down) + packages/plateforme/src/app/api/v1/traiteur/collectes/route.ts + packages/plateforme/src/lib/collectes/liste-collectes-client.ts (lireFiltresListeCollectes, commun aux routes traiteur / agence et à l'export) + packages/plateforme/src/lib/filtre-csv.ts (inTextes)",
       "test": "M3.1/barre_periode_en_premier + M3.1/url_client_parametre_repete_virgule_conservee + M3.1/liste_traiteur_periode_en_premier + M3.1/liste_traiteur_lieux_coches + M3.1/liste_traiteur_liens_existants_pre_coches + M3.1/liste_traiteur_info_incomplete_deux_cases + M3.1/liste_traiteur_reponse_perimee_ignoree + M3.1/liste_traiteur_reponse_perimee_arrivee_apres + M3.1/liste_traiteur_chip_lieu_tant_que_seul_lieu_filtre + M3.1/liste_traiteur_reinitialiser_sort_du_drill_down + M3.1/liste_traiteur_plusieurs_lieux_au_rechargement + M3.1/liste_traiteur_changement_de_type_conserve_lieux_et_clients + M3.1/liste_traiteur_export_csv_memes_parametres + M3.1/liste_filtres_lieux_multiples + M3.1/liste_filtres_ancien_lieu_id + M3.1/liste_filtres_liste_prioritaire + M3.1/liste_filtres_valeurs_invalides_ecartees + M3.1/liste_filtres_tout_invalide_jamais_de_in_vide + M3.1/liste_filtres_clients_multiples + M4.1/export_collectes_filtres_choix_multiple + M4.1/export_collectes_filtres_invalides_ecartes",
       "statut": "implemented",
@@ -1003,7 +1003,7 @@
     },
     {
       "id": "M3.1-liste-filtres-choix-multiple-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:283",
       "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1011,10 +1011,10 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "807240f53d36baff435d4692b2ce738e82438988f0b27370d5ee70d6084ecf36",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "f6af7f3c16b2169fa4776b44e003a4a5da843d34bb281752d0b3bd828a29f12e",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "c8c453a182512344f6b8a8e5796c605d6c282d26394a3c0f9139b4cccda11bc0",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "5abf9290405210ba77c1450fa1059db2f5fe62bfa7bc94f860a6743a11cdb50c",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "51fbb2a366fe99598076e91fa1d37cd386914720ef68db431220647f5b071955"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "6478d8ca35120312498844b81a87628b6aea9b00864ad7a47a76b33b59d86749",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6a08f97fe482d5b5a9be85a937428c56245baee5380e13043e01b6ad435da805",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9b2486cfd6af6c76f1c910f89640bdb2fa64fdd1a620b476bc515f3d8f6e5863",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "fa69f5a5d32e20077c4b08997d2a267af7c9a3dc431a4260b4f569ea4404585f"
   }
 }

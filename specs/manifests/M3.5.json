@@ -50,7 +50,7 @@
     },
     {
       "id": "BL-P1-PARITE-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:208",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:200",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts + packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + apps/pdf-renderer/src/templates/synthese-dashboard.ts",
       "test": "M3.5 / route synthèse PDF — génération synchrone + M3.5 / synthèse PDF — snapshot §12 §1.6 + M3.5 / renderer synthèse §12 §1.6 — template agrégé",
       "statut": "implemented",
@@ -98,7 +98,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "c8c453a182512344f6b8a8e5796c605d6c282d26394a3c0f9139b4cccda11bc0",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8e6a7a85f7b1b0805cbdbd3bcb362d233168d6665705604d6f4f7f798fdd7353"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6a08f97fe482d5b5a9be85a937428c56245baee5380e13043e01b6ad435da805",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "1624f7d10800fae8c89bb6757d87949d81edab35aa94e96d8c8e6d668c58208a"
   }
 }

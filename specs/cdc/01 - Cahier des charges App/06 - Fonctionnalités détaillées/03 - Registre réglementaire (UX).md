@@ -42,10 +42,10 @@ Tableau principal + barre de filtres en haut + bouton d'export à droite.
 ### Barre de filtres
 
 - Période (filtre en ligne, panneau raccourcis + calendrier ; « 30 derniers jours » y figure parmi les raccourcis standard — DS §6, 2026-09-30) — le défaut au chargement reste vide (pas d'auto-limitation du registre réglementaire).
-- Lieu (multi-select)
-- Traiteur (multi-select, visible selon RLS)
+- Lieu (multi-select, case « Tous » en tête) — options = tous les lieux présents au registre du périmètre, pas seulement ceux de la page affichée (arbitrage Val F2 2026-10-01 ; API `GET /api/v1/registre/options`, même garde et même vue `v_registre_dechets` que la liste)
+- Traiteur (multi-select, visible selon RLS, mêmes options que Lieu)
 - Flux (multi-select)
-- Statut bordereau (dispo / manquant)
+- Statut bordereau (dispo / manquant, à cocher ; les deux = aucun filtre)
 
 ### Tri
 
@@ -115,7 +115,11 @@ V2 : version dynamique avec paramètres de calcul éditables.
 
 ### Export CSV
 
-Bouton "Exporter" → CSV des lignes filtrées courantes. Colonnes : toutes celles du tableau + colonnes additionnelles (code déchet, filière, poids par flux détaillé).
+Bouton "Exporter" → CSV des collectes filtrées courantes, **une ligne par flux pesé** (décision Val 2026-10-04), pour tous les rôles. Les 20 premières colonnes suivent, dans l'ordre, le modèle de collecte de données des gestionnaires de lieux : Nature du déchet · Code nomenclature déchets · Identité du producteur de déchet (= lieu) · Date d'expédition (= date de collecte) · Quantité (tonnage) · Filière de traitement finale · Code D&R de traitement finale · Numéro de BSD (= n° de bordereau Savr) · Transporteur (Nom, Adresse, Code postal, Ville) · Exutoire intermédiaire (idem, = entrepôt Savr) · Exutoire final (idem, = site de traitement du flux, `flux_dechets.exutoire*`). Suivent 2 colonnes Savr : Traiteur, Date événement (22 colonnes au total). Un flux sans poids n'a pas de ligne. Filtre Flux actif : seules les lignes de ces flux sortent *(confirmé Val)*. Le n° de bordereau n'est rendu que s'il est émis. Transporteur affiché = « Savr » à l'adresse de l'entrepôt (provisoire, validation juriste en attente). Filière = libellé de `filiere_valorisation` tant que la classification à lettres du modèle n'est pas fournie. `exports_registre.nb_lignes` = nombre de lignes de flux du fichier.
+
+**Source des codes et des exutoires (assumé, décision Val 2026-10-04)** : l'export lit le référentiel `flux_dechets` **courant**, pas un instantané — une modification ultérieure du référentiel change aussi les lignes des collectes déjà clôturées. C'est une exception au principe snapshot du §04 (bordereaux) ; l'export pourra lire le snapshot par flux de `bordereaux_savr.detail_flux` quand il existera (lot rapport @3).
+
+**Plafond (décision Val 2026-10-05, « pour l'instant »)** : au-delà de 1000 collectes dans le périmètre filtré, l'export répond par une erreur plutôt que par un fichier incomplet.
 
 ### Export registre PDF — reporté V1.1 (sobriété 2026-06-03 A1)
 

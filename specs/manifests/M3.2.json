@@ -823,7 +823,7 @@
     },
     {
       "id": "M3.2-collectes-filtres-lieu-traiteur-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:283",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (Lieu et Traiteur en FiltreCoches ; adresse de la page : `lieu` et `traiteur` en CSV, clés du drill-down inchangées) + packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts (`lieu_ids` / `traiteur_ids` en CSV d'UUID, anciens `lieu_id` / `traiteur_id` lus comme une liste d'un élément) + packages/plateforme/src/components/ui/filtre-en-ligne.tsx (option `horsListe`)",
       "test": "M3.2/collectes_route_plusieurs_lieux + M3.2/collectes_route_plusieurs_traiteurs + M3.2/collectes_route_lieux_et_traiteurs_se_cumulent + M3.2/collectes_route_ancien_lien_valeur_unique + M3.2/collectes_route_pluriel_prioritaire_sur_ancien + M3.2/collectes_route_identifiant_mal_forme_ecarte + M3.2/collectes_route_aucun_identifiant_valide_liste_vide + M3.2/collectes_route_un_filtre_valide_ne_sauve_pas_l_autre + M3.2/collectes_route_sans_filtre_lieu_ni_traiteur + M3.2/collectes_route_lue_par_la_session_seule + M3.2/collectes_route_recompte_porte_les_listes + M3.2/collectes_filtres_lieu_traiteur_choix_multiple + M3.2/collectes_filtres_lien_plusieurs_valeurs + M3.2/collectes_chip_disparait_au_deuxieme_lieu_coche + M3.2/collectes_valeur_hors_options_cochee_avec_les_autres + M3.2/collectes_lien_a_plusieurs_valeurs_sans_chip + M3.2/collectes_lien_a_plusieurs_valeurs_reduit_a_une_sans_chip + ds/filtre_coches_option_hors_liste_tout_cocher_n_est_pas_tous + M3.2/rls_collectes_liste_lieu_hors_parc_seul + M3.2/rls_collectes_liste_lieux_parc_et_hors_parc + M3.2/rls_collectes_liste_traiteur_commun",
       "statut": "implemented",
@@ -831,7 +831,7 @@
     },
     {
       "id": "M3.2-collectes-filtres-lieu-traiteur-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:283",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",

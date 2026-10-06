@@ -68,7 +68,8 @@
     "supabase/tests/SECU__v_attributions_gestionnaire.test.sql",
     "packages/plateforme/src/lib/dashboards/attributions-ag.ts",
     "packages/plateforme/src/lib/dashboards/attributions-ag.test.ts",
-    "packages/plateforme/tests/api/gestionnaire/attributions-vue.m3-2.test.ts"
+    "packages/plateforme/tests/api/gestionnaire/attributions-vue.m3-2.test.ts",
+    "packages/plateforme/tests/api/gestionnaire/collectes-filtres-lieu-traiteur.m3-2.test.ts"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -215,7 +216,25 @@
     "M3.2/attributions_embed_gestionnaire_vue",
     "M3.2/attributions_forme_commune_vue",
     "M3.2/attributions_forme_commune_table",
-    "M3.2/attributions_forme_commune_vide"
+    "M3.2/attributions_forme_commune_vide",
+    "M3.2/collectes_route_plusieurs_lieux",
+    "M3.2/collectes_route_plusieurs_traiteurs",
+    "M3.2/collectes_route_lieux_et_traiteurs_se_cumulent",
+    "M3.2/collectes_route_ancien_lien_valeur_unique",
+    "M3.2/collectes_route_pluriel_prioritaire_sur_ancien",
+    "M3.2/collectes_route_identifiant_mal_forme_ecarte",
+    "M3.2/collectes_route_aucun_identifiant_valide_liste_vide",
+    "M3.2/collectes_route_un_filtre_valide_ne_sauve_pas_l_autre",
+    "M3.2/collectes_route_sans_filtre_lieu_ni_traiteur",
+    "M3.2/collectes_route_lue_par_la_session_seule",
+    "M3.2/collectes_route_recompte_porte_les_listes",
+    "M3.2/collectes_filtres_lieu_traiteur_choix_multiple",
+    "M3.2/collectes_filtres_lien_plusieurs_valeurs",
+    "M3.2/collectes_chip_disparait_au_deuxieme_lieu_coche",
+    "M3.2/collectes_valeur_hors_options_cochee_avec_les_autres",
+    "M3.2/collectes_lien_a_plusieurs_valeurs_sans_chip",
+    "M3.2/collectes_lien_a_plusieurs_valeurs_reduit_a_une_sans_chip",
+    "M3.2/collectes_un_lieu_et_plusieurs_traiteurs_chip_sur_le_lieu"
   ],
   "deliverables": [
     {
@@ -802,6 +821,22 @@
       "test": "M3.2/blocs_gestionnaire_ag_par_vue",
       "statut": "implemented",
       "libelle": "Bloc 7 AG gestionnaire — top traiteurs AG : nombre de collectes AG, repas donnés et repas/pax par traiteur opérationnel, repas lus par la vue v_attributions_gestionnaire."
+    },
+    {
+      "id": "M3.2-collectes-filtres-lieu-traiteur-choix-multiple",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:283",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (Lieu et Traiteur en FiltreCoches ; adresse de la page : `lieu` et `traiteur` en CSV, clés du drill-down inchangées) + packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts (`lieu_ids` / `traiteur_ids` en CSV d'UUID, anciens `lieu_id` / `traiteur_id` lus comme une liste d'un élément) + packages/plateforme/src/components/ui/filtre-en-ligne.tsx (option `horsListe`)",
+      "test": "M3.2/collectes_route_plusieurs_lieux + M3.2/collectes_route_plusieurs_traiteurs + M3.2/collectes_route_lieux_et_traiteurs_se_cumulent + M3.2/collectes_route_ancien_lien_valeur_unique + M3.2/collectes_route_pluriel_prioritaire_sur_ancien + M3.2/collectes_route_identifiant_mal_forme_ecarte + M3.2/collectes_route_aucun_identifiant_valide_liste_vide + M3.2/collectes_route_un_filtre_valide_ne_sauve_pas_l_autre + M3.2/collectes_route_sans_filtre_lieu_ni_traiteur + M3.2/collectes_route_lue_par_la_session_seule + M3.2/collectes_route_recompte_porte_les_listes + M3.2/collectes_filtres_lieu_traiteur_choix_multiple + M3.2/collectes_filtres_lien_plusieurs_valeurs + M3.2/collectes_chip_disparait_au_deuxieme_lieu_coche + M3.2/collectes_valeur_hors_options_cochee_avec_les_autres + M3.2/collectes_lien_a_plusieurs_valeurs_sans_chip + M3.2/collectes_lien_a_plusieurs_valeurs_reduit_a_une_sans_chip + M3.2/collectes_un_lieu_et_plusieurs_traiteurs_chip_sur_le_lieu + ds/filtre_coches_option_hors_liste_tout_cocher_n_est_pas_tous + ds/filtre_coches_option_hors_liste_decochee_les_autres_valent_tous + M3.2/rls_collectes_liste_lieu_hors_parc_seul + M3.2/rls_collectes_liste_lieux_parc_et_hors_parc + M3.2/rls_collectes_liste_traiteur_commun + M3.2/rls_collectes_liste_lieu_hors_parc_programmation_propre",
+      "statut": "implemented",
+      "libelle": "Liste Collectes gestionnaire — filtres Lieu et Traiteur à choix multiple avec case « Tous » en tête (Design System §5.5 règle 7, décision Val 2026-09-30 « tous les filtres à choix multiple », _Divergences/M0.8_20260930_filtres-choix-multiple-tous). Ils étaient restés deux sélecteurs à valeur unique après #481 parce que la route ne lisait qu'un `lieu_id` et un `traiteur_id`. Route : `lieu_ids` / `traiteur_ids` en CSV (convention `lib/filtre-csv` des listes traiteur et agence), appliqués par `.in()` ; les anciens noms restent compris. Seuls des UUID atteignent PostgREST ; un filtre demandé dont aucun identifiant n'est lisible rend une liste vide, jamais le parc entier (même règle que la taille d'événement). Cloisonnement inchangé : la requête part avec la session de l'utilisateur, la RLS de `collectes` (col_select, f_collecte_visible) et de `evenements` (evt_gestionnaire_select) borne la lecture à deux régimes — les événements programmés par son organisation, quel que soit le lieu, et les événements datés tenus sur les lieux de `organisations_lieux`. La liste est une condition de plus : elle ne retire que des lignes à cette lecture, elle n'en ajoute jamais ; nommer le lieu d'un autre gestionnaire ne rend aucune collecte d'un tiers, seulement ses propres programmations sur ce lieu s'il y en a (pgTAP `supabase/tests/m3_2_gestionnaire_lieux.test.sql`, 4 cas sous le JWT du gestionnaire : lieu d'un autre gestionnaire seul, mêlé à un lieu du parc, traiteur commun aux deux parcs, programmation propre sur un lieu hors parc). Écran : le lien d'un drill-down de Top liste (`?lieu=<id>` ou `?traiteur=<id>`) est une liste d'un élément, le chip « Filtre actif » garde ses règles (arbitrage Val 2026-10-04) ; il disparaît dès qu'une seconde valeur est cochée et revient si la barre ne filtre de nouveau que sur la cible ; plusieurs valeurs dans l'URL à l'arrivée = filtres ordinaires, sans chip (le lieu prime : plusieurs lieux et un traiteur = pas de chip ; un lieu et plusieurs traiteurs = chip sur le lieu). Une valeur filtrée absente des options (traiteur sorti de la fenêtre de 24 mois) garde sa case, cochée, avec le nom reçu du dashboard même quand d'autres valeurs sont cochées ; marquée `horsListe`, tant qu'elle est cochée elle empêche « toutes les cases cochées = Tous » d'effacer le filtre ou d'afficher « Tous » sur une liste filtrée ; décochée, elle quitte la liste et la règle « toutes cochées = Tous » se juge sur les options restantes. Règles du chip à plusieurs valeurs à faire valider par Val : _Divergences/M3.2_20261006_filtres-lieu-traiteur-choix-multiple."
+    },
+    {
+      "id": "M3.2-collectes-filtres-lieu-traiteur-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:283",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la barre de filtres de la liste Collectes gestionnaire, desktop ET mobile < 640 px : Lieu et Traiteur en listes à cocher, case « Tous » en tête, recherche au-delà de 7 options ; libellés des déclencheurs (« Tous », nom unique, « n sélectionnés ») ; chip « Filtre actif » à l'arrivée d'une Top liste du dashboard, sa disparition quand une seconde valeur est cochée ; traiteur hors fenêtre de 24 mois nommé dans sa case. GO visuel de Val attendu."
     }
   ],
   "cdc_source_hash": {

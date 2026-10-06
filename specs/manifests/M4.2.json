@@ -6,6 +6,7 @@
     "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
     "supabase/tests/m4_2_registre.test.sql",
     "supabase/migrations/20261004203000_plateforme_flux_dechets_exutoires_codes.sql",
+    "supabase/migrations/20261006130000_plateforme_flux_dechets_emballage_unite_kg.sql",
     "supabase/tests/m4_2_flux_referentiel_exutoires.test.sql",
     "packages/plateforme/src/lib/registre/registre.ts",
     "packages/plateforme/src/lib/registre/csv.ts",
@@ -159,6 +160,14 @@
       "test": "flux_referentiel_adresse_decoupable + flux_referentiel_codes + flux_referentiel_lisible_client",
       "statut": "implemented",
       "libelle": "Référentiel des flux ZD renseigné (jamais rempli depuis le seed) : exutoire final et adresse « voie, code postal ville », code déchet européen, code de traitement final (colonne ajoutée), filière (biodéchets = méthanisation, résiduel = valorisation énergétique). Sources : export Veolia des enlèvements à l'entrepôt (4 flux), Paprec Trivalo 93 pour les emballages (décisions Val 2026-10-04)."
+    },
+    {
+      "id": "M4.2-flux-referentiel-unite-kg",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1063-1067",
+      "artefact": "supabase/migrations/20261006130000_plateforme_flux_dechets_emballage_unite_kg.sql (flux_dechets : unité de mesure des Emballages passée de bac à kg)",
+      "test": "flux_referentiel_unite_kg",
+      "statut": "implemented",
+      "libelle": "Unité de mesure des 5 flux V1 = kg, comme l'écrit le CDC (« Valeurs initiales »). Le seed bloc8 avait semé les Emballages en bac ; décision Val 2026-10-06 : la spec a raison, la base est corrigée (une ligne de référentiel, l'enum garde ses trois valeurs)."
     }
   ],
   "cdc_source_hash": {

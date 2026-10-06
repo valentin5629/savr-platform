@@ -5,6 +5,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { fmtKg } from '@/lib/format';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -20,7 +21,7 @@ import {
 } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
 import { compteurResultats } from '@/lib/compteur-resultats';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { TextLink } from '@/components/ui/text-link';
 import { ListFooter } from '@/components/ui/list-footer';
 import {
@@ -289,15 +290,16 @@ function RegistreContent() {
   ];
   return (
     <div className="space-y-4">
-      <PageHeader
+      <PageHero
+        icon={<BookOpen className="h-6 w-6 text-savr-primary-200" />}
         title="Registre réglementaire"
         actions={
           <>
-            <Button variant="ghost" asChild>
+            <Button variant="secondary" asChild>
               <a href={ROUTES.registreMethodologie}>Méthodologie</a>
             </Button>
             <Button
-              variant="ghost"
+              variant="secondary"
               onClick={() =>
                 window.open(`/api/v1/registre/export-csv?${queryString(true)}`)
               }
@@ -305,6 +307,7 @@ function RegistreContent() {
               Exporter CSV
             </Button>
             <Button
+              variant="accent"
               onClick={() =>
                 window.open(`/api/v1/registre/export-zip?${queryString(true)}`)
               }

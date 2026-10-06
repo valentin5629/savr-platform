@@ -39,11 +39,7 @@ const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>(
                 {title}
               </Heading>
             )}
-            {subtitle && (
-              <Text size="xs-plus" className="mt-0.5">
-                {subtitle}
-              </Text>
-            )}
+            {subtitle && <Text className="mt-0.5">{subtitle}</Text>}
           </div>
           {headerRight && <div className="shrink-0">{headerRight}</div>}
         </div>

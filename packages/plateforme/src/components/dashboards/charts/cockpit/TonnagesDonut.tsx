@@ -188,7 +188,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
               return (
                 <div
                   key={f.code}
-                  className="flex items-center justify-between rounded-savr-sm px-1.5 py-1 text-[13px] transition-colors"
+                  className="flex items-center justify-between rounded-savr-sm px-1.5 py-1 text-sm transition-colors"
                   style={{
                     background: hover === i ? SURFACE_HOVER : 'transparent',
                   }}

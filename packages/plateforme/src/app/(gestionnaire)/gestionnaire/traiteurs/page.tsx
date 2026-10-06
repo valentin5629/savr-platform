@@ -12,8 +12,7 @@ import {
   type ColumnDef,
 } from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
+import { PageHero } from '@/components/ui/page-hero';
 import { ROUTES } from '@/lib/routes';
 
 interface TraiteurRow {
@@ -85,7 +84,7 @@ export default function GestionnaireTraiteursPage() {
               src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(t.id)}/logo`}
               alt=""
               onError={() => setLogosKo((s) => new Set(s).add(t.id))}
-              className="h-6 w-6 rounded-full object-cover"
+              className="h-6 w-6 rounded-savr-full object-cover"
             />
           )}
           <span className="font-medium">{t.nom}</span>
@@ -147,10 +146,11 @@ export default function GestionnaireTraiteursPage() {
   // liste vide.
   return (
     <div className="space-y-4">
-      <Heading level={1} tone="primary">
-        Traiteurs
-      </Heading>
-      <Text>Traiteurs intervenus sur vos lieux (24 derniers mois).</Text>
+      <PageHero
+        icon={<ChefHat className="h-6 w-6 text-savr-primary-200" />}
+        title="Traiteurs"
+        subtitle="Traiteurs intervenus sur vos lieux (24 derniers mois)."
+      />
 
       {erreur ? (
         <ErrorState

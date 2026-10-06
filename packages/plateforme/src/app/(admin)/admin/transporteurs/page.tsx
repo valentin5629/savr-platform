@@ -30,7 +30,7 @@ import {
   type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 
 // Ligne = enregistrement complet (l'API liste renvoie select('*')) → sert
@@ -194,12 +194,11 @@ export default function TransporteursPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHero
         title="Transporteurs"
-        tone="neutral"
-        icon={<Truck className="h-6 w-6 text-savr-neutral-600" />}
+        icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
         actions={
-          <Button onClick={openCreate}>
+          <Button variant="accent" onClick={openCreate}>
             <Plus />
             Nouveau transporteur
           </Button>

@@ -19,7 +19,7 @@ import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
-import { fmtKgAuto, fmtPct, fmtInt, fmtPax } from '@/lib/format';
+import { fmtKgAuto, fmtPct, fmtInt, fmtPax, UNITE_KG_CO2E } from '@/lib/format';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
 // revue écran 2026-07-15, passage en Data Table 2026-09-28 — décisions Val).
@@ -149,7 +149,9 @@ export function ResultatsCollecte({
       {c.co2_evite_kg != null && c.co2_evite_kg > 0 && (
         <span className="inline-flex items-center gap-1.5">
           <Leaf className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {fmtInt(c.co2_evite_kg)} kg CO₂e
+          {fmtInt(c.co2_evite_kg)}
+          {'\u00a0'}
+          {UNITE_KG_CO2E}
         </span>
       )}
       {/* Rapport réservé au donneur d'ordre : action retirée (liste, §10 §7)

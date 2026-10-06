@@ -17,7 +17,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { jourParis } from '@savr/shared/src/temps/index.js';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -196,13 +196,12 @@ export default function GrillesZdPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHero
         title="Paramètres — Grilles tarifaires ZD"
-        tone="neutral"
-        icon={<Table2 className="h-6 w-6 text-savr-neutral-600" />}
+        icon={<Table2 className="h-6 w-6 text-savr-primary-200" />}
         actions={
           canEdit ? (
-            <Button onClick={openModal}>
+            <Button variant="accent" onClick={openModal}>
               <Plus />
               Créer une grille
             </Button>

@@ -26,11 +26,13 @@ const badgeVariants = cva(
         count:
           'min-w-[1.25rem] justify-center bg-savr-error px-1.5 font-semibold text-savr-white',
       },
-      // Taille (R-UI-2 C14) : `sm` = badge dense des tableaux (11 px), remplace
-      // les `className="text-[11px]"` / `text-[10px]` ad hoc.
+      // Taille (R-UI-2 C14) : `sm` = badge dense des tableaux, remplace les
+      // tailles ad hoc 11 px / 10 px. Q9 (b, 2026-10-06) :
+      // 11 px arrondi à 12 px (`text-xs`) : `sm` rend désormais comme `md`
+      // (alias conservé pour les tableaux denses, rendu identique testé).
       size: {
         md: '',
-        sm: 'text-[11px]',
+        sm: 'text-xs',
       },
     },
     defaultVariants: {
@@ -70,7 +72,7 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
         {avecPoint && (
           <span
             className={cn(
-              'inline-block h-1.5 w-1.5 rounded-full shrink-0',
+              'inline-block h-1.5 w-1.5 rounded-savr-full shrink-0',
               dotClass,
             )}
             aria-hidden="true"

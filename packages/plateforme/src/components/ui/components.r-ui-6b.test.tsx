@@ -93,7 +93,7 @@ describe('PageHeader — en-tête sobre', () => {
 });
 
 describe('Text — texte courant', () => {
-  it('variantes = recettes majoritaires actuelles (A8) ; tailles 11/13 px centralisées telles quelles (A6/Q9)', () => {
+  it("variantes = recettes majoritaires actuelles (A8) ; tailles de l'échelle Tailwind (Q9 b)", () => {
     expect(textClasses({})).toBe('text-sm text-savr-neutral-500'); // muted ×73
     expect(textClasses({ variant: 'hint' })).toBe(
       'text-xs text-savr-neutral-500',
@@ -107,12 +107,24 @@ describe('Text — texte courant', () => {
     expect(textClasses({ variant: 'overline' })).toBe(
       'text-xs text-savr-neutral-500 font-semibold uppercase tracking-wide',
     );
-    expect(textClasses({ size: 'xs-plus' })).toBe(
-      'text-[13px] text-savr-neutral-500',
+    expect(textClasses({ size: 'xs' })).toBe('text-xs text-savr-neutral-500');
+    expect(textClasses({ variant: 'hint', size: 'sm', tone: 'soft' })).toBe(
+      'text-sm text-savr-neutral-600',
     );
-    expect(textClasses({ variant: 'hint', size: '2xs', tone: 'soft' })).toBe(
-      'text-[11px] text-savr-neutral-600',
+    expect(textClasses({ size: '3xs' })).toBe(
+      'text-[10px] text-savr-neutral-500',
     );
+  });
+
+  it('Q9 b : les tailles 11/13 px (`2xs`, `xs-plus`) n’existent plus', () => {
+    // @ts-expect-error — taille supprimée (11 px arrondi à `xs`)
+    textClasses({ size: '2xs' });
+    // @ts-expect-error — taille supprimée (13 px arrondi à `sm`)
+    textClasses({ size: 'xs-plus' });
+    const toutes = (['3xs', 'xs', 'sm', 'base'] as const).map((size) =>
+      textClasses({ size }),
+    );
+    expect(toutes.join(' ')).not.toMatch(/text-\[1[13]px\]/);
   });
 
   it('rend <p> par défaut, un autre élément via `as`, et fusionne className', () => {

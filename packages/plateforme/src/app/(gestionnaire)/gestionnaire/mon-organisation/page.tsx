@@ -14,7 +14,7 @@ import { LogoCard } from '@/components/organisation/logo-card';
 import { InviterUtilisateurCarte } from '@/components/organisation/inviter-utilisateur-modal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
-import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { TextLink } from '@/components/ui/text-link';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
@@ -260,9 +260,7 @@ export default function MonOrganisationPage() {
   return (
     <div className="space-y-6">
       {dialogue}
-      <Heading level={1} tone="primary">
-        Mon organisation
-      </Heading>
+      <PageHeader title="Mon organisation" />
 
       {/* Onglets du DS (R-UI-4b, D4). Chargement et erreur sont communs aux
           trois onglets : affichés sous la barre, hors contenu d'onglet. */}

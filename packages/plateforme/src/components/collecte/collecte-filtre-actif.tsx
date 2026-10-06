@@ -1,6 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { Text } from '@/components/ui/text';
 
 interface Props {
   /** Libellé complet du filtre, ex. « Lieu : Le Pavillon ». */
@@ -23,9 +24,9 @@ export function CollecteFiltreActif({ label, scope, onClear }: Props) {
       className="flex flex-wrap items-center gap-2"
       data-testid="filtre-actif"
     >
-      <span className="text-xs font-semibold uppercase tracking-wide text-savr-neutral-400">
+      <Text as="span" variant="overline" tone="faint">
         Filtre actif
-      </span>
+      </Text>
       <span className="inline-flex items-center gap-2 rounded-savr-full bg-savr-primary-50 py-1 pl-3 pr-1 text-sm font-medium text-savr-primary-800">
         <span>
           {label}

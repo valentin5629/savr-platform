@@ -370,12 +370,12 @@ function CarteChoix({
       <span
         aria-hidden
         className={cn(
-          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2',
+          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-savr-full border-2',
           coche ? 'border-savr-primary-600' : 'border-savr-neutral-300',
         )}
       >
         {coche && (
-          <span className="h-1.5 w-1.5 rounded-full bg-savr-primary-600" />
+          <span className="h-1.5 w-1.5 rounded-savr-full bg-savr-primary-600" />
         )}
       </span>
       <span className="min-w-0 flex-1">

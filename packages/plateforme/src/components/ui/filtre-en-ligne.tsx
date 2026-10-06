@@ -90,7 +90,7 @@ export function BarreFiltres({
       )}
     >
       {intro && (
-        <span className="mr-1 whitespace-nowrap text-[13px] font-semibold text-savr-neutral-500">
+        <span className="mr-1 whitespace-nowrap text-sm font-semibold text-savr-neutral-500">
           {intro}
         </span>
       )}

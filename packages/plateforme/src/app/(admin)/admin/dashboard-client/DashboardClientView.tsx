@@ -56,7 +56,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { LoadingState } from '@/components/ui/loading-state';
 import { AlertBar } from '@/components/ui/alert-bar';
-import { fmtPct } from '@/lib/format';
+import { fmtPct, uniteCo2 } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 
 /** ISO `YYYY-MM-DD` → `DD/MM/YYYY` (affichage FR de la période analysée). */
@@ -519,7 +519,7 @@ export function DashboardClientView() {
             <StatCard
               label="CO₂ évité"
               value={co2Masse.value}
-              unit={`${co2Masse.unit} CO₂e`}
+              unit={uniteCo2(co2Masse.unit)}
               dotColor={KPI_DOT.green}
               variationPct={variationPct(co2.eviteKg, co2PrevKg)}
               sparkPoints={sparkFromSeries(zdSeries, (p) => p.co2_evite_kg)}
@@ -580,7 +580,6 @@ export function DashboardClientView() {
                   <Text
                     as="p"
                     variant="hint"
-                    size="2xs"
                     data-testid="benchmark-reference-echantillon"
                   >
                     Référence : {fmtInt(nbRef)} collecte{nbRef > 1 ? 's' : ''}{' '}
@@ -677,7 +676,7 @@ export function DashboardClientView() {
             <StatCard
               label="CO₂ évité"
               value={co2Masse.value}
-              unit={`${co2Masse.unit} CO₂e`}
+              unit={uniteCo2(co2Masse.unit)}
               dotColor={KPI_DOT.green}
               variationPct={variationPct(co2.eviteKg, co2PrevKg)}
               sparkPoints={sparkFromSeries(agSeries, (p) => p.co2_evite_kg)}

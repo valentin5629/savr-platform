@@ -40,15 +40,10 @@ function Formule({
 }): React.ReactElement {
   return (
     <div className="border-l-2 border-savr-neutral-200 pl-3">
-      <Text as="div" size="xs-plus" tone="ink" className="font-bold">
+      <Text as="div" tone="ink" className="font-bold">
         {titre}
       </Text>
-      <Text
-        as="div"
-        size="xs-plus"
-        tone="soft"
-        className="mt-0.5 leading-relaxed"
-      >
+      <Text as="div" tone="soft" className="mt-0.5 leading-relaxed">
         {children}
       </Text>
     </div>
@@ -65,7 +60,7 @@ export function Co2MethodePanel({
       <h4 className="text-[15px] font-extrabold text-savr-neutral-900">
         Comment ces chiffres sont-ils calculés ?
       </h4>
-      <Text size="xs-plus" className="mt-0.5">
+      <Text className="mt-0.5">
         Méthode ABC de l'ADEME. Les grandeurs sont figées à la clôture de chaque
         collecte, puis additionnées sur la période filtrée.
       </Text>
@@ -74,7 +69,7 @@ export function Co2MethodePanel({
         <Formule titre="CO₂e évité">
           Σ sur les matières recyclées de{' '}
           <b className="text-savr-neutral-800">
-            poids (t) × facteur d'émission évité (kgCO₂e/t)
+            poids (t) × facteur d'émission évité (kg&nbsp;CO₂e/t)
           </b>{' '}
           — le CO₂ qu'on n'émet PAS en valorisant plutôt qu'en enfouissant ou
           incinérant.
@@ -83,7 +78,7 @@ export function Co2MethodePanel({
           Transport de collecte (
           <b className="text-savr-neutral-800">
             {fmtDec(forfait.km, 0)} km × {fmtDec(forfait.fe_camion, 2)}{' '}
-            kgCO₂e/km
+            kg&nbsp;CO₂e/km
           </b>
           , réparti au prorata du poids) + émissions de traitement de chaque
           matière.
@@ -103,23 +98,28 @@ export function Co2MethodePanel({
           .
         </Formule>
         <Formule titre="Équivalences pédagogiques">
-          km voiture = évité ÷ {fmtDec(equivalences.km_voiture, 3)} kgCO₂e/km ·
-          repas de bœuf = évité ÷ {fmtDec(equivalences.repas_boeuf, 0)} kgCO₂e ·
-          foyers = énergie ÷ {fmtDec(equivalences.foyer_kwh, 0)} kWh/an.
+          km voiture = évité ÷ {fmtDec(equivalences.km_voiture, 3)}{' '}
+          kg&nbsp;CO₂e/km · repas de bœuf = évité ÷{' '}
+          {fmtDec(equivalences.repas_boeuf, 0)} kg&nbsp;CO₂e · foyers = énergie
+          ÷ {fmtDec(equivalences.foyer_kwh, 0)} kWh/an.
         </Formule>
       </div>
 
       {fluxFactors.length > 0 && (
         <div className="mt-5">
-          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-savr-neutral-500">
+          <div className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-savr-neutral-500">
             Facteurs d'émission par matière (ADEME Base Carbone)
           </div>
           <Table className="min-w-[420px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Matière</TableHead>
-                <TableHead className="text-right">Évité (kgCO₂e/t)</TableHead>
-                <TableHead className="text-right">Induit (kgCO₂e/t)</TableHead>
+                <TableHead className="text-right">
+                  Évité (kg&nbsp;CO₂e/t)
+                </TableHead>
+                <TableHead className="text-right">
+                  Induit (kg&nbsp;CO₂e/t)
+                </TableHead>
                 <TableHead className="text-right">Énergie (kWh/t)</TableHead>
               </TableRow>
             </TableHeader>

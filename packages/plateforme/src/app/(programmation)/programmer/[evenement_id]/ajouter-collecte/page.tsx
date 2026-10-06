@@ -9,7 +9,7 @@ import {
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
-import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { FormActions } from '@/components/ui/form-actions';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
@@ -88,9 +88,7 @@ export default function AjouterCollectePage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <Heading level={1} size="xl">
-        Ajouter une collecte
-      </Heading>
+      <PageHeader title="Ajouter une collecte" tone="neutral" size="xl" />
 
       <div className="flex gap-3">
         {(['zd', 'ag'] as const).map((t) => (

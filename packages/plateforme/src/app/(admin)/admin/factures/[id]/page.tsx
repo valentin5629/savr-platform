@@ -267,8 +267,7 @@ export default function FactureDetailPage() {
   }
 
   if (loading) return <LoadingState />;
-  if (!facture)
-    return <EmptyState size="inline" title="Facture introuvable." />;
+  if (!facture) return <AlertBar variant="err">Facture introuvable.</AlertBar>;
 
   const fmt = (n: number): string => fmtMontant(n, facture.devise);
   const factureReference =

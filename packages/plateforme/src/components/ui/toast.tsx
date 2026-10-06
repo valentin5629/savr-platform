@@ -143,14 +143,18 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Hors provider (composant rendu isolément en test) : toast sans effet plutôt
-// qu'une exception — le provider est monté dans `app/layout.tsx` pour toute
-// l'app ; un test qui vérifie le toast rend sous `ToastProvider`
-// (`@/test-utils/toasts`).
+// Hors provider : exception (provider oublié = succès silencieux), sauf en
+// test où un composant est rendu isolément — un test qui vérifie le toast rend
+// sous `ToastProvider` (`@/test-utils/toasts`). Le provider est monté une fois
+// dans `app/layout.tsx`.
 const SANS_PROVIDER = { toast: () => undefined };
 
 function useToast() {
-  return React.useContext(ToastContext) ?? SANS_PROVIDER;
+  const ctx = React.useContext(ToastContext);
+  if (ctx) return ctx;
+  if (process.env.NODE_ENV !== 'test')
+    throw new Error('useToast doit être utilisé dans un <ToastProvider>.');
+  return SANS_PROVIDER;
 }
 
 export { ToastProvider, useToast };

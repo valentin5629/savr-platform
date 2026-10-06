@@ -29,7 +29,9 @@ export function RgpdComptePanel({
   // effacerait le téléphone.
   const [chargementKo, setChargementKo] = useState(false);
   const [profilErreur, setProfilErreur] = useState<string | null>(null);
-  // Échec de la demande de suppression (le succès part en toast, R-UI-1 H1).
+  // Demande de suppression : statut persistant (validation Admin sous 48 h
+  // ouvrées, §15) → bandeau, pas un toast éphémère (revue conformité #488).
+  const [suppressionDemandee, setSuppressionDemandee] = useState(false);
   const [suppressionErreur, setSuppressionErreur] = useState<string | null>(
     null,
   );
@@ -106,12 +108,7 @@ export function RgpdComptePanel({
       const res = await fetch('/api/me/demande-suppression', {
         method: 'POST',
       });
-      if (res.ok)
-        toast({
-          title:
-            'Demande enregistrée — en attente de validation Admin (48h ouvrées).',
-          variant: 'success',
-        });
+      if (res.ok) setSuppressionDemandee(true);
       else setSuppressionErreur('Échec de l’enregistrement de la demande.');
     } finally {
       setEnCours(false);
@@ -196,6 +193,12 @@ export function RgpdComptePanel({
             >
               Demander la suppression de mon compte
             </Button>
+            {suppressionDemandee && (
+              <AlertBar variant="success">
+                Demande enregistrée — en attente de validation Admin (48h
+                ouvrées).
+              </AlertBar>
+            )}
             {suppressionErreur && (
               <AlertBar variant="err" role="alert">
                 {suppressionErreur}

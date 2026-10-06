@@ -1292,6 +1292,33 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
   );
 
   it(
+    'M3.2/collectes_un_lieu_et_plusieurs_traiteurs_chip_sur_le_lieu — le lieu prime, les traiteurs restent dans la barre',
+    async () => {
+      // Cas miroir de « plusieurs lieux et un traiteur » : ici le lieu est seul,
+      // il reste la cible ; les deux traiteurs sont des filtres ordinaires.
+      urlParams.current = 'lieu=L2&traiteur=T1,T9';
+      const urls = fetchEspion(TROIS_LIGNES);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await waitFor(
+        () =>
+          expect(chip()?.textContent).toContain(
+            'Lieu : Palais des Congrès de Paris',
+          ),
+        ATTENTE_UI,
+      );
+
+      const appel = new URLSearchParams(urls[urls.length - 1]!.split('?')[1]);
+      expect(appel.get('lieu_ids')).toBe('L2');
+      expect(appel.get('traiteur_ids')).toBe('T1,T9');
+      expect(screen.getByTestId('filtre-traiteur').textContent).toBe(
+        'Traiteur2 sélectionnés',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/collectes_chip_rechargement_sans_ecart_d_hydratation — le HTML servi et le premier rendu client concordent',
     async () => {
       urlParams.current = 'lieu=L1';

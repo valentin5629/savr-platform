@@ -675,6 +675,40 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     ).toBe(false);
   });
 
+  it('mission_dispatched — lecture préalable de la tournée en échec, API sans téléphone → seul le nom est réécrit (téléphone Admin jamais effacé sur un incident de lecture)', async () => {
+    mockMissionRow = {
+      id: 'em-001',
+      tournee_id: 'tour-001',
+      collecte_id: 'col-001',
+      statut_everest: 'created',
+    };
+    mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
+    mockState.details.set('EVR-001', {
+      mission_id: 'EVR-001',
+      status: 'assigned',
+      cout_ht: null,
+      preuve_url: null,
+      coursier_nom: 'Nouveau Coursier',
+      coursier_telephone: null,
+      vehicule_type: null,
+    });
+    readErrors['tournees'] = { code: '57014', message: 'canceling statement' };
+    try {
+      await POST(
+        makeWebhookRequest({
+          mission_id: 'EVR-001',
+          event_type: 'mission_dispatched',
+          occurred_at: '2026-07-20T22:05:00Z',
+        }),
+      );
+    } finally {
+      delete readErrors['tournees'];
+    }
+    expect(updatedRows['tournees'] ?? []).toEqual([
+      { chauffeur_nom: 'Nouveau Coursier' },
+    ]);
+  });
+
   it('mission_dispatched — déjà acceptée → pas de double update statut_tms', async () => {
     mockMissionRow = {
       id: 'em-002',

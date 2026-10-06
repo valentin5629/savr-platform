@@ -2174,6 +2174,24 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   );
 
   it(
+    'tournée présente mais prestataire inconnu : « Coordonnées à saisir par l’équipe Ops », jamais « Transporteur sans TMS »',
+    async () => {
+      // collecteAg : aucun prestataire_actuel ni prestataire_logistique_id.
+      mockFetch({ ...collecteAg, collecte_tournees: [tourneeMts1] });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      await screen.findByTestId('camion-chauffeur', undefined, ATTENTE_UI);
+      expect(
+        screen.getByText('Coordonnées à saisir par l’équipe Ops.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Transporteur sans TMS/)).toBeNull();
+      expect(screen.queryByText(/remontent automatiquement/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'collecte terminée sans tournée : « Aucun chauffeur enregistré », aucune phrase au futur',
     async () => {
       mockFetch({ ...collecteAg, statut: 'annulee', collecte_tournees: [] });

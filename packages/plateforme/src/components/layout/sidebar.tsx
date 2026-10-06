@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { NAV_CONFIG } from '@/lib/nav-config';
+import { NAV_CONFIG, hrefNavActif } from '@/lib/nav-config';
 import type { NavRole } from '@/lib/roles';
 import { useLogoZd, isZdSectionPath } from '@/components/layout/logo-context';
 import { SavrLogoMark } from '@/components/layout/savr-logo';
@@ -36,6 +36,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     // dans la page (ex : type de collecte ZD coché).
     const logoZd = zdSelected || isZdSectionPath(pathname);
     const hidden = new Set(hiddenNavHrefs ?? []);
+    const hrefActif = hrefNavActif(role, pathname);
     const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
       ...g,
       items: g.items.filter((i) => !hidden.has(i.href)),
@@ -78,9 +79,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                 </p>
               )}
               {group.items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  pathname.startsWith(item.href + '/');
+                const isActive = item.href === hrefActif;
                 const Icon = item.icon;
                 const badgeCount = navBadges?.[item.href] ?? 0;
                 return (

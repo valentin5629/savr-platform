@@ -235,3 +235,26 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
 export function getNavItems(role: NavRole): NavItem[] {
   return NAV_CONFIG[role]?.flatMap((g) => g.items) ?? [];
 }
+
+/**
+ * Entrée du menu active pour un chemin : UNE seule (Design System §8,
+ * `aria-current` sur l'item de nav actif). Plusieurs entrées peuvent préfixer le
+ * chemin courant — le Dashboard d'un espace client vit à la racine de l'espace
+ * (`/gestionnaire`), donc préfixe toutes ses voisines (`/gestionnaire/collectes`).
+ * La plus précise l'emporte : celle dont le href est le plus long.
+ *
+ * Cherchée parmi TOUTES les entrées du rôle, y compris celles que l'écran ne
+ * montre pas (entrée masquée, au-delà des 4 de la barre mobile) : sur leur page,
+ * aucune autre entrée ne doit s'allumer à leur place.
+ */
+export function hrefNavActif(
+  role: NavRole,
+  pathname: string,
+): string | undefined {
+  let actif: string | undefined;
+  for (const { href } of getNavItems(role)) {
+    const correspond = pathname === href || pathname.startsWith(href + '/');
+    if (correspond && (!actif || href.length > actif.length)) actif = href;
+  }
+  return actif;
+}

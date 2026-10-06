@@ -38,7 +38,8 @@
   "tests_vitest": [
     "packages/plateforme/src/components/ui/components.m0-8.test.tsx",
     "packages/plateforme/src/components/r23b-cosmetics.m0-8.test.tsx",
-    "packages/plateforme/src/lib/pdf/logo-inline.m0-8.test.ts"
+    "packages/plateforme/src/lib/pdf/logo-inline.m0-8.test.ts",
+    "packages/plateforme/tests/ui/nav-entree-active.m0-8.test.tsx"
   ],
   "tests_playwright": [
     "e2e/m0-8.nav-par-role.spec.ts"
@@ -604,6 +605,14 @@
       "test": "ds/filtre_coches_case_tous_cochee_par_defaut_efface_la_selection",
       "statut": "implemented",
       "libelle": "Règle DS (7) telle que patchée par _Divergences/M0.8_20260930_filtres-choix-multiple-tous : tous les filtres de l'app à choix multiple, case « Tous » = aucun filtre, « Période » en premier. Toutes les barres de filtres de l'app y sont : PR 1 (#444), PR 2 (#450), puis les listes Collectes traiteur et agence (PR 3 : Lieu, Client organisateur, Info incomplète + « Période » en premier). La liste Collectes gestionnaire n'a pas de barre de filtres (paramètres de drill-down seuls) : rien à convertir. Les preuves d'écran sont portées par les livrables `à-vérifier` de chaque module."
+    },
+    {
+      "id": "M0.8-nav-entree-active-unique",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:473",
+      "artefact": "packages/plateforme/src/lib/nav-config.ts (hrefNavActif) + packages/plateforme/src/components/layout/sidebar.tsx + packages/plateforme/src/components/layout/bottom-nav.tsx",
+      "test": "M0.8-67 + M0.8-68 + M0.8-69 + M0.8-70",
+      "statut": "implemented",
+      "libelle": "Menu (barre latérale et barre mobile) — une seule entrée active, celle dont l'adresse correspond le plus précisément à la page courante. Le Dashboard des espaces client vit à la racine de l'espace (/gestionnaire, /traiteur, /agence, /organisateur) et préfixe toutes ses voisines : décidée au préfixe, l'entrée active était double (Dashboard + page courante) sur toutes les pages de ces espaces (défaut E2E 2026-10-06)."
     }
   ],
   "cdc_source_hash": {

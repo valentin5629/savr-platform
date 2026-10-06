@@ -1,5 +1,6 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { requirePageSession } from '@/lib/page-auth';
+import { entreesNavMasquees } from '@/lib/nav-masquee';
 
 // Registre réglementaire ZD (§06.03) — espace client, tous les rôles SAUF
 // l'agence (donneuse d'ordre, non productrice — §09 F6). Le staff accède aux
@@ -18,11 +19,16 @@ export default async function RegistreLayout({
 }) {
   const session = await requirePageSession(REGISTRE_ROLES);
 
+  // Section transverse : le menu affiché est celui de l'espace du rôle, avec
+  // les mêmes entrées masquées que dans cet espace (§06.05 l.75, « Mon pack AG »).
+  const hiddenNavHrefs = await entreesNavMasquees(session.role);
+
   return (
     <AppShell
       role={session.role}
       userName={session.email}
       pageTitle="Registre réglementaire"
+      hiddenNavHrefs={hiddenNavHrefs}
     >
       {children}
     </AppShell>

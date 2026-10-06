@@ -1818,21 +1818,10 @@ export function CollecteDetailPanel({
                               enAttente
                             )}
                           </InfoItem>
-                          {(t.accompagnant_nom || t.accompagnant_telephone) && (
-                            <>
-                              <InfoItem label="Accompagnant">
-                                {t.accompagnant_nom?.trim() || enAttente}
-                              </InfoItem>
-                              <InfoItem label="Tél. accompagnant">
-                                {t.accompagnant_telephone?.trim() ? (
-                                  <TelephoneLien
-                                    telephone={t.accompagnant_telephone}
-                                  />
-                                ) : (
-                                  enAttente
-                                )}
-                              </InfoItem>
-                            </>
+                          {t.accompagnant_nom?.trim() && (
+                            <InfoItem label="Accompagnant">
+                              {t.accompagnant_nom}
+                            </InfoItem>
                           )}
                         </dl>
                       </div>
@@ -1908,21 +1897,6 @@ export function CollecteDetailPanel({
                               value={v.accompagnant_nom}
                               onChange={(e) =>
                                 setField('accompagnant_nom', e.target.value)
-                              }
-                            />
-                          </label>
-                          <label className="space-y-1 text-xs text-savr-neutral-500">
-                            <span>
-                              Téléphone de l’accompagnant (facultatif)
-                            </span>
-                            <Input
-                              type="tel"
-                              value={v.accompagnant_telephone}
-                              onChange={(e) =>
-                                setField(
-                                  'accompagnant_telephone',
-                                  e.target.value,
-                                )
                               }
                             />
                           </label>

@@ -2163,9 +2163,9 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
       expect(within(camions[1]!).getByText('Camion 2')).toBeInTheDocument();
       // Accompagnant du camion 2, absent du camion 1.
       expect(within(camions[1]!).getByText('Marc Petit')).toBeInTheDocument();
-      expect(
-        within(camions[1]!).getByRole('link', { name: '0699887766' }),
-      ).toHaveAttribute('href', 'tel:0699887766');
+      // Plus de téléphone d'accompagnant à l'écran (retiré par Val 2026-10-06).
+      expect(within(camions[1]!).queryByText('Tél. accompagnant')).toBeNull();
+      expect(within(camions[1]!).queryByText('0699887766')).toBeNull();
       expect(within(camions[0]!).queryByText('Accompagnant')).toBeNull();
       // Transporteur manuel : rien ne remonte automatiquement.
       expect(screen.getByText(/à saisir par l’équipe Ops/)).toBeInTheDocument();

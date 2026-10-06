@@ -10,7 +10,6 @@ import {
   fireEvent,
   cleanup,
   act,
-  waitFor,
 } from '@testing-library/react';
 
 const { urlParams } = vi.hoisted(() => ({ urlParams: { current: '' } }));
@@ -42,8 +41,12 @@ const OPTIONS = {
   lieux: [
     { id: 'L1', nom: 'Paris Expo Porte de Versailles' },
     { id: 'L2', nom: 'Palais des Congrès de Paris' },
+    { id: 'L3', nom: 'Pavillon Royal' },
   ],
-  traiteurs: [{ id: 'T1', nom: 'Kaspia Réceptions' }],
+  traiteurs: [
+    { id: 'T1', nom: 'Kaspia Réceptions' },
+    { id: 'T2', nom: 'Fleurdemets' },
+  ],
   types: [
     { id: 'ty-gala', libelle: 'Gala' },
     { id: 'ty-cocktail', libelle: 'Cocktail' },
@@ -92,8 +95,14 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
       const barre = screen.getByTestId('collecte-filtres-bar');
       expect(barre).toBeTruthy();
       expect(screen.getByTestId('filtre-periode')).toBeTruthy();
-      expect(screen.getByRole('combobox', { name: 'Lieu' })).toBeTruthy();
-      expect(screen.getByRole('combobox', { name: 'Traiteur' })).toBeTruthy();
+      // Lieu et Traiteur : listes à cocher comme les autres filtres (DS §5.5
+      // règle 7), plus de sélecteur à valeur unique sur cet écran.
+      expect(screen.getByTestId('filtre-lieu').textContent).toBe('LieuTous');
+      expect(screen.getByTestId('filtre-traiteur').textContent).toBe(
+        'TraiteurTous',
+      );
+      expect(screen.queryByRole('combobox', { name: 'Lieu' })).toBeNull();
+      expect(screen.queryByRole('combobox', { name: 'Traiteur' })).toBeNull();
       expect(screen.getByTestId('filtre-type-evenement')).toBeTruthy();
       expect(screen.getByTestId('filtre-taille-evenement')).toBeTruthy();
       // Type ZD / AG : segmenté DS avec « Toutes » (le type n'est pas figé
@@ -114,33 +123,33 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
   );
 
   it(
-    'poser un lieu écrit ?lieu=… dans l’URL, la route reçoit lieu_id ; le type ZD part en type=',
+    'cocher un lieu écrit ?lieu=… dans l’URL, la route reçoit lieu_ids ; le type ZD part en type=',
     async () => {
       const urls = fetchEspion();
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
-      await waitFor(
-        () =>
-          expect(
-            screen.getByRole('combobox', { name: 'Lieu' }).textContent,
-          ).toContain('Tous'),
-        ATTENTE_UI,
-      );
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('combobox', { name: 'Lieu' }));
+        fireEvent.click(screen.getByTestId('filtre-lieu'));
       });
       await act(async () => {
         fireEvent.click(
-          screen.getByRole('option', { name: 'Palais des Congrès de Paris' }),
+          await screen.findByRole(
+            'checkbox',
+            { name: 'Palais des Congrès de Paris' },
+            ATTENTE_UI,
+          ),
         );
       });
 
       expect(window.location.search).toBe('?lieu=L2');
-      expect(demande(urls[urls.length - 1]!).get('lieu_id')).toBe('L2');
-      expect(
-        screen.getByRole('combobox', { name: 'Lieu' }).textContent,
-      ).toContain('Palais des Congrès de Paris');
+      const apresLieu = demande(urls[urls.length - 1]!);
+      expect(apresLieu.get('lieu_ids')).toBe('L2');
+      // L'ancien paramètre à valeur unique n'est plus émis.
+      expect(apresLieu.get('lieu_id')).toBeNull();
+      expect(screen.getByTestId('filtre-lieu').textContent).toContain(
+        'Palais des Congrès de Paris',
+      );
       expect(screen.getByTestId('collecte-filtres-bar-reset')).toBeTruthy();
 
       await act(async () => {
@@ -148,8 +157,97 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
       });
       const d = demande(urls[urls.length - 1]!);
       expect(d.get('type')).toBe('zero_dechet');
-      expect(d.get('lieu_id')).toBe('L2');
+      expect(d.get('lieu_ids')).toBe('L2');
       expect(window.location.search).toBe('?lieu=L2&type=zero_dechet');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_filtres_lieu_traiteur_choix_multiple — plusieurs lieux et plusieurs traiteurs cochés partent en liste',
+    async () => {
+      const urls = fetchEspion();
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      const cocher = async (nom: string) =>
+        act(async () => {
+          fireEvent.click(
+            await screen.findByRole('checkbox', { name: nom }, ATTENTE_UI),
+          );
+        });
+
+      // Deux lieux sur trois : la liste reste ouverte entre deux cases (choix
+      // multiple), et la route reçoit les deux identifiants.
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('filtre-lieu'));
+      });
+      // Case « Tous » en tête, cochée tant qu'aucun lieu n'est choisi.
+      expect(screen.getByRole('checkbox', { name: 'Tous' })).toBeChecked();
+      await cocher('Paris Expo Porte de Versailles');
+      await cocher('Pavillon Royal');
+      expect(screen.getByRole('checkbox', { name: 'Tous' })).not.toBeChecked();
+      expect(demande(urls[urls.length - 1]!).get('lieu_ids')).toBe('L1,L3');
+      expect(new URLSearchParams(window.location.search).get('lieu')).toBe(
+        'L1,L3',
+      );
+      expect(screen.getByTestId('filtre-lieu').textContent).toBe(
+        'Lieu2 sélectionnés',
+      );
+
+      // Un traiteur en plus : les deux filtres se cumulent.
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('filtre-traiteur'));
+      });
+      await cocher('Fleurdemets');
+      const d = demande(urls[urls.length - 1]!);
+      expect(d.get('lieu_ids')).toBe('L1,L3');
+      expect(d.get('traiteur_ids')).toBe('T2');
+      expect(d.get('traiteur_id')).toBeNull();
+
+      // « Tous » décoche tout le filtre Traiteur ; les lieux restent.
+      await act(async () => {
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Tous' }));
+      });
+      const apres = demande(urls[urls.length - 1]!);
+      expect(apres.get('traiteur_ids')).toBeNull();
+      expect(apres.get('lieu_ids')).toBe('L1,L3');
+      expect(screen.getByTestId('filtre-traiteur').textContent).toBe(
+        'TraiteurTous',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_filtres_lien_plusieurs_valeurs — un lien ?lieu=a,b&traiteur=c,d est relu case par case',
+    async () => {
+      urlParams.current = 'lieu=L1,L2&traiteur=T1,T2';
+      const urls = fetchEspion();
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+
+      const d = demande(urls[0]!);
+      expect(d.get('lieu_ids')).toBe('L1,L2');
+      expect(d.get('traiteur_ids')).toBe('T1,T2');
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('filtre-lieu'));
+      });
+      await screen.findByRole(
+        'checkbox',
+        { name: 'Pavillon Royal' },
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByRole('checkbox', {
+          name: 'Paris Expo Porte de Versailles',
+        }),
+      ).toBeChecked();
+      expect(
+        screen.getByRole('checkbox', { name: 'Palais des Congrès de Paris' }),
+      ).toBeChecked();
+      expect(
+        screen.getByRole('checkbox', { name: 'Pavillon Royal' }),
+      ).not.toBeChecked();
     },
     ATTENTE_CAS_MS,
   );
@@ -191,7 +289,7 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
         'ty-cocktail',
       ]);
       expect(d.getAll('taille_evenements[]')).toEqual(['M']);
-      expect(d.get('lieu_id')).toBe('L1');
+      expect(d.get('lieu_ids')).toBe('L1');
       const page = new URLSearchParams(window.location.search);
       expect(page.get('type_evenement_ids')).toBe('ty-gala,ty-cocktail');
       expect(page.get('taille_evenements')).toBe('M');
@@ -209,8 +307,8 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
       const avant = demande(urls[0]!);
-      expect(avant.get('lieu_id')).toBe('L1');
-      expect(avant.get('traiteur_id')).toBe('T1');
+      expect(avant.get('lieu_ids')).toBe('L1');
+      expect(avant.get('traiteur_ids')).toBe('T1');
       expect(avant.get('type')).toBe('anti_gaspi');
       expect(avant.get('from')).toBe('2026-01-01');
       expect(avant.getAll('taille_evenements[]')).toEqual(['M', 'XL']);
@@ -221,8 +319,8 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
 
       const apres = demande(urls[urls.length - 1]!);
       for (const k of [
-        'lieu_id',
-        'traiteur_id',
+        'lieu_ids',
+        'traiteur_ids',
         'type',
         'from',
         'to',

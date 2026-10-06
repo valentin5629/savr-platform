@@ -8,7 +8,7 @@
 -- Catégorie 3 : programmation lieu hors périmètre.
 
 BEGIN;
-SELECT plan(37);
+SELECT plan(40);
 
 -- ── Helpers JWT ─────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -215,6 +215,45 @@ SELECT is(
    WHERE id = 'cc000000-0000-0000-0000-0000000000c4'::uuid),
   0,
   'T3 : v_collectes_gestionnaire_lieux — collecte hors périmètre exclue'
+);
+
+-- T3b–T3d : la liste Collectes du gestionnaire filtre sur des LISTES de lieux et
+-- de traiteurs (route gestionnaire/collectes, `lieu_ids` / `traiteur_ids`). Une
+-- liste s'ajoute à la RLS col_select, elle ne la remplace pas : y nommer un lieu
+-- d'un autre gestionnaire ne rend aucune de ses collectes. Même forme que la
+-- requête de la route (collectes jointes à leur événement, filtre sur l'événement).
+
+-- T3b : lieu hors parc SEUL (GL Arena) → aucune ligne
+SELECT is(
+  (SELECT COUNT(*)::int
+     FROM plateforme.collectes c
+     JOIN plateforme.evenements e ON e.id = c.evenement_id
+    WHERE e.lieu_id IN ('cc000000-0000-0000-0000-000000000b03'::uuid)),
+  0,
+  'M3.2/rls_collectes_liste_lieu_hors_parc_seul — filtrer sur le lieu d''un autre gestionnaire ne rend rien'
+);
+
+-- T3c : lieu du parc + lieu hors parc → seule la collecte du parc
+SELECT is(
+  (SELECT array_agg(c.id ORDER BY c.id)
+     FROM plateforme.collectes c
+     JOIN plateforme.evenements e ON e.id = c.evenement_id
+    WHERE e.lieu_id IN ('cc000000-0000-0000-0000-000000000b01'::uuid,
+                        'cc000000-0000-0000-0000-000000000b03'::uuid)),
+  ARRAY['cc000000-0000-0000-0000-0000000000c1'::uuid],
+  'M3.2/rls_collectes_liste_lieux_parc_et_hors_parc — seul le lieu du parc contribue'
+);
+
+-- T3d : traiteur commun aux deux gestionnaires (Kaspia opère sur Palais des
+-- Congrès ET sur GL Arena) → sa collecte chez l'autre gestionnaire reste invisible
+SELECT is(
+  (SELECT array_agg(c.id ORDER BY c.id)
+     FROM plateforme.collectes c
+     JOIN plateforme.evenements e ON e.id = c.evenement_id
+    WHERE e.traiteur_operationnel_organisation_id
+          IN ('cc000000-0000-0000-0000-00000000000c'::uuid)),
+  ARRAY['cc000000-0000-0000-0000-0000000000c1'::uuid],
+  'M3.2/rls_collectes_liste_traiteur_commun — le filtre traiteur ne sort pas du parc'
 );
 
 -- ════════════════════════════════════════════════════════════════════════════

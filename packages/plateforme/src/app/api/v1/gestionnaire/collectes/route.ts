@@ -6,6 +6,7 @@ import {
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire.js';
+import { estUuid, listeCsv } from '@/lib/filtre-csv.js';
 import { parsePage } from '@/lib/pagination.js';
 import { lireTri } from '@/lib/tri-liste.js';
 
@@ -86,8 +87,16 @@ type LigneBrute = Record<string, unknown> & {
 // collectes, security_invoker). Bénéfice : les filtres lieu / traiteur (drill-down
 // des Top listes du dashboard) sont applicables ET les noms lieu/événement sont
 // enfin renvoyés (la vue ne les portait pas → colonnes « — »).
-// Paramètres : type, statut, from, to, lieu_id, traiteur_id, page,
+// Paramètres : type, statut, from, to, lieu_ids, traiteur_ids, page,
 //              type_evenement_ids[], taille_evenements[]
+//
+// Lieu et Traiteur sont à choix multiple (Design System §5.5 règle 7, décision
+// Val 2026-09-30) : `lieu_ids` / `traiteur_ids` en CSV, convention de
+// `lib/filtre-csv` partagée avec les listes traiteur et agence. Les anciens
+// `lieu_id` / `traiteur_id` à valeur unique restent lus comme une liste d'un
+// élément. Ces listes ne font que RESTREINDRE : la requête part avec la session
+// de l'utilisateur, donc la RLS col_select borne toujours la lecture à son parc
+// — un identifiant d'un lieu qui n'est pas le sien ne rend aucune ligne.
 //
 // Pagination SERVEUR (`count: 'exact'` + `range`), pattern §06.06 admin/lieux.
 // Décision Val 2026-09-22 : le §06.05 ne spécifie pas la taille de cette liste,
@@ -107,8 +116,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const statut = sp.get('statut');
   const from = sp.get('from');
   const to = sp.get('to');
-  const lieuId = sp.get('lieu_id');
-  const traiteurId = sp.get('traiteur_id');
+  const lieuxDemandes = listeCsv(
+    sp.get('lieu_ids') ?? sp.get('lieu_id'),
+    Boolean,
+  );
+  const traiteursDemandes = listeCsv(
+    sp.get('traiteur_ids') ?? sp.get('traiteur_id'),
+    Boolean,
+  );
+  const lieuIds = lieuxDemandes.filter(estUuid);
+  const traiteurIds = traiteursDemandes.filter(estUuid);
   // Filtres globaux du dashboard, propagés par le drill-down des Top listes
   // (§06.05 l.209 : « filtres du dashboard propagés — période + Type/Taille
   // d'événement »). Mêmes noms de paramètres que `gestionnaire/evenements`.
@@ -129,6 +146,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // un périmètre plus large que celui qu'il annonce. La réponse honnête est
   // « aucun événement n'a cette taille ».
   if (taillesDemandees.length > 0 && predicatsTaille.length === 0) {
+    return NextResponse.json({ data: [], total: 0, page });
+  }
+  // Même règle pour Lieu et Traiteur : un identifiant mal formé est écarté (il
+  // ne désigne aucune ligne), mais si AUCUN de ceux demandés n'est lisible, le
+  // filtre ne s'efface pas pour autant.
+  if (
+    (lieuxDemandes.length > 0 && lieuIds.length === 0) ||
+    (traiteursDemandes.length > 0 && traiteurIds.length === 0)
+  ) {
     return NextResponse.json({ data: [], total: 0, page });
   }
 
@@ -166,15 +192,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (statut) q = q.eq('statut', statut);
     if (from) q = q.gte('date_collecte', from);
     if (to) q = q.lte('date_collecte', to);
-    if (lieuId) q = q.eq('evenements.lieu_id', lieuId);
-    if (traiteurId)
-      q = q.eq('evenements.traiteur_operationnel_organisation_id', traiteurId);
+    if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+    if (traiteurIds.length > 0)
+      q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
     if (typeEvtIds.length > 0)
       q = q.in('evenements.type_evenement_id', typeEvtIds);
     // Un seul `.or()` pour tous les brackets retenus : ses termes sont OU-és entre
     // eux et l'ensemble est ET-é avec les filtres ci-dessus. Mesuré contre le
     // PostgREST local : `lieu_id` seul = 7 lignes, `lieu_id` + taille M = 6 — le
-    // `.or()` ne désarme pas les `.eq()` voisins.
+    // `.or()` ne désarme pas les filtres voisins.
     if (predicatsTaille.length > 0)
       q = q.or(predicatsTaille.join(','), { referencedTable: 'evenements' });
     return q;

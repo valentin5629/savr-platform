@@ -41,6 +41,7 @@ function makeChain() {
     'from',
     'select',
     'eq',
+    'in',
     'gte',
     'lte',
     'order',
@@ -82,6 +83,13 @@ function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
 }
 
+// Identifiants de lieu : la route n'en retient que des UUID.
+const LIEU_1 = '11111111-1111-4111-8111-111111111111';
+const LIEU_2 = '33333333-3333-4333-8333-333333333333';
+/** Filtres `.in()` enregistrés, sous la forme `colonne=v1|v2`. */
+const filtresIn = () =>
+  (rls.__calls.in ?? []).map((a) => `${a[0]}=${(a[1] as string[]).join('|')}`);
+
 /** N lignes plates, telles que PostgREST les rendrait avec l'embed `evenements`. */
 function lignes(n: number) {
   return Array.from({ length: n }, (_, i) => ({
@@ -100,7 +108,7 @@ function lignes(n: number) {
       // Champ facultatif, texte libre : renseigné sur la 1re ligne, absent sur
       // la 2e, fait d'espaces sur la 3e.
       nom_client_organisateur: ['Maison Lenôtre', null, '   '][i] ?? null,
-      lieu_id: 'L1',
+      lieu_id: LIEU_1,
       traiteur_operationnel_organisation_id: 'T1',
       lieux: { nom: 'Paris Expo Porte de Versailles' },
     },
@@ -353,14 +361,14 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
 
   it('M3.2/collectes_route_pagination_compatible_avec_le_drilldown', async () => {
     rls.__set({ data: lignes(3), error: null, count: 3 });
-    const res = await appel('?lieu_id=L1&statut=cloturee&page=1');
+    const res = await appel(`?lieu_id=${LIEU_1}&statut=cloturee&page=1`);
     const json = (await res.json()) as { total: number };
 
     // Le drill-down filtre : le total doit être celui du PÉRIMÈTRE FILTRÉ, sinon
     // le compteur annoncerait des collectes que la liste ne contient pas.
     expect(json.total).toBe(3);
     const eq = (rls.__calls.eq ?? []).map((a) => `${a[0]}=${a[1]}`);
-    expect(eq).toContain('evenements.lieu_id=L1');
+    expect(filtresIn()).toContain(`evenements.lieu_id=${LIEU_1}`);
     expect(eq).toContain('statut=cloturee');
   });
   it('M3.2/collectes_route_page_au_dela_de_la_derniere_nest_pas_une_panne', async () => {
@@ -409,19 +417,21 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
       { data: null, error: { code: 'PGRST103' }, count: null },
       { data: lignes(1), error: null, count: 3 },
     );
-    await appel('?page=4&lieu_id=L1&statut=cloturee');
+    await appel(`?page=4&lieu_ids=${LIEU_1},${LIEU_2}&statut=cloturee`);
 
     // Le recompte du cas dégradé doit porter EXACTEMENT les mêmes filtres que la
     // requête fenêtrée. Un recompte nu compterait le parc ENTIER : le total
     // annoncerait des collectes hors du périmètre du gestionnaire — la fuite de
     // volumétrie par comptage que la RLS ferme par ailleurs.
     //
-    // Chaque construction rejoue ses `.eq`, donc chaque filtre doit apparaître
-    // DEUX fois. Sans cette sonde, un recompte inliné sans filtres passait la CI
+    // Chaque construction rejoue ses filtres, donc chacun doit apparaître DEUX
+    // fois. Sans cette sonde, un recompte inliné sans filtres passait la CI
     // (trouvé par reviewer-rls-securite) : le code n'était juste que par
     // construction — un seul site de filtrage — et rien ne le tenait.
     const eq = (rls.__calls.eq ?? []).map((a) => `${a[0]}=${a[1]}`);
-    expect(eq.filter((f) => f === 'evenements.lieu_id=L1')).toHaveLength(2);
+    expect(
+      filtresIn().filter((f) => f === `evenements.lieu_id=${LIEU_1}|${LIEU_2}`),
+    ).toHaveLength(2);
     expect(eq.filter((f) => f === 'statut=cloturee')).toHaveLength(2);
 
     // Et le recompte lit bien la première ligne, pas la fenêtre refusée.

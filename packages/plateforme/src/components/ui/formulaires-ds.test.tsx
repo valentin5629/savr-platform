@@ -356,6 +356,40 @@ describe('Filtres en ligne', () => {
     expect(onChange).toHaveBeenLastCalledWith([]);
   });
 
+  it('ds/filtre_coches_option_hors_liste_tout_cocher_n_est_pas_tous', () => {
+    // Une valeur cochée que la liste ne proposait pas (lien reçu, option sortie
+    // de la liste) : les options ne couvrent pas tout, donc les cocher toutes
+    // n'est ni affiché « Tous », ni ramené à une sélection vide.
+    const onChange = vi.fn();
+    const options = [
+      { id: 'a', nom: 'Alpha' },
+      { id: 'z', nom: 'Sélectionné', horsListe: true },
+    ];
+    const { rerender } = render(
+      <FiltreCoches
+        label="Traiteur"
+        options={options}
+        selected={['z']}
+        onChange={onChange}
+        testid="traiteur"
+      />,
+    );
+    fireEvent.click(screen.getByTestId('traiteur'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Alpha' }));
+    expect(onChange).toHaveBeenLastCalledWith(['z', 'a']);
+    rerender(
+      <FiltreCoches
+        label="Traiteur"
+        options={options}
+        selected={['z', 'a']}
+        onChange={onChange}
+        testid="traiteur"
+      />,
+    );
+    expect(screen.getByTestId('traiteur')).toHaveTextContent('2 sélectionnés');
+    expect(screen.getByRole('checkbox', { name: 'Tous' })).not.toBeChecked();
+  });
+
   it('ds/filtre_coches_toutes_options_cochees_revient_a_tous', () => {
     const onChange = vi.fn();
     render(

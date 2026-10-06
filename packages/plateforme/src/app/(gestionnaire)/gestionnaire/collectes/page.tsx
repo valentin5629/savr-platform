@@ -12,14 +12,16 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
-import { Combobox } from '@/components/ui/combobox';
 import {
   CelluleVide,
   DataGrid,
   type ColumnDef,
   type SortingState,
 } from '@/components/ui/data-grid';
-import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import {
+  FiltreCoches,
+  type OptionFiltre,
+} from '@/components/ui/filtre-en-ligne';
 import {
   CelluleLieu,
   ResultatsCollecte,
@@ -34,6 +36,7 @@ import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
 import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
 import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
+import { listeCsv, valeurUnique } from '@/lib/filtre-csv';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
@@ -76,8 +79,8 @@ interface OptionsFiltres {
   types: { id: string; libelle: string }[];
 }
 const OPTIONS_VIDES: OptionsFiltres = { lieux: [], traiteurs: [], types: [] };
-// Les filtres standards de `CollecteFiltresBar` sont masqués (route à valeur
-// unique, cf. FILTRES ci-dessous) : la barre ne lit donc jamais ces options.
+// Les filtres standards de `CollecteFiltresBar` sont masqués (Lieu et Traiteur
+// sont rendus ici, cf. FILTRES ci-dessous) : la barre ne lit jamais ces options.
 const OPTIONS_BARRE: CollecteFiltresOptions = {
   lieux: [],
   clients: [],
@@ -85,18 +88,19 @@ const OPTIONS_BARRE: CollecteFiltresOptions = {
 };
 
 // Filtres de la liste, miroir de l'URL (R-UI-4b, D6/D10) — mêmes clés que le
-// drill-down du dashboard (`lieu`, `traiteur`, `from`, `to`). La route
-// `gestionnaire/collectes` n'accepte qu'UNE valeur pour `type`, `statut`,
-// `lieu_id` et `traiteur_id` : Lieu et Traiteur sont donc des choix uniques
-// (Combobox), Type un segmenté levable (« Toutes »), et il n'y a ni onglets
+// drill-down du dashboard (`lieu`, `traiteur`, `from`, `to`). Lieu et Traiteur
+// sont à choix multiple (Design System §5.5 règle 7), en CSV dans l'URL comme
+// sur les listes traiteur et agence : le lien d'un drill-down (`?lieu=<id>`)
+// est une liste d'un élément. La route n'accepte qu'UNE valeur pour `type` et
+// `statut` : Type est un segmenté levable (« Toutes »), et il n'y a ni onglets
 // Programmées / Historique ni filtre Statut (ils demandent une liste de
 // statuts) — reliquat route. `statut` reste lu et transmis : une URL écrite à
 // la main doit filtrer comme elle l'annonce. Type / Taille d'événement
 // (§06.05 l.209) sont en CSV dans l'URL ; les liens `x[]` (dashboard,
 // favoris) restent lus, cf. `lireHeritageCrochets`.
 const FILTRES = {
-  lieu: texte(),
-  traiteur: texte(),
+  lieu: liste(),
+  traiteur: liste(),
   type: texte(),
   statut: texte(),
   from: texte(),
@@ -133,10 +137,17 @@ interface CibleDrill {
   cle: 'lieu' | 'traiteur';
   id: string;
 }
+/**
+ * Le lieu prime sur le traiteur. Un drill-down vise UNE ligne de Top liste :
+ * plusieurs valeurs sous la clé retenue = filtre ordinaire de la barre, sans
+ * cible (même lecture que la liste traiteur).
+ */
 function lireCibleDrill(params: URLSearchParams | null): CibleDrill | null {
   for (const cle of ['lieu', 'traiteur'] as const) {
-    const id = params?.get(cle);
-    if (id) return { cle, id };
+    const ids = listeCsv(params?.get(cle) ?? null, Boolean);
+    if (ids.length === 0) continue;
+    const id = valeurUnique(ids);
+    return id ? { cle, id } : null;
   }
   return null;
 }
@@ -200,13 +211,13 @@ function GestionnaireCollectesContent() {
   // actif » l'annonce tant que la barre filtre encore dessus : en choisir un
   // autre, ou réinitialiser, sort du drill-down.
   const [drill] = useState(() => lireCibleDrill(params));
-  const cible = drill && f[drill.cle] === drill.id ? drill : null;
+  const cible = drill && valeurUnique(f[drill.cle]) === drill.id ? drill : null;
   // Nom mémorisé par le dashboard au clic (sessionStorage, jamais l'URL). Le
   // serveur ne le connaît pas : le lire dans un état initial ferait diverger le
   // HTML servi du premier rendu client à chaque rechargement.
-  const libelleCible = useSyncExternalStore(
+  const libelleDrill = useSyncExternalStore(
     sansAbonnement,
-    () => (cible ? readCollecteFiltreLabel(cible.cle, cible.id) : null),
+    () => (drill ? readCollecteFiltreLabel(drill.cle, drill.id) : null),
     () => null,
   );
 
@@ -241,8 +252,8 @@ function GestionnaireCollectesContent() {
   // une panne serveur se lisait comme un parc sans collecte (§10 §7).
   const urlListe = useMemo(() => {
     const qs = new URLSearchParams();
-    if (f.lieu) qs.set('lieu_id', f.lieu);
-    if (f.traiteur) qs.set('traiteur_id', f.traiteur);
+    if (f.lieu.length > 0) qs.set('lieu_ids', f.lieu.join(','));
+    if (f.traiteur.length > 0) qs.set('traiteur_ids', f.traiteur.join(','));
     if (f.type) qs.set('type', f.type);
     if (f.statut) qs.set('statut', f.statut);
     if (f.from) qs.set('from', f.from);
@@ -307,35 +318,35 @@ function GestionnaireCollectesContent() {
       });
   }, []);
 
-  const optionsLieu = options.lieux.map((l) => ({ value: l.id, label: l.nom }));
-  const optionsTraiteur = options.traiteurs.map((t) => ({
-    value: t.id,
-    label: t.nom,
-  }));
   // Nom de la cible : celui du clic sur le dashboard, sinon celui des options
   // de la barre (lien partagé) ; inconnu sinon.
-  const nomCible = cible
-    ? (libelleCible ??
-      (cible.cle === 'lieu' ? optionsLieu : optionsTraiteur).find(
-        (o) => o.value === cible.id,
-      )?.label)
+  // Il suit la valeur reçue, pas le chip : cochée avec d'autres (chip retiré),
+  // elle garde son nom dans son contrôle.
+  const nomDrill = drill
+    ? (libelleDrill ??
+      (drill.cle === 'lieu' ? options.lieux : options.traiteurs).find(
+        (o) => o.id === drill.id,
+      )?.nom)
     : undefined;
   // Une valeur filtrée absente des options (traiteur hors de la fenêtre de
   // 24 mois, options pas encore ou jamais chargées) garde une entrée dans son
-  // contrôle : sans elle, il afficherait « Tous » sur une liste filtrée.
-  const avecValeur = (
+  // contrôle : sans elle, il n'aurait aucune case cochée sur une liste filtrée,
+  // et rien pour la décocher. `horsListe` : les options ne couvrent alors pas
+  // tout, donc les cocher toutes n'affiche pas « Tous » et n'efface pas le filtre.
+  const avecValeurs = (
     cle: CibleDrill['cle'],
-    opts: { value: string; label: string }[],
-  ) =>
-    f[cle] && !opts.some((o) => o.value === f[cle])
-      ? [
-          ...opts,
-          {
-            value: f[cle],
-            label: (cible?.cle === cle && nomCible) || 'Sélectionné',
-          },
-        ]
-      : opts;
+    opts: OptionFiltre[],
+  ): OptionFiltre[] => [
+    ...opts,
+    ...f[cle]
+      .filter((id) => !opts.some((o) => o.id === id))
+      .map((id) => ({
+        id,
+        nom:
+          (drill?.cle === cle && drill.id === id && nomDrill) || 'Sélectionné',
+        horsListe: true,
+      })),
+  ];
 
   // Page devenue hors bornes — la liste a rétréci pendant qu'on la consultait
   // (une collecte annulée ailleurs, un parc réduit). Le serveur répond alors
@@ -550,8 +561,8 @@ function GestionnaireCollectesContent() {
         <CollecteFiltreActif
           label={
             cible.cle === 'lieu'
-              ? `Lieu : ${nomCible ?? 'lieu sélectionné'}`
-              : `Traiteur : ${nomCible ?? 'traiteur sélectionné'}`
+              ? `Lieu : ${nomDrill ?? 'lieu sélectionné'}`
+              : `Traiteur : ${nomDrill ?? 'traiteur sélectionné'}`
           }
           onClear={reinitialiser}
         />
@@ -560,8 +571,9 @@ function GestionnaireCollectesContent() {
       {/* Barre de filtres DS (D10 : la même que traiteur / agence) : type
           ZD / AG levable en en-tête, puis Période · Lieu · Traiteur · Type et
           Taille d'événement (§06.05 l.209), compteur et réinitialisation en
-          pied. Sans onglets Programmées / Historique ni filtre Statut : la
-          route n'accepte qu'un statut (cf. FILTRES). */}
+          pied — tous à choix multiple, case « Tous » en tête (DS §5.5). Sans
+          onglets Programmées / Historique ni filtre Statut : la route
+          n'accepte qu'un statut (cf. FILTRES). */}
       <CollecteFiltresBar
         toggle={
           <ToggleTypeCollecte
@@ -589,28 +601,19 @@ function GestionnaireCollectesContent() {
         onReset={reinitialiser}
         resultats={total}
       >
-        {/* Choix uniques (route à valeur unique) : Combobox en mode filtre. */}
-        <Combobox
-          titre="Lieu"
-          icon={null}
-          data-testid="filtre-lieu"
-          options={[
-            { value: '', label: 'Tous' },
-            ...avecValeur('lieu', optionsLieu),
-          ]}
-          value={f.lieu}
-          onChange={(v) => poser({ lieu: v })}
+        <FiltreCoches
+          label="Lieu"
+          testid="filtre-lieu"
+          options={avecValeurs('lieu', options.lieux)}
+          selected={f.lieu}
+          onChange={(ids) => poser({ lieu: ids })}
         />
-        <Combobox
-          titre="Traiteur"
-          icon={null}
-          data-testid="filtre-traiteur"
-          options={[
-            { value: '', label: 'Tous' },
-            ...avecValeur('traiteur', optionsTraiteur),
-          ]}
-          value={f.traiteur}
-          onChange={(v) => poser({ traiteur: v })}
+        <FiltreCoches
+          label="Traiteur"
+          testid="filtre-traiteur"
+          options={avecValeurs('traiteur', options.traiteurs)}
+          selected={f.traiteur}
+          onChange={(ids) => poser({ traiteur: ids })}
         />
         <FiltreCoches
           label="Type d'événement"

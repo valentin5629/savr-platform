@@ -200,7 +200,11 @@ const LIGNE_REGISTRE = {
   date_evenement: '2026-05-12',
   date_collecte: '2026-05-13',
   lieu_nom: 'Pavillon Cambon',
+  lieu_adresse: '5 rue Cambon',
   traiteur_raison_sociale: 'Kaspia SARL',
+  // Le prestataire réel est dans la vue, jamais dans le fichier (l'égalité
+  // stricte des lignes le garde).
+  transporteur_nom: 'Strike',
   flux_codes: ['biodechet', 'verre'],
   poids_total_kg: 504.7,
   exutoire_nom: 'Prestataire Savr',

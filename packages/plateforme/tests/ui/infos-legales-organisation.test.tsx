@@ -219,6 +219,34 @@ describe('Suppression de compte — absente du profil staff', () => {
   );
 });
 
+// Décision Val 2026-10-06 : l'écran ne propose plus l'export. La route
+// GET /api/me/export-rgpd reste servie (tests/api/me/rgpd.test.ts).
+describe('Export des données personnelles — retiré de l’écran', () => {
+  it(
+    'aucun bloc « Mes données (RGPD) » ni bouton d’export, profil client comme staff',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve(
+            reponse(200, { data: { prenom: 'A', nom: 'B', telephone: null } }),
+          ),
+        ),
+      );
+      for (const avecSuppression of [true, false]) {
+        const { unmount } = render(
+          <RgpdComptePanel avecSuppression={avecSuppression} />,
+        );
+        await screen.findByDisplayValue('A', {}, ATTENTE_UI);
+        expect(screen.queryByText(/Mes données/)).toBeNull();
+        expect(screen.queryByRole('button', { name: /Exporter/ })).toBeNull();
+        unmount();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('Navigation — accès à ses informations pour tous les rôles', () => {
   it.each([
     ['client_organisateur', '/organisateur/mon-organisation'],

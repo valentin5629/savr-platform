@@ -55,6 +55,9 @@ for f in kpi evolution …; do compare -metric AE /tmp/pv/shots-avant/$f.png /tm
   ErrorState ; capture plein écran `VIEWPORTS=toast` pour le toast).
   `entry-r-ui-2-avant.tsx` / `entry-r-ui-2-apres.tsx` (R-UI-2 : libellés unifiés,
   badge type de collecte pastille / plein, `Badge size="sm"`, variante `count`).
+  `entry-r-ui-5-avant.tsx` / `entry-r-ui-5-apres.tsx` (R-UI-5 : champs de formulaire
+  `FormField`/`FormGrid`/`Checkbox`/`Label`, en-tête de section et paires
+  libellé/valeur ; « avant » importe `BlocHeader`/`InfoItem` de `fiche-blocs` sur `main`).
   Fixtures communes dans `common-6b.tsx`.
 - `VIEWPORTS=dialog,dialog-collecte` (shoot.mjs) : l'entrée rend une modale
   plein écran sous `#<nom>` → capture du viewport entier (une `fixed inset-0`

@@ -231,7 +231,7 @@
     },
     {
       "id": "BL-P2-16",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:32",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:33",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls)",
       "test": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
       "statut": "implemented",
@@ -255,7 +255,7 @@
     },
     {
       "id": "BL-P2-21",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:96",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:98",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.1/rapport_download_ok — URL pré-signée (embargo levé) + M3.1/rapport_download_embargo — 425",
       "statut": "implemented",
@@ -263,7 +263,7 @@
     },
     {
       "id": "BL-P2-19",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:49",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:50",
       "artefact": "packages/plateforme/src/lib/pdf/logo-cascade.ts (resolveRapportLogo) + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (SELECT type/logo_url + rapportPayload.logo_url) ; réutilisé par batch-pdf-sans-excedent.ts (cohérence AG)",
       "test": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19) : programmateur agence → logo agence dans le payload",
       "statut": "implemented",
@@ -287,8 +287,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "e718bf8778bbecddcedda53f29fc7b94bd012ba43e1f951841254578dfdd5c1d",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "f3dadaa9a7279e120c3d190395420044f968a7b69d1ac324222924453e57ae99"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "635965061c559a268b51586d881054381f4a6ad7a4cfdf784f7a6e3709bca345",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "87b52982e648da1cfe74d0cea8a049cda073c246dbc4252b0bb4cb4884804760"
   }
 }

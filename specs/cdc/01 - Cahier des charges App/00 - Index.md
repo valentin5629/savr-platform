@@ -69,7 +69,7 @@
 - **Multi-SIRET dès V1** : table `entites_facturation` séparée de `organisations`
 - **Multi-domaines email** (table N-N `organisations_domaines_email`)
 - **NEW tables V1** : `contacts_traiteurs` (référentiel autocomplete), `tournees` (1 camion ; N↔N avec collectes via `collecte_tournees` — refonte multi-camions 2026-05-25), `collecte_tournees` (liaison N↔N collectes/tournées — refonte 2026-05-25), `grilles_tarifaires_zd` (catalogue de méthodes ZD `paliers`/`fixe_variable` — refonte 2026-05-26), `tarifs_negocie` (refondu en **remises %** seules, ZD+AG × organisation/gestionnaire — refonte 2026-05-26 ; remplace `tarifs_zd_par_gestionnaire` 2026-04-28)
-- **`reference_affaire` sur `evenements`** : référence interne client optionnelle (ex: numéro d'affaire), reportée sur facture Pennylane et PDF Savr (décision 2026-04-28)
+- **`reference_affaire` sur `evenements`** : référence interne client optionnelle (ex: numéro d'affaire), reportée sur facture Pennylane et PDF Savr (décision 2026-04-28). Saisissable par tous les clients programmateurs ; lecture réservée à l'organisation programmatrice (arbitrage Val C3 2026-10-01).
 - **Tarifs ZD versionnés** : jamais modifiés rétroactivement
 - **Types d'événement extensibles** : table `types_evenements` (FK) — 4 catégories de **format de service** (cocktail apéritif / cocktail repas complet / repas assis / autre), extensible par ajout direct de ligne ; la **taille** se dérive du `pax` via `taille_evenement_bracket()` (cf. Sujet 4, 2026-05-26)
 - **Coûts logistiques** : table dédiée `courses_logistiques` (Strike/Marathon via TMS, A Toutes! manuel V1)

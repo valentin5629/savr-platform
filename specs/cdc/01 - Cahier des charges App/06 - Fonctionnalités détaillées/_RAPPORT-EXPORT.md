@@ -1,16 +1,16 @@
 # Rapport export dev-facing
 
 Mode : SUR (T1 seul, T2 detecte)
-**Total : 111669 -> 110223 octets (-1446, -1.3%)**
+**Total : 36380 -> 34798 octets (-1582, -4.3%)**
 
 
-## 04 - Espace client traiteur.md
-- octets : 111669 -> 110223 (-1446, -1.3%)
-- tokens estimes : ~27917 -> ~27555
-- tombstones supprimes : 0 | fragments barres retires : 16 | en-tetes debarres : 4
-- ⚠ tombstones en prose a revoir a la main :
-    L56: **Retiré V1 (refonte formulaire unique 2026-05-21)** — l'entrée se fait désormais par un b
-    L378: - — **retiré 2026-05-07**, géré par le sélecteur de type ZD / AG en haut de page
+## 02 - Templates emails V1.md
+- octets : 36380 -> 34798 (-1582, -4.3%)
+- tokens estimes : ~9095 -> ~8699
+- tombstones supprimes : 0 | fragments barres retires : 22 | en-tetes debarres : 6
 - 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
-    L3 [meta-changelog]: **Statut** : Validé V1
-    L4 [meta-changelog]: **Dernière mise à jour** : 2026-06-07 (**Test scenarios §06.04 (skill `cdc-test-
+    L3 [meta-changelog]: **Statut** : Draft V1 (proposition Claude, à valider Val)
+    L4 [meta-changelog]: **Dernière mise à jour** : 2026-06-07 (**Session test-scenarios §06.02 — 4 specs
+    L51 [meta-changelog]: **Statut** : retiré V1
+    L200 [meta-changelog]: **Statut** : retiré V1
+    L363 [meta-changelog]: **Statut** : retiré V1

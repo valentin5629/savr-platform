@@ -25,7 +25,7 @@ Environnement **dev uniquement** : les scripts refusent de s'exécuter si `SUPAB
 
 - Chaque ligne porte `metadata->>'seed_tag' = 'minimal' | 'demo'` (dev only, jamais en prod).
 - Reset = `DELETE WHERE seed_tag IS NOT NULL` puis `INSERT`, dans l'ordre inverse des FK ; ou `TRUNCATE ... CASCADE` sur base dev vide. Relancer le script ne crée aucun doublon (upsert sur UUID déterministes).
-- Ordre d'insertion (respect FK) : référentiel/paramètres → organisations → entites_facturation → users → lieux → organisations_lieux → associations/transporteurs/prestataires → grilles/tarifs → packs → événements → collectes → collecte_flux/attributions → tournees/collecte_tournees → factures/lignes/séquences → documents (bordereaux, attestations, rapports, exports) → fichiers → briefs → impact → emails/audit/outbox/integrations.
+- Ordre d'insertion (respect FK) : référentiel/paramètres → organisations → entites_facturation → users → lieux → organisations_lieux → associations/transporteurs/prestataires → grilles/tarifs → packs → événements → collectes → collecte_flux/attributions → attestations (dérivées des attributions) → tournees/collecte_tournees → factures/lignes/séquences → documents (bordereaux, rapports, exports) → fichiers → briefs → impact → emails/audit/outbox/integrations.
 
 ## 4. Contraintes spécifiques App
 

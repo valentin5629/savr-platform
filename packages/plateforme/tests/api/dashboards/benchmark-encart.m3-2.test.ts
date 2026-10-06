@@ -218,7 +218,7 @@ describe('M3.2 / encart filtres benchmark', () => {
     expect(await res.json()).toEqual({ error: ERREUR_FILTRE_HORS_PERIMETRE });
   });
 
-  it('M3.2/GEST04_route_gestionnaire_42501_sans_filtre_500 — refus de la base sans lieu ni traiteur nommé : erreur serveur, pas « hors périmètre »', async () => {
+  it('M3.2/GEST04_route_gestionnaire_42501_autre_cause_500 — un 42501 qui ne vient pas de la garde (droit d’exécution retiré), lieu nommé : erreur serveur, pas « hors périmètre »', async () => {
     setupAuth('gestionnaire_lieux');
     mockRpc.mockResolvedValue({
       data: null,
@@ -228,7 +228,9 @@ describe('M3.2 / encart filtres benchmark', () => {
       },
     });
     const { GET } = await import('@/app/api/v1/dashboards/benchmark/route.js');
-    const res = await GET(makeReq('/api/v1/dashboards/benchmark'));
+    const res = await GET(
+      makeReq('/api/v1/dashboards/benchmark?lieu_ids=l-viparis'),
+    );
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Erreur serveur' });
   });

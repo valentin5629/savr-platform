@@ -1204,6 +1204,12 @@ export const ERREUR_FILTRE_TRAITEURS_INTERDIT =
 export const ERREUR_FILTRE_HORS_PERIMETRE =
   'Filtre lieu_ids ou traiteur_ids hors du périmètre du gestionnaire (§06.05)';
 
+/**
+ * Début des deux messages de la garde de périmètre de `f_benchmark_kg_pax_zd`
+ * (migration 20261006220000, asserté par benchmark_filtres_gestionnaire_rattaches).
+ */
+const REFUS_PERIMETRE_GESTIONNAIRE = /^Filtre (lieu|traiteur)_ids hors /;
+
 export interface BenchmarkParams {
   tailleCodes?: string[] | null;
   bracket?: string | null;
@@ -1217,8 +1223,8 @@ export interface BenchmarkParams {
  * ⚠ Contrat identique à `GET /api/v1/dashboards/benchmark` (renvoie le tableau
  * `data`). Le filtre `traiteurIds` est INTERDIT pour traiteur/agence (§04
  * préservation compétitive) → LoaderError 403. Un gestionnaire ne nomme que ses
- * lieux rattachés et les traiteurs intervenus sur ses lieux (§06.05, décision Val
- * 2026-10-06) : la fonction le refuse, relayé ici en LoaderError 403.
+ * lieux rattachés et les traiteurs de sa vue `v_traiteurs_gestionnaire` (§06.05,
+ * décision Val 2026-10-06) : la fonction le refuse, relayé ici en LoaderError 403.
  */
 export async function loadBenchmark(
   supabase: DbClient,
@@ -1258,16 +1264,15 @@ export async function loadBenchmark(
   };
 
   const { data, error } = await supabase.rpc('f_benchmark_kg_pax_zd', args);
-  // Garde de périmètre de la fonction (SQLSTATE 42501) : un gestionnaire a nommé
-  // un lieu non rattaché ou un traiteur non intervenu sur ses lieux. Sans lieu
-  // ni traiteur nommé, un 42501 est autre chose (droit d'exécution retiré) : il
-  // reste une erreur serveur journalisée.
-  const nomme = Boolean(lieuIds?.length || traiteurIds?.length);
+  // Garde de périmètre de la fonction : un gestionnaire a nommé un lieu non
+  // rattaché ou un traiteur hors de sa vue. Reconnue au SQLSTATE 42501 ET au
+  // début de son message (lu, jamais renvoyé) : un 42501 d'une autre cause —
+  // droit d'exécution retiré par erreur — reste une erreur serveur journalisée.
   if (
     error &&
-    nomme &&
     ctx.role === 'gestionnaire_lieux' &&
-    error.code === '42501'
+    error.code === '42501' &&
+    REFUS_PERIMETRE_GESTIONNAIRE.test(error.message ?? '')
   )
     throw new LoaderError(ERREUR_FILTRE_HORS_PERIMETRE, 403);
   if (error) throw loaderDbError(error, 'dashboards.benchmark');

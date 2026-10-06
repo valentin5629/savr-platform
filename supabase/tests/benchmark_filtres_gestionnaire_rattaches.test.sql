@@ -16,33 +16,46 @@
 --          traiteur ; traiteurs : staff seul, rôle traiteur toujours refusé) ;
 --   7-8    gestionnaire A : tout le parc sans rien nommer, puis son propre lieu ;
 --   9-10   gestionnaire A : lieu d'un tiers refusé, seul ou mêlé à l'un des siens ;
---   11-13  gestionnaire A : traiteurs intervenus acceptés, traiteur jamais intervenu
---          refusé, seul ou mêlé ;
---   14-17  bords : tableaux vides acceptés, élément NULL refusé (lieux, puis
+--   11-13  gestionnaire A : traiteurs de sa vue acceptés ; traiteur hors de sa vue
+--          refusé, seul puis dans un trio dont le segment était publié ;
+--   14-15  la garde suit la VUE, pas seulement « intervenu » : une agence
+--          opérationnelle sur son lieu est refusée (la vue exige le type traiteur) ;
+--   16-19  bords : tableaux vides acceptés, élément NULL refusé (lieux, puis
 --          traiteurs), jeton sans organisation refusé ;
---   18-20  gestionnaire B : la garde suit l'organisation du jeton (miroir de A) ;
---   21-24  la garde ne touche ni le rôle traiteur, ni le staff, ni un appel en
+--   20-22  jeton à organisation VIDE : repère parc servi sans rien nommer, refus
+--          dès qu'un lieu ou un traiteur est nommé ;
+--   23-25  gestionnaire B : la garde suit l'organisation du jeton (miroir de A) ;
+--   26-29  la garde ne touche ni le rôle traiteur, ni le staff, ni un appel en
 --          service_role (rafraîchissement de la vue matérialisée, PDF), ni la
 --          fiche collecte du gestionnaire (f_benchmark_single_collecte, qui
 --          appelle le calcul sous SON jeton, sans lieu ni traiteur) ;
---   25-27  durcissement conservé par les trois CREATE OR REPLACE : SECURITY
+--   30-32  durcissement conservé par les trois CREATE OR REPLACE : SECURITY
 --          DEFINER + search_path, bénéficiaires d'EXECUTE, contrat de sortie.
 --
--- Mesuré sur une base rejouée SANS la migration : 11 cas rouges (2, 3, 9, 10, 12,
--- 13, 15, 16, 17, 19, 20) — chacun rendait une liste ou un segment au lieu de
--- refuser. Les 16 autres sont verts avant comme après : ils bornent ce qui ne doit
--- pas bouger.
+-- Mesuré sur une base rejouée SANS la migration : 14 cas rouges, aucun ne levait.
+--   · 9 rendaient une liste ou un segment : 2 (2 lieux), 3 (4 traiteurs),
+--     9 (5 collectes), 10 (10), 13 (8), 19 (5), 21 (5), 24 (5), 25 (8) ;
+--   · 5 passaient sans refus et sans segment (sélection sous le k-anonymat, ou sans
+--     collecte) : 12, 15, 17, 18, 22.
+-- Les 18 autres sont verts avant comme après : ils bornent ce qui ne doit pas bouger.
+-- Sondes de mutation sur copie de la base migrée : organisation du jeton convertie
+-- sans NULLIF → le fichier s'interrompt en erreur 22P02 au cas 20 ; refus
+-- « organisation absente » retiré de la branche traiteurs → cas 22 rouge.
 --
--- Fixture : deux gestionnaires (A, lieu LA ; B, lieu LB), quatre traiteurs.
---   LA : T1, T2, T3, T1, T2     → T1, T2, T3 intervenus chez A ;
+-- Fixture : deux gestionnaires (A, lieu LA ; B, lieu LB), quatre traiteurs, une
+-- agence.
+--   LA : T1, T2, T3, T1, T2     → T1, T2, T3 dans la vue de A ;
 --   LB : T2, T3, T4, T4, T3     → T4 n'est jamais intervenu chez A, T1 jamais chez B.
--- Chaque lieu porte 5 collectes et 3 acteurs : son segment franchit le k-anonymat,
--- si bien qu'un refus ne peut pas se confondre avec un segment masqué.
+--   LA porte aussi un événement daté, sans collecte, dont l'agence AG est son
+--   propre traiteur opérationnel (cas produit par la programmation agence).
+-- Chaque lieu porte 5 collectes et 3 acteurs : son segment franchit le k-anonymat.
+-- {T2, T3, T4} et {T1, T2, T3} portent chacun 8 collectes et 3 acteurs : ces deux
+-- segments sont publiés, un refus ne s'y confond pas avec un segment masqué.
 -- JWT au format PRODUCTION (claim réservé `role` + claim métier `user_role`).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(27);
+SELECT plan(32);
 
 CREATE OR REPLACE FUNCTION _bfr_jwt(p_role text, p_org uuid DEFAULT NULL)
 RETURNS void LANGUAGE plpgsql AS $$
@@ -50,6 +63,17 @@ BEGIN
   PERFORM set_config('request.jwt.claims', jsonb_build_object(
     'sub', gen_random_uuid(), 'role', 'authenticated', 'user_role', p_role,
     'organisation_id', p_org, 'app_domain', 'plateforme')::text, true);
+  PERFORM set_config('role', 'authenticated', true);
+END $$;
+
+-- Jeton gestionnaire dont le claim `organisation_id` est une chaîne vide.
+CREATE OR REPLACE FUNCTION _bfr_jwt_org_vide()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claims', jsonb_build_object(
+    'sub', gen_random_uuid(), 'role', 'authenticated',
+    'user_role', 'gestionnaire_lieux', 'organisation_id', '',
+    'app_domain', 'plateforme')::text, true);
   PERFORM set_config('role', 'authenticated', true);
 END $$;
 
@@ -81,7 +105,8 @@ INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, acti
   ('ba9c0000-0000-0000-0000-0000000000b1', 'BFR Traiteur 1', 'BFR T1 SARL', 'traiteur', '97000000000101', true),
   ('ba9c0000-0000-0000-0000-0000000000b2', 'BFR Traiteur 2', 'BFR T2 SARL', 'traiteur', '97000000000202', true),
   ('ba9c0000-0000-0000-0000-0000000000b3', 'BFR Traiteur 3', 'BFR T3 SARL', 'traiteur', '97000000000303', true),
-  ('ba9c0000-0000-0000-0000-0000000000b4', 'BFR Traiteur 4', 'BFR T4 SARL', 'traiteur', '97000000000404', true);
+  ('ba9c0000-0000-0000-0000-0000000000b4', 'BFR Traiteur 4', 'BFR T4 SARL', 'traiteur', '97000000000404', true),
+  ('ba9c0000-0000-0000-0000-0000000000e1', 'BFR Agence', 'BFR Agence SAS', 'agence', '97000000000505', true);
 
 INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif)
 SELECT ('ba9c0000-0000-0000-0000-0000000001b' || n)::uuid,
@@ -95,6 +120,14 @@ SELECT ('ba9c0000-0000-0000-0000-0000000002b' || n)::uuid,
        ('ba9c0000-0000-0000-0000-0000000000b' || n)::uuid,
        'BFR T' || n || ' SARL', '9700000000' || n || '0' || n || '0', n || ' rue BFR', '75001', 'Paris'
   FROM generate_series(1, 4) AS n;
+
+INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif) VALUES
+  ('ba9c0000-0000-0000-0000-0000000001e1', 'ba9c0000-0000-0000-0000-0000000000e1',
+   'agence@bfr.test', 'Agence', 'BFR', 'agence', true);
+INSERT INTO plateforme.entites_facturation
+  (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville) VALUES
+  ('ba9c0000-0000-0000-0000-0000000002e1', 'ba9c0000-0000-0000-0000-0000000000e1',
+   'BFR Agence SAS', '97000000000505', '9 rue BFR', '75001', 'Paris');
 
 INSERT INTO plateforme.types_evenements (id, code, libelle, ordre_affichage, actif)
 VALUES ('ba9c0000-0000-0000-0000-0000000000d1', 'BFR_TYPE', 'BFR Type', 1, true);
@@ -126,6 +159,18 @@ SELECT ('ba9c0000-0000-0000-0000-0000000003e' || p.n)::uuid,
        'ba9c0000-0000-0000-0000-0000000000d1', 'BFR Evt ' || p.n,
        current_date - (30 + p.n), 600, 'C', '060000000' || p.n
   FROM _bfr_plan p;
+
+-- Événement daté sur LA, sans collecte : l'agence y est son propre traiteur
+-- opérationnel. Aucun effet sur les segments (pas de collecte).
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id, entite_facturation_id,
+  created_by, lieu_id, type_evenement_id, nom_evenement, date_evenement, pax,
+  contact_principal_nom, contact_principal_telephone)
+VALUES ('ba9c0000-0000-0000-0000-0000000003ea',
+        'ba9c0000-0000-0000-0000-0000000000e1', 'ba9c0000-0000-0000-0000-0000000000e1',
+        'ba9c0000-0000-0000-0000-0000000002e1', 'ba9c0000-0000-0000-0000-0000000001e1',
+        'ba9c0000-0000-0000-0000-0000000000c1', 'ba9c0000-0000-0000-0000-0000000000d1',
+        'BFR Evt agence', current_date - 20, 600, 'C', '0600000099');
 
 INSERT INTO plateforme.collectes
   (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, dirty_tms, annulee_cote_savr)
@@ -205,68 +250,98 @@ SELECT is(
   _bfr_nb(NULL, ARRAY['ba9c0000-0000-0000-0000-0000000000b1'::uuid,
                       'ba9c0000-0000-0000-0000-0000000000b2'::uuid,
                       'ba9c0000-0000-0000-0000-0000000000b3'::uuid]), 8,
-  '11. gestionnaire A : T1, T2, T3 intervenus sur ses lieux sont acceptés (8 collectes sur tout le parc)');
+  '11. gestionnaire A : T1, T2, T3, que sa vue lui rend, sont acceptés (8 collectes sur tout le parc)');
 SELECT throws_ok(
   $$SELECT _bfr_nb(NULL, ARRAY['ba9c0000-0000-0000-0000-0000000000b4'::uuid])$$,
   '42501', 'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire',
   '12. gestionnaire A : T4, jamais intervenu sur ses lieux, est refusé');
 SELECT throws_ok(
-  $$SELECT _bfr_nb(NULL, ARRAY['ba9c0000-0000-0000-0000-0000000000b1'::uuid,
+  $$SELECT _bfr_nb(NULL, ARRAY['ba9c0000-0000-0000-0000-0000000000b2'::uuid,
+                               'ba9c0000-0000-0000-0000-0000000000b3'::uuid,
                                'ba9c0000-0000-0000-0000-0000000000b4'::uuid])$$,
   '42501', 'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire',
-  '13. gestionnaire A : T4 mêlé à un traiteur intervenu est refusé');
+  '13. gestionnaire A : T2, T3, T4 refusé à cause de T4 — segment de 8 collectes, publié sans la garde');
 
--- 14-16. Bords ----------------------------------------------------------------
+-- 14-15. La garde suit la vue, type traiteur compris ---------------------------
+SELECT ok(
+  plateforme.f_traiteur_intervenu_lieux_gestionnaire('ba9c0000-0000-0000-0000-0000000000e1')
+  AND NOT EXISTS (SELECT 1 FROM plateforme.v_traiteurs_gestionnaire
+                   WHERE id = 'ba9c0000-0000-0000-0000-0000000000e1')
+  AND EXISTS (SELECT 1 FROM plateforme.v_traiteurs_gestionnaire
+               WHERE id = 'ba9c0000-0000-0000-0000-0000000000b1'),
+  '14. non-vacuité : l''agence est « intervenue » sur LA au sens de la fonction, absente de la vue de A ; T1 y figure');
+SELECT throws_ok(
+  $$SELECT _bfr_nb(NULL, ARRAY['ba9c0000-0000-0000-0000-0000000000e1'::uuid])$$,
+  '42501', 'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire',
+  '15. gestionnaire A : l''agence opérationnelle sur son lieu est refusée (hors de sa vue des traiteurs)');
+
+-- 16-19. Bords ----------------------------------------------------------------
 SELECT lives_ok(
   $$SELECT _bfr_nb('{}'::uuid[], '{}'::uuid[])$$,
-  '14. gestionnaire A : deux tableaux vides ne nomment rien, la garde ne lève pas');
+  '16. gestionnaire A : deux tableaux vides ne nomment rien, la garde ne lève pas');
 SELECT throws_ok(
   $$SELECT _bfr_nb(ARRAY[NULL]::uuid[])$$,
   '42501', 'Filtre lieu_ids hors des lieux rattaches au gestionnaire',
-  '15. gestionnaire A : un élément NULL dans lieu_ids est refusé (fail-closed)');
+  '17. gestionnaire A : un élément NULL dans lieu_ids est refusé (fail-closed)');
 SELECT throws_ok(
   $$SELECT _bfr_nb(NULL, ARRAY[NULL]::uuid[])$$,
   '42501', 'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire',
-  '16. gestionnaire A : un élément NULL dans traiteur_ids est refusé (fail-closed)');
+  '18. gestionnaire A : un élément NULL dans traiteur_ids est refusé (fail-closed)');
 SELECT _bfr_jwt('gestionnaire_lieux', NULL);
 SELECT throws_ok(
   $$SELECT _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c1'::uuid])$$,
   '42501', 'Filtre lieu_ids hors des lieux rattaches au gestionnaire',
-  '17. gestionnaire sans organisation dans le jeton : tout lieu nommé est refusé');
+  '19. gestionnaire sans organisation dans le jeton : tout lieu nommé est refusé');
 
--- 18-20. Gestionnaire B : miroir ----------------------------------------------
-SELECT _bfr_jwt('gestionnaire_lieux', 'ba9c0000-0000-0000-0000-0000000000a2');
+-- 20-22. Jeton à organisation vide ---------------------------------------------
+SELECT _bfr_jwt_org_vide();
 SELECT is(
-  _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid]), 5,
-  '18. gestionnaire B : LB, refusé à A, lui est accepté (la garde suit le jeton)');
+  _bfr_nb(), 10,
+  '20. gestionnaire à organisation vide, rien de nommé : repère sur tout le parc, sans erreur de conversion');
 SELECT throws_ok(
   $$SELECT _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c1'::uuid])$$,
   '42501', 'Filtre lieu_ids hors des lieux rattaches au gestionnaire',
-  '19. gestionnaire B : LA, accepté à A, lui est refusé');
+  '21. gestionnaire à organisation vide : tout lieu nommé est refusé');
 SELECT throws_ok(
   $$SELECT _bfr_nb(NULL, ARRAY['ba9c0000-0000-0000-0000-0000000000b1'::uuid])$$,
   '42501', 'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire',
-  '20. gestionnaire B : T1, accepté à A, lui est refusé (jamais intervenu sur LB)');
+  '22. gestionnaire à organisation vide : tout traiteur nommé est refusé, par la garde et non par une erreur de conversion');
 
--- 21-24. La garde ne déborde pas ----------------------------------------------
+-- 23-25. Gestionnaire B : miroir ----------------------------------------------
+SELECT _bfr_jwt('gestionnaire_lieux', 'ba9c0000-0000-0000-0000-0000000000a2');
+SELECT is(
+  _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid]), 5,
+  '23. gestionnaire B : LB, refusé à A, lui est accepté (la garde suit le jeton)');
+SELECT throws_ok(
+  $$SELECT _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c1'::uuid])$$,
+  '42501', 'Filtre lieu_ids hors des lieux rattaches au gestionnaire',
+  '24. gestionnaire B : LA, accepté à A, lui est refusé');
+SELECT throws_ok(
+  $$SELECT _bfr_nb(NULL, ARRAY['ba9c0000-0000-0000-0000-0000000000b1'::uuid,
+                               'ba9c0000-0000-0000-0000-0000000000b2'::uuid,
+                               'ba9c0000-0000-0000-0000-0000000000b3'::uuid])$$,
+  '42501', 'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire',
+  '25. gestionnaire B : T1, T2, T3, accepté à A, lui est refusé à cause de T1 (jamais intervenu sur LB)');
+
+-- 26-29. La garde ne déborde pas ----------------------------------------------
 SELECT _bfr_jwt('traiteur_manager', 'ba9c0000-0000-0000-0000-0000000000b1');
 SELECT is(
   _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid]), 5,
-  '21. rôle traiteur : filtre toujours sur un lieu du parc où il n''est jamais intervenu');
+  '26. rôle traiteur : filtre toujours sur un lieu du parc où il n''est jamais intervenu');
 SELECT _bfr_jwt('ops_savr');
 SELECT is(
   _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid],
           ARRAY['ba9c0000-0000-0000-0000-0000000000b2'::uuid,
                 'ba9c0000-0000-0000-0000-0000000000b3'::uuid,
                 'ba9c0000-0000-0000-0000-0000000000b4'::uuid]), 5,
-  '22. staff : nomme librement lieu et traiteurs');
+  '27. staff : nomme librement lieu et traiteurs');
 -- Chemin réel du rafraîchissement de la vue matérialisée et du PDF : jeton de
 -- service, sans rôle applicatif.
 SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 SELECT set_config('role', 'service_role', true);
 SELECT is(
   _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid]), 5,
-  '23. appel en service_role (vue matérialisée, PDF) : non concerné par la garde');
+  '28. appel en service_role (vue matérialisée, PDF) : non concerné par la garde');
 -- Fiche collecte : f_benchmark_single_collecte appelle le calcul sous le jeton
 -- du gestionnaire, sans lieu ni traiteur. Collecte programmée par A sur son lieu
 -- (la fonction n'accepte que l'organisation programmatrice ou opérationnelle).
@@ -280,9 +355,9 @@ SELECT is(
      FROM plateforme.f_benchmark_single_collecte('ba9c0000-0000-0000-0000-0000000004c0')
     WHERE flux_code = 'biodechet'),
   10,
-  '24. fiche collecte du gestionnaire : repère parc toujours servi (10 collectes), la garde ne lève pas');
+  '29. fiche collecte du gestionnaire : elle traverse la garde sans rien nommer, repère parc toujours servi (10 collectes)');
 
--- 25-27. Durcissement conservé ------------------------------------------------
+-- 30-32. Durcissement conservé ------------------------------------------------
 SELECT _bfr_superuser();
 SELECT is(
   (SELECT count(*)::int
@@ -292,7 +367,7 @@ SELECT is(
       AND p.prosecdef
       AND 'search_path=plateforme, pg_catalog' = ANY(coalesce(p.proconfig, '{}'))),
   3,
-  '25. les trois fonctions restent SECURITY DEFINER avec search_path verrouillé');
+  '30. les trois fonctions restent SECURITY DEFINER avec search_path verrouillé');
 
 SELECT is(
   (SELECT array_agg(DISTINCT beneficiaires)
@@ -308,7 +383,7 @@ SELECT is(
               AND a.privilege_type = 'EXECUTE'
             GROUP BY p.proname) t),
   ARRAY['authenticated,postgres,service_role'],
-  '26. bénéficiaires d''EXECUTE inchangés sur les trois fonctions (PUBLIC et anon absents)');
+  '31. bénéficiaires d''EXECUTE inchangés sur les trois fonctions (PUBLIC et anon absents)');
 
 SELECT is(
   (SELECT pg_get_function_identity_arguments(p.oid) || ' -> ' || pg_get_function_result(p.oid)
@@ -316,7 +391,7 @@ SELECT is(
     WHERE n.nspname = 'plateforme' AND p.proname = 'f_benchmark_kg_pax_zd'),
   'p_flux_id uuid, p_type_evenement_ids uuid[], p_taille_evenement_codes text[], p_periode_debut date, p_periode_fin date, p_lieu_ids uuid[], p_traiteur_ids uuid[]'
     || ' -> TABLE(flux_id uuid, flux_code text, type_evenement_id uuid, taille_evenement text, kg_par_pax_moyen numeric, nb_collectes_segment integer, nb_organisations_distinctes integer)',
-  '27. f_benchmark_kg_pax_zd : 7 paramètres et colonnes de sortie inchangés');
+  '32. f_benchmark_kg_pax_zd : 7 paramètres et colonnes de sortie inchangés');
 
 SELECT * FROM finish();
 ROLLBACK;

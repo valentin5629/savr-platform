@@ -393,18 +393,43 @@ describe('loaders — I/O (faux Supabase)', () => {
     });
   });
 
-  it('loadBenchmark : un 42501 du gestionnaire SANS lieu ni traiteur nommé reste une erreur serveur', async () => {
+  it.each([
+    ['sans rien nommer', {}],
+    ['en nommant un lieu', { lieuIds: ['L1'] }],
+    ['en nommant un traiteur', { traiteurIds: ['t1'] }],
+  ])(
+    'loadBenchmark : un 42501 d’une autre cause que la garde reste une erreur serveur pour le gestionnaire (%s)',
+    async (_cas, filtres) => {
+      const supabase = makeSupabase({
+        rpcErreur: {
+          f_benchmark_kg_pax_zd: {
+            code: '42501',
+            message: 'permission denied for function f_benchmark_kg_pax_zd',
+          },
+        },
+      });
+      await expect(
+        loadBenchmark(supabase, CTX_GEST, filtres),
+      ).rejects.toMatchObject({ status: 500, message: 'Erreur serveur' });
+    },
+  );
+
+  it('loadBenchmark relaie aussi le refus de la garde sur un traiteur (403)', async () => {
     const supabase = makeSupabase({
       rpcErreur: {
         f_benchmark_kg_pax_zd: {
           code: '42501',
-          message: 'permission denied for function f_benchmark_kg_pax_zd',
+          message:
+            'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire',
         },
       },
     });
     await expect(
-      loadBenchmark(supabase, CTX_GEST, { tailleCodes: ['M'] }),
-    ).rejects.toMatchObject({ status: 500, message: 'Erreur serveur' });
+      loadBenchmark(supabase, CTX_GEST, { traiteurIds: ['t9'] }),
+    ).rejects.toMatchObject({
+      status: 403,
+      message: ERREUR_FILTRE_HORS_PERIMETRE,
+    });
   });
 
   it('loadBenchmark : un 42501 hors rôle gestionnaire reste une erreur serveur neutre', async () => {

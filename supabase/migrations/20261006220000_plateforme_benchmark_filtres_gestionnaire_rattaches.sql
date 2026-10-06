@@ -3,17 +3,17 @@
 -- M3.2_20261006_benchmark-filtres-lieux-traiteurs-rattaches).
 -- ---------------------------------------------------------------------------
 -- RÈGLE. Sans sélection, le repère reste calculé sur tout le parc Savr. Dès qu'il
--- nomme un lieu ou un traiteur, le gestionnaire ne peut nommer que :
+-- nomme un lieu ou un traiteur dans le calcul, le gestionnaire ne peut nommer que :
 --   - un lieu rattaché à son organisation (`organisations_lieux`) ;
---   - un traiteur intervenu sur ses lieux (événement daté), c'est-à-dire exactement
---     ceux que `v_traiteurs_gestionnaire` lui laisse déjà lire
---     (`f_traiteur_intervenu_lieux_gestionnaire`).
+--   - un traiteur que la vue `v_traiteurs_gestionnaire` lui rend : organisation de
+--     type traiteur, opérationnelle sur un événement daté tenu sur l'un de ses
+--     lieux. La garde lit la vue elle-même, pas une copie de son prédicat.
 -- L'écran propose un sous-ensemble de ce second périmètre (collecte sur ses lieux
--- depuis 24 mois, même liste que le filtre global du dashboard) ; la garde ci-dessous
--- porte la borne de lecture, pas la fenêtre d'affichage.
+-- depuis 24 mois, même liste que le filtre global du dashboard) ; la garde porte
+-- la borne de la vue, pas la fenêtre d'affichage.
 --
--- AVANT. Les deux fonctions de liste rendaient à un gestionnaire le nom de TOUS les
--- lieux actifs du parc et de TOUS les traiteurs actifs du parc, et
+-- AVANT. Les deux fonctions de liste rendaient à un gestionnaire le nom de tous les
+-- lieux actifs du parc et de tous les traiteurs actifs du parc, et
 -- `f_benchmark_kg_pax_zd` calculait un segment sur n'importe quel lieu ou traiteur
 -- nommé. Le schéma `plateforme` étant servi par PostgREST, ces trois fonctions se
 -- joignent aussi sans passer par les routes de l'application.
@@ -30,15 +30,23 @@
 -- Dashboard Client Admin lit ses listes par ses propres requêtes) : elle reste en
 -- place, réduite au staff.
 --
+-- CE QUE CETTE MIGRATION NE FERME PAS. Le nom des traiteurs actifs du parc reste
+-- lisible par un gestionnaire dans `v_referentiel_traiteurs` (id + libellé, servis
+-- à tout rôle client) : ce qui est fermé ici, c'est la liste servie par la fonction
+-- benchmark et le fait de les nommer dans le calcul. Et la borne « intervenu sur ses
+-- lieux » suit les événements datés : un gestionnaire qui programme lui-même un
+-- événement daté sur son lieu avec un traiteur le fait entrer dans son périmètre.
+--
 -- CE QUI NE CHANGE PAS : les rôles traiteur et agence (liste des lieux du parc), la
 -- garde compétitive sur `p_traiteur_ids` (elle vise `traiteur_manager` et
 -- `traiteur_commercial`, pas `agence` : dette connue, hors de ce lot), le staff, le
 -- k-anonymat, la formule, les 7 paramètres et les colonnes de sortie. La nouvelle
 -- garde ne vise que `gestionnaire_lieux` : tout autre appelant nomme lieux et
--- traiteurs comme avant. Un appel sans rôle gestionnaire ne traverse
--- pas la nouvelle garde : rafraîchissement de `mv_benchmark_kg_pax_zd_base`,
--- `f_rapport_benchmark_zd` (PDF, service_role) et `f_benchmark_single_collecte`, qui
--- ne passe ni lieu ni traiteur.
+-- traiteurs comme avant. Le rafraîchissement de `mv_benchmark_kg_pax_zd_base` et
+-- `f_rapport_benchmark_zd` (PDF, service_role) tournent sans rôle gestionnaire et
+-- n'entrent donc pas dans la garde. `f_benchmark_single_collecte`, elle, appelle le
+-- calcul sous le jeton de l'appelant : pour un gestionnaire elle entre dans la garde
+-- et la passe, parce qu'elle ne nomme ni lieu ni traiteur.
 --
 -- `CREATE OR REPLACE` préserve l'ACL et remet `proconfig` à zéro : `SECURITY DEFINER`
 -- et `SET search_path = plateforme, pg_catalog` sont donc reconduits mot pour mot, et
@@ -136,10 +144,15 @@ BEGIN
   END IF;
 
   -- Garde de périmètre (§06.05, décision Val 2026-10-06) : un gestionnaire ne nomme
-  -- que ses lieux rattachés et les traiteurs intervenus sur ses lieux. Un tableau
-  -- NULL ou vide ne nomme rien (unnest rend 0 ligne) et passe la garde : NULL
-  -- laisse le repère sur tout le parc ; vide ne rend aucun segment, comme avant
-  -- (`= ANY('{}')`). Un élément NULL, ou un jeton sans organisation, est refusé.
+  -- que ses lieux rattachés et les traiteurs que `v_traiteurs_gestionnaire` lui
+  -- rend. Un tableau NULL ou vide ne nomme rien et passe la garde : NULL laisse le
+  -- repère sur tout le parc ; vide ne rend aucun segment, comme avant
+  -- (`= ANY('{}')`). Un élément NULL est refusé. Un jeton sans organisation
+  -- (absente ou vide) est refusé dès qu'il nomme un lieu ou un traiteur ; s'il ne
+  -- nomme rien, il reçoit le repère « tout le parc », comme avant.
+  -- Les deux messages commencent par « Filtre lieu_ids hors » / « Filtre
+  -- traiteur_ids hors » : `loadBenchmark` les reconnaît à ce début pour rendre un
+  -- 403 (tout autre 42501, droit d'exécution retiré par exemple, reste un 500).
   IF plateforme.f_app_role() = 'gestionnaire_lieux' THEN
     v_org := NULLIF(auth.jwt()->>'organisation_id', '')::uuid;
     IF EXISTS (
@@ -154,15 +167,25 @@ BEGIN
       RAISE EXCEPTION 'Filtre lieu_ids hors des lieux rattaches au gestionnaire'
         USING ERRCODE = '42501';
     END IF;
-    IF EXISTS (
-      SELECT 1
-      FROM unnest(p_traiteur_ids) AS demande(traiteur_demande)
-      WHERE plateforme.f_traiteur_intervenu_lieux_gestionnaire(
-              demande.traiteur_demande) IS NOT TRUE
-    ) THEN
-      RAISE EXCEPTION
-        'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire'
-        USING ERRCODE = '42501';
+    IF cardinality(p_traiteur_ids) > 0 THEN
+      -- Sans organisation, la vue ne peut rien rendre : refus posé d'abord, dans
+      -- un IF séquentiel, pour ne jamais l'évaluer avec un jeton incomplet.
+      IF v_org IS NULL THEN
+        RAISE EXCEPTION
+          'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire'
+          USING ERRCODE = '42501';
+      ELSIF EXISTS (
+        SELECT 1
+        FROM unnest(p_traiteur_ids) AS demande(traiteur_demande)
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM plateforme.v_traiteurs_gestionnaire t
+          WHERE t.id = demande.traiteur_demande)
+      ) THEN
+        RAISE EXCEPTION
+          'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire'
+          USING ERRCODE = '42501';
+      END IF;
     END IF;
   END IF;
 
@@ -207,6 +230,6 @@ BEGIN
 END $$;
 
 COMMENT ON FUNCTION plateforme.f_benchmark_kg_pax_zd(uuid, uuid[], text[], date, date, uuid[], uuid[]) IS
-  'Benchmark parc kg/pax ZD — grain (flux x type_evenement x taille), moyenne ponderee par tonnage (SUM poids / SUM pax), 7 filtres CDC 04/11. k-anonymat DOUBLE (durci 2026-09-22) : >=5 collectes ET >=3 acteurs distincts sur les deux colonnes (organisation programmatrice ET traiteur operationnel) — 5 collectes d''un acteur unique publiaient sa performance individuelle. SECURITY DEFINER + garde competitive role traiteur + garde de perimetre gestionnaire_lieux (2026-10-06 : lieux rattaches et traiteurs intervenus seulement, SQLSTATE 42501).';
+  'Benchmark parc kg/pax ZD — grain (flux x type_evenement x taille), moyenne ponderee par tonnage (SUM poids / SUM pax), 7 filtres CDC 04/11. k-anonymat DOUBLE (durci 2026-09-22) : >=5 collectes ET >=3 acteurs distincts sur les deux colonnes (organisation programmatrice ET traiteur operationnel) — 5 collectes d''un acteur unique publiaient sa performance individuelle. SECURITY DEFINER + garde competitive role traiteur + garde de perimetre gestionnaire_lieux (2026-10-06 : lieux rattaches et traiteurs de v_traiteurs_gestionnaire seulement, SQLSTATE 42501).';
 
 COMMIT;

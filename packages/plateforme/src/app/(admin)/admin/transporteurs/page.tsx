@@ -158,7 +158,7 @@ export default function TransporteursPage() {
         <div className="flex flex-wrap gap-1">
           {row.types_collecte && row.types_collecte.length > 0 ? (
             row.types_collecte.map((t) => (
-              <TypeCollecteBadge key={t} type={t} />
+              <TypeCollecteBadge key={t} type={t} forme="badge" />
             ))
           ) : (
             <span className="text-savr-neutral-400">—</span>

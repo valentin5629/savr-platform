@@ -6,6 +6,7 @@ import {
   libelleCourtTypeCollecte,
   libelleTypeCollecte,
   normaliserTypeCollecte,
+  VARIANT_CDC_TYPE_COLLECTE,
   variantTypeCollecte,
 } from '@/lib/libelles/type-collecte';
 
@@ -16,14 +17,18 @@ import {
 // - `forme="pastille"` (défaut) : pilule ZD vert / AG ambre + icône, libellé
 //   court ZD / AG — listes ;
 // - `forme="plein"` : aplat ZD navy / AG orange, majuscules, libellé long —
-//   sur-titre des fiches collecte (§06.04 Q2).
+//   sur-titre des fiches collecte (§06.04 Q2) ;
+// - `forme="badge"` : Badge ZD `primary` / AG `action`, sans icône, libellé
+//   court — liste Transporteurs (rendu d'avant R-UI-2, conforme §10 l.140).
+// `data-testid="badge-type-collecte"` : forme `plein` seule (en-tête de fiche),
+// pour ne pas dupliquer l'identifiant dans les listes.
 export function TypeCollecteBadge({
   type,
   forme = 'pastille',
   className,
 }: {
   type: string;
-  forme?: 'pastille' | 'plein';
+  forme?: 'pastille' | 'plein' | 'badge';
   className?: string;
 }) {
   if (forme === 'plein') {
@@ -40,13 +45,24 @@ export function TypeCollecteBadge({
       </span>
     );
   }
+  if (forme === 'badge') {
+    const t = normaliserTypeCollecte(type);
+    return (
+      <Badge
+        variant={(t && VARIANT_CDC_TYPE_COLLECTE[t]) || 'primary'}
+        dot={false}
+        className={className}
+      >
+        {libelleCourtTypeCollecte(type)}
+      </Badge>
+    );
+  }
   const ag = normaliserTypeCollecte(type) === 'anti_gaspi';
   const Icone = ag ? UtensilsCrossed : Leaf;
   return (
     <Badge
       variant={variantTypeCollecte(type)}
       dot={false}
-      data-testid="badge-type-collecte"
       className={className}
     >
       <Icone className="h-3.5 w-3.5" aria-hidden="true" />

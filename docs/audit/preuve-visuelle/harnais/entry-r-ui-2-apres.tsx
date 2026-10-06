@@ -33,6 +33,8 @@ function App() {
           <TypeCollecteBadge type="anti_gaspi" />
           <TypeCollecteBadge type="zero_dechet" forme="plein" />
           <TypeCollecteBadge type="anti_gaspi" forme="plein" />
+          <TypeCollecteBadge type="zero_dechet" forme="badge" />
+          <TypeCollecteBadge type="anti_gaspi" forme="badge" />
         </div>
       </Section>
       <Section id="tailles" title="Tailles et compteur (C14, C15)">

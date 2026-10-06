@@ -370,7 +370,7 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     rls.push({ error: null });
 
     const [, ...lignes] = await lignesCsv(await callCsv('?flux=verre,carton'));
-    expect(lignes.map((l) => l.split(';')[0])).toEqual(['Carton', 'Verre']);
+    expect(lignes.map((l) => l.split(';')[0])).toEqual(['Cartons', 'Verre']);
     const insertArgs = (rls.__calls.insert ?? [])[0]?.[0] as
       | Record<string, unknown>
       | undefined;

@@ -10,16 +10,30 @@ import { FactureStatutBadge } from './facture-statut-badge';
 import { TypeCollecteBadge } from './type-collecte-badge';
 
 describe('R-UI-2 — TypeCollecteBadge (C2)', () => {
+  it('forme="badge" (Transporteurs) : ZD primary / AG action, sans icône', () => {
+    const { rerender } = render(
+      <TypeCollecteBadge type="zero_dechet" forme="badge" />,
+    );
+    let badge = screen.getByText('ZD').closest('span')!;
+    expect(badge.querySelector('svg')).toBeNull();
+    const zd = badge.className;
+    rerender(<TypeCollecteBadge type="anti_gaspi" forme="badge" />);
+    badge = screen.getByText('AG').closest('span')!;
+    expect(badge.className).not.toBe(zd);
+  });
+
   it('forme="pastille" par défaut : ZD vert / AG ambre, icône, sans point', () => {
     const { rerender } = render(<TypeCollecteBadge type="zero_dechet" />);
-    let badge = screen.getByTestId('badge-type-collecte');
+    // Pas d'identifiant de test sur la pastille (réservé à l'en-tête de fiche).
+    expect(screen.queryByTestId('badge-type-collecte')).toBeNull();
+    let badge = screen.getByText('ZD').closest('span')!;
     expect(badge.textContent).toBe('ZD');
     expect(badge.className).toContain('bg-savr-success-subtle');
     expect(badge.querySelector('svg')).not.toBeNull();
     expect(badge.querySelector('.rounded-full')).toBeNull();
 
     rerender(<TypeCollecteBadge type="anti_gaspi" />);
-    badge = screen.getByTestId('badge-type-collecte');
+    badge = screen.getByText('AG').closest('span')!;
     expect(badge.textContent).toBe('AG');
     expect(badge.className).toContain('bg-savr-warning-subtle');
   });
@@ -44,7 +58,7 @@ describe('R-UI-2 — TypeCollecteBadge (C2)', () => {
 
   it('type inconnu : valeur brute, couleur neutre', () => {
     render(<TypeCollecteBadge type="autre" />);
-    const badge = screen.getByTestId('badge-type-collecte');
+    const badge = screen.getByText('autre').closest('span')!;
     expect(badge.textContent).toBe('autre');
     expect(badge.className).toContain('bg-savr-neutral-100');
   });

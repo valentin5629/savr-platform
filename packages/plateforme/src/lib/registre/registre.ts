@@ -4,6 +4,10 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { parseLimit, parsePage } from '@/lib/pagination.js';
+import {
+  FLUX_ZD_CODES as FLUX_ORDER,
+  LIBELLE_FLUX,
+} from '@/lib/libelles/flux.js';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — types, filtres, requête.
@@ -30,10 +34,6 @@ export function isRegistreRole(role: AnyRole): boolean {
 
 // Les 5 flux ZD V1, dans l'ordre d'affichage (badges + colonnes CSV) : source
 // unique `lib/libelles/flux` (R-UI-2 C12), ré-exportée sous les noms historiques.
-import {
-  FLUX_ZD_CODES as FLUX_ORDER,
-  LIBELLE_FLUX,
-} from '@/lib/libelles/flux.js';
 
 export { FLUX_ORDER };
 export const FLUX_LABELS: Record<string, string> = LIBELLE_FLUX;

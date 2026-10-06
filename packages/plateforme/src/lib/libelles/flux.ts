@@ -4,8 +4,10 @@
  * graphe. Consommé par les dashboards, le registre (écran + CSV + API), la
  * synthèse PDF, la fiche collecte Admin et les loaders.
  *
- * Libellés = colonne `nom` du seed `flux_dechets` (§04 Data Model) : « Carton »
- * au singulier comme au CDC.
+ * Libellés = colonne `nom` du seed `flux_dechets` en base (« Cartons »), affichée
+ * aussi par le CSV Pesées, les bordereaux PDF et les e-mails. Le CDC §04 écrit
+ * « Carton » : divergence D45 en attente d'arbitrage Val — une seule ligne à
+ * changer ici (+ seed) après décision.
  */
 
 export interface FluxZd {
@@ -32,7 +34,7 @@ export type FluxZdCode = (typeof FLUX_ZD_CODES)[number];
 export const LIBELLE_FLUX: Record<FluxZdCode, string> = {
   biodechet: 'Biodéchets',
   emballage: 'Emballages',
-  carton: 'Carton',
+  carton: 'Cartons',
   verre: 'Verre',
   dechet_residuel: 'Déchet résiduel',
 };

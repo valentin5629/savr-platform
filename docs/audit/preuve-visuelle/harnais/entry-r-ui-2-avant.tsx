@@ -23,8 +23,12 @@ function App() {
         <div className="flex flex-wrap items-center gap-3 rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
           <TypeCollecteBadge type="zero_dechet" />
           <TypeCollecteBadge type="anti_gaspi" />
-          <Badge variant="primary">ZD</Badge>
-          <Badge variant="action">AG</Badge>
+          <Badge variant="primary" dot={false}>
+            ZD
+          </Badge>
+          <Badge variant="action" dot={false}>
+            AG
+          </Badge>
         </div>
       </Section>
       <Section id="tailles" title="Tailles et compteur (C14, C15)">

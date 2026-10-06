@@ -23,11 +23,11 @@ describe('R-UI-2 C12 — lib/libelles/flux', () => {
     expect(FLUX_ZD.map((f) => f.code)).toEqual([...FLUX_ZD_CODES]);
   });
 
-  it('libellés du CDC (« Carton » au singulier)', () => {
+  it('libellés = `nom` du seed en base (« Cartons », D45 ouverte)', () => {
     expect(FLUX_ZD.map((f) => f.label)).toEqual([
       'Biodéchets',
       'Emballages',
-      'Carton',
+      'Cartons',
       'Verre',
       'Déchet résiduel',
     ]);
@@ -41,7 +41,7 @@ describe('R-UI-2 C12 — lib/libelles/flux', () => {
   });
 
   it('fallback : absent → « — », inconnu → valeur brute', () => {
-    expect(libelleFlux('carton')).toBe('Carton');
+    expect(libelleFlux('carton')).toBe('Cartons');
     expect(libelleFlux(null)).toBe('—');
     expect(libelleFlux(undefined)).toBe('—');
     expect(libelleFlux('plastique')).toBe('plastique');

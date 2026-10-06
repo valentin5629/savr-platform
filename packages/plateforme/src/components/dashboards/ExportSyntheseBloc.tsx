@@ -97,7 +97,7 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
     setTo(r.periode.to);
   };
 
-  const typeLabel = libelleCompletTypeCollecte(tab);
+  const typeLabel = libelleCompletTypeCollecte(tab, 'cdc');
 
   const inheritedFilters: string[] = [];
   if ((filters?.lieu_ids?.length ?? 0) > 0)

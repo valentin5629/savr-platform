@@ -153,6 +153,12 @@ interface FiltreCochesProps {
    * `onDeselect` : décocher « Tous » (sinon sans effet).
    */
   tous?: { coche: boolean; onSelect: () => void; onDeselect?: () => void };
+  /**
+   * La sélection vide désigne plus large que les options listées (« Tout le
+   * parc Savr » face aux seuls lieux du gestionnaire) : les cocher toutes
+   * reste une sélection explicite, ni vidée ni résumée en `libelleTous`.
+   */
+  listePartielle?: boolean;
 }
 
 // Résumé affiché à côté du titre : « Tous » (ou `libelleVide`), `libelleTous`
@@ -163,9 +169,11 @@ function resumeSelection(
   selected: string[],
   libelleVide: string,
   libelleTous: string,
+  listePartielle: boolean,
 ): string {
   if (selected.length === 0) return libelleVide;
-  if (toutesValentTous(options, selected)) return libelleTous;
+  if (!listePartielle && toutesValentTous(options, selected))
+    return libelleTous;
   if (selected.length === 1) {
     const o = options.find((x) => x.id === selected[0]);
     return o ? (o.court ?? o.nom) : '1 sélectionné';
@@ -204,6 +212,7 @@ export function FiltreCoches({
   libelleVide = 'Tous',
   libelleTous = 'Tous',
   tous,
+  listePartielle = false,
 }: FiltreCochesProps) {
   const [recherche, setRecherche] = React.useState('');
   const avecRecherche = options.length > SEUIL_RECHERCHE;
@@ -223,7 +232,9 @@ export function FiltreCoches({
     const restantes = options.filter(
       (o) => !o.horsListe || suivants.includes(o.id),
     );
-    onChange(!tous && toutesValentTous(restantes, suivants) ? [] : suivants);
+    const vautTous =
+      !tous && !listePartielle && toutesValentTous(restantes, suivants);
+    onChange(vautTous ? [] : suivants);
   }
   return (
     <Popover onOpenChange={(o) => !o && setRecherche('')}>
@@ -240,6 +251,7 @@ export function FiltreCoches({
               selected,
               libelleVide,
               libelleTous,
+              listePartielle,
             )}
           />
         </button>

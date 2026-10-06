@@ -24,8 +24,10 @@
 --   9     le message distinct DISCRIMINE bien : sous un rôle légitime, une collecte
 --         inexistante lève toujours 'Collecte not accessible' ;
 --   10    organisation absente sous rôle client = refus explicite ;
---   11-14 MIROIRS POSITIFS — la garde n'est pas devenue un mur : gestionnaire et
---         traiteur propriétaire passent toujours et rendent des lignes, et
+--   11-14 MIROIRS POSITIFS — la garde n'est pas devenue un mur : staff (liste des
+--         traiteurs), rôle traiteur (liste des lieux) et traiteur propriétaire
+--         passent toujours et rendent des lignes — le gestionnaire ne lit plus
+--         les deux listes depuis 20261006220000, ce n'est plus lui le miroir — et
 --         admin_savr passe SANS `organisation_id` (un test NULL en bloc l'aurait
 --         refusé à tort) ;
 --   15-20 le durcissement n'a pas été défait en silence par CREATE OR REPLACE :
@@ -212,19 +214,24 @@ SELECT throws_ok(
 -- =============================================================================
 -- 11-14. MIROIRS POSITIFS — la garde n'est pas devenue un mur
 -- =============================================================================
-SELECT test_set_jwt_prod('gestionnaire_lieux', 'be470010-0000-0000-0000-000000000003'::uuid,
+-- Les deux listes sont fermées au gestionnaire depuis 20261006220000 (décision
+-- Val 2026-10-06) : le miroir positif est porté par les rôles qui les lisent
+-- encore — le staff pour les traiteurs, un rôle traiteur pour les lieux.
+SELECT test_set_jwt_prod('ops_savr', NULL,
                          'be470001-0000-0000-0000-000000000003'::uuid);
 
 -- Non vacant : on exige la présence NOMMÉE du traiteur concurrent, pas un count.
 SELECT ok(
   EXISTS (SELECT 1 FROM plateforme.f_benchmark_traiteurs_parc()
            WHERE id = 'be470010-0000-0000-0000-000000000002'),
-  '11. miroir positif : gestionnaire_lieux obtient TOUJOURS la liste des traiteurs');
+  '11. miroir positif : ops_savr obtient TOUJOURS la liste des traiteurs');
 
+SELECT test_set_jwt_prod('traiteur_manager', 'be470010-0000-0000-0000-000000000001'::uuid,
+                         'be470001-0000-0000-0000-000000000001'::uuid);
 SELECT ok(
   EXISTS (SELECT 1 FROM plateforme.f_benchmark_lieux_parc()
            WHERE id = 'be470030-0000-0000-0000-000000000001'),
-  '12. miroir positif : gestionnaire_lieux obtient TOUJOURS la liste des lieux');
+  '12. miroir positif : traiteur_manager obtient TOUJOURS la liste des lieux');
 
 -- Le traiteur propriétaire de l'événement : au moins une ligne, sinon vacant.
 SELECT test_set_jwt_prod('traiteur_manager', 'be470010-0000-0000-0000-000000000001'::uuid,

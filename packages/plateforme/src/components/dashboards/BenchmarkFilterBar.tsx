@@ -52,12 +52,28 @@ function criteresPoses(f: BenchmarkFilters, defaut: BenchmarkFilters): boolean {
   );
 }
 
+/**
+ * Ce que couvrent les listes Lieux / Traiteurs : tout le parc Savr, ou le seul
+ * périmètre de l'appelant (gestionnaire de lieux — décision Val 2026-10-06).
+ */
+type PerimetreListes = 'parc' | 'rattache';
+
 /** Options des multi-selects fournies par le SSR (évite le fetch /filtres au mount). */
 export interface BenchmarkFilterOptions {
   lieux: OptionFiltre[];
   traiteurs: OptionFiltre[];
   types: { id: string; libelle: string }[];
+  perimetre?: PerimetreListes;
 }
+
+// Listes bornées au périmètre de l'appelant : sans rien cocher, le repère reste
+// calculé sur tout le parc Savr. « Tous » se lirait « tous mes lieux » — la case
+// de tête le dit, et cocher toutes les lignes reste une sélection explicite.
+const LISTES_RATTACHEES = {
+  libelleVide: 'Tout le parc Savr',
+  libelleTous: 'Tout le parc Savr',
+  listePartielle: true,
+} as const;
 
 interface BenchmarkFilterBarProps {
   onChange: (filters: BenchmarkFilters) => void;
@@ -93,7 +109,10 @@ interface BenchmarkFilterBarProps {
  * Encart « Filtres benchmark » (§06.05 Bloc 3 ZD), imbriqué dans la carte du
  * benchmark : une ligne « Comparer avec » + filtres en ligne (format unique des
  * barres de filtres, décision Val 2026-09-30). Critères qui ne s'appliquent
- * qu'au point rouge : Type d'événement, Taille, Lieux parc, Traiteurs parc. La
+ * qu'au point rouge : Type d'événement, Taille, Lieux, Traiteurs. Le serveur
+ * dit ce que couvrent ces deux listes (`perimetre`) : tout le parc, ou les
+ * seuls lieux rattachés et traiteurs intervenus du gestionnaire — la case de
+ * tête s'appelle alors « Tout le parc Savr » (décision Val 2026-10-06). La
  * période est fixe (24 mois glissants, non affichée). Bâti sur `FilterBar`
  * (R-UI-4b, D5 façon C, `surface="encart"`, `count={null}`) : « Réinitialiser
  * les filtres » (retour à l'héritage Type/Taille, Lieux/Traiteurs « Tous »)
@@ -123,6 +142,9 @@ export function BenchmarkFilterBar({
   const [types, setTypes] = useState<OptionFiltre[]>(() =>
     (initialOptions?.types ?? []).map((t) => ({ id: t.id, nom: t.libelle })),
   );
+  const [perimetre, setPerimetre] = useState<PerimetreListes>(
+    () => initialOptions?.perimetre ?? 'parc',
+  );
 
   // Émet la sélection initiale + charge les listes une fois. Quand `initialOptions`
   // est fourni (dashboard SSR), les listes sont déjà en état → pas de fetch.
@@ -137,10 +159,12 @@ export function BenchmarkFilterBar({
             lieux?: OptionFiltre[];
             traiteurs?: OptionFiltre[];
             types?: { id: string; libelle: string }[];
+            perimetre?: PerimetreListes;
           };
         }) => {
           setLieux(j.data?.lieux ?? []);
           setTraiteurs(j.data?.traiteurs ?? []);
+          setPerimetre(j.data?.perimetre ?? 'parc');
           setTypes(
             (j.data?.types ?? []).map((t) => ({ id: t.id, nom: t.libelle })),
           );
@@ -179,6 +203,7 @@ export function BenchmarkFilterBar({
     </AlertBar>
   );
   const traiteursVisibles = !masquerTraiteurs && traiteurs.length > 0;
+  const listes = perimetre === 'rattache' ? LISTES_RATTACHEES : {};
   const actif = criteresPoses(
     filters,
     defaultFilters(initialTypeEvenementIds, initialTailleCodes),
@@ -214,6 +239,7 @@ export function BenchmarkFilterBar({
           selected={filters.lieu_ids}
           onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
           testid="benchmark-filter-lieux"
+          {...listes}
         />
         {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
         {traiteursVisibles && (
@@ -223,6 +249,7 @@ export function BenchmarkFilterBar({
             selected={filters.traiteur_ids}
             onChange={(ids) => apply({ ...filters, traiteur_ids: ids })}
             testid="benchmark-filter-traiteurs"
+            {...listes}
           />
         )}
       </FilterBar>

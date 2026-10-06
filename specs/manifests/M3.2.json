@@ -35,6 +35,9 @@
     "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql",
     "packages/plateforme/tests/ui/espace-gestionnaire.m3-2.test.tsx",
     "packages/plateforme/tests/api/dashboards/benchmark-encart.m3-2.test.ts",
+    "packages/plateforme/tests/ui/benchmark-filtres-rattaches.m3-2.test.tsx",
+    "supabase/migrations/20261006220000_plateforme_benchmark_filtres_gestionnaire_rattaches.sql",
+    "supabase/tests/benchmark_filtres_gestionnaire_rattaches.test.sql",
     "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
     "packages/plateforme/src/components/dashboards/MultiSelectFilter.tsx",
     "packages/plateforme/src/app/api/v1/dashboards/benchmark/route.ts",
@@ -101,10 +104,15 @@
     "M3.2/GEST03_kpi_affiches_cle_kpis",
     "M3.2/GEST04_encart_filtres_present",
     "M3.2/GEST04_encart_choix_taille",
-    "M3.2/GEST04_filtres_gestionnaire_listes_parc",
+    "M3.2/GEST04_filtres_gestionnaire_listes_rattachees",
     "M3.2/GEST04_filtres_traiteur_sans_liste_traiteurs",
     "M3.2/GEST04_route_forward_7_params",
+    "M3.2/GEST04_route_gestionnaire_hors_perimetre_403",
     "M3.2/GEST04_route_traiteur_lieu_filter_403",
+    "M3.2/GEST04_encart_tout_le_parc_savr",
+    "M3.2/GEST04_encart_tous_mes_lieux_coches",
+    "M3.2/GEST04_encart_listes_parc_tous_inchange",
+    "M3.2/GEST04_encart_perimetre_lu_du_serveur",
     "M3.2/GEST04_dashboard_kg_pax_par_flux",
     "M3.2/P2_filtres_options_parc",
     "M3.2/P2_filtres_vide_si_aucun_perimetre",
@@ -191,6 +199,7 @@
     "M3.2/rapport_download_gestionnaire_sous_rls",
     "M3.2/fiche_benchmark_tiers_masque",
     "M3.2/fiche_benchmark_hors_perimetre_404",
+    "M3.2/fiche_benchmark_filtre_hors_perimetre_403",
     "M3.2/urgence_gestionnaire_ok",
     "M3.2/fiche_popup_gestionnaire_sans_annulation",
     "M3.2/fiche_popup_gestionnaire_radar_masque_tiers",
@@ -465,9 +474,9 @@
       "id": "BL-P1-GEST-04-ENCART",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:161",
       "artefact": "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
-      "test": "M3.2/GEST04_encart_filtres_present + M3.2/GEST04_encart_choix_taille + M3.2/GEST04_filtres_gestionnaire_listes_parc + M3.2/GEST04_route_forward_7_params",
+      "test": "M3.2/GEST04_encart_filtres_present + M3.2/GEST04_encart_choix_taille + M3.2/GEST04_filtres_gestionnaire_listes_rattachees + M3.2/GEST04_route_forward_7_params",
       "statut": "implemented",
-      "libelle": "Encart « Filtres benchmark » §06.05 Bloc 3 : 4 critères (lieux parc, traiteurs parc, type, taille) — période FIXE 24 mois glissants imposée côté serveur, plus de choix UI (décision Val 2026-09-28, divergence DASHBOARDS_20260928_benchmark-periode-fixe-24-mois), Réinitialiser, avertissement comparaison-à-soi, listes parc SECURITY DEFINER + garde compétitive traiteurs, légende couleur 100/130 %. NB : l'héritage Type/Taille depuis les filtres globaux (CDC l.160) est ACTIF depuis R19b-P2 (BL-P2-12) — BenchmarkFilterBar reçoit initialTypeEvenementIds/initialTailleCodes des filtres globaux du dashboard (init + Réinitialiser), cf. M3.2/P2_encart_herite_type_taille."
+      "libelle": "Encart « Filtres benchmark » §06.05 Bloc 3 : 4 critères (lieux, traiteurs, type, taille ; pour le gestionnaire, lieux et traiteurs bornés à son périmètre depuis le 2026-10-06, cf. M3.2-benchmark-filtres-gestionnaire-rattaches) — période FIXE 24 mois glissants imposée côté serveur, plus de choix UI (décision Val 2026-09-28, divergence DASHBOARDS_20260928_benchmark-periode-fixe-24-mois), Réinitialiser, avertissement comparaison-à-soi, listes parc SECURITY DEFINER (rôles traiteur, agence et staff) + garde compétitive traiteurs, légende couleur 100/130 %. NB : l'héritage Type/Taille depuis les filtres globaux (CDC l.160) est ACTIF depuis R19b-P2 (BL-P2-12) — BenchmarkFilterBar reçoit initialTypeEvenementIds/initialTailleCodes des filtres globaux du dashboard (init + Réinitialiser), cf. M3.2/P2_encart_herite_type_taille."
     },
     {
       "id": "BL-P1-GEST-04-JAUGE",
@@ -837,6 +846,22 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la barre de filtres de la liste Collectes gestionnaire, desktop ET mobile < 640 px : Lieu et Traiteur en listes à cocher, case « Tous » en tête, recherche au-delà de 7 options ; libellés des déclencheurs (« Tous », nom unique, « n sélectionnés ») ; chip « Filtre actif » à l'arrivée d'une Top liste du dashboard, sa disparition quand une seconde valeur est cochée ; traiteur hors fenêtre de 24 mois nommé dans sa case. GO visuel de Val attendu."
+    },
+    {
+      "id": "M3.2-benchmark-filtres-gestionnaire-rattaches",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:167",
+      "artefact": "supabase/migrations/20261006220000_plateforme_benchmark_filtres_gestionnaire_rattaches.sql",
+      "test": "M3.2/GEST04_filtres_gestionnaire_listes_rattachees + M3.2/GEST04_route_gestionnaire_hors_perimetre_403 + M3.2/fiche_benchmark_filtre_hors_perimetre_403 + M3.2/GEST04_encart_tout_le_parc_savr + M3.2/GEST04_encart_tous_mes_lieux_coches + M3.2/GEST04_encart_listes_parc_tous_inchange + M3.2/GEST04_encart_perimetre_lu_du_serveur + supabase/tests/benchmark_filtres_gestionnaire_rattaches.test.sql",
+      "statut": "implemented",
+      "libelle": "Filtres Lieux / Traiteurs du benchmark bornés au périmètre du gestionnaire (décision Val 2026-10-06, contraire au CDC l.167-168 « tous les lieux / traiteurs du parc » — _Divergences/M3.2_20261006_benchmark-filtres-lieux-traiteurs-rattaches.md). (1) Options : lieux rattachés (organisations_lieux) et traiteurs intervenus sur ces lieux depuis 24 mois, par loadFiltresParcGestionnaire — la même fonction sert le filtre global du dashboard, donc mêmes listes ; la réponse de /api/v1/dashboards/benchmark/filtres porte perimetre = 'rattache'. (2) Écran : case de tête « Tout le parc Savr » cochée par défaut (sélection vide = repère sur tout le parc), décochée dès qu'un lieu ou un traiteur est coché ; cocher toutes les lignes reste une sélection explicite (FiltreCoches listePartielle), sans quoi « mes trois sites » basculait en silence sur tout le parc. Dashboard ET fiche collecte du gestionnaire (même barre, même route). (3) Base : f_benchmark_lieux_parc et f_benchmark_traiteurs_parc refusent le rôle gestionnaire_lieux ; f_benchmark_kg_pax_zd refuse (SQLSTATE 42501) un lieu non rattaché ou un traiteur non intervenu sur ses lieux (borne = f_traiteur_intervenu_lieux_gestionnaire, celle de v_traiteurs_gestionnaire ; la fenêtre de 24 mois est une borne d'affichage, pas de la garde), relayé en 403 par loadBenchmark. Rôles traiteur, agence et staff inchangés. Mesuré sur base rejouée : 25/25 avec la migration, 10 cas rouges sans elle."
+    },
+    {
+      "id": "M3.2-benchmark-filtres-tout-le-parc-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:161",
+      "artefact": "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la barre « Comparer avec » du dashboard gestionnaire (Bloc 3 ZD), desktop ET mobile < 640 px : déclencheurs « Lieux Tout le parc Savr » et « Traiteurs Tout le parc Savr » sans sélection, liste ouverte avec la case de tête « Tout le parc Savr » et les seuls lieux rattachés, libellé du déclencheur après sélection (nom unique, « n sélectionnés »), retour à la ligne de la barre. GO visuel de Val attendu."
     }
   ],
   "cdc_source_hash": {

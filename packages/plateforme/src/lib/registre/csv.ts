@@ -16,13 +16,13 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Export CSV du registre réglementaire (§06.03 Exports). Grain FLUX : une ligne
-// par flux pesé de chaque collecte (décision Val 2026-10-04, divergence
-// M4.2_20261004). Les 20 premières colonnes suivent, dans l'ordre, le modèle de
-// collecte de données que les gestionnaires de lieux tiennent pour leur propre
-// registre (nature, code, producteur, date, tonnage, filière, code de
-// traitement, n° de bordereau, puis transporteur / exutoire intermédiaire /
-// exutoire final) ; 2 colonnes Savr suivent (traiteur, date de l'événement). Format canonique Savr garanti par
-// @savr/shared/src/csv.
+// par flux pesé de chaque collecte (décision Val 2026-10-04). Les colonnes sont
+// celles, dans l'ordre, du modèle de collecte de données que les gestionnaires
+// de lieux tiennent pour leur propre registre (nature, code, producteur, date,
+// tonnage, filière, code de traitement, n° de bordereau, puis transporteur /
+// exutoire intermédiaire / exutoire final), plus une seule colonne ajoutée : le
+// lieu, juste après le producteur (décisions Val 2026-10-06, divergence
+// M4.2_20261006). Format canonique Savr garanti par @savr/shared/src/csv.
 // ---------------------------------------------------------------------------
 
 /** Pesée d'un flux, avec les champs de plateforme.flux_dechets lus par l'export. */
@@ -105,19 +105,22 @@ interface Etablissement {
   ville: string;
 }
 
-// Chaîne logistique ZD (décisions Val 2026-10-04) : Savr enlève sur le lieu,
-// massifie à son entrepôt, puis le site de traitement du flux reçoit le déchet.
-// Le transporteur affiché est Savr à l'adresse de l'entrepôt — choix provisoire
-// (« pour l'instant »), la question du nom du prestataire attend le juriste.
-const ENTREPOT_SAVR = {
+// Chaîne logistique ZD (décisions Val 2026-10-04 et 2026-10-06) : Savr enlève
+// sur le lieu, massifie à son entrepôt, puis le site de traitement du flux
+// reçoit le déchet. Le transporteur affiché est Savr — choix provisoire, la
+// question du nom du prestataire attend le juriste — à l'adresse de son siège
+// social (la même que dans content/cgu-v1.ts), et non à celle de l'entrepôt.
+const TRANSPORTEUR: Etablissement = {
+  nom: 'Savr',
+  voie: '50 rue des Moines',
+  codePostal: '75017',
+  ville: 'Paris',
+};
+const EXUTOIRE_INTERMEDIAIRE: Etablissement = {
+  nom: 'Entrepôt Savr',
   voie: '3 rue du Fort de la Briche',
   codePostal: '93200',
   ville: 'Saint-Denis',
-} as const;
-const TRANSPORTEUR: Etablissement = { nom: 'Savr', ...ENTREPOT_SAVR };
-const EXUTOIRE_INTERMEDIAIRE: Etablissement = {
-  nom: 'Entrepôt Savr',
-  ...ENTREPOT_SAVR,
 };
 
 /**
@@ -171,11 +174,17 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
     header: 'Code nomenclature déchets',
     value: (l) => l.flux.code_dechet_europeen ?? '',
   },
-  // Producteur au sens du modèle = le site où le déchet est produit.
+  // Producteur = le traiteur opérationnel (décision Val 2026-10-06) : la même
+  // entité que sur le bordereau, mais lue dans la vue (valeur courante), pas
+  // dans la valeur figée à l'émission du bordereau.
   {
     header: 'Identité du producteur de déchet',
-    value: (l) => l.row.lieu_nom ?? '',
+    value: (l) => l.row.traiteur_raison_sociale ?? '',
   },
+  // Seule colonne hors modèle, placée à côté du producteur à la demande de Val
+  // (2026-10-06) : sans elle, un gestionnaire de plusieurs sites ne les
+  // distingue plus dans le fichier.
+  { header: 'Lieu', value: (l) => l.row.lieu_nom ?? '' },
   {
     header: "Date d'expédition",
     value: (l) => formatDateFr(l.row.date_collecte),
@@ -207,13 +216,6 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
     () => EXUTOIRE_INTERMEDIAIRE,
   ),
   ...colonnesEtablissement('Exutoire final', exutoireFinal),
-  // Colonnes Savr, hors modèle. Le lieu et le n° de bordereau n'y figurent pas :
-  // ils sont déjà dans « Identité du producteur » et « Numéro de BSD ».
-  { header: 'Traiteur', value: (l) => l.row.traiteur_raison_sociale ?? '' },
-  {
-    header: 'Date événement',
-    value: (l) => formatDateFr(l.row.date_evenement),
-  },
 ];
 
 const rangFlux = (code: string): number =>

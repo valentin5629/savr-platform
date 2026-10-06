@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-export type StaffRole = 'admin_savr' | 'ops_savr';
-export type ClientRole =
-  | 'traiteur_commercial'
-  | 'traiteur_manager'
-  | 'agence'
-  | 'gestionnaire_lieux'
-  | 'client_organisateur';
+import {
+  isStaff as estRoleStaff,
+  type ClientRole,
+  type Role,
+  type StaffRole,
+} from '@/lib/roles';
 
-export type AnyRole = StaffRole | ClientRole;
+// Types de rôle : source unique `lib/roles.ts` (réexportés pour les routes API).
+export type { ClientRole, StaffRole };
+export type AnyRole = Role;
 
 export interface AuthContext {
   userId: string;
@@ -160,7 +161,7 @@ export async function requireStaff(
   }
 
   const role = claims.role;
-  if (role !== 'admin_savr' && role !== 'ops_savr') {
+  if (!estRoleStaff(role)) {
     return {
       error: NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 }),
     };
@@ -250,7 +251,7 @@ export async function requireAnyUser(
   const role = claims.role;
   const organisationId = claims.organisationId;
 
-  const isStaff = role === 'admin_savr' || role === 'ops_savr';
+  const isStaff = estRoleStaff(role);
   const isClient =
     role != null &&
     (
@@ -329,7 +330,7 @@ export async function requireProgrammateurOuAdmin(
   const role = claims.role;
   const organisationId = claims.organisationId;
 
-  const isAdmin = role === 'admin_savr' || role === 'ops_savr';
+  const isAdmin = estRoleStaff(role);
   const isProgrammateur = PROGRAMMATION_ROLES.includes(role as ClientRole);
 
   if (!isAdmin && !isProgrammateur) {

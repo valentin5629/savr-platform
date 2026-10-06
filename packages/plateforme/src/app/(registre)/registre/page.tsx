@@ -31,6 +31,8 @@ import {
   navigation,
 } from '@/lib/hooks/use-filtres-url';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
+import { FLUX_ZD_CODES, libelleFlux } from '@/lib/libelles/flux';
+import { ROUTES } from '@/lib/routes';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — vue liste : tableau chronologique des
@@ -38,20 +40,6 @@ import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 // exports CSV / ZIP, notice méthodologique. Cloisonnement porté par l'API/vue.
 // ---------------------------------------------------------------------------
 
-const FLUX_LABELS: Record<string, string> = {
-  biodechet: 'Biodéchets',
-  emballage: 'Emballages',
-  carton: 'Cartons',
-  verre: 'Verre',
-  dechet_residuel: 'Déchet résiduel',
-};
-const FLUX_ORDER = [
-  'biodechet',
-  'emballage',
-  'carton',
-  'verre',
-  'dechet_residuel',
-];
 const PAGE_SIZES = [25, 50, 100] as const;
 
 // Filtres du registre, miroir dans l'URL (R-UI-4a) : Lieu / Traiteur /
@@ -265,7 +253,7 @@ function RegistreContent() {
         <div className="flex flex-wrap gap-1">
           {(r.flux_codes ?? []).map((c) => (
             <Badge key={c} variant="neutral">
-              {FLUX_LABELS[c] ?? c}
+              {libelleFlux(c)}
             </Badge>
           ))}
         </div>
@@ -306,7 +294,7 @@ function RegistreContent() {
         actions={
           <>
             <Button variant="ghost" asChild>
-              <a href="/registre/methodologie">Méthodologie</a>
+              <a href={ROUTES.registreMethodologie}>Méthodologie</a>
             </Button>
             <Button
               variant="ghost"
@@ -374,9 +362,9 @@ function RegistreContent() {
         <FiltreCoches
           label="Flux"
           testid="registre-flux"
-          options={FLUX_ORDER.map((code) => ({
+          options={FLUX_ZD_CODES.map((code) => ({
             id: code,
-            nom: FLUX_LABELS[code] ?? code,
+            nom: libelleFlux(code),
           }))}
           selected={f.flux}
           onChange={(codes) => set({ flux: codes })}
@@ -408,7 +396,7 @@ function RegistreContent() {
           const cle = next[0]?.id as SortKey | undefined;
           if (cle) sort(cle);
         }}
-        onRowClick={(r) => router.push(`/registre/${r.collecte_id}`)}
+        onRowClick={(r) => router.push(ROUTES.registreCollecte(r.collecte_id))}
         rowLabel={(r) =>
           `Ouvrir la collecte du ${dateFr(r.date_evenement)}${r.lieu_nom ? ` — ${r.lieu_nom}` : ''}`
         }

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { ImpersonationBanner } from '@/components/ui/impersonation-banner';
+import { ROUTES } from '@/lib/routes';
 
 interface ImpersonationClaims {
   impersonator_id?: string;
@@ -39,7 +40,7 @@ export function ImpersonationBannerMount(): React.ReactElement | null {
     try {
       await fetch('/api/auth/exit-impersonation', { method: 'POST' });
     } finally {
-      window.location.href = '/login';
+      window.location.href = ROUTES.login;
     }
   }, []);
 

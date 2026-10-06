@@ -5,6 +5,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { groupesStatutClient } from '@/lib/statut-collecte-labels';
+import { LIBELLE_COURT_TYPE_ORGANISATION } from '@/lib/libelles/organisation';
 
 /** Organisation ayant programmé l'événement (§06.04 filtre « Programmée par »). */
 export interface ProgrammateurOption {
@@ -109,15 +110,8 @@ export function ecrireFiltresCollecte(
 
 // Libellé CDC « Agence : X » / « Gestionnaire : X » ; l'organisation de l'appelant
 // est déjà nommée « Mon organisation » par la route d'options (type null).
-const PREFIXE_TYPE: Record<string, string> = {
-  agence: 'Agence',
-  gestionnaire_lieux: 'Gestionnaire',
-  traiteur: 'Traiteur',
-  client_organisateur: 'Client',
-};
-
 function libelleProgrammateur(p: ProgrammateurOption): string {
-  const prefixe = p.type ? PREFIXE_TYPE[p.type] : null;
+  const prefixe = p.type ? LIBELLE_COURT_TYPE_ORGANISATION[p.type] : null;
   return prefixe ? `${prefixe} : ${p.nom}` : p.nom;
 }
 

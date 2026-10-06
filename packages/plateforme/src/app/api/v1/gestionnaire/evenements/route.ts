@@ -5,28 +5,13 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { statutEvenementConsolide } from '@/lib/libelles/evenement.js';
 import {
   lireTypesCollecte,
   passeTypesCollecte,
 } from '@/lib/evenements-type-collecte.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
-
-// Statut consolidé événement (décision F2 2026-06-07)
-function statutConsolide(
-  collectes: { statut: string }[],
-): 'En cours' | 'Terminé' | 'Annulé' {
-  if (collectes.length === 0) return 'En cours';
-  const tous = collectes.every((c) => c.statut === 'annulee');
-  if (tous) return 'Annulé';
-  const terminaux = new Set(['realisee', 'cloturee', 'annulee']);
-  const tousTerminaux = collectes.every((c) => terminaux.has(c.statut));
-  const auMoinsUnRealise = collectes.some(
-    (c) => c.statut === 'realisee' || c.statut === 'cloturee',
-  );
-  if (tousTerminaux && auMoinsUnRealise) return 'Terminé';
-  return 'En cours';
-}
 
 // GET /api/v1/gestionnaire/evenements
 // Liste agrégée par événement (1 ligne = 1 événement) — §06.05 §2.
@@ -118,7 +103,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       )
         return null;
 
-      const consolide = statutConsolide(collectes);
+      // Statut consolidé (décision F2 2026-06-07) : `lib/libelles/evenement`.
+      const consolide = statutEvenementConsolide(collectes);
       if (statutFiltres.length > 0 && !statutFiltres.includes(consolide))
         return null;
 

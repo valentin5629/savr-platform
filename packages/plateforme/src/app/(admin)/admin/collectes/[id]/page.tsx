@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { ROUTES } from '@/lib/routes';
 
 // La fiche collecte Admin s'affiche désormais dans un pop-up centré (modale)
 // sur la liste /admin/collectes (composant CollecteDetailModal). Cette route ne
@@ -11,5 +12,5 @@ export default async function CollecteDetailRedirect({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/admin/collectes?collecte=${encodeURIComponent(id)}`);
+  redirect(`${ROUTES.admin.collectes}?collecte=${encodeURIComponent(id)}`);
 }

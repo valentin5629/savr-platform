@@ -14,7 +14,7 @@ import {
   Send,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { StatusCollecte } from '@/components/ui/status-collecte';
 import type { StatutCollecte } from '@/components/ui/status-collecte';
 import {
@@ -32,6 +32,7 @@ import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
 import { fmtEuro, fmtKgAuto, fmtPct } from '@/lib/format';
 import { IconButton } from '@/components/ui/icon-button';
+import { ROUTES } from '@/lib/routes';
 
 // ── Type de ligne collecte de la liste Admin (§06.06 §3) ──────────────────────
 // Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
@@ -222,12 +223,12 @@ function IndicateursAVenir({ row }: { row: CollecteRow }) {
   const attribution = attributionBadge(row);
   const badges = [
     !row.informations_completes && (
-      <Badge key="info" variant="warning" className="text-[11px]">
+      <Badge size="sm" key="info" variant="warning">
         Info incomplète
       </Badge>
     ),
     row.type === 'anti_gaspi' && !aAttribuer(row) && (
-      <Badge key="attr" variant={attribution.variant} className="text-[11px]">
+      <Badge size="sm" key="attr" variant={attribution.variant}>
         {attribution.label}
       </Badge>
     ),
@@ -266,9 +267,13 @@ export function colonnesCollectesAdmin({
               {heure ? ` · ${heure}` : ''}
             </span>
             {estUrgente(r) && (
-              <span className="rounded-savr-full bg-savr-error px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-savr-white">
+              <Badge
+                variant="count"
+                size="sm"
+                className="uppercase tracking-wide"
+              >
                 Urgent
-              </span>
+              </Badge>
             )}
           </div>
         );
@@ -335,10 +340,7 @@ export function colonnesCollectesAdmin({
       cell: ({ row: { original: r } }) => {
         const tms = statutTmsDisplay(r.statut_tms);
         return (
-          <Badge
-            variant={tms.variant}
-            className="whitespace-nowrap text-[11px]"
-          >
+          <Badge size="sm" variant={tms.variant} className="whitespace-nowrap">
             {tms.label}
           </Badge>
         );
@@ -370,8 +372,8 @@ export function colonnesCollectesAdmin({
       cell: ({ row: { original: r } }) =>
         r.controle_acces_requis ? (
           <Badge
+            size="sm"
             variant="info"
-            className="text-[11px]"
             title="Plaque + nom chauffeur communiqués avant exécution"
           >
             Oui
@@ -459,7 +461,7 @@ function ActionsCollecte({
         </DropdownItem>
         {aAttribuer(row) && (
           <DropdownItem asChild>
-            <Link href={`/admin/attributions-ag/${row.id}`}>
+            <Link href={ROUTES.admin.attributionAg(row.id)}>
               <ArrowRight aria-hidden="true" />
               Attribuer
             </Link>

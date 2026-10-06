@@ -20,6 +20,11 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import {
+  libelleStatutFacture,
+  libelleTypeFacture,
+} from '@/lib/libelles/facture';
+import { libelleVerificationSiret } from '@/lib/libelles/organisation';
 import { tempsEcouleFr } from '@/lib/facturation/facture-ui';
 import { Heading } from '@/components/ui/heading';
 import { fmtMontant } from '@/lib/format';
@@ -28,6 +33,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ROUTES } from '@/lib/routes';
 
 interface Ligne {
   id: string;
@@ -74,21 +80,6 @@ interface FactureDetail {
   } | null;
   factures_collectes: Ligne[];
 }
-
-const STATUT_LABELS: Record<string, string> = {
-  brouillon: 'Brouillon',
-  en_attente_pennylane: 'En attente Pennylane',
-  emise: 'Émise',
-  payee: 'Payée',
-  annulee: 'Annulée',
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  zero_dechet: 'Zéro Déchet',
-  collecte_antigaspi: 'Anti-Gaspi',
-  achat_pack_antigaspi: 'Achat Pack AG',
-  avoir: 'Avoir',
-};
 
 export default function FactureDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -143,7 +134,7 @@ export default function FactureDetailPage() {
         avoir_id?: string;
       };
       if (action === 'avoir' && data.avoir_id) {
-        router.push(`/admin/factures/${data.avoir_id}`);
+        router.push(ROUTES.admin.facture(data.avoir_id));
       } else {
         load();
       }
@@ -280,7 +271,7 @@ export default function FactureDetailPage() {
       {dialogue}
       <div className="flex items-center gap-3">
         <Link
-          href="/admin/factures"
+          href={ROUTES.admin.factures}
           className="text-savr-neutral-500 hover:text-savr-neutral-700"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -288,9 +279,7 @@ export default function FactureDetailPage() {
         <Heading level={1} size="xl" weight="semibold" tone="inherit">
           {facture.numero_facture ?? '— brouillon (numéro à attribuer) —'}
         </Heading>
-        <Badge variant="neutral">
-          {STATUT_LABELS[facture.statut] ?? facture.statut}
-        </Badge>
+        <Badge variant="neutral">{libelleStatutFacture(facture.statut)}</Badge>
       </div>
 
       {error && (
@@ -356,7 +345,7 @@ export default function FactureDetailPage() {
           <div>
             <div className="text-savr-neutral-500">Type</div>
             <div className="font-medium">
-              {TYPE_LABELS[facture.type] ?? facture.type}
+              {libelleTypeFacture(facture.type)}
             </div>
           </div>
           <div>
@@ -375,7 +364,9 @@ export default function FactureDetailPage() {
           <div>
             <div className="text-savr-neutral-500">SIRET vérification</div>
             <div className="font-medium">
-              {facture.entites_facturation?.siret_verification ?? '—'}
+              {libelleVerificationSiret(
+                facture.entites_facturation?.siret_verification,
+              )}
             </div>
           </div>
           <FormField label="Date d’émission" htmlFor="facture-date-emission">

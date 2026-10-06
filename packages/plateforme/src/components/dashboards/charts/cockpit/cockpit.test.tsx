@@ -192,7 +192,7 @@ it('EvolutionZdChart — légende cliquable présente pour les 5 flux', () => {
   for (const l of [
     'Biodéchets',
     'Emballages',
-    'Cartons',
+    'Carton',
     'Verre',
     'Déchet résiduel',
   ]) {

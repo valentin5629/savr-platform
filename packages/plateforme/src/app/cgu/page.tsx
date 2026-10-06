@@ -15,6 +15,7 @@ import {
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
 
 export const metadata: Metadata = {
   title: "Conditions Générales d'Utilisation — Savr",
@@ -110,7 +111,7 @@ export default function CguPage() {
         </div>
 
         <div className="mt-10 border-t border-savr-neutral-200 pt-6">
-          <TextLink href="/signup" strong className="text-sm">
+          <TextLink href={ROUTES.signup} strong className="text-sm">
             Retour à la création de compte
           </TextLink>
         </div>

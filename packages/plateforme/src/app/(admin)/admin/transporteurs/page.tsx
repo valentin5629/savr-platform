@@ -9,6 +9,11 @@ import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
 import { compteurResultats } from '@/lib/compteur-resultats';
 import { Badge } from '@/components/ui/badge';
+import { ActifBadge } from '@/components/ui/actif-badge';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
+import { OPTIONS_FILTRE_ACTIF } from '@/lib/libelles/actif';
+import { VEHICULE_LABEL } from '@/lib/lieux-labels';
+import { LIBELLE_TYPE_TMS, libelleCourtTypeTms } from '@/lib/type-tms-labels';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { ListFooter } from '@/components/ui/list-footer';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -25,36 +30,12 @@ import {
   type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
-import type { Database } from '@savr/shared/src/database.types.js';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 
 // Ligne = enregistrement complet (l'API liste renvoie select('*')) → sert
 // directement à préremplir la modale d'édition, sans re-fetch.
 type Transporteur = TransporteurRecord;
-
-// Clés = enum DB type_tms complet (`satisfies`) : le filtre Type en tire ses
-// options, un renommage d'enum casse la compilation.
-const TYPE_TMS_LABELS: Record<string, string> = {
-  mts1: 'MTS-1',
-  a_toutes: 'A Toutes!',
-  autre: 'Autre',
-  par_mail: 'Par mail',
-  par_telephone: 'Par téléphone',
-} satisfies Record<Database['plateforme']['Enums']['type_tms'], string>;
-
-const TYPE_VEHICULE_LABELS: Record<string, string> = {
-  velo_cargo: 'Vélo cargo',
-  camionnette: 'Camionnette',
-  fourgon: 'Fourgon',
-  vul: 'VUL',
-  poids_lourd: 'Poids lourd',
-};
-
-const TYPE_COLLECTE_LABELS: Record<string, string> = {
-  anti_gaspi: 'AG',
-  zero_dechet: 'ZD',
-};
 
 // Filtres de la liste, miroir dans l'URL (R-UI-4a) : choix multiple, case
 // « Tous » = sélection vide (décision Val 2026-09-30), « Actifs » pré-coché.
@@ -151,7 +132,7 @@ export default function TransporteursPage() {
           {row.types_vehicules && row.types_vehicules.length > 0 ? (
             row.types_vehicules.map((v) => (
               <Badge key={v} variant="neutral" dot={false}>
-                {TYPE_VEHICULE_LABELS[v] ?? v}
+                {VEHICULE_LABEL[v] ?? v}
               </Badge>
             ))
           ) : (
@@ -166,7 +147,7 @@ export default function TransporteursPage() {
       header: 'Type TMS',
       render: (row) => (
         <Badge variant="neutral" dot={false}>
-          {TYPE_TMS_LABELS[row.type_tms] ?? row.type_tms}
+          {libelleCourtTypeTms(row.type_tms)}
         </Badge>
       ),
     },
@@ -177,13 +158,7 @@ export default function TransporteursPage() {
         <div className="flex flex-wrap gap-1">
           {row.types_collecte && row.types_collecte.length > 0 ? (
             row.types_collecte.map((t) => (
-              <Badge
-                key={t}
-                variant={t === 'anti_gaspi' ? 'action' : 'primary'}
-                dot={false}
-              >
-                {TYPE_COLLECTE_LABELS[t] ?? t}
-              </Badge>
+              <TypeCollecteBadge key={t} type={t} />
             ))
           ) : (
             <span className="text-savr-neutral-400">—</span>
@@ -195,12 +170,7 @@ export default function TransporteursPage() {
       key: 'actif',
       sortable: true,
       header: 'Actif',
-      render: (row) =>
-        row.actif ? (
-          <Badge variant="success">Actif</Badge>
-        ) : (
-          <Badge variant="neutral">Inactif</Badge>
-        ),
+      render: (row) => <ActifBadge actif={row.actif} />,
     },
     {
       key: 'actions',
@@ -250,7 +220,7 @@ export default function TransporteursPage() {
         <FiltreCoches
           label="Type"
           testid="transporteurs-type"
-          options={Object.entries(TYPE_TMS_LABELS).map(([id, nom]) => ({
+          options={Object.entries(LIBELLE_TYPE_TMS).map(([id, nom]) => ({
             id,
             nom,
           }))}
@@ -260,10 +230,7 @@ export default function TransporteursPage() {
         <FiltreCoches
           label="Statut"
           testid="transporteurs-statut"
-          options={[
-            { id: 'true', nom: 'Actifs' },
-            { id: 'false', nom: 'Inactifs' },
-          ]}
+          options={OPTIONS_FILTRE_ACTIF}
           selected={f.actif}
           onChange={(ids) => set({ actif: ids })}
         />

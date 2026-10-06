@@ -1,3 +1,4 @@
+import type { Database } from '@savr/shared/src/database.types.js';
 import type { BadgeProps } from '@/components/ui/badge';
 
 /**
@@ -10,17 +11,9 @@ import type { BadgeProps } from '@/components/ui/badge';
  *   « Réalisée » seulement à `cloturee` ; le rejet prestataire est masqué
  *   (affiché « Créée », sujet interne Ops).
  */
+/** Statut d'une collecte = enum DB `collecte_statut` (type unique, R-UI-2 C1). */
 export type StatutCollecteDb =
-  | 'brouillon'
-  | 'programmee'
-  | 'validee'
-  | 'en_cours'
-  | 'realisee'
-  | 'realisee_sans_collecte'
-  | 'cloturee'
-  | 'annulation_demandee'
-  | 'annulee'
-  | 'rejetee_par_prestataire';
+  Database['plateforme']['Enums']['collecte_statut'];
 
 export type VueStatut = 'admin' | 'client';
 
@@ -59,6 +52,45 @@ const CLIENT: Record<StatutCollecteDb, StatutDisplay> = {
   annulation_demandee: { label: 'Annulée', variant: 'error' },
   annulee: { label: 'Annulée', variant: 'error' },
   rejetee_par_prestataire: { label: 'Créée', variant: 'neutral' },
+};
+
+/**
+ * Libellés du statut collecte pour les exports CSV : vue admin (granularité
+ * complète), dérivés du mapping canonique ci-dessus (R-UI-2 C1).
+ */
+export const LIBELLE_STATUT_COLLECTE: Record<StatutCollecteDb, string> =
+  Object.fromEntries(
+    Object.entries(ADMIN).map(([statut, d]) => [statut, d.label]),
+  ) as Record<StatutCollecteDb, string>;
+
+/**
+ * Parcours nominal d'une collecte (machine à états §05) — étapes des frises et
+ * timelines admin : programmee → validee → en_cours → realisee → cloturee.
+ */
+export const ETAPES_STATUT_COLLECTE = [
+  'programmee',
+  'validee',
+  'en_cours',
+  'realisee',
+  'cloturee',
+] as const satisfies readonly StatutCollecteDb[];
+
+/**
+ * Rang de chaque statut sur le parcours nominal (1 = programmee … 5 = cloturee ;
+ * 0 = hors parcours : brouillon, annulation, rejet). `realisee_sans_collecte`
+ * (AG sans excédents) occupe le rang de `realisee`.
+ */
+export const RANG_STATUT_COLLECTE: Record<StatutCollecteDb, number> = {
+  brouillon: 0,
+  programmee: 1,
+  validee: 2,
+  en_cours: 3,
+  realisee: 4,
+  realisee_sans_collecte: 4,
+  cloturee: 5,
+  annulation_demandee: 0,
+  annulee: 0,
+  rejetee_par_prestataire: 0,
 };
 
 /**

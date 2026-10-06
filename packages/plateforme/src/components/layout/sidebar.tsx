@@ -4,13 +4,15 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { type Role, NAV_CONFIG } from '@/lib/nav-config';
+import { NAV_CONFIG } from '@/lib/nav-config';
+import type { NavRole } from '@/lib/roles';
 import { useLogoZd, isZdSectionPath } from '@/components/layout/logo-context';
 import { SavrLogoMark } from '@/components/layout/savr-logo';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface SidebarProps {
-  role: Role;
+  role: NavRole;
   collapsed?: boolean;
   onToggle?: () => void;
   /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack — §06.05 l.71). */
@@ -122,12 +124,13 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     </span>
                     {!collapsed && <span>{item.label}</span>}
                     {!collapsed && badgeCount > 0 && (
-                      <span
-                        className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-savr-error px-1.5 py-0.5 text-xs font-semibold text-savr-white"
+                      <Badge
+                        variant="count"
+                        className="ml-auto"
                         aria-label={`${badgeCount} alerte${badgeCount > 1 ? 's' : ''} ouverte${badgeCount > 1 ? 's' : ''}`}
                       >
                         {badgeCount > 99 ? '99+' : badgeCount}
-                      </span>
+                      </Badge>
                     )}
                   </Link>
                 );

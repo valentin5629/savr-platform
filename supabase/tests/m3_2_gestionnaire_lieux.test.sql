@@ -219,9 +219,10 @@ SELECT is(
 
 -- T3b–T3d : la liste Collectes du gestionnaire filtre sur des LISTES de lieux et
 -- de traiteurs (route gestionnaire/collectes, `lieu_ids` / `traiteur_ids`). Une
--- liste s'ajoute à la RLS col_select, elle ne la remplace pas : y nommer un lieu
--- d'un autre gestionnaire ne rend aucune de ses collectes. Même forme que la
--- requête de la route (collectes jointes à leur événement, filtre sur l'événement).
+-- liste s'ajoute à la RLS, elle ne la remplace pas : y nommer un lieu d'un autre
+-- gestionnaire ne rend aucune de ses collectes. Même forme que la requête de la
+-- route (collectes jointes à leur événement, filtre sur l'événement) : la borne
+-- mesurée est celle des DEUX tables jointes, pas de col_select isolée (T2, T3).
 
 -- T3b : lieu hors parc SEUL (GL Arena) → aucune ligne
 SELECT is(

@@ -95,8 +95,9 @@ type LigneBrute = Record<string, unknown> & {
 // `lib/filtre-csv` partagée avec les listes traiteur et agence. Les anciens
 // `lieu_id` / `traiteur_id` à valeur unique restent lus comme une liste d'un
 // élément. Ces listes ne font que RESTREINDRE : la requête part avec la session
-// de l'utilisateur, donc la RLS col_select borne toujours la lecture à son parc
-// — un identifiant d'un lieu qui n'est pas le sien ne rend aucune ligne.
+// de l'utilisateur, donc la RLS de `collectes` et de `evenements` borne toujours
+// la lecture à son parc — un identifiant d'un lieu qui n'est pas le sien ne rend
+// aucune ligne.
 //
 // Pagination SERVEUR (`count: 'exact'` + `range`), pattern §06.06 admin/lieux.
 // Décision Val 2026-09-22 : le §06.05 ne spécifie pas la taille de cette liste,

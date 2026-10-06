@@ -119,8 +119,8 @@ export interface OptionFiltre {
   court?: string;
   /**
    * Valeur cochée que la liste d'options ne proposait pas (lien reçu, option
-   * sortie de la liste). Sa présence dit que les options ne couvrent pas tout :
-   * les cocher toutes n'est alors plus « Tous ».
+   * sortie de la liste). Tant qu'elle est là, les options ne couvrent pas tout :
+   * les cocher toutes n'est pas « Tous ».
    */
   horsListe?: boolean;
 }
@@ -217,8 +217,13 @@ export function FiltreCoches({
       ? [...selected, id]
       : selected.filter((x) => x !== id);
     // Toutes les options cochées = « Tous » (mode par défaut seulement : un
-    // consommateur qui pilote `tous` garde sa sélection explicite).
-    onChange(!tous && toutesValentTous(options, suivants) ? [] : suivants);
+    // consommateur qui pilote `tous` garde sa sélection explicite). Une option
+    // hors liste que l'on décoche quitte la liste : on juge sur celles qui
+    // restent, sinon le déclencheur afficherait « Tous » sur un filtre gardé.
+    const restantes = options.filter(
+      (o) => !o.horsListe || suivants.includes(o.id),
+    );
+    onChange(!tous && toutesValentTous(restantes, suivants) ? [] : suivants);
   }
   return (
     <Popover onOpenChange={(o) => !o && setRecherche('')}>

@@ -332,8 +332,9 @@ function GestionnaireCollectesContent() {
   // Une valeur filtrée absente des options (traiteur hors de la fenêtre de
   // 24 mois, options pas encore ou jamais chargées) garde une entrée dans son
   // contrôle : sans elle, il n'aurait aucune case cochée sur une liste filtrée,
-  // et rien pour la décocher. `horsListe` : les options ne couvrent alors pas
-  // tout, donc les cocher toutes n'affiche pas « Tous » et n'efface pas le filtre.
+  // et rien pour la décocher. `horsListe` : tant qu'elle est cochée, les options
+  // ne couvrent pas tout, donc les cocher toutes n'affiche pas « Tous » et
+  // n'efface pas le filtre.
   const avecValeurs = (
     cle: CibleDrill['cle'],
     opts: OptionFiltre[],

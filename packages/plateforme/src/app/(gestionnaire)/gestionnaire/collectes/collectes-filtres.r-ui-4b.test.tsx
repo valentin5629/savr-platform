@@ -10,6 +10,7 @@ import {
   fireEvent,
   cleanup,
   act,
+  waitFor,
 } from '@testing-library/react';
 
 const { urlParams } = vi.hoisted(() => ({ urlParams: { current: '' } }));
@@ -46,6 +47,7 @@ const OPTIONS = {
   traiteurs: [
     { id: 'T1', nom: 'Kaspia Réceptions' },
     { id: 'T2', nom: 'Fleurdemets' },
+    { id: 'T3', nom: 'Butard Enescot' },
   ],
   types: [
     { id: 'ty-gala', libelle: 'Gala' },
@@ -229,6 +231,17 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
       const d = demande(urls[0]!);
       expect(d.get('lieu_ids')).toBe('L1,L2');
       expect(d.get('traiteur_ids')).toBe('T1,T2');
+      // Ce que la barre annonce = ce que la route reçoit.
+      await waitFor(
+        () =>
+          expect(screen.getByTestId('filtre-traiteur').textContent).toBe(
+            'Traiteur2 sélectionnés',
+          ),
+        ATTENTE_UI,
+      );
+      expect(screen.getByTestId('filtre-lieu').textContent).toBe(
+        'Lieu2 sélectionnés',
+      );
       await act(async () => {
         fireEvent.click(screen.getByTestId('filtre-lieu'));
       });

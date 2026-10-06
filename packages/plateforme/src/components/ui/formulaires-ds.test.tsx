@@ -390,6 +390,35 @@ describe('Filtres en ligne', () => {
     expect(screen.getByRole('checkbox', { name: 'Tous' })).not.toBeChecked();
   });
 
+  it('ds/filtre_coches_option_hors_liste_decochee_les_autres_valent_tous', () => {
+    // Toutes les options de la liste sont cochées, plus une valeur hors liste.
+    // La décocher la retire de la liste : il ne reste que des options toutes
+    // cochées, donc « Tous » — sélection vidée, pas un filtre gardé sous un
+    // déclencheur qui afficherait « Tous ».
+    const onChange = vi.fn();
+    render(
+      <FiltreCoches
+        label="Traiteur"
+        options={[
+          { id: 'a', nom: 'Alpha' },
+          { id: 'b', nom: 'Bravo' },
+          { id: 'z', nom: 'Ancien', horsListe: true },
+        ]}
+        selected={['z', 'a', 'b']}
+        onChange={onChange}
+        testid="traiteur"
+      />,
+    );
+    expect(screen.getByTestId('traiteur')).toHaveTextContent('3 sélectionnés');
+    fireEvent.click(screen.getByTestId('traiteur'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Ancien' }));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+    // Une option de la liste encore décochée : la sélection est gardée.
+    onChange.mockClear();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Bravo' }));
+    expect(onChange).toHaveBeenLastCalledWith(['z', 'a']);
+  });
+
   it('ds/filtre_coches_toutes_options_cochees_revient_a_tous', () => {
     const onChange = vi.fn();
     render(

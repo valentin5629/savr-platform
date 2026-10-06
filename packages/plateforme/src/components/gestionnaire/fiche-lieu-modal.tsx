@@ -29,7 +29,7 @@ import {
   HistoriqueCollectesTable,
   type HistoriqueCollecte,
 } from '@/components/collecte/historique-collectes-table';
-import { fmtKg } from '@/lib/format';
+import { fmtInt, fmtKg } from '@/lib/format';
 import { libelleFlux } from '@/lib/libelles/flux';
 import { LONGUEUR_MIN_DEMANDE } from '@/lib/lieux/demande-modification';
 import {
@@ -46,9 +46,9 @@ import {
 // Lecture seule : le référentiel lieux est tenu par l'Admin Savr (§04). Le pied
 // porte un seul bouton, « Demande de modification d'information », qui dépose
 // une alerte dans la file de l'Admin ; tant qu'une demande est ouverte pour ce
-// lieu — la sienne, celle d'un collègue ou d'une autre organisation qui voit
-// le lieu — le bouton est neutralisé, d'où une mention qui ne dit pas « votre
-// demande ».
+// lieu — la sienne ou celle d'un collègue — le bouton est neutralisé, d'où une
+// mention qui ne dit pas « votre demande ». Le bouton n'existe que pour un lieu
+// du parc de l'organisation ; hors parc, la fiche est en consultation.
 
 interface CollecteFiche extends HistoriqueCollecte {
   collecte_flux?: { poids_reel_kg?: number | null }[];
@@ -219,8 +219,7 @@ export function FicheLieuModal({
             ? {
                 variant: 'success',
                 title: 'Demande envoyée',
-                description:
-                  'L’équipe Savr a reçu votre demande et mettra la fiche à jour.',
+                description: 'L’équipe Savr a bien reçu votre demande.',
               }
             : {
                 variant: 'info',
@@ -370,7 +369,10 @@ export function FicheLieuModal({
                       level={3}
                     />
                     <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                      <InfoItem variant="overline" label="Adresse">
+                      <InfoItem
+                        variant="overline"
+                        label="Adresse accès livraison"
+                      >
                         {adresse}
                       </InfoItem>
                       <InfoItem variant="overline" label="Région">
@@ -380,7 +382,7 @@ export function FicheLieuModal({
                       </InfoItem>
                       <InfoItem variant="overline" label="Capacité">
                         {lieu.capacite_maximum != null
-                          ? `${lieu.capacite_maximum} pers.`
+                          ? `${fmtInt(lieu.capacite_maximum)} pers.`
                           : '—'}
                       </InfoItem>
                     </dl>

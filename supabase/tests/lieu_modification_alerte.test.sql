@@ -9,11 +9,14 @@
 --     une fois l'alerte résolue, une nouvelle demande en ouvre une nouvelle et
 --     l'historique est gardé ;
 --   · `alertes_admin` reste fermée au rôle gestionnaire_lieux (ni INSERT ni
---     SELECT direct) : la route est le seul chemin d'écriture.
+--     SELECT direct) : la route est le seul chemin d'écriture ;
+--   · la trace d'auteur de la route (`audit_log`, action
+--     `lieu_modification_demandee` sur `lieux`) est acceptée par la base sous
+--     service_role, tel que la route l'écrit.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(9);
+SELECT plan(10);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(
   p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid()
@@ -115,6 +118,21 @@ SELECT is(
   (SELECT count(*)::int FROM plateforme.alertes_admin),
   0,
   'LIEU_MODIF/lecture_directe_gestionnaire_vide — le gestionnaire ne lit aucune alerte en direct'
+);
+
+SELECT test_as_superuser();
+
+-- ─── Trace d'auteur écrite par la route (service_role) ───────────────────────
+-- Mêmes colonnes que l'INSERT de la route ; user_id NULL ici (pas de compte en
+-- fixture) — la route y met l'utilisateur de la session.
+SELECT set_config('role', 'service_role', true);
+
+SELECT lives_ok(
+  $$INSERT INTO plateforme.audit_log
+      (table_name, record_id, action, user_id, role, impersonator_id)
+    VALUES ('lieux', 'dd000000-0000-0000-0000-0000000000a1',
+            'lieu_modification_demandee', NULL, 'gestionnaire_lieux', NULL)$$,
+  'LIEU_MODIF/trace_audit_acceptee — la ligne d''audit de la demande est acceptée sous service_role'
 );
 
 SELECT test_as_superuser();

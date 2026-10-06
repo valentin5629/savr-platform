@@ -1,7 +1,7 @@
 'use client';
 
 import { ErrorState } from '@/components/ui/error-state';
-import { fmtKg } from '@/lib/format';
+import { fmtInt, fmtKg } from '@/lib/format';
 import { useCallback, useEffect, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { PageHero } from '@/components/ui/page-hero';
@@ -93,7 +93,9 @@ export default function GestionnaireLieuxPage() {
       key: 'capacite_maximum',
       header: 'Capacité',
       render: (l) =>
-        l.capacite_maximum != null ? `${l.capacite_maximum} pers.` : '—',
+        l.capacite_maximum != null
+          ? `${fmtInt(l.capacite_maximum)} pers.`
+          : '—',
     },
     {
       key: 'nb_collectes_12m',

@@ -192,7 +192,9 @@ describe('M3.2 / fiche lieu en pop-up', () => {
       expect(f.queryByText('Oui')).toBeNull();
       expect(f.getByText('Biodéchets')).toBeTruthy();
       expect(f.getByText('Déchet résiduel')).toBeTruthy();
-      expect(f.getByText('3500 pers.')).toBeTruthy();
+      expect(f.getByText(/^3\s500 pers\.$/)).toBeTruthy();
+      // Libellé du CDC (§06.05 §3) pour l'adresse.
+      expect(f.getByText('Adresse accès livraison')).toBeTruthy();
       expect(f.getByText('Badge à retirer au PC sécurité')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
@@ -298,6 +300,12 @@ describe('M3.2 / fiche lieu en pop-up', () => {
         null,
       );
       expect(f.getByRole('button', { name: BOUTON })).toBeEnabled();
+      // Les seuls boutons de la fiche : fermer, et la demande.
+      expect(
+        f
+          .getAllByRole('button')
+          .map((b) => b.getAttribute('aria-label') ?? b.textContent),
+      ).toEqual(['Fermer', BOUTON]);
     },
     ATTENTE_CAS_MS,
   );

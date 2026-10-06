@@ -17,8 +17,7 @@ export interface FicheCollecteMeta {
 // shell `FicheModal` des fiches Admin (décision Val 2026-10-01, R-UI-5 G3) : le
 // panneau fournit le grand en-tête, la barre d'onglets, le corps défilant et le
 // pied ; hauteur fixe dès md (la modale ne bouge pas d'un onglet à l'autre).
-// Plus de cadre coloré : le
-// type est porté par le badge de l'en-tête. Le titre accessible (réservé aux
+// Plus de cadre coloré : le type est porté par le badge de l'en-tête. Le titre accessible (réservé aux
 // lecteurs d'écran) est remonté par le panneau une fois la collecte chargée.
 // Garde Escape : le panneau passe `blockCloseRef` à `true` quand une de ses
 // sous-modales est ouverte. La modale externe ET la sous-modale écoutent toutes

@@ -154,7 +154,7 @@ export default function RegistreDetailPage({
             {data.evenement.nom ?? '—'}
           </InfoItem>
           <InfoItem variant="caps" label="Date">
-            {dateFr(data.evenement.date) ?? '—'}
+            {dateFr(data.evenement.date)}
           </InfoItem>
           <InfoItem variant="caps" label="Horaire">
             {data.evenement.heure?.slice(0, 5) ?? '—'}
@@ -199,7 +199,7 @@ export default function RegistreDetailPage({
           <InfoItem variant="caps" label="Adresse">
             {[data.lieu.adresse, data.lieu.code_postal, data.lieu.ville]
               .filter(Boolean)
-              .join(' ') ?? '—'}
+              .join(' ')}
           </InfoItem>
         </dl>
       </Card>

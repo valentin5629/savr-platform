@@ -1,7 +1,9 @@
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
 import { Section } from './common-6b';
+import SignupPage from '@/app/signup/page';
 import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/ui/form-field';
 import { Building2 } from 'lucide-react';
 import { BlocHeader, InfoItem } from '@/components/collecte/fiche-blocs';
 
@@ -47,21 +49,16 @@ function App() {
       </Section>
       <Section
         id="radio-erreurs"
-        title="Radio, case et erreur de champ (F2, F6)"
+        title="Signup : choix du profil (F2) — page réelle"
       >
-        <div className="space-y-4 rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
-          <fieldset>
-            <legend className="mb-1 text-sm font-medium">Vous êtes</legend>
-            <div className="flex gap-6 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="radio" name="r" defaultChecked /> Traiteur
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="radio" name="r" /> Gestionnaire de lieux
-              </label>
-            </div>
-          </fieldset>
-          <p className="text-sm text-savr-error">
+        <SignupPage />
+      </Section>
+      <Section
+        id="erreur-champ"
+        title="Erreur de champ (F6) — recette de logo-upload.tsx:93 sur main"
+      >
+        <div className="rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
+          <p className="text-xs text-savr-error-strong">
             Le logo doit faire moins de 2 Mo.
           </p>
         </div>
@@ -72,22 +69,17 @@ function App() {
         className="bg-savr-neutral-50 p-4"
       >
         <div className="mb-3 text-xs font-bold uppercase tracking-wide text-savr-neutral-500">
-          Modale lieu sous 640 px (F3)
+          Édition de collecte sous 640 px (F3) — JSX de
+          editer-collecte-form.tsx:237 sur main
         </div>
         <div className="rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="m1" className="mb-1 block text-sm font-medium">
-                Nom du lieu *
-              </label>
-              <Input id="m1" defaultValue="Pavillon Gabriel" />
-            </div>
-            <div>
-              <label htmlFor="m2" className="mb-1 block text-sm font-medium">
-                Ville
-              </label>
-              <Input id="m2" defaultValue="Paris" />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Nombre de convives (pax)" htmlFor="edit-evt-pax">
+              <Input id="edit-evt-pax" type="number" defaultValue="120" />
+            </FormField>
+            <FormField label="Client final" htmlFor="edit-evt-client">
+              <Input id="edit-evt-client" defaultValue="Fondation X" />
+            </FormField>
           </div>
         </div>
       </section>

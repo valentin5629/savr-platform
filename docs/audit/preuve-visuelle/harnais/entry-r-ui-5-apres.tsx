@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
 import { Section } from './common-6b';
+import SignupPage from '@/app/signup/page';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
@@ -9,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { SectionHeader } from '@/components/ui/section-header';
 import { InfoItem } from '@/components/ui/info-item';
 import { Building2 } from 'lucide-react';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { FormError } from '@/components/ui/form-error';
 
 // R-UI-5 « après » : mêmes sections, primitives du DS.
@@ -48,25 +48,12 @@ function App() {
       </Section>
       <Section
         id="radio-erreurs"
-        title="Radio, case et erreur de champ (F2, F6)"
+        title="Signup : choix du profil (F2) — page réelle"
       >
-        <div className="space-y-4 rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
-          <RadioGroup value="traiteur" legend="Vous êtes">
-            <div className="flex gap-6">
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="r1" value="traiteur" />
-                <Label htmlFor="r1" variant="choice">
-                  Traiteur
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="r2" value="lieu" />
-                <Label htmlFor="r2" variant="choice">
-                  Gestionnaire de lieux
-                </Label>
-              </div>
-            </div>
-          </RadioGroup>
+        <SignupPage />
+      </Section>
+      <Section id="erreur-champ" title="Erreur de champ (F6) — FormError">
+        <div className="rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
           <FormError>Le logo doit faire moins de 2 Mo.</FormError>
         </div>
       </Section>
@@ -76,15 +63,15 @@ function App() {
         className="bg-savr-neutral-50 p-4"
       >
         <div className="mb-3 text-xs font-bold uppercase tracking-wide text-savr-neutral-500">
-          Modale lieu sous 640 px (F3)
+          Édition de collecte sous 640 px (F3) — FormGrid
         </div>
         <div className="rounded-savr-xl border border-savr-neutral-200 bg-savr-white p-4">
           <FormGrid cols={2}>
-            <FormField label="Nom du lieu" htmlFor="m1" required>
-              <Input id="m1" defaultValue="Pavillon Gabriel" />
+            <FormField label="Nombre de convives (pax)" htmlFor="edit-evt-pax">
+              <Input id="edit-evt-pax" type="number" defaultValue="120" />
             </FormField>
-            <FormField label="Ville" htmlFor="m2">
-              <Input id="m2" defaultValue="Paris" />
+            <FormField label="Client final" htmlFor="edit-evt-client">
+              <Input id="edit-evt-client" defaultValue="Fondation X" />
             </FormField>
           </FormGrid>
         </div>

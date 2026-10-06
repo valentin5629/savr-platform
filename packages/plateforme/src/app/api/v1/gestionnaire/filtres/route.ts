@@ -4,7 +4,11 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { loadFiltresParcGestionnaire } from '@/lib/dashboards/loaders.js';
+import {
+  loadFiltresParcGestionnaire,
+  LoaderError,
+  type FiltresParcGestionnaire,
+} from '@/lib/dashboards/loaders.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -23,8 +27,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createSupabaseServerClient();
 
-  const { sansLieu, lieux, traiteurs } =
-    await loadFiltresParcGestionnaire(supabase);
+  let parc: FiltresParcGestionnaire;
+  try {
+    parc = await loadFiltresParcGestionnaire(supabase);
+  } catch (e) {
+    // Lecture en échec : 500 au libellé neutre (l'erreur réelle est déjà
+    // journalisée par le loader), jamais des listes vides qui se liraient
+    // « aucun lieu rattaché ».
+    if (e instanceof LoaderError)
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    throw e;
+  }
+  const { sansLieu, lieux, traiteurs } = parc;
   if (sansLieu) {
     return NextResponse.json({
       data: { lieux: [], traiteurs: [], types: [] },

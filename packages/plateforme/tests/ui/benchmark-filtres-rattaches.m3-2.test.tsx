@@ -14,6 +14,18 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 import { BenchmarkFilterBar } from '@/components/dashboards/BenchmarkFilterBar';
+import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal.js';
+import {
+  ficheClient,
+  stubFetchFiche,
+} from '@/test-utils/fiche-collecte-client';
+import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/gestionnaire/collectes',
+}));
 
 const LIEUX = [
   { id: 'l1', nom: 'CNIT Forest' },
@@ -26,12 +38,7 @@ const TRAITEURS = [
 ];
 const TYPES = [{ id: 'ty1', libelle: 'Gala' }];
 
-const rattachees = {
-  lieux: LIEUX,
-  traiteurs: TRAITEURS,
-  types: TYPES,
-  perimetre: 'rattache' as const,
-};
+const rattachees = { lieux: LIEUX, traiteurs: TRAITEURS, types: TYPES };
 
 async function ouvrir(testid: string, liste: string) {
   fireEvent.click(screen.getByTestId(testid));
@@ -48,7 +55,11 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
     async () => {
       const onChange = vi.fn();
       render(
-        <BenchmarkFilterBar onChange={onChange} initialOptions={rattachees} />,
+        <BenchmarkFilterBar
+          perimetre="rattache"
+          onChange={onChange}
+          initialOptions={rattachees}
+        />,
       );
       // Sans sélection : les deux déclencheurs annoncent tout le parc, pas « Tous ».
       expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
@@ -91,7 +102,11 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
     async () => {
       const onChange = vi.fn();
       render(
-        <BenchmarkFilterBar onChange={onChange} initialOptions={rattachees} />,
+        <BenchmarkFilterBar
+          perimetre="rattache"
+          onChange={onChange}
+          initialOptions={rattachees}
+        />,
       );
       const lieux = await ouvrir('benchmark-filter-lieux', 'Lieux');
       for (const l of LIEUX)
@@ -137,28 +152,90 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
   );
 
   it(
-    'M3.2/GEST04_encart_perimetre_lu_du_serveur — sans options pré-chargées, le libellé suit le `perimetre` rendu par /filtres',
+    'M3.2/GEST04_encart_etat_mixte_lieu_coche_traiteurs_parc — un lieu coché laisse « Traiteurs Tout le parc Savr » : les deux listes sont indépendantes',
     async () => {
-      const fetchMock = vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ data: rattachees }),
-      }));
+      const onChange = vi.fn();
+      render(
+        <BenchmarkFilterBar
+          perimetre="rattache"
+          onChange={onChange}
+          initialOptions={rattachees}
+        />,
+      );
+      const lieux = await ouvrir('benchmark-filter-lieux', 'Lieux');
+      fireEvent.click(lieux.getByRole('checkbox', { name: 'CNIT Forest' }));
+      expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
+        'Lieux' + 'CNIT Forest',
+      );
+      expect(
+        screen.getByTestId('benchmark-filter-traiteurs'),
+      ).toHaveTextContent('Traiteurs' + 'Tout le parc Savr');
+      expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
+        lieu_ids: ['l1'],
+        traiteur_ids: [],
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/GEST04_encart_libelle_des_le_premier_rendu — « Tout le parc Savr » s’affiche avant la réponse de /filtres, jamais « Tous » entre-temps',
+    async () => {
+      // Réponse jamais rendue : on observe l'écran pendant le chargement.
+      const fetchMock = vi.fn(() => new Promise<never>(() => undefined));
       vi.stubGlobal('fetch', fetchMock);
-      render(<BenchmarkFilterBar onChange={vi.fn()} />);
+      render(<BenchmarkFilterBar perimetre="rattache" onChange={vi.fn()} />);
       expect(fetchMock).toHaveBeenCalledWith(
         '/api/v1/dashboards/benchmark/filtres',
       );
-      const lieux = await ouvrir('benchmark-filter-lieux', 'Lieux');
-      expect(
-        await lieux.findByRole(
-          'checkbox',
-          { name: 'Tout le parc Savr' },
-          ATTENTE_UI,
-        ),
-      ).toBeChecked();
-      expect(
-        lieux.getByRole('checkbox', { name: 'Espace Champerret' }),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
+        'Lieux' + 'Tout le parc Savr',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// Fiche collecte : même barre, montée par un composant partagé entre espaces.
+const ZD_CLOTUREE = {
+  statut: 'cloturee',
+  taux_recyclage: 78.4,
+  co2_net_kg: 312,
+  bilan_flux: { biodechet: 420, emballage: 180 },
+  actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+} as const;
+
+async function libelleLieuxDeLaFiche(espace: EspaceClient): Promise<string> {
+  stubFetchFiche(ficheClient(ZD_CLOTUREE));
+  render(
+    <FicheCollecteClientModal
+      espace={espace}
+      collecteId="c1"
+      onClose={() => undefined}
+    />,
+  );
+  fireEvent.mouseDown(
+    await screen.findByRole('tab', { name: 'Bilan & documents' }, ATTENTE_UI),
+  );
+  const bloc = await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
+  return within(bloc).getByTestId('benchmark-filter-lieux').textContent ?? '';
+}
+
+describe('M3.2 / fiche collecte — filtre Lieux du repère selon l’espace', () => {
+  it(
+    'M3.2/fiche_benchmark_lieux_tout_le_parc_gestionnaire — espace gestionnaire : « Tout le parc Savr »',
+    async () => {
+      expect(await libelleLieuxDeLaFiche('gestionnaire')).toBe(
+        'Lieux' + 'Tout le parc Savr',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/fiche_benchmark_lieux_tous_traiteur — espace traiteur : « Tous » (liste du parc entier, inchangée)',
+    async () => {
+      expect(await libelleLieuxDeLaFiche('traiteur')).toBe('Lieux' + 'Tous');
     },
     ATTENTE_CAS_MS,
   );

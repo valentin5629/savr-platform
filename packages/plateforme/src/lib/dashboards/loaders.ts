@@ -1259,8 +1259,16 @@ export async function loadBenchmark(
 
   const { data, error } = await supabase.rpc('f_benchmark_kg_pax_zd', args);
   // Garde de périmètre de la fonction (SQLSTATE 42501) : un gestionnaire a nommé
-  // un lieu non rattaché ou un traiteur non intervenu sur ses lieux.
-  if (error && ctx.role === 'gestionnaire_lieux' && error.code === '42501')
+  // un lieu non rattaché ou un traiteur non intervenu sur ses lieux. Sans lieu
+  // ni traiteur nommé, un 42501 est autre chose (droit d'exécution retiré) : il
+  // reste une erreur serveur journalisée.
+  const nomme = Boolean(lieuIds?.length || traiteurIds?.length);
+  if (
+    error &&
+    nomme &&
+    ctx.role === 'gestionnaire_lieux' &&
+    error.code === '42501'
+  )
     throw new LoaderError(ERREUR_FILTRE_HORS_PERIMETRE, 403);
   if (error) throw loaderDbError(error, 'dashboards.benchmark');
   return data ?? [];
@@ -1270,12 +1278,6 @@ export interface BenchmarkFiltresResult {
   lieux: unknown[];
   traiteurs: unknown[];
   types: unknown[];
-  /**
-   * Ce que couvrent les listes Lieux / Traiteurs : 'parc' = tout le parc Savr,
-   * 'rattache' = le seul périmètre de l'appelant (gestionnaire de lieux). Dans
-   * les deux cas, une sélection vide compare à tout le parc.
-   */
-  perimetre: 'parc' | 'rattache';
 }
 
 export interface FiltresParcGestionnaire {
@@ -1286,35 +1288,39 @@ export interface FiltresParcGestionnaire {
 }
 
 /**
- * Lieux et traiteurs qu'un gestionnaire peut nommer dans un filtre (§06.05 §1
- * l.99-107) — source UNIQUE du filtre global du dashboard et de l'encart
- * benchmark (décision Val 2026-10-06 : mêmes listes) :
+ * Lieux et traiteurs qu'un gestionnaire peut nommer dans un filtre (§06.05
+ * « Barre de filtres globale ») — source UNIQUE du filtre global du dashboard
+ * et de l'encart benchmark (décision Val 2026-10-06 : mêmes listes) :
  *  - Lieux    : lieux rattachés à l'organisation (organisations_lieux) ;
  *  - Traiteurs: traiteurs intervenus sur ≥ 1 collecte sur ces lieux (24 derniers mois).
  * Lu sous la session de l'appelant (RLS) ; sans lieu rattaché, deux listes vides.
+ * Une lecture en échec lève : une liste vide se lirait « aucun lieu rattaché ».
  */
 export async function loadFiltresParcGestionnaire(
   supabase: DbClient,
 ): Promise<FiltresParcGestionnaire> {
-  const { data: orgLieux } = await supabase
+  const EVENEMENT = 'gestionnaire.filtres_parc';
+  const { data: orgLieux, error: erreurRattachements } = await supabase
     .from('organisations_lieux')
     .select('lieu_id');
+  if (erreurRattachements) throw loaderDbError(erreurRattachements, EVENEMENT);
   const lieuIds = (orgLieux ?? []).map((r) => r.lieu_id as string);
   if (lieuIds.length === 0) return { sansLieu: true, lieux: [], traiteurs: [] };
 
   // Lieux du périmètre (v_lieux_clients = whitelist, masque les champs sensibles).
-  const { data: lieuxRows } = await supabase
+  const { data: lieuxRows, error: erreurLieux } = await supabase
     .from('v_lieux_clients')
     .select('id, nom')
     .in('id', lieuIds)
     .order('nom', { ascending: true });
+  if (erreurLieux) throw loaderDbError(erreurLieux, EVENEMENT);
 
   // Traiteurs intervenus (fenêtre 24 mois, cohérente avec la liste Traiteurs §06.05 §5).
   const since24m = new Date();
   since24m.setMonth(since24m.getMonth() - 24);
   const since24mStr = jourParis(since24m);
 
-  const { data: collectes } = await supabase
+  const { data: collectes, error: erreurCollectes } = await supabase
     .from('collectes')
     .select(
       `id,
@@ -1323,6 +1329,7 @@ export async function loadFiltresParcGestionnaire(
     )
     .in('evenements.lieu_id', lieuIds)
     .gte('date_collecte', since24mStr);
+  if (erreurCollectes) throw loaderDbError(erreurCollectes, EVENEMENT);
 
   const traiteurMap = new Map<string, string>();
   for (const c of collectes ?? []) {
@@ -1348,10 +1355,10 @@ export async function loadFiltresParcGestionnaire(
 /**
  * Options des multi-selects de l'encart « Filtres benchmark ». ⚠ Contrat
  * identique à `GET /api/v1/dashboards/benchmark/filtres` (payload sous `data`).
- * Traiteur/agence : lieux du parc, pas de liste traiteurs (préservation
- * compétitive) → 4 dims. Gestionnaire : ses lieux rattachés et les traiteurs
- * intervenus sur ses lieux, rien du reste du parc (décision Val 2026-10-06) —
- * les deux fonctions de liste « parc » lui sont fermées en base.
+ * Gestionnaire : ses lieux rattachés et les traiteurs intervenus sur ses lieux,
+ * rien du reste du parc (décision Val 2026-10-06) — les deux fonctions de
+ * liste « parc » lui sont fermées en base. Traiteur / agence : lieux du parc,
+ * jamais de liste traiteurs (préservation compétitive) → 4 dims.
  */
 export async function loadBenchmarkFiltres(
   supabase: DbClient,
@@ -1374,32 +1381,22 @@ export async function loadBenchmarkFiltres(
       lieux: parc.lieux,
       traiteurs: parc.traiteurs,
       types: typesRes.data ?? [],
-      perimetre: 'rattache',
     };
   }
 
-  const isTraiteur =
-    ctx.role === 'traiteur_manager' ||
-    ctx.role === 'traiteur_commercial' ||
-    ctx.role === 'agence';
-
-  const [lieux, traiteurs, typesRes] = await Promise.all([
+  const [lieux, typesRes] = await Promise.all([
     supabase.rpc('f_benchmark_lieux_parc'),
-    isTraiteur
-      ? Promise.resolve({ data: [], error: null })
-      : supabase.rpc('f_benchmark_traiteurs_parc'),
     types,
   ]);
 
-  const firstError = lieux.error ?? traiteurs.error ?? typesRes.error;
+  const firstError = lieux.error ?? typesRes.error;
   if (firstError)
     throw loaderDbError(firstError, 'dashboards.benchmark_filtres');
 
   return {
     lieux: lieux.data ?? [],
-    traiteurs: traiteurs.data ?? [],
+    traiteurs: [],
     types: typesRes.data ?? [],
-    perimetre: 'parc',
   };
 }
 

@@ -414,6 +414,9 @@ export function OngletBilan({
                   filtersSlot={
                     <BenchmarkFilterBar
                       masquerTraiteurs
+                      perimetre={
+                        espace === 'gestionnaire' ? 'rattache' : 'parc'
+                      }
                       onChange={setBenchFilters}
                       initialTypeEvenementIds={
                         c.evenement?.type_evenement_id

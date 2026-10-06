@@ -105,14 +105,17 @@
     "M3.2/GEST04_encart_filtres_present",
     "M3.2/GEST04_encart_choix_taille",
     "M3.2/GEST04_filtres_gestionnaire_listes_rattachees",
+    "M3.2/GEST04_filtres_gestionnaire_lecture_en_echec_500",
     "M3.2/GEST04_filtres_traiteur_sans_liste_traiteurs",
     "M3.2/GEST04_route_forward_7_params",
     "M3.2/GEST04_route_gestionnaire_hors_perimetre_403",
+    "M3.2/GEST04_route_gestionnaire_42501_sans_filtre_500",
     "M3.2/GEST04_route_traiteur_lieu_filter_403",
     "M3.2/GEST04_encart_tout_le_parc_savr",
     "M3.2/GEST04_encart_tous_mes_lieux_coches",
     "M3.2/GEST04_encart_listes_parc_tous_inchange",
-    "M3.2/GEST04_encart_perimetre_lu_du_serveur",
+    "M3.2/GEST04_encart_etat_mixte_lieu_coche_traiteurs_parc",
+    "M3.2/GEST04_encart_libelle_des_le_premier_rendu",
     "M3.2/GEST04_dashboard_kg_pax_par_flux",
     "M3.2/P2_filtres_options_parc",
     "M3.2/P2_filtres_vide_si_aucun_perimetre",
@@ -200,6 +203,8 @@
     "M3.2/fiche_benchmark_tiers_masque",
     "M3.2/fiche_benchmark_hors_perimetre_404",
     "M3.2/fiche_benchmark_filtre_hors_perimetre_403",
+    "M3.2/fiche_benchmark_lieux_tout_le_parc_gestionnaire",
+    "M3.2/fiche_benchmark_lieux_tous_traiteur",
     "M3.2/urgence_gestionnaire_ok",
     "M3.2/fiche_popup_gestionnaire_sans_annulation",
     "M3.2/fiche_popup_gestionnaire_radar_masque_tiers",
@@ -851,9 +856,9 @@
       "id": "M3.2-benchmark-filtres-gestionnaire-rattaches",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:167",
       "artefact": "supabase/migrations/20261006220000_plateforme_benchmark_filtres_gestionnaire_rattaches.sql",
-      "test": "M3.2/GEST04_filtres_gestionnaire_listes_rattachees + M3.2/GEST04_route_gestionnaire_hors_perimetre_403 + M3.2/fiche_benchmark_filtre_hors_perimetre_403 + M3.2/GEST04_encart_tout_le_parc_savr + M3.2/GEST04_encart_tous_mes_lieux_coches + M3.2/GEST04_encart_listes_parc_tous_inchange + M3.2/GEST04_encart_perimetre_lu_du_serveur + supabase/tests/benchmark_filtres_gestionnaire_rattaches.test.sql",
+      "test": "M3.2/GEST04_filtres_gestionnaire_listes_rattachees + M3.2/GEST04_filtres_gestionnaire_lecture_en_echec_500 + M3.2/GEST04_route_gestionnaire_hors_perimetre_403 + M3.2/GEST04_route_gestionnaire_42501_sans_filtre_500 + M3.2/fiche_benchmark_filtre_hors_perimetre_403 + M3.2/GEST04_encart_tout_le_parc_savr + M3.2/GEST04_encart_tous_mes_lieux_coches + M3.2/GEST04_encart_listes_parc_tous_inchange + M3.2/GEST04_encart_etat_mixte_lieu_coche_traiteurs_parc + M3.2/GEST04_encart_libelle_des_le_premier_rendu + M3.2/fiche_benchmark_lieux_tout_le_parc_gestionnaire + M3.2/fiche_benchmark_lieux_tous_traiteur + supabase/tests/benchmark_filtres_gestionnaire_rattaches.test.sql",
       "statut": "implemented",
-      "libelle": "Filtres Lieux / Traiteurs du benchmark bornés au périmètre du gestionnaire (décision Val 2026-10-06, contraire au CDC l.167-168 « tous les lieux / traiteurs du parc » — _Divergences/M3.2_20261006_benchmark-filtres-lieux-traiteurs-rattaches.md). (1) Options : lieux rattachés (organisations_lieux) et traiteurs intervenus sur ces lieux depuis 24 mois, par loadFiltresParcGestionnaire — la même fonction sert le filtre global du dashboard, donc mêmes listes ; la réponse de /api/v1/dashboards/benchmark/filtres porte perimetre = 'rattache'. (2) Écran : case de tête « Tout le parc Savr » cochée par défaut (sélection vide = repère sur tout le parc), décochée dès qu'un lieu ou un traiteur est coché ; cocher toutes les lignes reste une sélection explicite (FiltreCoches listePartielle), sans quoi « mes trois sites » basculait en silence sur tout le parc. Dashboard ET fiche collecte du gestionnaire (même barre, même route). (3) Base : f_benchmark_lieux_parc et f_benchmark_traiteurs_parc refusent le rôle gestionnaire_lieux ; f_benchmark_kg_pax_zd refuse (SQLSTATE 42501) un lieu non rattaché ou un traiteur non intervenu sur ses lieux (borne = f_traiteur_intervenu_lieux_gestionnaire, celle de v_traiteurs_gestionnaire ; la fenêtre de 24 mois est une borne d'affichage, pas de la garde), relayé en 403 par loadBenchmark. Rôles traiteur, agence et staff inchangés. Mesuré sur base rejouée : 25/25 avec la migration, 10 cas rouges sans elle."
+      "libelle": "Filtres Lieux / Traiteurs du benchmark bornés au périmètre du gestionnaire (décision Val 2026-10-06, contraire au CDC l.167-168 « tous les lieux / traiteurs du parc » — _Divergences/M3.2_20261006_benchmark-filtres-lieux-traiteurs-rattaches.md). (1) Options : lieux rattachés (organisations_lieux) et traiteurs intervenus sur ces lieux depuis 24 mois, par loadFiltresParcGestionnaire — la même fonction sert le filtre global du dashboard, donc mêmes listes ; une lecture en échec rend 500 sur les deux routes, jamais des listes vides. (2) Écran : BenchmarkFilterBar perimetre=\"rattache\", posé par le dashboard gestionnaire et par la fiche collecte de l'espace gestionnaire (libellé juste dès le premier rendu) — dans Lieux et dans Traiteurs, case de tête « Tout le parc Savr » cochée par défaut (sélection vide = repère sur tout le parc), décochée dès qu'une ligne de CETTE liste est cochée (les deux listes sont indépendantes) ; cocher toutes les lignes reste une sélection explicite (FiltreCoches listePartielle), sans quoi « mes trois sites » basculait en silence sur tout le parc. (3) Base : f_benchmark_lieux_parc et f_benchmark_traiteurs_parc refusent le rôle gestionnaire_lieux ; f_benchmark_kg_pax_zd refuse (SQLSTATE 42501) un lieu non rattaché ou un traiteur non intervenu sur ses lieux (borne = f_traiteur_intervenu_lieux_gestionnaire, celle de v_traiteurs_gestionnaire ; la fenêtre de 24 mois est une borne d'affichage, pas de la garde), relayé en 403 par loadBenchmark quand un lieu ou un traiteur est nommé. Rôles traiteur, agence et staff inchangés."
     },
     {
       "id": "M3.2-benchmark-filtres-tout-le-parc-rendu-visuel",
@@ -861,7 +866,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu de la barre « Comparer avec » du dashboard gestionnaire (Bloc 3 ZD), desktop ET mobile < 640 px : déclencheurs « Lieux Tout le parc Savr » et « Traiteurs Tout le parc Savr » sans sélection, liste ouverte avec la case de tête « Tout le parc Savr » et les seuls lieux rattachés, libellé du déclencheur après sélection (nom unique, « n sélectionnés »), retour à la ligne de la barre. GO visuel de Val attendu."
+      "libelle": "Rendu de la barre « Comparer avec » du dashboard gestionnaire (Bloc 3 ZD), desktop ET mobile < 640 px : déclencheurs « Lieux Tout le parc Savr » et « Traiteurs Tout le parc Savr » sans sélection, liste ouverte avec la case de tête « Tout le parc Savr » et les seuls lieux rattachés, libellé du déclencheur après sélection (nom unique, « n sélectionnés »), état mixte (un lieu coché, « Traiteurs Tout le parc Savr » à côté), retour à la ligne de la barre. GO visuel de Val attendu."
     }
   ],
   "cdc_source_hash": {

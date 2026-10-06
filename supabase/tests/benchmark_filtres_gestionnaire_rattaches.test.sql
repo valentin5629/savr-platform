@@ -216,7 +216,7 @@ SELECT throws_ok(
 -- 14-16. Bords ----------------------------------------------------------------
 SELECT lives_ok(
   $$SELECT _bfr_nb('{}'::uuid[], '{}'::uuid[])$$,
-  '14. gestionnaire A : deux tableaux vides ne nomment rien, aucun refus');
+  '14. gestionnaire A : deux tableaux vides ne nomment rien, la garde ne lève pas');
 SELECT throws_ok(
   $$SELECT _bfr_nb(ARRAY[NULL]::uuid[])$$,
   '42501', 'Filtre lieu_ids hors des lieux rattaches au gestionnaire',
@@ -252,7 +252,7 @@ SELECT is(
           ARRAY['ba9c0000-0000-0000-0000-0000000000b2'::uuid,
                 'ba9c0000-0000-0000-0000-0000000000b3'::uuid,
                 'ba9c0000-0000-0000-0000-0000000000b4'::uuid]), 5,
-  '21. staff : nomme librement lieu et traiteurs (Dashboard Client Admin)');
+  '21. staff : nomme librement lieu et traiteurs');
 SELECT _bfr_superuser();
 SELECT is(
   _bfr_nb(ARRAY['ba9c0000-0000-0000-0000-0000000000c2'::uuid]), 5,

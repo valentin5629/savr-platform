@@ -16,6 +16,7 @@ import {
   loadMargeAttente,
   loadBenchmark,
   loadBenchmarkFiltres,
+  loadFiltresParcGestionnaire,
   loadTraiteurDashboard,
   LoaderError,
   ERREUR_FILTRE_HORS_PERIMETRE,
@@ -29,11 +30,18 @@ interface FakeConfig {
   rpc?: Record<string, unknown>;
   /** Erreur PostgREST rendue par une RPC (ex. garde SQLSTATE 42501). */
   rpcErreur?: Record<string, { code: string; message: string }>;
+  /** Erreur PostgREST rendue par la lecture d'une table. */
+  tablesErreur?: Record<string, { code: string; message: string }>;
 }
 function makeSupabase(config: FakeConfig): DbClient {
   const rows = (t: string) => config.tables?.[t] ?? [];
   const makeQuery = (table: string) => {
-    const list = Promise.resolve({ data: rows(table), error: null });
+    const erreur = config.tablesErreur?.[table];
+    const list = Promise.resolve(
+      erreur
+        ? { data: null, error: erreur }
+        : { data: rows(table), error: null },
+    );
     const q: Record<string, unknown> = {
       select: () => q,
       eq: () => q,
@@ -299,7 +307,6 @@ describe('loaders — I/O (faux Supabase)', () => {
     expect(res.lieux).toHaveLength(1);
     expect(res.traiteurs).toEqual([]); // masqué (compétitif)
     expect(res.types).toHaveLength(1);
-    expect(res.perimetre).toBe('parc');
   });
 
   it('loadBenchmarkFiltres (gestionnaire) : ses lieux rattachés et ses traiteurs intervenus, rien des listes du parc', async () => {
@@ -330,7 +337,6 @@ describe('loaders — I/O (faux Supabase)', () => {
       lieux: [{ id: 'L1', nom: 'Lieu rattaché' }],
       traiteurs: [{ id: 't1', nom: 'Traiteur intervenu' }],
       types: [{ id: 'ty1', libelle: 'Gala' }],
-      perimetre: 'rattache',
     });
   });
 
@@ -344,9 +350,31 @@ describe('loaders — I/O (faux Supabase)', () => {
       lieux: [],
       traiteurs: [],
       types: [{ id: 'ty1', libelle: 'Gala' }],
-      perimetre: 'rattache',
     });
   });
+
+  it.each(['organisations_lieux', 'v_lieux_clients', 'collectes'])(
+    'loadFiltresParcGestionnaire : la lecture de %s en échec lève, jamais de liste vide silencieuse',
+    async (table) => {
+      const supabase = makeSupabase({
+        tables: {
+          organisations_lieux: [{ lieu_id: 'L1' }],
+          v_lieux_clients: [{ id: 'L1', nom: 'Lieu rattaché' }],
+          collectes: [],
+        },
+        tablesErreur: {
+          [table]: { code: '57014', message: 'canceling statement' },
+        },
+      });
+      await expect(loadFiltresParcGestionnaire(supabase)).rejects.toMatchObject(
+        { status: 500, message: 'Erreur serveur' },
+      );
+      // Même échec vu depuis l'encart benchmark : pas de 200 aux listes vides.
+      await expect(
+        loadBenchmarkFiltres(supabase, CTX_GEST),
+      ).rejects.toMatchObject({ status: 500 });
+    },
+  );
 
   it('loadBenchmark relaie la garde de périmètre du gestionnaire en 403 (SQLSTATE 42501)', async () => {
     const supabase = makeSupabase({
@@ -363,6 +391,20 @@ describe('loaders — I/O (faux Supabase)', () => {
       status: 403,
       message: ERREUR_FILTRE_HORS_PERIMETRE,
     });
+  });
+
+  it('loadBenchmark : un 42501 du gestionnaire SANS lieu ni traiteur nommé reste une erreur serveur', async () => {
+    const supabase = makeSupabase({
+      rpcErreur: {
+        f_benchmark_kg_pax_zd: {
+          code: '42501',
+          message: 'permission denied for function f_benchmark_kg_pax_zd',
+        },
+      },
+    });
+    await expect(
+      loadBenchmark(supabase, CTX_GEST, { tailleCodes: ['M'] }),
+    ).rejects.toMatchObject({ status: 500, message: 'Erreur serveur' });
   });
 
   it('loadBenchmark : un 42501 hors rôle gestionnaire reste une erreur serveur neutre', async () => {

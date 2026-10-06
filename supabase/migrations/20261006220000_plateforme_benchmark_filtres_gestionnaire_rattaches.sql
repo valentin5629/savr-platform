@@ -25,7 +25,10 @@
 --      SQLSTATE 42501, levée avant toute lecture de collecte.
 -- Le gestionnaire n'a plus besoin des listes « parc » : ses options viennent de
 -- `organisations_lieux` et de `v_traiteurs_gestionnaire`, lues sous sa propre session
--- (`loadFiltresParcGestionnaire`, même code que le filtre global).
+-- (`loadFiltresParcGestionnaire`, même code que le filtre global). Après ce lot,
+-- plus aucun code de l'application n'appelle `f_benchmark_traiteurs_parc` (le
+-- Dashboard Client Admin lit ses listes par ses propres requêtes) : elle reste en
+-- place, réduite au staff.
 --
 -- CE QUI NE CHANGE PAS : les rôles traiteur et agence (liste des lieux du parc, garde
 -- compétitive sur `p_traiteur_ids`), le staff, le k-anonymat, la formule, les 7
@@ -91,7 +94,7 @@ BEGIN
 END $$;
 
 COMMENT ON FUNCTION plateforme.f_benchmark_traiteurs_parc() IS
-  'Liste id+nom des traiteurs du parc Savr pour le Dashboard Client Admin. SECURITY DEFINER, garde role fail-closed. Staff seul : roles traiteur et agence exclus (competitif), gestionnaire_lieux retire le 2026-10-06 (ses traiteurs viennent de v_traiteurs_gestionnaire).';
+  'Liste id+nom des traiteurs du parc Savr (valeurs du filtre benchmark). SECURITY DEFINER, garde role fail-closed. Staff seul : roles traiteur et agence exclus (competitif), gestionnaire_lieux retire le 2026-10-06 (ses traiteurs viennent de v_traiteurs_gestionnaire).';
 
 -- ─── 3. f_benchmark_kg_pax_zd ────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION plateforme.f_benchmark_kg_pax_zd(
@@ -126,8 +129,9 @@ BEGIN
 
   -- Garde de périmètre (§06.05, décision Val 2026-10-06) : un gestionnaire ne nomme
   -- que ses lieux rattachés et les traiteurs intervenus sur ses lieux. Un tableau
-  -- NULL ou vide ne nomme rien (unnest rend 0 ligne) : le repère « tout le parc »
-  -- reste ouvert. Un élément NULL, ou un jeton sans organisation, est refusé.
+  -- NULL ou vide ne nomme rien (unnest rend 0 ligne) et passe la garde : NULL
+  -- laisse le repère sur tout le parc ; vide ne rend aucun segment, comme avant
+  -- (`= ANY('{}')`). Un élément NULL, ou un jeton sans organisation, est refusé.
   IF plateforme.f_app_role() = 'gestionnaire_lieux' THEN
     v_org := (auth.jwt()->>'organisation_id')::uuid;
     IF EXISTS (

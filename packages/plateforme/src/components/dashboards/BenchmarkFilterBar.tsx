@@ -42,7 +42,7 @@ function defaultFilters(
 const memesIds = (a: string[], b: string[]) =>
   a.length === b.length && a.every((id) => b.includes(id));
 
-/** Au moins un critère diffère de l'héritage (Type/Taille globaux, Lieux/Traiteurs « Tous »). */
+/** Au moins un critère diffère de l'héritage (Type/Taille globaux, Lieux/Traiteurs sans sélection). */
 function criteresPoses(f: BenchmarkFilters, defaut: BenchmarkFilters): boolean {
   return (
     !memesIds(f.type_evenement_ids, defaut.type_evenement_ids) ||
@@ -52,18 +52,11 @@ function criteresPoses(f: BenchmarkFilters, defaut: BenchmarkFilters): boolean {
   );
 }
 
-/**
- * Ce que couvrent les listes Lieux / Traiteurs : tout le parc Savr, ou le seul
- * périmètre de l'appelant (gestionnaire de lieux — décision Val 2026-10-06).
- */
-type PerimetreListes = 'parc' | 'rattache';
-
 /** Options des multi-selects fournies par le SSR (évite le fetch /filtres au mount). */
 export interface BenchmarkFilterOptions {
   lieux: OptionFiltre[];
   traiteurs: OptionFiltre[];
   types: { id: string; libelle: string }[];
-  perimetre?: PerimetreListes;
 }
 
 // Listes bornées au périmètre de l'appelant : sans rien cocher, le repère reste
@@ -98,6 +91,13 @@ interface BenchmarkFilterBarProps {
    */
   avertissementComparaisonSoi?: boolean;
   /**
+   * Ce que couvrent les listes Lieux / Traiteurs servies à cet espace : tout
+   * le parc Savr (défaut), ou le seul périmètre de l'appelant — `'rattache'`
+   * pour le gestionnaire de lieux (décision Val 2026-10-06). Donné par l'écran
+   * et non lu dans la réponse : le libellé est juste dès le premier rendu.
+   */
+  perimetre?: 'parc' | 'rattache';
+  /**
    * État initial complet (ré-hydratation après un remontage de la carte, ex.
    * Dashboard Client Admin dont le bloc ZD se démonte pendant « Chargement… »).
    * Prioritaire sur l'héritage Type/Taille ; « Réinitialiser » revient à l'héritage.
@@ -109,13 +109,13 @@ interface BenchmarkFilterBarProps {
  * Encart « Filtres benchmark » (§06.05 Bloc 3 ZD), imbriqué dans la carte du
  * benchmark : une ligne « Comparer avec » + filtres en ligne (format unique des
  * barres de filtres, décision Val 2026-09-30). Critères qui ne s'appliquent
- * qu'au point rouge : Type d'événement, Taille, Lieux, Traiteurs. Le serveur
- * dit ce que couvrent ces deux listes (`perimetre`) : tout le parc, ou les
- * seuls lieux rattachés et traiteurs intervenus du gestionnaire — la case de
- * tête s'appelle alors « Tout le parc Savr » (décision Val 2026-10-06). La
+ * qu'au point rouge : Type d'événement, Taille, Lieux, Traiteurs. Ces deux
+ * listes couvrent tout le parc, ou (`perimetre="rattache"`) les seuls lieux
+ * rattachés et traiteurs intervenus du gestionnaire — la case de tête
+ * s'appelle alors « Tout le parc Savr » (décision Val 2026-10-06). La
  * période est fixe (24 mois glissants, non affichée). Bâti sur `FilterBar`
  * (R-UI-4b, D5 façon C, `surface="encart"`, `count={null}`) : « Réinitialiser
- * les filtres » (retour à l'héritage Type/Taille, Lieux/Traiteurs « Tous »)
+ * les filtres » (retour à l'héritage Type/Taille, Lieux/Traiteurs vidés)
  * seulement si un critère diffère de l'héritage.
  */
 export function BenchmarkFilterBar({
@@ -126,6 +126,7 @@ export function BenchmarkFilterBar({
   initialOptions,
   masquerTraiteurs = false,
   avertissementComparaisonSoi = true,
+  perimetre = 'parc',
   initialFilters,
 }: BenchmarkFilterBarProps) {
   const [filters, setFilters] = useState<BenchmarkFilters>(
@@ -142,9 +143,6 @@ export function BenchmarkFilterBar({
   const [types, setTypes] = useState<OptionFiltre[]>(() =>
     (initialOptions?.types ?? []).map((t) => ({ id: t.id, nom: t.libelle })),
   );
-  const [perimetre, setPerimetre] = useState<PerimetreListes>(
-    () => initialOptions?.perimetre ?? 'parc',
-  );
 
   // Émet la sélection initiale + charge les listes une fois. Quand `initialOptions`
   // est fourni (dashboard SSR), les listes sont déjà en état → pas de fetch.
@@ -159,12 +157,10 @@ export function BenchmarkFilterBar({
             lieux?: OptionFiltre[];
             traiteurs?: OptionFiltre[];
             types?: { id: string; libelle: string }[];
-            perimetre?: PerimetreListes;
           };
         }) => {
           setLieux(j.data?.lieux ?? []);
           setTraiteurs(j.data?.traiteurs ?? []);
-          setPerimetre(j.data?.perimetre ?? 'parc');
           setTypes(
             (j.data?.types ?? []).map((t) => ({ id: t.id, nom: t.libelle })),
           );

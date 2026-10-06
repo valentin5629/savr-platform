@@ -8,6 +8,7 @@ import {
 } from '@/lib/api-auth.js';
 import { readJsonBody, serverError } from '@/lib/api-helpers.js';
 import { estUuid } from '@/lib/filtre-csv.js';
+import { estLieuDuParc } from '@/lib/lieux/parc.js';
 import {
   CODE_ALERTE_LIEU_MODIFICATION,
   ENTITE_ALERTE_LIEU,
@@ -15,6 +16,12 @@ import {
 } from '@/lib/lieux/demande-modification.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
+
+const dejaEnCours = () =>
+  NextResponse.json(
+    { error: 'Une demande est déjà en cours de traitement pour ce lieu.' },
+    { status: 409 },
+  );
 
 // POST /api/v1/gestionnaire/lieux/[id]/demande-modification
 // « Demande de modification d'information » de la fiche lieu du gestionnaire
@@ -25,23 +32,27 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // de l'Admin, qui corrige la fiche depuis le back-office.
 //
 //  · alerte in-app seule (alertes_admin) : ni email, ni Slack (§07 Obs /03 §3) ;
-//  · le lieu est d'abord lu avec la session de l'utilisateur (v_lieux_clients,
-//    RLS lieux_clients_select) : un lieu qu'il ne lit pas répond 404, et rien
-//    n'est écrit. L'écriture part ensuite en service-role, alertes_admin étant
-//    fermée aux rôles clients ;
+//  · réservée aux lieux du PARC de l'organisation (`organisations_lieux`, lu
+//    avec la session) : un lieu hors parc — même lisible, parce que
+//    l'organisation y a programmé un événement — répond 404 comme un lieu
+//    inconnu, et rien n'est écrit. L'écriture part ensuite en service-role,
+//    alertes_admin étant fermée aux rôles clients ;
 //  · le seul texte libre lu dans la requête est `texte`, borné et validé
-//    (lib/lieux/demande-modification) ; il est affiché en texte brut par
-//    l'écran Admin des alertes ;
-//  · une demande ouverte par lieu, AU MIEUX : la route lit s'il en existe une
-//    et refuse alors la nouvelle (409). Cette lecture n'est pas verrouillée et
-//    aucun index unique ne la double : deux envois au même instant peuvent
-//    ouvrir deux alertes. Aucune n'est perdue — l'alerte est insérée telle
-//    quelle (pas de f_upsert_alerte_admin, qui ignorerait la seconde en
-//    silence), l'Admin les voit toutes les deux ;
-//  · aucune donnée personnelle n'est recopiée : le message nomme le lieu et
-//    l'ORGANISATION qui demande. L'auteur est tracé par audit_log.user_id (qui,
-//    quand), que l'historique de la fiche lieu Admin résout à la lecture ; le
-//    texte saisi n'est pas recopié dans audit_log, journal non modifiable.
+//    (lib/lieux/demande-modification). Dans le message de l'alerte il est
+//    placé entre guillemets, après le préfixe écrit ici ; l'écran Admin
+//    l'affiche en texte brut, sauts de ligne repliés ;
+//  · une demande OUVERTE par lieu : garantie par l'index unique partiel
+//    `uniq_alerte_lieu_modification_ouverte` (migration 20261006220000). La
+//    route lit d'abord s'il en existe une (réponse 409 sans écriture) ; N
+//    envois au même instant franchissent cette lecture, un seul insert passe,
+//    les autres échouent en 23505 et reçoivent le même 409. L'alerte est
+//    insérée telle quelle, pas par f_upsert_alerte_admin, qui ignorerait un
+//    doublon en silence. Tant que la migration n'est pas appliquée sur un
+//    environnement, seule la lecture préalable y tient la règle ;
+//  · la route ne recopie aucune donnée personnelle : le message nomme le lieu
+//    et l'ORGANISATION qui demande, ni nom ni email. Le texte saisi, lui, peut
+//    en contenir : il n'est écrit que dans l'alerte, pas dans audit_log
+//    (journal non modifiable), qui garde l'auteur (user_id) et la date.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -60,6 +71,15 @@ export async function POST(
     return NextResponse.json({ error: demande.erreur }, { status: 422 });
 
   const rls = createSupabaseServerClient();
+  const parc = await estLieuDuParc(rls, auth.ctx.organisationId, id);
+  if (!parc.ok)
+    return serverError(
+      parc.error,
+      'gestionnaire.lieux.demande_modification.parc',
+    );
+  if (!parc.duParc)
+    return NextResponse.json({ error: 'Lieu non trouvé' }, { status: 404 });
+
   const { data: lieu, error: lieuErr } = await rls
     .from('v_lieux_clients')
     .select('id, nom')
@@ -85,11 +105,7 @@ export async function POST(
       ouverteErr,
       'gestionnaire.lieux.demande_modification.ouverte',
     );
-  if (ouverte)
-    return NextResponse.json(
-      { error: 'Une demande est déjà en cours de traitement pour ce lieu.' },
-      { status: 409 },
-    );
+  if (ouverte) return dejaEnCours();
 
   // Organisation qui demande : sa propre ligne, lue avec la session. Illisible
   // (erreur ou absence) : la demande part quand même, avec un libellé de repli.
@@ -111,10 +127,13 @@ export async function POST(
     titre: 'Modification d’un lieu demandée par son gestionnaire',
     message:
       `Lieu « ${(lieu as { nom: string | null }).nom ?? id} » — demande de ` +
-      `${demandeur} : ${demande.texte}`,
+      `${demandeur} : « ${demande.texte} »`,
     entity_type: ENTITE_ALERTE_LIEU,
     entity_id: id,
   });
+  // 23505 = index unique : une demande ouverte existe déjà pour ce lieu (envoi
+  // simultané passé entre la lecture ci-dessus et cet insert).
+  if (alerteErr?.code === '23505') return dejaEnCours();
   if (alerteErr)
     return serverError(
       alerteErr,
@@ -136,6 +155,8 @@ export async function POST(
   if (auditErr)
     logger.warn('gestionnaire.lieux.demande_modification.audit_echec', {
       lieu_id: id,
+      // Seule trace de l'auteur si l'écriture d'audit a échoué.
+      user_id: auth.ctx.userId,
       code: auditErr.code,
     });
 

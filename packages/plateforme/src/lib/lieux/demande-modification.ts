@@ -29,6 +29,12 @@ const CONTROLE_HORS_BLANCS =
 /* eslint-enable no-control-regex */
 const SURROGATE_ORPHELIN = /\p{Surrogate}/u;
 
+// Caractères sans rendu — largeur nulle et marques de direction du texte —
+// RETIRÉS avant les bornes : dix espaces de largeur nulle ne font pas une
+// demande, et une marque d'inversion (U+202E) ne doit pas réordonner à l'écran
+// de l'Admin le texte qui suit le préfixe écrit par la route.
+const INVISIBLES = /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+
 export type DemandeNormalisee =
   | { ok: true; texte: string }
   | { ok: false; erreur: string };
@@ -37,7 +43,7 @@ export type DemandeNormalisee =
 export function normaliserDemande(valeur: unknown): DemandeNormalisee {
   if (typeof valeur !== 'string')
     return { ok: false, erreur: 'Précisez l’information à corriger.' };
-  const texte = valeur.trim();
+  const texte = valeur.replace(INVISIBLES, '').trim();
   if (texte.length < LONGUEUR_MIN_DEMANDE)
     return {
       ok: false,

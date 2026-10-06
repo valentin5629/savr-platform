@@ -78,6 +78,8 @@ interface FicheLieu {
   photos_urls: string[] | null;
   collectes: CollecteFiche[];
   traiteurs: TraiteurFiche[];
+  /** Lieu du parc de l'organisation : seul cas où la demande est proposée. */
+  demande_modification_possible: boolean;
   demande_modification_en_cours: boolean;
 }
 
@@ -260,7 +262,7 @@ export function FicheLieuModal({
         title={lieu?.nom ?? 'Fiche lieu'}
         onClose={fermer}
         footer={
-          lieu && etat === 'pret' ? (
+          lieu && etat === 'pret' && lieu.demande_modification_possible ? (
             <>
               {lieu.demande_modification_en_cours && (
                 <Text variant="hint" className="mr-auto self-center">

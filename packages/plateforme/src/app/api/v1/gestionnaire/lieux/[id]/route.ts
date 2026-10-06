@@ -8,6 +8,7 @@ import {
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { estUuid } from '@/lib/filtre-csv.js';
+import { estLieuDuParc } from '@/lib/lieux/parc.js';
 import {
   CODE_ALERTE_LIEU_MODIFICATION,
   ENTITE_ALERTE_LIEU,
@@ -52,13 +53,21 @@ function poidsDe(c: CollecteDuLieu): number {
 //     email_gestionnaire, reference_citeo, commentaires_internes) ;
 //   - `traiteurs` : traiteurs opérant sur le lieu, calculés à la lecture depuis
 //     ses collectes (traiteur opérationnel de l'événement, tous statuts, sans
-//     limite de date — même règle que la fiche lieu Admin, §04 note sous la
-//     table `lieux`), avec leur nombre de collectes et leur tonnage ZD. Le
+//     limite de date — même règle de COMPTAGE que la fiche lieu Admin, §04
+//     note sous la table `lieux` ; le périmètre, lui, est celui que la RLS
+//     rend à la session, là où l'Admin lit tout), avec leur nombre de
+//     collectes et leur tonnage ZD. Le
 //     tonnage ne somme que les collectes clôturées, comme le « Tonnage ZD »
 //     de la liste Lieux et l'onglet Activité (pesées validées) ;
 //   - `collectes` : collectes clôturées des 12 derniers mois (onglet Activité) ;
+//   - `demande_modification_possible` : le lieu est dans le PARC de
+//     l'organisation (`organisations_lieux`) — seul cas où la fiche propose le
+//     bouton de demande ; un lieu simplement lisible (programmation passée sur
+//     un lieu détaché depuis) reste en consultation ;
 //   - `demande_modification_en_cours` : une demande de modification attend
-//     l'équipe Savr (le bouton de la fiche est alors neutralisé).
+//     l'équipe Savr (le bouton de la fiche est alors neutralisé). Toujours
+//     `false` hors parc : l'état d'un lieu ne se lit pas d'une organisation à
+//     l'autre.
 // Toutes les collectes sont lues avec la session de l'utilisateur : la RLS de
 // `collectes` et de `evenements` borne ce qu'il lit.
 export async function GET(
@@ -89,6 +98,9 @@ export async function GET(
   if (error) return serverError(error, 'gestionnaire.lieux.get');
   if (!lieu)
     return NextResponse.json({ error: 'Lieu non trouvé' }, { status: 404 });
+
+  const parc = await estLieuDuParc(supabase, auth.ctx.organisationId, id);
+  if (!parc.ok) return serverError(parc.error, 'gestionnaire.lieux.get.parc');
 
   const toutes: CollecteDuLieu[] = [];
   for (let debut = 0; ; ) {
@@ -147,27 +159,33 @@ export async function GET(
       c.date_collecte >= sinceStr,
   );
 
-  // `alertes_admin` est fermée aux rôles clients : lecture service-role, APRÈS
-  // la vérification ci-dessus que la session lit ce lieu. Seule l'existence
-  // d'une demande ouverte est renvoyée, jamais son contenu.
-  const { data: demande, error: demandeErr } = await createAdminSupabaseClient()
-    .from('alertes_admin')
-    .select('id')
-    .eq('code', CODE_ALERTE_LIEU_MODIFICATION)
-    .eq('entity_type', ENTITE_ALERTE_LIEU)
-    .eq('entity_id', id)
-    .eq('statut', 'ouverte')
-    .limit(1)
-    .maybeSingle();
-  if (demandeErr)
-    return serverError(demandeErr, 'gestionnaire.lieux.get.demande');
+  // `alertes_admin` est fermée aux rôles clients : lecture service-role, pour
+  // un lieu du parc seulement (vérifié ci-dessus sous la session). Seule
+  // l'existence d'une demande ouverte est renvoyée, jamais son contenu.
+  let demandeEnCours = false;
+  if (parc.duParc) {
+    const { data: demande, error: demandeErr } =
+      await createAdminSupabaseClient()
+        .from('alertes_admin')
+        .select('id')
+        .eq('code', CODE_ALERTE_LIEU_MODIFICATION)
+        .eq('entity_type', ENTITE_ALERTE_LIEU)
+        .eq('entity_id', id)
+        .eq('statut', 'ouverte')
+        .limit(1)
+        .maybeSingle();
+    if (demandeErr)
+      return serverError(demandeErr, 'gestionnaire.lieux.get.demande');
+    demandeEnCours = Boolean(demande);
+  }
 
   return NextResponse.json({
     data: {
       ...lieu,
       collectes,
       traiteurs,
-      demande_modification_en_cours: Boolean(demande),
+      demande_modification_possible: parc.duParc,
+      demande_modification_en_cours: demandeEnCours,
     },
   });
 }

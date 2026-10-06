@@ -61,6 +61,7 @@ const FICHE = {
     { id: 't1', nom: 'Kaspia', nb_collectes: 12, tonnage_kg: 840 },
     { id: 't2', nom: 'Butard', nb_collectes: 3, tonnage_kg: 0 },
   ],
+  demande_modification_possible: true,
   demande_modification_en_cours: false,
 };
 
@@ -341,6 +342,19 @@ describe('M3.2 / fiche lieu en pop-up', () => {
 });
 
 describe('M3.2 / fiche lieu — demande de modification', () => {
+  it(
+    'M3.2/fiche_lieu_modale_hors_parc_sans_bouton — lieu lisible hors du parc : fiche en consultation, aucun bouton de demande',
+    async () => {
+      fiche = {
+        body: { data: { ...FICHE, demande_modification_possible: false } },
+      };
+      const f = await ouvrirFiche();
+      expect(f.getByRole('tab', { name: 'Traiteurs (2)' })).toBeTruthy();
+      expect(f.queryByRole('button', { name: BOUTON })).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   const MESSAGE = 'La capacité est de 4 000 personnes.';
 
   async function ouvrirDemande() {

@@ -18,6 +18,7 @@ import {
   CelluleLieu,
   ResultatsCollecte,
 } from '@/components/collecte/collectes-traiteur-table';
+import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
   CollecteFiltresBar,
   FILTRES_COLLECTE_VIDES,
@@ -26,6 +27,7 @@ import {
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
 import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
+import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
@@ -121,6 +123,21 @@ function lireHeritageCrochets(
     taille_evenements: params?.getAll('taille_evenements[]') ?? [],
   };
 }
+/** Cible d'un drill-down de Top liste du dashboard (§06.05 l.215). */
+interface CibleDrill {
+  cle: 'lieu' | 'traiteur';
+  id: string;
+  /** Nom mémorisé par le dashboard au clic (sessionStorage, jamais l'URL). */
+  libelle: string | null;
+}
+function lireCibleDrill(params: URLSearchParams | null): CibleDrill | null {
+  for (const cle of ['lieu', 'traiteur'] as const) {
+    const id = params?.get(cle);
+    if (id) return { cle, id, libelle: readCollecteFiltreLabel(cle, id) };
+  }
+  return null;
+}
+
 /** Retire les clés `x[]` de l'URL courante : l'état CSV prend le relais. */
 function purgerCrochets(): void {
   if (typeof window === 'undefined') return;
@@ -177,6 +194,11 @@ function GestionnaireCollectesContent() {
       ? f.taille_evenements
       : heritage.taille_evenements;
   const actif = filtresActifs || heritageActif;
+  // Lieu ou traiteur reçu d'une Top liste du dashboard, figé au montage. Le
+  // chip « Filtre actif » reste affiché tant que la barre filtre encore sur
+  // cette cible : en choisir une autre, ou réinitialiser, sort du drill-down.
+  const [drill] = useState(() => lireCibleDrill(params));
+  const drillActif = drill !== null && f[drill.cle] === drill.id;
 
   function poser(patch: Partial<typeof f>) {
     if (heritageActif) {
@@ -274,6 +296,37 @@ function GestionnaireCollectesContent() {
         /* options indisponibles : la barre reste utilisable (listes vides). */
       });
   }, []);
+
+  const optionsLieu = options.lieux.map((l) => ({ value: l.id, label: l.nom }));
+  const optionsTraiteur = options.traiteurs.map((t) => ({
+    value: t.id,
+    label: t.nom,
+  }));
+  // Nom de la cible du drill-down : celui du clic sur le dashboard, sinon celui
+  // des options de la barre (lien partagé, rechargement), sinon celui que porte
+  // la première ligne (tant que le chip est là, toutes sont sur cette cible) ;
+  // inconnu sinon.
+  const nomCible =
+    drill?.libelle ??
+    (drill?.cle === 'lieu' ? optionsLieu : optionsTraiteur).find(
+      (o) => o.value === drill?.id,
+    )?.label ??
+    ((drillActif &&
+      (drill?.cle === 'lieu' ? rows[0]?.lieu_nom : rows[0]?.traiteur_nom)) ||
+      undefined);
+  // Une cible absente des options (traiteur hors de la fenêtre de 24 mois,
+  // options indisponibles) garde une entrée dans son contrôle : sans elle, il
+  // afficherait « Tous » sur une liste filtrée.
+  const avecCible = (
+    cle: CibleDrill['cle'],
+    opts: { value: string; label: string }[],
+  ) =>
+    drill &&
+    drillActif &&
+    drill.cle === cle &&
+    !opts.some((o) => o.value === drill.id)
+      ? [...opts, { value: drill.id, label: nomCible ?? 'Sélectionné' }]
+      : opts;
 
   // Page devenue hors bornes — la liste a rétréci pendant qu'on la consultait
   // (une collecte annulée ailleurs, un parc réduit). Le serveur répond alors
@@ -483,6 +536,19 @@ function GestionnaireCollectesContent() {
         subtitle="Collectes sur les lieux de votre organisation · cliquez une ligne pour ouvrir la fiche"
       />
 
+      {/* Filtre actif venu d'une Top liste du dashboard (§06.05 l.215) : nomme
+          la cible et sort du drill-down d'un clic (tous les filtres reçus). */}
+      {drill && drillActif && (
+        <CollecteFiltreActif
+          label={
+            drill.cle === 'lieu'
+              ? `Lieu : ${nomCible ?? 'lieu sélectionné'}`
+              : `Traiteur : ${nomCible ?? 'traiteur sélectionné'}`
+          }
+          onClear={reinitialiser}
+        />
+      )}
+
       {/* Barre de filtres DS (D10 : la même que traiteur / agence) : type
           ZD / AG levable en en-tête, puis Période · Lieu · Traiteur · Type et
           Taille d'événement (§06.05 l.209), compteur et réinitialisation en
@@ -522,7 +588,7 @@ function GestionnaireCollectesContent() {
           data-testid="filtre-lieu"
           options={[
             { value: '', label: 'Tous' },
-            ...options.lieux.map((l) => ({ value: l.id, label: l.nom })),
+            ...avecCible('lieu', optionsLieu),
           ]}
           value={f.lieu}
           onChange={(v) => poser({ lieu: v })}
@@ -533,7 +599,7 @@ function GestionnaireCollectesContent() {
           data-testid="filtre-traiteur"
           options={[
             { value: '', label: 'Tous' },
-            ...options.traiteurs.map((t) => ({ value: t.id, label: t.nom })),
+            ...avecCible('traiteur', optionsTraiteur),
           ]}
           value={f.traiteur}
           onChange={(v) => poser({ traiteur: v })}

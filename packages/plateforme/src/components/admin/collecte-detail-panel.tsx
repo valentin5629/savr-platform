@@ -1702,18 +1702,16 @@ export function CollecteDetailPanel({
                 icon={UserRound}
                 title={
                   collecte.collecte_tournees.length === 0
-                    ? 'Chauffeur pas encore affecté'
+                    ? isTerminal
+                      ? 'Aucun chauffeur enregistré'
+                      : 'Chauffeur pas encore affecté'
                     : collecte.collecte_tournees.length > 1
                       ? 'Chauffeurs'
                       : 'Chauffeur'
                 }
                 action={
                   !editInfosAcces && collecte.collecte_tournees.length > 0 ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={openEditInfosAcces}
-                    >
+                    <Button variant="secondary" onClick={openEditInfosAcces}>
                       Modifier les coordonnées
                     </Button>
                   ) : undefined
@@ -1749,17 +1747,17 @@ export function CollecteDetailPanel({
                   )}
                   {collecte.collecte_tournees.length === 0 && (
                     <Text>
-                      Aucune tournée pour le moment — les coordonnées pourront
-                      être saisies dès que le prestataire aura pris en charge la
-                      commande (création de la tournée).
+                      {isTerminal
+                        ? 'Aucune tournée enregistrée pour cette collecte.'
+                        : 'Aucune tournée pour le moment — les coordonnées pourront être saisies dès que le prestataire aura pris en charge la commande (création de la tournée).'}
                     </Text>
                   )}
                 </>
               ) : collecte.collecte_tournees.length === 0 ? (
                 <Text>
-                  Aucune tournée pour le moment — les coordonnées pourront être
-                  saisies dès que le prestataire aura pris en charge la commande
-                  (création de la tournée).
+                  {isTerminal
+                    ? 'Aucune tournée enregistrée pour cette collecte.'
+                    : 'Aucune tournée pour le moment — les coordonnées pourront être saisies dès que le prestataire aura pris en charge la commande (création de la tournée).'}
                 </Text>
               ) : canalChauffeur ? (
                 <Text>
@@ -1767,11 +1765,13 @@ export function CollecteDetailPanel({
                   dès l’affectation du chauffeur ; complétez-les si elles
                   manquent.
                 </Text>
-              ) : (
+              ) : currentTransporteur ? (
                 <Text>
                   Transporteur sans TMS connecté : coordonnées à saisir par
                   l’équipe Ops.
                 </Text>
+              ) : (
+                <Text>Coordonnées à saisir par l’équipe Ops.</Text>
               )}
 
               {infosAccesFeedback && (

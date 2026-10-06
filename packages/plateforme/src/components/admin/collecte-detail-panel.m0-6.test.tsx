@@ -2174,6 +2174,29 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   );
 
   it(
+    'collecte terminée sans tournée : « Aucun chauffeur enregistré », aucune phrase au futur',
+    async () => {
+      mockFetch({ ...collecteAg, statut: 'annulee', collecte_tournees: [] });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          'Aucun chauffeur enregistré',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Aucune tournée enregistrée pour cette collecte.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/pourront être saisies/)).toBeNull();
+      expect(screen.queryByText('Chauffeur pas encore affecté')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'contrôle d’accès requis sans tournée : mention de l’email ET explication de l’absence de saisie',
     async () => {
       mockFetch({

@@ -29,6 +29,7 @@ import { fetchEverestMissionDetails } from '@savr/adapters/src/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { serverError, withApiTrace } from '@/lib/api-helpers.js';
+import { evaluerInfosAccesEtEnvoyer } from '@/lib/infos-acces/notify.js';
 
 type SupabaseAdmin = ReturnType<typeof createAdminSupabaseClient>;
 type ErreurDb = { code?: string; message: string };
@@ -488,12 +489,29 @@ async function handleEventType(
           });
         }
         if (coursier) {
+          // Téléphone : valeur API si fournie ; sinon conservé tant que le nom
+          // ne change pas (saisie Admin épargnée, comme MTS-1), remis à null si
+          // le coursier change (jamais un nom neuf avec l'ancien téléphone).
+          const { data: courant } = await supabase
+            .from('tournees')
+            .select('chauffeur_nom, chauffeur_telephone')
+            .eq('id', mission.tournee_id)
+            .eq('external_ref_commande', missionId)
+            .maybeSingle();
+          const nomCourant =
+            (courant as { chauffeur_nom?: string | null } | null)
+              ?.chauffeur_nom ?? null;
+          const coordonnees: Record<string, string | null> = {
+            chauffeur_nom: coursier.nom,
+          };
+          if (coursier.telephone) {
+            coordonnees['chauffeur_telephone'] = coursier.telephone;
+          } else if (nomCourant !== coursier.nom) {
+            coordonnees['chauffeur_telephone'] = null;
+          }
           const { error: coordErr } = await supabase
             .from('tournees')
-            .update({
-              chauffeur_nom: coursier.nom,
-              chauffeur_telephone: coursier.telephone,
-            })
+            .update(coordonnees)
             .eq('id', mission.tournee_id)
             .eq('external_ref_commande', missionId);
           if (coordErr) {
@@ -502,6 +520,12 @@ async function handleEventType(
               tournee_id: mission.tournee_id,
               error_code: coordErr.code,
             });
+          } else {
+            // Contrôle d'accès : les coordonnées viennent peut-être de rendre la
+            // collecte complète → même évaluation que le PATCH Admin (email récap
+            // au programmateur si requis + complet, idempotent, ne throw jamais).
+            // Déclenché par la valeur RELUE sur l'API, pas par le payload.
+            await evaluerInfosAccesEtEnvoyer(supabase, mission.collecte_id);
           }
         }
       }

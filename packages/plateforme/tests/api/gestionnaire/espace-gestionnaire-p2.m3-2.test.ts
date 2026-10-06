@@ -826,9 +826,6 @@ describe('M3.2 / P2 export CSV filtres', () => {
   });
 });
 
-// Détail Lieu (M3.2/P2_lieu_detail_capacite_photos_collectes) : déplacé dans
-// fiche-lieu-modale.m3-2.test.ts avec la fiche en pop-up (2026-10-06).
-
 // ── Détail Traiteur : historique collectes (§06.05 l.439) ─────────────────────
 describe('M3.2 / P2 détail traiteur', () => {
   it('M3.2/P2_traiteur_detail_historique — historique_collectes avec lieu_nom + statut', async () => {

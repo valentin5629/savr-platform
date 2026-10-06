@@ -25,34 +25,25 @@ const dejaEnCours = () =>
 
 // POST /api/v1/gestionnaire/lieux/[id]/demande-modification
 // « Demande de modification d'information » de la fiche lieu du gestionnaire
-// (§06.05 §3 — arbitrage Val 2026-10-06). Le gestionnaire n'écrit JAMAIS le
-// référentiel lieux (§04 : modifiable par l'Admin Savr uniquement ; écriture
-// de `lieux` fermée à `authenticated`, migration 20260921210000). Cette route
-// ne touche pas la table `lieux` : elle ouvre une alerte dans la file in-app
-// de l'Admin, qui corrige la fiche depuis le back-office.
+// (§06.05 §3 — arbitrage Val 2026-10-06). Le gestionnaire n'écrit jamais le
+// référentiel lieux (§04) : cette route ne touche pas la table `lieux`, elle
+// ouvre une alerte dans la file in-app de l'Admin (ni email, ni Slack).
 //
-//  · alerte in-app seule (alertes_admin) : ni email, ni Slack (§07 Obs /03 §3) ;
-//  · réservée aux lieux du PARC de l'organisation (`organisations_lieux`, lu
-//    avec la session) : un lieu hors parc — même lisible, parce que
-//    l'organisation y a programmé un événement — répond 404 comme un lieu
-//    inconnu, et rien n'est écrit. L'écriture part ensuite en service-role,
-//    alertes_admin étant fermée aux rôles clients ;
-//  · le seul texte libre lu dans la requête est `texte`, borné et validé
-//    (lib/lieux/demande-modification). Dans le message de l'alerte il est
-//    placé entre guillemets, après le préfixe écrit ici ; l'écran Admin
-//    l'affiche en texte brut, sauts de ligne repliés ;
-//  · une demande OUVERTE par lieu : garantie par l'index unique partiel
-//    `uniq_alerte_lieu_modification_ouverte` (migration 20261006231500). La
-//    route lit d'abord s'il en existe une (réponse 409 sans écriture) ; N
-//    envois au même instant franchissent cette lecture, un seul insert passe,
-//    les autres échouent en 23505 et reçoivent le même 409. L'alerte est
-//    insérée telle quelle, pas par f_upsert_alerte_admin, qui ignorerait un
-//    doublon en silence. Tant que la migration n'est pas appliquée sur un
-//    environnement, seule la lecture préalable y tient la règle ;
-//  · la route ne recopie aucune donnée personnelle : le message nomme le lieu
-//    et l'ORGANISATION qui demande, ni nom ni email. Le texte saisi, lui, peut
-//    en contenir : il n'est écrit que dans l'alerte, pas dans audit_log
-//    (journal non modifiable), qui garde l'auteur (user_id) et la date.
+//  · Lieux du PARC de l'organisation seulement (`organisations_lieux`, lu avec
+//    la session) : hors parc, même 404 qu'un lieu inconnu, rien n'est écrit.
+//    L'écriture part ensuite en service-role, alertes_admin étant fermée aux
+//    rôles clients.
+//  · Seul texte libre lu : `texte`, validé par lib/lieux/demande-modification
+//    et placé entre guillemets après le préfixe écrit ici.
+//  · Une demande OUVERTE par lieu : index unique partiel
+//    `uniq_alerte_lieu_modification_ouverte` (migration 20261006231500), dont
+//    la violation (23505) vaut « déjà en cours ». La lecture préalable donne la
+//    même réponse sans écrire, et tient seule la règle sur un environnement où
+//    la migration n'est pas encore appliquée. Insert direct : la fonction
+//    f_upsert_alerte_admin ignorerait un doublon en silence.
+//  · Aucune donnée personnelle recopiée par la route : le message nomme le
+//    lieu et l'organisation ; l'auteur est tracé par audit_log (user_id), où
+//    le texte saisi n'est pas recopié (journal non modifiable).
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -107,18 +98,17 @@ export async function POST(
     );
   if (ouverte) return dejaEnCours();
 
-  // Organisation qui demande : sa propre ligne, lue avec la session. Illisible
-  // (erreur ou absence) : la demande part quand même, avec un libellé de repli.
+  // Organisation qui demande : sa propre ligne, lue avec la session.
   const { data: organisation, error: orgErr } = await rls
     .from('organisations')
     .select('nom')
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
   if (orgErr)
-    logger.warn('gestionnaire.lieux.demande_modification.organisation_echec', {
-      lieu_id: id,
-      code: orgErr.code,
-    });
+    return serverError(
+      orgErr,
+      'gestionnaire.lieux.demande_modification.organisation',
+    );
   const demandeur =
     (organisation as { nom: string | null } | null)?.nom ?? 'son gestionnaire';
 

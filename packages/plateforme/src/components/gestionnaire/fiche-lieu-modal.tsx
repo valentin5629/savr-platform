@@ -84,7 +84,6 @@ interface FicheLieu {
 }
 
 type Etat = 'chargement' | 'erreur' | 'introuvable' | 'pret';
-type Onglet = 'informations' | 'traiteurs' | 'activite';
 
 // Tonnage ZD par mois sur les 12 derniers mois (graphique d'évolution, §06.05 §3).
 function evolutionMensuelle(
@@ -147,7 +146,6 @@ export function FicheLieuModal({
   const { toast } = useToast();
   const [lieu, setLieu] = useState<FicheLieu | null>(null);
   const [etat, setEtat] = useState<Etat>('chargement');
-  const [onglet, setOnglet] = useState<Onglet>('informations');
   const [demandeOuverte, setDemandeOuverte] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [erreurEnvoi, setErreurEnvoi] = useState<string | null>(null);
@@ -157,7 +155,6 @@ export function FicheLieuModal({
     let annule = false;
     setLieu(null);
     setEtat('chargement');
-    setOnglet('informations');
     fetch(`/api/v1/gestionnaire/lieux/${encodeURIComponent(lieuId)}`)
       .then((r) => {
         if (r.status === 404) return null;
@@ -346,10 +343,7 @@ export function FicheLieuModal({
               ]}
             />
             <FicheCorps>
-              <Tabs
-                value={onglet}
-                onValueChange={(v) => setOnglet(v as Onglet)}
-              >
+              <Tabs defaultValue="informations">
                 <TabsList>
                   <TabsTrigger value="informations">Informations</TabsTrigger>
                   <TabsTrigger value="traiteurs">

@@ -185,8 +185,8 @@ describe('M3.2 / fiche lieu en pop-up', () => {
       // Région : libellé, pas la valeur de base « idf ».
       expect(f.getAllByText('Île-de-France').length).toBeGreaterThan(0);
       expect(f.queryByText('idf')).toBeNull();
-      // Stationnement et accès office sont des niveaux de difficulté (§04) :
-      // l'ancienne page affichait la valeur brute et « Oui » / « Non ».
+      // Stationnement et accès office sont des niveaux de difficulté (§04),
+      // jamais « Oui » / « Non ».
       expect(f.getByText('Difficile')).toBeTruthy();
       expect(f.getByText('Très difficile')).toBeTruthy();
       expect(f.queryByText('Oui')).toBeNull();

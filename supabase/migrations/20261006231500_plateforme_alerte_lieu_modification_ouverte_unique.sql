@@ -9,8 +9,8 @@
 --
 -- La route (POST /api/v1/gestionnaire/lieux/[id]/demande-modification) lit s'il
 -- existe déjà une demande ouverte puis insère. Cette lecture n'est pas
--- verrouillée : N envois au même instant la franchissaient tous et ouvraient N
--- alertes dans la file Admin (relevé par les revues du lot). L'index ci-dessous
+-- verrouillée : N envois au même instant la franchissent tous et ouvriraient N
+-- alertes dans la file Admin. L'index ci-dessous
 -- porte la règle en base : au plus une alerte OUVERTE de ce code par lieu. Le
 -- second insert concurrent échoue en 23505, que la route rend « demande déjà en
 -- cours » (409). Une fois l'alerte résolue par l'Admin, une nouvelle demande en

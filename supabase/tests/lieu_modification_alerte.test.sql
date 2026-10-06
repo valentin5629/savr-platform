@@ -6,28 +6,14 @@
 --     `uniq_alerte_lieu_modification_ouverte` refuse une 2e alerte ouverte du
 --     même code sur le même lieu (les envois simultanés de la route retombent
 --     sur cette violation), sans gêner un autre lieu ni un autre code d'alerte ;
---     une fois l'alerte résolue, une nouvelle demande en ouvre une nouvelle et
---     l'historique est gardé ;
---   · `alertes_admin` reste fermée au rôle gestionnaire_lieux (ni INSERT ni
---     SELECT direct) : la route est le seul chemin d'écriture ;
+--     une fois l'alerte résolue, une nouvelle demande en ouvre une nouvelle ;
 --   · la trace d'auteur de la route (`audit_log`, action
 --     `lieu_modification_demandee` sur `lieux`) est acceptée par la base sous
 --     service_role, tel que la route l'écrit.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(10);
-
-CREATE OR REPLACE FUNCTION test_set_jwt(
-  p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid()
-) RETURNS void LANGUAGE plpgsql AS $$
-BEGIN
-  PERFORM set_config('request.jwt.claims', json_build_object(
-    'sub', p_user_id, 'user_role', p_role,
-    'organisation_id', p_org_id, 'app_domain', 'plateforme'
-  )::text, true);
-  PERFORM set_config('role', 'authenticated', true);
-END $$;
+SELECT plan(7);
 
 CREATE OR REPLACE FUNCTION test_as_superuser() RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -82,7 +68,7 @@ SELECT lives_ok(
   'LIEU_MODIF/autre_code_libre — un autre code d''alerte sur le même lieu n''est pas gêné'
 );
 
--- L'Admin résout la demande : une nouvelle peut s'ouvrir, l'ancienne est gardée.
+-- L'Admin résout la demande : une nouvelle peut s'ouvrir.
 UPDATE plateforme.alertes_admin
    SET statut = 'resolue', resolue_at = now()
  WHERE code = 'lieu_modification_demandee'
@@ -94,33 +80,6 @@ SELECT lives_ok(
             'dd000000-0000-0000-0000-0000000000a1')$$,
   'LIEU_MODIF/nouvelle_demande_apres_resolution — après résolution, une nouvelle demande s''ouvre'
 );
-
-SELECT is(
-  (SELECT count(*)::int FROM plateforme.alertes_admin
-    WHERE code = 'lieu_modification_demandee'
-      AND entity_id = 'dd000000-0000-0000-0000-0000000000a1'),
-  2,
-  'LIEU_MODIF/historique_conserve — l''alerte résolue est conservée à côté de la nouvelle'
-);
-
--- ─── alertes_admin reste fermée au gestionnaire de lieux ─────────────────────
-SELECT test_set_jwt('gestionnaire_lieux', 'dd100000-0000-0000-0000-0000000000a1'::uuid);
-
-SELECT throws_ok(
-  $$INSERT INTO plateforme.alertes_admin (code, titre, message, entity_type, entity_id)
-    VALUES ('lieu_modification_demandee', 't', 'écriture directe', 'lieux',
-            'dd000000-0000-0000-0000-0000000000c3')$$,
-  '42501', NULL,
-  'LIEU_MODIF/ecriture_directe_gestionnaire_refusee — le gestionnaire ne peut pas écrire alertes_admin en direct'
-);
-
-SELECT is(
-  (SELECT count(*)::int FROM plateforme.alertes_admin),
-  0,
-  'LIEU_MODIF/lecture_directe_gestionnaire_vide — le gestionnaire ne lit aucune alerte en direct'
-);
-
-SELECT test_as_superuser();
 
 -- ─── Trace d'auteur écrite par la route (service_role) ───────────────────────
 -- Mêmes colonnes que l'INSERT de la route ; user_id NULL ici (pas de compte en

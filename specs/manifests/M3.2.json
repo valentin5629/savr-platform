@@ -84,7 +84,14 @@
     "packages/plateforme/tests/ui/fiche-lieu-modale.m3-2.test.tsx",
     "supabase/migrations/20261006231500_plateforme_alerte_lieu_modification_ouverte_unique.sql",
     "supabase/tests/lieu_modification_alerte.test.sql",
-    "packages/plateforme/src/lib/lieux/parc.ts"
+    "packages/plateforme/src/lib/lieux/parc.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/lieux/demande-ajout/route.ts",
+    "packages/plateforme/src/lib/lieux/demande-ajout.ts",
+    "packages/plateforme/src/components/gestionnaire/demande-ajout-lieu-modal.tsx",
+    "packages/plateforme/tests/api/gestionnaire/demande-ajout-lieu.m3-2.test.ts",
+    "packages/plateforme/tests/ui/demande-ajout-lieu.m3-2.test.tsx",
+    "supabase/migrations/20261007113000_plateforme_alerte_lieu_ajout_ouverte_unique.sql",
+    "supabase/tests/lieu_ajout_alerte.test.sql"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -324,7 +331,39 @@
     "M3.2/fiche_lieu_sans_liste_de_collectes",
     "M3.2/fiche_lieu_modale_activite_graphique_du_dashboard",
     "M3.2/fiche_lieu_modale_activite_sans_collecte",
-    "M3.2/fiche_lieu_modale_activite_erreur"
+    "M3.2/fiche_lieu_modale_activite_erreur",
+    "M3.2/demande_ajout_lieu_cree_alerte_admin",
+    "M3.2/demande_ajout_lieu_n_ecrit_ni_lieu_ni_rattachement",
+    "M3.2/demande_ajout_lieu_organisation_de_la_session",
+    "M3.2/demande_ajout_lieu_precision_facultative",
+    "M3.2/demande_ajout_lieu_champs_invalides_422",
+    "M3.2/demande_ajout_lieu_bornes_acceptees",
+    "M3.2/demande_ajout_lieu_blancs_replies",
+    "M3.2/demande_ajout_lieu_caracteres_invisibles_retires",
+    "M3.2/demande_ajout_lieu_deja_ouverte_409",
+    "M3.2/demande_ajout_lieu_envoi_simultane_409",
+    "M3.2/demande_ajout_lieu_organisation_sans_nom",
+    "M3.2/demande_ajout_lieu_corps_illisible_400",
+    "M3.2/demande_ajout_lieu_role_non_gestionnaire_403",
+    "M3.2/demande_ajout_lieu_non_authentifie_401",
+    "M3.2/demande_ajout_lieu_lectures_en_echec_500",
+    "M3.2/demande_ajout_lieu_alerte_en_echec_500",
+    "M3.2/demande_ajout_lieu_audit_en_echec_demande_conservee",
+    "M3.2/demande_ajout_lieu_impersonation_tracee",
+    "M3.2/demande_ajout_lieu_etat_expose",
+    "M3.2/demande_ajout_lieu_etat_illisible_500",
+    "M3.2/alerte_lieu_ajout_severite_et_lien",
+    "M3.2/demande_ajout_lieu_bouton_sur_la_liste",
+    "M3.2/demande_ajout_lieu_bouton_neutralise_demande_en_cours",
+    "M3.2/demande_ajout_lieu_etat_illisible_bouton_propose",
+    "M3.2/demande_ajout_lieu_etat_tardif_ne_reactive_pas",
+    "M3.2/demande_ajout_lieu_formulaire_trois_champs",
+    "M3.2/demande_ajout_lieu_champs_obligatoires_bloquent_l_envoi",
+    "M3.2/demande_ajout_lieu_envoi_confirme",
+    "M3.2/demande_ajout_lieu_deja_en_cours_409",
+    "M3.2/demande_ajout_lieu_refus_affiche",
+    "M3.2/demande_ajout_lieu_erreur_reseau",
+    "M3.2/demande_ajout_lieu_envoi_en_cours_verrouille"
   ],
   "deliverables": [
     {
@@ -1031,6 +1070,22 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la fiche lieu du gestionnaire en pop-up, desktop ET mobile < 640 px : grand en-tête (puce région, nom, adresse, véhicule max), onglets Informations / Traiteurs / Activité (histogramme du dashboard filtré sur le lieu), hauteur fixe d'un onglet à l'autre, pied avec le bouton « Demande de modification d'information » ; son état neutralisé avec la mention « Une demande de modification est en cours de traitement par l'équipe Savr » ; sous-modale de demande (texte d'explication, champ, « Annuler » / « Envoyer la demande ») ; toast de confirmation. Côté Admin : la ligne de l'alerte dans la file (« À traiter », message, lien vers la fiche lieu) et la ligne « Modification demandée par le gestionnaire » de l'historique de la fiche lieu. GO visuel de Val attendu."
+    },
+    {
+      "id": "M3.2-demande-ajout-lieu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:383",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx (bouton du bandeau, état « demande en cours ») + packages/plateforme/src/components/gestionnaire/demande-ajout-lieu-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/lieux/demande-ajout/route.ts (GET état, POST demande) + packages/plateforme/src/lib/lieux/demande-ajout.ts + packages/plateforme/src/lib/lieux/demande-modification.ts (`nettoyerSaisie`, `porteCaractereInterdit`) + packages/plateforme/src/lib/alertes-admin.ts (sévérité) + supabase/migrations/20261007113000_plateforme_alerte_lieu_ajout_ouverte_unique.sql",
+      "test": "M3.2/demande_ajout_lieu_cree_alerte_admin + M3.2/demande_ajout_lieu_n_ecrit_ni_lieu_ni_rattachement + M3.2/demande_ajout_lieu_organisation_de_la_session + M3.2/demande_ajout_lieu_precision_facultative + M3.2/demande_ajout_lieu_champs_invalides_422 + M3.2/demande_ajout_lieu_bornes_acceptees + M3.2/demande_ajout_lieu_blancs_replies + M3.2/demande_ajout_lieu_caracteres_invisibles_retires + M3.2/demande_ajout_lieu_deja_ouverte_409 + M3.2/demande_ajout_lieu_envoi_simultane_409 + M3.2/demande_ajout_lieu_organisation_sans_nom + M3.2/demande_ajout_lieu_corps_illisible_400 + M3.2/demande_ajout_lieu_role_non_gestionnaire_403 + M3.2/demande_ajout_lieu_non_authentifie_401 + M3.2/demande_ajout_lieu_lectures_en_echec_500 + M3.2/demande_ajout_lieu_alerte_en_echec_500 + M3.2/demande_ajout_lieu_audit_en_echec_demande_conservee + M3.2/demande_ajout_lieu_impersonation_tracee + M3.2/demande_ajout_lieu_etat_expose + M3.2/demande_ajout_lieu_etat_illisible_500 + M3.2/alerte_lieu_ajout_severite_et_lien + M3.2/demande_ajout_lieu_bouton_sur_la_liste + M3.2/demande_ajout_lieu_bouton_neutralise_demande_en_cours + M3.2/demande_ajout_lieu_etat_illisible_bouton_propose + M3.2/demande_ajout_lieu_etat_tardif_ne_reactive_pas + M3.2/demande_ajout_lieu_formulaire_trois_champs + M3.2/demande_ajout_lieu_champs_obligatoires_bloquent_l_envoi + M3.2/demande_ajout_lieu_envoi_confirme + M3.2/demande_ajout_lieu_deja_en_cours_409 + M3.2/demande_ajout_lieu_refus_affiche + M3.2/demande_ajout_lieu_erreur_reseau + M3.2/demande_ajout_lieu_envoi_en_cours_verrouille + LIEU_AJOUT/index_unique_partiel_present + LIEU_AJOUT/premiere_demande_ouverte + LIEU_AJOUT/seconde_demande_ouverte_refusee + LIEU_AJOUT/autre_organisation_libre + LIEU_AJOUT/autre_code_libre + LIEU_AJOUT/nouvelle_demande_apres_resolution + LIEU_AJOUT/ecriture_directe_gestionnaire_refusee + LIEU_AJOUT/lecture_directe_gestionnaire_vide + LIEU_AJOUT/trace_audit_acceptee",
+      "statut": "implemented",
+      "libelle": "Bouton « Demander l'ajout d'un lieu » sur la liste Lieux du gestionnaire (livrable CDC resté non transcrit, relevé par la revue de conformité de la PR #501). Arbitrages Val 2026-10-07 (_Divergences/M3.2_20261007_demande-ajout-lieu) : la demande ouvre une alerte in-app dans la file de l'Admin (code `lieu_ajout_demande`, « À traiter »), sans email ni Slack — même canal que la demande de modification de la fiche lieu ; le CDC écrit encore « envoie un email », la divergence porte le texte de remplacement. Formulaire à trois champs : nom du lieu (2 à 150 caractères) et adresse (5 à 300) obligatoires ; précision facultative (1 000 caractères au plus, sauts de ligne gardés). Dans le nom et l'adresse, une tabulation ou un saut de ligne collé devient une espace. Mêmes refus que la demande de modification (caractères de contrôle, demi-surrogate orphelin, caractères invisibles retirés), en 422 avec le motif. Routes réservées au rôle gestionnaire_lieux (403 sinon, 401 sans session). Elles n'écrivent ni `lieux` ni `organisations_lieux` : le rattachement reste fait à la main par l'Admin. Aucun lieu n'existant encore, l'alerte est rattachée à l'organisation du demandeur — celle de sa session, jamais une valeur du corps — et renvoie vers sa fiche Admin. Le message nomme l'organisation et reprend les textes saisis entre guillemets ; ni nom ni email du demandeur n'y figurent, l'auteur est tracé dans `audit_log` (action `lieu_ajout_demande`, admin réel inscrit si la session est impersonée), sans les textes. Une demande d'ajout ouverte à la fois par organisation (arbitrage Val 2026-10-07) : la route lit s'il en existe une (409), et un index unique partiel `uniq_alerte_lieu_ajout_ouverte` porte la règle en base pour les envois simultanés (23505 rendu en 409) — même patron que la demande de modification. Une fois l'alerte résolue par l'Admin, une nouvelle demande peut s'ouvrir. Côté écran : le bouton reste proposé quand la liste est vide ; tant qu'une demande est ouverte, il est neutralisé avec la mention « Une demande d'ajout est en cours de traitement par l'équipe Savr » (état lu par GET, qui ne rend jamais le contenu de l'alerte ; état illisible = bouton proposé, la route refuse au besoin ; cette lecture ne fait que neutraliser, si bien qu'arrivée après un envoi elle ne rend pas le bouton ; la mention est reliée au bouton pour un lecteur d'écran). Succès = formulaire refermé, toast « Demande envoyée », bouton neutralisé ; 409 = toast d'information, même issue ; saisie refusée = motif affiché dans le formulaire, saisie conservée ; panne ou session expirée = message neutre, jamais le message technique. Pendant l'envoi, un seul envoi part et le formulaire ne se referme pas. Un échec de lecture ou d'écriture de l'alerte rend 500 ; un échec de la trace d'audit est journalisé avec son auteur sans faire échouer la demande. Alertes_admin reste fermée au gestionnaire en écriture comme en lecture directes (pgTAP)."
+    },
+    {
+      "id": "M3.2-demande-ajout-lieu-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:383",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx + packages/plateforme/src/components/gestionnaire/demande-ajout-lieu-modal.tsx + packages/plateforme/src/app/(admin)/admin/alertes/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu du bouton « Demander l'ajout d'un lieu » et de son formulaire, desktop ET mobile < 640 px : bouton blanc à droite du bandeau de la liste Lieux (liste remplie et liste vide) ; son état neutralisé avec la mention « Une demande d'ajout est en cours de traitement par l'équipe Savr » ; pop-up « Demander l'ajout d'un lieu » (texte d'explication, champs Nom du lieu et Adresse avec astérisque, Précision facultative, « Annuler » / « Envoyer la demande ») ; bandeau d'erreur dans le formulaire ; toast de confirmation. Côté Admin : la ligne de l'alerte dans la file (« À traiter », message, lien vers la fiche de l'organisation). GO visuel de Val donné le 2026-10-07 sur captures (rendu hors application, données simulées) ; l'état neutralisé du bouton lui a été envoyé ensuite."
     }
   ],
   "cdc_source_hash": {

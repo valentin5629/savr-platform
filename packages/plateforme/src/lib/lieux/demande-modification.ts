@@ -35,6 +35,18 @@ const SURROGATE_ORPHELIN = /\p{Surrogate}/u;
 // de l'Admin le texte qui suit le préfixe écrit par la route.
 const INVISIBLES = /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
 
+// Les deux gardes ci-dessous servent aussi la demande d'ajout d'un lieu
+// (lib/lieux/demande-ajout) : un seul jeu de refus pour les textes saisis par
+// le gestionnaire et recopiés dans la file de l'Admin.
+
+/** Saisie sans ses caractères invisibles ni ses blancs de bord. */
+export const nettoyerSaisie = (valeur: string): string =>
+  valeur.replace(INVISIBLES, '').trim();
+
+/** Caractère de contrôle (hors tabulation et sauts de ligne) ou demi-surrogate orphelin. */
+export const porteCaractereInterdit = (texte: string): boolean =>
+  CONTROLE_HORS_BLANCS.test(texte) || SURROGATE_ORPHELIN.test(texte);
+
 export type DemandeNormalisee =
   | { ok: true; texte: string }
   | { ok: false; erreur: string };
@@ -43,7 +55,7 @@ export type DemandeNormalisee =
 export function normaliserDemande(valeur: unknown): DemandeNormalisee {
   if (typeof valeur !== 'string')
     return { ok: false, erreur: 'Précisez l’information à corriger.' };
-  const texte = valeur.replace(INVISIBLES, '').trim();
+  const texte = nettoyerSaisie(valeur);
   if (texte.length < LONGUEUR_MIN_DEMANDE)
     return {
       ok: false,
@@ -54,7 +66,7 @@ export function normaliserDemande(valeur: unknown): DemandeNormalisee {
       ok: false,
       erreur: `La demande ne doit pas dépasser ${LONGUEUR_MAX_DEMANDE} caractères.`,
     };
-  if (CONTROLE_HORS_BLANCS.test(texte) || SURROGATE_ORPHELIN.test(texte))
+  if (porteCaractereInterdit(texte))
     return {
       ok: false,
       erreur: 'La demande contient des caractères non autorisés.',

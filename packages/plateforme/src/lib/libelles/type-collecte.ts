@@ -9,7 +9,6 @@
  * Les alias UI du formulaire de programmation (`zd` / `ag`) sont tolérés.
  */
 import type { Database } from '@savr/shared/src/database.types.js';
-import type { VarianteBadge as Variant } from './types';
 
 type TypeCollecte = Database['plateforme']['Enums']['collecte_type'];
 
@@ -35,31 +34,25 @@ export const LIBELLE_COURT_TYPE_COLLECTE: Record<string, string> = {
 } satisfies Record<TypeCollecte, string>;
 
 /**
- * Couleurs du badge de type — arbitrage Q1 OUVERT : DEUX codes couleur
- * cohabitent, tous deux tenus ici en attendant l'arbitrage.
- * - pastille (listes Collectes Admin / gestionnaire / historique, onglet
- *   Collectes de la fiche client) : ZD vert `success` / AG ambre `warning` —
- *   `VARIANT_TYPE_COLLECTE` ;
- * - badge CDC (liste Transporteurs) : ZD navy `primary` / AG orange `action`,
- *   sans icône — `VARIANT_CDC_TYPE_COLLECTE` (conforme §10 l.140) ;
- * - aplat (sur-titre des fiches collecte Admin et client, §06.04 Q2 / §06.06) :
- *   ZD navy primary-700 texte blanc / AG orange accent-500 texte primary-950 —
- *   `CLASSES_APLAT_TYPE_COLLECTE`.
- * Option (a) §2.4 : ZD navy / AG orange partout ; option (b) : vert / ambre.
+ * Couleurs du type de collecte — arbitrage Q1 tranché par Val le 2026-10-07 :
+ * **ZD vert, AG navy**, une seule paire pour toutes les formes du badge (et
+ * pour les séries ZD/AG des graphes qui codent le type par la couleur).
+ * Divergence D59 : le CDC §10 l.140 disait « AG = orange, ZD = navy ».
+ * - pastille / badge (listes, référentiel transporteurs) : Badge `success`
+ *   (ZD) / `primary` (AG) — `VARIANT_TYPE_COLLECTE` ;
+ * - aplat (sur-titre des fiches collecte Admin et client) : ZD success-strong
+ *   texte blanc (5,0:1) / AG primary-700 texte blanc — `CLASSES_APLAT_TYPE_COLLECTE`.
  */
-export const VARIANT_TYPE_COLLECTE: Record<string, Variant> = {
-  zero_dechet: 'success',
-  anti_gaspi: 'warning',
-} satisfies Record<TypeCollecte, Variant>;
+export type VarianteTypeCollecte = 'success' | 'primary' | 'neutral';
 
-export const VARIANT_CDC_TYPE_COLLECTE: Record<string, 'primary' | 'action'> = {
-  zero_dechet: 'primary',
-  anti_gaspi: 'action',
-} satisfies Record<TypeCollecte, 'primary' | 'action'>;
+export const VARIANT_TYPE_COLLECTE: Record<string, VarianteTypeCollecte> = {
+  zero_dechet: 'success',
+  anti_gaspi: 'primary',
+} satisfies Record<TypeCollecte, VarianteTypeCollecte>;
 
 export const CLASSES_APLAT_TYPE_COLLECTE: Record<string, string> = {
-  zero_dechet: 'bg-savr-primary-700 text-savr-white',
-  anti_gaspi: 'bg-savr-accent-500 text-savr-primary-950',
+  zero_dechet: 'bg-savr-success-strong text-savr-white',
+  anti_gaspi: 'bg-savr-primary-700 text-savr-white',
 } satisfies Record<TypeCollecte, string>;
 
 /** Classes de l'aplat (fiches collecte) ; type inconnu → aplat ZD (rendu historique). */
@@ -128,7 +121,9 @@ export function libelleCompletTypeCollecte(
   return long ? `${long} (${LIBELLE_COURT_TYPE_COLLECTE[t]})` : t;
 }
 
-export function variantTypeCollecte(type: string | null | undefined): Variant {
+export function variantTypeCollecte(
+  type: string | null | undefined,
+): VarianteTypeCollecte {
   const t = normaliserTypeCollecte(type);
   return (t && VARIANT_TYPE_COLLECTE[t]) || 'neutral';
 }

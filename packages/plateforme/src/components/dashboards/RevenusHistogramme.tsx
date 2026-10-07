@@ -230,7 +230,7 @@ export function RevenusHistogramme({
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-5 text-sm">
                         <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
-                          <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-accent-500" />
+                          <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-primary-700" />
                           Anti-gaspi
                         </span>
                         <span className="font-extrabold tabular-nums text-savr-neutral-900">
@@ -248,7 +248,7 @@ export function RevenusHistogramme({
                     </ChartTooltip>
                     {agVal > 0 && (
                       <div
-                        className="w-full rounded-t-savr-sm bg-savr-accent-500"
+                        className="w-full rounded-t-savr-sm bg-savr-primary-700"
                         style={{ height: `${agPct}%` }}
                         aria-label={`AG ${label}`}
                       />
@@ -296,7 +296,7 @@ export function RevenusHistogramme({
           Zéro déchet
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-accent-500" />
+          <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-primary-700" />
           Anti-gaspi
         </span>
       </Text>

@@ -10,19 +10,21 @@ import { FactureStatutBadge } from './facture-statut-badge';
 import { TypeCollecteBadge } from './type-collecte-badge';
 
 describe('R-UI-2 — TypeCollecteBadge (C2)', () => {
-  it('forme="badge" (Transporteurs) : ZD primary / AG action, sans icône', () => {
+  // Arbitrage Q1 (Val, 2026-10-07) : ZD vert, AG navy pour toutes les formes.
+  it('forme="badge" (Transporteurs) : ZD vert / AG navy, sans icône', () => {
     const { rerender } = render(
       <TypeCollecteBadge type="zero_dechet" forme="badge" />,
     );
     let badge = screen.getByText('ZD').closest('span')!;
     expect(badge.querySelector('svg')).toBeNull();
-    const zd = badge.className;
+    expect(badge.className).toContain('bg-savr-success-subtle');
     rerender(<TypeCollecteBadge type="anti_gaspi" forme="badge" />);
     badge = screen.getByText('AG').closest('span')!;
-    expect(badge.className).not.toBe(zd);
+    expect(badge.className).toContain('bg-savr-primary-50');
+    expect(badge.className).toContain('text-savr-primary-700');
   });
 
-  it('forme="pastille" par défaut : ZD vert / AG ambre, icône, sans point', () => {
+  it('forme="pastille" par défaut : ZD vert / AG navy, icône, sans point', () => {
     const { rerender } = render(<TypeCollecteBadge type="zero_dechet" />);
     // Pas d'identifiant de test sur la pastille (réservé à l'en-tête de fiche).
     expect(screen.queryByTestId('badge-type-collecte')).toBeNull();
@@ -35,16 +37,18 @@ describe('R-UI-2 — TypeCollecteBadge (C2)', () => {
     rerender(<TypeCollecteBadge type="anti_gaspi" />);
     badge = screen.getByText('AG').closest('span')!;
     expect(badge.textContent).toBe('AG');
-    expect(badge.className).toContain('bg-savr-warning-subtle');
+    expect(badge.className).toContain('bg-savr-primary-50');
+    expect(badge.className).not.toContain('accent');
+    expect(badge.className).not.toContain('warning');
   });
 
-  it('forme="plein" (fiches collecte) : aplat ZD navy / AG orange, libellé long', () => {
+  it('forme="plein" (fiches collecte) : aplat ZD vert / AG navy, texte blanc, libellé long', () => {
     const { rerender } = render(
       <TypeCollecteBadge type="zero_dechet" forme="plein" />,
     );
     let badge = screen.getByTestId('badge-type-collecte');
     expect(badge.textContent).toBe('Zéro Déchet');
-    expect(badge.className).toContain('bg-savr-primary-700');
+    expect(badge.className).toContain('bg-savr-success-strong');
     expect(badge.className).toContain('text-savr-white');
     expect(badge.className).toContain('uppercase');
     expect(badge.querySelector('svg')).toBeNull();
@@ -52,8 +56,9 @@ describe('R-UI-2 — TypeCollecteBadge (C2)', () => {
     rerender(<TypeCollecteBadge type="anti_gaspi" forme="plein" />);
     badge = screen.getByTestId('badge-type-collecte');
     expect(badge.textContent).toBe('Anti-Gaspi');
-    expect(badge.className).toContain('bg-savr-accent-500');
-    expect(badge.className).toContain('text-savr-primary-950');
+    expect(badge.className).toContain('bg-savr-primary-700');
+    expect(badge.className).toContain('text-savr-white');
+    expect(badge.className).not.toContain('accent');
   });
 
   it('type inconnu : valeur brute, couleur neutre', () => {

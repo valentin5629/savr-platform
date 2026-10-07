@@ -85,7 +85,7 @@ beforeEach(() => {
 
 describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
   it(
-    'M3.1/fiche_popup_entete_badge_frise — badge ZD navy, réf., lieu, date · heure · pax, frise client',
+    'M3.1/fiche_popup_entete_badge_frise — badge ZD vert, réf., lieu, date · heure · pax, frise client',
     async () => {
       stubFetchFiche(ficheClient({ statut: 'validee' }));
       render(fiche('c1'));
@@ -96,8 +96,9 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
         ATTENTE_UI,
       );
       expect(badge.textContent).toBe('Zéro Déchet');
-      // Q2 : ZD = navy primary-700, texte blanc (plus de cadre vert).
-      expect(badge.className).toContain('bg-savr-primary-700');
+      // Arbitrage Q1 (Val, 2026-10-07) : ZD = vert success-strong, texte blanc
+      // (remplace ZD navy du 2026-09-29).
+      expect(badge.className).toContain('bg-savr-success-strong');
       expect(badge.className).toContain('text-savr-white');
       expect(screen.getByText('Réf. C1')).toBeTruthy();
       expect(
@@ -124,7 +125,7 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
   );
 
   it(
-    'M3.1/fiche_popup_badge_ag_orange — AG : badge accent-500, texte primary-950',
+    'M3.1/fiche_popup_badge_ag_navy — AG : badge navy primary-700, texte blanc',
     async () => {
       stubFetchFiche(ficheClient({ type: 'anti_gaspi' }));
       render(fiche('c1'));
@@ -135,8 +136,10 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
         ATTENTE_UI,
       );
       expect(badge.textContent).toBe('Anti-Gaspi');
-      expect(badge.className).toContain('bg-savr-accent-500');
-      expect(badge.className).toContain('text-savr-primary-950');
+      // Arbitrage Q1 (Val, 2026-10-07) : AG = navy (remplace AG orange).
+      expect(badge.className).toContain('bg-savr-primary-700');
+      expect(badge.className).toContain('text-savr-white');
+      expect(badge.className).not.toContain('accent');
     },
     ATTENTE_CAS_MS,
   );

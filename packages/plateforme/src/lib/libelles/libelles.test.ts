@@ -94,9 +94,9 @@ describe('R-UI-2 — lib/libelles : sources uniques C2-C11', () => {
     expect(libelleCourtTypeCollecte('')).toBe('—');
     expect(libelleTypeCollecte('autre')).toBe('autre');
     expect(libelleCompletTypeCollecte('autre')).toBe('autre');
-    // Couleur majoritaire (arbitrage Q1 ouvert) : ZD vert, AG ambre.
+    // Arbitrage Q1 (Val, 2026-10-07) : ZD vert, AG navy.
     expect(variantTypeCollecte('zero_dechet')).toBe('success');
-    expect(variantTypeCollecte('ag')).toBe('warning');
+    expect(variantTypeCollecte('ag')).toBe('primary');
     expect(variantTypeCollecte('autre')).toBe('neutral');
   });
 

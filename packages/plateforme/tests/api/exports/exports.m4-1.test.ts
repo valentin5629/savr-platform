@@ -5,10 +5,10 @@
  * filtres actifs propagés, cloisonnement (clients = RLS jamais service_role,
  * staff = service_role), entité inconnue 404, non-authentifié 401.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-type Result = { data: unknown; error: unknown };
+type Result = { data: unknown; error: unknown; count?: number | null };
 
 function makeChain() {
   const queue: Result[] = [];
@@ -16,7 +16,14 @@ function makeChain() {
   const record = (name: string, args: unknown[]) => {
     (calls[name] ??= []).push(args);
   };
-  const next = (): Result => queue.shift() ?? { data: null, error: null };
+  // Total de la requête (`count: 'exact'`) : par défaut celui des lignes servies
+  // — une seule tranche ; un cas peut en annoncer davantage (lecture par tranches).
+  const next = (): Result => {
+    const r = queue.shift() ?? { data: null, error: null };
+    return 'count' in r
+      ? r
+      : { ...r, count: Array.isArray(r.data) ? r.data.length : null };
+  };
   const chain: Record<string, unknown> = {
     __calls: calls,
     push(r: Result) {
@@ -34,7 +41,10 @@ function makeChain() {
     'lte',
     'neq',
     'or',
+    'is',
+    'not',
     'order',
+    'range',
   ]) {
     chain[m] = (...args: unknown[]) => {
       record(m, args);
@@ -195,38 +205,50 @@ describe('M4.1 / cloisonnement', () => {
     expect(mockCreateAdmin).toHaveBeenCalled();
   });
 
-  it('staff : repas AG lus en direct (jamais via RPC C-1-safe = 0 sous service_role)', async () => {
+  it('staff : repas AG lus dans l’embed de la ligne (jamais via RPC C-1-safe = 0 sous service_role, ni par une seconde requête)', async () => {
     setupAuth('admin_savr', null);
+    const ligne = (id: string, attributions: unknown) => ({
+      id,
+      type: 'anti_gaspi',
+      statut: 'cloturee',
+      date_collecte: '2026-01-20',
+      attributions_antgaspi: attributions,
+      evenements: {
+        nom_evenement: id,
+        date_evenement: '2026-01-20',
+        traiteur_operationnel_organisation_id: null,
+        lieux: { nom: 'Hall' },
+      },
+    });
     admin.push({
       data: [
-        {
-          id: 'c-ag',
-          type: 'anti_gaspi',
-          statut: 'cloturee',
-          date_collecte: '2026-01-20',
-          evenements: {
-            nom_evenement: 'Don',
-            date_evenement: '2026-01-20',
-            traiteur_operationnel_organisation_id: null,
-            lieux: { nom: 'Hall' },
-          },
-        },
+        // Objet ou tableau selon la cardinalité vue par PostgREST.
+        ligne('evt-objet', { id: 'a1', volume_repas_realise: 240 }),
+        ligne('evt-tableau', [{ id: 'a2', volume_repas_realise: 35 }]),
+        ligne('evt-sans-attribution', null),
       ],
       error: null,
     });
-    // resolveRepas (staff) : lecture directe attributions_antgaspi
-    admin.push({
-      data: [{ collecte_id: 'c-ag', volume_repas_realise: 240 }],
-      error: null,
-    });
     const res = await call('collectes', '?type=anti_gaspi');
-    const text = await res.text();
+    const csv = await res.text();
     expect(res.status).toBe(200);
-    expect(text).toContain('240'); // repas AG résolu
+    const repasDe = (id: string) =>
+      csv
+        .split('\r\n')
+        .find((l) => l.includes(id))
+        ?.split(';')
+        .pop();
+    expect(repasDe('evt-objet')).toBe('240');
+    expect(repasDe('evt-tableau')).toBe('35');
+    // Sans attribution : cellule vide, pas un zéro.
+    expect(repasDe('evt-sans-attribution')).toBe('');
     expect(admin.__calls.rpc).toBeUndefined(); // pas de RPC sous service_role
-    expect(
-      (admin.__calls.from ?? []).some((a) => a[0] === 'attributions_antgaspi'),
-    ).toBe(true);
+    // Une seule lecture : une requête `in(collecte_id, …)` à part dépasserait
+    // la longueur d'URL et le plafond de lignes sur un gros export.
+    expect((admin.__calls.from ?? []).map((a) => a[0])).toEqual(['collectes']);
+    expect(String((admin.__calls.select ?? [])[0]?.[0])).toMatch(
+      /attributions_antgaspi!collecte_id\(id, volume_repas_realise\)/,
+    );
   });
 
   it('traiteur : export associations-ag — embed to-one (OBJET PostgREST) non jeté', async () => {
@@ -311,7 +333,7 @@ describe('M4.1 / export collectes — statut affiché Admin', () => {
     expect(select).toMatch(/\bstatut_tms\b/);
     expect(select).toMatch(/\btms_reference\b/);
     expect(select).toMatch(/\bprestataire_logistique_id\b/);
-    expect(select).toMatch(/attributions_antgaspi!collecte_id\(id\)/);
+    expect(select).toMatch(/attributions_antgaspi!collecte_id\(id\b/);
     expect(admin.__calls.neq).toContainEqual(['statut', 'brouillon']);
   });
 
@@ -571,6 +593,286 @@ describe('M4.1 / export collectes — filtres de la liste gestionnaire', () => {
     expect(rls.__calls.or ?? []).toEqual([]);
     // La requête part bien (pas de court-circuit « aucun résultat »).
     expect(rls.__calls.order).toBeDefined();
+  });
+});
+
+// ── Export de la liste Collectes de l'Admin (décision Val 2026-10-07) ─────────
+// Sa liste porte des filtres que les listes clientes n'ont pas (pastilles,
+// statuts affichés, traiteur opérationnel, périmètre, contrôle d'accès, rapport
+// non consulté) : la route de la liste et l'export les lisent ET les appliquent
+// par le MÊME module, pour que le fichier porte les lignes de la liste (§12 §2).
+describe('M4.1 / export collectes — filtres de la liste Admin', () => {
+  const TRAITEUR_1 = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const FILTRES = ['eq', 'neq', 'in', 'is', 'not', 'gte', 'lte', 'or'] as const;
+
+  beforeEach(() => {
+    // Fenêtres 48 h des pastilles et « à venir » : même jour pour les deux appels.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-07T10:00:00Z'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Filtres posés sur la requête `collectes` par un appel (liste ou export). */
+  async function filtresPoses(appel: () => Promise<Response>) {
+    admin = makeChain();
+    admin.push({ data: [], error: null });
+    const res = await appel();
+    expect(res.status).toBe(200);
+    return Object.fromEntries(FILTRES.map((m) => [m, admin.__calls[m] ?? []]));
+  }
+  async function liste(query: string): Promise<Response> {
+    const { GET } = await import('@/app/api/v1/admin/collectes/route.js');
+    return GET(makeReq(`/api/v1/admin/collectes${query}`));
+  }
+
+  it.each<[string, string, (typeof FILTRES)[number], unknown[]]>([
+    [
+      'statuts affichés (liste DB)',
+      '?statuts=validee,en_cours',
+      'in',
+      ['statut', ['validee', 'en_cours']],
+    ],
+    [
+      'statut « Créée » = demande non partie',
+      '?statuts=creee',
+      'or',
+      [
+        'and(statut.eq.programmee,statut_tms.eq.non_envoye,tms_reference.is.null,prestataire_logistique_id.is.null,attributions_antgaspi.is.null)',
+      ],
+    ],
+    [
+      'statut « Programmée » = demande partie, cumulé à un autre statut',
+      '?statuts=programmee,validee',
+      'or',
+      [
+        'and(statut.eq.programmee,or(statut_tms.neq.non_envoye,tms_reference.not.is.null,prestataire_logistique_id.not.is.null,attributions_antgaspi.not.is.null)),statut.in.(validee)',
+      ],
+    ],
+    [
+      'aucun statut lisible : aucune ligne, jamais la liste entière',
+      '?statuts=inconnu,brouillon',
+      'in',
+      ['statut', []],
+    ],
+    [
+      'type (choix multiple)',
+      '?types=anti_gaspi',
+      'in',
+      ['type', ['anti_gaspi']],
+    ],
+    [
+      'traiteur opérationnel',
+      `?traiteur_operationnel_ids=${TRAITEUR_1},${ORG_1}`,
+      'in',
+      ['evenements.traiteur_operationnel_organisation_id', [TRAITEUR_1, ORG_1]],
+    ],
+    [
+      'lieux',
+      `?lieu_ids=${LIEU_1},${LIEU_2}`,
+      'in',
+      ['evenements.lieu_id', [LIEU_1, LIEU_2]],
+    ],
+    [
+      'période — début',
+      '?from=2026-01-01',
+      'gte',
+      ['date_collecte', '2026-01-01'],
+    ],
+    ['période — fin', '?to=2026-06-30', 'lte', ['date_collecte', '2026-06-30']],
+    [
+      'info incomplète',
+      '?info_incomplete=true',
+      'eq',
+      ['informations_completes', false],
+    ],
+    [
+      'infos d’accès à envoyer (contrôle requis, email non envoyé, à venir)',
+      '?controle_acces=true',
+      'is',
+      ['infos_acces_email_envoye_at', null],
+    ],
+    [
+      'rapport non consulté',
+      '?rapport_non_consulte=true',
+      'is',
+      ['rapports_rse.consulte_par_user_at', null],
+    ],
+    [
+      'périmètre d’organisations du drill-down',
+      `?perimetre_org_ids[]=${ORG_1}&perimetre_org_ids[]=${ORG_2}`,
+      'or',
+      [
+        `organisation_id.in.(${ORG_1},${ORG_2}),traiteur_operationnel_organisation_id.in.(${ORG_1},${ORG_2})`,
+        { referencedTable: 'evenements' },
+      ],
+    ],
+    [
+      'pastille « Non transmises ZD »',
+      '?chip=non_transmises_zd',
+      'eq',
+      ['statut_tms', 'non_envoye'],
+    ],
+    [
+      'pastille « Modifiées sans renvoi TMS »',
+      '?chip=dirty_tms',
+      'not',
+      ['tms_reference', 'is', null],
+    ],
+    [
+      'pastille « AG en attente attribution »',
+      '?chip=ag_attente_attribution',
+      'is',
+      ['attributions_antgaspi', null],
+    ],
+    [
+      'pastille « Collecte <48 h non validée »',
+      '?chip=collectes_48h_non_validees',
+      'lte',
+      ['date_collecte', '2026-10-09'],
+    ],
+    [
+      'pastille ET barre cumulées',
+      `?chip=attente_prestataire&statuts=validee&types=zero_dechet&lieu_ids=${LIEU_1}&from=2026-01-01`,
+      'eq',
+      ['statut_tms', 'attribuee_en_attente_acceptation'],
+    ],
+  ])(
+    'M4.1/export_collectes_admin_filtres_liste — %s : le fichier porte les filtres de la liste',
+    async (_cas, query, methode, appelAttendu) => {
+      setupAuth('admin_savr', null);
+      const deLaListe = await filtresPoses(() => liste(query));
+      const deLExport = await filtresPoses(() => call('collectes', query));
+
+      // Le filtre du cas est bien posé (l'égalité seule serait vraie à vide)…
+      expect(deLExport[methode]).toContainEqual(appelAttendu);
+      // … et l'export pose EXACTEMENT les filtres de la liste, brouillons exclus.
+      expect(deLExport).toEqual(deLaListe);
+      expect(deLExport.neq).toContainEqual(['statut', 'brouillon']);
+    },
+  );
+
+  it('M4.1/export_collectes_admin_filtres_liste — rapport non consulté : embed rapports_rse en !inner, absent sinon', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({ data: [], error: null });
+    await call('collectes', '?rapport_non_consulte=true');
+    expect(String((admin.__calls.select ?? [])[0]?.[0])).toMatch(
+      /rapports_rse!collecte_id!inner\(consulte_par_user_at\)/,
+    );
+
+    admin = makeChain();
+    admin.push({ data: [], error: null });
+    await call('collectes', '?statuts=validee');
+    expect(String((admin.__calls.select ?? [])[0]?.[0])).not.toMatch(
+      /rapports_rse/,
+    );
+  });
+
+  it('M4.1/export_collectes_admin_sans_tri_ni_page — tri et page de la liste ignorés : toute la sélection, date décroissante', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({ data: [], error: null });
+    await call('collectes', '?statuts=validee&tri=type&ordre=asc&page=3');
+    expect(admin.__calls.order).toEqual([
+      ['date_collecte', { ascending: false }],
+      ['id', { ascending: false }],
+    ]);
+    expect(admin.__calls.range).toEqual([[0, 999]]);
+  });
+
+  it('M4.1/export_collectes_filtres_admin_bornes_au_staff — agence : aucun filtre de la liste Admin n’est lu, sa requête reste celle de sa liste', async () => {
+    setupAuth('agence');
+    rls.push({ data: [], error: null });
+    const qs = new URLSearchParams({
+      chip: 'dirty_tms',
+      statuts: 'creee',
+      types: 'anti_gaspi',
+      statut_tms: 'acceptee',
+      organisation_id: ORG_1,
+      traiteur_operationnel_ids: TRAITEUR_1,
+      controle_acces: 'true',
+      rapport_non_consulte: 'true',
+      info_incomplete: 'true',
+    });
+    qs.append('perimetre_org_ids[]', ORG_2);
+    const res = await call('collectes', `?${qs}`);
+    expect(res.status).toBe(200);
+    for (const m of FILTRES) expect(rls.__calls[m] ?? []).toEqual([]);
+    expect(String((rls.__calls.select ?? [])[0]?.[0])).not.toMatch(
+      /rapports_rse|attributions_antgaspi/,
+    );
+    expect(mockCreateAdmin).not.toHaveBeenCalled();
+  });
+
+  it('M4.1/export_collectes_filtres_admin_bornes_au_staff — staff : les filtres des listes clientes (client, programmée par, info incomplète oui/non) ne sont pas les siens', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({ data: [], error: null });
+    await call(
+      'collectes',
+      `?client=Viparis&programmee_par=${ORG_1}&info_incomplete=oui`,
+    );
+    expect(admin.__calls.filter ?? []).toEqual([]);
+    expect(admin.__calls.in ?? []).toEqual([]);
+    expect(admin.__calls.eq ?? []).toEqual([]);
+  });
+
+  // PostgREST plafonne chaque réponse (`max_rows`) : le staff est le premier
+  // rôle à dépasser 1 000 collectes (historique repris de Bubble).
+  const ligneZd = (id: string) => ({
+    id,
+    type: 'zero_dechet',
+    statut: 'cloturee',
+    statut_tms: 'terminee',
+    tms_reference: 'CMD-1',
+    prestataire_logistique_id: null,
+    attributions_antgaspi: null,
+    date_collecte: '2026-01-20',
+    evenements: {
+      nom_evenement: id,
+      date_evenement: '2026-01-20',
+      traiteur_operationnel_organisation_id: null,
+      lieux: { nom: 'Hall' },
+    },
+  });
+
+  it('M4.1/export_collectes_lecture_par_tranches — réponse plafonnée : les tranches suivantes sont lues jusqu’au total annoncé', async () => {
+    setupAuth('admin_savr', null);
+    // Le serveur annonce 3 lignes et n'en sert que 2 par réponse.
+    admin.push({
+      data: [ligneZd('evt-1'), ligneZd('evt-2')],
+      error: null,
+      count: 3,
+    });
+    admin.push({ data: [ligneZd('evt-3')], error: null, count: 3 });
+    const res = await call('collectes', '?statuts=cloturee');
+    const csv = await res.text();
+    expect(res.status).toBe(200);
+    for (const id of ['evt-1', 'evt-2', 'evt-3']) expect(csv).toContain(id);
+    // La seconde tranche repart du nombre de lignes REÇUES, filtres reposés.
+    expect(admin.__calls.range).toEqual([
+      [0, 999],
+      [2, 1001],
+    ]);
+    expect(
+      (admin.__calls.in ?? []).filter((a) => a[0] === 'statut'),
+    ).toHaveLength(2);
+  });
+
+  it('M4.1/export_collectes_lecture_par_tranches — lignes disparues entre deux tranches : la lecture s’arrête sur la tranche vide', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({ data: [ligneZd('evt-1')], error: null, count: 2 });
+    admin.push({ data: [], error: null, count: 1 });
+    const res = await call('collectes');
+    expect(res.status).toBe(200);
+    expect(admin.__calls.range).toHaveLength(2);
+  });
+
+  it('M4.1/export_collectes_total_absent_echec — sans total, l’export échoue : jamais un fichier peut-être tronqué', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({ data: [ligneZd('evt-1')], error: null, count: null });
+    const res = await call('collectes');
+    expect(res.status).toBe(500);
+    expect(await res.text()).not.toContain('evt-1');
   });
 });
 

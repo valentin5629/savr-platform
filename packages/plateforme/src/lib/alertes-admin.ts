@@ -9,6 +9,7 @@
 // Admin »), jamais poussées sur Slack. Cet écran est ce canal.
 
 import { ROUTES } from '@/lib/routes';
+import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
 
 export type AlerteSeverite = 'critique' | 'attention' | 'info';
 
@@ -46,6 +47,11 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // actif : risque de double passage (M14 EC11, warning). Même angle mort que
   // ci-dessus : aucun mot-clé de repli ne la teinte.
   everest_mission_hors_attribution: 'attention',
+  // Gestionnaire qui demande la correction d'une information de son lieu (fiche
+  // lieu, bouton « Demande de modification d'information ») : l'Admin corrige
+  // la fiche puis résout l'alerte — tant qu'elle est ouverte, le gestionnaire
+  // ne peut pas en déposer une autre pour ce lieu.
+  [CODE_ALERTE_LIEU_MODIFICATION]: 'attention',
   // Informatives — trace d'un événement à connaître.
   shadow_traiteur_cree: 'info',
   shadow_siret_complete: 'info',

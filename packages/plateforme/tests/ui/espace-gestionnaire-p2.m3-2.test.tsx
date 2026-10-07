@@ -413,7 +413,8 @@ describe('M3.2 / P2 listes colonnes', () => {
       expect(
         (await screen.findAllByText('Capacité', undefined, ATTENTE_UI)).length,
       ).toBeGreaterThan(0);
-      expect(screen.getAllByText('3500 pers.').length).toBeGreaterThan(0);
+      // Séparateur de milliers français (lib/format, DS §3).
+      expect(screen.getAllByText(/^3\s500 pers\.$/).length).toBeGreaterThan(0);
     },
     ATTENTE_CAS_MS,
   );

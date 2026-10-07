@@ -9,6 +9,7 @@
 // Admin »), jamais poussées sur Slack. Cet écran est ce canal.
 
 import { ROUTES } from '@/lib/routes';
+import { CODE_ALERTE_LIEU_AJOUT } from '@/lib/lieux/demande-ajout';
 import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
 
 export type AlerteSeverite = 'critique' | 'attention' | 'info';
@@ -52,6 +53,10 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // la fiche puis résout l'alerte — tant qu'elle est ouverte, le gestionnaire
   // ne peut pas en déposer une autre pour ce lieu.
   [CODE_ALERTE_LIEU_MODIFICATION]: 'attention',
+  // Gestionnaire qui demande le rattachement d'un nouveau lieu (liste Lieux,
+  // bouton « Demander l'ajout d'un lieu ») : l'Admin crée ou rattache le lieu
+  // puis résout l'alerte, rattachée à l'organisation qui demande.
+  [CODE_ALERTE_LIEU_AJOUT]: 'attention',
   // Informatives — trace d'un événement à connaître.
   shadow_traiteur_cree: 'info',
   shadow_siret_complete: 'info',

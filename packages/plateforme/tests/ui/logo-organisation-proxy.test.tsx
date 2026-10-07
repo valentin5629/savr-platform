@@ -5,8 +5,10 @@
  * migration 20260919100000) et non une URL publique : posée telle quelle dans le `src`
  * d'une <img>, le navigateur la résout comme une URL RELATIVE et n'affiche rien
  * (mesuré sur savr-dev : `GET /admin/clients/savr-dev/logos/….jpg → 404`).
- * Ces deux sondes figent le câblage des fiches de détail ; la liste des traiteurs est
- * couverte par M3.2/P2_traiteurs_logo_par_proxy.
+ * Cette sonde fige le câblage de la fiche organisation Admin ; côté gestionnaire, la
+ * liste des traiteurs est couverte par M3.2/P2_traiteurs_logo_par_proxy et la fiche
+ * traiteur (pop-up) par M3.2/logo_fiche_traiteur_gestionnaire_par_proxy
+ * (tests/ui/fiche-traiteur-modale.m3-2.test.tsx).
  *
  * `use(params)` ne se résout jamais sous Suspense dans cet environnement de test
  * (jsdom + React 19 + RTL 16 : un composant minimal `use(Promise.resolve(x))` reste
@@ -25,7 +27,6 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/lib/use-user-role', () => ({ useUserRole: () => 'admin_savr' }));
 
-import TraiteurDetailPage from '@/app/(gestionnaire)/gestionnaire/traiteurs/[id]/page.js';
 import ClientFichePage from '@/app/(admin)/admin/clients/[id]/page.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
@@ -50,50 +51,6 @@ const params = (id: string) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-});
-
-describe('M3.2 / logo d’un traiteur tiers — proxy d’affichage', () => {
-  it(
-    'M3.2/logo_fiche_traiteur_gestionnaire_par_proxy — src = proxy scopé, jamais la clé R2',
-    async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(() =>
-          reponse({
-            data: {
-              id: 'tr1',
-              nom: 'Kaspia',
-              logo_url: CLE,
-              stats_12m: {
-                nb_collectes_zd: 2,
-                nb_collectes_ag: 1,
-                tonnage_zd_kg: 900,
-                taux_recyclage_moyen: 72.4,
-                repas_donnes: 120,
-              },
-              historique_collectes: [],
-            },
-          }),
-        ),
-      );
-
-      render(<TraiteurDetailPage params={params('tr1')} />);
-      await screen.findByText('Kaspia', undefined, ATTENTE_UI);
-
-      // La page ne rend qu'une image : l'asserter rend l'échec explicite si une
-      // autre <img> vient un jour s'intercaler avant le logo.
-      const imgs = document.querySelectorAll('img');
-      expect(imgs).toHaveLength(1);
-      const img = imgs[0]!;
-      // Le périmètre est porté par la route (vue v_traiteurs_gestionnaire) :
-      // la page ne transmet JAMAIS la clé de stockage.
-      expect(img.getAttribute('src')).toBe(
-        '/api/v1/gestionnaire/traiteurs/tr1/logo',
-      );
-      expect(img.getAttribute('src')).not.toContain(CLE);
-    },
-    ATTENTE_CAS_MS,
-  );
 });
 
 describe('M1.1a / logo de la fiche organisation — proxy d’affichage', () => {

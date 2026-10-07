@@ -20,6 +20,7 @@ import { useToast } from '@/components/ui/toast';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import type { DashboardFilters } from '@/components/dashboards/DashboardFilterBar';
 import { useEvolutionBlocs } from '@/components/dashboards/useEvolutionBlocs';
+import { estUuid } from '@/lib/filtre-csv';
 import { fmtInt, fmtKg } from '@/lib/format';
 import { libelleFlux } from '@/lib/libelles/flux';
 import { LONGUEUR_MIN_DEMANDE } from '@/lib/lieux/demande-modification';
@@ -111,6 +112,13 @@ export function FicheLieuModal({
   useEffect(() => {
     let annule = false;
     setLieu(null);
+    // Identifiant mal formé (adresse saisie à la main) : aucune requête. Le
+    // navigateur normaliserait « . » vers la route de la LISTE, dont la réponse
+    // n'a pas la forme d'une fiche.
+    if (!estUuid(lieuId)) {
+      setEtat('introuvable');
+      return;
+    }
     setEtat('chargement');
     fetch(`/api/v1/gestionnaire/lieux/${encodeURIComponent(lieuId)}`)
       .then((r) => {

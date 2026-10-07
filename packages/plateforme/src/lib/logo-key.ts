@@ -24,6 +24,12 @@ const CLE_LOGO =
 /**
  * Découpe une clé de logo « bucket/logos/<uuid>.(png|jpg) » si elle vise le bucket
  * applicatif ; `null` sinon (autre bucket, autre préfixe, format hors upload).
+ *
+ * LÈVE si `R2_BUCKET_NAME` est absente et que la clé a le bon format : faute de
+ * bucket de référence, on ne sait pas dire si la clé est permise. Les routes qui
+ * servent ou valident un logo laissent remonter l'erreur (réponse 500) plutôt que
+ * de répondre 403 / 404 / 422, qui feraient passer un serveur mal configuré pour
+ * une clé refusée. Seul l'inline PDF l'attrape (logo-inline.ts : best-effort).
  */
 export function parseCleLogo(
   storageKey: string | null | undefined,

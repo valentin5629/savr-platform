@@ -34,9 +34,12 @@ const MAX_LOGO_BYTES = 1_000_000;
 export async function logoKeyToDataUri(
   storageKey: string | null | undefined,
 ): Promise<string | null> {
-  const cle = parseCleLogo(storageKey);
-  if (!cle) return null;
   try {
+    // Dans le `try` : sans R2_BUCKET_NAME la garde lève (plus de repli savr-dev),
+    // et un logo ne doit jamais faire échouer un PDF. La mauvaise configuration
+    // n'est pas masquée pour autant — l'envoi du PDF lève juste après, lui.
+    const cle = parseCleLogo(storageKey);
+    if (!cle) return null;
     const bytes = await getObjectBytes(`${cle.bucket}/${cle.key}`);
     if (bytes.byteLength > MAX_LOGO_BYTES) return null;
     const ext = cle.key.split('.').pop() ?? '';

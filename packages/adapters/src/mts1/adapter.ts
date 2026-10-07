@@ -87,7 +87,9 @@ interface TourneeRow {
  * de la collecte (§09 C1), sa clé ne doit pas les leur montrer (décision Val
  * 2026-10-07, prise tant qu'aucune photo n'existe). Ce n'est pas un secret, juste
  * un nom qui ne dit plus rien. Elle est DÉTERMINISTE — la dédup de processPhotos
- * cherche la clé — et ne dépend pas de `photo.url`, qui change à chaque appel.
+ * cherche la clé — et ne dépend pas de `photo.url` : rien ne garantit que cette
+ * adresse reste la même d'un appel à l'autre (non mesuré chez le transporteur),
+ * alors que le triplet d'identifiants, lui, désigne la photo.
  */
 function clePhoto(
   collecteId: string,
@@ -968,7 +970,8 @@ export class AdapterMts1 implements LogistiqueProvider {
       // ligne shared.fichiers orpheline pointant un objet inexistant (BL-P0-02).
       // Non bloquant pour le poll : la photo est retentée au prochain passage.
       // Le bucket persisté est celui que l'upload a réellement écrit (bucket de
-      // l'environnement) ; la clé porte le dossier `photos/<collecteId>/…`.
+      // l'environnement) ; la clé est celle de `clePhoto`
+      // (`photos/collectes/<collecteId>/<empreinte>.jpg`).
       let bucket: string;
       try {
         bucket = await this.uploadPhotoToR2(storageKey, buffer);

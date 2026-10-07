@@ -678,6 +678,25 @@ describe('M3.1 / mon-organisation logo', () => {
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
+  // Serveur mal configuré ≠ clé refusée : sans R2_BUCKET_NAME la garde lève et la
+  // route laisse remonter (500), au lieu de comparer à `savr-dev` comme avant le
+  // 2026-10-07 ou de répondre 403 comme pour une clé interdite.
+  it('M3.1/trait_monorga_logo_proxy_sans_bucket — R2_BUCKET_NAME absent : erreur remontée, aucune lecture R2', async () => {
+    setupAuth('traiteur_commercial');
+    vi.stubEnv('R2_BUCKET_NAME', '');
+    const { GET } =
+      await import('@/app/api/v1/traiteur/mon-organisation/logo/route.js');
+    await expect(
+      GET(
+        makeReq(
+          'GET',
+          `/api/v1/traiteur/mon-organisation/logo?key=${encodeURIComponent(LOGO)}`,
+        ),
+      ),
+    ).rejects.toThrow('R2_BUCKET_NAME');
+    expect(mockGetObject).not.toHaveBeenCalled();
+  });
+
   it.each([
     'savr-dev/bordereaux/b1.pdf',
     'autre-bucket/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png',

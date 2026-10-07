@@ -1,7 +1,7 @@
 /**
  * M3.5 — Route POST /api/v1/dashboards/synthese-pdf (Bloc 8 export synthèse,
  * BL-P1-PARITE-02). Génération SYNCHRONE : la route rend via Railway le
- * type_document 'synthese-dashboard', dépose un objet R2 éphémère et renvoie une
+ * type_document 'synthese-dashboard', dépose un objet R2 non référencé en base et renvoie une
  * URL pré-signée 1h. Couvre le contrat (type_document, upload R2, presign, réponse),
  * la garde d'auth (rôle), le clamp de borne future et les erreurs (message
  * générique au client, détail en log serveur, seule la ref Railway propagée).
@@ -103,7 +103,7 @@ describe('M3.5 / route synthèse PDF — génération synchrone', () => {
       ...SNAPSHOT,
       logo_data_uri: `data:image/png;base64,${Buffer.from([1, 2, 3]).toString('base64')}`,
     });
-    // Objet R2 éphémère sous le dossier syntheses/<org>/ du bucket de
+    // Objet R2 non référencé, sous le dossier syntheses/<org>/ du bucket de
     // l'environnement (pas d'archivage DB) — aucun bucket passé à l'appel.
     expect(uploadPdf).toHaveBeenCalledWith(
       expect.stringMatching(/^syntheses\/org-1\/[0-9a-f-]{36}\.pdf$/),

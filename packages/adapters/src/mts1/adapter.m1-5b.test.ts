@@ -1359,7 +1359,8 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
   // La ligne shared.fichiers est lisible par les clients de la collecte (§09 C1) :
   // sa clé ne doit plus montrer les identifiants du logiciel du transporteur
   // (décision Val 2026-10-07). Elle reste déterministe et ne dépend pas de l'URL
-  // de la photo, qui change à chaque appel — sinon la dédup ne reconnaît rien.
+  // de la photo : rien ne garantit que cette adresse soit stable d'un appel à
+  // l'autre, et si elle changeait la dédup ne reconnaîtrait plus rien.
   it('M1.5b-photo-cle-opaque / la clé ne porte aucun identifiant du transporteur et ignore l’URL', async () => {
     const cleEnvoyee = async (url: string) => {
       vi.mocked(uploadObject).mockClear();

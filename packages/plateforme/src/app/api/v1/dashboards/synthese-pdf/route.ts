@@ -20,9 +20,12 @@ import { DOSSIER_STOCKAGE } from '@savr/shared/src/pdf/document-types.js';
  * Génération SYNCHRONE (décision Val 2026-07-07) : la route assemble le snapshot
  * SOUS LE JWT DU DEMANDEUR (RLS f_collecte_visible → 0 fuite inter-organisation),
  * appelle le renderer Railway (type_document 'synthese-dashboard'), dépose le PDF
- * dans un objet R2 ÉPHÉMÈRE (préfixe synthese/, aucune ligne DB — pas de jobs_pdf,
- * pas de shared.fichiers, table rapports_synthese supprimée) et renvoie une URL
- * pré-signée valable 1h. Régénération libre, aucun archivage (§1.6 l.251/273/328).
+ * dans un objet R2 NON RÉFÉRENCÉ (dossier syntheses/ du bucket de l'environnement,
+ * aucune ligne DB — pas de jobs_pdf, pas de shared.fichiers, table
+ * rapports_synthese supprimée) et renvoie une URL pré-signée valable 1h.
+ * Régénération libre, aucun archivage (§1.6 l.251/273/328). ⚠ Rien ne supprime
+ * ces objets : passé l'heure ils ne sont plus joignables mais restent sur R2
+ * (une règle de cycle de vie Cloudflare sur le dossier est à poser par Val).
  *
  * Le canal « Edge Function + Supabase Storage » du CDC est le pipeline Railway + R2
  * de l'archi V1 (CLAUDE.md §2) — cf. _Divergences M3.5_20260707_canal-synthese.
@@ -181,7 +184,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return echec(err, 'synthese_agregation_failed', 500, auth.ctx);
   }
 
-  // Rendu Railway + dépôt R2 éphémère + URL pré-signée.
+  // Rendu Railway + dépôt R2 non référencé en base + URL pré-signée.
   try {
     const { pdfBuffer } = await generatePdf('synthese-dashboard', {
       ...(snapshot as unknown as Record<string, unknown>),

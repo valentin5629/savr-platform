@@ -35,7 +35,8 @@
     "RAILWAY_PDF_SECRET",
     "R2_ACCOUNT_ID",
     "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY"
+    "R2_SECRET_ACCESS_KEY",
+    "R2_BUCKET_NAME"
   ],
   "tables_concernees": [
     "plateforme.jobs_pdf (colonnes renommées + payload ajouté)",
@@ -291,7 +292,7 @@
       "artefact": "packages/shared/src/r2/bucket.ts (bucketEnvironnement) + packages/shared/src/r2/upload.ts (uploadObject, getObject sans paramètre bucket) + packages/plateforme/src/lib/pdf/r2-client.ts (cleDeLEnvironnement) + packages/plateforme/src/lib/logo-key.ts + packages/plateforme/src/app/api/v1/admin/collectes/[id]/photos/route.ts",
       "test": "stockage R2 — le bucket est celui de l'environnement + stockage R2 — R2_BUCKET_NAME absent : échec explicite, aucun repli + stockage R2 — un seul point de passage (cliquet de structure) + M1.6 / r2-client — lecture bornée au bucket de l'environnement + collectes-photos-import.m0-6.test.ts « R2_BUCKET_NAME absent → 503, rien envoyé, aucune ligne »",
       "statut": "implemented",
-      "libelle": "Un bucket R2 par environnement, désigné par R2_BUCKET_NAME (savr-dev / savr-prod) : tout envoi et toute lecture le visent, aucun nom de bucket en dur, aucun repli si la variable manque (décision Val 2026-10-07, option A — _Divergences/M1.6_20261007_stockage-r2-par-environnement.md ; le CDC §07 §2.3 l.140 liste encore cinq buckets par contenu, sans notion d'environnement). Les lecteurs refusent une clé d'un autre bucket (ni URL signée ni lecture). Une seule lecture de la variable et un seul constructeur d'envoi S3 dans le dépôt, verrouillés par un test de structure."
+      "libelle": "Un bucket R2 par environnement, désigné par R2_BUCKET_NAME (savr-dev / savr-prod) : tout envoi et toute lecture le visent, aucun nom de bucket en dur, aucun repli si la variable manque (décision Val 2026-10-07, option A — _Divergences/M1.6_20261007_stockage-r2-par-environnement.md ; le CDC §07 §2.3 l.140 liste encore cinq buckets par contenu, sans notion d'environnement). Les lecteurs refusent une clé d'un autre bucket (ni URL signée ni lecture). Une seule lecture de la variable et un seul constructeur d'envoi S3 dans le code scanné par le test de structure (packages/shared, plateforme, adapters, tms, apps/pdf-renderer/src, scripts). Le code aiguille ; l'étanchéité entre environnements tient à la clé d'API R2 de chacun, à restreindre à son seul bucket chez Cloudflare (action Val, hors code)."
     },
     {
       "id": "M1.6-stockage-dossier-par-document",
@@ -299,7 +300,7 @@
       "artefact": "packages/shared/src/pdf/document-types.ts (DOSSIER_STOCKAGE) + packages/plateforme/src/lib/pdf/pdf-worker.ts + packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts",
       "test": "M1.6 / PdfWorker / un dossier par nature de document (décision Val 2026-10-07) + R-PDF-W4 : type rapport → dossier rapports/, pdf_url = clé R2",
       "statut": "implemented",
-      "libelle": "La nature du document est le premier dossier de la clé, plus un bucket : bordereaux/, rapports/ (recyclage et événement sans excédent), attestations/, factures/, syntheses/ (décision Val 2026-10-07, C2 — _Divergences/M1.6_20261007_stockage-r2-par-environnement.md ; le CDC §07 l.200 parle encore de « Destination bucket »). Avant : bordereau dans le bucket `bordereaux`, tout le reste (attestations et factures comprises) dans le bucket `rapports`, communs à dev et prod."
+      "libelle": "La nature du document est le premier dossier de la clé, plus un bucket : bordereaux/, rapports/ (recyclage et événement sans excédent), attestations/, factures/, syntheses/. Décision Val 2026-10-07 (C2 — _Divergences/M1.6_20261007_stockage-r2-par-environnement.md) : « un dossier par type », en citant attestations/ et factures/ à séparer de rapports/ ; le nom syntheses/ est un choix d'implémentation, à valider avec la divergence. Le CDC §07 l.200 parle encore de « Destination bucket ». Avant : bordereau dans le bucket `bordereaux`, tout le reste (attestations et factures comprises) dans le bucket `rapports`, communs à dev et prod."
     }
   ],
   "cdc_source_hash": {

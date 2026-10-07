@@ -1,0 +1,15 @@
+<!-- @dsCard group="Formulaires" height=230 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(function(){const [sel,setSel]=React.useState('a');const [radio,setRadio]=React.useState('t1');
+  const carte=(id,titre,detail)=>h(S.ChoiceCard,{key:id,selected:sel===id,onClick:()=>setSel(id),className:'flex w-full items-start gap-3 border-2 p-4'},
+    h('span',{className:'flex flex-col gap-1'},h('span',{className:'font-bold text-savr-neutral-900'},titre),h(S.Text,{as:'span',variant:'hint'},detail)));
+  return h('div',{className:'grid max-w-2xl gap-4 sm:grid-cols-2'},
+    h('div',{className:'flex flex-col gap-2'},h(S.Text,{variant:'overline'},'mode="pressed" (défaut)'),carte('a','[Association A]','Recommandée · 2,3 km'),carte('b','[Association B]','4,8 km')),
+    h('div',{role:'radiogroup','aria-label':'Transporteur',className:'flex flex-col gap-2'},h(S.Text,{variant:'overline'},'mode="radio"'),
+      ['t1','t2'].map((id,i)=>h(S.ChoiceCard,{key:id,mode:'radio',selected:radio===id,tabIndex:radio===id?0:-1,onClick:()=>setRadio(id),className:'flex min-h-11 items-start gap-3 p-3 text-sm'},
+        h('span',{className:'font-semibold text-savr-neutral-900'},i? '[Transporteur B]':'[Transporteur A]')))))})
+);
+</script>

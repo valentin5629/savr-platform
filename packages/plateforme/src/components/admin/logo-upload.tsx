@@ -1,9 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Upload, Check, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { FormError } from '@/components/ui/form-error';
 import { Text } from '@/components/ui/text';
+import { IconButton } from '@/components/ui/icon-button';
+import { FileButton } from '@/components/ui/file-button';
 
 // Upload logo (association / organisation) vers R2 via /api/v1/admin/uploads/logo.
 // Non bloquant : le logo est optionnel (Val 2026-07-02). Un échec (R2 absent en
@@ -22,9 +24,7 @@ export function LogoUpload({
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFile(file: File) {
     setError(null);
     setUploading(true);
     try {
@@ -58,32 +58,26 @@ export function LogoUpload({
             className="h-12 w-12 rounded-savr-md border border-savr-neutral-200 object-contain"
           />
         )}
-        <label
-          className="inline-flex cursor-pointer items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 py-2 text-sm font-medium text-savr-neutral-700 hover:border-savr-primary-400"
-          htmlFor={inputId}
-        >
-          <Upload className="h-4 w-4" />
-          {uploading ? 'Envoi…' : 'Choisir un fichier'}
-        </label>
-        <input
+        <FileButton
           id={inputId}
-          type="file"
           accept="image/png,image/jpeg"
-          className="sr-only"
-          onChange={(e) => void handleFile(e)}
-          disabled={uploading}
-        />
+          loading={uploading}
+          onFile={(f) => void handleFile(f)}
+        >
+          Choisir un fichier
+        </FileButton>
         {value ? (
           <span className="inline-flex items-center gap-1 text-sm text-savr-success-strong">
             <Check className="h-4 w-4" /> Logo enregistré
-            <button
-              type="button"
+            <IconButton
+              variant="destructive"
+              size="sm"
               aria-label="Retirer le logo"
               onClick={() => onChange('')}
-              className="ml-1 text-savr-neutral-400 hover:text-savr-error"
+              className="-my-2 ml-1 [&>svg]:h-4 [&>svg]:w-4"
             >
               <X className="h-4 w-4" />
-            </button>
+            </IconButton>
           </span>
         ) : (
           <Text as="span" variant="hint">

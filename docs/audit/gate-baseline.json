@@ -12,7 +12,7 @@
   "fetch-path-encoding": 0,
   "api-error-leak": 0,
   "types-snapshot": 0,
-  "ds-classes": 1,
-  "ds-primitives": 28,
-  "orphan-ui": 14
+  "ds-classes": 0,
+  "ds-primitives": 2,
+  "orphan-ui": 9
 }

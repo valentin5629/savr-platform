@@ -11,7 +11,7 @@ import {
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { PageHeader } from '@/components/ui/page-header';
 import { FormActions } from '@/components/ui/form-actions';
-import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
@@ -90,22 +90,11 @@ export default function AjouterCollectePage() {
     <div className="max-w-xl mx-auto space-y-6">
       <PageHeader title="Ajouter une collecte" tone="neutral" size="xl" />
 
-      <div className="flex gap-3">
-        {(['zd', 'ag'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => handleTypeChange(t)}
-            className={`flex-1 rounded-savr-md border-2 py-2 text-sm font-semibold transition-colors ${
-              type === t
-                ? 'border-savr-primary-700 bg-savr-primary-50 text-savr-primary-700'
-                : 'border-savr-neutral-200 text-savr-neutral-600 hover:border-savr-neutral-300'
-            }`}
-          >
-            {libelleTypeCollecte(t)}
-          </button>
-        ))}
-      </div>
+      <ToggleTypeCollecte
+        value={type === 'zd' ? 'zero_dechet' : 'anti_gaspi'}
+        onChange={(v) => handleTypeChange(v === 'zero_dechet' ? 'zd' : 'ag')}
+        className="w-full [&>*]:flex-1"
+      />
 
       <SousBlocCollecte
         type={type}

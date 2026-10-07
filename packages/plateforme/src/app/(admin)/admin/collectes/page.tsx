@@ -53,6 +53,7 @@ import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
 import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
 import { Text } from '@/components/ui/text';
 import { ROUTES } from '@/lib/routes';
+import { ChoiceCard } from '@/components/ui/choice-card';
 
 // Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
 // Clés d'affichage Admin : le statut DB `programmee` s'y lit « Créée » (`creee`)
@@ -184,14 +185,11 @@ function KpiTile({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={active}
+    <ChoiceCard
+      selected={active}
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-savr-lg border bg-savr-white px-4 py-3 text-left shadow-savr-sm transition-[border-color,box-shadow,transform] duration-savr-fast hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
-        active
-          ? 'border-savr-primary-700 shadow-[0_0_0_1px_var(--color-savr-primary-700)]'
-          : 'border-savr-neutral-200'
+      className={`flex items-center gap-3 rounded-savr-lg bg-savr-white px-4 py-3 shadow-savr-sm transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
+        active ? 'shadow-[0_0_0_1px_var(--color-savr-primary-700)]' : ''
       }`}
     >
       <span
@@ -211,7 +209,7 @@ function KpiTile({
         </Text>
       </div>
       <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-savr-neutral-300" />
-    </button>
+    </ChoiceCard>
   );
 }
 

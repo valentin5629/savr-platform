@@ -58,6 +58,7 @@ import { Text } from '@/components/ui/text';
 import { fmtEuro, fmtDec } from '@/lib/format';
 import { FormActions } from '@/components/ui/form-actions';
 import { ROUTES } from '@/lib/routes';
+import { libelleCompletTypeCollecte } from '@/lib/libelles/type-collecte';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
 // OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
@@ -1274,8 +1275,14 @@ export function OngletRemises({
                 aria-label="Activité"
                 icon={null}
                 options={[
-                  { value: 'zd', label: 'Zéro déchet (ZD)' },
-                  { value: 'ag', label: 'Anti-gaspi (AG)' },
+                  {
+                    value: 'zd',
+                    label: libelleCompletTypeCollecte('zero_dechet'),
+                  },
+                  {
+                    value: 'ag',
+                    label: libelleCompletTypeCollecte('anti_gaspi'),
+                  },
                 ]}
                 value={fActivite}
                 disabled={edition !== null}

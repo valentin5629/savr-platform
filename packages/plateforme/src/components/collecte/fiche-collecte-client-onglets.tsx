@@ -10,7 +10,7 @@ import {
   Users,
 } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
-import { Badge } from '@/components/ui/badge';
+import { Badge, BadgeBouton } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -144,14 +144,13 @@ export function OngletInformations({
             >
               {traiteurOp?.nom ?? <Vide />}
               {traiteurOp?.est_shadow && (
-                <button
-                  type="button"
+                <BadgeBouton
+                  variant="warning"
                   onClick={onHorsReferentiel}
                   data-testid="badge-hors-referentiel"
-                  className="rounded-savr-full"
                 >
-                  <Badge variant="warning">Hors référentiel</Badge>
-                </button>
+                  Hors référentiel
+                </BadgeBouton>
               )}
             </InfoItem>
           )}
@@ -159,16 +158,13 @@ export function OngletInformations({
               programmé par un tiers, le traiteur est l'opérationnel sur place. */}
           {c.programmee_par && (
             <div className="sm:col-span-2 lg:col-span-4">
-              <button
-                type="button"
+              <BadgeBouton
+                variant="action"
                 data-testid="badge-programmee-par"
                 onClick={onProgrammeePar}
-                className="rounded-savr-full"
               >
-                <Badge variant="action">
-                  Programmée par {c.programmee_par.nom} ({progTypeLabel})
-                </Badge>
-              </button>
+                Programmée par {c.programmee_par.nom} ({progTypeLabel})
+              </BadgeBouton>
             </div>
           )}
         </dl>

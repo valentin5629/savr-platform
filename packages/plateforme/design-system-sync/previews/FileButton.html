@@ -1,0 +1,11 @@
+<!-- @dsCard group="Formulaires" height=110 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex flex-wrap items-center gap-6'},
+  h(S.FileButton,{id:'fb-logo',accept:'image/png,image/jpeg',onFile:()=>{}},'Ajouter un logo'),
+  h(S.FileButton,{id:'fb-envoi',accept:'image/png',onFile:()=>{},loading:true},'Remplacer le logo'),
+  h(S.FileButton,{id:'fb-photos',variant:'link',accept:'image/*',onFile:()=>{},className:'h-auto gap-1 px-0 font-normal sm:h-auto'},'Importer des photos'))
+);
+</script>

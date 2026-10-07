@@ -531,7 +531,7 @@ export function ListeCollectesClient({
             </Button>
             <Button variant="accent" asChild>
               <a href={`${ROUTES.programmer.nouveau}?type=${typeFiltre}`}>
-                Programmer un événement
+                Programmer une collecte
               </a>
             </Button>
           </>

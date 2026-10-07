@@ -100,7 +100,7 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
     setTo(r.periode.to);
   };
 
-  const typeLabel = libelleCompletTypeCollecte(tab, 'cdc');
+  const typeLabel = libelleCompletTypeCollecte(tab);
 
   const inheritedFilters: string[] = [];
   if ((filters?.lieu_ids?.length ?? 0) > 0)
@@ -250,7 +250,7 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
                   checked={includeBoth}
                   onCheckedChange={(v) => setIncludeBoth(v === true)}
                 />
-                Inclure les deux types (Zéro-Déchet + Anti-Gaspi)
+                Inclure les deux types (Zéro Déchet + Anti-Gaspi)
               </Label>
             </div>
             {/* Filtres modale-natifs au format en ligne « Titre  valeur ▾ »

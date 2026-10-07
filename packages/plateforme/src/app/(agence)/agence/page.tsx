@@ -235,7 +235,7 @@ export default function AgenceDashboardPage() {
         title="Dashboard"
         actions={
           <Button asChild>
-            <a href={ROUTES.programmer.nouveau}>Programmer un événement</a>
+            <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>
           </Button>
         }
       />

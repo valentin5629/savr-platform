@@ -85,4 +85,38 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
 );
 Badge.displayName = 'Badge';
 
-export { Badge, badgeVariants };
+/**
+ * Badge cliquable (R-UI-7) : même rendu qu'un `Badge`, dans un `<button>` qui
+ * porte l'action (ex. « Hors référentiel » qui ouvre une explication). Le focus
+ * ring signature est posé sur le bouton.
+ */
+export interface BadgeBoutonProps
+  extends
+    Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'>,
+    Pick<BadgeProps, 'variant' | 'size' | 'dot'> {
+  children: React.ReactNode;
+}
+
+const BadgeBouton = React.forwardRef<HTMLButtonElement, BadgeBoutonProps>(
+  (
+    { variant, size, dot, className, children, type = 'button', ...props },
+    ref,
+  ) => (
+    <button
+      ref={ref}
+      type={type}
+      className={cn(
+        'rounded-savr-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
+        className,
+      )}
+      {...props}
+    >
+      <Badge variant={variant} size={size} dot={dot}>
+        {children}
+      </Badge>
+    </button>
+  ),
+);
+BadgeBouton.displayName = 'BadgeBouton';
+
+export { Badge, BadgeBouton, badgeVariants };

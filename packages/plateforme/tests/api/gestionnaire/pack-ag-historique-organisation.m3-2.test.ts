@@ -50,11 +50,13 @@ function makeClient(
       const embedFiltres: { embed: string; col: string; val: unknown }[] = [];
       const eqs: [string, unknown][] = [];
       const ins: [string, unknown[]][] = [];
+      let tri: { col: string; asc: boolean } | null = null;
+      let plafond: number | null = null;
 
       const resoudre = (): Result => {
         requetes.push({ table, select, eq: eqs, in: ins });
         if (erreurs[table]) return { data: null, error: erreurs[table] };
-        const lignes = (tables[table] ?? [])
+        let lignes = (tables[table] ?? [])
           .filter((l) => filtres.every((f) => f(l)))
           .map((l) => ({ ...l }));
         // 1. Un filtre sur une ressource embarquée vide l'embed qui ne
@@ -68,8 +70,17 @@ function makeClient(
         const inners = [...select.matchAll(/(\w+)(?:!\w+)*!inner\(/g)].map(
           (m) => m[1]!,
         );
+        lignes = lignes.filter((l) => inners.every((e) => l[e] != null));
+        // 3. Tri puis plafond, comme la requête les demande.
+        const t = tri;
+        if (t)
+          lignes.sort(
+            (a, b) =>
+              String(a[t.col]).localeCompare(String(b[t.col])) *
+              (t.asc ? 1 : -1),
+          );
         return {
-          data: lignes.filter((l) => inners.every((e) => l[e] != null)),
+          data: plafond === null ? lignes : lignes.slice(0, plafond),
           error: null,
         };
       };
@@ -91,8 +102,14 @@ function makeClient(
           filtres.push((l) => vals.includes(l[col]));
           return chain;
         },
-        order: () => chain,
-        limit: () => chain,
+        order: (col: string, opts?: { ascending?: boolean }) => {
+          tri = { col, asc: opts?.ascending !== false };
+          return chain;
+        },
+        limit: (n: number) => {
+          plafond = n;
+          return chain;
+        },
         maybeSingle: () => {
           const r = resoudre();
           return Promise.resolve({
@@ -378,7 +395,7 @@ describe('M3.2 / Mon pack AG — plafond de 50 lignes', () => {
     const jour = (n: number) => `2026-03-${String(n).padStart(2, '0')}`;
     client = makeClient({
       collectes: [
-        // 55 clôturées du 1er au 31 mars (jours repris), plus anciennes en tête.
+        // 55 clôturées réparties du 1er au 28 mars (jours repris).
         ...Array.from({ length: 55 }, (_, i) =>
           collecteAg(
             `c-${i}`,
@@ -402,6 +419,31 @@ describe('M3.2 / Mon pack AG — plafond de 50 lignes', () => {
       (l) => l.date_collecte,
     );
     expect(dates).toEqual([...dates].sort().reverse());
+  });
+});
+
+describe('M3.2 / Mon pack AG — annulations lues sans plafond', () => {
+  it('M3.2/pack_ag_consommation_annulee_ancienne_non_coupee — une annulation débitée plus ancienne que 50 annulations à temps reste listée', async () => {
+    client = makeClient({
+      collectes: [
+        // 55 annulations à temps, récentes : pack réservé, aucun débit.
+        ...Array.from({ length: 55 }, (_, i) =>
+          collecteAg(
+            `c-a-temps-${i}`,
+            PACK_GESTIONNAIRE,
+            'annulee',
+            `2026-05-${String((i % 28) + 1).padStart(2, '0')}`,
+          ),
+        ),
+        // L'annulation tardive, débitée, est la plus ancienne.
+        collecteAg('c-tardive', PACK_GESTIONNAIRE, 'annulee', '2026-01-10'),
+      ],
+    });
+    service = makeClient({
+      audit_log: [debitAnnulation('pack-viparis', 'c-tardive')],
+    });
+
+    expect(ids(await appeler())).toEqual(['c-tardive']);
   });
 });
 

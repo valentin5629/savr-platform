@@ -259,6 +259,7 @@
     "M3.2/pack_ag_ecran_mention_annulee_tardivement",
     "M3.2/pack_ag_ecran_sans_bloc_historique_packs",
     "M3.2/pack_ag_consommation_plafond_50",
+    "M3.2/pack_ag_consommation_annulee_ancienne_non_coupee",
     "M3.2/pack_ag_ecran_erreur_chargement",
     "M3.2/pack_ag_ecran_aucun_pack",
     "M3.2/blocs_gestionnaire_ag_par_vue",
@@ -939,7 +940,7 @@
       "id": "M3.2-pack-ag-consommation-annulations-tardives",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:75",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
-      "test": "M3.2/pack_ag_consommation_annulation_tardive_listee + M3.2/pack_ag_consommation_annulation_sans_debit_exclue + M3.2/pack_ag_consommation_erreur_audit_500 + M3.2/pack_ag_ecran_mention_annulee_tardivement",
+      "test": "M3.2/pack_ag_consommation_annulation_tardive_listee + M3.2/pack_ag_consommation_annulation_sans_debit_exclue + M3.2/pack_ag_consommation_annulee_ancienne_non_coupee + M3.2/pack_ag_consommation_erreur_audit_500 + M3.2/pack_ag_ecran_mention_annulee_tardivement",
       "statut": "implemented",
       "libelle": "Mon pack AG — les annulations tardives qui ont consommé un crédit figurent dans l'historique, avec la mention « Annulée tardivement », sans nombre de repas ni association bénéficiaire (arbitrage Val 2026-10-07, _Divergences/M3.2_20261007_pack-ag-historique-consommation-perimetre.md, question 2). Le pack étant rattaché à la collecte dès la validation de l'attribution, une collecte annulée qui porte un pack n'a pas forcément été débitée : seule la ligne d'audit pack_debite_annulation_tardive du pack fait foi, lue par le client de service sur les seuls packs des collectes que la session lit pour son organisation. Une annulation sans cette trace n'est pas listée."
     },

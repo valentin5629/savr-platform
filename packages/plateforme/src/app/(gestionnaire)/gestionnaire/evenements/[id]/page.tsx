@@ -235,10 +235,12 @@ export default function EvenementDetailPage({
             {/* §06.05 §3 : estimation amont, toujours affichée. Le coefficient
                 brut n'est jamais exposé (la route ne renvoie que les kg, via
                 f_dechets_labo_estimes).
-                Le « — » couvre les DEUX cas où il n'y a pas d'estimation : le
-                traiteur n'a pas communiqué de coefficient (CDC l.330, devenu
-                atteignable par 20260921190000 — la fonction remonte NULL au
-                lieu de 0) et l'échec d'appel RPC. Ne jamais afficher « 0.0 kg »
+                Le « — » couvre les TROIS cas où il n'y a pas d'estimation :
+                l'événement n'a aucune collecte ZD (arbitrage Val 2026-10-07 —
+                la route n'appelle alors pas la fonction), le traiteur n'a pas
+                communiqué de coefficient (CDC l.330, devenu atteignable par
+                20260921190000 — la fonction remonte NULL au lieu de 0) et
+                l'échec d'appel RPC. Ne jamais afficher « 0.0 kg »
                 dans ces cas : un coefficient DÉCLARÉ à 0 rend bien « 0.0 kg »
                 (§05 R_dechets_labo_estimes), et c'est ce que le 0 doit
                 signifier — à l'exception tracée et hors lot de `pax = 0`, qui

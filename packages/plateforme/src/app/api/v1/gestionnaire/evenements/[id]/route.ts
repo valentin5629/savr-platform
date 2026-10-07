@@ -72,11 +72,21 @@ export async function GET(
       { status: 404 },
     );
 
-  // Déchets labo estimés (SECURITY DEFINER — ne retourne que les kg)
-  const { data: labRes } = await supabase.rpc('f_dechets_labo_estimes', {
-    p_evenement_id: id,
-  });
-  const dechetsLaboKg = labRes as number | null;
+  // Déchets labo estimés (SECURITY DEFINER — ne retourne que les kg).
+  // Seulement si l'événement a au moins une collecte ZD (arbitrage Val
+  // 2026-10-07 : « la notion ne tient pas pour les collectes AG ») : sinon pas
+  // d'estimation — la page rend « — » — et la fonction n'est pas appelée. Même
+  // règle que la liste Événements et la liste Collectes du rôle.
+  const aUneCollecteZd = (
+    Array.isArray(evt.collectes) ? evt.collectes : []
+  ).some((c) => c.type === 'zero_dechet');
+  let dechetsLaboKg: number | null = null;
+  if (aUneCollecteZd) {
+    const { data: labRes } = await supabase.rpc('f_dechets_labo_estimes', {
+      p_evenement_id: id,
+    });
+    dechetsLaboKg = labRes as number | null;
+  }
 
   const pax = (evt.pax as number) ?? 0;
   const bracket = tailleBracket(pax);

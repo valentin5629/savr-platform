@@ -41,11 +41,12 @@ function mapPack(p: PackRow) {
 }
 
 // GET /api/v1/gestionnaire/pack-ag
-// Pack AG actif de l'organisation + historique consommation (§06.05 §4).
+// Pack AG actif de l'organisation + historique consommation (§06.05 l.75,
+// navigation — entrée « Mon pack AG »).
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-  void auth;
+  const { organisationId } = auth.ctx;
 
   const supabase = createSupabaseServerClient();
 
@@ -68,11 +69,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('created_at', { ascending: false })
     .limit(10);
 
-  // Historique consommation : collectes AG cloturées avec débit pack
+  // Historique consommation : collectes AG réalisées ou clôturées, débitées sur
+  // un pack DE L'ORGANISATION de l'appelant (§06.05 l.75). Le gestionnaire lit
+  // aussi les collectes des traiteurs tiers sur ses lieux : sans cette borne,
+  // « Mon pack AG » listait des collectes débitées sur le pack d'un traiteur
+  // (savr-dev, 2026-10-06 : 144 lignes pour Viparis, qui n'a aucun pack).
+  // `!inner` est ce qui écarte la collecte : sans lui, le filtre sur le pack
+  // embarqué viderait l'embed et garderait la ligne (mesuré, 144 lignes).
   const { data: consommation } = await supabase
     .from('collectes')
     .select(
       `id, date_collecte, statut,
+       packs_antgaspi!pack_antgaspi_id!inner(id),
        evenements!inner(nom_evenement, date_evenement,
          lieux!lieu_id(nom)),
        attributions_antgaspi:v_attributions_gestionnaire(
@@ -80,7 +88,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     )
     .eq('type', 'anti_gaspi')
     .in('statut', ['realisee', 'cloturee'])
-    .not('pack_antgaspi_id', 'is', null)
+    .eq('packs_antgaspi.organisation_id', organisationId)
     .order('date_collecte', { ascending: false })
     .limit(50);
 

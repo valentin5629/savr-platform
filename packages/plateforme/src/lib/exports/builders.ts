@@ -18,6 +18,7 @@ import {
   resolveTraiteurNoms,
   resolveRepas,
   sommePoidsFlux,
+  lireParTranches,
   unwrap,
 } from './shared.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
@@ -25,12 +26,39 @@ import { estUuid, inTextes, listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { lireFiltresListeCollectes } from '@/lib/collectes/liste-collectes-client.js';
 import { lireFiltresCollectesGestionnaire } from '@/lib/collectes-gestionnaire.js';
 import {
+  appliquerFiltresCollectesAdmin,
+  lireFiltresCollectesAdmin,
+  type FiltresCollectesAdmin,
+} from '@/lib/collectes-admin.js';
+import {
   statutCollecteAdmin,
   type EnvoiCollecte,
 } from '@/lib/statut-collecte-admin.js';
 import { Constants } from '@savr/shared/src/database.types.js';
 
 type Row = Record<string, unknown>;
+
+/**
+ * Repas détournés par collecte AG, lus dans l'embed `attributions_antgaspi`
+ * (objet, tableau ou null selon la cardinalité vue par PostgREST). Une collecte
+ * sans attribution n'a pas d'entrée : sa cellule reste vide.
+ */
+function repasDesAttributions(rows: Row[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    if (r.type !== 'anti_gaspi') continue;
+    const embed = r.attributions_antgaspi;
+    const attributions = (
+      Array.isArray(embed) ? embed : embed ? [embed] : []
+    ) as { volume_repas_realise?: number | null }[];
+    if (attributions.length === 0) continue;
+    out.set(
+      r.id as string,
+      attributions.reduce((s, a) => s + Number(a.volume_repas_realise ?? 0), 0),
+    );
+  }
+  return out;
+}
 
 // ===========================================================================
 // COLLECTES (grain collecte) — admin/ops, traiteur (mgr+com), agence, gestionnaire
@@ -56,12 +84,20 @@ export async function buildCollectesExport(
     ctx.role === 'gestionnaire_lieux'
       ? lireFiltresCollectesGestionnaire(sp)
       : null;
+  // Staff : l'export part de la liste Collectes Admin, dont les filtres
+  // (pastilles, statuts affichés, traiteur opérationnel, périmètre, contrôle
+  // d'accès, rapport non consulté…) sont lus ET appliqués par le module de sa
+  // route. Bornés au staff : un rôle client garde ses propres filtres, et aucun
+  // paramètre ne peut lui faire prendre ceux de l'Admin.
+  const filtresAdmin = ctx.isStaff ? lireFiltresCollectesAdmin(sp) : null;
+  // Un seul « maintenant » pour toutes les tranches (fenêtres 48 h des pastilles).
+  const maintenant = new Date();
 
   // Staff : le statut exporté est celui de l'écran Admin (« Créée » tant que la
   // demande n'est pas partie, « Programmée » ensuite — décision Val 2026-10-07),
   // d'où les signaux d'envoi en plus. Lus par le client service_role du staff
   // seulement : les rôles client n'ont pas à lire `attributions_antgaspi`.
-  // Deux selects LITTÉRAUX, pour que chacun reste typé (check:column-db).
+  // Selects LITTÉRAUX, pour que chacun reste typé (check:column-db).
   const selectClient = () =>
     ctx.supabase.from('collectes').select(
       `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
@@ -69,58 +105,87 @@ export async function buildCollectesExport(
        evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, code_postal, ville))`,
+      { count: 'exact' },
     );
   const selectStaff = () =>
     ctx.supabase.from('collectes').select(
       `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
        statut_tms, tms_reference, prestataire_logistique_id,
-       attributions_antgaspi!collecte_id(id),
+       attributions_antgaspi!collecte_id(id, volume_repas_realise),
        collecte_flux(poids_reel_kg),
        evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, code_postal, ville))`,
+      { count: 'exact' },
     );
-  let q = (ctx.isStaff ? selectStaff() : selectClient()).order(
-    'date_collecte',
-    { ascending: false },
-  );
+  // Filtre « Rapport non consulté » : il porte sur l'embed `rapports_rse`, à
+  // embarquer en `!inner` comme le fait la route de la liste.
+  const selectStaffRapportNonConsulte = () =>
+    ctx.supabase.from('collectes').select(
+      `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
+       statut_tms, tms_reference, prestataire_logistique_id,
+       attributions_antgaspi!collecte_id(id, volume_repas_realise),
+       rapports_rse!collecte_id!inner(consulte_par_user_at),
+       collecte_flux(poids_reel_kg),
+       evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
+         traiteur_operationnel_organisation_id,
+         lieux!lieu_id(nom, code_postal, ville))`,
+      { count: 'exact' },
+    );
 
-  // Un brouillon n'apparaît nulle part côté Admin (même décision).
-  if (ctx.isStaff) q = q.neq('statut', 'brouillon');
-  if (type === 'zero_dechet' || type === 'anti_gaspi') q = q.eq('type', type);
-  if (filtres.statuts.length > 0) q = q.in('statut', filtres.statuts);
-  if (from) q = q.gte('date_collecte', from);
-  if (to) q = q.lte('date_collecte', to);
-  if (filtres.lieuIds.length > 0)
-    q = q.in('evenements.lieu_id', filtres.lieuIds);
-  if (filtres.clients.length > 0)
-    q = q.filter(
-      'evenements.nom_client_organisateur',
-      'in',
-      inTextes(filtres.clients),
+  // Requête reconstruite à chaque tranche (`lireParTranches`). `id` départage
+  // les ex æquo de date : sans clé unique, deux tranches pourraient servir la
+  // même collecte et en sauter une autre.
+  const requeteStaff = (f: FiltresCollectesAdmin) =>
+    appliquerFiltresCollectesAdmin(
+      (f.rapportNonConsulte ? selectStaffRapportNonConsulte() : selectStaff())
+        .order('date_collecte', { ascending: false })
+        .order('id', { ascending: false }),
+      f,
+      maintenant,
     );
-  if (filtres.informationsCompletes !== null)
-    q = q.eq('informations_completes', filtres.informationsCompletes);
-  if (filtres.programmeePar.length > 0)
-    q = q.in('evenements.organisation_id', filtres.programmeePar);
-  if (filtresGestionnaire) {
-    const { traiteurIds, typeEvtIds, predicatsTaille } = filtresGestionnaire;
-    if (traiteurIds.length > 0)
-      q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
-    if (typeEvtIds.length > 0)
-      q = q.in('evenements.type_evenement_id', typeEvtIds);
-    if (predicatsTaille.length > 0)
-      q = q.or(predicatsTaille.join(','), { referencedTable: 'evenements' });
-  }
+  const requeteClient = () => {
+    let q = selectClient()
+      .order('date_collecte', { ascending: false })
+      .order('id', { ascending: false });
+    if (type === 'zero_dechet' || type === 'anti_gaspi') q = q.eq('type', type);
+    if (filtres.statuts.length > 0) q = q.in('statut', filtres.statuts);
+    if (from) q = q.gte('date_collecte', from);
+    if (to) q = q.lte('date_collecte', to);
+    if (filtres.lieuIds.length > 0)
+      q = q.in('evenements.lieu_id', filtres.lieuIds);
+    if (filtres.clients.length > 0)
+      q = q.filter(
+        'evenements.nom_client_organisateur',
+        'in',
+        inTextes(filtres.clients),
+      );
+    if (filtres.informationsCompletes !== null)
+      q = q.eq('informations_completes', filtres.informationsCompletes);
+    if (filtres.programmeePar.length > 0)
+      q = q.in('evenements.organisation_id', filtres.programmeePar);
+    if (filtresGestionnaire) {
+      const { traiteurIds, typeEvtIds, predicatsTaille } = filtresGestionnaire;
+      if (traiteurIds.length > 0)
+        q = q.in(
+          'evenements.traiteur_operationnel_organisation_id',
+          traiteurIds,
+        );
+      if (typeEvtIds.length > 0)
+        q = q.in('evenements.type_evenement_id', typeEvtIds);
+      if (predicatsTaille.length > 0)
+        q = q.or(predicatsTaille.join(','), { referencedTable: 'evenements' });
+    }
+    return q;
+  };
 
   // Filtre demandé sans aucune valeur lisible : fichier sans ligne, comme la
   // liste — jamais le périmètre entier sous un filtre annoncé.
-  let rows: Row[] = [];
-  if (!filtresGestionnaire?.aucunResultat) {
-    const { data, error } = await q;
-    if (error) throw erreurInterne(error, 'exports.builders');
-    rows = (data ?? []) as Row[];
-  }
+  const rows: Row[] = filtresGestionnaire?.aucunResultat
+    ? []
+    : await lireParTranches<Row>(
+        filtresAdmin ? () => requeteStaff(filtresAdmin) : requeteClient,
+      );
 
   const traiteurNoms = await resolveTraiteurNoms(
     ctx.supabase,
@@ -130,11 +195,17 @@ export async function buildCollectesExport(
           .traiteur_operationnel_organisation_id as string) ?? '',
     ),
   );
-  const repas = await resolveRepas(
-    ctx.supabase,
-    rows.filter((r) => r.type === 'anti_gaspi').map((r) => r.id as string),
-    ctx.isStaff,
-  );
+  // Repas AG. Staff : lus dans l'embed `attributions_antgaspi` de chaque ligne.
+  // Une seconde requête `in(collecte_id, …)` échoue au-delà de quelques
+  // centaines de collectes AG (URL trop longue : 242 ids passent, 400 non —
+  // mesuré sur savr-dev le 2026-10-07) et laissait alors la colonne vide sans
+  // erreur. Client : helper SECURITY DEFINER par collecte.
+  const repas = ctx.isStaff
+    ? repasDesAttributions(rows)
+    : await resolveRepas(
+        ctx.supabase,
+        rows.filter((r) => r.type === 'anti_gaspi').map((r) => r.id as string),
+      );
 
   const evt = (r: Row) => unwrap(r.evenements);
   const lieuOf = (r: Row) => unwrap(evt(r).lieux);

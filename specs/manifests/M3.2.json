@@ -141,6 +141,7 @@
     "M3.2/nav_pack_meme_menu_partout",
     "M3.2/nav_pack_autres_roles_sans_lecture",
     "M3.2/nav_pack_regle_unique",
+    "M3.2/nav_ordre_menu_gestionnaire",
     "M3.2/P2_dashboard_barre_5_filtres",
     "M3.2/P2_dashboard_compteur_collectes",
     "M3.2/P2_dashboard_carte_kpi_non_cliquable",
@@ -642,6 +643,15 @@
       "libelle": "Nav gestionnaire — conditionnel « Mon pack AG » (CDC l.75) : l'entrée est masquée si l'organisation n'a aucun packs_antgaspi (count serveur → hiddenNavHrefs filtré dans Sidebar/BottomNav/AppShell). Le count est joué par CHAQUE layout qui monte le menu du gestionnaire — son espace, mais aussi les sections transverses registre et programmation, qui ont leur propre layout (défaut E2E 2026-10-06 : l'entrée réapparaissait sur /registre et /programmer). Les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) font partie des 8 sections du menu (CDC l.66-73 : réintégrées par Val le 2026-07-06). L'entrée « Événements » est RETIRÉE (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md — le CDC l.67 dit encore « 9 sections », à patcher)."
     },
     {
+      "id": "M3.2-nav-ordre-menu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:67",
+      "artefact": "packages/plateforme/src/lib/nav-config.ts",
+      "test": "M3.2/nav_ordre_menu_gestionnaire + packages/plateforme/src/lib/routes.test.ts",
+      "statut": "implemented",
+      "libelle": "Ordre du menu du gestionnaire (décision Val 2026-10-07, revue d'écran E2E — il diffère de la liste numérotée du CDC l.69-77, à patcher) : Dashboard, Collectes, Traiteurs, Mes lieux, Registre réglementaire, Mon organisation, Paramètres. « Mon pack AG », quand l'organisation a un pack, garde sa place juste avant « Mon organisation ». La barre mobile affichant les 4 premières entrées, elle montre Dashboard, Collectes, Traiteurs, Mes lieux (le Registre réglementaire en sort, les Traiteurs y entrent).",
+      "ref_divergence": "_Divergences/M3.2_20261007_ordre-menu-gestionnaire.md"
+    },
+    {
       "id": "M3.2-bloc2-zd",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:147",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionZdChart.tsx",
@@ -1141,7 +1151,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx + packages/plateforme/src/lib/nav-config.ts",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu du retrait de la page Événements, desktop ET mobile < 640 px : menu du gestionnaire à 8 entrées, sans « Événements », en barre latérale et en barre mobile (qui affiche Dashboard, Mes lieux, Collectes, Registre réglementaire) ; bouton « Exporter CSV » blanc avec son picto à droite du bandeau de la liste Collectes ; un clic avec un filtre posé télécharge un fichier dont les lignes sont celles de la liste. GO visuel de Val donné en session le 2026-10-07 (« ok go visuel »), sans capture jointe : l'aperçu local de la branche lui a été mis à disposition, Claude Code ne s'y est pas connecté."
+      "libelle": "Rendu du retrait de la page Événements, desktop ET mobile < 640 px : menu du gestionnaire à 8 entrées, sans « Événements », en barre latérale et en barre mobile (qui affichait, lors de ce GO, Dashboard, Mes lieux, Collectes, Registre réglementaire — recomposée depuis par le livrable M3.2-nav-ordre-menu) ; bouton « Exporter CSV » blanc avec son picto à droite du bandeau de la liste Collectes ; un clic avec un filtre posé télécharge un fichier dont les lignes sont celles de la liste. GO visuel de Val donné en session le 2026-10-07 (« ok go visuel »), sans capture jointe : l'aperçu local de la branche lui a été mis à disposition, Claude Code ne s'y est pas connecté."
     },
     {
       "id": "M3.2-fiche-traiteur-modale",

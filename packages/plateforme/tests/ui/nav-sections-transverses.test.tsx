@@ -171,6 +171,40 @@ describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
   });
 });
 
+describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () => {
+  it('M3.2/nav_ordre_menu_gestionnaire — barre latérale dans l’ordre fixé, « Mon pack AG » avant « Mon organisation », barre mobile = 4 premières entrées', async () => {
+    expect(await menuDe(GestionnaireLayout, '/gestionnaire')).toEqual([
+      'Dashboard',
+      'Collectes',
+      'Traiteurs',
+      'Mes lieux',
+      'Registre réglementaire',
+      'Mon organisation',
+      'Paramètres',
+    ]);
+    const barreMobile = screen.getByRole('navigation', {
+      name: 'Navigation mobile',
+    });
+    expect(
+      within(barreMobile)
+        .getAllByRole('link')
+        .map((lien) => lien.textContent ?? ''),
+    ).toEqual(['Dashboard', 'Collectes', 'Traiteurs', 'Mes lieux']);
+
+    etat.nbPacks = 1;
+    expect(await menuDe(GestionnaireLayout, '/gestionnaire')).toEqual([
+      'Dashboard',
+      'Collectes',
+      'Traiteurs',
+      'Mes lieux',
+      'Registre réglementaire',
+      'Mon pack AG',
+      'Mon organisation',
+      'Paramètres',
+    ]);
+  });
+});
+
 describe('M0.8 / nav du formulaire de programmation — rôle lu côté serveur', () => {
   it('M0.8-72 — Formulaire de programmation : le staff (admin, ops) garde le menu du back-office', async () => {
     const backOffice = menuDuRole('admin_savr');

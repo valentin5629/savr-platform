@@ -146,6 +146,9 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
   // « Mon pack AG » est masqué si l'organisation n'a aucun pack : `hiddenNavHrefs`
   // est calculé par `entreesNavMasquees` (lib/nav-masquee.ts) dans chaque layout
   // qui monte ce menu, puis appliqué dans Sidebar/BottomNav.
+  // Ordre fixé par Val le 2026-10-07 (il diffère de la liste du CDC). La barre
+  // mobile affiche les 4 premières entrées : Dashboard, Collectes, Traiteurs,
+  // Mes lieux.
   gestionnaire_lieux: [
     {
       items: [
@@ -154,21 +157,21 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           href: ROUTES.gestionnaire.racine,
           icon: LayoutDashboard,
         },
-        { label: 'Mes lieux', href: ROUTES.gestionnaire.lieux, icon: MapPin },
         {
           label: 'Collectes',
           href: ROUTES.gestionnaire.collectes,
           icon: ClipboardList,
         },
         {
-          label: 'Registre réglementaire',
-          href: ROUTES.registre,
-          icon: FileText,
-        },
-        {
           label: 'Traiteurs',
           href: ROUTES.gestionnaire.traiteurs,
           icon: Truck,
+        },
+        { label: 'Mes lieux', href: ROUTES.gestionnaire.lieux, icon: MapPin },
+        {
+          label: 'Registre réglementaire',
+          href: ROUTES.registre,
+          icon: FileText,
         },
         {
           label: 'Mon pack AG',

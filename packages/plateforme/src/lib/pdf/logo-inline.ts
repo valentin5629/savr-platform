@@ -37,7 +37,11 @@ export async function logoKeyToDataUri(
   try {
     // Dans le `try` : sans R2_BUCKET_NAME la garde lève (plus de repli savr-dev),
     // et un logo ne doit jamais faire échouer un PDF. La mauvaise configuration
-    // n'est pas masquée pour autant — l'envoi du PDF lève juste après, lui.
+    // n'est pas masquée pour autant : l'ENVOI du PDF lève, lui (synthèse : dans
+    // la même requête ; batchs : au passage du worker, job en échec puis rejoué).
+    // ⚠ Les batchs inlinent le logo à la mise en file : un job enfilé pendant que
+    // la variable manque garde son payload sans logo, même une fois la
+    // configuration réparée — document à régénérer.
     const cle = parseCleLogo(storageKey);
     if (!cle) return null;
     const bytes = await getObjectBytes(`${cle.bucket}/${cle.key}`);

@@ -4,7 +4,8 @@
  * (décision Val 2026-10-07).
  *
  * Avant : `process.env.R2_BUCKET_NAME || 'savr-dev'` — une production sans la
- * variable écrivait ses photos dans le bucket de dev, sans erreur. La route ne
+ * variable aurait écrit ses photos dans le bucket de dev, sans erreur (lu dans le
+ * code, jamais observé : la prod n'a aucune photo). La route ne
  * choisit plus de bucket. Seul le SDK S3 est simulé ici : `uploadObject` est le
  * VRAI, pour observer le bucket réellement envoyé et celui écrit en base.
  */

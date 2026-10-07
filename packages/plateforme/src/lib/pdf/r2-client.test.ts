@@ -74,6 +74,26 @@ describe("M1.6 / r2-client — lecture bornée au bucket de l'environnement", ()
     expect(send).not.toHaveBeenCalled();
   });
 
+  // Une URL signée sur la racine du bucket est une demande de listage : le
+  // bucket contient tous les fichiers de l'environnement (revue sécurité
+  // 2026-10-07). Seul le service écrit ces clés ; aucune n'a cette forme.
+  it.each([
+    'savr-dev',
+    'savr-dev/',
+    'savr-dev//bordereaux/b1.pdf',
+    'savr-dev/bordereaux/',
+    'savr-dev/logos/../bordereaux/b1.pdf',
+    'savr-dev/./bordereaux/b1.pdf',
+  ])(
+    '%s → refusée : pas d’objet désigné, rien de signé ni de lu',
+    async (cle) => {
+      await expect(getPresignedUrl(cle)).rejects.toThrow(/sans objet désigné/);
+      await expect(getObjectBytes(cle)).rejects.toThrow(/sans objet désigné/);
+      expect(getSignedUrl).not.toHaveBeenCalled();
+      expect(send).not.toHaveBeenCalled();
+    },
+  );
+
   it('R2_BUCKET_NAME absent → lève, aucune URL signée (pas de repli)', async () => {
     vi.stubEnv('R2_BUCKET_NAME', '');
     await expect(

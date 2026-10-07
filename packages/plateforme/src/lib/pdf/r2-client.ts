@@ -34,18 +34,29 @@ export async function uploadPdf(
  * Découpe une clé de stockage "bucket/key" et exige le bucket de l'environnement.
  * Lève sinon : une clé d'un autre bucket (ligne héritée, base recopiée d'un autre
  * environnement) ne doit ni être signée ni être lue.
+ *
+ * Lève aussi sur une clé d'objet vide ou portant un segment vide, `.` ou `..` :
+ * une URL signée sur la racine du bucket est, en S3, une demande de LISTAGE — et
+ * ce bucket contient désormais tous les fichiers de l'environnement. Aucune clé
+ * écrite par l'application n'a cette forme (revue sécurité 2026-10-07).
  */
 function cleDeLEnvironnement(storageKey: string): {
   bucket: string;
   key: string;
 } {
-  const [bucket, ...keyParts] = storageKey.split('/');
+  const [bucket, ...segments] = storageKey.split('/');
   if (bucket !== bucketEnvironnement()) {
     throw new Error(
       `Clé de stockage hors du bucket de l'environnement (${bucket ?? ''})`,
     );
   }
-  return { bucket, key: keyParts.join('/') };
+  if (
+    segments.length === 0 ||
+    segments.some((s) => s === '' || s === '.' || s === '..')
+  ) {
+    throw new Error('Clé de stockage sans objet désigné dans le bucket');
+  }
+  return { bucket, key: segments.join('/') };
 }
 
 export async function getPresignedUrl(

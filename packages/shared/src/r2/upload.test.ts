@@ -6,12 +6,23 @@
  * (`collectes`, absent du compte Cloudflare), tous communs à dev et prod ; et un
  * `R2_BUCKET_NAME` absent retombait sur `savr-dev`, production comprise.
  *
- * Ce fichier verrouille les deux choses qui rendent ce retour impossible :
- *   1. le COMPORTEMENT — tout envoi et toute lecture visent le bucket de
- *      l'environnement, et rien ne part si la variable manque ;
- *   2. la STRUCTURE — un seul fichier lit `R2_BUCKET_NAME`, un seul construit un
- *      envoi S3. Sans ce second point, le premier ne prouverait rien sur un appel
- *      écrit demain à côté de `uploadObject`.
+ * Ce fichier verrouille deux choses, et pas davantage :
+ *   1. le COMPORTEMENT des fonctions partagées — `uploadObject` et `getObject`
+ *      visent le bucket de l'environnement, et rien ne part si la variable manque ;
+ *   2. un PÉRIMÈTRE — dans les dossiers scannés (RACINES_CODE), le SDK S3 n'est
+ *      importé que par deux fichiers, un seul nomme `PutObjectCommand`, aucun ne
+ *      supprime ni ne copie, et le nom `R2_BUCKET_NAME` n'apparaît dans aucun code
+ *      (hors commentaires) ailleurs que dans `bucket.ts`.
+ *
+ * Ce que le point 2 ne prouve PAS, à savoir avant de s'y fier :
+ *   - il ne regarde pas d'où vient l'argument `Bucket` d'une commande. Une fonction
+ *     ajoutée à upload.ts ou à r2-client.ts avec un bucket en paramètre le
+ *     laisserait vert : ces deux fichiers se relisent à la main ;
+ *   - il ne voit pas un envoi fait sans le SDK (requête signée à la main, autre
+ *     bibliothèque), ni un nom de variable ou de module assemblé par concaténation ;
+ *   - il ne lit que du code TS/JS : ni scripts shell, ni workflows.
+ * Et rien ici ne rend dev incapable d'atteindre le stockage de prod : cela tient
+ * à la clé d'API R2 de chaque environnement, à restreindre chez Cloudflare.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
@@ -125,16 +136,19 @@ describe('stockage R2 — R2_BUCKET_NAME absent : échec explicite, aucun repli'
 // ── Structure ───────────────────────────────────────────────────────────────
 
 const RACINE = resolve(__dirname, '../../../..');
-// Tout le code que Next ou Railway exécute. Les tests sont hors scan : ils
-// simulent le SDK et posent la variable, c'est leur rôle.
+// Dossiers scannés, en entier (fichiers de configuration à la racine des
+// packages compris : next.config.ts, sentry.*.config.ts). Les tests sont hors
+// scan : ils simulent le SDK et posent la variable, c'est leur rôle.
 const RACINES_CODE = [
-  'packages/shared/src',
-  'packages/plateforme/src',
-  'packages/adapters/src',
+  'packages/shared',
+  'packages/plateforme',
+  'packages/adapters',
   'packages/tms',
-  'apps/pdf-renderer/src',
+  'apps/pdf-renderer',
   'scripts',
+  'e2e',
 ];
+const HORS_SCAN = new Set(['node_modules', '.next', 'dist', '.turbo']);
 const EST_CODE = /\.(?:ts|tsx|mts|cts|js|mjs|cjs)$/;
 const EST_TEST = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
 
@@ -142,7 +156,7 @@ function fichiersDeCode(): string[] {
   const trouves: string[] = [];
   const parcourir = (dossier: string): void => {
     for (const nom of readdirSync(dossier)) {
-      if (nom === 'node_modules' || nom === '.next' || nom === 'dist') continue;
+      if (HORS_SCAN.has(nom)) continue;
       const chemin = join(dossier, nom);
       if (statSync(chemin).isDirectory()) parcourir(chemin);
       else if (EST_CODE.test(nom) && !EST_TEST.test(nom)) trouves.push(chemin);
@@ -152,36 +166,50 @@ function fichiersDeCode(): string[] {
   return trouves;
 }
 
-function fichiersContenant(motif: RegExp): string[] {
+// Retire les commentaires `/* … */` et `// …`. Un `//` n'est un commentaire que
+// précédé d'un blanc ou en début de ligne : celui d'une adresse (`https://…`)
+// est laissé, pour ne pas effacer le code qui suit sur la même ligne.
+function sansCommentaires(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|\s)\/\/.*$/gm, '$1');
+}
+
+function fichiersContenant(
+  motif: RegExp,
+  lire: (source: string) => string = (source) => source,
+): string[] {
   return fichiersDeCode()
-    .filter((f) => motif.test(readFileSync(f, 'utf8')))
+    .filter((f) => motif.test(lire(readFileSync(f, 'utf8'))))
     .map((f) => relative(RACINE, f).split(sep).join('/'))
     .sort();
 }
 
-describe('stockage R2 — un seul point de passage (cliquet de structure)', () => {
+describe('stockage R2 — périmètre des accès (cliquet de structure)', () => {
   it('le scan voit bien du code (garde contre un cliquet vide)', () => {
-    expect(fichiersDeCode().length).toBeGreaterThan(200);
+    expect(fichiersDeCode().length).toBeGreaterThan(500);
   });
 
-  // Une LECTURE de la variable (accès direct, indexé ou par déstructuration) — pas
-  // une simple mention : des commentaires la citent ailleurs, à juste titre.
-  const LECTURE_BUCKET =
-    /process\.env\s*(?:\.\s*R2_BUCKET_NAME|\[\s*['"`]R2_BUCKET_NAME)|\{[^}]*\bR2_BUCKET_NAME\b[^}]*\}\s*=\s*process\.env/;
-
-  it('le motif reconnaît les trois façons de lire la variable', () => {
-    for (const lecture of [
-      "process.env['R2_BUCKET_NAME'] || 'savr-dev'",
-      'process.env.R2_BUCKET_NAME ?? "savr-dev"',
-      'const { R2_BUCKET_NAME } = process.env;',
-    ]) {
-      expect(lecture).toMatch(LECTURE_BUCKET);
-    }
-    expect('// sans R2_BUCKET_NAME l’upload lève').not.toMatch(LECTURE_BUCKET);
+  it('sansCommentaires garde le code, y compris après une adresse', () => {
+    const source = [
+      '// sans R2_BUCKET_NAME l’upload lève',
+      '/* R2_BUCKET_NAME */ const a = 1;',
+      "const u = 'https://exemple.test'; const b = env.R2_BUCKET_NAME;",
+      'const c = process.env?.R2_BUCKET_NAME; // repli',
+    ].join('\n');
+    const code = sansCommentaires(source);
+    expect(code).not.toContain('upload lève');
+    expect(code).not.toContain('repli');
+    expect(code).toContain('const a = 1;');
+    expect(code).toContain('env.R2_BUCKET_NAME');
+    expect(code).toContain('process.env?.R2_BUCKET_NAME');
   });
 
-  it('R2_BUCKET_NAME n’est lue que par bucket.ts — aucun autre lecteur, donc aucun repli', () => {
-    expect(fichiersContenant(LECTURE_BUCKET)).toEqual([
+  // Le NOM de la variable, quelle que soit la façon de la lire (accès direct ou
+  // optionnel, alias de process.env, déstructuration, constante, schéma de
+  // validation) : toutes ces formes l'écrivent en toutes lettres.
+  it('le nom R2_BUCKET_NAME n’apparaît dans aucun code hors de bucket.ts', () => {
+    expect(fichiersContenant(/R2_BUCKET_NAME/, sansCommentaires)).toEqual([
       'packages/shared/src/r2/bucket.ts',
     ]);
   });

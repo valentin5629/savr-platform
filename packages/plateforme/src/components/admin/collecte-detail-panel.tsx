@@ -112,6 +112,9 @@ interface Transporteur {
   type_tms: string;
   prestataire_logistique_id: string | null;
   actif: boolean;
+  // Flux pris en charge (`anti_gaspi` / `zero_dechet`) — peut manquer au
+  // référentiel : absent = aucun filtre.
+  types_collecte?: string[] | null;
 }
 
 // Recommandation de l'algo d'attribution AG (§06.09) — sous-ensemble consommé par
@@ -784,8 +787,9 @@ export function CollecteDetailPanel({
   const handleDispatch = async () => {
     setDispatching(true);
     setDispatchError(null);
-    // Prestataire choisi (AG) → on envoie son prestataire_logistique_id (pont R5).
-    // Sans changement (ZD / re-send) → body vide = réémission dispatch idempotente.
+    // Prestataire choisi (AG ou ZD) → on envoie son prestataire_logistique_id
+    // (pont R5). Sans changement (re-send) → body vide = réémission dispatch
+    // idempotente.
     const selected = transporteurs.find((t) => t.id === selectedTransporteurId);
     const body: Record<string, unknown> = {};
     if (selected?.prestataire_logistique_id) {
@@ -1107,10 +1111,36 @@ export function CollecteDetailPanel({
   // motif obligatoire SI le choix ≠ top-1 algo). Pas de reco → pas de baseline → pas
   // de motif requis (cohérent avec la garde serveur du dispatch).
   const recommendedTransporteurId = reco?.transporteur?.id ?? null;
-  const overrideActif =
+  // ZD (décision Val 2026-10-07) : l'Admin choisit le prestataire sur la fiche,
+  // sans reco algo. Le premier choix est libre ; le motif n'est dû que pour
+  // CHANGER un prestataire déjà posé — même garde que la route de dispatch.
+  const estZd = collecte.type === 'zero_dechet';
+  const changementPrestataireZd =
+    estZd &&
     selectedTransporteur != null &&
-    recommendedTransporteurId != null &&
-    selectedTransporteur.id !== recommendedTransporteurId;
+    collecte.prestataire_logistique_id != null &&
+    selectedTransporteur.prestataire_logistique_id !==
+      collecte.prestataire_logistique_id;
+  const overrideActif =
+    changementPrestataireZd ||
+    (selectedTransporteur != null &&
+      recommendedTransporteurId != null &&
+      selectedTransporteur.id !== recommendedTransporteurId);
+  // ZD sans prestataire : rien à envoyer tant qu'aucune carte n'est cochée.
+  const prestataireAChoisir =
+    estZd &&
+    collecte.prestataire_logistique_id == null &&
+    selectedTransporteur == null;
+  // ZD : le choix n'est offert que sur une collecte à dispatcher (`programmee`)
+  // ou rejetée par son prestataire (réattribution), et jamais sur une commande
+  // vivante (référence reçue, non rejetée) — le dispatch n'émettrait qu'une
+  // modification chez le prestataire actuel, sans transférer la commande.
+  // Mêmes refus que la route.
+  const choixPrestataireZdFerme =
+    estZd &&
+    (!['programmee', 'rejetee_par_prestataire'].includes(collecte.statut) ||
+      (collecte.tms_reference != null &&
+        collecte.statut_tms !== 'rejetee_par_prestataire'));
   const overrideMotifManquant =
     overrideActif && motifOverride.trim().length < 5;
   // Acceptation manuelle : collecte chez A Toutes!, non terminale, sans
@@ -1119,8 +1149,9 @@ export function CollecteDetailPanel({
     !isTerminal &&
     currentTransporteur?.type_tms === 'a_toutes' &&
     !collecte.tms_reference;
-  // Ordre en file d'envoi (décision Val 2026-10-02, C1) : AG dont l'attribution
-  // validée a posé le prestataire chez un adapter (MTS-1 / A Toutes!) et dont la
+  // Ordre en file d'envoi (décision Val 2026-10-02, C1) : collecte dont le
+  // dispatch (validation d'attribution AG, choix du prestataire ZD) a posé le
+  // prestataire chez un adapter (MTS-1 / A Toutes!) et dont la
   // commande n'est pas encore partie (le worker outbox tourne toutes les 15 min :
   // `tms_reference` vide, `statut_tms` encore « non envoyé » — §06.09 §3 pt 3).
   // À ce stade la fiche DIT la collecte envoyée et ne rouvre le choix du
@@ -1129,14 +1160,13 @@ export function CollecteDetailPanel({
   // Gardes = celles du worker : `prestataire_logistique_id` posé (sans lui le
   // worker sort en no-op — un transporteur sans pont servi par le repli
   // `prestataire_actuel` n'a rien en file) et collecte encore `programmee` /
-  // `validee`. ZD exclue : en V1 aucun chemin ne pose de prestataire sur une ZD
-  // (création, PATCH, dispatch à corps vide) — l'état n'existe que par seed, sans
-  // event en file. Transporteurs manuels (mail / téléphone / autre) exclus :
-  // rien ne part automatiquement pour eux.
+  // `validee`. ZD comprise depuis que l'Admin y choisit le prestataire (décision
+  // Val 2026-10-07) : seul le dispatch en pose un, avec son ordre en file.
+  // Transporteurs manuels (mail / téléphone / autre) exclus : rien ne part
+  // automatiquement pour eux.
   // « À dispatcher » au sens canonique (§11 §1.1, `estADispatcher` : non envoyée,
   // sans référence, programmée ou validée) — mais l'ordre est déjà en file.
   const ordreEnFileEnvoi =
-    collecte.type === 'anti_gaspi' &&
     collecte.prestataire_logistique_id != null &&
     envoiAutomatique(currentTransporteur?.type_tms) &&
     estADispatcher(collecte);
@@ -1186,7 +1216,21 @@ export function CollecteDetailPanel({
       : t.id === currentTransporteur?.transporteur_id
         ? 1
         : 2;
-  const transporteursOrdonnes = [...transporteurs].sort(
+  // ZD : seuls les transporteurs reliés à un prestataire sont proposables —
+  // c'est lui que le dispatch pose sur la collecte (une AG garde en repli le
+  // transporteur de son attribution) — et, quand le référentiel le renseigne,
+  // ceux qui prennent les ZD. Jamais A Toutes! : son envoi exige l'association
+  // destinataire d'une AG, une ZD y finirait en échec définitif.
+  const transporteursProposables = estZd
+    ? transporteurs.filter(
+        (t) =>
+          t.prestataire_logistique_id != null &&
+          t.type_tms !== 'a_toutes' &&
+          (!t.types_collecte?.length ||
+            t.types_collecte.includes('zero_dechet')),
+      )
+    : transporteurs;
+  const transporteursOrdonnes = [...transporteursProposables].sort(
     (a, b) => rangCarte(a) - rangCarte(b),
   );
   const aucuneCarteCochee = !transporteursOrdonnes.some(
@@ -1607,14 +1651,14 @@ export function CollecteDetailPanel({
                   </AlertBar>
                 )}
 
-                {/* Choix du prestataire (AG) — override manuel §06.06 §3, en cartes
-            cochables (décision Val C3) : la reco algo est présélectionnée et
-            marquée « Recommandé ». Pas de choix en ZD V1 (réémission seule).
-            Ordre en file d'envoi : masqué tant que l'Ops ne demande pas à
-            changer de prestataire. */}
-                {collecte.type === 'anti_gaspi' &&
-                  !isTerminal &&
-                  !dispatchEnLecture && (
+                {/* Choix du prestataire — §06.06 §3, en cartes cochables (décision
+            Val C3). AG : la reco algo est présélectionnée et marquée
+            « Recommandé ». ZD : choix libre de l'Admin, sans reco (décision Val
+            2026-10-07). Ordre en file d'envoi : masqué tant que l'Ops ne
+            demande pas à changer de prestataire. */}
+                {!isTerminal &&
+                  !dispatchEnLecture &&
+                  !choixPrestataireZdFerme && (
                     <div
                       ref={dispatchChoixRef}
                       className="space-y-3 border-t border-savr-neutral-100 pt-4"
@@ -1628,10 +1672,20 @@ export function CollecteDetailPanel({
                           ? 'Changer de prestataire'
                           : 'Prestataire à attribuer'}
                       </Text>
+                      {prestataireAChoisir && (
+                        <Text variant="hint">
+                          Choisissez le prestataire qui réalisera la collecte,
+                          puis envoyez.
+                        </Text>
+                      )}
                       {transporteursOrdonnes.length === 0 ? (
                         <EmptyState
                           size="inline"
-                          title="Aucun transporteur actif dans le référentiel."
+                          title={
+                            estZd
+                              ? 'Aucun transporteur actif ne peut prendre une collecte Zéro Déchet.'
+                              : 'Aucun transporteur actif dans le référentiel.'
+                          }
                         />
                       ) : (
                         <div
@@ -1681,7 +1735,11 @@ export function CollecteDetailPanel({
                       )}
                       {overrideActif && (
                         <FormField
-                          label="Motif override (≥ 5 car. — prestataire ≠ reco algo)"
+                          label={
+                            changementPrestataireZd
+                              ? 'Motif du changement de prestataire (≥ 5 car.)'
+                              : 'Motif override (≥ 5 car. — prestataire ≠ reco algo)'
+                          }
                           htmlFor="dispatch-motif"
                           required
                         >
@@ -1691,7 +1749,11 @@ export function CollecteDetailPanel({
                             required
                             value={motifOverride}
                             onChange={(e) => setMotifOverride(e.target.value)}
-                            placeholder="Raison du choix d'un prestataire différent de la recommandation…"
+                            placeholder={
+                              changementPrestataireZd
+                                ? 'Raison du changement de prestataire…'
+                                : "Raison du choix d'un prestataire différent de la recommandation…"
+                            }
                           />
                         </FormField>
                       )}
@@ -1747,12 +1809,19 @@ export function CollecteDetailPanel({
                         </Button>
                       )}
                       <Button
-                        disabled={isTerminal || overrideMotifManquant}
+                        disabled={
+                          isTerminal ||
+                          overrideMotifManquant ||
+                          prestataireAChoisir
+                        }
                         onClick={() => void handleDispatch()}
                         loading={dispatching}
                         loadingText="Envoi…"
                       >
-                        <Send /> {libelleDispatch(forkTypeTms, renvoi)}
+                        <Send />{' '}
+                        {prestataireAChoisir
+                          ? 'Envoyer'
+                          : libelleDispatch(forkTypeTms, renvoi)}
                       </Button>
                     </>
                   )}

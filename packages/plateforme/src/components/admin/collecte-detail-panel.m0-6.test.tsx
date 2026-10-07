@@ -978,8 +978,116 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     ATTENTE_CAS_MS,
   );
 
+  // ZD (décision Val 2026-10-07, C1) : l'Admin choisit le prestataire sur la
+  // fiche, comme pour l'AG, puis envoie. Avant, la fiche n'offrait aucun choix
+  // en ZD et « Envoyer » émettait un ordre sans prestataire, que personne ne
+  // recevait.
+  const collecteZdSansPrestataire = {
+    ...collecteAg,
+    type: 'zero_dechet',
+    attributions_antgaspi: null,
+    prestataire_logistique_id: null,
+    prestataire_actuel: null,
+    collecte_tournees: [],
+  };
+  const transporteursZd = [
+    ...transporteurs,
+    {
+      id: 't-marathon',
+      nom: 'Marathon',
+      type_tms: 'mts1',
+      prestataire_logistique_id: 'presta-marathon',
+      actif: true,
+      types_collecte: ['zero_dechet', 'anti_gaspi'],
+    },
+    // Sans prestataire relié : rien à poser sur la collecte.
+    {
+      id: 't-sans-pont',
+      nom: 'Presta sans code',
+      type_tms: 'mts1',
+      prestataire_logistique_id: null,
+      actif: true,
+    },
+    // Référentiel renseigné, ZD non prise en charge.
+    {
+      id: 't-ag-seul',
+      nom: 'Camion AG seul',
+      type_tms: 'mts1',
+      prestataire_logistique_id: 'presta-ag-seul',
+      actif: true,
+      types_collecte: ['anti_gaspi'],
+    },
+  ];
+  const postDispatch = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls.find(
+      (c) =>
+        String(c[0]).includes('/dispatch') &&
+        (c[1] as { method?: string } | undefined)?.method === 'POST',
+    );
+
   it(
-    'ZD avec prestataire et sans référence (fixture seed col_dispatch_non_envoye) : pas « envoyée » — rien ne pose de prestataire sur une ZD en V1, aucun ordre en file',
+    'M0.6/dispatch_zd_choix_prestataire — ZD sans prestataire : cartes de choix sans « Recommandé », envoi impossible tant qu’aucune n’est cochée, puis POST avec le prestataire choisi et sans motif',
+    async () => {
+      const fetchMock = mockFetchPrestataire(collecteZdSansPrestataire, {
+        ok: true,
+        data: transporteursZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const cartes = await screen.findByRole(
+        'radiogroup',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(cartes)
+          .getAllByRole('radio')
+          .map((r) => r.textContent),
+      ).toEqual([
+        expect.stringContaining('Strike'),
+        expect.stringContaining('Marathon'),
+      ]);
+      // A Toutes! n'est jamais proposée sur une ZD : son envoi exige
+      // l'association destinataire d'une AG (l'ordre finirait en échec
+      // définitif et bloquerait les envois suivants de la collecte).
+      expect(
+        within(cartes).queryByRole('radio', { name: /A Toutes!/ }),
+      ).toBeNull();
+      // Pas d'algorithme en ZD : aucune carte recommandée ni présélectionnée.
+      expect(within(cartes).queryByText('Recommandé')).toBeNull();
+      expect(
+        within(cartes)
+          .getAllByRole('radio')
+          .every((r) => r.getAttribute('aria-checked') === 'false'),
+      ).toBe(true);
+      // Rien à envoyer tant qu'aucun prestataire n'est choisi : bouton neutre
+      // et inactif, avec la consigne.
+      expect(screen.getByRole('button', { name: 'Envoyer' })).toBeDisabled();
+      expect(
+        screen.getByText(/Choisissez le prestataire qui réalisera la collecte/),
+      ).toBeInTheDocument();
+
+      fireEvent.click(within(cartes).getByRole('radio', { name: /Marathon/ }));
+      const bouton = screen.getByRole('button', { name: 'Envoyer à MTS-1' });
+      expect(bouton).toBeEnabled();
+      // Premier choix : pas de motif demandé.
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          prestataire_logistique_id: 'presta-marathon',
+        });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/dispatch_zd_envoyee_programmee — ZD dont le prestataire vient d’être choisi : « Envoyée », bloc en lecture, frise à « Programmée »',
     async () => {
       mockFetchPrestataire({
         ...collecteEnFileMts1,
@@ -987,20 +1095,131 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         attributions_antgaspi: null,
       });
       render(<CollecteDetailPanel collecteId="c1" />);
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(sousLigne).getByText('Envoyée')).toBeInTheDocument();
+      expect(etapeCourante()).toContain('Programmée');
+
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /Collecte envoyée à Strike/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('radiogroup')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/dispatch_zd_commande_en_cours — ZD déjà commandée (référence reçue) : pas de choix de prestataire, « Renvoyer à MTS-1 » reste possible et part sans prestataire',
+    async () => {
+      const fetchMock = mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+          statut_tms: 'attribuee_en_attente_acceptation',
+          tms_reference: 'TOUR-77',
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
-      const ligne = (
-        await screen.findByText('Statut TMS', undefined, ATTENTE_UI)
-      ).parentElement!;
-      expect(within(ligne).getByText('Non envoyé')).toBeInTheDocument();
-      expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
+      const bouton = await screen.findByRole(
+        'button',
+        { name: 'Renvoyer à MTS-1' },
+        ATTENTE_UI,
+      );
+      expect(bouton).toBeEnabled();
+      // Changer de prestataire ne ferait que modifier la commande chez
+      // l'actuel : ni cartes ni bouton de changement.
+      expect(screen.queryByRole('radiogroup')).toBeNull();
       expect(
         screen.queryByRole('button', { name: 'Changer de prestataire' }),
       ).toBeNull();
-      // L'action attendue par la liste (« Dispatcher ») reste l'envoi initial.
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({});
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'ZD en demande d’annulation, sans prestataire : aucun choix proposé, envoi inactif',
+    async () => {
+      mockFetchPrestataire(
+        { ...collecteZdSansPrestataire, statut: 'annulation_demandee' },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
       expect(
-        screen.getByRole('button', { name: 'Envoyer à MTS-1' }),
-      ).toBeInTheDocument();
+        await screen.findByRole('button', { name: 'Envoyer' }, ATTENTE_UI),
+      ).toBeDisabled();
+      expect(screen.queryByRole('radiogroup')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/dispatch_zd_changement_motif — ZD : changer un prestataire déjà posé exige un motif (≥ 5 car.), transmis au dispatch',
+    async () => {
+      const fetchMock = mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Changer de prestataire' },
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(
+        await screen.findByRole('radio', { name: /Marathon/ }, ATTENTE_UI),
+      );
+      const bouton = screen.getByRole('button', { name: 'Envoyer à MTS-1' });
+      expect(bouton).toBeDisabled();
+      fireEvent.change(
+        screen.getByLabelText(/Motif du changement de prestataire/),
+        { target: { value: 'Strike indisponible ce soir' } },
+      );
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          prestataire_logistique_id: 'presta-marathon',
+          motif_override_prestataire: 'Strike indisponible ce soir',
+        });
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

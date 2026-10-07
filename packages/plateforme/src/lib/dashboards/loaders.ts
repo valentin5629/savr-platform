@@ -28,6 +28,7 @@ import {
   type FacteursCo2,
 } from '@/lib/dashboards/cockpit-derive.js';
 import {
+  jourParis,
   lundiDeLaSemaine,
   premierDuMois,
 } from '@savr/shared/src/temps/index.js';
@@ -1196,6 +1197,19 @@ export async function loadPackAg(ctx: LoaderCtx): Promise<PackAgResult> {
 // BENCHMARK — Bloc 3 ZD (repère parc, RPC k-anonyme) + options des filtres
 // ══════════════════════════════════════════════════════════════════════════
 
+/** 403 de `loadBenchmark` : rôle traiteur ou agence qui nomme des traiteurs. */
+export const ERREUR_FILTRE_TRAITEURS_INTERDIT =
+  'Le filtre traiteur_ids est interdit pour ce rôle (§04 préservation compétitive)';
+/** 403 de `loadBenchmark` : gestionnaire qui nomme un lieu ou un traiteur hors de son périmètre. */
+export const ERREUR_FILTRE_HORS_PERIMETRE =
+  'Filtre lieu_ids ou traiteur_ids hors du périmètre du gestionnaire (§06.05)';
+
+/**
+ * Début des deux messages de la garde de périmètre de `f_benchmark_kg_pax_zd`
+ * (migration 20261006220000, asserté par benchmark_filtres_gestionnaire_rattaches).
+ */
+const REFUS_PERIMETRE_GESTIONNAIRE = /^Filtre (lieu|traiteur)_ids hors /;
+
 export interface BenchmarkParams {
   tailleCodes?: string[] | null;
   bracket?: string | null;
@@ -1208,7 +1222,9 @@ export interface BenchmarkParams {
  * Repère parc kg/pax (RPC f_benchmark_kg_pax_zd, SECURITY DEFINER k-anonyme).
  * ⚠ Contrat identique à `GET /api/v1/dashboards/benchmark` (renvoie le tableau
  * `data`). Le filtre `traiteurIds` est INTERDIT pour traiteur/agence (§04
- * préservation compétitive) → LoaderError 403.
+ * préservation compétitive) → LoaderError 403. Un gestionnaire ne nomme que ses
+ * lieux rattachés et les traiteurs de sa vue `v_traiteurs_gestionnaire` (§06.05,
+ * décision Val 2026-10-06) : la fonction le refuse, relayé ici en LoaderError 403.
  */
 export async function loadBenchmark(
   supabase: DbClient,
@@ -1233,10 +1249,7 @@ export async function loadBenchmark(
     ctx.role === 'traiteur_commercial' ||
     ctx.role === 'agence';
   if (isTraiteur && traiteurIds && traiteurIds.length) {
-    throw new LoaderError(
-      'Le filtre traiteur_ids est interdit pour ce rôle (§04 préservation compétitive)',
-      403,
-    );
+    throw new LoaderError(ERREUR_FILTRE_TRAITEURS_INTERDIT, 403);
   }
 
   const args = {
@@ -1251,6 +1264,17 @@ export async function loadBenchmark(
   };
 
   const { data, error } = await supabase.rpc('f_benchmark_kg_pax_zd', args);
+  // Garde de périmètre de la fonction : un gestionnaire a nommé un lieu non
+  // rattaché ou un traiteur hors de sa vue. Reconnue au SQLSTATE 42501 ET au
+  // début de son message (lu, jamais renvoyé) : un 42501 d'une autre cause —
+  // droit d'exécution retiré par erreur — reste une erreur serveur journalisée.
+  if (
+    error &&
+    ctx.role === 'gestionnaire_lieux' &&
+    error.code === '42501' &&
+    REFUS_PERIMETRE_GESTIONNAIRE.test(error.message ?? '')
+  )
+    throw new LoaderError(ERREUR_FILTRE_HORS_PERIMETRE, 403);
   if (error) throw loaderDbError(error, 'dashboards.benchmark');
   return data ?? [];
 }
@@ -1261,40 +1285,123 @@ export interface BenchmarkFiltresResult {
   types: unknown[];
 }
 
+export interface FiltresParcGestionnaire {
+  /** Aucun lieu rattaché à l'organisation (organisations_lieux vide). */
+  sansLieu: boolean;
+  lieux: { id: string; nom: string }[];
+  traiteurs: { id: string; nom: string }[];
+}
+
+/**
+ * Lieux et traiteurs qu'un gestionnaire peut nommer dans un filtre (§06.05
+ * « Barre de filtres globale ») — source UNIQUE du filtre global du dashboard
+ * et de l'encart benchmark (décision Val 2026-10-06 : mêmes listes) :
+ *  - Lieux    : lieux rattachés à l'organisation (organisations_lieux) ;
+ *  - Traiteurs: traiteurs intervenus sur ≥ 1 collecte sur ces lieux (24 derniers mois).
+ * Lu sous la session de l'appelant (RLS) ; sans lieu rattaché, deux listes vides.
+ * Une lecture en échec lève : une liste vide se lirait « aucun lieu rattaché ».
+ */
+export async function loadFiltresParcGestionnaire(
+  supabase: DbClient,
+): Promise<FiltresParcGestionnaire> {
+  const EVENEMENT = 'gestionnaire.filtres_parc';
+  const { data: orgLieux, error: erreurRattachements } = await supabase
+    .from('organisations_lieux')
+    .select('lieu_id');
+  if (erreurRattachements) throw loaderDbError(erreurRattachements, EVENEMENT);
+  const lieuIds = (orgLieux ?? []).map((r) => r.lieu_id as string);
+  if (lieuIds.length === 0) return { sansLieu: true, lieux: [], traiteurs: [] };
+
+  // Lieux du périmètre (v_lieux_clients = whitelist, masque les champs sensibles).
+  const { data: lieuxRows, error: erreurLieux } = await supabase
+    .from('v_lieux_clients')
+    .select('id, nom')
+    .in('id', lieuIds)
+    .order('nom', { ascending: true });
+  if (erreurLieux) throw loaderDbError(erreurLieux, EVENEMENT);
+
+  // Traiteurs intervenus (fenêtre 24 mois, cohérente avec la liste Traiteurs §06.05 §5).
+  const since24m = new Date();
+  since24m.setMonth(since24m.getMonth() - 24);
+  const since24mStr = jourParis(since24m);
+
+  const { data: collectes, error: erreurCollectes } = await supabase
+    .from('collectes')
+    .select(
+      `id,
+       evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
+         organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom))`,
+    )
+    .in('evenements.lieu_id', lieuIds)
+    .gte('date_collecte', since24mStr);
+  if (erreurCollectes) throw loaderDbError(erreurCollectes, EVENEMENT);
+
+  const traiteurMap = new Map<string, string>();
+  for (const c of collectes ?? []) {
+    const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
+    const orgs = (
+      evt as unknown as { organisations?: { id: string; nom: string } }
+    )?.organisations;
+    if (orgs?.id) traiteurMap.set(orgs.id, orgs.nom);
+  }
+
+  return {
+    sansLieu: false,
+    lieux: (lieuxRows ?? []).map((l) => ({
+      id: l.id as string,
+      nom: l.nom as string,
+    })),
+    traiteurs: [...traiteurMap.entries()]
+      .map(([id, nom]) => ({ id, nom }))
+      .sort((a, b) => a.nom.localeCompare(b.nom)),
+  };
+}
+
 /**
  * Options des multi-selects de l'encart « Filtres benchmark ». ⚠ Contrat
  * identique à `GET /api/v1/dashboards/benchmark/filtres` (payload sous `data`).
- * Traiteur/agence : pas de liste traiteurs (préservation compétitive) → 4 dims.
+ * Gestionnaire : ses lieux rattachés et les traiteurs intervenus sur ses lieux,
+ * rien du reste du parc (décision Val 2026-10-06) — les deux fonctions de
+ * liste « parc » lui sont fermées en base. Traiteur / agence : lieux du parc,
+ * jamais de liste traiteurs (préservation compétitive) → 4 dims.
  */
 export async function loadBenchmarkFiltres(
   supabase: DbClient,
   ctx: LoaderCtx,
 ): Promise<BenchmarkFiltresResult> {
-  const isTraiteur =
-    ctx.role === 'traiteur_manager' ||
-    ctx.role === 'traiteur_commercial' ||
-    ctx.role === 'agence';
+  const types = supabase
+    .from('types_evenements')
+    .select('id, libelle')
+    .eq('actif', true)
+    .order('ordre_affichage');
 
-  const [lieux, traiteurs, types] = await Promise.all([
+  if (ctx.role === 'gestionnaire_lieux') {
+    const [parc, typesRes] = await Promise.all([
+      loadFiltresParcGestionnaire(supabase),
+      types,
+    ]);
+    if (typesRes.error)
+      throw loaderDbError(typesRes.error, 'dashboards.benchmark_filtres');
+    return {
+      lieux: parc.lieux,
+      traiteurs: parc.traiteurs,
+      types: typesRes.data ?? [],
+    };
+  }
+
+  const [lieux, typesRes] = await Promise.all([
     supabase.rpc('f_benchmark_lieux_parc'),
-    isTraiteur
-      ? Promise.resolve({ data: [], error: null })
-      : supabase.rpc('f_benchmark_traiteurs_parc'),
-    supabase
-      .from('types_evenements')
-      .select('id, libelle')
-      .eq('actif', true)
-      .order('ordre_affichage'),
+    types,
   ]);
 
-  const firstError = lieux.error ?? traiteurs.error ?? types.error;
+  const firstError = lieux.error ?? typesRes.error;
   if (firstError)
     throw loaderDbError(firstError, 'dashboards.benchmark_filtres');
 
   return {
     lieux: lieux.data ?? [],
-    traiteurs: traiteurs.data ?? [],
-    types: types.data ?? [],
+    traiteurs: [],
+    types: typesRes.data ?? [],
   };
 }
 

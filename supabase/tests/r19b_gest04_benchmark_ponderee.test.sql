@@ -220,19 +220,22 @@ SELECT is(
 
 -- ── Encart « Filtres benchmark » : fonctions de liste parc (SECURITY DEFINER) ──
 
--- 11. Gestionnaire liste les lieux du parc (>= 1 : la fixture a créé 1 lieu).
+-- 11-12. Depuis 20261006220000 (décision Val 2026-10-06), le gestionnaire ne lit
+--        plus les listes du parc : ses lieux viennent de organisations_lieux, ses
+--        traiteurs de v_traiteurs_gestionnaire. Le contrôle positif de ces deux
+--        fonctions (staff, rôle traiteur) est porté par
+--        benchmark_filtres_gestionnaire_rattaches.test.sql, cas 4 et 6.
 SELECT _r19b_set_jwt('gestionnaire_lieux', 'dd000000-0000-0000-0000-0000000000a1'::uuid);
-SELECT cmp_ok(
-  (SELECT COUNT(*)::int FROM plateforme.f_benchmark_lieux_parc()),
-  '>=', 1,
-  'GEST04-11 : f_benchmark_lieux_parc listable par gestionnaire (parc entier)'
+SELECT throws_ok(
+  $$ SELECT * FROM plateforme.f_benchmark_lieux_parc() $$,
+  'P0001', 'Role non autorise pour la liste benchmark',
+  'GEST04-11 : f_benchmark_lieux_parc refusée au gestionnaire (listes rattachées)'
 );
 
--- 12. Gestionnaire liste les traiteurs du parc (>= 1 : l'org fixture est un traiteur).
-SELECT cmp_ok(
-  (SELECT COUNT(*)::int FROM plateforme.f_benchmark_traiteurs_parc()),
-  '>=', 1,
-  'GEST04-12 : f_benchmark_traiteurs_parc listable par gestionnaire'
+SELECT throws_ok(
+  $$ SELECT * FROM plateforme.f_benchmark_traiteurs_parc() $$,
+  'P0001', 'Role non autorise pour la liste traiteurs benchmark',
+  'GEST04-12 : f_benchmark_traiteurs_parc refusée au gestionnaire (listes rattachées)'
 );
 
 -- 13. Rôle traiteur : la liste des traiteurs est REFUSÉE (préservation compétitive).

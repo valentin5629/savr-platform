@@ -5,6 +5,8 @@ import { loadBenchmarkFiltres, LoaderError } from '@/lib/dashboards/loaders.js';
 // GET /api/v1/dashboards/benchmark/filtres — options des multi-selects de l'encart
 // « Filtres benchmark » (§06.05 Bloc 3). Fine enveloppe autour de `loadBenchmarkFiltres`.
 // Les rôles traiteur/agence n'obtiennent PAS la liste traiteurs (préservation §04).
+// Le gestionnaire n'obtient que ses lieux rattachés et les traiteurs intervenus
+// sur ses lieux (décision Val 2026-10-06).
 const ALLOWED_ROLES = [
   'gestionnaire_lieux',
   'traiteur_manager',

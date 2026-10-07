@@ -210,15 +210,15 @@ export default function ClientOrganisateurDashboardPage() {
           {/* Règle ABC — induit + net + énergie primaire en détail repliable */}
           <Card>
             <CardHeader>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => setShowAbc((v) => !v)}
                 aria-expanded={showAbc}
-                className="flex w-full items-center justify-between text-left"
+                className="-mx-2 h-auto w-[calc(100%+1rem)] justify-between px-2 py-1 text-left text-inherit sm:h-auto"
               >
                 <CardTitle>Détail du bilan carbone (règle ABC)</CardTitle>
                 <span aria-hidden>{showAbc ? '▲' : '▼'}</span>
-              </button>
+              </Button>
             </CardHeader>
             {showAbc && (
               <CardContent

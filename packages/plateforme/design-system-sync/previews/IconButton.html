@@ -7,6 +7,10 @@ h('div',{className:'flex items-center gap-3'},
   h(S.IconButton,{'aria-label':'Modifier'},h(S.Pencil,{className:'h-4 w-4'})),
   h(S.IconButton,{'aria-label':'Ajouter',variant:'primary'},h(S.Plus,{className:'h-4 w-4'})),
   h(S.IconButton,{'aria-label':'Supprimer',variant:'destructive'},h(S.Trash2,{className:'h-4 w-4'})),
-  h(S.IconButton,{'aria-label':'Plus',size:'sm'},h(S.MoreHorizontal,{className:'h-4 w-4'})))
+  h(S.IconButton,{'aria-label':'Plus',size:'sm'},h(S.MoreHorizontal,{className:'h-4 w-4'})),
+  h('div',{className:'flex h-10 w-40 items-center overflow-hidden rounded-savr-md border border-savr-neutral-300 bg-savr-white'},
+    h(S.IconButton,{'aria-label':'Retirer',variant:'stepper',className:'border-r border-savr-neutral-200'},h(S.X)),
+    h('span',{className:'flex-1 text-center text-base font-bold'},'2'),
+    h(S.IconButton,{'aria-label':'Ajouter',variant:'stepper',className:'border-l border-savr-neutral-200'},h(S.Plus))))
 );
 </script>

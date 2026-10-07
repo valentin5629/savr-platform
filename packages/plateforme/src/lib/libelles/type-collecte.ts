@@ -1,9 +1,9 @@
 /**
  * Libellés et couleurs du type de collecte (enum `collecte_type`) — R-UI-2 C2.
  * Source unique des 3 formes de libellé :
- * - long  « Zéro Déchet » / « Anti-Gaspi » (graphie affichée dans l'app, celle
- *   des segmentés ; le CDC écrit « Zéro-Déchet » — divergence D38 en attente
- *   d'arbitrage Val, ne pas trancher ici) ;
+ * - long  « Zéro Déchet » / « Anti-Gaspi » — graphie UNIQUE (arbitrage D38, Val
+ *   2026-10-07 : l'app, les exports et la synthèse PDF écrivent « Zéro Déchet » ;
+ *   le CDC « Zéro-Déchet » est à patcher) ;
  * - court « ZD » / « AG » (badges de liste, colonnes étroites) ;
  * - complet « Zéro Déchet (ZD) » / « Anti-Gaspi (AG) » (options).
  * Les alias UI du formulaire de programmation (`zd` / `ag`) sont tolérés.
@@ -14,17 +14,6 @@ type TypeCollecte = Database['plateforme']['Enums']['collecte_type'];
 
 export const LIBELLE_TYPE_COLLECTE: Record<string, string> = {
   zero_dechet: 'Zéro Déchet',
-  anti_gaspi: 'Anti-Gaspi',
-} satisfies Record<TypeCollecte, string>;
-
-/**
- * Graphie du CDC (« Zéro-Déchet », §12 l.287) — gardée là où elle était déjà
- * affichée avant R-UI-2 (export synthèse PDF : modale et ligne de filtre).
- * D38 OUVERT : l'app affiche « Zéro Déchet », les exports synthèse
- * « Zéro-Déchet » ; une seule des deux maps survivra à l'arbitrage.
- */
-export const LIBELLE_TYPE_COLLECTE_CDC: Record<string, string> = {
-  zero_dechet: 'Zéro-Déchet',
   anti_gaspi: 'Anti-Gaspi',
 } satisfies Record<TypeCollecte, string>;
 
@@ -99,25 +88,13 @@ export function libelleCourtTypeCollecte(
   return LIBELLE_COURT_TYPE_COLLECTE[t] ?? t;
 }
 
-/** Graphie CDC « Zéro-Déchet » (exports synthèse, D38 ouvert). */
-export function libelleCdcTypeCollecte(
-  type: string | null | undefined,
-): string {
-  const t = normaliserTypeCollecte(type);
-  if (!t) return '—';
-  return LIBELLE_TYPE_COLLECTE_CDC[t] ?? t;
-}
-
-/** « Zéro Déchet (ZD) » / « Anti-Gaspi (AG) » (`graphie: 'cdc'` → « Zéro-Déchet (ZD) »). */
+/** « Zéro Déchet (ZD) » / « Anti-Gaspi (AG) ». */
 export function libelleCompletTypeCollecte(
   type: string | null | undefined,
-  graphie: 'app' | 'cdc' = 'app',
 ): string {
   const t = normaliserTypeCollecte(type);
   if (!t) return '—';
-  const long = (
-    graphie === 'cdc' ? LIBELLE_TYPE_COLLECTE_CDC : LIBELLE_TYPE_COLLECTE
-  )[t];
+  const long = LIBELLE_TYPE_COLLECTE[t];
   return long ? `${long} (${LIBELLE_COURT_TYPE_COLLECTE[t]})` : t;
 }
 

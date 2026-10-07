@@ -10,6 +10,7 @@ import { useLogoZd, isZdSectionPath } from '@/components/layout/logo-context';
 import { SavrLogoMark } from '@/components/layout/savr-logo';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { IconButton } from '@/components/ui/icon-button';
 
 interface SidebarProps {
   role: NavRole;
@@ -141,11 +142,10 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         {/* Toggle collapse */}
         {onToggle && (
           <div className="shrink-0 border-t border-savr-primary-700 p-2">
-            <button
+            <IconButton
+              size="sm"
               onClick={onToggle}
-              className={cn(
-                'flex h-9 w-full items-center justify-center rounded-savr-md text-savr-primary-300 hover:bg-savr-primary-700 hover:text-savr-white transition-colors',
-              )}
+              className="w-full text-savr-primary-300 hover:bg-savr-primary-700 hover:text-savr-white [&>svg]:h-4 [&>svg]:w-4"
               aria-label={
                 collapsed ? 'Développer la navigation' : 'Réduire la navigation'
               }
@@ -155,7 +155,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
               ) : (
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
               )}
-            </button>
+            </IconButton>
           </div>
         )}
       </nav>

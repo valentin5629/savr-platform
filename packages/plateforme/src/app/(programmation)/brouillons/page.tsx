@@ -62,7 +62,7 @@ export default function BrouillonsPage() {
           <Button variant="accent" asChild>
             <Link href={ROUTES.programmer.nouveau}>
               <PlusCircle />
-              Nouvelle programmation
+              Programmer une collecte
             </Link>
           </Button>
         }

@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react';
 import { Text } from '@/components/ui/text';
+import { IconButton } from '@/components/ui/icon-button';
 
 interface Props {
   /** Libellé complet du filtre, ex. « Lieu : Le Pavillon ». */
@@ -36,14 +37,14 @@ export function CollecteFiltreActif({ label, scope, onClear }: Props) {
             </span>
           )}
         </span>
-        <button
-          type="button"
+        <IconButton
+          size="sm"
           onClick={onClear}
           aria-label="Retirer le filtre"
-          className="flex h-6 w-6 items-center justify-center rounded-savr-full text-savr-primary-700 transition-colors hover:bg-savr-primary-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-savr-primary-400"
+          className="-my-1.5 rounded-savr-full text-savr-primary-700 hover:bg-savr-primary-100 hover:text-savr-primary-800 [&>svg]:h-4 [&>svg]:w-4"
         >
           <X className="h-4 w-4" aria-hidden />
-        </button>
+        </IconButton>
       </span>
     </div>
   );

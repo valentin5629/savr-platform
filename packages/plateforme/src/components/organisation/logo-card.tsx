@@ -2,12 +2,12 @@
 
 import * as React from 'react';
 import { useState } from 'react';
-import { Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormError } from '@/components/ui/form-error';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
+import { FileButton } from '@/components/ui/file-button';
 
 // LogoCard — bloc « Logo » de la fiche organisation (R-UI-6b, I9 : ex-copies
 // locales traiteur / gestionnaire de lieux, §06.04 et §06.05 §6 Bloc
@@ -42,10 +42,7 @@ export function LogoCard({
   // Clé dont l'aperçu n'a pas pu être chargé (fichier absent côté R2).
   const [apercuKo, setApercuKo] = useState<string | null>(null);
 
-  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
-    const input = e.target;
-    const file = input.files?.[0];
-    if (!file) return;
+  async function upload(file: File) {
     setUploading(true);
     setErreur('');
     try {
@@ -66,7 +63,6 @@ export function LogoCard({
     } finally {
       setUploading(false);
       // Permet de re-sélectionner le même fichier après un échec.
-      input.value = '';
     }
   }
 
@@ -89,25 +85,14 @@ export function LogoCard({
         )}
         {canEdit && (
           <div className="space-y-1">
-            <input
+            <FileButton
               id="org-logo"
-              type="file"
               accept="image/png,image/jpeg"
-              className="peer sr-only"
-              onChange={(e) => void upload(e)}
-              disabled={uploading}
-            />
-            <label
-              className="text-sm text-savr-neutral-900 inline-flex h-11 cursor-pointer items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-4 font-medium hover:bg-savr-neutral-100 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-savr-primary-500 sm:h-10"
-              htmlFor="org-logo"
+              loading={uploading}
+              onFile={(f) => void upload(f)}
             >
-              <Upload className="h-4 w-4" aria-hidden="true" />
-              {uploading
-                ? 'Envoi…'
-                : logoKey
-                  ? 'Remplacer le logo'
-                  : 'Ajouter un logo'}
-            </label>
+              {logoKey ? 'Remplacer le logo' : 'Ajouter un logo'}
+            </FileButton>
             <Text variant="hint">JPG ou PNG, 2 Mo max.</Text>
             <FormError>{erreur}</FormError>
           </div>

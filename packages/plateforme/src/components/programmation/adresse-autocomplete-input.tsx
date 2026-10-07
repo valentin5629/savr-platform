@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 // Import de TYPE seulement : le module (appel IGN) reste hors du bundle navigateur.
 import type { SuggestionAdresse } from '@/lib/adresse-suggestions';
+import { DELAI_DEBOUNCE_MS } from '@/lib/hooks/use-debounce';
 
 // Même seuil que le relais (la BAN refuse moins de 3 caractères) : évite un aller-retour inutile.
 const MIN_CARACTERES_SUGGESTION = 3;
@@ -70,7 +71,7 @@ export function AdresseAutocompleteInput({
         setActif(-1);
         setOpen(s.length > 0);
       });
-    }, 250);
+    }, DELAI_DEBOUNCE_MS);
     return () => {
       clearTimeout(t);
       controller.abort();

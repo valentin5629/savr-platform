@@ -32,7 +32,6 @@ import {
   FichePied,
 } from '@/components/ui/fiche/fiche-modal';
 import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
-import { cn } from '@/lib/utils';
 import { TYPES_TMS_AVEC_PRESTATAIRE } from '@/lib/transporteur-lien-prestataire';
 import { VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { estSiren } from '@savr/shared/src/validation/index.js';
@@ -48,6 +47,7 @@ import {
   TYPES_TMS,
 } from '@/lib/type-tms-labels';
 import { ActifBadge } from '@/components/ui/actif-badge';
+import { ToggleChip } from '@/components/ui/toggle-chip';
 
 // Enregistrement transporteur complet, aligné sur le select('*') de l'API liste —
 // sert à préremplir la modale d'édition sans re-fetch (toutes les colonnes sont
@@ -429,16 +429,6 @@ export function TransporteurModal({
     onClose();
   }
 
-  const chipClass = (selected: boolean) =>
-    cn(
-      // Cible tactile §10 : 44px mobile → 40px desktop, aligné sur Button/Select DS.
-      'inline-flex min-h-[44px] items-center rounded-savr-full border px-4 text-sm font-medium transition-colors sm:min-h-[40px]',
-      'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
-      selected
-        ? 'border-savr-primary-700 bg-savr-primary-700 text-savr-white'
-        : 'border-savr-neutral-300 bg-savr-white text-savr-neutral-700 hover:border-savr-primary-400',
-    );
-
   return (
     // Même shell que le pop-up fiche collecte (FicheModal) : l'en-tête visuel
     // est dans le corps, qui fournit onglets et pied et gère lui-même le
@@ -644,15 +634,14 @@ export function TransporteurModal({
                     {TYPES_VEHICULES.map((t) => {
                       const selected = values.types_vehicules.includes(t.value);
                       return (
-                        <button
+                        <ToggleChip
                           key={t.value}
-                          type="button"
-                          aria-pressed={selected}
+                          variant="choix"
+                          pressed={selected}
                           onClick={() => toggle('types_vehicules', t.value)}
-                          className={chipClass(selected)}
                         >
                           {t.label}
-                        </button>
+                        </ToggleChip>
                       );
                     })}
                   </div>
@@ -671,15 +660,14 @@ export function TransporteurModal({
                     {TYPES_COLLECTE.map((t) => {
                       const selected = values.types_collecte.includes(t.value);
                       return (
-                        <button
+                        <ToggleChip
                           key={t.value}
-                          type="button"
-                          aria-pressed={selected}
+                          variant="choix"
+                          pressed={selected}
                           onClick={() => toggle('types_collecte', t.value)}
-                          className={chipClass(selected)}
                         >
                           {t.label}
-                        </button>
+                        </ToggleChip>
                       );
                     })}
                   </div>

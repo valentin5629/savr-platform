@@ -9,6 +9,9 @@ import { cn } from '@/lib/utils';
 //   - `bare`   : chip nue en en-tête de ChartCard (EvolutionAgChart) ;
 //   - `pill`   : pilule neutre bordée (légende des 5 flux ZD) ;
 //   - `accent` : pilule teintée orange (courbe « taux de recyclage »).
+// Variante `choix` (R-UI-7) : puce de sélection de formulaire (choix multiple,
+// ex. types de véhicule d'un transporteur) — aplat primary-700 quand choisie,
+// jamais atténuée ; 44 px mobile / 40 px desktop comme Button.
 // Zone tactile ≥ 44 px (§10 accessibilité).
 export interface ToggleChipSwatch {
   color: string;
@@ -22,7 +25,7 @@ interface ToggleChipProps extends Omit<
   'type'
 > {
   pressed: boolean;
-  variant?: 'bare' | 'pill' | 'accent';
+  variant?: 'bare' | 'pill' | 'accent' | 'choix';
   swatch?: ToggleChipSwatch;
 }
 
@@ -32,6 +35,11 @@ const VARIANT = {
   bare: `-my-3 flex min-h-[44px] items-center gap-1.5 rounded-savr-full px-1.5 transition-opacity ${FOCUS}`,
   pill: `inline-flex min-h-[44px] items-center gap-1.5 rounded-savr-full border border-savr-neutral-100 bg-savr-neutral-50 px-2.5 py-1 text-xs font-semibold text-savr-neutral-700 transition-colors hover:border-savr-neutral-300 ${FOCUS}`,
   accent: `inline-flex min-h-[44px] items-center gap-1.5 rounded-savr-full border border-savr-accent-100 bg-savr-accent-50 px-2.5 py-1 text-xs font-bold text-savr-accent-700 transition-colors ${FOCUS}`,
+  choix: `inline-flex min-h-[44px] items-center gap-1.5 rounded-savr-full border px-4 text-sm font-medium transition-colors sm:min-h-[40px] ${FOCUS}`,
+} as const;
+const CHOIX_ETAT = {
+  on: 'border-savr-primary-700 bg-savr-primary-700 text-savr-white',
+  off: 'border-savr-neutral-300 bg-savr-white text-savr-neutral-700 hover:border-savr-primary-400',
 } as const;
 
 const ToggleChip = React.forwardRef<HTMLButtonElement, ToggleChipProps>(
@@ -43,8 +51,14 @@ const ToggleChip = React.forwardRef<HTMLButtonElement, ToggleChipProps>(
       ref={ref}
       type="button"
       aria-pressed={pressed}
-      className={cn(VARIANT[variant], className)}
-      style={{ opacity: pressed ? 1 : 0.4, ...style }}
+      className={cn(
+        VARIANT[variant],
+        variant === 'choix' && CHOIX_ETAT[pressed ? 'on' : 'off'],
+        className,
+      )}
+      style={
+        variant === 'choix' ? style : { opacity: pressed ? 1 : 0.4, ...style }
+      }
       {...props}
     >
       {swatch && (

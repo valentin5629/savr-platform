@@ -11,6 +11,8 @@
 // Curseur de reprise : lecture tournees (external_ref_commande, tms_reference) avant dispatch.
 // Réconciliation : si requires_reconciliation=true → scan minDate/maxDate avant re-POST.
 
+import { createHash } from 'node:crypto';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
@@ -73,6 +75,28 @@ interface TourneeRow {
   statut: string;
   rang: number;
   prestataire_logistique_id: string | null;
+}
+
+/**
+ * Clé de stockage d'une photo remontée par le transporteur, dans le bucket de
+ * l'environnement : `photos/collectes/<collecteId>/<empreinte>.jpg` — même dossier
+ * que les photos importées à la main par l'Admin.
+ *
+ * L'empreinte remplace les identifiants de tournée, d'arrêt et de photo du
+ * logiciel du transporteur : la ligne shared.fichiers est lisible par les clients
+ * de la collecte (§09 C1), sa clé ne doit pas les leur montrer (décision Val
+ * 2026-10-07, prise tant qu'aucune photo n'existe). Ce n'est pas un secret, juste
+ * un nom qui ne dit plus rien. Elle est DÉTERMINISTE — la dédup de processPhotos
+ * cherche la clé — et ne dépend pas de `photo.url`, qui change à chaque appel.
+ */
+function clePhoto(
+  collecteId: string,
+  photo: { tourId: string; stopId: string; photoId: string },
+): string {
+  const empreinte = createHash('sha256')
+    .update(JSON.stringify([photo.tourId, photo.stopId, photo.photoId]))
+    .digest('hex');
+  return `photos/collectes/${collecteId}/${empreinte}.jpg`;
 }
 
 // Suffixes flux ZD → libellés MTS-1 as-built (sortant)
@@ -906,7 +930,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
 
     for (const photo of photos) {
-      const storageKey = `photos/${collecteId}/${photo.tourId}/${photo.stopId}/${photo.photoId}.jpg`;
+      const storageKey = clePhoto(collecteId, photo);
 
       // Dédup : photo déjà uploadée ?
       const { data: existante } = await this.supabase

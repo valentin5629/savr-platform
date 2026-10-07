@@ -1315,6 +1315,13 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
     prestataire_logistique_id: 'presta-001',
   } as const;
 
+  // Clé attendue pour PHOTOS_NOMINAL[0] sur la collecte col-001, écrite EN DUR :
+  // sha256 de JSON.stringify(['MTS1-TOUR-ZD-001', 'stop-001', 'photo-001-a']).
+  // La dédup cherche cette clé en base — si la formule change, les photos déjà
+  // stockées ne sont plus reconnues et sont re-téléchargées : ce littéral le fige.
+  const CLE_PHOTO =
+    'photos/collectes/col-001/af17919c2fb43ce5b5ced39e1857b565dccb535a0233b93654d398096682c2ad.jpg';
+
   // Avant le 2026-10-07 l'adapter écrivait dans un bucket `collectes` codé en dur,
   // commun à dev et prod — et absent du compte Cloudflare (404 mesuré).
   it("photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement)", async () => {
@@ -1328,7 +1335,7 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
     // uploadObject appelé AVANT l'insert, sans bucket : seulement la clé photos/…
     expect(uploadObject).toHaveBeenCalledTimes(1);
     expect(uploadObject).toHaveBeenCalledWith(
-      'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
+      CLE_PHOTO,
       expect.any(Buffer),
       'image/jpeg',
     );
@@ -1342,11 +1349,47 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
       storage_provider: 'r2',
       // Bucket persisté = celui que l'upload a rendu, pas une constante.
       bucket: 'savr-test',
-      key: 'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
+      key: CLE_PHOTO,
       content_type: 'image/jpeg',
       entity_type: 'plateforme.collectes',
       entity_id: 'col-001',
     });
+  });
+
+  // La ligne shared.fichiers est lisible par les clients de la collecte (§09 C1) :
+  // sa clé ne doit plus montrer les identifiants du logiciel du transporteur
+  // (décision Val 2026-10-07). Elle reste déterministe et ne dépend pas de l'URL
+  // de la photo, qui change à chaque appel — sinon la dédup ne reconnaît rien.
+  it('M1.5b-photo-cle-opaque / la clé ne porte aucun identifiant du transporteur et ignore l’URL', async () => {
+    const cleEnvoyee = async (url: string) => {
+      vi.mocked(uploadObject).mockClear();
+      _setMts1Handlers({
+        pollOrders: vi.fn().mockResolvedValue({
+          customerOrders: [ORDER_VALIDATED],
+          totalCount: 1,
+          page: 1,
+          pageSize: 50,
+        }),
+        getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
+        getPhotos: vi.fn().mockResolvedValue([{ ...PHOTOS_NOMINAL[0]!, url }]),
+        postOrder: vi.fn(),
+      });
+      await new AdapterMts1(TRANSPORTEUR, makeSyncSupabase({})).sync({
+        depuis: new Date('2026-07-15T00:00:00Z'),
+        jusqu_a: new Date('2026-07-17T00:00:00Z'),
+      });
+      return vi.mocked(uploadObject).mock.calls[0]![0];
+    };
+
+    const cle = await cleEnvoyee('https://stockage.example.com/a?jeton=1');
+    expect(cle).toBe(CLE_PHOTO);
+    for (const identifiant of ['MTS1-TOUR-ZD-001', 'stop-001', 'photo-001-a']) {
+      expect(cle).not.toContain(identifiant);
+    }
+    // Même photo, autre URL signée → même clé.
+    expect(await cleEnvoyee('https://stockage.example.com/b?jeton=2')).toBe(
+      cle,
+    );
   });
 
   // §09 C1 : shared.f_fichier_visible refuse tout entity_type hors liste, et la
@@ -1386,9 +1429,7 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
       (c) => c.table === 'fichiers' && c.op === 'select',
     );
     expect(recherches).toHaveLength(1);
-    expect(recherches[0]!.filters).toEqual({
-      key: 'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
-    });
+    expect(recherches[0]!.filters).toEqual({ key: CLE_PHOTO });
     expect(uploadObject).not.toHaveBeenCalled();
     expect(
       calls.find((c) => c.table === 'fichiers' && c.op === 'insert'),

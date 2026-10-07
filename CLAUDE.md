@@ -21,7 +21,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 - **1 projet Supabase** (Pro) par env — 3 schémas : `plateforme.*`, `shared.*`, et `tms.*` **non créé en V1**.
 - Code serveur = **Next.js API Routes sur Vercel** (PAS Supabase Edge Functions par défaut) + `pg_cron` / Vercel Cron pour les batchs.
 - **PDF** : Railway (Puppeteer headless), file `jobs_pdf`, retry 15 min/4h.
-- **Stockage fichiers volumineux** : Cloudflare R2 (URLs pré-signées), référencés via `shared.fichiers`.
+- **Stockage fichiers volumineux** : Cloudflare R2 (URLs pré-signées), référencés via `shared.fichiers`. **Un bucket par environnement** (décision Val 2026-10-07) : `R2_BUCKET_NAME` = `savr-dev` (aperçu + local) ou `savr-prod`, obligatoire, **aucun repli**. La nature du fichier est un **dossier** de la clé (`bordereaux/`, `rapports/`, `attestations/`, `factures/`, `syntheses/`, `photos/collectes/`, `logos/`), jamais un bucket. **Aucun nom de bucket en dur** : `uploadObject` / `getObject` (`@savr/shared/src/r2/`) n'en prennent pas, les lecteurs refusent une clé d'un autre bucket (cliquet : `packages/shared/src/r2/upload.test.ts`).
 - **Emails** : Resend (**19 templates actifs** en seed DB — corrigé 2026-06-11, catalogue §06.02 post-F2 : 16 + 3 templates tiers/admin ; vouvoiement, FR, 0 emoji, signature « L'équipe Savr »).
 - App mobile = **responsive PWA** (React Native = jamais, hors scope).
 

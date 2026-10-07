@@ -365,7 +365,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       await waitFor(() => {
         const q = derniereRequeteListe(fetchMock);
         expect(q.get('chip')).toBeNull();
-        expect(q.get('statuts')).toBe('programmee,validee,en_cours');
+        expect(q.get('statuts')).toBe('creee,programmee,validee,en_cours');
       }, ATTENTE_UI);
       expect(agTile).toHaveAttribute('aria-pressed', 'false');
     },
@@ -982,6 +982,73 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
           ),
         ).toBe(true);
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/statut_admin_filtre_creee_programmee — le filtre Statut propose « Créée » et « Programmée » séparément',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
+      // « Programmée » reste proposée, à côté de « Créée ».
+      await screen.findByRole('checkbox', { name: 'Programmée' }, ATTENTE_UI);
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Créée' }));
+
+      await waitFor(() => {
+        const q = derniereRequeteListe(fetchMock);
+        // La sélection remplace le preset de l'onglet.
+        expect(q.get('statuts')).toBe('creee');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/statut_admin_filtre_creee_programmee — pastille active + « Créée » : chip ET statuts=creee',
+    async () => {
+      navState.search = new URLSearchParams('chip=non_transmises_ag');
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
+      fireEvent.click(
+        await screen.findByRole('checkbox', { name: 'Créée' }, ATTENTE_UI),
+      );
+
+      await waitFor(() => {
+        const q = derniereRequeteListe(fetchMock);
+        expect(q.get('chip')).toBe('non_transmises_ag');
+        expect(q.get('statuts')).toBe('creee');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/statut_admin_brouillon_absent — ?statut=brouillon sur Programmées : aucun résultat, sans appel API (jamais une liste élargie)',
+    async () => {
+      navState.search = new URLSearchParams('statut=brouillon');
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findByTestId(
+        'collectes-filtre-statut',
+        undefined,
+        ATTENTE_UI,
+      );
+
+      const listes = fetchMock.mock.calls
+        .map((c) => String(c[0]))
+        .filter(
+          (u) =>
+            u.startsWith('/api/v1/admin/collectes?') &&
+            !u.includes('chip-counts'),
+        );
+      expect(listes).toEqual([]);
     },
     ATTENTE_CAS_MS,
   );

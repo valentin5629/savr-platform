@@ -42,6 +42,7 @@ import { FactureStatutBadge } from '@/components/ui/facture-statut-badge';
 import { libelleCourtTypeFacture } from '@/lib/libelles/facture';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Label } from '@/components/ui/label';
@@ -69,6 +70,12 @@ interface CollecteRow {
   id: string;
   type: string;
   statut: string;
+  // Signaux « demande partie » : séparent « Créée » de « Programmée »
+  // (lib/statut-collecte-admin), servis par GET /admin/collectes.
+  statut_tms: string;
+  tms_reference: string | null;
+  prestataire_logistique_id: string | null;
+  attributions_antgaspi: unknown;
   date_collecte: string | null;
   heure_collecte?: string | null;
   evenements: {
@@ -165,7 +172,7 @@ export function OngletCollectes({
       header: 'Statut',
       accessorFn: (row) => row.statut,
       cell: ({ row: { original: row } }) => (
-        <CollecteStatutBadge statut={row.statut} vue="admin" />
+        <CollecteStatutBadge statut={statutCollecteAdmin(row)} vue="admin" />
       ),
     },
   ];

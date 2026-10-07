@@ -23,6 +23,10 @@ import {
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { estUuid, inTextes, listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { lireFiltresListeCollectes } from '@/lib/collectes/liste-collectes-client.js';
+import {
+  statutCollecteAdmin,
+  type EnvoiCollecte,
+} from '@/lib/statut-collecte-admin.js';
 import { Constants } from '@savr/shared/src/database.types.js';
 
 type Row = Record<string, unknown>;
@@ -42,17 +46,36 @@ export async function buildCollectesExport(
   // respecte les filtres actifs ») — lus par la MÊME fonction que leurs routes.
   const filtres = lireFiltresListeCollectes(sp);
 
-  let q = ctx.supabase
-    .from('collectes')
-    .select(
+  // Staff : le statut exporté est celui de l'écran Admin (« Créée » tant que la
+  // demande n'est pas partie, « Programmée » ensuite — décision Val 2026-10-07),
+  // d'où les signaux d'envoi en plus. Lus par le client service_role du staff
+  // seulement : les rôles client n'ont pas à lire `attributions_antgaspi`.
+  // Deux selects LITTÉRAUX, pour que chacun reste typé (check:column-db).
+  const selectClient = () =>
+    ctx.supabase.from('collectes').select(
       `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
        collecte_flux(poids_reel_kg),
        evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, code_postal, ville))`,
-    )
-    .order('date_collecte', { ascending: false });
+    );
+  const selectStaff = () =>
+    ctx.supabase.from('collectes').select(
+      `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
+       statut_tms, tms_reference, prestataire_logistique_id,
+       attributions_antgaspi!collecte_id(id),
+       collecte_flux(poids_reel_kg),
+       evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
+         traiteur_operationnel_organisation_id,
+         lieux!lieu_id(nom, code_postal, ville))`,
+    );
+  let q = (ctx.isStaff ? selectStaff() : selectClient()).order(
+    'date_collecte',
+    { ascending: false },
+  );
 
+  // Un brouillon n'apparaît nulle part côté Admin (même décision).
+  if (ctx.isStaff) q = q.neq('statut', 'brouillon');
   if (type === 'zero_dechet' || type === 'anti_gaspi') q = q.eq('type', type);
   if (filtres.statuts.length > 0) q = q.in('statut', filtres.statuts);
   if (from) q = q.gte('date_collecte', from);
@@ -119,7 +142,18 @@ export async function buildCollectesExport(
     { header: 'Type', value: (r) => libelle(TYPE_COLLECTE_LIBELLE, r.type) },
     {
       header: 'Statut',
-      value: (r) => libelle(STATUT_COLLECTE_LIBELLE, r.statut),
+      // Hors staff, l'export est inchangé : un brouillon y reste « Créée »
+      // (mapping client §06.04) tant que le lot « brouillons côté client »
+      // n'est pas fait — la clé Admin `brouillon` dirait « Brouillon ».
+      value: (r) =>
+        libelle(
+          STATUT_COLLECTE_LIBELLE,
+          ctx.isStaff
+            ? statutCollecteAdmin(r as unknown as EnvoiCollecte)
+            : r.statut === 'brouillon'
+              ? 'creee'
+              : r.statut,
+        ),
     },
     {
       header: 'Tonnage ZD (kg)',

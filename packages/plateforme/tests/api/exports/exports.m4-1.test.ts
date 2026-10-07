@@ -251,6 +251,84 @@ describe('M4.1 / cloisonnement', () => {
 });
 
 // ── Format CSV FR + double colonne dates (P2) ────────────────────────────────
+// Statut exporté = statut AFFICHÉ (décision Val 2026-10-07) : côté staff, le
+// statut DB `programmee` sort « Créée » tant que la demande n'est pas partie
+// vers le prestataire, « Programmée » ensuite ; aucun brouillon.
+describe('M4.1 / export collectes — statut affiché Admin', () => {
+  const ligne = (id: string, over: Record<string, unknown>) => ({
+    id,
+    type: 'zero_dechet',
+    statut: 'programmee',
+    statut_tms: 'non_envoye',
+    tms_reference: null,
+    prestataire_logistique_id: null,
+    attributions_antgaspi: null,
+    date_collecte: '2026-01-20',
+    evenements: {
+      nom_evenement: id,
+      date_evenement: '2026-01-20',
+      traiteur_operationnel_organisation_id: null,
+      lieux: { nom: 'Hall' },
+    },
+    ...over,
+  });
+  const statutDe = (csv: string, id: string): string | undefined => {
+    const lignes = csv.split('\r\n');
+    const colonne = (lignes[0] ?? '').split(';').indexOf('Statut');
+    return lignes.find((l) => l.includes(id))?.split(';')[colonne];
+  };
+
+  it('M0.6/statut_admin_export_staff — staff : « Créée » avant l’envoi, « Programmée » après, brouillons exclus', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({
+      data: [
+        ligne('evt-creee', {}),
+        ligne('evt-dispatchee', { prestataire_logistique_id: 'presta-1' }),
+        ligne('evt-attribuee', {
+          type: 'anti_gaspi',
+          attributions_antgaspi: { id: 'attr-1' },
+        }),
+        ligne('evt-validee', { statut: 'validee', statut_tms: 'acceptee' }),
+      ],
+      error: null,
+    });
+    const csv = await (await call('collectes')).text();
+
+    expect(statutDe(csv, 'evt-creee')).toBe('Créée');
+    expect(statutDe(csv, 'evt-dispatchee')).toBe('Programmée');
+    expect(statutDe(csv, 'evt-attribuee')).toBe('Programmée');
+    expect(statutDe(csv, 'evt-validee')).toBe('Validée');
+    // Les QUATRE signaux d'envoi sont lus (un champ absent ferait sortir
+    // « Programmée » toute collecte programmée), brouillons écartés à la requête.
+    const select = String((admin.__calls.select ?? [])[0]?.[0]);
+    expect(select).toMatch(/\bstatut_tms\b/);
+    expect(select).toMatch(/\btms_reference\b/);
+    expect(select).toMatch(/\bprestataire_logistique_id\b/);
+    expect(select).toMatch(/attributions_antgaspi!collecte_id\(id\)/);
+    expect(admin.__calls.neq).toContainEqual(['statut', 'brouillon']);
+  });
+
+  it('client : ni signaux d’envoi lus (pas de lecture de attributions_antgaspi), ni changement de libellé', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({
+      data: [
+        ligne('evt-client', {}),
+        ligne('evt-brouillon', { statut: 'brouillon' }),
+      ],
+      error: null,
+    });
+    const csv = await (await call('collectes')).text();
+
+    expect(statutDe(csv, 'evt-client')).toBe('Programmée');
+    // Un brouillon reste « Créée » côté client, comme avant ce lot.
+    expect(statutDe(csv, 'evt-brouillon')).toBe('Créée');
+    const select = String((rls.__calls.select ?? [])[0]?.[0]);
+    expect(select).not.toMatch(/attributions_antgaspi/);
+    expect(select).not.toMatch(/prestataire_logistique_id/);
+    expect(rls.__calls.neq ?? []).not.toContainEqual(['statut', 'brouillon']);
+  });
+});
+
 describe('M4.1 / export_csv_format_fr_et_filtres_actifs', () => {
   it('format canonique : BOM, séparateur ;, en-têtes FR, dates DD/MM/YYYY, poids virgule', async () => {
     setupAuth('traiteur_manager');

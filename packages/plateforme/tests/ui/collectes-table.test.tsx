@@ -11,10 +11,13 @@
  * TZ=UTC et sous TZ=Pacific/Auckland (frontière 48h en heure murale de Paris,
  * sans jamais construire d'instant hors de `instantParis`).
  */
+import type { ReactElement } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render } from '@testing-library/react';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 
 import {
+  colonnesCollectesAdmin,
   estUrgente,
   urgentesEnTete,
   type CollecteRow,
@@ -29,6 +32,7 @@ function row(over: Partial<CollecteRow> = {}): CollecteRow {
     statut: 'programmee',
     statut_tms: 'non_envoye',
     tms_reference: null,
+    prestataire_logistique_id: null,
     dirty_tms: false,
     date_collecte: '2026-07-08',
     heure_collecte: '20:00:00',
@@ -217,5 +221,68 @@ describe('collectes-table / urgentesEnTete', () => {
 
   it('liste vide → liste vide', () => {
     expect(urgentesEnTete([])).toEqual([]);
+  });
+});
+
+// Colonne « Statut » (décision Val 2026-10-07) : le statut DB `programmee`
+// s'affiche « Créée » tant que la demande n'est pas partie vers le prestataire,
+// « Programmée » ensuite ; l'AG sans attribution garde son badge d'action.
+describe('collectes-table / colonne Statut — Créée puis Programmée', () => {
+  function statutAffiche(r: CollecteRow): string | null {
+    const colonne = colonnesCollectesAdmin({ onOpen: () => {} }).find(
+      (c) => c.id === 'statut',
+    );
+    const cell = colonne?.cell as (ctx: {
+      row: { original: CollecteRow };
+    }) => ReactElement;
+    const { container, unmount } = render(cell({ row: { original: r } }));
+    const texte = container.textContent;
+    unmount();
+    return texte;
+  }
+
+  it('M0.6/statut_admin_creee_avant_envoi — ZD programmée, rien d’envoyé → « Créée »', () => {
+    expect(statutAffiche(row({ type: 'zero_dechet' }))).toBe('Créée');
+  });
+
+  it('M0.6/statut_admin_programmee_apres_envoi — prestataire posé ou attribution validée → « Programmée »', () => {
+    expect(
+      statutAffiche(
+        row({ type: 'zero_dechet', prestataire_logistique_id: 'presta-1' }),
+      ),
+    ).toBe('Programmée');
+    expect(statutAffiche(row({ attributions_antgaspi: attribution }))).toBe(
+      'Programmée',
+    );
+    expect(
+      statutAffiche(
+        row({
+          type: 'zero_dechet',
+          statut_tms: 'attribuee_en_attente_acceptation',
+        }),
+      ),
+    ).toBe('Programmée');
+  });
+
+  it('AG sans attribution : badge d’action « À attribuer » conservé (§06.06 §3)', () => {
+    expect(statutAffiche(row())).toBe('À attribuer');
+  });
+
+  it('AG sans attribution mais déjà dispatchée : « Programmée », comme la frise et l’export', () => {
+    expect(statutAffiche(row({ prestataire_logistique_id: 'presta-1' }))).toBe(
+      'Programmée',
+    );
+  });
+
+  it('au-delà de `programmee`, le libellé suit le statut DB', () => {
+    expect(
+      statutAffiche(
+        row({
+          statut: 'validee',
+          statut_tms: 'acceptee',
+          attributions_antgaspi: attribution,
+        }),
+      ),
+    ).toBe('Validée');
   });
 });

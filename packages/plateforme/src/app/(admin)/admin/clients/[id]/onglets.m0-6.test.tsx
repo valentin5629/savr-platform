@@ -198,6 +198,45 @@ describe('M0.6 — onglet Collectes', () => {
   );
 
   it(
+    'M0.6/statut_admin_creee_avant_envoi — statut affiché Admin : « Créée » avant l’envoi, « Programmée » après',
+    async () => {
+      const programmee = {
+        ...collecte,
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        tms_reference: null,
+        prestataire_logistique_id: null,
+        attributions_antgaspi: null,
+      };
+      mockFetch({
+        '/api/v1/admin/collectes': {
+          data: [
+            {
+              ...programmee,
+              id: 'col-creee',
+              evenements: { ...collecte.evenements, nom_evenement: 'Evt A' },
+            },
+            {
+              ...programmee,
+              id: 'col-envoyee',
+              prestataire_logistique_id: 'presta-1',
+              evenements: { ...collecte.evenements, nom_evenement: 'Evt B' },
+            },
+          ],
+        },
+      });
+      render(<OngletCollectes organisationId="org-1" />);
+      const ligne = async (evenement: string) =>
+        (
+          await screen.findAllByText(evenement, undefined, ATTENTE_UI)
+        )[0]?.closest('tr') as HTMLElement;
+      expect(within(await ligne('Evt A')).getByText('Créée')).toBeTruthy();
+      expect(within(await ligne('Evt B')).getByText('Programmée')).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'clic sur une ligne → navigue vers la fiche collecte',
     async () => {
       mockFetch({ '/api/v1/admin/collectes': { data: [collecte] } });

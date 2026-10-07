@@ -55,14 +55,16 @@ export default function GestionnaireLieuxPage() {
   // l'Admin Savr, le bouton dépose une demande dans sa file. Une demande ouverte
   // à la fois par organisation : tant qu'elle n'est pas traitée, le bouton est
   // neutralisé. État illisible = bouton proposé, la route refusera au besoin.
+  // La lecture du montage ne fait que neutraliser : arrivée après un envoi,
+  // elle ne doit pas rendre le bouton à une demande qui vient de partir.
   const [ajoutOuvert, setAjoutOuvert] = useState(false);
   const [ajoutEnCours, setAjoutEnCours] = useState(false);
   useEffect(() => {
     fetch('/api/v1/gestionnaire/lieux/demande-ajout')
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { data?: { en_cours?: unknown } } | null) =>
-        setAjoutEnCours(j?.data?.en_cours === true),
-      )
+      .then((j: { data?: { en_cours?: unknown } } | null) => {
+        if (j?.data?.en_cours === true) setAjoutEnCours(true);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -160,7 +162,10 @@ export default function GestionnaireLieuxPage() {
         actions={
           <>
             {ajoutEnCours && (
-              <span className="text-sm text-savr-primary-200">
+              <span
+                id="demande-ajout-en-cours"
+                className="text-sm text-savr-primary-200"
+              >
                 Une demande d’ajout est en cours de traitement par l’équipe
                 Savr.
               </span>
@@ -168,6 +173,9 @@ export default function GestionnaireLieuxPage() {
             <Button
               variant="secondary"
               disabled={ajoutEnCours}
+              aria-describedby={
+                ajoutEnCours ? 'demande-ajout-en-cours' : undefined
+              }
               onClick={() => setAjoutOuvert(true)}
             >
               <Plus />

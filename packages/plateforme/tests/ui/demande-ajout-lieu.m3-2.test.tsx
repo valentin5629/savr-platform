@@ -47,10 +47,12 @@ const LIGNE = {
 
 type Reponse = { status?: number; body: unknown };
 let liste: Reponse;
-let etat: Reponse;
-// 'reseau' : fetch rejeté ; 'attente' : réponse retenue jusqu'à `liberer()`.
+// 'reseau' : fetch rejeté ; 'attente' : réponse retenue jusqu'à `liberer()`
+// (envoi) ou `libererEtat()` (lecture d'état du montage).
+let etat: Reponse | 'reseau' | 'attente';
 let demande: Reponse | 'reseau' | 'attente';
 let liberer: (rep: Reponse) => void = () => {};
+let libererEtat: (rep: Reponse) => void = () => {};
 const appels: { url: string; method: string; body: unknown }[] = [];
 
 const reponse = (rep: Reponse) => {
@@ -71,7 +73,15 @@ const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     body: init?.body ? JSON.parse(String(init.body)) : undefined,
   });
   if (url !== ROUTE) return Promise.resolve(reponse(liste));
-  if (method === 'GET') return Promise.resolve(reponse(etat));
+  if (method === 'GET') {
+    if (etat === 'reseau')
+      return Promise.reject(new TypeError('Failed to fetch'));
+    if (etat === 'attente')
+      return new Promise<Response>((resolve) => {
+        libererEtat = (rep) => resolve(reponse(rep));
+      });
+    return Promise.resolve(reponse(etat));
+  }
   if (demande === 'reseau')
     return Promise.reject(new TypeError('Failed to fetch'));
   if (demande === 'attente')
@@ -170,6 +180,8 @@ describe('M3.2 / liste Lieux — bouton « Demander l’ajout d’un lieu »', (
         await screen.findByText(MENTION, undefined, ATTENTE_UI),
       ).toBeTruthy();
       expect(bouton()).toBeDisabled();
+      // Le motif est relié au bouton pour un lecteur d'écran.
+      expect(bouton()).toHaveAccessibleDescription(MENTION);
       fireEvent.click(bouton());
       expect(screen.queryByRole('dialog')).toBeNull();
     },
@@ -179,11 +191,40 @@ describe('M3.2 / liste Lieux — bouton « Demander l’ajout d’un lieu »', (
   it(
     'M3.2/demande_ajout_lieu_etat_illisible_bouton_propose — état de la demande illisible : le bouton reste proposé, la liste s’affiche',
     async () => {
-      etat = { status: 500, body: { error: 'Erreur serveur' } };
-      await rendreListe();
-      expect(bouton()).toBeEnabled();
-      expect(screen.queryByText(MENTION)).toBeNull();
-      expect(screen.queryByText(/Impossible de charger vos lieux/)).toBeNull();
+      // Réponse en erreur, puis service injoignable : même issue.
+      for (const illisible of [
+        { status: 500, body: { error: 'Erreur serveur' } },
+        'reseau' as const,
+      ]) {
+        cleanup();
+        appels.length = 0;
+        etat = illisible;
+        await rendreListe();
+        expect(bouton()).toBeEnabled();
+        expect(screen.queryByText(MENTION)).toBeNull();
+        expect(
+          screen.queryByText(/Impossible de charger vos lieux/),
+        ).toBeNull();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/demande_ajout_lieu_etat_tardif_ne_reactive_pas — la lecture d’état du montage, arrivée après un envoi, ne rend pas le bouton',
+    async () => {
+      etat = 'attente';
+      const f = await ouvrirFormulaire();
+      saisir(f, SAISIE);
+      fireEvent.click(f.getByRole('button', { name: 'Envoyer la demande' }));
+      await screen.findByText('Demande envoyée', undefined, ATTENTE_UI);
+      expect(bouton()).toBeDisabled();
+
+      // La lecture partie au montage répond enfin, avec l'état d'AVANT l'envoi.
+      libererEtat({ body: { data: { en_cours: false } } });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(bouton()).toBeDisabled();
+      expect(screen.getByText(MENTION)).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );

@@ -497,6 +497,12 @@
       "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
       "title": "dispatch_zd_commande_en_cours",
       "file": "packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts"
+    },
+    {
+      "id": "dispatch_zd_prestataire_unique_preselectionne",
+      "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
+      "title": "dispatch_zd_prestataire_unique_preselectionne",
+      "file": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx"
     }
   ],
   "coverage": {
@@ -1494,8 +1500,8 @@
     {
       "id": "M0.6-dispatch-zd-choix-prestataire",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:259",
-      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (Bloc 0 d'une ZD : cartes de choix du prestataire sans recommandation ni présélection, limitées aux transporteurs reliés à un prestataire, hors A Toutes!, et, si types_collecte est renseigné, prenant les ZD ; choix offert seulement sur une collecte programmee ou rejetée par son prestataire, jamais sur une commande en cours (référence reçue, non rejetée) ; bouton d'envoi inactif tant qu'aucun prestataire n'est choisi ni posé ; motif demandé seulement pour changer un prestataire déjà posé ; état « ordre en file d'envoi » étendu à la ZD), packages/plateforme/src/app/api/v1/admin/collectes/[id]/dispatch/route.ts (ZD sans prestataire choisi ni posé : 422 avant toute RPC ; premier choix d'un prestataire ZD = pas un override, sans motif, ouvert à ops ; changement d'un prestataire posé = motif ≥ 5 car., admin seul ; prestataire choisi validé côté serveur — inconnu, inactif ou A Toutes! : 422 ; statut hors programmee / rejetee_par_prestataire ou commande en cours : 409)",
-      "test": "M0.6/dispatch_zd_choix_prestataire + M0.6/dispatch_zd_sans_prestataire_refuse + M0.6/dispatch_zd_envoyee_programmee + M0.6/dispatch_zd_changement_motif + M0.6/dispatch_zd_a_toutes_refuse + M0.6/dispatch_zd_commande_en_cours",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (Bloc 0 d'une ZD : cartes de choix du prestataire sans recommandation, présélection seulement quand un seul transporteur est proposable, limitées aux transporteurs reliés à un prestataire, hors A Toutes!, et, si types_collecte est renseigné, prenant les ZD ; choix offert seulement sur une collecte programmee ou rejetée par son prestataire, jamais sur une commande en cours (référence reçue, non rejetée) ; bouton d'envoi inactif tant qu'aucun prestataire n'est choisi ni posé ; motif demandé seulement pour changer un prestataire déjà posé ; état « ordre en file d'envoi » étendu à la ZD), packages/plateforme/src/app/api/v1/admin/collectes/[id]/dispatch/route.ts (ZD sans prestataire choisi ni posé : 422 avant toute RPC ; premier choix d'un prestataire ZD = pas un override, sans motif, ouvert à ops ; changement d'un prestataire posé = motif ≥ 5 car., admin seul ; prestataire choisi validé côté serveur — inconnu, inactif ou A Toutes! : 422 ; statut hors programmee / rejetee_par_prestataire ou commande en cours : 409)",
+      "test": "M0.6/dispatch_zd_choix_prestataire + M0.6/dispatch_zd_sans_prestataire_refuse + M0.6/dispatch_zd_envoyee_programmee + M0.6/dispatch_zd_changement_motif + M0.6/dispatch_zd_a_toutes_refuse + M0.6/dispatch_zd_commande_en_cours + M0.6/dispatch_zd_prestataire_unique_preselectionne",
       "statut": "à-vérifier",
       "libelle": "Dispatch d'une collecte ZD par l'Admin (décision Val 2026-10-07, option C1, _Divergences/M0.6_20261007_dispatch-zd-choix-prestataire) : l'Admin choisit le prestataire sur la fiche ZD, comme pour l'AG, puis envoie. Avant, rien ne posait de prestataire sur une ZD (la règle « prestataire fixe par lieu/zone » du CDC n'a jamais été codée) : « Envoyer » émettait un ordre sans destinataire et la collecte restait non transmise. Après l'envoi : badge « Envoyée », bloc en lecture, frise à « Programmée ». Présentationnel pour sa partie fiche : à-vérifier jusqu'au GO visuel de Val."
     }

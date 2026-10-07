@@ -117,6 +117,20 @@ interface Transporteur {
   types_collecte?: string[] | null;
 }
 
+// Transporteur proposable pour une ZD (décision Val 2026-10-07 : l'Admin choisit
+// le prestataire sur la fiche). Relié à un prestataire — c'est lui que le
+// dispatch pose sur la collecte (une AG garde en repli le transporteur de son
+// attribution) — et, quand le référentiel le renseigne, prenant les ZD. Jamais
+// A Toutes! : son envoi exige l'association destinataire d'une AG, une ZD y
+// finirait en échec définitif.
+function proposableEnZd(t: Transporteur): boolean {
+  return (
+    t.prestataire_logistique_id != null &&
+    t.type_tms !== 'a_toutes' &&
+    (!t.types_collecte?.length || t.types_collecte.includes('zero_dechet'))
+  );
+}
+
 // Recommandation de l'algo d'attribution AG (§06.09) — sous-ensemble consommé par
 // Bloc 0 sur une AG déjà attribuée : transporteur top-1 (baseline « ≠ top-1 →
 // motif obligatoire » au renvoi / changement de prestataire). L'attribution
@@ -760,6 +774,22 @@ export function CollecteDetailPanel({
     attributionAbsente,
   ]);
 
+  // ZD à dispatcher avec UN seul transporteur proposable (cas courant : un
+  // unique prestataire ZD au référentiel) : il est présélectionné, l'Admin n'a
+  // plus qu'à envoyer. Plusieurs candidats : aucun n'est coché d'office.
+  useEffect(() => {
+    if (
+      collecteType !== 'zero_dechet' ||
+      collecteStatut !== 'programmee' ||
+      dejaAttribuee
+    ) {
+      return;
+    }
+    const candidats = transporteurs.filter(proposableEnZd);
+    const seul = candidats.length === 1 ? candidats[0] : undefined;
+    if (seul) setSelectedTransporteurId((prev) => prev || seul.id);
+  }, [collecteType, collecteStatut, dejaAttribuee, transporteurs]);
+
   const handleAnnulerCredit = async (motif: string) => {
     setAnnulerCreditSubmitting(true);
     setAnnulerCreditError(null);
@@ -1216,19 +1246,8 @@ export function CollecteDetailPanel({
       : t.id === currentTransporteur?.transporteur_id
         ? 1
         : 2;
-  // ZD : seuls les transporteurs reliés à un prestataire sont proposables —
-  // c'est lui que le dispatch pose sur la collecte (une AG garde en repli le
-  // transporteur de son attribution) — et, quand le référentiel le renseigne,
-  // ceux qui prennent les ZD. Jamais A Toutes! : son envoi exige l'association
-  // destinataire d'une AG, une ZD y finirait en échec définitif.
   const transporteursProposables = estZd
-    ? transporteurs.filter(
-        (t) =>
-          t.prestataire_logistique_id != null &&
-          t.type_tms !== 'a_toutes' &&
-          (!t.types_collecte?.length ||
-            t.types_collecte.includes('zero_dechet')),
-      )
+    ? transporteurs.filter(proposableEnZd)
     : transporteurs;
   const transporteursOrdonnes = [...transporteursProposables].sort(
     (a, b) => rangCarte(a) - rangCarte(b),

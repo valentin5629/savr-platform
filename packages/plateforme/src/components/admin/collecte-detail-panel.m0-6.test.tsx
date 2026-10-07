@@ -1087,6 +1087,53 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
+    'M0.6/dispatch_zd_prestataire_unique_preselectionne — un seul transporteur prend les ZD : sa carte est cochée d’office, un clic suffit pour envoyer',
+    async () => {
+      // Référentiel renseigné : seul Strike prend les ZD.
+      const fetchMock = mockFetchPrestataire(collecteZdSansPrestataire, {
+        ok: true,
+        data: [
+          { ...transporteurs[0], types_collecte: ['zero_dechet'] },
+          {
+            id: 't-marathon',
+            nom: 'Marathon',
+            type_tms: 'mts1',
+            prestataire_logistique_id: 'presta-marathon',
+            actif: true,
+            types_collecte: ['anti_gaspi'],
+          },
+          transporteurs[1],
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const carte = await screen.findByRole(
+        'radio',
+        { name: /Strike/ },
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(carte).toHaveAttribute('aria-checked', 'true'),
+        ATTENTE_UI,
+      );
+      expect(screen.getAllByRole('radio')).toHaveLength(1);
+      const bouton = screen.getByRole('button', { name: 'Envoyer à MTS-1' });
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          prestataire_logistique_id: 'presta-mts1',
+        });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M0.6/dispatch_zd_envoyee_programmee — ZD dont le prestataire vient d’être choisi : « Envoyée », bloc en lecture, frise à « Programmée »',
     async () => {
       mockFetchPrestataire({

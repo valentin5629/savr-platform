@@ -164,6 +164,7 @@ interface Reponse {
     pack_actif: unknown;
     historique_consommation: Array<{
       collecte_id: string;
+      date_collecte: string;
       annulee_tardivement: boolean;
       repas_donnes: number;
       associations: Array<{ nom: string | null; repas: number }>;
@@ -398,7 +399,7 @@ describe('M3.2 / Mon pack AG — plafond de 50 lignes', () => {
     expect(reponse.data.historique_consommation).toHaveLength(50);
     expect(ids(reponse)[0]).toBe('c-annulee');
     const dates = reponse.data.historique_consommation.map(
-      (l) => (l as unknown as { date_collecte: string }).date_collecte,
+      (l) => l.date_collecte,
     );
     expect(dates).toEqual([...dates].sort().reverse());
   });

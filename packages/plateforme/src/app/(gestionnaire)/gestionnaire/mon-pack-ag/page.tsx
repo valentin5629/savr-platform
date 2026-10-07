@@ -18,13 +18,11 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 
 interface PackActif {
-  id: string;
   reference: string | null;
   nb_collectes_total: number;
   nb_collectes_restantes: number;
   date_debut: string | null;
   date_fin: string | null;
-  statut: string;
 }
 interface ConsommationRow {
   collecte_id: string;

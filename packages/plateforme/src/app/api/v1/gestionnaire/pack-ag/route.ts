@@ -13,7 +13,7 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // montant, devise) VOLONTAIREMENT exclu : masqué côté gestionnaire de lieux
 // (§06.05 — « tarifs AG, tout élément financier masqué »).
 const PACK_COLS =
-  'id, type_pack, credits_initiaux, credits_consommes, credits_restants, date_achat, date_expiration, statut';
+  'id, type_pack, credits_initiaux, credits_consommes, credits_restants, date_achat, date_expiration';
 
 interface PackRow {
   id: string;
@@ -23,7 +23,6 @@ interface PackRow {
   credits_restants: number;
   date_achat: string | null;
   date_expiration: string | null;
-  statut: string;
 }
 
 // Mappe une ligne packs_antgaspi vers la forme attendue par l'UI (§06.05 « Mon
@@ -37,7 +36,6 @@ function mapPack(p: PackRow) {
     nb_collectes_restantes: p.credits_restants,
     date_debut: p.date_achat,
     date_fin: p.date_expiration,
-    statut: p.statut,
   };
 }
 
@@ -56,16 +54,9 @@ interface ConsommationRow {
   id: string;
   date_collecte: string;
   statut: string;
-  packs_antgaspi: { id: string } | { id: string }[] | null;
+  packs_antgaspi: { id: string }; // to-one + `!inner` : toujours un objet
   evenements: unknown;
   attributions_antgaspi: unknown;
-}
-
-function packDe(c: ConsommationRow): string | null {
-  const p = Array.isArray(c.packs_antgaspi)
-    ? c.packs_antgaspi[0]
-    : c.packs_antgaspi;
-  return p?.id ?? null;
 }
 
 function mapConsommation(c: ConsommationRow) {
@@ -168,11 +159,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // service. Elle ne porte que sur les packs des collectes que la session
     // vient de lire pour SON organisation, et ne sert qu'à garder ou écarter
     // ces mêmes collectes : rien du journal ne part dans la réponse.
-    const packIds = [
-      ...new Set(
-        candidates.map(packDe).filter((id): id is string => id !== null),
-      ),
-    ];
+    const packIds = [...new Set(candidates.map((c) => c.packs_antgaspi.id))];
     const { data: debits, error: debitsErr } = await createAdminSupabaseClient()
       .from('audit_log')
       .select('old_values')

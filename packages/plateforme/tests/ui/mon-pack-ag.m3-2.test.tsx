@@ -19,13 +19,11 @@ import MonPackAgPage from '@/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.js
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const PACK = {
-  id: 'pack-1',
   reference: 'pack_10',
   nb_collectes_total: 10,
   nb_collectes_restantes: 7,
   date_debut: '2026-01-15',
   date_fin: null,
-  statut: 'actif',
 };
 
 function ligne(id: string, annuleeTardivement: boolean, repas: number) {
@@ -90,7 +88,7 @@ describe('M3.2 / écran Mon pack AG', () => {
       servir({
         pack_actif: PACK,
         // Ancienne forme de la réponse : l'écran ne doit plus rien en faire.
-        historique_packs: [PACK, { ...PACK, id: 'pack-0', statut: 'epuise' }],
+        historique_packs: [PACK, { ...PACK, reference: 'pack_30' }],
         historique_consommation: [ligne('realisee', false, 42)],
       });
       render(<MonPackAgPage />);

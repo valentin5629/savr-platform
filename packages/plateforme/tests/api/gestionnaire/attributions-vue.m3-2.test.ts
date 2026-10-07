@@ -207,6 +207,7 @@ describe('M3.2 / Mon pack AG — historique de consommation par la vue', () => {
           id: 'c-ag',
           date_collecte: '2026-06-01',
           statut: 'cloturee',
+          packs_antgaspi: { id: 'pack-org' },
           evenements: {
             nom_evenement: 'Gala',
             date_evenement: '2026-06-01',

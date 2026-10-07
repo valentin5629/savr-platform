@@ -100,13 +100,16 @@ SELECT lives_ok(
 );
 
 -- ─── alertes_admin reste fermée au gestionnaire de lieux ─────────────────────
--- Y compris pour une alerte de ce code rattachée à SA propre organisation.
-SELECT test_set_jwt('gestionnaire_lieux', 'de000000-0000-0000-0000-0000000000c3'::uuid);
+-- Gestionnaire de l'organisation A, celle qui porte à ce stade trois alertes
+-- (une demande résolue, une demande ouverte, un autre code) : ni écriture ni
+-- lecture directes, y compris pour une alerte rattachée à SA propre
+-- organisation. 42501 et non 23505 : le refus vient des droits, pas de l'index.
+SELECT test_set_jwt('gestionnaire_lieux', 'de000000-0000-0000-0000-0000000000a1'::uuid);
 
 SELECT throws_ok(
   $$INSERT INTO plateforme.alertes_admin (code, titre, message, entity_type, entity_id)
     VALUES ('lieu_ajout_demande', 't', 'écriture directe', 'organisations',
-            'de000000-0000-0000-0000-0000000000c3')$$,
+            'de000000-0000-0000-0000-0000000000a1')$$,
   '42501', NULL,
   'LIEU_AJOUT/ecriture_directe_gestionnaire_refusee — le gestionnaire ne peut pas écrire alertes_admin en direct'
 );
@@ -114,7 +117,7 @@ SELECT throws_ok(
 SELECT is(
   (SELECT count(*)::int FROM plateforme.alertes_admin),
   0,
-  'LIEU_AJOUT/lecture_directe_gestionnaire_vide — le gestionnaire ne lit aucune alerte en direct'
+  'LIEU_AJOUT/lecture_directe_gestionnaire_vide — le gestionnaire ne lit aucune alerte en direct, pas même celles de son organisation'
 );
 
 SELECT test_as_superuser();

@@ -48,29 +48,39 @@ export * from '@/components/ui/toast';
 export * from '@/components/ui/toggle-group';
 export * from '@/components/ui/tooltip';
 export * from '@/components/ui/tournee-card';
+export * from '@/components/ui/actif-badge';
+export * from '@/components/ui/chart-tooltip';
+export * from '@/components/ui/confirm-dialog';
+export * from '@/components/ui/error-state';
+export * from '@/components/ui/facture-statut-badge';
+export * from '@/components/ui/fiche/fiche-en-tete';
+export * from '@/components/ui/fiche/fiche-modal';
+export * from '@/components/ui/fiche/onglet-avec-erreurs';
+export * from '@/components/ui/form-actions';
+export * from '@/components/ui/form-grid';
+export * from '@/components/ui/heading';
+export * from '@/components/ui/info-item';
+export * from '@/components/ui/list-footer';
+export * from '@/components/ui/loading-state';
+export * from '@/components/ui/page-header';
+export * from '@/components/ui/radio-group';
+export * from '@/components/ui/section-header';
+export * from '@/components/ui/sparkline';
+export * from '@/components/ui/text';
+export * from '@/components/ui/text-link';
+export * from '@/components/ui/toggle-chip';
+export * from '@/components/ui/type-collecte-badge';
 // Composants métier réutilisés par plusieurs écrans.
 export { SavrLogoMark } from '@/components/layout/savr-logo';
-export { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
 export { ChartCard } from '@/components/dashboards/charts/cockpit/ChartCard';
 export { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
-export {
-  BlocHeader,
-  InfoItem,
-  FicheEnTete,
-  EnTetePuce,
-  EnTeteMention,
-  BadgeTypeCollecte,
-  ContactLigne,
-  TelephoneLien,
-  OngletAvecErreurs,
-  ACTION_DESTRUCTIVE_CONTOUR,
-} from '@/components/collecte/fiche-blocs';
-export { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+export { ContactLigne, TelephoneLien } from '@/components/collecte/fiche-blocs';
+export { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 export { CollecteStatutFrise } from '@/components/admin/collecte-statut-frise';
 export { FriseStatutClient } from '@/components/collecte/frise-statut-client';
 export { FriseEtapes } from '@/components/collecte/frise-etapes';
 export { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
-export { AuthCard, AuthPage, authLienClass } from '@/components/auth/auth-card';
+export { AuthCard, AuthPage } from '@/components/auth/auth-card';
 export { EmptyDashboardState } from '@/components/dashboards/EmptyDashboardState';
 export { DashboardFilterBar } from '@/components/dashboards/DashboardFilterBar';
 export { ParcMultiSelects } from '@/components/dashboards/ParcMultiSelects';

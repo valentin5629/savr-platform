@@ -1,11 +1,12 @@
-<!-- @dsCard group="Fiches" height=150 -->
+<!-- @dsCard group="Fiches" height=210 -->
 <div id="root" style="padding:20px"></div>
 <script>
 const h = React.createElement, S = window.SavrDS;
 ReactDOM.createRoot(document.getElementById('root')).render(
-h('dl',{className:'grid max-w-md grid-cols-2 gap-x-6 gap-y-3 text-sm'},
+h('dl',{className:'grid max-w-lg grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2'},
   h(S.InfoItem,{label:'Date'},'Samedi 26 septembre 2026'),h(S.InfoItem,{label:'Heure'},'23:30'),
-  h(S.InfoItem,{label:'Convives'},'250 pax'),h(S.InfoItem,{label:'Transporteur'},'[Transporteur]'),
-  h(S.InfoItem,{label:'Adresse',pleineLargeur:true},'[Adresse, 75008 Paris]'))
+  h(S.InfoItem,{label:'Convives',variant:'caps'},'250 pax'),h(S.InfoItem,{label:'Référence',variant:'overline'},'CMD-2026-0412'),
+  h(S.InfoItem,{label:'Consigne d’accès',variant:'texte',pleineLargeur:true},'Entrée livraisons rue arrière, sonner au gardien.'),
+  h(S.InfoItem,{label:'Dernière mise à jour',variant:'hint',pleineLargeur:true},'il y a 2 h par [Utilisateur]'))
 );
 </script>

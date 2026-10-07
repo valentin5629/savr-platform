@@ -1,0 +1,8 @@
+<!-- @dsCard group="Métier" height=60 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex flex-wrap items-center gap-3'},['brouillon','en_attente_pennylane','emise','payee','annulee'].map(s=>h(S.FactureStatutBadge,{key:s,statut:s})))
+);
+</script>

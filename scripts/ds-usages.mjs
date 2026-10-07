@@ -13,22 +13,23 @@ const SRC = 'packages/plateforme/src';
 const UI = join(SRC, 'components/ui');
 // Composants métier réutilisés par plusieurs écrans (hors components/ui).
 const METIER = {
-  KpiCockpitCard: 'components/dashboards/charts/cockpit/KpiCockpitCard.tsx',
   TopRankList: 'components/dashboards/charts/cockpit/TopRankList.tsx',
   ChartCard: 'components/dashboards/charts/cockpit/ChartCard.tsx',
-  InfoItem: 'components/collecte/fiche-blocs.tsx',
-  BlocHeader: 'components/collecte/fiche-blocs.tsx',
-  FicheEnTete: 'components/collecte/fiche-blocs.tsx',
-  BadgeTypeCollecte: 'components/collecte/fiche-blocs.tsx',
-  TypeCollecteBadge: 'components/collecte/type-collecte-badge.tsx',
+  Co2HeroCard: 'components/dashboards/charts/cockpit/Co2HeroCard.tsx',
+  Co2DetailModal: 'components/dashboards/charts/cockpit/Co2DetailModal.tsx',
   CollecteStatutFrise: 'components/admin/collecte-statut-frise.tsx',
   CollecteFiltresBar: 'components/collecte/collecte-filtres-bar.tsx',
   CollecteFiltreActif: 'components/collecte/collecte-filtre-actif.tsx',
-  CollecteTypeTabs: 'components/dashboards/CollecteTypeTabs.tsx',
+  ToggleTypeCollecte: 'components/collecte/toggle-type-collecte.tsx',
+  AnnulationCollecteDialog:
+    'components/collecte/annulation-collecte-dialog.tsx',
   DashboardFilterBar: 'components/dashboards/DashboardFilterBar.tsx',
   BenchmarkFilterBar: 'components/dashboards/BenchmarkFilterBar.tsx',
   EvenementsFilterBar: 'components/dashboards/EvenementsFilterBar.tsx',
   EmptyDashboardState: 'components/dashboards/EmptyDashboardState.tsx',
+  InviterUtilisateurModal:
+    'components/organisation/inviter-utilisateur-modal.tsx',
+  LogoCard: 'components/organisation/logo-card.tsx',
   AuthCard: 'components/auth/auth-card.tsx',
   SavrLogoMark: 'components/layout/savr-logo.tsx',
 };
@@ -49,9 +50,10 @@ const ecrans = [
 
 // Exports PascalCase de components/ui (blocs `export { A, B }` multi-lignes compris).
 const exportsUi = new Map();
-for (const e of readdirSync(UI)) {
-  if (!e.endsWith('.tsx') || e.endsWith('.test.tsx')) continue;
-  const src = readFileSync(join(UI, e), 'utf8');
+// Sous-dossiers compris (components/ui/fiche/*).
+for (const p of fichiers(UI)) {
+  const e = p.slice(UI.length + 1);
+  const src = readFileSync(p, 'utf8');
   const noms = new Set();
   for (const m of src.matchAll(/^export\s*\{([^}]*)\}/gm))
     for (const n of m[1].split(',')) {

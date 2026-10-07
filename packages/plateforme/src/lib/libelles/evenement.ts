@@ -1,28 +1,19 @@
 /**
- * Statut consolidé d'un événement (§06.05 gestionnaire de lieux, décision F2
- * 2026-06-07) — source unique (R-UI-2 C13) : dérivation depuis les statuts de
- * ses collectes, libellés, options du filtre et variante de badge. Consommé par
- * l'API liste, l'export CSV et la barre de filtres « Événements ».
+ * Statut consolidé d'un événement (décision F2 2026-06-07) — source unique
+ * (R-UI-2 C13) : dérivation depuis les statuts de ses collectes. Consommé par
+ * l'export CSV Événements (§12 §2). La liste Événements du gestionnaire, qui
+ * en portait le filtre et le badge, est retirée (décision Val 2026-10-07).
  *
  *  · `Annulé`  = toutes les collectes `annulee` ;
  *  · `Terminé` = toutes terminales (`realisee`/`cloturee`/`annulee`) dont ≥ 1
  *    `realisee` ou `cloturee` ;
  *  · `En cours` = sinon (≥ 1 collecte non terminale, ou aucune collecte).
  *
- * Le statut consolidé est un LIBELLÉ (valeur échangée telle quelle par l'API,
- * le filtre `statut_consolide[]` et le CSV), pas un enum DB.
+ * Le statut consolidé est un LIBELLÉ (écrit tel quel dans le CSV), pas un enum
+ * DB.
  */
-import type { VarianteBadge } from './types';
 
-/** Valeurs du statut consolidé, dans l'ordre du filtre. */
-export const STATUTS_EVENEMENT_CONSOLIDES = [
-  'En cours',
-  'Terminé',
-  'Annulé',
-] as const;
-
-export type StatutEvenementConsolide =
-  (typeof STATUTS_EVENEMENT_CONSOLIDES)[number];
+export type StatutEvenementConsolide = 'En cours' | 'Terminé' | 'Annulé';
 
 const TERMINAUX = new Set(['realisee', 'cloturee', 'annulee']);
 
@@ -38,21 +29,4 @@ export function statutEvenementConsolide(
   );
   if (tousTerminaux && auMoinsUnRealise) return 'Terminé';
   return 'En cours';
-}
-
-/** Options du filtre « Statut consolidé » (id = libellé échangé par l'API). */
-export const OPTIONS_STATUT_EVENEMENT: { id: string; nom: string }[] =
-  STATUTS_EVENEMENT_CONSOLIDES.map((s) => ({ id: s, nom: s }));
-
-const VARIANTE: Record<StatutEvenementConsolide, VarianteBadge> = {
-  'En cours': 'info',
-  Terminé: 'success',
-  Annulé: 'neutral',
-};
-
-/** Variante de badge du statut consolidé (inconnu → `info`, comme « En cours »). */
-export function variantStatutEvenement(
-  statut: string | null | undefined,
-): VarianteBadge {
-  return VARIANTE[statut as StatutEvenementConsolide] ?? 'info';
 }

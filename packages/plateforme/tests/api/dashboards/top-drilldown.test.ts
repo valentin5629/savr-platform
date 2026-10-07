@@ -314,12 +314,12 @@ describe('API gestionnaire/collectes — Type / Taille d’événement (§06.05 
     ]);
   });
 
-  it('M3.2/collectes_route_taille_xs_inclut_pax_null — XS couvre pax NULL, comme la liste Événements', async () => {
+  it('M3.2/collectes_route_taille_xs_inclut_pax_null — XS couvre pax NULL, comme le dashboard', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
       'http://localhost/api/v1/gestionnaire/collectes?taille_evenements[]=XS',
     );
-    // `gestionnaire/evenements` classe un pax absent en XS (`tailleBracket(pax ?? 0)`).
+    // Le dashboard du même espace classe un pax absent en XS (`tailleBracket(pax ?? 0)`).
     // Sans `pax.is.null` ici, le même filtre donnerait deux périmètres selon l'écran.
     expect(rls.__or[0]![0]).toBe('pax.is.null,pax.lt.250');
   });

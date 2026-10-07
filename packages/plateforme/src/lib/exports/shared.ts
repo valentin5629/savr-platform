@@ -6,8 +6,9 @@ import { ROLES_STAFF } from '@/lib/roles';
 // Entités exportables (transverse D, §12 §2) + matrice d'autorisation par rôle.
 // Source : §12 §2 « Exports disponibles par profil ». La RLS scope les LIGNES ;
 // cette matrice scope la CAPACITÉ (un rôle non listé reçoit 403, même si la RLS
-// l'autoriserait à lire la donnée — ex. gestionnaire exclu de Collectes :
-// il exporte au grain Événement uniquement, §12 §2 précision gestionnaire).
+// l'autoriserait à lire la donnée — ex. commercial exclu de Pesées).
+// Le gestionnaire de lieux exporte Collectes depuis sa liste Collectes (décision
+// Val 2026-10-07 : la liste Événements, qui portait son seul export, est retirée).
 // « Courses logistiques » (Admin only §12) est HORS V1 : dépend de tms.* inexistant.
 // ---------------------------------------------------------------------------
 export const EXPORT_ENTITIES = [
@@ -30,6 +31,7 @@ export const EXPORT_MATRIX: Record<ExportEntity, AnyRole[]> = {
     'traiteur_manager',
     'traiteur_commercial',
     'agence',
+    'gestionnaire_lieux',
     'client_organisateur',
   ],
   evenements: [

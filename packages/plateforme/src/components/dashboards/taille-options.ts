@@ -2,7 +2,7 @@ import type { OptionFiltre } from '@/components/ui/filtre-en-ligne';
 
 // Brackets « Taille d'événement » calculés sur evenements.pax (§06.05 l.107 / l.559).
 // Partagé par la barre de filtres globale (dashboard), l'encart benchmark et la
-// liste Événements — source unique pour éviter la dérive des seuils. `court` =
+// liste Collectes du gestionnaire — source unique pour éviter la dérive des seuils. `court` =
 // valeur affichée dans le déclencheur du filtre (« Taille d'événement  XL »).
 export const TAILLE_OPTIONS: OptionFiltre[] = [
   { id: 'XS', nom: 'XS (< 250 pax)', court: 'XS' },

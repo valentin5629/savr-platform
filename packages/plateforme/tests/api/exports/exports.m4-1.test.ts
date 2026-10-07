@@ -33,6 +33,7 @@ function makeChain() {
     'gte',
     'lte',
     'neq',
+    'or',
     'order',
   ]) {
     chain[m] = (...args: unknown[]) => {
@@ -147,9 +148,15 @@ describe('M4.1 / matrice_exports_csv_par_profil', () => {
     expect((await call('pesees')).status).toBe(403);
   });
 
-  it('gestionnaire → collectes : 403 (export au grain événement uniquement)', async () => {
+  // Décision Val 2026-10-07 : la liste Événements du gestionnaire est retirée,
+  // son export passe sur la liste Collectes (1 ligne = 1 collecte).
+  it('M4.1/export_collectes_gestionnaire_autorise — gestionnaire → collectes : 200, sous sa session (jamais service_role)', async () => {
     setupAuth('gestionnaire_lieux');
-    expect((await call('collectes')).status).toBe(403);
+    rls.push({ data: [], error: null });
+    const res = await call('collectes');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/csv');
+    expect(mockCreateAdmin).not.toHaveBeenCalled();
   });
 
   it('agence → associations-ag : 403', async () => {
@@ -481,6 +488,92 @@ describe('M4.1 / export_csv_format_fr_et_filtres_actifs', () => {
   });
 });
 
+// ── Export de la liste Collectes du gestionnaire (décision Val 2026-10-07) ────
+// Sa liste filtre aussi par traiteur, type et taille d'événement : l'export lit
+// ces paramètres par la MÊME fonction que la route de la liste (§12 §2).
+describe('M4.1 / export collectes — filtres de la liste gestionnaire', () => {
+  const TRAITEUR_1 = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const TYPE_EVT = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const lignes = async (res: Response) =>
+    new TextDecoder()
+      .decode(new Uint8Array(await res.arrayBuffer()))
+      .split('\r\n')
+      .filter(Boolean);
+
+  it('M4.1/export_collectes_gestionnaire_filtres_liste — lieu, traiteur, type et taille d’événement propagés, comme la liste', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [], error: null });
+    const qs = new URLSearchParams({
+      type: 'zero_dechet',
+      lieu_ids: `${LIEU_1},${LIEU_2}`,
+      traiteur_ids: TRAITEUR_1,
+    });
+    qs.append('type_evenement_ids[]', TYPE_EVT);
+    qs.append('taille_evenements[]', 'M');
+    qs.append('taille_evenements[]', 'XS');
+    await call('collectes', `?${qs}`);
+    const inn = rls.__calls.in ?? [];
+    expect(rls.__calls.eq).toContainEqual(['type', 'zero_dechet']);
+    expect(inn).toContainEqual(['evenements.lieu_id', [LIEU_1, LIEU_2]]);
+    expect(inn).toContainEqual([
+      'evenements.traiteur_operationnel_organisation_id',
+      [TRAITEUR_1],
+    ]);
+    expect(inn).toContainEqual(['evenements.type_evenement_id', [TYPE_EVT]]);
+    // Un seul `.or()` sur l'embed, prédicats de la table de constantes.
+    expect(rls.__calls.or).toEqual([
+      [
+        'and(pax.gte.500,pax.lt.750),pax.is.null,pax.lt.250',
+        { referencedTable: 'evenements' },
+      ],
+    ]);
+  });
+
+  it.each([
+    ['taille hors XS…XL', '?taille_evenements[]=ZZ'],
+    ['clé héritée', '?taille_evenements[]=toString'],
+    ['traiteur mal formé', '?traiteur_ids=pas-un-uuid'],
+    ['lieu mal formé', '?lieu_ids=pas-un-uuid'],
+  ])(
+    'M4.1/export_collectes_gestionnaire_filtre_illisible_vide — %s : fichier sans ligne, jamais le périmètre entier',
+    async (_cas, query) => {
+      setupAuth('gestionnaire_lieux');
+      // Une ligne attend dans la file : elle ne doit PAS sortir, la requête
+      // n'est pas envoyée.
+      rls.push({
+        data: [
+          {
+            id: 'c1',
+            type: 'zero_dechet',
+            statut: 'cloturee',
+            evenements: { nom_evenement: 'Ne doit pas sortir', lieux: {} },
+          },
+        ],
+        error: null,
+      });
+      const res = await call('collectes', query);
+      expect(res.status).toBe(200);
+      const l = await lignes(res);
+      expect(l).toHaveLength(1);
+      expect(l[0]).toContain('Date collecte');
+      expect(rls.__calls.rpc ?? []).toEqual([]);
+    },
+  );
+
+  it('M4.1/export_collectes_filtres_gestionnaire_bornes_au_role — agence : traiteur et taille ignorés, règle « valeur illisible = filtre ignoré » inchangée', async () => {
+    setupAuth('agence');
+    rls.push({ data: [], error: null });
+    await call(
+      'collectes',
+      `?traiteur_ids=${TRAITEUR_1}&type_evenement_ids[]=${TYPE_EVT}&taille_evenements[]=ZZ`,
+    );
+    expect(rls.__calls.in ?? []).toEqual([]);
+    expect(rls.__calls.or ?? []).toEqual([]);
+    // La requête part bien (pas de court-circuit « aucun résultat »).
+    expect(rls.__calls.order).toBeDefined();
+  });
+});
+
 // ── Factures : whitelist sans donnée sensible ────────────────────────────────
 describe('M4.1 / factures whitelist', () => {
   it('client : brouillons exclus + jamais de colonne marge', async () => {
@@ -555,35 +648,6 @@ describe('M4.1 / evenements', () => {
     expect(header).toContain('Statut consolidé');
     expect(line1).toContain('50'); // 40 + 10 kg
     expect(line1).toContain(';Tr;'); // libellé unique de la vue
-  });
-
-  it('route gestionnaire dédiée : périmètre organisations_lieux + CSV', async () => {
-    setupAuth('gestionnaire_lieux');
-    rls.push({ data: [{ lieu_id: 'L1' }], error: null }); // périmètre
-    rls.push({
-      data: [
-        {
-          id: 'e2',
-          nom_evenement: 'Forum',
-          date_evenement: '2026-03-01',
-          pax: 100,
-          traiteur_operationnel_organisation_id: null,
-          lieux: { nom: 'Hall' },
-          types_evenements: { libelle: 'Forum' },
-          collectes: [],
-        },
-      ],
-      error: null,
-    });
-    const { GET } =
-      await import('@/app/api/v1/gestionnaire/evenements/export-csv/route.js');
-    const res = await GET(
-      makeReq('/api/v1/gestionnaire/evenements/export-csv'),
-    );
-    expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Type')).toContain('text/csv');
-    // filtre périmètre appliqué (in sur lieu_id)
-    expect((rls.__calls.in ?? []).some((a) => a[0] === 'lieu_id')).toBe(true);
   });
 });
 

@@ -20,11 +20,6 @@ export type {
   FluxSeriePoint,
   RepasSeriePoint,
 } from './useEvolutionBlocs.js';
-export {
-  EvenementsFilterBar,
-  defaultEvenementsFilters,
-} from './EvenementsFilterBar.js';
-export type { EvenementsListFilters } from './EvenementsFilterBar.js';
 // `CollecteType` vit désormais avec le segmenté partagé (R-UI-4b, D1) ;
 // réexporté ici pour les consommateurs du barrel.
 export type { CollecteType } from '@/components/collecte/toggle-type-collecte';

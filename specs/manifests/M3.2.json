@@ -6,6 +6,8 @@
     "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
     "supabase/tests/m3_2_gestionnaire_lieux.test.sql",
     "packages/plateforme/src/app/(gestionnaire)/layout.tsx",
+    "packages/plateforme/src/lib/nav-masquee.ts",
+    "packages/plateforme/tests/ui/nav-sections-transverses.test.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx",
@@ -129,6 +131,12 @@
     "M3.2/P2_dashboard_filtre_taille",
     "M3.2/P2_nav_pack_masque_si_absent",
     "M3.2/P2_nav_pack_affiche_si_present",
+    "M3.2/nav_pack_registre_masque_sans_pack",
+    "M3.2/nav_pack_registre_affiche_avec_pack",
+    "M3.2/nav_pack_programmation_masque_sans_pack",
+    "M3.2/nav_pack_meme_menu_partout",
+    "M3.2/nav_pack_autres_roles_sans_lecture",
+    "M3.2/nav_pack_regle_unique",
     "M3.2/P2_dashboard_barre_5_filtres",
     "M3.2/P2_dashboard_compteur_collectes",
     "M3.2/P2_dashboard_carte_kpi_non_cliquable",
@@ -514,10 +522,10 @@
     {
       "id": "BL-P2-13",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:75",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/layout.tsx",
-      "test": "M3.2/P2_nav_pack_masque_si_absent + M3.2/P2_nav_pack_affiche_si_present",
+      "artefact": "packages/plateforme/src/lib/nav-masquee.ts (entreesNavMasquees, règle unique) + packages/plateforme/src/app/(gestionnaire)/layout.tsx + packages/plateforme/src/app/(registre)/layout.tsx + packages/plateforme/src/app/(programmation)/layout.tsx",
+      "test": "M3.2/P2_nav_pack_masque_si_absent + M3.2/P2_nav_pack_affiche_si_present + M3.2/nav_pack_registre_masque_sans_pack + M3.2/nav_pack_registre_affiche_avec_pack + M3.2/nav_pack_programmation_masque_sans_pack + M3.2/nav_pack_meme_menu_partout + M3.2/nav_pack_autres_roles_sans_lecture + M3.2/nav_pack_regle_unique",
       "statut": "implemented",
-      "libelle": "Nav gestionnaire — conditionnel « Mon pack AG » (CDC l.71) : l'entrée est masquée si l'organisation n'a aucun packs_antgaspi (count serveur dans le layout → hiddenNavHrefs filtré dans Sidebar/BottomNav/AppShell). ⚠ Override Val 2026-07-06 : les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) sont CONSERVÉES (9 entrées, pas 7) — inversion assumée de la décision CDC §06.05 l.79 « Pas de section Collectes », cf. _Divergences/M3.2_20260706_nav_collectes_registre.md (type: ambigu, CDC à re-synchroniser)."
+      "libelle": "Nav gestionnaire — conditionnel « Mon pack AG » (CDC l.75) : l'entrée est masquée si l'organisation n'a aucun packs_antgaspi (count serveur → hiddenNavHrefs filtré dans Sidebar/BottomNav/AppShell). Le count est joué par CHAQUE layout qui monte le menu du gestionnaire — son espace, mais aussi les sections transverses registre et programmation, qui ont leur propre layout (défaut E2E 2026-10-06 : l'entrée réapparaissait sur /registre et /programmer). Les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) font partie des 9 sections du menu (CDC l.66-73 : réintégrées par Val le 2026-07-06, CDC re-synchronisé depuis)."
     },
     {
       "id": "M3.2-bloc2-zd",

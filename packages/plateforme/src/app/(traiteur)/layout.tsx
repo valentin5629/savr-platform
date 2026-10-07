@@ -15,6 +15,7 @@ export default async function TraiteurLayout({
       role={session.role}
       userName={session.email}
       pageTitle="Espace traiteur"
+      hiddenNavHrefs={[]}
     >
       {children}
     </AppShell>

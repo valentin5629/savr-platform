@@ -35,7 +35,7 @@ export async function logoKeyToDataUri(
   storageKey: string | null | undefined,
 ): Promise<string | null> {
   try {
-    // Dans le `try` : sans R2_BUCKET_NAME la garde lève (plus de repli savr-dev),
+    // Dans le `try` : sans la variable du bucket la garde lève (plus de repli savr-dev),
     // et un logo ne doit jamais faire échouer un PDF. La mauvaise configuration
     // n'est pas masquée pour autant : l'ENVOI du PDF lève, lui (synthèse : dans
     // la même requête ; batchs : au passage du worker, job en échec puis rejoué).

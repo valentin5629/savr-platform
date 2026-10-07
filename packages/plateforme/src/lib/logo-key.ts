@@ -12,7 +12,7 @@
 // Miroir SQL : trigger `trg_garde_format_logo` (migration 20260919100000).
 //
 // Le bucket applicatif est celui de l'environnement (`bucketEnvironnement`), sans
-// repli : un `R2_BUCKET_NAME` absent fait LEVER la garde. Avant, elle comparait
+// repli : sans la variable du bucket, la garde LÈVE. Avant, elle comparait
 // alors la clé à `savr-dev` — même repli que l'upload, donc une production sans
 // la variable aurait écrit puis relu ses logos dans le bucket de dev, sans erreur.
 
@@ -25,7 +25,7 @@ const CLE_LOGO =
  * Découpe une clé de logo « bucket/logos/<uuid>.(png|jpg) » si elle vise le bucket
  * applicatif ; `null` sinon (autre bucket, autre préfixe, format hors upload).
  *
- * LÈVE si `R2_BUCKET_NAME` est absente et que la clé a le bon format : faute de
+ * LÈVE si la variable du bucket est absente et que la clé a le bon format : faute de
  * bucket de référence, on ne sait pas dire si la clé est permise. Les routes qui
  * servent ou valident un logo laissent remonter l'erreur (réponse 500) plutôt que
  * de répondre 403 / 404 / 422, qui feraient passer un serveur mal configuré pour

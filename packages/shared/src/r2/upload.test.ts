@@ -11,8 +11,9 @@
  *      visent le bucket de l'environnement, et rien ne part si la variable manque ;
  *   2. un PÉRIMÈTRE — dans les dossiers scannés (RACINES_CODE), le SDK S3 n'est
  *      importé que par deux fichiers, un seul nomme `PutObjectCommand`, aucun ne
- *      supprime ni ne copie, et le nom `R2_BUCKET_NAME` n'apparaît dans aucun code
- *      (hors commentaires) ailleurs que dans `bucket.ts`.
+ *      supprime ni ne copie, et le nom de la variable du bucket n'apparaît dans
+ *      aucun fichier de code autre que `bucket.ts` — commentaires COMPRIS : ailleurs
+ *      on écrit « la variable du bucket », pas son nom.
  *
  * Ce que le point 2 ne prouve PAS, à savoir avant de s'y fier :
  *   - il ne regarde pas d'où vient l'argument `Bucket` d'une commande. Une fonction
@@ -146,7 +147,6 @@ const RACINES_CODE = [
   'packages/tms',
   'apps/pdf-renderer',
   'scripts',
-  'e2e',
 ];
 const HORS_SCAN = new Set(['node_modules', '.next', 'dist', '.turbo']);
 const EST_CODE = /\.(?:ts|tsx|mts|cts|js|mjs|cjs)$/;
@@ -166,21 +166,9 @@ function fichiersDeCode(): string[] {
   return trouves;
 }
 
-// Retire les commentaires `/* … */` et `// …`. Un `//` n'est un commentaire que
-// précédé d'un blanc ou en début de ligne : celui d'une adresse (`https://…`)
-// est laissé, pour ne pas effacer le code qui suit sur la même ligne.
-function sansCommentaires(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|\s)\/\/.*$/gm, '$1');
-}
-
-function fichiersContenant(
-  motif: RegExp,
-  lire: (source: string) => string = (source) => source,
-): string[] {
+function fichiersContenant(motif: RegExp): string[] {
   return fichiersDeCode()
-    .filter((f) => motif.test(lire(readFileSync(f, 'utf8'))))
+    .filter((f) => motif.test(readFileSync(f, 'utf8')))
     .map((f) => relative(RACINE, f).split(sep).join('/'))
     .sort();
 }
@@ -190,26 +178,14 @@ describe('stockage R2 — périmètre des accès (cliquet de structure)', () => 
     expect(fichiersDeCode().length).toBeGreaterThan(500);
   });
 
-  it('sansCommentaires garde le code, y compris après une adresse', () => {
-    const source = [
-      '// sans R2_BUCKET_NAME l’upload lève',
-      '/* R2_BUCKET_NAME */ const a = 1;',
-      "const u = 'https://exemple.test'; const b = env.R2_BUCKET_NAME;",
-      'const c = process.env?.R2_BUCKET_NAME; // repli',
-    ].join('\n');
-    const code = sansCommentaires(source);
-    expect(code).not.toContain('upload lève');
-    expect(code).not.toContain('repli');
-    expect(code).toContain('const a = 1;');
-    expect(code).toContain('env.R2_BUCKET_NAME');
-    expect(code).toContain('process.env?.R2_BUCKET_NAME');
-  });
-
-  // Le NOM de la variable, quelle que soit la façon de la lire (accès direct ou
-  // optionnel, alias de process.env, déstructuration, constante, schéma de
-  // validation) : toutes ces formes l'écrivent en toutes lettres.
-  it('le nom R2_BUCKET_NAME n’apparaît dans aucun code hors de bucket.ts', () => {
-    expect(fichiersContenant(/R2_BUCKET_NAME/, sansCommentaires)).toEqual([
+  // Le NOM de la variable, cherché dans le texte brut du fichier. Toute façon de
+  // la lire (accès direct ou optionnel, alias de process.env, déstructuration,
+  // constante, schéma de validation) l'écrit en toutes lettres. Pas de retrait
+  // des commentaires : un essai a montré qu'un `/*` cité dans un commentaire de
+  // ligne faisait disparaître du vrai code du scan (revue sécurité 2026-10-07).
+  // Contrepartie assumée : aucun commentaire hors de bucket.ts ne cite ce nom.
+  it('le nom de la variable du bucket n’apparaît dans aucun fichier de code hors de bucket.ts', () => {
+    expect(fichiersContenant(/R2_BUCKET_NAME/)).toEqual([
       'packages/shared/src/r2/bucket.ts',
     ]);
   });

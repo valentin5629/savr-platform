@@ -92,7 +92,7 @@ export async function POST(
   const buffer = Buffer.from(await file.arrayBuffer());
 
   // Bucket = celui de l'environnement, rendu par l'upload (aucun repli : sans
-  // R2_BUCKET_NAME l'upload lève, comme sans identifiants).
+  // la variable du bucket l'upload lève, comme sans identifiants).
   let bucket: string;
   try {
     ({ bucket } = await uploadObject(key, buffer, file.type));

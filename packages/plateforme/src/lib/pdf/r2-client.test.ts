@@ -76,7 +76,7 @@ describe("M1.6 / r2-client — lecture bornée au bucket de l'environnement", ()
 
   // Une URL signée sur la racine du bucket est une demande de listage : le
   // bucket contient tous les fichiers de l'environnement (revue sécurité
-  // 2026-10-07). Seul le service écrit ces clés ; aucune n'a cette forme.
+  // 2026-10-07). Aucune clé écrite par l'application n'a cette forme.
   it.each([
     'savr-dev',
     'savr-dev/',

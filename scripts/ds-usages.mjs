@@ -25,7 +25,6 @@ const METIER = {
     'components/collecte/annulation-collecte-dialog.tsx',
   DashboardFilterBar: 'components/dashboards/DashboardFilterBar.tsx',
   BenchmarkFilterBar: 'components/dashboards/BenchmarkFilterBar.tsx',
-  EvenementsFilterBar: 'components/dashboards/EvenementsFilterBar.tsx',
   EmptyDashboardState: 'components/dashboards/EmptyDashboardState.tsx',
   InviterUtilisateurModal:
     'components/organisation/inviter-utilisateur-modal.tsx',

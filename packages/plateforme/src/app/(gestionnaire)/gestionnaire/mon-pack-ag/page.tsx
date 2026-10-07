@@ -40,8 +40,9 @@ interface PackData {
 }
 
 // Historique des collectes AG du pack — même Data Table que les listes
-// Collectes (décision Val 2026-09-28). SANS tri : la route plafonne à 50
-// lignes (`.limit(50)`), trier cet extrait ferait croire à un ordre global.
+// Collectes (décision Val 2026-09-28). SANS tri : la route rend au plus les
+// 50 collectes les plus récentes, trier cet extrait ferait croire à un ordre
+// global.
 const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
   {
     id: 'date',

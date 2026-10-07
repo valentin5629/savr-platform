@@ -158,7 +158,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // `audit_log` est réservé au staff (policy al_select_staff) → lecture
     // service. Elle ne porte que sur les packs des collectes que la session
     // vient de lire pour SON organisation, et ne sert qu'à garder ou écarter
-    // ces mêmes collectes : rien du journal ne part dans la réponse.
+    // ces mêmes collectes : aucune valeur du journal ne part dans la réponse.
     const packIds = [...new Set(candidates.map((c) => c.packs_antgaspi.id))];
     const { data: debits, error: debitsErr } = await createAdminSupabaseClient()
       .from('audit_log')

@@ -8,7 +8,7 @@
 -- Catégorie 3 : programmation lieu hors périmètre.
 
 BEGIN;
-SELECT plan(41);
+SELECT plan(43);
 
 -- ── Helpers JWT ─────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -183,6 +183,15 @@ INSERT INTO plateforme.packs_antgaspi
 VALUES
   ('cc000000-0000-0000-0000-000000000ba0'::uuid,
    'cc000000-0000-0000-0000-00000000000a'::uuid,
+   10, 'pack_10', 'actif', '2026-01-01');
+
+-- Pack AG Kaspia (traiteur tiers) — T25b/T25c : un pack d'une AUTRE organisation
+-- existe, le comptage d'un gestionnaire ne doit pas le voir.
+INSERT INTO plateforme.packs_antgaspi
+  (id, organisation_id, credits_initiaux, type_pack, statut, date_achat)
+VALUES
+  ('cc000000-0000-0000-0000-000000000ba1'::uuid,
+   'cc000000-0000-0000-0000-00000000000c'::uuid,
    10, 'pack_10', 'actif', '2026-01-01');
 
 
@@ -467,6 +476,28 @@ SELECT is(
   1,
   'T25 : gestionnaire voit son propre pack AG'
 );
+
+-- T25b–T25c : comptage NON filtré, celui du menu (« Mon pack AG » masqué si 0,
+-- §06.05 l.75 — packages/plateforme/src/lib/nav-masquee.ts). Deux packs existent
+-- (Viparis, Kaspia) : chaque gestionnaire ne compte que ceux de son organisation.
+SELECT is(
+  (SELECT COUNT(*)::int FROM plateforme.packs_antgaspi),
+  1,
+  'T25b : Viparis — comptage non filtré = son seul pack (pack Kaspia invisible)'
+);
+
+SELECT test_as_superuser();
+SELECT test_set_jwt('gestionnaire_lieux', 'cc000000-0000-0000-0000-00000000000b'::uuid,
+                    'cc000000-0000-0000-0000-000000000b01'::uuid);
+SELECT is(
+  (SELECT COUNT(*)::int FROM plateforme.packs_antgaspi),
+  0,
+  'T25c : GL Events (aucun pack) — comptage non filtré = 0, les packs tiers ne comptent pas'
+);
+-- Retour à l'identité Viparis pour la suite du fichier.
+SELECT test_as_superuser();
+SELECT test_set_jwt('gestionnaire_lieux', 'cc000000-0000-0000-0000-00000000000a'::uuid,
+                    'cc000000-0000-0000-0000-000000000a01'::uuid);
 
 -- T26 : INSERT pack refusé pour gestionnaire (admin only)
 -- M2.1 aligne: inclure credits_initiaux, type_pack pour éviter NOT NULL côté PG (RLS 42501 doit tirer en premier)

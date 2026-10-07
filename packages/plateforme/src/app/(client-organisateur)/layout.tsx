@@ -15,6 +15,7 @@ export default async function ClientOrganisateurLayout({
       role={session.role}
       userName={session.email}
       pageTitle="Mon impact RSE"
+      hiddenNavHrefs={[]}
     >
       {children}
     </AppShell>

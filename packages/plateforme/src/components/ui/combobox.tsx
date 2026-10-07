@@ -169,18 +169,7 @@ function Combobox(props: ComboboxProps) {
           className={
             titre
               ? cn(declencheurFiltre, className)
-              : cn(
-                  'flex h-11 w-full min-w-0 items-center gap-2 rounded-savr-md border bg-savr-white px-3 text-left text-sm text-savr-neutral-900 sm:h-10',
-                  'transition-colors duration-savr-fast ease-out',
-                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
-                  'disabled:cursor-not-allowed disabled:opacity-50',
-                  error
-                    ? 'border-savr-error'
-                    : open
-                      ? 'border-savr-primary-500'
-                      : 'border-savr-neutral-300 hover:border-savr-primary-400',
-                  className,
-                )
+              : cn(classesChampDeclencheur({ error, open }), className)
           }
         >
           {titre ? (
@@ -293,4 +282,53 @@ function Combobox(props: ComboboxProps) {
   );
 }
 
-export { Combobox };
+/**
+ * Classes du champ déclencheur d'une liste déroulante (recette Input : 44 px
+ * mobile / 40 px desktop, bordure neutre, primary au survol et à l'ouverture,
+ * error si invalide). Source unique pour `Combobox` et `ChampDeclencheur`.
+ */
+export function classesChampDeclencheur({
+  error,
+  open,
+}: {
+  error?: boolean;
+  open?: boolean;
+}): string {
+  return cn(
+    'flex h-11 w-full min-w-0 items-center gap-2 rounded-savr-md border bg-savr-white px-3 text-left text-sm text-savr-neutral-900 sm:h-10',
+    'transition-colors duration-savr-fast ease-out',
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
+    'disabled:cursor-not-allowed disabled:opacity-50',
+    error
+      ? 'border-savr-error'
+      : open
+        ? 'border-savr-primary-500'
+        : 'border-savr-neutral-300 hover:border-savr-primary-400',
+  );
+}
+
+/**
+ * Champ déclencheur seul (R-UI-7, B9) : pour les sélecteurs métier qui gèrent
+ * eux-mêmes leur `Popover` (recherche serveur de lieu ou de contact, action
+ * « Ajouter… »). À poser dans `<Popover.Trigger asChild>`.
+ */
+const ChampDeclencheur = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    error?: boolean;
+    open?: boolean;
+  }
+>(({ error, open, className, type = 'button', ...props }, ref) => (
+  <button
+    ref={ref}
+    type={type}
+    aria-haspopup="listbox"
+    aria-expanded={open}
+    aria-invalid={error || undefined}
+    className={cn(classesChampDeclencheur({ error, open }), className)}
+    {...props}
+  />
+));
+ChampDeclencheur.displayName = 'ChampDeclencheur';
+
+export { Combobox, ChampDeclencheur };

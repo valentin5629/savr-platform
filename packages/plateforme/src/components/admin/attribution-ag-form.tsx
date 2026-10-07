@@ -38,6 +38,8 @@ import {
 import { Text } from '@/components/ui/text';
 import { fmtPax, fmtInt } from '@/lib/format';
 import { messageObligatoire } from '@/lib/libelles/validation';
+import { ChoiceCard } from '@/components/ui/choice-card';
+import { IconButton } from '@/components/ui/icon-button';
 
 interface AssociationSuggestion {
   id: string;
@@ -521,14 +523,6 @@ export function AttributionAgForm({
     return parts.length > 0 ? parts.join(' · ') : '—';
   })();
 
-  const carteClasses = (active: boolean) =>
-    cn(
-      'flex w-full items-start gap-3 rounded-savr-md border-2 p-4 text-left transition-colors',
-      active
-        ? 'border-savr-primary-700 bg-savr-primary-50'
-        : 'border-savr-neutral-200 bg-savr-white hover:border-savr-neutral-300',
-    );
-
   if (loading) {
     return (
       <LoadingState
@@ -621,15 +615,15 @@ export function AttributionAgForm({
               </FormField>
               <FormField label="Nombre de véhicules" htmlFor="nb-vehicules">
                 <div className="flex h-10 items-center overflow-hidden rounded-savr-md border border-savr-neutral-300 bg-savr-white">
-                  <button
-                    type="button"
+                  <IconButton
                     aria-label="Retirer un véhicule"
                     disabled={nbVehiculesOk && nbVehiculesNum <= 1}
-                    className="flex h-full w-11 items-center justify-center border-r border-savr-neutral-200 bg-savr-neutral-50 text-savr-neutral-700 hover:bg-savr-neutral-100"
+                    variant="stepper"
+                    className="border-r border-savr-neutral-200"
                     onClick={() => changerNbVehicules(-1)}
                   >
                     <Minus className="h-4 w-4" />
-                  </button>
+                  </IconButton>
                   <input
                     id="nb-vehicules"
                     type="text"
@@ -643,17 +637,17 @@ export function AttributionAgForm({
                     aria-describedby="nb-vehicules-aide"
                     className="h-full min-w-0 flex-1 border-0 bg-transparent text-center text-base font-bold text-savr-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-savr-primary-500"
                   />
-                  <button
-                    type="button"
+                  <IconButton
                     aria-label="Ajouter un véhicule"
                     disabled={
                       nbVehiculesOk && nbVehiculesNum >= NB_VEHICULES_MAX
                     }
-                    className="flex h-full w-11 items-center justify-center border-l border-savr-neutral-200 bg-savr-neutral-50 text-savr-neutral-700 hover:bg-savr-neutral-100"
+                    variant="stepper"
+                    className="border-l border-savr-neutral-200"
                     onClick={() => changerNbVehicules(1)}
                   >
                     <Plus className="h-4 w-4" />
-                  </button>
+                  </IconButton>
                 </div>
                 <p
                   id="nb-vehicules-aide"
@@ -674,10 +668,9 @@ export function AttributionAgForm({
             {/* Ligne 3 : recommandations (même structure, même hauteur) */}
             <div>
               {assoTop1 ? (
-                <button
-                  type="button"
-                  aria-pressed={assoTop1Selectionnee}
-                  className={carteClasses(assoTop1Selectionnee)}
+                <ChoiceCard
+                  selected={assoTop1Selectionnee}
+                  className="flex w-full items-start gap-3 border-2 p-4"
                   onClick={() => {
                     setSelectedAsso(assoTop1.id);
                     setSelectedAssoNom(assoTop1.nom);
@@ -700,7 +693,7 @@ export function AttributionAgForm({
                       {assoTop1.contact_email}
                     </Text>
                   </span>
-                </button>
+                </ChoiceCard>
               ) : (
                 <AlertBar variant="warn">
                   Aucune association disponible pour ce créneau. Traitement
@@ -710,10 +703,9 @@ export function AttributionAgForm({
             </div>
             <div>
               {transpReco ? (
-                <button
-                  type="button"
-                  aria-pressed={transpRecoSelectionne}
-                  className={carteClasses(transpRecoSelectionne)}
+                <ChoiceCard
+                  selected={transpRecoSelectionne}
+                  className="flex w-full items-start gap-3 border-2 p-4"
                   onClick={() => {
                     setSelectedTransp(transpReco.id);
                     setSelectedTranspNom(transpReco.nom);
@@ -739,7 +731,7 @@ export function AttributionAgForm({
                       {libelleTypeTms(transpReco.type_tms)}
                     </Text>
                   </span>
-                </button>
+                </ChoiceCard>
               ) : (
                 <AlertBar variant="warn">
                   Aucun prestataire éligible — traitement manuel. Sélectionnez

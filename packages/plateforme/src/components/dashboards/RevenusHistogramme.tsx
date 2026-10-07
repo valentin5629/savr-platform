@@ -8,6 +8,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { cn } from '@/lib/utils';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
 import { fmtEuro, fmtInt } from '@/lib/format';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 interface KpiAdminRow {
   mois: string;
@@ -134,24 +135,23 @@ export function RevenusHistogramme({
           Revenus 12 mois glissants
         </Heading>
         {/* Bascule montant/nombre — segmented control DS (§5.4) */}
-        <div className="inline-flex overflow-hidden rounded-savr-md border border-savr-neutral-300 text-xs font-semibold">
-          <button
-            type="button"
-            aria-pressed={toggle === 'montant'}
-            onClick={() => setToggle('montant')}
-            className={`px-3 py-1.5 transition-colors duration-savr-fast ${toggle === 'montant' ? 'bg-savr-primary-700 text-savr-white' : 'text-savr-neutral-500 hover:bg-savr-neutral-100'}`}
-          >
+        <ToggleGroup
+          type="single"
+          aria-label="Unité de l'histogramme"
+          value={toggle}
+          onValueChange={(v) => {
+            // Choix obligatoire : un clic sur l'item actif ne le désélectionne pas.
+            if (v === 'montant' || v === 'nombre') setToggle(v);
+          }}
+          className="h-9 sm:h-9"
+        >
+          <ToggleGroupItem value="montant" className="text-xs">
             Montant HT
-          </button>
-          <button
-            type="button"
-            aria-pressed={toggle === 'nombre'}
-            onClick={() => setToggle('nombre')}
-            className={`border-l border-savr-neutral-300 px-3 py-1.5 transition-colors duration-savr-fast ${toggle === 'nombre' ? 'bg-savr-primary-700 text-savr-white' : 'text-savr-neutral-500 hover:bg-savr-neutral-100'}`}
-          >
+          </ToggleGroupItem>
+          <ToggleGroupItem value="nombre" className="text-xs">
             Nb collectes
-          </button>
-        </div>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {/* Zone graphe : axe des ordonnées à gauche + surface traçante. */}

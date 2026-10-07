@@ -129,8 +129,7 @@ function ConfirmationContent() {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       {/* Bandeau succès */}
-      {/* ds-classes: valeur unique (emerald-50 ≠ success-subtle), à arbitrer */}
-      <div className="flex items-start gap-3 rounded-savr-lg border border-savr-success bg-emerald-50 px-5 py-4">
+      <div className="flex items-start gap-3 rounded-savr-lg border border-savr-success bg-savr-success-subtle px-5 py-4">
         <CheckCircle2 className="h-6 w-6 shrink-0 text-savr-success" />
         <div className="space-y-1">
           <Heading level={1} size="lg">

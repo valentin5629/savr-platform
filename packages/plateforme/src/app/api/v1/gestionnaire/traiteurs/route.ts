@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { decalerMois } from '@/lib/periodes-raccourcis';
 import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
@@ -26,14 +27,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const lieuIds = (orgLieux ?? []).map((r) => r.lieu_id as string);
   if (lieuIds.length === 0) return NextResponse.json({ data: [] });
 
-  // Fenêtre 24 mois (fixe, indépendante du filtre période)
-  const since24m = new Date();
-  since24m.setMonth(since24m.getMonth() - 24);
-  const since24mStr = jourParis(since24m);
-
-  const since12m = new Date();
-  since12m.setMonth(since12m.getMonth() - 12);
-  const since12mStr = jourParis(since12m);
+  // Fenêtres 24 et 12 mois (fixes, indépendantes du filtre période), en jours
+  // parisiens comme les raccourcis de période (R-UI-7, J6).
+  const aujourdhui = jourParis(new Date());
+  const since24mStr = decalerMois(aujourdhui, -24);
+  const since12mStr = decalerMois(aujourdhui, -12);
 
   const { data: collectes, error } = await supabase
     .from('collectes')

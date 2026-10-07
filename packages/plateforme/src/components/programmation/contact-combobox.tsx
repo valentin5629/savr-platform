@@ -8,6 +8,9 @@ import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { Input } from '@/components/ui/input';
+import { ChampDeclencheur } from '@/components/ui/combobox';
+import { Button } from '@/components/ui/button';
+import { useDebounce } from '@/lib/hooks/use-debounce';
 
 export interface ContactOption {
   id: string;
@@ -42,16 +45,27 @@ export function ContactCombobox({
   const [options, setOptions] = React.useState<ContactOption[]>([]);
   const [loading, setLoading] = React.useState(false);
 
+  // Recherche serveur après une pause de saisie (R-UI-7, J5) ; une réponse
+  // arrivée après une saisie plus récente est ignorée.
+  const recherche = useDebounce(query);
   React.useEffect(() => {
     if (!open) return;
+    let actif = true;
     setLoading(true);
-    const params = new URLSearchParams({ q: query });
+    const params = new URLSearchParams({ q: recherche });
     if (organisationId) params.set('organisation_id', organisationId);
     void fetch(`/api/v1/programmation/contacts?${params}`)
       .then((r) => r.json() as Promise<ContactOption[]>)
-      .then(setOptions)
-      .finally(() => setLoading(false));
-  }, [query, open, organisationId]);
+      .then((o) => {
+        if (actif) setOptions(o);
+      })
+      .finally(() => {
+        if (actif) setLoading(false);
+      });
+    return () => {
+      actif = false;
+    };
+  }, [recherche, open, organisationId]);
 
   const displayLabel = value
     ? `${value.prenom} ${value.nom} — ${value.telephone}`
@@ -60,17 +74,10 @@ export function ContactCombobox({
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <button
-          type="button"
+        <ChampDeclencheur
           disabled={disabled}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          className={cn(
-            'flex w-full items-center justify-between rounded-savr-md border border-savr-neutral-300 bg-savr-white h-11 px-3 text-sm text-left sm:h-10',
-            'hover:border-savr-primary-400 focus:outline-2 focus:outline-savr-primary-500',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            className,
-          )}
+          open={open}
+          className={cn('justify-between', className)}
         >
           <span className="flex items-center gap-2 min-w-0">
             <User className="h-4 w-4 text-savr-neutral-400 shrink-0" />
@@ -80,7 +87,7 @@ export function ContactCombobox({
               <span className="text-savr-neutral-400">{label}</span>
             )}
           </span>
-        </button>
+        </ChampDeclencheur>
       </Popover.Trigger>
 
       <Popover.Portal>
@@ -153,9 +160,9 @@ export function ContactCombobox({
           </ul>
 
           <div className="border-t border-savr-neutral-100 p-1">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-savr-md px-3 py-2 text-sm text-savr-primary-700 hover:bg-savr-primary-50"
+            <Button
+              variant="ghost"
+              className="w-full justify-start px-3 font-normal"
               onClick={() => {
                 setOpen(false);
                 onAddInline();
@@ -163,7 +170,7 @@ export function ContactCombobox({
             >
               <PlusCircle className="h-4 w-4" />
               Ajouter un nouveau contact
-            </button>
+            </Button>
           </div>
         </Popover.Content>
       </Popover.Portal>

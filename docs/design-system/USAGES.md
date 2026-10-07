@@ -1,16 +1,16 @@
 # Usages des éléments réutilisables
 
-Généré par `node scripts/ds-usages.mjs` sur `0d79ca52` le 2026-10-07. Compte les balises JSX `<Nom` dans `packages/plateforme/src/{app,components}` hors tests, hors `components/ui`, hors vitrine `/dev`. Un composant à 0 est exporté mais monté nulle part (ou utilisé seulement à l'intérieur d'une autre primitive).
+Généré par `node scripts/ds-usages.mjs` sur `df276f63` le 2026-10-07. Compte les balises JSX `<Nom` dans `packages/plateforme/src/{app,components}` hors tests, hors `components/ui`, hors vitrine `/dev`. Un composant à 0 est exporté mais monté nulle part (ou utilisé seulement à l'intérieur d'une autre primitive).
 
 | Élément                    | Famille | Occurrences | Fichiers | Source                                                    |
 | -------------------------- | ------- | ----------: | -------: | --------------------------------------------------------- |
 | `Text`                     | ui      |         207 |       71 | `components/ui/text.tsx`                                  |
 | `FormField`                | ui      |         190 |       31 | `components/ui/form-field.tsx`                            |
 | `Input`                    | ui      |         136 |       32 | `components/ui/input.tsx`                                 |
-| `Button`                   | ui      |         130 |       53 | `components/ui/button.tsx`                                |
+| `Button`                   | ui      |         134 |       56 | `components/ui/button.tsx`                                |
 | `Card`                     | ui      |         123 |       42 | `components/ui/card.tsx`                                  |
 | `InfoItem`                 | ui      |          90 |        7 | `components/ui/info-item.tsx`                             |
-| `Badge`                    | ui      |          82 |       35 | `components/ui/badge.tsx`                                 |
+| `Badge`                    | ui      |          80 |       35 | `components/ui/badge.tsx`                                 |
 | `AlertBar`                 | ui      |          64 |       33 | `components/ui/alert-bar.tsx`                             |
 | `EmptyState`               | ui      |          64 |       46 | `components/ui/empty-state.tsx`                           |
 | `Heading`                  | ui      |          57 |       23 | `components/ui/heading.tsx`                               |
@@ -28,12 +28,12 @@ Généré par `node scripts/ds-usages.mjs` sur `0d79ca52` le 2026-10-07. Compte 
 | `TextLink`                 | ui      |          31 |       21 | `components/ui/text-link.tsx`                             |
 | `DataGrid`                 | ui      |          28 |       19 | `components/ui/data-grid.tsx`                             |
 | `Label`                    | ui      |          27 |       12 | `components/ui/label.tsx`                                 |
+| `IconButton`               | ui      |          26 |       17 | `components/ui/icon-button.tsx`                           |
 | `FormActions`              | ui      |          25 |       17 | `components/ui/form-actions.tsx`                          |
 | `PageHeader`               | ui      |          25 |       24 | `components/ui/page-header.tsx`                           |
 | `TableCell`                | ui      |          24 |        4 | `components/ui/table.tsx`                                 |
 | `TabsTrigger`              | ui      |          24 |        9 | `components/ui/tabs.tsx`                                  |
 | `Modal`                    | ui      |          22 |       13 | `components/ui/modal.tsx`                                 |
-| `IconButton`               | ui      |          21 |       13 | `components/ui/icon-button.tsx`                           |
 | `Textarea`                 | ui      |          21 |       12 | `components/ui/textarea.tsx`                              |
 | `PageHero`                 | ui      |          19 |       19 | `components/ui/page-hero.tsx`                             |
 | `TableHead`                | ui      |          18 |        4 | `components/ui/table.tsx`                                 |
@@ -54,36 +54,41 @@ Généré par `node scripts/ds-usages.mjs` sur `0d79ca52` le 2026-10-07. Compte 
 | `FicheCorps`               | ui      |          10 |        6 | `components/ui/fiche/fiche-modal.tsx`                     |
 | `DateRangePicker`          | ui      |           9 |        9 | `components/ui/date-range-picker.tsx`                     |
 | `Popover`                  | ui      |           9 |        3 | `components/ui/popover.tsx`                               |
+| `ToggleTypeCollecte`       | métier  |           9 |        9 | `components/collecte/toggle-type-collecte.tsx`            |
 | `AuthCard`                 | métier  |           8 |        4 | `components/auth/auth-card.tsx`                           |
 | `DatePicker`               | ui      |           8 |        7 | `components/ui/date-picker.tsx`                           |
 | `OpsReadOnlyBanner`        | ui      |           8 |        5 | `components/ui/ops-read-only-banner.tsx`                  |
-| `ToggleTypeCollecte`       | métier  |           8 |        8 | `components/collecte/toggle-type-collecte.tsx`            |
+| `ToggleGroupItem`          | ui      |           7 |        3 | `components/ui/toggle-group.tsx`                          |
 | `TypeCollecteBadge`        | ui      |           7 |        7 | `components/ui/type-collecte-badge.tsx`                   |
 | `ChartCard`                | métier  |           6 |        6 | `components/dashboards/charts/cockpit/ChartCard.tsx`      |
 | `CollecteStatutBadge`      | ui      |           6 |        6 | `components/ui/collecte-statut-badge.tsx`                 |
 | `EmptyDashboardState`      | métier  |           6 |        5 | `components/dashboards/EmptyDashboardState.tsx`           |
 | `Table`                    | ui      |           6 |        4 | `components/ui/table.tsx`                                 |
 | `TableBody`                | ui      |           6 |        4 | `components/ui/table.tsx`                                 |
+| `ToggleChip`               | ui      |           6 |        3 | `components/ui/toggle-chip.tsx`                           |
 | `BenchmarkFilterBar`       | métier  |           5 |        5 | `components/dashboards/BenchmarkFilterBar.tsx`            |
 | `ChartTooltip`             | ui      |           5 |        4 | `components/ui/chart-tooltip.tsx`                         |
+| `ChoiceCard`               | ui      |           5 |        4 | `components/ui/choice-card.tsx`                           |
 | `ConfirmDialog`            | ui      |           5 |        5 | `components/ui/confirm-dialog.tsx`                        |
 | `DashboardFilterBar`       | métier  |           5 |        5 | `components/dashboards/DashboardFilterBar.tsx`            |
 | `EnTeteMention`            | ui      |           5 |        5 | `components/ui/fiche/fiche-en-tete.tsx`                   |
 | `FicheModal`               | ui      |           5 |        5 | `components/ui/fiche/fiche-modal.tsx`                     |
 | `TableHeader`              | ui      |           5 |        4 | `components/ui/table.tsx`                                 |
-| `ToggleGroupItem`          | ui      |           5 |        2 | `components/ui/toggle-group.tsx`                          |
 | `Co2DetailModal`           | métier  |           4 |        2 | `components/dashboards/charts/cockpit/Co2DetailModal.tsx` |
 | `EnTetePuce`               | ui      |           4 |        4 | `components/ui/fiche/fiche-en-tete.tsx`                   |
 | `FilterChips`              | ui      |           4 |        4 | `components/ui/filter-chips.tsx`                          |
 | `FiltreRecherche`          | ui      |           4 |        4 | `components/ui/filtre-en-ligne.tsx`                       |
 | `TimePicker`               | ui      |           4 |        3 | `components/ui/time-picker.tsx`                           |
-| `ToggleChip`               | ui      |           4 |        2 | `components/ui/toggle-chip.tsx`                           |
 | `CollecteFiltreActif`      | métier  |           3 |        3 | `components/collecte/collecte-filtre-actif.tsx`           |
 | `CollecteFiltresBar`       | métier  |           3 |        3 | `components/collecte/collecte-filtres-bar.tsx`            |
 | `DropdownItem`             | ui      |           3 |        1 | `components/ui/dropdown.tsx`                              |
 | `FichePied`                | ui      |           3 |        3 | `components/ui/fiche/fiche-modal.tsx`                     |
+| `FileButton`               | ui      |           3 |        3 | `components/ui/file-button.tsx`                           |
 | `OngletAvecErreurs`        | ui      |           3 |        3 | `components/ui/fiche/onglet-avec-erreurs.tsx`             |
+| `ToggleGroup`              | ui      |           3 |        3 | `components/ui/toggle-group.tsx`                          |
 | `AnnulationCollecteDialog` | métier  |           2 |        2 | `components/collecte/annulation-collecte-dialog.tsx`      |
+| `BadgeBouton`              | ui      |           2 |        1 | `components/ui/badge.tsx`                                 |
+| `ChampDeclencheur`         | ui      |           2 |        2 | `components/ui/combobox.tsx`                              |
 | `Co2HeroCard`              | métier  |           2 |        1 | `components/dashboards/charts/cockpit/Co2HeroCard.tsx`    |
 | `FactureStatutBadge`       | ui      |           2 |        2 | `components/ui/facture-statut-badge.tsx`                  |
 | `InviterUtilisateurModal`  | métier  |           2 |        2 | `components/organisation/inviter-utilisateur-modal.tsx`   |
@@ -91,7 +96,6 @@ Généré par `node scripts/ds-usages.mjs` sur `0d79ca52` le 2026-10-07. Compte 
 | `SavrLogoMark`             | métier  |           2 |        2 | `components/layout/savr-logo.tsx`                         |
 | `Timeline`                 | ui      |           2 |        2 | `components/ui/timeline.tsx`                              |
 | `TimelineItem`             | ui      |           2 |        2 | `components/ui/timeline.tsx`                              |
-| `ToggleGroup`              | ui      |           2 |        2 | `components/ui/toggle-group.tsx`                          |
 | `Tooltip`                  | ui      |           2 |        2 | `components/ui/tooltip.tsx`                               |
 | `Autocomplete`             | ui      |           1 |        1 | `components/ui/autocomplete.tsx`                          |
 | `CollecteStatutFrise`      | métier  |           1 |        1 | `components/admin/collecte-statut-frise.tsx`              |

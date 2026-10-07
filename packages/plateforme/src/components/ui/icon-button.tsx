@@ -22,6 +22,10 @@ const iconButtonVariants = cva(
         // Destructif (supprimer)
         destructive:
           'bg-transparent text-savr-neutral-500 hover:bg-savr-error-subtle hover:text-savr-error-strong',
+        // Bouton − / + d'un champ compteur (R-UI-7) : collé au champ, sans rayon
+        // propre (le conteneur bordé porte le rayon), pleine hauteur du champ.
+        stepper:
+          'rounded-none bg-savr-neutral-50 text-savr-neutral-700 hover:bg-savr-neutral-100 focus-visible:outline-savr-primary-500 [&>svg]:h-4 [&>svg]:w-4',
       },
       size: {
         // 44px mobile → 40px desktop (cible tactile §8/§10)
@@ -29,6 +33,13 @@ const iconButtonVariants = cva(
         sm: 'h-9 w-9',
       },
     },
+    // Le compteur prend la hauteur du champ qui l'entoure, quelle que soit la taille.
+    compoundVariants: [
+      {
+        variant: 'stepper',
+        class: 'h-full w-11 sm:h-full sm:w-11',
+      },
+    ],
     defaultVariants: {
       variant: 'ghost',
       size: 'md',

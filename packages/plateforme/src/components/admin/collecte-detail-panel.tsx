@@ -18,7 +18,6 @@ import {
   FileText,
   Download,
   RotateCw,
-  Upload,
   History,
   PhoneCall,
   MapPin,
@@ -99,6 +98,8 @@ import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-mod
 import { Text } from '@/components/ui/text';
 import { FormActions } from '@/components/ui/form-actions';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ChoiceCard } from '@/components/ui/choice-card';
+import { FileButton } from '@/components/ui/file-button';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -354,18 +355,12 @@ function CarteChoix({
   badges?: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={coche}
+    <ChoiceCard
+      mode="radio"
+      selected={coche}
       tabIndex={focusable ? 0 : -1}
       onClick={onSelect}
-      className={cn(
-        'flex min-h-11 items-start gap-3 rounded-savr-md border p-3 text-left text-sm transition-colors',
-        coche
-          ? 'border-savr-primary-600 bg-savr-primary-50'
-          : 'border-savr-neutral-200 bg-savr-white hover:border-savr-neutral-300',
-      )}
+      className="flex min-h-11 items-start gap-3 p-3 text-sm"
     >
       <span
         aria-hidden
@@ -387,7 +382,7 @@ function CarteChoix({
           {detail}
         </Text>
       </span>
-    </button>
+    </ChoiceCard>
   );
 }
 
@@ -2372,21 +2367,17 @@ export function CollecteDetailPanel({
                   <Text variant="body" className="font-medium">
                     Photos ({documents?.photos?.length ?? 0})
                   </Text>
-                  <label className="inline-flex items-center gap-1 text-sm text-savr-primary-600 cursor-pointer hover:underline">
-                    <Upload className="h-4 w-4" />
-                    {photoUploading ? 'Import…' : 'Importer des photos'}
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="hidden"
-                      disabled={photoUploading}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) void handleImportPhoto(f);
-                        e.target.value = '';
-                      }}
-                    />
-                  </label>
+                  <FileButton
+                    id="collecte-import-photo"
+                    variant="link"
+                    accept="image/png,image/jpeg,image/webp"
+                    loading={photoUploading}
+                    loadingText="Import…"
+                    onFile={(f) => void handleImportPhoto(f)}
+                    className="h-auto gap-1 px-0 font-normal sm:h-auto"
+                  >
+                    Importer des photos
+                  </FileButton>
                 </div>
                 {documents?.photos && documents.photos.length > 0 ? (
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">

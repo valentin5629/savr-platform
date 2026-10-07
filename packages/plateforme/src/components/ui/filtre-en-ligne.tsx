@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { DELAI_DEBOUNCE_MS } from '@/lib/hooks/use-debounce';
 
 // Filtres « en ligne » — format unique de TOUTES les barres de filtres
 // (décision Val 2026-09-30, généralisation du radar de la fiche collecte
@@ -309,7 +310,7 @@ export function FiltreCoches({
 }
 
 /** Délai de frappe (ms) avant d'émettre la recherche. */
-export const DELAI_RECHERCHE_MS = 300;
+export const DELAI_RECHERCHE_MS = DELAI_DEBOUNCE_MS;
 
 interface FiltreRechercheProps extends Omit<
   React.InputHTMLAttributes<HTMLInputElement>,

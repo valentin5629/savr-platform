@@ -8,6 +8,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
 import { ROUTES } from '@/lib/routes';
+import { Button } from '@/components/ui/button';
 
 interface TopBarProps {
   title?: string;
@@ -83,17 +84,18 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
             </Text>
           )}
 
-          <button
+          <Button
+            variant="ghost"
             onClick={() => void handleLogout()}
             disabled={loggingOut}
-            className="flex h-9 items-center gap-2 rounded-savr-md px-3 text-sm font-medium text-savr-neutral-600 hover:bg-savr-neutral-100 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 disabled:opacity-50"
+            className="h-9 px-3 font-medium text-savr-neutral-600 hover:bg-savr-neutral-100 sm:h-9 [&>svg]:h-5 [&>svg]:w-5"
             aria-label="Se déconnecter"
           >
             <LogOut className="h-5 w-5" aria-hidden="true" />
             <span className="hidden sm:inline">
               {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
             </span>
-          </button>
+          </Button>
         </div>
       </header>
     );

@@ -269,17 +269,11 @@ it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uni
   // sans rien signaler.
   const DETTE = [
     {
-      fichier: 'components/collecte/collecte-filtre-actif.tsx',
-      jeton: 'savr-primary-400',
-      occurrences: 1,
-      motif: 'nuance plus claire que le DS',
-    },
-    {
       fichier: 'components/dashboards/charts/cockpit/TopRankList.tsx',
       jeton: 'savr-primary-400',
       occurrences: 1,
       motif:
-        'idem — Cockpit R24, zone figée GO-VISUAL : ne pas toucher sans Val',
+        'nuance plus claire que le DS — Cockpit R24, zone figée GO-VISUAL : ne pas toucher sans Val',
     },
   ];
   // Jetons qui ne désignent pas une couleur (épaisseur, offset, neutralisation).

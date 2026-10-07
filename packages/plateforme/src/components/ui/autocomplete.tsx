@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { DELAI_DEBOUNCE_MS } from '@/lib/hooks/use-debounce';
 
 // Autocomplete §5.5 — champ de recherche + liste de suggestions résolue par un
 // `fetchOptions` fourni par l'appelant (autocomplétion traiteur/lieu de la liste
@@ -64,7 +65,7 @@ function Autocomplete({
         .finally(() => {
           if (active) setLoading(false);
         });
-    }, 250);
+    }, DELAI_DEBOUNCE_MS);
     return () => {
       active = false;
       clearTimeout(t);

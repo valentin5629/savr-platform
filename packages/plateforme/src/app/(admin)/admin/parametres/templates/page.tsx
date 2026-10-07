@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingState } from '@/components/ui/loading-state';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { ChoiceCard } from '@/components/ui/choice-card';
 
 interface EmailTemplate {
   id: string;
@@ -57,12 +58,13 @@ export default function TemplatesEmailPage() {
             <ul className="divide-y divide-savr-neutral-100">
               {templates.map((t) => (
                 <li key={t.id}>
-                  <button
+                  <ChoiceCard
+                    selected={t.id === selectedId}
                     onClick={() => setSelectedId(t.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-savr-md transition-colors ${
+                    className={`w-full border-transparent px-3 py-2.5 ${
                       t.id === selectedId
-                        ? 'bg-savr-primary-50'
-                        : 'hover:bg-savr-neutral-50'
+                        ? ''
+                        : 'hover:border-transparent hover:bg-savr-neutral-50'
                     }`}
                   >
                     <Text as="div" variant="hint" className="font-mono">
@@ -71,7 +73,7 @@ export default function TemplatesEmailPage() {
                     <Text as="div" tone="strong" className="truncate">
                       {t.sujet}
                     </Text>
-                  </button>
+                  </ChoiceCard>
                 </li>
               ))}
             </ul>

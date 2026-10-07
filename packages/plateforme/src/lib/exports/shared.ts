@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import type { AnyRole } from '@/lib/api-auth.js';
 import { ROLES_STAFF } from '@/lib/roles';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Entités exportables (transverse D, §12 §2) + matrice d'autorisation par rôle.
@@ -181,6 +182,47 @@ export async function resolveRepas(
     }),
   );
   return out;
+}
+
+/** Réponse d'une tranche : lignes, erreur et total exact de la requête. */
+interface Tranche {
+  data: unknown[] | null;
+  error: unknown;
+  count: number | null;
+}
+
+// Lignes demandées par tranche. PostgREST plafonne de son côté (`max_rows` :
+// 1 000 en local et sur savr-dev, mesuré le 2026-10-07 ; prod non mesurée) :
+// la boucle avance du nombre de lignes REÇUES, elle ne suppose pas que la
+// tranche est servie entière.
+const TRANCHE = 1000;
+
+/**
+ * Lit TOUTES les lignes d'une requête, tranche par tranche. Une lecture unique
+ * s'arrête au plafond PostgREST sans le dire : le fichier sortirait tronqué.
+ * `requete` reconstruit la requête à chaque tranche — filtrée, triée sur une clé
+ * unique, demandée avec `count: 'exact'`. Le total annoncé borne la boucle ;
+ * sans total, l'export échoue plutôt que de rendre un fichier incomplet.
+ */
+export async function lireParTranches<T>(
+  requete: () => { range(from: number, to: number): PromiseLike<Tranche> },
+): Promise<T[]> {
+  const lignes: unknown[] = [];
+  for (;;) {
+    const { data, error, count } = await requete().range(
+      lignes.length,
+      lignes.length + TRANCHE - 1,
+    );
+    if (error) throw erreurInterne(error, 'exports.builders');
+    if (count == null)
+      throw erreurInterne(
+        new Error('export par tranches : total absent de la réponse'),
+        'exports.builders',
+      );
+    const lot = data ?? [];
+    lignes.push(...lot);
+    if (lot.length === 0 || lignes.length >= count) return lignes as T[];
+  }
 }
 
 /** Somme des poids réels (kg) des flux d'une collecte (tonnage ZD). */

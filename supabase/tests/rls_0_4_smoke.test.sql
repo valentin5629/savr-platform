@@ -124,6 +124,12 @@ VALUES
   ('ffff0001-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'bdr/test.pdf', 1024, 'application/pdf', 'plateforme.bordereaux_savr', 'bbbb0001-0000-0000-0000-000000000001'::uuid),
   ('ffff0002-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'photos/test.jpg', 2048, 'image/jpeg', 'plateforme.collectes', 'cccc0002-0000-0000-0000-000000000001'::uuid);
 
+-- Fichier de collecte CHOISI par l'équipe Savr (rang_client) : depuis
+-- 20261007203000 un client ne lit, parmi les fichiers d'une collecte, que ceux
+-- qui ont été choisis. Sans ce rang, le refus inter-organisations T20 serait vrai
+-- pour la mauvaise raison (photo non choisie, invisible même de son propriétaire).
+UPDATE shared.fichiers SET rang_client = 1 WHERE id = 'ffff0002-0000-0000-0000-000000000001';
+
 -- Outbox event (seq auto bigserial — pas inséré manuellement)
 INSERT INTO plateforme.outbox_events (id, event_type, payload, aggregate_type, aggregate_id)
 VALUES ('0c0c0001-0000-0000-0000-000000000001'::uuid, 'collecte.creee', '{}', 'collecte', 'cccc0001-0000-0000-0000-000000000001'::uuid);

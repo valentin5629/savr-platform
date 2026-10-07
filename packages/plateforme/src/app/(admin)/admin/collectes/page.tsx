@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Truck,
   Plus,
+  Download,
   UtensilsCrossed,
   Leaf,
   ArrowRight,
@@ -378,16 +379,12 @@ export default function CollectesPage() {
     };
   }, []);
 
-  // URL de la liste (R-UI-4a : chargement, garde anti-réponse périmée et état
-  // Error portés par `useListePaginee`). `null` = croisement vide (ex. pastille
-  // Annulées + Statut Clôturée) : aucun appel, liste vide.
-  const urlListe = useMemo(() => {
-    const params = new URLSearchParams({ page: String(page) });
-    const tri = sorting[0];
-    if (tri) {
-      params.set('tri', tri.id);
-      params.set('ordre', tri.desc ? 'desc' : 'asc');
-    }
+  // Filtres de la liste, sans tri ni page : la liste ET l'export CSV partent
+  // des mêmes paramètres (§12 §2 « l'export respecte les filtres actifs »).
+  // `null` = croisement vide (ex. pastille Annulées + Statut Clôturée) : aucun
+  // appel, liste vide, rien à exporter.
+  const filtresListe = useMemo(() => {
+    const params = new URLSearchParams();
 
     // Pastille rapide ET filtres de la barre se cumulent (décision Val
     // 2026-09-30) : ce qui est affiché s'applique toujours. Sans filtre posé,
@@ -430,11 +427,9 @@ export default function CollectesPage() {
     if (infoIncomplete) params.set('info_incomplete', 'true');
     if (controleAcces) params.set('controle_acces', 'true');
     if (rapportNonConsulte) params.set('rapport_non_consulte', 'true');
-    return `/api/v1/admin/collectes?${params}`;
+    return params;
   }, [
     tab,
-    page,
-    sorting,
     quickFilter,
     type,
     statutsSel,
@@ -447,6 +442,19 @@ export default function CollectesPage() {
     controleAcces,
     rapportNonConsulte,
   ]);
+  // URL de la liste (R-UI-4a : chargement, garde anti-réponse périmée et état
+  // Error portés par `useListePaginee`) : page et tri, puis les filtres.
+  const urlListe = useMemo(() => {
+    if (!filtresListe) return null;
+    const params = new URLSearchParams({ page: String(page) });
+    const tri = sorting[0];
+    if (tri) {
+      params.set('tri', tri.id);
+      params.set('ordre', tri.desc ? 'desc' : 'asc');
+    }
+    for (const [cle, valeur] of filtresListe) params.append(cle, valeur);
+    return `/api/v1/admin/collectes?${params}`;
+  }, [filtresListe, page, sorting]);
   const {
     data: collectes,
     total,
@@ -571,12 +579,26 @@ export default function CollectesPage() {
         title="Collectes"
         subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
         actions={
-          <Button asChild variant="accent">
-            <Link href={ROUTES.programmer.nouveau}>
-              <Plus />
-              Programmer une collecte
-            </Link>
-          </Button>
+          // Le fichier porte toute la sélection de la liste : ses filtres, sans
+          // tri ni page (§12 §2).
+          <>
+            <Button
+              variant="secondary"
+              disabled={!filtresListe}
+              onClick={() =>
+                window.open(`/api/v1/exports/collectes?${filtresListe}`)
+              }
+            >
+              <Download />
+              Exporter CSV
+            </Button>
+            <Button asChild variant="accent">
+              <Link href={ROUTES.programmer.nouveau}>
+                <Plus />
+                Programmer une collecte
+              </Link>
+            </Button>
+          </>
         }
       />
 

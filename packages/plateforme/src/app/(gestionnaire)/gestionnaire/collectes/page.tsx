@@ -10,7 +10,8 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
   CelluleVide,
@@ -77,7 +78,7 @@ interface CollecteRow {
   dechets_labo_kg: number | null;
 }
 
-/** Options de la barre (route `/gestionnaire/filtres`, même source que le dashboard et la liste Événements). */
+/** Options de la barre (route `/gestionnaire/filtres`, même source que le dashboard). */
 interface OptionsFiltres {
   lieux: { id: string; nom: string }[];
   traiteurs: { id: string; nom: string }[];
@@ -255,7 +256,9 @@ function GestionnaireCollectesContent() {
   // et état Error portés par `useListePaginee`. Sans la garde `!r.ok`, un 500
   // rendait `data` absent → liste vide → « Aucune collecte sur vos lieux » :
   // une panne serveur se lisait comme un parc sans collecte (§10 §7).
-  const urlListe = useMemo(() => {
+  // Filtres de la liste, sans tri ni page : la liste ET l'export CSV partent de
+  // la même chaîne, le fichier contient donc les lignes de la liste (§12 §2).
+  const qsFiltres = useMemo(() => {
     const qs = new URLSearchParams();
     if (f.lieu.length > 0) qs.set('lieu_ids', f.lieu.join(','));
     if (f.traiteur.length > 0) qs.set('traiteur_ids', f.traiteur.join(','));
@@ -267,23 +270,15 @@ function GestionnaireCollectesContent() {
     // en CSV : l'appel est construit en `x[]` depuis l'état CSV.
     typeEvtIds.forEach((v) => qs.append('type_evenement_ids[]', v));
     tailles.forEach((v) => qs.append('taille_evenements[]', v));
+    return qs.toString();
+  }, [f.lieu, f.traiteur, f.type, f.statut, f.from, f.to, typeEvtIds, tailles]);
+  const urlListe = useMemo(() => {
+    const qs = new URLSearchParams(qsFiltres);
     qs.set('tri', f.tri);
     qs.set('ordre', f.ordre);
     if (page > 1) qs.set('page', String(page));
     return `/api/v1/gestionnaire/collectes?${qs}`;
-  }, [
-    f.lieu,
-    f.traiteur,
-    f.type,
-    f.statut,
-    f.from,
-    f.to,
-    f.tri,
-    f.ordre,
-    typeEvtIds,
-    tailles,
-    page,
-  ]);
+  }, [qsFiltres, f.tri, f.ordre, page]);
   const {
     data: rows,
     total,
@@ -388,7 +383,7 @@ function GestionnaireCollectesContent() {
 
   // Fiche collecte en pop-up (refonte Val 2026-09-29, pop-up client commun) :
   // ouverte depuis l'URL (?collecte=<id>[&edit=1]) → l'ancienne route [id], les
-  // emails, le détail événement et les dashboards rouvrent la fiche. `edit`
+  // emails et les dashboards rouvrent la fiche. `edit`
   // n'est jamais réécrit : un rechargement rouvre la fiche en lecture.
   function majUrlFiche(f: { id: string } | null) {
     const usp = new URLSearchParams(Array.from(params.entries()));
@@ -487,8 +482,7 @@ function GestionnaireCollectesContent() {
     },
     {
       // Déchets labo estimés (§05 R_dechets_labo_estimes, décisions Val
-      // 2026-10-07) : même libellé et même format que la colonne de la liste
-      // Événements, sur les collectes ZD seulement — la route ne rend aucune
+      // 2026-10-07) : sur les collectes ZD seulement — la route ne rend aucune
       // estimation pour une collecte AG. « — » = collecte AG, ou coefficient
       // non communiqué ; « 0 kg » = coefficient déclaré à zéro.
       id: 'dechets_labo',
@@ -576,6 +570,17 @@ function GestionnaireCollectesContent() {
         icon={<ClipboardList className="h-6 w-6 text-savr-primary-200" />}
         title="Collectes"
         subtitle="Collectes sur les lieux de votre organisation · cliquez une ligne pour ouvrir la fiche"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() =>
+              window.open(`/api/v1/exports/collectes?${qsFiltres}`)
+            }
+          >
+            <Download />
+            Exporter CSV
+          </Button>
+        }
       />
 
       {/* Filtre actif à l'arrivée d'un drill-down (§06.05 l.215) : nomme la

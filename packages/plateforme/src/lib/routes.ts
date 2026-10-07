@@ -177,8 +177,6 @@ export const ROUTES = {
 
   gestionnaire: {
     racine: G,
-    evenements: `${G}/evenements`,
-    evenement: (id: string) => `${G}/evenements/${id}`,
     lieux: `${G}/lieux`,
     lieu: (id: string) => `${G}/lieux/${id}`,
     collectes: `${G}/collectes`,

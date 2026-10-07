@@ -5,7 +5,7 @@ import { ROUTES } from '@/lib/routes';
 // format que le traiteur — refonte Val 2026-09-29) sur la liste
 // /gestionnaire/collectes. Cette route ne rend plus de page : elle redirige vers la
 // liste avec la fiche ouverte (?collecte=<id>) pour préserver les liens profonds
-// (emails, dashboards, détail événement, favoris).
+// (emails, dashboards, favoris).
 export default async function FicheCollecteGestionnaireRedirect({
   params,
   searchParams,

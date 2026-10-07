@@ -17,9 +17,8 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 import { statutEvenementConsolide } from '@/lib/libelles/evenement.js';
 
 // Export Événements — grain ÉVÉNEMENT (1 ligne = 1 événement, données agrégées).
-// Colonnes FIGÉES par §12 §2. Module partagé entre l'endpoint unifié (tous rôles
-// autorisés, scopés par RLS) et la route dédiée gestionnaire (périmètre
-// organisations_lieux explicite, défense en profondeur).
+// Colonnes FIGÉES par §12 §2. Servi par l'endpoint unifié (tous rôles autorisés,
+// scopés par RLS).
 
 export const EVENEMENTS_SELECT = `id, nom_evenement, date_evenement, pax,
   traiteur_operationnel_organisation_id,

@@ -486,9 +486,16 @@ describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () =>
     // e0 : estimation ; e1 : coefficient non communiqué ; e2 : déclaré à zéro.
     estimations({ e0: 95.76, e2: 0 });
     const res = await appel();
-    const { data } = (await res.json()) as {
+    const corps = await res.text();
+    const { data } = JSON.parse(corps) as {
       data: { id: string; dechets_labo_kg: number | null }[];
     };
+
+    // Confidentialité (§05 R_dechets_labo_estimes) : la route ne lit QUE
+    // `collectes` — jamais la table des coefficients, que la RLS lui refuse de
+    // toute façon — et rien dans la réponse ne porte un coefficient.
+    expect((rls.__calls.from ?? []).map((a) => a[0])).toEqual(['collectes']);
+    expect(corps).not.toMatch(/coefficient/i);
 
     // Un appel par événement DISTINCT de la page : l'événement aux deux
     // collectes n'est calculé qu'une fois, et seuls les événements que la

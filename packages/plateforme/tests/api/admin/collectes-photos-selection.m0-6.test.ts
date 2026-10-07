@@ -339,6 +339,40 @@ describe('M0.6 — PATCH admin/collectes/[id]/photos/[photoId] : photo visible d
     expect(audits).toEqual([]);
   });
 
+  it('deux choix simultanés alors qu’il reste une place : le second prend l’autre place, il n’est pas refusé à tort', async () => {
+    // Aucune photo choisie. Les deux sessions lisent « place 1 libre » ; l'autre
+    // écrit la première. La route relit les places et prend la 2.
+    let dejaJoue = false;
+    avantEcriture = () => {
+      if (dejaJoue) return;
+      dejaJoue = true;
+      fichiers[1]!['rang_client'] = 1;
+    };
+
+    const res = await choisir(P3, { visible_client: true });
+
+    expect(res.status).toBe(200);
+    expect(rangDe(P2)).toBe(1);
+    expect(rangDe(P3)).toBe(2);
+    expect(audits).toHaveLength(1);
+  });
+
+  it('les deux places sont prises pendant la demande : 422, rien n’est écrit pour cette photo', async () => {
+    let passage = 0;
+    avantEcriture = () => {
+      passage += 1;
+      if (passage === 1) fichiers[0]!['rang_client'] = 1;
+      if (passage === 2) fichiers[1]!['rang_client'] = 2;
+    };
+
+    const res = await choisir(P3, { visible_client: true });
+
+    expect(res.status).toBe(422);
+    expect(rangDe(P3)).toBeNull();
+    expect(choisies()).toHaveLength(2);
+    expect(audits).toEqual([]);
+  });
+
   it('demande sans effet (photo déjà dans l’état voulu) : 200, aucune écriture, aucun audit', async () => {
     fichiers[0]!['rang_client'] = 2;
 

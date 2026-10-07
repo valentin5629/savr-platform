@@ -27,6 +27,9 @@
 --      concurrentes ne peuvent donc pas dépasser 2 (la seconde reçoit 23505).
 --   3. Le CHECK réserve aussi `rang_client` aux fichiers de collecte : la colonne
 --      n'a pas de sens pour un bordereau, un rapport ou un logo.
+--      Une photo supprimée (deleted_at) garde son rang mais sort de l'index :
+--      sa place est libre, et elle ne peut être restaurée que si son rang l'est
+--      resté. Un futur code de suppression de photo devrait vider rang_client.
 --   4. La policy de lecture devient PLUS RESTRICTIVE pour les rôles clients :
 --      une ligne de collecte n'est rendue que si `rang_client` est renseigné.
 --      Les autres entity_type ne changent pas. L'équipe Savr (f_is_staff) lit
@@ -78,7 +81,10 @@ ALTER POLICY fichiers_select ON shared.fichiers
   );
 
 -- RETOUR ARRIÈRE (rouvrirait aux clients les photos non choisies : décision
--- explicite de Val, CLAUDE.md §12-2bis) : remettre le prédicat d'origine de
--- fichiers_select (20260611180000, sans la condition sur rang_client), retirer
--- l'index uniq_fichiers_photo_client_rang et la contrainte
--- fichiers_rang_client_check, puis retirer la colonne rang_client.
+-- explicite de Val, CLAUDE.md §12-2bis). Redéployer D'ABORD le code précédent
+-- (le code de ce lot lit et écrit rang_client), puis, dans cet ordre : remettre
+-- le prédicat d'origine de fichiers_select (20260611180000, sans la condition sur
+-- rang_client — la policy dépend de la colonne, elle doit être remise avant),
+-- retirer l'index uniq_fichiers_photo_client_rang et la contrainte
+-- fichiers_rang_client_check, puis retirer la colonne rang_client. Les choix déjà
+-- faits par l'équipe Savr sont alors perdus.

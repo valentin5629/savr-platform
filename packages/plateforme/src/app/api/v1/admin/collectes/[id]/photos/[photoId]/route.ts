@@ -75,33 +75,42 @@ async function patchHandler(
     });
   }
 
-  let rang: RangClient | null = null;
-  if (visible) {
-    try {
-      rang = await rangClientLibre(supabase, id);
-    } catch (e) {
-      return serverError(e, 'admin.collectes.photos.selection.rang');
+  // Choisir : on vise la première place libre. Entre la lecture de cette place
+  // et l'écriture, un autre choix peut la prendre : la base n'en garde qu'un
+  // (index unique) et répond 23505. On relit alors UNE fois les places libres,
+  // car la seconde peut l'être encore. Retirer : rang vide, un seul essai.
+  const ESSAIS = visible ? 2 : 1;
+  let ecrit = false;
+  for (let essai = 1; essai <= ESSAIS && !ecrit; essai++) {
+    let rang: RangClient | null = null;
+    if (visible) {
+      try {
+        rang = await rangClientLibre(supabase, id);
+      } catch (e) {
+        return serverError(e, 'admin.collectes.photos.selection.rang');
+      }
+      if (rang === null) return limiteAtteinte();
     }
-    if (rang === null) return limiteAtteinte();
-  }
 
-  const { data: maj, error: majErr } = await supabase
-    .schema('shared')
-    .from('fichiers')
-    .update({ rang_client: rang })
-    .eq('id', photoId)
-    .eq('entity_type', ENTITE_PHOTO_COLLECTE)
-    .eq('entity_id', id)
-    .is('deleted_at', null)
-    .select('id')
-    .maybeSingle();
-  // Deux sélections simultanées ont visé la même place : la base n'en garde
-  // qu'une (index unique), l'autre reçoit le même message que la limite.
-  if (majErr?.code === CODE_RANG_DEJA_PRIS) return limiteAtteinte();
-  if (majErr) {
-    return serverError(majErr, 'admin.collectes.photos.selection.ecriture');
+    const { data: maj, error: majErr } = await supabase
+      .schema('shared')
+      .from('fichiers')
+      .update({ rang_client: rang })
+      .eq('id', photoId)
+      .eq('entity_type', ENTITE_PHOTO_COLLECTE)
+      .eq('entity_id', id)
+      .is('deleted_at', null)
+      .select('id')
+      .maybeSingle();
+    if (majErr?.code === CODE_RANG_DEJA_PRIS) continue;
+    if (majErr) {
+      return serverError(majErr, 'admin.collectes.photos.selection.ecriture');
+    }
+    if (!maj) return introuvable();
+    ecrit = true;
   }
-  if (!maj) return introuvable();
+  // Les deux essais ont perdu la course : les places sont prises.
+  if (!ecrit) return limiteAtteinte();
 
   await supabase.from('audit_log').insert({
     table_name: 'collectes',

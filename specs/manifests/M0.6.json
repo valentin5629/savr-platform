@@ -461,6 +461,48 @@
       "category": "Back-office Admin — statut affiché (Créée / Programmée)",
       "title": "statut_admin_export_staff",
       "file": "packages/plateforme/tests/api/exports/exports.m4-1.test.ts"
+    },
+    {
+      "id": "dispatch_zd_choix_prestataire",
+      "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
+      "title": "dispatch_zd_choix_prestataire",
+      "file": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx"
+    },
+    {
+      "id": "dispatch_zd_sans_prestataire_refuse",
+      "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
+      "title": "dispatch_zd_sans_prestataire_refuse",
+      "file": "packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts"
+    },
+    {
+      "id": "dispatch_zd_envoyee_programmee",
+      "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
+      "title": "dispatch_zd_envoyee_programmee",
+      "file": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx"
+    },
+    {
+      "id": "dispatch_zd_changement_motif",
+      "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
+      "title": "dispatch_zd_changement_motif",
+      "file": "packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts"
+    },
+    {
+      "id": "dispatch_zd_a_toutes_refuse",
+      "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
+      "title": "dispatch_zd_a_toutes_refuse",
+      "file": "packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts"
+    },
+    {
+      "id": "dispatch_zd_commande_en_cours",
+      "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
+      "title": "dispatch_zd_commande_en_cours",
+      "file": "packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts"
+    },
+    {
+      "id": "dispatch_zd_prestataire_unique_preselectionne",
+      "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
+      "title": "dispatch_zd_prestataire_unique_preselectionne",
+      "file": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx"
     }
   ],
   "coverage": {
@@ -1434,10 +1476,10 @@
     {
       "id": "M0.6-bloc-dispatch-ordre-en-file-envoi",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:260",
-      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (état dérivé ordreEnFileEnvoi : AG programmee/validee + prestataire_logistique_id posé chez un adapter mts1/a_toutes + tms_reference NULL + statut_tms non_envoye → badge « Envoyée » en en-tête et ligne Statut TMS, encart « Collecte envoyée à … », cartes + bouton d'envoi masqués, action secondaire « Changer de prestataire » (titre « Changer de prestataire », « Renvoyer à … » si même prestataire, « Garder le prestataire actuel », focus clavier géré) ; ZD, transporteurs manuels et sans pont exclus), packages/plateforme/src/lib/type-tms-labels.ts (libelleCanalEnvoi)",
-      "test": "AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au prestataire, ni carte ni bouton d’envoi + AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer + AG en file d’envoi : envoyer chez un autre prestataire (motif override) POST le dispatch, puis le mode « changer » se referme + ZD avec prestataire et sans référence (fixture seed col_dispatch_non_envoye) : pas « envoyée » — rien ne pose de prestataire sur une ZD en V1, aucun ordre en file + pas d’état « en file d’envoi »",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (état dérivé ordreEnFileEnvoi : collecte AG ou ZD programmee/validee + prestataire_logistique_id posé chez un adapter mts1/a_toutes + tms_reference NULL + statut_tms non_envoye → badge « Envoyée » en en-tête et ligne Statut TMS, encart « Collecte envoyée à … », cartes + bouton d'envoi masqués, action secondaire « Changer de prestataire » (titre « Changer de prestataire », « Renvoyer à … » si même prestataire, « Garder le prestataire actuel », focus clavier géré) ; transporteurs manuels et sans pont exclus ; ZD comprise depuis le choix du prestataire par l'Admin, 2026-10-07), packages/plateforme/src/lib/type-tms-labels.ts (libelleCanalEnvoi)",
+      "test": "AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au prestataire, ni carte ni bouton d’envoi + AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer + AG en file d’envoi : envoyer chez un autre prestataire (motif override) POST le dispatch, puis le mode « changer » se referme + M0.6/dispatch_zd_envoyee_programmee + pas d’état « en file d’envoi »",
       "statut": "implemented",
-      "libelle": "Bloc 0 « Prestataire & Dispatch » en lecture tant que l'ordre est en file d'envoi (décision Val 2026-10-02, option C1, _Divergences/M0.6_20261002_bloc-dispatch-ordre-en-file-envoi) : entre « Valider et envoyer » et le passage du worker outbox (15 min), la fiche AG dit la collecte envoyée au prestataire au lieu de réafficher « Prestataire à attribuer » + « Envoyer à MTS-1 ». Gardes = celles du worker (prestataire_logistique_id posé, programmee/validee). ZD exclue (aucun chemin V1 ne pose de prestataire sur une ZD — fait mesuré, revue principale 2026-10-02) ; transporteurs manuels exclus ; acceptation manuelle A Toutes! conservée. La fiche ne lit pas outbox_events (DLQ invisible, filet = carte « non transmises » + alerte Slack). Présentationnel : GO visuel Val 2026-10-02 (« ok on cloture », PR #479 mergée 357f4199 — écran « Marathon · Envoyée » + encart vérifiés sur le serveur local de la branche)."
+      "libelle": "Bloc 0 « Prestataire & Dispatch » en lecture tant que l'ordre est en file d'envoi (décision Val 2026-10-02, option C1, _Divergences/M0.6_20261002_bloc-dispatch-ordre-en-file-envoi) : entre « Valider et envoyer » et le passage du worker outbox (15 min), la fiche AG dit la collecte envoyée au prestataire au lieu de réafficher « Prestataire à attribuer » + « Envoyer à MTS-1 ». Gardes = celles du worker (prestataire_logistique_id posé, programmee/validee). ZD comprise depuis que l'Admin y choisit le prestataire (décision Val 2026-10-07, livrable M0.6-dispatch-zd-choix-prestataire) ; transporteurs manuels exclus ; acceptation manuelle A Toutes! conservée. La fiche ne lit pas outbox_events (DLQ invisible, filet = carte « non transmises » + alerte Slack). Présentationnel : GO visuel Val 2026-10-02 (« ok on cloture », PR #479 mergée 357f4199 — écran « Marathon · Envoyée » + encart vérifiés sur le serveur local de la branche)."
     },
     {
       "id": "M0.6-bloc-chauffeur-onglet-logistique",
@@ -1454,6 +1496,14 @@
       "test": "M0.6/statut_admin_creee_avant_envoi + M0.6/statut_admin_programmee_apres_envoi + M0.6/statut_admin_programmee_transporteur_manuel + M0.6/statut_admin_frise_six_etapes + M0.6/statut_admin_filtre_creee_programmee + M0.6/statut_admin_brouillon_absent + M0.6/statut_admin_export_staff",
       "statut": "à-vérifier",
       "libelle": "Statut de collecte affiché côté Admin (décision Val 2026-10-07, _Divergences/M0.6_20261007_statuts-admin-creee-programmee) : le statut DB programmee se lit « Créée » tant que la demande n'est pas partie vers le prestataire logistique (le traiteur a validé sa programmation), « Programmée » dès qu'elle est partie — au clic de l'Admin, sans attendre la transmission, transporteurs manuels compris. Affichage dérivé : ni l'enum ni la machine à états §05 ne changent ; la vue client garde « Créée ». Frise de la fiche à 6 étapes, filtre « Statut » de la liste et export CSV staff alignés ; un brouillon n'apparaît dans aucune liste Admin ni au menu de forçage. Le badge d'action « À attribuer » de la liste (AG sans attribution) est conservé. Présentationnel (badges, frise, filtre, menu de forçage) : à-vérifier jusqu'au GO visuel de Val."
+    },
+    {
+      "id": "M0.6-dispatch-zd-choix-prestataire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:259",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (Bloc 0 d'une ZD : cartes de choix du prestataire sans recommandation, présélection seulement quand un seul transporteur est proposable, limitées aux transporteurs reliés à un prestataire, hors A Toutes!, et, si types_collecte est renseigné, prenant les ZD ; choix offert seulement sur une collecte programmee ou rejetée par son prestataire, jamais sur une commande en cours (référence reçue, non rejetée) ; bouton d'envoi inactif tant qu'aucun prestataire n'est choisi ni posé ; motif demandé seulement pour changer un prestataire déjà posé ; état « ordre en file d'envoi » étendu à la ZD), packages/plateforme/src/app/api/v1/admin/collectes/[id]/dispatch/route.ts (ZD sans prestataire choisi ni posé : 422 avant toute RPC ; premier choix d'un prestataire ZD = pas un override, sans motif, ouvert à ops ; changement d'un prestataire posé = motif ≥ 5 car., admin seul ; prestataire choisi validé côté serveur — inconnu, inactif ou A Toutes! : 422 ; statut hors programmee / rejetee_par_prestataire ou commande en cours : 409)",
+      "test": "M0.6/dispatch_zd_choix_prestataire + M0.6/dispatch_zd_sans_prestataire_refuse + M0.6/dispatch_zd_envoyee_programmee + M0.6/dispatch_zd_changement_motif + M0.6/dispatch_zd_a_toutes_refuse + M0.6/dispatch_zd_commande_en_cours + M0.6/dispatch_zd_prestataire_unique_preselectionne",
+      "statut": "à-vérifier",
+      "libelle": "Dispatch d'une collecte ZD par l'Admin (décision Val 2026-10-07, option C1, _Divergences/M0.6_20261007_dispatch-zd-choix-prestataire) : l'Admin choisit le prestataire sur la fiche ZD, comme pour l'AG, puis envoie. Avant, rien ne posait de prestataire sur une ZD (la règle « prestataire fixe par lieu/zone » du CDC n'a jamais été codée) : « Envoyer » émettait un ordre sans destinataire et la collecte restait non transmise. Après l'envoi : badge « Envoyée », bloc en lecture, frise à « Programmée ». Présentationnel pour sa partie fiche : à-vérifier jusqu'au GO visuel de Val."
     }
   ],
   "cdc_source_hash": {

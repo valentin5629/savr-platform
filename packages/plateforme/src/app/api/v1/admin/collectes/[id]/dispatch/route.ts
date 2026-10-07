@@ -11,6 +11,64 @@ const STATUTS_TERMINAUX = [
   'realisee_sans_collecte',
 ];
 
+// ZD — l'Admin choisit (ou change) le prestataire sur la fiche (décision Val
+// 2026-10-07). Refus rendus ici, `null` si le choix est recevable.
+async function refusChoixPrestataireZd(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+  c: { statut: string; statut_tms: string; tms_reference: string | null },
+  prestataireId: string,
+): Promise<NextResponse | null> {
+  // On n'attribue qu'une collecte à dispatcher (`programmee`) ou rejetée par
+  // son prestataire (réattribution) : pas une collecte en cours d'annulation.
+  if (!['programmee', 'rejetee_par_prestataire'].includes(c.statut)) {
+    return NextResponse.json(
+      {
+        error: `Impossible de choisir un prestataire pour une collecte au statut '${c.statut}'`,
+      },
+      { status: 409 },
+    );
+  }
+  // Commande vivante chez le prestataire actuel : le dispatch n'émettrait
+  // qu'une modification de cette commande, sans la transférer — la fiche
+  // afficherait le nouveau prestataire et c'est l'ancien qui viendrait.
+  if (c.tms_reference && c.statut_tms !== 'rejetee_par_prestataire') {
+    return NextResponse.json(
+      {
+        error:
+          'Cette collecte est déjà commandée chez son prestataire : le changement de prestataire n’est pas possible tant que la commande est en cours.',
+      },
+      { status: 409 },
+    );
+  }
+  const { data: transporteur, error } = await supabase
+    .from('transporteurs')
+    .select('type_tms, actif')
+    .eq('prestataire_logistique_id', prestataireId)
+    .maybeSingle();
+  if (error) {
+    return serverError(error, 'admin.collectes.dispatch.transporteur');
+  }
+  const t = transporteur as { type_tms: string; actif: boolean } | null;
+  if (!t?.actif) {
+    return NextResponse.json(
+      { error: 'Prestataire inconnu ou inactif dans le référentiel' },
+      { status: 422 },
+    );
+  }
+  // A Toutes! (vélo cargo) : son envoi exige l'association destinataire d'une
+  // collecte Anti-Gaspi. Sur une ZD l'ordre finirait en échec définitif et
+  // bloquerait tous les envois suivants de la collecte.
+  if (t.type_tms === 'a_toutes') {
+    return NextResponse.json(
+      {
+        error: 'A Toutes! ne prend pas en charge les collectes Zéro Déchet',
+      },
+      { status: 422 },
+    );
+  }
+  return null;
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -84,12 +142,44 @@ export async function POST(
     }
   }
 
+  // ZD : l'Admin choisit le prestataire sur la fiche (décision Val 2026-10-07).
+  // Sans prestataire — ni choisi ici, ni déjà posé — l'ordre partirait vers
+  // personne : le worker le classerait « rien à envoyer » et la collecte
+  // resterait non transmise sans que rien ne le dise.
+  if (
+    c.type === 'zero_dechet' &&
+    !prestataire_logistique_id &&
+    !c.prestataire_logistique_id
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Choisissez d'abord le prestataire logistique : sans lui, la collecte ne peut pas être transmise.",
+      },
+      { status: 422 },
+    );
+  }
+
+  if (
+    c.type === 'zero_dechet' &&
+    typeof prestataire_logistique_id === 'string' &&
+    prestataire_logistique_id !== c.prestataire_logistique_id
+  ) {
+    const refus = await refusChoixPrestataireZd(
+      supabase,
+      c,
+      prestataire_logistique_id,
+    );
+    if (refus) return refus;
+  }
+
   // Détermination de l'override (§06.06 §3 Bloc 0) :
   //  - AG : override = prestataire choisi ≠ TOP 1 de l'algo (CDC : « Motif override
   //    obligatoire si choix ≠ top 1 algo » ; motif NULL sinon). Le top-1 est calculé
   //    côté serveur (source de vérité, jamais fourni par le client). Algo indisponible
   //    ou aucune reco → pas de baseline → pas de motif requis.
-  //  - autres (ZD legacy) : override = prestataire choisi ≠ prestataire actuel.
+  //  - ZD : pas de reco algo. Le premier choix est libre ; override = CHANGER un
+  //    prestataire déjà posé.
   let isOverride = false;
   if (prestataire_logistique_id) {
     if (c.type === 'anti_gaspi') {
@@ -112,7 +202,9 @@ export async function POST(
       isOverride =
         top1PrestaId != null && prestataire_logistique_id !== top1PrestaId;
     } else {
-      isOverride = prestataire_logistique_id !== c.prestataire_logistique_id;
+      isOverride =
+        c.prestataire_logistique_id != null &&
+        prestataire_logistique_id !== c.prestataire_logistique_id;
     }
   }
 
@@ -131,7 +223,9 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "motif_override_prestataire obligatoire (≥ 5 caractères) lorsqu'on choisit un prestataire ≠ recommandation algo (top 1)",
+            c.type === 'anti_gaspi'
+              ? "motif_override_prestataire obligatoire (≥ 5 caractères) lorsqu'on choisit un prestataire ≠ recommandation algo (top 1)"
+              : 'motif_override_prestataire obligatoire (≥ 5 caractères) pour changer le prestataire déjà attribué',
         },
         { status: 422 },
       );

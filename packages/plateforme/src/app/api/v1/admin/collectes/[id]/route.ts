@@ -202,6 +202,15 @@ async function patchHandler(
   // (≥ 10 car., §07/06 pt2). Les éditions de routine (date, notes, camions…)
   // restent une simple action 'UPDATE' sans motif.
   const forceStatut = 'statut' in updates;
+  // Jamais vers `brouillon` : un brouillon n'apparaît dans aucune liste Admin
+  // (décision Val 2026-10-07) et redevient supprimable par son programmeur
+  // (policy `col_delete_brouillon`) — la collecte sortirait du back-office.
+  if (updates.statut === 'brouillon') {
+    return NextResponse.json(
+      { error: 'Une collecte ne peut pas être remise en brouillon' },
+      { status: 422 },
+    );
+  }
   const motif = typeof body.motif === 'string' ? body.motif.trim() : '';
   if (forceStatut && motif.length < 10) {
     return NextResponse.json(

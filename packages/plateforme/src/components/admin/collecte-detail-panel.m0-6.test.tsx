@@ -475,7 +475,8 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       await ouvrirOnglet('Logistique');
       expect(
         await screen.findByText(
-          /possible qu.au statut « Programmée »/,
+          // Une AG sans attribution s'affiche « Créée » (Val 2026-10-07).
+          /possible qu.au statut « Créée » — statut actuel : « Brouillon »/,
           undefined,
           ATTENTE_UI,
         ),
@@ -824,6 +825,57 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     ATTENTE_CAS_MS,
   );
 
+  // Statut affiché Admin (décision Val 2026-10-07) : « Créée » tant que la
+  // demande n'est pas partie, « Programmée » dès que l'Admin l'a envoyée — sans
+  // attendre le passage du worker (badge « Envoyée » ci-dessus).
+  function etapeCourante(): string | null {
+    return (
+      within(screen.getByRole('list', { name: 'Avancement de la collecte' }))
+        .getAllByRole('listitem')
+        .find((li) => li.getAttribute('aria-current') === 'step')
+        ?.textContent ?? null
+    );
+  }
+
+  it(
+    'M0.6/statut_admin_programmee_apres_envoi — AG en file d’envoi : frise à l’étape « Programmée »',
+    async () => {
+      mockFetchPrestataire(collecteEnFileMts1);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(etapeCourante()).toContain('Programmée');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/statut_admin_creee_avant_envoi — collecte validée par le traiteur, rien d’envoyé : frise à l’étape « Créée »',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteAg,
+        prestataire_logistique_id: null,
+        attributions_antgaspi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(etapeCourante()).toContain('Créée');
+      expect(
+        within(
+          screen.getByRole('list', { name: 'Avancement de la collecte' }),
+        ).getAllByRole('listitem'),
+      ).toHaveLength(6);
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer',
     async () => {
@@ -1086,6 +1138,16 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         // R-UI-5 F7 : champ obligatoire = astérisque (`FormField required`).
         within(dialog).getByRole('combobox', { name: 'Nouveau statut *' }),
       );
+      // M0.6/statut_admin_brouillon_absent — un brouillon n'apparaît pas côté
+      // Admin : on n'y force pas une collecte. Le statut DB `programmee`
+      // s'affiche « Créée » ou « Programmée » selon l'envoi (Val 2026-10-07).
+      const options = screen.getAllByRole('option');
+      expect(options.map((o) => o.getAttribute('data-value'))).not.toContain(
+        'brouillon',
+      );
+      expect(
+        options.find((o) => o.getAttribute('data-value') === 'programmee'),
+      ).toHaveTextContent('Créée / Programmée');
       fireEvent.click(
         screen
           .getAllByRole('option')

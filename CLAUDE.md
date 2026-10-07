@@ -199,6 +199,7 @@ Pour toute zone d'ombre non tranchée ici : **stop et demander**.
 | AG | Anti-Gaspi (don asso) | `collectes.type='anti_gaspi'` |
 | ZD | Zéro déchet (compost/métha) | `collectes.type='zero_dechet'` |
 | Réalisée sans collecte | AG sans invendus | `collectes.statut='realisee_sans_collecte'` |
+| Créée / Programmée (affichage Admin) | Les deux temps du statut DB `programmee` côté Admin : « Créée » = le traiteur a validé, rien n'est parti ; « Programmée » = la demande est partie vers le prestataire (clic Admin). Écrans client : toujours « Créée » (l'export CSV client garde ses libellés Admin, inchangés). Affichage dérivé, l'enum ne change pas (Val 2026-10-07) | `lib/statut-collecte-admin.ts` (`statutCollecteAdmin`) |
 | Pesée | Mesure poids invendus | (pesées, alim. adapter MTS-1 en V1) |
 | Tournée | Trajet logistique | `plateforme.tournees` (alim. adapter) |
 | Transporteur | Presta logistique (Strike/Marathon/A Toutes!) | `plateforme.transporteurs` |

@@ -367,8 +367,9 @@ it('M0.8-8 — Badge error applique fond error-subtle et texte error-strong', ()
 
 // ── StatusCollecte ──────────────────────────────────────────────────────────
 
-describe('M0.8-9 — StatusCollecte affiche les 5 statuts valides (programmee, validee, en_cours, realisee, cloturee)', () => {
+describe('M0.8-9 — StatusCollecte affiche les statuts du parcours Admin (creee, programmee, validee, en_cours, realisee, cloturee)', () => {
   const statuts = [
+    'creee',
     'programmee',
     'validee',
     'en_cours',

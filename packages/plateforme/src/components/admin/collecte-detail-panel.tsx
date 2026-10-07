@@ -70,6 +70,7 @@ import {
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
+import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import { FLUX_ZD } from '@/lib/libelles/flux';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import { estADispatcher } from '@/lib/collectes-chips';
@@ -129,9 +130,10 @@ interface RecoAlgo {
   no_prestataire: boolean;
 }
 
-// Les 9 valeurs de l'enum collectes.statut (forçage manuel RM-08).
+// Statuts DB proposés au forçage manuel (RM-08). `brouillon` n'y est pas : un
+// brouillon n'apparaît dans aucune liste Admin (décision Val 2026-10-07), y
+// forcer une collecte la ferait disparaître du back-office.
 const STATUTS_FORCABLES: StatutCollecteDb[] = [
-  'brouillon',
   'programmee',
   'validee',
   'en_cours',
@@ -1279,7 +1281,7 @@ export function CollecteDetailPanel({
               ]
             : []),
         ]}
-        statut={<CollecteStatutFrise statut={collecte.statut} />}
+        statut={<CollecteStatutFrise statut={statutCollecteAdmin(collecte)} />}
         statutLarge
       />
 
@@ -1479,8 +1481,9 @@ export function CollecteDetailPanel({
                   />
                   <AlertBar variant="warn">
                     L&apos;attribution (association, prestataire) n&apos;est
-                    possible qu&apos;au statut « Programmée » — statut actuel :
-                    « {statutCollecteDisplay(collecte.statut).label} ».
+                    possible qu&apos;au statut «{' '}
+                    {statutCollecteDisplay('creee', 'admin').label} » — statut
+                    actuel : « {statutCollecteDisplay(collecte.statut).label} ».
                   </AlertBar>
                 </Card>
               )}
@@ -2481,7 +2484,11 @@ export function CollecteDetailPanel({
         <Button
           variant="secondary"
           onClick={() => {
-            setForceStatutValue(collecte.statut);
+            // Statut courant pré-sélectionné, sauf s'il n'est pas proposé
+            // (brouillon ouvert par son adresse) : aucun choix par défaut.
+            setForceStatutValue(
+              STATUTS_FORCABLES.find((s) => s === collecte.statut) ?? '',
+            );
             setForceStatutMotif('');
             setForceStatutError(null);
             setForceStatutModal(true);
@@ -2549,9 +2556,14 @@ export function CollecteDetailPanel({
               value={forceStatutValue}
               onChange={setForceStatutValue}
               required
+              // Le forçage pose un statut DB : `programmee` s'affichera
+              // « Créée » ou « Programmée » selon que la demande est partie.
               options={STATUTS_FORCABLES.map((s) => ({
                 value: s,
-                label: statutCollecteDisplay(s, 'admin').label,
+                label:
+                  s === 'programmee'
+                    ? `${statutCollecteDisplay('creee', 'admin').label} / ${statutCollecteDisplay('programmee', 'admin').label}`
+                    : statutCollecteDisplay(s, 'admin').label,
               }))}
             />
           </FormField>

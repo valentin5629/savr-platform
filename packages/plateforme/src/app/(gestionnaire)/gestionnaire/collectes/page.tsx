@@ -71,8 +71,9 @@ interface CollecteRow {
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
   nb_repas_donnes: number | null;
-  // Estimation amont de l'ÉVÉNEMENT (couverts × coefficient du traiteur) :
-  // null = coefficient non communiqué, 0 = coefficient déclaré à zéro.
+  // Estimation amont de l'ÉVÉNEMENT (couverts × coefficient du traiteur), sur
+  // les collectes ZD seulement : null = collecte AG ou coefficient non
+  // communiqué, 0 = coefficient déclaré à zéro.
   dechets_labo_kg: number | null;
 }
 
@@ -485,10 +486,11 @@ function GestionnaireCollectesContent() {
       ),
     },
     {
-      // Déchets labo estimés (§05 R_dechets_labo_estimes, décision Val
+      // Déchets labo estimés (§05 R_dechets_labo_estimes, décisions Val
       // 2026-10-07) : même libellé et même format que la colonne de la liste
-      // Événements. Valeur de l'événement, répétée sur chacune de ses collectes.
-      // « — » = coefficient non communiqué ; « 0 kg » = déclaré à zéro.
+      // Événements, sur les collectes ZD seulement — la route ne rend aucune
+      // estimation pour une collecte AG. « — » = collecte AG, ou coefficient
+      // non communiqué ; « 0 kg » = coefficient déclaré à zéro.
       id: 'dechets_labo',
       header: 'Déchets labo est.',
       meta: { className: 'text-right tabular-nums' },

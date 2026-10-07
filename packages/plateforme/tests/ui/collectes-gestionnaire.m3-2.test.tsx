@@ -365,16 +365,18 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
   );
 
   it(
-    'M3.2/collectes_colonne_dechets_labo_estimes — kg de l’événement, « — » si non communiqué, « 0 kg » si déclaré à zéro',
+    'M3.2/collectes_colonne_dechets_labo_estimes — kg de l’événement, « — » sans estimation, « 0 kg » si déclaré à zéro',
     async () => {
       vi.stubGlobal(
         'fetch',
         vi.fn((url: string) =>
           repondre(url, {
             data: [
-              // 532 couverts × 0,18 kg/couvert, calculé par la route.
+              // Collecte ZD : 532 couverts × 0,18 kg/couvert, calculé par la
+              // route.
               { ...LIGNES[0], dechets_labo_kg: 95.76 },
-              // Coefficient non communiqué par le traiteur.
+              // Collecte AG : la route ne rend aucune estimation (décision Val
+              // 2026-10-07) — même rendu qu'un coefficient non communiqué.
               { ...LIGNES[1], dechets_labo_kg: null },
               // Coefficient déclaré à zéro : une valeur, pas une absence.
               {

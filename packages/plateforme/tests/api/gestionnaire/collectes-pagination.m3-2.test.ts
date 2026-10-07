@@ -447,10 +447,11 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
   });
 });
 
-// Colonne « Déchets labo est. » de la liste (décision Val 2026-10-07, §05
+// Colonne « Déchets labo est. » de la liste (décisions Val 2026-10-07, §05
 // R_dechets_labo_estimes). L'estimation est celle de l'ÉVÉNEMENT (couverts ×
 // coefficient annuel du traiteur) : la route la demande à la fonction
-// `f_dechets_labo_estimes`, qui ne rend que des kg.
+// `f_dechets_labo_estimes`, qui ne rend que des kg — pour les collectes ZÉRO
+// DÉCHET seulement (« la notion ne tient pas pour les collectes AG »).
 describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () => {
   /** Estimation rendue par événement ; absent de la table = non communiqué. */
   function estimations(parEvenement: Record<string, number | null>) {
@@ -467,7 +468,7 @@ describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () =>
       (a) => `${a[0]}(${(a[1] as { p_evenement_id: string }).p_evenement_id})`,
     );
 
-  it('M3.2/collectes_route_dechets_labo_par_evenement — une estimation par événement, partagée par ses collectes', async () => {
+  it('M3.2/collectes_route_dechets_labo_par_evenement — une estimation par événement, partagée par ses collectes ZD', async () => {
     const base = lignes(3);
     const zd = base[0]!;
     const autre = base[1]!;
@@ -475,8 +476,8 @@ describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () =>
     rls.__set({
       data: [
         zd,
-        // Collecte AG du MÊME événement que la ZD ci-dessus.
-        { ...zd, id: 'ag-e0', type: 'anti_gaspi' },
+        // Seconde collecte ZD du MÊME événement que la ligne ci-dessus.
+        { ...zd, id: 'zd-bis-e0' },
         autre,
         zero,
       ],
@@ -498,21 +499,53 @@ describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () =>
     expect(corps).not.toMatch(/coefficient/i);
 
     // Un appel par événement DISTINCT de la page : l'événement aux deux
-    // collectes n'est calculé qu'une fois, et seuls les événements que la
+    // collectes ZD n'est calculé qu'une fois, et seuls les événements que la
     // requête vient de rendre sont demandés.
     expect(appelsRpc()).toEqual([
       'f_dechets_labo_estimes(e0)',
       'f_dechets_labo_estimes(e1)',
       'f_dechets_labo_estimes(e2)',
     ]);
-    // Les deux collectes de e0 portent la même valeur ; « non communiqué »
+    // Les deux collectes ZD de e0 portent la même valeur ; « non communiqué »
     // reste null (l'écran affiche « — ») et ne se confond pas avec le zéro
     // déclaré, qui est une valeur.
     expect(data.map((c) => [c.id, c.dechets_labo_kg])).toEqual([
       ['c0', 95.76],
-      ['ag-e0', 95.76],
+      ['zd-bis-e0', 95.76],
       ['c1', null],
       ['c2', 0],
+    ]);
+  });
+
+  it('M3.2/collectes_route_dechets_labo_zd_seulement — aucune estimation, ni appel, pour une collecte anti-gaspi', async () => {
+    const base = lignes(2);
+    const zd = base[0]!;
+    const autre = base[1]!;
+    rls.__set({
+      data: [
+        zd,
+        // Collecte AG du MÊME événement que la ZD : l'événement a bien une
+        // estimation, mais elle ne s'affiche pas sur sa ligne anti-gaspi.
+        { ...zd, id: 'ag-e0', type: 'anti_gaspi' },
+        // Événement qui n'a QU'UNE collecte AG : la fonction n'est pas appelée.
+        { ...autre, id: 'ag-seule', type: 'anti_gaspi' },
+      ],
+      error: null,
+      count: 3,
+    });
+    // La fonction rendrait une valeur pour e1 si on la lui demandait : le
+    // `null` attendu ne peut donc venir que de la règle « ZD seulement ».
+    estimations({ e0: 95.76, e1: 40 });
+    const res = await appel();
+    const { data } = (await res.json()) as {
+      data: { id: string; dechets_labo_kg: number | null }[];
+    };
+
+    expect(appelsRpc()).toEqual(['f_dechets_labo_estimes(e0)']);
+    expect(data.map((c) => [c.id, c.dechets_labo_kg])).toEqual([
+      ['c0', 95.76],
+      ['ag-e0', null],
+      ['ag-seule', null],
     ]);
   });
 

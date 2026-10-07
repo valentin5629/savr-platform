@@ -64,6 +64,7 @@ function un<T>(v: UnOuListe<T>): T | null {
 
 // Ligne telle que PostgREST la rend (embeds à agréger avant de répondre).
 type LigneBrute = Record<string, unknown> & {
+  type: string;
   evenement_id: string | null;
   collecte_flux: { poids_reel_kg: number | null }[] | null;
   attributions_antgaspi: UnOuListe<{ volume_repas_realise: number | null }>;
@@ -243,20 +244,27 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const brutes = (data ?? []) as unknown as LigneBrute[];
 
   // Déchets labo estimés (§05 R_dechets_labo_estimes) — colonne de la liste,
-  // décision Val 2026-10-07. C'est une estimation de l'ÉVÉNEMENT (couverts ×
-  // coefficient annuel du traiteur opérationnel), pas de la collecte : deux
-  // collectes d'un même événement (ZD et AG) portent la même valeur, calculée
-  // une seule fois. Même fonction SECURITY DEFINER que la liste Événements du
-  // rôle : la session ne lit jamais `coefficients_perte_labo`, seuls les kg
-  // sortent. Elle n'est appelée que pour les événements de la page que la RLS
-  // vient de rendre, soit PAGE_SIZE appels au plus.
+  // décision Val 2026-10-07 : sur les collectes ZÉRO DÉCHET seulement (« la
+  // notion ne tient pas pour les collectes AG »). Une collecte anti-gaspi ne
+  // porte donc aucune estimation, et la fonction n'est pas appelée pour elle.
+  // C'est une estimation de l'ÉVÉNEMENT (couverts × coefficient annuel du
+  // traiteur opérationnel) : deux collectes ZD d'un même événement portent la
+  // même valeur, calculée une seule fois. Même fonction SECURITY DEFINER que la
+  // liste Événements du rôle : la session ne lit jamais
+  // `coefficients_perte_labo`, seuls les kg sortent. Elle n'est appelée que
+  // pour les événements de la page que la RLS vient de rendre, soit PAGE_SIZE
+  // appels au plus.
   // NULL = coefficient non communiqué → « — » à l'écran ; 0 = coefficient
   // déclaré à zéro, une vraie valeur. Un appel en échec vaut NULL lui aussi —
   // l'estimation est un complément, elle ne fait pas tomber la liste — mais il
   // est journalisé, sinon une panne se lirait « non communiqué » sans trace.
+  const porteEstimation = (c: LigneBrute) => c.type === 'zero_dechet';
   const evenementIds = [
     ...new Set(
-      brutes.map((c) => c.evenement_id).filter((id): id is string => !!id),
+      brutes
+        .filter(porteEstimation)
+        .map((c) => c.evenement_id)
+        .filter((id): id is string => !!id),
     ),
   ];
   const dechetsLabo = new Map(
@@ -305,9 +313,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       // gestionnaire sur une collecte d'un traiteur tiers (C-1), la vue rend le
       // volume des collectes de SES lieux. Même source que la fiche et l'export.
       nb_repas_donnes: un(attributions_antgaspi)?.volume_repas_realise ?? null,
-      dechets_labo_kg: c.evenement_id
-        ? (dechetsLabo.get(c.evenement_id) ?? null)
-        : null,
+      dechets_labo_kg:
+        porteEstimation(c) && c.evenement_id
+          ? (dechetsLabo.get(c.evenement_id) ?? null)
+          : null,
     };
   });
 

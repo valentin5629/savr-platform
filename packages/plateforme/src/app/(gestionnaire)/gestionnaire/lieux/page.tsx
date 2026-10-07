@@ -3,11 +3,13 @@
 import { ErrorState } from '@/components/ui/error-state';
 import { fmtInt, fmtKg } from '@/lib/format';
 import { useCallback, useEffect, useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { PageHero } from '@/components/ui/page-hero';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
+import { DemandeAjoutLieuModal } from '@/components/gestionnaire/demande-ajout-lieu-modal';
 import { FicheLieuModal } from '@/components/gestionnaire/fiche-lieu-modal';
 import { ROUTES } from '@/lib/routes';
 
@@ -47,6 +49,23 @@ export default function GestionnaireLieuxPage() {
   const fermerFiche = useCallback(() => {
     setLieuOuvert(null);
     window.history.replaceState(null, '', ROUTES.gestionnaire.lieux);
+  }, []);
+
+  // « Demander l'ajout d'un lieu » (§06.05 §3) : le rattachement reste fait par
+  // l'Admin Savr, le bouton dépose une demande dans sa file. Une demande ouverte
+  // à la fois par organisation : tant qu'elle n'est pas traitée, le bouton est
+  // neutralisé. État illisible = bouton proposé, la route refusera au besoin.
+  // La lecture du montage ne fait que neutraliser : arrivée après un envoi,
+  // elle ne doit pas rendre le bouton à une demande qui vient de partir.
+  const [ajoutOuvert, setAjoutOuvert] = useState(false);
+  const [ajoutEnCours, setAjoutEnCours] = useState(false);
+  useEffect(() => {
+    fetch('/api/v1/gestionnaire/lieux/demande-ajout')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { data?: { en_cours?: unknown } } | null) => {
+        if (j?.data?.en_cours === true) setAjoutEnCours(true);
+      })
+      .catch(() => undefined);
   }, []);
 
   const charger = useCallback(() => {
@@ -140,6 +159,30 @@ export default function GestionnaireLieuxPage() {
             ? undefined
             : `${rows.length} lieu${rows.length > 1 ? 'x' : ''} rattaché${rows.length > 1 ? 's' : ''} à votre organisation`
         }
+        actions={
+          <>
+            {ajoutEnCours && (
+              <span
+                id="demande-ajout-en-cours"
+                className="text-sm text-savr-primary-200"
+              >
+                Une demande d’ajout est en cours de traitement par l’équipe
+                Savr.
+              </span>
+            )}
+            <Button
+              variant="secondary"
+              disabled={ajoutEnCours}
+              aria-describedby={
+                ajoutEnCours ? 'demande-ajout-en-cours' : undefined
+              }
+              onClick={() => setAjoutOuvert(true)}
+            >
+              <Plus />
+              Demander l’ajout d’un lieu
+            </Button>
+          </>
+        }
       />
 
       <div className="rounded-savr-md border border-savr-neutral-200 bg-savr-white p-2 sm:p-4">
@@ -148,6 +191,13 @@ export default function GestionnaireLieuxPage() {
 
       {lieuOuvert && (
         <FicheLieuModal lieuId={lieuOuvert} onClose={fermerFiche} />
+      )}
+
+      {ajoutOuvert && (
+        <DemandeAjoutLieuModal
+          onClose={() => setAjoutOuvert(false)}
+          onDemandeEnCours={() => setAjoutEnCours(true)}
+        />
       )}
     </div>
   );

@@ -1,0 +1,10 @@
+<!-- @dsCard group="Affichage" height=200 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.Accordion,{type:'single',collapsible:true,defaultValue:'a',className:'max-w-xl'},
+  h(S.AccordionItem,{value:'a'},h(S.AccordionTrigger,null,'Comment est calculé le taux de recyclage ?'),h(S.AccordionContent,null,'Poids captés par filière / poids total collecté, sur la période filtrée.')),
+  h(S.AccordionItem,{value:'b'},h(S.AccordionTrigger,null,'Quand le bordereau est-il généré ?'),h(S.AccordionContent,null,'Dès réception de toutes les pesées du transporteur.')))
+);
+</script>

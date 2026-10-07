@@ -1,0 +1,10 @@
+<!-- @dsCard group="Formulaires" height=150 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex max-w-md flex-col gap-6'},
+  h(S.FormActions,{cancel:{label:'Annuler',onClick:()=>{}},submit:{label:'Enregistrer',onClick:()=>{}}}),
+  h(S.FormActions,{bordered:true,loading:true,loadingText:'Enregistrement…',cancel:{label:'Annuler',onClick:()=>{}},submit:{label:'Enregistrer',onClick:()=>{}}}))
+);
+</script>

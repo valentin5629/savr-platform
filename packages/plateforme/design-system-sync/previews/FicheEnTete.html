@@ -1,0 +1,11 @@
+<!-- @dsCard group="Fiches" height=200 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'max-w-3xl rounded-savr-lg border border-savr-neutral-200 bg-savr-white'},
+  h(S.FicheEnTete,{surtitre:h(React.Fragment,null,h(S.TypeCollecteBadge,{type:'zero_dechet',forme:'plein'}),h(S.EnTeteMention,null,'CMD-2026-0412')),
+    titre:'[Lieu A] — Soirée de gala',statutLarge:true,statut:h(S.CollecteStatutFrise,{statut:'en_cours'}),
+    infos:[{icon:S.CalendarIcon,texte:'Samedi 26 septembre 2026 · 23:30'},{icon:S.MapPin,texte:'[Adresse, 75008 Paris]'},{icon:S.UtensilsCrossed,texte:'[Traiteur A] · 250 pax'}]}))
+);
+</script>

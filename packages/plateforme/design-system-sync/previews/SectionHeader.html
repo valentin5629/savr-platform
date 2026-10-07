@@ -1,0 +1,10 @@
+<!-- @dsCard group="Fiches" height=230 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex max-w-md flex-col gap-5'},
+  h(S.SectionHeader,{icon:S.Leaf,title:'Flux et pesées',action:h(S.IconButton,{'aria-label':'Modifier',size:'sm'},h(S.Pencil))}),
+  h(S.SectionCard,{icon:S.Phone,title:'Contacts'},h(S.Text,{variant:'muted'},'Contenu du bloc : SectionCard = section bordée + SectionHeader niveau 3.')))
+);
+</script>

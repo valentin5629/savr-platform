@@ -1,0 +1,7 @@
+<!-- @dsCard group="Formulaires" height=100 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+function Demo(){ const [v,setV]=React.useState('08:00'); return h('div',{className:'flex items-center gap-4'},h('div',{className:'w-40'},h(S.TimePicker,{value:v,onChange:setV})),h('span',{className:'text-xs text-savr-neutral-500'},'Créneaux de 15 min, 00:00 → 23:45')); }
+ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>

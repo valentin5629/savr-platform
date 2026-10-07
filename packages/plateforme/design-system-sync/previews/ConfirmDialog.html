@@ -1,0 +1,12 @@
+<!-- @dsCard group="Feedback" height=420 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(function(){const [o,setO]=React.useState(true);return h('div',null,h(S.Button,{variant:'outline-destructive',onClick:()=>setO(true)},'Annuler la collecte'),
+  h(S.ConfirmDialog,{open:o,title:'Annuler la collecte ?',confirmLabel:'Annuler la collecte',cancelLabel:'Retour',
+    motif:{label:'Motif de l’annulation',minLength:10,placeholder:'10 caractères minimum'},
+    onConfirm:()=>setO(false),onCancel:()=>setO(false)},
+    'Une annulation à moins de 12 h débite un crédit du pack AG.'))})
+);
+</script>

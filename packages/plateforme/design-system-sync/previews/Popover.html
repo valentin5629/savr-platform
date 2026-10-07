@@ -1,0 +1,10 @@
+<!-- @dsCard group="Affichage" height=180 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.Popover,{defaultOpen:true,modal:false},
+  h(S.PopoverTrigger,{asChild:true},h(S.Button,{variant:'secondary'},'Détails de la pesée')),
+  h(S.PopoverContent,{align:'start',className:'w-64 text-sm'},h('p',{className:'font-semibold text-savr-neutral-900'},'Pesée du 16/10'),h('p',{className:'text-savr-neutral-600'},'Biodéchets 120 kg · Verre 64 kg · Emballages 28 kg')))
+);
+</script>

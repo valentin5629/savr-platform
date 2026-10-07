@@ -1,0 +1,8 @@
+<!-- @dsCard group="Métier" height=80 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex flex-wrap gap-2'},['programmee','validee','en_cours','realisee','cloturee','annulee'].map(s=>h(S.CollecteStatutBadge,{key:s,statut:s,vue:'client'})))
+);
+</script>

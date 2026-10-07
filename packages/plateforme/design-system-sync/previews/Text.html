@@ -1,0 +1,14 @@
+<!-- @dsCard group="Affichage" height=200 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex max-w-md flex-col gap-2'},
+  h(S.Text,{variant:'body'},'body — texte courant (sm, neutral-700)'),
+  h(S.Text,{variant:'muted'},'muted — description sous un titre (sm, neutral-500)'),
+  h(S.Text,{variant:'hint'},'hint — aide, métadonnée (xs, neutral-500)'),
+  h(S.Text,{variant:'faint'},'faint — horodatage, mention discrète (xs, neutral-400)'),
+  h(S.Text,{variant:'overline'},'overline — sur-titre'),
+  h(S.Text,{size:'3xs',tone:'muted'},'size="3xs" — 10 px (légendes de graphique)'))
+);
+</script>

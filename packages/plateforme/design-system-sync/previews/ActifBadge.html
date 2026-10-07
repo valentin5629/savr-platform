@@ -1,0 +1,8 @@
+<!-- @dsCard group="Métier" height=60 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex items-center gap-3'},h(S.ActifBadge,{actif:true}),h(S.ActifBadge,{actif:false}),h(S.ActifBadge,{actif:true,sujet:'association'}),h(S.ActifBadge,{actif:false,sujet:'association'}),h(S.Text,{as:'span',variant:'hint'},'Libellé unique « Inactif » (Q2) ; accord féminin pour les associations'))
+);
+</script>

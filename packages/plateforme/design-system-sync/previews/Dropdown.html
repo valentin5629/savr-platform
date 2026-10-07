@@ -1,0 +1,15 @@
+<!-- @dsCard group="Actions" height=240 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.Dropdown,{defaultOpen:true,modal:false},
+  h(S.DropdownTrigger,{asChild:true},h(S.Button,{variant:'secondary'},'Actions')),
+  h(S.DropdownContent,{align:'start'},
+    h(S.DropdownLabel,null,'Collecte'),
+    h(S.DropdownItem,null,'Modifier'),
+    h(S.DropdownItem,null,'Dupliquer'),
+    h(S.DropdownSeparator,null),
+    h(S.DropdownItem,null,'Annuler la collecte')))
+);
+</script>

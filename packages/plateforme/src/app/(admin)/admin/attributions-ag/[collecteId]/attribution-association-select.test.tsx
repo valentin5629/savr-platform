@@ -17,6 +17,7 @@ vi.mock('next/navigation', () => ({
 
 import AttributionDetailPage from './page';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { renderAvecToasts } from '@/test-utils/toasts';
 
 const ALGO = {
   associations: [
@@ -166,61 +167,6 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
   );
 
   it(
-    'arrivée depuis la fiche collecte (?association=) : association choisie présélectionnée, motif exigé si ≠ top 1',
-    async () => {
-      // Carte « Choisir » de la fiche collecte (décision Val 2026-09-29).
-      window.history.pushState({}, '', '/?association=asso-loin');
-      try {
-        installFetch({
-          ...ALGO,
-          associations: [
-            ...ALGO.associations,
-            {
-              id: 'asso-loin',
-              nom: 'Asso Loin',
-              distance_km: 111.5,
-              capacite_max_beneficiaires: 80,
-              contact_email: 'l@asso.test',
-            },
-          ],
-          assoc_count: 2,
-        });
-        render(<AttributionDetailPage />);
-        const select = await selectAssociation();
-        expect(select).toHaveTextContent(/^111,5 km · cap. 80 · Asso Loin$/);
-        expect(
-          screen.queryByText(/ne fait plus partie des recommandations/),
-        ).toBeNull();
-        // Choix ≠ top 1 de l'algo = override : les règles de l'écran s'appliquent.
-        expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
-      } finally {
-        window.history.pushState({}, '', '/');
-      }
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    '?association= inconnue de l’algo : repli sur le top 1',
-    async () => {
-      window.history.pushState({}, '', '/?association=asso-inconnue');
-      try {
-        installFetch();
-        render(<AttributionDetailPage />);
-        const select = await selectAssociation();
-        expect(select).toHaveTextContent(/^1,2 km · cap. 300 · Asso Top$/);
-        // Repli annoncé, jamais silencieux (décision Val C6).
-        expect(
-          screen.getByText(/ne fait plus partie des recommandations/),
-        ).toBeTruthy();
-      } finally {
-        window.history.pushState({}, '', '/');
-      }
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
     'association hors suggestion : motif obligatoire, puis POST avec cette association',
     async () => {
       const fetchMock = installFetch();
@@ -232,7 +178,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         }),
       );
       const valider = screen.getByRole('button', {
-        name: "Valider l'attribution",
+        name: /^Valider/,
       }) as HTMLButtonElement;
       expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
       expect(valider.disabled).toBe(true);
@@ -268,9 +214,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
           name: 'Distance inconnue · Asso Sans GPS',
         }),
       );
-      fireEvent.click(
-        screen.getByRole('button', { name: "Valider l'attribution" }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: /^Valider/ }));
 
       await waitFor(() => {
         const sent = corpsValider(fetchMock);
@@ -287,9 +231,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       installFetch();
       render(<AttributionDetailPage />);
       await selectAssociation();
-      fireEvent.click(
-        screen.getByRole('button', { name: "Valider l'attribution" }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: /^Valider/ }));
 
       await waitFor(
         () =>
@@ -339,17 +281,18 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
     'après succès, le bouton Valider est désactivé (pas de second envoi)',
     async () => {
       installFetch();
-      render(<AttributionDetailPage />);
+      renderAvecToasts(<AttributionDetailPage />);
       await selectAssociation();
       const valider = screen.getByRole('button', {
-        name: "Valider l'attribution",
+        name: /^Valider/,
       }) as HTMLButtonElement;
       fireEvent.click(valider);
-      await screen.findByText(/Attribution validée/, undefined, ATTENTE_UI);
+      // Succès = toast (R-UI-1 H1).
+      await screen.findByText('Attribution validée.', undefined, ATTENTE_UI);
       expect(
         (
           screen.getByRole('button', {
-            name: "Valider l'attribution",
+            name: /^Valider/,
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(true);

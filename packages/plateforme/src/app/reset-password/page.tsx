@@ -6,14 +6,16 @@
 // `/api/auth/reset-password` tombait donc sur un 404.
 
 import { Suspense, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
 import { AlertBar } from '@/components/ui/alert-bar';
-import { AuthCard, AuthPage, authLienClass } from '@/components/auth/auth-card';
+import { AuthCard, AuthPage } from '@/components/auth/auth-card';
+import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
 
 function DemandeResetForm() {
   const searchParams = useSearchParams();
@@ -60,20 +62,20 @@ function DemandeResetForm() {
       <AuthCard
         titre="Vérifiez votre boîte mail"
         sousCarte={
-          <Link href="/login" className={authLienClass}>
+          <TextLink href={ROUTES.login} strong touch className="text-sm">
             Retour à la connexion
-          </Link>
+          </TextLink>
         }
       >
-        <p className="text-sm text-savr-neutral-700">
+        <Text variant="body">
           Si un compte Savr existe pour <strong>{email}</strong>, un lien de
           réinitialisation vient d&apos;être envoyé. Il est valide pendant
           1&nbsp;heure.
-        </p>
-        <p className="text-sm text-savr-neutral-500">
+        </Text>
+        <Text>
           Ouvrez le lien dans ce navigateur : c&apos;est ici que la demande a
           été faite.
-        </p>
+        </Text>
       </AuthCard>
     );
   }
@@ -83,14 +85,19 @@ function DemandeResetForm() {
       titre="Mot de passe oublié"
       description="Indiquez votre adresse email : nous vous envoyons un lien pour choisir un nouveau mot de passe."
       sousCarte={
-        <Link href="/login" className={authLienClass}>
+        <TextLink href={ROUTES.login} strong touch className="text-sm">
           Retour à la connexion
-        </Link>
+        </TextLink>
       }
       onSubmit={(e) => void handleSubmit(e)}
       pied={
-        <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'Envoi…' : 'Envoyer le lien'}
+        <Button
+          type="submit"
+          className="w-full"
+          loading={loading}
+          loadingText="Envoi…"
+        >
+          Envoyer le lien
         </Button>
       }
     >

@@ -13,13 +13,15 @@
 // reste bloquée et aucune facture ne part — l'inscription, elle, aboutit.
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
-import { AuthCard, AuthPage, authLienClass } from '@/components/auth/auth-card';
+import { FormGrid } from '@/components/ui/form-grid';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { AuthCard, AuthPage } from '@/components/auth/auth-card';
 import { PASSWORD_MIN_LENGTH, validatePasswordStrength } from '@/lib/password';
 import {
   isValidEmailFormat,
@@ -27,25 +29,29 @@ import {
   isValidTelephoneFr,
   NOM_MIN_LENGTH,
 } from '@/lib/identite-signup';
+import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
+import { libelleTypeOrganisation } from '@/lib/libelles/organisation';
 
 // Les 3 valeurs de `type_profil` acceptées par la route. Toute autre valeur y
 // est refusée en 422 : l'écran n'en propose donc pas d'autre.
 const PROFILS = [
   {
     valeur: 'traiteur',
-    titre: 'Traiteur',
+    titre: libelleTypeOrganisation('traiteur'),
     detail:
       'Vous produisez les réceptions et vous programmez les collectes de vos événements.',
   },
   {
     valeur: 'agence',
-    titre: 'Agence',
+    titre: libelleTypeOrganisation('agence'),
     detail:
       'Vous organisez des événements pour vos clients et pilotez les collectes associées.',
   },
   {
     valeur: 'gestionnaire_lieux',
-    titre: 'Gestionnaire de lieux',
+    titre: libelleTypeOrganisation('gestionnaire_lieux'),
     detail:
       'Vous exploitez un ou plusieurs lieux et suivez ce qui y est collecté.',
   },
@@ -175,20 +181,20 @@ export default function SignupPage() {
         <AuthCard
           titre="Vérifiez votre boîte mail"
           sousCarte={
-            <Link href="/login" className={authLienClass}>
+            <TextLink href={ROUTES.login} strong touch className="text-sm">
               Aller à la connexion
-            </Link>
+            </TextLink>
           }
         >
-          <p className="text-sm text-savr-neutral-700">
+          <Text variant="body">
             Votre compte est créé. Un lien d&apos;activation vient d&apos;être
             envoyé à <strong>{email.trim()}</strong>. Il est valide
             24&nbsp;heures.
-          </p>
-          <p className="text-sm text-savr-neutral-500">
+          </Text>
+          <Text>
             Sans ce clic, la connexion reste fermée. Pensez à regarder vos
             indésirables si rien n&apos;arrive.
-          </p>
+          </Text>
         </AuthCard>
       </AuthPage>
     );
@@ -226,9 +232,9 @@ export default function SignupPage() {
         }
         className={etape === 1 ? 'max-w-lg' : undefined}
         sousCarte={
-          <Link href="/login" className={authLienClass}>
+          <TextLink href={ROUTES.login} strong touch className="text-sm">
             J&apos;ai déjà un compte
-          </Link>
+          </TextLink>
         }
         onSubmit={
           etape === 1
@@ -252,8 +258,13 @@ export default function SignupPage() {
           ) : (
             <>
               {retour(2)}
-              <Button type="submit" disabled={loading} className="w-full">
-                {loading ? 'Création…' : 'Créer mon compte'}
+              <Button
+                type="submit"
+                className="w-full"
+                loading={loading}
+                loadingText="Création…"
+              >
+                Créer mon compte
               </Button>
             </>
           )
@@ -261,36 +272,36 @@ export default function SignupPage() {
       >
         {etape === 1 && (
           <>
-            <fieldset className="space-y-3">
-              <legend className="sr-only">Type de profil</legend>
+            <RadioGroup
+              name="type_profil"
+              value={typeProfil}
+              onValueChange={(v) => setTypeProfil(v as Profil)}
+              legend="Type de profil"
+              legendClassName="sr-only"
+              className="space-y-3"
+            >
               {PROFILS.map((p) => (
-                <label
+                <Label
                   key={p.valeur}
-                  className={`flex cursor-pointer gap-3 rounded-savr-md border p-4 transition-colors ${
+                  variant="choice"
+                  className={`flex gap-3 rounded-savr-md border p-4 transition-colors ${
                     typeProfil === p.valeur
                       ? 'border-savr-primary-700 bg-savr-primary-50'
                       : 'border-savr-neutral-200 hover:border-savr-neutral-300'
                   }`}
                 >
-                  <input
-                    type="radio"
-                    name="type_profil"
-                    value={p.valeur}
-                    checked={typeProfil === p.valeur}
-                    onChange={() => setTypeProfil(p.valeur)}
-                    className="mt-1 h-4 w-4 accent-savr-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-                  />
+                  <RadioGroupItem value={p.valeur} className="mt-0.5" />
                   <span>
-                    <span className="block text-sm font-semibold text-savr-neutral-900">
+                    <Text as="span" tone="ink" className="block font-semibold">
                       {p.titre}
-                    </span>
-                    <span className="mt-0.5 block text-sm text-savr-neutral-600">
+                    </Text>
+                    <Text as="span" tone="soft" className="mt-0.5 block">
                       {p.detail}
-                    </span>
+                    </Text>
                   </span>
-                </label>
+                </Label>
               ))}
-            </fieldset>
+            </RadioGroup>
 
             <FormError>{erreur}</FormError>
           </>
@@ -298,7 +309,7 @@ export default function SignupPage() {
 
         {etape === 2 && (
           <>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <FormGrid>
               <FormField label="Prénom" htmlFor="prenom" required>
                 <Input
                   id="prenom"
@@ -319,7 +330,7 @@ export default function SignupPage() {
                   onChange={(e) => setNom(e.target.value)}
                 />
               </FormField>
-            </div>
+            </FormGrid>
 
             <FormField
               label="Email professionnel"
@@ -367,10 +378,10 @@ export default function SignupPage() {
 
         {etape === 3 && (
           <>
-            <p className="text-sm text-savr-neutral-600">
+            <Text tone="soft">
               Au moins {PASSWORD_MIN_LENGTH} caractères, avec une majuscule, un
               chiffre et un caractère spécial.
-            </p>
+            </Text>
 
             <FormField label="Mot de passe" htmlFor="mot-de-passe" required>
               <Input
@@ -405,21 +416,13 @@ export default function SignupPage() {
                 onCheckedChange={(v) => setCgu(v === true)}
                 aria-describedby="cgu-label"
               />
-              <label
-                id="cgu-label"
-                htmlFor="cgu"
-                className="cursor-pointer text-sm text-savr-neutral-700"
-              >
+              <Label variant="choice" id="cgu-label" htmlFor="cgu">
                 J&apos;accepte les{' '}
-                <Link
-                  href="/cgu"
-                  target="_blank"
-                  className="font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
-                >
+                <TextLink href={ROUTES.cgu} target="_blank" strong>
                   Conditions Générales d&apos;Utilisation
-                </Link>
+                </TextLink>
                 . Cette acceptation est horodatée et conservée.
-              </label>
+              </Label>
             </div>
 
             <FormError>{erreur}</FormError>

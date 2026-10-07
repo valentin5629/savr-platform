@@ -17,6 +17,7 @@
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { messageErreur } from '@/lib/api-helpers.js';
+import { FLUX_ZD_CODES } from '@/lib/libelles/flux.js';
 import {
   createSupabaseServerClient,
   type UserAuthContext,
@@ -27,12 +28,18 @@ import {
   type FacteursCo2,
 } from '@/lib/dashboards/cockpit-derive.js';
 import {
-  decalerJour,
   jourParis,
   lundiDeLaSemaine,
   premierDuMois,
 } from '@savr/shared/src/temps/index.js';
 import { periodeBenchmark } from './periode-benchmark.js';
+import {
+  attributionsAgOf,
+  embedAttributionsAg,
+  embedRepasAg,
+  type AttributionAgEmbed,
+  type AttributionsAgLues,
+} from './attributions-ag.js';
 
 /** Client Supabase serveur (schéma `plateforme`, RLS sous l'identité appelant). */
 export type DbClient = ReturnType<typeof createSupabaseServerClient>;
@@ -357,13 +364,8 @@ export async function loadKpiTraiteur(
 // ÉVOLUTION — Bloc 2 (série temporelle) + Bloc 4 (donut), partagé 3 contextes
 // ══════════════════════════════════════════════════════════════════════════
 
-const FLUX_CODES = [
-  'biodechet',
-  'emballage',
-  'carton',
-  'verre',
-  'dechet_residuel',
-] as const;
+// Ordre des 5 flux ZD : source unique `lib/libelles/flux` (R-UI-2 C12).
+const FLUX_CODES = FLUX_ZD_CODES;
 
 type Granularite = 'jour' | 'semaine' | 'mois';
 
@@ -468,7 +470,7 @@ export async function loadEvolution(
        evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
          traiteur_operationnel_organisation_id),
        collecte_flux(poids_reel_kg, flux_dechets(code)),
-       attributions_antgaspi(volume_repas_realise)`,
+       ${embedRepasAg(ctx.role)}`,
     )
     .eq('statut', 'cloturee')
     .eq('type', type);
@@ -626,11 +628,9 @@ export function buildEvolutionSeries(
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// BLOCS — prochaines (5) + top lieux (6) + top acteurs (7) + top asso (3AG) + kg/pax
+// BLOCS — top lieux (6) + top acteurs (7) + top asso (3AG) + kg/pax
 // ══════════════════════════════════════════════════════════════════════════
 
-const STATUTS_A_VENIR = ['programmee', 'validee', 'en_cours'] as const;
-const PROCHAINES_FENETRE_JOURS = 30;
 const TOP_N = 5;
 
 interface BlocsEvtEmbed {
@@ -644,15 +644,6 @@ interface BlocsEvtEmbed {
   lieux: { id: string; nom: string } | { id: string; nom: string }[] | null;
 }
 
-interface AttrEmbed {
-  volume_repas_realise: number | null;
-  association_id: string | null;
-  associations:
-    | { id: string; nom: string; ville: string | null }
-    | { id: string; nom: string; ville: string | null }[]
-    | null;
-}
-
 export interface BlocsCollecteRow {
   id: string;
   type: string;
@@ -662,12 +653,12 @@ export interface BlocsCollecteRow {
   collecte_flux:
     | { poids_reel_kg: number | null; flux_dechets?: { code: string } | null }[]
     | null;
-  attributions_antgaspi: AttrEmbed[] | AttrEmbed | null;
+  // Table (traiteur, agence, Admin) ou vue du gestionnaire — cf. attributions-ag.ts.
+  attributions_antgaspi: AttributionsAgLues;
 }
 
-function attrsOf(c: BlocsCollecteRow): AttrEmbed[] {
-  const a = c.attributions_antgaspi;
-  return Array.isArray(a) ? a : a ? [a] : [];
+function attrsOf(c: BlocsCollecteRow): AttributionAgEmbed[] {
+  return attributionsAgOf(c.attributions_antgaspi);
 }
 
 function kgOf(c: BlocsCollecteRow): number {
@@ -964,7 +955,6 @@ export function kgParPaxParFluxFrom(
 
 function emptyBlocs(type: string, isGestionnaire: boolean, isAgence: boolean) {
   return {
-    prochaines: [],
     topLieux: [],
     topActeurs: isAgence ? null : [],
     acteurLabel: isAgence ? null : isGestionnaire ? 'Traiteur' : 'Commercial',
@@ -983,21 +973,7 @@ export interface BlocsParams {
   tailleEvts?: string[];
 }
 
-/** Élément « prochaine collecte » (Bloc 5) — miroir de `ProchaineCollecte` (front). */
-export interface ProchaineCollecteRow {
-  id: string;
-  evenement_id: string | null;
-  date_collecte: string;
-  heure_collecte: string | null;
-  statut: string;
-  evenement_nom: string | null;
-  lieu_nom: string | null;
-  traiteur_id: string | null;
-  traiteur_nom: string | null;
-}
-
 export interface BlocsResult {
-  prochaines: ProchaineCollecteRow[];
   topLieux: LieuRow[];
   topActeurs: ActeurRow[] | null;
   acteurLabel: 'Commercial' | 'Traiteur' | null;
@@ -1006,7 +982,7 @@ export interface BlocsResult {
 }
 
 /**
- * Blocs « liste/ranking » (5/6/7/3AG/perFlux). ⚠ Contrat identique à
+ * Blocs « liste/ranking » (6/7/3AG/perFlux). ⚠ Contrat identique à
  * `GET /api/v1/dashboards/blocs` (payload sous `data`).
  */
 export async function loadBlocs(
@@ -1078,8 +1054,7 @@ export async function loadBlocs(
       : `id, type, taux_recyclage, date_collecte,
          evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
            traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
-         attributions_antgaspi(volume_repas_realise, association_id,
-           associations!association_id(id, nom, ville))`;
+         ${embedAttributionsAg(role)}`;
 
   let qHist = supabase
     .from('collectes')
@@ -1090,75 +1065,12 @@ export async function loadBlocs(
   if (from) qHist = qHist.gte('date_collecte', from);
   if (to) qHist = qHist.lte('date_collecte', to);
 
-  // Fenêtre en jours CALENDAIRES parisiens : `setDate` sur une Date ajoutait
-  // 30 × 24 h à un instant, donc la borne haute tombait la veille dès que
-  // l'appel avait lieu en soirée ou traversait un changement d'heure.
-  const aujourdhui = jourParis();
-  const dans30j = decalerJour(aujourdhui, PROCHAINES_FENETRE_JOURS);
-
-  let qProch = supabase
-    .from('collectes')
-    .select(
-      `id, date_collecte, heure_collecte, statut, type,
-       evenements!inner(id, nom_evenement, lieu_id, pax, organisation_id,
-         type_evenement_id, traiteur_operationnel_organisation_id, created_by,
-         lieux!inner(id, nom))`,
-    )
-    .eq('type', type)
-    .in('statut', [...STATUTS_A_VENIR])
-    .gte('date_collecte', aujourdhui)
-    .lte('date_collecte', dans30j);
-  qProch = scoped(qProch);
-  qProch = qProch
-    .order('date_collecte', { ascending: true })
-    .order('heure_collecte', { ascending: true, nullsFirst: false });
-
-  const [histRes, prochRes] = await Promise.all([qHist, qProch]);
-  const { data: histData, error: histErr } = histRes;
+  const { data: histData, error: histErr } = await qHist;
   if (histErr) throw loaderDbError(histErr, 'dashboards.blocs.hist_err');
-  const { data: prochData, error: prochErr } = prochRes;
-  if (prochErr) throw loaderDbError(prochErr, 'dashboards.blocs.proch_err');
 
   const histRows = ((histData ?? []) as unknown as BlocsCollecteRow[]).filter(
     (c) => tailleOk(firstOf(c.evenements)),
   );
-
-  interface ProchEvt {
-    id: string;
-    nom_evenement: string | null;
-    pax: number | null;
-    traiteur_operationnel_organisation_id: string | null;
-    lieux: { nom: string } | { nom: string }[] | null;
-  }
-  interface ProchRow {
-    id: string;
-    date_collecte: string;
-    heure_collecte: string | null;
-    statut: string;
-    evenements: ProchEvt | ProchEvt[] | null;
-  }
-  const prochaines = ((prochData ?? []) as unknown as ProchRow[])
-    .filter((c) => {
-      const evt = firstOf(c.evenements);
-      if (!evt) return false;
-      if (tailleEvts.length === 0) return true;
-      return tailleEvts.includes(tailleBracket(evt.pax ?? 0));
-    })
-    .map((c) => {
-      const evt = firstOf(c.evenements);
-      const lieu = firstOf(evt?.lieux ?? null);
-      return {
-        id: c.id,
-        evenement_id: evt?.id ?? null,
-        date_collecte: c.date_collecte,
-        heure_collecte: c.heure_collecte,
-        statut: c.statut,
-        evenement_nom: evt?.nom_evenement ?? null,
-        lieu_nom: lieu?.nom ?? null,
-        traiteur_id: evt?.traiteur_operationnel_organisation_id ?? null,
-        traiteur_nom: null as string | null,
-      };
-    });
 
   const topLieux = topLieuxFrom(histRows, type);
 
@@ -1171,17 +1083,12 @@ export async function loadBlocs(
       type,
       (evt) => evt.traiteur_operationnel_organisation_id,
     );
-    const traiteurIdsAResoudre = [
-      ...new Set([
-        ...topActeurs.map((a) => a.id),
-        ...prochaines.map((p) => p.traiteur_id).filter((x): x is string => !!x),
-      ]),
-    ];
-    const noms = await traiteurNamesMap(supabase, traiteurIdsAResoudre);
+    const noms = await traiteurNamesMap(
+      supabase,
+      topActeurs.map((a) => a.id),
+    );
     for (const a of topActeurs)
       a.label = noms.get(a.id) || 'Traiteur hors référentiel';
-    for (const p of prochaines)
-      p.traiteur_nom = p.traiteur_id ? (noms.get(p.traiteur_id) ?? null) : null;
   } else if (!isAgence) {
     acteurLabel = 'Commercial';
     topActeurs = aggregateActeurs(histRows, type, (evt) => evt.created_by);
@@ -1195,7 +1102,6 @@ export async function loadBlocs(
     type === 'zero_dechet' ? kgParPaxParFluxFrom(histRows) : {};
 
   return {
-    prochaines,
     topLieux,
     topActeurs,
     acteurLabel,
@@ -1291,6 +1197,19 @@ export async function loadPackAg(ctx: LoaderCtx): Promise<PackAgResult> {
 // BENCHMARK — Bloc 3 ZD (repère parc, RPC k-anonyme) + options des filtres
 // ══════════════════════════════════════════════════════════════════════════
 
+/** 403 de `loadBenchmark` : rôle traiteur ou agence qui nomme des traiteurs. */
+export const ERREUR_FILTRE_TRAITEURS_INTERDIT =
+  'Le filtre traiteur_ids est interdit pour ce rôle (§04 préservation compétitive)';
+/** 403 de `loadBenchmark` : gestionnaire qui nomme un lieu ou un traiteur hors de son périmètre. */
+export const ERREUR_FILTRE_HORS_PERIMETRE =
+  'Filtre lieu_ids ou traiteur_ids hors du périmètre du gestionnaire (§06.05)';
+
+/**
+ * Début des deux messages de la garde de périmètre de `f_benchmark_kg_pax_zd`
+ * (migration 20261006220000, asserté par benchmark_filtres_gestionnaire_rattaches).
+ */
+const REFUS_PERIMETRE_GESTIONNAIRE = /^Filtre (lieu|traiteur)_ids hors /;
+
 export interface BenchmarkParams {
   tailleCodes?: string[] | null;
   bracket?: string | null;
@@ -1303,7 +1222,9 @@ export interface BenchmarkParams {
  * Repère parc kg/pax (RPC f_benchmark_kg_pax_zd, SECURITY DEFINER k-anonyme).
  * ⚠ Contrat identique à `GET /api/v1/dashboards/benchmark` (renvoie le tableau
  * `data`). Le filtre `traiteurIds` est INTERDIT pour traiteur/agence (§04
- * préservation compétitive) → LoaderError 403.
+ * préservation compétitive) → LoaderError 403. Un gestionnaire ne nomme que ses
+ * lieux rattachés et les traiteurs de sa vue `v_traiteurs_gestionnaire` (§06.05,
+ * décision Val 2026-10-06) : la fonction le refuse, relayé ici en LoaderError 403.
  */
 export async function loadBenchmark(
   supabase: DbClient,
@@ -1328,10 +1249,7 @@ export async function loadBenchmark(
     ctx.role === 'traiteur_commercial' ||
     ctx.role === 'agence';
   if (isTraiteur && traiteurIds && traiteurIds.length) {
-    throw new LoaderError(
-      'Le filtre traiteur_ids est interdit pour ce rôle (§04 préservation compétitive)',
-      403,
-    );
+    throw new LoaderError(ERREUR_FILTRE_TRAITEURS_INTERDIT, 403);
   }
 
   const args = {
@@ -1346,6 +1264,17 @@ export async function loadBenchmark(
   };
 
   const { data, error } = await supabase.rpc('f_benchmark_kg_pax_zd', args);
+  // Garde de périmètre de la fonction : un gestionnaire a nommé un lieu non
+  // rattaché ou un traiteur hors de sa vue. Reconnue au SQLSTATE 42501 ET au
+  // début de son message (lu, jamais renvoyé) : un 42501 d'une autre cause —
+  // droit d'exécution retiré par erreur — reste une erreur serveur journalisée.
+  if (
+    error &&
+    ctx.role === 'gestionnaire_lieux' &&
+    error.code === '42501' &&
+    REFUS_PERIMETRE_GESTIONNAIRE.test(error.message ?? '')
+  )
+    throw new LoaderError(ERREUR_FILTRE_HORS_PERIMETRE, 403);
   if (error) throw loaderDbError(error, 'dashboards.benchmark');
   return data ?? [];
 }
@@ -1356,40 +1285,123 @@ export interface BenchmarkFiltresResult {
   types: unknown[];
 }
 
+export interface FiltresParcGestionnaire {
+  /** Aucun lieu rattaché à l'organisation (organisations_lieux vide). */
+  sansLieu: boolean;
+  lieux: { id: string; nom: string }[];
+  traiteurs: { id: string; nom: string }[];
+}
+
+/**
+ * Lieux et traiteurs qu'un gestionnaire peut nommer dans un filtre (§06.05
+ * « Barre de filtres globale ») — source UNIQUE du filtre global du dashboard
+ * et de l'encart benchmark (décision Val 2026-10-06 : mêmes listes) :
+ *  - Lieux    : lieux rattachés à l'organisation (organisations_lieux) ;
+ *  - Traiteurs: traiteurs intervenus sur ≥ 1 collecte sur ces lieux (24 derniers mois).
+ * Lu sous la session de l'appelant (RLS) ; sans lieu rattaché, deux listes vides.
+ * Une lecture en échec lève : une liste vide se lirait « aucun lieu rattaché ».
+ */
+export async function loadFiltresParcGestionnaire(
+  supabase: DbClient,
+): Promise<FiltresParcGestionnaire> {
+  const EVENEMENT = 'gestionnaire.filtres_parc';
+  const { data: orgLieux, error: erreurRattachements } = await supabase
+    .from('organisations_lieux')
+    .select('lieu_id');
+  if (erreurRattachements) throw loaderDbError(erreurRattachements, EVENEMENT);
+  const lieuIds = (orgLieux ?? []).map((r) => r.lieu_id as string);
+  if (lieuIds.length === 0) return { sansLieu: true, lieux: [], traiteurs: [] };
+
+  // Lieux du périmètre (v_lieux_clients = whitelist, masque les champs sensibles).
+  const { data: lieuxRows, error: erreurLieux } = await supabase
+    .from('v_lieux_clients')
+    .select('id, nom')
+    .in('id', lieuIds)
+    .order('nom', { ascending: true });
+  if (erreurLieux) throw loaderDbError(erreurLieux, EVENEMENT);
+
+  // Traiteurs intervenus (fenêtre 24 mois, cohérente avec la liste Traiteurs §06.05 §5).
+  const since24m = new Date();
+  since24m.setMonth(since24m.getMonth() - 24);
+  const since24mStr = jourParis(since24m);
+
+  const { data: collectes, error: erreurCollectes } = await supabase
+    .from('collectes')
+    .select(
+      `id,
+       evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
+         organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom))`,
+    )
+    .in('evenements.lieu_id', lieuIds)
+    .gte('date_collecte', since24mStr);
+  if (erreurCollectes) throw loaderDbError(erreurCollectes, EVENEMENT);
+
+  const traiteurMap = new Map<string, string>();
+  for (const c of collectes ?? []) {
+    const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
+    const orgs = (
+      evt as unknown as { organisations?: { id: string; nom: string } }
+    )?.organisations;
+    if (orgs?.id) traiteurMap.set(orgs.id, orgs.nom);
+  }
+
+  return {
+    sansLieu: false,
+    lieux: (lieuxRows ?? []).map((l) => ({
+      id: l.id as string,
+      nom: l.nom as string,
+    })),
+    traiteurs: [...traiteurMap.entries()]
+      .map(([id, nom]) => ({ id, nom }))
+      .sort((a, b) => a.nom.localeCompare(b.nom)),
+  };
+}
+
 /**
  * Options des multi-selects de l'encart « Filtres benchmark ». ⚠ Contrat
  * identique à `GET /api/v1/dashboards/benchmark/filtres` (payload sous `data`).
- * Traiteur/agence : pas de liste traiteurs (préservation compétitive) → 4 dims.
+ * Gestionnaire : ses lieux rattachés et les traiteurs intervenus sur ses lieux,
+ * rien du reste du parc (décision Val 2026-10-06) — les deux fonctions de
+ * liste « parc » lui sont fermées en base. Traiteur / agence : lieux du parc,
+ * jamais de liste traiteurs (préservation compétitive) → 4 dims.
  */
 export async function loadBenchmarkFiltres(
   supabase: DbClient,
   ctx: LoaderCtx,
 ): Promise<BenchmarkFiltresResult> {
-  const isTraiteur =
-    ctx.role === 'traiteur_manager' ||
-    ctx.role === 'traiteur_commercial' ||
-    ctx.role === 'agence';
+  const types = supabase
+    .from('types_evenements')
+    .select('id, libelle')
+    .eq('actif', true)
+    .order('ordre_affichage');
 
-  const [lieux, traiteurs, types] = await Promise.all([
+  if (ctx.role === 'gestionnaire_lieux') {
+    const [parc, typesRes] = await Promise.all([
+      loadFiltresParcGestionnaire(supabase),
+      types,
+    ]);
+    if (typesRes.error)
+      throw loaderDbError(typesRes.error, 'dashboards.benchmark_filtres');
+    return {
+      lieux: parc.lieux,
+      traiteurs: parc.traiteurs,
+      types: typesRes.data ?? [],
+    };
+  }
+
+  const [lieux, typesRes] = await Promise.all([
     supabase.rpc('f_benchmark_lieux_parc'),
-    isTraiteur
-      ? Promise.resolve({ data: [], error: null })
-      : supabase.rpc('f_benchmark_traiteurs_parc'),
-    supabase
-      .from('types_evenements')
-      .select('id, libelle')
-      .eq('actif', true)
-      .order('ordre_affichage'),
+    types,
   ]);
 
-  const firstError = lieux.error ?? traiteurs.error ?? types.error;
+  const firstError = lieux.error ?? typesRes.error;
   if (firstError)
     throw loaderDbError(firstError, 'dashboards.benchmark_filtres');
 
   return {
     lieux: lieux.data ?? [],
-    traiteurs: traiteurs.data ?? [],
-    types: types.data ?? [],
+    traiteurs: [],
+    types: typesRes.data ?? [],
   };
 }
 

@@ -1,3 +1,4 @@
+import { lirePagination } from '@/lib/pagination.js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
@@ -6,6 +7,7 @@ import { champsAdminPoses } from '@/lib/associations-champs-admin.js';
 import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { estSiren } from '@savr/shared/src/validation/index.js';
 import { lireTri } from '@/lib/tri-liste.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -25,9 +27,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       ? parseInt(capaciteMinRaw, 10)
       : null;
   const habilitee = searchParams.get('habilitee'); // '2041-GE'
-  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-  const limit = 50;
-  const offset = (page - 1) * limit;
+  const { page, limit, from: offset } = lirePagination(searchParams);
   const tri = lireTri(
     searchParams,
     {
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     collectes_realisees_30j: counts.get(r.id) ?? 0,
   }));
 
-  return NextResponse.json({ data: enriched, total: count ?? 0 });
+  return NextResponse.json({ data: enriched, total: count ?? 0, page, limit });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (
     typeof body.siren === 'string' &&
     body.siren !== '' &&
-    !/^\d{9}$/.test(body.siren)
+    !estSiren(body.siren)
   ) {
     return NextResponse.json(
       { error: 'siren doit contenir 9 chiffres' },

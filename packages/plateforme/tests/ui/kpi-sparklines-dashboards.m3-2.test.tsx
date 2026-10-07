@@ -228,7 +228,6 @@ function gestionnaireFetch() {
     if (url.includes('/dashboards/blocs'))
       return jsonResponse({
         data: {
-          prochaines: [],
           topLieux: [],
           topActeurs: [],
           acteurLabel: 'Traiteur',
@@ -299,7 +298,6 @@ describe('M3.3 / agence — sparkline + variation N-1', () => {
         if (url.includes('/dashboards/blocs'))
           return jsonResponse({
             data: {
-              prochaines: [],
               topLieux: [],
               topActeurs: null,
               acteurLabel: null,
@@ -366,7 +364,6 @@ describe('M3.6 / dashboard-client Admin — sparkline + variation N-1', () => {
           topActeurs: [],
           acteurLabel: 'Traiteur',
           topAssociations: null,
-          prochaines: [],
         },
       });
       vi.stubGlobal(
@@ -375,8 +372,18 @@ describe('M3.6 / dashboard-client Admin — sparkline + variation N-1', () => {
           const url = String(input);
           if (url.includes('/dashboard-client/organisations'))
             return jsonResponse({ data: [] });
+          if (url.includes('/dashboard-client/benchmark/filtres'))
+            return jsonResponse({
+              data: { lieux: [], traiteurs: [], types: [] },
+            });
           if (url.includes('/dashboard-client/benchmark'))
-            return jsonResponse({ data: [] });
+            return jsonResponse({
+              data: {
+                kgParPaxParFlux: {},
+                nbCollectes: 0,
+                periode: { debut: '2024-10-02', fin: '2026-10-02' },
+              },
+            });
           if (url.includes('/dashboard-client'))
             return jsonResponse({ data: payload(appels++ % 2 === 0) });
           return jsonResponse({});

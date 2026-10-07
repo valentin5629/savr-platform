@@ -12,6 +12,8 @@ const alertBarVariants = cva(
   {
     variants: {
       variant: {
+        success:
+          'border-savr-success/40 bg-savr-success-subtle text-savr-success-strong',
         warn: 'border-savr-warning/40 bg-savr-warning-subtle text-savr-warning-strong',
         err: 'border-savr-error/40 bg-savr-error-subtle text-savr-error-strong',
         info: 'border-savr-info/40 bg-savr-info-subtle text-savr-info-strong',
@@ -35,7 +37,9 @@ const AlertBar = React.forwardRef<HTMLDivElement, AlertBarProps>(
   ({ className, variant, icon, children, ...props }, ref) => (
     <div
       ref={ref}
-      role="status"
+      // Erreur = annoncée immédiatement (`alert`) ; le reste = `status`
+      // (R-UI-1, revue conformité #488). Surchargeable via `role`.
+      role={variant === 'err' ? 'alert' : 'status'}
       className={cn(alertBarVariants({ variant }), className)}
       {...props}
     >

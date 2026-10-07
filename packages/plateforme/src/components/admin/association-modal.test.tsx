@@ -20,7 +20,7 @@ import {
   AssociationModal,
   type AssociationRecord,
 } from '@/components/admin/association-modal';
-import { ACTION_DESTRUCTIVE_CONTOUR } from '@/components/collecte/fiche-blocs';
+import { buttonVariants } from '@/components/ui/button';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const DESCRIPTION_OK =
@@ -663,7 +663,10 @@ describe('M1.1 — Modale association (revue E2E)', () => {
       />,
     );
     const bouton = screen.getByRole('button', { name: 'Désactiver' });
-    for (const classe of ACTION_DESTRUCTIVE_CONTOUR.split(' ')) {
+    // Variante `outline-destructive` (R-UI-3, B3 — ex-ACTION_DESTRUCTIVE_CONTOUR).
+    for (const classe of buttonVariants({
+      variant: 'outline-destructive',
+    }).split(' ')) {
       expect(bouton).toHaveClass(classe);
     }
     // Pas l'aplat rouge de la variante « destructive ».

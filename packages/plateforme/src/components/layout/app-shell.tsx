@@ -6,15 +6,18 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { TopBar } from '@/components/layout/top-bar';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { LogoZdProvider } from '@/components/layout/logo-context';
-import { type Role } from '@/lib/nav-config';
+import type { NavRole } from '@/lib/roles';
 
 interface AppShellProps {
-  role: Role;
+  role: NavRole;
   userName?: string;
   pageTitle?: string;
   onLogout?: () => void;
-  /** hrefs de nav à masquer (calculé côté serveur, ex : « Mon pack AG » §06.05 l.71). */
-  hiddenNavHrefs?: string[];
+  /**
+   * hrefs de nav à masquer, calculés côté serveur par `entreesNavMasquees(role)`
+   * (`lib/nav-masquee.ts`). `[]` = ce menu n'a aucune entrée conditionnelle.
+   */
+  hiddenNavHrefs: string[];
   /** Compteurs par href (calculé côté serveur, ex : { '/admin/alertes': 3 }). */
   navBadges?: Record<string, number>;
   children: React.ReactNode;
@@ -65,7 +68,7 @@ const AppShell = ({
         {/* Sidebar mobile (overlay slide) */}
         <div
           className={cn(
-            'fixed inset-y-0 left-0 z-40 lg:hidden transition-transform duration-[200ms] ease-out',
+            'fixed inset-y-0 left-0 z-40 lg:hidden transition-transform duration-savr-base ease-out',
             mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           )}
         >

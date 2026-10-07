@@ -49,7 +49,7 @@ export function FriseEtapes({
               className={cn(
                 'flex items-center gap-1.5 whitespace-nowrap',
                 courante
-                  ? 'text-[13px] font-extrabold text-savr-primary-700'
+                  ? 'text-sm font-extrabold text-savr-primary-700'
                   : 'text-xs font-semibold',
                 passee && 'text-savr-primary-700 opacity-50',
                 e.etat === 'a_venir' && 'text-savr-neutral-500 opacity-60',

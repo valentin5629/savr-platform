@@ -9,7 +9,7 @@ import { serverError } from '@/lib/api-helpers.js';
 // §06.06 §2 — Dashboard Client : réplique LECTURE SEULE du dashboard gestionnaire
 // (§06.05) pour l'équipe Savr, agrégé sur le périmètre d'organisations sélectionné.
 // R24c : renvoie désormais le dashboard COMPLET (KPI + kg/pax par flux + évolution
-// + blocs top/prochaines), pour la déclinaison Cockpit full-graphes côté vue.
+// + blocs top), pour la déclinaison Cockpit full-graphes côté vue.
 //
 // Spécificité Admin vs gestionnaire : aucun filtre RLS par lieux du périmètre.
 // L'admin voit tout (service-role, bypass RLS). Le périmètre est piloté par le

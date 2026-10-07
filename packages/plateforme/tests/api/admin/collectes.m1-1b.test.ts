@@ -215,8 +215,39 @@ describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
     nb_pax: 80,
   };
 
+  // AG : l'association est choisie AVANT le prestataire (décision Val 2026-10-01)
+  // — son adresse est le point B transmis par l'adapter. Sans attribution, 422.
+  it('M0.6/dispatch AG — 422 si aucune association attribuée (adresse de livraison inconnue)', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: collecteAg,
+      error: null,
+    }); // collecte
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    }); // attributions_antgaspi : aucune
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-ag/dispatch', {
+        prestataire_logistique_id: 'presta-top1',
+      }),
+      { params: Promise.resolve({ id: 'col-ag' }) },
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/association/i);
+    // Rien ne part : ni algo, ni fn_dispatcher_collecte.
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
   it('M0.6/dispatch AG — 422 si prestataire ≠ top-1 algo sans motif', async () => {
     setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { association_id: 'asso-1' },
+      error: null,
+    }); // attributions_antgaspi : association attribuée
     mockSupabaseChain.single
       .mockResolvedValueOnce({ data: collecteAg, error: null }) // collecte
       .mockResolvedValueOnce({
@@ -240,6 +271,10 @@ describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
 
   it('M0.6/dispatch AG — accepte le top-1 algo SANS motif (200)', async () => {
     setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { association_id: 'asso-1' },
+      error: null,
+    }); // attributions_antgaspi : association attribuée
     mockSupabaseChain.single
       .mockResolvedValueOnce({ data: collecteAg, error: null }) // collecte
       .mockResolvedValueOnce({

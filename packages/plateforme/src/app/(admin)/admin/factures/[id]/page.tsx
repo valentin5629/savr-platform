@@ -14,12 +14,26 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import {
+  libelleStatutFacture,
+  libelleTypeFacture,
+} from '@/lib/libelles/facture';
+import { libelleVerificationSiret } from '@/lib/libelles/organisation';
 import { tempsEcouleFr } from '@/lib/facturation/facture-ui';
+import { Heading } from '@/components/ui/heading';
+import { fmtMontant } from '@/lib/format';
+import { TextLink } from '@/components/ui/text-link';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { LoadingState } from '@/components/ui/loading-state';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ROUTES } from '@/lib/routes';
 
 interface Ligne {
   id: string;
@@ -66,21 +80,6 @@ interface FactureDetail {
   } | null;
   factures_collectes: Ligne[];
 }
-
-const STATUT_LABELS: Record<string, string> = {
-  brouillon: 'Brouillon',
-  en_attente_pennylane: 'En attente Pennylane',
-  emise: 'Émise',
-  payee: 'Payée',
-  annulee: 'Annulée',
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  zero_dechet: 'Zéro Déchet',
-  collecte_antigaspi: 'Anti-Gaspi',
-  achat_pack_antigaspi: 'Achat Pack AG',
-  avoir: 'Avoir',
-};
 
 export default function FactureDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -135,7 +134,7 @@ export default function FactureDetailPage() {
         avoir_id?: string;
       };
       if (action === 'avoir' && data.avoir_id) {
-        router.push(`/admin/factures/${data.avoir_id}`);
+        router.push(ROUTES.admin.facture(data.avoir_id));
       } else {
         load();
       }
@@ -216,8 +215,16 @@ export default function FactureDetailPage() {
     await callEdit(['lignes', ligne.id], 'PATCH', patch, `ligne-${ligne.id}`);
   }
 
+  const { confirmer, dialogue } = useConfirm();
   async function deleteLigne(ligne: Ligne) {
-    if (!window.confirm('Supprimer cette ligne ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Supprimer cette ligne ?',
+        confirmLabel: 'Supprimer',
+        variant: 'destructive',
+      }))
+    )
+      return;
     await callEdit(
       ['lignes', ligne.id],
       'DELETE',
@@ -250,15 +257,10 @@ export default function FactureDetailPage() {
     await doAction('avoir', { motif });
   }
 
-  if (loading)
-    return <div className="text-neutral-500 text-sm">Chargement…</div>;
-  if (!facture)
-    return <div className="text-neutral-500 text-sm">Facture introuvable.</div>;
+  if (loading) return <LoadingState />;
+  if (!facture) return <AlertBar variant="err">Facture introuvable.</AlertBar>;
 
-  const fmt = new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: facture.devise,
-  });
+  const fmt = (n: number): string => fmtMontant(n, facture.devise);
   const factureReference =
     facture.factures_collectes.find(
       (fc) => fc.collectes?.evenements?.reference_affaire,
@@ -266,100 +268,105 @@ export default function FactureDetailPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {dialogue}
       <div className="flex items-center gap-3">
         <Link
-          href="/admin/factures"
-          className="text-neutral-500 hover:text-neutral-700"
+          href={ROUTES.admin.factures}
+          className="text-savr-neutral-500 hover:text-savr-neutral-700"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="text-xl font-semibold">
+        <Heading level={1} size="xl" weight="semibold" tone="inherit">
           {facture.numero_facture ?? '— brouillon (numéro à attribuer) —'}
-        </h1>
-        <Badge variant="neutral">
-          {STATUT_LABELS[facture.statut] ?? facture.statut}
-        </Badge>
+        </Heading>
+        <Badge variant="neutral">{libelleStatutFacture(facture.statut)}</Badge>
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        <AlertBar variant="err" className="font-normal">
           {error}
-        </div>
+        </AlertBar>
       )}
 
       {/* Bandeau SLA Pennylane §06.08 §2.3 — en_attente_pennylane : « dernier essai
           il y a Xmin » + bouton Renvoyer. echec_final (retry épuisé) = intervention. */}
+      {/* R-UI-1 H2 : orange brut (hors sémantique) → AlertBar warn. Le bouton
+          Renvoyer est poussé à droite : le contenu de l'AlertBar prend toute la
+          largeur ([&>span]:flex-1, AlertBar n'a pas de prop « action »). */}
       {facture.statut === 'en_attente_pennylane' && (
-        <div className="rounded-md bg-orange-50 border border-orange-300 px-4 py-3 text-sm text-orange-800 flex items-start justify-between gap-4">
-          <div>
-            <strong>En attente d’envoi Pennylane</strong>
-            {facture.derniere_tentative_pennylane_at && (
-              <>
-                {' '}
-                — dernier essai :{' '}
-                {tempsEcouleFr(
-                  facture.derniere_tentative_pennylane_at,
-                  Date.now(),
-                )}
-              </>
-            )}
-            {facture.pennylane_statut === 'echec_final' && (
-              <div className="mt-1 font-medium">
-                Échec après 3 tentatives — renvoi manuel requis.
-              </div>
-            )}
-            {facture.erreur_synchro && (
-              <div className="mt-1 text-orange-700">
-                {facture.erreur_synchro}
-              </div>
-            )}
+        <AlertBar variant="warn" className="font-normal [&>span]:flex-1">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <strong>En attente d’envoi Pennylane</strong>
+              {facture.derniere_tentative_pennylane_at && (
+                <>
+                  {' '}
+                  — dernier essai :{' '}
+                  {tempsEcouleFr(
+                    facture.derniere_tentative_pennylane_at,
+                    Date.now(),
+                  )}
+                </>
+              )}
+              {facture.pennylane_statut === 'echec_final' && (
+                <div className="mt-1 font-medium">
+                  Échec après 3 tentatives — renvoi manuel requis.
+                </div>
+              )}
+              {facture.erreur_synchro && (
+                <div className="mt-1">{facture.erreur_synchro}</div>
+              )}
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => doAction('renvoyer')}
+              disabled={actionLoading !== null}
+              loading={actionLoading === 'renvoyer'}
+              loadingText="Envoi…"
+            >
+              <RotateCcw /> Renvoyer
+            </Button>
           </div>
-          <Button
-            variant="secondary"
-            onClick={() => doAction('renvoyer')}
-            disabled={actionLoading !== null}
-          >
-            <RotateCcw className="h-4 w-4 mr-1" />
-            {actionLoading === 'renvoyer' ? 'Envoi…' : 'Renvoyer'}
-          </Button>
-        </div>
+        </AlertBar>
       )}
 
       {facture.statut !== 'en_attente_pennylane' && facture.erreur_synchro && (
-        <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+        <AlertBar variant="warn" className="font-normal">
           <strong>Erreur Pennylane :</strong> {facture.erreur_synchro}
-        </div>
+        </AlertBar>
       )}
 
       {/* Bloc 1 — En-tête */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-neutral-700">
+        <Heading level={2} size="sm" tone="muted">
           Bloc 1 — En-tête
-        </h2>
+        </Heading>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <div className="text-neutral-500">Type</div>
+            <div className="text-savr-neutral-500">Type</div>
             <div className="font-medium">
-              {TYPE_LABELS[facture.type] ?? facture.type}
+              {libelleTypeFacture(facture.type)}
             </div>
           </div>
           <div>
-            <div className="text-neutral-500">Organisation</div>
+            <div className="text-savr-neutral-500">Organisation</div>
             <div className="font-medium">
               {facture.organisations?.raison_sociale ?? '—'}
             </div>
           </div>
           <div>
-            <div className="text-neutral-500">Entité de facturation</div>
+            <div className="text-savr-neutral-500">Entité de facturation</div>
             <div className="font-medium">
               {facture.entites_facturation?.raison_sociale ?? '—'} ·{' '}
               {facture.entites_facturation?.siret ?? 'SIRET —'}
             </div>
           </div>
           <div>
-            <div className="text-neutral-500">SIRET vérification</div>
+            <div className="text-savr-neutral-500">SIRET vérification</div>
             <div className="font-medium">
-              {facture.entites_facturation?.siret_verification ?? '—'}
+              {libelleVerificationSiret(
+                facture.entites_facturation?.siret_verification,
+              )}
             </div>
           </div>
           <FormField label="Date d’émission" htmlFor="facture-date-emission">
@@ -385,12 +392,16 @@ export default function FactureDetailPage() {
 
       {/* Bloc 2 — Lignes */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-neutral-700">
+        <Heading level={2} size="sm" tone="muted">
           Bloc 2 — Lignes
-        </h2>
-        <div className="rounded-md border divide-y text-sm">
+        </Heading>
+        <div className="rounded-savr-md border divide-y text-sm">
           {facture.factures_collectes.length === 0 && (
-            <div className="px-4 py-3 text-neutral-500">Aucune ligne.</div>
+            <EmptyState
+              size="inline"
+              title="Aucune ligne."
+              className="px-4 py-3"
+            />
           )}
           {facture.factures_collectes.map((fc) => (
             <LigneRow
@@ -437,9 +448,9 @@ export default function FactureDetailPage() {
             <Button
               variant="secondary"
               onClick={addLigne}
-              disabled={actionLoading === 'add'}
+              loading={actionLoading === 'add'}
             >
-              <Plus className="h-4 w-4 mr-1" /> Ajouter
+              <Plus /> Ajouter
             </Button>
           </div>
         )}
@@ -447,36 +458,34 @@ export default function FactureDetailPage() {
 
       {/* Bloc 4 — Totaux */}
       <section className="space-y-1 text-sm">
-        <h2 className="text-sm font-semibold text-neutral-700">
+        <Heading level={2} size="sm" tone="muted">
           Bloc 4 — Totaux
-        </h2>
+        </Heading>
         <div className="flex justify-between">
-          <span className="text-neutral-500">Total HT</span>
-          <span className="font-medium">{fmt.format(facture.montant_ht)}</span>
+          <span className="text-savr-neutral-500">Total HT</span>
+          <span className="font-medium">{fmt(facture.montant_ht)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-500">TVA</span>
-          <span className="font-medium">{fmt.format(facture.montant_tva)}</span>
+          <span className="text-savr-neutral-500">TVA</span>
+          <span className="font-medium">{fmt(facture.montant_tva)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-500">Total TTC</span>
-          <span className="font-semibold">
-            {fmt.format(facture.montant_ttc)}
-          </span>
+          <span className="text-savr-neutral-500">Total TTC</span>
+          <span className="font-semibold">{fmt(facture.montant_ttc)}</span>
         </div>
       </section>
 
       {/* Bloc 5 — Conditions / notes */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-neutral-700">
+        <Heading level={2} size="sm" tone="muted">
           Bloc 5 — Référence et conditions
-        </h2>
+        </Heading>
         {/* Référence client = evenements.reference_affaire (transmise à Pennylane).
             Affichage seul en V1 : aucune colonne facture-level pour un override
             (ni schéma V1 ni DDL cible) — l'override serait une divergence à
             arbitrer avec Val. */}
         <div className="text-sm">
-          <span className="text-neutral-500">Référence client : </span>
+          <span className="text-savr-neutral-500">Référence client : </span>
           <span className="font-medium">{factureReference ?? '—'}</span>
         </div>
         <FormField label="Conditions et notes" htmlFor="facture-notes">
@@ -493,37 +502,32 @@ export default function FactureDetailPage() {
           <Button
             variant="secondary"
             onClick={saveHeader}
-            disabled={actionLoading === 'header'}
+            loading={actionLoading === 'header'}
+            loadingText="Enregistrement…"
           >
-            <Save className="h-4 w-4 mr-1" />
-            {actionLoading === 'header'
-              ? 'Enregistrement…'
-              : 'Enregistrer l’en-tête'}
+            <Save /> Enregistrer l’en-tête
           </Button>
         )}
       </section>
 
       <div className="flex flex-wrap gap-4">
         {facture.pdf_url_pennylane && (
-          <a
+          <TextLink
             href={facture.pdf_url_pennylane}
+            external
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
+            className="gap-2 text-sm"
           >
             Télécharger le PDF Pennylane
-          </a>
+          </TextLink>
         )}
         {/* Copie de travail §06.08 §1 — clé R2 pré-signée à la volée. */}
         {facture.pdf_url_savr && (
-          <button
-            type="button"
-            onClick={downloadPdfSavr}
-            className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
-          >
+          <TextLink onClick={downloadPdfSavr} className="gap-2 text-sm">
             <Download className="h-4 w-4" />
             Télécharger le PDF Savr (copie de travail)
-          </button>
+          </TextLink>
         )}
       </div>
 
@@ -533,15 +537,14 @@ export default function FactureDetailPage() {
           <Button
             onClick={() => doAction('valider')}
             disabled={actionLoading !== null}
+            loading={actionLoading === 'valider'}
+            loadingText="Envoi…"
           >
-            <Send className="h-4 w-4 mr-2" />
-            {actionLoading === 'valider'
-              ? 'Envoi…'
-              : 'Valider et envoyer à Pennylane'}
+            <Send /> Valider et envoyer à Pennylane
           </Button>
         )}
 
-        {/* Renvoi manuel §06.08 §2.3 : porté par le bandeau orange en_attente_pennylane
+        {/* Renvoi manuel §06.08 §2.3 : porté par le bandeau d'avertissement en_attente_pennylane
             (ci-dessus), pas de doublon dans le Bloc Actions. */}
 
         {['emise', 'payee'].includes(facture.statut) && (
@@ -549,9 +552,10 @@ export default function FactureDetailPage() {
             variant="destructive"
             onClick={creerAvoir}
             disabled={actionLoading !== null}
+            loading={actionLoading === 'avoir'}
+            loadingText="Création…"
           >
-            <FileX className="h-4 w-4 mr-2" />
-            {actionLoading === 'avoir' ? 'Création…' : 'Générer un avoir'}
+            <FileX /> Générer un avoir
           </Button>
         )}
       </section>
@@ -574,7 +578,7 @@ function LigneRow({
   deleting: boolean;
   onSave: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
-  fmt: Intl.NumberFormat;
+  fmt: (n: number) => string;
 }) {
   const [designation, setDesignation] = useState(
     ligne.libelle_ligne ?? ligne.designation ?? '',
@@ -585,11 +589,11 @@ function LigneRow({
   if (!editable) {
     return (
       <div className="flex items-center justify-between px-4 py-2.5">
-        <div className="text-neutral-700">
+        <div className="text-savr-neutral-700">
           {ligne.libelle_ligne ?? ligne.designation ?? 'Prestation Savr'}
         </div>
-        <div className="font-medium text-neutral-900">
-          {fmt.format(ligne.montant_ligne_ht * ligne.quantite)}
+        <div className="font-medium text-savr-neutral-900">
+          {fmt(ligne.montant_ligne_ht * ligne.quantite)}
         </div>
       </div>
     );
@@ -639,8 +643,9 @@ function LigneRow({
           onChange={(e) => setTva(e.target.value)}
         />
       </FormField>
-      <Button
-        variant="secondary"
+      <IconButton
+        size="sm"
+        aria-label="Enregistrer la ligne"
         onClick={() =>
           onSave({
             designation,
@@ -648,13 +653,20 @@ function LigneRow({
             taux_tva: Number(tva),
           })
         }
-        disabled={!dirty || busy}
+        disabled={!dirty}
+        loading={busy}
       >
-        {busy ? '…' : <Save className="h-4 w-4" />}
-      </Button>
-      <Button variant="ghost" onClick={onDelete} disabled={deleting}>
-        <Trash2 className="h-4 w-4 text-red-600" />
-      </Button>
+        <Save />
+      </IconButton>
+      <IconButton
+        size="sm"
+        variant="destructive"
+        aria-label="Supprimer la ligne"
+        onClick={onDelete}
+        loading={deleting}
+      >
+        <Trash2 />
+      </IconButton>
     </div>
   );
 }

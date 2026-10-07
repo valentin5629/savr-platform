@@ -28,9 +28,10 @@ const PageHero = React.forwardRef<HTMLDivElement, PageHeroProps>(
       )}
     >
       <div className="flex min-w-0 items-center gap-3">
-        {icon}
+        {/* shrink-0 : l'icône ne s'écrase pas quand le sous-titre passe à la ligne. */}
+        {icon && <span className="flex shrink-0">{icon}</span>}
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-extrabold tracking-[-0.02em] text-savr-white">
+          <h1 className="text-2xl font-extrabold tracking-[-0.02em] break-words text-savr-white sm:truncate">
             {title}
           </h1>
           {subtitle && (

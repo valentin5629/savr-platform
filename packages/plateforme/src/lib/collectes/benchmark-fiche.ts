@@ -3,7 +3,12 @@ import {
   createSupabaseServerClient,
   type UserAuthContext,
 } from '@/lib/api-auth.js';
-import { loadBenchmark, LoaderError } from '@/lib/dashboards/loaders.js';
+import {
+  ERREUR_FILTRE_HORS_PERIMETRE,
+  ERREUR_FILTRE_TRAITEURS_INTERDIT,
+  loadBenchmark,
+  LoaderError,
+} from '@/lib/dashboards/loaders.js';
 import {
   aggregateBenchmarkPerFlux,
   type BenchmarkRow,
@@ -24,7 +29,8 @@ import { serverError } from '@/lib/api-helpers.js';
 // RLS n'est lue QUE pour distinguer ce cas d'une collecte hors périmètre (404).
 //
 // Le repère parc vient du MÊME loader que les dashboards (même garde
-// `traiteur_ids[]` par rôle, même période fixe 24 mois).
+// `traiteur_ids[]` par rôle, même garde de périmètre du gestionnaire, même
+// période fixe 24 mois).
 
 interface LigneSingle {
   flux_code: string;
@@ -81,15 +87,19 @@ export async function repondreBenchmarkFiche(
       })) as BenchmarkRow[],
     );
   } catch (e) {
-    // Seule erreur métier atteignable ici : la garde §04 « traiteur_ids[]
-    // interdit » (403). Libellé fixe écrit ici — aucun message d'origine
-    // loader/Postgres n'est relayé au client (C1).
+    // Deux erreurs métier atteignables ici (403), une par famille de rôles : la
+    // garde de périmètre pour le gestionnaire (§06.05), la garde §04
+    // « traiteur_ids[] interdit » pour les rôles traiteur et agence. Libellé
+    // fixe choisi ici sur le rôle — aucun message d'origine loader/Postgres
+    // n'est relayé au client (C1).
     if (e instanceof LoaderError)
       return e.status === 403
         ? NextResponse.json(
             {
               error:
-                'Le filtre traiteur_ids est interdit pour ce rôle (§04 préservation compétitive)',
+                ctx.role === 'gestionnaire_lieux'
+                  ? ERREUR_FILTRE_HORS_PERIMETRE
+                  : ERREUR_FILTRE_TRAITEURS_INTERDIT,
             },
             { status: 403 },
           )

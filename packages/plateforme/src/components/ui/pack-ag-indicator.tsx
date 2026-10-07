@@ -44,7 +44,7 @@ const PackAGIndicator = React.forwardRef<HTMLDivElement, PackAGIndicatorProps>(
         >
           <div
             className={cn(
-              'h-full rounded-savr-full transition-all duration-300',
+              'h-full rounded-savr-full transition-all duration-savr-slow',
               color,
             )}
             style={{ width: `${pct}%` }}

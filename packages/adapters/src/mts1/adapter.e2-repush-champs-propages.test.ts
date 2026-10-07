@@ -301,7 +301,11 @@ describe('E1/E2 — rien d’INTERNE ne sort vers le prestataire', () => {
   it.each(TYPES)(
     'E1 (%s) — la note interne n’apparaît nulle part dans le corps du POST',
     async (type) => {
-      const payload = await postPayload({ ...COLLECTE_AVEC_NOTE, type });
+      const payload = await postPayload({
+        ...COLLECTE_AVEC_NOTE,
+        type,
+        association_adresse: '12 rue des Associations, Ivry-sur-Seine',
+      });
       expect(JSON.stringify(payload)).not.toContain(SENTINELLE);
     },
   );

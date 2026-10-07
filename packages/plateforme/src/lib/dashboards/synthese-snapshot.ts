@@ -20,6 +20,17 @@
 
 import type { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import { estFluxZd, FLUX_ZD_CODES, libelleFlux } from '@/lib/libelles/flux.js';
+import {
+  attributionsAgOf,
+  embedAttributionsAg,
+  type AttributionAgEmbed,
+  type AttributionsAgLues,
+} from './attributions-ag.js';
+import {
+  libelleCourtTypeCollecte,
+  libelleCdcTypeCollecte,
+} from '@/lib/libelles/type-collecte.js';
 
 type Supa = ReturnType<typeof createSupabaseServerClient>;
 
@@ -107,20 +118,6 @@ export interface SyntheseSnapshot {
   co2_facteurs_snapshot?: Record<string, unknown> | null;
 }
 
-const FLUX_LABELS: Record<string, string> = {
-  biodechet: 'Biodéchets',
-  emballage: 'Emballages',
-  carton: 'Carton',
-  verre: 'Verre',
-  dechet_residuel: 'Déchet résiduel',
-};
-const FLUX_ORDER = [
-  'biodechet',
-  'emballage',
-  'carton',
-  'verre',
-  'dechet_residuel',
-];
 const TOP_ASSOS = 3;
 const PERIMETRE_LABELS: Record<SyntheseRole, string> = {
   traiteur_manager: 'traiteur',
@@ -143,14 +140,6 @@ interface EvtEmbed {
   created_by: string | null;
   lieux: { id: string; nom: string } | { id: string; nom: string }[] | null;
 }
-interface AttrEmbed {
-  volume_repas_realise: number | null;
-  association_id: string | null;
-  associations:
-    | { id: string; nom: string; ville: string | null }
-    | { id: string; nom: string; ville: string | null }[]
-    | null;
-}
 interface CollecteRow {
   id: string;
   type: string;
@@ -165,17 +154,22 @@ interface CollecteRow {
   collecte_flux:
     | { poids_reel_kg: number | null; flux_dechets: { code: string } | null }[]
     | null;
-  attributions_antgaspi: AttrEmbed[] | AttrEmbed | null;
+  // Table (traiteur, agence) ou vue du gestionnaire — cf. attributions-ag.ts.
+  attributions_antgaspi: AttributionsAgLues;
 }
 
-const SELECT = `id, type, taux_recyclage, date_collecte,
+// Attributions AG par rôle : la vue v_attributions_gestionnaire pour le
+// gestionnaire (aa_select lui refuse la table sur un traiteur tiers), la table
+// pour traiteur et agence.
+const selectPour = (
+  role: SyntheseRole,
+): string => `id, type, taux_recyclage, date_collecte,
   co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh, co2_facteurs_snapshot,
   evenements!inner(id, nom_evenement, date_evenement, lieu_id, pax, organisation_id,
     client_organisateur_organisation_id, type_evenement_id,
     traiteur_operationnel_organisation_id, created_by, lieux(id, nom)),
   collecte_flux(poids_reel_kg, flux_dechets(code)),
-  attributions_antgaspi(volume_repas_realise, association_id,
-    associations!association_id(id, nom, ville))`;
+  ${embedAttributionsAg(role)}`;
 
 // ── Helpers de normalisation embed PostgREST ─────────────────────────────────
 function firstOf<T>(v: T | T[] | null | undefined): T | null {
@@ -185,9 +179,8 @@ function firstOf<T>(v: T | T[] | null | undefined): T | null {
 function evtOf(c: CollecteRow): EvtEmbed | null {
   return firstOf(c.evenements);
 }
-function attrsOf(c: CollecteRow): AttrEmbed[] {
-  const a = c.attributions_antgaspi;
-  return Array.isArray(a) ? a : a ? [a] : [];
+function attrsOf(c: CollecteRow): AttributionAgEmbed[] {
+  return attributionsAgOf(c.attributions_antgaspi);
 }
 function kgOf(c: CollecteRow): number {
   const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
@@ -370,7 +363,9 @@ async function fetchScopedRows(
   };
 
   const runQuery = async (scope: (q: FB) => FB): Promise<CollecteRow[]> => {
-    const base = supabase.from('collectes').select(SELECT) as unknown as FB;
+    const base = supabase
+      .from('collectes')
+      .select(selectPour(ctx.role)) as unknown as FB;
     const q = scope(applyCommon(base));
     const { data, error } = await (q as unknown as Promise<{
       data: unknown;
@@ -442,16 +437,16 @@ function ventilationFlux(zdRows: CollecteRow[]): SyntheseFluxLigne[] {
       if (code) parCode[code] = (parCode[code] ?? 0) + num(f.poids_reel_kg);
     }
   }
-  const ordered = FLUX_ORDER.filter((code) => (parCode[code] ?? 0) > 0).map(
+  const ordered = FLUX_ZD_CODES.filter((code) => (parCode[code] ?? 0) > 0).map(
     (code) => ({
-      nom: FLUX_LABELS[code] ?? code,
+      nom: libelleFlux(code),
       poids_kg: parCode[code] ?? 0,
     }),
   );
   // Flux hors nomenclature connue (défensif).
   for (const [code, poids] of Object.entries(parCode)) {
-    if (!FLUX_ORDER.includes(code) && poids > 0)
-      ordered.push({ nom: FLUX_LABELS[code] ?? code, poids_kg: poids });
+    if (!estFluxZd(code) && poids > 0)
+      ordered.push({ nom: libelleFlux(code), poids_kg: poids });
   }
   return ordered;
 }
@@ -616,13 +611,13 @@ function detailParEvenement(rows: CollecteRow[]): SyntheseDetailLigne[] {
     const kg = kgOf(c);
     g.tonnage += kg;
     if (c.type === 'zero_dechet') {
-      g.types.add('ZD');
+      g.types.add(libelleCourtTypeCollecte('zero_dechet'));
       if (c.taux_recyclage != null && kg > 0) {
         g.tauxNum += c.taux_recyclage * kg;
         g.tauxDen += kg;
       }
     } else {
-      g.types.add('AG');
+      g.types.add(libelleCourtTypeCollecte('anti_gaspi'));
       g.repas += attrsOf(c).reduce(
         (s, a) => s + num(a.volume_repas_realise),
         0,
@@ -636,7 +631,9 @@ function detailParEvenement(rows: CollecteRow[]): SyntheseDetailLigne[] {
     type: [...g.types].sort().join(' + '),
     tonnage_kg: g.tonnage > 0 ? g.tonnage : null,
     taux_recyclage: g.tauxDen > 0 ? g.tauxNum / g.tauxDen : null,
-    repas_donnes: g.types.has('AG') ? g.repas : null,
+    repas_donnes: g.types.has(libelleCourtTypeCollecte('anti_gaspi'))
+      ? g.repas
+      : null,
   }));
   // Antéchronologique sur date_evenement (§1.6 l.310).
   list.sort((a, b) => b.date_evenement.localeCompare(a.date_evenement));
@@ -691,7 +688,9 @@ function buildFiltresLabel(
   if (params.clientOrgaIds.length > 0)
     parts.push(`Clients : ${params.clientOrgaIds.length} sélectionné(s)`);
   if (!(includeZd && includeAg)) {
-    parts.push(`Type : ${includeZd ? 'Zéro-Déchet' : 'Anti-Gaspi'}`);
+    parts.push(
+      `Type : ${libelleCdcTypeCollecte(includeZd ? 'zero_dechet' : 'anti_gaspi')}`,
+    );
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }

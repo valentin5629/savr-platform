@@ -637,12 +637,13 @@ describe('M3.2 / lieux', () => {
   it('M3.2/lieux_detail_404_inconnu — not found', async () => {
     setupAuth('gestionnaire_lieux');
     rls.push({ data: null, error: null }); // v_lieux_clients maybeSingle → null
+    const inconnu = '99999999-9999-4999-8999-999999999999';
     const { GET } =
       await import('@/app/api/v1/gestionnaire/lieux/[id]/route.js');
     const res = await GET(
-      makeReq('GET', '/api/v1/gestionnaire/lieux/inconnu'),
+      makeReq('GET', `/api/v1/gestionnaire/lieux/${inconnu}`),
       {
-        params: Promise.resolve({ id: 'inconnu' }),
+        params: Promise.resolve({ id: inconnu }),
       },
     );
     expect(res.status).toBe(404);
@@ -899,11 +900,11 @@ describe('M3.2 / pack AG', () => {
             date_evenement: '2026-06-01',
             lieux: { nom: 'Palais' },
           },
-          // ⚠ OBJET, pas tableau — forme réelle PostgREST.
+          // ⚠ OBJET, pas tableau — forme réelle PostgREST, sur la vue
+          // v_attributions_gestionnaire (nom de l'association à plat).
           attributions_antgaspi: {
-            id: 'a1',
             volume_repas_realise: 55,
-            associations: { nom: 'Les Restos' },
+            association_nom: 'Les Restos',
           },
         },
       ],

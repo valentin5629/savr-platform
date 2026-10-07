@@ -41,11 +41,12 @@ function mapPack(p: PackRow) {
 }
 
 // GET /api/v1/gestionnaire/pack-ag
-// Pack AG actif de l'organisation + historique consommation (§06.05 §4).
+// Pack AG actif de l'organisation + historique consommation (§06.05 l.75,
+// navigation — entrée « Mon pack AG »).
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-  void auth;
+  const { organisationId } = auth.ctx;
 
   const supabase = createSupabaseServerClient();
 
@@ -68,22 +69,31 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('created_at', { ascending: false })
     .limit(10);
 
-  // Historique consommation : collectes AG cloturées avec débit pack
-  const { data: consommation } = await supabase
+  // Historique consommation : collectes AG réalisées ou clôturées, débitées sur
+  // un pack DE L'ORGANISATION de l'appelant (§06.05 l.75) — le gestionnaire lit
+  // aussi celles des traiteurs tiers sur ses lieux, débitées sur LEUR pack.
+  // `!inner` est ce qui écarte la collecte : sans lui, le filtre sur le pack
+  // embarqué vide l'embed et garde la ligne (mesuré sur savr-dev).
+  const { data: consommation, error: consoErr } = await supabase
     .from('collectes')
     .select(
       `id, date_collecte, statut,
+       packs_antgaspi!pack_antgaspi_id!inner(id),
        evenements!inner(nom_evenement, date_evenement,
          lieux!lieu_id(nom)),
-       attributions_antgaspi(
-         id, volume_repas_realise,
-         associations!association_id(nom))`,
+       attributions_antgaspi:v_attributions_gestionnaire(
+         volume_repas_realise, association_nom)`,
     )
     .eq('type', 'anti_gaspi')
     .in('statut', ['realisee', 'cloturee'])
-    .not('pack_antgaspi_id', 'is', null)
+    .eq('packs_antgaspi.organisation_id', organisationId)
     .order('date_collecte', { ascending: false })
     .limit(50);
+
+  // Un historique vide est un état normal (aucun pack, ou pack jamais débité) :
+  // une lecture en échec ne doit pas s'y confondre.
+  if (consoErr)
+    return serverError(consoErr, 'gestionnaire.pack_ag.consommation');
 
   return NextResponse.json({
     data: {
@@ -96,7 +106,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           ? c.evenements[0]
           : c.evenements;
         const lieu = (evt as { lieux?: { nom?: string } })?.lieux;
-        // Embed to-one (collecte_id UNIQUE) → objet PostgREST : l'envelopper.
+        // Vue `v_attributions_gestionnaire` (§04) sous la clé `attributions_antgaspi` :
+        // embed to-one → objet PostgREST, à envelopper ; nom de l'association à plat.
         const attrs = Array.isArray(c.attributions_antgaspi)
           ? c.attributions_antgaspi
           : c.attributions_antgaspi
@@ -115,9 +126,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             0,
           ),
           associations: attrs.map((a) => ({
-            nom:
-              (a as { associations?: { nom?: string } })?.associations?.nom ??
-              null,
+            nom: (a as { association_nom?: string }).association_nom ?? null,
             repas:
               (a as { volume_repas_realise?: number }).volume_repas_realise ??
               0,

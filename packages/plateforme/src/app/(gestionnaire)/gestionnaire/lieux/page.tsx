@@ -1,11 +1,15 @@
 'use client';
 
+import { ErrorState } from '@/components/ui/error-state';
+import { fmtInt, fmtKg } from '@/lib/format';
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { MapPin, TriangleAlert } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { PageHero } from '@/components/ui/page-hero';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Text } from '@/components/ui/text';
+import { FicheLieuModal } from '@/components/gestionnaire/fiche-lieu-modal';
+import { ROUTES } from '@/lib/routes';
 
 interface LieuRow {
   id: string;
@@ -21,10 +25,29 @@ interface LieuRow {
 }
 
 export default function GestionnaireLieuxPage() {
-  const router = useRouter();
   const [rows, setRows] = useState<LieuRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState(false);
+
+  // Fiche lieu en pop-up (§06.05 §3 — arbitrage Val 2026-10-06). L'adresse porte
+  // la fiche ouverte (?lieu=<id>) : un lien direct, un rechargement ou l'ancienne
+  // route /gestionnaire/lieux/<id> (qui redirige ici) rouvrent la même fiche.
+  const [lieuOuvert, setLieuOuvert] = useState<string | null>(null);
+  useEffect(() => {
+    setLieuOuvert(new URLSearchParams(window.location.search).get('lieu'));
+  }, []);
+  const ouvrirFiche = (id: string) => {
+    setLieuOuvert(id);
+    window.history.replaceState(
+      null,
+      '',
+      `${ROUTES.gestionnaire.lieux}?lieu=${encodeURIComponent(id)}`,
+    );
+  };
+  const fermerFiche = useCallback(() => {
+    setLieuOuvert(null);
+    window.history.replaceState(null, '', ROUTES.gestionnaire.lieux);
+  }, []);
 
   const charger = useCallback(() => {
     setLoading(true);
@@ -60,9 +83,9 @@ export default function GestionnaireLieuxPage() {
       render: (l) => (
         <div>
           <div>{l.adresse_acces ?? '—'}</div>
-          <div className="text-xs text-savr-neutral-500">
+          <Text as="div" variant="hint">
             {[l.code_postal, l.ville].filter(Boolean).join(' ')}
-          </div>
+          </Text>
         </div>
       ),
     },
@@ -70,7 +93,9 @@ export default function GestionnaireLieuxPage() {
       key: 'capacite_maximum',
       header: 'Capacité',
       render: (l) =>
-        l.capacite_maximum != null ? `${l.capacite_maximum} pers.` : '—',
+        l.capacite_maximum != null
+          ? `${fmtInt(l.capacite_maximum)} pers.`
+          : '—',
     },
     {
       key: 'nb_collectes_12m',
@@ -80,17 +105,14 @@ export default function GestionnaireLieuxPage() {
     {
       key: 'tonnage_12m_kg',
       header: 'Tonnage ZD 12 m',
-      render: (l) =>
-        l.tonnage_12m_kg > 0 ? `${l.tonnage_12m_kg.toFixed(0)} kg` : '—',
+      render: (l) => (l.tonnage_12m_kg > 0 ? fmtKg(l.tonnage_12m_kg) : '—'),
     },
   ];
 
   const contenu = erreur ? (
-    <EmptyState
-      icon={<TriangleAlert className="h-8 w-8" />}
-      title="Impossible de charger vos lieux"
-      description="Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
-      action={{ label: 'Réessayer', onClick: charger }}
+    <ErrorState
+      message="Impossible de charger vos lieux. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
+      onRetry={charger}
     />
   ) : !loading && rows.length === 0 ? (
     <EmptyState
@@ -104,7 +126,7 @@ export default function GestionnaireLieuxPage() {
       data={rows}
       loading={loading}
       keyExtractor={(row) => row.id}
-      onRowClick={(row) => router.push(`/gestionnaire/lieux/${row.id}`)}
+      onRowClick={(row) => ouvrirFiche(row.id)}
     />
   );
 
@@ -123,6 +145,10 @@ export default function GestionnaireLieuxPage() {
       <div className="rounded-savr-md border border-savr-neutral-200 bg-savr-white p-2 sm:p-4">
         {contenu}
       </div>
+
+      {lieuOuvert && (
+        <FicheLieuModal lieuId={lieuOuvert} onClose={fermerFiche} />
+      )}
     </div>
   );
 }

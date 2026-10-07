@@ -1,23 +1,37 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { FileText, Download } from 'lucide-react';
-import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { FactureStatutBadge } from '@/components/ui/facture-statut-badge';
+import {
+  LIBELLE_STATUT_FACTURE_PLURIEL,
+  libelleCourtTypeFacture,
+  optionsTypeFacture,
+  STATUTS_FACTURE,
+} from '@/lib/libelles/facture';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
-import type { Database } from '@savr/shared/src/database.types.js';
-
-type Enums = Database['plateforme']['Enums'];
+import { fmtMontant } from '@/lib/format';
+import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
 
 interface Facture {
   id: string;
@@ -40,51 +54,22 @@ interface Facture {
   factures_collectes: { count: number }[] | null;
 }
 
-type BadgeVariant =
-  | 'success'
-  | 'warning'
-  | 'error'
-  | 'info'
-  | 'action'
-  | 'neutral'
-  | 'primary';
-
-const STATUT_LABELS: Record<string, { label: string; variant: BadgeVariant }> =
-  {
-    brouillon: { label: 'Brouillon', variant: 'neutral' },
-    en_attente_pennylane: { label: 'En attente', variant: 'warning' },
-    emise: { label: 'Émise', variant: 'info' },
-    payee: { label: 'Payée', variant: 'success' },
-    annulee: { label: 'Annulée', variant: 'error' },
-  };
-
-const TYPE_LABELS: Record<string, string> = {
-  zero_dechet: 'ZD',
-  collecte_antigaspi: 'AG',
-  achat_pack_antigaspi: 'Pack',
-  avoir: 'Avoir',
-};
-
 // Filtre statut (§06.08 §4/§2.3). '__erreur__' = pseudo-filtre « En erreur »
-// (factures portant une erreur de synchro Pennylane).
-const FILTRES = [
+// (factures portant une erreur de synchro Pennylane), inséré après « En attente
+// Pennylane ». Libellés + options = `lib/libelles/facture` (R-UI-2 C3/C4).
+const PASTILLES_STATUT = [
   { key: '', label: 'Tout' },
-  { key: 'brouillon', label: 'Brouillons' },
-  { key: 'en_attente_pennylane', label: 'En attente Pennylane' },
-  { key: '__erreur__', label: 'En erreur' },
-  { key: 'emise', label: 'Émises' },
-  { key: 'payee', label: 'Payées' },
-  { key: 'annulee', label: 'Annulées' },
+  ...STATUTS_FACTURE.flatMap((key) => {
+    const p = { key, label: LIBELLE_STATUT_FACTURE_PLURIEL[key]! };
+    return key === 'en_attente_pennylane'
+      ? [p, { key: '__erreur__', label: 'En erreur' }]
+      : [p];
+  }),
 ];
 
 // Ids typés par l'enum DB : un renommage d'enum casse la compilation au lieu
 // de devenir un filtre ignoré en silence par la route (liste blanche).
-const TYPE_OPTIONS = [
-  { id: 'zero_dechet', nom: 'Zéro Déchet' },
-  { id: 'collecte_antigaspi', nom: 'Anti-Gaspi' },
-  { id: 'achat_pack_antigaspi', nom: 'Achat Pack AG' },
-  { id: 'avoir', nom: 'Avoir' },
-] satisfies { id: Enums['facture_type']; nom: string }[];
+const TYPE_OPTIONS = optionsTypeFacture('long');
 
 async function downloadPdfSavr(id: string): Promise<void> {
   const res = await fetch(
@@ -101,12 +86,9 @@ const columns: Column<Facture>[] = [
     sortable: true,
     header: 'Numéro',
     render: (row) => (
-      <Link
-        href={`/admin/factures/${row.id}`}
-        className="font-medium text-savr-primary-700 hover:underline"
-      >
+      <TextLink href={ROUTES.admin.facture(row.id)} className="font-medium">
         {row.numero_facture ?? '— brouillon —'}
-      </Link>
+      </TextLink>
     ),
   },
   {
@@ -118,7 +100,7 @@ const columns: Column<Facture>[] = [
     key: 'type',
     sortable: true,
     header: 'Type',
-    render: (row) => TYPE_LABELS[row.type] ?? row.type,
+    render: (row) => libelleCourtTypeFacture(row.type),
   },
   {
     key: 'lignes',
@@ -129,21 +111,13 @@ const columns: Column<Facture>[] = [
     key: 'montant_ht',
     sortable: true,
     header: 'Montant HT',
-    render: (row) =>
-      new Intl.NumberFormat('fr-FR', {
-        style: 'currency',
-        currency: row.devise,
-      }).format(row.montant_ht),
+    render: (row) => fmtMontant(row.montant_ht, row.devise),
   },
   {
     key: 'montant_ttc',
     sortable: true,
     header: 'TTC',
-    render: (row) =>
-      new Intl.NumberFormat('fr-FR', {
-        style: 'currency',
-        currency: row.devise,
-      }).format(row.montant_ttc),
+    render: (row) => fmtMontant(row.montant_ttc, row.devise),
   },
   {
     key: 'created_at',
@@ -172,10 +146,6 @@ const columns: Column<Facture>[] = [
     sortable: true,
     header: 'Statut',
     render: (row) => {
-      const s = STATUT_LABELS[row.statut] ?? {
-        label: row.statut,
-        variant: 'neutral' as BadgeVariant,
-      };
       // §06.08 §10 — borne stricte au grain jour (échéance du jour ≠ en retard).
       const enRetard = estEnRetard(row.statut, row.date_echeance, Date.now());
       // Pastille orange §06.08 §2.3/§4 : en_attente_pennylane depuis > 2h.
@@ -194,7 +164,7 @@ const columns: Column<Facture>[] = [
               className="inline-block h-2.5 w-2.5 rounded-savr-full bg-savr-warning"
             />
           )}
-          <Badge variant={s.variant}>{s.label}</Badge>
+          <FactureStatutBadge statut={row.statut} />
           {enRetard && <Badge variant="error">En retard</Badge>}
         </span>
       );
@@ -205,39 +175,42 @@ const columns: Column<Facture>[] = [
     header: 'PDF Savr',
     render: (row) =>
       row.pdf_url_savr ? (
-        <button
-          type="button"
-          onClick={() => downloadPdfSavr(row.id)}
-          className="inline-flex items-center gap-1 text-sm text-savr-primary-700 hover:underline"
-        >
+        <TextLink onClick={() => downloadPdfSavr(row.id)} className="text-sm">
           <Download className="h-3.5 w-3.5" />
           PDF
-        </button>
+        </TextLink>
       ) : (
         <span className="text-savr-neutral-400">—</span>
       ),
   },
 ];
 
+// Filtres de la liste, miroir dans l'URL (R-UI-4a) : `statut` = pastille
+// (« __erreur__ » = en erreur Pennylane) ; Organisation et Type à choix
+// multiple, case « Tous » = sélection vide (décision Val 2026-09-30,
+// divergence M0.8_20260930_filtres-choix-multiple-tous). Tri serveur (cf.
+// lib/tri-liste), retour page 1 à chaque changement (BL-P3-07). La pastille
+// est hors `actif` et conservée par « Réinitialiser les filtres », comme sur
+// Collectes admin (décision Val 2026-09-30 : pastille et filtres se cumulent).
+const FILTRES = {
+  statut: navigation(texte('')),
+  types: liste(),
+  organisation_ids: liste(),
+  date_debut: texte(''),
+  date_fin: texte(''),
+  page: navigation(entier(1, 1)),
+  tri: navigation(texte('created_at')),
+  ordre: navigation(texte('desc')),
+};
+
 export default function FacturesPage() {
-  const [factures, setFactures] = useState<Facture[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filtre, setFiltre] = useState('');
-  // Organisation et Type à choix multiple, case « Tous » = sélection vide
-  // (décision Val 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous).
-  const [types, setTypes] = useState<string[]>([]);
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
-  const [orgIds, setOrgIds] = useState<string[]>([]);
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
   const [orgs, setOrgs] = useState<{ id: string; label: string }[]>([]);
-  const [page, setPage] = useState(1);
-  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
-  // en page 1 à chaque changement (cf. lib/tri-liste).
-  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
-    cle: 'created_at',
-    ordre: 'desc',
-  });
-  const [total, setTotal] = useState(0);
 
   // Liste complète des organisations pour le filtre (§06.08 §4/§8). Boucle de
   // pagination (pas de troncature silencieuse) — même pattern que la liste collectes.
@@ -265,52 +238,30 @@ export default function FacturesPage() {
     };
   }, []);
 
-  const buildParams = useCallback(() => {
+  // Paramètres API hors page (partagés avec l'export CSV).
+  const qs = useMemo(() => {
     const params = new URLSearchParams();
-    params.set('tri', tri.cle);
-    params.set('ordre', tri.ordre);
-    if (filtre === '__erreur__') params.set('en_erreur', '1');
-    else if (filtre) params.set('statut', filtre);
-    if (types.length > 0) params.set('types', types.join(','));
-    if (orgIds.length > 0) params.set('organisation_ids', orgIds.join(','));
-    if (dateDebut) params.set('date_debut', dateDebut);
-    if (dateFin) params.set('date_fin', dateFin);
+    params.set('tri', f.tri);
+    params.set('ordre', f.ordre);
+    if (f.statut === '__erreur__') params.set('en_erreur', '1');
+    else if (f.statut) params.set('statut', f.statut);
+    if (f.types.length > 0) params.set('types', f.types.join(','));
+    if (f.organisation_ids.length > 0)
+      params.set('organisation_ids', f.organisation_ids.join(','));
+    if (f.date_debut) params.set('date_debut', f.date_debut);
+    if (f.date_fin) params.set('date_fin', f.date_fin);
     return params.toString();
-  }, [filtre, types, orgIds, dateDebut, dateFin, tri]);
-
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
-
-  const load = useCallback(() => {
-    const numero = ++derniereRequete.current;
-    const perime = () => numero !== derniereRequete.current;
-    setLoading(true);
-    const qs = buildParams();
-    const url = `/api/v1/admin/factures?${qs ? `${qs}&` : ''}page=${page}`;
-    fetch(url)
-      .then((r) => r.json())
-      .then((d: { data: Facture[]; total?: number }) => {
-        if (perime()) return;
-        setFactures(d.data ?? []);
-        setTotal(d.total ?? 0);
-      })
-      .finally(() => {
-        if (!perime()) setLoading(false);
-      });
-  }, [buildParams, page]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  // Retour à la page 1 quand les filtres changent (BL-P3-07).
-  useEffect(() => {
-    setPage(1);
-  }, [buildParams]);
-
+  }, [f]);
+  const {
+    data: factures,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<Facture>(
+    `/api/v1/admin/factures?${qs ? `${qs}&` : ''}page=${f.page}`,
+  );
   function exportCsv() {
-    const qs = buildParams();
     window.open(`/api/v1/exports/factures${qs ? `?${qs}` : ''}`);
   }
 
@@ -319,37 +270,28 @@ export default function FacturesPage() {
       <PageHero
         icon={<FileText className="h-6 w-6 text-savr-primary-200" />}
         title="Factures"
-        subtitle={
-          total > 0
-            ? `${total} facture${total > 1 ? 's' : ''}`
-            : 'Brouillons, émissions et avoirs'
-        }
+        subtitle="Brouillons, émissions et avoirs"
         actions={
           <Button variant="secondary" onClick={exportCsv}>
-            <Download className="h-4 w-4" />
+            <Download />
             Exporter CSV
           </Button>
         }
       />
 
       <FilterChips
-        chips={FILTRES}
-        activeKey={filtre}
+        chips={PASTILLES_STATUT}
+        activeKey={f.statut}
         ariaLabel="Filtrer par statut"
-        onSelect={setFiltre}
+        onSelect={(statut) => set({ statut })}
       />
 
       <FilterBar
         data-testid="factures-filtres"
-        actif={Boolean(
-          dateDebut || dateFin || types.length > 0 || orgIds.length > 0,
-        )}
-        onReset={() => {
-          setTypes([]);
-          setOrgIds([]);
-          setDateDebut('');
-          setDateFin('');
-        }}
+        count={compteurResultats(total, 'facture', 'factures')}
+        actif={filtresActifs}
+        // N'efface que la barre : la pastille de statut reste posée.
+        onReset={reset}
       >
         {/* « Période » en premier (décision Val 2026-09-30), puis filtres à
             choix multiple avec case « Tous ». */}
@@ -357,11 +299,8 @@ export default function FacturesPage() {
           titre="Période"
           id="filtre-periode"
           data-testid="filtre-periode"
-          value={{ from: dateDebut, to: dateFin }}
-          onChange={(p) => {
-            setDateDebut(p.from);
-            setDateFin(p.to);
-          }}
+          value={{ from: f.date_debut, to: f.date_fin }}
+          onChange={(p) => set({ date_debut: p.from, date_fin: p.to })}
         />
         <FiltreCoches
           label="Organisation"
@@ -369,57 +308,41 @@ export default function FacturesPage() {
           libelleVide="Toutes"
           libelleTous="Toutes"
           options={orgs.map((o) => ({ id: o.id, nom: o.label }))}
-          selected={orgIds}
-          onChange={setOrgIds}
+          selected={f.organisation_ids}
+          onChange={(ids) => set({ organisation_ids: ids })}
         />
         <FiltreCoches
           label="Type"
           testid="filtre-type"
           options={TYPE_OPTIONS}
-          selected={types}
-          onChange={setTypes}
+          selected={f.types}
+          onChange={(ids) => set({ types: ids })}
         />
       </FilterBar>
 
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : factures.length === 0 ? (
-        <EmptyState
-          icon={<FileText className="h-8 w-8" />}
-          title="Aucune facture"
-          description="Les brouillons apparaissent ici après le batch J+1."
-        />
-      ) : (
-        <>
-          <DataTable
-            columns={columns}
-            data={factures}
-            keyExtractor={(row) => row.id}
-            onSort={(cle, ordre) => {
-              setTri({ cle, ordre });
-              setPage(1);
-            }}
-            sortKey={tri.cle}
-            sortDirection={tri.ordre}
+      <DataTable
+        columns={columns}
+        data={factures}
+        keyExtractor={(row) => row.id}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={
+          <EmptyState
+            icon={<FileText className="h-8 w-8" />}
+            title="Aucune facture"
+            description="Les brouillons apparaissent ici après le batch J+1."
           />
-          {total > 50 && (
-            <div className="flex items-center justify-between gap-2 pt-3 text-sm">
-              <span className="text-savr-neutral-500">
-                {total} facture{total > 1 ? 's' : ''}
-              </span>
-              <Pagination
-                page={page}
-                pageCount={Math.ceil(total / 50)}
-                onPageChange={setPage}
-              />
-            </div>
-          )}
-        </>
-      )}
+        }
+        onSort={(cle, ordre) => set({ tri: cle, ordre })}
+        sortKey={f.tri}
+        sortDirection={f.ordre as 'asc' | 'desc'}
+      />
+      <ListFooter
+        total={total}
+        page={f.page}
+        onPageChange={(page) => set({ page })}
+      />
     </div>
   );
 }

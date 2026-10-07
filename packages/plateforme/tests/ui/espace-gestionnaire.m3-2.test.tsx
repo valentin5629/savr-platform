@@ -204,10 +204,18 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       ).toBeInTheDocument();
       // Ligne « Comparer avec » + filtres en ligne (décision Val 2026-09-30).
       expect(screen.getByText('Comparer avec')).toBeInTheDocument();
-      expect(screen.getByTestId('benchmark-reinitialiser')).toBeInTheDocument();
+      // « Réinitialiser les filtres » n'apparaît qu'une fois un critère posé
+      // (R-UI-4b, D5 : `FilterBar actif`) — héritage pur au montage.
+      expect(screen.queryByTestId('benchmark-reinitialiser')).toBeNull();
       expect(screen.getByTestId('benchmark-filter-type')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-lieux')).toBeInTheDocument();
+      // Listes bornées au périmètre du gestionnaire (décision Val 2026-10-06) :
+      // sans sélection le repère couvre tout le parc, et l'écran le dit dès ce
+      // premier rendu — avant même que les listes soient chargées.
+      expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
+        'Tout le parc Savr',
+      );
       // Période fixe 24 mois (décision Val 2026-09-28) : plus aucun choix affiché.
       expect(screen.queryByTestId('benchmark-preset-24m')).toBeNull();
       expect(screen.queryByText('Période benchmark')).toBeNull();

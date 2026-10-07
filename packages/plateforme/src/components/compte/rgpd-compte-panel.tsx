@@ -2,16 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 
 // Panneau « Mon compte » RGPD (transverse, tous rôles) — câble les droits :
 //   · Art.16 Rectification  → PATCH /api/me/profil  (prénom / nom)
-//   · Art.15/20 Accès/Porta → GET   /api/me/export-rgpd  (téléchargement JSON)
 //   · Art.17 Suppression    → POST  /api/me/demande-suppression  (workflow Admin 48h)
-// Remplace les boutons inertes des pages mon-profil (BL-P0-09 / OBS-04 / P2-27).
+// Remplace les boutons inertes des pages mon-profil (BL-P0-09 / P2-27).
+// Export Art.15/20 : plus de bloc à l'écran (décision Val 2026-10-06) — la route
+// GET /api/me/export-rgpd reste servie.
 // `avecSuppression=false` : pas de demande de suppression de compte (profil staff —
 // décision Val 2026-09-28 : un compte Admin ne se supprime pas en self-service).
 export function RgpdComptePanel({
@@ -24,9 +30,14 @@ export function RgpdComptePanel({
   // Chargement en échec : formulaire bloqué — l'enregistrer tel quel (vide)
   // effacerait le téléphone.
   const [chargementKo, setChargementKo] = useState(false);
-  const [profilMsg, setProfilMsg] = useState<string | null>(null);
   const [profilErreur, setProfilErreur] = useState<string | null>(null);
-  const [suppressionMsg, setSuppressionMsg] = useState<string | null>(null);
+  // Demande de suppression : statut persistant (validation Admin sous 48 h
+  // ouvrées, §15) → bandeau, pas un toast éphémère (revue conformité #488).
+  const [suppressionDemandee, setSuppressionDemandee] = useState(false);
+  const [suppressionErreur, setSuppressionErreur] = useState<string | null>(
+    null,
+  );
+  const { toast } = useToast();
   const [enCours, setEnCours] = useState(false);
 
   useEffect(() => {
@@ -52,7 +63,6 @@ export function RgpdComptePanel({
   async function enregistrerProfil(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     setEnCours(true);
-    setProfilMsg(null);
     setProfilErreur(null);
     try {
       const res = await fetch('/api/me/profil', {
@@ -60,7 +70,7 @@ export function RgpdComptePanel({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ prenom, nom, telephone }),
       });
-      if (res.ok) setProfilMsg('Profil mis à jour.');
+      if (res.ok) toast({ title: 'Profil mis à jour.', variant: 'success' });
       else setProfilErreur('Échec de la mise à jour du profil.');
     } catch {
       setProfilErreur('Échec de la mise à jour du profil.');
@@ -69,39 +79,27 @@ export function RgpdComptePanel({
     }
   }
 
-  async function exporter(): Promise<void> {
-    const res = await fetch('/api/me/export-rgpd');
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mes-donnees-savr.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
+  const { confirmer, dialogue } = useConfirm();
   async function demanderSuppression(): Promise<void> {
     if (
-      !window.confirm(
-        'Demander la suppression de votre compte ? Un administrateur Savr ' +
-          'traitera votre demande sous 48h ouvrées (anonymisation de vos ' +
-          'données personnelles ; les pièces comptables légales sont conservées).',
-      )
+      !(await confirmer({
+        title: 'Demander la suppression de votre compte ?',
+        children:
+          'Un administrateur Savr traitera votre demande sous 48h ouvrées (anonymisation de vos données personnelles ; les pièces comptables légales sont conservées).',
+        confirmLabel: 'Demander la suppression',
+        variant: 'destructive',
+      }))
     ) {
       return;
     }
     setEnCours(true);
-    setSuppressionMsg(null);
+    setSuppressionErreur(null);
     try {
       const res = await fetch('/api/me/demande-suppression', {
         method: 'POST',
       });
-      setSuppressionMsg(
-        res.ok
-          ? 'Demande enregistrée — en attente de validation Admin (48h ouvrées).'
-          : 'Échec de l’enregistrement de la demande.',
-      );
+      if (res.ok) setSuppressionDemandee(true);
+      else setSuppressionErreur('Échec de l’enregistrement de la demande.');
     } finally {
       setEnCours(false);
     }
@@ -109,13 +107,14 @@ export function RgpdComptePanel({
 
   return (
     <>
+      {dialogue}
       <Card>
         <CardHeader>
           <CardTitle>Informations personnelles</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={enregistrerProfil} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <FormGrid>
               <FormField label="Prénom" htmlFor="profil-prenom">
                 <Input
                   id="profil-prenom"
@@ -144,13 +143,8 @@ export function RgpdComptePanel({
                   disabled={chargement || chargementKo}
                 />
               </FormField>
-            </div>
+            </FormGrid>
             <FormError>{profilErreur}</FormError>
-            {profilMsg && (
-              <p role="status" className="text-sm text-savr-success-strong">
-                {profilMsg}
-              </p>
-            )}
             <Button
               type="submit"
               disabled={enCours || chargement || chargementKo}
@@ -158,21 +152,6 @@ export function RgpdComptePanel({
               Enregistrer
             </Button>
           </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Mes données (RGPD)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button variant="secondary" onClick={exporter}>
-            Exporter mes données (JSON)
-          </Button>
-          <p className="text-xs text-savr-neutral-500">
-            Téléchargez l’ensemble de vos données personnelles (droit d’accès et
-            de portabilité).
-          </p>
         </CardContent>
       </Card>
 
@@ -185,19 +164,25 @@ export function RgpdComptePanel({
             <Button
               variant="destructive"
               onClick={demanderSuppression}
-              disabled={enCours}
+              loading={enCours}
             >
               Demander la suppression de mon compte
             </Button>
-            {suppressionMsg ? (
-              <p className="text-xs text-savr-neutral-500">{suppressionMsg}</p>
-            ) : (
-              <p className="text-xs text-savr-neutral-500">
-                Validation Admin sous 48h ouvrées, puis anonymisation des
-                données personnelles. Les factures et bordereaux légaux sont
-                conservés.
-              </p>
+            {suppressionDemandee && (
+              <AlertBar variant="success">
+                Demande enregistrée — en attente de validation Admin (48h
+                ouvrées).
+              </AlertBar>
             )}
+            {suppressionErreur && (
+              <AlertBar variant="err" role="alert">
+                {suppressionErreur}
+              </AlertBar>
+            )}
+            <Text variant="hint">
+              Validation Admin sous 48h ouvrées, puis anonymisation des données
+              personnelles. Les factures et bordereaux légaux sont conservés.
+            </Text>
           </CardContent>
         </Card>
       )}

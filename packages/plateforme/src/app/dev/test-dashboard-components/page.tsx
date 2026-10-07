@@ -8,10 +8,10 @@
 
 import { useState } from 'react';
 import {
-  CollecteTypeTabs,
   EmptyDashboardState,
   TonnageDisplay,
 } from '@/components/dashboards/index.js';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import type { CollecteType } from '@/components/dashboards/index.js';
 
 export default function TestDashboardComponentsPage() {
@@ -25,14 +25,14 @@ export default function TestDashboardComponentsPage() {
       <section>
         <h2 className="mb-2 text-sm font-semibold">TonnageDisplay</h2>
         <div className="flex gap-4">
-          <span data-testid="tonnage-999">
-            <TonnageDisplay kg={999} />
+          <span data-testid="tonnage-9999">
+            <TonnageDisplay kg={9999} />
           </span>
-          <span data-testid="tonnage-1000">
-            <TonnageDisplay kg={1000} />
+          <span data-testid="tonnage-10000">
+            <TonnageDisplay kg={10000} />
           </span>
-          <span data-testid="tonnage-2500">
-            <TonnageDisplay kg={2500} />
+          <span data-testid="tonnage-25000">
+            <TonnageDisplay kg={25000} />
           </span>
           <span data-testid="tonnage-null">
             <TonnageDisplay kg={null} />
@@ -46,10 +46,10 @@ export default function TestDashboardComponentsPage() {
         <EmptyDashboardState />
       </section>
 
-      {/* CollecteTypeTabs */}
+      {/* ToggleTypeCollecte */}
       <section>
-        <h2 className="mb-2 text-sm font-semibold">CollecteTypeTabs</h2>
-        <CollecteTypeTabs value={tab} onChange={setTab} />
+        <h2 className="mb-2 text-sm font-semibold">ToggleTypeCollecte</h2>
+        <ToggleTypeCollecte value={tab} onChange={setTab} />
         <p className="mt-2 text-xs text-muted-foreground">
           Onglet actif : {tab}
         </p>

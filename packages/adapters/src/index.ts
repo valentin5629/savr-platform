@@ -111,8 +111,18 @@ export interface Collecte {
   readonly contact_principal_telephone: string;
   readonly contact_secours_nom?: string | null;
   readonly contact_secours_telephone?: string | null;
-  // AG uniquement
+  // Véhicule souhaité par l'Admin (enum plateforme.type_vehicule, nullable).
+  // Transmis dans le canal libre (comment / notes), composé par le worker.
+  readonly type_vehicule_souhaite?: string | null;
+  // AG uniquement — association destinataire (point B = livraison du don),
+  // résolue par le worker via attributions_antgaspi → associations. Composée
+  // UNE fois ici pour les deux adapters (garde-fou 2) : MTS-1 porte le point B
+  // par `placeId` favori (sinon adresse inline), Everest par l'adresse inline.
   readonly association_id_point_collecte_mts1?: string | null;
+  // Adresse postale sur une ligne (« adresse, ville »), prête pour le wire.
+  readonly association_adresse?: string | null;
+  readonly association_contact_nom?: string | null;
+  readonly association_contact_telephone?: string | null;
 }
 
 export interface Transporteur {
@@ -179,7 +189,11 @@ export type { EverestMissionDetail } from './everest/mock.js';
 // Mock injectable (test-only, no-op en prod tant qu'aucun handler n'est posé) —
 // ré-exporté ici pour que les tests cross-package (webhook) partagent le MÊME
 // singleton de handlers que fetchEverestMissionDetails (même specifier).
-export { setupEverestMock, _setEverestHandlers } from './everest/mock.js';
+export {
+  setupEverestMock,
+  _setEverestHandlers,
+  _getEverestHandlers,
+} from './everest/mock.js';
 
 export function getLogistiqueProvider(
   transporteur: Transporteur,

@@ -1,14 +1,17 @@
 'use client';
 
+import { AlertBar } from '@/components/ui/alert-bar';
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
   SousBlocCollecte,
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
+import { PageHeader } from '@/components/ui/page-header';
+import { FormActions } from '@/components/ui/form-actions';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
@@ -85,9 +88,7 @@ export default function AjouterCollectePage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-savr-neutral-900">
-        Ajouter une collecte
-      </h1>
+      <PageHeader title="Ajouter une collecte" tone="neutral" size="xl" />
 
       <div className="flex gap-3">
         {(['zd', 'ag'] as const).map((t) => (
@@ -101,7 +102,7 @@ export default function AjouterCollectePage() {
                 : 'border-savr-neutral-200 text-savr-neutral-600 hover:border-savr-neutral-300'
             }`}
           >
-            {t === 'zd' ? 'Zéro Déchet' : 'Anti-Gaspi'}
+            {libelleTypeCollecte(t)}
           </button>
         ))}
       </div>
@@ -113,53 +114,49 @@ export default function AjouterCollectePage() {
       />
 
       {agDoublonWarning && (
-        <div className="rounded-savr-md border border-savr-warning bg-amber-50 px-4 py-3 space-y-3">
-          <p className="flex items-start gap-2 text-sm text-amber-800">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+        <div className="space-y-3">
+          <AlertBar variant="warn" icon={<AlertTriangle />}>
             Cet événement a déjà une collecte Anti-Gaspi. Confirmer l&apos;ajout
             d&apos;une seconde&nbsp;?
-          </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => {
+          </AlertBar>
+          <FormActions
+            cancel={{
+              label: 'Annuler',
+              size: 'sm',
+              onClick: () => setAgDoublonWarning(false),
+            }}
+            submit={{
+              label: 'Confirmer quand même',
+              size: 'sm',
+              onClick: () => {
                 setAgDoublonConfirm(true);
                 setAgDoublonWarning(false);
                 void handleSubmit();
-              }}
-            >
-              Confirmer quand même
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setAgDoublonWarning(false)}
-            >
-              Annuler
-            </Button>
-          </div>
+              },
+            }}
+          />
         </div>
       )}
 
       {error && (
-        <div className="flex items-center gap-2 rounded-savr-md bg-red-50 border border-savr-error px-3 py-2 text-sm text-savr-error">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
           {error}
-        </div>
+        </AlertBar>
       )}
 
-      <div className="flex justify-end gap-3">
-        <Button variant="secondary" onClick={() => router.back()}>
-          Annuler
-        </Button>
-        <Button
-          onClick={() => void handleSubmit()}
-          disabled={!valid || submitting || agDoublonWarning}
-        >
-          <CheckCircle className="h-4 w-4" />
-          Ajouter la collecte
-        </Button>
-      </div>
+      <FormActions
+        cancel={{ label: 'Annuler', onClick: () => router.back() }}
+        submit={{
+          label: (
+            <>
+              <CheckCircle /> Ajouter la collecte
+            </>
+          ),
+          onClick: () => void handleSubmit(),
+          disabled: !valid || submitting || agDoublonWarning,
+        }}
+        className="gap-3"
+      />
     </div>
   );
 }

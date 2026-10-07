@@ -119,6 +119,12 @@ async function callCsv(query = '') {
   const { GET } = await import('@/app/api/v1/registre/export-csv/route.js');
   return GET(makeReq(`/api/v1/registre/export-csv${query}`));
 }
+async function callDetail(id: string) {
+  const { GET } = await import('@/app/api/v1/registre/[id]/route.js');
+  return GET(makeReq(`/api/v1/registre/${id}`), {
+    params: Promise.resolve({ id }),
+  });
+}
 async function callZip(query = '') {
   const { GET } = await import('@/app/api/v1/registre/export-zip/route.js');
   return GET(makeReq(`/api/v1/registre/export-zip${query}`));
@@ -151,7 +157,7 @@ describe('M4.2 / garde', () => {
   it('M4.2/liste_registre_200 — manager voit ses lignes', async () => {
     setupAuth('traiteur_manager', 'org-a');
     rls.push({ data: [{ collecte_id: 'c1' }], count: 1, error: null });
-    const res = await callList('?page=1&pageSize=25');
+    const res = await callList('?page=1&limit=25');
     expect(res.status).toBe(200);
     const body = (await res.json()) as { total: number; rows: unknown[] };
     expect(body.total).toBe(1);
@@ -160,23 +166,222 @@ describe('M4.2 / garde', () => {
 });
 
 // ── Export CSV (P1 export_csv_registre_filtre_trace) ─────────────────────────
+// Référentiel des flux tel que le pose la migration 20261004203000.
+const REF_BIODECHET = {
+  code: 'biodechet',
+  nom: 'Biodéchets',
+  code_dechet_europeen: '20 01 08',
+  filiere_valorisation: 'methanisation',
+  code_traitement: 'R3',
+  exutoire: 'GENERIS VSG DCDT',
+  exutoire_adresse:
+    'ZI des Graviers, 6 avenue Winston Churchill, 94190 Villeneuve-Saint-Georges',
+};
+const REF_VERRE = {
+  code: 'verre',
+  nom: 'Verre',
+  code_dechet_europeen: '15 01 07',
+  filiere_valorisation: 'recyclage',
+  code_traitement: 'R5',
+  exutoire: 'REVIVAL GENNEVILLIERS TRSFT',
+  exutoire_adresse: '9 route du Môle Central, 92230 Gennevilliers',
+};
+const REF_CARTON = {
+  code: 'carton',
+  nom: 'Cartons',
+  code_dechet_europeen: '15 01 01',
+  filiere_valorisation: 'recyclage',
+  code_traitement: 'R3',
+  exutoire: 'TAIS VILLENEUVE LE ROI TDI',
+  exutoire_adresse: '6 rue des Vœux Saint-Georges, 94290 Villeneuve-le-Roi',
+};
+const LIGNE_REGISTRE = {
+  collecte_id: 'c1',
+  date_evenement: '2026-05-12',
+  date_collecte: '2026-05-13',
+  lieu_nom: 'Pavillon Cambon',
+  lieu_adresse: '5 rue Cambon',
+  traiteur_raison_sociale: 'Kaspia SARL',
+  // Le prestataire réel est dans la vue, jamais dans le fichier (l'égalité
+  // stricte des lignes le garde).
+  transporteur_nom: 'Strike',
+  flux_codes: ['biodechet', 'verre'],
+  poids_total_kg: 504.7,
+  exutoire_nom: 'Prestataire Savr',
+  bordereau_numero: 'BSAV-2026-00001',
+  bordereau_statut: 'emis',
+};
+const EN_TETES_CSV = [
+  'Nature du déchet',
+  'Code nomenclature déchets',
+  'Identité du producteur de déchet',
+  'Lieu',
+  "Date d'expédition",
+  'Quantité (tonnage)',
+  'Filière de traitement finale',
+  'Code D&R de traitement finale',
+  'Numéro de BSD',
+  'Transporteur - Nom',
+  'Transporteur - Adresse',
+  'Transporteur - Code postal',
+  'Transporteur - Ville',
+  'Exutoire intermédiaire - Nom',
+  'Exutoire intermédiaire - Adresse',
+  'Exutoire intermédiaire - Code postal',
+  'Exutoire intermédiaire - Ville',
+  'Exutoire final - Nom',
+  'Exutoire final - Adresse',
+  'Exutoire final - Code postal',
+  'Exutoire final - Ville',
+].join(';');
+
+async function lignesCsv(res: Response): Promise<string[]> {
+  const text = new TextDecoder().decode(
+    new Uint8Array(await res.arrayBuffer()),
+  );
+  return text.split('\r\n');
+}
+
 describe('M4.2 / export_csv_registre_filtre_trace', () => {
   it('CSV 200 + format FR + trace exports_registre', async () => {
     setupAuth('traiteur_manager', 'org-a');
+    rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
     rls.push({
       data: [
+        { collecte_id: 'c1', poids_reel_kg: 468.7, flux_dechets: REF_VERRE },
+        { collecte_id: 'c1', poids_reel_kg: 36, flux_dechets: REF_BIODECHET },
+      ],
+      error: null,
+    });
+    rls.push({ error: null }); // trace insert
+
+    const res = await callCsv('?from=2026-05-01&to=2026-05-31');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/csv');
+    expect(res.headers.get('Content-Disposition')).toMatch(
+      /registre-savr-\d{8}\.csv/,
+    );
+
+    const buf = new Uint8Array(await res.clone().arrayBuffer());
+    expect(Array.from(buf.slice(0, 3))).toEqual([0xef, 0xbb, 0xbf]); // BOM
+    const [header, ...lignes] = await lignesCsv(res);
+    expect(header).toBe(EN_TETES_CSV);
+    expect(lignes).toHaveLength(2); // une ligne par flux pesé
+
+    // Trace exports_registre : type registre_dechets, format csv, nb_lignes =
+    // lignes de données du fichier (2 flux), pas le nombre de collectes (1).
+    const insertArgs = (rls.__calls.insert ?? [])[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(insertArgs?.type_export).toBe('registre_dechets');
+    expect(insertArgs?.format).toBe('csv');
+    expect(insertArgs?.nb_lignes).toBe(2);
+    expect(insertArgs?.user_id).toBe('user-1');
+    expect(insertArgs?.organisation_id).toBe('org-a');
+  });
+
+  it('M4.2/export_csv_ligne_par_flux — une ligne par flux pesé, les 20 colonnes du modèle + le lieu après le producteur', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
+    rls.push({
+      data: [
+        // Rendus dans le désordre, avec un flux à 0 et un flux non pesé.
+        { collecte_id: 'c1', poids_reel_kg: 468.7, flux_dechets: REF_VERRE },
+        { collecte_id: 'c1', poids_reel_kg: 0, flux_dechets: REF_CARTON },
+        { collecte_id: 'c1', poids_reel_kg: 36, flux_dechets: REF_BIODECHET },
         {
           collecte_id: 'c1',
-          date_evenement: '2026-05-12',
-          lieu_nom: 'Pavillon Cambon',
-          traiteur_raison_sociale: 'Kaspia SARL',
-          flux_codes: ['biodechet', 'verre'],
-          poids_total_kg: 66,
-          exutoire_nom: 'Veolia Saint-Denis',
-          bordereau_numero: 'BSAV-2026-00001',
-          bordereau_statut: 'emis',
+          poids_reel_kg: null,
+          flux_dechets: { code: 'emballage', nom: 'Emballages' },
         },
       ],
+      error: null,
+    });
+    rls.push({ error: null });
+
+    const [, ...lignes] = await lignesCsv(await callCsv());
+    // Le référentiel vient de la requête, pas du mock : chaque colonne lue par
+    // l'export doit être demandée à la base.
+    const selectPesees = (rls.__calls.select ?? [])
+      .map((a) => String(a[0]))
+      .find((s) => s.includes('flux_dechets'));
+    for (const colonne of [
+      'code',
+      'nom',
+      'code_dechet_europeen',
+      'filiere_valorisation',
+      'code_traitement',
+      'exutoire',
+      'exutoire_adresse',
+    ]) {
+      expect(selectPesees).toMatch(new RegExp(`\\b${colonne}\\b`));
+    }
+    const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
+    expect(lignes).toEqual([
+      [
+        'Biodéchets;20 01 08;Kaspia SARL;Pavillon Cambon;13/05/2026;0,036;Méthanisation;R3;BSAV-2026-00001',
+        'Savr;50 rue des Moines;75017;Paris',
+        `Entrepôt Savr;${entrepot}`,
+        'GENERIS VSG DCDT;ZI des Graviers, 6 avenue Winston Churchill;94190;Villeneuve-Saint-Georges',
+      ].join(';'),
+      [
+        'Verre;15 01 07;Kaspia SARL;Pavillon Cambon;13/05/2026;0,4687;Recyclage;R5;BSAV-2026-00001',
+        'Savr;50 rue des Moines;75017;Paris',
+        `Entrepôt Savr;${entrepot}`,
+        'REVIVAL GENNEVILLIERS TRSFT;9 route du Môle Central;92230;Gennevilliers',
+      ].join(';'),
+    ]);
+  });
+
+  it('M4.2/export_csv_flux_par_tranches — les identifiants de collecte partent par tranches de 100', async () => {
+    setupAuth('admin_savr', null);
+    const collectes = Array.from({ length: 250 }, (_, i) => ({
+      ...LIGNE_REGISTRE,
+      collecte_id: `c${i}`,
+    }));
+    rls.push({ data: collectes, count: 250, error: null });
+    // Une pesée dans chaque tranche : la 1re, la 2e et la 3e doivent toutes sortir.
+    for (const id of ['c0', 'c100', 'c249']) {
+      rls.push({
+        data: [{ collecte_id: id, poids_reel_kg: 10, flux_dechets: REF_VERRE }],
+        error: null,
+      });
+    }
+
+    const [, ...lignes] = await lignesCsv(await callCsv());
+    const tranches = (rls.__calls.in ?? []).map((a) => a[1] as string[]);
+    expect(tranches.map((t) => t.length)).toEqual([100, 100, 50]);
+    expect(tranches.flat()).toEqual(collectes.map((c) => c.collecte_id));
+    expect(lignes).toHaveLength(3);
+    // Staff : l'export n'est pas tracé dans exports_registre (audit_log).
+    expect(rls.__calls.insert).toBeUndefined();
+  });
+
+  it('M4.2/export_csv_filtre_flux — filtre Flux actif : seules les lignes de ces flux sortent', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
+    rls.push({
+      data: [
+        { collecte_id: 'c1', poids_reel_kg: 468.7, flux_dechets: REF_VERRE },
+        { collecte_id: 'c1', poids_reel_kg: 36, flux_dechets: REF_BIODECHET },
+        { collecte_id: 'c1', poids_reel_kg: 12, flux_dechets: REF_CARTON },
+      ],
+      error: null,
+    });
+    rls.push({ error: null });
+
+    const [, ...lignes] = await lignesCsv(await callCsv('?flux=verre,carton'));
+    expect(lignes.map((l) => l.split(';')[0])).toEqual(['Cartons', 'Verre']);
+    const insertArgs = (rls.__calls.insert ?? [])[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(insertArgs?.nb_lignes).toBe(2);
+  });
+
+  it('M4.2/export_csv_bordereau_non_emis — bordereau en brouillon : aucun numéro ; référentiel incomplet : cellules vides', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({
+      data: [{ ...LIGNE_REGISTRE, bordereau_statut: 'brouillon' }],
       count: 1,
       error: null,
     });
@@ -184,69 +389,178 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
       data: [
         {
           collecte_id: 'c1',
-          poids_reel_kg: 36,
-          flux_dechets: {
-            code: 'biodechet',
-            filiere_valorisation: 'compostage',
-          },
-        },
-        {
-          collecte_id: 'c1',
-          poids_reel_kg: 30,
-          flux_dechets: { code: 'verre', filiere_valorisation: 'recyclage' },
+          poids_reel_kg: 12,
+          flux_dechets: { code: 'emballage', nom: 'Emballages' },
         },
       ],
       error: null,
     });
-    rls.push({ error: null }); // trace insert
+    rls.push({ error: null });
 
-    const res = await callCsv('?from=2026-05-01&to=2026-05-31&flux=biodechet');
-    expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Type')).toContain('text/csv');
-    expect(res.headers.get('Content-Disposition')).toMatch(
-      /registre-savr-\d{8}\.csv/,
-    );
+    const [, ...lignes] = await lignesCsv(await callCsv());
+    const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
+    expect(lignes).toEqual([
+      [
+        'Emballages;;Kaspia SARL;Pavillon Cambon;13/05/2026;0,012;;;',
+        'Savr;50 rue des Moines;75017;Paris',
+        `Entrepôt Savr;${entrepot}`,
+        ';;;',
+      ].join(';'),
+    ]);
+  });
 
-    const buf = new Uint8Array(await res.arrayBuffer());
-    expect(Array.from(buf.slice(0, 3))).toEqual([0xef, 0xbb, 0xbf]); // BOM
-    const text = new TextDecoder().decode(buf);
-    const [header, line1] = text.split('\r\n');
-    expect(header).toContain('Date événement');
-    expect(header).toContain('Poids total (kg)');
-    expect(header).toContain('Exutoire');
-    expect(header).toContain('Biodéchets (kg)'); // poids par flux détaillé
-    expect(header).toContain('Verre (kg)');
-    expect(header).toContain('Filières');
-    expect(line1).toContain('Veolia Saint-Denis');
-    expect(line1).toContain('66'); // poids total
-    expect(line1).toContain('36'); // biodéchets détaillé
-    expect(line1).toContain('12/05/2026'); // date FR
+  it('M4.2/export_csv_agence_denied — agence refusée (403), aucune lecture', async () => {
+    setupAuth('agence', 'org-a');
+    expect((await callCsv()).status).toBe(403);
+    expect(rls.__calls.from).toBeUndefined();
+  });
 
-    // Trace exports_registre : type registre_dechets, format csv, nb_lignes=1.
-    const insertArgs = (rls.__calls.insert ?? [])[0]?.[0] as
-      | Record<string, unknown>
-      | undefined;
-    expect(insertArgs?.type_export).toBe('registre_dechets');
-    expect(insertArgs?.format).toBe('csv');
-    expect(insertArgs?.nb_lignes).toBe(1);
-    expect(insertArgs?.user_id).toBe('user-1');
-    expect(insertArgs?.organisation_id).toBe('org-a');
+  it('M4.2/export_csv_registre_ampute — moins de collectes reçues que le décompte : 500, jamais un export incomplet', async () => {
+    setupAuth('admin_savr', null);
+    // La réponse est plafonnée à 1000 lignes ; le décompte exact en annonce 1200.
+    rls.push({
+      data: Array.from({ length: 1000 }, (_, i) => ({
+        ...LIGNE_REGISTRE,
+        collecte_id: `c${i}`,
+      })),
+      count: 1200,
+      error: null,
+    });
+    const res = await callCsv();
+    expect(res.status).toBe(500);
+    expect(res.headers.get('Content-Type')).not.toContain('text/csv');
+    expect(rls.__calls.in).toBeUndefined(); // aucune pesée lue
+  });
+
+  it('M4.2/export_csv_erreur_tranche — une tranche en erreur ou au plafond : 500, ni fichier partiel ni trace', async () => {
+    setupAuth('traiteur_manager', 'org-a');
+    rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
+    rls.push({ data: null, error: { code: 'XX000', message: 'boom' } });
+    const enErreur = await callCsv();
+    expect(enErreur.status).toBe(500);
+    expect(enErreur.headers.get('Content-Type')).not.toContain('text/csv');
+    expect(rls.__calls.insert).toBeUndefined();
+
+    // Une réponse de 1000 lignes est une réponse amputée (plafond PostgREST).
+    rls = makeChain();
+    rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
+    rls.push({
+      data: Array.from({ length: 1000 }, () => ({
+        collecte_id: 'c1',
+        poids_reel_kg: 1,
+        flux_dechets: REF_VERRE,
+      })),
+      error: null,
+    });
+    const auPlafond = await callCsv();
+    expect(auPlafond.status).toBe(500);
+    expect(rls.__calls.insert).toBeUndefined();
+  });
+
+  it('M4.2/export_csv_adresse_exutoire — adresse découpée, format inconnu laissé entier', async () => {
+    const { decouperAdresse } = await import('@/lib/registre/csv.js');
+    // Les 5 adresses posées par la migration 20261004203000 : aucune ne doit
+    // retomber dans le repli « tout dans la voie ».
+    const adressesDuReferentiel: [string, string, string, string][] = [
+      [
+        'ZI des Graviers, 6 avenue Winston Churchill, 94190 Villeneuve-Saint-Georges',
+        'ZI des Graviers, 6 avenue Winston Churchill',
+        '94190',
+        'Villeneuve-Saint-Georges',
+      ],
+      [
+        '10 rue de la Victoire, 93150 Le Blanc-Mesnil',
+        '10 rue de la Victoire',
+        '93150',
+        'Le Blanc-Mesnil',
+      ],
+      [
+        '6 rue des Vœux Saint-Georges, 94290 Villeneuve-le-Roi',
+        '6 rue des Vœux Saint-Georges',
+        '94290',
+        'Villeneuve-le-Roi',
+      ],
+      [
+        '9 route du Môle Central, 92230 Gennevilliers',
+        '9 route du Môle Central',
+        '92230',
+        'Gennevilliers',
+      ],
+      [
+        '2 rue du Chemin Vert, 95100 Argenteuil',
+        '2 rue du Chemin Vert',
+        '95100',
+        'Argenteuil',
+      ],
+    ];
+    for (const [adresse, voie, codePostal, ville] of adressesDuReferentiel) {
+      expect(decouperAdresse(adresse)).toEqual({ voie, codePostal, ville });
+    }
+    // Un nombre à 5 chiffres dans la voie n'est pas pris pour le code postal.
+    expect(
+      decouperAdresse('BP 12345, 2 rue du Port, 95100 Argenteuil'),
+    ).toEqual({
+      voie: 'BP 12345, 2 rue du Port',
+      codePostal: '95100',
+      ville: 'Argenteuil',
+    });
+    expect(decouperAdresse('Zone portuaire de Gennevilliers')).toEqual({
+      voie: 'Zone portuaire de Gennevilliers',
+      codePostal: '',
+      ville: '',
+    });
+    expect(decouperAdresse(null)).toEqual({
+      voie: '',
+      codePostal: '',
+      ville: '',
+    });
   });
 
   it('M4.2/export_csv_zero_ligne_entetes_seules', async () => {
     setupAuth('traiteur_manager', 'org-a');
-    rls.push({ data: [], count: 0, error: null }); // 0 ligne (fetchFluxDetail court-circuité)
+    rls.push({ data: [], count: 0, error: null }); // 0 collecte → aucune lecture des flux
     rls.push({ error: null }); // trace insert
     const res = await callCsv('?from=2026-01-01&to=2026-01-31');
     expect(res.status).toBe(200);
-    const text = new TextDecoder().decode(
-      new Uint8Array(await res.arrayBuffer()),
-    );
-    expect(text.split('\r\n').filter(Boolean)).toHaveLength(1); // en-têtes seules
+    const lignes = (await lignesCsv(res)).filter(Boolean);
+    expect(lignes).toEqual([EN_TETES_CSV]); // en-têtes seules
     const insertArgs = (rls.__calls.insert ?? [])[0]?.[0] as
       | Record<string, unknown>
       | undefined;
     expect(insertArgs?.nb_lignes).toBe(0);
+  });
+});
+
+// ── Fiche détail : filière en clair ─────────────────────────────────────────
+describe('M4.2 / détail du registre', () => {
+  it('M4.2/detail_registre_filiere_en_clair — bloc 6 : la filière est un libellé, pas la valeur technique', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({ data: LIGNE_REGISTRE, error: null }); // ligne registre
+    rls.push({ data: null, error: null }); // bordereau
+    rls.push({
+      data: [
+        { poids_reel_kg: 36, flux_dechets: REF_BIODECHET },
+        {
+          poids_reel_kg: 10,
+          flux_dechets: {
+            code: 'dechet_residuel',
+            nom: 'Déchet résiduel',
+            filiere_valorisation: 'valorisation_energetique',
+          },
+        },
+      ],
+      error: null,
+    }); // flux
+    rls.push({ data: null, error: null }); // collecte
+    rls.push({ data: [], error: null }); // audit
+
+    const res = await callDetail('c1');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { flux: { filiere: string }[] };
+    expect(body.flux.map((f) => f.filiere)).toEqual([
+      'Méthanisation',
+      'Valorisation énergétique',
+    ]);
   });
 });
 

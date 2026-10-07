@@ -30,7 +30,7 @@ const ToggleGroupItem = React.forwardRef<
     ref={ref}
     className={cn(
       'inline-flex h-full items-center justify-center whitespace-nowrap rounded-savr-sm px-3 text-sm font-semibold text-savr-neutral-600',
-      'transition-colors duration-[120ms] ease-out hover:bg-savr-neutral-100 hover:text-savr-neutral-900',
+      'transition-colors duration-savr-fast ease-out hover:bg-savr-neutral-100 hover:text-savr-neutral-900',
       'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
       'disabled:pointer-events-none disabled:opacity-50',
       'data-[state=on]:bg-savr-primary-700 data-[state=on]:text-savr-white data-[state=on]:hover:bg-savr-primary-800',

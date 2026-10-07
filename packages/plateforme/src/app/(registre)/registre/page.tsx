@@ -1,11 +1,13 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { fmtKg } from '@/lib/format';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertBar } from '@/components/ui/alert-bar';
+import { BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Combobox } from '@/components/ui/combobox';
 import {
   DataGrid,
   type ColumnDef,
@@ -18,6 +20,20 @@ import {
   type OptionFiltre,
 } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { compteurResultats } from '@/lib/compteur-resultats';
+import { PageHero } from '@/components/ui/page-hero';
+import { TextLink } from '@/components/ui/text-link';
+import { ListFooter } from '@/components/ui/list-footer';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
+import { FLUX_ZD_CODES, libelleFlux } from '@/lib/libelles/flux';
+import { ROUTES } from '@/lib/routes';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — vue liste : tableau chronologique des
@@ -25,21 +41,24 @@ import { valeurUnique } from '@/lib/filtre-csv';
 // exports CSV / ZIP, notice méthodologique. Cloisonnement porté par l'API/vue.
 // ---------------------------------------------------------------------------
 
-const FLUX_LABELS: Record<string, string> = {
-  biodechet: 'Biodéchets',
-  emballage: 'Emballages',
-  carton: 'Cartons',
-  verre: 'Verre',
-  dechet_residuel: 'Déchet résiduel',
+const PAGE_SIZES = [25, 50, 100] as const;
+
+// Filtres du registre, miroir dans l'URL (R-UI-4a) : Lieu / Traiteur /
+// Bordereau à choix multiple, case « Tous » = sélection vide (§06.03
+// « multi-select » ; décision Val 2026-09-30). Tri serveur `tri`/`ordre`
+// (convention unique), `limit` = lignes par page.
+const FILTRES = {
+  from: texte(''),
+  to: texte(''),
+  flux: liste(),
+  lieu: liste(),
+  traiteur: liste(),
+  bordereau: liste(),
+  page: navigation(entier(1, 1)),
+  limit: navigation(entier(25)),
+  tri: navigation(texte('date_evenement')),
+  ordre: navigation(texte('desc')),
 };
-const FLUX_ORDER = [
-  'biodechet',
-  'emballage',
-  'carton',
-  'verre',
-  'dechet_residuel',
-];
-const PAGE_SIZES = [25, 50, 100];
 
 interface RegistreRow {
   collecte_id: string;
@@ -66,7 +85,7 @@ type SortKey =
 
 function poidsFr(kg: number | null): string {
   if (kg == null) return '—';
-  return `${kg.toFixed(2).replace('.', ',')} kg`;
+  return fmtKg(kg, 2);
 }
 function dateFr(d: string | null): string {
   if (!d) return '—';
@@ -91,92 +110,57 @@ function optionsDesLignes(
 
 function RegistreContent() {
   const router = useRouter();
-  const [rows, setRows] = useState<RegistreRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [erreur, setErreur] = useState<string | null>(null);
-  // Chaque appel prend un numéro ; seule la réponse du dernier appel a le droit
-  // d'écrire dans l'état. Filtres, tri et pagination relancent un chargement :
-  // sans cette garde, la réponse PÉRIMÉE (ou son échec) d'un appel encore en vol
-  // écraserait celle des critères courants.
-  const generation = useRef(0);
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
+  const sortBy = f.tri as SortKey;
+  const sortDir: 'asc' | 'desc' = f.ordre === 'asc' ? 'asc' : 'desc';
+  const pageSize = (PAGE_SIZES as readonly number[]).includes(f.limit)
+    ? f.limit
+    : 25;
 
-  // Filtres
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [flux, setFlux] = useState<string[]>([]);
-  // Lieu / Traiteur / Bordereau à choix multiple, case « Tous » = sélection
-  // vide (§06.03 « multi-select » ; décision Val 2026-09-30).
-  const [lieux, setLieux] = useState<string[]>([]);
-  const [traiteurs, setTraiteurs] = useState<string[]>([]);
-  const [bordereaux, setBordereaux] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<SortKey>('date_evenement');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-
-  const queryString = useCallback(
-    (forExport: boolean): string => {
-      const qs = new URLSearchParams();
-      if (from) qs.set('from', from);
-      if (to) qs.set('to', to);
-      if (flux.length) qs.set('flux', flux.join(','));
-      if (lieux.length) qs.set('lieu', lieux.join(','));
-      if (traiteurs.length) qs.set('traiteur', traiteurs.join(','));
-      const bordereau = valeurUnique(bordereaux);
-      if (bordereau) qs.set('bordereau', bordereau);
-      if (!forExport) {
-        qs.set('sortBy', sortBy);
-        qs.set('sortDir', sortDir);
-        qs.set('page', String(page));
-        qs.set('pageSize', String(pageSize));
-      }
-      return qs.toString();
-    },
-    [
-      from,
-      to,
-      flux,
-      lieux,
-      traiteurs,
-      bordereaux,
-      sortBy,
-      sortDir,
-      page,
-      pageSize,
-    ],
+  // Paramètres de filtre (partagés avec les exports) ; `forExport` = sans tri
+  // ni pagination.
+  const queryString = (forExport: boolean): string => {
+    const qs = new URLSearchParams();
+    if (f.from) qs.set('from', f.from);
+    if (f.to) qs.set('to', f.to);
+    if (f.flux.length) qs.set('flux', f.flux.join(','));
+    if (f.lieu.length) qs.set('lieu', f.lieu.join(','));
+    if (f.traiteur.length) qs.set('traiteur', f.traiteur.join(','));
+    const bordereau = valeurUnique(f.bordereau);
+    if (bordereau) qs.set('bordereau', bordereau);
+    if (!forExport) {
+      qs.set('tri', sortBy);
+      qs.set('ordre', sortDir);
+      qs.set('page', String(f.page));
+      qs.set('limit', String(pageSize));
+    }
+    return qs.toString();
+  };
+  const urlListe = useMemo(
+    () => `/api/v1/registre?${queryString(false)}`,
+    // queryString ne dépend que de `f`.
+    [f],
   );
-
-  const charger = useCallback(() => {
-    const gen = ++generation.current;
-    const perime = () => generation.current !== gen;
-    setLoading(true);
-    setErreur(null);
-    fetch(`/api/v1/registre?${queryString(false)}`)
-      .then((r) => {
-        // Sans cette garde, un 500 rendait `rows` absent → liste vide → l'écran
-        // affichait « Aucune collecte au registre pour ces critères. » : une
-        // panne serveur se lisait comme un registre vide (§10 §7, état Error
-        // distinct de l'état Empty).
-        if (!r.ok) throw new Error(String(r.status));
-        return r.json();
-      })
-      .then((j: { rows?: RegistreRow[]; total?: number }) => {
-        if (perime()) return;
-        setRows(j.rows ?? []);
-        setTotal(j.total ?? 0);
-      })
-      .catch(() => {
-        if (!perime()) setErreur('Le chargement du registre a échoué.');
-      })
-      .finally(() => {
-        if (!perime()) setLoading(false);
-      });
-  }, [queryString]);
-
-  useEffect(() => {
-    charger();
-  }, [charger]);
+  // L'API répond `{ rows, total }` ; une panne (`!ok`) donne l'état Error
+  // (§10 §7), jamais un registre vide.
+  const {
+    data: rows,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<RegistreRow>(urlListe, {
+    extraire: (j) => {
+      const r = j as { rows?: RegistreRow[]; total?: number };
+      return { data: r.rows ?? [], total: r.total ?? 0 };
+    },
+    messageErreur: 'Le chargement du registre a échoué.',
+  });
 
   // Options Lieu / Traiteur = tout le registre du périmètre (arbitrage Val F2
   // 2026-10-01), chargées une fois : dérivées de la page affichée, cocher un
@@ -211,12 +195,8 @@ function RegistreContent() {
   };
 
   function sort(key: SortKey) {
-    if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else {
-      setSortBy(key);
-      setSortDir('asc');
-    }
-    setPage(1);
+    if (sortBy === key) set({ ordre: sortDir === 'asc' ? 'desc' : 'asc' });
+    else set({ tri: key, ordre: 'asc' });
   }
   async function downloadBordereau(id: string) {
     const res = await fetch(
@@ -227,14 +207,12 @@ function RegistreContent() {
     if (j.url) window.open(j.url, '_blank');
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
   // Liste PAGINÉE côté serveur (`fetchRegistre` : `.range()` + `.order(sortBy)`).
   // Le tri n'est donc jamais fait sur la seule page affichée : `manualSorting`,
-  // chaque clic d'en-tête passe par `sort()` qui renvoie `sortBy`/`sortDir` à
+  // chaque clic d'en-tête passe par `sort()` qui renvoie `tri`/`ordre` à
   // l'API (comportement inchangé : même colonne = inverse le sens, autre
   // colonne = ascendant, retour en page 1). L'`id` des colonnes triables = la
-  // valeur de `sortBy` ; l'`accessorFn` n'est là que pour rendre l'en-tête
+  // valeur de `tri` ; l'`accessorFn` n'est là que pour rendre l'en-tête
   // cliquable (règle TanStack), il ne trie rien côté navigateur.
   const sorting: SortingState = [{ id: sortBy, desc: sortDir === 'desc' }];
   const colonnes: ColumnDef<RegistreRow, unknown>[] = [
@@ -276,7 +254,7 @@ function RegistreContent() {
         <div className="flex flex-wrap gap-1">
           {(r.flux_codes ?? []).map((c) => (
             <Badge key={c} variant="neutral">
-              {FLUX_LABELS[c] ?? c}
+              {libelleFlux(c)}
             </Badge>
           ))}
         </div>
@@ -302,13 +280,9 @@ function RegistreContent() {
       meta: { interactive: true },
       cell: ({ row: { original: r } }) =>
         r.bordereau_id && bordereauDispo(r.bordereau_statut) ? (
-          <button
-            type="button"
-            className="text-savr-primary-700 underline"
-            onClick={() => downloadBordereau(r.bordereau_id!)}
-          >
+          <TextLink onClick={() => downloadBordereau(r.bordereau_id!)}>
             {r.bordereau_numero ?? 'PDF'} ⬇
-          </button>
+          </TextLink>
         ) : (
           <span className="text-savr-neutral-400">Manquant</span>
         ),
@@ -316,53 +290,41 @@ function RegistreContent() {
   ];
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-savr-primary-800">
-          Registre réglementaire
-        </h1>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" asChild>
-            <a href="/registre/methodologie">Méthodologie</a>
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() =>
-              window.open(`/api/v1/registre/export-csv?${queryString(true)}`)
-            }
-          >
-            Exporter CSV
-          </Button>
-          <Button
-            onClick={() =>
-              window.open(`/api/v1/registre/export-zip?${queryString(true)}`)
-            }
-          >
-            Télécharger tous les bordereaux
-          </Button>
-        </div>
-      </div>
+      <PageHero
+        icon={<BookOpen className="h-6 w-6 text-savr-primary-200" />}
+        title="Registre réglementaire"
+        actions={
+          <>
+            <Button variant="secondary" asChild>
+              <a href={ROUTES.registreMethodologie}>Méthodologie</a>
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                window.open(`/api/v1/registre/export-csv?${queryString(true)}`)
+              }
+            >
+              Exporter CSV
+            </Button>
+            <Button
+              variant="accent"
+              onClick={() =>
+                window.open(`/api/v1/registre/export-zip?${queryString(true)}`)
+              }
+            >
+              Télécharger tous les bordereaux
+            </Button>
+          </>
+        }
+      />
 
       {/* Barre de filtres — pattern DS `FilterBar` : filtres en ligne
           « Titre  valeur ▾ » (décision Val 2026-09-30). */}
       <FilterBar
         data-testid="registre-filtres"
-        actif={
-          from !== '' ||
-          to !== '' ||
-          flux.length > 0 ||
-          lieux.length > 0 ||
-          traiteurs.length > 0 ||
-          bordereaux.length > 0
-        }
-        onReset={() => {
-          setPage(1);
-          setFrom('');
-          setTo('');
-          setFlux([]);
-          setLieux([]);
-          setTraiteurs([]);
-          setBordereaux([]);
-        }}
+        count={compteurResultats(total, 'ligne', 'lignes')}
+        actif={filtresActifs}
+        onReset={reset}
       >
         {/* BL-P3-10 — Preset « 30 derniers jours » (CDC §06.03) : raccourci de
             la liste standard du panneau Période. Le défaut au chargement reste
@@ -373,32 +335,22 @@ function RegistreContent() {
           data-testid="registre-periode"
           placeholder="Tout l'historique"
           raccourcisTestIdPrefixe="registre-preset"
-          value={{ from, to }}
-          onChange={(p) => {
-            setPage(1);
-            setFrom(p.from);
-            setTo(p.to);
-          }}
+          value={{ from: f.from, to: f.to }}
+          onChange={(p) => set({ from: p.from, to: p.to })}
         />
         <FiltreCoches
           label="Lieu"
           testid="registre-lieu"
           options={optionsAffichees.lieux}
-          selected={lieux}
-          onChange={(ids) => {
-            setPage(1);
-            setLieux(ids);
-          }}
+          selected={f.lieu}
+          onChange={(ids) => set({ lieu: ids })}
         />
         <FiltreCoches
           label="Traiteur"
           testid="registre-traiteur"
           options={optionsAffichees.traiteurs}
-          selected={traiteurs}
-          onChange={(ids) => {
-            setPage(1);
-            setTraiteurs(ids);
-          }}
+          selected={f.traiteur}
+          onChange={(ids) => set({ traiteur: ids })}
         />
         <FiltreCoches
           label="Bordereau"
@@ -407,108 +359,69 @@ function RegistreContent() {
             { id: 'dispo', nom: 'Disponible' },
             { id: 'manquant', nom: 'Manquant' },
           ]}
-          selected={bordereaux}
-          onChange={(ids) => {
-            setPage(1);
-            setBordereaux(ids);
-          }}
+          selected={f.bordereau}
+          onChange={(ids) => set({ bordereau: ids })}
         />
         <FiltreCoches
           label="Flux"
           testid="registre-flux"
-          options={FLUX_ORDER.map((code) => ({
+          options={FLUX_ZD_CODES.map((code) => ({
             id: code,
-            nom: FLUX_LABELS[code] ?? code,
+            nom: libelleFlux(code),
           }))}
-          selected={flux}
-          onChange={(codes) => {
-            setPage(1);
-            setFlux(codes);
-          }}
+          selected={f.flux}
+          onChange={(codes) => set({ flux: codes })}
         />
       </FilterBar>
 
-      {/* États système §10 §7 — Error = message + « Réessayer », distinct de
-          l'état Empty : une panne ne doit jamais se lire comme un registre vide. */}
-      {erreur ? (
-        <div className="space-y-4" data-testid="registre-erreur">
-          <AlertBar variant="err">{erreur}</AlertBar>
-          <Button variant="secondary" onClick={charger}>
-            Réessayer
-          </Button>
-        </div>
-      ) : (
-        <DataGrid
-          data-testid="registre-table"
-          columns={colonnes}
-          data={rows}
-          getRowId={(r) => r.collecte_id}
-          loading={loading}
-          empty={
-            <p className="text-sm text-savr-neutral-500">
-              Aucune collecte au registre pour ces critères.
-            </p>
-          }
-          manualSorting
-          sorting={sorting}
-          onSortingChange={(updater) => {
-            const next =
-              typeof updater === 'function' ? updater(sorting) : updater;
-            const cle = next[0]?.id as SortKey | undefined;
-            if (cle) sort(cle);
-          }}
-          onRowClick={(r) => router.push(`/registre/${r.collecte_id}`)}
-          rowLabel={(r) =>
-            `Ouvrir la collecte du ${dateFr(r.date_evenement)}${r.lieu_nom ? ` — ${r.lieu_nom}` : ''}`
-          }
-        />
-      )}
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between text-sm text-savr-neutral-500">
-        <span>{total} ligne(s)</span>
-        <div className="flex items-center gap-2">
-          <Combobox
-            aria-label="Lignes par page"
-            data-testid="registre-page-size"
-            icon={null}
-            className="w-32"
-            options={PAGE_SIZES.map((s) => ({
-              value: String(s),
-              label: `${s} / page`,
-            }))}
-            value={String(pageSize)}
-            onChange={(v) => {
-              setPage(1);
-              setPageSize(Number(v));
-            }}
+      {/* États système §10 §7 — Error = message + « Réessayer » (DataGrid
+          `erreur`), distinct de l'état Empty : une panne ne doit jamais se lire
+          comme un registre vide. */}
+      <DataGrid
+        data-testid="registre-table"
+        columns={colonnes}
+        data={rows}
+        getRowId={(r) => r.collecte_id}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={
+          <EmptyState
+            size="inline"
+            title="Aucune collecte au registre pour ces critères."
           />
-          <Button
-            variant="ghost"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            Précédent
-          </Button>
-          <span>
-            {page} / {totalPages}
-          </span>
-          <Button
-            variant="ghost"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Suivant
-          </Button>
-        </div>
-      </div>
+        }
+        manualSorting
+        sorting={sorting}
+        onSortingChange={(updater) => {
+          const next =
+            typeof updater === 'function' ? updater(sorting) : updater;
+          const cle = next[0]?.id as SortKey | undefined;
+          if (cle) sort(cle);
+        }}
+        onRowClick={(r) => router.push(ROUTES.registreCollecte(r.collecte_id))}
+        rowLabel={(r) =>
+          `Ouvrir la collecte du ${dateFr(r.date_evenement)}${r.lieu_nom ? ` — ${r.lieu_nom}` : ''}`
+        }
+      />
+
+      {/* Pagination + lignes par page (R-UI-4a : ListFooter commun) */}
+      <ListFooter
+        data-testid="registre-pagination"
+        total={total}
+        page={f.page}
+        onPageChange={(page) => set({ page })}
+        taillePage={pageSize}
+        taillesPage={PAGE_SIZES}
+        onTaillePageChange={(limit) => set({ limit })}
+      />
     </div>
   );
 }
 
 export default function RegistrePage() {
   return (
-    <Suspense fallback={<p className="p-4 text-sm">Chargement…</p>}>
+    <Suspense fallback={<LoadingState className="p-4" />}>
       <RegistreContent />
     </Suspense>
   );

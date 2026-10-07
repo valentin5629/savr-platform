@@ -25,10 +25,30 @@ interface WorkerMockOpts {
   infosSuppl?: string | null;
   /** `evenements.contact_secours_nom` — porté par l'événement parent. */
   contactSecoursNom?: string | null;
+  /** Lecture `attributions_antgaspi` : attribution présente (défaut), absente, ou en erreur (blip PostgREST). */
+  attribution?: 'presente' | 'absente' | 'erreur';
+  /** `collectes.type_vehicule_souhaite` (décision Val 2026-10-01). */
+  typeVehiculeSouhaite?: string | null;
+  /** `collectes.nb_camions_demande`. */
+  nbCamions?: number;
+  /** `collectes.type` (défaut AG : le besoin véhicule est une donnée d'attribution AG). */
+  typeCollecte?: 'anti_gaspi' | 'zero_dechet';
+  /** La colonne `type_vehicule_souhaite` n'existe pas encore (42703). */
+  colonneVehiculeAbsente?: boolean;
+  /** Lecture de `type_vehicule_souhaite` en échec passager (blip PostgREST). */
+  colonneVehiculeBlip?: boolean;
 }
 
 const COLLECTE_ID = 'col-ag-dispatch-001';
 const PRESTA_ID = 'presta-uuid-ag-001';
+// Association destinataire de la collecte AG (attributions_antgaspi → associations).
+const ASSOCIATION_ROW = {
+  id_point_collecte_mts1: null,
+  adresse: '12 rue des Associations',
+  ville: 'Ivry-sur-Seine',
+  contact_nom: 'Nadia Benali',
+  contact_telephone: '+33699990001',
+};
 
 function makeWorkerSupabase(opts: WorkerMockOpts) {
   const claimedEvent = {
@@ -51,12 +71,13 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
   // jointure evenements!inner — fix M1.5a 2026-06-26 ; §06.04 l.375 / §08 l.411).
   const collecteRow = {
     id: COLLECTE_ID,
-    type: 'anti_gaspi',
+    type: opts.typeCollecte ?? 'anti_gaspi',
     date_collecte: '2026-07-20',
     heure_collecte: '22:00:00',
-    nb_camions_demande: 1,
+    nb_camions_demande: opts.nbCamions ?? 1,
     statut_tms: 'non_envoye',
     controle_acces_requis: false,
+    type_vehicule_souhaite: opts.typeVehiculeSouhaite ?? null,
     informations_supplementaires: opts.infosSuppl ?? null,
     notes_internes: null,
     prestataire_logistique_id: opts.prestataireLogistiqueId,
@@ -116,7 +137,42 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
         return { data: transporteurRow, error: null };
       return { data: null, error: null };
     });
-    q['maybeSingle'] = vi.fn(async () => ({ data: null, error: null }));
+    // Association destinataire (point B) résolue via attributions_antgaspi →
+    // associations : embed OBJET (FK sortante association_id).
+    q['maybeSingle'] = vi.fn(async () => {
+      // Véhicule souhaité : lecture dédiée et tolérante (migration 20261001213000).
+      if (table === 'collectes' && opts.colonneVehiculeBlip)
+        return {
+          data: null,
+          error: { code: '08006', message: 'connexion interrompue' },
+        };
+      if (table === 'collectes')
+        return opts.colonneVehiculeAbsente
+          ? {
+              data: null,
+              error: {
+                code: '42703',
+                message:
+                  'column collectes.type_vehicule_souhaite does not exist',
+              },
+            }
+          : {
+              data: {
+                type_vehicule_souhaite: opts.typeVehiculeSouhaite ?? null,
+              },
+              error: null,
+            };
+      if (table === 'attributions_antgaspi') {
+        if (opts.attribution === 'erreur')
+          return {
+            data: null,
+            error: { code: '08006', message: 'connexion interrompue' },
+          };
+        if (opts.attribution === 'absente') return { data: null, error: null };
+        return { data: { associations: ASSOCIATION_ROW }, error: null };
+      }
+      return { data: null, error: null };
+    });
     q['update'] = vi.fn(() => q);
     q['insert'] = vi.fn(() => q);
     return q;
@@ -169,6 +225,85 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     });
     expect(everestSpy.mock.calls[0]![1]).toBe(1);
     expect(result.done).toBe(1);
+  });
+
+  it('M2.3 / worker — point B : l’adresse de l’association attribuée est résolue et transmise à l’adapter', async () => {
+    const everestSpy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+    });
+    await runOutboxWorker(supabase);
+
+    // Composée UNE fois par le worker pour les deux adapters (garde-fou 2) :
+    // adresse sur une ligne « adresse, ville » + contact + point favori MTS-1.
+    expect(everestSpy.mock.calls[0]![0]).toMatchObject({
+      association_adresse: '12 rue des Associations, Ivry-sur-Seine',
+      association_contact_nom: 'Nadia Benali',
+      association_contact_telephone: '+33699990001',
+      association_id_point_collecte_mts1: null,
+    });
+    // Les colonnes sont bien DEMANDÉES à PostgREST (un mock ne filtre pas).
+    const selectAttribution = supabase._selects['attributions_antgaspi']?.[0];
+    for (const col of [
+      'adresse',
+      'ville',
+      'contact_nom',
+      'contact_telephone',
+    ]) {
+      expect(selectAttribution).toContain(col);
+    }
+  });
+
+  it('M2.3 / worker — AG sans attribution : champs association_* null transmis à l’adapter', async () => {
+    const everestSpy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+      attribution: 'absente',
+    });
+    await runOutboxWorker(supabase);
+
+    expect(everestSpy.mock.calls[0]![0]).toMatchObject({
+      association_adresse: null,
+      association_contact_nom: null,
+      association_contact_telephone: null,
+      association_id_point_collecte_mts1: null,
+    });
+  });
+
+  it('M2.3 / worker — lecture attribution en erreur (blip PostgREST) → failed + retry, jamais dead ni « sans association »', async () => {
+    const everestSpy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+      attribution: 'erreur',
+    });
+    const result = await runOutboxWorker(supabase);
+
+    // L'adapter n'est jamais appelé avec une association « absente » à tort.
+    expect(everestSpy).not.toHaveBeenCalled();
+    expect(result.failed).toBe(1);
+    expect(result.dead).toBe(0);
+    const resultat = (
+      supabase.rpc as unknown as { mock: { calls: unknown[][] } }
+    ).mock.calls.find((c) => c[0] === 'fn_result_outbox');
+    expect(resultat?.[1]).toMatchObject({
+      p_statut: 'failed',
+      p_next_retry_at: expect.any(String),
+    });
+    expect(
+      String((resultat?.[1] as { p_last_error: string }).p_last_error),
+    ).not.toMatch(/sans association/);
   });
 
   it('type_tms=mts1 → AdapterMts1.dispatchCollecte (pas Everest)', async () => {
@@ -549,6 +684,114 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
       }
     },
   );
+
+  // Besoin véhicule de l'attribution AG (décision Val 2026-10-01) : type + nombre
+  // partent dans le même canal, composés une fois pour les deux adapters.
+  it.each([
+    ['a_toutes', AdapterEverest] as const,
+    ['mts1', AdapterMts1] as const,
+  ])(
+    'M2.3 / worker — type_tms=%s : le véhicule souhaité (type × nombre) atteint l’adapter',
+    async (typeTms, Adapter) => {
+      const spy = vi
+        .spyOn(Adapter.prototype, 'dispatchCollecte')
+        .mockResolvedValue('noop_no_remote');
+
+      const supabase = makeWorkerSupabase({
+        typeTms,
+        prestataireLogistiqueId: PRESTA_ID,
+        typeVehiculeSouhaite: 'camionnette',
+        nbCamions: 2,
+      });
+      await runOutboxWorker(supabase);
+
+      const collecte = spy.mock.calls[0]![0] as {
+        informations_supplementaires: string | null;
+        type_vehicule_souhaite?: string | null;
+        nb_camions_demande: number;
+      };
+      expect(collecte.informations_supplementaires).toContain(
+        'Véhicule souhaité : camionnette (1 par commande, 2 commandes identiques pour cette collecte)',
+      );
+      expect(collecte.type_vehicule_souhaite).toBe('camionnette');
+      expect(collecte.nb_camions_demande).toBe(2);
+      // N véhicules = N commandes identiques au TMS (décision Val 2026-10-01) :
+      // un dispatch par rang, même collecte, pour MTS-1 comme pour Everest.
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(spy.mock.calls.map((c) => c[1])).toEqual([1, 2]);
+      expect(spy.mock.calls[1]![0]).toBe(spy.mock.calls[0]![0]);
+      // La colonne est bien DEMANDÉE à PostgREST (un mock ne filtre pas), par
+      // une requête dédiée.
+      expect(
+        supabase._selects['collectes']?.some((s) =>
+          s.includes('type_vehicule_souhaite'),
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it('M2.3 / worker — collecte ZD avec N véhicules : aucune ligne « Véhicule souhaité » (besoin véhicule = attribution AG seule)', async () => {
+    const spy = vi
+      .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
+      .mockResolvedValue('noop_no_remote');
+    const supabase = makeWorkerSupabase({
+      typeTms: 'mts1',
+      prestataireLogistiqueId: PRESTA_ID,
+      typeCollecte: 'zero_dechet',
+      typeVehiculeSouhaite: 'camionnette',
+      nbCamions: 2,
+    });
+    await runOutboxWorker(supabase);
+
+    // N rangs = N commandes, ZD comme AG — mais la ligne véhicule est une donnée
+    // de l'attribution AG : jamais fabriquée pour une ZD.
+    expect(spy).toHaveBeenCalledTimes(2);
+    const collecte = spy.mock.calls[0]![0] as {
+      informations_supplementaires: string | null;
+    };
+    expect(collecte.informations_supplementaires ?? '').not.toContain(
+      'Véhicule souhaité',
+    );
+  });
+
+  it('M2.3 / worker — colonne type_vehicule_souhaite illisible (migration non appliquée) → dispatch sans la ligne, jamais dead', async () => {
+    const spy = vi
+      .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_mts1');
+    const supabase = makeWorkerSupabase({
+      typeTms: 'mts1',
+      prestataireLogistiqueId: PRESTA_ID,
+      typeVehiculeSouhaite: 'camionnette',
+      colonneVehiculeAbsente: true,
+    });
+    const result = await runOutboxWorker(supabase);
+    expect(result.done).toBe(1);
+    expect(result.dead).toBe(0);
+    const collecte = spy.mock.calls[0]![0] as {
+      type_vehicule_souhaite?: string | null;
+      informations_supplementaires: string | null;
+    };
+    expect(collecte.type_vehicule_souhaite).toBeNull();
+    expect(collecte.informations_supplementaires ?? '').not.toContain(
+      'Véhicule souhaité',
+    );
+  });
+
+  it('M2.3 / worker — lecture type_vehicule_souhaite en échec passager → failed + retry, jamais une commande sans la ligne', async () => {
+    const spy = vi
+      .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_mts1');
+    const supabase = makeWorkerSupabase({
+      typeTms: 'mts1',
+      prestataireLogistiqueId: PRESTA_ID,
+      typeVehiculeSouhaite: 'camionnette',
+      colonneVehiculeBlip: true,
+    });
+    const result = await runOutboxWorker(supabase);
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.failed).toBe(1);
+    expect(result.dead).toBe(0);
+  });
 
   // Le piège exact de #304 : re-fetcher le lieu OFFICIEL au lieu du lieu fusionné
   // retransmettrait la valeur du référentiel, pas la correction saisie.

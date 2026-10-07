@@ -1,7 +1,7 @@
 /**
  * R24c — Déclinaison Cockpit des 3 dashboards « client » restants (agence M3.3,
  * client_organisateur M3.4, Dashboard Client Admin M3.6). Vérifie que chaque page
- * monte SANS crash et rend la SIGNATURE Cockpit attendue (KpiCockpitCard ; pour
+ * monte SANS crash et rend la SIGNATURE Cockpit attendue (StatCard ; pour
  * l'agence : TopRankList + BenchmarkRadar + drill-down onItemClick → URL),
  * à parité de sens avec les pilotes traiteur/gestionnaire (R24/R24b), et que les
  * anciens composants (KpiCard, TopLieuxBloc, TopAssociationsBloc, BenchmarkLegend,
@@ -58,7 +58,6 @@ beforeEach(() => {
 
 // ── Agence (M3.3) ────────────────────────────────────────────────────────────
 const AGENCE_ZD_BLOCS = {
-  prochaines: [],
   topLieux: [
     {
       lieu_id: 'A',
@@ -109,12 +108,12 @@ function agenceFetch() {
 
 describe('M3.3 / agence — déclinaison Cockpit', () => {
   it(
-    'M3.3/cockpit_declinaison_kpi_toprank_benchmark — KpiCockpitCard + TopRankList + BenchmarkRadar, plus d’ancien BenchmarkGauge',
+    'M3.3/cockpit_declinaison_kpi_toprank_benchmark — StatCard + TopRankList + BenchmarkRadar, plus d’ancien BenchmarkGauge',
     async () => {
       vi.stubGlobal('fetch', agenceFetch());
       render(<AgenceDashboardPage />);
 
-      // KPI Cockpit (rangée KpiCockpitCard).
+      // KPI Cockpit (rangée StatCard).
       expect(
         await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
@@ -157,7 +156,7 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
 // ── Client organisateur (M3.4) ───────────────────────────────────────────────
 describe('M3.4 / organisateur — déclinaison Cockpit', () => {
   it(
-    'M3.4/cockpit_declinaison_kpi_cards — page RSE montée en KpiCockpitCard (bandeau YTD + onglet ZD + détail ABC)',
+    'M3.4/cockpit_declinaison_kpi_cards — page RSE montée en StatCard (bandeau YTD + onglet ZD + détail ABC)',
     async () => {
       vi.stubGlobal(
         'fetch',
@@ -256,7 +255,6 @@ const ADMIN_PAYLOAD = {
     ],
     acteurLabel: 'Traiteur',
     topAssociations: null,
-    prochaines: [],
   },
 };
 
@@ -294,7 +292,6 @@ const ADMIN_PAYLOAD_AG = {
         repas_recus: 320,
       },
     ],
-    prochaines: [],
   },
 };
 
@@ -303,8 +300,16 @@ function adminFetch() {
     const url = String(input);
     if (url.includes('/dashboard-client/organisations'))
       return jsonResponse({ data: [] });
+    if (url.includes('/dashboard-client/benchmark/filtres'))
+      return jsonResponse({ data: { lieux: [], traiteurs: [], types: [] } });
     if (url.includes('/dashboard-client/benchmark'))
-      return jsonResponse({ data: [] });
+      return jsonResponse({
+        data: {
+          kgParPaxParFlux: {},
+          nbCollectes: 0,
+          periode: { debut: '2024-10-02', fin: '2026-10-02' },
+        },
+      });
     if (url.includes('/dashboard-client'))
       return jsonResponse({
         data: url.includes('type=anti_gaspi')
@@ -343,6 +348,9 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
       expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
       expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();
       expect(screen.getByText('Lieu A')).toBeInTheDocument();
+      // Bloc 5 « Prochaines collectes » retiré (décision Val 2026-10-01), comme sur
+      // les dashboards clients que cette vue réplique.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
       // L'ancien encart BenchmarkGauge (« Performance vs benchmark parc ») a disparu.
       expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
       // Lecture seule DONNÉES + badge présent (pas d'écriture).
@@ -405,7 +413,7 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
       await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI);
 
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
 
       expect(
@@ -416,6 +424,8 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
         ),
       ).toBeInTheDocument();
       expect(screen.getByText('Les Restos du Cœur')).toBeInTheDocument();
+      // Onglet AG : le Bloc 5 « Prochaines collectes » est retiré lui aussi.
+      expect(screen.queryByText('Prochaines collectes')).toBeNull();
 
       // Carte CO₂ AG cliquable → modale « Impact carbone » variante AG.
       fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));

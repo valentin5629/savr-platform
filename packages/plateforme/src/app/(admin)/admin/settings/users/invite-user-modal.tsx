@@ -6,27 +6,24 @@
  * /api/v1/admin/users crée le compte immédiatement (rôle + organisation imposés)
  * et envoie le lien d'activation côté serveur. L'`admin_savr` ne peut être créé
  * que par un admin_savr (le serveur ré-applique la garde ; option masquée ici).
+ *
+ * Variante « organisation à choisir » du composant commun
+ * `InviterUtilisateurModal` (R-UI-5, G5) — la fiche organisation
+ * (`clients/[id]/invite-user-modal.tsx`) en est la variante scopée.
  */
 
 import * as React from 'react';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
-import { Combobox } from '@/components/ui/combobox';
-import {
-  Autocomplete,
-  type AutocompleteOption,
-} from '@/components/ui/autocomplete';
+import { type AutocompleteOption } from '@/components/ui/autocomplete';
+import { InviterUtilisateurModal } from '@/components/organisation/inviter-utilisateur-modal';
 
-const ROLE_OPTIONS: { value: string; label: string; adminOnly?: boolean }[] = [
-  { value: 'admin_savr', label: 'Admin Savr', adminOnly: true },
-  { value: 'ops_savr', label: 'Ops Savr' },
-  { value: 'traiteur_manager', label: 'Traiteur (manager)' },
-  { value: 'traiteur_commercial', label: 'Traiteur (commercial)' },
-  { value: 'agence', label: 'Agence' },
-  { value: 'gestionnaire_lieux', label: 'Gestionnaire lieux' },
-  { value: 'client_organisateur', label: 'Client organisateur' },
+const ROLE_OPTIONS: { value: string; adminOnly?: boolean }[] = [
+  { value: 'admin_savr', adminOnly: true },
+  { value: 'ops_savr' },
+  { value: 'traiteur_manager' },
+  { value: 'traiteur_commercial' },
+  { value: 'agence' },
+  { value: 'gestionnaire_lieux' },
+  { value: 'client_organisateur' },
 ];
 
 export function InviteUserModal({
@@ -39,14 +36,6 @@ export function InviteUserModal({
   /** Vrai si le rôle réel courant est admin_savr (peut créer un admin_savr). */
   canInviteAdmin: boolean;
 }): React.ReactElement {
-  const [prenom, setPrenom] = React.useState('');
-  const [nom, setNom] = React.useState('');
-  const [email, setEmail] = React.useState('');
-  const [role, setRole] = React.useState('ops_savr');
-  const [org, setOrg] = React.useState<AutocompleteOption | null>(null);
-  const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
   // Cache client de toutes les organisations (~80) — filtrage local.
   const orgsCache = React.useRef<AutocompleteOption[] | null>(null);
   const fetchOrgs = React.useCallback(
@@ -75,135 +64,20 @@ export function InviteUserModal({
     [],
   );
 
-  const roleOptions = ROLE_OPTIONS.filter(
-    (r) => !r.adminOnly || canInviteAdmin,
+  const roles = ROLE_OPTIONS.filter((r) => !r.adminOnly || canInviteAdmin).map(
+    (r) => r.value,
   );
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!org) {
-      setError('Sélectionnez une organisation.');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/v1/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prenom,
-          nom,
-          email,
-          role,
-          organisation_id: org.id,
-        }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        setError(j.error ?? "Erreur lors de l'invitation");
-        return;
-      }
-      onCreated();
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Inviter un membre</h2>
-          <button
-            type="button"
-            aria-label="Fermer"
-            onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-900"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={(e) => void submit(e)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Prénom" htmlFor="invite-membre-prenom">
-              <Input
-                id="invite-membre-prenom"
-                value={prenom}
-                aria-label="Prénom"
-                onChange={(e) => setPrenom(e.target.value)}
-                required
-              />
-            </FormField>
-            <FormField label="Nom" htmlFor="invite-membre-nom">
-              <Input
-                id="invite-membre-nom"
-                value={nom}
-                aria-label="Nom"
-                onChange={(e) => setNom(e.target.value)}
-                required
-              />
-            </FormField>
-          </div>
-
-          <FormField label="Email" htmlFor="invite-membre-email">
-            <Input
-              id="invite-membre-email"
-              type="email"
-              value={email}
-              aria-label="Email"
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </FormField>
-
-          <FormField label="Rôle" htmlFor="invite-membre-role">
-            <Combobox
-              id="invite-membre-role"
-              aria-label="Rôle"
-              icon={null}
-              options={roleOptions.map((r) => ({
-                value: r.value,
-                label: r.label,
-              }))}
-              value={role}
-              onChange={setRole}
-            />
-          </FormField>
-
-          <FormField label="Organisation" htmlFor="invite-organisation">
-            <Autocomplete
-              id="invite-organisation"
-              aria-label="Organisation"
-              placeholder="Rechercher une organisation…"
-              fetchOptions={fetchOrgs}
-              selected={org}
-              onChange={setOrg}
-            />
-          </FormField>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={saving}
-              onClick={onClose}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Invitation…' : 'Inviter'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <InviterUtilisateurModal
+      titre="Inviter un membre"
+      roles={roles}
+      roleInitial="ops_savr"
+      rechercherOrganisations={fetchOrgs}
+      idPrefix="invite-membre"
+      formId="invite-membre-form"
+      onClose={onClose}
+      onCreated={onCreated}
+    />
   );
 }

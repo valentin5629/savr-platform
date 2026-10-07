@@ -12,6 +12,8 @@
 
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export interface OpsIntegration {
   service: string;
@@ -95,7 +97,9 @@ const COLONNES_BATCHS: ColumnDef<OpsBatch, unknown>[] = [
       b.statut ? (
         <StatusBadge ok={b.statut === 'completed'} label={b.statut} />
       ) : (
-        <span className="text-savr-neutral-400 text-xs">jamais exécuté</span>
+        <Text as="span" variant="faint">
+          jamais exécuté
+        </Text>
       ),
   },
   {
@@ -114,13 +118,15 @@ export function TableauIntegrations({
 }) {
   return (
     <DataGrid
+      columnsToggle={false}
       columns={COLONNES_INTEGRATIONS}
       data={integrations}
       getRowId={(i) => i.service}
       empty={
-        <p className="text-sm text-savr-neutral-500">
-          Aucune intégration suivie pour le moment.
-        </p>
+        <EmptyState
+          size="inline"
+          title="Aucune intégration suivie pour le moment."
+        />
       }
     />
   );
@@ -129,13 +135,12 @@ export function TableauIntegrations({
 export function TableauBatchs({ batchs }: { batchs: OpsBatch[] }) {
   return (
     <DataGrid
+      columnsToggle={false}
       columns={COLONNES_BATCHS}
       data={batchs}
       getRowId={(b) => b.job_name}
       empty={
-        <p className="text-sm text-savr-neutral-500">
-          Aucun batch exécuté pour le moment.
-        </p>
+        <EmptyState size="inline" title="Aucun batch exécuté pour le moment." />
       }
     />
   );

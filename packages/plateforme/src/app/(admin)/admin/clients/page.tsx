@@ -1,22 +1,36 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { libelleTypePack } from '@/lib/libelles/pack';
+import { useState, useMemo } from 'react';
 import { Building2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Pagination } from '@/components/ui/pagination';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ListFooter } from '@/components/ui/list-footer';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
 import { PageHero } from '@/components/ui/page-hero';
+import { OrganisationModal } from '@/components/admin/organisation-modal';
+import { ActifBadge } from '@/components/ui/actif-badge';
+import { OPTIONS_FILTRE_ACTIF } from '@/lib/libelles/actif';
 import {
-  OrganisationModal,
-  TYPE_ORGANISATION_LABELS,
-} from '@/components/admin/organisation-modal';
+  libelleTypeOrganisation,
+  LIBELLE_TYPE_ORGANISATION,
+} from '@/lib/libelles/organisation';
+import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
 
 interface PackActif {
   type_pack: string;
@@ -35,15 +49,6 @@ interface Organisation {
   pack_actif: PackActif | null;
 }
 
-// Libellé compact du type de pack pour la colonne (ex. pack_30 → « Pack 30 »).
-const PACK_LABELS: Record<string, string> = {
-  unitaire: 'Unitaire',
-  pack_10: 'Pack 10',
-  pack_30: 'Pack 30',
-  pack_60: 'Pack 60',
-  personnalise: 'Pack perso',
-};
-
 // Seuil « crédits faibles » aligné sur le bandeau d'alerte de la fiche (< 5).
 const PACK_CREDITS_FAIBLES = 5;
 
@@ -61,9 +66,9 @@ const columns: Column<Organisation>[] = [
     sortable: true,
     header: 'Nom',
     render: (row) => (
-      <a
-        href={`/admin/clients/${row.id}`}
-        className="flex items-center gap-3 font-medium text-savr-primary-700 hover:underline"
+      <TextLink
+        href={ROUTES.admin.client(row.id)}
+        className="flex gap-3 font-medium"
       >
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-100 text-xs font-bold text-savr-primary-700"
@@ -72,7 +77,7 @@ const columns: Column<Organisation>[] = [
           {initiales(row.raison_sociale)}
         </span>
         {row.raison_sociale}
-      </a>
+      </TextLink>
     ),
   },
   {
@@ -80,9 +85,7 @@ const columns: Column<Organisation>[] = [
     sortable: true,
     header: 'Type',
     render: (row) => (
-      <Badge variant="neutral">
-        {TYPE_ORGANISATION_LABELS[row.type] ?? row.type}
-      </Badge>
+      <Badge variant="neutral">{libelleTypeOrganisation(row.type)}</Badge>
     ),
   },
   { key: 'nb_users', header: 'Users' },
@@ -95,7 +98,7 @@ const columns: Column<Organisation>[] = [
       if (!row.pack_actif)
         return <span className="text-savr-neutral-400">—</span>;
       const { type_pack, credits_restants } = row.pack_actif;
-      const label = PACK_LABELS[type_pack] ?? type_pack;
+      const label = libelleTypePack(type_pack);
       return (
         <Badge
           variant={
@@ -112,92 +115,61 @@ const columns: Column<Organisation>[] = [
     key: 'actif',
     sortable: true,
     header: 'Statut',
-    render: (row) =>
-      row.actif ? (
-        <Badge variant="success">Actif</Badge>
-      ) : (
-        <Badge variant="neutral">Inactif</Badge>
-      ),
+    render: (row) => <ActifBadge actif={row.actif} />,
   },
 ];
 
+// Filtres de la liste, miroir dans l'URL (R-UI-4a) : choix multiple, case
+// « Tous » = sélection vide (décision Val 2026-09-30, divergence
+// M0.8_20260930_filtres-choix-multiple-tous). Liste paginée côté serveur :
+// recherche, tri et page sont envoyés à l'API (avant, seule la 1re page était
+// chargée et la recherche filtrait ces 50 lignes).
+const FILTRES = {
+  q: texte(''),
+  types: liste(),
+  actif: liste(),
+  page: navigation(entier(1, 1)),
+  tri: navigation(texte('raison_sociale')),
+  ordre: navigation(texte('asc')),
+};
+
 export default function ClientsPage() {
-  const [orgs, setOrgs] = useState<Organisation[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  // Filtres à choix multiple, case « Tous » = sélection vide (décision Val
-  // 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous).
-  const [types, setTypes] = useState<string[]>([]);
-  const [actifs, setActifs] = useState<string[]>([]);
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
   const [modalOpen, setModalOpen] = useState(false);
-  // Liste paginée côté serveur (50 par page) : recherche, tri et page sont
-  // envoyés à l'API. Avant, seule la 1re page était chargée et la recherche
-  // filtrait ces 50 lignes → les organisations suivantes étaient invisibles.
-  const [page, setPage] = useState(1);
-  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
-    cle: 'raison_sociale',
-    ordre: 'asc',
-  });
-  // Recherche envoyée après une courte pause de frappe (pas un appel par touche).
-  const [q, setQ] = useState('');
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setQ(search.trim());
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [search]);
-
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
-
-  const fetchOrgs = useCallback(async () => {
-    const numero = ++derniereRequete.current;
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page) });
-    if (types.length > 0) params.set('types', types.join(','));
-    const actif = valeurUnique(actifs);
+  const url = useMemo(() => {
+    const params = new URLSearchParams({ page: String(f.page) });
+    if (f.types.length > 0) params.set('types', f.types.join(','));
+    const actif = valeurUnique(f.actif);
     if (actif) params.set('actif', actif);
-    if (q) params.set('q', q);
-    params.set('tri', tri.cle);
-    params.set('ordre', tri.ordre);
-
-    try {
-      const res = await fetch(
-        `/api/v1/admin/organisations?${params.toString()}`,
-      );
-      const json = res.ok
-        ? ((await res.json()) as { data: Organisation[]; total: number })
-        : null;
-      if (numero !== derniereRequete.current || !json) return;
-      setOrgs(json.data);
-      setTotal(json.total);
-    } finally {
-      if (numero === derniereRequete.current) setLoading(false);
-    }
-  }, [types, actifs, q, tri, page]);
-
-  useEffect(() => {
-    void fetchOrgs();
-  }, [fetchOrgs]);
+    if (f.q) params.set('q', f.q);
+    params.set('tri', f.tri);
+    params.set('ordre', f.ordre);
+    return `/api/v1/admin/organisations?${params.toString()}`;
+  }, [f]);
+  const {
+    data: orgs,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<Organisation>(url);
 
   return (
     <div className="space-y-6">
       {/* Bandeau d'en-tête — composant DS PageHero (§10 §5.6, aplat primary-700) */}
+      {/* Pas de compteur ici : il vit dans le pied de la FilterBar (D5). */}
       <PageHero
         title="Clients"
-        subtitle={
-          loading
-            ? 'Chargement…'
-            : `${total} organisation${total !== 1 ? 's' : ''}`
-        }
         actions={
           // admin_savr ET ops_savr (§06.06 + matrice ops §09) : le layout
           // (admin) et requireStaff bornent déjà aux 2 rôles staff.
           <Button variant="accent" onClick={() => setModalOpen(true)}>
-            <Plus className="w-4 h-4" />
+            <Plus />
             Nouvelle organisation
           </Button>
         }
@@ -207,86 +179,71 @@ export default function ClientsPage() {
       <ImpersonationLauncher />
 
       {/* Filtres */}
-      <FilterBar data-testid="clients-filtres">
+      <FilterBar
+        data-testid="clients-filtres"
+        count={compteurResultats(total, 'organisation', 'organisations')}
+        actif={filtresActifs}
+        onReset={reset}
+      >
+        {/* Debounce (300 ms) et ✕ intégrés au composant (R-UI-4b, D7). */}
         <FiltreRecherche
           id="clients-recherche"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={f.q}
+          onValueChange={(q) => set({ q })}
         />
         <FiltreCoches
           label="Type"
           testid="clients-type"
-          options={Object.entries(TYPE_ORGANISATION_LABELS).map(
+          options={Object.entries(LIBELLE_TYPE_ORGANISATION).map(
             ([id, nom]) => ({
               id,
               nom,
             }),
           )}
-          selected={types}
-          onChange={(ids) => {
-            setTypes(ids);
-            setPage(1);
-          }}
+          selected={f.types}
+          onChange={(ids) => set({ types: ids })}
         />
         <FiltreCoches
           label="Statut"
           testid="clients-statut"
-          options={[
-            { id: 'true', nom: 'Actifs' },
-            { id: 'false', nom: 'Inactifs' },
-          ]}
-          selected={actifs}
-          onChange={(ids) => {
-            setActifs(ids);
-            setPage(1);
-          }}
+          options={OPTIONS_FILTRE_ACTIF}
+          selected={f.actif}
+          onChange={(ids) => set({ actif: ids })}
         />
       </FilterBar>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : orgs.length === 0 ? (
-        <EmptyState
-          icon={<Building2 />}
-          title="Aucune organisation"
-          description={
-            search
-              ? 'Aucun résultat pour cette recherche.'
-              : 'Créez la première organisation.'
-          }
-        />
-      ) : (
-        <>
-          <DataTable
-            columns={columns}
-            data={orgs}
-            keyExtractor={(row) => row.id}
-            onSort={(cle, ordre) => {
-              setTri({ cle, ordre });
-              setPage(1);
-            }}
-            sortKey={tri.cle}
-            sortDirection={tri.ordre}
+      <DataTable
+        columns={columns}
+        data={orgs}
+        keyExtractor={(row) => row.id}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={
+          <EmptyState
+            icon={<Building2 />}
+            title="Aucune organisation"
+            description={
+              f.q
+                ? 'Aucun résultat pour cette recherche.'
+                : 'Créez la première organisation.'
+            }
           />
-          {total > 50 && (
-            <Pagination
-              page={page}
-              pageCount={Math.ceil(total / 50)}
-              onPageChange={setPage}
-              className="justify-end"
-            />
-          )}
-        </>
-      )}
+        }
+        onSort={(cle, ordre) => set({ tri: cle, ordre })}
+        sortKey={f.tri}
+        sortDirection={f.ordre as 'asc' | 'desc'}
+      />
+      <ListFooter
+        total={total}
+        page={f.page}
+        onPageChange={(page) => set({ page })}
+      />
 
       <OrganisationModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onCreated={() => void fetchOrgs()}
+        onCreated={recharger}
       />
     </div>
   );

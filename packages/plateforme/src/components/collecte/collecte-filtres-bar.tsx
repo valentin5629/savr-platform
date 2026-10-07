@@ -5,6 +5,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { groupesStatutClient } from '@/lib/statut-collecte-labels';
+import { LIBELLE_COURT_TYPE_ORGANISATION } from '@/lib/libelles/organisation';
 
 /** Organisation ayant programmé l'événement (§06.04 filtre « Programmée par »). */
 export interface ProgrammateurOption {
@@ -109,17 +110,18 @@ export function ecrireFiltresCollecte(
 
 // Libellé CDC « Agence : X » / « Gestionnaire : X » ; l'organisation de l'appelant
 // est déjà nommée « Mon organisation » par la route d'options (type null).
-const PREFIXE_TYPE: Record<string, string> = {
-  agence: 'Agence',
-  gestionnaire_lieux: 'Gestionnaire',
-  traiteur: 'Traiteur',
-  client_organisateur: 'Client',
-};
-
 function libelleProgrammateur(p: ProgrammateurOption): string {
-  const prefixe = p.type ? PREFIXE_TYPE[p.type] : null;
+  const prefixe = p.type ? LIBELLE_COURT_TYPE_ORGANISATION[p.type] : null;
   return prefixe ? `${prefixe} : ${p.nom}` : p.nom;
 }
+
+/** Filtres standards de la barre (hors « Période », toujours affichée). */
+export type FiltreCollecteStandard =
+  | 'statut'
+  | 'lieu'
+  | 'client'
+  | 'infoIncomplete'
+  | 'programmeePar';
 
 interface Props {
   /** Statuts DB couverts par l'onglet actif (Programmées ou Historique). */
@@ -132,6 +134,21 @@ interface Props {
   /** En-tête de la barre : onglets de vue (gauche) et filtre de type (droite). */
   tabs?: React.ReactNode;
   toggle?: React.ReactNode;
+  /**
+   * Filtres standards à afficher (R-UI-4b, D10 : la même barre pour tous les
+   * rôles). Un rôle dont la route n'accepte pas un filtre le masque
+   * (`{ client: false }`) plutôt que de l'afficher inerte. Défaut : tous.
+   */
+  filtres?: Partial<Record<FiltreCollecteStandard, boolean>>;
+  /** Filtres propres à un rôle, rendus après les filtres standards. */
+  children?: React.ReactNode;
+  /**
+   * « Au moins un filtre posé » quand le parent porte aussi des filtres hors
+   * `value` (ceux de `children`). Défaut : `filtresCollecteActifs(value)`.
+   */
+  actif?: boolean;
+  /** Réinitialisation complète (filtres de `value` ET de `children`). Défaut : `onChange(FILTRES_COLLECTE_VIDES)`. */
+  onReset?: () => void;
 }
 
 /**
@@ -161,7 +178,12 @@ export function CollecteFiltresBar({
   resultats,
   tabs,
   toggle,
+  filtres,
+  children,
+  actif,
+  onReset,
 }: Props): React.JSX.Element {
+  const visible = (f: FiltreCollecteStandard) => filtres?.[f] ?? true;
   const groupes = groupesStatutClient(statutsOnglet);
   const statutsSet = new Set(value.statuts);
   // Un groupe est coché quand TOUS ses statuts DB sont sélectionnés.
@@ -179,8 +201,8 @@ export function CollecteFiltresBar({
       data-testid="collecte-filtres-bar"
       tabs={tabs}
       toggle={toggle}
-      actif={filtresCollecteActifs(value)}
-      onReset={() => onChange(FILTRES_COLLECTE_VIDES)}
+      actif={actif ?? filtresCollecteActifs(value)}
+      onReset={onReset ?? (() => onChange(FILTRES_COLLECTE_VIDES))}
       count={
         <span data-testid="collectes-resultats-count">
           {resultats} collecte{resultats > 1 ? 's' : ''} correspond
@@ -196,55 +218,63 @@ export function CollecteFiltresBar({
         onChange={(p) => onChange({ ...value, from: p.from, to: p.to })}
       />
 
-      <FiltreCoches
-        label="Statut"
-        testid="filtre-statut"
-        options={groupes.map((g) => ({ id: g.label, nom: g.label }))}
-        selected={groupesSelectionnes}
-        onChange={(labels) =>
-          set(
-            'statuts',
-            groupes
-              .filter((g) => labels.includes(g.label))
-              .flatMap((g) => g.statuts),
-          )
-        }
-      />
+      {visible('statut') && (
+        <FiltreCoches
+          label="Statut"
+          testid="filtre-statut"
+          options={groupes.map((g) => ({ id: g.label, nom: g.label }))}
+          selected={groupesSelectionnes}
+          onChange={(labels) =>
+            set(
+              'statuts',
+              groupes
+                .filter((g) => labels.includes(g.label))
+                .flatMap((g) => g.statuts),
+            )
+          }
+        />
+      )}
 
-      <FiltreCoches
-        label="Lieu"
-        testid="filtre-lieu"
-        options={options.lieux}
-        selected={value.lieuIds}
-        onChange={(ids) => set('lieuIds', ids)}
-      />
+      {visible('lieu') && (
+        <FiltreCoches
+          label="Lieu"
+          testid="filtre-lieu"
+          options={options.lieux}
+          selected={value.lieuIds}
+          onChange={(ids) => set('lieuIds', ids)}
+        />
+      )}
 
-      <FiltreCoches
-        label="Client organisateur"
-        testid="filtre-client"
-        options={options.clients.map((c) => ({ id: c, nom: c }))}
-        selected={value.clients}
-        onChange={(noms) => set('clients', noms)}
-      />
+      {visible('client') && (
+        <FiltreCoches
+          label="Client organisateur"
+          testid="filtre-client"
+          options={options.clients.map((c) => ({ id: c, nom: c }))}
+          selected={value.clients}
+          onChange={(noms) => set('clients', noms)}
+        />
+      )}
 
-      <FiltreCoches
-        label="Info incomplète"
-        testid="filtre-info-incomplete"
-        libelleVide="Toutes"
-        libelleTous="Toutes"
-        options={[
-          { id: 'oui', nom: 'Oui' },
-          { id: 'non', nom: 'Non' },
-        ]}
-        selected={value.infoIncomplete ? [value.infoIncomplete] : []}
-        // Deux cases : une seule cochée filtre ; les deux cochées = « Toutes »,
-        // que FiltreCoches rend déjà en sélection vide.
-        onChange={([v]) =>
-          set('infoIncomplete', v === 'oui' || v === 'non' ? v : '')
-        }
-      />
+      {visible('infoIncomplete') && (
+        <FiltreCoches
+          label="Info incomplète"
+          testid="filtre-info-incomplete"
+          libelleVide="Toutes"
+          libelleTous="Toutes"
+          options={[
+            { id: 'oui', nom: 'Oui' },
+            { id: 'non', nom: 'Non' },
+          ]}
+          selected={value.infoIncomplete ? [value.infoIncomplete] : []}
+          // Deux cases : une seule cochée filtre ; les deux cochées = « Toutes »,
+          // que FiltreCoches rend déjà en sélection vide.
+          onChange={([v]) =>
+            set('infoIncomplete', v === 'oui' || v === 'non' ? v : '')
+          }
+        />
+      )}
 
-      {options.programmateurs.length > 1 && (
+      {visible('programmeePar') && options.programmateurs.length > 1 && (
         <FiltreCoches
           label="Programmée par"
           testid="filtre-programmee-par"
@@ -256,6 +286,8 @@ export function CollecteFiltresBar({
           onChange={(ids) => set('programmeePar', ids)}
         />
       )}
+
+      {children}
     </FilterBar>
   );
 }

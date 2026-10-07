@@ -123,7 +123,7 @@ Vue restituée du **Dashboard Gestionnaire de lieux** (cf. [[06 - Fonctionnalit�
 
 ### Sélecteur d'organisations (en haut de page)
 
-Multi-sélection en **filtres en ligne**, un par type d'organisation — « Traiteur », « Agence », « Gestionnaire de lieux » — dans la barre de filtres du dashboard, à côté de « Période » (format DS §10 règle 7, décision Val 2026-09-30). Chaque filtre est une liste à cocher avec recherche sur le nom au-delà de 7 organisations.
+Multi-sélection en **filtres en ligne**, un par type d'organisation — « Traiteur », « Agence », « Gestionnaire de lieux » — dans la barre de filtres du dashboard, **après** « Période » (format DS §10 règle 7, décision Val 2026-09-30). Chaque filtre est une liste à cocher avec recherche sur le nom au-delà de 7 organisations. Chaque liste a une case « Tous / Toutes » en tête : cochée sans aucune sélection, ou quand toutes les organisations du type sont cochées. La cocher ajoute tout le type aux organisations cochées des autres types ; si aucune n'est cochée ailleurs, elle rétablit « Toutes les organisations ». Décocher « Tous / Toutes » d'un type entièrement coché retire ce type du périmètre. Toutes les organisations cochées = « Toutes les organisations ». Une organisation mémorisée mais disparue est retirée de la sélection.
 
 - **Aucune organisation cochée** (défaut) = **« Toutes les organisations »** : agrège la totalité des collectes Savr (vue 100 % opérationnelle Savr) ; les 3 filtres affichent « Tous / Toutes ».
 - **Une ou plusieurs organisations cochées**, tous types confondus : dashboard restreint au périmètre sélectionné (union) ; les types sans sélection affichent « Aucun / Aucune ». « Réinitialiser » rétablit la période par défaut et toutes les organisations. **Périmètre d'une organisation sélectionnée** *(décision Val R24c 2026-07-14, divergence M3.6)* : matche les collectes où elle est **programmatrice** (`evenements.organisation_id`) **OU traiteur opérationnel** (`evenements.traiteur_operationnel_organisation_id`) — un traiteur = toute son activité d'opérateur, y compris les événements sous-traités pour une agence (ex. Kaspia = 97 collectes, et non 85). Une agence → ses événements programmés (jamais opératrice) ; un gestionnaire → inchangé. Le filtre « Traiteur » de la liste Collectes (§3) suit la même sémantique (`traiteur_operationnel`), miroir du Top 5 traiteurs.
@@ -135,10 +135,16 @@ Persistance du filtre : `localStorage` côté navigateur (l'Admin retrouve sa s�
 Reprise **exacte** du dashboard Gestionnaire (§06.05) avec la spécificité suivante :
 - Onglets ZD / AG inchangés
 - Filtres globaux (lieux, dates, traiteurs, type+taille événement) inchangés — filtre dates = **`date_collecte`** (parité dashboard gestionnaire)
-- Bloc 1 KPIs, Bloc 2 répartitions, Bloc 3 radar benchmark, Bloc 4 historique inchangés
+- Bloc 1 KPIs, Bloc 2 répartitions, Bloc 3 radar benchmark, Bloc 4 historique inchangés — sauf la ligne de référence du radar (cf. ci-dessous)
 - L'agrégation porte sur le périmètre sélectionné (au lieu de `gestionnaire_id` filtré par RLS comme côté gestionnaire)
 
-**Contrainte benchmark** : la jauge benchmark §06.05 Bloc 3 ZD nécessite un parc minimum (k≥5). Quand le filtre est `Toutes les organisations`, le benchmark est calculé sur l'ensemble du parc Savr filtré par les barres benchmark dédiées (cf. [[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux]] §benchmark).
+**Ligne de référence du radar (décision Val 2026-10-02, divergence M3.6_20261002_benchmark-admin-reference-sans-k-anonymat)** : le Bloc 3 ZD Admin porte le même encart « Comparer avec » que le gestionnaire (Type d'événement, Taille, Lieux, Traiteurs — période fixe 24 mois glissants), mais la ligne de référence est calculée **sans k-anonymat** : l'Admin voit déjà chaque organisation en clair, le seuil (≥ 5 collectes et ≥ 3 acteurs) n'a pas d'objet pour lui. Elle vaut Σ kg du flux / Σ pax des collectes clôturées ZD du parc restreintes aux filtres de l'encart (même formule que la ligne « Vous »), tout le parc par défaut. Usage visé : comparer un traiteur (périmètre sélectionné) à un autre (filtre Traiteurs). Légende « Moyenne parc » par défaut, « Périmètre comparé » dès qu'un lieu ou un traiteur est filtré ; ligne « Référence : N collectes … sans seuil d'anonymisation (vue Admin) » sous l'encart ; pas d'avertissement « comparaison à soi-même ». Source : `loadAdminBenchmarkComparaison` (service_role, après `requireStaff`) + route `GET /api/v1/admin/dashboard-client/benchmark` (paramètres `traiteur_ids`, `lieu_ids`, `type_evenement_ids`, `taille_evenement_codes`) ; options de l'encart par `GET /api/v1/admin/dashboard-client/benchmark/filtres`. `f_benchmark_kg_pax_zd` n'est pas appelée par cette vue.
+
+Précisions validées par Val (2026-10-02) :
+- **Formule Σ kg / Σ pax, y compris sans filtre** : la référence « parc entier » de l'Admin est le Σ kg / Σ pax de toutes les collectes clôturées ZD des 24 mois, et non la moyenne des segments publiés par `f_benchmark_kg_pax_zd` pondérée par leur nombre de collectes — les chiffres du radar Admin peuvent donc différer légèrement de ceux vus par un client sur le même parc ;
+- **Période de la référence fixe, 24 mois glissants**, alors que la ligne « Vous » suit la période de la barre globale ;
+- **Pas d'héritage Type / Taille depuis la barre globale** : la barre du Dashboard Client Admin n'expose pas ces deux filtres ;
+- **Le filtre « Traiteurs » de la référence cible le traiteur opérationnel seul** (`evenements.traiteur_operationnel_organisation_id`), alors que le périmètre « Vous » retient une organisation programmatrice OU opératrice (R24c) : un traiteur qui programme des événements opérés par un autre compte dans « Vous », pas dans la référence quand on le cible.
 
 ### Permissions
 
@@ -191,20 +197,21 @@ Colonnes par ligne :
 
 ### Filtres
 
-- Type : ZD / AG / Tout
-- Traiteur (`traiteur_operationnel_organisation_id` via liste déroulante — menu `<select>` peuplé de tous les traiteurs, tri alphabétique, option « Tous les traiteurs ») *(sémantique corrigée 2026-07-14, divergence M3.6 : filtre par traiteur opérationnel, miroir exact du Top 5 traiteurs et du drill-down des dashboards ; le param API `organisation_id` reste supporté, `traiteur_operationnel_id` ajouté)*
-- Lieu (`lieu_id` via liste déroulante — menu `<select>` peuplé de tous les lieux, tri alphabétique, option « Tous les lieux »)
+- Période (`date_collecte` entre X et Y) — **en premier** dans la barre *(décision Val 2026-09-30)*
+- Type : ZD / AG (choix multiple, « Tous » = les deux)
+- Traiteur (`traiteur_operationnel_organisation_id`, **choix multiple** — liste à cocher de tous les traiteurs, tri alphabétique, case « Tous ») *(sémantique corrigée 2026-07-14, divergence M3.6 : filtre par traiteur opérationnel, miroir exact du Top 5 traiteurs et du drill-down des dashboards ; le param API `organisation_id` reste supporté, `traiteur_operationnel_id` ajouté)*. API choix multiple *(2026-09-30)* : `traiteur_operationnel_ids` CSV ; le mono `traiteur_operationnel_id` reste supporté.
+- Lieu (`lieu_id`, **choix multiple** — liste à cocher de tous les lieux, tri alphabétique, case « Tous » ; API `lieu_ids` CSV)
 - Statut (multi-sélection)
-- Plage de dates (`date_collecte` entre X et Y)
 - "Info incomplète" oui/non
 - "Anomalie pesée" oui/non (ZD uniquement) *(V2 — détection seuils par flux, exception actée ; filtre inactif en V1)*
 - "Rapport non consulté" oui/non
 - **Filtres prédéfinis cliquables (chips en haut de liste)** *(ajout 2026-05-07)* :
-  - "Non transmises ZD" / "Non transmises AG" *(scindé 2026-07-15, divergence M3.5 — miroir exact des cartes-actions Bloc 1 du Dashboard Admin)* → par type : `type = zd|ag` ET `statut_tms = 'non_envoye'` ET `tms_reference IS NULL` ET `statut ∈ (programmee, validee)`. Cibles de clic des cartes du dashboard (drill-down « miroir exact », prédicats partagés `lib/collectes-chips.ts`). *(Le prédicat combiné historique « Non transmises au TMS » = `statut=programmee ET tms_reference IS NULL` reste disponible côté API — back-compat — mais retiré du bandeau visible.)*
+  - "Non transmises ZD" / "Non transmises AG" *(scindé 2026-07-15, divergence M3.5 — miroir exact des cartes-actions Bloc 1 du Dashboard Admin)* → par type : `type = zd|ag` ET `statut_tms = 'non_envoye'` ET `tms_reference IS NULL` ET `statut ∈ (programmee, validee)`. Cibles de clic des cartes du dashboard (drill-down « miroir exact », prédicats partagés `lib/collectes-chips.ts`). **Tuiles KPI de tête « AG à dispatcher » / « ZD à dispatcher »** (onglet Programmées) : chaque tuile affiche le compteur du chip « Non transmises » de son type (§11 §1.1) et, au clic, active ce chip et efface le filtre Type de la barre — la liste montre alors les collectes comptées *(décisions Val 2026-10-01)*. *(Le prédicat combiné historique « Non transmises au TMS » = `statut=programmee ET tms_reference IS NULL` reste disponible côté API — back-compat — mais retiré du bandeau visible.)*
   - "En attente prestataire" → `statut_tms = 'attribuee_en_attente_acceptation'` *(corrigé 2026-05-29 : ex `statut_dispatch`, champ TMS — côté Plateforme le miroir est `collectes.statut_tms`)*
   - "Modifiées sans renvoi TMS" → `dirty_tms = true` (cf. §3 Bloc 0 pour la définition du flag)
   - "AG en attente attribution" → `type=ag` ET aucune attribution validée (`NOT EXISTS (attributions_antgaspi a WHERE a.collecte_id = collectes.id AND a.valide_at IS NOT NULL)`) *(corrigé 2026-05-29 : ex réf `attributions_antgaspi.statut` — colonne inexistante. Équivalent post-alignement ZD/AG : `type=ag AND statut_tms = 'non_envoye'`, l'AG restant `non_envoye` tant que l'attribution n'est pas validée)*
   - "ZD 48h" / "AG 48h"
+  - **Cumul pastille × barre** *(décision Val 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous)* : une pastille se cumule avec les filtres de la barre — liste = pastille ET barre ; le chiffre de la pastille reste le total global ; sans filtre posé, la liste est le miroir exact du compteur.
 
 ### Vue dédiée "AG en attente attribution" *(ajout 2026-05-07)*
 
@@ -224,8 +231,8 @@ Affiche en plus de la liste classique :
 > - **Pied d'actions** : « Forcer le statut ».
 >
 > **Organisation en onglets (décision Val 2026-09-29, C1 — remplace l'« Organisation des blocs » du 2026-07-22)** : modale `max-w-5xl` à hauteur fixe, **onglets seuls en barre horizontale** sous le grand en-tête (la colonne résumé est supprimée le 2026-10-01 : son contenu est dans l'en-tête) — **4 onglets** (composant DS `Tabs`) :
-> 1. **Informations** (par défaut) — Événement (date et heure, traiteur, nombre de pax, client final = client organisateur, type, nom de l'événement, volume repas estimé AG) · Lieu **effectif** (référence `lieux` + `collectes.lieu_overrides`, même fusion que celle transmise au transporteur `applyLieuOverrides` ; badge « Modifié pour cette collecte » dès qu'une surcharge réelle existe : nom, adresse, accès office, stationnement, véhicule max, contraintes horaires, contrôle d'accès) · Instructions d'accès (`acces_details` effectif, `evenements.informations_supplementaires`, `collectes.notes_internes`) · Contacts principal et secours (téléphone cliquable) · Informations chauffeur (saisie par tournée si contrôle d'accès, sinon mention « aucune information chauffeur n'est demandée »).
-> 2. **Logistique** — Prestataire & Dispatch (choix du prestataire en **cartes cochables**, reco algo en premier, présélectionnée et badgée « Recommandé », badge « Actuel » sur le prestataire en place, motif override inchangé) · Attribution AG (résumé + top 3 associations en cartes, n°1 « Recommandé », bouton **« Choisir »** → écran §06.09 avec `?association=<id>` présélectionnée ; validation, motif et emails restent sur §06.09 — BOA-07 conservé, « en 2 temps ») ; attribution déjà validée → cartes « Choisir » masquées (C5) · Pesées ZD.
+> 1. **Informations** (par défaut) — Événement (date et heure, traiteur, nombre de pax, client final = client organisateur, type, nom de l'événement, volume repas estimé AG) · Lieu **effectif** (référence `lieux` + `collectes.lieu_overrides`, même fusion que celle transmise au transporteur `applyLieuOverrides` ; badge « Modifié pour cette collecte » dès qu'une surcharge réelle existe : nom, adresse, accès office, stationnement, véhicule max, contraintes horaires, contrôle d'accès) · Instructions d'accès (`acces_details` effectif, `evenements.informations_supplementaires`, `collectes.notes_internes`) · Contacts principal et secours (téléphone cliquable). *(Les informations chauffeur ont rejoint le bloc « Chauffeur » de l'onglet Logistique — décision Val 2026-10-02.)*
+> 2. **Logistique** — Prestataire & Dispatch (choix du prestataire en **cartes cochables**, reco algo en premier et badgée « Recommandé » — présélectionnée seulement si la collecte n'a pas encore de prestataire ; sinon c'est la carte « Actuel » du prestataire en place qui est cochée, motif override inchangé) · Attribution AG (résumé + top 3 associations en cartes, n°1 « Recommandé », bouton **« Choisir »** → écran §06.09 avec `?association=<id>` présélectionnée ; validation, motif et emails restent sur §06.09 — BOA-07 conservé, « en 2 temps ») ; attribution déjà validée → cartes « Choisir » masquées (C5) · Pesées ZD. Le bloc **« Chauffeur »** (décision Val 2026-10-02, cf. Bloc 0) se place après « Prestataire & Dispatch » et avant « Pesées ZD ».
 > 3. **Documents** — rapport RSE, bordereau ZD, attestation AG, facture, photos (inchangé).
 > 4. **Historique** — timeline audit (inchangée, y compris badge « Crédit recrédité automatiquement le … » ; filtres par type = plus tard, C4).
 >
@@ -238,18 +245,31 @@ Reprise des **4 blocs de l'espace traiteur §06.04** + **3 blocs Admin-only** en
 État courant + actions de dispatch :
 
 **État affiché** :
-- Prestataire actuel (Strike, Marathon, A Toutes!, transporteur province nominal — depuis `collectes.prestataire_logistique_id`)
+- Prestataire actuel (Strike, Marathon, A Toutes! — depuis `collectes.prestataire_logistique_id` ; transporteur province nominal, dispatché par mail ou téléphone, sans pont prestataire — depuis `attributions_antgaspi.transporteur_id` de l'attribution validée, lu seulement quand `collectes.prestataire_logistique_id` est NULL : le prestataire posé sur la collecte fait toujours foi quand il existe). **Nommé même si son transporteur a été désactivé depuis** (`actif = false`, cf. §6 : les collectes en cours continuent) : nom du transporteur lié au prestataire, à défaut nom du prestataire (`shared.prestataires.nom`). Un transporteur désactivé n'a pas de carte dans « Prestataire à attribuer » (ni badge « Actuel ») ; le bouton d'envoi et l'acceptation manuelle restent disponibles pour lui. Un transporteur sans pont (attribution AG validée) garde sa carte, badgée « Actuel » et cochée, avec le bouton « Dispatcher (manuel) ». « Prestataire non attribué » / « Aucun prestataire attribué » ne s'affichent que si `collectes.prestataire_logistique_id` est NULL **et** qu'aucune attribution AG validée ne désigne de transporteur. *(décisions Val 2026-10-01 — divergences M0.6_20261001_prestataire-actuel-transporteur-desactive et M0.6_20261001_prestataire-actuel-transporteur-sans-pont, option A)*
 - Statut TMS (miroir Plateforme `statut_tms` : `a_attribuer` | `attribuee_en_attente_acceptation` | `acceptee` | `en_attente_execution` | `rejetee_par_prestataire` | `annulee_par_traiteur`) *(corrigé 2026-05-29 : ex `statut_dispatch` — champ TMS ; valeurs `non_attribuee`/`refusee` hors enum miroir → `a_attribuer`/`rejetee_par_prestataire`)*
 - Horodatage de la dernière transition `statut_tms` (`collectes.statut_tms_at` — cf. [[04 - Data Model]], sémantique = transition, pas émission)
 - **Flag « Modifiée sans renvoi TMS » (`collectes.dirty_tms`) — définition canonique** *(source unique — revue sobriété 2026-05-30 C2 ; « émission S7 » renommée « émission dispatch » 2026-06-07 F5)* : passe à `true` quand une collecte **déjà envoyée au TMS** subit une modification métier (date, heure, lieu, flux, contrôle d'accès, info supplémentaire) **après** la dernière émission dispatch et **avant** un renvoi explicite. Remis à `false` à la prochaine émission dispatch (bouton « Renvoyer au TMS », endpoint [[08 - APIs et intégrations]] §10.1). Toutes les autres mentions du flag dans ce document (KPI §1, chip §3) renvoient à cette définition. Les champs ÉVÉNEMENT (contacts, pax) ne passent PAS par ce flag : ils émettent E2 `collecte.modifiee` immédiatement via `fn_modifier_evenement` (modèle immédiat, [[05 - Règles métier]] Précision M1.2 2026-06-26).
-- Tournée(s) TMS rattachée(s) (`collecte_tournees` → `tournees.id` + lien vers TMS si applicable) — **liste** des N tournées pour une collecte multi-camions (refonte 2026-05-25, ex-lien `collectes.tournee_id` singulier retiré)
+- Tournée(s) TMS rattachée(s) (`collecte_tournees` → `tournees.id` + lien vers TMS si applicable) — **liste** des N tournées pour une collecte multi-camions (refonte 2026-05-25, ex-lien `collectes.tournee_id` singulier retiré). La liste affiche camion, statut et référence commande — **plus la plaque** (décision Val 2026-10-02 : le bloc « Chauffeur » ci-dessous en est la source unique, ce qui évite « plaque — » à côté de « Sans objet (vélo cargo) »).
+- **Bloc « Chauffeur » (décision Val 2026-10-02, divergence M0.6_20261002_bloc-chauffeur-onglet-logistique)** — sous « Prestataire & Dispatch », même contenu que le bloc « Logistique » de la fiche client ([[04 - Espace client traiteur]]) : par camion (en-tête « Camion N » s'il y en a plusieurs), nom du chauffeur, plaque (« Sans objet (vélo cargo) » si `tournees.type_vehicule = velo_cargo`), téléphone (lien `tel:`), « En attente » par champ manquant, accompagnant s'il est renseigné ; titre « Chauffeur pas encore affecté » sans tournée. Affiché **quel que soit `controle_acces_requis`** et **à tout statut, y compris terminal** (pas de fenêtre de statut côté Admin, à la différence du bloc client : l'Ops voit l'historique). Valeurs remontées automatiquement par le prestataire (`tournees.chauffeur_nom` / `chauffeur_telephone` / `plaque_immatriculation` : MTS-1 au polling via le référentiel carrier ; A Toutes! : nom et téléphone du coursier relus sur l'API Everest au webhook `mission_dispatched`, cf. [[08 - APIs et intégrations]] §3 — **la plaque Everest n'est pas propagée**, vélo cargo) et complétées par l'Admin (« Modifier les coordonnées », dès qu'une tournée existe → formulaire par camion → `PATCH …/infos-acces`, audit `infos_acces_chauffeur_maj`). Transporteur manuel (mail / téléphone / autre) : rien ne remonte automatiquement, coordonnées à saisir par l'équipe Ops. **Pas de badge d'origine** de la donnée (MTS-1 / Everest / saisie Ops). Si `controle_acces_requis` : rappel de l'email récapitulatif au programmateur et état de son envoi. Remplace la card « Informations chauffeur » de l'onglet Informations.
 
 **Actions disponibles** (variables selon type collecte) :
 
 | Type | Actions Admin/Ops |
 |------|-------------------|
 | **ZD** | Bouton **« Renvoyer au TMS »** (réémission dispatch idempotente, reset `dirty_tms` — endpoint §08 §10.1). **Pas d'attribution manuelle ZD V1** (la règle dispatch ZD est simple : prestataire fixe par lieu/zone). Override Admin uniquement via §8 Clients > tarifs négociés ou §7 Lieux. |
-| **AG** | Liste déroulante « Prestataire » (Strike / Marathon / A Toutes! / transporteur province) + champ « Motif override » obligatoire si choix ≠ top 1 algo. Bouton **« Envoyer au TMS »** (ou **« Renvoyer au TMS »** si `tms_reference IS NOT NULL`). Émet le dispatch avec `prestataire_id` choisi + `motif_override` audité. |
+| **AG** | Liste déroulante « Prestataire » (Strike / Marathon / A Toutes! / transporteur province) + champ « Motif override » obligatoire si choix ≠ top 1 algo. Bouton **« Envoyer au TMS »** (ou **« Renvoyer au TMS »** si `tms_reference IS NOT NULL` **ou si l'ordre est déjà en file d'envoi chez le même prestataire**, cf. état « ordre en file d'envoi » ci-dessous). Émet le dispatch avec `prestataire_id` choisi + `motif_override` audité. |
+
+##### État « ordre en file d'envoi » (décision Val 2026-10-02, divergence M0.6_20261002_bloc-dispatch-ordre-en-file-envoi)
+
+Entre la validation d'attribution AG (décision de dispatch, [[09 - Flux algo attribution AG (Admin)]] §3) ou un renvoi, et le passage du worker outbox (cron 15 min), la collecte AG a un prestataire chez un adapter (`prestataire_logistique_id` posé, `type_tms ∈ {mts1, a_toutes}`), est encore `programmee` ou `validee`, mais `tms_reference IS NULL` et `statut_tms = 'non_envoye'` (§3 pt 3). Dans cet état, dérivé à l'affichage (l'enum `statut_tms` ne change pas) :
+
+- la fiche affiche **« Envoyée »** (en-tête et ligne « Statut TMS ») à la place de « Non envoyé », et un encart : « Collecte envoyée à {prestataire}. La commande part automatiquement vers {MTS-1 | A Toutes!} (prochain passage sous 15 minutes, reprises automatiques en cas d'erreur) : la référence TMS et le statut « Attente acceptation presta » s'afficheront ici dès sa prise en compte. » ;
+- le Bloc 0 passe en **lecture** : ni cartes de choix du prestataire, ni bouton primaire d'envoi. Action secondaire explicite : « Changer de prestataire » (rouvre les cartes, titre « Changer de prestataire », carte actuelle cochée, « Renvoyer au TMS » si même prestataire / « Envoyer au TMS » si un autre est choisi, « Garder le prestataire actuel » pour refermer) ;
+- l'acceptation manuelle A Toutes! reste proposée ;
+- **ZD non concernée** : en V1 aucun chemin ne pose de prestataire sur une ZD (création, PATCH, dispatch à corps vide) — une ZD avec prestataire et sans référence (seed, import) garde « Non envoyé » + « Envoyer au TMS » ;
+- les transporteurs manuels (`par_mail`, `par_telephone`, `autre`) et les transporteurs sans pont prestataire ne sont pas concernés : rien ne part automatiquement, l'écran d'attribution reste tel quel ;
+- la fiche ne lit pas `outbox_events` : elle **reste « Envoyée » même si l'envoi échoue définitivement** (DLQ) — validé Val 2026-10-02. Le filet est la carte « Collectes non transmises au TMS » (§1) et l'alerte Slack critique de la DLQ, pas la fiche ; le renvoi reste accessible via « Changer de prestataire » ;
+- **Everest indisponible** (cas nominal de l'acceptation manuelle ci-dessous : l'E1 échoue en TRANSIENT, `statut_tms` reste `non_envoye`) : la fiche affiche aussi « Envoyée » pendant toute la durée des reprises — validé Val 2026-10-02 ; le bouton d'acceptation manuelle reste proposé à côté.
 
 ##### Acceptation manuelle d'une mission Everest (A Toutes! indisponible) *(arbitrage Val 2026-09-16, divergence M2.5_20260915_mission-acceptee-au-telephone-sans-reference)*
 
@@ -380,10 +400,10 @@ Toutes les actions sont loguées dans `audit_log`.
 
 ### Vue liste
 Tableau de toutes les factures avec filtres *(refonte 2026-05-08 — revue de sobriété)* :
-- Statut : `brouillon` / `en_attente_pennylane` / `emise` / `payee` / `annulee` (le caractère "en retard" est calculé en lecture sur `emise + date_echeance < CURRENT_DATE`, pas un statut stocké — voir [[08 - Génération et édition facture (Admin)]] §10)
-- Type : ZD / AG / Pack / Avoir
-- Organisation
-- Période d'émission
+- Période (date de création de la facture, toujours renseignée — les brouillons n'ont pas de date d'émission ; l'export CSV applique la même période et la pastille « En erreur ») *(arbitrage Val 2026-10-01, option (a), divergence M1.7_20261001_export-factures-periode)* — **en premier** dans la barre *(décision Val 2026-09-30)*
+- Statut — porté par les pastilles « Filtrer par statut », pas par la barre (arbitrage #437) : `brouillon` / `en_attente_pennylane` / `emise` / `payee` / `annulee` (le caractère "en retard" est calculé en lecture sur `emise + date_echeance < CURRENT_DATE`, pas un statut stocké — voir [[08 - Génération et édition facture (Admin)]] §10)
+- Type : ZD / AG / Pack / Avoir — choix multiple, case « Tous »
+- Organisation — choix multiple, case « Toutes »
 
 Colonnes : numéro, date émission, organisation, montant HT, montant TTC, statut (avec pastille orange si `en_attente_pennylane > 2h`), date échéance (badge "En retard" calculé), date paiement.
 
@@ -432,6 +452,14 @@ Voir [[08 - Génération et édition facture (Admin)]] pour le détail du workfl
 
 ## 5. Associations
 
+> **Cadre commun des fiches Admin (transporteur, association, lieu)** *(décisions Val 2026-09-30, divergences M0.6_20260930_fiche-association-onglets et M1.1b_20260930_fiche-lieu-onglets)* :
+>
+> - **grand en-tête** : sur-titre (puce + mention), nom en grand, ligne d'infos à pictos, statut à droite ; il décrit l'objet **enregistré** et ne suit pas la saisie ; en création « Nouveau transporteur » / « Nouvelle association » / « Nouveau lieu » + une consigne ; titre accessible de la modale « Fiche X — nom » (visuellement caché). Contenu : transporteur = type de TMS, SIREN · ville + CP, véhicules, téléphone · Actif/Inactif ; association = région, SIREN (si renseigné) · ville, capacité (« N repas ») · Active/Inactive ; lieu = région (IDF/Province), gestionnaire · ville + CP, véhicule max · Actif/À normaliser ;
+> - **onglets seuls, sans colonne** : sous l'en-tête, une **barre d'onglets horizontale** fixe au défilement ; pas de colonne résumé ;
+> - **erreurs** : chaque onglet affiche le nombre de ses champs à corriger ; à l'échec de validation, la fiche ouvre le premier onglet fautif et y pose le focus ; l'erreur disparaît dès que le champ est corrigé ;
+> - **pied d'actions** : Annuler · (transporteur et association) « Désactiver » en contour rouge, même rendu que « Annuler la collecte » / « Réactiver » en bouton secondaire · Enregistrer. La fiche lieu n'a pas de bouton Désactiver (interrupteur « Actif ») ;
+> - largeur `max-w-5xl`, hauteur de modale fixe sur écran large (elle ne bouge pas d'un onglet à l'autre) ; un seul « Enregistrer » pour tous les onglets.
+
 ### Vue liste
 Tableau filtrable :
 
@@ -443,19 +471,26 @@ Tableau filtrable :
 | Capacité max (repas) | `associations.capacite_max_beneficiaires` |
 | Actif (oui/non) | `associations.actif` |
 
+**Filtre Statut** (Active / Inactive, à cocher, case « Tous ») — « Actives » coché par défaut *(défaut confirmé par Val le 2026-10-01)*.
+
 **Clic sur une ligne (ou sur « Nouvelle association ») → modale « Fiche association »** *(décision Val 2026-07-21, aligné pattern Transporteurs et Lieux)* : création, édition et désactivation se font dans la modale, sans quitter la liste. **Il n'existe plus de fiche détaillée pleine page ni de page d'édition dédiée** (`/admin/associations/[id]`, `/[id]/modifier`, `/nouvelle` supprimées). Les routes API `route.ts` (liste/POST) et `[id]/route.ts` (GET/PATCH — le PATCH `{actif}` porte le Désactiver/Réactiver depuis le pied de la modale) restent en service.
 
 ### Formulaire de création / édition *(contenu de la modale)*
+
+> **Organisation en onglets (décision Val 2026-09-30)** : cadre commun des fiches Admin (cf. encadré en tête du §5 — grand en-tête, barre d'onglets horizontale, pas de colonne résumé) avec **4 onglets** : (1) **Informations** (par défaut) — nom, capacité max, adresse, ville, région, contact (nom, téléphone, emails à prévenir) ; (2) **Logistique** — horaires d'ouverture, instructions d'accès, types d'aliments acceptés, id du point de collecte MTS-1 ; (3) **Rapport client** — description pour le rapport d'impact, logo ; (4) **Administratif** — habilitation 2041-GE + date d'expiration, N° RUP, SIREN, commentaire interne. Un seul « Enregistrer » pour tous les onglets. Si la validation échoue, la modale ouvre le premier onglet qui contient une erreur et chaque onglet affiche son nombre de champs à corriger. Pas d'onglet Historique en V1.
 
 | Champ | Type | Obligatoire | Notes |
 |-------|------|-------------|-------|
 | **Nom de l'association** | texte | Oui | Libellé unique, affiché dans rapports + back-office |
 | Upload logo | fichier (JPG/PNG max 2 Mo) | Non | Affiché dans rapports AG |
 | Adresse | texte + géocodage auto | Oui | Source pour distance algo |
+| Ville | texte | Oui | `associations.ville` |
+| Région | liste (Île-de-France / Province) | Oui | `associations.region` (`idf` / `province`) |
 | Nom prénom de contact | texte | Oui | |
 | Numéro de contact | texte | Oui | |
 | Mail des personnes à prévenir en cas de collecte | texte (liste emails séparés par virgule) | Oui | Destinataires email `ag_attribution_association` |
 | Instructions d'accès au lieu (pour le transporteur) | texte long | Non | |
+| Types d'aliments acceptés | texte (liste séparée par virgule) | Non | `associations.types_aliments_acceptes` — information Ops, non utilisée par l'algo |
 | **Horaires d'ouverture** (simplifié) | tableau 7 lignes | Oui | Voir §Horaires ci-dessous |
 | Zone de commentaire à usage interne | texte long | Non | |
 | SIREN | texte | Non | Validation INSEE (9 chiffres) — édition admin-only. **Non obligatoire — tranché Val 2026-07-02 (R17b) ; colonne `associations.siren` ajoutée (V1 + DDL cible).** |
@@ -499,7 +534,19 @@ Stocké dans `associations.horaires_ouverture` au format JSON.
 ### Vue liste
 Tableau filtrable : **nom (+ contact), ville, véhicule(s), type de TMS, types de collecte (badges ZD/AG), actif**, action *modifier* *(aligné maquette validée Val 2026-07-18)*.
 
+**Filtres** : Type (type de TMS) à choix multiple avec case « Tous » ; Statut (Actif / Inactif, à cocher, case « Tous ») — « Actifs » coché par défaut *(défaut confirmé par Val le 2026-10-01)*.
+
 **Clic sur une ligne → modale « Fiche transporteur »** (création / édition / désactivation), sans quitter la liste. Les anciennes pages pleine écran `/admin/transporteurs/nouveau`, `/[id]` et `/[id]/modifier` sont **supprimées** *(décision Val — aligné Associations et Lieux ; manifeste `M1.1b` à réaligner)*. La colonne **« Code MTS-1 » n'apparaît pas dans la liste** (demande explicite Val) ; le champ reste éditable dans la modale.
+
+> **Mise en page de la modale — format du pop-up fiche collecte** _(décision Val 2026-09-30, C1-C5)_. Même cadre que la fiche collecte client (§06.04), devenu le **cadre commun des fiches Admin** (cf. encadré en tête du §5) : **grand en-tête** (badge type de TMS, SIREN, nom du transporteur, sous-ligne ville et code postal · véhicule(s) · téléphone, badge Actif/Inactif à droite ; en création : « Nouveau transporteur » et « Renseignez les trois onglets, puis créez le transporteur. »), **3 onglets en barre horizontale** (cadre commun, cf. §5), **pied d'actions** fixe (Annuler · Désactiver/Réactiver · Enregistrer/Créer le transporteur ; « Désactiver » en contour rouge, comme « Annuler la collecte »). L'en-tête décrit le transporteur enregistré, il ne suit pas la saisie. En édition, les champs verrouillés portent l'aide « Fixé à la création », le rappel complet étant dans le bandeau de l'onglet Connexion logistique.
+>
+> | Onglet                              | Contenu                                                                                                                                                         |
+> | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | **Identité & contact** (par défaut) | Société : nom, SIREN · Contact jour J : nom du contact, téléphone, mail · Adresse : adresse, code postal, ville                                                 |
+> | **Capacités**                       | Véhicules et flux : type(s) de véhicule, type(s) de collecte · Process de collecte : description                                                                |
+> | **Connexion logistique**            | Bandeau « Le type de TMS et le prestataire logistique sont fixés à la création… » puis type de TMS, code transporteur MTS-1 (si `mts1`), prestataire logistique |
+>
+> **Erreur dans un onglet caché** : à l'enregistrement, la fiche bascule sur le premier onglet en erreur, y pose le focus, et affiche sur chaque onglet à corriger une pastille rouge portant le nombre de champs à corriger (cadre commun). L'erreur serveur s'affiche dans le pied, visible quel que soit l'onglet. **Coordonnées d'un tiers** : les champs nom, contact, téléphone, mail et adresse sont ignorés par les gestionnaires de mots de passe (`autocomplete="off"` + `data-bwignore`) : sans ça, Bitwarden proposait l'identité de l'admin connecté. **Pas d'onglet « Collectes »** en V1 (C4). Les fiches Lieu et Association ont rejoint ce cadre le 2026-09-30 (cf. §5 et §7) ; la fiche Organisation reste à passer au même format dans un lot séparé (C3).
 
 **Périmètre** : tous les transporteurs (IDF + province), pas de filtre zone par défaut. Strike, Marathon, A Toutes! et transporteurs province affichés dans la même liste.
 
@@ -560,7 +607,7 @@ L'Admin peut toujours override manuellement avec motif.
 Voir [[04 - Data Model]] table `lieux`.
 
 ### Vue liste
-Référentiel complet, présenté en tableau avec onglets **Référentiel (N)** / **Modifs signalées (N)**. Colonnes : Nom (+ badge `Citeo` si `reference_citeo`), Ville, Gestionnaire, Accès office, Stationnement, Véhicule max, **Capacité max**, Contrôle accès, Statut (+ action _Normaliser_ inline si le lieu est `actif = false`), chevron d'ouverture de fiche. Pastilles couleur pour `acces_office` / `stationnement` (`facile` → success, `difficile` → warning, `tres_difficile` → error). Filtrable (nom, ville, gestionnaire, type, traiteurs opérants, actif).
+Référentiel complet, présenté en tableau avec onglets **Référentiel (N)** / **Modifs signalées (N)**. Colonnes : Nom (+ badge `Citeo` si `reference_citeo`), Ville, Gestionnaire, Accès office, Stationnement, Véhicule max, **Capacité max**, Contrôle accès, Statut (+ action _Normaliser_ inline si le lieu est `actif = false`), chevron d'ouverture de fiche. Pastilles couleur pour `acces_office` / `stationnement` (`facile` → success, `difficile` → warning, `tres_difficile` → error). Filtrable (nom, ville, gestionnaire, type, traiteurs opérants, actif). Filtre Statut (Actif / Inactif, à cocher, case « Tous ») — « Actifs » coché par défaut *(défaut confirmé par Val le 2026-10-01)*.
 
 ### Fiche lieu — modale unique *(décision Val 2026-07-21, PR #256)*
 
@@ -571,6 +618,15 @@ La modale porte **l'intégralité des champs du référentiel**, y compris les 7
 - **Éditables** : `region` (select `idf` / `province`), `volume_max_bacs`, `contraintes_horaires`, `acces_details` (libellé « Carnet d'accès terrain »), `flux_autorises` (`text[]`, saisie libre séparée par des virgules), `commentaires_internes` (bloc Admin/Ops, libellé « Notes internes »), en plus des champs listés ci-dessous.
 - **Lecture seule** : `photos_urls` (upload géré hors formulaire, stockage R2 — liste de liens).
 - `POST /api/v1/admin/lieux` accepte `contraintes_horaires` et `commentaires_internes` au même titre que le `PATCH` (création et édition symétriques).
+
+**Mise en page (décision Val 2026-09-30, divergence M1.1b_20260930_fiche-lieu-onglets)** : cadre commun des fiches Admin (cf. §5) avec **4 onglets** :
+
+1. **Informations** — nom, nom alternatif, gestionnaire, actif, adresse accès livraison, région, code postal, ville ;
+2. **Accès & logistique** — type de véhicule max, accès office, stationnement, contrôle d'accès requis, carnet d'accès terrain, capacité max, volume max, contraintes horaires, flux autorisés, photos (lecture seule) ;
+3. **Interne Savr** — les 4 champs admin/ops only (dont « Commentaire sur le lieu ») + notes internes, sous un bandeau « jamais montrées aux clients » ;
+4. **Activité** (lieu existant seulement — la création n'a que les 3 premiers onglets) — traiteurs opérant (traiteur opérationnel des événements du lieu ayant au moins une collecte, tous statuts, avec leur nombre de collectes, tri décroissant ; calculé à la lecture) + historique des modifications (`audit_log` du lieu : création, modification avec les champs changés, normalisation, modification signalée à la programmation ; auteur ; 200 dernières écritures). Source : `GET /api/v1/admin/lieux/{id}/activite` (staff).
+
+Un seul bouton Enregistrer pour tous les onglets. Les booléens (actif, contrôle d'accès requis, référencé Citeo) sont des interrupteurs.
 
 ### Champs du formulaire *(contenu de la modale)*
 
@@ -583,7 +639,7 @@ La modale porte **l'intégralité des champs du référentiel**, y compris les 7
 | **Accès office** | enum | Non | **Refonte 2026-05-08** — enum `facile / difficile / tres_difficile`. Migration des valeurs texte libre existantes via UI Admin (file de normalisation Lieux V1.1, en attendant : NULL par défaut + ressaisie manuelle Admin). |
 | **Stationnement** | enum | Non | **Refonte 2026-05-08** — enum `facile / difficile / tres_difficile`. **Changement de nature** : ex enum 4 valeurs "type d'emplacement" (`parking_dedie`/`quai_livraison`/`stationnement_rue`/`zone_livraison_courte`) → enum 3 valeurs "difficulté d'accès". Pas de migration des valeurs Bubble actuelles → nouveau référentiel à ressaisir lieu par lieu post-migration (cf. [[13 - Migration depuis Bubble]]). |
 | **Type de véhicule max** | enum | Oui | **Refonte 2026-05-08** — enum aligné sur transporteurs : `velo_cargo / camionnette / fourgon / vul / poids_lourd` (hiérarchie du plus petit au plus gros). Le lieu impose un max → tous les véhicules ≤ max sont acceptés. Migration manuelle Admin (ressaisie lieu par lieu post-migration). |
-| Traiteurs opérant | liste N-N | Non | Information indicative, alimentée auto via collectes |
+| Traiteurs opérant | liste N-N | Non | Information indicative, alimentée auto via collectes — **lecture seule, onglet Activité** (traiteur opérationnel des événements du lieu ayant ≥ 1 collecte, avec le nombre de collectes) |
 | Gestionnaire | FK organisations type `gestionnaire_lieux` | Non | |
 | Contrôle d'accès requis (plaque + nom chauffeur) | toggle `controle_acces_requis_default` | Oui | (refonte 2026-05-03 — ex `plaque_requise_default`). Cascade upgrade-only (R_controle_acces_cascade §05). |
 | Actif | booléen | Oui | Défaut `true` |
@@ -634,6 +690,8 @@ Voir [[02 - Templates emails V1]] template `admin_demande_ajout_lieu`.
 
 ### Vue liste organisations
 Tableau : nom (avatar à initiales), type (traiteur / agence / gestionnaire_lieux / client_organisateur), nb users, **nb collectes ZD 12 derniers mois**, **nb collectes AG 12 derniers mois**, **pack actif**, actif.
+
+**Filtres** : Type (type d'organisation) et Statut (Actif / Inactif) à choix multiple avec case « Tous » — aucun défaut pré-coché sur Clients *(2026-10-01)*.
 
 **Bouton « Nouvelle organisation »** *(ajout 2026-09-16 — arbitrage Val, divergence M1.1_20260915 : la route `POST /api/v1/admin/organisations` existait sans écran ni ligne de CDC)*. Ouvre une modale de création. Ouvert à **`admin_savr` ET `ops_savr`** (cf. [[09 - Authentification et permissions#Matrice étendue `ops_savr` — back-office Plateforme]]).
 

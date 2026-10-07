@@ -1,5 +1,9 @@
 'use client';
 
+import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { fmtKg } from '@/lib/format';
 import {
   Suspense,
   useCallback,
@@ -9,8 +13,8 @@ import {
   useState,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
+import { CalendarDays, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import {
@@ -19,6 +23,10 @@ import {
   type EvenementsListFilters,
 } from '@/components/dashboards/index.js';
 import { lireTypesCollecte } from '@/lib/evenements-type-collecte';
+import { variantStatutEvenement } from '@/lib/libelles/evenement';
+import { PageHero } from '@/components/ui/page-hero';
+import { Text } from '@/components/ui/text';
+import { ROUTES } from '@/lib/routes';
 
 interface EvenementRow {
   id: string;
@@ -60,12 +68,14 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
         <div className="font-medium">
           {e.nom_evenement ?? '—'}
           {e.programmee_par_moi && (
-            <Badge variant="info" className="ml-1 text-xs">
+            <Badge variant="info" className="ml-1">
               Moi
             </Badge>
           )}
         </div>
-        <div className="text-xs text-savr-neutral-500">{e.taille_bracket}</div>
+        <Text as="div" variant="hint">
+          {e.taille_bracket}
+        </Text>
       </>
     ),
   },
@@ -76,9 +86,9 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
     cell: ({ row: { original: e } }) => (
       <>
         <div>{e.lieu_nom ?? '—'}</div>
-        <div className="text-xs text-savr-neutral-500">
+        <Text as="div" variant="hint">
           {e.lieu_ville ?? ''}
-        </div>
+        </Text>
       </>
     ),
   },
@@ -114,7 +124,7 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
     accessorFn: (e) => e.tonnage_zd_kg,
     cell: ({ row: { original: e } }) => (
       <span className="whitespace-nowrap">
-        {e.tonnage_zd_kg > 0 ? `${e.tonnage_zd_kg.toFixed(0)} kg` : '—'}
+        {e.tonnage_zd_kg > 0 ? fmtKg(e.tonnage_zd_kg) : '—'}
       </span>
     ),
   },
@@ -132,7 +142,7 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
     accessorFn: (e) => e.dechets_labo_kg ?? -1,
     cell: ({ row: { original: e } }) => (
       <span className="whitespace-nowrap">
-        {e.dechets_labo_kg != null ? `${e.dechets_labo_kg.toFixed(0)} kg` : '—'}
+        {e.dechets_labo_kg != null ? fmtKg(e.dechets_labo_kg) : '—'}
       </span>
     ),
   },
@@ -148,15 +158,7 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
     header: 'Statut',
     accessorFn: (e) => e.statut_consolide,
     cell: ({ row: { original: e } }) => (
-      <Badge
-        variant={
-          e.statut_consolide === 'Terminé'
-            ? 'success'
-            : e.statut_consolide === 'Annulé'
-              ? 'neutral'
-              : 'info'
-        }
-      >
+      <Badge variant={variantStatutEvenement(e.statut_consolide)}>
         {e.statut_consolide}
       </Badge>
     ),
@@ -241,9 +243,12 @@ function EvenementsContent() {
 
   useEffect(() => {
     // Reflète les filtres dans l'URL (deep-linkable §06.05 l.99), sans rechargement.
-    router.replace(`/gestionnaire/evenements?${toQueryString(filters)}`, {
-      scroll: false,
-    });
+    router.replace(
+      `${ROUTES.gestionnaire.evenements}?${toQueryString(filters)}`,
+      {
+        scroll: false,
+      },
+    );
     charger();
     // router hors deps (référence stable Next) : refetch au changement de filtres
     // (`charger` est recréé à chaque changement de `filters`).
@@ -256,12 +261,16 @@ function EvenementsContent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-savr-primary-800">Événements</h1>
-        <Button variant="ghost" onClick={exportCsv}>
-          Exporter CSV
-        </Button>
-      </div>
+      <PageHero
+        icon={<CalendarDays className="h-6 w-6 text-savr-primary-200" />}
+        title="Événements"
+        actions={
+          <Button variant="secondary" onClick={exportCsv}>
+            <Download />
+            Exporter CSV
+          </Button>
+        }
+      />
 
       <EvenementsFilterBar
         value={filters}
@@ -272,12 +281,11 @@ function EvenementsContent() {
       {/* États système §10 §7 — Error = message + « Réessayer », distinct de
           l'état Empty : une panne ne doit jamais se lire comme une liste vide. */}
       {erreur ? (
-        <div className="space-y-4" data-testid="evenements-erreur">
-          <AlertBar variant="err">{erreur}</AlertBar>
-          <Button variant="secondary" onClick={charger}>
-            Réessayer
-          </Button>
-        </div>
+        <ErrorState
+          data-testid="evenements-erreur"
+          message={erreur}
+          onRetry={charger}
+        />
       ) : (
         <DataGrid
           data-testid="evenements-table"
@@ -285,10 +293,8 @@ function EvenementsContent() {
           data={rows}
           getRowId={(e) => e.id}
           loading={loading}
-          empty={
-            <p className="text-sm text-savr-neutral-500">Aucun événement.</p>
-          }
-          onRowClick={(e) => router.push(`/gestionnaire/evenements/${e.id}`)}
+          empty={<EmptyState size="inline" title="Aucun événement." />}
+          onRowClick={(e) => router.push(ROUTES.gestionnaire.evenement(e.id))}
           rowLabel={(e) =>
             `Ouvrir l'événement${e.nom_evenement ? ` ${e.nom_evenement}` : ''}`
           }
@@ -300,7 +306,7 @@ function EvenementsContent() {
 
 export default function GestionnaireEvenementsPage() {
   return (
-    <Suspense fallback={<p className="p-4 text-sm">Chargement…</p>}>
+    <Suspense fallback={<LoadingState className="p-4" />}>
       <EvenementsContent />
     </Suspense>
   );

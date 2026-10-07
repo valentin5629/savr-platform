@@ -1,22 +1,45 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { useToast } from '@/components/ui/toast';
+import { fmtEuro } from '@/lib/format';
+import { libelleStatutFacture } from '@/lib/libelles/facture';
+import {
+  libelleVerificationSiret,
+  variantVerificationSiret,
+} from '@/lib/libelles/organisation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FormField } from '@/components/ui/form-field';
-import { BarreFiltres, FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useFiltresUrl } from '@/lib/hooks/use-filtres-url';
+import {
+  FILTRES_FACTURES,
+  FacturesFiltresBar,
+} from '@/components/facture/factures-filtres-bar';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
-import type { Database } from '@savr/shared/src/database.types.js';
+import { LogoCard } from '@/components/organisation/logo-card';
+import { InviterUtilisateurCarte } from '@/components/organisation/inviter-utilisateur-modal';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { ActifBadge } from '@/components/ui/actif-badge';
+import { libelleActif } from '@/lib/libelles/actif';
 
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
-type Enums = Database['plateforme']['Enums'];
 
 type OrgTab = 'infos' | 'equipe' | 'facturation' | 'preferences';
 
@@ -82,54 +105,42 @@ export function MonOrganisationClient({
 }) {
   const [tab, setTab] = useState<OrgTab>('infos');
 
-  const tabCls = (t: OrgTab) =>
-    `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-      tab === t
-        ? 'border-savr-primary-600 text-savr-primary-700'
-        : 'border-transparent text-savr-neutral-500 hover:text-savr-neutral-700'
-    }`;
-
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
-        Mon organisation
-      </h1>
+      <PageHeader title="Mon organisation" />
       {!isManager && (
-        <p className="text-sm text-savr-neutral-500">
+        <Text>
           Vous pouvez modifier les informations légales. Le logo, les entités de
           facturation, les domaines email et l&apos;équipe ne sont modifiables
           que par le manager.
-        </p>
+        </Text>
       )}
 
-      <div className="flex flex-wrap border-b border-savr-neutral-200">
-        <button className={tabCls('infos')} onClick={() => setTab('infos')}>
-          Informations légales
-        </button>
-        {/* Équipe : masquée au commercial (CDC §6 l.653) */}
-        {isManager && (
-          <button className={tabCls('equipe')} onClick={() => setTab('equipe')}>
-            Équipe
-          </button>
-        )}
-        <button
-          className={tabCls('facturation')}
-          onClick={() => setTab('facturation')}
-        >
-          Facturation
-        </button>
-        <button
-          className={tabCls('preferences')}
-          onClick={() => setTab('preferences')}
-        >
-          Préférences
-        </button>
-      </div>
+      {/* Onglets du DS (R-UI-4b, D4) : un seul contenu monté à la fois. */}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as OrgTab)}>
+        <TabsList className="w-full flex-wrap justify-start">
+          <TabsTrigger value="infos">Informations légales</TabsTrigger>
+          {/* Équipe : masquée au commercial (CDC §6 l.653) */}
+          {isManager && <TabsTrigger value="equipe">Équipe</TabsTrigger>}
+          <TabsTrigger value="facturation">Facturation</TabsTrigger>
+          <TabsTrigger value="preferences">Préférences</TabsTrigger>
+        </TabsList>
 
-      {tab === 'infos' && <InfosTab isManager={isManager} />}
-      {tab === 'equipe' && isManager && <EquipeTab userId={userId} />}
-      {tab === 'facturation' && <FacturationTab isManager={isManager} />}
-      {tab === 'preferences' && <PreferencesTab />}
+        <TabsContent value="infos">
+          <InfosTab isManager={isManager} />
+        </TabsContent>
+        {isManager && (
+          <TabsContent value="equipe">
+            <EquipeTab userId={userId} />
+          </TabsContent>
+        )}
+        <TabsContent value="facturation">
+          <FacturationTab isManager={isManager} />
+        </TabsContent>
+        <TabsContent value="preferences">
+          <PreferencesTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -176,12 +187,31 @@ function InfosTab({ isManager }: { isManager: boolean }) {
         />
       ) : (
         <Card>
-          <CardContent className="py-4 text-sm text-savr-neutral-500">
-            Chargement…
+          <CardContent className="py-4">
+            <LoadingState />
           </CardContent>
         </Card>
       )}
-      <LogoCard profil={profil} isManager={isManager} onSaved={reloadProfil} />
+      <LogoCard
+        logoKey={profil?.logo_url}
+        uploadUrl="/api/v1/traiteur/mon-organisation/logo"
+        previewSrc={(k) =>
+          `/api/v1/traiteur/mon-organisation/logo?key=${encodeURIComponent(k)}`
+        }
+        canEdit={isManager}
+        onUploaded={async (k) => {
+          const patch = await fetch(
+            '/api/v1/traiteur/mon-organisation/profil',
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ logo_url: k }),
+            },
+          );
+          if (!patch.ok) throw new Error('Logo uploadé mais non enregistré.');
+          reloadProfil();
+        }}
+      />
       <EntitesCard
         entites={entites}
         isManager={isManager}
@@ -193,85 +223,6 @@ function InfosTab({ isManager }: { isManager: boolean }) {
         onChanged={reloadDomaines}
       />
     </div>
-  );
-}
-
-function LogoCard({
-  profil,
-  isManager,
-  onSaved,
-}: {
-  profil: OrgProfil | null;
-  isManager: boolean;
-  onSaved: () => void;
-}) {
-  const [msg, setMsg] = useState('');
-  const [uploading, setUploading] = useState(false);
-
-  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setMsg('');
-    const form = new FormData();
-    form.append('file', file);
-    const up = await fetch('/api/v1/traiteur/mon-organisation/logo', {
-      method: 'POST',
-      body: form,
-    });
-    if (!up.ok) {
-      const j = (await up.json()) as { error?: string };
-      setMsg(j.error ?? 'Échec de l’upload.');
-      setUploading(false);
-      return;
-    }
-    const { logo_url } = (await up.json()) as { logo_url: string };
-    const patch = await fetch('/api/v1/traiteur/mon-organisation/profil', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ logo_url }),
-    });
-    setMsg(patch.ok ? 'Logo mis à jour.' : 'Logo uploadé mais non enregistré.');
-    setUploading(false);
-    if (patch.ok) onSaved();
-  }
-
-  const logoSrc = profil?.logo_url
-    ? `/api/v1/traiteur/mon-organisation/logo?key=${encodeURIComponent(profil.logo_url)}`
-    : null;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Logo</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {logoSrc ? (
-          <img
-            src={logoSrc}
-            alt="Logo de l'organisation"
-            className="h-16 w-auto rounded border border-savr-neutral-200"
-          />
-        ) : (
-          <p className="text-sm text-savr-neutral-500">Aucun logo.</p>
-        )}
-        {isManager && (
-          <div className="space-y-1">
-            <input
-              type="file"
-              accept="image/png,image/jpeg"
-              onChange={upload}
-              disabled={uploading}
-              className="text-sm"
-            />
-            <p className="text-xs text-savr-neutral-400">
-              JPG ou PNG, 2 Mo max.
-            </p>
-            {msg && <p className="text-sm text-savr-neutral-600">{msg}</p>}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -326,8 +277,16 @@ function EntitesCard({
     setSaving(false);
   }
 
+  const { confirmer, dialogue } = useConfirm();
   async function remove(id: string) {
-    if (!confirm('Supprimer cette entité de facturation ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Supprimer cette entité de facturation ?',
+        confirmLabel: 'Supprimer',
+        variant: 'destructive',
+      }))
+    )
+      return;
     const res = await fetch(
       `/api/v1/traiteur/mon-organisation/entites-facturation/${encodeURIComponent(id)}`,
       { method: 'DELETE' },
@@ -366,10 +325,8 @@ function EntitesCard({
       header: 'Vérif.',
       accessorFn: (e) => e.siret_verification,
       cell: ({ row: { original: e } }) => (
-        <Badge
-          variant={e.siret_verification === 'verifie' ? 'success' : 'neutral'}
-        >
-          {e.siret_verification}
+        <Badge variant={variantVerificationSiret(e.siret_verification)}>
+          {libelleVerificationSiret(e.siret_verification)}
         </Badge>
       ),
     },
@@ -388,9 +345,9 @@ function EntitesCard({
             cell: ({ row: { original: e } }) =>
               !e.entite_par_defaut && (
                 <Button
-                  variant="ghost"
+                  variant="ghost-destructive"
                   size="sm"
-                  className="text-savr-error text-xs"
+                  className="text-xs"
                   onClick={() => remove(e.id)}
                 >
                   Supprimer
@@ -403,6 +360,7 @@ function EntitesCard({
 
   return (
     <Card>
+      {dialogue}
       <CardHeader>
         <CardTitle>Entités de facturation</CardTitle>
       </CardHeader>
@@ -411,21 +369,20 @@ function EntitesCard({
             les entités de l'organisation (aucune pagination). Ordre initial =
             celui de la route (entité par défaut d'abord). */}
         <DataGrid
+          columnsToggle={false}
           columns={colonnes}
           data={actives}
           getRowId={(e) => e.id}
-          empty={
-            <p className="text-sm text-savr-neutral-500">Aucune entité.</p>
-          }
+          empty={<EmptyState size="inline" title="Aucune entité." />}
         />
 
         {isManager &&
           (showForm ? (
             <form
               onSubmit={add}
-              className="space-y-2 rounded border border-savr-neutral-200 p-3"
+              className="space-y-2 rounded-savr-sm border border-savr-neutral-200 p-3"
             >
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormGrid>
                 <FormField
                   label="Raison sociale"
                   htmlFor="entite-raison-sociale"
@@ -459,7 +416,7 @@ function EntitesCard({
                   label="Adresse de facturation"
                   htmlFor="entite-adresse"
                   required
-                  className="md:col-span-2"
+                  className="sm:col-span-2"
                 >
                   <Input
                     id="entite-adresse"
@@ -498,7 +455,7 @@ function EntitesCard({
                   label="Contact facturation"
                   htmlFor="entite-email-facturation"
                   hint="Email qui reçoit les factures"
-                  className="md:col-span-2"
+                  className="sm:col-span-2"
                 >
                   <Input
                     id="entite-email-facturation"
@@ -509,20 +466,22 @@ function EntitesCard({
                     }
                   />
                 </FormField>
-              </div>
-              {msg && <p className="text-sm text-savr-error">{msg}</p>}
-              <div className="flex gap-2">
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Ajout…' : 'Ajouter'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowForm(false)}
-                >
-                  Annuler
-                </Button>
-              </div>
+              </FormGrid>
+              {msg && (
+                <AlertBar variant="err" role="alert">
+                  {msg}
+                </AlertBar>
+              )}
+              <FormActions
+                cancel={{
+                  label: 'Annuler',
+                  variant: 'ghost',
+                  onClick: () => setShowForm(false),
+                }}
+                submit={{ label: 'Ajouter' }}
+                loading={saving}
+                loadingText="Ajout…"
+              />
             </form>
           ) : (
             <Button variant="secondary" onClick={() => setShowForm(true)}>
@@ -580,12 +539,12 @@ function DomainesCard({
         <CardTitle>Domaines email autorisés</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-xs text-savr-neutral-400">
+        <Text variant="faint">
           Les collaborateurs dont l’email appartient à ces domaines sont
           rattachés automatiquement à l’organisation.
-        </p>
+        </Text>
         {domaines.length === 0 ? (
-          <p className="text-sm text-savr-neutral-500">Aucun domaine.</p>
+          <EmptyState size="inline" title="Aucun domaine." />
         ) : (
           <ul className="space-y-1 text-sm">
             {domaines.map((d) => (
@@ -596,9 +555,9 @@ function DomainesCard({
                 <span>{d.domaine}</span>
                 {isManager && (
                   <Button
-                    variant="ghost"
+                    variant="ghost-destructive"
                     size="sm"
-                    className="text-savr-error text-xs"
+                    className="text-xs"
                     onClick={() => remove(d.id)}
                   >
                     Retirer
@@ -625,7 +584,11 @@ function DomainesCard({
             <Button type="submit">Ajouter</Button>
           </form>
         )}
-        {msg && <p className="text-sm text-savr-error">{msg}</p>}
+        {msg && (
+          <AlertBar variant="err" role="alert">
+            {msg}
+          </AlertBar>
+        )}
       </CardContent>
     </Card>
   );
@@ -650,8 +613,16 @@ function EquipeTab({ userId }: { userId: string }) {
     });
     reload();
   }
+  const { confirmer, dialogue } = useConfirm();
   async function suspend(id: string) {
-    if (!confirm('Suspendre ce collaborateur ?')) return;
+    if (
+      !(await confirmer({
+        title: 'Suspendre ce collaborateur ?',
+        confirmLabel: 'Suspendre',
+        variant: 'destructive',
+      }))
+    )
+      return;
     await fetch(`/api/v1/traiteur/equipe/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -718,12 +689,8 @@ function EquipeTab({ userId }: { userId: string }) {
     {
       id: 'statut',
       header: 'Statut',
-      accessorFn: (u) => (u.actif ? 'Actif' : 'Suspendu'),
-      cell: ({ row: { original: u } }) => (
-        <Badge variant={u.actif ? 'success' : 'neutral'}>
-          {u.actif ? 'Actif' : 'Suspendu'}
-        </Badge>
-      ),
+      accessorFn: (u) => libelleActif(u.actif),
+      cell: ({ row: { original: u } }) => <ActifBadge actif={u.actif} />,
     },
     {
       id: 'actions',
@@ -732,9 +699,9 @@ function EquipeTab({ userId }: { userId: string }) {
       cell: ({ row: { original: u } }) =>
         u.actif && (
           <Button
-            variant="ghost"
+            variant="ghost-destructive"
             size="sm"
-            className="text-savr-error text-xs"
+            className="text-xs"
             onClick={() => suspend(u.id)}
           >
             Suspendre
@@ -745,6 +712,7 @@ function EquipeTab({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
+      {dialogue}
       <Card>
         <CardHeader>
           <CardTitle>Utilisateurs</CardTitle>
@@ -753,95 +721,29 @@ function EquipeTab({ userId }: { userId: string }) {
           {/* Data Table commune, tri côté navigateur : la route /equipe
               renvoie tous les membres de l'organisation (aucune pagination). */}
           <DataGrid
+            columnsToggle={false}
             columns={colonnes}
             data={users}
             getRowId={(u) => u.id}
-            empty={
-              <p className="text-sm text-savr-neutral-500">Aucun membre.</p>
-            }
+            empty={<EmptyState size="inline" title="Aucun membre." />}
           />
         </CardContent>
       </Card>
 
-      <InviteCard onInvited={reload} />
+      <InviterUtilisateurCarte
+        titre="Inviter un collaborateur"
+        endpoint="/api/v1/traiteur/equipe/invitation"
+        erreurParDefaut="Erreur."
+        libelleBouton="Envoyer l’invitation"
+        aide={
+          <Text variant="faint">
+            Le collaborateur est ajouté avec le rôle Commercial.
+          </Text>
+        }
+        onInvited={reload}
+      />
       <TransfertCard users={users} onDone={reload} />
     </div>
-  );
-}
-
-function InviteCard({ onInvited }: { onInvited: () => void }) {
-  const [prenom, setPrenom] = useState('');
-  const [nom, setNom] = useState('');
-  const [email, setEmail] = useState('');
-  const [msg, setMsg] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function invite(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setMsg('');
-    const res = await fetch('/api/v1/traiteur/equipe/invitation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prenom, nom, email }),
-    });
-    if (res.ok) {
-      setMsg('Invitation envoyée.');
-      setPrenom('');
-      setNom('');
-      setEmail('');
-      onInvited();
-    } else {
-      const j = (await res.json()) as { error?: string };
-      setMsg(j.error ?? 'Erreur.');
-    }
-    setBusy(false);
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Inviter un collaborateur</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={invite} className="space-y-3">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <FormField label="Prénom" htmlFor="invite-prenom" required>
-              <Input
-                id="invite-prenom"
-                value={prenom}
-                onChange={(e) => setPrenom(e.target.value)}
-                required
-              />
-            </FormField>
-            <FormField label="Nom" htmlFor="invite-nom" required>
-              <Input
-                id="invite-nom"
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-                required
-              />
-            </FormField>
-            <FormField label="Email" htmlFor="invite-email" required>
-              <Input
-                id="invite-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </FormField>
-          </div>
-          <p className="text-xs text-savr-neutral-400">
-            Le collaborateur est ajouté avec le rôle Commercial.
-          </p>
-          {msg && <p className="text-sm text-savr-neutral-600">{msg}</p>}
-          <Button type="submit" disabled={busy}>
-            {busy ? 'Envoi…' : 'Envoyer l’invitation'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -854,7 +756,8 @@ function TransfertCard({
 }) {
   const [source, setSource] = useState('');
   const [cible, setCible] = useState('');
-  const [msg, setMsg] = useState('');
+  const [erreur, setErreur] = useState('');
+  const { toast } = useToast();
 
   const userOptions = users.map((u) => ({
     value: u.id,
@@ -863,10 +766,10 @@ function TransfertCard({
 
   async function transfer(e: React.FormEvent) {
     e.preventDefault();
-    setMsg('');
+    setErreur('');
     // Les deux champs sont obligatoires (ex-`required` des <select> natifs).
     if (!source || !cible) {
-      setMsg('Choisissez le collaborateur de départ et celui d’arrivée.');
+      setErreur('Choisissez le collaborateur de départ et celui d’arrivée.');
       return;
     }
     const res = await fetch('/api/v1/traiteur/equipe/transfert', {
@@ -876,11 +779,14 @@ function TransfertCard({
     });
     if (res.ok) {
       const j = (await res.json()) as { data?: { transferes?: number } };
-      setMsg(`${j.data?.transferes ?? 0} événement(s) transféré(s).`);
+      toast({
+        title: `${j.data?.transferes ?? 0} événement(s) transféré(s).`,
+        variant: 'success',
+      });
       onDone();
     } else {
       const j = (await res.json()) as { error?: string };
-      setMsg(j.error ?? 'Erreur.');
+      setErreur(j.error ?? 'Erreur.');
     }
   }
 
@@ -890,12 +796,12 @@ function TransfertCard({
         <CardTitle>Transférer les collectes</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-3 text-xs text-savr-neutral-400">
+        <Text variant="faint" className="mb-3">
           Réassigne toutes les collectes d’un collaborateur (ex. en cas de
           départ) vers un autre membre de l’équipe.
-        </p>
+        </Text>
         <form onSubmit={transfer} className="space-y-2">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FormGrid>
             <FormField label="Depuis" htmlFor="transfert-source" required>
               <Combobox
                 id="transfert-source"
@@ -918,8 +824,12 @@ function TransfertCard({
                 onChange={setCible}
               />
             </FormField>
-          </div>
-          {msg && <p className="text-sm text-savr-neutral-600">{msg}</p>}
+          </FormGrid>
+          {erreur && (
+            <AlertBar variant="err" role="alert">
+              {erreur}
+            </AlertBar>
+          )}
           <Button type="submit">Transférer</Button>
         </form>
       </CardContent>
@@ -958,14 +868,14 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
     sortUndefined: 'last',
     meta: { className: 'tabular-nums' },
     cell: ({ row: { original: f } }) =>
-      f.montant_ttc != null ? `${f.montant_ttc} €` : '—',
+      f.montant_ttc != null ? fmtEuro(f.montant_ttc) : '—',
   },
   {
     id: 'statut',
     header: 'Statut',
     accessorFn: (f) => f.statut,
     cell: ({ row: { original: f } }) => (
-      <Badge variant="neutral">{f.statut}</Badge>
+      <Badge variant="neutral">{libelleStatutFacture(f.statut)}</Badge>
     ),
   },
   {
@@ -975,14 +885,15 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
     cell: ({ row: { original: f } }) => {
       const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
       return pdf ? (
-        <a
+        <TextLink
           href={pdf}
+          external
           target="_blank"
           rel="noreferrer"
-          className="text-xs text-savr-primary-700 underline"
+          className="text-xs"
         >
           Télécharger
-        </a>
+        </TextLink>
       ) : (
         '—'
       );
@@ -990,34 +901,26 @@ const COLONNES_FACTURES: ColumnDef<FactureRow, unknown>[] = [
   },
 ];
 
+// Filtres §6 l.690 : statut, type, période — schéma et barre partagés avec
+// gestionnaire / agence (`components/facture/factures-filtres-bar`, R-UI-4b D10).
 function FacturationTab({ isManager }: { isManager: boolean }) {
-  const [factures, setFactures] = useState<FactureRow[]>([]);
-  // Statut et Type à choix multiple, case « Tous » = sélection vide (décision
-  // Val 2026-09-30, divergence M0.8_20260930_filtres-choix-multiple-tous).
-  const [statuts, setStatuts] = useState<string[]>([]);
-  const [types, setTypes] = useState<string[]>([]);
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
-
-  useEffect(() => {
-    // Filtres §6 l.690 : statut, type, période (date d'émission). Une réponse
-    // arrivée après un changement de filtre (effet nettoyé) est ignorée.
-    let perime = false;
+  const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES_FACTURES);
+  const url = useMemo(() => {
     const params = new URLSearchParams();
-    if (statuts.length > 0) params.set('statuts', statuts.join(','));
-    if (types.length > 0) params.set('types', types.join(','));
-    if (dateDebut) params.set('date_debut', dateDebut);
-    if (dateFin) params.set('date_fin', dateFin);
+    if (f.statuts.length > 0) params.set('statuts', f.statuts.join(','));
+    if (f.types.length > 0) params.set('types', f.types.join(','));
+    if (f.date_debut) params.set('date_debut', f.date_debut);
+    if (f.date_fin) params.set('date_fin', f.date_fin);
     const qs = params.toString();
-    fetch(`/api/v1/traiteur/factures${qs ? `?${qs}` : ''}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (!perime) setFactures((j.data ?? []) as FactureRow[]);
-      });
-    return () => {
-      perime = true;
-    };
-  }, [statuts, types, dateDebut, dateFin]);
+    return `/api/v1/traiteur/factures${qs ? `?${qs}` : ''}`;
+  }, [f]);
+  // Une réponse arrivée après un changement de filtre est ignorée par le hook.
+  const {
+    data: factures,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<FactureRow>(url);
 
   return (
     <div className="space-y-4">
@@ -1034,10 +937,10 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
               ? ' (onglet Informations légales > Entités de facturation).'
               : '.'}
           </p>
-          <p className="text-xs text-savr-neutral-400">
+          <Text variant="faint">
             Les coordonnées bancaires de règlement figurent sur la facture
             (virement — pas de paiement en ligne en V1).
-          </p>
+          </Text>
         </CardContent>
       </Card>
 
@@ -1046,72 +949,23 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
           <CardTitle>Factures</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Filtres §6 l.690 : statut, type, période — filtres en ligne
-              (décision Val 2026-09-30). */}
-          <BarreFiltres
+          <FacturesFiltresBar
             className="mb-4"
-            data-testid="factures-filtres"
-            resetTestId="factures-filtres-reset"
-            onReset={
-              statuts.length > 0 || types.length > 0 || dateDebut || dateFin
-                ? () => {
-                    setStatuts([]);
-                    setTypes([]);
-                    setDateDebut('');
-                    setDateFin('');
-                  }
-                : undefined
-            }
-          >
-            {/* « Période » en premier (décision Val 2026-09-30). */}
-            <DateRangePicker
-              titre="Période"
-              id="factures-periode"
-              value={{ from: dateDebut, to: dateFin }}
-              onChange={(p) => {
-                setDateDebut(p.from);
-                setDateFin(p.to);
-              }}
-            />
-            {/* Valeurs = enums réels plateforme.facture_statut / facture_type
-                (brouillon exclu par la route ; « En retard » est un badge dérivé
-                de date_echeance, pas un statut stocké → non filtrable). */}
-            <FiltreCoches
-              label="Statut"
-              testid="factures-statut"
-              options={
-                [
-                  { id: 'en_attente_pennylane', nom: 'En attente' },
-                  { id: 'emise', nom: 'Émise' },
-                  { id: 'payee', nom: 'Payée' },
-                  { id: 'annulee', nom: 'Annulée' },
-                ] satisfies { id: Enums['facture_statut']; nom: string }[]
-              }
-              selected={statuts}
-              onChange={setStatuts}
-            />
-            <FiltreCoches
-              label="Type"
-              testid="factures-type"
-              options={
-                [
-                  { id: 'zero_dechet', nom: 'ZD' },
-                  { id: 'collecte_antigaspi', nom: 'AG' },
-                  { id: 'achat_pack_antigaspi', nom: 'Pack' },
-                  { id: 'avoir', nom: 'Avoir' },
-                ] satisfies { id: Enums['facture_type']; nom: string }[]
-              }
-              selected={types}
-              onChange={setTypes}
-            />
-          </BarreFiltres>
+            value={f}
+            set={set}
+            actif={actif}
+            onReset={reset}
+            count={factures.length}
+          />
           <DataGrid
+            columnsToggle={false}
             columns={COLONNES_FACTURES}
             data={factures}
+            loading={loading}
+            erreur={erreur}
+            onRecharger={recharger}
             getRowId={(f) => f.id}
-            empty={
-              <p className="text-sm text-savr-neutral-500">Aucune facture.</p>
-            }
+            empty={<EmptyState size="inline" title="Aucune facture." />}
           />
         </CardContent>
       </Card>

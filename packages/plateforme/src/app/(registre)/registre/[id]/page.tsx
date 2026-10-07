@@ -1,9 +1,25 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { fmtKg } from '@/lib/format';
 import { use, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Heading } from '@/components/ui/heading';
+import { TextLink } from '@/components/ui/text-link';
+import { InfoItem } from '@/components/ui/info-item';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { ROUTES } from '@/lib/routes';
 
 // Détail d'une collecte au registre (§06.03, 8 blocs snapshot lecture seule).
 
@@ -59,22 +75,7 @@ function dateFr(d: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : d;
 }
 function poidsFr(kg: number | null): string {
-  return kg == null ? '—' : `${kg.toFixed(2).replace('.', ',')} kg`;
-}
-
-function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number | null | undefined;
-}) {
-  return (
-    <div>
-      <dt className="text-xs uppercase text-savr-neutral-500">{label}</dt>
-      <dd className="text-sm">{value ?? '—'}</dd>
-    </div>
-  );
+  return kg == null ? '—' : fmtKg(kg, 2);
 }
 
 export default function RegistreDetailPage({
@@ -109,7 +110,7 @@ export default function RegistreDetailPage({
     if (j.url) window.open(j.url, '_blank');
   }
 
-  if (loading) return <p className="p-4 text-sm">Chargement…</p>;
+  if (loading) return <LoadingState className="p-4" />;
   if (notFound || !data)
     return <p className="p-4 text-sm">Collecte introuvable.</p>;
 
@@ -120,15 +121,12 @@ export default function RegistreDetailPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <a
-            href="/registre"
-            className="text-sm text-savr-primary-700 underline"
-          >
+          <TextLink href={ROUTES.registre} className="text-sm">
             ← Registre
-          </a>
-          <h1 className="text-2xl font-bold text-savr-primary-800">
+          </TextLink>
+          <Heading level={1} tone="primary">
             Collecte ZD — {dateFr(data.evenement.date)} — {data.lieu.nom ?? ''}
-          </h1>
+          </Heading>
           <div className="flex items-center gap-2 pt-1">
             <Badge variant={dispo ? 'success' : 'neutral'}>
               {dispo ? 'Bordereau disponible' : 'Bordereau manquant'}
@@ -147,111 +145,151 @@ export default function RegistreDetailPage({
         )}
       </div>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 1 — Événement</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 1 — Événement
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="Nom" value={data.evenement.nom} />
-          <Field label="Date" value={dateFr(data.evenement.date)} />
-          <Field label="Horaire" value={data.evenement.heure?.slice(0, 5)} />
-          <Field label="Pax" value={data.evenement.pax} />
-          <Field label="Type" value={data.evenement.type_evenement} />
-          <Field
-            label="Client organisateur"
-            value={data.evenement.client_organisateur}
-          />
+          <InfoItem variant="caps" label="Nom">
+            {data.evenement.nom ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Date">
+            {dateFr(data.evenement.date)}
+          </InfoItem>
+          <InfoItem variant="caps" label="Horaire">
+            {data.evenement.heure?.slice(0, 5) ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Pax">
+            {data.evenement.pax ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Type">
+            {data.evenement.type_evenement ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Client organisateur">
+            {data.evenement.client_organisateur ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 2 — Producteur de déchets</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 2 — Producteur de déchets
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field
-            label="Raison sociale"
-            value={data.producteur.raison_sociale}
-          />
-          <Field label="SIRET" value={data.producteur.siret} />
-          <Field label="Adresse" value={data.producteur.adresse} />
+          <InfoItem variant="caps" label="Raison sociale">
+            {data.producteur.raison_sociale ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="SIRET">
+            {data.producteur.siret ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Adresse">
+            {data.producteur.adresse ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 3 — Lieu</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 3 — Lieu
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="Nom" value={data.lieu.nom} />
-          <Field
-            label="Adresse"
-            value={[data.lieu.adresse, data.lieu.code_postal, data.lieu.ville]
+          <InfoItem variant="caps" label="Nom">
+            {data.lieu.nom ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Adresse">
+            {[data.lieu.adresse, data.lieu.code_postal, data.lieu.ville]
               .filter(Boolean)
               .join(' ')}
-          />
+          </InfoItem>
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 4 — Transporteur</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 4 — Transporteur
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="Nom" value={data.transporteur.nom} />
-          <Field label="SIRET" value={data.transporteur.siret} />
+          <InfoItem variant="caps" label="Nom">
+            {data.transporteur.nom ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="SIRET">
+            {data.transporteur.siret ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 5 — Exutoire</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 5 — Exutoire
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="Nom" value={data.exutoire.nom} />
-          <Field label="SIRET" value={data.exutoire.siret} />
-          <Field label="Adresse" value={data.exutoire.adresse} />
+          <InfoItem variant="caps" label="Nom">
+            {data.exutoire.nom ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="SIRET">
+            {data.exutoire.siret ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Adresse">
+            {data.exutoire.adresse ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 6 — Détail des flux</h2>
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase text-savr-neutral-500">
-            <tr>
-              <th className="py-1">Flux</th>
-              <th className="py-1">Code</th>
-              <th className="py-1">Filière</th>
-              <th className="py-1">Poids réel</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 6 — Détail des flux
+        </Heading>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Flux</TableHead>
+              <TableHead>Code</TableHead>
+              <TableHead>Filière</TableHead>
+              <TableHead>Poids réel</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.flux.map((f) => (
-              <tr key={f.code} className="border-t border-savr-neutral-100">
-                <td className="py-1">{f.libelle}</td>
-                <td className="py-1">{f.code}</td>
-                <td className="py-1">{f.filiere}</td>
-                <td className="py-1">{poidsFr(f.poids_kg)}</td>
-              </tr>
+              <TableRow key={f.code}>
+                <TableCell>{f.libelle}</TableCell>
+                <TableCell>{f.code}</TableCell>
+                <TableCell>{f.filiere}</TableCell>
+                <TableCell>{poidsFr(f.poids_kg)}</TableCell>
+              </TableRow>
             ))}
-            <tr className="border-t border-savr-neutral-200 font-medium">
-              <td className="py-1" colSpan={3}>
-                Total
-              </td>
-              <td className="py-1">{poidsFr(data.poids_total_kg)}</td>
-            </tr>
-          </tbody>
-        </table>
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={3}>Total</TableCell>
+              <TableCell>{poidsFr(data.poids_total_kg)}</TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 7 — Documents</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 7 — Documents
+        </Heading>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Field label="N° bordereau" value={data.documents.numero} />
-          <Field
-            label="Date émission"
-            value={dateFr(data.documents.date_emission)}
-          />
-          <Field label="Version" value={data.documents.version} />
+          <InfoItem variant="caps" label="N° bordereau">
+            {data.documents.numero ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Date émission">
+            {dateFr(data.documents.date_emission) ?? '—'}
+          </InfoItem>
+          <InfoItem variant="caps" label="Version">
+            {data.documents.version ?? '—'}
+          </InfoItem>
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="mb-3 font-semibold">Bloc 8 — Historique</h2>
+      <Card padding="sm">
+        <Heading level={2} size="inherit" tone="inherit" className="mb-3">
+          Bloc 8 — Historique
+        </Heading>
         {data.historique.length === 0 ? (
-          <p className="text-sm text-savr-neutral-500">
-            Aucun événement d&apos;audit visible.
-          </p>
+          <EmptyState size="inline" title="Aucun événement d'audit visible." />
         ) : (
           <ul className="space-y-1 text-sm">
             {data.historique.map((h, i) => (

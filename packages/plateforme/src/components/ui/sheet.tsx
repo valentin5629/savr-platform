@@ -114,7 +114,7 @@ const Sheet = ({
         onKeyDown={trapTab}
         className={cn(
           'fixed flex flex-col bg-savr-white shadow-savr-lg outline-none',
-          'transition-transform duration-[320ms] ease-out',
+          'transition-transform duration-savr-slow ease-out',
           SIDE_LAYOUT[side],
           show ? 'translate-x-0 translate-y-0' : SIDE_CLOSED[side],
           className,

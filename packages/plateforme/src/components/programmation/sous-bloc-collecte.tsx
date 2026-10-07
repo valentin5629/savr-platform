@@ -3,12 +3,18 @@
 import * as React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { PackAGIndicator } from '@/components/ui/pack-ag-indicator';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
+import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 export interface CollecteFormData {
   type: 'zd' | 'ag';
@@ -32,9 +38,10 @@ interface SousBlocCollecteProps {
   className?: string;
 }
 
-const TYPE_LABELS = { zd: 'Zéro Déchet', ag: 'Anti-Gaspi' };
+// Cadre du sous-bloc (pas un badge) : ZD vert / AG navy — hors
+// `VARIANT_TYPE_COLLECTE`, suit l'arbitrage Q1 (couleur du type de collecte).
 const TYPE_COLORS = {
-  zd: 'border-savr-success bg-green-50',
+  zd: 'border-savr-success bg-savr-success-subtle',
   ag: 'border-savr-primary-400 bg-savr-primary-50',
 };
 
@@ -60,9 +67,9 @@ export function SousBlocCollecte({
         className,
       )}
     >
-      <h3 className="font-semibold text-savr-neutral-900">
-        Collecte {TYPE_LABELS[type]}
-      </h3>
+      <Heading level={3} size="inherit">
+        Collecte {libelleTypeCollecte(type)}
+      </Heading>
 
       {type === 'ag' && pack && (
         <div>
@@ -73,14 +80,14 @@ export function SousBlocCollecte({
               label="Crédits pack AG restants"
             />
           ) : (
-            <p className="text-sm text-savr-error-strong font-medium">
+            <AlertBar variant="err">
               Aucun pack Anti-Gaspi actif — contactez votre responsable.
-            </p>
+            </AlertBar>
           )}
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <FormGrid>
         <FormField label="Date de collecte" htmlFor={`date-${type}`} required>
           <DatePicker
             id={`date-${type}`}
@@ -107,7 +114,7 @@ export function SousBlocCollecte({
             required
           />
         </FormField>
-      </div>
+      </FormGrid>
 
       <FormField
         label="Informations supplémentaires (optionnel)"
@@ -119,16 +126,20 @@ export function SousBlocCollecte({
           onChange={(e) =>
             onChange({
               ...data,
-              informations_supplementaires: e.target.value.slice(0, 1000),
+              informations_supplementaires: e.target.value.slice(
+                0,
+                BORNES_TEXTE_LIBRE.informations_supplementaires.max,
+              ),
             })
           }
           rows={3}
           placeholder="Instructions spécifiques, accès, matériel…"
           className="resize-none"
         />
-        <p className="mt-1 text-xs text-savr-neutral-400 text-right">
-          {data.informations_supplementaires.length}/1000
-        </p>
+        <Text variant="faint" className="mt-1 text-right">
+          {data.informations_supplementaires.length}/
+          {BORNES_TEXTE_LIBRE.informations_supplementaires.max}
+        </Text>
       </FormField>
     </div>
   );

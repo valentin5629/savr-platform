@@ -10,32 +10,37 @@ import {
 import { CalendarDays, Pencil, Users, XCircle } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/error-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { FriseStatutClient } from '@/components/collecte/frise-statut-client';
 import {
   OngletInformations,
   OngletLogistique,
-  TYPE_ORGA_LABEL,
   type FicheClientDonnees,
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
+import { dateLongueCapitalisee } from '@/components/collecte/fiche-blocs';
 import {
-  ACTION_DESTRUCTIVE_CONTOUR,
-  BadgeTypeCollecte,
-  dateLongueCapitalisee,
   EnTeteMention,
   FicheEnTete,
-  typeCollecteLabel,
-} from '@/components/collecte/fiche-blocs';
+} from '@/components/ui/fiche/fiche-en-tete';
+import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
+import { Text } from '@/components/ui/text';
+import { fmtPax } from '@/lib/format';
+import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
+import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
 
 // Pop-up fiche collecte COMMUN aux rôles clients — traiteur (§06.04), agence
 // (§06.11) et gestionnaire de lieux (§06.05) — refonte Val 2026-09-29, au
@@ -75,7 +80,6 @@ export function FicheCollecteClientPanel({
 
   // Annulation (directe ou demande) — modale + motif facultatif.
   const [annulOpen, setAnnulOpen] = useState(false);
-  const [annulMotif, setAnnulMotif] = useState('');
   const [annulEnCours, setAnnulEnCours] = useState(false);
   const [annulErreur, setAnnulErreur] = useState<string | null>(null);
   const [progOpen, setProgOpen] = useState(false);
@@ -130,7 +134,7 @@ export function FicheCollecteClientPanel({
     const lieu = c.evenement?.lieu;
     onLoaded?.({
       title: [
-        `Collecte ${typeCollecteLabel(c.type)}`,
+        `Collecte ${libelleTypeCollecte(c.type)}`,
         lieu?.nom,
         dateLongueCapitalisee(c.date_collecte),
       ]
@@ -143,14 +147,14 @@ export function FicheCollecteClientPanel({
     blockCloseRef.current =
       annulOpen || progOpen || editConfirmOpen || siretOpen;
 
-  async function confirmerAnnulation() {
+  async function confirmerAnnulation(motif: string) {
     setAnnulEnCours(true);
     setAnnulErreur(null);
     try {
       const res = await fetch(`${base}/annulation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ motif: annulMotif }),
+        body: JSON.stringify({ motif }),
       });
       if (res.ok) {
         setAnnulOpen(false);
@@ -214,20 +218,17 @@ export function FicheCollecteClientPanel({
     );
   if (erreur)
     return (
-      <div className="space-y-4 p-6" data-testid="fiche-erreur">
-        <AlertBar variant="err">{erreur}</AlertBar>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            setLoading(true);
-            reload();
-          }}
-        >
-          Réessayer
-        </Button>
-      </div>
+      <ErrorState
+        className="p-6"
+        data-testid="fiche-erreur"
+        message={erreur}
+        onRetry={() => {
+          setLoading(true);
+          reload();
+        }}
+      />
     );
-  if (!c) return <p className="p-6 text-sm">Collecte introuvable.</p>;
+  if (!c) return <ErrorState className="p-6" message="Collecte introuvable." />;
 
   const evt = c.evenement;
   const lieu = evt?.lieu ?? null;
@@ -241,7 +242,7 @@ export function FicheCollecteClientPanel({
       ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
       : 'Seule l’organisation qui a programmé la collecte peut la modifier.';
   const progTypeLabel = c.programmee_par
-    ? (TYPE_ORGA_LABEL[c.programmee_par.type] ?? c.programmee_par.type)
+    ? libelleTypeOrganisationMinuscule(c.programmee_par.type)
     : null;
 
   return (
@@ -249,7 +250,7 @@ export function FicheCollecteClientPanel({
       <FicheEnTete
         surtitre={
           <>
-            <BadgeTypeCollecte type={c.type} />
+            <TypeCollecteBadge type={c.type} forme="plein" />
             <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
           </>
         }
@@ -262,10 +263,7 @@ export function FicheCollecteClientPanel({
           },
           {
             icon: Users,
-            texte:
-              evt?.pax != null
-                ? `${new Intl.NumberFormat('fr-FR').format(evt.pax)} pax`
-                : '— pax',
+            texte: evt?.pax != null ? fmtPax(evt.pax) : '— pax',
           },
         ]}
         statut={<FriseStatutClient statut={c.statut} />}
@@ -273,7 +271,7 @@ export function FicheCollecteClientPanel({
       />
 
       {editing && evt ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-8">
+        <FicheCorps className="py-6">
           <EditerCollecteForm
             collecte={{
               id: c.id,
@@ -306,11 +304,11 @@ export function FicheCollecteClientPanel({
             onCancel={() => setEditing(false)}
             onConfirmOpenChange={setEditConfirmOpen}
           />
-        </div>
+        </FicheCorps>
       ) : (
         // Même barre d'onglets horizontale que les fiches Admin (décision Val
         // 2026-10-01), fixe au défilement du corps.
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+        <FicheCorps>
           <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
             <TabsList
               aria-label="Sections de la fiche collecte"
@@ -358,18 +356,17 @@ export function FicheCollecteClientPanel({
               <OngletBilan c={c} base={base} espace={espace} />
             </TabsContent>
           </Tabs>
-        </div>
+        </FicheCorps>
       )}
 
       {piedVisible && (
-        <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8">
+        <FichePied>
           {actions.annuler !== 'absent' && (
             <Button
-              variant="secondary"
+              variant="outline-destructive"
               data-testid="action-annuler"
               disabled={actions.annuler === 'grise'}
               title={actions.annuler === 'grise' ? motifGrise : undefined}
-              className={ACTION_DESTRUCTIVE_CONTOUR}
               onClick={() => {
                 setAnnulErreur(null);
                 setAnnulOpen(true);
@@ -390,7 +387,7 @@ export function FicheCollecteClientPanel({
               Modifier la collecte
             </Button>
           )}
-        </footer>
+        </FichePied>
       )}
 
       {/* Modale info « Programmée par » (§06.04) — informative, sans action. */}
@@ -408,12 +405,9 @@ export function FicheCollecteClientPanel({
           {c.programmee_par?.email && (
             <p className="text-savr-neutral-500">
               Pour toute question :{' '}
-              <a
-                className="text-savr-primary-700 underline"
-                href={`mailto:${c.programmee_par.email}`}
-              >
+              <TextLink href={`mailto:${c.programmee_par.email}`} external>
                 {c.programmee_par.email}
-              </a>
+              </TextLink>
             </p>
           )}
           <div className="flex justify-end border-t border-savr-neutral-100 pt-4">
@@ -425,60 +419,15 @@ export function FicheCollecteClientPanel({
       </Modal>
 
       {/* Annulation directe (brouillon/programmee) ou demande (validee). */}
-      <Modal
+      <AnnulationCollecteDialog
         open={annulOpen}
-        title={demande ? 'Demander l’annulation' : 'Annuler la collecte'}
-        onClose={() => setAnnulOpen(false)}
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-savr-neutral-500">
-            {demande
-              ? 'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.'
-              : 'Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
-          </p>
-          {c.type === 'anti_gaspi' && (
-            <p
-              data-testid="mention-credit-ag"
-              className="rounded-savr-md bg-savr-success-subtle px-3 py-2 text-sm text-savr-success-strong"
-            >
-              Votre crédit Anti-Gaspi sera préservé : il n’a pas encore été
-              débité (annulation avant réalisation de la collecte).
-            </p>
-          )}
-          <FormField
-            label="Motif (facultatif)"
-            htmlFor="fiche-annulation-motif"
-          >
-            <Textarea
-              id="fiche-annulation-motif"
-              rows={3}
-              value={annulMotif}
-              onChange={(e) => setAnnulMotif(e.target.value)}
-            />
-          </FormField>
-          {annulErreur && (
-            <p className="text-sm text-savr-error-strong" role="alert">
-              {annulErreur}
-            </p>
-          )}
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setAnnulOpen(false)}
-              disabled={annulEnCours}
-            >
-              Retour
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void confirmerAnnulation()}
-              disabled={annulEnCours}
-            >
-              {demande ? 'Confirmer la demande' : 'Confirmer l’annulation'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        demande={demande}
+        antiGaspi={c.type === 'anti_gaspi'}
+        loading={annulEnCours}
+        error={annulErreur}
+        onConfirm={(motif) => void confirmerAnnulation(motif)}
+        onCancel={() => setAnnulOpen(false)}
+      />
 
       {/* Agence — complétion du SIRET d'un traiteur hors référentiel (§06.11 F2). */}
       <Modal
@@ -487,10 +436,10 @@ export function FicheCollecteClientPanel({
         onClose={() => setSiretOpen(false)}
       >
         <div className="space-y-3" data-testid="modal-siret">
-          <p className="text-sm text-savr-neutral-500">
+          <Text>
             Le SIRET du traiteur opérationnel est requis pour finaliser le
             bordereau Cerfa.
-          </p>
+          </Text>
           <FormField
             label="SIRET"
             htmlFor="fiche-siret-traiteur"
@@ -502,6 +451,7 @@ export function FicheCollecteClientPanel({
               id="fiche-siret-traiteur"
               type="text"
               inputMode="numeric"
+              required
               maxLength={14}
               value={siret}
               onChange={(e) =>
@@ -510,17 +460,16 @@ export function FicheCollecteClientPanel({
               error={siretErreur !== null}
             />
           </FormField>
-          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-            <Button variant="secondary" onClick={() => setSiretOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              disabled={siretEnCours || siret.length !== 14}
-              onClick={() => void enregistrerSiret()}
-            >
-              Enregistrer
-            </Button>
-          </div>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setSiretOpen(false) }}
+            submit={{
+              label: 'Enregistrer',
+              disabled: siret.length !== 14,
+              onClick: () => void enregistrerSiret(),
+            }}
+            loading={siretEnCours}
+            bordered
+          />
         </div>
       </Modal>
     </div>

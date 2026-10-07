@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import type { Role } from '@/lib/nav-config';
+import { isStaff, type NavRole as Role, type StaffRole } from '@/lib/roles';
+import { ROUTES } from '@/lib/routes';
 
 export interface PageSession {
   userId: string;
@@ -46,7 +47,7 @@ export async function requirePageSession(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(ROUTES.login);
 
   const {
     data: { session },
@@ -55,8 +56,8 @@ export async function requirePageSession(
   const role = claims['user_role'] as Role | undefined;
   const organisationId = claims['organisation_id'] as string | undefined;
 
-  if (!role || !allowedRoles.includes(role)) redirect('/403');
-  if (!organisationId) redirect('/403');
+  if (!role || !allowedRoles.includes(role)) redirect(ROUTES.interdit);
+  if (!organisationId) redirect(ROUTES.interdit);
 
   return {
     userId: user.id,
@@ -65,8 +66,6 @@ export async function requirePageSession(
     email: user.email ?? '',
   };
 }
-
-export type StaffRole = 'admin_savr' | 'ops_savr';
 
 export interface StaffPageSession {
   userId: string;
@@ -99,7 +98,7 @@ export async function requireStaffPage(): Promise<StaffPageSession> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(ROUTES.login);
 
   const {
     data: { session },
@@ -107,7 +106,7 @@ export async function requireStaffPage(): Promise<StaffPageSession> {
   const claims = parseJwtClaims(session?.access_token ?? '');
   const role = claims['user_role'] as string | undefined;
 
-  if (role !== 'admin_savr' && role !== 'ops_savr') redirect('/403');
+  if (!isStaff(role)) redirect(ROUTES.interdit);
 
   return {
     userId: user.id,

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { Ban, Clock3, FileText, Info, MinusCircle } from 'lucide-react';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { StatCard } from '@/components/ui/stat-card';
 import { Tooltip } from '@/components/ui/tooltip';
-import { BlocHeader, InfoItem } from '@/components/collecte/fiche-blocs';
+import { SectionHeader } from '@/components/ui/section-header';
+import { InfoItem } from '@/components/ui/info-item';
 import {
   BlocAssociation,
   type FicheClientDonnees,
@@ -23,12 +25,14 @@ import {
   fmtInt,
   fmtMasse,
 } from '@/components/dashboards/charts/cockpit/fmt';
+import { UNITE_KG_CO2E } from '@/lib/format';
 import {
   LIBELLE_ETAT_RAPPORT,
   STATUTS_ANNULES,
   STATUT_BILAN,
   type EspaceClient,
 } from '@/lib/collectes/fiche-client-types';
+import { Text } from '@/components/ui/text';
 
 // Onglet « Bilan & documents » du pop-up fiche collecte CLIENT (§06.04 refonte
 // Val 2026-09-29). Valeurs FIGÉES à la clôture (taux de recyclage, CO₂) : lues,
@@ -73,10 +77,14 @@ function Estompe({
 // Carte de graphe sans valeur (bilan à venir) : même titre que le graphe réel.
 function GrapheEnAttente({ titre }: { titre: string }) {
   return (
-    <Card className="space-y-3 p-5">
-      <p className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+    <Card padding="md" className="space-y-3">
+      <Text
+        size="base"
+        tone="ink"
+        className="font-extrabold tracking-[-0.01em]"
+      >
         {titre}
-      </p>
+      </Text>
       <p className="py-8 text-center text-2xl font-extrabold text-savr-neutral-300">
         —
       </p>
@@ -85,7 +93,7 @@ function GrapheEnAttente({ titre }: { titre: string }) {
 }
 
 // Carte KPI : chiffre en grand + unité plus petite, sur UNE seule ligne
-// (retour Val 2026-09-30 : « −100 kgCO₂e » ne doit jamais passer à la ligne).
+// (retour Val 2026-09-30 : « −100 kg CO₂e » ne doit jamais passer à la ligne).
 function Kpi({
   label,
   nombre,
@@ -101,22 +109,9 @@ function Kpi({
   return (
     <StatCard
       label={label}
-      className="gap-2 p-5"
-      valueClassName="whitespace-nowrap text-2xl font-extrabold tabular-nums"
-      value={
-        <>
-          {nombre}
-          {unite && (
-            <>
-              {' '}
-              <span className="text-base font-semibold text-savr-neutral-500">
-                {unite}
-              </span>
-            </>
-          )}
-        </>
-      }
-      icon={
+      value={nombre}
+      unit={unite}
+      headerRight={
         aide ? (
           <Tooltip content={aide}>
             <span
@@ -229,14 +224,16 @@ export function OngletBilan({
 
   if (annulee) {
     return (
-      <Card className="flex items-start gap-3 p-5" data-testid="bilan-annulee">
+      <Card
+        padding="md"
+        className="flex items-start gap-3"
+        data-testid="bilan-annulee"
+      >
         <Ban
           className="mt-0.5 h-5 w-5 shrink-0 text-savr-neutral-400"
           aria-hidden="true"
         />
-        <p className="text-sm text-savr-neutral-700">
-          Collecte annulée : aucun bilan ni document.
-        </p>
+        <Text variant="body">Collecte annulée : aucun bilan ni document.</Text>
       </Card>
     );
   }
@@ -290,26 +287,26 @@ export function OngletBilan({
             aria-hidden="true"
           />
           <div>
-            <p className="text-base font-bold text-savr-neutral-900">
+            <Text size="base" tone="ink" className="font-bold">
               Votre bilan sera disponible après la collecte
-            </p>
-            <p className="text-sm text-savr-neutral-600">
+            </Text>
+            <Text tone="soft">
               {isAg
                 ? 'Repas donnés, CO₂ évité et association bénéficiaire s’afficheront ici le lendemain de la collecte.'
                 : 'Poids collectés, CO₂ évité, répartition par flux et comparaison avec des événements similaires s’afficheront ici le lendemain de la collecte.'}
-            </p>
+            </Text>
           </div>
         </div>
       )}
 
       {sansExcedent ? (
-        <Card className="space-y-4 p-5" data-testid="bloc-aucun-repas">
-          <BlocHeader icon={MinusCircle} title="Aucun repas collecté" />
-          <p className="text-sm leading-relaxed text-savr-neutral-600">
+        <Card padding="md" className="space-y-4" data-testid="bloc-aucun-repas">
+          <SectionHeader icon={MinusCircle} title="Aucun repas collecté" />
+          <Text tone="soft" className="leading-relaxed">
             Notre chauffeur s’est présenté sur place, mais il n’y avait pas
             d’excédent alimentaire à donner. Aucune attestation de don n’est
             émise pour cette collecte.
-          </p>
+          </Text>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-2">
             <InfoItem label="Motif">
               {c.aucun_repas_motif?.trim() || (
@@ -354,7 +351,7 @@ export function OngletBilan({
                   ? fmtInt(c.co2_evite_kg)
                   : '—'
               }
-              unite="kgCO₂e"
+              unite={UNITE_KG_CO2E}
             />
           </div>
           {realisee && c.association && (
@@ -377,7 +374,7 @@ export function OngletBilan({
               nombre={
                 realisee && c.co2_net_kg != null ? fmtInt(c.co2_net_kg) : '—'
               }
-              unite="kgCO₂e"
+              unite={UNITE_KG_CO2E}
             />
             <Kpi
               label="Taux de recyclage"
@@ -417,6 +414,9 @@ export function OngletBilan({
                   filtersSlot={
                     <BenchmarkFilterBar
                       masquerTraiteurs
+                      perimetre={
+                        espace === 'gestionnaire' ? 'rattache' : 'parc'
+                      }
                       onChange={setBenchFilters}
                       initialTypeEvenementIds={
                         c.evenement?.type_evenement_id
@@ -450,7 +450,7 @@ export function OngletBilan({
             <p className="text-[15px] font-semibold text-savr-neutral-900">
               {rapportNom}
             </p>
-            <p className="text-[13px] text-savr-neutral-500">
+            <Text>
               {LIBELLE_ETAT_RAPPORT[c.rapport_etat]}
               {c.rapport_rse_regenere && (
                 <span data-testid="rapport-regenere">
@@ -458,7 +458,7 @@ export function OngletBilan({
                   · Rapport mis à jour
                 </span>
               )}
-            </p>
+            </Text>
           </div>
           {espace === 'traiteur' &&
             c.can_regenerate &&
@@ -466,14 +466,12 @@ export function OngletBilan({
               <Button
                 variant="ghost"
                 size="sm"
-                disabled={regenEnCours || regenFait}
+                disabled={regenFait}
+                loading={regenEnCours}
+                loadingText="Régénération…"
                 onClick={() => void regenererRapport()}
               >
-                {regenFait
-                  ? 'Régénération demandée'
-                  : regenEnCours
-                    ? 'Régénération…'
-                    : 'Régénérer le rapport'}
+                {regenFait ? 'Régénération demandée' : 'Régénérer le rapport'}
               </Button>
             )}
           {!c.rapport_reserve_donneur_ordre && (
@@ -500,7 +498,7 @@ export function OngletBilan({
               <p className="text-[15px] font-semibold text-savr-neutral-900">
                 Facture {f.numero_facture}
               </p>
-              <p className="text-[13px] text-savr-neutral-500">PDF</p>
+              <Text>PDF</Text>
             </div>
             <Button
               variant="secondary"
@@ -516,9 +514,9 @@ export function OngletBilan({
           </div>
         ))}
         {telechargement && (
-          <p className="px-5 py-3 text-sm text-savr-error-strong" role="alert">
+          <AlertBar variant="err" role="alert" className="mx-5 my-3">
             {telechargement}
-          </p>
+          </AlertBar>
         )}
       </Card>
     </div>

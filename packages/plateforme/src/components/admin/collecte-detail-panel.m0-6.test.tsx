@@ -49,8 +49,18 @@ const collecteAg = {
   annulee_cote_savr: false,
   pack_antgaspi_id: null,
   packs_antgaspi: null,
-  // Collecte AG non encore attribuée (comme sur le preview réel).
+  // Collecte AG non encore attribuée à un prestataire (comme sur le preview réel),
+  // mais dont l'association est déjà choisie : l'envoi au prestataire n'est
+  // possible qu'après (décision Val 2026-10-01 — son adresse est le point B).
   prestataire_logistique_id: null,
+  attributions_antgaspi: {
+    id: 'attr-1',
+    mode_validation: 'manuel_top1',
+    valide_at: null,
+    volume_repas_realise: null,
+    associations: { nom: 'Les Restos du Cœur' },
+    transporteurs: null,
+  },
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -96,7 +106,7 @@ const transporteurs = [
   },
 ];
 
-function mockFetch() {
+function mockFetch(collecteFixture: object | (() => object) = collecteAg) {
   const fetchMock = vi.fn(
     (url: string, opts?: { method?: string; body?: string }) => {
       const method = opts?.method ?? 'GET';
@@ -113,12 +123,51 @@ function mockFetch() {
           ok: true,
           json: async () => ({
             data: {
-              associations: [{ id: 'a1', nom: 'Les Restos du Cœur' }],
+              associations: [
+                {
+                  id: 'a1',
+                  nom: 'Les Restos du Cœur',
+                  distance_km: 2.4,
+                  capacite_max_beneficiaires: 300,
+                  contact_email: 'contact@restos.test',
+                },
+              ],
+              assoc_count: 1,
               transporteur: { id: 't-mts1', nom: 'Strike', type_tms: 'mts1' },
+              transporteurs: [
+                { id: 't-mts1', nom: 'Strike', type_tms: 'mts1' },
+              ],
+              branche: 'ag_marathon_nuit',
+              is_idf: true,
               no_asso: false,
               no_prestataire: false,
+              delai_minutes: 600,
+              nb_pax: 80,
             },
           }),
+        });
+      }
+      if (url.includes('/associations')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'a1',
+                nom: 'Les Restos du Cœur',
+                ville: 'Paris',
+                capacite_max_beneficiaires: 300,
+                habilitee_attestation_fiscale: true,
+                distance_km: 2.4,
+              },
+            ],
+          }),
+        });
+      }
+      if (url.includes('/valider') && method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { attribution_id: 'att-1' } }),
         });
       }
       if (url === '/api/v1/admin/collectes/c1' && method === 'PATCH') {
@@ -149,7 +198,13 @@ function mockFetch() {
         });
       }
       // GET collecte
-      return Promise.resolve({ ok: true, json: async () => collecteAg });
+      return Promise.resolve({
+        ok: true,
+        json: async () =>
+          typeof collecteFixture === 'function'
+            ? collecteFixture()
+            : collecteFixture,
+      });
     },
   );
   vi.stubGlobal('fetch', fetchMock);
@@ -204,6 +259,233 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ),
       ).toBeInTheDocument();
       expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Logistique AG : le bloc « Attribution AG » précède « Prestataire & Dispatch »',
+    async () => {
+      mockFetch();
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const attribution = await screen.findByText(
+        'Attribution AG',
+        undefined,
+        ATTENTE_UI,
+      );
+      const dispatch = screen.getByText('Prestataire & Dispatch');
+      // L'association est choisie AVANT le prestataire (décision Val 2026-10-01).
+      expect(
+        attribution.compareDocumentPosition(dispatch) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — AG sans attribution : le formulaire d’attribution intégré remplace le dispatch',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        attributions_antgaspi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      // Association d'abord (son adresse est le point de livraison), puis le
+      // besoin véhicule et le prestataire — dans le popup, sans page dédiée.
+      expect(
+        await screen.findByText(
+          'Attribution & dispatch',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      // L'en-tête est rendu par le panneau ; les champs attendent la fin du
+      // chargement du formulaire (LoadingState) — attente explicite.
+      expect(
+        await screen.findByLabelText(
+          'Type de véhicule souhaité',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText('Nombre de véhicules')).toHaveValue('1');
+      expect(
+        await screen.findByRole(
+          'combobox',
+          { name: 'Association' },
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      // Plus de bouton d'envoi direct : l'unique geste est « Valider et envoyer ».
+      expect(
+        screen.queryByRole('button', { name: /^Envoyer à/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Prestataire & Dispatch'),
+      ).not.toBeInTheDocument();
+
+      // Nombre de véhicules → 2 ; validation = POST /valider avec le besoin véhicule.
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Ajouter un véhicule' }),
+      );
+      expect(screen.getByLabelText('Nombre de véhicules')).toHaveValue('2');
+      const valider = await screen.findByRole(
+        'button',
+        { name: /^Valider et envoyer à MTS-1/ },
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(valider).not.toBeDisabled(), ATTENTE_UI);
+      fireEvent.click(valider);
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          ([u, o]) =>
+            String(u).includes('/valider') &&
+            (o as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        const body = JSON.parse(
+          String((post![1] as { body: string }).body),
+        ) as Record<string, unknown>;
+        expect(body.association_id).toBe('a1');
+        expect(body.transporteur_id).toBe('t-mts1');
+        expect(body.nb_camions_demande).toBe(2);
+        expect(body.type_vehicule_souhaite).toBeNull();
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — attribution validée sur un autre transporteur : le bloc dispatch coche l’actuel, jamais le recommandé',
+    async () => {
+      // Avant : AG sans attribution. Après validation : attribuée à A Toutes!
+      // (≠ reco Strike). Le bloc dispatch qui prend la relève ne doit pas
+      // présélectionner Strike — un clic renverrait la collecte au mauvais
+      // prestataire, sans motif.
+      let fixture: object = { ...collecteAg, attributions_antgaspi: null };
+      const fetchMock = mockFetch(() => fixture);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const selectTransp = await screen.findByRole(
+        'combobox',
+        { name: 'Transporteur' },
+        ATTENTE_UI,
+      );
+      fireEvent.click(selectTransp);
+      fireEvent.click(
+        await screen.findByRole('option', { name: 'A Toutes!' }, ATTENTE_UI),
+      );
+      fireEvent.click(screen.getByRole('combobox', { name: 'Motif' }));
+      fireEvent.click(
+        screen.getByRole('option', { name: 'Transporteur top 1 indisponible' }),
+      );
+      const valider = await screen.findByRole(
+        'button',
+        { name: /^Valider et envoyer à A Toutes!/ },
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(valider).not.toBeDisabled(), ATTENTE_UI);
+      fixture = {
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-atoutes',
+        prestataire_actuel: {
+          transporteur_id: 't-atoutes',
+          nom: 'A Toutes!',
+          type_tms: 'a_toutes',
+        },
+        attributions_antgaspi: {
+          id: 'attr-1',
+          mode_validation: 'manuel_override',
+          valide_at: '2026-10-01T10:00:00Z',
+          volume_repas_realise: null,
+          associations: { nom: 'Les Restos du Cœur' },
+          transporteurs: {
+            id: 't-atoutes',
+            nom: 'A Toutes!',
+            type_tms: 'a_toutes',
+          },
+        },
+      };
+      fireEvent.click(valider);
+
+      // Après refetch : l'ordre est en file d'envoi → la fiche dit la collecte
+      // envoyée à A Toutes!, sans carte ni bouton d'envoi (décision Val
+      // 2026-10-02, C1). « Changer de prestataire » rouvre les cartes : « Actuel »
+      // = A Toutes! cochée, bouton forké sur A Toutes!, rien vers le recommandé.
+      expect(
+        await screen.findByText(
+          /Collecte envoyée à A Toutes!/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('radio', { name: /Strike/ })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      );
+      const carteAToutes = await screen.findByRole(
+        'radio',
+        { name: /A Toutes!/ },
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(carteAToutes).toHaveAttribute('aria-checked', 'true'),
+        ATTENTE_UI,
+      );
+      expect(screen.getByRole('radio', { name: /Strike/ })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
+      // Même prestataire, ordre déjà en file : c'est un renvoi, pas un envoi.
+      expect(
+        screen.getByRole('button', { name: /Renvoyer à A Toutes!/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /MTS-1/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        fetchMock.mock.calls.some(
+          ([u, o]) =>
+            String(u).includes('/valider') &&
+            (o as { method?: string } | undefined)?.method === 'POST',
+        ),
+      ).toBe(true);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — AG sans attribution hors « programmee » : consigne, ni formulaire ni bouton d’envoi',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        statut: 'brouillon',
+        attributions_antgaspi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /possible qu.au statut « Programmée »/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByLabelText('Type de véhicule souhaité'),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^Envoyer à/ }),
+      ).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -352,14 +634,23 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       ).parentElement!;
       expect(within(ligne).getByText('Marathon')).toBeInTheDocument();
       expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+      // Ordre en file d'envoi : la fiche le dit envoyé à Marathon ; les cartes
+      // ne reviennent que sur « Changer de prestataire ».
+      expect(
+        screen.getByText(/Collecte envoyée à Marathon/),
+      ).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      );
       // Désactivé = plus proposé à l'attribution : pas de carte, donc pas de
       // badge « Actuel » — c'est la ligne « Prestataire actuel » qui le nomme.
       await screen.findByRole('radio', { name: /Strike/ }, ATTENTE_UI);
       expect(screen.queryByRole('radio', { name: /Marathon/ })).toBeNull();
       expect(screen.queryByText('Actuel')).toBeNull();
-      // Le bouton d'envoi suit le mode d'envoi du prestataire en place.
+      // Le bouton d'envoi suit le mode d'envoi du prestataire en place, et dit
+      // « Renvoyer » : l'ordre est déjà en file chez lui.
       expect(
-        screen.getByRole('button', { name: 'Envoyer à MTS-1' }),
+        screen.getByRole('button', { name: 'Renvoyer à MTS-1' }),
       ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
@@ -450,6 +741,14 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
+      // Ordre en file d'envoi : les cartes ne reviennent que sur demande.
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Changer de prestataire' },
+          ATTENTE_UI,
+        ),
+      );
       const carte = await screen.findByRole(
         'radio',
         { name: /A Toutes!/ },
@@ -461,6 +760,234 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         'aria-checked',
         'false',
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Ordre en file d'envoi (décision Val 2026-10-02, C1). Entre « Valider et
+  // envoyer » et le passage du worker outbox (15 min), `tms_reference` est vide
+  // et `statut_tms` encore `non_envoye` (§06.09 §3 pt 3) : la fiche réaffichait
+  // « Prestataire à attribuer » + « Envoyer à MTS-1 », comme si rien n'était
+  // parti. Elle doit dire la collecte envoyée et ne rouvrir le choix que sur
+  // demande.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const collecteEnFileMts1 = {
+    ...collecteAg,
+    prestataire_logistique_id: 'presta-mts1',
+    prestataire_actuel: {
+      transporteur_id: 't-mts1',
+      nom: 'Strike',
+      type_tms: 'mts1',
+    },
+    collecte_tournees: [],
+  };
+
+  it(
+    'AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au prestataire, ni carte ni bouton d’envoi',
+    async () => {
+      mockFetchPrestataire(collecteEnFileMts1);
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      // En-tête : plus de « Non envoyé » à côté du prestataire.
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(sousLigne).getByText('Envoyée')).toBeInTheDocument();
+      expect(within(sousLigne).queryByText('Non envoyé')).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /Collecte envoyée à Strike/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/vers MTS-1/)).toBeInTheDocument();
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Envoyée')).toBeInTheDocument();
+      expect(screen.queryByText('Non envoyé')).toBeNull();
+      // Ni choix du prestataire ni bouton d'envoi tant qu'on ne le demande pas.
+      expect(screen.queryByRole('radiogroup')).toBeNull();
+      expect(screen.queryByText('Prestataire à attribuer')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer',
+    async () => {
+      const fetchMock = mockFetchPrestataire(collecteEnFileMts1);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Changer de prestataire' },
+          ATTENTE_UI,
+        ),
+      );
+      expect(screen.getByText('Changer de prestataire')).toBeInTheDocument();
+      const carteStrike = await screen.findByRole(
+        'radio',
+        { name: /Strike/ },
+        ATTENTE_UI,
+      );
+      expect(carteStrike).toHaveAttribute('aria-checked', 'true');
+      expect(within(carteStrike).getByText('Actuel')).toBeInTheDocument();
+      // Le bouton cliqué a disparu : le focus est passé sur la carte cochée.
+      expect(carteStrike).toHaveFocus();
+      // Même prestataire → renvoi ; un autre prestataire → envoi chez lui.
+      expect(
+        screen.getByRole('button', { name: 'Renvoyer à MTS-1' }),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('radio', { name: /A Toutes!/ }));
+      expect(
+        screen.getByRole('button', { name: 'Envoyer à A Toutes!' }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Garder le prestataire actuel' }),
+      );
+      expect(screen.queryByRole('radiogroup')).toBeNull();
+      // « Garder » a disparu à son tour : le focus revient sur « Changer ».
+      expect(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      ).toHaveFocus();
+      expect(
+        fetchMock.mock.calls.some(([u]) => String(u).includes('/dispatch')),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'AG en file d’envoi : envoyer chez un autre prestataire (motif override) POST le dispatch, puis le mode « changer » se referme',
+    async () => {
+      const fetchMock = mockFetchPrestataire(collecteEnFileMts1);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Changer de prestataire' },
+          ATTENTE_UI,
+        ),
+      );
+      // A Toutes! ≠ reco Strike → motif obligatoire, puis envoi chez A Toutes!.
+      fireEvent.click(
+        await screen.findByRole('radio', { name: /A Toutes!/ }, ATTENTE_UI),
+      );
+      const bouton = screen.getByRole('button', {
+        name: 'Envoyer à A Toutes!',
+      });
+      expect(bouton).toBeDisabled();
+      fireEvent.change(screen.getByLabelText(/Motif override/), {
+        target: { value: 'Zone vélo cargo IDF' },
+      });
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).includes('/dispatch') &&
+            (c[1] as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          prestataire_logistique_id: 'presta-atoutes',
+          motif_override_prestataire: 'Zone vélo cargo IDF',
+        });
+      }, ATTENTE_UI);
+      // Après le refetch, le bloc revient en lecture : plus de cartes, le
+      // bouton « Changer de prestataire » est de retour et reprend le focus
+      // (le bouton d'envoi cliqué a disparu).
+      await waitFor(
+        () => expect(screen.queryByRole('radiogroup')).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      ).toHaveFocus();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'ZD avec prestataire et sans référence (fixture seed col_dispatch_non_envoye) : pas « envoyée » — rien ne pose de prestataire sur une ZD en V1, aucun ordre en file',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        type: 'zero_dechet',
+        attributions_antgaspi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const ligne = (
+        await screen.findByText('Statut TMS', undefined, ATTENTE_UI)
+      ).parentElement!;
+      expect(within(ligne).getByText('Non envoyé')).toBeInTheDocument();
+      expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeNull();
+      // L'action attendue par la liste (« Dispatcher ») reste l'envoi initial.
+      expect(
+        screen.getByRole('button', { name: 'Envoyer à MTS-1' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    [
+      'statut TMS autre que « non envoyé » (rejet prestataire, référence vide)',
+      { ...collecteEnFileMts1, statut_tms: 'rejetee_par_prestataire' },
+    ],
+    [
+      'prestataire servi par le repli attribution, sans pont (prestataire_logistique_id NULL)',
+      { ...collecteEnFileMts1, prestataire_logistique_id: null },
+    ],
+    ['collecte terminale', { ...collecteEnFileMts1, statut: 'annulee' }],
+    [
+      'transporteur manuel (par mail) avec prestataire de rattachement posé : rien ne part automatiquement',
+      {
+        ...collecteEnFileMts1,
+        prestataire_logistique_id: 'presta-province',
+        prestataire_actuel: {
+          transporteur_id: 't-province',
+          nom: 'Transports Dupont',
+          type_tms: 'par_mail',
+        },
+      },
+    ],
+  ])(
+    'pas d’état « en file d’envoi » : %s',
+    async (_cas, collecte) => {
+      mockFetchPrestataire(collecte);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+
+      expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
+      expect(screen.queryByText('Envoyée')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -556,14 +1083,16 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       // Combobox : options portées dans un portail (screen, pas within).
       fireEvent.click(
-        within(dialog).getByRole('combobox', { name: 'Nouveau statut' }),
+        // R-UI-5 F7 : champ obligatoire = astérisque (`FormField required`).
+        within(dialog).getByRole('combobox', { name: 'Nouveau statut *' }),
       );
       fireEvent.click(
         screen
           .getAllByRole('option')
           .find((o) => o.getAttribute('data-value') === 'validee')!,
       );
-      fireEvent.change(within(dialog).getByLabelText(/Motif \(obligatoire/), {
+      // R-UI-5 F7 : « (obligatoire) » retiré du libellé, astérisque à la place.
+      fireEvent.change(within(dialog).getByLabelText(/^Motif \(≥ 10/), {
         target: { value: 'Validation manuelle après échange traiteur' },
       });
       expect(confirmer).not.toBeDisabled();
@@ -601,15 +1130,15 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(
         await screen.findByText('Cocktail apéritif', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // tournees.statut (onglet Logistique — liste multi-camions)
+      // tournees.statut (onglet Logistique — liste multi-camions), libellé FR (R-UI-0 B2)
       await ouvrirOnglet('Logistique');
       expect(
-        await screen.findByText('planifiee', undefined, ATTENTE_UI),
+        await screen.findByText('Planifiée', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // factures_collectes → factures.statut (onglet Documents)
+      // factures_collectes → factures.statut (onglet Documents), libellé FR (R-UI-0 B2)
       await ouvrirOnglet('Documents');
       expect(
-        await screen.findByText('emise', undefined, ATTENTE_UI),
+        await screen.findByText('Émise', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
@@ -628,7 +1157,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       const dialog = screen
         .getByText('Modifier le nombre de camions')
         .closest('div') as HTMLElement;
-      fireEvent.change(within(dialog).getByLabelText('Nombre de camions'), {
+      fireEvent.change(within(dialog).getByLabelText('Nombre de camions*'), {
         target: { value: '3' },
       });
       fireEvent.click(
@@ -871,7 +1400,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   // (Bloc « Pack AG » retiré de la fiche — décision Val ; ex-tests Bloc 4 supprimés.)
 
   it(
-    'M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 »)',
+    'M0.6 — Bloc 5 Attribution AG : association + transporteur retenus (attribution intégrée à la fiche, plus de stub « algo V2 »)',
     async () => {
       installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -885,9 +1414,11 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         0,
       );
       expect(screen.getByText('A Toutes!')).toBeInTheDocument();
-      // Lien vers l'écran d'attribution complète (§06.09).
-      const lien = screen.getByRole('link', { name: /attribution compl/i });
-      expect(lien).toHaveAttribute('href', '/admin/attributions-ag/c1');
+      // L'attribution se fait dans la fiche (décision Val 2026-10-01) : plus de
+      // lien vers un écran dédié.
+      expect(
+        screen.queryByRole('link', { name: /attribution compl/i }),
+      ).not.toBeInTheDocument();
       // Le stub V2 a disparu.
       expect(
         screen.queryByText(/algo V2.*Non disponible en V1/),
@@ -995,7 +1526,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253)',
+    'M0.6 — Bloc 5 : la recommandation n°1 affiche ses scores détaillés (distance + capacité, §06.06 l.253)',
     async () => {
       // Collecte AG NON terminale → l'algo (reco) est appelé → top 3 + scores rendus.
       installMock({
@@ -1007,23 +1538,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
+      // Formulaire intégré (décision Val 2026-10-01) : la n°1 est la carte
+      // « Recommandée » avec ses scores ; les autres sont dans la liste.
       expect(
-        await screen.findByText(/3\.2 km/, undefined, ATTENTE_UI),
+        await screen.findByText('3,2 km', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
-      // Choix en 2 temps (décision Val) : « Choisir » ouvre l'écran d'attribution
-      // avec l'association présélectionnée ; la n°1 porte le badge « Recommandé ».
-      const choisir = screen.getAllByRole('link', { name: 'Choisir' });
-      expect(choisir).toHaveLength(3);
-      expect(choisir[0]).toHaveAttribute(
-        'href',
-        '/admin/attributions-ag/c1?association=a1',
+      expect(screen.queryAllByRole('link', { name: 'Choisir' })).toHaveLength(
+        0,
       );
-      expect(choisir[1]).toHaveAttribute(
-        'href',
-        '/admin/attributions-ag/c1?association=a2',
-      );
-      expect(screen.getAllByText('Recommandé').length).toBeGreaterThan(0);
+      expect(screen.getByText('Recommandée')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -1097,10 +1621,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         within(infos).getByRole('link', { name: '06 11 22 33 44' }),
       ).toHaveAttribute('href', 'tel:0611223344');
       expect(within(infos).getByText('Non renseigné')).toBeInTheDocument();
-      // Sans contrôle d'accès : aucune info chauffeur demandée.
+      // Les coordonnées chauffeur ont quitté l'onglet Informations pour le bloc
+      // « Chauffeur » de l'onglet Logistique (décision Val 2026-10-02).
+      expect(within(infos).queryByText(/Informations chauffeur/)).toBeNull();
       expect(
-        within(infos).getByText(/aucune information chauffeur/),
-      ).toBeInTheDocument();
+        within(infos).queryByText(/aucune information chauffeur/),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -1182,9 +1708,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         ATTENTE_UI,
       );
       expect(screen.queryByRole('link', { name: 'Choisir' })).toBeNull();
+      // Attribution validée : le résumé + le bloc dispatch (renvoi / changement
+      // de prestataire), jamais le formulaire d'attribution intégré.
+      expect(screen.getByText('Prestataire & Dispatch')).toBeInTheDocument();
       expect(
-        screen.getByRole('link', { name: /attribution compl/i }),
-      ).toBeInTheDocument();
+        screen.queryByLabelText('Type de véhicule souhaité'),
+      ).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -1272,7 +1801,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await waitFor(() => expect(onLoaded).toHaveBeenCalled(), ATTENTE_UI);
       const arg = onLoaded.mock.calls.at(-1)?.[0] as { title: string };
       expect(arg.title).toContain('Collecte Anti-Gaspi');
-      expect(arg.title).toContain("jusqu'à 80 pax");
+      expect(arg.title).toContain("jusqu'à 80\u00a0pax"); // fmtPax : espace insécable
     },
     ATTENTE_CAS_MS,
   );
@@ -1458,6 +1987,570 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
       expect(
         screen.queryByRole('button', { name: 'Acceptation manuelle' }),
       ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// ============================================================================
+// Bloc « Chauffeur » de l'onglet Logistique (décision Val 2026-10-02) : même
+// bloc que la fiche client (§06.04 « Logistique ») — nom, plaque, téléphone par
+// camion, remontés automatiquement du prestataire (MTS-1 référentiel carrier,
+// Everest coursier) et complétés par l'Admin. Remplace la card « Informations
+// chauffeur » de l'onglet Informations (réservée au contrôle d'accès).
+// ============================================================================
+
+describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const tourneeMts1 = {
+    rang: 1,
+    tournees: {
+      id: 'tour-1',
+      statut: 'planifiee',
+      tms_reference: 'TMS-42',
+      external_ref_commande: 'CMD-42',
+      plaque_immatriculation: 'AB-123-CD',
+      chauffeur_nom: 'Paul Martin',
+      chauffeur_telephone: '0612345678',
+      accompagnant_nom: null,
+      accompagnant_telephone: null,
+      type_vehicule: 'camion_16m3',
+    },
+  };
+
+  it(
+    'sans tournée ni prestataire : une ligne « Camion » en attente, saisie impossible (« Attribuez d’abord un prestataire »)',
+    async () => {
+      // Un camion demandé (N = 1), aucune tournée, aucun prestataire posé :
+      // la ligne existe (C2 Val 2026-10-06) mais la tournée ne peut pas être
+      // créée sans prestataire (tournees.prestataire_logistique_id NOT NULL).
+      mockFetch({ ...collecteAg, collecte_tournees: [] });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId(
+        'bloc-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(bloc).getByRole('heading', { name: 'Chauffeur' }),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(1);
+      expect(
+        within(bloc).getByText(/Attribuez d’abord un prestataire/),
+      ).toBeInTheDocument();
+      expect(
+        within(bloc).getByText(/Tournée pas encore créée par le prestataire/),
+      ).toBeInTheDocument();
+      // Chauffeur, plaque, téléphone : trois « En attente », aucune saisie.
+      expect(within(bloc).getAllByText('En attente')).toHaveLength(3);
+      expect(
+        screen.queryByRole('button', { name: 'Modifier les coordonnées' }),
+      ).toBeNull();
+      expect(screen.queryByText('Chauffeur pas encore affecté')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'tournée MTS-1 renseignée : nom, plaque et téléphone cliquable ; sans contrôle d’accès, pas de mention email',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-mts1',
+        prestataire_actuel: {
+          transporteur_id: 't-mts1',
+          nom: 'Strike',
+          type_tms: 'mts1',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = (await screen.findByTestId(
+        'camion-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLElement;
+      // Le canal nommé : MTS-1 (jamais « du prestataire » générique).
+      expect(
+        screen.getByText(/remontent automatiquement de MTS-1/),
+      ).toBeInTheDocument();
+      expect(within(bloc).getByText('Paul Martin')).toBeInTheDocument();
+      expect(within(bloc).getByText('AB-123-CD')).toBeInTheDocument();
+      expect(
+        within(bloc).getByRole('link', { name: '0612345678' }),
+      ).toHaveAttribute('href', 'tel:0612345678');
+      expect(within(bloc).queryByText('En attente')).toBeNull();
+      // Un seul camion : pas d'en-tête « Camion 1 ».
+      expect(within(bloc).queryByText(/^Camion 1$/)).toBeNull();
+      // Titre au singulier (un seul camion) — « Chauffeur » est aussi le label
+      // du champ, d'où getAll.
+      expect(screen.queryByText('Chauffeurs')).toBeNull();
+      expect(screen.queryByText(/contrôle d’accès/)).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'vélo cargo sans plaque, coursier pas encore communiqué : « Sans objet (vélo cargo) » et « En attente » sur nom et téléphone',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        collecte_tournees: [
+          {
+            ...tourneeMts1,
+            tournees: {
+              ...tourneeMts1.tournees,
+              plaque_immatriculation: null,
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+              type_vehicule: 'velo_cargo',
+            },
+          },
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = (await screen.findByTestId(
+        'camion-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLElement;
+      expect(
+        within(bloc).getByText('Sans objet (vélo cargo)'),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByText('En attente')).toHaveLength(2);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'deux camions chez un transporteur manuel : « Chauffeurs », en-tête « Camion N », accompagnant affiché, coordonnées « à saisir par l’équipe Ops »',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        prestataire_logistique_id: null,
+        prestataire_actuel: {
+          transporteur_id: 't-province',
+          nom: 'Transports Dupont',
+          type_tms: 'par_mail',
+        },
+        collecte_tournees: [
+          tourneeMts1,
+          {
+            rang: 2,
+            tournees: {
+              ...tourneeMts1.tournees,
+              id: 'tour-2',
+              chauffeur_nom: 'Léa Durand',
+              chauffeur_telephone: null,
+              plaque_immatriculation: 'CD-456-EF',
+              accompagnant_nom: 'Marc Petit',
+              accompagnant_telephone: '0699887766',
+            },
+          },
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const camions = (await screen.findAllByTestId(
+        'camion-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLElement[];
+      expect(camions).toHaveLength(2);
+      expect(screen.getByText('Chauffeurs')).toBeInTheDocument();
+      expect(within(camions[0]!).getByText('Camion 1')).toBeInTheDocument();
+      expect(within(camions[1]!).getByText('Camion 2')).toBeInTheDocument();
+      // Accompagnant du camion 2, absent du camion 1.
+      expect(within(camions[1]!).getByText('Marc Petit')).toBeInTheDocument();
+      // Plus de téléphone d'accompagnant à l'écran (retiré par Val 2026-10-06).
+      expect(within(camions[1]!).queryByText('Tél. accompagnant')).toBeNull();
+      expect(within(camions[1]!).queryByText('0699887766')).toBeNull();
+      expect(within(camions[0]!).queryByText('Accompagnant')).toBeNull();
+      // Transporteur manuel : rien ne remonte automatiquement.
+      expect(screen.getByText(/à saisir par l’équipe Ops/)).toBeInTheDocument();
+      expect(screen.queryByText(/remontent automatiquement/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'collecte terminée sans tournée : « Aucun chauffeur enregistré », aucune phrase au futur',
+    async () => {
+      mockFetch({ ...collecteAg, statut: 'annulee', collecte_tournees: [] });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          'Aucun chauffeur enregistré',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Aucune tournée enregistrée pour cette collecte.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/pourront être saisies/)).toBeNull();
+      expect(screen.queryByText('Chauffeur pas encore affecté')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'deux camions demandés, une seule tournée, seul le camion 1 corrigé : le camion 2 laissé vide n’est pas envoyé (aucune tournée vide créée)',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-1',
+        prestataire_actuel: {
+          transporteur_id: 't-1',
+          nom: 'Transporteur manuel',
+          type_tms: 'autre',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByTestId('bloc-chauffeur', undefined, ATTENTE_UI);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      const noms = screen.getAllByLabelText('Nom du chauffeur');
+      expect(noms).toHaveLength(2);
+      fireEvent.change(noms[0]!, { target: { value: 'Paul Martin-Durand' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        expect(body.tournees).toHaveLength(1);
+        expect(body.tournees[0]).toMatchObject({
+          tournee_id: 'tour-1',
+          chauffeur_nom: 'Paul Martin-Durand',
+        });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'collecte terminée, deux camions demandés, une seule tournée : une seule ligne, et la saisie ne concerne que la tournée existante (PATCH sans rang)',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        statut: 'realisee',
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-1',
+        prestataire_actuel: {
+          transporteur_id: 't-1',
+          nom: 'Transporteur manuel',
+          type_tms: 'autre',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId(
+        'bloc-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(bloc).getByRole('heading', { name: 'Chauffeur' }),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(1);
+      expect(within(bloc).queryByText('Camion 2')).toBeNull();
+      expect(within(bloc).queryByText(/Tournée pas encore créée/)).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      expect(screen.getAllByLabelText('Nom du chauffeur')).toHaveLength(1);
+      fireEvent.change(screen.getByLabelText('Nom du chauffeur'), {
+        target: { value: 'Paul Martin' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        expect(body.tournees).toHaveLength(1);
+        expect(body.tournees[0]).toMatchObject({ tournee_id: 'tour-1' });
+        expect(body.tournees[0]).not.toHaveProperty('rang');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'erreur à l’enregistrement (le prestataire a créé la tournée du camion 2 entre-temps) : message affiché, fiche rechargée, la saisie se rattache à la tournée créée — nom saisi conservé, plaque remontée reprise',
+    async () => {
+      const avant = {
+        ...collecteAg,
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-1',
+        prestataire_actuel: {
+          transporteur_id: 't-1',
+          nom: 'Transporteur manuel',
+          type_tms: 'autre',
+        },
+        collecte_tournees: [tourneeMts1],
+      };
+      const apres = {
+        ...avant,
+        collecte_tournees: [
+          tourneeMts1,
+          {
+            rang: 2,
+            tournees: {
+              ...tourneeMts1.tournees,
+              id: 'tour-2',
+              plaque_immatriculation: 'ZZ-999-ZZ',
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+            },
+          },
+        ],
+      };
+      let patchs = 0;
+      let fiche: object = avant;
+      const fetchMock = mockFetch(() => fiche) as unknown as ReturnType<
+        typeof vi.fn
+      >;
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(
+        (url: string, opts?: { method?: string; body?: string }) => {
+          if (url.endsWith('/infos-acces') && opts?.method === 'PATCH') {
+            patchs += 1;
+            if (patchs === 1) {
+              // Le rang 2 vient d'être pris par le prestataire.
+              fiche = apres;
+              return Promise.resolve({
+                ok: false,
+                status: 409,
+                json: async () => ({
+                  error:
+                    'Le prestataire vient de créer la tournée du camion 2 : rechargez la fiche avant de saisir.',
+                }),
+              });
+            }
+            return Promise.resolve({
+              ok: true,
+              json: async () => ({ email_envoye: false }),
+            });
+          }
+          return base(url, opts);
+        },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByTestId('bloc-chauffeur', undefined, ATTENTE_UI);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      fireEvent.change(screen.getAllByLabelText('Nom du chauffeur')[1]!, {
+        target: { value: 'Léa Durand' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      // Erreur affichée, formulaire toujours ouvert, fiche rechargée : la
+      // plaque remontée par le prestataire apparaît dans le champ laissé vide.
+      expect(
+        await screen.findByText(/rechargez la fiche/, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.getAllByLabelText('Plaque d’immatriculation')[1],
+        ).toHaveValue('ZZ-999-ZZ');
+      }, ATTENTE_UI);
+      expect(screen.getAllByLabelText('Nom du chauffeur')[1]).toHaveValue(
+        'Léa Durand',
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+      await waitFor(() => {
+        const calls = fetchMock.mock.calls.filter(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(calls).toHaveLength(2);
+        const body = JSON.parse((calls[1]![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        const camion2 = body.tournees.find((t) => t.tournee_id === 'tour-2');
+        expect(camion2).toMatchObject({
+          tournee_id: 'tour-2',
+          chauffeur_nom: 'Léa Durand',
+          plaque_immatriculation: 'ZZ-999-ZZ',
+        });
+        expect(body.tournees.some((t) => 'rang' in t)).toBe(false);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'deux camions demandés, une seule tournée : deux lignes, la saisie du camion 2 crée sa tournée (PATCH avec rang)',
+    async () => {
+      // Cas écran « Palais des Congrès » (Val 2026-10-06) : N = 2, l'adapter
+      // n'a créé que la tournée du rang 1 → le rang 2 est saisissable quand
+      // même, la route crée sa tournée (option C2).
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        nb_camions_demande: 2,
+        prestataire_logistique_id: 'presta-mts1',
+        prestataire_actuel: {
+          transporteur_id: 't-strike',
+          nom: 'Strike',
+          type_tms: 'mts1',
+        },
+        collecte_tournees: [tourneeMts1],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId(
+        'bloc-chauffeur',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(bloc).getByRole('heading', { name: 'Chauffeurs' }),
+      ).toBeInTheDocument();
+      expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(2);
+      expect(within(bloc).getByText('Camion 2')).toBeInTheDocument();
+      expect(
+        within(bloc).getByText(/Tournée pas encore créée par le prestataire/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Attribuez d’abord un prestataire/)).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      expect(
+        screen.getByText(/tournée créée à l’enregistrement/),
+      ).toBeInTheDocument();
+      const noms = screen.getAllByLabelText('Nom du chauffeur');
+      expect(noms).toHaveLength(2);
+      fireEvent.change(noms[1]!, { target: { value: 'Léa Durand' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, unknown>>;
+        };
+        expect(body.tournees).toHaveLength(2);
+        expect(body.tournees[0]).toMatchObject({ tournee_id: 'tour-1' });
+        expect(body.tournees[1]).toMatchObject({
+          rang: 2,
+          chauffeur_nom: 'Léa Durand',
+        });
+        expect(body.tournees[1]).not.toHaveProperty('tournee_id');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'contrôle d’accès requis : mention de l’email récap, « Modifier les coordonnées » ouvre le formulaire et PATCH infos-acces',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        controle_acces_requis: true,
+        infos_acces_email_envoye_at: null,
+        collecte_tournees: [
+          {
+            ...tourneeMts1,
+            tournees: {
+              ...tourneeMts1.tournees,
+              chauffeur_nom: null,
+              chauffeur_telephone: null,
+            },
+          },
+        ],
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          /exige un contrôle d’accès/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/infos à compléter avant envoi/),
+      ).toBeInTheDocument();
+      // Un seul camion, nom et téléphone manquants → « En attente » ×2.
+      expect(screen.getAllByText('En attente')).toHaveLength(2);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier les coordonnées' }),
+      );
+      fireEvent.change(screen.getByLabelText('Nom du chauffeur'), {
+        target: { value: 'Paul Martin' },
+      });
+      fireEvent.change(screen.getByLabelText('Téléphone du chauffeur'), {
+        target: { value: '0612345678' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/infos-acces') &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          tournees: Array<Record<string, string>>;
+        };
+        expect(body.tournees).toHaveLength(1);
+        expect(body.tournees[0]).toMatchObject({
+          tournee_id: 'tour-1',
+          plaque_immatriculation: 'AB-123-CD',
+          chauffeur_nom: 'Paul Martin',
+          chauffeur_telephone: '0612345678',
+        });
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

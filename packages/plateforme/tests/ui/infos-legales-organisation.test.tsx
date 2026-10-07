@@ -14,6 +14,7 @@ import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel.js';
 import { NAV_CONFIG } from '@/lib/nav-config.js';
 import { messageDeRole } from '@/test-utils/message-role';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { renderAvecToasts } from '@/test-utils/toasts';
 
 const URL_PROFIL = '/api/v1/agence/mon-organisation/profil';
 const PROFIL = {
@@ -73,14 +74,19 @@ describe('Informations légales — carte partagée', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      render(<InfosLegalesOrganisation urlProfil={URL_PROFIL} />);
+      // Succès = toast (R-UI-1 H1) : rendu sous ToastProvider.
+      renderAvecToasts(<InfosLegalesOrganisation urlProfil={URL_PROFIL} />);
       const champ = await screen.findByLabelText('SIRET', {}, ATTENTE_UI);
       fireEvent.change(champ, { target: { value: '12345678900011' } });
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+      // Toast de succès (R-UI-1 H1).
       expect(
-        (await messageDeRole('status', 'Informations enregistrées.'))
-          .textContent,
-      ).toBe('Informations enregistrées.');
+        await screen.findByText(
+          'Informations enregistrées.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
       const patch = fetchMock.mock.calls.find(([, i]) => i?.method === 'PATCH');
       expect(patch?.[0]).toBe(URL_PROFIL);
       expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
@@ -208,6 +214,34 @@ describe('Suppression de compte — absente du profil staff', () => {
           name: 'Demander la suppression de mon compte',
         }),
       ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// Décision Val 2026-10-06 : l'écran ne propose plus l'export. La route
+// GET /api/me/export-rgpd reste servie (tests/api/me/rgpd.test.ts).
+describe('Export des données personnelles — retiré de l’écran', () => {
+  it(
+    'aucun bloc « Mes données (RGPD) » ni bouton d’export, profil client comme staff',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve(
+            reponse(200, { data: { prenom: 'A', nom: 'B', telephone: null } }),
+          ),
+        ),
+      );
+      for (const avecSuppression of [true, false]) {
+        const { unmount } = render(
+          <RgpdComptePanel avecSuppression={avecSuppression} />,
+        );
+        await screen.findByDisplayValue('A', {}, ATTENTE_UI);
+        expect(screen.queryByText(/Mes données/)).toBeNull();
+        expect(screen.queryByRole('button', { name: /Exporter/ })).toBeNull();
+        unmount();
+      }
     },
     ATTENTE_CAS_MS,
   );

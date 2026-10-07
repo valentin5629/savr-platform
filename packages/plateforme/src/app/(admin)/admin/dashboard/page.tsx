@@ -1,21 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LayoutDashboard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
+import { FilterBar } from '@/components/ui/filter-bar';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { RevenusHistogramme } from '@/components/dashboards/index.js';
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
-import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import { StatCard } from '@/components/ui/stat-card';
 import { ChartCard } from '@/components/dashboards/charts/cockpit/ChartCard';
 import { fmtInt } from '@/components/dashboards/charts/cockpit/fmt';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { OPS_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fmtEuro } from '@/lib/format';
+import { ROUTES } from '@/lib/routes';
 
 interface KpiData {
   non_transmises_zd: number;
@@ -38,19 +45,8 @@ interface RevenusRow {
 }
 
 function euro(v: number): string {
-  return v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+  return fmtEuro(v);
 }
-
-// Pastilles couleur des KPI opérationnels (cockpit R24, palette data-viz DS §2.4 /
-// sémantique §10). La pastille encode la SÉVÉRITÉ (à traiter / à jour), le badge de
-// pied la reformule en clair — remplace l'ancien code couleur porté par la bordure.
-const OPS_DOT = {
-  warn: '#d97706', // warning
-  error: '#dc2626', // error
-  success: '#16a34a', // success
-  info: '#2563eb', // info
-  neutral: '#9aa2b8', // neutral-400
-};
 
 // Badge d'état d'un KPI d'alerte : action requise si > 0, « À jour » sinon.
 function badgeAlerte(
@@ -76,8 +72,11 @@ function badgeVeille(v: number, labelActif: string) {
 }
 
 // Période par défaut du bloc Revenus : 12 derniers mois glissants, alignés au 1er du
-// mois (12 buckets pleins pour l'histogramme). Cette MÊME fenêtre pilote l'histogramme
-// ET le tableau (filtre unique, revue E2E Val 2026-07-18) ; « Réinitialiser » y revient.
+// mois (12 buckets pleins pour l'histogramme — §06.06 l.76 / §11 l.38, décision Val
+// 2026-07-18 réaffirmée 2026-09-30 : ne correspond à aucun raccourci, le déclencheur
+// affiche des dates ; le plan R-UI-4b D8 proposait l'inverse → arbitrage Val, PR #481).
+// Cette MÊME fenêtre pilote l'histogramme ET le tableau (filtre unique) ;
+// « Réinitialiser les filtres » y revient.
 function defaultPeriode(): { from: string; to: string } {
   const now = new Date();
   const iso = (d: Date) => jourParis(d);
@@ -85,6 +84,12 @@ function defaultPeriode(): { from: string; to: string } {
     from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
     to: iso(now),
   };
+}
+
+/** Période ≠ défaut : « Réinitialiser les filtres » visible. */
+function periodePosee(p: { from: string; to: string }): boolean {
+  const d = defaultPeriode();
+  return p.from !== d.from || p.to !== d.to;
 }
 
 const revenusColumns: Column<RevenusRow>[] = [
@@ -123,10 +128,7 @@ const revenusColumns: Column<RevenusRow>[] = [
 
 export default function DashboardAdminPage() {
   const [kpi, setKpi] = useState<KpiData | null>(null);
-  const [revenus, setRevenus] = useState<RevenusRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [loadingKpi, setLoadingKpi] = useState(true);
-  const [loadingRevenus, setLoadingRevenus] = useState(true);
 
   // Filtre de période UNIQUE — pilote l'histogramme ET le tableau (revue E2E Val
   // 2026-07-18). Défaut = 12 derniers mois glissants.
@@ -142,26 +144,27 @@ export default function DashboardAdminPage() {
       .finally(() => setLoadingKpi(false));
   }, []);
 
-  const revenusQs = useCallback(() => {
-    return new URLSearchParams({
-      from: periode.from,
-      to: periode.to,
-      sort: sortKey,
-      dir: sortDir,
-      page: String(page),
-    }).toString();
-  }, [periode, sortKey, sortDir, page]);
-
-  useEffect(() => {
-    setLoadingRevenus(true);
-    fetch(`/api/v1/admin/dashboard/revenus-organisations?${revenusQs()}`)
-      .then((r) => r.json())
-      .then((d: { data?: RevenusRow[]; total?: number }) => {
-        setRevenus(d.data ?? []);
-        setTotal(d.total ?? 0);
-      })
-      .finally(() => setLoadingRevenus(false));
-  }, [revenusQs]);
+  // Tableau Revenus par organisation : liste paginée serveur (convention de tri
+  // unique `tri`/`ordre`, R-UI-4a), garde anti-réponse périmée + état Error
+  // portés par `useListePaginee`.
+  const revenusUrl = useMemo(
+    () =>
+      `/api/v1/admin/dashboard/revenus-organisations?${new URLSearchParams({
+        from: periode.from,
+        to: periode.to,
+        tri: sortKey,
+        ordre: sortDir,
+        page: String(page),
+      })}`,
+    [periode, sortKey, sortDir, page],
+  );
+  const {
+    data: revenus,
+    total,
+    loading: loadingRevenus,
+    erreur: erreurRevenus,
+    recharger: rechargerRevenus,
+  } = useListePaginee<RevenusRow>(revenusUrl);
 
   const handleSort = (key: string, direction: 'asc' | 'desc') => {
     setSortKey(key);
@@ -177,22 +180,20 @@ export default function DashboardAdminPage() {
     setPage(1);
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / 50));
-
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3">
         <LayoutDashboard className="h-6 w-6 text-savr-primary-700" />
-        <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-savr-neutral-900">
+        <Heading level={1} weight="extrabold" tight>
           Dashboard Admin
-        </h1>
+        </Heading>
       </div>
 
       {/* Bloc 1 — KPIs opérationnels (rangée cockpit R24) */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-savr-neutral-700">
+        <Heading level={2} tone="muted" className="mb-4">
           Suivi opérationnel
-        </h2>
+        </Heading>
         {loadingKpi ? (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
             {[...Array(5)].map((_, i) => (
@@ -204,11 +205,11 @@ export default function DashboardAdminPage() {
             {/* Chaque carte est un lien vers la liste Collectes filtrée sur le
                 MÊME prédicat que le compteur (miroir exact, §11 §1.1) — chip
                 partagé lib/collectes-chips. */}
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Non transmises ZD"
               value={fmtInt(kpi.non_transmises_zd)}
-              href="/admin/collectes?chip=non_transmises_zd"
+              href={`${ROUTES.admin.collectes}?chip=non_transmises_zd`}
               dotColor={
                 kpi.non_transmises_zd > 0 ? OPS_DOT.warn : OPS_DOT.success
               }
@@ -218,11 +219,11 @@ export default function DashboardAdminPage() {
                 'À traiter',
               )}
             />
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Non transmises AG"
               value={fmtInt(kpi.non_transmises_ag)}
-              href="/admin/collectes?chip=non_transmises_ag"
+              href={`${ROUTES.admin.collectes}?chip=non_transmises_ag`}
               dotColor={
                 kpi.non_transmises_ag > 0 ? OPS_DOT.warn : OPS_DOT.success
               }
@@ -232,31 +233,31 @@ export default function DashboardAdminPage() {
                 'À traiter',
               )}
             />
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Attente prestataire"
               value={fmtInt(kpi.attente_prestataire)}
-              href="/admin/collectes?chip=attente_prestataire"
+              href={`${ROUTES.admin.collectes}?chip=attente_prestataire`}
               dotColor={
                 kpi.attente_prestataire > 0 ? OPS_DOT.info : OPS_DOT.neutral
               }
               footer={badgeVeille(kpi.attente_prestataire, 'En cours')}
             />
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Dirty TMS"
               value={fmtInt(kpi.dirty_tms)}
-              href="/admin/collectes?chip=dirty_tms"
+              href={`${ROUTES.admin.collectes}?chip=dirty_tms`}
               dotColor={kpi.dirty_tms > 0 ? OPS_DOT.error : OPS_DOT.success}
               footer={badgeAlerte(kpi.dirty_tms, 'error', 'À resynchroniser')}
             />
             {/* Fusion ZD 48h + AG 48h (revue E2E Val 2026-07-15) : collectes ZD/AG
                 dans 48 h non validées par le prestataire (inclut les non transmises). */}
-            <KpiCockpitCard
+            <StatCard
               reserveTwoLineLabel
               label="Collecte <48h non validée"
               value={fmtInt(kpi.collectes_48h_non_validees)}
-              href="/admin/collectes?chip=collectes_48h_non_validees"
+              href={`${ROUTES.admin.collectes}?chip=collectes_48h_non_validees`}
               dotColor={
                 kpi.collectes_48h_non_validees > 0
                   ? OPS_DOT.warn
@@ -274,14 +275,21 @@ export default function DashboardAdminPage() {
 
       {/* Bloc 2 — Revenus (histogramme + tableau par organisation, filtre commun) */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-savr-neutral-700">Revenus</h2>
+        <Heading level={2} tone="muted">
+          Revenus
+        </Heading>
 
         {/* Filtre de période COMMUN — pilote le graphe ET le tableau (revue E2E Val
             2026-07-18). Un seul filtre « Période » en ligne (décision Val
-            2026-09-30) + « Réinitialiser » (retour au défaut 12 mois). */}
-        <BarreFiltres
+            2026-09-30) dans la barre standard des dashboards (`FilterBar
+            surface="page"`, R-UI-4b D5 façon C : pas de liste à compter →
+            `count={null}`) ; « Réinitialiser les filtres » (retour au défaut 12
+            mois) seulement si la période en diffère. */}
+        <FilterBar
           surface="page"
           data-testid="revenus-orgs-controls"
+          count={null}
+          actif={periodePosee(periode)}
           onReset={() => {
             setPeriode(defaultPeriode());
             setPage(1);
@@ -295,7 +303,7 @@ export default function DashboardAdminPage() {
             value={periode}
             onChange={setPeriodeManuelle}
           />
-        </BarreFiltres>
+        </FilterBar>
 
         {/* Graphe (50 %) + tableau (50 %) sur la même ligne ≥ lg (revue E2E Val
             2026-07-18) — empilés en dessous. `items-start` : chaque colonne garde
@@ -310,46 +318,48 @@ export default function DashboardAdminPage() {
               l'histogramme (ChartCard) : les deux cartes et leurs titres partent
               de la même ligne (revue E2E Val 2026-09-28). */}
           <div>
-            <Card className="overflow-hidden rounded-savr-lg shadow-savr-sm">
+            <Card variant="elevated" className="overflow-hidden">
               {/* Titre du bloc tableau (revue E2E Val 2026-07-15). */}
-              <h3 className="px-6 pb-4 pt-6 text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+              <Heading
+                level={3}
+                weight="extrabold"
+                className="px-6 pb-4 pt-6 tracking-[-0.01em]"
+              >
                 Revenu par organisation
-              </h3>
-              {loadingRevenus ? (
-                <div className="space-y-2 p-6">
-                  {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full" />
-                  ))}
-                </div>
-              ) : revenus.length === 0 ? (
-                <p className="p-6 text-sm text-savr-neutral-500">
-                  Aucune donnée sur la période.
-                </p>
-              ) : (
-                <>
-                  <DataTable
-                    columns={revenusColumns}
-                    data={revenus}
-                    keyExtractor={(row) => row.organisation_id}
-                    onSort={handleSort}
-                    sortKey={sortKey}
-                    sortDirection={sortDir}
+              </Heading>
+              <DataTable
+                columnsToggle={false}
+                columns={revenusColumns}
+                data={revenus}
+                keyExtractor={(row) => row.organisation_id}
+                loading={loadingRevenus}
+                erreur={erreurRevenus}
+                onRecharger={rechargerRevenus}
+                empty={
+                  <EmptyState
+                    size="inline"
+                    title="Aucune donnée sur la période."
+                    className="p-6"
                   />
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between gap-2 border-t border-savr-neutral-100 p-3 text-sm">
-                      <span className="text-savr-neutral-500">
-                        {total} organisation{total > 1 ? 's' : ''}
-                      </span>
-                      {/* Pagination DS (BL-P3-07) — remplace le footer Précédent/Suivant maison. */}
-                      <Pagination
-                        page={page}
-                        pageCount={totalPages}
-                        onPageChange={setPage}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
+                }
+                toolbar={
+                  !loadingRevenus && total > 0 ? (
+                    <Text as="span" className="px-6">
+                      {total} organisation{total > 1 ? 's' : ''}
+                    </Text>
+                  ) : null
+                }
+                onSort={handleSort}
+                sortKey={sortKey}
+                sortDirection={sortDir}
+                className="px-6 pb-6"
+              />
+              <ListFooter
+                total={total}
+                page={page}
+                onPageChange={setPage}
+                className="border-t border-savr-neutral-100 px-3 pb-3"
+              />
             </Card>
           </div>
         </div>

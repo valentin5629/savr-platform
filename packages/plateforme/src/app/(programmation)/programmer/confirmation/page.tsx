@@ -1,5 +1,7 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -12,6 +14,14 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { Heading } from '@/components/ui/heading';
+import { Text, textClasses } from '@/components/ui/text';
+import { InfoItem } from '@/components/ui/info-item';
+import { ROUTES } from '@/lib/routes';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+
+// Valeur du récapitulatif événement : texte courant neutral-900.
+const VALEUR_RECAP = textClasses({ tone: 'ink' });
 
 type CollecteRecap = {
   id: string;
@@ -38,13 +48,9 @@ type EvenementRecap = {
   collectes: CollecteRecap[];
 };
 
-// Libellés type collecte — tolère l'enum DB (zero_dechet/anti_gaspi) et les
-// alias UI (zd/ag) pour être robuste à la forme renvoyée par l'API.
-function libelleType(type: string): string {
-  if (type === 'anti_gaspi' || type === 'ag') return 'Anti-Gaspi';
-  if (type === 'zero_dechet' || type === 'zd') return 'Zéro Déchet';
-  return type;
-}
+// Libellés type collecte : `libelleTypeCollecte` tolère l'enum DB
+// (zero_dechet/anti_gaspi) et les alias UI (zd/ag) renvoyés par l'API.
+const libelleType = libelleTypeCollecte;
 
 function formatDate(date: string | null): string {
   if (!date) return '—';
@@ -115,11 +121,7 @@ function ConfirmationContent() {
   }, [id]);
 
   if (loading) {
-    return (
-      <p className="text-sm text-savr-neutral-500">
-        Chargement du récapitulatif…
-      </p>
-    );
+    return <LoadingState label="Chargement du récapitulatif…" />;
   }
 
   const collectes = evenement?.collectes ?? [];
@@ -127,57 +129,61 @@ function ConfirmationContent() {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       {/* Bandeau succès */}
+      {/* ds-classes: valeur unique (emerald-50 ≠ success-subtle), à arbitrer */}
       <div className="flex items-start gap-3 rounded-savr-lg border border-savr-success bg-emerald-50 px-5 py-4">
         <CheckCircle2 className="h-6 w-6 shrink-0 text-savr-success" />
         <div className="space-y-1">
-          <h1 className="text-lg font-bold text-savr-neutral-900">
+          <Heading level={1} size="lg">
             {collectes.length > 1
               ? 'Vos collectes sont programmées'
               : 'Votre collecte est programmée'}
-          </h1>
-          <p className="text-sm text-savr-neutral-700">
+          </Heading>
+          <Text variant="body">
             {evenement
               ? `Événement « ${evenement.nom_evenement} » enregistré avec succès.`
               : 'Programmation enregistrée avec succès.'}
-          </p>
+          </Text>
         </div>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-savr-md border border-savr-error bg-red-50 px-3 py-2 text-sm text-savr-error">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
           {error}
-        </div>
+        </AlertBar>
       )}
 
       {/* Détails de l'événement — lieu / pax / contact sont portés par
           `evenements` (pas par collecte), cf. §04 Data Model. */}
       {evenement && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-savr-neutral-500">
+          <Heading level={2} size="sm" tone="faint" overline>
             Événement
-          </h2>
+          </Heading>
           <dl className="grid gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3 sm:grid-cols-3">
-            <div className="space-y-0.5 sm:col-span-3">
-              <dt className="text-xs text-savr-neutral-500">Lieu</dt>
-              <dd className="text-sm text-savr-neutral-900">
-                {formatLieu(evenement.lieux)}
-              </dd>
-            </div>
-            <div className="space-y-0.5">
-              <dt className="text-xs text-savr-neutral-500">Nombre de pax</dt>
-              <dd className="text-sm text-savr-neutral-900">
-                {evenement.pax ?? '—'}
-              </dd>
-            </div>
-            <div className="space-y-0.5 sm:col-span-2">
-              <dt className="text-xs text-savr-neutral-500">
-                Contact principal
-              </dt>
-              <dd className="text-sm text-savr-neutral-900">
-                {evenement.contact_principal_nom || '—'}
-              </dd>
-            </div>
+            <InfoItem
+              variant="hint"
+              label="Lieu"
+              className="space-y-0.5 sm:col-span-3"
+              valueClassName={VALEUR_RECAP}
+            >
+              {formatLieu(evenement.lieux)}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Nombre de pax"
+              className="space-y-0.5"
+              valueClassName={VALEUR_RECAP}
+            >
+              {evenement.pax ?? '—'}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Contact principal"
+              className="space-y-0.5 sm:col-span-2"
+              valueClassName={VALEUR_RECAP}
+            >
+              {evenement.contact_principal_nom || '—'}
+            </InfoItem>
           </dl>
         </div>
       )}
@@ -185,11 +191,11 @@ function ConfirmationContent() {
       {/* Récapitulatif des collectes créées */}
       {collectes.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-savr-neutral-500">
+          <Heading level={2} size="sm" tone="faint" overline>
             {collectes.length > 1
               ? `${collectes.length} collectes créées`
               : 'Collecte créée'}
-          </h2>
+          </Heading>
           <ul className="space-y-2">
             {collectes.map((c) => (
               <li
@@ -197,15 +203,15 @@ function ConfirmationContent() {
                 className="flex items-center justify-between rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3"
               >
                 <div className="space-y-0.5">
-                  <p className="text-sm font-semibold text-savr-neutral-900">
+                  <Text tone="ink" className="font-semibold">
                     {libelleType(c.type)}
-                  </p>
-                  <p className="text-xs text-savr-neutral-500">
+                  </Text>
+                  <Text variant="hint">
                     {formatDate(c.date_collecte)}
                     {formatHeure(c.heure_collecte)
                       ? ` à ${formatHeure(c.heure_collecte)}`
                       : ''}
-                  </p>
+                  </Text>
                 </div>
                 <CollecteStatutBadge statut={c.statut} />
               </li>
@@ -215,24 +221,24 @@ function ConfirmationContent() {
       )}
 
       {/* Note email récap (§06.01 action post-confirmation §10) */}
-      <p className="flex items-center gap-2 text-sm text-savr-neutral-600">
+      <Text tone="soft" className="flex items-center gap-2">
         <Mail className="h-4 w-4 shrink-0 text-savr-neutral-400" />
         Un email récapitulatif vient de vous être envoyé.
-      </p>
+      </Text>
 
       {/* Actions */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         {evenement && (
           <Button asChild>
-            <Link href={`/programmer/${evenement.id}/ajouter-collecte`}>
-              <PlusCircle className="h-4 w-4" />
+            <Link href={ROUTES.programmer.ajouterCollecte(evenement.id)}>
+              <PlusCircle />
               Ajouter une collecte à cet événement
             </Link>
           </Button>
         )}
         <Button asChild variant="secondary">
-          <Link href="/programmer/nouveau">
-            <CalendarPlus className="h-4 w-4" />
+          <Link href={ROUTES.programmer.nouveau}>
+            <CalendarPlus />
             Programmer un autre événement
           </Link>
         </Button>
@@ -246,13 +252,7 @@ function ConfirmationContent() {
 
 export default function ConfirmationProgrammationPage() {
   return (
-    <Suspense
-      fallback={
-        <p className="text-sm text-savr-neutral-500">
-          Chargement du récapitulatif…
-        </p>
-      }
-    >
+    <Suspense fallback={<LoadingState label="Chargement du récapitulatif…" />}>
       <ConfirmationContent />
     </Suspense>
   );

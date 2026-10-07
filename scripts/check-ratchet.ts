@@ -56,6 +56,15 @@ const GATES: { key: string; cmd: string[] }[] = [
   // absente de `database.types.ts` est INVISIBLE à column-db, pas mal typée —
   // ses écritures échappent entièrement au gate G7 ci-dessus.
   { key: 'types-snapshot', cmd: ['check:types-snapshot'] },
+  // Gates UI (R-UI-0, docs/design-system/RATIONALISATION_UI.md (PR #462) §5) : styles
+  // hors tokens (palette/rayon/ombre/hex bruts) et primitives HTML brutes
+  // (<button, <select, <table, confirm(), overlay maison, toFixed). Baseline =
+  // dette existante ; chaque lot R-UI-n la fait descendre.
+  { key: 'ds-classes', cmd: ['check:ds-classes'] },
+  { key: 'ds-primitives', cmd: ['check:ds-primitives'] },
+  // Primitives components/ui exportées mais montées nulle part (compteur séparé
+  // de `orphan-components` : la dette DS tolérée ne masque pas un bloc oublié).
+  { key: 'orphan-ui', cmd: ['check:orphan-ui'] },
 ];
 
 function runGate(cmd: string[]): number | null {
@@ -63,8 +72,10 @@ function runGate(cmd: string[]): number | null {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   });
-  const out = `${res.stdout ?? ''}${res.stderr ?? ''}`;
-  const matches = [...out.matchAll(/RATCHET_COUNT=(\d+)/g)];
+  // stdout seul, compteur en début de ligne : un avertissement d'outil ou un
+  // nom de fichier contenant « RATCHET_COUNT=0 » ne doit pas pouvoir se faire
+  // passer pour le compteur du gate.
+  const matches = [...(res.stdout ?? '').matchAll(/^RATCHET_COUNT=(\d+)/gm)];
   if (matches.length === 0) return null;
   return Number(matches[matches.length - 1]![1]); // dernière occurrence
 }

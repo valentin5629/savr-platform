@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { Mail } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/ui/loading-state';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 interface EmailTemplate {
   id: string;
@@ -38,18 +40,16 @@ export default function TemplatesEmailPage() {
       <div className="flex items-center gap-3">
         <Mail className="h-6 w-6 text-savr-neutral-600" />
         <div>
-          <h1 className="text-2xl font-bold text-savr-neutral-900">
-            Paramètres — Templates emails
-          </h1>
-          <p className="text-sm text-savr-neutral-500 mt-0.5">
+          <Heading level={1}>Paramètres — Templates emails</Heading>
+          <Text className="mt-0.5">
             {templates.length} templates actifs — consultation seule (l'édition
             arrive dans une version ultérieure).
-          </p>
+          </Text>
         </div>
       </div>
 
       {loading ? (
-        <Skeleton className="h-96 w-full" />
+        <LoadingState variant="bloc" />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Liste */}
@@ -59,18 +59,18 @@ export default function TemplatesEmailPage() {
                 <li key={t.id}>
                   <button
                     onClick={() => setSelectedId(t.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors ${
+                    className={`w-full text-left px-3 py-2.5 rounded-savr-md transition-colors ${
                       t.id === selectedId
                         ? 'bg-savr-primary-50'
                         : 'hover:bg-savr-neutral-50'
                     }`}
                   >
-                    <div className="font-mono text-xs text-savr-neutral-500">
+                    <Text as="div" variant="hint" className="font-mono">
                       {t.code}
-                    </div>
-                    <div className="text-sm text-savr-neutral-800 truncate">
+                    </Text>
+                    <Text as="div" tone="strong" className="truncate">
                       {t.sujet}
-                    </div>
+                    </Text>
                   </button>
                 </li>
               ))}
@@ -78,28 +78,26 @@ export default function TemplatesEmailPage() {
           </Card>
 
           {/* Aperçu */}
-          <Card className="p-5 lg:col-span-2 space-y-4">
+          <Card padding="md" className="lg:col-span-2 space-y-4">
             {selected ? (
               <>
                 <div>
-                  <div className="font-mono text-xs text-savr-neutral-400">
+                  <Text as="div" variant="faint" className="font-mono">
                     {selected.code}
-                  </div>
-                  <h2 className="font-semibold text-savr-neutral-900">
+                  </Text>
+                  <Heading level={2} size="inherit">
                     {selected.sujet}
-                  </h2>
+                  </Heading>
                   {selected.description && (
-                    <p className="text-sm text-savr-neutral-500 mt-1">
-                      {selected.description}
-                    </p>
+                    <Text className="mt-1">{selected.description}</Text>
                   )}
                 </div>
 
                 {selected.variables && selected.variables.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-savr-neutral-500 mb-1.5">
+                    <Text variant="hint" className="font-medium mb-1.5">
                       Variables
-                    </p>
+                    </Text>
                     <div className="flex flex-wrap gap-1.5">
                       {selected.variables.map((v) => (
                         <Badge key={v} variant="neutral" className="font-mono">
@@ -111,9 +109,9 @@ export default function TemplatesEmailPage() {
                 )}
 
                 <div>
-                  <p className="text-xs font-medium text-savr-neutral-500 mb-1.5">
+                  <Text variant="hint" className="font-medium mb-1.5">
                     Aperçu du corps
-                  </p>
+                  </Text>
                   {/* Rendu du corps HTML dans une iframe sandboxée (scripts
                       désactivés) — contenu = seed de confiance, aucune saisie
                       utilisateur en V1 (édition = V1.1). */}
@@ -121,14 +119,12 @@ export default function TemplatesEmailPage() {
                     title={`Aperçu ${selected.code}`}
                     sandbox=""
                     srcDoc={selected.corps_html}
-                    className="w-full h-96 border border-savr-neutral-200 rounded-lg bg-white"
+                    className="w-full h-96 border border-savr-neutral-200 rounded-savr-md bg-savr-white"
                   />
                 </div>
               </>
             ) : (
-              <p className="text-sm text-savr-neutral-500">
-                Sélectionnez un template.
-              </p>
+              <Text>Sélectionnez un template.</Text>
             )}
           </Card>
         </div>

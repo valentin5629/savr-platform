@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
+import { convertirSaisie } from '@/lib/parametres-algo/saisie';
 
 interface ParamAlgo {
   cle: string;
@@ -68,14 +69,7 @@ export default function AlgoAgParamsPage() {
     setError(null);
     setSuccessMsg(null);
     try {
-      let valeur: unknown = editing[cle];
-      if (type_valeur === 'bool') valeur = editing[cle] === 'true';
-      else if (type_valeur === 'int')
-        valeur = parseInt(editing[cle] ?? '0', 10);
-      else if (type_valeur === 'decimal')
-        valeur = parseFloat(editing[cle] ?? '0');
-      else if (type_valeur === 'json')
-        valeur = JSON.parse(editing[cle] ?? '[]');
+      const valeur = convertirSaisie(type_valeur, editing[cle] ?? '');
 
       const res = await fetch('/api/v1/admin/parametres-algo', {
         method: 'PATCH',
@@ -111,13 +105,13 @@ export default function AlgoAgParamsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-savr-md border border-savr-error-soft bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
       {successMsg && (
-        <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+        <div className="flex items-center gap-2 rounded-savr-md border border-savr-success-soft bg-savr-success-subtle px-3 py-2 text-sm text-savr-success-strong">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {successMsg}
         </div>

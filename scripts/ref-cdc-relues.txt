@@ -1,0 +1,25 @@
+# =============================================================================
+# Registre des relectures de `ref_cdc` — scripts/check-manifest-ref-anchor.ts (G12)
+# =============================================================================
+# Le gate suit chaque `ref_cdc` ligné de version en version du CDC. Quand le
+# passage a été remanié (hunk de taille inégale) il ne sait plus le suivre et le
+# classe « à relire ». Après lecture de la ligne EN ENTIER contre le libellé :
+#   - numéro FAUX  → le corriger dans le manifeste, rien à inscrire ici ;
+#   - numéro JUSTE → une ligne ici. Son commit devient l'ancre de la ref, qui
+#     reste suivie ensuite (un décalage ultérieur est vu et recalé).
+#
+# Format, une relecture par ligne :
+#   <manifeste> <id du livrable> <fichier cdc>.md:<ligne ou plage>  # motif
+#
+# Règles d'usage :
+#   - le motif est obligatoire (20 caractères au moins) : dire ce que la ligne
+#     pointée contient et pourquoi elle porte le livrable. Toute ligne ajoutée
+#     ici est VISIBLE EN PR ;
+#   - le registre ne sert que les refs « à relire ». Inscrite pour une ref que le
+#     gate sait suivre (ancrée ou décrochée), une ligne est ignorée et signalée
+#     périmée : elle ne peut pas faire taire un décalage ;
+#   - une ligne ne vaut que pour la valeur exacte qu'elle cite. Dès que la ref
+#     change, elle est signalée périmée et `--fix` la retire ;
+#   - ne pas reformater ni réordonner ce fichier : le commit de chaque ligne est
+#     son ancre (même contrainte que les manifestes).
+# =============================================================================

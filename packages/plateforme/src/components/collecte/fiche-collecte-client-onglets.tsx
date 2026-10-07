@@ -9,20 +9,23 @@ import {
   Truck,
   Users,
 } from 'lucide-react';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import {
-  BlocHeader,
-  InfoItem,
-  TelephoneLien,
-} from '@/components/collecte/fiche-blocs';
+import { TelephoneLien } from '@/components/collecte/fiche-blocs';
+import { SectionHeader } from '@/components/ui/section-header';
+import { InfoItem } from '@/components/ui/info-item';
 import {
   STATUTS_LOGISTIQUE,
   coordonneesCompletes,
   type AssociationFiche,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
+import { Text } from '@/components/ui/text';
+import { fmtInt } from '@/lib/format';
+import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
 
 // Onglets Informations et Logistique du pop-up fiche collecte CLIENT (§06.04
 // « Fiche collecte (vue détail) », refonte Val 2026-09-29). Wording 100 % Savr :
@@ -58,12 +61,6 @@ export interface FicheClientDonnees extends FicheCollecteClient {
   can_regenerate?: boolean;
   traiteur_operationnel?: TraiteurOperationnel | null;
 }
-
-// Libellés des organisations programmatrices tierces (§06.04 « Programmée par »).
-export const TYPE_ORGA_LABEL: Record<string, string> = {
-  agence: 'agence',
-  gestionnaire_lieux: 'gestionnaire de lieux',
-};
 
 const GRILLE_4 =
   'grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-4';
@@ -105,13 +102,13 @@ export function OngletInformations({
   );
   const traiteurOp = c.traiteur_operationnel;
   const progTypeLabel = c.programmee_par
-    ? (TYPE_ORGA_LABEL[c.programmee_par.type] ?? c.programmee_par.type)
+    ? libelleTypeOrganisationMinuscule(c.programmee_par.type)
     : null;
 
   return (
     <div className="space-y-3">
-      <Card className="space-y-4 p-5" data-testid="bloc-evenement">
-        <BlocHeader icon={CalendarDays} title="Événement" />
+      <Card padding="md" className="space-y-4" data-testid="bloc-evenement">
+        <SectionHeader icon={CalendarDays} title="Événement" />
         <dl className={GRILLE_4}>
           <InfoItem label="Client">
             {evt?.nom_client_organisateur ?? <Vide />}
@@ -121,11 +118,7 @@ export function OngletInformations({
             {heure ? `, ${heure}` : ''}
           </InfoItem>
           <InfoItem label="Pax">
-            {evt?.pax != null ? (
-              new Intl.NumberFormat('fr-FR').format(evt.pax)
-            ) : (
-              <Vide />
-            )}
+            {evt?.pax != null ? fmtInt(evt.pax) : <Vide />}
           </InfoItem>
           <InfoItem label="Type d’événement">
             <span className="flex flex-wrap items-center gap-2">
@@ -143,22 +136,24 @@ export function OngletInformations({
           </InfoItem>
           {/* §06.11 différence #3 : l'agence voit qui opère sur place. */}
           {c.traiteur_operationnel !== undefined && (
-            <div className="sm:col-span-2" data-testid="traiteur-operationnel">
-              <dt className="text-savr-neutral-500">Traiteur opérationnel</dt>
-              <dd className="flex flex-wrap items-center gap-2 font-medium">
-                {traiteurOp?.nom ?? <Vide />}
-                {traiteurOp?.est_shadow && (
-                  <button
-                    type="button"
-                    onClick={onHorsReferentiel}
-                    data-testid="badge-hors-referentiel"
-                    className="rounded-savr-full"
-                  >
-                    <Badge variant="warning">Hors référentiel</Badge>
-                  </button>
-                )}
-              </dd>
-            </div>
+            <InfoItem
+              label="Traiteur opérationnel"
+              pleineLargeur
+              data-testid="traiteur-operationnel"
+              valueClassName="flex flex-wrap items-center gap-2"
+            >
+              {traiteurOp?.nom ?? <Vide />}
+              {traiteurOp?.est_shadow && (
+                <button
+                  type="button"
+                  onClick={onHorsReferentiel}
+                  data-testid="badge-hors-referentiel"
+                  className="rounded-savr-full"
+                >
+                  <Badge variant="warning">Hors référentiel</Badge>
+                </button>
+              )}
+            </InfoItem>
           )}
           {/* Badge « Programmée par » (§06.04, ajout 2026-05-07) : événement
               programmé par un tiers, le traiteur est l'opérationnel sur place. */}
@@ -179,8 +174,8 @@ export function OngletInformations({
         </dl>
       </Card>
 
-      <Card className="space-y-4 p-5" data-testid="bloc-lieu">
-        <BlocHeader icon={MapPin} title="Lieu" />
+      <Card padding="md" className="space-y-4" data-testid="bloc-lieu">
+        <SectionHeader icon={MapPin} title="Lieu" />
         <dl className={GRILLE_4}>
           <InfoItem label="Adresse" pleineLargeur>
             {lieu?.nom ?? <Vide />}
@@ -193,20 +188,22 @@ export function OngletInformations({
           <InfoItem label="Contrôle d’accès">
             {c.controle_acces_requis ? 'Oui' : 'Non'}
           </InfoItem>
-          <div className="sm:col-span-2 lg:col-span-4">
-            <dt className="text-savr-neutral-500">Instructions d’accès</dt>
-            <dd className="whitespace-pre-line leading-relaxed text-savr-neutral-700">
-              {instructions.length > 0 ? instructions.join('\n\n') : <Vide />}
-            </dd>
-          </div>
+          <InfoItem
+            variant="texte"
+            label="Instructions d’accès"
+            className="sm:col-span-2 lg:col-span-4"
+            valueClassName="whitespace-pre-line"
+          >
+            {instructions.length > 0 ? instructions.join('\n\n') : <Vide />}
+          </InfoItem>
         </dl>
       </Card>
 
       {/* Bloc absent pour le gestionnaire sur la collecte d'un traiteur tiers
           (§06.05 : rien de personnel sur un traiteur tiers) — décidé serveur. */}
       {evt?.contacts_visibles && (
-        <Card className="space-y-4 p-5" data-testid="bloc-contacts">
-          <BlocHeader icon={Users} title="Contacts sur place" />
+        <Card padding="md" className="space-y-4" data-testid="bloc-contacts">
+          <SectionHeader icon={Users} title="Contacts sur place" />
           <dl className={GRILLE_4}>
             <InfoItem label="Contact principal">
               {evt.contact_principal_nom ?? <Vide />}
@@ -240,19 +237,20 @@ export function BlocAssociation({
   association: AssociationFiche;
 }) {
   return (
-    <Card className="space-y-4 p-5" data-testid="bloc-association">
-      <BlocHeader icon={HandHeart} title="Association bénéficiaire" />
+    <Card padding="md" className="space-y-4" data-testid="bloc-association">
+      <SectionHeader icon={HandHeart} title="Association bénéficiaire" />
       <dl className={GRILLE_4}>
         <InfoItem label="Association" pleineLargeur>
           {association.nom}
         </InfoItem>
         <InfoItem label="Ville">{association.ville ?? <Vide />}</InfoItem>
-        <div className="sm:col-span-2 lg:col-span-4">
-          <dt className="text-savr-neutral-500">Présentation</dt>
-          <dd className="leading-relaxed text-savr-neutral-700">
-            {association.description?.trim() || <Vide />}
-          </dd>
-        </div>
+        <InfoItem
+          variant="texte"
+          label="Présentation"
+          className="sm:col-span-2 lg:col-span-4"
+        >
+          {association.description?.trim() || <Vide />}
+        </InfoItem>
       </dl>
     </Card>
   );
@@ -283,8 +281,8 @@ export function OngletLogistique({
 
   return (
     <div className="space-y-3">
-      <Card className="space-y-4 p-5" data-testid="bloc-logistique">
-        <BlocHeader
+      <Card padding="md" className="space-y-4" data-testid="bloc-logistique">
+        <SectionHeader
           icon={Truck}
           title={
             !fenetre
@@ -297,16 +295,17 @@ export function OngletLogistique({
           }
         />
         {!fenetre ? (
-          <p className="text-sm text-savr-neutral-500">
-            Aucune information logistique à afficher pour cette collecte.
-          </p>
+          <EmptyState
+            size="inline"
+            title="Aucune information logistique à afficher pour cette collecte."
+          />
         ) : tournees.length === 0 ? (
           <>
-            <p className="text-sm leading-relaxed text-savr-neutral-600">
+            <Text tone="soft" className="leading-relaxed">
               Nous affectons votre chauffeur avant la collecte. Son nom, la
               plaque du véhicule et son téléphone apparaîtront ici dès qu’il
               sera désigné.
-            </p>
+            </Text>
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-3">
               <InfoItem label="Chauffeur">
                 <Vide />
@@ -365,8 +364,9 @@ export function OngletLogistique({
             className="flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:items-center"
           >
             {demandeEnvoyee ? (
-              <p
-                className="flex flex-1 items-start gap-2 text-sm text-savr-neutral-700"
+              <Text
+                variant="body"
+                className="flex flex-1 items-start gap-2"
                 role="status"
               >
                 <CheckCircle2
@@ -380,18 +380,17 @@ export function OngletLogistique({
                   Nous revenons vers vous au plus vite avec les coordonnées du
                   chauffeur.
                 </span>
-              </p>
+              </Text>
             ) : (
               <>
-                <p className="flex-1 text-sm text-savr-neutral-700">
+                <Text variant="body" className="flex-1">
                   Besoin de ces informations rapidement (accès au site, liste de
                   sécurité) ?
-                </p>
+                </Text>
                 <Button
-                  variant="secondary"
+                  variant="outline-warning"
                   onClick={onDemanderUrgence}
                   disabled={urgence === 'envoi'}
-                  className="border-savr-warning-strong text-savr-warning-strong hover:bg-savr-white"
                 >
                   <BellRing className="h-4 w-4" aria-hidden="true" />
                   Demander les coordonnées en urgence
@@ -401,9 +400,9 @@ export function OngletLogistique({
           </div>
         )}
         {urgenceErreur && (
-          <p className="text-sm text-savr-error-strong" role="alert">
+          <AlertBar variant="err" role="alert">
             {urgenceErreur}
-          </p>
+          </AlertBar>
         )}
       </Card>
 

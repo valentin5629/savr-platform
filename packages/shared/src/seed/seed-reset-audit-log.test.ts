@@ -68,7 +68,10 @@ import {
   sqlGardeAuditLog,
   sqlVidageTablesMetier,
   sqlAssertionGardeActive,
+  sqlPhotoReferentiel,
+  sqlRestaurationReferentiel,
   GARDE_AUDIT_LOG,
+  TABLES_REFERENTIEL_PRESERVEES,
 } from './reset.js';
 
 /** Espaces normalisés : l'oracle porte sur le SQL, pas sur son indentation. */
@@ -145,11 +148,57 @@ describe('resetBusinessData — garde d’immuabilité de audit_log', () => {
     expect(requetes.map(sql)).toEqual([
       'BEGIN',
       sql(sqlGardeAuditLog('DISABLE')),
+      ...TABLES_REFERENTIEL_PRESERVEES.map((t) => sql(sqlPhotoReferentiel(t))),
       sql(sqlVidageTablesMetier()),
+      ...TABLES_REFERENTIEL_PRESERVEES.map((t) =>
+        sql(sqlRestaurationReferentiel(t)),
+      ),
       sql(sqlGardeAuditLog('ENABLE')),
       sql(sqlAssertionGardeActive()),
       'COMMIT',
     ]);
+  });
+
+  it('préserve les tables référentiel emportées par le CASCADE — photo AVANT, restauration APRÈS, valide_par neutralisé', async () => {
+    // Bug mesuré sur savr-dev (2026-10-02) : `parametres_algo` et
+    // `parametres_co2_divers` ne sont pas dans le lot, mais leur FK
+    // `valide_par → users` les fait vider par le CASCADE, et le seed ne les
+    // réinsère jamais → page « Paramètres algorithme AG » vide, algo AG sur
+    // ses défauts codés en dur. Les deux tables sont figées ICI, pas dérivées
+    // du module : en retirer une doit rougir.
+    expect([...TABLES_REFERENTIEL_PRESERVEES]).toEqual([
+      'plateforme.parametres_algo',
+      'plateforme.parametres_co2_divers',
+    ]);
+    // Aucune des deux n'est dans le lot vidé (sinon la photo serait inutile).
+    for (const t of TABLES_REFERENTIEL_PRESERVEES) {
+      expect(sqlVidageTablesMetier()).not.toContain(t);
+    }
+
+    const { client, requetes } = clientEspion();
+    await resetBusinessData(client);
+
+    const iVidage = requetes.findIndex(estVidage);
+    for (const t of TABLES_REFERENTIEL_PRESERVEES) {
+      const iPhoto = requetes.findIndex((q) => q === sqlPhotoReferentiel(t));
+      const iRestau = requetes.findIndex(
+        (q) => q === sqlRestaurationReferentiel(t),
+      );
+      expect(iPhoto, `photo de ${t} absente`).toBeGreaterThan(0);
+      expect(iRestau, `restauration de ${t} absente`).toBeGreaterThan(0);
+      expect(iPhoto).toBeLessThan(iVidage);
+      expect(iVidage).toBeLessThan(iRestau);
+    }
+
+    // Forme épinglée en dur : la photo neutralise `valide_par` (les users
+    // pointés n'existent plus après le vidage) et vit le temps de la
+    // transaction ; la restauration recopie la photo colonne pour colonne.
+    expect(sql(sqlPhotoReferentiel('plateforme.parametres_algo'))).toBe(
+      'CREATE TEMP TABLE _seed_ref_plateforme_parametres_algo ON COMMIT DROP AS SELECT * FROM plateforme.parametres_algo; UPDATE _seed_ref_plateforme_parametres_algo SET valide_par = NULL;',
+    );
+    expect(sqlRestaurationReferentiel('plateforme.parametres_algo')).toBe(
+      'INSERT INTO plateforme.parametres_algo SELECT * FROM _seed_ref_plateforme_parametres_algo;',
+    );
   });
 
   it('les deux actions ne diffèrent QUE par le verbe ENABLE/DISABLE', () => {

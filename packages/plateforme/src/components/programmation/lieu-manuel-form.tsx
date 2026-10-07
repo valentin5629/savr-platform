@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { FormError } from '@/components/ui/form-error';
 import type { LieuOption } from '@/components/programmation/lieu-combobox';
 import { AdresseAutocompleteInput } from '@/components/programmation/adresse-autocomplete-input';
+import { FormActions } from '@/components/ui/form-actions';
 
 const OPTIONS_VEHICULE = [
   { value: '', label: 'Optionnel' },
@@ -124,6 +125,7 @@ export function LieuManuelForm({
             ) : (
               <Input
                 id={`lieu-${field}`}
+                required
                 placeholder={CHAMPS[field].placeholder}
                 value={form[field]}
                 onChange={(e) =>
@@ -134,7 +136,7 @@ export function LieuManuelForm({
           </FormField>
         ),
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <FormGrid cols={3}>
         <FormField label="Type de véhicule max" htmlFor="lieu-vehicule">
           <Combobox
             id="lieu-vehicule"
@@ -165,16 +167,17 @@ export function LieuManuelForm({
             onChange={(v) => setForm((p) => ({ ...p, acces_office: v }))}
           />
         </FormField>
-      </div>
+      </FormGrid>
       {error && <FormError>{error}</FormError>}
-      <div className="flex gap-2 justify-end pt-1">
-        <Button variant="secondary" onClick={onCancel}>
-          Annuler
-        </Button>
-        <Button onClick={() => void handleSave()} disabled={!valid || loading}>
-          Ajouter ce lieu
-        </Button>
-      </div>
+      <FormActions
+        cancel={{ label: 'Annuler', onClick: onCancel }}
+        submit={{
+          label: 'Ajouter ce lieu',
+          onClick: () => void handleSave(),
+          disabled: !valid || loading,
+        }}
+        className="pt-1"
+      />
     </div>
   );
 }

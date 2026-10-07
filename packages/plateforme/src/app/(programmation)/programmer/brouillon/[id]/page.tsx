@@ -1,10 +1,15 @@
 'use client';
 
+import { AlertBar } from '@/components/ui/alert-bar';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle, AlertTriangle, CalendarDays, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
+import { FormActions } from '@/components/ui/form-actions';
+import { ROUTES } from '@/lib/routes';
 
 interface BrouillonDetail {
   id: string;
@@ -47,7 +52,7 @@ export default function RepriseBrouillonPage() {
         setError(json.error ?? 'Erreur lors de la confirmation');
         return;
       }
-      router.push('/brouillons');
+      router.push(ROUTES.brouillons);
     } finally {
       setConfirming(false);
     }
@@ -66,8 +71,13 @@ export default function RepriseBrouillonPage() {
   if (!evt) {
     return (
       <div className="max-w-xl mx-auto space-y-4">
-        <p className="text-savr-error">{error ?? 'Brouillon introuvable.'}</p>
-        <Button variant="secondary" onClick={() => router.push('/brouillons')}>
+        <AlertBar variant="err" role="alert">
+          {error ?? 'Brouillon introuvable.'}
+        </AlertBar>
+        <Button
+          variant="secondary"
+          onClick={() => router.push(ROUTES.brouillons)}
+        >
           Retour aux brouillons
         </Button>
       </div>
@@ -78,9 +88,7 @@ export default function RepriseBrouillonPage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-savr-neutral-900">
-        Confirmer le brouillon
-      </h1>
+      <PageHeader title="Confirmer le brouillon" tone="neutral" size="xl" />
 
       <div className="rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-5 space-y-3">
         <p className="font-medium text-savr-neutral-900">
@@ -88,45 +96,56 @@ export default function RepriseBrouillonPage() {
         </p>
         <ul className="space-y-2">
           {brouillons.map((c) => (
-            <li
+            <Text
+              as="li"
+              variant="body"
+              className="flex items-center gap-3"
               key={c.id}
-              className="flex items-center gap-3 text-sm text-savr-neutral-700"
             >
               <CalendarDays className="h-4 w-4 shrink-0 text-savr-neutral-400" />
-              <span className="uppercase font-medium text-xs text-savr-neutral-500 w-6">
+              <Text
+                as="span"
+                variant="hint"
+                className="w-6 font-medium uppercase"
+              >
                 {c.type}
-              </span>
+              </Text>
               {c.date_collecte}
-            </li>
+            </Text>
           ))}
         </ul>
         {brouillons.length === 0 && (
-          <p className="text-sm text-savr-neutral-500 flex items-center gap-2">
+          <Text className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
             Aucune collecte en brouillon à confirmer.
-          </p>
+          </Text>
         )}
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-savr-md bg-red-50 border border-savr-error px-3 py-2 text-sm text-savr-error">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
           {error}
-        </div>
+        </AlertBar>
       )}
 
-      <div className="flex gap-3">
-        <Button
-          onClick={() => void handleConfirmer()}
-          disabled={confirming || brouillons.length === 0}
-        >
-          <CheckCircle className="h-4 w-4" />
-          {confirming ? 'Confirmation…' : 'Confirmer la programmation'}
-        </Button>
-        <Button variant="secondary" onClick={() => router.push('/brouillons')}>
-          Annuler
-        </Button>
-      </div>
+      <FormActions
+        cancel={{
+          label: 'Annuler',
+          onClick: () => router.push(ROUTES.brouillons),
+        }}
+        submit={{
+          label: (
+            <>
+              <CheckCircle /> Confirmer la programmation
+            </>
+          ),
+          onClick: () => void handleConfirmer(),
+          disabled: brouillons.length === 0,
+        }}
+        loading={confirming}
+        loadingText="Confirmation…"
+        className="gap-3"
+      />
     </div>
   );
 }

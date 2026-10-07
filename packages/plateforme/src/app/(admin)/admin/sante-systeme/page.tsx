@@ -9,8 +9,11 @@ import {
   type OpsBatch,
   type OpsIntegration,
 } from './tableaux-sante';
-
-const ALLOWED_ROLES = ['admin_savr', 'ops_savr'];
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { isStaff } from '@/lib/roles';
+import { ROUTES } from '@/lib/routes';
 
 interface OpsOutbox {
   nb_pending: number;
@@ -97,14 +100,14 @@ export default async function SanteSystemePage() {
   const {
     data: { user },
   } = await authClient.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(ROUTES.login);
 
   const {
     data: { session },
   } = await authClient.auth.getSession();
   const claims = parseJwtClaims(session?.access_token ?? '');
   const role = claims['user_role'] as string | undefined;
-  if (!role || !ALLOWED_ROLES.includes(role)) redirect('/403');
+  if (!isStaff(role)) redirect(ROUTES.interdit);
 
   const data = await fetchOpsData();
 
@@ -114,16 +117,14 @@ export default async function SanteSystemePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
-        Santé système
-      </h1>
+      <PageHeader title="Santé système" />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {/* Outbox */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Outbox events</CardTitle>
+              <CardTitle size="base">Outbox events</CardTitle>
               <StatusBadge ok={outboxOk} />
             </div>
           </CardHeader>
@@ -168,7 +169,7 @@ export default async function SanteSystemePage() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Jobs PDF</CardTitle>
+              <CardTitle size="base">Jobs PDF</CardTitle>
               <StatusBadge ok={jobsPdfOk} />
             </div>
           </CardHeader>
@@ -202,9 +203,7 @@ export default async function SanteSystemePage() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                Factures bloquées Pennylane
-              </CardTitle>
+              <CardTitle size="base">Factures bloquées Pennylane</CardTitle>
               <StatusBadge
                 ok={facturesOk}
                 label={facturesOk ? 'OK' : `${data.facturesBloquees.length}`}
@@ -213,9 +212,10 @@ export default async function SanteSystemePage() {
           </CardHeader>
           <CardContent className="text-sm">
             {data.facturesBloquees.length === 0 ? (
-              <p className="text-savr-neutral-500">
-                Aucune facture en attente &gt; 48h
-              </p>
+              <EmptyState
+                size="inline"
+                title="Aucune facture en attente > 48h"
+              />
             ) : (
               <ul className="space-y-1">
                 {data.facturesBloquees.slice(0, 5).map((f) => (
@@ -229,9 +229,9 @@ export default async function SanteSystemePage() {
                   </li>
                 ))}
                 {data.facturesBloquees.length > 5 && (
-                  <li className="text-savr-neutral-400 text-xs">
+                  <Text as="li" variant="faint">
                     +{data.facturesBloquees.length - 5} autres
-                  </li>
+                  </Text>
                 )}
               </ul>
             )}
@@ -242,7 +242,7 @@ export default async function SanteSystemePage() {
       {/* Intégrations */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Intégrations externes</CardTitle>
+          <CardTitle size="base">Intégrations externes</CardTitle>
         </CardHeader>
         <CardContent>
           <TableauIntegrations integrations={data.integrations} />
@@ -252,7 +252,7 @@ export default async function SanteSystemePage() {
       {/* Batchs cron */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Batchs cron</CardTitle>
+          <CardTitle size="base">Batchs cron</CardTitle>
         </CardHeader>
         <CardContent>
           <TableauBatchs batchs={data.batchs} />

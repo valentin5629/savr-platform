@@ -1,9 +1,12 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useState } from 'react';
+import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface DocItem {
   type: 'rapport' | 'bordereau' | 'attestation';
@@ -105,9 +108,10 @@ export default function ClientOrganisateurDocumentsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
-        Mes documents
-      </h1>
+      <PageHero
+        icon={<FileText className="h-6 w-6 text-savr-primary-200" />}
+        title="Mes documents"
+      />
 
       {/* Data Table commune. Tri côté navigateur : la route renvoie la liste
           complète des documents (aucune pagination ni `.limit()`). Ordre
@@ -118,9 +122,10 @@ export default function ClientOrganisateurDocumentsPage() {
         getRowId={cle}
         loading={loading}
         empty={
-          <p className="text-sm text-savr-neutral-500">
-            Aucun document disponible pour le moment.
-          </p>
+          <EmptyState
+            size="inline"
+            title="Aucun document disponible pour le moment."
+          />
         }
       />
     </div>

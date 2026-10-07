@@ -36,14 +36,12 @@ async function ouvrirOnglet(nom: string): Promise<void> {
   );
 }
 
-// Réponse gestionnaire : la clé `association` n'existe pas (Q7).
+// Réponse gestionnaire : même fiche que le traiteur, actions du rôle en moins.
 function ficheGestionnaire(over: Parameters<typeof ficheClient>[0] = {}) {
-  const f = ficheClient({
+  return ficheClient({
     actions: { modifier: 'grise', annuler: 'absent', annulation: null },
     ...over,
   });
-  delete f.association;
-  return f;
 }
 
 beforeEach(() => {
@@ -72,14 +70,57 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
     ATTENTE_CAS_MS,
   );
 
+  // §06.05 l.85 : le masquage du bloc était une limite technique, levée par la
+  // vue v_attributions_gestionnaire (§04).
   it(
-    'M3.2/fiche_popup_gestionnaire_sans_association — AG : aucun bloc Association bénéficiaire',
+    'M3.2/fiche_popup_gestionnaire_association_affichee — AG : bloc Association bénéficiaire sur Logistique et Bilan',
     async () => {
       stubFetchFiche(
         ficheGestionnaire({
           type: 'anti_gaspi',
           statut: 'cloturee',
           repas_donnes: 840,
+          association: {
+            nom: 'Les Restos du Cœur',
+            ville: 'Paris',
+            description: 'Aide alimentaire et accompagnement.',
+          },
+          rapport_rse_disponible: true,
+          actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+        }),
+      );
+      render(fiche());
+
+      await ouvrirOnglet('Logistique');
+      const bloc = await screen.findByTestId(
+        'bloc-association',
+        {},
+        ATTENTE_UI,
+      );
+      expect(bloc.textContent).toContain('Les Restos du Cœur');
+      expect(bloc.textContent).toContain('Paris');
+      expect(bloc.textContent).toContain('Aide alimentaire');
+      await ouvrirOnglet('Bilan & documents');
+      await screen.findByTestId('kpi-ag', {}, ATTENTE_UI);
+      expect(screen.getByTestId('bloc-association').textContent).toContain(
+        'Les Restos du Cœur',
+      );
+      expect(screen.getByTestId('bloc-documents').textContent).toContain(
+        'Rapport de don',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/fiche_popup_gestionnaire_sans_attribution — AG sans attribution rendue par la vue : aucun bloc Association',
+    async () => {
+      stubFetchFiche(
+        ficheGestionnaire({
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          repas_donnes: null,
+          association: null,
           rapport_rse_disponible: true,
           actions: { modifier: 'absent', annuler: 'absent', annulation: null },
         }),
@@ -89,12 +130,6 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       await ouvrirOnglet('Logistique');
       await screen.findByTestId('bloc-logistique', {}, ATTENTE_UI);
       expect(screen.queryByTestId('bloc-association')).toBeNull();
-      await ouvrirOnglet('Bilan & documents');
-      await screen.findByTestId('kpi-ag', {}, ATTENTE_UI);
-      expect(screen.queryByTestId('bloc-association')).toBeNull();
-      expect(screen.getByTestId('bloc-documents').textContent).toContain(
-        'Rapport de don',
-      );
     },
     ATTENTE_CAS_MS,
   );

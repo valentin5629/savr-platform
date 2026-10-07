@@ -1,17 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Bell, CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FilterChips } from '@/components/ui/filter-chips';
+import { texte, useFiltresUrl } from '@/lib/hooks/use-filtres-url';
+import { compteurResultats } from '@/lib/compteur-resultats';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import {
   SEVERITE_BADGE,
   severiteParCode,
   entiteHref,
 } from '@/lib/alertes-admin.js';
+import { PageHero } from '@/components/ui/page-hero';
+import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
 
 interface Alerte {
   id: string;
@@ -25,65 +32,58 @@ interface Alerte {
   resolue_at: string | null;
 }
 
-const FILTRES = [
+// Pastilles de statut (R-UI-4b, D3) : `FilterChips` du DS, état dans l'URL
+// (`?statut=…`, défaut « Ouvertes » omis).
+const PASTILLES_STATUT = [
   { key: 'ouverte', label: 'Ouvertes' },
   { key: 'resolue', label: 'Résolues' },
   { key: 'all', label: 'Toutes' },
-] as const;
+];
+
+const FILTRES = { statut: texte('ouverte') };
 
 export default function AlertesPage() {
-  const [alertes, setAlertes] = useState<Alerte[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [statut, setStatut] = useState<string>('ouverte');
-  const [resolvingId, setResolvingId] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    fetch(`/api/v1/admin/alertes?statut=${statut}`)
-      .then((r) => r.json())
-      .then((d: { data?: Alerte[] }) => setAlertes(d.data ?? []))
-      .finally(() => setLoading(false));
-  }, [statut]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const resoudre = useCallback(
-    async (id: string) => {
-      setResolvingId(id);
-      try {
-        const res = await fetch(
-          `/api/v1/admin/alertes/${encodeURIComponent(id)}`,
-          {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ action: 'resoudre' }),
-          },
-        );
-        if (!res.ok) return;
-        // Retrait optimiste de la vue « Ouvertes » ; sinon on rafraîchit le statut.
-        if (statut === 'ouverte') {
-          setAlertes((prev) => prev.filter((a) => a.id !== id));
-        } else {
-          setAlertes((prev) =>
-            prev.map((a) =>
-              a.id === id
-                ? {
-                    ...a,
-                    statut: 'resolue',
-                    resolue_at: new Date().toISOString(),
-                  }
-                : a,
-            ),
-          );
-        }
-      } finally {
-        setResolvingId(null);
-      }
-    },
-    [statut],
+  const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES);
+  const statut = f.statut;
+  // Valeur lue de l'URL : encodée (revue sécurité #481), la route la valide.
+  const { data, loading, erreur, recharger } = useListePaginee<Alerte>(
+    `/api/v1/admin/alertes?${new URLSearchParams({ statut }).toString()}`,
   );
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  // Résolutions optimistes (id → date) appliquées par-dessus la liste chargée :
+  // retrait de la vue « Ouvertes », statut « Résolue » dans les autres vues.
+  const [resolues, setResolues] = useState<Record<string, string>>({});
+
+  const alertes = useMemo(
+    () =>
+      statut === 'ouverte'
+        ? data.filter((a) => !(a.id in resolues))
+        : data.map((a) =>
+            a.id in resolues
+              ? { ...a, statut: 'resolue', resolue_at: resolues[a.id]! }
+              : a,
+          ),
+    [data, resolues, statut],
+  );
+
+  const resoudre = useCallback(async (id: string) => {
+    setResolvingId(id);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/alertes/${encodeURIComponent(id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'resoudre' }),
+        },
+      );
+      if (!res.ok) return;
+      // Retrait optimiste de la vue « Ouvertes » ; sinon on rafraîchit le statut.
+      setResolues((prev) => ({ ...prev, [id]: new Date().toISOString() }));
+    } finally {
+      setResolvingId(null);
+    }
+  }, []);
 
   const columns: Column<Alerte>[] = [
     {
@@ -102,13 +102,13 @@ export default function AlertesPage() {
         <div className="max-w-xl">
           <p className="font-medium text-savr-neutral-900">{row.titre}</p>
           {row.message && (
-            <p className="mt-0.5 text-xs text-savr-neutral-500">
+            <Text variant="hint" className="mt-0.5">
               {row.message}
-            </p>
+            </Text>
           )}
-          <p className="mt-0.5 font-mono text-[11px] text-savr-neutral-400">
+          <Text variant="hint" tone="faint" className="mt-0.5 font-mono">
             {row.code}
-          </p>
+          </Text>
         </div>
       ),
     },
@@ -118,22 +118,15 @@ export default function AlertesPage() {
       render: (row) => {
         const href = entiteHref(row.entity_type, row.entity_id);
         if (!row.entity_type)
-          return <span className="text-neutral-400">—</span>;
+          return <span className="text-savr-neutral-400">—</span>;
         if (href) {
           return (
-            <Link
-              href={href}
-              className="text-sm text-savr-primary-700 hover:underline"
-            >
+            <TextLink href={href} className="text-sm">
               {row.entity_type}
-            </Link>
+            </TextLink>
           );
         }
-        return (
-          <span className="text-sm text-savr-neutral-500">
-            {row.entity_type}
-          </span>
-        );
+        return <Text as="span">{row.entity_type}</Text>;
       },
     },
     {
@@ -153,51 +146,48 @@ export default function AlertesPage() {
           <Button
             variant="secondary"
             size="sm"
-            disabled={resolvingId === row.id}
             onClick={() => resoudre(row.id)}
+            loading={resolvingId === row.id}
+            loadingText="Résolution…"
           >
-            {resolvingId === row.id ? 'Résolution…' : 'Résoudre'}
+            Résoudre
           </Button>
         ) : (
-          <span className="inline-flex items-center gap-1 text-xs text-savr-neutral-500">
+          <Text
+            as="span"
+            variant="hint"
+            className="inline-flex items-center gap-1"
+          >
             <CheckCircle2 className="h-3.5 w-3.5 text-savr-success" />
             Résolue
-          </span>
+          </Text>
         ),
     },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Bell className="h-6 w-6 text-savr-primary-600" />
-        <div>
-          <h1 className="text-2xl font-semibold">Alertes</h1>
-          <p className="text-sm text-savr-neutral-500">
-            Alertes Admin in-app à traiter (packs, pesées, PDF, facturation,
-            dispatch…). Le canal d&apos;action des alertes fonctionnelles est
-            cet écran, pas Slack.
-          </p>
-        </div>
-      </div>
+      <PageHero
+        icon={<Bell className="h-6 w-6 text-savr-primary-200" />}
+        title="Alertes"
+        subtitle="Alertes Admin in-app à traiter (packs, pesées, PDF, facturation, dispatch…). Le canal d'action des alertes fonctionnelles est cet écran, pas Slack."
+      />
 
-      <div className="flex flex-wrap gap-2">
-        {FILTRES.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setStatut(f.key)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-              statut === f.key
-                ? 'bg-savr-primary-600 text-white'
-                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <FilterBar
+        data-testid="alertes-filtres"
+        count={compteurResultats(alertes.length, 'alerte', 'alertes')}
+        actif={actif}
+        onReset={reset}
+      >
+        <FilterChips
+          chips={PASTILLES_STATUT}
+          activeKey={statut}
+          ariaLabel="Filtrer par statut"
+          onSelect={(key) => set({ statut: key })}
+        />
+      </FilterBar>
 
-      {!loading && alertes.length === 0 ? (
+      {!loading && !erreur && alertes.length === 0 ? (
         <EmptyState
           icon={<Bell />}
           title="Aucune alerte"
@@ -213,6 +203,8 @@ export default function AlertesPage() {
           data={alertes}
           clientSort
           loading={loading}
+          erreur={erreur}
+          onRecharger={recharger}
           keyExtractor={(a) => a.id}
         />
       )}

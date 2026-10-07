@@ -179,8 +179,16 @@ describe('M3.6 / Dashboard Client / UI', () => {
           ),
         ATTENTE_UI,
       );
-      expect(screen.getByTestId('org-filtre-traiteur')).toHaveTextContent(
-        'Traiteur Alpha',
+      // Le libellé « Traiteur Alpha » dépend du fetch de la liste des
+      // organisations (distinct de la requête KPI) : tant qu'elle n'est pas
+      // chargée, o1 n'est rattaché à aucun type et le filtre affiche « Aucun ».
+      // Attente explicite (test instable en CI sinon).
+      await waitFor(
+        () =>
+          expect(screen.getByTestId('org-filtre-traiteur')).toHaveTextContent(
+            'Traiteur Alpha',
+          ),
+        ATTENTE_UI,
       );
       // Et en ouvrant le filtre Traiteur, o1 est bien coché.
       fireEvent.click(screen.getByTestId('org-filtre-traiteur'));
@@ -306,10 +314,9 @@ describe('M3.6 / Dashboard Client / UI', () => {
         ATTENTE_UI,
       );
 
-      // « Réinitialiser » → période par défaut + les 3 filtres à « Tous/Toutes ».
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Réinitialiser les filtres' }),
-      );
+      // « Réinitialiser » de la barre globale (celui du benchmark porte le même
+      // libellé unique) → période par défaut + les 3 filtres à « Tous/Toutes ».
+      fireEvent.click(screen.getByTestId('dashboard-filter-reinitialiser'));
       await waitFor(() => {
         expect(traiteur).toHaveTextContent('TraiteurTous');
         expect(agence).toHaveTextContent('AgenceToutes');
@@ -376,6 +383,212 @@ describe('M3.6 / Dashboard Client / UI', () => {
         () => expect(orgIdsDerniereRequete()).toEqual(['o1']),
         ATTENTE_UI,
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// ─── Bloc 3 ZD — ligne de référence paramétrable (décision Val 2026-10-02) ────
+
+const TRAITEUR_B = '22222222-2222-4222-8222-222222222222';
+
+function benchmarkCalls(): string[] {
+  return fetchMock.mock.calls
+    .map((c) => String(c[0]))
+    .filter((u) => /\/dashboard-client\/benchmark(\?|$)/.test(u));
+}
+
+describe('M3.6 / Dashboard Client / référence radar', () => {
+  it(
+    'M3.6/benchmark_admin_reference_filtres_sans_k_anonymat — encart « Comparer avec » admin : traiteur ciblé → requête filtrée, ligne « Périmètre comparé », échantillon affiché, pas d’avertissement « vos données »',
+    async () => {
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/dashboard-client/organisations'))
+          return jsonResponse({ data: ORGS });
+        // Avant le test générique « /benchmark » : l'URL des filtres le contient.
+        if (url.includes('/dashboard-client/benchmark/filtres'))
+          return jsonResponse({
+            data: {
+              lieux: [{ id: 'l1', nom: 'Pavillon Gabriel' }],
+              traiteurs: [{ id: TRAITEUR_B, nom: 'Traiteur Bêta' }],
+              types: [{ id: 'ty1', libelle: 'Cocktail' }],
+            },
+          });
+        if (url.includes('/dashboard-client/benchmark'))
+          return jsonResponse({
+            data: {
+              kgParPaxParFlux: {
+                biodechet: url.includes('traiteur_ids') ? 0.2 : 0.1,
+              },
+              nbCollectes: url.includes('traiteur_ids') ? 2 : 7,
+              periode: { debut: '2024-10-02', fin: '2026-10-02' },
+            },
+          });
+        if (url.includes('/dashboard-client'))
+          return jsonResponse({
+            data: { kpi: KPI_AGREGE, kgParPaxParFlux: { biodechet: 0.12 } },
+          });
+        return jsonResponse({});
+      });
+      render(<DashboardClientView />);
+
+      // L'encart est DANS la carte du radar ; défaut = parc entier.
+      expect(
+        await screen.findByTestId(
+          'benchmark-filter-bar',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Moyenne parc')).toBeInTheDocument();
+      await waitFor(
+        () => expect(benchmarkCalls().length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+      expect(benchmarkCalls().at(-1)).not.toMatch(/traiteur_ids/);
+      // La valeur de la référence est bien celle AFFICHÉE dans la liste du
+      // radar (parc = 0,10 kg/pax servi par le mock), pas seulement requêtée.
+      await waitFor(
+        () =>
+          expect(
+            screen
+              .getAllByTestId('benchmark-radar-ligne')
+              .map((l) => l.textContent)
+              .join(' | '),
+          ).toMatch(/Biodéchets0,12 kg\/pax · parc 0,10/),
+        ATTENTE_UI,
+      );
+      // Échantillon de la référence, SANS seuil d'anonymisation (vue Admin).
+      expect(
+        await screen.findByTestId(
+          'benchmark-reference-echantillon',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toHaveTextContent(/7 collectes clôturées Zéro Déchet .* sans seuil/);
+
+      // Le filtre Traiteurs est servi par la route Admin (liste non vide).
+      fireEvent.click(
+        await screen.findByTestId(
+          'benchmark-filter-traiteurs',
+          undefined,
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Traiteur Bêta' }));
+
+      // → référence re-chargée sur CE traiteur (2 collectes d'un seul acteur :
+      //   publiées quand même côté Admin), ligne renommée.
+      await waitFor(
+        () =>
+          expect(benchmarkCalls().at(-1)).toMatch(
+            new RegExp(`traiteur_ids=${TRAITEUR_B}`),
+          ),
+        ATTENTE_UI,
+      );
+      expect(
+        await screen.findByText('Périmètre comparé', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Moyenne parc')).toBeNull();
+      // Titre et aria-label du radar ne parlent plus de « parc » en comparaison.
+      expect(
+        screen.getByText('Intensité par flux · kg/pax vs périmètre comparé'),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('benchmark-radar')).toHaveAttribute(
+        'aria-label',
+        expect.stringContaining('indice comparé = 100'),
+      );
+      // …et la liste bascule sur la valeur du traiteur comparé (0,20 kg/pax).
+      await waitFor(
+        () =>
+          expect(
+            screen
+              .getAllByTestId('benchmark-radar-ligne')
+              .map((l) => l.textContent)
+              .join(' | '),
+          ).toMatch(/Biodéchets0,12 kg\/pax · comparé 0,20/),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () =>
+          expect(
+            screen.getByTestId('benchmark-reference-echantillon'),
+          ).toHaveTextContent(/2 collectes/),
+        ATTENTE_UI,
+      );
+      // Pas d'avertissement « vos propres données » : l'Admin n'a pas de
+      // lieux/traiteurs à lui (§06.05 l.176 ne s'applique pas).
+      expect(screen.queryByTestId('benchmark-comparaison-soi')).toBeNull();
+      // Le périmètre « Vous » n'est pas touché par l'encart.
+      expect(orgIdsDerniereRequete()).toEqual([]);
+
+      // Comparaison traiteur contre traiteur : le périmètre passe à Traiteur
+      // Alpha (« Vous »). Le bloc ZD se démonte pendant « Chargement… » — la
+      // sélection de l'encart (Traiteur Bêta) doit SURVIVRE au remontage
+      // (défaut vu en preview le 2026-10-02 : encart remis à « Tous »).
+      const nbAppelsAvant = benchmarkCalls().length;
+      fireEvent.click(screen.getByTestId('org-filtre-traiteur'));
+      fireEvent.click(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Traiteur Alpha' },
+          ATTENTE_UI,
+        ),
+      );
+      await waitFor(
+        () => expect(orgIdsDerniereRequete()).toEqual(['o1']),
+        ATTENTE_UI,
+      );
+      expect(
+        await screen.findByTestId(
+          'benchmark-filter-traiteurs',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toHaveTextContent(/Traiteur Bêta/);
+      expect(screen.getByText('Périmètre comparé')).toBeInTheDocument();
+      // Même sélection ré-émise au remontage → aucun re-fetch de la référence.
+      expect(benchmarkCalls().length).toBe(nbAppelsAvant);
+      expect(benchmarkCalls().at(-1)).toMatch(
+        new RegExp(`traiteur_ids=${TRAITEUR_B}`),
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.6/benchmark_admin_reference_filtres_sans_k_anonymat — référence injoignable (500) : message « Référence indisponible », pas d’axes muets',
+    async () => {
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/dashboard-client/organisations'))
+          return jsonResponse({ data: ORGS });
+        if (url.includes('/dashboard-client/benchmark/filtres'))
+          return jsonResponse({
+            data: { lieux: [], traiteurs: [], types: [] },
+          });
+        if (url.includes('/dashboard-client/benchmark'))
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: () => Promise.resolve({ error: 'Erreur serveur' }),
+          } as Response);
+        if (url.includes('/dashboard-client'))
+          return jsonResponse({ data: { kpi: KPI_AGREGE } });
+        return jsonResponse({});
+      });
+      render(<DashboardClientView />);
+      expect(
+        await screen.findByTestId(
+          'benchmark-reference-erreur',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toHaveTextContent(/Référence indisponible/);
+      expect(
+        screen.queryByTestId('benchmark-reference-echantillon'),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

@@ -1,17 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
 import { TimePicker } from '@/components/ui/time-picker';
-import { Modal } from '@/components/ui/modal';
 import { Textarea } from '@/components/ui/textarea';
 import { instantParis } from '@savr/shared/src/temps/index.js';
-import { typeCollecteLabel } from '@/components/collecte/fiche-blocs';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { FormActions } from '@/components/ui/form-actions';
 
 interface TypeEvenement {
   id: string;
@@ -221,9 +228,9 @@ export function EditerCollecteForm({
       <CardContent className="space-y-6">
         {/* ── Champs événement ──────────────────────────────────────── */}
         <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-900">
+          <Heading level={3} size="sm">
             Événement
-          </h3>
+          </Heading>
           <FormField label="Nom de l'événement" htmlFor="edit-evt-nom">
             <Input
               id="edit-evt-nom"
@@ -231,7 +238,7 @@ export function EditerCollecteForm({
               onChange={(ev) => setNomEvenement(ev.target.value)}
             />
           </FormField>
-          <div className="grid grid-cols-2 gap-4">
+          <FormGrid>
             <FormField label="Nombre de convives (pax)" htmlFor="edit-evt-pax">
               <Input
                 id="edit-evt-pax"
@@ -248,7 +255,7 @@ export function EditerCollecteForm({
                 onChange={(ev) => setNomClient(ev.target.value)}
               />
             </FormField>
-          </div>
+          </FormGrid>
           <FormField label="Type d'événement" htmlFor="edit-evt-type">
             <Combobox
               id="edit-evt-type"
@@ -273,10 +280,10 @@ export function EditerCollecteForm({
           </FormField>
           {/* Contact principal (sous-bloc) */}
           <div className="space-y-3 rounded-savr-md border border-savr-neutral-200 p-3">
-            <p className="text-sm font-semibold text-savr-neutral-800">
+            <Text tone="strong" className="font-semibold">
               Contact principal
-            </p>
-            <div className="grid grid-cols-2 gap-4">
+            </Text>
+            <FormGrid>
               <FormField label="Prénom et nom" htmlFor="edit-cp-nom">
                 <Input
                   id="edit-cp-nom"
@@ -291,14 +298,14 @@ export function EditerCollecteForm({
                   onChange={(ev) => setCpTel(ev.target.value)}
                 />
               </FormField>
-            </div>
+            </FormGrid>
           </div>
           {/* Contact de secours (sous-bloc) */}
           <div className="space-y-3 rounded-savr-md border border-savr-neutral-200 p-3">
-            <p className="text-sm font-semibold text-savr-neutral-800">
+            <Text tone="strong" className="font-semibold">
               Contact de secours
-            </p>
-            <div className="grid grid-cols-2 gap-4">
+            </Text>
+            <FormGrid>
               <FormField label="Prénom et nom" htmlFor="edit-cs-nom">
                 <Input
                   id="edit-cs-nom"
@@ -313,16 +320,16 @@ export function EditerCollecteForm({
                   onChange={(ev) => setCsTel(ev.target.value)}
                 />
               </FormField>
-            </div>
+            </FormGrid>
           </div>
         </section>
 
         {/* ── Champs collecte ───────────────────────────────────────── */}
         <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-900">
+          <Heading level={3} size="sm">
             Collecte
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
+          </Heading>
+          <FormGrid>
             <FormField label="Date de collecte" htmlFor="edit-date-collecte">
               <DatePicker
                 id="edit-date-collecte"
@@ -337,16 +344,14 @@ export function EditerCollecteForm({
                 onChange={setHeureCollecte}
               />
             </FormField>
-          </div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-savr-neutral-300 text-savr-primary-700"
+          </FormGrid>
+          <Label variant="choice" className="flex items-center gap-3">
+            <Checkbox
               checked={controleAcces}
-              onChange={(ev) => setControleAcces(ev.target.checked)}
+              onCheckedChange={(v) => setControleAcces(v === true)}
             />
-            <span className="text-sm">Contrôle d&apos;accès requis</span>
-          </label>
+            <span>Contrôle d&apos;accès requis</span>
+          </Label>
           <FormField
             label="Informations supplémentaires"
             htmlFor="edit-infos-suppl"
@@ -354,7 +359,7 @@ export function EditerCollecteForm({
             <Textarea
               id="edit-infos-suppl"
               rows={3}
-              maxLength={1000}
+              maxLength={BORNES_TEXTE_LIBRE.informations_supplementaires.max}
               value={infosSuppl}
               onChange={(ev) => setInfosSuppl(ev.target.value)}
             />
@@ -363,77 +368,73 @@ export function EditerCollecteForm({
 
         {/* ── Champs verrouillés (§05 l.314 / §06.04 l.460) ─────────── */}
         <section className="space-y-2 rounded-savr-md bg-savr-neutral-50 p-3">
-          <p className="text-xs text-savr-neutral-500">
+          <Text variant="hint">
             Lieu : <strong>{collecte.lieu_nom ?? '—'}</strong> · Type :{' '}
-            <strong>{typeCollecteLabel(collecte.type)}</strong>
-          </p>
-          <p className="text-xs text-savr-neutral-400">
+            <strong>{libelleTypeCollecte(collecte.type)}</strong>
+          </Text>
+          <Text variant="faint">
             Pour changer le lieu ou le type de collecte, annulez cette collecte
             et programmez-en une nouvelle.
-          </p>
+          </Text>
         </section>
 
         {urgence && (
-          <p className="rounded-savr-md bg-savr-warning-subtle px-3 py-2 text-sm text-savr-warning-strong">
+          <AlertBar variant="warn">
             Cette modification a lieu moins de 12h avant la collecte. Notre
             équipe Ops sera alertée en urgence.
-          </p>
+          </AlertBar>
         )}
-        {error && <p className="text-sm text-savr-error">{error}</p>}
+        {error && (
+          <AlertBar variant="err" role="alert">
+            {error}
+          </AlertBar>
+        )}
 
-        <div className="flex gap-2">
-          <Button onClick={onSubmitClick} disabled={saving}>
-            {saving ? 'Enregistrement…' : 'Confirmer la modification'}
-          </Button>
-          {onCancel && (
-            <Button variant="ghost" onClick={onCancel} disabled={saving}>
-              Annuler
-            </Button>
-          )}
-        </div>
+        <FormActions
+          cancel={
+            onCancel
+              ? { label: 'Annuler', variant: 'ghost', onClick: onCancel }
+              : undefined
+          }
+          submit={{
+            label: 'Confirmer la modification',
+            type: 'button',
+            onClick: onSubmitClick,
+          }}
+          loading={saving}
+          loadingText="Enregistrement…"
+        />
 
         {/* Modal de confirmation unique (§06.04 l.501-507) — empile les
             avertissements applicables avant la sauvegarde. */}
-        <Modal
+        <ConfirmDialog
           open={confirmOpen}
           title="Confirmer la modification"
-          onClose={() => setConfirmOpen(false)}
+          confirmLabel="Confirmer la modification"
+          cancelLabel="Annuler"
+          variant="primary"
+          loading={saving}
+          onConfirm={() => {
+            setConfirmOpen(false);
+            void save();
+          }}
+          onCancel={() => setConfirmOpen(false)}
         >
-          <div className="space-y-3">
-            <ul className="list-disc space-y-2 pl-5 text-sm text-savr-neutral-700">
-              {urgence && (
-                <li>
-                  Cette modification a lieu moins de 12h avant la collecte.
-                  Notre équipe Ops sera alertée en urgence.
-                </li>
-              )}
-              {reacceptation && (
-                <li>
-                  Ce nouveau créneau devra être reconfirmé par notre équipe
-                  logistique.
-                </li>
-              )}
-            </ul>
-            <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
-              <Button
-                variant="secondary"
-                onClick={() => setConfirmOpen(false)}
-                disabled={saving}
-              >
-                Annuler
-              </Button>
-              <Button
-                onClick={() => {
-                  setConfirmOpen(false);
-                  void save();
-                }}
-                disabled={saving}
-              >
-                Confirmer la modification
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-savr-neutral-700">
+            {urgence && (
+              <li>
+                Cette modification a lieu moins de 12h avant la collecte. Notre
+                équipe Ops sera alertée en urgence.
+              </li>
+            )}
+            {reacceptation && (
+              <li>
+                Ce nouveau créneau devra être reconfirmé par notre équipe
+                logistique.
+              </li>
+            )}
+          </ul>
+        </ConfirmDialog>
       </CardContent>
     </Card>
   );

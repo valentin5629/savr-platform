@@ -18,6 +18,8 @@ import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
 import { CelluleVide } from '@/components/ui/data-grid';
+import { Text } from '@/components/ui/text';
+import { fmtKgAuto, fmtPct, fmtInt, fmtPax, UNITE_KG_CO2E } from '@/lib/format';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
 // revue écran 2026-07-15, passage en Data Table 2026-09-28 — décisions Val).
@@ -59,6 +61,11 @@ export interface TraiteurCollecteLigne {
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 const STATUTS_ANNULABLES = ['brouillon', 'programmee', 'validee'];
 
+// Picto des actions de ligne à 50 % de la taille IconButton par défaut
+// (20 px → 10 px, revue écran 2026-10-01) ; la cible tactile du bouton
+// reste 44/40 px.
+const PICTO_ACTION = '[&>svg]:h-2.5 [&>svg]:w-2.5';
+
 export interface ActionsTraiteur {
   onModifier: (c: TraiteurCollecteLigne) => void;
   onAnnuler: (c: TraiteurCollecteLigne) => void;
@@ -80,7 +87,9 @@ export function CelluleLieu({
     <div className="min-w-0">
       <div className="font-medium">{nom ?? '—'}</div>
       {adresse && (
-        <div className="text-xs text-savr-neutral-500">{adresse}</div>
+        <Text as="div" variant="hint">
+          {adresse}
+        </Text>
       )}
     </div>
   );
@@ -107,25 +116,24 @@ export function ResultatsCollecte({
   if (c.statut !== 'cloturee') return <CelluleVide />;
   const zd = c.type === 'zero_dechet';
   return (
-    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs font-bold text-savr-neutral-600 sm:justify-start">
+    <Text
+      as="div"
+      variant="hint"
+      tone="soft"
+      className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
+    >
       {zd ? (
         <>
           {c.poids_total_kg != null && c.poids_total_kg > 0 && (
             <span className="inline-flex items-center gap-1.5">
               <Scale className="h-3.5 w-3.5 text-savr-neutral-400" />
-              {c.poids_total_kg.toLocaleString('fr-FR', {
-                maximumFractionDigits: 1,
-              })}{' '}
-              kg
+              {fmtKgAuto(c.poids_total_kg)}
             </span>
           )}
           {c.taux_recyclage != null && (
             <span className="inline-flex items-center gap-1.5">
               <Recycle className="h-3.5 w-3.5 text-savr-neutral-400" />
-              {c.taux_recyclage.toLocaleString('fr-FR', {
-                maximumFractionDigits: 0,
-              })}{' '}
-              %
+              {fmtPct(c.taux_recyclage, 0)}
             </span>
           )}
         </>
@@ -134,17 +142,16 @@ export function ResultatsCollecte({
         c.nb_repas_donnes > 0 && (
           <span className="inline-flex items-center gap-1.5">
             <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
-            {c.nb_repas_donnes} repas
+            {fmtInt(c.nb_repas_donnes)} repas
           </span>
         )
       )}
       {c.co2_evite_kg != null && c.co2_evite_kg > 0 && (
         <span className="inline-flex items-center gap-1.5">
           <Leaf className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {c.co2_evite_kg.toLocaleString('fr-FR', {
-            maximumFractionDigits: 0,
-          })}{' '}
-          kg CO₂e
+          {fmtInt(c.co2_evite_kg)}
+          {'\u00a0'}
+          {UNITE_KG_CO2E}
         </span>
       )}
       {/* Rapport réservé au donneur d'ordre : action retirée (liste, §10 §7)
@@ -173,7 +180,7 @@ export function ResultatsCollecte({
           <Download />
         </IconButton>
       )}
-    </div>
+    </Text>
   );
 }
 
@@ -222,7 +229,7 @@ export function colonnesCollectesTraiteur(
       accessorFn: (c) => c.pax ?? -1,
       meta: { className: 'text-right tabular-nums' },
       cell: ({ row: { original: c } }) =>
-        c.pax != null ? `${c.pax} pax` : <CelluleVide />,
+        c.pax != null ? fmtPax(c.pax) : <CelluleVide />,
     },
     {
       id: 'resultats',
@@ -238,6 +245,9 @@ export function colonnesCollectesTraiteur(
       id: 'statut',
       header: 'Statut',
       accessorFn: (c) => c.statut,
+      // Colonne au contenu : le badge reste collé aux pictos d'action
+      // (revue écran 2026-10-01).
+      meta: { className: 'w-[1%] whitespace-nowrap' },
       cell: ({ row: { original: c } }) => (
         <CollecteStatutBadge statut={c.statut} />
       ),
@@ -250,11 +260,14 @@ export function colonnesCollectesTraiteur(
         label: 'Actions',
         interactive: true,
         stickyRight: true,
-        className: 'text-right',
+        // Colonne réduite à son contenu (revue écran 2026-10-01) : plus de
+        // vide entre la dernière colonne de données et les pictos.
+        className: 'w-[1%] whitespace-nowrap text-right',
       },
       cell: ({ row: { original: c } }) => (
         // IconButton (§10 §6, icône seule) : libellé au survol (title), cible
-        // tactile 44/40px. L'action indisponible n'est pas rendue.
+        // tactile 44/40px conservée, picto réduit de moitié (revue écran
+        // 2026-10-01). L'action indisponible n'est pas rendue.
         <div className="flex items-center justify-end gap-1">
           {c.canWrite && STATUTS_EDITABLES.includes(c.statut) && (
             <IconButton
@@ -262,6 +275,7 @@ export function colonnesCollectesTraiteur(
               onClick={() => actions.onModifier(c)}
               title="Modifier"
               aria-label="Modifier la collecte"
+              className={PICTO_ACTION}
             >
               <Pencil />
             </IconButton>
@@ -272,6 +286,7 @@ export function colonnesCollectesTraiteur(
               onClick={() => actions.onAnnuler(c)}
               title="Annuler"
               aria-label="Annuler la collecte"
+              className={PICTO_ACTION}
             >
               <XCircle />
             </IconButton>
@@ -281,6 +296,7 @@ export function colonnesCollectesTraiteur(
             onClick={() => actions.onDupliquer(c)}
             title="Dupliquer"
             aria-label="Dupliquer la collecte"
+            className={PICTO_ACTION}
           >
             <Copy />
           </IconButton>

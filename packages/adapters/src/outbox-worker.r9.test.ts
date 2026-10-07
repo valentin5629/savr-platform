@@ -121,6 +121,20 @@ function makeSupabase(opts: MockOpts) {
           data: { date_collecte: collecteRow.date_collecte },
           error: null,
         };
+      // Association destinataire (point B) de la collecte AG.
+      if (table === 'attributions_antgaspi')
+        return {
+          data: {
+            associations: {
+              id_point_collecte_mts1: null,
+              adresse: '12 rue des Associations',
+              ville: 'Ivry-sur-Seine',
+              contact_nom: null,
+              contact_telephone: null,
+            },
+          },
+          error: null,
+        };
       return { data: null, error: null };
     });
     return q;

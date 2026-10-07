@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Truck,
@@ -18,7 +18,13 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import {
+  ToggleTypeCollecte,
+  type TypeCollecteFiltre,
+} from '@/components/collecte/toggle-type-collecte';
 import {
   readCollecteFiltreLabel,
   periodeCourte,
@@ -27,7 +33,15 @@ import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DataGrid, type SortingState } from '@/components/ui/data-grid';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import {
   colonnesCollectesAdmin,
   estUrgente,
@@ -37,6 +51,8 @@ import {
 import { formatDateHeure } from '@/lib/format-date-collecte';
 import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
 import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
+import { Text } from '@/components/ui/text';
+import { ROUTES } from '@/lib/routes';
 
 // Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
 const STATUTS_PROGRAMMEES = ['programmee', 'validee', 'en_cours'];
@@ -64,9 +80,10 @@ const CHIPS_PROGRAMMEES_CATALOGUE = [
 ];
 
 // Chips retirés de la rangée par défaut (décision Val 2026-07-15). Conservés au
-// catalogue : ils ne s'affichent que s'ils sont le filtre actif à l'arrivée (sinon
-// la liste serait filtrée sans indicateur visible) — ce qui préserve les cibles de
-// drill-down Dashboard Admin (non_transmises_zd/ag, zd_48h, ag_48h).
+// catalogue : ils ne s'affichent que s'ils sont le filtre actif (sinon la liste
+// serait filtrée sans indicateur visible) — ce qui préserve les cibles de
+// drill-down Dashboard Admin (non_transmises_zd/ag, zd_48h, ag_48h) et celles
+// des tuiles « AG / ZD à dispatcher ».
 const CHIPS_PROGRAMMEES_MASQUES = new Set([
   'non_transmises_zd',
   'non_transmises_ag',
@@ -80,15 +97,44 @@ const CHIPS_PROGRAMMEES = CHIPS_PROGRAMMEES_CATALOGUE.filter(
   (c) => !CHIPS_PROGRAMMEES_MASQUES.has(c.key),
 );
 
-// Filtres rapides Historique — mappés sur type / statuts (pas de chip serveur).
+// Filtres rapides Historique — mappés sur les statuts (pas de chip serveur).
+// Les anciennes pastilles Anti-Gaspi / Zéro Déchet sont retirées (R-UI-4b, D1) :
+// le type se filtre par LE segmenté `ToggleTypeCollecte` de la FilterBar.
 const CHIPS_HISTORIQUE = [
   { key: '', label: 'Toutes' },
-  { key: 'ag', label: 'Anti-Gaspi' },
-  { key: 'zd', label: 'Zéro Déchet' },
   { key: 'annulee', label: 'Annulées' },
 ];
 
 type Tab = 'programmees' | 'historique';
+
+// Filtres de la liste, miroir dans l'URL (R-UI-4a, D6) : les mêmes clés que
+// les liens de drill-down des dashboards (`?lieu=`, `?traiteur=`, `?chip=`,
+// `?type=`, `?statut=`, `?from=`, `?to=`), en CSV pour les listes. `tab`,
+// `chip` (pastille rapide), `page`, `tri`, `ordre` sont de la navigation :
+// hors « Réinitialiser les filtres », qui n'efface que la barre (la pastille
+// et les filtres se cumulent, décision Val 2026-09-30). `tri`/`ordre` vides =
+// tri par défaut de l'onglet ; `tab` vide = Historique si drill-down, sinon
+// Programmées. `tab` reste de la navigation (R-UI-4b, D2) : les onglets sont
+// un changement de VUE (Tabs, DS règle 6), pas un filtre — « Réinitialiser les
+// filtres » ne change pas de vue et l'onglet ne compte pas dans `actif`.
+// `type` (R-UI-4b, D1) : UN seul contrôle, le segmenté `ToggleTypeCollecte`
+// (`tous` = défaut, omis de l'URL ; `?type=zero_dechet` reste lisible).
+const FILTRES = {
+  tab: navigation(texte('')),
+  chip: navigation(texte('')),
+  type: texte('tous'),
+  traiteur: liste(),
+  lieu: liste(),
+  statut: liste(),
+  from: texte(''),
+  to: texte(''),
+  info_incomplete: texte(''),
+  controle_acces: texte(''),
+  rapport_non_consulte: texte(''),
+  page: navigation(entier(1, 1)),
+  tri: navigation(texte('')),
+  ordre: navigation(texte('')),
+};
 
 // Tri par défaut de chaque onglet : les prochaines collectes d'abord pour
 // « Programmées » (sinon la page 1 montrerait les plus lointaines), les plus
@@ -115,9 +161,9 @@ const KPI_TONE: Record<KpiTone, string> = {
   error: 'bg-savr-error-subtle text-savr-error-strong',
 };
 
-// Tuile KPI de tête de la liste Collectes. Statique (indicateur pur) quand
-// `onClick` est absent ; sinon bouton-filtre cliquable (aria-pressed + flèche
-// de drill-down), état actif encadré comme les chips.
+// Tuile KPI de tête de la liste Collectes : bouton-filtre cliquable
+// (aria-pressed + flèche de drill-down), état actif encadré comme les chips.
+// Gabarit compact (4 tuiles sur une ligne, décision Val 2026-10-01).
 function KpiTile({
   icon: Icone,
   count,
@@ -132,57 +178,39 @@ function KpiTile({
   label: string;
   sublabel: string;
   tone: KpiTone;
-  active?: boolean;
-  onClick?: () => void;
+  active: boolean;
+  onClick: () => void;
 }) {
-  const body = (
-    <>
-      <span
-        className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-savr-md ${KPI_TONE[tone]}`}
-      >
-        <Icone className="h-6 w-6" aria-hidden="true" />
-      </span>
-      <div className="min-w-0">
-        <div className="text-3xl font-extrabold leading-none tracking-tight text-savr-neutral-900 tabular-nums">
-          {count}
-        </div>
-        <div className="mt-1 text-sm font-bold text-savr-neutral-800">
-          {label}
-        </div>
-        <div className="text-xs font-semibold text-savr-neutral-500">
-          {sublabel}
-        </div>
-      </div>
-      {onClick && (
-        <ArrowRight className="ml-auto h-5 w-5 shrink-0 text-savr-neutral-300" />
-      )}
-    </>
-  );
-  const shell =
-    'flex items-center gap-4 rounded-savr-lg border bg-savr-white px-5 py-4 text-left shadow-savr-sm';
-  if (!onClick) {
-    return <div className={`${shell} border-savr-neutral-200`}>{body}</div>;
-  }
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`${shell} transition-[border-color,box-shadow,transform] duration-[120ms] hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
+      className={`flex items-center gap-3 rounded-savr-lg border bg-savr-white px-4 py-3 text-left shadow-savr-sm transition-[border-color,box-shadow,transform] duration-savr-fast hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
         active
           ? 'border-savr-primary-700 shadow-[0_0_0_1px_var(--color-savr-primary-700)]'
           : 'border-savr-neutral-200'
       }`}
     >
-      {body}
+      <span
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-savr-md ${KPI_TONE[tone]}`}
+      >
+        <Icone className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-2xl font-extrabold leading-none tracking-tight text-savr-neutral-900 tabular-nums">
+          {count}
+        </div>
+        <Text as="div" tone="strong" className="mt-1 font-bold leading-tight">
+          {label}
+        </Text>
+        <Text as="div" variant="hint" className="font-semibold leading-tight">
+          {sublabel}
+        </Text>
+      </div>
+      <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-savr-neutral-300" />
     </button>
   );
-}
-
-// Pastilles AG / ZD et tuiles « à dispatcher » : actives quand le filtre Type
-// porte exactement ce type (un re-clic le retire).
-function typeSeul(types: string[], val: string): boolean {
-  return types.length === 1 && types[0] === val;
 }
 
 /** `base` restreint à la sélection de la barre (sélection vide = « Tous »). */
@@ -197,15 +225,17 @@ export default function CollectesPage() {
   const params = useSearchParams();
   // Drill-down depuis les Top listes du Dashboard Client Admin (miroir exact) :
   // lieu / traiteur (OPÉRATIONNEL, décision Val R24c) + type + statut + période.
-  const drillLieu = params.get('lieu');
-  const drillTraiteur = params.get('traiteur');
-  // Drill-down depuis les cartes-actions du Dashboard Admin (Bloc 1) : chip
-  // prédéfini « Programmées » pré-sélectionné à l'arrivée (miroir exact du compteur).
-  const drillChip = params.get('chip');
-  const drillType = params.get('type');
-  const drillStatut = params.get('statut');
-  const drillFrom = params.get('from');
-  const drillTo = params.get('to');
+  // Identifiants figés au montage : ils servent à reconnaître le drill-down
+  // dans les filtres (`drillActive` est DÉRIVÉ des valeurs de la barre, R-UI-4b
+  // D10 : pas d'état séparé) — `useSearchParams` peut être resynchronisé par
+  // Next après chaque écriture de l'URL par `useFiltresUrl`.
+  const [{ drillLieu, drillTraiteur, drillStatut }] = useState(() => ({
+    drillLieu: params.get('lieu'),
+    drillTraiteur: params.get('traiteur'),
+    // Drill-down depuis les cartes-actions du Dashboard Admin (Bloc 1) : chip
+    // prédéfini « Programmées » pré-sélectionné à l'arrivée (miroir exact du compteur).
+    drillStatut: params.get('statut'),
+  }));
   // Périmètre d'organisations propagé par le drill-down (miroir exact du chiffre
   // du dashboard, borné au même périmètre). Figé au montage (getAll = nouveau
   // tableau à chaque render → capté en state pour rester stable dans les deps).
@@ -214,34 +244,49 @@ export default function CollectesPage() {
   );
   const hasDrill = !!(drillLieu || drillTraiteur);
 
-  const [tab, setTab] = useState<Tab>(hasDrill ? 'historique' : 'programmees');
-  const [collectes, setCollectes] = useState<CollecteRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
+  // Onglet : explicite dans l'URL, sinon Historique à l'arrivée d'un drill-down.
+  const [tabDefaut] = useState<Tab>(hasDrill ? 'historique' : 'programmees');
+  const tab: Tab =
+    f.tab === 'historique' || f.tab === 'programmees' ? f.tab : tabDefaut;
   // Filtre rapide de l'onglet actif : chip Programmées OU filtre Historique.
   // Pré-sélectionné depuis le drill-down Dashboard Admin (`?chip=`) s'il désigne
   // un chip « Programmées » connu → la liste s'ouvre déjà filtrée + chip actif.
-  const [quickFilter, setQuickFilter] = useState(
-    drillChip && CHIPS_PROGRAMMEES_CATALOGUE.some((c) => c.key === drillChip)
-      ? drillChip
-      : '',
-  );
-  // Type / Traiteur / Lieu : choix multiple (décision Val 2026-09-30), vide =
+  const quickFilter =
+    tab === 'programmees'
+      ? CHIPS_PROGRAMMEES_CATALOGUE.some((c) => c.key === f.chip)
+        ? f.chip
+        : ''
+      : CHIPS_HISTORIQUE.some((c) => c.key === f.chip)
+        ? f.chip
+        : '';
+  // Type : UN seul contrôle (`ToggleTypeCollecte`, R-UI-4b D1) ; toute autre
+  // valeur d'URL (ancien CSV `type=a,b`, valeur inconnue) = « Toutes ».
+  const type: TypeCollecteFiltre =
+    f.type === 'zero_dechet' || f.type === 'anti_gaspi' ? f.type : 'tous';
+  // Traiteur / Lieu : choix multiple (décision Val 2026-09-30), vide =
   // « Tous ». Le drill-down (?type= / ?traiteur= / ?lieu=) pré-coche une valeur.
-  const [types, setTypes] = useState<string[]>(drillType ? [drillType] : []);
-  const [traiteurIds, setTraiteurIds] = useState<string[]>(
-    drillTraiteur ? [drillTraiteur] : [],
-  );
-  const [lieuIds, setLieuIds] = useState<string[]>(
-    drillLieu ? [drillLieu] : [],
-  );
-  const [from, setFrom] = useState(drillFrom ?? '');
-  const [to, setTo] = useState(drillTo ?? '');
+  const traiteurIds = f.traiteur;
+  const lieuIds = f.lieu;
+  const from = f.from;
+  const to = f.to;
   // Statut (multi-sélection, §06.06 §3) : scopé aux valeurs valides de l'onglet
   // actif ; vide = preset de l'onglet. Info incomplète / rapport non consulté :
   // booléens indépendants de l'onglet.
-  const [statutsSel, setStatutsSel] = useState<string[]>(
-    drillStatut ? [drillStatut] : [],
+  const statutsSel = f.statut;
+  const infoIncomplete = f.info_incomplete === '1';
+  const controleAcces = f.controle_acces === '1';
+  const rapportNonConsulte = f.rapport_non_consulte === '1';
+  const page = f.page;
+  // Tri de la Data Table : explicite dans l'URL, sinon défaut de l'onglet.
+  const sorting: SortingState = useMemo(
+    () => (f.tri ? [{ id: f.tri, desc: f.ordre === 'desc' }] : TRI_DEFAUT[tab]),
+    [f.tri, f.ordre, tab],
   );
   // Libellé humain du filtre de drill-down (lieu / traiteur), lu du sessionStorage
   // posé par le dashboard (fallback null → chip générique).
@@ -251,15 +296,18 @@ export default function CollectesPage() {
       return readCollecteFiltreLabel('traiteur', drillTraiteur);
     return null;
   });
-  const [drillActive, setDrillActive] = useState(hasDrill);
-  const [infoIncomplete, setInfoIncomplete] = useState(false);
-  // « Plaques à envoyer » = contrôle d'accès requis (KPI de tête cliquable).
-  const [controleAcces, setControleAcces] = useState(false);
-  const [rapportNonConsulte, setRapportNonConsulte] = useState(false);
-  const [page, setPage] = useState(1);
-  const [sorting, setSorting] = useState<SortingState>(
-    TRI_DEFAUT[hasDrill ? 'historique' : 'programmees'],
-  );
+  // Chip « Filtre actif » : dérivé des filtres — visible tant que le lieu /
+  // traiteur du drill-down est encore sélectionné dans la barre (R-UI-4b, D10)
+  // OU qu'un périmètre d'organisations borne encore la liste (revue principale
+  // #481 : jamais de filtre invisible sans issue — le ✕ / « Réinitialiser »
+  // du chip retire aussi le périmètre).
+  const drillActive =
+    perimetreOrgIds.length > 0 ||
+    (drillLieu
+      ? lieuIds.includes(drillLieu)
+      : drillTraiteur
+        ? traiteurIds.includes(drillTraiteur)
+        : false);
   const [traiteurs, setTraiteurs] = useState<{ id: string; label: string }[]>(
     [],
   );
@@ -330,13 +378,10 @@ export default function CollectesPage() {
     };
   }, []);
 
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
-
-  const fetchCollectes = useCallback(async () => {
-    const numero = ++derniereRequete.current;
-    setLoading(true);
+  // URL de la liste (R-UI-4a : chargement, garde anti-réponse périmée et état
+  // Error portés par `useListePaginee`). `null` = croisement vide (ex. pastille
+  // Annulées + Statut Clôturée) : aucun appel, liste vide.
+  const urlListe = useMemo(() => {
     const params = new URLSearchParams({ page: String(page) });
     const tri = sorting[0];
     if (tri) {
@@ -361,35 +406,20 @@ export default function CollectesPage() {
             : STATUTS_PROGRAMMEES.join(','),
         );
       }
-      if (types.length > 0) params.set('types', types.join(','));
     } else {
-      // Historique : preset terminaux ; les pastilles Annulées / Anti-Gaspi /
-      // Zéro Déchet se croisent avec Statut / Type de la barre.
+      // Historique : preset terminaux ; la pastille Annulées se croise avec le
+      // Statut de la barre.
       const statutsEff = intersection(
         quickFilter === 'annulee'
           ? ['annulee', 'rejetee_par_prestataire']
           : STATUTS_HISTORIQUE,
         statutsSel,
       );
-      const typePastille =
-        quickFilter === 'ag'
-          ? 'anti_gaspi'
-          : quickFilter === 'zd'
-            ? 'zero_dechet'
-            : null;
-      const typesEff = typePastille
-        ? intersection([typePastille], types)
-        : types;
-      if (statutsEff.length === 0 || (typePastille && typesEff.length === 0)) {
-        // Croisement vide (ex. pastille Anti-Gaspi + Type Zéro Déchet).
-        setCollectes([]);
-        setTotal(0);
-        setLoading(false);
-        return;
-      }
+      if (statutsEff.length === 0) return null;
       params.set('statuts', statutsEff.join(','));
-      if (typesEff.length > 0) params.set('types', typesEff.join(','));
     }
+    // Type (segmenté) : même paramètre CSV qu'avant, absent pour « Toutes ».
+    if (type !== 'tous') params.set('types', type);
 
     // « Traiteur » = traiteur OPÉRATIONNEL (décision Val R24c) → miroir exact du
     // Top 5 traiteurs des dashboards (agrégé par traiteur_operationnel).
@@ -403,22 +433,13 @@ export default function CollectesPage() {
     if (infoIncomplete) params.set('info_incomplete', 'true');
     if (controleAcces) params.set('controle_acces', 'true');
     if (rapportNonConsulte) params.set('rapport_non_consulte', 'true');
-
-    const res = await fetch(`/api/v1/admin/collectes?${params}`);
-    if (numero !== derniereRequete.current) return;
-    if (res.ok) {
-      const json = (await res.json()) as { data: CollecteRow[]; total: number };
-      if (numero !== derniereRequete.current) return;
-      setCollectes(json.data);
-      setTotal(json.total);
-    }
-    setLoading(false);
+    return `/api/v1/admin/collectes?${params}`;
   }, [
     tab,
     page,
     sorting,
     quickFilter,
-    types,
+    type,
     statutsSel,
     traiteurIds,
     lieuIds,
@@ -429,10 +450,13 @@ export default function CollectesPage() {
     controleAcces,
     rapportNonConsulte,
   ]);
-
-  useEffect(() => {
-    void fetchCollectes();
-  }, [fetchCollectes]);
+  const {
+    data: collectes,
+    total,
+    loading,
+    erreur,
+    recharger: fetchCollectes,
+  } = useListePaginee<CollecteRow>(urlListe);
 
   // ── Pop-up centré (modale) — fiche collecte complète (ex-page [id]) ─────────
   // openId = état local, initialisé depuis l'URL (?collecte=<id>) → deep-links
@@ -445,11 +469,19 @@ export default function CollectesPage() {
 
   const setCollecteParam = useCallback(
     (id: string | null) => {
-      const sp = new URLSearchParams(params.toString());
+      // Base = l'URL du document (les filtres y sont écrits par `useFiltresUrl`),
+      // pas `useSearchParams` (figé à la dernière navigation Next).
+      const sp = new URLSearchParams(
+        typeof window === 'undefined'
+          ? params.toString()
+          : window.location.search,
+      );
       if (id) sp.set('collecte', id);
       else sp.delete('collecte');
       const qs = sp.toString();
-      router.replace(qs ? `/admin/collectes?${qs}` : '/admin/collectes');
+      router.replace(
+        qs ? `${ROUTES.admin.collectes}?${qs}` : ROUTES.admin.collectes,
+      );
     },
     [params, router],
   );
@@ -467,17 +499,25 @@ export default function CollectesPage() {
     setCollecteParam(null);
     // Une action dans la fiche (dispatch, forçage statut, pesées…) peut changer
     // la liste ou un compteur → on rafraîchit à la fermeture.
-    void fetchCollectes();
+    fetchCollectes();
     void loadChipCounts();
   }, [setCollecteParam, fetchCollectes, loadChipCounts]);
 
   const changeTab = (next: Tab) => {
-    setTab(next);
-    setQuickFilter('');
-    setTypes([]);
-    setStatutsSel([]);
-    setSorting(TRI_DEFAUT[next]);
-    setPage(1);
+    set({ tab: next, chip: '', type: 'tous', statut: [], tri: '', ordre: '' });
+  };
+
+  // Tuile « AG / ZD à dispatcher » : pose (ou retire) le chip « Non transmises »
+  // de son type. À l'activation, la tuile pilote le MÊME état `type` que le
+  // segmenté (R-UI-4b, D1 : pas un 4e contrôle) et le remet à « Toutes » : le
+  // chip porte déjà son type, et un autre type choisi viderait la liste alors
+  // que la tuile affiche N (décision Val 2026-10-01). Les autres filtres de la
+  // barre continuent de se cumuler.
+  const basculerADispatcher = (
+    chip: 'non_transmises_ag' | 'non_transmises_zd',
+  ) => {
+    const actif = quickFilter === chip;
+    set(actif ? { chip: '' } : { chip, type: 'tous' });
   };
 
   // Urgences (AG à attribuer < 48h) en tête de page (§06.09 §1) — uniquement
@@ -503,20 +543,22 @@ export default function CollectesPage() {
           ]
         : CHIPS_PROGRAMMEES
       : CHIPS_HISTORIQUE;
-  const totalPages = Math.max(1, Math.ceil(total / 50));
-
-  // Efface le filtre de drill-down (lieu / traiteur venu du dashboard) → liste nue.
+  // Efface le filtre de drill-down (lieu / traiteur venu du dashboard) → liste
+  // nue : filtres au défaut (le chip « Filtre actif » s'éteint avec le lieu /
+  // traiteur), périmètre d'organisations retiré de l'URL.
   const clearDrill = () => {
-    setDrillActive(false);
-    setTraiteurIds([]);
-    setLieuIds([]);
-    setTypes([]);
-    setStatutsSel([]);
-    setFrom('');
-    setTo('');
     setPerimetreOrgIds([]);
-    setPage(1);
-    router.replace('/admin/collectes');
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      sp.delete('perimetre');
+      const qs = sp.toString();
+      window.history.replaceState(
+        null,
+        '',
+        `${window.location.pathname}${qs ? `?${qs}` : ''}`,
+      );
+    }
+    reset();
   };
   const drillScope =
     drillActive && drillStatut === 'cloturee'
@@ -532,12 +574,12 @@ export default function CollectesPage() {
         title="Collectes"
         subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
         actions={
-          <Link href="/programmer/nouveau">
-            <Button variant="accent">
-              <Plus className="h-4 w-4" />
+          <Button asChild variant="accent">
+            <Link href={ROUTES.programmer.nouveau}>
+              <Plus />
               Programmer une collecte
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         }
       />
 
@@ -553,89 +595,30 @@ export default function CollectesPage() {
         />
       )}
 
-      {/* Segment Programmées / Historique + filtre par type (AG / ZD) */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div
-          role="tablist"
-          aria-label="Vue collectes"
-          className="inline-flex rounded-savr-full border border-savr-neutral-200 bg-savr-white p-1 shadow-savr-sm"
-        >
-          {(
-            [
-              ['programmees', 'Programmées'],
-              ['historique', 'Historique'],
-            ] as [Tab, string][]
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => changeTab(key)}
-              className={`rounded-savr-full px-5 py-2 text-sm font-bold transition-colors duration-[120ms] ${
-                tab === key
-                  ? 'bg-savr-primary-700 text-savr-white'
-                  : 'text-savr-neutral-500 hover:text-savr-primary-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Filtre par type — s'applique à l'onglet actif (re-clic = tout type). */}
-        <div
-          role="group"
-          aria-label="Filtrer par type"
-          className="inline-flex rounded-savr-full border border-savr-neutral-200 bg-savr-white p-1 shadow-savr-sm"
-        >
-          {(
-            [
-              ['anti_gaspi', 'Anti-Gaspi', UtensilsCrossed],
-              ['zero_dechet', 'Zéro Déchet', Leaf],
-            ] as [string, string, LucideIcon][]
-          ).map(([val, label, Icone]) => {
-            const actif = typeSeul(types, val);
-            return (
-              <button
-                key={val}
-                type="button"
-                aria-pressed={actif}
-                onClick={() => {
-                  setTypes((t) => (typeSeul(t, val) ? [] : [val]));
-                  setPage(1);
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-savr-full px-4 py-2 text-sm font-bold transition-colors duration-[120ms] ${
-                  actif
-                    ? 'bg-savr-primary-700 text-savr-white'
-                    : 'text-savr-neutral-500 hover:text-savr-primary-700'
-                }`}
-              >
-                <Icone className="h-4 w-4" aria-hidden="true" />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* KPI de tête (Programmées uniquement) : volumes à venir + files d'action.
-          « à venir » = date_collecte ≥ aujourd'hui (décision Val 2026-07-15). */}
+      {/* KPI de tête (Programmées uniquement) : 4 files d'action sur une ligne.
+          Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01).
+          Un clic sur « AG / ZD à dispatcher » pose le chip « Non transmises
+          AG / ZD » et efface le filtre Type : la liste montre les collectes
+          comptées (décisions Val 2026-10-01) ; un re-clic retire le chip. */}
       {tab === 'programmees' && (
-        <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-3">
-          {/* Ligne 1 : volumes à venir + plaque à récupérer (décision Val) */}
+        <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           <KpiTile
             icon={UtensilsCrossed}
-            count={chipCounts.ag_a_venir ?? 0}
-            label="AG à venir"
-            sublabel="collectes à venir"
+            count={chipCounts.ag_a_dispatcher ?? 0}
+            label="AG à dispatcher"
+            sublabel="validées transporteur"
             tone="warning"
+            active={quickFilter === 'non_transmises_ag'}
+            onClick={() => basculerADispatcher('non_transmises_ag')}
           />
           <KpiTile
             icon={Leaf}
-            count={chipCounts.zd_a_venir ?? 0}
-            label="ZD à venir"
-            sublabel="collectes à venir"
+            count={chipCounts.zd_a_dispatcher ?? 0}
+            label="ZD à dispatcher"
+            sublabel="validées transporteur"
             tone="success"
+            active={quickFilter === 'non_transmises_zd'}
+            onClick={() => basculerADispatcher('non_transmises_zd')}
           />
           <KpiTile
             icon={IdCard}
@@ -644,39 +627,7 @@ export default function CollectesPage() {
             sublabel="chauffeur non communiqué"
             tone="info"
             active={controleAcces}
-            onClick={() => {
-              setControleAcces((v) => !v);
-              setPage(1);
-            }}
-          />
-          {/* Ligne 2 : files d'action à dispatcher + infos à récupérer */}
-          <KpiTile
-            icon={UtensilsCrossed}
-            count={chipCounts.ag_a_dispatcher ?? 0}
-            label="AG à dispatcher"
-            sublabel="validées transporteur"
-            tone="warning"
-            active={typeSeul(types, 'anti_gaspi')}
-            onClick={() => {
-              setTypes((t) =>
-                typeSeul(t, 'anti_gaspi') ? [] : ['anti_gaspi'],
-              );
-              setPage(1);
-            }}
-          />
-          <KpiTile
-            icon={Leaf}
-            count={chipCounts.zd_a_dispatcher ?? 0}
-            label="ZD à dispatcher"
-            sublabel="validées transporteur"
-            tone="success"
-            active={typeSeul(types, 'zero_dechet')}
-            onClick={() => {
-              setTypes((t) =>
-                typeSeul(t, 'zero_dechet') ? [] : ['zero_dechet'],
-              );
-              setPage(1);
-            }}
+            onClick={() => set({ controle_acces: controleAcces ? '' : '1' })}
           />
           <KpiTile
             icon={FileWarning}
@@ -685,10 +636,7 @@ export default function CollectesPage() {
             sublabel="infos traiteur manquantes"
             tone="warning"
             active={infoIncomplete}
-            onClick={() => {
-              setInfoIncomplete((v) => !v);
-              setPage(1);
-            }}
+            onClick={() => set({ info_incomplete: infoIncomplete ? '' : '1' })}
           />
         </div>
       )}
@@ -702,15 +650,40 @@ export default function CollectesPage() {
         )}
         activeKey={quickFilter}
         ariaLabel="Filtres rapides"
-        onSelect={(key) => {
-          setQuickFilter(key);
-          setPage(1);
-        }}
+        onSelect={(key) => set({ chip: key })}
       />
 
       {/* Barre de filtres toujours visible — ni recherche libre ni repli
-          « Filtres avancés » (décision Val 2026-09-30, §06.06 §3 « Filtres »). */}
-      <FilterBar data-testid="collectes-filtres">
+          « Filtres avancés » (décision Val 2026-09-30, §06.06 §3 « Filtres »).
+          FilterBar complet (R-UI-4b, D5) : onglets Programmées / Historique
+          (Tabs, changer de vue) + segmenté de type (ToggleGroup, filtrer) en
+          en-tête, compteur en pied — seul emplacement du compteur. */}
+      <FilterBar
+        data-testid="collectes-filtres"
+        tabs={
+          <Tabs value={tab} onValueChange={(v) => changeTab(v as Tab)}>
+            <TabsList aria-label="Vue collectes">
+              <TabsTrigger value="programmees">Programmées</TabsTrigger>
+              <TabsTrigger value="historique">Historique</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+        toggle={
+          <ToggleTypeCollecte
+            avecTous
+            value={type}
+            onChange={(t) => set({ type: t })}
+            data-testid="collectes-filtre-type"
+          />
+        }
+        count={`${total} collecte${total > 1 ? 's' : ''} correspond${
+          total > 1 ? 'ent' : ''
+        } à votre sélection`}
+        actif={filtresActifs}
+        // En drill-down, « Réinitialiser » retire aussi le chip et le périmètre
+        // d'organisations (sinon le chip annoncerait un filtre qui ne s'applique plus).
+        onReset={drillActive ? clearDrill : reset}
+      >
         {/* Période en premier, puis filtres à choix multiple avec case
             « Tous » (décision Val 2026-09-30). */}
         <DateRangePicker
@@ -718,44 +691,21 @@ export default function CollectesPage() {
           id="collectes-filtre-periode"
           data-testid="collectes-filtre-periode"
           value={{ from, to }}
-          onChange={(p) => {
-            setFrom(p.from);
-            setTo(p.to);
-            setPage(1);
-          }}
-        />
-        <FiltreCoches
-          label="Type"
-          testid="collectes-filtre-type"
-          options={[
-            { id: 'zero_dechet', nom: 'Zéro Déchet' },
-            { id: 'anti_gaspi', nom: 'Anti-Gaspi' },
-          ]}
-          selected={types}
-          onChange={(ids) => {
-            setTypes(ids);
-            setPage(1);
-          }}
+          onChange={(p) => set({ from: p.from, to: p.to })}
         />
         <FiltreCoches
           label="Traiteur"
           testid="collectes-filtre-traiteur"
           options={traiteurs.map((t) => ({ id: t.id, nom: t.label }))}
           selected={traiteurIds}
-          onChange={(ids) => {
-            setTraiteurIds(ids);
-            setPage(1);
-          }}
+          onChange={(ids) => set({ traiteur: ids })}
         />
         <FiltreCoches
           label="Lieu"
           testid="collectes-filtre-lieu"
           options={lieux.map((l) => ({ id: l.id, nom: l.label }))}
           selected={lieuIds}
-          onChange={(ids) => {
-            setLieuIds(ids);
-            setPage(1);
-          }}
+          onChange={(ids) => set({ lieu: ids })}
         />
 
         {/* Statut — multi-sélection scopée aux valeurs de l'onglet actif */}
@@ -770,34 +720,35 @@ export default function CollectesPage() {
             nom: statutCollecteDisplay(s, 'admin').label,
           }))}
           selected={statutsSel}
-          onChange={(ids) => {
-            setStatutsSel(ids);
-            setPage(1);
-          }}
+          onChange={(ids) => set({ statut: ids })}
         />
 
         {/* Booléens — case DS (§6 Checkbox), cible 44px mobile */}
         <div className="flex flex-wrap gap-x-4 px-2">
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
+          <Label
+            variant="choice"
+            className="flex min-h-11 items-center gap-2 sm:min-h-9"
+          >
             <Checkbox
               checked={infoIncomplete}
-              onCheckedChange={(v) => {
-                setInfoIncomplete(v === true);
-                setPage(1);
-              }}
+              onCheckedChange={(v) =>
+                set({ info_incomplete: v === true ? '1' : '' })
+              }
             />
             Info incomplète
-          </label>
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-savr-neutral-700 sm:min-h-9">
+          </Label>
+          <Label
+            variant="choice"
+            className="flex min-h-11 items-center gap-2 sm:min-h-9"
+          >
             <Checkbox
               checked={rapportNonConsulte}
-              onCheckedChange={(v) => {
-                setRapportNonConsulte(v === true);
-                setPage(1);
-              }}
+              onCheckedChange={(v) =>
+                set({ rapport_non_consulte: v === true ? '1' : '' })
+              }
             />
             Rapport non consulté
-          </label>
+          </Label>
         </div>
       </FilterBar>
 
@@ -808,20 +759,16 @@ export default function CollectesPage() {
         data={lignes}
         getRowId={(c) => c.id}
         loading={loading}
+        erreur={erreur}
+        onRecharger={fetchCollectes}
         manualSorting
         sorting={sorting}
         onSortingChange={(next) => {
-          setSorting(next);
-          setPage(1);
+          const s = typeof next === 'function' ? next(sorting) : next;
+          const t = s[0];
+          set({ tri: t?.id ?? '', ordre: t ? (t.desc ? 'desc' : 'asc') : '' });
         }}
         initialColumnVisibility={COLONNES_MASQUEES[tab]}
-        toolbar={
-          !loading && total > 0 ? (
-            <span className="text-sm text-savr-neutral-500">
-              {total} collecte{total > 1 ? 's' : ''}
-            </span>
-          ) : null
-        }
         onRowClick={(c) => openCollecte(c.id)}
         rowLabel={(c) => {
           const { jour, heure } = formatDateHeure(
@@ -844,14 +791,11 @@ export default function CollectesPage() {
         }
       />
 
-      {!loading && totalPages > 1 && (
-        <Pagination
-          page={page}
-          pageCount={totalPages}
-          onPageChange={setPage}
-          className="justify-end"
-        />
-      )}
+      <ListFooter
+        total={total}
+        page={page}
+        onPageChange={(p) => set({ page: p })}
+      />
 
       {/* Pop-up centré (modale) — fiche collecte complète (ex-page [id]).
           S'ouvre via ?collecte=<id> ; onClose retire le paramètre + rafraîchit. */}

@@ -13,7 +13,13 @@ import {
   GRID,
   GRID_BASELINE,
   ACCENT_TEXT,
+  WHITE,
 } from './palette';
+import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ChartTooltip } from '@/components/ui/chart-tooltip';
+import { ToggleChip } from '@/components/ui/toggle-chip';
+import { fmtPct, fmtKg } from '@/lib/format';
 
 // Cerclage gris du segment survolé (retour Val R24b — remplace le liseré noir).
 const SEGMENT_HOVER = TEXT_MUTED; // neutral-500
@@ -98,15 +104,17 @@ const EvolutionZdChart = React.forwardRef<
       title="Évolution mensuelle Zéro Déchet"
       subtitle="Tonnages par flux · taux de recyclage superposé"
       headerRight={
-        <span className="text-[13px] tabular-nums text-savr-neutral-400">
+        <Text as="span" tone="faint" className="tabular-nums">
           kg
-        </span>
+        </Text>
       }
     >
       {empty ? (
-        <p className="py-10 text-center text-sm text-savr-neutral-500">
-          Aucune collecte ZD sur la période.
-        </p>
+        <EmptyState
+          size="inline"
+          title="Aucune collecte ZD sur la période."
+          className="py-10 text-center"
+        />
       ) : (
         <>
           <div className="relative">
@@ -197,11 +205,12 @@ const EvolutionZdChart = React.forwardRef<
                             d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
                             fill={f.color}
                             fillOpacity={isHovered ? 1 : dim ? 0.45 : 0.75}
-                            stroke={isHovered ? SEGMENT_HOVER : '#fff'}
+                            stroke={isHovered ? SEGMENT_HOVER : WHITE}
                             strokeWidth={isHovered ? 1.5 : 0.75}
                             style={{
                               cursor: 'pointer',
-                              transition: 'fill-opacity 120ms',
+                              transition:
+                                'fill-opacity var(--transition-duration-savr-fast)',
                             }}
                             onMouseEnter={onEnter}
                           />
@@ -216,11 +225,12 @@ const EvolutionZdChart = React.forwardRef<
                           height={h}
                           fill={f.color}
                           fillOpacity={isHovered ? 1 : dim ? 0.45 : 0.75}
-                          stroke={isHovered ? SEGMENT_HOVER : '#fff'}
+                          stroke={isHovered ? SEGMENT_HOVER : WHITE}
                           strokeWidth={isHovered ? 1.5 : 0.75}
                           style={{
                             cursor: 'pointer',
-                            transition: 'fill-opacity 120ms',
+                            transition:
+                              'fill-opacity var(--transition-duration-savr-fast)',
                           }}
                           onMouseEnter={onEnter}
                         />
@@ -254,10 +264,10 @@ const EvolutionZdChart = React.forwardRef<
                         cy={pt.y}
                         r={isHovered ? 2.25 : isLast ? 1.75 : 1.25}
                         fill={
-                          isHovered || isLast ? TAUX_RECYCLAGE_COLOR : '#fff'
+                          isHovered || isLast ? TAUX_RECYCLAGE_COLOR : WHITE
                         }
                         stroke={
-                          isHovered || isLast ? '#fff' : TAUX_RECYCLAGE_COLOR
+                          isHovered || isLast ? WHITE : TAUX_RECYCLAGE_COLOR
                         }
                         strokeWidth={0.75}
                         style={{ pointerEvents: 'none' }}
@@ -321,14 +331,15 @@ const EvolutionZdChart = React.forwardRef<
                 // Survol de la courbe taux de recyclage.
                 if (hover.code === TAUX) {
                   return (
-                    <div
-                      className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
-                      style={anchorStyle}
-                    >
-                      <div className="mb-1 text-[11px] font-semibold text-savr-neutral-500">
+                    <ChartTooltip style={anchorStyle}>
+                      <Text
+                        as="div"
+                        variant="hint"
+                        className="mb-1 font-semibold"
+                      >
                         {formatPeriode(p.periode, granularite)}
-                      </div>
-                      <div className="flex items-center justify-between gap-5 text-[13px]">
+                      </Text>
+                      <div className="flex items-center justify-between gap-5 text-sm">
                         <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
                           <span
                             style={{
@@ -345,11 +356,11 @@ const EvolutionZdChart = React.forwardRef<
                           style={{ color: ACCENT_TEXT }}
                         >
                           {p.taux_recyclage != null
-                            ? `${fmtDec(p.taux_recyclage, 1)} %`
+                            ? fmtPct(p.taux_recyclage, 1)
                             : '—'}
                         </span>
                       </div>
-                    </div>
+                    </ChartTooltip>
                   );
                 }
                 const f = FLUX_ZD.find((x) => x.code === hover.code);
@@ -358,14 +369,15 @@ const EvolutionZdChart = React.forwardRef<
                 const val = Number(p[f.code as keyof FluxSeriePoint]) || 0;
                 const pct = total > 0 ? (val / total) * 100 : 0;
                 return (
-                  <div
-                    className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
-                    style={anchorStyle}
-                  >
-                    <div className="mb-1 text-[11px] font-semibold text-savr-neutral-500">
+                  <ChartTooltip style={anchorStyle}>
+                    <Text
+                      as="div"
+                      variant="hint"
+                      className="mb-1 font-semibold"
+                    >
                       {formatPeriode(p.periode, granularite)}
-                    </div>
-                    <div className="flex items-center justify-between gap-5 text-[13px]">
+                    </Text>
+                    <div className="flex items-center justify-between gap-5 text-sm">
                       <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
                         <span
                           style={{
@@ -378,14 +390,18 @@ const EvolutionZdChart = React.forwardRef<
                         {f.label}
                       </span>
                       <span className="font-extrabold tabular-nums text-savr-neutral-900">
-                        {fmtInt(val)} kg
+                        {fmtKg(val)}
                       </span>
                     </div>
-                    <div className="mt-0.5 text-right text-[11px] tabular-nums text-savr-neutral-500">
+                    <Text
+                      as="div"
+                      variant="hint"
+                      className="mt-0.5 text-right tabular-nums"
+                    >
                       {fmtDec(pct, 0)} % du mois
-                    </div>
+                    </Text>
                     {p.taux_recyclage != null && (
-                      <div className="mt-1 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1 text-[11px]">
+                      <div className="mt-1 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1 text-xs">
                         <span className="text-savr-neutral-600">
                           Taux de recyclage
                         </span>
@@ -393,11 +409,11 @@ const EvolutionZdChart = React.forwardRef<
                           className="font-bold tabular-nums"
                           style={{ color: ACCENT_TEXT }}
                         >
-                          {fmtDec(p.taux_recyclage, 1)} %
+                          {fmtPct(p.taux_recyclage, 1)}
                         </span>
                       </div>
                     )}
-                  </div>
+                  </ChartTooltip>
                 );
               })()}
           </div>
@@ -407,48 +423,25 @@ const EvolutionZdChart = React.forwardRef<
             {FLUX_ZD.map((f) => {
               const off = hidden.has(f.code);
               return (
-                <button
+                <ToggleChip
                   key={f.code}
-                  type="button"
+                  variant="pill"
+                  pressed={!off}
                   onClick={() => toggle(f.code)}
-                  aria-pressed={!off}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-savr-full border border-savr-neutral-100 bg-savr-neutral-50 px-2.5 py-1 text-xs font-semibold text-savr-neutral-700 transition-colors hover:border-savr-neutral-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-                  style={{ opacity: off ? 0.4 : 1 }}
+                  swatch={{ color: f.color, radius: 3 }}
                 >
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      background: f.color,
-                      borderRadius: 3,
-                    }}
-                  />
                   {f.label}
-                </button>
+                </ToggleChip>
               );
             })}
-            <button
-              type="button"
+            <ToggleChip
+              variant="accent"
+              pressed={!hidden.has(TAUX)}
               onClick={() => toggle(TAUX)}
-              aria-pressed={!hidden.has(TAUX)}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-savr-full border px-2.5 py-1 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-              style={{
-                borderColor: '#FFE8C2',
-                background: '#FFF4E0',
-                color: ACCENT_TEXT,
-                opacity: hidden.has(TAUX) ? 0.4 : 1,
-              }}
+              swatch={{ color: TAUX_RECYCLAGE_COLOR, shape: 'line' }}
             >
-              <span
-                style={{
-                  width: 14,
-                  height: 3,
-                  background: TAUX_RECYCLAGE_COLOR,
-                  borderRadius: 2,
-                }}
-              />
               Taux de recyclage
-            </button>
+            </ToggleChip>
           </div>
         </>
       )}

@@ -56,6 +56,22 @@ async function checkCommon(scalar: Scalar): Promise<void> {
       "select count(*) n from (select contact_principal_telephone t from plateforme.evenements union all select contact_telephone from plateforme.associations union all select telephone from plateforme.contacts_traiteurs) x where t not like '+33 6 99 99%'",
     )) === 0,
   );
+  // Référentiel posé par les migrations et que le seed ne réinsère jamais :
+  // le CASCADE du reset l'emportait (FK valide_par → users), mesuré le
+  // 2026-10-02 (0 ligne sur savr-dev). reset.ts le préserve désormais ; ce
+  // check rougit si la base revient trouée.
+  console.log('Référentiel préservé par le reset');
+  check(
+    '7 paramètres AG pilotables présents (parametres_algo)',
+    (await scalar(
+      "select count(*) n from plateforme.parametres_algo where cle in ('regle_ag_plage_velo_debut','regle_ag_plage_velo_fin','regle_ag_seuil_pax_velo','regle_ag_seuil_h2_minutes','poids_par_repas_kg','a_toutes_indisponible','everest_codes_postaux')",
+    )) === 7,
+  );
+  check(
+    'constantes CO₂ présentes (parametres_co2_divers >= 10)',
+    (await scalar('select count(*) n from plateforme.parametres_co2_divers')) >=
+      10,
+  );
   console.log('Matrice demo');
   const csv = readFileSync(
     resolve(REPO_ROOT, 'fixtures/data/matrix_collectes.csv'),

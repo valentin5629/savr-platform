@@ -1,0 +1,230 @@
+-- =============================================================================
+-- transporteurs : lecture cliente fermée (retrait de la policy transp_read)
+-- =============================================================================
+-- Constat (2026-10-04, pendant le lot associations_select_liste_blanche —
+-- jumeau de ce lot et indépendant de lui ; confirmé le même jour par
+-- reviewer-rls-securite ; re-mesuré le 2026-10-05) : la policy `transp_read`
+-- (20260611180000, USING auth.role() = 'authenticated') rend TOUTES les lignes
+-- de plateforme.transporteurs à tout utilisateur connecté, et `authenticated`
+-- porte le SELECT TABLE-LEVEL (blanket grant 0.4a, même migration). Tout rôle
+-- client lisait donc le référentiel entier par PostgREST direct.
+--   - Base rejouée depuis zéro (175 migrations de main) : relacl
+--     `authenticated=arwd`, aucun privilège colonne, 22 colonnes sur 22
+--     lisibles, RLS activée et forcée, 4 policies (transp_admin,
+--     transp_ops_select, transp_ops_write, transp_read).
+--   - PostgREST v14.12 branché sur cette base, `GET /transporteurs?select=*`,
+--     Accept-Profile plateforme, JWT signé pour chacun des 5 rôles clients
+--     (gestionnaire_lieux, traiteur_manager, traiteur_commercial, agence,
+--     client_organisateur) : HTTP 200, la ligne présente, 22 colonnes — dont
+--     nom, contact_nom, contact_email, contact_telephone, tarif_par_course,
+--     commentaires_internes, code_transporteur_mts1, siren,
+--     prestataire_logistique_id. Témoin anon : 401 / 42501.
+--
+-- Deux aggravants propres à cette table :
+--   - la MARQUE BLANCHE : un rôle client ne doit jamais voir un transporteur
+--     externe (règle Val du 2026-09-29 ; §06.04, mot pour mot : Wording
+--     100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un
+--     prestataire) — la table donnait le nom de chaque prestataire ;
+--   - le PRIX D'ACHAT : tarif_par_course est ce que Savr paie au prestataire.
+-- §09 (dette ouverte le 2026-09-14) : « associations et transporteurs exposent
+-- noms, coordonnées et rattachements à tout utilisateur connecté. Recenser les
+-- consommateurs réels avant de trancher. » Ce lot solde `transporteurs`.
+--
+-- POURQUOI UN RETRAIT DE POLICY, ET PAS UNE LISTE BLANCHE DE COLONNES (le
+-- pattern de lieux, organisations, tournees, evenements, associations) :
+--   - une liste blanche garde les LIGNES lisibles et ne ferme que des colonnes.
+--     Elle se justifie quand un rôle client lit légitimement la table. Ici le
+--     recensement (ci-dessous) ne trouve AUCUN lecteur client : il n'y a aucune
+--     colonne à laisser ouverte ;
+--   - un privilège colonne s'applique au rôle PG `authenticated`, que portent
+--     aussi admin_savr et ops_savr. Le retirer leur fermerait la lecture par
+--     JWT, que §09 leur accorde (« Lieux / Transporteurs : lecture / écriture /
+--     désactivation », F3 2026-06-07). Une policy, elle, distingue les rôles
+--     métier : transp_admin et transp_ops_select restent, et le staff garde la
+--     fiche entière ;
+--   - même correction que contacts_traiteurs (20260622150000) : une policy
+--     PERMISSIVE en `auth.role() = 'authenticated'`, OR-ée aux policies
+--     restreintes, les annulait. La retirer rend la table au DENY ALL par
+--     défaut pour quiconque n'a pas de policy à son nom.
+--
+-- CE QUE LA FERMETURE NE DOIT QU'AUX POLICIES : le privilège table-level reste
+-- à `authenticated` (staff par JWT). Une policy SELECT ajoutée demain sans
+-- borne de rôle — ou une policy du staff élargie sous le même nom — rouvrirait
+-- donc les 22 colonnes. D'où trois cliquets dans
+-- SECU__transporteurs_lecture_cliente_fermee.test.sql : chaque policy de la
+-- table y est épinglée, prédicat compris (assertion 2) ; aucune vue ne dépend
+-- de la table (7) ; aucune fonction SECURITY DEFINER qui l'atteint n'est
+-- exécutable par authenticated ou anon (8). Restent hors d'atteinte de ces
+-- cliquets, entre autres : une fonction qui construirait sa requête en SQL
+-- dynamique ; une fonction de trigger SECURITY DEFINER qui recopierait une
+-- valeur vers une table lisible (un trigger s'exécute sans EXECUTE pour le
+-- client) ; une redéfinition de plateforme.f_app_role(), dont dépendent les
+-- trois policies.
+--
+-- LECTEURS RECENSÉS (2026-10-05 sur main 4b239738, sans troncature) — 82
+-- fichiers source du dépôt (ts, tsx, mjs, js) mentionnent « transporteurs »,
+-- dont 41 fichiers de test. Hors tests, les accès à la table s'y réduisent à
+-- 14 `.from('transporteurs')` dans 10 fichiers et à 4 embeds
+-- `transporteurs!transporteur_id(...)` ; le reste : libellés, types, mocks et
+-- seed (connexion directe, hors PostgREST). PostgREST n'embarque une table que
+-- par une clé étrangère : deux seulement pointent celle-ci
+-- (attributions_antgaspi et config_auto_accept_ag, colonne transporteur_id).
+--   Sous l'identité de l'utilisateur : AUCUN. 98 fichiers source créent un
+--     client à identité utilisateur (createSupabaseServerClient, client
+--     navigateur, createServerClient) ; 7 mentionnent « transporteur ». Un seul
+--     accède à la table, health/logistique, et il le fait par son client
+--     service_role (le client utilisateur n'y sert qu'à identifier l'appelant).
+--     Les 6 autres : des commentaires, et les colonnes figées transporteur_nom
+--     / transporteur_siret du bordereau (registre réglementaire), qui ne
+--     passent pas par cette table.
+--   En service_role (createAdminSupabaseClient, RLS contournée) — les 14 accès
+--     directs et les 4 embeds : routes admin/transporteurs (liste `select=*`,
+--     fiche, création, édition), admin/prestataires, admin/collectes (liste et
+--     fiche), admin/collectes/[id]/dispatch, admin/config-auto-accept,
+--     health/logistique, lib/attribution-ag/job (email au transporteur), le
+--     webhook du coursier vélo, le cron de polling du TMS externe, et dans les
+--     adapters le worker outbox et provider-tournees (cron outbox-worker).
+--   Catalogue (base rejouée depuis main) : aucune vue ne dépend de la table ;
+--     aucune policy d'une autre table ne la relit ; aucune fonction ne rend le
+--     type ligne. 4 fonctions applicatives la lisent (FROM / JOIN) :
+--     fn_calculer_algo_attribution_ag et rpc_valider_attribution_ag (SECURITY
+--     DEFINER), fn_collecte_commandee_chez_provider et
+--     fn_accepter_mission_everest_manuelle (SECURITY INVOKER). 4 autres les
+--     appellent, toutes SECURITY DEFINER : rpc_evaluer_auto_accept_ag,
+--     fn_dispatcher_collecte, fn_modifier_collecte, fn_modifier_evenement
+--     (fermeture transitive calculée sur les corps de fonction). Aucune des 8
+--     n'est exécutable par authenticated ; aucune n'est appelée par une policy,
+--     une vue ou un trigger. Les deux triggers de la table ne la relisent
+--     pas : trg_transporteur_cols_immuables (BEFORE UPDATE) compare OLD et NEW,
+--     trg_transporteur_delete_sous_tournees (BEFORE DELETE, fonction SECURITY
+--     DEFINER) lit OLD et plateforme.tournees. La fonction de fixture
+--     tests.outbox_fixture_collecte écrit dans la table sans la lire ; le
+--     schéma tests n'est pas exposé par PostgREST et authenticated n'en a pas
+--     l'USAGE.
+--
+-- POURQUOI AUCUN CHEMIN SERVEUR NE PEUT RÉGRESSER : le prédicat de transp_read
+-- (auth.role() = 'authenticated') lit le JWT de la session — il n'est vrai que
+-- pour une requête portant un JWT `role = authenticated`, y compris à
+-- l'intérieur d'une fonction SECURITY DEFINER. Or :
+--   - les routes du back-office, les crons, le webhook et les adapters appellent
+--     PostgREST avec la clé service_role : auth.role() y vaut 'service_role' ;
+--   - sous un JWT authenticated, la session tourne sous le rôle PG
+--     authenticated, qui ne peut exécuter aucune des 8 fonctions ci-dessus.
+-- Aucun de ces chemins n'a donc jamais été servi par transp_read, que le rôle
+-- qui exécute contourne la RLS ou non (mesuré en local : service_role et
+-- postgres, propriétaire des fonctions, portent BYPASSRLS).
+--
+-- EFFET SUR LES RÔLES (mesuré, PostgREST et pgTAP) :
+--   - 5 rôles clients : `select=*` rend HTTP 200 et une liste VIDE — plus aucune
+--     ligne, donc plus aucune colonne. L'embed
+--     `attributions_antgaspi(..., transporteurs!transporteur_id(...))` depuis
+--     une attribution que le traiteur voit rend `transporteurs: null` ;
+--   - admin_savr, ops_savr par JWT : inchangé, 22 colonnes, écriture comprise ;
+--   - service_role : inchangé.
+--
+-- CE QUE CE LOT NE CHANGE PAS (relevé, hors périmètre — arbitrages Val) :
+--   - la STRUCTURE reste lisible : un rôle connecté apprend toujours par
+--     l'OpenAPI de PostgREST que la table existe et quelles colonnes elle
+--     porte (privilège table-level conservé) ; il n'en lit plus aucune valeur ;
+--   - `attributions_antgaspi.transporteur_id` reste lisible par le traiteur
+--     (aa_select) : un uuid, sans identité derrière depuis ce lot ;
+--   - l'ÉCRITURE : authenticated garde INSERT / UPDATE / DELETE table-level,
+--     bornés par transp_admin et transp_ops_write, que seuls les deux rôles
+--     staff passent. Épinglé par le test sous un rôle client par des ordres
+--     SANS WHERE ni RETURNING (UPDATE et DELETE = 0 ligne, INSERT refusé) : un
+--     ordre qui LIT une colonne de la table (WHERE id = …, RETURNING id) bute
+--     d'abord sur les policies de LECTURE et rend 0 ligne quel que soit l'état
+--     des policies d'écriture — il ne prouve rien sur elles ;
+--   - `flux_dechets` (13 colonnes) et `types_evenements` (7 colonnes), dans le
+--     même encadré §09 : lues sous l'identité de l'utilisateur par les
+--     dashboards, la fiche collecte, le registre, les exports CSV et les
+--     écrans du gestionnaire de lieux ; ni contact, ni prix, ni note interne.
+--     (Le formulaire de programmation, lui, lit types_evenements en
+--     service_role.) À arbitrer à part (divergence SECU-RLS_20261005, C2).
+--
+-- NON DESTRUCTIF : aucune donnée touchée, aucune colonne supprimée ou renommée.
+-- FERME un accès (CLAUDE.md §12-2bis) — GO reviewer-rls-securite + pgTAP de
+-- preuve. Idempotent (IF EXISTS) : un rejeu ne fait rien. ORDRE code /
+-- migration : indifférent, aucune route ne lit la table sous l'identité de
+-- l'utilisateur ; ce lot ne touche aucun fichier de code.
+-- APRÈS APPLICATION, mesurer sur la base : les policies de
+-- plateforme.transporteurs sont transp_admin, transp_ops_select et
+-- transp_ops_write, et rien d'autre.
+--
+-- MESURES (2026-10-05, base rejouée depuis zéro, 175 migrations de main) :
+--   - pgTAP du lot SANS cette migration : 17 assertions sur 49 en `not ok` —
+--     1, 2, 13-16, 19, 20, 22, 23, 25, 26, 28, 29, 31, 32, 33 : toutes celles
+--     qui affirment la fermeture de la lecture. Les 32 autres tiennent avant
+--     comme après (JWT, non-vacuité, vues et fonctions, écriture, staff,
+--     service_role). AVEC la migration : 49 sur 49.
+--   - Suite pgTAP complète, mêmes bases : 120 fichiers / 1985 assertions.
+--     Sans la migration, 17 échecs, tous dans le fichier du lot ; avec, 0 échec.
+--     Les 119 fichiers existants (1936 assertions) rendent les mêmes lignes TAP
+--     avant et après : aucun test existant à recaler.
+--   - 32 sondes de mutation sur la base migrée, chacune dans la transaction du
+--     test (assertions qui rougissent) :
+--       LECTURE — policy transp_read recréée à l'identique → les 17 ci-dessus ;
+--         policy d'un autre nom en USING (true) → les mêmes moins la 1 ;
+--         policy ouverte à UN rôle client → le cliquet 2 et les assertions de
+--         ce rôle : gestionnaire 13-16 ; traiteur_manager 19, 20, 22, 23, 33 ;
+--         traiteur_commercial 25, 26 ; agence 28, 29 ; client organisateur 31,
+--         32 ; policy « transporteur d'une attribution que je vois » → 2, 19,
+--         20, 22, 23, 25, 26 ; RLS désactivée → 3 et 20 autres ;
+--       POLICIES DU STAFF ÉLARGIES SOUS LEUR NOM — transp_admin ouverte à
+--         traiteur_manager → 2, 19, 20, 22, 23, 33-37, 40 ; transp_ops_select
+--         élargie par « OU prestataire d'une collecte », « OU rôle absent du
+--         JWT », « OU un type de TMS » → 2 SEUL : aucune assertion de
+--         comportement ne voit ces trois-là (la fixture ne les exerce pas),
+--         d'où le prédicat épinglé ;
+--       STAFF RÉGRESSÉ — transp_ops_select retirée → 2, 42-44 ; transp_admin
+--         retirée → 2, 38-41 ;
+--       ÉCRITURE — policy UPDATE ouverte à tous, ou transp_ops_write ouverte
+--         sous son nom → 2, 34, 37, 40 (l'UPDATE sans WHERE du rôle client
+--         réécrit les lignes) ; policy DELETE ouverte → 2, 36 ; policy INSERT
+--         ouverte → 2, 35 ;
+--       CONTOURNEMENTS HORS POLICIES — vue du propriétaire avec GRANT → 7 ;
+--         EXECUTE accordé à authenticated ou à anon sur une fonction lectrice,
+--         nouvelle fonction SECURITY DEFINER lectrice exécutable, fonction
+--         SECURITY DEFINER exécutable qui appelle une lectrice, les deux mêmes
+--         à corps SQL standard (BEGIN ATOMIC, vues par leurs dépendances),
+--         lectrice SECURITY DEFINER posée dans le schéma tests — seule,
+--         derrière un relais SECURITY DEFINER exécutable, derrière une vue de
+--         plateforme, derrière un relais SECURITY INVOKER à corps SQL
+--         standard → 8. L'absence d'USAGE sur ce schéma ne la protège pas :
+--         mesuré, un client la lit par ces deux derniers chemins, qui la
+--         référencent par son OID ; seul l'appel par nom est refusé. Un
+--         témoin reste vert, à raison : l'EXECUTE accordé sur une lectrice
+--         SECURITY INVOKER (elle tourne sous les droits du client, qui ne
+--         voit aucune ligne) ;
+--       PRIVILÈGES — SELECT accordé à anon → 5 ; SELECT table-level retiré à
+--         authenticated → 4, et le reste du fichier part en erreur 42501.
+--   - PostgREST v14.12, deux bases identiques à la migration près, 44 requêtes
+--     rejouées avant / après. 16 réponses changent, toutes sous un rôle client :
+--     `select=*` et la liste des colonnes sensibles pour les 5 rôles et un
+--     traiteur sans lien (200 / 2 lignes → 200 / liste vide), filtre sur le
+--     nom, `count=exact` (2 → 0), embed depuis l'attribution du traiteur (fiche
+--     du prestataire → `transporteurs: null`), embed `!inner` (1 ligne → 0).
+--     28 réponses identiques à l'octet près : admin_savr et ops_savr par JWT
+--     (2 lignes, 22 colonnes), les 16 requêtes exactes des routes en
+--     service_role (liste et fiche Admin, prestataires, fiche collecte, liste
+--     collectes, dispatch, auto-accept, job d'attribution, sonde de santé,
+--     polling, worker outbox, provider-tournees, webhook, RPC), les témoins
+--     clients (types_evenements, flux_dechets, attribution sans embed), anon
+--     (401), et sous JWT client : les 2 appels RPC (403), l'embed depuis
+--     config_auto_accept_ag et un PATCH du nom (0 ligne), avant comme après.
+--   - savr-dev et savr-prod, lecture seule, 2026-10-05, avant application :
+--     même état que la base rejouée — les 4 policies présentes, 22 colonnes,
+--     RLS activée et forcée, postgres et service_role en BYPASSRLS.
+-- =============================================================================
+
+DROP POLICY IF EXISTS transp_read ON plateforme.transporteurs;
+
+COMMENT ON TABLE plateforme.transporteurs IS
+  'Référentiel des transporteurs (prestataires logistiques), géré par Admin Savr. Lecture réservée au staff depuis la fermeture du 2026-10-05 (migration transporteurs_lecture_cliente_fermee) : la policy transp_read, qui rendait toutes les lignes à tout utilisateur connecté, est retirée. Restent transp_admin (admin_savr), transp_ops_select et transp_ops_write (ops_savr) ; le back-office, les crons et les adapters lisent en service_role. AUCUN rôle client ne lit cette table : nom du prestataire (marque blanche), contact, prix d''achat et notes internes ne doivent jamais lui parvenir. `authenticated` garde le privilège table-level (staff par JWT) : la fermeture tient aux policies, épinglées par SECU__transporteurs_lecture_cliente_fermee. Ajouter une policy de lecture pour un rôle client est une ouverture d''accès (décision Val).';
+
+-- ROLLBACK (rouvre un accès : décision explicite de Val, CLAUDE.md §12-2bis),
+-- par une nouvelle migration — celle-ci ne se modifie pas :
+--   CREATE POLICY transp_read ON plateforme.transporteurs
+--     FOR SELECT USING (auth.role() = 'authenticated');
+--   (la policy telle que la posait 20260611180000 ; réécrire dans la même
+--   migration le commentaire de table ci-dessus, qui deviendrait faux.)

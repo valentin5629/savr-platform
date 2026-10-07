@@ -28,7 +28,10 @@ import {
   cleanup,
   act,
   within,
+  waitFor,
 } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
+import { hydrateRoot, type Root } from 'react-dom/client';
 
 const { push, replace, urlParams } = vi.hoisted(() => ({
   push: vi.fn(),
@@ -47,6 +50,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from '@/app/(gestionnaire)/gestionnaire/collectes/page.js';
 import { colonnesCollectesTraiteur } from '@/components/collecte/collectes-traiteur-table';
+import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import { ficheClient } from '@/test-utils/fiche-collecte-client';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
@@ -106,12 +110,48 @@ function reponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
+const API_LISTE = '/api/v1/gestionnaire/collectes';
+/** Options de la barre de filtres (route `/gestionnaire/filtres`). */
+const OPTIONS_FILTRES = {
+  lieux: [
+    { id: 'L1', nom: 'Paris Expo Porte de Versailles' },
+    { id: 'L2', nom: 'Palais des Congrès de Paris' },
+    // Un 3e lieu : cocher TOUTES les options revient à « Tous » (FiltreCoches).
+    { id: 'L3', nom: 'Pavillon Dauphine' },
+  ],
+  traiteurs: [{ id: 'T1', nom: 'Kaspia Réceptions' }],
+  types: [
+    { id: 'ty-gala', libelle: 'Gala' },
+    { id: 'ty-cocktail', libelle: 'Cocktail' },
+    { id: 'ty-seminaire', libelle: 'Séminaire' },
+  ],
+};
+/** Réponse par défaut d'un `fetch` : la liste, ou les options de la barre. */
+function repondre(url: string, liste: unknown): Promise<Response> {
+  return Promise.resolve(
+    String(url).startsWith('/api/v1/gestionnaire/filtres')
+      ? reponse(200, { data: OPTIONS_FILTRES })
+      : reponse(200, liste),
+  );
+}
+/** Appels de la LISTE seulement (la barre charge ses options à part). */
+function appelsListe(fetchMock: { mock: { calls: unknown[][] } }): string[] {
+  return fetchMock.mock.calls
+    .map(([u]) => String(u))
+    .filter((u) => u.startsWith(API_LISTE) && !u.startsWith(`${API_LISTE}/`));
+}
+
 afterEach(() => {
   cleanup();
   push.mockClear();
   replace.mockClear();
   urlParams.current = '';
   vi.unstubAllGlobals();
+  // `useFiltresUrl` recopie les filtres dans l'URL jsdom, qui survit d'un test
+  // à l'autre : on la remet à plat.
+  window.history.replaceState(null, '', '/gestionnaire/collectes');
+  // Libellé de drill-down mémorisé par le dashboard (chip « Filtre actif »).
+  sessionStorage.clear();
 });
 
 describe('M3.2 / liste Collectes gestionnaire', () => {
@@ -360,10 +400,12 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     'M3.2/collectes_erreur_chargement_message_et_reessayer',
     async () => {
       // 1er appel en panne, 2e (après « Réessayer ») nominal.
+      // Une Response NEUVE par appel : son corps ne se lit qu'une fois, et la
+      // barre de filtres charge ses options par un appel distinct.
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(reponse(500, { error: 'boom' }))
-        .mockResolvedValue(reponse(200, { data: LIGNES }));
+        .mockImplementation((url: string) => repondre(url, { data: LIGNES }));
       vi.stubGlobal('fetch', fetchMock);
       render(<CollectesPage />);
 
@@ -391,7 +433,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         ).length,
       ).toBeGreaterThan(0);
       expect(screen.queryByTestId('collectes-erreur')).toBeNull();
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(appelsListe(fetchMock)).toHaveLength(2);
     },
     ATTENTE_CAS_MS,
   );
@@ -400,9 +442,10 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     'M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche',
     async () => {
       // Scénario réel : une requête filtrée est en vol, l'utilisateur retire le
-      // filtre (✕ du chip) → 2e requête. La 1re, PÉRIMÉE, échoue APRÈS que la 2e
-      // a réussi. Sans garde de péremption, son `setErreur` écrase le succès et
-      // épingle l'écran sur l'erreur, données fraîches invisibles.
+      // filtre (« Réinitialiser les filtres ») → 2e requête. La 1re, PÉRIMÉE,
+      // échoue APRÈS que la 2e a réussi. Sans garde de péremption, son
+      // `setErreur` écrase le succès et épingle l'écran sur l'erreur, données
+      // fraîches invisibles.
       let echouerLaPerimee: (() => void) | null = null;
       const fetchMock = vi
         .fn()
@@ -412,16 +455,15 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
               echouerLaPerimee = () => rej(new Error('réseau'));
             }),
         )
-        .mockResolvedValue(reponse(200, { data: LIGNES }));
+        .mockImplementation((url: string) => repondre(url, { data: LIGNES }));
       vi.stubGlobal('fetch', fetchMock);
 
       urlParams.current = 'lieu=L1';
-      const { rerender } = render(<CollectesPage />);
+      render(<CollectesPage />);
       await screen.findByTestId('collectes-skeleton', {}, ATTENTE_UI);
 
       // Le filtre tombe → 2e requête, qui aboutit.
-      urlParams.current = '';
-      rerender(<CollectesPage />);
+      fireEvent.click(screen.getByTestId('collecte-filtres-bar-reset'));
       expect(
         (
           await screen.findAllByText(
@@ -431,7 +473,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
           )
         ).length,
       ).toBeGreaterThan(0);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(appelsListe(fetchMock)).toHaveLength(2);
 
       // Seulement MAINTENANT, la requête périmée échoue.
       await act(async () => {
@@ -458,11 +500,19 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       render(<CollectesPage />);
 
       // §10 §7 : « Skeleton screens […] jamais spinner seul ». Le texte
-      // « Chargement… » que rendait l'écran d'avant ne doit plus apparaître.
-      expect(
-        await screen.findByTestId('collectes-skeleton', {}, ATTENTE_UI),
-      ).toBeTruthy();
-      expect(screen.queryByText('Chargement…')).toBeNull();
+      // « Chargement… » que rendait l'écran d'avant ne doit plus apparaître
+      // visiblement : `LoadingState bloc` ne le garde que pour les lecteurs
+      // d'écran (sr-only), à côté des squelettes.
+      const squelette = await screen.findByTestId(
+        'collectes-skeleton',
+        {},
+        ATTENTE_UI,
+      );
+      expect(squelette.querySelectorAll('[aria-hidden]').length).toBe(5);
+      const libelle = screen.queryByText('Chargement…');
+      expect(libelle === null || libelle.classList.contains('sr-only')).toBe(
+        true,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -498,12 +548,16 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     lieu_nom: 'Paris Expo Porte de Versailles',
   }));
 
-  /** Mock fetch qui ENREGISTRE les URL demandées (copie, pas de référence). */
+  /**
+   * Mock fetch qui ENREGISTRE les URL de la LISTE demandées (copie, pas de
+   * référence) ; la barre de filtres reçoit ses options à part.
+   */
   function fetchEspion(body: unknown) {
     const urls: string[] = [];
     const f = vi.fn((url: string) => {
-      urls.push(String(url));
-      return Promise.resolve(reponse(200, body));
+      const u = String(url);
+      if (u.startsWith(API_LISTE)) urls.push(u);
+      return repondre(u, body);
     });
     vi.stubGlobal('fetch', f);
     return urls;
@@ -515,11 +569,18 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
 
-      // Le total EXACT est affiché : au-delà d'une page, lui seul dit combien de
-      // collectes existent dans le périmètre demandé.
-      expect(
-        await screen.findByTestId('collectes-total', {}, ATTENTE_UI),
-      ).toHaveProperty('textContent', '120 collectes');
+      // Le total EXACT est affiché — dans le pied de la barre de filtres, seul
+      // emplacement du compteur (R-UI-4b, D5) : au-delà d'une page, lui seul
+      // dit combien de collectes existent dans le périmètre demandé.
+      // Le compteur existe dès le rendu (0 avant la réponse) : attendre la
+      // VALEUR, pas l'élément (course observée en CI, #481).
+      await waitFor(
+        () =>
+          expect(
+            screen.getByTestId('collectes-resultats-count'),
+          ).toHaveTextContent('120 collectes correspondent à votre sélection'),
+        ATTENTE_UI,
+      );
 
       // 120 / 50 = 3 pages.
       const nav = screen.getByRole('navigation', { name: 'Pagination' });
@@ -538,7 +599,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     async () => {
       const urls = fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       // 1er appel : pas de `page` (page 1 implicite).
       expect(urls[0]).not.toContain('page=');
@@ -560,7 +621,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     async () => {
       const urls = fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       // Tri par défaut = celui de la route (date décroissante).
       expect(urls[0]).toContain('tri=date&ordre=desc');
@@ -593,9 +654,12 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
 
-      // Une seule page : ni compteur ni nav, sinon l'écran s'encombre d'une
-      // pagination qui ne mène nulle part.
-      expect(screen.queryByTestId('collectes-total')).toBeNull();
+      // Une seule page : pas de nav, sinon l'écran s'encombre d'une pagination
+      // qui ne mène nulle part. Le compteur, lui, vit dans la barre (D5) et
+      // s'affiche toujours.
+      expect(screen.getByTestId('collectes-resultats-count').textContent).toBe(
+        '3 collectes correspondent à votre sélection',
+      );
       expect(
         screen.queryByRole('navigation', { name: 'Pagination' }),
       ).toBeNull();
@@ -607,25 +671,33 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     'M3.2/collectes_changement_de_filtre_revient_page_1',
     async () => {
       const urls = fetchEspion({ data: PAGE, total: 120 });
-      const { rerender } = render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
       });
       expect(urls[urls.length - 1]).toContain('page=2');
 
-      // Drill-down depuis une Top liste ALORS QU'ON EST EN PAGE 2. La page
+      // Un lieu posé dans la barre ALORS QU'ON EST EN PAGE 2. La page
       // courante appartient au périmètre précédent : la conserver demanderait
       // la page 2 d'un filtre qui n'a peut-être qu'une page, et l'écran
       // afficherait une liste vide sur un parc qui ne l'est pas.
-      urlParams.current = 'lieu=L1';
       await act(async () => {
-        rerender(<CollectesPage />);
+        fireEvent.click(screen.getByTestId('filtre-lieu'));
+      });
+      await act(async () => {
+        fireEvent.click(
+          await screen.findByRole(
+            'checkbox',
+            { name: 'Paris Expo Porte de Versailles' },
+            ATTENTE_UI,
+          ),
+        );
       });
 
       const derniere = urls[urls.length - 1]!;
-      expect(derniere).toContain('lieu_id=L1');
+      expect(derniere).toContain('lieu_ids=L1');
       expect(derniere).not.toContain('page=');
     },
     ATTENTE_CAS_MS,
@@ -636,7 +708,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       // 120 collectes (3 pages) au premier chargement.
       const urls = fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       // L'utilisateur va en page 3. Entre-temps la liste a rétréci à 60 (2
       // pages) : des collectes annulées ailleurs, un parc réduit. Le serveur
@@ -647,11 +719,12 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         'fetch',
         vi.fn((url: string) => {
           const u = String(url);
-          urls.push(u);
-          return Promise.resolve(
+          if (u.startsWith(API_LISTE)) urls.push(u);
+          return repondre(
+            u,
             u.includes('page=2')
-              ? reponse(200, { data: PAGE.slice(0, 10), total: 60 })
-              : reponse(200, { data: [], total: 60 }),
+              ? { data: PAGE.slice(0, 10), total: 60 }
+              : { data: [], total: 60 },
           );
         }),
       );
@@ -683,7 +756,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       // squelette pour toujours.
       fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       vi.stubGlobal(
         'fetch',
@@ -717,7 +790,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       const demande = new URLSearchParams(
         urls[urls.length - 1]!.split('?')[1] ?? '',
       );
-      expect(demande.get('lieu_id')).toBe('L1');
+      expect(demande.get('lieu_ids')).toBe('L1');
       expect(demande.getAll('type_evenement_ids[]')).toEqual([
         'ty-gala',
         'ty-cocktail',
@@ -731,7 +804,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
   );
 
   it(
-    'M3.2/collectes_chip_affiche_les_filtres_devenement — un filtre appliqué est un filtre visible',
+    'M3.2/collectes_barre_affiche_les_filtres_devenement — un filtre appliqué est un filtre visible',
     async () => {
       urlParams.current =
         'lieu=L1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&type_evenement_ids[]=ty-cocktail&taille_evenements[]=M';
@@ -739,13 +812,26 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
 
-      // Type/Taille viennent des filtres globaux du dashboard et n'ont AUCUN
-      // contrôle sur cet écran : sans mention dans le chip, la liste est
-      // restreinte par des critères que rien n'affiche, et le gestionnaire
-      // cherche des collectes qu'il voit au dashboard et que la liste écarte.
-      const chip = screen.getByTestId('filtre-actif');
-      expect(chip.textContent).toMatch(/2 types d.événement/);
-      expect(chip.textContent).toMatch(/1 taille d.événement/);
+      // Type/Taille viennent des filtres globaux du dashboard : la barre de
+      // filtres (R-UI-4b, D10) les porte comme ses propres contrôles. Sans
+      // cela, la liste serait restreinte par des critères que rien n'affiche,
+      // et le gestionnaire chercherait des collectes qu'il voit au dashboard
+      // et que la liste écarte.
+      expect(screen.getByTestId('filtre-type-evenement').textContent).toContain(
+        '2 sélectionnés',
+      );
+      expect(screen.getByTestId('filtre-taille-evenement').textContent).toMatch(
+        /Taille d'événement\s*M$/,
+      );
+      // Le lieu du drill-down est nommé dès que les options sont chargées.
+      await waitFor(
+        () =>
+          expect(screen.getByTestId('filtre-lieu').textContent).toContain(
+            'Paris Expo Porte de Versailles',
+          ),
+        ATTENTE_UI,
+      );
+      expect(screen.getByTestId('collecte-filtres-bar-reset')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
@@ -759,51 +845,523 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       // après le rerender) alourdit le cas sans rien prouver de plus — et ce
       // fichier est déjà le plus lent de la suite.
       const urls = fetchEspion({ data: PAGE.slice(0, 3), total: 120 });
-      const { rerender } = render(<CollectesPage />);
-      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
 
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
       });
       expect(urls[urls.length - 1]).toContain('page=2');
 
-      // Le périmètre change (Type d'événement ajouté) : rester en page 2
-      // demanderait la 2e page d'un filtre qui n'en a peut-être qu'une, et
-      // l'écran afficherait une liste vide sur un parc qui ne l'est pas.
-      urlParams.current = 'lieu=L1&type_evenement_ids[]=ty-gala';
+      // Le périmètre change (Type d'événement coché dans la barre) : rester en
+      // page 2 demanderait la 2e page d'un filtre qui n'en a peut-être qu'une,
+      // et l'écran afficherait une liste vide sur un parc qui ne l'est pas.
       await act(async () => {
-        rerender(<CollectesPage />);
+        fireEvent.click(screen.getByTestId('filtre-type-evenement'));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Gala' }));
       });
 
       const derniere = urls[urls.length - 1]!;
-      expect(derniere).toContain('type_evenement_ids');
+      expect(derniere).toContain('type_evenement_ids%5B%5D=ty-gala');
+      expect(derniere).toContain('lieu_ids=L1');
       expect(derniere).not.toContain('page=');
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille — pas de filtre invisible résiduel',
+    'M3.2/collectes_reinitialiser_retire_aussi_type_et_taille — pas de filtre invisible résiduel',
     async () => {
       urlParams.current =
         'lieu=L1&type_evenement_ids[]=ty-gala&taille_evenements[]=M';
-      fetchEspion({ data: PAGE, total: 50 });
+      // L'URL de la page porte réellement le lien du dashboard : sans cela les
+      // assertions finales sur `window.location` seraient vraies d'avance.
+      window.history.replaceState(
+        null,
+        '',
+        `/gestionnaire/collectes?${urlParams.current}`,
+      );
+      const urls = fetchEspion({ data: PAGE, total: 50 });
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
-
-      fireEvent.click(
-        screen.getByRole('button', { name: /Retirer le filtre/i }),
+      const avant = urls.length;
+      expect(urls[avant - 1]).toContain('lieu_ids=L1');
+      expect(decodeURIComponent(window.location.search)).toContain(
+        'type_evenement_ids[]=ty-gala',
       );
+      expect(window.location.search).toContain('lieu=L1');
 
-      // Sans ce nettoyage, la liste resterait restreinte à « Gala / M » alors que
-      // le chip a disparu : un filtre actif que plus rien n'affiche ni ne retire.
-      // Assertion d'abord : sans elle, un `calls` vide rendrait les `not.toContain`
-      // ci-dessous vrais par construction — la sonde serait muette.
-      expect(replace).toHaveBeenCalledTimes(1);
-      const apres = String(replace.mock.calls.at(-1)![0]);
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('collecte-filtres-bar-reset'));
+      });
+
+      // Sans ce nettoyage, la liste resterait restreinte à « Gala / M » alors
+      // que la barre ne montre plus rien : un filtre actif que plus rien
+      // n'affiche ni ne retire. Assertion d'abord : sans nouvel appel, les
+      // `not.toContain` ci-dessous seraient vrais par construction.
+      expect(urls.length).toBe(avant + 1);
+      const apres = urls[urls.length - 1]!;
       expect(apres).not.toContain('type_evenement_ids');
       expect(apres).not.toContain('taille_evenements');
-      expect(apres).not.toContain('lieu=');
+      expect(apres).not.toContain('lieu_id');
+      // L'URL de la page (miroir des filtres, D6) est nettoyée aussi, y compris
+      // les anciennes clés `x[]`.
+      expect(window.location.search).not.toContain('type_evenement_ids');
+      expect(window.location.search).not.toContain('lieu=');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // ── Chip « Filtre actif » du drill-down (§06.05 l.215, arbitrage Val
+  // 2026-10-04 : le chip est remis, à côté de la barre de filtres) ──────────
+  const chip = () => screen.queryByTestId('filtre-actif');
+  const TROIS_LIGNES = { data: PAGE.slice(0, 3), total: 3 };
+  /**
+   * Comme Next : `useSearchParams` suit l'URL que `useFiltresUrl` vient
+   * d'écrire. Le mock, lui, est figé — sans ce re-rendu, une cible relue à
+   * chaque rendu (au lieu d'être figée au montage) passerait inaperçue.
+   */
+  function resynchroniserUrl(rerender: (ui: React.ReactElement) => void) {
+    urlParams.current = window.location.search.slice(1);
+    rerender(<CollectesPage />);
+  }
+  /** Ouvre la liste d'un contrôle et attend une de ses cases : les options sont chargées. */
+  async function attendreOptions(
+    controle: 'Lieu' | 'Traiteur',
+    option: string,
+  ) {
+    await act(async () => {
+      fireEvent.click(
+        screen.getByTestId(
+          controle === 'Lieu' ? 'filtre-lieu' : 'filtre-traiteur',
+        ),
+      );
+    });
+    await screen.findByRole('checkbox', { name: option }, ATTENTE_UI);
+  }
+  /** Coche ou décoche une case de la liste ouverte. */
+  async function basculer(option: string) {
+    await act(async () => {
+      fireEvent.click(screen.getByRole('checkbox', { name: option }));
+    });
+  }
+
+  it(
+    'M3.2/collectes_chip_filtre_actif_nomme_la_cible_du_drilldown — le libellé du clic prime sur celui des options',
+    async () => {
+      // Clic sur « Top 5 lieux » : le dashboard mémorise le nom en
+      // sessionStorage (jamais dans l'URL) et pousse l'identifiant seul.
+      setCollecteFiltreLabel({
+        kind: 'lieu',
+        id: 'L1',
+        label: 'Pavillon Royal',
+      });
+      urlParams.current = 'lieu=L1&from=2026-01-01&to=2026-06-30';
+      fetchEspion(TROIS_LIGNES);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await attendreOptions('Traiteur', 'Kaspia Réceptions');
+
+      // Les options nomment ce lieu « Paris Expo… » : lire « Pavillon Royal »
+      // prouve que le chip affiche ce que le dashboard a écrit.
+      expect(chip()?.textContent).toContain('Filtre actif');
+      expect(chip()?.textContent).toContain('Lieu : Pavillon Royal');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    ['lieu', 'lieu=L2', 'Lieu : Palais des Congrès de Paris'],
+    ['traiteur', 'traiteur=T1', 'Traiteur : Kaspia Réceptions'],
+  ])(
+    'M3.2/collectes_chip_sans_libelle_prend_le_nom_des_options — %s',
+    async (_cle, url, attendu) => {
+      // Lien partagé ou ouvert dans un autre onglet : rien en sessionStorage.
+      urlParams.current = url;
+      fetchEspion(TROIS_LIGNES);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await waitFor(
+        () => expect(chip()?.textContent).toContain(attendu),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_chip_retirer_le_filtre_sort_du_drilldown — un clic retire tout ce que le dashboard a transmis',
+    async () => {
+      setCollecteFiltreLabel({
+        kind: 'lieu',
+        id: 'L1',
+        label: 'Pavillon Royal',
+      });
+      urlParams.current =
+        'lieu=L1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&taille_evenements[]=M';
+      const urls = fetchEspion(TROIS_LIGNES);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      expect(urls[urls.length - 1]).toContain('lieu_ids=L1');
+      const avant = urls.length;
+
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Retirer le filtre' }),
+        );
+      });
+
+      // Un nouvel appel part, sans le lieu NI les filtres propagés : retirer le
+      // lieu seul laisserait la liste restreinte à « Gala / M / 1er semestre ».
+      expect(urls.length).toBe(avant + 1);
+      const apres = urls[urls.length - 1]!;
+      expect(apres).not.toContain('lieu_id');
+      expect(apres).not.toContain('type_evenement_ids');
+      expect(apres).not.toContain('taille_evenements');
+      expect(apres).not.toContain('from=');
+      expect(chip()).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_chip_suit_la_barre — une autre cible choisie dans la barre sort du drill-down',
+    async () => {
+      setCollecteFiltreLabel({
+        kind: 'lieu',
+        id: 'L1',
+        label: 'Pavillon Royal',
+      });
+      urlParams.current = 'lieu=L1';
+      const urls = fetchEspion(TROIS_LIGNES);
+      const { rerender } = render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      expect(chip()).not.toBeNull();
+
+      // Le gestionnaire passe sur un AUTRE lieu (il décoche le sien, en coche
+      // un autre) : il n'est plus sur la ligne cliquée au dashboard, le chip
+      // ne doit ni l'annoncer encore, ni se reporter sur le nouveau lieu
+      // (c'est un filtre ordinaire de la barre).
+      await attendreOptions('Lieu', 'Palais des Congrès de Paris');
+      await basculer('Paris Expo Porte de Versailles');
+      await basculer('Palais des Congrès de Paris');
+      resynchroniserUrl(rerender);
+      expect(urls[urls.length - 1]).toContain('lieu_ids=L2');
+      expect(chip()).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_chip_disparait_au_deuxieme_lieu_coche — la liste ne porte plus sur la seule ligne cliquée',
+    async () => {
+      urlParams.current = 'lieu=L1';
+      const urls = fetchEspion(TROIS_LIGNES);
+      const { rerender } = render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await attendreOptions('Lieu', 'Palais des Congrès de Paris');
+      expect(chip()).not.toBeNull();
+
+      // Un 2e lieu coché EN PLUS : deux lieux filtrés, le chip « Lieu : … »
+      // n'en nommerait qu'un. Les deux restent lisibles dans la barre.
+      await basculer('Palais des Congrès de Paris');
+      resynchroniserUrl(rerender);
+      expect(decodeURIComponent(urls[urls.length - 1]!)).toContain(
+        'lieu_ids=L1,L2',
+      );
+      expect(chip()).toBeNull();
+      expect(screen.getByTestId('filtre-lieu').textContent).toBe(
+        'Lieu2 sélectionnés',
+      );
+
+      // Revenu au seul lieu du drill-down : le chip l'annonce de nouveau (il
+      // suit ce que la barre filtre, comme avant ce lot).
+      await basculer('Palais des Congrès de Paris');
+      resynchroniserUrl(rerender);
+      expect(urls[urls.length - 1]).toContain('lieu_ids=L1');
+      expect(chip()?.textContent).toContain(
+        'Lieu : Paris Expo Porte de Versailles',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_valeur_hors_options_cochee_avec_les_autres — tout cocher ne retire pas le filtre',
+    async () => {
+      // Drill-down sur un traiteur sorti de la fenêtre de 24 mois : les options
+      // n'en proposent qu'un autre. Le cocher en plus = DEUX traiteurs filtrés.
+      // Sans la marque « hors liste », FiltreCoches lirait « toutes les options
+      // cochées = Tous » et effacerait le filtre reçu du dashboard.
+      setCollecteFiltreLabel({
+        kind: 'traiteur',
+        id: 'T9',
+        label: 'Ancien Traiteur',
+      });
+      urlParams.current = 'traiteur=T9';
+      const urls = fetchEspion(TROIS_LIGNES);
+      const { rerender } = render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await attendreOptions('Traiteur', 'Kaspia Réceptions');
+      expect(
+        screen.getByRole('checkbox', { name: 'Ancien Traiteur' }),
+      ).toBeChecked();
+
+      await basculer('Kaspia Réceptions');
+      resynchroniserUrl(rerender);
+      expect(decodeURIComponent(urls[urls.length - 1]!)).toContain(
+        'traiteur_ids=T9,T1',
+      );
+      expect(screen.getByTestId('filtre-traiteur').textContent).toBe(
+        'Traiteur2 sélectionnés',
+      );
+      // Deux traiteurs filtrés : plus de cible unique, plus de chip.
+      expect(chip()).toBeNull();
+
+      // Décochée, la valeur hors options quitte la liste : elle n'y était que
+      // parce qu'elle filtrait.
+      await basculer('Ancien Traiteur');
+      resynchroniserUrl(rerender);
+      expect(urls[urls.length - 1]).toContain('traiteur_ids=T1');
+      expect(
+        screen.queryByRole('checkbox', { name: 'Ancien Traiteur' }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole('checkbox', { name: 'Sélectionné' }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    ['plusieurs lieux', 'lieu=L1,L2'],
+    ['plusieurs traiteurs', 'traiteur=T1,T9'],
+    // Le lieu prime sur le traiteur : plusieurs lieux = pas de cible, même si
+    // l'URL porte aussi un seul traiteur.
+    ['plusieurs lieux et un traiteur', 'lieu=L1,L2&traiteur=T1'],
+  ])(
+    'M3.2/collectes_lien_a_plusieurs_valeurs_sans_chip — %s',
+    async (_cas, url) => {
+      // Un drill-down vise UNE ligne de Top liste. Plusieurs valeurs dans
+      // l'URL à l'arrivée (rechargement après des cases cochées, lien
+      // partagé) = filtres ordinaires : la barre les montre, pas de chip.
+      urlParams.current = url;
+      const urls = fetchEspion(TROIS_LIGNES);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await attendreOptions('Lieu', 'Palais des Congrès de Paris');
+
+      const appel = new URLSearchParams(urls[urls.length - 1]!.split('?')[1]);
+      const page = new URLSearchParams(url);
+      expect(appel.get('lieu_ids')).toBe(page.get('lieu'));
+      expect(appel.get('traiteur_ids')).toBe(page.get('traiteur'));
+      expect(chip()).toBeNull();
+      // Jamais « Tous » sur un filtre appliqué.
+      for (const cle of ['lieu', 'traiteur'] as const)
+        if (page.get(cle))
+          expect(screen.getByTestId(`filtre-${cle}`).textContent).not.toContain(
+            'Tous',
+          );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_lien_a_plusieurs_valeurs_reduit_a_une_sans_chip — la cible se lit à l’arrivée, pas en cours de route',
+    async () => {
+      // Arrivée sur deux lieux : pas de drill-down. En décocher un laisse un
+      // seul lieu filtré, mais c'est un filtre composé dans la barre — pas la
+      // ligne d'une Top liste. Le chip ne doit pas surgir sur le lieu restant.
+      urlParams.current = 'lieu=L1,L2';
+      const urls = fetchEspion(TROIS_LIGNES);
+      const { rerender } = render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await attendreOptions('Lieu', 'Palais des Congrès de Paris');
+
+      await basculer('Palais des Congrès de Paris');
+      resynchroniserUrl(rerender);
+      expect(urls[urls.length - 1]).toContain('lieu_ids=L1');
+      expect(urls[urls.length - 1]).not.toContain('L2');
+      expect(chip()).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_filtre_pose_dans_la_barre_sans_chip — un lieu choisi sans drill-down est un filtre ordinaire',
+    async () => {
+      const urls = fetchEspion(TROIS_LIGNES);
+      const { rerender } = render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+
+      await attendreOptions('Lieu', 'Paris Expo Porte de Versailles');
+      await basculer('Paris Expo Porte de Versailles');
+      resynchroniserUrl(rerender);
+
+      // Le lieu est déjà visible dans son contrôle : pas de chip pour lui.
+      expect(urls[urls.length - 1]).toContain('lieu_ids=L1');
+      expect(window.location.search).toContain('lieu=L1');
+      expect(chip()).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    // [contrôle de la cible, id, URL, libellé du clic, AUTRE contrôle, une de ses options]
+    ['lieu', 'L9', 'lieu=L9', 'Ancien Lieu', 'Traiteur', 'Kaspia Réceptions'],
+    [
+      'traiteur',
+      'T9',
+      'traiteur=T9&from=2023-01-01&to=2024-06-30',
+      'Ancien Traiteur',
+      'Lieu',
+      'Palais des Congrès de Paris',
+    ],
+  ] as const)(
+    'M3.2/collectes_cible_hors_options_reste_nommee — %s',
+    async (cle, id, url, libelle, autreControle, optionTemoin) => {
+      // « L9 » / « T9 » ne sont pas dans les options de la barre (elles ne
+      // listent que les traiteurs intervenus sur 24 mois ; une période plus
+      // ancienne en sort).
+      setCollecteFiltreLabel({ kind: cle, id, label: libelle });
+      urlParams.current = url;
+      fetchEspion(TROIS_LIGNES);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      // La cible doit rester nommée APRÈS l'arrivée des options.
+      await attendreOptions(autreControle, optionTemoin);
+
+      const titre = cle === 'lieu' ? 'Lieu' : 'Traiteur';
+      expect(chip()?.textContent).toContain(`${titre} : ${libelle}`);
+      const controle = screen.getByTestId(`filtre-${cle}`).textContent;
+      expect(controle).toContain(libelle);
+      expect(controle).not.toContain('Tous');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_valeur_filtree_inconnue_reste_annoncee — jamais « Tous » sur une liste filtrée',
+    async () => {
+      // Lien partagé sur un traiteur hors options : aucun nom disponible. Le
+      // filtre reste annoncé, par le chip et par le contrôle.
+      urlParams.current = 'traiteur=T9';
+      const urls = fetchEspion(TROIS_LIGNES);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await attendreOptions('Lieu', 'Palais des Congrès de Paris');
+
+      expect(urls[urls.length - 1]).toContain('traiteur_ids=T9');
+      expect(chip()?.textContent).toContain('Traiteur : traiteur sélectionné');
+      const controle = screen.getByTestId('filtre-traiteur').textContent;
+      expect(controle).toContain('Sélectionné');
+      expect(controle).not.toContain('Tous');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_lieu_et_traiteur_dans_l_url — le chip annonce le lieu, le traiteur reste visible dans la barre',
+    async () => {
+      // Drill-down sur un traiteur hors options, puis un lieu ajouté dans la
+      // barre, puis rechargement : l'URL porte les deux.
+      urlParams.current = 'traiteur=T9&lieu=L1';
+      const urls = fetchEspion(TROIS_LIGNES);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await waitFor(
+        () =>
+          expect(chip()?.textContent).toContain(
+            'Lieu : Paris Expo Porte de Versailles',
+          ),
+        ATTENTE_UI,
+      );
+
+      // Les DEUX filtres sont appliqués : le second ne doit pas disparaître de
+      // l'écran sous prétexte que le chip annonce le premier.
+      const appel = urls[urls.length - 1]!;
+      expect(appel).toContain('lieu_ids=L1');
+      expect(appel).toContain('traiteur_ids=T9');
+      const controle = screen.getByTestId('filtre-traiteur').textContent;
+      expect(controle).toContain('Sélectionné');
+      expect(controle).not.toContain('Tous');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_un_lieu_et_plusieurs_traiteurs_chip_sur_le_lieu — le lieu prime, les traiteurs restent dans la barre',
+    async () => {
+      // Cas miroir de « plusieurs lieux et un traiteur » : ici le lieu est seul,
+      // il reste la cible ; les deux traiteurs sont des filtres ordinaires.
+      urlParams.current = 'lieu=L2&traiteur=T1,T9';
+      const urls = fetchEspion(TROIS_LIGNES);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+      await waitFor(
+        () =>
+          expect(chip()?.textContent).toContain(
+            'Lieu : Palais des Congrès de Paris',
+          ),
+        ATTENTE_UI,
+      );
+
+      const appel = new URLSearchParams(urls[urls.length - 1]!.split('?')[1]);
+      expect(appel.get('lieu_ids')).toBe('L2');
+      expect(appel.get('traiteur_ids')).toBe('T1,T9');
+      expect(screen.getByTestId('filtre-traiteur').textContent).toBe(
+        'Traiteur2 sélectionnés',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_chip_rechargement_sans_ecart_d_hydratation — le HTML servi et le premier rendu client concordent',
+    async () => {
+      urlParams.current = 'lieu=L1';
+      fetchEspion(TROIS_LIGNES);
+      // Serveur : pas de sessionStorage, donc pas de libellé.
+      const conteneur = document.createElement('div');
+      conteneur.innerHTML = renderToString(<CollectesPage />);
+      document.body.appendChild(conteneur);
+      const chipDe = () =>
+        conteneur.querySelector('[data-testid="filtre-actif"]')?.textContent;
+      expect(chipDe()).toContain('Lieu : lieu sélectionné');
+
+      // Client, même onglet après un clic sur le dashboard : le libellé est là.
+      // Le lire pendant l'hydratation rendrait un texte différent du HTML servi
+      // — React jette alors le rendu serveur et signale l'écart, à CHAQUE
+      // rechargement.
+      setCollecteFiltreLabel({
+        kind: 'lieu',
+        id: 'L1',
+        label: 'Pavillon Royal',
+      });
+      const ecarts: string[] = [];
+      const erreursConsole = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      let racine: Root | undefined;
+      try {
+        await act(async () => {
+          racine = hydrateRoot(conteneur, <CollectesPage />, {
+            onRecoverableError: (e) => ecarts.push(String(e)),
+          });
+        });
+        // Une fois hydraté, le chip prend le libellé du clic.
+        await waitFor(
+          () => expect(chipDe()).toContain('Lieu : Pavillon Royal'),
+          ATTENTE_UI,
+        );
+        expect(ecarts).toEqual([]);
+      } finally {
+        await act(async () => racine?.unmount());
+        conteneur.remove();
+        erreursConsole.mockRestore();
+      }
     },
     ATTENTE_CAS_MS,
   );

@@ -1,6 +1,6 @@
 /**
  * Registre réglementaire (§06.03) — liste en Data Table. La liste est paginée
- * côté serveur : le tri d'en-tête doit repartir vers l'API (`sortBy`/`sortDir`),
+ * côté serveur : le tri d'en-tête doit repartir vers l'API (`tri`/`ordre`),
  * jamais trier la seule page affichée. Le lien de bordereau ne doit pas ouvrir
  * la fiche de la ligne.
  */
@@ -15,6 +15,7 @@ import {
 
 const routerPush = vi.fn();
 vi.mock('next/navigation', () => ({
+  useSearchParams: () => null,
   useRouter: () => ({ push: routerPush, replace: vi.fn(), refresh: vi.fn() }),
 }));
 
@@ -82,13 +83,13 @@ describe('M0.8 — Registre : liste en Data Table (tri serveur)', () => {
       );
       expect(table.getByText('Palais')).toBeInTheDocument();
       // Défaut : date décroissante, portée par l'API.
-      expect(dernierAppelListe().get('sortBy')).toBe('date_evenement');
-      expect(dernierAppelListe().get('sortDir')).toBe('desc');
+      expect(dernierAppelListe().get('tri')).toBe('date_evenement');
+      expect(dernierAppelListe().get('ordre')).toBe('desc');
 
       fireEvent.click(table.getByRole('button', { name: /Lieu/ }));
       await waitFor(() => {
-        expect(dernierAppelListe().get('sortBy')).toBe('lieu_nom');
-        expect(dernierAppelListe().get('sortDir')).toBe('asc');
+        expect(dernierAppelListe().get('tri')).toBe('lieu_nom');
+        expect(dernierAppelListe().get('ordre')).toBe('asc');
       }, ATTENTE_UI);
       expect(dernierAppelListe().get('page')).toBe('1');
 
@@ -100,7 +101,7 @@ describe('M0.8 — Registre : liste en Data Table (tri serveur)', () => {
         }),
       );
       await waitFor(
-        () => expect(dernierAppelListe().get('sortDir')).toBe('desc'),
+        () => expect(dernierAppelListe().get('ordre')).toBe('desc'),
         ATTENTE_UI,
       );
     },

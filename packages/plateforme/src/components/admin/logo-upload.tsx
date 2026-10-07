@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { Upload, Check, X } from 'lucide-react';
+import { FormError } from '@/components/ui/form-error';
+import { Text } from '@/components/ui/text';
 
 // Upload logo (association / organisation) vers R2 via /api/v1/admin/uploads/logo.
 // Non bloquant : le logo est optionnel (Val 2026-07-02). Un échec (R2 absent en
@@ -57,8 +59,8 @@ export function LogoUpload({
           />
         )}
         <label
-          htmlFor={inputId}
           className="inline-flex cursor-pointer items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 py-2 text-sm font-medium text-savr-neutral-700 hover:border-savr-primary-400"
+          htmlFor={inputId}
         >
           <Upload className="h-4 w-4" />
           {uploading ? 'Envoi…' : 'Choisir un fichier'}
@@ -84,12 +86,12 @@ export function LogoUpload({
             </button>
           </span>
         ) : (
-          <span className="text-xs text-savr-neutral-500">
+          <Text as="span" variant="hint">
             JPG ou PNG, 2 Mo max
-          </span>
+          </Text>
         )}
       </div>
-      {error && <p className="text-xs text-savr-error-strong">{error}</p>}
+      <FormError>{error}</FormError>
     </div>
   );
 }

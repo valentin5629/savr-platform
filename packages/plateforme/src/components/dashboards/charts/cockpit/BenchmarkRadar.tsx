@@ -14,7 +14,12 @@ import {
   TEXT_FAINT,
   TEXT_XFAINT,
   SURFACE_HOVER,
+  PARC,
+  WHITE,
 } from './palette';
+import { Text } from '@/components/ui/text';
+import { ChartTooltip } from '@/components/ui/chart-tooltip';
+import { fmtPct } from '@/lib/format';
 
 // BenchmarkRadar — radar « lignes seules » (modèle shadcn Radar Chart - Lines
 // Only, décision Val 2026-09-28, remplace les 5 jauges bullet R24) : intensité
@@ -35,12 +40,15 @@ interface BenchmarkRadarProps {
   title?: string;
   /** Sous-titre de la carte (défaut : libellé des dashboards). */
   subtitle?: string;
+  /** Libellé de la série de référence dans la légende (défaut « Moyenne parc »). */
+  referenceLabel?: string;
+  /** Libellé court de la référence (infobulle, liste ; défaut « Parc »). */
+  referenceCourt?: string;
 }
 
 // Série « Vous » = navy-700 (encre forte), série « Parc » = primary-300 (repère
 // en retrait) — échelle primary DS §10.
 const VOUS = NAVY;
-const PARC = '#92A3D2'; // primary-300
 
 // Géométrie SVG (viewBox fixe, rendu fluide en largeur).
 const VB_W = 460; // marge latérale : libellés longs (« Déchet résiduel ») ; « n/d » va en 2e ligne
@@ -92,7 +100,7 @@ function statutDe(ratio: number) {
 
 function ecartTxt(ratio: number): string {
   const delta = (ratio - 1) * 100;
-  return `${delta >= 0 ? '+' : '−'}${fmtDec(Math.abs(delta), 0)} %`;
+  return `${delta >= 0 ? '+' : '−'}${fmtPct(Math.abs(delta), 0)}`;
 }
 
 function point(angle: number, r: number): [number, number] {
@@ -126,14 +134,19 @@ function LegendLine({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
+    <Text
+      as="span"
+      variant="hint"
+      tone="soft"
+      className="flex items-center gap-1.5 font-semibold"
+    >
       <span
         aria-hidden
         className="inline-block rounded-savr-full"
         style={{ width: 14, height: 3, background: color }}
       />
       {children}
-    </span>
+    </Text>
   );
 }
 
@@ -145,14 +158,19 @@ function LegendDot({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
+    <Text
+      as="span"
+      variant="hint"
+      tone="soft"
+      className="flex items-center gap-1.5 font-semibold"
+    >
       <span
         aria-hidden
         className="inline-block rounded-savr-full"
         style={{ width: 9, height: 9, background: color }}
       />
       {children}
-    </span>
+    </Text>
   );
 }
 
@@ -180,17 +198,24 @@ function Serie({
   );
 }
 
-function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
+function Tooltip({
+  axe,
+  referenceCourt,
+}: {
+  axe: Axe;
+  referenceCourt: string;
+}): React.ReactElement {
   const { item, ratio } = axe;
   return (
-    <div
+    <ChartTooltip
+      floating={false}
+      className="min-w-[170px] whitespace-nowrap"
       data-testid="benchmark-radar-tooltip"
-      className="min-w-[170px] whitespace-nowrap rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
     >
       <div className="mb-1.5 text-[12px] font-bold text-savr-neutral-900">
         {item.label}
       </div>
-      <div className="flex flex-col gap-1 text-[11px] tabular-nums">
+      <div className="flex flex-col gap-1 text-xs tabular-nums">
         <Serie
           color={VOUS}
           label="Vous"
@@ -198,7 +223,7 @@ function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
         />
         <Serie
           color={PARC}
-          label="Parc"
+          label={referenceCourt}
           valeur={
             fini(item.benchmark)
               ? `${fmtDec(item.benchmark, 2)} kg/pax`
@@ -220,7 +245,7 @@ function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
           </div>
         )}
       </div>
-    </div>
+    </ChartTooltip>
   );
 }
 
@@ -228,13 +253,16 @@ function LigneFlux({
   axe,
   active,
   onHover,
+  referenceCourt,
 }: {
   axe: Axe;
   active: boolean;
   onHover: (on: boolean) => void;
+  referenceCourt: string;
 }): React.ReactElement {
   const { item, ratio } = axe;
   const statut = ratio != null ? statutDe(ratio) : null;
+  const ref = referenceCourt.toLowerCase();
   return (
     <li
       data-testid="benchmark-radar-ligne"
@@ -247,30 +275,30 @@ function LigneFlux({
         <div
           className={
             statut
-              ? 'text-[13px] font-bold text-savr-neutral-800'
-              : 'text-[13px] font-bold text-savr-neutral-400'
+              ? 'text-sm font-bold text-savr-neutral-800'
+              : 'text-sm font-bold text-savr-neutral-400'
           }
         >
           {item.label}
         </div>
-        <div className="text-[11px] tabular-nums text-savr-neutral-500">
+        <Text as="div" variant="hint" className="tabular-nums">
           {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
           {' · '}
           {fini(item.benchmark)
-            ? `parc ${fmtDec(item.benchmark, 2)}`
-            : 'parc n/d'}
-        </div>
+            ? `${ref} ${fmtDec(item.benchmark, 2)}`
+            : `${ref} n/d`}
+        </Text>
       </div>
       {statut && ratio != null ? (
         <span
-          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
+          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-xs font-semibold tabular-nums"
           style={{ color: statut.badge, background: statut.bg }}
         >
           {ecartTxt(ratio)}
         </span>
       ) : (
         <span
-          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-[11px] font-semibold"
+          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-xs font-semibold"
           style={{ color: TEXT_MUTED, background: GRID }}
         >
           Données manquantes
@@ -285,6 +313,8 @@ export function BenchmarkRadar({
   filtersSlot,
   title = 'Intensité par flux · kg/pax vs benchmark parc',
   subtitle = "Indice : moyenne du parc Savr (anonymisée) = 100. À l'intérieur du repère, vous produisez moins que le parc.",
+  referenceLabel = 'Moyenne parc',
+  referenceCourt = 'Parc',
 }: BenchmarkRadarProps): React.ReactElement {
   // Survol : axe actif + position du curseur (px, relative au conteneur) quand
   // le survol vient du GRAPHE ; survol depuis la LISTE = axe seul (la ligne de
@@ -355,7 +385,7 @@ export function BenchmarkRadar({
       headerRight={
         <div className="flex flex-wrap gap-3">
           <LegendLine color={VOUS}>Vous</LegendLine>
-          <LegendLine color={PARC}>Moyenne parc</LegendLine>
+          <LegendLine color={PARC}>{referenceLabel}</LegendLine>
         </div>
       }
     >
@@ -370,7 +400,7 @@ export function BenchmarkRadar({
             viewBox={`0 0 ${VB_W} ${VB_H}`}
             className="block h-auto w-full"
             role="img"
-            aria-label="Radar de l'intensité kg/pax par flux, indice parc = 100"
+            aria-label={`Radar de l'intensité kg/pax par flux, indice ${referenceCourt.toLowerCase()} = 100`}
             data-testid="benchmark-radar"
             onMouseMove={onMove}
             onMouseLeave={onLeave}
@@ -426,7 +456,7 @@ export function BenchmarkRadar({
                 cy={ptsParc[hover]![1]}
                 r={4}
                 fill={PARC}
-                stroke="#FFFFFF"
+                stroke={WHITE}
                 strokeWidth={1.5}
               />
             )}
@@ -438,7 +468,7 @@ export function BenchmarkRadar({
                   cy={p[1]}
                   r={hover === i ? 5 : 3}
                   fill={VOUS}
-                  stroke={hover === i ? '#FFFFFF' : 'none'}
+                  stroke={hover === i ? WHITE : 'none'}
                   strokeWidth={1.5}
                 />
               ) : null,
@@ -501,7 +531,7 @@ export function BenchmarkRadar({
                 top: curseur.y,
               }}
             >
-              <Tooltip axe={focus} />
+              <Tooltip axe={focus} referenceCourt={referenceCourt} />
             </div>
           )}
         </div>
@@ -512,6 +542,7 @@ export function BenchmarkRadar({
                 key={`${a.item.label}-${i}`}
                 axe={a}
                 active={hover === i}
+                referenceCourt={referenceCourt}
                 onHover={(on) => {
                   setCurseur(null);
                   setHover(on ? i : null);

@@ -54,6 +54,7 @@ const collecteZd = {
   type: 'zero_dechet',
   statut: 'cloturee',
   statut_tms: 'acceptee',
+  tms_reference: 'CO-ZD-1',
   dirty_tms: false,
   date_collecte: '2026-04-23',
   heure_collecte: '08:30:00',
@@ -95,6 +96,7 @@ function ag(overrides: Record<string, unknown>) {
     type: 'anti_gaspi',
     statut: 'programmee',
     statut_tms: 'non_envoye',
+    tms_reference: null,
     dirty_tms: false,
     date_collecte: '2026-05-10',
     heure_collecte: '19:00:00',
@@ -155,8 +157,10 @@ function mockCollectesFetch() {
         ok: true,
         json: async () => ({
           non_transmises: 3,
-          non_transmises_zd: 2,
-          non_transmises_ag: 1,
+          // Même nombre que les tuiles « à dispatcher » : la route les tire du
+          // même compteur (kpi_a_dispatcher_predicat_unique).
+          non_transmises_zd: 3,
+          non_transmises_ag: 2,
           attente_prestataire: 1,
           dirty_tms: 0,
           ag_attente_attribution: 2,
@@ -164,8 +168,6 @@ function mockCollectesFetch() {
           ag_48h: 4,
           ag_a_dispatcher: 2,
           zd_a_dispatcher: 3,
-          ag_a_venir: 9,
-          zd_a_venir: 7,
           controle_acces_a_envoyer: 4,
           infos_a_recuperer: 6,
         }),
@@ -258,7 +260,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-      fireEvent.click(screen.getByRole('tab', { name: 'Historique' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
 
       await waitFor(() => {
         const urls = fetchMock.mock.calls.map((c) => String(c[0]));
@@ -300,27 +302,103 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — cartes KPI « à venir » AG/ZD affichent leur volume (indicateurs)',
+    'M0.6 — kpi_a_dispatcher_predicat_unique : clic sur une tuile « à dispatcher » → chip « Non transmises » du même type, re-clic le retire',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      const zdTile = await screen.findByRole(
+        'button',
+        { name: /ZD à dispatcher/ },
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
+      // Sous-libellé : 4e surface du scénario, exact depuis que la tuile
+      // compte aussi les collectes validées transporteur.
+      expect(zdTile).toHaveTextContent('validées transporteur');
+
+      // Le segmenté porte déjà un AUTRE type : sans effacement, le clic sur la
+      // tuile ZD rendrait une liste vide alors que la tuile affiche 3.
+      const pastilleAg = screen.getByRole('radio', { name: 'Anti-Gaspi' });
+      fireEvent.click(pastilleAg);
+      await waitFor(
+        () =>
+          expect(derniereRequeteListe(fetchMock).get('types')).toBe(
+            'anti_gaspi',
+          ),
+        ATTENTE_UI,
+      );
+
+      // Clic : la liste est filtrée par le prédicat MÊME que compte la tuile
+      // (chip serveur), et le filtre Type est effacé (décisions Val 2026-10-01).
+      fireEvent.click(zdTile);
+      await waitFor(() => {
+        const q = derniereRequeteListe(fetchMock);
+        expect(q.get('chip')).toBe('non_transmises_zd');
+        expect(q.get('types')).toBeNull();
+      }, ATTENTE_UI);
+      expect(zdTile).toHaveAttribute('aria-pressed', 'true');
+      expect(pastilleAg).toHaveAttribute('aria-checked', 'false');
+      expect(screen.getByRole('radio', { name: 'Toutes' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      // Le chip masqué apparaît actif dans la rangée, avec le même compteur.
+      const chip = screen.getByRole('button', { name: /Non transmises ZD/ });
+      expect(chip).toHaveAttribute('aria-pressed', 'true');
+      expect(chip).toHaveTextContent('3');
+
+      // L'autre tuile remplace le chip (un seul filtre rapide à la fois).
+      const agTile = screen.getByRole('button', { name: /AG à dispatcher/ });
+      fireEvent.click(agTile);
+      await waitFor(
+        () =>
+          expect(derniereRequeteListe(fetchMock).get('chip')).toBe(
+            'non_transmises_ag',
+          ),
+        ATTENTE_UI,
+      );
+      expect(agTile).toHaveAttribute('aria-pressed', 'true');
+      expect(zdTile).toHaveAttribute('aria-pressed', 'false');
+
+      // Re-clic : retour à la liste Programmées complète.
+      fireEvent.click(agTile);
+      await waitFor(() => {
+        const q = derniereRequeteListe(fetchMock);
+        expect(q.get('chip')).toBeNull();
+        expect(q.get('statuts')).toBe('programmee,validee,en_cours');
+      }, ATTENTE_UI);
+      expect(agTile).toHaveAttribute('aria-pressed', 'false');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "M0.6 — KPI de tête : 4 files d'action sur une ligne, sans tuiles « à venir » (décision Val 2026-10-01)",
     async () => {
       mockCollectesFetch();
       render(<CollectesPage />);
 
-      // Indicateurs statiques (pas des boutons) → requête par texte, compteur lu
-      // sur le conteneur (count + libellé + sous-libellé sont frères).
-      const agVenir = await screen.findByText(
-        'AG à venir',
-        undefined,
-        ATTENTE_UI,
+      const ordre = [
+        /AG à dispatcher/,
+        /ZD à dispatcher/,
+        /Infos accès à envoyer/,
+        /Infos à récupérer/,
+      ];
+      const tuiles = await Promise.all(
+        ordre.map((name) => screen.findByRole('button', { name }, ATTENTE_UI)),
       );
-      const zdVenir = screen.getByText('ZD à venir');
-      await waitFor(
-        () => expect(agVenir.parentElement).toHaveTextContent('9'),
-        ATTENTE_UI,
-      );
-      await waitFor(
-        () => expect(zdVenir.parentElement).toHaveTextContent('7'),
-        ATTENTE_UI,
-      );
+      // Ordre d'affichage = ordre demandé (gauche → droite).
+      for (let i = 1; i < tuiles.length; i++) {
+        expect(
+          tuiles[i - 1]!.compareDocumentPosition(tuiles[i]!) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      }
+      // Même grille, 4 colonnes en desktop.
+      expect(tuiles[0]!.parentElement).toBe(tuiles[3]!.parentElement);
+      expect(tuiles[0]!.parentElement!.className).toContain('xl:grid-cols-4');
+      expect(screen.queryByText('AG à venir')).toBeNull();
+      expect(screen.queryByText('ZD à venir')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -374,14 +452,14 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — bouton de filtre par type « Anti-Gaspi » ajoute types=anti_gaspi',
+    'M0.6 — segmenté de type « Anti-Gaspi » ajoute types=anti_gaspi',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-      // Le bouton coche ce seul type dans le filtre Type (choix multiple).
-      fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi' }));
+      // Le segmenté (ToggleGroup, R-UI-4b D1) est l'unique contrôle de type.
+      fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
       await waitFor(
         () =>
           expect(derniereRequeteListe(fetchMock).get('types')).toBe(
@@ -552,6 +630,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         id: 'zd-disp',
         statut: 'programmee',
         statut_tms: 'non_envoye',
+        tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
         factures_collectes: [],
@@ -567,6 +646,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         id: 'zd-envoyee',
         statut: 'validee',
         statut_tms: 'acceptee',
+        tms_reference: 'CO-ZD-9',
       };
       // AG programmée + non transmise (même forme statut/statut_tms qu'une ZD à
       // dispatcher) → PAS de « Dispatcher » (garde de type) mais « Attribuer ».
@@ -642,6 +722,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         id: 'zd-open',
         statut: 'programmee',
         statut_tms: 'non_envoye',
+        tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
         factures_collectes: [],
@@ -775,14 +856,18 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       ).toBeNull();
       expect(screen.queryByPlaceholderText(/Traiteur, lieu, ville/)).toBeNull();
 
-      // Période en premier dans la barre (décision Val 2026-09-30).
+      // Période en premier dans la ligne de filtres (décision Val 2026-09-30) ;
+      // le type est le segmenté de l'en-tête de la barre (R-UI-4b, D1).
       const barre = screen.getByTestId('collectes-filtres');
       const periode = within(barre).getByTestId('collectes-filtre-periode');
       expect(
         periode.compareDocumentPosition(
-          within(barre).getByTestId('collectes-filtre-type'),
+          within(barre).getByTestId('collectes-filtre-traiteur'),
         ) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
+      expect(
+        within(barre).getByTestId('collectes-filtre-type'),
+      ).toHaveAttribute('role', 'radiogroup');
 
       // Traiteur : choix multiple (liste à cocher), « Tous » coché par défaut.
       // R24c : le filtre « Traiteur » = traiteur OPÉRATIONNEL (décision Val).
@@ -843,21 +928,14 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — filtre Type à choix multiple : un type → types=… ; les deux cochés = « Tous »',
+    'M0.6 — segmenté de type : un type → types=… ; « Toutes » = aucun paramètre',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-      fireEvent.click(screen.getByTestId('collectes-filtre-type'));
-      const liste = await screen.findByRole(
-        'list',
-        { name: 'Type' },
-        ATTENTE_UI,
-      );
-      fireEvent.click(
-        within(liste).getByRole('checkbox', { name: 'Zéro Déchet' }),
-      );
+      const segmente = within(screen.getByTestId('collectes-filtre-type'));
+      fireEvent.click(segmente.getByRole('radio', { name: 'Zéro Déchet' }));
       await waitFor(
         () =>
           expect(derniereRequeteListe(fetchMock).get('types')).toBe(
@@ -866,17 +944,16 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         ATTENTE_UI,
       );
 
-      // Les deux types cochés = tous les types → aucun filtre, « Tous » coché.
-      fireEvent.click(
-        within(liste).getByRole('checkbox', { name: 'Anti-Gaspi' }),
-      );
+      // « Toutes » lève le filtre → aucun paramètre `types`.
+      fireEvent.click(segmente.getByRole('radio', { name: 'Toutes' }));
       await waitFor(
         () => expect(derniereRequeteListe(fetchMock).get('types')).toBeNull(),
         ATTENTE_UI,
       );
-      expect(
-        within(liste).getByRole('checkbox', { name: 'Tous' }),
-      ).toBeChecked();
+      expect(segmente.getByRole('radio', { name: 'Toutes' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -1012,7 +1089,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       );
 
       // Historique : les plus récentes d'abord.
-      fireEvent.click(screen.getByRole('tab', { name: 'Historique' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
       await waitFor(
         () => expect(urls().at(-1)).toContain('tri=date&ordre=desc'),
         ATTENTE_UI,
@@ -1050,32 +1127,34 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — Historique : pastille Anti-Gaspi × Type Zéro Déchet = aucun résultat, sans appel API',
+    'M0.6 — Historique : pastille Annulées × Statut Clôturée = aucun résultat, sans appel API',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-      fireEvent.click(screen.getByRole('tab', { name: 'Historique' }));
-      // Pastille rapide « Anti-Gaspi » (et non le sélecteur de type homonyme).
-      fireEvent.click(
-        within(
-          screen.getByRole('group', { name: 'Filtres rapides' }),
-        ).getByRole('button', { name: 'Anti-Gaspi' }),
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
+      // Les pastilles Anti-Gaspi / Zéro Déchet n'existent plus (R-UI-4b, D1) :
+      // le type ne se filtre que par le segmenté.
+      const rapides = within(
+        screen.getByRole('group', { name: 'Filtres rapides' }),
       );
+      expect(rapides.queryByRole('button', { name: 'Anti-Gaspi' })).toBeNull();
+      expect(rapides.queryByRole('button', { name: 'Zéro Déchet' })).toBeNull();
+      fireEvent.click(rapides.getByRole('button', { name: 'Annulées' }));
       await waitFor(
         () =>
-          expect(derniereRequeteListe(fetchMock).get('types')).toBe(
-            'anti_gaspi',
+          expect(derniereRequeteListe(fetchMock).get('statuts')).toBe(
+            'annulee,rejetee_par_prestataire',
           ),
         ATTENTE_UI,
       );
       const avant = fetchMock.mock.calls.length;
 
-      fireEvent.click(screen.getByTestId('collectes-filtre-type'));
+      fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
       fireEvent.click(
         within(
-          await screen.findByRole('list', { name: 'Type' }, ATTENTE_UI),
-        ).getByRole('checkbox', { name: 'Zéro Déchet' }),
+          await screen.findByRole('list', { name: 'Statut' }, ATTENTE_UI),
+        ).getByRole('checkbox', { name: 'Clôturée' }),
       );
       expect(
         await screen.findByText('Aucune collecte', undefined, ATTENTE_UI),
@@ -1106,14 +1185,14 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         expect(q.get('statuts')).toBe('cloturee');
         expect(q.getAll('perimetre_org_ids[]')).toEqual([p]);
       }, ATTENTE_UI);
-      // Onglet Historique, Type pré-coché sur Zéro Déchet.
+      // Onglet Historique, segmenté de type sur Zéro Déchet.
       expect(screen.getByRole('tab', { name: 'Historique' })).toHaveAttribute(
         'aria-selected',
         'true',
       );
-      expect(screen.getByTestId('collectes-filtre-type')).toHaveTextContent(
-        'Zéro Déchet',
-      );
+      expect(
+        screen.getByRole('radio', { name: 'Zéro Déchet' }),
+      ).toHaveAttribute('aria-checked', 'true');
     },
     ATTENTE_CAS_MS,
   );

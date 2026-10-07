@@ -61,10 +61,10 @@ describe('M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mo
         screen.getByTestId(`dashboard-filter-preset-${key}`),
       ).toBeInTheDocument();
     }
-    // Réinitialiser était gestionnaire-only (garde parcOptions) → désormais présent partout.
-    expect(
-      screen.getByTestId('dashboard-filter-reinitialiser'),
-    ).toBeInTheDocument();
+    // Réinitialiser était gestionnaire-only (garde parcOptions) → désormais
+    // disponible partout, mais seulement quand un filtre diffère du défaut
+    // (R-UI-4b, D5 : `FilterBar actif`) — ici tout est au défaut.
+    expect(screen.queryByTestId('dashboard-filter-reinitialiser')).toBeNull();
   });
 
   it('applique un preset : onChange rappelé après clic', () => {
@@ -85,6 +85,10 @@ describe('M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mo
     };
     // Fenêtre exacte du raccourci « 7 derniers jours » (liste standard).
     expect(last).toMatchObject(periodeDerniers(7, 'jours')!);
+    // La période diffère du défaut → « Réinitialiser les filtres » apparaît.
+    expect(
+      screen.getByTestId('dashboard-filter-reinitialiser'),
+    ).toBeInTheDocument();
   });
 
   it('M0.8-56 — période par défaut = 12 derniers mois (§11 aligné §06.04/05)', () => {
@@ -124,4 +128,4 @@ describe('M0.8-48 — margeTooltipZd restitue tarif × pax − coût = marge (BL
 // Note R24c : les ex-scénarios M0.8-46 (KpiCard tooltip) et M0.8-47
 // (BenchmarkLegend) ont été retirés — leurs composants `KpiCard` et
 // `BenchmarkLegend` sont supprimés (déclinaison Cockpit des dashboards clients,
-// remplacés par `KpiCockpitCard` + la légende intégrée de `BenchmarkRadar`).
+// remplacés par `StatCard` + la légende intégrée de `BenchmarkRadar`).

@@ -11,26 +11,38 @@ import {
   MapPin,
   Truck,
 } from 'lucide-react';
-import { Modal } from '@/components/ui/modal';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { AlertBar } from '@/components/ui/alert-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
+import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
+import { SectionHeader } from '@/components/ui/section-header';
 import {
-  BlocHeader,
   EnTeteMention,
   EnTetePuce,
   FicheEnTete,
-  OngletAvecErreurs,
-} from '@/components/collecte/fiche-blocs';
+} from '@/components/ui/fiche/fiche-en-tete';
+import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
+import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
 import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
+import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
+import { estSiren } from '@savr/shared/src/validation/index.js';
+import {
+  MESSAGE_FORMAT_SIREN,
+  messageObligatoire,
+} from '@/lib/libelles/validation';
+import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
 
 // Modale création/édition d'un lieu — remplace la fiche + les pages nouveau/modifier
 // (point unique, ouverte depuis la liste /admin/lieux). En édition, les champs sont
@@ -163,6 +175,7 @@ const LIBELLE_ACTION: Record<string, string> = {
   UPDATE: 'Modification',
   NORMALISE: 'Lieu normalisé',
   lieu_override_programmation: 'Modification signalée à la programmation',
+  [CODE_ALERTE_LIEU_MODIFICATION]: 'Modification demandée par le gestionnaire',
 };
 
 const LIBELLE_CHAMP: Record<string, string> = {
@@ -257,13 +270,14 @@ function Interrupteur({
 }) {
   return (
     // Toute la ligne est le libellé : zone cliquable de 44 px de haut (DS §10 Accessibilité).
-    <label
+    <Label
+      variant="choice"
+      className="inline-flex min-h-11 items-center gap-3 font-medium"
       htmlFor={id}
-      className="inline-flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-savr-neutral-700"
     >
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
       {label}
-    </label>
+    </Label>
   );
 }
 
@@ -379,16 +393,16 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
   function validate(): boolean {
     const next: Record<string, string> = {};
-    if (!values.nom.trim()) next.nom = 'Nom obligatoire';
+    if (!values.nom.trim()) next.nom = messageObligatoire('Nom');
     if (!values.adresse_acces.trim())
-      next.adresse_acces = 'Adresse accès livraison obligatoire';
+      next.adresse_acces = messageObligatoire('Adresse accès livraison');
     if (!values.code_postal.trim())
-      next.code_postal = 'Code postal obligatoire';
-    if (!values.ville.trim()) next.ville = 'Ville obligatoire';
+      next.code_postal = messageObligatoire('Code postal');
+    if (!values.ville.trim()) next.ville = messageObligatoire('Ville');
     if (!values.type_vehicule_max)
-      next.type_vehicule_max = 'Type de véhicule max obligatoire';
-    if (values.siren.trim() !== '' && !/^\d{9}$/.test(values.siren.trim()))
-      next.siren = 'SIREN : 9 chiffres';
+      next.type_vehicule_max = messageObligatoire('Type de véhicule max');
+    if (values.siren.trim() !== '' && !estSiren(values.siren.trim()))
+      next.siren = MESSAGE_FORMAT_SIREN;
     setErrors(next);
     const premierOngletEnErreur = ONGLETS.find(({ value }) =>
       Object.keys(next).some((champ) => ONGLET_DU_CHAMP[champ] === value),
@@ -503,31 +517,24 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   const photos = lieuCharge?.photos_urls ?? [];
 
   const footer = (
-    <>
-      <Button
-        type="button"
-        variant="secondary"
-        onClick={onClose}
-        disabled={submitting}
-      >
-        Annuler
-      </Button>
-      <Button
-        type="button"
-        onClick={() => void submitForm()}
-        disabled={submitting || (isEdition && !lieuCharge)}
-      >
-        {submitting
-          ? 'Enregistrement…'
-          : isEdition
-            ? 'Enregistrer'
-            : 'Créer le lieu'}
-      </Button>
-    </>
+    <FormActions
+      cancel={{ label: 'Annuler', onClick: onClose }}
+      submit={{
+        label: isEdition ? 'Enregistrer' : 'Créer le lieu',
+        type: 'button',
+        onClick: () => void submitForm(),
+        disabled: isEdition && !lieuCharge,
+      }}
+      loading={submitting}
+      loadingText="Enregistrement…"
+    />
   );
 
   return (
-    <Modal
+    // Shell commun des fiches (FicheModal) : grand en-tête fixe dans le corps,
+    // qui défile en dessous ; hauteur fixe dès md, la modale ne change ni de
+    // taille ni de place d'un onglet à l'autre.
+    <FicheModal
       open={open}
       onClose={onClose}
       title={
@@ -537,12 +544,6 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
             : 'Fiche lieu'
           : 'Nouveau lieu'
       }
-      // Même cadre que la fiche transporteur : grand en-tête fixe dans le
-      // corps, qui défile en dessous ; hauteur fixe dès md, la modale ne
-      // change ni de taille ni de place d'un onglet à l'autre.
-      hideTitle
-      bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
-      className="max-w-5xl md:h-[min(90vh,48rem)]"
       footer={footer}
     >
       {isEdition ? (
@@ -597,11 +598,12 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
           description="Renseignez les onglets, puis créez le lieu."
         />
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8">
+      <FicheCorps>
         {hydrating ? (
-          <p className="py-8 text-center text-sm text-savr-neutral-500">
-            Chargement du lieu…
-          </p>
+          <LoadingState
+            label="Chargement du lieu…"
+            className="py-8 text-center"
+          />
         ) : chargementEchoue ? (
           <AlertBar variant="err" role="alert">
             Erreur lors du chargement du lieu. Fermez la fiche et réessayez.
@@ -639,9 +641,9 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
               </TabsList>
 
               <TabsContent value="informations" className="space-y-4">
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={Building2} title="Identité" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Card padding="md" className="space-y-4">
+                  <SectionHeader icon={Building2} title="Identité" />
+                  <FormGrid>
                     <FormField
                       label="Nom du lieu"
                       htmlFor="lm_nom"
@@ -650,6 +652,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     >
                       <Input
                         id="lm_nom"
+                        required
                         value={values.nom}
                         onChange={(e) => set('nom', e.target.value)}
                         error={Boolean(errors.nom)}
@@ -669,7 +672,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       label="Gestionnaire de lieux"
                       htmlFor="lm_gestionnaire"
                       hint="Organisation gestionnaire rattachée — optionnel"
-                      className="md:col-span-2"
+                      className="sm:col-span-2"
                     >
                       <Combobox
                         id="lm_gestionnaire"
@@ -686,7 +689,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         ]}
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                   <Interrupteur
                     id="lm_actif"
                     label="Actif"
@@ -695,19 +698,20 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                   />
                 </Card>
 
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={MapPin} title="Adresse" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Card padding="md" className="space-y-4">
+                  <SectionHeader icon={MapPin} title="Adresse" />
+                  <FormGrid cols={3}>
                     <FormField
                       label="Adresse accès livraison"
                       htmlFor="lm_adresse_acces"
                       required
                       error={errors.adresse_acces}
                       hint="Géocodée automatiquement à l'enregistrement"
-                      className="md:col-span-2"
+                      className="sm:col-span-2"
                     >
                       <Input
                         id="lm_adresse_acces"
+                        required
                         value={values.adresse_acces}
                         onChange={(e) => set('adresse_acces', e.target.value)}
                         error={Boolean(errors.adresse_acces)}
@@ -737,6 +741,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     >
                       <Input
                         id="lm_code_postal"
+                        required
                         value={values.code_postal}
                         onChange={(e) => set('code_postal', e.target.value)}
                         error={Boolean(errors.code_postal)}
@@ -750,19 +755,20 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     >
                       <Input
                         id="lm_ville"
+                        required
                         value={values.ville}
                         onChange={(e) => set('ville', e.target.value)}
                         error={Boolean(errors.ville)}
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                 </Card>
               </TabsContent>
 
               <TabsContent value="acces" className="space-y-4">
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={KeyRound} title="Accès au lieu" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Card padding="md" className="space-y-4">
+                  <SectionHeader icon={KeyRound} title="Accès au lieu" />
+                  <FormGrid cols={3}>
                     <FormField
                       label="Type de véhicule max"
                       htmlFor="lm_type_vehicule_max"
@@ -809,7 +815,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         options={OPTIONS_DIFFICULTE}
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                   <Interrupteur
                     id="lm_controle_acces"
                     label="Contrôle d'accès requis (plaque + nom chauffeur)"
@@ -830,9 +836,9 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                   </FormField>
                 </Card>
 
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={Truck} title="Capacité et contraintes" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Card padding="md" className="space-y-4">
+                  <SectionHeader icon={Truck} title="Capacité et contraintes" />
+                  <FormGrid cols={3}>
                     <FormField
                       label="Capacité maximum"
                       htmlFor="lm_capacite_maximum"
@@ -872,7 +878,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         }
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                   <FormField
                     label="Flux autorisés"
                     htmlFor="lm_flux_autorises"
@@ -888,22 +894,22 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
                 {/* Photos — lecture seule (upload géré hors formulaire, stockage R2). */}
                 {photos.length > 0 && (
-                  <Card className="space-y-3 p-5">
-                    <BlocHeader
+                  <Card padding="md" className="space-y-3">
+                    <SectionHeader
                       icon={ImageIcon}
                       title={`Photos (${photos.length})`}
                     />
                     <ul className="space-y-1 text-sm">
                       {photos.map((url, i) => (
                         <li key={url}>
-                          <a
+                          <TextLink
                             href={url}
+                            external
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-savr-primary-700 hover:underline"
                           >
                             Photo {i + 1}
-                          </a>
+                          </TextLink>
                         </li>
                       ))}
                     </ul>
@@ -917,8 +923,8 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                   Ces informations ne sont jamais montrées aux clients
                   (traiteur, agence, gestionnaire, client organisateur).
                 </AlertBar>
-                <Card className="space-y-4 p-5">
-                  <BlocHeader icon={Lock} title="Réservé à l'équipe Savr" />
+                <Card padding="md" className="space-y-4">
+                  <SectionHeader icon={Lock} title="Réservé à l'équipe Savr" />
                   <FormField
                     label="Commentaire sur le lieu"
                     htmlFor="lm_commentaire_lieu"
@@ -945,7 +951,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       }
                     />
                   </FormField>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormGrid>
                     <FormField
                       label="SIREN"
                       htmlFor="lm_siren"
@@ -972,7 +978,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         }
                       />
                     </FormField>
-                  </div>
+                  </FormGrid>
                   <Interrupteur
                     id="lm_reference_citeo"
                     label="Référencé Citeo (REP emballages)"
@@ -989,17 +995,22 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       Impossible de charger l&apos;activité du lieu.
                     </AlertBar>
                   ) : !activite ? (
-                    <p className="py-6 text-center text-sm text-savr-neutral-500">
-                      Chargement de l&apos;activité…
-                    </p>
+                    <LoadingState
+                      label="Chargement de l'activité…"
+                      className="py-6 text-center"
+                    />
                   ) : (
                     <>
-                      <Card className="space-y-4 p-5">
-                        <BlocHeader icon={ChefHat} title="Traiteurs opérant" />
+                      <Card padding="md" className="space-y-4">
+                        <SectionHeader
+                          icon={ChefHat}
+                          title="Traiteurs opérant"
+                        />
                         {activite.traiteurs.length === 0 ? (
-                          <p className="text-sm text-savr-neutral-500">
-                            Aucune collecte sur ce lieu pour l&apos;instant.
-                          </p>
+                          <EmptyState
+                            size="inline"
+                            title="Aucune collecte sur ce lieu pour l'instant."
+                          />
                         ) : (
                           <ul className="divide-y divide-savr-neutral-100 text-sm">
                             {activite.traiteurs.map((t) => (
@@ -1022,53 +1033,54 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         )}
                       </Card>
 
-                      <Card className="space-y-4 p-5">
-                        <BlocHeader
+                      <Card padding="md" className="space-y-4">
+                        <SectionHeader
                           icon={History}
                           title="Historique des modifications"
                         />
                         {activite.historique.length === 0 ? (
-                          <p className="text-sm text-savr-neutral-500">
-                            Aucune modification enregistrée sur ce lieu.
-                          </p>
+                          <EmptyState
+                            size="inline"
+                            title="Aucune modification enregistrée sur ce lieu."
+                          />
                         ) : (
                           <Timeline>
                             {activite.historique.map((h) => (
                               <TimelineItem key={h.id}>
-                                <p className="text-sm font-medium text-savr-neutral-800">
+                                <Text tone="strong" className="font-medium">
                                   {LIBELLE_ACTION[h.action] ?? h.action}
-                                </p>
+                                </Text>
                                 {h.champs.length > 0 ? (
-                                  <p className="text-sm text-savr-neutral-600">
+                                  <Text tone="soft">
                                     {h.champs
                                       .map((c) => LIBELLE_CHAMP[c] ?? c)
                                       .join(', ')}
-                                  </p>
+                                  </Text>
                                 ) : (
                                   h.action === 'UPDATE' && (
-                                    <p className="text-sm text-savr-neutral-500">
+                                    <Text>
                                       Aucun champ du lieu modifié (le
                                       gestionnaire rattaché a pu changer)
-                                    </p>
+                                    </Text>
                                   )
                                 )}
-                                <p className="text-xs text-savr-neutral-500">
+                                <Text variant="hint">
                                   {new Date(h.created_at).toLocaleString(
                                     'fr-FR',
                                     { timeZone: 'Europe/Paris' },
                                   )}
                                   {h.auteur ? ` · ${h.auteur}` : ''}
                                   {h.impersonation ? ' · (impersonation)' : ''}
-                                </p>
+                                </Text>
                               </TimelineItem>
                             ))}
                           </Timeline>
                         )}
                         {activite.historique_tronque && (
-                          <p className="text-xs text-savr-neutral-500">
+                          <Text variant="hint">
                             Seules les {activite.historique.length}{' '}
                             modifications les plus récentes sont affichées.
-                          </p>
+                          </Text>
                         )}
                       </Card>
                     </>
@@ -1078,7 +1090,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
             </Tabs>
           </form>
         )}
-      </div>
-    </Modal>
+      </FicheCorps>
+    </FicheModal>
   );
 }

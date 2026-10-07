@@ -5,12 +5,14 @@ import { Copy, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { IconButton } from '@/components/ui/icon-button';
+import { Label } from '@/components/ui/label';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { TimePicker } from '@/components/ui/time-picker';
+import { Text } from '@/components/ui/text';
 
 // Horaires d'ouverture (format simplifié) — CDC §5 Associations « Horaires d'ouverture »
 // : 7 lignes (lundi → dimanche), présentation « heures hebdomadaires » (décision Val
@@ -166,7 +168,7 @@ export function HorairesOuvertureEditor({
             data-testid={`horaires-${jour.jour}`}
           >
             <span
-              className="mt-1 inline-flex h-9 w-12 shrink-0 items-center justify-center rounded-full bg-savr-primary-700 text-xs font-semibold text-savr-white"
+              className="mt-1 inline-flex h-9 w-12 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-700 text-xs font-semibold text-savr-white"
               title={label}
             >
               <span aria-hidden="true">{label.slice(0, 3)}</span>
@@ -176,9 +178,7 @@ export function HorairesOuvertureEditor({
             {/* Ouvert sans créneau (donnée importée) = traité comme fermé. */}
             {!jour.ouvert || jour.creneaux.length === 0 ? (
               <div className="flex items-center gap-1">
-                <span className="text-sm text-savr-neutral-500">
-                  Indisponible
-                </span>
+                <Text as="span">Indisponible</Text>
                 <IconButton
                   aria-label={`Ajouter des horaires le ${jourMin}`}
                   onClick={() => ouvrirJour(jourIndex)}
@@ -269,17 +269,18 @@ function CopierHoraires({
         </IconButton>
       </PopoverTrigger>
       <PopoverContent className="w-56">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-savr-neutral-500">
+        <Text variant="overline" className="mb-2">
           Copier vers
-        </p>
+        </Text>
         <div className="flex flex-col">
           {JOURS.filter((j) => j !== source).map((j) => {
             const id = `copier-${source}-${j}`;
             return (
-              <label
+              <Label
+                variant="choice"
+                className="flex h-10 items-center justify-between rounded-savr-md px-2 hover:bg-savr-neutral-100"
                 key={j}
                 htmlFor={id}
-                className="flex h-10 cursor-pointer items-center justify-between rounded-savr-md px-2 text-sm text-savr-neutral-700 hover:bg-savr-neutral-100"
               >
                 {JOUR_LABEL[j]}
                 <Checkbox
@@ -291,7 +292,7 @@ function CopierHoraires({
                     )
                   }
                 />
-              </label>
+              </Label>
             );
           })}
         </div>

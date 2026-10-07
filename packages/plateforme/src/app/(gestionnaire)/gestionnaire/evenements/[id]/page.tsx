@@ -1,12 +1,20 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { fmtKg, fmtPct, fmtKgAuto } from '@/lib/format';
+import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDateHeureParis } from '@savr/shared/src/temps/index.js';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 interface Attribution {
   id: string;
@@ -140,12 +148,8 @@ export default function EvenementDetailPage({
     if (j.url) window.open(j.url, '_blank');
   }
 
-  if (loading)
-    return <p className="text-sm text-savr-neutral-500">Chargement…</p>;
-  if (notFound)
-    return (
-      <p className="text-sm text-savr-neutral-500">Événement non trouvé.</p>
-    );
+  if (loading) return <LoadingState />;
+  if (notFound) return <Text>Événement non trouvé.</Text>;
   if (!evt) return null;
 
   const lieu = one(evt.lieux as Parameters<typeof one>[0]);
@@ -161,12 +165,12 @@ export default function EvenementDetailPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          ←
-        </Button>
-        <h1 className="text-2xl font-bold text-savr-primary-800">
+        <IconButton aria-label="Retour" onClick={() => router.back()}>
+          <ArrowLeft />
+        </IconButton>
+        <Heading level={1} tone="primary">
           {evt.nom_evenement ?? 'Événement'}
-        </h1>
+        </Heading>
         <Badge variant="neutral">{evt.taille_bracket}</Badge>
       </div>
 
@@ -174,18 +178,24 @@ export default function EvenementDetailPage({
       <Card>
         <CardContent className="grid grid-cols-2 gap-3 pt-4 text-sm md:grid-cols-4">
           <div>
-            <div className="text-xs text-savr-neutral-500">Date</div>
+            <Text as="div" variant="hint">
+              Date
+            </Text>
             <div>{evt.date_evenement ?? '—'}</div>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">Lieu</div>
+            <Text as="div" variant="hint">
+              Lieu
+            </Text>
             <div>{(lieu as { nom?: string } | null)?.nom ?? '—'}</div>
-            <div className="text-xs text-savr-neutral-400">
+            <Text as="div" variant="faint">
               {(lieu as { ville?: string } | null)?.ville ?? ''}
-            </div>
+            </Text>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">Traiteur</div>
+            <Text as="div" variant="hint">
+              Traiteur
+            </Text>
             {/* §06.05 §3 : « nom + logo, pas d'email / téléphone / SIRET ».
                 logo_url porte une CLÉ R2 : seul le proxy la résout, dans le
                 périmètre de v_traiteurs_gestionnaire (#367). */}
@@ -195,30 +205,32 @@ export default function EvenementDetailPage({
                   src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(traiteur.id)}/logo`}
                   alt=""
                   onError={() => setLogoKo(true)}
-                  className="h-8 w-8 rounded-full object-cover"
+                  className="h-8 w-8 rounded-savr-full object-cover"
                 />
               )}
               <span>{traiteur?.nom ?? '—'}</span>
             </div>
           </div>
           <div>
-            <div className="text-xs text-savr-neutral-500">
+            <Text as="div" variant="hint">
               Type d'événement
-            </div>
+            </Text>
             <div>{typeEvenement?.libelle ?? '—'}</div>
           </div>
           {/* « Client Organisateur si renseigné par le traiteur » : la cellule
               n'apparaît pas quand le champ est vide (§06.05 §3). */}
           {evt.nom_client_organisateur && (
             <div>
-              <div className="text-xs text-savr-neutral-500">
+              <Text as="div" variant="hint">
                 Client organisateur
-              </div>
+              </Text>
               <div>{evt.nom_client_organisateur}</div>
             </div>
           )}
           <div>
-            <div className="text-xs text-savr-neutral-500">Pax</div>
+            <Text as="div" variant="hint">
+              Pax
+            </Text>
             <div>{evt.pax ?? '—'}</div>
             {/* §06.05 §3 : estimation amont, toujours affichée. Le coefficient
                 brut n'est jamais exposé (la route ne renvoie que les kg, via
@@ -232,63 +244,64 @@ export default function EvenementDetailPage({
                 signifier — à l'exception tracée et hors lot de `pax = 0`, qui
                 rend 0 alors que §05 veut NULL
                 (_Divergences/M3.2_20260921_dechets-labo-pax-zero.md). */}
-            <div
-              className="text-xs text-savr-neutral-400"
+            <Text
+              as="div"
+              variant="faint"
               title="Estimation amont, distincte des déchets collectés sur l'événement ci-dessous."
             >
               Est. labo :{' '}
               {evt.dechets_labo_kg != null
-                ? `${evt.dechets_labo_kg.toFixed(1)} kg`
+                ? fmtKg(evt.dechets_labo_kg, 1)
                 : '—'}
-            </div>
+            </Text>
           </div>
         </CardContent>
       </Card>
 
       {docMessage && (
-        <p role="status" className="text-sm text-savr-neutral-600">
+        <Text tone="soft" role="status">
           {docMessage}
-        </p>
+        </Text>
       )}
 
       {/* Collectes */}
       {evt.collectes.length === 0 ? (
-        <p className="text-sm text-savr-neutral-500">
-          Aucune collecte associée.
-        </p>
+        <EmptyState size="inline" title="Aucune collecte associée." />
       ) : (
         evt.collectes.map((c) => (
           <Card key={c.id}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                {c.type === 'zero_dechet'
-                  ? 'Collecte Zéro Déchet'
-                  : 'Collecte Anti-Gaspi'}
-                <span className="text-sm font-normal text-savr-neutral-500">
+              <CardTitle size="base" className="flex items-center gap-2">
+                {`Collecte ${libelleTypeCollecte(c.type)}`}
+                <Text as="span" className="font-normal">
                   {c.date_collecte ?? '—'}
                   {c.heure_collecte ? ` · ${c.heure_collecte.slice(0, 5)}` : ''}
-                </span>
+                </Text>
                 <Badge variant="neutral">{c.statut_affiche}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {c.type === 'zero_dechet' && c.collecte_flux.length > 0 && (
                 <div>
-                  <div className="mb-1 text-xs font-medium text-savr-neutral-500 uppercase">
+                  <Text
+                    as="div"
+                    variant="hint"
+                    className="mb-1 font-medium uppercase"
+                  >
                     Pesées
-                  </div>
+                  </Text>
                   <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                     {c.collecte_flux.map((f, i) => (
                       <div
                         key={i}
-                        className="rounded bg-savr-neutral-50 px-2 py-1 text-sm"
+                        className="rounded-savr-sm bg-savr-neutral-50 px-2 py-1 text-sm"
                       >
                         <span className="font-medium">
                           {f.flux_dechets?.nom ?? f.flux_dechets?.code ?? '?'}
                         </span>{' '}
                         :{' '}
                         {f.poids_reel_kg != null
-                          ? `${f.poids_reel_kg} kg`
+                          ? fmtKgAuto(f.poids_reel_kg)
                           : '—'}
                       </div>
                     ))}
@@ -296,7 +309,7 @@ export default function EvenementDetailPage({
                   {c.taux_recyclage != null && (
                     <div className="mt-1 text-sm">
                       Taux de recyclage :{' '}
-                      <strong>{c.taux_recyclage.toFixed(1)} %</strong>
+                      <strong>{fmtPct(c.taux_recyclage)}</strong>
                     </div>
                   )}
                 </div>
@@ -305,9 +318,13 @@ export default function EvenementDetailPage({
               {c.type === 'anti_gaspi' &&
                 c.attributions_antgaspi.length > 0 && (
                   <div>
-                    <div className="mb-1 text-xs font-medium text-savr-neutral-500 uppercase">
+                    <Text
+                      as="div"
+                      variant="hint"
+                      className="mb-1 font-medium uppercase"
+                    >
                       Attributions
-                    </div>
+                    </Text>
                     {c.attributions_antgaspi.map((a) => (
                       <div key={a.id} className="text-sm">
                         {a.associations?.nom ?? '—'}
@@ -329,40 +346,37 @@ export default function EvenementDetailPage({
               <div className="flex flex-wrap gap-2">
                 {c.bordereaux_savr.map((b) =>
                   b.statut === 'emis' || b.statut === 'corrige' ? (
-                    <button
+                    <TextLink
                       key={b.id}
-                      type="button"
                       onClick={() => void telechargerBordereau(b.id)}
-                      className="text-xs text-savr-primary-700 underline"
+                      className="text-xs"
                     >
                       Bordereau {b.numero ?? ''}
-                    </button>
+                    </TextLink>
                   ) : null,
                 )}
                 {c.rapports_rse.map((r) =>
                   r.pdf_url ? (
-                    <button
+                    <TextLink
                       key={r.id}
-                      type="button"
                       onClick={() => void telechargerDocument('rapport', r.id)}
-                      className="text-xs text-savr-primary-700 underline"
+                      className="text-xs"
                     >
                       Rapport RSE
-                    </button>
+                    </TextLink>
                   ) : null,
                 )}
                 {c.attestations_don.map((a) =>
                   a.pdf_url ? (
-                    <button
+                    <TextLink
                       key={a.id}
-                      type="button"
                       onClick={() =>
                         void telechargerDocument('attestation', a.id)
                       }
-                      className="text-xs text-savr-primary-700 underline"
+                      className="text-xs"
                     >
                       Attestation don
-                    </button>
+                    </TextLink>
                   ) : null,
                 )}
               </div>

@@ -1,17 +1,19 @@
 'use client';
 
+import { ErrorState } from '@/components/ui/error-state';
+import { fmtKg, fmtPct } from '@/lib/format';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat } from 'lucide-react';
-import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   CelluleVide,
   DataGrid,
   type ColumnDef,
 } from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PageHero } from '@/components/ui/page-hero';
+import { ROUTES } from '@/lib/routes';
 
 interface TraiteurRow {
   id: string;
@@ -82,7 +84,7 @@ export default function GestionnaireTraiteursPage() {
               src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(t.id)}/logo`}
               alt=""
               onError={() => setLogosKo((s) => new Set(s).add(t.id))}
-              className="h-6 w-6 rounded-full object-cover"
+              className="h-6 w-6 rounded-savr-full object-cover"
             />
           )}
           <span className="font-medium">{t.nom}</span>
@@ -100,11 +102,7 @@ export default function GestionnaireTraiteursPage() {
       header: 'Tonnage ZD 12 m',
       accessorFn: (t) => t.tonnage_12m_kg,
       cell: ({ row: { original: t } }) =>
-        t.tonnage_12m_kg > 0 ? (
-          `${t.tonnage_12m_kg.toFixed(0)} kg`
-        ) : (
-          <CelluleVide />
-        ),
+        t.tonnage_12m_kg > 0 ? fmtKg(t.tonnage_12m_kg) : <CelluleVide />,
     },
     {
       id: 'taux',
@@ -113,7 +111,7 @@ export default function GestionnaireTraiteursPage() {
       accessorFn: (t) => t.taux_recyclage_moyen ?? -1,
       cell: ({ row: { original: t } }) =>
         t.taux_recyclage_moyen != null ? (
-          `${t.taux_recyclage_moyen.toFixed(1)} %`
+          fmtPct(t.taux_recyclage_moyen)
         ) : (
           <CelluleVide />
         ),
@@ -148,18 +146,18 @@ export default function GestionnaireTraiteursPage() {
   // liste vide.
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-savr-primary-800">Traiteurs</h1>
-      <p className="text-sm text-savr-neutral-500">
-        Traiteurs intervenus sur vos lieux (24 derniers mois).
-      </p>
+      <PageHero
+        icon={<ChefHat className="h-6 w-6 text-savr-primary-200" />}
+        title="Traiteurs"
+        subtitle="Traiteurs intervenus sur vos lieux (24 derniers mois)."
+      />
 
       {erreur ? (
-        <div className="space-y-4" data-testid="traiteurs-erreur">
-          <AlertBar variant="err">{erreur}</AlertBar>
-          <Button variant="secondary" onClick={charger}>
-            Réessayer
-          </Button>
-        </div>
+        <ErrorState
+          data-testid="traiteurs-erreur"
+          message={erreur}
+          onRetry={charger}
+        />
       ) : (
         <DataGrid
           data-testid="traiteurs-table"
@@ -174,7 +172,7 @@ export default function GestionnaireTraiteursPage() {
               description="Aucun traiteur n'est intervenu sur vos lieux au cours des 24 derniers mois."
             />
           }
-          onRowClick={(t) => router.push(`/gestionnaire/traiteurs/${t.id}`)}
+          onRowClick={(t) => router.push(ROUTES.gestionnaire.traiteur(t.id))}
           rowLabel={(t) => `Ouvrir la fiche du traiteur ${t.nom}`}
         />
       )}

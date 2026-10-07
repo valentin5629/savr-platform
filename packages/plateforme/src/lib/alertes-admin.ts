@@ -8,6 +8,9 @@
 // que ces alertes FONCTIONNELLES restent in-app (« le canal d'action est l'écran
 // Admin »), jamais poussées sur Slack. Cet écran est ce canal.
 
+import { ROUTES } from '@/lib/routes';
+import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
+
 export type AlerteSeverite = 'critique' | 'attention' | 'info';
 
 // Sévérité par code connu. Un code absent retombe sur le classifieur par
@@ -44,6 +47,11 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // actif : risque de double passage (M14 EC11, warning). Même angle mort que
   // ci-dessus : aucun mot-clé de repli ne la teinte.
   everest_mission_hors_attribution: 'attention',
+  // Gestionnaire qui demande la correction d'une information de son lieu (fiche
+  // lieu, bouton « Demande de modification d'information ») : l'Admin corrige
+  // la fiche puis résout l'alerte — tant qu'elle est ouverte, le gestionnaire
+  // ne peut pas en déposer une autre pour ce lieu.
+  [CODE_ALERTE_LIEU_MODIFICATION]: 'attention',
   // Informatives — trace d'un événement à connaître.
   shadow_traiteur_cree: 'info',
   shadow_siret_complete: 'info',
@@ -83,15 +91,15 @@ export function entiteHref(
     // Le pluriel/singulier varie selon l'émetteur (collecte vs collectes).
     case 'collecte':
     case 'collectes':
-      return `/admin/collectes/${entityId}`;
+      return ROUTES.admin.collecte(entityId);
     case 'organisations':
-      return `/admin/clients/${entityId}`;
+      return ROUTES.admin.client(entityId);
     case 'factures':
-      return `/admin/factures/${entityId}`;
+      return ROUTES.admin.facture(entityId);
     case 'lieux':
       // La fiche lieu est une modale ouverte sur la liste (pas de page dédiée) :
       // ?edit={id} ouvre directement la modale d'édition.
-      return `/admin/lieux?edit=${entityId}`;
+      return `${ROUTES.admin.lieux}?edit=${entityId}`;
     default:
       return null;
   }

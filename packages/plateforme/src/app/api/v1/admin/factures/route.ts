@@ -1,3 +1,4 @@
+import { lirePagination } from '@/lib/pagination.js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
@@ -29,12 +30,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const dateFin = url.searchParams.get('date_fin');
   const enErreur = url.searchParams.get('en_erreur');
   // C3 : borner page ≥ 1 (un page=0/négatif/NaN donnait un offset négatif → 500).
-  const page = Math.max(
-    1,
-    parseInt(url.searchParams.get('page') ?? '1', 10) || 1,
-  );
-  const limit = 50;
-  const offset = (page - 1) * limit;
+  const { page, limit, from: offset } = lirePagination(url.searchParams);
   const tri = lireTri(
     url.searchParams,
     {

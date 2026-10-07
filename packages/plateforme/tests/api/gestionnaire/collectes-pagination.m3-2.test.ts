@@ -41,6 +41,7 @@ function makeChain() {
     'from',
     'select',
     'eq',
+    'in',
     'gte',
     'lte',
     'order',
@@ -82,6 +83,13 @@ function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
 }
 
+// Identifiants de lieu : la route n'en retient que des UUID.
+const LIEU_1 = '11111111-1111-4111-8111-111111111111';
+const LIEU_2 = '33333333-3333-4333-8333-333333333333';
+/** Filtres `.in()` enregistrés, sous la forme `colonne=v1|v2`. */
+const filtresIn = () =>
+  (rls.__calls.in ?? []).map((a) => `${a[0]}=${(a[1] as string[]).join('|')}`);
+
 /** N lignes plates, telles que PostgREST les rendrait avec l'embed `evenements`. */
 function lignes(n: number) {
   return Array.from({ length: n }, (_, i) => ({
@@ -100,7 +108,7 @@ function lignes(n: number) {
       // Champ facultatif, texte libre : renseigné sur la 1re ligne, absent sur
       // la 2e, fait d'espaces sur la 3e.
       nom_client_organisateur: ['Maison Lenôtre', null, '   '][i] ?? null,
-      lieu_id: 'L1',
+      lieu_id: LIEU_1,
       traiteur_operationnel_organisation_id: 'T1',
       lieux: { nom: 'Paris Expo Porte de Versailles' },
     },
@@ -194,7 +202,6 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
             { poids_reel_kg: null },
           ],
           attributions_antgaspi: null,
-          attestations_don: [],
           evenements: {
             ...base.evenements,
             pax: 500,
@@ -208,59 +215,48 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
             organisations: [{ nom: 'Fleurdemets' }],
           },
         },
-        // AG programmée par le gestionnaire : l'attribution est lisible et
-        // prime sur l'attestation.
+        // AG programmée par le gestionnaire : volume de l'attribution, rendu
+        // par la vue v_attributions_gestionnaire sous l'alias de l'embed.
         {
           ...base,
           id: 'ag-propre',
           type: 'anti_gaspi',
           collecte_flux: [],
           attributions_antgaspi: { volume_repas_realise: 180 },
-          attestations_don: [{ nb_repas: 175, version: 1 }],
         },
-        // AG d'un traiteur tiers : l'attribution lui est refusée par la RLS
-        // (embed vide) ; l'attestation de don porte le chiffre — dernière
-        // version, quel que soit l'ordre de retour.
+        // AG d'un traiteur tiers : même chemin — la vue rend le volume que la
+        // table lui refuse (aa_select, C-1).
         {
           ...base,
           id: 'ag-tiers',
           type: 'anti_gaspi',
           collecte_flux: [],
-          attributions_antgaspi: null,
-          attestations_don: [
-            { nb_repas: 140, version: 1 },
-            { nb_repas: 152, version: 3 },
-            { nb_repas: 150, version: 2 },
-          ],
+          attributions_antgaspi: { volume_repas_realise: 152 },
         },
-        // AG sans attribution lisible ni attestation : non renseigné, pas 0.
+        // AG sans attribution : non renseigné, pas 0 (to-one rendu en tableau
+        // vide : même lecture).
         {
           ...base,
           id: 'ag-rien',
           type: 'anti_gaspi',
           collecte_flux: null,
           attributions_antgaspi: [],
-          attestations_don: null,
         },
-        // Attribution lisible à 0 repas : c'est une valeur, elle prime (un `||`
-        // la remplacerait par l'attestation).
+        // Volume à 0 repas : c'est une valeur (un `||` la perdrait).
         {
           ...base,
           id: 'ag-zero',
           type: 'anti_gaspi',
           collecte_flux: [],
           attributions_antgaspi: { volume_repas_realise: 0 },
-          attestations_don: [{ nb_repas: 12, version: 1 }],
         },
-        // Attribution lisible mais volume non saisi : repli sur l'attestation,
-        // ici rendue en OBJET par PostgREST (même lecture que le tableau).
+        // Volume non saisi : non renseigné.
         {
           ...base,
           id: 'ag-volume-null',
           type: 'anti_gaspi',
           collecte_flux: [],
           attributions_antgaspi: { volume_repas_realise: null },
-          attestations_don: { nb_repas: 90, version: 1 },
         },
       ],
       error: null,
@@ -279,10 +275,12 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
       'lieux!lieu_id(nom, adresse_acces, code_postal, ville)',
       'organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(nom)',
       'collecte_flux(poids_reel_kg)',
-      'attributions_antgaspi(volume_repas_realise)',
-      'attestations_don(nb_repas, version)',
+      'attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)',
     ])
       expect(select).toContain(attendu);
+    // Ni la table (refusée sur un traiteur tiers), ni le repli attestation (D13).
+    expect(select).not.toMatch(/attributions_antgaspi\s*\(/);
+    expect(select).not.toContain('attestations_don');
 
     expect(data[0]).toMatchObject({
       id: 'zd',
@@ -301,7 +299,7 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
       152,
       null,
       0,
-      90,
+      null,
     ]);
     // Lignes sans traiteur nommé ni pax (fixture de base) : null, pas d'erreur.
     expect(data[1]).toMatchObject({
@@ -316,7 +314,6 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
         'evenements',
         'collecte_flux',
         'attributions_antgaspi',
-        'attestations_don',
       ])
         expect(c).not.toHaveProperty(brut);
   });
@@ -364,14 +361,14 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
 
   it('M3.2/collectes_route_pagination_compatible_avec_le_drilldown', async () => {
     rls.__set({ data: lignes(3), error: null, count: 3 });
-    const res = await appel('?lieu_id=L1&statut=cloturee&page=1');
+    const res = await appel(`?lieu_id=${LIEU_1}&statut=cloturee&page=1`);
     const json = (await res.json()) as { total: number };
 
     // Le drill-down filtre : le total doit être celui du PÉRIMÈTRE FILTRÉ, sinon
     // le compteur annoncerait des collectes que la liste ne contient pas.
     expect(json.total).toBe(3);
     const eq = (rls.__calls.eq ?? []).map((a) => `${a[0]}=${a[1]}`);
-    expect(eq).toContain('evenements.lieu_id=L1');
+    expect(filtresIn()).toContain(`evenements.lieu_id=${LIEU_1}`);
     expect(eq).toContain('statut=cloturee');
   });
   it('M3.2/collectes_route_page_au_dela_de_la_derniere_nest_pas_une_panne', async () => {
@@ -420,19 +417,21 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
       { data: null, error: { code: 'PGRST103' }, count: null },
       { data: lignes(1), error: null, count: 3 },
     );
-    await appel('?page=4&lieu_id=L1&statut=cloturee');
+    await appel(`?page=4&lieu_ids=${LIEU_1},${LIEU_2}&statut=cloturee`);
 
     // Le recompte du cas dégradé doit porter EXACTEMENT les mêmes filtres que la
     // requête fenêtrée. Un recompte nu compterait le parc ENTIER : le total
     // annoncerait des collectes hors du périmètre du gestionnaire — la fuite de
     // volumétrie par comptage que la RLS ferme par ailleurs.
     //
-    // Chaque construction rejoue ses `.eq`, donc chaque filtre doit apparaître
-    // DEUX fois. Sans cette sonde, un recompte inliné sans filtres passait la CI
+    // Chaque construction rejoue ses filtres, donc chacun doit apparaître DEUX
+    // fois. Sans cette sonde, un recompte inliné sans filtres passait la CI
     // (trouvé par reviewer-rls-securite) : le code n'était juste que par
     // construction — un seul site de filtrage — et rien ne le tenait.
     const eq = (rls.__calls.eq ?? []).map((a) => `${a[0]}=${a[1]}`);
-    expect(eq.filter((f) => f === 'evenements.lieu_id=L1')).toHaveLength(2);
+    expect(
+      filtresIn().filter((f) => f === `evenements.lieu_id=${LIEU_1}|${LIEU_2}`),
+    ).toHaveLength(2);
     expect(eq.filter((f) => f === 'statut=cloturee')).toHaveLength(2);
 
     // Et le recompte lit bien la première ligne, pas la fenêtre refusée.

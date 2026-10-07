@@ -250,7 +250,7 @@
     },
     {
       "id": "BL-P0-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:103-108",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:103-117",
       "artefact": "supabase/migrations/20260625000000_plateforme_r5_dispatch_ag_bridge.sql (transporteurs.prestataire_logistique_id + rpc_valider_attribution_ag : pose prestataire + émet collecte.creee avec consumer dérivé du type_tms) ; packages/adapters/src/outbox-worker.ts (route via getLogistiqueProvider par type_tms) ; packages/shared/src/seed/demo.ts (pont transp→prest)",
       "test": "T21b/T21c/T21d/T21e/T21f (supabase/tests/m2_3_algo_attribution_ag.test.sql) — a_toutes→adapter_everest, mts1→adapter_mts1, autre→provider_manual + prestataire posé + statut_tms non_envoye ; M2.3 / worker outbox — routing dispatch AG par type_tms (packages/adapters/src/outbox-worker.m2-3.test.ts)",
       "statut": "implemented",
@@ -274,7 +274,7 @@
     },
     {
       "id": "BL-P1-ALGO-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:55-72",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:57-74",
       "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_log_attribution_aucune_reco) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/associations/route.ts + src/lib/attribution-ag/associations-par-distance.ts (associations actives triées par distance au lieu) ; [collecteId]/page.tsx (liste déroulante association — décision Val 2026-09-17 remplaçant la recherche libre, divergence M2.3_20260918_attribution-ag-liste-associations.md) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts + src/lib/attribution-ag/validation.ts (logAttributionAucuneReco)",
       "test": "R11-T5/T6 (supabase/tests/r11_algo_ag.test.sql) audit attribution_manuelle_aucune_reco ; M2.3 / associations par distance au lieu de la collecte (associations-par-distance.test.ts) ; M2.3 / GET attributions-ag/[collecteId]/associations (attribution-ag-associations.m2-3.test.ts) ; M2.3 / Attribution AG — liste déroulante association (attribution-association-select.test.tsx) — ordre des distances, override avec motif, aucune_reco, retour à la file Collectes. Rendu liste = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
@@ -290,7 +290,7 @@
     },
     {
       "id": "M2.3-horaires-association",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:52",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:54",
       "artefact": "supabase/migrations/20260917170000_plateforme_algo_ag_horaires_format_editeur.sql (fn_association_ouverte : lit le format de l'éditeur Admin jour/ouvert/creneaux, appelée par fn_calculer_algo_attribution_ag)",
       "test": "H1-H14 (supabase/tests/algo_ag_horaires_format_editeur.test.sql) — case Ouvert, créneaux multiples, passage minuit, 24h/24, fin exclusive, entrée mal formée sans exception, association saisie à l'écran proposée par l'algo",
       "statut": "implemented",
@@ -351,11 +351,27 @@
       "test": null,
       "statut": "partial",
       "libelle": "Fonction `f_volume_estime_ag` nommée"
+    },
+    {
+      "id": "M2.3-attribution-besoin-vehicule",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:93",
+      "artefact": "supabase/migrations/20261001213000_plateforme_collectes_type_vehicule_souhaite.sql (collectes.type_vehicule_souhaite, enum type_vehicule, nullable) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts (nb_camions_demande via fn_modifier_collecte + type_vehicule_souhaite via UPDATE, AVANT rpc_valider_attribution_ag) ; packages/adapters/src/outbox-worker.ts + infos-acces.ts (ligne « Véhicule souhaité : N × type » dans le canal libre comment MTS-1 / notes Everest) ; packages/plateforme/src/components/admin/attribution-ag-form.tsx (formulaire partagé fiche + écran)",
+      "test": "M2.3/valider — besoin véhicule écrit avant la validation (nb via fn_modifier_collecte, type via UPDATE) + M2.3/valider — 422 si type_vehicule_souhaite hors enum ou nb_camions_demande invalide + M2.3/valider — besoin véhicule sur une collecte non « AG programmee » → 422, rien n’est écrit + M2.3 / worker — type_tms=a_toutes : le véhicule souhaité (type × nombre) atteint l’adapter + M2.3 / worker — lecture type_vehicule_souhaite en échec passager → failed + retry + packages/adapters/src/infos-acces.test.ts « le véhicule souhaité sort en clair : type seul » + M2.3 / worker — collecte ZD avec N véhicules : aucune ligne « Véhicule souhaité » + packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/attribution-besoin-vehicule.test.tsx « lecture de la collecte en échec : POST sans nombre ni type » + packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/attribution-besoin-vehicule.test.tsx « lecture tardive (N=3 posé par Ops) pendant la saisie du type : POST avec nb=3 et le type saisi »",
+      "statut": "implemented",
+      "libelle": "Besoin véhicule à l'attribution AG (décision Val 2026-10-01) : type de véhicule souhaité (nouvelle colonne V1, divergence BOA-LOGISTIQUE_20261001) + nombre de véhicules (nb_camions_demande existant) saisis dans le même formulaire que l'association et le prestataire ; écrits avant l'event de dispatch, transmis aux deux adapters par le canal libre (aucun champ natif MTS-1/Everest en V1 — ligne « Véhicule souhaité : type (1 par commande, N commandes identiques pour cette collecte) ») ; N véhicules = N commandes identiques (1 dispatch par rang, MTS-1 comme Everest) ; colonne classée V1-only par Val (2026-10-01)."
+    },
+    {
+      "id": "M2.3-parametres-algo-validation-type",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:243",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/parametres-algo/route.ts + packages/plateforme/src/lib/parametres-algo/validation.ts (PATCH : valeur validée selon le type_valeur de la ligne — bool/int/decimal/time HH:MM/text[] — 422 sinon, 404 clé inconnue, jamais de scalaire JSON à la place d'une liste) ; packages/plateforme/src/lib/parametres-algo/saisie.ts + packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/page.tsx (saisie convertie par type avant l'envoi, message lisible sinon)",
+      "test": "M2.3 / PATCH /parametres-algo (packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts) — 422 liste text[] en chaîne, 422 heure/entier/décimal/booléen non conformes, 200 text[] tableau transmis tel quel, 200 heure HH:MM, 404 clé inconnue sans update ; M2.3 / Paramètres algorithme AG — conversion de la saisie + M2.3 / convertirSaisie (packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/algo-ag.m2-3.test.tsx) — tableau JSON dans le PATCH, refus sans appel réseau",
+      "statut": "implemented",
+      "libelle": "Paramètres algo AG : valeur validée serveur selon son type (bug 2026-10-02 — liste text[] stockée en scalaire ⇒ fn_calculer_algo_attribution_ag levait sur toutes les collectes AG)"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "807240f53d36baff435d4692b2ce738e82438988f0b27370d5ee70d6084ecf36",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "ba8f6144320893a39f67dbc33a78894ee31bf2caa482586271e453de87979bfb",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "9036ce1ee54cbdf9a593a0d8d389eadca0a51af41b71c26eeeeddb972b7c67ea"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "81b4328dfe14fa1e73ab8c37697f0222d02d73b73b74dfb6584e3f2fb0bd0518",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "65773f43050134ec19709eea830bf5cc266b269c516caf55dd2b656b75633ec7"
   }
 }

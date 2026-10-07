@@ -20,6 +20,8 @@
  * Collectes (DataGrid, 2026-09-28) ; l'onglet Factures reste sur DataTable.
  */
 
+import { ListFooter } from '@/components/ui/list-footer';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { BarChart3, CreditCard, FlaskConical, Percent } from 'lucide-react';
@@ -28,14 +30,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/ui/loading-state';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import {
   DataGrid,
   type ColumnDef,
   type SortingState,
 } from '@/components/ui/data-grid';
-import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
+import { FactureStatutBadge } from '@/components/ui/facture-statut-badge';
+import { libelleCourtTypeFacture } from '@/lib/libelles/facture';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Modal } from '@/components/ui/modal';
@@ -48,6 +52,11 @@ import { FormField } from '@/components/ui/form-field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDateParis, jourParis } from '@savr/shared/src/temps/index.js';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { fmtEuro, fmtDec } from '@/lib/format';
+import { FormActions } from '@/components/ui/form-actions';
+import { ROUTES } from '@/lib/routes';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
 // OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
@@ -74,39 +83,34 @@ export function OngletCollectes({
   organisationId: string;
 }): React.ReactElement {
   const router = useRouter();
-  const [rows, setRows] = React.useState<CollecteRow[]>([]);
-  const [loading, setLoading] = React.useState(true);
   // Même Data Table que la liste Collectes (décision Val 2026-09-28). Tri
   // envoyé à l'API (`tri`/`ordre`, liste blanche côté route) : elle ne renvoie
   // qu'une page, trier côté client la seule page reçue donnerait un ordre faux.
+  // Liste PAGINÉE (R-UI-4a, E5) : avant, seule la 1re page (50) était chargée
+  // et le reste de l'historique restait invisible, sans compteur ni pagination.
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: 'date', desc: true },
   ]);
+  const [page, setPage] = React.useState(1);
   const tri = sorting[0];
-
-  React.useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const qs = new URLSearchParams({ organisation_id: organisationId });
+  const url = React.useMemo(() => {
+    const qs = new URLSearchParams({
+      organisation_id: organisationId,
+      page: String(page),
+    });
     if (tri) {
       qs.set('tri', tri.id);
       qs.set('ordre', tri.desc ? 'desc' : 'asc');
     }
-    void fetch(`/api/v1/admin/collectes?${qs}`)
-      .then((r) => (r.ok ? r.json() : { data: [] }))
-      .then((j: { data?: CollecteRow[] }) => {
-        if (!cancelled) setRows(j.data ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setRows([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [organisationId, tri?.id, tri?.desc]);
+    return `/api/v1/admin/collectes?${qs}`;
+  }, [organisationId, page, tri?.id, tri?.desc]);
+  const {
+    data: rows,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<CollecteRow>(url);
 
   const columns: ColumnDef<CollecteRow, unknown>[] = [
     {
@@ -167,10 +171,11 @@ export function OngletCollectes({
 
   // Squelette au 1er chargement seulement : un re-tri garde le tableau (et
   // ses en-têtes) à l'écran pendant l'aller-retour serveur.
-  if (loading && rows.length === 0) return <Skeleton className="h-40 w-full" />;
-  if (rows.length === 0)
+  if (loading && rows.length === 0 && !erreur)
+    return <LoadingState variant="bloc" />;
+  if (!loading && !erreur && rows.length === 0)
     return (
-      <Card className="p-6">
+      <Card padding="lg">
         <EmptyState
           icon={<BarChart3 />}
           title="Aucune collecte"
@@ -180,19 +185,32 @@ export function OngletCollectes({
     );
 
   return (
-    <Card className="p-4">
+    <Card padding="sm">
       <DataGrid
         columns={columns}
         data={rows}
         getRowId={(row) => row.id}
+        erreur={erreur}
+        onRecharger={recharger}
+        toolbar={
+          total > 0 ? (
+            <Text as="span">
+              {total} collecte{total > 1 ? 's' : ''}
+            </Text>
+          ) : null
+        }
         manualSorting
         sorting={sorting}
-        onSortingChange={setSorting}
-        onRowClick={(row) => router.push(`/admin/collectes/${row.id}`)}
+        onSortingChange={(next) => {
+          setSorting(next);
+          setPage(1);
+        }}
+        onRowClick={(row) => router.push(ROUTES.admin.collecte(row.id))}
         rowLabel={(row) =>
           `Ouvrir la collecte${row.evenements?.nom_evenement ? ` ${row.evenements.nom_evenement}` : ''}`
         }
       />
+      <ListFooter total={total} page={page} onPageChange={setPage} />
     </Card>
   );
 }
@@ -207,20 +225,6 @@ interface FactureRow {
   montant_ttc: number | null;
   date_emission: string | null;
 }
-
-const FACTURE_STATUT: Record<
-  string,
-  {
-    label: string;
-    variant: 'neutral' | 'warning' | 'info' | 'success' | 'error';
-  }
-> = {
-  brouillon: { label: 'Brouillon', variant: 'neutral' },
-  en_attente_pennylane: { label: 'En attente', variant: 'warning' },
-  emise: { label: 'Émise', variant: 'info' },
-  payee: { label: 'Payée', variant: 'success' },
-  annulee: { label: 'Annulée', variant: 'error' },
-};
 
 export function OngletFactures({
   organisationId,
@@ -263,29 +267,18 @@ export function OngletFactures({
     {
       key: 'type',
       header: 'Type',
-      render: (row) => row.type ?? '—',
+      render: (row) => libelleCourtTypeFacture(row.type),
     },
     {
       key: 'statut',
       header: 'Statut',
-      render: (row) => {
-        const s = FACTURE_STATUT[row.statut] ?? {
-          label: row.statut,
-          variant: 'neutral' as const,
-        };
-        return <Badge variant={s.variant}>{s.label}</Badge>;
-      },
+      render: (row) => <FactureStatutBadge statut={row.statut} />,
     },
     {
       key: 'montant_ttc',
       header: 'Montant TTC',
       render: (row) =>
-        row.montant_ttc != null
-          ? `${row.montant_ttc.toLocaleString('fr-FR', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })} €`
-          : '—',
+        row.montant_ttc != null ? fmtEuro(row.montant_ttc) : '—',
     },
     {
       key: 'date_emission',
@@ -299,10 +292,10 @@ export function OngletFactures({
     },
   ];
 
-  if (loading) return <Skeleton className="h-40 w-full" />;
+  if (loading) return <LoadingState variant="bloc" />;
   if (rows.length === 0)
     return (
-      <Card className="p-6">
+      <Card padding="lg">
         <EmptyState
           icon={<CreditCard />}
           title="Aucune facture"
@@ -312,12 +305,12 @@ export function OngletFactures({
     );
 
   return (
-    <Card className="p-4">
+    <Card padding="sm">
       <DataTable
         columns={columns}
         data={rows}
         keyExtractor={(row) => row.id}
-        onRowClick={(row) => router.push(`/admin/factures/${row.id}`)}
+        onRowClick={(row) => router.push(ROUTES.admin.facture(row.id))}
       />
     </Card>
   );
@@ -340,8 +333,7 @@ interface Grille {
   tarifs_zero_dechet: Palier[];
 }
 
-const euros = (v: number | null): string =>
-  v != null ? `${v.toLocaleString('fr-FR')} €` : '—';
+const euros = (v: number | null): string => (v != null ? fmtEuro(v) : '—');
 
 // Paliers de la grille affectée. Pax max absent = palier ouvert (∞), trié en
 // dernier ; prix absent (undefined) = renvoyé en fin de tri.
@@ -438,10 +430,10 @@ export function OngletGrilleZd({
     }
   }
 
-  if (loading) return <Skeleton className="h-40 w-full" />;
+  if (loading) return <LoadingState variant="bloc" />;
 
   return (
-    <Card className="p-6 space-y-4">
+    <Card padding="lg" className="space-y-4">
       {!canEdit && <OpsReadOnlyBanner />}
 
       <div>
@@ -478,20 +470,33 @@ export function OngletGrilleZd({
           </p>
         )}
         {!grilleId && (
-          <p className="text-xs text-savr-neutral-500 mt-1">
+          <Text variant="hint" className="mt-1">
             Aucune grille spécifique — la grille par défaut « Standard paliers »
             s'applique.
-          </p>
+          </Text>
         )}
-        {error && <p className="text-sm text-savr-error mt-1">{error}</p>}
+        {error && (
+          <AlertBar variant="err" className="mt-2 font-normal">
+            {error}
+          </AlertBar>
+        )}
       </div>
 
       {affectee && affectee.tarifs_zero_dechet.length > 0 && (
         <div>
-          <h3 className="font-medium mb-2 text-sm">Paliers — {affectee.nom}</h3>
+          <Heading
+            level={3}
+            size="sm"
+            weight="medium"
+            tone="inherit"
+            className="mb-2"
+          >
+            Paliers — {affectee.nom}
+          </Heading>
           {/* Liste complète des paliers de la grille (route sans pagination)
               → tri navigateur ; ordre par défaut = pax min croissant. */}
           <DataGrid
+            columnsToggle={false}
             columns={COLONNES_PALIERS}
             data={affectee.tarifs_zero_dechet}
             getRowId={(p) => p.id}
@@ -552,7 +557,7 @@ export function OngletTarifRefacture({
   }
 
   return (
-    <Card className="p-6 space-y-4 max-w-xl">
+    <Card padding="lg" className="space-y-4 max-w-xl">
       {!canEdit && <OpsReadOnlyBanner />}
       <div>
         {/* htmlFor seulement quand l'<input> existe (mode édition) — évite une
@@ -562,10 +567,10 @@ export function OngletTarifRefacture({
         >
           Tarif refacturé client final ZD (€/pax)
         </Label>
-        <p className="text-xs text-savr-neutral-500 mb-3">
+        <Text variant="hint" className="mb-3">
           Tarif que ce traiteur refacture à son client final par couvert sur ses
           collectes ZD. Sert au calcul de sa marge affichée dans son dashboard.
-        </p>
+        </Text>
 
         {editing && canEdit ? (
           <form onSubmit={(e) => void save(e)} className="flex items-end gap-2">
@@ -579,8 +584,13 @@ export function OngletTarifRefacture({
               aria-label="Tarif refacturé (€/pax)"
               className="w-40"
             />
-            <Button type="submit" size="sm" disabled={saving}>
-              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            <Button
+              type="submit"
+              size="sm"
+              loading={saving}
+              loadingText="Enregistrement…"
+            >
+              Enregistrer
             </Button>
             <Button
               type="button"
@@ -599,12 +609,7 @@ export function OngletTarifRefacture({
         ) : (
           <div className="flex items-center gap-4">
             <span className="text-lg font-semibold text-savr-neutral-900">
-              {value != null
-                ? `${value.toLocaleString('fr-FR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })} €`
-                : '1,50 € (défaut)'}
+              {value != null ? fmtEuro(value) : '1,50 € (défaut)'}
             </span>
             {canEdit && (
               <Button
@@ -617,7 +622,11 @@ export function OngletTarifRefacture({
             )}
           </div>
         )}
-        {error && <p className="text-sm text-savr-error mt-2">{error}</p>}
+        {error && (
+          <AlertBar variant="err" className="mt-2 font-normal">
+            {error}
+          </AlertBar>
+        )}
       </div>
     </Card>
   );
@@ -661,11 +670,7 @@ function colonnesCoefficients(
       id: 'coefficient',
       header: 'Coefficient (kg/couvert)',
       accessorFn: (c) => c.coefficient_kg_couvert,
-      cell: ({ row: { original: c } }) =>
-        c.coefficient_kg_couvert.toLocaleString('fr-FR', {
-          minimumFractionDigits: 4,
-          maximumFractionDigits: 4,
-        }),
+      cell: ({ row: { original: c } }) => fmtDec(c.coefficient_kg_couvert, 4),
     },
     {
       id: 'annee_application',
@@ -806,14 +811,16 @@ export function OngletCoefficients({
     }
   }
 
-  if (loading) return <Skeleton className="h-40 w-full" />;
+  if (loading) return <LoadingState variant="bloc" />;
 
   return (
-    <Card className="p-6 space-y-4">
+    <Card padding="lg" className="space-y-4">
       {!canEdit && <OpsReadOnlyBanner />}
 
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-sm">Coefficients de perte labo</h3>
+        <Heading level={3} size="sm" weight="medium" tone="inherit">
+          Coefficients de perte labo
+        </Heading>
         {canEdit && (
           <Button size="sm" onClick={openAjouter}>
             Ajouter un coefficient
@@ -831,6 +838,7 @@ export function OngletCoefficients({
         // Liste complète (route sans pagination, triée par année desc) → tri
         // navigateur, ordre par défaut identique à celui de l'API.
         <DataGrid
+          columnsToggle={false}
           columns={colonnesCoefficients(canEdit, openEditer)}
           data={coefs}
           getRowId={(c) => c.id}
@@ -848,19 +856,12 @@ export function OngletCoefficients({
           }
           onClose={() => setModal(null)}
           footer={
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={saving}
-                onClick={() => setModal(null)}
-              >
-                Annuler
-              </Button>
-              <Button type="submit" form="coef-form" disabled={saving}>
-                {saving ? 'Enregistrement…' : 'Enregistrer'}
-              </Button>
-            </>
+            <FormActions
+              cancel={{ label: 'Annuler', onClick: () => setModal(null) }}
+              submit={{ label: 'Enregistrer', form: 'coef-form' }}
+              loading={saving}
+              loadingText="Enregistrement…"
+            />
           }
         >
           {error && (
@@ -1124,9 +1125,7 @@ export function OngletRemises({
         r.valide_jusqu_au ? (
           formatDateParis(r.valide_jusqu_au)
         ) : (
-          <Badge variant="success" className="text-xs">
-            Active
-          </Badge>
+          <Badge variant="success">Active</Badge>
         ),
     },
     {
@@ -1156,34 +1155,42 @@ export function OngletRemises({
           <Button
             size="sm"
             variant="secondary"
-            disabled={closingId === r.id}
             onClick={(e) => {
               e.stopPropagation();
               void fermer(r.id);
             }}
             onKeyDown={(e) => e.stopPropagation()}
+            loading={closingId === r.id}
+            loadingText="Fermeture…"
           >
-            {closingId === r.id ? 'Fermeture…' : 'Fermer'}
+            Fermer
           </Button>
         ) : null,
     });
   }
 
   return (
-    <Card className="p-6 space-y-4">
+    <Card padding="lg" className="space-y-4">
       {!canEdit && <OpsReadOnlyBanner />}
 
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-sm">Remises négociées</h3>
+        <Heading level={3} size="sm" weight="medium" tone="inherit">
+          Remises négociées
+        </Heading>
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-savr-neutral-600">
-            <input
-              type="checkbox"
+          {/* Filtre « Actives uniquement » : Checkbox du DS (R-UI-4b, D11). */}
+          <Label
+            variant="choice"
+            htmlFor="remises-actives-only"
+            className="flex items-center gap-2 text-savr-neutral-600"
+          >
+            <Checkbox
+              id="remises-actives-only"
               checked={activesOnly}
-              onChange={(e) => setActivesOnly(e.target.checked)}
+              onCheckedChange={(v) => setActivesOnly(v === true)}
             />
             Actives uniquement
-          </label>
+          </Label>
           {canEdit && (
             <Button size="sm" onClick={openCreer}>
               Créer une remise
@@ -1207,6 +1214,7 @@ export function OngletRemises({
         // pagination) → tri navigateur. Seules les remises actives sont
         // modifiables (clic ligne) quand l'édition est permise.
         <DataGrid
+          columnsToggle={false}
           columns={colonnesRemises}
           data={displayed}
           getRowId={(r) => r.id}
@@ -1232,19 +1240,15 @@ export function OngletRemises({
           title={edition ? 'Modifier la remise' : 'Créer une remise'}
           onClose={() => setModal(false)}
           footer={
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={saving}
-                onClick={() => setModal(false)}
-              >
-                Annuler
-              </Button>
-              <Button type="submit" form="remise-form" disabled={saving}>
-                {saving ? 'Enregistrement…' : edition ? 'Enregistrer' : 'Créer'}
-              </Button>
-            </>
+            <FormActions
+              cancel={{ label: 'Annuler', onClick: () => setModal(false) }}
+              submit={{
+                label: edition ? 'Enregistrer' : 'Créer',
+                form: 'remise-form',
+              }}
+              loading={saving}
+              loadingText="Enregistrement…"
+            />
           }
         >
           {error && (
@@ -1277,7 +1281,10 @@ export function OngletRemises({
                   Lieux concernés
                 </legend>
                 <div className="mt-2 max-h-60 space-y-2 overflow-y-auto rounded-savr-md border border-savr-neutral-200 p-3">
-                  <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
+                  <Label
+                    variant="choice"
+                    className="flex min-h-11 items-center gap-3 font-medium"
+                  >
                     <Checkbox
                       checked={fLieuIds.length === 0}
                       onCheckedChange={(v) => {
@@ -1285,11 +1292,12 @@ export function OngletRemises({
                       }}
                     />
                     Tous les lieux du gestionnaire
-                  </label>
+                  </Label>
                   {lieuxGestionnaire.map((l) => (
-                    <label
+                    <Label
                       key={l.id}
-                      className="flex min-h-11 items-center gap-3 text-sm"
+                      variant="choice"
+                      className="flex min-h-11 items-center gap-3"
                     >
                       <Checkbox
                         checked={fLieuIds.includes(l.id)}
@@ -1302,16 +1310,16 @@ export function OngletRemises({
                         }
                       />
                       {l.nom}
-                    </label>
+                    </Label>
                   ))}
                 </div>
-                <p className="mt-1 text-xs text-savr-neutral-500">
+                <Text variant="hint" className="mt-1">
                   S&apos;applique à toutes les collectes réalisées sur ces
                   lieux, quel que soit le traiteur. Si le traiteur a sa propre
                   remise, seule la plus élevée des deux s&apos;applique.
                   {fLieuIds.length > 1 &&
                     ` Une remise sera enregistrée par lieu (${fLieuIds.length}).`}
-                </p>
+                </Text>
               </fieldset>
             )}
             <div>
@@ -1464,13 +1472,20 @@ export function PackAjustementsHistorique({
   if (loading || rows.length === 0) return null;
 
   return (
-    <Card className="p-6">
-      <h3 className="font-medium mb-4">
+    <Card padding="lg">
+      <Heading
+        level={3}
+        size="inherit"
+        weight="medium"
+        tone="inherit"
+        className="mb-4"
+      >
         Historique des ajustements de crédits
-      </h3>
+      </Heading>
       {/* Journal complet (route sans pagination, triée par date desc) → tri
           navigateur, ordre par défaut identique à celui de l'API. */}
       <DataGrid
+        columnsToggle={false}
         columns={COLONNES_AJUSTEMENTS}
         data={rows}
         getRowId={(a) => a.id}

@@ -16,6 +16,7 @@ import { FormError } from '@/components/ui/form-error';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { AuthCard, AuthPage } from '@/components/auth/auth-card';
 import { PASSWORD_MIN_LENGTH, validatePasswordStrength } from '@/lib/password';
+import { ROUTES } from '@/lib/routes';
 
 export default function ResetPasswordConfirmPage() {
   const router = useRouter();
@@ -82,7 +83,7 @@ export default function ResetPasswordConfirmPage() {
           pied={
             <Button
               className="w-full"
-              onClick={() => router.push('/login')}
+              onClick={() => router.push(ROUTES.login)}
               type="button"
             >
               Aller à la connexion
@@ -100,7 +101,7 @@ export default function ResetPasswordConfirmPage() {
           titre="Lien expiré"
           pied={
             <Button asChild className="w-full">
-              <Link href="/reset-password">Demander un nouveau lien</Link>
+              <Link href={ROUTES.resetPassword}>Demander un nouveau lien</Link>
             </Button>
           }
         >
@@ -121,8 +122,13 @@ export default function ResetPasswordConfirmPage() {
         description={`Choisissez un mot de passe : au moins ${PASSWORD_MIN_LENGTH} caractères, avec une majuscule, un chiffre et un caractère spécial.`}
         onSubmit={(e) => void handleSubmit(e)}
         pied={
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Enregistrement…' : 'Enregistrer le mot de passe'}
+          <Button
+            type="submit"
+            className="w-full"
+            loading={loading}
+            loadingText="Enregistrement…"
+          >
+            Enregistrer le mot de passe
           </Button>
         }
       >

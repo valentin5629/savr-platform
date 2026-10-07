@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 import { ChangerMotDePassePanel } from '@/components/compte/changer-mot-de-passe-panel';
 import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
+import { PageHeader } from '@/components/ui/page-header';
 
 const TRAITEUR_ROLES = ['traiteur_manager', 'traiteur_commercial'] as const;
 
@@ -11,7 +12,7 @@ export default async function MonProfilPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">Mon profil</h1>
+      <PageHeader title="Mon profil" />
 
       <Card>
         <CardHeader>

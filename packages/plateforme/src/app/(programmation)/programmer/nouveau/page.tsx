@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserRole } from '@/lib/use-user-role';
+import { isStaff } from '@/lib/roles';
+import { ROUTES } from '@/lib/routes';
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,6 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { FormField } from '@/components/ui/form-field';
 import { FormError } from '@/components/ui/form-error';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { FormStepIndicator } from '@/components/programmation/form-step-indicator';
@@ -41,6 +44,11 @@ import {
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { FormActions } from '@/components/ui/form-actions';
+import { libelleCompletTypeCollecte } from '@/lib/libelles/type-collecte';
 
 const STEPS = [
   { label: 'Événement' },
@@ -120,7 +128,7 @@ export default function NouveauProgrammationPage() {
   // traiteur/admin masqué.
   const role = useUserRole() ?? '';
   // Admin support : programmation « pour le compte d'un traiteur » (§06.01 l.15).
-  const isAdmin = role === 'admin_savr' || role === 'ops_savr';
+  const isAdmin = isStaff(role);
   const needsTraiteurSelector =
     role === 'agence' || role === 'gestionnaire_lieux' || isAdmin;
 
@@ -301,12 +309,7 @@ export default function NouveauProgrammationPage() {
   // Chargement des traiteurs pour les rôles qui programment pour le compte d'un
   // tiers (agence / gestionnaire_lieux) ou en support (admin_savr / ops_savr).
   useEffect(() => {
-    if (
-      role === 'agence' ||
-      role === 'gestionnaire_lieux' ||
-      role === 'admin_savr' ||
-      role === 'ops_savr'
-    ) {
+    if (role === 'agence' || role === 'gestionnaire_lieux' || isStaff(role)) {
       void fetch('/api/v1/programmation/organisations/traiteurs')
         .then((res) => res.json() as Promise<TraiteurOption[]>)
         .then(setTraiteurs);
@@ -482,9 +485,11 @@ export default function NouveauProgrammationPage() {
       // Confirmée → écran de confirmation dédié (récap + actions, §06.01).
       // Brouillon → liste des brouillons.
       if (confirmer) {
-        router.push(`/programmer/confirmation?id=${data.evenement_id ?? ''}`);
+        router.push(
+          `${ROUTES.programmer.confirmation}?id=${data.evenement_id ?? ''}`,
+        );
       } else {
-        router.push('/brouillons');
+        router.push(ROUTES.brouillons);
       }
     } finally {
       setSubmitting(false);
@@ -497,26 +502,26 @@ export default function NouveauProgrammationPage() {
 
       {/* ── Étape 1 : Événement ── */}
       {step === 0 && (
-        <Card className="p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-savr-neutral-900">
-            Informations sur l'événement
-          </h2>
+        <Card padding="lg" className="space-y-5">
+          <Heading level={2}>Informations sur l'événement</Heading>
 
           <FormField label="Nom du client final" htmlFor="nom-client" required>
             <Input
               id="nom-client"
+              required
               value={nomClient}
               onChange={(e) => setNomClient(e.target.value)}
               placeholder="Ex : Entreprise Dupont"
             />
           </FormField>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormGrid>
             <FormField label="Nombre de convives" htmlFor="pax" required>
               <Input
                 id="pax"
                 type="number"
                 min="1"
+                required
                 value={pax}
                 onChange={(e) => setPax(e.target.value)}
                 placeholder="Ex : 80"
@@ -542,7 +547,7 @@ export default function NouveauProgrammationPage() {
                 onChange={setTypeEvenementId}
               />
             </FormField>
-          </div>
+          </FormGrid>
 
           <div className="space-y-2">
             <Label required>Type(s) de collecte</Label>
@@ -555,12 +560,14 @@ export default function NouveauProgrammationPage() {
                     setTypesCollecte((p) => ({ ...p, zd: c === true }))
                   }
                 />
-                <label htmlFor="type-zd" className="text-sm cursor-pointer">
-                  <span className="font-medium">Zéro Déchet (ZD)</span>
+                <Label variant="choice" htmlFor="type-zd">
+                  <span className="font-medium">
+                    {libelleCompletTypeCollecte('zero_dechet')}
+                  </span>
                   <span className="text-savr-neutral-500 ml-1">
                     — compostage / méthanisation
                   </span>
-                </label>
+                </Label>
               </div>
 
               <div className="flex items-start gap-3">
@@ -570,8 +577,10 @@ export default function NouveauProgrammationPage() {
                   checked={typesCollecte.ag}
                   onCheckedChange={(c) => void handleAgCheck(c === true)}
                 />
-                <label htmlFor="type-ag" className="text-sm cursor-pointer">
-                  <span className="font-medium">Anti-Gaspi (AG)</span>
+                <Label variant="choice" htmlFor="type-ag">
+                  <span className="font-medium">
+                    {libelleCompletTypeCollecte('anti_gaspi')}
+                  </span>
                   <span className="text-savr-neutral-500 ml-1">
                     — don à association
                   </span>
@@ -581,7 +590,7 @@ export default function NouveauProgrammationPage() {
                       continuer.
                     </FormError>
                   )}
-                </label>
+                </Label>
               </div>
             </div>
           </div>
@@ -624,14 +633,13 @@ export default function NouveauProgrammationPage() {
               {/* PROG-02 : option « hors référentiel » — agence uniquement (CDC
                   §06.01 l.280 : le gestionnaire de lieux n'a PAS cette option). */}
               {role === 'agence' && (
-                <button
-                  type="button"
+                <TextLink
                   onClick={() => setShowShadowModal(true)}
-                  className="mt-2 flex items-center gap-1 text-sm font-medium text-savr-primary-700 hover:underline"
+                  className="mt-2 flex text-sm font-medium"
                 >
                   <PlusCircle className="h-4 w-4" />
                   Ajouter un traiteur hors référentiel
-                </button>
+                </TextLink>
               )}
             </FormField>
           )}
@@ -642,33 +650,30 @@ export default function NouveauProgrammationPage() {
             title="Traiteur hors référentiel"
             onClose={() => setShowShadowModal(false)}
             footer={
-              <>
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowShadowModal(false)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  onClick={() => void handleCreateShadow()}
-                  disabled={
+              <FormActions
+                cancel={{
+                  label: 'Annuler',
+                  onClick: () => setShowShadowModal(false),
+                }}
+                submit={{
+                  label: 'Créer le traiteur',
+                  onClick: () => void handleCreateShadow(),
+                  disabled:
                     !shadowForm.raison_sociale.trim() ||
-                    shadowForm.nom_commercial.trim().length < 2
-                  }
-                >
-                  Créer le traiteur
-                </Button>
-              </>
+                    shadowForm.nom_commercial.trim().length < 2,
+                }}
+              />
             }
           >
             <div className="space-y-4">
-              <p className="text-xs text-savr-neutral-500">
+              <Text variant="hint">
                 Une fiche traiteur provisoire sera créée et signalée à Savr pour
                 vérification.
-              </p>
+              </Text>
               <FormField label="Nom commercial" htmlFor="shadow-nom" required>
                 <Input
                   id="shadow-nom"
+                  required
                   value={shadowForm.nom_commercial}
                   onChange={(e) =>
                     setShadowForm((p) => ({
@@ -682,6 +687,7 @@ export default function NouveauProgrammationPage() {
               <FormField label="Raison sociale" htmlFor="shadow-rs" required>
                 <Input
                   id="shadow-rs"
+                  required
                   value={shadowForm.raison_sociale}
                   onChange={(e) =>
                     setShadowForm((p) => ({
@@ -720,7 +726,7 @@ export default function NouveauProgrammationPage() {
           <div className="flex justify-end pt-1">
             <Button onClick={() => setStep(1)} disabled={!step1Valid}>
               Continuer
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight />
             </Button>
           </div>
         </Card>
@@ -728,10 +734,8 @@ export default function NouveauProgrammationPage() {
 
       {/* ── Étape 2 : Lieu & contacts ── */}
       {step === 1 && (
-        <Card className="p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-savr-neutral-900">
-            Lieu et contacts
-          </h2>
+        <Card padding="lg" className="space-y-5">
+          <Heading level={2}>Lieu et contacts</Heading>
 
           <FormField label="Lieu de collecte" htmlFor="lieu-combobox" required>
             <LieuCombobox
@@ -772,12 +776,9 @@ export default function NouveauProgrammationPage() {
                 checked={controleAcces}
                 onCheckedChange={(c) => setControleAcces(c === true)}
               />
-              <label
-                htmlFor="controle-acces"
-                className="text-sm cursor-pointer text-savr-neutral-700"
-              >
+              <Label variant="choice" htmlFor="controle-acces">
                 Plaque d'immatriculation et nom du chauffeur requis pour ce lieu
-              </label>
+              </Label>
             </div>
           </div>
 
@@ -813,34 +814,30 @@ export default function NouveauProgrammationPage() {
             title="Nouveau contact"
             onClose={() => setShowContactForm(null)}
             footer={
-              <>
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowContactForm(null)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  onClick={() =>
+              <FormActions
+                cancel={{
+                  label: 'Annuler',
+                  onClick: () => setShowContactForm(null),
+                }}
+                submit={{
+                  label: 'Ajouter',
+                  onClick: () =>
                     showContactForm &&
-                    void handleAddContactInline(showContactForm)
-                  }
-                  disabled={
+                    void handleAddContactInline(showContactForm),
+                  disabled:
                     !newContact.prenom ||
                     !newContact.nom ||
-                    !newContact.telephone
-                  }
-                >
-                  Ajouter
-                </Button>
-              </>
+                    !newContact.telephone,
+                }}
+              />
             }
           >
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormGrid>
                 <FormField label="Prénom" htmlFor="contact-prenom" required>
                   <Input
                     id="contact-prenom"
+                    required
                     value={newContact.prenom}
                     onChange={(e) =>
                       setNewContact((p) => ({ ...p, prenom: e.target.value }))
@@ -851,6 +848,7 @@ export default function NouveauProgrammationPage() {
                 <FormField label="Nom" htmlFor="contact-nom" required>
                   <Input
                     id="contact-nom"
+                    required
                     value={newContact.nom}
                     onChange={(e) =>
                       setNewContact((p) => ({ ...p, nom: e.target.value }))
@@ -858,11 +856,12 @@ export default function NouveauProgrammationPage() {
                     placeholder="Nom"
                   />
                 </FormField>
-              </div>
+              </FormGrid>
               <FormField label="Téléphone" htmlFor="contact-tel" required>
                 <Input
                   id="contact-tel"
                   type="tel"
+                  required
                   value={newContact.telephone}
                   onChange={(e) =>
                     setNewContact((p) => ({ ...p, telephone: e.target.value }))
@@ -888,12 +887,12 @@ export default function NouveauProgrammationPage() {
 
           <div className="flex justify-between pt-1">
             <Button variant="ghost" onClick={() => setStep(0)}>
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft />
               Retour
             </Button>
             <Button onClick={() => setStep(2)} disabled={!step2Valid}>
               Continuer
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight />
             </Button>
           </div>
         </Card>
@@ -901,10 +900,8 @@ export default function NouveauProgrammationPage() {
 
       {/* ── Étape 3 : Collectes + récapitulatif ── */}
       {step === 2 && (
-        <Card className="p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-savr-neutral-900">
-            Détails de la collecte
-          </h2>
+        <Card padding="lg" className="space-y-5">
+          <Heading level={2}>Détails de la collecte</Heading>
 
           {collectes.map((c, i) => (
             <SousBlocCollecte
@@ -922,9 +919,9 @@ export default function NouveauProgrammationPage() {
 
           {/* Récapitulatif */}
           <div className="rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 p-4 space-y-2 text-sm">
-            <h3 className="font-semibold text-savr-neutral-900">
+            <Heading level={3} size="inherit">
               Récapitulatif
-            </h3>
+            </Heading>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-savr-neutral-700">
               <dt className="text-savr-neutral-500">Client</dt>
               <dd>{nomClient}</dd>
@@ -941,17 +938,17 @@ export default function NouveauProgrammationPage() {
             </dl>
           </div>
 
-          <p className="text-xs text-savr-neutral-500">
+          <Text variant="hint">
             Toute collecte annulée à moins de 12h de l'heure de collecte donne
             lieu à facturation plein tarif — pour une collecte Anti-Gaspi sous
             pack, un crédit est décompté (cf. CGV).
-          </p>
+          </Text>
 
           {error && <AlertBar variant="err">{error}</AlertBar>}
 
           <div className="flex flex-col sm:flex-row justify-between gap-3 pt-1">
             <Button variant="ghost" onClick={() => setStep(1)}>
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft />
               Retour
             </Button>
             <div className="flex gap-3">
@@ -960,14 +957,14 @@ export default function NouveauProgrammationPage() {
                 onClick={() => void handleSubmit(false)}
                 disabled={!step3Valid || submitting}
               >
-                <Save className="h-4 w-4" />
+                <Save />
                 Enregistrer en brouillon
               </Button>
               <Button
                 onClick={() => void handleSubmit(true)}
                 disabled={!step3Valid || submitting}
               >
-                <CheckCircle className="h-4 w-4" />
+                <CheckCircle />
                 Confirmer la programmation
               </Button>
             </div>

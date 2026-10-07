@@ -1,5 +1,8 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { libelleStatutPack, variantStatutPack } from '@/lib/libelles/pack';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +12,8 @@ import {
   type ColumnDef,
 } from '@/components/ui/data-grid';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
 
 interface PackActif {
   id: string;
@@ -118,7 +123,9 @@ const COLONNES_PACKS: ColumnDef<PackActif, unknown>[] = [
     id: 'statut',
     header: 'Statut',
     cell: ({ row: { original: p } }) => (
-      <Badge variant="neutral">{p.statut}</Badge>
+      <Badge variant={variantStatutPack(p.statut)}>
+        {libelleStatutPack(p.statut)}
+      </Badge>
     ),
   },
 ];
@@ -134,8 +141,7 @@ export default function MonPackAgPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading)
-    return <p className="text-sm text-savr-neutral-500">Chargement…</p>;
+  if (loading) return <LoadingState />;
 
   const pack = data?.pack_actif;
   const packEpuise = pack && pack.nb_collectes_restantes === 0;
@@ -146,12 +152,16 @@ export default function MonPackAgPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-savr-primary-800">Mon pack AG</h1>
+      <PageHeader title="Mon pack AG" />
 
       {!pack ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-savr-neutral-500">
-            Aucun pack Anti-Gaspi actif. Contactez votre responsable Savr.
+          <CardContent className="py-8">
+            <EmptyState
+              size="inline"
+              className="text-center"
+              title="Aucun pack Anti-Gaspi actif. Contactez votre responsable Savr."
+            />
           </CardContent>
         </Card>
       ) : (
@@ -173,9 +183,9 @@ export default function MonPackAgPage() {
                 <div className="text-savr-neutral-500">Crédits restants</div>
                 <div className="text-xl font-bold">
                   {pack.nb_collectes_restantes}{' '}
-                  <span className="text-sm font-normal text-savr-neutral-400">
+                  <Text as="span" tone="faint" className="font-normal">
                     / {pack.nb_collectes_total}
-                  </span>
+                  </Text>
                 </div>
               </div>
               <div>
@@ -189,9 +199,9 @@ export default function MonPackAgPage() {
             </div>
 
             {/* Barre de progression */}
-            <div className="h-2 w-full overflow-hidden rounded-full bg-savr-neutral-200">
+            <div className="h-2 w-full overflow-hidden rounded-savr-full bg-savr-neutral-200">
               <div
-                className="h-full rounded-full bg-savr-primary-500 transition-all"
+                className="h-full rounded-savr-full bg-savr-primary-500 transition-all"
                 style={{
                   width: `${Math.max(0, (pack.nb_collectes_restantes / pack.nb_collectes_total) * 100)}%`,
                 }}
@@ -209,6 +219,7 @@ export default function MonPackAgPage() {
           </CardHeader>
           <CardContent>
             <DataGrid
+              columnsToggle={false}
               columns={COLONNES_CONSOMMATION}
               data={data.historique_consommation}
               getRowId={(c) => c.collecte_id}
@@ -225,6 +236,7 @@ export default function MonPackAgPage() {
           </CardHeader>
           <CardContent>
             <DataGrid
+              columnsToggle={false}
               columns={COLONNES_PACKS}
               data={data.historique_packs}
               getRowId={(p) => p.id}

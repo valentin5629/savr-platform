@@ -4,6 +4,10 @@ import * as React from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Search, MapPin, PlusCircle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { Input } from '@/components/ui/input';
 
 export interface LieuOption {
   id: string;
@@ -91,9 +95,11 @@ export function LieuCombobox({
         >
           <div className="flex items-center border-b border-savr-neutral-100 px-3">
             <Search className="h-4 w-4 text-savr-neutral-400 shrink-0 mr-2" />
-            <input
+            {/* Champ du DS, sans bordure propre : la ligne porte la sienne
+                (R-UI-4b, D7 : avant, <input> brut). */}
+            <Input
               autoFocus
-              className="h-11 flex-1 text-sm placeholder:text-savr-neutral-400 sm:h-10"
+              className="flex-1 border-0 px-0"
               placeholder="Nom, adresse, ville…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -102,13 +108,17 @@ export function LieuCombobox({
 
           <ul role="listbox" className="max-h-60 overflow-y-auto py-1">
             {loading && (
-              <li className="px-3 py-2 text-sm text-savr-neutral-400">
-                Chargement…
+              <li className="px-3 py-2">
+                <LoadingState className="text-savr-neutral-400" />
               </li>
             )}
             {!loading && options.length === 0 && (
-              <li className="px-3 py-2 text-sm text-savr-neutral-400">
-                Aucun lieu trouvé
+              <li className="px-3 py-2">
+                <EmptyState
+                  size="inline"
+                  title="Aucun lieu trouvé"
+                  className="text-savr-neutral-400"
+                />
               </li>
             )}
             {options.map((l) => (
@@ -136,9 +146,9 @@ export function LieuCombobox({
                 />
                 <span className="min-w-0">
                   <span className="font-medium block truncate">{l.nom}</span>
-                  <span className="text-xs text-savr-neutral-500">
+                  <Text as="span" variant="hint">
                     {l.adresse_acces}, {l.code_postal} {l.ville}
-                  </span>
+                  </Text>
                 </span>
               </li>
             ))}

@@ -1,5 +1,6 @@
 'use client';
 
+import { libelleRole } from '@/lib/libelles/role';
 import * as React from 'react';
 import { UserCog } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
@@ -31,16 +32,6 @@ function decodeClaim(
     return undefined;
   }
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  admin_savr: 'Admin Savr',
-  ops_savr: 'Ops Savr',
-  traiteur_manager: 'Traiteur (manager)',
-  traiteur_commercial: 'Traiteur (commercial)',
-  agence: 'Agence',
-  gestionnaire_lieux: 'Gestionnaire lieux',
-  client_organisateur: 'Client organisateur',
-};
 
 /**
  * Lanceur d'impersonation (§09 §7) — réservé admin_savr. Liste les utilisateurs et,
@@ -137,7 +128,7 @@ export function ImpersonationLauncher(): React.ReactElement | null {
             onChange={setSelected}
             options={candidats.map((u) => ({
               value: u.id,
-              label: `${u.prenom} ${u.nom} — ${u.email} · ${ROLE_LABELS[u.role] ?? u.role}${
+              label: `${u.prenom} ${u.nom} — ${u.email} · ${libelleRole(u.role)}${
                 u.organisations?.raison_sociale
                   ? ` (${u.organisations.raison_sociale})`
                   : ''
@@ -145,9 +136,14 @@ export function ImpersonationLauncher(): React.ReactElement | null {
             }))}
           />
         </FormField>
-        <Button onClick={handleImpersonate} disabled={!selected || loading}>
-          <UserCog className="w-4 h-4" />
-          {loading ? 'Connexion…' : 'Impersoner'}
+        <Button
+          onClick={handleImpersonate}
+          disabled={!selected}
+          loading={loading}
+          loadingText="Connexion…"
+        >
+          <UserCog />
+          Impersoner
         </Button>
       </div>
       {error && <p className="mt-2 text-sm text-savr-error">{error}</p>}

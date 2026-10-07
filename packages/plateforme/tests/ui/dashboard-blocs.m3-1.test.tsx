@@ -58,7 +58,6 @@ function kpiResult(rows: unknown[]): TraiteurDashboardPayload['kpi'] {
 }
 
 const EMPTY_BLOCS = {
-  prochaines: [],
   topLieux: [],
   topActeurs: [],
   acteurLabel: 'Commercial' as const,
@@ -208,7 +207,7 @@ describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => 
       renderClient(ZD_PAYLOAD);
       await screen.findByTestId('bloc-2-traiteur', undefined, ATTENTE_UI);
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       // Bloc 2 AG toujours présent (courbe repas), Bloc 4 donut retiré.
       expect(

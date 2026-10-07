@@ -2,13 +2,14 @@
 
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // IconButton — bouton icône seule (§10 §6 « IconButton », actions de tableau).
 // `aria-label` OBLIGATOIRE (§9 : jamais d'icône seule sans label). Cible tactile
 // 44px sur mobile (§8/§10), 40px desktop ; focus ring signature (levier #4).
 const iconButtonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center rounded-savr-md transition-[background-color,color,transform] duration-[120ms] ease-out focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 [&>svg]:h-5 [&>svg]:w-5',
+  'inline-flex shrink-0 items-center justify-center rounded-savr-md transition-[background-color,color,transform] duration-savr-fast ease-out focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 [&>svg]:h-5 [&>svg]:w-5',
   {
     variants: {
       variant: {
@@ -41,16 +42,38 @@ export interface IconButtonProps
     VariantProps<typeof iconButtonVariants> {
   /** Libellé accessible (§9 — icône seule). */
   'aria-label': string;
+  /** Action en cours : spinner à la place de l'icône, bouton désactivé, `aria-busy` (R-UI-3, B1). */
+  loading?: boolean;
 }
 
 const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
-  ({ className, variant, size, type = 'button', ...props }, ref) => (
+  (
+    {
+      className,
+      variant,
+      size,
+      type = 'button',
+      loading,
+      disabled,
+      children,
+      ...props
+    },
+    ref,
+  ) => (
     <button
       ref={ref}
       type={type}
       className={cn(iconButtonVariants({ variant, size, className }))}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
-    />
+    >
+      {loading ? (
+        <Loader2 className="animate-spin" aria-hidden="true" />
+      ) : (
+        children
+      )}
+    </button>
   ),
 );
 IconButton.displayName = 'IconButton';

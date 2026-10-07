@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { businessError } from '@/lib/api-helpers.js';
+import { estSiret } from '@savr/shared/src/validation/index.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -24,7 +25,7 @@ export async function PATCH(
 
   const body = (await req.json().catch(() => ({}))) as { siret?: string };
   const siret = (body.siret ?? '').trim();
-  if (!/^[0-9]{14}$/.test(siret)) {
+  if (!estSiret(siret)) {
     return NextResponse.json(
       { error: 'Format SIRET invalide (14 chiffres requis)' },
       { status: 422 },

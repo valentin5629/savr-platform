@@ -38,7 +38,9 @@
   "tests_vitest": [
     "packages/plateforme/src/components/ui/components.m0-8.test.tsx",
     "packages/plateforme/src/components/r23b-cosmetics.m0-8.test.tsx",
-    "packages/plateforme/src/lib/pdf/logo-inline.m0-8.test.ts"
+    "packages/plateforme/src/lib/pdf/logo-inline.m0-8.test.ts",
+    "packages/plateforme/tests/ui/nav-entree-active.m0-8.test.tsx",
+    "packages/plateforme/tests/ui/nav-sections-transverses.test.tsx"
   ],
   "tests_playwright": [
     "e2e/m0-8.nav-par-role.spec.ts"
@@ -89,7 +91,15 @@
     "M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowClick (desktop + mobile)",
     "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
     "M0.8-65 — DataTable : une ligne sans onRowClick n'entre pas dans l'ordre de tabulation",
-    "M0.8-66 — DataTable : Entrée sur un bouton de cellule n'active pas la ligne (pas de double activation)"
+    "M0.8-66 — DataTable : Entrée sur un bouton de cellule n'active pas la ligne (pas de double activation)",
+    "M0.8-67 — Menu : sur une page d’un espace client, seule son entrée est active (le Dashboard ne s’allume plus avec elle)",
+    "M0.8-68 — Menu : la racine de l’espace allume le Dashboard, une sous-page allume l’entrée qui la contient",
+    "M0.8-69 — Menu : pour chaque rôle, chaque entrée est seule active sur sa propre page",
+    "M0.8-70 — Barre mobile : même règle, et rien d’allumé quand la page courante n’est pas dans les 4 entrées affichées",
+    "M0.8-71 — Menu : sur la page d’une entrée masquée, aucune autre entrée ne s’allume à sa place",
+    "M0.8-72 — Formulaire de programmation : le staff (admin, ops) garde le menu du back-office",
+    "M0.8-73 — Formulaire de programmation : sans rôle lisible, menu par défaut du traiteur commercial",
+    "M0.8-74 — Formulaire de programmation : layout rendu à la demande, jamais pré-rendu au build"
   ],
   "deliverables": [
     {
@@ -126,7 +136,7 @@
     },
     {
       "id": "M0.8-04b",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:241-242",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:244-245",
       "artefact": "packages/plateforme/src/components/ui/button.tsx + packages/plateforme/src/components/ui/icon-button.tsx",
       "test": "M0.8-4b — l'anneau de focus est uniforme : aucune variante ne pose sa propre couleur",
       "statut": "à-vérifier",
@@ -134,7 +144,7 @@
     },
     {
       "id": "M0.8-04c",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:459",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:470",
       "artefact": "packages/plateforme/src/components/ui/components.m0-8.test.tsx (cliquet) ; lignes corrigées : app/(admin)/admin/collectes/page.tsx, components/programmation/lieu-combobox.tsx, components/programmation/contact-combobox.tsx, components/ui/dropdown.tsx",
       "test": "M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplacer (§10)",
       "statut": "implemented",
@@ -142,7 +152,7 @@
     },
     {
       "id": "M0.8-04d",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:241-242",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:244-245",
       "artefact": "packages/plateforme/src/components/ui/components.m0-8.test.tsx (cliquet transverse)",
       "test": "M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uniforme)",
       "statut": "implemented",
@@ -302,7 +312,7 @@
     },
     {
       "id": "BL-P3-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:331",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:342",
       "artefact": "packages/plateforme/src/components/ui/",
       "test": null,
       "statut": "à-vérifier",
@@ -310,7 +320,7 @@
     },
     {
       "id": "M0.8-tooltip",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:381",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:392",
       "artefact": null,
       "test": "M0.8-24 — Tooltip affiche son contenu à l’ouverture",
       "statut": "à-vérifier",
@@ -318,7 +328,7 @@
     },
     {
       "id": "M0.8-toast",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:378",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:389",
       "artefact": null,
       "test": "M0.8-25 — Toast s’affiche via useToast avec une variante",
       "statut": "à-vérifier",
@@ -326,7 +336,7 @@
     },
     {
       "id": "M0.8-accordion",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:389",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:400",
       "artefact": null,
       "test": "M0.8-26 — Accordion déplie le contenu de l’item ouvert",
       "statut": "à-vérifier",
@@ -334,7 +344,7 @@
     },
     {
       "id": "M0.8-switch",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:367",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:378",
       "artefact": null,
       "test": "M0.8-27 — Switch expose role=switch et l’état checked",
       "statut": "à-vérifier",
@@ -342,7 +352,7 @@
     },
     {
       "id": "M0.8-checkbox",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:367",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:378",
       "artefact": null,
       "test": "M0.8-28 — Checkbox expose role=checkbox et l’état checked",
       "statut": "à-vérifier",
@@ -350,7 +360,7 @@
     },
     {
       "id": "M0.8-dropdown",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:376",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:387",
       "artefact": null,
       "test": "M0.8-29 — Dropdown ouvre son menu et affiche ses items",
       "statut": "à-vérifier",
@@ -358,7 +368,7 @@
     },
     {
       "id": "M0.8-tabs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:387",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:398",
       "artefact": null,
       "test": "M0.8-30 — Tabs affiche le panneau de l’onglet actif",
       "statut": "à-vérifier",
@@ -366,7 +376,7 @@
     },
     {
       "id": "M0.8-sheet",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:311",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:313",
       "artefact": null,
       "test": "M0.8-31 — Sheet s’ouvre en panneau avec titre, corps et fermeture",
       "statut": "à-vérifier",
@@ -374,7 +384,7 @@
     },
     {
       "id": "M0.8-date-picker",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:355",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:371",
       "artefact": null,
       "test": "M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel",
       "statut": "à-vérifier",
@@ -382,7 +392,7 @@
     },
     {
       "id": "M0.8-pagination",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:388",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:399",
       "artefact": null,
       "test": "M0.8-33 — Pagination marque la page courante et navigue",
       "statut": "à-vérifier",
@@ -390,7 +400,7 @@
     },
     {
       "id": "M0.8-breadcrumb",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:342",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:353",
       "artefact": null,
       "test": "M0.8-34 — Breadcrumb marque le dernier item aria-current=page",
       "statut": "à-vérifier",
@@ -398,7 +408,7 @@
     },
     {
       "id": "M0.8-icon-button",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:375",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:386",
       "artefact": null,
       "test": "M0.8-35 — IconButton exige aria-label et applique la cible tactile 44px",
       "statut": "à-vérifier",
@@ -406,7 +416,7 @@
     },
     {
       "id": "M0.8-tournee-card",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:397",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:408",
       "artefact": null,
       "test": "M0.8-36 — TourneeCard affiche camion, plaque, chauffeur et N collectes",
       "statut": "à-vérifier",
@@ -414,7 +424,7 @@
     },
     {
       "id": "M0.8-form-error",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:368",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:379",
       "artefact": null,
       "test": "M0.8-37 — FormError rend le message en role=alert et rien si vide",
       "statut": "implemented",
@@ -422,7 +432,7 @@
     },
     {
       "id": "M0.8-etat-succes-champs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:358",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:369",
       "artefact": null,
       "test": "M0.8-38 — Input applique l’état succès (bordure success) et 44px mobile",
       "statut": "à-vérifier",
@@ -430,7 +440,7 @@
     },
     {
       "id": "M0.8-cible-tactile-44",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:437",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:448",
       "artefact": null,
       "test": "M0.8-39 — Button md applique la cible tactile 44px mobile (h-11 sm:h-10)",
       "statut": "implemented",
@@ -438,7 +448,7 @@
     },
     {
       "id": "M0.8-etat-disabled",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:412",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:423",
       "artefact": null,
       "test": "M0.8-40 — État Disabled : Button désactivé est non-interactif",
       "statut": "implemented",
@@ -454,7 +464,7 @@
     },
     {
       "id": "M0.8-responsive-kpi",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:438",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:449",
       "artefact": null,
       "test": "M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)",
       "statut": "à-vérifier",
@@ -470,7 +480,7 @@
     },
     {
       "id": "M0.8-etats-systeme-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:413",
       "artefact": null,
       "test": null,
       "statut": "à-vérifier",
@@ -486,7 +496,7 @@
     },
     {
       "id": "BL-P3-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:421",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:408",
       "artefact": "packages/plateforme/src/lib/collecte-ref.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)",
       "statut": "implemented",
@@ -494,7 +504,7 @@
     },
     {
       "id": "BL-P3-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:665",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:652",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -510,7 +520,7 @@
     },
     {
       "id": "BL-P3-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:763",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:750",
       "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
       "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
       "statut": "implemented",
@@ -518,7 +528,7 @@
     },
     {
       "id": "BL-P3-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:285",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:287",
       "artefact": "packages/plateforme/src/lib/pdf/logo-inline.ts, packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts, apps/pdf-renderer/src/templates/synthese-dashboard.ts, packages/plateforme/src/lib/pdf/batch-pdf-j1.ts, packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts",
       "test": "M0.8-49 — logoKeyToDataUri inline un logo R2 en data URI (BL-P3-05)",
       "statut": "implemented",
@@ -526,7 +536,7 @@
     },
     {
       "id": "BL-P3-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:904",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:891",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -535,7 +545,7 @@
     },
     {
       "id": "BL-P3-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:89",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:90",
       "artefact": "supabase/config.toml ([auth] enable_refresh_token_rotation ; [auth.sessions] timebox=720h ; [auth.email] otp_expiry=3600 ; [auth.rate_limit] email_sent=3)",
       "test": "M0.8-57 — Config auth : refresh 30j / OTP reset 1h / rate-limit 3/h figés (BL-P3-09)",
       "statut": "implemented",
@@ -543,7 +553,7 @@
     },
     {
       "id": "BL-P3-10",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:42",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:44",
       "artefact": "packages/plateforme/src/app/(registre)/registre/page.tsx (raccourci du panneau Période) ; packages/plateforme/src/lib/periodes-raccourcis.ts",
       "test": "M0.8-58 — Registre : preset « 30 derniers jours » (BL-P3-10)",
       "statut": "implemented",
@@ -583,7 +593,7 @@
     },
     {
       "id": "M0.8-datatable-ligne-clavier",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:461",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:472",
       "artefact": "packages/plateforme/src/components/ui/data-table.tsx (tabIndex + onKeyDown conditionnés par onRowClick, garde target === currentTarget)",
       "test": "M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowClick (desktop + mobile) ; M0.8-65 — une ligne sans onRowClick n'entre pas dans l'ordre de tabulation ; M0.8-66 — Entrée sur un bouton de cellule n'active pas la ligne",
       "statut": "implemented",
@@ -591,7 +601,7 @@
     },
     {
       "id": "M0.8-datatable-focus-ring",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:459",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:470",
       "artefact": "packages/plateforme/src/app/globals.css (*:focus-visible dans @layer base) appliqué à la ligne focusable de packages/plateforme/src/components/ui/data-table.tsx (focus-visible:-outline-offset-2 sur la <tr> desktop)",
       "test": "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
       "statut": "à-vérifier",
@@ -599,23 +609,31 @@
     },
     {
       "id": "M0.8-filtres-choix-multiple-toutes-barres",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:283",
       "artefact": "packages/plateforme/src/components/ui/filtre-en-ligne.tsx (FiltreCoches, case « Tous ») + écrans PR 1 (#444 : Admin Collectes, Dashboard Client) et PR 2 (Admin Clients, Transporteurs, Associations, Lieux, Factures ; Registre ; Facturation traiteur ; Événements gestionnaire) et PR 3 (listes Collectes traiteur et agence : components/collecte/collecte-filtres-bar.tsx)",
       "test": "ds/filtre_coches_case_tous_cochee_par_defaut_efface_la_selection",
       "statut": "implemented",
       "libelle": "Règle DS (7) telle que patchée par _Divergences/M0.8_20260930_filtres-choix-multiple-tous : tous les filtres de l'app à choix multiple, case « Tous » = aucun filtre, « Période » en premier. Toutes les barres de filtres de l'app y sont : PR 1 (#444), PR 2 (#450), puis les listes Collectes traiteur et agence (PR 3 : Lieu, Client organisateur, Info incomplète + « Période » en premier). La liste Collectes gestionnaire n'a pas de barre de filtres (paramètres de drill-down seuls) : rien à convertir. Les preuves d'écran sont portées par les livrables `à-vérifier` de chaque module."
+    },
+    {
+      "id": "M0.8-nav-entree-active-unique",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:473",
+      "artefact": "packages/plateforme/src/lib/nav-config.ts (hrefNavActif) + packages/plateforme/src/components/layout/sidebar.tsx + packages/plateforme/src/components/layout/bottom-nav.tsx",
+      "test": "M0.8-67 + M0.8-68 + M0.8-69 + M0.8-70 + M0.8-71",
+      "statut": "implemented",
+      "libelle": "Menu (barre latérale et barre mobile) — une seule entrée active, celle dont l'adresse correspond le plus précisément à la page courante. L'entrée d'accueil des espaces client (« Dashboard » ; « Mes événements » pour le client organisateur) vit à la racine de l'espace (/gestionnaire, /traiteur, /agence, /organisateur) et préfixe toutes ses voisines : décidée au préfixe, l'entrée active était double (accueil + page courante) sur toutes les pages de ces espaces (défaut E2E 2026-10-06). Règle d'unicité et de correspondance non écrite au Design System : divergence M0.8_20261006_menu-entree-active-sections-transverses."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "ba8f6144320893a39f67dbc33a78894ee31bf2caa482586271e453de87979bfb",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "f3dadaa9a7279e120c3d190395420044f968a7b69d1ac324222924453e57ae99",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "073e5381079db28f883d0c38b62fa5cc73ec7f0944f82fc41976736f5d42ac77",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "c8c453a182512344f6b8a8e5796c605d6c282d26394a3c0f9139b4cccda11bc0",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "01a8018a9b56b7080470bc2005a7e7027bb9b547842d3ecbcde70536667c38ff",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "5abf9290405210ba77c1450fa1059db2f5fe62bfa7bc94f860a6743a11cdb50c",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "51fbb2a366fe99598076e91fa1d37cd386914720ef68db431220647f5b071955",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8e6a7a85f7b1b0805cbdbd3bcb362d233168d6665705604d6f4f7f798fdd7353",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "e718bf8778bbecddcedda53f29fc7b94bd012ba43e1f951841254578dfdd5c1d",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "81b4328dfe14fa1e73ab8c37697f0222d02d73b73b74dfb6584e3f2fb0bd0518",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "635965061c559a268b51586d881054381f4a6ad7a4cfdf784f7a6e3709bca345",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "e0572ad9a57c725fc86219304726b1348c893c1624c8eb342d1b4f5069b498d4",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6a08f97fe482d5b5a9be85a937428c56245baee5380e13043e01b6ad435da805",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a217d2a2fc80d1152d1bb6417705a8a5dd72dd09a5923415b96807803c2c27cb",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9b2486cfd6af6c76f1c910f89640bdb2fa64fdd1a620b476bc515f3d8f6e5863",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "fa69f5a5d32e20077c4b08997d2a267af7c9a3dc431a4260b4f569ea4404585f",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "1624f7d10800fae8c89bb6757d87949d81edab35aa94e96d8c8e6d668c58208a",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "87b52982e648da1cfe74d0cea8a049cda073c246dbc4252b0bb4cb4884804760",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "de55ad9dd1ab220cc2e0f7945b7cc1e4b6eccfb6db0bac80734b34213ea0f88a"
   }
 }

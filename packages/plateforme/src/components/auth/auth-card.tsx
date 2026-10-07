@@ -4,6 +4,8 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { SavrLogoMark } from '@/components/layout/savr-logo';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
 
 // Gabarit commun des écrans d'authentification (connexion, inscription,
 // réinitialisation) : logo Savr au-dessus, carte avec titre centré, contenu et
@@ -14,10 +16,7 @@ import { SavrLogoMark } from '@/components/layout/savr-logo';
 // arbitrage Val 2026-09-28, tracé dans _Divergences/M0.5_20260928_ecrans-auth-
 // carte-ombre-degrade.md — limité à ces écrans.
 
-// Lien secondaire : zone tactile 44 px (DS §10) sans décaler la mise en page
-// (-my-3 compense py-3).
-export const authLienClass =
-  '-my-3 inline-flex items-center py-3 text-sm font-semibold text-savr-primary-700 underline-offset-4 hover:underline';
+// Lien secondaire : `<TextLink strong touch>` (R-UI-3, ex-`authLienClass`).
 
 export function AuthPage({ children }: { children: React.ReactNode }) {
   return (
@@ -66,12 +65,10 @@ export function AuthCard({
     <div className={cn('w-full max-w-md', className)}>
       <Card className="space-y-6 rounded-savr-lg px-6 py-8 shadow-savr-md sm:px-10">
         <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-savr-neutral-900">
+          <Heading level={1} className="tracking-tight">
             {titre}
-          </h1>
-          {description && (
-            <p className="text-sm text-savr-neutral-500">{description}</p>
-          )}
+          </Heading>
+          {description && <Text>{description}</Text>}
         </div>
         {onSubmit ? (
           <form onSubmit={onSubmit} className="space-y-6">

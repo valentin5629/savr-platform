@@ -7,13 +7,22 @@ import { Modal } from '@/components/ui/modal';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { PageHero } from '@/components/ui/page-hero';
+import { Text } from '@/components/ui/text';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { IconButton } from '@/components/ui/icon-button';
+import { FormActions } from '@/components/ui/form-actions';
 
 type Mode = 'paliers' | 'fixe_variable';
 
@@ -187,20 +196,18 @@ export default function GrillesZdPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Table2 className="h-6 w-6 text-savr-neutral-600" />
-          <h1 className="text-2xl font-bold text-savr-neutral-900">
-            Paramètres — Grilles tarifaires ZD
-          </h1>
-        </div>
-        {canEdit && (
-          <Button onClick={openModal}>
-            <Plus className="h-4 w-4 mr-1" />
-            Créer une grille
-          </Button>
-        )}
-      </div>
+      <PageHero
+        title="Paramètres — Grilles tarifaires ZD"
+        icon={<Table2 className="h-6 w-6 text-savr-primary-200" />}
+        actions={
+          canEdit ? (
+            <Button variant="accent" onClick={openModal}>
+              <Plus />
+              Créer une grille
+            </Button>
+          ) : undefined
+        }
+      />
 
       {!canEdit && <OpsReadOnlyBanner />}
 
@@ -213,8 +220,8 @@ export default function GrillesZdPage() {
         loading={loading}
         rowClassName={(g) => (g.actif ? undefined : 'opacity-60')}
         empty={
-          <Card className="p-8 text-center text-savr-neutral-500">
-            Aucune grille tarifaire ZD.
+          <Card className="p-8 text-center">
+            <EmptyState size="inline" title="Aucune grille tarifaire ZD." />
           </Card>
         }
       />
@@ -237,7 +244,7 @@ export default function GrillesZdPage() {
             />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-4">
+          <FormGrid>
             <FormField label="Mode" htmlFor="grille-mode">
               <Combobox
                 id="grille-mode"
@@ -265,30 +272,29 @@ export default function GrillesZdPage() {
                 required
               />
             </FormField>
-          </div>
+          </FormGrid>
 
-          <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
-            <input
-              type="checkbox"
+          <Label variant="choice" className="flex items-center gap-2">
+            <Checkbox
               checked={fDefaut}
-              onChange={(e) => setFDefaut(e.target.checked)}
+              onCheckedChange={(v) => setFDefaut(v === true)}
             />
             Définir comme grille par défaut (ferme la grille par défaut actuelle
             — non rétroactif)
-          </label>
+          </Label>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-savr-neutral-700">
+              <Text as="span" variant="body" className="font-medium">
                 Paliers
-              </span>
+              </Text>
               <Button
                 type="button"
                 size="sm"
                 variant="secondary"
                 onClick={addPalier}
               >
-                <Plus className="h-3.5 w-3.5 mr-1" />
+                <Plus />
                 Ajouter un palier
               </Button>
             </div>
@@ -297,6 +303,7 @@ export default function GrillesZdPage() {
                 <FormField
                   label="Pax min"
                   htmlFor={`palier-${i}-pax-min`}
+                  required
                   className="flex-1"
                 >
                   <Input
@@ -324,6 +331,7 @@ export default function GrillesZdPage() {
                 <FormField
                   label="Prix fixe HT"
                   htmlFor={`palier-${i}-prix-base`}
+                  required
                   className="flex-1"
                 >
                   <Input
@@ -356,34 +364,31 @@ export default function GrillesZdPage() {
                     />
                   </FormField>
                 )}
-                <button
-                  type="button"
+                <IconButton
+                  size="sm"
+                  variant="destructive"
                   onClick={() => removePalier(i)}
                   aria-label="Supprimer le palier"
-                  className="p-2 text-savr-neutral-400 hover:text-savr-error-strong"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  <Trash2 />
+                </IconButton>
               </div>
             ))}
           </div>
 
           {formError && (
-            <p className="text-savr-error-strong text-sm">{formError}</p>
+            <AlertBar variant="err" className="font-normal">
+              {formError}
+            </AlertBar>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(false)}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={submitting || !fNom}>
-              {submitting ? 'Création…' : 'Créer la grille'}
-            </Button>
-          </div>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(false) }}
+            submit={{ label: 'Créer la grille', disabled: !fNom }}
+            loading={submitting}
+            loadingText="Création…"
+            className="pt-2"
+          />
         </form>
       </Modal>
     </div>

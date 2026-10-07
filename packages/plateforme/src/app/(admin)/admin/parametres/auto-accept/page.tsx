@@ -1,19 +1,15 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import {
-  Zap,
-  AlertTriangle,
-  CheckCircle2,
-  Plus,
-  Building2,
-} from 'lucide-react';
+import { Zap, AlertTriangle, Plus, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { LoadingState } from '@/components/ui/loading-state';
+import { useToast } from '@/components/ui/toast';
+import { PageHeader } from '@/components/ui/page-header';
+import { ActifBadge } from '@/components/ui/actif-badge';
 
 interface ConfigAutoAccept {
   id: string;
@@ -69,12 +65,7 @@ const columns: Column<ConfigAutoAccept>[] = [
     key: 'auto_accept_actif',
     header: 'Auto-accept',
     sortable: true,
-    render: (row) =>
-      row.auto_accept_actif ? (
-        <Badge variant="success">Actif</Badge>
-      ) : (
-        <Badge variant="neutral">Inactif</Badge>
-      ),
+    render: (row) => <ActifBadge actif={row.auto_accept_actif} />,
   },
   {
     key: 'notes',
@@ -89,8 +80,8 @@ export default function AutoAcceptPage() {
   const [configs, setConfigs] = useState<ConfigAutoAccept[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const loadConfigs = useCallback(async () => {
     setLoading(true);
@@ -114,7 +105,6 @@ export default function AutoAcceptPage() {
   const toggleAutoAccept = async (id: string, current: boolean) => {
     setToggling(id);
     setError(null);
-    setSuccessMsg(null);
     try {
       const res = await fetch(`/api/v1/admin/config-auto-accept?id=${id}`, {
         method: 'PATCH',
@@ -125,7 +115,10 @@ export default function AutoAcceptPage() {
         const json = (await res.json()) as { error?: string };
         throw new Error(json.error ?? 'Erreur mise à jour');
       }
-      setSuccessMsg(`Auto-accept ${!current ? 'activé' : 'désactivé'}.`);
+      toast({
+        title: `Auto-accept ${!current ? 'activé' : 'désactivé'}.`,
+        variant: 'success',
+      });
       await loadConfigs();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue');
@@ -154,46 +147,36 @@ export default function AutoAcceptPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Zap className="h-6 w-6 text-amber-500" />
-          <div>
-            <h1 className="text-xl font-semibold text-savr-neutral-900">
-              Configuration auto-accept
-            </h1>
-            <p className="text-sm text-savr-neutral-500">
-              Activation de la validation automatique par traiteur
-            </p>
-          </div>
-        </div>
-        <Button size="sm" variant="secondary" disabled>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Nouvelle config
-        </Button>
-      </div>
+      <PageHeader
+        title="Configuration auto-accept"
+        description="Activation de la validation automatique par traiteur"
+        tone="neutral"
+        size="xl"
+        weight="semibold"
+        icon={<Zap className="h-6 w-6 text-savr-warning" />}
+        actions={
+          <Button size="sm" variant="secondary" disabled>
+            <Plus />
+            Nouvelle config
+          </Button>
+        }
+      />
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <AlertBar
+          variant="err"
+          icon={<AlertTriangle />}
+          className="font-normal"
+        >
           {error}
-        </div>
-      )}
-      {successMsg && (
-        <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {successMsg}
-        </div>
+        </AlertBar>
       )}
 
       {loading ? (
-        <div className="space-y-2">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
+        <LoadingState variant="bloc" lignes={4} />
       ) : configs.length === 0 ? (
         <EmptyState
-          icon={<Zap className="h-8 w-8 text-amber-400" />}
+          icon={<Zap className="h-8 w-8 text-savr-warning" />}
           title="Aucune configuration"
           description="Aucun traiteur n'a de configuration auto-accept définie."
         />
@@ -206,15 +189,13 @@ export default function AutoAcceptPage() {
         />
       )}
 
-      <Card className="border border-amber-100 bg-amber-50 p-4">
-        <p className="text-sm text-amber-800">
-          L'auto-accept déclenche la validation sans action humaine dès que
-          l'algo AG trouve une combinaison association + transporteur
-          satisfaisant les seuils configurés. L'événement outbox{' '}
-          <code className="text-xs">attribution.validee</code> est émis
-          immédiatement.
-        </p>
-      </Card>
+      <AlertBar variant="warn" className="font-normal">
+        L'auto-accept déclenche la validation sans action humaine dès que l'algo
+        AG trouve une combinaison association + transporteur satisfaisant les
+        seuils configurés. L'événement outbox{' '}
+        <code className="text-xs">attribution.validee</code> est émis
+        immédiatement.
+      </AlertBar>
     </div>
   );
 }

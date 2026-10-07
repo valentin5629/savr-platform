@@ -1,14 +1,13 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
-  CollecteTypeTabs,
   DashboardFilterBar,
   BenchmarkFilterBar,
   EmptyDashboardState,
-  ProchainesCollectesBloc,
   ExportSyntheseBloc,
   FLUX_ZD,
   useEvolutionBlocs,
@@ -17,9 +16,10 @@ import {
   type BenchmarkFilters,
   type BlocsData,
 } from '@/components/dashboards/index.js';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
-import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import { StatCard } from '@/components/ui/stat-card';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
@@ -41,16 +41,11 @@ import {
   type TraiteurKpiRow,
 } from '@/lib/dashboards/cockpit-derive';
 import { Button } from '@/components/ui/button';
-
-// Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens —
-// identique traiteur/gestionnaire).
-const DOT = {
-  navy: '#223870',
-  navy2: '#3F5599',
-  green: '#16A34A',
-  navy3: '#6379B6',
-  accent: '#FF9B00',
-};
+import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
+import { fmtPct } from '@/lib/format';
+import { ROUTES } from '@/lib/routes';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -68,7 +63,7 @@ type KpiRow = TraiteurKpiRow;
  * Dashboard agence (§06.11 — réplique stricte du §06.04 traiteur, périmètre
  * donneur d'ordre). Décliné en Cockpit (R24c) à parité de sens avec
  * traiteur/gestionnaire, en réutilisant la lib Cockpit figée : KPIs
- * `KpiCockpitCard`, Top listes `TopRankList` (drill-down lieux préservé),
+ * `StatCard`, Top listes `TopRankList` (drill-down lieux préservé),
  * évolution `EvolutionZd/AgChart`, donut `TonnagesDonut`, benchmark
  * `BenchmarkRadar`. Divergences forcées §06.11 conservées : 4 cartes ZD
  * (pas de Marge, diff #7) et pas de Bloc 7 « Top 5 commerciaux » (diff #8).
@@ -87,7 +82,7 @@ export default function AgenceDashboardPage() {
     credits_restants?: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  // Blocs §11 partagés (5 prochaines / 6 top lieux / 3 AG associations + kg/pax
+  // Blocs §11 partagés (6 top lieux / 3 AG associations + kg/pax
   // par flux). Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8).
   const [blocs, setBlocs] = useState<BlocsData | null>(null);
   const [benchmarkFilters, setBenchmarkFilters] =
@@ -128,7 +123,7 @@ export default function AgenceDashboardPage() {
       .then((j) => setPack(j));
   }, [tab]);
 
-  // Blocs 5/6/3AG + kg/pax par flux (§11) — endpoint partagé, périmètre org.
+  // Blocs 6/3AG + kg/pax par flux (§11) — endpoint partagé, périmètre org.
   useEffect(() => {
     if (!filters) return;
     const qs = new URLSearchParams({
@@ -178,7 +173,7 @@ export default function AgenceDashboardPage() {
   // ── Top listes (Cockpit TopRankList) — colonnes §06.04 préservées via `secondary`. ──
   const nbColl = (n: number) => `${fmtInt(n)} collecte${n > 1 ? 's' : ''}`;
   const tauxStr = (t: number | null) =>
-    t != null ? `${fmtDec(t, 1)} % recyclage` : 'taux n/d';
+    t != null ? `${fmtPct(t, 1)} recyclage` : 'taux n/d';
   const repasPaxStr = (r: number | null) =>
     r != null ? `${fmtDec(r, 2)} repas/pax` : 'repas/pax n/d';
   const topLieuxItems = (blocs?.topLieux ?? []).map((l) =>
@@ -224,7 +219,7 @@ export default function AgenceDashboardPage() {
     if (!l) return;
     setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
     router.push(
-      `/agence/collectes?onglet=historique&lieu=${l.lieu_id}&${drillScope}`,
+      `${ROUTES.agence.collectes}?onglet=historique&lieu=${l.lieu_id}&${drillScope}`,
     );
   };
 
@@ -236,32 +231,31 @@ export default function AgenceDashboardPage() {
 
   return (
     <div className="space-y-6" data-testid="agence-dashboard">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-savr-primary-800">Dashboard</h1>
-        <Button asChild>
-          <a href="/programmer/nouveau">Programmer un événement</a>
-        </Button>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        actions={
+          <Button asChild>
+            <a href={ROUTES.programmer.nouveau}>Programmer un événement</a>
+          </Button>
+        }
+      />
 
       <DashboardFilterBar
         storageKey="agence-dashboard"
         onChange={handleFilters}
       />
-      <CollecteTypeTabs value={tab} onChange={setTab} />
+      <ToggleTypeCollecte value={tab} onChange={setTab} />
 
       {/* Compteur « X collectes correspondent » (BL-P3-02) — parité gestionnaire. */}
       {!loading && filters && (
-        <p
-          data-testid="dashboard-collectes-count"
-          className="text-sm text-savr-neutral-500"
-        >
+        <Text data-testid="dashboard-collectes-count">
           {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
           {nbCollectes > 1 ? 'ent' : ''} à votre sélection
-        </p>
+        </Text>
       )}
 
       {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
+        <LoadingState />
       ) : nbCollectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (
@@ -271,37 +265,37 @@ export default function AgenceDashboardPage() {
             className="grid grid-cols-2 gap-4 lg:grid-cols-4"
             data-testid="agence-kpi-zd"
           >
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(nbCollectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Tonnage collecté"
               value={fmtMasse(tonnage).value}
               unit={fmtMasse(tonnage).unit}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(tonnage, prev.tonnage)}
               sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Taux de recyclage"
               value={taux != null ? fmtDec(taux, 1) : '—'}
               unit={taux != null ? '%' : undefined}
-              dotColor={DOT.green}
+              dotColor={KPI_DOT.green}
               variationPct={variationPct(taux ?? 0, prev.taux ?? 0)}
               sparkPoints={sparkFromRows(rows, (r) => r.taux_recyclage_pondere)}
-              sparkColor={DOT.green}
+              sparkColor={KPI_DOT.green}
             />
             {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
                 mieux », §06.04 l.92). */}
-            <KpiCockpitCard
+            <StatCard
               label="kg/pax moyen"
               value={kgPax != null ? fmtDec(kgPax, 2) : '—'}
               unit={kgPax != null ? 'kg/pax' : undefined}
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromRows(rows, (r) =>
                 r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
               )}
@@ -344,12 +338,6 @@ export default function AgenceDashboardPage() {
             </div>
           </div>
 
-          {/* Bloc 5 — Prochaines collectes (§06.11 hérite §06.04 Bloc 5) */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            hrefFor={(c) => `/agence/collectes/${c.id}`}
-          />
-
           {/* Bloc 8 — Export synthèse PDF (§06.11 réplique stricte §06.04, R20b-2) */}
           <ExportSyntheseBloc filters={filters} tab={tab} />
         </>
@@ -357,32 +345,32 @@ export default function AgenceDashboardPage() {
         <>
           {/* Bloc 1 — KPIs Cockpit AG (4 cartes, non cliquables) */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <KpiCockpitCard
+            <StatCard
               label="Nombre de collectes"
               value={fmtInt(nbCollectes)}
-              dotColor={DOT.navy}
+              dotColor={KPI_DOT.navy}
               variationPct={variationPct(nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas donnés"
               value={fmtInt(repas)}
-              dotColor={DOT.accent}
+              dotColor={KPI_DOT.accent}
               variationPct={variationPct(repas, prev.repas)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
-              sparkColor={DOT.accent}
+              sparkColor={KPI_DOT.accent}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Pax cumulés"
               value={fmtInt(pax)}
-              dotColor={DOT.navy2}
+              dotColor={KPI_DOT.navy2}
               variationPct={variationPct(pax, prev.pax)}
               sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
             />
-            <KpiCockpitCard
+            <StatCard
               label="Repas/pax moyen"
               value={pax > 0 ? fmtDec(repas / pax, 2) : '—'}
-              dotColor={DOT.navy3}
+              dotColor={KPI_DOT.navy3}
               sparkPoints={sparkFromRows(rows, (r) =>
                 r.pax_total > 0 ? (r.nb_repas_donnes ?? 0) / r.pax_total : 0,
               )}
@@ -442,12 +430,6 @@ export default function AgenceDashboardPage() {
               />
             </div>
           </div>
-
-          {/* Bloc 5 — Prochaines collectes */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            hrefFor={(c) => `/agence/collectes/${c.id}`}
-          />
 
           {/* Bloc 8 — Export synthèse PDF */}
           <ExportSyntheseBloc filters={filters} tab={tab} />

@@ -30,15 +30,15 @@
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_auth_401_sans_jwt + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
-      "libelle": "Blocs §11 partagés COMPLETS sur les 3 rôles : R20a = Bloc 2 (barres/courbe) + Bloc 4 donut ; R20b = Bloc 5 prochaines + Bloc 6 top lieux + Bloc 7 top acteurs (commerciaux traiteur / traiteurs gestionnaire, retiré agence) + Bloc 3 AG associations + Bloc 3 ZD benchmark réel (encart 4 dims traiteur/agence). Endpoint partagé /api/v1/dashboards/blocs (evolution-pattern, périmètre par rôle, RLS f_collecte_visible)."
+      "libelle": "Blocs §11 partagés COMPLETS sur les 3 rôles : R20a = Bloc 2 (barres/courbe) + Bloc 4 donut ; R20b = Bloc 6 top lieux + Bloc 7 top acteurs (commerciaux traiteur / traiteurs gestionnaire, retiré agence) + Bloc 3 AG associations + Bloc 3 ZD benchmark réel (encart 4 dims traiteur/agence). Endpoint partagé /api/v1/dashboards/blocs (evolution-pattern, périmètre par rôle, RLS f_collecte_visible). Bloc 5 « Prochaines collectes » retiré le 2026-10-01 (décision Val)."
     },
     {
       "id": "M3.5-charts-lib",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:84",
       "artefact": "packages/plateforme/src/components/dashboards/charts/",
-      "test": "M3.5/chart_donut_total_centre — total au centre = somme des flux",
+      "test": "TonnagesDonut — rend le total au centre et la légende des 5 flux",
       "statut": "implemented",
-      "libelle": "Lib charting (recharts, lazy-load) + composants §11 partagés réutilisés par rôle (EvolutionFluxChart, EvolutionRepasChart, TonnagesDonut, palette FLUX_ZD)"
+      "libelle": "Lib charting SVG Cockpit (cockpit/EvolutionZdChart, EvolutionAgChart, TonnagesDonut, Sparkline, fmt) + palette FLUX_ZD, réutilisée par rôle. Variantes recharts legacy (EvolutionFluxChart, EvolutionRepasChart, TonnagesDonut racine, lazy) supprimées R-UI-0 : importées nulle part hors tests."
     },
     {
       "id": "M3.5-evolution-endpoint",
@@ -50,7 +50,7 @@
     },
     {
       "id": "BL-P1-PARITE-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:208",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:200",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts + packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + apps/pdf-renderer/src/templates/synthese-dashboard.ts",
       "test": "M3.5 / route synthèse PDF — génération synchrone + M3.5 / synthèse PDF — snapshot §12 §1.6 + M3.5 / renderer synthèse §12 §1.6 — template agrégé",
       "statut": "implemented",
@@ -74,7 +74,7 @@
     },
     {
       "id": "BL-P2-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:94",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -82,7 +82,7 @@
     },
     {
       "id": "BL-P2-43",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:94",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -90,15 +90,15 @@
     },
     {
       "id": "M3.5-blocs-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:78",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
-      "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_prochaines_fenetre_statuts",
+      "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_sans_prochaines_collectes",
       "statut": "implemented",
-      "libelle": "Endpoint partagé GET /api/v1/dashboards/blocs (traiteur/agence/gestionnaire) : Bloc 5 prochaines (fenêtre 30 j, statuts non terminaux), Bloc 6 top 5 lieux, Bloc 7 top 5 acteurs, Bloc 3 AG associations, kg/pax par flux ZD. Périmètre par rôle (org / organisations_lieux) EN PLUS de la RLS f_collecte_visible, agrégation TS (aucune vue nouvelle), normalisation to-one PostgREST."
+      "libelle": "Endpoint partagé GET /api/v1/dashboards/blocs (traiteur/agence/gestionnaire) : Bloc 6 top 5 lieux, Bloc 7 top 5 acteurs, Bloc 3 AG associations, kg/pax par flux ZD. Périmètre par rôle (org / organisations_lieux) EN PLUS de la RLS f_collecte_visible, agrégation TS (aucune vue nouvelle), normalisation to-one PostgREST. Bloc 5 « Prochaines collectes » retiré le 2026-10-01 (décision Val) : la réponse ne porte plus de liste `prochaines`."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "c8c453a182512344f6b8a8e5796c605d6c282d26394a3c0f9139b4cccda11bc0",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8e6a7a85f7b1b0805cbdbd3bcb362d233168d6665705604d6f4f7f798fdd7353"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6a08f97fe482d5b5a9be85a937428c56245baee5380e13043e01b6ad435da805",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "1624f7d10800fae8c89bb6757d87949d81edab35aa94e96d8c8e6d668c58208a"
   }
 }

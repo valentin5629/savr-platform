@@ -25,6 +25,7 @@ vi.mock('next/link', () => ({
   ),
 }));
 import { Button } from '@/components/ui/button';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -62,7 +63,7 @@ import { Input } from '@/components/ui/input';
 import { StatCard, StatCardGrid } from '@/components/ui/stat-card';
 import { Sidebar } from '@/components/layout/sidebar';
 import { getNavItems } from '@/lib/nav-config';
-import type { Role } from '@/lib/nav-config';
+import type { NavRole as Role } from '@/lib/roles';
 
 // ── Tokens CSS ──────────────────────────────────────────────────────────────
 
@@ -971,4 +972,20 @@ it("M0.8-66 — DataTable : Entrée sur un bouton de cellule n'active pas la lig
   fireEvent.keyDown(bouton, { key: 'Enter', bubbles: true });
   fireEvent.keyDown(bouton, { key: ' ', bubbles: true });
   expect(onRowClick).not.toHaveBeenCalled();
+});
+
+describe('R-UI-0 — AlertBar : succès et erreur discernables (B8)', () => {
+  it('variante success en vert, err en rouge (tokens -strong)', () => {
+    const { rerender } = render(
+      <AlertBar variant="success">Invitation envoyée.</AlertBar>,
+    );
+    expect(screen.getByRole('status').className).toContain(
+      'text-savr-success-strong',
+    );
+    // L'erreur est annoncée immédiatement : role=alert par défaut (R-UI-1).
+    rerender(<AlertBar variant="err">Erreur.</AlertBar>);
+    expect(screen.getByRole('alert').className).toContain(
+      'text-savr-error-strong',
+    );
+  });
 });

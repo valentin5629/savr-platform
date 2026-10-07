@@ -1,15 +1,20 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
+import { libelleRole } from '@/lib/libelles/role';
+import { useState } from 'react';
 import { Users, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ListFooter } from '@/components/ui/list-footer';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useUserRole } from '@/lib/use-user-role';
 import { InviteUserModal } from './invite-user-modal';
+import { PageHero } from '@/components/ui/page-hero';
+import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
+import { ActifBadge } from '@/components/ui/actif-badge';
 
 interface StaffUser {
   id: string;
@@ -35,17 +40,12 @@ const columns: Column<StaffUser>[] = [
   {
     key: 'role',
     header: 'Rôle',
-    render: (row) => <Badge variant="neutral">{row.role}</Badge>,
+    render: (row) => <Badge variant="neutral">{libelleRole(row.role)}</Badge>,
   },
   {
     key: 'actif',
     header: 'Statut',
-    render: (row) =>
-      row.actif ? (
-        <Badge variant="success">Actif</Badge>
-      ) : (
-        <Badge variant="neutral">Suspendu</Badge>
-      ),
+    render: (row) => <ActifBadge actif={row.actif} />,
   },
   {
     key: 'derniere_connexion',
@@ -60,48 +60,35 @@ const columns: Column<StaffUser>[] = [
 ];
 
 export default function SettingsUsersPage() {
-  const [users, setUsers] = useState<StaffUser[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
+  const [page, setPage] = useState(1);
   const role = useUserRole();
-
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch('/api/v1/admin/users?role=admin_savr');
-    const res2 = await fetch('/api/v1/admin/users?role=ops_savr');
-    if (res.ok && res2.ok) {
-      const j1 = (await res.json()) as { data: StaffUser[]; total: number };
-      const j2 = (await res2.json()) as { data: StaffUser[]; total: number };
-      const all = [...j1.data, ...j2.data].sort((a, b) =>
-        a.nom.localeCompare(b.nom),
-      );
-      setUsers(all);
-      setTotal(j1.total + j2.total);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    void fetchUsers();
-  }, [fetchUsers]);
+  // Un seul appel paginé (R-UI-4a, E5) : avant, deux appels par rôle plafonnés
+  // à 50 lignes chacun, concaténés et re-triés — au-delà, les membres manquaient
+  // sans que le compteur (somme des totaux) ne le dise.
+  const {
+    data: users,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<StaffUser>(
+    `/api/v1/admin/users?roles=admin_savr,ops_savr&page=${page}`,
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-savr-primary-950">
-            Utilisateurs Savr
-          </h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            {total} membre{total !== 1 ? 's' : ''} de l&apos;équipe
-          </p>
-        </div>
-        <Button onClick={() => setShowInvite(true)}>
-          <Plus className="w-4 h-4" />
-          Inviter un membre
-        </Button>
-      </div>
+      <PageHero
+        icon={<Users className="h-6 w-6 text-savr-primary-200" />}
+        title="Utilisateurs Savr"
+        subtitle={`${total} membre${total !== 1 ? 's' : ''} de l'équipe`}
+        actions={
+          <Button variant="accent" onClick={() => setShowInvite(true)}>
+            <Plus />
+            Inviter un membre
+          </Button>
+        }
+      />
 
       {showInvite && (
         <InviteUserModal
@@ -109,47 +96,38 @@ export default function SettingsUsersPage() {
           onClose={() => setShowInvite(false)}
           onCreated={() => {
             setShowInvite(false);
-            void fetchUsers();
+            recharger();
           }}
         />
       )}
 
       {/* Paramètres avancés (algo AG) — accès depuis la page Paramètres */}
-      <div className="flex flex-wrap items-center gap-4 rounded-md border border-savr-neutral-200 bg-savr-neutral-50 px-4 py-3 text-sm">
+      <div className="flex flex-wrap items-center gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 px-4 py-3 text-sm">
         <span className="font-medium text-savr-neutral-700">Paramètres :</span>
-        <Link
-          href="/admin/parametres/algo-ag"
-          className="text-savr-primary-600 hover:underline"
-        >
+        <TextLink href={ROUTES.admin.parametresAlgoAg}>
           Paramètres algorithme →
-        </Link>
-        <Link
-          href="/admin/parametres/auto-accept"
-          className="text-savr-primary-600 hover:underline"
-        >
+        </TextLink>
+        <TextLink href={ROUTES.admin.parametresAutoAccept}>
           Configuration auto-accept →
-        </Link>
+        </TextLink>
       </div>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : users.length === 0 ? (
-        <EmptyState
-          icon={<Users />}
-          title="Aucun utilisateur Savr"
-          description="Invitez les membres de votre équipe."
-        />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={users}
-          keyExtractor={(row) => row.id}
-        />
-      )}
+      <DataTable
+        columns={columns}
+        data={users}
+        keyExtractor={(row) => row.id}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={
+          <EmptyState
+            icon={<Users />}
+            title="Aucun utilisateur Savr"
+            description="Invitez les membres de votre équipe."
+          />
+        }
+      />
+      <ListFooter total={total} page={page} onPageChange={setPage} />
     </div>
   );
 }

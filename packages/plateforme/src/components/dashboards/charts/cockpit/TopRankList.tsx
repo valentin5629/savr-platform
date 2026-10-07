@@ -3,7 +3,9 @@
 import * as React from 'react';
 import { ChartCard } from './ChartCard';
 import { initiales } from './fmt';
-import { RANK } from './palette';
+import { RANK, TINT, TRACK } from './palette';
+import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // TopRankList — liste-classement Cockpit (R24) : rang coloré (dégradé navy par
 // position), avatar initiales, nom, mini-barre optionnelle et valeur déjà
@@ -12,11 +14,6 @@ import { RANK } from './palette';
 function rankColor(index: number): string {
   return RANK[index] ?? RANK[RANK.length - 1]!;
 }
-
-const AVATAR_TINT = {
-  navy: { background: '#EFF2F9', color: '#223870' },
-  orange: { background: '#FFF4E0', color: '#B36400' },
-} as const;
 
 export interface TopItem {
   label: string;
@@ -60,7 +57,7 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
     },
     ref,
   ) => {
-    const tint = AVATAR_TINT[avatarTint];
+    const tint = TINT[avatarTint];
     const avatarRadius =
       avatarShape === 'round' ? 'rounded-savr-full' : 'rounded-savr-md';
 
@@ -68,9 +65,7 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
       <ChartCard title={title} subtitle={subtitle}>
         <div ref={ref}>
           {items.length === 0 ? (
-            <p className="text-sm text-savr-neutral-500">
-              Aucune donnée sur la période.
-            </p>
+            <EmptyState size="inline" title="Aucune donnée sur la période." />
           ) : (
             <div className="flex flex-col gap-3.5">
               {items.map((item, i) => {
@@ -80,13 +75,13 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                 const inner = (
                   <>
                     <span
-                      className="w-5 text-[13px] font-extrabold tabular-nums"
+                      className="w-5 text-sm font-extrabold tabular-nums"
                       style={{ color }}
                     >
                       {i + 1}
                     </span>
                     <span
-                      className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center text-[11px] font-extrabold ${avatarRadius}`}
+                      className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center text-xs font-extrabold ${avatarRadius}`}
                       style={{
                         background: tint.background,
                         color: tint.color,
@@ -96,22 +91,30 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex justify-between gap-2">
-                        <span className="truncate text-[13px] font-bold text-savr-neutral-800">
+                        <Text
+                          as="span"
+                          tone="strong"
+                          className="truncate font-bold"
+                        >
                           {item.label}
-                        </span>
-                        <span className="text-[13px] font-extrabold tabular-nums">
+                        </Text>
+                        <span className="text-sm font-extrabold tabular-nums">
                           {item.value}
                         </span>
                       </div>
                       {item.secondary && (
-                        <div className="mb-1 truncate text-[11px] tabular-nums text-savr-neutral-500">
+                        <Text
+                          as="div"
+                          variant="hint"
+                          className="mb-1 truncate tabular-nums"
+                        >
                           {item.secondary}
-                        </div>
+                        </Text>
                       )}
                       {hasBar && (
                         <div
                           className="h-1.5 rounded-savr-full"
-                          style={{ background: '#EEF0F5' }}
+                          style={{ background: TRACK }}
                         >
                           <div
                             style={{

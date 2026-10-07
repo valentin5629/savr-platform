@@ -6,6 +6,8 @@ import {
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire.js';
+import { estUuid, listeCsv } from '@/lib/filtre-csv.js';
+import { parsePage } from '@/lib/pagination.js';
 import { lireTri } from '@/lib/tri-liste.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
@@ -63,7 +65,6 @@ function un<T>(v: UnOuListe<T>): T | null {
 type LigneBrute = Record<string, unknown> & {
   collecte_flux: { poids_reel_kg: number | null }[] | null;
   attributions_antgaspi: UnOuListe<{ volume_repas_realise: number | null }>;
-  attestations_don: UnOuListe<{ nb_repas: number | null; version: number }>;
   evenements: UnOuListe<{
     nom_evenement: string | null;
     nom_client_organisateur: string | null;
@@ -81,13 +82,28 @@ type LigneBrute = Record<string, unknown> & {
 // GET /api/v1/gestionnaire/collectes
 // Liste des collectes sur les lieux du gestionnaire. On interroge `collectes`
 // DIRECTEMENT avec l'embed `evenements!inner` (même pattern éprouvé que la route
-// /gestionnaire/filtres) : la RLS col_select (f_collecte_visible) scope au parc du
-// gestionnaire, identique à la vue v_collectes_gestionnaire_lieux (= SELECT nu sur
-// collectes, security_invoker). Bénéfice : les filtres lieu / traiteur (drill-down
+// /gestionnaire/filtres). Ce que la session lit est borné par DEUX RLS, celle de
+// `collectes` (col_select, f_collecte_visible) et celle de `evenements`
+// (evt_gestionnaire_select, appliquée par l'embed `!inner`) : les événements que
+// son organisation a programmés, quel que soit le lieu, et les événements datés
+// tenus sur ses lieux (`organisations_lieux`). C'est plus étroit que la vue
+// v_collectes_gestionnaire_lieux (SELECT nu sur collectes, security_invoker), qui
+// ne passe que par col_select. Bénéfice : les filtres lieu / traiteur (drill-down
 // des Top listes du dashboard) sont applicables ET les noms lieu/événement sont
 // enfin renvoyés (la vue ne les portait pas → colonnes « — »).
-// Paramètres : type, statut, from, to, lieu_id, traiteur_id, page,
+// Paramètres : type, statut, from, to, lieu_ids, traiteur_ids, page,
 //              type_evenement_ids[], taille_evenements[]
+//
+// Lieu et Traiteur sont à choix multiple (Design System §5.5 règle 7, décision
+// Val 2026-09-30) : `lieu_ids` / `traiteur_ids` en CSV, convention de
+// `lib/filtre-csv` partagée avec les listes traiteur et agence. Les anciens
+// `lieu_id` / `traiteur_id` à valeur unique restent lus comme une liste d'un
+// élément. Ces listes ne font que RESTREINDRE : un `.in()` est une condition de
+// plus sur la même requête, il ne retire que des lignes à ce que la session lit
+// sans filtre et n'en ajoute jamais. Nommer le lieu d'un autre gestionnaire ne
+// rend donc aucune collecte d'un tiers — seulement, s'il y en a, ses propres
+// programmations sur ce lieu, déjà lisibles sans filtre. « Ce lieu rend des
+// lignes » ne prouve pas qu'il est dans son parc.
 //
 // Pagination SERVEUR (`count: 'exact'` + `range`), pattern §06.06 admin/lieux.
 // Décision Val 2026-09-22 : le §06.05 ne spécifie pas la taille de cette liste,
@@ -107,8 +123,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const statut = sp.get('statut');
   const from = sp.get('from');
   const to = sp.get('to');
-  const lieuId = sp.get('lieu_id');
-  const traiteurId = sp.get('traiteur_id');
+  const lieuxDemandes = listeCsv(
+    sp.get('lieu_ids') ?? sp.get('lieu_id'),
+    Boolean,
+  );
+  const traiteursDemandes = listeCsv(
+    sp.get('traiteur_ids') ?? sp.get('traiteur_id'),
+    Boolean,
+  );
+  const lieuIds = lieuxDemandes.filter(estUuid);
+  const traiteurIds = traiteursDemandes.filter(estUuid);
   // Filtres globaux du dashboard, propagés par le drill-down des Top listes
   // (§06.05 l.209 : « filtres du dashboard propagés — période + Type/Taille
   // d'événement »). Mêmes noms de paramètres que `gestionnaire/evenements`.
@@ -121,8 +145,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // un range négatif. Le dépassement par le HAUT ne se borne pas ici — le total
   // n'est pas encore connu — il est rattrapé après la requête (voir plus bas).
   const tri = lireTri(sp, TRIS, { tri: 'date', ascendant: false });
-  const pageParam = Number.parseInt(sp.get('page') ?? '1', 10);
-  const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
+  const page = parsePage(sp);
   const offset = (page - 1) * PAGE_SIZE;
 
   // Tailles demandées mais AUCUNE reconnue (code hors XS…XL) : renvoyer la liste
@@ -132,21 +155,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (taillesDemandees.length > 0 && predicatsTaille.length === 0) {
     return NextResponse.json({ data: [], total: 0, page });
   }
+  // Même règle pour Lieu et Traiteur : un identifiant mal formé est écarté (il
+  // ne désigne aucune ligne), mais si AUCUN de ceux demandés n'est lisible, le
+  // filtre ne s'efface pas pour autant.
+  if (
+    (lieuxDemandes.length > 0 && lieuIds.length === 0) ||
+    (traiteursDemandes.length > 0 && traiteurIds.length === 0)
+  ) {
+    return NextResponse.json({ data: [], total: 0, page });
+  }
 
   // Requête filtrée, sans fenêtrage : construite deux fois dans le cas dégradé
   // ci-dessous, donc les filtres vivent ici et nulle part ailleurs.
   const filtree = () => {
     // Mêmes colonnes que la liste traiteur, plus le traiteur (décision Val
     // 2026-10-01) : pax, adresse du lieu, résultats de la collecte réalisée
-    // (poids ZD = Σ collecte_flux ; repas AG = attribution, à défaut attestation
-    // de don — cf. aplatissement). Le traiteur passe par la vue restreinte
-    // v_traiteurs_gestionnaire (nom seul), comme les autres écrans du rôle.
+    // (poids ZD = Σ collecte_flux ; repas AG = volume de l'attribution, lu par la
+    // vue v_attributions_gestionnaire — cf. aplatissement). Le traiteur passe par
+    // la vue restreinte v_traiteurs_gestionnaire (nom seul), comme les autres
+    // écrans du rôle.
     let q = supabase.from('collectes').select(
       `id, evenement_id, type, statut, statut_tms, date_collecte,
        heure_collecte, taux_recyclage, co2_evite_kg, realisee_at,
        collecte_flux(poids_reel_kg),
-       attributions_antgaspi(volume_repas_realise),
-       attestations_don(nb_repas, version),
+       attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise),
        evenements!inner(
          nom_evenement, nom_client_organisateur, pax, lieu_id,
          traiteur_operationnel_organisation_id,
@@ -167,15 +199,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (statut) q = q.eq('statut', statut);
     if (from) q = q.gte('date_collecte', from);
     if (to) q = q.lte('date_collecte', to);
-    if (lieuId) q = q.eq('evenements.lieu_id', lieuId);
-    if (traiteurId)
-      q = q.eq('evenements.traiteur_operationnel_organisation_id', traiteurId);
+    if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+    if (traiteurIds.length > 0)
+      q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
     if (typeEvtIds.length > 0)
       q = q.in('evenements.type_evenement_id', typeEvtIds);
     // Un seul `.or()` pour tous les brackets retenus : ses termes sont OU-és entre
     // eux et l'ensemble est ET-é avec les filtres ci-dessus. Mesuré contre le
     // PostgREST local : `lieu_id` seul = 7 lignes, `lieu_id` + taille M = 6 — le
-    // `.or()` ne désarme pas les `.eq()` voisins.
+    // `.or()` ne désarme pas les filtres voisins.
     if (predicatsTaille.length > 0)
       q = q.or(predicatsTaille.join(','), { referencedTable: 'evenements' });
     return q;
@@ -209,19 +241,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Aplatissement : les embeds bruts ne sortent pas de la route, l'écran n'en
   // lit que les agrégats.
   const rows = ((data ?? []) as unknown as LigneBrute[]).map((c) => {
-    const {
-      evenements,
-      collecte_flux,
-      attributions_antgaspi,
-      attestations_don,
-      ...rest
-    } = c;
+    const { evenements, collecte_flux, attributions_antgaspi, ...rest } = c;
     const evt = un(evenements);
     const lieu = un(evt?.lieux ?? null);
-    // Dernière version de l'attestation (une par régénération).
-    const attestation = [attestations_don ?? []]
-      .flat()
-      .sort((a, b) => b.version - a.version)[0];
     return {
       ...rest,
       evenement_nom: evt?.nom_evenement ?? null,
@@ -240,14 +262,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         (s, f) => s + (f.poids_reel_kg ?? 0),
         0,
       ),
-      // Repas donnés — même règle que la fiche (D13, arbitrage Val 2026-09-30) :
-      // l'attribution quand elle est lisible ; sur une collecte programmée par
-      // un traiteur tiers, aa_select la refuse (C-1) et l'attestation de don
-      // servie au gestionnaire (att_gestionnaire_select) porte le même chiffre.
-      nb_repas_donnes:
-        un(attributions_antgaspi)?.volume_repas_realise ??
-        attestation?.nb_repas ??
-        null,
+      // Repas donnés — volume de l'attribution, par la vue
+      // v_attributions_gestionnaire (§04) : aa_select refuse la table au
+      // gestionnaire sur une collecte d'un traiteur tiers (C-1), la vue rend le
+      // volume des collectes de SES lieux. Même source que la fiche et l'export.
+      nb_repas_donnes: un(attributions_antgaspi)?.volume_repas_realise ?? null,
     };
   });
 

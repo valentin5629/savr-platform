@@ -237,9 +237,9 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
       ).toBeInTheDocument();
       expect(screen.getByTestId('dashboard-filter-type')).toBeInTheDocument();
       expect(screen.getByTestId('dashboard-filter-taille')).toBeInTheDocument();
-      expect(
-        screen.getByTestId('dashboard-filter-reinitialiser'),
-      ).toBeInTheDocument();
+      // « Réinitialiser les filtres » n'apparaît qu'une fois un filtre posé
+      // (R-UI-4b, D5 : `FilterBar actif`) — tout est au défaut au montage.
+      expect(screen.queryByTestId('dashboard-filter-reinitialiser')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -367,8 +367,9 @@ describe('M3.2 / P2 listes colonnes', () => {
 
       expect(cellule('Cocktail')).toBe('—');
       expect(cellule('Cocktail')).not.toContain('0');
-      expect(cellule('Séminaire')).toBe('0 kg');
-      expect(cellule('Gala')).toBe('12 kg');
+      // Format FR (R-UI-0 B6) : espace insécable avant l'unité.
+      expect(cellule('Séminaire')).toBe('0\u00a0kg');
+      expect(cellule('Gala')).toBe('12\u00a0kg');
     },
     ATTENTE_CAS_MS,
   );
@@ -412,7 +413,8 @@ describe('M3.2 / P2 listes colonnes', () => {
       expect(
         (await screen.findAllByText('Capacité', undefined, ATTENTE_UI)).length,
       ).toBeGreaterThan(0);
-      expect(screen.getAllByText('3500 pers.').length).toBeGreaterThan(0);
+      // Séparateur de milliers français (lib/format, DS §3).
+      expect(screen.getAllByText(/^3\s500 pers\.$/).length).toBeGreaterThan(0);
     },
     ATTENTE_CAS_MS,
   );
@@ -434,11 +436,16 @@ describe('M3.2 / P2 listes colonnes', () => {
 
       expect(
         await screen.findByText(
-          'Impossible de charger vos lieux',
+          /Impossible de charger vos lieux/,
           undefined,
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+      // ErrorState (R-UI-1 H5) : bandeau role=alert + « Réessayer ».
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Impossible de charger vos lieux',
+      );
+      expect(screen.getByRole('button', { name: 'Réessayer' })).toBeTruthy();
       expect(enEchec).toHaveBeenCalled();
       expect(screen.queryByText('Aucun lieu associé')).toBeNull();
 

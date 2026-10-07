@@ -1,5 +1,21 @@
 'use client';
 
+import {
+  libelleTypeOrganisation,
+  libelleVerificationSiret,
+  variantVerificationSiret,
+} from '@/lib/libelles/organisation';
+import {
+  CREDITS_TYPE_PACK,
+  libelleLongTypePack,
+  libelleStatutPack,
+  libelleTypePack,
+  TYPES_PACK,
+  variantStatutPack,
+} from '@/lib/libelles/pack';
+import { libelleActif } from '@/lib/libelles/actif';
+import { ActifBadge } from '@/components/ui/actif-badge';
+import { libelleRole } from '@/lib/libelles/role';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -14,11 +30,10 @@ import {
   FlaskConical,
   ArrowLeft,
   UserPlus,
-  type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { PageHero } from '@/components/ui/page-hero';
@@ -41,6 +56,13 @@ import {
   PackAjustementsHistorique,
 } from './onglets';
 import { ClientInviteUserModal } from './invite-user-modal';
+import { Heading } from '@/components/ui/heading';
+import { SectionHeader } from '@/components/ui/section-header';
+import { InfoItem } from '@/components/ui/info-item';
+import { Text } from '@/components/ui/text';
+import { IconButton } from '@/components/ui/icon-button';
+import { FormActions } from '@/components/ui/form-actions';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface OrgDetail {
   id: string;
@@ -101,14 +123,6 @@ interface OrgDetail {
   organisations_lieux?: { lieux: { id: string; nom: string } | null }[];
 }
 
-// Libellé lisible du type d'organisation (aligné sur la liste Clients).
-const TYPE_LABELS: Record<string, string> = {
-  traiteur: 'Traiteur',
-  agence: 'Agence',
-  gestionnaire_lieux: 'Gestionnaire de lieux',
-  client_organisateur: 'Client organisateur',
-};
-
 const ONGLETS = [
   { key: 'informations', label: 'Informations légales', icon: Building2 },
   { key: 'users', label: 'Utilisateurs', icon: Users },
@@ -123,27 +137,7 @@ const ONGLETS = [
 
 type OngletKey = (typeof ONGLETS)[number]['key'];
 
-const STATUT_PACK_BADGE: Record<string, 'success' | 'neutral' | 'error'> = {
-  actif: 'success',
-  epuise: 'neutral',
-  annule: 'error',
-};
-
-const SIRET_BADGE: Record<string, 'success' | 'warning' | 'error'> = {
-  verifie: 'success',
-  en_attente: 'warning',
-  echec: 'error',
-};
-
 type ModalType = 'creer' | 'ajuster' | 'annuler' | null;
-
-const TYPES_PACK = [
-  { value: 'unitaire', label: '1 collecte (Unitaire)' },
-  { value: 'pack_10', label: '10 collectes' },
-  { value: 'pack_30', label: '30 collectes' },
-  { value: 'pack_60', label: '60 collectes' },
-  { value: 'personnalise', label: 'Personnalisé' },
-] as const;
 
 type UserRow = OrgDetail['users'][number];
 type PackRow = OrgDetail['packs_antgaspi'][number];
@@ -174,25 +168,14 @@ const COLONNES_USERS: ColumnDef<UserRow, unknown>[] = [
     header: 'Rôle',
     accessorFn: (u) => u.role,
     cell: ({ row: { original: u } }) => (
-      <Badge variant="neutral" className="text-xs">
-        {u.role}
-      </Badge>
+      <Badge variant="neutral">{libelleRole(u.role)}</Badge>
     ),
   },
   {
     id: 'statut',
     header: 'Statut',
-    accessorFn: (u) => (u.actif ? 'Actif' : 'Suspendu'),
-    cell: ({ row: { original: u } }) =>
-      u.actif ? (
-        <Badge variant="success" className="text-xs">
-          Actif
-        </Badge>
-      ) : (
-        <Badge variant="neutral" className="text-xs">
-          Suspendu
-        </Badge>
-      ),
+    accessorFn: (u) => libelleActif(u.actif),
+    cell: ({ row: { original: u } }) => <ActifBadge actif={u.actif} />,
   },
 ];
 
@@ -202,7 +185,7 @@ const COLONNES_PACKS: ColumnDef<PackRow, unknown>[] = [
     header: 'Type',
     accessorFn: (p) => p.type_pack,
     meta: { className: 'font-medium' },
-    cell: ({ row: { original: p } }) => p.type_pack,
+    cell: ({ row: { original: p } }) => libelleTypePack(p.type_pack),
   },
   {
     id: 'credits_initiaux',
@@ -221,11 +204,8 @@ const COLONNES_PACKS: ColumnDef<PackRow, unknown>[] = [
     header: 'Statut',
     accessorFn: (p) => p.statut,
     cell: ({ row: { original: p } }) => (
-      <Badge
-        variant={STATUT_PACK_BADGE[p.statut] ?? 'neutral'}
-        className="text-xs"
-      >
-        {p.statut}
+      <Badge variant={variantStatutPack(p.statut)}>
+        {libelleStatutPack(p.statut)}
       </Badge>
     ),
   },
@@ -240,28 +220,6 @@ const COLONNES_PACKS: ColumnDef<PackRow, unknown>[] = [
       }),
   },
 ];
-
-// BlocHeader — gabarit Design System partagé avec les fiches association (#255)
-// et collecte (#226/#257) : pastille primary + titre extrabold tracking serré
-// (leviers §10 #2/#7).
-function BlocHeader({
-  icon: Icon,
-  title,
-}: {
-  icon: LucideIcon;
-  title: string;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <h2 className="truncate text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
-        {title}
-      </h2>
-    </div>
-  );
-}
 
 export default function ClientFichePage({
   params,
@@ -297,7 +255,6 @@ export default function ClientFichePage({
   const [fAjusterMotif, setFAjusterMotif] = useState('');
 
   // Formulaire annuler
-  const [fAnnulerMotif, setFAnnulerMotif] = useState('');
 
   useEffect(() => {
     // Durcir : vérifier res.ok AVANT de désérialiser. Sinon une réponse d'erreur
@@ -313,14 +270,7 @@ export default function ClientFichePage({
       .catch(() => setLoading(false));
   }, [id]);
 
-  if (loading)
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+  if (loading) return <LoadingState variant="bloc" />;
   if (!org)
     return (
       <EmptyState
@@ -417,8 +367,7 @@ export default function ClientFichePage({
     }
   }
 
-  async function submitAnnuler(e: React.FormEvent) {
-    e.preventDefault();
+  async function submitAnnuler(motif: string) {
     if (!packActif) return;
     setSubmitting(true);
     setFormError(null);
@@ -428,7 +377,7 @@ export default function ClientFichePage({
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'annuler', motif: fAnnulerMotif }),
+          body: JSON.stringify({ action: 'annuler', motif }),
         },
       );
       const data = (await r.json()) as { error?: string };
@@ -449,14 +398,14 @@ export default function ClientFichePage({
       <PageHero
         icon={
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <IconButton
+              size="sm"
               onClick={() => router.back()}
               aria-label="Retour"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-white transition-colors hover:bg-savr-white/10"
+              className="text-savr-white hover:bg-savr-white/10 hover:text-savr-white [&>svg]:h-4 [&>svg]:w-4"
             >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+              <ArrowLeft />
+            </IconButton>
             {org.logo_url && !logoKo ? (
               <img
                 // logo_url porte une CLÉ R2, pas une URL : le proxy staff la
@@ -472,14 +421,8 @@ export default function ClientFichePage({
           </div>
         }
         title={org.raison_sociale}
-        subtitle={TYPE_LABELS[org.type] ?? org.type}
-        actions={
-          org.actif ? (
-            <Badge variant="success">Actif</Badge>
-          ) : (
-            <Badge variant="neutral">Inactif</Badge>
-          )
-        }
+        subtitle={libelleTypeOrganisation(org.type)}
+        actions={<ActifBadge actif={org.actif} />}
       />
 
       {/* Navigation onglets — DS Tabs (Radix, §10 §6) */}
@@ -500,40 +443,31 @@ export default function ClientFichePage({
         {/* Informations légales */}
         <TabsContent value="informations" className="space-y-4">
           <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-            <Card className="p-6 space-y-4">
-              <BlocHeader icon={Building2} title="Informations légales" />
+            <Card padding="lg" className="space-y-4">
+              <SectionHeader icon={Building2} title="Informations légales" />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-savr-neutral-500">SIREN/SIRET</dt>
-                  <dd className="mt-1 font-mono font-medium">
-                    {org.siret ?? '—'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Type</dt>
-                  <dd className="mt-1 font-medium">
-                    {TYPE_LABELS[org.type] ?? org.type}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Email</dt>
-                  <dd className="mt-1 font-medium">
-                    {org.email_principal ?? '—'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Téléphone</dt>
-                  <dd className="mt-1 font-medium">{org.telephone ?? '—'}</dd>
-                </div>
+                <InfoItem label="SIREN/SIRET" valueClassName="mt-1 font-mono">
+                  {org.siret ?? '—'}
+                </InfoItem>
+                <InfoItem label="Type" valueClassName="mt-1">
+                  {libelleTypeOrganisation(org.type)}
+                </InfoItem>
+                <InfoItem label="Email" valueClassName="mt-1">
+                  {org.email_principal ?? '—'}
+                </InfoItem>
+                <InfoItem label="Téléphone" valueClassName="mt-1">
+                  {org.telephone ?? '—'}
+                </InfoItem>
               </dl>
             </Card>
 
-            <Card className="p-6 space-y-4">
-              <BlocHeader icon={CreditCard} title="Entités de facturation" />
+            <Card padding="lg" className="space-y-4">
+              <SectionHeader icon={CreditCard} title="Entités de facturation" />
               {org.entites_facturation.length === 0 ? (
-                <p className="text-sm text-savr-neutral-500">
-                  Aucune entité de facturation.
-                </p>
+                <EmptyState
+                  size="inline"
+                  title="Aucune entité de facturation."
+                />
               ) : (
                 <div className="space-y-1">
                   {org.entites_facturation.map((ef) => (
@@ -544,21 +478,18 @@ export default function ClientFichePage({
                       <span className="flex-1 text-sm font-medium">
                         {ef.raison_sociale}
                       </span>
-                      <span className="font-mono text-sm text-savr-neutral-500">
+                      <Text as="span" className="font-mono">
                         {ef.siret}
-                      </span>
+                      </Text>
                       <Badge
-                        variant={
-                          SIRET_BADGE[ef.siret_verification] ?? 'neutral'
-                        }
-                        className="text-xs"
+                        variant={variantVerificationSiret(
+                          ef.siret_verification,
+                        )}
                       >
-                        {ef.siret_verification}
+                        {libelleVerificationSiret(ef.siret_verification)}
                       </Badge>
                       {ef.entite_par_defaut && (
-                        <Badge variant="neutral" className="text-xs">
-                          Défaut
-                        </Badge>
+                        <Badge variant="neutral">Défaut</Badge>
                       )}
                     </div>
                   ))}
@@ -568,21 +499,24 @@ export default function ClientFichePage({
 
             {/* Domaines email — fusionnés dans « Informations légales »
                 (décision Val 2026-07-03, onglet Domaines supprimé). */}
-            <Card className="p-6 space-y-4 md:col-span-2">
-              <BlocHeader icon={Tag} title="Domaines email" />
+            <Card padding="lg" className="space-y-4 md:col-span-2">
+              <SectionHeader icon={Tag} title="Domaines email" />
               {org.organisations_domaines_email.length === 0 ? (
-                <p className="text-sm text-savr-neutral-500">
-                  Aucun domaine whitelisté pour cette organisation.
-                </p>
+                <EmptyState
+                  size="inline"
+                  title="Aucun domaine whitelisté pour cette organisation."
+                />
               ) : (
                 <ul className="flex flex-wrap gap-2">
                   {org.organisations_domaines_email.map(({ domaine }) => (
-                    <li
+                    <Text
+                      as="li"
+                      variant="body"
+                      className="rounded-savr-md bg-savr-neutral-50 px-3 py-1.5 font-mono"
                       key={domaine}
-                      className="rounded-savr-md bg-savr-neutral-50 px-3 py-1.5 font-mono text-sm text-savr-neutral-700"
                     >
                       @{domaine}
-                    </li>
+                    </Text>
                   ))}
                 </ul>
               )}
@@ -592,14 +526,17 @@ export default function ClientFichePage({
 
         {/* Utilisateurs */}
         <TabsContent value="users">
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <BlocHeader icon={Users} title="Utilisateurs" />
-              <Button size="sm" onClick={() => setInviteOpen(true)}>
-                <UserPlus className="h-4 w-4" />
-                Ajouter un utilisateur
-              </Button>
-            </div>
+          <Card padding="lg" className="space-y-4">
+            <SectionHeader
+              icon={Users}
+              title="Utilisateurs"
+              action={
+                <Button size="sm" onClick={() => setInviteOpen(true)}>
+                  <UserPlus />
+                  Ajouter un utilisateur
+                </Button>
+              }
+            />
             {org.users.length === 0 ? (
               <EmptyState
                 icon={<Users />}
@@ -608,6 +545,7 @@ export default function ClientFichePage({
               />
             ) : (
               <DataGrid
+                columnsToggle={false}
                 columns={COLONNES_USERS}
                 data={org.users}
                 getRowId={(u) => u.id}
@@ -650,11 +588,20 @@ export default function ClientFichePage({
 
           {/* Pack actif */}
           {packActif ? (
-            <Card className="p-6">
+            <Card padding="lg">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-medium">Pack actif</h3>
+                <Heading
+                  level={3}
+                  size="inherit"
+                  weight="medium"
+                  tone="inherit"
+                >
+                  Pack actif
+                </Heading>
                 <div className="flex items-center gap-2">
-                  <Badge variant="success">{packActif.type_pack}</Badge>
+                  <Badge variant="success">
+                    {libelleTypePack(packActif.type_pack)}
+                  </Badge>
                   <Button
                     size="sm"
                     variant="secondary"
@@ -671,7 +618,6 @@ export default function ClientFichePage({
                     size="sm"
                     variant="destructive"
                     onClick={() => {
-                      setFAnnulerMotif('');
                       setFormError(null);
                       setModal('annuler');
                     }}
@@ -700,7 +646,7 @@ export default function ClientFichePage({
               </div>
             </Card>
           ) : (
-            <Card className="p-6">
+            <Card padding="lg">
               <EmptyState
                 icon={<Package />}
                 title="Aucun pack actif"
@@ -711,9 +657,18 @@ export default function ClientFichePage({
 
           {/* Historique */}
           {org.packs_antgaspi.length > 0 && (
-            <Card className="p-6">
-              <h3 className="mb-4 font-medium">Historique des packs</h3>
+            <Card padding="lg">
+              <Heading
+                level={3}
+                size="inherit"
+                weight="medium"
+                tone="inherit"
+                className="mb-4"
+              >
+                Historique des packs
+              </Heading>
               <DataGrid
+                columnsToggle={false}
                 columns={COLONNES_PACKS}
                 data={org.packs_antgaspi}
                 getRowId={(p) => p.id}
@@ -795,19 +750,12 @@ export default function ClientFichePage({
         title="Créer un pack AG"
         onClose={() => setModal(null)}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(null)}
-              disabled={submitting}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" form="creer-pack-form" disabled={submitting}>
-              {submitting ? 'Création…' : 'Créer le pack'}
-            </Button>
-          </>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(null) }}
+            submit={{ label: 'Créer le pack', form: 'creer-pack-form' }}
+            loading={submitting}
+            loadingText="Création…"
+          />
         }
       >
         {formError && (
@@ -824,20 +772,15 @@ export default function ClientFichePage({
             <Combobox
               id="pack-type"
               icon={null}
-              options={TYPES_PACK.map((t) => ({
-                value: t.value,
-                label: t.label,
+              options={TYPES_PACK.map((value) => ({
+                value,
+                label: libelleLongTypePack(value),
               }))}
               value={fTypePack}
               onChange={(t) => {
                 setFTypePack(t);
-                const preset: Record<string, number> = {
-                  unitaire: 1,
-                  pack_10: 10,
-                  pack_30: 30,
-                  pack_60: 60,
-                };
-                if (preset[t]) setFCredits(preset[t]);
+                const credits = CREDITS_TYPE_PACK[t];
+                if (credits) setFCredits(credits);
               }}
             />
           </FormField>
@@ -892,23 +835,12 @@ export default function ClientFichePage({
         title="Ajuster les crédits"
         onClose={() => setModal(null)}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(null)}
-              disabled={submitting}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              form="ajuster-pack-form"
-              disabled={submitting}
-            >
-              {submitting ? 'Enregistrement…' : 'Ajuster'}
-            </Button>
-          </>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: () => setModal(null) }}
+            submit={{ label: 'Ajuster', form: 'ajuster-pack-form' }}
+            loading={submitting}
+            loadingText="Enregistrement…"
+          />
         }
       >
         {formError && (
@@ -922,11 +854,11 @@ export default function ClientFichePage({
             onSubmit={(e) => void submitAjuster(e)}
             className="space-y-4"
           >
-            <p className="text-sm text-savr-neutral-500">
+            <Text>
               Pack actif : <strong>{packActif.type_pack}</strong> —{' '}
               {packActif.credits_consommes} crédits consommés sur{' '}
               {packActif.credits_initiaux}.
-            </p>
+            </Text>
             <FormField
               label="Nouveau total de crédits initiaux"
               htmlFor="ajuster-credits"
@@ -968,65 +900,28 @@ export default function ClientFichePage({
       </Modal>
 
       {/* ── Modale : Annuler le pack ──────────────────────────────────────── */}
-      <Modal
+      <ConfirmDialog
         open={modal === 'annuler'}
         title="Annuler le pack"
-        onClose={() => setModal(null)}
-        footer={
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModal(null)}
-              disabled={submitting}
-            >
-              Retour
-            </Button>
-            <Button
-              type="submit"
-              form="annuler-pack-form"
-              variant="destructive"
-              disabled={submitting}
-            >
-              {submitting ? 'Annulation…' : "Confirmer l'annulation"}
-            </Button>
-          </>
-        }
+        confirmLabel="Confirmer l’annulation"
+        cancelLabel="Retour"
+        variant="destructive"
+        loading={submitting}
+        loadingText="Annulation…"
+        error={formError}
+        motif={{ label: 'Motif', minLength: 10 }}
+        onConfirm={(motif) => void submitAnnuler(motif)}
+        onCancel={() => setModal(null)}
       >
-        {formError && (
-          <AlertBar variant="err" className="mb-4">
-            {formError}
-          </AlertBar>
-        )}
         {packActif && (
-          <form
-            id="annuler-pack-form"
-            onSubmit={(e) => void submitAnnuler(e)}
-            className="space-y-4"
-          >
-            <p className="text-sm text-savr-neutral-500">
-              Le pack <strong>{packActif.type_pack}</strong> ({creditsRestants}{' '}
-              crédit{creditsRestants !== 1 ? 's' : ''} restant
-              {creditsRestants !== 1 ? 's' : ''}) sera annulé définitivement.
-              Les crédits non consommés seront perdus.
-            </p>
-            <FormField
-              label="Motif (≥ 10 caractères)"
-              htmlFor="annuler-motif"
-              required
-            >
-              <Textarea
-                id="annuler-motif"
-                value={fAnnulerMotif}
-                onChange={(e) => setFAnnulerMotif(e.target.value)}
-                rows={3}
-                minLength={10}
-                required
-              />
-            </FormField>
-          </form>
+          <Text>
+            Le pack <strong>{packActif.type_pack}</strong> ({creditsRestants}{' '}
+            crédit{creditsRestants !== 1 ? 's' : ''} restant
+            {creditsRestants !== 1 ? 's' : ''}) sera annulé définitivement. Les
+            crédits non consommés seront perdus.
+          </Text>
         )}
-      </Modal>
+      </ConfirmDialog>
 
       {/* ── Modale : Ajouter un utilisateur (org imposée = la fiche) ───────── */}
       {inviteOpen && (

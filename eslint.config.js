@@ -66,6 +66,42 @@ const SELECTEURS_TEMPS = [
   },
 ];
 
+// Sélecteurs Design System (R-UI-0, docs/design-system/RATIONALISATION_UI.md (PR #462) §5)
+// — un nombre affiché dans du JSX passe par `@/lib/format` : `toFixed()` rend
+// « 12.5 » (point décimal anglais) là où l'app affiche « 12,5 ». Le filet
+// large (toFixed hors graphes SVG) est le gate cliqueté `check:ds-primitives`.
+const SELECTEURS_DS = [
+  {
+    selector:
+      ":matches(JSXExpressionContainer, JSXExpressionContainer > ConditionalExpression) > CallExpression[callee.property.name='toFixed']",
+    message:
+      "Nombre affiché avec toFixed() : point décimal anglais (« 12.5 »). Utiliser fmtDec / fmtPct / fmtKg / fmtEuro de '@/lib/format'.",
+  },
+  {
+    selector:
+      ":matches(JSXExpressionContainer, JSXExpressionContainer > ConditionalExpression) > TemplateLiteral CallExpression[callee.property.name='toFixed']",
+    message:
+      "Nombre affiché avec toFixed() dans un template : point décimal anglais (« 12.5 »). Utiliser fmtDec / fmtPct / fmtKg / fmtEuro de '@/lib/format'.",
+  },
+];
+
+// Sélecteurs routes (R-UI-2 J4) — tout chemin de page `/admin/…` passe par
+// `ROUTES` de '@/lib/routes' (source unique, dérivée de `lib/roles.ts`). Visent
+// les chaînes commençant EXACTEMENT par `/admin/` : les chemins d'API
+// (`/api/v1/admin/…`) ne sont pas concernés.
+const SELECTEURS_ROUTES = [
+  {
+    selector: 'Literal[value=/^\\/admin\\//]',
+    message:
+      "Chemin de page « /admin/… » écrit en dur : utiliser ROUTES.admin.* de '@/lib/routes' (source unique des routes).",
+  },
+  {
+    selector: 'TemplateLiteral[quasis.0.value.raw=/^\\/admin\\//]',
+    message:
+      "Chemin de page « /admin/… » écrit en dur dans un gabarit : utiliser ROUTES.admin.* de '@/lib/routes' (ex. `${ROUTES.admin.collectes}?chip=…`, ROUTES.admin.collecte(id)).",
+  },
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -122,10 +158,33 @@ export default tseslint.config(
       // transforme chaque `pnpm lint` en type-check complet (~15 s → ~50 s ici,
       // hook pre-commit inclus). Disproportionné pour une classe qui, aujourd'hui,
       // n'a aucun site en vie ; à rouvrir si elle réapparaît.
-      'no-restricted-syntax': ['error', ...SELECTEURS_TEMPS],
+      'no-restricted-syntax': ['error', ...SELECTEURS_TEMPS, ...SELECTEURS_DS],
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  // Routes en dur (R-UI-2 J4) : code applicatif de la Plateforme seulement.
+  // Exclus : la source elle-même, les handlers d'API (libellés d'endpoint et
+  // liens d'email, hors périmètre du lot) et les tests (oracles en clair — le
+  // bloc des tests redéclare de toute façon la liste).
+  {
+    files: ['packages/plateforme/src/**/*.{ts,tsx}'],
+    ignores: [
+      'packages/plateforme/src/lib/routes.ts',
+      'packages/plateforme/src/app/api/**',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...SELECTEURS_TEMPS,
+        ...SELECTEURS_DS,
+        ...SELECTEURS_ROUTES,
       ],
     },
   },

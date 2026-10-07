@@ -44,6 +44,23 @@ const TableBody = React.forwardRef<
 ));
 TableBody.displayName = 'TableBody';
 
+// Pied de tableau (totaux) : trait de séparation neutral-200 au-dessus,
+// contenu en graisse medium, pas de bordure sous la dernière ligne.
+const TableFooter = React.forwardRef<
+  HTMLTableSectionElement,
+  React.HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+  <tfoot
+    ref={ref}
+    className={cn(
+      'border-t border-savr-neutral-200 font-medium [&>tr]:last:border-b-0',
+      className,
+    )}
+    {...props}
+  />
+));
+TableFooter.displayName = 'TableFooter';
+
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
   React.HTMLAttributes<HTMLTableRowElement>
@@ -66,7 +83,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      'h-11 whitespace-nowrap px-4 text-left align-middle text-[11px] font-bold uppercase tracking-wide text-savr-neutral-500',
+      'h-11 whitespace-nowrap px-4 text-left align-middle text-xs font-bold uppercase tracking-wide text-savr-neutral-500',
       className,
     )}
     {...props}
@@ -86,4 +103,12 @@ const TableCell = React.forwardRef<
 ));
 TableCell.displayName = 'TableCell';
 
-export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell };
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableRow,
+  TableHead,
+  TableCell,
+};

@@ -4,16 +4,18 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { type Role, NAV_CONFIG } from '@/lib/nav-config';
+import { NAV_CONFIG, hrefNavActif } from '@/lib/nav-config';
+import type { NavRole } from '@/lib/roles';
 import { useLogoZd, isZdSectionPath } from '@/components/layout/logo-context';
 import { SavrLogoMark } from '@/components/layout/savr-logo';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface SidebarProps {
-  role: Role;
+  role: NavRole;
   collapsed?: boolean;
   onToggle?: () => void;
-  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack — §06.05 l.71). */
+  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack). */
   hiddenNavHrefs?: string[];
   /** Compteurs par href (ex : { '/admin/alertes': 3 }) → pastille sur l'item. */
   navBadges?: Record<string, number>;
@@ -34,6 +36,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     // dans la page (ex : type de collecte ZD coché).
     const logoZd = zdSelected || isZdSectionPath(pathname);
     const hidden = new Set(hiddenNavHrefs ?? []);
+    const hrefActif = hrefNavActif(role, pathname);
     const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
       ...g,
       items: g.items.filter((i) => !hidden.has(i.href)),
@@ -44,7 +47,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         ref={ref}
         aria-label="Navigation principale"
         className={cn(
-          'flex h-full flex-col bg-savr-primary-800 transition-[width] duration-[200ms] ease-out',
+          'flex h-full flex-col bg-savr-primary-800 transition-[width] duration-savr-base ease-out',
           collapsed ? 'w-16' : 'w-64',
           className,
         )}
@@ -54,7 +57,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         <div
           data-testid="savr-logo"
           className={cn(
-            'flex h-16 shrink-0 items-center border-b border-savr-primary-700 px-4 transition-colors duration-200',
+            'flex h-16 shrink-0 items-center border-b border-savr-primary-700 px-4 transition-colors duration-savr-base',
             collapsed && 'justify-center px-0',
             logoZd ? 'text-savr-success' : 'text-savr-accent-500',
           )}
@@ -76,9 +79,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                 </p>
               )}
               {group.items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  pathname.startsWith(item.href + '/');
+                const isActive = item.href === hrefActif;
                 const Icon = item.icon;
                 const badgeCount = navBadges?.[item.href] ?? 0;
                 return (
@@ -87,7 +88,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     href={item.href}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'group relative flex h-10 items-center gap-3 rounded-savr-md px-3 text-sm font-medium transition-colors duration-[120ms]',
+                      'group relative flex h-10 items-center gap-3 rounded-savr-md px-3 text-sm font-medium transition-colors duration-savr-fast',
                       isActive
                         ? 'bg-savr-primary-700 text-savr-white'
                         : 'text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white',
@@ -98,7 +99,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     {/* Barre accent gauche sur item actif */}
                     {isActive && (
                       <span
-                        className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-full bg-savr-accent-500"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-savr-full bg-savr-accent-500"
                         aria-hidden="true"
                       />
                     )}
@@ -115,19 +116,20 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                       {/* Collapsé : point rouge (le compteur n'a pas la place). */}
                       {collapsed && badgeCount > 0 && (
                         <span
-                          className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-savr-error ring-2 ring-savr-primary-800"
+                          className="absolute -right-1 -top-1 h-2 w-2 rounded-savr-full bg-savr-error ring-2 ring-savr-primary-800"
                           aria-hidden="true"
                         />
                       )}
                     </span>
                     {!collapsed && <span>{item.label}</span>}
                     {!collapsed && badgeCount > 0 && (
-                      <span
-                        className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-savr-error px-1.5 py-0.5 text-xs font-semibold text-savr-white"
+                      <Badge
+                        variant="count"
+                        className="ml-auto"
                         aria-label={`${badgeCount} alerte${badgeCount > 1 ? 's' : ''} ouverte${badgeCount > 1 ? 's' : ''}`}
                       >
                         {badgeCount > 99 ? '99+' : badgeCount}
-                      </span>
+                      </Badge>
                     )}
                   </Link>
                 );

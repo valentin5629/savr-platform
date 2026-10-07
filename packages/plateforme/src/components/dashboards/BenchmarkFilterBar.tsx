@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { FilterBar } from '@/components/ui/filter-bar';
 import {
-  BarreFiltres,
   FiltreCoches,
   type OptionFiltre,
 } from '@/components/ui/filtre-en-ligne';
@@ -38,12 +39,34 @@ function defaultFilters(
   };
 }
 
+const memesIds = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((id) => b.includes(id));
+
+/** Au moins un critère diffère de l'héritage (Type/Taille globaux, Lieux/Traiteurs sans sélection). */
+function criteresPoses(f: BenchmarkFilters, defaut: BenchmarkFilters): boolean {
+  return (
+    !memesIds(f.type_evenement_ids, defaut.type_evenement_ids) ||
+    !memesIds(f.taille_evenement_codes, defaut.taille_evenement_codes) ||
+    f.lieu_ids.length > 0 ||
+    f.traiteur_ids.length > 0
+  );
+}
+
 /** Options des multi-selects fournies par le SSR (évite le fetch /filtres au mount). */
 export interface BenchmarkFilterOptions {
   lieux: OptionFiltre[];
   traiteurs: OptionFiltre[];
   types: { id: string; libelle: string }[];
 }
+
+// Listes bornées au périmètre de l'appelant : sans rien cocher, le repère reste
+// calculé sur tout le parc Savr. « Tous » se lirait « tous mes lieux » — la case
+// de tête le dit, et cocher toutes les lignes reste une sélection explicite.
+const LISTES_RATTACHEES = {
+  libelleVide: 'Tout le parc Savr',
+  libelleTous: 'Tout le parc Savr',
+  listePartielle: true,
+} as const;
 
 interface BenchmarkFilterBarProps {
   onChange: (filters: BenchmarkFilters) => void;
@@ -61,15 +84,39 @@ interface BenchmarkFilterBarProps {
   initialOptions?: BenchmarkFilterOptions;
   /** Masque le filtre Traiteurs même pour un rôle qui y a droit (fiche collecte). */
   masquerTraiteurs?: boolean;
+  /**
+   * Avertissement « comparaison à soi-même » (§06.05 l.176) quand Lieux ou
+   * Traiteurs sont filtrés. `false` pour l'Admin, qui compare deux périmètres du
+   * parc et n'a pas de « propres » lieux ou traiteurs.
+   */
+  avertissementComparaisonSoi?: boolean;
+  /**
+   * Ce que couvrent les listes Lieux / Traiteurs servies à cet espace : tout
+   * le parc Savr (défaut), ou le seul périmètre de l'appelant — `'rattache'`
+   * pour le gestionnaire de lieux (décision Val 2026-10-06). Donné par l'écran
+   * et non lu dans la réponse : le libellé est juste dès le premier rendu.
+   */
+  perimetre?: 'parc' | 'rattache';
+  /**
+   * État initial complet (ré-hydratation après un remontage de la carte, ex.
+   * Dashboard Client Admin dont le bloc ZD se démonte pendant « Chargement… »).
+   * Prioritaire sur l'héritage Type/Taille ; « Réinitialiser » revient à l'héritage.
+   */
+  initialFilters?: BenchmarkFilters;
 }
 
 /**
  * Encart « Filtres benchmark » (§06.05 Bloc 3 ZD), imbriqué dans la carte du
  * benchmark : une ligne « Comparer avec » + filtres en ligne (format unique des
  * barres de filtres, décision Val 2026-09-30). Critères qui ne s'appliquent
- * qu'au point rouge : Type d'événement, Taille, Lieux parc, Traiteurs parc. La
- * période est fixe (24 mois glissants, non affichée). Bouton Réinitialiser
- * (retour à l'héritage Type/Taille, Lieux/Traiteurs « Tous »).
+ * qu'au point rouge : Type d'événement, Taille, Lieux, Traiteurs. Ces deux
+ * listes couvrent tout le parc, ou (`perimetre="rattache"`) les seuls lieux
+ * rattachés et traiteurs intervenus du gestionnaire — la case de tête
+ * s'appelle alors « Tout le parc Savr » (décision Val 2026-10-06). La
+ * période est fixe (24 mois glissants, non affichée). Bâti sur `FilterBar`
+ * (R-UI-4b, D5 façon C, `surface="encart"`, `count={null}`) : « Réinitialiser
+ * les filtres » (retour à l'héritage Type/Taille, Lieux/Traiteurs vidés)
+ * seulement si un critère diffère de l'héritage.
  */
 export function BenchmarkFilterBar({
   onChange,
@@ -78,9 +125,14 @@ export function BenchmarkFilterBar({
   initialTailleCodes,
   initialOptions,
   masquerTraiteurs = false,
+  avertissementComparaisonSoi = true,
+  perimetre = 'parc',
+  initialFilters,
 }: BenchmarkFilterBarProps) {
-  const [filters, setFilters] = useState<BenchmarkFilters>(() =>
-    defaultFilters(initialTypeEvenementIds, initialTailleCodes),
+  const [filters, setFilters] = useState<BenchmarkFilters>(
+    () =>
+      initialFilters ??
+      defaultFilters(initialTypeEvenementIds, initialTailleCodes),
   );
   const [lieux, setLieux] = useState<OptionFiltre[]>(
     () => initialOptions?.lieux ?? [],
@@ -136,21 +188,30 @@ export function BenchmarkFilterBar({
     [filters.lieu_ids, filters.traiteur_ids],
   );
 
-  const avertissementSoi = comparaisonSoi && (
-    <p
+  const avertissementSoi = avertissementComparaisonSoi && comparaisonSoi && (
+    <AlertBar
+      variant="warn"
       data-testid="benchmark-comparaison-soi"
-      className="rounded-savr-md border border-savr-warning/30 bg-savr-warning-subtle px-3 py-2 text-xs text-savr-warning-strong"
+      className="px-3 py-2 text-xs"
     >
       ⚠ Si vous filtrez sur vos propres lieux/traiteurs, le benchmark compare
       vos données à vos propres données — il perd son rôle de référence parc.
-    </p>
+    </AlertBar>
   );
   const traiteursVisibles = !masquerTraiteurs && traiteurs.length > 0;
+  const listes = perimetre === 'rattache' ? LISTES_RATTACHEES : {};
+  const actif = criteresPoses(
+    filters,
+    defaultFilters(initialTypeEvenementIds, initialTailleCodes),
+  );
 
   return (
     <div data-testid="benchmark-filter-bar" className="space-y-2">
-      <BarreFiltres
+      <FilterBar
+        surface="encart"
         intro="Comparer avec"
+        count={null}
+        actif={actif}
         onReset={reset}
         resetTestId="benchmark-reinitialiser"
       >
@@ -174,6 +235,7 @@ export function BenchmarkFilterBar({
           selected={filters.lieu_ids}
           onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
           testid="benchmark-filter-lieux"
+          {...listes}
         />
         {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
         {traiteursVisibles && (
@@ -183,9 +245,10 @@ export function BenchmarkFilterBar({
             selected={filters.traiteur_ids}
             onChange={(ids) => apply({ ...filters, traiteur_ids: ids })}
             testid="benchmark-filter-traiteurs"
+            {...listes}
           />
         )}
-      </BarreFiltres>
+      </FilterBar>
       {avertissementSoi}
     </div>
   );

@@ -1,19 +1,30 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Heart, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { DataTable, type Column } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   AssociationModal,
   type AssociationRecord,
 } from '@/components/admin/association-modal';
+import { PageHero } from '@/components/ui/page-hero';
+import { Text } from '@/components/ui/text';
 
 // Ligne = enregistrement complet (l'API liste renvoie select('*')) + KPI dérivé →
 // sert directement à préremplir la modale d'édition, sans re-fetch.
@@ -37,9 +48,9 @@ const columns: Column<Association>[] = [
     render: (row) => (
       <div>
         <div className="text-savr-neutral-800">{row.adresse}</div>
-        <div className="text-xs text-savr-neutral-500">
+        <Text as="div" variant="hint">
           {row.ville} ({row.region})
-        </div>
+        </Text>
       </div>
     ),
   },
@@ -63,56 +74,48 @@ const columns: Column<Association>[] = [
   },
 ];
 
+// Filtres de la liste, miroir dans l'URL (R-UI-4a) : statut à choix
+// multiple, « Actives » pré-cochée, case « Toutes » = sélection vide = aucun
+// filtre (décision Val 2026-09-30). Tri serveur (cf. lib/tri-liste), retour
+// page 1 à chaque changement.
+const FILTRES = {
+  q: texte(''),
+  actif: liste(['true']),
+  page: navigation(entier(1, 1)),
+  tri: navigation(texte('nom')),
+  ordre: navigation(texte('asc')),
+};
+
 export default function AssociationsPage() {
-  const [associations, setAssociations] = useState<Association[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
-  // Statut à choix multiple, « Actives » pré-cochée par défaut ; case
-  // « Toutes » = sélection vide = aucun filtre (décision Val 2026-09-30).
-  const [actifs, setActifs] = useState<string[]>(['true']);
-  const [page, setPage] = useState(1);
-  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
-  // en page 1 à chaque changement (cf. lib/tri-liste).
-  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
-    cle: 'nom',
-    ordre: 'asc',
-  });
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
+  const url = useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(f.page),
+      tri: f.tri,
+      ordre: f.ordre,
+    });
+    // Sans valeur unique cochée, AUCUN paramètre `actif` : l'ancien `actif=`
+    // vide (« Toutes ») était lu `false` par la route → inactives seules.
+    const actif = valeurUnique(f.actif);
+    if (actif) params.set('actif', actif);
+    if (f.q) params.set('q', f.q);
+    return `/api/v1/admin/associations?${params}`;
+  }, [f]);
+  const {
+    data: associations,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<Association>(url);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Association | null>(null);
-
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
-
-  const fetchAssociations = useCallback(async () => {
-    const numero = ++derniereRequete.current;
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page) });
-    // Sans valeur unique cochée, AUCUN paramètre `actif` : l'ancien `actif=`
-    // vide (« Toutes ») était lu `false` par la route → inactives seules.
-    const actif = valeurUnique(actifs);
-    if (actif) params.set('actif', actif);
-    params.set('tri', tri.cle);
-    params.set('ordre', tri.ordre);
-    if (q) params.set('q', q);
-    try {
-      const res = await fetch(`/api/v1/admin/associations?${params}`);
-      const json = res.ok
-        ? ((await res.json()) as { data: Association[]; total: number })
-        : null;
-      if (numero !== derniereRequete.current || !json) return;
-      setAssociations(json.data);
-      setTotal(json.total);
-    } finally {
-      if (numero === derniereRequete.current) setLoading(false);
-    }
-  }, [page, actifs, q, tri]);
-
-  useEffect(() => {
-    void fetchAssociations();
-  }, [fetchAssociations]);
 
   function openEdit(row: Association) {
     setEditing(row);
@@ -131,17 +134,16 @@ export default function AssociationsPage() {
       header: '',
       render: (row) => (
         <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="icon"
+          <IconButton
+            size="sm"
             aria-label={`Modifier ${row.nom}`}
             onClick={(e) => {
               e.stopPropagation();
               openEdit(row);
             }}
           >
-            <Pencil className="h-4 w-4" />
-          </Button>
+            <Pencil />
+          </IconButton>
         </div>
       ),
     },
@@ -149,27 +151,27 @@ export default function AssociationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Heart className="h-6 w-6 text-savr-neutral-600" />
-          <h1 className="text-2xl font-bold text-savr-neutral-900">
-            Associations
-          </h1>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvelle association
-        </Button>
-      </div>
+      <PageHero
+        title="Associations"
+        icon={<Heart className="h-6 w-6 text-savr-primary-200" />}
+        actions={
+          <Button variant="accent" onClick={openCreate}>
+            <Plus />
+            Nouvelle association
+          </Button>
+        }
+      />
 
-      <FilterBar data-testid="associations-filtres">
+      <FilterBar
+        data-testid="associations-filtres"
+        count={compteurResultats(total, 'association', 'associations')}
+        actif={filtresActifs}
+        onReset={reset}
+      >
         <FiltreRecherche
           id="associations-recherche"
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
+          value={f.q}
+          onValueChange={(q) => set({ q })}
         />
         <FiltreCoches
           label="Statut"
@@ -180,60 +182,41 @@ export default function AssociationsPage() {
             { id: 'true', nom: 'Actives' },
             { id: 'false', nom: 'Inactives' },
           ]}
-          selected={actifs}
-          onChange={(ids) => {
-            setActifs(ids);
-            setPage(1);
-          }}
+          selected={f.actif}
+          onChange={(ids) => set({ actif: ids })}
         />
       </FilterBar>
 
-      {loading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : associations.length === 0 ? (
-        <EmptyState
-          icon={<Heart className="h-8 w-8" />}
-          title="Aucune association"
-          description="Créez la première association."
-        />
-      ) : (
-        <>
-          <DataTable
-            columns={columnsWithActions}
-            data={associations}
-            keyExtractor={(row) => row.id}
-            onSort={(cle, ordre) => {
-              setTri({ cle, ordre });
-              setPage(1);
-            }}
-            sortKey={tri.cle}
-            sortDirection={tri.ordre}
-            onRowClick={openEdit}
+      <DataTable
+        columns={columnsWithActions}
+        data={associations}
+        keyExtractor={(row) => row.id}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={
+          <EmptyState
+            icon={<Heart className="h-8 w-8" />}
+            title="Aucune association"
+            description="Créez la première association."
           />
-          {total > 50 && (
-            <div className="flex items-center justify-between gap-2 pt-3 text-sm">
-              <span className="text-savr-neutral-500">
-                {total} association{total > 1 ? 's' : ''}
-              </span>
-              <Pagination
-                page={page}
-                pageCount={Math.ceil(total / 50)}
-                onPageChange={setPage}
-              />
-            </div>
-          )}
-        </>
-      )}
+        }
+        onSort={(cle, ordre) => set({ tri: cle, ordre })}
+        sortKey={f.tri}
+        sortDirection={f.ordre as 'asc' | 'desc'}
+        onRowClick={openEdit}
+      />
+      <ListFooter
+        total={total}
+        page={f.page}
+        onPageChange={(page) => set({ page })}
+      />
 
       <AssociationModal
         open={modalOpen}
         association={editing}
         onClose={() => setModalOpen(false)}
-        onSaved={() => void fetchAssociations()}
+        onSaved={recharger}
       />
     </div>
   );

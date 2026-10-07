@@ -1,5 +1,5 @@
 /**
- * Blocs §11 partagés — API /dashboards/blocs (Bloc 3 AG / 5 / 6 / 7 + kg/pax par
+ * Blocs §11 partagés — API /dashboards/blocs (Bloc 3 AG / 6 / 7 + kg/pax par
  * flux). Endpoint commun traiteur (M3.1) / agence (M3.3) / gestionnaire (M3.2),
  * parité §11 (M3.5). Couvre la logique SERVEUR réelle (agrégation, tri top 5,
  * périmètre par rôle, Bloc 7 retiré agence, résolution des noms), pas un mock à [].
@@ -15,7 +15,7 @@ const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
 
 // Chaîne supabase thenable routée par table, avec une FILE de réponses par table
-// (l'endpoint fait DEUX requêtes `collectes` : historique clôturé puis prochaines).
+// (l'endpoint fait UNE requête `collectes` : l'historique clôturé).
 type Res = { data: unknown; error: unknown };
 let queues: Record<string, Res[]> = {};
 let calls: Record<string, unknown[][]> = {};
@@ -149,7 +149,6 @@ async function loadGET() {
 
 interface BlocsJson {
   data: {
-    prochaines: Array<Record<string, unknown>>;
     topLieux: Array<Record<string, number | string | null>>;
     topActeurs: Array<Record<string, number | string | null>> | null;
     acteurLabel: string | null;
@@ -199,7 +198,6 @@ describe('M3.1 / blocs traiteur ZD', () => {
         ],
         error: null,
       },
-      { data: [], error: null }, // prochaines
     ];
     const GET = await loadGET();
     const res = await GET(
@@ -233,7 +231,6 @@ describe('M3.1 / blocs traiteur ZD', () => {
         ],
         error: null,
       },
-      { data: [], error: null },
     ];
     queues['users'] = [
       {
@@ -259,42 +256,24 @@ describe('M3.1 / blocs traiteur ZD', () => {
     expect(j.data.topActeurs![0]!.nb_collectes).toBe(2);
   });
 
-  it('M3.1/blocs_prochaines_fenetre_statuts', async () => {
+  it('M3.1/blocs_sans_prochaines_collectes', async () => {
+    // Bloc 5 « Prochaines collectes » retiré des dashboards (décision Val
+    // 2026-10-01) : l'endpoint ne sert plus la liste et ne lance plus la lecture
+    // des collectes à venir — une seule requête `collectes`, l'historique clôturé.
     setupAuth('traiteur_manager', 'org-1');
-    queues['collectes'] = [
-      { data: [], error: null }, // historique
-      {
-        data: [
-          {
-            id: 'p1',
-            date_collecte: '2026-07-10',
-            heure_collecte: '14:30:00',
-            statut: 'programmee',
-            evenements: {
-              id: 'e9',
-              nom_evenement: 'Gala',
-              pax: 100,
-              traiteur_operationnel_organisation_id: null,
-              lieux: { nom: 'Lieu Z' },
-            },
-          },
-        ],
-        error: null,
-      },
-    ];
+    queues['collectes'] = [{ data: [], error: null }];
     const GET = await loadGET();
     const res = await GET(
       req(
         '/api/v1/dashboards/blocs?type=zero_dechet&from=2026-06-01&to=2026-06-30',
       ),
     );
-    const j = (await res.json()) as BlocsJson;
-    expect(j.data.prochaines).toHaveLength(1);
-    expect(j.data.prochaines[0]!.evenement_nom).toBe('Gala');
-    expect(j.data.prochaines[0]!.lieu_nom).toBe('Lieu Z');
-    // Fenêtre à venir : statuts non terminaux uniquement.
-    const inStatut = (calls.in ?? []).find((a) => a[0] === 'statut');
-    expect(inStatut?.[1]).toEqual(['programmee', 'validee', 'en_cours']);
+    const j = (await res.json()) as { data: Record<string, unknown> };
+    expect(j.data).not.toHaveProperty('prochaines');
+    expect((calls.from ?? []).filter((a) => a[0] === 'collectes')).toHaveLength(
+      1,
+    );
+    expect((calls.in ?? []).some((a) => a[0] === 'statut')).toBe(false);
   });
 });
 
@@ -312,7 +291,6 @@ describe('M3.1 / blocs traiteur AG', () => {
         ],
         error: null,
       },
-      { data: [], error: null },
     ];
     queues['users'] = [{ data: [], error: null }];
     const GET = await loadGET();
@@ -353,7 +331,6 @@ describe('M3.3 / blocs agence — Bloc 7 retiré', () => {
         ],
         error: null,
       },
-      { data: [], error: null },
     ];
     const GET = await loadGET();
     const res = await GET(
@@ -393,24 +370,6 @@ describe('M3.2 / blocs gestionnaire — traiteurs + périmètre parc', () => {
         ],
         error: null,
       },
-      {
-        data: [
-          {
-            id: 'p1',
-            date_collecte: '2026-07-10',
-            heure_collecte: null,
-            statut: 'validee',
-            evenements: {
-              id: 'e9',
-              nom_evenement: 'Salon',
-              pax: 100,
-              traiteur_operationnel_organisation_id: 't1',
-              lieux: { nom: 'Lieu A' },
-            },
-          },
-        ],
-        error: null,
-      },
     ];
     queues['v_referentiel_traiteurs'] = [
       {
@@ -444,7 +403,124 @@ describe('M3.2 / blocs gestionnaire — traiteurs + périmètre parc', () => {
       'Traiteur Un',
       'Traiteur Deux',
     ]);
-    // Bloc 5 : colonne Traiteur résolue sur les prochaines.
-    expect(j.data.prochaines[0]!.traiteur_nom).toBe('Traiteur Un');
+  });
+});
+
+// §04 « Vue SQL : v_attributions_gestionnaire » (arbitrage Val 2026-09-22, option
+// A) : le chargeur branche PAR RÔLE. La vue est vide pour tout autre rôle que le
+// gestionnaire (garde de rôle) ; la table lui est refusée sur un traiteur tiers
+// (aa_select, C-1). Un rôle envoyé sur le mauvais chemin lit zéro repas sans
+// erreur — d'où l'assertion sur le `select` réellement demandé.
+describe('blocs AG — attributions lues par rôle (vue gestionnaire / table)', () => {
+  const VUE = 'attributions_antgaspi:v_attributions_gestionnaire(';
+  const TABLE = /attributions_antgaspi\s*\(/;
+  // Le `select` de la requête `collectes` (d'autres tables suivent : noms des
+  // traiteurs / commerciaux).
+  const selectCollectes = () =>
+    (calls.select ?? [])
+      .map((a) => String(a[0]))
+      .find((x) => x.includes('date_collecte')) ?? '';
+  const URL_AG =
+    '/api/v1/dashboards/blocs?type=anti_gaspi&from=2026-06-01&to=2026-06-30';
+
+  it('M3.2/blocs_gestionnaire_ag_par_vue — traiteur tiers : top associations et repas par lieu lus par la vue', async () => {
+    setupAuth('gestionnaire_lieux', 'org-7');
+    queues['organisations_lieux'] = [
+      { data: [{ lieu_id: 'A' }, { lieu_id: 'B' }], error: null },
+    ];
+    // Forme réelle de la vue : association À PLAT, embed to-one en OBJET.
+    const parVue = (
+      id: string,
+      e: EvtOpts,
+      repas: number,
+      asso: { id: string; nom: string; ville: string | null },
+    ) => ({
+      ...ag(id, e, repas, asso),
+      attributions_antgaspi: {
+        volume_repas_realise: repas,
+        association_id: asso.id,
+        association_nom: asso.nom,
+        association_ville: asso.ville,
+      },
+    });
+    const asso1 = { id: 'a1', nom: 'Asso Un', ville: 'Paris' };
+    const asso2 = { id: 'a2', nom: 'Asso Deux', ville: null };
+    queues['collectes'] = [
+      {
+        data: [
+          parVue('c1', { id: 'e1', lieu_id: 'A', traiteur: 't1' }, 30, asso1),
+          parVue('c2', { id: 'e2', lieu_id: 'B', traiteur: 't1' }, 40, asso1),
+          parVue('c3', { id: 'e3', lieu_id: 'A', traiteur: 't2' }, 100, asso2),
+        ],
+        error: null,
+      },
+    ];
+    queues['v_referentiel_traiteurs'] = [{ data: [], error: null }];
+    const GET = await loadGET();
+    const res = await GET(req(URL_AG));
+    const j = (await res.json()) as BlocsJson;
+
+    expect(selectCollectes()).toContain(VUE);
+    expect(selectCollectes()).not.toMatch(TABLE);
+    // Bloc 3 AG : ordre repas reçus décroissant, nom et ville de la vue.
+    expect(j.data.topAssociations).toEqual([
+      {
+        association_id: 'a2',
+        nom: 'Asso Deux',
+        ville: null,
+        nb_collectes: 1,
+        repas_recus: 100,
+      },
+      {
+        association_id: 'a1',
+        nom: 'Asso Un',
+        ville: 'Paris',
+        nb_collectes: 2,
+        repas_recus: 70,
+      },
+    ]);
+    // Bloc 6 AG (§06.05 l.269) : repas et repas/pax par lieu — Lieu A (130 repas
+    // sur 2 événements de 100 pax) devant Lieu B (40 repas, 100 pax).
+    expect(j.data.topLieux.map((l) => l.repas_donnes)).toEqual([130, 40]);
+    expect(j.data.topLieux.map((l) => l.repas_par_pax)).toEqual([0.65, 0.4]);
+    // Bloc 7 AG (§06.05 l.275) : traiteurs par nombre de collectes AG — t1 (2
+    // collectes, 70 repas, 200 pax) devant t2 (1 collecte, 100 repas, 100 pax).
+    expect(
+      j.data.topActeurs!.map((a) => [
+        a.id,
+        a.nb_collectes,
+        a.repas_donnes,
+        a.repas_par_pax,
+      ]),
+    ).toEqual([
+      ['t1', 2, 70, 0.35],
+      ['t2', 1, 100, 1],
+    ]);
+  });
+
+  it.each([
+    ['M3.1/blocs_traiteur_ag_lit_la_table', 'traiteur_manager'],
+    ['M3.1/blocs_commercial_ag_lit_la_table', 'traiteur_commercial'],
+    ['M3.3/blocs_agence_ag_lit_la_table', 'agence'],
+  ])('%s — %s : la table, jamais la vue', async (_id, role) => {
+    setupAuth(role, 'org-1');
+    const asso = { id: 'a1', nom: 'Asso Un', ville: 'Paris' };
+    queues['collectes'] = [
+      { data: [ag('c1', { id: 'e1' }, 30, asso)], error: null },
+    ];
+    queues['users'] = [{ data: [], error: null }];
+    const GET = await loadGET();
+    const res = await GET(req(URL_AG));
+    const j = (await res.json()) as BlocsJson;
+
+    expect(selectCollectes()).toMatch(TABLE);
+    expect(selectCollectes()).toContain(
+      'associations!association_id(id, nom, ville)',
+    );
+    expect(selectCollectes()).not.toContain('v_attributions_gestionnaire');
+    expect(j.data.topAssociations![0]).toMatchObject({
+      nom: 'Asso Un',
+      repas_recus: 30,
+    });
   });
 });

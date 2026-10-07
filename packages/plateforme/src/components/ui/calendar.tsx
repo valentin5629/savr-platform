@@ -46,7 +46,7 @@ function Calendar({
         week: 'mt-1 flex w-full',
         day: 'relative h-9 w-9 p-0 text-center text-sm',
         day_button:
-          'inline-flex h-9 w-9 items-center justify-center rounded-savr-md font-medium transition-colors duration-[120ms] hover:bg-savr-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
+          'inline-flex h-9 w-9 items-center justify-center rounded-savr-md font-medium transition-colors duration-savr-fast hover:bg-savr-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
         today: '[&>button]:font-bold [&>button]:text-savr-accent-700',
         selected:
           '[&>button]:bg-savr-primary-700 [&>button]:text-savr-white [&>button]:hover:bg-savr-primary-800',

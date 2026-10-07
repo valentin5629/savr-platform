@@ -34,8 +34,9 @@ import {
 //  3. rien de confidentiel ne sort : ni notes internes (Admin), ni nom du
 //     prestataire logistique (marque blanche), ni téléphone du chauffeur hors
 //     de la fenêtre programmee/validee/en_cours ;
-//  4. gestionnaire : l'association bénéficiaire n'est PAS lue (Q7 — aa_select
-//     n'est jamais élargie, la vue v_attributions_gestionnaire n'existe pas) ;
+//  4. gestionnaire : l'attribution AG (repas, association) est lue par la vue
+//     v_attributions_gestionnaire (§04) — aa_select n'est jamais élargie, la
+//     vue ne rend que les collectes de SES lieux et 5 colonnes ;
 //  5. contacts sur place et référence d'affaire : colonnes d'`evenements` hors
 //     GRANT SELECT authenticated (migration 20261001103000), lues en
 //     service-role sur CET événement et seulement pour qui y a titre —
@@ -255,23 +256,32 @@ export async function chargerFicheCollecteClient(
       ? Promise.resolve({ data: null, error: null })
       : rls
           .from('attestations_don')
-          .select('eligible_at, pdf_url, nb_repas')
+          .select('eligible_at, pdf_url')
           .eq('collecte_id', id)
           .order('version', { ascending: false })
           .limit(1)
           .maybeSingle(),
-    // Attribution AG sous la RLS de l'utilisateur (aa_select). Le gestionnaire
-    // ne lit que le volume : l'association ne lui est pas servie (Q7).
+    // Attribution AG sous la RLS de l'utilisateur. Traiteur et agence : la table
+    // (aa_select). Gestionnaire : la vue v_attributions_gestionnaire, seul chemin
+    // qui lui rende une collecte programmée par un traiteur tiers (C-1) — nom et
+    // ville de l'association à plat, sa description par l'`association_id` de la
+    // vue (associations, policy asso_read).
     avecAssociation
-      ? rls
-          .from('attributions_antgaspi')
-          .select(
-            espace === 'gestionnaire'
-              ? 'volume_repas_realise'
-              : 'volume_repas_realise, association:associations!association_id(nom, ville, description_rapport_impact)',
-          )
-          .eq('collecte_id', id)
-          .maybeSingle()
+      ? espace === 'gestionnaire'
+        ? rls
+            .from('v_attributions_gestionnaire')
+            .select(
+              'volume_repas_realise, association_nom, association_ville, association:associations(description_rapport_impact)',
+            )
+            .eq('collecte_id', id)
+            .maybeSingle()
+        : rls
+            .from('attributions_antgaspi')
+            .select(
+              'volume_repas_realise, association:associations!association_id(nom, ville, description_rapport_impact)',
+            )
+            .eq('collecte_id', id)
+            .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     avecCamions
       ? admin
@@ -322,7 +332,6 @@ export async function chargerFicheCollecteClient(
   const att = attRes.data as {
     eligible_at: string | null;
     pdf_url: string | null;
-    nb_repas: number | null;
   } | null;
   const maintenant = Date.now();
   const rapport_rse_disponible = useRapportsRse
@@ -350,35 +359,32 @@ export async function chargerFicheCollecteClient(
     }
   }
 
+  // Deux formes selon le chemin de lecture : la table embarque l'association
+  // entière, la vue du gestionnaire porte nom et ville À PLAT.
+  interface AssoEmbed {
+    nom?: string;
+    ville?: string | null;
+    description_rapport_impact: string | null;
+  }
   const aa = aaRes.data as {
     volume_repas_realise: number | null;
-    association?:
-      | {
-          nom: string;
-          ville: string | null;
-          description_rapport_impact: string | null;
-        }
-      | {
-          nom: string;
-          ville: string | null;
-          description_rapport_impact: string | null;
-        }[]
-      | null;
+    association_nom?: string | null;
+    association_ville?: string | null;
+    association?: AssoEmbed | AssoEmbed[] | null;
   } | null;
-  // Repas donnés : volume de l'attribution (aa_select). Gestionnaire sur une
-  // collecte programmée par un traiteur tiers : aa_select le lui refuse (C-1),
-  // mais l'attestation de don qui lui est servie (att_gestionnaire_select,
-  // §06.05 l.619) porte le même chiffre, copié de l'attribution au batch J+1
-  // (D13, arbitrage Val 2026-09-30). Aucune lecture élargie.
-  const repas_donnes = aa?.volume_repas_realise ?? att?.nb_repas ?? null;
+  // Repas donnés : volume de l'attribution, pour les trois espaces (table sous
+  // aa_select, ou vue du gestionnaire).
+  const repas_donnes = aa?.volume_repas_realise ?? null;
   const asso = one(aa?.association ?? null);
-  const association: AssociationFiche | null = asso
-    ? {
-        nom: asso.nom,
-        ville: asso.ville,
-        description: asso.description_rapport_impact,
-      }
-    : null;
+  const assoNom = aa?.association_nom ?? asso?.nom ?? null;
+  const association: AssociationFiche | null =
+    assoNom != null
+      ? {
+          nom: assoNom,
+          ville: aa?.association_ville ?? asso?.ville ?? null,
+          description: asso?.description_rapport_impact ?? null,
+        }
+      : null;
 
   // ── Événement + lieu effectif ───────────────────────────────────────────
   const lieuRef = one(evt?.lieu ?? null);
@@ -439,7 +445,7 @@ export async function chargerFicheCollecteClient(
     coordonnees_urgence_demandee: Boolean(alerteRes.data),
     bilan_flux,
     repas_donnes,
-    ...(espace === 'gestionnaire' ? {} : { association }),
+    association,
     rapport_rse_disponible,
     rapport_rse_regenere,
     rapport_reserve_donneur_ordre,

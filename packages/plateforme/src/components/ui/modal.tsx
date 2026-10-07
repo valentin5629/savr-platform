@@ -117,7 +117,7 @@ const Modal = ({
           // Colonne flex bornée à 90vh : en-tête/pied fixes, corps défilable —
           // un contenu long (ex. modale CO₂ méthode) ne déborde plus l'écran.
           'relative flex max-h-[90vh] w-full flex-col rounded-savr-lg bg-savr-white shadow-savr-lg outline-none',
-          'transition-[opacity,transform] duration-200 ease-out',
+          'transition-[opacity,transform] duration-savr-base ease-out',
           show ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0',
           wide ? 'max-w-3xl' : 'max-w-lg',
           className,

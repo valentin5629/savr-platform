@@ -41,6 +41,10 @@ const LIEU_FIXTURE: Lieu = {
 const COLLECTE_AG: Collecte = {
   id: 'col-ag-everest-001',
   type: 'anti_gaspi',
+  // Association destinataire résolue par le worker (point B de la mission).
+  association_adresse: '12 rue des Associations, Ivry-sur-Seine',
+  association_contact_nom: 'Nadia Benali',
+  association_contact_telephone: '+33699990001',
   date_collecte: '2026-07-20',
   heure_collecte: '22:00:00',
   nb_camions_demande: 1,
@@ -72,6 +76,8 @@ interface SupabaseMockOpts {
     // Explicite dans chaque fixture (jamais posé d'office par le mock) : c'est
     // la colonne sur laquelle findTournees cloisonne par provider.
     prestataire_logistique_id: string | null;
+    /** `null` = tournée créée par l'Admin (C2) ; absent = colonne non lue. */
+    type_vehicule?: string | null;
   } | null;
   missionExistante?: {
     id: string;
@@ -411,6 +417,58 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     expect(mission.client_ref).toBe('tournee-everest-new-001');
   });
 
+  it('M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans dropoff', async () => {
+    const { payloads } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+
+    const payload = payloads.get('tournee-everest-new-001') as {
+      pickup?: { address: string };
+      dropoff?: { address: string; contact?: { name: string; phone: string } };
+    };
+    // Point A = lieu de collecte, point B = association (décision Val 2026-10-01).
+    expect(payload?.pickup?.address).toBe('45 rue La Boétie, 75008 Paris');
+    expect(payload?.dropoff).toEqual({
+      address: '12 rue des Associations, Ivry-sur-Seine',
+      contact: { name: 'Nadia Benali', phone: '+33699990001' },
+    });
+  });
+
+  it('M2.5 / dispatch — AG sans association attribuée → LogistiquePermanentError, aucune mission créée', async () => {
+    const { missions } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(
+      adapter.dispatchCollecte(
+        { ...COLLECTE_AG, association_adresse: null },
+        1,
+      ),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    // Jamais de course sans destination : rien n'est parti chez Everest.
+    expect(missions.size).toBe(0);
+    // Garde HORS du try : aucune tournée créée, et ce n'est pas un refus du
+    // transporteur → la collecte n'est pas passée en rejetee_par_prestataire.
+    expect(supabase._inserted['tournees']).toBeUndefined();
+    expect(supabase._upserted['everest_missions']).toBeUndefined();
+    const ecrituresCollecte = supabase._updated['collectes'] ?? [];
+    expect(
+      ecrituresCollecte.some((u) => {
+        const champs = u as { statut?: string; statut_tms?: string };
+        return (
+          champs.statut === 'rejetee_par_prestataire' ||
+          champs.statut_tms === 'rejetee_par_prestataire'
+        );
+      }),
+    ).toBe(false);
+  });
+
   it('dispatch vélo express — createMission appelé avec service_id=74 (ag_velo_express)', async () => {
     const { missions } = setupEverestMock();
     const supabase = makeMockSupabase({
@@ -492,6 +550,51 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     await adapter.dispatchCollecte(COLLECTE_AG, 1);
 
     expect(missions.size).toBe(0);
+  });
+
+  it('tournée créée par l’Admin (type_vehicule NULL, saisie chauffeur avant dispatch — C2 Val 2026-10-06) : reprise telle quelle, type de véhicule posé, une seule mission', async () => {
+    const { missions } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        id: 'tournee-admin-001',
+        external_ref_commande: null,
+        statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
+        type_vehicule: null,
+      },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+
+    expect(missions.size).toBe(1);
+    // Aucune seconde tournée : la tournée Admin porte la mission.
+    expect(supabase._inserted['tournees']).toBeUndefined();
+    expect(supabase._updated['tournees']).toContainEqual({
+      type_vehicule: 'velo_cargo',
+    });
+  });
+
+  it('tournée existante dont le type de véhicule n’a pas été lu : aucune écriture de type_vehicule', async () => {
+    setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        id: 'tournee-existing-001',
+        external_ref_commande: 'EVR-MOCK-EXISTING',
+        statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
+      },
+      missionExistante: { id: 'em-001', statut_everest: 'created' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+
+    expect(
+      (supabase._updated['tournees'] ?? []).some(
+        (u) => (u as Record<string, unknown>)['type_vehicule'] !== undefined,
+      ),
+    ).toBe(false);
   });
 
   it('pas d attribution → LogistiquePermanentError', async () => {
@@ -1243,6 +1346,7 @@ describe('M1.5 / infos d’accès du lieu → notes Everest', () => {
           informations_supplementaires: composerInformationsSupplementaires(
             LIEU_ACCES,
             'Demander Karim à la plonge',
+            null,
             null,
           ),
         },

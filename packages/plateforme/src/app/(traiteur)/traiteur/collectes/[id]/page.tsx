@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { ROUTES } from '@/lib/routes';
 
 // La fiche collecte traiteur s'affiche désormais dans le pop-up client commun
 // (FicheCollecteClientModal, refonte Val 2026-09-29) sur la liste
@@ -16,5 +17,5 @@ export default async function FicheCollecteTraiteurRedirect({
   const { edit } = await searchParams;
   const qs = new URLSearchParams({ collecte: id });
   if (edit === '1') qs.set('edit', '1');
-  redirect(`/traiteur/collectes?${qs.toString()}`);
+  redirect(`${ROUTES.traiteur.collectes}?${qs.toString()}`);
 }

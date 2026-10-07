@@ -4,6 +4,10 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { Menu, Bell, LogOut } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { IconButton } from '@/components/ui/icon-button';
+import { ROUTES } from '@/lib/routes';
 
 interface TopBarProps {
   title?: string;
@@ -35,7 +39,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
       } catch {
         /* on redirige vers /login même si le signOut échoue */
       }
-      window.location.href = '/login';
+      window.location.href = ROUTES.login;
     }, [onLogout]);
 
     return (
@@ -48,33 +52,35 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
       >
         <div className="flex items-center gap-3">
           {onMenuToggle && (
-            <button
+            <IconButton
+              size="sm"
               onClick={onMenuToggle}
-              className="flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-neutral-600 hover:bg-savr-neutral-100 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 lg:hidden"
+              className="lg:hidden"
               aria-label="Ouvrir le menu"
             >
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            </button>
+              <Menu aria-hidden="true" />
+            </IconButton>
           )}
           {title && (
-            <h1 className="text-xl font-bold tracking-[-0.02em] text-savr-neutral-900">
+            <Heading level={1} size="xl" tight>
               {title}
-            </h1>
+            </Heading>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            className="flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-neutral-600 hover:bg-savr-neutral-100 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5" aria-hidden="true" />
-          </button>
+          <IconButton size="sm" aria-label="Notifications">
+            <Bell aria-hidden="true" />
+          </IconButton>
 
           {userName && (
-            <span className="hidden sm:block text-sm font-medium text-savr-neutral-700 px-2">
+            <Text
+              as="span"
+              variant="body"
+              className="hidden sm:block font-medium px-2"
+            >
               {userName}
-            </span>
+            </Text>
           )}
 
           <button

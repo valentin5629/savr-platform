@@ -1,20 +1,37 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { MapPin, Plus, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
+import { compteurResultats } from '@/lib/compteur-resultats';
 import { Badge } from '@/components/ui/badge';
 import { PageHero } from '@/components/ui/page-hero';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DataTable, type Column } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { ListFooter } from '@/components/ui/list-footer';
+import {
+  useFiltresUrl,
+  texte,
+  liste,
+  entier,
+  navigation,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { LieuModal } from '@/components/admin/lieu-modal';
 import { CelluleVide } from '@/components/ui/data-grid';
+import { TextLink } from '@/components/ui/text-link';
+import { IconButton } from '@/components/ui/icon-button';
+import {
+  DIFFICULTE_LABEL,
+  DIFFICULTE_VARIANT,
+  VEHICULE_LABEL,
+} from '@/lib/lieux-labels';
+import { OPTIONS_FILTRE_ACTIF } from '@/lib/libelles/actif';
+import { ROUTES } from '@/lib/routes';
 
 interface Lieu {
   id: string;
@@ -32,24 +49,7 @@ interface Lieu {
 }
 
 // Enums §04 / §06.06 §7 — difficulté d'accès (accès office + stationnement) et
-// hiérarchie véhicule. Rendus en libellés lisibles + pastilles couleur (maquette).
-const DIFFICULTE_LABEL: Record<string, string> = {
-  facile: 'Facile',
-  difficile: 'Difficile',
-  tres_difficile: 'Très difficile',
-};
-const DIFFICULTE_VARIANT: Record<string, 'success' | 'warning' | 'error'> = {
-  facile: 'success',
-  difficile: 'warning',
-  tres_difficile: 'error',
-};
-const VEHICULE_LABEL: Record<string, string> = {
-  velo_cargo: 'Vélo cargo',
-  camionnette: 'Camionnette',
-  fourgon: 'Fourgon',
-  vul: 'VUL',
-  poids_lourd: 'Poids lourd',
-};
+// hiérarchie véhicule : libellés + pastilles de `lib/lieux-labels` (R-UI-2 C10).
 
 function DifficulteCell({ value }: { value: string | null }) {
   if (!value) return <CelluleVide />;
@@ -60,24 +60,57 @@ function DifficulteCell({ value }: { value: string | null }) {
   );
 }
 
+// Filtres de la liste, miroir dans l'URL (R-UI-4a) : statut à choix
+// multiple, « Actifs » pré-coché, case « Tous » = sélection vide = aucun
+// filtre (décision Val 2026-09-30) ; `tab` = onglet Référentiel / Modifs
+// signalées. Tri serveur (cf. lib/tri-liste), retour page 1 à chaque
+// changement.
+const FILTRES = {
+  q: texte(''),
+  actif: liste(['true']),
+  tab: navigation(texte('referentiel')),
+  page: navigation(entier(1, 1)),
+  tri: navigation(texte('nom')),
+  ordre: navigation(texte('asc')),
+};
+
 export default function LieuxPage() {
-  const [lieux, setLieux] = useState<Lieu[]>([]);
-  const [total, setTotal] = useState(0);
+  const {
+    valeurs: f,
+    set,
+    reset,
+    actif: filtresActifs,
+  } = useFiltresUrl(FILTRES);
+  const tab = f.tab === 'modifs' ? 'modifs' : 'referentiel';
+  const url = useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(f.page),
+      tri: f.tri,
+      ordre: f.ordre,
+    });
+    if (tab === 'modifs') {
+      params.set('worklist', 'modifs');
+    } else {
+      const actif = valeurUnique(f.actif);
+      if (actif) params.set('actif', actif);
+      if (f.q) params.set('q', f.q);
+    }
+    return `/api/v1/admin/lieux?${params}`;
+  }, [f, tab]);
+  const {
+    data: lieux,
+    total,
+    loading,
+    erreur,
+    recharger,
+  } = useListePaginee<Lieu>(url);
   const [nbReferentiel, setNbReferentiel] = useState<number | null>(null);
   const [nbModifs, setNbModifs] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
-  // Statut à choix multiple, « Actifs » pré-coché par défaut ; case « Tous »
-  // = sélection vide = aucun filtre (décision Val 2026-09-30).
-  const [actifs, setActifs] = useState<string[]>(['true']);
-  const [tab, setTab] = useState<'referentiel' | 'modifs'>('referentiel');
-  const [page, setPage] = useState(1);
-  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
-  // en page 1 à chaque changement (cf. lib/tri-liste).
-  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
-    cle: 'nom',
-    ordre: 'asc',
-  });
+  // Libellé de l'onglet Référentiel : total du référentiel (mis à jour quand
+  // cet onglet est chargé).
+  useEffect(() => {
+    if (tab === 'referentiel' && !loading && !erreur) setNbReferentiel(total);
+  }, [tab, loading, erreur, total]);
   const [normalisingId, setNormalisingId] = useState<string | null>(null);
 
   // Modale création/édition — point unique (remplace les pages nouveau/[id]).
@@ -92,41 +125,6 @@ export default function LieuxPage() {
     setEditingId(id);
     setModalOpen(true);
   };
-
-  // Numéro de la dernière requête : une réponse plus ancienne arrivée après
-  // (cases cochées en rafale) est ignorée au lieu d'écraser la liste.
-  const derniereRequete = useRef(0);
-
-  const fetchLieux = useCallback(async () => {
-    const numero = ++derniereRequete.current;
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page) });
-    params.set('tri', tri.cle);
-    params.set('ordre', tri.ordre);
-    if (tab === 'modifs') {
-      params.set('worklist', 'modifs');
-    } else {
-      const actif = valeurUnique(actifs);
-      if (actif) params.set('actif', actif);
-      if (q) params.set('q', q);
-    }
-    try {
-      const res = await fetch(`/api/v1/admin/lieux?${params}`);
-      const json = res.ok
-        ? ((await res.json()) as { data: Lieu[]; total: number })
-        : null;
-      if (numero !== derniereRequete.current || !json) return;
-      setLieux(json.data);
-      setTotal(json.total);
-      if (tab === 'referentiel') setNbReferentiel(json.total);
-    } finally {
-      if (numero === derniereRequete.current) setLoading(false);
-    }
-  }, [page, actifs, q, tab, tri]);
-
-  useEffect(() => {
-    void fetchLieux();
-  }, [fetchLieux]);
 
   // Compteur worklist modifs (indépendant de l'onglet actif)
   const refreshNbModifs = useCallback(() => {
@@ -145,7 +143,7 @@ export default function LieuxPage() {
     const editId = new URLSearchParams(window.location.search).get('edit');
     if (editId) {
       openEdit(editId);
-      window.history.replaceState(null, '', '/admin/lieux');
+      window.history.replaceState(null, '', ROUTES.admin.lieux);
     }
   }, []);
 
@@ -158,7 +156,7 @@ export default function LieuxPage() {
         method: 'POST',
       },
     );
-    if (res.ok) await fetchLieux();
+    if (res.ok) recharger();
     setNormalisingId(null);
   };
 
@@ -172,16 +170,15 @@ export default function LieuxPage() {
         // un nom comme « Adresse libre — Lyon » passait sur 3 lignes (retour
         // Val 2026-09-28).
         <div className="flex min-w-[220px] items-center gap-2">
-          <button
-            type="button"
+          <TextLink
             onClick={(e) => {
               e.stopPropagation();
               openEdit(row.id);
             }}
-            className="text-left font-medium text-savr-primary-700 hover:underline"
+            className="text-left font-medium"
           >
             {row.nom}
-          </button>
+          </TextLink>
           {row.reference_citeo && (
             <Badge variant="info" dot={false}>
               Citeo
@@ -261,13 +258,14 @@ export default function LieuxPage() {
             <Button
               size="sm"
               variant="accent"
-              disabled={normalisingId === row.id}
               onClick={(e) => {
                 e.stopPropagation();
                 void handleNormaliser(row.id);
               }}
+              loading={normalisingId === row.id}
+              loadingText="En cours…"
             >
-              {normalisingId === row.id ? 'En cours…' : 'Normaliser'}
+              Normaliser
             </Button>
           </div>
         ),
@@ -276,17 +274,16 @@ export default function LieuxPage() {
       key: '_open',
       header: '',
       render: (row) => (
-        <button
-          type="button"
+        <IconButton
+          size="sm"
           aria-label={`Ouvrir la fiche ${row.nom}`}
           onClick={(e) => {
             e.stopPropagation();
             openEdit(row.id);
           }}
-          className="inline-flex text-savr-neutral-400 hover:text-savr-primary-700"
         >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+          <ChevronRight />
+        </IconButton>
       ),
     },
   ];
@@ -306,40 +303,26 @@ export default function LieuxPage() {
       />
     );
 
-  const tableau = loading ? (
-    <div className="space-y-2">
-      {[...Array(5)].map((_, i) => (
-        <Skeleton key={i} className="h-12 w-full" />
-      ))}
-    </div>
-  ) : lieux.length === 0 ? (
-    listeVide
-  ) : (
+  const tableau = (
     <>
       <DataTable
         columns={columns}
         data={lieux}
         keyExtractor={(row) => row.id}
-        onSort={(cle, ordre) => {
-          setTri({ cle, ordre });
-          setPage(1);
-        }}
-        sortKey={tri.cle}
-        sortDirection={tri.ordre}
+        loading={loading}
+        erreur={erreur}
+        onRecharger={recharger}
+        empty={listeVide}
+        onSort={(cle, ordre) => set({ tri: cle, ordre })}
+        sortKey={f.tri}
+        sortDirection={f.ordre as 'asc' | 'desc'}
         onRowClick={(row) => openEdit(row.id)}
       />
-      {total > 50 && (
-        <div className="flex items-center justify-between gap-2 pt-3 text-sm">
-          <span className="text-savr-neutral-500">
-            {total} lieu{total > 1 ? 'x' : ''}
-          </span>
-          <Pagination
-            page={page}
-            pageCount={Math.ceil(total / 50)}
-            onPageChange={setPage}
-          />
-        </div>
-      )}
+      <ListFooter
+        total={total}
+        page={f.page}
+        onPageChange={(page) => set({ page })}
+      />
     </>
   );
 
@@ -351,19 +334,13 @@ export default function LieuxPage() {
         subtitle="Référentiel lieux d'événements · normalisation des lieux saisis manuellement"
         actions={
           <Button variant="accent" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
+            <Plus />
             Nouveau lieu
           </Button>
         }
       />
 
-      <Tabs
-        value={tab}
-        onValueChange={(v) => {
-          setTab(v as 'referentiel' | 'modifs');
-          setPage(1);
-        }}
-      >
+      <Tabs value={tab} onValueChange={(v) => set({ tab: v })}>
         <TabsList>
           <TabsTrigger value="referentiel">
             Référentiel{nbReferentiel !== null ? ` (${nbReferentiel})` : ''}
@@ -374,28 +351,24 @@ export default function LieuxPage() {
         </TabsList>
 
         <TabsContent value="referentiel" className="space-y-4">
-          <FilterBar data-testid="lieux-filtres">
+          <FilterBar
+            data-testid="lieux-filtres"
+            count={compteurResultats(total, 'lieu', 'lieux')}
+            actif={filtresActifs}
+            onReset={reset}
+          >
             <FiltreRecherche
               id="lieux-recherche"
               placeholder="Rechercher un lieu…"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
+              value={f.q}
+              onValueChange={(q) => set({ q })}
             />
             <FiltreCoches
               label="Statut"
               testid="lieux-statut"
-              options={[
-                { id: 'true', nom: 'Actifs' },
-                { id: 'false', nom: 'Inactifs' },
-              ]}
-              selected={actifs}
-              onChange={(ids) => {
-                setActifs(ids);
-                setPage(1);
-              }}
+              options={OPTIONS_FILTRE_ACTIF}
+              selected={f.actif}
+              onChange={(ids) => set({ actif: ids })}
             />
           </FilterBar>
           {tableau}
@@ -411,7 +384,7 @@ export default function LieuxPage() {
         lieuId={editingId}
         onClose={() => setModalOpen(false)}
         onSaved={() => {
-          void fetchLieux();
+          recharger();
           refreshNbModifs();
         }}
       />

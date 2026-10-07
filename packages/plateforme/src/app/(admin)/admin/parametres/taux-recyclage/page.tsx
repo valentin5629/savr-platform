@@ -1,5 +1,6 @@
 'use client';
 
+import { fmtPct } from '@/lib/format';
 import { useEffect, useState } from 'react';
 import { Recycle, Edit, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
+import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
+import { Text } from '@/components/ui/text';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormActions } from '@/components/ui/form-actions';
 
 interface TauxRecyclage {
   id: string;
@@ -52,7 +59,7 @@ interface HistState {
   loading: boolean;
 }
 
-const pct = (v: number) => `${(v * 100).toFixed(2)} %`;
+const pct = (v: number) => fmtPct(v * 100, 2);
 
 // Valeur avant → après seulement si elle a changé.
 const avantApres = (avant: string | null, apres: string | null): string =>
@@ -205,12 +212,11 @@ export default function TauxRecyclagePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Recycle className="h-6 w-6 text-savr-neutral-600" />
-        <h1 className="text-2xl font-bold text-savr-neutral-900">
-          Paramètres — Taux de recyclage
-        </h1>
-      </div>
+      <PageHeader
+        title="Paramètres — Taux de recyclage"
+        tone="neutral"
+        icon={<Recycle className="h-6 w-6 text-savr-neutral-600" />}
+      />
 
       {!canEdit && <OpsReadOnlyBanner />}
 
@@ -223,18 +229,18 @@ export default function TauxRecyclagePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filieres.map((f) => (
-            <Card key={f.id} className="p-6 space-y-3">
+            <Card key={f.id} padding="lg" className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-savr-neutral-800">
+                <Heading level={3} size="inherit" tone="strong">
                   {f.nom_filiere}
-                </h3>
+                </Heading>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={() => openHistory(f)}
                   >
-                    <History className="h-4 w-4 mr-1" />
+                    <History />
                     Historique
                   </Button>
                   {canEdit && (
@@ -243,7 +249,7 @@ export default function TauxRecyclagePage() {
                       variant="secondary"
                       onClick={() => openModal(f)}
                     >
-                      <Edit className="h-4 w-4 mr-1" />
+                      <Edit />
                       Modifier
                     </Button>
                   )}
@@ -251,21 +257,15 @@ export default function TauxRecyclagePage() {
               </div>
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-bold text-savr-neutral-900">
-                  {(f.taux_captation * 100).toFixed(1)} %
+                  {fmtPct(f.taux_captation * 100, 1)}
                 </span>
-                <span className="text-sm text-savr-neutral-500 mb-1">
+                <Text as="span" className="mb-1">
                   taux de captation
-                </span>
+                </Text>
               </div>
-              {f.prestataire && (
-                <p className="text-sm text-savr-neutral-500">
-                  Prestataire : {f.prestataire}
-                </p>
-              )}
+              {f.prestataire && <Text>Prestataire : {f.prestataire}</Text>}
               {f.source_donnee && (
-                <p className="text-xs text-savr-neutral-400">
-                  Source : {f.source_donnee}
-                </p>
+                <Text variant="faint">Source : {f.source_donnee}</Text>
               )}
             </Card>
           ))}
@@ -279,17 +279,16 @@ export default function TauxRecyclagePage() {
         title={`Modifier — ${modal.filiere?.nom_filiere ?? ''}`}
         onClose={closeModal}
         footer={
-          <>
-            <Button variant="secondary" onClick={closeModal}>
-              Annuler
-            </Button>
-            <Button
-              onClick={() => void handleSave()}
-              disabled={modal.saving || modal.commentaire.length < 5}
-            >
-              {modal.saving ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </>
+          <FormActions
+            cancel={{ label: 'Annuler', onClick: closeModal }}
+            submit={{
+              label: 'Enregistrer',
+              onClick: () => void handleSave(),
+              disabled: modal.commentaire.length < 5,
+            }}
+            loading={modal.saving}
+            loadingText="Enregistrement…"
+          />
         }
       >
         <div className="space-y-3">
@@ -310,11 +309,13 @@ export default function TauxRecyclagePage() {
             />
           </FormField>
           <FormField
-            label="Commentaire de modification (obligatoire)"
+            label="Commentaire de modification"
             htmlFor="taux-recyclage-commentaire"
+            required
           >
             <Textarea
               id="taux-recyclage-commentaire"
+              required
               className="resize-none"
               rows={3}
               placeholder="Motif de la modification…"
@@ -325,7 +326,9 @@ export default function TauxRecyclagePage() {
             />
           </FormField>
           {modal.error && (
-            <p className="text-savr-error-strong text-sm">{modal.error}</p>
+            <AlertBar variant="err" className="font-normal">
+              {modal.error}
+            </AlertBar>
           )}
         </div>
       </Modal>
@@ -340,14 +343,16 @@ export default function TauxRecyclagePage() {
         {/* Historique complet d'une filière (route sans pagination,
                   triée par date desc) → tri navigateur. */}
         <DataGrid
+          columnsToggle={false}
           columns={COLONNES_HISTORIQUE}
           data={hist.rows}
           getRowId={(r) => r.id}
           loading={hist.loading}
           empty={
-            <p className="text-sm text-savr-neutral-500">
-              Aucune modification enregistrée.
-            </p>
+            <EmptyState
+              size="inline"
+              title="Aucune modification enregistrée."
+            />
           }
         />
       </Modal>

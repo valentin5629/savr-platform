@@ -21,10 +21,23 @@ const badgeVariants = cva(
         neutral: 'bg-savr-neutral-100 text-savr-neutral-700',
         // Primaire (ex : statut actif)
         primary: 'bg-savr-primary-50 text-savr-primary-700',
+        // Compteur rouge (nav, onglets, table — R-UI-2 C15) : pastille pleine
+        // centrée, sans point ; recette de la nav latérale (2 recettes sur 3).
+        count:
+          'min-w-[1.25rem] justify-center bg-savr-error px-1.5 font-semibold text-savr-white',
+      },
+      // Taille (R-UI-2 C14) : `sm` = badge dense des tableaux, remplace les
+      // tailles ad hoc 11 px / 10 px. Q9 (b, 2026-10-06) :
+      // 11 px arrondi à 12 px (`text-xs`) : `sm` rend désormais comme `md`
+      // (alias conservé pour les tableaux denses, rendu identique testé).
+      size: {
+        md: '',
+        sm: 'text-xs',
       },
     },
     defaultVariants: {
       variant: 'neutral',
+      size: 'md',
     },
   },
 );
@@ -33,11 +46,12 @@ export interface BadgeProps
   extends
     React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {
+  /** Point coloré en tête — par défaut oui, sauf variante `count`. */
   dot?: boolean;
 }
 
 const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
-  ({ className, variant, dot = true, children, ...props }, ref) => {
+  ({ className, variant, size, dot, children, ...props }, ref) => {
     const dotColor: Record<string, string> = {
       success: 'bg-savr-success',
       warning: 'bg-savr-warning',
@@ -48,16 +62,17 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
       primary: 'bg-savr-primary-500',
     };
     const dotClass = dotColor[variant ?? 'neutral'];
+    const avecPoint = dot ?? variant !== 'count';
     return (
       <span
         ref={ref}
-        className={cn(badgeVariants({ variant }), className)}
+        className={cn(badgeVariants({ variant, size }), className)}
         {...props}
       >
-        {dot && (
+        {avecPoint && (
           <span
             className={cn(
-              'inline-block h-1.5 w-1.5 rounded-full shrink-0',
+              'inline-block h-1.5 w-1.5 rounded-savr-full shrink-0',
               dotClass,
             )}
             aria-hidden="true"

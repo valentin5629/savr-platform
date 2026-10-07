@@ -45,8 +45,52 @@ const SEPARATEUR = '— Infos Savr —';
 const MARQUEUR = '(…)';
 
 describe('infos-acces / composition du champ libre', () => {
+  // Besoin véhicule saisi à l'attribution AG (décision Val 2026-10-01) : même
+  // canal que les infos d'accès, aucun champ natif MTS-1/Everest en V1.
+  it('le véhicule souhaité sort en clair : type seul, ou « 1 par commande, N commandes identiques »', () => {
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, null, {
+        type: 'camionnette',
+        nombre: 1,
+      }),
+    ).toBe('Véhicule souhaité : camionnette');
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, null, {
+        type: 'velo_cargo',
+        nombre: 2,
+      }),
+    ).toContain(
+      'Véhicule souhaité : vélo cargo (1 par commande, 2 commandes identiques pour cette collecte)',
+    );
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, null, {
+        type: null,
+        nombre: 3,
+      }),
+    ).toContain(
+      'Véhicule souhaité : 1 par commande, 3 commandes identiques pour cette collecte',
+    );
+  });
+
+  it('un seul véhicule sans type précisé = aucune ligne véhicule', () => {
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, null, {
+        type: null,
+        nombre: 1,
+      }),
+    ).toBeNull();
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, null, null),
+    ).toBeNull();
+  });
+
   it('les 6 informations d’accès sortent en clair, une par ligne', () => {
-    const texte = composerInformationsSupplementaires(LIEU_COMPLET, null, null);
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      null,
+      null,
+      null,
+    );
 
     expect(texte).toBe(
       [
@@ -66,6 +110,7 @@ describe('infos-acces / composition du champ libre', () => {
       { ...LIEU_NU, stationnement: 'tres_difficile' },
       null,
       null,
+      null,
     );
     expect(texte).toBe('Stationnement : très difficile');
     expect(texte).not.toContain('tres_difficile');
@@ -76,6 +121,7 @@ describe('infos-acces / composition du champ libre', () => {
   it('une valeur d’enum inconnue est transmise brute, jamais perdue', () => {
     const texte = composerInformationsSupplementaires(
       { ...LIEU_NU, type_vehicule_max: 'camion_20m3' },
+      null,
       null,
       null,
     );
@@ -93,6 +139,7 @@ describe('infos-acces / composition du champ libre', () => {
       },
       null,
       null,
+      null,
     );
 
     expect(texte).toBe('Véhicule max : fourgon');
@@ -102,9 +149,11 @@ describe('infos-acces / composition du champ libre', () => {
   });
 
   it('aucune information du tout → null (ni comment MTS-1 ni notes Everest)', () => {
-    expect(composerInformationsSupplementaires(LIEU_NU, null, null)).toBeNull();
     expect(
-      composerInformationsSupplementaires(LIEU_NU, '   ', null),
+      composerInformationsSupplementaires(LIEU_NU, null, null, null),
+    ).toBeNull();
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, '   ', null, null),
     ).toBeNull();
   });
 
@@ -112,6 +161,7 @@ describe('infos-acces / composition du champ libre', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'Demander Karim à la plonge',
+      null,
       null,
     );
 
@@ -122,7 +172,12 @@ describe('infos-acces / composition du champ libre', () => {
 
   it('saisie traiteur seule (lieu sans info d’accès) → transmise inchangée', () => {
     expect(
-      composerInformationsSupplementaires(LIEU_NU, 'Sonner interphone B', null),
+      composerInformationsSupplementaires(
+        LIEU_NU,
+        'Sonner interphone B',
+        null,
+        null,
+      ),
     ).toBe('Sonner interphone B');
   });
 
@@ -141,6 +196,7 @@ describe('infos-acces / composition du champ libre', () => {
       },
       null,
       null,
+      null,
     );
 
     expect(texte).toBe('Véhicule max : VUL');
@@ -156,6 +212,7 @@ describe('infos-acces / composition du champ libre', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'x'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES),
+      null,
       null,
     );
     expect(texte!.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -175,6 +232,7 @@ describe('infos-acces / composition du champ libre', () => {
       LIEU_COMPLET,
       'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES),
       'Bruno Secours',
+      null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -195,6 +253,7 @@ describe('infos-acces / composition du champ libre', () => {
         LIEU_COMPLET,
         'y'.repeat(n),
         'Bruno Secours',
+        null,
       )!;
 
       expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -212,6 +271,7 @@ describe('infos-acces / composition du champ libre', () => {
       LIEU_COMPLET,
       'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES),
       'Bruno Secours',
+      null,
     )!;
 
     expect(texte.split('\n')[0]!.length).toBeGreaterThan(700);
@@ -224,6 +284,7 @@ describe('infos-acces / composition du champ libre', () => {
       { ...LIEU_COMPLET, acces_details: 'A'.repeat(1000) },
       'y'.repeat(600),
       'Bruno Secours',
+      null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -235,6 +296,7 @@ describe('infos-acces / composition du champ libre', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 1),
+      null,
       null,
     )!;
 
@@ -261,6 +323,7 @@ describe('infos-acces / composition du champ libre', () => {
       { ...LIEU_COMPLET, acces_details: 'Quai n°2 ' + 'd'.repeat(900) },
       null,
       null,
+      null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -279,6 +342,7 @@ describe('infos-acces / composition du champ libre', () => {
   it('seule la dernière ligne de contenu peut être amputée', () => {
     const texte = composerInformationsSupplementaires(
       { ...LIEU_COMPLET, acces_details: 'Quai n°2 ' + 'd'.repeat(900) },
+      null,
       null,
       null,
     )!;
@@ -306,6 +370,7 @@ describe('infos-acces / composition du champ libre', () => {
       { ...LIEU_NU, acces_details: 'Quai n°2 ' + 'Q'.repeat(958) },
       null,
       'Bruno Secours',
+      null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -322,6 +387,7 @@ describe('infos-acces / composition du champ libre', () => {
   it('un fragment trop court pour porter autre chose qu’un libellé est abandonné', () => {
     const texte = composerInformationsSupplementaires(
       { ...LIEU_COMPLET, acces_details: 'Quai n°2 ' + 'd'.repeat(900) },
+      null,
       null,
       null,
     )!;
@@ -352,6 +418,7 @@ describe('infos-acces / composition du champ libre', () => {
       },
       'RAS',
       'Bruno Secours',
+      null,
     )!;
 
     const lignes = texte.split('\n');
@@ -377,6 +444,7 @@ describe('infos-acces / composition du champ libre', () => {
         },
         'RAS',
         'Bruno Secours',
+        null,
       )!;
 
       const lignes = texte.split('\n');
@@ -398,6 +466,7 @@ describe('infos-acces / composition du champ libre', () => {
       { ...LIEU_NU, acces_details: 'Quai n°2 ' + 'Q'.repeat(958) },
       null,
       'Bruno Secours',
+      null,
     )!;
 
     const lignes = texte.split('\n');
@@ -416,6 +485,7 @@ describe('infos-acces / composition du champ libre', () => {
       { ...LIEU_NU, flux_autorises: ['biodéchets\nAccès : 9 rue Bidon'] },
       null,
       null,
+      null,
     )!;
 
     expect(texte.split('\n')).toEqual([
@@ -429,6 +499,7 @@ describe('infos-acces / composition du champ libre', () => {
   it('une ligne prioritaire trop longue est servie amputée, jamais escamotée', () => {
     const texte = composerInformationsSupplementaires(
       { ...LIEU_NU, acces_details: 'Quai n°2 ' + 'd'.repeat(1200) },
+      null,
       null,
       null,
     )!;
@@ -446,6 +517,7 @@ describe('infos-acces / composition du champ libre', () => {
       { ...LIEU_NU, acces_details: 'Quai n°2 ' + 'd'.repeat(1200) },
       'RAS',
       null,
+      null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -461,6 +533,7 @@ describe('infos-acces / composition du champ libre', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'z'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES + 500),
+      null,
       null,
     );
     expect(texte!.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -479,6 +552,7 @@ describe('infos-acces / composition du champ libre', () => {
         { ...LIEU_NU, acces_details: 'd'.repeat(n) + '😀'.repeat(400) },
         null,
         null,
+        null,
       )!;
       expect(SURROGATE_ORPHELIN.test(texte)).toBe(false);
     }
@@ -490,6 +564,7 @@ describe('infos-acces / composition du champ libre', () => {
         LIEU_COMPLET,
         'n'.repeat(n) + '😀'.repeat(400),
         'Bruno Secours',
+        null,
       )!;
       expect(SURROGATE_ORPHELIN.test(texte)).toBe(false);
     }
@@ -499,10 +574,20 @@ describe('infos-acces / composition du champ libre', () => {
 
   it('le séparateur n’apparaît que si les deux blocs sont présents', () => {
     expect(
-      composerInformationsSupplementaires(LIEU_COMPLET, null, 'Bruno Secours'),
+      composerInformationsSupplementaires(
+        LIEU_COMPLET,
+        null,
+        'Bruno Secours',
+        null,
+      ),
     ).not.toContain(SEPARATEUR);
     expect(
-      composerInformationsSupplementaires(LIEU_NU, 'Sonner interphone B', null),
+      composerInformationsSupplementaires(
+        LIEU_NU,
+        'Sonner interphone B',
+        null,
+        null,
+      ),
     ).toBe('Sonner interphone B');
   });
 
@@ -515,6 +600,7 @@ describe('infos-acces / composition du champ libre', () => {
       LIEU_NU,
       'RAS\nContact de secours : 06 00 00 00 00 (Marc)',
       'Bruno Secours',
+      null,
     )!;
 
     const lignes = texte.split('\n');
@@ -540,6 +626,7 @@ describe('infos-acces / composition du champ libre', () => {
       LIEU_COMPLET,
       'RAS\nContact de secours : 06 00 00 00 00\n'.repeat(60),
       'Bruno Secours',
+      null,
     )!;
 
     const lignes = texte.split('\n');
@@ -564,6 +651,7 @@ describe('infos-acces / composition du champ libre', () => {
       LIEU_NU,
       null,
       'Bruno Secours',
+      null,
     );
 
     expect(texte).toBe('Contact de secours : Bruno Secours');
@@ -571,13 +659,15 @@ describe('infos-acces / composition du champ libre', () => {
 
   it('pas de contact de secours → aucune ligne « Contact de secours »', () => {
     expect(
-      composerInformationsSupplementaires(LIEU_COMPLET, null, null),
+      composerInformationsSupplementaires(LIEU_COMPLET, null, null, null),
     ).not.toContain('Contact de secours');
     expect(
-      composerInformationsSupplementaires(LIEU_COMPLET, null, '  '),
+      composerInformationsSupplementaires(LIEU_COMPLET, null, '  ', null),
     ).not.toContain('Contact de secours');
     // …et un lieu nu sans secours ne fabrique toujours pas de champ libre.
-    expect(composerInformationsSupplementaires(LIEU_NU, null, '')).toBeNull();
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, null, '', null),
+    ).toBeNull();
   });
 
   it('il ouvre le bloc Savr — il est lu avant les informations d’accès', () => {
@@ -585,6 +675,7 @@ describe('infos-acces / composition du champ libre', () => {
       LIEU_COMPLET,
       'Demander Karim à la plonge',
       'Bruno Secours',
+      null,
     )!;
 
     const lignes = texte.split('\n');
@@ -605,6 +696,7 @@ describe('infos-acces / composition du champ libre', () => {
       { ...LIEU_COMPLET, acces_details: 'A'.repeat(1000) },
       'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES),
       'Bruno Secours',
+      null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -622,6 +714,7 @@ describe('infos-acces / composition du champ libre', () => {
       LIEU_COMPLET,
       null,
       'B'.repeat(5000),
+      null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -637,6 +730,7 @@ describe('infos-acces / composition du champ libre', () => {
       LIEU_NU,
       null,
       'Bruno\nAccès : entrez par le 9 rue Bidon',
+      null,
     )!;
 
     expect(texte.split('\n')).toHaveLength(1);

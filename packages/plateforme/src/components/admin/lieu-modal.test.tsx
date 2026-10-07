@@ -643,6 +643,48 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
   );
 
   it(
+    'M3.2/historique_lieu_admin_demande_gestionnaire — l’historique nomme la demande de modification du gestionnaire et son auteur',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        routeFetch([], {
+          ok: true,
+          body: {
+            ...ACTIVITE,
+            historique: [
+              {
+                id: 'a3',
+                created_at: '2026-10-06T08:00:00Z',
+                action: 'lieu_modification_demandee',
+                auteur: 'Camille Martin',
+                champs: [],
+                impersonation: false,
+              },
+              ...ACTIVITE.historique,
+            ],
+          },
+        }),
+      );
+      render(
+        <LieuModal open lieuId="lieu-42" onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
+
+      await ouvrirOnglet(/Activité/);
+      expect(
+        await screen.findByText(
+          'Modification demandée par le gestionnaire',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      // Jamais le code technique de l'action à l'écran.
+      expect(screen.queryByText('lieu_modification_demandee')).toBeNull();
+      expect(screen.getByText(/Camille Martin/)).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     "M1.1b/lieux/fiche-onglets — les saisies survivent au changement d'onglet",
     async () => {
       const fetchMock = routeFetch();

@@ -16,6 +16,7 @@ import {
 import MonOrganisationPage from '@/app/(gestionnaire)/gestionnaire/mon-organisation/page.js';
 import { messageDeRole } from '@/test-utils/message-role';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { renderAvecToasts } from '@/test-utils/toasts';
 
 const PROFIL = {
   id: 'org-viparis',
@@ -94,7 +95,8 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      render(<MonOrganisationPage />);
+      // Succès = toast (R-UI-1 H1) : rendu sous ToastProvider.
+      renderAvecToasts(<MonOrganisationPage />);
       const champ = await screen.findByLabelText('Adresse', {}, ATTENTE_UI);
       const bouton = screen.getByRole('button', { name: 'Enregistrer' });
       // Rien à enregistrer tant que l'adresse n'a pas changé.
@@ -103,10 +105,14 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         target: { value: '2 place de la Porte Maillot' },
       });
       fireEvent.click(bouton);
+      // Toast de succès (R-UI-1 H1).
       expect(
-        (await messageDeRole('status', 'Informations enregistrées.'))
-          .textContent,
-      ).toBe('Informations enregistrées.');
+        await screen.findByText(
+          'Informations enregistrées.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
       const patch = fetchMock.mock.calls.find(([, i]) => i?.method === 'PATCH');
       expect(patch?.[0]).toBe('/api/v1/gestionnaire/mon-organisation/profil');
       expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
@@ -156,7 +162,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      render(<MonOrganisationPage />);
+      renderAvecToasts(<MonOrganisationPage />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -169,9 +175,10 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ],
         },
       });
+      // Toast de succès (R-UI-1 H1).
       expect(
-        (await messageDeRole('status', 'Logo mis à jour.')).textContent,
-      ).toBe('Logo mis à jour.');
+        await screen.findByText('Logo mis à jour.', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
       const patch = fetchMock.mock.calls.find(([, i]) => i?.method === 'PATCH');
       expect(JSON.parse(String(patch?.[1]?.body))).toEqual({ logo_url: CLE });
       // Aperçu servi par le proxy de SA propre organisation ; libellé remplacé.
@@ -199,7 +206,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      render(<MonOrganisationPage />);
+      renderAvecToasts(<MonOrganisationPage />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -234,7 +241,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      render(<MonOrganisationPage />);
+      renderAvecToasts(<MonOrganisationPage />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -279,7 +286,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       render(<MonOrganisationPage />);
-      fireEvent.click(screen.getByRole('button', { name: 'Factures' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       // DataGrid rend chaque ligne deux fois (tableau + carte mobile) : on
       // borne les assertions au tableau.
       const tableau = await screen.findByRole('table', {}, ATTENTE_UI);
@@ -290,6 +297,66 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           .getByRole('link', { name: 'Télécharger' })
           .getAttribute('href'),
       ).toBe('https://pennylane.test/f1.pdf');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'R-UI-1/mon_organisation_invitation_succes_toast_erreur_inline',
+    async () => {
+      // H1 : le succès de l'invitation est un Toast 4 s (plus de bandeau vert
+      // dans le formulaire) ; l'échec reste un bandeau d'erreur inline.
+      let echec = false;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: RequestInit) =>
+          Promise.resolve(
+            init?.method === 'POST'
+              ? echec
+                ? reponse(409, { error: 'Email déjà utilisé.' })
+                : reponse(201, { data: { id: 'u2' } })
+              : url.endsWith('/users')
+                ? reponse(200, { data: [] })
+                : reponse(200, { data: PROFIL }),
+          ),
+        ),
+      );
+      renderAvecToasts(<MonOrganisationPage />);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
+      const email = await screen.findByLabelText(/Email/, {}, ATTENTE_UI);
+      fireEvent.change(screen.getByLabelText(/Prénom/), {
+        target: { value: 'Léa' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Nom/), {
+        target: { value: 'Martin' },
+      });
+      fireEvent.change(email, { target: { value: 'lea@viparis.test' } });
+      fireEvent.click(
+        screen.getByRole('button', { name: "Envoyer l'invitation" }),
+      );
+      const toast = await screen.findByText(
+        'Invitation envoyée.',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(toast.closest('form')).toBeNull();
+      expect(screen.queryByRole('alert')).toBeNull();
+
+      echec = true;
+      fireEvent.change(screen.getByLabelText(/Prénom/), {
+        target: { value: 'Léa' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Nom/), {
+        target: { value: 'Martin' },
+      });
+      fireEvent.change(screen.getByLabelText(/Email/), {
+        target: { value: 'lea@viparis.test' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: "Envoyer l'invitation" }),
+      );
+      const erreur = await messageDeRole('alert', 'Email déjà utilisé.');
+      expect(erreur.closest('form')).not.toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -326,7 +393,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       render(<MonOrganisationPage />);
-      fireEvent.click(screen.getByRole('button', { name: 'Factures' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       expect(
         await screen.findByText('Aucune facture.', {}, ATTENTE_UI),
       ).toBeTruthy();

@@ -72,6 +72,15 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
     expect(chain.in).not.toHaveBeenCalled();
   });
 
+  it('M0.6 — la liste sert tms_reference : l’action « Dispatcher » en dépend (kpi_a_dispatcher_predicat_unique)', async () => {
+    await callGet('');
+    // `estADispatcher` exige `tms_reference === null` : sans la colonne dans le
+    // select, plus aucune ligne n'offrirait « Dispatcher ».
+    const colonnes = String(chain.select.mock.calls[0]?.[0]);
+    expect(colonnes).toMatch(/\btms_reference\b/);
+    expect(colonnes).toMatch(/\bstatut_tms\b/);
+  });
+
   it('M0.6 — filtre statut multi → in(statut, [...])', async () => {
     await callGet('?statuts=cloturee,validee');
     expect(chain.in).toHaveBeenCalledWith('statut', ['cloturee', 'validee']);

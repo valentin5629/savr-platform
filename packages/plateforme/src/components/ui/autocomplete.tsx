@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 // Autocomplete §5.5 — champ de recherche + liste de suggestions résolue par un
 // `fetchOptions` fourni par l'appelant (autocomplétion traiteur/lieu de la liste
@@ -111,7 +112,8 @@ function Autocomplete({
     <div ref={rootRef} className={cn('relative', className)}>
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
-        <input
+        {/* Champ du DS (R-UI-4b, D7 : avant, classes de `Input` recopiées). */}
+        <Input
           type="text"
           id={id}
           role="combobox"
@@ -121,7 +123,7 @@ function Autocomplete({
           placeholder={placeholder}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => options.length > 0 && setOpen(true)}
-          className="flex h-11 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white pl-9 pr-3 text-sm text-savr-neutral-900 hover:border-savr-primary-400 focus:outline-2 focus:outline-offset-2 focus:outline-savr-primary-500 sm:h-10"
+          className="pl-9"
         />
       </div>
       {open && (

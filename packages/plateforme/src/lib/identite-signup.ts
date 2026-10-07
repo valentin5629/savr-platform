@@ -8,15 +8,19 @@
 // `POST /api/auth/signup`. L'écran s'en sert pour refuser AVANT le réseau ; la
 // route s'en sert parce qu'elle est publique et qu'une validation seulement
 // côté navigateur se contourne avec un `curl`.
+//
+// Les regex vivent dans `@savr/shared/src/validation` (R-UI-5 F9) ; le trim des
+// bords reste propre à ce module.
+
+import { estEmail, estTelephoneFr } from '@savr/shared/src/validation/index.js';
 
 /** Longueur minimale de `prenom` et `nom` (CDC §05 §8 : « 2 caractères min »). */
 export const NOM_MIN_LENGTH = 2;
 
 export function isValidEmailFormat(email: string): boolean {
-  const v = email.trim();
   // Volontairement permissif (une adresse valide ne doit jamais être refusée) :
   // on exige une partie locale, un « @ », un domaine et un TLD, sans espace.
-  return /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(v);
+  return estEmail(email.trim());
 }
 
 export function isValidNomOuPrenom(valeur: string): boolean {
@@ -29,8 +33,5 @@ export function isValidNomOuPrenom(valeur: string): boolean {
  * usuels (espace, point, tiret) sont tolérés — les gens les écrivent.
  */
 export function isValidTelephoneFr(telephone: string): boolean {
-  const v = telephone.trim();
-  return /^(?:(?:\+|00)33[\s.-]?(?:\(0\)[\s.-]?)?|0)[1-9](?:[\s.-]?\d{2}){4}$/.test(
-    v,
-  );
+  return estTelephoneFr(telephone.trim());
 }

@@ -2,6 +2,12 @@ import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import type { AnyRole } from '@/lib/api-auth.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { lireTri } from '@/lib/tri-liste.js';
+import { parseLimit, parsePage } from '@/lib/pagination.js';
+import {
+  FLUX_ZD_CODES as FLUX_ORDER,
+  LIBELLE_FLUX,
+} from '@/lib/libelles/flux.js';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — types, filtres, requête.
@@ -26,21 +32,20 @@ export function isRegistreRole(role: AnyRole): boolean {
   return REGISTRE_ROLES.includes(role);
 }
 
-// Les 5 flux ZD V1, dans l'ordre d'affichage (badges + colonnes CSV).
-export const FLUX_ORDER = [
-  'biodechet',
-  'emballage',
-  'carton',
-  'verre',
-  'dechet_residuel',
-] as const;
+// Les 5 flux ZD V1, dans l'ordre d'affichage (badges + colonnes CSV) : source
+// unique `lib/libelles/flux` (R-UI-2 C12), ré-exportée sous les noms historiques.
 
-export const FLUX_LABELS: Record<string, string> = {
-  biodechet: 'Biodéchets',
-  emballage: 'Emballages',
-  carton: 'Cartons',
-  verre: 'Verre',
-  dechet_residuel: 'Déchet résiduel',
+export { FLUX_ORDER };
+export const FLUX_LABELS: Record<string, string> = LIBELLE_FLUX;
+
+// Filières de valorisation en clair (enum plateforme.filiere_valorisation).
+export const FILIERE_LABELS: Record<string, string> = {
+  recyclage: 'Recyclage',
+  compostage: 'Compostage',
+  methanisation: 'Méthanisation',
+  valorisation_energetique: 'Valorisation énergétique',
+  enfouissement: 'Enfouissement',
+  don_alimentaire: 'Don alimentaire',
 };
 
 export interface RegistreRow {
@@ -98,21 +103,28 @@ export interface RegistreFilters {
   pageSize: number;
 }
 
-/** Parse les filtres du registre depuis la query string (valeurs CSV-listées). */
+/**
+ * Parse les filtres du registre depuis la query string (valeurs CSV-listées).
+ * Tri = convention unique des listes (R-UI-4a, E3) : `tri` + `ordre` ;
+ * taille de page = `limit` ∈ PAGE_SIZES (défaut 25).
+ */
 export function parseRegistreFilters(sp: URLSearchParams): RegistreFilters {
-  const sortByRaw = sp.get('sortBy') ?? 'date_evenement';
-  const sortBy: SortColumn = (SORT_COLUMNS as readonly string[]).includes(
-    sortByRaw,
-  )
-    ? (sortByRaw as SortColumn)
-    : 'date_evenement';
-  const sortDir = sp.get('sortDir') === 'asc' ? 'asc' : 'desc';
+  const tri = lireTri(
+    sp,
+    Object.fromEntries(SORT_COLUMNS.map((c) => [c, [c]])) as unknown as Record<
+      SortColumn,
+      readonly string[]
+    >,
+    { tri: 'date_evenement', ascendant: false },
+  );
+  const sortBy = tri.colonnes[0] as SortColumn;
+  const sortDir = tri.ascendant ? 'asc' : 'desc';
 
-  const pageSizeRaw = Number(sp.get('pageSize') ?? 25);
+  const pageSizeRaw = parseLimit(sp, 25, 100);
   const pageSize = (PAGE_SIZES as readonly number[]).includes(pageSizeRaw)
     ? pageSizeRaw
     : 25;
-  const page = Math.max(1, Number(sp.get('page') ?? 1) || 1);
+  const page = parsePage(sp);
 
   const bs = sp.get('bordereau');
   return {
@@ -171,8 +183,18 @@ export async function fetchRegistre(
 
   const { data, count, error } = await q;
   if (error) throw erreurInterne(error, 'registre.lecture');
+  const rows = (data ?? []) as unknown as RegistreRow[];
+  // Lecture complète (exports) : PostgREST plafonne une réponse (max_rows) sans
+  // erreur. Moins de lignes que le décompte = registre amputé → erreur, jamais
+  // un export incomplet.
+  if (opts.all && rows.length < (count ?? 0)) {
+    throw erreurInterne(
+      new Error('registre : lecture complète amputée'),
+      'registre.lecture',
+    );
+  }
   return {
-    rows: (data ?? []) as unknown as RegistreRow[],
+    rows,
     total: count ?? 0,
     page: f.page,
     pageSize: f.pageSize,

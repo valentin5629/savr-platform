@@ -11,12 +11,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/gestionnaire',
 }));
 
-vi.mock('@/components/dashboards/charts/lazy.js', () => ({
-  EvolutionFluxChart: () => <div data-testid="stub-flux" />,
-  EvolutionRepasChart: () => <div data-testid="stub-repas" />,
-  TonnagesDonut: () => <div data-testid="stub-donut" />,
-}));
-
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
@@ -116,7 +110,7 @@ describe('M3.2 / dashboard gestionnaire — Bloc 2/4 §11 (BL-P1-PARITE-01)', ()
       render(<GestionnaireDashboardPage />);
       await screen.findByTestId('bloc-2-gestionnaire', undefined, ATTENTE_UI);
       fireEvent.click(
-        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       expect(
         await screen.findByTestId('bloc-2-gestionnaire', undefined, ATTENTE_UI),

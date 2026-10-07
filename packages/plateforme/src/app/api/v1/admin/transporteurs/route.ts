@@ -1,3 +1,4 @@
+import { lirePagination } from '@/lib/pagination.js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
@@ -23,9 +24,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     parmi(Constants.plateforme.Enums.type_tms),
   );
   const q = searchParams.get('q');
-  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-  const limit = 50;
-  const offset = (page - 1) * limit;
+  const { page, limit, from: offset } = lirePagination(searchParams);
   const tri = lireTri(
     searchParams,
     {
@@ -53,7 +52,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data, error, count } = await query;
   if (error) return serverError(error, 'admin.transporteurs.list');
 
-  return NextResponse.json({ data: data ?? [], total: count ?? 0 });
+  return NextResponse.json({
+    data: data ?? [],
+    total: count ?? 0,
+    page,
+    limit,
+  });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

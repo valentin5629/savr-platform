@@ -2,7 +2,7 @@
  * M1.6 — Tests batch J+1 6h (sélection collectes → enqueue jobs_pdf)
  * Scénarios P1 : nominal, skip pesées vides, escalade R9 > 48h, idempotence, embargo.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
@@ -25,6 +25,7 @@ function makeCollecte(overrides: Record<string, unknown> = {}) {
     id: 'col-1',
     evenement_id: 'ev-1',
     realisee_at: new Date(Date.now() - 26 * 3600 * 1000).toISOString(),
+    date_collecte: '2026-06-13',
     taux_recyclage: 72.5,
     co2_evite_kg: 45.2,
     co2_induit_kg: 3.1,
@@ -39,11 +40,14 @@ function makeCollecte(overrides: Record<string, unknown> = {}) {
       pax: 250,
       organisation_id: 'org-1',
       traiteur_operationnel_organisation_id: null,
+      // Programmeur (evenements.created_by → users) : variable `prenom` de l'email.
+      programmeur: { prenom: 'Léa' },
       organisations: {
         raison_sociale: 'Kaspia SAS',
         siret: '12345678900001',
         adresse: '12 rue de la Paix, 75001 Paris',
         email_principal: 'contact@kaspia.fr',
+        type: 'traiteur',
       },
       lieux: {
         nom: 'Grand Palais',
@@ -493,5 +497,227 @@ describe('M1.6 / BatchPdfJ1 / email best-effort', () => {
       }),
     );
     logErr.mockRestore();
+  });
+});
+
+// §06.02 §6 — divergence M1.6 tranchée Val 2026-09-14 : le template `rapport_disponible`
+// (ex `bordereau_disponible`, migration 20261002100000) déclare EXACTEMENT prenom,
+// date_collecte, lieu_nom, poids_total, co2_evite, taux_recyclage, lien_rapport ;
+// sendEmail refuse l'envoi (MISSING_VARIABLE) dès qu'une variable déclarée manque.
+describe('M1.6 / BatchPdfJ1 / email rapport_disponible (§06.02 §6)', () => {
+  const VARIABLES_CDC = [
+    'co2_evite',
+    'date_collecte',
+    'lien_rapport',
+    'lieu_nom',
+    'poids_total',
+    'prenom',
+    'taux_recyclage',
+  ];
+
+  function reponsesNominales(collecte: Record<string, unknown>) {
+    return [
+      { data: [collecte], error: null }, // select collectes
+      { data: [], error: null }, // select bordereaux existants
+      { count: 2, error: null }, // count collecte_flux
+      {
+        data: [
+          {
+            flux_id: 'f1',
+            poids_reel_kg: 12,
+            nb_bacs: 3,
+            equivalent_roll: null,
+            flux: { nom: 'Biodéchets' },
+          },
+          {
+            flux_id: 'f2',
+            poids_reel_kg: 0.5,
+            nb_bacs: 1,
+            equivalent_roll: null,
+            flux: { nom: 'Verre' },
+          },
+        ],
+      }, // select flux
+      { data: 'BSAV-2026-00001', error: null }, // rpc numero
+      { data: { nom: 'Strike Transport', siret: '98765432100011' } }, // prestataire
+      {
+        data: {
+          evenement: {
+            type_evenement_id: 't1',
+            type_evenement: { libelle: 'Gala' },
+          },
+        },
+      }, // benchmark
+      { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
+      { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
+      { data: null, error: null }, // insert job bordereau
+      { data: null, error: null }, // insert job rapport
+    ];
+  }
+
+  it('envoi_rapport_disponible_apres_batch_j1 : slug rapport_disponible, destinataire organisations.email_principal, exactement les variables du §06.02 §6', async () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.test.local');
+    const collecte = makeCollecte();
+    const sb = makeSupabase(reponsesNominales(collecte));
+
+    const result = await runBatchPdfJ1(sb as never);
+    expect(result.enqueued).toBe(1);
+    expect(result.errors).toHaveLength(0);
+
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    const [slug, to, variables, options] = vi.mocked(sendEmail).mock
+      .calls[0] as [string, string, Record<string, string>, unknown];
+    expect(slug).toBe('rapport_disponible');
+    expect(to).toBe('contact@kaspia.fr');
+    expect(options).toEqual({ entityType: 'collectes', entityId: 'col-1' });
+
+    // Exactement la liste du template — ni plus (nom_evenement / date_evenement
+    // de l'ancien payload), ni moins (MISSING_VARIABLE = refus d'envoi).
+    expect(Object.keys(variables).sort()).toEqual(VARIABLES_CDC);
+    expect(variables).toEqual({
+      prenom: 'Léa',
+      date_collecte: '13/06/2026',
+      lieu_nom: 'Grand Palais',
+      // Nombres nus, format FR : le corps du template porte les unités.
+      poids_total: '12,5',
+      co2_evite: '45,2',
+      taux_recyclage: '72,5',
+      lien_rapport: 'https://app.test.local/traiteur/collectes/col-1',
+    });
+    for (const v of Object.values(variables)) expect(typeof v).toBe('string');
+  });
+
+  it('lien_rapport pointe la fiche collecte de l’espace du programmeur (agence → /agence/collectes/<id>) ; prénom inconnu → chaîne vide, jamais absent', async () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.test.local');
+    const base = makeCollecte();
+    const ev = base.evenements as Record<string, unknown>;
+    const collecte = makeCollecte({
+      evenements: {
+        ...ev,
+        programmeur: null,
+        organisations: {
+          ...(ev.organisations as Record<string, unknown>),
+          type: 'agence',
+        },
+      },
+    });
+    const sb = makeSupabase(reponsesNominales(collecte));
+
+    await runBatchPdfJ1(sb as never);
+
+    const variables = vi.mocked(sendEmail).mock.calls[0]![2] as Record<
+      string,
+      string
+    >;
+    expect(variables.lien_rapport).toBe(
+      'https://app.test.local/agence/collectes/col-1',
+    );
+    expect(variables.prenom).toBe('');
+    expect(Object.keys(variables).sort()).toEqual(VARIABLES_CDC);
+  });
+
+  it('la sélection charge date_collecte et le programmeur (users!created_by) nécessaires aux variables', async () => {
+    const sb = makeSupabase([{ data: [], error: null }]);
+    await runBatchPdfJ1(sb as never);
+    const sel = selectionCollectes(sb);
+    expect(sel).toContain('date_collecte');
+    expect(sel).toContain('programmeur:users!created_by');
+  });
+});
+
+describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux_savr.date_collecte)', () => {
+  // Relevé savr-dev 2026-10-02 : collecte ZD du 10/09 clôturée, batch exécuté le 01/10
+  // → bordereau ET rapport affichaient « Intervention le 01/10/2026 » (jour du batch) et
+  // bordereaux_savr.date_collecte portait le jour d'émission. La date d'intervention est
+  // `collectes.date_collecte`, jamais la date du jour : on fige l'horloge à un jour
+  // DIFFÉRENT de la collecte pour que le test distingue les deux.
+  const JOUR_BATCH = new Date('2026-10-01T04:00:00.000Z'); // 06:00 Paris (été)
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('bordereau + rapport : date_collecte = date de la collecte, date_emission = jour du batch', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(JOUR_BATCH);
+
+    const collecte = makeCollecte({
+      date_collecte: '2026-09-10',
+      realisee_at: '2026-09-11T02:00:00.000Z',
+      evenements: {
+        ...makeCollecte().evenements,
+        // Événement du 09/09, intervention la nuit suivante : la mention
+        // « Intervention le … » n'apparaît que si les deux dates diffèrent.
+        date_evenement: '2026-09-09',
+      },
+    });
+    const sb = makeSupabase([
+      { data: [collecte], error: null }, // select collectes
+      { data: [], error: null }, // bordereaux existants
+      { count: 1, error: null }, // count collecte_flux
+      {
+        data: [
+          { flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Biodéchets' } },
+        ],
+      }, // flux
+      { data: 'BSAV-2026-00042', error: null }, // rpc numero
+      {
+        data: { nom: 'Strike Transport', siret: '98765432100011' },
+      }, // shared.prestataires
+      {
+        data: {
+          evenement: {
+            type_evenement_id: 't1',
+            type_evenement: { libelle: 'Gala' },
+          },
+        },
+      }, // resolveRapportBenchmark : type d'événement
+      { data: { id: 'bord-date' }, error: null }, // insert bordereaux_savr
+      { data: { id: 'rse-date' }, error: null }, // insert rapports_rse
+      { data: null, error: null }, // job bordereau
+      { data: null, error: null }, // job rapport
+    ]);
+
+    const result = await runBatchPdfJ1(sb as never);
+    expect(result.enqueued).toBe(1);
+    expect(result.errors).toHaveLength(0);
+
+    // La sélection doit demander la colonne (sinon undefined → '' silencieux).
+    const selectArgs = (sb._chain.select as ReturnType<typeof vi.fn>).mock
+      .calls[0]![0] as string;
+    expect(selectArgs).toMatch(/\bdate_collecte\b/);
+
+    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+
+    // Ligne bordereaux_savr (document réglementaire, snapshot) : DATE « YYYY-MM-DD ».
+    const bordRow = insertCalls.find(
+      (c) => c[0].numero === 'BSAV-2026-00042',
+    )?.[0];
+    expect(bordRow).toBeDefined();
+    expect(bordRow!.date_collecte).toBe('2026-09-10');
+    expect(bordRow!.date_emission).toBe('2026-10-01');
+
+    // Payload bordereau (rendu Railway) : « JJ/MM/AAAA ».
+    const bordJob = insertCalls.find(
+      (c) => c[0].type_document === 'bordereau-zd',
+    )?.[0];
+    const bordPayload = bordJob!.payload as Record<string, string>;
+    expect(bordPayload.date_collecte).toBe('10/09/2026');
+    expect(bordPayload.date_evenement).toBe('09/09/2026');
+    expect(bordPayload.date_emission).toBe('01/10/2026');
+
+    // Payload rapport : même date d'intervention, et le bordereau embarqué aussi.
+    const rapJob = insertCalls.find(
+      (c) => c[0].type_document === 'rapport-recyclage-zd',
+    )?.[0];
+    const rapPayload = rapJob!.payload as {
+      date_collecte: string;
+      date_evenement: string;
+      bordereau: { date_collecte: string };
+    };
+    expect(rapPayload.date_collecte).toBe('10/09/2026');
+    expect(rapPayload.date_evenement).toBe('09/09/2026');
+    expect(rapPayload.bordereau.date_collecte).toBe('10/09/2026');
   });
 });

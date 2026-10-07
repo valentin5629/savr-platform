@@ -4,11 +4,12 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { type Role, NAV_CONFIG } from '@/lib/nav-config';
+import { getNavItems, hrefNavActif } from '@/lib/nav-config';
+import type { NavRole } from '@/lib/roles';
 
 interface BottomNavProps {
-  role: Role;
-  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack — §06.05 l.71). */
+  role: NavRole;
+  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack). */
   hiddenNavHrefs?: string[];
   className?: string;
 }
@@ -18,7 +19,8 @@ const BottomNav = React.forwardRef<HTMLElement, BottomNavProps>(
   ({ role, hiddenNavHrefs, className }, ref) => {
     const pathname = usePathname();
     const hidden = new Set(hiddenNavHrefs ?? []);
-    const items = (NAV_CONFIG[role]?.flatMap((g) => g.items) ?? [])
+    const hrefActif = hrefNavActif(role, pathname);
+    const items = getNavItems(role)
       .filter((i) => !hidden.has(i.href))
       .slice(0, 4);
 
@@ -32,8 +34,7 @@ const BottomNav = React.forwardRef<HTMLElement, BottomNavProps>(
         )}
       >
         {items.map((item) => {
-          const isActive =
-            pathname === item.href || pathname.startsWith(item.href + '/');
+          const isActive = item.href === hrefActif;
           const Icon = item.icon;
           return (
             <Link

@@ -34,6 +34,7 @@ import {
 } from '../provider-tournees.js';
 import type { CreateMissionPayload } from './client.js';
 import { EverestClient } from './client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 // Mapping branche_attribution → service_id Everest (§08 §3 V1, tableau l.264-269).
 // BL-P1-API-04 — service 77 (camion express > 3,5h, Marathon indisponible) mappé
@@ -63,6 +64,16 @@ interface TourneeRow {
   statut: string;
   rang: number;
   prestataire_logistique_id: string | null;
+  /** Lu par findTournees seulement ; `undefined` = colonne non lue. */
+  type_vehicule?: string | null;
+}
+
+// Service Everest → type de véhicule de la tournée (91/77 = poids lourd, sinon
+// vélo cargo) ; la fiche en déduit « Sans objet (vélo cargo) » pour la plaque.
+function typeVehiculeDuService(
+  serviceId: number,
+): 'poids_lourd' | 'velo_cargo' {
+  return serviceId === 91 || serviceId === 77 ? 'poids_lourd' : 'velo_cargo';
 }
 
 interface AttributionRow {
@@ -120,7 +131,9 @@ export class AdapterEverest implements LogistiqueProvider {
     collecte: Collecte,
     rang: number,
   ): Promise<ConsumerTag> {
-    // V1 : 1 collecte AG = 1 mission Everest (rang toujours 1)
+    // N véhicules = N missions identiques (décision Val 2026-10-01) : le worker
+    // appelle ce dispatch pour chaque rang 1..nb_camions_demande, 1 tournée
+    // `EVR-{collecte}-{rang}` + 1 mission par rang.
     const tourneeExistante = await this.findTournee(collecte.id, rang);
 
     // Idempotence : la vérité sur « une mission existe-t-elle chez Everest ? »
@@ -158,6 +171,16 @@ export class AdapterEverest implements LogistiqueProvider {
     // Lire branche_attribution depuis attributions_antgaspi
     const serviceId = await this.resolveServiceId(collecte.id);
 
+    // Point B = association (cf. Collecte.association_adresse). Sans elle, refus
+    // permanent HORS du try : ce n'est pas un refus du transporteur, et aucune
+    // tournée ne doit être créée.
+    const adresseLivraison = collecte.association_adresse;
+    if (!adresseLivraison) {
+      throw new LogistiquePermanentError(
+        `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à Everest`,
+      );
+    }
+
     // Créer ou récupérer la tournée. Le rang déjà lié à une tournée A Toutes!
     // est repris tel quel : c'est le cas d'une mission refusée puis réattribuée,
     // dont fn_dispatcher_collecte a réinitialisé la tournée en place (arbitrage
@@ -166,12 +189,33 @@ export class AdapterEverest implements LogistiqueProvider {
     // son rattachement au rang déjà pris échouerait.
     const tournee =
       tourneeExistante ?? (await this.upsertTournee(collecte, rang, serviceId));
+    // Tournée créée par l'Admin (saisie chauffeur avant dispatch, C2 Val
+    // 2026-10-06) : son type de véhicule est NULL — posé ici, sinon la plaque
+    // resterait « En attente » à vie sur un vélo cargo. Seule la colonne lue
+    // à NULL déclenche l'écriture ; une erreur ne bloque pas le dispatch.
+    if (tourneeExistante && tourneeExistante.type_vehicule === null) {
+      const { error: errType } = await this.supabase
+        .from('tournees')
+        .update({ type_vehicule: typeVehiculeDuService(serviceId) })
+        .eq('id', tourneeExistante.id);
+      if (errType) {
+        logger.warn('adapters.everest.type_vehicule_non_pose', {
+          tournee_id: tourneeExistante.id,
+          error: errType.message,
+        });
+      }
+    }
 
     // POST /missions/create
     let missionId: string | null = null;
     try {
       // client_ref = tournee.id (M14 W1 R_M14.2 / idempotence multi-camion V2)
-      const payload = this.buildMissionPayload(collecte, tournee.id, serviceId);
+      const payload = this.buildMissionPayload(
+        collecte,
+        tournee.id,
+        serviceId,
+        adresseLivraison,
+      );
       const pushAt = new Date().toISOString();
       const created = await this.client.createMission(payload, collecte.id);
       missionId = created.mission_id;
@@ -396,6 +440,7 @@ export class AdapterEverest implements LogistiqueProvider {
     collecte: Collecte,
     tourneeId: string,
     serviceId: number,
+    adresseLivraison: string,
   ): CreateMissionPayload {
     const slotMinutes = SERVICE_SLOT_MINUTES[serviceId] ?? 30;
     const [h = '00', m = '00'] = (collecte.heure_collecte ?? '00:00:00')
@@ -418,6 +463,19 @@ export class AdapterEverest implements LogistiqueProvider {
           name: collecte.contact_principal_nom,
           phone: collecte.contact_principal_telephone,
         },
+      },
+      // Point B (adresse vérifiée non vide par dispatchCollecte).
+      dropoff: {
+        address: adresseLivraison,
+        ...(collecte.association_contact_nom &&
+        collecte.association_contact_telephone
+          ? {
+              contact: {
+                name: collecte.association_contact_nom,
+                phone: collecte.association_contact_telephone,
+              },
+            }
+          : {}),
       },
       timeslot: {
         date: collecte.date_collecte,
@@ -466,7 +524,7 @@ export class AdapterEverest implements LogistiqueProvider {
     const { data, error } = await this.supabase
       .from('collecte_tournees')
       .select(
-        'rang, tournees!inner(id, external_ref_commande, statut, prestataire_logistique_id)',
+        'rang, tournees!inner(id, external_ref_commande, statut, prestataire_logistique_id, type_vehicule)',
       )
       .eq('collecte_id', collecteId);
 
@@ -517,8 +575,7 @@ export class AdapterEverest implements LogistiqueProvider {
     serviceId: number,
   ): Promise<TourneeRow> {
     const referenceInterne = `EVR-${collecte.id}-${rang}`;
-    const typeVehicule =
-      serviceId === 91 || serviceId === 77 ? 'poids_lourd' : 'velo_cargo';
+    const typeVehicule = typeVehiculeDuService(serviceId);
 
     const { data: existante } = await this.supabase
       .from('tournees')
@@ -579,7 +636,8 @@ export class AdapterEverest implements LogistiqueProvider {
    * d'affichage de la collecte (§04 Data Model l.1509, §06.06 bouton « Renvoyer
    * au TMS », §11 carte « Collectes non transmises »). Ce provider n'a pas de
    * notion de tour : la référence de rapprochement EST le missionId. Posée au
-   * rang 1 seulement (V1 : 1 collecte AG = 1 mission). JAMAIS un prédicat
+   * rang 1 seulement (référence d'affichage de la collecte ; les rangs > 1 ont
+   * leur propre tournée + mission, cf. dispatchCollecte). JAMAIS un prédicat
    * d'émission — cf. fn_collecte_commandee_chez_provider.
    *
    * L'`error` est lue : `uniq_tournee_par_external_ref` rend ce commit faillible,

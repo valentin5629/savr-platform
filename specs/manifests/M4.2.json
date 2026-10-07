@@ -5,6 +5,9 @@
   "fichiers_produits": [
     "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
     "supabase/tests/m4_2_registre.test.sql",
+    "supabase/migrations/20261004203000_plateforme_flux_dechets_exutoires_codes.sql",
+    "supabase/migrations/20261006130000_plateforme_flux_dechets_emballage_unite_kg.sql",
+    "supabase/tests/m4_2_flux_referentiel_exutoires.test.sql",
     "packages/plateforme/src/lib/registre/registre.ts",
     "packages/plateforme/src/lib/registre/csv.ts",
     "packages/plateforme/src/lib/registre/zip.ts",
@@ -141,9 +144,34 @@
       "test": "M4.2/registre_options_perimetre_complet + M4.2/registre_options_garde + M4.2 — Lieu : options du périmètre entier + M4.2 — options en échec",
       "statut": "implemented",
       "libelle": "Options des filtres Lieu / Traiteur du registre = tout le registre du périmètre (arbitrage Val F2 2026-10-01), et non plus les lignes de la page affichée : en choix multiple, cocher un lieu faisait disparaître les autres. Même garde et même vue RLS-safe que la liste (aucune donnée de plus) ; aucune troncature quel que soit max_rows ; si la route échoue, repli sur les lieux / traiteurs des lignes affichées (jamais une liste vide muette)."
+    },
+    {
+      "id": "M4.2-export-csv-ligne-par-flux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:118-122",
+      "artefact": "packages/plateforme/src/lib/registre/csv.ts (buildRegistreCsv : une ligne par flux pesé, les 20 colonnes du modèle + la colonne Lieu après le producteur ; fetchFluxDetail : lecture par tranches de 100 collectes) + packages/plateforme/src/app/api/v1/registre/export-csv/route.ts (nb_lignes = lignes du fichier) + packages/plateforme/src/lib/registre/registre.ts (FILIERE_LABELS) + packages/plateforme/src/app/api/v1/registre/[id]/route.ts (filière en clair)",
+      "test": "M4.2/export_csv_ligne_par_flux + M4.2/export_csv_flux_par_tranches + M4.2/export_csv_adresse_exutoire + M4.2/export_csv_filtre_flux + M4.2/export_csv_bordereau_non_emis + M4.2/export_csv_erreur_tranche + M4.2/export_csv_registre_ampute + M4.2/export_csv_agence_denied + M4.2/detail_registre_filiere_en_clair",
+      "statut": "implemented",
+      "libelle": "Export CSV du registre au grain FLUX (décision Val 2026-10-04, _Divergences/M4.2_20261004_export-registre-ligne-par-flux) : une ligne par flux pesé de chaque collecte, 20 colonnes dans l'ordre du modèle de collecte de données des gestionnaires de lieux (nature, code nomenclature, producteur = traiteur opérationnel (décision Val 2026-10-06, _Divergences/M4.2_20261006_export-registre-producteur-traiteur), date d'expédition = date de collecte, tonnage, filière, code de traitement final, n° de bordereau Savr, transporteur Savr au 50 rue des Moines 75017 Paris, exutoire intermédiaire = entrepôt Savr, exutoire final = site du flux), plus une seule colonne ajoutée : « Lieu », juste après le producteur (N° bordereau retiré le 2026-10-05, Traiteur et Date événement le 2026-10-06, Lieu replacé à côté du producteur le 2026-10-06 — décisions Val). Remplace le grain collecte du §06.03 pour tous les rôles. Filtre Flux actif : seules les lignes de ces flux sortent. N° de bordereau rendu seulement s'il est émis (un brouillon porte déjà un numéro). Pesées lues par tranches de 100 collectes, une tranche au plafond de 1000 lignes = erreur (jamais de registre amputé). Filière en clair aussi sur la fiche détail (bloc 6)."
+    },
+    {
+      "id": "M4.2-flux-referentiel-exutoires-codes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1036",
+      "artefact": "supabase/migrations/20261004203000_plateforme_flux_dechets_exutoires_codes.sql (flux_dechets : + code_traitement ; exutoire, adresse, code déchet, code de traitement et filière des 5 flux)",
+      "test": "flux_referentiel_adresse_decoupable + flux_referentiel_codes + flux_referentiel_lisible_client",
+      "statut": "implemented",
+      "libelle": "Référentiel des flux ZD renseigné (jamais rempli depuis le seed) : exutoire final et adresse « voie, code postal ville », code déchet européen, code de traitement final (colonne ajoutée), filière (biodéchets = méthanisation, résiduel = valorisation énergétique). Sources : export Veolia des enlèvements à l'entrepôt (4 flux), Paprec Trivalo 93 pour les emballages (décisions Val 2026-10-04)."
+    },
+    {
+      "id": "M4.2-flux-referentiel-unite-kg",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1063-1067",
+      "artefact": "supabase/migrations/20261006130000_plateforme_flux_dechets_emballage_unite_kg.sql (flux_dechets : unité de mesure des Emballages passée de bac à kg)",
+      "test": "flux_referentiel_unite_kg",
+      "statut": "implemented",
+      "libelle": "Unité de mesure des 5 flux V1 = kg, comme l'écrit le CDC (« Valeurs initiales »). Le seed bloc8 avait semé les Emballages en bac ; décision Val 2026-10-06 : la spec a raison, la base est corrigée (une ligne de référentiel, l'enum garde ses trois valeurs)."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "073e5381079db28f883d0c38b62fa5cc73ec7f0944f82fc41976736f5d42ac77"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "e0572ad9a57c725fc86219304726b1348c893c1624c8eb342d1b4f5069b498d4"
   }
 }

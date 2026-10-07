@@ -12,6 +12,7 @@
     "packages/plateforme/src/app/api/v1/admin/dashboard-client/route.ts",
     "packages/plateforme/src/app/api/v1/admin/dashboard-client/organisations/route.ts",
     "packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/filtres/route.ts",
     "packages/plateforme/src/app/(admin)/admin/dashboard-client/page.tsx",
     "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
     "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx",
@@ -31,7 +32,9 @@
     "M3.6/organisations_liste_pour_selecteur",
     "M3.6/benchmark_staff_service_role",
     "M3.6/dashboard_client_toutes_organisations_lecture_seule",
-    "M3.6/dashboard_client_filtres_organisations_par_type"
+    "M3.6/dashboard_client_filtres_organisations_par_type",
+    "M3.6/benchmark_admin_reference_filtres_sans_k_anonymat",
+    "M3.6/benchmark_admin_filtres_options"
   ],
   "deliverables": [
     {
@@ -112,7 +115,7 @@
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
       "test": "M3.6/cockpit_declinaison_kpi_cards + M3.6/cockpit_declinaison_onglet_ag + M3.6/dashboard_client_toutes_organisations_lecture_seule",
       "statut": "implemented",
-      "libelle": "R24c — Déclinaison Cockpit COMPLÈTE du Dashboard Client Admin (§06.06 §2, « reprise EXACTE du dashboard gestionnaire », retour Val « je ne vois pas les graphs »). Rendu full-graphes : KpiCockpitCard (ZD 5 / AG 5, dont carte « CO₂ évité » cliquable → modale « Impact carbone » = héros CO₂ + méthode ABC/FAO, retour Val R24c ; parité traiteur, Σ figées collectes.co2_*) + Bloc 2 EvolutionZd/AgChart + Bloc 4 TonnagesDonut + Bloc 3 jauges Cockpit BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28) + Bloc 6 Top lieux + Bloc 7 Top traiteurs + Bloc 3 AG Top associations + Bloc 5 Prochaines. LECTURE SEULE au sens DONNÉES (aucune écriture) ; les Top lieux/traiteurs sont cliquables → drill-down /admin/collectes filtrée (cf. M3.6-drilldown), la carte CO₂ ouvre une modale d'info. Comble le gap pré-existant. BenchmarkGauge SUPPRIMÉ (Cockpit partout). DS appliqué. LIMITE CONNUE (pas une régression) : Bloc 3 benchmark admin lit le parc global anonymisé (tous brackets) SANS barre de filtre 5-critères §06.05 (endpoint admin ne prend que `bracket`) = follow-up."
+      "libelle": "R24c — Déclinaison Cockpit COMPLÈTE du Dashboard Client Admin (§06.06 §2, « reprise EXACTE du dashboard gestionnaire », retour Val « je ne vois pas les graphs »). Rendu full-graphes : KpiCockpitCard (ZD 5 / AG 5, dont carte « CO₂ évité » cliquable → modale « Impact carbone » = héros CO₂ + méthode ABC/FAO, retour Val R24c ; parité traiteur, Σ figées collectes.co2_*) + Bloc 2 EvolutionZd/AgChart + Bloc 4 TonnagesDonut + Bloc 3 jauges Cockpit BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28) + Bloc 6 Top lieux + Bloc 7 Top traiteurs + Bloc 3 AG Top associations (Bloc 5 « Prochaines collectes » retiré le 2026-10-01, décision Val, comme sur les dashboards clients). LECTURE SEULE au sens DONNÉES (aucune écriture) ; les Top lieux/traiteurs sont cliquables → drill-down /admin/collectes filtrée (cf. M3.6-drilldown), la carte CO₂ ouvre une modale d'info. Comble le gap pré-existant. BenchmarkGauge SUPPRIMÉ (Cockpit partout). DS appliqué. Ex-LIMITE CONNUE (Bloc 3 admin sans barre de filtres, parc anonymisé seul) levée le 2026-10-02 — cf. M3.6-benchmark-admin-reference."
     },
     {
       "id": "M3.6-cockpit-endpoint",
@@ -120,7 +123,7 @@
       "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts + packages/plateforme/src/app/api/v1/admin/dashboard-client/route.ts + packages/plateforme/src/lib/dashboards/loaders.ts (buildEvolutionSeries exporté)",
       "test": "M3.6/kpi_zd_4_indicateurs_pondere + M3.6/kpi_ag_repas_donnes + M3.6/kpi_toutes_organisations_sans_filtre_org + M3.6/kpi_organisations_selectionnees_filtre_in + M3.6/kpi_filtre_periode_date_collecte",
       "statut": "implemented",
-      "libelle": "R24c — Loader Admin cross-org loadAdminDashboardClient (service_role, scope organisation_ids[] ; vide = toutes) renvoyant le dashboard COMPLET (kpi + kgParPaxParFlux + évolution + blocs top/prochaines + co2) en réutilisant EXACTEMENT les algos purs des dashboards client (computeDashboardKpi + buildEvolutionSeries + topLieuxFrom + aggregateActeurs + topAssociationsFrom + kgParPaxParFluxFrom + co2Totals) → parité de sémantique. Seul le SCOPE diffère (service_role + filtre org explicite, jamais RLS). Résolution des noms de traiteur via organisations (service_role). Route inchangée sur ses gardes (requireStaff, filtre org/date, 401/403)."
+      "libelle": "R24c — Loader Admin cross-org loadAdminDashboardClient (service_role, scope organisation_ids[] ; vide = toutes) renvoyant le dashboard COMPLET (kpi + kgParPaxParFlux + évolution + blocs top + co2) en réutilisant EXACTEMENT les algos purs des dashboards client (computeDashboardKpi + buildEvolutionSeries + topLieuxFrom + aggregateActeurs + topAssociationsFrom + kgParPaxParFluxFrom + co2Totals) → parité de sémantique. Seul le SCOPE diffère (service_role + filtre org explicite, jamais RLS). Résolution des noms de traiteur via organisations (service_role). Route inchangée sur ses gardes (requireStaff, filtre org/date, 401/403)."
     },
     {
       "id": "M3.6-scope-operateur",
@@ -153,10 +156,18 @@
       "test": "M3.6/kpi_cartes_sparkline_et_variation_n1_co2_compris",
       "statut": "implemented",
       "libelle": "Dashboard Client Admin = reprise exacte du gestionnaire (§06.05 l.136) : sparkline + variation N-1 sur les cartes (sauf kg/pax), CO₂ évité compris (co2_evite_kg par bucket, sélectionné par le loader Admin). Variation = 2e appel /admin/dashboard-client sur previousWindow, même périmètre d'organisations, non bloquant."
+    },
+    {
+      "id": "M3.6-benchmark-admin-reference",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:141",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (loadAdminBenchmarkComparaison + loadAdminBenchmarkFiltres) + packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/route.ts + packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/filtres/route.ts + packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx (avertissementComparaisonSoi) + packages/plateforme/src/components/dashboards/charts/cockpit/BenchmarkRadar.tsx (referenceLabel/referenceCourt)",
+      "test": "M3.6/benchmark_admin_reference_filtres_sans_k_anonymat + M3.6/benchmark_admin_filtres_options + M3.6/benchmark_staff_service_role",
+      "statut": "implemented",
+      "libelle": "Décision Val 2026-10-02 (divergence _Divergences/M3.6_20261002_benchmark-admin-reference-sans-k-anonymat.md, à patcher dans le Vault) : le radar Bloc 3 ZD du Dashboard Client Admin gagne l'encart « Comparer avec » (Type d'événement / Taille / Lieux / Traiteurs, même BenchmarkFilterBar que les clients, options servies par la route Admin /benchmark/filtres en service_role) qui paramètre la ligne de référence — ex. comparer un traiteur (périmètre sélectionné = « Vous ») à un autre (filtre Traiteurs). La référence est calculée côté serveur par loadAdminBenchmarkComparaison (collectes clôturées ZD du parc, période fixe 24 mois glissants §06.05 l.172, filtres traiteur opérationnel / lieu / type / taille, Σ kg flux / Σ pax = formule identique à la ligne « Vous » via kgParPaxParFluxFrom) SANS k-anonymat : l'Admin voit déjà chaque organisation en clair, un segment masqué ne protégerait rien. f_benchmark_kg_pax_zd (k ≥ 5 collectes et ≥ 3 acteurs) n'est plus appelée côté Admin et reste la seule source des dashboards clients, inchangée. UI : légende « Moyenne parc » (parc entier, défaut) → « Périmètre comparé » dès qu'un lieu ou un traiteur est filtré ; ligne « Référence : N collectes clôturées Zéro Déchet du … au …, sans seuil d'anonymisation (vue Admin) » ; pas d'avertissement « vos propres données » (l'Admin n'a pas de lieux/traiteurs à lui). Aucune migration, aucune policy RLS touchée, requireStaff inchangé (401/403 testés)."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "01a8018a9b56b7080470bc2005a7e7027bb9b547842d3ecbcde70536667c38ff",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8e6a7a85f7b1b0805cbdbd3bcb362d233168d6665705604d6f4f7f798fdd7353"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a217d2a2fc80d1152d1bb6417705a8a5dd72dd09a5923415b96807803c2c27cb",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "1624f7d10800fae8c89bb6757d87949d81edab35aa94e96d8c8e6d668c58208a"
   }
 }

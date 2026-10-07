@@ -1,12 +1,16 @@
 'use client';
 
+import { LoadingState } from '@/components/ui/loading-state';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PlusCircle, FileEdit, CalendarDays, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageHero } from '@/components/ui/page-hero';
+import { Text } from '@/components/ui/text';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { ROUTES } from '@/lib/routes';
 
 interface BrouillonRow {
   id: string;
@@ -29,8 +33,16 @@ export default function BrouillonsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const { confirmer, dialogue } = useConfirm();
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer ce brouillon ? Cette action est irréversible.'))
+    if (
+      !(await confirmer({
+        title: 'Supprimer ce brouillon ?',
+        children: 'Cette action est irréversible.',
+        confirmLabel: 'Supprimer',
+        variant: 'destructive',
+      }))
+    )
       return;
     setDeleting(id);
     await fetch(`/api/v1/programmation/evenements/${encodeURIComponent(id)}`, {
@@ -42,25 +54,21 @@ export default function BrouillonsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-savr-neutral-900">
-          Mes brouillons
-        </h1>
-        <Button asChild>
-          <Link href="/programmer/nouveau">
-            <PlusCircle className="h-4 w-4" />
-            Nouvelle programmation
-          </Link>
-        </Button>
-      </div>
+      {dialogue}
+      <PageHero
+        icon={<FileEdit className="h-6 w-6 text-savr-primary-200" />}
+        title="Mes brouillons"
+        actions={
+          <Button variant="accent" asChild>
+            <Link href={ROUTES.programmer.nouveau}>
+              <PlusCircle />
+              Nouvelle programmation
+            </Link>
+          </Button>
+        }
+      />
 
-      {loading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-savr-lg" />
-          ))}
-        </div>
-      )}
+      {loading && <LoadingState variant="bloc" />}
 
       {!loading && rows.length === 0 && (
         <EmptyState
@@ -69,7 +77,7 @@ export default function BrouillonsPage() {
           description="Vos programmations enregistrées en brouillon apparaîtront ici."
           action={{
             label: 'Programmer une collecte',
-            onClick: () => router.push('/programmer/nouveau'),
+            onClick: () => router.push(ROUTES.programmer.nouveau),
           }}
         />
       )}
@@ -87,7 +95,11 @@ export default function BrouillonsPage() {
                     row.nom_evenement ??
                     'Sans nom'}
                 </p>
-                <div className="flex items-center gap-3 text-xs text-savr-neutral-500">
+                <Text
+                  as="div"
+                  variant="hint"
+                  className="flex items-center gap-3"
+                >
                   <span className="flex items-center gap-1">
                     <CalendarDays className="h-3.5 w-3.5" />
                     {row.collectes[0]?.date_collecte ?? 'Date à définir'}
@@ -95,11 +107,11 @@ export default function BrouillonsPage() {
                   <span>
                     {row.collectes.map((c) => c.type.toUpperCase()).join(' + ')}
                   </span>
-                </div>
+                </Text>
               </div>
               <div className="flex gap-2 shrink-0">
                 <Button variant="secondary" size="sm" asChild>
-                  <Link href={`/programmer/brouillon/${row.id}`}>
+                  <Link href={ROUTES.programmer.brouillon(row.id)}>
                     Reprendre
                   </Link>
                 </Button>
@@ -108,7 +120,7 @@ export default function BrouillonsPage() {
                   size="sm"
                   onClick={() => void handleDelete(row.id)}
                   disabled={deleting === row.id}
-                  className="text-savr-error hover:bg-red-50 hover:border-savr-error"
+                  className="text-savr-error hover:bg-savr-error-subtle hover:border-savr-error"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Supprimer

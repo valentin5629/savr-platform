@@ -452,10 +452,11 @@ jobs:
   # insère des lignes en amont décale le fichier et les refs figées pointent un
   # passage sans rapport, en silence. Ni manifest-grain (structure seule) ni
   # cdc-drift (hash de fichier entier) ne regardent le numéro de ligne. Reconstruit
-  # l'ancre par `git blame` du manifeste → version d'époque du CDC → recherche du
-  # texte ancré aujourd'hui. Pur Node (tsx), sans DB.
-  # ⚠ `fetch-depth: 0` OBLIGATOIRE : sans historique, le blame est vide et le gate
-  # devient aveugle (il le signale dans son résumé).
+  # l'ancre par `git blame` du manifeste, puis SUIT la ligne de version en version
+  # du CDC par la carte de lignes des diffs (réécrite sur place = suivie ; remaniée
+  # ou supprimée = « à relire », compteur distinct). Pur Node (tsx), sans DB.
+  # ⚠ `fetch-depth: 0` OBLIGATOIRE : sur un clone tronqué, aucune ancre n'est
+  # reconstructible — le gate sort en erreur sans compteur, le cliquet rougit.
   # Enforcement via le méta-cliquet gate-ratchet (baseline 0 : parc recalé).
   manifest-ref-anchor:
     runs-on: ubuntu-latest
@@ -686,5 +687,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Régénère .cdc-metadata.json (cohérence G11 dans le cliquet)
         run: pnpm gen:cdc-metadata
+      # Le --self-test tourne AVANT le cliquet : un G12 redevenu muet y compterait
+      # zéro sans rien dire (2026-10-06 : « 0 décrochée / 440 » avec 61 refs sur un
+      # passage étranger). Dépôt jetable, 5 s, ne lit pas le dépôt réel.
+      - name: Auto-test G12 — le suivi des ref_cdc voit encore ce qu'il doit voir
+        run: pnpm check:manifest-ref-anchor --self-test
       - name: Méta-cliquet — aucun compteur de gate au-dessus de sa baseline
         run: pnpm check:ratchet

@@ -8,15 +8,20 @@ import { plaqueTmsComplete } from '@/lib/statut-tms-labels';
 export function PlaqueTmsPicto({
   tournees,
 }: {
-  tournees: { tournees: { plaque_immatriculation: string | null } }[];
+  tournees: {
+    tournees: {
+      plaque_immatriculation: string | null;
+      type_vehicule: string | null;
+    };
+  }[];
 }) {
   const complete = plaqueTmsComplete(tournees);
   return (
     <span
       data-testid="picto-plaque-tms"
-      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
+      className={`inline-flex items-center gap-1 rounded-savr-sm px-2 py-0.5 text-xs ${
         complete
-          ? 'bg-savr-success-subtle text-savr-success-600'
+          ? 'bg-savr-success-subtle text-savr-success-strong'
           : 'bg-savr-neutral-100 text-savr-neutral-400'
       }`}
       title={

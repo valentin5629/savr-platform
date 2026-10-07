@@ -3,8 +3,6 @@ export type {
   BenchmarkFilters,
   BenchmarkFilterOptions,
 } from './BenchmarkFilterBar.js';
-export { MultiSelectFilter } from './MultiSelectFilter.js';
-export type { MultiOption } from './MultiSelectFilter.js';
 export { ParcMultiSelects } from './ParcMultiSelects.js';
 export type { ParcFilterOptions, ParcFilterValue } from './ParcMultiSelects.js';
 export { TAILLE_OPTIONS } from './taille-options.js';
@@ -27,18 +25,17 @@ export {
   defaultEvenementsFilters,
 } from './EvenementsFilterBar.js';
 export type { EvenementsListFilters } from './EvenementsFilterBar.js';
-export type { CollecteType } from './CollecteTypeTabs.js';
-export { CollecteTypeTabs } from './CollecteTypeTabs.js';
+// `CollecteType` vit désormais avec le segmenté partagé (R-UI-4b, D1) ;
+// réexporté ici pour les consommateurs du barrel.
+export type { CollecteType } from '@/components/collecte/toggle-type-collecte';
 export type { DashboardFilters } from './DashboardFilterBar.js';
 export { DashboardFilterBar } from './DashboardFilterBar.js';
 export { EmptyDashboardState } from './EmptyDashboardState.js';
 export { RevenusHistogramme } from './RevenusHistogramme.js';
 export { TonnageDisplay } from './TonnageDisplay.js';
-export { ProchainesCollectesBloc } from './ProchainesCollectesBloc.js';
 export { ExportSyntheseBloc } from './ExportSyntheseBloc.js';
 export type {
   BlocsData,
-  ProchaineCollecte,
   TopLieu,
   TopActeur,
   TopAssociation,

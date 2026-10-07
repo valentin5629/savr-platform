@@ -4,7 +4,12 @@ import { useId, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
+import { FormError } from '@/components/ui/form-error';
+import { useToast } from '@/components/ui/toast';
+import { validatePasswordStrength } from '@/lib/password';
 
 // Panneau « Changer mon mot de passe » (transverse, tous rôles) — CDC §06.04 §7.
 // Câble le changement de mot de passe IN-APP pour l'utilisateur connecté :
@@ -12,21 +17,29 @@ import { Input } from '@/components/ui/input';
 // 10 caractères + majuscule + chiffre + spécial — est vérifiée côté serveur par
 // validatePasswordStrength, même helper que le signup). Remplace le lien inerte
 // « <a href="/login"> » de la carte Sécurité (BL-P1-TRAIT-02).
+// R-UI-5 F9 : la même fonction est rejouée ici avant le réseau, APRÈS le
+// contrôle de confirmation (ordre inchangé pour l'utilisateur) — jamais en
+// remplacement du contrôle serveur.
 export function ChangerMotDePassePanel(): React.JSX.Element {
   const idMotDePasse = useId();
   const idConfirmation = useId();
   const [motDePasse, setMotDePasse] = useState('');
   const [confirmation, setConfirmation] = useState('');
-  const [msg, setMsg] = useState<string | null>(null);
+  // Succès = toast 4 s (R-UI-1 H1).
+  const { toast } = useToast();
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
   async function soumettre(e: React.FormEvent): Promise<void> {
     e.preventDefault();
-    setMsg(null);
     setErreur(null);
     if (motDePasse !== confirmation) {
       setErreur('Les deux mots de passe ne correspondent pas.');
+      return;
+    }
+    const force = validatePasswordStrength(motDePasse);
+    if (!force.ok) {
+      setErreur(force.error);
       return;
     }
     setEnCours(true);
@@ -37,7 +50,7 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
         body: JSON.stringify({ mot_de_passe: motDePasse }),
       });
       if (res.ok) {
-        setMsg('Mot de passe mis à jour.');
+        toast({ title: 'Mot de passe mis à jour.', variant: 'success' });
         setMotDePasse('');
         setConfirmation('');
       } else {
@@ -56,7 +69,7 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
       </CardHeader>
       <CardContent>
         <form onSubmit={soumettre} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <FormGrid>
             <FormField label="Nouveau mot de passe" htmlFor={idMotDePasse}>
               <Input
                 id={idMotDePasse}
@@ -75,11 +88,11 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
                 autoComplete="new-password"
               />
             </FormField>
-          </div>
-          <p className="text-xs text-savr-neutral-500">
+          </FormGrid>
+          <Text variant="hint">
             Au moins 10 caractères, dont une majuscule, un chiffre et un
             caractère spécial.
-          </p>
+          </Text>
           <div className="flex items-center gap-3">
             <Button
               type="submit"
@@ -87,12 +100,7 @@ export function ChangerMotDePassePanel(): React.JSX.Element {
             >
               Mettre à jour
             </Button>
-            {msg && (
-              <span className="text-xs text-savr-success-600">{msg}</span>
-            )}
-            {erreur && (
-              <span className="text-xs text-savr-error-600">{erreur}</span>
-            )}
+            <FormError>{erreur}</FormError>
           </div>
         </form>
       </CardContent>

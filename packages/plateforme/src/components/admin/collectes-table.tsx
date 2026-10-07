@@ -14,7 +14,7 @@ import {
   Send,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { TypeCollecteBadge } from '@/components/collecte/type-collecte-badge';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { StatusCollecte } from '@/components/ui/status-collecte';
 import type { StatutCollecte } from '@/components/ui/status-collecte';
 import {
@@ -24,10 +24,15 @@ import {
   DropdownTrigger,
 } from '@/components/ui/dropdown';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
+import { estADispatcher } from '@/lib/collectes-chips';
 import { cn } from '@/lib/utils';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { formatDateHeure, heureOuMinuit } from '@/lib/format-date-collecte';
 import { CelluleVide } from '@/components/ui/data-grid';
+import { Text } from '@/components/ui/text';
+import { fmtEuro, fmtKgAuto, fmtPct } from '@/lib/format';
+import { IconButton } from '@/components/ui/icon-button';
+import { ROUTES } from '@/lib/routes';
 
 // ── Type de ligne collecte de la liste Admin (§06.06 §3) ──────────────────────
 // Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
@@ -45,6 +50,7 @@ export interface CollecteRow {
   type: 'zero_dechet' | 'anti_gaspi';
   statut: string;
   statut_tms: string;
+  tms_reference: string | null;
   dirty_tms: boolean;
   date_collecte: string;
   heure_collecte: string;
@@ -102,17 +108,13 @@ function aAttribuer(row: CollecteRow): boolean {
   );
 }
 
-// Collecte ZD « à dispatcher » : pas encore transmise au TMS et encore ouverte.
-// Prédicat aligné sur le chip « Non transmises ZD » (source unique
-// lib/collectes-chips → non_transmises_zd) : statut_tms 'non_envoye' ET statut
-// dans (programmee, validee). Pas d'attribution manuelle ZD (CDC §06.06 l.231)
-// → l'action ouvre la fiche (Bloc 0 « Envoyer à MTS-1 »).
-function aDispatcherZd(row: CollecteRow): boolean {
-  return (
-    row.type === 'zero_dechet' &&
-    row.statut_tms === 'non_envoye' &&
-    (row.statut === 'programmee' || row.statut === 'validee')
-  );
+// Collecte ZD « à dispatcher » : définition canonique §11 §1.1, écrite une
+// seule fois dans lib/collectes-chips (`estADispatcher`) — la même que le chip
+// « Non transmises ZD » et la tuile « ZD à dispatcher ». Pas d'attribution
+// manuelle ZD (CDC §06.06 l.231) → l'action ouvre la fiche (Bloc 0 « Envoyer à
+// MTS-1 »).
+export function aDispatcherZd(row: CollecteRow): boolean {
+  return row.type === 'zero_dechet' && estADispatcher(row);
 }
 
 // Criticité (§06.09 §1 / ALGO-02) : à attribuer ET à moins de 48h.
@@ -165,8 +167,8 @@ function attributionBadge(row: CollecteRow): {
 }
 
 function formatEuro(n: number, type: CollecteRow['type']): string {
-  const v = n.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
-  return type === 'zero_dechet' ? `${v} € HT` : `${v} €`;
+  const v = fmtEuro(n, 0);
+  return type === 'zero_dechet' ? `${v} HT` : v;
 }
 
 // ── Indicateurs de résultat (vue Historique) — repas AG / kg + taux ZD / rapport.
@@ -176,7 +178,12 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
   const repas = row.attributions_antgaspi?.volume_repas_realise;
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs font-bold text-savr-neutral-600 sm:justify-start">
+    <Text
+      as="div"
+      variant="hint"
+      tone="soft"
+      className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
+    >
       {row.type === 'anti_gaspi' && repas != null && (
         <span className="inline-flex items-center gap-1.5">
           <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
@@ -186,16 +193,13 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
       {row.type === 'zero_dechet' && poids > 0 && (
         <span className="inline-flex items-center gap-1.5">
           <Scale className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {poids.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} kg
+          {fmtKgAuto(poids)}
         </span>
       )}
       {row.type === 'zero_dechet' && row.taux_recyclage != null && (
         <span className="inline-flex items-center gap-1.5">
           <Recycle className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {row.taux_recyclage.toLocaleString('fr-FR', {
-            maximumFractionDigits: 0,
-          })}{' '}
-          %
+          {fmtPct(row.taux_recyclage, 0)}
         </span>
       )}
       {rapport &&
@@ -210,7 +214,7 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
             Rapport non consulté
           </span>
         ))}
-    </div>
+    </Text>
   );
 }
 
@@ -219,12 +223,12 @@ function IndicateursAVenir({ row }: { row: CollecteRow }) {
   const attribution = attributionBadge(row);
   const badges = [
     !row.informations_completes && (
-      <Badge key="info" variant="warning" className="text-[11px]">
+      <Badge size="sm" key="info" variant="warning">
         Info incomplète
       </Badge>
     ),
     row.type === 'anti_gaspi' && !aAttribuer(row) && (
-      <Badge key="attr" variant={attribution.variant} className="text-[11px]">
+      <Badge size="sm" key="attr" variant={attribution.variant}>
         {attribution.label}
       </Badge>
     ),
@@ -263,9 +267,13 @@ export function colonnesCollectesAdmin({
               {heure ? ` · ${heure}` : ''}
             </span>
             {estUrgente(r) && (
-              <span className="rounded-savr-full bg-savr-error px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-savr-white">
+              <Badge
+                variant="count"
+                size="sm"
+                className="uppercase tracking-wide"
+              >
                 Urgent
-              </span>
+              </Badge>
             )}
           </div>
         );
@@ -306,9 +314,13 @@ export function colonnesCollectesAdmin({
               {l.nom}
             </div>
             {adresse && (
-              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-savr-neutral-500">
+              <Text
+                as="div"
+                variant="hint"
+                className="overflow-hidden text-ellipsis whitespace-nowrap"
+              >
                 {adresse}
-              </div>
+              </Text>
             )}
           </div>
         );
@@ -332,10 +344,7 @@ export function colonnesCollectesAdmin({
       cell: ({ row: { original: r } }) => {
         const tms = statutTmsDisplay(r.statut_tms);
         return (
-          <Badge
-            variant={tms.variant}
-            className="whitespace-nowrap text-[11px]"
-          >
+          <Badge size="sm" variant={tms.variant} className="whitespace-nowrap">
             {tms.label}
           </Badge>
         );
@@ -367,8 +376,8 @@ export function colonnesCollectesAdmin({
       cell: ({ row: { original: r } }) =>
         r.controle_acces_requis ? (
           <Badge
+            size="sm"
             variant="info"
-            className="text-[11px]"
             title="Plaque + nom chauffeur communiqués avant exécution"
           >
             Oui
@@ -434,22 +443,20 @@ function ActionsCollecte({
   return (
     <Dropdown>
       <DropdownTrigger asChild>
-        <button
-          type="button"
+        <IconButton
           aria-label={
             attendue
               ? 'Actions sur la collecte (action attendue)'
               : 'Actions sur la collecte'
           }
           className={cn(
-            'inline-grid h-11 w-11 place-items-center rounded-savr-md hover:bg-savr-neutral-100 sm:h-9 sm:w-9',
-            attendue
-              ? 'bg-savr-accent-500 text-savr-primary-950 hover:bg-savr-accent-600'
-              : 'text-savr-neutral-500 hover:text-savr-neutral-900',
+            'sm:h-9 sm:w-9',
+            attendue &&
+              'bg-savr-accent-500 text-savr-primary-950 hover:bg-savr-accent-600 hover:text-savr-primary-950',
           )}
         >
-          <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-        </button>
+          <MoreHorizontal aria-hidden="true" />
+        </IconButton>
       </DropdownTrigger>
       <DropdownContent align="end">
         <DropdownItem onSelect={() => onOpen(row.id)}>
@@ -458,7 +465,7 @@ function ActionsCollecte({
         </DropdownItem>
         {aAttribuer(row) && (
           <DropdownItem asChild>
-            <Link href={`/admin/attributions-ag/${row.id}`}>
+            <Link href={ROUTES.admin.attributionAg(row.id)}>
               <ArrowRight aria-hidden="true" />
               Attribuer
             </Link>

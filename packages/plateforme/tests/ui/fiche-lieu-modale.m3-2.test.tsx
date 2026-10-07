@@ -416,6 +416,26 @@ describe('M3.2 / fiche lieu en pop-up', () => {
   );
 });
 
+describe('M3.2 / fiche lieu — identifiant de l’adresse', () => {
+  it(
+    'M3.2/fiche_lieu_modale_identifiant_mal_forme — ?lieu=. : « Lieu non trouvé », aucune requête de fiche',
+    async () => {
+      // « /lieux/. » serait normalisé par le navigateur vers la route de la
+      // liste : la fiche recevrait un tableau et planterait.
+      window.history.replaceState(null, '', `${LISTE}?lieu=.`);
+      renderAvecToasts(<GestionnaireLieuxPage />);
+      expect(
+        await screen.findByText('Lieu non trouvé', undefined, ATTENTE_UI),
+      ).toBeTruthy();
+      expect(screen.queryByRole('tab')).toBeNull();
+      expect(
+        appels.filter((a) => a.url.includes('/gestionnaire/lieux/.')),
+      ).toEqual([]);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('M3.2 / fiche lieu — demande de modification', () => {
   it(
     'M3.2/fiche_lieu_modale_hors_parc_sans_bouton — lieu lisible hors du parc : fiche en consultation, aucun bouton de demande',

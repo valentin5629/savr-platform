@@ -17,11 +17,10 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 import { statutEvenementConsolide } from '@/lib/libelles/evenement.js';
 
 // Export Événements — grain ÉVÉNEMENT (1 ligne = 1 événement, données agrégées).
-// Colonnes FIGÉES par §12 §2. Module partagé entre l'endpoint unifié (tous rôles
-// autorisés, scopés par RLS) et la route dédiée gestionnaire (périmètre
-// organisations_lieux explicite, défense en profondeur).
+// Colonnes FIGÉES par §12 §2. Servi par l'endpoint unifié (tous rôles autorisés,
+// scopés par RLS).
 
-export const EVENEMENTS_SELECT = `id, nom_evenement, date_evenement, pax,
+const EVENEMENTS_SELECT = `id, nom_evenement, date_evenement, pax,
   traiteur_operationnel_organisation_id,
   lieux!lieu_id(nom),
   types_evenements!type_evenement_id(libelle),
@@ -92,7 +91,7 @@ const COLUMNS: CsvColumn<EvenementRow>[] = [
  * de traiteur (vue whitelist) et les repas AG (helper C-1-safe) de façon
  * RLS-safe et uniforme pour tous les rôles.
  */
-export async function evenementsToCsv(
+async function evenementsToCsv(
   supabase: SupabaseClient,
   evts: Record<string, unknown>[],
   isStaff = false,

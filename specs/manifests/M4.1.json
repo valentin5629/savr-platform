@@ -11,8 +11,8 @@
     "packages/plateforme/src/lib/exports/builders.ts",
     "packages/plateforme/src/lib/exports/index.ts",
     "packages/plateforme/src/app/api/v1/exports/[entity]/route.ts",
-    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/export-csv/route.ts",
-    "packages/plateforme/tests/api/exports/exports.m4-1.test.ts"
+    "packages/plateforme/tests/api/exports/exports.m4-1.test.ts",
+    "packages/plateforme/src/lib/collectes-admin.ts"
   ],
   "scenarios": [
     "M4.1 / escapeCsvField (RFC 4180)",
@@ -26,7 +26,16 @@
     "cloisonnement",
     "export_csv_format_fr_et_filtres_actifs",
     "factures whitelist",
-    "M4.1 / evenements"
+    "M4.1 / evenements",
+    "M4.1/export_collectes_gestionnaire_autorise",
+    "M4.1/export_collectes_gestionnaire_filtres_liste",
+    "M4.1/export_collectes_gestionnaire_filtre_illisible_vide",
+    "M4.1/export_collectes_filtres_gestionnaire_bornes_au_role",
+    "M4.1/export_collectes_admin_filtres_liste",
+    "M4.1/export_collectes_admin_sans_tri_ni_page",
+    "M4.1/export_collectes_filtres_admin_bornes_au_staff",
+    "M4.1/export_collectes_lecture_par_tranches",
+    "M4.1/export_collectes_total_absent_echec"
   ],
   "deliverables": [
     {
@@ -124,6 +133,30 @@
       "test": "M4.1 / evenements",
       "statut": "implemented",
       "libelle": "M4.1 / evenements"
+    },
+    {
+      "id": "M4.1-export-collectes-gestionnaire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:365",
+      "artefact": "packages/plateforme/src/lib/exports/shared.ts (EXPORT_MATRIX.collectes) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport) + packages/plateforme/src/lib/collectes-gestionnaire.ts",
+      "test": "M4.1/export_collectes_gestionnaire_autorise + M4.1/export_collectes_gestionnaire_filtres_liste + M4.1/export_collectes_gestionnaire_filtre_illisible_vide + M4.1/export_collectes_filtres_gestionnaire_bornes_au_role",
+      "statut": "implemented",
+      "libelle": "Export Collectes ouvert au gestionnaire de lieux (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md ; le CDC §12 l.365/l.387 le bornait au grain événement). Le rôle entre dans la matrice de l'export Collectes : même requête que les autres rôles clients, sous la RLS de sa session (jamais service_role), donc le périmètre de sa liste — ses programmations et les collectes tenues sur ses lieux. L'export lit en plus les filtres propres à sa liste (traiteurs, type et taille d'événement) par la même fonction que la route de la liste ; un filtre demandé dont aucune valeur n'est lisible rend un fichier sans ligne, sans envoyer la requête. Ces filtres sont bornés au rôle : les exports traiteur et agence gardent leur règle « valeur illisible = filtre ignoré »."
+    },
+    {
+      "id": "M4.1-export-collectes-admin-filtres-liste",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:402",
+      "artefact": "packages/plateforme/src/lib/collectes-admin.ts (lireFiltresCollectesAdmin + appliquerFiltresCollectesAdmin : lecture ET application des filtres de la liste Collectes Admin, appelées par GET /api/v1/admin/collectes et par l'export) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport, branche staff)",
+      "test": "M4.1/export_collectes_admin_filtres_liste + M4.1/export_collectes_admin_sans_tri_ni_page + M4.1/export_collectes_filtres_admin_bornes_au_staff",
+      "statut": "implemented",
+      "libelle": "Export Collectes du staff aligné sur la liste Collectes de l'Admin (demande Val 2026-10-07 : l'export CSV existe sur la liste Collectes de tous les profils, Admin compris ; CDC §12 §2, colonne « Admin Savr » l.365 et règle l.402 « l'export respecte les filtres actifs »). Le fichier porte les lignes de la liste : pastilles rapides (chip), statuts affichés (« Créée » = demande non partie, « Programmée » = demande partie), type, traiteur opérationnel, lieux, période, info incomplète, infos d'accès à envoyer, rapport non consulté, périmètre d'organisations du drill-down, plus les paramètres à valeur unique encore lus par la route (organisation_id, statut_tms). Lecture et application faites par le même module que la route de la liste — un test compare, filtre par filtre, les prédicats posés par la liste et par l'export. Tri et page de la liste ne sont pas repris : toute la sélection, date de collecte décroissante. Bornés au staff : un rôle client ne peut pas prendre ces filtres par un paramètre, et le staff ne lit plus ceux des listes clientes (client, programmée par, info incomplète oui / non), qu'aucun écran staff n'envoie."
+    },
+    {
+      "id": "M4.1-export-collectes-lecture-par-tranches",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:365",
+      "artefact": "packages/plateforme/src/lib/exports/shared.ts (lireParTranches) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport : requête reconstruite à chaque tranche, tri date_collecte puis id, total exact demandé ; repas AG du staff lus dans l'embed attributions_antgaspi)",
+      "test": "M4.1/export_collectes_lecture_par_tranches + M4.1/export_collectes_total_absent_echec + staff : repas AG lus dans l’embed de la ligne",
+      "statut": "implemented",
+      "libelle": "Export Collectes complet au-delà du plafond de lignes de PostgREST (1 000 par réponse, mesuré sur savr-dev le 2026-10-07 : 2 010 lignes demandées, 1 000 servies). Le builder lit par tranches jusqu'au total exact annoncé par la requête, pour tous les rôles ; sans total, l'export échoue (500) plutôt que de rendre un fichier incomplet. Le staff est le premier rôle à dépasser 1 000 collectes (historique repris de Bubble). Repas AG du staff lus dans la ligne elle-même : l'ancienne lecture à part (in(collecte_id, …)) échouait sans erreur au-delà d'environ 250 collectes AG (URL trop longue, mesuré le même jour) et laissait la colonne vide. Les autres exports (pesées, événements, impact RSE, factures, packs) ne sont pas paginés par ce lot."
     }
   ],
   "cdc_source_hash": {

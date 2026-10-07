@@ -7,7 +7,7 @@ import {
 import { TAILLE_OPTIONS } from './taille-options.js';
 
 // Valeurs des 4 filtres « parc » communs (§06.05 §1) — hors Période (gérée par la
-// barre parente). Réutilisé par la barre globale du dashboard ET la liste Événements.
+// barre parente). Utilisé par la barre globale du dashboard.
 export interface ParcFilterValue {
   lieu_ids: string[];
   traiteur_ids: string[];

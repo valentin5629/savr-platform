@@ -171,6 +171,12 @@ VALUES
   ('f1100001-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'bdr/col1.pdf', 1024, 'application/pdf', 'plateforme.bordereaux_savr', 'bd100001-0000-0000-0000-000000000001'::uuid),
   ('f1100002-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'photos/col2.jpg', 2048, 'image/jpeg', 'plateforme.collectes', 'c01c0002-0000-0000-0000-000000000001'::uuid);
 
+-- Fichier de collecte CHOISI par l'équipe Savr (rang_client) : depuis
+-- 20261007203000 un client ne lit, parmi les fichiers d'une collecte, que ceux
+-- qui ont été choisis. Sans ce rang, le refus inter-organisations T11 serait vrai
+-- pour la mauvaise raison (photo non choisie, invisible même de son propriétaire).
+UPDATE shared.fichiers SET rang_client = 1 WHERE id = 'f1100002-0000-0000-0000-000000000001';
+
 -- Tarif pack AG
 -- uniq_tarif_pack_ag_ouvert_par_type (20260914160000) n'autorise qu'UNE ligne
 -- ouverte par type_pack : on ferme la version seedée avant d'ouvrir celle de la

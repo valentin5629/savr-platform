@@ -4,17 +4,12 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 import {
-  applyChipPredicate,
-  isChipKey,
-  type ChipQuery,
-} from '@/lib/collectes-chips.js';
-import { filtreStatutsAdmin } from '@/lib/statut-collecte-admin.js';
+  appliquerFiltresCollectesAdmin,
+  lireFiltresCollectesAdmin,
+} from '@/lib/collectes-admin.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
-import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
-import { Constants } from '@savr/shared/src/database.types.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
 const TRIS = {
@@ -30,51 +25,9 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
-  // Statuts demandés (CSV `statuts` §06.06 §3, ou l'ancien mono `statut`), en
-  // clés d'AFFICHAGE Admin : les statuts DB, où `programmee` veut dire « demande
-  // partie », plus `creee` pour sa moitié « non partie » (décision Val
-  // 2026-10-07). Liste blanche dans `filtreStatutsAdmin`.
-  const statutsDemandes = (
-    searchParams.get('statuts') ??
-    searchParams.get('statut') ??
-    ''
-  )
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const type = searchParams.get('type');
-  const statut_tms = searchParams.get('statut_tms');
-  const chip = searchParams.get('chip');
-  const from = searchParams.get('from');
-  const to = searchParams.get('to');
-  const organisation_id = searchParams.get('organisation_id'); // organisation programmatrice
-  // Filtre « traiteur » = traiteur OPÉRATIONNEL (décision Val R24c : un traiteur =
-  // son activité d'opérateur, y compris sous-traité pour une agence). Miroir exact
-  // du Top 5 traiteurs des dashboards (qui agrège par traiteur_operationnel).
-  const traiteur_operationnel_id = searchParams.get('traiteur_operationnel_id');
-  // Périmètre d'organisations (drill-down depuis le Dashboard Client Admin) —
-  // MÊME sémantique opérateur-inclusive que le loader dashboard : une org matche
-  // si elle est programmatrice OU traiteur opérationnel. Validé en UUID (défense en
-  // profondeur, la valeur est interpolée dans un `.or()` non paramétré).
-  const perimetreOrgIds = searchParams
-    .getAll('perimetre_org_ids[]')
-    .filter(estUuid);
-  const lieu_id = searchParams.get('lieu_id'); // lieu (autocomplete)
-  // Choix multiple de la barre de filtres (décision Val 2026-09-30) : listes
-  // CSV, prioritaires sur leur équivalent mono (même motif que `statuts`).
-  // Valeurs en liste blanche (types) ou validées UUID (ids) avant `.in()`.
-  const types = listeCsv(
-    searchParams.get('types'),
-    parmi(Constants.plateforme.Enums.collecte_type),
-  );
-  const traiteurOperationnelIds = listeCsv(
-    searchParams.get('traiteur_operationnel_ids'),
-    estUuid,
-  );
-  const lieuIds = listeCsv(searchParams.get('lieu_ids'), estUuid);
-  const info_incomplete = searchParams.get('info_incomplete'); // « Info incomplète »
-  const controle_acces = searchParams.get('controle_acces'); // « Infos accès à envoyer » = contrôle d'accès requis ET email non envoyé ET à venir
-  const rapport_non_consulte = searchParams.get('rapport_non_consulte'); // rapport non consulté
+  // Filtres de la liste : lus et appliqués par le module partagé avec l'export
+  // CSV (§12 §2), pour que le fichier porte exactement les lignes de la liste.
+  const filtres = lireFiltresCollectesAdmin(searchParams);
   const { page, limit, from: offset } = lirePagination(searchParams);
   // Tri de la Data Table (colonnes triables) — liste blanche : la valeur part
   // dans `.order()`. Côté serveur car la liste est paginée : trier la seule
@@ -85,10 +38,9 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
 
   // Embed rapports_rse : inner + filtrable quand on filtre « rapport non consulté »
   // (sinon left embed pour l'indicateur d'icône rapport de la liste).
-  const rapportEmbed =
-    rapport_non_consulte === 'true'
-      ? 'rapports_rse!collecte_id!inner(disponible_a, genere_at, regenere_at, consulte_par_user_at, version)'
-      : 'rapports_rse!collecte_id(disponible_a, genere_at, regenere_at, consulte_par_user_at, version)';
+  const rapportEmbed = filtres.rapportNonConsulte
+    ? 'rapports_rse!collecte_id!inner(disponible_a, genere_at, regenere_at, consulte_par_user_at, version)'
+    : 'rapports_rse!collecte_id(disponible_a, genere_at, regenere_at, consulte_par_user_at, version)';
 
   let query = supabase.from('collectes').select(
     `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte,
@@ -112,70 +64,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     query = query.order(c, { ascending: tri.ascendant });
   query = query.order('id', { ascending: tri.ascendant });
 
-  // Chips prédéfinis (§06.06 §3) — prédicats partagés avec /chip-counts.
-  if (chip && isChipKey(chip)) {
-    // Cast via `unknown` : le builder PostgREST est structurellement compatible
-    // avec ChipQuery mais la comparaison profonde déclenche TS2589.
-    query = applyChipPredicate(
-      query as unknown as ChipQuery,
-      chip,
-      new Date(),
-    ) as unknown as typeof query;
-  }
-
-  // Filtres de la barre — cumulés avec une pastille (décision Val
-  // 2026-09-30) : la liste = pastille ET barre ; sans filtre posé, elle reste
-  // le miroir exact du compteur de la pastille.
-  // Un brouillon vit dans le formulaire du programmeur (« Mes brouillons ») : il
-  // n'apparaît dans aucune liste Admin (décision Val 2026-10-07).
-  query = query.neq('statut', 'brouillon');
-  if (statutsDemandes.length > 0) {
-    const filtre = filtreStatutsAdmin(statutsDemandes);
-    // Rien de valide demandé (clé inconnue, brouillon) : aucune ligne, jamais
-    // une liste élargie.
-    if (!filtre) query = query.in('statut', []);
-    else if ('or' in filtre) query = query.or(filtre.or);
-    else query = query.in('statut', filtre.statuts);
-  }
-  if (types.length > 0) query = query.in('type', types);
-  else if (type) query = query.eq('type', type);
-  if (statut_tms) query = query.eq('statut_tms', statut_tms);
-  if (from) query = query.gte('date_collecte', from);
-  if (to) query = query.lte('date_collecte', to);
-  if (organisation_id)
-    query = query.eq('evenements.organisation_id', organisation_id);
-  if (traiteurOperationnelIds.length > 0)
-    query = query.in(
-      'evenements.traiteur_operationnel_organisation_id',
-      traiteurOperationnelIds,
-    );
-  else if (traiteur_operationnel_id)
-    query = query.eq(
-      'evenements.traiteur_operationnel_organisation_id',
-      traiteur_operationnel_id,
-    );
-  if (perimetreOrgIds.length > 0) {
-    const ids = perimetreOrgIds.join(',');
-    query = query.or(
-      `organisation_id.in.(${ids}),traiteur_operationnel_organisation_id.in.(${ids})`,
-      { referencedTable: 'evenements' },
-    );
-  }
-  if (lieuIds.length > 0) query = query.in('evenements.lieu_id', lieuIds);
-  else if (lieu_id) query = query.eq('evenements.lieu_id', lieu_id);
-  if (info_incomplete === 'true')
-    query = query.eq('informations_completes', false);
-  // Miroir EXACT du compteur KPI `controle_acces_a_envoyer` (chip-counts) :
-  // requis ET email récap non encore envoyé ET à venir → compteur = liste.
-  if (controle_acces === 'true') {
-    const today = jourParis();
-    query = query
-      .eq('controle_acces_requis', true)
-      .is('infos_acces_email_envoye_at', null)
-      .gte('date_collecte', today);
-  }
-  if (rapport_non_consulte === 'true')
-    query = query.is('rapports_rse.consulte_par_user_at', null);
+  query = appliquerFiltresCollectesAdmin(query, filtres, new Date());
 
   const { data, error, count } = await query.range(offset, offset + limit - 1);
   if (error) return serverError(error, 'admin.collectes.list');

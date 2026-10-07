@@ -101,6 +101,9 @@ import { FormActions } from '@/components/ui/form-actions';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ChoiceCard } from '@/components/ui/choice-card';
 import { FileButton } from '@/components/ui/file-button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -303,6 +306,8 @@ interface PhotoItem {
   id: string;
   content_type: string;
   created_at: string;
+  // Photo choisie par l'équipe Savr pour le client (2 au maximum par collecte).
+  visible_client: boolean;
   url: string | null;
 }
 interface DocumentsData {
@@ -607,6 +612,10 @@ export function CollecteDetailPanel({
   const [regenerating, setRegenerating] = useState<PdfType | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoEnCours, setPhotoEnCours] = useState<string | null>(null);
+  const nbPhotosClient = (documents?.photos ?? []).filter(
+    (p) => p.visible_client,
+  ).length;
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -690,6 +699,28 @@ export function CollecteDetailPanel({
       setDocError(body.error ?? 'Import de photo indisponible');
     }
     setPhotoUploading(false);
+  };
+
+  // Choisir / retirer une photo visible du client (PATCH …/photos/<id>).
+  const handlePhotoClient = async (photoId: string, visible: boolean) => {
+    setPhotoEnCours(photoId);
+    setDocError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/photos/${encodeURIComponent(photoId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visible_client: visible }),
+      },
+    );
+    if (res.ok) {
+      await refetchDocuments();
+      await refetchAudit();
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setDocError(body.error ?? 'Choix de la photo impossible');
+    }
+    setPhotoEnCours(null);
   };
 
   useEffect(() => {
@@ -2471,27 +2502,49 @@ export function CollecteDetailPanel({
                   </FileButton>
                 </div>
                 {documents?.photos && documents.photos.length > 0 ? (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                    {documents.photos.map((p) =>
-                      p.url ? (
-                        <img
-                          key={p.id}
-                          src={p.url}
-                          alt="Photo collecte"
-                          className="h-24 w-full object-cover rounded-savr-md border border-savr-neutral-200"
-                        />
-                      ) : (
-                        <Text
-                          as="div"
-                          variant="faint"
-                          className="h-24 w-full flex items-center justify-center rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50"
-                          key={p.id}
-                        >
-                          Photo
-                        </Text>
-                      ),
-                    )}
-                  </div>
+                  <>
+                    <Text variant="hint" className="mb-3">
+                      {`Le client ne voit que les photos cochées, ${MAX_PHOTOS_CLIENT} au maximum. ${nbPhotosClient} sur ${MAX_PHOTOS_CLIENT} choisie${nbPhotosClient > 1 ? 's' : ''}.`}
+                    </Text>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {documents.photos.map((p) => (
+                        <div key={p.id} className="space-y-1.5">
+                          {p.url ? (
+                            <img
+                              src={p.url}
+                              alt="Photo collecte"
+                              className="h-24 w-full object-cover rounded-savr-md border border-savr-neutral-200"
+                            />
+                          ) : (
+                            <Text
+                              as="div"
+                              variant="faint"
+                              className="h-24 w-full flex items-center justify-center rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50"
+                            >
+                              Photo
+                            </Text>
+                          )}
+                          <Label
+                            variant="choice"
+                            className="flex items-center gap-2"
+                          >
+                            <Checkbox
+                              checked={p.visible_client}
+                              disabled={
+                                photoEnCours !== null ||
+                                (!p.visible_client &&
+                                  nbPhotosClient >= MAX_PHOTOS_CLIENT)
+                              }
+                              onCheckedChange={(v) =>
+                                void handlePhotoClient(p.id, v === true)
+                              }
+                            />
+                            <span>Visible du client</span>
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 ) : (
                   <EmptyState
                     size="inline"

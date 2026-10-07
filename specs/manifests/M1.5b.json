@@ -77,6 +77,14 @@
       "libelle": "photo 404 → log non bloquant, retentée au poll suivant (pas d'orpheline)"
     },
     {
+      "id": "M1.5b-photo-entity-type",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:796",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
+      "statut": "implemented",
+      "libelle": "photo MTS-1 rangée dans shared.fichiers sous entity_type='plateforme.collectes' (table propriétaire, liste C1 des 9 entity_type) : même valeur que l'import manuel Admin, lue par la galerie de la fiche collecte Admin et par shared.f_fichier_visible ; dédup inchangée (clé de stockage seule)"
+    },
+    {
       "id": "M1.5b-ordre-sans-tournee",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
@@ -119,6 +127,7 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "81b4328dfe14fa1e73ab8c37697f0222d02d73b73b74dfb6584e3f2fb0bd0518",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9b2486cfd6af6c76f1c910f89640bdb2fa64fdd1a620b476bc515f3d8f6e5863"
   }
 }

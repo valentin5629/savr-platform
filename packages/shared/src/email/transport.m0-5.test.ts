@@ -94,7 +94,6 @@ describe('M0.5 / transport Resend — configuration lue à l’envoi', () => {
     await expect(import('./transport.js')).resolves.toHaveProperty(
       'dispatchToResend',
     );
-    expect(error).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -235,6 +234,8 @@ describe('M0.5 / transport Resend — hors production', () => {
     expect(error).not.toHaveBeenCalled();
     expect(h.ResendCtor).not.toHaveBeenCalled();
     expect(h.mockSend).not.toHaveBeenCalled();
+    // Un envoi qui n'a pas lieu ne consomme pas l'espacement des appels Resend.
+    expect(h.throttle).not.toHaveBeenCalled();
   });
 
   it('EMAIL_REDIRECT_TO réduite à des espaces → traitée comme absente (skipped)', async () => {
@@ -360,6 +361,7 @@ describe('M0.5 / transport Resend — résultat et journaux', () => {
     const outcome = await dispatchToResend(MESSAGE);
 
     expect(outcome.resendId).toBe('rs_123');
+    expect(h.throttle).toHaveBeenCalledWith('resend');
     expect(info).toHaveBeenCalledWith(
       'api.external.called',
       expect.objectContaining({

@@ -11,7 +11,6 @@
     "packages/plateforme/src/lib/exports/builders.ts",
     "packages/plateforme/src/lib/exports/index.ts",
     "packages/plateforme/src/app/api/v1/exports/[entity]/route.ts",
-    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/export-csv/route.ts",
     "packages/plateforme/tests/api/exports/exports.m4-1.test.ts"
   ],
   "scenarios": [
@@ -26,7 +25,11 @@
     "cloisonnement",
     "export_csv_format_fr_et_filtres_actifs",
     "factures whitelist",
-    "M4.1 / evenements"
+    "M4.1 / evenements",
+    "M4.1/export_collectes_gestionnaire_autorise",
+    "M4.1/export_collectes_gestionnaire_filtres_liste",
+    "M4.1/export_collectes_gestionnaire_filtre_illisible_vide",
+    "M4.1/export_collectes_filtres_gestionnaire_bornes_au_role"
   ],
   "deliverables": [
     {
@@ -124,6 +127,14 @@
       "test": "M4.1 / evenements",
       "statut": "implemented",
       "libelle": "M4.1 / evenements"
+    },
+    {
+      "id": "M4.1-export-collectes-gestionnaire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:365",
+      "artefact": "packages/plateforme/src/lib/exports/shared.ts (EXPORT_MATRIX.collectes) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport) + packages/plateforme/src/lib/collectes-gestionnaire.ts",
+      "test": "M4.1/export_collectes_gestionnaire_autorise + M4.1/export_collectes_gestionnaire_filtres_liste + M4.1/export_collectes_gestionnaire_filtre_illisible_vide + M4.1/export_collectes_filtres_gestionnaire_bornes_au_role",
+      "statut": "implemented",
+      "libelle": "Export Collectes ouvert au gestionnaire de lieux (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md ; le CDC §12 l.365/l.387 le bornait au grain événement). Le rôle entre dans la matrice de l'export Collectes : même requête que les autres rôles clients, sous la RLS de sa session (jamais service_role), donc le périmètre de sa liste — ses programmations et les collectes tenues sur ses lieux. L'export lit en plus les filtres propres à sa liste (traiteurs, type et taille d'événement) par la même fonction que la route de la liste ; un filtre demandé dont aucune valeur n'est lisible rend un fichier sans ligne, sans envoyer la requête. Ces filtres sont bornés au rôle : les exports traiteur et agence gardent leur règle « valeur illisible = filtre ignoré »."
     }
   ],
   "cdc_source_hash": {

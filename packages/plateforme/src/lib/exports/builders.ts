@@ -23,6 +23,7 @@ import {
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { estUuid, inTextes, listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { lireFiltresListeCollectes } from '@/lib/collectes/liste-collectes-client.js';
+import { lireFiltresCollectesGestionnaire } from '@/lib/collectes-gestionnaire.js';
 import {
   statutCollecteAdmin,
   type EnvoiCollecte,
@@ -32,7 +33,8 @@ import { Constants } from '@savr/shared/src/database.types.js';
 type Row = Record<string, unknown>;
 
 // ===========================================================================
-// COLLECTES (grain collecte) — admin/ops, traiteur (mgr+com), agence, client orga.
+// COLLECTES (grain collecte) — admin/ops, traiteur (mgr+com), agence, gestionnaire
+// de lieux, client orga.
 // Colonnes spec-fixées : date_evenement ET date_collecte + poids virgule (§12 §2).
 // ===========================================================================
 export async function buildCollectesExport(
@@ -45,6 +47,15 @@ export async function buildCollectesExport(
   // Filtres de la barre des listes Collectes traiteur / agence (§12 « l'export
   // respecte les filtres actifs ») — lus par la MÊME fonction que leurs routes.
   const filtres = lireFiltresListeCollectes(sp);
+  // Gestionnaire de lieux : sa liste filtre aussi par traiteur, type et taille
+  // d'événement — lus par la MÊME fonction que sa route (décision Val
+  // 2026-10-07 : l'export de la liste Collectes remplace celui de l'ancienne
+  // liste Événements). Bornés à ce rôle : les autres listes n'envoient pas ces
+  // paramètres, et leur règle « valeur illisible = filtre ignoré » reste la leur.
+  const filtresGestionnaire =
+    ctx.role === 'gestionnaire_lieux'
+      ? lireFiltresCollectesGestionnaire(sp)
+      : null;
 
   // Staff : le statut exporté est celui de l'écran Admin (« Créée » tant que la
   // demande n'est pas partie, « Programmée » ensuite — décision Val 2026-10-07),
@@ -92,10 +103,24 @@ export async function buildCollectesExport(
     q = q.eq('informations_completes', filtres.informationsCompletes);
   if (filtres.programmeePar.length > 0)
     q = q.in('evenements.organisation_id', filtres.programmeePar);
+  if (filtresGestionnaire) {
+    const { traiteurIds, typeEvtIds, predicatsTaille } = filtresGestionnaire;
+    if (traiteurIds.length > 0)
+      q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
+    if (typeEvtIds.length > 0)
+      q = q.in('evenements.type_evenement_id', typeEvtIds);
+    if (predicatsTaille.length > 0)
+      q = q.or(predicatsTaille.join(','), { referencedTable: 'evenements' });
+  }
 
-  const { data, error } = await q;
-  if (error) throw erreurInterne(error, 'exports.builders');
-  const rows = (data ?? []) as Row[];
+  // Filtre demandé sans aucune valeur lisible : fichier sans ligne, comme la
+  // liste — jamais le périmètre entier sous un filtre annoncé.
+  let rows: Row[] = [];
+  if (!filtresGestionnaire?.aucunResultat) {
+    const { data, error } = await q;
+    if (error) throw erreurInterne(error, 'exports.builders');
+    rows = (data ?? []) as Row[];
+  }
 
   const traiteurNoms = await resolveTraiteurNoms(
     ctx.supabase,

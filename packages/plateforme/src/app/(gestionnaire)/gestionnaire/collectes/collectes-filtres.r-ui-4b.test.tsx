@@ -352,3 +352,40 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
     ATTENTE_CAS_MS,
   );
 });
+
+// Décision Val 2026-10-07 : la liste Événements du gestionnaire est retirée, son
+// export CSV passe sur la liste Collectes (1 ligne = 1 collecte, §12 §2).
+describe('M3.2 / liste Collectes gestionnaire — export CSV', () => {
+  it(
+    'M3.2/collectes_export_csv_filtres_de_la_liste — « Exporter CSV » ouvre l’export Collectes avec les filtres de la liste, sans tri ni page',
+    async () => {
+      urlParams.current =
+        'lieu=L1,L2&traiteur=T1&type=zero_dechet&from=2026-01-01&to=2026-06-30&type_evenement_ids=ty-gala&taille_evenements=M,XL&tri=type&ordre=asc&page=2';
+      const urls = fetchEspion(120);
+      const ouvrir = vi.fn();
+      vi.stubGlobal('open', ouvrir);
+      render(<CollectesPage />);
+      await screen.findByRole('table', {}, ATTENTE_UI);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Exporter CSV' }));
+
+      expect(ouvrir).toHaveBeenCalledTimes(1);
+      const cible = String(ouvrir.mock.calls[0]![0]);
+      expect(cible.startsWith('/api/v1/exports/collectes?')).toBe(true);
+      const exporte = demande(cible);
+      const liste = demande(urls[urls.length - 1]!);
+      // Les filtres de la dernière requête de la liste, à l'identique…
+      expect(liste.get('lieu_ids')).toBe('L1,L2');
+      for (const cle of ['lieu_ids', 'traiteur_ids', 'type', 'from', 'to'])
+        expect(exporte.get(cle)).toBe(liste.get(cle));
+      for (const cle of ['type_evenement_ids[]', 'taille_evenements[]'])
+        expect(exporte.getAll(cle)).toEqual(liste.getAll(cle));
+      expect(exporte.getAll('taille_evenements[]')).toEqual(['M', 'XL']);
+      // … sans tri ni page : le fichier porte toute la sélection, pas une page.
+      expect(liste.get('page')).toBe('2');
+      for (const cle of ['tri', 'ordre', 'page'])
+        expect(exporte.has(cle)).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+});

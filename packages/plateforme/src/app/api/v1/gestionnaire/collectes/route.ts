@@ -6,8 +6,10 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
-import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire.js';
-import { estUuid, listeCsv } from '@/lib/filtre-csv.js';
+import {
+  COLLECTES_PAGE_SIZE as PAGE_SIZE,
+  lireFiltresCollectesGestionnaire,
+} from '@/lib/collectes-gestionnaire.js';
 import { parsePage } from '@/lib/pagination.js';
 import { lireTri } from '@/lib/tri-liste.js';
 
@@ -19,42 +21,6 @@ const TRIS = {
 } satisfies Record<string, string[]>;
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
-
-// Brackets « Taille d'événement » (§06.05 l.115) traduits en prédicats PostgREST
-// sur `evenements.pax`. Table de CONSTANTES : la valeur reçue du client sert de
-// clé, elle n'est jamais interpolée dans la chaîne `.or()`.
-//
-// Les clés héritées (`toString`, `constructor`, `__proto__`, `valueOf`…) sont
-// fermées par DEUX gardes indépendantes — il faut défaire les deux pour rouvrir
-// quoi que ce soit, et c'est mesuré : annuler la seule `Map` laisse la sonde
-// `collectes_route_taille_cle_heritee_rejetee` au VERT.
-//   • `Map` plutôt qu'objet littéral : pas de chaîne de prototypes, donc
-//     `?taille_evenements[]=toString` rend `undefined` là où `OBJ['toString']`
-//     rendrait la fonction native. Son apport PROPRE est ailleurs : elle protège
-//     d'une pollution réelle de `Object.prototype` par une dépendance tierce, qui
-//     pourrait y poser une *chaîne* — le seul cas où la garde de type céderait.
-//   • `typeof pred === 'string'` (plus bas) : rejette tout ce qui n'est pas une
-//     chaîne. Mesuré sur un objet littéral : les 12 clés héritées rendent des
-//     `function`/`object`, aucune n'est une chaîne — donc toutes écartées.
-// Un code non reconnu tombe alors dans le court-circuit « aucune taille
-// reconnue » et rend une liste vide, sans jamais atteindre PostgREST.
-//
-// ⚠ `pax` NULL compte **XS**, parce que la liste Événements du même espace calcule
-// `tailleBracket(pax ?? 0)`. Sans `pax.is.null` ici, le même filtre donnerait deux
-// périmètres différents selon l'écran qu'on regarde.
-//
-// ⚠ Ces prédicats doivent rester **en SQL**. La route voisine `gestionnaire/
-// evenements` filtre ses brackets en JS après la requête — elle le peut, elle
-// n'est pas paginée. Ici, un filtrage post-`.range()` filtrerait une PAGE au lieu
-// de l'ensemble et laisserait `total` à sa valeur non filtrée : la pagination
-// redeviendrait mensongère, ce que ce même écran vient de corriger.
-const PREDICAT_TAILLE = new Map<string, string>([
-  ['XS', 'pax.is.null,pax.lt.250'],
-  ['S', 'and(pax.gte.250,pax.lt.500)'],
-  ['M', 'and(pax.gte.500,pax.lt.750)'],
-  ['L', 'and(pax.gte.750,pax.lt.1000)'],
-  ['XL', 'pax.gte.1000'],
-]);
 
 // Embed to-one PostgREST : objet ou tableau selon le cache de schéma.
 type UnOuListe<T> = T | T[] | null;
@@ -126,24 +92,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const statut = sp.get('statut');
   const from = sp.get('from');
   const to = sp.get('to');
-  const lieuxDemandes = listeCsv(
-    sp.get('lieu_ids') ?? sp.get('lieu_id'),
-    Boolean,
-  );
-  const traiteursDemandes = listeCsv(
-    sp.get('traiteur_ids') ?? sp.get('traiteur_id'),
-    Boolean,
-  );
-  const lieuIds = lieuxDemandes.filter(estUuid);
-  const traiteurIds = traiteursDemandes.filter(estUuid);
-  // Filtres globaux du dashboard, propagés par le drill-down des Top listes
-  // (§06.05 l.209 : « filtres du dashboard propagés — période + Type/Taille
-  // d'événement »). Mêmes noms de paramètres que `gestionnaire/evenements`.
-  const typeEvtIds = sp.getAll('type_evenement_ids[]');
-  const taillesDemandees = sp.getAll('taille_evenements[]');
-  const predicatsTaille = taillesDemandees
-    .map((code) => PREDICAT_TAILLE.get(code))
-    .filter((pred): pred is string => typeof pred === 'string');
+  // Lieu, Traiteur, Type et Taille d'événement : lus par la même fonction que
+  // l'export CSV de la liste (`lib/collectes-gestionnaire`).
+  const { lieuIds, traiteurIds, typeEvtIds, predicatsTaille, aucunResultat } =
+    lireFiltresCollectesGestionnaire(sp);
   // `page` sous la première (0, -3, « abc ») retombe sur 1 plutôt que de produire
   // un range négatif. Le dépassement par le HAUT ne se borne pas ici — le total
   // n'est pas encore connu — il est rattrapé après la requête (voir plus bas).
@@ -151,20 +103,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const page = parsePage(sp);
   const offset = (page - 1) * PAGE_SIZE;
 
-  // Tailles demandées mais AUCUNE reconnue (code hors XS…XL) : renvoyer la liste
-  // non filtrée reviendrait à ignorer le filtre en silence — l'écran afficherait
-  // un périmètre plus large que celui qu'il annonce. La réponse honnête est
-  // « aucun événement n'a cette taille ».
-  if (taillesDemandees.length > 0 && predicatsTaille.length === 0) {
-    return NextResponse.json({ data: [], total: 0, page });
-  }
-  // Même règle pour Lieu et Traiteur : un identifiant mal formé est écarté (il
-  // ne désigne aucune ligne), mais si AUCUN de ceux demandés n'est lisible, le
-  // filtre ne s'efface pas pour autant.
-  if (
-    (lieuxDemandes.length > 0 && lieuIds.length === 0) ||
-    (traiteursDemandes.length > 0 && traiteurIds.length === 0)
-  ) {
+  // Un filtre demandé dont AUCUNE valeur n'est lisible (code de taille hors
+  // XS…XL, identifiant mal formé) : renvoyer la liste non filtrée reviendrait à
+  // ignorer le filtre en silence — l'écran afficherait un périmètre plus large
+  // que celui qu'il annonce.
+  if (aucunResultat) {
     return NextResponse.json({ data: [], total: 0, page });
   }
 
@@ -249,9 +192,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // porte donc aucune estimation, et la fonction n'est pas appelée pour elle.
   // C'est une estimation de l'ÉVÉNEMENT (couverts × coefficient annuel du
   // traiteur opérationnel) : deux collectes ZD d'un même événement portent la
-  // même valeur, calculée une seule fois. Même fonction SECURITY DEFINER que la
-  // liste Événements du rôle : la session ne lit jamais
-  // `coefficients_perte_labo`, seuls les kg sortent. Elle n'est appelée que
+  // même valeur, calculée une seule fois. Fonction SECURITY DEFINER : la
+  // session ne lit jamais `coefficients_perte_labo`, seuls les kg sortent. Elle n'est appelée que
   // pour les événements de la page que la RLS vient de rendre, soit PAGE_SIZE
   // appels au plus.
   // NULL = coefficient non communiqué → « — » à l'écran ; 0 = coefficient

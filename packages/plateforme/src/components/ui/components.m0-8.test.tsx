@@ -483,7 +483,12 @@ const NAV_EXPECTATIONS: Record<Role, string[]> = {
     'Mon profil',
   ],
   agence: ['Dashboard', 'Collectes', 'Mon organisation', 'Mon profil'],
-  gestionnaire_lieux: ['Dashboard', 'Mes lieux', 'Collectes', 'Événements'],
+  gestionnaire_lieux: [
+    'Dashboard',
+    'Mes lieux',
+    'Collectes',
+    'Registre réglementaire',
+  ],
   client_organisateur: ['Mes événements', 'Collectes'],
 };
 
@@ -520,6 +525,8 @@ it('M0.8-20 — nav gestionnaire_lieux affiche les entrées gestionnaire de lieu
   for (const expected of NAV_EXPECTATIONS.gestionnaire_lieux) {
     expect(items).toContain(expected);
   }
+  // Décision Val 2026-10-07 : « Événements » doublonnait « Collectes », retirée.
+  expect(items).not.toContain('Événements');
 });
 
 it('M0.8-21 — nav client_organisateur affiche les entrées client organisateur', () => {

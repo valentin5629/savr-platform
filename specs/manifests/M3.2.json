@@ -921,6 +921,14 @@
       "libelle": "Mon pack AG — état Error : un chargement en échec (réponse non OK ou réseau) affiche un message et « Réessayer », jamais « Aucun pack Anti-Gaspi actif », message réservé à une réponse normale sans pack."
     },
     {
+      "id": "M3.2-pack-ag-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:75",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de l'écran « Mon pack AG » du gestionnaire, desktop ET mobile < 640 px : mention « Annulée tardivement » sur la ligne d'une annulation débitée (sans repas ni association), absence du bloc « Historique packs », carte du pack (type en clair, dates JJ/MM/AAAA), état d'erreur avec « Réessayer ». GO visuel de Val attendu."
+    },
+    {
       "id": "M3.2-synthese-pdf-ag-par-vue",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:267",
       "artefact": "packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (buildSyntheseSnapshot, route POST /api/v1/dashboards/synthese-pdf) + packages/plateforme/src/lib/dashboards/attributions-ag.ts",

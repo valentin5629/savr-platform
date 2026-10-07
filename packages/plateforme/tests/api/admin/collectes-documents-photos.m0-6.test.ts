@@ -17,7 +17,8 @@ type Ligne = Record<string, unknown>;
 const COLLECTE = 'col-1';
 
 // Ligne telle que l'adapter du transporteur l'écrit (processPhotos) : clé
-// photos/<collecte>/<tour>/<stop>/<photo>.jpg, pas de created_by.
+// photos/<collecte>/<tour>/<stop>/<photo>.jpg, pas de created_by, et NON choisie
+// pour le client (rang_client vide : c'est l'équipe Savr qui choisit).
 const PHOTO_TRANSPORTEUR: Ligne = {
   id: 'f-transporteur',
   bucket: 'savr-test',
@@ -26,10 +27,12 @@ const PHOTO_TRANSPORTEUR: Ligne = {
   entity_type: 'plateforme.collectes',
   entity_id: COLLECTE,
   deleted_at: null,
+  rang_client: null,
   created_at: '2026-07-16T00:05:00Z',
 };
 
-// Ligne telle que l'import manuel Admin l'écrit (POST …/photos).
+// Ligne telle que l'import manuel Admin l'écrit (POST …/photos) : choisie
+// d'office pour le client s'il restait une place.
 const PHOTO_IMPORT_ADMIN: Ligne = {
   id: 'f-import-admin',
   bucket: 'savr-dev',
@@ -38,6 +41,7 @@ const PHOTO_IMPORT_ADMIN: Ligne = {
   entity_type: 'plateforme.collectes',
   entity_id: COLLECTE,
   deleted_at: null,
+  rang_client: 1,
   created_at: '2026-07-16T09:00:00Z',
 };
 
@@ -174,7 +178,7 @@ describe('M0.6 — GET admin/collectes/[id]/documents : galerie photos', () => {
 
     expect(res.status).toBe(200);
     const { photos } = (await res.json()) as {
-      photos: { id: string; url: string | null }[];
+      photos: { id: string; visible_client: boolean; url: string | null }[];
     };
     // Plus récente d'abord ; aucune des lignes HORS_GALERIE.
     expect(photos.map((p) => p.id)).toEqual([
@@ -185,8 +189,15 @@ describe('M0.6 — GET admin/collectes/[id]/documents : galerie photos', () => {
       id: 'f-transporteur',
       content_type: 'image/jpeg',
       created_at: '2026-07-16T00:05:00Z',
+      visible_client: false,
       url: `https://r2.test/savr-test/photos/${COLLECTE}/TOUR-ZD-001/stop-001/photo-001-a.jpg`,
     });
+    // L'équipe Savr voit toutes les photos ; la réponse dit lesquelles sont
+    // choisies pour le client (shared.fichiers.rang_client renseigné).
+    expect(photos.map((p) => [p.id, p.visible_client])).toEqual([
+      ['f-import-admin', true],
+      ['f-transporteur', false],
+    ]);
   });
 
   it("photo rangée sous une autre valeur d'entity_type : absente de la galerie", async () => {

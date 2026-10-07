@@ -112,6 +112,12 @@ VALUES
   ('f1100002-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'bdr/b.pdf', 1024, 'application/pdf', 'plateforme.bordereaux_savr', 'bd100002-0000-0000-0000-000000000001'::uuid),
   ('f1100003-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'photos/a.jpg', 2048, 'image/jpeg', 'plateforme.collectes', 'c01c0001-0000-0000-0000-000000000001'::uuid);
 
+-- Fichier de collecte CHOISI par l'équipe Savr (rang_client) : depuis
+-- 20261007203000 un client ne lit, parmi les fichiers d'une collecte, que ceux
+-- qui ont été choisis. Sans ce rang, T31 (refus inter-organisations) serait vrai pour
+-- la mauvaise raison et T37 (le propriétaire lit ses fichiers) échouerait.
+UPDATE shared.fichiers SET rang_client = 1 WHERE id = 'f1100003-0000-0000-0000-000000000001';
+
 -- Factures A et B
 INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, numero_facture, montant_ht, montant_ttc, statut)
 VALUES

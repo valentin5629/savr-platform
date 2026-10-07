@@ -39,6 +39,9 @@ interface EvolutionResult {
   zdSeries: FluxSeriePoint[];
   agSeries: RepasSeriePoint[];
   loading: boolean;
+  /** Le dernier chargement a échoué (réseau ou réponse en erreur) : les séries
+   *  sont alors vides, ce champ permet de ne pas le lire comme « aucune donnée ». */
+  erreur: boolean;
 }
 
 /**
@@ -58,11 +61,13 @@ export function useEvolutionBlocs(
     'mois',
   );
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState(false);
 
   useEffect(() => {
     if (!filters) return;
     let cancelled = false;
     setLoading(true);
+    setErreur(false);
     const qs = new URLSearchParams({
       from: filters.from,
       to: filters.to,
@@ -80,7 +85,10 @@ export function useEvolutionBlocs(
     );
 
     fetch(`/api/v1/dashboards/evolution?${qs}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then(
         (j: {
           data?: {
@@ -100,6 +108,7 @@ export function useEvolutionBlocs(
       )
       .catch(() => {
         if (!cancelled) {
+          setErreur(true);
           if (tab === 'zero_dechet') setZdSeries([]);
           else setAgSeries([]);
         }
@@ -113,5 +122,5 @@ export function useEvolutionBlocs(
     };
   }, [filters, tab]);
 
-  return { granularite, zdSeries, agSeries, loading };
+  return { granularite, zdSeries, agSeries, loading, erreur };
 }

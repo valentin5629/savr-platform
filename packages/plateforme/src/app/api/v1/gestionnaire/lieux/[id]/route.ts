@@ -5,7 +5,6 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { estUuid } from '@/lib/filtre-csv.js';
 import { estLieuDuParc } from '@/lib/lieux/parc.js';
@@ -24,10 +23,7 @@ const TRANCHE = 1000;
 
 interface CollecteDuLieu {
   id: string;
-  type: string;
   statut: string;
-  date_collecte: string | null;
-  taux_recyclage: number | null;
   evenements: unknown;
   collecte_flux: { poids_reel_kg?: number | null }[] | null;
 }
@@ -56,10 +52,8 @@ function poidsDe(c: CollecteDuLieu): number {
 //     limite de date — même règle de COMPTAGE que la fiche lieu Admin, §04
 //     note sous la table `lieux` ; le périmètre, lui, est celui que la RLS
 //     rend à la session, là où l'Admin lit tout), avec leur nombre de
-//     collectes et leur tonnage ZD. Le
-//     tonnage ne somme que les collectes clôturées, comme le « Tonnage ZD »
-//     de la liste Lieux et l'onglet Activité (pesées validées) ;
-//   - `collectes` : collectes clôturées des 12 derniers mois (onglet Activité) ;
+//     collectes et leur tonnage ZD. Le tonnage ne somme que les collectes
+//     clôturées, comme le « Tonnage ZD » de la liste Lieux (pesées validées) ;
 //   - `demande_modification_possible` : le lieu est dans le PARC de
 //     l'organisation (`organisations_lieux`) — seul cas où la fiche propose le
 //     bouton de demande ; un lieu simplement lisible (programmation passée sur
@@ -69,6 +63,8 @@ function poidsDe(c: CollecteDuLieu): number {
 //     `false` hors parc. Un lieu n'ayant qu'un gestionnaire rattaché (règle
 //     tenue par la route Admin des lieux, pas par une contrainte de base),
 //     cet état ne se lit pas d'une organisation à l'autre.
+// L'onglet Activité de la fiche ne lit pas cette route : il affiche le graphique
+// du dashboard (/api/v1/dashboards/evolution) filtré sur le lieu.
 // Toutes les collectes sont lues avec la session de l'utilisateur : la RLS de
 // `collectes` et de `evenements` borne ce qu'il lit.
 export async function GET(
@@ -108,13 +104,12 @@ export async function GET(
     const { data: page, error: collectesErr } = await supabase
       .from('collectes')
       .select(
-        `id, type, statut, date_collecte, taux_recyclage,
+        `id, statut,
          evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
            organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom)),
          collecte_flux(poids_reel_kg)`,
       )
       .eq('evenements.lieu_id', id)
-      .order('date_collecte', { ascending: false })
       .order('id')
       .range(debut, debut + TRANCHE - 1);
     if (collectesErr)
@@ -148,18 +143,6 @@ export async function GET(
         b.nb_collectes - a.nb_collectes || a.nom.localeCompare(b.nom, 'fr'),
     );
 
-  // Onglet Activité : collectes clôturées des 12 derniers mois (ordre de
-  // lecture conservé : plus récentes d'abord).
-  const since12m = new Date();
-  since12m.setMonth(since12m.getMonth() - 12);
-  const sinceStr = jourParis(since12m);
-  const collectes = toutes.filter(
-    (c) =>
-      c.statut === 'cloturee' &&
-      c.date_collecte != null &&
-      c.date_collecte >= sinceStr,
-  );
-
   // `alertes_admin` est fermée aux rôles clients : lecture service-role, pour
   // un lieu du parc seulement (vérifié ci-dessus sous la session). Seule
   // l'existence d'une demande ouverte est renvoyée, jamais son contenu.
@@ -183,7 +166,6 @@ export async function GET(
   return NextResponse.json({
     data: {
       ...lieu,
-      collectes,
       traiteurs,
       demande_modification_possible: parc.duParc,
       demande_modification_en_cours: demandeEnCours,

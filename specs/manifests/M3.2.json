@@ -266,7 +266,6 @@
     "M3.2/collectes_lien_a_plusieurs_valeurs_reduit_a_une_sans_chip",
     "M3.2/collectes_un_lieu_et_plusieurs_traiteurs_chip_sur_le_lieu",
     "M3.2/fiche_lieu_traiteurs_tous_statuts_tries",
-    "M3.2/fiche_lieu_activite_12_mois_cloturees_seules",
     "M3.2/fiche_lieu_demande_en_cours_exposee",
     "M3.2/fiche_lieu_hors_perimetre_sans_lecture_service_role",
     "M3.2/fiche_lieu_identifiant_mal_forme_404",
@@ -291,7 +290,6 @@
     "M3.2/fiche_lieu_modale_libelles_lisibles",
     "M3.2/fiche_lieu_modale_onglet_traiteurs_liste_complete",
     "M3.2/fiche_lieu_modale_onglet_traiteurs_vide",
-    "M3.2/fiche_lieu_modale_activite_vide_et_remplie",
     "M3.2/fiche_lieu_modale_lecture_seule",
     "M3.2/fiche_lieu_modale_erreur_chargement",
     "M3.2/fiche_lieu_modale_lieu_introuvable",
@@ -308,7 +306,11 @@
     "M3.2/demande_modification_lieu_caracteres_invisibles_retires",
     "M3.2/fiche_lieu_modale_hors_parc_sans_bouton",
     "M3.2/historique_lieu_admin_demande_gestionnaire",
-    "M3.2/demande_modification_lieu_du_parc_illisible_404"
+    "M3.2/demande_modification_lieu_du_parc_illisible_404",
+    "M3.2/fiche_lieu_sans_liste_de_collectes",
+    "M3.2/fiche_lieu_modale_activite_graphique_du_dashboard",
+    "M3.2/fiche_lieu_modale_activite_sans_collecte",
+    "M3.2/fiche_lieu_modale_activite_erreur"
   ],
   "deliverables": [
     {
@@ -955,10 +957,10 @@
     {
       "id": "M3.2-fiche-lieu-activite-12-mois",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:375-376",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (`collectes`) + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Activité)",
-      "test": "M3.2/fiche_lieu_activite_12_mois_cloturees_seules + M3.2/fiche_lieu_modale_activite_vide_et_remplie",
+      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Activité, `ActiviteLieu`) + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionZdChart.tsx + packages/plateforme/src/components/dashboards/useEvolutionBlocs.ts (champ `erreur`) + packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts (route existante, inchangée) + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (ne sert plus `collectes`)",
+      "test": "M3.2/fiche_lieu_modale_activite_graphique_du_dashboard + M3.2/fiche_lieu_modale_activite_sans_collecte + M3.2/fiche_lieu_modale_activite_erreur + M3.2/fiche_lieu_sans_liste_de_collectes",
       "statut": "implemented",
-      "libelle": "Onglet Activité de la fiche lieu : évolution du tonnage ZD par mois et historique des collectes, sur les collectes clôturées des 12 derniers mois (périmètre inchangé). Sans collecte clôturée sur la période, l'onglet affiche un état vide au lieu de faire disparaître les deux blocs. Le CDC écrit « Historique complet des collectes » (l.375) : la fenêtre de 12 mois est antérieure à ce lot et n'a pas été arbitrée — portée à la divergence _Divergences/M3.2_20261006_fiche-lieu-modale-demande-modification pour décision de Val."
+      "libelle": "Onglet Activité de la fiche lieu (arbitrage Val 2026-10-07, _Divergences/M3.2_20261006_fiche-lieu-modale-demande-modification) : l'histogramme « Évolution mensuelle Zéro Déchet » du dashboard (§11 Bloc 2 ZD — tonnages par flux, taux de recyclage superposé), filtré sur ce lieu, sur les 12 derniers mois. Même route (`/api/v1/dashboards/evolution`, type ZD, `lieu_ids[]` = le lieu, période par défaut du dashboard), même composant : les chiffres sont ceux du dashboard filtré sur le lieu (collectes clôturées, périmètre du gestionnaire). Chargé à l'ouverture de l'onglet seulement ; sans collecte ZD clôturée sur la période, l'état vide du graphique ; un chargement en échec affiche une erreur avec « Réessayer », jamais « aucune collecte ». L'historique des collectes et l'ancien graphique à barres simples sont retirés ; la route de la fiche ne sert plus les collectes du lieu. Le CDC écrit « Historique complet des collectes » et « Graphique évolution sur 12 mois » (l.375-376) : écart tracé par la divergence."
     },
     {
       "id": "M3.2-fiche-lieu-demande-modification",
@@ -974,7 +976,7 @@
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx + packages/plateforme/src/app/(admin)/admin/alertes/page.tsx + packages/plateforme/src/components/admin/lieu-modal.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu de la fiche lieu du gestionnaire en pop-up, desktop ET mobile < 640 px : grand en-tête (puce région, nom, adresse, véhicule max), onglets Informations / Traiteurs / Activité, hauteur fixe d'un onglet à l'autre, pied avec le bouton « Demande de modification d'information » ; son état neutralisé avec la mention « Une demande de modification est en cours de traitement par l'équipe Savr » ; sous-modale de demande (texte d'explication, champ, « Annuler » / « Envoyer la demande ») ; toast de confirmation. Côté Admin : la ligne de l'alerte dans la file (« À traiter », message, lien vers la fiche lieu) et la ligne « Modification demandée par le gestionnaire » de l'historique de la fiche lieu. GO visuel de Val attendu."
+      "libelle": "Rendu de la fiche lieu du gestionnaire en pop-up, desktop ET mobile < 640 px : grand en-tête (puce région, nom, adresse, véhicule max), onglets Informations / Traiteurs / Activité (histogramme du dashboard filtré sur le lieu), hauteur fixe d'un onglet à l'autre, pied avec le bouton « Demande de modification d'information » ; son état neutralisé avec la mention « Une demande de modification est en cours de traitement par l'équipe Savr » ; sous-modale de demande (texte d'explication, champ, « Annuler » / « Envoyer la demande ») ; toast de confirmation. Côté Admin : la ligne de l'alerte dans la file (« À traiter », message, lien vers la fiche lieu) et la ligne « Modification demandée par le gestionnaire » de l'historique de la fiche lieu. GO visuel de Val attendu."
     }
   ],
   "cdc_source_hash": {

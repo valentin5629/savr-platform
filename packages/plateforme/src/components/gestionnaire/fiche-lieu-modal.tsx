@@ -1,15 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import {
-  BarChart3,
-  ChefHat,
-  History,
-  ImageIcon,
-  MapPin,
-  PencilLine,
-  Truck,
-} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChefHat, ImageIcon, MapPin, PencilLine, Truck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -25,13 +17,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import {
-  HistoriqueCollectesTable,
-  type HistoriqueCollecte,
-} from '@/components/collecte/historique-collectes-table';
+import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
+import type { DashboardFilters } from '@/components/dashboards/DashboardFilterBar';
+import { useEvolutionBlocs } from '@/components/dashboards/useEvolutionBlocs';
 import { fmtInt, fmtKg } from '@/lib/format';
 import { libelleFlux } from '@/lib/libelles/flux';
 import { LONGUEUR_MIN_DEMANDE } from '@/lib/lieux/demande-modification';
+import { periodeDerniers } from '@/lib/periodes-raccourcis';
 import {
   DIFFICULTE_LABEL,
   DIFFICULTE_VARIANT,
@@ -49,10 +41,6 @@ import {
 // lieu — la sienne ou celle d'un collègue — le bouton est neutralisé, d'où une
 // mention qui ne dit pas « votre demande ». Le bouton n'existe que pour un lieu
 // du parc de l'organisation ; hors parc, la fiche est en consultation.
-
-interface CollecteFiche extends HistoriqueCollecte {
-  collecte_flux?: { poids_reel_kg?: number | null }[];
-}
 
 interface TraiteurFiche {
   id: string;
@@ -76,7 +64,6 @@ interface FicheLieu {
   contraintes_horaires: string | null;
   flux_autorises: string[] | null;
   photos_urls: string[] | null;
-  collectes: CollecteFiche[];
   traiteurs: TraiteurFiche[];
   /** Lieu du parc de l'organisation : seul cas où la demande est proposée. */
   demande_modification_possible: boolean;
@@ -84,36 +71,6 @@ interface FicheLieu {
 }
 
 type Etat = 'chargement' | 'erreur' | 'introuvable' | 'pret';
-
-// Tonnage ZD par mois sur les 12 derniers mois (graphique d'évolution, §06.05 §3).
-function evolutionMensuelle(
-  collectes: CollecteFiche[],
-): { mois: string; kg: number }[] {
-  const now = new Date();
-  const buckets: { mois: string; key: string; kg: number }[] = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    buckets.push({
-      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      mois: d.toLocaleDateString('fr-FR', {
-        timeZone: 'Europe/Paris',
-        month: 'short',
-      }),
-      kg: 0,
-    });
-  }
-  const byKey = new Map(buckets.map((b) => [b.key, b]));
-  for (const c of collectes) {
-    if (!c.date_collecte) continue;
-    const bucket = byKey.get(c.date_collecte.slice(0, 7));
-    if (!bucket) continue;
-    bucket.kg += (c.collecte_flux ?? []).reduce(
-      (s, f) => s + (f.poids_reel_kg ?? 0),
-      0,
-    );
-  }
-  return buckets.map((b) => ({ mois: b.mois, kg: b.kg }));
-}
 
 // Difficulté d'accès (`stationnement`, `acces_office` — enum §04) en pastille.
 function Difficulte({ valeur }: { valeur: string | null }) {
@@ -491,37 +448,8 @@ export function FicheLieuModal({
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="activite" className="space-y-4">
-                  {lieu.collectes.length === 0 ? (
-                    <Card padding="md">
-                      <EmptyState
-                        icon={<History className="h-8 w-8" />}
-                        title="Aucune collecte clôturée sur les 12 derniers mois"
-                        description="L'évolution du tonnage et l'historique des collectes de ce lieu apparaîtront ici."
-                      />
-                    </Card>
-                  ) : (
-                    <>
-                      <Card padding="md" className="space-y-4">
-                        <SectionHeader
-                          icon={BarChart3}
-                          title="Évolution du tonnage (12 mois)"
-                          level={3}
-                          truncate={false}
-                        />
-                        <Evolution collectes={lieu.collectes} />
-                      </Card>
-                      <Card padding="md" className="space-y-4">
-                        <SectionHeader
-                          icon={History}
-                          title="Historique des collectes (12 mois)"
-                          level={3}
-                          truncate={false}
-                        />
-                        <HistoriqueCollectesTable rows={lieu.collectes} />
-                      </Card>
-                    </>
-                  )}
+                <TabsContent value="activite">
+                  <ActiviteLieu lieuId={lieu.id} />
                 </TabsContent>
               </Tabs>
             </FicheCorps>
@@ -556,26 +484,47 @@ export function FicheLieuModal({
   );
 }
 
-function Evolution({ collectes }: { collectes: CollecteFiche[] }) {
-  const data = evolutionMensuelle(collectes);
-  const max = Math.max(1, ...data.map((d) => d.kg));
+// Onglet Activité : l'histogramme « Évolution mensuelle Zéro Déchet » du
+// dashboard (§11 Bloc 2 ZD — tonnages par flux, taux de recyclage superposé),
+// filtré sur ce lieu, sur les 12 derniers mois (arbitrage Val 2026-10-07). Même
+// route, même période par défaut et même composant que le dashboard : les
+// chiffres de la fiche et ceux du dashboard filtré sur le lieu sont les mêmes.
+// Monté à l'ouverture de l'onglet seulement (Tabs ne rend que l'onglet actif).
+function ActiviteLieu({ lieuId }: { lieuId: string }) {
+  // « Réessayer » remonte le graphique : son chargement repart de zéro.
+  const [tentative, setTentative] = useState(0);
   return (
-    <div
-      className="flex items-end gap-1 sm:gap-2"
-      data-testid="lieu-evolution-12m"
-    >
-      {data.map((d, i) => (
-        <div key={i} className="flex min-w-0 flex-1 flex-col items-center">
-          <div
-            className="w-full rounded-t-savr-sm bg-savr-primary-500"
-            style={{ height: `${(d.kg / max) * 96 + 2}px` }}
-            title={`${d.mois} : ${fmtKg(d.kg)}`}
-          />
-          <Text as="span" variant="hint" size="3xs" className="mt-1">
-            {d.mois}
-          </Text>
-        </div>
-      ))}
-    </div>
+    <GraphiqueActivite
+      key={tentative}
+      lieuId={lieuId}
+      onRetry={() => setTentative((n) => n + 1)}
+    />
   );
+}
+
+function GraphiqueActivite({
+  lieuId,
+  onRetry,
+}: {
+  lieuId: string;
+  onRetry: () => void;
+}) {
+  const filtres = useMemo<DashboardFilters | null>(() => {
+    const periode = periodeDerniers(12, 'mois');
+    return periode ? { ...periode, lieu_ids: [lieuId] } : null;
+  }, [lieuId]);
+  const { zdSeries, granularite, loading, erreur } = useEvolutionBlocs(
+    filtres,
+    'zero_dechet',
+  );
+
+  if (erreur)
+    return (
+      <ErrorState
+        message="Impossible de charger l'activité de ce lieu. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
+        onRetry={onRetry}
+      />
+    );
+  if (loading) return <Skeleton className="h-72 w-full" aria-busy="true" />;
+  return <EvolutionZdChart series={zdSeries} granularite={granularite} />;
 }

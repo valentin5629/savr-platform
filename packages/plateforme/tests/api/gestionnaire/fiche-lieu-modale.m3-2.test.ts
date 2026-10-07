@@ -2,8 +2,8 @@
  * M3.2 — Fiche lieu du gestionnaire en pop-up (§06.05 §3, arbitrage Val
  * 2026-10-06) : routes serveur.
  *  - GET  /api/v1/gestionnaire/lieux/[id] : informations, traiteurs opérant
- *    (calculés depuis les collectes du lieu, tous statuts), activité 12 mois,
- *    état « demande de modification en cours » ;
+ *    (calculés depuis les collectes du lieu, tous statuts), état « demande de
+ *    modification en cours » — l'onglet Activité lit la route du dashboard ;
  *  - POST /api/v1/gestionnaire/lieux/[id]/demande-modification : alerte in-app
  *    Admin, jamais d'écriture du référentiel lieux, aucune donnée personnelle
  *    recopiée.
@@ -201,7 +201,7 @@ beforeEach(() => {
 interface Fiche {
   capacite_maximum: number;
   photos_urls: string[];
-  collectes: { id: string; collecte_flux: { poids_reel_kg: number }[] }[];
+  collectes?: unknown;
   traiteurs: {
     id: string;
     nom: string;
@@ -224,8 +224,11 @@ describe('M3.2 / fiche lieu — lecture', () => {
     const { data } = (await res.json()) as { data: Fiche };
     expect(data.capacite_maximum).toBe(3500);
     expect(data.photos_urls).toEqual(['https://r2/p1.jpg']);
-    expect(data.collectes).toHaveLength(1);
-    expect(data.collectes[0]?.collecte_flux[0]?.poids_reel_kg).toBe(250);
+    // Les collectes ne sont plus servies par la fiche : seule la liste des
+    // traiteurs en est déduite.
+    expect(data.traiteurs).toEqual([
+      { id: KASPIA.id, nom: 'Kaspia', nb_collectes: 1, tonnage_kg: 250 },
+    ]);
     // La fiche lit la vue masquée, jamais la table lieux.
     expect([...new Set(tables(rls))]).toEqual([
       'v_lieux_clients',
@@ -292,24 +295,24 @@ describe('M3.2 / fiche lieu — lecture', () => {
     ]);
   });
 
-  it('M3.2/fiche_lieu_activite_12_mois_cloturees_seules — onglet Activité : clôturées des 12 derniers mois', async () => {
+  it('M3.2/fiche_lieu_sans_liste_de_collectes — la fiche ne sert plus les collectes du lieu (l’onglet Activité lit le graphique du dashboard)', async () => {
     lieuDuParc();
     rls.push({
       data: [
         collecte('recente', KASPIA, { date: joursAvant(10), kg: 100 }),
-        collecte('programmee', KASPIA, {
-          statut: 'programmee',
-          date: joursAvant(5),
-        }),
         collecte('ancienne', KASPIA, { date: joursAvant(500), kg: 80 }),
-        collecte('sans_date', KASPIA, { date: undefined }),
-      ].map((c) => (c.id === 'sans_date' ? { ...c, date_collecte: null } : c)),
+      ],
       error: null,
     });
     const { data } = (await (await getFiche()).json()) as { data: Fiche };
-    expect(data.collectes.map((c) => c.id)).toEqual(['recente']);
-    // Les quatre comptent en revanche pour la liste des traiteurs.
-    expect(data.traiteurs[0]?.nb_collectes).toBe(4);
+    expect(data).not.toHaveProperty('collectes');
+    expect(data.traiteurs[0]?.nb_collectes).toBe(2);
+    // Lecture triée par identifiant seul (pagination stable), sans date.
+    expect(appelsDe(rls, 'order').map((a) => a.args[0])).toEqual(['id', 'id']);
+    const select = appelsDe(rls, 'select')
+      .map((a) => String(a.args[0]))
+      .find((x) => x.includes('collecte_flux'));
+    expect(select).not.toMatch(/date_collecte|taux_recyclage/);
   });
 
   it('M3.2/fiche_lieu_demande_en_cours_exposee — une alerte ouverte neutralise le bouton, son contenu ne sort pas', async () => {

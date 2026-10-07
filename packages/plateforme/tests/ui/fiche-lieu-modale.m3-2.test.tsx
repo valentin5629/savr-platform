@@ -28,7 +28,7 @@ import GestionnaireLieuxPage from '@/app/(gestionnaire)/gestionnaire/lieux/page.
 import FicheLieuGestionnaireRedirect from '@/app/(gestionnaire)/gestionnaire/lieux/[id]/page.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import { renderAvecToasts } from '@/test-utils/toasts';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 const LIEU = '11111111-1111-4111-8111-111111111111';
 const LISTE = '/gestionnaire/lieux';
@@ -56,7 +56,6 @@ const FICHE = {
   contraintes_horaires: null,
   flux_autorises: ['biodechet', 'dechet_residuel'],
   photos_urls: null,
-  collectes: [],
   traiteurs: [
     { id: 't1', nom: 'Kaspia', nb_collectes: 12, tonnage_kg: 840 },
     { id: 't2', nom: 'Butard', nb_collectes: 3, tonnage_kg: 0 },
@@ -68,6 +67,7 @@ const FICHE = {
 type Reponse = { status?: number; body: unknown };
 let fiche: Reponse;
 let demande: Reponse;
+let evolution: Reponse;
 const appels: { url: string; method: string; body: unknown }[] = [];
 
 const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -80,9 +80,11 @@ const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
   });
   const rep: Reponse = url.endsWith('/demande-modification')
     ? demande
-    : url.endsWith(`/gestionnaire/lieux/${LIEU}`)
-      ? fiche
-      : { body: { data: [LIGNE] } };
+    : url.includes('/api/v1/dashboards/evolution')
+      ? evolution
+      : url.endsWith(`/gestionnaire/lieux/${LIEU}`)
+        ? fiche
+        : { body: { data: [LIGNE] } };
   const status = rep.status ?? 200;
   return Promise.resolve({
     ok: status >= 200 && status < 300,
@@ -99,6 +101,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   fiche = { body: { data: FICHE } };
   demande = { status: 201, body: { data: { demandee: true } } };
+  evolution = { body: { data: { granularite: 'mois', series: [] } } };
   window.history.replaceState(null, '', LISTE);
 });
 
@@ -243,44 +246,108 @@ describe('M3.2 / fiche lieu en pop-up', () => {
   );
 
   it(
-    'M3.2/fiche_lieu_modale_activite_vide_et_remplie — sans collecte clôturée : état vide ; sinon graphique et historique',
+    'M3.2/fiche_lieu_modale_activite_graphique_du_dashboard — onglet Activité : l’histogramme du dashboard, filtré sur le lieu, 12 derniers mois ; plus d’historique des collectes',
     async () => {
-      const f = await ouvrirFiche();
-      fireEvent.mouseDown(f.getByRole('tab', { name: 'Activité' }));
-      expect(
-        await f.findByText(
-          'Aucune collecte clôturée sur les 12 derniers mois',
-          undefined,
-          ATTENTE_UI,
-        ),
-      ).toBeTruthy();
-      expect(f.queryByTestId('lieu-evolution-12m')).toBeNull();
-
-      cleanup();
-      fiche = {
+      evolution = {
         body: {
           data: {
-            ...FICHE,
-            collectes: [
+            granularite: 'mois',
+            series: [
               {
-                id: 'c1',
-                type: 'zero_dechet',
-                statut: 'cloturee',
-                date_collecte: jourParis(),
-                collecte_flux: [{ poids_reel_kg: 250 }],
+                periode: '2026-04-01',
+                biodechet: 1200,
+                emballage: 400,
+                carton: 600,
+                verre: 300,
+                dechet_residuel: 3187,
+                tonnage_total: 5687,
+                taux_recyclage: 44,
+              },
+              {
+                periode: '2026-09-01',
+                biodechet: 1500,
+                emballage: 500,
+                carton: 700,
+                verre: 400,
+                dechet_residuel: 3304,
+                tonnage_total: 6404,
+                taux_recyclage: 48,
               },
             ],
           },
         },
       };
-      window.history.replaceState(null, '', LISTE);
-      const g = await ouvrirFiche();
-      fireEvent.mouseDown(g.getByRole('tab', { name: 'Activité' }));
+      const f = await ouvrirFiche();
+      const appelsEvolution = () =>
+        appels.filter((a) => a.url.includes('/dashboards/evolution'));
+      // Rien n'est chargé tant que l'onglet n'est pas ouvert.
+      expect(appelsEvolution()).toHaveLength(0);
+
+      fireEvent.mouseDown(f.getByRole('tab', { name: 'Activité' }));
       expect(
-        await g.findByTestId('lieu-evolution-12m', undefined, ATTENTE_UI),
+        await f.findByText(
+          'Évolution mensuelle Zéro Déchet',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toBeTruthy();
+      // Légende du graphique du dashboard : flux et taux de recyclage.
+      expect(f.getByRole('button', { name: /Biodéchets/ })).toBeTruthy();
+      expect(f.getByRole('button', { name: /Taux de recyclage/ })).toBeTruthy();
+
+      // Même route que le dashboard : ZD, ce lieu seul, 12 derniers mois.
+      expect(appelsEvolution()).toHaveLength(1);
+      const usp = new URL(appelsEvolution()[0]!.url, 'http://x').searchParams;
+      const periode = periodeDerniers(12, 'mois')!;
+      expect(usp.get('type')).toBe('zero_dechet');
+      expect(usp.getAll('lieu_ids[]')).toEqual([LIEU]);
+      expect(usp.get('from')).toBe(periode.from);
+      expect(usp.get('to')).toBe(periode.to);
+
+      // L'historique des collectes et l'ancien graphique sont retirés.
+      expect(f.queryByText(/Historique des collectes/)).toBeNull();
+      expect(f.queryByTestId('lieu-evolution-12m')).toBeNull();
+      expect(f.queryByRole('table')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/fiche_lieu_modale_activite_sans_collecte — aucune collecte ZD clôturée sur 12 mois : état vide du graphique',
+    async () => {
+      const f = await ouvrirFiche();
+      fireEvent.mouseDown(f.getByRole('tab', { name: 'Activité' }));
       expect(
-        g.getByRole('heading', { name: 'Historique des collectes (12 mois)' }),
+        await f.findByText(
+          'Aucune collecte ZD sur la période.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/fiche_lieu_modale_activite_erreur — un chargement en échec n’est pas rendu comme « aucune collecte », « Réessayer » relance',
+    async () => {
+      evolution = { status: 500, body: { error: 'Erreur serveur' } };
+      const f = await ouvrirFiche();
+      fireEvent.mouseDown(f.getByRole('tab', { name: 'Activité' }));
+      const alerte = await f.findByRole('alert', {}, ATTENTE_UI);
+      expect(alerte).toHaveTextContent(
+        "Impossible de charger l'activité de ce lieu",
+      );
+      expect(f.queryByText('Aucune collecte ZD sur la période.')).toBeNull();
+
+      evolution = { body: { data: { granularite: 'mois', series: [] } } };
+      fireEvent.click(f.getByRole('button', { name: 'Réessayer' }));
+      expect(
+        await f.findByText(
+          'Aucune collecte ZD sur la période.',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toBeTruthy();
     },
     ATTENTE_CAS_MS,

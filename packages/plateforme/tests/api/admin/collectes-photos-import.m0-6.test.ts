@@ -27,12 +27,15 @@ vi.mock('@aws-sdk/client-s3', () => {
   };
 });
 
-// Faux client service-role : la collecte existe, les INSERT sont enregistrés.
+// Faux client service-role : la collecte existe, aucune photo n'est encore
+// choisie pour le client, les INSERT sont enregistrés.
 const inserts: { table: string; ligne: Record<string, unknown> }[] = [];
 function table(nom: string) {
   const c = {
     select: () => c,
     eq: () => c,
+    is: () => c,
+    not: () => c,
     maybeSingle: () => Promise.resolve({ data: { id: COLLECTE }, error: null }),
     insert: (ligne: Record<string, unknown>) => {
       inserts.push({ table: nom, ligne });
@@ -44,6 +47,7 @@ function table(nom: string) {
           id: 'f-1',
           content_type: 'image/png',
           created_at: '2026-10-07T10:00:00Z',
+          rang_client: 1,
         },
         error: null,
       }),

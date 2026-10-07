@@ -1411,6 +1411,10 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
     expect((inserts[0]!.data as { entity_type: string }).entity_type).toBe(
       'plateforme.collectes',
     );
+    // Décision Val 2026-10-07 : seule l'équipe Savr choisit les photos visibles du
+    // client. L'adapter ne pose donc jamais `rang_client` : la photo naît non
+    // choisie (valeur par défaut de la base).
+    expect(inserts[0]!.data).not.toHaveProperty('rang_client');
   });
 
   // La dédup ne regarde QUE la clé de stockage : elle ne dépend pas de

@@ -173,6 +173,9 @@ SELECT results_eq(
 -- =====================================================================
 -- T05 : trigger pack_debit_annulation_tardive → écrit dans audit_log
 -- Passe collecte AG à annulee avec date_collecte dans moins de 12h.
+-- La FORME de la ligne est un contrat : la route gestionnaire/pack-ag la lit
+-- (table_name, action, record_id = pack, old_values.collecte_id = collecte)
+-- pour lister les annulations tardives débitées (§06.05 « Mon pack AG »).
 -- =====================================================================
 
 SELECT test_as_superuser();
@@ -184,7 +187,9 @@ WHERE id = 'a09f000a-0000-0000-0000-000000000001'::uuid;
 SELECT results_eq(
   $$SELECT count(*)::int FROM plateforme.audit_log
     WHERE action = 'pack_debite_annulation_tardive'
-      AND record_id = 'a09f0009-0000-0000-0000-000000000001'::uuid$$,
+      AND table_name = 'packs_antgaspi'
+      AND record_id = 'a09f0009-0000-0000-0000-000000000001'::uuid
+      AND old_values->>'collecte_id' = 'a09f000a-0000-0000-0000-000000000001'$$,
   $$VALUES (1)$$,
   'T05 trigger pack_debit_annulation_tardive écrit dans audit_log'
 );

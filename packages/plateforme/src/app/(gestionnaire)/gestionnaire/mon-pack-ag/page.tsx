@@ -1,9 +1,9 @@
 'use client';
 
 import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
-import { libelleStatutPack, variantStatutPack } from '@/lib/libelles/pack';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -12,21 +12,23 @@ import {
   type ColumnDef,
 } from '@/components/ui/data-grid';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
+import { libelleTypePack } from '@/lib/libelles/pack';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 
 interface PackActif {
-  id: string;
   reference: string | null;
   nb_collectes_total: number;
   nb_collectes_restantes: number;
   date_debut: string | null;
   date_fin: string | null;
-  statut: string;
 }
 interface ConsommationRow {
   collecte_id: string;
   date_collecte: string | null;
+  /** Crédit consommé par une annulation tardive, sans collecte réalisée (§05). */
+  annulee_tardivement: boolean;
   evenement: string | null;
   lieu: string | null;
   repas_donnes: number;
@@ -34,13 +36,13 @@ interface ConsommationRow {
 }
 interface PackData {
   pack_actif: PackActif | null;
-  historique_packs: PackActif[];
   historique_consommation: ConsommationRow[];
 }
 
 // Historique des collectes AG du pack — même Data Table que les listes
-// Collectes (décision Val 2026-09-28). SANS tri : la route plafonne à 50
-// lignes (`.limit(50)`), trier cet extrait ferait croire à un ordre global.
+// Collectes (décision Val 2026-09-28). SANS tri : la route rend au plus les
+// 50 collectes les plus récentes, trier cet extrait ferait croire à un ordre
+// global.
 const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
   {
     id: 'date',
@@ -62,7 +64,16 @@ const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
     header: 'Événement',
     enableSorting: false,
     accessorFn: (c) => c.evenement ?? '',
-    cell: ({ row: { original: c } }) => c.evenement ?? <CelluleVide />,
+    cell: ({ row: { original: c } }) => (
+      <span className="inline-flex flex-wrap items-center justify-end gap-2 sm:justify-start">
+        {c.evenement ?? <CelluleVide />}
+        {c.annulee_tardivement && (
+          <Badge variant="neutral" size="sm">
+            Annulée tardivement
+          </Badge>
+        )}
+      </span>
+    ),
   },
   {
     id: 'lieu',
@@ -77,7 +88,8 @@ const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
     enableSorting: false,
     accessorFn: (c) => c.repas_donnes,
     meta: { className: 'text-right tabular-nums' },
-    cell: ({ row: { original: c } }) => c.repas_donnes,
+    cell: ({ row: { original: c } }) =>
+      c.annulee_tardivement ? <CelluleVide /> : c.repas_donnes,
   },
   {
     id: 'associations',
@@ -90,58 +102,39 @@ const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
   },
 ];
 
-// Historique des packs — Data Table commune. Pas de tri : la route plafonne la
-// liste aux 10 derniers packs (`.limit(10)`), trier ce seul extrait laisserait
-// croire à un ordre sur tout l'historique. Ordre de la route (plus récent d'abord).
-const COLONNES_PACKS: ColumnDef<PackActif, unknown>[] = [
-  {
-    id: 'reference',
-    header: 'Référence',
-    cell: ({ row: { original: p } }) => p.reference ?? '—',
-  },
-  {
-    id: 'collectes',
-    header: 'Collectes',
-    meta: { className: 'tabular-nums' },
-    cell: ({ row: { original: p } }) => (
-      <>
-        {p.nb_collectes_total - p.nb_collectes_restantes} /{' '}
-        {p.nb_collectes_total}
-      </>
-    ),
-  },
-  {
-    id: 'periode',
-    header: 'Période',
-    cell: ({ row: { original: p } }) => (
-      <>
-        {p.date_debut ?? '—'} → {p.date_fin ?? '—'}
-      </>
-    ),
-  },
-  {
-    id: 'statut',
-    header: 'Statut',
-    cell: ({ row: { original: p } }) => (
-      <Badge variant={variantStatutPack(p.statut)}>
-        {libelleStatutPack(p.statut)}
-      </Badge>
-    ),
-  },
-];
-
 export default function MonPackAgPage() {
   const [data, setData] = useState<PackData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState(false);
 
-  useEffect(() => {
+  // Un échec de chargement n'est pas « aucun pack » : sans ce contrôle, une
+  // réponse 500 s'affichait « Aucun pack Anti-Gaspi actif ».
+  const charger = useCallback(() => {
+    setLoading(true);
+    setErreur(false);
     fetch('/api/v1/gestionnaire/pack-ag')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((j) => setData(j.data as PackData))
+      .catch(() => setErreur(true))
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(charger, [charger]);
+
   if (loading) return <LoadingState />;
+  if (erreur)
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Mon pack AG" />
+        <ErrorState
+          message="Impossible de charger votre pack Anti-Gaspi. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
+          onRetry={charger}
+        />
+      </div>
+    );
 
   const pack = data?.pack_actif;
   const packEpuise = pack && pack.nb_collectes_restantes === 0;
@@ -177,7 +170,7 @@ export default function MonPackAgPage() {
             <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
               <div>
                 <div className="text-savr-neutral-500">Référence</div>
-                <div>{pack.reference ?? '—'}</div>
+                <div>{libelleTypePack(pack.reference)}</div>
               </div>
               <div>
                 <div className="text-savr-neutral-500">Crédits restants</div>
@@ -190,11 +183,11 @@ export default function MonPackAgPage() {
               </div>
               <div>
                 <div className="text-savr-neutral-500">Début</div>
-                <div>{pack.date_debut ?? '—'}</div>
+                <div>{formatDateParis(pack.date_debut) || '—'}</div>
               </div>
               <div>
                 <div className="text-savr-neutral-500">Fin</div>
-                <div>{pack.date_fin ?? '—'}</div>
+                <div>{formatDateParis(pack.date_fin) || '—'}</div>
               </div>
             </div>
 
@@ -223,23 +216,6 @@ export default function MonPackAgPage() {
               columns={COLONNES_CONSOMMATION}
               data={data.historique_consommation}
               getRowId={(c) => c.collecte_id}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Historique packs */}
-      {data && data.historique_packs.length > 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Historique packs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataGrid
-              columnsToggle={false}
-              columns={COLONNES_PACKS}
-              data={data.historique_packs}
-              getRowId={(p) => p.id}
             />
           </CardContent>
         </Card>

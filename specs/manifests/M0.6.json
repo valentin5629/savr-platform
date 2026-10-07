@@ -503,6 +503,18 @@
       "category": "Back-office Admin — dispatch ZD (choix du prestataire)",
       "title": "dispatch_zd_prestataire_unique_preselectionne",
       "file": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx"
+    },
+    {
+      "id": "export_csv_liste_admin_filtres_de_la_liste",
+      "category": "Back-office Admin — liste Collectes (export CSV)",
+      "title": "export_csv_liste_admin_filtres_de_la_liste",
+      "file": "packages/plateforme/src/app/(admin)/admin/collectes/collectes-url.r-ui-4a.test.tsx"
+    },
+    {
+      "id": "export_csv_liste_admin_croisement_vide",
+      "category": "Back-office Admin — liste Collectes (export CSV)",
+      "title": "export_csv_liste_admin_croisement_vide",
+      "file": "packages/plateforme/src/app/(admin)/admin/collectes/collectes-url.r-ui-4a.test.tsx"
     }
   ],
   "coverage": {
@@ -1528,6 +1540,22 @@
       "test": "M0.6/dispatch_zd_choix_prestataire + M0.6/dispatch_zd_sans_prestataire_refuse + M0.6/dispatch_zd_envoyee_programmee + M0.6/dispatch_zd_changement_motif + M0.6/dispatch_zd_a_toutes_refuse + M0.6/dispatch_zd_commande_en_cours + M0.6/dispatch_zd_prestataire_unique_preselectionne",
       "statut": "à-vérifier",
       "libelle": "Dispatch d'une collecte ZD par l'Admin (décision Val 2026-10-07, option C1, _Divergences/M0.6_20261007_dispatch-zd-choix-prestataire) : l'Admin choisit le prestataire sur la fiche ZD, comme pour l'AG, puis envoie. Avant, rien ne posait de prestataire sur une ZD (la règle « prestataire fixe par lieu/zone » du CDC n'a jamais été codée) : « Envoyer » émettait un ordre sans destinataire et la collecte restait non transmise. Après l'envoi : badge « Envoyée », bloc en lecture, frise à « Programmée ». Présentationnel pour sa partie fiche : à-vérifier jusqu'au GO visuel de Val."
+    },
+    {
+      "id": "M0.6-liste-collectes-export-csv",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:398",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (bouton « Exporter CSV » du bandeau ; filtresListe : les mêmes paramètres servent à la liste et à l'export) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (filtres lus et appliqués par packages/plateforme/src/lib/collectes-admin.ts, partagé avec l'export)",
+      "test": "M0.6/export_csv_liste_admin_filtres_de_la_liste + M0.6/export_csv_liste_admin_croisement_vide",
+      "statut": "implemented",
+      "libelle": "Export CSV sur la liste Collectes de l'Admin (demande Val 2026-10-07 : « tous les profils utilisateurs », « oui admin également » ; CDC §12 §2 l.398 « Bouton Exporter disponible sur chaque vue tableau », l.402 « l'export respecte les filtres actifs »). Bouton « Exporter CSV » dans le bandeau de /admin/collectes : il ouvre l'export Collectes commun (GET /api/v1/exports/collectes, 1 ligne = 1 collecte, colonnes figées §12 §2) avec les paramètres de la dernière requête de la liste — onglet, pastille, statuts, type, traiteurs, lieux, période, cases, périmètre du drill-down — sans tri ni page : le fichier porte toute la sélection, pas une page. Sélection sans résultat possible (pastille Annulées × statut Clôturée) : la liste n'est pas appelée et le bouton est inactif, pour ne jamais sortir un fichier plus large que la liste. Côté serveur : M4.1-export-collectes-admin-filtres-liste et M4.1-export-collectes-lecture-par-tranches."
+    },
+    {
+      "id": "M0.6-liste-collectes-export-csv-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:292",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu du bouton « Exporter CSV » de la liste Collectes Admin, desktop ET mobile < 640 px : bouton blanc (secondary) avec son picto de téléchargement, à gauche du bouton orange « Programmer une collecte », à droite du bandeau ; sous 640 px les deux boutons passent à la ligne sans déborder ; grisé quand la sélection ne peut rien contenir ; un clic avec un filtre posé télécharge un fichier dont les lignes sont celles de la liste. GO visuel de Val attendu."
     }
   ],
   "cdc_source_hash": {

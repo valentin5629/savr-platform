@@ -180,3 +180,126 @@ describe('R-UI-4a — Collectes admin : filtres dans l’URL', () => {
     ATTENTE_CAS_MS,
   );
 });
+
+// Décision Val 2026-10-07 : l'export CSV existe sur la liste Collectes de tous
+// les profils, Admin compris. Le fichier porte la sélection de la liste (§12 §2).
+describe('M0.6 / liste Collectes Admin — export CSV', () => {
+  const NAVIGATION = ['page', 'tri', 'ordre'];
+  /** Clic sur « Exporter CSV » → paramètres de l'export ouvert (null si rien). */
+  function exporter(ouvrir: ReturnType<typeof vi.fn>): URLSearchParams | null {
+    fireEvent.click(screen.getByRole('button', { name: 'Exporter CSV' }));
+    if (ouvrir.mock.calls.length === 0) return null;
+    expect(ouvrir).toHaveBeenCalledTimes(1);
+    const cible = String(ouvrir.mock.calls[0]![0]);
+    expect(cible.startsWith('/api/v1/exports/collectes?')).toBe(true);
+    return new URL(cible, 'http://x').searchParams;
+  }
+  const filtresDe = (q: URLSearchParams) =>
+    [...q].filter(([cle]) => !NAVIGATION.includes(cle));
+
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it(
+    'M0.6/export_csv_liste_admin_filtres_de_la_liste — Historique : « Exporter CSV » ouvre l’export Collectes avec les filtres de la liste, sans tri ni page',
+    async () => {
+      window.history.replaceState(
+        null,
+        '',
+        '/admin/collectes?tab=historique&type=zero_dechet&traiteur=T1,T2&lieu=L1&statut=cloturee,annulee&from=2026-01-01&to=2026-06-30&info_incomplete=1&rapport_non_consulte=1&perimetre=org-1&tri=type&ordre=asc&page=2',
+      );
+      const fetchMock = mockFetch();
+      const ouvrir = vi.fn();
+      vi.stubGlobal('open', ouvrir);
+      render(<CollectesPage />);
+      await screen.findByRole('table', undefined, ATTENTE_UI);
+      await waitFor(
+        () => expect(derniereListe(fetchMock).get('page')).toBe('2'),
+        ATTENTE_UI,
+      );
+
+      const liste = derniereListe(fetchMock);
+      const exporte = exporter(ouvrir)!;
+      // Chaque filtre de la dernière requête de la liste, à l'identique…
+      expect(Object.fromEntries(filtresDe(liste))).toEqual({
+        statuts: 'cloturee,annulee',
+        types: 'zero_dechet',
+        traiteur_operationnel_ids: 'T1,T2',
+        lieu_ids: 'L1',
+        from: '2026-01-01',
+        to: '2026-06-30',
+        'perimetre_org_ids[]': 'org-1',
+        info_incomplete: 'true',
+        rapport_non_consulte: 'true',
+      });
+      expect([...exporte]).toEqual(filtresDe(liste));
+      // … sans tri ni page : le fichier porte toute la sélection, pas une page.
+      expect(liste.get('tri')).toBe('type');
+      for (const cle of NAVIGATION) expect(exporte.has(cle)).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/export_csv_liste_admin_filtres_de_la_liste — Programmées : la pastille et la tuile « Infos accès à envoyer » partent dans l’export',
+    async () => {
+      window.history.replaceState(
+        null,
+        '',
+        '/admin/collectes?chip=dirty_tms&statut=validee&controle_acces=1',
+      );
+      const fetchMock = mockFetch();
+      const ouvrir = vi.fn();
+      vi.stubGlobal('open', ouvrir);
+      render(<CollectesPage />);
+      await screen.findByRole('table', undefined, ATTENTE_UI);
+      await waitFor(
+        () => expect(derniereListe(fetchMock).get('chip')).toBe('dirty_tms'),
+        ATTENTE_UI,
+      );
+
+      const liste = derniereListe(fetchMock);
+      const exporte = exporter(ouvrir)!;
+      expect(Object.fromEntries(exporte)).toEqual({
+        chip: 'dirty_tms',
+        statuts: 'validee',
+        controle_acces: 'true',
+      });
+      expect([...exporte]).toEqual(filtresDe(liste));
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/export_csv_liste_admin_croisement_vide — sélection sans résultat possible (Annulées × Clôturée) : bouton inactif, aucun export plus large que la liste',
+    async () => {
+      window.history.replaceState(
+        null,
+        '',
+        '/admin/collectes?tab=historique&chip=annulee&statut=cloturee',
+      );
+      const fetchMock = mockFetch();
+      const ouvrir = vi.fn();
+      vi.stubGlobal('open', ouvrir);
+      render(<CollectesPage />);
+      await screen.findByText('Aucune collecte', undefined, ATTENTE_UI);
+
+      // La liste n'est pas appelée (croisement vide)…
+      expect(
+        fetchMock.mock.calls.some((c) =>
+          /\/admin\/collectes\?/.test(String(c[0])),
+        ),
+      ).toBe(false);
+      // … et l'export non plus.
+      expect(
+        screen.getByRole('button', { name: 'Exporter CSV' }),
+      ).toBeDisabled();
+      expect(exporter(ouvrir)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});

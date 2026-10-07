@@ -58,6 +58,7 @@ function makeRecordingChain() {
     select: () => chain,
     order: () => chain,
     eq: (col: string, val: unknown) => recordType(col, val),
+    neq: () => chain,
     in: (col: string, val: unknown) => recordType(col, val),
     is: () => chain,
     not: (...args: unknown[]) => {

@@ -1,6 +1,7 @@
 /**
  * R12 — libellés de statut collecte (UX, décision Val 2026-06-30).
- * Vérifie le mapping admin (granulaire, brouillon→Créée) et client (collapse).
+ * Vérifie le mapping admin (granulaire ; « Créée » puis « Programmée » pour le
+ * statut DB `programmee`, décision Val 2026-10-07) et client (collapse).
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -13,7 +14,8 @@ import {
 
 describe('R12 statutCollecteDisplay — vue admin', () => {
   const cas: [string, string][] = [
-    ['brouillon', 'Créée'],
+    ['brouillon', 'Brouillon'],
+    ['creee', 'Créée'],
     ['programmee', 'Programmée'],
     ['validee', 'Validée'],
     ['en_cours', 'En cours'],
@@ -138,8 +140,9 @@ describe('M3.1 / frise de statut client', () => {
 });
 
 describe('R-UI-2 C1 — source unique statut collecte (étapes, rangs, export)', () => {
-  it('parcours nominal = 5 étapes, rang = position + 1', () => {
+  it('M0.6/statut_admin_frise_six_etapes — parcours nominal = 6 étapes, rang = position + 1', () => {
     expect(ETAPES_STATUT_COLLECTE).toEqual([
+      'creee',
       'programmee',
       'validee',
       'en_cours',
@@ -167,10 +170,12 @@ describe('R-UI-2 C1 — source unique statut collecte (étapes, rangs, export)',
   it('libellés export CSV = vue admin', () => {
     for (const [statut, label] of Object.entries(LIBELLE_STATUT_COLLECTE))
       expect(label).toBe(statutCollecteDisplay(statut, 'admin').label);
-    expect(LIBELLE_STATUT_COLLECTE.brouillon).toBe('Créée');
+    expect(LIBELLE_STATUT_COLLECTE.brouillon).toBe('Brouillon');
+    expect(LIBELLE_STATUT_COLLECTE.creee).toBe('Créée');
     expect(LIBELLE_STATUT_COLLECTE.realisee_sans_collecte).toBe(
       'Sans excédents',
     );
-    expect(Object.keys(LIBELLE_STATUT_COLLECTE)).toHaveLength(10);
+    // Les 10 statuts DB + la clé d'affichage Admin « Créée ».
+    expect(Object.keys(LIBELLE_STATUT_COLLECTE)).toHaveLength(11);
   });
 });

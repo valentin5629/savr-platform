@@ -71,6 +71,27 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 describe('M1.4 / le PATCH ne bascule pas le prestataire', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  // Un brouillon n'apparaît dans aucune liste Admin (décision Val 2026-10-07)
+  // et redevient supprimable par son programmeur : y forcer une collecte la
+  // ferait sortir du back-office. Le menu ne le propose plus ; la route le refuse.
+  it('M0.6/statut_admin_brouillon_absent — forçage du statut vers brouillon refusé (422, aucune lecture ni RPC), même avec un motif', async () => {
+    setupAuth('admin_savr');
+
+    const { PATCH } =
+      await import('@/app/api/v1/admin/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/collectes/col-1', {
+        statut: 'brouillon',
+        motif: 'Remise en brouillon demandée par le traiteur',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
   it('un PATCH ne portant QUE prestataire_logistique_id est refusé (422, aucune RPC)', async () => {
     setupAuth('admin_savr');
 

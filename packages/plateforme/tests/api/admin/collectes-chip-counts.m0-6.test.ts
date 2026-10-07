@@ -78,6 +78,24 @@ const LIGNES: Ligne[] = [
     statut_tms: 'acceptee',
     tms_reference: 'M-9',
   }),
+  // Tuiles « Infos accès à envoyer » / « Infos à récupérer » : une collecte en
+  // cours comptée, et son jumeau en brouillon, que la liste ne sert jamais.
+  ligne('zd-acces-a-envoyer', {
+    statut: 'en_cours',
+    controle_acces_requis: true,
+  }),
+  ligne('zd-brouillon-acces', {
+    statut: 'brouillon',
+    controle_acces_requis: true,
+  }),
+  ligne('zd-infos-incompletes', {
+    statut: 'en_cours',
+    informations_completes: false,
+  }),
+  ligne('zd-brouillon-infos', {
+    statut: 'brouillon',
+    informations_completes: false,
+  }),
 ];
 
 function valeur(l: Ligne, colonne: string): unknown {
@@ -97,6 +115,7 @@ function listePostgrest(brut: unknown): string[] {
 
 interface RequeteFactice extends ChipQuery {
   select(): RequeteFactice;
+  neq(colonne: string, v: unknown): RequeteFactice;
   retenues(): Ligne[];
   then(
     ok: (v: { count: number; error: null }) => unknown,
@@ -114,6 +133,7 @@ function requeteFactice(): RequeteFactice {
   const requete: RequeteFactice = {
     select: () => requete,
     eq: (c, v) => ajoute((l) => valeur(l, c) === v),
+    neq: (c, v) => ajoute((l) => valeur(l, c) !== v),
     is: (c, v) => ajoute((l) => valeur(l, c) === v),
     in: (c, vs) => ajoute((l) => vs.includes(valeur(l, c))),
     not: (c, op, v) => {
@@ -232,6 +252,15 @@ describe('M0.6 — API GET collectes/chip-counts : tuiles « à dispatcher » (k
     expect(c.zd_a_dispatcher).toBeGreaterThanOrEqual(offrantDispatcher.length);
     // Prédicat unique : l'action et le chip désignent les mêmes collectes.
     expect(offrantDispatcher).toEqual(idsDuChip('non_transmises_zd'));
+  });
+
+  // Un brouillon n'apparaît dans aucune liste Admin (décision Val 2026-10-07) :
+  // les tuiles, dont le clic ouvre la liste filtrée, ne doivent pas le compter
+  // (§11 « miroir exact » du compteur et du filtre de la liste).
+  it('M0.6/statut_admin_brouillon_absent — tuiles « Infos accès à envoyer » et « Infos à récupérer » : les brouillons ne sont pas comptés', async () => {
+    const c = await compteurs();
+    expect(c.controle_acces_a_envoyer).toBe(1);
+    expect(c.infos_a_recuperer).toBe(1);
   });
 
   it('M0.6 — chip-counts : 403 pour un rôle client, aucune lecture en base', async () => {

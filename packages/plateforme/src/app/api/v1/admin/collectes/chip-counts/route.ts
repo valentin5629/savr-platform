@@ -55,7 +55,9 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     // encore envoyé (module infos accès chauffeur, décision Val 2026-07-15). Une fois l'email envoyé
     // (`infos_acces_email_envoye_at` renseigné), la collecte sort du compteur.
     // « Infos à récupérer » = infos traiteur incomplètes. Le filtre liste
-    // `controle_acces` DOIT matcher exactement cette définition (route.ts).
+    // `controle_acces` DOIT matcher exactement cette définition (route.ts) —
+    // brouillons exclus comme dans la liste, qui ne les sert jamais (décision
+    // Val 2026-10-07) : sinon la tuile compterait des collectes introuvables.
     const today = jourParis(now);
     const countAvenirFlag = async (
       col: 'controle_acces_requis' | 'informations_completes',
@@ -65,6 +67,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
         .from('collectes')
         .select('id', { count: 'exact', head: true })
         .eq(col, val)
+        .neq('statut', 'brouillon')
         .gte('date_collecte', today);
       if (error) throw error;
       return count ?? 0;
@@ -76,6 +79,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
         .select('id', { count: 'exact', head: true })
         .eq('controle_acces_requis', true)
         .is('infos_acces_email_envoye_at', null)
+        .neq('statut', 'brouillon')
         .gte('date_collecte', today);
       if (error) throw error;
       return count ?? 0;

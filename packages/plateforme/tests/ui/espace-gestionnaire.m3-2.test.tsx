@@ -1,7 +1,7 @@
 /**
  * M3.2 — Tests UI R19b (§06.05 Espace gestionnaire de lieux).
  * Couvre les livrables BL-P1-GEST-01..04 :
- *  - GEST-01 : bouton « Programmer un événement » (point d'entrée dashboard) ;
+ *  - GEST-01 : bouton « Programmer une collecte » (point d'entrée dashboard, libellé unique Q11) ;
  *  - GEST-02 : formulaire partagé « cas Gestionnaire » (sélecteur traiteur +
  *              blocage AG sans pack actif) ;
  *  - GEST-03 : KPI dashboard affichés (clé data.kpis, plus d'EmptyState systématique) ;
@@ -150,12 +150,13 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
     async () => {
       render(<GestionnaireDashboardPage />);
 
-      // Le parcours métier principal du gestionnaire : bouton « Programmer un événement »
+      // Le parcours métier principal du gestionnaire : bouton « Programmer une collecte »
+      // (libellé unique du CTA vers le formulaire, arbitrage Q11 Val 2026-10-07)
       // pointant vers le formulaire partagé.
       const lien = await screen.findByRole(
         'link',
         {
-          name: /Programmer un événement/i,
+          name: /Programmer une collecte/i,
         },
         ATTENTE_UI,
       );

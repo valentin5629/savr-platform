@@ -1,11 +1,9 @@
 // Point d'entrée du bundle du design system Claude Design (window.SavrDS).
 // Tout ce qui est exporté ici devient une brique disponible dans les aperçus.
 // Exclus : impersonation-banner-mount et impersonation-launcher (Supabase).
-export * from '@/components/ui/accordion';
 export * from '@/components/ui/alert-bar';
 export * from '@/components/ui/autocomplete';
 export * from '@/components/ui/badge';
-export * from '@/components/ui/breadcrumb';
 export * from '@/components/ui/button';
 export * from '@/components/ui/calendar';
 export * from '@/components/ui/card';
@@ -34,7 +32,6 @@ export * from '@/components/ui/pack-ag-indicator';
 export * from '@/components/ui/page-hero';
 export * from '@/components/ui/pagination';
 export * from '@/components/ui/popover';
-export * from '@/components/ui/sheet';
 export * from '@/components/ui/skeleton';
 export * from '@/components/ui/stat-card';
 export * from '@/components/ui/status-collecte';

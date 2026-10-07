@@ -1,46 +1,46 @@
 # Usages des éléments réutilisables
 
-Généré par `node scripts/ds-usages.mjs` sur `3d45a7eb` le 2026-10-07. Compte les balises JSX `<Nom` dans `packages/plateforme/src/{app,components}` hors tests, hors `components/ui`, hors vitrine `/dev`. Un composant à 0 est exporté mais monté nulle part (ou utilisé seulement à l'intérieur d'une autre primitive).
+Généré par `node scripts/ds-usages.mjs` sur `0d79ca52` le 2026-10-07. Compte les balises JSX `<Nom` dans `packages/plateforme/src/{app,components}` hors tests, hors `components/ui`, hors vitrine `/dev`. Un composant à 0 est exporté mais monté nulle part (ou utilisé seulement à l'intérieur d'une autre primitive).
 
 | Élément                    | Famille | Occurrences | Fichiers | Source                                                    |
 | -------------------------- | ------- | ----------: | -------: | --------------------------------------------------------- |
-| `Text`                     | ui      |         206 |       70 | `components/ui/text.tsx`                                  |
-| `FormField`                | ui      |         187 |       30 | `components/ui/form-field.tsx`                            |
-| `Input`                    | ui      |         134 |       31 | `components/ui/input.tsx`                                 |
-| `Button`                   | ui      |         129 |       52 | `components/ui/button.tsx`                                |
-| `Card`                     | ui      |         124 |       42 | `components/ui/card.tsx`                                  |
+| `Text`                     | ui      |         207 |       71 | `components/ui/text.tsx`                                  |
+| `FormField`                | ui      |         190 |       31 | `components/ui/form-field.tsx`                            |
+| `Input`                    | ui      |         136 |       32 | `components/ui/input.tsx`                                 |
+| `Button`                   | ui      |         130 |       53 | `components/ui/button.tsx`                                |
+| `Card`                     | ui      |         123 |       42 | `components/ui/card.tsx`                                  |
 | `InfoItem`                 | ui      |          90 |        7 | `components/ui/info-item.tsx`                             |
 | `Badge`                    | ui      |          82 |       35 | `components/ui/badge.tsx`                                 |
+| `AlertBar`                 | ui      |          64 |       33 | `components/ui/alert-bar.tsx`                             |
 | `EmptyState`               | ui      |          64 |       46 | `components/ui/empty-state.tsx`                           |
-| `AlertBar`                 | ui      |          63 |       32 | `components/ui/alert-bar.tsx`                             |
 | `Heading`                  | ui      |          57 |       23 | `components/ui/heading.tsx`                               |
 | `StatCard`                 | ui      |          56 |        7 | `components/ui/stat-card.tsx`                             |
-| `CardContent`              | ui      |          42 |       20 | `components/ui/card.tsx`                                  |
+| `CardContent`              | ui      |          41 |       20 | `components/ui/card.tsx`                                  |
 | `FormGrid`                 | ui      |          40 |       18 | `components/ui/form-grid.tsx`                             |
 | `SectionHeader`            | ui      |          40 |        7 | `components/ui/section-header.tsx`                        |
 | `LoadingState`             | ui      |          39 |       34 | `components/ui/loading-state.tsx`                         |
 | `TabsContent`              | ui      |          39 |       10 | `components/ui/tabs.tsx`                                  |
 | `FiltreCoches`             | ui      |          37 |       14 | `components/ui/filtre-en-ligne.tsx`                       |
-| `CardHeader`               | ui      |          36 |       20 | `components/ui/card.tsx`                                  |
-| `CardTitle`                | ui      |          36 |       20 | `components/ui/card.tsx`                                  |
+| `CelluleVide`              | ui      |          36 |        8 | `components/ui/data-grid.tsx`                             |
 | `Combobox`                 | ui      |          36 |       18 | `components/ui/combobox.tsx`                              |
-| `CelluleVide`              | ui      |          35 |        8 | `components/ui/data-grid.tsx`                             |
+| `CardHeader`               | ui      |          35 |       20 | `components/ui/card.tsx`                                  |
+| `CardTitle`                | ui      |          35 |       20 | `components/ui/card.tsx`                                  |
 | `TextLink`                 | ui      |          31 |       21 | `components/ui/text-link.tsx`                             |
-| `DataGrid`                 | ui      |          29 |       19 | `components/ui/data-grid.tsx`                             |
+| `DataGrid`                 | ui      |          28 |       19 | `components/ui/data-grid.tsx`                             |
 | `Label`                    | ui      |          27 |       12 | `components/ui/label.tsx`                                 |
-| `FormActions`              | ui      |          24 |       16 | `components/ui/form-actions.tsx`                          |
-| `PageHeader`               | ui      |          24 |       24 | `components/ui/page-header.tsx`                           |
+| `FormActions`              | ui      |          25 |       17 | `components/ui/form-actions.tsx`                          |
+| `PageHeader`               | ui      |          25 |       24 | `components/ui/page-header.tsx`                           |
 | `TableCell`                | ui      |          24 |        4 | `components/ui/table.tsx`                                 |
 | `TabsTrigger`              | ui      |          24 |        9 | `components/ui/tabs.tsx`                                  |
+| `Modal`                    | ui      |          22 |       13 | `components/ui/modal.tsx`                                 |
 | `IconButton`               | ui      |          21 |       13 | `components/ui/icon-button.tsx`                           |
-| `Modal`                    | ui      |          21 |       12 | `components/ui/modal.tsx`                                 |
-| `Textarea`                 | ui      |          20 |       11 | `components/ui/textarea.tsx`                              |
+| `Textarea`                 | ui      |          21 |       12 | `components/ui/textarea.tsx`                              |
 | `PageHero`                 | ui      |          19 |       19 | `components/ui/page-hero.tsx`                             |
 | `TableHead`                | ui      |          18 |        4 | `components/ui/table.tsx`                                 |
 | `TopRankList`              | métier  |          18 |        4 | `components/dashboards/charts/cockpit/TopRankList.tsx`    |
 | `Checkbox`                 | ui      |          15 |       10 | `components/ui/checkbox.tsx`                              |
+| `ErrorState`               | ui      |          15 |       11 | `components/ui/error-state.tsx`                           |
 | `FormError`                | ui      |          15 |       12 | `components/ui/form-error.tsx`                            |
-| `ErrorState`               | ui      |          14 |       10 | `components/ui/error-state.tsx`                           |
 | `FilterBar`                | ui      |          14 |       14 | `components/ui/filter-bar.tsx`                            |
 | `Skeleton`                 | ui      |          14 |        7 | `components/ui/skeleton.tsx`                              |
 | `FicheEnTete`              | ui      |          13 |        6 | `components/ui/fiche/fiche-en-tete.tsx`                   |
@@ -110,12 +110,7 @@ Généré par `node scripts/ds-usages.mjs` sur `3d45a7eb` le 2026-10-07. Compte 
 | `Switch`                   | ui      |           1 |        1 | `components/ui/switch.tsx`                                |
 | `TableFooter`              | ui      |           1 |        1 | `components/ui/table.tsx`                                 |
 | `ToastProvider`            | ui      |           1 |        1 | `components/ui/toast.tsx`                                 |
-| `Accordion`                | ui      |           0 |        0 | `components/ui/accordion.tsx`                             |
-| `AccordionContent`         | ui      |           0 |        0 | `components/ui/accordion.tsx`                             |
-| `AccordionItem`            | ui      |           0 |        0 | `components/ui/accordion.tsx`                             |
-| `AccordionTrigger`         | ui      |           0 |        0 | `components/ui/accordion.tsx`                             |
 | `BarreFiltres`             | ui      |           0 |        0 | `components/ui/filtre-en-ligne.tsx`                       |
-| `Breadcrumb`               | ui      |           0 |        0 | `components/ui/breadcrumb.tsx`                            |
 | `Calendar`                 | ui      |           0 |        0 | `components/ui/calendar.tsx`                              |
 | `CardClickable`            | ui      |           0 |        0 | `components/ui/card.tsx`                                  |
 | `CardDescription`          | ui      |           0 |        0 | `components/ui/card.tsx`                                  |
@@ -135,7 +130,6 @@ Généré par `node scripts/ds-usages.mjs` sur `3d45a7eb` le 2026-10-07. Compte 
 | `ImpersonationBanner`      | ui      |           0 |        0 | `components/ui/impersonation-banner.tsx`                  |
 | `Pagination`               | ui      |           0 |        0 | `components/ui/pagination.tsx`                            |
 | `PopoverAnchor`            | ui      |           0 |        0 | `components/ui/popover.tsx`                               |
-| `Sheet`                    | ui      |           0 |        0 | `components/ui/sheet.tsx`                                 |
 | `Sparkline`                | ui      |           0 |        0 | `components/ui/sparkline.tsx`                             |
 | `StatCardGrid`             | ui      |           0 |        0 | `components/ui/stat-card.tsx`                             |
 | `TooltipContent`           | ui      |           0 |        0 | `components/ui/tooltip.tsx`                               |

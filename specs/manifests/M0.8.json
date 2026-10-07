@@ -22,15 +22,12 @@
     "packages/plateforme/src/app/(admin)/layout.tsx",
     "packages/plateforme/src/components/ui/tooltip.tsx",
     "packages/plateforme/src/components/ui/toast.tsx",
-    "packages/plateforme/src/components/ui/accordion.tsx",
     "packages/plateforme/src/components/ui/switch.tsx",
     "packages/plateforme/src/components/ui/checkbox.tsx",
     "packages/plateforme/src/components/ui/dropdown.tsx",
     "packages/plateforme/src/components/ui/tabs.tsx",
-    "packages/plateforme/src/components/ui/sheet.tsx",
     "packages/plateforme/src/components/ui/date-picker.tsx",
     "packages/plateforme/src/components/ui/pagination.tsx",
-    "packages/plateforme/src/components/ui/breadcrumb.tsx",
     "packages/plateforme/src/components/ui/icon-button.tsx",
     "packages/plateforme/src/components/ui/tournee-card.tsx",
     "packages/plateforme/src/components/ui/form-error.tsx"
@@ -71,15 +68,12 @@
     "M0.8-23 — pnpm build passe sans erreur TypeScript",
     "M0.8-24 — Tooltip affiche son contenu à l’ouverture",
     "M0.8-25 — Toast s’affiche via useToast avec une variante",
-    "M0.8-26 — Accordion déplie le contenu de l’item ouvert",
     "M0.8-27 — Switch expose role=switch et l’état checked",
     "M0.8-28 — Checkbox expose role=checkbox et l’état checked",
     "M0.8-29 — Dropdown ouvre son menu et affiche ses items",
     "M0.8-30 — Tabs affiche le panneau de l’onglet actif",
-    "M0.8-31 — Sheet s’ouvre en panneau avec titre, corps et fermeture",
     "M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel",
     "M0.8-33 — Pagination marque la page courante et navigue",
-    "M0.8-34 — Breadcrumb marque le dernier item aria-current=page",
     "M0.8-35 — IconButton exige aria-label et applique la cible tactile 44px",
     "M0.8-36 — TourneeCard affiche camion, plaque, chauffeur et N collectes",
     "M0.8-37 — FormError rend le message en role=alert et rien si vide",
@@ -338,9 +332,10 @@
       "id": "M0.8-accordion",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:400",
       "artefact": null,
-      "test": "M0.8-26 — Accordion déplie le contenu de l’item ouvert",
-      "statut": "à-vérifier",
-      "libelle": "Accordion — contenu dépliable (§6 ; §8 mobile), Radix"
+      "test": null,
+      "statut": "descoped",
+      "libelle": "Accordion — SUPPRIMÉ (décision Val 2026-10-07, rationalisation UI §4.2 : primitive jamais utilisée). Divergence D63 : retirer la ligne du tableau des composants CDC §10 §6.",
+      "ref_divergence": "_Divergences/M0.8_20261007_suppression_accordion_breadcrumb_sheet.md"
     },
     {
       "id": "M0.8-switch",
@@ -378,9 +373,10 @@
       "id": "M0.8-sheet",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:313",
       "artefact": null,
-      "test": "M0.8-31 — Sheet s’ouvre en panneau avec titre, corps et fermeture",
-      "statut": "à-vérifier",
-      "libelle": "Sheet — panneau latéral/montant (§5.9 ; §8 mobile)"
+      "test": null,
+      "statut": "descoped",
+      "libelle": "Sheet — SUPPRIMÉ (décision Val 2026-10-07, rationalisation UI §4.2 : primitive jamais utilisée ; la règle « Modal → Sheet sur mobile » est retirée, Q7). Divergence D63 : retirer la ligne du tableau des composants CDC §10 §6.",
+      "ref_divergence": "_Divergences/M0.8_20261007_suppression_accordion_breadcrumb_sheet.md"
     },
     {
       "id": "M0.8-date-picker",
@@ -402,9 +398,10 @@
       "id": "M0.8-breadcrumb",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:353",
       "artefact": null,
-      "test": "M0.8-34 — Breadcrumb marque le dernier item aria-current=page",
-      "statut": "à-vérifier",
-      "libelle": "Breadcrumb — fil d'Ariane (§6)"
+      "test": null,
+      "statut": "descoped",
+      "libelle": "Breadcrumb — SUPPRIMÉ (décision Val 2026-10-07, rationalisation UI §4.2 : primitive jamais utilisée ; le retour de page passe par PageHeader icon). Divergence D63 : retirer la ligne du tableau des composants CDC §10 §6.",
+      "ref_divergence": "_Divergences/M0.8_20261007_suppression_accordion_breadcrumb_sheet.md"
     },
     {
       "id": "M0.8-icon-button",

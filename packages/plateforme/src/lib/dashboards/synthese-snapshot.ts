@@ -29,7 +29,7 @@ import {
 } from './attributions-ag.js';
 import {
   libelleCourtTypeCollecte,
-  libelleCdcTypeCollecte,
+  libelleTypeCollecte,
 } from '@/lib/libelles/type-collecte.js';
 
 type Supa = ReturnType<typeof createSupabaseServerClient>;
@@ -689,7 +689,7 @@ function buildFiltresLabel(
     parts.push(`Clients : ${params.clientOrgaIds.length} sélectionné(s)`);
   if (!(includeZd && includeAg)) {
     parts.push(
-      `Type : ${libelleCdcTypeCollecte(includeZd ? 'zero_dechet' : 'anti_gaspi')}`,
+      `Type : ${libelleTypeCollecte(includeZd ? 'zero_dechet' : 'anti_gaspi')}`,
     );
   }
   return parts.length > 0 ? parts.join(' · ') : null;

@@ -37,12 +37,6 @@ import { DataTable } from '@/components/ui/data-table';
 // R23a — composants DS §6 ajoutés (BL-P3-01)
 import { Tooltip } from '@/components/ui/tooltip';
 import { ToastProvider, useToast } from '@/components/ui/toast';
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-} from '@/components/ui/accordion';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -52,10 +46,8 @@ import {
   DropdownItem,
 } from '@/components/ui/dropdown';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Sheet } from '@/components/ui/sheet';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Pagination } from '@/components/ui/pagination';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { IconButton } from '@/components/ui/icon-button';
 import { TourneeCard } from '@/components/ui/tournee-card';
 import { FormError } from '@/components/ui/form-error';
@@ -225,11 +217,6 @@ it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplace
       ligne: 'rounded-savr-lg bg-savr-white shadow-savr-lg outline-none',
       motif:
         'conteneur de modale, focus programmatique à l’ouverture (tabIndex={-1}) : pas un contrôle',
-    },
-    {
-      fichier: 'components/ui/sheet.tsx',
-      ligne: 'fixed flex flex-col bg-savr-white shadow-savr-lg outline-none',
-      motif: 'idem modale — panneau latéral',
     },
     {
       fichier: 'components/ui/toast.tsx',
@@ -611,20 +598,6 @@ it('M0.8-25 — Toast s’affiche via useToast avec une variante', () => {
   expect(screen.getByText('Collecte enregistrée')).toBeInTheDocument();
 });
 
-// ── Accordion (§6, §8 mobile) ────────────────────────────────────────────────
-it('M0.8-26 — Accordion déplie le contenu de l’item ouvert', () => {
-  render(
-    <Accordion type="single" defaultValue="a" collapsible>
-      <AccordionItem value="a">
-        <AccordionTrigger>Voir plus</AccordionTrigger>
-        <AccordionContent>Détails secondaires</AccordionContent>
-      </AccordionItem>
-    </Accordion>,
-  );
-  expect(screen.getByText('Voir plus')).toBeInTheDocument();
-  expect(screen.getByText('Détails secondaires')).toBeInTheDocument();
-});
-
 // ── Switch (§6) ──────────────────────────────────────────────────────────────
 it('M0.8-27 — Switch expose role=switch et l’état checked', () => {
   render(<Switch defaultChecked aria-label="Activer" />);
@@ -687,24 +660,6 @@ it('M0.8-30 — Tabs affiche le panneau de l’onglet actif', () => {
   }
 });
 
-// ── Sheet (§5.9, §8 mobile) ──────────────────────────────────────────────────
-it('M0.8-31 — Sheet s’ouvre en panneau avec titre, corps et fermeture', () => {
-  const onClose = vi.fn();
-  render(
-    <Sheet open title="Détail collecte" side="bottom" onClose={onClose}>
-      Corps du panneau
-    </Sheet>,
-  );
-  const dialog = screen.getByRole('dialog');
-  expect(dialog).toHaveAttribute('aria-modal', 'true');
-  expect(
-    screen.getByRole('heading', { name: 'Détail collecte' }),
-  ).toBeInTheDocument();
-  expect(screen.getByText('Corps du panneau')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
-  expect(onClose).toHaveBeenCalled();
-});
-
 // ── DatePicker (§6) ──────────────────────────────────────────────────────────
 it('M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel', () => {
   const { container } = render(
@@ -734,21 +689,6 @@ it('M0.8-33 — Pagination marque la page courante et navigue', () => {
   expect(current.className).toContain('h-11'); // cible tactile 44px mobile
   fireEvent.click(screen.getByRole('button', { name: 'Page suivante' }));
   expect(onPageChange).toHaveBeenCalledWith(3);
-});
-
-// ── Breadcrumb (§6) ──────────────────────────────────────────────────────────
-it('M0.8-34 — Breadcrumb marque le dernier item aria-current=page', () => {
-  render(
-    <Breadcrumb
-      items={[
-        { label: 'Dashboard', href: '/' },
-        { label: 'Événement', href: '/e' },
-        { label: 'Collecte' },
-      ]}
-    />,
-  );
-  expect(screen.getByText('Collecte')).toHaveAttribute('aria-current', 'page');
-  expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
 });
 
 // ── IconButton (§6, §9 aria-label, §8/§10 44px) ─────────────────────────────

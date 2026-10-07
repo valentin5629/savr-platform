@@ -222,7 +222,7 @@ export function RevenusHistogramme({
                       <div className="flex items-center justify-between gap-5 text-sm">
                         <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
                           <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-success" />
-                          Zéro déchet
+                          Zéro Déchet
                         </span>
                         <span className="font-extrabold tabular-nums text-savr-neutral-900">
                           {fmtVal(zdVal)}
@@ -231,7 +231,7 @@ export function RevenusHistogramme({
                       <div className="mt-1 flex items-center justify-between gap-5 text-sm">
                         <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
                           <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-primary-700" />
-                          Anti-gaspi
+                          Anti-Gaspi
                         </span>
                         <span className="font-extrabold tabular-nums text-savr-neutral-900">
                           {fmtVal(agVal)}
@@ -293,11 +293,11 @@ export function RevenusHistogramme({
       <Text as="div" variant="hint" className="mt-3 flex gap-4">
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-success" />
-          Zéro déchet
+          Zéro Déchet
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-primary-700" />
-          Anti-gaspi
+          Anti-Gaspi
         </span>
       </Text>
     </div>

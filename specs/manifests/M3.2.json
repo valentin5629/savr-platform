@@ -565,7 +565,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
       "test": "M3.2/GEST01_bouton_programmer_present",
       "statut": "implemented",
-      "libelle": "Bouton primaire « Programmer un événement » — bandeau actions rapides du dashboard (§06.05, pas de section Collectes en V1)"
+      "libelle": "Bouton primaire « Programmer une collecte » (libellé unique du CTA vers le formulaire, arbitrage Q11 Val 2026-10-07, divergence D62 — le CDC §06.05 l.81 écrit « Programmer un événement ») — bandeau actions rapides du dashboard (§06.05, pas de section Collectes en V1)"
     },
     {
       "id": "BL-P1-GEST-02",

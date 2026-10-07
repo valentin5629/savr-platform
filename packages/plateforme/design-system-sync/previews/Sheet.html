@@ -1,9 +1,0 @@
-<!-- @dsCard group="Feedback" height=400 -->
-<div id="root" style="padding:20px"></div>
-<script>
-const h = React.createElement, S = window.SavrDS;
-ReactDOM.createRoot(document.getElementById('root')).render(
-h(function(){const [o,setO]=React.useState(true);return h('div',null,h(S.Button,{onClick:()=>setO(true)},'Ouvrir le panneau'),
-  h(S.Sheet,{open:o,title:'Détail de la collecte',onClose:()=>setO(false)},h('p',{className:'text-sm text-savr-neutral-600'},'[Lieu A] · 16 oct. 2026 · 250 pax')))})
-);
-</script>

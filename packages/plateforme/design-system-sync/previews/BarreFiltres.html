@@ -1,0 +1,12 @@
+<!-- @dsCard group="Filtres" height=120 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+function Demo(){
+  const [periode,setPeriode]=React.useState({from:'2026-09-01',to:'2026-09-30'}); const [types,setTypes]=React.useState(['zd']);
+  return h(S.BarreFiltres,{surface:'page',onReset:()=>{setPeriode(S.PERIODE_VIDE);setTypes([]);}},
+    h(S.DateRangePicker,{titre:'Période',value:periode,onChange:setPeriode}),
+    h(S.FiltreCoches,{label:'Type',options:[{id:'zd',nom:'Zéro Déchet'},{id:'ag',nom:'Anti-Gaspi'}],selected:types,onChange:setTypes}));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>

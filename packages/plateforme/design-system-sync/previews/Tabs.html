@@ -1,0 +1,11 @@
+<!-- @dsCard group="Affichage" height=160 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.Tabs,{defaultValue:'zd'},
+  h(S.TabsList,null,h(S.TabsTrigger,{value:'zd'},'Zéro Déchet'),h(S.TabsTrigger,{value:'ag'},'Anti-Gaspi')),
+  h(S.TabsContent,{value:'zd'},h('p',{className:'text-sm text-savr-neutral-600'},'Collectes ZD du mois.')),
+  h(S.TabsContent,{value:'ag'},h('p',{className:'text-sm text-savr-neutral-600'},'Collectes AG du mois.')))
+);
+</script>

@@ -28,3 +28,7 @@ README.md
 # Types DB generes (G7) : artefact derive du schema (regenere par
 # `pnpm db:types:local`), jamais edite a la main — ne pas reformater.
 packages/shared/src/database.types.ts
+
+# Aperçus du design system Claude Design : fichiers denses publiés tels quels dans l'artefact (voir design-system-sync/README dans SYNC_CLAUDE_DESIGN.md)
+packages/plateforme/design-system-sync/previews/
+packages/plateforme/design-system-sync/dist/

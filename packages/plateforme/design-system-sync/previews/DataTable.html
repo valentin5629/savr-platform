@@ -1,0 +1,13 @@
+<!-- @dsCard group="Affichage" height=300 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.DataTable,{keyExtractor:r=>r.id,
+  columns:[{key:'date',header:'Date',sortable:true},{key:'lieu',header:'Lieu'},{key:'type',header:'Type'},{key:'poids',header:'Poids'},
+    {key:'statut',header:'Statut',render:r=>h(S.Badge,{variant:r.v},r.statut)}],
+  data:[{id:'1',date:'16/10',lieu:'[Lieu A]',type:'ZD',poids:'412 kg',statut:'Réalisée',v:'success'},
+        {id:'2',date:'18/10',lieu:'[Lieu B]',type:'AG',poids:'—',statut:'Programmée',v:'info'},
+        {id:'3',date:'21/10',lieu:'[Lieu C]',type:'ZD',poids:'—',statut:'Action requise',v:'action'}]})
+);
+</script>

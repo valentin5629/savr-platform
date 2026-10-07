@@ -1,0 +1,10 @@
+<!-- @dsCard group="Formulaires" height=200 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'grid max-w-md gap-4'},
+  h(S.FormField,{label:'Nombre de convives',htmlFor:'pax',required:true,hint:'Estimation, modifiable jusqu’à J-2'},h(S.Input,{id:'pax',defaultValue:'250'})),
+  h(S.FormField,{label:'SIRET',htmlFor:'siret',error:'Le SIRET doit contenir 14 chiffres'},h(S.Input,{id:'siret',defaultValue:'1234',error:true})))
+);
+</script>

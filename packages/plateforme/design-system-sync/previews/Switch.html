@@ -1,0 +1,8 @@
+<!-- @dsCard group="Formulaires" height=80 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex items-center gap-3'},h(S.Switch,{id:'s1',defaultChecked:true}),h(S.Label,{htmlFor:'s1'},'Rapport automatique mensuel'))
+);
+</script>

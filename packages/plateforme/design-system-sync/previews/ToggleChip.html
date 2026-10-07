@@ -1,0 +1,13 @@
+<!-- @dsCard group="Données" height=90 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(function(){const [on,setOn]=React.useState({zd:true,ag:true,evite:false});const t=k=>setOn(s=>({...s,[k]:!s[k]}));
+  return h('div',{className:'flex flex-wrap items-center gap-2'},
+    h(S.ToggleChip,{pressed:on.zd,onClick:()=>t('zd'),swatch:{color:'var(--color-savr-dataviz-1)'}},'Zéro Déchet'),
+    h(S.ToggleChip,{pressed:on.ag,onClick:()=>t('ag'),swatch:{color:'var(--color-savr-dataviz-2)'}},'Anti-Gaspi'),
+    h(S.ToggleChip,{pressed:on.evite,onClick:()=>t('evite'),swatch:{color:'var(--color-savr-dataviz-3)',shape:'line'}},'CO₂ évité'),
+    h(S.ToggleChip,{pressed:true,variant:'accent'},'variant="accent"'))})
+);
+</script>

@@ -1,0 +1,11 @@
+<!-- @dsCard group="Affichage" height=180 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.Timeline,null,
+  h(S.TimelineItem,null,h('div',{className:'text-xs text-savr-neutral-500'},'12 oct. · 09:14'),h('div',{className:'text-sm font-semibold'},'Collecte programmée')),
+  h(S.TimelineItem,null,h('div',{className:'text-xs text-savr-neutral-500'},'14 oct. · 17:02'),h('div',{className:'text-sm font-semibold'},'Validée par Savr')),
+  h(S.TimelineItem,null,h('div',{className:'text-xs text-savr-neutral-500'},'16 oct. · 23:48'),h('div',{className:'text-sm font-semibold'},'Réalisée')))
+);
+</script>

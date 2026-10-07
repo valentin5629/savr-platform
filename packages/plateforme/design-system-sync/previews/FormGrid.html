@@ -1,0 +1,13 @@
+<!-- @dsCard group="Formulaires" height=260 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.FormGrid,{cols:2,className:'max-w-xl'},
+  h(S.FormField,{label:'Raison sociale',htmlFor:'rs',required:true},h(S.Input,{id:'rs',defaultValue:'[Traiteur A]'})),
+  h(S.FormField,{label:'SIRET',htmlFor:'si',required:true},h(S.Input,{id:'si',defaultValue:'123 456 789 00012'})),
+  h(S.FormField,{label:'Adresse',htmlFor:'ad',className:'sm:col-span-2'},h(S.Input,{id:'ad',defaultValue:'[Adresse, 75008 Paris]'})),
+  h(S.FormField,{label:'Téléphone',htmlFor:'tel'},h(S.Input,{id:'tel',defaultValue:'01 23 45 67 89'})),
+  h(S.FormField,{label:'E-mail',htmlFor:'em'},h(S.Input,{id:'em',defaultValue:'contact@exemple.fr'})))
+);
+</script>

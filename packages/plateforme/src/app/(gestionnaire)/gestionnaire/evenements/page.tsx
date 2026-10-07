@@ -128,7 +128,9 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
       </span>
     ),
   },
-  // §06.05 §2 l.309 : « — si coefficient non communiqué ».
+  // §06.05 §2 l.309 : « — si coefficient non communiqué ». « — » aussi pour
+  // un événement qui n'a que des collectes anti-gaspi : la route ne rend
+  // d'estimation que s'il a au moins une collecte ZD (arbitrage Val 2026-10-07).
   // Atteignable depuis 20260921190000 — f_dechets_labo_estimes
   // remonte NULL au lieu de 0 quand le traiteur n'a pas
   // communiqué de coefficient (et sur événement hors

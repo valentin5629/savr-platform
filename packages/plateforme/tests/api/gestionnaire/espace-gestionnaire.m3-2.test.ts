@@ -516,6 +516,113 @@ describe('M3.2 / statut consolidé F2', () => {
   });
 });
 
+// ── Déchets labo estimés : événements à collecte ZD seulement ────────────────
+// Arbitrage Val 2026-10-07 (« la notion ne tient pas pour les collectes AG »,
+// puis option B sur les écrans Événements) : un événement qui n'a que des
+// collectes anti-gaspi n'a pas d'estimation, et la fonction n'est pas appelée
+// pour lui. Même règle que la liste Collectes, où seule une ligne ZD la porte.
+describe('M3.2 / événements — déchets labo estimés, ZD seulement', () => {
+  const collecte = (type: string) => ({
+    id: `c-${type}`,
+    type,
+    statut: 'cloturee',
+    date_collecte: '2026-07-01',
+    collecte_flux: [],
+    attributions_antgaspi: null,
+    bordereaux_savr: null,
+  });
+  /** Appels à la fonction, sous la forme `fonction(evenement)`. */
+  const appelsEstimation = () =>
+    (rls.__calls.rpc ?? []).map(
+      (a) => `${a[0]}(${(a[1] as { p_evenement_id: string }).p_evenement_id})`,
+    );
+
+  it('M3.2/evenements_dechets_labo_zd_seulement — liste : aucune estimation, ni appel, pour un événement aux seules collectes AG', async () => {
+    setupAuth('gestionnaire_lieux');
+    const evt = (id: string, types: string[]) => ({
+      id,
+      nom_evenement: id,
+      date_evenement: '2026-07-01',
+      pax: 300,
+      lieu_id: 'lieu-1',
+      traiteur_operationnel_organisation_id: 'org-kaspia',
+      lieux: { nom: 'Viparis', ville: 'Paris' },
+      organisations: { nom: 'Kaspia' },
+      types_evenements: { libelle: 'Gala' },
+      collectes: types.map(collecte),
+    });
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        evt('e-zd', ['zero_dechet']),
+        evt('e-mixte', ['anti_gaspi', 'zero_dechet']),
+        evt('e-ag', ['anti_gaspi']),
+      ],
+      error: null,
+    });
+    // Une réponse par appel attendu, dans l'ordre. La troisième ne doit JAMAIS
+    // être lue : si la fonction était appelée pour `e-ag`, il la recevrait.
+    rls.push({ data: 54, error: null });
+    rls.push({ data: 36, error: null });
+    rls.push({ data: 999, error: null });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/evenements/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/gestionnaire/evenements'));
+    const json = (await res.json()) as {
+      data: Array<{ id: string; dechets_labo_kg: number | null }>;
+    };
+
+    expect(appelsEstimation()).toEqual([
+      'f_dechets_labo_estimes(e-zd)',
+      'f_dechets_labo_estimes(e-mixte)',
+    ]);
+    expect(json.data.map((e) => [e.id, e.dechets_labo_kg])).toEqual([
+      ['e-zd', 54],
+      ['e-mixte', 36],
+      ['e-ag', null],
+    ]);
+  });
+
+  it('M3.2/detail_evenement_dechets_labo_zd_seulement — fiche : estimation dès une collecte ZD, aucune ni appel sinon', async () => {
+    setupAuth('gestionnaire_lieux');
+    const fiche = async (types: string[]) => {
+      rls = makeChain();
+      rls.push({
+        data: {
+          id: 'e1',
+          pax: 200,
+          lieux: null,
+          collectes: types.map(collecte),
+        },
+        error: null,
+      });
+      // Ce que la fonction rendrait si on l'appelait.
+      rls.push({ data: 42, error: null });
+      const { GET } =
+        await import('@/app/api/v1/gestionnaire/evenements/[id]/route.js');
+      const res = await GET(
+        makeReq('GET', '/api/v1/gestionnaire/evenements/e1'),
+        { params: Promise.resolve({ id: 'e1' }) },
+      );
+      const json = (await res.json()) as {
+        data: { dechets_labo_kg: number | null };
+      };
+      return { kg: json.data.dechets_labo_kg, appels: appelsEstimation() };
+    };
+
+    // Seules collectes anti-gaspi : pas d'estimation, fonction non appelée —
+    // alors même qu'elle rendrait 42.
+    expect(await fiche(['anti_gaspi'])).toEqual({ kg: null, appels: [] });
+    // Sans aucune collecte lisible : même réponse.
+    expect(await fiche([])).toEqual({ kg: null, appels: [] });
+    // Dès qu'une collecte ZD existe (ici avec une AG) : l'estimation revient.
+    expect(await fiche(['anti_gaspi', 'zero_dechet'])).toEqual({
+      kg: 42,
+      appels: ['f_dechets_labo_estimes(e1)'],
+    });
+  });
+});
+
 // ── Type de collecte : partition à cocher (arbitrage Val F1 2026-10-01) ──────
 describe('M3.2 / événements — Type de collecte à choix multiple', () => {
   // 3 événements : ZD seul, AG seul, ZD et AG — chacun dans UNE catégorie.

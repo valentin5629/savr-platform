@@ -171,9 +171,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     programmee_par_moi: boolean;
   }>;
 
-  // dechets_labo_kg via SECURITY DEFINER (coefficient jamais exposé) — parallèle
+  // dechets_labo_kg via SECURITY DEFINER (coefficient jamais exposé) — parallèle.
+  // Seulement pour un événement qui a au moins une collecte ZD (arbitrage Val
+  // 2026-10-07 : « la notion ne tient pas pour les collectes AG ») : un
+  // événement aux seules collectes anti-gaspi n'a pas d'estimation — l'écran
+  // rend « — » — et la fonction n'est pas appelée pour lui. Même règle que la
+  // liste Collectes du rôle, où seule une ligne ZD porte l'estimation.
   const dechetsCalls = await Promise.all(
     filteredRows.map(async (row) => {
+      if (row.nb_collectes_zd === 0) return null;
       const { data } = await supabase.rpc('f_dechets_labo_estimes', {
         p_evenement_id: row.id,
       });

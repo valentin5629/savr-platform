@@ -1138,6 +1138,30 @@
       "libelle": "Bloc 3 Documents : rapport/bordereau/attestation (statut + télécharger + régénérer) + galerie photos + import R2 + download attestation admin embargo H+24 (§06.06 l.246)"
     },
     {
+      "id": "M0.6-photos-client-selection-ecran",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:325",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents, galerie photos : case « Visible du client » sous chaque photo, compteur « X sur 2 choisies », cases non cochées grisées une fois 2 photos choisies, erreur de l'API affichée dans la barre d'alerte du bloc)",
+      "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx (3 tests « M0.6 — Bloc 3 : galerie — … » : cases, compteur et limite ; place libre ; PATCH /photos/<id> avec identifiant encodé)",
+      "statut": "à-vérifier",
+      "libelle": "Photos visibles du client choisies par l'équipe Savr dans la fiche collecte Admin (décisions Val 2026-10-07, _Divergences/M0.6_20261007_photos-collecte-selection-admin) : le client ne voit que les photos cochées, 2 au maximum par collecte — GO-VISUAL en attente (validation Val)"
+    },
+    {
+      "id": "M0.6-photos-client-selection-api",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:364",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/photos/[photoId]/route.ts (PATCH choisir / retirer, requireStaff, 422 à la 3e photo, audit photo_choisie_client / photo_retiree_client) ; packages/plateforme/src/app/api/v1/admin/collectes/[id]/photos/route.ts (import manuel : photo choisie d'office s'il reste une place) ; packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/route.ts (visible_client par photo) ; packages/plateforme/src/lib/collectes/photos-client.ts",
+      "test": "packages/plateforme/tests/api/admin/collectes-photos-selection.m0-6.test.ts + packages/plateforme/tests/api/admin/collectes-documents-photos.m0-6.test.ts + M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes",
+      "statut": "implemented",
+      "libelle": "Choix par l'équipe Savr des photos visibles du client : 2 au maximum par collecte (refus de la 3e, y compris entre deux sélections simultanées), import manuel choisi d'office s'il reste une place, photo remontée par le transporteur non choisie par défaut, refus des 5 rôles clients, chaque choix tracé dans l'historique"
+    },
+    {
+      "id": "M0.6-photos-client-selection-rls",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:789-792",
+      "artefact": "supabase/migrations/20261007203000_shared_fichiers_photos_rang_client.sql (colonne shared.fichiers.rang_client, CHECK rangs 1/2 réservés aux photos de collecte, index unique partiel uniq_fichiers_photo_client_rang, policy fichiers_select resserrée par ALTER POLICY)",
+      "test": "supabase/tests/SECU__fichiers_photos_selection_client.test.sql",
+      "statut": "implemented",
+      "libelle": "Une photo de collecte non choisie par l'équipe Savr est masquée aux rôles clients jusque dans la base (policy fichiers_select : rang_client exigé pour entity_type plateforme.collectes) ; l'équipe Savr lit tout ; un client ne peut ni choisir ni retirer une photo ; jamais plus de 2 photos choisies par collecte (36 assertions pgTAP sous rôle authenticated, par rôle)"
+    },
+    {
       "id": "M0.6-col-doc-regenerate-endpoint",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:368",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (POST, requireStaff, [type] ∈ PDF_DOCUMENT_TYPES → 422 sinon, 409 si document jamais généré / aucun rendu antérieur, 202 sinon) + packages/plateforme/src/lib/pdf/regenerate.ts (ré-enqueue jobs_pdf statut pending copie du dernier payload figé de l'entité + audit_log action document_regenere ; rapport RSE : regenere_at + regenere_par_user_id + version+1)",

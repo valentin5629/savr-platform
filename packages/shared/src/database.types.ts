@@ -5566,6 +5566,7 @@ export type Database = {
           entity_type: string
           id: string
           key: string
+          rang_client: number | null
           size_bytes: number
           storage_provider: Database["shared"]["Enums"]["storage_provider"]
         }
@@ -5580,6 +5581,7 @@ export type Database = {
           entity_type: string
           id?: string
           key: string
+          rang_client?: number | null
           size_bytes: number
           storage_provider: Database["shared"]["Enums"]["storage_provider"]
         }
@@ -5594,6 +5596,7 @@ export type Database = {
           entity_type?: string
           id?: string
           key?: string
+          rang_client?: number | null
           size_bytes?: number
           storage_provider?: Database["shared"]["Enums"]["storage_provider"]
         }

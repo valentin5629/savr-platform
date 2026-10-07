@@ -15,12 +15,13 @@ import type {
 // transmis l'ordre — et vaut aussi pour un transporteur joint par mail ou
 // téléphone, pour qui rien ne part automatiquement. D'où quatre signaux, dont
 // un seul suffit : un prestataire posé sur la collecte (dispatch), une
-// attribution AG validée (seule trace quand le transporteur n'a pas de
-// prestataire relié), un statut TMS sorti de « non envoyé », une référence de
-// commande reçue.
+// attribution AG (seule trace quand le transporteur n'a pas de prestataire
+// relié ; la ligne n'existe que validée, seule `rpc_valider_attribution_ag`
+// l'écrit), un statut TMS sorti de « non envoyé », une référence de commande
+// reçue.
 //
 // La règle vit ici sous deux formes côte à côte : test d'une ligne déjà
-// chargée (`demandeEnvoyee`) et filtre PostgREST de la liste Collectes Admin
+// chargée (`statutCollecteAdmin`) et filtre PostgREST de la liste Collectes Admin
 // (`filtreStatutsAdmin`). Leur accord est tenu par statut-collecte-admin.test.ts.
 
 /** Ce qu'il faut lire d'une collecte pour savoir si sa demande est partie. */
@@ -33,7 +34,7 @@ export interface EnvoiCollecte {
   attributions_antgaspi: unknown;
 }
 
-export function demandeEnvoyee(c: Omit<EnvoiCollecte, 'statut'>): boolean {
+function demandeEnvoyee(c: Omit<EnvoiCollecte, 'statut'>): boolean {
   const attribution = c.attributions_antgaspi;
   const attribuee = Array.isArray(attribution)
     ? attribution.length > 0

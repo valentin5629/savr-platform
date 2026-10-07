@@ -298,8 +298,11 @@ describe('M4.1 / export collectes — statut affiché Admin', () => {
     expect(statutDe(csv, 'evt-dispatchee')).toBe('Programmée');
     expect(statutDe(csv, 'evt-attribuee')).toBe('Programmée');
     expect(statutDe(csv, 'evt-validee')).toBe('Validée');
-    // Signaux d'envoi lus, brouillons écartés à la requête.
+    // Les QUATRE signaux d'envoi sont lus (un champ absent ferait sortir
+    // « Programmée » toute collecte programmée), brouillons écartés à la requête.
     const select = String((admin.__calls.select ?? [])[0]?.[0]);
+    expect(select).toMatch(/\bstatut_tms\b/);
+    expect(select).toMatch(/\btms_reference\b/);
     expect(select).toMatch(/\bprestataire_logistique_id\b/);
     expect(select).toMatch(/attributions_antgaspi!collecte_id\(id\)/);
     expect(admin.__calls.neq).toContainEqual(['statut', 'brouillon']);
@@ -307,10 +310,18 @@ describe('M4.1 / export collectes — statut affiché Admin', () => {
 
   it('client : ni signaux d’envoi lus (pas de lecture de attributions_antgaspi), ni changement de libellé', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: [ligne('evt-client', {})], error: null });
+    rls.push({
+      data: [
+        ligne('evt-client', {}),
+        ligne('evt-brouillon', { statut: 'brouillon' }),
+      ],
+      error: null,
+    });
     const csv = await (await call('collectes')).text();
 
     expect(statutDe(csv, 'evt-client')).toBe('Programmée');
+    // Un brouillon reste « Créée » côté client, comme avant ce lot.
+    expect(statutDe(csv, 'evt-brouillon')).toBe('Créée');
     const select = String((rls.__calls.select ?? [])[0]?.[0]);
     expect(select).not.toMatch(/attributions_antgaspi/);
     expect(select).not.toMatch(/prestataire_logistique_id/);

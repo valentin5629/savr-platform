@@ -1481,8 +1481,9 @@ export function CollecteDetailPanel({
                   />
                   <AlertBar variant="warn">
                     L&apos;attribution (association, prestataire) n&apos;est
-                    possible qu&apos;au statut « Créée » — statut actuel : «{' '}
-                    {statutCollecteDisplay(collecte.statut).label} ».
+                    possible qu&apos;au statut «{' '}
+                    {statutCollecteDisplay('creee', 'admin').label} » — statut
+                    actuel : « {statutCollecteDisplay(collecte.statut).label} ».
                   </AlertBar>
                 </Card>
               )}
@@ -2483,7 +2484,11 @@ export function CollecteDetailPanel({
         <Button
           variant="secondary"
           onClick={() => {
-            setForceStatutValue(collecte.statut);
+            // Statut courant pré-sélectionné, sauf s'il n'est pas proposé
+            // (brouillon ouvert par son adresse) : aucun choix par défaut.
+            setForceStatutValue(
+              STATUTS_FORCABLES.find((s) => s === collecte.statut) ?? '',
+            );
             setForceStatutMotif('');
             setForceStatutError(null);
             setForceStatutModal(true);

@@ -50,22 +50,29 @@ export async function buildCollectesExport(
   // demande n'est pas partie, « Programmée » ensuite — décision Val 2026-10-07),
   // d'où les signaux d'envoi en plus. Lus par le client service_role du staff
   // seulement : les rôles client n'ont pas à lire `attributions_antgaspi`.
-  const signauxEnvoi = ctx.isStaff
-    ? `statut_tms, tms_reference, prestataire_logistique_id,
-       attributions_antgaspi!collecte_id(id),`
-    : '';
-  // Typé `string` : le select varie selon le rôle, hors de portée de l'analyse
-  // de type de supabase-js (les lignes sont lues en `Row` plus bas).
-  const select: string = `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
-       ${signauxEnvoi}
+  // Deux selects LITTÉRAUX, pour que chacun reste typé (check:column-db).
+  const selectClient = () =>
+    ctx.supabase.from('collectes').select(
+      `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
        collecte_flux(poids_reel_kg),
        evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
-         lieux!lieu_id(nom, code_postal, ville))`;
-  let q = ctx.supabase
-    .from('collectes')
-    .select(select)
-    .order('date_collecte', { ascending: false });
+         lieux!lieu_id(nom, code_postal, ville))`,
+    );
+  const selectStaff = () =>
+    ctx.supabase.from('collectes').select(
+      `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
+       statut_tms, tms_reference, prestataire_logistique_id,
+       attributions_antgaspi!collecte_id(id),
+       collecte_flux(poids_reel_kg),
+       evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
+         traiteur_operationnel_organisation_id,
+         lieux!lieu_id(nom, code_postal, ville))`,
+    );
+  let q = (ctx.isStaff ? selectStaff() : selectClient()).order(
+    'date_collecte',
+    { ascending: false },
+  );
 
   // Un brouillon n'apparaît nulle part côté Admin (même décision).
   if (ctx.isStaff) q = q.neq('statut', 'brouillon');
@@ -88,7 +95,7 @@ export async function buildCollectesExport(
 
   const { data, error } = await q;
   if (error) throw erreurInterne(error, 'exports.builders');
-  const rows = (data ?? []) as unknown as Row[];
+  const rows = (data ?? []) as Row[];
 
   const traiteurNoms = await resolveTraiteurNoms(
     ctx.supabase,
@@ -135,12 +142,17 @@ export async function buildCollectesExport(
     { header: 'Type', value: (r) => libelle(TYPE_COLLECTE_LIBELLE, r.type) },
     {
       header: 'Statut',
+      // Hors staff, l'export est inchangé : un brouillon y reste « Créée »
+      // (mapping client §06.04) tant que le lot « brouillons côté client »
+      // n'est pas fait — la clé Admin `brouillon` dirait « Brouillon ».
       value: (r) =>
         libelle(
           STATUT_COLLECTE_LIBELLE,
           ctx.isStaff
             ? statutCollecteAdmin(r as unknown as EnvoiCollecte)
-            : r.statut,
+            : r.statut === 'brouillon'
+              ? 'creee'
+              : r.statut,
         ),
     },
     {

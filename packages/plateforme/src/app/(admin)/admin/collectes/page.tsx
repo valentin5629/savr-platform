@@ -55,11 +55,9 @@ import { Text } from '@/components/ui/text';
 import { ROUTES } from '@/lib/routes';
 
 // Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
-const STATUTS_PROGRAMMEES = ['programmee', 'validee', 'en_cours'];
-// Choix du filtre « Statut » de l'onglet Programmées, en clés d'affichage Admin :
-// le statut DB `programmee` s'y lit « Créée » puis « Programmée » (décision Val
-// 2026-10-07, lib/statut-collecte-admin). Envoyés à l'API en `statuts_admin`.
-const STATUTS_FILTRE_PROGRAMMEES = ['creee', ...STATUTS_PROGRAMMEES];
+// Clés d'affichage Admin : le statut DB `programmee` s'y lit « Créée » (`creee`)
+// puis « Programmée » (décision Val 2026-10-07, lib/statut-collecte-admin).
+const STATUTS_PROGRAMMEES = ['creee', 'programmee', 'validee', 'en_cours'];
 const STATUTS_HISTORIQUE = [
   'realisee',
   'realisee_sans_collecte',
@@ -397,16 +395,15 @@ export default function CollectesPage() {
     // 2026-09-30) : ce qui est affiché s'applique toujours. Sans filtre posé,
     // la liste reste le miroir exact du compteur de la pastille.
     if (tab === 'programmees') {
-      if (quickFilter) {
-        // Chemin chip serveur (les chips sont tous à portée « Programmées ») ;
-        // le Statut ne raffine qu'avec une sélection explicite.
-        params.set('chip', quickFilter);
-        if (statutsSel.length > 0)
-          params.set('statuts_admin', statutsSel.join(','));
-      } else if (statutsSel.length > 0) {
-        params.set('statuts_admin', statutsSel.join(','));
-      } else {
-        params.set('statuts', STATUTS_PROGRAMMEES.join(','));
+      // Chemin chip serveur (les chips sont tous à portée « Programmées ») ; le
+      // Statut n'y raffine qu'avec une sélection explicite. Sinon : preset de
+      // l'onglet, croisé avec la sélection (une valeur d'URL étrangère à
+      // l'onglet = aucun résultat, comme en Historique).
+      if (quickFilter) params.set('chip', quickFilter);
+      if (statutsSel.length > 0 || !quickFilter) {
+        const statutsEff = intersection(STATUTS_PROGRAMMEES, statutsSel);
+        if (statutsEff.length === 0) return null;
+        params.set('statuts', statutsEff.join(','));
       }
     } else {
       // Historique : preset terminaux ; la pastille Annulées se croise avec le
@@ -715,7 +712,7 @@ export default function CollectesPage() {
           label="Statut"
           testid="collectes-filtre-statut"
           options={(tab === 'programmees'
-            ? STATUTS_FILTRE_PROGRAMMEES
+            ? STATUTS_PROGRAMMEES
             : STATUTS_HISTORIQUE
           ).map((s) => ({
             id: s,

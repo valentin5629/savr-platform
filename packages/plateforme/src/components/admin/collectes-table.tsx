@@ -102,8 +102,8 @@ function estTerminale(row: CollecteRow): boolean {
   return STATUTS_TERMINAUX.has(row.statut);
 }
 
-// Collecte AG « à attribuer » : `programmee` en base et sans attribution — une
-// AG « Créée » (rien n'est parti), que la liste nomme par l'action attendue.
+// Collecte AG « à attribuer » : `programmee` en base et sans attribution. La
+// colonne Statut la nomme par l'action attendue tant qu'elle est « Créée ».
 function aAttribuer(row: CollecteRow): boolean {
   return (
     row.type === 'anti_gaspi' &&
@@ -335,7 +335,9 @@ export function colonnesCollectesAdmin({
       header: 'Statut',
       accessorFn: (r) => r.statut,
       cell: ({ row: { original: r } }) =>
-        aAttribuer(r) ? (
+        // « À attribuer » nomme une AG « Créée » par l'action attendue : le
+        // badge cède dès qu'un signal d'envoi existe, comme la frise et l'export.
+        aAttribuer(r) && statutCollecteAdmin(r) === 'creee' ? (
           <Badge variant="warning">À attribuer</Badge>
         ) : (
           <StatusCollecte statut={statutCollecteAdmin(r)} />

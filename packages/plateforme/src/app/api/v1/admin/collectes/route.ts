@@ -30,16 +30,18 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
-  const statut = searchParams.get('statut');
-  const statuts = searchParams.get('statuts'); // multi-sélection (CSV) §06.06 §3
-  // Sélection du filtre « Statut » en clés d'AFFICHAGE Admin (CSV) : « Créée »
-  // (`creee`) et « Programmée » y sont deux moitiés du statut DB `programmee`
-  // (décision Val 2026-10-07). Prioritaire sur `statuts` / `statut`, qui gardent
-  // leur sens de statuts DB bruts.
-  // Liste blanche des clés dans `filtreStatutsAdmin` (la valeur part dans `.or()`).
-  const filtreAdmin = filtreStatutsAdmin(
-    listeCsv(searchParams.get('statuts_admin'), () => true),
-  );
+  // Statuts demandés (CSV `statuts` §06.06 §3, ou l'ancien mono `statut`), en
+  // clés d'AFFICHAGE Admin : les statuts DB, où `programmee` veut dire « demande
+  // partie », plus `creee` pour sa moitié « non partie » (décision Val
+  // 2026-10-07). Liste blanche dans `filtreStatutsAdmin`.
+  const statutsDemandes = (
+    searchParams.get('statuts') ??
+    searchParams.get('statut') ??
+    ''
+  )
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   const type = searchParams.get('type');
   const statut_tms = searchParams.get('statut_tms');
   const chip = searchParams.get('chip');
@@ -127,20 +129,13 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   // Un brouillon vit dans le formulaire du programmeur (« Mes brouillons ») : il
   // n'apparaît dans aucune liste Admin (décision Val 2026-10-07).
   query = query.neq('statut', 'brouillon');
-  // Statut : sélection Admin (`statuts_admin`) prioritaire, puis multi-sélection
-  // (`statuts` CSV), sinon mono (`statut`).
-  if (filtreAdmin && 'or' in filtreAdmin) {
-    query = query.or(filtreAdmin.or);
-  } else if (filtreAdmin) {
-    query = query.in('statut', filtreAdmin.statuts);
-  } else if (statuts) {
-    const list = statuts
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (list.length > 0) query = query.in('statut', list);
-  } else if (statut) {
-    query = query.eq('statut', statut);
+  if (statutsDemandes.length > 0) {
+    const filtre = filtreStatutsAdmin(statutsDemandes);
+    // Rien de valide demandé (clé inconnue, brouillon) : aucune ligne, jamais
+    // une liste élargie.
+    if (!filtre) query = query.in('statut', []);
+    else if ('or' in filtre) query = query.or(filtre.or);
+    else query = query.in('statut', filtre.statuts);
   }
   if (types.length > 0) query = query.in('type', types);
   else if (type) query = query.eq('type', type);

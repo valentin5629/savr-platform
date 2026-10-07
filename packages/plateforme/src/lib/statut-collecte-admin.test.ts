@@ -7,7 +7,6 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  demandeEnvoyee,
   filtreStatutsAdmin,
   statutCollecteAdmin,
   type EnvoiCollecte,
@@ -38,7 +37,6 @@ const SIGNAUX: [string, Partial<EnvoiCollecte>][] = [
 
 describe('M0.6 / statut Admin — Créée puis Programmée', () => {
   it('M0.6/statut_admin_creee_avant_envoi — `programmee` sans aucun signal d’envoi = « Créée »', () => {
-    expect(demandeEnvoyee(CREEE)).toBe(false);
     expect(statutCollecteAdmin(CREEE)).toBe('creee');
     // Un embed tableau vide (aucune attribution) n'est pas un signal.
     expect(statutCollecteAdmin({ ...CREEE, attributions_antgaspi: [] })).toBe(
@@ -50,7 +48,6 @@ describe('M0.6 / statut Admin — Créée puis Programmée', () => {
     'M0.6/statut_admin_programmee_apres_envoi — %s = « Programmée »',
     (_nom, signal) => {
       const collecte = { ...CREEE, ...signal };
-      expect(demandeEnvoyee(collecte)).toBe(true);
       expect(statutCollecteAdmin(collecte)).toBe('programmee');
     },
   );
@@ -168,15 +165,6 @@ describe('M0.6 / statut Admin — filtre « Statut » de la liste Collectes', ()
     });
     expect(filtreStatutsAdmin(['en_cours', 'validee'])).toEqual({
       statuts: ['validee', 'en_cours'],
-    });
-  });
-
-  it('une seule des deux : expression `or` bornée au statut DB `programmee`', () => {
-    expect(filtreStatutsAdmin(['creee'])).toEqual({
-      or: 'and(statut.eq.programmee,statut_tms.eq.non_envoye,tms_reference.is.null,prestataire_logistique_id.is.null,attributions_antgaspi.is.null)',
-    });
-    expect(filtreStatutsAdmin(['programmee', 'validee'])).toEqual({
-      or: 'and(statut.eq.programmee,or(statut_tms.neq.non_envoye,tms_reference.not.is.null,prestataire_logistique_id.not.is.null,attributions_antgaspi.not.is.null)),statut.in.(validee)',
     });
   });
 

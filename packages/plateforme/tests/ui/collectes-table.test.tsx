@@ -268,6 +268,12 @@ describe('collectes-table / colonne Statut — Créée puis Programmée', () => 
     expect(statutAffiche(row())).toBe('À attribuer');
   });
 
+  it('AG sans attribution mais déjà dispatchée : « Programmée », comme la frise et l’export', () => {
+    expect(statutAffiche(row({ prestataire_logistique_id: 'presta-1' }))).toBe(
+      'Programmée',
+    );
+  });
+
   it('au-delà de `programmee`, le libellé suit le statut DB', () => {
     expect(
       statutAffiche(

@@ -1,0 +1,13 @@
+<!-- @dsCard group="Actions" height=110 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex flex-wrap items-center gap-6 text-sm'},
+  h(S.TextLink,{href:'#'},'Voir la collecte'),
+  h(S.TextLink,{href:'#',strong:true},'Lien appuyé (strong)'),
+  h(S.TextLink,{onClick:()=>{}},'Action en texte (bouton)'),
+  h(S.TextLink,{href:'https://gosavr.io',external:true,target:'_blank'},'Lien externe'),
+  h(S.Text,{as:'span',variant:'hint'},'1 recette : primary-700, souligné au survol ; touch = zone 44 px'))
+);
+</script>

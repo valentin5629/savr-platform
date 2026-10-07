@@ -1,0 +1,11 @@
+<!-- @dsCard group="Métier" height=130 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex flex-col gap-3'},
+  h('div',{className:'flex items-center gap-3'},h(S.TypeCollecteBadge,{type:'zero_dechet'}),h(S.TypeCollecteBadge,{type:'anti_gaspi'}),h(S.Text,{as:'span',variant:'hint'},'forme="pastille" (défaut) — listes et tableaux')),
+  h('div',{className:'flex items-center gap-3'},h(S.TypeCollecteBadge,{type:'zero_dechet',forme:'plein'}),h(S.TypeCollecteBadge,{type:'anti_gaspi',forme:'plein'}),h(S.Text,{as:'span',variant:'hint'},'forme="plein" — sur-titre des fiches')),
+  h('div',{className:'flex items-center gap-3'},h(S.TypeCollecteBadge,{type:'zero_dechet',forme:'badge'}),h(S.TypeCollecteBadge,{type:'anti_gaspi',forme:'badge'}),h(S.Text,{as:'span',variant:'hint'},'forme="badge" — référentiel transporteurs')))
+);
+</script>

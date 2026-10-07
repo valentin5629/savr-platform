@@ -1,0 +1,12 @@
+<!-- @dsCard group="Actions" height=80 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex items-center gap-3'},
+  h(S.IconButton,{'aria-label':'Modifier'},h(S.Pencil,{className:'h-4 w-4'})),
+  h(S.IconButton,{'aria-label':'Ajouter',variant:'primary'},h(S.Plus,{className:'h-4 w-4'})),
+  h(S.IconButton,{'aria-label':'Supprimer',variant:'destructive'},h(S.Trash2,{className:'h-4 w-4'})),
+  h(S.IconButton,{'aria-label':'Plus',size:'sm'},h(S.MoreHorizontal,{className:'h-4 w-4'})))
+);
+</script>

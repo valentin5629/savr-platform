@@ -1,0 +1,11 @@
+<!-- @dsCard group="Données" height=320 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+const data=[{id:'1',date:'16/10/2026',lieu:'[Lieu A]',type:'zero_dechet',statut:'cloturee',poids:412},{id:'2',date:'18/10/2026',lieu:'[Lieu B]',type:'anti_gaspi',statut:'validee',poids:0},{id:'3',date:'21/10/2026',lieu:'[Lieu C]',type:'zero_dechet',statut:'en_cours',poids:92}];
+const columns=[{accessorKey:'date',header:'Date'},{accessorKey:'lieu',header:'Lieu'},
+  {accessorKey:'type',header:'Type',cell:({row})=>h(S.TypeCollecteBadge,{type:row.original.type})},
+  {accessorKey:'statut',header:'Statut',cell:({row})=>h(S.CollecteStatutBadge,{statut:row.original.statut,vue:'admin'})},
+  {accessorKey:'poids',header:'Poids',cell:({getValue})=>getValue()?getValue()+' kg':h(S.CelluleVide)}];
+ReactDOM.createRoot(document.getElementById('root')).render(h(S.DataGrid,{columns,data,getRowId:r=>r.id,initialSorting:[{id:'date',desc:false}]}));
+</script>

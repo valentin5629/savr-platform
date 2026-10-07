@@ -1,0 +1,9 @@
+<!-- @dsCard group="Affichage" height=160 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.PageHero,{title:'Mes collectes',subtitle:'Programme, suis et clôture tes collectes ZD et AG.',icon:h(S.Truck,{className:'h-6 w-6'}),
+  actions:h(S.Button,{variant:'accent'},'Programmer')})
+);
+</script>

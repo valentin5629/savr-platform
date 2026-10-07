@@ -1,0 +1,11 @@
+<!-- @dsCard group="Formulaires" height=120 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'grid max-w-md gap-3'},
+  h(S.Input,{placeholder:'Nom du lieu'}),
+  h(S.Input,{defaultValue:'[Adresse, 75008 Paris]',error:true}),
+  h(S.Input,{placeholder:'Désactivé',disabled:true}))
+);
+</script>

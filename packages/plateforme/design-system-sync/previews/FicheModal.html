@@ -1,0 +1,17 @@
+<!-- @dsCard group="Fiches" height=480 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(function(){const [o,setO]=React.useState(true);return h('div',null,h(S.Button,{onClick:()=>setO(true)},'Ouvrir la fiche'),
+  h(S.FicheModal,{open:o,title:'Fiche collecte',onClose:()=>setO(false),
+    footer:h(S.FormActions,{cancel:{label:'Fermer',onClick:()=>setO(false)},submit:{label:'Enregistrer',onClick:()=>setO(false)}})},
+    h(S.FicheEnTete,{surtitre:h(React.Fragment,null,h(S.TypeCollecteBadge,{type:'anti_gaspi',forme:'plein'}),h(S.EnTeteMention,null,'CMD-2026-0413')),
+      titre:'[Lieu B] — Cocktail dînatoire',statut:h(S.CollecteStatutBadge,{statut:'validee'}),
+      infos:[{icon:S.CalendarIcon,texte:'Jeudi 1er octobre 2026 · 22:00'},{icon:S.MapPin,texte:'[Adresse, 92100 Boulogne]'}]}),
+    h(S.FicheCorps,null,h(S.Tabs,{defaultValue:'infos'},
+      h(S.TabsList,null,h(S.OngletAvecErreurs,{value:'infos',nbErreurs:0},'Informations'),h(S.OngletAvecErreurs,{value:'asso',nbErreurs:1},'Association')),
+      h(S.TabsContent,{value:'infos'},h('dl',{className:'grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2'},h(S.InfoItem,{label:'Convives'},'180 pax'),h(S.InfoItem,{label:'Transporteur'},'[A Toutes!]'))),
+      h(S.TabsContent,{value:'asso'},h(S.Text,{variant:'muted'},'1 champ à corriger.'))))))})
+);
+</script>

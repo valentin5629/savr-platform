@@ -1,0 +1,12 @@
+<!-- @dsCard group="Fiches" height=150 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.Tabs,{defaultValue:'infos',className:'max-w-lg'},
+  h(S.TabsList,null,h(S.OngletAvecErreurs,{value:'infos',nbErreurs:0},'Informations'),h(S.OngletAvecErreurs,{value:'flux',nbErreurs:2},'Flux et pesées'),h(S.OngletAvecErreurs,{value:'contacts',nbErreurs:1},'Contacts')),
+  h(S.TabsContent,{value:'infos'},h(S.Text,{variant:'muted'},'Onglet sans erreur.')),
+  h(S.TabsContent,{value:'flux'},h(S.Text,{variant:'muted'},'2 champs à corriger (compteur Badge variant="count" + texte lecteur d’écran).')),
+  h(S.TabsContent,{value:'contacts'},h(S.Text,{variant:'muted'},'1 champ à corriger.')))
+);
+</script>

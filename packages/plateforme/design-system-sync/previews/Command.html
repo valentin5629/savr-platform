@@ -1,0 +1,12 @@
+<!-- @dsCard group="Navigation" height=340 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'max-w-lg'},h(S.Command,{className:'rounded-savr-md border border-savr-neutral-200 shadow-savr-md'},h(S.CommandInput,{placeholder:'Rechercher une collecte, un client, un lieu…'}),
+  h(S.CommandList,null,h(S.CommandEmpty,null,'Aucun résultat.'),
+    h(S.CommandGroup,{heading:'Clients'},h(S.CommandItem,null,h(S.UtensilsCrossed,{className:'h-4 w-4'}),'[Traiteur A]'),h(S.CommandItem,null,h(S.UtensilsCrossed,{className:'h-4 w-4'}),'[Traiteur B]')),
+    h(S.CommandSeparator),
+    h(S.CommandGroup,{heading:'Lieux'},h(S.CommandItem,null,h(S.Building2,{className:'h-4 w-4'}),'[Lieu A]'),h(S.CommandItem,null,h(S.Building2,{className:'h-4 w-4'}),'[Lieu B]')))))
+);
+</script>

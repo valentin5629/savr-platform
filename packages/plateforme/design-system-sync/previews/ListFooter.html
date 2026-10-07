@@ -1,0 +1,10 @@
+<!-- @dsCard group="Affichage" height=150 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(function(){const [p,setP]=React.useState(2);const [t,setT]=React.useState(50);return h('div',{className:'flex flex-col gap-6'},
+  h(S.ListFooter,{total:237,page:p,onPageChange:setP}),
+  h(S.ListFooter,{total:1203,page:1,onPageChange:()=>{},taillePage:t,taillesPage:[25,50,100],onTaillePageChange:setT}))})
+);
+</script>

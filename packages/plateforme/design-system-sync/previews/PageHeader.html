@@ -1,0 +1,12 @@
+<!-- @dsCard group="Affichage" height=140 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex flex-col gap-6'},
+  h(S.PageHeader,{title:'Mes collectes',description:'Collectes programmées et historique de votre organisation.',
+    icon:h(S.IconButton,{'aria-label':'Retour',size:'sm'},h(S.ChevronLeft)),
+    actions:h(S.Button,{variant:'accent'},h(S.Plus),'Programmer une collecte')}),
+  h(S.PageHeader,{tone:'neutral',size:'xl',weight:'semibold',title:'Paramètres',description:'Variante Admin : tone="neutral", size="xl".'}))
+);
+</script>

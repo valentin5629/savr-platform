@@ -1,0 +1,10 @@
+<!-- @dsCard group="Feedback" height=190 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex max-w-md flex-col gap-6'},
+  h(S.LoadingState),
+  h(S.LoadingState,{variant:'bloc',lignes:3,label:'Chargement des collectes…'}))
+);
+</script>

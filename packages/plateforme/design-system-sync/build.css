@@ -1,0 +1,58 @@
+/* Feuille des aperçus du design system Claude Design. Compilée par build.mjs
+   (Tailwind 4) sur les sources des composants exportés par entry.ts et sur les
+   aperçus (previews/). Les tokens Savr ne sont PAS émis ici : ils viennent de
+   tokens.css, généré par le design system à partir de tokens.json — c'est ce qui
+   fait qu'un token modifié dans Claude Design change les aperçus. */
+@import 'tailwindcss' source(none);
+@source "../src/components/ui";
+@source "../src/components/collecte";
+@source "../src/components/admin/collecte-statut-frise.tsx";
+@source "../src/components/dashboards/charts/cockpit";
+@source "../src/components/dashboards/DashboardFilterBar.tsx";
+@source "../src/components/dashboards/ParcMultiSelects.tsx";
+@source "../src/components/dashboards/EmptyDashboardState.tsx";
+@source "../src/components/auth/auth-card.tsx";
+@source "../src/components/layout/savr-logo.tsx";
+@source "./previews";
+
+/* Tokens Savr (copiés depuis globals.css @theme par build.mjs) : référence seule. */
+@theme reference {
+  /* __THEME__ */
+}
+
+/* Seule divergence d'échelle Tailwind (globals.css §3.2) : émise, car Tailwind
+   la lit dans sa propre variable, pas dans tokens.css. */
+@theme {
+  --text-4xl: 38px;
+  --text-4xl--line-height: 1.15;
+}
+
+/* Base (globals.css) */
+body {
+  background-color: var(--color-savr-neutral-50);
+  color: var(--color-savr-neutral-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+@layer base {
+  *:focus-visible {
+    outline: 2px solid var(--color-savr-primary-500);
+    outline-offset: 2px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

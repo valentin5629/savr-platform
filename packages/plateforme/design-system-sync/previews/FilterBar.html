@@ -1,0 +1,19 @@
+<!-- @dsCard group="Filtres" height=260 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+function Demo(){
+  const [type,setType]=React.useState('tous'); const [lieux,setLieux]=React.useState(['l1']);
+  const [periode,setPeriode]=React.useState(S.PERIODE_VIDE); const [q,setQ]=React.useState(''); const [statut,setStatut]=React.useState(null);
+  return h(S.FilterBar,{
+    tabs:h(S.Tabs,{defaultValue:'prog'},h(S.TabsList,null,h(S.TabsTrigger,{value:'prog'},'Programmées'),h(S.TabsTrigger,{value:'hist'},'Historique'))),
+    toggle:h(S.ToggleGroup,{type:'single',value:type,onValueChange:v=>v&&setType(v)},h(S.ToggleGroupItem,{value:'tous'},'Toutes'),h(S.ToggleGroupItem,{value:'zd'},'Zéro Déchet'),h(S.ToggleGroupItem,{value:'ag'},'Anti-Gaspi')),
+    count:'16 collectes correspondent aux filtres', actif:true,
+    onReset:()=>{setLieux([]);setPeriode(S.PERIODE_VIDE);setQ('');setStatut(null);}},
+    h(S.FiltreRecherche,{value:q,onChange:e=>setQ(e.target.value),placeholder:'Rechercher…'}),
+    h(S.DateRangePicker,{titre:'Période',value:periode,onChange:setPeriode}),
+    h(S.FiltreCoches,{label:'Lieu',options:[{id:'l1',nom:'[Lieu A]'},{id:'l2',nom:'[Lieu B]'},{id:'l3',nom:'[Lieu C]'}],selected:lieux,onChange:setLieux}),
+    h(S.Combobox,{titre:'Statut',placeholder:'Tous',value:statut,onChange:setStatut,options:[{value:'programmee',label:'Programmée'},{value:'validee',label:'Validée'},{value:'cloturee',label:'Clôturée'}]}));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>

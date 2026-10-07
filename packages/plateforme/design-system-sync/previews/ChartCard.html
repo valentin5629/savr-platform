@@ -1,0 +1,9 @@
+<!-- @dsCard group="Données" height=220 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'max-w-xl'},h(S.ChartCard,{title:'Évolution des tonnages',subtitle:'Par flux · 6 derniers mois',headerRight:h(S.Badge,{variant:'primary',dot:false},'ZD')},
+  h('div',{className:'flex h-28 items-end gap-2'},[40,60,45,80,95,70].map((v,i)=>h('div',{key:i,className:'flex-1 rounded-t-savr-sm bg-savr-dataviz-1',style:{height:v+'%'}})))))
+);
+</script>

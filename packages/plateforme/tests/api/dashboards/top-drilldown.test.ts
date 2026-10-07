@@ -60,6 +60,10 @@ function makeChain(result: Result) {
     // serveur (décision Val 2026-09-22) ; `limit` reste utilisé par la route
     // traiteur testée dans ce même fichier.
     range: () => chain,
+    // La liste Collectes gestionnaire complète chaque page par l'estimation des
+    // déchets labo de ses événements (`f_dechets_labo_estimes`) : ici, non
+    // communiquée.
+    rpc: () => Promise.resolve({ data: null, error: null }),
     then: (resolve: (r: Result) => unknown) => resolve(result),
   };
   return chain as typeof chain & {

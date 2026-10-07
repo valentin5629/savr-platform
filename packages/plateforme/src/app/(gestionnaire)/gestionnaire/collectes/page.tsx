@@ -51,7 +51,7 @@ import {
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
-import { fmtPax } from '@/lib/format';
+import { fmtKg, fmtPax } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 
 interface CollecteRow {
@@ -71,6 +71,10 @@ interface CollecteRow {
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
   nb_repas_donnes: number | null;
+  // Estimation amont de l'ÉVÉNEMENT (couverts × coefficient du traiteur), sur
+  // les collectes ZD seulement : null = collecte AG ou coefficient non
+  // communiqué, 0 = coefficient déclaré à zéro.
+  dechets_labo_kg: number | null;
 }
 
 /** Options de la barre (route `/gestionnaire/filtres`, même source que le dashboard et la liste Événements). */
@@ -424,7 +428,8 @@ function GestionnaireCollectesContent() {
   }
 
   // Mêmes colonnes que la liste traiteur (collectes-traiteur-table.tsx), plus
-  // « Traiteur » ; « Type » est gardé (liste plate, ZD et AG mêlés) et il n'y a
+  // « Traiteur » et « Déchets labo est. » (propre au gestionnaire, décision Val
+  // 2026-10-07) ; « Type » est gardé (liste plate, ZD et AG mêlés) et il n'y a
   // pas de pictos d'action (décisions Val 2026-10-01). Seules Date / Type /
   // Statut sont triables : la liste est paginée côté serveur, `tri` n'ordonne
   // que sur les colonnes de `collectes`, et l'`id` d'une colonne triable est la
@@ -479,6 +484,22 @@ function GestionnaireCollectesContent() {
           onTelecharger={() => void telechargerRapport(c.id)}
         />
       ),
+    },
+    {
+      // Déchets labo estimés (§05 R_dechets_labo_estimes, décisions Val
+      // 2026-10-07) : même libellé et même format que la colonne de la liste
+      // Événements, sur les collectes ZD seulement — la route ne rend aucune
+      // estimation pour une collecte AG. « — » = collecte AG, ou coefficient
+      // non communiqué ; « 0 kg » = coefficient déclaré à zéro.
+      id: 'dechets_labo',
+      header: 'Déchets labo est.',
+      meta: { className: 'text-right tabular-nums' },
+      cell: ({ row: { original: c } }) =>
+        c.dechets_labo_kg != null ? (
+          <span className="whitespace-nowrap">{fmtKg(c.dechets_labo_kg)}</span>
+        ) : (
+          <CelluleVide />
+        ),
     },
     {
       id: 'type',

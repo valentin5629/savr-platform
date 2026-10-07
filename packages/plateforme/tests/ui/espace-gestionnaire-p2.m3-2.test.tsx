@@ -6,10 +6,13 @@
  *  - BL-P2-12 : barre de filtres globale dashboard (Lieux/Traiteurs/Type/Taille) +
  *    compteur + cartes KPI non cliquables (Val 2026-07-10) ;
  *    héritage Type/Taille de l'encart benchmark (l.160) ;
- *    liste Lieux colonne Capacité ; liste Traiteurs colonne Lieux d'intervention.
+ *    liste Lieux colonne Capacité ; liste Traiteurs colonne Lieux d'intervention ;
+ *  - chargement des KPI du dashboard (hook partagé avec la fiche traiteur) :
+ *    filtres parc transmis, panne distincte du vide, réponse périmée ignorée.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
+  act,
   render,
   screen,
   fireEvent,
@@ -32,6 +35,7 @@ import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js
 import GestionnaireLieuxPage from '@/app/(gestionnaire)/gestionnaire/lieux/page.js';
 import GestionnaireTraiteursPage from '@/app/(gestionnaire)/gestionnaire/traiteurs/page.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { previousWindow } from '@/lib/dashboards/cockpit-derive';
 
 const KPIS_ZD = {
   nb_collectes: 5,
@@ -41,6 +45,13 @@ const KPIS_ZD = {
   nb_repas_donnes: null,
   pax_total: null,
   repas_par_pax: null,
+};
+
+const KPIS_AG = {
+  nb_collectes: 3,
+  nb_repas_donnes: 120,
+  pax_total: 400,
+  repas_par_pax: 0.3,
 };
 
 function jsonResponse(obj: unknown): Promise<Response> {
@@ -216,6 +227,154 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
           a.getAttribute('href')?.includes('/gestionnaire/evenements'),
         );
       expect(liens).toHaveLength(0);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// ── Chargement des KPI du dashboard (hook partagé avec la fiche traiteur) ─────
+describe('M3.2 / dashboard — chargement des KPI', () => {
+  const appelsKpi = (mock: typeof fetchMock) =>
+    mock.mock.calls
+      .map(([input]) => String(input))
+      .filter((u) => u.includes('/gestionnaire/dashboard'))
+      .map((u) => new URL(u, 'http://x').searchParams);
+
+  it(
+    'M3.2/dashboard_kpi_filtres_parc_transmis — la période et la période précédente portent les 4 filtres parc',
+    async () => {
+      const filtres = {
+        from: '2026-01-01',
+        to: '2026-03-31',
+        lieu_ids: ['l1'],
+        traiteur_ids: ['tr1'],
+        type_evenement_ids: ['ty1'],
+        taille_evenement_codes: ['M'],
+      };
+      localStorage.setItem('gestionnaire-dashboard', JSON.stringify(filtres));
+      render(<GestionnaireDashboardPage />);
+      await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI);
+
+      const appels = appelsKpi(fetchMock);
+      const avant = previousWindow(filtres.from, filtres.to)!;
+      expect(
+        new Set(appels.map((p) => `${p.get('from')}→${p.get('to')}`)),
+      ).toEqual(
+        new Set([`${filtres.from}→${filtres.to}`, `${avant.from}→${avant.to}`]),
+      );
+      for (const p of appels) {
+        expect(p.get('type')).toBe('zero_dechet');
+        expect(p.getAll('lieu_ids[]')).toEqual(['l1']);
+        expect(p.getAll('traiteur_ids[]')).toEqual(['tr1']);
+        expect(p.getAll('type_evenement_ids[]')).toEqual(['ty1']);
+        expect(p.getAll('taille_evenements[]')).toEqual(['M']);
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // §10 §7 : état Error distinct de l'état Empty. Avant, `r.json()` sans contrôle
+  // de `r.ok` rendait « Aucune collecte sur la période sélectionnée. » quand
+  // l'API tombait : une panne se lisait comme un parc sans collecte.
+  it(
+    'M3.2/dashboard_kpi_erreur_distincte_du_vide — une panne affiche une erreur + Réessayer, jamais « Aucune collecte »',
+    async () => {
+      let panne: 'http' | 'reseau' | null = 'http';
+      const fetchPanne = vi.fn((input: RequestInfo | URL) => {
+        if (!String(input).includes('/gestionnaire/dashboard') || !panne)
+          return fetchMock(input);
+        return panne === 'http'
+          ? Promise.resolve({
+              ok: false,
+              status: 500,
+              json: () => Promise.resolve({ error: 'boom' }),
+            } as Response)
+          : Promise.reject(new TypeError('Failed to fetch'));
+      });
+      vi.stubGlobal('fetch', fetchPanne);
+      render(<GestionnaireDashboardPage />);
+
+      const enErreur = async () => {
+        expect(
+          await screen.findByRole('alert', {}, ATTENTE_UI),
+        ).toHaveTextContent('Impossible de charger le dashboard');
+        expect(screen.queryByTestId('empty-dashboard-state')).toBeNull();
+        expect(screen.queryByTestId('dashboard-collectes-count')).toBeNull();
+        expect(screen.queryByText('Nombre de collectes')).toBeNull();
+      };
+      await enErreur();
+
+      // « Réessayer » relance l'appel ; une coupure réseau reste une erreur.
+      panne = 'reseau';
+      const avantRelance = appelsKpi(fetchPanne).length;
+      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+      await waitFor(
+        () =>
+          expect(appelsKpi(fetchPanne).length).toBeGreaterThan(avantRelance),
+        ATTENTE_UI,
+      );
+      await enErreur();
+
+      // Service revenu : les cartes s'affichent, l'erreur disparaît.
+      panne = null;
+      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+      expect(
+        await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.getByTestId('dashboard-collectes-count')).toHaveTextContent(
+        /5 collectes correspondent/i,
+      );
+
+      // Nouvelle panne après un chargement réussi : aucun chiffre de l'ancien
+      // chargement ne reste affiché à côté de l'erreur.
+      panne = 'http';
+      fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
+      await enErreur();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/dashboard_kpi_reponse_perimee_ignoree — une réponse arrivée après un changement de type ne remplace pas les chiffres affichés',
+    async () => {
+      // Les KPI Zéro Déchet ne répondent qu'à la demande du test.
+      let livrerZd!: () => void;
+      const zdEnAttente = new Promise<Response>((resolve) => {
+        livrerZd = () =>
+          resolve({
+            ok: true,
+            json: () => Promise.resolve({ data: { kpis: KPIS_ZD } }),
+          } as Response);
+      });
+      const fetchLent = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (!url.includes('/gestionnaire/dashboard')) return fetchMock(input);
+        return url.includes('type=anti_gaspi')
+          ? jsonResponse({ data: { kpis: KPIS_AG, pack: null } })
+          : zdEnAttente;
+      });
+      vi.stubGlobal('fetch', fetchLent);
+      render(<GestionnaireDashboardPage />);
+      await waitFor(
+        () => expect(appelsKpi(fetchLent).length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+
+      // Bascule sur Anti-Gaspi pendant que Zéro Déchet charge encore.
+      fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
+      await screen.findByText('Repas donnés', undefined, ATTENTE_UI);
+      const compteur = screen.getByTestId('dashboard-collectes-count');
+      expect(compteur).toHaveTextContent(/3 collectes correspondent/i);
+
+      // La réponse Zéro Déchet arrive enfin : elle n'est plus attendue.
+      await act(async () => {
+        livrerZd();
+        await zdEnAttente;
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(compteur).toHaveTextContent(/3 collectes correspondent/i);
+      expect(screen.getByText('Repas donnés')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

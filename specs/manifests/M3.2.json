@@ -830,7 +830,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts",
       "test": "M3.2/pack_ag_consommation_pack_tiers_exclu + M3.2/pack_ag_consommation_pack_organisation_presente + M3.2/pack_ag_consommation_erreur_500",
       "statut": "implemented",
-      "libelle": "Mon pack AG — historique de consommation borné aux packs de l'organisation : la route ne liste que les collectes AG réalisées ou clôturées débitées sur un pack de l'organisation de l'appelant (jointure obligatoire sur packs_antgaspi, filtrée sur l'organisation du jeton). Constat d'origine (savr-dev, 2026-10-06, Viparis) : aucun pack, et pourtant 144 collectes répondaient à la requête (l'écran en affichait les 50 plus récentes) — celles des traiteurs tiers sur ses lieux, débitées sur le pack du traiteur, que le gestionnaire lit par ailleurs. Une lecture en échec rend 500, jamais un historique vide."
+      "libelle": "Mon pack AG — historique de consommation borné aux packs de l'organisation : la route ne liste que les collectes AG réalisées ou clôturées débitées sur un pack de l'organisation de l'appelant (jointure obligatoire sur packs_antgaspi, filtrée sur l'organisation du jeton). Les collectes des traiteurs tiers tenues sur ses lieux, débitées sur le pack du traiteur, n'y figurent pas. Une lecture en échec rend 500, jamais un historique vide."
     },
     {
       "id": "M3.2-synthese-pdf-ag-par-vue",

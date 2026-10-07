@@ -70,13 +70,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .limit(10);
 
   // Historique consommation : collectes AG réalisées ou clôturées, débitées sur
-  // un pack DE L'ORGANISATION de l'appelant (§06.05 l.75). Le gestionnaire lit
-  // aussi les collectes des traiteurs tiers sur ses lieux : sans cette borne,
-  // « Mon pack AG » listait des collectes débitées sur le pack d'un traiteur
-  // (savr-dev, 2026-10-06 : Viparis n'a aucun pack, 144 collectes répondaient
-  // à la requête, l'écran en affichait les 50 plus récentes).
+  // un pack DE L'ORGANISATION de l'appelant (§06.05 l.75) — le gestionnaire lit
+  // aussi celles des traiteurs tiers sur ses lieux, débitées sur LEUR pack.
   // `!inner` est ce qui écarte la collecte : sans lui, le filtre sur le pack
-  // embarqué vide l'embed et garde la ligne (mesuré : toujours 144).
+  // embarqué vide l'embed et garde la ligne (mesuré sur savr-dev).
   const { data: consommation, error: consoErr } = await supabase
     .from('collectes')
     .select(

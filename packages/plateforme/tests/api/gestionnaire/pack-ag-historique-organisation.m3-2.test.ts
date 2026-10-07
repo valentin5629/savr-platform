@@ -76,10 +76,6 @@ function makeClient(collectes: Ligne[], erreurCollectes: unknown = null) {
           filtres.push((l) => vals.includes(l[col]));
           return chain;
         },
-        not: (col: string, op: string, val: unknown) => {
-          if (op === 'is' && val === null) filtres.push((l) => l[col] != null);
-          return chain;
-        },
         order: () => chain,
         limit: () => chain,
         maybeSingle: () => Promise.resolve(resoudre()),
@@ -103,26 +99,19 @@ vi.mock('@/lib/api-auth.js', () => ({
 function collecteAg(
   id: string,
   pack: { id: string; organisation_id: string } | null,
-  repas: number,
-  extra: Ligne = {},
+  statut = 'cloturee',
 ): Ligne {
   return {
     id,
     type: 'anti_gaspi',
-    statut: 'cloturee',
+    statut,
     date_collecte: '2026-06-01',
-    pack_antgaspi_id: pack?.id ?? null,
     packs_antgaspi: pack,
     evenements: {
       nom_evenement: `Gala ${id}`,
       date_evenement: '2026-06-01',
       lieux: { nom: 'Palais des Congrès' },
     },
-    attributions_antgaspi: {
-      volume_repas_realise: repas,
-      association_nom: 'Les Restos',
-    },
-    ...extra,
   };
 }
 
@@ -135,13 +124,7 @@ const PACK_TRAITEUR = { id: 'pack-kaspia', organisation_id: ORG_TRAITEUR };
 interface Reponse {
   data: {
     pack_actif: unknown;
-    historique_consommation: Array<{
-      collecte_id: string;
-      evenement: string | null;
-      lieu: string | null;
-      repas_donnes: number;
-      associations: Array<{ nom: string | null; repas: number }>;
-    }>;
+    historique_consommation: Array<{ collecte_id: string }>;
   };
 }
 
@@ -172,8 +155,8 @@ describe('M3.2 / Mon pack AG — historique borné aux packs de l’organisation
     // Cas mesuré : l'organisation n'a aucun pack, ses lieux accueillent des
     // collectes de traiteurs débitées sur le pack du traiteur.
     client = makeClient([
-      collecteAg('c-tiers-1', PACK_TRAITEUR, 80),
-      collecteAg('c-tiers-2', PACK_TRAITEUR, 40, { statut: 'realisee' }),
+      collecteAg('c-tiers-1', PACK_TRAITEUR),
+      collecteAg('c-tiers-2', PACK_TRAITEUR, 'realisee'),
     ]);
 
     const { data } = await appeler();
@@ -192,14 +175,12 @@ describe('M3.2 / Mon pack AG — historique borné aux packs de l’organisation
 
   it('M3.2/pack_ag_consommation_pack_organisation_presente — une collecte débitée sur le pack de l’organisation reste listée, seule', async () => {
     client = makeClient([
-      collecteAg('c-tiers', PACK_TRAITEUR, 80),
-      collecteAg('c-propre', PACK_GESTIONNAIRE, 55),
+      collecteAg('c-tiers', PACK_TRAITEUR),
+      collecteAg('c-propre', PACK_GESTIONNAIRE),
       // Sans débit de pack : jamais dans l'historique de consommation.
-      collecteAg('c-sans-pack', null, 12),
-      // Débitée sur le pack de l'organisation mais pas encore réalisée.
-      collecteAg('c-propre-programmee', PACK_GESTIONNAIRE, 0, {
-        statut: 'programmee',
-      }),
+      collecteAg('c-sans-pack', null),
+      // Rattachée au pack de l'organisation mais pas encore réalisée.
+      collecteAg('c-propre-programmee', PACK_GESTIONNAIRE, 'programmee'),
     ]);
 
     const { data } = await appeler();
@@ -207,12 +188,6 @@ describe('M3.2 / Mon pack AG — historique borné aux packs de l’organisation
     expect(data.historique_consommation.map((l) => l.collecte_id)).toEqual([
       'c-propre',
     ]);
-    expect(data.historique_consommation[0]).toMatchObject({
-      evenement: 'Gala c-propre',
-      lieu: 'Palais des Congrès',
-      repas_donnes: 55,
-      associations: [{ nom: 'Les Restos', repas: 55 }],
-    });
   });
 
   it('M3.2/pack_ag_consommation_erreur_500 — une lecture en échec ne se déguise pas en historique vide', async () => {

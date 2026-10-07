@@ -1,0 +1,11 @@
+<!-- @dsCard group="Formulaires" height=170 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(function(){const [v,setV]=React.useState('zero_dechet');return h(S.RadioGroup,{legend:'Type de collecte',value:v,onValueChange:setV,className:'flex flex-col gap-2'},
+  h('div',{className:'flex items-center gap-2'},h(S.RadioGroupItem,{value:'zero_dechet',id:'rg-zd'}),h(S.Label,{htmlFor:'rg-zd'},'Zéro Déchet')),
+  h('div',{className:'flex items-center gap-2'},h(S.RadioGroupItem,{value:'anti_gaspi',id:'rg-ag'}),h(S.Label,{htmlFor:'rg-ag'},'Anti-Gaspi')),
+  h('div',{className:'flex items-center gap-2'},h(S.RadioGroupItem,{value:'mixte',id:'rg-mx',disabled:true}),h(S.Label,{htmlFor:'rg-mx'},'Mixte (indisponible)')))})
+);
+</script>

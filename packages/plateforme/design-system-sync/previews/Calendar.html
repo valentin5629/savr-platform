@@ -1,0 +1,9 @@
+<!-- @dsCard group="Formulaires" height=400 subtitle="shadcn · nouveau" -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'inline-block rounded-savr-md border border-savr-neutral-200 bg-savr-white p-3'},
+  h(S.Calendar,{mode:'range',defaultMonth:new Date(2026,9,1),selected:{from:new Date(2026,9,12),to:new Date(2026,9,16)}}))
+);
+</script>

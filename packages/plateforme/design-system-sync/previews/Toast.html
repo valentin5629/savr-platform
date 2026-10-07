@@ -1,0 +1,8 @@
+<!-- @dsCard group="Feedback" height=120 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.ToastProvider,null,h(function(){const {toast}=S.useToast();return h(S.Button,{variant:'secondary',onClick:()=>toast({title:'Collecte programmée',description:'Un e-mail de confirmation a été envoyé.',variant:'success'})},'Afficher un toast (Radix)')}))
+);
+</script>

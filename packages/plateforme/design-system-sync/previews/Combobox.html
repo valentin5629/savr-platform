@@ -1,0 +1,14 @@
+<!-- @dsCard group="Formulaires" height=110 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+const OPTS=[{value:'a',label:'[Lieu A]',hint:'[Adresse, 75008 Paris]'},{value:'b',label:'[Lieu B]',hint:'[Adresse, 92100 Boulogne]'},{value:'c',label:'[Lieu C]',hint:'[Adresse, 93200 Saint-Denis]'}];
+function Demo(){
+  const [v,setV]=React.useState(null); const [s,setS]=React.useState('validee');
+  return h('div',{className:'flex flex-wrap items-center gap-6'},
+    h('div',{className:'w-72'},h(S.Combobox,{placeholder:"Lieu de l'événement",searchPlaceholder:'Rechercher un lieu…',options:OPTS,value:v,onChange:setV})),
+    h(S.Combobox,{titre:'Statut',placeholder:'Tous',value:s,onChange:setS,options:[{value:'programmee',label:'Programmée'},{value:'validee',label:'Validée'},{value:'cloturee',label:'Clôturée'}]}),
+    h('span',{className:'text-xs text-savr-neutral-500'},'Champ de formulaire · filtre en ligne (titre)'));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>

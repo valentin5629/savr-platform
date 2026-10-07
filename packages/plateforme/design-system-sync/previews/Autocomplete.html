@@ -1,0 +1,10 @@
+<!-- @dsCard group="Formulaires" height=100 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'max-w-md'},h(function(){const [sel,setSel]=React.useState(null);
+  return h(S.Autocomplete,{placeholder:'Rechercher un lieu…',selected:sel,onChange:setSel,
+    fetchOptions:async q=>[{id:'a',label:'[Lieu A]'},{id:'b',label:'[Lieu B]'}].filter(o=>o.label.toLowerCase().includes(q.toLowerCase()))})}))
+);
+</script>

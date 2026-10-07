@@ -1,0 +1,11 @@
+<!-- @dsCard group="Données" height=90 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex items-end gap-8'},
+  h(S.Sparkline,{points:[4,6,5,8,9,12,11],color:'var(--color-savr-dataviz-1)',width:160,height:40}),
+  h(S.Sparkline,{points:[9,8,8,7,8,6,7],color:'var(--color-savr-dataviz-2)',width:160,height:40}),
+  h(S.Text,{as:'span',variant:'hint'},'Courbe + aire dégradée, sans axes (StatCard)'))
+);
+</script>

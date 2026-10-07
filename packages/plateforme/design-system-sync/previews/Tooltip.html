@@ -1,0 +1,8 @@
+<!-- @dsCard group="Affichage" height=120 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'pt-12'},h(S.Tooltip,{content:'Poids net après tare',defaultOpen:true},h(S.Button,{variant:'secondary'},'12,4 t')))
+);
+</script>

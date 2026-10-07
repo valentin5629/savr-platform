@@ -1,0 +1,9 @@
+<!-- @dsCard group="Données" height=320 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'max-w-md'},h(S.TopRankList,{title:'Top lieux',subtitle:'Tonnage ZD · 12 derniers mois',showBar:true,avatarTint:'navy',
+  items:[{label:'[Lieu A]',value:'12,4 t',secondary:'38 collectes',barPct:100},{label:'[Lieu B]',value:'8,1 t',secondary:'22 collectes',barPct:65},{label:'[Lieu C]',value:'5,6 t',secondary:'17 collectes',barPct:45},{label:'[Lieu D]',value:'2,9 t',secondary:'9 collectes',barPct:23}]}))
+);
+</script>

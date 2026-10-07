@@ -1,0 +1,8 @@
+<!-- @dsCard group="Affichage" height=220 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h(S.EmptyState,{icon:h(S.Package,{className:'h-6 w-6'}),title:'Aucune collecte programmée',description:'Programme ta première collecte en 2 minutes.',action:{label:'Programmer une collecte',onClick:()=>{}}})
+);
+</script>

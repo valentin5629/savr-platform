@@ -213,6 +213,27 @@ export default tseslint.config(
     files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts'],
     rules: { 'no-console': 'off' },
   },
+  // SDK Resend : un seul point d'appel. La garde hors production (redirection ou
+  // non-envoi) et la lecture de RESEND_FROM vivent dans le transport ; un second
+  // `new Resend()` ailleurs enverrait à de vrais destinataires depuis une preview.
+  {
+    files: ['**/*.{ts,tsx,js,mjs}'],
+    ignores: ['packages/shared/src/email/transport.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'resend',
+              message:
+                "SDK Resend réservé à packages/shared/src/email/transport.ts (garde hors production). Passer par sendEmail de '@savr/shared'.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Attentes @testing-library : budget EXPLICITE obligatoire.
   // Le défaut `asyncUtilTimeout` (1 000 ms) est un budget en temps d'horloge sur
   // un travail CPU (effets React + mocks + re-rendus), et `vitest run` exécute

@@ -1,10 +1,5 @@
-import { Resend } from 'resend';
 import { createAdminSupabaseClient } from '../supabase-client.js';
-import {
-  throttleOutbound,
-  honorRetryAfter,
-  parseRetryAfter,
-} from '../rate-limit/outbound-throttle.js';
+import { dispatchToResend } from './transport.js';
 
 export interface SendEmailOptions {
   entityType?: string;
@@ -104,48 +99,6 @@ export function findMissingVariables(
   );
 }
 
-type SendOutcome = {
-  resendId: string | null;
-  statut: 'sent' | 'failed';
-  erreur: string | null;
-};
-
-// Rendu déjà fait : émet vers Resend (ou no-op sink si RESEND_API_KEY='test').
-// Réutilisé par sendEmail (envoi initial) ET runEmailRetryWorker (retries).
-async function dispatchToResend(
-  sujet: string,
-  html: string,
-  to: string,
-): Promise<SendOutcome> {
-  const apiKey = process.env['RESEND_API_KEY'] ?? '';
-  if (apiKey === 'test') {
-    return { resendId: null, statut: 'sent', erreur: null };
-  }
-  // VOLET 3 R22g — espacement défensif (§08 l.655, Resend 10 req/s) : borne le débit
-  // des envois groupés (batch / retries) sous le plafond de l'éditeur. Chemin réel
-  // uniquement (le sink 'test' ci-dessus court-circuite → aucun impact sur les tests).
-  await throttleOutbound('resend');
-  const resend = new Resend(apiKey);
-  const result = await resend.emails.send({
-    from: process.env['RESEND_FROM'] ?? 'noreply@gosavr.io',
-    to,
-    subject: sujet,
-    html,
-  });
-  if (result.error) {
-    // 429 Resend : honore Retry-After (décale le prochain envoi) — l'échec est ensuite
-    // retenté par le worker email-retry (§08 §6, paliers 5 min/1 h/24 h) (VOLET 3 R22g).
-    if (result.error.name === 'rate_limit_exceeded') {
-      honorRetryAfter(
-        'resend',
-        parseRetryAfter(result.headers?.['retry-after'] ?? null),
-      );
-    }
-    return { resendId: null, statut: 'failed', erreur: result.error.message };
-  }
-  return { resendId: result.data?.id ?? null, statut: 'sent', erreur: null };
-}
-
 async function traceResendLog(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
   erreur: string,
@@ -209,8 +162,13 @@ export async function sendEmail(
   const sujet = interpolate(tpl.sujet as string, variables);
   const html = interpolate(tpl.corps_html as string, variables);
 
-  const outcome = await dispatchToResend(sujet, html, to);
+  const outcome = await dispatchToResend({ to, subject: sujet, html });
+  // Hors production sans adresse de redirection : rien n'est parti, donc rien à
+  // historiser ni à retenter (une ligne 'failed' serait reprise par le worker).
+  if (outcome.statut === 'skipped') return;
 
+  // `destinataire` et `sujet` restent ceux du métier, même quand le transport a
+  // redirigé l'envoi : le worker de retry repart de cette ligne.
   await supabase.from('emails_envoyes').insert({
     template_code: slug,
     destinataire: to,
@@ -300,7 +258,13 @@ export async function runEmailRetryWorker(
     const sujet = interpolate(tpl.sujet as string, vars);
     const html = interpolate(tpl.corps_html as string, vars);
 
-    const outcome = await dispatchToResend(sujet, html, row.destinataire);
+    const outcome = await dispatchToResend({
+      to: row.destinataire,
+      subject: sujet,
+      html,
+    });
+    // Rien n'est parti (hors production sans redirection) : la ligne reste en l'état.
+    if (outcome.statut === 'skipped') continue;
     result.retried += 1;
     const nextTentative = row.tentative_numero + 1;
 

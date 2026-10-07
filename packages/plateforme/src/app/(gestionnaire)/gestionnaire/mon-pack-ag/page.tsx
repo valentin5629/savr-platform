@@ -1,8 +1,9 @@
 'use client';
 
 import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -105,15 +106,36 @@ const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
 export default function MonPackAgPage() {
   const [data, setData] = useState<PackData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState(false);
 
-  useEffect(() => {
+  // Un échec de chargement n'est pas « aucun pack » : sans ce contrôle, une
+  // réponse 500 s'affichait « Aucun pack Anti-Gaspi actif ».
+  const charger = useCallback(() => {
+    setLoading(true);
+    setErreur(false);
     fetch('/api/v1/gestionnaire/pack-ag')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((j) => setData(j.data as PackData))
+      .catch(() => setErreur(true))
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(charger, [charger]);
+
   if (loading) return <LoadingState />;
+  if (erreur)
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Mon pack AG" />
+        <ErrorState
+          message="Impossible de charger votre pack Anti-Gaspi. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
+          onRetry={charger}
+        />
+      </div>
+    );
 
   const pack = data?.pack_actif;
   const packEpuise = pack && pack.nb_collectes_restantes === 0;

@@ -54,7 +54,7 @@ const CONSOMMATION_COLS = `id, date_collecte, statut,
 
 interface ConsommationRow {
   id: string;
-  date_collecte: string | null;
+  date_collecte: string;
   statut: string;
   packs_antgaspi: { id: string } | { id: string }[] | null;
   evenements: unknown;
@@ -71,18 +71,23 @@ function packDe(c: ConsommationRow): string | null {
 function mapConsommation(c: ConsommationRow) {
   const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
   const lieu = (evt as { lieux?: { nom?: string } })?.lieux;
+  // Crédit consommé sans collecte réalisée (§05 « Débit d'un crédit », 2e cas).
+  const annulee = c.statut === 'annulee';
   // Vue `v_attributions_gestionnaire` (§04) sous la clé `attributions_antgaspi` :
   // embed to-one → objet PostgREST, à envelopper ; nom de l'association à plat.
-  const attrs = Array.isArray(c.attributions_antgaspi)
-    ? c.attributions_antgaspi
-    : c.attributions_antgaspi
-      ? [c.attributions_antgaspi]
-      : [];
+  // Une collecte annulée garde son attribution (posée avec le pack) mais n'a
+  // rien donné : ni repas, ni association bénéficiaire.
+  const attrs = annulee
+    ? []
+    : Array.isArray(c.attributions_antgaspi)
+      ? c.attributions_antgaspi
+      : c.attributions_antgaspi
+        ? [c.attributions_antgaspi]
+        : [];
   return {
     collecte_id: c.id,
     date_collecte: c.date_collecte,
-    // Crédit consommé sans collecte réalisée (§05 « Débit d'un crédit », 2e cas).
-    annulee_tardivement: c.statut === 'annulee',
+    annulee_tardivement: annulee,
     evenement: (evt as { nom_evenement?: string })?.nom_evenement ?? null,
     lieu: lieu?.nom ?? null,
     repas_donnes: attrs.reduce(
@@ -121,10 +126,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (packErr) return serverError(packErr, 'gestionnaire.pack_ag.list');
 
-  // Historique consommation = collectes AG qui ont consommé un crédit sur un
-  // pack DE L'ORGANISATION de l'appelant (§06.05 l.75, arbitrage Val
-  // 2026-10-07). Le gestionnaire lit aussi les collectes des traiteurs tiers
-  // sur ses lieux, débitées sur LEUR pack : elles n'y figurent pas.
+  // Historique consommation = collectes AG rattachées à un pack DE
+  // L'ORGANISATION de l'appelant (§06.05 l.75, arbitrage Val 2026-10-07). Le
+  // gestionnaire lit aussi les collectes des traiteurs tiers sur ses lieux,
+  // rattachées à LEUR pack : elles n'y figurent pas.
   const lire = (statuts: string[]) =>
     supabase
       .from('collectes')
@@ -132,14 +137,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .eq('type', 'anti_gaspi')
       .in('statut', statuts)
       .eq('packs_antgaspi.organisation_id', organisationId)
-      .order('date_collecte', { ascending: false })
-      .limit(50);
+      .order('date_collecte', { ascending: false });
 
-  // 1er cas de débit : la collecte est réalisée (ou clôturée).
+  // 1er cas de débit : la collecte est réalisée (ou clôturée). Le débit à la
+  // réalisation ne laisse pas de ligne d'audit : une réalisée dont le pack
+  // réservé n'a pu être débité (plus de pack actif, alerte Admin) reste listée.
   const { data: realisees, error: consoErr } = await lire([
     'realisee',
     'cloturee',
-  ]);
+  ]).limit(50);
   // Un historique vide est un état normal (aucun pack, ou pack jamais débité) :
   // une lecture en échec ne doit pas s'y confondre.
   if (consoErr)
@@ -188,9 +194,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ...((realisees ?? []) as unknown as ConsommationRow[]),
     ...debitees,
   ]
-    .sort((a, b) =>
-      (b.date_collecte ?? '').localeCompare(a.date_collecte ?? ''),
-    )
+    .sort((a, b) => b.date_collecte.localeCompare(a.date_collecte))
     .slice(0, 50);
 
   return NextResponse.json({

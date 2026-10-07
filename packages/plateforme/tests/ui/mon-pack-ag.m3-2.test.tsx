@@ -3,10 +3,18 @@
  * Val 2026-10-07) :
  *  - une annulation tardive qui a consommé un crédit est listée avec la mention
  *    « Annulée tardivement », sans nombre de repas ;
- *  - pas de bloc « Historique packs » (« pas d'historique multi-packs »).
+ *  - pas de bloc « Historique packs » (« pas d'historique multi-packs ») ;
+ *  - un chargement en échec affiche une erreur avec « Réessayer », jamais
+ *    « Aucun pack Anti-Gaspi actif » (Design System §7, état Error).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, within } from '@testing-library/react';
+import {
+  render,
+  screen,
+  cleanup,
+  within,
+  fireEvent,
+} from '@testing-library/react';
 import MonPackAgPage from '@/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
@@ -32,15 +40,17 @@ function ligne(id: string, annuleeTardivement: boolean, repas: number) {
   };
 }
 
+function reponseOk(data: unknown) {
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ data }),
+  } as Response);
+}
+
 function servir(data: unknown) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ data }),
-      } as Response),
-    ),
+    vi.fn(() => reponseOk(data)),
   );
 }
 
@@ -94,6 +104,56 @@ describe('M3.2 / écran Mon pack AG', () => {
       expect(screen.queryByText('pack_10')).toBeNull();
       expect(screen.getByText('15/01/2026')).toBeTruthy();
       expect(screen.queryByText('2026-01-15')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/pack_ag_ecran_erreur_chargement — une réponse 500 affiche une erreur et « Réessayer », pas « Aucun pack »',
+    async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Erreur serveur' }),
+        } as Response)
+        .mockImplementation(() =>
+          reponseOk({ pack_actif: PACK, historique_consommation: [] }),
+        );
+      vi.stubGlobal('fetch', fetchMock);
+      render(<MonPackAgPage />);
+
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toContain(
+        'Impossible de charger votre pack Anti-Gaspi',
+      );
+      expect(screen.queryByText(/Aucun pack Anti-Gaspi actif/)).toBeNull();
+
+      // « Réessayer » relance le chargement et rend l'écran normal.
+      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+      expect(
+        await screen.findByText('Pack actif', undefined, ATTENTE_UI),
+      ).toBeTruthy();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/pack_ag_ecran_aucun_pack — une réponse normale sans pack garde le message « Aucun pack Anti-Gaspi actif »',
+    async () => {
+      servir({ pack_actif: null, historique_consommation: [] });
+      render(<MonPackAgPage />);
+
+      expect(
+        await screen.findByText(
+          /Aucun pack Anti-Gaspi actif/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeTruthy();
+      expect(screen.queryByRole('alert')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

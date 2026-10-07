@@ -251,6 +251,9 @@
     "M3.2/pack_ag_sans_historique_packs",
     "M3.2/pack_ag_ecran_mention_annulee_tardivement",
     "M3.2/pack_ag_ecran_sans_bloc_historique_packs",
+    "M3.2/pack_ag_consommation_plafond_50",
+    "M3.2/pack_ag_ecran_erreur_chargement",
+    "M3.2/pack_ag_ecran_aucun_pack",
     "M3.2/blocs_gestionnaire_ag_par_vue",
     "M3.2/evolution_gestionnaire_ag_par_vue",
     "M3.2/synthese_gestionnaire_ag_par_vue",
@@ -889,9 +892,9 @@
       "id": "M3.2-pack-ag-consommation-organisation",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:75",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts",
-      "test": "M3.2/pack_ag_consommation_pack_tiers_exclu + M3.2/pack_ag_consommation_pack_organisation_presente + M3.2/pack_ag_consommation_erreur_500",
+      "test": "M3.2/pack_ag_consommation_pack_tiers_exclu + M3.2/pack_ag_consommation_pack_organisation_presente + M3.2/pack_ag_consommation_erreur_500 + M3.2/pack_ag_consommation_plafond_50",
       "statut": "implemented",
-      "libelle": "Mon pack AG — historique de consommation borné aux packs de l'organisation : la route ne liste que les collectes AG réalisées ou clôturées débitées sur un pack de l'organisation de l'appelant (jointure obligatoire sur packs_antgaspi, filtrée sur l'organisation du jeton). Les collectes des traiteurs tiers tenues sur ses lieux, débitées sur le pack du traiteur, n'y figurent pas. Une lecture en échec rend 500, jamais un historique vide."
+      "libelle": "Mon pack AG — historique de consommation borné aux packs de l'organisation : la route ne liste que des collectes AG rattachées à un pack de l'organisation de l'appelant (jointure obligatoire sur packs_antgaspi, filtrée sur l'organisation du jeton), au plus les 50 plus récentes. Les collectes des traiteurs tiers tenues sur ses lieux, débitées sur le pack du traiteur, n'y figurent pas. Une lecture en échec rend 500, jamais un historique vide."
     },
     {
       "id": "M3.2-pack-ag-consommation-annulations-tardives",
@@ -899,7 +902,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
       "test": "M3.2/pack_ag_consommation_annulation_tardive_listee + M3.2/pack_ag_consommation_annulation_sans_debit_exclue + M3.2/pack_ag_consommation_erreur_audit_500 + M3.2/pack_ag_ecran_mention_annulee_tardivement",
       "statut": "implemented",
-      "libelle": "Mon pack AG — les annulations tardives qui ont consommé un crédit figurent dans l'historique, avec la mention « Annulée tardivement » et sans nombre de repas (arbitrage Val 2026-10-07, _Divergences/M3.2_20261007_pack-ag-historique-consommation-perimetre.md, question 2). Le pack étant rattaché à la collecte dès la validation de l'attribution, une collecte annulée qui porte un pack n'a pas forcément été débitée : seule la ligne d'audit pack_debite_annulation_tardive du pack fait foi, lue par le client de service sur les seuls packs des collectes que la session lit pour son organisation. Une annulation sans cette trace n'est pas listée."
+      "libelle": "Mon pack AG — les annulations tardives qui ont consommé un crédit figurent dans l'historique, avec la mention « Annulée tardivement », sans nombre de repas ni association bénéficiaire (arbitrage Val 2026-10-07, _Divergences/M3.2_20261007_pack-ag-historique-consommation-perimetre.md, question 2). Le pack étant rattaché à la collecte dès la validation de l'attribution, une collecte annulée qui porte un pack n'a pas forcément été débitée : seule la ligne d'audit pack_debite_annulation_tardive du pack fait foi, lue par le client de service sur les seuls packs des collectes que la session lit pour son organisation. Une annulation sans cette trace n'est pas listée."
     },
     {
       "id": "M3.2-pack-ag-sans-historique-packs",
@@ -908,6 +911,14 @@
       "test": "M3.2/pack_ag_sans_historique_packs + M3.2/pack_ag_ecran_sans_bloc_historique_packs",
       "statut": "implemented",
       "libelle": "Mon pack AG — pas d'historique des packs (CDC l.75 « pas d'historique multi-packs », arbitrage Val 2026-10-07, même divergence, question 4) : la route ne rend que le pack actif, l'écran n'a plus de bloc « Historique packs ». Le type du pack s'affiche en clair (« Pack 10 ») et ses dates au format JJ/MM/AAAA."
+    },
+    {
+      "id": "M3.2-pack-ag-ecran-etat-erreur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:421",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
+      "test": "M3.2/pack_ag_ecran_erreur_chargement + M3.2/pack_ag_ecran_aucun_pack",
+      "statut": "implemented",
+      "libelle": "Mon pack AG — état Error : un chargement en échec (réponse non OK ou réseau) affiche un message et « Réessayer », jamais « Aucun pack Anti-Gaspi actif », message réservé à une réponse normale sans pack."
     },
     {
       "id": "M3.2-synthese-pdf-ag-par-vue",

@@ -1,7 +1,8 @@
 /**
- * M3.2 — « Mon pack AG » : l'historique de consommation liste les collectes qui
- * ont consommé un crédit sur un pack de l'organisation de l'appelant, et rien
- * d'autre (§06.05 l.75, arbitrage Val 2026-10-07).
+ * M3.2 — « Mon pack AG » : l'historique de consommation ne liste que des
+ * collectes rattachées à un pack de l'organisation de l'appelant — réalisées ou
+ * clôturées, et annulations tardives tracées débitées (§06.05 l.75, arbitrage
+ * Val 2026-10-07).
  *
  * Constat d'origine (savr-dev, 2026-10-06, Viparis) : l'organisation n'a aucun
  * pack, 144 collectes répondaient pourtant à la requête (l'écran en affichait
@@ -164,6 +165,8 @@ interface Reponse {
     historique_consommation: Array<{
       collecte_id: string;
       annulee_tardivement: boolean;
+      repas_donnes: number;
+      associations: Array<{ nom: string | null; repas: number }>;
     }>;
   };
 }
@@ -269,8 +272,31 @@ describe('M3.2 / Mon pack AG — annulations tardives débitées', () => {
     client = makeClient({
       collectes: [
         collecteAg('c-juin', PACK_GESTIONNAIRE, 'cloturee', '2026-06-01'),
-        collecteAg('c-annulee', PACK_GESTIONNAIRE, 'annulee', '2026-06-10'),
-        collecteAg('c-juillet', PACK_GESTIONNAIRE, 'realisee', '2026-07-01'),
+        {
+          ...collecteAg(
+            'c-annulee',
+            PACK_GESTIONNAIRE,
+            'annulee',
+            '2026-06-10',
+          ),
+          // L'attribution est posée avec le pack et survit à l'annulation.
+          attributions_antgaspi: {
+            volume_repas_realise: null,
+            association_nom: 'Les Restos',
+          },
+        },
+        {
+          ...collecteAg(
+            'c-juillet',
+            PACK_GESTIONNAIRE,
+            'realisee',
+            '2026-07-01',
+          ),
+          attributions_antgaspi: {
+            volume_repas_realise: 30,
+            association_nom: 'Les Restos',
+          },
+        },
       ],
     });
     service = makeClient({
@@ -280,8 +306,19 @@ describe('M3.2 / Mon pack AG — annulations tardives débitées', () => {
     const reponse = await appeler();
 
     expect(reponse.data.historique_consommation).toMatchObject([
-      { collecte_id: 'c-juillet', annulee_tardivement: false },
-      { collecte_id: 'c-annulee', annulee_tardivement: true },
+      {
+        collecte_id: 'c-juillet',
+        annulee_tardivement: false,
+        repas_donnes: 30,
+        associations: [{ nom: 'Les Restos', repas: 30 }],
+      },
+      // Rien n'a été donné : ni repas ni association, malgré l'attribution.
+      {
+        collecte_id: 'c-annulee',
+        annulee_tardivement: true,
+        repas_donnes: 0,
+        associations: [],
+      },
       { collecte_id: 'c-juin', annulee_tardivement: false },
     ]);
     // Le client de service ne lit que le journal d'audit, et seulement les
@@ -292,6 +329,7 @@ describe('M3.2 / Mon pack AG — annulations tardives débitées', () => {
       ['action', 'pack_debite_annulation_tardive'],
     ]);
     expect(service.requetes[0]!.in).toEqual([['record_id', ['pack-viparis']]]);
+    expect(service.requetes[0]!.select).toBe('old_values');
   });
 
   it('M3.2/pack_ag_consommation_annulation_sans_debit_exclue — une annulation qui porte un pack sans trace de débit n’est pas listée', async () => {
@@ -331,6 +369,38 @@ describe('M3.2 / Mon pack AG — annulations tardives débitées', () => {
 
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Erreur serveur' });
+  });
+});
+
+describe('M3.2 / Mon pack AG — plafond de 50 lignes', () => {
+  it('M3.2/pack_ag_consommation_plafond_50 — la liste fusionnée garde les 50 collectes les plus récentes, annulation tardive comprise', async () => {
+    const jour = (n: number) => `2026-03-${String(n).padStart(2, '0')}`;
+    client = makeClient({
+      collectes: [
+        // 55 clôturées du 1er au 31 mars (jours repris), plus anciennes en tête.
+        ...Array.from({ length: 55 }, (_, i) =>
+          collecteAg(
+            `c-${i}`,
+            PACK_GESTIONNAIRE,
+            'cloturee',
+            jour((i % 28) + 1),
+          ),
+        ),
+        collecteAg('c-annulee', PACK_GESTIONNAIRE, 'annulee', '2026-04-15'),
+      ],
+    });
+    service = makeClient({
+      audit_log: [debitAnnulation('pack-viparis', 'c-annulee')],
+    });
+
+    const reponse = await appeler();
+
+    expect(reponse.data.historique_consommation).toHaveLength(50);
+    expect(ids(reponse)[0]).toBe('c-annulee');
+    const dates = reponse.data.historique_consommation.map(
+      (l) => (l as unknown as { date_collecte: string }).date_collecte,
+    );
+    expect(dates).toEqual([...dates].sort().reverse());
   });
 });
 

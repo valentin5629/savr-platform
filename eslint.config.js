@@ -217,15 +217,24 @@ export default tseslint.config(
   // non-envoi) et la lecture de RESEND_FROM vivent dans le transport ; un second
   // `new Resend()` ailleurs enverrait à de vrais destinataires depuis une preview.
   {
-    files: ['**/*.{ts,tsx,js,mjs}'],
+    files: ['**/*.{ts,tsx,mts,cts,js,mjs,cjs}'],
     ignores: ['packages/shared/src/email/transport.ts'],
     rules: {
+      // Imports statiques seulement : un `import()` dynamique ou un `require`
+      // ne sont pas vus par cette règle.
       'no-restricted-imports': [
         'error',
         {
           paths: [
             {
               name: 'resend',
+              message:
+                "SDK Resend réservé à packages/shared/src/email/transport.ts (garde hors production). Passer par sendEmail de '@savr/shared'.",
+            },
+          ],
+          patterns: [
+            {
+              group: ['resend/*'],
               message:
                 "SDK Resend réservé à packages/shared/src/email/transport.ts (garde hors production). Passer par sendEmail de '@savr/shared'.",
             },

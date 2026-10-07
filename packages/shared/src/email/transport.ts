@@ -1,9 +1,14 @@
-// Seul point d'appel du SDK Resend : tout email émis par la Plateforme passe ici
-// (règle ESLint `no-restricted-imports` sur 'resend' partout ailleurs).
+// Seul point d'appel du SDK Resend : tout email émis VIA RESEND passe ici (règle
+// ESLint `no-restricted-imports` sur 'resend' partout ailleurs).
+// Deux canaux n'y passent pas et ne sont donc PAS couverts par la garde :
+//   - Supabase Auth, qui envoie lui-même l'email de réinitialisation de mot de
+//     passe (`resetPasswordForEmail`) ;
+//   - Pennylane, qui envoie les factures et avoirs à l'adresse qu'il connaît du
+//     client (`send_email`).
 // Ce fichier porte trois garanties, et il est le seul à les porter :
-//   - l'expéditeur vient de RESEND_FROM, jamais du code ;
+//   - l'expéditeur vient de RESEND_FROM, jamais du code ni de l'appelant ;
 //   - hors production, aucun email n'atteint un vrai destinataire ;
-//   - le SDK ne lève pas, il rend { data, error } : `error` est toujours lu.
+//   - le SDK rend { data, error } au lieu de lever : `error` est toujours lu.
 // Rien n'est lu ni validé à l'import : la configuration est contrôlée à l'envoi,
 // pour qu'un build sans variables d'environnement reste possible.
 import { Resend } from 'resend';
@@ -51,6 +56,28 @@ const escapeHtml = (v: string): string =>
 const lister = (adresses: string | string[]): string =>
   [adresses].flat().join(', ');
 
+// Un message d'erreur Resend peut citer une adresse (destinataire refusé, titulaire
+// du compte) : masquée avant journalisation. La base, elle, garde le message brut.
+const masquerAdresses = (texte: string | undefined): string =>
+  (texte ?? '').replace(
+    /[^\s<>()"',;:]+@[^\s<>()"',;:]+/g,
+    '[adresse masquée]',
+  );
+
+// Seuls ces champs partent vers Resend, quel que soit l'objet reçu : un `from`,
+// des en-têtes ou une pièce jointe portés par l'appelant ne traversent pas.
+function champsConnus(message: EmailMessage): EmailMessage {
+  const connu: EmailMessage = {
+    to: message.to,
+    subject: message.subject,
+    html: message.html,
+  };
+  if (message.cc !== undefined) connu.cc = message.cc;
+  if (message.bcc !== undefined) connu.bcc = message.bcc;
+  if (message.replyTo !== undefined) connu.replyTo = message.replyTo;
+  return connu;
+}
+
 // Le message redirigé est reconstruit champ par champ (pas de recopie en bloc) :
 // un champ destinataire ajouté plus tard à EmailMessage ne traverse pas la garde
 // tant qu'il n'est pas traité ici. `replyTo` est repris tel quel.
@@ -84,14 +111,14 @@ function redirigerHorsProduction(
 export async function dispatchToResend(
   message: EmailMessage,
 ): Promise<SendOutcome> {
-  const apiKey = (process.env['RESEND_API_KEY'] ?? '').trim();
-  if (apiKey === 'test') {
+  // Puits de test : valeur exacte, comme avant ce fichier (pas de tolérance d'espaces).
+  if (process.env['RESEND_API_KEY'] === 'test') {
     return { resendId: null, statut: 'sent', erreur: null };
   }
 
   // La garde passe AVANT le contrôle de configuration : un envoi qui n'aura pas
   // lieu n'a besoin ni de clé ni d'expéditeur, et le parcours doit continuer.
-  let aEnvoyer = message;
+  let aEnvoyer = champsConnus(message);
   if (!isProduction()) {
     const redirectTo = process.env['EMAIL_REDIRECT_TO']?.trim();
     if (!redirectTo) {
@@ -106,17 +133,22 @@ export async function dispatchToResend(
     aEnvoyer = redirigerHorsProduction(message, redirectTo);
   }
 
+  const apiKey = (process.env['RESEND_API_KEY'] ?? '').trim();
   const from = (process.env['RESEND_FROM'] ?? '').trim();
-  const absentes = [
-    ...(apiKey ? [] : ['RESEND_API_KEY']),
+  // Une clé qui n'est pas une valeur d'en-tête HTTP valide (saut de ligne interne,
+  // caractère de contrôle) ferait lever le SDK avec la clé recopiée dans son
+  // message : elle est refusée ici, sans jamais être citée.
+  const cleUtilisable = /^[\x21-\x7E]+$/.test(apiKey);
+  const enDefaut = [
+    ...(cleUtilisable ? [] : ['RESEND_API_KEY']),
     ...(from ? [] : ['RESEND_FROM']),
   ];
-  if (absentes.length > 0) {
+  if (enDefaut.length > 0) {
     logger.error('email.configuration_manquante', {
-      variables_absentes: absentes,
+      variables_en_defaut: enDefaut,
     });
     throw new Error(
-      `Configuration email incomplète — variable(s) d'environnement absente(s) : ${absentes.join(', ')}. Aucun email envoyé.`,
+      `Configuration email incomplète — variable(s) d'environnement absente(s) ou invalide(s) : ${enDefaut.join(', ')}. Aucun email envoyé.`,
     );
   }
 
@@ -126,7 +158,8 @@ export async function dispatchToResend(
   await throttleOutbound('resend');
   const debut = Date.now();
   const resend = new Resend(apiKey);
-  const result = await resend.emails.send({ from, ...aEnvoyer });
+  // `from` en dernier : rien de ce que porte le message ne peut le remplacer.
+  const result = await resend.emails.send({ ...aEnvoyer, from });
 
   if (result.error) {
     // 429 Resend : honore Retry-After (décale le prochain envoi) — l'échec est ensuite
@@ -137,13 +170,13 @@ export async function dispatchToResend(
         parseRetryAfter(result.headers?.['retry-after'] ?? null),
       );
     }
-    // §07/01 api.external.failed — ni la clé, ni le contenu, ni le destinataire.
+    // §07/01 api.external.failed — ni la clé, ni le contenu, ni une adresse.
     logger.error('api.external.failed', {
       service: 'resend',
       endpoint: ENDPOINT,
       http_status: result.error.statusCode,
       error_code: result.error.name,
-      message: result.error.message,
+      message: masquerAdresses(result.error.message),
     });
     return { resendId: null, statut: 'failed', erreur: result.error.message };
   }

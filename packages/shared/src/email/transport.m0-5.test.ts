@@ -111,18 +111,39 @@ describe('M0.5 / transport Resend — configuration lue à l’envoi', () => {
     ],
   ])(
     'configuration manquante (%s) → erreur claire, log d’erreur, aucun appel Resend',
-    async (_cas, env, absentes) => {
+    async (_cas, env, enDefaut) => {
       poserEnv(env as Env);
 
       await expect(dispatchToResend(MESSAGE)).rejects.toThrow(
-        `Configuration email incomplète — variable(s) d'environnement absente(s) : ${(absentes as string[]).join(', ')}. Aucun email envoyé.`,
+        `Configuration email incomplète — variable(s) d'environnement absente(s) ou invalide(s) : ${(enDefaut as string[]).join(', ')}. Aucun email envoyé.`,
       );
 
       expect(error).toHaveBeenCalledWith('email.configuration_manquante', {
-        variables_absentes: absentes,
+        variables_en_defaut: enDefaut,
       });
       expect(h.ResendCtor).not.toHaveBeenCalled();
       expect(h.mockSend).not.toHaveBeenCalled();
+    },
+  );
+
+  // Le SDK recopie une clé invalide dans le message de l'exception qu'il lève
+  // (« Headers.append: "Bearer re_… » ) : elle ne doit jamais lui parvenir.
+  it.each([
+    ['saut de ligne interne', 're_SECRET_A\nSECRET_B'],
+    ['caractère de contrôle', 're_SECRET_A SECRET_B'],
+    ['espace interne', 're_SECRET_A SECRET_B'],
+  ])(
+    'clé inutilisable comme en-tête HTTP (%s) → refusée sans être citée, SDK jamais instancié',
+    async (_cas, apiKey) => {
+      poserEnv({ ...PRODUCTION, apiKey });
+
+      const echec = await dispatchToResend(MESSAGE).catch((e: Error) => e);
+
+      expect(echec).toBeInstanceOf(Error);
+      expect((echec as Error).message).toContain('RESEND_API_KEY');
+      expect((echec as Error).message).not.toContain('SECRET');
+      expect(journal()).not.toContain('SECRET');
+      expect(h.ResendCtor).not.toHaveBeenCalled();
     },
   );
 
@@ -143,6 +164,15 @@ describe('M0.5 / transport Resend — configuration lue à l’envoi', () => {
     });
     expect(h.ResendCtor).not.toHaveBeenCalled();
   });
+
+  it('puits : seule la valeur exacte `test` l’active — `test ` est une vraie clé', async () => {
+    poserEnv({ ...PRODUCTION, apiKey: 'test ' });
+
+    await dispatchToResend(MESSAGE);
+
+    expect(h.ResendCtor).toHaveBeenCalledWith('test');
+    expect(h.mockSend).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('M0.5 / transport Resend — production', () => {
@@ -160,6 +190,32 @@ describe('M0.5 / transport Resend — production', () => {
     expect(h.mockSend).toHaveBeenCalledTimes(1);
     expect(envoye()).toEqual({ from: FROM, ...MESSAGE });
   });
+
+  // Le type n'empêche pas un objet plus large d'arriver jusqu'ici (variable, cast) :
+  // seuls les champs connus partent, et l'expéditeur reste celui de RESEND_FROM.
+  it.each([
+    ['production', PRODUCTION],
+    ['hors production', PREVIEW],
+  ])(
+    '%s : un `from`, des en-têtes ou une pièce jointe portés par le message ne partent jamais',
+    async (_cas, env) => {
+      poserEnv(env);
+      const large = {
+        ...MESSAGE,
+        from: 'usurpe@traiteur-test.fr',
+        headers: { 'X-Injecte': '1' },
+        attachments: [{ filename: 'a.txt', content: 'x' }],
+        scheduledAt: 'in 1 min',
+      } as EmailMessage;
+
+      await dispatchToResend(large);
+
+      expect(Object.keys(envoye()).sort()).toEqual(
+        ['bcc', 'cc', 'from', 'html', 'replyTo', 'subject', 'to'].sort(),
+      );
+      expect(envoye()['from']).toBe(FROM);
+    },
+  );
 });
 
 describe('M0.5 / transport Resend — hors production', () => {
@@ -335,6 +391,30 @@ describe('M0.5 / transport Resend — résultat et journaux', () => {
     });
     expect(info).not.toHaveBeenCalled();
     expect(h.honor).not.toHaveBeenCalled();
+  });
+
+  it('message d’erreur Resend citant une adresse → masquée dans le journal, intacte dans le résultat', async () => {
+    poserEnv(PRODUCTION);
+    const brut =
+      'You can only send testing emails to your own email address (titulaire@compte-test.fr).';
+    h.mockSend.mockResolvedValue({
+      data: null,
+      error: { statusCode: 403, name: 'validation_error', message: brut },
+      headers: null,
+    });
+
+    const outcome = await dispatchToResend(MESSAGE);
+
+    // Propagé comme avant : la ligne emails_envoyes garde le message de l'éditeur.
+    expect(outcome.erreur).toBe(brut);
+    expect(error).toHaveBeenCalledWith(
+      'api.external.failed',
+      expect.objectContaining({
+        message:
+          'You can only send testing emails to your own email address ([adresse masquée]).',
+      }),
+    );
+    expect(journal()).not.toContain('compte-test.fr');
   });
 
   it('429 rate_limit_exceeded → Retry-After honoré, échec propagé', async () => {

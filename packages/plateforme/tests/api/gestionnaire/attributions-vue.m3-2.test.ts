@@ -169,34 +169,6 @@ describe('M3.2 / traiteurs gestionnaire — repas donnés par la vue', () => {
     expect(select).toContain(VUE_REPAS);
     expect(select).not.toMatch(TABLE);
   });
-
-  it('M3.2/traiteur_detail_repas_par_vue — fiche traiteur : repas des 12 derniers mois', async () => {
-    rls.results.v_traiteurs_gestionnaire = {
-      data: { id: 'tr1', nom: 'Kaspia', logo_url: null },
-      error: null,
-    };
-    rls.results.collectes = {
-      data: [collecteAg('c1', 150, evt), collecteAg('c2', null, evt)],
-      error: null,
-    };
-    const { GET } =
-      await import('@/app/api/v1/gestionnaire/traiteurs/[id]/route.js');
-    const res = await GET(req('/api/v1/gestionnaire/traiteurs/tr1'), {
-      params: Promise.resolve({ id: 'tr1' }),
-    });
-    expect(res.status).toBe(200);
-    const { data } = (await res.json()) as {
-      data: { stats_12m: { nb_collectes_ag: number; repas_donnes: number } };
-    };
-    expect(data.stats_12m).toMatchObject({
-      nb_collectes_ag: 2,
-      repas_donnes: 150,
-    });
-
-    const select = rls.selects.collectes?.[0] ?? '';
-    expect(select).toContain(VUE_REPAS);
-    expect(select).not.toMatch(TABLE);
-  });
 });
 
 describe('M3.2 / Mon pack AG — historique de consommation par la vue', () => {

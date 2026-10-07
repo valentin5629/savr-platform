@@ -39,6 +39,7 @@ function makeChain() {
     'lte',
     'order',
     'limit',
+    'range',
     'not',
     'update',
     'insert',
@@ -455,6 +456,8 @@ describe('M3.2 / lieux', () => {
 
 // ── Traiteurs ─────────────────────────────────────────────────────────────────
 describe('M3.2 / traiteurs', () => {
+  const KASPIA_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
   it('M3.2/traiteurs_fenetre_24m_exclusive — tonnage agréger sur collectes 24m', async () => {
     setupAuth('gestionnaire_lieux');
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
@@ -495,7 +498,7 @@ describe('M3.2 / traiteurs', () => {
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // orgLieux
     rls.push({
       data: {
-        id: 'org-kaspia',
+        id: KASPIA_ID,
         nom: 'Kaspia',
         logo_url: null,
       },
@@ -505,8 +508,8 @@ describe('M3.2 / traiteurs', () => {
     const { GET } =
       await import('@/app/api/v1/gestionnaire/traiteurs/[id]/route.js');
     const res = await GET(
-      makeReq('GET', '/api/v1/gestionnaire/traiteurs/org-kaspia'),
-      { params: Promise.resolve({ id: 'org-kaspia' }) },
+      makeReq('GET', `/api/v1/gestionnaire/traiteurs/${KASPIA_ID}`),
+      { params: Promise.resolve({ id: KASPIA_ID }) },
     );
     const json = (await res.json()) as {
       data: Record<string, unknown>;
@@ -530,11 +533,11 @@ describe('M3.2 / traiteurs', () => {
     expect(colonnes).toEqual(['id', 'nom', 'logo_url']);
   });
 
-  it('M3.2/traiteur_fiche_erreur_collectes_500 — une erreur DB ne se déguise pas en stats à zéro', async () => {
+  it('M3.2/traiteur_fiche_erreur_collectes_500 — une erreur DB ne se déguise pas en liste de lieux vide', async () => {
     setupAuth('gestionnaire_lieux');
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // orgLieux
     rls.push({
-      data: { id: 'org-kaspia', nom: 'Kaspia', logo_url: null },
+      data: { id: KASPIA_ID, nom: 'Kaspia', logo_url: null },
       error: null,
     }); // orga
     rls.push({
@@ -544,8 +547,8 @@ describe('M3.2 / traiteurs', () => {
     const { GET } =
       await import('@/app/api/v1/gestionnaire/traiteurs/[id]/route.js');
     const res = await GET(
-      makeReq('GET', '/api/v1/gestionnaire/traiteurs/org-kaspia'),
-      { params: Promise.resolve({ id: 'org-kaspia' }) },
+      makeReq('GET', `/api/v1/gestionnaire/traiteurs/${KASPIA_ID}`),
+      { params: Promise.resolve({ id: KASPIA_ID }) },
     );
     expect(res.status).toBe(500);
   });
@@ -583,44 +586,6 @@ describe('M3.2 / traiteurs', () => {
     };
     expect(json.data[0]?.nom).toBe('Kaspia');
     expect(json.data[0]?.repas_donnes_12m).toBe(70);
-  });
-
-  it('M3.2/traiteur_fiche_repas_objet — fiche : repas embed to-one (OBJET) compté, pas 0', async () => {
-    setupAuth('gestionnaire_lieux');
-    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // orgLieux
-    rls.push({
-      data: {
-        id: 'org-kaspia',
-        nom: 'Kaspia',
-        logo_url: null,
-      },
-      error: null,
-    }); // orga (maybeSingle)
-    rls.push({
-      data: [
-        {
-          id: 'c1',
-          type: 'anti_gaspi',
-          statut: 'cloturee',
-          date_collecte: jourParis(
-            new Date(Date.now() - 30 * 24 * 3600 * 1000),
-          ),
-          collecte_flux: [],
-          attributions_antgaspi: { volume_repas_realise: 33 },
-        },
-      ],
-      error: null,
-    }); // collectes
-    const { GET } =
-      await import('@/app/api/v1/gestionnaire/traiteurs/[id]/route.js');
-    const res = await GET(
-      makeReq('GET', '/api/v1/gestionnaire/traiteurs/org-kaspia'),
-      { params: Promise.resolve({ id: 'org-kaspia' }) },
-    );
-    const json = (await res.json()) as {
-      data: { stats_12m: { repas_donnes: number } };
-    };
-    expect(json.data.stats_12m.repas_donnes).toBe(33);
   });
 });
 

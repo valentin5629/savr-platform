@@ -31,6 +31,12 @@ describe('M0.9 — logs tiers INSEE/VIES (BL-P2-33)', () => {
       expect(classifyInseeStatus(400).result).toBe('echec'));
     it('503 → down', () =>
       expect(classifyInseeStatus(503).result).toBe('down'));
+    // Clé refusée par la passerelle : le SIRET n'a pas été jugé (≠ « introuvable »).
+    it.each([401, 403])('%i → down (accès refusé, JAMAIS echec)', (status) => {
+      const c = classifyInseeStatus(status);
+      expect(c.result).toBe('down');
+      expect(c.erreur).toContain(String(status));
+    });
   });
 
   describe('classifyViesResult', () => {
@@ -66,6 +72,7 @@ describe('M0.9 — logs tiers INSEE/VIES (BL-P2-33)', () => {
       const blob = JSON.stringify(e).toLowerCase();
       expect(blob).not.toContain('authorization');
       expect(blob).not.toContain('bearer');
+      expect(blob).not.toContain('api-key');
     });
     it('VIES : integration=vies, correlation_id = n° TVA', () => {
       const e = buildViesLogEntry({
@@ -83,7 +90,7 @@ describe('M0.9 — logs tiers INSEE/VIES (BL-P2-33)', () => {
     beforeEach(() => {
       logSpy.mockClear();
       _setInseeMock(null); // force le chemin réel (pas de mock verdict)
-      vi.stubEnv('INSEE_API_TOKEN', 'tok-test');
+      vi.stubEnv('INSEE_API_KEY', 'cle-test');
     });
     afterEach(() => {
       vi.unstubAllGlobals();
@@ -102,6 +109,55 @@ describe('M0.9 — logs tiers INSEE/VIES (BL-P2-33)', () => {
       expect(entry.integration).toBe('insee');
       expect(entry.statut_http).toBe(200);
       expect(entry.correlation_id).toBe('12345678900001');
+    });
+
+    it('appelle api-sirene/3.11 avec la clé dans X-INSEE-Api-Key-Integration (plus de Bearer)', async () => {
+      const fetchSpy = vi.fn(
+        async (_url: string, _init?: RequestInit) =>
+          ({ status: 200 }) as Response,
+      );
+      vi.stubGlobal('fetch', fetchSpy);
+      // Saut de ligne collé avec la clé : retiré, sinon l'en-tête serait invalide.
+      vi.stubEnv('INSEE_API_KEY', ' cle-test\n');
+
+      await verifySiret('12345678900001');
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchSpy.mock.calls[0]!;
+      expect(url).toBe(
+        'https://api.insee.fr/api-sirene/3.11/siret/12345678900001',
+      );
+      expect(init?.headers).toEqual({
+        'X-INSEE-Api-Key-Integration': 'cle-test',
+        Accept: 'application/json',
+      });
+      // La clé reste dans l'en-tête : jamais dans la ligne journalisée.
+      expect(JSON.stringify(logSpy.mock.calls[0]![0])).not.toContain(
+        'cle-test',
+      );
+    });
+
+    it('401 (clé refusée) → down + log statut_http=401, pas echec', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ status: 401 }) as Response),
+      );
+      const r = await verifySiret('12345678900001');
+      expect(r).toBe('down');
+      const entry = logSpy.mock.calls[0]![0];
+      expect(entry.statut_http).toBe(401);
+      expect(entry.erreur).toContain('401');
+    });
+
+    it("sans INSEE_API_KEY → down sans appel ni log (l'ancien INSEE_API_TOKEN n'est plus lu)", async () => {
+      const fetchSpy = vi.fn();
+      vi.stubGlobal('fetch', fetchSpy);
+      vi.stubEnv('INSEE_API_KEY', '');
+      vi.stubEnv('INSEE_API_TOKEN', 'ancien-jeton-oauth');
+
+      expect(await verifySiret('12345678900001')).toBe('down');
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(logSpy).not.toHaveBeenCalled();
     });
 
     it('429 → down + log statut_http=429', async () => {

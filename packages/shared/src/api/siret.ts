@@ -27,10 +27,21 @@ export function _setInseeMock(
 // correlation_id, cf. buildInseeLogEntry). Stable pour le regroupement Ops par tiers.
 const INSEE_ENDPOINT = 'insee.sirene.v3.siret';
 
+// API Sirene 3.11 derrière la passerelle du portail portail-api.insee.fr. L'ancienne
+// adresse (api.insee.fr/entreprises/sirene/V3.11, jeton OAuth Bearer) coupe la connexion.
+// Authentification = clé d'API de la souscription « Accès public » (30 requêtes/min, sans
+// expiration), transmise dans un en-tête dédié — source : spec OpenAPI du portail
+// (servers[0].url + securitySchemes.ApiKeyAuth).
+const INSEE_SIRENE_BASE_URL = 'https://api.insee.fr/api-sirene/3.11';
+const INSEE_API_KEY_HEADER = 'X-INSEE-Api-Key-Integration';
+
 // Pur : mappe le statut HTTP INSEE au verdict + libellé d'erreur pour le log.
 // VOLET 3 R22g (défensif) : 429 (rate-limit INSEE) → 'down' (transitoire, retenté par le
 // cron revalidation-siret), JAMAIS 'echec' — un 'echec' serait interprété comme SIRET
 // introuvable et figerait à tort l'entité en 'echec' de vérification.
+// Même raisonnement pour 401 (clé absente, invalide ou révoquée) et 403 (droits
+// insuffisants) : c'est NOTRE accès que la passerelle refuse, le SIRET n'a pas été jugé.
+// Un 'echec' répondrait « SIRET inexistant » à l'utilisateur (422) pour une clé mal posée.
 export function classifyInseeStatus(status: number): {
   result: SiretVerificationResult;
   erreur: string | null;
@@ -40,7 +51,9 @@ export function classifyInseeStatus(status: number): {
     return { result: 'echec', erreur: 'SIRET introuvable (404)' };
   if (status === 429)
     return { result: 'down', erreur: 'INSEE rate-limited (429)' };
-  // INSEE répond 4xx non-404/429 (ex: 400 format invalide) → echec de saisie
+  if (status === 401 || status === 403)
+    return { result: 'down', erreur: `INSEE accès refusé (${status})` };
+  // INSEE répond un autre 4xx (ex: 400 format invalide) → echec de saisie
   if (status >= 400 && status < 500)
     return { result: 'echec', erreur: `INSEE ${status}` };
   // 5xx ou inattendu → indisponible
@@ -74,16 +87,17 @@ export async function verifySiret(
     return mockFn(siret);
   }
 
-  const token = process.env.INSEE_API_TOKEN;
-  if (!token) return 'down'; // aucun appel émis → rien à journaliser
+  // trim : un saut de ligne collé avec la clé rendrait l'en-tête invalide (fetch lève).
+  const apiKey = process.env.INSEE_API_KEY?.trim();
+  if (!apiKey) return 'down'; // aucun appel émis → rien à journaliser
 
   const t0 = Date.now();
   try {
     const res = await fetch(
-      `https://api.insee.fr/entreprises/sirene/V3.11/siret/${encodeURIComponent(siret)}`,
+      `${INSEE_SIRENE_BASE_URL}/siret/${encodeURIComponent(siret)}`,
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          [INSEE_API_KEY_HEADER]: apiKey,
           Accept: 'application/json',
         },
         signal: AbortSignal.timeout(3_000),

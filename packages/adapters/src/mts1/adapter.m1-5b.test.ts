@@ -1344,9 +1344,55 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
       bucket: 'savr-test',
       key: 'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
       content_type: 'image/jpeg',
-      entity_type: 'collecte_photo',
+      entity_type: 'plateforme.collectes',
       entity_id: 'col-001',
     });
+  });
+
+  // §09 C1 : shared.f_fichier_visible refuse tout entity_type hors liste, et la
+  // galerie de la fiche collecte Admin filtre sur cette valeur exacte. Une photo
+  // rangée sous une autre valeur est stockée mais n'apparaît nulle part.
+  it('M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes', async () => {
+    setNominalHandlers();
+    const supabase = makeSyncSupabase({});
+    await new AdapterMts1(TRANSPORTEUR, supabase).sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    const inserts = calls.filter(
+      (c) => c.table === 'fichiers' && c.op === 'insert',
+    );
+    expect(inserts).toHaveLength(1);
+    expect((inserts[0]!.data as { entity_type: string }).entity_type).toBe(
+      'plateforme.collectes',
+    );
+  });
+
+  // La dédup ne regarde QUE la clé de stockage : elle ne dépend pas de
+  // l'entity_type, donc une photo déjà enregistrée n'est jamais re-téléchargée,
+  // quelle que soit la valeur sous laquelle elle a été rangée.
+  it('M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule', async () => {
+    setNominalHandlers();
+    const supabase = makeSyncSupabase({ photoExistante: true });
+    await new AdapterMts1(TRANSPORTEUR, supabase).sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    const recherches = calls.filter(
+      (c) => c.table === 'fichiers' && c.op === 'select',
+    );
+    expect(recherches).toHaveLength(1);
+    expect(recherches[0]!.filters).toEqual({
+      key: 'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
+    });
+    expect(uploadObject).not.toHaveBeenCalled();
+    expect(
+      calls.find((c) => c.table === 'fichiers' && c.op === 'insert'),
+    ).toBeUndefined();
   });
 
   it("upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)", async () => {

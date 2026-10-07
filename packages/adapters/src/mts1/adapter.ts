@@ -963,7 +963,11 @@ export class AdapterMts1 implements LogistiqueProvider {
         key: storageKey,
         content_type: 'image/jpeg',
         size_bytes: buffer.length,
-        entity_type: 'collecte_photo',
+        // entity_type = table propriétaire (§04 shared.fichiers), ici la collecte :
+        // même valeur que l'import manuel Admin, lue par la galerie de la fiche
+        // collecte et par shared.f_fichier_visible (§09 C1). Toute autre valeur est
+        // refusée par la policy et la photo n'apparaît nulle part.
+        entity_type: 'plateforme.collectes',
         entity_id: collecteId,
       });
     }

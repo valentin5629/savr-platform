@@ -139,8 +139,10 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
     },
   ],
 
-  // §06.05 §Navigation (l.66-76) : 9 sections, dont « Collectes » et « Registre
+  // §06.05 §Navigation (l.66-76) : 8 sections, dont « Collectes » et « Registre
   // réglementaire », réintégrées par Val le 2026-07-06 (CDC re-synchronisé depuis).
+  // « Événements » est retirée (décision Val 2026-10-07) : la liste Collectes,
+  // réintégrée depuis, la doublonnait.
   // « Mon pack AG » est masqué si l'organisation n'a aucun pack : `hiddenNavHrefs`
   // est calculé par `entreesNavMasquees` (lib/nav-masquee.ts) dans chaque layout
   // qui monte ce menu, puis appliqué dans Sidebar/BottomNav.
@@ -151,11 +153,6 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           label: 'Dashboard',
           href: ROUTES.gestionnaire.racine,
           icon: LayoutDashboard,
-        },
-        {
-          label: 'Événements',
-          href: ROUTES.gestionnaire.evenements,
-          icon: CalendarDays,
         },
         { label: 'Mes lieux', href: ROUTES.gestionnaire.lieux, icon: MapPin },
         {

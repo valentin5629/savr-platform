@@ -13,7 +13,7 @@ import {
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/filtres
-// Options des filtres globaux du dashboard + de la liste Événements (§06.05 §1 l.99-107) :
+// Options des filtres globaux du dashboard + de la liste Collectes (§06.05 §1 l.99-107) :
 //  - Lieux    : lieux rattachés à l'organisation (organisations_lieux)
 //  - Traiteurs: traiteurs intervenus sur ≥ 1 collecte sur ces lieux (24 derniers mois)
 //  - Types    : référentiel types_evenements (actif)

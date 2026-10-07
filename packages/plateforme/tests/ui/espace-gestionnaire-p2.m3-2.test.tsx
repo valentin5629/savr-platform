@@ -4,9 +4,8 @@
  *  - BL-P2-13 : nav — « Mon pack AG » masqué via hiddenNavHrefs (conditionnel pack,
  *    l.71) ; Collectes + Registre conservés (override Val 2026-07-06) ;
  *  - BL-P2-12 : barre de filtres globale dashboard (Lieux/Traiteurs/Type/Taille) +
- *    compteur + carte KPI cliquable → liste Événements filtrée (l.130) ;
+ *    compteur + cartes KPI non cliquables (Val 2026-07-10) ;
  *    héritage Type/Taille de l'encart benchmark (l.160) ;
- *    liste Événements colonnes (Tonnage/Déchets labo/Repas) + barre de filtres ;
  *    liste Lieux colonne Capacité ; liste Traiteurs colonne Lieux d'intervention.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -30,7 +29,6 @@ vi.mock('next/navigation', () => ({
 import { Sidebar } from '@/components/layout/sidebar.js';
 import { BenchmarkFilterBar } from '@/components/dashboards/BenchmarkFilterBar.js';
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
-import GestionnaireEvenementsPage from '@/app/(gestionnaire)/gestionnaire/evenements/page.js';
 import GestionnaireLieuxPage from '@/app/(gestionnaire)/gestionnaire/lieux/page.js';
 import GestionnaireTraiteursPage from '@/app/(gestionnaire)/gestionnaire/traiteurs/page.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
@@ -69,66 +67,6 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
         pack: null,
         kg_par_pax_par_flux: { biodechet: 0.6 },
       },
-    });
-  if (url.includes('/gestionnaire/evenements'))
-    return jsonResponse({
-      data: [
-        {
-          id: 'e1',
-          nom_evenement: 'Gala',
-          date_evenement: '2026-06-01',
-          pax: 600,
-          taille_bracket: 'M',
-          lieu_nom: 'Palais',
-          lieu_ville: 'Paris',
-          traiteur_nom: 'Kaspia',
-          statut_consolide: 'Terminé',
-          nb_collectes_zd: 1,
-          nb_collectes_ag: 1,
-          tonnage_zd_kg: 300,
-          dechets_labo_kg: 12,
-          repas_donnes: 40,
-          programmee_par_moi: true,
-        },
-        // Les deux lignes suivantes portent les cas que le CDC §06.05 §2 l.309
-        // distingue et que le COALESCE(…, 0) de f_dechets_labo_estimes rendait
-        // indistinguables jusqu'à 20260921190000 : coefficient NON COMMUNIQUÉ
-        // (null → « — ») contre coefficient DÉCLARÉ À ZÉRO (0 → « 0 kg »).
-        {
-          id: 'e2',
-          nom_evenement: 'Cocktail',
-          date_evenement: '2026-06-02',
-          pax: 200,
-          taille_bracket: 'XS',
-          lieu_nom: 'Palais',
-          lieu_ville: 'Paris',
-          traiteur_nom: 'Sans coefficient',
-          statut_consolide: 'En cours',
-          nb_collectes_zd: 1,
-          nb_collectes_ag: 0,
-          tonnage_zd_kg: 0,
-          dechets_labo_kg: null,
-          repas_donnes: 0,
-          programmee_par_moi: false,
-        },
-        {
-          id: 'e3',
-          nom_evenement: 'Séminaire',
-          date_evenement: '2026-06-03',
-          pax: 100,
-          taille_bracket: 'XS',
-          lieu_nom: 'Palais',
-          lieu_ville: 'Paris',
-          traiteur_nom: 'Zéro déclaré',
-          statut_consolide: 'En cours',
-          nb_collectes_zd: 1,
-          nb_collectes_ag: 0,
-          tonnage_zd_kg: 150,
-          dechets_labo_kg: 0,
-          repas_donnes: 0,
-          programmee_par_moi: false,
-        },
-      ],
     });
   if (url.includes('/gestionnaire/lieux'))
     return jsonResponse({
@@ -311,100 +249,6 @@ describe('M3.2 / P2 encart héritage', () => {
 // ── BL-P2-12 listes ───────────────────────────────────────────────────────────
 describe('M3.2 / P2 listes colonnes', () => {
   it(
-    'M3.2/P2_evenements_colonnes_rendues — Tonnage/Déchets labo/Repas + barre de filtres',
-    async () => {
-      render(<GestionnaireEvenementsPage />);
-      expect(
-        await screen.findByTestId(
-          'evenements-filter-bar',
-          undefined,
-          ATTENTE_UI,
-        ),
-      ).toBeInTheDocument();
-      // DataGrid rend chaque ligne deux fois (tableau + carte mobile) : on
-      // borne au tableau, où en-têtes et valeurs sont uniques.
-      const table = within(
-        await screen.findByRole('table', undefined, ATTENTE_UI),
-      );
-      expect(
-        table.getByRole('columnheader', { name: /Tonnage total/ }),
-      ).toBeInTheDocument();
-      expect(
-        table.getByRole('columnheader', { name: /Déchets labo est\./ }),
-      ).toBeInTheDocument();
-      expect(
-        table.getByRole('columnheader', { name: /Repas donnés/ }),
-      ).toBeInTheDocument();
-      // Valeurs rendues (data prête côté route).
-      expect(table.getByText('300 kg')).toBeInTheDocument();
-      expect(table.getByText('40')).toBeInTheDocument();
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    'M3.2/P2_evenements_dechets_labo_non_communique — colonne « Déchets labo est. » : « — » si non communiqué, « 0 kg » si déclaré à zéro',
-    async () => {
-      // §06.05 §2 l.309 « — si coefficient non communiqué ». Cas INATTEIGNABLE
-      // jusqu'à 20260921190000 : f_dechets_labo_estimes enveloppait son
-      // résultat dans COALESCE(…, 0), donc la colonne affichait « 0 kg » —
-      // l'affirmation d'une estimation nulle — là où la bonne réponse est
-      // « inconnu ».
-      // Les deux lignes sont mesurées ENSEMBLE, sur le même rendu : c'est leur
-      // DIFFÉRENCE qui est l'oracle. Un assert « — » seul passerait aussi si la
-      // page rendait « — » pour tout, y compris pour le zéro déclaré.
-      render(<GestionnaireEvenementsPage />);
-      const table = within(
-        await screen.findByRole('table', undefined, ATTENTE_UI),
-      );
-
-      const cellule = (nomEvenement: string) => {
-        // Borné au tableau : la carte mobile rend la même ligne une 2e fois.
-        const ligne = table.getByText(nomEvenement).closest('tr')!;
-        // 8e colonne du tableau (cf. l'ordre des <th> de la page).
-        return ligne.querySelectorAll('td')[7]!.textContent?.trim();
-      };
-
-      expect(cellule('Cocktail')).toBe('—');
-      expect(cellule('Cocktail')).not.toContain('0');
-      // Format FR (R-UI-0 B6) : espace insécable avant l'unité.
-      expect(cellule('Séminaire')).toBe('0\u00a0kg');
-      expect(cellule('Gala')).toBe('12\u00a0kg');
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    'M3.2/evenements_repas_colonne_rendue — colonne « Repas donnés » : le nombre servi par la route, « — » quand elle sert 0',
-    async () => {
-      // La route somme les repas par événement (attribution, à défaut
-      // attestation de don — D13) et sert 0 quand rien n'est lisible. Les deux
-      // lignes sont lues sur le même rendu : un assert « — » seul passerait
-      // aussi si la colonne rendait « — » partout.
-      render(<GestionnaireEvenementsPage />);
-      const table = within(
-        await screen.findByRole('table', undefined, ATTENTE_UI),
-      );
-      const colonne = table
-        .getAllByRole('columnheader')
-        .findIndex((th) => /Repas donnés/.test(th.textContent ?? ''));
-      expect(colonne).toBeGreaterThan(-1);
-      const cellule = (nomEvenement: string) => {
-        // Borné au tableau : la carte mobile rend la même ligne une 2e fois.
-        const cellules = table
-          .getByText(nomEvenement)
-          .closest('tr')!
-          .querySelectorAll('td');
-        return cellules[colonne]!.textContent?.trim();
-      };
-
-      expect(cellule('Gala')).toBe('40');
-      expect(cellule('Cocktail')).toBe('—');
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
     'M3.2/P2_lieux_colonne_capacite — Capacité rendue',
     async () => {
       render(<GestionnaireLieuxPage />);
@@ -561,54 +405,6 @@ describe('M3.2 / P2 listes colonnes', () => {
       ).toBeInTheDocument();
       expect(
         screen.queryByText('Le chargement des traiteurs a échoué.'),
-      ).not.toBeInTheDocument();
-      expect(appels).toBe(2);
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  // Même défaut sur la liste Événements : sans contrôle de `r.ok`, une panne de
-  // l'API affichait « Aucun événement. », indiscernable d'un parc sans événement.
-  it(
-    'M3.2/P2_evenements_erreur_api — une panne affiche une erreur + Réessayer, jamais « Aucun événement. »',
-    async () => {
-      let appels = 0;
-      // Mock dédié (le beforeEach ré-installe fetchMock : aucune fuite).
-      const fetchPanne = vi.fn((input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.includes('/gestionnaire/evenements')) {
-          appels += 1;
-          // 1er appel en panne, le « Réessayer » réussit (données du fetchMock).
-          if (appels === 1)
-            return Promise.resolve({
-              ok: false,
-              status: 500,
-              json: () => Promise.resolve({ error: 'boom' }),
-            } as Response);
-        }
-        return fetchMock(input);
-      });
-      vi.stubGlobal('fetch', fetchPanne);
-      render(<GestionnaireEvenementsPage />);
-
-      expect(
-        await screen.findByText(
-          'Le chargement des événements a échoué.',
-          undefined,
-          ATTENTE_UI,
-        ),
-      ).toBeInTheDocument();
-      expect(screen.queryByText('Aucun événement.')).not.toBeInTheDocument();
-      expect(screen.queryByRole('table')).not.toBeInTheDocument();
-
-      // « Réessayer » relance l'appel ; la réponse OK affiche les événements.
-      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
-      const table = within(
-        await screen.findByRole('table', undefined, ATTENTE_UI),
-      );
-      expect(table.getByText('Cocktail')).toBeInTheDocument();
-      expect(
-        screen.queryByText('Le chargement des événements a échoué.'),
       ).not.toBeInTheDocument();
       expect(appels).toBe(2);
     },

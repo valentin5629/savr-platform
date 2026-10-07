@@ -407,6 +407,26 @@ describe('M3.2 / fiche traiteur en pop-up', () => {
   );
 });
 
+describe('M3.2 / fiche traiteur — identifiant de l’adresse', () => {
+  it(
+    'M3.2/fiche_traiteur_modale_identifiant_mal_forme — ?traiteur=. : « Traiteur non trouvé », aucune requête de fiche',
+    async () => {
+      // « /traiteurs/. » serait normalisé par le navigateur vers la route de la
+      // liste : la fiche recevrait un tableau et planterait.
+      window.history.replaceState(null, '', `${LISTE}?traiteur=.`);
+      render(<GestionnaireTraiteursPage />);
+      expect(
+        await screen.findByText('Traiteur non trouvé', undefined, ATTENTE_UI),
+      ).toBeTruthy();
+      expect(screen.queryByRole('tab')).toBeNull();
+      expect(
+        appels.filter((u) => u.includes('/gestionnaire/traiteurs/')),
+      ).toEqual([]);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('M3.2 / fiche traiteur — onglet Activité', () => {
   it(
     'M3.2/fiche_traiteur_modale_activite_zd — 4 cartes KPI et histogramme du dashboard, filtrés sur le traiteur, 12 derniers mois',

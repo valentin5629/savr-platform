@@ -32,6 +32,7 @@ import {
   sparkFromSeries,
   variationPct,
 } from '@/lib/dashboards/cockpit-derive';
+import { estUuid } from '@/lib/filtre-csv';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 // Fiche traiteur du gestionnaire de lieux, en pop-up sur la liste Traiteurs
@@ -85,8 +86,15 @@ export function FicheTraiteurModal({
   useEffect(() => {
     let annule = false;
     setTraiteur(null);
-    setEtat('chargement');
     setLogoKo(false);
+    // Identifiant mal formé (adresse saisie à la main) : aucune requête. Le
+    // navigateur normaliserait « . » vers la route de la LISTE, dont la réponse
+    // n'a pas la forme d'une fiche.
+    if (!estUuid(traiteurId)) {
+      setEtat('introuvable');
+      return;
+    }
+    setEtat('chargement');
     fetch(`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(traiteurId)}`)
       .then((r) => {
         if (r.status === 404) return null;

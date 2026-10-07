@@ -6,20 +6,15 @@ import {
   libelleCourtTypeCollecte,
   libelleTypeCollecte,
   normaliserTypeCollecte,
-  VARIANT_CDC_TYPE_COLLECTE,
   variantTypeCollecte,
 } from '@/lib/libelles/type-collecte';
 
-// Badge unique du type de collecte (R-UI-2 C2) — remplace `TypeCollecteBadge`
-// (listes Collectes) et `BadgeTypeCollecte` (sur-titre des fiches collecte).
-// Arbitrage Q1 OUVERT : les deux rendus existants cohabitent, couleurs tenues
-// par une seule source (`lib/libelles/type-collecte.ts`) :
-// - `forme="pastille"` (défaut) : pilule ZD vert / AG ambre + icône, libellé
-//   court ZD / AG — listes ;
-// - `forme="plein"` : aplat ZD navy / AG orange, majuscules, libellé long —
-//   sur-titre des fiches collecte (§06.04 Q2) ;
-// - `forme="badge"` : Badge ZD `primary` / AG `action`, sans icône, libellé
-//   court — liste Transporteurs (rendu d'avant R-UI-2, conforme §10 l.140).
+// Badge unique du type de collecte (R-UI-2 C2). Couleurs : arbitrage Q1
+// (Val, 2026-10-07) — ZD vert, AG navy, tenues par `lib/libelles/type-collecte.ts`.
+// - `forme="pastille"` (défaut) : Badge + icône, libellé court ZD / AG — listes ;
+// - `forme="plein"` : aplat, majuscules, libellé long — sur-titre des fiches
+//   collecte (§06.04 Q2) ;
+// - `forme="badge"` : même Badge sans icône — liste Transporteurs.
 // `data-testid="badge-type-collecte"` : forme `plein` seule (en-tête de fiche),
 // pour ne pas dupliquer l'identifiant dans les listes.
 export function TypeCollecteBadge({
@@ -46,10 +41,9 @@ export function TypeCollecteBadge({
     );
   }
   if (forme === 'badge') {
-    const t = normaliserTypeCollecte(type);
     return (
       <Badge
-        variant={(t && VARIANT_CDC_TYPE_COLLECTE[t]) || 'primary'}
+        variant={variantTypeCollecte(type)}
         dot={false}
         className={className}
       >

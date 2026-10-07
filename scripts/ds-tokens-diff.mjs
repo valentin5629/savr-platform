@@ -61,9 +61,20 @@ const norm = (v) =>
 const diverge = [];
 const absentCode = [];
 const absentDs = [];
+// Un alias du code (`--radius: var(--radius-savr-md)`) égale la valeur qu'il
+// pointe : le DS ne porte d'alias que pour les couleurs, il écrit `8px`.
+const resoudre = (v, profondeur = 0) => {
+  const m = /^var\(--([a-z0-9-]+)\)$/.exec(norm(v));
+  return m && code.has(m[1]) && profondeur < 5
+    ? resoudre(code.get(m[1]), profondeur + 1)
+    : norm(v);
+};
 for (const [name, v] of design) {
   if (!code.has(name)) absentCode.push(name);
-  else if (norm(code.get(name)) !== norm(v))
+  else if (
+    norm(code.get(name)) !== norm(v) &&
+    resoudre(code.get(name)) !== resoudre(v)
+  )
     diverge.push([name, code.get(name), v]);
 }
 const famillesComparees = /^(color|radius|spacing|shadow|container)-savr-/;

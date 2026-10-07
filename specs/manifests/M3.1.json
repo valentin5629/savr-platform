@@ -148,7 +148,7 @@
     "M3.1/fiche_ui_echap_sans_sous_modale_ferme_la_fiche",
     "M3.1/fiche_get_cloisonnement_telephone",
     "M3.1/fiche_popup_entete_badge_frise",
-    "M3.1/fiche_popup_badge_ag_orange",
+    "M3.1/fiche_popup_badge_ag_navy",
     "M3.1/fiche_popup_onglets_horizontaux",
     "M3.1/fiche_popup_informations_blocs",
     "M3.1/fiche_popup_contact_secours",
@@ -703,7 +703,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.1/fiche_popup_entete_badge_frise",
       "statut": "implemented",
-      "libelle": "Refonte pop-up (Val 2026-09-29) — en-tête : badge type (Q2 : ZD navy primary-700 texte blanc / AG accent-500 texte primary-950, remplace le cadre orange/vert de #428), « Réf. » courte, titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax », frise discrète en haut à droite, croix isolée. Badge AG prouvé par M3.1/fiche_popup_badge_ag_orange."
+      "libelle": "Refonte pop-up (Val 2026-09-29) — en-tête : badge type (arbitrage Q1 Val 2026-10-07 : ZD vert success-strong / AG navy primary-700, texte blanc — remplace ZD navy / AG orange du 2026-09-29, divergence D59), « Réf. » courte, titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax », frise discrète en haut à droite, croix isolée. Badge AG prouvé par M3.1/fiche_popup_badge_ag_navy."
     },
     {
       "id": "M3.1-popup-client-frise-vocabulaire",

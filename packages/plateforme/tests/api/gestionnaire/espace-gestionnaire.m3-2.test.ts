@@ -841,7 +841,6 @@ describe('M3.2 / pack AG', () => {
       },
       error: null,
     });
-    rls.push({ data: [], error: null }); // historique packs
     rls.push({ data: [], error: null }); // consommation
     const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
     const res = await GET(makeReq('GET', '/api/v1/gestionnaire/pack-ag'));
@@ -873,7 +872,6 @@ describe('M3.2 / pack AG', () => {
   it('M3.2/pack_ag_aucun_actif_null — retour pack_actif null', async () => {
     setupAuth('gestionnaire_lieux');
     rls.push({ data: null, error: null }); // pas de pack actif
-    rls.push({ data: [], error: null }); // historique
     rls.push({ data: [], error: null }); // consommation
     const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
     const res = await GET(makeReq('GET', '/api/v1/gestionnaire/pack-ag'));
@@ -888,7 +886,6 @@ describe('M3.2 / pack AG', () => {
     // attributions_antgaspi en OBJET (to-one) → `: []` mettait repas_donnes = 0.
     setupAuth('gestionnaire_lieux');
     rls.push({ data: null, error: null }); // pas de pack actif
-    rls.push({ data: [], error: null }); // historique packs
     rls.push({
       data: [
         {

@@ -1112,7 +1112,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx + packages/plateforme/src/lib/nav-config.ts",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu du retrait de la page Événements, desktop ET mobile < 640 px : menu du gestionnaire à 8 entrées, sans « Événements », en barre latérale et en barre mobile (qui affiche Dashboard, Mes lieux, Collectes, Registre réglementaire) ; bouton « Exporter CSV » blanc avec son picto à droite du bandeau de la liste Collectes ; un clic avec un filtre posé télécharge un fichier dont les lignes sont celles de la liste — preuve écran à joindre (geste de Val, GO-VISUAL)."
+      "libelle": "Rendu du retrait de la page Événements, desktop ET mobile < 640 px : menu du gestionnaire à 8 entrées, sans « Événements », en barre latérale et en barre mobile (qui affiche Dashboard, Mes lieux, Collectes, Registre réglementaire) ; bouton « Exporter CSV » blanc avec son picto à droite du bandeau de la liste Collectes ; un clic avec un filtre posé télécharge un fichier dont les lignes sont celles de la liste. GO visuel de Val donné en session le 2026-10-07 (« ok go visuel »), sans capture jointe : l'aperçu local de la branche lui a été mis à disposition, Claude Code ne s'y est pas connecté."
     }
   ],
   "cdc_source_hash": {

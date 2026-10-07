@@ -25,6 +25,9 @@ interface ReponseDashboard {
   pack?: unknown;
 }
 
+// Repli stable : un objet neuf à chaque rendu relancerait tout effet qui en dépend.
+const AUCUN_FLUX: Record<string, number> = {};
+
 interface KpisGestionnaireResult {
   kpi: KpisGestionnaire | null;
   /** KPI de la période précédente équivalente (variation des cartes, §06.05). */
@@ -109,7 +112,7 @@ export function useKpisGestionnaire(
   return {
     kpi: courant?.kpis ?? null,
     kpiPrev,
-    kgParPaxParFlux: courant?.kg_par_pax_par_flux ?? {},
+    kgParPaxParFlux: courant?.kg_par_pax_par_flux ?? AUCUN_FLUX,
     pack: courant?.pack ?? null,
     loading,
     erreur,

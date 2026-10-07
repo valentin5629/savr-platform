@@ -364,8 +364,9 @@ describe('M3.2 / dashboard — chargement des KPI', () => {
       // Bascule sur Anti-Gaspi pendant que Zéro Déchet charge encore.
       fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
       await screen.findByText('Repas donnés', undefined, ATTENTE_UI);
-      const compteur = screen.getByTestId('dashboard-collectes-count');
-      expect(compteur).toHaveTextContent(/3 collectes correspondent/i);
+      // Relu à chaque contrôle : jamais un nœud que l'écran aurait remplacé.
+      const compteur = () => screen.getByTestId('dashboard-collectes-count');
+      expect(compteur()).toHaveTextContent(/3 collectes correspondent/i);
 
       // La réponse Zéro Déchet arrive enfin : elle n'est plus attendue.
       await act(async () => {
@@ -373,7 +374,7 @@ describe('M3.2 / dashboard — chargement des KPI', () => {
         await zdEnAttente;
         await new Promise((r) => setTimeout(r, 0));
       });
-      expect(compteur).toHaveTextContent(/3 collectes correspondent/i);
+      expect(compteur()).toHaveTextContent(/3 collectes correspondent/i);
       expect(screen.getByText('Repas donnés')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,

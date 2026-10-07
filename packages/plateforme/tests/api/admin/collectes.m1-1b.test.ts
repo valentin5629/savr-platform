@@ -187,6 +187,209 @@ describe('M1.1b / Dispatch / Permissions', () => {
   });
 });
 
+// ZD (décision Val 2026-10-07, C1) — l'Admin choisit le prestataire sur la fiche.
+// Avant, rien ne posait de prestataire sur une ZD : « Envoyer » émettait un
+// ordre que le worker classait « rien à envoyer ».
+describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const collecteZd = (
+    prestataire: string | null,
+    over: Record<string, unknown> = {},
+  ) => ({
+    data: {
+      id: 'col-1',
+      statut: 'programmee',
+      statut_tms: 'non_envoye',
+      tms_reference: null,
+      type: 'zero_dechet',
+      date_collecte: '2026-07-01',
+      dirty_tms: false,
+      prestataire_logistique_id: prestataire,
+      ...over,
+    },
+    error: null,
+  });
+  // Transporteur résolu depuis le prestataire choisi (validation serveur).
+  const transporteur = (t: { type_tms: string; actif: boolean } | null) =>
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: t,
+      error: null,
+    });
+  const dispatch = async (body: Record<string, unknown>) => {
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
+    return POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-1/dispatch', body),
+      {
+        params: Promise.resolve({ id: 'col-1' }),
+      },
+    );
+  };
+
+  it('M0.6/dispatch_zd_sans_prestataire_refuse — ni prestataire choisi ni prestataire posé : 422, aucun ordre émis', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd(null));
+
+    const res = await dispatch({});
+
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toMatch(
+      /Choisissez d'abord le prestataire logistique/,
+    );
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('M0.6/dispatch_zd_choix_prestataire — premier choix : sans motif, ouvert à ops, prestataire transmis à la RPC', async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd(null));
+    transporteur({ type_tms: 'mts1', actif: true });
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
+    });
+
+    const res = await dispatch({ prestataire_logistique_id: 'prest-strike' });
+
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+      'fn_dispatcher_collecte',
+      {
+        p_id: 'col-1',
+        p_prestataire_logistique_id: 'prest-strike',
+        p_motif_override: null,
+      },
+    );
+  });
+
+  it('M0.6/dispatch_zd_changement_motif — changer un prestataire déjà posé : motif exigé, message propre à la ZD', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd('prest-strike'));
+    transporteur({ type_tms: 'mts1', actif: true });
+
+    const res = await dispatch({ prestataire_logistique_id: 'prest-marathon' });
+
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toMatch(
+      /pour changer le prestataire déjà attribué/,
+    );
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('M0.6/dispatch_zd_a_toutes_refuse — A Toutes! choisie pour une ZD : 422, aucun ordre émis (son envoi exige une association AG)', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd(null));
+    transporteur({ type_tms: 'a_toutes', actif: true });
+
+    const res = await dispatch({ prestataire_logistique_id: 'prest-atoutes' });
+
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toMatch(
+      /A Toutes! ne prend pas en charge les collectes Zéro Déchet/,
+    );
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['inconnu du référentiel', null],
+    ['désactivé', { type_tms: 'mts1', actif: false }],
+  ])('prestataire %s : 422, aucun ordre émis', async (_cas, t) => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd(null));
+    transporteur(t);
+
+    const res = await dispatch({ prestataire_logistique_id: 'prest-x' });
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('M0.6/dispatch_zd_commande_en_cours — changer de prestataire sur une ZD déjà commandée : 409, la commande n’est pas déplacée', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(
+      collecteZd('prest-strike', {
+        statut_tms: 'attribuee_en_attente_acceptation',
+        tms_reference: 'TOUR-77',
+      }),
+    );
+
+    const res = await dispatch({
+      prestataire_logistique_id: 'prest-marathon',
+      motif_override_prestataire: 'Strike indisponible',
+    });
+
+    expect(res.status).toBe(409);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('réattribution après rejet du prestataire : changement admis malgré la référence de l’ancienne commande', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(
+      collecteZd('prest-strike', {
+        statut: 'rejetee_par_prestataire',
+        statut_tms: 'rejetee_par_prestataire',
+        tms_reference: 'TOUR-77',
+      }),
+    );
+    transporteur({ type_tms: 'mts1', actif: true });
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
+    });
+
+    const res = await dispatch({
+      prestataire_logistique_id: 'prest-marathon',
+      motif_override_prestataire: 'Strike a refusé la collecte',
+    });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('collecte en demande d’annulation : choix d’un prestataire refusé (409)', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(
+      collecteZd(null, { statut: 'annulation_demandee' }),
+    );
+
+    const res = await dispatch({ prestataire_logistique_id: 'prest-strike' });
+
+    expect(res.status).toBe(409);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('même prestataire renvoyé dans le corps : ni changement ni motif, ouvert à ops', async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd('prest-strike'));
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
+    });
+
+    const res = await dispatch({ prestataire_logistique_id: 'prest-strike' });
+
+    expect(res.status).toBe(200);
+    // Aucune résolution de transporteur : rien n'est choisi de nouveau.
+    expect(mockSupabaseChain.maybeSingle).not.toHaveBeenCalled();
+  });
+
+  it('renvoi chez le prestataire déjà posé (corps vide) : réémission sans motif', async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd('prest-strike'));
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
+    });
+
+    const res = await dispatch({});
+
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+      'fn_dispatcher_collecte',
+      expect.objectContaining({ p_prestataire_logistique_id: null }),
+    );
+  });
+});
+
 // BL-P1-BOA-06 (Val 2026-07-02) — Bloc 0 AG : le motif override est obligatoire
 // UNIQUEMENT si le prestataire choisi ≠ top-1 de l'algo (calculé serveur), pas ≠
 // prestataire actuel. Valider le top-1 = 0 motif.
@@ -325,7 +528,9 @@ describe('M1.1b / Dispatch / Outbox G4', () => {
     const { POST } =
       await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/admin/collectes/col-1/dispatch', {}),
+      makeReq('POST', '/api/v1/admin/collectes/col-1/dispatch', {
+        prestataire_logistique_id: 'prest-choisi',
+      }),
       { params: Promise.resolve({ id: 'col-1' }) },
     );
     expect(res.status).toBe(200);

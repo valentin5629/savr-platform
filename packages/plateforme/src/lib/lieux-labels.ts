@@ -12,6 +12,12 @@ export const DIFFICULTE_LABEL: Record<string, string> = {
   tres_difficile: 'Très difficile',
 } satisfies Record<Enums['acces_difficulte'], string>;
 
+/** `plateforme.region` — `lieux.region`. */
+export const REGION_LABEL: Record<string, string> = {
+  idf: 'Île-de-France',
+  province: 'Province',
+} satisfies Record<Enums['region'], string>;
+
 /** Pastille DS par difficulté (facile → success … très difficile → error). */
 export const DIFFICULTE_VARIANT: Record<
   string,

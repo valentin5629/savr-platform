@@ -75,7 +75,15 @@
     "packages/plateforme/src/lib/dashboards/attributions-ag.ts",
     "packages/plateforme/src/lib/dashboards/attributions-ag.test.ts",
     "packages/plateforme/tests/api/gestionnaire/attributions-vue.m3-2.test.ts",
-    "packages/plateforme/tests/api/gestionnaire/collectes-filtres-lieu-traiteur.m3-2.test.ts"
+    "packages/plateforme/tests/api/gestionnaire/collectes-filtres-lieu-traiteur.m3-2.test.ts",
+    "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx",
+    "packages/plateforme/src/lib/lieux/demande-modification.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/demande-modification/route.ts",
+    "packages/plateforme/tests/api/gestionnaire/fiche-lieu-modale.m3-2.test.ts",
+    "packages/plateforme/tests/ui/fiche-lieu-modale.m3-2.test.tsx",
+    "supabase/migrations/20261006231500_plateforme_alerte_lieu_modification_ouverte_unique.sql",
+    "supabase/tests/lieu_modification_alerte.test.sql",
+    "packages/plateforme/src/lib/lieux/parc.ts"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -260,7 +268,53 @@
     "M3.2/collectes_valeur_hors_options_cochee_avec_les_autres",
     "M3.2/collectes_lien_a_plusieurs_valeurs_sans_chip",
     "M3.2/collectes_lien_a_plusieurs_valeurs_reduit_a_une_sans_chip",
-    "M3.2/collectes_un_lieu_et_plusieurs_traiteurs_chip_sur_le_lieu"
+    "M3.2/collectes_un_lieu_et_plusieurs_traiteurs_chip_sur_le_lieu",
+    "M3.2/fiche_lieu_traiteurs_tous_statuts_tries",
+    "M3.2/fiche_lieu_demande_en_cours_exposee",
+    "M3.2/fiche_lieu_hors_perimetre_sans_lecture_service_role",
+    "M3.2/fiche_lieu_identifiant_mal_forme_404",
+    "M3.2/fiche_lieu_erreur_collectes_500",
+    "M3.2/fiche_lieu_role_non_gestionnaire_403",
+    "M3.2/demande_modification_lieu_cree_alerte_admin",
+    "M3.2/demande_modification_lieu_n_ecrit_pas_le_referentiel",
+    "M3.2/demande_modification_lieu_hors_perimetre_404",
+    "M3.2/demande_modification_lieu_deja_ouverte_409",
+    "M3.2/demande_modification_lieu_message_invalide_422",
+    "M3.2/demande_modification_lieu_message_borne_acceptee",
+    "M3.2/demande_modification_lieu_corps_illisible_400",
+    "M3.2/demande_modification_lieu_role_non_gestionnaire_403",
+    "M3.2/demande_modification_lieu_identifiant_mal_forme_404",
+    "M3.2/demande_modification_lieu_alerte_en_echec_500",
+    "M3.2/demande_modification_lieu_audit_en_echec_demande_conservee",
+    "M3.2/alerte_lieu_modification_severite_et_lien",
+    "M3.2/fiche_lieu_modale_ouverte_au_clic",
+    "M3.2/fiche_lieu_modale_lien_direct",
+    "M3.2/fiche_lieu_modale_fermeture_nettoie_l_adresse",
+    "M3.2/fiche_lieu_ancienne_route_redirige",
+    "M3.2/fiche_lieu_modale_libelles_lisibles",
+    "M3.2/fiche_lieu_modale_onglet_traiteurs_liste_complete",
+    "M3.2/fiche_lieu_modale_onglet_traiteurs_vide",
+    "M3.2/fiche_lieu_modale_lecture_seule",
+    "M3.2/fiche_lieu_modale_erreur_chargement",
+    "M3.2/fiche_lieu_modale_lieu_introuvable",
+    "M3.2/fiche_lieu_modale_demande_envoyee",
+    "M3.2/fiche_lieu_modale_demande_deja_en_cours",
+    "M3.2/fiche_lieu_modale_demande_concurrente_409",
+    "M3.2/fiche_lieu_modale_demande_refusee_message_affiche",
+    "M3.2/fiche_lieu_modale_echap_ferme_la_demande_seule",
+    "M3.2/fiche_lieu_traiteurs_plafond_inferieur",
+    "M3.2/fiche_lieu_demande_lecture_en_echec_500",
+    "M3.2/demande_modification_lieu_lectures_en_echec_500",
+    "M3.2/fiche_lieu_hors_parc_consultation_seule",
+    "M3.2/demande_modification_lieu_envoi_simultane_409",
+    "M3.2/demande_modification_lieu_caracteres_invisibles_retires",
+    "M3.2/fiche_lieu_modale_hors_parc_sans_bouton",
+    "M3.2/historique_lieu_admin_demande_gestionnaire",
+    "M3.2/demande_modification_lieu_du_parc_illisible_404",
+    "M3.2/fiche_lieu_sans_liste_de_collectes",
+    "M3.2/fiche_lieu_modale_activite_graphique_du_dashboard",
+    "M3.2/fiche_lieu_modale_activite_sans_collecte",
+    "M3.2/fiche_lieu_modale_activite_erreur"
   ],
   "deliverables": [
     {
@@ -887,6 +941,54 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la barre « Comparer avec » du dashboard gestionnaire (Bloc 3 ZD), desktop ET mobile < 640 px : déclencheurs « Lieux Tout le parc Savr » et « Traiteurs Tout le parc Savr » sans sélection, liste ouverte avec la case de tête « Tout le parc Savr » et les seuls lieux rattachés, libellé du déclencheur après sélection (nom unique, « n sélectionnés »), état mixte (un lieu coché, « Traiteurs Tout le parc Savr » à côté), retour à la ligne de la barre. GO visuel de Val attendu."
+    },
+    {
+      "id": "M3.2-fiche-lieu-modale",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:371",
+      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx (ouverture au clic, adresse `?lieu=<id>`) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/[id]/page.tsx (redirection)",
+      "test": "M3.2/fiche_lieu_modale_ouverte_au_clic + M3.2/fiche_lieu_modale_lien_direct + M3.2/fiche_lieu_modale_fermeture_nettoie_l_adresse + M3.2/fiche_lieu_ancienne_route_redirige + M3.2/fiche_lieu_modale_erreur_chargement + M3.2/fiche_lieu_modale_lieu_introuvable",
+      "statut": "implemented",
+      "libelle": "Fiche lieu du gestionnaire en pop-up sur la liste Lieux (arbitrage Val 2026-10-06, _Divergences/M3.2_20261006_fiche-lieu-modale-demande-modification) : la page /gestionnaire/lieux/<id> est remplacée par le cadre commun des fiches (grand en-tête, onglets Informations / Traiteurs / Activité, corps défilant, pied). Un clic sur une ligne ouvre la fiche sans quitter la liste ; l'adresse porte la fiche ouverte (`?lieu=<id>`), si bien qu'un lien direct ou un rechargement la rouvrent, et l'ancienne adresse redirige vers la liste, fiche ouverte. Fermer rend l'adresse de la liste. Un échec de chargement affiche un état d'erreur avec « Réessayer », un lieu que la session ne lit pas un message dédié — jamais une fiche vide."
+    },
+    {
+      "id": "M3.2-fiche-lieu-informations-lecture-seule",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:374",
+      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Informations) + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts + packages/plateforme/src/lib/lieux-labels.ts (REGION_LABEL) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx (format de la capacité)",
+      "test": "M3.2/fiche_lieu_modale_libelles_lisibles + M3.2/fiche_lieu_modale_lecture_seule + M3.2/P2_lieu_detail_capacite_photos_collectes + M3.2/fiche_lieu_identifiant_mal_forme_404 + M3.2/fiche_lieu_role_non_gestionnaire_403 + M3.2/P2_lieux_colonne_capacite",
+      "statut": "implemented",
+      "libelle": "Onglet Informations de la fiche lieu, en lecture seule : adresse (libellé du CDC « Adresse accès livraison »), région, capacité (séparateur de milliers, comme dans la liste Lieux), véhicule max, stationnement, accès office, détails d'accès, contraintes horaires, flux autorisés, photos — lus par la vue v_lieux_clients (champs réservés à l'équipe Savr masqués). Aucun champ de saisie : le gestionnaire ne modifie pas le référentiel lieux (§04, arbitrage Val 2026-10-06). Libellés en clair : la région s'affichait « idf », le stationnement en valeur de base, et l'accès office — un niveau de difficulté (§04) — s'affichait « Oui » quelle que soit sa valeur. Un identifiant mal formé répond 404 sans atteindre la base."
+    },
+    {
+      "id": "M3.2-fiche-lieu-traiteurs-operant",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:377",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (`traiteurs`) + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Traiteurs)",
+      "test": "M3.2/fiche_lieu_traiteurs_tous_statuts_tries + M3.2/fiche_lieu_traiteurs_plafond_inferieur + M3.2/fiche_lieu_erreur_collectes_500 + M3.2/fiche_lieu_modale_onglet_traiteurs_liste_complete + M3.2/fiche_lieu_modale_onglet_traiteurs_vide",
+      "statut": "implemented",
+      "libelle": "Onglet Traiteurs de la fiche lieu : liste des traiteurs opérant sur le lieu, calculée à la lecture depuis ses collectes (traiteur opérationnel de l'événement, tous statuts, sans limite de date — règle de comptage de la fiche lieu Admin, §04 note sous la table `lieux` ; arbitrage Val 2026-10-06), avec le nombre de collectes (tous statuts) et le tonnage ZD (collectes clôturées seules, comme la liste Lieux), triée par nombre de collectes puis par nom. Elle remplace le bloc « Principaux traiteurs (12 mois) », limité à cinq et masqué quand il était vide ; l'onglet reste présent avec un état vide. Périmètre : ce que la session de l'utilisateur lit (RLS de `collectes` et `evenements`), pas tout ce que l'Admin voit — un événement d'un tiers sans date ne lui est pas servi, son traiteur peut donc manquer ici. Lecture par tranches jusqu'à une tranche vide (aucune troncature quel que soit le plafond de réponse) ; une lecture en échec répond 500, jamais une liste vide. `lieux.traiteurs_operant` n'est pas lue (vide en V1)."
+    },
+    {
+      "id": "M3.2-fiche-lieu-activite-12-mois",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:375-376",
+      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Activité, `ActiviteLieu`) + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionZdChart.tsx + packages/plateforme/src/components/dashboards/useEvolutionBlocs.ts (champ `erreur`) + packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts (route existante, inchangée) + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (ne sert plus `collectes`)",
+      "test": "M3.2/fiche_lieu_modale_activite_graphique_du_dashboard + M3.2/fiche_lieu_modale_activite_sans_collecte + M3.2/fiche_lieu_modale_activite_erreur + M3.2/fiche_lieu_sans_liste_de_collectes",
+      "statut": "implemented",
+      "libelle": "Onglet Activité de la fiche lieu (arbitrage Val 2026-10-07, _Divergences/M3.2_20261006_fiche-lieu-modale-demande-modification) : l'histogramme « Évolution mensuelle Zéro Déchet » du dashboard (§11 Bloc 2 ZD — tonnages par flux, taux de recyclage superposé), filtré sur ce lieu, sur les 12 derniers mois. Même route (`/api/v1/dashboards/evolution`, type ZD, `lieu_ids[]` = le lieu, période par défaut du dashboard), même composant : les chiffres sont ceux du dashboard filtré sur le lieu (collectes clôturées, périmètre du gestionnaire). Chargé à l'ouverture de l'onglet seulement ; sans collecte ZD clôturée sur la période, l'état vide du graphique ; un chargement en échec affiche une erreur avec « Réessayer », jamais « aucune collecte ». L'historique des collectes et l'ancien graphique à barres simples sont retirés ; la route de la fiche ne sert plus les collectes du lieu. Le CDC écrit « Historique complet des collectes » et « Graphique évolution sur 12 mois » (l.375-376) : écart tracé par la divergence."
+    },
+    {
+      "id": "M3.2-fiche-lieu-demande-modification",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:361",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/demande-modification/route.ts + packages/plateforme/src/lib/lieux/demande-modification.ts + packages/plateforme/src/lib/lieux/parc.ts + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (`demande_modification_possible`, `demande_modification_en_cours`) + supabase/migrations/20261006231500_plateforme_alerte_lieu_modification_ouverte_unique.sql + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (pied + sous-modale) + packages/plateforme/src/lib/alertes-admin.ts (sévérité) + packages/plateforme/src/components/admin/lieu-modal.tsx (libellé d'historique)",
+      "test": "M3.2/demande_modification_lieu_cree_alerte_admin + M3.2/demande_modification_lieu_n_ecrit_pas_le_referentiel + M3.2/demande_modification_lieu_hors_perimetre_404 + M3.2/demande_modification_lieu_deja_ouverte_409 + M3.2/demande_modification_lieu_envoi_simultane_409 + M3.2/demande_modification_lieu_message_invalide_422 + M3.2/demande_modification_lieu_caracteres_invisibles_retires + M3.2/demande_modification_lieu_message_borne_acceptee + M3.2/demande_modification_lieu_corps_illisible_400 + M3.2/demande_modification_lieu_role_non_gestionnaire_403 + M3.2/demande_modification_lieu_identifiant_mal_forme_404 + M3.2/demande_modification_lieu_alerte_en_echec_500 + M3.2/demande_modification_lieu_lectures_en_echec_500 + M3.2/demande_modification_lieu_audit_en_echec_demande_conservee + M3.2/alerte_lieu_modification_severite_et_lien + M3.2/fiche_lieu_demande_en_cours_exposee + M3.2/fiche_lieu_demande_lecture_en_echec_500 + M3.2/fiche_lieu_hors_parc_consultation_seule + M3.2/fiche_lieu_hors_perimetre_sans_lecture_service_role + M3.2/fiche_lieu_modale_demande_envoyee + M3.2/fiche_lieu_modale_demande_deja_en_cours + M3.2/fiche_lieu_modale_demande_concurrente_409 + M3.2/fiche_lieu_modale_demande_refusee_message_affiche + M3.2/fiche_lieu_modale_echap_ferme_la_demande_seule + M3.2/fiche_lieu_modale_hors_parc_sans_bouton + LIEU_MODIF/index_unique_partiel_present + LIEU_MODIF/seconde_demande_ouverte_refusee + LIEU_MODIF/autre_lieu_libre + LIEU_MODIF/autre_code_libre + LIEU_MODIF/nouvelle_demande_apres_resolution + M3.2/historique_lieu_admin_demande_gestionnaire + LIEU_MODIF/trace_audit_acceptee + LIEU_MODIF/ecriture_directe_gestionnaire_refusee + LIEU_MODIF/lecture_directe_gestionnaire_vide + M3.2/demande_modification_lieu_du_parc_illisible_404",
+      "statut": "implemented",
+      "libelle": "Bouton « Demande de modification d'information » de la fiche lieu (arbitrage Val 2026-10-06, _Divergences/M3.2_20261006_fiche-lieu-modale-demande-modification) : le gestionnaire ne modifie rien lui-même, il décrit ce qui doit être corrigé (10 à 1 000 caractères) et la demande ouvre une alerte in-app pour l'Admin Savr (`alertes_admin`, code `lieu_modification_demandee`, « À traiter », lien vers la fiche lieu Admin), sans email ni Slack. La route n'écrit jamais la table `lieux`. Périmètre : les lieux du parc de l'organisation (`organisations_lieux`, lu avec la session) ; hors parc, même 404 qu'un lieu inconnu, et la fiche, servie en consultation, n'affiche ni le bouton ni l'état d'une demande. `alertes_admin` reste fermée au rôle gestionnaire en lecture et en écriture directes (pgTAP sous `authenticated`). Texte : chaîne bornée, caractères de largeur nulle et marques de direction retirés (liste fixe), caractères de contrôle et demi-surrogates refusés (422), placée entre guillemets dans le message, qui nomme le lieu et l'organisation — aucune donnée personnelle recopiée par la route. Une demande ouverte par lieu : index unique partiel `uniq_alerte_lieu_modification_ouverte` (migration 20261006231500) ; la route répond 409 sur lecture préalable ou sur violation de l'index, et la fiche neutralise alors le bouton (« Une demande de modification est en cours de traitement par l'équipe Savr »). L'auteur est tracé dans `audit_log` (qui, quand, sans le texte), affiché « Modification demandée par le gestionnaire » dans l'historique de la fiche lieu Admin ; un audit en échec est journalisé sans faire échouer la demande. Rôle gestionnaire_lieux seul."
+    },
+    {
+      "id": "M3.2-fiche-lieu-modale-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:371",
+      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx + packages/plateforme/src/app/(admin)/admin/alertes/page.tsx + packages/plateforme/src/components/admin/lieu-modal.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la fiche lieu du gestionnaire en pop-up, desktop ET mobile < 640 px : grand en-tête (puce région, nom, adresse, véhicule max), onglets Informations / Traiteurs / Activité (histogramme du dashboard filtré sur le lieu), hauteur fixe d'un onglet à l'autre, pied avec le bouton « Demande de modification d'information » ; son état neutralisé avec la mention « Une demande de modification est en cours de traitement par l'équipe Savr » ; sous-modale de demande (texte d'explication, champ, « Annuler » / « Envoyer la demande ») ; toast de confirmation. Côté Admin : la ligne de l'alerte dans la file (« À traiter », message, lien vers la fiche lieu) et la ligne « Modification demandée par le gestionnaire » de l'historique de la fiche lieu. GO visuel de Val attendu."
     }
   ],
   "cdc_source_hash": {

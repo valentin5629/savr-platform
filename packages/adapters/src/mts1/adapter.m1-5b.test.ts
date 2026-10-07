@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // L'upload R2 (signature Sig V4) vit dans @savr/shared (uploadObject) — mocké ici
-// pour piloter succès/échec sans appel R2 réel (BL-P0-02). Par défaut : résout.
+// pour piloter succès/échec sans appel R2 réel (BL-P0-02). Par défaut : résout en
+// rendant l'objet écrit (l'adapter persiste le bucket de ce retour).
 vi.mock('@savr/shared/src/r2/upload.js', () => ({
-  uploadObject: vi.fn(),
+  uploadObject: vi.fn(async (key: string) => ({
+    bucket: 'savr-test',
+    key,
+    storageKey: `savr-test/${key}`,
+  })),
 }));
 
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
@@ -1279,9 +1284,14 @@ describe('M1.5b / AdapterMts1.sync — CANCELED', () => {
 describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
   afterEach(() => _setMts1Handlers(null));
   beforeEach(() => {
-    // État par défaut : upload R2 réussit (résout).
+    // État par défaut : upload R2 réussit et rend l'objet écrit, dans le bucket
+    // de l'environnement (l'adapter ne choisit plus de bucket).
     vi.mocked(uploadObject).mockReset();
-    vi.mocked(uploadObject).mockResolvedValue('collectes/x');
+    vi.mocked(uploadObject).mockImplementation(async (key) => ({
+      bucket: 'savr-test',
+      key,
+      storageKey: `savr-test/${key}`,
+    }));
   });
 
   function setNominalHandlers() {
@@ -1305,7 +1315,9 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
     prestataire_logistique_id: 'presta-001',
   } as const;
 
-  it('photo téléchargée → upload R2 + ligne shared.fichiers (bucket collectes)', async () => {
+  // Avant le 2026-10-07 l'adapter écrivait dans un bucket `collectes` codé en dur,
+  // commun à dev et prod — et absent du compte Cloudflare (404 mesuré).
+  it("photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement)", async () => {
     setNominalHandlers();
     const supabase = makeSyncSupabase({});
     await new AdapterMts1(TRANSPORTEUR, supabase).sync({
@@ -1313,10 +1325,9 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
       jusqu_a: new Date('2026-07-17T00:00:00Z'),
     });
 
-    // uploadObject appelé AVANT l'insert, sur le bucket 'collectes' + clé photos/…
+    // uploadObject appelé AVANT l'insert, sans bucket : seulement la clé photos/…
     expect(uploadObject).toHaveBeenCalledTimes(1);
     expect(uploadObject).toHaveBeenCalledWith(
-      'collectes',
       'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
       expect.any(Buffer),
       'image/jpeg',
@@ -1329,7 +1340,8 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
     expect(fichierInsert).toBeDefined();
     expect(fichierInsert!.data).toMatchObject({
       storage_provider: 'r2',
-      bucket: 'collectes',
+      // Bucket persisté = celui que l'upload a rendu, pas une constante.
+      bucket: 'savr-test',
       key: 'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
       content_type: 'image/jpeg',
       entity_type: 'collecte_photo',

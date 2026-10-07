@@ -75,7 +75,11 @@ beforeEach(() => {
   });
   buildSyntheseSnapshot.mockResolvedValue(SNAPSHOT);
   generatePdf.mockResolvedValue({ pdfBuffer: Buffer.from('%PDF-1.4') });
-  uploadPdf.mockResolvedValue('rapports/synthese/org-1/abc.pdf');
+  uploadPdf.mockResolvedValue({
+    bucket: 'savr-dev',
+    key: 'syntheses/org-1/abc.pdf',
+    storageKey: 'savr-dev/syntheses/org-1/abc.pdf',
+  });
   getPresignedUrl.mockResolvedValue('https://r2.example/signed?token=x');
   getObjectBytes.mockResolvedValue(Buffer.from([1, 2, 3]));
 });
@@ -99,14 +103,15 @@ describe('M3.5 / route synthèse PDF — génération synchrone', () => {
       ...SNAPSHOT,
       logo_data_uri: `data:image/png;base64,${Buffer.from([1, 2, 3]).toString('base64')}`,
     });
-    // Objet R2 éphémère sous préfixe synthese/<org>/ (pas d'archivage DB).
+    // Objet R2 éphémère sous le dossier syntheses/<org>/ du bucket de
+    // l'environnement (pas d'archivage DB) — aucun bucket passé à l'appel.
     expect(uploadPdf).toHaveBeenCalledWith(
-      'rapports',
-      expect.stringMatching(/^synthese\/org-1\//),
+      expect.stringMatching(/^syntheses\/org-1\/[0-9a-f-]{36}\.pdf$/),
       expect.any(Buffer),
     );
+    // L'URL est signée pour l'objet que l'upload vient de rendre.
     expect(getPresignedUrl).toHaveBeenCalledWith(
-      'rapports/synthese/org-1/abc.pdf',
+      'savr-dev/syntheses/org-1/abc.pdf',
       3600,
     );
     // Type figé propagé au snapshot.

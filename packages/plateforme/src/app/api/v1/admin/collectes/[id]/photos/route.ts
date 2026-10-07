@@ -72,7 +72,6 @@ export async function POST(
     );
   }
 
-  const bucket = process.env['R2_BUCKET_NAME'] || 'savr-dev';
   const ext =
     file.type === 'image/png'
       ? 'png'
@@ -82,8 +81,11 @@ export async function POST(
   const key = `photos/collectes/${id}/${randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
+  // Bucket = celui de l'environnement, rendu par l'upload (aucun repli : sans
+  // R2_BUCKET_NAME l'upload lève, comme sans identifiants).
+  let bucket: string;
   try {
-    await uploadObject(bucket, key, buffer, file.type);
+    ({ bucket } = await uploadObject(key, buffer, file.type));
   } catch {
     return NextResponse.json(
       { error: 'Upload indisponible (stockage non configuré)' },

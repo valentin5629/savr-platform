@@ -11,6 +11,7 @@ import {
   type SyntheseRole,
 } from '@/lib/dashboards/synthese-snapshot.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { DOSSIER_STOCKAGE } from '@savr/shared/src/pdf/document-types.js';
 
 /**
  * POST /api/v1/dashboards/synthese-pdf — Rapport de synthèse agrégé §12 §1.6
@@ -186,8 +187,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ...(snapshot as unknown as Record<string, unknown>),
       logo_data_uri: logoDataUri,
     });
-    const key = `synthese/${auth.ctx.organisationId}/${randomUUID()}.pdf`;
-    const storageKey = await uploadPdf('rapports', key, pdfBuffer);
+    const key = `${DOSSIER_STOCKAGE['synthese-dashboard']}/${auth.ctx.organisationId}/${randomUUID()}.pdf`;
+    const { storageKey } = await uploadPdf(key, pdfBuffer);
     const url = await getPresignedUrl(storageKey, PRESIGN_TTL_SECONDS);
     return NextResponse.json({ url, expires_in: PRESIGN_TTL_SECONDS });
   } catch (err) {

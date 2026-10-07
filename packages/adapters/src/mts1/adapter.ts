@@ -75,10 +75,6 @@ interface TourneeRow {
   prestataire_logistique_id: string | null;
 }
 
-// Bucket R2 des photos de collecte (shared.fichiers.bucket). La clé porte le préfixe
-// `photos/<collecteId>/…` — cf. processPhotos.
-const PHOTO_BUCKET = 'collectes';
-
 // Suffixes flux ZD → libellés MTS-1 as-built (sortant)
 const FLUX_STUFFS_ZD = [
   'Bio-déchets (en kg)',
@@ -947,8 +943,11 @@ export class AdapterMts1 implements LogistiqueProvider {
       // (credentials absents, rejet R2), on log + on saute sans INSERT → JAMAIS de
       // ligne shared.fichiers orpheline pointant un objet inexistant (BL-P0-02).
       // Non bloquant pour le poll : la photo est retentée au prochain passage.
+      // Le bucket persisté est celui que l'upload a réellement écrit (bucket de
+      // l'environnement) ; la clé porte le dossier `photos/<collecteId>/…`.
+      let bucket: string;
       try {
-        await this.uploadPhotoToR2(storageKey, buffer);
+        bucket = await this.uploadPhotoToR2(storageKey, buffer);
       } catch {
         await this.logEntrantError(
           'PHOTO_UPLOAD_FAILED',
@@ -960,7 +959,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       // Enregistrement dans shared.fichiers (objet désormais réellement présent sur R2)
       await this.supabase.schema('shared').from('fichiers').insert({
         storage_provider: 'r2',
-        bucket: PHOTO_BUCKET,
+        bucket,
         key: storageKey,
         content_type: 'image/jpeg',
         size_bytes: buffer.length,
@@ -973,9 +972,10 @@ export class AdapterMts1 implements LogistiqueProvider {
   // Upload binaire vers R2 (S3-compatible) via la signature AWS Sig V4 partagée
   // (@savr/shared/src/r2/upload). La logique R2/AWS-SDK vit hors packages/adapters/
   // (garde-fou 3). `uploadObject` LÈVE en cas d'échec → l'appelant ne persiste pas
-  // de pointeur orphelin.
-  private async uploadPhotoToR2(key: string, buffer: Buffer): Promise<void> {
-    await uploadObject(PHOTO_BUCKET, key, buffer, 'image/jpeg');
+  // de pointeur orphelin. Rend le bucket écrit (celui de l'environnement).
+  private async uploadPhotoToR2(key: string, buffer: Buffer): Promise<string> {
+    const { bucket } = await uploadObject(key, buffer, 'image/jpeg');
+    return bucket;
   }
 
   // ─── Helpers polling entrant (M1.5b) ─────────────────────────────────────────

@@ -627,7 +627,11 @@ describe('M3.1 / mon-organisation logo', () => {
   }
 
   it('M3.1/trait_monorga_logo_upload — manager upload logo (201)', async () => {
-    mockUploadObject.mockResolvedValue('savr-dev/logos/abc.png');
+    mockUploadObject.mockResolvedValue({
+      bucket: 'savr-dev',
+      key: 'logos/abc.png',
+      storageKey: 'savr-dev/logos/abc.png',
+    });
     const { POST } =
       await import('@/app/api/v1/traiteur/mon-organisation/logo/route.js');
     const res = await POST(makeUploadReq('traiteur_manager'));
@@ -667,8 +671,8 @@ describe('M3.1 / mon-organisation logo', () => {
     });
     const res = await getProxy(LOGO);
     expect(res.status).toBe(200);
+    // Lecture par la clé seule : le bucket est celui de l'environnement.
     expect(mockGetObject).toHaveBeenCalledWith(
-      'savr-dev',
       'logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png',
     );
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');

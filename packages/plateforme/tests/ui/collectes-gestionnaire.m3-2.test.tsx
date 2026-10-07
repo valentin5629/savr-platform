@@ -181,6 +181,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       ).toBeTruthy();
       // Colonnes (revue écran 2026-10-01) : celles de la liste traiteur, plus
       // « Traiteur » ; « Type » gardé, « Événement » retiré, pas d'actions.
+      // « Déchets labo est. » après « Résultats » (décision Val 2026-10-07).
       const entetes = screen
         .getAllByRole('columnheader')
         .map((th) => th.textContent?.trim());
@@ -191,6 +192,7 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         'Traiteur',
         'Pax',
         'Résultats',
+        'Déchets labo est.',
         'Type',
         'Statut',
       ]);
@@ -292,11 +294,13 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       );
 
       // Parité : les colonnes de la liste traiteur, dans le même ordre, sans
-      // « Actions », avec « Traiteur » après « Client » et « Type » avant
-      // « Statut ». Une colonne ajoutée côté traiteur fait échouer ce test tant
-      // que la liste gestionnaire ne la reprend pas.
+      // « Actions », avec « Traiteur » après « Client », « Déchets labo est. »
+      // après « Résultats » (propre au gestionnaire, §05 R_dechets_labo_estimes)
+      // et « Type » avant « Statut ». Une colonne ajoutée côté traiteur fait
+      // échouer ce test tant que la liste gestionnaire ne la reprend pas.
       const attendu = ENTETES_TRAITEUR.filter((e) => e !== 'Actions');
       attendu.splice(attendu.indexOf('Client') + 1, 0, 'Traiteur');
+      attendu.splice(attendu.indexOf('Résultats') + 1, 0, 'Déchets labo est.');
       attendu.splice(attendu.indexOf('Statut'), 0, 'Type');
       expect(
         table.getAllByRole('columnheader').map((th) => th.textContent?.trim()),
@@ -356,6 +360,55 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(replace).toHaveBeenCalledWith(
         '/gestionnaire/collectes?collecte=c1',
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_colonne_dechets_labo_estimes — kg de l’événement, « — » si non communiqué, « 0 kg » si déclaré à zéro',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) =>
+          repondre(url, {
+            data: [
+              // 532 couverts × 0,18 kg/couvert, calculé par la route.
+              { ...LIGNES[0], dechets_labo_kg: 95.76 },
+              // Coefficient non communiqué par le traiteur.
+              { ...LIGNES[1], dechets_labo_kg: null },
+              // Coefficient déclaré à zéro : une valeur, pas une absence.
+              {
+                ...LIGNES[2],
+                lieu_nom: 'Espace Champerret',
+                dechets_labo_kg: 0,
+              },
+            ],
+          }),
+        ),
+      );
+      render(<CollectesPage />);
+      const table = within(
+        await screen.findByRole('table', undefined, ATTENTE_UI),
+      );
+
+      // Colonne dédiée, juste après « Résultats » (les kg collectés), sans tri :
+      // la valeur est calculée, elle n'est pas une colonne de `collectes`.
+      const entetes = table.getAllByRole('columnheader');
+      const col = entetes.findIndex(
+        (th) => th.textContent?.trim() === 'Déchets labo est.',
+      );
+      expect(col).toBe(
+        entetes.findIndex((th) => th.textContent?.trim() === 'Résultats') + 1,
+      );
+      expect(entetes[col]!.getAttribute('aria-sort')).toBeNull();
+
+      const cellule = (lieu: string) =>
+        within(table.getByText(lieu).closest('tr')!).getAllByRole('cell')[col]!
+          .textContent;
+      // Même format que la colonne de la liste Événements : kg sans décimale.
+      expect(cellule('Paris Expo Porte de Versailles')).toMatch(/^96\skg$/);
+      expect(cellule('Palais des Congrès de Paris')).toBe('—');
+      expect(cellule('Espace Champerret')).toMatch(/^0\skg$/);
     },
     ATTENTE_CAS_MS,
   );

@@ -65,11 +65,15 @@ function makeChain() {
 let rls = makeChain();
 const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
+// `f_dechets_labo_estimes`, appelée par événement de la page (colonne « Déchets
+// labo est. »). Par défaut : coefficient non communiqué.
+const mockRpc = vi.fn();
 
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: { getUser: mockGetUser, getSession: mockGetSession },
     from: (...a: unknown[]) => (rls.from as (...x: unknown[]) => unknown)(...a),
+    rpc: (...a: unknown[]) => mockRpc(...a),
   }),
 }));
 vi.mock('next/headers', () => ({
@@ -78,6 +82,7 @@ vi.mock('next/headers', () => ({
 
 import { GET } from '@/app/api/v1/gestionnaire/collectes/route.js';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
@@ -126,6 +131,8 @@ const dernierRange = () => {
 
 beforeEach(() => {
   rls = makeChain();
+  mockRpc.mockReset();
+  mockRpc.mockResolvedValue({ data: null, error: null });
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'user-gl' } },
     error: null,
@@ -437,5 +444,115 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
     // Et le recompte lit bien la première ligne, pas la fenêtre refusée.
     const ranges = (rls.__calls.range ?? []).map((r) => `${r[0]}..${r[1]}`);
     expect(ranges).toEqual([`${PAGE_SIZE * 3}..${PAGE_SIZE * 4 - 1}`, '0..0']);
+  });
+});
+
+// Colonne « Déchets labo est. » de la liste (décision Val 2026-10-07, §05
+// R_dechets_labo_estimes). L'estimation est celle de l'ÉVÉNEMENT (couverts ×
+// coefficient annuel du traiteur) : la route la demande à la fonction
+// `f_dechets_labo_estimes`, qui ne rend que des kg.
+describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () => {
+  /** Estimation rendue par événement ; absent de la table = non communiqué. */
+  function estimations(parEvenement: Record<string, number | null>) {
+    mockRpc.mockImplementation(
+      (_fn: string, args: { p_evenement_id: string }) =>
+        Promise.resolve({
+          data: parEvenement[args.p_evenement_id] ?? null,
+          error: null,
+        }),
+    );
+  }
+  const appelsRpc = () =>
+    mockRpc.mock.calls.map(
+      (a) => `${a[0]}(${(a[1] as { p_evenement_id: string }).p_evenement_id})`,
+    );
+
+  it('M3.2/collectes_route_dechets_labo_par_evenement — une estimation par événement, partagée par ses collectes', async () => {
+    const base = lignes(3);
+    const zd = base[0]!;
+    const autre = base[1]!;
+    const zero = base[2]!;
+    rls.__set({
+      data: [
+        zd,
+        // Collecte AG du MÊME événement que la ZD ci-dessus.
+        { ...zd, id: 'ag-e0', type: 'anti_gaspi' },
+        autre,
+        zero,
+      ],
+      error: null,
+      count: 4,
+    });
+    // e0 : estimation ; e1 : coefficient non communiqué ; e2 : déclaré à zéro.
+    estimations({ e0: 95.76, e2: 0 });
+    const res = await appel();
+    const { data } = (await res.json()) as {
+      data: { id: string; dechets_labo_kg: number | null }[];
+    };
+
+    // Un appel par événement DISTINCT de la page : l'événement aux deux
+    // collectes n'est calculé qu'une fois, et seuls les événements que la
+    // requête vient de rendre sont demandés.
+    expect(appelsRpc()).toEqual([
+      'f_dechets_labo_estimes(e0)',
+      'f_dechets_labo_estimes(e1)',
+      'f_dechets_labo_estimes(e2)',
+    ]);
+    // Les deux collectes de e0 portent la même valeur ; « non communiqué »
+    // reste null (l'écran affiche « — ») et ne se confond pas avec le zéro
+    // déclaré, qui est une valeur.
+    expect(data.map((c) => [c.id, c.dechets_labo_kg])).toEqual([
+      ['c0', 95.76],
+      ['ag-e0', 95.76],
+      ['c1', null],
+      ['c2', 0],
+    ]);
+  });
+
+  it('M3.2/collectes_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    rls.__set({ data: lignes(2), error: null, count: 2 });
+    mockRpc.mockImplementation(
+      (_fn: string, args: { p_evenement_id: string }) =>
+        Promise.resolve(
+          args.p_evenement_id === 'e0'
+            ? { data: null, error: { code: '57014', message: 'timeout' } }
+            : { data: 12.5, error: null },
+        ),
+    );
+    const res = await appel();
+    const json = (await res.json()) as {
+      data: { dechets_labo_kg: number | null }[];
+      total: number;
+    };
+
+    // L'estimation est un complément : son échec ne prive pas le gestionnaire
+    // de sa liste, et n'efface pas l'estimation des autres événements.
+    expect(res.status).toBe(200);
+    expect(json.total).toBe(2);
+    expect(json.data.map((c) => c.dechets_labo_kg)).toEqual([null, 12.5]);
+    // Mais l'échec est tracé : à l'écran il se lit « — », comme un coefficient
+    // non communiqué, et sans cette ligne rien ne distinguerait la panne.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      'gestionnaire.collectes.dechets_labo_echec',
+      { evenement_id: 'e0', code: '57014' },
+    );
+    warn.mockRestore();
+  });
+
+  it('M3.2/collectes_route_dechets_labo_aucun_appel_sans_ligne', async () => {
+    // Page vide, puis page au-delà de la dernière (PostgREST 416) : aucune
+    // ligne à compléter, donc aucun appel à la fonction.
+    rls.__set({ data: [], error: null, count: 0 });
+    await appel();
+    rls = makeChain();
+    rls.__suite(
+      { data: null, error: { code: 'PGRST103' }, count: null },
+      { data: lignes(1), error: null, count: 120 },
+    );
+    await appel('?page=4');
+
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });

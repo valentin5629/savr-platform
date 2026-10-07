@@ -230,6 +230,10 @@
     "M3.2/collectes_route_renvoie_le_client_organisateur",
     "M3.2/collectes_route_colonnes_liste_traiteur",
     "M3.2/collectes_colonnes_identiques_liste_traiteur",
+    "M3.2/collectes_route_dechets_labo_par_evenement",
+    "M3.2/collectes_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste",
+    "M3.2/collectes_route_dechets_labo_aucun_appel_sans_ligne",
+    "M3.2/collectes_colonne_dechets_labo_estimes",
     "M3.2/evenements_repas_tiers_par_vue",
     "M3.2/evenements_repas_sans_attribution",
     "M3.2/fiche_get_association_par_vue",
@@ -845,6 +849,22 @@
       "test": "M3.2/collectes_colonnes_identiques_liste_traiteur + M3.2/collectes_route_colonnes_liste_traiteur",
       "statut": "implemented",
       "libelle": "Liste Collectes gestionnaire aux colonnes de la liste traiteur, plus « Traiteur » (décisions Val, revue écran E2E 2026-10-01 : mêmes colonnes dans l'écran existant — liste plate paginée conservée ; « Type » gardé car ZD et AG sont mêlés ; « Événement » retiré ; aucun picto d'action — divergence M3.1_20261001_liste-colonne-client). Colonnes : Date · Lieu (nom + adresse) · Client · Traiteur · Pax · Résultats · Type · Statut ; les cellules Lieu et Résultats sont celles de la liste traiteur (composants partagés), et un test de parité échoue si une colonne ajoutée côté traiteur n'est pas reprise. Traiteur lu par la vue restreinte v_traiteurs_gestionnaire (nom seul). Résultats sur collecte clôturée : poids ZD = Σ collecte_flux, taux de recyclage, CO₂ évité ; repas AG = volume de l'attribution lu par la vue v_attributions_gestionnaire (même source que la fiche ; sur une collecte d'un traiteur tiers la table lui est refusée par aa_select, jamais élargie — le repli D13 sur l'attestation de don est retiré depuis la migration 20261004190000). Téléchargement du rapport depuis la ligne (route gestionnaire existante, documents sous sa RLS, §06.05 l.619) : jamais « réservé au donneur d'ordre ». Les embeds bruts ne sortent pas de la route. Seules Date / Type / Statut restent triables (tri serveur)."
+    },
+    {
+      "id": "M3.2-liste-collectes-colonne-dechets-labo",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:647",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
+      "test": "M3.2/collectes_route_dechets_labo_par_evenement + M3.2/collectes_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste + M3.2/collectes_route_dechets_labo_aucun_appel_sans_ligne + M3.2/collectes_colonne_dechets_labo_estimes + M3.2/collectes_colonnes_identiques_liste_traiteur",
+      "statut": "implemented",
+      "libelle": "Colonne « Déchets labo est. » de la liste Collectes gestionnaire, après « Résultats » (décision Val, revue écran E2E 2026-10-07 — divergence M3.2_20261007_colonne-dechets-labo-liste-collectes ; le CDC bornait l'affichage au détail événement et à la liste Événements). Estimation de l'ÉVÉNEMENT de la collecte (§05 R_dechets_labo_estimes : couverts × coefficient annuel du traiteur opérationnel), répétée sur chacune de ses collectes. La route ajoute dechets_labo_kg à chaque ligne en appelant la fonction existante f_dechets_labo_estimes une fois par événement distinct de la page (50 au plus) : aucune migration, aucun droit modifié, le coefficient brut ne sort jamais. Même libellé et même format que la colonne de la liste Événements : kg sans décimale, « — » si coefficient non communiqué, « 0 kg » si déclaré à zéro. Non triable (tri serveur sur les seules colonnes de collectes). Un appel en échec rend « — » pour l'événement et laisse la liste s'afficher ; il est journalisé. Colonne propre au gestionnaire : les listes traiteur, agence et client organisateur ne la portent pas. Écarts connus de la fonction, repris tels quels : coefficient le plus récent au lieu de « année − 1 », et pax = 0 → « 0 kg » (_Divergences/M3.2_20260921_dechets-labo-pax-zero.md)."
+    },
+    {
+      "id": "M3.2-liste-collectes-colonne-dechets-labo-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:360",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la colonne « Déchets labo est. » dans la liste Collectes gestionnaire (Date · Lieu · Client · Traiteur · Pax · Résultats · Déchets labo est. · Type · Statut), en tableau desktop ET en carte mobile < 640 px : valeur en kg alignée à droite, « — » sur un traiteur sans coefficient, tableau à neuf colonnes pas trop large à la largeur d'écran de Val — preuve écran à joindre (geste de Val, GO-VISUAL)."
     },
     {
       "id": "M3.2-vue-attributions-gestionnaire",

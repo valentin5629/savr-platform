@@ -61,6 +61,12 @@ vi.mock('@/lib/api-auth.js', () => ({
   requireUser: (...a: unknown[]) => mockRequireUser(...a),
   createSupabaseServerClient: () => rls,
 }));
+// Mon pack AG interroge le journal d'audit par le client de service dès qu'une
+// collecte annulée porte un pack : ici le mock par table rend les mêmes lignes
+// aux deux lectures de collectes, d'où un appel, sans trace de débit en retour.
+vi.mock('@savr/shared/src/supabase-client.js', () => ({
+  createAdminSupabaseClient: () => rls,
+}));
 
 function req(path: string) {
   return new NextRequest(`http://localhost${path}`, { method: 'GET' });
@@ -201,6 +207,7 @@ describe('M3.2 / Mon pack AG — historique de consommation par la vue', () => {
           id: 'c-ag',
           date_collecte: '2026-06-01',
           statut: 'cloturee',
+          packs_antgaspi: { id: 'pack-org' },
           evenements: {
             nom_evenement: 'Gala',
             date_evenement: '2026-06-01',

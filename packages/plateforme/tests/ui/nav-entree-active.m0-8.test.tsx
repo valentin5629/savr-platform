@@ -84,10 +84,10 @@ it('M0.8-70 — Barre mobile : même règle, et rien d’allumé quand la page c
   render(<BottomNav role="gestionnaire_lieux" />);
   expect(entreesActives()).toEqual(['Collectes']);
 
-  // « Traiteurs » est la 6e entrée : absente de la barre mobile. Le Dashboard
-  // ne doit pas s'allumer à sa place.
+  // « Registre réglementaire » est la 5e entrée : absente de la barre mobile.
+  // Le Dashboard ne doit pas s'allumer à sa place.
   cleanup();
-  etat.pathname = '/gestionnaire/traiteurs';
+  etat.pathname = '/registre';
   render(<BottomNav role="gestionnaire_lieux" />);
   expect(entreesActives()).toEqual([]);
 });

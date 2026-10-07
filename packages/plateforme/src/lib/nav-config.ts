@@ -139,13 +139,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
     },
   ],
 
-  // §06.05 §Navigation. Le CDC fige 7 sections (sans Collectes ni Registre), mais
-  // Val a demandé le 2026-07-06 de CONSERVER « Collectes » + « Registre réglementaire »
-  // (override explicite de la décision CDC l.79 « Pas de section Collectes » —
-  // cf. _Divergences/M3.2_20260706_nav_collectes_registre.md, type: ambigu).
-  // → 9 entrées. Seule règle CDC-conforme appliquée ici : « Mon pack AG » masqué si
-  // l'organisation n'a aucun pack (filtrage `hiddenNavHrefs` calculé côté layout,
-  // appliqué dans Sidebar/BottomNav — CDC l.71).
+  // §06.05 §Navigation (l.66-76) : 9 sections, dont « Collectes » et « Registre
+  // réglementaire », réintégrées par Val le 2026-07-06 (CDC re-synchronisé depuis).
+  // « Mon pack AG » est masqué si l'organisation n'a aucun pack : `hiddenNavHrefs`
+  // est calculé par `entreesNavMasquees` (lib/nav-masquee.ts) dans chaque layout
+  // qui monte ce menu, puis appliqué dans Sidebar/BottomNav.
   gestionnaire_lieux: [
     {
       items: [
@@ -234,4 +232,27 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
 
 export function getNavItems(role: NavRole): NavItem[] {
   return NAV_CONFIG[role]?.flatMap((g) => g.items) ?? [];
+}
+
+/**
+ * Entrée du menu active pour un chemin : UNE seule (Design System §10,
+ * `aria-current` sur l'item de nav actif). Plusieurs entrées peuvent préfixer le
+ * chemin courant — le Dashboard d'un espace client vit à la racine de l'espace
+ * (`/gestionnaire`), donc préfixe toutes ses voisines (`/gestionnaire/collectes`).
+ * La plus précise l'emporte : celle dont le href est le plus long.
+ *
+ * Cherchée parmi TOUTES les entrées du rôle, y compris celles que l'écran ne
+ * montre pas (entrée masquée, au-delà des 4 de la barre mobile) : sur leur page,
+ * aucune autre entrée ne doit s'allumer à leur place.
+ */
+export function hrefNavActif(
+  role: NavRole,
+  pathname: string,
+): string | undefined {
+  let actif: string | undefined;
+  for (const { href } of getNavItems(role)) {
+    const correspond = pathname === href || pathname.startsWith(href + '/');
+    if (correspond && (!actif || href.length > actif.length)) actif = href;
+  }
+  return actif;
 }

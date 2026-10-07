@@ -13,8 +13,11 @@ interface AppShellProps {
   userName?: string;
   pageTitle?: string;
   onLogout?: () => void;
-  /** hrefs de nav à masquer (calculé côté serveur, ex : « Mon pack AG » §06.05 l.71). */
-  hiddenNavHrefs?: string[];
+  /**
+   * hrefs de nav à masquer, calculés côté serveur par `entreesNavMasquees(role)`
+   * (`lib/nav-masquee.ts`). `[]` = ce menu n'a aucune entrée conditionnelle.
+   */
+  hiddenNavHrefs: string[];
   /** Compteurs par href (calculé côté serveur, ex : { '/admin/alertes': 3 }). */
   navBadges?: Record<string, number>;
   children: React.ReactNode;

@@ -58,11 +58,15 @@ const lister = (adresses: string | string[]): string =>
 
 // Un message d'erreur Resend peut citer une adresse (destinataire refusé, titulaire
 // du compte) : masquée avant journalisation. La base, elle, garde le message brut.
-const masquerAdresses = (texte: string | undefined): string =>
-  (texte ?? '').replace(
-    /[^\s<>()"',;:]+@[^\s<>()"',;:]+/g,
-    '[adresse masquée]',
-  );
+// Le message vient d'un tiers : rien n'y est garanti. Autre chose qu'une chaîne
+// n'est pas journalisé, et le texte est borné avant la recherche (sur un long mot
+// sans espace, elle coûterait un temps quadratique).
+const masquerAdresses = (texte: unknown): string =>
+  typeof texte === 'string'
+    ? texte
+        .slice(0, 500)
+        .replace(/[^\s<>()"',;:]+@[^\s<>()"',;:]+/g, '[adresse masquée]')
+    : '';
 
 // Seuls ces champs partent vers Resend, quel que soit l'objet reçu : un `from`,
 // des en-têtes ou une pièce jointe portés par l'appelant ne traversent pas.
@@ -135,9 +139,9 @@ export async function dispatchToResend(
 
   const apiKey = (process.env['RESEND_API_KEY'] ?? '').trim();
   const from = (process.env['RESEND_FROM'] ?? '').trim();
-  // Une clé qui n'est pas une valeur d'en-tête HTTP valide (saut de ligne interne,
-  // caractère de contrôle) ferait lever le SDK avec la clé recopiée dans son
-  // message : elle est refusée ici, sans jamais être citée.
+  // Seule une clé en ASCII imprimable, sans espace, est acceptée. Le SDK recopie
+  // dans le message de son exception une clé contenant un saut de ligne : une clé
+  // hors de cette règle ne lui parvient jamais, et n'est jamais citée ici.
   const cleUtilisable = /^[\x21-\x7E]+$/.test(apiKey);
   const enDefaut = [
     ...(cleUtilisable ? [] : ['RESEND_API_KEY']),
@@ -147,9 +151,13 @@ export async function dispatchToResend(
     logger.error('email.configuration_manquante', {
       variables_en_defaut: enDefaut,
     });
-    throw new Error(
-      `Configuration email incomplète — variable(s) d'environnement absente(s) ou invalide(s) : ${enDefaut.join(', ')}. Aucun email envoyé.`,
-    );
+    // Un échec, pas une exception (décision Val 2026-10-07) : l'appelant poursuit,
+    // l'envoi est historisé en échec et le worker le reprend une fois la variable posée.
+    return {
+      resendId: null,
+      statut: 'failed',
+      erreur: `Configuration email incomplète — variable(s) d'environnement absente(s) ou invalide(s) : ${enDefaut.join(', ')}. Aucun email envoyé.`,
+    };
   }
 
   // VOLET 3 R22g — espacement défensif (§08 l.655, Resend 10 req/s) : borne le débit

@@ -110,38 +110,43 @@ describe('M0.5 / transport Resend — configuration lue à l’envoi', () => {
       ['RESEND_API_KEY', 'RESEND_FROM'],
     ],
   ])(
-    'configuration manquante (%s) → erreur claire, log d’erreur, aucun appel Resend',
+    'configuration manquante (%s) → échec explicite sans exception, log d’erreur, aucun appel Resend',
     async (_cas, env, enDefaut) => {
       poserEnv(env as Env);
 
-      await expect(dispatchToResend(MESSAGE)).rejects.toThrow(
-        `Configuration email incomplète — variable(s) d'environnement absente(s) ou invalide(s) : ${(enDefaut as string[]).join(', ')}. Aucun email envoyé.`,
-      );
+      await expect(dispatchToResend(MESSAGE)).resolves.toEqual({
+        resendId: null,
+        statut: 'failed',
+        erreur: `Configuration email incomplète — variable(s) d'environnement absente(s) ou invalide(s) : ${(enDefaut as string[]).join(', ')}. Aucun email envoyé.`,
+      });
 
       expect(error).toHaveBeenCalledWith('email.configuration_manquante', {
         variables_en_defaut: enDefaut,
       });
       expect(h.ResendCtor).not.toHaveBeenCalled();
       expect(h.mockSend).not.toHaveBeenCalled();
+      expect(h.throttle).not.toHaveBeenCalled();
     },
   );
 
-  // Le SDK recopie une clé invalide dans le message de l'exception qu'il lève
-  // (« Headers.append: "Bearer re_… » ) : elle ne doit jamais lui parvenir.
+  // Le SDK recopie dans le message de son exception une clé contenant un saut de
+  // ligne (« Headers.append: "Bearer re_… » ) : elle ne doit jamais lui parvenir.
+  // (Un caractère nul ne peut pas arriver par une variable d'environnement.)
   it.each([
     ['saut de ligne interne', 're_SECRET_A\nSECRET_B'],
-    ['caractère de contrôle', 're_SECRET_A SECRET_B'],
+    ['retour chariot interne', 're_SECRET_A\rSECRET_B'],
+    ['hors ASCII', `re_SECRET_A${String.fromCharCode(0x2028)}SECRET_B`],
     ['espace interne', 're_SECRET_A SECRET_B'],
   ])(
-    'clé inutilisable comme en-tête HTTP (%s) → refusée sans être citée, SDK jamais instancié',
+    'clé hors ASCII imprimable sans espace (%s) → refusée sans être citée, SDK jamais instancié',
     async (_cas, apiKey) => {
       poserEnv({ ...PRODUCTION, apiKey });
 
-      const echec = await dispatchToResend(MESSAGE).catch((e: Error) => e);
+      const outcome = await dispatchToResend(MESSAGE);
 
-      expect(echec).toBeInstanceOf(Error);
-      expect((echec as Error).message).toContain('RESEND_API_KEY');
-      expect((echec as Error).message).not.toContain('SECRET');
+      expect(outcome.statut).toBe('failed');
+      expect(outcome.erreur).toContain('RESEND_API_KEY');
+      expect(outcome.erreur).not.toContain('SECRET');
       expect(journal()).not.toContain('SECRET');
       expect(h.ResendCtor).not.toHaveBeenCalled();
     },
@@ -150,7 +155,10 @@ describe('M0.5 / transport Resend — configuration lue à l’envoi', () => {
   it('hors production avec redirection : la configuration reste exigée (un envoi va partir)', async () => {
     poserEnv({ ...PREVIEW, from: undefined });
 
-    await expect(dispatchToResend(MESSAGE)).rejects.toThrow('RESEND_FROM');
+    const outcome = await dispatchToResend(MESSAGE);
+
+    expect(outcome.statut).toBe('failed');
+    expect(outcome.erreur).toContain('RESEND_FROM');
     expect(h.mockSend).not.toHaveBeenCalled();
   });
 
@@ -415,6 +423,48 @@ describe('M0.5 / transport Resend — résultat et journaux', () => {
       }),
     );
     expect(journal()).not.toContain('compte-test.fr');
+  });
+
+  // Le message vient d'un tiers : une réponse hors contrat ne doit ni faire lever
+  // le transport (l'envoi serait perdu au lieu d'être repris), ni le ralentir.
+  it.each([
+    ['tableau', ['a@traiteur-test.fr']],
+    ['objet', { detail: 'KO' }],
+    ['absent', undefined],
+  ])(
+    'message d’erreur Resend qui n’est pas une chaîne (%s) → échec rendu sans exception, rien de son contenu au journal',
+    async (_cas, message) => {
+      poserEnv(PRODUCTION);
+      h.mockSend.mockResolvedValue({
+        data: null,
+        error: { statusCode: 500, name: 'application_error', message },
+        headers: null,
+      });
+
+      const outcome = await dispatchToResend(MESSAGE);
+
+      expect(outcome.statut).toBe('failed');
+      expect(error).toHaveBeenCalledWith(
+        'api.external.failed',
+        expect.objectContaining({ http_status: 500, message: '' }),
+      );
+    },
+  );
+
+  it('message d’erreur Resend très long → 500 caractères au plus dans le journal, message entier dans le résultat', async () => {
+    poserEnv(PRODUCTION);
+    const long = 'x'.repeat(200_000);
+    h.mockSend.mockResolvedValue({
+      data: null,
+      error: { statusCode: 500, name: 'application_error', message: long },
+      headers: null,
+    });
+
+    const outcome = await dispatchToResend(MESSAGE);
+
+    expect(outcome.erreur).toBe(long);
+    const journalise = error.mock.calls[0]![1] as { message: string };
+    expect(journalise.message).toHaveLength(500);
   });
 
   it('429 rate_limit_exceeded → Retry-After honoré, échec propagé', async () => {

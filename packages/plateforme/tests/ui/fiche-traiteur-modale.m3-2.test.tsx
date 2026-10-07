@@ -67,7 +67,7 @@ const KPI_ZD = {
   kg_par_pax: 0.43,
 };
 const KPI_ZD_AVANT = {
-  nb_collectes: 20,
+  nb_collectes: 10,
   tonnage_kg: 9181,
   taux_recyclage_pondere: 31,
   kg_par_pax: 0.5,
@@ -222,10 +222,18 @@ describe('M3.2 / fiche traiteur en pop-up', () => {
   it(
     'M3.2/fiche_traiteur_modale_lien_direct — ?traiteur=<id> ouvre la fiche à l’arrivée',
     async () => {
+      // Un seul lieu : l'en-tête et l'onglet s'accordent au singulier.
+      fiche = ok({ ...FICHE, lieux_intervention: LIEUX.slice(0, 1) });
       window.history.replaceState(null, '', `${LISTE}?traiteur=${TRAITEUR}`);
       render(<GestionnaireTraiteursPage />);
-      expect(
+      const f = within(
         await screen.findByRole('dialog', { name: 'Fleurdemets' }, ATTENTE_UI),
+      );
+      expect(f.getByTestId('fiche-traiteur-infos')).toHaveTextContent(
+        '1 lieu d’intervention sur 24 mois',
+      );
+      expect(
+        f.getByRole('tab', { name: 'Lieux d’intervention (1)' }),
       ).toBeTruthy();
     },
     ATTENTE_CAS_MS,
@@ -419,8 +427,8 @@ describe('M3.2 / fiche traiteur — onglet Activité', () => {
       expect(carte(f, 'Tonnage collecté')).toHaveTextContent(/18,4\s*t/);
       expect(carte(f, 'Taux de recyclage')).toHaveTextContent(/27,9\s*%/);
       expect(carte(f, 'kg/pax moyen')).toHaveTextContent(/0,43\s*kg\/pax/);
-      // Variation vs la période précédente équivalente : 25 collectes contre 20.
-      expect(carte(f, 'Nombre de collectes')).toHaveTextContent(/▲ 25,0\s%/);
+      // Variation vs la période précédente équivalente : 25 collectes contre 10.
+      expect(carte(f, 'Nombre de collectes')).toHaveTextContent(/▲ 150,0\s%/);
       // kg/pax : pas de variation (« plus bas = mieux »).
       expect(carte(f, 'kg/pax moyen')).not.toHaveTextContent(/[▲▼]/);
       // Légende du graphique du dashboard : flux et taux de recyclage.
@@ -503,7 +511,15 @@ describe('M3.2 / fiche traiteur — onglet Activité', () => {
       expect(f.queryByText('Nombre de collectes')).toBeNull();
       expect(f.queryByText('Évolution mensuelle Zéro Déchet')).toBeNull();
       // Le sélecteur reste disponible : l'autre type peut avoir des collectes.
-      expect(f.getByRole('radio', { name: 'Anti-Gaspi' })).toBeEnabled();
+      fireEvent.click(f.getByRole('radio', { name: 'Anti-Gaspi' }));
+      expect(
+        await f.findByText(
+          'Aucune collecte Anti-Gaspi clôturée sur vos lieux au cours des 12 derniers mois.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeTruthy();
+      expect(f.queryByText('Évolution Anti-Gaspi')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -551,6 +567,9 @@ describe('M3.2 / fiche traiteur — onglet Activité', () => {
       const f = await ouvrirActivite();
       await f.findByText('Nombre de collectes', undefined, ATTENTE_UI);
       expect(carte(f, 'Nombre de collectes')).toHaveTextContent('25');
+      expect(f.getByTestId('fiche-traiteur-kpis')).not.toHaveTextContent(
+        /[▲▼]/,
+      );
       expect(f.queryByRole('alert')).toBeNull();
     },
     ATTENTE_CAS_MS,

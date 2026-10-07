@@ -4,8 +4,9 @@
  *  - GET /api/v1/gestionnaire/traiteurs/[id] : nom, logo et lieux
  *    d'intervention (collectes clôturées sur les lieux de l'organisation,
  *    24 derniers mois, avec leur nombre) — plus de statistiques ni d'historique ;
- *  - GET /api/v1/gestionnaire/dashboard : la route des cartes KPI du dashboard,
- *    que l'onglet Activité de la fiche appelle filtrée sur le traiteur.
+ *  - GET /api/v1/gestionnaire/dashboard et GET /api/v1/dashboards/evolution :
+ *    les routes des cartes KPI et du graphique du dashboard, que l'onglet
+ *    Activité de la fiche appelle filtrées sur le traiteur.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -160,10 +161,12 @@ describe('M3.2 / fiche traiteur — lecture', () => {
     traiteurDuPerimetre();
     rls.push({
       data: [
-        collecte('c1', CHAMPERRET),
+        // Congrès lu AVANT Champerret, à égalité de collectes : seul le
+        // départage par nom rend « Espace Champerret » en premier.
+        collecte('c1', CONGRES),
         collecte('c2', PORTE_VERSAILLES),
         collecte('c3', PORTE_VERSAILLES),
-        collecte('c4', CONGRES),
+        collecte('c4', CHAMPERRET),
         collecte('c5', PORTE_VERSAILLES),
       ],
       error: null,
@@ -298,7 +301,7 @@ describe('M3.2 / fiche traiteur — lecture', () => {
   });
 });
 
-describe('M3.2 / fiche traiteur — cartes KPI de l’onglet Activité', () => {
+describe('M3.2 / fiche traiteur — routes du dashboard appelées par l’onglet Activité', () => {
   // L'onglet Activité appelle la route du dashboard avec `traiteur_ids[]` : sans
   // ce filtre, la fiche afficherait les chiffres de tout le parc sous le nom
   // d'un seul traiteur.
@@ -359,6 +362,68 @@ describe('M3.2 / fiche traiteur — cartes KPI de l’onglet Activité', () => {
     expect(appelsDe(rls, 'eq').map((a) => a.args)).toContainEqual([
       'statut',
       'cloturee',
+    ]);
+    expect(appelsDe(rls, 'gte')[0]?.args).toEqual([
+      'date_collecte',
+      '2025-10-07',
+    ]);
+    expect(appelsDe(rls, 'lte')[0]?.args).toEqual([
+      'date_collecte',
+      '2026-10-07',
+    ]);
+  });
+
+  // Même enjeu pour le graphique : sans ce filtre, l'histogramme de tout le parc
+  // s'afficherait à côté de cartes justes.
+  it('M3.2/evolution_filtre_traiteur_applique — `traiteur_ids[]` borne la série d’évolution au traiteur, collectes clôturées de la période', async () => {
+    rls.push({
+      data: [{ lieu_id: PORTE_VERSAILLES.id }, { lieu_id: CHAMPERRET.id }],
+      error: null,
+    }); // organisations_lieux
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          taux_recyclage: 40,
+          date_collecte: '2026-09-12',
+          evenements: { id: 'e1', lieu_id: PORTE_VERSAILLES.id, pax: 1000 },
+          collecte_flux: [
+            { poids_reel_kg: 300, flux_dechets: { code: 'biodechet' } },
+          ],
+        },
+      ],
+      error: null,
+    }); // collectes
+
+    const { GET } = await import('@/app/api/v1/dashboards/evolution/route.js');
+    const qs = new URLSearchParams({
+      type: 'zero_dechet',
+      from: '2025-10-07',
+      to: '2026-10-07',
+    });
+    qs.append('traiteur_ids[]', TRAITEUR);
+    const res = await GET(
+      new NextRequest(`http://localhost/api/v1/dashboards/evolution?${qs}`),
+    );
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as {
+      data: {
+        granularite: string;
+        series: { tonnage_total: number; biodechet: number }[];
+      };
+    };
+    expect(data.granularite).toBe('mois');
+    expect(data.series.reduce((t, p) => t + p.tonnage_total, 0)).toBe(300);
+    expect(data.series.reduce((t, p) => t + p.biodechet, 0)).toBe(300);
+
+    expect(appelsDe(rls, 'in').map((a) => a.args)).toEqual([
+      ['evenements.lieu_id', [PORTE_VERSAILLES.id, CHAMPERRET.id]],
+      ['evenements.traiteur_operationnel_organisation_id', [TRAITEUR]],
+    ]);
+    expect(appelsDe(rls, 'eq').map((a) => a.args)).toEqual([
+      ['statut', 'cloturee'],
+      ['type', 'zero_dechet'],
     ]);
     expect(appelsDe(rls, 'gte')[0]?.args).toEqual([
       'date_collecte',

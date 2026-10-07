@@ -91,6 +91,12 @@ VALUES ('c010ca01-0000-0000-0000-000000000001'::uuid, 'e0500c01-0000-0000-0000-0
 INSERT INTO shared.fichiers (id, storage_provider, bucket, key, size_bytes, content_type, entity_type, entity_id)
 VALUES ('f110ca01-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'test.pdf', 1024, 'application/pdf', 'plateforme.collectes', 'c010ca01-0000-0000-0000-000000000001'::uuid);
 
+-- Fichier de collecte CHOISI par l'équipe Savr (rang_client) : depuis
+-- 20261007203000 un client ne lit, parmi les fichiers d'une collecte, que ceux
+-- qui ont été choisis. Sans ce rang, T56 (le propriétaire lit le fichier rattaché à
+-- sa collecte) échouerait.
+UPDATE shared.fichiers SET rang_client = 1 WHERE id = 'f110ca01-0000-0000-0000-000000000001';
+
 SELECT test_set_jwt('traiteur_manager', '09aca000-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
   $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'f110ca01-0000-0000-0000-000000000001'$$,

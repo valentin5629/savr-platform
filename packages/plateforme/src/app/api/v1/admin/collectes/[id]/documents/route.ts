@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
+import { ENTITE_PHOTO_COLLECTE } from '@/lib/collectes/photos-client.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,7 @@ interface PhotoRow {
   key: string;
   content_type: string;
   created_at: string;
+  rang_client: number | null;
 }
 
 export async function GET(
@@ -63,11 +65,13 @@ export async function GET(
     .maybeSingle();
 
   // Photos — shared.fichiers polymorphe (entity_type = 'plateforme.collectes').
+  // L'équipe Savr les voit toutes ; `rang_client` dit lesquelles elle a choisies
+  // pour le client (2 au maximum, cf. lib/collectes/photos-client).
   const { data: photosRaw } = await supabase
     .schema('shared')
     .from('fichiers')
-    .select('id, bucket, key, content_type, created_at')
-    .eq('entity_type', 'plateforme.collectes')
+    .select('id, bucket, key, content_type, created_at, rang_client')
+    .eq('entity_type', ENTITE_PHOTO_COLLECTE)
     .eq('entity_id', id)
     .is('deleted_at', null)
     .like('content_type', 'image/%')
@@ -87,6 +91,7 @@ export async function GET(
         id: p.id,
         content_type: p.content_type,
         created_at: p.created_at,
+        visible_client: p.rang_client !== null,
         url,
       };
     }),

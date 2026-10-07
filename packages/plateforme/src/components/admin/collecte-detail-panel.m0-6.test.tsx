@@ -1663,6 +1663,10 @@ function installMock(opts: {
       if (url.includes('/photos') && method === 'POST') {
         return ok({ fichier: { id: 'f1' } }, 201);
       }
+      // Choix d'une photo visible du client (PATCH /photos/<id>)
+      if (url.includes('/photos/') && method === 'PATCH') {
+        return ok({ photo: { id: 'p', visible_client: false } });
+      }
       if (url.includes('/download')) return ok({ url: 'https://r2/signed' });
       if (url.startsWith('/api/v1/admin/transporteurs'))
         return ok({ data: [] });
@@ -1799,6 +1803,115 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         expect((call![1] as { body?: unknown }).body instanceof FormData).toBe(
           true,
         );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Décisions Val 2026-10-07 : le client ne voit que les photos choisies par
+  // l'équipe Savr dans cette galerie, 2 au maximum.
+  const photo = (id: string, visible_client: boolean) => ({
+    id,
+    content_type: 'image/jpeg',
+    created_at: '2026-07-16T00:05:00Z',
+    visible_client,
+    url: null,
+  });
+
+  it(
+    'M0.6 — Bloc 3 : galerie — une case « Visible du client » par photo, compteur, cases grisées une fois 2 photos choisies',
+    async () => {
+      installMock({
+        documents: {
+          ...documentsAg,
+          photos: [photo('p1', true), photo('p2', true), photo('p3', false)],
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+
+      const cases = await screen.findAllByRole(
+        'checkbox',
+        { name: 'Visible du client' },
+        ATTENTE_UI,
+      );
+      expect(cases).toHaveLength(3);
+      expect(cases.map((c) => c.getAttribute('aria-checked'))).toEqual([
+        'true',
+        'true',
+        'false',
+      ]);
+      // Les 2 places sont prises : la 3e photo ne peut pas être cochée, les
+      // deux choisies restent décochables.
+      expect(cases.map((c) => (c as HTMLButtonElement).disabled)).toEqual([
+        false,
+        false,
+        true,
+      ]);
+      expect(
+        screen.getByText(/Le client ne voit que les photos cochées/),
+      ).toHaveTextContent('2 sur 2 choisies');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : galerie — avec une place libre, une photo non choisie peut être cochée',
+    async () => {
+      installMock({
+        documents: {
+          ...documentsAg,
+          photos: [photo('p1', true), photo('p2', false)],
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+
+      const cases = await screen.findAllByRole(
+        'checkbox',
+        { name: 'Visible du client' },
+        ATTENTE_UI,
+      );
+      expect(cases.map((c) => (c as HTMLButtonElement).disabled)).toEqual([
+        false,
+        false,
+      ]);
+      expect(
+        screen.getByText(/Le client ne voit que les photos cochées/),
+      ).toHaveTextContent('1 sur 2 choisie.');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : galerie — cocher ou décocher une photo envoie un PATCH /photos/<id> avec visible_client',
+    async () => {
+      const fetchMock = installMock({
+        documents: {
+          ...documentsAg,
+          photos: [photo('p 1', true), photo('p2', false)],
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+
+      const cases = await screen.findAllByRole(
+        'checkbox',
+        { name: 'Visible du client' },
+        ATTENTE_UI,
+      );
+      fireEvent.click(cases[0]!);
+
+      await waitFor(() => {
+        const call = fetchMock.mock.calls.find(
+          (c) => (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(call).toBeTruthy();
+        // Identifiant encodé dans le chemin (jamais interpolé brut).
+        expect(call![0]).toBe('/api/v1/admin/collectes/c1/photos/p%201');
+        expect(JSON.parse((call![1] as { body: string }).body)).toEqual({
+          visible_client: false,
+        });
       }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,

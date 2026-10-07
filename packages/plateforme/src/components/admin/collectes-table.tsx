@@ -16,7 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { StatusCollecte } from '@/components/ui/status-collecte';
-import type { StatutCollecte } from '@/components/ui/status-collecte';
+import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import {
   Dropdown,
   DropdownContent,
@@ -51,6 +51,9 @@ export interface CollecteRow {
   statut: string;
   statut_tms: string;
   tms_reference: string | null;
+  // Prestataire posé au dispatch — l'un des signaux « demande partie » qui
+  // séparent « Créée » de « Programmée » (lib/statut-collecte-admin).
+  prestataire_logistique_id: string | null;
   dirty_tms: boolean;
   date_collecte: string;
   heure_collecte: string;
@@ -99,7 +102,8 @@ function estTerminale(row: CollecteRow): boolean {
   return STATUTS_TERMINAUX.has(row.statut);
 }
 
-// Collecte AG « à attribuer » : programmée et sans attribution (≈ « Créée »).
+// Collecte AG « à attribuer » : `programmee` en base et sans attribution — une
+// AG « Créée » (rien n'est parti), que la liste nomme par l'action attendue.
 function aAttribuer(row: CollecteRow): boolean {
   return (
     row.type === 'anti_gaspi' &&
@@ -334,7 +338,7 @@ export function colonnesCollectesAdmin({
         aAttribuer(r) ? (
           <Badge variant="warning">À attribuer</Badge>
         ) : (
-          <StatusCollecte statut={r.statut as StatutCollecte} />
+          <StatusCollecte statut={statutCollecteAdmin(r)} />
         ),
     },
     {

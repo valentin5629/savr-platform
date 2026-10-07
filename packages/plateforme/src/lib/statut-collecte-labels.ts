@@ -5,7 +5,11 @@ import type { BadgeProps } from '@/components/ui/badge';
  * Libellés d'affichage du statut d'une collecte (UX uniquement — la table garde
  * les valeurs d'enum DB). Deux vues (décision Val 2026-06-30) :
  *
- * - `admin`  : granularité complète (juste `brouillon` renommé « Créée »).
+ * - `admin`  : granularité complète. L'enum DB `programmee` s'y lit en deux
+ *   temps (décision Val 2026-10-07) : « Créée » tant que la demande n'est pas
+ *   partie vers le prestataire, « Programmée » ensuite — la clé d'affichage est
+ *   résolue par `statutCollecteAdmin` (lib/statut-collecte-admin). Un brouillon
+ *   n'apparaît pas côté Admin ; son libellé « Brouillon » n'est qu'un repli.
  * - `client` : vue simplifiée pour les rôles non-admin (traiteur, agence,
  *   gestionnaire de lieux, client organisateur). Jamais « Programmée » ;
  *   « Réalisée » seulement à `cloturee` ; le rejet prestataire est masqué
@@ -14,6 +18,13 @@ import type { BadgeProps } from '@/components/ui/badge';
 /** Statut d'une collecte = enum DB `collecte_statut` (type unique, R-UI-2 C1). */
 export type StatutCollecteDb =
   Database['plateforme']['Enums']['collecte_statut'];
+
+/**
+ * Statut AFFICHÉ côté Admin : l'enum DB, plus « Créée » (`creee`) pour une
+ * collecte `programmee` dont la demande n'est pas encore partie. Ici
+ * `programmee` veut donc dire « demande envoyée au prestataire ».
+ */
+export type StatutCollecteAdmin = StatutCollecteDb | 'creee';
 
 export type VueStatut = 'admin' | 'client';
 
@@ -24,9 +35,10 @@ export interface StatutDisplay {
   variant: Variant;
 }
 
-// Vue admin — granularité métier complète. `brouillon` → « Créée ».
-const ADMIN: Record<StatutCollecteDb, StatutDisplay> = {
-  brouillon: { label: 'Créée', variant: 'neutral' },
+// Vue admin — granularité métier complète, par clé d'affichage Admin.
+const ADMIN: Record<StatutCollecteAdmin, StatutDisplay> = {
+  brouillon: { label: 'Brouillon', variant: 'neutral' },
+  creee: { label: 'Créée', variant: 'neutral' },
   programmee: { label: 'Programmée', variant: 'neutral' },
   validee: { label: 'Validée', variant: 'primary' },
   en_cours: { label: 'En cours', variant: 'info' },
@@ -58,53 +70,57 @@ const CLIENT: Record<StatutCollecteDb, StatutDisplay> = {
  * Libellés du statut collecte pour les exports CSV : vue admin (granularité
  * complète), dérivés du mapping canonique ci-dessus (R-UI-2 C1).
  */
-export const LIBELLE_STATUT_COLLECTE: Record<StatutCollecteDb, string> =
+export const LIBELLE_STATUT_COLLECTE: Record<StatutCollecteAdmin, string> =
   Object.fromEntries(
     Object.entries(ADMIN).map(([statut, d]) => [statut, d.label]),
-  ) as Record<StatutCollecteDb, string>;
+  ) as Record<StatutCollecteAdmin, string>;
 
 /**
- * Parcours nominal d'une collecte (machine à états §05) — étapes des frises et
- * timelines admin : programmee → validee → en_cours → realisee → cloturee.
+ * Parcours nominal d'une collecte côté Admin — étapes des frises et timelines :
+ * creee → programmee → validee → en_cours → realisee → cloturee. Les deux
+ * premières étapes sont le même statut DB `programmee` (machine à états §05),
+ * avant puis après l'envoi de la demande au prestataire.
  */
 export const ETAPES_STATUT_COLLECTE = [
+  'creee',
   'programmee',
   'validee',
   'en_cours',
   'realisee',
   'cloturee',
-] as const satisfies readonly StatutCollecteDb[];
+] as const satisfies readonly StatutCollecteAdmin[];
 
 /**
- * Rang de chaque statut sur le parcours nominal (1 = programmee … 5 = cloturee ;
+ * Rang de chaque statut sur le parcours nominal (1 = creee … 6 = cloturee ;
  * 0 = hors parcours : brouillon, annulation, rejet). `realisee_sans_collecte`
  * (AG sans excédents) occupe le rang de `realisee`.
  */
-export const RANG_STATUT_COLLECTE: Record<StatutCollecteDb, number> = {
+export const RANG_STATUT_COLLECTE: Record<StatutCollecteAdmin, number> = {
   brouillon: 0,
-  programmee: 1,
-  validee: 2,
-  en_cours: 3,
-  realisee: 4,
-  realisee_sans_collecte: 4,
-  cloturee: 5,
+  creee: 1,
+  programmee: 2,
+  validee: 3,
+  en_cours: 4,
+  realisee: 5,
+  realisee_sans_collecte: 5,
+  cloturee: 6,
   annulation_demandee: 0,
   annulee: 0,
   rejetee_par_prestataire: 0,
 };
 
 /**
- * Résout (label, variant Badge) pour un statut DB selon la vue. Statut inconnu
+ * Résout (label, variant Badge) selon la vue : un statut DB en vue client, une
+ * clé d'affichage Admin (`statutCollecteAdmin`) en vue admin. Statut inconnu
  * (ne devrait pas arriver, enum fermé) → neutre avec la valeur brute (défensif).
  */
 export function statutCollecteDisplay(
   statut: string,
   vue: VueStatut = 'admin',
 ): StatutDisplay {
-  const map = vue === 'client' ? CLIENT : ADMIN;
-  return (
-    map[statut as StatutCollecteDb] ?? { label: statut, variant: 'neutral' }
-  );
+  const map: Partial<Record<string, StatutDisplay>> =
+    vue === 'client' ? CLIENT : ADMIN;
+  return map[statut] ?? { label: statut, variant: 'neutral' };
 }
 
 /**

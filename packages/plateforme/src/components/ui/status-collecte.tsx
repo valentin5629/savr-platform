@@ -7,13 +7,14 @@ import {
   ETAPES_STATUT_COLLECTE,
   RANG_STATUT_COLLECTE,
   statutCollecteDisplay,
-  type StatutCollecteDb,
+  type StatutCollecteAdmin,
 } from '@/lib/statut-collecte-labels';
 
 // Vue ADMIN du statut collecte (granularité complète). Les libellés/variants
 // proviennent du module partagé statut-collecte-labels (source unique) ; ce
-// composant n'ajoute que la timeline (étapes).
-export type StatutCollecte = StatutCollecteDb;
+// composant n'ajoute que la timeline (étapes). `statut` = clé d'affichage Admin
+// (`statutCollecteAdmin`) : « Créée » et « Programmée » y sont deux clés.
+export type StatutCollecte = StatutCollecteAdmin;
 
 // Position sur la timeline (0 = hors timeline : brouillon, annulée, rejetée…) —
 // source unique `lib/statut-collecte-labels` (R-UI-2 C1).
@@ -22,12 +23,12 @@ const STEP = RANG_STATUT_COLLECTE;
 // Conservé (export) pour rétro-compat d'éventuels consommateurs : label+variant
 // dérivés du module partagé (vue admin) + step.
 const STATUT_CONFIG = Object.fromEntries(
-  (Object.keys(STEP) as StatutCollecteDb[]).map((s) => {
+  (Object.keys(STEP) as StatutCollecteAdmin[]).map((s) => {
     const d = statutCollecteDisplay(s, 'admin');
     return [s, { label: d.label, variant: d.variant, step: STEP[s] }];
   }),
 ) as Record<
-  StatutCollecteDb,
+  StatutCollecteAdmin,
   {
     label: string;
     variant: React.ComponentProps<typeof Badge>['variant'];
@@ -35,7 +36,7 @@ const STATUT_CONFIG = Object.fromEntries(
   }
 >;
 
-const TIMELINE_STEPS: readonly StatutCollecteDb[] = ETAPES_STATUT_COLLECTE;
+const TIMELINE_STEPS: readonly StatutCollecteAdmin[] = ETAPES_STATUT_COLLECTE;
 
 interface StatusCollecteProps {
   statut: StatutCollecte;

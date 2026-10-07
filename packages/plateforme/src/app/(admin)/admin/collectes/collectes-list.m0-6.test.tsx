@@ -959,7 +959,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — filtre statut (multi-sélection) ajoute le paramètre statuts à la requête',
+    'M0.6 — filtre statut (multi-sélection) ajoute le paramètre statuts_admin à la requête',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
@@ -978,9 +978,31 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
           urls.some(
             (u) =>
               u.startsWith('/api/v1/admin/collectes?') &&
-              u.includes('statuts=validee'),
+              u.includes('statuts_admin=validee'),
           ),
         ).toBe(true);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/statut_admin_filtre_creee_programmee — le filtre Statut propose « Créée » et « Programmée » séparément',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
+      // « Programmée » reste proposée, à côté de « Créée ».
+      await screen.findByRole('checkbox', { name: 'Programmée' }, ATTENTE_UI);
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Créée' }));
+
+      await waitFor(() => {
+        const q = derniereRequeteListe(fetchMock);
+        expect(q.get('statuts_admin')).toBe('creee');
+        // Le preset de l'onglet (statuts DB) cède la place à la sélection.
+        expect(q.get('statuts')).toBeNull();
       }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,

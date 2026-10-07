@@ -12,6 +12,7 @@ const chain = {
   select: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
+  neq: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   or: vi.fn().mockReturnThis(),
@@ -84,6 +85,54 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
   it('M0.6 — filtre statut multi → in(statut, [...])', async () => {
     await callGet('?statuts=cloturee,validee');
     expect(chain.in).toHaveBeenCalledWith('statut', ['cloturee', 'validee']);
+  });
+
+  // ── Statut affiché Admin : « Créée » / « Programmée » (décision Val 2026-10-07) ──
+  it('M0.6/statut_admin_brouillon_absent — la liste Admin ne sert jamais un brouillon', async () => {
+    await callGet('');
+    expect(chain.neq).toHaveBeenCalledWith('statut', 'brouillon');
+    await callGet('?statuts=programmee,validee,en_cours');
+    expect(chain.neq).toHaveBeenCalledTimes(2);
+  });
+
+  it('M0.6/statut_admin_creee_avant_envoi — la liste sert les signaux d’envoi (prestataire posé, attribution, référence)', async () => {
+    await callGet('');
+    const colonnes = String(chain.select.mock.calls[0]?.[0]);
+    expect(colonnes).toMatch(/\bprestataire_logistique_id\b/);
+    expect(colonnes).toMatch(/\battributions_antgaspi!collecte_id\(/);
+  });
+
+  it('M0.6/statut_admin_filtre_creee_programmee — statuts_admin=creee → moitié « non envoyée » du statut programmee', async () => {
+    await callGet('?statuts_admin=creee');
+    expect(chain.or).toHaveBeenCalledWith(
+      'and(statut.eq.programmee,statut_tms.eq.non_envoye,tms_reference.is.null,prestataire_logistique_id.is.null,attributions_antgaspi.is.null)',
+    );
+    expect(chain.in).not.toHaveBeenCalledWith('statut', expect.anything());
+  });
+
+  it('M0.6/statut_admin_filtre_creee_programmee — statuts_admin=programmee,validee → moitié « envoyée » OU validée', async () => {
+    await callGet('?statuts_admin=programmee,validee');
+    expect(chain.or).toHaveBeenCalledWith(
+      'and(statut.eq.programmee,or(statut_tms.neq.non_envoye,tms_reference.not.is.null,prestataire_logistique_id.not.is.null,attributions_antgaspi.not.is.null)),statut.in.(validee)',
+    );
+  });
+
+  it('M0.6/statut_admin_filtre_creee_programmee — « Créée » et « Programmée » ensemble → in(statut) sur le statut DB, sans or', async () => {
+    await callGet('?statuts_admin=creee,programmee,en_cours');
+    expect(chain.in).toHaveBeenCalledWith('statut', ['programmee', 'en_cours']);
+    expect(chain.or).not.toHaveBeenCalled();
+  });
+
+  it('M0.6 — statuts_admin prioritaire sur statuts ; clés inconnues écartées avant .or()', async () => {
+    await callGet('?statuts_admin=validee,x)%2Cstatut.neq.zz&statuts=annulee');
+    expect(chain.in).toHaveBeenCalledWith('statut', ['validee']);
+    expect(chain.in).not.toHaveBeenCalledWith('statut', ['annulee']);
+    expect(chain.or).not.toHaveBeenCalled();
+    // Sélection entièrement invalide : repli sur `statuts`.
+    vi.clearAllMocks();
+    setupAuth();
+    await callGet('?statuts_admin=nimporte&statuts=annulee');
+    expect(chain.in).toHaveBeenCalledWith('statut', ['annulee']);
   });
 
   it('M0.6 — filtre info_incomplete=true → eq(informations_completes,false)', async () => {

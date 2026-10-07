@@ -8,6 +8,7 @@ import {
   isChipKey,
   type ChipQuery,
 } from '@/lib/collectes-chips.js';
+import { filtreStatutsAdmin } from '@/lib/statut-collecte-admin.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { lireTri } from '@/lib/tri-liste.js';
@@ -31,6 +32,14 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const statut = searchParams.get('statut');
   const statuts = searchParams.get('statuts'); // multi-sélection (CSV) §06.06 §3
+  // Sélection du filtre « Statut » en clés d'AFFICHAGE Admin (CSV) : « Créée »
+  // (`creee`) et « Programmée » y sont deux moitiés du statut DB `programmee`
+  // (décision Val 2026-10-07). Prioritaire sur `statuts` / `statut`, qui gardent
+  // leur sens de statuts DB bruts.
+  // Liste blanche des clés dans `filtreStatutsAdmin` (la valeur part dans `.or()`).
+  const filtreAdmin = filtreStatutsAdmin(
+    listeCsv(searchParams.get('statuts_admin'), () => true),
+  );
   const type = searchParams.get('type');
   const statut_tms = searchParams.get('statut_tms');
   const chip = searchParams.get('chip');
@@ -81,7 +90,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
 
   let query = supabase.from('collectes').select(
     `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte,
-       nb_camions_demande, tms_reference, created_at,
+       nb_camions_demande, tms_reference, prestataire_logistique_id, created_at,
        controle_acces_requis, informations_completes, taux_recyclage,
        attributions_antgaspi!collecte_id(id, valide_at, mode_validation, volume_repas_realise, transporteurs!transporteur_id(nom)),
        packs_antgaspi!pack_antgaspi_id(prix_unitaire_ht),
@@ -115,8 +124,16 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   // Filtres de la barre — cumulés avec une pastille (décision Val
   // 2026-09-30) : la liste = pastille ET barre ; sans filtre posé, elle reste
   // le miroir exact du compteur de la pastille.
-  // Statut : multi-sélection (`statuts` CSV) prioritaire, sinon mono (`statut`).
-  if (statuts) {
+  // Un brouillon vit dans le formulaire du programmeur (« Mes brouillons ») : il
+  // n'apparaît dans aucune liste Admin (décision Val 2026-10-07).
+  query = query.neq('statut', 'brouillon');
+  // Statut : sélection Admin (`statuts_admin`) prioritaire, puis multi-sélection
+  // (`statuts` CSV), sinon mono (`statut`).
+  if (filtreAdmin && 'or' in filtreAdmin) {
+    query = query.or(filtreAdmin.or);
+  } else if (filtreAdmin) {
+    query = query.in('statut', filtreAdmin.statuts);
+  } else if (statuts) {
     const list = statuts
       .split(',')
       .map((s) => s.trim())

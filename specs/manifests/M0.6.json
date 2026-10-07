@@ -419,6 +419,48 @@
       "category": "Back-office Admin — liste Collectes",
       "title": "kpi_a_dispatcher_predicat_unique",
       "file": "packages/plateforme/tests/api/admin/collectes-chip-counts.m0-6.test.ts"
+    },
+    {
+      "id": "statut_admin_creee_avant_envoi",
+      "category": "Back-office Admin — statut affiché (Créée / Programmée)",
+      "title": "statut_admin_creee_avant_envoi",
+      "file": "packages/plateforme/src/lib/statut-collecte-admin.test.ts"
+    },
+    {
+      "id": "statut_admin_programmee_apres_envoi",
+      "category": "Back-office Admin — statut affiché (Créée / Programmée)",
+      "title": "statut_admin_programmee_apres_envoi",
+      "file": "packages/plateforme/src/lib/statut-collecte-admin.test.ts"
+    },
+    {
+      "id": "statut_admin_programmee_transporteur_manuel",
+      "category": "Back-office Admin — statut affiché (Créée / Programmée)",
+      "title": "statut_admin_programmee_transporteur_manuel",
+      "file": "packages/plateforme/src/lib/statut-collecte-admin.test.ts"
+    },
+    {
+      "id": "statut_admin_frise_six_etapes",
+      "category": "Back-office Admin — statut affiché (Créée / Programmée)",
+      "title": "statut_admin_frise_six_etapes",
+      "file": "packages/plateforme/src/components/admin/collecte-statut-frise.m0-6.test.tsx"
+    },
+    {
+      "id": "statut_admin_filtre_creee_programmee",
+      "category": "Back-office Admin — statut affiché (Créée / Programmée)",
+      "title": "statut_admin_filtre_creee_programmee",
+      "file": "packages/plateforme/tests/api/admin/collectes-liste.m0-6.test.ts"
+    },
+    {
+      "id": "statut_admin_brouillon_absent",
+      "category": "Back-office Admin — statut affiché (Créée / Programmée)",
+      "title": "statut_admin_brouillon_absent",
+      "file": "packages/plateforme/tests/api/admin/collectes-liste.m0-6.test.ts"
+    },
+    {
+      "id": "statut_admin_export_staff",
+      "category": "Back-office Admin — statut affiché (Créée / Programmée)",
+      "title": "statut_admin_export_staff",
+      "file": "packages/plateforme/tests/api/exports/exports.m4-1.test.ts"
     }
   ],
   "coverage": {
@@ -1404,6 +1446,14 @@
       "test": "sans tournée ni prestataire : une ligne « Camion » en attente, saisie impossible (« Attribuez d’abord un prestataire ») + tournée MTS-1 renseignée : nom, plaque et téléphone cliquable ; sans contrôle d’accès, pas de mention email + vélo cargo sans plaque, coursier pas encore communiqué : « Sans objet (vélo cargo) » et « En attente » sur nom et téléphone + contrôle d’accès requis : mention de l’email récap, « Modifier les coordonnées » ouvre le formulaire et PATCH infos-acces + deux camions chez un transporteur manuel : « Chauffeurs », en-tête « Camion N », accompagnant affiché, coordonnées « à saisir par l’équipe Ops » + deux camions demandés, une seule tournée : deux lignes, la saisie du camion 2 crée sa tournée (PATCH avec rang) + deux camions demandés, une seule tournée, seul le camion 1 corrigé : le camion 2 laissé vide n’est pas envoyé (aucune tournée vide créée) + collecte terminée, deux camions demandés, une seule tournée : une seule ligne, et la saisie ne concerne que la tournée existante (PATCH sans rang) + erreur à l’enregistrement (le prestataire a créé la tournée du camion 2 entre-temps) : message affiché, fiche rechargée, la saisie se rattache à la tournée créée — nom saisi conservé, plaque remontée reprise + collecte terminée sans tournée : « Aucun chauffeur enregistré », aucune phrase au futur",
       "statut": "à-vérifier",
       "libelle": "Bloc « Chauffeur » de la fiche collecte Admin, onglet Logistique (demande Val 2026-10-02, _Divergences/M0.6_20261002_bloc-chauffeur-onglet-logistique) : même bloc que la fiche client §06.04 — coordonnées par camion remontées automatiquement du prestataire (MTS-1 référentiel carrier, Everest coursier) et complétées par l'Admin, quel que soit controle_acces_requis. Remplace la card « Informations chauffeur » de l'onglet Informations (CDC l.227, réservée au contrôle d'accès). Présentationnel : à-vérifier jusqu'au GO visuel de Val."
+    },
+    {
+      "id": "M0.6-statut-admin-creee-programmee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:174",
+      "artefact": "packages/plateforme/src/lib/statut-collecte-admin.ts (règle sous deux formes : test d'une ligne chargée demandeEnvoyee / statutCollecteAdmin + filtre PostgREST filtreStatutsAdmin ; signaux « demande partie » : prestataire_logistique_id posé, attribution AG validée, statut_tms ≠ non_envoye, tms_reference renseignée), packages/plateforme/src/lib/statut-collecte-labels.ts (clé d'affichage Admin creee, libellés, frise à 6 étapes, brouillon → « Brouillon » en repli), packages/plateforme/src/components/admin/collecte-statut-frise.tsx + collecte-detail-panel.tsx (frise de la fiche, menu « Forcer le statut » sans brouillon, entrée « Créée / Programmée »), packages/plateforme/src/components/admin/collectes-table.tsx + packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (badge de la liste, filtre « Statut » Créée / Programmée / Validée / En cours → paramètre statuts_admin), packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.tsx (onglet Collectes de la fiche client), packages/plateforme/src/app/api/v1/admin/collectes/route.ts (GET : prestataire_logistique_id servi, brouillons toujours exclus, statuts_admin prioritaire sur statuts), packages/plateforme/src/lib/exports/builders.ts (export CSV collectes côté staff : statut affiché, brouillons exclus)",
+      "test": "M0.6/statut_admin_creee_avant_envoi + M0.6/statut_admin_programmee_apres_envoi + M0.6/statut_admin_programmee_transporteur_manuel + M0.6/statut_admin_frise_six_etapes + M0.6/statut_admin_filtre_creee_programmee + M0.6/statut_admin_brouillon_absent + M0.6/statut_admin_export_staff",
+      "statut": "implemented",
+      "libelle": "Statut de collecte affiché côté Admin (décision Val 2026-10-07, _Divergences/M0.6_20261007_statuts-admin-creee-programmee) : le statut DB programmee se lit « Créée » tant que la demande n'est pas partie vers le prestataire logistique (le traiteur a validé sa programmation), « Programmée » dès qu'elle est partie — au clic de l'Admin, sans attendre la transmission, transporteurs manuels compris. Affichage dérivé : ni l'enum ni la machine à états §05 ne changent ; la vue client garde « Créée ». Frise de la fiche à 6 étapes, filtre « Statut » de la liste et export CSV staff alignés ; un brouillon n'apparaît dans aucune liste Admin ni au menu de forçage. Le badge d'action « À attribuer » de la liste (AG sans attribution) est conservé."
     }
   ],
   "cdc_source_hash": {

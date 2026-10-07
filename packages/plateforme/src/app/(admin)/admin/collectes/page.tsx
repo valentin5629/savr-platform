@@ -56,6 +56,10 @@ import { ROUTES } from '@/lib/routes';
 
 // Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
 const STATUTS_PROGRAMMEES = ['programmee', 'validee', 'en_cours'];
+// Choix du filtre « Statut » de l'onglet Programmées, en clés d'affichage Admin :
+// le statut DB `programmee` s'y lit « Créée » puis « Programmée » (décision Val
+// 2026-10-07, lib/statut-collecte-admin). Envoyés à l'API en `statuts_admin`.
+const STATUTS_FILTRE_PROGRAMMEES = ['creee', ...STATUTS_PROGRAMMEES];
 const STATUTS_HISTORIQUE = [
   'realisee',
   'realisee_sans_collecte',
@@ -397,14 +401,12 @@ export default function CollectesPage() {
         // Chemin chip serveur (les chips sont tous à portée « Programmées ») ;
         // le Statut ne raffine qu'avec une sélection explicite.
         params.set('chip', quickFilter);
-        if (statutsSel.length > 0) params.set('statuts', statutsSel.join(','));
+        if (statutsSel.length > 0)
+          params.set('statuts_admin', statutsSel.join(','));
+      } else if (statutsSel.length > 0) {
+        params.set('statuts_admin', statutsSel.join(','));
       } else {
-        params.set(
-          'statuts',
-          statutsSel.length > 0
-            ? statutsSel.join(',')
-            : STATUTS_PROGRAMMEES.join(','),
-        );
+        params.set('statuts', STATUTS_PROGRAMMEES.join(','));
       }
     } else {
       // Historique : preset terminaux ; la pastille Annulées se croise avec le
@@ -713,7 +715,7 @@ export default function CollectesPage() {
           label="Statut"
           testid="collectes-filtre-statut"
           options={(tab === 'programmees'
-            ? STATUTS_PROGRAMMEES
+            ? STATUTS_FILTRE_PROGRAMMEES
             : STATUTS_HISTORIQUE
           ).map((s) => ({
             id: s,

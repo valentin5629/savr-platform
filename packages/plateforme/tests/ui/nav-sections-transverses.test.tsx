@@ -64,7 +64,9 @@ vi.mock('@/lib/api-auth', () => ({
 
 import GestionnaireLayout from '@/app/(gestionnaire)/layout.js';
 import RegistreLayout from '@/app/(registre)/layout.js';
-import ProgrammationLayout from '@/app/(programmation)/layout.js';
+import ProgrammationLayout, {
+  dynamic as programmationDynamic,
+} from '@/app/(programmation)/layout.js';
 import { entreesNavMasquees } from '@/lib/nav-masquee.js';
 import { getNavItems } from '@/lib/nav-config.js';
 import type { NavRole } from '@/lib/roles.js';
@@ -188,5 +190,11 @@ describe('M0.8 / nav du formulaire de programmation — rôle lu côté serveur'
       menuDuRole('traiteur_commercial'),
     );
     expect(etat.tablesLues).toEqual([]);
+  });
+
+  it('M0.8-74 — Formulaire de programmation : layout rendu à la demande, jamais pré-rendu au build', () => {
+    // Ce layout crée son client Supabase dès le rendu. Pré-rendu au build, il
+    // casse `next build` sans variables Supabase (CI) — invisible en local.
+    expect(programmationDynamic).toBe('force-dynamic');
   });
 });

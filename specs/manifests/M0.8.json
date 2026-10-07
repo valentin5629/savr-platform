@@ -98,7 +98,8 @@
     "M0.8-70 — Barre mobile : même règle, et rien d’allumé quand la page courante n’est pas dans les 4 entrées affichées",
     "M0.8-71 — Menu : sur la page d’une entrée masquée, aucune autre entrée ne s’allume à sa place",
     "M0.8-72 — Formulaire de programmation : le staff (admin, ops) garde le menu du back-office",
-    "M0.8-73 — Formulaire de programmation : sans rôle lisible, menu par défaut du traiteur commercial"
+    "M0.8-73 — Formulaire de programmation : sans rôle lisible, menu par défaut du traiteur commercial",
+    "M0.8-74 — Formulaire de programmation : layout rendu à la demande, jamais pré-rendu au build"
   ],
   "deliverables": [
     {

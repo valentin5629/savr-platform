@@ -3,6 +3,12 @@ import { createSupabaseServerClient, getVerifiedClaims } from '@/lib/api-auth';
 import { entreesNavMasquees } from '@/lib/nav-masquee';
 import { isStaff, type NavRole } from '@/lib/roles';
 
+// Rendu à la demande : le menu dépend de la session. Sans ce marqueur, `next
+// build` tente de pré-rendre les pages de la section, et ce layout crée le client
+// Supabase avant toute lecture de cookie : le build échoue là où les variables
+// Supabase sont absentes (CI), alors qu'il passe en local.
+export const dynamic = 'force-dynamic';
+
 export default async function ProgrammationLayout({
   children,
 }: {

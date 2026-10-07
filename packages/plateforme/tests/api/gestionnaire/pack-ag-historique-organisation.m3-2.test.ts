@@ -3,8 +3,9 @@
  * collectes débitées sur un pack de l'organisation de l'appelant (§06.05 l.75).
  *
  * Constat d'origine (savr-dev, 2026-10-06, Viparis) : l'organisation n'a aucun
- * pack, la route rendait pourtant 144 collectes — celles des traiteurs tiers
- * sur ses lieux, débitées sur LEUR pack. Le gestionnaire lit ces collectes
+ * pack, 144 collectes répondaient pourtant à la requête (l'écran en affichait
+ * les 50 plus récentes) — celles des traiteurs tiers sur ses lieux, débitées
+ * sur LEUR pack. Le gestionnaire lit ces collectes
  * (`f_collecte_visible`) ; la requête ne regardait pas à qui appartient le pack.
  *
  * Ce que ces tests tiennent : le faux client ci-dessous APPLIQUE les filtres de
@@ -22,9 +23,10 @@ type Result = { data: unknown; error: unknown };
 const ORG_GESTIONNAIRE = 'org-viparis';
 const ORG_TRAITEUR = 'org-kaspia';
 
-// Faux client : `collectes` passe par les filtres, les autres tables rendent
-// `autres[table]` tel quel (les deux lectures de packs ne sont pas l'objet ici).
-function makeClient(collectes: Ligne[], autres: Record<string, Result> = {}) {
+// Faux client : `collectes` passe par les filtres (ou rend `erreurCollectes`),
+// les autres tables ne rendent rien — les deux lectures de packs ne sont pas
+// l'objet ici.
+function makeClient(collectes: Ligne[], erreurCollectes: unknown = null) {
   const requetes: { select: string; eq: [string, unknown][] }[] = [];
   return {
     requetes,
@@ -35,9 +37,9 @@ function makeClient(collectes: Ligne[], autres: Record<string, Result> = {}) {
       const eqs: [string, unknown][] = [];
 
       const resoudre = (): Result => {
-        if (table !== 'collectes')
-          return autres[table] ?? { data: null, error: null };
+        if (table !== 'collectes') return { data: null, error: null };
         requetes.push({ select, eq: eqs });
+        if (erreurCollectes) return { data: null, error: erreurCollectes };
         const lignes = collectes
           .filter((l) => filtres.every((f) => f(l)))
           .map((l) => ({ ...l }));
@@ -88,12 +90,12 @@ function makeClient(collectes: Ligne[], autres: Record<string, Result> = {}) {
   };
 }
 
-let rls = makeClient([]);
+let client = makeClient([]);
 const mockRequireUser = vi.fn();
 
 vi.mock('@/lib/api-auth.js', () => ({
   requireUser: (...a: unknown[]) => mockRequireUser(...a),
-  createSupabaseServerClient: () => rls,
+  createSupabaseServerClient: () => client,
 }));
 
 // Collecte AG telle que la base la joint à son pack (aucune RLS dans le faux
@@ -143,11 +145,13 @@ interface Reponse {
   };
 }
 
-async function appeler(): Promise<Reponse> {
+async function get() {
   const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
-  const res = await GET(
-    new NextRequest('http://localhost/api/v1/gestionnaire/pack-ag'),
-  );
+  return GET(new NextRequest('http://localhost/api/v1/gestionnaire/pack-ag'));
+}
+
+async function appeler(): Promise<Reponse> {
+  const res = await get();
   expect(res.status).toBe(200);
   return (await res.json()) as Reponse;
 }
@@ -167,7 +171,7 @@ describe('M3.2 / Mon pack AG — historique borné aux packs de l’organisation
   it('M3.2/pack_ag_consommation_pack_tiers_exclu — une collecte débitée sur le pack d’un traiteur tiers n’est pas listée', async () => {
     // Cas mesuré : l'organisation n'a aucun pack, ses lieux accueillent des
     // collectes de traiteurs débitées sur le pack du traiteur.
-    rls = makeClient([
+    client = makeClient([
       collecteAg('c-tiers-1', PACK_TRAITEUR, 80),
       collecteAg('c-tiers-2', PACK_TRAITEUR, 40, { statut: 'realisee' }),
     ]);
@@ -178,10 +182,8 @@ describe('M3.2 / Mon pack AG — historique borné aux packs de l’organisation
     expect(data.historique_consommation).toEqual([]);
     // La borne est écrite dans la requête : jointure obligatoire sur le pack,
     // filtrée sur l'organisation lue dans le jeton de l'appelant.
-    const requete = rls.requetes[0]!;
-    expect(requete.select).toContain(
-      'packs_antgaspi!pack_antgaspi_id!inner(id)',
-    );
+    const requete = client.requetes[0]!;
+    expect(requete.select).toMatch(/packs_antgaspi(!\w+)*!inner\(/);
     expect(requete.eq).toContainEqual([
       'packs_antgaspi.organisation_id',
       ORG_GESTIONNAIRE,
@@ -189,7 +191,7 @@ describe('M3.2 / Mon pack AG — historique borné aux packs de l’organisation
   });
 
   it('M3.2/pack_ag_consommation_pack_organisation_presente — une collecte débitée sur le pack de l’organisation reste listée, seule', async () => {
-    rls = makeClient([
+    client = makeClient([
       collecteAg('c-tiers', PACK_TRAITEUR, 80),
       collecteAg('c-propre', PACK_GESTIONNAIRE, 55),
       // Sans débit de pack : jamais dans l'historique de consommation.
@@ -211,5 +213,19 @@ describe('M3.2 / Mon pack AG — historique borné aux packs de l’organisation
       repas_donnes: 55,
       associations: [{ nom: 'Les Restos', repas: 55 }],
     });
+  });
+
+  it('M3.2/pack_ag_consommation_erreur_500 — une lecture en échec ne se déguise pas en historique vide', async () => {
+    // Depuis la borne, « aucune ligne » est l'état normal d'une organisation
+    // sans pack : une requête refusée par PostgREST doit rester visible.
+    client = makeClient([], {
+      code: 'PGRST200',
+      message: 'Could not find a relationship',
+    });
+
+    const res = await get();
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Erreur serveur' });
   });
 });

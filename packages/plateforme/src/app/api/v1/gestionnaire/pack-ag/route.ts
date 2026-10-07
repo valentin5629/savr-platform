@@ -73,10 +73,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // un pack DE L'ORGANISATION de l'appelant (§06.05 l.75). Le gestionnaire lit
   // aussi les collectes des traiteurs tiers sur ses lieux : sans cette borne,
   // « Mon pack AG » listait des collectes débitées sur le pack d'un traiteur
-  // (savr-dev, 2026-10-06 : 144 lignes pour Viparis, qui n'a aucun pack).
+  // (savr-dev, 2026-10-06 : Viparis n'a aucun pack, 144 collectes répondaient
+  // à la requête, l'écran en affichait les 50 plus récentes).
   // `!inner` est ce qui écarte la collecte : sans lui, le filtre sur le pack
-  // embarqué viderait l'embed et garderait la ligne (mesuré, 144 lignes).
-  const { data: consommation } = await supabase
+  // embarqué vide l'embed et garde la ligne (mesuré : toujours 144).
+  const { data: consommation, error: consoErr } = await supabase
     .from('collectes')
     .select(
       `id, date_collecte, statut,
@@ -91,6 +92,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq('packs_antgaspi.organisation_id', organisationId)
     .order('date_collecte', { ascending: false })
     .limit(50);
+
+  // Un historique vide est un état normal (aucun pack, ou pack jamais débité) :
+  // une lecture en échec ne doit pas s'y confondre.
+  if (consoErr)
+    return serverError(consoErr, 'gestionnaire.pack_ag.consommation');
 
   return NextResponse.json({
     data: {

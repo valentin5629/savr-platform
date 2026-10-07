@@ -210,6 +210,12 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       expect(screen.getByTestId('benchmark-filter-type')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-lieux')).toBeInTheDocument();
+      // Listes bornées au périmètre du gestionnaire (décision Val 2026-10-06) :
+      // sans sélection le repère couvre tout le parc, et l'écran le dit dès ce
+      // premier rendu — avant même que les listes soient chargées.
+      expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
+        'Tout le parc Savr',
+      );
       // Période fixe 24 mois (décision Val 2026-09-28) : plus aucun choix affiché.
       expect(screen.queryByTestId('benchmark-preset-24m')).toBeNull();
       expect(screen.queryByText('Période benchmark')).toBeNull();

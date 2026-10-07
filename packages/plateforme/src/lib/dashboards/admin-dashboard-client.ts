@@ -359,11 +359,11 @@ export interface AdminBenchmarkFiltresOptions {
  * Options des filtres de la ligne de référence (encart « Comparer avec »), en
  * service_role : lieux actifs du parc, traiteurs actifs non fantômes, types
  * d'événements actifs — mêmes critères que `f_benchmark_lieux_parc` /
- * `f_benchmark_traiteurs_parc` côté clients. Ces fonctions acceptent les rôles
+ * `f_benchmark_traiteurs_parc`. Ces fonctions acceptent les rôles
  * staff, mais lisent `auth.jwt()` : choix assumé de rester sur le client
  * service_role (même client et même garde requireStaff que la référence,
  * `organisations.nom` NOT NULL = libellé identique) au prix de 3 requêtes
- * recopiées — alternative : `loadBenchmarkFiltres` sous la session du staff.
+ * recopiées — alternative : appeler ces deux fonctions sous la session du staff.
  */
 export async function loadAdminBenchmarkFiltres(
   admin: AdminDbClient,

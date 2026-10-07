@@ -18,6 +18,7 @@ import {
   ligneCollecte,
   reserveEvenement,
 } from '../helpers/fiche-client-mock';
+import { ERREUR_FILTRE_HORS_PERIMETRE } from '@/lib/dashboards/loaders.js';
 
 let rls = makeClient();
 let admin = makeClient();
@@ -346,6 +347,32 @@ describe('M3.2 / fiche client gestionnaire — radar (garde non élargie)', () =
       params,
     );
     expect(res.status).toBe(404);
+  });
+
+  it('M3.2/fiche_benchmark_filtre_hors_perimetre_403 — lieu non rattaché nommé dans le filtre du repère : 403 au libellé fixe', async () => {
+    rls.rpcResults.f_benchmark_single_collecte = {
+      data: [{ flux_code: 'biodechet', ratio_user: 0.4 }],
+      error: null,
+    };
+    // Garde de périmètre de f_benchmark_kg_pax_zd (20261006220000).
+    rls.rpcResults.f_benchmark_kg_pax_zd = {
+      data: null,
+      error: {
+        code: '42501',
+        message: 'Filtre lieu_ids hors des lieux rattaches au gestionnaire',
+      },
+    };
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/collectes/[id]/benchmark/route.js');
+    const res = await GET(
+      req('/api/v1/gestionnaire/collectes/c1/benchmark?lieu_ids=lieu-tiers'),
+      params,
+    );
+    expect(res.status).toBe(403);
+    // Libellé de l'application : ni le message Postgres, ni celui de la garde
+    // « traiteur_ids » des rôles traiteur.
+    expect(await res.json()).toEqual({ error: ERREUR_FILTRE_HORS_PERIMETRE });
+    expect(admin.rpcCalls).toHaveLength(0);
   });
 });
 

@@ -8,8 +8,9 @@
   // ciblée par `.eq/.select/.insert/.update` devient une erreur de compilation.
   //
   // Jamais lancé par `pnpm typecheck` (qui doit rester vert en T0). Lancé
-  // uniquement par `scripts/check-column-db.ts` (job CI `column-db`, mode
-  // rapport, continue-on-error). `extends` REMPLACE `compilerOptions.paths` —
+  // uniquement par `scripts/check-column-db.ts` (étape G7 du job CI
+  // `rapports-lot0`, mode rapport, continue-on-error). `extends` REMPLACE
+  // `compilerOptions.paths` —
   // on re-déclare donc `@/*` en plus du remap du client.
   // ===========================================================================
   "extends": "./tsconfig.json",

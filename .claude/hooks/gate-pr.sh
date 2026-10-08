@@ -4,52 +4,170 @@
 set -euo pipefail
 
 # ── Reconnaître la commande — isolé en fonction, pour être TESTABLE ──────────
-# `gh pr create` en POSITION DE COMMANDE, et lui seul. Le motif d'origine était la
-# simple présence de la chaîne dans la commande : un `grep` sur ces mots, un message
-# de commit qui les cite ou un script d'analyse qui les contient lançait la suite
-# de tests entière puis BLOQUAIT la commande, faute de markers sur la branche visée
-# (vécu deux fois le 2026-10-08 : 7 min de tests, puis un script de lecture refusé).
-# Même parti pris que `gate_merge_matche`, élargi à ce qu'une création de PR prend
-# réellement comme formes : capture de l'URL (`$(…)`), variable d'environnement en
-# préfixe, `bash -c`.
+# Le motif d'origine était la simple présence de la chaîne dans la commande : un
+# `grep` sur ces mots, un message de commit qui les cite ou un script d'analyse
+# qui les contient lançait la suite de tests entière puis BLOQUAIT la commande,
+# faute de markers sur la branche visée (vécu deux fois le 2026-10-08 : 7 min de
+# tests, puis un script de lecture refusé).
+#
+# Ce hook est le SEUL endroit où les markers de revue sont lus : une création de
+# PR qu'il ne voit pas atteint `main` sans contrôle de revue. Le motif est donc
+# construit pour ne perdre AUCUNE forme réelle que l'ancien voyait, et n'écarter
+# que ce qui est manifestement une mention. Deux façons d'être vu :
+#
+#   1. COLLÉE À UN DÉBUT DE COMMANDE — début de ligne, ou juste après un
+#      séparateur (; & |), une parenthèse ou un accent grave ; ou comme texte
+#      d'un `bash -c "…"` / `eval "…"` (avec ou sans options avant le `-c`).
+#      Vue quoi qu'il y ait derrière.
+#
+#   2. DERRIÈRE N'IMPORTE QUOI D'AUTRE — un mot-clé du shell (`if`, `then`,
+#      `until`…), une variable d'environnement en préfixe, un lanceur (`timeout
+#      120`, `nice`, `caffeinate -i`, `op run --`, `env -u X`, `sudo -u u`,
+#      `xargs -I{}`), une redirection, un motif de `case`… On ne les énumère pas
+#      (on en oublierait) : la commande est vue dès qu'elle est précédée d'un
+#      blanc ET suivie d'une option, d'un argument entre guillemets ou en
+#      variable, ou d'une fin de commande. C'est ce qui la distingue d'une mention
+#      en pleine phrase (« … via gh pr create) … », « … gh pr create est bloqué »).
+#
+# Dans les deux cas : binaire appelé par son chemin ou précédé d'une barre oblique
+# inverse, options entre `gh`, `pr` et le verbe (`gh -R o/r pr create`), et l'alias
+# `gh pr new`.
+#
+# CE QUI DÉCLENCHE À TORT, et c'est voulu (un refus de trop vaut mieux qu'une PR
+# non contrôlée) : une mention collée à un début de commande dans un texte — après
+# un `;`, un `|` ou un `&&` entre guillemets, en début de ligne d'un heredoc — ou
+# placée en fin de ligne. Vécu pendant l'écriture de ce lot : un script de
+# modification passé en heredoc, dont une ligne contenait `|` suivi de la commande.
+#
+# PORTÉE — ce que ce hook ne voit pas, avant comme après ce motif :
+#   • le binaire écrit entre guillemets (`"gh" pr …`) ;
+#   • `gh api -X POST repos/o/r/pulls` (déjà utilisé deux fois dans l'historique) ;
+#   • la commande enfouie dans un script ou derrière un alias ;
+#   • une PR ouverte depuis l'interface GitHub ou un terminal humain.
+# C'est un `PreToolUse(Bash)` : il ne voit que l'outil Bash de Claude Code. Pour
+# les TESTS, le filet qui couvre tous ces chemins est côté GitHub (status checks
+# requis sur `main`, dont `lint-typecheck-test` qui rejoue la suite complète). Pour
+# la REVUE, il n'y en a pas : les markers ne sont relus nulle part ailleurs.
+#
 # NE JAMAIS resserrer ce motif sans relancer `--self-test`.
 gate_pr_matche() {
-  local position='(^|[;&|({`!]|\b(if|then|else|elif|do|while|until|time|env|command|exec|nohup|xargs|sudo)[[:space:]]+)[[:space:]]*'
-  local enveloppe="\\b((ba|z)?sh[[:space:]]+-[a-zA-Z]*c|eval)[[:space:]]+[\"']?[[:space:]]*"
-  local variables='([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*'
-  printf '%s' "$1" | grep -Eq "(${position}|${enveloppe})${variables}gh[[:space:]]+pr[[:space:]]+create"
+  local binaire="\\\\?([^[:space:];&|\"']*/)?gh"
+  local options='([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*'
+  local commande="${binaire}${options}[[:space:]]+pr${options}[[:space:]]+(create|new)"
+  local debut='(^|[;&|(`])[[:space:]]*'
+  local enveloppe="\\b((ba|z)?sh\\b[^;&|]*[[:space:]]-[a-zA-Z]*c|eval)[[:space:]]+[\"']?[[:space:]]*"
+  local suite="([[:space:]]*(\$|[;&|<>#])|[[:space:]]+[-\"'\$])"
+  printf '%s' "$1" | grep -Eq "(${debut}|${enveloppe})${commande}" && return 0
+  printf '%s' "$1" | grep -Eq "[[:space:]]${commande}${suite}"
 }
 
 # ── Auto-test : la matrice des formes de commande ──────────────────────────
+# Une forme par ligne, préfixée de son type :
+#   V = création RÉELLE, doit être vue ;
+#   N = simple mention, ne doit pas déclencher ;
+#   F = mention prise pour une commande — refus à tort ASSUMÉ (sens sûr) ;
+#   L = limite connue — forme réelle NON vue, ni par ce motif ni par l'ancien.
+# F et L sont dans la matrice pour qu'un changement de comportement sur ces cas
+# se voie, dans un sens comme dans l'autre.
 if [ "${1:-}" = "--self-test" ]; then
   echec=false
-  att() {  # att <commande> <VU|NON VU>
-    if gate_pr_matche "$1"; then r=VU; else r="NON VU"; fi
-    [ "$r" = "$2" ] || { echo "🔴 motif : [$1] → $r (attendu $2)" >&2; echec=true; }
+  nv=0; nn=0; nf=0; nl=0
+  juge() {  # juge <type> <forme>
+    local r voulu
+    if gate_pr_matche "$2"; then r=VU; else r="NON VU"; fi
+    case "$1" in
+      V) voulu=VU; nv=$((nv + 1)) ;;
+      F) voulu=VU; nf=$((nf + 1)) ;;
+      N) voulu="NON VU"; nn=$((nn + 1)) ;;
+      L) voulu="NON VU"; nl=$((nl + 1)) ;;
+      *) echo "🔴 type de forme inconnu : [$1]" >&2; echec=true; return 0 ;;
+    esac
+    [ "$r" = "$voulu" ] || { echo "🔴 motif [$1] : [$2] → $r (attendu $voulu)" >&2; echec=true; }
   }
-
-  # — créations de PR RÉELLES : toutes doivent être vues —
-  att 'gh pr create --title "x" --body "y"'                               'VU'
-  att 'cd /tmp/wt && gh pr create --head ma/branche --base main'          'VU'
-  att 'if gh pr create --fill; then echo ok; fi'                          'VU'
-  att 'URL="$(gh pr create --fill)"'                                      'VU'
-  att 'GH_TOKEN=abc GH_PAGER= gh pr create --fill'                        'VU'
-  att 'bash -lc "gh pr create --fill"'                                    'VU'
-  att 'git push -u origin ma/branche; gh pr create --fill'                'VU'
-  att "$(printf 'git push -u origin b\n  gh pr create --fill')"           'VU'
-  # — simples MENTIONS : aucune ne doit déclencher —
-  att 'git commit -m "doc: la garde de gh pr create ne rejoue plus rien"' 'NON VU'
-  att 'grep -rn "gh pr create" .claude/hooks'                             'NON VU'
-  att 'grep -c "gh pr create" DEFINITION_OF_DONE.md'                      'NON VU'
-  att "python3 -c \"if 'gh pr create' in c: k = 'gh pr create'\""         'NON VU'
-  att 'gh pr merge 42 --squash  # après gh pr create'                     'NON VU'
-  att 'gh pr view 42 --json title'                                        'NON VU'
+  while IFS= read -r ligne; do
+    [ -n "$ligne" ] || continue
+    juge "${ligne%%:*}" "${ligne#*:}"
+  done <<'FORMES'
+V:gh pr create --title "x" --body "y"
+V:cd /tmp/wt && git push -u origin HEAD && gh pr create --fill
+V:gh pr create --title "t" --body "$(cat <<'EOT'
+V:BODY="$(cat /tmp/b.md)" && gh pr create --body "$BODY"
+V:git push 2>&1 | tail -3; gh pr create --fill
+V:(cd /tmp/wt; gh pr create --fill)
+V:{ gh pr create --fill; }
+V:[ -n "$x" ] && gh pr create --fill
+V:URL=`gh pr create --fill`
+V:URL="$(gh pr create --fill)"
+V:if gh pr create --fill; then echo ok; fi
+V:if git push -u origin b; then gh pr create --fill; fi
+V:until gh pr create --fill; do sleep 5; done
+V:test -f ok && gh pr create --fill || echo ko
+V:GH_REPO=valentin5629/savr-platform gh pr create --fill
+V:GH_TOKEN=abc GH_PAGER= gh pr create --fill
+V:GH_TOKEN="$(cat tok)" gh pr create --fill
+V:TITRE="a b" gh pr create --title "$TITRE"
+V:/opt/homebrew/bin/gh pr create --fill
+V:\gh pr create --fill
+V:timeout 120 gh pr create --fill
+V:gtimeout 120 gh pr create --fill
+V:caffeinate -i gh pr create --fill
+V:op run -- gh pr create --fill
+V:retry 3 gh pr create --fill
+V:nice gh pr create --fill
+V:noglob gh pr create --fill
+V:pnpm exec gh pr create --fill
+V:env -u GH_HOST gh pr create --fill
+V:env GH_TOKEN=abc gh pr create --fill
+V:command -p gh pr create --fill
+V:command gh pr create --fill
+V:sudo -u val gh pr create --fill
+V:echo x | xargs -I{} gh pr create --title {}
+V:bash -lc "gh pr create --fill"
+V:bash -e -c "gh pr create --fill"
+V:bash -euo pipefail -c "gh pr create --fill"
+V:/bin/bash -c "gh pr create --fill"
+V:eval "gh pr create --fill"
+V:case "$m" in go) gh pr create --fill;; esac
+V:2>/dev/null gh pr create --fill
+V:cd /tmp/wt &&gh pr create --fill
+V:ok=1;gh pr create --fill
+V:yes |gh pr create --fill
+V:nice gh pr create # puis attendre la CI
+V:timeout 120 gh pr create
+V:nice gh pr create && echo ok
+V:nice gh pr create "$@"
+V:gh pr new --fill
+V:gh  pr   create --fill
+V:gh pr -R o/r create --fill
+V:gh -R o/r pr create --fill
+V:gh --repo=o/r pr create --fill
+N:git commit -m "doc: la garde de gh pr create ne rejoue plus rien"
+N:git log --grep "gh pr create" --oneline
+N:echo "ne pas lancer gh pr create ici"
+N:rg -n "gh pr create" .claude
+N:grep -c "gh pr create" DEFINITION_OF_DONE.md
+N:# gh pr create est bloque sans markers
+N:sed -n '/gh pr create/p' gate-pr.sh
+N:jq -r '.x | select(test("gh pr create"))' f.json
+N:printf '%s\n' 'gh pr create --fill' > /tmp/cmd.txt
+N:python3 -c "if 'gh pr create' in c: k = 'gh pr create'"
+N:echo "=== push + gate-pr (via gh pr create) ==="
+N:gh pr view 42 --json title
+N:gh pr merge 42 --squash
+F:echo "etape 1 ; gh pr create ; etape 3"
+F:echo "a && gh pr create --fill"
+F:gh pr create est la commande surveillee (ligne de corps de heredoc)
+F:gh pr merge 42 --squash  # puis gh pr create
+L:"gh" pr create --fill
+FORMES
+  # Une commande sur plusieurs lignes : chaque début de ligne est une position de commande.
+  juge V "$(printf 'git push -u origin b\n  gh pr create --fill')"
 
   if [ "$echec" = true ]; then
     echo "🔴 gate-pr : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
     exit 2
   fi
-  echo "✅ gate-pr : auto-test OK (8 créations de PR vues, 6 mentions ignorées)."
+  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limite connue)."
   exit 0
 fi
 
@@ -58,9 +176,11 @@ CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')"
 
 gate_pr_matche "$CMD" || exit 0
 
-# Résolu AVANT tout `cd` : ce hook tourne depuis le clone principal, et c'est SA
-# version de suite-verte.sh qui doit servir — une branche ouverte avant ce lot ne
-# porte pas le script dans son propre arbre.
+# Résolu AVANT tout `cd` : le dossier du hook RÉELLEMENT exécuté. Les commandes de
+# settings.json sont relatives — c'est donc le clone principal pour une session
+# qui y est enracinée, et le worktree de la session sinon. C'est la version de
+# suite-verte.sh de CE dossier qui doit servir, pas celle de la branche visée par
+# la commande : une branche ouverte avant ce lot ne porte pas le script.
 HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le clone principal

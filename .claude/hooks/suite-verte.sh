@@ -17,11 +17,19 @@
 # message réécrit, un rebase ou un merge qui aboutit au même contenu la conserve ;
 # un seul octet modifié la change. Elle n'est lue ET écrite que sur un arbre de
 # travail PROPRE (rien de modifié, rien de non suivi) : sinon ce qui a été testé
-# n'est pas ce que HEAD contient.
+# n'est pas ce que HEAD contient. Un `git status` qui échoue ne prouve rien : il
+# vaut « pas propre ».
 #
 # La trace vit dans le `.git` commun (jamais versionnée, partagée entre worktrees :
 # même arbre = même contenu, où qu'il soit extrait). Elle porte l'empreinte dans
 # son contenu : un fichier vide posé à la main ne vaut rien.
+#
+# CE QUE LA TRACE NE COUVRE PAS — relevé en revue sécurité, assumé :
+#   • un fichier IGNORÉ par git que lirait un test (`.env.local`, cache) : il
+#     n'entre pas dans l'arbre, deux worktrees au même arbre peuvent en différer ;
+#   • une trace écrite à la main avec la bonne empreinte : tout processus du poste
+#     le peut, comme pour un marker de revue. Cela ne permet que de sauter la suite
+#     LOCALE.
 #
 # CE QUE ÇA NE REMPLACE PAS
 # -------------------------
@@ -35,14 +43,21 @@
 # =============================================================================
 set -uo pipefail
 
+# Chemin absolu de ce script, pris avant tout `cd` (l'auto-test le rejoue en entier).
+ICI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
 dossier_traces() {
   local commun
   commun="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
   printf '%s/savr-suite-verte' "$commun"
 }
 
+# `--untracked-files=normal` en dur : un `status.showUntrackedFiles=no` dans la
+# configuration ferait passer un fichier non suivi pour un arbre propre.
 arbre_propre() {
-  [ -z "$(git status --porcelain 2>/dev/null)" ]
+  local s
+  s="$(git status --porcelain --untracked-files=normal 2>/dev/null)" || return 1
+  [ -z "$s" ]
 }
 
 empreinte() {
@@ -76,7 +91,8 @@ self_test() (
   set -uo pipefail
   echec=false
   tmp="$(mktemp -d)" || { echo "🔴 suite-verte : mktemp impossible." >&2; exit 2; }
-  trap 'rm -rf "$tmp"' EXIT
+  faux="$(mktemp -d)" || { echo "🔴 suite-verte : mktemp impossible." >&2; exit 2; }
+  trap 'rm -rf "$tmp" "$faux"' EXIT
   cd "$tmp" || exit 2
   { git init -q -b main . && git config user.email t@t && git config user.name t \
       && echo a > f.ts && git add -A && git commit -qm base; } >/dev/null 2>&1 \
@@ -103,7 +119,17 @@ self_test() (
 
   echo x > non-suivi.ts
   attendu 'fichier non suivi présent' 'NON'
+  git config status.showUntrackedFiles no
+  attendu 'fichier non suivi masqué par la configuration de git' 'NON'
+  git config --unset status.showUntrackedFiles
   rm non-suivi.ts
+
+  # `git status` en erreur (index illisible) : ne prouve pas que l'arbre est propre.
+  cp .git/index "$faux/index.sauf" && printf 'illisible' > .git/index
+  attendu 'git status en erreur' 'NON'
+  if enregistrer_verte "$initiale"; then echo "🔴 enregistrement accepté alors que git status échoue." >&2; echec=true; fi
+  cp "$faux/index.sauf" .git/index
+  attendu 'index rétabli' 'VERTE'
 
   # Une trace posée à la main, sans l'empreinte dedans, ne vaut rien.
   echo c > f.ts && git commit -qam autre >/dev/null 2>&1
@@ -115,11 +141,35 @@ self_test() (
   echo d > f.ts && git commit -qam pendant >/dev/null 2>&1
   if enregistrer_verte "$avant"; then echo "🔴 enregistrement accepté alors que HEAD a changé pendant le run." >&2; echec=true; fi
 
+  # — De bout en bout, avec un faux `pnpm` : c'est le flux principal qui écrit la
+  # trace, pas les fonctions ci-dessus. Une suite ROUGE mémorisée comme verte est
+  # le pire défaut possible de ce script, et rien d'autre ne le ferait rougir. —
+  printf '#!/bin/sh\necho "$*" >> "%s/journal"\nexit "${FAUX_PNPM_CODE:-0}"\n' "$faux" > "$faux/pnpm"
+  chmod +x "$faux/pnpm"
+  : > "$faux/journal"
+  joue() { PATH="$faux:$PATH" FAUX_PNPM_CODE="$1" bash "$ICI" ${2:-} >/dev/null 2>&1; }
+  appels() { wc -l < "$faux/journal" | tr -d ' '; }
+  echo e > f.ts && git commit -qam e2e >/dev/null 2>&1
+
+  if joue 1; then echo "🔴 suite rouge : le script sort en 0." >&2; echec=true; fi
+  attendu 'suite rouge : rien de mémorisé' 'NON'
+  joue 0 || { echo "🔴 suite verte : le script sort en erreur." >&2; echec=true; }
+  attendu 'suite verte : mémorisée' 'VERTE'
+  [ "$(appels)" = 2 ] || { echo "🔴 la suite n'a pas été lancée une fois par passage ($(appels) appels, attendu 2)." >&2; echec=true; }
+  [ "$(tail -1 "$faux/journal")" = '-w test:unit' ] || { echo "🔴 commande lancée inattendue : $(tail -1 "$faux/journal")" >&2; echec=true; }
+  joue 1 || { echo "🔴 contenu déjà vert : le script a rejoué la suite (et elle était rouge)." >&2; echec=true; }
+  [ "$(appels)" = 2 ] || { echo "🔴 contenu déjà vert : la suite a été rejouée." >&2; echec=true; }
+  joue 1 --etat || { echo "🔴 --etat ne reconnaît pas un contenu déjà vert." >&2; echec=true; }
+  echo x > non-suivi.ts
+  joue 0 || { echo "🔴 arbre non propre, suite verte : le script sort en erreur." >&2; echec=true; }
+  [ "$(appels)" = 3 ] || { echo "🔴 arbre non propre : la suite n'a pas été rejouée." >&2; echec=true; }
+  rm non-suivi.ts
+
   if [ "$echec" = true ]; then
     echo "🔴 suite-verte : auto-test EN ÉCHEC — une suite pourrait être tenue pour verte sur un contenu jamais testé." >&2
     exit 2
   fi
-  echo "✅ suite-verte : auto-test OK (identité par contenu, arbre sale / non suivi / trace vide refusés, contenu mouvant pendant le run refusé)."
+  echo "✅ suite-verte : auto-test OK (identité par contenu ; arbre sale, fichier non suivi même masqué, git status en erreur, trace vide et contenu mouvant refusés ; de bout en bout : suite rouge jamais mémorisée, suite verte jouée une seule fois)."
 )
 
 case "${1:-}" in

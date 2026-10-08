@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Bloque tout `git commit` si anti-couplage / typecheck / lint / tests LIÉS echouent.
 #
-# Les tests joues ici sont ceux que la branche a pu casser (graphe d'imports), pas
-# la suite entiere : cf. l'en-tete de tests-lies.sh pour la mesure et pour ce qui
-# reste joue en entier (gate-pr avant la PR, job CI requis `lint-typecheck-test`).
+# Les tests joues ici sont ceux que la branche a pu casser (graphe d'imports) plus
+# les cliquets de securite, pas la suite entiere : cf. l'en-tete de tests-lies.sh
+# pour la mesure et pour ce qui reste joue en entier (gate-pr avant la PR, job CI
+# requis `lint-typecheck-test`).
 set -euo pipefail
 INPUT="$(cat)"
 CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')"
@@ -12,9 +13,11 @@ if ! printf '%s' "$CMD" | grep -Eq '(^|[;&|[:space:]])git[[:space:]]+commit'; th
   exit 0
 fi
 
-# Resolu AVANT tout `cd` : ce hook tourne depuis le clone principal, et c'est SA
-# version de tests-lies.sh qui doit servir — une branche ouverte avant ce lot ne
-# porte pas le script dans son propre arbre.
+# Resolu AVANT tout `cd` : le dossier du hook REELLEMENT execute. Les commandes de
+# settings.json sont relatives — c'est donc le clone principal pour une session
+# qui y est enracinee, et le worktree de la session sinon. C'est la version de
+# tests-lies.sh de CE dossier qui doit servir, pas celle de la branche visee par
+# la commande : une branche ouverte avant ce lot ne porte pas le script.
 HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le clone principal.

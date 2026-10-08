@@ -6,10 +6,13 @@ import os from 'node:os';
 // Parallélisme LOCAL borné — pourquoi.
 //
 // Par défaut Vitest ouvre un worker par cœur. Sur le poste de dev, plusieurs
-// sessions Claude Code travaillent en parallèle, et chacune rejoue la suite
-// ENTIÈRE à deux moments imposés par le harnais : au commit (`pre-commit-gate`)
-// et à la création de PR (`gate-pr`). Trois sessions × 10 cœurs = 30 workers
-// pour 10 cœurs : chaque test reçoit trois fois moins de CPU qu'il n'en a besoin.
+// sessions Claude Code travaillent en parallèle, et chacune peut jouer la suite
+// ENTIÈRE au même moment : à la création de PR (`gate-pr`, une fois par contenu),
+// ou au commit dès que la configuration ou les dépendances changent
+// (`tests-lies.sh`). Jusqu'au 2026-10-08 elle l'était à CHAQUE commit — c'est dans
+// ces conditions qu'ont été prises les mesures ci-dessous. Trois sessions ×
+// 10 cœurs = 30 workers pour 10 cœurs : chaque test reçoit trois fois moins de
+// CPU qu'il n'en a besoin.
 //
 // Les tests de rendu attendent que le DOM se stabilise dans un budget d'HORLOGE
 // (`ATTENTE_UI` = 4 s, plafond du cas = `ATTENTE_CAS_MS`). Sous cette

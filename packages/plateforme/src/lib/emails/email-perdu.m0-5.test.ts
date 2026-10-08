@@ -174,7 +174,7 @@ describe('M0.5 / email perdu — infos d’accès chauffeur', () => {
       expect(b.tables['alertes_admin']!.map((a) => a['code'])).toEqual([
         CODE_ALERTE_INFOS_ACCES_NON_REMISES,
       ]);
-      // L'alerte dédiée ne recopie pas l'adresse : la fiche collecte la porte.
+      // L'alerte dédiée ne recopie pas l'adresse du programmateur.
       expect(JSON.stringify(b.tables['alertes_admin'])).not.toContain(
         'prog@infos-acces.local',
       );

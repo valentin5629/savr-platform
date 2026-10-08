@@ -149,13 +149,14 @@ async function ouvrirAlerte(
   supabase: AdminSupabase,
   collecteId: string,
 ): Promise<ErreurDb | null> {
-  // Un seul message, vrai dans les trois cas (en reprise avant une collecte
-  // proche, tentatives épuisées, adresse refusée) : l'état exact est sur la fiche.
+  // Un seul message pour les trois cas (en reprise avant une collecte proche,
+  // tentatives épuisées, adresse refusée). Il ne promet pas le bouton de renvoi :
+  // pendant une reprise la fiche ne le propose pas.
   const { error } = await supabase.rpc('f_upsert_alerte_admin', {
     p_code: CODE_ALERTE_INFOS_ACCES_NON_REMISES,
     p_titre: 'Infos d’accès non remises au programmateur',
     p_message:
-      'L’email des coordonnées du chauffeur n’est pas parvenu au programmateur. L’état de l’envoi et le bouton « Renvoyer l’email » sont sur la fiche collecte ; si la collecte est proche, transmettez les coordonnées par téléphone.',
+      'L’email des coordonnées du chauffeur n’est pas parvenu au programmateur. L’état de l’envoi est sur la fiche collecte, d’où l’email se renvoie dès qu’aucune tentative automatique n’est en cours. Si la collecte est proche, transmettez les coordonnées par téléphone.',
     p_entity_type: 'collecte',
     p_entity_id: collecteId,
   });

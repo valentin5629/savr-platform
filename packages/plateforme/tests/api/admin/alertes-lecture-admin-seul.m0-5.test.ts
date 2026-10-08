@@ -75,7 +75,18 @@ function connecter(role: string | null): void {
   });
   mockGetSession.mockResolvedValue({
     data: {
-      session: role ? { access_token: makeJwt({ user_role: role }) } : null,
+      session: role
+        ? {
+            // Avec une organisation, comme un vrai compte client : sans elle,
+            // les gardes clientes du dépôt refusent d'elles-mêmes (403
+            // « Organisation manquante ») et un refus ne prouverait rien de la
+            // garde de CETTE route.
+            access_token: makeJwt({
+              user_role: role,
+              organisation_id: 'org-00000001',
+            }),
+          }
+        : null,
     },
     error: null,
   });

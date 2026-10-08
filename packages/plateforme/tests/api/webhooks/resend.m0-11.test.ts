@@ -46,6 +46,8 @@ const makeQuery = (table: string) => {
   const q: Record<string, unknown> = {};
   q['select'] = vi.fn().mockReturnThis();
   q['eq'] = vi.fn().mockReturnThis();
+  q['order'] = vi.fn().mockReturnThis();
+  q['limit'] = vi.fn().mockReturnThis();
   q['insert'] = vi.fn((data: unknown) => {
     if (!insertedRows[table]) insertedRows[table] = [];
     insertedRows[table]!.push(data);
@@ -76,13 +78,26 @@ const makeQuery = (table: string) => {
   return q;
 };
 
+// Appels `.rpc()` (alerte in-app d'un email refusé) + erreur injectable.
+const rpcCalls: Array<{ nom: string; args: Record<string, unknown> }> = [];
+let rpcError: ErreurMock | null = null;
+
 const mockTables: Record<string, ReturnType<typeof makeQuery>> = {};
 const mockSupabase = {
   from: vi.fn((table: string) => {
     if (!mockTables[table]) mockTables[table] = makeQuery(table);
     return mockTables[table];
   }),
+  rpc: vi.fn(async (nom: string, args: Record<string, unknown>) => {
+    rpcCalls.push({ nom, args });
+    return { data: null, error: rpcError };
+  }),
 };
+
+beforeEach(() => {
+  rpcCalls.length = 0;
+  rpcError = null;
+});
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => mockSupabase,
@@ -348,5 +363,165 @@ describe('M0.11 / webhook Resend — échecs de lecture/écriture et rejeu', () 
     const res = await POST(makeResendRequest(deliveredEvent()));
     expect(res.status).toBe(500);
     expect(updatedRows['emails_envoyes']).toBeUndefined();
+  });
+});
+
+// Décision Val 2026-10-08 (C1-C2) : un email refusé par la messagerie du
+// destinataire est perdu — Resend l'avait accepté, rien ne le reprendra. Le
+// webhook en tire les suites : alerte in-app, et pour les infos d'accès
+// chauffeur la collecte revient « à envoyer » (tampon retiré).
+describe('M0.11 / webhook Resend — email refusé par le destinataire (suites)', () => {
+  const emailGenerique = (statut = 'sent') => ({
+    id: 'em-001',
+    statut,
+    template_code: 'collecte_programmee',
+    destinataire: 'contact@traiteur.local',
+    entity_type: 'collectes',
+    entity_id: 'coll-9',
+  });
+  const emailInfosAcces = (statut = 'delivered') => ({
+    id: 'em-001',
+    statut,
+    template_code: 'infos_acces_collecte',
+    destinataire: 'prog@infos-acces.local',
+    entity_type: 'collecte',
+    entity_id: 'coll-1',
+  });
+  const refus = (type = 'email.bounced') =>
+    makeResendRequest({
+      type,
+      data: { email_id: 're_123', bounce_type: 'hard' },
+    });
+
+  beforeEach(() => {
+    Object.keys(insertedRows).forEach((k) => delete insertedRows[k]);
+    Object.keys(updatedRows).forEach((k) => delete updatedRows[k]);
+    Object.keys(mockTables).forEach((k) => delete mockTables[k]);
+    mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
+    mockEmailRow = emailGenerique();
+    mockInboxExistant = { data: null, error: null };
+    readErrors = {};
+    insertErrors = {};
+    updateErrors = {};
+    process.env['RESEND_WEBHOOK_SECRET'] = SECRET;
+  });
+
+  it('email.bounced → alerte in-app « Email non remis », rattachée à l’entité de l’email', async () => {
+    const res = await POST(refus());
+
+    expect(res.status).toBe(200);
+    expect(updatedRows['emails_envoyes']?.[0]?.data['statut']).toBe('bounced');
+    // La ligne est lue avec de quoi en tirer les suites (template, entité).
+    expect(mockTables['emails_envoyes']!['select']).toHaveBeenCalledWith(
+      'id, statut, template_code, destinataire, entity_type, entity_id',
+    );
+    expect(rpcCalls).toEqual([
+      {
+        nom: 'f_upsert_alerte_admin',
+        args: {
+          p_code: 'email_echec_definitif',
+          p_titre: 'Email non remis',
+          p_message:
+            'L’email « collecte_programmee » destiné à contact@traiteur.local a été refusé par la messagerie du destinataire (adresse invalide, boîte pleine ou signalement comme indésirable). Prévenez le destinataire par un autre moyen.',
+          p_entity_type: 'collectes',
+          p_entity_id: 'coll-9',
+        },
+      },
+    ]);
+    expect(inboxTraitee()).toHaveLength(1);
+  });
+
+  it('email.complained (même statut bounced) → mêmes suites', async () => {
+    const res = await POST(refus('email.complained'));
+    expect(res.status).toBe(200);
+    expect(rpcCalls.map((c) => c.args['p_code'])).toEqual([
+      'email_echec_definitif',
+    ]);
+  });
+
+  it('email.delivered → aucune alerte', async () => {
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    expect(res.status).toBe(200);
+    expect(rpcCalls).toEqual([]);
+    expect(updatedRows['collectes']).toBeUndefined();
+  });
+
+  it('infos d’accès chauffeur refusées → tampon de la collecte retiré + alerte dédiée (pas l’alerte générique)', async () => {
+    mockEmailRow = emailInfosAcces();
+
+    const res = await POST(refus());
+
+    expect(res.status).toBe(200);
+    expect(updatedRows['collectes']).toEqual([
+      { data: { infos_acces_email_envoye_at: null }, id: 'coll-1' },
+    ]);
+    expect(rpcCalls).toHaveLength(1);
+    expect(rpcCalls[0]).toMatchObject({
+      nom: 'f_upsert_alerte_admin',
+      args: {
+        p_code: 'infos_acces_email_non_remis',
+        p_entity_type: 'collecte',
+        p_entity_id: 'coll-1',
+      },
+    });
+    expect(JSON.stringify(rpcCalls[0]!.args)).not.toContain('@');
+    expect(inboxTraitee()).toHaveLength(1);
+  });
+
+  it('suite non appliquée (alerte refusée par la base) → 500, inbox non marquée traitée : Resend rejoue', async () => {
+    rpcError = ERREUR_DB;
+
+    const res = await POST(refus());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Erreur serveur' });
+    expect(inboxTraitee()).toHaveLength(0);
+    expect(updatedRows['integrations_inbox']?.[0]?.data).toEqual({
+      erreur: 'non_enregistre: email_perdu',
+    });
+  });
+
+  it('infos d’accès : tampon non retiré (erreur base) → 500, pas d’alerte, inbox non marquée traitée', async () => {
+    mockEmailRow = emailInfosAcces();
+    updateErrors['collectes'] = () => ERREUR_DB;
+
+    const res = await POST(refus());
+
+    expect(res.status).toBe(500);
+    expect(rpcCalls).toEqual([]);
+    expect(inboxTraitee()).toHaveLength(0);
+  });
+
+  it('rejeu après un passage où le statut a été écrit mais pas la suite → la suite est rejouée, le statut n’est pas réécrit', async () => {
+    mockInboxInsertResult = { data: null, error: { code: '23505' } };
+    mockInboxExistant = {
+      data: { id: 'inbox-existant', traite: false },
+      error: null,
+    };
+    mockEmailRow = emailGenerique('bounced');
+
+    const res = await POST(refus());
+
+    expect(res.status).toBe(200);
+    expect(updatedRows['emails_envoyes']).toBeUndefined();
+    expect(rpcCalls).toHaveLength(1);
+    expect(inboxTraitee()).toEqual([
+      expect.objectContaining({ id: 'inbox-existant' }),
+    ]);
+  });
+
+  it('event delivered tardif sur une ligne déjà refusée → ni régression de statut, ni nouvelle alerte', async () => {
+    mockEmailRow = emailGenerique('bounced');
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    expect(res.status).toBe(200);
+    expect(updatedRows['emails_envoyes']).toBeUndefined();
+    expect(rpcCalls).toEqual([]);
+  });
+
+  it('ligne en échec d’envoi (jamais acceptée par Resend) → pas de suite ici : elle relève du worker de retry', async () => {
+    mockEmailRow = emailGenerique('failed');
+    const res = await POST(refus());
+    expect(res.status).toBe(200);
+    expect(rpcCalls).toEqual([]);
   });
 });

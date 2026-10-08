@@ -113,6 +113,8 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
       id: 'col-1',
       prestataire_logistique_id: null,
       prestataire_actuel: null,
+      // Collecte sans contrôle d'accès : pas d'email « infos d'accès » à suivre.
+      infos_acces_email: null,
     });
     expect(appelsSur('plateforme.transporteurs')).toHaveLength(0);
     expect(appelsSur('shared.prestataires')).toHaveLength(0);

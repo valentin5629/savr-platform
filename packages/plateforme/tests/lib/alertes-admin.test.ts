@@ -25,6 +25,14 @@ describe('severiteParCode — catalogue explicite', () => {
     }
   });
 
+  // Décision Val 2026-10-08 : un email définitivement perdu est du même rang que
+  // les échecs finaux PDF et Pennylane. Le second code ne porte aucun mot-clé de
+  // repli — sans entrée au catalogue il s'afficherait en « Info » (gris).
+  it('emails non remis → critiques', () => {
+    expect(severiteParCode('email_echec_definitif')).toBe('critique');
+    expect(severiteParCode('infos_acces_email_non_remis')).toBe('critique');
+  });
+
   it('codes « à traiter » connus', () => {
     for (const c of [
       'pack_ag_bas',

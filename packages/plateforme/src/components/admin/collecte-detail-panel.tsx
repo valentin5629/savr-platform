@@ -53,6 +53,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import type { IssueInfosAcces } from '@/lib/infos-acces/notify';
+import type { SuiviEmailInfosAcces } from '@/lib/infos-acces/suivi-email';
 import { CollecteStatutFrise } from './collecte-statut-frise';
 import { AttributionAgForm } from './attribution-ag-form';
 import {
@@ -196,6 +198,9 @@ interface CollecteDetail {
   type_vehicule_souhaite?: string | null;
   controle_acces_requis: boolean;
   infos_acces_email_envoye_at: string | null;
+  // État réel de l'email « infos d'accès », lu dans le journal des emails par
+  // GET /admin/collectes/[id] (null si la collecte n'exige pas de contrôle d'accès).
+  infos_acces_email?: SuiviEmailInfosAcces | null;
   notes_internes: string | null;
   informations_supplementaires: string | null;
   motif_override_prestataire: string | null;
@@ -559,6 +564,7 @@ export function CollecteDetailPanel({
   >({});
   const [infosAccesSaving, setInfosAccesSaving] = useState(false);
   const [infosAccesError, setInfosAccesError] = useState<string | null>(null);
+  const [renvoiEmailEnCours, setRenvoiEmailEnCours] = useState(false);
   // Succès de l'enregistrement des infos d'accès = toast (R-UI-1 H1).
   const { toast } = useToast();
   // Bloc 0 — dispatch prestataire (BOA-06)
@@ -1060,17 +1066,37 @@ export function CollecteDetailPanel({
       },
     );
     if (res.ok) {
-      const body = (await res.json()) as { email_envoye: boolean };
+      const body = (await res.json()) as {
+        email_envoye: boolean;
+        email?: IssueInfosAcces;
+      };
       const updated = await fetch(
         `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
       );
       if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
-      toast({
-        title: body.email_envoye
-          ? 'Infos enregistrées — email récapitulatif envoyé au programmateur.'
-          : 'Infos enregistrées.',
-        variant: 'success',
-      });
+      // Le message dit ce qu'il est advenu de l'email, pas seulement de la saisie.
+      const issue = body.email ?? (body.email_envoye ? 'envoye' : 'sans_objet');
+      toast(
+        issue === 'envoye'
+          ? {
+              title:
+                'Infos enregistrées — email récapitulatif envoyé au programmateur.',
+              variant: 'success',
+            }
+          : issue === 'en_reprise'
+            ? {
+                title:
+                  'Infos enregistrées. L’email au programmateur n’est pas parti : une nouvelle tentative aura lieu automatiquement.',
+                variant: 'warning',
+              }
+            : issue === 'non_envoye'
+              ? {
+                  title:
+                    'Infos enregistrées. L’email au programmateur n’a pas pu être envoyé.',
+                  variant: 'warning',
+                }
+              : { title: 'Infos enregistrées.', variant: 'success' },
+      );
       setEditInfosAcces(false);
     } else {
       const body = (await res.json().catch(() => null)) as {
@@ -1093,6 +1119,53 @@ export function CollecteDetailPanel({
       }
     }
     setInfosAccesSaving(false);
+  };
+
+  // Renvoi de l'email « infos d'accès » à la demande (email non remis, ou
+  // coordonnées changées depuis l'envoi) — décision Val 2026-10-08.
+  const handleRenvoiEmailInfosAcces = async () => {
+    setRenvoiEmailEnCours(true);
+    setInfosAccesError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/infos-acces/renvoi`,
+      { method: 'POST' },
+    );
+    const body = (await res.json().catch(() => null)) as {
+      email?: IssueInfosAcces;
+      error?: string;
+    } | null;
+    if (res.ok) {
+      const issue = body?.email ?? 'sans_objet';
+      toast(
+        issue === 'envoye'
+          ? { title: 'Email envoyé au programmateur.', variant: 'success' }
+          : issue === 'en_reprise'
+            ? {
+                title:
+                  'L’email n’est pas parti : une nouvelle tentative aura lieu automatiquement.',
+                variant: 'warning',
+              }
+            : issue === 'non_envoye'
+              ? {
+                  title: 'L’email au programmateur n’a pas pu être envoyé.',
+                  variant: 'warning',
+                }
+              : {
+                  title:
+                    'Aucun email n’est parti : le nom et le téléphone du chauffeur doivent être renseignés pour chaque camion.',
+                  variant: 'warning',
+                },
+      );
+    } else {
+      setInfosAccesError(body?.error ?? 'Renvoi impossible.');
+    }
+    // Dans tous les cas la fiche est rechargée : l'état affiché est celui du
+    // journal des emails, pas celui que ce clic espérait.
+    const updated = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+    );
+    if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
+    setRenvoiEmailEnCours(false);
   };
 
   // Remonte le titre accessible au cadre modale dès que la collecte est chargée
@@ -1263,6 +1336,29 @@ export function CollecteDetailPanel({
           : canalEnvoi
             ? `Les coordonnées remontent automatiquement de ${canalEnvoi} dès l’affectation du chauffeur ; complétez-les si elles manquent.`
             : 'Coordonnées à saisir par l’équipe Ops.';
+  // Email « infos d'accès » : l'état vient du journal des emails (servi par la
+  // fiche). Sans lui (réponse antérieure au suivi), repli sur le tampon.
+  const suiviEmailAcces: SuiviEmailInfosAcces = collecte.infos_acces_email ?? {
+    etat: collecte.infos_acces_email_envoye_at ? 'envoye' : 'a_envoyer',
+    date: collecte.infos_acces_email_envoye_at,
+    tentative: null,
+    motif: null,
+  };
+  // Même règle que l'envoi automatique : nom + téléphone pour chaque camion.
+  const coordonneesCompletes =
+    rangsChauffeur.length > 0 &&
+    rangsChauffeur.every((rang) => {
+      const t = tourneeParRang.get(rang)?.tournees;
+      return !!t?.chauffeur_nom?.trim() && !!t?.chauffeur_telephone?.trim();
+    });
+  // Jamais pendant une reprise automatique : le renvoi ferait partir deux emails.
+  const renvoiEmailPossible =
+    collecte.controle_acces_requis &&
+    !isTerminal &&
+    !editInfosAcces &&
+    (suiviEmailAcces.etat === 'envoye' ||
+      suiviEmailAcces.etat === 'non_remis' ||
+      (suiviEmailAcces.etat === 'a_envoyer' && coordonneesCompletes));
   const cleSaisie = (rang: number): string => cleSaisieDe(collecte, rang);
   const referenceSaisie = acceptationSaisie.reference_mission.trim();
   const acceptationIncomplete =
@@ -1940,25 +2036,72 @@ export function CollecteDetailPanel({
                     chaque camion — un email récapitulatif est envoyé au
                     programmateur dès que toutes les tournées sont complètes.
                   </Text>
-                  {collecte.infos_acces_email_envoye_at ? (
-                    <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
-                      <Send className="h-4 w-4 shrink-0" />
-                      Email envoyé au programmateur le{' '}
-                      {new Date(
-                        collecte.infos_acces_email_envoye_at,
-                      ).toLocaleDateString('fr-FR', {
-                        timeZone: 'Europe/Paris',
-                      })}
+                  <div data-testid="etat-email-infos-acces">
+                    {suiviEmailAcces.etat === 'envoye' && (
+                      <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
+                        <Send className="h-4 w-4 shrink-0" />
+                        Email envoyé au programmateur
+                        {suiviEmailAcces.date &&
+                          ` le ${new Date(
+                            suiviEmailAcces.date,
+                          ).toLocaleDateString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                          })}`}
+                      </div>
+                    )}
+                    {suiviEmailAcces.etat === 'en_reprise' && (
+                      <AlertBar variant="warn" icon={<RotateCw />}>
+                        L’email au programmateur n’est pas encore parti.{' '}
+                        <span className="font-normal">
+                          Une nouvelle tentative a lieu automatiquement
+                          {suiviEmailAcces.tentative
+                            ? ` (${suiviEmailAcces.tentative} tentative${
+                                suiviEmailAcces.tentative > 1 ? 's' : ''
+                              } sur 4 en échec)`
+                            : ''}
+                          . Si la collecte est proche, transmettez les
+                          coordonnées par téléphone.
+                        </span>
+                      </AlertBar>
+                    )}
+                    {suiviEmailAcces.etat === 'non_remis' && (
+                      <AlertBar variant="err" icon={<AlertTriangle />}>
+                        {suiviEmailAcces.motif === 'adresse_refusee'
+                          ? 'L’email n’a pas été remis : la messagerie du programmateur l’a refusé.'
+                          : 'L’email n’a pas pu être envoyé au programmateur (4 tentatives en échec).'}{' '}
+                        <span className="font-normal">
+                          {suiviEmailAcces.motif === 'adresse_refusee'
+                            ? 'Vérifiez son adresse, puis renvoyez l’email ou transmettez les coordonnées par téléphone.'
+                            : 'Renvoyez-le ou transmettez les coordonnées par téléphone.'}
+                        </span>
+                      </AlertBar>
+                    )}
+                    {suiviEmailAcces.etat === 'a_envoyer' && (
+                      <Text
+                        as="div"
+                        tone="soft"
+                        className="flex items-center gap-2"
+                      >
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
+                        {coordonneesCompletes
+                          ? 'Coordonnées complètes : l’email n’a pas encore été envoyé au programmateur.'
+                          : 'En attente : infos à compléter avant envoi de l’email.'}
+                      </Text>
+                    )}
+                  </div>
+                  {renvoiEmailPossible && (
+                    <div>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={renvoiEmailEnCours}
+                        onClick={() => void handleRenvoiEmailInfosAcces()}
+                      >
+                        {suiviEmailAcces.etat === 'a_envoyer'
+                          ? 'Envoyer l’email'
+                          : 'Renvoyer l’email'}
+                      </Button>
                     </div>
-                  ) : (
-                    <Text
-                      as="div"
-                      tone="soft"
-                      className="flex items-center gap-2"
-                    >
-                      <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
-                      En attente : infos à compléter avant envoi de l’email.
-                    </Text>
                   )}
                 </>
               )}

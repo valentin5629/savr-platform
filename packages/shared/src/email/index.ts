@@ -1,9 +1,24 @@
 import { createAdminSupabaseClient } from '../supabase-client.js';
+import { logger } from '../logger/index.js';
 import { dispatchToResend } from './transport.js';
 
 export interface SendEmailOptions {
   entityType?: string;
   entityId?: string;
+}
+
+// Ce qu'il est advenu de l'envoi, pour l'appelant qui doit l'afficher ou en tirer
+// une suite (ex. infos d'accès chauffeur) :
+//   'sent'     — accepté par Resend ;
+//   'retrying' — refusé pour l'instant, ligne emails_envoyes en échec : le worker
+//                de retry porte la suite, l'appelant ne doit PAS renvoyer ;
+//   'dropped'  — rien n'est parti et rien ne reprendra l'envoi (template inactif,
+//                variable requise manquante, hors production sans redirection,
+//                ou échec dont la ligne n'a pas pu être écrite).
+export type SendEmailStatut = 'sent' | 'retrying' | 'dropped';
+
+export interface SendEmailResult {
+  statut: SendEmailStatut;
 }
 
 export interface CapturedEmail {
@@ -117,10 +132,10 @@ export async function sendEmail(
   to: string,
   variables: Record<string, string>,
   options: SendEmailOptions = {},
-): Promise<void> {
+): Promise<SendEmailResult> {
   if (_captureFn) {
     _captureFn({ slug, to, variables, options });
-    return;
+    return { statut: 'sent' };
   }
 
   const supabase = createAdminSupabaseClient();
@@ -140,7 +155,7 @@ export async function sendEmail(
   if (!tpl.actif) {
     // Template inactif : aucun appel Resend, trace (CDC §08 §4 l.548 « skip inactif »).
     await traceResendLog(supabase, `SKIP_INACTIF: ${slug}`);
-    return;
+    return { statut: 'dropped' };
   }
 
   // Variable requise manquante → refus d'envoi + trace (CDC §08 §4 l.547).
@@ -156,7 +171,7 @@ export async function sendEmail(
       supabase,
       `MISSING_VARIABLE: ${slug} [${missing.join(', ')}]`,
     );
-    return;
+    return { statut: 'dropped' };
   }
 
   const sujet = interpolate(tpl.sujet as string, variables);
@@ -165,23 +180,36 @@ export async function sendEmail(
   const outcome = await dispatchToResend({ to, subject: sujet, html });
   // Hors production sans adresse de redirection : rien n'est parti, donc rien à
   // historiser ni à retenter (une ligne 'failed' serait reprise par le worker).
-  if (outcome.statut === 'skipped') return;
+  if (outcome.statut === 'skipped') return { statut: 'dropped' };
 
   // `destinataire` et `sujet` restent ceux du métier, même quand le transport a
   // redirigé l'envoi : le worker de retry repart de cette ligne.
-  await supabase.from('emails_envoyes').insert({
-    template_code: slug,
-    destinataire: to,
-    sujet,
-    statut: outcome.statut,
-    resend_id: outcome.resendId,
-    entity_type: options.entityType ?? null,
-    entity_id: options.entityId ?? null,
-    erreur: outcome.erreur,
-    envoye_at: outcome.statut === 'sent' ? new Date().toISOString() : null,
-    variables_jsonb: variables,
-    tentative_numero: 1,
-  });
+  const { error: historiqueErr } = await supabase
+    .from('emails_envoyes')
+    .insert({
+      template_code: slug,
+      destinataire: to,
+      sujet,
+      statut: outcome.statut,
+      resend_id: outcome.resendId,
+      entity_type: options.entityType ?? null,
+      entity_id: options.entityId ?? null,
+      erreur: outcome.erreur,
+      envoye_at: outcome.statut === 'sent' ? new Date().toISOString() : null,
+      variables_jsonb: variables,
+      tentative_numero: 1,
+    });
+  if (historiqueErr) {
+    // Ni le destinataire ni le contenu : le template et le code d'erreur suffisent.
+    logger.error('email.historique_non_ecrit', {
+      template: slug,
+      statut_envoi: outcome.statut,
+      error_code: (historiqueErr as { code?: string }).code ?? 'UNKNOWN',
+    });
+    // Un échec sans ligne n'a rien que le worker puisse reprendre.
+    return { statut: outcome.statut === 'sent' ? 'sent' : 'dropped' };
+  }
+  return { statut: outcome.statut === 'sent' ? 'sent' : 'retrying' };
 }
 
 // ─── Retry worker (cron) — CDC §08 §4 l.546 ──────────────────────────────────
@@ -203,21 +231,39 @@ function cumulativeOffsetSeconds(tentativeNumero: number): number {
   return total;
 }
 
+// Email dont le sort vient d'être tranché à ce passage : de quoi laisser l'appelant
+// en tirer les suites métier (alerte, tampon), sans que ce module les connaisse.
+export interface EmailTranche {
+  id: string;
+  template_code: string;
+  destinataire: string;
+  entity_type: string | null;
+  entity_id: string | null;
+}
+
 export interface EmailRetryResult {
   scanned: number;
   retried: number;
   succeeded: number;
   exhausted: number;
+  // Lignes parties à ce passage, et lignes abandonnées après la 4e tentative.
+  reussis: EmailTranche[];
+  epuises: EmailTranche[];
 }
 
-interface FailedEmailRow {
-  id: string;
-  template_code: string;
-  destinataire: string;
+interface FailedEmailRow extends EmailTranche {
   variables_jsonb: Record<string, string> | null;
   tentative_numero: number;
   created_at: string;
 }
+
+const tranche = (row: FailedEmailRow): EmailTranche => ({
+  id: row.id,
+  template_code: row.template_code,
+  destinataire: row.destinataire,
+  entity_type: row.entity_type ?? null,
+  entity_id: row.entity_id ?? null,
+});
 
 export async function runEmailRetryWorker(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
@@ -228,7 +274,7 @@ export async function runEmailRetryWorker(
   const { data: rows } = await supabase
     .from('emails_envoyes')
     .select(
-      'id, template_code, destinataire, variables_jsonb, tentative_numero, created_at',
+      'id, template_code, destinataire, variables_jsonb, tentative_numero, created_at, entity_type, entity_id',
     )
     .eq('statut', 'failed')
     .lt('tentative_numero', 4);
@@ -239,6 +285,8 @@ export async function runEmailRetryWorker(
     retried: 0,
     succeeded: 0,
     exhausted: 0,
+    reussis: [],
+    epuises: [],
   };
 
   for (const row of failed) {
@@ -280,6 +328,7 @@ export async function runEmailRetryWorker(
         })
         .eq('id', row.id);
       result.succeeded += 1;
+      result.reussis.push(tranche(row));
     } else {
       await supabase
         .from('emails_envoyes')
@@ -296,6 +345,7 @@ export async function runEmailRetryWorker(
           `echec_final: ${row.template_code} -> ${row.destinataire}`,
         );
         result.exhausted += 1;
+        result.epuises.push(tranche(row));
       }
     }
   }

@@ -9,6 +9,10 @@
 // Admin »), jamais poussées sur Slack. Cet écran est ce canal.
 
 import { ROUTES } from '@/lib/routes';
+import {
+  CODE_ALERTE_EMAIL_NON_REMIS,
+  CODE_ALERTE_INFOS_ACCES_NON_REMISES,
+} from '@/lib/emails/codes-alertes';
 import { CODE_ALERTE_LIEU_AJOUT } from '@/lib/lieux/demande-ajout';
 import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
 
@@ -31,6 +35,13 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // Client qui demande en urgence les coordonnées du chauffeur (fiche collecte,
   // §06.04 refonte 2026-09-29) : clôturée automatiquement à leur réception.
   coordonnees_chauffeur_urgence: 'critique',
+  // Email définitivement perdu (4 tentatives épuisées, ou refus de la messagerie
+  // du destinataire) — même rang que les échecs finaux PDF et Pennylane (§08 §6).
+  [CODE_ALERTE_EMAIL_NON_REMIS]: 'critique',
+  // Email des coordonnées chauffeur non parvenu au programmateur : le contrôle
+  // d'accès du site n'a pas le nom du chauffeur. Close automatiquement si
+  // l'email finit par partir.
+  [CODE_ALERTE_INFOS_ACCES_NON_REMISES]: 'critique',
   // À traiter — anomalie à instruire, sans urgence bloquante.
   ag_annulee_tardive_sans_pack_actif: 'attention',
   attribution_aucun_prestataire: 'attention',

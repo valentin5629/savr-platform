@@ -1,7 +1,11 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { sendEmail } from '@savr/shared/src/email/index.js';
+import {
+  sendEmail,
+  type SendEmailStatut,
+} from '@savr/shared/src/email/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { formatDateFr } from '@savr/shared/src/csv/index.js';
+import { cloreAlerteInfosAcces, TEMPLATE_INFOS_ACCES } from './suivi-email.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -16,8 +20,16 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
  * Le claim (stamp `infos_acces_email_envoye_at`) + la lecture des données sont
  * atomiques côté DB (`fn_infos_acces_marquer_si_complet`, lock FOR UPDATE de la
  * collecte) → garde anti-double-envoi même si poll et saisie Admin concourent.
- * L'envoi Resend est best-effort ; en cas d'échec on RELÂCHE le claim (remet
- * `infos_acces_email_envoye_at` à NULL) pour re-tenter au prochain déclenchement.
+ * Le claim est posé AVANT l'envoi ; ce qu'il devient dépend de l'issue :
+ *   · email accepté par Resend → claim conservé ;
+ *   · email refusé pour l'instant (ligne `emails_envoyes` en échec) → claim
+ *     conservé : le worker de retry porte l'envoi, le relâcher ici laisserait
+ *     partir un second email. Il est retiré plus tard si l'échec devient
+ *     définitif (`suivi-email.ts`) ;
+ *   · rien n'est parti et rien ne le reprendra (template inactif, variable
+ *     manquante, hors production sans redirection, exception) → claim RELÂCHÉ
+ *     (`infos_acces_email_envoye_at` remis à NULL) pour re-tenter au prochain
+ *     déclenchement.
  *
  * Appelée après la saisie Admin (PATCH fiche collecte). En V1 MTS-1 n'expose pas
  * le téléphone chauffeur (as-built §6) → la complétude n'est atteinte que via la
@@ -84,14 +96,54 @@ export function renderChauffeursBloc(
 }
 
 /**
+ * Issue de l'évaluation, pour le message affiché à l'Admin :
+ *   'envoye'      — email accepté par Resend ;
+ *   'en_reprise'  — email refusé pour l'instant, une nouvelle tentative suivra ;
+ *   'non_envoye'  — un envoi était dû mais rien n'est parti (et rien ne le reprendra) ;
+ *   'sans_objet'  — rien à envoyer (non requis, incomplet, déjà envoyé, erreur de lecture).
+ */
+export type IssueInfosAcces =
+  | 'envoye'
+  | 'en_reprise'
+  | 'non_envoye'
+  | 'sans_objet';
+
+export interface EvaluationInfosAcces {
+  /** Vrai seulement si l'email a réellement été accepté par Resend. */
+  envoye: boolean;
+  issue: IssueInfosAcces;
+}
+
+const SANS_OBJET: EvaluationInfosAcces = { envoye: false, issue: 'sans_objet' };
+const NON_ENVOYE: EvaluationInfosAcces = { envoye: false, issue: 'non_envoye' };
+
+async function relacherClaim(
+  supabase: AdminSupabase,
+  collecteId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('collectes')
+    .update({ infos_acces_email_envoye_at: null })
+    .eq('id', collecteId);
+  if (error) {
+    // Claim resté posé sans email : l'écran lit `emails_envoyes`, mais la tuile
+    // « Infos accès à envoyer » ne verra plus la collecte.
+    logger.error('infos_acces.claim_non_relache', {
+      collecte_id: collecteId,
+      error_code: (error as { code?: string }).code ?? 'UNKNOWN',
+    });
+  }
+}
+
+/**
  * Évalue la complétude d'une collecte à contrôle d'accès et envoie l'email si
- * complet (idempotent, best-effort). Retourne `{ envoye }`.
+ * complet (idempotent, best-effort). Retourne `{ envoye, issue }`.
  * NE throw JAMAIS : conçue pour être appelée en best-effort par les routes.
  */
 export async function evaluerInfosAccesEtEnvoyer(
   supabase: AdminSupabase,
   collecteId: string,
-): Promise<{ envoye: boolean }> {
+): Promise<EvaluationInfosAcces> {
   const { data, error } = await supabase.rpc(
     'fn_infos_acces_marquer_si_complet',
     { p_collecte_id: collecteId },
@@ -102,20 +154,23 @@ export async function evaluerInfosAccesEtEnvoyer(
       collecte_id: collecteId,
       error: error.message,
     });
-    return { envoye: false };
+    return SANS_OBJET;
   }
-  if (!data) return { envoye: false }; // non requis / déjà envoyé / incomplet
+  if (!data) return SANS_OBJET; // non requis / déjà envoyé / incomplet
 
   const payload = data as MarquagePayload;
   if (payload.erreur === 'destinataire_introuvable') {
     logger.warn('infos_acces.destinataire_introuvable', {
       collecte_id: collecteId,
     });
-    return { envoye: false };
+    return NON_ENVOYE;
   }
 
   const to = payload.to ?? '';
-  if (!to) return { envoye: false };
+  if (!to) {
+    await relacherClaim(supabase, collecteId);
+    return NON_ENVOYE;
+  }
 
   const variables: Record<string, string> = {
     prenom: payload.prenom ?? '',
@@ -127,24 +182,40 @@ export async function evaluerInfosAccesEtEnvoyer(
     chauffeurs_bloc: renderChauffeursBloc(payload.chauffeurs ?? []),
   };
 
+  let statut: SendEmailStatut;
   try {
-    await sendEmail('infos_acces_collecte', to, variables, {
+    ({ statut } = await sendEmail(TEMPLATE_INFOS_ACCES, to, variables, {
       entityType: 'collecte',
       entityId: collecteId,
-    });
-    return { envoye: true };
+    }));
   } catch (e) {
     // Best-effort : on relâche le claim pour re-tenter au prochain déclenchement.
     logger.error('api.external.failed', {
       service: 'resend',
       endpoint: 'sendEmail',
-      template: 'infos_acces_collecte',
+      template: TEMPLATE_INFOS_ACCES,
       error: e instanceof Error ? e.message : String(e),
     });
-    await supabase
-      .from('collectes')
-      .update({ infos_acces_email_envoye_at: null })
-      .eq('id', collecteId);
-    return { envoye: false };
+    await relacherClaim(supabase, collecteId);
+    return NON_ENVOYE;
   }
+
+  if (statut === 'retrying') {
+    // Claim conservé : le worker de retry porte l'envoi.
+    return { envoye: false, issue: 'en_reprise' };
+  }
+  if (statut === 'dropped') {
+    await relacherClaim(supabase, collecteId);
+    return NON_ENVOYE;
+  }
+
+  // Parti : une alerte « non remis » ouverte pour cette collecte n'a plus d'objet.
+  const alerteErr = await cloreAlerteInfosAcces(supabase, collecteId);
+  if (alerteErr) {
+    logger.error('infos_acces.alerte_non_close', {
+      collecte_id: collecteId,
+      error_code: alerteErr.code ?? 'UNKNOWN',
+    });
+  }
+  return { envoye: true, issue: 'envoye' };
 }

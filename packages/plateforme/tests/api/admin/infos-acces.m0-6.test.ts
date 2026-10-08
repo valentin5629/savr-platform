@@ -157,7 +157,7 @@ describe('M0.6 / PATCH infos-acces — écriture + email de complétude', () => 
       error: null,
     };
     admin.results['tournees'] = { data: null, error: null };
-    mockEvaluer.mockResolvedValue({ envoye: true });
+    mockEvaluer.mockResolvedValue({ envoye: true, issue: 'envoye' });
 
     const res = await PATCH(
       makeReq({
@@ -173,10 +173,48 @@ describe('M0.6 / PATCH infos-acces — écriture + email de complétude', () => 
       ctx,
     );
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { email_envoye: boolean };
+    const body = (await res.json()) as {
+      email_envoye: boolean;
+      email: string;
+    };
     expect(body.email_envoye).toBe(true);
+    expect(body.email).toBe('envoye');
     expect(mockEvaluer).toHaveBeenCalledWith(expect.anything(), 'coll-1');
   });
+
+  // Décision Val 2026-10-08 (C3) : la réponse dit ce qu'il est advenu de l'email,
+  // pour que la fiche n'annonce plus « envoyé » quand il n'est pas parti.
+  it.each([
+    { issue: 'en_reprise', envoye: false },
+    { issue: 'non_envoye', envoye: false },
+    { issue: 'sans_objet', envoye: false },
+  ])(
+    'email $issue → 200, email_envoye=false et `email` dit pourquoi',
+    async ({ issue, envoye }) => {
+      admin.results['collectes'] = {
+        data: { id: 'coll-1', controle_acces_requis: true },
+        error: null,
+      };
+      admin.results['collecte_tournees'] = {
+        data: [{ tournee_id: 'T1', tournees: { id: 'T1' } }],
+        error: null,
+      };
+      mockEvaluer.mockResolvedValue({ envoye, issue });
+
+      const res = await PATCH(
+        makeReq({ tournees: [{ tournee_id: 'T1', chauffeur_nom: 'Jean' }] }),
+        ctx,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        email_envoye: boolean;
+        email: string;
+      };
+      expect(body.email_envoye).toBe(false);
+      expect(body.email).toBe(issue);
+    },
+  );
 
   it('aucun champ modifiable fourni → 422 (avant tout envoi)', async () => {
     admin.results['collectes'] = {

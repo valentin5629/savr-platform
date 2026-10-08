@@ -54,7 +54,8 @@ export function lireFiltresCollectesAdmin(sp: URLSearchParams) {
     lieuIds: listeCsv(sp.get('lieu_ids'), estUuid),
     lieuId: sp.get('lieu_id'),
     infoIncomplete: sp.get('info_incomplete') === 'true',
-    // « Infos accès à envoyer » = contrôle d'accès requis ET email non envoyé
+    // « Infos accès à envoyer » = contrôle d'accès requis ET aucun envoi de
+    // l'email réservé (tampon posé AVANT l'envoi, retiré si l'email est perdu)
     // ET à venir.
     controleAcces: sp.get('controle_acces') === 'true',
     rapportNonConsulte: sp.get('rapport_non_consulte') === 'true',
@@ -141,7 +142,7 @@ export function appliquerFiltresCollectesAdmin<Q>(
   else if (f.lieuId) q = q.eq('evenements.lieu_id', f.lieuId);
   if (f.infoIncomplete) q = q.eq('informations_completes', false);
   // Miroir EXACT du compteur KPI `controle_acces_a_envoyer` (chip-counts) :
-  // requis ET email récap non encore envoyé ET à venir → compteur = liste.
+  // requis ET aucun envoi de l'email récap réservé ET à venir → compteur = liste.
   if (f.controleAcces) {
     q = q
       .eq('controle_acces_requis', true)

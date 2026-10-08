@@ -10,6 +10,11 @@ import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import {
+  deriverSuiviEmail,
+  lireDernierEmailInfosAcces,
+  type SuiviEmailInfosAcces,
+} from '@/lib/infos-acces/suivi-email.js';
 
 async function getHandler(
   req: NextRequest,
@@ -129,7 +134,28 @@ async function getHandler(
     }
   }
 
-  return NextResponse.json({ ...data, prestataire_actuel: prestataireActuel });
+  // Email « infos d'accès chauffeur » : ce qu'il est réellement advenu de
+  // l'envoi, lu dans le journal des emails — le tampon de la collecte est posé
+  // AVANT l'envoi et ne dit pas si l'email est parti (décision Val 2026-10-08).
+  let infosAccesEmail: SuiviEmailInfosAcces | null = null;
+  const fiche = data as {
+    controle_acces_requis: boolean;
+    infos_acces_email_envoye_at: string | null;
+  };
+  if (fiche.controle_acces_requis) {
+    const dernier = await lireDernierEmailInfosAcces(supabase, id);
+    if (dernier.error) return serverError(dernier.error, 'admin.collectes.get');
+    infosAccesEmail = deriverSuiviEmail(
+      dernier.data,
+      fiche.infos_acces_email_envoye_at,
+    );
+  }
+
+  return NextResponse.json({
+    ...data,
+    prestataire_actuel: prestataireActuel,
+    infos_acces_email: infosAccesEmail,
+  });
 }
 
 async function patchHandler(

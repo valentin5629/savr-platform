@@ -383,9 +383,24 @@ describe('M3.2 / dashboard', () => {
       makeReq('GET', '/api/v1/gestionnaire/dashboard?type=anti_gaspi'),
     );
     const json = (await res.json()) as {
-      data: { pack: { credits_restants: number } | null };
+      data: {
+        pack: { credits_initiaux: number; credits_restants: number } | null;
+      };
     };
     expect(json.data.pack?.credits_restants).toBe(2);
+    expect(json.data.pack?.credits_initiaux).toBe(20);
+    // Oracle sur la requête : le bloc « Mon pack Anti-Gaspi » du dashboard lit ces
+    // deux colonnes. Sans `credits_initiaux` dans la sélection, il afficherait
+    // « 2 / » — et la fixture ci-dessus, posée à la main, ne le montrerait pas.
+    const fromCalls = rls.__calls.from ?? [];
+    const idx = fromCalls.findIndex((c) => c[0] === 'packs_antgaspi');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const colonnes = String(rls.__calls.select?.[idx]?.[0] ?? '')
+      .split(',')
+      .map((c) => c.trim());
+    expect(colonnes).toEqual(
+      expect.arrayContaining(['credits_initiaux', 'credits_restants']),
+    );
   });
 });
 

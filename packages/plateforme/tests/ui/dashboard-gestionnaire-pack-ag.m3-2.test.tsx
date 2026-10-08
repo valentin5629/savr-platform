@@ -34,7 +34,10 @@ const KPIS_AG = {
   repas_par_pax: 0.3,
 };
 
-// Ligne `packs_antgaspi` telle que la route la sélectionne et la renvoie.
+// Ligne `packs_antgaspi` à la FORME que la route sélectionne et renvoie. Un
+// solde nul sous `statut: 'actif'` n'est pas un état que la base produit : au
+// dernier crédit le pack passe `epuise` et la route, qui ne sert que le pack
+// actif, renvoie `pack: null` (cf. cas `badge_epuise`).
 const packServi = (credits_restants: number, credits_initiaux = 20) => ({
   id: 'pk1',
   credits_initiaux,
@@ -126,6 +129,9 @@ describe('M3.2 / dashboard — bloc « Mon pack Anti-Gaspi »', () => {
     ATTENTE_CAS_MS,
   );
 
+  // Branche de l'écran seulement : avec la route actuelle, un pack épuisé n'est
+  // plus servi et le bloc disparaît. Écart CDC tracé, à arbitrer par Val
+  // (_Divergences/M3.2_20261008_pack-epuise-bloc-invisible.md).
   it(
     'M3.2/dashboard_pack_ag_badge_epuise — solde nul : badge « Pack épuisé » seul',
     async () => {

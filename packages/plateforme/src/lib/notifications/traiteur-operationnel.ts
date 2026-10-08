@@ -347,7 +347,7 @@ export async function notifierAdminAnnulation(
 
   await sendEmail(
     'admin_collecte_annulee',
-    'hello@gosavr.io',
+    'contact@gosavr.io',
     {
       collecte_ref: params.collecteRef,
       type_collecte: libelleType(col?.type),

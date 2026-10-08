@@ -218,10 +218,19 @@
       "test": "import du module sans aucune variable → aucune erreur (rien n’est validé au chargement) + { error } renvoyé par le SDK → statut failed propagé, statut HTTP, nom et message journalisés + succès → id Resend journalisé et renvoyé + production, RESEND_FROM absent → aucune exception, ligne emails_envoyes en échec + ligne en échec faute de configuration → reprise par le worker une fois RESEND_FROM posée",
       "statut": "implemented",
       "libelle": "Resend : expéditeur lu dans RESEND_FROM, sans valeur par défaut dans le code et non remplaçable par l'appelant — seuls to, cc, bcc, reply-to, objet et corps du message partent (décision Val 2026-10-07, _Divergences/M0.5_20261007_resend-garde-hors-production.md). RESEND_API_KEY absente ou hors ASCII imprimable sans espace, ou RESEND_FROM absente, au moment d'un envoi réel : échec explicite SANS exception (décision Val 2026-10-07, C5) — statut failed, ligne `emails_envoyes` en échec reprise par le worker de retry une fois la variable posée — + log `email.configuration_manquante` ; contrôle fait à l'envoi, jamais à l'import du module ; la clé n'est jamais citée. Réponse { error } du SDK toujours lue : statut HTTP, nom et message journalisés (`api.external.failed`, adresses du message masquées, message borné à 500 caractères et ignoré s'il n'est pas une chaîne), échec propagé en statut failed comme avant ; succès : id Resend journalisé (`api.external.called`). Les journaux émis par le transport ne portent ni la clé, ni le contenu, ni une adresse."
+    },
+    {
+      "id": "M0.5-adresse-contact-savr",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:390",
+      "artefact": "packages/plateforme/src/app/login/page.tsx + packages/plateforme/src/app/api/auth/signup/route.ts + packages/plateforme/src/lib/packs/notify-pack-etat.ts + packages/plateforme/src/lib/notifications/traiteur-operationnel.ts + les 6 routes qui notifient l'équipe Savr (admin/collectes/[id]/incident, agence et traiteur collectes/[id]/annulation, traiteur/collectes/[id], traiteur/pack-ag/renouvellement, programmation/lieux)",
+      "test": "M0.5/adresse_contact_savr",
+      "statut": "implemented",
+      "libelle": "Adresse de contact Savr = contact@gosavr.io partout (décision Val 2026-10-08), en remplacement de l'ancienne adresse : messages lus par les utilisateurs (lien de vérification expiré ou déjà servi sur /login, refus d'inscription) et boîte qui reçoit les notifications de l'équipe (demandes d'annulation, de renouvellement de pack, d'ajout de lieu, incidents, modifications par un traiteur, annulations, état des packs). Un test de périmètre interdit le retour de l'ancienne adresse dans packages, apps, supabase et scripts. Le CDC dérivé la cite encore à 4 endroits jusqu'au patch du Vault (_Divergences/M0.5_20261008_adresse-contact-savr.md)."
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "635965061c559a268b51586d881054381f4a6ad7a4cfdf784f7a6e3709bca345",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7"
   }
 }

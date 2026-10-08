@@ -296,7 +296,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               'Ce domaine email est déjà rattaché à une organisation. Si un ' +
               'collègue vient de créer le compte de votre entreprise, demandez-lui ' +
               "d'activer le sien via le lien reçu par email, puis réessayez. " +
-              'Sinon, écrivez-nous à hello@gosavr.io.',
+              'Sinon, écrivez-nous à contact@gosavr.io.',
           },
           { status: 409 },
         );

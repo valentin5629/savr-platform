@@ -62,7 +62,7 @@ export async function POST(
     });
     if (error) return serverError(error, 'agence.collectes.annulation.directe');
 
-    await sendEmail('annulation_collecte', 'hello@gosavr.io', {
+    await sendEmail('annulation_collecte', 'contact@gosavr.io', {
       organisation_nom: orgNom ?? '',
       collecte_ref: id,
       motif,
@@ -100,7 +100,7 @@ export async function POST(
     });
     if (error) return serverError(error, 'agence.collectes.annulation.demande');
 
-    await sendEmail('admin_demande_annulation', 'hello@gosavr.io', {
+    await sendEmail('admin_demande_annulation', 'contact@gosavr.io', {
       organisation_nom: orgNom ?? '',
       demandeur_nom: auth.ctx.userId,
       collecte_ref: id,

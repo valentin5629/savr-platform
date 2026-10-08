@@ -26,11 +26,11 @@ import { ROUTES } from '@/lib/routes';
 const MESSAGES_ERREUR = new Map<string, string>([
   [
     'lien_invalide',
-    "Ce lien de vérification est incomplet ou a déjà servi. Écrivez-nous à hello@gosavr.io si vous n'arrivez pas à activer votre compte.",
+    "Ce lien de vérification est incomplet ou a déjà servi. Écrivez-nous à contact@gosavr.io si vous n'arrivez pas à activer votre compte.",
   ],
   [
     'verification_echouee',
-    "Ce lien de vérification a expiré ou a déjà été utilisé. Écrivez-nous à hello@gosavr.io pour recevoir un nouveau lien d'activation.",
+    "Ce lien de vérification a expiré ou a déjà été utilisé. Écrivez-nous à contact@gosavr.io pour recevoir un nouveau lien d'activation.",
   ],
   // ── Motifs renvoyés par Supabase dans le FRAGMENT (#error_code=…) ──────────
   // Un fragment n'est JAMAIS transmis au serveur : ni le middleware ni une route

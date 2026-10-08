@@ -126,7 +126,7 @@ async function postHandler(
     (before as { date_collecte?: string }).date_collecte ?? '';
 
   // Alerte Admin — template §06.02 item 10 (destinataire admin_savr).
-  await sendEmail('admin_incident_collecte', 'hello@gosavr.io', {
+  await sendEmail('admin_incident_collecte', 'contact@gosavr.io', {
     lieu_nom: lieu?.nom ?? '',
     date_collecte: dateCollecte,
     type_incident: 'collecte_manquee',

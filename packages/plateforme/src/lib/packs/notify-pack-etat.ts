@@ -22,7 +22,7 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
  */
 
 // Inbox admin partagée — même destinataire que le template 10 (incident collecte).
-const ADMIN_INBOX = 'hello@gosavr.io';
+const ADMIN_INBOX = 'contact@gosavr.io';
 
 const CODE_PACK_ETAT = ['pack_ag_bas', 'pack_ag_epuise'] as const;
 

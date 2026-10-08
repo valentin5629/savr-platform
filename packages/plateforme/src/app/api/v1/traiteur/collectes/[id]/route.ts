@@ -298,7 +298,7 @@ export async function PATCH(
   // modulée par la proximité du créneau : priorité « normale » >= 12h, « haute »
   // < 12h (le modal de confirmation côté traiteur double le cas < 12h).
   const orgNom = collecte.evenement?.organisation?.nom ?? '';
-  await sendEmail('admin_modification_collecte_traiteur', 'hello@gosavr.io', {
+  await sendEmail('admin_modification_collecte_traiteur', 'contact@gosavr.io', {
     organisation_nom: orgNom,
     demandeur_nom: auth.ctx.userId,
     collecte_ref: id,

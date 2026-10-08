@@ -117,9 +117,14 @@ commit_matche() {
 #   • avec `-C <dossier>` ecrit en clair et qui existe : ce dossier. Plusieurs
 #     `-C` s'enchainent comme pour git (un `-C` relatif part du precedent, sinon
 #     de la cible du `cd` de tete, sinon du dossier du hook) ;
-#   • avec `-C "$VAR"` (ou `$VAR/sous-dossier`) : la valeur de la variable, si la
-#     commande l'affecte UNE seule fois, en clair, par une instruction a elle
-#     seule (`WT=/chemin; git -C "$WT" commit`) ;
+#   • avec `-C "$VAR"` (ou `$VAR/sous-dossier`) : le dossier que donne le texte
+#     `VAR=valeur` quand la commande le porte UNE seule fois, valeur en clair,
+#     suivi de `;`, de `&&` ou d'une fin de ligne (`WT=/chemin; git -C "$WT"
+#     commit`). Ce dossier S'AJOUTE au cas « sans `-C` », il ne le remplace pas :
+#     le hook lit un texte, il ne sait pas si ce texte est une affectation que le
+#     shell execute. Releve en revue securite — `echo WT=/vert; …`, une ligne de
+#     commentaire, `[ -d /absent ] && WT=/vert; …` : la variable reste vide et le
+#     commit part du dossier courant ;
 #   • dans tous les autres cas — variable inconnue, substitution, tilde,
 #     caractere generique, dossier inexistant, `-C` relatif derriere un `cd`
 #     relatif : retour au cas « sans `-C` ». Jamais un dossier parent.
@@ -133,13 +138,23 @@ commit_matche() {
 #     d'environnement `GIT_DIR` / `GIT_WORK_TREE` ;
 #   • un `cd` qui n'est pas en tete de commande (`cd a && …; cd b && git commit`
 #     est juge dans `a`, deja vrai de l'ancien hook) ;
-#   • une variable affectee autrement que par `NOM=valeur` (`read`, `for`), ou
-#     heritee de l'environnement ;
+#   • une variable posee autrement que par ce texte (`read`, `for`,
+#     environnement) : son dossier n'est pas juge, seul celui du cas « sans
+#     `-C` » l'est ;
 #   • un `-C` relatif quand le dossier courant du shell n'est pas celui du hook.
 # Rejoue sur l'historique : des 13 commandes gagnees qui portent un `-C`, 8 le
 # donnent par une variable et 5 par un chemin relatif.
-chemin_en_clair() {  # <mot> <commande> : rend le chemin, ou sort en 1
-  local v="$1" simple=false nom suffixe
+#
+# AUCUN heredoc ni chaine-ici dans ces fonctions ni dans le flux du hook : bash
+# 3.2 les ecrit dans un fichier temporaire, et quand ce fichier ne peut pas etre
+# cree la boucle qu'ils alimentent est sautee sans erreur. Mesure en revue
+# securite : la garde ne jugeait alors aucun dossier et affichait « OK ».
+# L'auto-test le controle sur le texte de ce script.
+#
+# Rend le chemin precede d'une lettre — `L` s'il est ecrit en clair, `V` s'il
+# vient d'une variable — ou sort en 1.
+chemin_en_clair() {  # <mot> <commande>
+  local v="$1" simple=false origine=L nom suffixe
   local re_var='^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?(/[A-Za-z0-9._/-]*)?$'
   case "$v" in
     \"*\") v="${v#\"}"; v="${v%\"}" ;;
@@ -150,16 +165,17 @@ chemin_en_clair() {  # <mot> <commande> : rend le chemin, ou sort en 1
     suffixe="${BASH_REMATCH[2]}"
     v="$(valeur_de_variable "$nom" "$2")" || return 1
     v="${v}${suffixe}"
+    origine=V
   fi
   case "$v" in
     '' | *[\"\'\$\`\\~*?\[\{]*) return 1 ;;
   esac
-  printf '%s' "$v"
+  printf '%s%s' "$origine" "$v"
 }
-# L'affectation doit etre une instruction a elle seule, suivie de `;`, de `&&` ou
-# d'une fin de ligne : dans `WT=/chemin git -C "$WT" commit`, le shell developpe
-# `$WT` AVANT de poser l'affectation, qui ne vaut donc pas pour ce `-C`.
-valeur_de_variable() {  # <nom> <commande> : la valeur affectee une fois, en clair
+# Le texte `NOM=valeur` doit etre suivi de `;`, de `&&` ou d'une fin de ligne :
+# dans `WT=/chemin git -C "$WT" commit`, le shell developpe `$WT` AVANT de poser
+# l'affectation, qui ne vaut donc pas pour ce `-C`.
+valeur_de_variable() {  # <nom> <commande> : la valeur ecrite une fois, en clair
   local nom="$1" nombre valeur
   local clair="(\"[^\"\$\`\\\\]*\"|'[^']*'|[^[:space:];&|\"'\$\`\\\\(){}<>*?~]+)"
   nombre="$(printf '%s\n' "$2" | grep -oE "(^|[;&|[:space:]])${nom}=" | wc -l | tr -d ' ' || true)"
@@ -172,7 +188,7 @@ valeur_de_variable() {  # <nom> <commande> : la valeur affectee une fois, en cla
 # Une ligne par dossier vise, sans doublon : `=` suivi de l'indice a passer a
 # `cd_worktree_for` (vide = le dossier du hook). Le `=` garde les lignes vides.
 cibles_du_commit() {
-  local cmd="$1" cd_dir base occurrence mot dossier a_c resolu attend saute v
+  local cmd="$1" cd_dir base occurrence mot dossier a_c resolu attend saute par_variable v
   local morceau="([^[:space:]\"']|\"[^\"]*\"|'[^']*')"
   cd_dir="$(printf '%s' "$cmd" | sed -nE 's/^[[:space:]]*cd[[:space:]]+([^&;|]+).*/\1/p' | head -1 | xargs 2>/dev/null || true)"
   case "$cd_dir" in
@@ -181,50 +197,52 @@ cibles_du_commit() {
     *) base="" ;;
   esac
   {
-  # Quand l'ANCIEN motif voit la commande, le dossier que jugeait l'ancien hook
-  # est rendu d'office, et en premier : la garde ne juge jamais MOINS que lui,
-  # meme si l'occurrence qu'il voyait est prise dans la valeur entre guillemets
-  # d'une option.
-  if (
-    set +o pipefail
-    printf '%s' "$cmd" 2> /dev/null | grep -Eq '(^|[;&|[:space:]])git[[:space:]]+commit'
-  ); then
-    printf '=%s\n' "$cd_dir"
-  fi
-  while IFS= read -r occurrence; do
-    [ -n "$occurrence" ] || continue
-    dossier="$base"; a_c=false; resolu=true; attend=false; saute=false
-    while IFS= read -r mot; do
-      if [ "$saute" = true ]; then
-        saute=false
-      elif [ "$attend" = true ]; then
-        attend=false
-        a_c=true
-        if v="$(chemin_en_clair "$mot" "$cmd")"; then
-          case "$v" in
-            /*) dossier="$v" ;;
-            *) if [ -n "$dossier" ]; then dossier="${dossier}/${v}"; else resolu=false; fi ;;
-          esac
-        else
-          resolu=false
-        fi
-      else
-        case "$mot" in
-          -C) attend=true ;;
-          -c | --git-dir | --work-tree | --namespace | --config-env | --attr-source | --shallow-file) saute=true ;;
-        esac
-      fi
-    done << MOTS
-$(printf '%s\n' "$occurrence" | grep -oE "${morceau}+" || true)
-MOTS
-    if [ "$a_c" = true ] && [ "$resolu" = true ] && [ -d "$dossier" ]; then
-      printf '=%s\n' "$dossier"
-    else
+    # Quand l'ANCIEN motif voit la commande, le dossier que jugeait l'ancien hook
+    # est rendu d'office, et en premier : la garde ne juge jamais MOINS que lui,
+    # meme si l'occurrence qu'il voyait est prise dans la valeur entre guillemets
+    # d'une option.
+    if (
+      set +o pipefail
+      printf '%s' "$cmd" 2> /dev/null | grep -Eq '(^|[;&|[:space:]])git[[:space:]]+commit'
+    ); then
       printf '=%s\n' "$cd_dir"
     fi
-  done << OCCURRENCES
-$(printf '%s\n' "$cmd" | grep -oE "$(commit_motif)" || true)
-OCCURRENCES
+    printf '%s\n' "$cmd" | { grep -oE "$(commit_motif)" || true; } | while IFS= read -r occurrence; do
+      [ -n "$occurrence" ] || continue
+      printf '%s\n' "$occurrence" | { grep -oE "${morceau}+" || true; } | {
+        dossier="$base"; a_c=false; resolu=true; attend=false; saute=false; par_variable=false
+        while IFS= read -r mot; do
+          if [ "$saute" = true ]; then
+            saute=false
+          elif [ "$attend" = true ]; then
+            attend=false
+            a_c=true
+            if v="$(chemin_en_clair "$mot" "$cmd")"; then
+              case "$v" in V*) par_variable=true ;; esac
+              v="${v#?}"
+              case "$v" in
+                /*) dossier="$v" ;;
+                *) if [ -n "$dossier" ]; then dossier="${dossier}/${v}"; else resolu=false; fi ;;
+              esac
+            else
+              resolu=false
+            fi
+          else
+            case "$mot" in
+              -C) attend=true ;;
+              -c | --git-dir | --work-tree | --namespace | --config-env | --attr-source | --shallow-file) saute=true ;;
+            esac
+          fi
+        done
+        if [ "$a_c" = true ] && [ "$resolu" = true ] && [ -d "$dossier" ]; then
+          # Un dossier tire d'une variable s'ajoute au cas « sans -C » (cf. plus haut).
+          if [ "$par_variable" = true ]; then printf '=%s\n' "$cd_dir"; fi
+          printf '=%s\n' "$dossier"
+        else
+          printf '=%s\n' "$cd_dir"
+        fi
+      }
+    done
   } | awk '!deja[$0]++'
 }
 
@@ -333,13 +351,14 @@ FAUX
   attendu '-C apres commit → juge dans le dossier courant' "$(lances)" "$tout_dans_autre"
   code '-C enchaines' 0 "$depot" "git -C $bac -C autre commit -m x"
   attendu '-C enchaines → juge dans le dossier vise' "$(lances)" "$tout_dans_autre"
+  # Un dossier tire d'une variable S'AJOUTE a celui du hook, juge en premier.
+  local hook_dans_depot="${tout_dans_depot}exec vitest related @ ${depot}|"
   code '-C par une variable affectee en clair' 0 "$depot" "WT=\"$autre\"; git -C \"\$WT\" commit -m x"
-  attendu '-C par une variable → juge dans le dossier vise' "$(lances)" "$tout_dans_autre"
+  attendu '-C par une variable → dossier du hook, puis dossier vise' "$(lances)" "${hook_dans_depot}${tout_dans_autre}"
   code '-C par une variable et un sous-dossier' 0 "$depot" "B=$bac && git -C \$B/autre commit -m x"
-  attendu '-C par une variable et un sous-dossier → juge dans le dossier vise' "$(lances)" "$tout_dans_autre"
+  attendu '-C par une variable et un sous-dossier → dossier du hook, puis dossier vise' "$(lances)" "${hook_dans_depot}${tout_dans_autre}"
   # Ce qui ne se resout pas retombe sur le dossier du hook — jamais sur un parent
   # (`autre/absent` n'existe pas : juger `autre` a sa place serait juger a cote).
-  local hook_dans_depot="${tout_dans_depot}exec vitest related @ ${depot}|"
   code '-C par une variable inconnue' 0 "$depot" 'git -C "$INCONNUE" commit -m x'
   attendu '-C par une variable inconnue → dossier du hook' "$(lances)" "$hook_dans_depot"
   code '-C vers un dossier absent' 0 "$depot" "git -C $autre/absent commit -m x"
@@ -357,6 +376,13 @@ FAUX
   attendu 'session rouge, commit vers le vert → seul le vert est juge' "$(lances)" "$tout_dans_autre"
   code '-C vert --dry-run, puis commit ordinaire' 2 "$depot" "git -C $autre commit --dry-run; git commit -m x"
   attendu '-C vert puis commit ordinaire → le dossier du hook d abord, et il bloque' "$(lances)" "couplage @ ${depot}|"
+  # Un texte `VAR=valeur` que le shell n'execute pas comme une affectation : la
+  # variable reste vide, `git -C ""` commite dans le dossier courant (le rouge).
+  code 'variable posee par un echo, pas par le shell' 2 "$depot" "echo WT=$autre; git -C \"\$WT\" commit -m x"
+  attendu 'variable posee par un echo → le dossier du hook est juge, et il bloque' "$(lances)" "couplage @ ${depot}|"
+  code 'variable dans un commentaire' 2 "$depot" "$(printf '# WT=%s\ngit -C "$WT" commit -m x' "$autre")"
+  code 'variable affectee sous condition' 2 "$depot" "[ -d /dossier/absent ] && WT=$autre; git -C \"\$WT\" commit -m x"
+  code 'variable dans un corps de heredoc' 2 "$depot" "$(printf "cat > n.txt <<'EOF'\nWT=%s\nEOF\ngit -C \"\$WT\" commit -m x" "$autre")"
   code 'mention de -C vert, puis commit ordinaire' 2 "$depot" "echo \"voir git -C $autre commit\" && git commit -m x"
   code 'commentaire citant -C vert, puis commit ordinaire' 2 "$depot" "$(printf '# equivalent de git -C %s commit\ngit commit -m x' "$autre")"
   code 'heredoc citant -C vert, puis commit -F' 2 "$depot" "$(printf "cat > m.txt <<'EOF'\nnote : git -C %s commit est vu\nEOF\ngit commit -F m.txt" "$autre")"
@@ -556,24 +582,38 @@ FORMES
   cibles 'sur deux lignes' "$(printf 'git -C %s commit -m a\ngit commit -m b' "$A")" "=|=$A|"
   cibles 'deux commits ordinaires : un seul dossier' 'git commit -m a && git commit -m b' '=|'
   cibles 'occurrence de l ancien motif prise dans une valeur entre guillemets' "git -C $A -c \"x=y git commit\" commit -m z" "=|=$A|"
-  # Une variable : resolue si la commande l'affecte une fois, en clair, par une
-  # instruction a elle seule.
+  # Une variable : lue si la commande porte `VAR=valeur` une fois, en clair, suivi
+  # de `;`, `&&` ou d'une fin de ligne. Son dossier s'AJOUTE au cas « sans -C »,
+  # rendu en premier — le texte lu peut ne pas etre une affectation executee.
   cibles 'variable inconnue' 'git -C "$X" commit -m x' '=|'
   cibles 'variable inconnue, avec un cd' "cd $A && git -C \"\$X\" commit -m x" "=$A|"
   cibles 'variable au milieu d un chemin' "git -C $A/\$X commit -m x" '=|'
-  cibles 'variable affectee, point-virgule' "WT=$A; git -C \"\$WT\" commit -m x" "=$A|"
-  cibles 'variable affectee entre guillemets, &&' "WT=\"$A\" && git -C \$WT commit -m x" "=$A|"
-  cibles 'variable affectee entre guillemets simples, accolades' "WT='$A'; git -C \"\${WT}\" commit -m x" "=$A|"
-  cibles 'variable affectee sur sa ligne' "$(printf 'WT=%s\ngit -C "$WT" commit -m x' "$A")" "=$A|"
-  cibles 'variable exportee' "export WT=$A; git -C \$WT commit -m x" "=$A|"
-  cibles 'variable et sous-dossier' "S=$essai; git -C \"\$S/a\" commit -m x" "=$essai/a|"
-  cibles 'variable relative, apres un cd' "cd $essai && D=a; git -C \$D commit -m x" "=$essai/a|"
+  cibles 'variable affectee, point-virgule' "WT=$A; git -C \"\$WT\" commit -m x" "=|=$A|"
+  cibles 'variable affectee entre guillemets, &&' "WT=\"$A\" && git -C \$WT commit -m x" "=|=$A|"
+  cibles 'variable affectee entre guillemets simples, accolades' "WT='$A'; git -C \"\${WT}\" commit -m x" "=|=$A|"
+  cibles 'variable affectee sur sa ligne' "$(printf 'WT=%s\ngit -C "$WT" commit -m x' "$A")" "=|=$A|"
+  cibles 'variable exportee' "export WT=$A; git -C \$WT commit -m x" "=|=$A|"
+  cibles 'variable et sous-dossier' "S=$essai; git -C \"\$S/a\" commit -m x" "=|=$essai/a|"
+  cibles 'variable relative, apres un cd' "cd $essai && D=a; git -C \$D commit -m x" "=$essai|=$essai/a|"
+  cibles 'variable puis chemin en clair : le clair ne s ajoute a rien' "WT=$A; git -C $B commit -m x" "=$B|"
+  cibles 'variable posee par un echo : le dossier du hook reste rendu' "echo WT=$A; git -C \"\$WT\" commit -m x" "=|=$A|"
   cibles 'variable affectee deux fois' "WT=$A; WT=$B; git -C \"\$WT\" commit -m x" '=|'
   cibles 'variable affectee par une substitution' 'WT="$(pwd)"; git -C "$WT" commit -m x' '=|'
   cibles 'variable en prefixe de commande' "WT=$A git -C \"\$WT\" commit -m x" '=|'
   cibles 'variable affectee dans un tube' "WT=$A | git -C \"\$WT\" commit -m x" '=|'
   cibles 'variable entre guillemets simples : texte, pas variable' "WT=$A; git -C '\$WT' commit -m x" '=|'
   rm -rf "$essai"
+
+  # Ni heredoc ni chaine-ici dans ce qui s'execute hors auto-test : les fonctions
+  # de lecture (du motif jusqu'a l'auto-test) et le flux (apres la lecture de
+  # l'entree). Controle sur le texte de ce script, commentaires ecartes.
+  if sed -n '/^commit_motif() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" \
+    | grep -vE '^[[:space:]]*#' | grep -q '<<'; then
+    echo "🔴 un heredoc ou une chaine-ici est revenu dans le chemin execute du hook." >&2
+    echec=true
+  fi
+  [ "$(sed -n '/^commit_motif() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" | wc -l | tr -d ' ')" -gt 150 ] \
+    || { echo "🔴 le controle « sans heredoc » ne lit plus le chemin execute du hook." >&2; echec=true; }
 
   bout_en_bout || echec=true
 
@@ -602,23 +642,12 @@ HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # par la commande (cf. cibles_du_commit) est ramene a la racine de son worktree ;
 # une racine citee plusieurs fois n'est jugee qu'une fois.
 . "$HOOKS/lib-worktree.sh"
-RACINES=""
-while IFS= read -r cible; do
-  racine="$(cd_worktree_for "${cible#=}" && pwd -P)"
-  case "
-${RACINES}
-" in
-    *"
-${racine}
-"*) ;;
-    *) RACINES="${RACINES}${RACINES:+
-}${racine}" ;;
-  esac
-done << CIBLES
-$(cibles_du_commit "$CMD")
-CIBLES
-# Aucune racine ne devrait etre impossible ici (le motif vient d'etre vu) : si
-# cela arrive, on juge le dossier du hook plutot que rien.
+RACINES="$(cibles_du_commit "$CMD" | while IFS= read -r cible; do (
+  cd_worktree_for "${cible#=}" > /dev/null 2>&1
+  pwd -P
+); done | awk '!deja[$0]++')" || RACINES=""
+# Le motif vient d'etre vu : il y a toujours au moins une racine. Si la lecture
+# echouait malgre tout, on juge le dossier du hook plutot que rien.
 [ -n "$RACINES" ] || RACINES="$(pwd -P)"
 
 # Les controles, dans le dossier courant. Garde-fou 3 TMS-Ready (anti-couplage
@@ -631,11 +660,24 @@ controles() {
 }
 
 echo "Gate pre-commit : anti-couplage + typecheck + lint + tests lies..." >&2
-while IFS= read -r racine; do
+# Une racine par ligne. La boucle ne lit pas l'entree standard, et celle des
+# controles est fermee : ils n'ont rien a y lire. Jamais « OK » sans qu'un
+# dossier au moins ait ete juge — le dernier test ne devrait pas pouvoir
+# echouer (il y a toujours une racine), il est la pour le dire si cela arrivait.
+JUGES=0
+ANCIEN_IFS="$IFS"
+IFS='
+'
+set -f
+for racine in $RACINES; do
+  IFS="$ANCIEN_IFS"
+  set +f
   echo "  dossier juge : ${racine}" >&2
-  (cd "$racine" && controles) || exit 2
-done << RACINES_A_JUGER
-${RACINES}
-RACINES_A_JUGER
+  (cd "$racine" && controles) < /dev/null || exit 2
+  JUGES=$((JUGES + 1))
+done
+IFS="$ANCIEN_IFS"
+set +f
+[ "$JUGES" -gt 0 ] || { echo "KO aucun dossier juge -- commit bloque." >&2; exit 2; }
 echo "OK Gate pre-commit." >&2
 exit 0

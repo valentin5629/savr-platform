@@ -524,6 +524,18 @@ FORMES
   juge N "$(printf 'echo "voir `gh pr create` avant la revue"\n%s' "${remplissage:0:90000}")"
   juge N "$(printf 'git status --short\n%s' "$remplissage")"
 
+  # Ni heredoc ni chaîne-ici dans ce qui s'exécute hors auto-test (la fonction de
+  # reconnaissance et le flux) : bash 3.2 les écrit dans un fichier temporaire, et
+  # quand ce fichier ne peut pas être créé, ce qu'ils alimentent est sauté sans
+  # erreur. Contrôle sur le texte de ce script, commentaires écartés.
+  if sed -n '/^gate_pr_matche() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" \
+    | grep -vE '^[[:space:]]*#' | grep -q '<<'; then
+    echo "🔴 un heredoc ou une chaîne-ici est revenu dans le chemin exécuté du hook." >&2
+    echec=true
+  fi
+  [ "$(sed -n '/^gate_pr_matche() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" | wc -l | tr -d ' ')" -gt 150 ] \
+    || { echo "🔴 le contrôle « sans heredoc » ne lit plus le chemin exécuté du hook." >&2; echec=true; }
+
   bout_en_bout || echec=true
 
   if [ "$echec" = true ]; then

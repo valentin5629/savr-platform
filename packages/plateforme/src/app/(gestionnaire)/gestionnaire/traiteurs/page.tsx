@@ -3,7 +3,6 @@
 import { ErrorState } from '@/components/ui/error-state';
 import { fmtKg, fmtPct } from '@/lib/format';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ChefHat } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,6 +11,7 @@ import {
   type ColumnDef,
 } from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
+import { FicheTraiteurModal } from '@/components/gestionnaire/fiche-traiteur-modal';
 import { PageHero } from '@/components/ui/page-hero';
 import { ROUTES } from '@/lib/routes';
 
@@ -27,7 +27,6 @@ interface TraiteurRow {
 }
 
 export default function GestionnaireTraiteursPage() {
-  const router = useRouter();
   const [rows, setRows] = useState<TraiteurRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -65,6 +64,29 @@ export default function GestionnaireTraiteursPage() {
   useEffect(() => {
     charger();
   }, [charger]);
+
+  // Fiche traiteur en pop-up (§06.05 §5 — arbitrage Val 2026-10-07). L'adresse
+  // porte la fiche ouverte (?traiteur=<id>) : un lien direct, un rechargement ou
+  // l'ancienne route /gestionnaire/traiteurs/<id> (qui redirige ici) rouvrent la
+  // même fiche.
+  const [traiteurOuvert, setTraiteurOuvert] = useState<string | null>(null);
+  useEffect(() => {
+    setTraiteurOuvert(
+      new URLSearchParams(window.location.search).get('traiteur'),
+    );
+  }, []);
+  const ouvrirFiche = (id: string) => {
+    setTraiteurOuvert(id);
+    window.history.replaceState(
+      null,
+      '',
+      `${ROUTES.gestionnaire.traiteurs}?traiteur=${encodeURIComponent(id)}`,
+    );
+  };
+  const fermerFiche = useCallback(() => {
+    setTraiteurOuvert(null);
+    window.history.replaceState(null, '', ROUTES.gestionnaire.traiteurs);
+  }, []);
 
   // Tri côté navigateur : la route renvoie la liste COMPLÈTE des traiteurs du
   // périmètre (agrégat en mémoire, aucun `.range()` ni pagination), trier ici
@@ -172,9 +194,13 @@ export default function GestionnaireTraiteursPage() {
               description="Aucun traiteur n'est intervenu sur vos lieux au cours des 24 derniers mois."
             />
           }
-          onRowClick={(t) => router.push(ROUTES.gestionnaire.traiteur(t.id))}
+          onRowClick={(t) => ouvrirFiche(t.id)}
           rowLabel={(t) => `Ouvrir la fiche du traiteur ${t.nom}`}
         />
+      )}
+
+      {traiteurOuvert && (
+        <FicheTraiteurModal traiteurId={traiteurOuvert} onClose={fermerFiche} />
       )}
     </div>
   );

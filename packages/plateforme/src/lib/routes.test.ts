@@ -86,10 +86,10 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
   ],
   gestionnaire_lieux: [
     ['Dashboard', '/gestionnaire'],
-    ['Mes lieux', '/gestionnaire/lieux'],
     ['Collectes', '/gestionnaire/collectes'],
-    ['Registre réglementaire', '/registre'],
     ['Traiteurs', '/gestionnaire/traiteurs'],
+    ['Mes lieux', '/gestionnaire/lieux'],
+    ['Registre réglementaire', '/registre'],
     ['Mon pack AG', '/gestionnaire/mon-pack-ag'],
     ['Mon organisation', '/gestionnaire/mon-organisation'],
     ['Paramètres', '/gestionnaire/parametres'],

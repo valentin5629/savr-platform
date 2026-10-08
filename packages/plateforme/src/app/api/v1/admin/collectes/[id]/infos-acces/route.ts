@@ -328,7 +328,7 @@ async function patchHandler(
   await auditer();
 
   // Ré-évaluation complétude → email récap si complet (best-effort, non bloquant).
-  const { envoye } = await evaluerInfosAccesEtEnvoyer(supabase, id);
+  const { envoye, issue } = await evaluerInfosAccesEtEnvoyer(supabase, id);
 
   // Relecture de l'état à jour des tournées de la collecte.
   const { data: apres } = await supabase
@@ -341,7 +341,10 @@ async function patchHandler(
 
   return NextResponse.json({
     tournees: apres ?? [],
+    // `email_envoye` n'est vrai que si l'email a réellement été accepté par
+    // Resend ; `email` dit le reste (en reprise, non envoyé, sans objet).
     email_envoye: envoye,
+    email: issue,
     tournees_creees: tourneesCreees,
   });
 }

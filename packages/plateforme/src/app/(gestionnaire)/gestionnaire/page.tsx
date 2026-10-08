@@ -18,8 +18,9 @@ import {
   type BlocsData,
 } from '@/components/dashboards/index.js';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
+import { CartesKpiGestionnaire } from '@/components/dashboards/CartesKpiGestionnaire';
+import { useKpisGestionnaire } from '@/components/dashboards/useKpisGestionnaire';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
-import { StatCard } from '@/components/ui/stat-card';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
@@ -33,14 +34,11 @@ import {
 import {
   aggregateBenchmarkPerFlux,
   benchmarkItems,
-  previousWindow,
-  sparkFromSeries,
-  variationPct,
   type BenchmarkRow,
 } from '@/lib/dashboards/cockpit-derive';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { ErrorState } from '@/components/ui/error-state';
 import { Heading } from '@/components/ui/heading';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
@@ -51,16 +49,6 @@ import { ROUTES } from '@/lib/routes';
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
   return `${m.value} ${m.unit}`;
-}
-
-interface KpiData {
-  nb_collectes: number;
-  tonnage_kg: number | null;
-  taux_recyclage_pondere: number | null;
-  kg_par_pax: number | null;
-  nb_repas_donnes: number | null;
-  pax_total: number | null;
-  repas_par_pax: number | null;
 }
 
 interface PackActif {
@@ -77,13 +65,6 @@ export default function GestionnaireDashboardPage() {
   const [parcOptions, setParcOptions] = useState<ParcFilterOptions | undefined>(
     undefined,
   );
-  const [kpi, setKpi] = useState<KpiData | null>(null);
-  // KPIs de la période précédente équivalente (N-1) — variation des cartes
-  // (§06.05 l.136). Même endpoint, fenêtre `previousWindow`, mêmes filtres parc.
-  const [kpiPrev, setKpiPrev] = useState<KpiData | null>(null);
-  const [perFlux, setPerFlux] = useState<Record<string, number>>({});
-  const [pack, setPack] = useState<PackActif | null>(null);
-  const [loading, setLoading] = useState(true);
   const [benchmarkFilters, setBenchmarkFilters] =
     useState<BenchmarkFilters | null>(null);
   const [benchmarkRows, setBenchmarkRows] = useState<BenchmarkRow[]>([]);
@@ -97,6 +78,20 @@ export default function GestionnaireDashboardPage() {
 
   // Bloc 2 (évolution) + Bloc 4 (donut) — série partagée §11, honore les filtres parc.
   const { granularite, zdSeries, agSeries } = useEvolutionBlocs(filters, tab);
+  // Bloc 1 (cartes KPI + variation N-1, §06.05 l.136), kg/pax par flux du
+  // benchmark et pack AG : une seule réponse, mêmes filtres parc.
+  const {
+    kpi,
+    kpiPrev,
+    kgParPaxParFlux: perFlux,
+    pack: packRecu,
+    loading,
+    erreur,
+  } = useKpisGestionnaire(filters, tab);
+  const pack = packRecu as PackActif | null;
+  // « Réessayer » : des filtres identiques mais neufs relancent les chargements
+  // qu'ils pilotent (KPI, évolution, Top listes), tous touchés par la même panne.
+  const recharger = () => setFilters((f) => (f ? { ...f } : f));
 
   useEffect(() => {
     fetch('/api/v1/gestionnaire/filtres')
@@ -106,48 +101,6 @@ export default function GestionnaireDashboardPage() {
       })
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!filters) return;
-    setLoading(true);
-    const qs = new URLSearchParams({
-      from: filters.from,
-      to: filters.to,
-      type: tab,
-    });
-    (filters.lieu_ids ?? []).forEach((id) => qs.append('lieu_ids[]', id));
-    (filters.traiteur_ids ?? []).forEach((id) =>
-      qs.append('traiteur_ids[]', id),
-    );
-    (filters.type_evenement_ids ?? []).forEach((id) =>
-      qs.append('type_evenement_ids[]', id),
-    );
-    (filters.taille_evenement_codes ?? []).forEach((c) =>
-      qs.append('taille_evenements[]', c),
-    );
-    const fenetrePrev = previousWindow(filters.from, filters.to);
-    const qsPrev = new URLSearchParams(qs);
-    if (fenetrePrev) {
-      qsPrev.set('from', fenetrePrev.from);
-      qsPrev.set('to', fenetrePrev.to);
-    }
-    const lire = (q: URLSearchParams) =>
-      fetch(`/api/v1/gestionnaire/dashboard?${q}`).then((r) => r.json());
-    Promise.all([
-      lire(qs),
-      // N-1 non bloquant : un échec ne masque que les variations.
-      fenetrePrev ? lire(qsPrev).catch(() => null) : Promise.resolve(null),
-    ])
-      .then(([j, jPrev]) => {
-        setKpi((j.data?.kpis ?? null) as KpiData | null);
-        setKpiPrev((jPrev?.data?.kpis ?? null) as KpiData | null);
-        setPerFlux(
-          (j.data?.kg_par_pax_par_flux ?? {}) as Record<string, number>,
-        );
-        setPack((j.data?.pack ?? null) as PackActif | null);
-      })
-      .finally(() => setLoading(false));
-  }, [filters, tab]);
 
   // Blocs 6/7/3AG (§11) — endpoint partagé, mêmes filtres globaux parc.
   useEffect(() => {
@@ -311,69 +264,33 @@ export default function GestionnaireDashboardPage() {
       />
       {!loading && kpi && (
         <Text data-testid="dashboard-collectes-count">
-          {kpi.nb_collectes} collecte{kpi.nb_collectes > 1 ? 's' : ''}{' '}
-          correspond{kpi.nb_collectes > 1 ? 'ent' : ''}
+          {kpi.nb_collectes} collecte{(kpi.nb_collectes ?? 0) > 1 ? 's' : ''}{' '}
+          correspond{(kpi.nb_collectes ?? 0) > 1 ? 'ent' : ''}
         </Text>
       )}
       <ToggleTypeCollecte value={tab} onChange={setTab} />
 
-      {loading ? (
+      {erreur ? (
+        // §10 §7 « Error » : une panne de chargement ne se lit jamais comme un
+        // dashboard sans collecte.
+        <ErrorState
+          message="Impossible de charger le dashboard. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
+          onRetry={recharger}
+        />
+      ) : loading ? (
         <LoadingState />
       ) : !kpi || kpi.nb_collectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (
         <>
           {/* Bloc 1 — KPIs Cockpit (non cliquables, décision Val 2026-07-10) */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              label="Nombre de collectes"
-              value={fmtInt(kpi.nb_collectes)}
-              dotColor={KPI_DOT.navy}
-              variationPct={variationPct(
-                kpi.nb_collectes,
-                kpiPrev?.nb_collectes ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(zdSeries, (p) => p.nb_collectes)}
-            />
-            <StatCard
-              label="Tonnage collecté"
-              value={fmtMasse(kpi.tonnage_kg ?? 0).value}
-              unit={fmtMasse(kpi.tonnage_kg ?? 0).unit}
-              dotColor={KPI_DOT.navy2}
-              variationPct={variationPct(
-                kpi.tonnage_kg ?? 0,
-                kpiPrev?.tonnage_kg ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(zdSeries, (p) => p.tonnage_total)}
-            />
-            <StatCard
-              label="Taux de recyclage"
-              value={
-                kpi.taux_recyclage_pondere != null
-                  ? fmtDec(kpi.taux_recyclage_pondere, 1)
-                  : '—'
-              }
-              unit={kpi.taux_recyclage_pondere != null ? '%' : undefined}
-              dotColor={KPI_DOT.green}
-              variationPct={variationPct(
-                kpi.taux_recyclage_pondere ?? 0,
-                kpiPrev?.taux_recyclage_pondere ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(zdSeries, (p) => p.taux_recyclage)}
-              sparkColor={KPI_DOT.green}
-            />
-            {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
-                mieux », §06.05 l.136). */}
-            <StatCard
-              label="kg/pax moyen"
-              value={kpi.kg_par_pax != null ? fmtDec(kpi.kg_par_pax, 2) : '—'}
-              unit={kpi.kg_par_pax != null ? 'kg/pax' : undefined}
-              dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromSeries(zdSeries, (p) =>
-                p.pax ? p.tonnage_total / p.pax : 0,
-              )}
-            />
-          </div>
+          <CartesKpiGestionnaire
+            type={tab}
+            kpi={kpi}
+            kpiPrev={kpiPrev}
+            zdSeries={zdSeries}
+            agSeries={agSeries}
+          />
 
           {/* Bloc 2 — Évolution mensuelle ZD */}
           <div data-testid="bloc-2-gestionnaire">
@@ -427,47 +344,13 @@ export default function GestionnaireDashboardPage() {
       ) : (
         <>
           {/* Bloc 1 — KPIs Cockpit AG (non cliquables) */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              label="Nombre de collectes"
-              value={fmtInt(kpi.nb_collectes)}
-              dotColor={KPI_DOT.navy}
-              variationPct={variationPct(
-                kpi.nb_collectes,
-                kpiPrev?.nb_collectes ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.nb_collectes)}
-            />
-            <StatCard
-              label="Repas donnés"
-              value={fmtInt(kpi.nb_repas_donnes ?? 0)}
-              dotColor={KPI_DOT.accent}
-              variationPct={variationPct(
-                kpi.nb_repas_donnes ?? 0,
-                kpiPrev?.nb_repas_donnes ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
-              sparkColor={KPI_DOT.accent}
-            />
-            <StatCard
-              label="Pax cumulés"
-              value={fmtInt(kpi.pax_total ?? 0)}
-              dotColor={KPI_DOT.navy2}
-              variationPct={variationPct(
-                kpi.pax_total ?? 0,
-                kpiPrev?.pax_total ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.pax)}
-            />
-            <StatCard
-              label="Repas/pax moyen"
-              value={
-                kpi.repas_par_pax != null ? fmtDec(kpi.repas_par_pax, 2) : '—'
-              }
-              dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
-            />
-          </div>
+          <CartesKpiGestionnaire
+            type={tab}
+            kpi={kpi}
+            kpiPrev={kpiPrev}
+            zdSeries={zdSeries}
+            agSeries={agSeries}
+          />
 
           {/* Bloc 2 — Évolution Anti-Gaspi */}
           <div data-testid="bloc-2-gestionnaire">

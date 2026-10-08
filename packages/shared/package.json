@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./src/csv/index.js": "./src/csv/index.ts",
     "./src/pdf/document-types.js": "./src/pdf/document-types.ts",
+    "./src/r2/bucket.js": "./src/r2/bucket.ts",
     "./src/r2/upload.js": "./src/r2/upload.ts",
     "./src/supabase-client.js": "./src/supabase-client.ts",
     "./src/database.types.js": "./src/database.types.ts",

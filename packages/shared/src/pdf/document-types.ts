@@ -48,6 +48,26 @@ export const TEMPLATE_VERSIONS: Record<PdfDocumentType, string> = {
   facture: 'facture@1',
 };
 
+/**
+ * Dossier R2 de chaque document, premier segment de la clé dans le bucket de
+ * l'environnement (`@savr/shared/src/r2/bucket`) : un dossier par NATURE de
+ * document, pour pouvoir régler plus tard une durée de conservation par nature
+ * (décision Val 2026-10-07). Le type `Record<PdfDocumentType, …>` oblige à choisir
+ * un dossier dès qu'un document est ajouté à la liste.
+ *
+ * ⚠ Le dossier est persisté dans `shared.fichiers.key` et dans les colonnes
+ * `pdf_url` : en changer un après le premier document de production, c'est
+ * déplacer des documents légaux. Ajouter une entrée est libre, renommer ne l'est pas.
+ */
+export const DOSSIER_STOCKAGE: Record<PdfDocumentType, string> = {
+  'bordereau-zd': 'bordereaux',
+  'rapport-recyclage-zd': 'rapports',
+  'attestation-don': 'attestations',
+  'synthese-dashboard': 'syntheses',
+  'rapport-evenement-sans-excedent': 'rapports',
+  facture: 'factures',
+};
+
 /** Garde de type : `x` est-il un type de document PDF connu ? */
 export function isPdfDocumentType(x: unknown): x is PdfDocumentType {
   return (

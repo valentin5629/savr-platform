@@ -11,6 +11,8 @@
 // Curseur de reprise : lecture tournees (external_ref_commande, tms_reference) avant dispatch.
 // Réconciliation : si requires_reconciliation=true → scan minDate/maxDate avant re-POST.
 
+import { createHash } from 'node:crypto';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
@@ -75,9 +77,29 @@ interface TourneeRow {
   prestataire_logistique_id: string | null;
 }
 
-// Bucket R2 des photos de collecte (shared.fichiers.bucket). La clé porte le préfixe
-// `photos/<collecteId>/…` — cf. processPhotos.
-const PHOTO_BUCKET = 'collectes';
+/**
+ * Clé de stockage d'une photo remontée par le transporteur, dans le bucket de
+ * l'environnement : `photos/collectes/<collecteId>/<empreinte>.jpg` — même dossier
+ * que les photos importées à la main par l'Admin.
+ *
+ * L'empreinte remplace les identifiants de tournée, d'arrêt et de photo du
+ * logiciel du transporteur : la ligne shared.fichiers est lisible par les clients
+ * de la collecte (§09 C1), sa clé ne doit pas les leur montrer (décision Val
+ * 2026-10-07, prise tant qu'aucune photo n'existe). Ce n'est pas un secret, juste
+ * un nom qui ne dit plus rien. Elle est DÉTERMINISTE — la dédup de processPhotos
+ * cherche la clé — et ne dépend pas de `photo.url` : rien ne garantit que cette
+ * adresse reste la même d'un appel à l'autre (non mesuré chez le transporteur),
+ * alors que le triplet d'identifiants, lui, désigne la photo.
+ */
+function clePhoto(
+  collecteId: string,
+  photo: { tourId: string; stopId: string; photoId: string },
+): string {
+  const empreinte = createHash('sha256')
+    .update(JSON.stringify([photo.tourId, photo.stopId, photo.photoId]))
+    .digest('hex');
+  return `photos/collectes/${collecteId}/${empreinte}.jpg`;
+}
 
 // Suffixes flux ZD → libellés MTS-1 as-built (sortant)
 const FLUX_STUFFS_ZD = [
@@ -910,7 +932,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
 
     for (const photo of photos) {
-      const storageKey = `photos/${collecteId}/${photo.tourId}/${photo.stopId}/${photo.photoId}.jpg`;
+      const storageKey = clePhoto(collecteId, photo);
 
       // Dédup : photo déjà uploadée ?
       const { data: existante } = await this.supabase
@@ -947,8 +969,12 @@ export class AdapterMts1 implements LogistiqueProvider {
       // (credentials absents, rejet R2), on log + on saute sans INSERT → JAMAIS de
       // ligne shared.fichiers orpheline pointant un objet inexistant (BL-P0-02).
       // Non bloquant pour le poll : la photo est retentée au prochain passage.
+      // Le bucket persisté est celui que l'upload a réellement écrit (bucket de
+      // l'environnement) ; la clé est celle de `clePhoto`
+      // (`photos/collectes/<collecteId>/<empreinte>.jpg`).
+      let bucket: string;
       try {
-        await this.uploadPhotoToR2(storageKey, buffer);
+        bucket = await this.uploadPhotoToR2(storageKey, buffer);
       } catch {
         await this.logEntrantError(
           'PHOTO_UPLOAD_FAILED',
@@ -960,7 +986,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       // Enregistrement dans shared.fichiers (objet désormais réellement présent sur R2)
       await this.supabase.schema('shared').from('fichiers').insert({
         storage_provider: 'r2',
-        bucket: PHOTO_BUCKET,
+        bucket,
         key: storageKey,
         content_type: 'image/jpeg',
         size_bytes: buffer.length,
@@ -977,9 +1003,10 @@ export class AdapterMts1 implements LogistiqueProvider {
   // Upload binaire vers R2 (S3-compatible) via la signature AWS Sig V4 partagée
   // (@savr/shared/src/r2/upload). La logique R2/AWS-SDK vit hors packages/adapters/
   // (garde-fou 3). `uploadObject` LÈVE en cas d'échec → l'appelant ne persiste pas
-  // de pointeur orphelin.
-  private async uploadPhotoToR2(key: string, buffer: Buffer): Promise<void> {
-    await uploadObject(PHOTO_BUCKET, key, buffer, 'image/jpeg');
+  // de pointeur orphelin. Rend le bucket écrit (celui de l'environnement).
+  private async uploadPhotoToR2(key: string, buffer: Buffer): Promise<string> {
+    const { bucket } = await uploadObject(key, buffer, 'image/jpeg');
+    return bucket;
   }
 
   // ─── Helpers polling entrant (M1.5b) ─────────────────────────────────────────

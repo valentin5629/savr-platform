@@ -87,18 +87,26 @@ export async function lireDernierEmailInfosAcces(
 
 /**
  * État affichable, à partir du dernier envoi et du tampon de la collecte.
- * Le tampon ne tranche que là où le journal des emails ne dit rien : aucune
- * ligne (collecte antérieure au suivi), ou un envoi réussi qu'une demande de
- * renvoi a depuis remis en jeu (tampon retiré).
+ * Sans ligne d'envoi, rien ne prouve qu'un email est parti : « à envoyer », même
+ * si le tampon est posé (envoi réservé puis interrompu avant d'être tracé).
+ * Le tampon ne tranche que deux cas : un envoi réussi qu'une demande de renvoi
+ * a remis en jeu (tampon retiré → « à envoyer »), et un statut que ce suivi ne
+ * connaît pas.
  */
 export function deriverSuiviEmail(
   dernier: DernierEmailInfosAcces | null,
   tampon: string | null,
 ): SuiviEmailInfosAcces {
+  const aEnvoyer: SuiviEmailInfosAcces = {
+    etat: 'a_envoyer',
+    date: null,
+    tentative: null,
+    motif: null,
+  };
+  if (!dernier) return aEnvoyer;
   const selonTampon: SuiviEmailInfosAcces = tampon
     ? { etat: 'envoye', date: tampon, tentative: null, motif: null }
-    : { etat: 'a_envoyer', date: null, tentative: null, motif: null };
-  if (!dernier) return selonTampon;
+    : aEnvoyer;
 
   const tentative = dernier.tentative_numero;
   switch (dernier.statut) {
@@ -156,9 +164,11 @@ async function ouvrirAlerte(
 
 /**
  * L'email d'infos d'accès `emailId` n'arrivera pas (tentatives épuisées ou adresse
- * refusée) : tampon retiré + alerte in-app. Rejouable sans effet de bord — et
- * sans effet du tout si un envoi plus récent existe pour la collecte (un refus
- * tardif de l'ancien email ne doit pas défaire le renvoi qui l'a remplacé).
+ * refusée) : tampon retiré + alerte in-app. Rejouable : le retrait est sans
+ * effet la seconde fois et l'alerte n'est pas doublée tant qu'elle est ouverte
+ * (résolue entre-temps, un rejeu la rouvre). Sans effet du tout si un envoi plus
+ * récent existe pour la collecte : un refus tardif de l'ancien email ne doit pas
+ * défaire le renvoi qui l'a remplacé.
  */
 export async function signalerInfosAccesNonRemises(
   supabase: AdminSupabase,

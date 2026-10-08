@@ -52,10 +52,10 @@ describe('M0.6 / infos accès — état de l’email (deriverSuiviEmail)', () =>
     });
   });
 
-  it('aucune ligne d’envoi mais tampon posé (collecte antérieure au suivi) → envoyé, à la date du tampon', () => {
+  it('tampon posé mais AUCUNE ligne d’envoi (envoi réservé, interrompu avant d’être tracé) → à envoyer : rien ne prouve qu’un email est parti', () => {
     expect(deriverSuiviEmail(null, TAMPON)).toEqual({
-      etat: 'envoye',
-      date: TAMPON,
+      etat: 'a_envoyer',
+      date: null,
       tentative: null,
       motif: null,
     });

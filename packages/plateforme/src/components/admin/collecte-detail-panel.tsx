@@ -1152,7 +1152,7 @@ export function CollecteDetailPanel({
                 }
               : {
                   title:
-                    'Aucun email n’est parti : le nom et le téléphone du chauffeur doivent être renseignés pour chaque camion.',
+                    'Aucun email n’est parti. Vérifiez que le nom et le téléphone du chauffeur sont renseignés pour chaque camion.',
                   variant: 'warning',
                 },
       );

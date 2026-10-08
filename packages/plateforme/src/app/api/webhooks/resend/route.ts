@@ -257,8 +257,9 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   // ── 6bis. Email refusé par la messagerie du destinataire → suites ───────────
   // Aussi quand la ligne est DÉJÀ 'bounced' : c'est le rejeu d'un passage où le
   // statut a été écrit mais pas la suite (l'inbox n'est marquée traitée qu'à la
-  // fin). Les suites sont rejouables sans effet de bord. Une ligne 'failed' n'a
-  // jamais été acceptée par Resend : ses suites relèvent du worker de retry.
+  // fin). Les suites sont rejouables (alerte non doublée tant qu'elle est
+  // ouverte). Une ligne 'failed' n'a jamais été acceptée par Resend : ses suites
+  // relèvent du worker de retry.
   if (nouveauStatut === 'bounced' && current.statut !== 'failed') {
     const suiteErr = await traiterEmailPerdu(
       supabase,

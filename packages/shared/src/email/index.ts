@@ -217,7 +217,8 @@ export async function sendEmail(
 // _Divergences/M0.5_20260629.md). tentative_numero 1 = envoi initial, 2-4 = retries.
 // La prochaine tentative est dérivée de created_at + offset cumulatif (0 colonne
 // d'ordonnancement). Après tentative 4 échouée → statut='failed' (echec terminal) +
-// trace integrations_logs (echec_final). Pas de DLQ V1 (dashboard Admin sur statut='failed').
+// trace integrations_logs (echec_final). Pas de DLQ V1 : les lignes abandonnées sont
+// rendues à l'appelant (`epuises`), qui en tire l'alerte in-app Admin (§08 §6).
 
 const PALIERS_SECONDS = [5 * 60, 60 * 60, 24 * 60 * 60];
 

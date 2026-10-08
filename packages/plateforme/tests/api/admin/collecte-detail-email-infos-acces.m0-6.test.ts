@@ -177,9 +177,14 @@ describe('M0.6 — GET admin/collectes/[id] : infos_acces_email', () => {
     });
   });
 
-  it('aucun envoi tracé, tampon posé (collecte antérieure au suivi) → « envoye » à la date du tampon', async () => {
+  it('tampon posé mais aucun envoi tracé (envoi interrompu avant d’être écrit) → « a_envoyer » : jamais « envoyé » sans trace', async () => {
     installer([collecte()], []);
-    expect(await etat()).toMatchObject({ etat: 'envoye', date: TAMPON });
+    expect(await etat()).toEqual({
+      etat: 'a_envoyer',
+      date: null,
+      tentative: null,
+      motif: null,
+    });
   });
 
   it('collecte sans contrôle d’accès → null, et le journal des emails n’est pas lu', async () => {

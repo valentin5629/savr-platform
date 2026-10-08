@@ -51,13 +51,6 @@ function masseStr(kg: number): string {
   return `${m.value} ${m.unit}`;
 }
 
-interface PackActif {
-  id: string;
-  nb_collectes_total: number;
-  nb_collectes_restantes: number;
-  statut: string;
-}
-
 export default function GestionnaireDashboardPage() {
   const router = useRouter();
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
@@ -84,11 +77,10 @@ export default function GestionnaireDashboardPage() {
     kpi,
     kpiPrev,
     kgParPaxParFlux: perFlux,
-    pack: packRecu,
+    pack,
     loading,
     erreur,
   } = useKpisGestionnaire(filters, tab);
-  const pack = packRecu as PackActif | null;
   // « Réessayer » : des filtres identiques mais neufs relancent les chargements
   // qu'ils pilotent (KPI, évolution, Top listes), tous touchés par la même panne.
   const recharger = () => setFilters((f) => (f ? { ...f } : f));
@@ -149,11 +141,9 @@ export default function GestionnaireDashboardPage() {
       .catch(() => setBenchmarkRows([]));
   }, [benchmarkFilters, tab]);
 
-  const packEpuise = pack && pack.nb_collectes_restantes === 0;
+  const packEpuise = pack && pack.credits_restants === 0;
   const packBas =
-    pack &&
-    !packEpuise &&
-    pack.nb_collectes_restantes <= 0.1 * pack.nb_collectes_total;
+    pack && !packEpuise && pack.credits_restants <= 0.1 * pack.credits_initiaux;
 
   // ── Top listes (Cockpit) — colonnes §06.05 préservées via `secondary`. ──
   const nbColl = (n: number) => `${fmtInt(n)} collecte${n > 1 ? 's' : ''}`;
@@ -378,9 +368,9 @@ export default function GestionnaireDashboardPage() {
               <Text variant="body">
                 Crédits restants :{' '}
                 <strong className="tabular-nums">
-                  {pack.nb_collectes_restantes}
+                  {pack.credits_restants}
                 </strong>{' '}
-                / {pack.nb_collectes_total}
+                / {pack.credits_initiaux}
               </Text>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {packEpuise && <Badge variant="error">Pack épuisé</Badge>}

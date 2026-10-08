@@ -525,24 +525,6 @@ describe('M0.11 / webhook Resend — email refusé par le destinataire (suites)'
     expect(rpcCalls).toEqual([]);
   });
 
-  it('email de vérification d’inscription refusé → statut écrit, mais AUCUNE alerte : l’adresse vient d’un visiteur non connecté', async () => {
-    mockEmailRow = {
-      id: 'em-001',
-      statut: 'sent',
-      template_code: 'verification_email',
-      destinataire: 'visiteur@adresse-saisie.local',
-      entity_type: null,
-      entity_id: null,
-    };
-
-    const res = await POST(refus());
-
-    expect(res.status).toBe(200);
-    expect(updatedRows['emails_envoyes']?.[0]?.data['statut']).toBe('bounced');
-    expect(rpcCalls).toEqual([]);
-    expect(inboxTraitee()).toHaveLength(1);
-  });
-
   // La vérification de signature protège désormais plus qu'un statut : un refus
   // forgé retirerait le tampon d'une collecte et ouvrirait une alerte critique.
   const refusNonSigne = (opts: { sign?: boolean; tamper?: boolean }) =>

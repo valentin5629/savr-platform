@@ -94,16 +94,16 @@ describe('M0.5 / email perdu — alerte in-app (traiterEmailPerdu)', () => {
     expect(b.tables['alertes_admin']).toHaveLength(2);
   });
 
-  // Seul email envoyé à une adresse saisie par un visiteur non connecté
-  // (inscription) : pas d'alerte, sinon un anonyme remplirait la file d'alertes
-  // critiques avec le texte de son choix, pour une alerte que personne ne peut
-  // traiter (revue de sécurité 2026-10-08).
+  // Arbitrage C1 : tout email perdu ouvre une alerte, y compris l'email de
+  // vérification envoyé à l'inscription. Ce cas fige ce choix : une adresse
+  // saisie par un visiteur non connecté peut donc figurer dans une alerte
+  // (revue de sécurité 2026-10-08 — question posée à Val).
   it.each(['tentatives_epuisees', 'adresse_refusee'] as const)(
-    'email de vérification d’inscription perdu (%s) → AUCUNE alerte',
+    'email de vérification d’inscription perdu (%s) → alerte, comme tout autre email',
     async (motif) => {
       const b = creerBaseEnMemoire();
 
-      const erreur = await traiterEmailPerdu(
+      await traiterEmailPerdu(
         client(b),
         {
           id: 'em-inscription',
@@ -115,28 +115,17 @@ describe('M0.5 / email perdu — alerte in-app (traiterEmailPerdu)', () => {
         motif,
       );
 
-      expect(erreur).toBeNull();
-      expect(b.tables['alertes_admin'] ?? []).toEqual([]);
-      expect(b.appelsRpc).toEqual([]);
+      expect(b.tables['alertes_admin']).toHaveLength(1);
+      expect(b.tables['alertes_admin']![0]).toMatchObject({
+        code: CODE_ALERTE_EMAIL_NON_REMIS,
+        entity_type: 'emails_envoyes',
+        entity_id: 'em-inscription',
+      });
+      expect(String(b.tables['alertes_admin']![0]!['message'])).toContain(
+        'visiteur@adresse-saisie.local',
+      );
     },
   );
-
-  it('les autres emails sans entité (invitation, bienvenue) gardent leur alerte', async () => {
-    const b = creerBaseEnMemoire();
-
-    await traiterEmailPerdu(
-      client(b),
-      {
-        ...EMAIL,
-        template_code: 'bienvenue_organisation',
-        entity_type: null,
-        entity_id: null,
-      },
-      'adresse_refusee',
-    );
-
-    expect(b.tables['alertes_admin']).toHaveLength(1);
-  });
 
   it('alerte non écrite (erreur base) → erreur rendue à l’appelant', async () => {
     const b = creerBaseEnMemoire();

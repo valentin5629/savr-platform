@@ -7,14 +7,19 @@
 -- — policy aa_admin, admin_savr seul — devient donc ce qui protège une donnée
 -- personnelle.
 --
--- Prouvée ici rôle par rôle, sous `authenticated` + claim `user_role` :
+-- Ce test tient la lecture DIRECTE de la table (PostgREST, RLS), rôle par rôle,
+-- sous `authenticated` + claim `user_role` :
 --   · admin_savr lit l'alerte et son message ;
 --   · ops_savr NE la lit PAS — rôle interne, à qui `emails_envoyes` est fermée
---     pour la même raison (§09 A2bis). Le jour où l'écran Alertes lui serait
---     ouvert, ce cas rougit et force la décision sur l'adresse ;
---   · les cinq rôles clients, un JWT sans rôle et `anon` ne lisent rien ;
+--     pour la même raison (§09 A2bis) ;
+--   · les cinq rôles clients et un JWT sans rôle ne lisent rien ; `anon` n'a
+--     aucun privilège de lecture, ni sur la table ni sur une colonne ;
 --   · la fonction qui écrit l'alerte (SECURITY DEFINER) n'est exécutable ni par
 --     `authenticated` ni par `anon`.
+-- Il ne dit RIEN de l'écran Alertes : celui-ci ne lit pas par cette policy mais
+-- par la route GET /api/v1/admin/alertes (service role), fermée par sa garde
+-- requireAdmin — tenue par
+-- packages/plateforme/tests/api/admin/alertes-lecture-admin-seul.m0-5.test.ts.
 -- Aucune migration dans ce lot : le test fige l'état existant.
 -- =============================================================================
 
@@ -102,8 +107,8 @@ SELECT is(
 -- ═══ 5. anon ═════════════════════════════════════════════════════════════════
 SELECT test_as_superuser();
 SELECT is(
-  has_table_privilege('anon', 'plateforme.alertes_admin', 'SELECT'), false,
-  'anon n''a pas le privilège SELECT sur alertes_admin'
+  has_any_column_privilege('anon', 'plateforme.alertes_admin', 'SELECT'), false,
+  'anon n''a aucun privilège SELECT sur alertes_admin, ni sur la table ni sur une colonne'
 );
 
 -- ═══ 6. La fonction d'écriture n'est pas appelable par un client ═════════════

@@ -24,25 +24,11 @@ type ErreurDb = { code?: string; message: string };
  */
 export type MotifEmailPerdu = 'tentatives_epuisees' | 'adresse_refusee';
 
-// Templates dont la perte n'ouvre PAS d'alerte. `verification_email` est le
-// seul email envoyé à une adresse saisie par un visiteur non connecté
-// (POST /api/auth/signup — mesuré le 2026-10-08 sur les appels à `sendEmail` de
-// `app/api/auth/`). Deux raisons de l'écarter :
-//   · l'alerte ne serait pas actionnable : personne à « prévenir par un autre
-//     moyen », on ne connaît de ce visiteur que l'adresse qui vient d'échouer ;
-//   · elle donnerait à un anonyme le moyen de remplir la file d'alertes
-//     critiques avec un texte de son choix (5 inscriptions par IP et par heure,
-//     par instance), au risque d'y noyer une vraie alerte.
-// L'échec reste tracé (emails_envoyes, integrations_logs).
-const TEMPLATES_SANS_ALERTE = new Set(['verification_email']);
-
 export async function traiterEmailPerdu(
   supabase: AdminSupabase,
   email: EmailTranche,
   motif: MotifEmailPerdu,
 ): Promise<ErreurDb | null> {
-  if (TEMPLATES_SANS_ALERTE.has(email.template_code)) return null;
-
   // Infos d'accès chauffeur : suites propres (tampon retiré, alerte dédiée
   // pointant la fiche collecte, où l'email se renvoie).
   if (
@@ -55,13 +41,20 @@ export async function traiterEmailPerdu(
 
   // L'adresse figure dans le message : sans elle l'alerte ne dit pas qui
   // prévenir. Qui peut la lire (mesuré le 2026-10-08 sur tous les
-  // `from('alertes_admin')` du dépôt) : `message` n'est sélectionné que par
-  // GET /api/v1/admin/alertes (requireAdmin), et la policy aa_admin ferme la
-  // table à tout rôle autre qu'admin_savr, ops_savr compris
-  // (SECU__alertes_admin_message_admin_seul.test.sql). Aucun autre lecteur ne
-  // sélectionne `message` ; quatre sont servis à des clients (lieux du
-  // gestionnaire ×3, fiche collecte client) et ne lisent que `id`, pour savoir
-  // si une alerte de leur propre code existe.
+  // `from('alertes_admin')` du dépôt) :
+  //   · en lecture directe, la policy aa_admin ne laisse lire la table qu'au
+  //     rôle applicatif admin_savr — ni ops_savr, ni un rôle client
+  //     (SECU__alertes_admin_message_admin_seul.test.sql) ;
+  //   · par le code de l'application, qui lit cette table par le service role
+  //     (donc hors policy) :
+  //     `message` n'est sélectionné que par GET /api/v1/admin/alertes, gardée
+  //     par requireAdmin (alertes-lecture-admin-seul.m0-5.test.ts). Quatre
+  //     lecteurs servis à des clients (lieux du gestionnaire ×3, fiche collecte
+  //     client) lisent la table, mais ne sélectionnent que `id`.
+  // Tout template est concerné, y compris l'email de vérification envoyé à
+  // l'inscription : une adresse saisie par un visiteur non connecté peut donc se
+  // retrouver dans cette alerte (arbitrage C1 ; question posée à Val, point 11
+  // de la fiche de divergence).
   const constat =
     motif === 'adresse_refusee'
       ? 'a été refusé par la messagerie du destinataire (adresse invalide, boîte pleine ou signalement comme indésirable)'

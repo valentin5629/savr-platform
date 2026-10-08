@@ -1541,7 +1541,7 @@ const baseAg = {
   },
   attributions_antgaspi: {
     id: 'attr1',
-    mode_validation: 'manuel',
+    mode_validation: 'manuel_top1',
     valide_at: '2026-05-01T10:00:00Z',
     volume_repas_realise: 42,
     associations: { nom: 'Les Restos du Cœur' },
@@ -1761,11 +1761,15 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         await screen.findByText('Attribution AG', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // Association + transporteur retenus (embed attributions_antgaspi).
-      expect(screen.getAllByText('Les Restos du Cœur').length).toBeGreaterThan(
-        0,
+      // Association + transporteur retenus (embed attributions_antgaspi), lus
+      // sous leur libellé : l'en-tête de la fiche porte aussi le nom de
+      // l'association, il ne prouve rien du résumé.
+      expect(valeurResumeAttribution('Association retenue')).toHaveTextContent(
+        /^Les Restos du Cœur$/,
       );
-      expect(screen.getByText('A Toutes!')).toBeInTheDocument();
+      expect(valeurResumeAttribution('Transporteur retenu')).toHaveTextContent(
+        /^A Toutes!$/,
+      );
       // Validation (§06.06 Bloc 5) : mode + date de validation, au jour de Paris.
       expect(valeurResumeAttribution('Validation')).toHaveTextContent(
         /^manuel_override — 02\/05\/2026$/,

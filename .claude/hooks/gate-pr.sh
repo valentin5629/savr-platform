@@ -44,20 +44,39 @@ ICI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}
 #
 # LA MENTION ENTRE ACCENTS GRAVES — retirée du texte avant les deux voies : la
 # commande NUE, écrite exactement `gh pr create` ou `gh pr new` (un seul espace
-# entre les mots, rien d'autre entre les deux accents graves). C'est l'écriture
-# Markdown d'une mention, dans un message de commit ou un corps de PR ; l'accent
-# grave ouvrant aussi une substitution de commande, elle déclenchait la garde par
-# la voie 1 (rejoué le 2026-10-08 sur l'historique des sessions : 8 commandes
-# sur les 654 qui contiennent la chaîne, toutes des notes rédigées en Markdown).
-# Ce que ça coûte : si le shell exécute réellement ce texte (substitution hors
-# guillemets simples), la garde ne le voit plus. C'est alors `gh` sans aucune
-# option, qui ne crée rien — mesuré le 2026-10-08 avec gh 2.101.0, hors de tout
-# dépôt, de cinq façons (entre accents graves, alias `new`, `$( )`, entrée et
-# sortie redirigées, `GH_FORCE_TTY` posé) : code 1, « must provide `--title`
-# and `--body` (or `--fill` …) when not running interactively ». En
-# substitution, sa sortie standard est vide (mesuré pour `create` et pour
-# `new`). Même constat que la famille (a) plus bas. Dès qu'une option est écrite
-# entre les accents graves (`gh pr create --fill`), la commande reste vue.
+# entre les mots, rien d'autre entre les deux accents graves), quand ses deux
+# accents graves vont ENSEMBLE. C'est l'écriture Markdown d'une mention, dans un
+# message de commit ou un corps de PR ; l'accent grave ouvrant aussi une
+# substitution de commande, elle déclenchait la garde par la voie 1 (rejoué le
+# 2026-10-08 sur l'historique des sessions : 8 commandes sur les 654 qui
+# contiennent la chaîne, toutes des notes rédigées en Markdown — ce sont les
+# seules commandes de l'historique dont ce retrait change le verdict).
+# « Vont ensemble » : les accents graves du texte sont appariés deux à deux
+# depuis le début, comme le shell les lit. Sans cela, le texte pris entre la FIN
+# d'une substitution et le DÉBUT de la suivante — du texte de commande ordinaire
+# — était retiré lui aussi, et `true`gh pr create`true` --fill, qui crée une PR,
+# n'était plus vu (relevé en revue sécurité ; formes épinglées en V).
+# Ce que ce retrait coûte, mesuré le 2026-10-08 :
+#   • si le shell exécute réellement la mention (substitution hors guillemets
+#     simples), la garde ne la voit plus. C'est alors `gh` sans aucune option,
+#     qui ne crée rien — gh 2.101.0, hors de tout dépôt, de cinq façons (entre
+#     accents graves, alias `new`, `$( )`, entrée et sortie redirigées,
+#     `GH_FORCE_TTY` posé) : code 1, « must provide `--title` and `--body` (or
+#     `--fill` …) when not running interactively ». En substitution, sa sortie
+#     standard est vide (mesuré pour `create` et pour `new`). Même constat que
+#     la famille (a) plus bas ;
+#   • l'appariement compte TOUS les accents graves, sans lire les guillemets. Un
+#     accent grave que le shell ne lit pas comme tel — entre guillemets simples,
+#     par exemple — le décale d'un cran, et la forme ci-dessus redevient
+#     invisible : echo '`'; `true`gh pr create`true` --fill lance bien la
+#     création avec `--fill`. Forme à construire, capable de créer une PR,
+#     épinglée en L ;
+#   • une commande qui crée une PR par une voie que ce motif ne voit pas (le
+#     binaire entre guillemets, `ssh hote '…'`, `gh api`) et qui citait EN PLUS
+#     la mention était vue par accident ; elle ne l'est plus.
+# Dès qu'une option est écrite entre les accents graves (`gh pr create --fill`),
+# la commande reste vue. Le retrait n'est pas tenté sur un texte de plus de
+# 100 000 caractères (cf. le commentaire de la fonction).
 #
 # CE QUI DÉCLENCHE À TORT, et c'est voulu (un refus de trop vaut mieux qu'une PR
 # non contrôlée) :
@@ -125,20 +144,52 @@ gate_pr_matche() {
   local enveloppe="\\b((ba|z)?sh\\b[^;&|]*[[:space:]]-[a-zA-Z]*c|eval)[[:space:]]+[\"']?[[:space:]]*"
   local suite="([[:space:]]*(\$|[;&|<>#\\\\])|[[:space:]]+[-\"'\$])"
   # La mention entre accents graves (cf. l'en-tête) est retirée avant les deux
-  # voies. Retirée, pas remplacée par un blanc : c'est ce que le shell fait d'une
-  # substitution dont la sortie est vide (mesuré : la commande nue ne rend rien
-  # sur sa sortie standard), le texte qui l'entoure se recolle — et c'est ce
-  # texte recollé qui est jugé (forme g`…`h de la matrice).
-  local texte="$1" mention
-  for mention in '`gh pr create`' '`gh pr new`'; do
-    texte="${texte//$mention/}"
-  done
-  # Le texte est donné à grep par une chaîne-ici, pas par un tube : sous
-  # `pipefail`, `printf … | grep -q` rendait « non vue » une commande de plus de
-  # 64 Ko dont la création est au début (grep sort au premier résultat, printf
-  # reçoit SIGPIPE, le tube sort en erreur). Mesuré en revue, déjà vrai avant.
-  grep -Eq "(${debut}|${enveloppe})${commande}" <<< "$texte" && return 0
-  grep -Eq "[[:space:]]${commande}${suite}" <<< "$texte"
+  # voies, quand ses deux accents graves vont ensemble : le texte est découpé en
+  # paires d'accents graves depuis le début, et seule une paire qui enferme
+  # exactement la commande nue est retirée. Retirée, pas remplacée par un blanc :
+  # c'est ce que le shell fait d'une substitution dont la sortie est vide
+  # (mesuré : la commande nue ne rend rien sur sa sortie standard), le texte qui
+  # l'entoure se recolle — et c'est ce texte recollé qui est jugé (forme g`…`h
+  # de la matrice). Le découpage n'est fait que si le texte porte la mention, et
+  # s'il tient en 100 000 caractères : son coût croît avec le carré du nombre
+  # d'accents graves (mesuré sous bash 3.2 : 0,8 s pour 59 Ko et 2 000 accents
+  # graves, 12 s pour 234 Ko et 8 000). Au-delà, le texte est jugé tel quel et la
+  # mention redevient un refus à tort.
+  local texte="$1" reste avant dedans
+  case "$texte" in
+    *'`gh pr create`'* | *'`gh pr new`'*)
+      if [ "${#texte}" -le 100000 ]; then
+        reste="$texte"
+        texte=""
+        while :; do
+          case "$reste" in *'`'*'`'*) ;; *) break ;; esac
+          avant="${reste%%\`*}"
+          reste="${reste#*\`}"
+          dedans="${reste%%\`*}"
+          reste="${reste#*\`}"
+          case "$dedans" in
+            'gh pr create' | 'gh pr new') texte="${texte}${avant}" ;;
+            *) texte="${texte}${avant}\`${dedans}\`" ;;
+          esac
+        done
+        texte="${texte}${reste}"
+      fi
+      ;;
+  esac
+  # Le tube est lu dans un sous-shell SANS `pipefail` : le statut est celui de
+  # grep seul. Sous `pipefail`, quand du texte suit la ligne du motif et dépasse
+  # le tampon du tube, grep sort au premier résultat, printf reçoit SIGPIPE, le
+  # tube sort en erreur et la commande était lue « non vue » (mesuré en revue,
+  # déjà vrai avant). Pas de chaîne-ici : bash 3.2 l'écrit dans un fichier
+  # temporaire, et la lecture échoue quand ce fichier ne peut pas être créé.
+  (
+    set +o pipefail
+    printf '%s' "$texte" 2> /dev/null | grep -Eq "(${debut}|${enveloppe})${commande}"
+  ) && return 0
+  (
+    set +o pipefail
+    printf '%s' "$texte" 2> /dev/null | grep -Eq "[[:space:]]${commande}${suite}"
+  )
 }
 
 # ── Auto-test, 2e partie : le flux du hook, de bout en bout ─────────────────
@@ -269,13 +320,22 @@ FAUX
     "FAUX_SEED_SORTIE=[seed:check] erreur : ENOENT: no such file or directory, open '/x/.env.local'"
   tait 'seed non joué' 'seed OK'
   dit 'seed non joué' 'NON JOUÉ'
+  # Un script qui plante n'a rien constaté : ni « OK », ni « écart ».
   code 'seed en erreur sur un autre fichier' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
     "FAUX_SEED_SORTIE=[seed:check] erreur : ENOENT: no such file or directory, open '/x/matrix.csv'"
-  dit 'seed en erreur sur un autre fichier' 'signale un écart'
-  code 'seed : base de dev injoignable' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
-    'FAUX_SEED_SORTIE=[seed:check] erreur : getaddrinfo ENOTFOUND db.exemple.supabase.co'
-  tait 'seed : base de dev injoignable' 'seed OK'
-  dit 'seed : base de dev injoignable' 'NON JOUÉ'
+  tait 'seed en erreur sur un autre fichier' 'seed OK'
+  tait 'seed en erreur sur un autre fichier' 'signale un écart'
+  dit 'seed en erreur sur un autre fichier' 'sans rendre de verdict'
+  dit 'seed en erreur sur un autre fichier' 'matrix.csv'
+  code 'seed : commande introuvable' 0 "$depot" "$creer" FAUX_SEED_CODE=127 'FAUX_SEED_SORTIE=sh: tsx: command not found'
+  tait 'seed : commande introuvable' 'seed OK'
+  dit 'seed : commande introuvable' 'sans rendre de verdict'
+  # Chaque signe d'une base injoignable, seul sur sa ligne de sortie.
+  code 'seed : nom introuvable' 0 "$depot" "$creer" FAUX_SEED_CODE=1 'FAUX_SEED_SORTIE=Error: ENOTFOUND db.exemple.supabase.co'
+  tait 'seed : nom introuvable' 'seed OK'
+  dit 'seed : nom introuvable' 'NON JOUÉ'
+  code 'seed : résolution de nom en échec' 0 "$depot" "$creer" FAUX_SEED_CODE=1 'FAUX_SEED_SORTIE=Error: getaddrinfo EAI_AGAIN db.exemple.supabase.co'
+  dit 'seed : résolution de nom en échec' 'NON JOUÉ'
   code 'seed : connexion refusée' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
     'FAUX_SEED_SORTIE=[seed:check] erreur : connect ECONNREFUSED 127.0.0.1:5432'
   dit 'seed : connexion refusée' 'NON JOUÉ'
@@ -386,6 +446,15 @@ V:echo `gh pr create` && gh pr create --fill
 V:g`gh pr create`h pr create --fill
 V:nice g`gh pr new`h pr create --fill
 V:URL=`gh -R o/r pr create --fill`
+V:`true`gh pr create`true` --fill
+V:`true`gh pr new`true` --fill
+V:`true `gh pr create` true` --fill
+V:`:`gh pr create`:` --title t --body b
+V:`true`gh pr create`echo " --fill"`
+V:nice `true`gh pr create`true` --fill
+V:bash -c '`true`gh pr create`true` --fill'
+V:if `true`gh pr create`true` --fill; then echo ok; fi
+V:D=`pwd`; `true`gh pr create`true` --fill --head b
 V:gh pr new --fill
 V:gh  pr   create --fill
 V:gh pr -R o/r create --fill
@@ -414,6 +483,7 @@ F:gh pr merge 42 --squash  # puis gh pr create
 F:git commit -m "doc : lancer gh pr create --fill apres la revue"
 F:echo 'la forme `gh pr create --fill` est gardee'
 F:echo 'ecrit `gh  pr create` avec deux espaces'
+F:echo 'voir `gh pr create`, ou bien `gh pr create --fill`'
 L:"gh" pr create --fill
 L:ssh hote 'gh pr create --fill'
 L:su - val -c "gh pr create --fill"
@@ -435,16 +505,23 @@ L:(nice gh pr create)
 L:URL=`gh pr create`
 L:nice gh pr create 2>&1 --fill
 L:nice gh pr create {--fill,--draft}
+L:echo '`'; `true`gh pr create`true` --fill
+L:"gh" pr create --fill # la mention `gh pr create` ne suffit plus a la faire voir
+L:ssh hote 'gh pr create --fill' # idem, avec la mention `gh pr new`
 FORMES
   # Une commande sur plusieurs lignes : chaque début de ligne est une position de commande.
   juge V "$(printf 'git push -u origin b\n  gh pr create --fill')"
   # Options renvoyées à la ligne : la ligne qui porte la commande finit par une barre inverse.
   juge V "$(printf 'cd /tmp/wt && GH_TOKEN=abc gh pr create \\\n  --title "t" \\\n  --body "b"')"
-  # Une très grosse commande dont la création est au DÉBUT : le tube sous
-  # `pipefail` la rendait « non vue » (cf. gate_pr_matche).
+  # Une très grosse commande où du texte SUIT la ligne de la création : le tube
+  # lu sous `pipefail` la rendait « non vue » (cf. gate_pr_matche).
   remplissage="$(head -c 300000 /dev/zero | tr '\0' 'x')"
   juge V "$(printf 'gh pr create --fill\n%s' "$remplissage")"
   juge V "$(printf 'nice gh pr create --fill\n%s' "$remplissage")"
+  # Au-delà de 100 000 caractères, la mention entre accents graves n'est plus
+  # retirée : refus à tort assumé (cf. gate_pr_matche).
+  juge F "$(printf 'echo "voir `gh pr create` avant la revue"\n%s' "$remplissage")"
+  juge N "$(printf 'echo "voir `gh pr create` avant la revue"\n%s' "${remplissage:0:90000}")"
   juge N "$(printf 'git status --short\n%s' "$remplissage")"
 
   bout_en_bout || echec=true
@@ -539,27 +616,40 @@ echo "  ✅ tests OK" >&2
 # `pnpm seed:check` interroge la base de DEV (volumétrie, objets clés, emails et
 # téléphones fictifs, séquences de facturation). Il juge l'état de cette base,
 # pas le contenu de la branche.
-# Jusqu'au 2026-10-08, ce bloc lisait `$?` après un `|| true` : le code lu était
-# toujours nul, « seed OK » s'affichait quoi qu'il arrive, et son `exit 2` n'a
-# jamais pu être atteint. Mesuré ce jour-là, avant de corriger la lecture :
-#   • dans un worktree sans `.env.local` (33 des 34 de `.claude/worktrees/`), le
-#     script sort en 1 sans avoir rien contrôlé (ENOENT sur `.env.local`) ;
+# Histoire de ce bloc, relevée par `git log -G'seed:check'` : du 2026-06-14 (#17)
+# au 2026-06-17, il bloquait pour de bon (`if ! pnpm seed:check; then … exit 2`).
+# Du 2026-06-17 (#48) au 2026-10-08, il lisait `$?` après un `|| true` : le code
+# lu était toujours nul, « seed OK » s'affichait quoi qu'il arrive, et son
+# `exit 2` ne pouvait plus être atteint. Mesuré le 2026-10-08, avant de corriger
+# la lecture :
+#   • dans un worktree sans `.env.local` (33 des 34 de `.claude/worktrees/` ce
+#     jour-là), le script sort en 1 sans avoir rien contrôlé (ENOENT sur
+#     `.env.local`) ;
 #   • dans le clone principal, il sort en 1 sur 3 écarts réels de la base de dev
 #     (un transporteur, une séquence de facturation, un téléphone).
 # Bloquer sur ce code arrêterait donc toute création de PR, pour un état qui ne
-# dépend pas de la PR. Le bloc reste non bloquant, comme il l'a toujours été en
-# fait ; ce qui change, c'est qu'il n'affiche plus « OK » sans l'avoir constaté.
-# Le rendre bloquant, ou le retirer d'ici, est une décision de Val.
+# dépend pas de la PR. Le bloc reste non bloquant, comme il l'est en fait depuis
+# le 2026-06-17 ; ce qui change, c'est qu'il n'affiche plus « OK » sans l'avoir
+# constaté. Le rendre bloquant, ou le retirer d'ici, est une décision de Val.
+sortie_contient() {  # <texte> <motif> — lu sans pipefail, comme dans gate_pr_matche
+  (
+    set +o pipefail
+    printf '%s' "$1" 2> /dev/null | grep -qE "$2"
+  )
+}
 echo "  → pnpm seed:check (informatif)..." >&2
 SEED_EXIT=0
 SEED_OUTPUT="$(pnpm seed:check 2>&1)" || SEED_EXIT=$?
 if [ "$SEED_EXIT" -eq 0 ]; then
   echo "  ✅ seed OK" >&2
-elif printf '%s' "$SEED_OUTPUT" | grep -qE "ENOENT.*\.env\.local|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|getaddrinfo"; then
+elif sortie_contient "$SEED_OUTPUT" "ENOENT.*\.env\.local|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|getaddrinfo"; then
   echo "  ⚠️  seed:check NON JOUÉ — pas de .env.local dans ce dossier, ou base de dev injoignable. Rien n'a été contrôlé." >&2
-else
-  printf '%s\n' "$SEED_OUTPUT" | grep -E '❌|erreur' >&2 || true
+elif sortie_contient "$SEED_OUTPUT" '❌'; then
+  printf '%s\n' "$SEED_OUTPUT" | grep -E '❌' >&2 || true
   echo "  ⚠️  seed:check signale un écart sur la base de dev (code ${SEED_EXIT}) — non bloquant." >&2
+else
+  printf '%s\n' "$SEED_OUTPUT" | tail -3 >&2 || true
+  echo "  ⚠️  seed:check a échoué (code ${SEED_EXIT}) sans rendre de verdict — rien n'est établi sur la base de dev. Non bloquant." >&2
 fi
 
 # 3. Outbox contracts (conformité payload V2)

@@ -1541,7 +1541,7 @@ const baseAg = {
   },
   attributions_antgaspi: {
     id: 'attr1',
-    mode_validation: 'manuel',
+    mode_validation: 'manuel_top1',
     valide_at: '2026-05-01T10:00:00Z',
     volume_repas_realise: 42,
     associations: { nom: 'Les Restos du Cœur' },
@@ -1679,6 +1679,15 @@ function installMock(opts: {
   return fetchMock;
 }
 
+// Valeur d'un item du résumé « Attribution AG » : le <dd> qui suit le <dt> du
+// libellé, cherché dans le <dl> du résumé (l'onglet Logistique en porte d'autres).
+function valeurResumeAttribution(libelle: string): HTMLElement {
+  const resume = screen
+    .getByText('Association retenue')
+    .closest('dl') as HTMLElement;
+  return within(resume).getByText(libelle).nextElementSibling as HTMLElement;
+}
+
 describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA-07)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
@@ -1734,18 +1743,44 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   it(
     'M0.6 — Bloc 5 Attribution AG : association + transporteur retenus (attribution intégrée à la fiche, plus de stub « algo V2 »)',
     async () => {
-      installMock({});
+      installMock({
+        collecte: {
+          ...baseAg,
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            // Valeur réelle de l'enum, et instant où le jour de Paris (2 mai,
+            // 00 h 30) n'est plus celui d'UTC (1er mai, 22 h 30).
+            mode_validation: 'manuel_override',
+            valide_at: '2026-05-01T22:30:00Z',
+          },
+        },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
       expect(
         await screen.findByText('Attribution AG', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // Association + transporteur retenus (embed attributions_antgaspi).
-      expect(screen.getAllByText('Les Restos du Cœur').length).toBeGreaterThan(
-        0,
+      // Association + transporteur retenus (embed attributions_antgaspi), lus
+      // sous leur libellé : l'en-tête de la fiche porte aussi le nom de
+      // l'association, il ne prouve rien du résumé.
+      expect(valeurResumeAttribution('Association retenue')).toHaveTextContent(
+        /^Les Restos du Cœur$/,
       );
-      expect(screen.getByText('A Toutes!')).toBeInTheDocument();
+      expect(valeurResumeAttribution('Transporteur retenu')).toHaveTextContent(
+        /^A Toutes!$/,
+      );
+      // Validation (§06.06 Bloc 5) : mode + date de validation, au jour de Paris.
+      expect(valeurResumeAttribution('Validation')).toHaveTextContent(
+        /^manuel_override — 02\/05\/2026$/,
+      );
+      expect(
+        screen.queryByText('En attente de validation'),
+      ).not.toBeInTheDocument();
+      // Volumes : estimé (collecte) puis réalisé (attribution), dans cet ordre.
+      expect(
+        valeurResumeAttribution('Volume repas (estimé / réalisé)'),
+      ).toHaveTextContent(/^50 \/ 42$/);
       // L'attribution se fait dans la fiche (décision Val 2026-10-01) : plus de
       // lien vers un écran dédié.
       expect(
@@ -1755,6 +1790,39 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         screen.queryByText(/algo V2.*Non disponible en V1/),
       ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 5 Attribution AG : validation en attente (valide_at nul) et volume réalisé absent',
+    async () => {
+      // Association retenue mais attribution non datée : la colonne `valide_at`
+      // est nullable (§04), le résumé le dit au lieu d'afficher un mode sans date.
+      installMock({
+        collecte: {
+          ...baseAg,
+          statut: 'programmee',
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            mode_validation: 'manuel_top1',
+            valide_at: null,
+            volume_repas_realise: null,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Attribution AG', undefined, ATTENTE_UI);
+
+      // Le badge seul : ni mode ni date tant que la validation n'est pas datée.
+      expect(valeurResumeAttribution('Validation')).toHaveTextContent(
+        /^En attente de validation$/,
+      );
+      // Volume estimé affiché, réalisé pas encore remonté → tiret.
+      expect(
+        valeurResumeAttribution('Volume repas (estimé / réalisé)'),
+      ).toHaveTextContent(/^50 \/ —$/);
     },
     ATTENTE_CAS_MS,
   );

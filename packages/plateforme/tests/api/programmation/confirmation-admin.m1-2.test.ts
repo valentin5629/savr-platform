@@ -37,7 +37,19 @@ function makeChain() {
       return chain;
     },
   };
-  for (const m of ['from', 'select', 'eq', 'in', 'is', 'update', 'insert']) {
+  // `order` et `limit` : lecture du journal des emails par le GET (état de l'email
+  // récapitulatif) — sans réponse en file, elle rend « aucune ligne ».
+  for (const m of [
+    'from',
+    'select',
+    'eq',
+    'in',
+    'is',
+    'update',
+    'insert',
+    'order',
+    'limit',
+  ]) {
     chain[m] = (...args: unknown[]) => {
       record(m, args);
       return chain;
@@ -279,5 +291,83 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
     // même verrou que le GET (le CDC §06.01 l.19 tient les clients finaux en
     // lecture seule).
     expect((await ajouterCollecte('zd')).status).toBe(403);
+  });
+});
+
+// ── État réel de l'email récapitulatif (décision Val 2026-10-08) ─────────────
+// L'écran de confirmation ne dit « email envoyé » que si c'est vrai : le GET
+// rend l'état lu dans le journal des emails, après la garde de périmètre.
+describe('M1.2/confirmation_email_recap_issue_reelle — GET détail événement', () => {
+  it.each([
+    [
+      'email accepté par Resend',
+      { statut: 'sent', tentative_numero: 1 },
+      'envoye',
+    ],
+    [
+      'email refusé, reprise en cours',
+      { statut: 'failed', tentative_numero: 2 },
+      'en_reprise',
+    ],
+    [
+      '4 tentatives épuisées',
+      { statut: 'failed', tentative_numero: 4 },
+      'non_envoye',
+    ],
+    ['aucune ligne d’envoi', null, 'non_envoye'],
+  ])('%s → email_recap = %s', async (_cas, ligne, attendu) => {
+    setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push({ data: EVT, error: null });
+    admin.push({ data: ligne, error: null });
+
+    const res = await getEvenement();
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      id: 'e1',
+      email_recap: attendu,
+    });
+  });
+
+  it('journal des emails illisible → 200, état inconnu (null) : le récapitulatif reste servi', async () => {
+    setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push({ data: EVT, error: null });
+    admin.push({ data: null, error: { code: '57014', message: 'timeout' } });
+
+    const res = await getEvenement();
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      id: 'e1',
+      collectes: [{ id: 'col-1' }],
+      email_recap: null,
+    });
+  });
+
+  it('seul l’état sort : ni adresse, ni message d’erreur, ni colonne du journal', async () => {
+    setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push({ data: EVT, error: null });
+    admin.push({
+      data: { statut: 'failed', tentative_numero: 1 },
+      error: null,
+    });
+
+    const corps = (await (await getEvenement()).json()) as Record<
+      string,
+      unknown
+    >;
+
+    expect(corps.email_recap).toBe('en_reprise');
+    for (const cle of ['destinataire', 'erreur', 'statut', 'tentative_numero'])
+      expect(corps).not.toHaveProperty(cle);
+    // Les seules colonnes demandées au journal.
+    expect(admin.__calls.select).toContainEqual(['statut, tentative_numero']);
+  });
+
+  it('rôle hors périmètre → 403, le journal des emails n’est pas lu', async () => {
+    setupAuth('client_organisateur', 'org-kaspia');
+
+    expect((await getEvenement()).status).toBe(403);
+    expect(admin.__calls.from ?? []).toEqual([]);
   });
 });

@@ -67,9 +67,27 @@ function makeEvenementsStore(rows: Row[]) {
     };
     return b;
   };
+  // Journal des emails : lu par le GET pour l'état de l'email récapitulatif, une
+  // fois l'événement trouvé. Aucune ligne ici ; seuls ses filtres sont tracés.
+  const journalEq: Array<[string, unknown]> = [];
+  const journal = () => {
+    const j = {
+      select: () => j,
+      eq: (col: string, val: unknown) => {
+        journalEq.push([col, val]);
+        return j;
+      },
+      order: () => j,
+      limit: () => j,
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+    };
+    return j;
+  };
   return {
     __eqCalls: eqCalls,
+    __journalEq: journalEq,
     from: (table: string) => {
+      if (table === 'emails_envoyes') return journal();
       if (table !== 'evenements')
         throw new Error(`table inattendue dans le GET : ${table}`);
       return builder();
@@ -184,6 +202,9 @@ describe('M1.2 / GET détail événement — cloisonnement inter-organisation', 
     // (Prouve l'égalité, pas la dérivation — c'est la contre-épreuve org B
     // ci-dessous qui prouve que le filtre SUIT le JWT au lieu d'être figé.)
     expect(store.__eqCalls).toContainEqual(['organisation_id', ORG_A]);
+    // Le journal des emails n'est jamais lu pour un événement hors périmètre :
+    // même un état à trois valeurs trahirait l'existence de l'événement.
+    expect(store.__journalEq).toEqual([]);
   });
 
   it('M1.2 — GET événement de sa propre organisation → 200 + détail (contre-épreuve : le fake sait renvoyer une ligne)', async () => {
@@ -195,7 +216,15 @@ describe('M1.2 / GET détail événement — cloisonnement inter-organisation', 
     expect(await res.json()).toMatchObject({
       id: 'evt-org-a',
       nom_evenement: 'Cocktail Org A',
+      // Aucune ligne d'envoi dans le journal → rien n'est parti.
+      email_recap: 'non_envoye',
     });
+    // Le journal est lu pour CET événement, et pour l'email récapitulatif seul.
+    expect(store.__journalEq).toEqual([
+      ['template_code', 'collecte_programmee'],
+      ['entity_type', 'evenement'],
+      ['entity_id', 'evt-org-a'],
+    ]);
   });
 
   // ANTI-VACUITÉ (revue rls-securite du 2026-07-17, mutations M3/M4) : sans ce

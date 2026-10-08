@@ -7,6 +7,7 @@ import {
 } from '@/lib/api-auth.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
+import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 
 // Champs métier ÉVÉNEMENT éditables par les rôles programmateurs (§06.04 l.444,
@@ -75,7 +76,12 @@ export async function GET(
       { status: 404 },
     );
 
-  return NextResponse.json(data);
+  // Écran de confirmation (§06.01 étape 13) : état réel de l'email récapitulatif.
+  // Lu APRÈS la garde ci-dessus, donc jamais pour un événement hors du périmètre
+  // de l'appelant.
+  const emailRecap = await lireEtatRecapEmail(supabase, evenementId);
+
+  return NextResponse.json({ ...data, email_recap: emailRecap });
 }
 
 // Édition des champs métier de l'événement par un rôle programmateur (4 rôles).

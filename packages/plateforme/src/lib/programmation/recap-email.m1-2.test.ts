@@ -81,6 +81,13 @@ describe('M1.2/email_recap_bonjour_prenom — envoyerRecapProgrammation', () => 
     expect(emails).toHaveLength(1);
     const email = emails[0]!;
     expect(email.slug).toBe('collecte_programmee');
+    // L'écran de confirmation relit l'envoi par ce template et cette entité
+    // (suivi-recap-email.ts) : s'ils changent ici, l'écran dirait « non envoyé »
+    // d'un email parti. Valeurs écrites en toutes lettres, pas reprises du code.
+    expect(email.options).toEqual({
+      entityType: 'evenement',
+      entityId: 'evt-1',
+    });
     expect(email.to).toBe('julie@traiteur.local');
     expect(email.variables.prenom).toBe('Julie');
     expect(

@@ -217,7 +217,15 @@
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Écran de confirmation dédié : bandeau succès + récapitulatif des collectes créées + rappel email récap + les 3 actions (« Ajouter une collecte à cet événement », « Programmer un autre événement », « Accueil ») — preuve visuelle GO-VISUAL"
+      "libelle": "Écran de confirmation dédié : bandeau succès + récapitulatif des collectes créées + rappel email récap (trois messages selon l'issue de l'envoi, en bandeau d'avertissement si rien n'est parti, absent si l'état est inconnu) + les 3 actions (« Ajouter une collecte à cet événement », « Programmer un autre événement », « Accueil ») — preuve visuelle GO-VISUAL"
+    },
+    {
+      "id": "M1.2-confirmation-email-recap-issue-reelle",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:419",
+      "artefact": "packages/plateforme/src/lib/programmation/suivi-recap-email.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (GET : champ email_recap, lu après la garde de périmètre) + packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
+      "test": "M1.2/confirmation_email_recap_issue_reelle — état dérivé du dernier envoi + M1.2/confirmation_email_recap_issue_reelle — lecture du journal des emails + M1.2/confirmation_email_recap_issue_reelle — GET détail événement + M1.2/confirmation_email_recap_issue_reelle — écran de confirmation",
+      "statut": "implemented",
+      "libelle": "Écran de confirmation : le rappel de l'email récapitulatif dit l'issue réelle de l'envoi (décision Val 2026-10-08, _Divergences/M1.2_20261008_confirmation-email-recap-issue-reelle.md). État lu dans emails_envoyes (dernier envoi `collecte_programmee` de l'événement) et rendu par le GET sous la forme d'un état à trois valeurs, sans adresse ni message d'erreur : parti → « Un email récapitulatif vient de vous être envoyé. » ; refusé pour l'instant → nouvelle tentative automatique annoncée ; non parti (4 tentatives épuisées, refus de la messagerie, ou aucune ligne d'envoi) → bandeau : programmation enregistrée, adresse de contact. État inconnu (journal illisible) → l'écran ne dit rien de l'email. Le journal n'est jamais lu pour un événement hors du périmètre de l'appelant."
     }
   ],
   "cdc_source_hash": {

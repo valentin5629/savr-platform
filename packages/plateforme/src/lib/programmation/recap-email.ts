@@ -1,6 +1,10 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { calculer_tarif_zd } from '@/lib/tarif-zd.js';
+import {
+  ENTITE_RECAP_PROGRAMMATION,
+  TEMPLATE_RECAP_PROGRAMMATION,
+} from '@/lib/programmation/suivi-recap-email.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -74,7 +78,7 @@ export async function envoyerRecapProgrammation(
   }
 
   await sendEmail(
-    'collecte_programmee',
+    TEMPLATE_RECAP_PROGRAMMATION,
     to,
     {
       // Formule d'appel « Bonjour Prénom, » (§06.02 §3). Vide → « Bonjour, » :
@@ -84,6 +88,7 @@ export async function envoyerRecapProgrammation(
       date_collecte: dateRecap,
       tarif_ligne: tarifLigne,
     },
-    { entityType: 'evenement', entityId: params.evenementId },
+    // Relu par l'écran de confirmation (suivi-recap-email.ts) : même entité.
+    { entityType: ENTITE_RECAP_PROGRAMMATION, entityId: params.evenementId },
   );
 }

@@ -19,6 +19,7 @@ import { Text, textClasses } from '@/components/ui/text';
 import { InfoItem } from '@/components/ui/info-item';
 import { ROUTES } from '@/lib/routes';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+import type { EtatRecapEmail } from '@/lib/programmation/suivi-recap-email';
 
 // Valeur du récapitulatif événement : texte courant neutral-900.
 const VALEUR_RECAP = textClasses({ tone: 'ink' });
@@ -46,6 +47,19 @@ type EvenementRecap = {
   // Relation to-one : PostgREST renvoie un objet, on tolère le tableau par sûreté.
   lieux: LieuRecap | LieuRecap[] | null;
   collectes: CollecteRecap[];
+  // État réel de l'email récapitulatif, lu dans l'historique des envois. Absent
+  // ou `null` = inconnu : l'écran n'affirme alors rien.
+  email_recap?: EtatRecapEmail | null;
+};
+
+// Rappel de l'email récapitulatif (§06.01 étape 13) : on ne dit « envoyé » que
+// si l'email est réellement parti (décision Val 2026-10-08).
+const MESSAGES_EMAIL_RECAP: Record<EtatRecapEmail, string> = {
+  envoye: 'Un email récapitulatif vient de vous être envoyé.',
+  en_reprise:
+    'L’email récapitulatif n’a pas pu partir pour l’instant. Nous le renvoyons automatiquement.',
+  non_envoye:
+    'L’email récapitulatif n’a pas pu vous être envoyé. Votre programmation est bien enregistrée : vous la retrouvez dans vos collectes. Pour toute question, écrivez-nous à contact@gosavr.io.',
 };
 
 // Libellés type collecte : `libelleTypeCollecte` tolère l'enum DB
@@ -125,6 +139,7 @@ function ConfirmationContent() {
   }
 
   const collectes = evenement?.collectes ?? [];
+  const etatEmail = evenement?.email_recap ?? null;
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
@@ -219,11 +234,22 @@ function ConfirmationContent() {
         </div>
       )}
 
-      {/* Note email récap (§06.01 action post-confirmation §10) */}
-      <Text tone="soft" className="flex items-center gap-2">
-        <Mail className="h-4 w-4 shrink-0 text-savr-neutral-400" />
-        Un email récapitulatif vient de vous être envoyé.
-      </Text>
+      {/* Rappel email récap (§06.01 étape 13), selon l'issue réelle de l'envoi.
+          Rien n'est parti → bandeau visible, pas une ligne discrète : avant la
+          facture, le tarif Zéro Déchet n'est communiqué que par cet email
+          (§06.01 §3.b). */}
+      {etatEmail === 'non_envoye' ? (
+        <AlertBar variant="warn" icon={<Mail />}>
+          {MESSAGES_EMAIL_RECAP.non_envoye}
+        </AlertBar>
+      ) : (
+        etatEmail && (
+          <Text tone="soft" className="flex items-center gap-2">
+            <Mail className="h-4 w-4 shrink-0 text-savr-neutral-400" />
+            {MESSAGES_EMAIL_RECAP[etatEmail]}
+          </Text>
+        )
+      )}
 
       {/* Actions */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">

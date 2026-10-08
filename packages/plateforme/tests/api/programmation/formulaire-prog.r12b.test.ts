@@ -89,7 +89,7 @@ function setupAuth(
 
 function resetChain(): void {
   vi.resetAllMocks();
-  vi.mocked(emailModule.sendEmail).mockResolvedValue(undefined);
+  vi.mocked(emailModule.sendEmail).mockResolvedValue({ statut: 'sent' });
   // resetAllMocks efface aussi l'implémentation du mock tarif (défini au factory) → réarmer.
   vi.mocked(calculer_tarif_zd).mockResolvedValue({
     montant_ht: 120,

@@ -7,6 +7,10 @@
 //   • resend_id inconnu (aucune ligne emails_envoyes) → 200 (évite la boucle de retry
 //     Resend) + anomalie tracée.
 //   • bounce / echec sont terminaux : un event tardif ne régresse pas le statut.
+//   • bounce (ou plainte, même statut) = email perdu : la messagerie du destinataire
+//     l'a refusé et rien ne le reprendra → alerte in-app Admin, et pour les infos
+//     d'accès chauffeur la collecte revient « à envoyer » (décision Val 2026-10-08).
+//     Suite non appliquée → 500, comme toute écriture manquée : le rejeu la rejoue.
 //
 // Échec de lecture/écriture (lecture emails_envoyes, MAJ statut, trace de l'anomalie
 // « resend_id inconnu », marquage inbox) :
@@ -23,6 +27,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { serverError, withApiTrace } from '@/lib/api-helpers.js';
+import { traiterEmailPerdu } from '@/lib/emails/email-perdu.js';
 import { verifySvixSignature } from '@/lib/webhooks/svix.js';
 
 export const runtime = 'nodejs';
@@ -198,7 +203,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   // ── 5. Lien vers emails_envoyes via resend_id (= data.email_id) ─────────────
   const { data: emailRow, error: emailErr } = await supabase
     .from('emails_envoyes')
-    .select('id, statut')
+    .select('id, statut, template_code, destinataire, entity_type, entity_id')
     .eq('resend_id', emailId)
     .maybeSingle();
 
@@ -225,7 +230,14 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, skipped: 'resend_id_inconnu' });
   }
 
-  const current = emailRow as { id: string; statut: string };
+  const current = emailRow as {
+    id: string;
+    statut: string;
+    template_code: string;
+    destinataire: string;
+    entity_type: string | null;
+    entity_id: string | null;
+  };
   const nouveauStatut = mapEventToStatut(event.type);
 
   // ── 6. MAJ statut (sans régresser un statut terminal) ──────────────────────
@@ -239,6 +251,23 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       .eq('id', current.id);
     if (statutErr) {
       return echec(supabase, inboxId, statutErr, 'email_statut');
+    }
+  }
+
+  // ── 6bis. Email refusé par la messagerie du destinataire → suites ───────────
+  // Aussi quand la ligne est DÉJÀ 'bounced' : c'est le rejeu d'un passage où le
+  // statut a été écrit mais pas la suite (l'inbox n'est marquée traitée qu'à la
+  // fin). Les suites sont rejouables (alerte non doublée tant qu'elle est
+  // ouverte). Une ligne 'failed' n'a jamais été acceptée par Resend : ses suites
+  // relèvent du worker de retry.
+  if (nouveauStatut === 'bounced' && current.statut !== 'failed') {
+    const suiteErr = await traiterEmailPerdu(
+      supabase,
+      current,
+      'adresse_refusee',
+    );
+    if (suiteErr) {
+      return echec(supabase, inboxId, suiteErr, 'email_perdu');
     }
   }
 

@@ -117,7 +117,7 @@ function setupAuth(
 function resetChain() {
   vi.resetAllMocks();
   // Restore default chaining behavior after reset
-  vi.mocked(emailModule.sendEmail).mockResolvedValue(undefined);
+  vi.mocked(emailModule.sendEmail).mockResolvedValue({ statut: 'sent' });
   mockSupabaseChain.from.mockReturnThis();
   mockSupabaseChain.select.mockReturnThis();
   mockSupabaseChain.insert.mockReturnThis();

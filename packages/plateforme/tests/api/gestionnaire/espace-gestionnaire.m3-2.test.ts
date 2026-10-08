@@ -141,6 +141,9 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Bucket de l'environnement : les clés de logo y sont bornées (lib/logo-key.ts).
+  // Obligatoire depuis le 2026-10-07 — ces cas passaient sur le repli `savr-dev`.
+  vi.stubEnv('R2_BUCKET_NAME', 'savr-dev');
   rls = makeChain();
   adminClient = makeChain();
   mockCreateUser.mockResolvedValue({
@@ -900,8 +903,12 @@ describe('M3.2 / mon-organisation / logo', () => {
 
   it('M3.2/logo_upload_201 — clé logos/<uuid>.png', async () => {
     setupAuth('gestionnaire_lieux');
-    mockUploadObject.mockImplementation((bucket: string, key: string) =>
-      Promise.resolve(`${bucket}/${key}`),
+    mockUploadObject.mockImplementation((key: string) =>
+      Promise.resolve({
+        bucket: 'savr-dev',
+        key,
+        storageKey: `savr-dev/${key}`,
+      }),
     );
     const { POST } =
       await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
@@ -964,7 +971,6 @@ describe('M3.2 / mon-organisation / logo', () => {
     expect(res.headers.get('content-type')).toBe('image/png');
     expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
     expect(mockGetObject).toHaveBeenCalledWith(
-      'savr-dev',
       LOGO_KEY.slice('savr-dev/'.length),
     );
   });
@@ -1021,9 +1027,9 @@ describe('M3.2 / traiteurs / logo (proxy scopé)', () => {
     // Jamais le client service-role : il contournerait le périmètre de la vue.
     expect(adminClient.__calls.from).toBeUndefined();
     // Oracle de consommation : l'objet servi est celui de la BASE (capture par
-    // valeur : getObject reçoit deux chaînes).
+    // valeur : getObject reçoit la clé, une chaîne — le bucket est celui de
+    // l'environnement).
     expect(mockGetObject).toHaveBeenCalledWith(
-      'savr-dev',
       LOGO_KEY.slice('savr-dev/'.length),
     );
     expect(mockGetObject).toHaveBeenCalledTimes(1);

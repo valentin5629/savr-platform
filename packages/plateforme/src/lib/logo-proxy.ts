@@ -10,13 +10,11 @@ import { getObject } from '@savr/shared/src/r2/upload.js';
 // un seul endroit, sans risque d'en oublier une.
 //
 // La clé DOIT avoir été bornée par `parseCleLogo` (lib/logo-key.ts) en amont :
-// ce helper ne contrôle pas le périmètre, il ne fait que servir l'objet.
-export async function servirLogo(cle: {
-  bucket: string;
-  key: string;
-}): Promise<NextResponse> {
+// ce helper ne contrôle pas le périmètre, il ne fait que servir l'objet. Le
+// bucket n'est pas un paramètre : `getObject` lit celui de l'environnement.
+export async function servirLogo(cle: { key: string }): Promise<NextResponse> {
   try {
-    const { body, contentType } = await getObject(cle.bucket, cle.key);
+    const { body, contentType } = await getObject(cle.key);
     return new NextResponse(Buffer.from(body), {
       status: 200,
       headers: {

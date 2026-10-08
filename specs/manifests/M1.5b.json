@@ -8,7 +8,7 @@
     "G5": "Aucune FK vers tms.* — tournees.external_ref_commande / tms_reference (neutre TMS-Ready)"
   },
   "scenarios": [
-    "photo téléchargée → upload R2 + ligne shared.fichiers (bucket collectes)",
+    "photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement)",
     "upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)"
   ],
   "deliverables": [
@@ -83,6 +83,14 @@
       "test": "M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
       "statut": "implemented",
       "libelle": "photo MTS-1 rangée dans shared.fichiers sous entity_type='plateforme.collectes' (table propriétaire, liste C1 des 9 entity_type) : même valeur que l'import manuel Admin, lue par la galerie de la fiche collecte Admin et par shared.f_fichier_visible ; dédup inchangée (clé de stockage seule)"
+    },
+    {
+      "id": "M1.5b-photo-cle-opaque",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:504",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (clePhoto)",
+      "test": "M1.5b-photo-cle-opaque / la clé ne porte aucun identifiant du transporteur + photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement) + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule",
+      "statut": "implemented",
+      "libelle": "Photo remontée par le transporteur stockée dans le bucket de l'environnement sous photos/collectes/<collecteId>/<sha256(tourId, stopId, photoId)>.jpg (décisions Val 2026-10-07 — _Divergences/M1.6_20261007_stockage-r2-par-environnement.md ; le CDC §08 §3bis.7 l.504 fixe la clé de dédup (tourId, stopId, photoId) mais ni le bucket ni la forme de la clé de stockage). La clé ne montre plus les identifiants de tournée, d'arrêt et de photo du logiciel du transporteur aux clients qui lisent la ligne shared.fichiers (§09 C1) ; elle est déterministe (la dédup cherche la clé) et ne dépend pas de l'URL de la photo. L'ancien bucket codé en dur `collectes` n'existait pas chez Cloudflare (404 mesuré le 2026-10-07)."
     },
     {
       "id": "M1.5b-ordre-sans-tournee",

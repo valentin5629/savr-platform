@@ -17,12 +17,13 @@ type Ligne = Record<string, unknown>;
 const COLLECTE = 'col-1';
 
 // Ligne telle que l'adapter du transporteur l'écrit (processPhotos) : clé
-// photos/<collecte>/<tour>/<stop>/<photo>.jpg, pas de created_by, et NON choisie
-// pour le client (rang_client vide : c'est l'équipe Savr qui choisit).
+// photos/collectes/<collecte>/<empreinte>.jpg (opaque depuis le 2026-10-07, sans
+// identifiant du transporteur), pas de created_by, et NON choisie pour le client
+// (rang_client vide : c'est l'équipe Savr qui choisit).
 const PHOTO_TRANSPORTEUR: Ligne = {
   id: 'f-transporteur',
   bucket: 'savr-test',
-  key: `photos/${COLLECTE}/TOUR-ZD-001/stop-001/photo-001-a.jpg`,
+  key: `photos/collectes/${COLLECTE}/af17919c2fb43ce5b5ced39e1857b565dccb535a0233b93654d398096682c2ad.jpg`,
   content_type: 'image/jpeg',
   entity_type: 'plateforme.collectes',
   entity_id: COLLECTE,
@@ -190,7 +191,7 @@ describe('M0.6 — GET admin/collectes/[id]/documents : galerie photos', () => {
       content_type: 'image/jpeg',
       created_at: '2026-07-16T00:05:00Z',
       visible_client: false,
-      url: `https://r2.test/savr-test/photos/${COLLECTE}/TOUR-ZD-001/stop-001/photo-001-a.jpg`,
+      url: `https://r2.test/savr-test/${PHOTO_TRANSPORTEUR['key']}`,
     });
     // L'équipe Savr voit toutes les photos ; la réponse dit lesquelles sont
     // choisies pour le client (shared.fichiers.rang_client renseigné).

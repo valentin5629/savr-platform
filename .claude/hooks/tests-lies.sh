@@ -109,10 +109,11 @@ self_test() (
   (
     cd "$tmp" && git init -q -b main . && git config user.email t@t && git config user.name t
     mkdir -p src && echo a > src/intact.ts && echo a > src/supprime.ts && echo a > src/modifie.ts
-    echo a > src/modifié.ts
+    echo a > src/modifié.ts && echo a > src/supprime-commit.ts
     git add -A && git commit -qm base && git update-ref refs/remotes/origin/main HEAD
     git checkout -q -b lot
-    echo b > src/commite.ts && echo b > src/commité.ts && git add src/commite.ts src/commité.ts && git commit -qm lot
+    echo b > src/commite.ts && echo b > src/commité.ts && git add src/commite.ts src/commité.ts
+    git rm -q src/supprime-commit.ts && git commit -qm lot
     echo b > src/indexe.ts && git add src/indexe.ts
     echo b >> src/modifie.ts
     echo b >> src/modifié.ts
@@ -121,8 +122,8 @@ self_test() (
     git rm -q src/supprime.ts
   ) >/dev/null 2>&1 || { echo "🔴 tests-lies : dépôt jetable non construit." >&2; exit 2; }
   vus="$(cd "$tmp" && fichiers_de_la_branche | tr '\n' ' ')"
-  attendu 'périmètre (commit + index + arbre + non suivi + supprimé, noms accentués des trois sources, sans l’intact)' \
-    "$vus" 'src/commite.ts src/commité.ts src/indexe.ts src/modifie.ts src/modifié.ts src/non-suivi.ts src/sondé.ts src/supprime.ts '
+  attendu 'périmètre (commit + index + arbre + non suivi ; supprimé dans un commit et dans l’index ; noms accentués des trois sources ; sans l’intact)' \
+    "$vus" 'src/commite.ts src/commité.ts src/indexe.ts src/modifie.ts src/modifié.ts src/non-suivi.ts src/sondé.ts src/supprime-commit.ts src/supprime.ts '
 
   # — base introuvable : jamais « aucun fichier modifié » —
   rc=0

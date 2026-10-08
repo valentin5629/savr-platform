@@ -11,13 +11,11 @@ set -euo pipefail
 # tests, puis un script de lecture refusé).
 #
 # Ce hook est le SEUL endroit où les markers de revue sont lus : une création de
-# PR qu'il ne voit pas atteint `main` sans contrôle de revue. Le motif est donc
-# construit pour voir toute forme qui peut RÉELLEMENT créer une PR, et n'écarter
-# que ce qui est manifestement une mention. Mesuré en revue contre l'ancien motif :
-# 48 formes réelles sur 48 (35 d'une première matrice, 13 avec les options
-# renvoyées à la ligne par une barre inverse), et aucune création réelle perdue
-# sur l'historique des sessions — seules des mentions le sont. Deux façons d'être
-# vu :
+# PR qu'il ne voit pas atteint `main` sans contrôle de revue. Le motif voit la
+# commande là où le shell l'EXÉCUTE DIRECTEMENT, et écarte ce qui est
+# manifestement une mention. Il ne voit PAS tout ce que voyait l'ancien motif :
+# ce qu'il a perdu est décrit plus bas, mesuré, et une partie peut créer une PR.
+# Deux façons d'être vu :
 #
 #   1. COLLÉE À UN DÉBUT DE COMMANDE — début de ligne, ou juste après un
 #      séparateur (; & |), une parenthèse ou un accent grave ; ou comme texte
@@ -27,7 +25,7 @@ set -euo pipefail
 #   2. DERRIÈRE N'IMPORTE QUOI D'AUTRE — un mot-clé du shell (`if`, `then`,
 #      `until`…), une variable d'environnement en préfixe, un lanceur (`timeout
 #      120`, `nice`, `caffeinate -i`, `op run --`, `env -u X`, `sudo -u u`,
-#      `xargs -I{}`), une redirection, un motif de `case`… On ne les énumère pas
+#      `xargs -I{}`), une redirection, un motif de `case` suivi d'un blanc… On ne les énumère pas
 #      (on en oublierait) : la commande est vue dès qu'elle est précédée d'un
 #      blanc ET suivie d'une option, d'un argument entre guillemets ou en
 #      variable, d'une fin de commande, ou d'une barre inverse de continuation
@@ -44,10 +42,25 @@ set -euo pipefail
 # placée en fin de ligne. Vécu pendant l'écriture de ce lot : un script de
 # modification passé en heredoc, dont une ligne contenait `|` suivi de la commande.
 #
-# SEULE forme que l'ancien motif voyait et que celui-ci ne voit plus : la commande
-# SANS aucune option, derrière un lanceur, refermée aussitôt (`(nice gh pr
-# create)`). Elle ne crée rien : hors terminal interactif, `gh` la refuse (« must
-# provide `--title` and `--body` … when not running interactively »).
+# CE QUE L'ANCIEN MOTIF VOYAIT ET QUE CELUI-CI NE VOIT PLUS — mesuré en revue
+# sécurité sur trois matrices de formes réelles, toutes vues par l'ancien motif :
+# 48 vues sur 48 pour les deux premières (35 formes courantes, 13 avec les options
+# renvoyées à la ligne), 7 sur 22 pour la troisième. Deux familles :
+#   a. SANS aucune option, hors début de commande — refermée aussitôt (`(nice gh
+#      pr create)`) ou suivie d'une redirection (`nice gh pr create 2>&1`). Ne
+#      crée rien : hors terminal interactif, `gh` la refuse (« must provide
+#      `--title` and `--body` … when not running interactively »).
+#   b. AVEC options — donc capable de créer une PR — quand la commande est collée
+#      à un guillemet ouvrant ailleurs que derrière `sh -c` / `eval`, ou à la
+#      parenthèse d'un motif de `case`. Les 15 formes non vues de la troisième
+#      matrice : `ssh hote '…'`, `su - val -c "…"`, `"$SHELL" -c "…"`,
+#      `$SHELL -lc '…'`, `dash -c`, `ksh -c`, `fish -c`, `tmux send-keys "…"`,
+#      `watch "…"`, `env -S "…"`, `echo "…" | bash`, `echo '…' | sh`,
+#      `printf … | bash`, `bash <<< "…"`, `case $m in go)gh pr create --fill`.
+#      Les voir toutes obligerait à voir aussi `grep "…"` : des mentions
+#      redeviendraient des refus à tort. Aucune n'apparaît dans l'historique des
+#      sessions — aucune création réelle n'y est perdue, seules des mentions le
+#      sont — mais rien ne les empêche.
 #
 # PORTÉE — ce que ce hook ne voit pas, avant comme après ce motif :
 #   • le binaire écrit entre guillemets (`"gh" pr …`) ;
@@ -76,7 +89,8 @@ gate_pr_matche() {
 #   V = création RÉELLE, doit être vue ;
 #   N = simple mention, ne doit pas déclencher ;
 #   F = mention prise pour une commande — refus à tort ASSUMÉ (sens sûr) ;
-#   L = limite connue — forme réelle NON vue, ni par ce motif ni par l'ancien.
+#   L = limite connue — forme réelle NON vue par ce motif (cf. l'en-tête : ce que
+#       l'ancien motif voyait et que celui-ci ne voit plus, et PORTÉE).
 # F et L sont dans la matrice pour qu'un changement de comportement sur ces cas
 # se voie, dans un sens comme dans l'autre.
 if [ "${1:-}" = "--self-test" ]; then
@@ -174,6 +188,12 @@ F:echo "a && gh pr create --fill"
 F:gh pr create est la commande surveillee (ligne de corps de heredoc)
 F:gh pr merge 42 --squash  # puis gh pr create
 L:"gh" pr create --fill
+L:ssh hote 'gh pr create --fill'
+L:su - val -c "gh pr create --fill"
+L:echo "gh pr create --fill" | bash
+L:case $m in go)gh pr create --fill;; esac
+L:nice gh pr create 2>&1
+L:(nice gh pr create)
 FORMES
   # Une commande sur plusieurs lignes : chaque début de ligne est une position de commande.
   juge V "$(printf 'git push -u origin b\n  gh pr create --fill')"
@@ -184,7 +204,7 @@ FORMES
     echo "🔴 gate-pr : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
     exit 2
   fi
-  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limite connue)."
+  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues)."
   exit 0
 fi
 

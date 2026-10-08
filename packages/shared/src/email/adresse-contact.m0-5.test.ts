@@ -8,12 +8,23 @@
  *
  * Ce fichier verrouille un PÉRIMÈTRE, pas un comportement : l'ancienne adresse
  * n'apparaît plus dans aucun fichier des dossiers scannés (RACINES), commentaires
- * et tests compris. Le destinataire de chaque notification est vérifié par les
- * tests de ses appelants.
+ * et tests compris.
  *
- * Ce qu'il ne voit pas : `specs/` (le CDC dérivé cite encore l'ancienne adresse
- * tant que le Vault n'est pas patché), une adresse assemblée par concaténation,
- * et la configuration hors dépôt (variables d'environnement, console Resend).
+ * Ce qu'il ne prouve PAS, à savoir avant de s'y fier :
+ *   - que chaque notification part à la bonne adresse. Sur les 10 envois à
+ *     l'équipe, 3 seulement ont un test d'appelant qui fixe le destinataire
+ *     (état des packs, collecte annulée, modification par un traiteur). Les 7
+ *     autres (incident, renouvellement de pack, annulations traiteur et agence,
+ *     ajout de lieu) et le message de refus d'inscription ne sont tenus que par
+ *     l'absence de l'ancienne adresse : une faute de frappe dans la nouvelle y
+ *     passerait ;
+ *   - ce qui est hors des dossiers scannés (`e2e/`, `docs/`, `.github/`, la
+ *     racine du dépôt) ou hors des extensions lues (EXTENSIONS : ni
+ *     `.env.example`, ni `.txt`, ni `.mdx`) ;
+ *   - `specs/` : le CDC dérivé cite encore l'ancienne adresse tant que le Vault
+ *     n'est pas patché ;
+ *   - une adresse assemblée par concaténation, et la configuration hors dépôt
+ *     (variables d'environnement, console Resend).
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';

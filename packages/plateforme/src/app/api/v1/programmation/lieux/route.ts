@@ -234,7 +234,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   ]);
   const org = orgRes.data;
   const lieu = data as { id: string; nom: string; adresse_acces: string };
-  void sendEmail('admin_demande_ajout_lieu', 'hello@gosavr.io', {
+  void sendEmail('admin_demande_ajout_lieu', 'contact@gosavr.io', {
     lieu_nom: lieu.nom,
     lieu_adresse: lieu.adresse_acces,
     user_nom: user

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
 
-  await sendEmail('admin_demande_renouvellement_pack', 'hello@gosavr.io', {
+  await sendEmail('admin_demande_renouvellement_pack', 'contact@gosavr.io', {
     organisation_nom: org?.nom ?? '',
     demandeur_nom: auth.ctx.userId,
     demandeur_email: '',

@@ -19,10 +19,19 @@ export interface KpisGestionnaire {
   repas_par_pax?: number | null;
 }
 
+/**
+ * Pack AG actif de l'organisation : colonnes de `packs_antgaspi` telles que la
+ * route les sert, sous les mêmes noms que les dashboards traiteur et agence.
+ */
+export interface PackActifGestionnaire {
+  credits_initiaux: number;
+  credits_restants: number;
+}
+
 interface ReponseDashboard {
   kpis?: KpisGestionnaire | null;
   kg_par_pax_par_flux?: Record<string, number>;
-  pack?: unknown;
+  pack?: PackActifGestionnaire | null;
 }
 
 // Repli stable : un objet neuf à chaque rendu relancerait tout effet qui en dépend.
@@ -34,8 +43,8 @@ interface KpisGestionnaireResult {
   kpiPrev: KpisGestionnaire | null;
   /** kg/pax par flux de la période — même réponse que les KPI. */
   kgParPaxParFlux: Record<string, number>;
-  /** Pack AG actif servi par la même réponse, tel que reçu. */
-  pack: unknown;
+  /** Pack AG actif servi par la même réponse ; nul si l'organisation n'en a pas. */
+  pack: PackActifGestionnaire | null;
   loading: boolean;
   /** Le dernier chargement a échoué (réseau ou réponse en erreur) : les KPI
    *  sont alors nuls, ce champ permet de ne pas le lire comme « aucune collecte ». */

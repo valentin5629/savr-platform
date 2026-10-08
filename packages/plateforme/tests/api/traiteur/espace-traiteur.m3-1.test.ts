@@ -374,7 +374,7 @@ describe('M3.1 / édition collecte', () => {
       ([code]) => code === 'admin_modification_collecte_traiteur',
     );
     expect(call).toBeTruthy();
-    expect(call![1]).toBe('hello@gosavr.io');
+    expect(call![1]).toBe('contact@gosavr.io');
     expect((call![2] as { priorite: string }).priorite).toBe('normale');
     expect((call![2] as { organisation_nom: string }).organisation_nom).toBe(
       'Traiteur Test',

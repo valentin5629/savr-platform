@@ -143,7 +143,7 @@ describe('M0.3 — cron notify-pack-etat (template 9)', () => {
     expect(captured).toHaveLength(1);
     const mail = captured[0]!;
     expect(mail.slug).toBe('admin_pack_ag_etat');
-    expect(mail.to).toBe('hello@gosavr.io');
+    expect(mail.to).toBe('contact@gosavr.io');
     expect(mail.variables.niveau).toBe('bas');
     expect(mail.variables.niveau_bas).toBe('true');
     expect(mail.variables.niveau_epuise).toBe('');

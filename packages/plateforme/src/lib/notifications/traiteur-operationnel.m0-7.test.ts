@@ -242,7 +242,7 @@ describe('M0.7/bl-p2-22-emission-modification — template 21', () => {
 });
 
 describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
-  it('envoi admin_collecte_annulee à hello@gosavr.io avec annulation_tardive calculée', async () => {
+  it('envoi admin_collecte_annulee à contact@gosavr.io avec annulation_tardive calculée', async () => {
     // créneau très proche → tardive true
     await notifierAdminAnnulation(makeSupabase(BASE), {
       collecteId: 'col-1',
@@ -257,7 +257,7 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
     });
     expect(emails).toHaveLength(1);
     expect(emails[0]!.slug).toBe('admin_collecte_annulee');
-    expect(emails[0]!.to).toBe('hello@gosavr.io');
+    expect(emails[0]!.to).toBe('contact@gosavr.io');
     const v = emails[0]!.variables;
     expect(v['annulation_tardive']).toBe('true');
     expect(v['organisation_nom']).toBe('Traiteur Réel');

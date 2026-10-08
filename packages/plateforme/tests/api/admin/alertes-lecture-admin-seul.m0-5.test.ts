@@ -5,12 +5,14 @@
  * Depuis le lot « emails en échec définitif » (décision Val 2026-10-08), le
  * message de l'alerte `email_echec_definitif` cite l'adresse email du
  * destinataire. Cette route est le seul endroit du code qui sélectionne
- * `message` ; elle lit par le service role, donc hors policy RLS : ce qui ferme
- * l'écran Alertes à ops_savr et aux rôles clients, c'est sa garde
- * `requireAdmin`.
+ * `message` ; elle lit par le service role, donc hors policy RLS : ce qui
+ * empêche ops_savr et les rôles clients de recevoir ce contenu, c'est sa garde
+ * `requireAdmin`. (La page Alertes elle-même s'ouvre pour tout le staff — le
+ * layout du back-office n'exige que le staff et la page n'a pas de garde de
+ * rôle : pour ops_savr elle reste sans données, la liste lui étant refusée.)
  *
  * Le fichier voisin `alertes.test.ts` simule cette garde. Ici la VRAIE garde
- * est exercée, rôle par rôle, à partir d'un JWT : ouvrir l'écran à un autre
+ * est exercée, rôle par rôle, à partir d'un JWT : servir la liste à un autre
  * rôle fait rougir ces cas, qui nomment ce qui fuirait.
  * (La lecture directe de la table, elle, est tenue par le pgTAP
  * `SECU__alertes_admin_message_admin_seul.test.sql`.)

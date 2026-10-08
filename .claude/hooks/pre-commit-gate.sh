@@ -20,7 +20,8 @@ fi
 # la commande : une branche ouverte avant ce lot ne porte pas le script.
 HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le clone principal.
+# Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le dossier ou la
+# session est enracinee (clone principal ou autre worktree).
 # Le commit cible un worktree (`cd <worktree> && git commit`) → on s'y place pour
 # que typecheck/lint/tests valident le DIFF DU WORKTREE, pas le clone principal.
 . "$HOOKS/lib-worktree.sh"

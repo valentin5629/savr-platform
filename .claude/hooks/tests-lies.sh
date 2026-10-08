@@ -64,9 +64,14 @@ garde_le_code() {
   grep -E '\.(ts|tsx|js|jsx|mjs|cjs|json|css)$' || true
 }
 
-# Tout ce que la branche change par rapport à la base. Trois sources, parce
-# qu'aucune ne suffit seule : les commits déjà faits, l'index + l'arbre de travail,
-# et les fichiers pas encore suivis. Sort en 1 si la base est introuvable.
+# Tout ce que la branche TOUCHE par rapport à la base, suppressions comprises.
+# Trois sources, parce qu'aucune ne suffit seule : les commits déjà faits, l'index
+# + l'arbre de travail, et les fichiers pas encore suivis. Sort en 1 si la base
+# est introuvable.
+# Les suppressions comptent : supprimer un fichier peut casser un cliquet (retirer
+# `middleware.ts` rougit `middleware-actif`, mesuré en revue) ou la configuration.
+# Un fichier supprimé ne part évidemment pas vers Vitest — le flux principal ne
+# garde que ce qui existe encore.
 # `core.quotePath=false` : sans lui, git rend un chemin accentué entre guillemets
 # et en octal — un nom qui ne désigne plus aucun fichier, écarté en silence.
 fichiers_de_la_branche() {
@@ -74,8 +79,8 @@ fichiers_de_la_branche() {
   base="$(git merge-base HEAD "$BASE_REF" 2>/dev/null)" || return 1
   [ -n "$base" ] || return 1
   {
-    git -c core.quotePath=false diff --name-only --diff-filter=ACMR "$base" HEAD
-    git -c core.quotePath=false diff --name-only --diff-filter=ACMR HEAD
+    git -c core.quotePath=false diff --name-only --diff-filter=ACDMR "$base" HEAD
+    git -c core.quotePath=false diff --name-only --diff-filter=ACDMR HEAD
     git -c core.quotePath=false ls-files --others --exclude-standard
   } | LC_ALL=C sort -u
 }
@@ -104,18 +109,20 @@ self_test() (
   (
     cd "$tmp" && git init -q -b main . && git config user.email t@t && git config user.name t
     mkdir -p src && echo a > src/intact.ts && echo a > src/supprime.ts && echo a > src/modifie.ts
+    echo a > src/modifié.ts
     git add -A && git commit -qm base && git update-ref refs/remotes/origin/main HEAD
     git checkout -q -b lot
-    echo b > src/commite.ts && git add src/commite.ts && git commit -qm lot
+    echo b > src/commite.ts && echo b > src/commité.ts && git add src/commite.ts src/commité.ts && git commit -qm lot
     echo b > src/indexe.ts && git add src/indexe.ts
     echo b >> src/modifie.ts
+    echo b >> src/modifié.ts
     echo b > src/non-suivi.ts
     echo b > src/sondé.ts
     git rm -q src/supprime.ts
   ) >/dev/null 2>&1 || { echo "🔴 tests-lies : dépôt jetable non construit." >&2; exit 2; }
   vus="$(cd "$tmp" && fichiers_de_la_branche | tr '\n' ' ')"
-  attendu 'périmètre (commit + index + arbre + non suivi + nom accentué, sans le supprimé ni l’intact)' \
-    "$vus" 'src/commite.ts src/indexe.ts src/modifie.ts src/non-suivi.ts src/sondé.ts '
+  attendu 'périmètre (commit + index + arbre + non suivi + supprimé, noms accentués des trois sources, sans l’intact)' \
+    "$vus" 'src/commite.ts src/commité.ts src/indexe.ts src/modifie.ts src/modifié.ts src/non-suivi.ts src/sondé.ts src/supprime.ts '
 
   # — base introuvable : jamais « aucun fichier modifié » —
   rc=0
@@ -158,8 +165,15 @@ self_test() (
 
   joue 0 || { echo "🔴 branche sans changement : le script sort en erreur." >&2; echec=true; }
   attendu 'branche sans changement → Vitest pas lancé' "$(appels)" '0'
-  (cd "$faux/depot" && echo b > README.md)
+  # Une suppression seule est un changement : les cliquets sont joués, le fichier
+  # supprimé ne part pas vers Vitest.
+  (cd "$faux/depot" && git rm -q src/a.ts) >/dev/null 2>&1
+  joue 0 || { echo "🔴 lot de suppression seule : le script sort en erreur." >&2; echec=true; }
+  attendu 'suppression seule → cliquets de sécurité joués' "$(appels)" '1'
+  attendu 'suppression seule → le fichier supprimé ne part pas vers Vitest' "$(dernier)" "$lies $garde"
+  (cd "$faux/depot" && git reset -q HEAD -- src/a.ts && git checkout -q -- src/a.ts && echo b > README.md) >/dev/null 2>&1
   joue 0 || { echo "🔴 lot sans code : le script sort en erreur." >&2; echec=true; }
+  attendu 'lot sans fichier de code → cliquets de sécurité joués' "$(appels)" '2'
   attendu 'lot sans fichier de code → cliquets de sécurité seuls' "$(dernier)" "$lies $garde"
   (cd "$faux/depot" && echo b > src/a.ts)
   joue 0 || { echo "🔴 tests liés verts : le script sort en erreur." >&2; echec=true; }
@@ -184,7 +198,7 @@ self_test() (
     echo "🔴 tests-lies : auto-test EN ÉCHEC — le périmètre des tests liés n'est plus fiable." >&2
     exit 2
   fi
-  echo "✅ tests-lies : auto-test OK (périmètre sur 4 sources et nom accentué, base introuvable signalée, 6 replis sur la suite complète, filtre code ; de bout en bout : code modifié et cliquets de sécurité passés à Vitest comme chemins, échec propagé, suite complète sur dépendances modifiées ou base introuvable)."
+  echo "✅ tests-lies : auto-test OK (périmètre sur 4 sources, suppressions et noms accentués compris ; base introuvable signalée ; 6 replis sur la suite complète ; filtre code ; de bout en bout : code modifié et cliquets de sécurité passés à Vitest comme chemins, cliquets joués sur suppression seule, échec propagé, suite complète sur dépendances modifiées ou base introuvable)."
 )
 
 if [ "${1:-}" = "--self-test" ]; then

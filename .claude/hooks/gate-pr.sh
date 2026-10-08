@@ -12,8 +12,12 @@ set -euo pipefail
 #
 # Ce hook est le SEUL endroit où les markers de revue sont lus : une création de
 # PR qu'il ne voit pas atteint `main` sans contrôle de revue. Le motif est donc
-# construit pour ne perdre AUCUNE forme réelle que l'ancien voyait, et n'écarter
-# que ce qui est manifestement une mention. Deux façons d'être vu :
+# construit pour voir toute forme qui peut RÉELLEMENT créer une PR, et n'écarter
+# que ce qui est manifestement une mention. Mesuré en revue contre l'ancien motif :
+# 48 formes réelles sur 48 (35 d'une première matrice, 13 avec les options
+# renvoyées à la ligne par une barre inverse), et aucune création réelle perdue
+# sur l'historique des sessions — seules des mentions le sont. Deux façons d'être
+# vu :
 #
 #   1. COLLÉE À UN DÉBUT DE COMMANDE — début de ligne, ou juste après un
 #      séparateur (; & |), une parenthèse ou un accent grave ; ou comme texte
@@ -26,7 +30,8 @@ set -euo pipefail
 #      `xargs -I{}`), une redirection, un motif de `case`… On ne les énumère pas
 #      (on en oublierait) : la commande est vue dès qu'elle est précédée d'un
 #      blanc ET suivie d'une option, d'un argument entre guillemets ou en
-#      variable, ou d'une fin de commande. C'est ce qui la distingue d'une mention
+#      variable, d'une fin de commande, ou d'une barre inverse de continuation
+#      (options renvoyées à la ligne). C'est ce qui la distingue d'une mention
 #      en pleine phrase (« … via gh pr create) … », « … gh pr create est bloqué »).
 #
 # Dans les deux cas : binaire appelé par son chemin ou précédé d'une barre oblique
@@ -38,6 +43,11 @@ set -euo pipefail
 # un `;`, un `|` ou un `&&` entre guillemets, en début de ligne d'un heredoc — ou
 # placée en fin de ligne. Vécu pendant l'écriture de ce lot : un script de
 # modification passé en heredoc, dont une ligne contenait `|` suivi de la commande.
+#
+# SEULE forme que l'ancien motif voyait et que celui-ci ne voit plus : la commande
+# SANS aucune option, derrière un lanceur, refermée aussitôt (`(nice gh pr
+# create)`). Elle ne crée rien : hors terminal interactif, `gh` la refuse (« must
+# provide `--title` and `--body` … when not running interactively »).
 #
 # PORTÉE — ce que ce hook ne voit pas, avant comme après ce motif :
 #   • le binaire écrit entre guillemets (`"gh" pr …`) ;
@@ -56,7 +66,7 @@ gate_pr_matche() {
   local commande="${binaire}${options}[[:space:]]+pr${options}[[:space:]]+(create|new)"
   local debut='(^|[;&|(`])[[:space:]]*'
   local enveloppe="\\b((ba|z)?sh\\b[^;&|]*[[:space:]]-[a-zA-Z]*c|eval)[[:space:]]+[\"']?[[:space:]]*"
-  local suite="([[:space:]]*(\$|[;&|<>#])|[[:space:]]+[-\"'\$])"
+  local suite="([[:space:]]*(\$|[;&|<>#\\\\])|[[:space:]]+[-\"'\$])"
   printf '%s' "$1" | grep -Eq "(${debut}|${enveloppe})${commande}" && return 0
   printf '%s' "$1" | grep -Eq "[[:space:]]${commande}${suite}"
 }
@@ -133,6 +143,11 @@ V:cd /tmp/wt &&gh pr create --fill
 V:ok=1;gh pr create --fill
 V:yes |gh pr create --fill
 V:nice gh pr create # puis attendre la CI
+V:GH_TOKEN=abc gh pr create \
+V:if gh pr create \
+V:if git push -u origin b; then gh pr create \
+V:timeout 120 gh pr create \
+V:{ gh pr create \
 V:timeout 120 gh pr create
 V:nice gh pr create && echo ok
 V:nice gh pr create "$@"
@@ -162,6 +177,8 @@ L:"gh" pr create --fill
 FORMES
   # Une commande sur plusieurs lignes : chaque début de ligne est une position de commande.
   juge V "$(printf 'git push -u origin b\n  gh pr create --fill')"
+  # Options renvoyées à la ligne : la ligne qui porte la commande finit par une barre inverse.
+  juge V "$(printf 'cd /tmp/wt && GH_TOKEN=abc gh pr create \\\n  --title "t" \\\n  --body "b"')"
 
   if [ "$echec" = true ]; then
     echo "🔴 gate-pr : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
@@ -183,9 +200,10 @@ gate_pr_matche "$CMD" || exit 0
 # la commande : une branche ouverte avant ce lot ne porte pas le script.
 HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le clone principal
-# (souvent `main`). On se place dans le worktree de la branche RÉELLEMENT PR'd
-# (--head, sinon la cible d'un `cd … &&`) pour évaluer SES markers/tests/branche.
+# Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le dossier où la
+# session est enracinée — le clone principal (souvent `main`) ou un autre
+# worktree. On se place dans le worktree de la branche RÉELLEMENT PR'd (--head,
+# sinon la cible d'un `cd … &&`) pour évaluer SES markers/tests/branche.
 . "$HOOKS/lib-worktree.sh"
 HEAD_BRANCH="$(printf '%s' "$CMD" | sed -nE "s/.*--head[= ]+([^ \"']+).*/\1/p" | head -1)"
 if [ -n "$HEAD_BRANCH" ]; then

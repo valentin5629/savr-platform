@@ -524,4 +524,66 @@ describe('M0.11 / webhook Resend — email refusé par le destinataire (suites)'
     expect(res.status).toBe(200);
     expect(rpcCalls).toEqual([]);
   });
+
+  it('email de vérification d’inscription refusé → statut écrit, mais AUCUNE alerte : l’adresse vient d’un visiteur non connecté', async () => {
+    mockEmailRow = {
+      id: 'em-001',
+      statut: 'sent',
+      template_code: 'verification_email',
+      destinataire: 'visiteur@adresse-saisie.local',
+      entity_type: null,
+      entity_id: null,
+    };
+
+    const res = await POST(refus());
+
+    expect(res.status).toBe(200);
+    expect(updatedRows['emails_envoyes']?.[0]?.data['statut']).toBe('bounced');
+    expect(rpcCalls).toEqual([]);
+    expect(inboxTraitee()).toHaveLength(1);
+  });
+
+  // La vérification de signature protège désormais plus qu'un statut : un refus
+  // forgé retirerait le tampon d'une collecte et ouvrirait une alerte critique.
+  const refusNonSigne = (opts: { sign?: boolean; tamper?: boolean }) =>
+    makeResendRequest(
+      { type: 'email.bounced', data: { email_id: 're_123' } },
+      opts,
+    );
+  const rienDeclenche = () => {
+    expect(rpcCalls).toEqual([]);
+    expect(updatedRows['collectes']).toBeUndefined();
+    expect(updatedRows['emails_envoyes']).toBeUndefined();
+    expect(insertedRows['integrations_inbox']).toBeUndefined();
+  };
+
+  it.each([
+    ['signature absente', { sign: false }],
+    ['signature falsifiée', { tamper: true }],
+  ])(
+    'refus forgé, %s → 401 : ni tampon retiré, ni alerte, ni statut',
+    async (_cas, opts) => {
+      mockEmailRow = emailInfosAcces();
+
+      const res = await POST(refusNonSigne(opts));
+
+      expect(res.status).toBe(401);
+      rienDeclenche();
+    },
+  );
+
+  it('production sans secret de signature → 500 « Webhook non configuré » : un refus non signé ne déclenche rien', async () => {
+    mockEmailRow = emailInfosAcces();
+    delete process.env['RESEND_WEBHOOK_SECRET'];
+    vi.stubEnv('NODE_ENV', 'production');
+    try {
+      const res = await POST(refusNonSigne({ sign: false }));
+
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({ error: 'Webhook non configuré' });
+      rienDeclenche();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

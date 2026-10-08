@@ -164,6 +164,14 @@
       "libelle": "Email récap unique au programmeur (destinataire résolu §05 l.240/1240, tarif ZD calculé §06.01 l.180) câblé sur les 3 chemins de confirmation"
     },
     {
+      "id": "M1.2-recap-email-bonjour-prenom",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:63",
+      "artefact": "supabase/migrations/20261008150000_plateforme_email_recap_programmation_prenom.sql + packages/plateforme/src/lib/programmation/recap-email.ts",
+      "test": "M1.2/email_recap_bonjour_prenom + supabase/tests/email_template_collecte_programmee.test.sql",
+      "statut": "implemented",
+      "libelle": "Email récap de programmation : formule d'appel « Bonjour Prénom, » (§06.02 §3, demande Val 2026-10-08), vouvoiement conservé. Prénom du programmeur lu dans plateforme.users et porté par un bloc conditionnel du template : prénom vide → « Bonjour, ». `prenom` n'est pas une variable exigée à l'envoi. Seule la première ligne du corps change ; le reste du gabarit n°3 du CDC (horaire, lieu, contact, pax, lien) reste un écart antérieur, hors de ce livrable."
+    },
+    {
       "id": "BL-P1-PROG-05",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:417",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/confirmer/route.ts",

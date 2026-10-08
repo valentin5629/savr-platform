@@ -22,7 +22,7 @@ ni à une zone déjà figée.
 
 > **Deuxième principe : les garde-fous sont mécaniques, pas déclaratifs.** gate-brief, pre-commit (coupling G3
 >
-> - typecheck + lint + test:unit, exit 2 = bloqué), gate-pr (tests verts + `conformite-spec` GO), pgTAP RLS,
+> - typecheck + lint + tests liés au changement, exit 2 = bloqué), gate-pr (suite complète verte + `conformite-spec` GO), pgTAP RLS,
 >   outbox G4 — ils BLOQUENT. Cette skill s'appuie dessus, elle ne les remplace pas par de la bonne volonté.
 
 ## Sources de contexte (ordre strict — ne jamais sauter un niveau)

@@ -21,6 +21,14 @@ Tu vérifies la conformité code ↔ spec. Tu ne juges pas le style, tu juges l'
    aussi les livrables **présentationnels et transverses** souvent oubliés (cf. catalogue ci-dessous).
 3. Pour chaque règle métier critique : existe-t-il un test qui la couvre ? Le code la respecte-t-il ?
 4. **LANCE les scénarios du module.** Tout scénario P1 rouge = NON-GO.
+   - Scénarios prouvés par **Vitest** : ils font partie de la suite complète.
+     `bash .claude/hooks/suite-verte.sh` la joue, SAUF si elle a déjà été verte sur le
+     contenu exact de HEAD — il le dit alors et ne rejoue rien. Ne la relance pas par un
+     autre chemin : c'est le même run, payé une deuxième fois. Script absent (branche
+     ouverte avant son arrivée) → `pnpm -w test:unit`.
+   - Scénarios prouvés par **pgTAP** ou par **Playwright** : cette suite ne les joue PAS
+     (`vitest.config.ts` exclut `**/e2e/**`, pgTAP passe par `pnpm test:pgtap`). Ils
+     restent à lancer comme avant ; une suite Vitest verte ne dit rien d'eux.
 5. Signale chaque règle du CDC sans test correspondant (trou de couverture) et chaque comportement
    du code absent du CDC (dérive non spécifiée).
 

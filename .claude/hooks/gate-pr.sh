@@ -25,12 +25,14 @@ set -euo pipefail
 #   2. DERRIÈRE N'IMPORTE QUOI D'AUTRE — un mot-clé du shell (`if`, `then`,
 #      `until`…), une variable d'environnement en préfixe, un lanceur (`timeout
 #      120`, `nice`, `caffeinate -i`, `op run --`, `env -u X`, `sudo -u u`,
-#      `xargs -I{}`), une redirection, un motif de `case` suivi d'un blanc… On ne les énumère pas
-#      (on en oublierait) : la commande est vue dès qu'elle est précédée d'un
-#      blanc ET suivie d'une option, d'un argument entre guillemets ou en
-#      variable, d'une fin de commande, ou d'une barre inverse de continuation
-#      (options renvoyées à la ligne). C'est ce qui la distingue d'une mention
-#      en pleine phrase (« … via gh pr create) … », « … gh pr create est bloqué »).
+#      `xargs -I{}`), une redirection, un motif de `case` suivi d'un blanc… On
+#      ne les énumère pas (on en oublierait) : la commande est vue dès qu'elle est
+#      précédée d'un blanc ET suivie d'une option, d'un argument entre guillemets
+#      ou en variable, d'une barre inverse de continuation (options renvoyées à
+#      la ligne), d'un séparateur, d'une redirection sans descripteur ou d'un
+#      commentaire (; & | < > #), ou de la fin de la ligne. C'est ce qui la
+#      distingue d'une mention en pleine phrase
+#      (« … via gh pr create) … », « … gh pr create est bloqué »).
 #
 # Dans les deux cas : binaire appelé par son chemin ou précédé d'une barre oblique
 # inverse, options entre `gh`, `pr` et le verbe (`gh -R o/r pr create`), et l'alias
@@ -42,14 +44,18 @@ set -euo pipefail
 # placée en fin de ligne. Vécu pendant l'écriture de ce lot : un script de
 # modification passé en heredoc, dont une ligne contenait `|` suivi de la commande.
 #
-# CE QUE L'ANCIEN MOTIF VOYAIT ET QUE CELUI-CI NE VOIT PLUS — mesuré en revue
-# sécurité sur trois matrices de formes réelles, toutes vues par l'ancien motif :
-# 48 vues sur 48 pour les deux premières (35 formes courantes, 13 avec les options
-# renvoyées à la ligne), 7 sur 22 pour la troisième. Deux familles :
-#   a. SANS aucune option, hors début de commande — refermée aussitôt (`(nice gh
-#      pr create)`) ou suivie d'une redirection (`nice gh pr create 2>&1`). Ne
-#      crée rien : hors terminal interactif, `gh` la refuse (« must provide
-#      `--title` and `--body` … when not running interactively »).
+# CE QUE L'ANCIEN MOTIF VOYAIT ET QUE CELUI-CI NE VOIT PLUS : toute commande qui
+# contient la chaîne exacte sans entrer dans aucune des deux voies ci-dessus.
+# Mesuré en revue sécurité sur quatre matrices de formes réelles, toutes vues par
+# l'ancien motif : 35 vues sur 35 (formes courantes), 13 sur 13 (options
+# renvoyées à la ligne), 7 sur 22, 3 sur 15. Familles RELEVÉES dans les deux
+# dernières — l'inventaire n'est pas exhaustif, d'autres peuvent exister :
+#   a. SANS aucune option, hors début de commande — refermée aussitôt par une
+#      parenthèse, un accent grave ou un guillemet (`(nice gh pr create)`), ou
+#      suivie d'une redirection à descripteur (`nice gh pr create 2>&1`). Suivie
+#      de `>`, `<` ou `&>`, elle est vue. Ne crée rien : hors terminal
+#      interactif, `gh` la refuse (« must provide `--title` and `--body` … when
+#      not running interactively »).
 #   b. AVEC options — donc capable de créer une PR — quand la commande est collée
 #      à un guillemet ouvrant ailleurs que derrière `sh -c` / `eval`, ou à la
 #      parenthèse d'un motif de `case`. Les 15 formes non vues de la troisième
@@ -58,9 +64,15 @@ set -euo pipefail
 #      `watch "…"`, `env -S "…"`, `echo "…" | bash`, `echo '…' | sh`,
 #      `printf … | bash`, `bash <<< "…"`, `case $m in go)gh pr create --fill`.
 #      Les voir toutes obligerait à voir aussi `grep "…"` : des mentions
-#      redeviendraient des refus à tort. Aucune n'apparaît dans l'historique des
-#      sessions — aucune création réelle n'y est perdue, seules des mentions le
-#      sont — mais rien ne les empêche.
+#      redeviendraient des refus à tort.
+#   c. AVEC options — donc capable de créer une PR — hors début de commande,
+#      quand ce qui suit le verbe n'est ni une option, ni un guillemet, ni un
+#      `$`, ni une barre inverse : options placées après une redirection à
+#      descripteur (`nice gh pr create 2>&1 --fill`), tirées d'accents graves ou
+#      d'accolades (`nice gh pr create {--fill,--draft}`). Cinq formes de la
+#      quatrième matrice.
+# Aucune de ces formes n'apparaît dans l'historique des sessions — aucune création
+# réelle n'y est perdue, seules des mentions le sont — mais rien ne les empêche.
 #
 # PORTÉE — ce que ce hook ne voit pas, avant comme après ce motif :
 #   • le binaire écrit entre guillemets (`"gh" pr …`) ;
@@ -194,6 +206,8 @@ L:echo "gh pr create --fill" | bash
 L:case $m in go)gh pr create --fill;; esac
 L:nice gh pr create 2>&1
 L:(nice gh pr create)
+L:nice gh pr create 2>&1 --fill
+L:nice gh pr create {--fill,--draft}
 FORMES
   # Une commande sur plusieurs lignes : chaque début de ligne est une position de commande.
   juge V "$(printf 'git push -u origin b\n  gh pr create --fill')"

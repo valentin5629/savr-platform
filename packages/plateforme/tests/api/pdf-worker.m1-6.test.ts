@@ -39,6 +39,13 @@ function makePendingJob(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// Retour d'`uploadPdf` : l'objet écrit, dans le bucket de l'environnement. Le
+// worker persiste CE bucket (jamais un nom recalculé ni codé en dur).
+const BUCKET_ENV = 'savr-test';
+function stocke(key: string) {
+  return { bucket: BUCKET_ENV, key, storageKey: `${BUCKET_ENV}/${key}` };
+}
+
 function buildChain(responses: unknown[]) {
   let idx = 0;
   const chain: Record<string, unknown> = {};
@@ -88,7 +95,7 @@ describe('Lot B / M5 — claim atomique', () => {
   it('claim renvoie 0 ligne (déjà pris par un run concurrent) → job NON traité', async () => {
     const job = makePendingJob();
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: Buffer.from('PDF') });
-    vi.mocked(uploadPdf).mockResolvedValue('x');
+    vi.mocked(uploadPdf).mockResolvedValue(stocke('x'));
 
     const chain = buildChain([
       { data: [job], error: null }, // select jobs
@@ -111,7 +118,7 @@ describe('M1.6 / PdfWorker / Job nominal', () => {
     const pdfBuf = Buffer.from('PDF');
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: pdfBuf });
     vi.mocked(uploadPdf).mockResolvedValue(
-      'bordereaux/bord-1/bordereau-zd-v1-123.pdf',
+      stocke('bordereaux/bord-1/bordereau-zd-v1-123.pdf'),
     );
 
     const chain = buildChain([
@@ -127,9 +134,9 @@ describe('M1.6 / PdfWorker / Job nominal', () => {
     expect(result.done).toBe(1);
     expect(result.errors).toHaveLength(0);
     expect(generatePdf).toHaveBeenCalledWith('bordereau-zd', job.payload);
+    // Aucun bucket à l'appel : la clé porte le dossier du document.
     expect(uploadPdf).toHaveBeenCalledWith(
-      'bordereaux',
-      expect.stringContaining('bord-1'),
+      expect.stringMatching(/^bordereaux\/bord-1\/bordereau-zd-v1-\d+\.pdf$/),
       pdfBuf,
     );
   });
@@ -186,15 +193,15 @@ describe('M1.6 / PdfWorker / Retry', () => {
 });
 
 describe('M1.6 / PdfWorker / rapport-recyclage-zd', () => {
-  it('R-PDF-W4 : type rapport → bucket rapports, pdf_url = clé R2 (pas le fichier_id)', async () => {
-    const storageKey = 'rapports/rse-1/rapport-recyclage-zd-v1-123.pdf';
+  it('R-PDF-W4 : type rapport → dossier rapports/, pdf_url = clé R2 (pas le fichier_id)', async () => {
+    const objet = stocke('rapports/rse-1/rapport-recyclage-zd-v1-123.pdf');
     const job = makePendingJob({
       type_document: 'rapport-recyclage-zd',
       entity_type: 'rapports_rse',
       entity_id: 'rse-1',
     });
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: Buffer.from('PDF') });
-    vi.mocked(uploadPdf).mockResolvedValue(storageKey);
+    vi.mocked(uploadPdf).mockResolvedValue(objet);
 
     // limit → jobs ; then(claim) → ligne verrouillée ; single → insert fichiers
     const chain = buildChain([
@@ -207,8 +214,7 @@ describe('M1.6 / PdfWorker / rapport-recyclage-zd', () => {
     const result = await runPdfWorker(supabase);
     expect(result.done).toBe(1);
     expect(uploadPdf).toHaveBeenCalledWith(
-      'rapports',
-      expect.any(String),
+      expect.stringMatching(/^rapports\/rse-1\//),
       expect.any(Buffer),
     );
 
@@ -216,7 +222,41 @@ describe('M1.6 / PdfWorker / rapport-recyclage-zd', () => {
     const updateCalls = (chain.update as ReturnType<typeof vi.fn>).mock
       .calls as Array<[Record<string, unknown>]>;
     const rseUpdate = updateCalls.find((c) => c[0].pdf_url !== undefined)?.[0];
-    expect(rseUpdate?.pdf_url).toBe(storageKey);
+    expect(rseUpdate?.pdf_url).toBe(objet.storageKey);
+  });
+});
+
+describe('M1.6 / PdfWorker / un dossier par nature de document (décision Val 2026-10-07)', () => {
+  // Avant : bordereau → bucket `bordereaux`, tout le reste → bucket `rapports`,
+  // communs à dev et prod. Désormais un seul bucket (celui de l'environnement) et
+  // la nature du document en tête de clé.
+  it.each([
+    ['bordereau-zd', 'bordereaux_savr', 'bordereaux'],
+    ['rapport-recyclage-zd', 'rapports_rse', 'rapports'],
+    ['rapport-evenement-sans-excedent', 'rapports_rse', 'rapports'],
+    ['attestation-don', 'attestations_don', 'attestations'],
+    ['facture', 'factures', 'factures'],
+  ])('%s → clé sous %s… dossier %s/', async (type, entity, dossier) => {
+    const job = makePendingJob({
+      type_document: type,
+      entity_type: entity,
+      entity_id: 'ent-1',
+    });
+    vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: Buffer.from('PDF') });
+    vi.mocked(uploadPdf).mockImplementation(async (key) => stocke(key));
+    mockFrom.mockReturnValue(
+      buildChain([
+        { data: [job], error: null },
+        { data: [{ id: 'job-1' }], error: null },
+        { data: { id: 'fichier-1' }, error: null },
+      ]),
+    );
+
+    const result = await runPdfWorker(supabase);
+    expect(result.done).toBe(1);
+    expect(vi.mocked(uploadPdf).mock.calls[0]![0]).toMatch(
+      new RegExp(`^${dossier}/ent-1/${type}-v1-\\d+\\.pdf$`),
+    );
   });
 });
 
@@ -226,7 +266,7 @@ describe('M1.6 / PdfWorker / shared.fichiers — colonnes réelles (column-db)',
     const pdfBuf = Buffer.from('PDF');
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: pdfBuf });
     vi.mocked(uploadPdf).mockResolvedValue(
-      'bordereaux/bord-1/bordereau-zd-v1-123.pdf',
+      stocke('bordereaux/bord-1/bordereau-zd-v1-123.pdf'),
     );
 
     const chain = buildChain([
@@ -251,13 +291,16 @@ describe('M1.6 / PdfWorker / shared.fichiers — colonnes réelles (column-db)',
     expect(fichierInsert).toBeDefined();
     expect(fichierInsert).toMatchObject({
       storage_provider: 'r2',
-      bucket: 'bordereaux',
+      // Bucket rendu par l'upload = celui de l'environnement.
+      bucket: BUCKET_ENV,
       content_type: 'application/pdf',
       size_bytes: pdfBuf.length,
       entity_type: 'plateforme.bordereaux_savr',
       entity_id: 'bord-1',
     });
-    expect(typeof fichierInsert!.key).toBe('string');
+    // La clé persistée est celle qui a été envoyée, dossier du document en tête.
+    expect(fichierInsert!.key).toBe(vi.mocked(uploadPdf).mock.calls[0]![0]);
+    expect(fichierInsert!.key).toMatch(/^bordereaux\/bord-1\//);
     // Colonnes fantômes de l'ancien code : absentes.
     for (const ghost of ['nom', 'mime_type', 'url', 'taille_octets']) {
       expect(fichierInsert).not.toHaveProperty(ghost);
@@ -270,7 +313,7 @@ describe('M1.6 / PdfWorker / template_version (BL-P1-API-07)', () => {
     const job = makePendingJob(); // bordereau-zd → bordereaux_savr
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: Buffer.from('PDF') });
     vi.mocked(uploadPdf).mockResolvedValue(
-      'bordereaux/bord-1/bordereau-zd-v1-123.pdf',
+      stocke('bordereaux/bord-1/bordereau-zd-v1-123.pdf'),
     );
 
     const chain = buildChain([

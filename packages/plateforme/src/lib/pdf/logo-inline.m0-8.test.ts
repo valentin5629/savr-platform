@@ -50,6 +50,15 @@ describe('M0.8-49 — logoKeyToDataUri inline un logo R2 en data URI (BL-P3-05)'
     expect(await logoKeyToDataUri(cle())).toBeNull();
   });
 
+  // Sans R2_BUCKET_NAME la garde des clés de logo lève (plus de repli savr-dev
+  // depuis le 2026-10-07). Le logo reste best-effort : pas d'exception vers le
+  // rendu PDF, et aucune lecture R2.
+  it('null si R2_BUCKET_NAME est absent — ne lève pas, aucune lecture R2', async () => {
+    vi.stubEnv('R2_BUCKET_NAME', '');
+    await expect(logoKeyToDataUri(cle())).resolves.toBeNull();
+    expect(getObjectBytes).not.toHaveBeenCalled();
+  });
+
   it('null si le logo dépasse 1 Mo (évite un data URI > limite 2 Mo du renderer)', async () => {
     getObjectBytes.mockResolvedValue(Buffer.alloc(1_000_001));
     expect(await logoKeyToDataUri(cle())).toBeNull();

@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import {
+  DOSSIER_STOCKAGE,
   TEMPLATE_VERSIONS,
   isPdfDocumentType,
   type PdfDocumentType,
@@ -11,7 +12,7 @@ import { sendAlert } from '@savr/shared/src/alerting/slack.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 
 import { generatePdf } from './railway-client.js';
-import { uploadPdf, type R2Bucket } from './r2-client.js';
+import { uploadPdf } from './r2-client.js';
 
 const MAX_ATTEMPTS = 16;
 const RETRY_INTERVAL_MS = 15 * 60 * 1000;
@@ -78,10 +79,10 @@ export async function runPdfWorker(
       const pdfType: PdfDocumentType = job.type_document;
       const { pdfBuffer } = await generatePdf(pdfType, job.payload);
 
-      const bucket: R2Bucket =
-        pdfType === 'bordereau-zd' ? 'bordereaux' : 'rapports';
-      const key = `${job.entity_id}/${pdfType}-v${job.attempts + 1}-${Date.now()}.pdf`;
-      const storageKey = await uploadPdf(bucket, key, pdfBuffer);
+      // Bucket = celui de l'environnement (rendu par l'upload) ; la nature du
+      // document est le dossier en tête de clé.
+      const key = `${DOSSIER_STOCKAGE[pdfType]}/${job.entity_id}/${pdfType}-v${job.attempts + 1}-${Date.now()}.pdf`;
+      const { bucket, storageKey } = await uploadPdf(key, pdfBuffer);
 
       // Insérer dans shared.fichiers (colonnes réelles : storage_provider/bucket/
       // key/content_type/size_bytes — cf. migration bloc1. L'ancien jeu nom/mime_type/

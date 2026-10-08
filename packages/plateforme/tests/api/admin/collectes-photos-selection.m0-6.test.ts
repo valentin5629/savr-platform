@@ -169,9 +169,15 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
   }),
 }));
 
-const uploadObject = vi.fn(async () => undefined);
+// L'upload rend l'objet écrit : la route persiste le bucket de ce retour (celui
+// de l'environnement), elle n'en choisit plus elle-même.
+const uploadObject = vi.fn(async (key: string) => ({
+  bucket: 'savr-test',
+  key,
+  storageKey: `savr-test/${key}`,
+}));
 vi.mock('@savr/shared/src/r2/upload.js', () => ({
-  uploadObject: (...args: unknown[]) => uploadObject(...(args as [])),
+  uploadObject: (key: string) => uploadObject(key),
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {

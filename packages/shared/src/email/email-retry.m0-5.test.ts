@@ -8,7 +8,7 @@
  *  • runEmailRetryWorker : ligne 'failed' échue (palier dépassé) ré-émise ; non échue ignorée ;
  *    tentative 4 en échec → statut='failed' + trace echec_final.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const h = vi.hoisted(() => {
   const sendResult = {
@@ -98,6 +98,21 @@ import {
   runEmailRetryWorker,
   setEmailCaptureSink,
 } from './index.js';
+import {
+  _setOutboundThrottleEnabled,
+  _resetOutboundThrottle,
+} from '../rate-limit/outbound-throttle.js';
+
+// Chemin Resend réel (SDK mocké) : clé autre que 'test', expéditeur posé, et
+// l'environnement voulu — le transport ne laisse partir vers le destinataire
+// d'origine qu'avec VERCEL_ENV='production'.
+function envoiReel(vercelEnv: string | undefined, redirectTo?: string): void {
+  process.env['RESEND_API_KEY'] = 'live';
+  vi.stubEnv('RESEND_FROM', 'Savr <notifications@envoi.savr-test.local>');
+  vi.stubEnv('VERCEL_ENV', vercelEnv);
+  vi.stubEnv('EMAIL_REDIRECT_TO', redirectTo);
+  _setOutboundThrottleEnabled(false);
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -114,6 +129,11 @@ beforeEach(() => {
   h.sendResult.value = { data: { id: 'rs_1' }, error: null };
   setEmailCaptureSink(null);
   process.env['RESEND_API_KEY'] = 'test';
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  _resetOutboundThrottle();
 });
 
 describe('M0.5 / BL-P1-API-05 — refus MISSING_VARIABLE', () => {
@@ -229,7 +249,7 @@ describe('M0.5 / BL-P1-API-05 — runEmailRetryWorker (paliers 5min/1h/24h)', ()
   });
 
   it('tentative 3 qui échoue → tentative 4, statut failed + trace echec_final', async () => {
-    process.env['RESEND_API_KEY'] = 'live'; // force le vrai chemin Resend (mocké)
+    envoiReel('production'); // force le vrai chemin Resend (mocké)
     h.sendResult.value = { data: null, error: { message: '503 upstream' } };
     cfg.failedRows = [
       {
@@ -257,5 +277,148 @@ describe('M0.5 / BL-P1-API-05 — runEmailRetryWorker (paliers 5min/1h/24h)', ()
     expect(logs.some((l) => String(l['erreur']).includes('echec_final'))).toBe(
       true,
     );
+  });
+});
+
+// Le transport décide seul de ce qui part hors production ; ces cas vérifient ce
+// que sendEmail et le worker en font côté historique `emails_envoyes`.
+describe('M0.5 / sendEmail — garde hors production', () => {
+  const T0 = Date.parse('2026-06-29T00:00:00Z');
+  const VARIABLES = { prenom: 'Jean', date: '2026-06-29' };
+
+  it('hors production sans EMAIL_REDIRECT_TO → aucun appel Resend, aucune ligne emails_envoyes, aucune erreur', async () => {
+    envoiReel('preview');
+
+    await expect(
+      sendEmail('confirmation_collecte', 'dest@savr-test.local', VARIABLES),
+    ).resolves.toBeUndefined();
+
+    expect(h.mockSend).not.toHaveBeenCalled();
+    expect(captures.inserts['emails_envoyes']).toBeUndefined();
+    expect(captures.inserts['integrations_logs']).toBeUndefined();
+  });
+
+  it('hors production avec EMAIL_REDIRECT_TO → Resend reçoit la redirection, emails_envoyes garde le destinataire et le sujet d’origine', async () => {
+    envoiReel('preview', 'recette@savr-test.local');
+
+    await sendEmail('confirmation_collecte', 'dest@savr-test.local', VARIABLES);
+
+    expect(h.mockSend).toHaveBeenCalledTimes(1);
+    expect(h.mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'recette@savr-test.local',
+        subject: '[PREVIEW] Collecte Jean',
+      }),
+    );
+    const rows = captures.inserts['emails_envoyes'] ?? [];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      destinataire: 'dest@savr-test.local',
+      sujet: 'Collecte Jean',
+      statut: 'sent',
+      resend_id: 'rs_1',
+    });
+  });
+
+  it('production, RESEND_FROM absent → aucune exception, ligne emails_envoyes en échec', async () => {
+    envoiReel('production');
+    vi.stubEnv('RESEND_FROM', undefined);
+
+    await expect(
+      sendEmail('confirmation_collecte', 'dest@savr-test.local', VARIABLES),
+    ).resolves.toBeUndefined();
+
+    expect(h.mockSend).not.toHaveBeenCalled();
+    const rows = captures.inserts['emails_envoyes'] ?? [];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      destinataire: 'dest@savr-test.local',
+      statut: 'failed',
+      resend_id: null,
+      envoye_at: null,
+      tentative_numero: 1,
+      variables_jsonb: VARIABLES,
+    });
+    expect(String(rows[0]!['erreur'])).toContain('RESEND_FROM');
+  });
+
+  it('ligne en échec faute de configuration → reprise par le worker une fois RESEND_FROM posée', async () => {
+    envoiReel('production');
+    cfg.failedRows = [
+      {
+        id: 'em-5',
+        template_code: 'confirmation_collecte',
+        destinataire: 'dest@savr-test.local',
+        variables_jsonb: VARIABLES,
+        tentative_numero: 1,
+        created_at: new Date(T0).toISOString(),
+      },
+    ];
+
+    const res = await runEmailRetryWorker(
+      mockSupabase as never,
+      T0 + 6 * 60 * 1000,
+    );
+
+    expect(res).toEqual({ scanned: 1, retried: 1, succeeded: 1, exhausted: 0 });
+    expect(h.mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'dest@savr-test.local' }),
+    );
+    expect(captures.updates['emails_envoyes']?.[0]).toMatchObject({
+      statut: 'sent',
+      resend_id: 'rs_1',
+      tentative_numero: 2,
+      erreur: null,
+    });
+  });
+
+  it('retry alors que la configuration manque toujours → tentative comptée, ligne laissée en échec', async () => {
+    envoiReel('production');
+    vi.stubEnv('RESEND_FROM', undefined);
+    cfg.failedRows = [
+      {
+        id: 'em-6',
+        template_code: 'confirmation_collecte',
+        destinataire: 'dest@savr-test.local',
+        variables_jsonb: VARIABLES,
+        tentative_numero: 1,
+        created_at: new Date(T0).toISOString(),
+      },
+    ];
+
+    const res = await runEmailRetryWorker(
+      mockSupabase as never,
+      T0 + 6 * 60 * 1000,
+    );
+
+    expect(res).toEqual({ scanned: 1, retried: 1, succeeded: 0, exhausted: 0 });
+    expect(h.mockSend).not.toHaveBeenCalled();
+    expect(captures.updates['emails_envoyes']?.[0]).toMatchObject({
+      statut: 'failed',
+      tentative_numero: 2,
+    });
+  });
+
+  it('retry hors production sans EMAIL_REDIRECT_TO → ligne failed laissée en l’état, non comptée', async () => {
+    envoiReel(undefined);
+    cfg.failedRows = [
+      {
+        id: 'em-4',
+        template_code: 'confirmation_collecte',
+        destinataire: 'dest@savr-test.local',
+        variables_jsonb: VARIABLES,
+        tentative_numero: 1,
+        created_at: new Date(T0).toISOString(),
+      },
+    ];
+
+    const res = await runEmailRetryWorker(
+      mockSupabase as never,
+      T0 + 6 * 60 * 1000,
+    );
+
+    expect(res).toEqual({ scanned: 1, retried: 0, succeeded: 0, exhausted: 0 });
+    expect(h.mockSend).not.toHaveBeenCalled();
+    expect(captures.updates['emails_envoyes']).toBeUndefined();
   });
 });

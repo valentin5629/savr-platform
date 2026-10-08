@@ -8,6 +8,7 @@
   "fichiers": [
     "packages/shared/src/email-denylist.ts",
     "packages/shared/src/email/index.ts",
+    "packages/shared/src/email/transport.ts",
     "packages/shared/src/api/siret.ts",
     "packages/shared/src/api/tva.ts",
     "packages/shared/src/testing/mocks/insee-vies.ts",
@@ -201,6 +202,22 @@
       "test": "slug inexistant → aucun envoi, throw + trace TEMPLATE_NOT_FOUND (CDC l.548)",
       "statut": "implemented",
       "libelle": "Resend : slug inexistant (TEMPLATE_NOT_FOUND) + template inactif (SKIP_INACTIF) — aucun appel Resend, trace integrations_logs"
+    },
+    {
+      "id": "M0.5-resend-garde-hors-production",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:601",
+      "artefact": "packages/shared/src/email/transport.ts (seul point d'appel du SDK Resend, règle ESLint no-restricted-imports) + packages/shared/src/email/index.ts (sendEmail et runEmailRetryWorker : un envoi non émis n'est ni historisé ni retenté)",
+      "test": "avec EMAIL_REDIRECT_TO → to, cc et bcc remplacés, replyTo intact, objet préfixé [PREVIEW], bandeau en tête du corps + sans EMAIL_REDIRECT_TO → statut skipped, avertissement, aucun appel Resend, aucune erreur — même sans configuration + VERCEL_ENV=production → expéditeur RESEND_FROM, destinataires, objet et corps inchangés, même si EMAIL_REDIRECT_TO est posée + hors production sans EMAIL_REDIRECT_TO → aucun appel Resend, aucune ligne emails_envoyes, aucune erreur",
+      "statut": "implemented",
+      "libelle": "Resend : aucun email émis via Resend vers un vrai destinataire hors production — hors périmètre : l'email de réinitialisation envoyé par Supabase Auth et les factures envoyées par Pennylane (décision Val 2026-10-07, _Divergences/M0.5_20261007_resend-garde-hors-production.md ; le CDC §08 §4 ne distingue pas encore les environnements). Production = VERCEL_ENV vaut exactement 'production' ; absent ou autre valeur = hors production. Hors production avec EMAIL_REDIRECT_TO : to, cc et bcc remplacés par cette adresse, reply-to conservé, objet préfixé [PREVIEW] ([DEV] si VERCEL_ENV absent), bandeau « Destinataires d'origine » en tête du corps ; emails_envoyes garde le destinataire et le sujet d'origine. Hors production sans EMAIL_REDIRECT_TO : rien n'est envoyé, avertissement journalisé, aucune ligne emails_envoyes, le parcours continue. En production : destinataires, objet et corps inchangés."
+    },
+    {
+      "id": "M0.5-resend-configuration-a-l-envoi",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:601",
+      "artefact": "packages/shared/src/email/transport.ts",
+      "test": "import du module sans aucune variable → aucune erreur (rien n’est validé au chargement) + { error } renvoyé par le SDK → statut failed propagé, statut HTTP, nom et message journalisés + succès → id Resend journalisé et renvoyé + production, RESEND_FROM absent → aucune exception, ligne emails_envoyes en échec + ligne en échec faute de configuration → reprise par le worker une fois RESEND_FROM posée",
+      "statut": "implemented",
+      "libelle": "Resend : expéditeur lu dans RESEND_FROM, sans valeur par défaut dans le code et non remplaçable par l'appelant — seuls to, cc, bcc, reply-to, objet et corps du message partent (décision Val 2026-10-07, _Divergences/M0.5_20261007_resend-garde-hors-production.md). RESEND_API_KEY absente ou hors ASCII imprimable sans espace, ou RESEND_FROM absente, au moment d'un envoi réel : échec explicite SANS exception (décision Val 2026-10-07, C5) — statut failed, ligne `emails_envoyes` en échec reprise par le worker de retry une fois la variable posée — + log `email.configuration_manquante` ; contrôle fait à l'envoi, jamais à l'import du module ; la clé n'est jamais citée. Réponse { error } du SDK toujours lue : statut HTTP, nom et message journalisés (`api.external.failed`, adresses du message masquées, message borné à 500 caractères et ignoré s'il n'est pas une chaîne), échec propagé en statut failed comme avant ; succès : id Resend journalisé (`api.external.called`). Les journaux émis par le transport ne portent ni la clé, ni le contenu, ni une adresse."
     }
   ],
   "cdc_source_hash": {

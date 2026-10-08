@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
-import { bucketLogos } from '@/lib/logo-key.js';
 
 // Upload d'un logo vers R2, partagé par les routes admin, traiteur et
 // gestionnaire (chacune garde sa garde de rôle). Contraintes CDC : JPG/PNG,
@@ -44,12 +43,7 @@ export async function uploadLogo(req: NextRequest): Promise<NextResponse> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   try {
-    const storageKey = await uploadObject(
-      bucketLogos(),
-      key,
-      buffer,
-      file.type,
-    );
+    const { storageKey } = await uploadObject(key, buffer, file.type);
     return NextResponse.json({ logo_url: storageKey }, { status: 201 });
   } catch {
     // R2 indisponible (ex. env local sans credentials) — non bloquant côté form.

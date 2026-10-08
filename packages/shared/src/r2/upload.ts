@@ -7,12 +7,18 @@
 // ⚠ Garde-fou 3 (anti-couplage) : la logique R2/AWS-SDK vit ICI (shared), JAMAIS
 // dans packages/adapters/ — l'adapter importe `uploadObject`, il ne réimplémente
 // pas la signature. Les clés stockées en DB = "bucket/key", jamais d'URL signée.
+//
+// ⚠ Cloisonnement dev / prod : `uploadObject` et `getObject` ne prennent PAS de
+// bucket. Ils visent toujours celui de l'environnement (./bucket.ts) — écrire ou
+// lire ailleurs ne peut pas s'exprimer à l'appel. Seul endroit du dépôt qui
+// construit un PutObjectCommand (verrouillé par upload.test.ts).
 
 import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
+import { bucketEnvironnement } from './bucket.js';
 
 /**
  * Construit le client S3 pointant sur R2 (Cloudflare). Échoue (fail-closed) si les
@@ -37,18 +43,29 @@ export function getS3Client(): S3Client {
   });
 }
 
+/** Objet écrit sur R2 : ce que l'appelant persiste (shared.fichiers, `*_url`). */
+export interface ObjetStocke {
+  /** Bucket réellement écrit = celui de l'environnement → `shared.fichiers.bucket`. */
+  bucket: string;
+  /** Clé dans le bucket → `shared.fichiers.key`. */
+  key: string;
+  /** Clé de stockage canonique "bucket/key" → colonnes `pdf_url`, `logo_url`. */
+  storageKey: string;
+}
+
 /**
- * Upload binaire vers R2 (S3-compatible). Lève une erreur si l'upload échoue
- * (credentials absents ou rejet R2) → l'appelant NE DOIT PAS persister de
- * pointeur shared.fichiers tant que l'objet n'est pas réellement écrit.
- * Retourne la clé de stockage canonique "bucket/key".
+ * Upload binaire vers R2 (S3-compatible), dans le bucket de l'environnement. Lève
+ * une erreur si l'upload échoue (variable ou credentials absents, rejet R2) →
+ * l'appelant NE DOIT PAS persister de pointeur shared.fichiers tant que l'objet
+ * n'est pas réellement écrit. Le bucket à persister est celui du retour, jamais
+ * une valeur recalculée : le pointeur désigne ainsi exactement l'objet écrit.
  */
 export async function uploadObject(
-  bucket: string,
   key: string,
   body: Buffer,
   contentType: string,
-): Promise<string> {
+): Promise<ObjetStocke> {
+  const bucket = bucketEnvironnement();
   const client = getS3Client();
   await client.send(
     new PutObjectCommand({
@@ -58,22 +75,21 @@ export async function uploadObject(
       ContentType: contentType,
     }),
   );
-  return `${bucket}/${key}`;
+  return { bucket, key, storageKey: `${bucket}/${key}` };
 }
 
 /**
- * Récupère un objet binaire depuis R2 (S3-compatible). Retourne le corps
- * (Uint8Array) + le content-type. Utilisé par le proxy d'affichage de logo
- * (streaming via le serveur — pas d'URL publique R2 requise). Lève si l'objet
- * est absent ou si les credentials manquent.
+ * Récupère un objet binaire depuis R2 (S3-compatible), dans le bucket de
+ * l'environnement. Retourne le corps (Uint8Array) + le content-type. Utilisé par
+ * le proxy d'affichage de logo (streaming via le serveur — pas d'URL publique R2
+ * requise). Lève si l'objet est absent ou si la configuration manque.
  */
 export async function getObject(
-  bucket: string,
   key: string,
 ): Promise<{ body: Uint8Array; contentType: string }> {
   const client = getS3Client();
   const res = await client.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
+    new GetObjectCommand({ Bucket: bucketEnvironnement(), Key: key }),
   );
   const body = await res.Body!.transformToByteArray();
   return { body, contentType: res.ContentType ?? 'application/octet-stream' };

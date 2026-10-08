@@ -217,7 +217,7 @@
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Écran de confirmation dédié : bandeau succès + récapitulatif des collectes créées + rappel email récap + les 3 actions (« Ajouter une collecte à cet événement », « Programmer un autre événement », « Accueil ») — preuve visuelle GO-VISUAL"
+      "libelle": "Écran de confirmation dédié : bandeau succès + récapitulatif des collectes créées + rappel email récap (trois messages selon l'issue de l'envoi, en bandeau d'avertissement si rien n'est parti, absent si l'état est inconnu) + les 3 actions (« Ajouter une collecte à cet événement », « Programmer un autre événement », « Accueil ») — preuve visuelle GO-VISUAL"
     },
     {
       "id": "M1.2-confirmation-email-recap-issue-reelle",

@@ -18,12 +18,22 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
  * `null` = état inconnu (lecture en erreur, statut que ce suivi ne connaît pas) :
  * l'écran n'affirme alors rien.
  *
- * Limite connue : un email accepté par Resend dont la ligne d'historique n'a pas
- * pu être écrite se lit ici « non envoyé » — sans ligne, rien ne prouve l'envoi.
+ * Limites connues :
+ *   - un email accepté par Resend dont la ligne d'historique n'a pas pu être
+ *     écrite se lit ici « non envoyé » — sans ligne, rien ne prouve l'envoi ;
+ *   - un email remis puis signalé comme indésirable par son destinataire passe
+ *     en `bounced` : à une nouvelle visite, il se lit « non envoyé » ;
+ *   - le worker de retry saute un template devenu inactif : la ligne reste
+ *     « en reprise » sans jamais repartir ;
+ *   - le dernier envoi fait foi : si le récapitulatif d'origine est perdu et que
+ *     celui d'une collecte ajoutée ensuite part, l'événement se lit « envoyé ».
  */
 export type EtatRecapEmail = 'envoye' | 'en_reprise' | 'non_envoye';
 
-const TEMPLATE_RECAP_PROGRAMMATION = 'collecte_programmee';
+// Ce que l'envoi écrit dans `emails_envoyes` et que ce suivi relit : `recap-email.ts`
+// prend ces deux valeurs ici, pour que l'écriture et la lecture ne divergent pas.
+export const TEMPLATE_RECAP_PROGRAMMATION = 'collecte_programmee';
+export const ENTITE_RECAP_PROGRAMMATION = 'evenement';
 // Envoi initial + 3 reprises (§08 §4) : à la 4e tentative en échec, plus rien ne repart.
 const TENTATIVES_MAX = 4;
 
@@ -66,7 +76,7 @@ export async function lireEtatRecapEmail(
     .from('emails_envoyes')
     .select('statut, tentative_numero')
     .eq('template_code', TEMPLATE_RECAP_PROGRAMMATION)
-    .eq('entity_type', 'evenement')
+    .eq('entity_type', ENTITE_RECAP_PROGRAMMATION)
     .eq('entity_id', evenementId)
     .order('created_at', { ascending: false })
     .limit(1)

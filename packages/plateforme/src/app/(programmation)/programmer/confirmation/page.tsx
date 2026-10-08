@@ -235,8 +235,9 @@ function ConfirmationContent() {
       )}
 
       {/* Rappel email récap (§06.01 étape 13), selon l'issue réelle de l'envoi.
-          Rien n'est parti → bandeau visible, pas une ligne discrète : le tarif
-          Zéro Déchet n'est communiqué que dans cet email (§06.01 §3.b). */}
+          Rien n'est parti → bandeau visible, pas une ligne discrète : avant la
+          facture, le tarif Zéro Déchet n'est communiqué que par cet email
+          (§06.01 §3.b). */}
       {etatEmail === 'non_envoye' ? (
         <AlertBar variant="warn" icon={<Mail />}>
           {MESSAGES_EMAIL_RECAP.non_envoye}

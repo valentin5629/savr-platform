@@ -89,7 +89,8 @@
     "packages/plateforme/tests/api/gestionnaire/fiche-traiteur-modale.m3-2.test.ts",
     "packages/plateforme/tests/ui/fiche-traiteur-modale.m3-2.test.tsx",
     "packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx",
-    "packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts"
+    "packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts",
+    "packages/plateforme/tests/ui/dashboard-gestionnaire-pack-ag.m3-2.test.tsx"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -376,7 +377,11 @@
     "M3.2/fiche_lieu_modale_identifiant_mal_forme",
     "M3.2/dashboard_kpi_filtres_parc_transmis",
     "M3.2/dashboard_kpi_erreur_distincte_du_vide",
-    "M3.2/dashboard_kpi_reponse_perimee_ignoree"
+    "M3.2/dashboard_kpi_reponse_perimee_ignoree",
+    "M3.2/dashboard_pack_ag_credits_affiches",
+    "M3.2/dashboard_pack_ag_badge_bientot_epuise",
+    "M3.2/dashboard_pack_ag_badge_epuise",
+    "M3.2/dashboard_pack_ag_absent_sans_pack"
   ],
   "deliverables": [
     {
@@ -1197,12 +1202,29 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la fiche traiteur du gestionnaire en pop-up, desktop ET mobile < 640 px : grand en-tête (logo, puce « Traiteur », nom, nombre de lieux d'intervention), onglet « Lieux d'intervention » (tableau lieu / collectes sur 24 mois, état vide), onglet « Activité » (sélecteur Zéro Déchet / Anti-Gaspi, rangée de 4 cartes KPI, graphique d'évolution, état vide d'un type sans collecte), hauteur fixe d'un onglet à l'autre. GO visuel de Val attendu."
+    },
+    {
+      "id": "M3.2-dashboard-pack-ag-credits",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:142",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts (type `PackActifGestionnaire`) + packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts (route existante, inchangée)",
+      "test": "M3.2/dashboard_pack_ag_credits_affiches + M3.2/dashboard_pack_ag_badge_bientot_epuise + M3.2/dashboard_pack_ag_badge_epuise + M3.2/dashboard_pack_ag_absent_sans_pack",
+      "statut": "implemented",
+      "libelle": "Dashboard gestionnaire, onglet Anti-Gaspi — bloc « Mon pack Anti-Gaspi » : affiche les crédits restants et les crédits initiaux du pack actif de l'organisation, le badge « Pack bientôt épuisé » dès que le solde est ≤ 10 % des crédits initiaux et le badge « Pack épuisé » à solde nul (seuils du Bloc 4 AG §06.04 l.256-257) ; sans pack actif, le bloc ne se monte pas. Défaut corrigé le 2026-10-08 : l'écran lisait `nb_collectes_restantes` / `nb_collectes_total`, que la route du dashboard ne sert pas (elle sert les colonnes `credits_restants` / `credits_initiaux` de packs_antgaspi) — le bloc s'affichait sans chiffres ni badge, et un cast masquait l'écart au typecheck. Le type du pack est désormais porté par le chargement partagé et l'écran lit les champs servis, sous les mêmes noms que les dashboards traiteur et agence. Mise en page et libellés du bloc inchangés."
+    },
+    {
+      "id": "M3.2-dashboard-pack-ag-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:142",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu du bloc « Mon pack Anti-Gaspi » du dashboard gestionnaire (onglet Anti-Gaspi), desktop ET mobile < 640 px, pour une organisation qui a un pack actif : les deux chiffres « Crédits restants : X / Y » sont affichés, le badge orange « Pack bientôt épuisé » ou rouge « Pack épuisé » apparaît au seuil, le reste du Cockpit (R24 / R24b) est inchangé. GO visuel de Val attendu."
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6a08f97fe482d5b5a9be85a937428c56245baee5380e13043e01b6ad435da805",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "1c6d821174cfa264ccb4f1d75da3188d3036e791dbe2af954db954833b104457",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "fa69f5a5d32e20077c4b08997d2a267af7c9a3dc431a4260b4f569ea4404585f"
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "fa69f5a5d32e20077c4b08997d2a267af7c9a3dc431a4260b4f569ea4404585f",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "1624f7d10800fae8c89bb6757d87949d81edab35aa94e96d8c8e6d668c58208a"
   }
 }

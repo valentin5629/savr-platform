@@ -3,17 +3,70 @@
 # Point 3 (divergences) est couvert par le reviewer conformite-spec qui doit les flaguer.
 set -euo pipefail
 
+# ── Reconnaître la commande — isolé en fonction, pour être TESTABLE ──────────
+# `gh pr create` en POSITION DE COMMANDE, et lui seul. Le motif d'origine était la
+# simple présence de la chaîne dans la commande : un `grep` sur ces mots, un message
+# de commit qui les cite ou un script d'analyse qui les contient lançait la suite
+# de tests entière puis BLOQUAIT la commande, faute de markers sur la branche visée
+# (vécu deux fois le 2026-10-08 : 7 min de tests, puis un script de lecture refusé).
+# Même parti pris que `gate_merge_matche`, élargi à ce qu'une création de PR prend
+# réellement comme formes : capture de l'URL (`$(…)`), variable d'environnement en
+# préfixe, `bash -c`.
+# NE JAMAIS resserrer ce motif sans relancer `--self-test`.
+gate_pr_matche() {
+  local position='(^|[;&|({`!]|\b(if|then|else|elif|do|while|until|time|env|command|exec|nohup|xargs|sudo)[[:space:]]+)[[:space:]]*'
+  local enveloppe="\\b((ba|z)?sh[[:space:]]+-[a-zA-Z]*c|eval)[[:space:]]+[\"']?[[:space:]]*"
+  local variables='([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*'
+  printf '%s' "$1" | grep -Eq "(${position}|${enveloppe})${variables}gh[[:space:]]+pr[[:space:]]+create"
+}
+
+# ── Auto-test : la matrice des formes de commande ──────────────────────────
+if [ "${1:-}" = "--self-test" ]; then
+  echec=false
+  att() {  # att <commande> <VU|NON VU>
+    if gate_pr_matche "$1"; then r=VU; else r="NON VU"; fi
+    [ "$r" = "$2" ] || { echo "🔴 motif : [$1] → $r (attendu $2)" >&2; echec=true; }
+  }
+
+  # — créations de PR RÉELLES : toutes doivent être vues —
+  att 'gh pr create --title "x" --body "y"'                               'VU'
+  att 'cd /tmp/wt && gh pr create --head ma/branche --base main'          'VU'
+  att 'if gh pr create --fill; then echo ok; fi'                          'VU'
+  att 'URL="$(gh pr create --fill)"'                                      'VU'
+  att 'GH_TOKEN=abc GH_PAGER= gh pr create --fill'                        'VU'
+  att 'bash -lc "gh pr create --fill"'                                    'VU'
+  att 'git push -u origin ma/branche; gh pr create --fill'                'VU'
+  att "$(printf 'git push -u origin b\n  gh pr create --fill')"           'VU'
+  # — simples MENTIONS : aucune ne doit déclencher —
+  att 'git commit -m "doc: la garde de gh pr create ne rejoue plus rien"' 'NON VU'
+  att 'grep -rn "gh pr create" .claude/hooks'                             'NON VU'
+  att 'grep -c "gh pr create" DEFINITION_OF_DONE.md'                      'NON VU'
+  att "python3 -c \"if 'gh pr create' in c: k = 'gh pr create'\""         'NON VU'
+  att 'gh pr merge 42 --squash  # après gh pr create'                     'NON VU'
+  att 'gh pr view 42 --json title'                                        'NON VU'
+
+  if [ "$echec" = true ]; then
+    echo "🔴 gate-pr : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
+    exit 2
+  fi
+  echo "✅ gate-pr : auto-test OK (8 créations de PR vues, 6 mentions ignorées)."
+  exit 0
+fi
+
 INPUT="$(cat)"
 CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')"
 
-if ! printf '%s' "$CMD" | grep -q "gh pr create"; then
-  exit 0
-fi
+gate_pr_matche "$CMD" || exit 0
+
+# Résolu AVANT tout `cd` : ce hook tourne depuis le clone principal, et c'est SA
+# version de suite-verte.sh qui doit servir — une branche ouverte avant ce lot ne
+# porte pas le script dans son propre arbre.
+HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le clone principal
 # (souvent `main`). On se place dans le worktree de la branche RÉELLEMENT PR'd
 # (--head, sinon la cible d'un `cd … &&`) pour évaluer SES markers/tests/branche.
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-worktree.sh"
+. "$HOOKS/lib-worktree.sh"
 HEAD_BRANCH="$(printf '%s' "$CMD" | sed -nE "s/.*--head[= ]+([^ \"']+).*/\1/p" | head -1)"
 if [ -n "$HEAD_BRANCH" ]; then
   cd_worktree_for "$HEAD_BRANCH"
@@ -61,9 +114,13 @@ echo "" >&2
 echo "🔒 GATE PR — vérification avant création PR ($BRANCH)" >&2
 echo "" >&2
 
-# 1. Tests unitaires
-echo "  → pnpm -w test:unit..." >&2
-if ! pnpm -w test:unit >&2 2>&1; then
+# 1. Tests unitaires — la suite COMPLÈTE, une fois par contenu. Le commit n'en
+# joue plus que la part liée au changement (tests-lies.sh) : c'est ici que tout
+# le reste est joué avant la PR. Une suite déjà verte sur le contenu exact de HEAD
+# n'est pas rejouée (cf. suite-verte.sh) — typiquement la 2e tentative, après un
+# premier refus sur un marker de revue.
+echo "  → suite de tests complète (une fois par contenu)..." >&2
+if ! bash "$HOOKS/suite-verte.sh" >&2 2>&1; then
   echo "" >&2
   echo "❌ test:unit échoue — PR bloquée. Corrige les tests avant de créer la PR." >&2
   exit 2

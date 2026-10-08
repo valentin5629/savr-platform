@@ -4,6 +4,19 @@ on:
   push:
     branches: [main, dev]
 
+# Un nouveau push sur une PR rend le passage en cours sans objet : son verdict
+# porte sur un commit qui n'est plus la tête de la branche. On l'annule au lieu de
+# le laisser occuper la file — mesuré le 2026-10-08 : 2,6 passages par PR en
+# moyenne, 20 jobs simultanés au plus sur ce compte, et un p90 à 11 min pour une
+# médiane à 5,8.
+# Les push sur main / dev ne sont JAMAIS annulés ni mis en attente derrière un
+# autre : leur groupe est propre à chaque passage (`run_id`). Un groupe partagé
+# sans annulation ferait pire — GitHub ne garde qu'un seul passage en attente par
+# groupe et annule les autres.
+concurrency:
+  group: quality-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Detection des prerequis pour les jobs differes (modules 0.3 / 0.4).
   # `hashFiles()` n'est pas autorise au niveau `jobs.<job_id>.if` — on passe
@@ -90,6 +103,17 @@ jobs:
       # then`, la forme imposee par le projet). Pur test de chaines, instantane.
       - name: Auto-test du hook de merge (matrice des formes de commande)
         run: bash .claude/hooks/gate-merge.sh --self-test
+      # Même raison pour les gardes de commit et de création de PR, elles aussi
+      # jouées par Claude Code seul : le motif qui reconnaît la commande, le
+      # périmètre des tests liés au commit, et la trace « suite déjà verte sur ce
+      # contenu ». Un périmètre qui oublie une source, ou une trace qui survit à un
+      # changement de contenu, rendrait une garde verte à tort sans que rien ne le
+      # montre. Dépôts jetables, quelques secondes, ne lisent pas le dépôt réel.
+      - name: Auto-test des gardes de commit et de création de PR
+        run: |
+          bash .claude/hooks/gate-pr.sh --self-test
+          bash .claude/hooks/tests-lies.sh --self-test
+          bash .claude/hooks/suite-verte.sh --self-test
       - name: Collision de timestamp, y compris avec une branche non mergee
         run: bash scripts/check-migration-timestamp.sh --branch
 
@@ -395,26 +419,134 @@ jobs:
   # de `continue-on-error` par périmètre, derrière le lot de fix correspondant
   # (cliquet). Cf. `30. Review Code/Backlog final priorisé/Lot 0 …`.
 
-  # G7 — Cohérence colonne-DB par route. Recompile l'app avec le client Supabase
-  # TYPÉ contre le schéma réel (`packages/shared/src/database.types.ts`, snapshot
-  # HEAD régénérable via `pnpm db:types:local`). Toute colonne/RPC inexistante
-  # ciblée par .eq/.select/.insert/.update/.rpc devient une erreur compilée →
-  # comptée par le runner. NB : sans DB (snapshot committé). La FRAÎCHEUR de ce
-  # snapshot est le prérequis du gate : une table absente n'est pas mal typée,
-  # elle est invisible (ses écritures échappent à G7). Elle est désormais
-  # cliquetée par `check:types-snapshot` dans le job `gate-ratchet` — et non
-  # par G11 (cdc-drift), qui compare CDC ↔ manifeste, pas migrations ↔ snapshot.
-  column-db:
+  # Les NEUF rapports sans base de données du Lot 0, dans UN job. Ils en occupaient
+  # neuf, chacun payant son checkout et son `pnpm install` pour quelques secondes
+  # de contrôle : avec 28 jobs par passage et 20 jobs simultanés au plus sur ce
+  # compte, deux PR poussées en même temps se mettaient mutuellement en file.
+  #
+  # Rien ne change dans ce qui est contrôlé ni dans ce que ça bloque :
+  #   • MODE RAPPORT conservé — `continue-on-error: true` au niveau du job, le
+  #     workflow ne rougit jamais sur ces rapports ; l'enforcement reste le
+  #     méta-cliquet `gate-ratchet`, qui rejoue lui-même chaque compteur ;
+  #   • chaque rapport garde son étape, son résumé ($GITHUB_STEP_SUMMARY), et tourne
+  #     même si un précédent a échoué (`if: !cancelled()`) ;
+  #   • `fetch-depth: 0` pour tout le job : G12 (blame) et G11 (diff vs origin/main)
+  #     l'exigent, les autres n'y sont pas sensibles ;
+  #   • G11 passe EN DERNIER : il régénère `.cdc-metadata.json`, et les autres
+  #     rapports doivent lire, comme avant, le fichier tel qu'il est commité.
+  rapports-lot0:
     runs-on: ubuntu-latest
     continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 } # G12 : blame → ancre ; G11 : diff vs origin/main
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+
+      # ── column-db ─────────────────────────────────────────────────────────
+      # G7 — Cohérence colonne-DB par route. Recompile l'app avec le client Supabase
+      # TYPÉ contre le schéma réel (`packages/shared/src/database.types.ts`, snapshot
+      # HEAD régénérable via `pnpm db:types:local`). Toute colonne/RPC inexistante
+      # ciblée par .eq/.select/.insert/.update/.rpc devient une erreur compilée →
+      # comptée par le runner. NB : sans DB (snapshot committé). La FRAÎCHEUR de ce
+      # snapshot est le prérequis du gate : une table absente n'est pas mal typée,
+      # elle est invisible (ses écritures échappent à G7). Elle est désormais
+      # cliquetée par `check:types-snapshot` dans le job `gate-ratchet` — et non
+      # par G11 (cdc-drift), qui compare CDC ↔ manifeste, pas migrations ↔ snapshot.
       - name: G7 — rapport colonne-DB
+        if: ${{ !cancelled() }}
         run: pnpm check:column-db
+
+      # ── manifest-grain ────────────────────────────────────────────────────
+      # G2 — Manifeste au grain LIVRABLE (R0b). Valide chaque specs/manifests/M*.json
+      # contre specs/manifests/_schema.json (validateur de sous-ensemble JSON Schema
+      # embarqué, sans dépendance) et SIGNALE le grain scénario-seul (= deliverables[]
+      # absent → livrable CDC non transcrit invisible, cause racine de l'audit). Pur
+      # Node (tsx), sans DB. Flip bloquant (T1) quand tous les manifestes portent un
+      # deliverables[] valide (durcissement par cliquet).
+      - name: G2 — rapport grain livrable
+        if: ${{ !cancelled() }}
+        run: pnpm check:manifest-grain
+
+      # ── manifest-ref-anchor ───────────────────────────────────────────────
+      # G12 — Ancrage des `ref_cdc` LIGNÉS des manifestes. `specs/manifests/` est
+      # authored, `specs/cdc/**` est DÉRIVÉ (re-sync depuis le Vault) : un sync qui
+      # insère des lignes en amont décale le fichier et les refs figées pointent un
+      # passage sans rapport, en silence. Ni manifest-grain (structure seule) ni
+      # cdc-drift (hash de fichier entier) ne regardent le numéro de ligne. Reconstruit
+      # l'ancre par `git blame` du manifeste, puis SUIT la ligne de version en version
+      # du CDC par la carte de lignes des diffs (réécrite sur place = suivie ; remaniée
+      # ou supprimée = « à relire », compteur distinct). Pur Node (tsx), sans DB.
+      # ⚠ `fetch-depth: 0` OBLIGATOIRE : sur un clone tronqué, aucune ancre n'est
+      # reconstructible — le gate sort en erreur sans compteur, le cliquet rougit.
+      # Enforcement via le méta-cliquet gate-ratchet (baseline 0 : parc recalé).
+      - name: G12 — rapport ancrage des ref_cdc
+        if: ${{ !cancelled() }}
+        run: pnpm check:manifest-ref-anchor
+
+      # ── renamed-type-refs ─────────────────────────────────────────────────
+      # check:renamed-type-refs — anti-récidive cluster C3 / #259. Rejoue les
+      # `ALTER TYPE … RENAME` de toutes les migrations et flagge toute référence
+      # EXÉCUTABLE (cast, décl. colonne/variable/arg, y compris dans un corps $$)
+      # à un ancien nom de type déjà renommé → `db reset` échouerait TARD. Pur Node
+      # (tsx), sans DB. Enforcement via le méta-cliquet (baseline 0) ; ce job donne
+      # le détail fichier:ligne dans le PR summary.
+      - name: Rapport références à un type Postgres renommé
+        if: ${{ !cancelled() }}
+        run: pnpm check:renamed-type-refs
+
+      # ── spec-deliverables ─────────────────────────────────────────────────
+      # G1 — check:spec-deliverables (R0b). Diff livrables CDC (index seedé depuis
+      # l'audit : specs/manifests/cdc-deliverables.index.json) ↔ union des
+      # deliverables[] des manifestes. Un livrable CDC absent de tous les manifestes
+      # (et non descopé) = non transcrit → SIGNALÉ. Ferme la cause racine (gates
+      # code-vs-manifeste, jamais code-vs-CDC). Pur Node (tsx), sans DB. Flip bloquant
+      # (T1) PAR MODULE dès que son manifeste est re-grainé et à jour.
+      - name: G1 — rapport couverture livrables CDC
+        if: ${{ !cancelled() }}
+        run: pnpm check:spec-deliverables
+
+      # ── test-mocks ────────────────────────────────────────────────────────
+      # G5 — check:test-mocks (durci R9, cluster C7). Interdit de mocker le VRAI chemin
+      # du worker outbox (runOutboxWorker / handleError / getNextRetryAt) dans ses
+      # propres tests (co-localisés adapters). Mocker le client Supabase, sendAlert ou
+      # la frontière HTTP de l'adapter reste autorisé. Pur Node (tsx), sans DB. Aussi
+      # enforced par gate-ratchet (baseline 0 → toute régression bloque).
+      - name: G5 — rapport mock du vrai chemin worker outbox
+        if: ${{ !cancelled() }}
+        run: pnpm check:test-mocks
+
+      # ── manifest-completeness ─────────────────────────────────────────────
+      # G10 — Complétude inverse des manifestes (L2 : index incomplet). Chaque module
+      # roadmap V1 a-t-il un manifeste ? Chaque manifeste porte-t-il cdc_source_hash ?
+      # Pur Node (tsx), sans DB.
+      - name: G10 — rapport complétude manifestes
+        if: ${{ !cancelled() }}
+        run: pnpm check:manifest-completeness
+
+      # ── preuve-visuelle ───────────────────────────────────────────────────
+      # preuve-visuelle (L5) — catalogue des livrables présentationnels (à-vérifier)
+      # exigeant une preuve screenshot/Loom en PR + vérif backstop go-live
+      # (docs/audit/AUDIT_SCOPE.json). Discipline humaine ; ce job rend le catalogue
+      # non-contournable (compté). Pur Node (tsx), sans DB.
+      - name: L5 — rapport catalogue preuve-visuelle
+        if: ${{ !cancelled() }}
+        run: pnpm check:preuve-visuelle
+
+      # ── cdc-drift ─────────────────────────────────────────────────────────
+      # G11 — Drift CDC (L3 : CDC patché, manifeste figé). Compare cdc_source_hash
+      # figé ↔ .cdc-metadata.json courant ; annote les fichiers modifiés dans la PR.
+      # fetch-depth: 0 pour le git diff vs origin/main. Pur Node (tsx), sans DB.
+      # Régénère .cdc-metadata.json depuis specs/cdc AVANT le diff : sinon G11
+      # compare contre un metadata commité potentiellement périmé (R0d finding #10).
+      - id: cdc_drift_prealable
+        if: ${{ !cancelled() }}
+        run: pnpm gen:cdc-metadata
+      - name: G11 — rapport drift CDC ↔ manifeste
+        if: ${{ !cancelled() && steps.cdc_drift_prealable.outcome == 'success' }}
+        run: pnpm check:cdc-drift
 
   # G8 (volet léger) — Primitives orphelines : logger/sendAlert/captureException
   # exportés de @savr/shared mais sans call-site de production (chaînes
@@ -428,101 +560,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: G8 — primitives orphelines (bloquant)
         run: bash scripts/check-primitive-orpheline.sh
-
-  # G2 — Manifeste au grain LIVRABLE (R0b). Valide chaque specs/manifests/M*.json
-  # contre specs/manifests/_schema.json (validateur de sous-ensemble JSON Schema
-  # embarqué, sans dépendance) et SIGNALE le grain scénario-seul (= deliverables[]
-  # absent → livrable CDC non transcrit invisible, cause racine de l'audit). Pur
-  # Node (tsx), sans DB. Flip bloquant (T1) quand tous les manifestes portent un
-  # deliverables[] valide (durcissement par cliquet).
-  manifest-grain:
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: G2 — rapport grain livrable
-        run: pnpm check:manifest-grain
-
-  # G12 — Ancrage des `ref_cdc` LIGNÉS des manifestes. `specs/manifests/` est
-  # authored, `specs/cdc/**` est DÉRIVÉ (re-sync depuis le Vault) : un sync qui
-  # insère des lignes en amont décale le fichier et les refs figées pointent un
-  # passage sans rapport, en silence. Ni manifest-grain (structure seule) ni
-  # cdc-drift (hash de fichier entier) ne regardent le numéro de ligne. Reconstruit
-  # l'ancre par `git blame` du manifeste, puis SUIT la ligne de version en version
-  # du CDC par la carte de lignes des diffs (réécrite sur place = suivie ; remaniée
-  # ou supprimée = « à relire », compteur distinct). Pur Node (tsx), sans DB.
-  # ⚠ `fetch-depth: 0` OBLIGATOIRE : sur un clone tronqué, aucune ancre n'est
-  # reconstructible — le gate sort en erreur sans compteur, le cliquet rougit.
-  # Enforcement via le méta-cliquet gate-ratchet (baseline 0 : parc recalé).
-  manifest-ref-anchor:
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — le cliquet gate-ratchet enforce (baseline 0)
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 } # blame → ancre : l'historique complet est requis
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: G12 — rapport ancrage des ref_cdc
-        run: pnpm check:manifest-ref-anchor
-
-  # check:renamed-type-refs — anti-récidive cluster C3 / #259. Rejoue les
-  # `ALTER TYPE … RENAME` de toutes les migrations et flagge toute référence
-  # EXÉCUTABLE (cast, décl. colonne/variable/arg, y compris dans un corps $$)
-  # à un ancien nom de type déjà renommé → `db reset` échouerait TARD. Pur Node
-  # (tsx), sans DB. Enforcement via le méta-cliquet (baseline 0) ; ce job donne
-  # le détail fichier:ligne dans le PR summary.
-  renamed-type-refs:
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — le cliquet gate-ratchet enforce (baseline 0)
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: Rapport références à un type Postgres renommé
-        run: pnpm check:renamed-type-refs
-
-  # G1 — check:spec-deliverables (R0b). Diff livrables CDC (index seedé depuis
-  # l'audit : specs/manifests/cdc-deliverables.index.json) ↔ union des
-  # deliverables[] des manifestes. Un livrable CDC absent de tous les manifestes
-  # (et non descopé) = non transcrit → SIGNALÉ. Ferme la cause racine (gates
-  # code-vs-manifeste, jamais code-vs-CDC). Pur Node (tsx), sans DB. Flip bloquant
-  # (T1) PAR MODULE dès que son manifeste est re-grainé et à jour.
-  spec-deliverables:
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: G1 — rapport couverture livrables CDC
-        run: pnpm check:spec-deliverables
-
-  # G5 — check:test-mocks (durci R9, cluster C7). Interdit de mocker le VRAI chemin
-  # du worker outbox (runOutboxWorker / handleError / getNextRetryAt) dans ses
-  # propres tests (co-localisés adapters). Mocker le client Supabase, sendAlert ou
-  # la frontière HTTP de l'adapter reste autorisé. Pur Node (tsx), sans DB. Aussi
-  # enforced par gate-ratchet (baseline 0 → toute régression bloque).
-  test-mocks:
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — l'enforcement dur est dans gate-ratchet
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: G5 — rapport mock du vrai chemin worker outbox
-        run: pnpm check:test-mocks
 
   # ===========================================================================
   # Lot 0 / R0c — Garde-fous de 2e ordre (red-team), MODE RAPPORT (T0)
@@ -618,56 +655,6 @@ jobs:
         run: bash scripts/run-report-pgtap.sh supabase/tests-report/integration_contracts.test.sql "integration-contracts — postconditions DB"
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
-
-  # G10 — Complétude inverse des manifestes (L2 : index incomplet). Chaque module
-  # roadmap V1 a-t-il un manifeste ? Chaque manifeste porte-t-il cdc_source_hash ?
-  # Pur Node (tsx), sans DB.
-  manifest-completeness:
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: G10 — rapport complétude manifestes
-        run: pnpm check:manifest-completeness
-
-  # G11 — Drift CDC (L3 : CDC patché, manifeste figé). Compare cdc_source_hash
-  # figé ↔ .cdc-metadata.json courant ; annote les fichiers modifiés dans la PR.
-  # fetch-depth: 0 pour le git diff vs origin/main. Pur Node (tsx), sans DB.
-  cdc-drift:
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      # Régénère .cdc-metadata.json depuis specs/cdc AVANT le diff : sinon G11
-      # compare contre un metadata commité potentiellement périmé (R0d finding #10).
-      - run: pnpm gen:cdc-metadata
-      - name: G11 — rapport drift CDC ↔ manifeste
-        run: pnpm check:cdc-drift
-
-  # preuve-visuelle (L5) — catalogue des livrables présentationnels (à-vérifier)
-  # exigeant une preuve screenshot/Loom en PR + vérif backstop go-live
-  # (docs/audit/AUDIT_SCOPE.json). Discipline humaine ; ce job rend le catalogue
-  # non-contournable (compté). Pur Node (tsx), sans DB.
-  preuve-visuelle:
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: L5 — rapport catalogue preuve-visuelle
-        run: pnpm check:preuve-visuelle
 
   # ===========================================================================
   # R0d — MÉTA-CLIQUET anti-régression. SEUL gate Lot 0 BLOQUANT (continue-on-error

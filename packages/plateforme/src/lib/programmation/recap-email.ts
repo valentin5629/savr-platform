@@ -40,9 +40,11 @@ export async function envoyerRecapProgrammation(
   // Destinataire = programmeur (utilisateur authentifié).
   const userRes = (await supabase
     .from('users')
-    .select('email')
+    .select('email, prenom')
     .eq('id', params.programmeurUserId)
-    .maybeSingle()) as { data?: { email?: string } | null } | null;
+    .maybeSingle()) as {
+    data?: { email?: string; prenom?: string | null } | null;
+  } | null;
 
   const to = userRes?.data?.email ?? '';
   if (!to) return; // pas de destinataire résoluble → pas d'envoi
@@ -75,6 +77,9 @@ export async function envoyerRecapProgrammation(
     'collecte_programmee',
     to,
     {
+      // Formule d'appel « Bonjour Prénom, » (§06.02 §3). Vide → « Bonjour, » :
+      // le template porte le prénom dans un bloc conditionnel.
+      prenom: userRes?.data?.prenom?.trim() ?? '',
       nom_evenement: params.nomEvenement ?? 'Votre événement',
       date_collecte: dateRecap,
       tarif_ligne: tarifLigne,

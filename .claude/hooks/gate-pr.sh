@@ -3,6 +3,9 @@
 # Point 3 (divergences) est couvert par le reviewer conformite-spec qui doit les flaguer.
 set -euo pipefail
 
+# Chemin absolu de ce script, pris avant tout `cd` (l'auto-test le rejoue en entier).
+ICI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
 # ── Reconnaître la commande — isolé en fonction, pour être TESTABLE ──────────
 # Le motif d'origine était la simple présence de la chaîne dans la commande : un
 # `grep` sur ces mots, un message de commit qui les cite ou un script d'analyse
@@ -20,7 +23,8 @@ set -euo pipefail
 #   1. COLLÉE À UN DÉBUT DE COMMANDE — début de ligne, ou juste après un
 #      séparateur (; & |), une parenthèse ou un accent grave ; ou comme texte
 #      d'un `bash -c "…"` / `eval "…"` (avec ou sans options avant le `-c`).
-#      Vue quoi qu'il y ait derrière.
+#      Vue quoi qu'il y ait derrière — sauf la mention entre accents graves
+#      décrite plus bas.
 #
 #   2. DERRIÈRE N'IMPORTE QUOI D'AUTRE — un mot-clé du shell (`if`, `then`,
 #      `until`…), une variable d'environnement en préfixe, un lanceur (`timeout
@@ -38,11 +42,37 @@ set -euo pipefail
 # inverse, options entre `gh`, `pr` et le verbe (`gh -R o/r pr create`), et l'alias
 # `gh pr new`.
 #
+# LA MENTION ENTRE ACCENTS GRAVES — retirée du texte avant les deux voies : la
+# commande NUE, écrite exactement `gh pr create` ou `gh pr new` (un seul espace
+# entre les mots, rien d'autre entre les deux accents graves). C'est l'écriture
+# Markdown d'une mention, dans un message de commit ou un corps de PR ; l'accent
+# grave ouvrant aussi une substitution de commande, elle déclenchait la garde par
+# la voie 1 (rejoué le 2026-10-08 sur l'historique des sessions : 8 commandes
+# sur les 654 qui contiennent la chaîne, toutes des notes rédigées en Markdown).
+# Ce que ça coûte : si le shell exécute réellement ce texte (substitution hors
+# guillemets simples), la garde ne le voit plus. C'est alors `gh` sans aucune
+# option, qui ne crée rien — mesuré le 2026-10-08 avec gh 2.101.0, hors de tout
+# dépôt, de cinq façons (entre accents graves, alias `new`, `$( )`, entrée et
+# sortie redirigées, `GH_FORCE_TTY` posé) : code 1, « must provide `--title`
+# and `--body` (or `--fill` …) when not running interactively ». En
+# substitution, sa sortie standard est vide (mesuré pour `create` et pour
+# `new`). Même constat que la famille (a) plus bas. Dès qu'une option est écrite
+# entre les accents graves (`gh pr create --fill`), la commande reste vue.
+#
 # CE QUI DÉCLENCHE À TORT, et c'est voulu (un refus de trop vaut mieux qu'une PR
-# non contrôlée) : une mention collée à un début de commande dans un texte — après
-# un `;`, un `|` ou un `&&` entre guillemets, en début de ligne d'un heredoc — ou
-# placée en fin de ligne. Vécu pendant l'écriture de ce lot : un script de
-# modification passé en heredoc, dont une ligne contenait `|` suivi de la commande.
+# non contrôlée) :
+#   • une mention collée à un début de commande dans un texte — après un `;`, un
+#     `|` ou un `&&` entre guillemets, en début de ligne d'un heredoc — ou placée
+#     en fin de ligne. Vécu pendant l'écriture du premier lot : un script de
+#     modification passé en heredoc, dont une ligne contenait `|` suivi de la
+#     commande ;
+#   • une mention en pleine phrase suivie de ce que la voie 2 attend derrière une
+#     commande — une option le plus souvent (« lancer gh pr create --fill après
+#     la revue ») ;
+#   • une mention entre accents graves qui porte une option
+#     (`gh pr create --fill`) : rien ne la distingue d'une substitution réelle.
+# Un texte qui cite la commande ainsi passe par un fichier (`git commit -F`,
+# `--body-file`), jamais par le texte d'une commande Bash.
 #
 # CE QUE L'ANCIEN MOTIF VOYAIT ET QUE CELUI-CI NE VOIT PLUS : toute commande qui
 # contient la chaîne exacte sans entrer dans aucune des deux voies ci-dessus.
@@ -50,12 +80,14 @@ set -euo pipefail
 # l'ancien motif : 35 vues sur 35 (formes courantes), 13 sur 13 (options
 # renvoyées à la ligne), 7 sur 22, 3 sur 15. Familles RELEVÉES dans les deux
 # dernières — l'inventaire n'est pas exhaustif, d'autres peuvent exister :
-#   a. SANS aucune option, hors début de commande — refermée aussitôt par une
+#   a. SANS aucune option — hors début de commande, refermée aussitôt par une
 #      parenthèse, un accent grave ou un guillemet (`(nice gh pr create)`), ou
-#      suivie d'une redirection à descripteur (`nice gh pr create 2>&1`). Suivie
-#      de `>`, `<` ou `&>`, elle est vue. Ne crée rien : hors terminal
-#      interactif, `gh` la refuse (« must provide `--title` and `--body` … when
-#      not running interactively »).
+#      suivie d'une redirection à descripteur (`nice gh pr create 2>&1`) ; ou
+#      NUE entre deux accents graves (la mention décrite plus haut, quand elle
+#      est une vraie substitution : URL=`gh pr create`). Suivie de `>`, `<` ou
+#      `&>`, elle est vue. Ne crée rien : hors terminal interactif, `gh` la
+#      refuse (« must provide `--title` and `--body` … when not running
+#      interactively », mesuré le 2026-10-08, gh 2.101.0).
 #   b. AVEC options — donc capable de créer une PR — quand la commande est collée
 #      à un guillemet ouvrant ailleurs que derrière `sh -c` / `eval`, ou à la
 #      parenthèse d'un motif de `case`. Les 15 formes non vues de la troisième
@@ -92,9 +124,162 @@ gate_pr_matche() {
   local debut='(^|[;&|(`])[[:space:]]*'
   local enveloppe="\\b((ba|z)?sh\\b[^;&|]*[[:space:]]-[a-zA-Z]*c|eval)[[:space:]]+[\"']?[[:space:]]*"
   local suite="([[:space:]]*(\$|[;&|<>#\\\\])|[[:space:]]+[-\"'\$])"
-  printf '%s' "$1" | grep -Eq "(${debut}|${enveloppe})${commande}" && return 0
-  printf '%s' "$1" | grep -Eq "[[:space:]]${commande}${suite}"
+  # La mention entre accents graves (cf. l'en-tête) est retirée avant les deux
+  # voies. Retirée, pas remplacée par un blanc : c'est ce que le shell fait d'une
+  # substitution dont la sortie est vide (mesuré : la commande nue ne rend rien
+  # sur sa sortie standard), le texte qui l'entoure se recolle — et c'est ce
+  # texte recollé qui est jugé (forme g`…`h de la matrice).
+  local texte="$1" mention
+  for mention in '`gh pr create`' '`gh pr new`'; do
+    texte="${texte//$mention/}"
+  done
+  printf '%s' "$texte" | grep -Eq "(${debut}|${enveloppe})${commande}" && return 0
+  printf '%s' "$texte" | grep -Eq "[[:space:]]${commande}${suite}"
 }
+
+# ── Auto-test, 2e partie : le flux du hook, de bout en bout ─────────────────
+# La matrice plus bas ne juge que le motif. Ici c'est le script ENTIER qui est
+# rejoué dans un dépôt jetable, avec un faux `pnpm` et un faux contrôle outbox :
+# un `exit 2` retiré, un marker qui ne serait plus lu, une suite rouge qui
+# laisserait passer — rien d'autre ne les ferait rougir (relevé en revue sécurité
+# de la PR #530 : le flux n'avait aucun auto-test). Les scripts voisins
+# (`lib-worktree.sh`, `suite-verte.sh`) sont les vrais, pris à côté de celui-ci.
+bout_en_bout() (
+  set +e
+  set -uo pipefail
+  ko=false
+  bac="$(mktemp -d)" || { echo "🔴 gate-pr : mktemp impossible." >&2; exit 1; }
+  trap 'rm -rf "$bac"' EXIT
+  bac="$(cd "$bac" && pwd -P)"
+  depot="$bac/depot"; autre="$bac/autre"; journal="$bac/journal"; sortie="$bac/sortie"
+  mkdir -p "$bac/bin"
+  cat > "$bac/bin/pnpm" <<'FAUX'
+#!/bin/sh
+echo "$*" >> "$FAUX_JOURNAL"
+case "$*" in
+  *seed:check*)
+    [ -n "${FAUX_SEED_SORTIE:-}" ] && echo "$FAUX_SEED_SORTIE"
+    exit "${FAUX_SEED_CODE:-0}"
+    ;;
+  *) exit "${FAUX_TESTS_CODE:-0}" ;;
+esac
+FAUX
+  chmod +x "$bac/bin/pnpm"
+  : > "$journal"
+  # Deux worktrees : `lot` (dossier `depot`) et `autre-lot` (dossier `autre`).
+  # `.claude/` est ignoré, comme dans le vrai dépôt : un marker ne salit pas l'arbre.
+  (
+    mkdir "$depot" && cd "$depot" && git init -q -b main . && git config user.email t@t && git config user.name t
+    mkdir scripts && printf '#!/bin/sh\nexit "${FAUX_OUTBOX_CODE:-0}"\n' > scripts/check-outbox-contracts.sh
+    echo '.claude/' > .gitignore && echo a > f.ts
+    git add -A && git commit -qm base
+    git checkout -q -b lot && echo b > f.ts && git commit -qam lot
+    git worktree add -q -b autre-lot "$autre" main
+  ) >/dev/null 2>&1 || { echo "🔴 gate-pr : dépôt jetable non construit." >&2; exit 1; }
+
+  # joue <dossier> <commande> [VAR=valeur …] : passe la commande au hook, depuis ce dossier.
+  joue() {
+    local dossier="$1" commande="$2"
+    shift 2
+    (cd "$dossier" && jq -n --arg c "$commande" '{tool_input: {command: $c}}' \
+      | env PATH="$bac/bin:$PATH" FAUX_JOURNAL="$journal" "$@" "$BASH" "$ICI" > "$sortie" 2>&1)
+  }
+  attendu() {  # attendu <libellé> <obtenu> <voulu>
+    [ "$2" = "$3" ] || { echo "🔴 flux [$1] : obtenu [$2], attendu [$3]" >&2; ko=true; }
+  }
+  code() {  # code <libellé> <voulu> <dossier> <commande> [VAR=valeur …]
+    local libelle="$1" voulu="$2" rc=0
+    shift 2
+    joue "$@" || rc=$?
+    attendu "$libelle" "$rc" "$voulu"
+  }
+  dit() {  # dit <libellé> <texte> : la sortie du dernier passage contient ce texte
+    grep -qF -- "$2" "$sortie" || { echo "🔴 flux [$1] : la sortie ne dit pas « $2 »" >&2; ko=true; }
+  }
+  tait() {  # tait <libellé> <texte> : la sortie du dernier passage ne le contient pas
+    if grep -qF -- "$2" "$sortie"; then echo "🔴 flux [$1] : la sortie dit « $2 »" >&2; ko=true; fi
+  }
+  appels() { grep -c -- "$1" "$journal" || true; }
+  tete() { git -C "$1" rev-parse HEAD; }
+  go() {  # go <dossier> <branche> : pose les deux markers GO sur le HEAD de ce dossier
+    mkdir -p "$1/.claude"
+    echo "GO $(tete "$1")" > "$1/.claude/conformite-ok-$2"
+    echo "GO $(tete "$1")" > "$1/.claude/securite-ok-$2"
+  }
+  local creer='gh pr create --fill'
+  local faux_sha='0000000000000000000000000000000000000000'
+
+  # 1. Une commande qui ne crée pas de PR : laissée passer, rien n'est lancé.
+  code 'commande sans création de PR' 0 "$depot" 'git status --short'
+  attendu 'commande sans création de PR → rien de lancé' "$(wc -l < "$journal" | tr -d ' ')" 0
+
+  # 2. Tout est en règle.
+  go "$depot" lot
+  code 'tout en règle' 0 "$depot" "$creer"
+  dit 'tout en règle' 'GATE PR OK'
+  dit 'tout en règle' 'seed OK'
+  attendu 'tout en règle → suite complète jouée' "$(appels 'test:unit')" 1
+  attendu 'tout en règle → seed interrogé' "$(appels 'seed:check')" 1
+
+  # 3. Deuxième tentative sur le même contenu : la suite n'est pas rejouée.
+  code '2e tentative, même contenu' 0 "$depot" "$creer"
+  attendu '2e tentative → suite non rejouée' "$(appels 'test:unit')" 1
+
+  # 4. Suite rouge sur un contenu nouveau, puis contrat outbox en échec.
+  (cd "$depot" && echo c > f.ts && git commit -qam c) >/dev/null 2>&1
+  go "$depot" lot
+  code 'suite rouge' 2 "$depot" "$creer" FAUX_TESTS_CODE=1
+  dit 'suite rouge' 'test:unit échoue'
+  tait 'suite rouge' 'GATE PR OK'
+  code 'contrat outbox en échec' 2 "$depot" "$creer" FAUX_OUTBOX_CODE=1
+  dit 'contrat outbox en échec' 'check-outbox-contracts échoue'
+
+  # 5. Markers de revue : absent, vide, NON-GO, périmé — pour chacun des deux.
+  local m
+  for m in conformite securite; do
+    go "$depot" lot
+    rm "$depot/.claude/$m-ok-lot"
+    code "marker $m absent" 2 "$depot" "$creer"
+    dit "marker $m absent" 'MANQUANT'
+    : > "$depot/.claude/$m-ok-lot"
+    code "marker $m vide" 2 "$depot" "$creer"
+    echo "NON-GO $(tete "$depot")" > "$depot/.claude/$m-ok-lot"
+    code "marker $m NON-GO" 2 "$depot" "$creer"
+    dit "marker $m NON-GO" "sans verdict 'GO'"
+    echo "GO $faux_sha" > "$depot/.claude/$m-ok-lot"
+    code "marker $m sur un autre commit" 2 "$depot" "$creer"
+    dit "marker $m sur un autre commit" 'périmé'
+  done
+  go "$depot" lot
+  code 'markers rétablis' 0 "$depot" "$creer"
+
+  # 6. Vérification du seed : dit ce qu'elle constate, ne bloque pas, et ne dit
+  # jamais « OK » sans l'avoir constaté (le défaut d'origine : `|| true` puis `$?`).
+  code 'seed en écart' 0 "$depot" "$creer" FAUX_SEED_CODE=1 'FAUX_SEED_SORTIE=  ❌ 0 téléphone hors range'
+  tait 'seed en écart' 'seed OK'
+  dit 'seed en écart' 'signale un écart'
+  dit 'seed en écart' '0 téléphone hors range'
+  code 'seed non joué' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
+    "FAUX_SEED_SORTIE=[seed:check] erreur : ENOENT: no such file or directory, open '/x/.env.local'"
+  tait 'seed non joué' 'seed OK'
+  dit 'seed non joué' 'NON JOUÉ'
+  code 'seed en erreur sur un autre fichier' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
+    "FAUX_SEED_SORTIE=[seed:check] erreur : ENOENT: no such file or directory, open '/x/matrix.csv'"
+  dit 'seed en erreur sur un autre fichier' 'signale un écart'
+
+  # 7. Ce sont les markers et le contenu de la branche VISÉE qui sont jugés —
+  # `--head <branche>`, sinon la cible d'un `cd … &&` — pas ceux du dossier où
+  # le hook tourne.
+  code '--head vers une branche sans markers' 2 "$depot" "$creer --head autre-lot"
+  go "$autre" autre-lot
+  rm "$depot/.claude/conformite-ok-lot" "$depot/.claude/securite-ok-lot"
+  code '--head vers une branche en règle, depuis un dossier sans markers' 0 "$depot" "$creer --head autre-lot"
+  code 'cd vers un worktree en règle, depuis un dossier sans markers' 0 "$depot" "cd $autre && $creer"
+  code 'cd vers un worktree sans markers, depuis un dossier en règle' 2 "$autre" "cd $depot && $creer"
+  code 'sans cible : le dossier courant, sans markers' 2 "$depot" "$creer"
+
+  [ "$ko" = false ]
+)
 
 # ── Auto-test : la matrice des formes de commande ──────────────────────────
 # Une forme par ligne, préfixée de son type :
@@ -177,6 +362,14 @@ V:{ gh pr create \
 V:timeout 120 gh pr create
 V:nice gh pr create && echo ok
 V:nice gh pr create "$@"
+V:nice gh pr create $ARGS
+V:nice gh pr create > /tmp/sortie.txt
+V:nice gh pr create < /tmp/corps.md
+V:nice gh pr create &> /tmp/sortie.txt
+V:echo `gh pr create` && gh pr create --fill
+V:g`gh pr create`h pr create --fill
+V:nice g`gh pr new`h pr create --fill
+V:URL=`gh -R o/r pr create --fill`
 V:gh pr new --fill
 V:gh  pr   create --fill
 V:gh pr -R o/r create --fill
@@ -195,17 +388,35 @@ N:python3 -c "if 'gh pr create' in c: k = 'gh pr create'"
 N:echo "=== push + gate-pr (via gh pr create) ==="
 N:gh pr view 42 --json title
 N:gh pr merge 42 --squash
+N:git commit -m "doc : `gh pr create` reste garde"
+N:echo 'juste avant `gh pr create`, verifier mergeable'
+N:- l'alias `gh pr new` est vu comme `gh pr create` (ligne de note Markdown)
 F:echo "etape 1 ; gh pr create ; etape 3"
 F:echo "a && gh pr create --fill"
 F:gh pr create est la commande surveillee (ligne de corps de heredoc)
 F:gh pr merge 42 --squash  # puis gh pr create
+F:git commit -m "doc : lancer gh pr create --fill apres la revue"
+F:echo 'la forme `gh pr create --fill` est gardee'
+F:echo 'ecrit `gh  pr create` avec deux espaces'
 L:"gh" pr create --fill
 L:ssh hote 'gh pr create --fill'
 L:su - val -c "gh pr create --fill"
+L:"$SHELL" -c "gh pr create --fill"
+L:$SHELL -lc 'gh pr create --fill'
+L:dash -c "gh pr create --fill"
+L:ksh -c "gh pr create --fill"
+L:fish -c "gh pr create --fill"
+L:tmux send-keys "gh pr create --fill" Enter
+L:watch -n 60 "gh pr create --fill"
+L:env -S "gh pr create --fill"
 L:echo "gh pr create --fill" | bash
+L:echo 'gh pr create --fill' | sh
+L:printf '%s\n' "gh pr create --fill" | bash
+L:bash <<< "gh pr create --fill"
 L:case $m in go)gh pr create --fill;; esac
 L:nice gh pr create 2>&1
 L:(nice gh pr create)
+L:URL=`gh pr create`
 L:nice gh pr create 2>&1 --fill
 L:nice gh pr create {--fill,--draft}
 FORMES
@@ -214,11 +425,13 @@ FORMES
   # Options renvoyées à la ligne : la ligne qui porte la commande finit par une barre inverse.
   juge V "$(printf 'cd /tmp/wt && GH_TOKEN=abc gh pr create \\\n  --title "t" \\\n  --body "b"')"
 
+  bout_en_bout || echec=true
+
   if [ "$echec" = true ]; then
     echo "🔴 gate-pr : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
     exit 2
   fi
-  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues)."
+  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues ; flux de bout en bout : commande ignorée, suite rouge, contrat outbox, markers absent / vide / NON-GO / périmé pour chaque relecteur, seed qui ne dit plus OK à tort, branche visée par --head ou par cd)."
   exit 0
 fi
 
@@ -299,25 +512,32 @@ if ! bash "$HOOKS/suite-verte.sh" >&2 2>&1; then
 fi
 echo "  ✅ tests OK" >&2
 
-# 2. Seed check (staleness detector)
-# Le check utilise DIRECT_URL (port 5432) qui peut être injoignable en environnement sandboxé.
-# Si l'erreur est ENOTFOUND/ECONNREFUSED (réseau), on warn sans bloquer.
-# Si c'est une vraie erreur de schéma, le process exit non-0 avec un autre message.
-echo "  → pnpm seed:check..." >&2
-SEED_OUTPUT=$(pnpm seed:check 2>&1 || true)
-SEED_EXIT=$?
-if [ $SEED_EXIT -ne 0 ]; then
-  if echo "$SEED_OUTPUT" | grep -qE "ENOTFOUND|ECONNREFUSED|ETIMEDOUT|getaddrinfo"; then
-    echo "  ⚠️  seed:check ignoré (DIRECT_URL injoignable — réseau sandboxé, pas un écart schéma)" >&2
-  else
-    echo "" >&2
-    echo "$SEED_OUTPUT" >&2
-    echo "❌ seed:check échoue — le seed est probablement désynchronisé du schéma." >&2
-    echo "   Mets à jour packages/shared/src/seed/ pour refléter les nouvelles tables/colonnes." >&2
-    exit 2
-  fi
-else
+# 2. Vérification du seed — INFORMATIVE : elle dit ce qu'elle constate, elle ne
+# bloque pas.
+# `pnpm seed:check` interroge la base de DEV (volumétrie, objets clés, emails et
+# téléphones fictifs, séquences de facturation). Il juge l'état de cette base,
+# pas le contenu de la branche.
+# Jusqu'au 2026-10-08, ce bloc lisait `$?` après un `|| true` : le code lu était
+# toujours nul, « seed OK » s'affichait quoi qu'il arrive, et son `exit 2` n'a
+# jamais pu être atteint. Mesuré ce jour-là, avant de corriger la lecture :
+#   • dans un worktree sans `.env.local` (33 des 34 de `.claude/worktrees/`), le
+#     script sort en 1 sans avoir rien contrôlé (ENOENT sur `.env.local`) ;
+#   • dans le clone principal, il sort en 1 sur 3 écarts réels de la base de dev
+#     (un transporteur, une séquence de facturation, un téléphone).
+# Bloquer sur ce code arrêterait donc toute création de PR, pour un état qui ne
+# dépend pas de la PR. Le bloc reste non bloquant, comme il l'a toujours été en
+# fait ; ce qui change, c'est qu'il n'affiche plus « OK » sans l'avoir constaté.
+# Le rendre bloquant, ou le retirer d'ici, est une décision de Val.
+echo "  → pnpm seed:check (informatif)..." >&2
+SEED_EXIT=0
+SEED_OUTPUT="$(pnpm seed:check 2>&1)" || SEED_EXIT=$?
+if [ "$SEED_EXIT" -eq 0 ]; then
   echo "  ✅ seed OK" >&2
+elif printf '%s' "$SEED_OUTPUT" | grep -qE "ENOENT.*\.env\.local|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|getaddrinfo"; then
+  echo "  ⚠️  seed:check NON JOUÉ — pas de .env.local dans ce dossier, ou base de dev injoignable. Rien n'a été contrôlé." >&2
+else
+  printf '%s\n' "$SEED_OUTPUT" | grep -E '❌|erreur' >&2 || true
+  echo "  ⚠️  seed:check signale un écart sur la base de dev (code ${SEED_EXIT}) — non bloquant." >&2
 fi
 
 # 3. Outbox contracts (conformité payload V2)

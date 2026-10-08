@@ -111,6 +111,7 @@ jobs:
       # montre. Dépôts jetables, quelques secondes, ne lisent pas le dépôt réel.
       - name: Auto-test des gardes de commit et de création de PR
         run: |
+          bash .claude/hooks/pre-commit-gate.sh --self-test
           bash .claude/hooks/gate-pr.sh --self-test
           bash .claude/hooks/tests-lies.sh --self-test
           bash .claude/hooks/suite-verte.sh --self-test
@@ -197,11 +198,12 @@ jobs:
   # TMS-Ready (outbox par mutation : supabase/tests/outbox_par_mutation.test.sql).
   # `supabase test db` execute TOUS les *.test.sql via pg_prove → les deux sont
   # couverts par ce job bloquant.
-  # Skip 0.1 : aucune migration -> rien a tester. Reactive automatiquement des
-  # qu'un fichier apparait dans supabase/migrations/ (module 0.3).
+  # Joue sans condition : c'est un status check REQUIS sur `main`, et un job
+  # saute par son `if` rend le statut « Success » (documentation GitHub des
+  # status checks requis). Jusqu'au 2026-10-08 il portait `needs: detect-prereqs`
+  # + `if: has_migrations`, herite du module 0.1 (aucune migration a l'epoque) :
+  # une PR qui aurait vide ou deplace `supabase/migrations/` l'aurait fait sauter.
   pgtap-rls-outbox:
-    needs: detect-prereqs
-    if: needs.detect-prereqs.outputs.has_migrations == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -267,11 +269,9 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm audit --audit-level=high || true
 
-  # Skip 0.1 : aucune migration -> rien a verifier. Reactive automatiquement
-  # des qu'un fichier apparait dans supabase/migrations/ (module 0.3).
+  # Joue sans condition, pour la meme raison que `pgtap-rls-outbox` : status
+  # check REQUIS sur `main`, qu'un `if` faux ferait passer sans rien controler.
   migrations:
-    needs: detect-prereqs
-    if: needs.detect-prereqs.outputs.has_migrations == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

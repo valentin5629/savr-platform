@@ -14,40 +14,55 @@ ICI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}
 # Le motif d'origine etait `git`, des blancs, `commit`, precede d'un debut de
 # ligne, d'un blanc ou d'un separateur. Il ne voyait pas les options globales que
 # git accepte ENTRE les deux mots. Rejoue le 2026-10-08 sur l'historique des
-# sessions et de leurs sous-agents : 1 575 commandes vues, et 124 de la forme
-# `git <options> commit` jamais vues (114 en septembre, 10 en octobre) — ni
-# anti-couplage, ni typecheck, ni lint, ni tests lies. Par premiere forme :
+# sessions et de leurs sous-agents (1 954 commandes distinctes ou `git` et
+# `commit` partagent une ligne) : 1 426 vues par l'ancien motif, et 122 commits
+# de la forme `git <options> commit` jamais vus (112 en septembre, 10 en
+# octobre) — ni anti-couplage, ni typecheck, ni lint, ni tests lies. Par
+# premiere forme :
 #   git -c core.hooksPath=… commit …               70
 #   git -c commit.gpgsign=… commit …               26
 #   git -C <dossier> [autres options] commit …     13
 #   git -c user.name=… -c user.email=… commit …    12 (depots jetables de sondes)
-#   autres (`-c commit.…`, `/usr/bin/git -c …`)     3
+#   /usr/bin/git -c core.hooksPath=… commit …       1
 #
-# Ce que le motif voit desormais :
-#   • les options globales entre `git` et `commit` : `-c cle=valeur`,
-#     `-C <dossier>`, `--no-pager`, `--git-dir=…`… Une option est un mot qui
-#     commence par un tiret, suivi ou non d'une valeur ; une valeur peut porter
-#     des guillemets (`-c user.name="A B"`, `-C "/un dossier"`) ;
+# Ce que le motif voit desormais, entre `git` et `commit` — liste FERMEE, prise
+# dans la page de manuel de git 2.50.1 et essayee option par option :
+#   • les options a valeur separee, valeur OBLIGATOIRE : `-c cle=valeur`,
+#     `-C <dossier>`, `--git-dir`, `--work-tree`, `--namespace`, `--config-env`,
+#     `--attr-source`. La valeur peut porter des guillemets
+#     (`-c user.name="A B"`, `-C "/un dossier"`) ;
+#   • les drapeaux sans valeur : `-p`, `-P`, `--paginate`, `--no-pager`, `--bare`,
+#     `--no-replace-objects`, `--no-lazy-fetch`, `--no-optional-locks`,
+#     `--no-advice`, et les quatre `--…-pathspecs` ;
+#   • toute option longue a valeur collee (`--git-dir=…`, `--exec-path=…`) ;
 #   • le binaire appele par son chemin ou precede d'une barre oblique inverse.
+# La liste est fermee pour une raison mesuree en revue : avec « un mot en tiret,
+# suivi ou non d'une valeur », `-c` sans valeur laissait lire `commit` au debut
+# de `commit.gpgsign=false`, et un drapeau avalait la sous-commande. La garde
+# tournait — et bloquait, arbre rouge — sur `git -c commit.gpgsign=false rebase
+# --continue` et `… stash push` (les 2 commandes de l'historique dans ce cas),
+# comme sur `git --no-pager log --grep commit`.
 # Ce qui precede la commande ne change pas : un debut de ligne, un blanc ou un
 # separateur (; & |). Tout ce que l'ancien motif voyait reste vu — rejoue sur le
-# meme historique : aucune commande perdue, 124 gagnees.
+# meme historique : aucune commande perdue, 122 gagnees, toutes des commits.
 #
-# CE QUI DECLENCHE A TORT, comme avant : une mention precedee d'un blanc
-# (`echo "avant git commit"`), et les sous-commandes dont le nom commence par
-# `commit` (`git commit-graph`). La garde tourne alors pour rien — elle ne bloque
-# que si l'arbre vise est rouge.
+# CE QUI DECLENCHE A TORT — releve, d'autres cas peuvent exister : une mention
+# precedee d'un blanc (`echo "avant git commit"`), desormais aussi quand elle
+# porte des options (`echo "relancer avec git -c a=b commit"`), et les
+# sous-commandes dont le nom commence par `commit` (`git commit-graph`). La garde
+# tourne alors pour rien — elle ne bloque que si l'arbre vise est rouge.
 #
 # CE QUE LE MOTIF NE VOIT PAS — inventaire ouvert, d'autres formes peuvent
 # exister :
+#   • une option globale absente de la liste ci-dessus (git en ajoute) ;
 #   • la commande collee a une parenthese, a un accent grave ou a un guillemet :
 #     `(git commit …)`, `$(git commit …)`, `bash -c "git commit …"`,
 #     `ssh hote 'git commit …'`, `echo "git commit …" | bash`. L'ancien motif ne
 #     les voyait pas non plus. Voir la parenthese et l'accent grave ferait
 #     tourner la garde sur les mentions ecrites en Markdown : rejoue sur
-#     l'historique, 10 commandes de plus l'auraient declenchee, pour 9 mentions
-#     et 2 `git commit-tree`, aucun commit. Voir en plus le texte d'un
-#     `sh -c` / `eval` n'en ajoutait aucune ;
+#     l'historique, 10 commandes de plus l'auraient declenchee — 8 qui ne font
+#     que citer la commande, 2 `git commit-tree`, aucun commit. Voir en plus le
+#     texte d'un `sh -c` / `eval` n'en ajoutait aucune ;
 #   • le binaire ecrit entre guillemets (`"git" commit`) ;
 #   • une valeur d'option dont les guillemets imbriques laissent un blanc a
 #     decouvert (`-C "$(echo "/un dossier")"`) ;
@@ -60,12 +75,19 @@ ICI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}
 # NE JAMAIS resserrer ce motif sans relancer `--self-test`.
 commit_motif() {
   local morceau="([^[:space:]\"']|\"[^\"]*\"|'[^']*')"
-  local options="([[:space:]]+-${morceau}+([[:space:]]+${morceau}+)?)*"
+  local avec_valeur="(-c|-C|--git-dir|--work-tree|--namespace|--config-env|--attr-source)[[:space:]]+${morceau}+"
+  local drapeau='-p|-P|--paginate|--no-pager|--bare|--no-replace-objects|--no-lazy-fetch|--no-optional-locks|--no-advice|--(literal|glob|noglob|icase)-pathspecs'
+  local collee="--[a-z-]+=${morceau}*"
+  local options="([[:space:]]+(${avec_valeur}|${drapeau}|${collee}))*"
   local binaire="\\\\?([^[:space:];&|\"']*/)?git"
   printf '%s' "(^|[;&|[:space:]])${binaire}${options}[[:space:]]+commit"
 }
+# Le texte est donne a grep par une chaine-ici, pas par un tube : sous `pipefail`,
+# `printf … | grep -q` rendait « non vu » pour une commande de plus de 64 Ko dont
+# le commit est au debut (grep sort au premier resultat, printf recoit SIGPIPE,
+# le tube sort en erreur). Mesure en revue, deja vrai de l'ancien motif.
 commit_matche() {
-  printf '%s' "$1" | grep -Eq "$(commit_motif)"
+  grep -Eq "$(commit_motif)" <<< "$1"
 }
 
 # ── Le dossier ou le commit aura lieu ───────────────────────────────────────
@@ -222,7 +244,7 @@ if [ "${1:-}" = "--self-test" ]; then
       L) voulu="NON VU"; nl=$((nl + 1)) ;;
       *) echo "🔴 type de forme inconnu : [$1]" >&2; echec=true; return 0 ;;
     esac
-    [ "$r" = "$voulu" ] || { echo "🔴 motif [$1] : [$2] → $r (attendu $voulu)" >&2; echec=true; }
+    [ "$r" = "$voulu" ] || { echo "🔴 motif [$1] : [${2:0:160}] → $r (attendu $voulu)" >&2; echec=true; }
   }
   while IFS= read -r ligne; do
     [ -n "$ligne" ] || continue
@@ -256,6 +278,13 @@ V:git --no-pager commit -m x
 V:git -p commit -m x
 V:git --git-dir=/tmp/wt/.git --work-tree=/tmp/wt commit -m x
 V:git --git-dir /tmp/wt/.git commit -m x
+V:git --work-tree /tmp/wt --namespace n commit -m x
+V:git --config-env user.name=NOM --attr-source HEAD commit -m x
+V:git -P --paginate --bare --no-replace-objects --no-lazy-fetch commit -m x
+V:git --no-optional-locks --no-advice --literal-pathspecs commit -m x
+V:git --glob-pathspecs --noglob-pathspecs --icase-pathspecs commit -m x
+V:git --exec-path=/usr/libexec/git-core -c a=b commit -m x
+V:git -c commit.gpgsign=false -c core.hooksPath=.husky commit -m x
 V:git  commit -m x
 V:/usr/bin/git commit -m x
 V:\git commit -m x
@@ -276,12 +305,25 @@ N:git diff --stat commit1 commit2
 N:echo "git commit est garde"
 N:grep -n "git commit" .claude/hooks/pre-commit-gate.sh
 N:rg -n 'git -c core.hooksPath=.husky commit' .
+N:git -c commit.gpgsign=false rebase --continue
+N:git -c commit.gpgsign=false stash push -u -m sauvegarde
+N:git -c commit.gpgsign=false merge origin/main
+N:git -c commit.gpgsign=false cherry-pick abc123
+N:git -c commit.gpgsign=false -c x=y log -1
+N:git --no-pager log --grep commit
+N:git -p log --grep commit
+N:git --no-pager show --stat commit1
+N:git -C commit status
+N:git --git-dir commit status
 N:# mesure en revue, `git commit -m "doc"` sortait en 2 (note Markdown)
 N:echo "--- hooks (git commit matcher) ---"
 N:NEW=$(git commit-tree "$(git rev-parse origin/main^{tree})" -p origin/main -m x)
 F:echo "avant git commit"
 F:echo "relancer avec git -c core.hooksPath=.husky commit ensuite"
 F:git commit-graph write
+F:git -c a=b commit-graph write
+L:git --option-inconnue commit -m x
+L:git -c a=b --option-inconnue valeur commit -m x
 L:(git commit -m x)
 L:SHA=$(git commit -q -m x && git rev-parse HEAD)
 L:SHA=`git commit -q -m x`
@@ -293,6 +335,12 @@ L:echo "git commit -m x" | bash
 L:git -C "$(echo "/tmp/un dossier")" commit -m x
 L:git -c core.hooksPath=.husky \
 FORMES
+  # Une tres grosse commande dont le commit est au DEBUT : le tube sous `pipefail`
+  # la rendait « non vue » (cf. commit_matche).
+  remplissage="$(head -c 300000 /dev/zero | tr '\0' 'x')"
+  juge V "$(printf 'git commit -m x\n%s' "$remplissage")"
+  juge V "git -c core.hooksPath=.husky commit -m x && echo ${remplissage}"
+  juge N "$(printf 'git status --short\n%s' "$remplissage")"
 
   # Le dossier vise : ce que `cible_du_commit` rend pour une commande donnee.
   cible() {  # cible <libelle> <commande> <voulu>

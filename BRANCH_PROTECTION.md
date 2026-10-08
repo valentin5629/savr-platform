@@ -43,6 +43,11 @@ Rend l'enforcement indépendant de l'agent (re-vérif serveur, pas contournable 
 - [x] Require linear history — actif (`required_linear_history: true`)
 - [x] Interdire la suppression de la branche — actif (`allow_deletions: false`)
 
+Un ruleset `main protection` (id 17409079, actif, sans acteur de contournement) double cette protection sur la
+branche par défaut — relevé le 2026-10-08 par `gh api repos/valentin5629/savr-platform/rulesets/17409079` : pas de
+suppression, pas de push non fast-forward, PR obligatoire avec **0** approbation requise. Il n'ajoute aucun status
+check.
+
 Modifier ces règles demande des droits d'administration sur le dépôt
 (`gh api -X PATCH repos/valentin5629/savr-platform/branches/main/protection/required_status_checks …`).
 Après toute modification : relever de nouveau, puis mettre ce document à jour avec la date.

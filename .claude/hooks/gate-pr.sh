@@ -133,8 +133,12 @@ gate_pr_matche() {
   for mention in '`gh pr create`' '`gh pr new`'; do
     texte="${texte//$mention/}"
   done
-  printf '%s' "$texte" | grep -Eq "(${debut}|${enveloppe})${commande}" && return 0
-  printf '%s' "$texte" | grep -Eq "[[:space:]]${commande}${suite}"
+  # Le texte est donné à grep par une chaîne-ici, pas par un tube : sous
+  # `pipefail`, `printf … | grep -q` rendait « non vue » une commande de plus de
+  # 64 Ko dont la création est au début (grep sort au premier résultat, printf
+  # reçoit SIGPIPE, le tube sort en erreur). Mesuré en revue, déjà vrai avant.
+  grep -Eq "(${debut}|${enveloppe})${commande}" <<< "$texte" && return 0
+  grep -Eq "[[:space:]]${commande}${suite}" <<< "$texte"
 }
 
 # ── Auto-test, 2e partie : le flux du hook, de bout en bout ─────────────────
@@ -166,7 +170,9 @@ esac
 FAUX
   chmod +x "$bac/bin/pnpm"
   : > "$journal"
-  # Deux worktrees : `lot` (dossier `depot`) et `autre-lot` (dossier `autre`).
+  # Deux worktrees : `lot` (dossier `depot`) et `chore/autre-lot` (dossier
+  # `autre`). La barre oblique est voulue : le nom du marker la remplace par un
+  # tiret, comme pour toutes les branches du projet.
   # `.claude/` est ignoré, comme dans le vrai dépôt : un marker ne salit pas l'arbre.
   (
     mkdir "$depot" && cd "$depot" && git init -q -b main . && git config user.email t@t && git config user.name t
@@ -174,7 +180,7 @@ FAUX
     echo '.claude/' > .gitignore && echo a > f.ts
     git add -A && git commit -qm base
     git checkout -q -b lot && echo b > f.ts && git commit -qam lot
-    git worktree add -q -b autre-lot "$autre" main
+    git worktree add -q -b chore/autre-lot "$autre" main
   ) >/dev/null 2>&1 || { echo "🔴 gate-pr : dépôt jetable non construit." >&2; exit 1; }
 
   # joue <dossier> <commande> [VAR=valeur …] : passe la commande au hook, depuis ce dossier.
@@ -266,14 +272,24 @@ FAUX
   code 'seed en erreur sur un autre fichier' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
     "FAUX_SEED_SORTIE=[seed:check] erreur : ENOENT: no such file or directory, open '/x/matrix.csv'"
   dit 'seed en erreur sur un autre fichier' 'signale un écart'
+  code 'seed : base de dev injoignable' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
+    'FAUX_SEED_SORTIE=[seed:check] erreur : getaddrinfo ENOTFOUND db.exemple.supabase.co'
+  tait 'seed : base de dev injoignable' 'seed OK'
+  dit 'seed : base de dev injoignable' 'NON JOUÉ'
+  code 'seed : connexion refusée' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
+    'FAUX_SEED_SORTIE=[seed:check] erreur : connect ECONNREFUSED 127.0.0.1:5432'
+  dit 'seed : connexion refusée' 'NON JOUÉ'
+  code 'seed : délai dépassé' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
+    'FAUX_SEED_SORTIE=[seed:check] erreur : connect ETIMEDOUT 10.0.0.1:5432'
+  dit 'seed : délai dépassé' 'NON JOUÉ'
 
   # 7. Ce sont les markers et le contenu de la branche VISÉE qui sont jugés —
   # `--head <branche>`, sinon la cible d'un `cd … &&` — pas ceux du dossier où
   # le hook tourne.
-  code '--head vers une branche sans markers' 2 "$depot" "$creer --head autre-lot"
-  go "$autre" autre-lot
+  code '--head vers une branche sans markers' 2 "$depot" "$creer --head chore/autre-lot"
+  go "$autre" chore-autre-lot
   rm "$depot/.claude/conformite-ok-lot" "$depot/.claude/securite-ok-lot"
-  code '--head vers une branche en règle, depuis un dossier sans markers' 0 "$depot" "$creer --head autre-lot"
+  code '--head vers une branche en règle, depuis un dossier sans markers' 0 "$depot" "$creer --head chore/autre-lot"
   code 'cd vers un worktree en règle, depuis un dossier sans markers' 0 "$depot" "cd $autre && $creer"
   code 'cd vers un worktree sans markers, depuis un dossier en règle' 2 "$autre" "cd $depot && $creer"
   code 'sans cible : le dossier courant, sans markers' 2 "$depot" "$creer"
@@ -303,7 +319,7 @@ if [ "${1:-}" = "--self-test" ]; then
       L) voulu="NON VU"; nl=$((nl + 1)) ;;
       *) echo "🔴 type de forme inconnu : [$1]" >&2; echec=true; return 0 ;;
     esac
-    [ "$r" = "$voulu" ] || { echo "🔴 motif [$1] : [$2] → $r (attendu $voulu)" >&2; echec=true; }
+    [ "$r" = "$voulu" ] || { echo "🔴 motif [$1] : [${2:0:160}] → $r (attendu $voulu)" >&2; echec=true; }
   }
   while IFS= read -r ligne; do
     [ -n "$ligne" ] || continue
@@ -424,6 +440,12 @@ FORMES
   juge V "$(printf 'git push -u origin b\n  gh pr create --fill')"
   # Options renvoyées à la ligne : la ligne qui porte la commande finit par une barre inverse.
   juge V "$(printf 'cd /tmp/wt && GH_TOKEN=abc gh pr create \\\n  --title "t" \\\n  --body "b"')"
+  # Une très grosse commande dont la création est au DÉBUT : le tube sous
+  # `pipefail` la rendait « non vue » (cf. gate_pr_matche).
+  remplissage="$(head -c 300000 /dev/zero | tr '\0' 'x')"
+  juge V "$(printf 'gh pr create --fill\n%s' "$remplissage")"
+  juge V "$(printf 'nice gh pr create --fill\n%s' "$remplissage")"
+  juge N "$(printf 'git status --short\n%s' "$remplissage")"
 
   bout_en_bout || echec=true
 

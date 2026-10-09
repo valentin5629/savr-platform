@@ -14,7 +14,7 @@ import {
   CHAMPS_COLLECTE_EDITABLES,
   CHAMPS_COLLECTE_VERROUILLES,
 } from '@/lib/collectes/champs-editables.js';
-import { notifierModificationDepuisRouteCollecte } from '@/lib/collectes/email-modification.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -189,15 +189,13 @@ export async function PATCH(
       .eq('id', id);
   }
 
-  // Email à l'équipe Savr (cf. lib/collectes/email-modification). Quand le
-  // formulaire vient aussi de modifier l'événement, il le signale
-  // (`evenement_modifie`) : cette modification est relue dans le journal d'audit.
-  await notifierModificationDepuisRouteCollecte(admin, req, {
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification).
+  await notifierEquipeModificationCollecte(admin, req, {
     collecteId: id,
-    avant: before,
-    maj: updates,
-    corps: body,
-    userId: auth.ctx.userId,
+    collecteAvant: before,
+    majCollecte: updates,
+    evenementModifiePar:
+      body.evenement_modifie === true ? auth.ctx.userId : undefined,
   });
 
   // BL-P2-22 (tpl 21, modification) : info-only au traiteur opérationnel — l'agence

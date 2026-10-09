@@ -229,6 +229,17 @@ export async function notifierEquipeModificationCollecte(
     evenementModifiePar?: string;
   },
 ): Promise<void> {
+  // Sans l'état d'avant l'écriture, l'email inventerait ses valeurs « avant » :
+  // on trace et on n'envoie rien.
+  if (
+    (demande.majCollecte && !demande.collecteAvant) ||
+    (demande.majEvenement && !demande.evenementAvant)
+  ) {
+    logger.error('collectes.email_modification_avant_illisible', {
+      collecte_id: demande.collecteId,
+    });
+    return;
+  }
   try {
     // État APRÈS l'écriture : le statut affiché est celui que l'Admin lira en
     // ouvrant la fiche (une date modifiée peut le ramener à « Programmée »).
@@ -344,39 +355,4 @@ export async function notifierEquipeModificationCollecte(
       erreur: err instanceof Error ? err.message : String(err),
     });
   }
-}
-
-/**
- * Point d'entrée des trois routes collecte (traiteur, agence, gestionnaire de
- * lieux), appelé après l'écriture.
- * `avant` : la ligne `collectes` relue avant l'écriture. Sans elle, l'email
- * inventerait ses valeurs « avant » : on trace et on n'envoie rien.
- * `corps` : le corps de la requête, où le formulaire signale qu'il vient aussi
- * de modifier l'événement (`evenement_modifie`).
- */
-export async function notifierModificationDepuisRouteCollecte(
-  admin: AdminSupabase,
-  req: NextRequest,
-  p: {
-    collecteId: string;
-    avant: unknown;
-    maj: Ligne;
-    corps: Ligne;
-    userId: string;
-  },
-): Promise<void> {
-  if (!p.avant || typeof p.avant !== 'object') {
-    logger.error('collectes.email_modification_avant_illisible', {
-      collecte_id: p.collecteId,
-    });
-    return;
-  }
-  await notifierEquipeModificationCollecte(admin, req, {
-    collecteId: p.collecteId,
-    collecteAvant: p.avant as Ligne,
-    majCollecte: p.maj,
-    ...(p.corps.evenement_modifie === true
-      ? { evenementModifiePar: p.userId }
-      : {}),
-  });
 }

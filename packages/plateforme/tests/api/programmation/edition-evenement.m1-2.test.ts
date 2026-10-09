@@ -1057,31 +1057,6 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     heure_collecte: '16:45:00',
   };
 
-  it('M3.1/email_modification_un_seul_email — agence, date modifiée : l’email part de la route collecte agence', async () => {
-    setupAuth('agence', 'org-1', 'user-1');
-    rls.push({ data: COLLECTE_VISIBLE, error: null }); // collecte visible
-    admin.push({ data: AVANT, error: null }); // before
-    admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
-    queueLecturesEmail();
-    const { PATCH } =
-      await import('@/app/api/v1/agence/collectes/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/agence/collectes/c1', {
-        date_collecte: '2099-01-14',
-      }),
-      { params: Promise.resolve({ id: 'c1' }) },
-    );
-    expect(res.status).toBe(200);
-    expect(recus).toHaveLength(1);
-    expect(recus[0]!.variables).toMatchObject({
-      organisation_nom: 'Agence Lumière',
-      date_initiale: '15/01/2099',
-      lieu_nom: 'Pavillon Gabriel',
-      liste_modifications:
-        '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li></ul>',
-    });
-  });
-
   // Les deux routes relaient le signalement du formulaire ; seule celle du
   // gestionnaire écrit une ligne d'audit avant l'email.
   it.each([

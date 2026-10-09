@@ -1,7 +1,7 @@
 import { instantParis } from '@savr/shared/src/temps/index.js';
 
 /** Un créneau de collecte : jour « AAAA-MM-JJ » et heure murale parisienne. */
-export interface Creneau {
+interface Creneau {
   date: string;
   heure: string | null | undefined;
 }

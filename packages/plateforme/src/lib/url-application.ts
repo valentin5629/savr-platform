@@ -50,9 +50,6 @@
 // passés à Supabase, oui : sa liste blanche revalide. Mais le lien de
 // vérification du signup (`api/auth/signup`) est construit ici puis envoyé par
 // Resend, SANS repasser par Supabase : celui-là n'a que la borne de l'hébergeur.
-// Même borne unique pour le lien vers la fiche Admin d'une collecte, placé dans
-// l'email à l'équipe Savr (lib/collectes/email-modification) ; lui ne porte aucun
-// jeton.
 // Un lien porteur de jeton ajouté hors Vercel n'aurait plus aucune borne.
 
 import type { NextRequest } from 'next/server';

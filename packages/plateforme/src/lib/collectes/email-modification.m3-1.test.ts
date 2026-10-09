@@ -34,7 +34,6 @@ import {
 import {
   lignesModifications,
   notifierEquipeModificationCollecte,
-  notifierModificationDepuisRouteCollecte,
 } from './email-modification';
 import { modificationUrgente } from './urgence-modification';
 
@@ -546,6 +545,29 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     expect(recus).toEqual([]);
   });
 
+  it.each([
+    [
+      'de la collecte',
+      { collecteAvant: null, majCollecte: { date_collecte: '2099-01-14' } },
+    ],
+    ['de l’événement', { evenementAvant: null, majEvenement: { pax: 1500 } }],
+  ])(
+    'état d’avant %s illisible : aucun email (il inventerait ses valeurs « avant »)',
+    async (_cas, modification) => {
+      capter();
+      const { admin, lues } = fauxAdmin({
+        collectes: COLLECTE_APRES,
+        users: PROGRAMMATEUR,
+      });
+      await notifierEquipeModificationCollecte(admin, REQ, {
+        collecteId: 'c1',
+        ...modification,
+      });
+      expect(recus).toEqual([]);
+      expect(lues()).toEqual([]);
+    },
+  );
+
   it('collecte introuvable : aucun email', async () => {
     capter();
     const { admin } = fauxAdmin({});
@@ -696,71 +718,4 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
       '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li></ul>',
     );
   });
-});
-
-describe('M3.1/email_modification_un_seul_email — appel des routes collecte', () => {
-  const APPEL = {
-    collecteId: 'c1',
-    avant: { date_collecte: '2099-01-15', heure_collecte: '16:45:00' },
-    maj: { date_collecte: '2099-01-14' },
-    userId: 'user-1',
-  };
-  const tables = {
-    collectes: COLLECTE_APRES,
-    users: PROGRAMMATEUR,
-    audit_log: [
-      { old_values: { pax: 2000 }, new_values: { updates: { pax: 1500 } } },
-    ],
-  };
-
-  it('le formulaire signale une modification d’événement : elle est relue et listée', async () => {
-    capter();
-    const { admin, lues } = fauxAdmin(tables);
-    await notifierModificationDepuisRouteCollecte(admin, REQ, {
-      ...APPEL,
-      corps: { date_collecte: '2099-01-14', evenement_modifie: true },
-    });
-    expect(lues()).toContain('audit_log');
-    expect(recus[0]!.variables.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
-    );
-  });
-
-  it.each([
-    ['absent', {}],
-    ['faux', { evenement_modifie: false }],
-    ['une chaîne', { evenement_modifie: 'true' }],
-  ])(
-    'signalement %s : le journal d’audit n’est pas relu',
-    async (_cas, corps) => {
-      capter();
-      const { admin, lues } = fauxAdmin(tables);
-      await notifierModificationDepuisRouteCollecte(admin, REQ, {
-        ...APPEL,
-        corps,
-      });
-      expect(lues()).not.toContain('audit_log');
-      expect(recus[0]!.variables.liste_modifications).toBe(
-        '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li></ul>',
-      );
-    },
-  );
-
-  it.each([
-    ['nul', null],
-    ['absent', undefined],
-  ])(
-    'état d’avant %s : aucun email (il inventerait ses valeurs « avant »)',
-    async (_cas, avant) => {
-      capter();
-      const { admin, lues } = fauxAdmin(tables);
-      await notifierModificationDepuisRouteCollecte(admin, REQ, {
-        ...APPEL,
-        avant,
-        corps: {},
-      });
-      expect(recus).toEqual([]);
-      expect(lues()).toEqual([]);
-    },
-  );
 });

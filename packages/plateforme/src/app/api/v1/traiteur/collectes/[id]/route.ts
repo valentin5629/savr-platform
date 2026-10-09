@@ -13,7 +13,7 @@ import {
   CHAMPS_COLLECTE_EDITABLES,
   CHAMPS_COLLECTE_VERROUILLES,
 } from '@/lib/collectes/champs-editables.js';
-import { notifierModificationDepuisRouteCollecte } from '@/lib/collectes/email-modification.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 import { modificationUrgente } from '@/lib/collectes/urgence-modification.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
@@ -274,15 +274,13 @@ export async function PATCH(
     new_values: { updates, cascade_tms, priorite_urgence },
   });
 
-  // Email à l'équipe Savr (cf. lib/collectes/email-modification). Quand le
-  // formulaire vient aussi de modifier l'événement, il le signale
-  // (`evenement_modifie`) : cette modification est relue dans le journal d'audit.
-  await notifierModificationDepuisRouteCollecte(admin, req, {
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification).
+  await notifierEquipeModificationCollecte(admin, req, {
     collecteId: id,
-    avant: before,
-    maj: updates,
-    corps: body,
-    userId: auth.ctx.userId,
+    collecteAvant: before,
+    majCollecte: updates,
+    evenementModifiePar:
+      body.evenement_modifie === true ? auth.ctx.userId : undefined,
   });
 
   return NextResponse.json({

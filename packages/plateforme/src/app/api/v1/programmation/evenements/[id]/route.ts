@@ -13,7 +13,6 @@ import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modifi
 import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 
-// Champs éditables : CHAMPS_EVENEMENT_EDITABLES (lib/collectes/champs-editables).
 // Verrouillés pour les programmateurs (refus 422). lieu_id / type / organisation =
 // immuables (§05 l.314). client_organisateur_organisation_id = RATTACHEMENT d'une
 // org cliente (donne accès en lecture via evt_client_orga_select) → réservé Admin

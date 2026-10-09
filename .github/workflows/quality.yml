@@ -130,6 +130,16 @@ jobs:
         run: |
           bash .claude/hooks/block-destructive.sh --self-test
           bash .claude/hooks/db-guard.sh --self-test
+      # Le lanceur local de pgTAP (`pnpm test:pgtap`) n'est joué par aucun job :
+      # la CI passe par `supabase test db`. Jusqu'au 2026-10-09 il rendait vert un
+      # fichier rouge sans que rien ne le montre. Les deux autres lisaient la
+      # sortie de psql, ou celle du CLI Supabase, par la même forme de tube (cf.
+      # leurs en-têtes). Faux psql et faux CLI Supabase en tête du PATH, pas de base.
+      - name: Auto-test de trois scripts qui lisent une sortie de psql ou du CLI Supabase
+        run: |
+          bash scripts/test-pgtap.sh --self-test
+          bash scripts/check-query-perf.sh --self-test
+          bash scripts/smoke-test-db.sh --self-test
       - name: Collision de timestamp, y compris avec une branche non mergee
         run: bash scripts/check-migration-timestamp.sh --branch
 

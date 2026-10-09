@@ -15,6 +15,11 @@ import {
   logCollecteEnEchec,
 } from './batch-fatal.js';
 import { anneeParis, jourParis } from '@savr/shared/src/temps/index.js';
+import {
+  TAILLE_PAGE,
+  lireParPages,
+  lireParTranches,
+} from './selection-par-pages.js';
 
 export interface BatchPdfJ1AgResult {
   enqueued: number;
@@ -76,11 +81,20 @@ export async function runBatchPdfJ1Ag(
     errors: [],
   };
 
-  // 1. Collectes AG cloturees (statut cloturee filtre déjà realisee_sans_collecte)
-  const { data: collectes, error: selErr } = await supabase
-    .from('collectes')
-    .select(
-      `
+  // Embargo H+24 (§12 énoncé canonique + §05 SLAs : s'applique à l'attestation
+  // de don au même titre que bordereau/rapport). L'attestation (snapshot juridique
+  // 2041-GE) ne doit pas être figée avant realisee_at + 24h. Seuil calculé une
+  // seule fois pour toutes les pages.
+  const finEmbargo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+
+  // 1. Collectes AG cloturees (toutes, par pages — cf. selection-par-pages ; le
+  //    statut cloturee filtre déjà realisee_sans_collecte, exempté d'embargo §12)
+  const { data: collectes, error: selErr } = await lireParPages<CollecteAgRow>(
+    (apresId) => {
+      const pages = supabase
+        .from('collectes')
+        .select(
+          `
       id, evenement_id, realisee_at, date_collecte,
       co2_evite_kg, co2_facteurs_snapshot,
       evenements ( nom_evenement, date_evenement, organisation_id ),
@@ -89,15 +103,16 @@ export async function runBatchPdfJ1Ag(
         associations ( nom, adresse, habilitee_attestation_fiscale, numero_rup )
       )
     `,
-    )
-    .eq('type', 'anti_gaspi')
-    .eq('statut', 'cloturee')
-    // Embargo H+24 (§12 énoncé canonique + §05 SLAs : s'applique à l'attestation
-    // de don au même titre que bordereau/rapport). L'attestation (snapshot juridique
-    // 2041-GE) ne doit pas être figée avant realisee_at + 24h. realisee_sans_collecte
-    // reste exclu par .eq('statut','cloturee') (exempté d'embargo, cf. §12).
-    .lte('realisee_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
-    .not('evenement_id', 'is', null);
+        )
+        .eq('type', 'anti_gaspi')
+        .eq('statut', 'cloturee')
+        .lte('realisee_at', finEmbargo)
+        .not('evenement_id', 'is', null);
+      return (apresId ? pages.gt('id', apresId) : pages)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    },
+  );
 
   if (selErr) {
     result.fatal = fatalSelection(
@@ -108,10 +123,10 @@ export async function runBatchPdfJ1Ag(
     return result;
   }
 
-  if (!collectes?.length) return result;
+  if (!collectes.length) return result;
 
   // 2. Exclure celles sans attribution ou sans volume
-  const eligible = (collectes as unknown as CollecteAgRow[]).filter((c) => {
+  const eligible = collectes.filter((c) => {
     const attr = c.attributions_antgaspi;
     return attr && attr.volume_repas_realise != null;
   });
@@ -120,11 +135,16 @@ export async function runBatchPdfJ1Ag(
   if (!eligible.length) return result;
 
   // 3. Exclure collectes déjà attestées (idempotence R8)
-  const collecteIds = eligible.map((c) => c.id);
-  const { data: existingAtts, error: attSelErr } = await supabase
-    .from('attestations_don')
-    .select('collecte_id, statut')
-    .in('collecte_id', collecteIds);
+  type AttRow = { collecte_id: string; statut: string };
+  const { data: existingAtts, error: attSelErr } =
+    await lireParTranches<AttRow>(
+      eligible.map((c) => c.id),
+      (tranche) =>
+        supabase
+          .from('attestations_don')
+          .select('collecte_id, statut')
+          .in('collecte_id', tranche),
+    );
 
   // Fail-closed : sans la liste des attestations émises, traiter = attestation fiscale
   // 2041-GE en double (numéro ATT-DON gapless consommé).
@@ -137,9 +157,8 @@ export async function runBatchPdfJ1Ag(
     return result;
   }
 
-  type AttRow = { collecte_id: string; statut: string };
   const doneIds = new Set(
-    ((existingAtts ?? []) as AttRow[])
+    existingAtts
       .filter((a) => a.statut === 'emise' || a.statut === 'corrigee')
       .map((a) => a.collecte_id),
   );

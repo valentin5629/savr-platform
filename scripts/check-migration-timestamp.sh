@@ -155,9 +155,9 @@ prefixe() { basename "$1" | cut -c1-14; }
 #     branche identique à la cible, `--merge --no-remote` sortait presque
 #     toujours en 2, des migrations de la cible comptées comme neuves. C'était
 #     le cas de la liste réelle du jour (182 noms, 10 345 octets) avec le tube
-#     de 8 192 octets : la plupart de ses migrations étaient comptées comme
-#     neuves, et `--branch --no-remote` sortait pourtant en 0 dans toutes les
-#     passes relevées ;
+#     de 8 192 octets : des migrations de la cible y étaient comptées comme
+#     neuves dans toutes les passes relevées, et `--branch --no-remote` sortait
+#     pourtant en 0 dans toutes les passes relevées ;
 #   • l'acceptation à tort, en `--branch --no-remote`, d'une migration neuve
 #     antérieure à toutes les autres : avec le tube de 8 192 octets et la liste
 #     réelle du jour, sur une branche réduite aux 40 premières migrations de la
@@ -167,13 +167,12 @@ prefixe() { basename "$1" | cut -c1-14; }
 #     refusait (2) dans toutes les passes relevées ;
 #   • liste plus petite : sous macOS, et sous Ubuntu avec le tube de 65 536
 #     octets, cette même liste n'a été manquée dans aucune passe relevée. Des
-#     lectures manquées ont pourtant été relevées à ces tailles. Rares sous
-#     Ubuntu : sur la liste des préfixes du jour (2 730 octets) avec le tube de
-#     8 192 octets, et jusque sur une liste de deux préfixes (29 caractères)
-#     avec celui de 65 536 octets. Irrégulières sous macOS, sur une liste de
-#     préfixes de 34 500 octets : rares en LC_ALL=C, bien plus fréquentes en
-#     en_US.UTF-8. Rien ne garantit donc qu'une liste de plusieurs lignes soit
-#     lue sans faute, quelle que soit sa taille ;
+#     lectures manquées ont pourtant été relevées à ces tailles, de façon
+#     irrégulière : sous Ubuntu, sur la liste des préfixes du jour (2 730
+#     octets) avec le tube de 8 192 octets, et jusque sur une liste de deux
+#     préfixes (29 caractères) avec celui de 65 536 octets ; sous macOS, sur
+#     une liste de préfixes de 34 500 octets. Rien ne garantit donc qu'une
+#     liste de plusieurs lignes soit lue sans faute, quelle que soit sa taille ;
 #   • l'entrée en DERNIÈRE ligne d'une liste de plus de 300 000 caractères était
 #     vue par le tube nu, et une entrée absente n'a été lue « présente » par
 #     aucune des deux lectures.
@@ -833,9 +832,9 @@ self_test() (
   # migration antérieure à toutes les autres. Lecture manquée, les migrations de
   # la cible — toutes suivies du remplissage, donc toutes manquées — étaient
   # comptées « à moi » : (A) n'avait plus aucune autre migration à laquelle
-  # comparer la neuve, et `--branch` sortait en 0. Un cas ROUGE ne peut pas
-  # passer par une fixture cassée : sans la migration neuve sur HEAD, le script
-  # sort en 0 et ce cas rougit.
+  # comparer la neuve, et `--branch` sortait en 0. Ce cas ne passe pas au vert
+  # par une fixture cassée : sans la migration neuve sur HEAD, le script sort en
+  # 0 et le cas rougit.
   git checkout --quiet -B cas15 origin/grosse-cible >/dev/null 2>&1
   git reset --quiet --hard origin/grosse-cible >/dev/null 2>&1
   git clean --quiet -fd -- "$MIG_DIR" >/dev/null 2>&1

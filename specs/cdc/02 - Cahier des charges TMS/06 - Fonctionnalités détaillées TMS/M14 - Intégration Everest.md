@@ -2,6 +2,7 @@
 
 **Persona principal** : Système (intégration) + Ops Savr (supervision + failover) + Admin TMS (replay manuel + monitoring système)
 **Contexte d'usage** : intégration backend permanente pendant exécution d'une journée logistique. UI réservée à la supervision Ops (page `/everest`) + tab système M13 E6 monitoring intégrations.
+**Dernière mise à jour** : 2026-06-07 (**test-scenarios M14 — 4 floues tranchées Val** : #2 W4/E4 réconciliés (`statut_dispatch → acceptee` + émission S1 au failover, pas de colonne `accepted_by_ops_user_id`, acteur tracé audit_logs) ; #4 garde statuts terminaux W2 (jamais de régression par webhook tardif, `payload_latest_update` seul) ; propagations : #1 policy `everest_manager_atoutes_read` §09 corrigée (jointure `tournees`, colonne `prestataire_id` inexistante) ; #3 §04 `everest_mission_id` nullable + CHECK (INSERT `creation_failed` était impossible) ; #5 §04 `everest_service_id` smallint CHECK (71,75,91). Fichier : `tests/M14-integration-everest-scenarios.md`, 50 scénarios.)
 **Précédente mise à jour** : 2026-05-29 (**généralisation multi-vélo AG V2** — granularité Everest reformulée « 1 mission = 1 tournée » : N vélos pour 1 collecte = N missions (même `collecte_tms_id`, `tournee_id` distinct), `client_ref`/idempotence keyés `tournee_id`, multi-facturation N courses A Toutes! ; acceptation = 1re mission `mission_dispatched` (idempotent) ; cascade-cancel W3/R_M14.7 itère sur les N missions actives + correction lookup `collectes_tms.tournee_id` retiré → jointure `collecte_tournees` ; helper `m14_lookup_mission_by_collecte` → SETOF. R_M14.2 + D3 + W1 étape 3 + W2 + W3 mis à jour) / 2026-05-01 (revue sobriété §05 A5 — W5 `notify_incomplete` reporté V1.1 (Q1 endpoint Everest non confirmé), R_M14.8 reportée, EC10 retiré, code alerte `m14_everest_incomplete_notify_failed` retiré du catalogue M11, transition `in_progress → completed_incomplete` jamais déclenchée V1, valeur enum conservée seedée mais inatteignable. V1 fallback : webhook S5 émis vers Plateforme + Ops appel manuel A Toutes! à la clôture `realisee_sans_collecte`. Workflows V1 : 7 (W1/W2/W3/W4/W6/W7/W8 — W5 retiré). Règles V1 : 7 (R_M14.1-R_M14.7). Edge cases V1 : 11 (EC10 retiré). Catalogue M11 M14 : 10 → 9 codes effectivement seedés (`m14_everest_incomplete_notify_failed` retiré).)
 **Précédente mise à jour** : 2026-04-30 (revue sobriété M14 — 13 simplifications appliquées : E3 absorbé dans M13 E6 tab Everest, W7 replay UI supprimé (SQL Admin direct), polling 60s E1 supprimé, zone 3 webhooks E1 supprimée, test connexion réduit à M06 + M13 E6, hit rate cache retiré E5, `m14_everest_mission_late` désactivée par défaut, cache token mémoire only V1, colonne `everest_service_id_target` posée par M12, bandeau E1 critical only, scope E1/E5 clarifié, comptage alertes corrigé 13→10, Q5 réf cdc-migration-data).
 **Précédente mise à jour** : 2026-04-25 (V1 rédigée — 10 décisions D1-D10, 5 écrans (E1-E4 propres + E5 sous-écran M13), 8 workflows W1-W8, 12 edge cases EC1-EC12, 8 règles R_M14.1-R_M14.8, 10 codes alertes catalogue M11 (1 existant `m14_everest_timeout` + 9 nouveaux après Bloc 3 sobriété A1 retrait 3 ex-info), 4 paramètres `m14_*` + 1 secret webhook Vault.)
@@ -194,6 +195,7 @@ ORDER BY occurred_at ASC;
 
 ### E3 — Logs webhooks Everest reçus (supprimé sobriété 2026-04-30)
 
+**Statut** : écran indépendant supprimé (revue sobriété 2026-04-30 A_M14_05). Audit webhooks 7j absorbé dans M13 E6 tab Everest (cf. E5 ci-dessous).
 
 **Ce qui reste (transposé dans M13 E6 tab Everest)** :
 
@@ -456,6 +458,7 @@ AND em.statut_everest NOT IN ('cancelled','cancelled_externally','completed','co
 
 ### W7 — Replay manuel events `echec_final` (supprimé sobriété 2026-04-30 A_M14_04)
 
+**Statut** : workflow supprimé. UI E3 + API route `/api/internal/m14/missions/replay/:inbox_id` + action `audit_logs.REPLAY` retirées.
 
 **Motif** : cas d'usage extrêmement rare (cible <1% des webhooks finissent en `echec_final`, soit <1 event/semaine V1). Ne justifie pas une UI dédiée + API route + workflow versionné.
 

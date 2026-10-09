@@ -91,7 +91,7 @@ Mapping par onglet :
 - **ZD (5 cartes)** : Nombre de collectes · Tonnage collecté (kg) · **Taux de recyclage** (%) *(renommé 2026-05-06 — ex "Taux de tri global". Moyenne pondérée par tonnage des `collectes.taux_recyclage`, formule à captation par filière cf. [[05 - Règles métier#R_taux_recyclage]])* · kg/pax moyen · **CO₂ évité (kg/t CO₂e)** *(décision Val 2026-07-13 — remplace « Marge générée » dans la rangée KPI ; carte cliquable → modale « Détail de l'impact carbone » si Σ co2_evite > 0. Formule Marge et endpoint conservés, réversible — cf. section ci-dessous)*
 - **AG (5 cartes)** : Nombre de collectes · Repas donnés · Pax cumulés · Repas/pax moyen · **CO₂ évité (kg/t CO₂e)** *(décision Val 2026-07-13 — ajout, pas un remplacement ; §06.04 l.106 « pas de KPI marge AG V1 » inchangé. Carte cliquable → modale « Détail de l'impact carbone » (héros évité seul + méthode par repas ≈ 2,5 kgCO₂e/repas FAO) si Σ co2_evite > 0)*
 
-Chaque carte porte une **sparkline** (tendance mensuelle) et une **variation vs période précédente équivalente (N-1)**, sauf « kg/pax » (sens « plus bas = mieux » ambigu) *(lot R24 GO-VISUAL Val 2026-07-10)*. **Les cartes KPI ne sont PAS cliquables vers la liste Collectes** *(décision Val GO-VISUAL 2026-07-10 — revient sur BL-P2-11/BL-P2-43)*. **Seule exception** : la carte **CO₂ évité** est cliquable → ouvre la **modale « Détail de l'impact carbone »** (aucune navigation vers `/traiteur/collectes` ; l'invariant « aucune carte KPI ne renvoie vers la liste » reste vrai).
+Chaque carte porte une **sparkline** (tendance mensuelle) et une **variation vs période précédente équivalente (N-1)**, sauf « kg/pax » (sens « plus bas = mieux » ambigu) et « Repas/pax moyen » *(arbitrage Val 2026-10-08)* *(lot R24 GO-VISUAL Val 2026-07-10)*. **Les cartes KPI ne sont PAS cliquables vers la liste Collectes** *(décision Val GO-VISUAL 2026-07-10 — revient sur BL-P2-11/BL-P2-43)*. **Seule exception** : la carte **CO₂ évité** est cliquable → ouvre la **modale « Détail de l'impact carbone »** (aucune navigation vers `/traiteur/collectes` ; l'invariant « aucune carte KPI ne renvoie vers la liste » reste vrai).
 
 #### KPI **Marge générée (€)** — retiré de la rangée KPI (décision Val 2026-07-13), formule conservée
 
@@ -237,7 +237,7 @@ Bloc fondu depuis l'ancienne section §6 (refonte 2026-05-04). Position : pleine
 
 **Règle métier V1** : un traiteur a **au plus un pack actif à un instant T**. Pas de FIFO multi-packs (refonte 2026-05-05). Le pack suivant n'est activé qu'après épuisement (ou annulation Admin) du pack en cours.
 
-Visible uniquement aux organisations avec un pack actif.
+Visible aux organisations avec un pack actif, et à celles dont le dernier pack est épuisé tant qu'aucun nouveau pack n'est actif (le bloc affiche alors ce pack épuisé : solde 0, badge rouge, renouvellement actif).
 
 **Affichage (refonte 2026-05-05 — pack unique)** :
 - Type pack + date d'achat
@@ -346,7 +346,7 @@ Les collectes s'affichent dans une **Data Table** (colonnes Date · Lieu · Clie
 | `annulee` | Annulée |
 | `rejetee_par_prestataire` | Créée (rejet = interne Ops, masqué) |
 
-> **Vue Admin** : granularité complète inchangée — seul `brouillon` est ré-étiqueté **« Créée »** (rename global admin + client). Le badge AG `realisee_sans_collecte` = libellé **« Sans excédents »** (cf. cas ci-dessous).
+> **Vue Admin** : granularité complète — le statut DB `programmee` s'y affiche **« Créée »** puis **« Programmée »** selon que la demande est partie vers le prestataire *(décision Val 2026-10-07, cf. [[06 - Back-office Admin Savr]] §3)* ; un `brouillon` n'apparaît pas côté Admin. Côté client, `brouillon` et `programmee` restent « Créée ». Le badge AG `realisee_sans_collecte` = libellé **« Sans excédents »** (cf. cas ci-dessous).
 
 **Cas "Aucun repas à collecter" (AG)** :
 
@@ -386,7 +386,7 @@ Pour le `traiteur_commercial` *(révision 2026-05-29)* : la liste affiche **tout
 > - **Navigation** : onglets en **barre horizontale** sous l'en-tête, fixe au défilement — cadre commun des fiches, décision Val 2026-10-01 (modale `max-w-5xl`, hauteur fixe) : **Informations / Logistique / Bilan & documents**.
 > - **Pied** : « Demander l'annulation » (contour rouge) puis « Modifier la collecte » (primaire), en bas à droite — selon les droits du rôle.
 > - **Informations** : Événement (Client, Date et heure, Pax, Type) ; Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = `acces_details` effectif du lieu, surcharge `lieu_overrides` de la collecte comprise, + `collectes.informations_supplementaires` ; jamais les notes internes — D5 2026-09-30) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** (`evenements.contact_secours_*`) — ligne masquée si vide, D6 2026-09-30). *(Arbitrages Val C2/C3/C5 2026-10-01)* Les contacts sont servis par la route de la fiche (jamais lisibles par PostgREST direct) : au traiteur (programmateur ou opérationnel) et à l'agence toujours, au gestionnaire sur ses seules programmations — bloc absent sinon. La référence d'affaire n'est servie qu'à l'organisation programmatrice (formulaire d'édition).
-> - **Logistique** : voir bloc « Logistique » ci-dessous (chauffeur / plaque / téléphone). Wording 100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un prestataire (« Nous affectons votre chauffeur avant la collecte… »). Bouton **« Demander les coordonnées en urgence »** → alerte **in-app Ops seule** (pas d'email, pas de Slack), **1 demande OUVERTE à la fois par collecte** (D10 2026-09-30 : tant que l'alerte Ops est ouverte, un nouveau clic ne crée rien ; après clôture — coordonnées reçues puis perdues, ou clôture manuelle Ops — une nouvelle demande ouvre une nouvelle alerte), confirmation « Demande envoyée à l'équipe Savr », alerte **clôturée automatiquement** à réception des coordonnées. AG : bloc **Association bénéficiaire** (nom, ville, présentation = `associations.description_rapport_impact`) dès la validation — **masqué au gestionnaire** tant que `v_attributions_gestionnaire` n'est pas implémentée.
+> - **Logistique** : voir bloc « Logistique » ci-dessous (chauffeur / plaque / téléphone). Wording 100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un prestataire (« Nous affectons votre chauffeur avant la collecte… »). Bouton **« Demander les coordonnées en urgence »** → alerte **in-app Ops seule** (pas d'email, pas de Slack), **1 demande OUVERTE à la fois par collecte** (D10 2026-09-30 : tant que l'alerte Ops est ouverte, un nouveau clic ne crée rien ; après clôture — coordonnées reçues puis perdues, ou clôture manuelle Ops — une nouvelle demande ouvre une nouvelle alerte), confirmation « Demande envoyée à l'équipe Savr », alerte **clôturée automatiquement** à réception des coordonnées. AG : bloc **Association bénéficiaire** (nom, ville, présentation = `associations.description_rapport_impact`) dès la validation — pour le gestionnaire de lieux, lu par la vue `v_attributions_gestionnaire` (cf. §06.05 « Fiche collecte »).
 > - **Collecte annulée** (`annulee`, `annulation_demandee`) *(C3 2026-09-29)* : frise « Créée · Annulée », onglet Bilan « Collecte annulée : aucun bilan ni document. », aucune action en pied.
 > - **Bilan affiché quand la collecte est « Réalisée » côté client (`cloturee`)** ; `realisee` DB (« En cours » client) = blocs estompés *(D4 2026-09-30)*.
 > - **Traiteur opérationnel d'une collecte AG programmée par une autre organisation (agence)** *(D12 2026-09-30)* : l'attestation de don est émise au nom du donneur d'ordre et ne lui est pas servie (matrice §09 `attestations_don`, lecture sous RLS) — ligne « Rapport de don » avec la mention « Réservé à l'organisation qui a programmé la collecte », sans téléchargement.
@@ -741,7 +741,7 @@ Toutes les factures de l'organisation sont visibles (factures par collecte, fact
 
 **Indicateurs** :
 - Badge "En retard" rouge si échéance dépassée
-- Lien vers "Me contacter" pour toute question facturation (ouvre un mailto hello@gosavr.io)
+- Lien vers "Me contacter" pour toute question facturation (ouvre un mailto contact@gosavr.io)
 
 > **Accès commercial** *(révision 2026-05-29 — l'option C 2026-05-05 est levée)* : le commercial accède à la **vue liste complète des factures de l'orga en lecture seule** (Mon organisation > Facturation), en plus du bouton "Télécharger la facture" sur la fiche collecte. RLS lecture alignée sur `organisation_id`. Il ne peut pas éditer les paramètres de facturation.
 

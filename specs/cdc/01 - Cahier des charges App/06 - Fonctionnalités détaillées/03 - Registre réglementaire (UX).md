@@ -8,7 +8,7 @@
 
 ## Contexte
 
-Module 20 MVP. Registre chronologique des flux de déchets ZD accessibles à tous les profils espace client (périmètre filtré par RLS). Source unique de vérité pour audits et démonstrations ESG.
+Module 20 MVP. Registre chronologique des flux de déchets ZD accessibles à tous les profils espace client **sauf l'agence** (périmètre filtré par RLS). Source unique de vérité pour audits et démonstrations ESG.
 
 **Périmètre des lignes (tranché F2 2026-06-07)** : collectes `statut = cloturee` ET `type = zero_dechet` uniquement (vue `v_registre_dechets` §04). Les collectes `realisee` n'apparaissent pas (registre = définitif). Le filtre « Statut bordereau dispo/manquant » couvre la fenêtre clôture → batch J+1 6h et les bordereaux `brouillon` (shadow sans SIRET). Les collectes migrées incomplètes portent le badge « Historique partiel » (`collectes.historique_partiel`, F3).
 
@@ -17,7 +17,7 @@ Module 20 MVP. Registre chronologique des flux de déchets ZD accessibles à tou
 ## Accès
 
 - Entrée de menu permanente dans l'espace client : "Registre réglementaire"
-- Visible pour tous les rôles (périmètre filtré)
+- Visible pour tous les rôles sauf l'agence (périmètre filtré)
 
 ---
 
@@ -115,7 +115,7 @@ V2 : version dynamique avec paramètres de calcul éditables.
 
 ### Export CSV
 
-Bouton "Exporter" → CSV des collectes filtrées courantes, **une ligne par flux pesé** (décision Val 2026-10-04), pour tous les rôles. Les 20 premières colonnes suivent, dans l'ordre, le modèle de collecte de données des gestionnaires de lieux : Nature du déchet · Code nomenclature déchets · Identité du producteur de déchet (= lieu) · Date d'expédition (= date de collecte) · Quantité (tonnage) · Filière de traitement finale · Code D&R de traitement finale · Numéro de BSD (= n° de bordereau Savr) · Transporteur (Nom, Adresse, Code postal, Ville) · Exutoire intermédiaire (idem, = entrepôt Savr) · Exutoire final (idem, = site de traitement du flux, `flux_dechets.exutoire*`). Suivent 2 colonnes Savr : Traiteur, Date événement (22 colonnes au total). Un flux sans poids n'a pas de ligne. Filtre Flux actif : seules les lignes de ces flux sortent *(confirmé Val)*. Le n° de bordereau n'est rendu que s'il est émis. Transporteur affiché = « Savr » à l'adresse de l'entrepôt (provisoire, validation juriste en attente). Filière = libellé de `filiere_valorisation` tant que la classification à lettres du modèle n'est pas fournie. `exports_registre.nb_lignes` = nombre de lignes de flux du fichier.
+Bouton "Exporter" → CSV des collectes filtrées courantes, **une ligne par flux pesé** (décision Val 2026-10-04), pour tous les rôles qui ont accès au registre. Les colonnes sont celles, dans l'ordre, du modèle de collecte de données des gestionnaires de lieux, plus une seule colonne ajoutée, « Lieu », insérée juste après le producteur (21 colonnes — décisions Val 2026-10-06) : Nature du déchet · Code nomenclature déchets · Identité du producteur de déchet (= raison sociale du traiteur opérationnel, décision Val 2026-10-06) · Lieu (= nom du lieu de l'événement, colonne hors modèle) · Date d'expédition (= date de collecte) · Quantité (tonnage) · Filière de traitement finale · Code D&R de traitement finale · Numéro de BSD (= n° de bordereau Savr) · Transporteur (Nom, Adresse, Code postal, Ville) · Exutoire intermédiaire (idem, = entrepôt Savr) · Exutoire final (idem, = site de traitement du flux, `flux_dechets.exutoire*`). Aucune colonne ne suit l'exutoire final (21 colonnes au total) : la date de l'événement ne figure pas dans le fichier. Un flux sans poids n'a pas de ligne. Filtre Flux actif : seules les lignes de ces flux sortent *(confirmé Val)*. Le n° de bordereau n'est rendu que s'il est émis. Transporteur affiché = « Savr », 50 rue des Moines, 75017 Paris (décision Val 2026-10-06 ; nom « Savr » provisoire, validation juriste en attente). L'exutoire intermédiaire reste l'entrepôt Savr, 3 rue du Fort de la Briche, 93200 Saint-Denis. Filière = libellé de `filiere_valorisation` tant que la classification à lettres du modèle n'est pas fournie. `exports_registre.nb_lignes` = nombre de lignes de flux du fichier.
 
 **Source des codes et des exutoires (assumé, décision Val 2026-10-04)** : l'export lit le référentiel `flux_dechets` **courant**, pas un instantané — une modification ultérieure du référentiel change aussi les lignes des collectes déjà clôturées. C'est une exception au principe snapshot du §04 (bordereaux) ; l'export pourra lire le snapshot par flux de `bordereaux_savr.detail_flux` quand il existera (lot rapport @3).
 
@@ -135,7 +135,7 @@ Bouton "Télécharger tous les bordereaux" → ZIP contenant tous les bordereaux
 
 ## Règles de visibilité (RLS)
 
-Source de vérité unique : [[05 - Règles métier#7. Règles d'accès au registre réglementaire (Module 20)]] et [[09 - Authentification et permissions]]. La table de périmètre par rôle a été retirée d'ici (sobriété 2026-06-03 C1 — évite la divergence silencieuse constatée lors de la propagation `lieu_independant → gestionnaire_lieux`). Rappel non normatif : les 6 rôles V1 voient le registre filtré à leur périmètre, `client_organisateur` en lecture seule avec export CSV autorisé.
+Source de vérité unique : [[05 - Règles métier#7. Règles d'accès au registre réglementaire (Module 20)]] et [[09 - Authentification et permissions]]. La table de périmètre par rôle a été retirée d'ici (sobriété 2026-06-03 C1 — évite la divergence silencieuse constatée lors de la propagation `lieu_independant → gestionnaire_lieux`). Rappel non normatif : les rôles V1 voient le registre filtré à leur périmètre, **sauf l'agence, qui n'y a pas accès** ; `client_organisateur` en lecture seule avec export CSV autorisé.
 
 ---
 

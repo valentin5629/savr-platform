@@ -219,7 +219,7 @@
     },
     {
       "id": "M1.5a-alerte-anticipee-lieu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2479",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2482",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "alerte anticipée events lieu (E5) : date de référence = plus proche collecte future non terminale du lieu, seuil/canal inchangés, 1 alerte par event, pas de doublon DLQ (vrai runOutboxWorker — G5) [outbox-worker.alerte-anticipee-lieu.test.ts]",
       "statut": "implemented",
@@ -268,9 +268,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "81b4328dfe14fa1e73ab8c37697f0222d02d73b73b74dfb6584e3f2fb0bd0518",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7",
     "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "4f01f41edc935ce46ee8eae438e27608d2ae5e0da9fd5534fe767aa78429c7b0"
   }
 }

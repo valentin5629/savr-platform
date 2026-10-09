@@ -581,7 +581,7 @@
     },
     {
       "id": "BL-P1-GEST-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:100",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:103",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
       "test": "M3.2/GEST01_bouton_programmer_present",
       "statut": "implemented",
@@ -597,7 +597,7 @@
     },
     {
       "id": "BL-P1-GEST-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:123",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:126",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts (chargement) + packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx (rangée de cartes)",
       "test": "M3.2/GEST03_kpi_affiches_cle_kpis",
       "statut": "implemented",
@@ -605,7 +605,7 @@
     },
     {
       "id": "BL-P1-GEST-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2132",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2133",
       "artefact": "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
       "test": "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql — GEST04-1..14 (signature 7 params, grain flux×type×taille, colonnes CDC, moyenne pondérée, k-anonymat, garde traiteur, listes parc)",
       "statut": "implemented",
@@ -613,7 +613,7 @@
     },
     {
       "id": "BL-P1-GEST-04-ENCART",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:161",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:164",
       "artefact": "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
       "test": "M3.2/GEST04_encart_filtres_present + M3.2/GEST04_encart_choix_taille + M3.2/GEST04_filtres_gestionnaire_listes_rattachees + M3.2/GEST04_route_forward_7_params",
       "statut": "implemented",
@@ -621,7 +621,7 @@
     },
     {
       "id": "BL-P1-GEST-04-JAUGE",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:180",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:185",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts",
       "test": "M3.2/GEST04_dashboard_kg_pax_par_flux",
       "statut": "implemented",
@@ -629,7 +629,7 @@
     },
     {
       "id": "BL-P2-12",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:110",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:113",
       "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx",
       "test": "M3.2/P2_dashboard_barre_5_filtres + M3.2/P2_dashboard_compteur_collectes + M3.2/P2_dashboard_carte_kpi_non_cliquable + M3.2/P2_dashboard_filtre_taille + M3.2/P2_filtres_options_parc + M3.2/P2_filtres_vide_si_aucun_perimetre + M3.2/P2_lieux_colonne_capacite + M3.2/P2_lieu_detail_capacite_photos_collectes + M3.2/P2_traiteurs_colonne_lieux + M3.2/P2_traiteurs_lieux_intervention_noms + M3.2/P2_encart_herite_type_taille + supabase/tests/r19b_p2_v_lieux_clients_capacite.test.sql (GRANT colonne capacite_maximum — régression P0 vue SECURITY INVOKER)",
       "statut": "implemented",
@@ -637,7 +637,7 @@
     },
     {
       "id": "M3.2-evenements-repas-tiers",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:317",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:322",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -646,11 +646,11 @@
     },
     {
       "id": "BL-P2-13",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:75",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:74",
       "artefact": "packages/plateforme/src/lib/nav-masquee.ts (entreesNavMasquees, règle unique) + packages/plateforme/src/app/(gestionnaire)/layout.tsx + packages/plateforme/src/app/(registre)/layout.tsx + packages/plateforme/src/app/(programmation)/layout.tsx",
       "test": "M3.2/P2_nav_pack_masque_si_absent + M3.2/P2_nav_pack_affiche_si_present + M3.2/nav_pack_registre_masque_sans_pack + M3.2/nav_pack_registre_affiche_avec_pack + M3.2/nav_pack_programmation_masque_sans_pack + M3.2/nav_pack_meme_menu_partout + M3.2/nav_pack_autres_roles_sans_lecture + M3.2/nav_pack_regle_unique + packages/plateforme/src/lib/routes.test.ts",
       "statut": "implemented",
-      "libelle": "Nav gestionnaire — conditionnel « Mon pack AG » (CDC l.75) : l'entrée est masquée si l'organisation n'a aucun packs_antgaspi (count serveur → hiddenNavHrefs filtré dans Sidebar/BottomNav/AppShell). Le count est joué par CHAQUE layout qui monte le menu du gestionnaire — son espace, mais aussi les sections transverses registre et programmation, qui ont leur propre layout (défaut E2E 2026-10-06 : l'entrée réapparaissait sur /registre et /programmer). Les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) font partie des 8 sections du menu (CDC l.66-73 : réintégrées par Val le 2026-07-06). L'entrée « Événements » est RETIRÉE (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md — le CDC l.67 dit encore « 9 sections », à patcher)."
+      "libelle": "Nav gestionnaire — conditionnel « Mon pack AG » (CDC l.74) : l'entrée est masquée si l'organisation n'a aucun packs_antgaspi (count serveur → hiddenNavHrefs filtré dans Sidebar/BottomNav/AppShell). Le count est joué par CHAQUE layout qui monte le menu du gestionnaire — son espace, mais aussi les sections transverses registre et programmation, qui ont leur propre layout (défaut E2E 2026-10-06 : l'entrée réapparaissait sur /registre et /programmer). Les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) font partie des 8 sections du menu (CDC l.66-73 : réintégrées par Val le 2026-07-06). L'entrée « Événements » est RETIRÉE (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md — le CDC l.67 dit « 8 sections » depuis le sync du 2026-10-09)."
     },
     {
       "id": "M3.2-nav-ordre-menu",
@@ -658,12 +658,12 @@
       "artefact": "packages/plateforme/src/lib/nav-config.ts",
       "test": "M3.2/nav_ordre_menu_gestionnaire + packages/plateforme/src/lib/routes.test.ts",
       "statut": "implemented",
-      "libelle": "Ordre du menu du gestionnaire (décision Val 2026-10-07, revue d'écran E2E — il diffère de la liste numérotée du CDC l.69-77, à patcher) : Dashboard, Collectes, Traiteurs, Mes lieux, Registre réglementaire, Mon organisation, Paramètres. « Mon pack AG », quand l'organisation a un pack, garde sa place juste avant « Mon organisation ». La barre mobile affichant les 4 premières entrées, elle montre Dashboard, Collectes, Traiteurs, Mes lieux (le Registre réglementaire en sort, les Traiteurs y entrent).",
+      "libelle": "Ordre du menu du gestionnaire (décision Val 2026-10-07, revue d'écran E2E — la liste numérotée du CDC l.69-76 porte cet ordre depuis le sync du 2026-10-09) : Dashboard, Collectes, Traiteurs, Mes lieux, Registre réglementaire, Mon organisation, Paramètres. « Mon pack AG », quand l'organisation a un pack, garde sa place juste avant « Mon organisation ». La barre mobile affichant les 4 premières entrées, elle montre Dashboard, Collectes, Traiteurs, Mes lieux (le Registre réglementaire en sort, les Traiteurs y entrent).",
       "ref_divergence": "_Divergences/M3.2_20261007_ordre-menu-gestionnaire.md"
     },
     {
       "id": "M3.2-bloc2-zd",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:147",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:150",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionZdChart.tsx",
       "test": "M3.2/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
       "statut": "implemented",
@@ -671,7 +671,7 @@
     },
     {
       "id": "M3.2-bloc2-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:231",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:236",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadEvolution) + packages/plateforme/src/lib/dashboards/attributions-ag.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionAgChart.tsx",
       "test": "M3.2/evolution_gestionnaire_ag_par_vue + M3.2/attributions_embed_gestionnaire_vue + M3.2/dash_bloc4_zd_only — pas de donut sur l’onglet AG",
       "statut": "implemented",
@@ -679,7 +679,7 @@
     },
     {
       "id": "M3.2-bloc4-donut",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:196",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:201",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TonnagesDonut.tsx",
       "test": "M3.2/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
       "statut": "implemented",
@@ -687,7 +687,7 @@
     },
     {
       "id": "M3.2-bloc5-prochaines",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:200",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:205",
       "artefact": null,
       "test": "M3.2/blocs_gestionnaire_zd_top_traiteurs_sans_prochaines",
       "statut": "descoped",
@@ -696,7 +696,7 @@
     },
     {
       "id": "M3.2-bloc6-top-lieux",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:204",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:209",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopLieuxBloc supprimé en R24c — agence migrée, plus aucun consommateur)",
       "test": "M3.2/blocs_gestionnaire_perimetre_et_top_traiteurs",
       "statut": "implemented",
@@ -704,7 +704,7 @@
     },
     {
       "id": "M3.2-bloc7-top-traiteurs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:210",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:215",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopActeursBloc supprime, plus aucun consommateur)",
       "test": "M3.2/blocs_gestionnaire_perimetre_et_top_traiteurs",
       "statut": "implemented",
@@ -712,7 +712,7 @@
     },
     {
       "id": "M3.2-bloc3ag-associations",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:240",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:245",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, topAssociationsFrom) + packages/plateforme/src/lib/dashboards/attributions-ag.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopAssociationsBloc.tsx supprimé en R24c)",
       "test": "M3.2/blocs_gestionnaire_ag_par_vue + M3.2/attributions_forme_commune_vue + M3.2/blocs_gestionnaire_ag_associations",
       "statut": "implemented",
@@ -720,7 +720,7 @@
     },
     {
       "id": "M3.2-bloc8-export-pdf",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:216",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:221",
       "artefact": "packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
       "test": "M3.2 / synthèse gestionnaire — lieux du parc + programmées + section traiteurs",
       "statut": "implemented",
@@ -728,7 +728,7 @@
     },
     {
       "id": "M3.2-cockpit-page",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:1-268",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:1-273",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/* + packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx (Bloc 1, rangée partagée avec la fiche traiteur)",
       "test": "M3.2/dash_bloc2_bloc4_zd_montes + M3.2/blocs_gestionnaire_zd_top_traiteurs_sans_prochaines + M3.2/P2_dashboard_carte_kpi_non_cliquable",
       "statut": "implemented",
@@ -744,7 +744,7 @@
     },
     {
       "id": "M3.2-bloc-organisation-edition",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:453",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:462",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-organisation/page.tsx + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/logo/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/profil/route.ts + packages/plateforme/src/lib/logo-upload.ts",
       "test": "M3.2/mon_organisation_champs_editables_et_lecture_seule + M3.2/mon_organisation_adresse_enregistree + M3.2/mon_organisation_adresse_erreur_serveur_affichee + M3.2/mon_organisation_logo_upload_puis_enregistre + M3.2/mon_organisation_logo_refuse_sans_patch + M3.2/mon_organisation_logo_envoye_non_enregistre + M3.2/profil_patch_logo_cle_upload_acceptee + M3.2/profil_patch_logo_invalide_422 + M3.2/profil_patch_adresse_trim_et_vide_null + M3.2/profil_patch_adresse_invalide_422 + M3.2/logo_upload_201 + M3.2/logo_upload_format_refuse_422 + M3.2/logo_upload_trop_lourd_422 + M3.2/logo_upload_role_traiteur_403 + M3.2/logo_get_sert_le_logo_de_sa_propre_organisation + M3.2/logo_get_404",
       "statut": "implemented",
@@ -761,7 +761,7 @@
     },
     {
       "id": "M3.2-traiteur-logo-proxy",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:432",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:439",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/logo/route.ts + packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx (en-tête)",
       "test": "M3.2/traiteur_logo_200 + M3.2/traiteur_logo_hors_perimetre_404 + M3.2/traiteur_logo_404 + M3.2/traiteur_logo_role_403 + M3.2/P2_traiteurs_logo_par_proxy + M3.2/logo_fiche_traiteur_gestionnaire_par_proxy",
       "statut": "implemented",
@@ -769,7 +769,7 @@
     },
     {
       "id": "M3.2-detail-evenement-distance-association",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:333",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:338",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -778,7 +778,7 @@
     },
     {
       "id": "M3.2-detail-evenement-lecture-seule",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:320-340",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:325-345",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -796,7 +796,7 @@
     },
     {
       "id": "M3.2-liste-collectes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:83",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:84",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": "M3.2/collectes_liste_rendue_au_design_system + M3.2/collectes_erreur_chargement_message_et_reessayer + M3.2/collectes_liste_vide_empty_state + M3.2/collectes_etat_chargement_skeleton + M3.2/collectes_ligne_ouvre_la_fiche + M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche + M3.2/collectes_pagination_total_affiche_au_dela_dune_page + M3.2/collectes_pagination_demande_la_page_suivante_au_serveur + M3.2/collectes_pagination_absente_sous_le_seuil + M3.2/collectes_changement_de_filtre_revient_page_1 + M3.2/collectes_page_devenue_hors_bornes_revient_sur_la_derniere_valide + M3.2/collectes_derniere_page_vide_ne_bloque_pas_lecran",
       "statut": "à-vérifier",
@@ -804,7 +804,7 @@
     },
     {
       "id": "M3.2-collectes-pagination-serveur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:83",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:84",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts",
       "test": "M3.2/collectes_route_pagine_et_renvoie_le_total_exact + M3.2/collectes_route_fenetre_la_page_demandee + M3.2/collectes_route_ne_tronque_plus_a_100 + M3.2/collectes_route_ordre_departage_stable_entre_pages + M3.2/collectes_route_page_hors_bornes_retombe_sur_1 + M3.2/collectes_route_pagination_compatible_avec_le_drilldown + M3.2/collectes_route_page_au_dela_de_la_derniere_nest_pas_une_panne + M3.2/collectes_route_echec_reel_reste_une_erreur + M3.2/collectes_route_recompte_hors_bornes_porte_les_memes_filtres",
       "statut": "implemented",
@@ -812,7 +812,7 @@
     },
     {
       "id": "M3.2-drilldown-top-listes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:208",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:213",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx (drillUrl, monté sur les 4 blocs Top listes ZD+AG) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (chip « Filtre actif »)",
       "test": "M3.2/drilldown_gestionnaire_tous_statuts_type_non_fige + M3.2/drilldown_gestionnaire_propage_periode_type_et_taille + M3.2/drilldown_gestionnaire_libelle_memorise_en_sessionstorage + M3.2/collectes_route_drilldown_gestionnaire_sans_statut_ni_type + M3.2/collectes_chip_filtre_actif_nomme_la_cible_du_drilldown + M3.2/collectes_chip_sans_libelle_prend_le_nom_des_options + M3.2/collectes_chip_retirer_le_filtre_sort_du_drilldown + M3.2/collectes_chip_suit_la_barre + M3.2/collectes_filtre_pose_dans_la_barre_sans_chip + M3.2/collectes_cible_hors_options_reste_nommee + M3.2/collectes_valeur_filtree_inconnue_reste_annoncee + M3.2/collectes_lieu_et_traiteur_dans_l_url + M3.2/collectes_chip_rechargement_sans_ecart_d_hydratation",
       "statut": "implemented",
@@ -820,7 +820,7 @@
     },
     {
       "id": "M3.2-collectes-filtres-type-taille",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:118",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:121",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx + packages/plateforme/src/lib/collectes-gestionnaire.ts (lecture des filtres, partagée avec l'export CSV)",
       "test": "M3.2/collectes_route_filtre_type_evenement + M3.2/collectes_route_filtre_taille_evenement + M3.2/collectes_route_taille_xs_inclut_pax_null + M3.2/collectes_route_taille_brackets_non_contigus + M3.2/collectes_route_taille_inconnue_ne_desarme_pas_le_filtre + M3.2/collectes_route_taille_cle_heritee_rejetee + M3.2/collectes_route_sans_filtres_evenement + M3.2/collectes_route_type_et_taille_se_cumulent + M3.2/collectes_relaie_type_et_taille_devenement + M3.2/collectes_reinitialiser_retire_aussi_type_et_taille + M3.2/collectes_barre_affiche_les_filtres_devenement + M3.2/collectes_changement_type_taille_revient_page_1",
       "statut": "implemented",
@@ -828,7 +828,7 @@
     },
     {
       "id": "M3.2-kpi-sparkline-n1",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:141",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:144",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts + packages/plateforme/src/lib/dashboards/loaders.ts + packages/plateforme/src/lib/dashboards/cockpit-derive.ts",
       "test": "M3.2/kpi_cartes_sparkline_et_variation_n1 + M3.2/kpi_sparkline_serie_zd_nb_collectes_pax_co2_par_bucket + M3.2/kpi_sparkline_serie_ag_nb_collectes_par_bucket + M3.2/kpi_sparkline_moins_de_deux_points_masquee + M3.2/dashboard_kpi_filtres_parc_transmis",
       "statut": "implemented",
@@ -844,7 +844,7 @@
     },
     {
       "id": "M3.2-popup-client-fiche-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:85",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:86",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/[id]/page.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-modal.tsx",
       "test": "M3.2/fiche_redirect_modale",
       "statut": "implemented",
@@ -852,7 +852,7 @@
     },
     {
       "id": "M3.2-popup-association-absente-api",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:85",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:86",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts + packages/plateforme/src/lib/collectes/fiche-client-types.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx (BlocAssociation, inchangé)",
       "test": "M3.2/fiche_get_association_par_vue + M3.2/fiche_popup_gestionnaire_association_affichee + M3.2/fiche_popup_gestionnaire_sans_attribution",
       "statut": "implemented",
@@ -860,7 +860,7 @@
     },
     {
       "id": "M3.2-popup-sans-annulation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:340",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:345",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.2/fiche_popup_gestionnaire_sans_annulation",
       "statut": "implemented",
@@ -916,7 +916,7 @@
     },
     {
       "id": "M3.2-evenements-type-collecte-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:298",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:303",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -925,7 +925,7 @@
     },
     {
       "id": "M3.2-liste-colonne-client",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:327",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:332",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": "M3.2/collectes_route_renvoie_le_client_organisateur + M3.2/collectes_liste_rendue_au_design_system",
       "statut": "implemented",
@@ -941,7 +941,7 @@
     },
     {
       "id": "M3.2-liste-colonnes-parite-traiteur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:83",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:84",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx, packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": "M3.2/collectes_colonnes_identiques_liste_traiteur + M3.2/collectes_route_colonnes_liste_traiteur",
       "statut": "implemented",
@@ -965,7 +965,7 @@
     },
     {
       "id": "M3.2-vue-attributions-gestionnaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2109",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2110",
       "artefact": "supabase/migrations/20261004190000_plateforme_v_attributions_gestionnaire.sql (vue security_invoker = false + security_barrier = true ; 5 colonnes ; garde de rôle f_app_role() = 'gestionnaire_lieux' + bornage organisations_lieux + événement daté ; REVOKE ALL FROM PUBLIC, anon, authenticated puis GRANT SELECT TO authenticated) + packages/shared/src/database.types.ts",
       "test": "supabase/tests/SECU__v_attributions_gestionnaire.test.sql (24 assertions sous rôle authenticated + claims, base vierge : 1-3 v_attributions_gest_own_lieu_ok ; 4-5 v_attributions_gest_autre_lieu_denied avec contrôle positif ; 6, 21-22 événement sans date ; 7-8 v_attributions_gest_role_non_gestionnaire_denied avec non-vacuité, 8b JWT sans organisation ; 9, 11-13b autres rôles posés sur une organisation RATTACHÉE au lieu ; 10 le traiteur garde la table ; 14-15 v_attributions_gest_colonnes_whitelist_ok ; 16-19 options de vue et privilèges ; 20 aa_select sans branche lieu)",
       "statut": "implemented",
@@ -973,7 +973,7 @@
     },
     {
       "id": "M3.2-dashboard-kpi-ag-par-vue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:132",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:135",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts",
       "test": "M3.2/dashboard_ag_repas_par_vue",
       "statut": "implemented",
@@ -981,7 +981,7 @@
     },
     {
       "id": "M3.2-traiteurs-repas-par-vue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:436",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:443",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts",
       "test": "M3.2/traiteurs_liste_repas_par_vue + M3.2/dashboard_ag_repas_par_vue",
       "statut": "implemented",
@@ -989,7 +989,7 @@
     },
     {
       "id": "M3.2-pack-ag-consommation-par-vue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2117",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2118",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts",
       "test": "M3.2/pack_ag_consommation_par_vue + M3.2/pack_ag_consommation_repas_objet",
       "statut": "implemented",
@@ -997,7 +997,7 @@
     },
     {
       "id": "M3.2-pack-ag-consommation-organisation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:75",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:74",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts",
       "test": "M3.2/pack_ag_consommation_pack_tiers_exclu + M3.2/pack_ag_consommation_pack_organisation_presente + M3.2/pack_ag_consommation_erreur_500 + M3.2/pack_ag_consommation_plafond_50",
       "statut": "implemented",
@@ -1005,7 +1005,7 @@
     },
     {
       "id": "M3.2-pack-ag-consommation-annulations-tardives",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:75",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:74",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
       "test": "M3.2/pack_ag_consommation_annulation_tardive_listee + M3.2/pack_ag_consommation_annulation_sans_debit_exclue + M3.2/pack_ag_consommation_annulee_ancienne_non_coupee + M3.2/pack_ag_consommation_erreur_audit_500 + M3.2/pack_ag_ecran_mention_annulee_tardivement",
       "statut": "implemented",
@@ -1013,11 +1013,11 @@
     },
     {
       "id": "M3.2-pack-ag-sans-historique-packs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:75",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:74",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
       "test": "M3.2/pack_ag_sans_historique_packs + M3.2/pack_ag_ecran_sans_bloc_historique_packs",
       "statut": "implemented",
-      "libelle": "Mon pack AG — pas d'historique des packs (CDC l.75 « pas d'historique multi-packs », arbitrage Val 2026-10-07, même divergence, question 4) : la route ne rend que le pack actif, l'écran n'a plus de bloc « Historique packs ». Le type du pack s'affiche en clair (« Pack 10 ») et ses dates au format JJ/MM/AAAA."
+      "libelle": "Mon pack AG — pas d'historique des packs (CDC l.74 « pas de liste des packs précédents », arbitrage Val 2026-10-07, même divergence, question 4) : la route ne rend que le pack actif, l'écran n'a plus de bloc « Historique packs ». Le type du pack s'affiche en clair (« Pack 10 ») et ses dates au format JJ/MM/AAAA."
     },
     {
       "id": "M3.2-pack-ag-ecran-etat-erreur",
@@ -1029,7 +1029,7 @@
     },
     {
       "id": "M3.2-pack-ag-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:75",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:74",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1037,7 +1037,7 @@
     },
     {
       "id": "M3.2-synthese-pdf-ag-par-vue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:267",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:272",
       "artefact": "packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (buildSyntheseSnapshot, route POST /api/v1/dashboards/synthese-pdf) + packages/plateforme/src/lib/dashboards/attributions-ag.ts",
       "test": "M3.2/synthese_gestionnaire_ag_par_vue",
       "statut": "implemented",
@@ -1045,7 +1045,7 @@
     },
     {
       "id": "M3.2-bloc6-ag-top-lieux",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:255",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:260",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, topLieuxFrom) + packages/plateforme/src/lib/dashboards/attributions-ag.ts",
       "test": "M3.2/blocs_gestionnaire_ag_par_vue",
       "statut": "implemented",
@@ -1053,7 +1053,7 @@
     },
     {
       "id": "M3.2-bloc7-ag-top-traiteurs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:261",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:266",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, aggregateActeurs) + packages/plateforme/src/lib/dashboards/attributions-ag.ts",
       "test": "M3.2/blocs_gestionnaire_ag_par_vue",
       "statut": "implemented",
@@ -1077,15 +1077,15 @@
     },
     {
       "id": "M3.2-benchmark-filtres-gestionnaire-rattaches",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:167",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:170",
       "artefact": "supabase/migrations/20261006220000_plateforme_benchmark_filtres_gestionnaire_rattaches.sql",
       "test": "M3.2/GEST04_filtres_gestionnaire_listes_rattachees + M3.2/GEST04_filtres_gestionnaire_lecture_en_echec_500 + M3.2/GEST04_route_gestionnaire_hors_perimetre_403 + M3.2/GEST04_route_gestionnaire_42501_autre_cause_500 + M3.2/fiche_benchmark_filtre_hors_perimetre_403 + M3.2/GEST04_encart_tout_le_parc_savr + M3.2/GEST04_encart_tous_mes_lieux_coches + M3.2/GEST04_encart_listes_parc_tous_inchange + M3.2/GEST04_encart_etat_mixte_lieu_coche_traiteurs_parc + M3.2/GEST04_encart_libelle_des_le_premier_rendu + M3.2/fiche_benchmark_lieux_tout_le_parc_gestionnaire + M3.2/fiche_benchmark_lieux_tous_traiteur + supabase/tests/benchmark_filtres_gestionnaire_rattaches.test.sql",
       "statut": "implemented",
-      "libelle": "Filtres Lieux / Traiteurs du benchmark bornés au périmètre du gestionnaire (décision Val 2026-10-06, contraire au CDC l.167-168 « tous les lieux / traiteurs du parc » — _Divergences/M3.2_20261006_benchmark-filtres-lieux-traiteurs-rattaches.md). (1) Options : lieux rattachés (organisations_lieux) et traiteurs intervenus sur ces lieux depuis 24 mois, par loadFiltresParcGestionnaire — la même fonction sert le filtre global du dashboard, donc mêmes listes ; une lecture des lieux ou des traiteurs en échec rend 500 sur les deux routes, jamais des listes vides. (2) Écran : BenchmarkFilterBar perimetre=\"rattache\", posé par le dashboard gestionnaire et par la fiche collecte de l'espace gestionnaire (libellé juste dès le premier rendu) — dans Lieux et dans Traiteurs, case de tête « Tout le parc Savr » cochée par défaut (sélection vide = repère sur tout le parc), décochée dès qu'une ligne de CETTE liste est cochée (les deux listes sont indépendantes) ; cocher toutes les lignes reste une sélection explicite (FiltreCoches listePartielle), sans quoi « mes trois sites » basculait en silence sur tout le parc. (3) Base : f_benchmark_lieux_parc et f_benchmark_traiteurs_parc refusent le rôle gestionnaire_lieux ; f_benchmark_kg_pax_zd refuse (SQLSTATE 42501) un lieu non rattaché ou un traiteur absent de sa vue v_traiteurs_gestionnaire (la garde lit la vue elle-même : type traiteur, opérationnel sur un événement daté tenu sur ses lieux ; la fenêtre de 24 mois est une borne d'affichage, pas de la garde), relayé en 403 par loadBenchmark, qui reconnaît le refus à son code ET au début de son message (tout autre 42501 reste un 500 journalisé). Non fermé par ce lot : le libellé des traiteurs actifs reste lisible dans v_referentiel_traiteurs. Rôles traiteur, agence et staff inchangés."
+      "libelle": "Filtres Lieux / Traiteurs du benchmark bornés au périmètre du gestionnaire (décision Val 2026-10-06 — _Divergences/M3.2_20261006_benchmark-filtres-lieux-traiteurs-rattaches.md ; le CDC l.170-171 le dit depuis le sync du 2026-10-09). (1) Options : lieux rattachés (organisations_lieux) et traiteurs intervenus sur ces lieux depuis 24 mois, par loadFiltresParcGestionnaire — la même fonction sert le filtre global du dashboard, donc mêmes listes ; une lecture des lieux ou des traiteurs en échec rend 500 sur les deux routes, jamais des listes vides. (2) Écran : BenchmarkFilterBar perimetre=\"rattache\", posé par le dashboard gestionnaire et par la fiche collecte de l'espace gestionnaire (libellé juste dès le premier rendu) — dans Lieux et dans Traiteurs, case de tête « Tout le parc Savr » cochée par défaut (sélection vide = repère sur tout le parc), décochée dès qu'une ligne de CETTE liste est cochée (les deux listes sont indépendantes) ; cocher toutes les lignes reste une sélection explicite (FiltreCoches listePartielle), sans quoi « mes trois sites » basculait en silence sur tout le parc. (3) Base : f_benchmark_lieux_parc et f_benchmark_traiteurs_parc refusent le rôle gestionnaire_lieux ; f_benchmark_kg_pax_zd refuse (SQLSTATE 42501) un lieu non rattaché ou un traiteur absent de sa vue v_traiteurs_gestionnaire (la garde lit la vue elle-même : type traiteur, opérationnel sur un événement daté tenu sur ses lieux ; la fenêtre de 24 mois est une borne d'affichage, pas de la garde), relayé en 403 par loadBenchmark, qui reconnaît le refus à son code ET au début de son message (tout autre 42501 reste un 500 journalisé). Non fermé par ce lot : le libellé des traiteurs actifs reste lisible dans v_referentiel_traiteurs. Rôles traiteur, agence et staff inchangés."
     },
     {
       "id": "M3.2-benchmark-filtres-tout-le-parc-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:161",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:164",
       "artefact": "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1093,7 +1093,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-modale",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:371",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:376",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx (ouverture au clic, adresse `?lieu=<id>`) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/[id]/page.tsx (redirection)",
       "test": "M3.2/fiche_lieu_modale_ouverte_au_clic + M3.2/fiche_lieu_modale_lien_direct + M3.2/fiche_lieu_modale_fermeture_nettoie_l_adresse + M3.2/fiche_lieu_ancienne_route_redirige + M3.2/fiche_lieu_modale_erreur_chargement + M3.2/fiche_lieu_modale_lieu_introuvable + M3.2/fiche_lieu_modale_identifiant_mal_forme",
       "statut": "implemented",
@@ -1101,7 +1101,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-informations-lecture-seule",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:374",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:378-380",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Informations) + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts + packages/plateforme/src/lib/lieux-labels.ts (REGION_LABEL) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx (format de la capacité)",
       "test": "M3.2/fiche_lieu_modale_libelles_lisibles + M3.2/fiche_lieu_modale_lecture_seule + M3.2/P2_lieu_detail_capacite_photos_collectes + M3.2/fiche_lieu_identifiant_mal_forme_404 + M3.2/fiche_lieu_role_non_gestionnaire_403 + M3.2/P2_lieux_colonne_capacite",
       "statut": "implemented",
@@ -1109,7 +1109,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-traiteurs-operant",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:377",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:381",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (`traiteurs`) + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Traiteurs)",
       "test": "M3.2/fiche_lieu_traiteurs_tous_statuts_tries + M3.2/fiche_lieu_traiteurs_plafond_inferieur + M3.2/fiche_lieu_erreur_collectes_500 + M3.2/fiche_lieu_modale_onglet_traiteurs_liste_complete + M3.2/fiche_lieu_modale_onglet_traiteurs_vide",
       "statut": "implemented",
@@ -1117,15 +1117,15 @@
     },
     {
       "id": "M3.2-fiche-lieu-activite-12-mois",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:375-376",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:382",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Activité, `ActiviteLieu`) + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionZdChart.tsx + packages/plateforme/src/components/dashboards/useEvolutionBlocs.ts (champ `erreur`) + packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts (route existante, inchangée) + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (ne sert plus `collectes`)",
       "test": "M3.2/fiche_lieu_modale_activite_graphique_du_dashboard + M3.2/fiche_lieu_modale_activite_sans_collecte + M3.2/fiche_lieu_modale_activite_erreur + M3.2/fiche_lieu_sans_liste_de_collectes",
       "statut": "implemented",
-      "libelle": "Onglet Activité de la fiche lieu (arbitrage Val 2026-10-07, _Divergences/M3.2_20261006_fiche-lieu-modale-demande-modification) : l'histogramme « Évolution mensuelle Zéro Déchet » du dashboard (§11 Bloc 2 ZD — tonnages par flux, taux de recyclage superposé), filtré sur ce lieu, sur les 12 derniers mois. Même route (`/api/v1/dashboards/evolution`, type ZD, `lieu_ids[]` = le lieu, période par défaut du dashboard), même composant : les chiffres sont ceux du dashboard filtré sur le lieu (collectes clôturées, périmètre du gestionnaire). Chargé à l'ouverture de l'onglet seulement ; sans collecte ZD clôturée sur la période, l'état vide du graphique ; un chargement en échec affiche une erreur avec « Réessayer », jamais « aucune collecte ». L'historique des collectes et l'ancien graphique à barres simples sont retirés ; la route de la fiche ne sert plus les collectes du lieu. Le CDC écrit « Historique complet des collectes » et « Graphique évolution sur 12 mois » (l.375-376) : écart tracé par la divergence."
+      "libelle": "Onglet Activité de la fiche lieu (arbitrage Val 2026-10-07, _Divergences/M3.2_20261006_fiche-lieu-modale-demande-modification) : l'histogramme « Évolution mensuelle Zéro Déchet » du dashboard (§11 Bloc 2 ZD — tonnages par flux, taux de recyclage superposé), filtré sur ce lieu, sur les 12 derniers mois. Même route (`/api/v1/dashboards/evolution`, type ZD, `lieu_ids[]` = le lieu, période par défaut du dashboard), même composant : les chiffres sont ceux du dashboard filtré sur le lieu (collectes clôturées, périmètre du gestionnaire). Chargé à l'ouverture de l'onglet seulement ; sans collecte ZD clôturée sur la période, l'état vide du graphique ; un chargement en échec affiche une erreur avec « Réessayer », jamais « aucune collecte ». L'historique des collectes et l'ancien graphique à barres simples sont retirés ; la route de la fiche ne sert plus les collectes du lieu. Le CDC écrivait « Historique complet des collectes » et « Graphique évolution sur 12 mois » ; il décrit l'onglet tel que livré depuis le sync du 2026-10-09 (l.382)."
     },
     {
       "id": "M3.2-fiche-lieu-demande-modification",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:361",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:384",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/demande-modification/route.ts + packages/plateforme/src/lib/lieux/demande-modification.ts + packages/plateforme/src/lib/lieux/parc.ts + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (`demande_modification_possible`, `demande_modification_en_cours`) + supabase/migrations/20261006231500_plateforme_alerte_lieu_modification_ouverte_unique.sql + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (pied + sous-modale) + packages/plateforme/src/lib/alertes-admin.ts (sévérité) + packages/plateforme/src/components/admin/lieu-modal.tsx (libellé d'historique)",
       "test": "M3.2/demande_modification_lieu_cree_alerte_admin + M3.2/demande_modification_lieu_n_ecrit_pas_le_referentiel + M3.2/demande_modification_lieu_hors_perimetre_404 + M3.2/demande_modification_lieu_deja_ouverte_409 + M3.2/demande_modification_lieu_envoi_simultane_409 + M3.2/demande_modification_lieu_message_invalide_422 + M3.2/demande_modification_lieu_caracteres_invisibles_retires + M3.2/demande_modification_lieu_message_borne_acceptee + M3.2/demande_modification_lieu_corps_illisible_400 + M3.2/demande_modification_lieu_role_non_gestionnaire_403 + M3.2/demande_modification_lieu_identifiant_mal_forme_404 + M3.2/demande_modification_lieu_alerte_en_echec_500 + M3.2/demande_modification_lieu_lectures_en_echec_500 + M3.2/demande_modification_lieu_audit_en_echec_demande_conservee + M3.2/alerte_lieu_modification_severite_et_lien + M3.2/fiche_lieu_demande_en_cours_exposee + M3.2/fiche_lieu_demande_lecture_en_echec_500 + M3.2/fiche_lieu_hors_parc_consultation_seule + M3.2/fiche_lieu_hors_perimetre_sans_lecture_service_role + M3.2/fiche_lieu_modale_demande_envoyee + M3.2/fiche_lieu_modale_demande_deja_en_cours + M3.2/fiche_lieu_modale_demande_concurrente_409 + M3.2/fiche_lieu_modale_demande_refusee_message_affiche + M3.2/fiche_lieu_modale_echap_ferme_la_demande_seule + M3.2/fiche_lieu_modale_hors_parc_sans_bouton + LIEU_MODIF/index_unique_partiel_present + LIEU_MODIF/seconde_demande_ouverte_refusee + LIEU_MODIF/autre_lieu_libre + LIEU_MODIF/autre_code_libre + LIEU_MODIF/nouvelle_demande_apres_resolution + M3.2/historique_lieu_admin_demande_gestionnaire + LIEU_MODIF/trace_audit_acceptee + LIEU_MODIF/ecriture_directe_gestionnaire_refusee + LIEU_MODIF/lecture_directe_gestionnaire_vide + M3.2/demande_modification_lieu_du_parc_illisible_404",
       "statut": "implemented",
@@ -1133,7 +1133,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-modale-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:371",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:376",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx + packages/plateforme/src/app/(admin)/admin/alertes/page.tsx + packages/plateforme/src/components/admin/lieu-modal.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1141,15 +1141,15 @@
     },
     {
       "id": "M3.2-demande-ajout-lieu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:383",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:390",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx (bouton du bandeau, état « demande en cours ») + packages/plateforme/src/components/gestionnaire/demande-ajout-lieu-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/lieux/demande-ajout/route.ts (GET état, POST demande) + packages/plateforme/src/lib/lieux/demande-ajout.ts + packages/plateforme/src/lib/lieux/demande-modification.ts (`nettoyerSaisie`, `porteCaractereInterdit`) + packages/plateforme/src/lib/alertes-admin.ts (sévérité) + supabase/migrations/20261007113000_plateforme_alerte_lieu_ajout_ouverte_unique.sql",
       "test": "M3.2/demande_ajout_lieu_cree_alerte_admin + M3.2/demande_ajout_lieu_n_ecrit_ni_lieu_ni_rattachement + M3.2/demande_ajout_lieu_organisation_de_la_session + M3.2/demande_ajout_lieu_precision_facultative + M3.2/demande_ajout_lieu_champs_invalides_422 + M3.2/demande_ajout_lieu_bornes_acceptees + M3.2/demande_ajout_lieu_blancs_replies + M3.2/demande_ajout_lieu_caracteres_invisibles_retires + M3.2/demande_ajout_lieu_deja_ouverte_409 + M3.2/demande_ajout_lieu_envoi_simultane_409 + M3.2/demande_ajout_lieu_organisation_sans_nom + M3.2/demande_ajout_lieu_corps_illisible_400 + M3.2/demande_ajout_lieu_role_non_gestionnaire_403 + M3.2/demande_ajout_lieu_non_authentifie_401 + M3.2/demande_ajout_lieu_lectures_en_echec_500 + M3.2/demande_ajout_lieu_alerte_en_echec_500 + M3.2/demande_ajout_lieu_audit_en_echec_demande_conservee + M3.2/demande_ajout_lieu_impersonation_tracee + M3.2/demande_ajout_lieu_etat_expose + M3.2/demande_ajout_lieu_etat_illisible_500 + M3.2/alerte_lieu_ajout_severite_et_lien + M3.2/demande_ajout_lieu_bouton_sur_la_liste + M3.2/demande_ajout_lieu_bouton_neutralise_demande_en_cours + M3.2/demande_ajout_lieu_etat_illisible_bouton_propose + M3.2/demande_ajout_lieu_etat_tardif_ne_reactive_pas + M3.2/demande_ajout_lieu_formulaire_trois_champs + M3.2/demande_ajout_lieu_champs_obligatoires_bloquent_l_envoi + M3.2/demande_ajout_lieu_envoi_confirme + M3.2/demande_ajout_lieu_deja_en_cours_409 + M3.2/demande_ajout_lieu_refus_affiche + M3.2/demande_ajout_lieu_erreur_reseau + M3.2/demande_ajout_lieu_envoi_en_cours_verrouille + LIEU_AJOUT/index_unique_partiel_present + LIEU_AJOUT/premiere_demande_ouverte + LIEU_AJOUT/seconde_demande_ouverte_refusee + LIEU_AJOUT/autre_organisation_libre + LIEU_AJOUT/autre_code_libre + LIEU_AJOUT/nouvelle_demande_apres_resolution + LIEU_AJOUT/ecriture_directe_gestionnaire_refusee + LIEU_AJOUT/lecture_directe_gestionnaire_vide + LIEU_AJOUT/trace_audit_acceptee",
       "statut": "implemented",
-      "libelle": "Bouton « Demander l'ajout d'un lieu » sur la liste Lieux du gestionnaire (livrable CDC resté non transcrit, relevé par la revue de conformité de la PR #501). Arbitrages Val 2026-10-07 (_Divergences/M3.2_20261007_demande-ajout-lieu) : la demande ouvre une alerte in-app dans la file de l'Admin (code `lieu_ajout_demande`, « À traiter »), sans email ni Slack — même canal que la demande de modification de la fiche lieu ; le CDC écrit encore « envoie un email », la divergence porte le texte de remplacement. Formulaire à trois champs : nom du lieu (2 à 150 caractères) et adresse (5 à 300) obligatoires ; précision facultative (1 000 caractères au plus, sauts de ligne gardés). Dans le nom et l'adresse, une tabulation ou un saut de ligne collé devient une espace. Mêmes refus que la demande de modification (caractères de contrôle, demi-surrogate orphelin, caractères invisibles retirés), en 422 avec le motif. Routes réservées au rôle gestionnaire_lieux (403 sinon, 401 sans session). Elles n'écrivent ni `lieux` ni `organisations_lieux` : le rattachement reste fait à la main par l'Admin. Aucun lieu n'existant encore, l'alerte est rattachée à l'organisation du demandeur — celle de sa session, jamais une valeur du corps — et renvoie vers sa fiche Admin. Le message nomme l'organisation et reprend les textes saisis entre guillemets ; ni nom ni email du demandeur n'y figurent, l'auteur est tracé dans `audit_log` (action `lieu_ajout_demande`, admin réel inscrit si la session est impersonée), sans les textes. Une demande d'ajout ouverte à la fois par organisation (arbitrage Val 2026-10-07) : la route lit s'il en existe une (409), et un index unique partiel `uniq_alerte_lieu_ajout_ouverte` porte la règle en base pour les envois simultanés (23505 rendu en 409) — même patron que la demande de modification. Une fois l'alerte résolue par l'Admin, une nouvelle demande peut s'ouvrir. Côté écran : le bouton reste proposé quand la liste est vide ; tant qu'une demande est ouverte, il est neutralisé avec la mention « Une demande d'ajout est en cours de traitement par l'équipe Savr » (état lu par GET, qui ne rend jamais le contenu de l'alerte ; état illisible = bouton proposé, la route refuse au besoin ; cette lecture ne fait que neutraliser, si bien qu'arrivée après un envoi elle ne rend pas le bouton ; la mention est reliée au bouton pour un lecteur d'écran). Succès = formulaire refermé, toast « Demande envoyée », bouton neutralisé ; 409 = toast d'information, même issue ; saisie refusée = motif affiché dans le formulaire, saisie conservée ; panne ou session expirée = message neutre, jamais le message technique. Pendant l'envoi, un seul envoi part et le formulaire ne se referme pas. Un échec de lecture ou d'écriture de l'alerte rend 500 ; un échec de la trace d'audit est journalisé avec son auteur sans faire échouer la demande. Alertes_admin reste fermée au gestionnaire en écriture comme en lecture directes (pgTAP)."
+      "libelle": "Bouton « Demander l'ajout d'un lieu » sur la liste Lieux du gestionnaire (livrable CDC resté non transcrit, relevé par la revue de conformité de la PR #501). Arbitrages Val 2026-10-07 (_Divergences/M3.2_20261007_demande-ajout-lieu) : la demande ouvre une alerte in-app dans la file de l'Admin (code `lieu_ajout_demande`, « À traiter »), sans email ni Slack — même canal que la demande de modification de la fiche lieu ; le CDC le décrit ainsi depuis le sync du 2026-10-09 (§06.05 « Ajout / retrait lieu »). Formulaire à trois champs : nom du lieu (2 à 150 caractères) et adresse (5 à 300) obligatoires ; précision facultative (1 000 caractères au plus, sauts de ligne gardés). Dans le nom et l'adresse, une tabulation ou un saut de ligne collé devient une espace. Mêmes refus que la demande de modification (caractères de contrôle, demi-surrogate orphelin, caractères invisibles retirés), en 422 avec le motif. Routes réservées au rôle gestionnaire_lieux (403 sinon, 401 sans session). Elles n'écrivent ni `lieux` ni `organisations_lieux` : le rattachement reste fait à la main par l'Admin. Aucun lieu n'existant encore, l'alerte est rattachée à l'organisation du demandeur — celle de sa session, jamais une valeur du corps — et renvoie vers sa fiche Admin. Le message nomme l'organisation et reprend les textes saisis entre guillemets ; ni nom ni email du demandeur n'y figurent, l'auteur est tracé dans `audit_log` (action `lieu_ajout_demande`, admin réel inscrit si la session est impersonée), sans les textes. Une demande d'ajout ouverte à la fois par organisation (arbitrage Val 2026-10-07) : la route lit s'il en existe une (409), et un index unique partiel `uniq_alerte_lieu_ajout_ouverte` porte la règle en base pour les envois simultanés (23505 rendu en 409) — même patron que la demande de modification. Une fois l'alerte résolue par l'Admin, une nouvelle demande peut s'ouvrir. Côté écran : le bouton reste proposé quand la liste est vide ; tant qu'une demande est ouverte, il est neutralisé avec la mention « Une demande d'ajout est en cours de traitement par l'équipe Savr » (état lu par GET, qui ne rend jamais le contenu de l'alerte ; état illisible = bouton proposé, la route refuse au besoin ; cette lecture ne fait que neutraliser, si bien qu'arrivée après un envoi elle ne rend pas le bouton ; la mention est reliée au bouton pour un lecteur d'écran). Succès = formulaire refermé, toast « Demande envoyée », bouton neutralisé ; 409 = toast d'information, même issue ; saisie refusée = motif affiché dans le formulaire, saisie conservée ; panne ou session expirée = message neutre, jamais le message technique. Pendant l'envoi, un seul envoi part et le formulaire ne se referme pas. Un échec de lecture ou d'écriture de l'alerte rend 500 ; un échec de la trace d'audit est journalisé avec son auteur sans faire échouer la demande. Alertes_admin reste fermée au gestionnaire en écriture comme en lecture directes (pgTAP)."
     },
     {
       "id": "M3.2-demande-ajout-lieu-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:383",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:390",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx + packages/plateforme/src/components/gestionnaire/demande-ajout-lieu-modal.tsx + packages/plateforme/src/app/(admin)/admin/alertes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1161,7 +1161,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (bouton « Exporter CSV ») + packages/plateforme/src/lib/collectes-gestionnaire.ts (lireFiltresCollectesGestionnaire, lue par la route de la liste et par l'export)",
       "test": "M3.2/collectes_export_csv_filtres_de_la_liste",
       "statut": "implemented",
-      "libelle": "Export CSV de la liste Collectes du gestionnaire (décision Val 2026-10-07, arbitrage C1 — _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md ; le CDC §12 l.387 place encore cet export sur la liste Événements, au grain événement). Bouton « Exporter CSV » dans l'en-tête de /gestionnaire/collectes : il ouvre l'export Collectes commun (GET /api/v1/exports/collectes, 1 ligne = 1 collecte, colonnes figées §12 §2) avec les filtres de la liste — type, période, lieux, traiteurs, type et taille d'événement — sans tri ni page : le fichier porte toute la sélection affichée, pas une page. Ouverture de l'export au rôle et lecture des filtres côté serveur : M4.1-export-collectes-gestionnaire."
+      "libelle": "Export CSV de la liste Collectes du gestionnaire (décision Val 2026-10-07, arbitrage C1 — _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md ; le CDC §12 l.387 le place sur la liste Collectes, au grain collecte, depuis le sync du 2026-10-09). Bouton « Exporter CSV » dans l'en-tête de /gestionnaire/collectes : il ouvre l'export Collectes commun (GET /api/v1/exports/collectes, 1 ligne = 1 collecte, colonnes figées §12 §2) avec les filtres de la liste — type, période, lieux, traiteurs, type et taille d'événement — sans tri ni page : le fichier porte toute la sélection affichée, pas une page. Ouverture de l'export au rôle et lecture des filtres côté serveur : M4.1-export-collectes-gestionnaire."
     },
     {
       "id": "M3.2-collectes-export-csv-rendu-visuel",
@@ -1173,7 +1173,7 @@
     },
     {
       "id": "M3.2-fiche-traiteur-modale",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:439",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:446",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/traiteurs/page.tsx (ouverture au clic, adresse `?traiteur=<id>`) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/traiteurs/[id]/page.tsx (redirection) + packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/route.ts",
       "test": "M3.2/fiche_traiteur_modale_ouverte_au_clic + M3.2/fiche_traiteur_modale_lien_direct + M3.2/fiche_traiteur_modale_fermeture_nettoie_l_adresse + M3.2/fiche_traiteur_ancienne_route_redirige + M3.2/fiche_traiteur_modale_erreur_chargement + M3.2/fiche_traiteur_modale_introuvable + M3.2/fiche_traiteur_modale_lecture_seule + M3.2/fiche_traiteur_identifiant_mal_forme_404 + M3.2/fiche_traiteur_hors_perimetre_404 + M3.2/fiche_traiteur_organisation_sans_lieu_404 + M3.2/fiche_traiteur_role_non_gestionnaire_403 + M3.2/traiteur_fiche_nom_logo_uniquement + M3.2/fiche_traiteur_modale_identifiant_mal_forme",
       "statut": "implemented",
@@ -1181,7 +1181,7 @@
     },
     {
       "id": "M3.2-fiche-traiteur-lieux-intervention",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:437",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:451",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/route.ts (`lieux_intervention`) + packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx (onglet Lieux d'intervention)",
       "test": "M3.2/fiche_traiteur_lieux_clotures_24_mois_tries + M3.2/fiche_traiteur_lieux_plafond_inferieur + M3.2/fiche_traiteur_sans_collecte_cloturee + M3.2/fiche_traiteur_erreur_seconde_tranche_500 + M3.2/traiteur_fiche_erreur_collectes_500 + M3.2/fiche_traiteur_modale_onglet_lieux + M3.2/fiche_traiteur_modale_onglet_lieux_vide",
       "statut": "implemented",
@@ -1189,15 +1189,15 @@
     },
     {
       "id": "M3.2-fiche-traiteur-activite",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:443-444",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:452-453",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx (onglet Activité, `ActiviteTraiteur`) + packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts (cartes et chargement partagés avec le dashboard) + packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts + packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts (routes existantes, inchangées) + packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/route.ts (ne sert plus `stats_12m` ni `historique_collectes`)",
       "test": "M3.2/fiche_traiteur_modale_activite_zd + M3.2/fiche_traiteur_modale_activite_ag + M3.2/fiche_traiteur_modale_activite_sans_collecte + M3.2/fiche_traiteur_modale_activite_erreur + M3.2/fiche_traiteur_modale_activite_graphique_en_echec + M3.2/fiche_traiteur_modale_activite_periode_precedente_en_echec + M3.2/dashboard_kpi_filtre_traiteur_applique + M3.2/evolution_filtre_traiteur_applique + M3.2/fiche_traiteur_lieux_clotures_24_mois_tries",
       "statut": "implemented",
-      "libelle": "Onglet « Activité » de la fiche traiteur (demande Val 2026-10-07, _Divergences/M3.2_20261007_fiche-traiteur-modale) : un sélecteur Zéro Déchet / Anti-Gaspi, puis pour le type choisi les 4 cartes KPI et le graphique d'évolution mensuelle du dashboard gestionnaire (§11 Blocs 1 et 2), filtrés sur ce traiteur, sur les 12 derniers mois. ZD : Nombre de collectes, Tonnage collecté, Taux de recyclage, kg/pax moyen + histogramme « Évolution mensuelle Zéro Déchet » ; AG : Nombre de collectes, Repas donnés, Pax cumulés, Repas/pax moyen + graphique « Évolution Anti-Gaspi ». Mêmes routes (`/api/v1/gestionnaire/dashboard` et `/api/v1/dashboards/evolution` avec `traiteur_ids[]`), mêmes composants et mêmes formats que le dashboard : les chiffres sont ceux du dashboard filtré sur le traiteur (collectes clôturées sur les lieux de l'organisation), variation calculée contre la période précédente équivalente. Chargé à l'ouverture de l'onglet seulement ; sans collecte du type sur la période, un état vide (ni cartes à zéro ni graphique) ; un chargement en échec affiche une erreur avec « Réessayer », jamais « aucune collecte » ; la période précédente illisible ne masque que les variations. Remplace le bloc « Activité sur vos lieux (12 mois) » à cinq chiffres ; l'« Historique des collectes » (CDC l.444) est retiré de la fiche (arbitrage Val 2026-10-07 — la liste Collectes filtrée sur le traiteur le donne) : écart tracé par la divergence. La route de la fiche ne sert plus ni statistiques ni historique."
+      "libelle": "Onglet « Activité » de la fiche traiteur (demande Val 2026-10-07, _Divergences/M3.2_20261007_fiche-traiteur-modale) : un sélecteur Zéro Déchet / Anti-Gaspi, puis pour le type choisi les 4 cartes KPI et le graphique d'évolution mensuelle du dashboard gestionnaire (§11 Blocs 1 et 2), filtrés sur ce traiteur, sur les 12 derniers mois. ZD : Nombre de collectes, Tonnage collecté, Taux de recyclage, kg/pax moyen + histogramme « Évolution mensuelle Zéro Déchet » ; AG : Nombre de collectes, Repas donnés, Pax cumulés, Repas/pax moyen + graphique « Évolution Anti-Gaspi ». Mêmes routes (`/api/v1/gestionnaire/dashboard` et `/api/v1/dashboards/evolution` avec `traiteur_ids[]`), mêmes composants et mêmes formats que le dashboard : les chiffres sont ceux du dashboard filtré sur le traiteur (collectes clôturées sur les lieux de l'organisation), variation calculée contre la période précédente équivalente. Chargé à l'ouverture de l'onglet seulement ; sans collecte du type sur la période, un état vide (ni cartes à zéro ni graphique) ; un chargement en échec affiche une erreur avec « Réessayer », jamais « aucune collecte » ; la période précédente illisible ne masque que les variations. Remplace le bloc « Activité sur vos lieux (12 mois) » à cinq chiffres ; l'« Historique des collectes » est retiré de la fiche (arbitrage Val 2026-10-07 — la liste Collectes filtrée sur le traiteur le donne), retrait écrit dans le CDC depuis le sync du 2026-10-09 (l.453). La route de la fiche ne sert plus ni statistiques ni historique."
     },
     {
       "id": "M3.2-fiche-traiteur-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:439",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:446",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/traiteurs/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1208,8 +1208,8 @@
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:142",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts (type `PackActifGestionnaire`) + packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts (route existante, inchangée)",
       "test": "M3.2/dashboard_pack_ag_credits_affiches + M3.2/dashboard_pack_ag_badge_bientot_epuise + M3.2/dashboard_pack_ag_badge_epuise + M3.2/dashboard_pack_ag_absent_sans_pack + M3.2/dashboard_pack_ag_inclus_dans_reponse",
-      "statut": "implemented",
-      "libelle": "Dashboard gestionnaire, onglet Anti-Gaspi — bloc « Mon pack Anti-Gaspi » : affiche les crédits restants et les crédits initiaux du pack actif de l'organisation, et le badge « Pack bientôt épuisé » dès que le solde est ≤ 10 % des crédits initiaux (seuil du Bloc 4 AG §06.04 l.256) ; sans pack actif, le bloc ne se monte pas. Défaut corrigé le 2026-10-08 : l'écran lisait `nb_collectes_restantes` / `nb_collectes_total`, que la route du dashboard ne sert pas (elle sert les colonnes `credits_restants` / `credits_initiaux` de packs_antgaspi) — le bloc s'affichait sans chiffres ni badge, et un cast masquait l'écart au typecheck. Le type du pack est désormais porté par le chargement partagé et l'écran lit les champs servis, sous les mêmes noms que les dashboards traiteur et agence ; la sélection de la route est contrôlée sur ces deux colonnes. Mise en page et libellés du bloc inchangés. Limite connue, antérieure à ce lot et commune aux dashboards traiteur et agence : le badge « Pack épuisé » (§06.04 l.257) n'est couvert qu'au niveau de l'écran — au dernier crédit le pack passe `epuise` (§05 l.191) et la route, qui ne sert que le pack `actif`, renvoie `pack: null` : le bloc disparaît au lieu d'afficher le badge rouge. Écart du CDC à arbitrer par Val.",
+      "statut": "partial",
+      "libelle": "Dashboard gestionnaire, onglet Anti-Gaspi — bloc « Mon pack Anti-Gaspi » : affiche les crédits restants et les crédits initiaux du pack actif de l'organisation, et le badge « Pack bientôt épuisé » dès que le solde est ≤ 10 % des crédits initiaux (seuil du Bloc 4 AG §06.04 l.256) ; sans pack actif, le bloc ne se monte pas. Défaut corrigé le 2026-10-08 : l'écran lisait `nb_collectes_restantes` / `nb_collectes_total`, que la route du dashboard ne sert pas (elle sert les colonnes `credits_restants` / `credits_initiaux` de packs_antgaspi) — le bloc s'affichait sans chiffres ni badge, et un cast masquait l'écart au typecheck. Le type du pack est désormais porté par le chargement partagé et l'écran lit les champs servis, sous les mêmes noms que les dashboards traiteur et agence ; la sélection de la route est contrôlée sur ces deux colonnes. Mise en page et libellés du bloc inchangés. Limite connue, antérieure à ce lot et commune aux dashboards traiteur et agence : le badge « Pack épuisé » (§06.04 l.257) n'est couvert qu'au niveau de l'écran — au dernier crédit le pack passe `epuise` (§05 l.191) et la route, qui ne sert que le pack `actif`, renvoie `pack: null` : le bloc disparaît au lieu d'afficher le badge rouge. Arbitré par Val le 2026-10-09 (option B, _Divergences/M3.2_20261008_pack-epuise-bloc-invisible) : le CDC synchronisé ce jour-là demande que le bloc reste affiché quand le dernier pack est épuisé sans nouveau pack actif (§11 l.142, §06.04 l.240, scénario 06.05 `dashboard_gestionnaire_pack_epuise_reste_affiche`) ; le code ne le fait pas encore — lot de code à livrer (lectures de pack des trois dashboards + route Mon pack AG).",
       "ref_divergence": "_Divergences/M3.2_20261008_pack-epuise-bloc-invisible.md"
     },
     {
@@ -1222,10 +1222,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6a08f97fe482d5b5a9be85a937428c56245baee5380e13043e01b6ad435da805",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "1c6d821174cfa264ccb4f1d75da3188d3036e791dbe2af954db954833b104457",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "fa69f5a5d32e20077c4b08997d2a267af7c9a3dc431a4260b4f569ea4404585f",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "1624f7d10800fae8c89bb6757d87949d81edab35aa94e96d8c8e6d668c58208a"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "07959c413b8b2e667a5ce48fb3a9c5a7f7e74b528c6d81eae72d77d280bab5a6",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "fb1f1318d35ae643449d31580ed08d43440558dc916cd73ff1d0099785d727f3",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "958d3d63bf7038300535557f5e8c12cda0dcc31d0666819579114b6d24293b2f",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "4e6c27ef8c486b1f2d16282d6140876a8ebae5077103d5b79a2fe75fcf11f6a8",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "0da1633ec5f2b34a9aecd73a28de0b97c62e18bbe63f097533c19725493ed992"
   }
 }

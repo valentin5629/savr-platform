@@ -7,7 +7,8 @@
 --
 -- Source de vérité :
 --   - plateforme.* + shared.fichiers : 01 - Cahier des charges App/04 - Data Model.md (living, 2026-09-21)
---     Dernier regel partiel : 2026-09-21 (plateforme.audit_log — noms de colonnes M0.10,
+--     Dernier regel partiel : 2026-10-07 (plateforme.flux_dechets.code_traitement — migration
+--     20261004203000, PR #485) ; avant : 2026-09-21 (plateforme.audit_log — noms de colonnes M0.10,
 --     id bigint, PK composite, PARTITION BY). Les autres tables datent du regel 2026-07-06.
 --   - shared.prestataires + tms.*     : 02 - Cahier des charges TMS/04 - Data Model TMS.md
 --   - Modules V2 reportés (Module 19 impact enrichi) inclus car cible = CDC complet.
@@ -478,6 +479,7 @@ CREATE TABLE plateforme.flux_dechets (
   exutoire_adresse     text,
   exutoire_siret       text,
   code_dechet_europeen text,
+  code_traitement      text,
   filiere_valorisation plateforme.filiere_valorisation NOT NULL,
   eligible_citeo       boolean DEFAULT false,
   actif                boolean NOT NULL DEFAULT true

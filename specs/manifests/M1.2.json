@@ -61,7 +61,7 @@
     },
     {
       "id": "M1.2-col-edit-gestionnaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:494",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:503",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/route.ts",
       "test": "M1.2 — édition collecte gestionnaire : 200 + fn_modifier_collecte",
       "statut": "implemented",
@@ -133,7 +133,7 @@
     },
     {
       "id": "BL-P1-PROG-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:106",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:108",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
       "test": "M1.2 — PROG-01 override lieu : lieu_overrides passé à fn_creer_collecte + notif Admin + audit_log",
       "statut": "implemented",
@@ -141,7 +141,7 @@
     },
     {
       "id": "BL-P1-PROG-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:272",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:274",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/organisations/traiteurs/route.ts",
       "test": "M1.2 — PROG-02 shadow traiteur créé par agence (201)",
       "statut": "implemented",
@@ -149,7 +149,7 @@
     },
     {
       "id": "BL-P1-PROG-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:415",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:417",
       "artefact": "supabase/migrations/20260708120000_plateforme_r12b_programmation_e1_payload.sql",
       "test": "T1b (PROG-03) : payload E1 inclut controle_acces_requis + informations_supplementaires + lieu_overrides",
       "statut": "implemented",
@@ -157,7 +157,7 @@
     },
     {
       "id": "BL-P1-PROG-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:416",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:418",
       "artefact": "packages/plateforme/src/lib/programmation/recap-email.ts",
       "test": "M1.2 — PROG-04 récap programmation envoyé au programmeur avec tarif ZD",
       "statut": "implemented",
@@ -173,7 +173,7 @@
     },
     {
       "id": "BL-P1-PROG-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:417",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:419",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/confirmer/route.ts",
       "test": "M1.2 — PROG-05 auto-accept AG déclenché à la confirmation",
       "statut": "implemented",
@@ -181,7 +181,7 @@
     },
     {
       "id": "M1.2-brouillon-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:322",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:324",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/route.ts",
       "test": "M1.2 — liste des brouillons (mode admin support) > admin_savr est cloisonné sur ses propres créations, pas sur son org interne",
       "statut": "implemented",
@@ -189,7 +189,7 @@
     },
     {
       "id": "M1.2-brouillon-creation-enum",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:233",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:235",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/route.ts",
       "test": "M1.2 — création d’un brouillon : normalisation du type > l’alias UI « zd » est normalisé en « zero_dechet » avant INSERT",
       "statut": "implemented",
@@ -197,7 +197,7 @@
     },
     {
       "id": "M1.2-brouillon-suppression",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:326",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:328",
       "artefact": "supabase/migrations/20260717154800_plateforme_m1_2_supprimer_brouillon.sql",
       "test": "T16 : fn_supprimer_brouillon supprime un brouillon AVEC collectes (la FK n'est pas ON DELETE CASCADE — un DELETE nu échouait)",
       "statut": "implemented",
@@ -205,7 +205,7 @@
     },
     {
       "id": "M1.2-confirmation-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:419",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:421",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — confirmation de programmation : détail événement (mode admin support) > admin_savr obtient le récapitulatif (et non plus 403 « Rôle insuffisant »)",
       "statut": "implemented",
@@ -213,7 +213,7 @@
     },
     {
       "id": "M1.2-ui-confirmation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:419",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:421",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -221,7 +221,7 @@
     },
     {
       "id": "M1.2-confirmation-email-recap-issue-reelle",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:419",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:421-426",
       "artefact": "packages/plateforme/src/lib/programmation/suivi-recap-email.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (GET : champ email_recap, lu après la garde de périmètre) + packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
       "test": "M1.2/confirmation_email_recap_issue_reelle — état dérivé du dernier envoi + M1.2/confirmation_email_recap_issue_reelle — lecture du journal des emails + M1.2/confirmation_email_recap_issue_reelle — GET détail événement + M1.2/confirmation_email_recap_issue_reelle — écran de confirmation",
       "statut": "implemented",
@@ -229,11 +229,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "81b4328dfe14fa1e73ab8c37697f0222d02d73b73b74dfb6584e3f2fb0bd0518",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "6478d8ca35120312498844b81a87628b6aea9b00864ad7a47a76b33b59d86749",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6a08f97fe482d5b5a9be85a937428c56245baee5380e13043e01b6ad435da805",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "1c6d821174cfa264ccb4f1d75da3188d3036e791dbe2af954db954833b104457",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9b2486cfd6af6c76f1c910f89640bdb2fa64fdd1a620b476bc515f3d8f6e5863"
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "b74f6ba9ea2743645c2c05d8dcd56a8d99b68ac92dcdaeb667f141665fdc813f",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "59497b8ae36602cfaaffdb017dd989067c9756d9d0f6e808642e8719bf1a5de3",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "07959c413b8b2e667a5ce48fb3a9c5a7f7e74b528c6d81eae72d77d280bab5a6",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "fb1f1318d35ae643449d31580ed08d43440558dc916cd73ff1d0099785d727f3",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "ecb359e00560473d7d724be1ba3ecf0282b9afde9829f93509ef11f96f9fa0c0"
   }
 }

@@ -1741,6 +1741,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   // Document pas encore produit : un seul texte, quel que soit le statut de la
   // collecte (décision Val 2026-10-09). Lu SOUS le libellé de sa ligne, jamais en
   // pleine page ; « Télécharger » et « Régénérer » restent grisés.
+  // Une collecte AG avec don n'a pas de ligne « Rapport RSE » : aucun rapport PDF
+  // n'y est produit, son document est l'attestation (décision Val 2026-10-09).
   const sansDocument = {
     rapport: null,
     bordereau: null,
@@ -1756,12 +1758,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     );
 
   it.each([
-    ['AG réalisée', baseAg, ['Rapport RSE', 'Attestation de don']],
+    ['AG réalisée', baseAg, ['Attestation de don']],
     ['ZD réalisée', baseZd, ['Rapport RSE', 'Bordereau ZD']],
     [
       'AG pas encore réalisée',
       { ...baseAg, statut: 'validee' },
-      ['Rapport RSE', 'Attestation de don'],
+      ['Attestation de don'],
     ],
     [
       'ZD annulée',
@@ -1774,7 +1776,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       installMock({ collecte, documents: sansDocument });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText(libelles[1]!, undefined, ATTENTE_UI);
+      await screen.findByText(libelles.at(-1)!, undefined, ATTENTE_UI);
 
       for (const libelle of libelles) {
         expect(
@@ -1787,8 +1789,64 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         ]);
         for (const bouton of boutons) expect(bouton).toBeDisabled();
       }
-      expect(screen.getAllByText(TEXTE_DOCUMENT_A_VENIR)).toHaveLength(2);
+      expect(screen.getAllByText(TEXTE_DOCUMENT_A_VENIR)).toHaveLength(
+        libelles.length,
+      );
       expect(screen.queryByText(/Non encore généré/)).not.toBeInTheDocument();
+      if (!libelles.includes('Rapport RSE')) {
+        expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : collecte AG avec don, rapport en base sans PDF : aucune ligne Rapport RSE',
+    async () => {
+      // Ce que laisse le batch AG : une ligne rapports_rse, jamais de PDF.
+      installMock({
+        collecte: { ...baseAg, statut: 'cloturee' },
+        documents: {
+          ...documentsAg,
+          rapport: {
+            ...documentsAg.rapport,
+            version: 1,
+            genere_at: null,
+            regenere_at: null,
+            pdf_url: null,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('ATT-DON-2026-00001', undefined, ATTENTE_UI);
+
+      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('En attente de génération'),
+      ).not.toBeInTheDocument();
+      // Seule ligne de document : l'attestation, téléchargeable.
+      const [telecharger] = boutonsDeLaLigne('Attestation de don');
+      expect(telecharger).toBeEnabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : collecte AG réalisée sans collecte : ligne Rapport RSE affichée',
+    async () => {
+      // Son rapport « sans excédent » est un vrai PDF, porté par rapports_rse.
+      installMock({
+        collecte: { ...baseAg, statut: 'realisee_sans_collecte' },
+        documents: sansDocument,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Attestation de don', undefined, ATTENTE_UI);
+
+      expect(
+        within(ligneDocument('Rapport RSE')).getByText(TEXTE_DOCUMENT_A_VENIR),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

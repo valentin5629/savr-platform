@@ -626,6 +626,14 @@ export function CollecteDetailPanel({
   const nbPhotosClient = (documents?.photos ?? []).filter(
     (p) => p.visible_client,
   ).length;
+  // Ligne « Rapport RSE » : toujours pour une collecte ZD. Pour une collecte AG,
+  // seulement s'il y a un rapport à montrer — collecte « réalisée sans collecte »
+  // (rapport « sans excédent ») ou PDF déjà fabriqué. Une collecte AG avec don n'a
+  // aucun rapport PDF : son document est l'attestation (décision Val 2026-10-09).
+  const afficherRapport =
+    collecte?.type === 'zero_dechet' ||
+    collecte?.statut === 'realisee_sans_collecte' ||
+    Boolean(documents?.rapport?.genere_at);
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -2406,72 +2414,74 @@ export function CollecteDetailPanel({
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
               <div className="divide-y divide-savr-neutral-100">
-                {/* Rapport RSE (ZD + AG) */}
-                <div className="flex items-center gap-3 py-3">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium flex items-center gap-2">
-                      Rapport RSE
-                      {documents?.rapport &&
-                        (documents.rapport.version > 1 ||
-                          documents.rapport.regenere_at) && (
-                          <span
-                            title={`Rapport régénéré${
-                              documents.rapport.regenere_at
-                                ? ` — mis à jour le ${new Date(
-                                    documents.rapport.regenere_at,
-                                  ).toLocaleDateString('fr-FR', {
-                                    timeZone: 'Europe/Paris',
-                                  })}`
-                                : ''
-                            }`}
-                            className="inline-flex items-center text-savr-primary-600"
-                          >
-                            <RotateCw className="h-3.5 w-3.5" />
-                          </span>
-                        )}
-                    </p>
-                    <Text variant="hint">
-                      {!documents?.rapport
-                        ? DOCUMENT_A_VENIR
-                        : !documents.rapport.genere_at
-                          ? 'En attente de génération'
-                          : documents.rapport.consulte_par_user_at
-                            ? `Consulté le ${new Date(
-                                documents.rapport.consulte_par_user_at,
-                              ).toLocaleDateString('fr-FR', {
-                                timeZone: 'Europe/Paris',
-                              })}`
-                            : 'Disponible'}
-                    </Text>
+                {/* Rapport RSE (ZD ; AG : sans excédent ou PDF déjà fabriqué) */}
+                {afficherRapport && (
+                  <div className="flex items-center gap-3 py-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        Rapport RSE
+                        {documents?.rapport &&
+                          (documents.rapport.version > 1 ||
+                            documents.rapport.regenere_at) && (
+                            <span
+                              title={`Rapport régénéré${
+                                documents.rapport.regenere_at
+                                  ? ` — mis à jour le ${new Date(
+                                      documents.rapport.regenere_at,
+                                    ).toLocaleDateString('fr-FR', {
+                                      timeZone: 'Europe/Paris',
+                                    })}`
+                                  : ''
+                              }`}
+                              className="inline-flex items-center text-savr-primary-600"
+                            >
+                              <RotateCw className="h-3.5 w-3.5" />
+                            </span>
+                          )}
+                      </p>
+                      <Text variant="hint">
+                        {!documents?.rapport
+                          ? DOCUMENT_A_VENIR
+                          : !documents.rapport.genere_at
+                            ? 'En attente de génération'
+                            : documents.rapport.consulte_par_user_at
+                              ? `Consulté le ${new Date(
+                                  documents.rapport.consulte_par_user_at,
+                                ).toLocaleDateString('fr-FR', {
+                                  timeZone: 'Europe/Paris',
+                                })}`
+                              : 'Disponible'}
+                      </Text>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={!documents?.rapport?.genere_at}
+                      onClick={() =>
+                        documents?.rapport &&
+                        void handleDownload(
+                          `/api/v1/admin/rapports-rse/${encodeURIComponent(documents.rapport.id)}/download`,
+                        )
+                      }
+                    >
+                      <Download />
+                      Télécharger
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!documents?.rapport}
+                      loading={regenerating === 'rapport-recyclage-zd'}
+                      loadingText="Régénérer"
+                      onClick={() =>
+                        void handleRegenerate('rapport-recyclage-zd')
+                      }
+                    >
+                      <RotateCw />
+                      Régénérer
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={!documents?.rapport?.genere_at}
-                    onClick={() =>
-                      documents?.rapport &&
-                      void handleDownload(
-                        `/api/v1/admin/rapports-rse/${encodeURIComponent(documents.rapport.id)}/download`,
-                      )
-                    }
-                  >
-                    <Download />
-                    Télécharger
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!documents?.rapport}
-                    loading={regenerating === 'rapport-recyclage-zd'}
-                    loadingText="Régénérer"
-                    onClick={() =>
-                      void handleRegenerate('rapport-recyclage-zd')
-                    }
-                  >
-                    <RotateCw />
-                    Régénérer
-                  </Button>
-                </div>
+                )}
 
                 {/* Bordereau ZD (ZD only) */}
                 {collecte.type === 'zero_dechet' && (

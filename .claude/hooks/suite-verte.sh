@@ -91,18 +91,20 @@ self_test() (
   set -uo pipefail
   # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
   # auto-test écrivait ailleurs sans ces lignes, et ce que veut dire le code 3.
+  # Le `unset` et `git_isole` viennent avant tout appel à git.
   unset ${!GIT_*}
-  . "$(dirname "$ICI")/lib-auto-test.sh" || { echo "🔴 suite-verte : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
-  echec=false
+  LIB="$(dirname "$ICI")/lib-auto-test.sh"
+  [ -f "$LIB" ] || { echo "🔴 suite-verte : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  . "$LIB"
   bac="$(bac_jetable)" || { echo "🔴 suite-verte : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
   trap 'rm -rf "$bac"' EXIT
+  git_isole "$bac" || { echo "🔴 suite-verte : dossier d'isolement non créé — auto-test non joué." >&2; exit 3; }
+  echec=false
   tmp="$bac/depot"
   faux="$bac/faux"
-  mkdir "$faux" || exit 2
-  depot_jetable "$tmp" \
-    || { echo "🔴 suite-verte : git ne place pas le dépôt jetable là où il vient d'être créé — auto-test non joué." >&2; exit 3; }
+  mkdir "$tmp" "$faux" || exit 2
   cd "$tmp" || exit 2
-  { git config user.email t@t && git config user.name t \
+  { git init -q -b main . && git config user.email t@t && git config user.name t \
       && echo a > f.ts && git add -A && git commit -qm base; } >/dev/null 2>&1 \
     || { echo "🔴 suite-verte : dépôt jetable non construit." >&2; exit 2; }
   etat() { if deja_verte; then echo VERTE; else echo NON; fi; }

@@ -99,24 +99,25 @@ self_test() (
   set -uo pipefail
   # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
   # auto-test écrivait ailleurs sans ces lignes, et ce que veut dire le code 3.
-  # Les deux dépôts sont créés et vérifiés ici, avant toute écriture.
+  # Le `unset` et `git_isole` viennent avant tout appel à git.
   unset ${!GIT_*}
-  . "$(dirname "$ICI")/lib-auto-test.sh" || { echo "🔴 tests-lies : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
-  echec=false
+  LIB="$(dirname "$ICI")/lib-auto-test.sh"
+  [ -f "$LIB" ] || { echo "🔴 tests-lies : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  . "$LIB"
   bac="$(bac_jetable)" || { echo "🔴 tests-lies : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
   trap 'rm -rf "$bac"' EXIT
+  git_isole "$bac" || { echo "🔴 tests-lies : dossier d'isolement non créé — auto-test non joué." >&2; exit 3; }
+  echec=false
   tmp="$bac/perimetre"
   faux="$bac/faux"
-  mkdir "$faux" || exit 2
-  { depot_jetable "$tmp" && depot_jetable "$faux/depot"; } \
-    || { echo "🔴 tests-lies : git ne place pas un dépôt jetable là où il vient d'être créé — auto-test non joué." >&2; exit 3; }
+  mkdir "$tmp" "$faux" || exit 2
   attendu() {  # attendu <libellé> <obtenu> <voulu>
     [ "$2" = "$3" ] || { echo "🔴 $1 : obtenu [$2], attendu [$3]" >&2; echec=true; }
   }
 
   # — périmètre : dépôt jetable, une source de changement par fichier —
   (
-    cd "$tmp" && git config user.email t@t && git config user.name t
+    cd "$tmp" && git init -q -b main . && git config user.email t@t && git config user.name t
     mkdir -p src && echo a > src/intact.ts && echo a > src/supprime.ts && echo a > src/modifie.ts
     echo a > src/modifié.ts && echo a > src/supprime-commit.ts
     git add -A && git commit -qm base && git update-ref refs/remotes/origin/main HEAD
@@ -166,7 +167,7 @@ self_test() (
   garde="./$SECURITE/garde.test.ts"
   lies='-w exec vitest related --run --passWithNoTests'
   (
-    cd "$faux/depot" && git config user.email t@t && git config user.name t
+    mkdir "$faux/depot" && cd "$faux/depot" && git init -q -b main . && git config user.email t@t && git config user.name t
     mkdir -p src "$SECURITE" && echo a > src/a.ts && echo a > README.md && echo '{}' > package.json
     echo a > "$SECURITE/garde.test.ts"
     git add -A && git commit -qm base && git update-ref refs/remotes/origin/main HEAD

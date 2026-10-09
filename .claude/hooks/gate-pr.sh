@@ -206,8 +206,7 @@ bout_en_bout() (
   set +e
   set -uo pipefail
   ko=false
-  # `$bac` et le dépôt `$bac/depot` viennent de l'auto-test, qui les a créés et
-  # vérifiés avant d'appeler cette fonction (cf. `lib-auto-test.sh`).
+  # `$bac` vient de l'auto-test, qui l'a créé et contrôlé (cf. `lib-auto-test.sh`).
   depot="$bac/depot"; autre="$bac/autre"; journal="$bac/journal"; sortie="$bac/sortie"
   mkdir -p "$bac/bin"
   cat > "$bac/bin/pnpm" <<'FAUX'
@@ -228,7 +227,7 @@ FAUX
   # tiret, comme pour toutes les branches du projet.
   # `.claude/` est ignoré, comme dans le vrai dépôt : un marker ne salit pas l'arbre.
   (
-    cd "$depot" && git config user.email t@t && git config user.name t
+    mkdir "$depot" && cd "$depot" && git init -q -b main . && git config user.email t@t && git config user.name t
     mkdir scripts && printf '#!/bin/sh\nexit "${FAUX_OUTBOX_CODE:-0}"\n' > scripts/check-outbox-contracts.sh
     echo '.claude/' > .gitignore && echo a > f.ts
     git add -A && git commit -qm base
@@ -371,19 +370,15 @@ FAUX
 if [ "${1:-}" = "--self-test" ]; then
   # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
   # auto-test supprimait ou écrivait ailleurs sans ces lignes, et ce que veut
-  # dire le code 3. Le `unset` vient avant tout appel à git : lancé depuis un
-  # hook git, un `rebase --exec` ou un alias, l'auto-test hérite de GIT_DIR.
-  # Un seul dossier temporaire pour tout l'auto-test ; le dépôt du flux de bout
-  # en bout y est créé et vérifié ici, avant la matrice.
-  # Non épinglé hors root : le `exit 3` qui suit `bac_jetable`. Retiré, `bac`
-  # reste vide et la ligne suivante s'arrête avec le même code, faute de pouvoir
-  # créer `/depot` (sonde vivante sous macOS, détectée en root sous Ubuntu).
+  # dire le code 3. Le `unset` et `git_isole` viennent avant tout appel à git.
+  # Un seul dossier temporaire pour tout l'auto-test.
   unset ${!GIT_*}
-  . "$(dirname "$ICI")/lib-auto-test.sh" || { echo "🔴 gate-pr : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  LIB="$(dirname "$ICI")/lib-auto-test.sh"
+  [ -f "$LIB" ] || { echo "🔴 gate-pr : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  . "$LIB"
   bac="$(bac_jetable)" || { echo "🔴 gate-pr : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
   trap 'rm -rf "$bac"' EXIT
-  depot_jetable "$bac/depot" \
-    || { echo "🔴 gate-pr : git ne place pas le dépôt jetable là où il vient d'être créé — auto-test non joué." >&2; exit 3; }
+  git_isole "$bac" || { echo "🔴 gate-pr : dossier d'isolement non créé — auto-test non joué." >&2; exit 3; }
   echec=false
   nv=0; nn=0; nf=0; nl=0
   juge() {  # juge <type> <forme>

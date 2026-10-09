@@ -263,8 +263,7 @@ bout_en_bout() (
   set +e
   set -uo pipefail
   ko=false
-  # `$bac` et le depot `$bac/depot` viennent de l'auto-test, qui les a crees et
-  # verifies avant d'appeler cette fonction (cf. `lib-auto-test.sh`).
+  # `$bac` vient de l'auto-test, qui l'a cree et controle (cf. `lib-auto-test.sh`).
   depot="$bac/depot"; autre="$bac/autre"; journal="$bac/journal"; sortie="$bac/sortie"
   mkdir -p "$bac/bin"
   cat > "$bac/bin/pnpm" <<'FAUX'
@@ -278,7 +277,7 @@ esac
 FAUX
   chmod +x "$bac/bin/pnpm"
   (
-    cd "$depot" && git config user.email t@t && git config user.name t
+    mkdir "$depot" && cd "$depot" && git init -q -b main . && git config user.email t@t && git config user.name t
     mkdir scripts src
     printf '#!/bin/sh\necho "couplage @ $(pwd -P)" >> "$FAUX_JOURNAL"\n[ ! -f ROUGE ] || exit 1\nexit "${FAUX_COUPLAGE_CODE:-0}"\n' > scripts/check-coupling.sh
     echo a > src/a.ts
@@ -419,19 +418,15 @@ FAUX
 if [ "${1:-}" = "--self-test" ]; then
   # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
   # auto-test supprimait ou ecrivait ailleurs sans ces lignes, et ce que veut
-  # dire le code 3. Le `unset` vient avant tout appel a git : lance depuis un
-  # hook git, un `rebase --exec` ou un alias, l'auto-test herite de GIT_DIR.
-  # Un seul dossier temporaire pour tout l'auto-test ; le depot du flux de bout
-  # en bout y est cree et verifie ici, avant la matrice.
-  # Non epingle hors root : le `exit 3` qui suit `bac_jetable`. Retire, `bac`
-  # reste vide et la ligne suivante s'arrete avec le meme code, faute de pouvoir
-  # creer `/depot` (sonde vivante sous macOS, detectee en root sous Ubuntu).
+  # dire le code 3. Le `unset` et `git_isole` viennent avant tout appel a git.
+  # Un seul dossier temporaire pour tout l'auto-test.
   unset ${!GIT_*}
-  . "$(dirname "$ICI")/lib-auto-test.sh" || { echo "🔴 pre-commit-gate : lib-auto-test.sh introuvable — auto-test non joue." >&2; exit 3; }
+  LIB="$(dirname "$ICI")/lib-auto-test.sh"
+  [ -f "$LIB" ] || { echo "🔴 pre-commit-gate : lib-auto-test.sh introuvable — auto-test non joue." >&2; exit 3; }
+  . "$LIB"
   bac="$(bac_jetable)" || { echo "🔴 pre-commit-gate : pas de dossier temporaire — auto-test non joue." >&2; exit 3; }
   trap 'rm -rf "$bac"' EXIT
-  depot_jetable "$bac/depot" \
-    || { echo "🔴 pre-commit-gate : git ne place pas le depot jetable la ou il vient d'etre cree — auto-test non joue." >&2; exit 3; }
+  git_isole "$bac" || { echo "🔴 pre-commit-gate : dossier d'isolement non cree — auto-test non joue." >&2; exit 3; }
   echec=false
   nv=0; nn=0; nf=0; nl=0; nc=0
   juge() {  # juge <type> <forme>

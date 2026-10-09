@@ -14,13 +14,16 @@
 #      `rebase --exec`, un alias) : `suite-verte` et `tests-lies` écrivaient
 #      l'identité `t@t`, et `tests-lies` une branche, dans le dépôt qu'elles
 #      désignent. Les deux autres scripts portaient déjà la parade.
-#   2. Une configuration git globale dont le modèle `init.templateDir` déplace
-#      le dépôt qu'on vient de créer : avec un fichier `commondir`, les quatre
-#      scripts écrivaient leurs commits de test dans le dépôt désigné, et trois
-#      d'entre eux rendaient « auto-test OK » ; avec un `core.worktree`,
+#   2. Une configuration git de l'utilisateur dont le modèle `init.templateDir`
+#      détourne le dépôt qu'on vient de créer. Avec un fichier `commondir`, les
+#      quatre scripts écrivaient leurs commits de test dans le dépôt désigné, et
+#      trois d'entre eux rendaient « auto-test OK ». Avec un `core.worktree`,
 #      `suite-verte` et `gate-pr` y posaient une trace « suite verte » portant
 #      l'empreinte du contenu de CE dépôt — celle que la garde de PR lit pour
-#      ne pas rejouer la suite.
+#      ne pas rejouer la suite. Avec des liens symboliques `objects` et `refs`,
+#      ou un lien `config`, les écritures traversent les liens alors que git
+#      place bien le dépôt neuf là où il vient d'être créé : vérifier après coup
+#      où git le place ne suffit donc pas (relevé en revue sécurité de ce lot).
 #   3. Un `mktemp` qui rend 0 sans rien écrire : le dossier « jetable » devenait
 #      le dossier de LANCEMENT. `suite-verte` et `tests-lies` y écrivaient
 #      commits et identité ; `pre-commit-gate` et `gate-pr` le supprimaient en
@@ -28,22 +31,35 @@
 # Les trois pièges ont été relevés par la revue sécurité d'un lot voisin, sur un
 # autre hook.
 #
-# CE QUE CE FICHIER NE COUVRE PAS : un `mktemp` ou un `git` remplacés par un
-# programme qui fait autre chose que se taire, et toute configuration git qui
-# lance une commande. Qui tient le `PATH` ou la configuration git de la session
-# n'a pas besoin de l'auto-test pour écrire où il veut.
+# LES PARADES, une par piège :
+#   1. `unset ${!GIT_*}` en tête de l'auto-test, dans le script lui-même ;
+#   2. `git_isole` : la configuration git de l'utilisateur n'est plus lue du tout
+#      pendant l'auto-test — ni modèle, ni aucune autre clé ;
+#   3. `bac_jetable` : ce que `mktemp` a rendu est contrôlé avant tout usage.
+#
+# CE QUE CE FICHIER NE COUVRE PAS : la configuration git du SYSTÈME
+# (`/etc/gitconfig`) et le modèle livré avec git, qui restent lus ; un `mktemp`
+# ou un `git` remplacés par un programme qui fait autre chose que se taire. Qui
+# tient le système ou le `PATH` de la session n'a pas besoin de l'auto-test pour
+# écrire où il veut.
 #
 # USAGE, dans le bloc `--self-test` du script :
 #   unset ${!GIT_*}                                  # avant tout appel à git
-#   . "$(dirname "$ICI")/lib-auto-test.sh" || exit 3
-#   bac="$(bac_jetable)" || exit 3                   # le SEUL dossier temporaire
-#   trap 'rm -rf "$bac"' EXIT
-#   depot_jetable "$bac/depot" || exit 3             # chaque dépôt, avant d'y écrire
+#   LIB="$(dirname "$ICI")/lib-auto-test.sh"
+#   [ -f "$LIB" ] || { echo "… lib-auto-test.sh introuvable …" >&2; exit 3; }
+#   . "$LIB"
+#   bac="$(bac_jetable)" || { echo "… pas de dossier temporaire …" >&2; exit 3; }
+#   trap 'rm -rf "$bac"' EXIT                        # le SEUL dossier temporaire
+#   git_isole "$bac" || exit 3                       # avant tout appel à git
 #   …
 #   pieges_tenus "$ICI" "$bac" || echec=true         # en fin d'auto-test
 #   echo "✅ … auto-test OK (…${PIEGES_BILAN})."
-# Le code 3 veut dire « auto-test non joué : environnement piégé », à distinguer
-# du code 2, « auto-test en échec ». `pieges_tenus` s'appuie sur cette différence.
+# La présence du fichier est testée avant de le charger : sous `set -e`, bash 3.2
+# quitte en code 1 sur un fichier absent sans exécuter un `|| { … }` placé
+# derrière le `.` (relevé en revue sécurité de ce lot).
+# Le code 3 veut dire « auto-test non joué », à distinguer du code 2, « auto-test
+# en échec ». `pieges_tenus` s'appuie sur cette différence et sur les deux
+# messages cités ci-dessus.
 # =============================================================================
 
 # bac_jetable : crée un dossier temporaire et écrit son chemin réel. Code 1, sans
@@ -57,22 +73,14 @@ bac_jetable() {
   (cd "$d" && pwd -P) || return 1
 }
 
-# depot_jetable <dossier> : `git init` dans <dossier> (chemin réel, créé au
-# besoin), puis code 1 si git ne place pas là les deux valeurs que les pièges de
-# l'en-tête déplacent — l'arbre de travail et le `.git` commun. À appeler avant
-# toute écriture dans le dépôt : `git config`, `git commit` et la trace de
-# `suite-verte` vont dans le `.git` commun, `git rm` et `git checkout` dans
-# l'arbre de travail.
-depot_jetable() {
-  local d="$1" commun
-  git init -q -b main "$d" > /dev/null 2>&1 || return 1
-  [ "$(git -C "$d" rev-parse --show-toplevel 2> /dev/null)" = "$d" ] || return 1
-  commun="$(git -C "$d" rev-parse --git-common-dir 2> /dev/null)" || return 1
-  case "$commun" in
-    /*) ;;
-    *) commun="$(cd "$d" 2> /dev/null && cd "$commun" 2> /dev/null && pwd -P)" || return 1 ;;
-  esac
-  [ "$commun" = "$d/.git" ]
+# git_isole <bac> : à partir de cet appel, git ne lit plus la configuration de
+# l'utilisateur (`~/.gitconfig`, `$XDG_CONFIG_HOME/git/config`) : `HOME` et
+# `XDG_CONFIG_HOME` désignent un dossier vide du bac. Vaut pour tout ce que
+# l'auto-test lance ensuite, script rejoué compris. À appeler après le `unset`
+# de tête (qui retire aussi GIT_CONFIG_GLOBAL) et avant tout appel à git.
+git_isole() {
+  mkdir "$1/maison" || return 1
+  export HOME="$1/maison" XDG_CONFIG_HOME="$1/maison/.config"
 }
 
 # empreinte_dossier <dossier> : une somme du contenu complet du dossier — noms de
@@ -87,51 +95,54 @@ empreinte_dossier() {
   ) | cksum
 }
 
-# constructions_directes <fichier> : nombre de lignes, commentaires écartés, qui
-# créent un dossier temporaire ou un dépôt sans passer par les deux fonctions
-# ci-dessus. Compte (`grep -c`), pas « au premier trouvé » : sous `pipefail`, un
+# mktemp_directs <fichier> : nombre de lignes, commentaires écartés, qui citent
+# `mktemp`. Compte (`grep -c`), pas « au premier trouvé » : sous `pipefail`, un
 # grep qui sort tôt fait échouer le tube.
-constructions_directes() {
-  grep -vE '^[[:space:]]*#' "$1" | grep -cE 'mktemp|git[[:space:]]+init' || true
+mktemp_directs() {
+  grep -vE '^[[:space:]]*#' "$1" | grep -c 'mktemp' || true
 }
 
-# pieges_tenus <script> <bac> : rejoue l'auto-test de <script> sous chacun des
-# trois pièges de l'en-tête et rend 1, avec une ligne par défaut, s'il a écrit
-# hors de son dossier jetable ou s'il ne s'est pas arrêté quand il le devait.
-# Deux témoins dans <bac>, dont l'empreinte ne doit pas bouger : `leurre`, le
-# dépôt que les pièges désignent, et `lancement`, le dossier d'où l'auto-test
+# pieges_tenus <script> <bac> : rend 1, avec une ligne par défaut, si l'auto-test
+# de <script> écrit hors de son dossier jetable ou ne s'arrête pas quand il le
+# doit. Deux témoins dans <bac>, dont l'empreinte ne doit pas bouger : `leurre`,
+# le dépôt que les pièges désignent, et `lancement`, le dossier d'où l'auto-test
 # est rejoué. Chaque rejeu porte SAVR_AUTO_TEST_SOUS_PIEGE, qui fait rendre 0 à
-# cette fonction sans rien rejouer : pas de rejeu dans le rejeu.
-#   — sous les variables GIT_* : l'auto-test doit rester vert (code 0). C'est ce
-#     qui épingle le `unset ${!GIT_*}` de tête du script ;
-#   — sous chacune des deux configurations git : il doit s'arrêter (code 3).
-#     C'est ce qui épingle, dans `depot_jetable`, la vérification de l'arbre de
-#     travail puis celle du `.git` commun, et son appel par le script ;
-#   — sous le `mktemp` muet : il doit s'arrêter (code 3). C'est ce qui épingle
-#     le contrôle de `bac_jetable`, et son appel par le script.
-# Avant les rejeux, le texte du script est contrôlé : il ne crée ni dossier
-# temporaire ni dépôt autrement que par `bac_jetable` et `depot_jetable`. Un
-# second appel direct, placé après le premier, ne serait vu par aucun rejeu.
+# cette fonction sans rien rejouer : pas de rejeu dans le rejeu. Si cette
+# variable traîne dans l'environnement, rien n'est rejoué et la ligne « OK » du
+# script ne porte pas le bilan des rejeux.
+# Trois rejeux :
+#   — sous quatre variables GIT_* ET une configuration d'utilisateur piégée (le
+#     modèle à fichier `commondir`), ensemble : l'auto-test doit rester vert
+#     (code 0). Sans le `unset` du script, les variables font écrire dans le
+#     leurre ; sans `git_isole`, c'est le modèle. Ce rejeu épingle donc les deux.
+#     Les autres formes du piège 2 ne sont pas rejouées ici ; mesurées au banc
+#     externe (cf. la PR de ce lot), aucune n'écrit plus rien ;
+#   — sous un `mktemp` muet : il doit s'arrêter en code 3 et ne dire qu'une
+#     chose, « pas de dossier temporaire ». C'est ce qui épingle le contrôle de
+#     `bac_jetable`, son appel par le script, et l'arrêt qui le suit ;
+#   — le script copié SEUL dans un dossier, sans ce fichier à côté : code 3 et
+#     « lib-auto-test.sh introuvable ».
+# Avant les rejeux, le texte du script est contrôlé : il ne crée aucun dossier
+# temporaire autrement que par `bac_jetable`. Un second `mktemp`, placé après le
+# premier, ne serait vu par aucun rejeu.
 pieges_tenus() {
-  local script="$1" bac="$2" nom p leurre lance maison rc ko=0 avant_x avant_l
+  local script="$1" bac="$2" nom p leurre lance rc ko=0 avant_x avant_l
   [ -z "${SAVR_AUTO_TEST_SOUS_PIEGE:-}" ] || return 0
   nom="$(basename "$script" .sh)"
   p="$bac/pieges"
   leurre="$p/leurre"
   lance="$p/lancement"
-  mkdir -p "$p/faux" "$p/maison-1/modele" "$p/maison-2/modele" "$lance" \
+  mkdir -p "$p/faux" "$p/maison/modele" "$p/seul" "$lance" \
     || { echo "🔴 $nom : dossier des rejeux non construit." >&2; return 1; }
 
   printf 'd="$(mktemp -d)"\n' > "$p/texte-1"
-  printf '  git init -q .\n' > "$p/texte-2"
-  printf '# mktemp, git init\nmkdir depot\n' > "$p/texte-3"
-  { [ "$(constructions_directes "$p/texte-1")" = 1 ] && [ "$(constructions_directes "$p/texte-2")" = 1 ] \
-    && [ "$(constructions_directes "$p/texte-3")" = 0 ]; } \
-    || { echo "🔴 $nom : le contrôle du texte ne reconnaît plus une création directe, ou prend un commentaire pour une création." >&2; ko=1; }
-  [ "$(constructions_directes "$script")" = 0 ] \
-    || { echo "🔴 $nom : le script crée un dossier temporaire ou un dépôt sans passer par bac_jetable / depot_jetable." >&2; ko=1; }
+  printf '# mktemp\nmkdir depot\n' > "$p/texte-2"
+  { [ "$(mktemp_directs "$p/texte-1")" = 1 ] && [ "$(mktemp_directs "$p/texte-2")" = 0 ]; } \
+    || { echo "🔴 $nom : le contrôle du texte ne reconnaît plus un mktemp, ou prend un commentaire pour un appel." >&2; ko=1; }
+  [ "$(mktemp_directs "$script")" = 0 ] \
+    || { echo "🔴 $nom : le script crée un dossier temporaire sans passer par bac_jetable." >&2; ko=1; }
 
-  depot_jetable "$leurre" && echo leurre > "$leurre/temoin" && echo lancement > "$lance/temoin" \
+  git init -q -b main "$leurre" > /dev/null 2>&1 && echo leurre > "$leurre/temoin" && echo lancement > "$lance/temoin" \
     || { echo "🔴 $nom : témoins des rejeux non construits." >&2; return 1; }
   avant_x="$(empreinte_dossier "$leurre")"
   avant_l="$(empreinte_dossier "$lance")"
@@ -147,32 +158,36 @@ pieges_tenus() {
   { [ "$(empreinte_dossier "$lance")" = "$avant_l" ] && [ "$(empreinte_dossier "$p/absent")" = ABSENT ]; } \
     || { echo "🔴 $nom : l'empreinte change sans raison, ou ne dit pas qu'un dossier a disparu." >&2; ko=1; }
 
+  # La configuration piégée est posée aux deux endroits où git lit celle de
+  # l'utilisateur : `git_isole` doit détourner l'un et l'autre.
+  printf '%s\n' "$leurre/.git" > "$p/maison/modele/commondir"
+  mkdir -p "$p/maison/.config/git"
+  printf '[init]\n\ttemplateDir = %s\n' "$p/maison/modele" > "$p/maison/.gitconfig"
+  printf '[init]\n\ttemplateDir = %s\n' "$p/maison/modele" > "$p/maison/.config/git/config"
   rc=0
-  (cd "$lance" && SAVR_AUTO_TEST_SOUS_PIEGE=1 GIT_DIR="$leurre/.git" GIT_WORK_TREE="$leurre" GIT_COMMON_DIR="$leurre/.git" \
+  (cd "$lance" && SAVR_AUTO_TEST_SOUS_PIEGE=1 HOME="$p/maison" XDG_CONFIG_HOME="$p/maison/.config" \
+    GIT_DIR="$leurre/.git" GIT_WORK_TREE="$leurre" GIT_COMMON_DIR="$leurre/.git" GIT_INDEX_FILE="$leurre/.git/index" \
     "$BASH" "$script" --self-test > /dev/null 2>&1) || rc=$?
   { [ "$rc" = 0 ] && [ "$(empreinte_dossier "$leurre")" = "$avant_x" ] && [ "$(empreinte_dossier "$lance")" = "$avant_l" ]; } \
-    || { echo "🔴 $nom [variables GIT_* héritées] : code $rc (attendu 0), ou un dossier hors du bac a été touché." >&2; ko=1; }
-
-  printf '[core]\n\tworktree = %s\n' "$leurre" > "$p/maison-1/modele/config"
-  printf '%s\n' "$leurre/.git" > "$p/maison-2/modele/commondir"
-  for maison in "$p/maison-1" "$p/maison-2"; do
-    printf '[init]\n\ttemplateDir = %s\n' "$maison/modele" > "$maison/.gitconfig"
-    rc=0
-    (cd "$lance" && SAVR_AUTO_TEST_SOUS_PIEGE=1 HOME="$maison" XDG_CONFIG_HOME="$maison/.config" \
-      "$BASH" "$script" --self-test > /dev/null 2>&1) || rc=$?
-    { [ "$rc" = 3 ] && [ "$(empreinte_dossier "$leurre")" = "$avant_x" ] && [ "$(empreinte_dossier "$lance")" = "$avant_l" ]; } \
-      || { echo "🔴 $nom [configuration git globale, ${maison##*/}] : code $rc (attendu 3), ou un dossier hors du bac a été touché." >&2; ko=1; }
-  done
+    || { echo "🔴 $nom [variables GIT_* et configuration git héritées] : code $rc (attendu 0), ou un dossier hors du bac a été touché." >&2; ko=1; }
 
   printf '#!/bin/sh\nexit 0\n' > "$p/faux/mktemp"
   chmod +x "$p/faux/mktemp"
   rc=0
-  (cd "$lance" && SAVR_AUTO_TEST_SOUS_PIEGE=1 PATH="$p/faux:$PATH" "$BASH" "$script" --self-test > /dev/null 2>&1) || rc=$?
-  { [ "$rc" = 3 ] && [ "$(empreinte_dossier "$leurre")" = "$avant_x" ] && [ "$(empreinte_dossier "$lance")" = "$avant_l" ]; } \
-    || { echo "🔴 $nom [mktemp sans dossier] : code $rc (attendu 3), ou un dossier hors du bac a été touché." >&2; ko=1; }
+  (cd "$lance" && SAVR_AUTO_TEST_SOUS_PIEGE=1 PATH="$p/faux:$PATH" "$BASH" "$script" --self-test > "$p/sortie-mktemp" 2>&1) || rc=$?
+  { [ "$rc" = 3 ] && [ "$(grep -c '' "$p/sortie-mktemp")" = 1 ] && [ "$(grep -c 'pas de dossier temporaire' "$p/sortie-mktemp")" = 1 ] \
+    && [ "$(empreinte_dossier "$leurre")" = "$avant_x" ] && [ "$(empreinte_dossier "$lance")" = "$avant_l" ]; } \
+    || { echo "🔴 $nom [mktemp sans dossier] : code $rc (attendu 3), autre chose que le seul message attendu, ou un dossier hors du bac a été touché." >&2; ko=1; }
+
+  cp "$script" "$p/seul/" || { echo "🔴 $nom : copie du script impossible." >&2; return 1; }
+  rc=0
+  (cd "$lance" && SAVR_AUTO_TEST_SOUS_PIEGE=1 "$BASH" "$p/seul/${script##*/}" --self-test > "$p/sortie-seul" 2>&1) || rc=$?
+  { [ "$rc" = 3 ] && [ "$(grep -c 'lib-auto-test.sh introuvable' "$p/sortie-seul")" = 1 ] \
+    && [ "$(empreinte_dossier "$leurre")" = "$avant_x" ] && [ "$(empreinte_dossier "$lance")" = "$avant_l" ]; } \
+    || { echo "🔴 $nom [script sans lib-auto-test.sh] : code $rc (attendu 3), message absent, ou un dossier hors du bac a été touché." >&2; ko=1; }
 
   [ "$ko" = 0 ] || return 1
-  PIEGES_BILAN=" ; rejoué sous des variables GIT_*, deux configurations git et un mktemp piégés : rien d'écrit hors du dossier jetable"
+  PIEGES_BILAN=" ; rejoué sous des variables GIT_* et une configuration git piégées, sous un mktemp muet et sans sa bibliothèque : rien d'écrit hors du dossier jetable"
   return 0
 }
 

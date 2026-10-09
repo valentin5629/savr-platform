@@ -279,8 +279,10 @@ describe('M3.1/email_modification_urgence_12h — ancien ou nouveau créneau à 
 
   it.each([
     ['hiver, créneau dans 11 h 59', '2099-01-15', '00:59:00', hiver, true],
+    ['hiver, créneau dans 12 h pile', '2099-01-15', '01:00:00', hiver, false],
     ['hiver, créneau dans 12 h 01', '2099-01-15', '01:01:00', hiver, false],
     ['été, créneau dans 11 h 59', '2099-07-14', '23:59:00', ete, true],
+    ['été, créneau dans 12 h pile', '2099-07-15', '00:00:00', ete, false],
     ['été, créneau dans 12 h 01', '2099-07-15', '00:01:00', ete, false],
   ])('seuil — %s', (_cas, date, heure, maintenant, urgent) => {
     const creneau = { date, heure };

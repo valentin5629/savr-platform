@@ -468,6 +468,25 @@ describe('M3.1 / édition collecte', () => {
     }
   });
 
+  it('M3.1/email_modification_urgence_12h — collecte imminente repoussée au loin : drapeau, audit et email urgents', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    // Créneau d'origine déjà passé → moins de 12h ; le nouveau est lointain.
+    queueEditOk('2020-01-01', undefined, '2030-12-31');
+    const res = await patchCollecte({ date_collecte: '2030-12-31' });
+    expect(res.status).toBe(200);
+    const corps = (await res.json()) as {
+      flags: { priorite_urgence: boolean };
+    };
+    expect(corps.flags.priorite_urgence).toBe(true);
+    const audit = (admin.__calls.insert ?? [])
+      .map(
+        ([ligne]) => ligne as { new_values?: { priorite_urgence?: boolean } },
+      )
+      .find((ligne) => ligne.new_values?.priorite_urgence !== undefined);
+    expect(audit?.new_values?.priorite_urgence).toBe(true);
+    expect(emailEquipe()?.priorite_urgence).toBe('true');
+  });
+
   it('M3.1/email_modification_urgence_12h — ancien et nouveau créneaux lointains : rien d’urgent', async () => {
     setupAuth('traiteur_commercial', 'org-1', 'user-1');
     queueEditOk('2030-12-31', undefined, '2030-12-30');

@@ -177,7 +177,13 @@ function formatEuro(n: number, type: CollecteRow['type']): string {
 
 // ── Indicateurs de résultat (vue Historique) — repas AG / kg + taux ZD / rapport.
 function IndicateursHistorique({ row }: { row: CollecteRow }) {
-  const rapport = row.rapports_rse[0];
+  // Une collecte AG avec excédents n'a pas de rapport : son document est
+  // l'attestation de don. Une ligne rapports_rse peut exister en base pour elle
+  // (anciens batchs, jamais rendue en PDF) : elle n'annonce rien ici. Même règle
+  // que le filtre « Rapport non consulté » (lib/collectes-admin).
+  const aUnRapport =
+    row.type === 'zero_dechet' || row.statut === 'realisee_sans_collecte';
+  const rapport = aUnRapport ? row.rapports_rse[0] : undefined;
   const poids = poidsTotalZd(row);
   const repas = row.attributions_antgaspi?.volume_repas_realise;
 

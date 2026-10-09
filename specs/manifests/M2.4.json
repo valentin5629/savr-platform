@@ -126,6 +126,14 @@
       "test": "entité SIRET en_attente → attestation différée, AUCUN numéro consommé, alerte Ops in-app",
       "statut": "implemented",
       "libelle": "Attestation de don différée (aucun numéro ATT-DON alloué) + alerte Ops in-app attestation_ag_siret_donateur_manquant tant que l'entité de facturation du donateur n'a pas un SIRET vérifié — décision Val 2026-09-28 (la programmation n'exige plus de SIRET, _Divergences/M1.2_20260928)"
+    },
+    {
+      "id": "M2.4-batch-ag-sans-rapports-rse",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:78",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts (l'ancienne étape 9, qui insérait une ligne rapports_rse pour chaque collecte AG attestée sans demander de rendu, est retirée ; l'embargo H+24 reste porté par `attestations_don.eligible_at`)",
+      "test": "packages/plateforme/tests/api/batch-pdf-j1-ag.m2-4.test.ts « M2.4 / BatchPdfJ1Ag / pas de rapports_rse pour une collecte AG »",
+      "statut": "implemented",
+      "libelle": "Batch AG : aucune ligne rapports_rse pour une collecte AG avec excédents — son seul document est l'attestation, affichée « Rapport de don » (décision Val 2026-10-09). Les lignes déjà créées restent en base, ignorées par les écrans."
     }
   ],
   "cdc_source_hash": {

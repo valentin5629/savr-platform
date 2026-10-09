@@ -265,6 +265,7 @@ describe('M3.4 / documents', () => {
           collecte_id: 'c1',
           disponible_a: '2020-01-01T00:00:00Z',
           genere_at: '2020-01-02T00:00:00Z',
+          collectes: { type: 'zero_dechet', statut: 'cloturee' },
           evenements: { nom_evenement: 'Gala', date_evenement: '2026-05-10' },
         },
       ],
@@ -311,6 +312,71 @@ describe('M3.4 / documents', () => {
     const types = json.data.map((d) => d.type).sort();
     expect(types).toEqual(['attestation', 'bordereau', 'rapport']);
     expect(json.data.every((d) => d.disponible)).toBe(true);
+  });
+
+  it('M3.4/documents_collecte_ag_un_seul_rapport_de_don — AG : un document par collecte, nommé « Rapport de don » avec ou sans excédents', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    const evt = { nom_evenement: 'Gala', date_evenement: '2026-05-10' };
+    const rapport = (
+      id: string,
+      collecte_id: string,
+      type: string,
+      statut: string,
+      genere_at: string | null,
+    ) => ({
+      id,
+      collecte_id,
+      disponible_a: '2020-01-01T00:00:00Z',
+      genere_at,
+      collectes: { type, statut },
+      evenements: evt,
+    });
+    // rapports — une ZD, une AG sans excédents (vrai PDF), et une AG avec
+    // excédents dont la ligne de rapport, jamais rendue, n'est pas un document.
+    rls.push({
+      data: [
+        rapport('r-zd', 'c-zd', 'zero_dechet', 'cloturee', '2020-01-02'),
+        rapport(
+          'r-sans',
+          'c-sans',
+          'anti_gaspi',
+          'realisee_sans_collecte',
+          '2020-01-02',
+        ),
+        rapport('r-fantome', 'c-don', 'anti_gaspi', 'cloturee', null),
+      ],
+      error: null,
+    });
+    rls.push({ data: [], error: null }); // bordereaux
+    rls.push({
+      data: [
+        {
+          id: 'a-don',
+          collecte_id: 'c-don',
+          genere_at: '2020-01-02T00:00:00Z',
+          pdf_url: 'attestations/a.pdf',
+          collectes: { evenements: evt },
+        },
+      ],
+      error: null,
+    });
+
+    const { GET } =
+      await import('@/app/api/v1/organisateur/documents/route.js');
+    const res = await GET(makeReq('/api/v1/organisateur/documents'));
+    const json = (await res.json()) as {
+      data: Array<{ id: string; type: string; nom: string }>;
+    };
+
+    expect(res.status).toBe(200);
+    expect(json.data.map((d) => [d.id, d.type, d.nom]).sort()).toEqual([
+      ['a-don', 'attestation', 'Rapport de don'],
+      ['r-sans', 'rapport', 'Rapport de don'],
+      ['r-zd', 'rapport', 'Rapport RSE'],
+    ]);
+    // Une seule ligne par collecte AG.
+    const parCollecteAg = json.data.filter((d) => d.nom === 'Rapport de don');
+    expect(parCollecteAg).toHaveLength(2);
   });
 });
 

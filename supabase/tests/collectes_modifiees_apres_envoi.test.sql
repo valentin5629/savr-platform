@@ -4,15 +4,16 @@
 -- Scénario `M0.6/dirty_tms_apres_envoi` (couche db), arbitrage Val 2026-10-09 :
 -- le drapeau s'arme dès que la demande est partie vers le prestataire (clic de
 -- l'Admin), pour les champs de la collecte comme pour le pax et les contacts de
--- l'événement ; il ne s'arme pas avant l'envoi, ni pour un champ qui n'est pas
--- transmis ; le renvoi le vide. Migration 20261009210000.
+-- l'événement ; il ne s'arme pas avant l'envoi, ni pour une collecte terminée,
+-- ni pour un autre événement, ni pour un champ hors de la liste ; le renvoi le
+-- vide. Migration 20261009210000.
 --
 -- Sous rôle : un client ne peut ni armer ni vider le drapeau lui-même, et ne
 -- peut pas appeler la fonction du déclencheur.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(19);
+SELECT plan(30);
 
 -- Helpers de rôle, signatures de rls_0_4_smoke.test.sql.
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -34,116 +35,175 @@ BEGIN
   PERFORM set_config('request.jwt.claims', NULL, true);
 END $$;
 
--- Une collecte « partie » : la fixture pose le prestataire, comme le fait le
--- clic de l'Admin ; le statut TMS reste « non envoyé » et aucune référence de
--- commande n'est reçue — l'état exact du constat de Val.
--- Deux autres collectes du même événement restent « pas encore envoyées » : une
--- ZD et une AG, créées comme le fait la programmation, sans prestataire.
-CREATE TEMP TABLE t_ids ON COMMIT DROP AS
-SELECT tests.outbox_fixture_collecte('zd') AS partie,
-       NULL::uuid AS non_partie,
-       NULL::uuid AS ag;
-UPDATE t_ids SET non_partie = plateforme.fn_creer_collecte(
-  p_evenement_id   := (SELECT evenement_id FROM plateforme.collectes WHERE id = t_ids.partie),
-  p_type           := 'zd',
-  p_date_collecte  := CURRENT_DATE + 31,
-  p_heure_collecte := '09:00'::time
-);
-UPDATE t_ids SET ag = plateforme.fn_creer_collecte(
-  p_evenement_id   := (SELECT evenement_id FROM plateforme.collectes WHERE id = t_ids.partie),
-  p_type           := 'ag',
-  p_date_collecte  := CURRENT_DATE + 32,
-  p_heure_collecte := '09:00'::time
-);
-GRANT SELECT ON t_ids TO authenticated;
+-- ── Jeu d'essai ──────────────────────────────────────────────────────────────
+-- La fixture rend une collecte « commandée » : prestataire posé ET une tournée
+-- qui porte la commande chez lui. Elle ne s'appelle qu'une fois par transaction
+-- (email utilisateur unique) : les autres collectes sont créées comme le fait
+-- la programmation, sur le même événement ou sur un second.
+CREATE TEMP TABLE t ON COMMIT DROP AS
+SELECT tests.outbox_fixture_collecte('zd') AS commandee,
+       NULL::uuid AS evt, NULL::uuid AS presta,
+       NULL::uuid AS en_file, NULL::uuid AS non_partie, NULL::uuid AS ag,
+       NULL::uuid AS terminee, NULL::uuid AS evt_temoin, NULL::uuid AS temoin;
+UPDATE t SET (evt, presta) =
+  (SELECT evenement_id, prestataire_logistique_id FROM plateforme.collectes WHERE id = t.commandee);
 
+CREATE FUNCTION pg_temp.collecte(p_evt uuid, p_type text, p_jours int) RETURNS uuid LANGUAGE sql AS $$
+  SELECT plateforme.fn_creer_collecte(
+    p_evenement_id   := p_evt,
+    p_type           := p_type,
+    p_date_collecte  := CURRENT_DATE + p_jours,
+    p_heure_collecte := '09:00'::time
+  )
+$$;
 CREATE FUNCTION pg_temp.drapeau(p_id uuid) RETURNS boolean LANGUAGE sql AS
   $$ SELECT dirty_tms FROM plateforme.collectes WHERE id = p_id $$;
-CREATE FUNCTION pg_temp.evenement(p_id uuid) RETURNS uuid LANGUAGE sql AS
-  $$ SELECT evenement_id FROM plateforme.collectes WHERE id = p_id $$;
+CREATE FUNCTION pg_temp.baisser() RETURNS void LANGUAGE sql AS
+  $$ UPDATE plateforme.collectes SET dirty_tms = false WHERE dirty_tms $$;
+
+-- « En file d'envoi » : l'Admin vient de cliquer, le prestataire est posé,
+-- aucune commande n'existe encore chez lui — l'état exact du constat de Val.
+UPDATE t SET en_file = pg_temp.collecte(evt, 'zd', 31);
+UPDATE plateforme.collectes SET prestataire_logistique_id = (SELECT presta FROM t)
+ WHERE id = (SELECT en_file FROM t);
+-- Pas encore envoyées : aucun des quatre signaux.
+UPDATE t SET non_partie = pg_temp.collecte(evt, 'zd', 32);
+UPDATE t SET ag = pg_temp.collecte(evt, 'ag', 33);
+-- Partie puis annulée : plus rien à renvoyer.
+UPDATE t SET terminee = pg_temp.collecte(evt, 'zd', 34);
+UPDATE plateforme.collectes
+   SET prestataire_logistique_id = (SELECT presta FROM t), statut = 'annulee'
+ WHERE id = (SELECT terminee FROM t);
+-- Un second événement, avec sa collecte en file : témoin du cloisonnement.
+WITH e AS (
+  INSERT INTO plateforme.evenements (
+    organisation_id, traiteur_operationnel_organisation_id, entite_facturation_id,
+    lieu_id, created_by, type_evenement_id, nom_evenement, pax,
+    contact_principal_nom, contact_principal_telephone, created_at, updated_at
+  )
+  SELECT organisation_id, traiteur_operationnel_organisation_id, entite_facturation_id,
+         lieu_id, created_by, type_evenement_id, 'Événement témoin', pax,
+         contact_principal_nom, contact_principal_telephone, now(), now()
+    FROM plateforme.evenements WHERE id = (SELECT evt FROM t)
+  RETURNING id
+)
+UPDATE t SET evt_temoin = (SELECT id FROM e);
+UPDATE t SET temoin = pg_temp.collecte(evt_temoin, 'zd', 35);
+UPDATE plateforme.collectes SET prestataire_logistique_id = (SELECT presta FROM t)
+ WHERE id = (SELECT temoin FROM t);
+GRANT SELECT ON t TO authenticated;
 
 SELECT is(
-  (SELECT (statut_tms::text, tms_reference IS NULL, prestataire_logistique_id IS NOT NULL, dirty_tms)
-     FROM plateforme.collectes WHERE id = (SELECT partie FROM t_ids)),
-  ('non_envoye'::text, true, true, false),
-  'état de départ : prestataire posé, statut TMS « non envoyé », aucune référence, drapeau baissé'
+  (SELECT (c.statut_tms::text, c.tms_reference IS NULL, c.prestataire_logistique_id IS NOT NULL,
+           plateforme.fn_collecte_commandee_chez_provider(c.id), c.dirty_tms)
+     FROM plateforme.collectes c WHERE c.id = (SELECT en_file FROM t)),
+  ('non_envoye'::text, true, true, false, false),
+  'en file d''envoi : prestataire posé, statut TMS « non envoyé », ni référence ni commande, drapeau baissé'
 );
 
--- ── Champs de la collecte ────────────────────────────────────────────────────
+-- ── Champs de la collecte, et renvoi ─────────────────────────────────────────
 UPDATE plateforme.collectes SET date_collecte = date_collecte + 1
- WHERE id = (SELECT partie FROM t_ids);
-SELECT ok(pg_temp.drapeau((SELECT partie FROM t_ids)),
-  'collecte partie (prestataire posé, commande pas encore reçue) : changer la date arme le drapeau');
+ WHERE id = (SELECT en_file FROM t);
+SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)),
+  'en file d''envoi : changer la date arme le drapeau');
+SELECT is(plateforme.fn_dispatcher_collecte((SELECT en_file FROM t)), 'collecte.creee',
+  'en file d''envoi : le renvoi émet un ordre de création (aucune commande n''existe encore)');
+SELECT ok(NOT pg_temp.drapeau((SELECT en_file FROM t)),
+  'en file d''envoi : le renvoi vide le drapeau');
 
--- ── Renvoi ───────────────────────────────────────────────────────────────────
-SELECT lives_ok(
-  $$SELECT plateforme.fn_dispatcher_collecte((SELECT partie FROM t_ids))$$,
-  'le renvoi (fn_dispatcher_collecte) passe');
-SELECT ok(NOT pg_temp.drapeau((SELECT partie FROM t_ids)),
-  'le renvoi vide le drapeau');
+UPDATE plateforme.collectes SET heure_collecte = '10:30'
+ WHERE id = (SELECT commandee FROM t);
+SELECT ok(pg_temp.drapeau((SELECT commandee FROM t)),
+  'commande existante : changer l''heure arme le drapeau');
+SELECT is(plateforme.fn_dispatcher_collecte((SELECT commandee FROM t)), 'collecte.modifiee',
+  'commande existante : le renvoi émet une modification');
+SELECT ok(NOT pg_temp.drapeau((SELECT commandee FROM t)),
+  'commande existante : le renvoi vide le drapeau');
 
--- ── Pax et contacts de l'événement ───────────────────────────────────────────
-UPDATE plateforme.evenements SET pax = pax + 10
- WHERE id = pg_temp.evenement((SELECT partie FROM t_ids));
-SELECT ok(pg_temp.drapeau((SELECT partie FROM t_ids)),
-  'collecte partie : changer le pax de l''événement arme le drapeau');
-SELECT ok(NOT pg_temp.drapeau((SELECT non_partie FROM t_ids))
-          AND NOT pg_temp.drapeau((SELECT ag FROM t_ids)),
-  'les collectes du même événement pas encore envoyées ne sont pas armées par ce changement de pax');
+-- ── Pax de l'événement : qui est armé, qui ne l'est pas ──────────────────────
+UPDATE plateforme.evenements SET pax = pax + 10 WHERE id = (SELECT evt FROM t);
+SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)) AND pg_temp.drapeau((SELECT commandee FROM t)),
+  'changer le pax arme les collectes de l''événement déjà parties (en file, commandée)');
+SELECT ok(NOT pg_temp.drapeau((SELECT non_partie FROM t)) AND NOT pg_temp.drapeau((SELECT ag FROM t)),
+  'changer le pax n''arme pas les collectes de l''événement pas encore envoyées');
+SELECT ok(NOT pg_temp.drapeau((SELECT terminee FROM t)),
+  'changer le pax n''arme pas une collecte partie puis annulée');
+SELECT ok(NOT pg_temp.drapeau((SELECT temoin FROM t)),
+  'changer le pax n''arme pas la collecte d''un autre événement');
 
-UPDATE plateforme.collectes SET dirty_tms = false WHERE id = (SELECT partie FROM t_ids);
-UPDATE plateforme.evenements SET contact_principal_telephone = '0699990003'
- WHERE id = pg_temp.evenement((SELECT partie FROM t_ids));
-SELECT ok(pg_temp.drapeau((SELECT partie FROM t_ids)),
-  'collecte partie : changer le téléphone du contact arme le drapeau');
+-- ── Contacts : chacun des quatre champs ──────────────────────────────────────
+SELECT pg_temp.baisser();
+UPDATE plateforme.evenements SET contact_principal_nom = 'Autre Contact' WHERE id = (SELECT evt FROM t);
+SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le nom du contact arme le drapeau');
 
-UPDATE plateforme.collectes SET dirty_tms = false WHERE id = (SELECT partie FROM t_ids);
-UPDATE plateforme.evenements SET contact_secours_nom = 'Secours Fixture'
- WHERE id = pg_temp.evenement((SELECT partie FROM t_ids));
-SELECT ok(pg_temp.drapeau((SELECT partie FROM t_ids)),
-  'collecte partie : changer le contact de secours arme le drapeau');
+SELECT pg_temp.baisser();
+UPDATE plateforme.evenements SET contact_principal_telephone = '0699990003' WHERE id = (SELECT evt FROM t);
+SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le téléphone du contact arme le drapeau');
 
--- Un champ qui n'est pas transmis au prestataire ne demande aucun renvoi.
-UPDATE plateforme.collectes SET dirty_tms = false WHERE id = (SELECT partie FROM t_ids);
+SELECT pg_temp.baisser();
+UPDATE plateforme.evenements SET contact_secours_nom = 'Secours Fixture' WHERE id = (SELECT evt FROM t);
+SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le nom du contact de secours arme le drapeau');
+
+SELECT pg_temp.baisser();
+UPDATE plateforme.evenements SET contact_secours_telephone = '0699990004' WHERE id = (SELECT evt FROM t);
+SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le téléphone du contact de secours arme le drapeau');
+
+-- Hors de la liste : le nom et la référence de l'événement.
+SELECT pg_temp.baisser();
 UPDATE plateforme.evenements SET nom_evenement = 'Renommé', reference_affaire = 'A-42'
- WHERE id = pg_temp.evenement((SELECT partie FROM t_ids));
-SELECT ok(NOT pg_temp.drapeau((SELECT partie FROM t_ids)),
-  'collecte partie : renommer l''événement ou changer sa référence n''arme rien');
+ WHERE id = (SELECT evt FROM t);
+SELECT ok(NOT pg_temp.drapeau((SELECT en_file FROM t)),
+  'renommer l''événement ou changer sa référence n''arme rien');
 
-UPDATE plateforme.evenements SET pax = pax
- WHERE id = pg_temp.evenement((SELECT partie FROM t_ids));
-SELECT ok(NOT pg_temp.drapeau((SELECT partie FROM t_ids)),
-  'collecte partie : un pax renvoyé à l''identique n''arme rien');
+UPDATE plateforme.evenements SET pax = pax WHERE id = (SELECT evt FROM t);
+SELECT ok(NOT pg_temp.drapeau((SELECT en_file FROM t)),
+  'un pax renvoyé à l''identique n''arme rien');
 
 -- ── Avant l'envoi : rien à renvoyer ──────────────────────────────────────────
 UPDATE plateforme.collectes SET date_collecte = date_collecte + 1, heure_collecte = '11:00'
- WHERE id = (SELECT non_partie FROM t_ids);
-SELECT ok(NOT pg_temp.drapeau((SELECT non_partie FROM t_ids)),
+ WHERE id = (SELECT non_partie FROM t);
+SELECT ok(NOT pg_temp.drapeau((SELECT non_partie FROM t)),
   'collecte pas encore envoyée : changer la date et l''heure n''arme rien');
 
--- ── Chacun des autres signaux suffit ─────────────────────────────────────────
--- Référence de commande reçue.
-UPDATE plateforme.collectes SET tms_reference = 'CMD-FIXTURE'
- WHERE id = (SELECT non_partie FROM t_ids);
-UPDATE plateforme.collectes SET informations_supplementaires = 'Quai B'
- WHERE id = (SELECT non_partie FROM t_ids);
-SELECT ok(pg_temp.drapeau((SELECT non_partie FROM t_ids)),
-  'référence de commande reçue : changer les informations supplémentaires arme le drapeau');
+-- « Partie » se lit sur l'état d'AVANT la modification : l'écriture qui pose le
+-- prestataire et change la date en même temps modifie une collecte qui n'était
+-- pas encore partie.
+UPDATE plateforme.collectes
+   SET prestataire_logistique_id = (SELECT presta FROM t), date_collecte = date_collecte + 1
+ WHERE id = (SELECT non_partie FROM t);
+SELECT ok(NOT pg_temp.drapeau((SELECT non_partie FROM t)),
+  'poser le prestataire et changer la date dans la même écriture n''arme rien (signaux lus avant la modification)');
 
--- Statut TMS sorti de « non envoyé ».
+-- ── Chacun des autres signaux suffit, pour la collecte comme pour l'événement ─
+-- Référence de commande seule (la collecte AG n'a ni prestataire ni attribution).
+UPDATE plateforme.collectes SET tms_reference = 'CMD-FIXTURE' WHERE id = (SELECT ag FROM t);
+UPDATE plateforme.collectes SET informations_supplementaires = 'Quai B' WHERE id = (SELECT ag FROM t);
+SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
+  'référence de commande seule : changer les informations supplémentaires arme le drapeau');
+SELECT pg_temp.baisser();
+UPDATE plateforme.evenements SET pax = pax + 1 WHERE id = (SELECT evt FROM t);
+SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
+  'référence de commande seule : changer le pax arme le drapeau');
+
+-- Statut TMS sorti de « non envoyé », seul.
 UPDATE plateforme.collectes
    SET tms_reference = NULL, dirty_tms = false, statut_tms = 'attribuee_en_attente_acceptation'
- WHERE id = (SELECT non_partie FROM t_ids);
+ WHERE id = (SELECT ag FROM t);
 UPDATE plateforme.collectes SET controle_acces_requis = NOT controle_acces_requis
- WHERE id = (SELECT non_partie FROM t_ids);
-SELECT ok(pg_temp.drapeau((SELECT non_partie FROM t_ids)),
-  'statut TMS sorti de « non envoyé » : changer le contrôle d''accès arme le drapeau');
+ WHERE id = (SELECT ag FROM t);
+SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
+  'statut TMS sorti de « non envoyé », seul : changer le contrôle d''accès arme le drapeau');
+SELECT pg_temp.baisser();
+UPDATE plateforme.evenements SET contact_principal_nom = 'Encore Autre' WHERE id = (SELECT evt FROM t);
+SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
+  'statut TMS sorti de « non envoyé », seul : changer le contact arme le drapeau');
 
 -- Attribution AG seule (transporteur joint par mail ou téléphone, sans
 -- prestataire relié) : la collecte est partie au sens de l'Admin.
-UPDATE plateforme.collectes SET heure_collecte = '12:00'
- WHERE id = (SELECT ag FROM t_ids);
-SELECT ok(NOT pg_temp.drapeau((SELECT ag FROM t_ids)),
+UPDATE plateforme.collectes SET statut_tms = 'non_envoye', dirty_tms = false
+ WHERE id = (SELECT ag FROM t);
+UPDATE plateforme.collectes SET heure_collecte = '12:00' WHERE id = (SELECT ag FROM t);
+SELECT ok(NOT pg_temp.drapeau((SELECT ag FROM t)),
   'AG sans attribution ni prestataire : changer l''heure n''arme rien');
 
 INSERT INTO plateforme.associations (nom, adresse, region, ville, contact_email, description_rapport_impact)
@@ -152,31 +212,32 @@ VALUES ('Asso Fixture Drapeau', '1 rue Asso', 'idf', 'Paris', 'asso-drapeau@test
 INSERT INTO plateforme.attributions_antgaspi (
   collecte_id, association_id, transporteur_id, branche_attribution, mode_validation
 ) VALUES (
-  (SELECT ag FROM t_ids),
+  (SELECT ag FROM t),
   (SELECT id FROM plateforme.associations WHERE contact_email = 'asso-drapeau@test.internal'),
   (SELECT id FROM plateforme.transporteurs WHERE code_transporteur_mts1 = 'FIXTURE-G4-CODE'),
   'branche_1', 'manuel_top1'
 );
-UPDATE plateforme.collectes SET heure_collecte = '13:00'
- WHERE id = (SELECT ag FROM t_ids);
-SELECT ok(pg_temp.drapeau((SELECT ag FROM t_ids)),
+UPDATE plateforme.collectes SET heure_collecte = '13:00' WHERE id = (SELECT ag FROM t);
+SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
   'AG attribuée, sans prestataire relié : changer l''heure arme le drapeau');
-
-UPDATE plateforme.collectes SET dirty_tms = false WHERE id = (SELECT ag FROM t_ids);
-UPDATE plateforme.evenements SET pax = pax + 5
- WHERE id = pg_temp.evenement((SELECT ag FROM t_ids));
-SELECT ok(pg_temp.drapeau((SELECT ag FROM t_ids)),
+SELECT pg_temp.baisser();
+UPDATE plateforme.evenements SET pax = pax + 5 WHERE id = (SELECT evt FROM t);
+SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
   'AG attribuée, sans prestataire relié : changer le pax arme le drapeau');
 
+-- Rien de tout cela n'a touché la collecte annulée ni l'autre événement.
+SELECT ok(NOT pg_temp.drapeau((SELECT terminee FROM t)) AND NOT pg_temp.drapeau((SELECT temoin FROM t)),
+  'la collecte annulée et celle de l''autre événement sont restées intactes');
+
 -- ── Sous rôle : le drapeau n'est pas à la main du client ─────────────────────
-UPDATE plateforme.collectes SET dirty_tms = true WHERE id = (SELECT partie FROM t_ids);
+SELECT pg_temp.baisser();
+UPDATE plateforme.collectes SET dirty_tms = true WHERE id = (SELECT en_file FROM t);
 SELECT test_set_jwt(
   'traiteur_manager',
-  (SELECT e.organisation_id FROM plateforme.evenements e
-    WHERE e.id = pg_temp.evenement((SELECT partie FROM t_ids)))
+  (SELECT e.organisation_id FROM plateforme.evenements e WHERE e.id = (SELECT evt FROM t))
 );
 SELECT throws_ok(
-  $$UPDATE plateforme.collectes SET dirty_tms = false WHERE id = (SELECT partie FROM t_ids)$$,
+  $$UPDATE plateforme.collectes SET dirty_tms = false WHERE id = (SELECT en_file FROM t)$$,
   '42501', NULL,
   'traiteur_manager de l''organisation ne vide pas le drapeau lui-même');
 SELECT throws_ok(
@@ -185,7 +246,7 @@ SELECT throws_ok(
   'traiteur_manager n''exécute pas la fonction du déclencheur');
 
 SELECT test_as_superuser();
-SELECT ok(pg_temp.drapeau((SELECT partie FROM t_ids)),
+SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)),
   'le drapeau n''a pas bougé');
 
 SELECT * FROM finish();

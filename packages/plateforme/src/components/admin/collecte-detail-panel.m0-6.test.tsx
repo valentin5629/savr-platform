@@ -2422,7 +2422,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   it(
     'Grand en-tête ZD : badge Zéro Déchet, pas de ligne association ; « dirty TMS » en sur-titre',
     async () => {
-      installMock({ collecte: { ...baseZd, dirty_tms: true } });
+      // Collecte encore à réaliser : le badge ne s'affiche que là (cf. plus bas).
+      installMock({
+        collecte: { ...baseZd, statut: 'validee', dirty_tms: true },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
       const sousLigne = await screen.findByTestId(
         'fiche-admin-sous-ligne',
@@ -2438,6 +2441,19 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       ).toBeInTheDocument();
       expect(sousLigne).not.toHaveTextContent('Association');
       expect(sousLigne).not.toHaveTextContent('Les Restos du Cœur');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Une collecte terminée n'a plus rien à renvoyer : même prédicat que la
+  // pastille « Modifiées sans renvoi TMS » (lib/collectes-chips).
+  it.each(['realisee', 'cloturee', 'annulee'])(
+    'M0.6/dirty_tms_apres_envoi — collecte %s au drapeau encore levé : pas de badge « Modifiée — renvoi requis »',
+    async (statut) => {
+      installMock({ collecte: { ...baseZd, statut, dirty_tms: true } });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByTestId('fiche-admin-sous-ligne', {}, ATTENTE_UI);
+      expect(screen.queryByText('Modifiée — renvoi requis')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

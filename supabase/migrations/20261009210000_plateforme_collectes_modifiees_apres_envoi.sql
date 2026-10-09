@@ -1,7 +1,8 @@
 -- =============================================================================
 -- Drapeau « modifiée sans renvoi » (`collectes.dirty_tms`) : il s'arme dès que
--- la demande est partie vers le prestataire, et pour tout champ qui lui est
--- transmis.
+-- la demande est partie vers le prestataire, pour la date, l'heure, le lieu, le
+-- contrôle d'accès et l'information supplémentaire de la collecte, comme pour
+-- le pax et les contacts de son événement.
 -- =============================================================================
 -- Constat E2E de Val, 2026-10-09 : l'Admin envoie une collecte ZD à son
 -- prestataire, le traiteur la modifie deux minutes plus tard (date, pax,
@@ -30,10 +31,12 @@
 --    champs reste normative pour le payload E2 (test-cliquet côté adapters).
 -- 2. `fn_evenement_marque_collectes_modifiees` (nouveau déclencheur de
 --    `evenements`) : une modification du pax ou d'un contact arme le drapeau des
---    collectes déjà parties de l'événement. R22c avait écarté ce déclencheur
---    pour éviter un second envoi au prestataire quand la modification lui est
---    déjà parvenue ; Val accepte ce coût (l'Admin clique « Renvoyer » pour
---    vider le filtre).
+--    collectes de l'événement déjà parties ET encore à réaliser (programmée,
+--    validée, en cours). Un événement peut porter une collecte terminée à côté
+--    d'une collecte à venir : la terminée n'a plus rien à renvoyer, et rien ne
+--    pourrait vider son drapeau. R22c avait écarté ce déclencheur pour éviter un
+--    second envoi au prestataire quand la modification lui est déjà parvenue ;
+--    Val accepte ce coût (l'Admin clique « Renvoyer » pour vider le filtre).
 --
 -- Aucun rattrapage des collectes déjà modifiées : le drapeau ne s'arme que pour
 -- les modifications à venir.
@@ -57,20 +60,22 @@ LANGUAGE plpgsql
 SET search_path = plateforme, pg_catalog
 AS $$
 BEGIN
-  -- Demande déjà partie vers le prestataire avant cette modification.
-  IF (OLD.statut_tms <> 'non_envoye'
-      OR OLD.tms_reference IS NOT NULL
-      OR OLD.prestataire_logistique_id IS NOT NULL
-      OR EXISTS (
-        SELECT 1 FROM plateforme.attributions_antgaspi a
-        WHERE a.collecte_id = OLD.id
-      ))
-  THEN
-    IF (OLD.date_collecte IS DISTINCT FROM NEW.date_collecte
-      OR OLD.heure_collecte IS DISTINCT FROM NEW.heure_collecte
-      OR OLD.controle_acces_requis IS DISTINCT FROM NEW.controle_acces_requis
-      OR OLD.informations_supplementaires IS DISTINCT FROM NEW.informations_supplementaires
-      OR OLD.lieu_overrides IS DISTINCT FROM NEW.lieu_overrides) THEN
+  IF (OLD.date_collecte IS DISTINCT FROM NEW.date_collecte
+    OR OLD.heure_collecte IS DISTINCT FROM NEW.heure_collecte
+    OR OLD.controle_acces_requis IS DISTINCT FROM NEW.controle_acces_requis
+    OR OLD.informations_supplementaires IS DISTINCT FROM NEW.informations_supplementaires
+    OR OLD.lieu_overrides IS DISTINCT FROM NEW.lieu_overrides) THEN
+    -- Demande déjà partie vers le prestataire avant cette modification. Lu
+    -- après la comparaison des champs : la recherche d'attribution n'est faite
+    -- que pour une écriture qui change réellement l'un d'eux.
+    IF (OLD.statut_tms <> 'non_envoye'
+        OR OLD.tms_reference IS NOT NULL
+        OR OLD.prestataire_logistique_id IS NOT NULL
+        OR EXISTS (
+          SELECT 1 FROM plateforme.attributions_antgaspi a
+          WHERE a.collecte_id = OLD.id
+        ))
+    THEN
       NEW.dirty_tms := true;
     END IF;
   END IF;
@@ -95,6 +100,7 @@ BEGIN
        SET dirty_tms = true
      WHERE c.evenement_id = NEW.id
        AND c.dirty_tms = false
+       AND c.statut IN ('programmee', 'validee', 'en_cours')
        AND (c.statut_tms <> 'non_envoye'
             OR c.tms_reference IS NOT NULL
             OR c.prestataire_logistique_id IS NOT NULL
@@ -116,4 +122,4 @@ CREATE TRIGGER trg_evenement_marque_collectes_modifiees
   FOR EACH ROW EXECUTE FUNCTION plateforme.fn_evenement_marque_collectes_modifiees();
 
 COMMENT ON FUNCTION plateforme.fn_evenement_marque_collectes_modifiees() IS
-  'Arme collectes.dirty_tms pour les collectes déjà parties vers le prestataire quand le pax ou un contact de leur événement change (arbitrage Val 2026-10-09). Remis à false par fn_dispatcher_collecte.';
+  'Arme collectes.dirty_tms pour les collectes déjà parties vers le prestataire et encore à réaliser (programmee, validee, en_cours) quand le pax ou un contact de leur événement change (arbitrage Val 2026-10-09). Remis à false par fn_dispatcher_collecte.';

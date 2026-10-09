@@ -1606,7 +1606,7 @@
       "artefact": "supabase/migrations/20261009210000_plateforme_collectes_modifiees_apres_envoi.sql",
       "test": "supabase/tests/collectes_modifiees_apres_envoi.test.sql",
       "statut": "implemented",
-      "libelle": "Drapeau « modifiée sans renvoi » (arbitrage Val 2026-10-09, divergence M0.6_20261009_modifiees-sans-renvoi-apres-envoi) : armé dès que la demande est partie vers le prestataire (un des quatre signaux de l'affichage « Programmée », lus sur l'état d'avant la modification), pour les cinq champs transmis de la collecte ET pour le pax et les contacts de l'événement (déclencheur sur evenements) ; jamais avant l'envoi ni pour un champ non transmis ; vidé par le renvoi ; un client ne peut ni l'armer ni le vider lui-même"
+      "libelle": "Drapeau « modifiée sans renvoi » (arbitrage Val 2026-10-09, divergence M0.6_20261009_modifiees-sans-renvoi-apres-envoi) : armé dès que la demande est partie vers le prestataire (un des quatre signaux de l'affichage « Programmée », lus sur l'état d'avant la modification), pour cinq champs de la collecte (date, heure, lieu, contrôle d'accès, info supplémentaire) ET pour le pax et les contacts de l'événement (déclencheur sur evenements, collectes encore à réaliser seulement) ; jamais avant l'envoi, ni pour un autre événement, ni pour une collecte terminée, ni pour un champ hors de la liste ; vidé par le renvoi ; un client ne peut ni l'armer ni le vider lui-même"
     },
     {
       "id": "M0.6-dirty-tms-compteurs",
@@ -1619,10 +1619,10 @@
     {
       "id": "M0.6-dirty-tms-renvoyer-en-file",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
-      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/lib/collectes-chips.ts",
       "test": "M0.6/dirty_tms_apres_envoi",
       "statut": "implemented",
-      "libelle": "Fiche collecte Admin, commande encore en file d'envoi : « Renvoyer » s'affiche à côté de « Changer de prestataire » quand la collecte a été modifiée depuis l'envoi, et part sans prestataire (le renvoi vide le drapeau) ; absent tant que la collecte n'est pas modifiée"
+      "libelle": "Fiche collecte Admin : le badge « Modifiée — renvoi requis » et le bouton de renvoi suivent le prédicat de la pastille (drapeau levé ET collecte encore à réaliser — une collecte terminée ne porte plus le badge). Commande encore en file d'envoi : « Renvoyer » s'affiche à côté de « Changer de prestataire » quand la collecte a été modifiée depuis l'envoi, et part sans prestataire ; absent tant que la collecte n'est pas modifiée"
     },
     {
       "id": "M0.6-dirty-tms-rendu-visuel",
@@ -1630,7 +1630,7 @@
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu à l'écran, à constater par Val sur dev : après envoi puis modification par le client, la pastille « Modifiées sans renvoi TMS » passe à 1 et liste la collecte ; la fiche porte le badge « Modifiée — renvoi requis » et le bouton « Renvoyer » ; après le clic, la pastille revient à 0"
+      "libelle": "Rendu à l'écran, à constater par Val sur dev : après envoi puis modification par le client, la pastille « Modifiées sans renvoi TMS » passe à 1 et liste la collecte ; la fiche porte le badge « Modifiée — renvoi requis » et le bouton de renvoi (« Renvoyer à … » pour un envoi automatique, « Dispatcher (manuel) » pour un transporteur joint par mail ou téléphone) ; après le clic, la pastille revient à 0"
     }
   ],
   "cdc_source_hash": {

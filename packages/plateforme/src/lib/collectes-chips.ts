@@ -83,11 +83,21 @@ export function estADispatcher(row: {
 // Aucune condition sur `tms_reference` : une commande en file d'envoi n'en a pas
 // encore, un transporteur joint par mail ou téléphone n'en aura jamais.
 // Source unique du chip, de son compteur et des deux cartes du Dashboard Admin.
+// Deux formes côte à côte, comme « à dispatcher » : filtre de requête
+// (`STATUTS_A_RENVOYER`) et test d'une ligne déjà chargée
+// (`estModifieeSansRenvoi`, badge et bouton de la fiche collecte Admin).
 export const STATUTS_A_RENVOYER: readonly string[] = [
   'programmee',
   'validee',
   'en_cours',
 ];
+
+export function estModifieeSansRenvoi(row: {
+  dirty_tms: boolean;
+  statut: string;
+}): boolean {
+  return row.dirty_tms && STATUTS_A_RENVOYER.includes(row.statut);
+}
 
 // Applique le prédicat d'un chip à une requête collectes. `now` injecté pour la
 // testabilité (fenêtres 48h). Chip inconnu = requête inchangée.

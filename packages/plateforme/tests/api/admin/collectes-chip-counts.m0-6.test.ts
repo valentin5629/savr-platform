@@ -14,7 +14,11 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { applyChipPredicate, type ChipQuery } from '@/lib/collectes-chips';
+import {
+  applyChipPredicate,
+  estModifieeSansRenvoi,
+  type ChipQuery,
+} from '@/lib/collectes-chips';
 import {
   aDispatcherZd,
   type CollecteRow,
@@ -311,5 +315,17 @@ describe('M0.6/dirty_tms_apres_envoi — pastille « Modifiées sans renvoi TMS 
       'commandee-modifiee',
       'en-cours-modifiee',
     ]);
+  });
+
+  it('le badge et le bouton de la fiche (ligne déjà chargée) désignent les mêmes collectes que la pastille', () => {
+    const q = requeteFactice(MODIFIEES);
+    applyChipPredicate(q, 'dirty_tms', new Date());
+    const parLaPastille = q.retenues().map((l) => l.id);
+    const parLaFiche = MODIFIEES.filter((l) =>
+      estModifieeSansRenvoi(
+        l as unknown as { dirty_tms: boolean; statut: string },
+      ),
+    ).map((l) => l.id);
+    expect(parLaFiche).toEqual(parLaPastille);
   });
 });

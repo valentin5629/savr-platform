@@ -257,4 +257,24 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
       null,
     );
   });
+
+  // Une collecte AG avec excédents n'a pas de rapport (son document est
+  // l'attestation de don) : le filtre ne retient que les ZD et les AG sans
+  // excédents. Mesuré sur savr-dev le 2026-10-09 : 79 collectes sans cette
+  // règle (dont 24 AG clôturées avec une ligne de rapport jamais rendue), 55 avec.
+  it('M0.6 — filtre rapport_non_consulte=true → seulement ZD et AG sans excédents', async () => {
+    await callGet('?rapport_non_consulte=true');
+    expect(chain.or).toHaveBeenCalledWith(
+      'type.eq.zero_dechet,statut.eq.realisee_sans_collecte',
+    );
+  });
+
+  it('M0.6 — sans le filtre rapport_non_consulte, aucune restriction de type n’est posée', async () => {
+    await callGet('');
+    expect(
+      chain.or.mock.calls.some((c) =>
+        String(c[0]).includes('realisee_sans_collecte'),
+      ),
+    ).toBe(false);
+  });
 });

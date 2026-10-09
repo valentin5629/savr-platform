@@ -322,7 +322,7 @@ interface DocumentsData {
   photos: PhotoItem[];
 }
 
-// Ligne d'un document (rapport, bordereau, attestation) qui n'existe pas encore :
+// Ligne d'un document (rapport, bordereau, rapport de don) qui n'existe pas encore :
 // un seul texte, quel que soit le statut de la collecte (décision Val 2026-10-09).
 const DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
 
@@ -339,7 +339,11 @@ interface AuditEntry {
 }
 
 // Types de document PDF régénérables (aligné @savr/shared PDF_DOCUMENT_TYPES).
-type PdfType = 'rapport-recyclage-zd' | 'bordereau-zd' | 'attestation-don';
+type PdfType =
+  | 'rapport-recyclage-zd'
+  | 'rapport-evenement-sans-excedent'
+  | 'bordereau-zd'
+  | 'attestation-don';
 
 function DifficulteBadge({ valeur }: { valeur?: string | null }) {
   if (!valeur) return <>—</>;
@@ -626,14 +630,20 @@ export function CollecteDetailPanel({
   const nbPhotosClient = (documents?.photos ?? []).filter(
     (p) => p.visible_client,
   ).length;
-  // Ligne « Rapport RSE » : toujours pour une collecte ZD. Pour une collecte AG,
-  // seulement s'il y a un rapport à montrer — collecte « réalisée sans collecte »
-  // (rapport « sans excédent ») ou PDF déjà fabriqué. Une collecte AG avec don n'a
-  // aucun rapport PDF : son document est l'attestation (décision Val 2026-10-09).
-  const afficherRapport =
-    collecte?.type === 'zero_dechet' ||
-    collecte?.statut === 'realisee_sans_collecte' ||
-    Boolean(documents?.rapport?.genere_at);
+  // Documents d'une collecte AG : UNE seule ligne, toujours nommée « Rapport de
+  // don » (décision Val 2026-10-09). Deux PDF distincts derrière ce nom :
+  //   - avec excédents : l'attestation de don (attestations_don) ;
+  //   - sans excédents (`realisee_sans_collecte`) : le rapport « Événement sans
+  //     excédent alimentaire », porté par rapports_rse comme le rapport ZD.
+  // La ligne du rapport sert donc la collecte ZD (« Rapport RSE ») et la collecte
+  // AG sans excédents (« Rapport de don ») ; jamais une collecte AG avec don.
+  const agSansExcedent =
+    collecte?.type === 'anti_gaspi' &&
+    collecte.statut === 'realisee_sans_collecte';
+  const afficherRapport = collecte?.type === 'zero_dechet' || agSansExcedent;
+  const typeRapport: PdfType = agSansExcedent
+    ? 'rapport-evenement-sans-excedent'
+    : 'rapport-recyclage-zd';
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -2414,12 +2424,12 @@ export function CollecteDetailPanel({
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
               <div className="divide-y divide-savr-neutral-100">
-                {/* Rapport RSE (ZD ; AG : sans excédent ou PDF déjà fabriqué) */}
+                {/* Rapport : « Rapport RSE » (ZD) ou « Rapport de don » (AG sans excédents) */}
                 {afficherRapport && (
                   <div className="flex items-center gap-3 py-3">
                     <div className="flex-1">
                       <p className="text-sm font-medium flex items-center gap-2">
-                        Rapport RSE
+                        {agSansExcedent ? 'Rapport de don' : 'Rapport RSE'}
                         {documents?.rapport &&
                           (documents.rapport.version > 1 ||
                             documents.rapport.regenere_at) && (
@@ -2471,11 +2481,9 @@ export function CollecteDetailPanel({
                       size="sm"
                       variant="ghost"
                       disabled={!documents?.rapport}
-                      loading={regenerating === 'rapport-recyclage-zd'}
+                      loading={regenerating === typeRapport}
                       loadingText="Régénérer"
-                      onClick={() =>
-                        void handleRegenerate('rapport-recyclage-zd')
-                      }
+                      onClick={() => void handleRegenerate(typeRapport)}
                     >
                       <RotateCw />
                       Régénérer
@@ -2533,12 +2541,12 @@ export function CollecteDetailPanel({
                   </div>
                 )}
 
-                {/* Attestation de don (AG only) */}
-                {collecte.type === 'anti_gaspi' && (
+                {/* Rapport de don d'une collecte AG avec excédents = l'attestation de don */}
+                {collecte.type === 'anti_gaspi' && !agSansExcedent && (
                   <div className="flex items-center gap-3 py-3">
                     <div className="flex-1">
                       <p className="text-sm font-medium">
-                        Attestation de don
+                        Rapport de don
                         {documents?.attestation?.numero && (
                           <Text
                             as="span"

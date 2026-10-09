@@ -596,6 +596,62 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     ATTENTE_CAS_MS,
   );
 
+  // Une collecte AG avec excédents n'a pas de rapport : son document est
+  // l'attestation de don. Une ligne de rapport en base (anciens batchs, jamais
+  // rendue en PDF) n'annonce donc rien. Une AG sans excédents, elle, a un vrai
+  // rapport, nommé « Rapport de don » côté documents.
+  it.each([
+    ['AG clôturée avec excédents', 'cloturee', false],
+    ['AG sans excédents', 'realisee_sans_collecte', true],
+  ])(
+    'M0.6 — indicateur de rapport de la liste, %s',
+    async (_cas, statut, indicateurAttendu) => {
+      const ligne = ag({
+        id: 'ag-rapport',
+        statut,
+        statut_tms: 'acceptee',
+        rapports_rse: [
+          {
+            disponible_a: '2026-05-11T06:00:00Z',
+            genere_at: null,
+            regenere_at: null,
+            consulte_par_user_at: null,
+            version: 1,
+          },
+        ],
+      });
+      const fetchMock = vi.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+        if (
+          typeof url === 'string' &&
+          url.startsWith('/api/v1/admin/collectes')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [ligne], total: 1 }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<CollectesPage />);
+      await screen.findAllByText(
+        ligne.evenements.organisations.raison_sociale,
+        undefined,
+        ATTENTE_UI,
+      );
+
+      // Lu DANS le tableau : la barre de filtres porte une case du même nom.
+      expect(tableau().queryAllByText(/Rapport non consulté/).length > 0).toBe(
+        indicateurAttendu,
+      );
+      expect(tableau().queryByText(/Rapport consulté/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M0.6 — carte AG à attribuer : badge Info incomplète + bouton Attribuer',
     async () => {

@@ -149,7 +149,15 @@ export function appliquerFiltresCollectesAdmin<Q>(
       .is('infos_acces_email_envoye_at', null)
       .gte('date_collecte', jourParis(now));
   }
-  if (f.rapportNonConsulte) q = q.is('rapports_rse.consulte_par_user_at', null);
+  if (f.rapportNonConsulte) {
+    // Seules les collectes qui ont un rapport : ZD, et AG sans excédents. Une
+    // collecte AG avec excédents n'en a pas (son document est l'attestation de
+    // don), même si une ligne rapports_rse existe en base pour elle — même règle
+    // que l'indicateur de la liste (components/admin/collectes-table).
+    q = q
+      .is('rapports_rse.consulte_par_user_at', null)
+      .or('type.eq.zero_dechet,statut.eq.realisee_sans_collecte');
+  }
 
   return q as unknown as Q;
 }

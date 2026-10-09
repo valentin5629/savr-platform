@@ -364,15 +364,9 @@ export async function runBatchPdfJ1Ag(
         attempts: 0,
       });
 
-      // 9. Créer la ligne rapports_rse AG (page RSE) avec embargo H+24
-      await supabase.from('rapports_rse').insert({
-        collecte_id: collecte.id,
-        evenement_id: collecte.evenement_id,
-        version: 1,
-        disponible_a: disponibleA.toISOString(),
-        genere_par: 'automatique',
-        filtres_benchmark: {},
-      });
+      // (Pas de ligne rapports_rse pour une collecte AG avec excédents : son
+      // document est l'attestation, affichée « Rapport de don ». L'ancienne étape 9
+      // en créait une qu'aucun rendu ne suivait — décision Val 2026-10-09.)
 
       // 10. Email attestation_don_disponible (non bloquant). Destinataire =
       // email_principal de l'organisation programmatrice (§06.02, tranché Val

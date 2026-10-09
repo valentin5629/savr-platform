@@ -132,6 +132,14 @@
       "test": "M3.4/cockpit_declinaison_kpi_cards",
       "statut": "implemented",
       "libelle": "R24c — Déclinaison Cockpit du dashboard client_organisateur (§11 §7, « Mon impact RSE », lecture seule). Les cadrans passent en KpiCockpitCard (chrome data-viz partagé) : bandeau YTD + onglet ZD (dont CO₂ évité en headline) + détail bilan carbone ABC repliable + onglet AG, hrefs de navigation préservés. Dashboard SIMPLE conservé à l'identique du §11 §7 : pas de benchmark ni de Top listes (ce rôle n'en a pas). Suppression de KpiCard (orphelin). DS appliqué. Aucune régression fonctionnelle ; endpoint kpi-client-organisateur inchangé."
+    },
+    {
+      "id": "M3.4-documents-ag-rapport-de-don",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:78",
+      "artefact": "packages/plateforme/src/app/api/v1/organisateur/documents/route.ts (champ `nom` décidé par la route : « Rapport de don » pour l'attestation d'une collecte AG et pour le rapport d'une collecte AG sans excédents, « Rapport RSE » pour une collecte ZD ; une ligne rapports_rse d'une collecte AG avec excédents n'est pas listée) + packages/plateforme/src/app/(client-organisateur)/organisateur/documents/page.tsx (affiche `nom`)",
+      "test": "packages/plateforme/tests/api/organisateur/espace-organisateur.m3-4.test.ts « M3.4/documents_collecte_ag_un_seul_rapport_de_don »",
+      "statut": "implemented",
+      "libelle": "Page Documents du client organisateur : un seul document par collecte AG, nommé « Rapport de don » avec ou sans excédents ; plus de « Rapport RSE » jamais disponible pour une collecte AG (décision Val 2026-10-09)"
     }
   ],
   "cdc_source_hash": {

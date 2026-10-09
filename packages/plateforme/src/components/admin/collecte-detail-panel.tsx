@@ -322,6 +322,10 @@ interface DocumentsData {
   photos: PhotoItem[];
 }
 
+// Ligne d'un document (rapport, bordereau, attestation) qui n'existe pas encore :
+// un seul texte, quel que soit le statut de la collecte (décision Val 2026-10-09).
+const DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
+
 // Bloc 7 — Historique + audit log (GET /[id]/audit).
 interface AuditEntry {
   id: string;
@@ -2428,7 +2432,7 @@ export function CollecteDetailPanel({
                     </p>
                     <Text variant="hint">
                       {!documents?.rapport
-                        ? 'Non encore généré'
+                        ? DOCUMENT_A_VENIR
                         : !documents.rapport.genere_at
                           ? 'En attente de génération'
                           : documents.rapport.consulte_par_user_at
@@ -2488,7 +2492,7 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.bordereau
                           ? `Statut : ${documents.bordereau.statut}`
-                          : 'Non encore généré'}
+                          : DOCUMENT_A_VENIR}
                       </Text>
                     </div>
                     <Button
@@ -2538,7 +2542,7 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.attestation
                           ? `Statut : ${documents.attestation.statut}`
-                          : 'Non encore générée'}
+                          : DOCUMENT_A_VENIR}
                       </Text>
                     </div>
                     <Button

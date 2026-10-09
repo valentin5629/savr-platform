@@ -1738,6 +1738,76 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
+  // Document pas encore produit : un seul texte, quel que soit le statut de la
+  // collecte (décision Val 2026-10-09). Lu SOUS le libellé de sa ligne, jamais en
+  // pleine page ; « Télécharger » et « Régénérer » restent grisés.
+  const sansDocument = {
+    rapport: null,
+    bordereau: null,
+    attestation: null,
+    photos: [],
+  };
+  const TEXTE_DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
+  const ligneDocument = (libelle: string): HTMLElement =>
+    screen.getByText(libelle).parentElement as HTMLElement;
+  const boutonsDeLaLigne = (libelle: string): HTMLElement[] =>
+    within(ligneDocument(libelle).parentElement as HTMLElement).getAllByRole(
+      'button',
+    );
+
+  it.each([
+    ['AG réalisée', baseAg, ['Rapport RSE', 'Attestation de don']],
+    ['ZD réalisée', baseZd, ['Rapport RSE', 'Bordereau ZD']],
+    [
+      'AG pas encore réalisée',
+      { ...baseAg, statut: 'validee' },
+      ['Rapport RSE', 'Attestation de don'],
+    ],
+    [
+      'ZD annulée',
+      { ...baseZd, statut: 'annulee' },
+      ['Rapport RSE', 'Bordereau ZD'],
+    ],
+  ])(
+    'M0.6 — Bloc 3 : document absent, collecte %s : texte unique sous chaque ligne, boutons grisés',
+    async (_cas, collecte, libelles) => {
+      installMock({ collecte, documents: sansDocument });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText(libelles[1]!, undefined, ATTENTE_UI);
+
+      for (const libelle of libelles) {
+        expect(
+          within(ligneDocument(libelle)).getByText(TEXTE_DOCUMENT_A_VENIR),
+        ).toBeInTheDocument();
+        const boutons = boutonsDeLaLigne(libelle);
+        expect(boutons.map((b) => b.textContent)).toEqual([
+          'Télécharger',
+          'Régénérer',
+        ]);
+        for (const bouton of boutons) expect(bouton).toBeDisabled();
+      }
+      expect(screen.getAllByText(TEXTE_DOCUMENT_A_VENIR)).toHaveLength(2);
+      expect(screen.queryByText(/Non encore généré/)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : document présent : le texte du document absent ne s’affiche pas',
+    async () => {
+      installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('ATT-DON-2026-00001', undefined, ATTENTE_UI);
+
+      expect(
+        screen.queryByText(TEXTE_DOCUMENT_A_VENIR),
+      ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // (Bloc « Pack AG » retiré de la fiche — décision Val ; ex-tests Bloc 4 supprimés.)
 
   it(

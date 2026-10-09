@@ -68,9 +68,24 @@ set -uo pipefail
 # première version ancrait sur `(^|[;&|])` seul : le gate était donc muet sur la
 # commande même que le harnais oblige à écrire. Relevé en revue, mesuré.
 # NE JAMAIS resserrer ce motif sans relancer `--self-test`.
-gate_merge_matche() {
-  printf '%s' "$1" | grep -Eq '(^|[;&|(]|\b(if|then|else|elif|do|while|until|time|env|command|exec|nohup)[[:space:]]+)[[:space:]]*gh[[:space:]]+pr[[:space:]]+merge'
-}
+#
+# Le texte est donné à grep par un tube lu SANS `pipefail` (sous-shell) : seul le
+# verdict de grep décide. Avec `pipefail`, `printf … | grep -q` sortait en erreur
+# sur une grosse commande (grep sort au premier résultat, printf n'a pas fini
+# d'écrire) et le merge était « non vu ». Mesuré le 2026-10-08 sur une copie de
+# ce hook, 10 passages par cas, sous macOS (/bin/bash 3.2.57) et sous Ubuntu
+# 22.04 (bash 5.1.16), avec LC_ALL=C comme avec LC_ALL=en_US.UTF-8 : le merge en
+# première ligne suivi de 300 000 caractères — forme nue comme forme imposée
+# `if … ; then` — n'était vu aucune fois sur 10 par cette fonction ; rejoué en
+# entier sur la forme nue, le hook sortait en 0 sans appeler `gh` ni laisser de
+# trace. En dernière ligne après 300 000 caractères, le merge était vu 10 fois
+# sur 10.
+# Mécanisme, seuils relevés, et pourquoi pas une chaîne-ici : cf.
+# block-destructive.sh (destructive_matche).
+gate_merge_matche() (
+  set +o pipefail
+  printf '%s' "$1" 2>&- | grep -Eq '(^|[;&|(]|\b(if|then|else|elif|do|while|until|time|env|command|exec|nohup)[[:space:]]+)[[:space:]]*gh[[:space:]]+pr[[:space:]]+merge'
+)
 
 # L'argument est le premier token NON-FLAG après `merge` (`gh pr merge --squash 42`
 # est légal). On COUPE d'abord la queue au premier séparateur shell : sans ça,
@@ -87,9 +102,12 @@ gate_merge_arg() {
 # ── Auto-test : la matrice des formes de commande ──────────────────────────
 if [ "${1:-}" = "--self-test" ]; then
   echec=false
+  nv=0; nn=0; ng=0
   att() {  # att <commande> <VU|NON VU>
     if gate_merge_matche "$1"; then r=VU; else r="NON VU"; fi
-    [ "$r" = "$2" ] || { echo "🔴 motif : [$1] → $r (attendu $2)" >&2; echec=true; }
+    if [ "$2" = VU ]; then nv=$((nv + 1)); else nn=$((nn + 1)); fi
+    if [ "${#1}" -gt 300000 ]; then ng=$((ng + 1)); fi
+    [ "$r" = "$2" ] || { echo "🔴 motif : [${1:0:160}] → $r (attendu $2)" >&2; echec=true; }
   }
   arg() {  # arg <commande> <ARG attendu>
     a="$(gate_merge_arg "$1")"
@@ -107,6 +125,13 @@ if [ "${1:-}" = "--self-test" ]; then
   att 'git commit -m "doc: finir par gh pr merge 42"'              'NON VU'
   att 'grep -rn "gh pr merge" DEFINITION_OF_DONE.md'               'NON VU'
   att 'gh pr create --title "remplace gh pr merge"'                     'NON VU'
+  # — une très grosse commande : le tube sous `pipefail` la rendait « non vue »
+  #   dès qu'il restait trop de texte APRÈS la ligne du merge (cf. gate_merge_matche) —
+  remplissage="$(head -c 300000 /dev/zero | tr '\0' 'x')"
+  att "$(printf 'gh pr merge 42 --squash --delete-branch\n%s' "$remplissage")"      'VU'
+  att "$(printf 'if gh pr merge 42 --squash; then echo ok; fi\n%s' "$remplissage")" 'VU'
+  att "$(printf '%s\ngh pr merge 42 --squash\n%s' "$remplissage" "$remplissage")"   'VU'
+  att "$(printf 'git status --short\n%s' "$remplissage")"                           'NON VU'
   # — extraction de l'argument : la queue shell n'est jamais un nom de branche —
   arg 'gh pr merge 42 --squash'                                    '42'
   arg 'gh pr merge --squash 42'                                    '42'
@@ -119,7 +144,7 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "🔴 gate-merge : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
     exit 2
   fi
-  echo "✅ gate-merge : auto-test OK (6 formes de merge vues, 3 mentions ignorées, queue shell jamais prise pour une branche)."
+  echo "✅ gate-merge : auto-test OK ($nv formes de merge vues, $nn autres commandes ou mentions ignorées ; dont $ng commandes de plus de 300 000 caractères ; queue shell jamais prise pour une branche)."
   exit 0
 fi
 
@@ -148,7 +173,16 @@ ARG="$(gate_merge_arg "$CMD")"
 
 BRANCHE=""
 if [ -n "$ARG" ]; then
-  if printf '%s' "$ARG" | grep -Eq '^[0-9]+$|^https?://'; then
+  # Même lecture sans `pipefail` que gate_merge_matche. Ici le tube nu n'a pas été
+  # pris en défaut — mesuré à la main, dans les mêmes conditions : une URL de
+  # 100 030 ou de 300 030 caractères prenait bien cette branche, 10 fois sur 10.
+  # L'argument tient sur une seule ligne, et le défaut n'est apparu que lorsque du
+  # texte suivait la ligne du motif. La ligne est alignée pour que la décision ne
+  # repose pas sur cet invariant.
+  # ⚠ Aucun auto-test ne joue cette ligne : elle est dans le corps du hook, et
+  # `--self-test` ne rejoue que gate_merge_matche et gate_merge_arg. Remise au
+  # tube nu, ou même remplacée par `if false`, elle le laisse vert (mesuré).
+  if (set +o pipefail; printf '%s' "$ARG" 2>&- | grep -Eq '^[0-9]+$|^https?://'); then
     BRANCHE="$(gh pr view "$ARG" --json headRefName -q .headRefName 2>/dev/null || true)"
     # ⚠ `gh` en échec (non authentifié, hors ligne, rate limit) → on NE SAIT PAS
     # quelle branche est visée. Se rabattre sur le cwd ferait juger le clone

@@ -153,7 +153,6 @@ describe('E2E / AG / scenario-nominal-habilite', () => {
       { data: 'ATT-DON-2026-00001', error: null }, // rpc f_next_numero_attestation
       { data: { id: 'att-e2e-001' }, error: null }, // insert attestations_don
       { data: null, error: null }, // insert jobs_pdf
-      { data: null, error: null }, // insert rapports_rse
       { data: { contact_principal_email: 'chef@kaspia.fr' }, error: null }, // contact email
     ]);
 

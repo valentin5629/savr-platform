@@ -238,11 +238,10 @@ export function OngletBilan({
     );
   }
 
-  const rapportNom = sansExcedent
-    ? 'Rapport « Événement sans excédent alimentaire »'
-    : isAg
-      ? 'Rapport de don'
-      : 'Rapport RSE';
+  // Collecte AG : un seul nom de document, « Rapport de don », avec ou sans
+  // excédents (décision Val 2026-10-09). Deux PDF distincts derrière ce nom :
+  // l'attestation de don, ou le rapport « Événement sans excédent alimentaire ».
+  const rapportNom = isAg ? 'Rapport de don' : 'Rapport RSE';
   const bilanDispo = realisee || sansExcedent;
   const factures = (c.factures ?? []).filter(
     (f) => f.statut !== 'brouillon' && (f.pdf_url_pennylane || f.pdf_url_savr),
@@ -304,8 +303,8 @@ export function OngletBilan({
           <SectionHeader icon={MinusCircle} title="Aucun repas collecté" />
           <Text tone="soft" className="leading-relaxed">
             Notre chauffeur s’est présenté sur place, mais il n’y avait pas
-            d’excédent alimentaire à donner. Aucune attestation de don n’est
-            émise pour cette collecte.
+            d’excédent alimentaire à donner. Votre rapport de don atteste que
+            cet événement était sans excédent.
           </Text>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-2">
             <InfoItem label="Motif">

@@ -883,10 +883,16 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       );
       expect(bloc.textContent).toContain('Buffet entièrement consommé');
       expect(bloc.textContent).toContain('Constaté le');
-      expect(bloc.textContent).toContain('Aucune attestation de don');
-      expect(screen.getByTestId('bloc-documents').textContent).toContain(
-        'Rapport « Événement sans excédent alimentaire »',
+      // Un seul nom de document pour une collecte AG, avec ou sans excédents
+      // (décision Val 2026-10-09) : le bloc renvoie au « rapport de don ».
+      expect(bloc.textContent).toContain(
+        'Votre rapport de don atteste que cet événement était sans excédent',
       );
+      expect(bloc.textContent).not.toContain('attestation');
+      const documents = screen.getByTestId('bloc-documents').textContent ?? '';
+      expect(documents).toContain('Rapport de don');
+      expect(documents).not.toContain('sans excédent alimentaire');
+      expect(documents).not.toContain('Rapport RSE');
       expect(screen.getByTestId('frise-statut-client').textContent).toContain(
         'Sans excédents',
       );

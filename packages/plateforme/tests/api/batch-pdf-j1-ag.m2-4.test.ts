@@ -265,7 +265,6 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
       { data: 'ATT-DON-2026-00001', error: null }, // rpc f_next_numero_attestation
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
       { data: null, error: null }, // insert jobs_pdf
-      { data: null, error: null }, // insert rapports_rse
       { data: { email_principal: 'chef@kaspia.fr' }, error: null }, // select email organisation programmatrice
     ]);
 
@@ -557,8 +556,11 @@ describe('M2.4 / BatchPdfJ1Ag / Embargo H+24', () => {
   });
 });
 
-describe('M2.4 / BatchPdfJ1Ag / rapports_rse AG', () => {
-  it('INSERT rapports_rse avec disponible_a = realisee_at + 24h', async () => {
+// Une collecte AG avec excédents n'a qu'un document : l'attestation, affichée
+// « Rapport de don » (décision Val 2026-10-09). Le batch ne crée plus de ligne
+// rapports_rse pour elle ; l'embargo H+24 est porté par l'attestation elle-même.
+describe('M2.4 / BatchPdfJ1Ag / pas de rapports_rse pour une collecte AG', () => {
+  it('aucune ligne rapports_rse ; attestation eligible_at = realisee_at + 24h', async () => {
     const realiseeAt = new Date(Date.now() - 26 * 3600 * 1000);
     const collecte = makeCollecteAg({ realisee_at: realiseeAt.toISOString() });
     const sb = makeSupabase([
@@ -579,21 +581,30 @@ describe('M2.4 / BatchPdfJ1Ag / rapports_rse AG', () => {
       { data: 'ATT-DON-2026-00005', error: null },
       { data: { id: 'att-rse' }, error: null },
       { data: null, error: null }, // jobs_pdf
-      { data: null, error: null }, // rapports_rse
       { data: { email_principal: null }, error: null },
     ]);
 
-    await runBatchPdfJ1Ag(sb as never);
+    const result = await runBatchPdfJ1Ag(sb as never);
+
+    expect(result.enqueued).toBe(1);
+    const tables = (sb.from as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => c[0] as string,
+    );
+    expect(tables).toContain('attestations_don');
+    expect(tables).not.toContain('rapports_rse');
 
     const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
       .calls as Array<[Record<string, unknown>]>;
-    const rseInsert = insertCalls.find(
-      (c) => c[0].disponible_a !== undefined,
+    expect(insertCalls.some((c) => c[0].disponible_a !== undefined)).toBe(
+      false,
+    );
+    const attestation = insertCalls.find(
+      (c) => c[0].eligible_at !== undefined,
     )?.[0];
-    expect(rseInsert).toBeDefined();
-    const disponibleA = new Date(rseInsert!.disponible_a as string);
+    expect(attestation).toBeDefined();
+    const eligibleAt = new Date(attestation!.eligible_at as string);
     const expected = new Date(realiseeAt.getTime() + 24 * 3600 * 1000);
-    expect(Math.abs(disponibleA.getTime() - expected.getTime())).toBeLessThan(
+    expect(Math.abs(eligibleAt.getTime() - expected.getTime())).toBeLessThan(
       5000,
     );
   });
@@ -653,7 +664,6 @@ describe('M2.4 / BatchPdfJ1Ag / instantané association_numero_rup', () => {
       { data: 'ATT-DON-2026-00042', error: null }, // rpc numéro
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
       { data: null, error: null }, // insert jobs_pdf
-      { data: null, error: null }, // insert rapports_rse
       { data: { email_principal: 'chef@kaspia.fr' }, error: null },
     ]);
 
@@ -720,7 +730,6 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
       { data: null, error: null }, // insert audit_log
       { data: null, error: null }, // insert jobs_pdf
-      { data: null, error: null }, // insert rapports_rse
       { data: { email_principal: 'compta@kaspia.fr' }, error: null },
     ]);
 

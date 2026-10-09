@@ -883,7 +883,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_popup_sans_excedent",
       "statut": "implemented",
-      "libelle": "AG sans excédents : bloc « Aucun repas collecté » (motif + « Constaté le » = realisee_at, pas d'attestation) + document « Rapport « Événement sans excédent alimentaire » », frise « Sans excédents »."
+      "libelle": "AG sans excédents : bloc « Aucun repas collecté » (motif + « Constaté le » = realisee_at, pas d'attestation) + document nommé « Rapport de don », comme pour une collecte avec excédents (décision Val 2026-10-09 : un seul nom, deux PDF distincts ; le bloc dit « Votre rapport de don atteste que cet événement était sans excédent »), frise « Sans excédents »."
     },
     {
       "id": "M3.1-popup-client-avant-realisation",

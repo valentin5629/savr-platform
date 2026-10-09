@@ -1763,34 +1763,76 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
+  // Appel de régénération attendu pour un type de document donné.
+  const regenerationDemandee = (
+    fetchMock: ReturnType<typeof installMock>,
+    type: string,
+  ): boolean =>
+    fetchMock.mock.calls.some(
+      (c) =>
+        typeof c[0] === 'string' &&
+        (c[0] as string).includes(`/documents/${type}/regenerate`) &&
+        (c[1] as { method?: string } | undefined)?.method === 'POST',
+    );
+
   it(
-    'M0.6 — Bloc 3 Documents : rapport RSE + attestation AG affichés ; le bouton Régénérer appelle l’endpoint de régénération',
+    'M0.6 — Bloc 3 Documents : collecte AG avec excédents, une seule ligne Rapport de don (attestation) ; Régénérer demande l’attestation',
     async () => {
+      // La fixture porte aussi une ligne de rapport : elle n'est pas affichée.
       const fetchMock = installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
 
-      // Bloc Documents rendu + rapport + attestation (AG).
+      expect(
+        await screen.findByText('Rapport de don', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
+      expect(screen.getByText('ATT-DON-2026-00001')).toBeInTheDocument();
+      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(screen.queryByText('Attestation de don')).not.toBeInTheDocument();
+      expect(screen.queryByTitle(/Rapport régénéré/)).not.toBeInTheDocument();
+
+      // Deux boutons seulement sur l'onglet : ceux de cette ligne.
+      const regenBtns = screen.getAllByRole('button', { name: /Régénérer/ });
+      expect(regenBtns).toHaveLength(1);
+      fireEvent.click(regenBtns[0]!);
+      await waitFor(
+        () =>
+          expect(regenerationDemandee(fetchMock, 'attestation-don')).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(regenerationDemandee(fetchMock, 'rapport-recyclage-zd')).toBe(
+        false,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 Documents : collecte ZD, Rapport RSE et Bordereau ZD ; Régénérer le rapport demande le rapport de recyclage',
+    async () => {
+      const fetchMock = installMock({
+        collecte: baseZd,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+
       expect(
         await screen.findByText('Rapport RSE', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(screen.getByText('Attestation de don')).toBeInTheDocument();
-      expect(screen.getByText('ATT-DON-2026-00001')).toBeInTheDocument();
+      expect(screen.getByText('Bordereau ZD')).toBeInTheDocument();
+      expect(screen.queryByText('Rapport de don')).not.toBeInTheDocument();
 
-      // Régénérer le rapport → POST /documents/rapport-recyclage-zd/regenerate.
       const regenBtns = screen.getAllByRole('button', { name: /Régénérer/ });
       fireEvent.click(regenBtns[0]!);
-      await waitFor(() => {
-        const call = fetchMock.mock.calls.find(
-          (c) =>
-            typeof c[0] === 'string' &&
-            (c[0] as string).includes(
-              '/documents/rapport-recyclage-zd/regenerate',
-            ) &&
-            (c[1] as { method?: string } | undefined)?.method === 'POST',
-        );
-        expect(call).toBeTruthy();
-      }, ATTENTE_UI);
+      await waitFor(
+        () =>
+          expect(regenerationDemandee(fetchMock, 'rapport-recyclage-zd')).toBe(
+            true,
+          ),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -1798,7 +1840,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   it(
     'M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale',
     async () => {
-      installMock({});
+      installMock({ collecte: baseZd, documents: documentsZd });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
       // rapport.version = 2 + regenere_at → picto ⟳ avec title « Rapport régénéré ».
@@ -1812,6 +1854,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   // Document pas encore produit : un seul texte, quel que soit le statut de la
   // collecte (décision Val 2026-10-09). Lu SOUS le libellé de sa ligne, jamais en
   // pleine page ; « Télécharger » et « Régénérer » restent grisés.
+  // Une collecte AG n'a qu'UNE ligne de document, nommée « Rapport de don »
+  // (décision Val 2026-10-09), jamais de ligne « Rapport RSE ».
   const sansDocument = {
     rapport: null,
     bordereau: null,
@@ -1827,12 +1871,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     );
 
   it.each([
-    ['AG réalisée', baseAg, ['Rapport RSE', 'Attestation de don']],
+    ['AG réalisée', baseAg, ['Rapport de don']],
     ['ZD réalisée', baseZd, ['Rapport RSE', 'Bordereau ZD']],
     [
       'AG pas encore réalisée',
       { ...baseAg, statut: 'validee' },
-      ['Rapport RSE', 'Attestation de don'],
+      ['Rapport de don'],
     ],
     [
       'ZD annulée',
@@ -1845,7 +1889,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       installMock({ collecte, documents: sansDocument });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText(libelles[1]!, undefined, ATTENTE_UI);
+      await screen.findByText(libelles.at(-1)!, undefined, ATTENTE_UI);
 
       for (const libelle of libelles) {
         expect(
@@ -1858,8 +1902,127 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         ]);
         for (const bouton of boutons) expect(bouton).toBeDisabled();
       }
-      expect(screen.getAllByText(TEXTE_DOCUMENT_A_VENIR)).toHaveLength(2);
+      expect(screen.getAllByText(TEXTE_DOCUMENT_A_VENIR)).toHaveLength(
+        libelles.length,
+      );
       expect(screen.queryByText(/Non encore généré/)).not.toBeInTheDocument();
+      if (!libelles.includes('Rapport RSE')) {
+        expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : collecte AG avec excédents, rapport en base sans PDF : aucune ligne Rapport RSE',
+    async () => {
+      // Ce qu'ont laissé d'anciens batchs AG : une ligne rapports_rse, jamais de PDF.
+      installMock({
+        collecte: { ...baseAg, statut: 'cloturee' },
+        documents: {
+          ...documentsAg,
+          rapport: {
+            ...documentsAg.rapport,
+            version: 1,
+            genere_at: null,
+            regenere_at: null,
+            pdf_url: null,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('ATT-DON-2026-00001', undefined, ATTENTE_UI);
+
+      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('En attente de génération'),
+      ).not.toBeInTheDocument();
+      // Seule ligne de document : le rapport de don, téléchargeable.
+      expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
+      const [telecharger] = boutonsDeLaLigne('Rapport de don');
+      expect(telecharger).toBeEnabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : collecte AG sans excédents, une seule ligne Rapport de don servie par le rapport sans excédent',
+    async () => {
+      const fetchMock = installMock({
+        collecte: { ...baseAg, statut: 'realisee_sans_collecte' },
+        documents: {
+          ...sansDocument,
+          rapport: {
+            id: 'r-sans',
+            version: 1,
+            disponible_a: '2026-05-11T06:00:00Z',
+            genere_at: '2026-05-11T06:00:00Z',
+            regenere_at: null,
+            consulte_par_user_at: null,
+            pdf_url: 'rapports/r-sans.pdf',
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+
+      // Une seule ligne, sous le même nom que pour une collecte avec excédents.
+      expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
+      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(
+        within(ligneDocument('Rapport de don')).getByText('Disponible'),
+      ).toBeInTheDocument();
+
+      // Télécharger sert le rapport ; Régénérer demande SON type de document.
+      const [telecharger, regenerer] = boutonsDeLaLigne('Rapport de don');
+      fireEvent.click(telecharger!);
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(
+              (c) => c[0] === '/api/v1/admin/rapports-rse/r-sans/download',
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      fireEvent.click(regenerer!);
+      await waitFor(
+        () =>
+          expect(
+            regenerationDemandee(fetchMock, 'rapport-evenement-sans-excedent'),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(regenerationDemandee(fetchMock, 'rapport-recyclage-zd')).toBe(
+        false,
+      );
+      expect(regenerationDemandee(fetchMock, 'attestation-don')).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : collecte AG sans excédents, rapport pas encore produit : texte unique sous Rapport de don',
+    async () => {
+      installMock({
+        collecte: { ...baseAg, statut: 'realisee_sans_collecte' },
+        documents: sansDocument,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+
+      expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
+      expect(
+        within(ligneDocument('Rapport de don')).getByText(
+          TEXTE_DOCUMENT_A_VENIR,
+        ),
+      ).toBeInTheDocument();
+      for (const bouton of boutonsDeLaLigne('Rapport de don')) {
+        expect(bouton).toBeDisabled();
+      }
     },
     ATTENTE_CAS_MS,
   );
@@ -1993,7 +2156,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       const fetchMock = installMock({});
       const { container } = render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
 
       const input = container.querySelector(
         'input[type="file"]',
@@ -2137,8 +2300,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       ).toBeInTheDocument();
       expect(screen.getByText('BSAV-2026-00001')).toBeInTheDocument();
       expect(screen.getByText(/Statut : emis/)).toBeInTheDocument();
-      // Une collecte ZD n'a pas d'attestation de don (bloc AG masqué).
-      expect(screen.queryByText('Attestation de don')).not.toBeInTheDocument();
+      // Une collecte ZD n'a pas de rapport de don (ligne AG masquée).
+      expect(screen.queryByText('Rapport de don')).not.toBeInTheDocument();
       // Ni de Bloc 4/5 AG.
       expect(screen.queryByText('Pack AG')).not.toBeInTheDocument();
       expect(screen.queryByText('Attribution AG')).not.toBeInTheDocument();
@@ -2164,7 +2327,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       const { container } = render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
       expect(screen.getByText('Photos (1)')).toBeInTheDocument();
       const img = container.querySelector(
         'img[alt="Photo collecte"]',

@@ -904,6 +904,11 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     const filtres = admin.__calls.eq ?? [];
     const i = filtres.findIndex(([col, v]) => col === 'id' && v === 'c-autre');
     expect(filtres[i + 1]).toEqual(['evenement_id', 'e1']);
+    // … et parmi les seules collectes encore modifiables.
+    expect(admin.__calls.in).toContainEqual([
+      'statut',
+      ['programmee', 'validee'],
+    ]);
   });
 
   it('M3.1/email_modification_un_seul_email — sans collecte nommée (la requête collecte suit) : aucun email ici', async () => {

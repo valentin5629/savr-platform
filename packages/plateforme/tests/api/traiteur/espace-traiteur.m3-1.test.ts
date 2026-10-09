@@ -434,7 +434,9 @@ describe('M3.1 / édition collecte', () => {
   });
 
   it('M3.1/email_modification_un_seul_email — pax et contact du même enregistrement : un seul email, tous les champs', async () => {
-    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    // Un manager (user-2) modifie la collecte programmée par un collègue
+    // (user-1) : session et créateur de l'événement sont deux personnes.
+    setupAuth('traiteur_manager', 'org-1', 'user-2');
     queueEditOk('2030-12-31', {
       old_values: {
         pax: 2000,
@@ -467,8 +469,10 @@ describe('M3.1 / édition collecte', () => {
     expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
       date_collecte: '2030-12-30',
     });
-    // La modification d'événement relue est celle de l'utilisateur de la session.
-    expect(admin.__calls.eq).toContainEqual(['user_id', 'user-1']);
+    // La modification d'événement relue est celle de l'utilisateur de la
+    // session, jamais celle du créateur de l'événement.
+    expect(admin.__calls.eq).toContainEqual(['user_id', 'user-2']);
+    expect(admin.__calls.eq).not.toContainEqual(['user_id', 'user-1']);
   });
 
   it('M3.1/email_modification_un_seul_email — sans signalement, le journal d’audit n’est pas relu', async () => {

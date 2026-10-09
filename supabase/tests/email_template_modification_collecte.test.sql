@@ -6,10 +6,36 @@
 -- l'email de modification liste les champs modifiés avec leurs valeurs, nomme le
 -- programmateur et le statut, et ne garde de la priorité qu'une ligne ATTENTION
 -- conditionnelle.
+--
+-- Sous rôle (revue sécurité) : le corps porte désormais un bloc HTML construit
+-- par le code, l'email historise des téléphones dans `emails_envoyes`, et les
+-- valeurs « avant » de l'événement sont relues dans `audit_log`. Aucun rôle
+-- client ne lit ni n'écrit ces trois tables ; `admin_savr` sert de témoin (les
+-- « 0 ligne » sont des refus, pas des tables vides).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(7);
+SELECT plan(21);
+
+-- Helpers de rôle, signatures de rls_0_4_smoke.test.sql.
+CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claims', json_build_object(
+    'sub', p_user_id,
+    'user_role', p_role,
+    'organisation_id', p_org_id,
+    'app_domain', 'plateforme'
+  )::text, true);
+  PERFORM set_config('role', 'authenticated', true);
+END $$;
+
+CREATE OR REPLACE FUNCTION test_as_superuser()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('role', 'postgres', true);
+  PERFORM set_config('request.jwt.claims', NULL, true);
+END $$;
 
 SELECT is(
   (SELECT COUNT(*)::integer FROM plateforme.email_templates
@@ -68,6 +94,66 @@ SELECT is(
    FROM plateforme.email_templates WHERE code = 'admin_modification_collecte_traiteur'),
   'admin_modification_collecte_traiteur : autant de blocs conditionnels ouverts que fermés'
 );
+
+-- ── Sous rôle ────────────────────────────────────────────────────────────────
+-- Fixture : un envoi de ce template, tel que le code l'historise (téléphone du
+-- programmateur dans les variables).
+INSERT INTO plateforme.emails_envoyes (template_code, destinataire, sujet, statut, variables_jsonb)
+VALUES ('admin_modification_collecte_traiteur', 'contact@gosavr.io', 'Modification d''une collecte à venir',
+        'sent', '{"programmateur":"Julie Martin, joignable au 0601020304"}'::jsonb);
+
+-- traiteur_manager
+SELECT test_set_jwt('traiteur_manager', '0b9e5700-0000-0000-0000-000000000001'::uuid);
+SELECT is((SELECT count(*)::int FROM plateforme.email_templates), 0,
+  'traiteur_manager ne lit aucun gabarit');
+SELECT throws_ok(
+  $$INSERT INTO plateforme.email_templates (code, sujet, corps_html) VALUES ('sonde_role', 'x', '<p>x</p>')$$,
+  '42501', NULL, 'traiteur_manager ne crée pas de gabarit');
+WITH maj AS (UPDATE plateforme.email_templates SET corps_html = '<p>détourné</p>' RETURNING 1)
+SELECT is((SELECT count(*)::int FROM maj), 0, 'traiteur_manager ne réécrit aucun gabarit');
+SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes), 0,
+  'traiteur_manager ne lit aucun email envoyé (variables : téléphones)');
+SELECT throws_ok(
+  $$INSERT INTO plateforme.audit_log (id, table_name, record_id, action, user_id, old_values, new_values)
+    VALUES (9000000000000002, 'evenements', gen_random_uuid(), 'UPDATE', gen_random_uuid(),
+            '{"pax":"<b>forgé</b>"}', '{"updates":{"pax":1}}')$$,
+  '42501', NULL, 'traiteur_manager ne forge pas la ligne d''audit que l''email relit');
+
+-- traiteur_commercial
+SELECT test_set_jwt('traiteur_commercial', '0b9e5700-0000-0000-0000-000000000001'::uuid);
+SELECT is((SELECT count(*)::int FROM plateforme.email_templates), 0,
+  'traiteur_commercial ne lit aucun gabarit');
+SELECT throws_ok(
+  $$INSERT INTO plateforme.email_templates (code, sujet, corps_html) VALUES ('sonde_role', 'x', '<p>x</p>')$$,
+  '42501', NULL, 'traiteur_commercial ne crée pas de gabarit');
+WITH maj AS (UPDATE plateforme.email_templates SET corps_html = '<p>détourné</p>' RETURNING 1)
+SELECT is((SELECT count(*)::int FROM maj), 0, 'traiteur_commercial ne réécrit aucun gabarit');
+SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes), 0,
+  'traiteur_commercial ne lit aucun email envoyé (variables : téléphones)');
+SELECT throws_ok(
+  $$INSERT INTO plateforme.audit_log (id, table_name, record_id, action, user_id, old_values, new_values)
+    VALUES (9000000000000003, 'evenements', gen_random_uuid(), 'UPDATE', gen_random_uuid(),
+            '{"pax":"<b>forgé</b>"}', '{"updates":{"pax":1}}')$$,
+  '42501', NULL, 'traiteur_commercial ne forge pas la ligne d''audit que l''email relit');
+
+-- ops_savr : les emails envoyés lui sont fermés aussi (données personnelles).
+SELECT test_set_jwt('ops_savr', NULL);
+SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes), 0,
+  'ops_savr ne lit aucun email envoyé');
+
+-- Témoins de non-vacuité : admin_savr lit, donc les « 0 » ci-dessus sont des refus.
+SELECT test_set_jwt('admin_savr', NULL);
+SELECT is((SELECT count(*)::int FROM plateforme.email_templates
+            WHERE code = 'admin_modification_collecte_traiteur'), 1,
+  'témoin : admin_savr lit le gabarit');
+SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes
+            WHERE template_code = 'admin_modification_collecte_traiteur'
+              AND variables_jsonb ? 'programmateur'), 1,
+  'témoin : admin_savr lit l''email envoyé et ses variables');
+
+SELECT test_as_superuser();
+SELECT is((SELECT count(*)::int FROM plateforme.email_templates WHERE corps_html = '<p>détourné</p>'), 0,
+  'aucun gabarit réécrit');
 
 SELECT * FROM finish();
 ROLLBACK;

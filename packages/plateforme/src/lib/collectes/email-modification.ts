@@ -327,7 +327,8 @@ export async function notifierEquipeModificationCollecte(
         modificationUrgente(dateInitiale, heureInitiale),
       ),
     };
-    if (!vide(paxInitial)) variables.pax_initial = String(paxInitial);
+    if (!vide(paxInitial))
+      variables.pax_initial = escapeHtml(String(paxInitial));
     if (nomProgrammateur)
       variables.programmateur = escapeHtml(
         p?.telephone

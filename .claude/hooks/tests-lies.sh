@@ -32,8 +32,8 @@
 #   • en CI, par le job `lint-typecheck-test` — status check REQUIS sur `main`.
 # Ce qui échappe encore au commit est donc vu à la PR — plus tard dans la même
 # session, jamais après le merge : les autres tests qui lisent le dépôt sans
-# l'importer (26 fichiers de test au 2026-10-08, dont 19 lisent du SQL), et tout
-# ce qu'un changement SQL, HTML ou Markdown peut casser.
+# l'importer (une migration SQL ouverte par `readFileSync`, par exemple), et
+# tout ce qu'un changement SQL, HTML ou Markdown peut casser.
 #
 # REPLI SUR LA SUITE COMPLÈTE — chaque fois que « lié » ne veut plus rien dire :
 #   • un fichier de configuration ou de dépendances change (peut casser n'importe

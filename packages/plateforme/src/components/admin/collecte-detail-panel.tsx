@@ -1933,16 +1933,29 @@ export function CollecteDetailPanel({
                   )}
                   {dispatchEnLecture ? (
                     // Ordre en file d'envoi : pas de bouton primaire d'envoi (il
-                    // est déjà parti) — seule action : rouvrir le choix du
+                    // est déjà parti), sauf si la collecte a été modifiée
+                    // depuis — « Renvoyer » vide alors le drapeau (arbitrage Val
+                    // 2026-10-09). Autre action : rouvrir le choix du
                     // prestataire.
-                    <Button
-                      ref={changerPrestataireBtnRef}
-                      variant="secondary"
-                      onClick={() => setChangerPrestataire(true)}
-                    >
-                      <Truck />
-                      Changer de prestataire
-                    </Button>
+                    <>
+                      <Button
+                        ref={changerPrestataireBtnRef}
+                        variant="secondary"
+                        onClick={() => setChangerPrestataire(true)}
+                      >
+                        <Truck />
+                        Changer de prestataire
+                      </Button>
+                      {collecte.dirty_tms && (
+                        <Button
+                          onClick={() => void handleDispatch()}
+                          loading={dispatching}
+                          loadingText="Envoi…"
+                        >
+                          <Send /> {libelleDispatch(forkTypeTms, true)}
+                        </Button>
+                      )}
+                    </>
                   ) : (
                     <>
                       {ordreEnFileEnvoi && (

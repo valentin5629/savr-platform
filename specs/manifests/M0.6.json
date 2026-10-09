@@ -9,7 +9,8 @@
     "supabase/tests/M0_6__cat_3.test.sql",
     "supabase/tests/M0_6__cat_4.test.sql",
     "supabase/tests/M0_6__cat_5.test.sql",
-    "supabase/tests/M0_6__cat_6-7.test.sql"
+    "supabase/tests/M0_6__cat_6-7.test.sql",
+    "supabase/tests/collectes_modifiees_apres_envoi.test.sql"
   ],
   "scenarios": [
     {
@@ -515,7 +516,8 @@
       "category": "Back-office Admin — liste Collectes (export CSV)",
       "title": "export_csv_liste_admin_croisement_vide",
       "file": "packages/plateforme/src/app/(admin)/admin/collectes/collectes-url.r-ui-4a.test.tsx"
-    }
+    },
+    "M0.6/dirty_tms_apres_envoi"
   ],
   "coverage": {
     "total_tests": 64,
@@ -1597,6 +1599,38 @@
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 : document absent, collecte AG réalisée : texte unique sous chaque ligne, boutons grisés », « M0.6 — Bloc 3 : document absent, collecte ZD réalisée : texte unique sous chaque ligne, boutons grisés », « M0.6 — Bloc 3 : document absent, collecte AG pas encore réalisée : texte unique sous chaque ligne, boutons grisés », « M0.6 — Bloc 3 : document absent, collecte ZD annulée : texte unique sous chaque ligne, boutons grisés », « M0.6 — Bloc 3 : document présent : le texte du document absent ne s’affiche pas »",
       "statut": "à-vérifier",
       "libelle": "Fiche collecte Admin, Bloc 3 Documents : une ligne de document qui n'existe pas encore affiche « Généré sous 48h après la collecte », quel que soit le statut — texte dicté par Val le 2026-10-09 en revue E2E (_Divergences/M0.6_20261009_bloc3-document-attendu.md). GO visuel de Val en attente ; rendu contrôlé le 2026-10-09 sur un aperçu local à données simulées (captures transmises à Val dans la conversation) : ce contrôle prouve le rendu du texte, pas l'application connectée."
+    },
+    {
+      "id": "M0.6-dirty-tms-arme-des-envoi",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
+      "artefact": "supabase/migrations/20261009210000_plateforme_collectes_modifiees_apres_envoi.sql",
+      "test": "supabase/tests/collectes_modifiees_apres_envoi.test.sql",
+      "statut": "implemented",
+      "libelle": "Drapeau « modifiée sans renvoi » (arbitrage Val 2026-10-09, divergence M0.6_20261009_modifiees-sans-renvoi-apres-envoi) : armé dès que la demande est partie vers le prestataire (un des quatre signaux de l'affichage « Programmée », lus sur l'état d'avant la modification), pour les cinq champs transmis de la collecte ET pour le pax et les contacts de l'événement (déclencheur sur evenements) ; jamais avant l'envoi ni pour un champ non transmis ; vidé par le renvoi ; un client ne peut ni l'armer ni le vider lui-même"
+    },
+    {
+      "id": "M0.6-dirty-tms-compteurs",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:211",
+      "artefact": "packages/plateforme/src/lib/collectes-chips.ts, packages/plateforme/src/app/api/v1/admin/dashboard/kpi/route.ts, packages/plateforme/src/app/api/v1/dashboards/kpi-admin/route.ts",
+      "test": "M0.6/dirty_tms_apres_envoi",
+      "statut": "implemented",
+      "libelle": "Pastille « Modifiées sans renvoi TMS » de la liste Collectes Admin, son compteur et les deux cartes du Dashboard Admin : collectes au drapeau levé encore à réaliser (programmée, validée, en cours), sans exiger de référence de commande (une commande en file d'envoi n'en a pas encore, un transporteur joint par mail ou téléphone n'en a jamais)"
+    },
+    {
+      "id": "M0.6-dirty-tms-renvoyer-en-file",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
+      "test": "M0.6/dirty_tms_apres_envoi",
+      "statut": "implemented",
+      "libelle": "Fiche collecte Admin, commande encore en file d'envoi : « Renvoyer » s'affiche à côté de « Changer de prestataire » quand la collecte a été modifiée depuis l'envoi, et part sans prestataire (le renvoi vide le drapeau) ; absent tant que la collecte n'est pas modifiée"
+    },
+    {
+      "id": "M0.6-dirty-tms-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu à l'écran, à constater par Val sur dev : après envoi puis modification par le client, la pastille « Modifiées sans renvoi TMS » passe à 1 et liste la collecte ; la fiche porte le badge « Modifiée — renvoi requis » et le bouton « Renvoyer » ; après le clic, la pastille revient à 0"
     }
   ],
   "cdc_source_hash": {

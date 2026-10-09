@@ -74,6 +74,21 @@ export function estADispatcher(row: {
   );
 }
 
+// « Modifiée sans renvoi » (arbitrage Val 2026-10-09) : une collecte déjà partie
+// vers le prestataire a été modifiée et n'a pas été renvoyée. « Partie puis
+// modifiée » est porté par le drapeau `dirty_tms`, que les déclencheurs de
+// `collectes` et d'`evenements` arment dès le clic de l'Admin (migration
+// 20261009210000) et que le renvoi vide. Ici on ne garde que les collectes
+// encore à réaliser : une collecte terminée n'a plus rien à renvoyer.
+// Aucune condition sur `tms_reference` : une commande en file d'envoi n'en a pas
+// encore, un transporteur joint par mail ou téléphone n'en aura jamais.
+// Source unique du chip, de son compteur et des deux cartes du Dashboard Admin.
+export const STATUTS_A_RENVOYER: readonly string[] = [
+  'programmee',
+  'validee',
+  'en_cours',
+];
+
 // Applique le prédicat d'un chip à une requête collectes. `now` injecté pour la
 // testabilité (fenêtres 48h). Chip inconnu = requête inchangée.
 export function applyChipPredicate(
@@ -98,7 +113,7 @@ export function applyChipPredicate(
     case 'attente_prestataire':
       return query.eq('statut_tms', 'attribuee_en_attente_acceptation');
     case 'dirty_tms':
-      return query.eq('dirty_tms', true).not('tms_reference', 'is', null);
+      return query.eq('dirty_tms', true).in('statut', STATUTS_A_RENVOYER);
     case 'ag_attente_attribution':
       // AG programmée SANS attribution encore (anti-jointure : la relation
       // `attributions_antgaspi` doit être embarquée dans le select appelant).

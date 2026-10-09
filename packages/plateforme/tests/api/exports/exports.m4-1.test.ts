@@ -717,8 +717,8 @@ describe('M4.1 / export collectes — filtres de la liste Admin', () => {
     [
       'pastille « Modifiées sans renvoi TMS »',
       '?chip=dirty_tms',
-      'not',
-      ['tms_reference', 'is', null],
+      'in',
+      ['statut', ['programmee', 'validee', 'en_cours']],
     ],
     [
       'pastille « AG en attente attribution »',

@@ -1208,6 +1208,77 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     ATTENTE_CAS_MS,
   );
 
+  // Arbitrage Val 2026-10-09 : le drapeau « modifiée sans renvoi » s'arme dès le
+  // clic d'envoi. Tant que la commande est en file, la fiche n'offrait que
+  // « Changer de prestataire » : le filtre se serait rempli sans moyen de le
+  // vider.
+  it(
+    'M0.6/dirty_tms_apres_envoi — ZD en file d’envoi modifiée par le client : « Renvoyer à MTS-1 » s’affiche à côté de « Changer de prestataire » et part sans prestataire',
+    async () => {
+      const fetchMock = mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+          dirty_tms: true,
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bouton = await screen.findByRole(
+        'button',
+        { name: 'Renvoyer à MTS-1' },
+        ATTENTE_UI,
+      );
+      expect(bouton).toBeEnabled();
+      // Le bloc reste en lecture : pas de cartes, et le changement de
+      // prestataire reste offert.
+      expect(screen.queryByRole('radiogroup')).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeInTheDocument();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({});
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/dirty_tms_apres_envoi — ZD en file d’envoi non modifiée : pas de bouton de renvoi',
+    async () => {
+      mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+          dirty_tms: false,
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByRole(
+          'button',
+          { name: 'Changer de prestataire' },
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'ZD en demande d’annulation, sans prestataire : aucun choix proposé, envoi inactif',
     async () => {

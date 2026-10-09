@@ -10,18 +10,13 @@ import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
+import { CHAMPS_COLLECTE_EDITABLES } from '@/lib/collectes/champs-editables.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
-// Champs métier éditables (réplique §06.04 §Édition, sobriété A4). type/lieu/traiteur
-// verrouillés → rejetés explicitement.
-// `notes_internes` exclu : commentaire Admin Savr (§04), arbitrage Val C1.
-const EDITABLE_FIELDS = [
-  'date_collecte',
-  'heure_collecte',
-  'controle_acces_requis',
-  'informations_supplementaires',
-];
+// Champs éditables : CHAMPS_COLLECTE_EDITABLES (lib/collectes/champs-editables).
+// Type, lieu et organisation sont verrouillés (§05 l.314) → rejetés explicitement.
 const LOCKED_FIELDS = ['type', 'type_collecte', 'lieu_id', 'organisation_id'];
 
 // Résolution du nom du traiteur opérationnel (§06.11 diff #3).
@@ -119,7 +114,7 @@ export async function PATCH(
   }
 
   const updates = Object.fromEntries(
-    Object.entries(body).filter(([k]) => EDITABLE_FIELDS.includes(k)),
+    Object.entries(body).filter(([k]) => CHAMPS_COLLECTE_EDITABLES.includes(k)),
   );
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
@@ -174,6 +169,13 @@ export async function PATCH(
   }
 
   const admin = createAdminSupabaseClient();
+  // État d'avant l'écriture : valeurs « avant » de l'email à l'équipe Savr.
+  const { data: before } = await admin
+    .from('collectes')
+    .select('*')
+    .eq('id', id)
+    .single();
+
   const { data: updated, error } = await admin.rpc('fn_modifier_collecte', {
     p_id: id,
     p_updates: updates,
@@ -187,6 +189,18 @@ export async function PATCH(
       .update({ statut_tms: 'attribuee_en_attente_acceptation' })
       .eq('id', id);
   }
+
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification). Quand le
+  // formulaire vient aussi de modifier l'événement, il le signale
+  // (`evenement_modifie`) : cette modification est relue dans le journal d'audit.
+  await notifierEquipeModificationCollecte(admin, req, {
+    collecteId: id,
+    collecteAvant: (before ?? null) as Record<string, unknown> | null,
+    majCollecte: updates,
+    ...(body.evenement_modifie === true
+      ? { evenementModifiePar: auth.ctx.userId }
+      : {}),
+  });
 
   // BL-P2-22 (tpl 21, modification) : info-only au traiteur opérationnel — l'agence
   // est un tiers dès que le traiteur op est une org distincte non-shadow (garde

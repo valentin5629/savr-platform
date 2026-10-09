@@ -8,26 +8,12 @@ import {
 } from '@/lib/api-auth.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
+import { CHAMPS_EVENEMENT_EDITABLES } from '@/lib/collectes/champs-editables.js';
 import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 
-// Champs métier ÉVÉNEMENT éditables par les rôles programmateurs (§06.04 l.444,
-// §05 l.307). lieu_id et type_collecte = verrouillés (§05 l.314 / §06.04 l.459) :
-// changer le lieu = annuler + reprogrammer. organisation_id / traiteur_operationnel
-// / entite_facturation = immuables par construction → jamais exposés.
-const EVENT_EDITABLE_FIELDS = [
-  'nom_evenement',
-  'pax',
-  'type_evenement_id',
-  'contact_principal_nom',
-  'contact_principal_telephone',
-  'contact_secours_nom',
-  'contact_secours_telephone',
-  'nom_client_organisateur',
-  'logo_client_organisateur_url',
-  'reference_affaire',
-];
+// Champs éditables : CHAMPS_EVENEMENT_EDITABLES (lib/collectes/champs-editables).
 // Verrouillés pour les programmateurs (refus 422). lieu_id / type / organisation =
 // immuables (§05 l.314). client_organisateur_organisation_id = RATTACHEMENT d'une
 // org cliente (donne accès en lecture via evt_client_orga_select) → réservé Admin
@@ -118,7 +104,9 @@ export async function PATCH(
   }
 
   const updates = Object.fromEntries(
-    Object.entries(body).filter(([k]) => EVENT_EDITABLE_FIELDS.includes(k)),
+    Object.entries(body).filter(([k]) =>
+      CHAMPS_EVENEMENT_EDITABLES.includes(k),
+    ),
   );
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
@@ -268,16 +256,11 @@ export async function PATCH(
 
   // Email à l'équipe Savr (cf. lib/collectes/email-modification) : il part d'ici
   // quand l'enregistrement ne touche que l'événement — le formulaire nomme alors
-  // la collecte d'où il est ouvert (`collecte_id`). Déclencheur du CDC §06.02
-  // n°19 : un utilisateur traiteur. La collecte nommée doit être de CET événement
-  // et encore modifiable (mêmes statuts que la route collecte) : ni brouillon,
-  // ni collecte terminée.
+  // la collecte d'où il est ouvert (`collecte_id`). La collecte nommée doit être
+  // de CET événement et encore modifiable (mêmes statuts que les routes
+  // collecte) : ni brouillon, ni collecte terminée.
   const collecteNotifiee = body.collecte_id;
-  if (
-    typeof collecteNotifiee === 'string' &&
-    (auth.ctx.role === 'traiteur_manager' ||
-      auth.ctx.role === 'traiteur_commercial')
-  ) {
+  if (typeof collecteNotifiee === 'string') {
     const { data: collecte } = await admin
       .from('collectes')
       .select('id')
@@ -286,7 +269,7 @@ export async function PATCH(
       .in('statut', ['programmee', 'validee'])
       .maybeSingle();
     if (collecte)
-      await notifierEquipeModificationCollecte(admin, {
+      await notifierEquipeModificationCollecte(admin, req, {
         collecteId: collecte.id,
         evenementAvant: (before ?? null) as Record<string, unknown> | null,
         majEvenement: updates,
@@ -300,7 +283,7 @@ export async function PATCH(
   // champs que ce rôle peut éditer ; l'écran n'en consomme que le statut HTTP.
   const ligne = (updated ?? {}) as Record<string, unknown>;
   const data = Object.fromEntries(
-    ['id', ...EVENT_EDITABLE_FIELDS]
+    ['id', ...CHAMPS_EVENEMENT_EDITABLES]
       .filter((champ) => champ in ligne)
       .map((champ) => [champ, ligne[champ]]),
   );

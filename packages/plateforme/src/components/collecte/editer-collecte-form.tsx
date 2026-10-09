@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
-import { instantParis } from '@savr/shared/src/temps/index.js';
+import { modificationUrgente } from '@/lib/collectes/urgence-modification';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -119,9 +119,12 @@ export function EditerCollecteForm({
 
   const editable = STATUTS_EDITABLES.includes(collecte.statut);
 
-  // Créneau < 12h → avertissement priorité (§05 l.316, §06.04 l.483).
-  const creneau = instantParis(dateCollecte, `${heureCollecte || '00:00'}:00`);
-  const urgence = creneau.getTime() - Date.now() < 12 * 3600 * 1000;
+  // Ancien OU nouveau créneau à moins de 12h → avertissement priorité (§05
+  // l.316, §06.04 l.483) — même règle que l'email à l'équipe Savr.
+  const urgence = modificationUrgente(
+    { date: collecte.date_collecte, heure: collecte.heure_collecte },
+    { date: dateCollecte, heure: heureCollecte ? `${heureCollecte}:00` : null },
+  );
   // Réacceptation prestataire (§06.04 l.505) : modif de créneau sur collecte
   // acceptée → le prestataire devra re-confirmer.
   const dateHeureModifiee =

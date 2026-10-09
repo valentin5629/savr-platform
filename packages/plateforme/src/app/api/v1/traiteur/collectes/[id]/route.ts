@@ -9,26 +9,17 @@ import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
-import {
-  modificationUrgente,
-  notifierEquipeModificationCollecte,
-} from '@/lib/collectes/email-modification.js';
+import { CHAMPS_COLLECTE_EDITABLES } from '@/lib/collectes/champs-editables.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
+import { modificationUrgente } from '@/lib/collectes/urgence-modification.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
   'traiteur_commercial',
 ];
 
-// Champs métier éditables côté traiteur (§06.04 §Édition). type_collecte, lieu_id
-// et traiteur sont verrouillés (sobriété A4) → rejetés explicitement.
-// `notes_internes` n'en fait PAS partie : commentaire Admin Savr « non visible
-// par le client » (§04 Data Model) — arbitrage Val 2026-09-29 (C1).
-const EDITABLE_FIELDS = [
-  'date_collecte',
-  'heure_collecte',
-  'controle_acces_requis',
-  'informations_supplementaires',
-];
+// Champs éditables : CHAMPS_COLLECTE_EDITABLES (lib/collectes/champs-editables).
+// Type, lieu et organisation sont verrouillés (§05 l.314) → rejetés explicitement.
 const LOCKED_FIELDS = ['type', 'type_collecte', 'lieu_id', 'organisation_id'];
 
 interface CollecteRow {
@@ -181,7 +172,7 @@ export async function PATCH(
   }
 
   const updates = Object.fromEntries(
-    Object.entries(body).filter(([k]) => EDITABLE_FIELDS.includes(k)),
+    Object.entries(body).filter(([k]) => CHAMPS_COLLECTE_EDITABLES.includes(k)),
   );
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
@@ -230,10 +221,17 @@ export async function PATCH(
   }
 
   // Flags modal/audit (§06.04 modal unique + cut-off 12h)
-  const priorite_urgence = modificationUrgente(
-    collecte.date_collecte,
-    collecte.heure_collecte,
-  );
+  const ancienCreneau = {
+    date: collecte.date_collecte,
+    heure: collecte.heure_collecte,
+  };
+  const priorite_urgence = modificationUrgente(ancienCreneau, {
+    date: (updates.date_collecte as string | undefined) ?? ancienCreneau.date,
+    heure:
+      'heure_collecte' in updates
+        ? (updates.heure_collecte as string | null)
+        : ancienCreneau.heure,
+  });
   const dateHeureModifiee =
     'date_collecte' in updates || 'heure_collecte' in updates;
   const reacceptation_requise =
@@ -280,7 +278,7 @@ export async function PATCH(
   // Email à l'équipe Savr (cf. lib/collectes/email-modification). Quand le
   // formulaire vient aussi de modifier l'événement, il le signale
   // (`evenement_modifie`) : cette modification est relue dans le journal d'audit.
-  await notifierEquipeModificationCollecte(admin, {
+  await notifierEquipeModificationCollecte(admin, req, {
     collecteId: id,
     collecteAvant: (before ?? null) as Record<string, unknown> | null,
     majCollecte: updates,

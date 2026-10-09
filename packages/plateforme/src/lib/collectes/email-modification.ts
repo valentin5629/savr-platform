@@ -1,17 +1,22 @@
+import type { NextRequest } from 'next/server';
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
-import { formatDateParis, instantParis } from '@savr/shared/src/temps/index.js';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
+import { ROUTES } from '@/lib/routes';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import { LIBELLE_STATUT_COLLECTE } from '@/lib/statut-collecte-labels';
+import { urlApplication } from '@/lib/url-application';
+import { modificationUrgente } from './urgence-modification';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 type Ligne = Record<string, unknown>;
 
 /**
- * Email à l'équipe Savr quand un traiteur modifie une collecte à venir
- * (CDC §06.02 n°19, §05 « Modification d'une collecte à venir » ; texte dicté
- * par Val le 2026-10-09).
+ * Email à l'équipe Savr quand un programmateur — traiteur, agence ou
+ * gestionnaire de lieux — modifie une collecte à venir (CDC §06.02 n°19, §05
+ * « Modification d'une collecte à venir » ; texte dicté par Val le 2026-10-09).
  *
  * UN email par enregistrement, qui liste chaque champ modifié avec son ancienne
  * et sa nouvelle valeur. Le formulaire d'édition enregistre en deux requêtes :
@@ -133,18 +138,6 @@ export function lignesModifications(
   return lignes;
 }
 
-/** Vrai à moins de 12 h du créneau (§05 « Modification d'une collecte à venir »). */
-export function modificationUrgente(
-  date: string,
-  heureCollecte: string | null | undefined,
-  maintenant: number = Date.now(),
-): boolean {
-  // Heure murale parisienne : le trigger SQL qui débite le crédit du pack ancre
-  // le seuil 12h en Europe/Paris — l'API doit tomber au même instant.
-  const creneau = instantParis(date, heureCollecte ?? '00:00:00');
-  return creneau.getTime() - maintenant < 12 * 3600 * 1000;
-}
-
 // Le formulaire enregistre l'événement puis, dans la foulée, la collecte. Si la
 // requête collecte est refusée, l'utilisateur corrige et recommence : le
 // formulaire renvoie alors la même modification d'événement, devenue sans effet
@@ -197,13 +190,6 @@ async function modificationsEvenementRecentes(
   };
 }
 
-const escapeHtml = (v: string): string =>
-  v
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
 const un = <T>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
@@ -222,18 +208,21 @@ interface CollecteApres {
 interface EvenementApres {
   pax: number | null;
   created_by: string | null;
+  lieu: { nom: string } | { nom: string }[] | null;
   organisation: { nom: string } | { nom: string }[] | null;
 }
 
 /**
  * Envoie l'email de modification à l'équipe Savr. Rien si aucun champ n'a
  * réellement changé.
+ * `req` : la requête en cours, pour le lien vers la fiche Admin de la collecte.
  * `evenementModifiePar` : l'utilisateur dont la requête précédente, dans le même
  * enregistrement, vient de modifier l'événement ; sa modification est relue
  * dans le journal d'audit.
  */
 export async function notifierEquipeModificationCollecte(
   admin: AdminSupabase,
+  req: NextRequest,
   demande: ModificationCollecte & {
     collecteId: string;
     evenementModifiePar?: string;
@@ -249,6 +238,7 @@ export async function notifierEquipeModificationCollecte(
          prestataire_logistique_id, date_collecte, heure_collecte,
          attributions_antgaspi!collecte_id(id),
          evenement:evenements!inner(pax, created_by,
+           lieu:lieux!lieu_id(nom),
            organisation:organisations!organisation_id(nom))`,
       )
       .eq('id', demande.collecteId)
@@ -313,6 +303,7 @@ export async function notifierEquipeModificationCollecte(
       | string
       | null;
     const paxInitial = 'pax' in e0 ? e0.pax : evenement?.pax;
+    const lieuNom = un(evenement?.lieu)?.nom;
 
     // Le corps du template est du HTML interpolé tel quel : tout texte saisi
     // par un utilisateur est échappé ici.
@@ -323,10 +314,18 @@ export async function notifierEquipeModificationCollecte(
         .map((l) => `<li>${escapeHtml(l)}</li>`)
         .join('')}</ul>`,
       statut_collecte: LIBELLE_STATUT_COLLECTE[statutCollecteAdmin(collecte)],
+      // Ancien OU nouveau créneau à moins de 12 h (cf. urgence-modification).
       priorite_urgence: String(
-        modificationUrgente(dateInitiale, heureInitiale),
+        modificationUrgente(
+          { date: dateInitiale, heure: heureInitiale },
+          { date: collecte.date_collecte, heure: collecte.heure_collecte },
+        ),
+      ),
+      lien_fiche: escapeHtml(
+        urlApplication(req, ROUTES.admin.collecte(demande.collecteId)),
       ),
     };
+    if (lieuNom) variables.lieu_nom = escapeHtml(lieuNom);
     if (!vide(paxInitial))
       variables.pax_initial = escapeHtml(String(paxInitial));
     if (nomProgrammateur)

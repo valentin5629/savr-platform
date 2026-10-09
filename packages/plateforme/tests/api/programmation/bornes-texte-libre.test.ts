@@ -859,8 +859,6 @@ describe('bornes texte libre — routes collecte', () => {
 
   it('PATCH /agence/collectes/[id] : appelle fn_modifier_collecte avec la valeur NORMALISÉE, pas le body brut', async () => {
     setupAuth('agence', 'org-agence-1', 'user-agence-1');
-    // Cette route n'a pas de relecture `before` : la lecture RLS-scopée est son
-    // seul SELECT avant la RPC.
     mockMaybeSingle.mockResolvedValueOnce({
       data: {
         id: 'col-1',
@@ -872,6 +870,10 @@ describe('bornes texte libre — routes collecte', () => {
       },
       error: null,
     });
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'col-1' },
+      error: null,
+    }); // `before` de l'email à l'équipe Savr
     repondreRpc({ data: { id: 'col-1' }, error: null }); // fn_modifier_collecte
 
     const { PATCH } =

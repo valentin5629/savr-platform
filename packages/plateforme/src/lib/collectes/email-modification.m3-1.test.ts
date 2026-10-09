@@ -18,7 +18,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { NextRequest } from 'next/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   findMissingVariables,
   interpolate,
@@ -26,16 +27,20 @@ import {
   type CapturedEmail,
 } from '@savr/shared/src/email/index.js';
 import {
+  CHAMPS_COLLECTE_EDITABLES,
+  CHAMPS_EVENEMENT_EDITABLES,
+} from './champs-editables';
+import {
   lignesModifications,
-  modificationUrgente,
   notifierEquipeModificationCollecte,
 } from './email-modification';
+import { modificationUrgente } from './urgence-modification';
 
 const lire = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const SQL = lire(
-  '../../../../../supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql',
+  '../../../../../supabase/migrations/20261009190000_plateforme_email_modification_collecte_lieu_lien.sql',
 );
 const CORPS = SQL.match(/\$tpl\$([\s\S]*?)\$tpl\$/)![1]!;
 // Les instructions seules : le bloc de retour arrière, en commentaire, cite les
@@ -50,6 +55,13 @@ const VARIABLES = [
 ].map((m) => m[1]!);
 
 type Admin = Parameters<typeof notifierEquipeModificationCollecte>[0];
+
+// La requête en cours ne sert qu'au lien vers la fiche ; le domaine vient de la
+// variable d'environnement, fixée ici pour un lien déterministe.
+const REQ = new NextRequest('http://localhost/api/v1/traiteur/collectes/c1');
+beforeEach(() => vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.exemple.test'));
+afterEach(() => vi.unstubAllEnvs());
+const LIEN_FICHE = 'https://app.exemple.test/admin/collectes/c1';
 type Appel = [table: string, methode: string, ...args: unknown[]];
 
 // Faux client : chaque table rend la ligne (ou l'erreur) qu'on lui a donnée, et
@@ -95,6 +107,7 @@ const COLLECTE_APRES = {
   evenement: {
     pax: 1500,
     created_by: 'user-prog',
+    lieu: { nom: 'Paris Convention Centre' },
     organisation: { nom: 'Kaspia' },
   },
 };
@@ -227,38 +240,22 @@ describe('M3.1/email_modification_lignes — une ligne par champ modifié', () =
     ).toEqual([]);
   });
 
-  // Cliquet : un champ ajouté à la liste éditable d'une des deux routes sans sa
-  // ligne ici disparaîtrait de l'email sans que rien ne le dise.
-  const champsEditables = (route: string, liste: string): string[] => {
-    const corps = lire(`../../app/api/v1/${route}/route.ts`).match(
-      new RegExp(`const ${liste} = \\[([^\\]]*)\\]`),
-    );
-    return [...(corps?.[1] ?? '').matchAll(/'(\w+)'/g)].map((m) => m[1]!);
-  };
-  const COLLECTE = champsEditables(
-    'traiteur/collectes/[id]',
-    'EDITABLE_FIELDS',
-  );
-  const EVENEMENT = champsEditables(
-    'programmation/evenements/[id]',
-    'EVENT_EDITABLE_FIELDS',
+  // Cliquet : un champ ajouté à la liste éditable des routes sans sa ligne ici
+  // disparaîtrait de l'email sans que rien ne le dise. Les listes sont celles
+  // que les routes importent (lib/collectes/champs-editables).
+  it.each(CHAMPS_COLLECTE_EDITABLES)(
+    'champ éditable de la collecte « %s » : une ligne',
+    (c) => {
+      expect(
+        lignesModifications({
+          collecteAvant: { [c]: 'a' },
+          majCollecte: { [c]: 'b' },
+        }),
+      ).toHaveLength(1);
+    },
   );
 
-  it('les listes de champs éditables des deux routes sont lues (cliquet non vacant)', () => {
-    expect(COLLECTE).toContain('date_collecte');
-    expect(EVENEMENT).toContain('pax');
-  });
-
-  it.each(COLLECTE)('champ éditable de la collecte « %s » : une ligne', (c) => {
-    expect(
-      lignesModifications({
-        collecteAvant: { [c]: 'a' },
-        majCollecte: { [c]: 'b' },
-      }),
-    ).toHaveLength(1);
-  });
-
-  it.each(EVENEMENT)(
+  it.each(CHAMPS_EVENEMENT_EDITABLES)(
     'champ éditable de l’événement « %s » : une ligne',
     (c) => {
       expect(
@@ -271,23 +268,49 @@ describe('M3.1/email_modification_lignes — une ligne par champ modifié', () =
   );
 });
 
-describe('M3.1/email_modification_urgence_12h — seuil des 12 h', () => {
+describe('M3.1/email_modification_urgence_12h — ancien ou nouveau créneau à moins de 12 h', () => {
   // Heure d'hiver : 13h00 à Paris (UTC+1).
   const hiver = Date.UTC(2099, 0, 14, 12, 0);
   // Heure d'été : 12h00 à Paris (UTC+2).
   const ete = Date.UTC(2099, 6, 14, 10, 0);
+  const LOIN = { date: '2099-12-31', heure: '10:00:00' };
 
   it.each([
     ['hiver, créneau dans 11 h 59', '2099-01-15', '00:59:00', hiver, true],
     ['hiver, créneau dans 12 h 01', '2099-01-15', '01:01:00', hiver, false],
     ['été, créneau dans 11 h 59', '2099-07-14', '23:59:00', ete, true],
     ['été, créneau dans 12 h 01', '2099-07-15', '00:01:00', ete, false],
-  ])('%s', (_cas, date, heure, maintenant, urgent) => {
-    expect(modificationUrgente(date, heure, maintenant)).toBe(urgent);
+  ])('seuil — %s', (_cas, date, heure, maintenant, urgent) => {
+    const creneau = { date, heure };
+    expect(modificationUrgente(creneau, creneau, maintenant)).toBe(urgent);
   });
 
-  it('créneau déjà passé : urgent', () => {
-    expect(modificationUrgente('2099-01-14', '09:00:00', hiver)).toBe(true);
+  const PROCHE = { date: '2099-01-14', heure: '16:00:00' }; // dans 3 h
+
+  it('collecte de ce soir repoussée au loin : urgente (ancien créneau proche)', () => {
+    expect(modificationUrgente(PROCHE, LOIN, hiver)).toBe(true);
+  });
+
+  it('collecte lointaine rapprochée à dans 3 h : urgente (nouveau créneau proche)', () => {
+    expect(modificationUrgente(LOIN, PROCHE, hiver)).toBe(true);
+  });
+
+  it('ancien et nouveau créneaux lointains : pas urgente', () => {
+    expect(modificationUrgente(LOIN, LOIN, hiver)).toBe(false);
+  });
+
+  it('créneau déjà passé : urgente', () => {
+    const passe = { date: '2099-01-14', heure: '09:00:00' };
+    expect(modificationUrgente(passe, passe, hiver)).toBe(true);
+  });
+
+  it('heure absente : minuit du jour de collecte', () => {
+    const minuit = { date: '2099-01-15', heure: null };
+    // 13h00 → minuit = 11 h : urgent ; la veille à la même heure : 35 h.
+    expect(modificationUrgente(minuit, minuit, hiver)).toBe(true);
+    expect(modificationUrgente(minuit, minuit, hiver - 24 * 3600 * 1000)).toBe(
+      false,
+    );
   });
 });
 
@@ -299,7 +322,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       users: PROGRAMMATEUR,
     });
 
-    await notifierEquipeModificationCollecte(admin, CAS_VAL);
+    await notifierEquipeModificationCollecte(admin, REQ, CAS_VAL);
 
     expect(recus).toHaveLength(1);
     const [email] = recus;
@@ -312,12 +335,13 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     expect(interpolate(CORPS, email!.variables)).toBe(
       [
         '<p>Bonjour,</p>',
-        "<p>L'organisation Kaspia a modifié la collecte initialement prévue le 15/01/2099 pour 2000 pax.</p>",
+        "<p>L'organisation Kaspia a modifié la collecte initialement prévue le 15/01/2099 pour 2000 pax (lieu : Paris Convention Centre).</p>",
         '<p>Les champs modifiés sont :</p>',
         '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li></ul>',
         '<p>Le programmateur est Julie Martin, joignable au 0601020304.</p>',
         '<p>Le statut actuel de la collecte est « Programmée ».</p>',
         '<p>Merci de relayer au prestataire si nécessaire depuis le back-office.</p>',
+        `<p><a href="${LIEN_FICHE}">Ouvrir la fiche de la collecte</a></p>`,
         "<p>L'équipe Savr</p>",
       ].join('\n'),
     );
@@ -335,7 +359,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       collectes: { ...COLLECTE_APRES, prestataire_logistique_id: null },
       users: PROGRAMMATEUR,
     });
-    await notifierEquipeModificationCollecte(admin, CAS_VAL);
+    await notifierEquipeModificationCollecte(admin, REQ, CAS_VAL);
     expect(recus[0]!.variables.statut_collecte).toBe('Créée');
   });
 
@@ -345,7 +369,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       collectes: COLLECTE_APRES,
       users: PROGRAMMATEUR,
     });
-    await notifierEquipeModificationCollecte(admin, {
+    await notifierEquipeModificationCollecte(admin, REQ, {
       ...CAS_VAL,
       // Créneau d'origine déjà passé : forcément à moins de 12 h.
       collecteAvant: {
@@ -356,6 +380,39 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     expect(recus[0]!.variables.priorite_urgence).toBe('true');
     expect(interpolate(CORPS, recus[0]!.variables)).toContain(
       '<p>ATTENTION : modification effectuée moins de 12h avant le créneau de collecte. Action manuelle Ops probable (relais prestataire, vérification logistique).</p>',
+    );
+  });
+
+  it('collecte lointaine rapprochée à moins de 12 h : la ligne ATTENTION aussi', async () => {
+    capter();
+    const { admin } = fauxAdmin({
+      // Après l'écriture, le créneau est passé : forcément à moins de 12 h.
+      collectes: { ...COLLECTE_APRES, date_collecte: '2020-01-01' },
+      users: PROGRAMMATEUR,
+    });
+    await notifierEquipeModificationCollecte(admin, REQ, {
+      collecteId: 'c1',
+      collecteAvant: {
+        date_collecte: '2099-01-15',
+        heure_collecte: '16:45:00',
+      },
+      majCollecte: { date_collecte: '2020-01-01' },
+    });
+    expect(recus[0]!.variables.priorite_urgence).toBe('true');
+  });
+
+  it('le lien ouvre la fiche Admin de CETTE collecte, sur le domaine de l’application', async () => {
+    capter();
+    const { admin } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+    });
+    await notifierEquipeModificationCollecte(admin, REQ, {
+      ...CAS_VAL,
+      collecteId: 'c-42',
+    });
+    expect(recus[0]!.variables.lien_fiche).toBe(
+      'https://app.exemple.test/admin/collectes/c-42',
     );
   });
 
@@ -372,7 +429,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       },
       users: null,
     });
-    await notifierEquipeModificationCollecte(admin, {
+    await notifierEquipeModificationCollecte(admin, REQ, {
       collecteId: 'c1',
       collecteAvant: { date_collecte: '2099-01-15' },
       majCollecte: { date_collecte: '2099-01-14' },
@@ -384,6 +441,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       "<p>L'organisation Kaspia a modifié la collecte initialement prévue le 15/01/2099.</p>",
     );
     expect(html).not.toContain('programmateur');
+    expect(html).not.toContain('(lieu');
     expect(html).not.toContain('{{');
   });
 
@@ -393,7 +451,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       collectes: COLLECTE_APRES,
       users: { ...PROGRAMMATEUR, telephone: null },
     });
-    await notifierEquipeModificationCollecte(admin, CAS_VAL);
+    await notifierEquipeModificationCollecte(admin, REQ, CAS_VAL);
     expect(recus[0]!.variables.programmateur).toBe('Julie Martin');
   });
 
@@ -403,7 +461,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       collectes: COLLECTE_APRES,
       users: PROGRAMMATEUR,
     });
-    await notifierEquipeModificationCollecte(admin, {
+    await notifierEquipeModificationCollecte(admin, REQ, {
       collecteId: 'c1',
       evenementAvant: { pax: 2000 },
       majEvenement: { pax: 1500 },
@@ -423,12 +481,13 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
         ...COLLECTE_APRES,
         evenement: {
           ...COLLECTE_APRES.evenement,
+          lieu: { nom: 'Salle <A>' },
           organisation: { nom: 'Kaspia & <Fils>' },
         },
       },
       users: { ...PROGRAMMATEUR, nom: '<b>Martin</b>' },
     });
-    await notifierEquipeModificationCollecte(admin, {
+    await notifierEquipeModificationCollecte(admin, REQ, {
       collecteId: 'c1',
       collecteAvant: { informations_supplementaires: null },
       majCollecte: {
@@ -442,6 +501,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       'Maintenant &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;',
     );
     expect(html).toContain('Kaspia &amp; &lt;Fils&gt;');
+    expect(html).toContain('(lieu : Salle &lt;A&gt;)');
   });
 
   it('le type d’événement est nommé par son libellé', async () => {
@@ -454,7 +514,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
         { id: 't-diner', libelle: 'Dîner assis' },
       ],
     });
-    await notifierEquipeModificationCollecte(admin, {
+    await notifierEquipeModificationCollecte(admin, REQ, {
       collecteId: 'c1',
       evenementAvant: { type_evenement_id: 't-cocktail' },
       majEvenement: { type_evenement_id: 't-diner' },
@@ -471,7 +531,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       collectes: COLLECTE_APRES,
       users: PROGRAMMATEUR,
     });
-    await notifierEquipeModificationCollecte(admin, {
+    await notifierEquipeModificationCollecte(admin, REQ, {
       collecteId: 'c1',
       collecteAvant: { date_collecte: '2099-01-14' },
       majCollecte: { date_collecte: '2099-01-14' },
@@ -482,7 +542,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
   it('collecte introuvable : aucun email', async () => {
     capter();
     const { admin } = fauxAdmin({});
-    await notifierEquipeModificationCollecte(admin, CAS_VAL);
+    await notifierEquipeModificationCollecte(admin, REQ, CAS_VAL);
     expect(recus).toEqual([]);
   });
 
@@ -493,7 +553,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       { collectes: 'colonne inconnue' },
     );
     await expect(
-      notifierEquipeModificationCollecte(admin, CAS_VAL),
+      notifierEquipeModificationCollecte(admin, REQ, CAS_VAL),
     ).resolves.toBeUndefined();
     expect(recus).toEqual([]);
   });
@@ -507,7 +567,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       users: PROGRAMMATEUR,
     });
     await expect(
-      notifierEquipeModificationCollecte(admin, CAS_VAL),
+      notifierEquipeModificationCollecte(admin, REQ, CAS_VAL),
     ).resolves.toBeUndefined();
   });
 });
@@ -532,7 +592,7 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
       users: PROGRAMMATEUR,
       audit_log: [AUDIT_PAX],
     });
-    await notifierEquipeModificationCollecte(admin, DEMANDE);
+    await notifierEquipeModificationCollecte(admin, REQ, DEMANDE);
 
     expect(recus[0]!.variables.liste_modifications).toBe(
       '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
@@ -572,7 +632,7 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
         { old_values: { pax: 1500 }, new_values: { updates: { pax: 1500 } } },
       ],
     });
-    await notifierEquipeModificationCollecte(admin, DEMANDE);
+    await notifierEquipeModificationCollecte(admin, REQ, DEMANDE);
     expect(recus[0]!.variables.liste_modifications).toBe(
       '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
     );
@@ -594,7 +654,7 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
         },
       ],
     });
-    await notifierEquipeModificationCollecte(admin, DEMANDE);
+    await notifierEquipeModificationCollecte(admin, REQ, DEMANDE);
     expect(recus[0]!.variables.liste_modifications).toBe(
       '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1800</li><li>Contact : avant Paul Il. Maintenant Arthus</li></ul>',
     );
@@ -607,7 +667,7 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
       users: PROGRAMMATEUR,
       audit_log: [],
     });
-    await notifierEquipeModificationCollecte(admin, DEMANDE);
+    await notifierEquipeModificationCollecte(admin, REQ, DEMANDE);
     expect(recus[0]!.variables.liste_modifications).toBe(
       '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li></ul>',
     );
@@ -623,7 +683,7 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
       },
       { audit_log: 'délai dépassé' },
     );
-    await notifierEquipeModificationCollecte(admin, DEMANDE);
+    await notifierEquipeModificationCollecte(admin, REQ, DEMANDE);
     expect(recus).toHaveLength(1);
     expect(recus[0]!.variables.liste_modifications).toBe(
       '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li></ul>',

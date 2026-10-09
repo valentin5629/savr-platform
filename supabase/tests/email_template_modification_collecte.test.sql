@@ -2,9 +2,10 @@
 -- pgTAP — template email « admin_modification_collecte_traiteur » (CDC §06.02 n°19)
 -- =============================================================================
 -- Scénario `email_modification_rendu` (couche db), demande Val 2026-10-09 :
--- après toutes les migrations (seed 20260705100000, corps 20261009160000),
--- l'email de modification liste les champs modifiés avec leurs valeurs, nomme le
--- programmateur et le statut, et ne garde de la priorité qu'une ligne ATTENTION
+-- après toutes les migrations (seed 20260705100000, corps 20261009160000, lieu et
+-- lien 20261009190000), l'email de modification liste les champs modifiés avec
+-- leurs valeurs, nomme le lieu, le programmateur et le statut, porte un lien
+-- vers la fiche, et ne garde de la priorité qu'une ligne ATTENTION
 -- conditionnelle.
 --
 -- Sous rôle (revue sécurité) : le corps porte désormais un bloc HTML construit
@@ -47,8 +48,8 @@ SELECT is(
 SELECT is(
   (SELECT variables FROM plateforme.email_templates
    WHERE code = 'admin_modification_collecte_traiteur'),
-  ARRAY['organisation_nom','date_initiale','pax_initial','liste_modifications','programmateur','statut_collecte','priorite_urgence']::text[],
-  'admin_modification_collecte_traiteur : variables du nouveau corps'
+  ARRAY['organisation_nom','date_initiale','pax_initial','lieu_nom','liste_modifications','programmateur','statut_collecte','priorite_urgence','lien_fiche']::text[],
+  'admin_modification_collecte_traiteur : variables du corps, lieu et lien compris'
 );
 
 SELECT ok(
@@ -61,11 +62,12 @@ SELECT ok(
 );
 
 SELECT ok(
-  (SELECT corps_html LIKE '%{{#if pax_initial}} pour {{pax_initial}} pax{{/if}}%'
+  (SELECT corps_html LIKE '%{{#if pax_initial}} pour {{pax_initial}} pax{{/if}}{{#if lieu_nom}} (lieu : {{lieu_nom}}){{/if}}.</p>%'
       AND corps_html LIKE '%{{#if programmateur}}<p>Le programmateur est {{programmateur}}.</p>%'
       AND corps_html LIKE '%{{#if priorite_urgence}}<p>ATTENTION : modification effectuée moins de 12h avant le créneau de collecte.%'
+      AND corps_html LIKE '%{{#if lien_fiche}}<p><a href="{{lien_fiche}}">Ouvrir la fiche de la collecte</a></p>%'
    FROM plateforme.email_templates WHERE code = 'admin_modification_collecte_traiteur'),
-  'admin_modification_collecte_traiteur : pax, programmateur et ligne ATTENTION en blocs conditionnels'
+  'admin_modification_collecte_traiteur : pax, lieu, programmateur, ligne ATTENTION et lien en blocs conditionnels'
 );
 
 SELECT ok(

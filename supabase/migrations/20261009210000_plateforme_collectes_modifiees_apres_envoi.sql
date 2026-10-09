@@ -47,10 +47,11 @@
 -- d'`evenements` (RPC et service_role ; l'écriture directe est fermée aux
 -- clients depuis 20260915160000 et 20260915190000).
 --
--- Retour arrière : rejouer la définition de `fn_set_collectes_dirty_tms` de
--- 20260611171638, puis
+-- Retour arrière : rejouer la seule définition de `fn_set_collectes_dirty_tms`
+-- de 20260611171638 (lignes 241 à 256, pas le fichier entier), puis
 --   DROP TRIGGER trg_evenement_marque_collectes_modifiees ON plateforme.evenements;
 --   DROP FUNCTION plateforme.fn_evenement_marque_collectes_modifiees();
+-- Les drapeaux déjà levés le restent : « Renvoyer » les vide.
 -- =============================================================================
 
 -- ─── 1. Collecte : champs transmis au prestataire ────────────────────────────

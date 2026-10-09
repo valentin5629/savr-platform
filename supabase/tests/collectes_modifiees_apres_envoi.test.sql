@@ -8,12 +8,13 @@
 -- ni pour un autre événement, ni pour un champ hors de la liste ; le renvoi le
 -- vide. Migration 20261009210000.
 --
--- Sous rôle : un client ne peut ni armer ni vider le drapeau lui-même, et ne
--- peut pas appeler la fonction du déclencheur.
+-- Sous rôle : les deux fonctions de modification appelées sous `service_role`
+-- (le chemin des routes) arment le drapeau ; un client ne peut ni l'armer ni le
+-- vider lui-même, et ne peut pas appeler la fonction du déclencheur.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(32);
+SELECT plan(34);
 
 -- Helpers de rôle, signatures de rls_0_4_smoke.test.sql.
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -104,7 +105,7 @@ UPDATE t SET evt_temoin = (SELECT id FROM e);
 UPDATE t SET temoin = pg_temp.collecte(evt_temoin, 'zd', 35);
 UPDATE plateforme.collectes SET prestataire_logistique_id = (SELECT presta FROM t)
  WHERE id = (SELECT temoin FROM t);
-GRANT SELECT ON t TO authenticated;
+GRANT SELECT ON t TO authenticated, service_role;
 
 SELECT is(
   (SELECT (c.statut_tms::text, c.tms_reference IS NULL, c.prestataire_logistique_id IS NOT NULL,
@@ -258,6 +259,29 @@ SELECT ok(pg_temp.drapeau((SELECT cloturee FROM t)),
 UPDATE plateforme.collectes SET dirty_tms = false WHERE id = (SELECT cloturee FROM t);
 SELECT ok(NOT pg_temp.drapeau((SELECT cloturee FROM t)),
   'remis à plat pour la suite');
+
+-- ── Sous rôle : le chemin de l'application ───────────────────────────────────
+-- Les UPDATE ci-dessus prouvent les déclencheurs. Les routes des espaces clients,
+-- elles, n'écrivent que par ces deux fonctions, appelées sous `service_role`.
+SELECT pg_temp.baisser();
+SELECT set_config('role', 'service_role', true);
+SELECT plateforme.fn_modifier_evenement(
+  (SELECT evt FROM t),
+  '{"contact_principal_telephone": "0699990005"}'::jsonb, ARRAY['contact_principal_telephone']);
+SELECT test_as_superuser();
+SELECT is(
+  ARRAY[pg_temp.drapeau((SELECT en_file FROM t)), pg_temp.drapeau((SELECT temoin FROM t))],
+  ARRAY[true, false],
+  'service_role, fn_modifier_evenement (contact) : la collecte en file d''envoi est marquée, pas celle de l''autre événement');
+
+SELECT pg_temp.baisser();
+SELECT set_config('role', 'service_role', true);
+SELECT plateforme.fn_modifier_collecte(
+  (SELECT en_file FROM t),
+  '{"heure_collecte": "14:00"}'::jsonb, ARRAY['heure_collecte']);
+SELECT test_as_superuser();
+SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)),
+  'service_role, fn_modifier_collecte (heure) : la collecte en file d''envoi est marquée');
 
 -- ── Sous rôle : le drapeau n'est pas à la main du client ─────────────────────
 SELECT pg_temp.baisser();

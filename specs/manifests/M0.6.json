@@ -517,7 +517,12 @@
       "title": "export_csv_liste_admin_croisement_vide",
       "file": "packages/plateforme/src/app/(admin)/admin/collectes/collectes-url.r-ui-4a.test.tsx"
     },
-    "M0.6/dirty_tms_apres_envoi"
+    {
+      "id": "dirty_tms_apres_envoi",
+      "category": "Back-office Admin — filtre « Modifiées sans renvoi TMS »",
+      "title": "dirty_tms_apres_envoi",
+      "file": "packages/plateforme/tests/api/admin/collectes-chip-counts.m0-6.test.ts"
+    }
   ],
   "coverage": {
     "total_tests": 64,
@@ -1614,7 +1619,7 @@
       "artefact": "packages/plateforme/src/lib/collectes-chips.ts, packages/plateforme/src/app/api/v1/admin/dashboard/kpi/route.ts, packages/plateforme/src/app/api/v1/dashboards/kpi-admin/route.ts",
       "test": "M0.6/dirty_tms_apres_envoi",
       "statut": "implemented",
-      "libelle": "Pastille « Modifiées sans renvoi TMS » de la liste Collectes Admin, son compteur et les deux cartes du Dashboard Admin : collectes au drapeau levé encore à réaliser (programmée, validée, en cours), sans exiger de référence de commande (une commande en file d'envoi n'en a pas encore, un transporteur joint par mail ou téléphone n'en a jamais)"
+      "libelle": "Pastille « Modifiées sans renvoi TMS » de la liste Collectes Admin, son compteur, la carte du Dashboard Admin et le compteur de la route dashboards/kpi-admin (qu'aucun écran ne lit aujourd'hui) : collectes au drapeau levé encore à réaliser (programmée, validée, en cours), sans exiger de référence de commande (une commande en file d'envoi n'en a pas encore, un transporteur joint par mail ou téléphone n'en a jamais)"
     },
     {
       "id": "M0.6-dirty-tms-renvoyer-en-file",

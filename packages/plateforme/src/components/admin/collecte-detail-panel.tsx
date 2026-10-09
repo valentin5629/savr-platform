@@ -106,8 +106,6 @@ import { FileButton } from '@/components/ui/file-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
-import type { AttenteDocuments } from '@/lib/collectes/attente-documents';
-import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -321,26 +319,12 @@ interface DocumentsData {
   rapport: RapportDoc | null;
   bordereau: BordereauDoc | null;
   attestation: AttestationDoc | null;
-  // Quand les documents sont attendus, tant qu'ils n'existent pas (calculé serveur).
-  attente?: AttenteDocuments | null;
   photos: PhotoItem[];
 }
 
-// Ligne d'un document qui n'existe pas encore : dit quand il est attendu, d'après
-// l'état calculé par le serveur ; libellé d'origine quand il n'y a rien à annoncer.
-// `feminin` : l'attestation (« Attendue », « Générée »).
-function libelleDocumentAttendu(
-  attente: AttenteDocuments | null | undefined,
-  feminin = false,
-): string {
-  const e = feminin ? 'e' : '';
-  if (!attente) return `Non encore généré${e}`;
-  if (attente.etat === 'apres_collecte') return `Généré${e} après la collecte`;
-  const date = formatDateParis(attente.jour);
-  return attente.etat === 'attendu'
-    ? `Attendu${e} le ${date} au matin`
-    : `Attendu${e} depuis le ${date}`;
-}
+// Ligne d'un document (rapport, bordereau, attestation) qui n'existe pas encore :
+// un seul texte, quel que soit le statut de la collecte (décision Val 2026-10-09).
+const DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
 
 // Bloc 7 — Historique + audit log (GET /[id]/audit).
 interface AuditEntry {
@@ -642,10 +626,6 @@ export function CollecteDetailPanel({
   const nbPhotosClient = (documents?.photos ?? []).filter(
     (p) => p.visible_client,
   ).length;
-  // Collecte AG : aucun rapport PDF n'est produit (le document est l'attestation
-  // de don) — la ligne « Rapport RSE » n'y annonce donc aucune date.
-  const attenteRapport =
-    collecte?.type === 'zero_dechet' ? documents?.attente : null;
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -2452,7 +2432,7 @@ export function CollecteDetailPanel({
                     </p>
                     <Text variant="hint">
                       {!documents?.rapport
-                        ? libelleDocumentAttendu(attenteRapport)
+                        ? DOCUMENT_A_VENIR
                         : !documents.rapport.genere_at
                           ? 'En attente de génération'
                           : documents.rapport.consulte_par_user_at
@@ -2512,7 +2492,7 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.bordereau
                           ? `Statut : ${documents.bordereau.statut}`
-                          : libelleDocumentAttendu(documents?.attente)}
+                          : DOCUMENT_A_VENIR}
                       </Text>
                     </div>
                     <Button
@@ -2562,7 +2542,7 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.attestation
                           ? `Statut : ${documents.attestation.statut}`
-                          : libelleDocumentAttendu(documents?.attente, true)}
+                          : DOCUMENT_A_VENIR}
                       </Text>
                     </div>
                     <Button

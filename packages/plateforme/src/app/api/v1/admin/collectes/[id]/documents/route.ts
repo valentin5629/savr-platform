@@ -12,7 +12,6 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 import { ENTITE_PHOTO_COLLECTE } from '@/lib/collectes/photos-client.js';
-import { attenteDocuments } from '@/lib/collectes/attente-documents.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,14 +34,6 @@ export async function GET(
 
   const { id } = await params;
   const supabase = createAdminSupabaseClient();
-
-  // Quand les documents sont attendus, tant qu'ils n'existent pas (calculé ici,
-  // jamais par l'écran — cf. lib/collectes/attente-documents).
-  const { data: collecte } = await supabase
-    .from('collectes')
-    .select('statut, realisee_at')
-    .eq('id', id)
-    .maybeSingle();
 
   // Rapport RSE (dernière version). regenere_at / version → picto ⟳ (§06.06 l.170).
   const { data: rapport } = await supabase
@@ -110,11 +101,6 @@ export async function GET(
     rapport: rapport ?? null,
     bordereau: bordereau ?? null,
     attestation: attestation ?? null,
-    attente: collecte
-      ? attenteDocuments(
-          collecte as { statut: string; realisee_at: string | null },
-        )
-      : null,
     photos,
   });
 }

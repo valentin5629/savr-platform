@@ -71,7 +71,9 @@ function fakeSupabase(resolve: Resolveur = () => undefined) {
       in: () => chain,
       not: () => chain,
       lte: () => chain,
+      gt: () => chain,
       order: () => chain,
+      limit: () => chain,
       single: settle,
       maybeSingle: settle,
       then: (f: (v: unknown) => unknown, r?: (e: unknown) => unknown) =>

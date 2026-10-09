@@ -61,7 +61,11 @@
     "packages/plateforme/tests/api/traiteur/liste-collectes-resultats.m3-1.test.ts",
     "packages/plateforme/tests/ui/collectes-traiteur-table.m3-1.test.tsx",
     "packages/plateforme/tests/ui/liste-traiteur-rapport-reserve.m3-1.test.tsx",
-    "packages/plateforme/src/components/collecte/liste-collectes-client.tsx"
+    "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+    "packages/plateforme/src/lib/collectes/email-modification.ts",
+    "packages/plateforme/src/lib/collectes/email-modification.m3-1.test.ts",
+    "supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql",
+    "supabase/tests/email_template_modification_collecte.test.sql"
   ],
   "scenarios": [
     "M3.1/marge_badge_attente_facturation_partielle",
@@ -213,7 +217,11 @@
     "M3.1/evolution_traiteur_ag_lit_la_table",
     "M3.1/evolution_commercial_ag_lit_la_table",
     "M3.1/synthese_traiteur_ag_lit_la_table",
-    "M3.1/synthese_commercial_ag_lit_la_table"
+    "M3.1/synthese_commercial_ag_lit_la_table",
+    "M3.1/email_modification_lignes",
+    "M3.1/email_modification_urgence_12h",
+    "M3.1/email_modification_rendu",
+    "M3.1/email_modification_un_seul_email"
   ],
   "deliverables": [
     {
@@ -1008,6 +1016,22 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la barre de filtres de la liste Collectes traiteur, desktop ET mobile < 640 px : « Période » en premier ; cases « Tous » en tête de Lieu et Client organisateur, « Toutes » pour Info incomplète ; libellés des déclencheurs (« Tous », nom unique, « n sélectionnés ») ; nom de client contenant une virgule ; chip « Filtre actif » après un clic depuis une Top liste, puis sa disparition quand un second lieu est coché. Pas de capture dans ce lot (arbitrage Val 2026-10-01) : GO visuel de Val à sa prochaine revue écran."
+    },
+    {
+      "id": "M3.1-email-modification-contenu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:516",
+      "artefact": "packages/plateforme/src/lib/collectes/email-modification.ts, supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql",
+      "test": "M3.1/email_modification_rendu",
+      "statut": "implemented",
+      "libelle": "Email à l'équipe Savr quand un traiteur modifie une collecte à venir (texte dicté par Val le 2026-10-09, divergence M3.1_20261009_email-modification-collecte) : organisation, date et pax d'origine, une ligne par champ réellement modifié avec ancienne puis nouvelle valeur (champs collecte ET événement), programmateur et son téléphone, statut au libellé Admin ; ligne ATTENTION seulement à moins de 12h du créneau ; plus d'identifiant technique ; tout texte saisi est échappé"
+    },
+    {
+      "id": "M3.1-email-modification-un-seul-email",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:516",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts, packages/plateforme/src/components/collecte/editer-collecte-form.tsx, packages/plateforme/src/lib/collectes/email-modification.ts",
+      "test": "M3.1/email_modification_un_seul_email",
+      "statut": "implemented",
+      "libelle": "Un seul email par enregistrement du formulaire d'édition, envoyé par la dernière de ses deux requêtes : la route collecte relit dans le journal d'audit la modification d'événement que le même utilisateur vient d'enregistrer (signalée par le formulaire, valeurs lues en base) ; quand seul l'événement change, la route événement envoie l'email pour la collecte nommée par le formulaire, si elle appartient à l'événement. Déclencheur limité aux utilisateurs traiteur (agence et gestionnaire de lieux : lot suivant, arbitrage Val C5 2026-10-09)"
     }
   ],
   "cdc_source_hash": {

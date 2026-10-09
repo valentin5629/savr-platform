@@ -7,6 +7,7 @@ import {
 } from '@/lib/api-auth.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 
@@ -254,6 +255,32 @@ export async function PATCH(
     }
   } catch {
     // notification best-effort — ignorée si irrésoluble
+  }
+
+  // Email à l'équipe Savr (§06.02 n°19) : UN email par enregistrement du
+  // formulaire d'édition. Quand l'enregistrement ne touche que l'événement,
+  // aucune requête collecte ne suit : le formulaire nomme alors la collecte
+  // d'où il est ouvert (`?collecte_id=`) et l'email part d'ici. Sinon c'est la
+  // route collecte qui l'envoie, cette modification comprise. Déclencheur du
+  // CDC : un utilisateur traiteur.
+  const collecteNotifiee = req.nextUrl.searchParams.get('collecte_id');
+  if (
+    collecteNotifiee &&
+    (auth.ctx.role === 'traiteur_manager' ||
+      auth.ctx.role === 'traiteur_commercial')
+  ) {
+    const { data: collecte } = await admin
+      .from('collectes')
+      .select('id')
+      .eq('id', collecteNotifiee)
+      .eq('evenement_id', id)
+      .maybeSingle();
+    if (collecte)
+      await notifierEquipeModificationCollecte(admin, {
+        collecteId: collecte.id,
+        evenementAvant: (before ?? null) as Record<string, unknown> | null,
+        majEvenement: updates,
+      });
   }
 
   // `fn_modifier_evenement` rend la ligne ENTIÈRE (`to_jsonb`), dont

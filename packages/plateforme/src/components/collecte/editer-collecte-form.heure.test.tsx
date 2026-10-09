@@ -80,3 +80,73 @@ describe('EditerCollecteForm — heure de collecte', () => {
     ATTENTE_CAS_MS,
   );
 });
+
+// L'équipe Savr reçoit UN email par enregistrement (§06.02 n°19) : il part de la
+// dernière des deux requêtes, qui doit donc savoir ce que l'autre a fait.
+describe('M3.1 / EditerCollecteForm — un seul email par enregistrement', () => {
+  function monter() {
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+      if (url.includes('types-evenements')) return new Response('[]');
+      return new Response('{}', { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const onSaved = vi.fn();
+    const { container } = render(
+      <EditerCollecteForm
+        collecte={COLLECTE}
+        collecteEndpoint="/api/v1/traiteur/collectes/col-1"
+        onSaved={onSaved}
+      />,
+    );
+    const patchs = () =>
+      fetchMock.mock.calls
+        .filter(([, init]) => init?.method === 'PATCH')
+        .map(([url, init]) => [url, JSON.parse(String(init?.body))]);
+    return { container, onSaved, patchs };
+  }
+
+  it(
+    'M3.1/email_modification_un_seul_email — pax et heure : la requête collecte signale que l’événement vient d’être modifié',
+    async () => {
+      const { container, onSaved, patchs } = monter();
+      fireEvent.change(container.querySelector('#edit-evt-pax')!, {
+        target: { value: '120' },
+      });
+      fireEvent.click(container.querySelector('#edit-heure-collecte')!);
+      fireEvent.click(screen.getByRole('option', { name: '18:45' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Confirmer la modification' }),
+      );
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(patchs()).toEqual([
+        ['/api/v1/programmation/evenements/evt-1', { pax: 120 }],
+        [
+          '/api/v1/traiteur/collectes/col-1',
+          { heure_collecte: '18:45:00', evenement_modifie: true },
+        ],
+      ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/email_modification_un_seul_email — pax seul : la requête événement nomme la collecte, aucune requête collecte',
+    async () => {
+      const { container, onSaved, patchs } = monter();
+      fireEvent.change(container.querySelector('#edit-evt-pax')!, {
+        target: { value: '120' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Confirmer la modification' }),
+      );
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(patchs()).toEqual([
+        [
+          '/api/v1/programmation/evenements/evt-1?collecte_id=col-1',
+          { pax: 120 },
+        ],
+      ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+});

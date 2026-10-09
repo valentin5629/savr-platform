@@ -6,8 +6,12 @@
  * (commercial=créateur, cloisonnement org), édition collecte gestionnaire (route
  * ajoutée), refus champs système.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import {
+  setEmailCaptureSink,
+  type CapturedEmail,
+} from '@savr/shared/src/email/index.js';
 
 type Result = { data: unknown; error: unknown };
 
@@ -133,12 +137,13 @@ function queueEventOk(
   admin.push({ data: null, error: null }); // audit insert
 }
 
-async function patchEvent(body: unknown) {
+async function patchEvent(body: unknown, query = '') {
   const { PATCH } =
     await import('@/app/api/v1/programmation/evenements/[id]/route.js');
-  return PATCH(makeReq('PATCH', '/api/v1/programmation/evenements/e1', body), {
-    params: Promise.resolve({ id: 'e1' }),
-  });
+  return PATCH(
+    makeReq('PATCH', `/api/v1/programmation/evenements/e1${query}`, body),
+    { params: Promise.resolve({ id: 'e1' }) },
+  );
 }
 
 // ── Édition ÉVÉNEMENT : les 4 rôles programmateurs ──────────────────────────
@@ -813,4 +818,102 @@ describe('M3.1 / notes internes Admin — route événement programmateur', () =
     expect(res.status).toBe(422);
     expect(admin.__calls.rpc).toBeUndefined();
   });
+});
+
+// ── Email à l'équipe Savr (§06.02 n°19) — enregistrement qui ne touche que
+// l'événement : aucune requête collecte ne suit, l'email part d'ici. ─────────
+describe('M3.1 / email équipe — modification de l’événement seul', () => {
+  let recus: CapturedEmail[] = [];
+  beforeEach(() => {
+    recus = [];
+    setEmailCaptureSink((email) => recus.push(email));
+  });
+  afterEach(() => setEmailCaptureSink(null));
+
+  // PATCH { pax: 1500 } réussi sur un événement à 2000 pax. `collecte` : ce que
+  // rend la recherche de la collecte nommée parmi celles de l'événement.
+  function queuePaxModifie(collecte: { id: string } | null | undefined) {
+    rls.push({
+      data: { id: 'e1', organisation_id: 'org-1', created_by: 'user-1' },
+      error: null,
+    }); // maybeSingle event
+    rls.push({ data: true, error: null }); // rpc f_collecte_editable
+    admin.push({ data: { id: 'e1', pax: 2000 }, error: null }); // before select
+    admin.push({ data: { id: 'e1', pax: 1500 }, error: null }); // rpc fn_modifier_evenement
+    admin.push({ data: null, error: null }); // audit insert
+    admin.push({ data: null, error: null }); // collecte représentative (tpl 21) : aucune
+    if (collecte === undefined) return;
+    admin.push({ data: collecte, error: null }); // collecte nommée ∈ événement ?
+    admin.push({
+      data: {
+        statut: 'validee',
+        statut_tms: 'acceptee',
+        tms_reference: null,
+        prestataire_logistique_id: 'presta-1',
+        date_collecte: '2099-01-14',
+        heure_collecte: '16:45:00',
+        attributions_antgaspi: null,
+        evenement: {
+          pax: 1500,
+          created_by: 'user-1',
+          organisation: { nom: 'Kaspia' },
+        },
+      },
+      error: null,
+    }); // email : collecte après écriture
+    admin.push({
+      data: { prenom: 'Julie', nom: 'Martin', telephone: null },
+      error: null,
+    }); // email : programmateur
+  }
+
+  it('M3.1/email_modification_un_seul_email — événement seul, traiteur : un email, pax avant / après', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queuePaxModifie({ id: 'c1' });
+    const res = await patchEvent({ pax: 1500 }, '?collecte_id=c1');
+    expect(res.status).toBe(200);
+    expect(recus).toHaveLength(1);
+    expect(recus[0]!.slug).toBe('admin_modification_collecte_traiteur');
+    expect(recus[0]!.variables).toEqual({
+      organisation_nom: 'Kaspia',
+      date_initiale: '14/01/2099',
+      pax_initial: '2000',
+      liste_modifications: '<ul><li>Nombre de pax : de 2000 à 1500</li></ul>',
+      programmateur: 'Julie Martin',
+      statut_collecte: 'Validée',
+      priorite_urgence: 'false',
+    });
+  });
+
+  it('M3.1/email_modification_un_seul_email — collecte d’un autre événement : aucun email', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queuePaxModifie(null);
+    const res = await patchEvent({ pax: 1500 }, '?collecte_id=c-autre');
+    expect(res.status).toBe(200);
+    expect(recus).toEqual([]);
+    // La collecte nommée par la requête est cherchée PARMI celles de l'événement
+    // modifié : le filtre sur l'événement suit immédiatement celui sur l'id.
+    const filtres = admin.__calls.eq ?? [];
+    const i = filtres.findIndex(([col, v]) => col === 'id' && v === 'c-autre');
+    expect(filtres[i + 1]).toEqual(['evenement_id', 'e1']);
+  });
+
+  it('M3.1/email_modification_un_seul_email — sans collecte nommée (la requête collecte suit) : aucun email ici', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queuePaxModifie(undefined);
+    const res = await patchEvent({ pax: 1500 });
+    expect(res.status).toBe(200);
+    expect(recus).toEqual([]);
+  });
+
+  it.each(['agence', 'gestionnaire_lieux'])(
+    'M3.1/email_modification_un_seul_email — %s : pas d’email (déclencheur du CDC = utilisateur traiteur)',
+    async (role) => {
+      setupAuth(role, 'org-1', 'user-1');
+      queuePaxModifie({ id: 'c1' });
+      const res = await patchEvent({ pax: 1500 }, '?collecte_id=c1');
+      expect(res.status).toBe(200);
+      expect(recus).toEqual([]);
+    },
+  );
 });

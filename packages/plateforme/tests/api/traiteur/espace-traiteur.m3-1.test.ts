@@ -36,6 +36,7 @@ function makeChain() {
     'lte',
     'neq',
     'order',
+    'limit',
     'ilike',
     'update',
     'insert',
@@ -336,68 +337,158 @@ describe('M3.1 / édition collecte', () => {
     expect(res.status).toBe(403);
   });
 
-  // BL-P1-TRAIT-04 — alerte Ops de modification (§05 l.316-318), sévérité modulée.
-  function queueEditOk(statutTms = 'non_envoye', dateCollecte = '2030-12-31') {
+  // BL-P1-TRAIT-04 — email à l'équipe Savr (§06.02 n°19, §05 « Modification
+  // d'une collecte à venir »). `auditEvenement` : ligne du journal d'audit lue
+  // quand la requête signale que l'événement vient d'être modifié.
+  function queueEditOk(
+    dateCollecte = '2030-12-31',
+    auditEvenement?: Record<string, unknown>,
+  ) {
     rls.push({
       data: {
         id: 'c1',
         statut: 'programmee',
-        statut_tms: statutTms,
+        statut_tms: 'non_envoye',
         date_collecte: dateCollecte,
         heure_collecte: '10:00:00',
+        evenement: { created_by: 'user-1', organisation_id: 'org-1' },
+      },
+      error: null,
+    });
+    admin.push({
+      data: {
+        id: 'c1',
+        evenement_id: 'e1',
+        date_collecte: dateCollecte,
+        heure_collecte: '10:00:00',
+        informations_supplementaires: null,
+      },
+      error: null,
+    }); // before
+    admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
+    admin.push({ data: null, error: null }); // audit insert
+    if (auditEvenement) admin.push({ data: auditEvenement, error: null }); // audit lu
+    admin.push({
+      data: {
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        tms_reference: null,
+        prestataire_logistique_id: null,
+        date_collecte: dateCollecte,
+        heure_collecte: '10:00:00',
+        attributions_antgaspi: null,
         evenement: {
+          pax: 120,
           created_by: 'user-1',
-          organisation_id: 'org-1',
           organisation: { nom: 'Traiteur Test' },
         },
       },
       error: null,
-    });
-    admin.push({ data: { id: 'c1' }, error: null }); // before
-    admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
-    admin.push({ data: null, error: null }); // audit insert
+    }); // email : collecte après écriture
+    admin.push({
+      data: { prenom: 'Julie', nom: 'Martin', telephone: '0601020304' },
+      error: null,
+    }); // email : programmateur
   }
 
-  it('M3.1/edition_alerte_ops_priorite_normale — email Ops priorité normale (>= 12h)', async () => {
-    setupAuth('traiteur_commercial', 'org-1', 'user-1');
-    queueEditOk('non_envoye', '2030-12-31');
+  async function patchCollecte(body: Record<string, unknown>) {
     const { PATCH } =
       await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/traiteur/collectes/c1', {
-        informations_supplementaires: 'x',
-      }),
-      { params: Promise.resolve({ id: 'c1' }) },
-    );
-    expect(res.status).toBe(200);
+    return PATCH(makeReq('PATCH', '/api/v1/traiteur/collectes/c1', body), {
+      params: Promise.resolve({ id: 'c1' }),
+    });
+  }
+
+  function emailEquipe(): Record<string, string> | undefined {
     const call = mockSendEmail.mock.calls.find(
       ([code]) => code === 'admin_modification_collecte_traiteur',
     );
-    expect(call).toBeTruthy();
-    expect(call![1]).toBe('contact@gosavr.io');
-    expect((call![2] as { priorite: string }).priorite).toBe('normale');
-    expect((call![2] as { organisation_nom: string }).organisation_nom).toBe(
-      'Traiteur Test',
+    expect(call?.[1]).toBe('contact@gosavr.io');
+    return call?.[2] as Record<string, string> | undefined;
+  }
+
+  it('M3.1/edition_alerte_ops_priorite_normale — email à l’équipe sans ligne ATTENTION (>= 12h)', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    queueEditOk('2030-12-31');
+    const res = await patchCollecte({ informations_supplementaires: 'x' });
+    expect(res.status).toBe(200);
+    expect(emailEquipe()).toEqual({
+      organisation_nom: 'Traiteur Test',
+      date_initiale: '31/12/2030',
+      pax_initial: '120',
+      liste_modifications:
+        '<ul><li>Informations supplémentaires : avant non renseigné. Maintenant x</li></ul>',
+      programmateur: 'Julie Martin, joignable au 0601020304',
+      statut_collecte: 'Créée',
+      priorite_urgence: 'false',
+    });
+  });
+
+  it('M3.1/edition_alerte_ops_priorite_haute — ligne ATTENTION à moins de 12h du créneau', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    // Créneau déjà passé → délai < 12h.
+    queueEditOk('2020-01-01');
+    const res = await patchCollecte({ informations_supplementaires: 'x' });
+    expect(res.status).toBe(200);
+    expect(emailEquipe()?.priorite_urgence).toBe('true');
+  });
+
+  it('M3.1/email_modification_un_seul_email — pax et contact du même enregistrement : un seul email, tous les champs', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    queueEditOk('2030-12-31', {
+      old_values: {
+        pax: 2000,
+        contact_principal_nom: 'Paul Il',
+        contact_principal_telephone: '0611111111',
+      },
+      new_values: {
+        updates: {
+          pax: 1500,
+          contact_principal_nom: 'Arthus',
+          contact_principal_telephone: '0656896534',
+        },
+      },
+    });
+    const res = await patchCollecte({
+      date_collecte: '2030-12-30',
+      evenement_modifie: true,
+    });
+    expect(res.status).toBe(200);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const variables = emailEquipe();
+    expect(variables?.liste_modifications).toBe(
+      '<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li><li>Nombre de pax : de 2000 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0656896534)</li></ul>',
+    );
+    expect(variables?.pax_initial).toBe('2000');
+    // Le signalement n'est pas un champ de la collecte : il n'atteint pas la RPC.
+    const rpc = (admin.__calls.rpc ?? []).find(
+      ([fn]) => fn === 'fn_modifier_collecte',
+    );
+    expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
+      date_collecte: '2030-12-30',
+    });
+    // La modification d'événement est celle de CET utilisateur, sur l'événement
+    // de CETTE collecte — lue en base, pas dans la requête.
+    expect(admin.__calls.eq).toEqual(
+      expect.arrayContaining([
+        ['table_name', 'evenements'],
+        ['record_id', 'e1'],
+        ['user_id', 'user-1'],
+      ]),
     );
   });
 
-  it('M3.1/edition_alerte_ops_priorite_haute — email Ops priorité haute (< 12h)', async () => {
+  it('M3.1/email_modification_un_seul_email — sans signalement, le journal d’audit n’est pas relu', async () => {
     setupAuth('traiteur_commercial', 'org-1', 'user-1');
-    // Créneau déjà passé → délai < 12h → priorité haute.
-    queueEditOk('non_envoye', '2020-01-01');
-    const { PATCH } =
-      await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/traiteur/collectes/c1', {
-        informations_supplementaires: 'x',
-      }),
-      { params: Promise.resolve({ id: 'c1' }) },
-    );
+    queueEditOk('2030-12-31');
+    const res = await patchCollecte({ date_collecte: '2030-12-30' });
     expect(res.status).toBe(200);
-    const call = mockSendEmail.mock.calls.find(
-      ([code]) => code === 'admin_modification_collecte_traiteur',
+    expect(emailEquipe()?.liste_modifications).toBe(
+      '<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li></ul>',
     );
-    expect((call![2] as { priorite: string }).priorite).toBe('haute');
+    expect(admin.__calls.eq).not.toEqual(
+      expect.arrayContaining([['table_name', 'evenements']]),
+    );
   });
 });
 

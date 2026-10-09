@@ -64,32 +64,35 @@ Un user `gestionnaire_lieux` **ne voit pas** :
 
 ## Navigation (refonte 2026-05-07)
 
-Barre latérale gauche, **9 sections** *(Val 2026-07-06, divergence M3.2 R19b-P2 : réintégration **Collectes** + **Registre réglementaire** — override de la décision 2026-05-03 ; neutralise la partie « 9→7 » du ticket BL-P2-13. Historique : 7 sections après refonte sobriété 2026-05-30 — entrée "Rapports" retirée ; vs 8 entre 2026-05-07 et 2026-05-30, vs 6 avant 2026-05-07)* :
+Barre latérale gauche, **8 sections** *(Val 2026-10-07 : entrée **Événements** retirée, en doublon de Collectes. Val 2026-07-06, divergence M3.2 R19b-P2 : réintégration **Collectes** + **Registre réglementaire** — override de la décision 2026-05-03 ; neutralise la partie « 9→7 » du ticket BL-P2-13. Historique : 7 sections après refonte sobriété 2026-05-30 — entrée "Rapports" retirée ; vs 8 entre 2026-05-07 et 2026-05-30, vs 6 avant 2026-05-07)* :
 
 1. **Dashboard** — page d'accueil (vue 360 — inchangé)
-2. **Événements** — liste des événements sur les lieux (incluant ceux programmés par le gestionnaire lui-même + ceux programmés par les traiteurs intervenants)
-3. **Lieux** — liste des lieux de l'organisation
-4. **Collectes** *(réintégrée Val 2026-07-06)* — liste des collectes sur les lieux de l'organisation (`/gestionnaire/collectes`, vue `v_collectes_gestionnaire_lieux`) → détail collecte
+2. **Collectes** *(réintégrée Val 2026-07-06)* — liste des collectes sur les lieux de l'organisation (`/gestionnaire/collectes`, vue `v_collectes_gestionnaire_lieux`) → détail collecte
+3. **Traiteurs** — partenaires intervenants
+4. **Lieux** — liste des lieux de l'organisation
 5. **Registre réglementaire** *(réintégré Val 2026-07-06)* — registre déchets ZD hérité (R13, `/registre`, prédicat gestionnaire `v_registre_dechets`)
-6. **Traiteurs** — partenaires intervenants
-7. **Mon pack AG** *(nouveau 2026-05-07)* — vue pack actif + crédits restants + historique consommation. Affiché uniquement si l'organisation a au moins 1 pack (`packs_antgaspi WHERE organisation_id = current_org`). Sinon l'entrée nav est masquée. Comportement identique au Bloc 4 AG du §06.04 (pack actif unique, pas d'historique multi-packs).
-8. **Mon organisation** *(nouveau 2026-05-07)* — sous-sections : Profil organisation / Utilisateurs (invitations, rôles) / **Facturation** (entités juridiques, factures, mandats SEPA, intégration Pennylane). Réutilisation du composant §06.04 §6 "Mon organisation" (manager only — ici tous les users gestionnaire ont accès, pas de distinction manager/commercial en V1).
-9. **Paramètres** — préférences personnelles utilisateur (notifications email, langue) — réduit vs avant (organisation + utilisateurs déplacés dans Mon organisation)
+6. **Mon pack AG** *(nouveau 2026-05-07)* — vue pack actif + crédits restants + historique consommation. Affiché uniquement si l'organisation a au moins 1 pack (`packs_antgaspi WHERE organisation_id = current_org`). Sinon l'entrée nav est masquée, sur toutes les pages où le gestionnaire voit son menu : son espace, le registre réglementaire et le formulaire de programmation. Comportement identique au Bloc 4 AG du §06.04 (pack actif unique, pas de liste des packs précédents). **Historique consommation** *(précisé 2026-10-07)* : liste des collectes Anti-Gaspi rattachées à un pack de l'organisation — collectes réalisées ou clôturées, et collectes annulées dont l'annulation tardive a débité un crédit (§05), ces dernières signalées « Annulée tardivement », sans nombre de repas ni association. Tous les packs de l'organisation sont couverts, y compris épuisés. Une collecte d'un traiteur tiers tenue sur un lieu du gestionnaire, débitée sur le pack du traiteur, n'y figure jamais. 50 collectes les plus récentes.
+7. **Mon organisation** *(nouveau 2026-05-07)* — sous-sections : Profil organisation / Utilisateurs (invitations, rôles) / **Facturation** (entités juridiques, factures, mandats SEPA, intégration Pennylane). Réutilisation du composant §06.04 §6 "Mon organisation" (manager only — ici tous les users gestionnaire ont accès, pas de distinction manager/commercial en V1).
+8. **Paramètres** — préférences personnelles utilisateur (notifications email, langue) — réduit vs avant (organisation + utilisateurs déplacés dans Mon organisation)
+
+> **Ordre des sections** *(décision Val 2026-10-07, revue d'écran E2E)* : l'ordre ci-dessus est celui du menu. La place de « Mon pack AG », juste avant « Mon organisation », n'a pas été dictée par Val (interprétation Claude Code, confirmée par Val 2026-10-09). Sur mobile, la barre du bas affiche les 4 premières entrées : Dashboard, Collectes, Traiteurs, Lieux.
 
 > La génération de synthèse PDF agrégée n'a plus d'entrée nav dédiée : elle se déclenche via le bouton "Exporter une synthèse PDF" du dashboard (ZD et AG), qui ouvre la modal de génération (cf. §4). Décision sobriété 2026-05-30.
 
 **Bouton primaire dashboard "Programmer un événement"** *(refonte 2026-05-21 — formulaire unique événement-centré, ex 2 sous-boutons ZD/AG)* : ouvre le formulaire unique §06.01 (choix ☐ZD ☐AG en étape 1) avec les contraintes Cas Gestionnaire (combobox lieu filtrée à `organisations_lieux`, combobox traiteur opérationnel restreinte au référentiel sans option shadow). Si la case Anti-Gaspi est cochée sans pack actif, la soumission AG est bloquée (alerte "Contactez Savr pour négocier un pack AG") — la collecte ZD reste programmable.
 
-**Section Collectes réintégrée (Val 2026-07-06 — divergence M3.2, override de la décision 2026-05-03)** : le gestionnaire dispose d'une entrée nav Collectes dédiée (`/gestionnaire/collectes`). **Colonnes de la liste** *(décision Val 2026-10-01, revue écran E2E)* : celles de la liste Collectes traiteur (§06.04 §3) plus le traiteur — **Date · Lieu (nom + adresse) · Client · Traiteur · Pax · Résultats · Type · Statut**. **Client** = client organisateur, si renseigné par le traiteur (« — » sinon) ; **Traiteur** = nom du traiteur opérationnel ; **Résultats** = ceux de la liste traiteur sur une collecte réalisée (ZD : poids · taux de recyclage · CO₂ évité ; AG : repas donnés · CO₂ évité), avec le téléchargement du rapport ; les repas d'une collecte programmée par un traiteur tiers sont lus dans l'attribution par la vue `v_attributions_gestionnaire` (même règle que la fiche ; l'ancien repli sur l'attestation de don, D13, est retiré depuis le 2026-10-04) ; **Type** est gardé parce que la liste mêle ZD et AG. Pas de colonne « Événement », **aucun picto d'action** (la fiche porte « Modifier » pour ses propres programmations, D7). La liste reste plate et paginée (décisions 2026-07-14 et 2026-09-22 inchangées). Le détail d'une collecte (pesées par flux, repas, bordereau, rapport recyclage, attestation don) reste **également** accessible depuis le détail événement parent.
+**Section Collectes réintégrée (Val 2026-07-06 — divergence M3.2, override de la décision 2026-05-03)** : le gestionnaire dispose d'une entrée nav Collectes dédiée (`/gestionnaire/collectes`). **Colonnes de la liste** *(décision Val 2026-10-01, revue écran E2E)* : celles de la liste Collectes traiteur (§06.04 §3) plus le traiteur et les déchets labo estimés — **Date · Lieu (nom + adresse) · Client · Traiteur · Pax · Résultats · Déchets labo est. · Type · Statut**. **Client** = client organisateur, si renseigné par le traiteur (« — » sinon) ; **Traiteur** = nom du traiteur opérationnel ; **Déchets labo est.** *(décision Val 2026-10-07)* = estimation des déchets produits au labo du traiteur pour l'événement de la collecte, `pax × coefficient` du traiteur opérationnel (cf. [[05 - Règles métier#R_dechets_labo_estimes]]) — affichée sur les lignes de collecte ZD seulement (arbitrage Val 2026-10-07 : la notion ne tient pas pour une collecte AG, qui affiche `—`) ; même valeur et même format que la colonne de la liste Événements, `—` si coefficient non communiqué ; c'est une valeur de l'événement, répétée sur chacune de ses collectes ZD ; colonne propre au gestionnaire, non triable ; **Résultats** = ceux de la liste traiteur sur une collecte réalisée (ZD : poids · taux de recyclage · CO₂ évité ; AG : repas donnés · CO₂ évité), avec le téléchargement du rapport ; les repas d'une collecte programmée par un traiteur tiers sont lus dans l'attribution par la vue `v_attributions_gestionnaire` (même règle que la fiche ; l'ancien repli sur l'attestation de don, D13, est retiré depuis le 2026-10-04) ; **Type** est gardé parce que la liste mêle ZD et AG. Pas de colonne « Événement », **aucun picto d'action** (la fiche porte « Modifier » pour ses propres programmations, D7). La liste reste plate et paginée (décisions 2026-07-14 et 2026-09-22 inchangées). Le détail d'une collecte (pesées par flux, repas, bordereau, rapport recyclage, attestation don) vit dans la fiche collecte. **Export CSV** *(décision Val 2026-10-07)* : bouton « Exporter CSV » dans l'en-tête de la liste, 1 ligne = 1 collecte, colonnes et filtres décrits au [[12 - Reporting et exports]] §2.
 
 > **Fiche collecte (décision Val 2026-09-29)** : la fiche collecte reprend le pop-up client §06.04 « Fiche collecte (vue détail) » (en-tête, frise client, onglets Informations / Logistique / Bilan & documents) ; seules changent les actions autorisées au rôle. **Exception** *(arbitrage Val C2 2026-10-01)* : bloc « Contacts sur place » **absent** sur la collecte programmée par un tiers (traiteur ou agence) — le gestionnaire ne voit pas les données personnelles des traiteurs (cf. « ne voit pas » ci-dessus) ; le bloc reste affiché sur ses propres programmations (`evenements.organisation_id = self`). _(2026-10-04 — vue `v_attributions_gestionnaire` implémentée)_ Collecte AG programmée par une autre organisation : « Repas donnés », « Repas par pax » et le bloc « Association bénéficiaire » (nom, ville, présentation) sont lus dans l'attribution par la vue `v_attributions_gestionnaire` (« — » et pas de bloc tant qu'aucune attribution n'existe) ; radar ZD masqué (garde `f_benchmark_single_collecte`). L'ancien repli sur l'attestation de don (D13) et le masquage du bloc Association sont retirés.
 
+
+> **Barre de filtres de la liste Collectes** *(R-UI-4b 2026-10-02 ; choix multiple 2026-10-06)* : type de collecte ZD / AG levable (« Toutes »), puis Période · Lieu · Traiteur · Type d'événement · Taille d'événement. Lieu, Traiteur, Type et Taille d'événement sont à choix multiple, case « Tous » en tête (Design System §5.5). Options : celles de la barre globale du dashboard (lieux de l'organisation ; traiteurs intervenus sur les 24 derniers mois). Persistante en query string : `lieu` et `traiteur` en liste séparée par des virgules, le lien d'un drill-down de Top liste étant une liste d'un élément. Pas d'onglets Programmées / Historique ni de filtre Statut.
 
 > **Pagination** : liste paginée côté serveur, **50 collectes par page** (aligné §06.06 Back-office Admin). Au-delà d'une page, l'écran affiche le **nombre total de collectes du périmètre filtré** et le composant Pagination du Design System (§10 §6). Le total affiché est celui de la base, pas celui de la page : c'est lui qui rend la troncature visible, la liste étant volontairement large (« tous statuts, type ZD/AG non figé », cf. drill-down des Top listes). Un changement de filtre (dont un drill-down) **réinitialise la pagination à la page 1**. Tri départagé (`date_collecte` puis `id`) : `date_collecte` n'est pas unique, sans départage deux pages successives peuvent réordonner les ex æquo et faire disparaître une ligne. *(décision Val 2026-09-22 — la section réintégrée le 2026-07-06 ne spécifiait pas la taille de la liste ; la route coupait à 100 lignes sans le signaler.)*
 
 > **Page demandée au-delà de la dernière** (lien partagé, ou liste qui a rétréci pendant la consultation) : la route répond **200 avec une page vide ET le total exact**, jamais une erreur — l'écran afficherait sinon « Le chargement des collectes a échoué » sur un parc sain. L'écran, lui, **ramène l'utilisateur sur la dernière page valide** plutôt que de montrer l'état vide : le bloc de pagination ne s'affiche que lorsque la liste est non vide, donc l'état vide serait un cul-de-sac, avec le message d'un parc réellement vide. *(confirmé Val 2026-09-22.)*
 
-**Différenciation visuelle événements programmés par le gestionnaire vs par le traiteur** : dans la liste Événements, badge "Programmée par moi" (vert) si `evenements.organisation_id = current_org`, sinon badge "Programmée par {{traiteur}}" (gris). Permet au gestionnaire d'identifier rapidement ses propres programmations.
+(paragraphe supprimé — décision Val 2026-10-07 : la liste Événements est retirée et le badge n’est pas repris sur la liste Collectes.)
 
 ---
 
@@ -138,7 +141,7 @@ Mapping 4 cartes affichées par onglet :
 - **ZD** : Nombre de collectes · Tonnage collecté · Taux de recyclage · kg/pax moyen
 - **AG** : Nombre de collectes · Repas donnés · Pax cumulés · Repas/pax moyen
 
-Chaque carte porte une **sparkline** (tendance mensuelle) et une **variation N-1** (sauf « kg/pax ») *(déclinaison Cockpit, GO-VISUAL Val 2026-07-10)*. **Les cartes KPI ne sont PAS cliquables** *(décision Val GO-VISUAL 2026-07-10)*. Pas de héros CO₂ côté gestionnaire (endpoint agrégé, sans `co2_*`).
+Chaque carte porte une **sparkline** (tendance mensuelle) et une **variation N-1** (sauf « kg/pax » et « Repas/pax moyen », arbitrage Val 2026-10-08) *(déclinaison Cockpit, GO-VISUAL Val 2026-07-10)*. **Les cartes KPI ne sont PAS cliquables** *(décision Val GO-VISUAL 2026-07-10)*. Pas de héros CO₂ côté gestionnaire (endpoint agrégé, sans `co2_*`).
 
 ---
 
@@ -164,8 +167,8 @@ Encart compact "Filtres benchmark" affichant **4 critères** (lieux, traiteurs, 
 
 | Filtre benchmark | Type | Valeurs |
 |---|---|---|
-| Lieux benchmark | Multi-select | Tous les lieux du parc Savr (toutes organisations confondues) — défaut "Tous" |
-| Traiteurs benchmark | Multi-select | Tous les traiteurs du parc Savr — défaut "Tous" |
+| Lieux benchmark | Multi-select | Lieux rattachés à l'organisation du gestionnaire (`organisations_lieux`) — défaut « Tout le parc Savr » |
+| Traiteurs benchmark | Multi-select | Traiteurs intervenus sur au moins une collecte sur ses lieux depuis 24 mois (même liste que le filtre global Traiteurs) — défaut « Tout le parc Savr » |
 | Type d'événement benchmark | Multi-select | `types_evenements.libelle` — défaut "Tous" |
 | Taille d'événement benchmark | Multi-select | XS / S / M / L / XL — défaut "Tous" |
 
@@ -173,7 +176,9 @@ Encart compact "Filtres benchmark" affichant **4 critères** (lieux, traiteurs, 
 
 **Initialisation** : à l'ouverture du dashboard, les filtres benchmark héritent par défaut des filtres globaux (Type d'événement + Taille d'événement uniquement). Le gestionnaire peut ensuite les modifier indépendamment (bouton "Réinitialiser" pour revenir à l'héritage par défaut).
 
-**Avertissement UX** : si le gestionnaire applique le filtre `Lieux benchmark` ou `Traiteurs benchmark` sur ses propres lieux/traiteurs, un tooltip affiche "Vous comparez vos données à vos propres données — le benchmark perd son rôle de référence parc". Pas de blocage, juste un avertissement.
+> **Périmètre des listes Lieux / Traiteurs (décision Val 2026-10-06).** Le gestionnaire ne peut nommer que ses lieux rattachés et les traiteurs intervenus sur ses lieux. Sans rien cocher, le repère reste calculé sur **tout le parc Savr** : la case de tête de ces deux listes s'appelle « Tout le parc Savr » (et non « Tous »), cochée par défaut, décochée dès qu'une ligne est cochée ; la recocher vide la sélection. Cocher toutes les lignes reste une sélection explicite (« n sélectionnés »), jamais ramenée à « Tout le parc Savr ». Type d'événement et Taille gardent « Tous ». La règle est tenue en base : `f_benchmark_lieux_parc` et `f_benchmark_traiteurs_parc` refusent le rôle `gestionnaire_lieux`, et `f_benchmark_kg_pax_zd` refuse (SQLSTATE 42501, relayé en 403) un lieu non rattaché ou un traiteur que sa vue `v_traiteurs_gestionnaire` ne lui rend pas — type traiteur, opérationnel sur un événement daté tenu sur l'un de ses lieux, sans fenêtre de 24 mois (cf. §04). La liste affichée (24 mois) est un sous-ensemble de cette borne. Les rôles traiteur et agence gardent, dans ce filtre, tous les lieux du parc (« lieux rattachés » n'est pas défini pour eux — hors lot).
+
+**Avertissement UX** : dès que le gestionnaire coche un lieu ou un traiteur (tous sont dans son périmètre), un tooltip affiche "Vous comparez vos données à vos propres données — le benchmark perd son rôle de référence parc". Pas de blocage, juste un avertissement.
 
 ##### Radar (1 axe par flux ZD, 5 axes au total)
 
@@ -205,7 +210,7 @@ Donut affichant la part relative des 5 flux ZD sur la période filtrée. Tooltip
 
 Tableau ordonné par tonnage, période filtrée :
 - Lieu · Nombre de collectes ZD · Tonnage · Taux de recyclage *(moyenne pondérée par tonnage)*
-- **Chaque ligne cliquable → liste Collectes filtrée sur le lieu** *(drill-down, décision Val 2026-07-14)*. Liste plate (pas d'onglet Historique), tous statuts, type ZD/AG non figé ; filtres du dashboard propagés (période + Type/Taille d'événement). Chip « Filtre actif » ; libellé via `sessionStorage`.
+- **Chaque ligne cliquable → liste Collectes filtrée sur le lieu** *(drill-down, décision Val 2026-07-14)*. Liste plate (pas d'onglet Historique), tous statuts, type ZD/AG non figé ; filtres du dashboard propagés (période + Type/Taille d'événement). Chip « Filtre actif » ; libellé via `sessionStorage`. Le chip nomme une seule cible : il disparaît dès que la barre filtre sur un deuxième lieu ou un deuxième traiteur, et revient si elle ne filtre de nouveau que sur la cible. Plusieurs lieux ou plusieurs traiteurs dans l'adresse à l'arrivée sont des filtres ordinaires, sans chip ; le lieu prime sur le traiteur. Un traiteur absent des options de la barre (hors des 24 derniers mois) garde sa case, cochée et nommée.
 
 #### Bloc 7 ZD — Top 5 traiteurs ZD
 
@@ -277,7 +282,7 @@ Clic → ouvre la modal de génération §4 Génération de synthèse PDF en ét
 
 ## 2. Section Événements
 
-Vue unique côté gestionnaire pour la consultation opérationnelle (la page Collectes a été supprimée en V1 — décision Val 2026-05-03).
+(remplacée par le bloc ci-dessus)
 
 ### Barre de filtres (5 critères, identiques à la barre globale du Dashboard)
 
@@ -313,9 +318,9 @@ Agrégation par événement (un événement peut avoir 1 à N collectes ZD/AG). 
 | Pax | Nombre de couverts |
 | Nb collectes | ZD + AG (ex: "2 ZD + 1 AG") |
 | Tonnage total | kg ZD agrégé sur l'événement |
-| Déchets labo estimés *(ajout 2026-05-22)* | Estimation kg du déchet produit au labo du traiteur = `pax × coefficient` du traiteur opérationnel pour l'année − 1 (cf. [[05 - Règles métier#R_dechets_labo_estimes]]). `—` si coefficient non communiqué. Distinct du tonnage collecté. |
+| Déchets labo estimés *(ajout 2026-05-22)* | Estimation kg du déchet produit au labo du traiteur = `pax × coefficient` du traiteur opérationnel pour l'année − 1 (cf. [[05 - Règles métier#R_dechets_labo_estimes]]). `—` si coefficient non communiqué, ou si l'événement n'a aucune collecte ZD *(arbitrage Val 2026-10-07)*. Distinct du tonnage collecté. |
 | Repas donnés | Si AG sur l'événement |
-| Statut consolidé | En cours / Terminé / Annulé — dérivation figée *(décision F2 2026-06-07)* : **Annulé** = toutes les collectes de l'événement sont `annulee` · **Terminé** = toutes les collectes sont terminales (`realisee`/`cloturee`/`annulee`) avec au moins 1 `realisee` ou `cloturee` · **En cours** = sinon (≥ 1 collecte non terminale) |
+(ligne emportée par le remplacement de la section §2 ; règle reprise au §12 §2, bloc ci-dessus)
 
 ### Détail événement
 
@@ -325,7 +330,7 @@ Clic sur une ligne → vue consolidée en lecture seule (consultation pure, aucu
 - Nom, date de début, lieu, pax, type d'événement, taille bracket
 - Traiteur (nom + logo, pas d'email / téléphone / SIRET)
 - Client Organisateur si renseigné par le traiteur
-- **Déchets labo estimés (kg)** *(ajout 2026-05-22)* — estimation du déchet produit en amont au laboratoire du traiteur = `pax × coefficient` du traiteur opérationnel pour l'année − 1 (cf. [[05 - Règles métier#R_dechets_labo_estimes]]). Affiché avec tooltip explicatif ("estimation amont, distincte des déchets collectés sur l'événement ci-dessous"). `—` si le traiteur n'a pas communiqué de coefficient pour l'année applicable. Le coefficient brut n'est jamais affiché, seule l'estimation kg.
+- **Déchets labo estimés (kg)** *(ajout 2026-05-22)* — estimation du déchet produit en amont au laboratoire du traiteur = `pax × coefficient` du traiteur opérationnel pour l'année − 1 (cf. [[05 - Règles métier#R_dechets_labo_estimes]]). Affiché avec tooltip explicatif ("estimation amont, distincte des déchets collectés sur l'événement ci-dessous"). `—` si le traiteur n'a pas communiqué de coefficient pour l'année applicable, ou si l'événement n'a aucune collecte ZD *(arbitrage Val 2026-10-07)*. Le coefficient brut n'est jamais affiché, seule l'estimation kg.
 
 **Bloc collectes rattachées** : 1 sous-bloc par collecte (ZD et/ou AG), affichant :
 - Type (ZD / AG), date + heure début, **statut affiché côté client** — mapping canonique : voir [[04 - Espace client traiteur#Mapping d'affichage du statut collecte côté client (canonique — décision Val 2026-06-30, divergence UX-STATUTS)]]. Points clés : `programmee` → **Créée** (jamais « Programmée »), `validee` → Validée, `en_cours`/`realisee` → En cours, `cloturee` → **Réalisée**, `realisee_sans_collecte` → Sans excédents, `annulee`/`annulation_demandee` → Annulée. *(Supersède le mapping F2 2026-06-07 `programmee`/`validee` → Programmée · `realisee`/`cloturee` → Réalisée — décision Val 2026-06-30. UX-only, enum `collectes.statut` inchangé. Le « Statut consolidé » événement ci-dessus reste distinct.)*
@@ -358,7 +363,7 @@ Pas d'export grain collecte côté gestionnaire en V1. Si un client demande le d
 
 ### Vue liste
 
-Tous les lieux de l'organisation. Rattachement géré par Admin Savr (ajout/retrait = demande via support).
+Tous les lieux de l'organisation. Rattachement géré par Admin Savr (ajout = bouton « Demander l'ajout d'un lieu », cf. « Ajout / retrait lieu » ci-dessous ; retrait = demande via support).
 
 | Colonne | Détail |
 |---|---|
@@ -370,17 +375,19 @@ Tous les lieux de l'organisation. Rattachement géré par Admin Savr (ajout/retr
 
 ### Détail lieu
 
-Fiche lieu avec :
-- Informations générales (**Adresse accès livraison** *(label refondé 2026-05-08)*, capacité, photos si disponibles *(« type » retiré 2026-07-06 — divergence M3.2 : colonne `lieux.type` inexistante dans le schéma V1 ET le DDL cible V2 ; si une catégorie de lieu est souhaitée un jour, c'est une évolution Data Model + DDL, pas un patch texte)*, stationnement / accès office / type véhicule max — tous enum facile/difficile/très difficile pour stationnement+accès office, enum véhicule unifié `velo_cargo/camionnette/fourgon/vul/poids_lourd` pour type véhicule max — cf. [[04 - Data Model]] table `lieux`)
-- Historique complet des collectes sur ce lieu
-- Graphique évolution sur 12 mois
-- Top traiteurs intervenant sur ce lieu
+Fiche lieu **en pop-up sur la liste Lieux** *(décision Val 2026-10-06 — même cadre que les fiches collecte ; l'adresse porte la fiche ouverte, `?lieu=<id>`)*, en **lecture seule**, trois onglets :
+- **Informations** — informations générales (**Adresse accès livraison** *(label refondé 2026-05-08)*, capacité, photos si disponibles *(« type » retiré 2026-07-06 — divergence M3.2 : colonne `lieux.type` inexistante dans le schéma V1 ET le DDL cible V2 ; si une catégorie de lieu est souhaitée un jour, c'est une évolution Data Model + DDL, pas un patch texte)*, stationnement / accès office / type véhicule max — tous enum facile/difficile/très difficile pour stationnement+accès office, enum véhicule unifié `velo_cargo/camionnette/fourgon/vul/poids_lourd` pour type véhicule max — cf. [[04 - Data Model]] table `lieux`)
+  Région, stationnement, accès office et flux s'affichent par leur libellé.
+- **Traiteurs** — liste des traiteurs opérant sur le lieu, calculée à la lecture depuis ses collectes (traiteur opérationnel de l'événement, tous statuts, sans limite de date — même règle de comptage que la fiche lieu Admin, cf. [[04 - Data Model]] note sous la table `lieux` ; périmètre = ce que le gestionnaire lit sous sa RLS : un événement d'un tiers sans date ne lui est pas servi, son traiteur peut donc manquer là où la fiche Admin le montre), avec nombre de collectes (tous statuts) et tonnage ZD (collectes clôturées). Onglet toujours présent ; état vide si aucune collecte.
+- **Activité** — l'histogramme « Évolution mensuelle Zéro Déchet » du dashboard ([[11 - Dashboards]] Bloc 2 ZD : tonnages par flux, taux de recyclage superposé), filtré sur le lieu, sur les 12 derniers mois ; état vide sinon. Pas d'historique des collectes sur la fiche *(décision Val 2026-10-07)* : elles se consultent par la liste Collectes filtrée sur le lieu.
+
+> **Demande de modification d'information** *(décision Val 2026-10-06)* : le gestionnaire ne modifie pas les informations d'un lieu (référentiel tenu par l'Admin Savr, [[04 - Data Model]]). Le pied de la fiche porte un bouton « Demande de modification d'information » : il décrit ce qui doit être corrigé (10 à 1 000 caractères) et la demande ouvre une alerte in-app pour l'Admin (code `lieu_modification_demandee`, « À traiter », lien vers la fiche lieu Admin ; ni email ni Slack). Bouton proposé sur les seuls lieux du parc de l'organisation (`organisations_lieux`). Une demande ouverte par lieu (index unique en base) : tant que l'Admin n'a pas résolu l'alerte, le bouton est neutralisé (« Une demande de modification est en cours de traitement par l'équipe Savr »). Le message de l'alerte nomme le lieu et l'organisation qui demande, sans donnée personnelle ; l'auteur est tracé dans `audit_log` (qui, quand).
 
 **Masqué côté gestionnaire de lieux V1** : tarifs ZD négociés, tarifs AG, tout élément financier. Les tarifs restent exclusivement dans le back-office Admin. **Champs admin/ops only également masqués** *(refonte 2026-05-08)* : `commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo` (cf. [[05 - Règles métier#R_lieux_admin_only_fields]]).
 
 ### Ajout / retrait lieu
 
-Pas d'interface en V1. Bouton "Demander l'ajout d'un lieu" ouvre un formulaire simple → envoie un email à l'Admin Savr avec le lieu souhaité et les coordonnées du demandeur. Traitement manuel côté Admin (voir [[06 - Back-office Admin Savr]] action "Rattachement lieu").
+Pas d'interface de rattachement en V1. Sur la liste Lieux, le bouton « Demander l'ajout d'un lieu » ouvre un formulaire simple — nom du lieu (2 à 150 caractères) et adresse (5 à 300) obligatoires, précision facultative (1 000 caractères au plus). La demande ouvre une **alerte in-app dans la file de l'Admin Savr** *(décision Val 2026-10-07 — même canal que la « Demande de modification d'information » de la fiche lieu ; ni email ni Slack)* : code `lieu_ajout_demande`, « À traiter », rattachée à l'organisation qui demande (lien vers sa fiche Admin). Le message de l'alerte nomme l'organisation et reprend le lieu souhaité, sans donnée personnelle ; l'auteur est tracé dans `audit_log` (non affiché dans l'interface Admin en V1 : les contacts de l'organisation se trouvent sur sa fiche). Une demande d'ajout ouverte à la fois par organisation (index unique en base) : tant que l'Admin n'a pas résolu l'alerte, le bouton est neutralisé (« Une demande d'ajout est en cours de traitement par l'équipe Savr »). La demande ne crée ni lieu ni rattachement : traitement manuel côté Admin (voir [[06 - Back-office Admin Savr]] §7, fiche lieu, champ « Gestionnaire »), qui résout ensuite l'alerte.
 
 ---
 
@@ -438,10 +445,12 @@ Tous les traiteurs ayant réalisé au moins une collecte sur les lieux de l'orga
 
 ### Détail traiteur
 
-Fiche traiteur (vue non commerciale) :
-- Logo, nom (pas de ville — aucune colonne dédiée dans `organisations` ; pas d'adresse / email / téléphone / SIRET / notes internes)
-- Statistiques 12 mois sur les lieux de l'organisation uniquement
-- Historique des collectes réalisées sur les lieux de l'organisation
+Fiche traiteur (vue non commerciale), **en pop-up sur la liste Traiteurs** *(refonte 2026-10-07 — même cadre que la fiche lieu ; l'adresse porte la fiche ouverte, `?traiteur=<id>`, et l'ancienne adresse `/gestionnaire/traiteurs/<id>` y redirige)*. Lecture seule, aucune action.
+
+- En-tête : logo, nom (pas de ville — aucune colonne dédiée dans `organisations` ; pas d'adresse / email / téléphone / SIRET / notes internes)
+- Onglet **Lieux d'intervention** : lieux de l'organisation où le traiteur est intervenu, avec le nombre de collectes par lieu sur les 24 derniers mois. Collectes **clôturées** seules — mêmes lieux que la colonne « Lieux d'intervention » de la liste *(arbitrage Val 2026-10-07 ; l'onglet « Traiteurs » de la fiche lieu, lui, compte tous les statuts)*. Tri par nombre de collectes puis par nom.
+- Onglet **Activité** : sélecteur Zéro Déchet / Anti-Gaspi, puis pour le type choisi les 4 cartes KPI et le graphique d'évolution mensuelle du Dashboard (Blocs 1 et 2), filtrés sur ce traiteur, sur les 12 derniers mois — mêmes chiffres que le Dashboard filtré sur ce traiteur (collectes clôturées sur les lieux de l'organisation uniquement). Sans collecte du type sur la période : un message, ni cartes à zéro ni graphique.
+- Pas d'historique des collectes sur la fiche *(retiré 2026-10-07, arbitrage Val — la liste Collectes filtrée sur le traiteur le donne)*
 - Pas d'accès aux tarifs, pas d'accès aux marges
 
 **Pourquoi limité** : le gestionnaire de lieux et le traiteur ont souvent une relation commerciale directe (référencement, contrat). Savr ne veut pas exposer les tarifs négociés traiteur↔Savr sur l'espace gestionnaire de lieux (confidentialité commerciale).
@@ -500,7 +509,7 @@ Liste des utilisateurs de l'organisation (rôle `gestionnaire_lieux`). Colonnes 
 
 ### Nouvelle table `coefficients_perte_labo` *(ajout 2026-05-22)*
 
-Une table ajoutée pour porter le coefficient de perte labo par traiteur × année (cf. [[04 - Data Model#⚠ Addendum 2026-05-22 — Coefficient de perte labo (estimation déchets amont, gestionnaire-only)]]). Le gestionnaire ne lit **pas** cette table : l'estimation `pax × coefficient` est calculée côté serveur (fonction SECURITY DEFINER) et exposée en kg dans le détail événement et la colonne liste. Saisie réservée à l'Admin Savr (§06.06).
+Une table ajoutée pour porter le coefficient de perte labo par traiteur × année (cf. [[04 - Data Model#⚠ Addendum 2026-05-22 — Coefficient de perte labo (estimation déchets amont, gestionnaire-only)]]). Le gestionnaire ne lit **pas** cette table : l'estimation `pax × coefficient` est calculée côté serveur (fonction SECURITY DEFINER) et exposée en kg dans le détail événement, la colonne de la liste Événements et la colonne de la liste Collectes *(ajout Val 2026-10-07)*. Saisie réservée à l'Admin Savr (§06.06).
 
 ### Tables existantes réutilisées
 
@@ -526,7 +535,7 @@ Un `user` avec `role = 'gestionnaire_lieux'` accède :
 - `lieux` WHERE `id` IN (ses lieux)
 - `traiteurs` (vue restreinte) WHERE `organisation_id` IN (traiteurs intervenus sur ses lieux)
 - `coefficients_perte_labo` *(ajout 2026-05-22)* : **aucun accès direct** pour le rôle `gestionnaire_lieux`. L'estimation `pax × coefficient` est calculée côté serveur via une fonction SECURITY DEFINER ; seule la valeur kg est retournée au gestionnaire (le coefficient brut du traiteur n'est jamais exposé). Lecture/écriture directe réservée à `admin_savr` (cf. [[09 - Authentification et permissions]]).
-- `f_benchmark_kg_pax_zd` : EXECUTE autorisé pour le rôle `gestionnaire_lieux` (fonction `SECURITY DEFINER`). Filtres acceptés en paramètres : `flux_id`, `type_evenement_id`, `taille_evenement`, `periode_debut`, `periode_fin`, `lieu_ids[]`, `traiteur_ids[]` (les 5 dimensions de la barre filtre benchmark dédiée du Bloc 3 ZD). Aucun filtre obligatoire — tous facultatifs. **K-anonymat strict (durci 2026-09-22)** : la fonction applique côté serveur `nb_collectes_segment >= 5` **et ≥ 3 acteurs distincts** (minimum entre organisations programmatrices et traiteurs opérationnels) ; un segment qui ne franchit pas les deux seuils n'apparaît pas dans la réponse SQL. Les colonnes brutes individuelles ne sont jamais exposées — uniquement les agrégats.
+- `f_benchmark_kg_pax_zd` : EXECUTE autorisé pour le rôle `gestionnaire_lieux` (fonction `SECURITY DEFINER`). Filtres acceptés en paramètres : `flux_id`, `type_evenement_id`, `taille_evenement`, `periode_debut`, `periode_fin`, `lieu_ids[]`, `traiteur_ids[]` (les 5 dimensions de la barre filtre benchmark dédiée du Bloc 3 ZD). Aucun filtre obligatoire — tous facultatifs. `lieu_ids[]` et `traiteur_ids[]` ne peuvent nommer que les lieux rattachés et les traiteurs intervenus sur ses lieux ; hors périmètre, la fonction lève SQLSTATE 42501 *(garde de périmètre du 2026-10-06, cf. §04)*. **K-anonymat strict (durci 2026-09-22)** : la fonction applique côté serveur `nb_collectes_segment >= 5` **et ≥ 3 acteurs distincts** (minimum entre organisations programmatrices et traiteurs opérationnels) ; un segment qui ne franchit pas les deux seuils n'apparaît pas dans la réponse SQL. Les colonnes brutes individuelles ne sont jamais exposées — uniquement les agrégats.
 
 ### Vue SQL dédiée
 
@@ -553,14 +562,14 @@ Fonction agrégée dédiée au Bloc 3 ZD (jauges) avec **filtres benchmark dédi
 - `type_evenement_id` : multi-select facultatif
 - `taille_evenement` : multi-select facultatif
 - `periode_debut` / `periode_fin` : facultatif (défaut UI = 12 mois glissants)
-- `lieu_ids[]` : multi-select facultatif (sur l'ensemble du parc Savr)
-- `traiteur_ids[]` : multi-select facultatif (sur l'ensemble du parc Savr)
+- `lieu_ids[]` : multi-select facultatif, borné aux lieux rattachés du gestionnaire ; vide = tout le parc Savr
+- `traiteur_ids[]` : multi-select facultatif, borné aux traiteurs de `v_traiteurs_gestionnaire` ; vide = tout le parc Savr
 
 **Calcul** : pour chaque tuple `(flux, type_evenement, taille)` correspondant aux paramètres, moyenne pondérée `SUM(collecte_flux.poids_reel_kg) / SUM(evenements.pax)` sur le sous-ensemble du parc Savr filtré.
 
 **Filtre RLS** : deux seuils cumulatifs dans le `HAVING` final de la fonction — `nb_collectes_segment >= 5` **ET** ≥ 3 acteurs distincts (minimum entre organisations programmatrices et traiteurs opérationnels ; durci 2026-09-22, migration `20260922210000`). Un segment qui ne franchit pas les deux n'apparaît pas dans la réponse SQL. ⚠ Le seuil de collectes **seul** ne garantissait pas la non-identifiabilité : 5 collectes d'un acteur unique le franchissaient et la moyenne publiée décrivait alors cet acteur. Plus le gestionnaire restreint les filtres benchmark, plus le risque de masquage augmente — c'est le compromis assumé de l'option D (cf. Décisions prises).
 
-**Risque "comparaison à soi-même"** : si le gestionnaire applique le filtre `lieu_ids[]` ou `traiteur_ids[]` sur ses propres lieux/traiteurs, la moyenne benchmark devient mécaniquement identique (ou très proche) du ratio gestionnaire → ratio = 1.0 → couleur orange permanente. Avertissement UX affiché côté front (tooltip dans la barre filtre benchmark).
+**Risque "comparaison à soi-même"** : dès que le gestionnaire coche un lieu ou un traiteur (le filtre est borné à son périmètre, décision Val 2026-10-06), la moyenne benchmark devient mécaniquement identique (ou très proche) du ratio gestionnaire → ratio = 1.0 → couleur orange permanente. Avertissement UX affiché côté front (tooltip dans la barre filtre benchmark).
 
 ### Bracket `taille_evenement`
 
@@ -585,18 +594,18 @@ Implémentation : fonction PostgreSQL `taille_evenement_bracket(pax integer) RET
 | Section Traiteurs limitée à nom/logo/stats | Fiche traiteur complète | Pas de données commerciales sensibles exposées |
 | Rapports automatiques sans email | Email systématique | Volume trop élevé, faible valeur ajoutée (consultation à la demande suffit) |
 | Préférences de notification défaut OFF | Défaut ON | Éviter la saturation email sur des parcs de 50+ lieux |
-| Demande d'ajout de lieu par email Admin | Interface self-service | Rattachement nécessite validation commerciale Savr (contrat, négociation tarifs ZD) |
+| Demande d'ajout de lieu par alerte in-app Admin *(décision Val 2026-10-07, ex « par email Admin »)* | Interface self-service | Rattachement nécessite validation commerciale Savr (contrat, négociation tarifs ZD) |
 | Rapport de synthèse personnalisé avec filtres | Rapport figé par période | Flexibilité indispensable pour répondre aux RFP clients du gestionnaire |
 | **Programmation ouverte gestionnaire (2026-05-07)** | Programmation interdite (positionnement initial V1) | Use case réel : gestionnaires pilotant la RSE événementielle directement. Périmètre restreint (lieux propres + référentiel traiteurs only) pour cadrer. |
 | **Facturation directe gestionnaire (2026-05-07)** | Pas de relation financière directe | Cohérence avec règle programmateur=facturé V1. Section Mon organisation > Facturation ajoutée (réutilisation composant §06.04 §6) |
 | **Pack AG ouvert gestionnaire (2026-05-07)** | Pack au niveau traiteur uniquement | Use case réel : gestionnaire qui négocie un volume AG sur son parc. Décompte sur pack du programmateur (cf. §06.09). |
 | **Pas de fiche shadow gestionnaire (2026-05-07)** | Autoriser comme pour les agences | Risque pollution shadow (gestionnaires moins bien outillés Admin pour normaliser). Restriction métier explicite. |
-| Suppression page Collectes — fusion dans Événements (2026-05-03) | Conserver les 2 pages | Le gestionnaire raisonne par événement, pas par collecte. Le détail collecte vit dans le détail événement, suffisant pour la consultation. Réduction surface UI |
+| Suppression page Collectes — fusion dans Événements (2026-05-03) | Conserver les 2 pages | Le gestionnaire raisonne par événement, pas par collecte. Le détail collecte vit dans le détail événement, suffisant pour la consultation. Réduction surface UI **Levée** : page Collectes réintégrée le 2026-07-06, page Événements retirée le 2026-10-07 (décision Val). |
 | Barre filtre benchmark dédiée 5 dimensions (2026-05-03) | Benchmark figé sur le parc total ou héritage des filtres globaux | Permet au gestionnaire de comparer son périmètre à un benchmark de référence personnalisable (option D Val). Risque "comparaison à soi-même" assumé via avertissement UX |
-| Export grain événement (option C1) | Export grain collecte ou double export | 1 ligne = 1 événement, suffisant pour V1. Détail collecte par collecte reste accessible via PDF de synthèse §Rapports |
+| Export grain événement (option C1) | Export grain collecte ou double export | 1 ligne = 1 événement, suffisant pour V1. Détail collecte par collecte reste accessible via PDF de synthèse §Rapports **Levée le 2026-10-07** : export au grain collecte, depuis la liste Collectes. |
 | **Blocs Dashboard rattachés aux onglets ZD/AG (2026-05-10)** | Garder une section "Bloc commun" sous les onglets | Cohérence UX : un onglet actif filtre tout le contenu visible (KPIs comme blocs synthétiques). Plus simple à comprendre, supprime l'ambiguïté "ce bloc affiche-t-il ZD, AG ou les deux ?". |
 | **Bloc 8 transformé en bouton export synthèse PDF (2026-05-10)** | Conserver "Dernier rapport de synthèse disponible" / Le supprimer | Reco b retenue. Le bloc original est orphelin de la refonte 2026-05-05 (rapports auto supprimés, table `rapports_synthese` supprimée → toujours vide en V1). Remplacement par un bouton aligné §06.04, pré-rempli avec filtres globaux + type de collecte selon onglet actif. Donne une vraie valeur métier au bloc. |
-| **Déchets labo estimés par événement (2026-05-22)** | Mesure réelle / saisie traiteur / coefficient global | Le déchet labo n'est jamais collecté ni pesé par Savr → estimation seule possible. Coefficient annuel par traiteur (calculé sur N, appliqué sur N+1), saisi par l'Admin (le traiteur communique, ne saisit pas). Calcul à la volée `pax × coefficient`, non stocké. Affichage gestionnaire-only (détail événement + colonne liste), hors rapport PDF. Pas de fallback si coefficient absent (`—`). Coefficient global par traiteur sans distinction type d'événement = limite V1 assumée (V2 si besoin de granularité gala vs cocktail). |
+| **Déchets labo estimés par événement (2026-05-22)** | Mesure réelle / saisie traiteur / coefficient global | Le déchet labo n'est jamais collecté ni pesé par Savr → estimation seule possible. Coefficient annuel par traiteur (calculé sur N, appliqué sur N+1), saisi par l'Admin (le traiteur communique, ne saisit pas). Calcul à la volée `pax × coefficient`, non stocké. Affichage gestionnaire-only (détail événement + colonne des listes Événements et Collectes — cette dernière ajoutée par Val le 2026-10-07), hors rapport PDF. Pas de fallback si coefficient absent (`—`). Coefficient global par traiteur sans distinction type d'événement = limite V1 assumée (V2 si besoin de granularité gala vs cocktail). |
 
 ---
 
@@ -630,5 +639,5 @@ Implémentation : fonction PostgreSQL `taille_evenement_bracket(pax integer) RET
 - [[11 - Dashboards]]
 - [[12 - Reporting et exports]] §1.6
 - [[04 - Espace client traiteur]]
-- [[06 - Back-office Admin Savr]] — action "Rattachement lieu"
+- [[06 - Back-office Admin Savr]] — §7, fiche lieu, champ « Gestionnaire » (rattachement d'un lieu) ; file des alertes (demande d'ajout d'un lieu)
 - [[02 - Templates emails V1]] — template 17 `invitation_utilisateur`

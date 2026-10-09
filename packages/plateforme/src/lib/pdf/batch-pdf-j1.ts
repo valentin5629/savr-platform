@@ -13,7 +13,7 @@ import {
 import {
   TAILLE_PAGE,
   lireParPages,
-  lireParTranches,
+  lireParLots,
 } from './selection-par-pages.js';
 import { resolveRapportBenchmark } from './rapport-benchmark.js';
 import { resolveRapportLogo } from './logo-cascade.js';
@@ -203,13 +203,13 @@ export async function runBatchPdfJ1(
   // 2. Exclure celles qui ont déjà un bordereau
   type BordRow = { collecte_id: string; statut: string };
   const { data: existingBordereaux, error: bordSelErr } =
-    await lireParTranches<BordRow>(
+    await lireParLots<BordRow>(
       collectes.map((c) => c.id),
-      (tranche) =>
+      (lot) =>
         supabase
           .from('bordereaux_savr')
           .select('collecte_id, statut')
-          .in('collecte_id', tranche),
+          .in('collecte_id', lot),
     );
 
   // Fail-closed : sans la liste des bordereaux émis, traiter = ré-émettre (BSAV gapless

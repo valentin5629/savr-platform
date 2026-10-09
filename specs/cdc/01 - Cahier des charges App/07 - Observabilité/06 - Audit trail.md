@@ -59,6 +59,8 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 
 > **Frontière audit vs logs (précision R15).** Les connexions (login/logout) relèvent des logs business §07/01 (`auth.login_success` / `auth.login_failed`), **pas de l'`audit_log`** (la route login tourne en client anon et ne peut pas insérer ; ces logs alimentent la chaîne d'alerte bruteforce). L'envoi Pennylane est couvert par l'action `facture_emise` (déclencheur « Validation Admin → Pennylane ») — **pas d'action `pennylane_envoi` distincte**.
 
+> **Traces d'auteur hors catalogue** *(2026-10-06 / 2026-10-07)* : `lieu_modification_demandee` (sur `lieux`) et `lieu_ajout_demande` (sur `organisations`) tracent l'auteur d'une demande déposée par un gestionnaire (qui, quand ; sans les textes saisis, non recopiés dans une table non modifiable). Écrites par la route **après** l'alerte, hors transaction, au mieux (un échec est journalisé, la demande reste valable). Ce ne sont **pas** des actions sensibles au sens du §2 : les exigences du §5 (même transaction que la mutation, motif) ne s'y appliquent pas.
+
 ---
 
 ## 3. Hors périmètre audit V1 (décision OBS-2)

@@ -137,7 +137,7 @@
     },
     {
       "id": "M0.7-reset-referentiel-preserve",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1325",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1326",
       "artefact": "packages/shared/src/seed/reset.ts (TABLES_REFERENTIEL_PRESERVEES : parametres_algo + parametres_co2_divers photographiées avant le vidage et restaurées après, valide_par neutralisé — le CASCADE posé sur users les emportait via leur FK valide_par et le seed ne les réinsère jamais ; mesuré 0 ligne sur savr-dev le 2026-10-02) — référentiel « seed technique placeholder, identique dans les 2 datasets » (Fixtures §01 Catalogue l.15, Vault) ; packages/shared/src/seed/check.ts (check « Référentiel préservé par le reset »)",
       "test": "packages/shared/src/seed/seed-reset-audit-log.test.ts — préserve les tables référentiel emportées par le CASCADE (photo AVANT, restauration APRÈS, valide_par neutralisé) ; émet EXACTEMENT la séquence attendue",
       "statut": "implemented",
@@ -145,7 +145,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "635965061c559a268b51586d881054381f4a6ad7a4cfdf784f7a6e3709bca345"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "59497b8ae36602cfaaffdb017dd989067c9756d9d0f6e808642e8719bf1a5de3"
   }
 }

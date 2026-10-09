@@ -583,7 +583,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/*",
       "test": "M3.1/dash_bloc2_bloc4_zd_montes + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel + M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
       "statut": "implemented",
-      "libelle": "Refonte visuelle « Cockpit » du dashboard traiteur (R24, pilote UX hors-audit) : 8 composants data-viz R24 câblés sur les blocs §06.04 (KpiCockpitCard, EvolutionZdChart/EvolutionAgChart, BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28), TonnagesDonut cockpit, PackAgRing, TopRankList) importés en direct (hors barrel → orphan-components reste 0). DS §10 par défaut. Testids §11 (bloc-2/4-traiteur, bloc-6/7-*, bloc-3ag, bloc-pack-ag ; bloc-5-prochaines retiré le 2026-10-01, décision Val) + tooltip Marge (BL-P3-02) + badge « X en attente de facturation » (F3) préservés. Cartes KPI = liens vers la liste Collectes filtrée (période + onglet)."
+      "libelle": "Refonte visuelle « Cockpit » du dashboard traiteur (R24, pilote UX hors-audit) : 8 composants data-viz R24 câblés sur les blocs §06.04 (KpiCockpitCard, EvolutionZdChart/EvolutionAgChart, BenchmarkRadar (ex-BenchmarkBulletGauges, radar depuis 2026-09-28), TonnagesDonut cockpit, PackAgRing, TopRankList) importés en direct (hors barrel → orphan-components reste 0). DS §10 par défaut. Testids §11 (bloc-2/4-traiteur, bloc-6/7-*, bloc-3ag, bloc-pack-ag ; bloc-5-prochaines retiré le 2026-10-01, décision Val) + tooltip Marge (BL-P3-02) + badge « X en attente de facturation » (F3) préservés. Cartes KPI = liens vers la liste Collectes filtrée (période + onglet). — ÉCART (sync du 2026-10-09) sur le bloc pack : le CDC synchronisé demande que le dernier pack épuisé reste affiché tant qu'aucun pack n'est actif (§06.04 l.240, arbitrage Val 2026-10-09, _Divergences/M3.2_20261008_pack-epuise-bloc-invisible) ; le dashboard ne lit que le pack `actif` et le bloc disparaît. Lot de code à livrer."
     },
     {
       "id": "M3.1-cockpit-co2-hero",
@@ -635,7 +635,7 @@
     },
     {
       "id": "M3.1-lieux-autocomplete-programmation-rls",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:90",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:92",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/lieux/route.ts + supabase/tests/lieux_clients_select_cliquet.test.sql",
       "test": "M1.2 / Lieux — alignement sur la RLS (7 scénarios Vitest) + supabase/tests/lieux_clients_select_cliquet.test.sql",
       "statut": "implemented",
@@ -683,7 +683,7 @@
     },
     {
       "id": "M3.1-fiche-benchmark-colonnes-canoniques",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2171-2212",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2174-2215",
       "artefact": "supabase/migrations/20260922100000_plateforme_benchmark_single_collecte_colonnes_canoniques.sql",
       "test": "M3.1/fiche_bloc3_ratio_et_repere",
       "statut": "implemented",
@@ -787,7 +787,7 @@
     },
     {
       "id": "M3.1-fiche-get-sans-notes-ni-prestataire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1521",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1522",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_get_sans_notes_ni_prestataire",
       "statut": "implemented",
@@ -811,7 +811,7 @@
     },
     {
       "id": "M3.1-edition-notes-internes-fermee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1521",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1522",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/agence/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts, packages/plateforme/src/components/collecte/editer-collecte-form.tsx",
       "test": "M3.1/edition_notes_internes_refusee",
       "statut": "implemented",
@@ -1031,15 +1031,15 @@
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts, packages/plateforme/src/components/collecte/editer-collecte-form.tsx, packages/plateforme/src/lib/collectes/email-modification.ts",
       "test": "M3.1/email_modification_un_seul_email",
       "statut": "implemented",
-      "libelle": "Un seul email par enregistrement du formulaire d'édition, envoyé par la dernière de ses deux requêtes : la route collecte relit dans le journal d'audit la modification d'événement que le même utilisateur vient d'enregistrer (signalée par le formulaire, valeurs lues en base) ; quand seul l'événement change, la route événement envoie l'email pour la collecte nommée par le formulaire, si elle appartient à l'événement. Déclencheur limité aux utilisateurs traiteur (agence et gestionnaire de lieux : lot suivant, arbitrage Val C5 2026-10-09)"
+      "libelle": "Un seul email par enregistrement du formulaire d'édition, envoyé par la dernière de ses deux requêtes : la route collecte relit dans le journal d'audit la modification d'événement que le même utilisateur vient d'enregistrer (signalée par le formulaire, valeurs lues en base) ; quand seul l'événement change, la route événement envoie l'email pour la collecte nommée par le formulaire, si elle appartient à l'événement et reste modifiable (programmée ou validée). Déclencheur limité aux utilisateurs traiteur (agence et gestionnaire de lieux : lot suivant, arbitrage Val C5 2026-10-09)"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "6478d8ca35120312498844b81a87628b6aea9b00864ad7a47a76b33b59d86749",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "635965061c559a268b51586d881054381f4a6ad7a4cfdf784f7a6e3709bca345",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "6a08f97fe482d5b5a9be85a937428c56245baee5380e13043e01b6ad435da805",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9b2486cfd6af6c76f1c910f89640bdb2fa64fdd1a620b476bc515f3d8f6e5863",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "fa69f5a5d32e20077c4b08997d2a267af7c9a3dc431a4260b4f569ea4404585f"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "b74f6ba9ea2743645c2c05d8dcd56a8d99b68ac92dcdaeb667f141665fdc813f",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "59497b8ae36602cfaaffdb017dd989067c9756d9d0f6e808642e8719bf1a5de3",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "07959c413b8b2e667a5ce48fb3a9c5a7f7e74b528c6d81eae72d77d280bab5a6",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "ecb359e00560473d7d724be1ba3ecf0282b9afde9829f93509ef11f96f9fa0c0",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "958d3d63bf7038300535557f5e8c12cda0dcc31d0666819579114b6d24293b2f"
   }
 }

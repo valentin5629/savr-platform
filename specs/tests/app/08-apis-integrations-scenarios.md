@@ -411,7 +411,7 @@ Scénario : puppeteer_generation_bordereau_zd
   Étant donné une collecte ZD clôturée avec pesees[] renseignées
     Et Puppeteer container Railway est disponible
   Quand la Next.js API Route generate-pdf est appelée (template=bordereau_savr)
-  Alors un PDF est généré et uploadé dans Cloudflare R2 (bucket=bordereaux)
+  Alors un PDF est généré et uploadé dans Cloudflare R2 (bucket de l'environnement, clé sous bordereaux/)
     Et bordereaux_savr.fichier_id est renseigné (référence shared.fichiers)
     Et bordereaux_savr.template_version est enregistrée
 ```

@@ -75,6 +75,7 @@ END $$;
 --   {{/if}}<p>Merci de relayer au prestataire si nécessaire depuis le back-office.</p>
 --   <p>L''équipe Savr</p>',
 --       variables = ARRAY['organisation_nom','date_initiale','pax_initial','liste_modifications','programmateur','statut_collecte','priorite_urgence'],
+--       description = 'Notification à l''équipe Savr — modification d''une collecte à venir par le traiteur : champs modifiés (avant / après), programmateur, statut actuel ; ligne ATTENTION à moins de 12h du créneau (§05).',
 --       updated_at = now()
 --   WHERE code = 'admin_modification_collecte_traiteur';
 --   (les lignes du corps ci-dessus sont à recopier sans leur préfixe « --   »)

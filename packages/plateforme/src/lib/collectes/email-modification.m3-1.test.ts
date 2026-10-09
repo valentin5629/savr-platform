@@ -409,6 +409,24 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     expect(recus[0]!.variables.priorite_urgence).toBe('true');
   });
 
+  it('lieu et lien ne sont pas exigés à l’envoi : le code déployé avant ce corps, qui ne les envoie pas, n’est pas refusé', async () => {
+    capter();
+    const { admin } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+    });
+    await notifierEquipeModificationCollecte(admin, REQ, CAS_VAL);
+    // Les variables du code d'avant ce lot : les mêmes, sans lieu ni lien.
+    const { lieu_nom, lien_fiche, ...avantCeLot } = recus[0]!.variables;
+    expect(lieu_nom).toBe('Paris Convention Centre');
+    expect(lien_fiche).toBe(LIEN_FICHE);
+    expect(findMissingVariables(VARIABLES, avantCeLot, CORPS)).toEqual([]);
+    const html = interpolate(CORPS, avantCeLot);
+    expect(html).not.toContain('(lieu');
+    expect(html).not.toContain('<a ');
+    expect(html).not.toContain('{{');
+  });
+
   it('le lien ouvre la fiche Admin de CETTE collecte, sur le domaine de l’application', async () => {
     capter();
     const { admin } = fauxAdmin({

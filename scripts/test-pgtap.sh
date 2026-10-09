@@ -220,6 +220,9 @@ $remplissage
   # Tous les fichiers ensemble : un rouge parmi des verts reste compté.
   cas "M_*" 1 "Total: 9 | Passed: 2 | Failed: 7" \
     "Le décompte des fichiers est faux."
+  # Aucun fichier pour le motif : rien n'est joué, ce n'est pas un vert.
+  cas M_absente 1 "Aucun fichier de test trouvé : supabase/tests/M_absente.test.sql" \
+    "Un motif qui ne désigne aucun fichier passe pour vert."
 
   # Sans DATABASE_URL : sortie 2, et ni psql ni le CLI Supabase ne sont lancés.
   : > "$bac/bin/appels"
@@ -231,7 +234,7 @@ $remplissage
   fi
 
   [ "$echec" = true ] && return 1
-  echo "✅ test-pgtap : auto-test OK (sortie verte, assertion en échec au début, au milieu, à la fin, erreur SQL, plan incomplet, fichier muet, très grosses sorties verte et rouge, décompte, refus sans DATABASE_URL)."
+  echo "✅ test-pgtap : auto-test OK (sortie verte, assertion en échec au début, au milieu, à la fin, erreur SQL, plan incomplet, fichier muet, très grosses sorties verte et rouge, décompte, motif sans fichier, refus sans DATABASE_URL)."
   return 0
 )
 

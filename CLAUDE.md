@@ -220,6 +220,7 @@ Pour toute zone d'ombre non tranchée ici : **stop et demander**.
 
 - 2 projets Supabase distincts (`savr-dev`, `savr-prod`), secrets séparés (Pennylane sandbox en dev).
 - Branches Vercel : `main` → prod, `dev` → dev. **Déploiement prod = autorisé à Claude Code (assoupli 2026-09-03, cf. §12 « Merge prod »)** — merge `main` + déploiement prod sans validation préalable de Val, tant qu'il n'y a **aucun utilisateur réel en prod**. ⚠ **Règle temporaire : à ré-durcir (retour à « action manuelle Val + frère ») dès le 1er client réel en production.**
+- **Les crons Vercel ne tournent que sur le déploiement de production** : sur dev, rien d'asynchrone ne se produit seul (une collecte « Réalisée » n'est jamais clôturée, ses documents ne sont jamais fabriqués). `pnpm documents:dev` (`scripts/documents-dev.ts`, depuis le clone principal, qui porte `.env.local`) enchaîne sur `savr-dev` la clôture après embargo, les batchs PDF J+1 et le worker PDF — rien d'autre (ni ordres aux prestataires, ni attribution AG, ni facturation) — et refuse toute autre base.
 - Aucun accès DB prod depuis l'environnement dev (app ou projet `savr-dev`). Seule exception, dans le régime temporaire §12 : Claude Code applique les migrations prod (sauvegarde préalable) et peut lire la base prod en **lecture seule forcée** (`default_transaction_read_only=on`) pour vérifier une migration ou un état. Pas de copie prod→dev sans anonymisation (`seed_anonymized`). Secrets dans Vercel/Supabase Vault, jamais dans le repo.
 
 ---

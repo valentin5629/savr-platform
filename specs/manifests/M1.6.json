@@ -27,6 +27,8 @@
     "packages/plateforme/tests/api/pdf-worker.m1-6.test.ts",
     "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts",
     "packages/plateforme/tests/api/batch-pdf-j1-observabilite.m1-6.test.ts",
+    "scripts/documents-dev.ts",
+    "packages/plateforme/tests/scripts/documents-dev.m1-6.test.ts",
     "supabase/tests/m1_6_pdf_batch.test.sql",
     "specs/manifests/M1.6.json"
   ],

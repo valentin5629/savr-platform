@@ -149,7 +149,9 @@ export function modificationUrgente(
 // requête collecte est refusée, l'utilisateur corrige et recommence : le
 // formulaire renvoie alors la même modification d'événement, devenue sans effet
 // (« 1500 → 1500 »). D'où une fenêtre de quelques minutes, repliée en entier :
-// l'état « avant » est celui de la plus ancienne ligne.
+// l'état « avant » est celui de la plus ancienne ligne. Contrepartie assumée :
+// deux enregistrements à moins de dix minutes d'écart, et le second email répète
+// les champs d'événement du premier — une répétition plutôt qu'une omission.
 const FENETRE_MEME_ENREGISTREMENT_MS = 10 * 60 * 1000;
 
 /**

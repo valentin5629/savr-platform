@@ -2,17 +2,12 @@
 -- Template email « admin_modification_collecte_traiteur » (CDC §06.02 n°19) —
 -- champs modifiés avec leurs valeurs avant / après.
 -- =============================================================================
--- Constat E2E de Val, 2026-10-09 : un traiteur change la date, le nombre de pax
--- et le contact d'une collecte ; l'email reçu par l'équipe Savr ne cite que
--- « date_collecte », et affiche l'identifiant de l'utilisateur et celui de la
--- collecte à la place d'un nom et d'une date lisible.
---
--- Nouveau texte, dicté par Val le 2026-10-09 : l'organisation, la date et le pax
--- d'origine, la liste des champs modifiés (ancienne puis nouvelle valeur), le
--- programmateur et son numéro, le statut actuel de la collecte. Arbitrages du
--- même jour : la ligne « Priorité de traitement » disparaît ; seule reste une
--- ligne « ATTENTION » à moins de 12 h du créneau (§05 « Modification d'une
--- collecte à venir », texte du CDC §06.02 n°19).
+-- Texte dicté par Val le 2026-10-09 (divergence
+-- M3.1_20261009_email-modification-collecte) : organisation, date et pax
+-- d'origine, liste des champs modifiés (ancienne puis nouvelle valeur),
+-- programmateur et son numéro, statut actuel. La ligne « Priorité de
+-- traitement » disparaît ; reste la ligne « ATTENTION » du CDC §06.02 n°19 à
+-- moins de 12 h du créneau (§05 « Modification d'une collecte à venir »).
 --
 -- État mesuré avant écriture (2026-10-09, dev) : corps posé par 20260705100000,
 -- variables = organisation_nom, demandeur_nom, collecte_ref, date_collecte,

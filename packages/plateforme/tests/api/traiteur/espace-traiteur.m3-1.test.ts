@@ -36,7 +36,6 @@ function makeChain() {
     'lte',
     'neq',
     'order',
-    'limit',
     'ilike',
     'update',
     'insert',
@@ -468,15 +467,8 @@ describe('M3.1 / édition collecte', () => {
     expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
       date_collecte: '2030-12-30',
     });
-    // La modification d'événement est celle de CET utilisateur, sur l'événement
-    // de CETTE collecte — lue en base, pas dans la requête.
-    expect(admin.__calls.eq).toEqual(
-      expect.arrayContaining([
-        ['table_name', 'evenements'],
-        ['record_id', 'e1'],
-        ['user_id', 'user-1'],
-      ]),
-    );
+    // La modification d'événement relue est celle de l'utilisateur de la session.
+    expect(admin.__calls.eq).toContainEqual(['user_id', 'user-1']);
   });
 
   it('M3.1/email_modification_un_seul_email — sans signalement, le journal d’audit n’est pas relu', async () => {

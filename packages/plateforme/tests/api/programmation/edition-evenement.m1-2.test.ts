@@ -137,13 +137,12 @@ function queueEventOk(
   admin.push({ data: null, error: null }); // audit insert
 }
 
-async function patchEvent(body: unknown, query = '') {
+async function patchEvent(body: unknown) {
   const { PATCH } =
     await import('@/app/api/v1/programmation/evenements/[id]/route.js');
-  return PATCH(
-    makeReq('PATCH', `/api/v1/programmation/evenements/e1${query}`, body),
-    { params: Promise.resolve({ id: 'e1' }) },
-  );
+  return PATCH(makeReq('PATCH', '/api/v1/programmation/evenements/e1', body), {
+    params: Promise.resolve({ id: 'e1' }),
+  });
 }
 
 // ── Édition ÉVÉNEMENT : les 4 rôles programmateurs ──────────────────────────
@@ -871,9 +870,17 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
   it('M3.1/email_modification_un_seul_email — événement seul, traiteur : un email, pax avant / après', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     queuePaxModifie({ id: 'c1' });
-    const res = await patchEvent({ pax: 1500 }, '?collecte_id=c1');
+    const res = await patchEvent({ pax: 1500, collecte_id: 'c1' });
     expect(res.status).toBe(200);
     expect(recus).toHaveLength(1);
+    // La collecte nommée n'est pas un champ de l'événement : elle n'atteint pas
+    // la RPC.
+    const rpc = (admin.__calls.rpc ?? []).find(
+      ([fn]) => fn === 'fn_modifier_evenement',
+    );
+    expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
+      pax: 1500,
+    });
     expect(recus[0]!.slug).toBe('admin_modification_collecte_traiteur');
     expect(recus[0]!.variables).toEqual({
       organisation_nom: 'Kaspia',
@@ -889,7 +896,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
   it('M3.1/email_modification_un_seul_email — collecte d’un autre événement : aucun email', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     queuePaxModifie(null);
-    const res = await patchEvent({ pax: 1500 }, '?collecte_id=c-autre');
+    const res = await patchEvent({ pax: 1500, collecte_id: 'c-autre' });
     expect(res.status).toBe(200);
     expect(recus).toEqual([]);
     // La collecte nommée par la requête est cherchée PARMI celles de l'événement
@@ -988,7 +995,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     async (role) => {
       setupAuth(role, 'org-1', 'user-1');
       queuePaxModifie({ id: 'c1' });
-      const res = await patchEvent({ pax: 1500 }, '?collecte_id=c1');
+      const res = await patchEvent({ pax: 1500, collecte_id: 'c1' });
       expect(res.status).toBe(200);
       expect(recus).toEqual([]);
     },

@@ -176,23 +176,23 @@ export function EditerCollecteForm({
         colUpdates.informations_supplementaires = infosSuppl || null;
 
       // L'équipe Savr reçoit UN email par enregistrement, envoyé par la dernière
-      // des deux requêtes : la collecte quand elle change (elle est prévenue que
-      // l'événement vient d'être modifié), sinon l'événement, à qui l'on nomme la
-      // collecte d'où ce formulaire est ouvert.
+      // des deux requêtes (cf. lib/collectes/email-modification) : la collecte
+      // quand elle change, prévenue que l'événement vient d'être modifié ; sinon
+      // l'événement, à qui l'on nomme la collecte d'où ce formulaire est ouvert.
       const evenementModifie = Object.keys(evtUpdates).length > 0;
       const collecteModifiee = Object.keys(colUpdates).length > 0;
 
       if (evenementModifie) {
         const res = await fetch(
-          `/api/v1/programmation/evenements/${encodeURIComponent(e.id)}${
-            collecteModifiee
-              ? ''
-              : `?collecte_id=${encodeURIComponent(collecte.id)}`
-          }`,
+          `/api/v1/programmation/evenements/${encodeURIComponent(e.id)}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(evtUpdates),
+            body: JSON.stringify(
+              collecteModifiee
+                ? evtUpdates
+                : { ...evtUpdates, collecte_id: collecte.id },
+            ),
           },
         );
         if (!res.ok) {

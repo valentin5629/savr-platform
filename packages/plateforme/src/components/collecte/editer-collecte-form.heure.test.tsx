@@ -142,8 +142,8 @@ describe('M3.1 / EditerCollecteForm — un seul email par enregistrement', () =>
       await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
       expect(patchs()).toEqual([
         [
-          '/api/v1/programmation/evenements/evt-1?collecte_id=col-1',
-          { pax: 120 },
+          '/api/v1/programmation/evenements/evt-1',
+          { pax: 120, collecte_id: 'col-1' },
         ],
       ]);
     },

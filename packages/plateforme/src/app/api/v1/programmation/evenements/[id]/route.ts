@@ -266,15 +266,13 @@ export async function PATCH(
     // notification best-effort — ignorée si irrésoluble
   }
 
-  // Email à l'équipe Savr (§06.02 n°19) : UN email par enregistrement du
-  // formulaire d'édition. Quand l'enregistrement ne touche que l'événement,
-  // aucune requête collecte ne suit : le formulaire nomme alors la collecte
-  // d'où il est ouvert (`?collecte_id=`) et l'email part d'ici. Sinon c'est la
-  // route collecte qui l'envoie, cette modification comprise. Déclencheur du
-  // CDC : un utilisateur traiteur.
-  const collecteNotifiee = req.nextUrl.searchParams.get('collecte_id');
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification) : il part d'ici
+  // quand l'enregistrement ne touche que l'événement — le formulaire nomme alors
+  // la collecte d'où il est ouvert (`collecte_id`). Déclencheur du CDC §06.02
+  // n°19 : un utilisateur traiteur.
+  const collecteNotifiee = body.collecte_id;
   if (
-    collecteNotifiee &&
+    typeof collecteNotifiee === 'string' &&
     (auth.ctx.role === 'traiteur_manager' ||
       auth.ctx.role === 'traiteur_commercial')
   ) {

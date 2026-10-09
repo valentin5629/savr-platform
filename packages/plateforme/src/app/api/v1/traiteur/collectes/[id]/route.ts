@@ -277,11 +277,9 @@ export async function PATCH(
     new_values: { updates, cascade_tms, priorite_urgence },
   });
 
-  // Email à l'équipe Savr (§06.02 n°19, §05 « Modification d'une collecte à
-  // venir ») : UN email par enregistrement. Le formulaire enregistre l'événement
-  // (pax, contacts…) puis la collecte ; quand il vient de modifier l'événement il
-  // le signale (`evenement_modifie`), et cette modification est relue dans le
-  // journal d'audit — jamais dans la requête.
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification). Quand le
+  // formulaire vient aussi de modifier l'événement, il le signale
+  // (`evenement_modifie`) : cette modification est relue dans le journal d'audit.
   await notifierEquipeModificationCollecte(admin, {
     collecteId: id,
     collecteAvant: (before ?? null) as Record<string, unknown> | null,

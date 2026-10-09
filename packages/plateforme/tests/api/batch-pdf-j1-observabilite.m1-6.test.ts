@@ -332,6 +332,8 @@ function collecteSansExcedent(id: string) {
 }
 
 /** Sous-batch sans-excédent : INSERT rapports_rse en échec pour les ids `enEchec`. */
+// `ids` dans l'ordre croissant, comme la base les rend : la sélection est triée
+// par id, et une page dans le désordre est refusée (lib/pdf/selection-par-pages).
 function resolveurSansExcedent(ids: string[], enEchec: string[]): Resolveur {
   return (q) => {
     if (cleSelection(q) === 'anti_gaspi/realisee_sans_collecte')
@@ -355,7 +357,7 @@ function warnsCollecte(): Log[] {
 describe('M2.4 / batch sans-excédent — échec partiel par collecte', () => {
   it('1 collecte KO sur 2 : pas de fatal, warn avec collecte_id, l’autre produite', async () => {
     const sb = fakeSupabase(
-      resolveurSansExcedent(['col-ok', 'col-ko'], ['col-ko']),
+      resolveurSansExcedent(['col-ko', 'col-ok'], ['col-ko']),
     );
 
     const result = await runBatchSansExcedent(sb as never);
@@ -399,7 +401,7 @@ describe('M2.4 / batch sans-excédent — toutes les collectes tentées en éche
 describe('M2.4 / cron batch-pdf-j1 — échec partiel via la route', () => {
   it('completed(nb_traite=1, nb_errors=1), 200, aucune alerte', async () => {
     courant = fakeSupabase(
-      resolveurSansExcedent(['col-ok', 'col-ko'], ['col-ko']),
+      resolveurSansExcedent(['col-ko', 'col-ok'], ['col-ko']),
     );
 
     const res = await appelerCron();

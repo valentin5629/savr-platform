@@ -135,21 +135,24 @@ Supabase est le cœur de l'architecture : base de données, authentification, st
 | `logos` | Logos organisations | Public (URL signée) |
 | `docs-chauffeurs` | Permis, visites médicales, cartes grises (léger, RLS critique) | RLS prestataire + admin_tms |
 
-**Cloudflare R2** (fichiers volumineux, egress 0€) :
+**Cloudflare R2** (fichiers volumineux, egress 0€) — **un bucket par environnement** (décision Val 2026-10-07) : `savr-dev` (aperçu et poste local) et `savr-prod` (production), désigné par la variable `R2_BUCKET_NAME`. Cette variable est obligatoire : sans elle, tout envoi et toute lecture échouent (aucun repli). La nature du fichier est un **dossier** de la clé, jamais un bucket ; aucun nom de bucket n'est écrit en dur dans le code. Le code ne fait qu'aiguiller chaque environnement vers son bucket ; l'étanchéité tient à la clé d'API R2 : **chaque environnement doit avoir sa propre clé, restreinte à son seul bucket chez Cloudflare**, pour que l'environnement de dev ne puisse ni lire ni écrire le stockage de prod.
 
-| Bucket R2 | Contenu | Pattern d'accès |
+| Dossier (dans le bucket de l'environnement) | Contenu | Pattern d'accès |
 |---|---|---|
-| `bordereaux` | PDFs bordereaux de pesée | URL pré-signée 15 min |
-| `attestations` | PDFs attestations de don AG | URL pré-signée 15 min |
-| `rapports` | PDFs rapports de recyclage | URL pré-signée 15 min |
-| `photos-collectes` | Photos Strike (V1), photos audit M05 (V2) | URL pré-signée 15 min |
-| `factures-prestataires` | PDFs factures prestataires OCR archivés | URL pré-signée 15 min |
+| `bordereaux/` | PDFs bordereaux de pesée | URL pré-signée 15 min |
+| `attestations/` | PDFs attestations de don AG | URL pré-signée 15 min |
+| `rapports/` | PDFs rapports de recyclage et rapports « événement sans excédent » | URL pré-signée 15 min |
+| `factures/` | PDFs factures, copie de travail Savr (§06.08) | URL pré-signée 15 min |
+| `syntheses/` | PDFs de synthèse exportés depuis un tableau de bord, non référencés dans `shared.fichiers` et plus joignables après expiration du lien. Aucune purge automatique dans le code : prévoir une règle de cycle de vie Cloudflare sur ce dossier | URL pré-signée 1 h |
+| `photos/collectes/` | Photos de collecte remontées du transporteur ou importées par l'Admin (V1), photos audit M05 (V2) | URL pré-signée 15 min |
+| `logos/` | Logos des organisations, des associations et des clients organisateurs | Servi par le serveur après contrôle d'accès (jamais d'URL publique) |
+| `factures-prestataires/` | PDFs factures prestataires OCR archivés (V2) | URL pré-signée 15 min |
 
 **Référentiel unique** : toute référence de fichier est enregistrée dans `shared.fichiers` avec colonnes `storage_provider` (`supabase`|`r2`), `bucket`, `key`, `content_hash`, `size_bytes`, `entity_type` (polymorphique), `entity_id`, `created_by`, `created_at`.
 
 **Rétention** : PDFs conservés indéfiniment (obligation légale / audit). Photos de collecte 3 ans puis archivées sur bucket R2 froid.
 
-**Génération PDF** : les PDFs sont générés par Railway (Puppeteer) puis uploadés dans le bon bucket R2 via SDK AWS S3-compatible. Upload/download client direct avec URLs pré-signées (pas de passage par Vercel ni Supabase).
+**Génération PDF** : les PDFs sont générés par Railway (Puppeteer) puis uploadés dans le bucket R2 de l'environnement, sous le dossier du document, via SDK AWS S3-compatible. Upload/download client direct avec URLs pré-signées (pas de passage par Vercel ni Supabase).
 
 ### 2.4 Code serveur — Next.js API Routes + pg_cron
 
@@ -191,17 +194,17 @@ API Route / batch Vercel Cron (J+1 6h)           ← corrigé 2026-06-10 (ex « 
     → INSERT plateforme.jobs_pdf (file, cf. §04)
     → worker POST /generate-pdf {template, data} → Railway (service Puppeteer)
     → Génère le PDF
-    → Upload Cloudflare R2 (bucket §2.3) + ligne shared.fichiers   ← corrigé 2026-06-10 (ex « Supabase Storage », décision 9.1.14)
+    → Upload Cloudflare R2 (bucket de l'environnement, dossier §2.3) + ligne shared.fichiers   ← corrigé 2026-06-10 (ex « Supabase Storage », décision 9.1.14)
     → jobs_pdf.statut = done, fichier_id renseigné
 ```
 
 ### Templates PDF V1
 
-| Template | Déclenché par | Destination bucket |
+| Template | Déclenché par | Dossier de destination (bucket de l'environnement) |
 |---|---|---|
-| Bordereau de pesée ZD | Batch J+1 6h | `bordereaux` |
-| Attestation de don AG | Batch J+1 6h | `attestations` |
-| Rapport de recyclage | Demande manuelle ou auto J+1 | `rapports` |
+| Bordereau de pesée ZD | Batch J+1 6h | `bordereaux/` |
+| Attestation de don AG | Batch J+1 6h | `attestations/` |
+| Rapport de recyclage | Demande manuelle ou auto J+1 | `rapports/` |
 
 ### Résilience
 
@@ -292,10 +295,13 @@ Aucun secret ne transite dans le code ou le repo GitHub. Toutes les clés API, c
 | `SUPABASE_SERVICE_ROLE_KEY` | API Routes Next.js (serveur) | Annuel |
 | `PENNYLANE_API_KEY` | API Route facturation | À la rotation Pennylane |
 | `RESEND_API_KEY` | API Route emails | Annuel |
+| `RESEND_FROM` *(ajout 2026-10-07 — manquait)* | Expéditeur de tous les emails (adresse d'un domaine vérifié chez Resend). Obligatoire dès qu'un email part réellement : aucun expéditeur par défaut dans le code. Posée en Production, Preview et Development | Non sensible — à modifier si le domaine d'envoi change |
+| `EMAIL_REDIRECT_TO` *(ajout 2026-10-07 — décision Val)* | Adresse de redirection des emails **hors production** (cf. §08 §4 « Environnements hors production »). Posée en Preview et Development uniquement, **jamais en Production** (elle y est ignorée) | Non sensible |
+| `INSEE_API_KEY` *(ajout 2026-10-07 — manquait)* | Vérification SIRET à l'inscription et sur les entités de facturation (API Sirene 3.11 de l'INSEE, `https://api.insee.fr/api-sirene/3.11`, clé transmise dans l'en-tête `X-INSEE-Api-Key-Integration`) — clé d'API créée sur `portail-api.insee.fr`, plan « Accès public » (30 requêtes/min) | Sans expiration ; renouvelable ou révocable sur le portail INSEE |
 | `MTS1_API_KEY` *(ajout 2026-06-10 — challenge Frontière, manquait)* | Adapter MTS-1 (`Authorization: Bearer`, sortant uniquement) — **Supabase Vault**, cf. §08 §3bis.3 | Manuelle (durée de vie token = QO éditeur 3bis.13.4) |
 | `TMS_WEBHOOK_SECRET` (HMAC) — **V2 seulement** | Validation webhooks entrants TMS | Annuel |
 | `PLATEFORME_WEBHOOK_SECRET` (HMAC) — **V2 seulement** | Signature webhooks sortants vers TMS | Annuel |
-| `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` | Upload/download Cloudflare R2 | Annuel |
+| `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` | Upload/download Cloudflare R2. **Une clé par environnement, restreinte chez Cloudflare au seul bucket de cet environnement** (jeton « Object Read & Write ») ; `R2_BUCKET_NAME` (non secrète, obligatoire) désigne ce bucket | Annuel |
 | `RAILWAY_PDF_SECRET` | Authentification Railway | Annuel |
 | `MISTRAL_OCR_API_KEY` — **V2 seulement** (OCR M08 TMS) | OCR factures prestataires | À la rotation Mistral |
 | `SENTRY_DSN` | Frontend + API Routes | Jamais (non sensible) |

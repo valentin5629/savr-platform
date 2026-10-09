@@ -417,7 +417,7 @@ Même politique que `parametres_taux_recyclage` (écriture `admin_savr`, lecture
 
 **Justification écriture admin_savr only** : le coefficient est communiqué par le traiteur puis saisi par Savr ; il alimente une estimation affichée au gestionnaire de lieux. Saisie réservée Admin (§06.06). `ops_savr` lecture seule.
 
-**Lecture indirecte par le gestionnaire de lieux** : le rôle `gestionnaire_lieux` n'a **aucun accès direct** à la table. L'estimation `pax × coefficient` est calculée par une **fonction PostgreSQL SECURITY DEFINER** (ex: `f_dechets_labo_estimes(p_evenement_id uuid) RETURNS numeric`) qui lit `coefficients_perte_labo` avec les droits du propriétaire, vérifie que l'événement appartient bien au périmètre du gestionnaire (jointure `organisations_lieux`), et ne retourne **que la valeur kg** — jamais le coefficient brut du traiteur. Même principe pour la colonne de la liste Événements (calcul serveur). Cf. [[05 - Règles métier#R_dechets_labo_estimes]] et [[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux]].
+**Lecture indirecte par le gestionnaire de lieux** : le rôle `gestionnaire_lieux` n'a **aucun accès direct** à la table. L'estimation `pax × coefficient` est calculée par une **fonction PostgreSQL SECURITY DEFINER** (ex: `f_dechets_labo_estimes(p_evenement_id uuid) RETURNS numeric`) qui lit `coefficients_perte_labo` avec les droits du propriétaire, vérifie que l'événement appartient bien au périmètre du gestionnaire (jointure `organisations_lieux`), et ne retourne **que la valeur kg** — jamais le coefficient brut du traiteur. Même principe pour la colonne de la liste Événements et celle de la liste Collectes, ajoutée le 2026-10-07 (calcul serveur). Cf. [[05 - Règles métier#R_dechets_labo_estimes]] et [[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux]].
 
 ### Table `integrations_logs`
 
@@ -440,7 +440,10 @@ Synthèse des permissions Ops Savr appliquées au back-office (détail écran pa
 | | **Programmer (support, tous périmètres)** *(ajout 2026-09-14 — alignement CDC ↔ production, cf. §06.01)* | Oui | **Oui** |
 | | Modifier infos / pesées / photos | Oui | Oui |
 | | Renvoyer S7 (sans override prestataire) | Oui | Oui |
+| | **Renvoyer l'email « infos d'accès chauffeur »** *(ajout 2026-10-08 — route `POST …/infos-acces/renvoi`, même garde que la saisie des coordonnées)* | Oui | **Oui** |
 | | Override prestataire AG avec motif | **Oui** | **Non** (403) |
+| | Choisir le prestataire d'une ZD (premier choix, sans motif) *(ajout 2026-10-07, décision Val)* | Oui | **Oui** |
+| | Changer le prestataire d'une ZD déjà posé (motif ≥ 5 caractères) | **Oui** | **Non** (403) |
 | | Annuler crédit collecte AG | Oui | Oui |
 | | Forcer changement statut | Oui | Oui |
 | **Factures** | Lecture | Oui | Oui |
@@ -684,16 +687,13 @@ Org-scoped via événement. Lecture par l'organisation de l'événement (l'embar
 
 ```sql
 ALTER TABLE plateforme.rapports_rse ENABLE ROW LEVEL SECURITY;
+-- Les 4 chemins (programmateur, traiteur opérationnel, client organisateur, lieu)
+-- sont portés par f_collecte_visible, qui exige en plus un événement daté sur le
+-- chemin « lieu » (anti-fuite des brouillons tiers, B-2). Ne pas les retranscrire.
 CREATE POLICY rr_select ON plateforme.rapports_rse FOR SELECT
   USING (
-    auth.jwt()->>'role' IN ('admin_savr','ops_savr')
-    OR EXISTS (SELECT 1 FROM plateforme.evenements e
-               WHERE e.id = rapports_rse.evenement_id
-                 AND ( e.organisation_id = auth.jwt()->>'organisation_id'
-                    OR e.traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'
-                    OR e.client_organisateur_organisation_id = auth.jwt()->>'organisation_id'
-                    OR e.lieu_id IN (SELECT lieu_id FROM plateforme.organisations_lieux
-                                     WHERE organisation_id = auth.jwt()->>'organisation_id') ))
+    plateforme.f_is_staff()
+    OR plateforme.f_collecte_visible(collecte_id)
   );
 CREATE POLICY rr_write_admin ON plateforme.rapports_rse FOR ALL
   USING (auth.jwt()->>'role' = 'admin_savr') WITH CHECK (auth.jwt()->>'role' = 'admin_savr');
@@ -789,11 +789,13 @@ ALTER TABLE shared.fichiers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY fichiers_select ON shared.fichiers FOR SELECT
   USING (deleted_at IS NULL
          AND ( auth.jwt()->>'role' IN ('admin_savr','ops_savr')
-            OR shared.f_fichier_visible(entity_type, entity_id) ));
+            OR ( shared.f_fichier_visible(entity_type, entity_id)
+                 -- photo de collecte : lisible par un client seulement si l'équipe Savr l'a choisie (décision Val 2026-10-07)
+                 AND (entity_type <> 'plateforme.collectes' OR rang_client IS NOT NULL) ) ));
 -- INSERT/UPDATE/DELETE : SERVICE_ROLE (generate-pdf.ts, uploads) + admin_savr.
 ```
 
-> ✅ **Liste exhaustive validée Val 2026-06-05** : **9 `entity_type` Plateforme V1** = `collectes` (photos + photo « aucun repas »), `bordereaux_savr`, `attestations_don`, `rapports_rse`, `organisations` (logos), `lieux` (photos), `evenements` (logo client organisateur), `factures` (copie PDF Savr `pdf_url_savr`, **scope strict = RLS table `factures`** : admin/ops + traiteur/agence/gestionnaire org-scoped *(gestionnaire ajouté décision F6 2026-06-07 — ses propres factures Savr)*, **jamais** client organisateur), `documents_generaux_savr` (CGV/méthodo/politique conf. = **public** `actif=true`). Tout `entity_type` non listé → `false` (deny par défaut, fail-safe). Exclus V1 : `briefs_evenement` (Module 19 non créé V1) + `tms.*` (`tms.pesees`/`tms.chauffeurs` inexistants V1). Fondement : §07 « toute référence de fichier est enregistrée dans `shared.fichiers` » → tous les `pdf_url`/`logo_url`/`photos_urls` ont une ligne.
+> ✅ **Liste exhaustive validée Val 2026-06-05** : **9 `entity_type` Plateforme V1** = `collectes` (photos de collecte ; la photo du lieu « aucun repas » n'en fait pas partie : réservée à l'équipe Savr, cf. §06.04), `bordereaux_savr`, `attestations_don`, `rapports_rse`, `organisations` (logos), `lieux` (photos), `evenements` (logo client organisateur), `factures` (copie PDF Savr `pdf_url_savr`, **scope strict = RLS table `factures`** : admin/ops + traiteur/agence/gestionnaire org-scoped *(gestionnaire ajouté décision F6 2026-06-07 — ses propres factures Savr)*, **jamais** client organisateur), `documents_generaux_savr` (CGV/méthodo/politique conf. = **public** `actif=true`). Tout `entity_type` non listé → `false` (deny par défaut, fail-safe). Exclus V1 : `briefs_evenement` (Module 19 non créé V1) + `tms.*` (`tms.pesees`/`tms.chauffeurs` inexistants V1). Fondement : §07 « toute référence de fichier est enregistrée dans `shared.fichiers` » → tous les `pdf_url`/`logo_url`/`photos_urls` ont une ligne.
 
 ### B1 — `collectes` : SQL INSERT explicite *(levée d'ambiguïté)*
 
@@ -825,6 +827,7 @@ CREATE POLICY al_select_staff ON plateforme.audit_log
   FOR SELECT USING (plateforme.f_is_staff());
 -- INSERT : aucun rôle applicatif (triggers DB / fonctions SECURITY DEFINER / SERVICE_ROLE seuls).
 -- UPDATE / DELETE : AUCUNE policy pour AUCUN rôle, y compris admin_savr (append-only, immuable).
+-- Lecture cliente DÉRIVÉE (2026-10-07) : aucune policy cliente. Une seule route cliente lit le journal par SERVICE_ROLE — GET /api/v1/gestionnaire/pack-ag, lignes pack_debite_annulation_tardive des packs de l'organisation de l'appelant — et n'en rend aucune valeur : elle s'en sert pour lister ou non une collecte annulée de cette organisation (§06.05 « Mon pack AG »).
 -- Défense en profondeur (le deny RLS ne suffit pas si une policy ALL est ajoutée par erreur plus tard) :
 REVOKE UPDATE, DELETE ON plateforme.audit_log FROM authenticated, anon;
 ```
@@ -942,9 +945,9 @@ Toute fonction `SECURITY DEFINER` exposée par PostgREST court-circuite la RLS d
 
 **(1) Fail-closed explicite.** Un rôle applicatif **absent** est refusé au même titre qu'un rôle non autorisé : la liste blanche refuse ce qu'elle ne reconnaît pas, **y compris l'absence**. La garde « rôle NULL » est écrite **en premier et séparément** — `NULL NOT IN (…)` vaut NULL en SQL et n'entre donc dans aucun `IF`, ce qui rend une liste blanche seule silencieusement fail-open. Cause racine en amont, laissée intacte (arbitrage Val requis avant d'y toucher, CLAUDE.md §12 pt 2bis) : `plateforme.fn_custom_access_token` fabrique un jeton **sans** `user_role` pour un compte présent dans `auth.users` mais absent de `plateforme.users`.
 
-**(2) Granularité des messages.** Un message **distinct par cause de refus**, afin que chaque garde soit testable indépendamment — sans quoi un test écrit sur un identifiant inventé est vert même sans la garde. Les gardes sont posées **en tête de fonction** (fail-fast, avant toute lecture de données). ⚠ **Interdiction de distinguer « ressource inexistante » de « ressource d'une autre organisation »** : le message ne doit jamais constituer un oracle d'existence. Messages canoniques posés par `20260923090000` (PR #395) : `'Role applicatif absent (acces refuse)'`, `'Organisation applicative absente (acces refuse)'`, `'Collecte not accessible'` (conservé à l'identique), `'Role non autorise pour la liste benchmark'`, `'Role non autorise pour la liste traiteurs benchmark'`.
+**(2) Granularité des messages.** Un message **distinct par cause de refus**, afin que chaque garde soit testable indépendamment — sans quoi un test écrit sur un identifiant inventé est vert même sans la garde. Les gardes sont posées **en tête de fonction** (fail-fast, avant toute lecture de données). ⚠ **Interdiction de distinguer « ressource inexistante » de « ressource d'une autre organisation »** : le message ne doit jamais constituer un oracle d'existence. Messages canoniques posés par `20260923090000` (PR #395) : `'Role applicatif absent (acces refuse)'`, `'Organisation applicative absente (acces refuse)'`, `'Collecte not accessible'` (conservé à l'identique), `'Role non autorise pour la liste benchmark'`, `'Role non autorise pour la liste traiteurs benchmark'`. Posés par `20261006220000` : `'Filtre lieu_ids hors des lieux rattaches au gestionnaire'`, `'Filtre traiteur_ids hors des traiteurs intervenus sur les lieux du gestionnaire'` (SQLSTATE 42501 ; `loadBenchmark` les reconnaît à leur début).
 
-**(3) Traduction HTTP côté route.** Refus de **visibilité** → **404** ; refus d'**habilitation** (rôle absent ou rôle non autorisé) → **403**. Jamais 500.
+**(3) Traduction HTTP côté route.** Refus de **visibilité** → **404** ; refus d'**habilitation** (rôle absent ou rôle non autorisé) → **403** ; refus d'**usage d'une valeur de filtre hors périmètre** (lieu non rattaché, traiteur hors de la vue du gestionnaire — `42501`, 2026-10-06) → **403**, sans indice d'existence (même réponse pour un identifiant inexistant). Jamais 500.
 
 > ⚠ **Dette assumée et tracée — le code ne respecte PAS encore le point (3) au 2026-09-23.** `api/v1/traiteur/collectes/[id]/benchmark/route.ts` traduit le seul message `'Collecte not accessible'` en 404 et **tout le reste en 500 générique** : les trois messages d'habilitation tombent donc en 500. L'effet pratique est aujourd'hui nul (`requireUser` rend 403 en amont quand le claim de rôle ou `organisation_id` manque, et le chemin d'atteinte réel était PostgREST en direct, hors routes). La mise en conformité du mapping HTTP fera l'objet d'un **lot dédié** — la règle est écrite ici pour être opposable au prochain lot touchant la famille `f_benchmark_*`, pas pour être appliquée en passant. Le couplage message ↔ statut est aujourd'hui implicite (comparaison de chaîne) et non testé : le lot dédié devra le rendre explicite et couvert.
 

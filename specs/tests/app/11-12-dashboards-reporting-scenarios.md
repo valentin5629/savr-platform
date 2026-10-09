@@ -448,7 +448,7 @@ Scénario : rapport_recyclage_radar_flux_masque_retire
   Et avec moins de 3 axes exploitables la liste est affichée seule, sans radar
   Et l'en-tête affiche le nom du client organisateur, la date de collecte (pas la date de l'événement), l'adresse du lieu et le poids par convive
   Et le bloc carbone ne porte ni équivalence « repas bœuf » ni mention d'incertitude (±50 % figure dans la méthodologie)
-  Et au plus 3 photos sont affichées, et la comparaison au parc ne cite pas le nombre d'organisations
+  Et au plus 2 photos sont affichées, uniquement celles que l'équipe Savr a choisies (aucune photo choisie = pas de bloc photos), et la comparaison au parc ne cite pas le nombre d'organisations
 ```
 
 ---
@@ -850,7 +850,7 @@ Scénario : consulte_par_user_at_pose_une_seule_fois
 
 Scénario : regeneration_rapport_blocs_optionnels_figes
   Étant donné un rapport de recyclage généré par le batch J+1 (options_rapport NULL = tout affiché)
-  Quand un utilisateur autorisé à télécharger le rapport (traiteur, agence ou gestionnaire programmateur, client organisateur) ouvre la boîte de dialogue de régénération
+  Quand un utilisateur autorisé à télécharger le rapport (traiteur, agence, gestionnaire de lieux — programmateur ou gestionnaire du lieu de la collecte —, client organisateur) ouvre la boîte de dialogue de régénération
   Alors les cases « Comparaison au parc », « Benchmark » et « Photos » sont cochées par défaut
   Quand il décoche « Benchmark » et « Photos » et régénère
   Alors rapports_rse.options_rapport = {"comparaison_parc": true, "benchmark": false, "photos": false} et version = version + 1

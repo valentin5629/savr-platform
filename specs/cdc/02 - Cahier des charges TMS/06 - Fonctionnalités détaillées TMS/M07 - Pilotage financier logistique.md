@@ -1,5 +1,6 @@
 # M07 — Pilotage financier logistique
 
+**Statut** : V1 rédigée 2026-04-24, revue de sobriété 2026-04-30, **propagation revue sobriété §08 Bloc A 2026-05-01 (suppression webhook S6, remplacement par vue cross-schema)**, **revue de sobriété 2026-06-04 (purge dette propagation S6 dans le corps + N1 supprimée + dashboard à la volée)**
 
 ---
 

@@ -1,5 +1,7 @@
 # 03 - Périmètre fonctionnel TMS
 
+**Statut** : V1 rédigée — 14 modules V1 + 2 modules V2
+**Dernière mise à jour** : 2026-04-22
 
 **Cohérence CDC Plateforme** : ce fichier est le pendant TMS de [[01 - Cahier des charges App/03 - Périmètre fonctionnel global]] (Module 9 — Intégration TMS Savr). Chaque module TMS est aligné avec le contrat API défini dans [[01 - Cahier des charges App/08 - APIs et intégrations]].
 
@@ -120,6 +122,7 @@ Cette règle garantit :
 
 ## M03 — Portail prestataire self-service
 
+**Statut** : V1 **rédigée** (fichier détaillé 2026-04-24, 16 décisions structurantes tranchées) — voir [[06 - Fonctionnalités détaillées TMS/M03 - Portail prestataire self-service]]
 
 ### Rôle
 Interface dédiée aux **3 prestataires principaux** (Strike, Marathon, A Toutes!) pour accepter les collectes attribuées, gérer leur parc (chauffeurs, véhicules, types de véhicules), consulter leurs revenus et déposer leurs factures. Les prestataires province sont gérés par Ops Savr (hors portail V1).

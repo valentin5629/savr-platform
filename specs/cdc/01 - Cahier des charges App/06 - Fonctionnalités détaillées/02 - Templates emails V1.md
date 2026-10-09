@@ -387,7 +387,7 @@ Un transporteur sera présent pour assurer le transfert des denrées :
 — {{transporteur_nom}} · Contact : {{transporteur_contact}}
 {{/si_transporteur}}
 
-Pour toute question, contactez notre équipe à hello@gosavr.io
+Pour toute question, contactez notre équipe à contact@gosavr.io
 
 L'équipe Savr
 ```
@@ -412,7 +412,7 @@ Savr est la plateforme utilisée par votre organisation pour programmer et suivr
 
 [Bouton : Créer mon compte]
 
-Ce lien est valide pendant 7 jours. Pour toute question, contactez-nous à hello@gosavr.io
+Ce lien est valide pendant 7 jours. Pour toute question, contactez-nous à contact@gosavr.io
 
 L'équipe Savr
 ```
@@ -439,7 +439,7 @@ Vous êtes mandaté pour assurer le transport d'une collecte Anti-Gaspi.
 — Association bénéficiaire : {{association_nom}}
 — Volume estimé : {{volume_estime_repas}} repas
 
-Pour toute question ou en cas d'empêchement, contactez notre équipe à hello@gosavr.io dans les meilleurs délais.
+Pour toute question ou en cas d'empêchement, contactez notre équipe à contact@gosavr.io dans les meilleurs délais.
 
 L'équipe Savr
 ```
@@ -486,7 +486,7 @@ L'équipe Savr
 ## 19. Email Admin — Modification collecte par traiteur (refonte 2026-05-04)
 
 **Slug** : `admin_modification_collecte_traiteur`
-**Destinataire** : Admin Savr (alias Ops `ops@gosavr.io` ou liste configurable en base)
+**Destinataire** : Admin Savr — boîte de contact `contact@gosavr.io` *(décision Val 2026-10-08 ; ex « alias Ops `ops@gosavr.io` ou liste configurable en base », jamais implémenté)*
 **Déclencheur** : tout `UPDATE` sur les champs métier d'une collecte initié par un user `traiteur_manager` ou `traiteur_commercial` (programmeur ou manager — les collègues partagés ne peuvent pas modifier). Statuts autorisés : voir [[../05 - Règles métier#Modification d'une collecte à venir]] (source unique).
 **Objet** : `[Modification collecte] {{collecte_ref}} — {{evenement_nom}} le {{date_collecte}}`
 
@@ -622,6 +622,7 @@ ATTENTION : annulation à moins de 12h du créneau — plein tarif applicable, v
 **Slug** : `infos_acces_collecte`
 **Destinataire** : le programmateur de l'événement (`evenements.created_by`)
 **Déclencheur** : complétude des infos d'accès chauffeur **par tournée** sur une collecte `controle_acces_requis = true` — les `nb_camions_demande` tournées ont chacune nom + téléphone chauffeur renseignés (**saisie Admin en V1**, RPC `fn_infos_acces_marquer_si_complet`). Anti-double-envoi = stamp `collectes.infos_acces_email_envoye_at` (dédup R22a). Remplace l'ex-template `plaque_chauffeur` (retiré Q10 M05).
+**Email non remis** *(ajout 2026-10-08, décision Val)* : si l'email est perdu (4e tentative en échec, ou refus de la messagerie du programmateur), le stamp est retiré, la collecte revient dans la tuile « Infos accès à envoyer » et une alerte in-app `infos_acces_email_non_remis` pointe la fiche collecte. Sans attendre l'échec final (25 h après le premier essai), cette alerte est ouverte dès 2 tentatives en échec si la collecte a lieu dans les 24 h. Elle est close automatiquement si l'email finit par partir. **Renvoi manuel** : bouton « Renvoyer l'email » de la fiche collecte Admin — email non remis, ou coordonnées changées depuis l'envoi ; refusé pendant une reprise automatique.
 **Objet** : Informations d'accès pour votre collecte du {{date_collecte}}
 
 ```

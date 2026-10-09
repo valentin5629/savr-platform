@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import {
   requireProgrammateur,
   requireProgrammateurOuAdmin,
@@ -7,25 +8,11 @@ import {
 } from '@/lib/api-auth.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
+import { CHAMPS_EVENEMENT_EDITABLES } from '@/lib/collectes/champs-editables.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 
-// Champs métier ÉVÉNEMENT éditables par les rôles programmateurs (§06.04 l.444,
-// §05 l.307). lieu_id et type_collecte = verrouillés (§05 l.314 / §06.04 l.459) :
-// changer le lieu = annuler + reprogrammer. organisation_id / traiteur_operationnel
-// / entite_facturation = immuables par construction → jamais exposés.
-const EVENT_EDITABLE_FIELDS = [
-  'nom_evenement',
-  'pax',
-  'type_evenement_id',
-  'contact_principal_nom',
-  'contact_principal_telephone',
-  'contact_secours_nom',
-  'contact_secours_telephone',
-  'nom_client_organisateur',
-  'logo_client_organisateur_url',
-  'reference_affaire',
-];
 // Verrouillés pour les programmateurs (refus 422). lieu_id / type / organisation =
 // immuables (§05 l.314). client_organisateur_organisation_id = RATTACHEMENT d'une
 // org cliente (donne accès en lecture via evt_client_orga_select) → réservé Admin
@@ -116,7 +103,9 @@ export async function PATCH(
   }
 
   const updates = Object.fromEntries(
-    Object.entries(body).filter(([k]) => EVENT_EDITABLE_FIELDS.includes(k)),
+    Object.entries(body).filter(([k]) =>
+      CHAMPS_EVENEMENT_EDITABLES.includes(k),
+    ),
   );
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
@@ -193,7 +182,10 @@ export async function PATCH(
   // Audit (§05 l.330 audit_log global — accessible Admin only). Session impersonée :
   // user_id = identité assumée ET impersonator_id = admin réel (§09 §7) — écrit ici
   // car l'INSERT part sous service_role, sans le JWT de la session.
-  await admin.from('audit_log').insert({
+  // Cette ligne est aussi ce que la route collecte relit pour l'email à l'équipe
+  // Savr (`{ updates }`, cf. lib/collectes/email-modification) : son échec ne
+  // doit pas passer inaperçu.
+  const { error: auditErr } = await admin.from('audit_log').insert({
     table_name: 'evenements',
     record_id: id,
     action: 'UPDATE',
@@ -202,6 +194,11 @@ export async function PATCH(
     old_values: before ?? {},
     new_values: { updates },
   });
+  if (auditErr)
+    logger.error('programmation.evenements.audit_echec', {
+      evenement_id: id,
+      erreur: auditErr.message,
+    });
 
   // Recompute de `informations_completes` (§04 Data Model) — BL-P1-TRAIT-04.
   // Le badge « Info incomplète » (posé à la programmation quand contact principal
@@ -256,6 +253,28 @@ export async function PATCH(
     // notification best-effort — ignorée si irrésoluble
   }
 
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification) : il part d'ici
+  // quand l'enregistrement ne touche que l'événement — le formulaire nomme alors
+  // la collecte d'où il est ouvert (`collecte_id`). La collecte nommée doit être
+  // de CET événement et encore modifiable (mêmes statuts que les routes
+  // collecte) : ni brouillon, ni collecte terminée.
+  const collecteNotifiee = body.collecte_id;
+  if (typeof collecteNotifiee === 'string') {
+    const { data: collecte } = await admin
+      .from('collectes')
+      .select('id')
+      .eq('id', collecteNotifiee)
+      .eq('evenement_id', id)
+      .in('statut', ['programmee', 'validee'])
+      .maybeSingle();
+    if (collecte)
+      await notifierEquipeModificationCollecte(admin, req, {
+        collecteId: collecte.id,
+        evenementAvant: (before ?? null) as Record<string, unknown> | null,
+        majEvenement: updates,
+      });
+  }
+
   // `fn_modifier_evenement` rend la ligne ENTIÈRE (`to_jsonb`), dont
   // `notes_internes` (notes Admin Savr, §04) et `entite_facturation_id` — deux
   // colonnes qu'aucun rôle client ne lit (hors GRANT SELECT authenticated,
@@ -263,7 +282,7 @@ export async function PATCH(
   // champs que ce rôle peut éditer ; l'écran n'en consomme que le statut HTTP.
   const ligne = (updated ?? {}) as Record<string, unknown>;
   const data = Object.fromEntries(
-    ['id', ...EVENT_EDITABLE_FIELDS]
+    ['id', ...CHAMPS_EVENEMENT_EDITABLES]
       .filter((champ) => champ in ligne)
       .map((champ) => [champ, ligne[champ]]),
   );

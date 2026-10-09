@@ -340,8 +340,10 @@ Scénario : benchmark_listes_filtres_garde_role
   Étant donné un parc contenant au moins un lieu et un traiteur éligibles au filtre benchmark
   Quand `kaspia_manager` (traiteur_manager) exécute `plateforme.f_benchmark_traiteurs_parc()` sous `authenticated`
   Alors l'appel lève `Role non autorise pour la liste traiteurs benchmark` — la liste nominative des traiteurs du parc est une donnée concurrentielle, elle ne sort jamais vers un rôle traiteur
-  Quand `gest_viparis` (gestionnaire_lieux) exécute la même fonction
+  Quand `ops1` (ops_savr) exécute la même fonction
   Alors la liste retournée est NON VIDE (contrôle positif de non-vacuité : sans lui, un refus global rendrait le scénario vert à tort)
+  Quand `gest_viparis` (gestionnaire_lieux) exécute `f_benchmark_traiteurs_parc()`, puis `f_benchmark_lieux_parc()`
+  Alors les deux lèvent leur message de liste blanche (le gestionnaire lit ses lieux dans `organisations_lieux` et ses traiteurs dans `v_traiteurs_gestionnaire`, depuis le 2026-10-06)
   Quand un jeton SANS claim `user_role` (compte présent dans `auth.users`, absent de `plateforme.users`) exécute `f_benchmark_traiteurs_parc()`, puis `f_benchmark_lieux_parc()`
   Alors les deux lèvent `Role applicatif absent (acces refuse)` — et non le message de liste blanche
   # ⚠ La garde « rôle absent » doit être distincte et première : `NULL NOT IN (…)` vaut NULL et n'entre dans aucun IF, une liste blanche seule est silencieusement fail-open
@@ -562,6 +564,22 @@ Scénario : migration_policies_idempotentes
 ```
 
 ---
+
+
+### Catégorie 9 — Ajouts post-développement (cdc-patch-divergences 2026-10-09)
+
+```gherkin
+# Source : §09 + §08 — photo du lieu « aucun repas » réservée à l'équipe Savr (arbitrage Val 2026-10-07, option A)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : photo_aucun_repas_lecture_equipe_savr_seule
+  Étant donné une collecte AG `realisee_sans_collecte` portant `aucun_repas_photo_url`
+  Quand un rôle client (traiteur, agence, gestionnaire, client organisateur) lit la collecte par PostgREST
+  Alors `aucun_repas_photo_url` ne lui est pas servie
+  Et `admin_savr` et `ops_savr` la lisent
+```
+
 
 ## Scénarios hors scope (à générer en V1.1)
 

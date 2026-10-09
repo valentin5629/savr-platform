@@ -89,6 +89,8 @@ Règles :
 | `auth.impersonation_started` | warn | `impersonator_id, target_user, by_role` | Mode impersonation §09 (⚠ aussi audit_log) |
 | `api.external.called` | info | `service(pennylane\|everest\|mts1\|resend\|mistral), endpoint, latency_ms, http_status` | Tout appel sortant |
 | `api.external.failed` | error | `service, endpoint, error_code, retry_count` | Échec appel sortant (→ alerte, cf. `03`) |
+| `email.envoi_ignore` *(ajout 2026-10-07)* | warn | `raison, detail, vercel_env` | Transport email — envoi non émis hors production sans `EMAIL_REDIRECT_TO` (§08 §4) |
+| `email.configuration_manquante` *(ajout 2026-10-07)* | error | `variables_en_defaut` | Transport email — `RESEND_API_KEY` absente ou invalide, ou `RESEND_FROM` absente, au moment d'un envoi réel (§08 §4) |
 
 ---
 

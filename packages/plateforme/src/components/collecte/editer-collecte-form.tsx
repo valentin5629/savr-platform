@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
-import { instantParis } from '@savr/shared/src/temps/index.js';
+import { modificationUrgente } from '@/lib/collectes/urgence-modification';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -119,9 +119,12 @@ export function EditerCollecteForm({
 
   const editable = STATUTS_EDITABLES.includes(collecte.statut);
 
-  // Créneau < 12h → avertissement priorité (§05 l.316, §06.04 l.483).
-  const creneau = instantParis(dateCollecte, `${heureCollecte || '00:00'}:00`);
-  const urgence = creneau.getTime() - Date.now() < 12 * 3600 * 1000;
+  // Ancien OU nouveau créneau à moins de 12h → avertissement priorité (§05
+  // l.316, §06.04 l.483) — même règle que l'email à l'équipe Savr.
+  const urgence = modificationUrgente(
+    { date: collecte.date_collecte, heure: collecte.heure_collecte },
+    { date: dateCollecte, heure: heureCollecte ? `${heureCollecte}:00` : null },
+  );
   // Réacceptation prestataire (§06.04 l.505) : modif de créneau sur collecte
   // acceptée → le prestataire devra re-confirmer.
   const dateHeureModifiee =
@@ -162,21 +165,6 @@ export function EditerCollecteForm({
       if (csTel !== (e.contact_secours_telephone ?? ''))
         evtUpdates.contact_secours_telephone = csTel || null;
 
-      if (Object.keys(evtUpdates).length > 0) {
-        const res = await fetch(
-          `/api/v1/programmation/evenements/${encodeURIComponent(e.id)}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(evtUpdates),
-          },
-        );
-        if (!res.ok) {
-          const j = (await res.json()) as { error?: string };
-          throw new Error(j.error ?? "Échec de l'édition de l'événement");
-        }
-      }
-
       // 2. Champs COLLECTE modifiés.
       const colUpdates: Record<string, unknown> = {};
       if (dateCollecte !== collecte.date_collecte)
@@ -190,11 +178,41 @@ export function EditerCollecteForm({
       if (infosSuppl !== (collecte.informations_supplementaires ?? ''))
         colUpdates.informations_supplementaires = infosSuppl || null;
 
-      if (Object.keys(colUpdates).length > 0) {
+      // L'équipe Savr reçoit UN email par enregistrement, envoyé par la dernière
+      // des deux requêtes (cf. lib/collectes/email-modification) : la collecte
+      // quand elle change, prévenue que l'événement vient d'être modifié ; sinon
+      // l'événement, à qui l'on nomme la collecte d'où ce formulaire est ouvert.
+      const evenementModifie = Object.keys(evtUpdates).length > 0;
+      const collecteModifiee = Object.keys(colUpdates).length > 0;
+
+      if (evenementModifie) {
+        const res = await fetch(
+          `/api/v1/programmation/evenements/${encodeURIComponent(e.id)}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+              collecteModifiee
+                ? evtUpdates
+                : { ...evtUpdates, collecte_id: collecte.id },
+            ),
+          },
+        );
+        if (!res.ok) {
+          const j = (await res.json()) as { error?: string };
+          throw new Error(j.error ?? "Échec de l'édition de l'événement");
+        }
+      }
+
+      if (collecteModifiee) {
         const res = await fetch(collecteEndpoint, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(colUpdates),
+          body: JSON.stringify(
+            evenementModifie
+              ? { ...colUpdates, evenement_modifie: true }
+              : colUpdates,
+          ),
         });
         if (!res.ok) {
           const j = (await res.json()) as { error?: string };

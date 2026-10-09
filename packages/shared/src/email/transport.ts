@@ -13,6 +13,7 @@
 // pour qu'un build sans variables d'environnement reste possible.
 import { Resend } from 'resend';
 import { logger } from '../logger/index.js';
+import { escapeHtml } from './html.js';
 import {
   throttleOutbound,
   honorRetryAfter,
@@ -45,13 +46,6 @@ const ENDPOINT = 'resend.send';
 function isProduction(): boolean {
   return process.env['VERCEL_ENV'] === 'production';
 }
-
-const escapeHtml = (v: string): string =>
-  v
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 
 const lister = (adresses: string | string[]): string =>
   [adresses].flat().join(', ');

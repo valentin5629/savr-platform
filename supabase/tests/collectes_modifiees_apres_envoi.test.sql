@@ -14,7 +14,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(34);
+SELECT plan(36);
 
 -- Helpers de rôle, signatures de rls_0_4_smoke.test.sql.
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -295,13 +295,23 @@ SELECT throws_ok(
   '42501', NULL,
   'traiteur_manager de l''organisation ne vide pas le drapeau lui-même');
 SELECT throws_ok(
+  $$UPDATE plateforme.collectes SET dirty_tms = true WHERE id = (SELECT commandee FROM t)$$,
+  '42501', NULL,
+  'traiteur_manager de l''organisation n''arme pas le drapeau lui-même');
+SELECT throws_ok(
+  $$UPDATE plateforme.evenements SET pax = pax + 1 WHERE id = (SELECT evt FROM t)$$,
+  '42501', NULL,
+  'traiteur_manager de l''organisation ne l''arme pas non plus par une écriture directe de son événement');
+SELECT throws_ok(
   $$SELECT plateforme.fn_evenement_marque_collectes_modifiees()$$,
   '42501', NULL,
   'traiteur_manager n''exécute pas la fonction du déclencheur');
 
 SELECT test_as_superuser();
-SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)),
-  'le drapeau n''a pas bougé');
+SELECT is(
+  ARRAY[pg_temp.drapeau((SELECT en_file FROM t)), pg_temp.drapeau((SELECT commandee FROM t))],
+  ARRAY[true, false],
+  'aucun drapeau n''a bougé, ni dans un sens ni dans l''autre');
 
 SELECT * FROM finish();
 ROLLBACK;

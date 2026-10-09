@@ -206,9 +206,8 @@ bout_en_bout() (
   set +e
   set -uo pipefail
   ko=false
-  bac="$(mktemp -d)" || { echo "🔴 gate-pr : mktemp impossible." >&2; exit 1; }
-  trap 'rm -rf "$bac"' EXIT
-  bac="$(cd "$bac" && pwd -P)"
+  # `$bac` et le dépôt `$bac/depot` viennent de l'auto-test, qui les a créés et
+  # vérifiés avant d'appeler cette fonction (cf. `lib-auto-test.sh`).
   depot="$bac/depot"; autre="$bac/autre"; journal="$bac/journal"; sortie="$bac/sortie"
   mkdir -p "$bac/bin"
   cat > "$bac/bin/pnpm" <<'FAUX'
@@ -229,7 +228,7 @@ FAUX
   # tiret, comme pour toutes les branches du projet.
   # `.claude/` est ignoré, comme dans le vrai dépôt : un marker ne salit pas l'arbre.
   (
-    mkdir "$depot" && cd "$depot" && git init -q -b main . && git config user.email t@t && git config user.name t
+    cd "$depot" && git config user.email t@t && git config user.name t
     mkdir scripts && printf '#!/bin/sh\nexit "${FAUX_OUTBOX_CODE:-0}"\n' > scripts/check-outbox-contracts.sh
     echo '.claude/' > .gitignore && echo a > f.ts
     git add -A && git commit -qm base
@@ -370,12 +369,21 @@ FAUX
 # F et L sont dans la matrice pour qu'un changement de comportement sur ces cas
 # se voie, dans un sens comme dans l'autre.
 if [ "${1:-}" = "--self-test" ]; then
-  # Avant tout `git init` : un auto-test lancé depuis un hook git, un `rebase
-  # --exec` ou un alias hérite de GIT_DIR, et ses dépôts « jetables » seraient
-  # alors le VRAI dépôt (mesuré par la revue du lot voisin sur un autre hook :
-  # `bare = true` écrit dans la configuration du clone). Ligne non épinglée par
-  # un test ici.
+  # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
+  # auto-test supprimait ou écrivait ailleurs sans ces lignes, et ce que veut
+  # dire le code 3. Le `unset` vient avant tout appel à git : lancé depuis un
+  # hook git, un `rebase --exec` ou un alias, l'auto-test hérite de GIT_DIR.
+  # Un seul dossier temporaire pour tout l'auto-test ; le dépôt du flux de bout
+  # en bout y est créé et vérifié ici, avant la matrice.
+  # Non épinglé hors root : le `exit 3` qui suit `bac_jetable`. Retiré, `bac`
+  # reste vide et la ligne suivante s'arrête avec le même code, faute de pouvoir
+  # créer `/depot` (sonde vivante sous macOS, détectée en root sous Ubuntu).
   unset ${!GIT_*}
+  . "$(dirname "$ICI")/lib-auto-test.sh" || { echo "🔴 gate-pr : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  bac="$(bac_jetable)" || { echo "🔴 gate-pr : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
+  trap 'rm -rf "$bac"' EXIT
+  depot_jetable "$bac/depot" \
+    || { echo "🔴 gate-pr : git ne place pas le dépôt jetable là où il vient d'être créé — auto-test non joué." >&2; exit 3; }
   echec=false
   nv=0; nn=0; nf=0; nl=0
   juge() {  # juge <type> <forme>
@@ -550,12 +558,13 @@ FORMES
     || { echo "🔴 le contrôle « sans heredoc » ne lit plus le chemin exécuté du hook." >&2; echec=true; }
 
   bout_en_bout || echec=true
+  pieges_tenus "$ICI" "$bac" || echec=true
 
   if [ "$echec" = true ]; then
     echo "🔴 gate-pr : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
     exit 2
   fi
-  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues ; flux de bout en bout : commande ignorée, suite rouge, contrat outbox, markers absent / vide / NON-GO / périmé pour chaque relecteur, seed qui ne dit plus OK à tort, branche visée par --head ou par cd)."
+  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues ; flux de bout en bout : commande ignorée, suite rouge, contrat outbox, markers absent / vide / NON-GO / périmé pour chaque relecteur, seed qui ne dit plus OK à tort, branche visée par --head ou par cd${PIEGES_BILAN})."
   exit 0
 fi
 

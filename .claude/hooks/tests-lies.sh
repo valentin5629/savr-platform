@@ -97,17 +97,26 @@ tests_de_securite() {
 # ── Auto-test : un périmètre qui oublie une source rend le commit vert à tort ──
 self_test() (
   set -uo pipefail
+  # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
+  # auto-test écrivait ailleurs sans ces lignes, et ce que veut dire le code 3.
+  # Les deux dépôts sont créés et vérifiés ici, avant toute écriture.
+  unset ${!GIT_*}
+  . "$(dirname "$ICI")/lib-auto-test.sh" || { echo "🔴 tests-lies : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
   echec=false
-  tmp="$(mktemp -d)" || { echo "🔴 tests-lies : mktemp impossible." >&2; exit 2; }
-  faux="$(mktemp -d)" || { echo "🔴 tests-lies : mktemp impossible." >&2; exit 2; }
-  trap 'rm -rf "$tmp" "$faux"' EXIT
+  bac="$(bac_jetable)" || { echo "🔴 tests-lies : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
+  trap 'rm -rf "$bac"' EXIT
+  tmp="$bac/perimetre"
+  faux="$bac/faux"
+  mkdir "$faux" || exit 2
+  { depot_jetable "$tmp" && depot_jetable "$faux/depot"; } \
+    || { echo "🔴 tests-lies : git ne place pas un dépôt jetable là où il vient d'être créé — auto-test non joué." >&2; exit 3; }
   attendu() {  # attendu <libellé> <obtenu> <voulu>
     [ "$2" = "$3" ] || { echo "🔴 $1 : obtenu [$2], attendu [$3]" >&2; echec=true; }
   }
 
   # — périmètre : dépôt jetable, une source de changement par fichier —
   (
-    cd "$tmp" && git init -q -b main . && git config user.email t@t && git config user.name t
+    cd "$tmp" && git config user.email t@t && git config user.name t
     mkdir -p src && echo a > src/intact.ts && echo a > src/supprime.ts && echo a > src/modifie.ts
     echo a > src/modifié.ts && echo a > src/supprime-commit.ts
     git add -A && git commit -qm base && git update-ref refs/remotes/origin/main HEAD
@@ -157,7 +166,7 @@ self_test() (
   garde="./$SECURITE/garde.test.ts"
   lies='-w exec vitest related --run --passWithNoTests'
   (
-    mkdir "$faux/depot" && cd "$faux/depot" && git init -q -b main . && git config user.email t@t && git config user.name t
+    cd "$faux/depot" && git config user.email t@t && git config user.name t
     mkdir -p src "$SECURITE" && echo a > src/a.ts && echo a > README.md && echo '{}' > package.json
     echo a > "$SECURITE/garde.test.ts"
     git add -A && git commit -qm base && git update-ref refs/remotes/origin/main HEAD
@@ -195,11 +204,13 @@ self_test() (
   attendu 'base introuvable → suite complète' "$(dernier)" '-w test:unit'
   attendu 'base introuvable → suite complète réellement lancée' "$(appels)" "$((avant + 1))"
 
+  pieges_tenus "$ICI" "$bac" || echec=true
+
   if [ "$echec" = true ]; then
     echo "🔴 tests-lies : auto-test EN ÉCHEC — le périmètre des tests liés n'est plus fiable." >&2
     exit 2
   fi
-  echo "✅ tests-lies : auto-test OK (périmètre sur 4 sources, suppressions et noms accentués compris ; base introuvable signalée ; 6 replis sur la suite complète ; filtre code ; de bout en bout : code modifié et cliquets de sécurité passés à Vitest comme chemins, cliquets joués sur suppression seule, échec propagé, suite complète sur dépendances modifiées ou base introuvable)."
+  echo "✅ tests-lies : auto-test OK (périmètre sur 4 sources, suppressions et noms accentués compris ; base introuvable signalée ; 6 replis sur la suite complète ; filtre code ; de bout en bout : code modifié et cliquets de sécurité passés à Vitest comme chemins, cliquets joués sur suppression seule, échec propagé, suite complète sur dépendances modifiées ou base introuvable${PIEGES_BILAN})."
 )
 
 if [ "${1:-}" = "--self-test" ]; then

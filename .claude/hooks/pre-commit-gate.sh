@@ -263,9 +263,8 @@ bout_en_bout() (
   set +e
   set -uo pipefail
   ko=false
-  bac="$(mktemp -d)" || { echo "🔴 pre-commit-gate : mktemp impossible." >&2; exit 1; }
-  trap 'rm -rf "$bac"' EXIT
-  bac="$(cd "$bac" && pwd -P)"
+  # `$bac` et le depot `$bac/depot` viennent de l'auto-test, qui les a crees et
+  # verifies avant d'appeler cette fonction (cf. `lib-auto-test.sh`).
   depot="$bac/depot"; autre="$bac/autre"; journal="$bac/journal"; sortie="$bac/sortie"
   mkdir -p "$bac/bin"
   cat > "$bac/bin/pnpm" <<'FAUX'
@@ -279,7 +278,7 @@ esac
 FAUX
   chmod +x "$bac/bin/pnpm"
   (
-    mkdir "$depot" && cd "$depot" && git init -q -b main . && git config user.email t@t && git config user.name t
+    cd "$depot" && git config user.email t@t && git config user.name t
     mkdir scripts src
     printf '#!/bin/sh\necho "couplage @ $(pwd -P)" >> "$FAUX_JOURNAL"\n[ ! -f ROUGE ] || exit 1\nexit "${FAUX_COUPLAGE_CODE:-0}"\n' > scripts/check-coupling.sh
     echo a > src/a.ts
@@ -418,12 +417,21 @@ FAUX
 # F et L sont dans la matrice pour qu'un changement de comportement sur ces cas
 # se voie, dans un sens comme dans l'autre.
 if [ "${1:-}" = "--self-test" ]; then
-  # Avant tout `git init` : un auto-test lance depuis un hook git, un `rebase
-  # --exec` ou un alias herite de GIT_DIR, et ses depots « jetables » seraient
-  # alors le VRAI depot (mesure par la revue du lot voisin sur un autre hook :
-  # `bare = true` ecrit dans la configuration du clone). Ligne non epinglee par
-  # un test ici.
+  # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
+  # auto-test supprimait ou ecrivait ailleurs sans ces lignes, et ce que veut
+  # dire le code 3. Le `unset` vient avant tout appel a git : lance depuis un
+  # hook git, un `rebase --exec` ou un alias, l'auto-test herite de GIT_DIR.
+  # Un seul dossier temporaire pour tout l'auto-test ; le depot du flux de bout
+  # en bout y est cree et verifie ici, avant la matrice.
+  # Non epingle hors root : le `exit 3` qui suit `bac_jetable`. Retire, `bac`
+  # reste vide et la ligne suivante s'arrete avec le meme code, faute de pouvoir
+  # creer `/depot` (sonde vivante sous macOS, detectee en root sous Ubuntu).
   unset ${!GIT_*}
+  . "$(dirname "$ICI")/lib-auto-test.sh" || { echo "🔴 pre-commit-gate : lib-auto-test.sh introuvable — auto-test non joue." >&2; exit 3; }
+  bac="$(bac_jetable)" || { echo "🔴 pre-commit-gate : pas de dossier temporaire — auto-test non joue." >&2; exit 3; }
+  trap 'rm -rf "$bac"' EXIT
+  depot_jetable "$bac/depot" \
+    || { echo "🔴 pre-commit-gate : git ne place pas le depot jetable la ou il vient d'etre cree — auto-test non joue." >&2; exit 3; }
   echec=false
   nv=0; nn=0; nf=0; nl=0; nc=0
   juge() {  # juge <type> <forme>
@@ -543,8 +551,7 @@ FORMES
   # — une entree `=<indice>` par occurrence du motif, jointes ici par `|`. Les
   # dossiers existent pour de bon : un `-C` vers un dossier absent retombe sur le
   # cas sans `-C`. Le dossier courant est `$essai`.
-  essai="$(mktemp -d)" || { echo "🔴 pre-commit-gate : mktemp impossible." >&2; exit 2; }
-  essai="$(cd "$essai" && pwd -P)"
+  essai="$bac/essai"
   # `sous`, `~x` et `commit` sont des leurres : des dossiers qui existent la ou
   # une lecture fautive irait les chercher.
   mkdir -p "$essai/a/sous" "$essai/b" "$essai/un dossier" "$essai/sous" "$essai/~x" "$essai/commit"
@@ -613,7 +620,6 @@ FORMES
   cibles 'variable en prefixe de commande' "WT=$A git -C \"\$WT\" commit -m x" '=|'
   cibles 'variable affectee dans un tube' "WT=$A | git -C \"\$WT\" commit -m x" '=|'
   cibles 'variable entre guillemets simples : texte, pas variable' "WT=$A; git -C '\$WT' commit -m x" '=|'
-  rm -rf "$essai"
 
   # Ni heredoc ni chaine-ici dans ce qui s'execute hors auto-test : les fonctions
   # de lecture (du motif jusqu'a l'auto-test) et le flux (apres la lecture de
@@ -631,12 +637,13 @@ FORMES
     || { echo "🔴 le controle « sans heredoc » ne lit plus le chemin execute du hook." >&2; echec=true; }
 
   bout_en_bout || echec=true
+  pieges_tenus "$ICI" "$bac" || echec=true
 
   if [ "$echec" = true ]; then
     echo "🔴 pre-commit-gate : auto-test EN ECHEC — la garde peut etre muette ou juger le mauvais dossier." >&2
     exit 2
   fi
-  echo "✅ pre-commit-gate : auto-test OK ($nv commits vus, $nn autres commandes ignorees, $nf declenchements a tort assumes, $nl limites connues ; $nc cas de dossiers vises ; flux de bout en bout : commande ignoree, options globales, chaque controle rouge bloque, worktree vise par -C ou par cd, chaque dossier vise juge)."
+  echo "✅ pre-commit-gate : auto-test OK ($nv commits vus, $nn autres commandes ignorees, $nf declenchements a tort assumes, $nl limites connues ; $nc cas de dossiers vises ; flux de bout en bout : commande ignoree, options globales, chaque controle rouge bloque, worktree vise par -C ou par cd, chaque dossier vise juge${PIEGES_BILAN})."
   exit 0
 fi
 

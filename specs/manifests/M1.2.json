@@ -221,7 +221,7 @@
     },
     {
       "id": "M1.2-confirmation-email-recap-issue-reelle",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:421",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:421-426",
       "artefact": "packages/plateforme/src/lib/programmation/suivi-recap-email.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (GET : champ email_recap, lu après la garde de périmètre) + packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
       "test": "M1.2/confirmation_email_recap_issue_reelle — état dérivé du dernier envoi + M1.2/confirmation_email_recap_issue_reelle — lecture du journal des emails + M1.2/confirmation_email_recap_issue_reelle — GET détail événement + M1.2/confirmation_email_recap_issue_reelle — écran de confirmation",
       "statut": "implemented",

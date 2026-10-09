@@ -131,6 +131,15 @@
       "test": "M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque_immatriculation + chauffeur_nom [adapter.m1-5b.test.ts]",
       "statut": "implemented",
       "libelle": "MTS-1 résolution plaque/chauffeur (as-built §6) : getCarrier() (GET /v3/carrier, cache instance) + processTourDetails matche vehicleShareableCode→numberPlate et transporterUserShareableCode→firstname+lastname → peuple tournees.plaque_immatriculation/chauffeur_nom/plaque_saisie_at (idempotent ; téléphone non exposé par l'API → NULL)."
+    },
+    {
+      "id": "M1.5b-photo-aucun-repas-lecture-equipe-savr",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:798",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/M1.5_20261007_photo-aucun-repas-visibilite.md",
+      "libelle": "Photo du lieu « aucun repas » (`collectes.aucun_repas_photo_url`) réservée à l'équipe Savr : un rôle client ne doit pas la lire, `admin_savr` et `ops_savr` la lisent (arbitrage Val 2026-10-07, scénario 09 `photo_aucun_repas_lecture_equipe_savr_seule`). NON LIVRÉ au sync du 2026-10-09 : la colonne reste lisible par `authenticated` sur `plateforme.collectes` et par la vue `v_collectes_gestionnaire_lieux`. Lot de fermeture à livrer (liste blanche de colonnes ; fermeture d'accès, donc GO reviewer-rls-securite et preuve pgTAP par rôle)."
     }
   ],
   "cdc_source_hash": {

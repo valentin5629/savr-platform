@@ -70,7 +70,7 @@
       "artefact": "supabase/migrations/20260630130000_plateforme_r13_onboarding_siret.sql (table file_revalidation_siret + RLS staff-read + index) + packages/shared/src/siret/revalidation.ts (enqueueSiretRevalidation + runSiretRevalidationWorker : paliers 15min/1h/24h, verifie/echec→resolu, 3 down→epuise + alerte Admin f_upsert_alerte_admin + email org siret_verification_echec) + packages/plateforme/src/app/api/cron/revalidation-siret/route.ts + packages/plateforme/vercel.json (cron */15)",
       "test": "packages/shared/src/siret/revalidation.m0-4.test.ts « M0.4 — revalidation SIRET : enqueue / escalade et sortie (BL-P1-ONB-02) » + supabase/tests/r13_onboarding_siret.test.sql (RLS file_revalidation_siret) + packages/plateforme/tests/api/cron/cron-auth.test.ts (fail-closed revalidation-siret)",
       "statut": "implemented",
-      "libelle": "Job async revalidation SIRET 3 paliers 15min/1h/24h (INSEE down → en_attente non facturable résorbé)"
+      "libelle": "Job async revalidation SIRET 3 paliers 15min/1h/24h (INSEE down → en_attente non facturable résorbé) — ÉCART (sync du 2026-10-09), décrit dans BL-P1-ONB-01 : sur `main`, une réponse 401 / 403 de l'INSEE sort la revalidation en `echec` au lieu de compter comme un palier sans verdict (CDC §15 l.73 ; §04, statut `epuise` de la file). Correctif = PR #518. Statut laissé `implemented` : la preuve de ce livrable est tolérée par docs/audit/coverage-deliverables-baseline.json, liste qui ne peut que diminuer — le passer `partial` en retirerait l'entrée sans retour possible."
     },
     {
       "id": "BL-P1-ONB-03",

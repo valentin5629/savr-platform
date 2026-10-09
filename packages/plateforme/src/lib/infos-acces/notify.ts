@@ -3,6 +3,7 @@ import {
   sendEmail,
   type SendEmailStatut,
 } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { formatDateFr } from '@savr/shared/src/csv/index.js';
 import { cloreAlerteInfosAcces, TEMPLATE_INFOS_ACCES } from './suivi-email.js';
@@ -55,13 +56,6 @@ interface MarquagePayload {
   lieu_adresse?: string | null;
   chauffeurs?: InfosAccesChauffeur[];
 }
-
-const escapeHtml = (v: string): string =>
-  v
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 
 // 'HH:MM:SS' → 'HH:MM'.
 const formatHeure = (h: string | null | undefined): string =>

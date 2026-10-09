@@ -5,7 +5,13 @@
  * grille, ex. donnée migrée), créneau choisi → PATCH `heure_collecte` `HH:MM:00`.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+} from '@testing-library/react';
 
 import {
   EditerCollecteForm,
@@ -36,7 +42,10 @@ const COLLECTE: CollecteEditData = {
   },
 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe('EditerCollecteForm — heure de collecte', () => {
   it(
@@ -149,4 +158,55 @@ describe('M3.1 / EditerCollecteForm — un seul email par enregistrement', () =>
     },
     ATTENTE_CAS_MS,
   );
+});
+
+// Urgence = ancien OU nouveau créneau à moins de 12h (décision Val 2026-10-09),
+// la même règle que l'email à l'équipe Savr (lib/collectes/urgence-modification).
+describe('M3.1 / EditerCollecteForm — avertissement d’urgence', () => {
+  const AVERTISSEMENT = /moins de 12h avant la collecte/;
+
+  async function monterA(maintenant: string) {
+    // Seule l'horloge est figée : les minuteries restent réelles.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(maintenant) });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('[]')),
+    );
+    const rendu = render(
+      <EditerCollecteForm
+        collecte={COLLECTE}
+        collecteEndpoint="/api/v1/traiteur/collectes/col-1"
+      />,
+    );
+    // Laisse le chargement des types d'événement se résoudre avant les assertions.
+    await act(async () => {});
+    return rendu;
+  }
+
+  it('M3.1/email_modification_urgence_12h — collecte de ce matin repoussée au soir : l’avertissement reste affiché', async () => {
+    // 08h00 à Paris le jour de la collecte, prévue à 10h10 : dans 2 h 10.
+    const { container } = await monterA('2099-06-15T06:00:00Z');
+    expect(screen.queryAllByText(AVERTISSEMENT)).not.toHaveLength(0);
+
+    // Repoussée à 23h45 : le nouveau créneau est à 15 h 45, l'ancien reste proche.
+    fireEvent.click(container.querySelector('#edit-heure-collecte')!);
+    fireEvent.click(screen.getByRole('option', { name: '23:45' }));
+    expect(screen.queryAllByText(AVERTISSEMENT)).not.toHaveLength(0);
+  });
+
+  it('M3.1/email_modification_urgence_12h — collecte de demain avancée à moins de 12h : l’avertissement apparaît', async () => {
+    // 21h00 à Paris la veille : la collecte de 10h10 est dans 13 h 10.
+    const { container } = await monterA('2099-06-14T19:00:00Z');
+    expect(screen.queryAllByText(AVERTISSEMENT)).toHaveLength(0);
+
+    // Avancée à 08h00 : le nouveau créneau est dans 11 h.
+    fireEvent.click(container.querySelector('#edit-heure-collecte')!);
+    fireEvent.click(screen.getByRole('option', { name: '08:00' }));
+    expect(screen.queryAllByText(AVERTISSEMENT)).not.toHaveLength(0);
+  });
+
+  it('M3.1/email_modification_urgence_12h — collecte dans deux semaines, non déplacée : aucun avertissement', async () => {
+    await monterA('2099-06-01T06:00:00Z');
+    expect(screen.queryAllByText(AVERTISSEMENT)).toHaveLength(0);
+  });
 });

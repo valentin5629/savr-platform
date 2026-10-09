@@ -10,19 +10,13 @@ import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
+import {
+  CHAMPS_COLLECTE_EDITABLES,
+  CHAMPS_COLLECTE_VERROUILLES,
+} from '@/lib/collectes/champs-editables.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 
 const GESTIONNAIRE_ROLES: ClientRole[] = ['gestionnaire_lieux'];
-
-// Champs métier collecte éditables (parité §06.04 §Édition / §05 l.307). type/lieu
-// verrouillés (§05 l.314) → rejetés explicitement.
-// `notes_internes` exclu : commentaire Admin Savr (§04), arbitrage Val C1.
-const EDITABLE_FIELDS = [
-  'date_collecte',
-  'heure_collecte',
-  'controle_acces_requis',
-  'informations_supplementaires',
-];
-const LOCKED_FIELDS = ['type', 'type_collecte', 'lieu_id', 'organisation_id'];
 
 interface CollecteRow {
   id: string;
@@ -82,7 +76,7 @@ export async function PATCH(
   const body = (await req.json()) as Record<string, unknown>;
 
   // Champs verrouillés (§05 l.314) — refus explicite.
-  const lockedAttempt = LOCKED_FIELDS.filter((f) => f in body);
+  const lockedAttempt = CHAMPS_COLLECTE_VERROUILLES.filter((f) => f in body);
   if (lockedAttempt.length > 0) {
     return NextResponse.json(
       {
@@ -95,7 +89,7 @@ export async function PATCH(
   }
 
   const updates = Object.fromEntries(
-    Object.entries(body).filter(([k]) => EDITABLE_FIELDS.includes(k)),
+    Object.entries(body).filter(([k]) => CHAMPS_COLLECTE_EDITABLES.includes(k)),
   );
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
@@ -180,6 +174,15 @@ export async function PATCH(
     user_id: auth.ctx.userId,
     old_values: before ?? {},
     new_values: { updates, cascade_tms, reacceptation_requise },
+  });
+
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification).
+  await notifierEquipeModificationCollecte(admin, req, {
+    collecteId: id,
+    collecteAvant: before,
+    majCollecte: updates,
+    evenementModifiePar:
+      body.evenement_modifie === true ? auth.ctx.userId : undefined,
   });
 
   // BL-P2-22 (tpl 21, modification) : info-only au traiteur opérationnel — le

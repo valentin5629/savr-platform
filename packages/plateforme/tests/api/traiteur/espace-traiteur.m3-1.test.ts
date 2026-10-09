@@ -342,6 +342,8 @@ describe('M3.1 / édition collecte', () => {
   function queueEditOk(
     dateCollecte = '2030-12-31',
     auditEvenement?: Record<string, unknown>,
+    // Date de la collecte relue APRÈS l'écriture (par défaut : inchangée).
+    dateApres = dateCollecte,
   ) {
     rls.push({
       data: {
@@ -368,12 +370,13 @@ describe('M3.1 / édition collecte', () => {
     admin.push({ data: null, error: null }); // audit insert
     admin.push({
       data: {
+        id: 'c1',
         evenement_id: 'e1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
         tms_reference: null,
         prestataire_logistique_id: null,
-        date_collecte: dateCollecte,
+        date_collecte: dateApres,
         heure_collecte: '10:00:00',
         attributions_antgaspi: null,
         evenement: {
@@ -421,7 +424,78 @@ describe('M3.1 / édition collecte', () => {
       programmateur: 'Julie Martin, joignable au 0601020304',
       statut_collecte: 'Créée',
       priorite_urgence: 'false',
+      lien_fiche: expect.stringMatching(/\/admin\/collectes\/c1$/),
     });
+  });
+
+  it('M3.1/email_modification_urgence_12h — collecte lointaine rapprochée à moins de 12h : drapeau, audit et email urgents', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    // Créneau d'origine lointain ; le nouveau est déjà passé → moins de 12h.
+    queueEditOk('2030-12-31', undefined, '2020-01-01');
+    const res = await patchCollecte({ date_collecte: '2020-01-01' });
+    expect(res.status).toBe(200);
+    const corps = (await res.json()) as {
+      flags: { priorite_urgence: boolean };
+    };
+    expect(corps.flags.priorite_urgence).toBe(true);
+    const audit = (admin.__calls.insert ?? [])
+      .map(
+        ([ligne]) => ligne as { new_values?: { priorite_urgence?: boolean } },
+      )
+      .find((ligne) => ligne.new_values?.priorite_urgence !== undefined);
+    expect(audit?.new_values?.priorite_urgence).toBe(true);
+    expect(emailEquipe()?.priorite_urgence).toBe('true');
+  });
+
+  it('M3.1/email_modification_urgence_12h — heure seule avancée à moins de 12h : drapeau urgent', async () => {
+    // 21h00 à Paris la veille : la collecte de 10h00 est dans 13 h ; avancée à
+    // 08h00, elle est dans 11 h. Seule l'horloge est figée.
+    vi.useFakeTimers({
+      toFake: ['Date'],
+      now: new Date('2030-12-30T20:00:00Z'),
+    });
+    try {
+      setupAuth('traiteur_commercial', 'org-1', 'user-1');
+      queueEditOk('2030-12-31');
+      const res = await patchCollecte({ heure_collecte: '08:00:00' });
+      expect(res.status).toBe(200);
+      const corps = (await res.json()) as {
+        flags: { priorite_urgence: boolean };
+      };
+      expect(corps.flags.priorite_urgence).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('M3.1/email_modification_urgence_12h — collecte imminente repoussée au loin : drapeau, audit et email urgents', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    // Créneau d'origine déjà passé → moins de 12h ; le nouveau est lointain.
+    queueEditOk('2020-01-01', undefined, '2030-12-31');
+    const res = await patchCollecte({ date_collecte: '2030-12-31' });
+    expect(res.status).toBe(200);
+    const corps = (await res.json()) as {
+      flags: { priorite_urgence: boolean };
+    };
+    expect(corps.flags.priorite_urgence).toBe(true);
+    const audit = (admin.__calls.insert ?? [])
+      .map(
+        ([ligne]) => ligne as { new_values?: { priorite_urgence?: boolean } },
+      )
+      .find((ligne) => ligne.new_values?.priorite_urgence !== undefined);
+    expect(audit?.new_values?.priorite_urgence).toBe(true);
+    expect(emailEquipe()?.priorite_urgence).toBe('true');
+  });
+
+  it('M3.1/email_modification_urgence_12h — ancien et nouveau créneaux lointains : rien d’urgent', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    queueEditOk('2030-12-31', undefined, '2030-12-30');
+    const res = await patchCollecte({ date_collecte: '2030-12-30' });
+    const corps = (await res.json()) as {
+      flags: { priorite_urgence: boolean };
+    };
+    expect(corps.flags.priorite_urgence).toBe(false);
+    expect(emailEquipe()?.priorite_urgence).toBe('false');
   });
 
   it('M3.1/edition_alerte_ops_priorite_haute — ligne ATTENTION à moins de 12h du créneau', async () => {

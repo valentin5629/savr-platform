@@ -5,6 +5,7 @@
  * Les deux formes de la règle (ligne chargée / filtre PostgREST de la liste)
  * sont tenues d'accord ici.
  */
+import { STATUTS_A_RENVOYER } from './collectes-chips';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -195,7 +196,11 @@ describe('M0.6/dirty_tms_apres_envoi — « demande partie » : mêmes signaux �
     let trouve: string | null = null;
     for (const f of readdirSync(dossier).sort()) {
       const sql = readFileSync(join(dossier, f), 'utf8');
-      const i = sql.indexOf(`FUNCTION plateforme.${fonction}`);
+      // La définition, pas une mention en commentaire (le bloc de retour arrière
+      // d'une migration cite la fonction avant de la créer).
+      const i = sql.indexOf(
+        `CREATE OR REPLACE FUNCTION plateforme.${fonction}(`,
+      );
       if (i === -1) continue;
       const fin = sql.indexOf('$$;', i);
       trouve = sql.slice(i, fin === -1 ? undefined : fin);
@@ -227,5 +232,23 @@ describe('M0.6/dirty_tms_apres_envoi — « demande partie » : mêmes signaux �
   ])('%s les lit tous les quatre', (fonction) => {
     const sql = corps(fonction);
     for (const signal of signaux) expect(sql).toContain(signal);
+  });
+
+  it('les deux fonctions lues sont bien deux corps distincts (cliquet non vacant)', () => {
+    const collecte = corps('fn_set_collectes_dirty_tms');
+    const evenement = corps('fn_evenement_marque_collectes_modifiees');
+    expect(collecte).toContain('NEW.dirty_tms := true');
+    expect(collecte).not.toContain('UPDATE plateforme.collectes');
+    expect(evenement).toContain('UPDATE plateforme.collectes');
+    expect(evenement).not.toContain('NEW.dirty_tms := true');
+  });
+
+  it('le déclencheur d’événement arme les statuts que la pastille compte, et eux seuls', () => {
+    const liste = corps('fn_evenement_marque_collectes_modifiees').match(
+      /c\.statut IN \(([^)]*)\)/,
+    );
+    expect(liste).not.toBeNull();
+    const statuts = [...liste![1]!.matchAll(/'(\w+)'/g)].map((m) => m[1]!);
+    expect(statuts.sort()).toEqual([...STATUTS_A_RENVOYER].sort());
   });
 });

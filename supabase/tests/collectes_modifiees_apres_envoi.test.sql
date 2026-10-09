@@ -13,7 +13,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(30);
+SELECT plan(32);
 
 -- Helpers de rôle, signatures de rls_0_4_smoke.test.sql.
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -44,6 +44,7 @@ CREATE TEMP TABLE t ON COMMIT DROP AS
 SELECT tests.outbox_fixture_collecte('zd') AS commandee,
        NULL::uuid AS evt, NULL::uuid AS presta,
        NULL::uuid AS en_file, NULL::uuid AS non_partie, NULL::uuid AS ag,
+       NULL::uuid AS en_cours, NULL::uuid AS realisee, NULL::uuid AS cloturee,
        NULL::uuid AS terminee, NULL::uuid AS evt_temoin, NULL::uuid AS temoin;
 UPDATE t SET (evt, presta) =
   (SELECT evenement_id, prestataire_logistique_id FROM plateforme.collectes WHERE id = t.commandee);
@@ -69,11 +70,23 @@ UPDATE plateforme.collectes SET prestataire_logistique_id = (SELECT presta FROM 
 -- Pas encore envoyées : aucun des quatre signaux.
 UPDATE t SET non_partie = pg_temp.collecte(evt, 'zd', 32);
 UPDATE t SET ag = pg_temp.collecte(evt, 'ag', 33);
--- Partie puis annulée : plus rien à renvoyer.
-UPDATE t SET terminee = pg_temp.collecte(evt, 'zd', 34);
-UPDATE plateforme.collectes
-   SET prestataire_logistique_id = (SELECT presta FROM t), statut = 'annulee'
- WHERE id = (SELECT terminee FROM t);
+-- Parties, à chacun des autres statuts : la commandée est validée par son
+-- prestataire, une autre est en cours ; trois sont terminées (réalisée,
+-- clôturée, annulée) et n'ont plus rien à renvoyer.
+UPDATE plateforme.collectes SET statut = 'validee' WHERE id = (SELECT commandee FROM t);
+UPDATE t SET en_cours = pg_temp.collecte(evt, 'zd', 36),
+             realisee = pg_temp.collecte(evt, 'zd', 37),
+             cloturee = pg_temp.collecte(evt, 'zd', 38),
+             terminee = pg_temp.collecte(evt, 'zd', 34);
+UPDATE plateforme.collectes c
+   SET prestataire_logistique_id = (SELECT presta FROM t),
+       statut = CASE c.id
+         WHEN (SELECT en_cours FROM t) THEN 'en_cours'
+         WHEN (SELECT realisee FROM t) THEN 'realisee'
+         WHEN (SELECT cloturee FROM t) THEN 'cloturee'
+         ELSE 'annulee'
+       END::plateforme.collecte_statut
+ WHERE c.id IN (SELECT unnest(ARRAY[en_cours, realisee, cloturee, terminee]) FROM t);
 -- Un second événement, avec sa collecte en file : témoin du cloisonnement.
 WITH e AS (
   INSERT INTO plateforme.evenements (
@@ -122,12 +135,16 @@ SELECT ok(NOT pg_temp.drapeau((SELECT commandee FROM t)),
 
 -- ── Pax de l'événement : qui est armé, qui ne l'est pas ──────────────────────
 UPDATE plateforme.evenements SET pax = pax + 10 WHERE id = (SELECT evt FROM t);
-SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)) AND pg_temp.drapeau((SELECT commandee FROM t)),
-  'changer le pax arme les collectes de l''événement déjà parties (en file, commandée)');
+SELECT is(
+  ARRAY[pg_temp.drapeau((SELECT en_file FROM t)), pg_temp.drapeau((SELECT commandee FROM t)), pg_temp.drapeau((SELECT en_cours FROM t))],
+  ARRAY[true, true, true],
+  'changer le pax arme les collectes de l''événement déjà parties et encore à réaliser (programmée, validée, en cours)');
 SELECT ok(NOT pg_temp.drapeau((SELECT non_partie FROM t)) AND NOT pg_temp.drapeau((SELECT ag FROM t)),
   'changer le pax n''arme pas les collectes de l''événement pas encore envoyées');
-SELECT ok(NOT pg_temp.drapeau((SELECT terminee FROM t)),
-  'changer le pax n''arme pas une collecte partie puis annulée');
+SELECT is(
+  ARRAY[pg_temp.drapeau((SELECT realisee FROM t)), pg_temp.drapeau((SELECT cloturee FROM t)), pg_temp.drapeau((SELECT terminee FROM t))],
+  ARRAY[false, false, false],
+  'changer le pax n''arme pas une collecte partie puis terminée (réalisée, clôturée, annulée)');
 SELECT ok(NOT pg_temp.drapeau((SELECT temoin FROM t)),
   'changer le pax n''arme pas la collecte d''un autre événement');
 
@@ -225,9 +242,22 @@ UPDATE plateforme.evenements SET pax = pax + 5 WHERE id = (SELECT evt FROM t);
 SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
   'AG attribuée, sans prestataire relié : changer le pax arme le drapeau');
 
--- Rien de tout cela n'a touché la collecte annulée ni l'autre événement.
-SELECT ok(NOT pg_temp.drapeau((SELECT terminee FROM t)) AND NOT pg_temp.drapeau((SELECT temoin FROM t)),
-  'la collecte annulée et celle de l''autre événement sont restées intactes');
+-- Rien de tout cela n'a touché les collectes terminées ni l'autre événement.
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.collectes
+    WHERE dirty_tms AND id IN (SELECT unnest(ARRAY[realisee, cloturee, terminee, temoin]) FROM t)),
+  0,
+  'les collectes terminées et celle de l''autre événement sont restées intactes');
+
+-- Le drapeau BRUT d'une collecte terminée peut encore être levé par une
+-- modification de la collecte elle-même (déclencheur de `collectes`, inchangé
+-- sur ce point) : c'est le prédicat de l'écran qui l'écarte.
+UPDATE plateforme.collectes SET date_collecte = date_collecte + 1 WHERE id = (SELECT cloturee FROM t);
+SELECT ok(pg_temp.drapeau((SELECT cloturee FROM t)),
+  'collecte clôturée dont on corrige la date : drapeau brut levé (écarté à l''écran par le statut)');
+UPDATE plateforme.collectes SET dirty_tms = false WHERE id = (SELECT cloturee FROM t);
+SELECT ok(NOT pg_temp.drapeau((SELECT cloturee FROM t)),
+  'remis à plat pour la suite');
 
 -- ── Sous rôle : le drapeau n'est pas à la main du client ─────────────────────
 SELECT pg_temp.baisser();

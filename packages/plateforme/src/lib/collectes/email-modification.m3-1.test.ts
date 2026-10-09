@@ -9,6 +9,8 @@
  *   - l'email rendu pour le cas de Val, mot pour mot ;
  *   - les blocs conditionnels (pax, programmateur, ligne ATTENTION) ;
  *   - l'échappement de tout texte saisi par un utilisateur ;
+ *   - la relecture, dans le journal d'audit, de ce que le même utilisateur
+ *     vient d'enregistrer sur l'événement (second essai compris) ;
  *   - qu'une notification en échec ne remonte jamais à l'appelant.
  * Le contrôle « en base » est le pgTAP
  * supabase/tests/email_template_modification_collecte.test.sql.
@@ -24,20 +26,16 @@ import {
   type CapturedEmail,
 } from '@savr/shared/src/email/index.js';
 import {
-  derniereModificationEvenement,
   lignesModifications,
   modificationUrgente,
   notifierEquipeModificationCollecte,
 } from './email-modification';
 
-const SQL = readFileSync(
-  fileURLToPath(
-    new URL(
-      '../../../../../supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql',
-      import.meta.url,
-    ),
-  ),
-  'utf8',
+const lire = (rel: string): string =>
+  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+
+const SQL = lire(
+  '../../../../../supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql',
 );
 const CORPS = SQL.match(/\$tpl\$([\s\S]*?)\$tpl\$/)![1]!;
 const VARIABLES = [
@@ -45,32 +43,41 @@ const VARIABLES = [
 ].map((m) => m[1]!);
 
 type Admin = Parameters<typeof notifierEquipeModificationCollecte>[0];
+type Appel = [table: string, methode: string, ...args: unknown[]];
 
-// Faux client : chaque table rend la ligne qu'on lui a donnée.
-function fauxAdmin(tables: Record<string, unknown>) {
-  const lues: string[] = [];
-  const filtres: unknown[][] = [];
+// Faux client : chaque table rend la ligne (ou l'erreur) qu'on lui a donnée, et
+// chaque filtre posé est enregistré avec sa table.
+function fauxAdmin(
+  tables: Record<string, unknown>,
+  erreurs: Record<string, string> = {},
+) {
+  const appels: Appel[] = [];
   const client = {
     from(table: string) {
-      lues.push(table);
-      const reponse = { data: tables[table] ?? null, error: null };
+      appels.push([table, 'from']);
+      const erreur = erreurs[table];
+      const reponse = {
+        data: erreur ? null : (tables[table] ?? null),
+        error: erreur ? { message: erreur } : null,
+      };
       const chaine: Record<string, unknown> = {
         maybeSingle: () => Promise.resolve(reponse),
         then: (suite: (r: typeof reponse) => unknown) => suite(reponse),
       };
-      for (const m of ['select', 'in', 'gte', 'order', 'limit'])
-        chaine[m] = () => chaine;
-      chaine.eq = (...args: unknown[]) => {
-        filtres.push(args);
-        return chaine;
-      };
+      for (const m of ['select', 'eq', 'in', 'gte', 'order'])
+        chaine[m] = (...args: unknown[]) => {
+          appels.push([table, m, ...args]);
+          return chaine;
+        };
       return chaine;
     },
   };
-  return { admin: client as unknown as Admin, lues, filtres };
+  const lues = () => appels.filter(([, m]) => m === 'from').map(([t]) => t);
+  return { admin: client as unknown as Admin, appels, lues };
 }
 
 const COLLECTE_APRES = {
+  evenement_id: 'e1',
   statut: 'programmee',
   statut_tms: 'non_envoye',
   tms_reference: null,
@@ -212,28 +219,75 @@ describe('M3.1/email_modification_lignes — une ligne par champ modifié', () =
       }),
     ).toEqual([]);
   });
+
+  // Cliquet : un champ ajouté à la liste éditable d'une des deux routes sans sa
+  // ligne ici disparaîtrait de l'email sans que rien ne le dise.
+  const champsEditables = (route: string, liste: string): string[] => {
+    const corps = lire(`../../app/api/v1/${route}/route.ts`).match(
+      new RegExp(`const ${liste} = \\[([^\\]]*)\\]`),
+    );
+    return [...(corps?.[1] ?? '').matchAll(/'(\w+)'/g)].map((m) => m[1]!);
+  };
+  const COLLECTE = champsEditables(
+    'traiteur/collectes/[id]',
+    'EDITABLE_FIELDS',
+  );
+  const EVENEMENT = champsEditables(
+    'programmation/evenements/[id]',
+    'EVENT_EDITABLE_FIELDS',
+  );
+
+  it('les listes de champs éditables des deux routes sont lues (cliquet non vacant)', () => {
+    expect(COLLECTE).toContain('date_collecte');
+    expect(EVENEMENT).toContain('pax');
+  });
+
+  it.each(COLLECTE)('champ éditable de la collecte « %s » : une ligne', (c) => {
+    expect(
+      lignesModifications({
+        collecteAvant: { [c]: 'a' },
+        majCollecte: { [c]: 'b' },
+      }),
+    ).toHaveLength(1);
+  });
+
+  it.each(EVENEMENT)(
+    'champ éditable de l’événement « %s » : une ligne',
+    (c) => {
+      expect(
+        lignesModifications({
+          evenementAvant: { [c]: 'a' },
+          majEvenement: { [c]: 'b' },
+        }),
+      ).toHaveLength(1);
+    },
+  );
 });
 
 describe('M3.1/email_modification_urgence_12h — seuil des 12 h', () => {
-  const maintenant = Date.UTC(2099, 0, 14, 12, 0); // 13h00 à Paris
+  // Heure d'hiver : 13h00 à Paris (UTC+1).
+  const hiver = Date.UTC(2099, 0, 14, 12, 0);
+  // Heure d'été : 12h00 à Paris (UTC+2).
+  const ete = Date.UTC(2099, 6, 14, 10, 0);
 
-  it('créneau à moins de 12 h : urgent', () => {
-    expect(modificationUrgente('2099-01-14', '22:00:00', maintenant)).toBe(
-      true,
-    );
+  it.each([
+    ['hiver, créneau dans 11 h 59', '2099-01-15', '00:59:00', hiver, true],
+    ['hiver, créneau dans 12 h 01', '2099-01-15', '01:01:00', hiver, false],
+    ['été, créneau dans 11 h 59', '2099-07-14', '23:59:00', ete, true],
+    ['été, créneau dans 12 h 01', '2099-07-15', '00:01:00', ete, false],
+  ])('%s', (_cas, date, heure, maintenant, urgent) => {
+    expect(modificationUrgente(date, heure, maintenant)).toBe(urgent);
   });
 
-  it('créneau à plus de 12 h : pas urgent', () => {
-    expect(modificationUrgente('2099-01-15', '16:45:00', maintenant)).toBe(
-      false,
-    );
+  it('créneau déjà passé : urgent', () => {
+    expect(modificationUrgente('2099-01-14', '09:00:00', hiver)).toBe(true);
   });
 });
 
 describe('M3.1/email_modification_rendu — email envoyé', () => {
   it('le cas de Val, rendu mot pour mot avec le corps de la migration', async () => {
     capter();
-    const { admin } = fauxAdmin({
+    const { admin, appels } = fauxAdmin({
       collectes: COLLECTE_APRES,
       users: PROGRAMMATEUR,
     });
@@ -259,6 +313,12 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
         "<p>L'équipe Savr</p>",
       ].join('\n'),
     );
+    // La collecte lue est celle de la demande ; le programmateur, celui de
+    // l'événement.
+    expect(appels).toContainEqual(['collectes', 'eq', 'id', 'c1']);
+    expect(appels).toContainEqual(['users', 'eq', 'id', 'user-prog']);
+    // Sans signalement, le journal d'audit n'est pas relu.
+    expect(appels.map(([t]) => t)).not.toContain('audit_log');
   });
 
   it('statut « Créée » tant que la demande n’est pas partie vers le prestataire', async () => {
@@ -391,7 +451,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       evenementAvant: { type_evenement_id: 't-cocktail' },
       majEvenement: { type_evenement_id: 't-diner' },
     });
-    expect(lues).toContain('types_evenements');
+    expect(lues()).toContain('types_evenements');
     expect(recus[0]!.variables.liste_modifications).toBe(
       "<ul><li>Type d'événement : avant Cocktail. Maintenant Dîner assis</li></ul>",
     );
@@ -418,6 +478,18 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     expect(recus).toEqual([]);
   });
 
+  it('collecte illisible (erreur de lecture) : aucun email, rien ne remonte', async () => {
+    capter();
+    const { admin } = fauxAdmin(
+      { collectes: COLLECTE_APRES, users: PROGRAMMATEUR },
+      { collectes: 'colonne inconnue' },
+    );
+    await expect(
+      notifierEquipeModificationCollecte(admin, CAS_VAL),
+    ).resolves.toBeUndefined();
+    expect(recus).toEqual([]);
+  });
+
   it('un envoi qui échoue ne remonte pas à l’appelant (la modification est déjà écrite)', async () => {
     setEmailCaptureSink(() => {
       throw new Error('Resend indisponible');
@@ -433,40 +505,120 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
 });
 
 describe('M3.1/email_modification_un_seul_email — modification d’événement du même enregistrement', () => {
-  it('relue dans le journal d’audit de CET utilisateur, pour CET événement', async () => {
-    const { admin, lues, filtres } = fauxAdmin({
-      audit_log: {
-        old_values: { pax: 2000 },
-        new_values: { updates: { pax: 1500 } },
-      },
+  const DEMANDE = {
+    collecteId: 'c1',
+    collecteAvant: { date_collecte: '2099-01-15', heure_collecte: '16:45:00' },
+    majCollecte: { date_collecte: '2099-01-14' },
+    evenementModifiePar: 'user-1',
+  };
+  const AUDIT_PAX = {
+    old_values: { pax: 2000, contact_principal_nom: 'Paul Il' },
+    new_values: { updates: { pax: 1500 } },
+  };
+
+  it('relue dans le journal d’audit de CET utilisateur, pour l’événement de CETTE collecte', async () => {
+    capter();
+    const avantAppel = Date.now();
+    const { admin, appels } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+      audit_log: [AUDIT_PAX],
     });
-    await expect(
-      derniereModificationEvenement(admin, 'e1', 'user-1'),
-    ).resolves.toEqual({
-      evenementAvant: { pax: 2000 },
-      majEvenement: { pax: 1500 },
-    });
-    expect(lues).toEqual(['audit_log']);
-    expect(filtres).toEqual([
-      ['table_name', 'evenements'],
-      ['record_id', 'e1'],
-      ['user_id', 'user-1'],
-      ['action', 'UPDATE'],
+    await notifierEquipeModificationCollecte(admin, DEMANDE);
+
+    expect(recus[0]!.variables.liste_modifications).toBe(
+      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
+    );
+    expect(recus[0]!.variables.pax_initial).toBe('2000');
+
+    const audit = appels.filter(([t]) => t === 'audit_log');
+    expect(audit.filter(([, m]) => m === 'eq')).toEqual([
+      ['audit_log', 'eq', 'table_name', 'evenements'],
+      ['audit_log', 'eq', 'record_id', 'e1'],
+      ['audit_log', 'eq', 'user_id', 'user-1'],
+      ['audit_log', 'eq', 'action', 'UPDATE'],
     ]);
+    // Les lignes sont lues dans l'ordre où elles ont été écrites…
+    expect(audit).toContainEqual([
+      'audit_log',
+      'order',
+      'id',
+      { ascending: true },
+    ]);
+    // … sur les dix dernières minutes seulement.
+    const borne = audit.find(([, m]) => m === 'gte')!;
+    expect(borne[2]).toBe('created_at');
+    const depuis = avantAppel - Date.parse(String(borne[3]));
+    expect(depuis).toBeGreaterThan(10 * 60 * 1000 - 5000);
+    expect(depuis).toBeLessThan(10 * 60 * 1000 + 5000);
   });
 
-  it('aucune ligne d’audit récente : rien à ajouter', async () => {
-    const { admin } = fauxAdmin({});
-    await expect(
-      derniereModificationEvenement(admin, 'e1', 'user-1'),
-    ).resolves.toEqual({});
+  it('second essai après une requête collecte refusée : la modification d’événement renvoyée sans effet ne masque pas la première', async () => {
+    capter();
+    const { admin } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+      audit_log: [
+        AUDIT_PAX,
+        // Le formulaire renvoie le même écart : la base vaut déjà 1500.
+        { old_values: { pax: 1500 }, new_values: { updates: { pax: 1500 } } },
+      ],
+    });
+    await notifierEquipeModificationCollecte(admin, DEMANDE);
+    expect(recus[0]!.variables.liste_modifications).toBe(
+      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
+    );
+    expect(recus[0]!.variables.pax_initial).toBe('2000');
   });
 
-  it('événement inconnu : aucune lecture', async () => {
-    const { admin, lues } = fauxAdmin({});
-    await expect(
-      derniereModificationEvenement(admin, undefined, 'user-1'),
-    ).resolves.toEqual({});
-    expect(lues).toEqual([]);
+  it('deux modifications d’événement successives : de la première valeur à la dernière', async () => {
+    capter();
+    const { admin } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+      audit_log: [
+        AUDIT_PAX,
+        {
+          old_values: { pax: 1500, contact_principal_nom: 'Paul Il' },
+          new_values: {
+            updates: { pax: 1800, contact_principal_nom: 'Arthus' },
+          },
+        },
+      ],
+    });
+    await notifierEquipeModificationCollecte(admin, DEMANDE);
+    expect(recus[0]!.variables.liste_modifications).toBe(
+      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1800</li><li>Contact : avant Paul Il. Maintenant Arthus</li></ul>',
+    );
+  });
+
+  it('aucune ligne d’audit récente : l’email part avec les seuls champs de la collecte', async () => {
+    capter();
+    const { admin } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+      audit_log: [],
+    });
+    await notifierEquipeModificationCollecte(admin, DEMANDE);
+    expect(recus[0]!.variables.liste_modifications).toBe(
+      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li></ul>',
+    );
+  });
+
+  it('journal d’audit illisible : l’email part quand même, avec les seuls champs de la collecte', async () => {
+    capter();
+    const { admin } = fauxAdmin(
+      {
+        collectes: COLLECTE_APRES,
+        users: PROGRAMMATEUR,
+        audit_log: [AUDIT_PAX],
+      },
+      { audit_log: 'délai dépassé' },
+    );
+    await notifierEquipeModificationCollecte(admin, DEMANDE);
+    expect(recus).toHaveLength(1);
+    expect(recus[0]!.variables.liste_modifications).toBe(
+      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li></ul>',
+    );
   });
 });

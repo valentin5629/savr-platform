@@ -17,15 +17,16 @@ type Ligne = Record<string, unknown>;
  * et sa nouvelle valeur. Le formulaire d'édition enregistre en deux requêtes :
  * l'événement (pax, contacts…) puis la collecte (date, heure…). L'email part de
  * la dernière des deux :
- *   · la route collecte, qui relit la modification d'événement du même
- *     enregistrement dans le journal d'audit (`derniereModificationEvenement`) ;
+ *   · la route collecte, qui fait relire ici, dans le journal d'audit, ce que
+ *     le même utilisateur vient d'enregistrer sur l'événement
+ *     (`evenementModifiePar`) ;
  *   · la route événement, quand l'enregistrement ne touche que l'événement.
- * Les valeurs viennent toujours de la base, jamais de la requête.
+ * Les valeurs « avant » sont lues en base (ligne d'avant l'écriture, journal
+ * d'audit) ; les valeurs « après » sont celles que la route vient d'écrire.
  *
  * Best-effort : une notification ne doit jamais faire échouer la modification.
  */
-export const TEMPLATE_MODIFICATION_COLLECTE =
-  'admin_modification_collecte_traiteur';
+const TEMPLATE = 'admin_modification_collecte_traiteur';
 const ADRESSE_EQUIPE = 'contact@gosavr.io';
 
 /** Ce qu'un enregistrement a changé, avec l'état d'avant. */
@@ -144,25 +145,26 @@ export function modificationUrgente(
   return creneau.getTime() - maintenant < 12 * 3600 * 1000;
 }
 
-// Le formulaire enregistre l'événement puis, dans la foulée, la collecte : la
-// ligne d'audit cherchée a quelques dixièmes de seconde. La borne évite seulement
-// de ressortir une modification ancienne si la requête prétend à tort que
-// l'événement vient d'être modifié.
-const FENETRE_MEME_ENREGISTREMENT_MS = 2 * 60 * 1000;
+// Le formulaire enregistre l'événement puis, dans la foulée, la collecte. Si la
+// requête collecte est refusée, l'utilisateur corrige et recommence : le
+// formulaire renvoie alors la même modification d'événement, devenue sans effet
+// (« 1500 → 1500 »). D'où une fenêtre de quelques minutes, repliée en entier :
+// l'état « avant » est celui de la plus ancienne ligne.
+const FENETRE_MEME_ENREGISTREMENT_MS = 10 * 60 * 1000;
 
 /**
- * La modification d'événement que CET utilisateur vient d'enregistrer, relue
- * dans le journal d'audit (écrit par PATCH /programmation/evenements/:id).
- * Objet vide si aucune.
+ * Ce que CET utilisateur vient d'enregistrer sur l'événement, relu dans le
+ * journal d'audit (écrit par PATCH /programmation/evenements/:id). Objet vide
+ * si rien, ou si le journal est illisible : l'email part alors avec les seuls
+ * champs de la collecte.
  */
-export async function derniereModificationEvenement(
+async function modificationsEvenementRecentes(
   admin: AdminSupabase,
-  evenementId: unknown,
+  evenementId: string,
   userId: string,
 ): Promise<Pick<ModificationCollecte, 'evenementAvant' | 'majEvenement'>> {
-  if (typeof evenementId !== 'string') return {};
   const depuis = Date.now() - FENETRE_MEME_ENREGISTREMENT_MS;
-  const { data } = await admin
+  const { data, error } = await admin
     .from('audit_log')
     .select('old_values, new_values')
     .eq('table_name', 'evenements')
@@ -170,12 +172,27 @@ export async function derniereModificationEvenement(
     .eq('user_id', userId)
     .eq('action', 'UPDATE')
     .gte('created_at', new Date(depuis).toISOString())
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const maj = (data?.new_values as { updates?: Ligne } | null)?.updates;
-  if (!data || !maj) return {};
-  return { evenementAvant: data.old_values as Ligne, majEvenement: maj };
+    .order('id', { ascending: true });
+  if (error) {
+    logger.error('collectes.email_modification_audit_illisible', {
+      evenement_id: evenementId,
+      erreur: error.message,
+    });
+    return {};
+  }
+  const lignes = (data ?? []) as Array<{
+    old_values: Ligne | null;
+    new_values: { updates?: Ligne } | null;
+  }>;
+  const [premiere] = lignes;
+  if (!premiere) return {};
+  return {
+    evenementAvant: premiere.old_values ?? {},
+    majEvenement: Object.assign(
+      {},
+      ...lignes.map((l) => l.new_values?.updates ?? {}),
+    ) as Ligne,
+  };
 }
 
 const escapeHtml = (v: string): string =>
@@ -189,6 +206,7 @@ const un = <T>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
 interface CollecteApres {
+  evenement_id: string;
   statut: string;
   statut_tms: string;
   tms_reference: string | null;
@@ -205,30 +223,51 @@ interface EvenementApres {
   organisation: { nom: string } | { nom: string }[] | null;
 }
 
-/** Envoie l'email de modification à l'équipe Savr. Rien si aucun champ n'a changé. */
+/**
+ * Envoie l'email de modification à l'équipe Savr. Rien si aucun champ n'a
+ * réellement changé.
+ * `evenementModifiePar` : l'utilisateur dont la requête précédente, dans le même
+ * enregistrement, vient de modifier l'événement ; sa modification est relue
+ * dans le journal d'audit.
+ */
 export async function notifierEquipeModificationCollecte(
   admin: AdminSupabase,
-  m: ModificationCollecte & { collecteId: string },
+  demande: ModificationCollecte & {
+    collecteId: string;
+    evenementModifiePar?: string;
+  },
 ): Promise<void> {
   try {
     // État APRÈS l'écriture : le statut affiché est celui que l'Admin lira en
     // ouvrant la fiche (une date modifiée peut le ramener à « Programmée »).
-    const { data } = await admin
+    const { data, error } = await admin
       .from('collectes')
       .select(
-        `statut, statut_tms, tms_reference, prestataire_logistique_id,
-         date_collecte, heure_collecte,
+        `evenement_id, statut, statut_tms, tms_reference,
+         prestataire_logistique_id, date_collecte, heure_collecte,
          attributions_antgaspi!collecte_id(id),
          evenement:evenements!inner(pax, created_by,
            organisation:organisations!organisation_id(nom))`,
       )
-      .eq('id', m.collecteId)
+      .eq('id', demande.collecteId)
       .maybeSingle();
+    if (error) throw new Error(`lecture de la collecte : ${error.message}`);
     if (!data) return;
     const collecte = data as unknown as CollecteApres;
     const evenement = un(
       collecte.evenement as EvenementApres | EvenementApres[],
     );
+
+    const m: ModificationCollecte = demande.evenementModifiePar
+      ? {
+          ...demande,
+          ...(await modificationsEvenementRecentes(
+            admin,
+            collecte.evenement_id,
+            demande.evenementModifiePar,
+          )),
+        }
+      : demande;
     const e0 = m.evenementAvant ?? {};
     const e = m.majEvenement ?? {};
 
@@ -294,10 +333,10 @@ export async function notifierEquipeModificationCollecte(
           : nomProgrammateur,
       );
 
-    await sendEmail(TEMPLATE_MODIFICATION_COLLECTE, ADRESSE_EQUIPE, variables);
+    await sendEmail(TEMPLATE, ADRESSE_EQUIPE, variables);
   } catch (err) {
     logger.error('collectes.email_modification_echec', {
-      collecte_id: m.collecteId,
+      collecte_id: demande.collecteId,
       erreur: err instanceof Error ? err.message : String(err),
     });
   }

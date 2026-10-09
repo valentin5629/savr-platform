@@ -367,9 +367,9 @@ describe('M3.1 / édition collecte', () => {
     }); // before
     admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
     admin.push({ data: null, error: null }); // audit insert
-    if (auditEvenement) admin.push({ data: auditEvenement, error: null }); // audit lu
     admin.push({
       data: {
+        evenement_id: 'e1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
         tms_reference: null,
@@ -385,6 +385,7 @@ describe('M3.1 / édition collecte', () => {
       },
       error: null,
     }); // email : collecte après écriture
+    if (auditEvenement) admin.push({ data: [auditEvenement], error: null }); // email : audit relu
     admin.push({
       data: { prenom: 'Julie', nom: 'Martin', telephone: '0601020304' },
       error: null,

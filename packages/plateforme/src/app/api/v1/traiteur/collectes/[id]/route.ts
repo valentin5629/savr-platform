@@ -10,7 +10,6 @@ import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
 import {
-  derniereModificationEvenement,
   modificationUrgente,
   notifierEquipeModificationCollecte,
 } from '@/lib/collectes/email-modification.js';
@@ -283,17 +282,12 @@ export async function PATCH(
   // (pax, contacts…) puis la collecte ; quand il vient de modifier l'événement il
   // le signale (`evenement_modifie`), et cette modification est relue dans le
   // journal d'audit — jamais dans la requête.
-  const avant = (before ?? null) as Record<string, unknown> | null;
   await notifierEquipeModificationCollecte(admin, {
     collecteId: id,
-    collecteAvant: avant,
+    collecteAvant: (before ?? null) as Record<string, unknown> | null,
     majCollecte: updates,
     ...(body.evenement_modifie === true
-      ? await derniereModificationEvenement(
-          admin,
-          avant?.evenement_id,
-          auth.ctx.userId,
-        )
+      ? { evenementModifiePar: auth.ctx.userId }
       : {}),
   });
 

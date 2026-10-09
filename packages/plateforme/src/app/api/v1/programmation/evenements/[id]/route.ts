@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import {
   requireProgrammateur,
   requireProgrammateurOuAdmin,
@@ -194,7 +195,10 @@ export async function PATCH(
   // Audit (§05 l.330 audit_log global — accessible Admin only). Session impersonée :
   // user_id = identité assumée ET impersonator_id = admin réel (§09 §7) — écrit ici
   // car l'INSERT part sous service_role, sans le JWT de la session.
-  await admin.from('audit_log').insert({
+  // Cette ligne est aussi ce que la route collecte relit pour l'email à l'équipe
+  // Savr (`{ updates }`, cf. lib/collectes/email-modification) : son échec ne
+  // doit pas passer inaperçu.
+  const { error: auditErr } = await admin.from('audit_log').insert({
     table_name: 'evenements',
     record_id: id,
     action: 'UPDATE',
@@ -203,6 +207,11 @@ export async function PATCH(
     old_values: before ?? {},
     new_values: { updates },
   });
+  if (auditErr)
+    logger.error('programmation.evenements.audit_echec', {
+      evenement_id: id,
+      erreur: auditErr.message,
+    });
 
   // Recompute de `informations_completes` (§04 Data Model) — BL-P1-TRAIT-04.
   // Le badge « Info incomplète » (posé à la programmation quand contact principal

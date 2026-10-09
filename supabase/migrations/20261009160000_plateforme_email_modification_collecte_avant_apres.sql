@@ -27,9 +27,16 @@
 --
 -- L'objet est inchangé. Backward-compatible : UPDATE d'une ligne de référentiel,
 -- aucune structure modifiée, aucun droit touché. Idempotent : un rejeu réécrit
--- le même corps. Entre cette migration et le déploiement du code qui envoie les
--- nouvelles variables, l'email de modification n'est pas envoyé (variable
--- exigée absente = envoi refusé) ; la modification elle-même n'en dépend pas.
+-- le même corps.
+--
+-- Ordre de mise en service : le corps et le code changent de variables
+-- ensemble. Tant que l'un des deux est en avance sur l'autre — migration avant
+-- le déploiement du code, ou l'inverse —, l'email de modification n'est pas
+-- envoyé (variable exigée absente = envoi refusé) ; la modification elle-même
+-- n'en dépend pas. Appliquer la migration dans la foulée du déploiement.
+-- Avant de l'appliquer, vérifier qu'aucun envoi de ce template n'attend une
+-- reprise (`emails_envoyes.statut = 'failed'`) : le worker de reprise rejouerait
+-- les anciennes variables dans le nouveau corps.
 --
 -- Retour arrière : rejouer le corps et la liste de variables de 20260705100000.
 -- =============================================================================

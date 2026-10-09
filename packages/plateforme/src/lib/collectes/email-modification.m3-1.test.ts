@@ -38,8 +38,15 @@ const SQL = lire(
   '../../../../../supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql',
 );
 const CORPS = SQL.match(/\$tpl\$([\s\S]*?)\$tpl\$/)![1]!;
+// Les instructions seules : le bloc de retour arrière, en commentaire, cite les
+// anciennes variables.
+const INSTRUCTIONS = SQL.split('\n')
+  .filter((ligne) => !ligne.trimStart().startsWith('--'))
+  .join('\n');
 const VARIABLES = [
-  ...SQL.match(/variables = ARRAY\[([^\]]*)\]/)![1]!.matchAll(/'(\w+)'/g),
+  ...INSTRUCTIONS.match(/variables = ARRAY\[([^\]]*)\]/)![1]!.matchAll(
+    /'(\w+)'/g,
+  ),
 ].map((m) => m[1]!);
 
 type Admin = Parameters<typeof notifierEquipeModificationCollecte>[0];
@@ -298,6 +305,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     const [email] = recus;
     expect(email!.slug).toBe('admin_modification_collecte_traiteur');
     expect(email!.to).toBe('contact@gosavr.io');
+    expect(VARIABLES).toContain('liste_modifications');
     expect(findMissingVariables(VARIABLES, email!.variables, CORPS)).toEqual(
       [],
     );

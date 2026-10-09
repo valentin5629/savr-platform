@@ -33,7 +33,7 @@
 -- reprise (`emails_envoyes.statut = 'failed'`) : le worker de reprise rejouerait
 -- les anciennes variables dans le nouveau corps.
 --
--- Retour arrière : rejouer le corps et la liste de variables de 20260705100000.
+-- Retour arrière : cf. le bloc en fin de fichier.
 -- =============================================================================
 
 UPDATE plateforme.email_templates
@@ -71,3 +71,17 @@ BEGIN
       v_a_jour;
   END IF;
 END $$;
+
+-- =============================================================================
+-- Retour arrière — à jouer AVEC le retour au code précédent : le code de ce lot
+-- n'envoie plus les anciennes variables, l'ancien corps refuserait ses envois.
+-- Rejouer 20260705100000 ne restaure rien : son INSERT … ON CONFLICT DO NOTHING
+-- laisse la ligne en place.
+--
+--   UPDATE plateforme.email_templates
+--   SET corps_html = '<p>Bonjour,</p><p>L''organisation {{organisation_nom}} ({{demandeur_nom}}) a modifié la collecte {{collecte_ref}} prévue le {{date_collecte}}.</p><p>Champs modifiés : {{champs_modifies}}</p><p>Priorité de traitement : {{priorite}}.</p><p>Merci de relayer au prestataire si nécessaire depuis le back-office.</p><p>L''équipe Savr</p>',
+--       variables = ARRAY['organisation_nom','demandeur_nom','collecte_ref','date_collecte','champs_modifies','priorite'],
+--       description = 'Notification Ops — modification d''une collecte à venir par le traiteur (§05 l.317-318 ; priorité normale >= 12h avant créneau / haute < 12h).',
+--       updated_at = now()
+--   WHERE code = 'admin_modification_collecte_traiteur';
+-- =============================================================================

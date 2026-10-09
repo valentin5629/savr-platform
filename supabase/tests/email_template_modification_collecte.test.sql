@@ -9,7 +9,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(5);
+SELECT plan(7);
 
 SELECT is(
   (SELECT COUNT(*)::integer FROM plateforme.email_templates
@@ -49,6 +49,24 @@ SELECT ok(
       AND corps_html NOT LIKE '%Priorité de traitement%'
    FROM plateforme.email_templates WHERE code = 'admin_modification_collecte_traiteur'),
   'admin_modification_collecte_traiteur : plus d''identifiant technique ni de ligne « Priorité de traitement »'
+);
+
+SELECT is(
+  (SELECT ARRAY(SELECT DISTINCT m[1]
+                  FROM regexp_matches(t.corps_html, '\{\{(?:#if\s+)?(\w+)\}\}', 'g') AS m
+                 ORDER BY 1)
+   FROM plateforme.email_templates t WHERE t.code = 'admin_modification_collecte_traiteur'),
+  (SELECT ARRAY(SELECT v FROM unnest(t.variables) AS v ORDER BY 1)
+   FROM plateforme.email_templates t WHERE t.code = 'admin_modification_collecte_traiteur'),
+  'admin_modification_collecte_traiteur : toute variable du corps est déclarée, toute variable déclarée est dans le corps'
+);
+
+SELECT is(
+  (SELECT (length(corps_html) - length(replace(corps_html, '{{#if', ''))) / length('{{#if')
+   FROM plateforme.email_templates WHERE code = 'admin_modification_collecte_traiteur'),
+  (SELECT (length(corps_html) - length(replace(corps_html, '{{/if}}', ''))) / length('{{/if}}')
+   FROM plateforme.email_templates WHERE code = 'admin_modification_collecte_traiteur'),
+  'admin_modification_collecte_traiteur : autant de blocs conditionnels ouverts que fermés'
 );
 
 SELECT * FROM finish();

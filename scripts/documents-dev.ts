@@ -15,12 +15,19 @@
  *
  * Elle ne lance QUE cela : ni l'envoi des ordres aux prestataires logistiques, ni
  * l'attribution AG, ni la facturation. Aucun email n'atteint un vrai destinataire
- * (garde du transport email hors production).
+ * (garde du transport email hors production), et les alertes Slack de la chaîne
+ * sont affichées ici au lieu d'être envoyées.
  *
- * Dev seulement : refuse toute base autre que le projet savr-dev.
+ * Dev seulement : refuse toute base autre que le projet savr-dev. La garde ne porte
+ * que sur la BASE : le bucket de stockage est celui que désigne l'environnement, et
+ * il est affiché avant toute écriture. Tout ce que la commande écrit (clôtures,
+ * numéros de documents, PDF) vaut pour le jeu de données de dev partagé et ne se
+ * défait pas.
  */
 import { pathToFileURL } from 'node:url';
 
+import { setSlackSink } from '../packages/shared/src/alerting/slack.js';
+import { bucketEnvironnement } from '../packages/shared/src/r2/bucket.js';
 import { DEV_PROJECT_REF } from '../packages/shared/src/seed/constants.js';
 import { createAdminSupabaseClient } from '../packages/shared/src/supabase-client.js';
 
@@ -43,13 +50,18 @@ export function refuserHorsDev(env: Record<string, string | undefined>): void {
   if (env['NODE_ENV'] === 'production') {
     throw new Error('refusé : NODE_ENV=production.');
   }
-  let hote = '';
+  let url: URL | null = null;
   try {
-    hote = new URL(env['NEXT_PUBLIC_SUPABASE_URL'] ?? '').hostname;
+    url = new URL(env['NEXT_PUBLIC_SUPABASE_URL'] ?? '');
   } catch {
-    // URL absente ou illisible : `hote` reste vide, donc refus ci-dessous.
+    // URL absente ou illisible : `url` reste null, donc refus ci-dessous.
   }
-  if (hote !== `${DEV_PROJECT_REF}.supabase.co`) {
+  // `host` et non `hostname` : un port inhabituel est refusé lui aussi ; https
+  // exigé, la clé de service ne doit jamais partir en clair.
+  if (
+    url?.protocol !== 'https:' ||
+    url.host !== `${DEV_PROJECT_REF}.supabase.co`
+  ) {
     throw new Error(
       'refusé : NEXT_PUBLIC_SUPABASE_URL ne désigne pas le projet savr-dev.',
     );
@@ -60,7 +72,17 @@ export function refuserHorsDev(env: Record<string, string | undefined>): void {
 const PASSES_MAX = 200;
 
 export async function main(): Promise<void> {
+  // En premier, avant toute création de client : c'est la seule barrière.
   refuserHorsDev(process.env);
+  // Un PDF en échec définitif alerte Slack : depuis un poste de dev, l'alerte est
+  // affichée ici, jamais envoyée aux vrais canaux.
+  setSlackSink(async (alerte) => {
+    console.error(
+      `   ⚠ alerte Slack « ${alerte.canal} » non envoyée : ${alerte.titre} — ${alerte.message}`,
+    );
+  });
+  // Échoue ici, avant toute écriture, si l'environnement ne désigne aucun bucket.
+  console.log(`Stockage : bucket « ${bucketEnvironnement()} »`);
   const supabase = createAdminSupabaseClient();
   let echec = false;
 

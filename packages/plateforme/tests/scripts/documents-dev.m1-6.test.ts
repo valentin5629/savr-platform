@@ -1,8 +1,10 @@
 /**
  * M1.6 — `pnpm documents:dev` : la commande qui rejoue sur savr-dev la chaîne des
  * documents (clôture → batchs PDF J+1 → worker PDF) ne doit jamais pouvoir viser
- * une autre base. Seule la garde est testée ici : les traitements eux-mêmes ont
- * leurs propres tests (tests/api/batch-pdf-j1*.test.ts, pdf-worker.m1-6.test.ts).
+ * une autre base. Ce fichier ne teste que la fonction de garde ; son branchement
+ * en tête de la commande est prouvé par documents-dev-main.m1-6.test.ts. Les
+ * traitements eux-mêmes ont leurs propres tests (tests/api/batch-pdf-j1*.test.ts,
+ * pdf-worker.m1-6.test.ts).
  */
 import { describe, it, expect } from 'vitest';
 
@@ -36,6 +38,22 @@ describe('M1.6 / documents:dev — garde « savr-dev seulement »', () => {
       'la référence dev ailleurs que dans l’hôte',
       {
         NEXT_PUBLIC_SUPABASE_URL: `https://abcdefghijklmnopqrst.supabase.co/${DEV_PROJECT_REF}.supabase.co`,
+      },
+    ],
+    [
+      'la base de dev en http (clé de service en clair)',
+      { NEXT_PUBLIC_SUPABASE_URL: `http://${DEV_PROJECT_REF}.supabase.co` },
+    ],
+    [
+      'la base de dev sur un port inhabituel',
+      {
+        NEXT_PUBLIC_SUPABASE_URL: `https://${DEV_PROJECT_REF}.supabase.co:8443`,
+      },
+    ],
+    [
+      'des identifiants devant un autre hôte',
+      {
+        NEXT_PUBLIC_SUPABASE_URL: `https://${DEV_PROJECT_REF}.supabase.co@exemple.test`,
       },
     ],
     [

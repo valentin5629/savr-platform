@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import {
   requireProgrammateur,
   requireProgrammateurOuAdmin,
@@ -7,6 +8,7 @@ import {
 } from '@/lib/api-auth.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 
@@ -193,7 +195,10 @@ export async function PATCH(
   // Audit (§05 l.330 audit_log global — accessible Admin only). Session impersonée :
   // user_id = identité assumée ET impersonator_id = admin réel (§09 §7) — écrit ici
   // car l'INSERT part sous service_role, sans le JWT de la session.
-  await admin.from('audit_log').insert({
+  // Cette ligne est aussi ce que la route collecte relit pour l'email à l'équipe
+  // Savr (`{ updates }`, cf. lib/collectes/email-modification) : son échec ne
+  // doit pas passer inaperçu.
+  const { error: auditErr } = await admin.from('audit_log').insert({
     table_name: 'evenements',
     record_id: id,
     action: 'UPDATE',
@@ -202,6 +207,11 @@ export async function PATCH(
     old_values: before ?? {},
     new_values: { updates },
   });
+  if (auditErr)
+    logger.error('programmation.evenements.audit_echec', {
+      evenement_id: id,
+      erreur: auditErr.message,
+    });
 
   // Recompute de `informations_completes` (§04 Data Model) — BL-P1-TRAIT-04.
   // Le badge « Info incomplète » (posé à la programmation quand contact principal
@@ -254,6 +264,33 @@ export async function PATCH(
     }
   } catch {
     // notification best-effort — ignorée si irrésoluble
+  }
+
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification) : il part d'ici
+  // quand l'enregistrement ne touche que l'événement — le formulaire nomme alors
+  // la collecte d'où il est ouvert (`collecte_id`). Déclencheur du CDC §06.02
+  // n°19 : un utilisateur traiteur. La collecte nommée doit être de CET événement
+  // et encore modifiable (mêmes statuts que la route collecte) : ni brouillon,
+  // ni collecte terminée.
+  const collecteNotifiee = body.collecte_id;
+  if (
+    typeof collecteNotifiee === 'string' &&
+    (auth.ctx.role === 'traiteur_manager' ||
+      auth.ctx.role === 'traiteur_commercial')
+  ) {
+    const { data: collecte } = await admin
+      .from('collectes')
+      .select('id')
+      .eq('id', collecteNotifiee)
+      .eq('evenement_id', id)
+      .in('statut', ['programmee', 'validee'])
+      .maybeSingle();
+    if (collecte)
+      await notifierEquipeModificationCollecte(admin, {
+        collecteId: collecte.id,
+        evenementAvant: (before ?? null) as Record<string, unknown> | null,
+        majEvenement: updates,
+      });
   }
 
   // `fn_modifier_evenement` rend la ligne ENTIÈRE (`to_jsonb`), dont

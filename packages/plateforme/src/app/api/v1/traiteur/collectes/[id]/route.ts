@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { sendEmail } from '@savr/shared/src/email/index.js';
 import {
   requireUser,
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { instantParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
+import {
+  modificationUrgente,
+  notifierEquipeModificationCollecte,
+} from '@/lib/collectes/email-modification.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -38,40 +40,24 @@ interface CollecteRow {
   evenement: {
     created_by: string;
     organisation_id: string;
-    organisation?: { nom: string } | null;
   } | null;
 }
 
 async function loadCollecteForUser(id: string): Promise<CollecteRow | null> {
   // Lecture RLS-scopée : si la collecte n'est pas visible (cross-org), null.
-  // Le nom de l'organisation programmatrice alimente l'email Ops de modification.
   const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from('collectes')
     .select(
       `id, statut, statut_tms, date_collecte, heure_collecte,
-       evenement:evenements!inner(created_by, organisation_id,
-         organisation:organisations!organisation_id(nom))`,
+       evenement:evenements!inner(created_by, organisation_id)`,
     )
     .eq('id', id)
     .maybeSingle();
   if (!data) return null;
-  const evtRaw = Array.isArray(data.evenement)
-    ? data.evenement[0]
+  const evenement = Array.isArray(data.evenement)
+    ? (data.evenement[0] ?? null)
     : data.evenement;
-  // PostgREST embarque les relations imbriquées en tableau → normaliser organisation.
-  const org = evtRaw
-    ? Array.isArray(evtRaw.organisation)
-      ? (evtRaw.organisation[0] ?? null)
-      : (evtRaw.organisation ?? null)
-    : null;
-  const evenement = evtRaw
-    ? {
-        created_by: evtRaw.created_by,
-        organisation_id: evtRaw.organisation_id,
-        organisation: org,
-      }
-    : null;
   return { ...data, evenement } as unknown as CollecteRow;
 }
 
@@ -244,13 +230,10 @@ export async function PATCH(
   }
 
   // Flags modal/audit (§06.04 modal unique + cut-off 12h)
-  // Heure murale parisienne : le trigger SQL qui débite le crédit du pack ancre
-  // le seuil 12h en Europe/Paris — l'API doit tomber au même instant.
-  const creneau = instantParis(
-    collecte.date_collecte as string,
-    (collecte.heure_collecte as string) ?? '00:00:00',
+  const priorite_urgence = modificationUrgente(
+    collecte.date_collecte,
+    collecte.heure_collecte,
   );
-  const priorite_urgence = creneau.getTime() - Date.now() < 12 * 3600 * 1000;
   const dateHeureModifiee =
     'date_collecte' in updates || 'heure_collecte' in updates;
   const reacceptation_requise =
@@ -294,17 +277,16 @@ export async function PATCH(
     new_values: { updates, cascade_tms, priorite_urgence },
   });
 
-  // Alerte Ops de modification (§05 l.316-318) — une seule alerte, sévérité
-  // modulée par la proximité du créneau : priorité « normale » >= 12h, « haute »
-  // < 12h (le modal de confirmation côté traiteur double le cas < 12h).
-  const orgNom = collecte.evenement?.organisation?.nom ?? '';
-  await sendEmail('admin_modification_collecte_traiteur', 'contact@gosavr.io', {
-    organisation_nom: orgNom,
-    demandeur_nom: auth.ctx.userId,
-    collecte_ref: id,
-    date_collecte: collecte.date_collecte ?? '',
-    champs_modifies: Object.keys(updates).join(', '),
-    priorite: priorite_urgence ? 'haute' : 'normale',
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification). Quand le
+  // formulaire vient aussi de modifier l'événement, il le signale
+  // (`evenement_modifie`) : cette modification est relue dans le journal d'audit.
+  await notifierEquipeModificationCollecte(admin, {
+    collecteId: id,
+    collecteAvant: (before ?? null) as Record<string, unknown> | null,
+    majCollecte: updates,
+    ...(body.evenement_modifie === true
+      ? { evenementModifiePar: auth.ctx.userId }
+      : {}),
   });
 
   return NextResponse.json({

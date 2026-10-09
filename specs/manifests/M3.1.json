@@ -61,7 +61,11 @@
     "packages/plateforme/tests/api/traiteur/liste-collectes-resultats.m3-1.test.ts",
     "packages/plateforme/tests/ui/collectes-traiteur-table.m3-1.test.tsx",
     "packages/plateforme/tests/ui/liste-traiteur-rapport-reserve.m3-1.test.tsx",
-    "packages/plateforme/src/components/collecte/liste-collectes-client.tsx"
+    "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+    "packages/plateforme/src/lib/collectes/email-modification.ts",
+    "packages/plateforme/src/lib/collectes/email-modification.m3-1.test.ts",
+    "supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql",
+    "supabase/tests/email_template_modification_collecte.test.sql"
   ],
   "scenarios": [
     "M3.1/marge_badge_attente_facturation_partielle",
@@ -213,7 +217,11 @@
     "M3.1/evolution_traiteur_ag_lit_la_table",
     "M3.1/evolution_commercial_ag_lit_la_table",
     "M3.1/synthese_traiteur_ag_lit_la_table",
-    "M3.1/synthese_commercial_ag_lit_la_table"
+    "M3.1/synthese_commercial_ag_lit_la_table",
+    "M3.1/email_modification_lignes",
+    "M3.1/email_modification_urgence_12h",
+    "M3.1/email_modification_rendu",
+    "M3.1/email_modification_un_seul_email"
   ],
   "deliverables": [
     {
@@ -374,7 +382,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/edition_alerte_ops_priorite_normale",
       "statut": "implemented",
-      "libelle": "Cascade édition : email Ops modification (admin_modification_collecte_traiteur, priorité normale/haute §05 l.316-318), recompute informations_completes, modale de confirmation empilée ; flag TMS route-level (divergence M3.1_20260705)"
+      "libelle": "Cascade édition : email à l'équipe Savr (admin_modification_collecte_traiteur ; ligne ATTENTION à moins de 12h du créneau, §05 l.316-318 — contenu et envoi unique : cf. M3.1-email-modification-contenu et M3.1-email-modification-un-seul-email), recompute informations_completes, modale de confirmation empilée ; flag TMS route-level (divergence M3.1_20260705)"
     },
     {
       "id": "BL-P2-14",
@@ -1008,11 +1016,28 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la barre de filtres de la liste Collectes traiteur, desktop ET mobile < 640 px : « Période » en premier ; cases « Tous » en tête de Lieu et Client organisateur, « Toutes » pour Info incomplète ; libellés des déclencheurs (« Tous », nom unique, « n sélectionnés ») ; nom de client contenant une virgule ; chip « Filtre actif » après un clic depuis une Top liste, puis sa disparition quand un second lieu est coché. Pas de capture dans ce lot (arbitrage Val 2026-10-01) : GO visuel de Val à sa prochaine revue écran."
+    },
+    {
+      "id": "M3.1-email-modification-contenu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:486",
+      "artefact": "packages/plateforme/src/lib/collectes/email-modification.ts, supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql",
+      "test": "M3.1/email_modification_rendu",
+      "statut": "implemented",
+      "libelle": "Email à l'équipe Savr quand un traiteur modifie une collecte à venir (texte dicté par Val le 2026-10-09, divergence M3.1_20261009_email-modification-collecte) : organisation, date et pax d'origine, une ligne par champ réellement modifié avec ancienne puis nouvelle valeur (champs collecte ET événement), programmateur et son téléphone, statut au libellé Admin ; ligne ATTENTION seulement à moins de 12h du créneau ; plus d'identifiant technique ; tout texte saisi est échappé"
+    },
+    {
+      "id": "M3.1-email-modification-un-seul-email",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:516",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts, packages/plateforme/src/components/collecte/editer-collecte-form.tsx, packages/plateforme/src/lib/collectes/email-modification.ts",
+      "test": "M3.1/email_modification_un_seul_email",
+      "statut": "implemented",
+      "libelle": "Un seul email par enregistrement du formulaire d'édition, envoyé par la dernière de ses deux requêtes : la route collecte relit dans le journal d'audit la modification d'événement que le même utilisateur vient d'enregistrer (signalée par le formulaire, valeurs lues en base) ; quand seul l'événement change, la route événement envoie l'email pour la collecte nommée par le formulaire, si elle appartient à l'événement et reste modifiable (programmée ou validée). Déclencheur limité aux utilisateurs traiteur (agence et gestionnaire de lieux : lot suivant, arbitrage Val C5 2026-10-09)"
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "b74f6ba9ea2743645c2c05d8dcd56a8d99b68ac92dcdaeb667f141665fdc813f",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "59497b8ae36602cfaaffdb017dd989067c9756d9d0f6e808642e8719bf1a5de3",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "07959c413b8b2e667a5ce48fb3a9c5a7f7e74b528c6d81eae72d77d280bab5a6",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "ecb359e00560473d7d724be1ba3ecf0282b9afde9829f93509ef11f96f9fa0c0",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "958d3d63bf7038300535557f5e8c12cda0dcc31d0666819579114b6d24293b2f"

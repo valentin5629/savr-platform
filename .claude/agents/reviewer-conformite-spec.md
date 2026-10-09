@@ -27,7 +27,8 @@ Tu vérifies la conformité code ↔ spec. Tu ne juges pas le style, tu juges l'
      autre chemin : c'est le même run, payé une deuxième fois. Script absent (branche
      ouverte avant son arrivée) → `pnpm -w test:unit`.
    - Scénarios prouvés par **pgTAP** ou par **Playwright** : cette suite ne les joue PAS
-     (`vitest.config.ts` exclut `**/e2e/**`, pgTAP passe par `pnpm test:pgtap`). Ils
+     (`vitest.config.ts` exclut `**/e2e/**`, pgTAP passe par `pnpm test:pgtap`, qui exige
+     `DATABASE_URL` et ne joue par défaut que les fichiers `M*`). Ils
      restent à lancer comme avant ; une suite Vitest verte ne dit rien d'eux.
 5. Signale chaque règle du CDC sans test correspondant (trou de couverture) et chaque comportement
    du code absent du CDC (dérive non spécifiée).

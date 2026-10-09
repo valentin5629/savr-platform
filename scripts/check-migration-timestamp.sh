@@ -156,23 +156,25 @@ prefixe() { basename "$1" | cut -c1-14; }
 #     toujours en 2, des migrations de la cible comptées comme neuves. C'était
 #     le cas de la liste réelle du jour (182 noms, 10 345 octets) avec le tube
 #     de 8 192 octets : des migrations de la cible y étaient comptées comme
-#     neuves dans toutes les passes relevées, et `--branch --no-remote` sortait
-#     pourtant en 0 dans toutes les passes relevées ;
+#     neuves dans toutes les passes relevées. `--branch --no-remote` y sortait
+#     en 0 ou en 2, de façon irrégulière : en 0 quand la lecture des préfixes
+#     tenait, et la migration comptée à tort passait alors inaperçue ;
 #   • l'acceptation à tort, en `--branch --no-remote`, d'une migration neuve
 #     antérieure à toutes les autres : avec le tube de 8 192 octets et la liste
 #     réelle du jour, sur une branche réduite aux 40 premières migrations de la
-#     cible, elle sortait en 0 dans une partie des passes ; avec le tube de
-#     65 536 octets, face à une cible de 2 300 noms (138 000 octets), sur une
-#     branche réduite aux 100 premières, presque toujours. Le script corrigé la
+#     cible, elle sortait en 0 de façon irrégulière ; avec le tube de 65 536
+#     octets, face à une cible de 2 300 noms (138 000 octets), sur une branche
+#     réduite aux 100 premières, presque toujours. Le script corrigé la
 #     refusait (2) dans toutes les passes relevées ;
-#   • liste plus petite : sous macOS, et sous Ubuntu avec le tube de 65 536
-#     octets, cette même liste n'a été manquée dans aucune passe relevée. Des
-#     lectures manquées ont pourtant été relevées à ces tailles, de façon
-#     irrégulière : sous Ubuntu, sur la liste des préfixes du jour (2 730
-#     octets) avec le tube de 8 192 octets, et jusque sur une liste de deux
-#     préfixes (29 caractères) avec celui de 65 536 octets ; sous macOS, sur
-#     une liste de préfixes de 34 500 octets. Rien ne garantit donc qu'une
-#     liste de plusieurs lignes soit lue sans faute, quelle que soit sa taille ;
+#   • liste plus petite que le tube : cette même liste réelle a été manquée de
+#     façon irrégulière sous Ubuntu avec le tube de 65 536 octets ; sous macOS,
+#     aucune passe relevée ne l'a manquée. D'autres lectures manquées ont été
+#     relevées à ces tailles, de façon irrégulière : sous Ubuntu, sur la liste
+#     des préfixes du jour (2 730 octets) avec le tube de 8 192 octets, et
+#     jusque sur une liste de deux préfixes (29 caractères) avec celui de
+#     65 536 octets ; sous macOS, sur une liste de préfixes de 34 500 octets.
+#     Rien ne garantit donc qu'une liste de plusieurs lignes soit lue sans
+#     faute, quelle que soit sa taille ;
 #   • l'entrée en DERNIÈRE ligne d'une liste de plus de 300 000 caractères était
 #     vue par le tube nu, et une entrée absente n'a été lue « présente » par
 #     aucune des deux lectures.

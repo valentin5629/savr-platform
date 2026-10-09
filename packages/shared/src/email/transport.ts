@@ -11,9 +11,9 @@
 //   - le SDK rend { data, error } au lieu de lever : `error` est toujours lu.
 // Rien n'est lu ni validé à l'import : la configuration est contrôlée à l'envoi,
 // pour qu'un build sans variables d'environnement reste possible.
-import { escapeHtml } from './html.js';
 import { Resend } from 'resend';
 import { logger } from '../logger/index.js';
+import { escapeHtml } from './html.js';
 import {
   throttleOutbound,
   honorRetryAfter,

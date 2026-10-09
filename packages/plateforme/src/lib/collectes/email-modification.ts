@@ -194,6 +194,7 @@ const un = <T>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
 interface CollecteApres {
+  id: string;
   evenement_id: string;
   statut: string;
   statut_tms: string;
@@ -234,7 +235,7 @@ export async function notifierEquipeModificationCollecte(
     const { data, error } = await admin
       .from('collectes')
       .select(
-        `evenement_id, statut, statut_tms, tms_reference,
+        `id, evenement_id, statut, statut_tms, tms_reference,
          prestataire_logistique_id, date_collecte, heure_collecte,
          attributions_antgaspi!collecte_id(id),
          evenement:evenements!inner(pax, created_by,
@@ -322,7 +323,8 @@ export async function notifierEquipeModificationCollecte(
         ),
       ),
       lien_fiche: escapeHtml(
-        urlApplication(req, ROUTES.admin.collecte(demande.collecteId)),
+        // L'identifiant est celui que la base vient de rendre, pas celui de l'URL.
+        urlApplication(req, ROUTES.admin.collecte(collecte.id)),
       ),
     };
     if (lieuNom) variables.lieu_nom = escapeHtml(lieuNom);
@@ -342,4 +344,39 @@ export async function notifierEquipeModificationCollecte(
       erreur: err instanceof Error ? err.message : String(err),
     });
   }
+}
+
+/**
+ * Point d'entrée des trois routes collecte (traiteur, agence, gestionnaire de
+ * lieux), appelé après l'écriture.
+ * `avant` : la ligne `collectes` relue avant l'écriture. Sans elle, l'email
+ * inventerait ses valeurs « avant » : on trace et on n'envoie rien.
+ * `corps` : le corps de la requête, où le formulaire signale qu'il vient aussi
+ * de modifier l'événement (`evenement_modifie`).
+ */
+export async function notifierModificationDepuisRouteCollecte(
+  admin: AdminSupabase,
+  req: NextRequest,
+  p: {
+    collecteId: string;
+    avant: unknown;
+    maj: Ligne;
+    corps: Ligne;
+    userId: string;
+  },
+): Promise<void> {
+  if (!p.avant || typeof p.avant !== 'object') {
+    logger.error('collectes.email_modification_avant_illisible', {
+      collecte_id: p.collecteId,
+    });
+    return;
+  }
+  await notifierEquipeModificationCollecte(admin, req, {
+    collecteId: p.collecteId,
+    collecteAvant: p.avant as Ligne,
+    majCollecte: p.maj,
+    ...(p.corps.evenement_modifie === true
+      ? { evenementModifiePar: p.userId }
+      : {}),
+  });
 }

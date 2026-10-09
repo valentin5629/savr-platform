@@ -370,6 +370,7 @@ describe('M3.1 / édition collecte', () => {
     admin.push({ data: null, error: null }); // audit insert
     admin.push({
       data: {
+        id: 'c1',
         evenement_id: 'e1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
@@ -444,6 +445,27 @@ describe('M3.1 / édition collecte', () => {
       .find((ligne) => ligne.new_values?.priorite_urgence !== undefined);
     expect(audit?.new_values?.priorite_urgence).toBe(true);
     expect(emailEquipe()?.priorite_urgence).toBe('true');
+  });
+
+  it('M3.1/email_modification_urgence_12h — heure seule avancée à moins de 12h : drapeau urgent', async () => {
+    // 21h00 à Paris la veille : la collecte de 10h00 est dans 13 h ; avancée à
+    // 08h00, elle est dans 11 h. Seule l'horloge est figée.
+    vi.useFakeTimers({
+      toFake: ['Date'],
+      now: new Date('2030-12-30T20:00:00Z'),
+    });
+    try {
+      setupAuth('traiteur_commercial', 'org-1', 'user-1');
+      queueEditOk('2030-12-31');
+      const res = await patchCollecte({ heure_collecte: '08:00:00' });
+      expect(res.status).toBe(200);
+      const corps = (await res.json()) as {
+        flags: { priorite_urgence: boolean };
+      };
+      expect(corps.flags.priorite_urgence).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('M3.1/email_modification_urgence_12h — ancien et nouveau créneaux lointains : rien d’urgent', async () => {

@@ -10,14 +10,13 @@ import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
-import { CHAMPS_COLLECTE_EDITABLES } from '@/lib/collectes/champs-editables.js';
-import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
+import {
+  CHAMPS_COLLECTE_EDITABLES,
+  CHAMPS_COLLECTE_VERROUILLES,
+} from '@/lib/collectes/champs-editables.js';
+import { notifierModificationDepuisRouteCollecte } from '@/lib/collectes/email-modification.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
-
-// Champs éditables : CHAMPS_COLLECTE_EDITABLES (lib/collectes/champs-editables).
-// Type, lieu et organisation sont verrouillés (§05 l.314) → rejetés explicitement.
-const LOCKED_FIELDS = ['type', 'type_collecte', 'lieu_id', 'organisation_id'];
 
 // Résolution du nom du traiteur opérationnel (§06.11 diff #3).
 // La RLS organisations n'autorise pas l'agence à lire le référentiel → on passe
@@ -101,7 +100,7 @@ export async function PATCH(
   const { id } = await params;
   const body = (await req.json()) as Record<string, unknown>;
 
-  const lockedAttempt = LOCKED_FIELDS.filter((f) => f in body);
+  const lockedAttempt = CHAMPS_COLLECTE_VERROUILLES.filter((f) => f in body);
   if (lockedAttempt.length > 0) {
     return NextResponse.json(
       {
@@ -193,13 +192,12 @@ export async function PATCH(
   // Email à l'équipe Savr (cf. lib/collectes/email-modification). Quand le
   // formulaire vient aussi de modifier l'événement, il le signale
   // (`evenement_modifie`) : cette modification est relue dans le journal d'audit.
-  await notifierEquipeModificationCollecte(admin, req, {
+  await notifierModificationDepuisRouteCollecte(admin, req, {
     collecteId: id,
-    collecteAvant: (before ?? null) as Record<string, unknown> | null,
-    majCollecte: updates,
-    ...(body.evenement_modifie === true
-      ? { evenementModifiePar: auth.ctx.userId }
-      : {}),
+    avant: before,
+    maj: updates,
+    corps: body,
+    userId: auth.ctx.userId,
   });
 
   // BL-P2-22 (tpl 21, modification) : info-only au traiteur opérationnel — l'agence

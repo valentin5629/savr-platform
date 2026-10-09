@@ -845,6 +845,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     admin.push({ data: collecte, error: null }); // collecte nommée ∈ événement ?
     admin.push({
       data: {
+        id: 'c1',
         evenement_id: 'e1',
         statut: 'validee',
         statut_tms: 'acceptee',
@@ -957,6 +958,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     admin.push({ data: null, error: null }); // audit insert
     admin.push({
       data: {
+        id: 'c1',
         evenement_id: 'e1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
@@ -1016,6 +1018,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
   function queueLecturesEmail(auditEvenement?: Record<string, unknown>) {
     admin.push({
       data: {
+        id: 'c1',
         evenement_id: 'e1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
@@ -1079,36 +1082,46 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     });
   });
 
-  it('M3.1/email_modification_un_seul_email — gestionnaire, pax et date du même enregistrement : un seul email, les deux champs', async () => {
-    setupAuth('gestionnaire_lieux', 'org-1', 'user-1');
-    rls.push({ data: COLLECTE_VISIBLE, error: null }); // collecte visible
-    admin.push({ data: AVANT, error: null }); // before
-    admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
-    admin.push({ data: null, error: null }); // audit insert
-    queueLecturesEmail({
-      old_values: { pax: 2000 },
-      new_values: { updates: { pax: 1500 } },
-    });
-    const { PATCH } =
-      await import('@/app/api/v1/gestionnaire/collectes/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/gestionnaire/collectes/c1', {
+  // Les deux routes relaient le signalement du formulaire ; seule celle du
+  // gestionnaire écrit une ligne d'audit avant l'email.
+  it.each([
+    ['agence', 'agence', false],
+    ['gestionnaire', 'gestionnaire_lieux', true],
+  ] as const)(
+    'M3.1/email_modification_un_seul_email — %s, pax et date du même enregistrement : un seul email, les deux champs',
+    async (espace, role, ecritAudit) => {
+      setupAuth(role, 'org-1', 'user-1');
+      rls.push({ data: COLLECTE_VISIBLE, error: null }); // collecte visible
+      admin.push({ data: AVANT, error: null }); // before
+      admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
+      if (ecritAudit) admin.push({ data: null, error: null }); // audit insert
+      queueLecturesEmail({
+        old_values: { pax: 2000 },
+        new_values: { updates: { pax: 1500 } },
+      });
+      const { PATCH } =
+        espace === 'agence'
+          ? await import('@/app/api/v1/agence/collectes/[id]/route.js')
+          : await import('@/app/api/v1/gestionnaire/collectes/[id]/route.js');
+      const res = await PATCH(
+        makeReq('PATCH', `/api/v1/${espace}/collectes/c1`, {
+          date_collecte: '2099-01-14',
+          evenement_modifie: true,
+        }),
+        { params: Promise.resolve({ id: 'c1' }) },
+      );
+      expect(res.status).toBe(200);
+      expect(recus).toHaveLength(1);
+      expect(recus[0]!.variables.liste_modifications).toBe(
+        '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
+      );
+      // Le signalement n'est pas un champ de la collecte : il n'atteint pas la RPC.
+      const rpc = (admin.__calls.rpc ?? []).find(
+        ([fn]) => fn === 'fn_modifier_collecte',
+      );
+      expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
         date_collecte: '2099-01-14',
-        evenement_modifie: true,
-      }),
-      { params: Promise.resolve({ id: 'c1' }) },
-    );
-    expect(res.status).toBe(200);
-    expect(recus).toHaveLength(1);
-    expect(recus[0]!.variables.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
-    );
-    // Le signalement n'est pas un champ de la collecte : il n'atteint pas la RPC.
-    const rpc = (admin.__calls.rpc ?? []).find(
-      ([fn]) => fn === 'fn_modifier_collecte',
-    );
-    expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
-      date_collecte: '2099-01-14',
-    });
-  });
+      });
+    },
+  );
 });

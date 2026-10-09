@@ -10,13 +10,15 @@
 --
 -- Sous rôle (revue sécurité) : le corps porte désormais un bloc HTML construit
 -- par le code, l'email historise des téléphones dans `emails_envoyes`, et les
--- valeurs « avant » de l'événement sont relues dans `audit_log`. Aucun rôle
--- client ne lit ni n'écrit ces trois tables ; `admin_savr` sert de témoin (les
+-- valeurs « avant » de l'événement sont relues dans `audit_log`. Les quatre
+-- rôles qui déclenchent l'email (traiteur manager et commercial, agence,
+-- gestionnaire de lieux) ne lisent ni les gabarits ni les emails envoyés, et ne
+-- peuvent pas forger la ligne d'audit relue ; `admin_savr` sert de témoin (les
 -- « 0 ligne » sont des refus, pas des tables vides).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(21);
+SELECT plan(27);
 
 -- Helpers de rôle, signatures de rls_0_4_smoke.test.sql.
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -137,6 +139,29 @@ SELECT throws_ok(
     VALUES (9000000000000003, 'evenements', gen_random_uuid(), 'UPDATE', gen_random_uuid(),
             '{"pax":"<b>forgé</b>"}', '{"updates":{"pax":1}}')$$,
   '42501', NULL, 'traiteur_commercial ne forge pas la ligne d''audit que l''email relit');
+
+-- agence et gestionnaire de lieux déclenchent le même email (Val 2026-10-09).
+SELECT test_set_jwt('agence', '0b9e5700-0000-0000-0000-000000000002'::uuid);
+SELECT is((SELECT count(*)::int FROM plateforme.email_templates), 0,
+  'agence ne lit aucun gabarit');
+SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes), 0,
+  'agence ne lit aucun email envoyé (variables : téléphones)');
+SELECT throws_ok(
+  $$INSERT INTO plateforme.audit_log (id, table_name, record_id, action, user_id, old_values, new_values)
+    VALUES (9000000000000004, 'evenements', gen_random_uuid(), 'UPDATE', gen_random_uuid(),
+            '{"pax":"<b>forgé</b>"}', '{"updates":{"pax":1}}')$$,
+  '42501', NULL, 'agence ne forge pas la ligne d''audit que l''email relit');
+
+SELECT test_set_jwt('gestionnaire_lieux', '0b9e5700-0000-0000-0000-000000000003'::uuid);
+SELECT is((SELECT count(*)::int FROM plateforme.email_templates), 0,
+  'gestionnaire_lieux ne lit aucun gabarit');
+SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes), 0,
+  'gestionnaire_lieux ne lit aucun email envoyé (variables : téléphones)');
+SELECT throws_ok(
+  $$INSERT INTO plateforme.audit_log (id, table_name, record_id, action, user_id, old_values, new_values)
+    VALUES (9000000000000005, 'evenements', gen_random_uuid(), 'UPDATE', gen_random_uuid(),
+            '{"pax":"<b>forgé</b>"}', '{"updates":{"pax":1}}')$$,
+  '42501', NULL, 'gestionnaire_lieux ne forge pas la ligne d''audit que l''email relit');
 
 -- ops_savr : les emails envoyés lui sont fermés aussi (données personnelles).
 SELECT test_set_jwt('ops_savr', NULL);

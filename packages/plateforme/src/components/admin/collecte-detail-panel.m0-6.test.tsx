@@ -1740,7 +1740,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 
   // Document pas encore produit : la ligne dit quand il est attendu (état calculé
   // par GET /documents, champ `attente`). Le texte est lu SOUS le libellé de sa
-  // ligne, jamais en pleine page.
+  // ligne, jamais en pleine page. L'attestation s'accorde au féminin. Sur une
+  // collecte AG, la ligne « Rapport RSE » n'annonce rien : aucun rapport PDF n'y
+  // est produit (le document AG est l'attestation de don).
   const sansDocument = {
     rapport: null,
     bordereau: null,
@@ -1768,15 +1770,17 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await ouvrirOnglet('Documents');
       await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
 
+      expect(
+        within(ligneDocument('Attestation de don')).getByText(
+          'Attendue depuis le 02/10/2026',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(ligneDocument('Rapport RSE')).getByText('Non encore généré'),
+      ).toBeInTheDocument();
       for (const libelle of ['Rapport RSE', 'Attestation de don']) {
-        expect(
-          within(ligneDocument(libelle)).getByText(
-            'Attendu depuis le 02/10/2026',
-          ),
-        ).toBeInTheDocument();
         expect(telecharger(libelle)).toBeDisabled();
       }
-      expect(screen.queryByText(/Non encore généré/)).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -1807,6 +1811,31 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
+    'M0.6 — Bloc 3 : document absent, collecte AG à venir : attestation attendue à une date, rapport sans annonce',
+    async () => {
+      installMock({
+        documents: {
+          ...sansDocument,
+          attente: { etat: 'attendu', jour: '2026-10-02' },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+
+      expect(
+        within(ligneDocument('Attestation de don')).getByText(
+          'Attendue le 02/10/2026 au matin',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(ligneDocument('Rapport RSE')).getByText('Non encore généré'),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M0.6 — Bloc 3 : document absent, collecte pas encore réalisée : généré après la collecte',
     async () => {
       installMock({
@@ -1816,11 +1845,14 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await ouvrirOnglet('Documents');
       await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
 
-      for (const libelle of ['Rapport RSE', 'Attestation de don']) {
-        expect(
-          within(ligneDocument(libelle)).getByText('Généré après la collecte'),
-        ).toBeInTheDocument();
-      }
+      expect(
+        within(ligneDocument('Attestation de don')).getByText(
+          'Générée après la collecte',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(ligneDocument('Rapport RSE')).getByText('Non encore généré'),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

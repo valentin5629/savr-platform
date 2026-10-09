@@ -327,17 +327,19 @@ interface DocumentsData {
 }
 
 // Ligne d'un document qui n'existe pas encore : dit quand il est attendu, d'après
-// l'état calculé par le serveur ; `defaut` quand il n'y a rien à annoncer.
+// l'état calculé par le serveur ; libellé d'origine quand il n'y a rien à annoncer.
+// `feminin` : l'attestation (« Attendue », « Générée »).
 function libelleDocumentAttendu(
   attente: AttenteDocuments | null | undefined,
-  defaut: string,
+  feminin = false,
 ): string {
-  if (!attente) return defaut;
-  if (attente.etat === 'apres_collecte') return 'Généré après la collecte';
+  const e = feminin ? 'e' : '';
+  if (!attente) return `Non encore généré${e}`;
+  if (attente.etat === 'apres_collecte') return `Généré${e} après la collecte`;
   const date = formatDateParis(attente.jour);
   return attente.etat === 'attendu'
-    ? `Attendu le ${date} au matin`
-    : `Attendu depuis le ${date}`;
+    ? `Attendu${e} le ${date} au matin`
+    : `Attendu${e} depuis le ${date}`;
 }
 
 // Bloc 7 — Historique + audit log (GET /[id]/audit).
@@ -640,6 +642,10 @@ export function CollecteDetailPanel({
   const nbPhotosClient = (documents?.photos ?? []).filter(
     (p) => p.visible_client,
   ).length;
+  // Collecte AG : aucun rapport PDF n'est produit (le document est l'attestation
+  // de don) — la ligne « Rapport RSE » n'y annonce donc aucune date.
+  const attenteRapport =
+    collecte?.type === 'zero_dechet' ? documents?.attente : null;
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -2446,10 +2452,7 @@ export function CollecteDetailPanel({
                     </p>
                     <Text variant="hint">
                       {!documents?.rapport
-                        ? libelleDocumentAttendu(
-                            documents?.attente,
-                            'Non encore généré',
-                          )
+                        ? libelleDocumentAttendu(attenteRapport)
                         : !documents.rapport.genere_at
                           ? 'En attente de génération'
                           : documents.rapport.consulte_par_user_at
@@ -2509,10 +2512,7 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.bordereau
                           ? `Statut : ${documents.bordereau.statut}`
-                          : libelleDocumentAttendu(
-                              documents?.attente,
-                              'Non encore généré',
-                            )}
+                          : libelleDocumentAttendu(documents?.attente)}
                       </Text>
                     </div>
                     <Button
@@ -2562,10 +2562,7 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.attestation
                           ? `Statut : ${documents.attestation.statut}`
-                          : libelleDocumentAttendu(
-                              documents?.attente,
-                              'Non encore générée',
-                            )}
+                          : libelleDocumentAttendu(documents?.attente, true)}
                       </Text>
                     </div>
                     <Button

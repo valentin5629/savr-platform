@@ -7,6 +7,12 @@
 // La chaîne est la même pour le bordereau, le rapport et l'attestation (§05, §12) :
 // clôture automatique 24 h après la réalisation (embargo H+24), puis génération au
 // traitement de nuit suivant.
+//
+// La clôture est faite par un cron HORAIRE (cloture-embargo, à chaque heure pile),
+// le traitement de nuit ne prend que les collectes déjà clôturées, et à 04:00 UTC
+// les deux partent ensemble, dans un ordre non garanti. Une collecte dont l'embargo
+// finit après 03:00 UTC n'est donc sûrement clôturée qu'au passage de 04:00 : elle
+// est annoncée pour la nuit suivante, jamais pour un traitement qui peut la manquer.
 
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
@@ -14,6 +20,9 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 const HEURE_UTC_TRAITEMENT_NUIT = 4;
 
 const EMBARGO_MS = 24 * 3600 * 1000;
+
+/** Pas du cron de clôture : au pire, la clôture suit la fin de l'embargo d'une heure. */
+const PAS_CLOTURE_MS = 3600 * 1000;
 
 export type AttenteDocuments =
   /** Collecte pas encore réalisée : rien n'est daté. */
@@ -40,11 +49,11 @@ export function attenteDocuments(
   const realisee = collecte.realisee_at ? new Date(collecte.realisee_at) : null;
   if (!realisee || Number.isNaN(realisee.getTime())) return null;
 
-  // Premier traitement de nuit à partir de la fin de l'embargo.
-  const finEmbargo = realisee.getTime() + EMBARGO_MS;
-  const traitement = new Date(finEmbargo);
+  // Premier traitement de nuit auquel la collecte est sûrement déjà clôturée.
+  const clotureAuPlusTard = realisee.getTime() + EMBARGO_MS + PAS_CLOTURE_MS;
+  const traitement = new Date(clotureAuPlusTard);
   traitement.setUTCHours(HEURE_UTC_TRAITEMENT_NUIT, 0, 0, 0);
-  if (traitement.getTime() < finEmbargo) {
+  if (traitement.getTime() < clotureAuPlusTard) {
     traitement.setUTCDate(traitement.getUTCDate() + 1);
   }
 

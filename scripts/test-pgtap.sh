@@ -23,11 +23,14 @@
 #   2. aucune ligne `not ok N` ;
 #   3. il y a autant de lignes `ok N` et `not ok N` que le plan `1..N` en annonce.
 #
-# Avant le 2026-10-09 ce lanceur ne voyait aucun des trois. Mesuré ce jour-là sur
-# les 8 fichiers M* et la base locale (psql 16.14, serveur PostgreSQL 17.6) : il
-# affichait « Total: 8 | Passed: 8 | Failed: 0 » et sortait en 0, alors qu'un
-# fichier portait une assertion en échec et que quatre autres portaient des
-# erreurs SQL, 0 à 3 assertions jouées sur 9 à 22 prévues.
+# Avant le 2026-10-09 ce lanceur rendait vert un fichier rouge : il lisait le
+# code de sortie de psql, mais psql sortait en 0 sur une erreur SQL ; il
+# cherchait `not ok` en début de ligne, où le format aligné ne l'écrit pas ; il
+# ne comparait rien au plan. Mesuré ce jour-là sur les 8 fichiers M* et la base
+# locale (psql 16.14, serveur PostgreSQL 17.6) : il affichait « Total: 8 |
+# Passed: 8 | Failed: 0 » et sortait en 0, alors qu'un fichier portait une
+# assertion en échec et que quatre autres portaient des erreurs SQL, 0 à 3
+# assertions jouées sur 9 à 22 prévues.
 #
 # Ce que porte chaque option de psql (mêmes mesures) :
 #   • `-A` : sans elle psql aligne ses colonnes et chaque ligne pgTAP sort
@@ -91,6 +94,14 @@ self_test() (
   script_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
   bac=$(mktemp -d) || { echo "🔴 AUTO-TEST : mktemp -d impossible." >&2; return 2; }
   [ -n "$bac" ] && [ -d "$bac" ] || { echo "🔴 AUTO-TEST : répertoire jetable invalide." >&2; return 2; }
+  # Chemin absolu : la suite fait `cd` dans le dépôt jetable. Sous Linux, avec un
+  # TMPDIR relatif, `mktemp -d` rend un chemin relatif : le faux psql n'était plus
+  # trouvé, le psql suivant du PATH était appelé à sa place et le dossier jetable
+  # restait (relevé sous Ubuntu 22.04).
+  case "$bac" in
+    /*) ;;
+    *) bac="$PWD/$bac" ;;
+  esac
   trap 'rm -rf "$bac"' EXIT
   mkdir -p "$bac/bin" "$bac/depot/supabase/tests"
   cd "$bac/depot" || { echo "🔴 AUTO-TEST : accès au dépôt jetable impossible." >&2; return 2; }
@@ -277,7 +288,10 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 2
 fi
 
-if ! command -v psql > /dev/null 2>&1; then
+# `command -v` est lu par ce qu'il écrit, sans redirection : là où /dev/null ne
+# s'ouvre pas en écriture, `command -v psql > /dev/null` échouait sur la
+# redirection et psql, présent, était dit introuvable (relevé sous macOS).
+if [ -z "$(command -v psql)" ]; then
   echo "✗ psql introuvable : aucun test n'a été joué." >&2
   exit 2
 fi

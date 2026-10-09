@@ -1063,6 +1063,85 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     ATTENTE_CAS_MS,
   );
 
+  // « Sans excédent » n'est pas un statut d'avancement (décision Val
+  // 2026-10-09) : la ligne se lit « Réalisée », la mention est un indicateur.
+  it(
+    'M0.6/liste_sans_excedent_en_indicateur — AG sans excédent : statut « Réalisée », « Sans excédent » dans Indicateurs, jamais « 0 repas »',
+    async () => {
+      const ligne = ag({
+        id: 'ag-sans-excedent',
+        statut: 'realisee_sans_collecte',
+        statut_tms: 'acceptee',
+        attributions_antgaspi: {
+          id: 'att-9',
+          valide_at: '2026-05-01T12:00:00Z',
+          mode_validation: 'manuel_top1',
+          volume_repas_realise: 0,
+        },
+      });
+      const fetchMock = vi.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+        if (
+          typeof url === 'string' &&
+          url.startsWith('/api/v1/admin/collectes')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [ligne], total: 1 }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<CollectesPage />);
+      await screen.findAllByText(
+        ligne.evenements.organisations.raison_sociale,
+        undefined,
+        ATTENTE_UI,
+      );
+
+      expect(tableau().getByText('Sans excédent')).toBeInTheDocument();
+      expect(tableau().getAllByText('Réalisée').length).toBeGreaterThan(0);
+      expect(tableau().queryByText(/Sans excédents/)).toBeNull();
+      expect(tableau().queryByText(/\d+ repas/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/liste_filtre_statut_une_seule_realisee — Historique : le filtre Statut ne propose qu’une « Réalisée », envoyée statuts=realisee',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
+      // Preset de l'onglet : « Réalisée » y couvre déjà les sans excédent (le
+      // serveur étend la clé), la clé propre n'est plus envoyée.
+      await waitFor(() => {
+        expect(derniereRequeteListe(fetchMock).get('statuts')).toBe(
+          'realisee,cloturee,annulee,rejetee_par_prestataire',
+        );
+      }, ATTENTE_UI);
+
+      fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
+      // `findByRole` échoue s'il y a deux cases du même nom.
+      fireEvent.click(
+        await screen.findByRole('checkbox', { name: 'Réalisée' }, ATTENTE_UI),
+      );
+      expect(
+        screen.queryByRole('checkbox', { name: /exc[ée]dent/i }),
+      ).toBeNull();
+
+      await waitFor(() => {
+        expect(derniereRequeteListe(fetchMock).get('statuts')).toBe('realisee');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M0.6/statut_admin_filtre_creee_programmee — pastille active + « Créée » : chip ET statuts=creee',
     async () => {

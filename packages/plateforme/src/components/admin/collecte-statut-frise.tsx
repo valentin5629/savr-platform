@@ -19,8 +19,9 @@ const ETAPES = ETAPES_STATUT_COLLECTE.map((statut) => ({
 }));
 
 function indexEtape(statut: string): number {
-  // AG « réalisée sans collecte » : même rang que « Réalisée » (étape terminale
-  // de la réalisation), libellé propre ci-dessous. Hors parcours → -1.
+  // AG « réalisée sans collecte » : même rang et même libellé que « Réalisée »
+  // (« sans excédent » n'est pas un statut d'avancement, décision Val
+  // 2026-10-09). Hors parcours → -1.
   return (RANG_STATUT_COLLECTE[statut as StatutCollecteAdmin] ?? 0) - 1;
 }
 
@@ -41,10 +42,7 @@ export function CollecteStatutFrise({
   // estompée), et un badge porte le statut réel.
   const badge = courant === -1 ? statutCollecteDisplay(statut, 'admin') : null;
   const etapes: EtapeFrise[] = ETAPES.map((etape, i) => ({
-    label:
-      i === courant && statut === 'realisee_sans_collecte'
-        ? statutCollecteDisplay(statut, 'admin').label
-        : etape.label,
+    label: etape.label,
     etat: i < courant ? 'passee' : i === courant ? 'courante' : 'a_venir',
   }));
 

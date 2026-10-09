@@ -46,9 +46,14 @@ describe('M0.6 — CollecteStatutFrise (frise de la fiche collecte Admin)', () =
     );
   });
 
-  it('AG réalisée sans collecte : étape « Réalisée » avec le libellé propre', () => {
+  // « Sans excédent » n'est pas un statut d'avancement (décision Val
+  // 2026-10-09) : la frise est celle de toutes les collectes.
+  it('M0.6/statut_sans_excedent_affiche_realisee — AG réalisée sans collecte : étape courante « Réalisée », jamais « Sans excédents »', () => {
     render(<CollecteStatutFrise statut="realisee_sans_collecte" />);
-    expect(etapeCourante()).toHaveTextContent('Sans excédents');
+    expect(etapeCourante()).toHaveTextContent(/^Réalisée$/);
+    expect(
+      screen.getByRole('list', { name: 'Avancement de la collecte' }),
+    ).not.toHaveTextContent(/exc[ée]dent/i);
   });
 
   // jsdom ne calcule aucune mise en page : garde de classe. Une frise non

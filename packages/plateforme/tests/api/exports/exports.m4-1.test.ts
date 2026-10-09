@@ -337,6 +337,71 @@ describe('M4.1 / export collectes — statut affiché Admin', () => {
     expect(admin.__calls.neq).toContainEqual(['statut', 'brouillon']);
   });
 
+  // « Sans excédent » n'est pas un statut (décision Val 2026-10-09) : l'export
+  // dit « Réalisée » et garde l'information dans « Repas AG », qui vaut 0.
+  it('M4.1/export_collectes_sans_excedent_zero_repas — AG sans excédent : statut « Réalisée », « Repas AG » = 0, jamais une cellule vide', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({
+      data: [
+        ligne('evt-sans-excedent', {
+          type: 'anti_gaspi',
+          statut: 'realisee_sans_collecte',
+          statut_tms: 'acceptee',
+        }),
+        ligne('evt-ag-sans-attribution', {
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          statut_tms: 'acceptee',
+        }),
+        ligne('evt-zd', { statut: 'cloturee', statut_tms: 'acceptee' }),
+      ],
+      error: null,
+    });
+    const csv = await (await call('collectes')).text();
+    const repasDe = (id: string) =>
+      csv
+        .split('\r\n')
+        .find((l) => l.includes(id))
+        ?.split(';')
+        .pop();
+
+    expect(statutDe(csv, 'evt-sans-excedent')).toBe('Réalisée');
+    // Aucune cellule ne porte l'ancien libellé de statut.
+    expect(csv.split(/;|\r\n/)).not.toContain('Sans excédents');
+    expect(repasDe('evt-sans-excedent')).toBe('0');
+    // Témoins : sans cette règle, une AG sans attribution lue et une ZD
+    // laissent la cellule vide.
+    expect(repasDe('evt-ag-sans-attribution')).toBe('');
+    expect(repasDe('evt-zd')).toBe('');
+  });
+
+  it('M4.1/export_impact_rse_sans_excedent_zero_repas — même règle dans l’export Impact RSE', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({
+      data: [
+        ligne('evt-sans-excedent', {
+          type: 'anti_gaspi',
+          statut: 'realisee_sans_collecte',
+        }),
+        ligne('evt-ag-sans-attribution', {
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+        }),
+      ],
+      error: null,
+    });
+    const res = await call('impact-rse');
+    const csv = await res.text();
+    expect(res.status).toBe(200);
+    const lignes = csv.split('\r\n');
+    const colonne = (lignes[0] ?? '').split(';').indexOf('Repas AG');
+    expect(colonne).toBeGreaterThan(-1);
+    const repasDe = (id: string) =>
+      lignes.find((l) => l.includes(id))?.split(';')[colonne];
+    expect(repasDe('evt-sans-excedent')).toBe('0');
+    expect(repasDe('evt-ag-sans-attribution')).toBe('');
+  });
+
   it('client : ni signaux d’envoi lus (pas de lecture de attributions_antgaspi), ni changement de libellé', async () => {
     setupAuth('traiteur_manager');
     rls.push({

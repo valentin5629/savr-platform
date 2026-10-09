@@ -168,6 +168,29 @@ describe('M0.6 / statut Admin — filtre « Statut » de la liste Collectes', ()
     });
   });
 
+  // « Réalisée » se lit aussi sur une collecte AG sans excédent : le filtre n'en
+  // propose qu'une, qui couvre les deux statuts DB (décision Val 2026-10-09).
+  it('M0.6/statut_admin_filtre_realisee_couvre_sans_excedent — « Réalisée » filtre realisee ET realisee_sans_collecte', () => {
+    expect(filtreStatutsAdmin(['realisee'])).toEqual({
+      statuts: ['realisee', 'realisee_sans_collecte'],
+    });
+    // Jamais de doublon quand l'ancienne clé arrive aussi (lien enregistré).
+    expect(
+      filtreStatutsAdmin(['realisee', 'realisee_sans_collecte', 'cloturee']),
+    ).toEqual({
+      statuts: ['realisee', 'realisee_sans_collecte', 'cloturee'],
+    });
+    // Les autres statuts ne l'embarquent pas.
+    expect(filtreStatutsAdmin(['cloturee', 'annulee'])).toEqual({
+      statuts: ['cloturee', 'annulee'],
+    });
+    // Forme `or=(…)` (« Créée » seule + « Réalisée ») : même couverture.
+    const filtre = filtreStatutsAdmin(['creee', 'realisee']);
+    expect(filtre && 'or' in filtre ? filtre.or : '').toContain(
+      'statut.in.(realisee,realisee_sans_collecte)',
+    );
+  });
+
   it('M0.6/statut_admin_brouillon_absent — clés inconnues et `brouillon` écartés : rien ne part tel quel dans `.or()`', () => {
     expect(filtreStatutsAdmin([])).toBeNull();
     expect(filtreStatutsAdmin(['brouillon'])).toBeNull();

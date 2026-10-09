@@ -1476,7 +1476,7 @@
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/components/admin/collecte-statut-frise.tsx, packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx, packages/plateforme/src/components/collecte/frise-etapes.tsx",
       "test": "Grand en-tête AG (décision Val 2026-10-01) + Grand en-tête ZD : badge Zéro Déchet + M0.6 — CollecteStatutFrise (frise de la fiche collecte Admin)",
       "statut": "implemented",
-      "libelle": "Fiche collecte Admin au cadre commun des fiches (décision Val 2026-10-01, _Divergences/M0.6_20261001_fiche-collecte-grand-en-tete) : grand en-tête (badge type, réf., lieu effectif, date · heure, pax, traiteur, ville, prestataire + statut TMS en badge, association AG ; « dirty TMS » en sur-titre), frise d'avancement compacte à droite (5 étapes, « Sans excédents », hors parcours = estompée + badge), 4 onglets en barre horizontale, « Forcer le statut » dans le pied ; plus de colonne résumé ni de cadre coloré."
+      "libelle": "Fiche collecte Admin au cadre commun des fiches (décision Val 2026-10-01, _Divergences/M0.6_20261001_fiche-collecte-grand-en-tete) : grand en-tête (badge type, réf., lieu effectif, date · heure, pax, traiteur, ville, prestataire + statut TMS en badge, association AG ; « dirty TMS » en sur-titre), frise d'avancement compacte à droite (5 étapes, une collecte AG sans excédent s'y lit « Réalisée » depuis le 2026-10-09, hors parcours = estompée + badge), 4 onglets en barre horizontale, « Forcer le statut » dans le pied ; plus de colonne résumé ni de cadre coloré."
     },
     {
       "id": "M0.6-fiche-collecte-rendu-visuel",
@@ -1621,6 +1621,46 @@
       "test": "packages/plateforme/tests/api/admin/collectes-liste.m0-6.test.ts « M0.6 — filtre rapport_non_consulte=true → seulement ZD et AG sans excédents », « M0.6 — sans le filtre rapport_non_consulte, aucune restriction de type n’est posée » + packages/plateforme/src/app/(admin)/admin/collectes/collectes-list.m0-6.test.tsx « M0.6 — indicateur de rapport de la liste, AG clôturée avec excédents », « M0.6 — indicateur de rapport de la liste, AG sans excédents »",
       "statut": "implemented",
       "libelle": "Liste Collectes Admin : l'indicateur et le filtre « Rapport non consulté » ignorent les collectes AG avec excédents, qui n'ont pas de rapport (leur document est l'attestation de don) — décision Val 2026-10-09"
+    },
+    {
+      "id": "M0.6-statut-sans-excedent-affiche-realisee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:174",
+      "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts (vues admin et client : `realisee_sans_collecte` → « Réalisée », même badge que « Réalisée » ; constante LIBELLE_SANS_EXCEDENT = « Sans excédent », résultat et non statut) + packages/plateforme/src/components/admin/collecte-statut-frise.tsx (frise de la fiche : étape courante « Réalisée », plus de libellé propre) + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (bloc « Attribution AG » : « Sans excédent » à la place du volume de repas réalisé)",
+      "test": "M0.6/statut_sans_excedent_affiche_realisee + M0.6/fiche_sans_excedent_volume_repas",
+      "statut": "implemented",
+      "libelle": "Back-office : « Sans excédent » n'est pas un statut d'avancement. Une collecte AG `realisee_sans_collecte` s'affiche « Réalisée » (badge, frise de la fiche) ; la mention « Sans excédent » se lit là où se lisent ses repas — décision Val 2026-10-09 en revue E2E (_Divergences/M0.6_20261009_statut-sans-excedent-realisee.md)"
+    },
+    {
+      "id": "M0.6-liste-sans-excedent-en-indicateur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:192",
+      "artefact": "packages/plateforme/src/components/admin/collectes-table.tsx (IndicateursHistorique : une collecte AG `realisee_sans_collecte` affiche « Sans excédent » dans la colonne Indicateurs, à la place du nombre de repas — jamais « 0 repas » ; colonne Statut = « Réalisée »)",
+      "test": "M0.6/liste_sans_excedent_en_indicateur",
+      "statut": "implemented",
+      "libelle": "Liste Collectes Admin, onglet Historique : « Sans excédent » passe de la colonne Statut à la colonne Indicateurs (décision Val 2026-10-09)"
+    },
+    {
+      "id": "M0.6-liste-filtre-statut-une-seule-realisee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:204",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (STATUTS_HISTORIQUE : le filtre « Statut » de l'onglet Historique ne propose plus `realisee_sans_collecte`, qui porterait un second « Réalisée ») + packages/plateforme/src/lib/statut-collecte-admin.ts (filtreStatutsAdmin : la clé `realisee` couvre les statuts DB `realisee` ET `realisee_sans_collecte`, pour la liste et son export CSV ; l'ancienne clé reste lue, sans doublon)",
+      "test": "M0.6/liste_filtre_statut_une_seule_realisee + M0.6/statut_admin_filtre_realisee_couvre_sans_excedent",
+      "statut": "implemented",
+      "libelle": "Liste Collectes Admin : une seule option « Réalisée » dans le filtre Statut, qui couvre les collectes avec et sans excédent ; on ne peut plus isoler les collectes sans excédent par ce filtre (arbitrage Val 2026-10-09 : « Une seule Réalisée »)"
+    },
+    {
+      "id": "M0.6-forcer-statut-sans-excedent-distinct",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:231",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (modale « Forcer le statut » : l'option `realisee_sans_collecte` se lit « Réalisée — sans excédent », l'option `realisee` « Réalisée » — le forçage pose un statut DB, le choix doit dire lequel)",
+      "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères »",
+      "statut": "implemented",
+      "libelle": "Fiche collecte Admin, « Forcer le statut » : les deux statuts DB affichés « Réalisée » restent distincts dans la liste de choix (libellé rédigé par Claude Code, à valider par Val)"
+    },
+    {
+      "id": "M0.6-statut-sans-excedent-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:192",
+      "artefact": "packages/plateforme/src/components/admin/collectes-table.tsx (colonne Indicateurs : « Sans excédent » précédé du picto des repas, même style que « N repas ») + packages/plateforme/src/components/admin/collecte-statut-frise.tsx (frise : étape « Réalisée ») — aucun style nouveau",
+      "test": "M0.6/liste_sans_excedent_en_indicateur + M0.6/statut_sans_excedent_affiche_realisee",
+      "statut": "à-vérifier",
+      "libelle": "Rendu de « Sans excédent » dans la colonne Indicateurs de la liste Collectes Admin et de la frise « Réalisée ». GO visuel de Val en attente ; rendu contrôlé le 2026-10-09 sur un aperçu local à données simulées (capture transmise à Val dans la conversation) : ce contrôle prouve le rendu, pas l'application connectée. Non capturés : le bloc « Attribution AG » de la fiche et la liste de choix de « Forcer le statut »."
     }
   ],
   "cdc_source_hash": {

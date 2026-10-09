@@ -191,6 +191,30 @@ describe('M3.1 / Data Table liste traiteur', () => {
     expect(btn(/Télécharger le rapport/)).toBeTruthy();
   });
 
+  // « Sans excédent » est un résultat, pas un statut (décision Val 2026-10-09) :
+  // la ligne se lit « Réalisée », la mention prend la place des repas, et le
+  // rapport de don se télécharge comme sur les autres lignes réalisées.
+  it('M3.1/liste_sans_excedent_resultats — AG sans excédent : statut « Réalisée », « Sans excédent » en Résultats, téléchargement du rapport', () => {
+    const onTelecharger = vi.fn();
+    monte(
+      base({
+        statut: 'realisee_sans_collecte',
+        type: 'anti_gaspi',
+        nb_repas_donnes: 0,
+        co2_evite_kg: 0,
+      }),
+      true,
+      { onTelecharger },
+    );
+    expect(table.getByText('Sans excédent')).toBeTruthy();
+    expect(table.getByText('Réalisée')).toBeTruthy();
+    expect(table.queryByText(/Sans excédents/)).toBeNull();
+    expect(table.queryByText(/repas/)).toBeNull();
+    expect(table.queryByText(/CO₂e/)).toBeNull();
+    fireEvent.click(btn(/Télécharger le rapport/));
+    expect(onTelecharger).toHaveBeenCalledOnce();
+  });
+
   it('M3.1/card_traiteur_realisee_download — le picto téléchargement appelle onTelecharger', () => {
     const onTelecharger = vi.fn();
     const onOpen = vi.fn();

@@ -1414,6 +1414,17 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(
         options.find((o) => o.getAttribute('data-value') === 'programmee'),
       ).toHaveTextContent('Créée / Programmée');
+      // M0.6/forcer_statut_sans_excedent_distinct — `realisee` et
+      // `realisee_sans_collecte` s'affichent « Réalisée » partout ailleurs
+      // (décision Val 2026-10-09) : ici le choix doit dire lequel on pose.
+      expect(
+        options.find((o) => o.getAttribute('data-value') === 'realisee'),
+      ).toHaveTextContent(/^Réalisée$/);
+      expect(
+        options.find(
+          (o) => o.getAttribute('data-value') === 'realisee_sans_collecte',
+        ),
+      ).toHaveTextContent(/^Réalisée — sans excédent$/);
       fireEvent.click(
         screen
           .getAllByRole('option')
@@ -2023,6 +2034,41 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         screen.queryByText(/algo V2.*Non disponible en V1/),
       ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // « Sans excédent » se lit là où se lisent les repas d'une collecte AG, pas
+  // dans son statut (décision Val 2026-10-09).
+  it(
+    'M0.6/fiche_sans_excedent_volume_repas — AG sans excédent : frise « Réalisée », « Sans excédent » à la place du volume réalisé',
+    async () => {
+      installMock({
+        collecte: {
+          ...baseAg,
+          statut: 'realisee_sans_collecte',
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            volume_repas_realise: null,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Attribution AG', undefined, ATTENTE_UI);
+
+      expect(
+        valeurResumeAttribution('Volume repas (estimé / réalisé)'),
+      ).toHaveTextContent(/^50 \/ Sans excédent$/);
+      const frise = screen.getByRole('list', {
+        name: 'Avancement de la collecte',
+      });
+      expect(
+        within(frise)
+          .getAllByRole('listitem')
+          .find((li) => li.getAttribute('aria-current') === 'step'),
+      ).toHaveTextContent(/^Réalisée$/);
+      expect(frise).not.toHaveTextContent(/exc[ée]dent/i);
     },
     ATTENTE_CAS_MS,
   );

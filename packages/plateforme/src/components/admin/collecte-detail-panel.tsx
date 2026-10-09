@@ -68,6 +68,7 @@ import {
   CHAMPS_LIEU_SURCHARGEABLES,
 } from '@savr/adapters/src/lieu-overrides.js';
 import {
+  LIBELLE_SANS_EXCEDENT,
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
@@ -1728,8 +1729,10 @@ export function CollecteDetailPanel({
                   </InfoItem>
                   <InfoItem label="Volume repas (estimé / réalisé)">
                     {collecte.volume_estime_repas ?? '—'} /{' '}
-                    {collecte.attributions_antgaspi?.volume_repas_realise ??
-                      '—'}
+                    {collecte.statut === 'realisee_sans_collecte'
+                      ? LIBELLE_SANS_EXCEDENT
+                      : (collecte.attributions_antgaspi?.volume_repas_realise ??
+                        '—')}
                   </InfoItem>
                 </dl>
               </Card>
@@ -2854,13 +2857,17 @@ export function CollecteDetailPanel({
               onChange={setForceStatutValue}
               required
               // Le forçage pose un statut DB : `programmee` s'affichera
-              // « Créée » ou « Programmée » selon que la demande est partie.
+              // « Créée » ou « Programmée » selon que la demande est partie ;
+              // `realisee` et `realisee_sans_collecte` s'affichent tous deux
+              // « Réalisée », le choix doit donc dire lequel on pose.
               options={STATUTS_FORCABLES.map((s) => ({
                 value: s,
                 label:
                   s === 'programmee'
                     ? `${statutCollecteDisplay('creee', 'admin').label} / ${statutCollecteDisplay('programmee', 'admin').label}`
-                    : statutCollecteDisplay(s, 'admin').label,
+                    : s === 'realisee_sans_collecte'
+                      ? `${statutCollecteDisplay(s, 'admin').label} — ${LIBELLE_SANS_EXCEDENT.toLowerCase()}`
+                      : statutCollecteDisplay(s, 'admin').label,
               }))}
             />
           </FormField>

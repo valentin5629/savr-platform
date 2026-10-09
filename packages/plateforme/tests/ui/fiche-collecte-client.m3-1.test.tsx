@@ -861,7 +861,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
   );
 
   it(
-    'M3.1/fiche_popup_sans_excedent — bloc « Aucun repas collecté » + rapport dédié, frise « Sans excédents »',
+    'M3.1/fiche_popup_sans_excedent — bloc « Aucun repas collecté » + rapport de don, frise « Réalisée »',
     async () => {
       stubFetchFiche(
         ficheClient({
@@ -893,9 +893,11 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       expect(documents).toContain('Rapport de don');
       expect(documents).not.toContain('sans excédent alimentaire');
       expect(documents).not.toContain('Rapport RSE');
-      expect(screen.getByTestId('frise-statut-client').textContent).toContain(
-        'Sans excédents',
-      );
+      // « Sans excédent » n'est pas un statut (décision Val 2026-10-09) : la
+      // frise dit « Réalisée », le bloc ci-dessus porte l'information.
+      const frise = screen.getByTestId('frise-statut-client').textContent ?? '';
+      expect(frise).toContain('Réalisée');
+      expect(frise).not.toMatch(/exc[ée]dent/i);
       expect(screen.queryByTestId('bandeau-bilan-attente')).toBeNull();
     },
     ATTENTE_CAS_MS,

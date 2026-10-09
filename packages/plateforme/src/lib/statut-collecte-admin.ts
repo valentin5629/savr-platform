@@ -87,9 +87,19 @@ export function filtreStatutsAdmin(
   if (valides.length === 0) return null;
   const creee = valides.includes('creee');
   const programmee = valides.includes('programmee');
-  const autres = valides.filter(
-    (c): c is StatutCollecteDb => c !== 'creee' && c !== 'programmee',
-  );
+  // « Réalisée » couvre aussi la collecte AG sans excédent : même libellé à
+  // l'écran, le filtre n'en propose donc qu'une (décision Val 2026-10-09).
+  const autres = [
+    ...new Set(
+      valides
+        .filter(
+          (c): c is StatutCollecteDb => c !== 'creee' && c !== 'programmee',
+        )
+        .flatMap<StatutCollecteDb>((c) =>
+          c === 'realisee' ? ['realisee', 'realisee_sans_collecte'] : [c],
+        ),
+    ),
+  ];
   if (creee === programmee) {
     return { statuts: creee ? ['programmee', ...autres] : autres };
   }

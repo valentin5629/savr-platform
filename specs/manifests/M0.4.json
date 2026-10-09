@@ -61,8 +61,8 @@
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:73",
       "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (champ siret FACULTATIF depuis l'arbitrage Val 2026-09-23 — _Divergences/M0.4_20260923_signup-siret-facultatif ; quand il est fourni : format 14 chiffres + pré-check doublon + verifySiret synchrone : echec→422, down→en_attente+enqueue, verifie→verifie ; absent : siret='' + en_attente, la programmation restant bloquée par requireCompletedOrganisation) + packages/shared/src/api/siret.ts (isValidSiretFormat 14 chiffres) + packages/plateforme/src/lib/password.ts (validatePasswordStrength : 10c + maj + chiffre + spécial, §09 l.84-85) + packages/plateforme/src/app/api/auth/update-password/route.ts (même helper appliqué au reset/changement — A1 signup+reset) + supabase/config.toml (minimum_password_length 10)",
       "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01) » (SIRET valide→201/verifie ; format→422 ; echec→422 ; down→201 en_attente + enqueue ; mot de passe faible→422) + packages/plateforme/tests/api/auth/update-password.m0-4.test.ts « M0.4 — update-password : politique mot de passe au reset (A1) »",
-      "statut": "implemented",
-      "libelle": "SIRET facultatif au signup (arbitrage Val 2026-09-23) ; quand il est fourni : vérif INSEE synchrone bloquante sur echec seul (down jamais bloquant) + politique mot de passe"
+      "statut": "partial",
+      "libelle": "SIRET facultatif au signup (arbitrage Val 2026-09-23) ; quand il est fourni : vérif INSEE synchrone bloquante sur echec seul (down jamais bloquant) + politique mot de passe — ÉCART (sync du 2026-10-09) : le CDC l.73 range désormais les réponses 401 / 403 de l'INSEE (accès de Savr refusé) parmi les cas non bloquants, et le §07 décrit l'API Sirene 3.11 du nouveau portail (`INSEE_API_KEY`) ; sur `main`, `classifyInseeStatus` rend `echec` sur 401 / 403 (inscription refusée, 422) et l'appel vise l'ancien portail (`INSEE_API_TOKEN`). Le job de revalidation (BL-P1-ONB-02) lit la même classification : un 401 / 403 y sort en `echec` au lieu de compter comme un palier sans verdict (§04, statut `epuise` de la file). Correctif = PR #518, ouverte ce jour-là ; repasser `implemented` à son merge."
     },
     {
       "id": "BL-P1-ONB-02",
@@ -90,7 +90,7 @@
     },
     {
       "id": "BL-P1-ONB-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:976",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:979",
       "artefact": "packages/plateforme/src/lib/onboarding-guards.ts (requireCompletedOrganisation : résout l'entité de facturation active de l'orga programmatrice, la crée à la volée si absente, SIRET NON exigé pour programmer — décision Val 2026-09-28, _Divergences/M1.2_20260928 ; requireValidatedOrganisation : gate push Pennylane, SIRET vérifié) + câblage des 3 sites inline dédupliqués : programmation/evenements/route.ts, programmation/evenements/[id]/confirmer/route.ts, lib/facturation/validation-admin.ts",
       "test": "packages/plateforme/tests/lib/onboarding-guards.m0-4.test.ts « M0.4 — requireCompletedOrganisation / requireValidatedOrganisation (BL-P1-ONB-05) »",
       "statut": "implemented",
@@ -98,7 +98,7 @@
     },
     {
       "id": "BL-P1-AUTH-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:994",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:997",
       "artefact": "packages/plateforme/src/app/auth/impersonate-callback/route.ts + supabase/migrations/20260701120000_plateforme_r14_impersonation_claim.sql + packages/plateforme/src/app/api/auth/exit-impersonation/route.ts + packages/plateforme/src/components/ui/impersonation-banner-mount.tsx (monté layout racine) + packages/plateforme/src/app/api/v1/admin/users/[id]/impersoner/route.ts",
       "test": "packages/plateforme/tests/api/auth/impersonate.test.ts « M0.4 — impersonate callback / exit impersonation » + supabase/tests/r14_impersonation_claim.test.sql (hook injecte impersonator_id, fenêtre 1h) + packages/plateforme/src/components/ui/impersonation-banner-mount.test.tsx « M0.6 — bandeau impersonation » + supabase/tests/audit_trail.m0-10.test.sql (T14/T15 : action en session impersonée → audit_log.impersonator_id=admin ET user_id=user impersoné, chaîne bout-en-bout §09 §7 l.904)",
       "statut": "implemented",
@@ -146,7 +146,7 @@
     },
     {
       "id": "M0.4-ecriture-directe-collectes-evenements-revoke",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1036",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1039",
       "artefact": "supabase/migrations/20260915160000_plateforme_collectes_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE sur collectes) ; supabase/migrations/20260915190000_plateforme_evenements_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE, DELETE sur evenements) ; packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (écriture par fn_modifier_evenement sous service_role)",
       "test": "SECU__rls_09_ecriture_directe_revoke.test.sql (A1-A5 : 5 rôles clients × INSERT/UPDATE/DELETE evenements + INSERT/UPDATE collectes → 42501 « permission denied for table » ; A6 SELECT filtré ; A7 service_role écrit ; A8 policies conservées ; B1-B5 manager_update_dans_fenetre_edition_ok moitié DB) + edition-evenement.m1-2.test.ts « manager_update_dans_fenetre_edition_ok — la route réussit et n’écrit JAMAIS par le client de session »",
       "statut": "partial",
@@ -178,7 +178,7 @@
     },
     {
       "id": "M0.4-signup-ecran-inscription",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:943-956",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:944-957",
       "artefact": "packages/plateforme/src/app/signup/page.tsx (3 étapes : profil → identité/entreprise → mot de passe + CGU ; écran « vérifiez votre boîte mail ») + packages/plateforme/src/app/login/page.tsx (lien « Créer un compte »)",
       "test": "M0.4 — /signup : parcours complet (CDC §05 §8 étape 1) > envoie à la route les 7 champs du CDC, avec le type de profil choisi",
       "statut": "implemented",
@@ -194,7 +194,7 @@
     },
     {
       "id": "M0.4-signup-formats-champs-identite",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:947-953",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:948-954",
       "artefact": "packages/plateforme/src/lib/identite-signup.ts (isValidEmailFormat / isValidNomOuPrenom / isValidTelephoneFr, NOM_MIN_LENGTH) + packages/plateforme/src/app/api/auth/signup/route.ts (422 avant toute création) + packages/plateforme/src/app/signup/page.tsx (mêmes règles, avant le réseau)",
       "test": "M0.4 — formats des champs d’identité au signup (CDC §05 §8)",
       "statut": "implemented",
@@ -234,7 +234,7 @@
     },
     {
       "id": "M0.4-signup-lien-depuis-login",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:937",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:938",
       "artefact": "packages/plateforme/src/app/login/page.tsx (lien « Créer un compte » vers /signup)",
       "test": "M0.4 — /signup : l'écran est atteignable depuis la connexion > la page de connexion propose un lien « Créer un compte » vers /signup",
       "statut": "implemented",
@@ -242,7 +242,7 @@
     },
     {
       "id": "M0.4-signup-autocompletion-raison-sociale",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:953",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:954",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -251,7 +251,7 @@
     },
     {
       "id": "M0.4-rattachement-domaine-verifie-seulement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:958-964",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:959-965",
       "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (lecture organisations_domaines_email filtrée sur verifie_at IS NOT NULL)",
       "test": "M0.4 — rattachement par domaine : seules les revendications PROUVÉES comptent",
       "statut": "implemented",
@@ -283,10 +283,10 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "81b4328dfe14fa1e73ab8c37697f0222d02d73b73b74dfb6584e3f2fb0bd0518",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9b2486cfd6af6c76f1c910f89640bdb2fa64fdd1a620b476bc515f3d8f6e5863",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "fa69f5a5d32e20077c4b08997d2a267af7c9a3dc431a4260b4f569ea4404585f",
-    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "de55ad9dd1ab220cc2e0f7945b7cc1e4b6eccfb6db0bac80734b34213ea0f88a",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "ecb359e00560473d7d724be1ba3ecf0282b9afde9829f93509ef11f96f9fa0c0",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "958d3d63bf7038300535557f5e8c12cda0dcc31d0666819579114b6d24293b2f",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "6833ce0fedd07fc850bdc6ff5b0d252b85dfd0a5c929ebc98e6c9f1634f7fbfc",
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "bb72cba6d036be25817b346daf56b550dd1d5d6264f351f1ba429434feb8e9c9"
   }
 }

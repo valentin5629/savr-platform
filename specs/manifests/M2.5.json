@@ -67,7 +67,7 @@
     },
     {
       "id": "M2.5-created-manually-cycle-de-vie",
-      "ref_cdc": "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md:407",
+      "ref_cdc": "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md:408",
       "artefact": "supabase/migrations/20260916170000_plateforme_everest_created_manually_implication.sql (chk_everest_created_manually en implication) ; packages/adapters/src/everest/adapter.ts (echecEcritureLocale : écriture locale refusée après A Toutes! → alerte Ops in-app f_upsert_alerte_admin + levée)",
       "test": "everest_created_manually_cycle_de_vie.test.sql (B2-B9 cancelled/assigned/in_progress/completed avec manual_* conservés, B10-B14 23514 si un seul champ) + m2_5_everest_missions_rls.test.sql T10-T12 (T_M14.5 sous admin_savr) + adapter.m2-5.test.ts « écritures locales refusées après A Toutes! » (UPDATE everest_missions en 23514 → Permanent + alerte, jamais Slack)",
       "statut": "implemented",
@@ -99,9 +99,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a217d2a2fc80d1152d1bb6417705a8a5dd72dd09a5923415b96807803c2c27cb",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "65773f43050134ec19709eea830bf5cc266b269c516caf55dd2b656b75633ec7",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
-    "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "f27893604204edd42c80f59795ff3e93e81eecf9557ccd9904f3dbac6c071cde"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "dbd5f11130243c0deb6ffca98328b5280f4d1499af9a0cd37a407d0a069a50a9",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "f308640dbe0902f0570a0f9017a32874e932693f0adc95bfe817d36c344a50f6",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7",
+    "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "028f6fffba163cfd2cf3c486945d65d32746d040694e6ea4a2607134f52f3c24"
   }
 }

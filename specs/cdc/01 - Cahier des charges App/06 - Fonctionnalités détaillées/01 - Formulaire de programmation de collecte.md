@@ -16,6 +16,8 @@ Utilisé par les 3 types d'organisations programmatrices :
 - `gestionnaire_lieux` (programmation sur ses propres lieux, pour un traiteur du référentiel Savr)
 - `admin_savr` **et `ops_savr`** (programmation de support, tous périmètres) *(ops_savr ajouté 2026-09-14 — alignement CDC ↔ production : les routes `/api/v1/programmation/*` (`requireProgrammateurOuAdmin`), le mode support du formulaire et le bouton « Programmer une collecte » de `/admin/collectes` l'autorisent depuis la PR #223 ; le middleware Next `src/middleware.ts` (`ROLE_PREFIXES` `/programmer`, `/brouillons`) est aligné en conséquence. Voir la matrice étendue §09.)*
 
+**Menu affiché** *(décision Val 2026-10-07)* : celui de l'espace du rôle connecté, avec les mêmes entrées masquées que dans cet espace (ex. « Mon pack AG » du gestionnaire sans pack, §06.05). Le staff (`admin_savr`, `ops_savr`) y garde le menu du back-office.
+
 Les **clients finaux** n'accèdent pas au formulaire (lecture seule).
 
 Bloqué si l'organisation programmatrice n'a pas complété ses infos de facturation — règle bloquante identique pour les 3 types (voir [[05 - Règles métier#8. Onboarding]]).
@@ -417,6 +419,11 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 11. Si AG : lancement algo attribution → notification Admin pour validation.
 12. Si `controle_acces_requis = true` côté TMS : R_M04.CONTROLE_ACCES active.
 13. Redirection vers un **écran de confirmation dédié** `/programmer/confirmation?id=…` (bandeau succès + récapitulatif des collectes créées + rappel email récap), offrant les actions « Ajouter une collecte à cet événement », « Programmer un autre événement » et « Accueil ». _(Décision Val 2026-07-16, divergence M1.2 : écran de succès dédié plutôt que redirection directe vers le détail événement.)_
+    - **Rappel email récap = issue réelle de l'envoi** *(décision Val 2026-10-08)* : l'écran ne dit « envoyé » que si l'email est réellement parti. L'état est lu dans `emails_envoyes` (dernier envoi `collecte_programmee` de l'événement) et servi aux rôles programmateurs, et au staff en programmation de support, sous la forme d'un état seul — ni adresse du destinataire, ni message d'erreur.
+        - Email accepté par Resend : « Un email récapitulatif vient de vous être envoyé. »
+        - Email refusé pour l'instant, reprise automatique en cours ([[08 - APIs et intégrations]] §4) : « L'email récapitulatif n'a pas pu partir pour l'instant. Nous le renvoyons automatiquement. »
+        - Rien n'est parti et rien ne repartira (4 tentatives épuisées, refus de la messagerie du destinataire, ou aucun envoi tracé), en bandeau d'avertissement : « L'email récapitulatif n'a pas pu vous être envoyé. Votre programmation est bien enregistrée : vous la retrouvez dans vos collectes. Pour toute question, écrivez-nous à contact@gosavr.io. »
+        - État inconnu (journal des emails illisible, ou statut non reconnu) : aucune mention de l'email.
 
 ---
 

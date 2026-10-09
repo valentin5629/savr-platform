@@ -194,7 +194,7 @@
     },
     {
       "id": "BL-P1-API-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:612",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:624",
       "artefact": "packages/shared/src/email/index.ts",
       "test": "variable requise absente → aucun envoi, aucune ligne emails_envoyes, trace MISSING_VARIABLE",
       "statut": "implemented",
@@ -202,7 +202,7 @@
     },
     {
       "id": "M0.5-resend-template-not-found-skip",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:614",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:626",
       "artefact": "packages/shared/src/email/index.ts",
       "test": "slug inexistant → aucun envoi, throw + trace TEMPLATE_NOT_FOUND (CDC l.548)",
       "statut": "implemented",
@@ -226,7 +226,7 @@
     },
     {
       "id": "M0.5-email-issue-envoi-rendue-appelant",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:612",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:624",
       "artefact": "packages/shared/src/email/index.ts (sendEmail rend { statut } : 'sent' accepté par Resend, 'retrying' refusé mais ligne emails_envoyes en échec écrite — le worker reprend —, 'dropped' rien n'est parti et rien ne le reprendra : template inactif, variable requise manquante, hors production sans redirection, ou échec dont la ligne n'a pas pu être écrite ; l'erreur d'écriture de la ligne est désormais lue et journalisée `email.historique_non_ecrit` sans destinataire ni contenu ; runEmailRetryWorker lit entity_type / entity_id et rend les lignes dont il vient de trancher le sort : `reussis`, `epuises`)",
       "test": "accepté par Resend → sent + refusé par Resend, ligne en échec écrite → retrying (le worker reprend) + template inactif → dropped + variable requise manquante → dropped + refusé par Resend ET ligne en échec non écrite → dropped : rien que le worker puisse reprendre + accepté par Resend mais ligne non écrite → sent : l’email est parti + le worker lit l’entité de chaque ligne (sans elle, aucune suite métier possible) + 4e tentative en échec → ligne rendue dans `epuises`, avec son entité + reprise réussie → ligne rendue dans `reussis`, avec son entité",
       "statut": "implemented",
@@ -234,7 +234,7 @@
     },
     {
       "id": "M0.5-email-perdu-alerte-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:694",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:708",
       "artefact": "packages/plateforme/src/lib/emails/email-perdu.ts (traiterEmailPerdu : alerte in-app `email_echec_definitif` via f_upsert_alerte_admin, rattachée à l'entité de l'email quand il en porte une, sinon à la ligne d'envoi ; message = template + destinataire + motif) + packages/plateforme/src/lib/emails/codes-alertes.ts + packages/plateforme/src/app/api/cron/email-retry/route.ts (suites des lignes `epuises` ; une suite manquée est journalisée sans adresse et comptée dans `errors` ; la réponse ne porte que des compteurs) + packages/plateforme/src/app/api/webhooks/resend/route.ts (email.bounced / email.complained → mêmes suites, rejouables ; suite non appliquée → 500, inbox non marquée traitée) + packages/plateforme/src/lib/alertes-admin.ts (sévérité critique)",
       "test": "4 tentatives épuisées → alerte « Email non remis » rattachée à l’entité de l’email + adresse refusée par la messagerie du destinataire → le message le dit + deux emails sans entité perdus → deux alertes (aucune n’absorbe l’autre) + 4e tentative en échec → alerte in-app « Email non remis », rattachée à la collecte, sans toucher à son tampon + la réponse du cron ne porte que des compteurs : aucune adresse, aucune ligne d’email + email.bounced → alerte in-app « Email non remis », rattachée à l’entité de l’email + suite non appliquée (alerte refusée par la base) → 500, inbox non marquée traitée : Resend rejoue + rejeu après un passage où le statut a été écrit mais pas la suite → la suite est rejouée, le statut n’est pas réécrit + ligne en échec d’envoi (jamais acceptée par Resend) → pas de suite ici : elle relève du worker de retry + email de vérification d’inscription perdu (tentatives_epuisees) → alerte, comme tout autre email + ops_savr → 403 : aucune alerte lue, l’adresse du destinataire ne sort pas + refus forgé, signature absente → 401 : ni tampon retiré, ni alerte, ni statut + production sans secret de signature → 500 « Webhook non configuré » : un refus non signé ne déclenche rien + emails non remis → critiques + supabase/tests/SECU__alertes_admin_message_admin_seul.test.sql",
       "statut": "implemented",
@@ -250,8 +250,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "635965061c559a268b51586d881054381f4a6ad7a4cfdf784f7a6e3709bca345",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "59497b8ae36602cfaaffdb017dd989067c9756d9d0f6e808642e8719bf1a5de3",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7"
   }
 }

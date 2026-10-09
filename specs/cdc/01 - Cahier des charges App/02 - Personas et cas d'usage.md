@@ -104,10 +104,10 @@ Responsable RSE ou facility manager chez un opérateur de lieux (Viparis, Sodexo
 - Attribution configurée manuellement par Admin Savr (ex: profil Viparis → accès à 15 lieux Viparis)
 
 ### Ce qu'il peut faire
-- Consulter l'historique complet des **événements** sur ses lieux (tous traiteurs) — le détail des collectes (pesées par flux, repas, bordereaux, attestations) est accessible dans le détail événement (refonte 2026-05-03 : la page Collectes a été supprimée, fusion dans Événements)
+- Consulter l'historique complet des **collectes** sur ses lieux (tous traiteurs) — le détail (pesées par flux, repas, bordereaux, attestations) est accessible dans la fiche collecte (décision Val 2026-10-07 : la page Événements est retirée, la page Collectes est la vue de consultation)
 - Voir les volumes agrégés par lieu, par flux, par période via le Dashboard (onglets ZD/AG, bloc radar kg/pax × benchmark parc)
 - Comparer les performances entre ses différents lieux et au parc Savr (barre filtre benchmark dédiée 5 dimensions sur le Bloc 3 ZD)
-- Télécharger des rapports RSE par lieu ou agrégés (PDF) + export CSV niveau événement sur la liste Événements
+- Télécharger des rapports RSE par lieu ou agrégés (PDF) + export CSV niveau collecte sur la liste Collectes
 - **Programmer des collectes sur ses propres lieux** *(extension 2026-05-07)* : avec un traiteur du référentiel Savr (pas de fiche shadow autorisée). Workflow §06.01 cas Gestionnaire. Use case : gestionnaire qui pilote la RSE événementielle directement (vs uniquement via le traiteur).
 - **Recevoir des factures Savr en direct** *(extension 2026-05-07)* : pour les collectes qu'il a programmées (règle programmateur=facturé V1).
 - **Acheter et consommer un pack AG** *(extension 2026-05-07)* : pack négocié avec Savr, décompté sur les collectes AG programmées par le gestionnaire.

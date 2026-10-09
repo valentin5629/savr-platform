@@ -1048,26 +1048,26 @@
     {
       "id": "M3.1-liste-sans-excedent-resultats",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:320",
-      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx (ResultatsCollecte, cellule partagée par les listes Collectes traiteur, agence et gestionnaire de lieux : une collecte AG `realisee_sans_collecte` affiche « Sans excédent » dans la colonne Résultats, avec le picto de téléchargement de son rapport de don ; colonne Statut = « Réalisée » via le mapping client de packages/plateforme/src/lib/statut-collecte-labels.ts)",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx (ResultatsCollecte, cellule de la colonne Résultats de la liste Collectes traiteur : une collecte AG `realisee_sans_collecte` affiche « Sans excédent », sans repas ni CO₂, avec le picto de téléchargement de son rapport ; colonne Statut = « Réalisée » via le mapping client de packages/plateforme/src/lib/statut-collecte-labels.ts)",
       "test": "M3.1/liste_sans_excedent_resultats",
       "statut": "implemented",
-      "libelle": "Listes Collectes des espaces clients : « Sans excédent » passe de la colonne Statut à la colonne Résultats ; la ligne se lit « Réalisée » et son rapport de don se télécharge depuis la liste (décision Val 2026-10-09 ; picto de téléchargement : arbitrage « Oui, avec le picto »)"
+      "libelle": "Liste Collectes traiteur : « Sans excédent » passe de la colonne Statut à la colonne Résultats ; la ligne se lit « Réalisée » et son rapport de don se télécharge depuis la liste (décision Val 2026-10-09 ; picto de téléchargement : arbitrage « Oui, avec le picto »). Les listes agence et gestionnaire de lieux montent la même cellule ; ce partage n'est pas exercé par le test cité."
     },
     {
       "id": "M3.1-filtre-statut-realisee-couvre-sans-excedent",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:366",
-      "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts (groupesStatutClient : le groupe « Réalisée » réunit `realisee_sans_collecte` et `cloturee`) + packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx (un groupe se lit coché dès qu'un de ses statuts est sélectionné : un lien de tableau de bord ne porte que `cloturee`, la liste reste filtrée sur ce statut seul et garde le chiffre du tableau de bord)",
+      "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts (groupesStatutClient : le groupe « Réalisée » réunit `realisee_sans_collecte` et `cloturee` ; plus de groupe « Sans excédents ») + packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx (cocher « Réalisée » sélectionne les deux statuts ; un groupe se lit coché dès qu'un de ses statuts est sélectionné — règle valable pour tous les groupes, « Créée », « En cours » et « Annulée » compris)",
       "test": "M3.1/filtre_statut_realisee_cochee_sur_lien_cloturee + M3.1/filtre_statut_realisee_couvre_sans_excedent + R25a/statuts_historique_annulee_regroupe_les_deux_statuts_db",
       "statut": "implemented",
-      "libelle": "Filtre « Statut » des listes client : « Réalisée » couvre aussi les collectes AG sans excédent ; plus d'option « Sans excédents ». Arrivée depuis un tableau de bord : « Réalisée » se lit cochée, la liste n'affiche que les collectes clôturées (interprétation Claude Code, à valider par Val)"
+      "libelle": "Filtre « Statut » des listes client : « Réalisée » couvre aussi les collectes AG sans excédent ; plus d'option « Sans excédents ». Un lien de tableau de bord ne porte que le statut `cloturee` : « Réalisée » s'y lit cochée (interprétation Claude Code, à valider par Val). La liste, elle, continue de filtrer sur les statuts de l'URL (comportement inchangé, non exercé par les tests cités)."
     },
     {
       "id": "M3.1-liste-sans-excedent-rendu-visuel",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:320",
-      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx (colonne Résultats : « Sans excédent » précédé du picto des repas, suivi du picto de téléchargement ; aucun style nouveau)",
-      "test": "M3.1/liste_sans_excedent_resultats",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx (colonne Résultats : « Sans excédent » précédé du picto des repas, suivi du picto de téléchargement) + packages/plateforme/src/components/collecte/frise-statut-client.tsx (frise de la fiche collecte client : dernière étape « Réalisée ») + packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx (case « Réalisée » cochée à l'arrivée depuis un tableau de bord) — aucun style nouveau",
+      "test": "M3.1/liste_sans_excedent_resultats + M3.1/frise_client_sans_excedents + M3.1/filtre_statut_realisee_cochee_sur_lien_cloturee",
       "statut": "à-vérifier",
-      "libelle": "Rendu de « Sans excédent » dans la colonne Résultats des listes client. GO visuel de Val en attente ; rendu contrôlé le 2026-10-09 sur un aperçu local à données simulées (capture transmise à Val dans la conversation) : ce contrôle prouve le rendu, pas l'application connectée. Non capturée : la frise « Réalisée » de la fiche collecte client."
+      "libelle": "Rendu, côté espaces clients, de « Sans excédent » dans la colonne Résultats, de la frise « Réalisée » de la fiche et de la case « Réalisée » du filtre. GO visuel de Val en attente. Contrôlée le 2026-10-09 sur un aperçu local à données simulées (capture transmise à Val dans la conversation) : la colonne Résultats — ce contrôle prouve le rendu, pas l'application connectée. NON capturées : la frise de la fiche collecte client et la case « Réalisée » cochée à l'arrivée depuis un tableau de bord."
     }
   ],
   "cdc_source_hash": {

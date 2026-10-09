@@ -716,6 +716,14 @@ describe('M4.1 / export collectes — filtres de la liste Admin', () => {
       ],
     ],
     [
+      // Décision Val 2026-10-09 : « Réalisée » se lit aussi sur une collecte AG
+      // sans excédent, le filtre n'en propose qu'une.
+      'statut « Réalisée » : couvre aussi la collecte AG sans excédent',
+      '?statuts=realisee,cloturee',
+      'in',
+      ['statut', ['realisee', 'realisee_sans_collecte', 'cloturee']],
+    ],
+    [
       'aucun statut lisible : aucune ligne, jamais la liste entière',
       '?statuts=inconnu,brouillon',
       'in',

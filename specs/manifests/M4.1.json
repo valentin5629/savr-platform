@@ -161,10 +161,10 @@
     {
       "id": "M4.1-export-sans-excedent-zero-repas",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:380",
-      "artefact": "packages/plateforme/src/lib/exports/builders.ts (repasAgExport, colonne « Repas AG » des exports Collectes et Impact RSE : 0 pour une collecte AG `realisee_sans_collecte`, jamais une cellule vide ; la colonne « Statut » la dit « Réalisée » via LIBELLE_STATUT_COLLECTE)",
+      "artefact": "packages/plateforme/src/lib/exports/builders.ts (repasAgExport, colonne « Repas AG » des exports Collectes et Impact RSE : 0 pour une collecte AG `realisee_sans_collecte`, jamais une cellule vide ; dans l'export Collectes, la colonne « Statut » la dit « Réalisée » via LIBELLE_STATUT_COLLECTE — l'export Impact RSE n'a pas de colonne « Statut »)",
       "test": "M4.1/export_collectes_sans_excedent_zero_repas + M4.1/export_impact_rse_sans_excedent_zero_repas",
       "statut": "implemented",
-      "libelle": "Exports CSV : une collecte AG sans excédent sort « Réalisée » avec « Repas AG » = 0 — c'est là que l'export garde l'information (arbitrage Val 2026-10-09 : « Repas AG = 0 »)"
+      "libelle": "Exports CSV Collectes et Impact RSE : « Repas AG » = 0 pour une collecte AG sans excédent — c'est là que l'export garde l'information, l'export Collectes la disant « Réalisée » (arbitrage Val 2026-10-09 : « Repas AG = 0 »)"
     }
   ],
   "cdc_source_hash": {

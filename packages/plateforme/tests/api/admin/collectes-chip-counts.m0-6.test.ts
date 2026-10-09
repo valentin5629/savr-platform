@@ -14,7 +14,11 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { applyChipPredicate, type ChipQuery } from '@/lib/collectes-chips';
+import {
+  applyChipPredicate,
+  estModifieeSansRenvoi,
+  type ChipQuery,
+} from '@/lib/collectes-chips';
 import {
   aDispatcherZd,
   type CollecteRow,
@@ -123,13 +127,13 @@ interface RequeteFactice extends ChipQuery {
   ): Promise<unknown>;
 }
 
-function requeteFactice(): RequeteFactice {
+function requeteFactice(lignes: Ligne[] = LIGNES): RequeteFactice {
   const filtres: ((l: Ligne) => boolean)[] = [];
   const ajoute = (f: (l: Ligne) => boolean) => {
     filtres.push(f);
     return requete;
   };
-  const retenues = () => LIGNES.filter((l) => filtres.every((f) => f(l)));
+  const retenues = () => lignes.filter((l) => filtres.every((f) => f(l)));
   const requete: RequeteFactice = {
     select: () => requete,
     eq: (c, v) => ajoute((l) => valeur(l, c) === v),
@@ -268,5 +272,60 @@ describe('M0.6 — API GET collectes/chip-counts : tuiles « à dispatcher » (k
     const res = await appelle();
     expect(res.status).toBe(403);
     expect(tablesLues).toHaveLength(0);
+  });
+});
+
+// Arbitrage Val 2026-10-09 : « Modifiées sans renvoi TMS » = un client a modifié
+// après l'envoi de l'Admin. Le drapeau `dirty_tms` porte « partie puis
+// modifiée » (déclencheurs DB, pgTAP collectes_modifiees_apres_envoi) ; le
+// prédicat n'y ajoute que « encore à réaliser ».
+describe('M0.6/dirty_tms_apres_envoi — pastille « Modifiées sans renvoi TMS »', () => {
+  const MODIFIEES: Ligne[] = [
+    // Le constat de Val : envoyée par l'Admin, commande pas encore reçue par le
+    // prestataire (ni statut TMS avancé, ni référence), modifiée par le client.
+    ligne('en-file-modifiee', { dirty_tms: true }),
+    ligne('commandee-modifiee', {
+      statut: 'validee',
+      statut_tms: 'acceptee',
+      tms_reference: 'CO-1',
+      dirty_tms: true,
+    }),
+    ligne('en-cours-modifiee', { statut: 'en_cours', dirty_tms: true }),
+    // Terminées ou fermées : plus rien à renvoyer.
+    ligne('realisee-modifiee', { statut: 'realisee', dirty_tms: true }),
+    ligne('cloturee-modifiee', { statut: 'cloturee', dirty_tms: true }),
+    ligne('annulee-modifiee', { statut: 'annulee', dirty_tms: true }),
+    ligne('annulation-demandee-modifiee', {
+      statut: 'annulation_demandee',
+      dirty_tms: true,
+    }),
+    // Jamais modifiée depuis l'envoi.
+    ligne('commandee-non-modifiee', {
+      statut: 'validee',
+      statut_tms: 'acceptee',
+      tms_reference: 'CO-2',
+    }),
+  ];
+
+  it('retient les collectes modifiées encore à réaliser, avec ou sans référence de commande', () => {
+    const q = requeteFactice(MODIFIEES);
+    applyChipPredicate(q, 'dirty_tms', new Date());
+    expect(q.retenues().map((l) => l.id)).toEqual([
+      'en-file-modifiee',
+      'commandee-modifiee',
+      'en-cours-modifiee',
+    ]);
+  });
+
+  it('le badge et le bouton de la fiche (ligne déjà chargée) désignent les mêmes collectes que la pastille', () => {
+    const q = requeteFactice(MODIFIEES);
+    applyChipPredicate(q, 'dirty_tms', new Date());
+    const parLaPastille = q.retenues().map((l) => l.id);
+    const parLaFiche = MODIFIEES.filter((l) =>
+      estModifieeSansRenvoi(
+        l as unknown as { dirty_tms: boolean; statut: string },
+      ),
+    ).map((l) => l.id);
+    expect(parLaFiche).toEqual(parLaPastille);
   });
 });

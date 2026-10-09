@@ -75,7 +75,7 @@ import {
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import { FLUX_ZD } from '@/lib/libelles/flux';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
-import { estADispatcher } from '@/lib/collectes-chips';
+import { estADispatcher, estModifieeSansRenvoi } from '@/lib/collectes-chips';
 import {
   envoiAutomatique,
   libelleCanalEnvoi,
@@ -1441,7 +1441,7 @@ export function CollecteDetailPanel({
           <>
             <TypeCollecteBadge type={collecte.type} forme="plein" />
             <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
-            {collecte.dirty_tms && (
+            {estModifieeSansRenvoi(collecte) && (
               <Badge variant="warning" className="flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 Modifiée — renvoi requis
@@ -1954,16 +1954,29 @@ export function CollecteDetailPanel({
                   )}
                   {dispatchEnLecture ? (
                     // Ordre en file d'envoi : pas de bouton primaire d'envoi (il
-                    // est déjà parti) — seule action : rouvrir le choix du
+                    // est déjà parti), sauf si la collecte a été modifiée
+                    // depuis — « Renvoyer » vide alors le drapeau (arbitrage Val
+                    // 2026-10-09). Autre action : rouvrir le choix du
                     // prestataire.
-                    <Button
-                      ref={changerPrestataireBtnRef}
-                      variant="secondary"
-                      onClick={() => setChangerPrestataire(true)}
-                    >
-                      <Truck />
-                      Changer de prestataire
-                    </Button>
+                    <>
+                      <Button
+                        ref={changerPrestataireBtnRef}
+                        variant="secondary"
+                        onClick={() => setChangerPrestataire(true)}
+                      >
+                        <Truck />
+                        Changer de prestataire
+                      </Button>
+                      {estModifieeSansRenvoi(collecte) && (
+                        <Button
+                          onClick={() => void handleDispatch()}
+                          loading={dispatching}
+                          loadingText="Envoi…"
+                        >
+                          <Send /> {libelleDispatch(forkTypeTms, true)}
+                        </Button>
+                      )}
+                    </>
                   ) : (
                     <>
                       {ordreEnFileEnvoi && (

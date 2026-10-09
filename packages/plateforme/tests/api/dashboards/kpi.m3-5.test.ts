@@ -212,6 +212,20 @@ describe('M3.5 / kpi-admin', () => {
     const body = await res.json();
     expect(body).toHaveProperty('cartes_actions');
     expect(body).toHaveProperty('kpi');
+    // M0.6/dirty_tms_apres_envoi (arbitrage Val 2026-10-09) : la carte « Modifiées
+    // sans renvoi TMS » compte les collectes modifiées encore à réaliser, sans
+    // exiger de référence de commande — même prédicat que la pastille de la liste.
+    expect(mockAdminChain.eq).toHaveBeenCalledWith('dirty_tms', true);
+    expect(mockAdminChain.in).toHaveBeenCalledWith('statut', [
+      'programmee',
+      'validee',
+      'en_cours',
+    ]);
+    expect(mockAdminChain.not).not.toHaveBeenCalledWith(
+      'tms_reference',
+      'is',
+      null,
+    );
   });
 
   it('401 — sans JWT', async () => {

@@ -25,7 +25,7 @@ import {
 import {
   TAILLE_PAGE,
   lireParPages,
-  lireParTranches,
+  lireParLots,
 } from './selection-par-pages.js';
 
 export interface BatchSansExcedentResult {
@@ -128,15 +128,15 @@ export async function runBatchSansExcedent(
   // 2. Idempotence : exclure les collectes ayant déjà une ligne rapports_rse. Une
   //    collecte AG realisee_sans_collecte n'a de rapports_rse que via CE batch (ZD et
   //    attestation ne traitent que cloturee) → l'existence suffit comme garde.
-  const { data: existingRapports, error: rapSelErr } = await lireParTranches<{
+  const { data: existingRapports, error: rapSelErr } = await lireParLots<{
     collecte_id: string;
   }>(
     collectes.map((c) => c.id),
-    (tranche) =>
+    (lot) =>
       supabase
         .from('rapports_rse')
         .select('collecte_id')
-        .in('collecte_id', tranche),
+        .in('collecte_id', lot),
   );
 
   // Fail-closed : sans la liste des rapports existants, traiter = rapport en double.

@@ -18,7 +18,7 @@ import { anneeParis, jourParis } from '@savr/shared/src/temps/index.js';
 import {
   TAILLE_PAGE,
   lireParPages,
-  lireParTranches,
+  lireParLots,
 } from './selection-par-pages.js';
 
 export interface BatchPdfJ1AgResult {
@@ -136,15 +136,14 @@ export async function runBatchPdfJ1Ag(
 
   // 3. Exclure collectes déjà attestées (idempotence R8)
   type AttRow = { collecte_id: string; statut: string };
-  const { data: existingAtts, error: attSelErr } =
-    await lireParTranches<AttRow>(
-      eligible.map((c) => c.id),
-      (tranche) =>
-        supabase
-          .from('attestations_don')
-          .select('collecte_id, statut')
-          .in('collecte_id', tranche),
-    );
+  const { data: existingAtts, error: attSelErr } = await lireParLots<AttRow>(
+    eligible.map((c) => c.id),
+    (lot) =>
+      supabase
+        .from('attestations_don')
+        .select('collecte_id, statut')
+        .in('collecte_id', lot),
+  );
 
   // Fail-closed : sans la liste des attestations émises, traiter = attestation fiscale
   // 2041-GE en double (numéro ATT-DON gapless consommé).
@@ -174,12 +173,18 @@ export async function runBatchPdfJ1Ag(
       toProcess.map((c) => c.evenements?.organisation_id).filter(Boolean),
     ),
   ] as string[];
-  const { data: entites, error: entErr } = await supabase
-    .from('entites_facturation')
-    .select('id, organisation_id, raison_sociale, siret, siret_verification')
-    .in('organisation_id', orgIds)
-    .eq('entite_par_defaut', true)
-    .eq('actif', true);
+  const { data: entites, error: entErr } = await lireParLots<EntiteFacturation>(
+    orgIds,
+    (lot) =>
+      supabase
+        .from('entites_facturation')
+        .select(
+          'id, organisation_id, raison_sociale, siret, siret_verification',
+        )
+        .in('organisation_id', lot)
+        .eq('entite_par_defaut', true)
+        .eq('actif', true),
+  );
 
   // Sans entité, l'attestation serait figée avec un donateur vide (raison sociale/SIRET).
   if (entErr) {
@@ -192,7 +197,7 @@ export async function runBatchPdfJ1Ag(
   }
 
   const entiteByOrg = new Map<string, EntiteFacturation>(
-    ((entites ?? []) as EntiteFacturation[]).map((e) => [e.organisation_id, e]),
+    entites.map((e) => [e.organisation_id, e]),
   );
 
   // Année PARISIENNE (cf. bordereaux) : séquence gapless annuelle.

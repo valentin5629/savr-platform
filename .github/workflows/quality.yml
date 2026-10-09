@@ -115,6 +115,21 @@ jobs:
           bash .claude/hooks/gate-pr.sh --self-test
           bash .claude/hooks/tests-lies.sh --self-test
           bash .claude/hooks/suite-verte.sh --self-test
+      # Même raison encore pour les deux autres gardes de l'outil Bash, jouées par
+      # Claude Code seul : celle qui bloque les commandes destructives et celle qui
+      # sérialise les écritures dans la base partagée. Chaque auto-test rejoue le
+      # hook ENTIER (charge JSON sur l'entrée standard, code de sortie lu), dont des
+      # commandes de plus de 300 000 caractères : lues par un tube sous `pipefail`,
+      # celles où 300 000 caractères suivaient la ligne du motif passaient sans
+      # être vues. Celui de db-guard travaille dans un dépôt jetable, après avoir
+      # retiré les variables GIT_* héritées, puis se rejoue lui-même sous trois
+      # sortes de piège (variables GIT_*, configuration git, mktemp) pour vérifier
+      # que le dépôt désigné par ces pièges reste intact et que le dossier de
+      # lancement n'est pas supprimé.
+      - name: Auto-test des gardes de commandes destructives et d'écriture en base partagée
+        run: |
+          bash .claude/hooks/block-destructive.sh --self-test
+          bash .claude/hooks/db-guard.sh --self-test
       - name: Collision de timestamp, y compris avec une branche non mergee
         run: bash scripts/check-migration-timestamp.sh --branch
 

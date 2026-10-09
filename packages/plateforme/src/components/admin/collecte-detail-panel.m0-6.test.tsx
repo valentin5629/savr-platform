@@ -1738,6 +1738,113 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
+  // Document pas encore produit : la ligne dit quand il est attendu (état calculé
+  // par GET /documents, champ `attente`). Le texte est lu SOUS le libellé de sa
+  // ligne, jamais en pleine page.
+  const sansDocument = {
+    rapport: null,
+    bordereau: null,
+    attestation: null,
+    photos: [],
+  };
+  const ligneDocument = (libelle: string): HTMLElement =>
+    screen.getByText(libelle).parentElement as HTMLElement;
+  const telecharger = (libelle: string): HTMLElement =>
+    within(ligneDocument(libelle).parentElement as HTMLElement).getByRole(
+      'button',
+      { name: /Télécharger/ },
+    );
+
+  it(
+    'M0.6 — Bloc 3 : document absent, traitement de nuit passé : attendu depuis une date, téléchargement grisé',
+    async () => {
+      installMock({
+        documents: {
+          ...sansDocument,
+          attente: { etat: 'en_retard', jour: '2026-10-02' },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+
+      for (const libelle of ['Rapport RSE', 'Attestation de don']) {
+        expect(
+          within(ligneDocument(libelle)).getByText(
+            'Attendu depuis le 02/10/2026',
+          ),
+        ).toBeInTheDocument();
+        expect(telecharger(libelle)).toBeDisabled();
+      }
+      expect(screen.queryByText(/Non encore généré/)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : document absent, traitement de nuit à venir : attendu à une date (ZD, rapport et bordereau)',
+    async () => {
+      installMock({
+        collecte: baseZd,
+        documents: {
+          ...sansDocument,
+          attente: { etat: 'attendu', jour: '2026-10-02' },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Bordereau ZD', undefined, ATTENTE_UI);
+
+      for (const libelle of ['Rapport RSE', 'Bordereau ZD']) {
+        expect(
+          within(ligneDocument(libelle)).getByText(
+            'Attendu le 02/10/2026 au matin',
+          ),
+        ).toBeInTheDocument();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : document absent, collecte pas encore réalisée : généré après la collecte',
+    async () => {
+      installMock({
+        documents: { ...sansDocument, attente: { etat: 'apres_collecte' } },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+
+      for (const libelle of ['Rapport RSE', 'Attestation de don']) {
+        expect(
+          within(ligneDocument(libelle)).getByText('Généré après la collecte'),
+        ).toBeInTheDocument();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : document absent, rien à annoncer : libellé par défaut conservé',
+    async () => {
+      installMock({ documents: { ...sansDocument, attente: null } });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+
+      expect(
+        within(ligneDocument('Rapport RSE')).getByText('Non encore généré'),
+      ).toBeInTheDocument();
+      expect(
+        within(ligneDocument('Attestation de don')).getByText(
+          'Non encore générée',
+        ),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // (Bloc « Pack AG » retiré de la fiche — décision Val ; ex-tests Bloc 4 supprimés.)
 
   it(

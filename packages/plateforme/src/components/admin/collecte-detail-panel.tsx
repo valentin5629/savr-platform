@@ -106,6 +106,8 @@ import { FileButton } from '@/components/ui/file-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
+import type { AttenteDocuments } from '@/lib/collectes/attente-documents';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -319,7 +321,23 @@ interface DocumentsData {
   rapport: RapportDoc | null;
   bordereau: BordereauDoc | null;
   attestation: AttestationDoc | null;
+  // Quand les documents sont attendus, tant qu'ils n'existent pas (calculé serveur).
+  attente?: AttenteDocuments | null;
   photos: PhotoItem[];
+}
+
+// Ligne d'un document qui n'existe pas encore : dit quand il est attendu, d'après
+// l'état calculé par le serveur ; `defaut` quand il n'y a rien à annoncer.
+function libelleDocumentAttendu(
+  attente: AttenteDocuments | null | undefined,
+  defaut: string,
+): string {
+  if (!attente) return defaut;
+  if (attente.etat === 'apres_collecte') return 'Généré après la collecte';
+  const date = formatDateParis(attente.jour);
+  return attente.etat === 'attendu'
+    ? `Attendu le ${date} au matin`
+    : `Attendu depuis le ${date}`;
 }
 
 // Bloc 7 — Historique + audit log (GET /[id]/audit).
@@ -2428,7 +2446,10 @@ export function CollecteDetailPanel({
                     </p>
                     <Text variant="hint">
                       {!documents?.rapport
-                        ? 'Non encore généré'
+                        ? libelleDocumentAttendu(
+                            documents?.attente,
+                            'Non encore généré',
+                          )
                         : !documents.rapport.genere_at
                           ? 'En attente de génération'
                           : documents.rapport.consulte_par_user_at
@@ -2488,7 +2509,10 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.bordereau
                           ? `Statut : ${documents.bordereau.statut}`
-                          : 'Non encore généré'}
+                          : libelleDocumentAttendu(
+                              documents?.attente,
+                              'Non encore généré',
+                            )}
                       </Text>
                     </div>
                     <Button
@@ -2538,7 +2562,10 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.attestation
                           ? `Statut : ${documents.attestation.statut}`
-                          : 'Non encore générée'}
+                          : libelleDocumentAttendu(
+                              documents?.attente,
+                              'Non encore générée',
+                            )}
                       </Text>
                     </div>
                     <Button

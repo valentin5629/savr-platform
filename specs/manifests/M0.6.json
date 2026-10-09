@@ -1589,6 +1589,14 @@
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel-email-infos-acces.m0-6.test.tsx (18 tests « M0.6 — fiche collecte Admin : … » : textes, rôles, présence du bouton selon l'état)",
       "statut": "à-vérifier",
       "libelle": "Rendu à l'écran des états de l'email « infos d'accès chauffeur », du bouton de renvoi et des messages de confirmation dans la fiche collecte Admin, et des deux nouvelles alertes dans l'écran Alertes (décision Val 2026-10-08, _Divergences/M0.6_20261008_emails-echec-definitif-infos-acces.md). Bloc Chauffeur contrôlé le 2026-10-08 sur un aperçu local à données simulées (5 états, captures transmises à Val dans la conversation) ; messages de confirmation et écran Alertes NON regardés — ce n'est pas une preuve sur l'application connectée. GO-VISUAL en attente (validation Val)"
+    },
+    {
+      "id": "M0.6-col-bloc3-document-attendu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:325",
+      "artefact": "packages/plateforme/src/lib/collectes/attente-documents.ts (attenteDocuments : état « apres_collecte », « attendu » ou « en_retard » avec le jour du traitement de nuit, calculé à partir du statut et de realisee_at) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/route.ts (champ `attente` du GET, calculé par la route) + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents : lignes Rapport RSE, Bordereau ZD et Attestation de don sans document — « Généré après la collecte », « Attendu le JJ/MM/AAAA au matin », « Attendu depuis le JJ/MM/AAAA » ; « Non encore généré » conservé quand il n'y a rien à annoncer)",
+      "test": "packages/plateforme/tests/lib/attente-documents.m0-6.test.ts « M0.6 / Bloc 3 Documents — attenteDocuments » + packages/plateforme/tests/api/admin/collectes-documents-attente.m0-6.test.ts « M0.6 — GET admin/collectes/[id]/documents : attente des documents » + packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 : document absent, traitement de nuit passé : attendu depuis une date, téléchargement grisé », « M0.6 — Bloc 3 : document absent, traitement de nuit à venir : attendu à une date (ZD, rapport et bordereau) », « M0.6 — Bloc 3 : document absent, collecte pas encore réalisée : généré après la collecte », « M0.6 — Bloc 3 : document absent, rien à annoncer : libellé par défaut conservé »",
+      "statut": "implemented",
+      "libelle": "Fiche collecte Admin, Bloc 3 Documents : une ligne de document qui n'existe pas encore dit quand il est attendu (décision Val 2026-10-09 en revue E2E ; libellés à valider : _Divergences/M0.6_20261009_bloc3-document-attendu.md)"
     }
   ],
   "cdc_source_hash": {

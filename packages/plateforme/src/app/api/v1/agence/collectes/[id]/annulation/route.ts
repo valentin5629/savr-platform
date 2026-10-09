@@ -45,10 +45,22 @@ export async function POST(
       { status: 404 },
     );
 
-  const evt = (Array.isArray(c.evenement) ? c.evenement[0] : c.evenement) as {
-    organisation_id: string;
-    organisation: { nom: string } | { nom: string }[] | null;
-  };
+  const evt = (Array.isArray(c.evenement) ? c.evenement[0] : c.evenement) as
+    | {
+        organisation_id: string;
+        organisation: { nom: string } | { nom: string }[] | null;
+      }
+    | null
+    | undefined;
+  // Périmètre d'écriture agence (miroir de la route traiteur) : ses propres
+  // programmations (organisation_id = son orga). L'écriture qui suit passe par le
+  // client de service : sans cette borne, seule la lecture RLS ci-dessus la
+  // limiterait.
+  if (!evt || evt.organisation_id !== auth.ctx.organisationId)
+    return NextResponse.json(
+      { error: 'Annulation non autorisée' },
+      { status: 403 },
+    );
   const orgNom = Array.isArray(evt.organisation)
     ? evt.organisation[0]?.nom
     : evt.organisation?.nom;

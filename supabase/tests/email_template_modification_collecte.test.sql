@@ -18,7 +18,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(27);
+SELECT plan(36);
 
 -- Helpers de rôle, signatures de rls_0_4_smoke.test.sql.
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -115,6 +115,8 @@ SELECT throws_ok(
   '42501', NULL, 'traiteur_manager ne crée pas de gabarit');
 WITH maj AS (UPDATE plateforme.email_templates SET corps_html = '<p>détourné</p>' RETURNING 1)
 SELECT is((SELECT count(*)::int FROM maj), 0, 'traiteur_manager ne réécrit aucun gabarit');
+WITH sup AS (DELETE FROM plateforme.email_templates RETURNING 1)
+SELECT is((SELECT count(*)::int FROM sup), 0, 'traiteur_manager ne supprime aucun gabarit');
 SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes), 0,
   'traiteur_manager ne lit aucun email envoyé (variables : téléphones)');
 SELECT throws_ok(
@@ -132,6 +134,8 @@ SELECT throws_ok(
   '42501', NULL, 'traiteur_commercial ne crée pas de gabarit');
 WITH maj AS (UPDATE plateforme.email_templates SET corps_html = '<p>détourné</p>' RETURNING 1)
 SELECT is((SELECT count(*)::int FROM maj), 0, 'traiteur_commercial ne réécrit aucun gabarit');
+WITH sup AS (DELETE FROM plateforme.email_templates RETURNING 1)
+SELECT is((SELECT count(*)::int FROM sup), 0, 'traiteur_commercial ne supprime aucun gabarit');
 SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes), 0,
   'traiteur_commercial ne lit aucun email envoyé (variables : téléphones)');
 SELECT throws_ok(
@@ -144,6 +148,13 @@ SELECT throws_ok(
 SELECT test_set_jwt('agence', '0b9e5700-0000-0000-0000-000000000002'::uuid);
 SELECT is((SELECT count(*)::int FROM plateforme.email_templates), 0,
   'agence ne lit aucun gabarit');
+SELECT throws_ok(
+  $$INSERT INTO plateforme.email_templates (code, sujet, corps_html) VALUES ('sonde_role', 'x', '<p>x</p>')$$,
+  '42501', NULL, 'agence ne crée pas de gabarit');
+WITH maj AS (UPDATE plateforme.email_templates SET corps_html = '<p>détourné</p>' RETURNING 1)
+SELECT is((SELECT count(*)::int FROM maj), 0, 'agence ne réécrit aucun gabarit');
+WITH sup AS (DELETE FROM plateforme.email_templates RETURNING 1)
+SELECT is((SELECT count(*)::int FROM sup), 0, 'agence ne supprime aucun gabarit');
 SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes), 0,
   'agence ne lit aucun email envoyé (variables : téléphones)');
 SELECT throws_ok(
@@ -155,6 +166,13 @@ SELECT throws_ok(
 SELECT test_set_jwt('gestionnaire_lieux', '0b9e5700-0000-0000-0000-000000000003'::uuid);
 SELECT is((SELECT count(*)::int FROM plateforme.email_templates), 0,
   'gestionnaire_lieux ne lit aucun gabarit');
+SELECT throws_ok(
+  $$INSERT INTO plateforme.email_templates (code, sujet, corps_html) VALUES ('sonde_role', 'x', '<p>x</p>')$$,
+  '42501', NULL, 'gestionnaire_lieux ne crée pas de gabarit');
+WITH maj AS (UPDATE plateforme.email_templates SET corps_html = '<p>détourné</p>' RETURNING 1)
+SELECT is((SELECT count(*)::int FROM maj), 0, 'gestionnaire_lieux ne réécrit aucun gabarit');
+WITH sup AS (DELETE FROM plateforme.email_templates RETURNING 1)
+SELECT is((SELECT count(*)::int FROM sup), 0, 'gestionnaire_lieux ne supprime aucun gabarit');
 SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes), 0,
   'gestionnaire_lieux ne lit aucun email envoyé (variables : téléphones)');
 SELECT throws_ok(
@@ -181,6 +199,9 @@ SELECT is((SELECT count(*)::int FROM plateforme.emails_envoyes
 SELECT test_as_superuser();
 SELECT is((SELECT count(*)::int FROM plateforme.email_templates WHERE corps_html = '<p>détourné</p>'), 0,
   'aucun gabarit réécrit');
+SELECT is((SELECT count(*)::int FROM plateforme.email_templates
+            WHERE code = 'admin_modification_collecte_traiteur'), 1,
+  'le gabarit de l''email n''a pas été supprimé');
 
 SELECT * FROM finish();
 ROLLBACK;

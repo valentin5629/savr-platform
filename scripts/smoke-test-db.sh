@@ -35,12 +35,18 @@ set -euo pipefail
 # 321 octets sur 9 lignes par le CLI (CLI 2.105.0, depuis une session Claude
 # Code), le nom du schéma en cinquième ligne.
 #
-# `2> /dev/null` : quand SIGPIPE est ignoré, printf écrit « write error: Broken
-# pipe » sur la sortie d'erreur.
+# `2>&-` : quand SIGPIPE est ignoré, printf écrit « write error: Broken pipe »
+# sur sa sortie d'erreur ; elle est donc fermée. Fermée, et non renvoyée vers
+# /dev/null : mesuré sous macOS, écriture dans /dev/null interdite, la forme
+# `2> /dev/null` n'a vu le texte dans aucun de 20 essais (texte de trois lignes
+# comme texte de plus de 300 000 caractères), la forme fermée l'a vu dans tous.
+# Cela ne rend pas le script utilisable dans un tel environnement : il s'y arrête
+# au test de connexion (« impossible de se connecter », sortie 1) avant toute
+# recherche de schéma, avant comme après ce correctif.
 # ---------------------------------------------------------------------------
 sortie_contient() (
   set +o pipefail
-  printf '%s\n' "$1" 2> /dev/null | grep -q "$2"
+  printf '%s\n' "$1" 2>&- | grep -q "$2"
 )
 
 # ---------------------------------------------------------------------------
@@ -117,13 +123,13 @@ FAUX
   # Gardes anti-essai-vacant : les cas « lie_grosse » ne prouvent quelque chose
   # que si l'enveloppe est VRAIMENT grosse, et si la lecture d'avant y manque
   # VRAIMENT le schéma sur la machine qui joue ce test. Tube nu sous `pipefail`
-  # VOULU, donc. `2>/dev/null` : le message d'echo quand SIGPIPE est ignoré.
+  # VOULU, donc. `2>&-` : le message d'echo quand SIGPIPE est ignoré.
   grosse=$(echo "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'tms';" \
     | PATH="$bac/bin:$PATH" FAUX_SCHEMAS="tms" FAUX_GROSSE=oui supabase db query --linked --output json)
   if [ "${#grosse}" -le 300000 ]; then
     echo "🔴 AUTO-TEST : grosse enveloppe VACANTE — ${#grosse} caractères, plus de 300 000 attendus." >&2
     echec=true
-  elif ( set -o pipefail; echo "$grosse" 2>/dev/null | grep -q "tms" ); then
+  elif ( set -o pipefail; echo "$grosse" 2>&- | grep -q "tms" ); then
     echo "🔴 AUTO-TEST : grosse enveloppe VACANTE — la lecture d'avant y voit le schéma ici (${#grosse} caractères) : grossir le champ." >&2
     echec=true
   fi

@@ -187,16 +187,16 @@ $remplissage
   # manquent VRAIMENT sur la machine qui joue ce test : celle du `not ok` pour la
   # grosse rouge, celle du plan pour la grosse verte. Tubes nus sous `pipefail`
   # VOULUS, donc : ce sont les lectures d'avant, rejouées pour constater qu'elles
-  # se trompent ici. `2>/dev/null` : le message d'echo quand SIGPIPE est ignoré.
+  # se trompent ici. `2>&-` : le message d'echo quand SIGPIPE est ignoré.
   if [ "${#remplissage}" -le 300000 ]; then
     echo "🔴 AUTO-TEST : grosses sorties VACANTES — ${#remplissage} caractères de remplissage, plus de 300 000 attendus." >&2
     echec=true
   fi
-  if ( set -o pipefail; echo "$grosse_rouge" 2>/dev/null | grep -q "^not ok" ); then
+  if ( set -o pipefail; echo "$grosse_rouge" 2>&- | grep -q "^not ok" ); then
     echo "🔴 AUTO-TEST : M_grosse_rouge VACANTE — la lecture d'avant voit son « not ok » ici (${#grosse_rouge} caractères) : grossir le remplissage." >&2
     echec=true
   fi
-  if ( set -o pipefail; echo "$grosse_verte" 2>/dev/null | grep -q "^ok\|PASS\|passed\|1\.\." ); then
+  if ( set -o pipefail; echo "$grosse_verte" 2>&- | grep -q "^ok\|PASS\|passed\|1\.\." ); then
     echo "🔴 AUTO-TEST : M_grosse_verte VACANTE — la lecture d'avant voit son plan ici (${#grosse_verte} caractères) : grossir le remplissage." >&2
     echec=true
   fi

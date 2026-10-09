@@ -30,12 +30,18 @@ set -euo pipefail
 #     d'avant a manqué, rarement, sous Ubuntu, un plan de 289 octets où le Seq
 #     Scan était présent.
 #
-# `2> /dev/null` : quand SIGPIPE est ignoré, printf écrit « write error: Broken
-# pipe » sur la sortie d'erreur.
+# `2>&-` : quand SIGPIPE est ignoré, printf écrit « write error: Broken pipe »
+# sur sa sortie d'erreur ; elle est donc fermée. Fermée, et non renvoyée vers
+# /dev/null : mesuré sous macOS, écriture dans /dev/null interdite, la forme
+# `2> /dev/null` n'a vu le motif dans aucun de 20 essais (texte de trois lignes
+# comme texte de plus de 300 000 caractères), la forme fermée l'a vu dans tous.
+# Cela ne rend pas le script utilisable dans un tel environnement : il s'y arrête
+# au contrôle de présence de psql (« psql introuvable », sortie 0) avant toute
+# lecture de plan, avant comme après ce correctif.
 # ---------------------------------------------------------------------------
 plan_a_seq_scan() (
   set +o pipefail
-  printf '%s\n' "$1" 2> /dev/null | grep -qE 'Seq Scan on (collectes|evenements|outbox_events|users)'
+  printf '%s\n' "$1" 2>&- | grep -qE 'Seq Scan on (collectes|evenements|outbox_events|users)'
 )
 
 # ---------------------------------------------------------------------------
@@ -114,12 +120,12 @@ $remplissage"
   printf '%s\n' "$gros_plan" > "$bac/gros.txt"
   # Gardes anti-essai-vacant : ce cas ne prouve quelque chose que si le plan est
   # VRAIMENT gros, et si la lecture d'avant le manque VRAIMENT sur la machine qui
-  # joue ce test. Tube nu sous `pipefail` VOULU, donc. `2>/dev/null` : le message
-  # d'echo quand SIGPIPE est ignoré.
+  # joue ce test. Tube nu sous `pipefail` VOULU, donc. `2>&-` : le message d'echo
+  # quand SIGPIPE est ignoré.
   if [ "${#remplissage}" -le 300000 ]; then
     echo "🔴 AUTO-TEST : gros plan VACANT — ${#remplissage} caractères de remplissage, plus de 300 000 attendus." >&2
     echec=true
-  elif ( set -o pipefail; echo "$gros_plan" 2>/dev/null | grep -q "Seq Scan on users" ); then
+  elif ( set -o pipefail; echo "$gros_plan" 2>&- | grep -q "Seq Scan on users" ); then
     echo "🔴 AUTO-TEST : gros plan VACANT — la lecture d'avant voit son Seq Scan ici (${#gros_plan} caractères) : grossir le remplissage." >&2
     echec=true
   fi

@@ -47,9 +47,10 @@ sortie_contient() (
 # Auto-test (`--self-test`) — joué en CI (job `migration-timestamp`), sans base.
 # Un faux `psql` et un faux `supabase`, placés en tête du PATH, répondent aux
 # requêtes du script : un schéma est présent s'il est dans $FAUX_SCHEMAS. Le faux
-# `supabase` rend l'enveloppe JSON relevée sur le CLI pour une recherche de
-# schéma (cf. ci-dessus) ; avec FAUX_GROSSE=oui, son champ "warning" dépasse
-# 300 000 caractères.
+# `supabase` reprend la forme de l'enveloppe JSON relevée sur le CLI pour une
+# recherche de schéma (mêmes clés, même ordre, mêmes lignes ; le texte du champ
+# "warning" est abrégé) ; avec FAUX_GROSSE=oui, ce champ dépasse 300 000
+# caractères.
 # ---------------------------------------------------------------------------
 self_test() (
   local script_abs bac grosse echec=false

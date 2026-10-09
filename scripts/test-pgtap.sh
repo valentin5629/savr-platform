@@ -15,8 +15,8 @@
 # majuscule n'est pas joué.
 #
 # Sortie : 0 = chaque fichier joué est vert ; 1 = au moins un fichier rouge, ou
-# aucun fichier pour ce motif ; 2 = DATABASE_URL absent (rien n'est joué), ou
-# auto-test en échec.
+# aucun fichier pour ce motif ; 2 = DATABASE_URL absent ou psql introuvable (rien
+# n'est joué), ou auto-test en échec.
 #
 # UN FICHIER EST VERT quand les trois sont vrais, ROUGE sinon :
 #   1. psql sort en 0 ;
@@ -64,25 +64,30 @@
 # Les lignes `ok` et `not ok` d'un fichier ne peuvent donc pas y être comptées :
 # aucun verdict n'est possible, et ce lanceur ne lance plus rien dans ce mode.
 # Non mesuré : un vrai fichier pgTAP dans ce mode (il écrit ses données d'essai).
-# Avec `--local`, la même commande refuse tout fichier à plusieurs instructions
-# (« cannot insert multiple commands into a prepared statement », sortie 1).
+# Avec `--local`, la même commande a refusé les deux fichiers à plusieurs
+# instructions essayés (« cannot insert multiple commands into a prepared
+# statement », sortie 1).
 # =============================================================================
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Auto-test (`--self-test`) — joué en CI (job `migration-timestamp`), sans base.
 #
-# Un faux `psql`, placé en tête du PATH, écrit le contenu du fichier reçu par
-# `-f` comme le vrai psql écrit la sortie d'un test (mesures de l'en-tête) :
-#   • sans `-A`, chaque ligne sort précédée d'un espace ;
+# Un faux `psql`, placé en tête du PATH, écrit sur sa sortie standard le contenu
+# du fichier reçu par `-f`. Il reprend du vrai psql ce dont le verdict dépend
+# (mesures de l'en-tête) :
+#   • sans `-A`, les lignes de résultat sortent précédées d'un espace ;
 #   • sans `-X` aussi : il joue un poste dont le fichier de démarrage de psql
 #     demande le format aligné ;
 #   • une ligne `ERROR:` ne l'arrête, sortie 3, qu'avec ON_ERROR_STOP=1 ; sans
 #     cette option il écrit tout et sort en 0.
+# Il s'en écarte là où le lanceur ne lit rien : il indente aussi la ligne
+# `ERROR:` et l'écrit sur la sortie standard. Le vrai psql l'écrit sans espace
+# sur la sortie d'erreur, que le lanceur joint à l'autre par `2>&1`.
 # Chaque fichier d'essai porte donc la sortie qu'il est censé produire.
 # ---------------------------------------------------------------------------
 self_test() (
-  local script_abs bac remplissage grosse_rouge echec=false
+  local script_abs bac remplissage grosse_verte grosse_rouge echec=false
   script_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
   bac=$(mktemp -d) || { echo "🔴 AUTO-TEST : mktemp -d impossible." >&2; return 2; }
   [ -n "$bac" ] && [ -d "$bac" ] || { echo "🔴 AUTO-TEST : répertoire jetable invalide." >&2; return 2; }
@@ -160,29 +165,39 @@ psql:M_erreur_sql.test.sql:9: ERROR:  relation \"inconnue\" does not exist"
   essai M_plan_incomplet "1..3
 ok 1 - a
 ok 2 - b"
+  essai M_plan_depasse "1..2
+ok 1 - a
+ok 2 - b
+ok 3 - c"
   : > supabase/tests/M_muette.test.sql
 
   # Très grosses sorties : plus de 300 000 caractères de diagnostics pgTAP.
   remplissage=$(head -c 320000 /dev/zero | tr '\0' 'x' | fold -w 100 | sed 's/^/# /')
-  essai M_grosse_verte "1..1
+  grosse_verte="1..1
 ok 1 - a
 $remplissage"
+  essai M_grosse_verte "$grosse_verte"
   grosse_rouge="not ok 1 - a
 $remplissage
 1..1"
   essai M_grosse_rouge "$grosse_rouge"
 
   # Gardes anti-essai-vacant. Les deux grosses sorties ne prouvent quelque chose
-  # que si elles sont VRAIMENT grosses, et si la lecture d'avant manque VRAIMENT
-  # le `not ok` de la grosse rouge sur la machine qui joue ce test. Tube nu sous
-  # `pipefail` VOULU, donc : c'est la lecture d'avant, rejouée pour constater
-  # qu'elle se trompe ici. `2>/dev/null` : le message d'echo quand SIGPIPE est
-  # ignoré.
+  # que si elles sont VRAIMENT grosses, et si les deux lectures d'avant les
+  # manquent VRAIMENT sur la machine qui joue ce test : celle du `not ok` pour la
+  # grosse rouge, celle du plan pour la grosse verte. Tubes nus sous `pipefail`
+  # VOULUS, donc : ce sont les lectures d'avant, rejouées pour constater qu'elles
+  # se trompent ici. `2>/dev/null` : le message d'echo quand SIGPIPE est ignoré.
   if [ "${#remplissage}" -le 300000 ]; then
     echo "🔴 AUTO-TEST : grosses sorties VACANTES — ${#remplissage} caractères de remplissage, plus de 300 000 attendus." >&2
     echec=true
-  elif ( set -o pipefail; echo "$grosse_rouge" 2>/dev/null | grep -q "^not ok" ); then
+  fi
+  if ( set -o pipefail; echo "$grosse_rouge" 2>/dev/null | grep -q "^not ok" ); then
     echo "🔴 AUTO-TEST : M_grosse_rouge VACANTE — la lecture d'avant voit son « not ok » ici (${#grosse_rouge} caractères) : grossir le remplissage." >&2
+    echec=true
+  fi
+  if ( set -o pipefail; echo "$grosse_verte" 2>/dev/null | grep -q "^ok\|PASS\|passed\|1\.\." ); then
+    echo "🔴 AUTO-TEST : M_grosse_verte VACANTE — la lecture d'avant voit son plan ici (${#grosse_verte} caractères) : grossir le remplissage." >&2
     echec=true
   fi
 
@@ -211,6 +226,8 @@ $remplissage
     "Une erreur SQL passe pour verte."
   cas M_plan_incomplet 1 "Running M_plan_incomplet.test.sql ... FAIL" \
     "Un plan incomplet passe pour vert."
+  cas M_plan_depasse 1 "Running M_plan_depasse.test.sql ... FAIL" \
+    "Plus d'assertions que le plan n'en annonce passe pour vert."
   cas M_muette 1 "Running M_muette.test.sql ... FAIL" \
     "Un fichier qui n'écrit rien passe pour vert."
   cas M_grosse_verte 0 "Running M_grosse_verte.test.sql ... PASS" \
@@ -218,7 +235,7 @@ $remplissage
   cas M_grosse_rouge 1 "Running M_grosse_rouge.test.sql ... FAIL" \
     "Une assertion en échec suivie d'une très grosse sortie passe pour verte."
   # Tous les fichiers ensemble : un rouge parmi des verts reste compté.
-  cas "M_*" 1 "Total: 9 | Passed: 2 | Failed: 7" \
+  cas "M_*" 1 "Total: 10 | Passed: 2 | Failed: 8" \
     "Le décompte des fichiers est faux."
   # Aucun fichier pour le motif : rien n'est joué, ce n'est pas un vert.
   cas M_absente 1 "Aucun fichier de test trouvé : supabase/tests/M_absente.test.sql" \
@@ -233,8 +250,18 @@ $remplissage
     echec=true
   fi
 
+  # Sans psql : sortie 2. Le PATH ne mène à aucune commande, bash est appelé par
+  # son chemin : le lanceur doit s'arrêter avant d'en chercher une autre.
+  mkdir -p "$bac/vide"
+  rc=0
+  PATH="$bac/vide" DATABASE_URL="faux://base" "$BASH" "$script_abs" M_verte >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : sans psql — sortie $rc (2 attendu)." >&2
+    echec=true
+  fi
+
   [ "$echec" = true ] && return 1
-  echo "✅ test-pgtap : auto-test OK (sortie verte, assertion en échec au début, au milieu, à la fin, erreur SQL, plan incomplet, fichier muet, très grosses sorties verte et rouge, décompte, motif sans fichier, refus sans DATABASE_URL)."
+  echo "✅ test-pgtap : auto-test OK (sortie verte, assertion en échec au début, au milieu, à la fin, erreur SQL, plan incomplet, plan dépassé, fichier muet, très grosses sorties verte et rouge, décompte, motif sans fichier, refus sans DATABASE_URL, refus sans psql)."
   return 0
 )
 
@@ -247,6 +274,11 @@ if [ -z "${DATABASE_URL:-}" ]; then
   echo "✗ DATABASE_URL absent : aucun test n'a été joué." >&2
   echo "  Ce lanceur ne passe plus par le projet lié (cf. l'en-tête de $0)." >&2
   echo "  Base Supabase locale : DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm test:pgtap" >&2
+  exit 2
+fi
+
+if ! command -v psql > /dev/null 2>&1; then
+  echo "✗ psql introuvable : aucun test n'a été joué." >&2
   exit 2
 fi
 

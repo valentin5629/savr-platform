@@ -43,9 +43,12 @@ plan_a_seq_scan() (
 # Un faux `psql`, placé en tête du PATH, répond aux trois requêtes du script :
 # la connexion, la présence d'une table (absente si elle est dans
 # $FAUX_ABSENTES), et EXPLAIN, dont il rend le plan écrit dans $FAUX_PLAN.
+# Un faux `grep` refuse l'option -P, comme le grep de macOS, et passe le reste
+# au vrai : sans lui, un retour à `grep -oP` ne ferait rougir cet auto-test que
+# sous macOS, le grep GNU de la CI comprenant -P.
 # ---------------------------------------------------------------------------
 self_test() (
-  local script_abs bac remplissage gros_plan t echec=false
+  local script_abs bac remplissage gros_plan vrai_grep t echec=false
   script_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
   bac=$(mktemp -d) || { echo "🔴 AUTO-TEST : mktemp -d impossible." >&2; return 2; }
   [ -n "$bac" ] && [ -d "$bac" ] || { echo "🔴 AUTO-TEST : répertoire jetable invalide." >&2; return 2; }
@@ -65,7 +68,17 @@ case "$requete" in
   EXPLAIN*) cat "$FAUX_PLAN" ;;
 esac
 FAUX
-  chmod +x "$bac/bin/psql"
+  vrai_grep=$(command -v grep)
+  cat > "$bac/bin/grep" <<FAUX
+#!/usr/bin/env bash
+for a; do
+  case "\$a" in
+    -P* | -[!-]*P*) echo "grep: invalid option -- P" >&2; exit 2 ;;
+  esac
+done
+exec "$vrai_grep" "\$@"
+FAUX
+  chmod +x "$bac/bin/psql" "$bac/bin/grep"
 
   # cas <fichier de plan> <tables absentes> <sortie attendue> <ce que l'échec veut dire>
   cas() {

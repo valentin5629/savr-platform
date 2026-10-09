@@ -28,6 +28,10 @@ let capturedTypeArgs: unknown[] = [];
 // de la carte fusionnée « Collecte <48h non validée » (sinon le mock l'avalerait).
 let capturedNotArgs: unknown[][] = [];
 
+// Filtres posés par CHAQUE requête (une chaîne par `.from()`), pour attester les
+// filtres d'une carte précise sans les confondre avec ceux de ses voisines.
+let filtresParRequete: unknown[][][] = [];
+
 /**
  * Chaîne Supabase mock RECORDING + thenable : retient le filtre `type` réellement
  * appliqué puis résout `{ count }` en fonction. Une nouvelle instance par `.from()`
@@ -37,7 +41,10 @@ function makeRecordingChain() {
   const chain: Record<string, unknown> & {
     _typeFilter?: string | string[];
   } = {};
+  const filtres: unknown[][] = [];
+  filtresParRequete.push(filtres);
   const recordType = (col: string, val: unknown) => {
+    filtres.push([col, val]);
     if (col === 'type') {
       chain._typeFilter = val as string | string[];
       capturedTypeArgs.push(val);
@@ -63,6 +70,7 @@ function makeRecordingChain() {
     is: () => chain,
     not: (...args: unknown[]) => {
       capturedNotArgs.push(args);
+      filtres.push(['not', ...args]);
       return chain;
     },
     gte: () => chain,
@@ -119,6 +127,7 @@ describe('M3.5 / dashboard-kpi Bloc 1 / enum réel', () => {
     vi.clearAllMocks();
     capturedTypeArgs = [];
     capturedNotArgs = [];
+    filtresParRequete = [];
   });
 
   it('M3.5 / Bloc 1 — N collectes zero_dechet → carte ZD = N (oracle BL-P0-05, pas 0)', async () => {
@@ -226,4 +235,29 @@ describe('M3.5 / chips collectes / enum réel', () => {
       expect(capturedTypeArgs).not.toContain('ag');
     },
   );
+});
+
+// Arbitrage Val 2026-10-09 — même prédicat que la pastille de la liste Collectes
+// (lib/collectes-chips, `STATUTS_A_RENVOYER`).
+describe('M0.6/dirty_tms_apres_envoi — carte « Modifiées sans renvoi TMS » du Dashboard Admin', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    filtresParRequete = [];
+  });
+
+  it('compte les collectes modifiées encore à réaliser, sans exiger de référence de commande', async () => {
+    setupAuth('admin_savr');
+    const { GET } = await import('@/app/api/v1/admin/dashboard/kpi/route.js');
+    expect((await GET(makeReq())).status).toBe(200);
+
+    const carte = filtresParRequete.filter((f) =>
+      f.some(([col, val]) => col === 'dirty_tms' && val === true),
+    );
+    expect(carte).toHaveLength(1);
+    expect(carte[0]).toContainEqual([
+      'statut',
+      ['programmee', 'validee', 'en_cours'],
+    ]);
+    expect(carte[0]!.some(([col]) => col === 'not')).toBe(false);
+  });
 });

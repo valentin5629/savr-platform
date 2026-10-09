@@ -22,6 +22,11 @@ import {
   fatalSiAucuneProduite,
   logCollecteEnEchec,
 } from './batch-fatal.js';
+import {
+  TAILLE_PAGE,
+  lireParPages,
+  lireParTranches,
+} from './selection-par-pages.js';
 
 export interface BatchSansExcedentResult {
   enqueued: number;
@@ -83,10 +88,12 @@ export async function runBatchSansExcedent(
   // 1. Collectes AG en realisee_sans_collecte — PAS d'embargo H+24 (§1.3-bis) : aucune
   //    garde .lte('realisee_at', …). L'unique transition vers ce statut en V1 provient
   //    de l'adapter logistique (course vide AG, cf. packages/adapters/).
-  const { data: collectes, error: selErr } = await supabase
-    .from('collectes')
-    .select(
-      `
+  const { data: collectes, error: selErr } =
+    await lireParPages<CollecteSansExcedentRow>((apresId) => {
+      const pages = supabase
+        .from('collectes')
+        .select(
+          `
       id, evenement_id, controle_acces_requis, aucun_repas_motif,
       evenements (
         nom_evenement, date_evenement, pax, nom_client_organisateur,
@@ -98,10 +105,14 @@ export async function runBatchSansExcedent(
         lieux ( nom, adresse_acces, code_postal, ville )
       )
     `,
-    )
-    .eq('type', 'anti_gaspi')
-    .eq('statut', 'realisee_sans_collecte')
-    .not('evenement_id', 'is', null);
+        )
+        .eq('type', 'anti_gaspi')
+        .eq('statut', 'realisee_sans_collecte')
+        .not('evenement_id', 'is', null);
+      return (apresId ? pages.gt('id', apresId) : pages)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    });
 
   if (selErr) {
     result.fatal = fatalSelection(
@@ -112,18 +123,21 @@ export async function runBatchSansExcedent(
     return result;
   }
 
-  if (!collectes?.length) return result;
+  if (!collectes.length) return result;
 
   // 2. Idempotence : exclure les collectes ayant déjà une ligne rapports_rse. Une
   //    collecte AG realisee_sans_collecte n'a de rapports_rse que via CE batch (ZD et
   //    attestation ne traitent que cloturee) → l'existence suffit comme garde.
-  const collecteIds = (collectes as unknown as CollecteSansExcedentRow[]).map(
-    (c) => c.id,
+  const { data: existingRapports, error: rapSelErr } = await lireParTranches<{
+    collecte_id: string;
+  }>(
+    collectes.map((c) => c.id),
+    (tranche) =>
+      supabase
+        .from('rapports_rse')
+        .select('collecte_id')
+        .in('collecte_id', tranche),
   );
-  const { data: existingRapports, error: rapSelErr } = await supabase
-    .from('rapports_rse')
-    .select('collecte_id')
-    .in('collecte_id', collecteIds);
 
   // Fail-closed : sans la liste des rapports existants, traiter = rapport en double.
   if (rapSelErr) {
@@ -135,15 +149,9 @@ export async function runBatchSansExcedent(
     return result;
   }
 
-  const doneIds = new Set(
-    ((existingRapports ?? []) as { collecte_id: string }[]).map(
-      (r) => r.collecte_id,
-    ),
-  );
+  const doneIds = new Set(existingRapports.map((r) => r.collecte_id));
 
-  const toProcess = (collectes as unknown as CollecteSansExcedentRow[]).filter(
-    (c) => !doneIds.has(c.id),
-  );
+  const toProcess = collectes.filter((c) => !doneIds.has(c.id));
   result.already_done = collectes.length - toProcess.length;
 
   if (!toProcess.length) return result;

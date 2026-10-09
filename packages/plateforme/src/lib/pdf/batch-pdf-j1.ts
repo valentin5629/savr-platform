@@ -10,6 +10,11 @@ import {
   fatalSiAucuneProduite,
   logCollecteEnEchec,
 } from './batch-fatal.js';
+import {
+  TAILLE_PAGE,
+  lireParPages,
+  lireParTranches,
+} from './selection-par-pages.js';
 import { resolveRapportBenchmark } from './rapport-benchmark.js';
 import { resolveRapportLogo } from './logo-cascade.js';
 import { makeLogoResolver } from './logo-inline.js';
@@ -148,11 +153,21 @@ export async function runBatchPdfJ1(
     errors: [],
   };
 
-  // 1. Collectes ZD cloturees sans bordereau emis
-  const { data: collectes, error: selErr } = await supabase
-    .from('collectes')
-    .select(
-      `
+  // Embargo H+24 (§12 énoncé canonique : « ni généré ni accessible avant
+  // realisee_at + 24h »). Le document figé (bordereau + rapport) ne doit pas
+  // être généré avant la fin de la fenêtre de correction de pesée. Le client
+  // Supabase ne sait pas exprimer now()-interval côté SQL → seuil calculé en JS
+  // (realisee_at = timestamptz), une seule fois pour toutes les pages.
+  // Prédicat canonique : realisee_at + 24h <= now().
+  const finEmbargo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+
+  // 1. Collectes ZD cloturees (toutes, par pages — cf. selection-par-pages)
+  const { data: collectes, error: selErr } = await lireParPages<CollecteRow>(
+    (apresId) => {
+      const pages = supabase
+        .from('collectes')
+        .select(
+          `
       id, evenement_id, realisee_at, date_collecte,
       taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh,
       co2_facteurs_snapshot, nb_camions_demande, prestataire_logistique_id,
@@ -167,30 +182,35 @@ export async function runBatchPdfJ1(
         lieux ( nom, adresse_acces, code_postal, ville )
       )
     `,
-    )
-    .eq('type', 'zero_dechet')
-    .eq('statut', 'cloturee')
-    // Embargo H+24 (§12 énoncé canonique : « ni généré ni accessible avant
-    // realisee_at + 24h »). Le document figé (bordereau + rapport) ne doit pas
-    // être généré avant la fin de la fenêtre de correction de pesée. Le client
-    // Supabase ne sait pas exprimer now()-interval côté SQL → seuil calculé en JS
-    // (realisee_at = timestamptz). Prédicat canonique : realisee_at + 24h <= now().
-    .lte('realisee_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
-    .not('evenement_id', 'is', null);
+        )
+        .eq('type', 'zero_dechet')
+        .eq('statut', 'cloturee')
+        .lte('realisee_at', finEmbargo)
+        .not('evenement_id', 'is', null);
+      return (apresId ? pages.gt('id', apresId) : pages)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    },
+  );
 
   if (selErr) {
     result.fatal = fatalSelection(result.errors, 'Sélection collectes', selErr);
     return result;
   }
 
-  if (!collectes?.length) return result;
+  if (!collectes.length) return result;
 
   // 2. Exclure celles qui ont déjà un bordereau
-  const collecteIds = collectes.map((c: { id: string }) => c.id);
-  const { data: existingBordereaux, error: bordSelErr } = await supabase
-    .from('bordereaux_savr')
-    .select('collecte_id, statut')
-    .in('collecte_id', collecteIds);
+  type BordRow = { collecte_id: string; statut: string };
+  const { data: existingBordereaux, error: bordSelErr } =
+    await lireParTranches<BordRow>(
+      collectes.map((c) => c.id),
+      (tranche) =>
+        supabase
+          .from('bordereaux_savr')
+          .select('collecte_id, statut')
+          .in('collecte_id', tranche),
+    );
 
   // Fail-closed : sans la liste des bordereaux émis, traiter = ré-émettre (BSAV gapless
   // consommé, doublon de document réglementaire).
@@ -203,16 +223,13 @@ export async function runBatchPdfJ1(
     return result;
   }
 
-  type BordRow = { collecte_id: string; statut: string };
   const doneIds = new Set(
-    ((existingBordereaux ?? []) as BordRow[])
+    existingBordereaux
       .filter((b) => b.statut !== 'brouillon')
       .map((b) => b.collecte_id),
   );
 
-  const toProcess = (collectes as unknown as CollecteRow[]).filter(
-    (c) => !doneIds.has(c.id),
-  );
+  const toProcess = collectes.filter((c) => !doneIds.has(c.id));
   result.already_done = collectes.length - toProcess.length;
 
   const now = new Date();

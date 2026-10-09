@@ -97,10 +97,20 @@ tests_de_securite() {
 # ── Auto-test : un périmètre qui oublie une source rend le commit vert à tort ──
 self_test() (
   set -uo pipefail
+  # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
+  # auto-test écrivait ailleurs sans ces lignes, et ce que veut dire le code 3.
+  # Le `unset` et `git_isole` viennent avant tout appel à git.
+  unset ${!GIT_*}
+  LIB="$(dirname "$ICI")/lib-auto-test.sh"
+  [ -f "$LIB" ] || { echo "🔴 tests-lies : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  . "$LIB"
+  bac="$(bac_jetable)" || { echo "🔴 tests-lies : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
+  trap 'rm -rf "$bac"' EXIT
+  git_isole "$bac" || { echo "🔴 tests-lies : dossier d'isolement non créé — auto-test non joué." >&2; exit 3; }
   echec=false
-  tmp="$(mktemp -d)" || { echo "🔴 tests-lies : mktemp impossible." >&2; exit 2; }
-  faux="$(mktemp -d)" || { echo "🔴 tests-lies : mktemp impossible." >&2; exit 2; }
-  trap 'rm -rf "$tmp" "$faux"' EXIT
+  tmp="$bac/perimetre"
+  faux="$bac/faux"
+  mkdir "$tmp" "$faux" || exit 2
   attendu() {  # attendu <libellé> <obtenu> <voulu>
     [ "$2" = "$3" ] || { echo "🔴 $1 : obtenu [$2], attendu [$3]" >&2; echec=true; }
   }
@@ -195,11 +205,13 @@ self_test() (
   attendu 'base introuvable → suite complète' "$(dernier)" '-w test:unit'
   attendu 'base introuvable → suite complète réellement lancée' "$(appels)" "$((avant + 1))"
 
+  pieges_tenus "$ICI" "$bac" || echec=true
+
   if [ "$echec" = true ]; then
     echo "🔴 tests-lies : auto-test EN ÉCHEC — le périmètre des tests liés n'est plus fiable." >&2
     exit 2
   fi
-  echo "✅ tests-lies : auto-test OK (périmètre sur 4 sources, suppressions et noms accentués compris ; base introuvable signalée ; 6 replis sur la suite complète ; filtre code ; de bout en bout : code modifié et cliquets de sécurité passés à Vitest comme chemins, cliquets joués sur suppression seule, échec propagé, suite complète sur dépendances modifiées ou base introuvable)."
+  echo "✅ tests-lies : auto-test OK (périmètre sur 4 sources, suppressions et noms accentués compris ; base introuvable signalée ; 6 replis sur la suite complète ; filtre code ; de bout en bout : code modifié et cliquets de sécurité passés à Vitest comme chemins, cliquets joués sur suppression seule, échec propagé, suite complète sur dépendances modifiées ou base introuvable${PIEGES_BILAN})."
 )
 
 if [ "${1:-}" = "--self-test" ]; then

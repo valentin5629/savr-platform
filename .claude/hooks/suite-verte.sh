@@ -89,10 +89,20 @@ enregistrer_verte() {
 # ── Auto-test : une trace qui survit à un changement de contenu = un faux vert ──
 self_test() (
   set -uo pipefail
+  # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
+  # auto-test écrivait ailleurs sans ces lignes, et ce que veut dire le code 3.
+  # Le `unset` et `git_isole` viennent avant tout appel à git.
+  unset ${!GIT_*}
+  LIB="$(dirname "$ICI")/lib-auto-test.sh"
+  [ -f "$LIB" ] || { echo "🔴 suite-verte : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  . "$LIB"
+  bac="$(bac_jetable)" || { echo "🔴 suite-verte : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
+  trap 'rm -rf "$bac"' EXIT
+  git_isole "$bac" || { echo "🔴 suite-verte : dossier d'isolement non créé — auto-test non joué." >&2; exit 3; }
   echec=false
-  tmp="$(mktemp -d)" || { echo "🔴 suite-verte : mktemp impossible." >&2; exit 2; }
-  faux="$(mktemp -d)" || { echo "🔴 suite-verte : mktemp impossible." >&2; exit 2; }
-  trap 'rm -rf "$tmp" "$faux"' EXIT
+  tmp="$bac/depot"
+  faux="$bac/faux"
+  mkdir "$tmp" "$faux" || exit 2
   cd "$tmp" || exit 2
   { git init -q -b main . && git config user.email t@t && git config user.name t \
       && echo a > f.ts && git add -A && git commit -qm base; } >/dev/null 2>&1 \
@@ -165,11 +175,13 @@ self_test() (
   [ "$(appels)" = 3 ] || { echo "🔴 arbre non propre : la suite n'a pas été rejouée." >&2; echec=true; }
   rm non-suivi.ts
 
+  pieges_tenus "$ICI" "$bac" || echec=true
+
   if [ "$echec" = true ]; then
     echo "🔴 suite-verte : auto-test EN ÉCHEC — une suite pourrait être tenue pour verte sur un contenu jamais testé." >&2
     exit 2
   fi
-  echo "✅ suite-verte : auto-test OK (identité par contenu ; arbre sale, fichier non suivi même masqué, git status en erreur, trace vide et contenu mouvant refusés ; de bout en bout : suite rouge jamais mémorisée, suite verte jouée une seule fois)."
+  echo "✅ suite-verte : auto-test OK (identité par contenu ; arbre sale, fichier non suivi même masqué, git status en erreur, trace vide et contenu mouvant refusés ; de bout en bout : suite rouge jamais mémorisée, suite verte jouée une seule fois${PIEGES_BILAN})."
 )
 
 case "${1:-}" in

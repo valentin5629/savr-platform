@@ -110,6 +110,98 @@ done
 prefixe() { basename "$1" | cut -c1-14; }
 
 # ---------------------------------------------------------------------------
+# liste_contient <liste, une entrée par ligne> <entrée> — vrai si l'entrée est
+# une ligne de la liste.
+#
+# Le tube est lu SANS `pipefail`, dans un sous-shell : seul le verdict de grep
+# décide. Sous `pipefail`, `printf … | grep -q` rend « absente » une entrée
+# pourtant présente quand grep sort au premier résultat alors que printf n'a pas
+# fini d'écrire : le tube sort en erreur (statuts relevés : 141 pour printf, 0
+# pour grep ; 1 et 0 quand SIGPIPE est ignoré). Il faut pour cela que du texte
+# SUIVE la ligne cherchée.
+#
+# Ce que la lecture manquée produisait ici — dans les DEUX sens :
+#   • liste des NOMS de la cible (`mes_migrations`, mode branch) : une migration
+#     déjà sur la cible était comptée comme neuve.
+#       – REFUS à tort : (C) la refusait, comme antérieure ou égale au max de
+#         la cible, et `--merge` sortait en 2 sur une branche saine. (A)
+#         l'exemptait tant que la lecture suivante tenait.
+#       – ACCEPTATION à tort : (A) compare chaque migration « à moi » au max
+#         des AUTRES migrations du dossier. Chaque migration du dossier comptée
+#         « à moi » à tort sortait de ce max : il baissait, ou se vidait, et
+#         (A) ne refusait plus. Relevé en `--branch --no-remote` sur une
+#         branche EN RETARD sur la cible (elle n'en porte que les premières
+#         migrations) : une migration réellement neuve et mal ordonnée sortait
+#         en 0. Sur une branche qui portait toute la cible, la dernière
+#         migration de la liste — rien ne la suit, elle est lue sans faute —
+#         gardait ce max et la migration neuve restait refusée. `--merge` la
+#         refusait dans les deux cas, par (C).
+#   • liste des PRÉFIXES de la référence (`controle_local`) : un préfixe déjà
+#     admis n'était plus reconnu, et (A) refusait la migration (« <= max du
+#     dossier ») — un renommage cosmétique, ou une migration comptée à tort
+#     ci-dessus.
+#
+# Mesuré le 2026-10-09 sur une copie de ce script, dans des dépôts jetables, sous
+# macOS 26.5.1 (/bin/bash 3.2.57, grep BSD 2.6.0) et sous Ubuntu 22.04 en
+# conteneur Docker sous OrbStack (bash 5.1.16, grep GNU 3.7), LC_ALL=C comme
+# en_US.UTF-8 :
+#   • sous Ubuntu, ce qui décide est la taille du TUBE. Dans la même image, un
+#     tube neuf faisait 8 192 octets pour root (conteneur lancé sans option) et
+#     65 536 pour un utilisateur ordinaire (F_GETPIPE_SZ). Sous macOS, cette
+#     taille n'a pas été lue : le tube nu y manquait presque toujours un motif
+#     placé en tête d'un texte de plus de 65 536 octets. Sur un runner GitHub :
+#     non mesuré ;
+#   • liste plus grosse que le tube (plus de 65 536 octets sous macOS) : sur une
+#     branche identique à la cible, `--merge --no-remote` sortait presque
+#     toujours en 2, des migrations de la cible comptées comme neuves. C'était
+#     le cas de la liste réelle du jour (182 noms, 10 345 octets) avec le tube
+#     de 8 192 octets : des migrations de la cible y étaient comptées comme
+#     neuves dans toutes les passes relevées. `--branch --no-remote` y sortait
+#     en 0 ou en 2, de façon irrégulière : en 0 quand la lecture des préfixes
+#     tenait, et la migration comptée à tort passait alors inaperçue ;
+#   • l'acceptation à tort, en `--branch --no-remote`, d'une migration neuve
+#     antérieure à toutes les autres : avec le tube de 8 192 octets et la liste
+#     réelle du jour, sur une branche réduite aux 40 premières migrations de la
+#     cible, elle sortait en 0 de façon irrégulière ; avec le tube de 65 536
+#     octets, face à une cible de 2 300 noms (138 000 octets), sur une branche
+#     réduite aux 100 premières, presque toujours. Le script corrigé la
+#     refusait (2) dans toutes les passes relevées ;
+#   • liste plus petite que le tube : cette même liste réelle a été manquée de
+#     façon irrégulière sous Ubuntu avec le tube de 65 536 octets ; sous macOS,
+#     aucune passe relevée ne l'a manquée. D'autres lectures manquées ont été
+#     relevées à ces tailles, de façon irrégulière : sous Ubuntu, sur la liste
+#     des préfixes du jour (2 730 octets) avec le tube de 8 192 octets, et
+#     jusque sur une liste de deux préfixes (29 caractères) avec celui de
+#     65 536 octets ; sous macOS, sur une liste de préfixes de 34 500 octets.
+#     Rien ne garantit donc qu'une liste de plusieurs lignes soit lue sans
+#     faute, quelle que soit sa taille ;
+#   • l'entrée en DERNIÈRE ligne d'une liste de plus de 300 000 caractères était
+#     vue par le tube nu, et une entrée absente n'a été lue « présente » par
+#     aucune des deux lectures.
+#
+# Pourquoi pas une chaîne-ici (`grep … <<< "$1"`) : /bin/bash 3.2.57 a besoin d'un
+# fichier temporaire pour la donner à grep. Relevé sous macOS, écriture interdite
+# dans les répertoires temporaires ET dans le répertoire courant : bash dit
+# « cannot create temp file for here document », la commande sort en 1 et
+# l'entrée — une liste d'un seul caractère suffit — est lue « absente », le sens
+# même du défaut corrigé ici. Le tube lu sans `pipefail` la voyait dans ce cas.
+#
+# `2>&-` : quand SIGPIPE est ignoré, printf écrit « write error: Broken pipe »
+# sur sa sortie d'erreur ; elle est donc fermée. Fermée, et non renvoyée vers
+# /dev/null : relevé sous macOS, là où /dev/null ne s'ouvre pas en écriture, la
+# forme `2> /dev/null` lisait toute entrée « absente », liste de deux lignes
+# comprise, et la forme fermée la voyait. Cela ne rend pas le script utilisable
+# dans un tel environnement : git n'y démarre pas (« could not open '/dev/null'
+# for reading and writing ») et le contrôle n'est pas joué. Relevé avant comme
+# après ce correctif, sur une migration neuve mal ordonnée : sortie 0 en mode
+# pré-commit, 1 en mode branch, jamais le refus (2) attendu.
+# ---------------------------------------------------------------------------
+liste_contient() (
+  set +o pipefail
+  printf '%s\n' "$1" 2>&- | grep -qxF "$2"
+)
+
+# ---------------------------------------------------------------------------
 # Rappels affichés sur collision : les deux pièges qui restent APRÈS la détection.
 # ---------------------------------------------------------------------------
 rappels_apres_collision() {
@@ -156,7 +248,7 @@ mes_migrations() {
     git ls-tree -r --name-only HEAD -- "$MIG_DIR" 2>/dev/null \
       | grep -E "^${MIG_DIR}/[0-9]{14}_.*\.sql$" \
       | while read -r f; do
-          printf '%s\n' "$base_names" | grep -qxF "$(basename "$f")" || echo "$f"
+          liste_contient "$base_names" "$(basename "$f")" || echo "$f"
         done
   fi
 }
@@ -195,7 +287,7 @@ controle_local() {
   local ts
   for ts in $new_ts; do
     # Préfixe déjà présent dans la référence => renommage, pas une migration neuve.
-    if printf '%s\n' "$ref_prefixes" | grep -qxF "$ts"; then continue; fi
+    if liste_contient "$ref_prefixes" "$ts"; then continue; fi
     # Comparaison lexicographique = numérique (14 chiffres, même longueur).
     if [ -n "$max_other" ] && ! [[ "$ts" > "$max_other" ]]; then
       echo "" >&2
@@ -656,6 +748,108 @@ self_test() (
     echec=true
   fi
 
+  # ── Cas 13-15 — une référence dont la liste est TRÈS GROSSE ──────────────
+  # Les deux lectures de `liste_contient` : sous `pipefail`, le tube nu manquait
+  # une entrée présente dès qu'il restait trop de texte après elle (cf. son
+  # commentaire). La grosse cible vit sur un ref À PART (`MIGRATION_BASE_REF`) :
+  # les cas précédents et leurs gardes ne lisent pas son remplissage.
+  # Le remplissage — des fichiers au nom long dans un SOUS-dossier — ne sert qu'à
+  # grossir les deux listes lues (noms et préfixes de la référence), qui prennent
+  # tout fichier du dossier ; ni `ls *.sql` ni le filtre des migrations ne le
+  # voient, il ne crée donc aucune migration. Il suit les migrations dans la
+  # liste (« r » trie après les chiffres) : c'est ce texte-là qui les fait manquer.
+  local long i liste_noms liste_prefixes
+  git checkout --quiet -B grosse-cible "$BASE_REF" >/dev/null 2>&1
+  git reset --quiet --hard "$BASE_REF" >/dev/null 2>&1
+  git clean --quiet -fd -- "$MIG_DIR" >/dev/null 2>&1
+  mkdir -p "$MIG_DIR/remplissage"
+  long=$(head -c 240 /dev/zero | tr '\0' 'x')
+  i=0
+  while [ "$i" -lt 1300 ]; do
+    i=$((i + 1))
+    : > "$MIG_DIR/remplissage/r${i}${long}"
+  done
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "cible a tres grosse liste" >/dev/null 2>&1
+  git push --quiet origin grosse-cible >/dev/null 2>&1
+  git fetch --quiet origin >/dev/null 2>&1
+
+  # Garde anti-fixture-vacante : les cas 13 à 15 ne prouvent quelque chose que si
+  # le tube nu manque RÉELLEMENT ces deux listes sur la machine qui joue le test
+  # (le défaut dépend de la taille du tube, qui change d'un environnement à
+  # l'autre). Tube nu VOULU, donc : c'est la lecture d'avant, rejouée pour
+  # constater qu'elle se trompe ici — sur le socle, dont on s'assure d'abord, sans
+  # passer par la fonction testée, qu'il est bien dans la grosse cible.
+  # `2>&-` : le message de printf quand SIGPIPE est ignoré. La garde rougit dès
+  # que l'UNE des deux listes est lue sans faute.
+  liste_noms=$(git ls-tree -r --name-only origin/grosse-cible -- "$MIG_DIR" 2>/dev/null | sed 's#.*/##' || true)
+  liste_prefixes=$(git ls-tree -r --name-only origin/grosse-cible -- "$MIG_DIR" 2>/dev/null | sed 's#.*/##; s#_.*##' || true)
+  if ! git cat-file -e "origin/grosse-cible:$MIG_DIR/20260101100000_plateforme_socle.sql" 2>/dev/null; then
+    echo "🔴 AUTO-TEST : cas 13-15 VACANTS — la grosse cible n'a pas été construite (socle absent)." >&2
+    echec=true
+  elif ( set -o pipefail; printf '%s\n' "$liste_noms" 2>&- | grep -qxF '20260101100000_plateforme_socle.sql' ) \
+     || ( set -o pipefail; printf '%s\n' "$liste_prefixes" 2>&- | grep -qxF '20260101100000' ); then
+    echo "🔴 AUTO-TEST : cas 13-15 VACANTS — le tube nu lit au moins une des deux listes sans faute ici (${#liste_noms} et ${#liste_prefixes} caractères) : grossir le remplissage." >&2
+    echec=true
+  fi
+
+  # Cas 13 — VERT attendu : liste des NOMS de la cible (`mes_migrations`). Ma
+  # branche part de la grosse cible et n'ajoute qu'une migration postérieure à
+  # son max. Lecture manquée, les migrations de la cible étaient comptées comme
+  # neuves et (C) les refusait comme antérieures ou égales au max de la cible :
+  # sortie 2.
+  git checkout --quiet -B cas13 origin/grosse-cible >/dev/null 2>&1
+  echo "-- mienne, posterieure au max de la grosse cible" > "$MIG_DIR/20260101190000_plateforme_mon_lot_grosse.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "migration posterieure au max de la grosse cible" >/dev/null 2>&1
+  rc=0; MIGRATION_BASE_REF=origin/grosse-cible bash "$script_abs" --merge --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : faux refus face à une très grosse liste de cible (exit $rc, attendu 0)." >&2
+    echo "   Des migrations déjà sur la cible sont comptées comme neuves : la liste des noms est mal lue." >&2
+    echec=true
+  fi
+
+  # Cas 14 — VERT attendu : liste des PRÉFIXES de la référence (`controle_local`).
+  # Le renommage cosmétique du cas 6, sur une référence à très grosse liste (ici
+  # HEAD, mode pré-commit). Lecture manquée, le préfixe déjà admis n'était plus
+  # reconnu et (A) refusait : « <= max du dossier », sortie 2.
+  git checkout --quiet -B cas14 origin/grosse-cible >/dev/null 2>&1
+  git reset --quiet --hard origin/grosse-cible >/dev/null 2>&1
+  git clean --quiet -fd -- "$MIG_DIR" >/dev/null 2>&1
+  # Garde anti-fixture-vacante : sans renommage indexé, aucune migration n'est
+  # dans le périmètre et ce cas passerait au vert quoi que fasse le script.
+  if ! git mv "$MIG_DIR/20260101100000_plateforme_socle.sql" "$MIG_DIR/20260101100000_plateforme_socle_corrige.sql" 2>/dev/null; then
+    echo "🔴 AUTO-TEST : cas 14 VACANT — le renommage n'a pas pu être indexé." >&2
+    echec=true
+  fi
+  rc=0; bash "$script_abs" --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : faux refus d'un renommage préservant le préfixe face à une très grosse liste (exit $rc, attendu 0)." >&2
+    echo "   Le préfixe déjà admis n'est plus reconnu : la liste des préfixes est mal lue." >&2
+    echec=true
+  fi
+
+  # Cas 15 — ROUGE attendu : l'AUTRE sens de la lecture du cas 13, celui où la
+  # garde laissait passer. Ma branche part de la grosse cible et ajoute une
+  # migration antérieure à toutes les autres. Lecture manquée, les migrations de
+  # la cible — toutes suivies du remplissage, donc toutes manquées — étaient
+  # comptées « à moi » : (A) n'avait plus aucune autre migration à laquelle
+  # comparer la neuve, et `--branch` sortait en 0. Ce cas ne passe pas au vert
+  # par une fixture cassée : sans la migration neuve sur HEAD, le script sort en
+  # 0 et le cas rougit.
+  git checkout --quiet -B cas15 origin/grosse-cible >/dev/null 2>&1
+  git reset --quiet --hard origin/grosse-cible >/dev/null 2>&1
+  git clean --quiet -fd -- "$MIG_DIR" >/dev/null 2>&1
+  echo "-- neuve, anterieure a toutes les autres" > "$MIG_DIR/20260101090000_plateforme_neuve_grosse.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "migration neuve mal ordonnee face a la grosse cible" >/dev/null 2>&1
+  rc=0; MIGRATION_BASE_REF=origin/grosse-cible bash "$script_abs" --branch --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : migration neuve mal ordonnée ACCEPTÉE face à une très grosse liste de cible (exit $rc, attendu 2)." >&2
+    echo "   Les migrations de la cible sont comptées comme neuves : (A) n'a plus rien à quoi comparer." >&2
+    echec=true
+  fi
+
   # Cas 8 — un clone impossible ne doit RIEN muter dans le dépôt APPELANT.
   # Sauté dans le sous-test qu'il lance lui-même : sans ce garde-fou, un script
   # dont les gardes ont sauté relance le cas 8 en boucle au lieu de rougir.
@@ -700,7 +894,7 @@ self_test() (
   fi
 
   [ "$echec" = true ] && return 1
-  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », cible qui avance au merge (C), dépôt appelant intact)."
+  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », cible qui avance au merge (C), très grosse liste de référence, dépôt appelant intact)."
   return 0
 )
 

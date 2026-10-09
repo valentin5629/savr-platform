@@ -206,9 +206,7 @@ bout_en_bout() (
   set +e
   set -uo pipefail
   ko=false
-  bac="$(mktemp -d)" || { echo "🔴 gate-pr : mktemp impossible." >&2; exit 1; }
-  trap 'rm -rf "$bac"' EXIT
-  bac="$(cd "$bac" && pwd -P)"
+  # `$bac` vient de l'auto-test, qui l'a créé et contrôlé (cf. `lib-auto-test.sh`).
   depot="$bac/depot"; autre="$bac/autre"; journal="$bac/journal"; sortie="$bac/sortie"
   mkdir -p "$bac/bin"
   cat > "$bac/bin/pnpm" <<'FAUX'
@@ -370,12 +368,17 @@ FAUX
 # F et L sont dans la matrice pour qu'un changement de comportement sur ces cas
 # se voie, dans un sens comme dans l'autre.
 if [ "${1:-}" = "--self-test" ]; then
-  # Avant tout `git init` : un auto-test lancé depuis un hook git, un `rebase
-  # --exec` ou un alias hérite de GIT_DIR, et ses dépôts « jetables » seraient
-  # alors le VRAI dépôt (mesuré par la revue du lot voisin sur un autre hook :
-  # `bare = true` écrit dans la configuration du clone). Ligne non épinglée par
-  # un test ici.
+  # Rien hors du dossier jetable : cf. `lib-auto-test.sh`, qui dit ce que cet
+  # auto-test supprimait ou écrivait ailleurs sans ces lignes, et ce que veut
+  # dire le code 3. Le `unset` et `git_isole` viennent avant tout appel à git.
+  # Un seul dossier temporaire pour tout l'auto-test.
   unset ${!GIT_*}
+  LIB="$(dirname "$ICI")/lib-auto-test.sh"
+  [ -f "$LIB" ] || { echo "🔴 gate-pr : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  . "$LIB"
+  bac="$(bac_jetable)" || { echo "🔴 gate-pr : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
+  trap 'rm -rf "$bac"' EXIT
+  git_isole "$bac" || { echo "🔴 gate-pr : dossier d'isolement non créé — auto-test non joué." >&2; exit 3; }
   echec=false
   nv=0; nn=0; nf=0; nl=0
   juge() {  # juge <type> <forme>
@@ -550,12 +553,13 @@ FORMES
     || { echo "🔴 le contrôle « sans heredoc » ne lit plus le chemin exécuté du hook." >&2; echec=true; }
 
   bout_en_bout || echec=true
+  pieges_tenus "$ICI" "$bac" || echec=true
 
   if [ "$echec" = true ]; then
     echo "🔴 gate-pr : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
     exit 2
   fi
-  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues ; flux de bout en bout : commande ignorée, suite rouge, contrat outbox, markers absent / vide / NON-GO / périmé pour chaque relecteur, seed qui ne dit plus OK à tort, branche visée par --head ou par cd)."
+  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues ; flux de bout en bout : commande ignorée, suite rouge, contrat outbox, markers absent / vide / NON-GO / périmé pour chaque relecteur, seed qui ne dit plus OK à tort, branche visée par --head ou par cd${PIEGES_BILAN})."
   exit 0
 fi
 

@@ -182,13 +182,16 @@ gate_pr_matche() {
   # tube sort en erreur et la commande était lue « non vue » (mesuré en revue,
   # déjà vrai avant). Pas de chaîne-ici : bash 3.2 l'écrit dans un fichier
   # temporaire, et la lecture échoue quand ce fichier ne peut pas être créé.
+  # L'erreur de printf est fermée (`2>&-`), pas envoyée vers /dev/null : là où
+  # /dev/null ne s'ouvre pas en écriture, la redirection échouait, printf n'était
+  # pas lancé et grep ne voyait rien (mesuré par la revue du lot voisin).
   (
     set +o pipefail
-    printf '%s' "$texte" 2> /dev/null | grep -Eq "(${debut}|${enveloppe})${commande}"
+    printf '%s' "$texte" 2>&- | grep -Eq "(${debut}|${enveloppe})${commande}"
   ) && return 0
   (
     set +o pipefail
-    printf '%s' "$texte" 2> /dev/null | grep -Eq "[[:space:]]${commande}${suite}"
+    printf '%s' "$texte" 2>&- | grep -Eq "[[:space:]]${commande}${suite}"
   )
 }
 
@@ -367,6 +370,12 @@ FAUX
 # F et L sont dans la matrice pour qu'un changement de comportement sur ces cas
 # se voie, dans un sens comme dans l'autre.
 if [ "${1:-}" = "--self-test" ]; then
+  # Avant tout `git init` : un auto-test lancé depuis un hook git, un `rebase
+  # --exec` ou un alias hérite de GIT_DIR, et ses dépôts « jetables » seraient
+  # alors le VRAI dépôt (mesuré par la revue du lot voisin sur un autre hook :
+  # `bare = true` écrit dans la configuration du clone). Ligne non épinglée par
+  # un test ici.
+  unset ${!GIT_*}
   echec=false
   nv=0; nn=0; nf=0; nl=0
   juge() {  # juge <type> <forme>
@@ -528,9 +537,13 @@ FORMES
   # reconnaissance et le flux) : bash 3.2 les écrit dans un fichier temporaire, et
   # quand ce fichier ne peut pas être créé, ce qu'ils alimentent est sauté sans
   # erreur. Contrôle sur le texte de ce script, commentaires écartés.
-  if sed -n '/^gate_pr_matche() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" \
-    | grep -vE '^[[:space:]]*#' | grep -q '<<'; then
-    echo "🔴 un heredoc ou une chaîne-ici est revenu dans le chemin exécuté du hook." >&2
+  # Compte (`grep -c`), pas « au premier trouvé » (`grep -q`) : sous `pipefail`,
+  # un grep qui sort tôt fait échouer le tube et le contrôle lisait « rien trouvé »
+  # dans quelques passes sur cent sous Linux (mesuré en revue sécurité).
+  heredocs="$(sed -n '/^gate_pr_matche() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" \
+    | grep -vE '^[[:space:]]*#' | grep -c '<<' || true)"
+  if [ "$heredocs" != 0 ]; then
+    echo "🔴 un heredoc ou une chaîne-ici est revenu dans le chemin exécuté du hook (${heredocs} ligne(s))." >&2
     echec=true
   fi
   [ "$(sed -n '/^gate_pr_matche() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" | wc -l | tr -d ' ')" -gt 150 ] \
@@ -646,7 +659,7 @@ echo "  ✅ tests OK" >&2
 sortie_contient() {  # <texte> <motif> — lu sans pipefail, comme dans gate_pr_matche
   (
     set +o pipefail
-    printf '%s' "$1" 2> /dev/null | grep -qE "$2"
+    printf '%s' "$1" 2>&- | grep -qE "$2"
   )
 }
 echo "  → pnpm seed:check (informatif)..." >&2

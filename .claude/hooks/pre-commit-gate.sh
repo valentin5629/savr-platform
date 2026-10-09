@@ -98,10 +98,13 @@ commit_motif() {
 # sort en erreur et la commande etait lue « non vue » (mesure en revue, deja
 # vrai de l'ancien motif). Pas de chaine-ici : bash 3.2 l'ecrit dans un fichier
 # temporaire, et la lecture echoue quand ce fichier ne peut pas etre cree.
+# L'erreur de printf est fermee (`2>&-`), pas envoyee vers /dev/null : la ou
+# /dev/null ne s'ouvre pas en ecriture, la redirection echouait, printf n'etait
+# pas lance et grep ne voyait rien (mesure par la revue du lot voisin).
 commit_matche() {
   (
     set +o pipefail
-    printf '%s' "$1" 2> /dev/null | grep -Eq "$(commit_motif)"
+    printf '%s' "$1" 2>&- | grep -Eq "$(commit_motif)"
   )
 }
 
@@ -145,11 +148,13 @@ commit_matche() {
 # Rejoue sur l'historique : des 13 commandes gagnees qui portent un `-C`, 8 le
 # donnent par une variable et 5 par un chemin relatif.
 #
-# AUCUN heredoc ni chaine-ici dans ces fonctions ni dans le flux du hook : bash
-# 3.2 les ecrit dans un fichier temporaire, et quand ce fichier ne peut pas etre
-# cree la boucle qu'ils alimentent est sautee sans erreur. Mesure en revue
+# AUCUN heredoc ni chaine-ici dans ces fonctions ni dans le flux de CE script :
+# bash 3.2 les ecrit dans un fichier temporaire, et quand ce fichier ne peut pas
+# etre cree la boucle qu'ils alimentent est sautee sans erreur. Mesure en revue
 # securite : la garde ne jugeait alors aucun dossier et affichait « OK ».
-# L'auto-test le controle sur le texte de ce script.
+# L'auto-test le controle sur le texte de ce script. Cela ne vaut pas pour
+# `tests-lies.sh`, le quatrieme controle, qui en porte encore deux : dans la
+# meme condition il ne lance pas Vitest et rend 0 — deja vrai avant ce lot.
 #
 # Rend le chemin precede d'une lettre — `L` s'il est ecrit en clair, `V` s'il
 # vient d'une variable — ou sort en 1.
@@ -203,7 +208,7 @@ cibles_du_commit() {
     # d'une option.
     if (
       set +o pipefail
-      printf '%s' "$cmd" 2> /dev/null | grep -Eq '(^|[;&|[:space:]])git[[:space:]]+commit'
+      printf '%s' "$cmd" 2>&- | grep -Eq '(^|[;&|[:space:]])git[[:space:]]+commit'
     ); then
       printf '=%s\n' "$cd_dir"
     fi
@@ -413,6 +418,12 @@ FAUX
 # F et L sont dans la matrice pour qu'un changement de comportement sur ces cas
 # se voie, dans un sens comme dans l'autre.
 if [ "${1:-}" = "--self-test" ]; then
+  # Avant tout `git init` : un auto-test lance depuis un hook git, un `rebase
+  # --exec` ou un alias herite de GIT_DIR, et ses depots « jetables » seraient
+  # alors le VRAI depot (mesure par la revue du lot voisin sur un autre hook :
+  # `bare = true` ecrit dans la configuration du clone). Ligne non epinglee par
+  # un test ici.
+  unset ${!GIT_*}
   echec=false
   nv=0; nn=0; nf=0; nl=0; nc=0
   juge() {  # juge <type> <forme>
@@ -607,9 +618,13 @@ FORMES
   # Ni heredoc ni chaine-ici dans ce qui s'execute hors auto-test : les fonctions
   # de lecture (du motif jusqu'a l'auto-test) et le flux (apres la lecture de
   # l'entree). Controle sur le texte de ce script, commentaires ecartes.
-  if sed -n '/^commit_motif() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" \
-    | grep -vE '^[[:space:]]*#' | grep -q '<<'; then
-    echo "🔴 un heredoc ou une chaine-ici est revenu dans le chemin execute du hook." >&2
+  # Compte (`grep -c`), pas « au premier trouve » (`grep -q`) : sous `pipefail`, un
+  # grep qui sort tot fait echouer le tube et le controle lisait « rien trouve »
+  # dans quelques passes sur cent sous Linux (mesure en revue securite).
+  heredocs="$(sed -n '/^commit_motif() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" \
+    | grep -vE '^[[:space:]]*#' | grep -c '<<' || true)"
+  if [ "$heredocs" != 0 ]; then
+    echo "🔴 un heredoc ou une chaine-ici est revenu dans le chemin execute du hook (${heredocs} ligne(s))." >&2
     echec=true
   fi
   [ "$(sed -n '/^commit_motif() {$/,/^# ── Auto-test, 2e partie/p; /^INPUT="\$(cat)"$/,$p' "$ICI" | wc -l | tr -d ' ')" -gt 150 ] \

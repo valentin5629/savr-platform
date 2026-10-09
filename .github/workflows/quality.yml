@@ -108,7 +108,7 @@ jobs:
       # périmètre des tests liés au commit, et la trace « suite déjà verte sur ce
       # contenu ». Un périmètre qui oublie une source, ou une trace qui survit à un
       # changement de contenu, rendrait une garde verte à tort sans que rien ne le
-      # montre. Dépôts jetables, quelques secondes, ne lisent pas le dépôt réel.
+      # montre. Dépôts jetables, ne lisent pas le dépôt réel.
       - name: Auto-test des gardes de commit et de création de PR
         run: |
           bash .claude/hooks/pre-commit-gate.sh --self-test

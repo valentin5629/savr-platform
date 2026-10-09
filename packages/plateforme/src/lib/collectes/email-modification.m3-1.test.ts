@@ -117,7 +117,7 @@ const CAS_VAL = {
   majEvenement: {
     pax: 1500,
     contact_principal_nom: 'Arthus',
-    contact_principal_telephone: '0656896534',
+    contact_principal_telephone: '0699990002',
   },
 };
 
@@ -133,7 +133,7 @@ describe('M3.1/email_modification_lignes — une ligne par champ modifié', () =
     expect(lignesModifications(CAS_VAL)).toEqual([
       'Date de collecte : du 15/01/2099 au 14/01/2099',
       'Nombre de pax : de 2000 à 1500',
-      'Contact : avant Paul Il (0611111111). Maintenant Arthus (0656896534)',
+      'Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)',
     ]);
   });
 
@@ -314,7 +314,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
         '<p>Bonjour,</p>',
         "<p>L'organisation Kaspia a modifié la collecte initialement prévue le 15/01/2099 pour 2000 pax.</p>",
         '<p>Les champs modifiés sont :</p>',
-        '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0656896534)</li></ul>',
+        '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li></ul>',
         '<p>Le programmateur est Julie Martin, joignable au 0601020304.</p>',
         '<p>Le statut actuel de la collecte est « Programmée ».</p>',
         '<p>Merci de relayer au prestataire si nécessaire depuis le back-office.</p>',

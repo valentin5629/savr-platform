@@ -447,7 +447,7 @@ describe('M3.1 / édition collecte', () => {
         updates: {
           pax: 1500,
           contact_principal_nom: 'Arthus',
-          contact_principal_telephone: '0656896534',
+          contact_principal_telephone: '0699990002',
         },
       },
     });
@@ -459,7 +459,7 @@ describe('M3.1 / édition collecte', () => {
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     const variables = emailEquipe();
     expect(variables?.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li><li>Nombre de pax : de 2000 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0656896534)</li></ul>',
+      '<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li><li>Nombre de pax : de 2000 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li></ul>',
     );
     expect(variables?.pax_initial).toBe('2000');
     // Le signalement n'est pas un champ de la collecte : il n'atteint pas la RPC.

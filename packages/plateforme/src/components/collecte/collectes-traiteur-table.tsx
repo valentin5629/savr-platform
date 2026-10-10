@@ -17,6 +17,7 @@ import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
+import { LIBELLE_SANS_EXCEDENT } from '@/lib/statut-collecte-labels';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
 import { fmtKgAuto, fmtPct, fmtInt, fmtPax, UNITE_KG_CO2E } from '@/lib/format';
@@ -44,7 +45,8 @@ export interface TraiteurCollecteLigne {
   /** Droit d'écriture de l'appelant sur cette collecte (manager, ou commercial
    *  créateur de l'événement). */
   canWrite: boolean;
-  // Résultats affichés sur la collecte réalisée (statut cloturee).
+  // Résultats affichés sur la collecte réalisée (statut cloturee ; une collecte
+  // AG sans excédent affiche « Sans excédent » à leur place).
   // ZD : poids total (Σ flux) + taux de recyclage. AG : repas donnés. Les deux : CO₂ évité.
   poids_total_kg: number | null;
   taux_recyclage: number | null;
@@ -95,8 +97,10 @@ export function CelluleLieu({
   );
 }
 
-// « Réalisée » (vue client) = statut cloturee : résultats + rapport. Partagée
-// avec la liste Collectes gestionnaire.
+// « Réalisée » (vue client) : résultats + rapport. Statut cloturee, ou collecte
+// AG sans excédent — son résultat est alors la mention « Sans excédent », et son
+// rapport de don se télécharge comme les autres (décision Val 2026-10-09).
+// Partagée avec la liste Collectes gestionnaire.
 export function ResultatsCollecte({
   c,
   onTelecharger,
@@ -113,7 +117,8 @@ export function ResultatsCollecte({
   >;
   onTelecharger: () => void;
 }) {
-  if (c.statut !== 'cloturee') return <CelluleVide />;
+  const sansExcedent = c.statut === 'realisee_sans_collecte';
+  if (c.statut !== 'cloturee' && !sansExcedent) return <CelluleVide />;
   const zd = c.type === 'zero_dechet';
   return (
     <Text
@@ -122,7 +127,12 @@ export function ResultatsCollecte({
       tone="soft"
       className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
     >
-      {zd ? (
+      {sansExcedent ? (
+        <span className="inline-flex items-center gap-1.5">
+          <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
+          {LIBELLE_SANS_EXCEDENT}
+        </span>
+      ) : zd ? (
         <>
           {c.poids_total_kg != null && c.poids_total_kg > 0 && (
             <span className="inline-flex items-center gap-1.5">

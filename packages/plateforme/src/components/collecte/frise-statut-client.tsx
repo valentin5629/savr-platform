@@ -3,9 +3,10 @@ import { friseStatutClient } from '@/lib/statut-collecte-labels';
 
 // Frise de statut discrète de la fiche collecte CLIENT (§06.04 refonte pop-up,
 // décision Val 2026-09-29, Q1) : en haut à droite de l'en-tête, vocabulaire
-// client (Créée · Validée · En cours · Réalisée / Sans excédents / Annulée —
-// jamais Programmée ni Clôturée). Distincte de la frise Admin (granularité
-// complète), au même rendu.
+// client (Créée · Validée · En cours · Réalisée / Annulée — jamais Programmée
+// ni Clôturée ; une collecte AG sans excédent s'y lit « Réalisée », décision Val
+// 2026-10-09). Distincte de la frise Admin (granularité complète), au même
+// rendu.
 export function FriseStatutClient({ statut }: { statut: string }) {
   return (
     <FriseEtapes

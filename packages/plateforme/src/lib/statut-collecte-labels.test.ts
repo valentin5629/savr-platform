@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   ETAPES_STATUT_COLLECTE,
   friseStatutClient,
+  LIBELLE_SANS_EXCEDENT,
   LIBELLE_STATUT_COLLECTE,
   RANG_STATUT_COLLECTE,
   statutCollecteDisplay,
@@ -20,7 +21,7 @@ describe('R12 statutCollecteDisplay — vue admin', () => {
     ['validee', 'Validée'],
     ['en_cours', 'En cours'],
     ['realisee', 'Réalisée'],
-    ['realisee_sans_collecte', 'Sans excédents'],
+    ['realisee_sans_collecte', 'Réalisée'], // pas un statut à part (Val 2026-10-09)
     ['cloturee', 'Clôturée'],
     ['annulation_demandee', 'Annulation demandée'],
     ['annulee', 'Annulée'],
@@ -39,8 +40,8 @@ describe('R12 statutCollecteDisplay — vue client (collapse Val)', () => {
     ['programmee', 'Créée'], // jamais « Programmée » côté client
     ['validee', 'Validée'],
     ['en_cours', 'En cours'],
-    ['realisee', 'En cours'], // « Réalisée » réservé à cloturee
-    ['realisee_sans_collecte', 'Sans excédents'],
+    ['realisee', 'En cours'], // « Réalisée » attend la clôture
+    ['realisee_sans_collecte', 'Réalisée'], // pas un statut à part (Val 2026-10-09)
     ['cloturee', 'Réalisée'],
     ['annulation_demandee', 'Annulée'],
     ['annulee', 'Annulée'],
@@ -68,7 +69,7 @@ describe('R12 statutCollecteDisplay — vue client (collapse Val)', () => {
     expect(labels).not.toContain('Programmée');
   });
 
-  it('client : « Réalisée » uniquement pour cloturee', () => {
+  it('client : « Réalisée » pour cloturee et pour une AG sans excédent, jamais pour realisee', () => {
     const realisee = [
       'brouillon',
       'programmee',
@@ -80,7 +81,44 @@ describe('R12 statutCollecteDisplay — vue client (collapse Val)', () => {
       'annulee',
       'rejetee_par_prestataire',
     ].filter((s) => statutCollecteDisplay(s, 'client').label === 'Réalisée');
-    expect(realisee).toEqual(['cloturee']);
+    expect(realisee).toEqual(['realisee_sans_collecte', 'cloturee']);
+  });
+});
+
+// « Sans excédent » n'est pas un statut d'avancement (décision Val 2026-10-09) :
+// c'est le résultat d'une collecte AG, affiché là où se lisent ses repas.
+describe('M0.6 / M3.1 — « Sans excédent » n’est pas un statut', () => {
+  const STATUTS = [
+    'brouillon',
+    'creee',
+    'programmee',
+    'validee',
+    'en_cours',
+    'realisee',
+    'realisee_sans_collecte',
+    'cloturee',
+    'annulation_demandee',
+    'annulee',
+    'rejetee_par_prestataire',
+  ];
+
+  it('M0.6/statut_sans_excedent_affiche_realisee — aucun libellé de statut ne dit « Sans excédent », dans aucune vue', () => {
+    for (const vue of ['admin', 'client'] as const)
+      for (const s of STATUTS)
+        expect(statutCollecteDisplay(s, vue).label).not.toMatch(/exc[ée]dent/i);
+  });
+
+  it('même badge que « Réalisée » : celui de `realisee` côté Admin, de `cloturee` côté client', () => {
+    expect(statutCollecteDisplay('realisee_sans_collecte', 'admin')).toEqual(
+      statutCollecteDisplay('realisee', 'admin'),
+    );
+    expect(statutCollecteDisplay('realisee_sans_collecte', 'client')).toEqual(
+      statutCollecteDisplay('cloturee', 'client'),
+    );
+  });
+
+  it('la mention de résultat est « Sans excédent », au singulier', () => {
+    expect(LIBELLE_SANS_EXCEDENT).toBe('Sans excédent');
   });
 });
 
@@ -110,14 +148,14 @@ describe('M3.1 / frise de statut client', () => {
     expect(courante('cloturee')).toBe('Réalisée');
   });
 
-  it('M3.1/frise_client_sans_excedents — AG sans excédents : dernière étape « Sans excédents »', () => {
+  it('M3.1/frise_client_sans_excedents — AG sans excédent : la frise de toutes les collectes, dernière étape « Réalisée »', () => {
     expect(labels('realisee_sans_collecte')).toEqual([
       'Créée',
       'Validée',
       'En cours',
-      'Sans excédents',
+      'Réalisée',
     ]);
-    expect(courante('realisee_sans_collecte')).toBe('Sans excédents');
+    expect(courante('realisee_sans_collecte')).toBe('Réalisée');
   });
 
   it('M3.1/frise_client_annulee — Créée · Annulée (demande comprise)', () => {
@@ -172,9 +210,7 @@ describe('R-UI-2 C1 — source unique statut collecte (étapes, rangs, export)',
       expect(label).toBe(statutCollecteDisplay(statut, 'admin').label);
     expect(LIBELLE_STATUT_COLLECTE.brouillon).toBe('Brouillon');
     expect(LIBELLE_STATUT_COLLECTE.creee).toBe('Créée');
-    expect(LIBELLE_STATUT_COLLECTE.realisee_sans_collecte).toBe(
-      'Sans excédents',
-    );
+    expect(LIBELLE_STATUT_COLLECTE.realisee_sans_collecte).toBe('Réalisée');
     // Les 10 statuts DB + la clé d'affichage Admin « Créée ».
     expect(Object.keys(LIBELLE_STATUT_COLLECTE)).toHaveLength(11);
   });

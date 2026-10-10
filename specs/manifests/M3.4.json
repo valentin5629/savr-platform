@@ -140,6 +140,22 @@
       "test": "packages/plateforme/tests/api/organisateur/espace-organisateur.m3-4.test.ts « M3.4/documents_collecte_ag_un_seul_rapport_de_don »",
       "statut": "implemented",
       "libelle": "Page Documents du client organisateur : un seul document par collecte AG, nommé « Rapport de don » avec ou sans excédents ; plus de « Rapport RSE » jamais disponible pour une collecte AG (décision Val 2026-10-09)"
+    },
+    {
+      "id": "M3.4-liste-organisateur-sans-excedent",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:165",
+      "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx (liste Collectes du client organisateur, onglet Anti-Gaspi, colonne « Repas » : « Sans excédent » pour une collecte AG `realisee_sans_collecte`, à la place du 0 que rend la route ; colonne Statut = « Réalisée » via le mapping client)",
+      "test": "M3.4/liste_organisateur_sans_excedent",
+      "statut": "implemented",
+      "libelle": "Liste Collectes du client organisateur : une collecte AG sans excédent se lit « Réalisée », et « Sans excédent » prend la place du nombre de repas — application à cet espace de la décision Val 2026-10-09 (« sur les espaces utilisateurs »), relevée par la relecture de conformité (_Divergences/M0.6_20261009_statut-sans-excedent-realisee.md)"
+    },
+    {
+      "id": "M3.4-liste-organisateur-sans-excedent-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:165",
+      "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx (colonne « Repas », alignée à droite : le texte « Sans excédent » dans une colonne de nombres ; aucun style nouveau)",
+      "test": "M3.4/liste_organisateur_sans_excedent",
+      "statut": "à-vérifier",
+      "libelle": "Rendu de « Sans excédent » dans la colonne « Repas » de la liste du client organisateur. GO visuel de Val en attente ; NON capturé."
     }
   ],
   "cdc_source_hash": {

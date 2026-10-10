@@ -157,6 +157,14 @@
       "test": "M4.1/export_collectes_lecture_par_tranches + M4.1/export_collectes_total_absent_echec + staff : repas AG lus dans l’embed de la ligne",
       "statut": "implemented",
       "libelle": "Export Collectes complet au-delà du plafond de lignes de PostgREST (1 000 par réponse, mesuré sur savr-dev le 2026-10-07 : 2 010 lignes demandées, 1 000 servies). Le builder lit par tranches jusqu'au total exact annoncé par la requête, pour tous les rôles ; sans total, l'export échoue (500) plutôt que de rendre un fichier incomplet. Le staff est le premier rôle à dépasser 1 000 collectes (historique repris de Bubble). Repas AG du staff lus dans la ligne elle-même : l'ancienne lecture à part (in(collecte_id, …)) échouait sans erreur au-delà d'environ 250 collectes AG (URL trop longue, mesuré le même jour) et laissait la colonne vide. Les autres exports (pesées, événements, impact RSE, factures, packs) ne sont pas paginés par ce lot."
+    },
+    {
+      "id": "M4.1-export-sans-excedent-zero-repas",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:380",
+      "artefact": "packages/plateforme/src/lib/exports/builders.ts (repasAgExport, colonne « Repas AG » des exports Collectes et Impact RSE : 0 pour une collecte AG `realisee_sans_collecte`, jamais une cellule vide ; dans l'export Collectes, la colonne « Statut » la dit « Réalisée » via LIBELLE_STATUT_COLLECTE — l'export Impact RSE n'a pas de colonne « Statut »)",
+      "test": "M4.1/export_collectes_sans_excedent_zero_repas + M4.1/export_impact_rse_sans_excedent_zero_repas",
+      "statut": "implemented",
+      "libelle": "Exports CSV Collectes et Impact RSE : « Repas AG » = 0 pour une collecte AG sans excédent — c'est là que l'export garde l'information, l'export Collectes la disant « Réalisée » (arbitrage Val 2026-10-09 : « Repas AG = 0 »)"
     }
   ],
   "cdc_source_hash": {

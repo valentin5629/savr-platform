@@ -9,7 +9,8 @@
  *   - l'email rendu pour le cas de Val, mot pour mot ;
  *   - les blocs conditionnels (pax, lieu, programmateur, ligne ATTENTION, lien
  *     vers la fiche) ;
- *   - l'échappement de tout texte saisi par un utilisateur ;
+ *   - l'échappement de tout texte saisi par un utilisateur, et du lien quand
+ *     son domaine vient de la requête ;
  *   - la relecture, dans le journal d'audit, de ce que le même utilisateur
  *     vient d'enregistrer sur l'événement (second essai compris) ;
  *   - qu'une notification en échec ne remonte jamais à l'appelant.
@@ -528,6 +529,31 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     );
     expect(html).toContain('Kaspia &amp; &lt;Fils&gt;');
     expect(html).toContain('(lieu : Salle &lt;A&gt;)');
+  });
+
+  it('le lien est échappé : un guillemet dans l’hôte de la requête ne referme pas l’attribut href', async () => {
+    // Variable de domaine vide (même branche que la variable absente) : le lien
+    // prend l'origine de la requête, donc l'en-tête Host, que le client écrit.
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', '');
+    const req = new NextRequest(
+      'http://app.exemple.test"onmouseover="x/api/v1/traiteur/collectes/c1',
+    );
+    // Sans guillemet dans l'origine, la suite ne prouverait rien.
+    expect(req.nextUrl.origin).toBe('http://app.exemple.test"onmouseover="x');
+    capter();
+    const { admin } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+    });
+
+    await notifierEquipeModificationCollecte(admin, req, CAS_VAL);
+
+    expect(recus[0]!.variables.lien_fiche).toBe(
+      'http://app.exemple.test&quot;onmouseover=&quot;x/admin/collectes/c1',
+    );
+    expect(interpolate(CORPS, recus[0]!.variables)).toContain(
+      '<p><a href="http://app.exemple.test&quot;onmouseover=&quot;x/admin/collectes/c1">Ouvrir la fiche de la collecte</a></p>',
+    );
   });
 
   it('le type d’événement est nommé par son libellé', async () => {

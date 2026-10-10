@@ -158,6 +158,20 @@ export async function PATCH(
     );
   }
 
+  // Périmètre d'écriture agence (miroir de la route gestionnaire) : ses propres
+  // programmations (organisation_id = son orga). L'écriture qui suit passe par le
+  // client de service : sans cette borne, seule la lecture RLS ci-dessus la
+  // limiterait.
+  const evenement = Array.isArray(collecte.evenement)
+    ? collecte.evenement[0]
+    : collecte.evenement;
+  if (evenement?.organisation_id !== auth.ctx.organisationId) {
+    return NextResponse.json(
+      { error: 'Modification non autorisée' },
+      { status: 403 },
+    );
+  }
+
   // Réacceptation prestataire si le créneau change (cascade E2 informe le TMS)
   const dateHeureModifiee =
     'date_collecte' in updates || 'heure_collecte' in updates;

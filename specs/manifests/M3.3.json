@@ -87,7 +87,9 @@
     "M3.3/liste_agence_colonne_client",
     "M3.3/blocs_agence_ag_lit_la_table",
     "M3.3/evolution_agence_ag_lit_la_table",
-    "M3.3/synthese_agence_ag_lit_la_table"
+    "M3.3/synthese_agence_ag_lit_la_table",
+    "M3.3/edition_autre_organisation_403",
+    "M3.3/annulation_autre_organisation_403"
   ],
   "deliverables": [
     {
@@ -498,6 +500,22 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la barre de filtres de la liste Collectes agence, desktop ET mobile < 640 px : « Période » en premier ; cases « Tous » en tête de Lieu et Client organisateur, « Toutes » pour Info incomplète ; libellés des déclencheurs (« Tous », nom unique, « n sélectionnés ») ; nom de client contenant une virgule ; chip « Filtre actif » après un clic depuis une Top liste, puis sa disparition quand un second lieu est coché. Pas de capture dans ce lot (arbitrage Val 2026-10-01) : GO visuel de Val à sa prochaine revue écran."
+    },
+    {
+      "id": "M3.3-edition-perimetre-organisation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:108",
+      "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/[id]/route.ts",
+      "test": "M3.3/edition_autre_organisation_403",
+      "statut": "implemented",
+      "libelle": "Modification d'une collecte par l'agence bornée par la route à ses propres programmations : 403 « Modification non autorisée » quand l'événement n'appartient pas à son organisation ou n'est pas rendu par la lecture ; le client de service ne lit ni n'écrit rien, aucun email ne part. L'écriture passe par le client de service (écriture cliente fermée au niveau table, §09) : le périmètre est appliqué par la route."
+    },
+    {
+      "id": "M3.3-annulation-perimetre-organisation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:29",
+      "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/[id]/annulation/route.ts",
+      "test": "M3.3/annulation_autre_organisation_403",
+      "statut": "implemented",
+      "libelle": "Annulation d'une collecte par l'agence bornée par la route à ses propres programmations : 403 « Annulation non autorisée » quand l'événement n'appartient pas à son organisation ou n'est pas rendu par la lecture, avant l'examen du statut ; le client de service ne lit ni n'écrit rien, aucun email ne part."
     }
   ],
   "cdc_source_hash": {

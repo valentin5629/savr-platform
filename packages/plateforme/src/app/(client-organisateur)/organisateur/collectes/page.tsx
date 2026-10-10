@@ -24,6 +24,7 @@ import {
 import { navigation, texte, useFiltresUrl } from '@/lib/hooks/use-filtres-url';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { Text } from '@/components/ui/text';
+import { LIBELLE_SANS_EXCEDENT } from '@/lib/statut-collecte-labels';
 
 interface Lieu {
   nom: string;
@@ -124,7 +125,12 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
           header: 'Repas',
           accessorFn: (c) => c.repas_donnes ?? -1,
           meta: { className: 'text-right tabular-nums' },
-          cell: ({ row: { original: c } }) => c.repas_donnes ?? <CelluleVide />,
+          // Collecte AG sans excédent : la mention, jamais « 0 » — c'est un
+          // résultat, pas un statut (décision Val 2026-10-09).
+          cell: ({ row: { original: c } }) =>
+            c.statut === 'realisee_sans_collecte'
+              ? LIBELLE_SANS_EXCEDENT
+              : (c.repas_donnes ?? <CelluleVide />),
         },
     {
       id: 'statut',

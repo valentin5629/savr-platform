@@ -723,7 +723,7 @@
       "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts, packages/plateforme/src/components/collecte/frise-statut-client.tsx",
       "test": "M3.1/frise_client_vocabulaire",
       "statut": "implemented",
-      "libelle": "Frise en vocabulaire CLIENT (Q1) dérivée du mapping canonique statutCollecteDisplay(…, 'client') : Créée · Validée · En cours · Réalisée ; « Sans excédents » en AG ; jamais Programmée ni Clôturée ; étape courante aria-current + gras, autres estompées."
+      "libelle": "Frise en vocabulaire CLIENT (Q1) dérivée du mapping canonique statutCollecteDisplay(…, 'client') : Créée · Validée · En cours · Réalisée ; une collecte AG sans excédent s'y lit « Réalisée » comme les autres (décision Val 2026-10-09) ; jamais Programmée ni Clôturée ; étape courante aria-current + gras, autres estompées."
     },
     {
       "id": "M3.1-popup-client-frise-annulee",
@@ -883,7 +883,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_popup_sans_excedent",
       "statut": "implemented",
-      "libelle": "AG sans excédents : bloc « Aucun repas collecté » (motif + « Constaté le » = realisee_at, pas d'attestation) + document nommé « Rapport de don », comme pour une collecte avec excédents (décision Val 2026-10-09 : un seul nom, deux PDF distincts ; le bloc dit « Votre rapport de don atteste que cet événement était sans excédent »), frise « Sans excédents »."
+      "libelle": "AG sans excédents : bloc « Aucun repas collecté » (motif + « Constaté le » = realisee_at, pas d'attestation) + document nommé « Rapport de don », comme pour une collecte avec excédents (décision Val 2026-10-09 : un seul nom, deux PDF distincts ; le bloc dit « Votre rapport de don atteste que cet événement était sans excédent »), frise « Réalisée » (« sans excédent » n'est pas un statut, décision Val 2026-10-09)."
     },
     {
       "id": "M3.1-popup-client-avant-realisation",
@@ -1044,6 +1044,30 @@
       "test": "M3.1/email_modification_urgence_12h",
       "statut": "implemented",
       "libelle": "Modification urgente = l'ancien OU le nouveau créneau est à moins de 12h (décision Val 2026-10-09) : une seule règle pour l'avertissement de l'écran d'édition, le drapeau `priorite_urgence` de la route traiteur (réponse et journal d'audit) et la ligne ATTENTION de l'email à l'équipe Savr"
+    },
+    {
+      "id": "M3.1-liste-sans-excedent-resultats",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:320",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx (ResultatsCollecte, cellule de la colonne Résultats de la liste Collectes traiteur : une collecte AG `realisee_sans_collecte` affiche « Sans excédent », sans repas ni CO₂, avec le picto de téléchargement de son rapport ; colonne Statut = « Réalisée » via le mapping client de packages/plateforme/src/lib/statut-collecte-labels.ts)",
+      "test": "M3.1/liste_sans_excedent_resultats",
+      "statut": "implemented",
+      "libelle": "Liste Collectes traiteur : « Sans excédent » passe de la colonne Statut à la colonne Résultats ; la ligne se lit « Réalisée » et son rapport de don se télécharge depuis la liste (décision Val 2026-10-09 ; picto de téléchargement : arbitrage « Oui, avec le picto »). Les listes agence et gestionnaire de lieux montent la même cellule ; ce partage n'est pas exercé par le test cité."
+    },
+    {
+      "id": "M3.1-filtre-statut-realisee-couvre-sans-excedent",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:366",
+      "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts (groupesStatutClient : le groupe « Réalisée » réunit `realisee_sans_collecte` et `cloturee` ; plus de groupe « Sans excédents ») + packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx (cocher « Réalisée » sélectionne les deux statuts ; un groupe se lit coché dès qu'un de ses statuts est sélectionné — règle valable pour tous les groupes, « Créée », « En cours » et « Annulée » compris)",
+      "test": "M3.1/filtre_statut_realisee_cochee_sur_lien_cloturee + M3.1/filtre_statut_realisee_couvre_sans_excedent + R25a/statuts_historique_annulee_regroupe_les_deux_statuts_db",
+      "statut": "implemented",
+      "libelle": "Filtre « Statut » des listes client : « Réalisée » couvre aussi les collectes AG sans excédent ; plus d'option « Sans excédents ». Un lien de tableau de bord ne porte que le statut `cloturee` : « Réalisée » s'y lit cochée (interprétation Claude Code, à valider par Val). La liste, elle, continue de filtrer sur les statuts de l'URL (comportement inchangé, non exercé par les tests cités)."
+    },
+    {
+      "id": "M3.1-liste-sans-excedent-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:320",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx (colonne Résultats : « Sans excédent » précédé du picto des repas, suivi du picto de téléchargement) + packages/plateforme/src/components/collecte/frise-statut-client.tsx (frise de la fiche collecte client : dernière étape « Réalisée ») + packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx (case « Réalisée » cochée à l'arrivée depuis un tableau de bord) — aucun style nouveau",
+      "test": "M3.1/liste_sans_excedent_resultats + M3.1/frise_client_sans_excedents + M3.1/filtre_statut_realisee_cochee_sur_lien_cloturee",
+      "statut": "à-vérifier",
+      "libelle": "Rendu, côté espaces clients, de « Sans excédent » dans la colonne Résultats, de la frise « Réalisée » de la fiche et de la case « Réalisée » du filtre. GO visuel de Val en attente. Contrôlée le 2026-10-09 sur un aperçu local à données simulées (capture transmise à Val dans la conversation) : la colonne Résultats — ce contrôle prouve le rendu, pas l'application connectée. NON capturées : la frise de la fiche collecte client et la case « Réalisée » cochée à l'arrivée depuis un tableau de bord."
     }
   ],
   "cdc_source_hash": {

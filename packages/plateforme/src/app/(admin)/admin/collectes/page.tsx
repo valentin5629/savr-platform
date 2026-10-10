@@ -60,9 +60,10 @@ import { ChoiceCard } from '@/components/ui/choice-card';
 // Clés d'affichage Admin : le statut DB `programmee` s'y lit « Créée » (`creee`)
 // puis « Programmée » (décision Val 2026-10-07, lib/statut-collecte-admin).
 const STATUTS_PROGRAMMEES = ['creee', 'programmee', 'validee', 'en_cours'];
+// « Réalisée » couvre aussi la collecte AG sans excédent (`filtreStatutsAdmin`) :
+// le filtre ne propose pas deux fois le même libellé (décision Val 2026-10-09).
 const STATUTS_HISTORIQUE = [
   'realisee',
-  'realisee_sans_collecte',
   'cloturee',
   'annulee',
   'rejetee_par_prestataire',

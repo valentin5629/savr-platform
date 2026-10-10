@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { StatusCollecte } from '@/components/ui/status-collecte';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
+import { LIBELLE_SANS_EXCEDENT } from '@/lib/statut-collecte-labels';
 import {
   Dropdown,
   DropdownContent,
@@ -175,14 +176,16 @@ function formatEuro(n: number, type: CollecteRow['type']): string {
   return type === 'zero_dechet' ? `${v} HT` : v;
 }
 
-// ── Indicateurs de résultat (vue Historique) — repas AG / kg + taux ZD / rapport.
+// ── Indicateurs de résultat (vue Historique) — repas AG ou « Sans excédent » /
+// kg + taux ZD / rapport. « Sans excédent » est le résultat d'une collecte AG
+// qui n'a rien donné, pas son statut (décision Val 2026-10-09).
 function IndicateursHistorique({ row }: { row: CollecteRow }) {
+  const sansExcedent = row.statut === 'realisee_sans_collecte';
   // Une collecte AG avec excédents n'a pas de rapport : son document est
   // l'attestation de don. Une ligne rapports_rse peut exister en base pour elle
   // (anciens batchs, jamais rendue en PDF) : elle n'annonce rien ici. Même règle
   // que le filtre « Rapport non consulté » (lib/collectes-admin).
-  const aUnRapport =
-    row.type === 'zero_dechet' || row.statut === 'realisee_sans_collecte';
+  const aUnRapport = row.type === 'zero_dechet' || sansExcedent;
   const rapport = aUnRapport ? row.rapports_rse[0] : undefined;
   const poids = poidsTotalZd(row);
   const repas = row.attributions_antgaspi?.volume_repas_realise;
@@ -194,7 +197,13 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
       tone="soft"
       className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
     >
-      {row.type === 'anti_gaspi' && repas != null && (
+      {sansExcedent && (
+        <span className="inline-flex items-center gap-1.5">
+          <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
+          {LIBELLE_SANS_EXCEDENT}
+        </span>
+      )}
+      {row.type === 'anti_gaspi' && !sansExcedent && repas != null && (
         <span className="inline-flex items-center gap-1.5">
           <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
           {repas} repas

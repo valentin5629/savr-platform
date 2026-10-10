@@ -39,6 +39,17 @@ import { Constants } from '@savr/shared/src/database.types.js';
 type Row = Record<string, unknown>;
 
 /**
+ * Colonne « Repas AG » d'une ligne collecte. Une collecte AG sans excédent vaut
+ * 0, jamais une cellule vide : la colonne « Statut » la dit « Réalisée », c'est
+ * ici que l'export garde l'information (décision Val 2026-10-09).
+ */
+function repasAgExport(r: Row, repas: Map<string, number>): number | '' {
+  if (r.type !== 'anti_gaspi') return '';
+  if (r.statut === 'realisee_sans_collecte') return 0;
+  return repas.get(r.id as string) ?? '';
+}
+
+/**
  * Repas détournés par collecte AG, lus dans l'embed `attributions_antgaspi`
  * (objet, tableau ou null selon la cardinalité vue par PostgREST). Une collecte
  * sans attribution n'a pas d'entrée : sa cellule reste vide.
@@ -272,8 +283,7 @@ export async function buildCollectesExport(
     },
     {
       header: 'Repas AG',
-      value: (r) =>
-        r.type === 'anti_gaspi' ? (repas.get(r.id as string) ?? '') : '',
+      value: (r) => repasAgExport(r, repas),
     },
   ];
 
@@ -694,8 +704,7 @@ export async function buildImpactRseExport(
     },
     {
       header: 'Repas AG',
-      value: (r) =>
-        r.type === 'anti_gaspi' ? (repas.get(r.id as string) ?? '') : '',
+      value: (r) => repasAgExport(r, repas),
     },
   ];
 

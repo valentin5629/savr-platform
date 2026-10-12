@@ -102,8 +102,8 @@ export class EverestClient {
           `Everest auth échouée (${result.status}) : ${result.error}`,
         );
       }
-      TOKEN_CACHE.set(this.clientId, result.data.access_token);
-      return result.data.access_token;
+      TOKEN_CACHE.set(this.clientId, result.data.token);
+      return result.data.token;
     }
 
     const resp = await fetch(`${this.baseUrl}/auth`, {
@@ -138,8 +138,8 @@ export class EverestClient {
     }
 
     const data = (await resp.json()) as EverestAuthResponse;
-    TOKEN_CACHE.set(this.clientId, data.access_token);
-    return data.access_token;
+    TOKEN_CACHE.set(this.clientId, data.token);
+    return data.token;
   }
 
   // Invalider le cache sur 401 et re-tenter l'auth une fois

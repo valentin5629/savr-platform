@@ -18,7 +18,7 @@ export interface EverestCancelResponse {
 }
 
 export interface EverestAuthResponse {
-  access_token: string;
+  token: string;
 }
 
 // Détail mission re-fetché par GET /missions/{id} (BL-P0-07).
@@ -100,7 +100,7 @@ export function setupEverestMock(
       if (opts.authFails) {
         return { ok: false, status: 401, error: 'Unauthorized' };
       }
-      return { ok: true, data: { access_token: 'mock-bearer-token' } };
+      return { ok: true, data: { token: 'mock-bearer-token' } };
     },
 
     createMission: async (payload) => {

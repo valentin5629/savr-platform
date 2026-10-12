@@ -261,7 +261,7 @@ Inventaire Bubble + MTS-1 (`01 - …`), mappings (`02 - Mappings/`), ordre d'ex�
 
 ## 15. Fixtures et seed data — Pointeurs (`05 - Fixtures/`)
 
-Catalogue/volumétrie (`01`), couverture règles métier (`02`), timeline `seed_demo` (`03`), fixtures API (`04`), spec d'injection (`05`). Grilles réelles intégrées (Strike camions 16/20 m³, Marathon forfait 100 €/tournée, A Toutes! vélo 8 cellules). Commandes : `pnpm seed:minimal`, `pnpm seed:demo`. **Jamais de seed en prod** (refus si `NODE_ENV=production`).
+Catalogue/volumétrie (`01`), couverture règles métier (`02`), timeline `seed_demo` (`03`), fixtures API (`04`), spec d'injection (`05`). Grilles réelles intégrées (Strike camions 16/20 m³, Marathon forfait 100 €/tournée, A Toutes! vélo 8 cellules). Commandes : `pnpm seed:minimal`, `pnpm seed:demo`. **Jamais de seed en prod** (refus si `NODE_ENV=production`). Codes transporteurs MTS-1 du jeu de données : lus dans `.env.local` (`SEED_MTS1_CODE_STRIKE`, `SEED_MTS1_CODE_MARATHON`, `SEED_MTS1_CODE_TRANSNORMANDIE` — ceux du compte MTS-1 visé par `MTS1_BASE_URL`), jamais écrits dans le dépôt ; sans variable le seed pose un code inventé, et un envoi réel est alors refusé par MTS-1 au dispatch (400, constaté le 2026-10-12).
 
 ---
 

@@ -18,6 +18,7 @@
 import type pg from 'pg';
 import { seedUuid } from './uuid.js';
 import { upsert, lookupMap, jsonb, type Row } from './db.js';
+import { codeMts1Seed } from './codes-mts1.js';
 import {
   SEED_REF_DATE,
   fakePhone,
@@ -409,7 +410,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         '75019',
         'Paris',
         ['poids_lourd'],
-        'STRIKE-MTS1',
+        codeMts1Seed('strike'),
         'strike',
       ),
       transp(
@@ -420,7 +421,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         '75020',
         'Paris',
         ['fourgon', 'poids_lourd'],
-        'MARATHON-MTS1',
+        codeMts1Seed('marathon'),
         'marathon',
       ),
       transp(
@@ -431,7 +432,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         '76000',
         'Rouen',
         ['fourgon'],
-        'TRANSNOR-MTS1',
+        codeMts1Seed('transnormandie'),
         'transnormandie',
       ),
     ],

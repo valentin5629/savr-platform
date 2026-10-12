@@ -42,6 +42,8 @@ function chaine(cible: string) {
     },
     single: fin,
     maybeSingle: fin,
+    // Lecture de plusieurs lignes : la requête est attendue telle quelle.
+    then: <T>(suite: (r: Reponse) => T) => fin().then(suite),
   };
   return c;
 }
@@ -115,6 +117,8 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
       prestataire_actuel: null,
       // Collecte sans contrôle d'accès : pas d'email « infos d'accès » à suivre.
       infos_acces_email: null,
+      // Aucun ordre en file pour cette collecte.
+      ordre_envoi: null,
     });
     expect(appelsSur('plateforme.transporteurs')).toHaveLength(0);
     expect(appelsSur('shared.prestataires')).toHaveLength(0);
@@ -335,5 +339,101 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
 
     expect(res.status).toBe(403);
     expect(appels).toHaveLength(0);
+  });
+});
+
+// Décision Val 2026-10-12 (C6) : la fiche affiche ce qu'il est réellement advenu
+// de l'ordre mis en file, lu dans `outbox_events` — pas déduit de `statut_tms`.
+describe("M0.6 — GET admin/collectes/[id] : ordre d'envoi au prestataire", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    reponses.clear();
+    appels.length = 0;
+    setupAuth('ops_savr');
+    reponses.set('plateforme.collectes', {
+      data: { id: 'col-1', prestataire_logistique_id: null },
+      error: null,
+    });
+  });
+
+  it("M0.6/ordre_envoi_route — ordre de tête en échec avec reprise : rendu tel qu'il est en file, lu sur les seuls ordres de CETTE collecte", async () => {
+    reponses.set('plateforme.outbox_events', {
+      data: [
+        {
+          seq: 77,
+          event_type: 'collecte.creee',
+          statut: 'pending',
+          consumer: 'adapter_mts1',
+          attempts: 0,
+          next_retry_at: null,
+          last_error: null,
+        },
+        {
+          seq: 72,
+          event_type: 'collecte.creee',
+          statut: 'failed',
+          consumer: 'adapter_mts1',
+          attempts: 2,
+          next_retry_at: '2026-10-12T09:35:00Z',
+          last_error: '503 Service Unavailable',
+        },
+      ],
+      error: null,
+    });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(
+      ((await res.json()) as { ordre_envoi: unknown }).ordre_envoi,
+    ).toEqual({
+      etat: 'echec_reprise',
+      nature: 'creation',
+      tentatives: 2,
+      prochaine_tentative_at: '2026-10-12T09:35:00Z',
+      erreur: '503 Service Unavailable',
+    });
+    const lectures = appelsSur('plateforme.outbox_events');
+    expect(lectures).toHaveLength(1);
+    expect(lectures[0]!.filtres).toEqual([
+      ['aggregate_type', 'collecte'],
+      ['aggregate_id', 'col-1'],
+    ]);
+  });
+
+  it('tous les ordres sont terminés : ordre_envoi null', async () => {
+    reponses.set('plateforme.outbox_events', {
+      data: [
+        {
+          seq: 1,
+          event_type: 'collecte.creee',
+          statut: 'done',
+          consumer: 'adapter_mts1',
+          attempts: 1,
+          next_retry_at: null,
+          last_error: null,
+        },
+      ],
+      error: null,
+    });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(
+      ((await res.json()) as { ordre_envoi: unknown }).ordre_envoi,
+    ).toBeNull();
+  });
+
+  it('lecture de la file en erreur : 500, message neutre (pas de fiche servie avec un état faux)', async () => {
+    reponses.set('plateforme.outbox_events', {
+      data: null,
+      error: { code: '42703', message: 'column "x" does not exist' },
+    });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Erreur serveur' });
   });
 });

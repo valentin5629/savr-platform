@@ -25,6 +25,7 @@ import {
   type ProfilHorairesSeed,
 } from './constants.js';
 import { genererPipelineVivant } from './pipeline-vivant.js';
+import { codeMts1Seed } from './codes-mts1.js';
 import { instantParis } from '../temps/index.js';
 
 const U = seedUuid;
@@ -565,7 +566,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         'Paris',
         ['poids_lourd'],
         'mts1',
-        'STRIKE-MTS1',
+        codeMts1Seed('strike'),
         'prest_strike',
       ),
       transp(
@@ -577,7 +578,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         'Paris',
         ['fourgon', 'poids_lourd'],
         'mts1',
-        'MARATHON-MTS1',
+        codeMts1Seed('marathon'),
         'prest_marathon',
       ),
       transp(
@@ -589,7 +590,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         'Rouen',
         ['fourgon'],
         'mts1',
-        'TRANSNOR-MTS1',
+        codeMts1Seed('transnormandie'),
         'prest_transnormandie',
       ),
       transp(

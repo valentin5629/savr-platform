@@ -15,6 +15,7 @@ import {
   lireDernierEmailInfosAcces,
   type SuiviEmailInfosAcces,
 } from '@/lib/infos-acces/suivi-email.js';
+import { deriverOrdreEnvoi, lireOrdresCollecte } from '@/lib/ordre-envoi.js';
 
 async function getHandler(
   req: NextRequest,
@@ -151,10 +152,17 @@ async function getHandler(
     );
   }
 
+  // Ordre d'envoi au prestataire : ce qu'il est advenu de l'ordre mis en file,
+  // lu dans la file elle-même — `statut_tms` reste « non envoyé » que l'ordre
+  // attende, soit en échec ou abandonné (décision Val 2026-10-12).
+  const ordres = await lireOrdresCollecte(supabase, id);
+  if (ordres.error) return serverError(ordres.error, 'admin.collectes.get');
+
   return NextResponse.json({
     ...data,
     prestataire_actuel: prestataireActuel,
     infos_acces_email: infosAccesEmail,
+    ordre_envoi: deriverOrdreEnvoi(ordres.data),
   });
 }
 

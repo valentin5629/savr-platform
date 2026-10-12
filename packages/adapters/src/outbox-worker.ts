@@ -27,12 +27,25 @@
 //      ordre d'une collecte de ce lieu (clic) peuvent se chevaucher ;
 //   3. le reaper ne re-queue qu'une réservation EXPIRÉE. Elle n'est tenue par un
 //      passage mort que si le bail (120 s) dépasse la durée de vie de l'appelant.
-//      Sur Vercel, cette durée est bornée par `maxDuration = 60` (route cron et
-//      routes qui déclenchent l'envoi immédiat ; cliquet :
-//      plateforme/tests/api/admin/envoi-immediat-routes.test.ts) — en supposant
-//      que la plateforme arrête la fonction, tâche `after()` comprise, à cette
-//      durée (non mesuré ici). Sur un serveur local (`next dev`, `next start`),
-//      `maxDuration` n'est pas appliqué : rien ne borne un passage.
+//      `maxDuration = 60` (route cron et routes qui déclenchent l'envoi immédiat ;
+//      cliquet : plateforme/tests/api/admin/envoi-immediat-routes.test.ts) ne
+//      borne pas seul cette durée. Sur un serveur local (`next dev`,
+//      `next start`), il n'est pas appliqué : rien ne borne un passage. Sur
+//      Vercel, mesuré le 2026-10-12 sur des déploiements d'aperçu (Fluid
+//      Compute), avec une tâche `after()` de 150 s sous `maxDuration = 60` :
+//        - seule dans son processus, la tâche s'est arrêtée à 60 s ;
+//        - avec une autre invocation en cours dans le même processus à cette
+//          échéance, la plateforme a journalisé le dépassement et cessé
+//          d'enregistrer les journaux de la tâche, mais son code a continué,
+//          appels HTTP sortants compris : dernier appel reçu 100,5 s après le
+//          départ de la tâche, plus aucun une fois l'autre invocation arrivée
+//          à sa propre limite ;
+//        - les deux routes d'envoi immédiat et les routes cron à 60 s, dont
+//          celle de ce worker, étaient servies par la même instance.
+//      Aucune tâche n'a été vue active au-delà de 120 s. Rien de mesuré ne
+//      l'exclut, et le passage ne borne pas le traitement d'un ordre réservé.
+//      Non mesuré : la production, et le cas où l'autre invocation se termine
+//      avant sa propre limite.
 // C'est pourquoi SEUL le passage planifié lance le reaper : un clic ne libère
 // jamais la réservation d'un autre passage. Si une durée venait à dépasser le
 // bail, il faudrait un heartbeat de bail — invariant à préserver.

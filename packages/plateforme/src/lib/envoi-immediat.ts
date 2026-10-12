@@ -10,10 +10,12 @@
 // l'ordre reste en file et le passage planifié l'envoie (reprises comprises).
 //
 // ⚠ `envoyerOrdresSansAttendre` ne s'appelle que depuis une route, et cette
-// route DOIT exporter `maxDuration = 60` : sur Vercel, c'est ce qui tient la
-// durée de vie du passage sous le bail de réservation (120 s) — invariant A3,
-// packages/adapters/src/outbox-worker.ts. Sur un serveur local, rien ne borne
-// cette durée. Cliquet : tests/api/admin/envoi-immediat-routes.test.ts.
+// route DOIT exporter `maxDuration = 60`, la moitié du bail de réservation
+// (120 s). Cette limite ne borne pas seule la durée de vie du passage : rien ne
+// l'applique sur un serveur local, et sur Vercel une tâche `after()` hors délai
+// a continué de s'exécuter quand une autre invocation occupait son processus
+// (mesuré le 2026-10-12 — invariant A3, packages/adapters/src/outbox-worker.ts).
+// Cliquet : tests/api/admin/envoi-immediat-routes.test.ts.
 
 import { after } from 'next/server';
 

@@ -15,12 +15,27 @@
 // re-POST silencieux à attempts inchangé). La valeur lue au claim compte donc la
 // tentative courante → palier = getNextRetryAt(attempts).
 //
-// A3 (concurrence claim/reaper) : aucune double-exécution concurrente possible
-// dans ce déploiement — le lease (120 s) dépasse maxDuration de la route cron
-// (60 s, cf. api/cron/outbox-worker/route.ts) et les invocations Vercel Cron ne se
-// chevauchent pas (intervalle 15 min). Le reaper ne re-queue qu'un claim EXPIRÉ,
-// donc tenu par un run mort. Si maxDuration venait à dépasser le lease, il faudrait
-// un heartbeat de lease ou 1 event/run — invariant à préserver.
+// A3 (concurrence claim/reaper) : depuis l'envoi immédiat au clic (décision Val
+// 2026-10-12), PLUSIEURS passages peuvent tourner en même temps — le passage
+// planifié (runOutboxWorker) et des passages ciblés par clic
+// (runOutboxWorkerPourCollecte). Ce qui empêche la double exécution d'un ordre :
+//   1. la réservation est atomique (FOR UPDATE SKIP LOCKED + statut 'processing') :
+//      un ordre n'est rendu qu'à UN passage ;
+//   2. le head-of-line bloque l'ordre suivant d'un MÊME agrégat tant que le
+//      précédent n'est pas 'done' : jamais deux ordres d'une même collecte en vol.
+//      Il ne lie pas deux agrégats : un ordre « lieu » (passage planifié) et un
+//      ordre d'une collecte de ce lieu (clic) peuvent se chevaucher ;
+//   3. le reaper ne re-queue qu'une réservation EXPIRÉE. Elle n'est tenue par un
+//      passage mort que si le bail (120 s) dépasse la durée de vie de l'appelant.
+//      Sur Vercel, cette durée est bornée par `maxDuration = 60` (route cron et
+//      routes qui déclenchent l'envoi immédiat ; cliquet :
+//      plateforme/tests/api/admin/envoi-immediat-routes.test.ts) — en supposant
+//      que la plateforme arrête la fonction, tâche `after()` comprise, à cette
+//      durée (non mesuré ici). Sur un serveur local (`next dev`, `next start`),
+//      `maxDuration` n'est pas appliqué : rien ne borne un passage.
+// C'est pourquoi SEUL le passage planifié lance le reaper : un clic ne libère
+// jamais la réservation d'un autre passage. Si une durée venait à dépasser le
+// bail, il faudrait un heartbeat de bail — invariant à préserver.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -137,23 +152,112 @@ export async function runOutboxWorker(
 
   // ── 3. Traitement séquentiel ─────────────────────────────────────────────────
   for (const event of claimed) {
-    try {
-      const consumer = await processEvent(supabase, event);
-      await markDone(supabase, event.id, consumer);
-      result.done++;
-    } catch (err) {
-      const status = await handleError(supabase, event, err);
-      if (status === 'dead') {
-        result.dead++;
-        await alertOutboxDead(event, err);
-      } else {
-        result.failed++;
-        await maybeAlertEarlyCollecte(supabase, event);
-      }
+    await traiterEvent(supabase, event, result);
+  }
+
+  return result;
+}
+
+// Traitement d'un ordre réservé : appel du prestataire HORS transaction, puis
+// transaction de résultat. Commun au passage planifié et à l'envoi immédiat.
+async function traiterEvent(
+  supabase: SupabaseClient,
+  event: ClaimedEvent,
+  result: WorkerResult,
+): Promise<void> {
+  try {
+    const consumer = await processEvent(supabase, event);
+    await markDone(supabase, event.id, consumer);
+    result.done++;
+  } catch (err) {
+    const status = await handleError(supabase, event, err);
+    if (status === 'dead') {
+      result.dead++;
+      await alertOutboxDead(event, err);
+    } else {
+      result.failed++;
+      await maybeAlertEarlyCollecte(supabase, event);
+    }
+  }
+}
+
+// ─── Envoi immédiat des ordres d'UNE collecte (décision Val 2026-10-12) ──────
+//
+// Appelé juste après la mutation qui a écrit l'ordre dans la file (clic
+// « Envoyer », validation d'une attribution) : réservation, appel du prestataire
+// et résultat comme le passage planifié, bornés à une collecte. Le passage
+// planifié reste le filet (reprises après erreur, ordre pas encore visible).
+//
+// Pas de reaper ici (invariant A3) : une réservation laissée par un passage
+// mort n'est libérée que par le passage planifié. Là où il ne tourne pas (dev,
+// local), l'ordre reste 'processing' et bloque les suivants de sa collecte.
+//
+// Le head-of-line ne rend qu'UN ordre à la fois par collecte : on rappelle la
+// réservation après chaque ordre traité. Elle rend vide quand il n'en reste
+// plus, ou quand l'ordre précédent n'est pas 'done' : la boucle s'arrête là.
+
+/** Plafond d'ordres traités par appel : ceinture contre une boucle sans fin. */
+const ENVOI_IMMEDIAT_MAX_ORDRES = 5;
+/**
+ * Passé ce délai, compté depuis le début du passage, on ne réserve plus de
+ * nouvel ordre. Il ne borne pas le traitement de l'ordre en cours.
+ */
+const ENVOI_IMMEDIAT_BUDGET_MS = 40_000;
+/**
+ * Seconde chance quand la première réservation est vide : l'ordre tout juste
+ * écrit n'est pas réservable tant qu'une transaction plus ancienne est encore
+ * ouverte (garde de visibilité txid). Une seule attente, puis le filet planifié.
+ */
+const ENVOI_IMMEDIAT_ATTENTE_VISIBILITE_MS = 1_000;
+
+export async function runOutboxWorkerPourCollecte(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<WorkerResult> {
+  const result: WorkerResult = {
+    reaped: 0,
+    claimed: 0,
+    done: 0,
+    failed: 0,
+    dead: 0,
+  };
+
+  const debut = Date.now();
+  for (let n = 0; n < ENVOI_IMMEDIAT_MAX_ORDRES; n++) {
+    if (Date.now() - debut > ENVOI_IMMEDIAT_BUDGET_MS) break;
+
+    let claimed = await claimCollecte(supabase, collecteId);
+    if (claimed.length === 0 && n === 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, ENVOI_IMMEDIAT_ATTENTE_VISIBILITE_MS),
+      );
+      claimed = await claimCollecte(supabase, collecteId);
+    }
+    if (claimed.length === 0) break;
+
+    result.claimed += claimed.length;
+    for (const event of claimed) {
+      await traiterEvent(supabase, event, result);
     }
   }
 
   return result;
+}
+
+async function claimCollecte(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<ClaimedEvent[]> {
+  const { data, error } = await supabase.rpc('fn_claim_outbox_collecte', {
+    p_collecte_id: collecteId,
+  });
+  // Réservation impossible (fonction absente : migration pas encore appliquée ;
+  // base injoignable) : le dire à l'appelant, qui le journalise. L'ordre reste
+  // en file, le passage planifié l'enverra.
+  if (error) {
+    throw new Error(`fn_claim_outbox_collecte : ${error.message}`);
+  }
+  return (data as ClaimedEvent[] | null) ?? [];
 }
 
 // ─── Routing par event_type ───────────────────────────────────────────────────

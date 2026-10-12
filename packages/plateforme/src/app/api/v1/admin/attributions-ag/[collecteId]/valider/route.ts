@@ -7,6 +7,11 @@ import {
   validerAttributionAg,
   logAttributionAucuneReco,
 } from '@/lib/attribution-ag/validation.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : durée de vie bornée sous le bail de
+// réservation des ordres (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 interface ValiderBody {
   association_id: string;
@@ -232,6 +237,9 @@ async function postHandler(
         auth.ctx.userId,
       );
     }
+    // La validation a mis l'ordre de dispatch en file : il part vers le
+    // prestataire sans attendre le passage planifié (décision Val 2026-10-12).
+    envoyerOrdresSansAttendre(collecteId);
     return NextResponse.json({ data: result }, { status: 201 });
   } catch (err) {
     const error = err as Error & { code?: string };

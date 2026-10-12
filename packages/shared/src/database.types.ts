@@ -5240,6 +5240,19 @@ export type Database = {
           requires_reconciliation: boolean
         }[]
       }
+      fn_claim_outbox_collecte: {
+        Args: { p_collecte_id: string; p_lease_duration?: string }
+        Returns: {
+          aggregate_id: string
+          aggregate_type: string
+          attempts: number
+          consumer: string
+          event_type: string
+          id: string
+          payload: Json
+          requires_reconciliation: boolean
+        }[]
+      }
       fn_cloturer_collectes_embargo: { Args: never; Returns: number }
       fn_confirmer_programmation_brouillon: {
         Args: { p_evenement_id: string }

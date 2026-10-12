@@ -1,0 +1,58 @@
+name: cron-dev
+
+# Vercel ne lance les crons que sur le déploiement de PRODUCTION : sur l'alias
+# `dev` (Preview, base savr-dev) rien d'asynchrone ne partait seul. Ce workflow
+# appelle donc, toutes les 5 minutes, les deux seules routes cron utiles aux tests
+# de bout en bout de la logistique :
+#   - outbox-worker          : envoie les ordres en file vers les prestataires ;
+#   - process-attributions-ag : traite les attributions AG en attente.
+# Volontairement PAS les autres crons (clôture, PDF, factures, polling MTS-1,
+# emails) : ils écrivent de façon irréversible dans la base de dev partagée ;
+# `pnpm documents:dev` reste le moyen de les rejouer, à la demande de Val.
+#
+# Secrets de dépôt requis (Settings → Secrets and variables → Actions) :
+#   CRON_SECRET_DEV      = valeur de CRON_SECRET du Preview Vercel
+#   VERCEL_BYPASS_DEV    = secret « Protection Bypass for Automation » du projet
+# Absents : le workflow s'arrête en succès avec un avertissement (jamais de CI rouge).
+# GitHub ne planifie que depuis la branche par défaut, avec quelques minutes de retard.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: cron-dev
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  BASE_URL: https://savr-platform-git-dev-savr-s-projects.vercel.app
+
+jobs:
+  appeler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Appeler les crons de dev
+        env:
+          CRON_SECRET_DEV: ${{ secrets.CRON_SECRET_DEV }}
+          VERCEL_BYPASS_DEV: ${{ secrets.VERCEL_BYPASS_DEV }}
+        run: |
+          if [ -z "$CRON_SECRET_DEV" ] || [ -z "$VERCEL_BYPASS_DEV" ]; then
+            echo "::warning::CRON_SECRET_DEV ou VERCEL_BYPASS_DEV absent : aucun cron appelé."
+            exit 0
+          fi
+          echo "::add-mask::$CRON_SECRET_DEV"
+          echo "::add-mask::$VERCEL_BYPASS_DEV"
+          statut=0
+          for route in outbox-worker process-attributions-ag; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 60 \
+              -H "Authorization: Bearer $CRON_SECRET_DEV" \
+              -H "x-vercel-protection-bypass: $VERCEL_BYPASS_DEV" \
+              "$BASE_URL/api/cron/$route") || code="erreur-reseau"
+            echo "$route -> HTTP $code"
+            case "$code" in 2*) ;; *) statut=1 ;; esac
+          done
+          exit $statut

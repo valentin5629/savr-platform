@@ -3,6 +3,11 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { calculerAlgoAttributionAg } from '@/lib/attribution-ag/algo.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : durée de vie bornée sous le bail de
+// réservation des ordres (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 const STATUTS_TERMINAUX = [
   'realisee',
@@ -258,6 +263,10 @@ export async function POST(
       motif_override_prestataire,
     },
   });
+
+  // L'ordre est en file : il part vers le prestataire sans attendre le passage
+  // planifié (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(id);
 
   return NextResponse.json({ ok: true, event_type: eventType });
 }

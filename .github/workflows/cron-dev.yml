@@ -7,8 +7,11 @@ name: cron-dev
 #   - outbox-worker          : envoie les ordres en file vers les prestataires ;
 #   - process-attributions-ag : traite les attributions AG en attente.
 # Volontairement PAS les autres crons (clôture, PDF, factures, polling MTS-1,
-# emails) : ils écrivent de façon irréversible dans la base de dev partagée ;
-# `pnpm documents:dev` reste le moyen de les rejouer, à la demande de Val.
+# relance d'emails) : ils écrivent de façon irréversible dans la base de dev
+# partagée ; `pnpm documents:dev` reste le moyen de les rejouer, à la demande de Val.
+# Attention : outbox-worker fait de vrais appels HTTP aux prestataires (MTS-1, A Toutes!)
+# et consomme l'arriéré d'events en attente (10 par appel) ; process-attributions-ag
+# envoie des emails, redirigés vers EMAIL_REDIRECT_TO ou supprimés hors production.
 #
 # Secrets de dépôt requis (Settings → Secrets and variables → Actions) :
 #   CRON_SECRET_DEV      = valeur de CRON_SECRET du Preview Vercel

@@ -15,6 +15,7 @@ import {
 import {
   construireRadarRapport,
   lireFiltresRadar,
+  type FiltresRadar,
 } from '@/lib/pdf/rapport-radar.js';
 
 // Régénération du rapport de recyclage d'UNE collecte ZD depuis la fiche client —
@@ -41,6 +42,89 @@ const RADAR_INDISPONIBLE =
 
 const refus = (message: string, status: number) =>
   NextResponse.json({ error: message }, { status });
+
+export type VersionDemandee =
+  | { version: VersionRapportRecyclage | undefined }
+  | { refus: NextResponse };
+
+/**
+ * Lit dans le corps la version demandée du rapport de recyclage — commun aux
+ * espaces clients et à l'Admin. Corps vide ou sans « options » = reproduction du
+ * dernier rendu (`version` indéfinie).
+ *
+ * Le radar est toujours calculé par `construireRadarRapport` avec le client et
+ * le contexte de l'appelant : mêmes chiffres que l'écran, même k-anonymat.
+ *
+ * `filtresParDefaut` sert l'appelant qui n'a pas de barre de filtres à l'écran
+ * (Admin) : il fournit les filtres quand le corps n'en porte pas.
+ */
+export async function lireVersionDemandee(
+  req: NextRequest,
+  rls: ReturnType<typeof createSupabaseServerClient>,
+  ctx: UserAuthContext,
+  id: string,
+  evenementLog: string,
+  filtresParDefaut?: () => Promise<FiltresRadar>,
+): Promise<VersionDemandee> {
+  const texte = await req.text();
+  let corps: unknown = null;
+  if (texte.trim()) {
+    try {
+      corps = JSON.parse(texte);
+    } catch {
+      return { refus: refus('Requête invalide', 400) };
+    }
+  }
+  if (corps == null) return { version: undefined };
+  if (typeof corps !== 'object' || Array.isArray(corps)) {
+    return { refus: refus('Requête invalide', 400) };
+  }
+  const { options, benchmark_filters } = corps as {
+    options?: unknown;
+    benchmark_filters?: unknown;
+  };
+  if (options === undefined) return { version: undefined };
+  const choix =
+    options != null && typeof options === 'object'
+      ? (options as { benchmark?: unknown }).benchmark
+      : undefined;
+  if (typeof choix !== 'boolean') {
+    return { refus: refus('Option du rapport invalide', 422) };
+  }
+  if (!choix) return { version: { avecRadar: false } };
+
+  let filtres: FiltresRadar | null;
+  if (benchmark_filters === undefined && filtresParDefaut) {
+    try {
+      filtres = await filtresParDefaut();
+    } catch (e) {
+      return { refus: serverError(e, evenementLog) };
+    }
+  } else {
+    filtres = lireFiltresRadar(benchmark_filters);
+  }
+  if (!filtres) {
+    return { refus: refus('Filtres de comparaison invalides', 422) };
+  }
+  const r = await construireRadarRapport(rls, ctx, id, filtres);
+  switch (r.etat) {
+    case 'ok':
+      // Aucun flux rapporté au nombre de convives (pax absent ou nul) : rien à
+      // comparer. On le dit, plutôt que de rendre un rapport sans le radar demandé.
+      if (!r.radar.benchmark_flux.some((g) => g.collecte_kg_pax != null)) {
+        return { refus: refus(RADAR_INDISPONIBLE, 422) };
+      }
+      return { version: { avecRadar: true, radar: r.radar } };
+    case 'sans_radar':
+      return { refus: refus(RADAR_INDISPONIBLE, 422) };
+    case 'introuvable':
+      return { refus: refus('Collecte introuvable', 404) };
+    case 'filtre_interdit':
+      return { refus: reponseFiltreInterdit(r.motif) };
+    case 'erreur':
+      return { refus: serverError(r.erreur, evenementLog) };
+  }
+}
 
 export async function repondreRegenerationRapport(
   req: NextRequest,
@@ -111,63 +195,9 @@ export async function repondreRegenerationRapport(
     return refus('Document non encore généré — régénération impossible', 409);
   }
 
-  // Version demandée. Corps vide = reproduction du dernier rendu.
-  const texte = await req.text();
-  let corps: unknown = null;
-  if (texte.trim()) {
-    try {
-      corps = JSON.parse(texte);
-    } catch {
-      return refus('Requête invalide', 400);
-    }
-  }
-  let version: VersionRapportRecyclage | undefined;
-  if (corps != null) {
-    if (typeof corps !== 'object' || Array.isArray(corps)) {
-      return refus('Requête invalide', 400);
-    }
-    const { options, benchmark_filters } = corps as {
-      options?: unknown;
-      benchmark_filters?: unknown;
-    };
-    if (options !== undefined) {
-      const choix =
-        options != null && typeof options === 'object'
-          ? (options as { benchmark?: unknown }).benchmark
-          : undefined;
-      if (typeof choix !== 'boolean') {
-        return refus('Option du rapport invalide', 422);
-      }
-      if (!choix) {
-        version = { avecRadar: false };
-      } else {
-        const filtres = lireFiltresRadar(benchmark_filters);
-        if (!filtres) return refus('Filtres de comparaison invalides', 422);
-        const r = await construireRadarRapport(rls, ctx, id, filtres);
-        switch (r.etat) {
-          case 'ok':
-            // Aucun flux rapporté au nombre de convives (pax absent ou nul) :
-            // rien à comparer. On le dit, plutôt que de rendre un rapport sans
-            // le radar demandé.
-            if (
-              !r.radar.benchmark_flux.some((g) => g.collecte_kg_pax != null)
-            ) {
-              return refus(RADAR_INDISPONIBLE, 422);
-            }
-            version = { avecRadar: true, radar: r.radar };
-            break;
-          case 'sans_radar':
-            return refus(RADAR_INDISPONIBLE, 422);
-          case 'introuvable':
-            return refus('Collecte introuvable', 404);
-          case 'filtre_interdit':
-            return reponseFiltreInterdit(r.motif);
-          case 'erreur':
-            return serverError(r.erreur, evenementLog);
-        }
-      }
-    }
-  }
+  const lu = await lireVersionDemandee(req, rls, ctx, id, evenementLog);
+  if ('refus' in lu) return lu.refus;
+  const version = lu.version;
 
   const result = await regenerateCollecteDocument(
     admin,

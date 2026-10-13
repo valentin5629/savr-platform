@@ -7,6 +7,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { libelleErreurReseau } from '@savr/shared/src/api/erreur-reseau.js';
+
 import {
   LogistiqueAmbiguousError,
   LogistiquePermanentError,
@@ -616,7 +618,7 @@ export class Mts1Client {
       const erreur =
         err instanceof Error && err.name === 'AbortError'
           ? 'Timeout (5 s)'
-          : `Réseau : ${String(err)}`;
+          : `Réseau : ${libelleErreurReseau(err)}`;
       await this.log({
         methode: 'GET',
         endpoint: '/v3/carrier',
@@ -723,18 +725,22 @@ export class Mts1Client {
       });
     } catch (err) {
       clearTimeout(timeout);
+      // Jamais le texte de l'erreur : `fetch` y recopie la valeur d'en-tête qu'il
+      // refuse, donc la clé entière (cf. libelleErreurReseau). Ce libellé va dans
+      // integrations_logs, puis outbox_events.last_error, l'alerte et la fiche.
+      const libelle = libelleErreurReseau(err);
       await this.log({
         methode: method,
         endpoint: path,
         duree_ms: Date.now() - t0,
-        erreur: String(err),
+        erreur: libelle,
         correlation_id: correlationId,
         direction,
       });
       if (err instanceof Error && err.name === 'AbortError') {
         throw new LogistiqueAmbiguousError(`MTS-1 timeout : ${method} ${path}`);
       }
-      throw new LogistiqueTransientError(`MTS-1 réseau : ${String(err)}`);
+      throw new LogistiqueTransientError(`MTS-1 réseau : ${libelle}`);
     }
     clearTimeout(timeout);
 

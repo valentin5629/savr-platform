@@ -12,6 +12,7 @@ import {
   setEmailCaptureSink,
   type CapturedEmail,
 } from '@savr/shared/src/email/index.js';
+import { _reinitialiserFreinEcritures } from '@/lib/frein-ecritures-client.js';
 
 type Result = { data: unknown; error: unknown };
 
@@ -120,6 +121,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   rls = makeChain();
   admin = makeChain();
+  // Ce fichier modifie le même événement plus de dix fois : chaque cas repart
+  // d'un frein de débit vide (lib/frein-ecritures-client).
+  _reinitialiserFreinEcritures();
 });
 
 // Queue le chemin nominal d'un PATCH événement réussi.

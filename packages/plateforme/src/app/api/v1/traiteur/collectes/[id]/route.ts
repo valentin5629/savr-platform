@@ -16,6 +16,7 @@ import {
 import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 import { modificationUrgente } from '@/lib/collectes/urgence-modification.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -219,6 +220,14 @@ export async function PATCH(
     );
   }
 
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client). L'identifiant
+  // est celui que rend la base, jamais le paramètre d'URL.
+  const frein = freinerEcritureCliente({
+    organisationId: auth.ctx.organisationId,
+    modification: { collecte: collecte.id },
+  });
+  if (frein) return frein;
+
   // Flags modal/audit (§06.04 modal unique + cut-off 12h)
   const ancienCreneau = {
     date: collecte.date_collecte,
@@ -258,7 +267,7 @@ export async function PATCH(
 
   // L'ordre éventuel est en file : il part sans attendre le passage planifié
   // (décision Val 2026-10-12).
-  envoyerOrdresSansAttendre(id);
+  envoyerOrdresSansAttendre(collecte.id);
 
   if (reacceptation_requise) {
     await admin

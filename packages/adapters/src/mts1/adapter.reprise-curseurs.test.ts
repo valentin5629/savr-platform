@@ -364,6 +364,8 @@ function fauxMts1() {
     customerOrderId: string;
     orderNumber: string;
     tourId: string | null;
+    /** Statut rendu par la recherche ; « DRAFT » par défaut. */
+    statut?: string;
   }> = [];
   const tours: Array<{ tourId: string; envois: number; validations: number }> =
     [];
@@ -429,7 +431,7 @@ function fauxMts1() {
             .map((c) => ({
               customerOrderId: c.customerOrderId,
               orderNumber: c.orderNumber,
-              customerOrderStatus: 'DRAFT',
+              customerOrderStatus: c.statut ?? 'DRAFT',
               orderDate: '2027-03-20T21:00:00.000Z',
               // Formes mesurées le 2026-10-13 : l'objet existe toujours, sans
               // `tourId` ni `stopId` tant que la commande n'est rattachée à
@@ -1035,6 +1037,38 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       attendreUnSeulCamion(base);
     });
 
+    it.each(['OK', 'PARTIAL', 'ARCHIVED'] as const)(
+      'M1.5a/reprise_curseur_commande_terminee — la commande enregistrée est déjà « %s » chez MTS-1 : échec définitif, sa tournée n’est ni reprise, ni renvoyée, ni recréée',
+      async (statut) => {
+        const base = fausseBase();
+        base.poserTournee(1);
+        base.ordre.requires_reconciliation = true;
+        mts1.commandes.push({
+          customerOrderId: 'CMD-1',
+          orderNumber: NUMERO_RANG_1,
+          tourId: 'TOUR-1',
+          statut,
+        });
+        mts1.tours.push({ tourId: 'TOUR-1', envois: 1, validations: 1 });
+
+        const result = await runOutboxWorker(base.supabase);
+
+        expect(result).toMatchObject({ dead: 1, done: 0 });
+        expect(base.resultats[0]).toMatchObject({
+          p_statut: 'dead',
+          p_last_error: `collecte ${COLLECTE_ID} : la commande du rang 1 (CMD-1) est déjà terminée chez MTS-1 (${statut}) — tournée ni reprise ni créée`,
+        });
+        // Une seule lecture, aucune écriture chez MTS-1.
+        expect(mts1.appels).toEqual([
+          'GET /v3/customerOrders?customerOrderIds=CMD-1',
+        ]);
+        expect(mts1.tours).toEqual([
+          { tourId: 'TOUR-1', envois: 1, validations: 1 },
+        ]);
+        expect(base.tournees[0]!.tms_reference).toBeNull();
+      },
+    );
+
     it('M1.5a/reprise_tournee_commande_disparue — la commande n’existe plus chez MTS-1 : échec définitif, aucune tournée créée', async () => {
       const base = fausseBase();
       base.poserTournee(1);
@@ -1174,6 +1208,64 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       });
       expect(base.tournees).toHaveLength(0);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(0);
+    });
+
+    it.each(['OK', 'PARTIAL', 'ARCHIVED'] as const)(
+      'M1.5a/reprise_commande_terminee — une commande du même numéro est déjà « %s » chez MTS-1 : échec définitif, ni reprise ni nouvelle création',
+      async (statut) => {
+        const base = fausseBase();
+        base.ordre.requires_reconciliation = true;
+        mts1.commandes.push({
+          customerOrderId: 'CMD-1',
+          orderNumber: NUMERO_RANG_1,
+          tourId: 'TOUR-1',
+          statut,
+        });
+        mts1.tours.push({ tourId: 'TOUR-1', envois: 1, validations: 1 });
+
+        const result = await runOutboxWorker(base.supabase);
+
+        expect(result).toMatchObject({ dead: 1, done: 0 });
+        expect(base.resultats[0]).toMatchObject({
+          p_statut: 'dead',
+          p_last_error: `collecte ${COLLECTE_ID} : une commande du numéro ${NUMERO_RANG_1} est déjà terminée chez MTS-1 (CMD-1 ${statut}) — ni reprise ni nouvelle création`,
+        });
+        // Une seule lecture, aucune écriture chez MTS-1 ; rien d'enregistré
+        // côté Savr.
+        expect(mts1.appels).toEqual([
+          `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
+        ]);
+        expect(mts1.commandes).toHaveLength(1);
+        expect(base.tournees).toHaveLength(0);
+      },
+    );
+
+    it('M1.5a/reprise_commande_terminee_et_en_cours — une commande terminée ET une commande en cours du même numéro : échec définitif, la commande en cours n’est pas reprise', async () => {
+      const base = fausseBase();
+      base.ordre.requires_reconciliation = true;
+      mts1.commandes.push(
+        { customerOrderId: 'CMD-1', orderNumber: NUMERO_RANG_1, tourId: null },
+        {
+          customerOrderId: 'CMD-2',
+          orderNumber: NUMERO_RANG_1,
+          tourId: 'TOUR-1',
+          statut: 'OK',
+        },
+      );
+      mts1.tours.push({ tourId: 'TOUR-1', envois: 1, validations: 1 });
+
+      const result = await runOutboxWorker(base.supabase);
+
+      expect(result).toMatchObject({ dead: 1, done: 0 });
+      expect(base.resultats[0]).toMatchObject({
+        p_statut: 'dead',
+        p_last_error: expect.stringContaining(
+          'est déjà terminée chez MTS-1 (CMD-2 OK)',
+        ),
+      });
+      expect(mts1.recus('POST ')).toHaveLength(0);
+      expect(mts1.recus('PUT ')).toHaveLength(0);
+      expect(base.tournees).toHaveLength(0);
     });
 
     it('M1.5a/reprise_commande_absente_creation — aucune commande chez MTS-1 : elle est créée, et sa tournée aussi, sans relire la commande créée à l’instant', async () => {

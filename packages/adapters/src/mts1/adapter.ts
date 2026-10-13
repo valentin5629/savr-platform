@@ -143,12 +143,24 @@ const MTS1_STATUS_TO_TMS: Record<string, string | null> = {
 
 // Commande que la réconciliation n'adopte jamais : l'adopter ferait croire
 // commandé un camion qui ne viendra pas. `CANCELED` et `KO` sont les deux
-// statuts que le mapping ci-dessus lit comme un refus du prestataire ;
-// `ARCHIVED` est écarté par décision de Val (2026-10-13), son sens n'étant pas
-// mesuré. Des trois, c'est le seul que la recherche a rendu sur le compte de
-// démonstration (1 commande sur les 72 qu'elle rend) ; la commande de test
-// supprimée ce jour-là, sans tour, est passée `CANCELED` et n'est plus rendue.
-const STATUTS_COMMANDE_MORTE = new Set(['CANCELED', 'KO', 'ARCHIVED']);
+// statuts que le mapping ci-dessus lit comme un refus du prestataire. Écartées,
+// elles laissent la création repartir s'il ne reste aucune commande à reprendre.
+// La commande de test supprimée le 2026-10-13, sans tour, est passée `CANCELED`
+// et n'est plus rendue par la recherche.
+const STATUTS_COMMANDE_MORTE = new Set(['CANCELED', 'KO']);
+
+// Statuts qui arrêtent la reprise d'une création : une commande du même numéro
+// dans l'un d'eux met l'ordre en échec définitif, donc en alerte — ni reprise,
+// ni nouvelle création, même si une commande encore en cours porte aussi ce
+// numéro (décisions de Val, 2026-10-13). L'arrêt joue aux deux lectures d'une
+// reprise « à réconcilier » : la recherche par numéro (aucune commande enregistrée pour le rang)
+// et la relecture de la commande enregistrée quand la référence de sa tournée
+// manque. Les deux curseurs écrits, la reprise ne lit rien chez MTS-1 : le
+// rattachement, l'envoi et la validation sont rejoués sans contrôle de statut. `OK` et `PARTIAL` : la mission est
+// terminée. `ARCHIVED` : rangé avec eux par la même décision, son sens n'étant
+// pas mesuré (1 commande `ARCHIVED` parmi les 72 que rendait la recherche du
+// compte de démonstration ce jour-là).
+const STATUTS_COMMANDE_TERMINEE = new Set(['OK', 'PARTIAL', 'ARCHIVED']);
 
 export class AdapterMts1 implements LogistiqueProvider {
   private readonly client: Mts1Client;
@@ -1496,16 +1508,43 @@ export class AdapterMts1 implements LogistiqueProvider {
       orderNumber,
     );
 
-    // L'égalité stricte se rejoue ICI, quoi que rende le filtre distant. Et
+    // L'égalité stricte se rejoue ICI, quoi que rende le filtre distant.
+    const duNumero = orders.filter((o) => o.orderNumber === orderNumber);
+
+    // Commande terminée ou archivée sous ce numéro : l'ordre s'arrête (cf.
+    // STATUTS_COMMANDE_TERMINEE). Regardé AVANT de chercher une commande à
+    // reprendre : une commande encore en cours du même numéro ne lève pas
+    // l'arrêt.
+    const terminees = duNumero.filter((o) =>
+      STATUTS_COMMANDE_TERMINEE.has(o.customerOrderStatus),
+    );
+    if (terminees.length > 0) {
+      const lesquelles = [
+        ...new Set(
+          terminees.map(
+            (o) =>
+              `${
+                estIdentifiantMts1(o.customerOrderId)
+                  ? o.customerOrderId
+                  : 'identifiant illisible'
+              } ${o.customerOrderStatus}`,
+          ),
+        ),
+      ].sort();
+      throw new LogistiquePermanentError(
+        `collecte ${collecte.id} : une commande du numéro ${orderNumber} est déjà terminée chez MTS-1 (${lesquelles.join(
+          ', ',
+        )}) — ni reprise ni nouvelle création`,
+      );
+    }
+
     // `orderNumber` n'est pas unique chez MTS-1 (jusqu'à 25 commandes mesurées
-    // sous un même numéro) : on écarte les commandes refusées, en échec ou
-    // archivées, puis on départage par identifiant, l'API ne garantissant aucun
-    // ordre de réponse.
+    // sous un même numéro) : on écarte les commandes refusées ou en échec, puis
+    // on départage par identifiant, l'API ne garantissant aucun ordre de
+    // réponse.
     // Le Set écarte une même commande rendue deux fois.
-    const vivantes = orders.filter(
-      (o) =>
-        o.orderNumber === orderNumber &&
-        !STATUTS_COMMANDE_MORTE.has(o.customerOrderStatus),
+    const vivantes = duNumero.filter(
+      (o) => !STATUTS_COMMANDE_MORTE.has(o.customerOrderStatus),
     );
     const candidates = [
       ...new Set(vivantes.map((o) => o.customerOrderId)),
@@ -1583,6 +1622,13 @@ export class AdapterMts1 implements LogistiqueProvider {
     if (!commande) {
       throw new LogistiquePermanentError(
         `collecte ${collecte.id} : commande introuvable chez MTS-1 pour le rang ${rang} (${customerOrderId}) — tournée non créée`,
+      );
+    }
+    // Même arrêt qu'à la recherche par numéro : cette commande est terminée ou
+    // archivée, sa tournée n'est ni reprise ni recréée.
+    if (STATUTS_COMMANDE_TERMINEE.has(commande.customerOrderStatus)) {
+      throw new LogistiquePermanentError(
+        `collecte ${collecte.id} : la commande du rang ${rang} (${customerOrderId}) est déjà terminée chez MTS-1 (${commande.customerOrderStatus}) — tournée ni reprise ni créée`,
       );
     }
     // Formes mesurées de `tourId` : une chaîne quand la commande est rattachée,

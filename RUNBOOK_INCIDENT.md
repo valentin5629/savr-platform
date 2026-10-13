@@ -97,6 +97,12 @@ référence approchante (une casse ou un blanc de différence), ou relier le ran
 à la ligne qui porte déjà la référence (`collecte_tournees` n'impose pas
 l'unicité de `tournee_id`).
 
+⚠ Ordre de création en échec définitif avec le message « … est déjà terminée
+chez MTS-1 … — ni reprise ni nouvelle création » : une commande du même numéro
+est terminée ou archivée chez MTS-1. Le remettre en file répète l'arrêt.
+Vérifier la collecte chez MTS-1 avant tout geste ; un skip ou un resolve laisse
+les lignes `tournees` telles quelles (voir les notes ci-dessus).
+
 Garde-fous : ces RPC n'agissent que sur un event **`dead`** (sinon erreur `22023`) ;
 un motif < 5 caractères → `22023` ; un auteur non `admin_savr` → `42501`.
 

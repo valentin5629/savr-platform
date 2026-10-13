@@ -2289,7 +2289,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     });
 
   it(
-    'M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée si le rapport est sans radar, « Régénérer » envoie le choix',
+    'M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée si le rapport est sans radar, le bouton Régénérer envoie le choix',
     async () => {
       const fetchMock = installMock({
         collecte: baseZd,

@@ -166,6 +166,24 @@
       "statut": "partial",
       "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
       "libelle": "NON LIVRÉ — pesées et photos ne sont pas lues sur la forme réelle du tour (mesuré le 2026-10-13 sur le compte de démonstration). Le code lit stops[].items[].weight ; GET /v3/tours/{id} rend stops[].stuffs[], sans champ weight, et sur le seul tour terminé du compte les kilos sont dans quantityAfterPickup, répétés sur l'arrêt d'enlèvement et l'arrêt de dépôt. La route GET /v3/tours/{id}/photos répond 404 BAD_ROUTE : les photos sont dans le détail du tour (stops[].photos[].downloadUrl, adresse du connecteur). Les tests existants passent par des handlers simulés à la forme supposée. Même lot à venir, la fenêtre de relève : le cron ne recule que de 2 h alors que la recherche compare des jours entiers, donc une commande du jour J n'est plus demandée après 2 h du matin à J+1 et un statut terminal posé plus tard n'est pas relevé (collectes de nuit : cas courant). Effet de bord tant que ce lot n'est pas livré : sur un environnement qui relève MTS-1, une collecte terminée passe réalisée sans pesée, est clôturée 24 heures plus tard, et la relève n'écrit plus de pesée après clôture. Lot à part (décision Val 2026-10-13), après arbitrage du champ qui porte le poids et de la fenêtre."
+    },
+    {
+      "id": "M1.5b-notifications-mts1-enregistrement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:520",
+      "artefact": "packages/plateforme/src/app/api/webhooks/mts1/[[...chemin]]/route.ts (POST : jeton partagé MTS1_WEBHOOK_TOKEN comparé en temps constant, en-tête X-Mts1-Webhook-Token ou Authorization ; refus de tout sans jeton configuré, chaque refus journalisé sans le jeton ; enregistrement dans integrations_inbox sous source 'mts1_notification', type lu dans le chemin, empreinte chemin + contenu ; aucune autre table touchée)",
+      "test": "M1.5b/notifications_mts1_non_configurees + M1.5b/notifications_mts1_jeton_refuse + M1.5b/notifications_mts1_enregistree + M1.5b/notifications_mts1_sans_effet_metier + M1.5b/notifications_mts1_rejeu + M1.5b/notifications_mts1_taille + M1.5b/notifications_mts1_structure",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_notifications-mts1-et-sens-acceptee.md",
+      "libelle": "Notifications MTS-1, étape 1 (décisions Val 2026-10-12, C7 voie A, et 2026-10-13) : la Plateforme expose un point d'entrée qui ENREGISTRE les notifications poussées par MTS-1, sans aucun effet sur les collectes ni les tournées, pour mesurer leur contenu réel sur le compte de démonstration avant d'écrire le traitement. Inerte tant que le jeton n'est pas posé. Remplace, pour cette étape, la décision du 2026-06-05 « pas de webhook entrant en V1 »."
+    },
+    {
+      "id": "M1.5b-acceptee-transporteur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:471",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/M1.5_20261013_notifications-mts1-et-sens-acceptee.md",
+      "libelle": "NON LIVRÉ au 2026-10-13 — « acceptée » doit vouloir dire que le transporteur a accepté la tournée (décision Val 2026-10-13, conforme au §08 §3bis.6 : tour.status.dispatch = ACCEPTED). Sur main, la relève passe statut_tms à 'acceptee' dès que la commande est VALIDATED ; notre propre envoi valide la tournée (PUT /v3/tours/{id}/validate) et la commande est ensuite VALIDATED (corrélation relevée). Mesuré le 2026-10-13 sur le compte de démonstration : quatre commandes VALIDATED, dont une sur une tournée seulement PROPOSED. À corriger avec le traitement des notifications (étape 2), une fois la relève réparée."
     }
   ],
   "cdc_source_hash": {

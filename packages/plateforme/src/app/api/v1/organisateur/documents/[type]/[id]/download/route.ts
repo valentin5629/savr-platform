@@ -5,6 +5,8 @@
 // att_client_orga_select) est la frontière ; une ligne d'un autre organisateur → 404.
 // Embargo H+24 (R-PDF2) appliqué côté serveur sur les rapports RSE (disponible_a),
 // jamais contournable.
+// Les deux documents d'une collecte AG (attestation, rapport sans excédent) sont
+// servis sous un nom de fichier « rapport-de-don-… » (§12 §1.3-bis).
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -14,6 +16,10 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
+import {
+  nomFichierAttestation,
+  nomFichierDuRapportDeLaCollecte,
+} from '@/lib/pdf/nom-fichier-rapport-de-don.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
@@ -33,11 +39,12 @@ export async function GET(
   const supabase = createSupabaseServerClient() as unknown as SupabaseClient;
 
   let storageKey: string | null = null;
+  let nomFichier: string | undefined;
 
   if (type === 'rapport') {
     const { data, error } = await supabase
       .from('rapports_rse')
-      .select('id, disponible_a, genere_at, pdf_url')
+      .select('id, collecte_id, disponible_a, genere_at, pdf_url')
       .eq('id', id)
       .maybeSingle();
     if (error || !data)
@@ -59,10 +66,16 @@ export async function GET(
         { status: 202 },
       );
     storageKey = data.pdf_url as string | null;
+    if (storageKey) {
+      nomFichier = await nomFichierDuRapportDeLaCollecte(
+        supabase,
+        data.collecte_id as string,
+      );
+    }
   } else if (type === 'attestation') {
     const { data, error } = await supabase
       .from('attestations_don')
-      .select('id, genere_at, pdf_url')
+      .select('id, numero, genere_at, pdf_url')
       .eq('id', id)
       .maybeSingle();
     if (error || !data)
@@ -76,6 +89,7 @@ export async function GET(
         { status: 202 },
       );
     storageKey = data.pdf_url as string | null;
+    nomFichier = nomFichierAttestation(data.numero as string | null);
   } else if (type === 'bordereau') {
     const { data, error } = await supabase
       .from('bordereaux_savr')
@@ -107,6 +121,6 @@ export async function GET(
   if (!storageKey)
     return NextResponse.json({ error: 'Fichier PDF absent' }, { status: 404 });
 
-  const url = await getPresignedUrl(storageKey, 900);
+  const url = await getPresignedUrl(storageKey, 900, nomFichier);
   return NextResponse.json({ url, expires_in: 900 });
 }

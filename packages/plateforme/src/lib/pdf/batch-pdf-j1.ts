@@ -562,7 +562,7 @@ function formatNombre(n: number | null | undefined): string {
  * rapport se télécharge depuis la fiche collecte de chaque espace client ; le
  * chemin dépend du type de l'organisation programmatrice.
  */
-function cheminFicheCollecte(
+export function cheminFicheCollecte(
   typeOrganisation: string | null | undefined,
   collecteId: string,
 ): string {

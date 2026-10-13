@@ -1,5 +1,10 @@
 // Template PDF — Attestation de don Anti-Gaspi (Cerfa 2041-GE).
 //
+// Titre imprimé : « Rapport de don », le nom unique du document d'une collecte AG
+// (§12 §1.3-bis, décision Val 2026-10-13). « Attestation de don » reste en
+// sous-titre, avec le numéro ATT-DON et les mentions fiscales : c'est la pièce
+// fiscale, son contenu ne change pas.
+//
 // Données = `attestationPayload` enqueué par le batch J+1 AG
 // (packages/plateforme/.../batch-pdf-j1-ag.ts). La mention fiscale 238 bis CGI
 // n'apparaît QUE si `mention_fiscale_2041ge` (snapshot de
@@ -12,7 +17,8 @@
 // du contrat partagé (@savr/shared/src/pdf/document-types.ts). Vérifié par le gate
 // CI check:integration-contracts. Incrémenter @N à toute modif structurelle.
 // @2 (R21a) : mention pied de page de régénération (§12 §1.4).
-export const TEMPLATE_VERSION = 'attestation-don@2';
+// @3 : titre « Rapport de don », « Attestation de don » en sous-titre (§12 §1.3-bis).
+export const TEMPLATE_VERSION = 'attestation-don@3';
 
 export interface AttestationDonData {
   numero: string;
@@ -93,6 +99,7 @@ export function renderAttestationDon(data: AttestationDonData): string {
   .logo-savr { font-size: 22px; font-weight: 800; color: #16a34a; letter-spacing: -0.5px; }
   .doc-title { text-align: right; }
   .doc-title h1 { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+  .doc-title .sous-titre { font-size: 12px; font-weight: 600; color: #374151; margin-top: 2px; }
   .doc-title .numero { font-size: 12px; color: #6b7280; margin-top: 2px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
   .section { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 14px; }
@@ -129,7 +136,8 @@ export function renderAttestationDon(data: AttestationDonData): string {
   <div class="header">
     <div class="logo-savr">Savr</div>
     <div class="doc-title">
-      <h1>Attestation de don</h1>
+      <h1>Rapport de don</h1>
+      <div class="sous-titre">Attestation de don</div>
       <div class="numero">${esc(data.numero)}</div>
       <div class="numero">Émise le ${esc(data.date_emission)}</div>
     </div>

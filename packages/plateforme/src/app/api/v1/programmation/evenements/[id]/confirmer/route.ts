@@ -6,6 +6,11 @@ import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 // Confirmation d'un brouillon. Ouverte à l'admin en mode support (§06.01 l.17
 // « admin_savr : programmation de support, tous périmètres ») comme le POST de
@@ -106,6 +111,11 @@ export async function PATCH(
 
   if (rpcErr)
     return serverError(rpcErr, 'programmation.evenements.confirmer.update');
+
+  // Les ordres de création sont en file (et, après l'acceptation automatique
+  // AG plus bas, l'ordre d'envoi) : traités après la réponse, sans attendre le
+  // passage planifié (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(collectes.map((c) => c.id));
 
   // PROG-01 : override lieu persisté au brouillon → signalement Admin à la confirmation.
   const overrideCollecte = collectes.find(

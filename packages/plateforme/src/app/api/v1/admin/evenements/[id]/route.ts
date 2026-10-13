@@ -3,6 +3,11 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
+import { envoyerOrdresEvenementSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 export async function GET(
   req: NextRequest,
@@ -95,6 +100,10 @@ export async function PATCH(
     );
   }
   if (error) return serverError(error, 'admin.evenements.update');
+
+  // Un ordre par collecte déjà commandée : ils partent sans attendre le passage
+  // planifié (décision Val 2026-10-12).
+  envoyerOrdresEvenementSansAttendre(id);
 
   return NextResponse.json(data);
 }

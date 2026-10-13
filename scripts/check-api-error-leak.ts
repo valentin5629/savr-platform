@@ -62,15 +62,20 @@
  *   Portée : TOUT `catch` du fichier, pas seulement celui qui entoure le `fetch`
  *   — l'appel passe souvent par une méthode intermédiaire
  *   (`this.postJson(…).catch(…)`).
- *   CE QUE LA RÈGLE NE VOIT PAS (mesuré par le relecteur sécurité, 2026-10-13) :
+ *   CE QUE LA RÈGLE NE VOIT PAS (mesuré en revue sécurité, 2026-10-13) :
  *     – une erreur qui sort du fichier sans y être attrapée (`fetch` sans `try`,
  *       ou `throw err`) : c'est l'appelant qui la lit, dans un fichier sans
- *       `fetch` ;
- *     – un fichier où le moteur n'apparaît sous aucun de ses noms : `fetch`
- *       injecté (`this.appeler(url)`), client bâti sur un SDK (base, stockage,
- *       emails) ;
- *     – une erreur rangée dans une variable d'un autre nom que celui du `catch`
- *       avant d'être lue plus loin dans une AUTRE fonction.
+ *       `fetch` ; de même une erreur rendue comme VALEUR par un assistant d'un
+ *       autre fichier (`const [erreur] = await tenter(fetch(u))`) ;
+ *     – un fichier où le moteur n'apparaît sous aucun des noms ci-dessus :
+ *       `fetch` injecté (`this.appeler(url)`), `new Response(…, { headers })`,
+ *       `x.headers.set(…)`, client bâti sur un SDK (base, stockage, emails) ;
+ *     – la `reason` prise par déstructuration (`const { reason } = r`) ou par
+ *       `r['reason']`.
+ *   CE QU'ELLE REFUSE EN TROP, du bon côté : dans un fichier visité, toute
+ *   lecture d'une propriété `reason` (même `signal.reason`) et tout argument non
+ *   écrit sur place d'une méthode `.catch` (même `z.string().catch('défaut')`).
+ *   Aucun cas sur l'arbre du 2026-10-13.
  *
  * Les crons sont hors périmètre de la règle B : `assertCronAuth` exige
  * `Authorization: Bearer <CRON_SECRET>`, leurs `errors[]` de diagnostic ne sont pas
@@ -675,11 +680,13 @@ function regleE(source: string): Trouve[] {
 }
 
 /**
- * Racines visitées par la règle F, et le NOMBRE de fichiers que chacune rend
- * aujourd'hui. Ce nombre est un plancher : s'il baisse, le garde sort en erreur
- * au lieu de dire « 0 » sur un périmètre rétréci (racine renommée, recherche
- * cassée, fichier sorti de la découverte). Un fichier qui cesse pour de bon
- * d'appeler `fetch` se traduit ici, par un plancher baissé à la main.
+ * Racines visitées par la règle F, et le NOMBRE EXACT de fichiers que chacune
+ * rend aujourd'hui. S'il change, dans un sens ou dans l'autre, le garde sort en
+ * erreur au lieu de dire « 0 » sur un périmètre qui n'est plus celui-ci (racine
+ * renommée, recherche cassée, fichier sorti de la découverte). Un fichier qui
+ * commence ou cesse pour de bon de toucher au moteur se traduit ici, par un
+ * nombre corrigé à la main : un simple minimum laisserait un fichier sortir
+ * sans bruit dès qu'un autre est entré.
  */
 const RACINES_FETCH: Record<string, number> = {
   'packages/adapters/src': 2,
@@ -1371,10 +1378,10 @@ function violations(): Violation[] {
       plancher,
       trouves: avecFetch.filter((f) => f.startsWith(`${racine}/`)).length,
     }))
-    .filter((r) => r.trouves < r.plancher);
+    .filter((r) => r.trouves !== r.plancher);
   if (retrecies.length > 0) {
     console.error(
-      `🔴 check-api-error-leak : DÉTECTEUR EN ÉCHEC (périmètre de la règle F) — ${retrecies.map((r) => `${r.trouves} fichier(s) touchant au moteur HTTP sous ${r.racine}, ${r.plancher} attendus au moins`).join(' ; ')} : le gate ne prouve plus rien. Si un fichier a réellement cessé d'appeler fetch, baisser son plancher (RACINES_FETCH).`,
+      `🔴 check-api-error-leak : DÉTECTEUR EN ÉCHEC (périmètre de la règle F) — ${retrecies.map((r) => `${r.trouves} fichier(s) touchant au moteur HTTP sous ${r.racine}, ${r.plancher} attendus`).join(' ; ')} : le gate ne prouve plus rien. Si un fichier a réellement commencé ou cessé de toucher au moteur, corriger son nombre (RACINES_FETCH).`,
     );
     process.exit(1);
   }

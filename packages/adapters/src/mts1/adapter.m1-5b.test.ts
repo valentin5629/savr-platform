@@ -92,20 +92,20 @@ const PHOTOS_404: Mts1Photo[] = [
 ];
 
 const ORDER_VALIDATED: Mts1CustomerOrder = {
-  id: 'MTS1-ORDER-001',
-  externalReference: 'col-zd-001-1',
-  status: 'VALIDATED',
-  pickupDate: '2026-07-15T22:00:00Z',
+  customerOrderId: 'MTS1-ORDER-001',
+  orderNumber: 'col-zd-001-1',
+  customerOrderStatus: 'VALIDATED',
+  orderDate: '2026-07-15T22:00:00.000Z',
 };
 
 const ORDER_IN_PROGRESSION: Mts1CustomerOrder = {
   ...ORDER_VALIDATED,
-  status: 'IN_PROGRESSION',
+  customerOrderStatus: 'IN_PROGRESSION',
 };
 
 const ORDER_OK: Mts1CustomerOrder = {
   ...ORDER_VALIDATED,
-  status: 'OK',
+  customerOrderStatus: 'OK',
 };
 
 // ─── Mock Supabase ────────────────────────────────────────────────────────────
@@ -326,12 +326,7 @@ describe('M1.5b / AdapterMts1.sync — nominal', () => {
 
   it('M1.5b-1 / poll nominal VALIDATED → statut_tms="acceptee", pesées upsertées, photo uploadée', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue(PHOTOS_NOMINAL),
       postOrder: vi.fn(),
@@ -424,12 +419,7 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
   it('M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque + chauffeur_nom', async () => {
     const getCarrier = vi.fn().mockResolvedValue(CARRIER_FIXTURE);
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_WITH_DISPATCH),
       getPhotos: vi.fn().mockResolvedValue([]),
       getCarrier,
@@ -474,12 +464,7 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
   it('M1.5b-carrier / tour sans dispatch → aucun appel carrier, aucune écriture plaque', async () => {
     const getCarrier = vi.fn().mockResolvedValue(CARRIER_FIXTURE);
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL), // pas de dispatch
       getPhotos: vi.fn().mockResolvedValue([]),
       getCarrier,
@@ -518,12 +503,7 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
   it('M1.5b-carrier / téléphone NON exposé par MTS-1 → chauffeur_telephone reste NULL (as-built §6)', async () => {
     const getCarrier = vi.fn().mockResolvedValue(CARRIER_FIXTURE); // transporters[] sans phone
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_WITH_DISPATCH),
       getPhotos: vi.fn().mockResolvedValue([]),
       getCarrier,
@@ -585,12 +565,7 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
     ];
     const getCarrier = vi.fn().mockResolvedValue(carrierAvecTel);
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_WITH_DISPATCH),
       getPhotos: vi.fn().mockResolvedValue([]),
       getCarrier,
@@ -632,12 +607,7 @@ describe('M1.5b / AdapterMts1.sync — dédup statut', () => {
 
   it('M1.5b-2 / même ordre même statut → claim inbox retourne rien → skip complet', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -680,12 +650,7 @@ describe('M1.5b / AdapterMts1.sync — IN_PROGRESSION', () => {
 
   it('M1.5b-3 / IN_PROGRESSION → collectes.statut mis à en_cours (pas de changement statut_tms)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_IN_PROGRESSION],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_IN_PROGRESSION]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -741,12 +706,7 @@ describe('M1.5b / AdapterMts1.sync — stuff inconnu', () => {
 
   it('M1.5b-4 / stuff inconnu → integrations_logs STUFF_INCONNU, pesées connues upsertées quand même', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_STUFF_INCONNU),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -801,12 +761,7 @@ describe('M1.5b / AdapterMts1.sync — divergence post-clôture', () => {
 
   it('M1.5b-5 / collecte cloturee + poids différent → aucune écriture + log PESEE_DIVERGENCE_POST_CLOTURE', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -875,12 +830,7 @@ describe('M1.5b / AdapterMts1.sync — claim entrant atomique (BL-P1-OUTBOX-04)'
 
   it('conflit concurrent (0 ligne) + traité → skip complet (aucun upsert pesées)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -922,12 +872,7 @@ describe('M1.5b / AdapterMts1.sync — claim entrant atomique (BL-P1-OUTBOX-04)'
 
   it('conflit (0 ligne) mais event NON traité (crash-recovery A4-A2) → REJOUE (effets idempotents)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -966,12 +911,7 @@ describe('M1.5b / AdapterMts1.sync — claim entrant atomique (BL-P1-OUTBOX-04)'
 
   it('erreur DB ≠ 23505 sur le claim → propagée (jamais avalée comme « déjà traité »)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -1022,12 +962,7 @@ describe('M1.5b / AdapterMts1.sync — dédup photo', () => {
   it('M1.5b-6 / photo déjà dans shared.fichiers → skip download', async () => {
     const downloadPhoto = vi.fn().mockResolvedValue(Buffer.from('DATA'));
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue(PHOTOS_NOMINAL),
       postOrder: vi.fn(),
@@ -1068,12 +1003,7 @@ describe('M1.5b / AdapterMts1.sync — photo 404', () => {
 
   it("M1.5b-7 / photo 404 → log PHOTO_DOWNLOAD_FAILED, poll continue (pas d'exception)", async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue(PHOTOS_404),
       postOrder: vi.fn(),
@@ -1124,12 +1054,7 @@ describe('M1.5b / AdapterMts1.sync — ordre sans tournée Savr', () => {
 
   it('M1.5b-8 / ordre MTS-1 sans tournée dans notre système → ignoré sans erreur', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn(),
       getPhotos: vi.fn(),
       postOrder: vi.fn(),
@@ -1168,24 +1093,19 @@ describe('M1.5b / AdapterMts1.sync — isolation par collecte', () => {
 
   it("M1.5b-9 / échec d'une collecte → les autres collectes du run passent quand même", async () => {
     const ORDER_OK: Mts1CustomerOrder = {
-      id: 'MTS1-ORDER-OK',
-      externalReference: 'col-ok-1',
-      status: 'VALIDATED',
+      customerOrderId: 'MTS1-ORDER-OK',
+      orderNumber: 'col-ok-1',
+      customerOrderStatus: 'VALIDATED',
     };
     const ORDER_KO: Mts1CustomerOrder = {
-      id: 'MTS1-ORDER-KO',
-      externalReference: 'col-ko-1',
-      status: 'VALIDATED',
+      customerOrderId: 'MTS1-ORDER-KO',
+      orderNumber: 'col-ko-1',
+      customerOrderStatus: 'VALIDATED',
     };
 
     let getTourCallCount = 0;
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_KO, ORDER_OK],
-        totalCount: 2,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_KO, ORDER_OK]),
       getTour: vi.fn().mockImplementation(() => {
         getTourCallCount++;
         if (getTourCallCount === 1)
@@ -1229,17 +1149,12 @@ describe('M1.5b / AdapterMts1.sync — CANCELED', () => {
   it('M1.5b-10 / CANCELED → statut_tms="rejetee_par_prestataire"', async () => {
     const ORDER_CANCELED: Mts1CustomerOrder = {
       ...ORDER_VALIDATED,
-      id: 'MTS1-ORDER-CANCELED',
-      status: 'CANCELED',
+      customerOrderId: 'MTS1-ORDER-CANCELED',
+      customerOrderStatus: 'CANCELED',
     };
 
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_CANCELED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_CANCELED]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -1296,12 +1211,7 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
 
   function setNominalHandlers() {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
       getPhotos: vi.fn().mockResolvedValue(PHOTOS_NOMINAL),
       postOrder: vi.fn(),
@@ -1365,12 +1275,7 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
     const cleEnvoyee = async (url: string) => {
       vi.mocked(uploadObject).mockClear();
       _setMts1Handlers({
-        pollOrders: vi.fn().mockResolvedValue({
-          customerOrders: [ORDER_VALIDATED],
-          totalCount: 1,
-          page: 1,
-          pageSize: 50,
-        }),
+        pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
         getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
         getPhotos: vi.fn().mockResolvedValue([{ ...PHOTOS_NOMINAL[0]!, url }]),
         postOrder: vi.fn(),
@@ -1465,5 +1370,200 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
       (c) => c.table === 'collectes' && c.op === 'update',
     );
     expect(collecteUpdate).toBeDefined();
+  });
+});
+
+// ─── Recherche des commandes : contrat mesuré le 2026-10-13 ───────────────────
+// GET /v3/customerOrders ne lit que des jours « yyyy-MM-dd » (bornes incluses,
+// jour compté à Paris) et rend un tableau nu de commandes nommées
+// `customerOrderId` / `customerOrderStatus`. Avant, la relève envoyait des
+// instants ISO (500 à chaque passage) et lisait `id` / `status`.
+// ⚠ Pesées et photos ne sont PAS encore lues sur la forme réelle du tour (lot à
+// part) : ces tests ne portent que sur la remontée des statuts.
+
+describe('M1.5b / AdapterMts1.sync — recherche des commandes (forme réelle)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    _setMts1Handlers(null);
+  });
+
+  const ADAPTER = {
+    id: 'presta-001',
+    type_tms: 'mts1' as const,
+    code_transporteur_mts1: 'STRIKE',
+    prestataire_logistique_id: PRESTA_MTS1,
+  };
+
+  it('M1.5b/releve_fenetre_en_jours_paris — la fenêtre du cron part en jours comptés à Paris, sans filtre de numéro', async () => {
+    const scanOrdersByDateRange = vi.fn().mockResolvedValue([]);
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder: vi.fn(),
+      scanOrdersByDateRange,
+    });
+
+    await new AdapterMts1(ADAPTER, makeSyncSupabase({})).sync({
+      // 22h30 UTC le 13 = 00h30 à Paris le 14 : en UTC la borne basse serait le 13.
+      depuis: new Date('2026-10-13T22:30:00.000Z'),
+      // 22h30 UTC le 15 = 00h30 à Paris le 16 : en UTC la borne haute serait le 15.
+      jusqu_a: new Date('2026-10-15T22:30:00.000Z'),
+    });
+
+    expect(scanOrdersByDateRange).toHaveBeenCalledOnce();
+    expect(scanOrdersByDateRange.mock.calls[0]).toEqual([
+      '2026-10-14',
+      '2026-10-16',
+      undefined,
+    ]);
+  });
+
+  it('M1.5b/releve_fil_statut_relaye — chemin réel : adresse en jours, tableau nu, statut et véhicule relayés', async () => {
+    _setMts1Handlers(null); // force le chemin réel (fetch)
+    vi.stubEnv('MTS1_BASE_URL', 'https://mts1.test');
+    vi.stubEnv('MTS1_API_KEY', 'k');
+
+    // Réponses dans la forme mesurée : tableaux nus, vrais noms de champs, tour
+    // portant `stuffs` (pas `items`), route des photos inexistante.
+    const reponses: Record<string, { status: number; corps: unknown }> = {
+      '/v3/customerOrders?minDate=2026-07-15&maxDate=2026-07-17': {
+        status: 200,
+        corps: [
+          {
+            customerOrderId: 'MTS1-ORDER-001',
+            orderNumber: 'col-001-1',
+            customerOrderStatus: 'VALIDATED',
+            orderDate: '2026-07-15T20:00:00.000Z',
+            currentTour: { tourId: 'MTS1-TOUR-ZD-001' },
+          },
+        ],
+      },
+      '/v3/tours/MTS1-TOUR-ZD-001': {
+        status: 200,
+        corps: {
+          tourId: 'MTS1-TOUR-ZD-001',
+          tourNumber: '26/07-1',
+          status: { dispatch: 'ACCEPTED', validation: 'VALIDATED' },
+          stops: [
+            {
+              stopId: 'stop-001',
+              stopType: 'CUSTOMER_ORDER',
+              stuffs: [
+                { name: 'Bio-déchets (en kg)', quantityAfterPickup: 17 },
+              ],
+            },
+          ],
+          dispatch: {
+            carrierShareableCode: 'CA_STRIKE',
+            vehicleShareableCode: 'VE_001',
+            transporterUserShareableCode: 'TR_001',
+          },
+        },
+      },
+      '/v3/tours/MTS1-TOUR-ZD-001/photos': {
+        status: 404,
+        corps: { reasons: ['BAD_ROUTE'], message: 'route non disponible' },
+      },
+      '/v3/carrier': { status: 200, corps: CARRIER_FIXTURE },
+    };
+    const adresses: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        adresses.push(url);
+        const r = reponses[url.replace('https://mts1.test', '')];
+        if (!r) throw new Error(`adresse inattendue : ${url}`);
+        return {
+          ok: r.status === 200,
+          status: r.status,
+          text: async () => JSON.stringify(r.corps),
+          json: async () => r.corps,
+        };
+      }) as never,
+    );
+
+    const supabase = makeSyncSupabase({});
+    await new AdapterMts1(ADAPTER, supabase).sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+
+    // Adresse mesurée en 200 ; la forme d'avant (instants ISO + pageSize) → 500.
+    expect(adresses[0]).toBe(
+      'https://mts1.test/v3/customerOrders?minDate=2026-07-15&maxDate=2026-07-17',
+    );
+
+    // La clé de dédup porte l'identifiant et le statut réels de la commande —
+    // lus sous les anciens noms, elle valait « mts1:undefined:undefined » pour
+    // toutes les commandes.
+    const claim = calls.find(
+      (c) => c.table === 'integrations_inbox' && c.op === 'upsert',
+    );
+    expect((claim!.data as Record<string, unknown>)['event_id_externe']).toBe(
+      'mts1:MTS1-ORDER-001:VALIDATED',
+    );
+    expect((claim!.data as Record<string, unknown>)['payload']).toEqual({
+      orderId: 'MTS1-ORDER-001',
+      status: 'VALIDATED',
+    });
+
+    // La tournée est rapprochée par l'identifiant de la commande…
+    const rapprochement = calls.find(
+      (c) => c.table === 'tournees' && c.op === 'select',
+    );
+    expect(rapprochement!.filters!['external_ref_commande']).toBe(
+      'MTS1-ORDER-001',
+    );
+    // … et le statut relayé à la collecte.
+    const collecteUpdate = calls.find(
+      (c) => c.table === 'collectes' && c.op === 'update',
+    );
+    expect(
+      (collecteUpdate!.data as Record<string, unknown>)['statut_tms'],
+    ).toBe('acceptee');
+
+    // Le référentiel transporteurs (tableau nu) résout plaque et chauffeur. Lu
+    // sous l'enveloppe supposée `{ carriers }`, il levait ici et le traitement de
+    // la commande s'arrêtait avant son statut terminal.
+    const tourneeUpdate = calls.find(
+      (c) => c.table === 'tournees' && c.op === 'update',
+    );
+    expect(tourneeUpdate!.data).toMatchObject({
+      plaque_immatriculation: '12ABC23',
+      chauffeur_nom: 'Jean Dupont',
+    });
+
+    // Aucune commande en échec de traitement.
+    expect(
+      calls.filter((c) =>
+        String((c.data as { erreur?: string } | undefined)?.erreur).startsWith(
+          'SYNC_ORDER_FAILED',
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it('M1.5b/releve_fil_recherche_en_echec — un 500 de la recherche fait échouer le passage (jamais « rien à relever »)', async () => {
+    _setMts1Handlers(null);
+    vi.stubEnv('MTS1_BASE_URL', 'https://mts1.test');
+    vi.stubEnv('MTS1_API_KEY', 'k');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 500,
+        text: async () => '{"reasons":["INTERNAL_ERROR"]}',
+        json: async () => ({ reasons: ['INTERNAL_ERROR'] }),
+      })) as never,
+    );
+
+    await expect(
+      new AdapterMts1(ADAPTER, makeSyncSupabase({})).sync({
+        depuis: new Date('2026-07-15T00:00:00Z'),
+        jusqu_a: new Date('2026-07-17T00:00:00Z'),
+      }),
+    ).rejects.toThrow('MTS-1 500');
   });
 });

@@ -50,11 +50,7 @@ import type {
 } from './client.js';
 import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
-import {
-  decalerJour,
-  instantParis,
-  jourParis,
-} from '@savr/shared/src/temps/index.js';
+import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
 // `collectes.lieu_overrides` — jsonb libre porté par la collecte (§06.01).
 interface CollecteLieuOverridesRow {
@@ -140,6 +136,12 @@ const MTS1_STATUS_TO_TMS: Record<string, string | null> = {
   CANCELED: 'rejetee_par_prestataire',
   KO: 'rejetee_par_prestataire',
 };
+
+// Commande refusée ou en échec chez MTS-1 : la réconciliation ne l'adopte
+// jamais (elle ferait croire commandé un camion qui ne viendra pas). Ce sont
+// les deux statuts que le mapping ci-dessus lit comme un refus du prestataire.
+// Tout autre statut reste repris, `ARCHIVED` compris (son sens n'est pas mesuré).
+const STATUTS_COMMANDE_MORTE = new Set(['CANCELED', 'KO']);
 
 export class AdapterMts1 implements LogistiqueProvider {
   private readonly client: Mts1Client;
@@ -311,22 +313,36 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // Rangs conservés (≤ N) déjà envoyés à MTS-1 → PUT pour propager la modification.
     const updatePayload = this.buildUpdatePayload(collecte);
-    for (const t of avecRef.filter((t) => t.rang <= n)) {
-      // A4 : sur reprise après timeout (requiresReconciliation), confirmer que
-      // l'ordre existe encore côté MTS-1 avant le PUT. Un ordre disparu (annulé
-      // entre-temps) ne doit pas être ré-adressé (le PUT n'est de toute façon
-      // sûr/idempotent que sur un ordre vivant).
-      if (opts?.requiresReconciliation) {
-        const stillExists = await this.reconcileOrder(
-          collecte,
-          this.orderNumber(collecte, t.rang, t),
-        );
-        if (!stillExists) continue;
+    const aModifier = avecRef.filter((t) => t.rang <= n);
+    // A4 : sur reprise (requiresReconciliation), confirmer que chaque commande
+    // existe encore chez MTS-1 avant le PUT. Par son IDENTIFIANT, pas par une
+    // fenêtre de dates autour de la collecte : E2 vient peut-être d'en changer
+    // la date, et la commande est encore à l'ancienne chez MTS-1 — une fenêtre
+    // la manquerait, et la modification serait close sans avoir été envoyée.
+    const connues = opts?.requiresReconciliation
+      ? await this.commandesConnues(aModifier)
+      : null;
+    const disparues: TourneeRow[] = [];
+    for (const t of aModifier) {
+      if (connues && !connues.has(t.external_ref_commande!)) {
+        disparues.push(t);
+        continue;
       }
       await this.client.updateOrder(
         t.external_ref_commande!,
         updatePayload,
         this.orderNumber(collecte, t.rang, t),
+      );
+    }
+    // Une commande disparue n'est PAS un succès : la modification n'a atteint
+    // personne pour ce rang, et plus aucun camion n'y est commandé. Échec
+    // définitif (donc alerte), une fois les commandes encore là mises à jour.
+    // Les rangs manquants (augmentation, ci-dessous) ne sont alors pas créés.
+    if (disparues.length > 0) {
+      throw new LogistiquePermanentError(
+        `collecte ${collecte.id} : commande introuvable chez MTS-1 pour ${disparues
+          .map((t) => `le rang ${t.rang} (${t.external_ref_commande})`)
+          .join(', ')} — la modification n'a pas été transmise`,
       );
     }
 
@@ -398,17 +414,29 @@ export class AdapterMts1 implements LogistiqueProvider {
       return 'noop_no_remote';
     }
 
+    // A4 : sur reprise après timeout (requiresReconciliation), le 1er DELETE a
+    // pu aboutir côté MTS-1. On lit d'abord quelles commandes existent encore,
+    // par IDENTIFIANT. RÈGLE de reprise, pas un fait mesuré : une commande que
+    // cette lecture ne rend pas est tenue pour déjà annulée, et aucun DELETE
+    // n'est renvoyé (jamais de faux « fenêtre fermée »). Mesuré le 2026-10-13 :
+    // un identifiant inconnu est absent de la réponse, et les 72 commandes du
+    // compte de démonstration y sont toutes rendues. Non mesuré : ce que devient
+    // une commande supprimée (aucune écriture pendant la mesure). C'est le seul
+    // chemin qui se ferme en succès sans rien envoyer : il est tracé.
+    const connues = opts?.requiresReconciliation
+      ? await this.commandesConnues(avecRef)
+      : null;
     for (const t of avecRef) {
-      // A4 : sur reprise après timeout (requiresReconciliation), le 1er DELETE a
-      // pu aboutir côté MTS-1. On vérifie d'abord l'existence distante : ordre
-      // absent = annulation déjà effective → court-circuit (succès idempotent),
-      // jamais de faux « fenêtre fermée ».
-      if (opts?.requiresReconciliation) {
-        const stillExists = await this.reconcileOrder(
-          collecte,
-          this.orderNumber(collecte, t.rang, t),
-        );
-        if (!stillExists) continue;
+      if (connues && !connues.has(t.external_ref_commande!)) {
+        await this.supabase.from('integrations_logs').insert({
+          integration: 'mts1',
+          direction: 'sortant',
+          methode: 'GET',
+          endpoint: '/v3/customerOrders',
+          correlation_id: this.orderNumber(collecte, t.rang, t),
+          erreur: `ANNULATION_SANS_DELETE: commande ${t.external_ref_commande} absente chez MTS-1 à la reprise, tenue pour déjà annulée`,
+        });
+        continue;
       }
       try {
         await this.client.deleteOrder(
@@ -574,9 +602,16 @@ export class AdapterMts1 implements LogistiqueProvider {
     const fluxById = await this.loadFluxCodes();
     const seuils = await this.loadSeuils();
 
+    // GET /v3/customerOrders ne filtre que par JOUR entier (« yyyy-MM-dd », bornes
+    // incluses, jour compté à Paris — mesuré le 2026-10-13) : la fenêtre
+    // d'instants du cron est élargie aux jours qu'elle touche. Envoyer les
+    // instants eux-mêmes faisait répondre 500 à MTS-1 à chaque passage.
+    // ⚠ Non traité ici : le cron ne recule que de 2 h, donc une commande du jour J
+    // n'est plus demandée après 2 h du matin à J+1. Un statut terminal posé plus
+    // tard n'est pas relevé (à arbitrer par Val, avec les pesées et les photos).
     const orders = await this.client.scanOrdersByDateRange(
-      fenetre.depuis.toISOString(),
-      fenetre.jusqu_a.toISOString(),
+      jourParis(fenetre.depuis),
+      jourParis(fenetre.jusqu_a),
     );
 
     for (const order of orders) {
@@ -585,7 +620,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       } catch (err) {
         await this.logEntrantError(
           'SYNC_ORDER_FAILED',
-          `order ${order.id}: ${String(err)}`,
+          `order ${order.customerOrderId}: ${String(err)}`,
         );
       }
     }
@@ -602,7 +637,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     // 0 ligne retournée (PAS une 23505 avalée). Toute AUTRE erreur (réseau,
     // contrainte tierce) DOIT remonter — sinon elle serait confondue avec
     // « déjà traité » → perte silencieuse d'event (§08 §3bis.7, R10).
-    const eventKey = `mts1:${order.id}:${order.status}`;
+    const eventKey = `mts1:${order.customerOrderId}:${order.customerOrderStatus}`;
     const { data: claimed, error: claimError } = await this.supabase
       .from('integrations_inbox')
       .upsert(
@@ -610,7 +645,10 @@ export class AdapterMts1 implements LogistiqueProvider {
           source: 'mts1',
           event_type: 'order_status',
           event_id_externe: eventKey,
-          payload: { orderId: order.id, status: order.status },
+          payload: {
+            orderId: order.customerOrderId,
+            status: order.customerOrderStatus,
+          },
         },
         { onConflict: 'source,event_id_externe', ignoreDuplicates: true },
       )
@@ -649,7 +687,9 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     try {
       // 2. Trouver la tournée liée à cet ordre
-      const tourneeInfo = await this.findTourneeByOrderId(order.id);
+      const tourneeInfo = await this.findTourneeByOrderId(
+        order.customerOrderId,
+      );
       if (!tourneeInfo) {
         // Commande MTS-1 sans tournée Savr associée → on l'ignore (pas dans notre système)
         await this.markInboxDone(inboxId);
@@ -663,7 +703,8 @@ export class AdapterMts1 implements LogistiqueProvider {
       // changé) : un ordre CANCELED/KO remonté après une annulation Savr ne
       // réécrit pas le statut_tms d'une collecte annulée ou en demande
       // d'annulation (arbitrage Val 2026-09-17).
-      const nouveauStatutTms = MTS1_STATUS_TO_TMS[order.status] ?? null;
+      const nouveauStatutTms =
+        MTS1_STATUS_TO_TMS[order.customerOrderStatus] ?? null;
       if (nouveauStatutTms) {
         await this.supabase
           .from('collectes')
@@ -677,7 +718,7 @@ export class AdapterMts1 implements LogistiqueProvider {
 
       // IN_PROGRESSION → passage direct collectes.statut → 'en_cours'
       if (
-        order.status === 'IN_PROGRESSION' &&
+        order.customerOrderStatus === 'IN_PROGRESSION' &&
         ['programmee', 'validee'].includes(collecteStatut)
       ) {
         await this.supabase
@@ -702,9 +743,10 @@ export class AdapterMts1 implements LogistiqueProvider {
       // 5. Statuts terminaux MTS-1 → mise à jour tournée + agrégation (M1.8/M1.5c)
       // A7 : 'OK' = succès terminal réel (as-built §7), pas 'DELIVERED'.
       const MTS1_TERMINAUX = new Set(['OK', 'PARTIAL', 'CANCELED', 'KO']);
-      if (MTS1_TERMINAUX.has(order.status)) {
+      if (MTS1_TERMINAUX.has(order.customerOrderStatus)) {
         const nouveauStatutTournee =
-          order.status === 'CANCELED' || order.status === 'KO'
+          order.customerOrderStatus === 'CANCELED' ||
+          order.customerOrderStatus === 'KO'
             ? 'annulee'
             : 'terminee';
 
@@ -721,12 +763,13 @@ export class AdapterMts1 implements LogistiqueProvider {
         // KO partiel : ce tour était KO/CANCELED mais d'autres étaient OK → alerte in-app
         if (
           agrResultat === 'realisee' &&
-          (order.status === 'CANCELED' || order.status === 'KO')
+          (order.customerOrderStatus === 'CANCELED' ||
+            order.customerOrderStatus === 'KO')
         ) {
           await this.supabase.rpc('f_upsert_alerte_admin', {
             p_code: 'collecte_partiellement_servie',
             p_titre: 'Collecte partiellement servie',
-            p_message: `Un camion n'a pas pu collecter (statut MTS-1 ${order.status}).`,
+            p_message: `Un camion n'a pas pu collecter (statut MTS-1 ${order.customerOrderStatus}).`,
             p_entity_type: 'collectes',
             p_entity_id: collecteId,
           });
@@ -756,7 +799,11 @@ export class AdapterMts1 implements LogistiqueProvider {
     // BL-P1-API-03 — résoudre plaque + chauffeur depuis le référentiel carrier.
     await this.resolveCarrierForTournee(tour, tourneeId);
 
-    for (const stop of tour.stops) {
+    // `stops` est absent quand MTS-1 ne connaît pas le tour : il répond alors 200
+    // avec un objet creux (mesuré le 2026-10-13 ; un tour sans commande porte,
+    // lui, `stops: []`). Sans ce repli, la lecture levait ici, avant le
+    // traitement du statut terminal de la commande.
+    for (const stop of tour.stops ?? []) {
       if (!stop.items?.length) continue;
 
       for (const item of stop.items) {
@@ -1315,35 +1362,77 @@ export class AdapterMts1 implements LogistiqueProvider {
 
   // ─── Réconciliation plan B ────────────────────────────────────────────────────
 
+  /**
+   * Commande déjà créée chez MTS-1 pour ce numéro, ou `null` — avant tout
+   * re-POST d'une création reprise (§08 §3bis.9).
+   */
   private async reconcileOrder(
     collecte: Collecte,
     orderNumber: string,
   ): Promise<string | null> {
-    // Bornes à MINUIT PARIS. `date_collecte` est une date-seule : la convertir
-    // en Date puis décaler avec `setDate` ancrait les bornes sur minuit UTC
-    // (soit 02h00 à Paris l'été), et les collectes ont lieu de nuit — la borne
-    // doit être le jour métier, pas l'instant que le fuseau du process a donné
-    // à la chaîne.
-    //
-    // Borne haute à J+2 et non J+1 : la sémantique exacte de maxDate côté MTS-1
-    // n'est pas documentée (instant ? date tronquée, incluse ou exclue ?), et à
-    // J+1 le jour de collecte tomberait pile sur la borne sous la lecture la
-    // plus stricte. Manquer l'ordre ferait re-POSTer un doublon sur une API
-    // présumée non idempotente (§2). Élargir n'ouvre aucun faux positif — la
-    // correspondance se fait ensuite sur `externalReference` (UUID de collecte +
-    // rang) — au prix d'une marge en moins sous le plafond non paginé de 200
-    // résultats du scan, très au-dessus des volumes V1.
+    // Fenêtre en JOURS : l'API ne lit que des « yyyy-MM-dd », bornes incluses,
+    // jour compté à Paris (mesuré le 2026-10-13) — c'est-à-dire exactement
+    // `date_collecte`, envoyée comme `orderDate` à la création. Un jour de marge
+    // de chaque côté : un ordre manqué ferait re-POSTer un doublon sur une API
+    // présumée non idempotente (§2), et le filtre `orderNumber` réduit déjà la
+    // réponse aux commandes de CE rang.
+    // Limite connue : une collecte dont la date a changé de plus d'un jour entre
+    // le POST perdu et la reprise sort de la fenêtre. La commande laissée
+    // derrière n'a ni tournée ni transporteur ; elle reste à supprimer chez MTS-1.
     const jour = collecte.date_collecte;
-    const minDate = instantParis(decalerJour(jour, -1));
-    const maxDate = instantParis(decalerJour(jour, 2));
-
     const orders = await this.client.scanOrdersByDateRange(
-      minDate.toISOString(),
-      maxDate.toISOString(),
+      decalerJour(jour, -1),
+      decalerJour(jour, 1),
+      orderNumber,
     );
 
-    const found = orders.find((o) => o.externalReference === orderNumber);
-    return found?.id ?? null;
+    // L'égalité stricte se rejoue ICI, quoi que rende le filtre distant. Et
+    // `orderNumber` n'est pas unique chez MTS-1 (jusqu'à 25 commandes mesurées
+    // sous un même numéro) : on écarte les commandes refusées ou en échec, puis on
+    // départage par identifiant, l'API ne garantissant aucun ordre de réponse.
+    // Le Set écarte une même commande rendue deux fois.
+    const candidates = [
+      ...new Set(
+        orders
+          .filter(
+            (o) =>
+              o.orderNumber === orderNumber &&
+              !STATUTS_COMMANDE_MORTE.has(o.customerOrderStatus),
+          )
+          .map((o) => o.customerOrderId),
+      ),
+    ].sort();
+    const retenue = candidates[0];
+    if (!retenue) return null;
+
+    if (candidates.length > 1) {
+      // Les autres restent chez MTS-1 : trace pour les y retrouver.
+      await this.supabase.from('integrations_logs').insert({
+        integration: 'mts1',
+        direction: 'sortant',
+        methode: 'GET',
+        endpoint: '/v3/customerOrders',
+        correlation_id: orderNumber,
+        erreur: `COMMANDES_EN_DOUBLE: ${candidates.length} commandes portent ce numéro (${candidates.join(
+          ', ',
+        )}), reprise sur ${retenue}`,
+      });
+    }
+    return retenue;
+  }
+
+  /**
+   * Identifiants, parmi les commandes de ces tournées, de celles qui existent
+   * encore chez MTS-1. Une lecture en échec LÈVE (erreur du client) : elle n'est
+   * jamais lue comme « aucune commande ».
+   */
+  private async commandesConnues(tournees: TourneeRow[]): Promise<Set<string>> {
+    const commandes = await this.client.findOrdersByIds(
+      tournees
+        .map((t) => t.external_ref_commande)
+        .filter((id): id is string => !!id),
+    );
+    return new Set(commandes.map((c) => c.customerOrderId));
   }
 
   // ─── Builders payload MTS-1 ──────────────────────────────────────────────────

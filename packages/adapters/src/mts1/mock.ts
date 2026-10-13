@@ -27,20 +27,23 @@ export type Mts1OrderStatus =
   | 'CANCELED'
   | 'KO';
 
-export interface Mts1Stop {
-  stopId: string;
-  address: string;
-  status?: string;
-  completedAt?: string | null;
-}
-
+// Commande telle que la rend GET /v3/customerOrders — mesuré sur le compte de
+// démonstration le 2026-10-13. La réponse est un TABLEAU JSON NU de ces objets,
+// sans enveloppe ni pagination. Sont typés les champs que lit l'adapter, plus
+// `orderDate` (non lu) ; l'API en rend d'autres (`place`, `stuffs`, `contact`,
+// `currentTour`, …).
+//   - `customerOrderId` : identifiant technique, celui que garde
+//     `tournees.external_ref_commande` ;
+//   - `orderNumber` : la clé « {collecte}-{rang} » posée à la création. Elle
+//     n'est PAS unique chez MTS-1 (jusqu'à 25 commandes mesurées sous un même
+//     numéro) ;
+//   - `orderDate` : instant UTC du créneau (« 2026-10-16T09:30:00.000Z »).
+// Ni `id`, ni `externalReference`, ni `status` n'existent sur le fil.
 export interface Mts1CustomerOrder {
-  id: string;
-  externalReference: string;
-  status: Mts1OrderStatus;
-  pickupDate?: string | null;
-  deliveryDate?: string | null;
-  stops?: Mts1Stop[];
+  customerOrderId: string;
+  orderNumber: string;
+  customerOrderStatus: Mts1OrderStatus;
+  orderDate?: string;
 }
 
 export interface Mts1StopItem {
@@ -70,7 +73,10 @@ export interface Mts1Tour {
   status: string;
   startedAt?: string | null;
   completedAt?: string | null;
-  stops: Mts1TourStop[];
+  // Absent quand l'identifiant est inconnu de MTS-1, qui répond alors 200 avec
+  // un objet creux ; un tour sans commande porte `stops: []` (mesuré le
+  // 2026-10-13).
+  stops?: Mts1TourStop[];
   dispatch?: Mts1TourDispatch;
 }
 
@@ -110,13 +116,6 @@ export interface Mts1Photo {
   weight_kg: number | null;
 }
 
-export interface Mts1PollResult {
-  customerOrders: Mts1CustomerOrder[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-}
-
 export type Mts1PostSuccess = {
   ok: true;
   id: string;
@@ -145,8 +144,8 @@ export interface Mts1CreatedTour {
 }
 
 export interface Mts1Handlers {
-  // M1.5b — entrant
-  pollOrders: () => Promise<Mts1PollResult>;
+  // M1.5b — entrant. Rend le tableau nu, comme le fil.
+  pollOrders: () => Promise<Mts1CustomerOrder[]>;
   getTour: (tourId: string) => Promise<Mts1Tour>;
   getPhotos?: (tourId: string) => Promise<Mts1Photo[]>;
   // M1.5b — référentiel transporteurs (résolution plaque/chauffeur, BL-P1-API-03)
@@ -166,9 +165,16 @@ export interface Mts1Handlers {
     payload: Record<string, unknown>,
   ) => Promise<void>;
   deleteOrder?: (orderId: string) => Promise<void>;
+  // Recherche par fenêtre de jours (« yyyy-MM-dd »), filtrée par numéro de
+  // commande quand il est donné.
   scanOrdersByDateRange?: (
     minDate: string,
     maxDate: string,
+    orderNumber?: string,
+  ) => Promise<Mts1CustomerOrder[]>;
+  // Recherche par identifiants : un identifiant inconnu est absent du tableau.
+  findOrdersByIds?: (
+    customerOrderIds: string[],
   ) => Promise<Mts1CustomerOrder[]>;
 }
 
@@ -192,7 +198,6 @@ export type Mts1PollScenario =
   | 'pesees_incompletes';
 
 interface PollFixture {
-  customerOrders?: Mts1CustomerOrder[];
   payload_a?: { event_id: string };
   payload_b?: { event_id: string };
 }
@@ -202,57 +207,35 @@ interface MultiCamionsFixture {
   tours: Mts1Tour[];
 }
 
-const POLL_SCENARIOS: Record<Mts1PollScenario, () => Mts1PollResult> = {
-  nominal: () => loadFixture<Mts1PollResult>('poll_statuts_nominal.json'),
+const POLL_SCENARIOS: Record<Mts1PollScenario, () => Mts1CustomerOrder[]> = {
+  nominal: () =>
+    loadFixture<{ response: Mts1CustomerOrder[] }>('poll_statuts_nominal.json')
+      .response,
   dedup: () => {
     const f = loadFixture<PollFixture>('poll_dedup_pair.json');
-    return {
-      customerOrders: [
-        {
-          id: 'MTS1-DEDUP-001',
-          externalReference: f.payload_a?.event_id ?? 'dedup-ref',
-          status: 'OK',
-        },
-      ],
-      totalCount: 1,
-      page: 1,
-      pageSize: 50,
-    };
+    return [
+      {
+        customerOrderId: 'MTS1-DEDUP-001',
+        orderNumber: f.payload_a?.event_id ?? 'dedup-ref',
+        customerOrderStatus: 'OK',
+      },
+    ];
   },
-  multi_camions: () => {
-    const f = loadFixture<MultiCamionsFixture>('tours_multi_camions.json');
-    return {
-      customerOrders: f.customerOrders,
-      totalCount: f.customerOrders.length,
-      page: 1,
-      pageSize: 50,
-    };
-  },
-  ko_partiel: () => {
-    const f = loadFixture<{ customerOrders: Mts1CustomerOrder[] }>(
+  multi_camions: () =>
+    loadFixture<MultiCamionsFixture>('tours_multi_camions.json').customerOrders,
+  ko_partiel: () =>
+    loadFixture<{ customerOrders: Mts1CustomerOrder[] }>(
       'tours_ko_partiel.json',
-    );
-    return {
-      customerOrders: f.customerOrders,
-      totalCount: f.customerOrders.length,
-      page: 1,
-      pageSize: 50,
-    };
-  },
+    ).customerOrders,
   pesees_incompletes: () => {
     const f = loadFixture<{ tour: Mts1Tour }>('tours_pesees_incompletes.json');
-    return {
-      customerOrders: [
-        {
-          id: f.tour.tourId,
-          externalReference: f.tour.externalReference,
-          status: 'OK',
-        },
-      ],
-      totalCount: 1,
-      page: 1,
-      pageSize: 50,
-    };
+    return [
+      {
+        customerOrderId: f.tour.tourId,
+        orderNumber: f.tour.externalReference,
+        customerOrderStatus: 'OK',
+      },
+    ];
   },
 };
 
@@ -317,9 +300,7 @@ interface PostErrorFixture {
 
 interface TimeoutFixture {
   plan_b_scan: {
-    response: {
-      customerOrders: Mts1CustomerOrder[];
-    };
+    response: Mts1CustomerOrder[];
   };
 }
 
@@ -340,16 +321,13 @@ const POST_SCENARIOS: Record<Mts1PostScenario, () => Mts1PostResult> = {
   },
   timeout_plan_b: () => {
     const f = loadFixture<TimeoutFixture>('post_timeout.json');
-    const order = f.plan_b_scan.response.customerOrders[0];
-    if (!order)
-      throw new Error(
-        'fixture manquante: plan_b_scan.response.customerOrders[0]',
-      );
+    const order = f.plan_b_scan.response[0];
+    if (!order) throw new Error('fixture manquante: plan_b_scan.response[0]');
     return {
       ok: true,
-      id: order.id,
-      externalReference: order.externalReference,
-      status: order.status,
+      id: order.customerOrderId,
+      externalReference: order.orderNumber,
+      status: order.customerOrderStatus,
       createdAt: '',
     };
   },

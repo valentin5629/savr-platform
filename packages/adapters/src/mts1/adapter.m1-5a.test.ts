@@ -746,9 +746,9 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
   it("M1.5a / réconciliation requires_reconciliation=true — scan minDate/maxDate retrouve l'ordre", async () => {
     const scanOrdersByDateRange = vi.fn().mockResolvedValue([
       {
-        id: 'MTS1-ORDER-FOUND',
-        externalReference: 'col-zd-001-1',
-        status: 'PLANNED',
+        customerOrderId: 'MTS1-ORDER-FOUND',
+        orderNumber: 'col-zd-001-1',
+        customerOrderStatus: 'PLANNED',
       },
     ]);
     const createTour = vi.fn().mockResolvedValue({
@@ -782,14 +782,14 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
     expect(scanOrdersByDateRange).toHaveBeenCalledOnce();
     expect(createTour).toHaveBeenCalledOnce();
 
-    // Bornes à MINUIT PARIS (22h00 UTC l'été), pas minuit UTC : les collectes ont
-    // lieu de nuit, la fenêtre doit encadrer le jour métier quel que soit le
-    // fuseau du process. Borne haute à J+2 pour que le jour de collecte reste
-    // franchement à l'intérieur quelle que soit la lecture de maxDate par MTS-1
-    // (un ordre manqué ferait re-POSTer un doublon).
+    // Fenêtre en JOURS, J-1 → J+1 autour de la collecte, filtrée sur le numéro
+    // de la commande : l'API ne lit que des « yyyy-MM-dd », bornes incluses,
+    // jour compté à Paris (mesuré le 2026-10-13). Les instants envoyés avant
+    // (« 2026-07-13T22:00:00.000Z ») lui faisaient répondre 500.
     expect(scanOrdersByDateRange).toHaveBeenCalledWith(
-      '2026-07-13T22:00:00.000Z',
-      '2026-07-16T22:00:00.000Z',
+      '2026-07-14',
+      '2026-07-16',
+      'col-zd-001-1',
     );
   });
 

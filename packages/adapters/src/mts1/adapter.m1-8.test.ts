@@ -43,17 +43,17 @@ const TOUR_NORMAL: Mts1Tour = {
 };
 
 const ORDER_VALIDATED_M18: Mts1CustomerOrder = {
-  id: 'MTS1-ORDER-M18-VALIDATED',
-  externalReference: 'col-m18-1',
-  status: 'VALIDATED',
-  pickupDate: '2026-07-15T22:00:00Z',
+  customerOrderId: 'MTS1-ORDER-M18-VALIDATED',
+  orderNumber: 'col-m18-1',
+  customerOrderStatus: 'VALIDATED',
+  orderDate: '2026-07-15T22:00:00.000Z',
 };
 
 const ORDER_KO_M18: Mts1CustomerOrder = {
-  id: 'MTS1-ORDER-M18-KO',
-  externalReference: 'col-m18-ko-1',
-  status: 'KO',
-  pickupDate: '2026-07-15T22:00:00Z',
+  customerOrderId: 'MTS1-ORDER-M18-KO',
+  orderNumber: 'col-m18-ko-1',
+  customerOrderStatus: 'KO',
+  orderDate: '2026-07-15T22:00:00.000Z',
 };
 
 // ─── Mock Supabase étendu (M1.8 — support parametres_algo clé-valeur + rpc) ───
@@ -238,12 +238,7 @@ describe('M1.8 / E2E / variante-pesee-hors-seuil', () => {
 
   it('pesée < seuil_min → f_upsert_alerte_admin pesee_hors_seuil + upsert quand même', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED_M18],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED_M18]),
       getTour: vi.fn().mockResolvedValue(TOUR_POIDS_BAS),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -287,12 +282,7 @@ describe('M1.8 / E2E / variante-multi-camions-ko-partiel', () => {
 
   it('2 ordres OK+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_KO_M18],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_KO_M18]),
       getTour: vi.fn().mockResolvedValue(TOUR_NORMAL),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -348,12 +338,7 @@ describe('M1.8 / E2E / variante-tous-annules-rejetee', () => {
 
   it('tous camions KO → fn_agreger_terminal_collecte rejetee_par_prestataire, pas alerte partielle', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_KO_M18],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_KO_M18]),
       getTour: vi.fn().mockResolvedValue(TOUR_NORMAL),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),

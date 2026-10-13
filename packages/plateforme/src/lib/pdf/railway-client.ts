@@ -18,6 +18,10 @@ export async function generatePdf(
   if (!baseUrl) throw new Error('RAILWAY_PDF_URL manquant');
   if (!secret) throw new Error('RAILWAY_PDF_SECRET manquant');
 
+  // Sérialisée AVANT le `try` : une charge utile illisible est une erreur de
+  // notre code, pas un appel resté sans réponse — elle remonte telle quelle.
+  const corps = JSON.stringify({ type, data });
+
   let response: Response;
   try {
     response = await fetch(`${baseUrl}/generate-pdf`, {
@@ -26,7 +30,7 @@ export async function generatePdf(
         'Content-Type': 'application/json',
         'X-Internal-Token': secret,
       },
-      body: JSON.stringify({ type, data }),
+      body: corps,
       signal: AbortSignal.timeout(30_000),
     });
   } catch (err) {

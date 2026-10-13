@@ -64,6 +64,16 @@ describe('M0.9/erreur_reseau_vrai_moteur — ce que rend le vrai `fetch` ne sort
     },
   );
 
+  it('caractère NUL en FIN de clé : refusé lui aussi (seuls un saut de ligne ou un retour chariot aux extrémités sont tolérés)', async () => {
+    const err = await rejetDe(() =>
+      fetch(ADRESSE_MORTE, {
+        headers: { Authorization: `Bearer ${DEBUT}${FIN}\0` },
+      }),
+    );
+    expect(decrireErreurReseau(err).categorie).toBe('entete_invalide');
+    sansLaCle(libelleErreurReseau(err));
+  });
+
   it("en-tête maison (secret d'un service interne) : même libellé, sans le secret", async () => {
     const err = await rejetDe(() =>
       fetch(ADRESSE_MORTE, {
@@ -169,6 +179,44 @@ describe('M0.9/erreur_reseau_champs — la fausse clé posée dans chaque champ 
       categorie: 'autre',
       libelle: 'erreur inattendue',
     });
+  });
+
+  it('clé d’un seul tenant dans le nom, le code ou le code de la cause : refusée, elle n’a la forme ni d’un nom de classe ni d’un code machine', () => {
+    // `FAUSSE-CLE-DE-TEST…` : des tirets (pas un nom de classe, pas un code) ;
+    // sa version en minuscules et tirets bas : pas un code non plus.
+    for (const valeur of [CLE, CLE.toLowerCase().replaceAll('-', '_')]) {
+      const err = Object.assign(new Error('x'), {
+        name: valeur,
+        code: valeur,
+        cause: { code: valeur },
+      });
+      expect(libelleErreurReseau(err)).toBe('erreur inattendue');
+    }
+  });
+
+  it('erreur dont la lecture lève (accesseur, Proxy) : libellé neutre, rien ne sort de la fonction', () => {
+    const piege = {
+      get name(): string {
+        throw new Error(`accesseur ${CLE}`);
+      },
+      get message(): string {
+        throw new Error(`accesseur ${CLE}`);
+      },
+      get cause(): unknown {
+        throw new Error(`accesseur ${CLE}`);
+      },
+    };
+    expect(libelleErreurReseau(piege)).toBe('erreur inattendue');
+
+    const proxy = new Proxy(
+      {},
+      {
+        get() {
+          throw new Error(`proxy ${CLE}`);
+        },
+      },
+    );
+    expect(libelleErreurReseau(proxy)).toBe('erreur inattendue');
   });
 
   it('valeur levée qui n’est pas une erreur (chaîne, rien) : libellé neutre', () => {

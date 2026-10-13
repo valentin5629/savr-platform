@@ -5,7 +5,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(66);
+SELECT plan(67);
 
 -- ---------------------------------------------------------------------------
 -- HELPERS de simulation JWT (pgTAP context)
@@ -289,6 +289,16 @@ SELECT results_eq(
   'T12e outbox_denied_client_organisateur'
 );
 
+-- T12f : sans jeton (`anon`) — aucun droit sur la table : un refus net, pas
+-- « 0 ligne ».
+SELECT set_config('request.jwt.claims', NULL, true);
+SELECT set_config('role', 'anon', true);
+SELECT throws_ok(
+  $$SELECT count(*) FROM plateforme.outbox_events$$,
+  '42501', NULL,
+  'T12f outbox_denied_anon'
+);
+
 -- T13 : outbox admin_savr peut lire
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT isnt(
@@ -297,8 +307,9 @@ SELECT isnt(
   'T13 outbox_admin_read_ok'
 );
 
--- T13a : contrôle positif — l'Admin lit l'ordre que les six rôles ci-dessus ne
--- voient pas. Sans lui, leurs « 0 ligne » seraient vrais aussi sur une table vide.
+-- T13a : contrôle positif — l'Admin lit l'ordre que les six rôles ci-dessus (et
+-- `anon`) ne voient pas. Sans lui, leurs « 0 ligne » seraient vrais aussi sur une
+-- table vide.
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
    WHERE id = '0c0c0001-0000-0000-0000-000000000001'),

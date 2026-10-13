@@ -34,8 +34,10 @@
  *   n'apparaisse dans la route. Ciblée par convention de nommage (`result`/`res`) :
  *   un `NextResponse.json(data)` est la donnée métier du cas nominal.
  *
- * RÈGLE F — dans tout fichier SERVEUR qui appelle `fetch` (adapters, shared,
- *   `lib/`, `app/api/`), l'erreur ATTRAPÉE ne se lit pas. Ce n'est plus la
+ * RÈGLE F — dans tout fichier SERVEUR qui touche au moteur HTTP (adapters,
+ *   shared, plateforme hors composants navigateur, apps : `fetch` appelé ou pris
+ *   comme valeur, `new Request`, `new Headers`), l'erreur ATTRAPÉE ne se lit pas.
+ *   Ce n'est plus la
  *   structure de la base qui fuit, c'est un SECRET : le moteur recopie dans son
  *   erreur la valeur qu'il refuse — « Headers.append: "Bearer <clé entière>" is an
  *   invalid header value. », « Failed to parse URL from <adresse entière> »
@@ -44,8 +46,9 @@
  *   (`integrations_logs.erreur`, `outbox_events.last_error`, `jobs_pdf.last_error`,
  *   `factures.erreur_synchro`), un journal ou une alerte, relus plus tard par un
  *   écran. La règle ne suit donc pas le texte : elle interdit de le prendre.
- *   Tout usage de la variable d'un `catch (err)` — ou du paramètre d'un
- *   `.catch((err) => …)` — est refusé, sauf :
+ *   Tout usage de la variable d'un `catch (err)`, du paramètre d'un
+ *   `.catch((err) => …)` ou d'un `.then(ok, (err) => …)`, et de la `.reason` d'un
+ *   `Promise.allSettled`, est refusé, sauf :
  *     ✅ `libelleErreurReseau(err)` / `decrireErreurReseau(err)` (le classeur)
  *     ✅ `err instanceof X`, `typeof err`, `err.name` (la classe, pas le texte)
  *     ✅ `err.code`, `err.cause?.code` (un code machine : ECONNREFUSED…)
@@ -53,11 +56,21 @@
  *     ❌ `String(err)`, `${err}`, `err.message`, `err.stack`, `{ cause: err }`,
  *        `logger.error('x', { error: err.message })` (un journal est un texte
  *        conservé), `capturer(err)` (l'erreur entière confiée à un tiers)
+ *     ❌ `.catch(console.error)`, `.catch(traiter)`, `.then(ok, traiter)` : un
+ *        gestionnaire passé par RÉFÉRENCE reçoit l'erreur hors de vue — l'écrire
+ *        sur place.
  *   Portée : TOUT `catch` du fichier, pas seulement celui qui entoure le `fetch`
  *   — l'appel passe souvent par une méthode intermédiaire
- *   (`this.postJson(…).catch(…)`). Ce que la règle ne voit pas : une erreur qui
- *   sort du fichier sans y être attrapée (`fetch` sans `try`, ou `throw err`) —
- *   c'est alors l'appelant qui la lit, dans un fichier sans `fetch`.
+ *   (`this.postJson(…).catch(…)`).
+ *   CE QUE LA RÈGLE NE VOIT PAS (mesuré par le relecteur sécurité, 2026-10-13) :
+ *     – une erreur qui sort du fichier sans y être attrapée (`fetch` sans `try`,
+ *       ou `throw err`) : c'est l'appelant qui la lit, dans un fichier sans
+ *       `fetch` ;
+ *     – un fichier où le moteur n'apparaît sous aucun de ses noms : `fetch`
+ *       injecté (`this.appeler(url)`), client bâti sur un SDK (base, stockage,
+ *       emails) ;
+ *     – une erreur rangée dans une variable d'un autre nom que celui du `catch`
+ *       avant d'être lue plus loin dans une AUTRE fonction.
  *
  * Les crons sont hors périmètre de la règle B : `assertCronAuth` exige
  * `Authorization: Bearer <CRON_SECRET>`, leurs `errors[]` de diagnostic ne sont pas
@@ -661,24 +674,58 @@ function regleE(source: string): Trouve[] {
   return out;
 }
 
-/** Racines du code serveur qui appelle des services tiers (règle F). */
-const RACINES_FETCH = [
-  'packages/adapters/src',
-  'packages/shared/src',
-  `${SRC}/lib`,
-  API,
-];
+/**
+ * Racines visitées par la règle F, et le NOMBRE de fichiers que chacune rend
+ * aujourd'hui. Ce nombre est un plancher : s'il baisse, le garde sort en erreur
+ * au lieu de dire « 0 » sur un périmètre rétréci (racine renommée, recherche
+ * cassée, fichier sorti de la découverte). Un fichier qui cesse pour de bon
+ * d'appeler `fetch` se traduit ici, par un plancher baissé à la main.
+ */
+const RACINES_FETCH: Record<string, number> = {
+  'packages/adapters/src': 2,
+  'packages/shared/src': 3,
+  [SRC]: 6,
+  apps: 0,
+};
 
 /** Les deux seules fonctions à qui l'on confie l'erreur d'un `fetch`. */
 const CLASSEURS = /^(libelleErreurReseau|decrireErreurReseau)$/;
 
+/**
+ * Le fichier touche-t-il au moteur HTTP ? `fetch` appelé ou pris comme valeur
+ * (`const f = fetch`, `globalThis.fetch`, `{ fetch }`), `new Request(…)`,
+ * `new Headers(…)` — les trois lèvent la même erreur, qui cite la valeur refusée.
+ * `this.fetch(…)` n'en est pas : c'est une méthode maison du même nom.
+ */
 function appelleFetch(src: ts.SourceFile): boolean {
   let trouve = false;
+  const estLeMoteur = (id: ts.Identifier): boolean => {
+    const p = id.parent;
+    // Membre : seul `globalThis.fetch` (ou window / self) désigne le moteur.
+    if (ts.isPropertyAccessExpression(p) && p.name === id)
+      return /^(globalThis|window|self)$/.test(p.expression.getText(src));
+    // Nom d'une déclaration (méthode, clé, paramètre, variable) : pas un usage.
+    if (
+      (ts.isMethodDeclaration(p) ||
+        ts.isMethodSignature(p) ||
+        ts.isPropertyDeclaration(p) ||
+        ts.isPropertySignature(p) ||
+        ts.isPropertyAssignment(p) ||
+        ts.isFunctionDeclaration(p) ||
+        ts.isParameter(p) ||
+        ts.isVariableDeclaration(p) ||
+        ts.isBindingElement(p)) &&
+      p.name === id
+    )
+      return false;
+    return true;
+  };
   const visit = (n: ts.Node): void => {
     if (trouve) return;
     if (
-      ts.isCallExpression(n) &&
-      /^(globalThis\.)?fetch$/.test(n.expression.getText(src))
+      (ts.isIdentifier(n) && n.text === 'fetch' && estLeMoteur(n)) ||
+      (ts.isNewExpression(n) &&
+        /^(Request|Headers)$/.test(n.expression.getText(src)))
     ) {
       trouve = true;
       return;
@@ -692,11 +739,17 @@ function appelleFetch(src: ts.SourceFile): boolean {
 /** Fichiers serveur, hors tests et hors composants navigateur, qui appellent `fetch`. */
 function fichiersAvecFetch(): string[] {
   const out = execSync(
-    `grep -rl --include='*.ts' --include='*.tsx' -e 'fetch(' ${RACINES_FETCH.join(' ')} || true`,
+    `grep -rl --include='*.ts' --include='*.tsx' -e 'fetch' -e 'new Request' -e 'new Headers' ${Object.keys(RACINES_FETCH).join(' ')} 2>/dev/null || true`,
     { encoding: 'utf8' },
   ).trim();
   return (out ? out.split('\n') : []).filter((f) => {
-    if (/\.(test|spec)\.tsx?$/.test(f)) return false;
+    // Tests et outillage de test : jamais du code servi.
+    if (
+      /\.(test|spec)\.tsx?$/.test(f) ||
+      f.includes('/test-utils/') ||
+      f.includes('/node_modules/')
+    )
+      return false;
     const source = readFileSync(f, 'utf8');
     // Un composant navigateur n'a aucun secret à citer : il appelle nos routes.
     if (/^\s*['"]use client['"]/m.test(source.slice(0, 400))) return false;
@@ -720,7 +773,7 @@ function regleF(source: string): Trouve[] {
       expr: lu.getText(src).slice(0, 60),
     });
   };
-  const usagePermis = (id: ts.Identifier): boolean => {
+  const usagePermis = (id: ts.Expression): boolean => {
     const p = id.parent;
     if (
       ts.isBinaryExpression(p) &&
@@ -751,6 +804,7 @@ function regleF(source: string): Trouve[] {
       return true;
     return false;
   };
+  const usagePermisDe = usagePermis;
   const examiner = (nom: string, portee: ts.Node): void => {
     const visit = (n: ts.Node): void => {
       if (ts.isIdentifier(n) && n.text === nom) {
@@ -783,8 +837,29 @@ function regleF(source: string): Trouve[] {
     ) {
       // `.catch(fn)` et le second argument de `.then(ok, fn)`.
       const methode = n.expression.name.text;
-      if (methode === 'catch') liee = erreurDe(n.arguments[0]);
-      else if (methode === 'then') liee = erreurDe(n.arguments[1]);
+      const gestionnaire =
+        methode === 'catch'
+          ? n.arguments[0]
+          : methode === 'then'
+            ? n.arguments[1]
+            : undefined;
+      liee = erreurDe(gestionnaire);
+      // Gestionnaire passé par référence (`.catch(console.error)`,
+      // `.catch(traiter)`) : il reçoit l'erreur hors de vue. Une fonction écrite
+      // sur place sans paramètre (`.catch(() => undefined)`) ne reçoit rien.
+      if (
+        gestionnaire &&
+        !ts.isArrowFunction(gestionnaire) &&
+        !ts.isFunctionExpression(gestionnaire)
+      )
+        noter(gestionnaire);
+    } else if (
+      // `r.reason` d'un `Promise.allSettled` : la même erreur, sans `catch`.
+      ts.isPropertyAccessExpression(n) &&
+      n.name.text === 'reason' &&
+      !usagePermisDe(n)
+    ) {
+      noter(n);
     }
     if (liee) {
       if (ts.isIdentifier(liee.nom)) examiner(liee.nom.text, liee.corps);
@@ -1128,6 +1203,45 @@ const SONDES: {
     attendus: 0,
   },
   {
+    // Gestionnaire passé par référence : il reçoit l'erreur hors de vue.
+    regle: 'F',
+    source: `await fetch(url).catch(console.error);`,
+    attendus: 1,
+  },
+  {
+    regle: 'F',
+    source: `function traiter(e) { journal(String(e)); }\nawait fetch(url).catch(traiter);\nawait fetch(url).then(lire, traiter);`,
+    attendus: 2,
+  },
+  {
+    // …mais une fonction écrite sur place, sans paramètre, ne reçoit rien.
+    regle: 'F',
+    source: `const corps = await fetch(url).then((r) => r.text()).catch(() => '');`,
+    attendus: 0,
+  },
+  {
+    // `Promise.allSettled` : la même erreur, sans `catch`.
+    regle: 'F',
+    source: `const [r] = await Promise.allSettled([fetch(url)]);\nif (r.status === 'rejected') journal(String(r.reason));`,
+    attendus: 1,
+  },
+  {
+    regle: 'F',
+    source: `const [r] = await Promise.allSettled([fetch(url)]);\nif (r.status === 'rejected') journal(libelleErreurReseau(r.reason));\nreturn { status: 'ko', reason: 'config' };`,
+    attendus: 0,
+  },
+  {
+    // Le moteur sous un autre nom : alias, `new Headers`, `new Request`.
+    regle: 'F',
+    source: `const appeler = globalThis.fetch;\ntry {\n  await appeler(url);\n} catch (err) {\n  throw new Error(String(err));\n}`,
+    attendus: 1,
+  },
+  {
+    regle: 'F',
+    source: `try {\n  const h = new Headers({ Authorization: cle });\n  await this.client.envoyer(h);\n} catch (err) {\n  throw new Error(String(err));\n}`,
+    attendus: 1,
+  },
+  {
     // Le mot `err` comme nom de champ n'est pas la variable.
     regle: 'F',
     source: `try {\n  await fetch(url);\n} catch (err) {\n  return { err: 'réseau', code: res.err };\n}`,
@@ -1173,6 +1287,9 @@ function autoTest(): void {
 }
 
 type Violation = { fichier: string; ligne: number; code: string };
+
+/** Nombre de fichiers visités par la règle F au dernier passage (affiché). */
+let fichiersVisitesF = 0;
 
 function violations(): Violation[] {
   const trouvees: Violation[] = [];
@@ -1244,15 +1361,20 @@ function violations(): Violation[] {
   // Règle F — l'erreur d'un `fetch`, dans tout fichier serveur qui en appelle un.
   // Aucune liste d'exemption : ni les adapters, ni le client Pennylane.
   const avecFetch = fichiersAvecFetch();
+  fichiersVisitesF = avecFetch.length;
   // Non-vacuité du périmètre : chaque racine rend aujourd'hui au moins un fichier.
   // Une découverte devenue aveugle (racine renommée, recherche cassée) rendrait
   // la règle verte sur une liste vide, et le dirait « ✅ ».
-  const racinesMuettes = RACINES_FETCH.filter(
-    (r) => !avecFetch.some((f) => f.startsWith(`${r}/`)),
-  );
-  if (racinesMuettes.length > 0) {
+  const retrecies = Object.entries(RACINES_FETCH)
+    .map(([racine, plancher]) => ({
+      racine,
+      plancher,
+      trouves: avecFetch.filter((f) => f.startsWith(`${racine}/`)).length,
+    }))
+    .filter((r) => r.trouves < r.plancher);
+  if (retrecies.length > 0) {
     console.error(
-      `🔴 check-api-error-leak : DÉTECTEUR EN ÉCHEC (périmètre de la règle F) — aucun fichier appelant fetch trouvé sous ${racinesMuettes.join(', ')} : le gate ne prouve plus rien.`,
+      `🔴 check-api-error-leak : DÉTECTEUR EN ÉCHEC (périmètre de la règle F) — ${retrecies.map((r) => `${r.trouves} fichier(s) touchant au moteur HTTP sous ${r.racine}, ${r.plancher} attendus au moins`).join(' ; ')} : le gate ne prouve plus rien. Si un fichier a réellement cessé d'appeler fetch, baisser son plancher (RACINES_FETCH).`,
     );
     process.exit(1);
   }
@@ -1285,7 +1407,7 @@ if (trouvees.length > 0) {
   );
 } else {
   console.log(
-    "✅ check-api-error-leak : 0 message d'erreur exposable au client, 0 erreur de fetch lue (règles A→F).",
+    `✅ check-api-error-leak : 0 message d'erreur exposable au client, 0 erreur de fetch lue dans ${fichiersVisitesF} fichier(s) serveur touchant au moteur HTTP (règles A→F).`,
   );
 }
 console.log(`RATCHET_COUNT=${trouvees.length}`);

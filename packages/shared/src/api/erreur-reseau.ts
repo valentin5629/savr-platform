@@ -4,8 +4,8 @@
 // dans un texte enregistré en base, journalisé, envoyé en alerte ou affiché.
 // Le moteur y recopie la valeur qu'il refuse. Mesuré le 2026-10-13 sous
 // Node 25.9.0 (undici 7.24.4), avec une fausse clé :
-//   • valeur d'en-tête portant un saut de ligne, un retour chariot ou un
-//     caractère NUL ailleurs qu'en fin de valeur →
+//   • valeur d'en-tête portant un caractère NUL où que ce soit, ou un saut de
+//     ligne ou un retour chariot ailleurs qu'à ses extrémités →
 //       « Headers.append: "Bearer <clé entière>" is an invalid header value. »
 //   • adresse illisible → « Failed to parse URL from <adresse entière> », et la
 //     même adresse dans `cause.input`.
@@ -16,6 +16,12 @@
 // plus d'un code machine (`cause.code`, ex. ECONNREFUSED) et d'un nom de classe
 // d'erreur (`name`), refusés l'un comme l'autre s'ils n'en ont pas la forme. Le
 // message du moteur est LU pour classer ; il n'est jamais rendu.
+//
+// Reste assumé : un `name` fait de lettres seules ou un `code` fait de
+// majuscules, chiffres et tirets bas sort tel quel. Le moteur n'y range jamais
+// la valeur qu'il refuse (17 erreurs du vrai `fetch` essayées en revue sécurité,
+// Node 22.23.2 et 25.9.0) : il faudrait une erreur fabriquée pour y loger un
+// secret.
 //
 // Cliquet : `pnpm check:api-error-leak`, règle F — dans un fichier serveur qui
 // appelle `fetch`, aucune lecture du texte d'une erreur attrapée.
@@ -44,10 +50,16 @@ const CODES_ENTETE = new Set([
   'ERR_INVALID_HTTP_TOKEN',
 ]);
 
+// Lecture qui ne lève jamais : cette fonction est appelée depuis un `catch`,
+// et une erreur exotique (accesseur qui lève, Proxy) ne doit pas en sortir à la
+// place du libellé.
 function champ(objet: unknown, cle: string): unknown {
-  return typeof objet === 'object' && objet !== null
-    ? (objet as Record<string, unknown>)[cle]
-    : undefined;
+  if (typeof objet !== 'object' || objet === null) return undefined;
+  try {
+    return (objet as Record<string, unknown>)[cle];
+  } catch {
+    return undefined;
+  }
 }
 
 function deForme(valeur: unknown, forme: RegExp): string | null {

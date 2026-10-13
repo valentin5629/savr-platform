@@ -140,6 +140,9 @@ describe('Client Everest — un appel sans réponse ne cite jamais le jeton', ()
       );
       // Ce que le worker écrit dans outbox_events.last_error et dans l'alerte.
       sansLeJeton(String(err));
+      // L'erreur du moteur n'est pas attachée : un outil de capture la lirait.
+      expect(err.cause).toBeUndefined();
+      sansLeJeton(String(err.stack));
       // Ce client n'écrit aucune ligne integrations_logs pour un appel resté
       // sans réponse : l'assertion suivante ne prouve rien aujourd'hui, elle
       // garde une écriture future.

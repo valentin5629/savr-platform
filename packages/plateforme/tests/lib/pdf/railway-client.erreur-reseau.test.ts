@@ -89,6 +89,21 @@ describe('Client du service PDF — un appel sans réponse ne cite jamais le sec
     expect(err.message).toBe('Railway PDF : délai dépassé');
   });
 
+  it('M0.9/erreur_reseau_pdf_charge_illisible — charge utile non sérialisable : l’erreur de sérialisation remonte telle quelle, aucun appel', async () => {
+    vi.stubEnv('RAILWAY_PDF_URL', 'http://127.0.0.1:9');
+    vi.stubEnv('RAILWAY_PDF_SECRET', 'secret-de-test-bien-forme');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const boucle: Record<string, unknown> = {};
+    boucle['soi'] = boucle;
+
+    const err = await rejetDe(() => generatePdf('bordereau-zd', boucle));
+
+    expect(err).toBeInstanceOf(TypeError);
+    expect(err.message).not.toContain('Railway PDF');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('M0.9/erreur_reseau_pdf_reponse_en_erreur — réponse en erreur du service : inchangé, le statut et le corps restent dans le message', async () => {
     vi.stubEnv('RAILWAY_PDF_URL', 'http://127.0.0.1:9');
     vi.stubEnv('RAILWAY_PDF_SECRET', 'secret-de-test-bien-forme');

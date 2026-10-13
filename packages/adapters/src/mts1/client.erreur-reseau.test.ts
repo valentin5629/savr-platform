@@ -95,6 +95,9 @@ describe('Client MTS-1 — un appel sans réponse ne cite jamais la clé', () =>
     );
     // Ce que le worker écrit dans outbox_events.last_error et dans l'alerte.
     sansLaCle(String(err));
+    // L'erreur du moteur n'est pas attachée : un outil de capture la lirait.
+    expect(err.cause).toBeUndefined();
+    sansLaCle(String(err.stack));
     expect(lignes).toHaveLength(1);
     expect(lignes[0]).toMatchObject({
       integration: 'mts1',

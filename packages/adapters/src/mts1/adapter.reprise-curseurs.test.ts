@@ -318,6 +318,7 @@ type Panne =
   | 'filtre_ignore'
   | 'tour_en_nombre'
   | 'tour_vide'
+  | 'identifiant_hors_alphabet'
   | 500
   | 503;
 
@@ -423,6 +424,10 @@ function fauxMts1() {
         // À partir d'ici la tournée EXISTE, quoi que dise la réponse.
         if (panne === 'corps_illisible') return reponse(201, null, true);
         if (panne === 'sans_identifiant') return reponse(201, {});
+        // L'identifiant de cette tournée porte « : » : hors de l'alphabet adopté.
+        if (panne === 'identifiant_hors_alphabet') {
+          tour.tourId = `TOUR:${tours.length}`;
+        }
         return reponse(201, { tourId: tour.tourId });
       }
       if (route === 'PUT /v3/tours/addCustomerOrder') {
@@ -885,6 +890,31 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       },
     );
 
+    it('M1.5a/reprise_tournee_identifiant_hors_alphabet — la commande porte pour identifiant de tournée une chaîne à caractères de chemin : elle n’est ni adoptée ni lue comme « aucune tournée », aucun appel ne part vers elle, l’ordre repart en reprise', async () => {
+      const base = fausseBase();
+      base.poserTournee(1);
+      base.ordre.requires_reconciliation = true;
+      mts1.commandes.push({
+        customerOrderId: 'CMD-1',
+        orderNumber: NUMERO_RANG_1,
+        tourId: '../customerOrders/CMD-9',
+      });
+
+      const result = await runOutboxWorker(base.supabase);
+
+      expect(result).toMatchObject({ failed: 1, done: 0 });
+      expect(base.resultats[0]).toMatchObject({
+        p_statut: 'failed',
+        p_last_error:
+          'LogistiqueTransientError: MTS-1 GET /v3/customerOrders : réponse inattendue, currentTour.tourId illisible pour la commande CMD-1',
+      });
+      // Rien n'est écrit, rien n'est créé, rien ne part vers cet identifiant.
+      expect(base.tournees[0]!.tms_reference).toBeNull();
+      expect(mts1.appels).toEqual([
+        'GET /v3/customerOrders?customerOrderIds=CMD-1',
+      ]);
+    });
+
     it('M1.5a/reprise_tournee_absente — la commande ne porte aucune tournée : une tournée est créée, une seule', async () => {
       const base = fausseBase();
       base.poserTournee(1);
@@ -991,6 +1021,55 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(0);
       expect(mts1.recus('POST /v3/tours')).toHaveLength(0);
       attendreUnSeulCamion(base);
+    });
+
+    it('M1.5a/reprise_commande_identifiant_hors_alphabet — la commande retrouvée par son numéro porte un identifiant à caractères de chemin : elle n’est pas adoptée, aucune commande n’est créée à sa place, l’ordre repart en reprise', async () => {
+      const base = fausseBase();
+      base.ordre.requires_reconciliation = true;
+      mts1.commandes.push({
+        customerOrderId: 'CMD-1/../CMD-9',
+        orderNumber: NUMERO_RANG_1,
+        tourId: null,
+      });
+
+      const result = await runOutboxWorker(base.supabase);
+
+      expect(result).toMatchObject({ failed: 1, done: 0 });
+      expect(base.resultats[0]).toMatchObject({
+        p_statut: 'failed',
+        p_last_error: `LogistiqueTransientError: MTS-1 GET /v3/customerOrders : réponse inattendue, customerOrderId illisible pour le numéro ${NUMERO_RANG_1}`,
+      });
+      // Aucune ligne `tournees` ne porte cet identifiant, et la recherche est le
+      // seul appel parti : ni commande créée, ni appel sur l'identifiant rendu.
+      expect(base.tournees).toHaveLength(0);
+      expect(mts1.appels).toEqual([
+        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
+      ]);
+    });
+
+    it('M1.5a/reprise_commande_doublon_identifiant_hors_alphabet — deux commandes du même numéro, celle que le départage retient porte un identifiant hors alphabet : la reprise s’arrête, l’autre commande n’est pas adoptée à sa place', async () => {
+      const base = fausseBase();
+      base.ordre.requires_reconciliation = true;
+      mts1.commandes.push(
+        { customerOrderId: 'CMD-1', orderNumber: NUMERO_RANG_1, tourId: null },
+        // « . » se trie avant « C » : c'est cet identifiant que le départage
+        // (le plus petit) retient.
+        {
+          customerOrderId: '../CMD-9',
+          orderNumber: NUMERO_RANG_1,
+          tourId: null,
+        },
+      );
+
+      const result = await runOutboxWorker(base.supabase);
+
+      expect(result).toMatchObject({ failed: 1, done: 0 });
+      expect(base.resultats[0]).toMatchObject({
+        p_statut: 'failed',
+        p_last_error: `LogistiqueTransientError: MTS-1 GET /v3/customerOrders : réponse inattendue, customerOrderId illisible pour le numéro ${NUMERO_RANG_1}`,
+      });
+      expect(base.tournees).toHaveLength(0);
+      expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(0);
     });
 
     it('M1.5a/reprise_commande_absente_creation — aucune commande chez MTS-1 : elle est créée, et sa tournée aussi, sans relire la commande créée à l’instant', async () => {
@@ -1214,6 +1293,39 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
         expect(base.tournees[0]!.tms_reference).toBe('TOUR-2');
       },
     );
+
+    it('M1.5a/reprise_201_tournee_identifiant_hors_alphabet_limite — POST /v3/tours répond 201 avec un identifiant hors de l’alphabet, à chaque tentative : il n’est pas adopté et la commande n’est pas re-postée ; la tournée, rattachée à rien, n’est pas retrouvée, la reprise en crée une autre à chaque passage ; aucune n’est envoyée au transporteur, l’ordre finit en échec définitif', async () => {
+      const base = fausseBase();
+      for (let i = 0; i < 4; i++) {
+        mts1.casser('POST /v3/tours', 'identifiant_hors_alphabet');
+      }
+
+      for (let i = 0; i < 4; i++) await runOutboxWorker(base.supabase);
+
+      expect(base.resultats[0]).toMatchObject({
+        p_statut: 'failed',
+        p_requires_reconciliation: true,
+        p_last_error:
+          'MTS-1 POST /v3/tours : création acceptée, mais « tourId » est illisible dans la réponse',
+      });
+      expect(base.ordre.statut).toBe('dead');
+      // Une seule commande, adoptée, rattachée à aucune tournée.
+      expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
+      expect(base.tournees).toHaveLength(1);
+      expect(base.tournees[0]).toMatchObject({
+        external_ref_commande: 'CMD-1',
+        tms_reference: null,
+      });
+      expect(mts1.commandes[0]!.tourId).toBeNull();
+      expect(mts1.recus('PUT /v3/tours/addCustomerOrder')).toHaveLength(0);
+      // Une tournée par tentative, toutes vides, aucune envoyée ni validée.
+      expect(mts1.tours).toEqual([
+        { tourId: 'TOUR:1', envois: 0, validations: 0 },
+        { tourId: 'TOUR:2', envois: 0, validations: 0 },
+        { tourId: 'TOUR:3', envois: 0, validations: 0 },
+        { tourId: 'TOUR:4', envois: 0, validations: 0 },
+      ]);
+    });
 
     it('M1.5a/reprise_reference_tournee_et_rattachement_ko_limite — référence non écrite ET rattachement refusé : l’ordre est quand même à réconcilier (l’erreur du rattachement ne masque pas la première) ; la première tournée n’est jamais envoyée', async () => {
       const base = fausseBase();

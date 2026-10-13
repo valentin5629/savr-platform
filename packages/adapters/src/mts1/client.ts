@@ -95,6 +95,47 @@ export type ScanResult = Mts1CustomerOrder[];
 // Seule écriture de date que lit GET /v3/customerOrders (mesuré 2026-10-13).
 const JOUR_SEUL = /^\d{4}-\d{2}-\d{2}$/;
 
+// Identifiant MTS-1 que Savr accepte d'adopter, c'est-à-dire d'écrire dans
+// `tournees.external_ref_commande` ou `tournees.tms_reference` (et, pour la
+// tournée du rang 1, dans `collectes.tms_reference`). Mesuré le 2026-10-13 sur
+// le compte de démonstration, en lecture seule : 98 identifiants distincts,
+// commandes et tournées, tous de 24 caractères hexadécimaux minuscules. La
+// règle est plus large que la mesure, le compte de production n'ayant jamais
+// été interrogé : lettres, chiffres, tiret et souligné, soit aucun caractère
+// qui ait un sens dans un chemin ou dans une requête ; 128 caractères au plus.
+const IDENTIFIANT_MTS1 = /^[A-Za-z0-9_-]{1,128}$/;
+
+export function estIdentifiantMts1(valeur: unknown): valeur is string {
+  return typeof valeur === 'string' && IDENTIFIANT_MTS1.test(valeur);
+}
+
+// Segment de chemin portant un identifiant, qu'il soit lu en base ou rendu par
+// MTS-1. Encodé : avec « / », « ? » ou « # », la requête envoyée reste celle de
+// la route appelée. Sans effet sur les identifiants mesurés (l'encodage n'en
+// modifie aucun) ; ce que le serveur fait d'un segment encodé n'est donc pas
+// mesuré. « . » et « .. » en sortent intacts, et `fetch` les résout comme des
+// segments relatifs (« /v3/tours/../validate » part vers « /v3/validate ») :
+// refusés, comme l'identifiant vide, une valeur qui n'est pas une chaîne, et
+// une chaîne que l'encodage refuse (demi-caractère UTF-16 isolé).
+const IDENTIFIANT_INUTILISABLE =
+  'MTS-1 : identifiant inutilisable dans un chemin (vide, « . », « .. » ou non encodable)';
+
+function segment(identifiant: unknown): string {
+  if (
+    typeof identifiant !== 'string' ||
+    !identifiant ||
+    identifiant === '.' ||
+    identifiant === '..'
+  ) {
+    throw new LogistiquePermanentError(IDENTIFIANT_INUTILISABLE);
+  }
+  try {
+    return encodeURIComponent(identifiant);
+  } catch {
+    throw new LogistiquePermanentError(IDENTIFIANT_INUTILISABLE);
+  }
+}
+
 export class Mts1Client {
   private readonly baseUrl: string;
   private readonly apiKey: string;
@@ -242,6 +283,7 @@ export class Mts1Client {
     carrierShareableCode: string,
     correlationId?: string,
   ): Promise<void> {
+    const chemin = `/v3/dispatch/${segment(tourId)}/toCarrier`;
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
@@ -251,7 +293,7 @@ export class Mts1Client {
       await handlers.dispatchTour(tourId, carrierShareableCode);
       await this.log({
         methode: 'POST',
-        endpoint: `/v3/dispatch/${tourId}/toCarrier`,
+        endpoint: chemin,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: correlationId,
@@ -261,7 +303,7 @@ export class Mts1Client {
 
     await this.fetch(
       'POST',
-      `/v3/dispatch/${tourId}/toCarrier`,
+      chemin,
       { carrierShareableCode },
       correlationId,
       t0,
@@ -269,6 +311,7 @@ export class Mts1Client {
   }
 
   async validateTour(tourId: string, correlationId?: string): Promise<void> {
+    const chemin = `/v3/tours/${segment(tourId)}/validate`;
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
@@ -276,7 +319,7 @@ export class Mts1Client {
       await handlers.validateTour(tourId);
       await this.log({
         methode: 'PUT',
-        endpoint: `/v3/tours/${tourId}/validate`,
+        endpoint: chemin,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: correlationId,
@@ -284,13 +327,7 @@ export class Mts1Client {
       return;
     }
 
-    await this.fetch(
-      'PUT',
-      `/v3/tours/${tourId}/validate`,
-      {},
-      correlationId,
-      t0,
-    );
+    await this.fetch('PUT', chemin, {}, correlationId, t0);
   }
 
   async updateOrder(
@@ -298,6 +335,7 @@ export class Mts1Client {
     payload: Record<string, unknown>,
     correlationId?: string,
   ): Promise<void> {
+    const chemin = `/v3/customerOrders/${segment(orderId)}`;
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
@@ -305,7 +343,7 @@ export class Mts1Client {
       await handlers.updateOrder(orderId, payload);
       await this.log({
         methode: 'PUT',
-        endpoint: `/v3/customerOrders/${orderId}`,
+        endpoint: chemin,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: correlationId,
@@ -313,16 +351,11 @@ export class Mts1Client {
       return;
     }
 
-    await this.fetch(
-      'PUT',
-      `/v3/customerOrders/${orderId}`,
-      payload,
-      correlationId,
-      t0,
-    );
+    await this.fetch('PUT', chemin, payload, correlationId, t0);
   }
 
   async deleteOrder(orderId: string, correlationId?: string): Promise<void> {
+    const chemin = `/v3/customerOrders/${segment(orderId)}`;
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
@@ -330,7 +363,7 @@ export class Mts1Client {
       await handlers.deleteOrder(orderId);
       await this.log({
         methode: 'DELETE',
-        endpoint: `/v3/customerOrders/${orderId}`,
+        endpoint: chemin,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: correlationId,
@@ -338,13 +371,7 @@ export class Mts1Client {
       return;
     }
 
-    await this.fetch(
-      'DELETE',
-      `/v3/customerOrders/${orderId}`,
-      undefined,
-      correlationId,
-      t0,
-    );
+    await this.fetch('DELETE', chemin, undefined, correlationId, t0);
   }
 
   /**
@@ -465,6 +492,7 @@ export class Mts1Client {
   }
 
   async getTour(tourId: string): Promise<Mts1Tour> {
+    const chemin = `/v3/tours/${segment(tourId)}`;
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
@@ -472,7 +500,7 @@ export class Mts1Client {
       const result = await handlers.getTour(tourId);
       await this.log({
         methode: 'GET',
-        endpoint: `/v3/tours/${tourId}`,
+        endpoint: chemin,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: tourId,
@@ -483,7 +511,7 @@ export class Mts1Client {
 
     const res = await this.fetch(
       'GET',
-      `/v3/tours/${tourId}`,
+      chemin,
       undefined,
       tourId,
       t0,
@@ -493,6 +521,7 @@ export class Mts1Client {
   }
 
   async getPhotos(tourId: string): Promise<Mts1Photo[]> {
+    const chemin = `/v3/tours/${segment(tourId)}/photos`;
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
@@ -500,7 +529,7 @@ export class Mts1Client {
       const result = await handlers.getPhotos(tourId);
       await this.log({
         methode: 'GET',
-        endpoint: `/v3/tours/${tourId}/photos`,
+        endpoint: chemin,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: tourId,
@@ -511,7 +540,7 @@ export class Mts1Client {
 
     const res = await this.fetch(
       'GET',
-      `/v3/tours/${tourId}/photos`,
+      chemin,
       undefined,
       tourId,
       t0,
@@ -677,7 +706,8 @@ export class Mts1Client {
   // MTS-1, que sa réponse soit lisible ou non : un identifiant illisible n'est
   // ni un refus ni une erreur passagère (un simple rejeu créerait un second
   // objet, l'API étant présumée non idempotente — CLAUDE.md §2). Erreur AMBIGUË :
-  // la reprise passe par la réconciliation avant tout re-POST.
+  // la reprise passe par la réconciliation avant tout re-POST. Illisible : absent,
+  // pas une chaîne, ou hors de l'alphabet adopté (cf. IDENTIFIANT_MTS1).
   private identifiantCree(
     corps: unknown,
     champ: string,
@@ -686,7 +716,7 @@ export class Mts1Client {
     const valeur = (corps as Record<string, unknown> | null | undefined)?.[
       champ
     ];
-    if (typeof valeur !== 'string' || !valeur) {
+    if (!estIdentifiantMts1(valeur)) {
       throw new LogistiqueAmbiguousError(
         `MTS-1 ${route} : création acceptée, mais « ${champ} » est illisible dans la réponse`,
       );

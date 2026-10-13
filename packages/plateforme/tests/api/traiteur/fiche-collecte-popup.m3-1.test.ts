@@ -452,6 +452,56 @@ describe('M3.1 / documents de la fiche — lus sous la RLS du traiteur (D12)', (
     expect(json.data.rapport_reserve_donneur_ordre).toBe(false);
   });
 
+  it('M3.1/fiche_get_rapport_version_radar — ZD : rapport régénérable par tout rôle traiteur ; « avec radar » = filtres de comparaison figés sur le rapport', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ statut: 'cloturee' }),
+      error: null,
+    };
+    const rapport = (filtres_benchmark: unknown) => ({
+      data: {
+        disponible_a: '2020-01-02T00:00:00Z',
+        genere_at: '2020-01-02T00:00:00Z',
+        regenere_at: null,
+        filtres_benchmark,
+      },
+      error: null,
+    });
+    // Rapport automatique : aucun filtre figé → version sans radar.
+    rls.results.rapports_rse = rapport(null);
+    const auto = (await getFiche()).json.data;
+    expect(auto.can_regenerate).toBe(true);
+    expect(auto.rapport_avec_radar).toBe(false);
+    // Régénéré avec le radar : les filtres appliqués sont figés sur la ligne.
+    rls.results.rapports_rse = rapport({
+      periode_debut: '2024-10-13',
+      periode_fin: '2026-10-13',
+      lieu_ids: null,
+      type_evenement_ids: null,
+      taille_evenement_codes: null,
+    });
+    expect((await getFiche()).json.data.rapport_avec_radar).toBe(true);
+    // Le commercial télécharge le rapport : il le régénère aussi (§12 §1.2).
+    mockRequireUser.mockResolvedValue({
+      ctx: {
+        userId: 'com-1',
+        role: 'traiteur_commercial',
+        organisationId: 'org-1',
+      },
+    });
+    expect((await getFiche()).json.data.can_regenerate).toBe(true);
+  });
+
+  it('M3.1/fiche_get_rapport_ag_non_regenerable — collecte AG : jamais régénérable depuis la fiche client, jamais « avec radar »', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee' }),
+      error: null,
+    };
+    rls.results.attestations_don = ATTESTATION_AGENCE;
+    const { json } = await getFiche();
+    expect(json.data.can_regenerate).toBe(false);
+    expect(json.data.rapport_avec_radar).toBe(false);
+  });
+
   it('M3.1/rapport_download_attestation_donneur_ordre_404 — téléchargement refusé au traiteur opérationnel', async () => {
     rls.results.collectes = {
       data: { id: 'c1', type: 'anti_gaspi', statut: 'cloturee' },

@@ -52,7 +52,7 @@ import type {
   CreateTourPayload,
   PointLivraison,
 } from './client.js';
-import { Mts1Client } from './client.js';
+import { estIdentifiantMts1, Mts1Client } from './client.js';
 import type { Mts1CustomerOrder, Mts1Tour } from './mock.js';
 import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
@@ -1505,6 +1505,17 @@ export class AdapterMts1 implements LogistiqueProvider {
     ].sort();
     const retenue = candidates[0];
     if (!retenue) return null;
+    // L'identifiant retenu va dans `external_ref_commande`, puis dans le chemin
+    // des appels de modification et d'annulation de cette commande : hors de
+    // l'alphabet adopté, il est refusé. Il n'est ni écarté au profit d'une autre
+    // commande (le départage par le plus petit identifiant ne tiendrait plus),
+    // ni lu comme « aucune commande » (ce serait re-POSTer sur la foi d'une
+    // réponse qu'on ne sait pas lire).
+    if (!estIdentifiantMts1(retenue)) {
+      throw new LogistiqueTransientError(
+        `MTS-1 GET /v3/customerOrders : réponse inattendue, customerOrderId illisible pour le numéro ${orderNumber}`,
+      );
+    }
 
     if (candidates.length > 1) {
       // Les autres restent chez MTS-1 : trace pour les y retrouver.
@@ -1566,13 +1577,14 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
     // Formes mesurées de `tourId` : une chaîne quand la commande est rattachée,
     // clé absente sinon. Absent ou nul, il vaut « aucune tournée ». Sous une
-    // autre forme (nombre, chaîne vide), il est refusé, comme à la création : lu
-    // comme « aucune tournée », il en ferait créer une seconde. La forme de
+    // autre forme (nombre, chaîne vide, caractère hors de l'alphabet adopté), il
+    // est refusé, comme à la création : lu comme « aucune tournée », il en ferait
+    // créer une seconde ; adopté, il irait dans `tms_reference`. La forme de
     // `currentTour` lui-même n'est pas contrôlée : s'il n'est pas un objet,
     // aucune tournée n'y est lue.
     const tourId: unknown = commande.currentTour?.tourId;
     if (tourId === undefined || tourId === null) return null;
-    if (typeof tourId !== 'string' || !tourId) {
+    if (!estIdentifiantMts1(tourId)) {
       throw new LogistiqueTransientError(
         `MTS-1 GET /v3/customerOrders : réponse inattendue, currentTour.tourId illisible pour la commande ${customerOrderId}`,
       );

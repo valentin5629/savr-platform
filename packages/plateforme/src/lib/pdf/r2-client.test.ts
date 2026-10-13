@@ -52,6 +52,49 @@ describe("M1.6 / r2-client — lecture bornée au bucket de l'environnement", ()
     expect(getSignedUrl.mock.calls[0]![2]).toEqual({ expiresIn: 900 });
   });
 
+  it('getPresignedUrl avec un nom de fichier : le nom est imposé au téléchargement, l’objet signé reste le même', async () => {
+    await getPresignedUrl(
+      'savr-dev/attestations/a1/attestation-don-v1-1.pdf',
+      900,
+      'rapport-de-don-ATT-DON-2026-00001.pdf',
+    );
+    const commande = getSignedUrl.mock.calls[0]![1] as {
+      input: Record<string, unknown>;
+    };
+    expect(commande.input).toEqual({
+      Bucket: 'savr-dev',
+      Key: 'attestations/a1/attestation-don-v1-1.pdf',
+      ResponseContentDisposition:
+        'inline; filename="rapport-de-don-ATT-DON-2026-00001.pdf"',
+    });
+  });
+
+  it.each([
+    'rapport"; x="1.pdf',
+    'rapport\r\nSet-Cookie: a=b.pdf',
+    'rapport de don.pdf',
+    '../rapport.pdf',
+    'rapport-été.pdf',
+    '',
+  ])(
+    'getPresignedUrl ignore un nom de fichier hors motif sûr (%j) : URL signée sans nom',
+    async (nom) => {
+      const url = await getPresignedUrl(
+        'savr-dev/rapports/r1/doc.pdf',
+        900,
+        nom,
+      );
+      expect(url).toBe('https://r2.example/signee');
+      const commande = getSignedUrl.mock.calls[0]![1] as {
+        input: Record<string, unknown>;
+      };
+      expect(commande.input).toEqual({
+        Bucket: 'savr-dev',
+        Key: 'rapports/r1/doc.pdf',
+      });
+    },
+  );
+
   it("getObjectBytes lit une clé du bucket de l'environnement", async () => {
     const octets = await getObjectBytes('savr-dev/logos/a.png');
     expect([...octets]).toEqual([7, 8]);

@@ -3,7 +3,9 @@
  * realisee_sans_collecte_pas_d_attestation, idempotence, mention fiscale conditionnelle,
  * snapshot résistant perte habilitation, régénération auto sur correction volume).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
@@ -26,6 +28,7 @@ function makeCollecteAg(overrides: Record<string, unknown> = {}) {
       nom_evenement: 'Gala Kaspia',
       date_evenement: '2026-06-13',
       organisation_id: 'org-1',
+      programmeur: { prenom: 'Julie' },
     },
     attributions_antgaspi: {
       id: 'attr-1',
@@ -709,10 +712,15 @@ describe('M2.4 / BatchPdfJ1Ag / instantané association_numero_rup', () => {
 // l'organisation programmatrice ; evenements.contact_principal_email n'existe
 // pas en V1 (G7 column-db) → jamais lu.
 describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
-  it('envoie au email_principal de l’organisation programmatrice (jamais evenements.contact_principal_email)', async () => {
-    const { sendEmail } = await import('@savr/shared/src/email/index.js');
-    const sb = makeSupabase([
-      { data: [makeCollecteAg()], error: null }, // select collectes AG
+  afterEach(() => vi.unstubAllEnvs());
+
+  /** Un passage du batch qui émet une attestation, jusqu'à l'email. */
+  function passageAvecEmail(
+    organisation: Record<string, unknown>,
+    collecte = makeCollecteAg(),
+  ) {
+    return makeSupabase([
+      { data: [collecte], error: null }, // select collectes AG
       { data: [], error: null }, // attestations_don existantes
       {
         data: [
@@ -730,8 +738,26 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
       { data: null, error: null }, // insert audit_log
       { data: null, error: null }, // insert jobs_pdf
-      { data: { email_principal: 'compta@kaspia.fr' }, error: null },
+      { data: organisation, error: null }, // organisations (email, type)
     ]);
+  }
+
+  /** Variables que le batch a passées à sendEmail. */
+  async function variablesEnvoyees(): Promise<Record<string, string>> {
+    const { sendEmail } = await import('@savr/shared/src/email/index.js');
+    return (sendEmail as ReturnType<typeof vi.fn>).mock.calls[0]![2] as Record<
+      string,
+      string
+    >;
+  }
+
+  it('envoie au email_principal de l’organisation programmatrice (jamais evenements.contact_principal_email)', async () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.example.test');
+    const { sendEmail } = await import('@savr/shared/src/email/index.js');
+    const sb = passageAvecEmail({
+      email_principal: 'compta@kaspia.fr',
+      type: 'traiteur',
+    });
 
     const result = await runBatchPdfJ1Ag(sb as never);
     expect(result.errors).toHaveLength(0);
@@ -749,14 +775,97 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
     expect(selects).not.toContain('contact_principal_email');
     expect(
       (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0],
-    ).toBe('email_principal');
+    ).toBe('email_principal, type');
     expect(sb._chain.eq).toHaveBeenCalledWith('id', 'org-1');
 
+    // « Votre rapport de don est disponible » : prénom du programmeur, événement,
+    // date, et lien vers la fiche collecte de l'espace du programmeur.
     expect(sendEmail).toHaveBeenCalledWith(
       'attestation_don_disponible',
       'compta@kaspia.fr',
-      expect.objectContaining({ numero_attestation: 'ATT-DON-2026-00077' }),
+      {
+        prenom: 'Julie',
+        nom_evenement: 'Gala Kaspia',
+        date_evenement: '13/06/2026',
+        lien_rapport: 'https://app.example.test/traiteur/collectes/col-ag-1',
+      },
       { entityType: 'collectes', entityId: 'col-ag-1' },
     );
+  });
+
+  // Le défaut d'origine : le gabarit déclarait prenom, association_nom et
+  // lien_pdf, le batch envoyait nom_evenement, date_evenement et
+  // numero_attestation → envoi refusé à chaque fois (24 sur 24, savr-dev,
+  // 2026-10-09), et ce test, qui simule sendEmail, restait vert. On relit donc la
+  // liste déclarée dans la migration : toute variable exigée doit être fournie.
+  it('fournit chaque variable que le gabarit déclare (sinon l’envoi est refusé : MISSING_VARIABLE)', async () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.example.test');
+    const sql = readFileSync(
+      fileURLToPath(
+        new URL(
+          '../../../../supabase/migrations/20261013180000_plateforme_email_template_rapport_de_don.sql',
+          import.meta.url,
+        ),
+      ),
+      'utf8',
+    );
+    const declarees = /variables = ARRAY\[([^\]]+)\]/
+      .exec(sql)![1]!
+      .split(',')
+      .map((v) => v.trim().replace(/'/g, ''));
+    expect(declarees).toEqual([
+      'nom_evenement',
+      'date_evenement',
+      'lien_rapport',
+    ]);
+
+    // Programmeur inconnu : le cas le plus pauvre en données.
+    const sb = passageAvecEmail(
+      { email_principal: 'compta@kaspia.fr', type: 'traiteur' },
+      makeCollecteAg({
+        evenements: {
+          nom_evenement: 'Gala Kaspia',
+          date_evenement: '2026-06-13',
+          organisation_id: 'org-1',
+          programmeur: null,
+        },
+      }),
+    );
+    await runBatchPdfJ1Ag(sb as never);
+    const envoyees = await variablesEnvoyees();
+    for (const variable of declarees) {
+      expect(envoyees[variable], variable).toEqual(expect.any(String));
+      expect(envoyees[variable], variable).not.toBe('');
+    }
+    // Prénom inconnu : chaîne vide, le gabarit écrit « Bonjour, ».
+    expect(envoyees.prenom).toBe('');
+  });
+
+  it.each([
+    ['agence', '/agence/collectes/col-ag-1'],
+    ['gestionnaire_lieux', '/gestionnaire/collectes/col-ag-1'],
+    ['traiteur', '/traiteur/collectes/col-ag-1'],
+  ])(
+    'lien vers la fiche collecte de l’espace du programmeur (%s)',
+    async (type, chemin) => {
+      vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.example.test');
+      const sb = passageAvecEmail({
+        email_principal: 'compta@kaspia.fr',
+        type,
+      });
+      await runBatchPdfJ1Ag(sb as never);
+      expect((await variablesEnvoyees()).lien_rapport).toBe(
+        `https://app.example.test${chemin}`,
+      );
+    },
+  );
+
+  it('lit le prénom du programmeur dans la sélection des collectes (evenements.created_by)', async () => {
+    const sb = passageAvecEmail({ email_principal: null, type: 'traiteur' });
+    await runBatchPdfJ1Ag(sb as never);
+    const selection = String(
+      (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls[0]![0],
+    );
+    expect(selection).toContain('programmeur:users!created_by ( prenom )');
   });
 });

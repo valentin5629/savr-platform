@@ -140,6 +140,7 @@ describe('M2.4 / rapport RSE AG = attestation standalone (option a Val)', () => 
     rls.results.attestations_don = {
       data: {
         id: 'a1',
+        numero: 'ATT-DON-2026-00007',
         eligible_at: '2020-01-01T00:00:00Z',
         pdf_url: 'att-key.pdf',
       },
@@ -147,7 +148,11 @@ describe('M2.4 / rapport RSE AG = attestation standalone (option a Val)', () => 
     };
     const res = await download();
     expect(res.status).toBe(200);
-    expect(mockPresigned).toHaveBeenCalledWith('att-key.pdf', 900);
+    expect(mockPresigned).toHaveBeenCalledWith(
+      'att-key.pdf',
+      900,
+      'rapport-de-don-ATT-DON-2026-00007.pdf',
+    );
   });
 
   it('attestation AG sous embargo H+24 → 425', async () => {

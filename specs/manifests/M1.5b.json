@@ -86,7 +86,7 @@
     },
     {
       "id": "M1.5b-photo-cle-opaque",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:504",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:516",
       "artefact": "packages/adapters/src/mts1/adapter.ts (clePhoto)",
       "test": "M1.5b-photo-cle-opaque / la clé ne porte aucun identifiant du transporteur + photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement) + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule",
       "statut": "implemented",
@@ -118,7 +118,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:487",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:499",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "claim entrant atomique : conflit concurrent → skip (upsert ignoreDuplicates) ; erreur ≠23505 propagée [adapter.m1-5b.test.ts]",
       "statut": "implemented",
@@ -140,11 +140,20 @@
       "statut": "partial",
       "ref_divergence": "_Divergences/M1.5_20261007_photo-aucun-repas-visibilite.md",
       "libelle": "Photo du lieu « aucun repas » (`collectes.aucun_repas_photo_url`) réservée à l'équipe Savr : un rôle client ne doit pas la lire, `admin_savr` et `ops_savr` la lisent (arbitrage Val 2026-10-07, scénario 09 `photo_aucun_repas_lecture_equipe_savr_seule`). NON LIVRÉ au sync du 2026-10-09 : la colonne reste lisible par `authenticated` sur `plateforme.collectes` et par la vue `v_collectes_gestionnaire_lieux`. Lot de fermeture à livrer (liste blanche de colonnes ; fermeture d'accès, donc GO reviewer-rls-securite et preuve pgTAP par rôle)."
+    },
+    {
+      "id": "M1.5b-pesees-photos-forme-reelle",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:497",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
+      "libelle": "NON LIVRÉ au sync du 2026-10-13 — la relève entrante MTS-1 ne lit pas la forme réelle de l'API (mesurée le 2026-10-13 sur le compte de démonstration, §08 §3bis.7). Sur `main` : (1) la recherche des commandes part en instants ISO, que l'API refuse (500 ; elle n'accepte que des jours yyyy-MM-dd), et lit `id` / `externalReference` au lieu de `customerOrderId` / `orderNumber` — la relève échoue donc à chaque passage ; (2) les pesées sont lues dans `stops[].items[].weight`, alors que l'API rend `stops[].stuffs[]` sans champ `weight` (sur le seul tour terminé du compte, les kilos sont dans `quantityAfterPickup`, répétés sur l'arrêt d'enlèvement et l'arrêt de dépôt) ; (3) les photos sont demandées à `GET /v3/tours/{id}/photos`, qui répond 404 `BAD_ROUTE` (elles sont dans le détail du tour, `stops[].photos[].downloadUrl`) ; (4) `GET /v3/carrier` est lu sous `{ carriers }`, alors que l'API rend un tableau nu ; (5) le cron ne recule que de 2 h alors que la recherche compare des jours entiers. Les livrables M1.5b-sync-nominal, M1.5b-stuff-inconnu, M1.5b-dedup-photo et M1.5b-photo-404 ne sont prouvés que sur des réponses simulées à la forme supposée. Les points (1) et (4) sont repris par la branche `fix/mts1-recherche-commandes-forme-reelle` ; pesées, photos et fenêtre de relève partent dans un lot à part, après arbitrage par Val du champ qui porte le poids et de la fenêtre (décision Val 2026-10-13). Ordre de fusion à respecter : une fois la recherche réparée sans ce lot, une collecte terminée passe « réalisée » sans pesée."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "ecb359e00560473d7d724be1ba3ecf0282b9afde9829f93509ef11f96f9fa0c0"
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a0d825c816bf6c002e0eba67940a12fd6e4ed805efbe0665b58513a780287d4d",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "c137740d036cb62021e00407a52dd768709c37fefa878c45e556aea913d19337",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "29c7b9ec6ddce36915347a9fe82c4e03c8340a85b0c73a0ebfc146eb1814c8e4"
   }
 }

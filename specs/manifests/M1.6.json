@@ -309,9 +309,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "59497b8ae36602cfaaffdb017dd989067c9756d9d0f6e808642e8719bf1a5de3",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "049fe1c8b74bd0b313c4ba7dbb4acc63b6b72a32fca276618ae1be55a344d893",
     "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": "96945c68b620f41c147a796addec097456a2cc971ebb299257934ddb6809bfc1",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "0da1633ec5f2b34a9aecd73a28de0b97c62e18bbe63f097533c19725493ed992"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "c137740d036cb62021e00407a52dd768709c37fefa878c45e556aea913d19337",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "5f711054a8ba58ea861abf0f47c88db1863c7d30540fd5b474180ec01bea2f02"
   }
 }

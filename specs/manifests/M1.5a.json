@@ -195,7 +195,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:545",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:557",
       "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
       "test": "OUTBOX-01 skip/requeue/resolve : dead → débloqué + audit_log + gardes admin/motif/dead [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -211,7 +211,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:545",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:557",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "R9 worker reaper + alerte anticipée J-1 + DLQ critique (vrai runOutboxWorker, SANS mock du worker — G5) [outbox-worker.r9.test.ts] + OUTBOX-03 reaper [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -219,7 +219,7 @@
     },
     {
       "id": "M1.5a-alerte-anticipee-lieu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2482",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2484",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "alerte anticipée events lieu (E5) : date de référence = plus proche collecte future non terminale du lieu, seuil/canal inchangés, 1 alerte par event, pas de doublon DLQ (vrai runOutboxWorker — G5) [outbox-worker.alerte-anticipee-lieu.test.ts]",
       "statut": "implemented",
@@ -268,7 +268,7 @@
     },
     {
       "id": "M1.5a-envoi-immediat-au-clic",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2469",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2478",
       "artefact": "supabase/migrations/20261012113000_plateforme_outbox_claim_collecte.sql (fn_claim_outbox_collecte : réservation lease/claim bornée à une collecte, mêmes règles et même ligne rendue que fn_claim_outbox_batch, 0 ou 1 ordre, service_role seul), packages/adapters/src/outbox-worker.ts (runOutboxWorkerPourCollecte : un ordre à la fois dans l'ordre de la file, jusqu'à la réservation vide ; une seconde tentative si la première réservation est vide, plafond 5 ordres, budget 40 s ; jamais de reaper), packages/plateforme/src/lib/envoi-immediat.ts (envoyerOrdresSansAttendre : tâche programmée après la réponse, jamais d'exception, y compris quand la tâche ne peut pas être programmée), packages/plateforme/src/app/api/v1/admin/collectes/[id]/dispatch/route.ts et packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts (déclenchement après mutation réussie, maxDuration = 60)",
       "test": "M1.5a/envoi_immediat_clic_envoyer + M1.5a/envoi_immediat_validation_ag + M1.5a/envoi_immediat_refus_sans_envoi + M1.5a/envoi_immediat_echec_silencieux + M1.5a/envoi_immediat_non_programme + M1.5a/envoi_immediat_refus_de_role + M1.5a/envoi_immediat_reconciliation + M1.5a/envoi_immediat_routes_declencheuses + M1.5a/envoi_immediat_duree_bornee + M1.5a/envoi_immediat_duree_sous_le_bail + M1.5a/envoi_immediat_appel_depuis_une_route + packages/adapters/src/outbox-worker.envoi-immediat.test.ts + supabase/tests/outbox_claim_collecte.test.sql",
       "statut": "implemented",
@@ -276,17 +276,26 @@
     },
     {
       "id": "M1.5a-passage-borne-par-echeance",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2475",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2476",
       "artefact": "packages/adapters/src/echeance-passage.ts (bail de 120 s, échéance des appels à 80 s, limite d'écriture à 115 s, comptées depuis le départ de la réservation ; avecEcheance / verifierEcheance), packages/adapters/src/outbox-worker.ts (runOutboxWorker : un ordre par réservation, au plus 10 ordres, aucune réservation après 40 s, reaper ou réservation en erreur remontés à l'appelant ; traiterEvent : traitement sous l'échéance de l'ordre, aucun résultat écrit passé la limite ; bail passé explicitement aux deux réservations), packages/adapters/src/mts1/client.ts et packages/adapters/src/everest/client.ts (contrôle d'échéance avant chaque appel réseau d'un passage)",
       "test": "M1.5a/passage_borne_calcul + M1.5a/passage_borne_refus + M1.5a/passage_borne_tous_les_appels + M1.5a/passage_borne_duree_appel + M1.5a/passage_borne_bail_explicite + M1.5a/passage_borne_echeance_appel + M1.5a/passage_borne_instant_avant_reservation + M1.5a/passage_borne_un_bail_par_ordre + M1.5a/passage_borne_pas_d_ecriture_hors_bail + M1.5a/passage_borne_pas_d_echec_hors_bail + M1.5a/passage_borne_un_ordre_a_la_fois + M1.5a/passage_borne_reservation_en_erreur + M1.5a/passage_borne_reaper_en_erreur + M1.5a/passage_borne_seconde_reservation + M1.5a/passage_borne_client_mts1 + M1.5a/passage_borne_client_everest + packages/adapters/src/outbox-worker.echeance.test.ts",
       "statut": "implemented",
       "libelle": "Passage du worker borné dans le code (décision Val 2026-10-12, C18, _Divergences/M1.5_20261012_passage-borne-par-echeance) : la limite de durée déclarée par les routes ne suffit pas à arrêter un passage (mesuré le 2026-10-12 sur Vercel ; non appliquée par un serveur local). Chaque ordre est réservé seul, sous son propre bail ; passé 80 s depuis le départ de sa réservation, plus aucun appel au prestataire ne démarre et l'ordre repart en reprise par les paliers habituels (erreur passagère, sans réconciliation) ; passé 115 s, plus aucune écriture de résultat n'est lancée sur l'ordre, laissé au reaper. Vaut pour le passage planifié et pour l'envoi immédiat. Non fait : conditionner en base l'écriture du résultat à la réservation."
+    },
+    {
+      "id": "M1.5a-recherche-commandes-forme-reelle",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:556",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-recherche-commandes-contrat-mesure.md",
+      "libelle": "NON LIVRÉ au sync du 2026-10-13 — réconciliation d'un ordre repris alignée sur le contrat mesuré de `GET /v3/customerOrders` (§08 §3bis.7 et §3bis.9, mesure du 2026-10-13 sur le compte de démonstration) : recherche en jours yyyy-MM-dd de J-1 à J+1 filtrée sur `orderNumber`, réponse lue comme un tableau nu, commande `CANCELED` ou `KO` jamais adoptée, doublons départagés et tracés (`COMMANDES_EN_DOUBLE`), recherche en erreur jamais lue comme « commande absente » ; modification et annulation reprises : existence lue par identifiant (`customerOrderIds`), une commande absente ne ferme jamais une modification en succès (règles validées par Val, fiche M1.5_20261013_mts1-reprise-ordre-regles). Sur `main`, la recherche part en instants ISO (500 mesuré) et compare `externalReference` : aucune réconciliation n'aboutit, et les livrables M1.5a-08 et M1.5a-09 ne sont prouvés que sur des réponses simulées à la forme supposée. Code et tests portés par la branche `fix/mts1-recherche-commandes-forme-reelle` (5d6f6f51, pas encore de PR). Point déjà inscrit dans CLAUDE.md §2 parmi ceux à traiter avant tout envoi réel en production."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7",
-    "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "4f01f41edc935ce46ee8eae438e27608d2ae5e0da9fd5534fe767aa78429c7b0"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "25a3b96b12a6e02fbd55ffb1a9c11f6348bdaa57c0e0d4519cc6223576fc686d",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a0d825c816bf6c002e0eba67940a12fd6e4ed805efbe0665b58513a780287d4d",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "c137740d036cb62021e00407a52dd768709c37fefa878c45e556aea913d19337",
+    "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "3adec5dfed66e4c6c9df3b5afd70b400c66e492c760941c2ee52b7c771f45f2b"
   }
 }

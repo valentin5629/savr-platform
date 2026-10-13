@@ -283,8 +283,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "ecb359e00560473d7d724be1ba3ecf0282b9afde9829f93509ef11f96f9fa0c0",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a0d825c816bf6c002e0eba67940a12fd6e4ed805efbe0665b58513a780287d4d",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "29c7b9ec6ddce36915347a9fe82c4e03c8340a85b0c73a0ebfc146eb1814c8e4",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "958d3d63bf7038300535557f5e8c12cda0dcc31d0666819579114b6d24293b2f",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "6833ce0fedd07fc850bdc6ff5b0d252b85dfd0a5c929ebc98e6c9f1634f7fbfc",
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "bb72cba6d036be25817b346daf56b550dd1d5d6264f351f1ba429434feb8e9c9"

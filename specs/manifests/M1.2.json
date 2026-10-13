@@ -229,12 +229,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "b74f6ba9ea2743645c2c05d8dcd56a8d99b68ac92dcdaeb667f141665fdc813f",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "59497b8ae36602cfaaffdb017dd989067c9756d9d0f6e808642e8719bf1a5de3",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "07959c413b8b2e667a5ce48fb3a9c5a7f7e74b528c6d81eae72d77d280bab5a6",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "fb1f1318d35ae643449d31580ed08d43440558dc916cd73ff1d0099785d727f3",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "ecb359e00560473d7d724be1ba3ecf0282b9afde9829f93509ef11f96f9fa0c0"
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a0d825c816bf6c002e0eba67940a12fd6e4ed805efbe0665b58513a780287d4d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "aa62d38214feb13673fecd85037537aa7805a0082ea5deb5efbe6817515886a8",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "049fe1c8b74bd0b313c4ba7dbb4acc63b6b72a32fca276618ae1be55a344d893",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "1fc245abae161c2b5e153ca8a276faab3cd2e1aa8fc956a2ae33f54d2aa6c323",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "fd6d22ec8d359d0bef0a0b12002034b919d3692ed6b765eea26492544e9d0551",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "c137740d036cb62021e00407a52dd768709c37fefa878c45e556aea913d19337",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "29c7b9ec6ddce36915347a9fe82c4e03c8340a85b0c73a0ebfc146eb1814c8e4"
   }
 }

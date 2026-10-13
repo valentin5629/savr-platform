@@ -59,8 +59,8 @@ function cleDeLEnvironnement(storageKey: string): {
   return { bucket, key: segments.join('/') };
 }
 
-/** Seuls caractères admis dans un nom de fichier imposé au téléchargement. */
-const NOM_FICHIER_SUR = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+/** Seuls caractères admis dans un nom de fichier imposé, 150 caractères au plus. */
+const NOM_FICHIER_SUR = /^[A-Za-z0-9][A-Za-z0-9._-]{0,149}$/;
 
 /**
  * URL pré-signée de lecture d'un objet.

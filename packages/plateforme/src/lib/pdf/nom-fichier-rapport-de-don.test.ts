@@ -2,8 +2,9 @@
  * M2.4 — nom du fichier d'un « Rapport de don » (§12 §1.3-bis, décision Val
  * 2026-10-13 : le document d'une collecte AG porte ce nom jusque dans son fichier).
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { logger } from '@savr/shared/src/logger/index.js';
 import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import {
@@ -86,6 +87,8 @@ describe('M2.4 / nom de fichier « Rapport de don » — sans excédent', () => 
     );
   });
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 type Reponse = { data: unknown; error: unknown };
 
@@ -181,5 +184,32 @@ describe('M2.4 / nom de fichier du rapport d’une collecte', () => {
         await nomFichierDuRapportDeLaCollecte(client, 'c1'),
       ).toBeUndefined();
     }
+  });
+
+  it('lecture en échec → journalisée, code seul (ni message, ni collecte) ; collecte absente → rien', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+
+    await nomFichierDuRapportDeLaCollecte(
+      clientSimule({
+        data: null,
+        error: { code: '42501', message: 'permission denied for table x' },
+      }).client,
+      'c1',
+    );
+    await nomFichierDuRapportDeLaCollecte(
+      clientSimule(new Error('réseau')).client,
+      'c1',
+    );
+    expect(warn.mock.calls).toEqual([
+      ['rapport_de_don.nom_fichier_illisible', { code: '42501' }],
+      ['rapport_de_don.nom_fichier_illisible', { code: 'exception' }],
+    ]);
+
+    warn.mockClear();
+    await nomFichierDuRapportDeLaCollecte(
+      clientSimule({ data: null, error: null }).client,
+      'c1',
+    );
+    expect(warn).not.toHaveBeenCalled();
   });
 });

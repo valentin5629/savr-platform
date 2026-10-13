@@ -74,6 +74,7 @@ describe("M1.6 / r2-client — lecture bornée au bucket de l'environnement", ()
     'rapport\r\nSet-Cookie: a=b.pdf',
     'rapport de don.pdf',
     '../rapport.pdf',
+    `${'a'.repeat(151)}.pdf`,
     'rapport-été.pdf',
     '',
   ])(

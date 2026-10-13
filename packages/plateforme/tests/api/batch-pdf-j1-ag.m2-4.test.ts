@@ -28,7 +28,7 @@ function makeCollecteAg(overrides: Record<string, unknown> = {}) {
       nom_evenement: 'Gala Kaspia',
       date_evenement: '2026-06-13',
       organisation_id: 'org-1',
-      programmeur: { prenom: 'Julie' },
+      programmeur: { prenom: 'Julie', organisation_id: 'org-1' },
     },
     attributions_antgaspi: {
       id: 'attr-1',
@@ -866,6 +866,43 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
     const selection = String(
       (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls[0]![0],
     );
-    expect(selection).toContain('programmeur:users!created_by ( prenom )');
+    expect(selection).toContain(
+      'programmeur:users!created_by ( prenom, organisation_id )',
+    );
   });
+
+  it('programmeur d’une autre organisation (équipe Savr pour le compte du client) : son prénom n’est pas repris', async () => {
+    const sb = passageAvecEmail(
+      { email_principal: 'compta@kaspia.fr', type: 'traiteur' },
+      makeCollecteAg({
+        evenements: {
+          nom_evenement: 'Gala Kaspia',
+          date_evenement: '2026-06-13',
+          organisation_id: 'org-1',
+          programmeur: { prenom: 'Camille', organisation_id: 'org-savr' },
+        },
+      }),
+    );
+    await runBatchPdfJ1Ag(sb as never);
+    expect((await variablesEnvoyees()).prenom).toBe('');
+  });
+
+  it.each([[null], [''], ['   ']])(
+    'événement sans nom (%j) : « Votre événement », l’envoi n’est pas refusé',
+    async (nom) => {
+      const sb = passageAvecEmail(
+        { email_principal: 'compta@kaspia.fr', type: 'traiteur' },
+        makeCollecteAg({
+          evenements: {
+            nom_evenement: nom,
+            date_evenement: '2026-06-13',
+            organisation_id: 'org-1',
+            programmeur: { prenom: 'Julie', organisation_id: 'org-1' },
+          },
+        }),
+      );
+      await runBatchPdfJ1Ag(sb as never);
+      expect((await variablesEnvoyees()).nom_evenement).toBe('Votre événement');
+    },
+  );
 });

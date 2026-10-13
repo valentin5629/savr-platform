@@ -8,6 +8,7 @@
 // Le fichier stocké garde sa clé : le nom est posé à la signature de l'URL
 // (`getPresignedUrl`), aucun document déjà produit n'est renommé ni déplacé.
 
+import { logger } from '@savr/shared/src/logger/index.js';
 import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 const PREFIXE = 'rapport-de-don';
@@ -59,7 +60,8 @@ type EvenementJoint = {
  *
  * La collecte est lue avec le client reçu : sous la RLS de l'utilisateur pour un
  * espace client. Une lecture en échec rend `undefined` : nommer le fichier ne
- * doit jamais priver du téléchargement.
+ * doit jamais priver du téléchargement. L'échec est journalisé (code seul) : un
+ * droit de lecture retiré un jour ne doit pas éteindre le nommage sans bruit.
  */
 export async function nomFichierDuRapportDeLaCollecte(
   supabase: SupabaseClient,
@@ -71,7 +73,13 @@ export async function nomFichierDuRapportDeLaCollecte(
       .select('type, statut, evenements(nom_evenement, date_evenement)')
       .eq('id', collecteId)
       .maybeSingle();
-    if (error || !data) return undefined;
+    if (error) {
+      logger.warn('rapport_de_don.nom_fichier_illisible', {
+        code: error.code ?? null,
+      });
+      return undefined;
+    }
+    if (!data) return undefined;
     const collecte = data as {
       type: string;
       statut: string;
@@ -88,6 +96,7 @@ export async function nomFichierDuRapportDeLaCollecte(
       : collecte.evenements;
     return nomFichierSansExcedent(evenement);
   } catch {
+    logger.warn('rapport_de_don.nom_fichier_illisible', { code: 'exception' });
     return undefined;
   }
 }

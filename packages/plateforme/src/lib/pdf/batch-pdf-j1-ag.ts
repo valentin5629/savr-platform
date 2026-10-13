@@ -57,12 +57,13 @@ interface CollecteAgRow {
   co2_evite_kg: number | null;
   co2_facteurs_snapshot: Record<string, unknown> | null;
   evenements: {
-    nom_evenement: string;
+    // Nullable en base : le formulaire de programmation peut l'envoyer vide.
+    nom_evenement: string | null;
     date_evenement: string;
     organisation_id: string;
     // Programmeur de la collecte (evenements.created_by → users) → variable
-    // `prenom` de l'email, comme le batch ZD.
-    programmeur: { prenom: string | null } | null;
+    // `prenom` de l'email, s'il appartient à l'organisation destinataire.
+    programmeur: { prenom: string | null; organisation_id: string } | null;
   } | null;
   attributions_antgaspi: AttributionRow | null;
 }
@@ -104,7 +105,7 @@ export async function runBatchPdfJ1Ag(
       co2_evite_kg, co2_facteurs_snapshot,
       evenements (
         nom_evenement, date_evenement, organisation_id,
-        programmeur:users!created_by ( prenom )
+        programmeur:users!created_by ( prenom, organisation_id )
       ),
       attributions_antgaspi (
         id, volume_repas_realise, poids_repas_kg, association_id,
@@ -404,10 +405,18 @@ export async function runBatchPdfJ1Ag(
           // pas : aucun de ces emails n'est parti (savr-dev : 24 refus le
           // 2026-10-09, aucun envoi).
           {
-            // Programmeur = evenements.created_by, comme l'email du rapport ZD.
-            // '' si inconnu : le gabarit écrit alors « Bonjour, ».
-            prenom: ev.programmeur?.prenom ?? '',
-            nom_evenement: ev.nom_evenement,
+            // Programmeur = evenements.created_by. Son prénom n'est repris que
+            // s'il appartient à l'organisation destinataire : une collecte
+            // programmée par l'équipe Savr pour le compte d'un client ne doit
+            // pas saluer ce client par le prénom d'un membre de l'équipe.
+            // '' sinon : le gabarit écrit alors « Bonjour, ».
+            prenom:
+              ev.programmeur?.organisation_id === ev.organisation_id
+                ? (ev.programmeur.prenom?.trim() ?? '')
+                : '',
+            // Événement sans nom : même repli que l'email récapitulatif de
+            // programmation. Une valeur nulle ferait refuser l'envoi.
+            nom_evenement: ev.nom_evenement?.trim() || 'Votre événement',
             date_evenement: dateEvenementStr,
             lien_rapport: urlCanonique(
               cheminFicheCollecte(orga?.type, collecte.id),

@@ -875,7 +875,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_ui_bloc3_masque_en_ag",
       "statut": "implemented",
-      "libelle": "Bilan & documents AG : 3 KPI (Repas donnés, Repas par pax, CO₂ évité figé) + bloc Association ; document affiché « Rapport de don » (même nom dans le titre imprimé des PDF, le nom des fichiers et l'email de disponibilité — décision Val 2026-10-13, livrables M2.4-rapport-de-don-titre-pdf, M2.4-rapport-de-don-nom-fichier et M2.4-rapport-de-don-email-disponibilite ; CGU en attente du patch du Vault : M2.4-rapport-de-don-nom-pdf-fichier-email-cgu) ; pas de benchmark AG. Test au nom historique (fiche_ui_bloc3_masque_en_ag), corps réécrit pour le pop-up."
+      "libelle": "Bilan & documents AG : 3 KPI (Repas donnés, Repas par pax, CO₂ évité figé) + bloc Association ; document affiché « Rapport de don » (même nom dans le titre imprimé des PDF, le nom des fichiers et l'email de disponibilité (envoyé aux seules collectes avec excédents) — décision Val 2026-10-13, livrables M2.4-rapport-de-don-titre-pdf, M2.4-rapport-de-don-nom-fichier et M2.4-rapport-de-don-email-disponibilite ; CGU en attente du patch du Vault : M2.4-rapport-de-don-nom-pdf-fichier-email-cgu) ; pas de benchmark AG. Test au nom historique (fiche_ui_bloc3_masque_en_ag), corps réécrit pour le pop-up."
     },
     {
       "id": "M3.1-popup-client-sans-excedent",

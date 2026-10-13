@@ -401,8 +401,8 @@ export async function runBatchPdfJ1Ag(
           // Variables = celles que le gabarit déclare (migration
           // 20261013180000) : une variable déclarée et non fournie fait refuser
           // l'envoi (findMissingVariables). L'ancien jeu ne les fournissait
-          // pas : aucun de ces emails n'est parti (24 refus sur 24, savr-dev,
-          // 2026-10-09).
+          // pas : aucun de ces emails n'est parti (savr-dev : 24 refus le
+          // 2026-10-09, aucun envoi).
           {
             // Programmeur = evenements.created_by, comme l'email du rapport ZD.
             // '' si inconnu : le gabarit écrit alors « Bonjour, ».

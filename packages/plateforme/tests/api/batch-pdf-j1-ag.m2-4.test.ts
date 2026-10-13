@@ -795,8 +795,8 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
 
   // Le défaut d'origine : le gabarit déclarait prenom, association_nom et
   // lien_pdf, le batch envoyait nom_evenement, date_evenement et
-  // numero_attestation → envoi refusé à chaque fois (24 sur 24, savr-dev,
-  // 2026-10-09), et ce test, qui simule sendEmail, restait vert. On relit donc la
+  // numero_attestation → envoi refusé à chaque fois (savr-dev : 24 refus le
+  // 2026-10-09, aucun envoi), et ce test, qui simule sendEmail, restait vert. On relit donc la
   // liste déclarée dans la migration : toute variable exigée doit être fournie.
   it('fournit chaque variable que le gabarit déclare (sinon l’envoi est refusé : MISSING_VARIABLE)', async () => {
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.example.test');

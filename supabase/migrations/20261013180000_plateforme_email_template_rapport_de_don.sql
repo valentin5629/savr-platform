@@ -12,10 +12,10 @@
 --    déclarait les variables prenom, association_nom et lien_pdf, que le batch AG
 --    J+1 n'a jamais fournies : une variable déclarée et absente fait refuser
 --    l'envoi (findMissingVariables, shared/email). Mesuré sur savr-dev le
---    2026-10-13 : 24 attestations émises le 2026-10-09, 24 traces
---    « MISSING_VARIABLE: attestation_don_disponible [prenom, association_nom,
---    lien_pdf] », aucune ligne dans emails_envoyes. Le corps était une ébauche
---    d'une phrase, sans lien.
+--    2026-10-13 : 24 traces « MISSING_VARIABLE: attestation_don_disponible
+--    [prenom, association_nom, lien_pdf] », toutes datées du 2026-10-09, et
+--    aucune ligne dans emails_envoyes. Le corps était une ébauche d'une phrase,
+--    sans lien.
 --
 -- Texte arbitré par Val le 2026-10-13 (le CDC §06.02 liste ce gabarit sans en
 -- donner l'objet ni le corps) : objet « Votre rapport de don est disponible —

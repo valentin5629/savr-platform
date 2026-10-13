@@ -205,7 +205,7 @@ Pour toute zone d'ombre non tranchée ici : **stop et demander**.
 | Tournée | Trajet logistique | `plateforme.tournees` (alim. adapter) |
 | Transporteur | Presta logistique (Strike/Marathon/A Toutes!) | `plateforme.transporteurs` |
 | Attestation don | Cerfa 2041-GE | `plateforme.attestations_don` |
-| Rapport de don | Nom unique du document d'une collecte AG : écrans (Val 2026-10-09), titre imprimé des PDF, nom des fichiers et email de disponibilité (Val 2026-10-13). Deux PDF distincts derrière ce nom : l'attestation de don (avec excédents) et le rapport « Événement sans excédent alimentaire » (sans excédents). Les CGU disent encore « Attestation » | gabarits `attestation-don` et `rapport-evenement-sans-excedent` ; `lib/pdf/nom-fichier-rapport-de-don.ts` ; email `attestation_don_disponible` |
+| Rapport de don | Nom unique du document d'une collecte AG : écrans (Val 2026-10-09), titre imprimé des PDF, nom des fichiers, et email de disponibilité d'une collecte avec excédents — une collecte sans excédent n'en reçoit pas (Val 2026-10-13). Deux PDF distincts derrière ce nom : l'attestation de don (avec excédents) et le rapport « Événement sans excédent alimentaire » (sans excédents). Les CGU disent encore « Attestation » | gabarits `attestation-don` et `rapport-evenement-sans-excedent` ; `lib/pdf/nom-fichier-rapport-de-don.ts` ; email `attestation_don_disponible` |
 | Bordereau | Justificatif pesée ZD | `plateforme.bordereaux_savr` |
 | Facture | Facture client | `plateforme.factures` / `factures_collectes` |
 

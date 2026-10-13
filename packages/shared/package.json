@@ -17,6 +17,7 @@
     "./src/email/index.js": "./src/email/index.ts",
     "./src/api/siret.js": "./src/api/siret.ts",
     "./src/api/tva.js": "./src/api/tva.ts",
+    "./src/api/erreur-reseau.js": "./src/api/erreur-reseau.ts",
     "./src/siret/revalidation.js": "./src/siret/revalidation.ts",
     "./src/logger/index.js": "./src/logger/index.ts",
     "./src/alerting/sentry.js": "./src/alerting/sentry.ts",

@@ -4,8 +4,14 @@
 // Cache mémoire process par client_id (évite race condition d'invalidation
 // mutuelle si deux process s'authentifient concurremment).
 // Logs : integrations_logs (via callback pour éviter dépendance circulaire).
+// Appel sans réponse : jamais le texte de l'erreur dans le message levé — `fetch`
+// y recopie la valeur d'en-tête qu'il refuse, donc le jeton (cf.
+// libelleErreurReseau). Ce message va dans outbox_events.last_error, l'alerte
+// et la fiche collecte.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { libelleErreurReseau } from '@savr/shared/src/api/erreur-reseau.js';
 
 import {
   LogistiqueAmbiguousError,
@@ -115,7 +121,7 @@ export class EverestClient {
       signal: AbortSignal.timeout(10_000),
     }).catch((err: unknown) => {
       throw new LogistiqueAmbiguousError(
-        `Everest auth timeout : ${String(err)}`,
+        `Everest auth timeout : ${libelleErreurReseau(err)}`,
       );
     });
 
@@ -179,7 +185,7 @@ export class EverestClient {
     let resp = await this.postJson('/missions/create', payload, token).catch(
       (err: unknown) => {
         throw new LogistiqueAmbiguousError(
-          `Everest createMission timeout : ${String(err)}`,
+          `Everest createMission timeout : ${libelleErreurReseau(err)}`,
         );
       },
     );
@@ -191,7 +197,7 @@ export class EverestClient {
       resp = await this.postJson('/missions/create', payload, newToken).catch(
         (err: unknown) => {
           throw new LogistiqueAmbiguousError(
-            `Everest createMission timeout (retry) : ${String(err)}`,
+            `Everest createMission timeout (retry) : ${libelleErreurReseau(err)}`,
           );
         },
       );
@@ -260,7 +266,7 @@ export class EverestClient {
     let resp = await this.postJson('/missions/cancel', payload, token).catch(
       (err: unknown) => {
         throw new LogistiqueAmbiguousError(
-          `Everest cancelMission timeout : ${String(err)}`,
+          `Everest cancelMission timeout : ${libelleErreurReseau(err)}`,
         );
       },
     );
@@ -271,7 +277,7 @@ export class EverestClient {
       resp = await this.postJson('/missions/cancel', payload, newToken).catch(
         (err: unknown) => {
           throw new LogistiqueAmbiguousError(
-            `Everest cancelMission timeout (retry) : ${String(err)}`,
+            `Everest cancelMission timeout (retry) : ${libelleErreurReseau(err)}`,
           );
         },
       );
@@ -330,7 +336,7 @@ export class EverestClient {
     const token = await this.getToken();
     let resp = await this.getJson(path, token).catch((err: unknown) => {
       throw new LogistiqueAmbiguousError(
-        `Everest getMission timeout : ${String(err)}`,
+        `Everest getMission timeout : ${libelleErreurReseau(err)}`,
       );
     });
 
@@ -340,7 +346,7 @@ export class EverestClient {
       const newToken = await this.getToken();
       resp = await this.getJson(path, newToken).catch((err: unknown) => {
         throw new LogistiqueAmbiguousError(
-          `Everest getMission timeout (retry) : ${String(err)}`,
+          `Everest getMission timeout (retry) : ${libelleErreurReseau(err)}`,
         );
       });
     }

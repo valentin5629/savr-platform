@@ -54,6 +54,15 @@ packages/plateforme/tests/api/admin/transporteurs.m1-1b.test.ts
 # les appels sortants passent par packages/adapters/everest/. 'customerOrders' reste banni.
 packages/plateforme/src/app/api/webhooks/everest/route.ts
 packages/plateforme/tests/api/webhooks/everest.m2-5.test.ts
+# packages/plateforme/.../webhooks/mts1/[[...chemin]]/route.ts (2026-10-13) — endpoint récepteur
+# des notifications MTS-1 (étape 1 : enregistrement seul dans integrations_inbox, aucun effet
+# métier). "mts1" = nom du prestataire dans les commentaires, le nom de l'en-tête du jeton et le
+# nom des événements de journal. Aucun appel HTTP MTS-1 ici : les appels sortants et la relecture
+# passent par packages/adapters/mts1/. 'customerOrders' reste banni.
+# Exception AU FICHIER PRÈS (crochets échappés : ce sont des caractères de glob) : un fichier
+# ajouté sous ce dossier ne serait pas exempté.
+packages/plateforme/src/app/api/webhooks/mts1/\[\[...chemin\]\]/route.ts
+packages/plateforme/tests/api/webhooks/mts1-notifications.test.ts
 # packages/plateforme/.../admin/everest/* (M2.5) — endpoint Admin de secours pour acceptation
 # manuelle (Everest down, Ops a appelé A Toutes! par téléphone). "everest" = nom de la table
 # `everest_missions` (schéma plateforme) + message d'erreur UI. Aucun appel HTTP. 'customerOrders' banni.

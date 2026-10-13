@@ -106,6 +106,12 @@ const EXCEPTIONS: Record<string, { garde: RegExp | null; raison: string }> = {
     garde: /\btimingSafeEqual\(/,
     raison: 'jeton X-Webhook-Token',
   },
+  // Notifications MTS-1 (étape 1 : enregistrement seul, aucun effet métier).
+  // Refuse tout tant que MTS1_WEBHOOK_TOKEN n'est pas posé.
+  'webhooks/mts1/[[...chemin]]': {
+    garde: /\btimingSafeEqual\(/,
+    raison: 'jeton X-Mts1-Webhook-Token',
+  },
 };
 
 // Crons Vercel : Bearer CRON_SECRET (comportement 401 testé par

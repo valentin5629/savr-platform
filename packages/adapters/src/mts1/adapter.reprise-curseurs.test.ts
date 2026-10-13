@@ -23,7 +23,10 @@ const COLLECTE_ID = 'c0000000-0000-0000-0000-0000000000c1';
 const PRESTA_ID = 'aa000000-0000-0000-0000-0000000000a1';
 const NUMERO_RANG_1 = `${COLLECTE_ID}-1`;
 
-type Reponse = { data: unknown; error: { message: string } | null };
+type Reponse = {
+  data: unknown;
+  error: { message: string; code?: string } | null;
+};
 const BASE_KO: Reponse = {
   data: null,
   error: { message: 'connexion à la base perdue' },
@@ -68,6 +71,10 @@ function fausseBase(
   }> = [];
   let resultatsPerdus = 0;
   let passage = 0;
+  // Écriture d'un passage voisin, jouée juste après la prochaine lecture des
+  // lignes portant une référence de tournée : c'est la course que ferme
+  // l'index unique.
+  let apresLectureDesPorteuses: (() => void) | null = null;
 
   const collecteRow = {
     id: COLLECTE_ID,
@@ -165,14 +172,35 @@ function fausseBase(
         }
         if (op === 'update') {
           const touchees = tournees.filter(garde);
+          // Index unique partiel `uniq_tournee_par_tms_reference` : une
+          // référence de tournée portée par une AUTRE ligne est refusée.
+          const reference = donnees['tms_reference'];
+          if (
+            typeof reference === 'string' &&
+            tournees.some(
+              (t) => t.tms_reference === reference && !touchees.includes(t),
+            )
+          ) {
+            return {
+              data: null,
+              error: {
+                code: '23505',
+                message:
+                  'duplicate key value violates unique constraint "uniq_tournee_par_tms_reference"',
+              },
+            };
+          }
           for (const t of touchees) Object.assign(t, donnees);
           return { data: touchees.map((t) => ({ ...t })), error: null };
         }
         if (op === 'select') {
-          return {
-            data: tournees.filter(garde).map((t) => ({ ...t })),
-            error: null,
-          };
+          const lues = tournees.filter(garde).map((t) => ({ ...t }));
+          if ('tms_reference' in filtres && apresLectureDesPorteuses) {
+            const ecritureVoisine = apresLectureDesPorteuses;
+            apresLectureDesPorteuses = null;
+            ecritureVoisine();
+          }
+          return { data: lues, error: null };
         }
       }
       return { data: null, error: null };
@@ -286,6 +314,14 @@ function fausseBase(
       si?: (donnees: Record<string, unknown>) => boolean,
       apres = 0,
     ) => pannes.push({ table, op, si, apres }),
+    /**
+     * `ecriture` est jouée juste après la prochaine lecture des lignes qui
+     * portent une référence de tournée : un passage voisin écrit entre la
+     * lecture et l'écriture de celui-ci.
+     */
+    ecrireApresLectureDesPorteuses: (ecriture: () => void) => {
+      apresLectureDesPorteuses = ecriture;
+    },
     /** Les `n` prochaines écritures du résultat de l'ordre échouent. */
     perdreResultats: (n: number) => {
       resultatsPerdus = n;
@@ -319,6 +355,7 @@ type Panne =
   | 'tour_en_nombre'
   | 'tour_vide'
   | 'identifiant_hors_alphabet'
+  | 'identifiant_deja_porte'
   | 500
   | 503;
 
@@ -413,6 +450,11 @@ function fauxMts1() {
                 : { tourDate: '2027-03-20T21:00:00.000Z', scheduleId: 'SCH-1' },
             })),
         );
+      }
+      // MTS-1 rend, à la création, l'identifiant d'une tournée qui existe déjà :
+      // rien n'est créé.
+      if (route === 'POST /v3/tours' && panne === 'identifiant_deja_porte') {
+        return reponse(201, { tourId: tours[0]!.tourId });
       }
       if (route === 'POST /v3/tours') {
         const tour = {
@@ -843,6 +885,68 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       await runOutboxWorker(base.supabase);
 
       expect(base.ordre.statut).toBe('done');
+      expect(mts1.tours).toEqual([
+        { tourId: 'TOUR-A', envois: 1, validations: 1 },
+        { tourId: 'TOUR-2', envois: 1, validations: 1 },
+      ]);
+      expect(base.tournees.map((t) => [t.id, t.tms_reference])).toEqual([
+        ['tournee-1', 'TOUR-2'],
+        ['tournee-A', 'TOUR-A'],
+      ]);
+    });
+
+    it('M1.5a/reprise_tournee_course_reference_unique — deux reprises simultanées sur la même tournée : la base refuse la seconde référence (index unique), l’ordre repart à réconcilier, puis la collecte crée sa propre tournée ; celle de l’autre collecte n’est ni renvoyée ni revalidée', async () => {
+      const base = fausseBase();
+      base.poserTournee(1);
+      base.ordre.requires_reconciliation = true;
+      // MTS-1 dit la commande de cette collecte sur TOUR-A.
+      mts1.commandes.push({
+        customerOrderId: 'CMD-1',
+        orderNumber: NUMERO_RANG_1,
+        tourId: 'TOUR-A',
+      });
+      mts1.tours.push({ tourId: 'TOUR-A', envois: 1, validations: 1 });
+      // La course : au moment de la lecture, aucune ligne ne porte TOUR-A ; le
+      // passage d'une autre collecte écrit sa référence juste après.
+      base.ecrireApresLectureDesPorteuses(() => {
+        base.tournees.push({
+          id: 'tournee-A',
+          reference_interne: 'TMS-autre-collecte-1',
+          external_ref_commande: 'CMD-A',
+          tms_reference: 'TOUR-A',
+          statut: 'en_cours',
+          prestataire_logistique_id: PRESTA_ID,
+        });
+      });
+
+      const premier = await runOutboxWorker(base.supabase);
+
+      expect(premier).toMatchObject({ failed: 1, done: 0 });
+      expect(base.resultats[0]).toMatchObject({
+        p_statut: 'failed',
+        p_requires_reconciliation: true,
+        p_last_error:
+          'MTS-1 : tournée TOUR-A (commande CMD-1 rattachée) non enregistrée côté Savr — duplicate key value violates unique constraint "uniq_tournee_par_tms_reference"',
+      });
+      // La référence n'est pas écrite deux fois, et rien n'est parti vers la
+      // tournée de l'autre collecte : ni rattachement, ni envoi, ni validation.
+      expect(base.tournees.map((t) => [t.id, t.tms_reference])).toEqual([
+        ['tournee-1', null],
+        ['tournee-A', 'TOUR-A'],
+      ]);
+      expect(mts1.recus('PUT /v3/tours/addCustomerOrder')).toHaveLength(0);
+      expect(mts1.tours).toEqual([
+        { tourId: 'TOUR-A', envois: 1, validations: 1 },
+      ]);
+
+      const second = await runOutboxWorker(base.supabase);
+
+      // À la reprise, la lecture voit la ligne de l'autre collecte : la tournée
+      // n'est pas reprise, la collecte crée la sienne et y rattache sa commande
+      // (seul rattachement de tout le scénario).
+      expect(second).toMatchObject({ done: 1, failed: 0 });
+      expect(mts1.recus('PUT /v3/tours/addCustomerOrder')).toHaveLength(1);
+      expect(mts1.commandes[0]).toMatchObject({ tourId: 'TOUR-2' });
       expect(mts1.tours).toEqual([
         { tourId: 'TOUR-A', envois: 1, validations: 1 },
         { tourId: 'TOUR-2', envois: 1, validations: 1 },
@@ -1293,6 +1397,57 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
         expect(base.tournees[0]!.tms_reference).toBe('TOUR-2');
       },
     );
+
+    it('M1.5a/reprise_tournee_creee_reference_deja_portee_limite — POST /v3/tours rend un identifiant qu’une autre ligne porte déjà : l’index refuse la référence, mais la commande est rattachée à cette tournée avant l’erreur ; la reprise crée ensuite sa propre tournée ; celle de l’autre ligne n’est ni renvoyée ni revalidée', async () => {
+      const base = fausseBase();
+      // La tournée d'une autre collecte, déjà envoyée et validée.
+      base.tournees.push({
+        id: 'tournee-A',
+        reference_interne: 'TMS-autre-collecte-1',
+        external_ref_commande: 'CMD-A',
+        tms_reference: 'TOUR-A',
+        statut: 'en_cours',
+        prestataire_logistique_id: PRESTA_ID,
+      });
+      mts1.tours.push({ tourId: 'TOUR-A', envois: 1, validations: 1 });
+      mts1.casser('POST /v3/tours', 'identifiant_deja_porte');
+
+      const premier = await runOutboxWorker(base.supabase);
+
+      expect(premier).toMatchObject({ failed: 1, done: 0 });
+      expect(base.resultats[0]).toMatchObject({
+        p_statut: 'failed',
+        p_requires_reconciliation: true,
+        p_last_error:
+          'MTS-1 : tournée TOUR-A (commande CMD-1 rattachée) non enregistrée côté Savr — duplicate key value violates unique constraint "uniq_tournee_par_tms_reference"',
+      });
+      // La limite : la commande est rattachée à la tournée de l'autre collecte.
+      expect(mts1.commandes[0]).toMatchObject({ tourId: 'TOUR-A' });
+      // La référence n'est pas écrite deux fois, et rien n'est renvoyé.
+      expect(
+        base.tournees.find((t) => t.id !== 'tournee-A')!.tms_reference,
+      ).toBeNull();
+      expect(mts1.tours).toEqual([
+        { tourId: 'TOUR-A', envois: 1, validations: 1 },
+      ]);
+
+      const second = await runOutboxWorker(base.supabase);
+
+      // La reprise ne reprend pas TOUR-A (une ligne la porte) : la collecte crée
+      // sa tournée et y rattache sa commande.
+      expect(second).toMatchObject({ done: 1, failed: 0 });
+      expect(mts1.commandes[0]).toMatchObject({ tourId: 'TOUR-2' });
+      expect(mts1.tours).toEqual([
+        { tourId: 'TOUR-A', envois: 1, validations: 1 },
+        { tourId: 'TOUR-2', envois: 1, validations: 1 },
+      ]);
+      expect(
+        base.tournees.map((t) => [t.external_ref_commande, t.tms_reference]),
+      ).toEqual([
+        ['CMD-A', 'TOUR-A'],
+        ['CMD-1', 'TOUR-2'],
+      ]);
+    });
 
     it('M1.5a/reprise_201_tournee_identifiant_hors_alphabet_limite — POST /v3/tours répond 201 avec un identifiant hors de l’alphabet, à chaque tentative : il n’est pas adopté et la commande n’est pas re-postée ; la tournée, rattachée à rien, n’est pas retrouvée, la reprise en crée une autre à chaque passage ; aucune n’est envoyée au transporteur, l’ordre finit en échec définitif', async () => {
       const base = fausseBase();

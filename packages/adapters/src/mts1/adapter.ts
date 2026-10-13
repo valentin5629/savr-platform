@@ -1410,6 +1410,13 @@ export class AdapterMts1 implements LogistiqueProvider {
   // l'est déjà. Si ce rattachement échoue, ou ne part pas (échéance du passage
   // atteinte), la tournée reste vide et sans transporteur chez MTS-1, et la
   // reprise en créera une autre : l'erreur le dit.
+  //
+  // Cas de l'écriture refusée par l'index unique `uniq_tournee_par_tms_reference`
+  // (23505) : l'identifiant est alors dans le curseur d'une AUTRE ligne. Dans la
+  // course que ferme l'index, la commande est déjà rattachée et rien ne part.
+  // Limite, hors course : si MTS-1 rendait à la création un identifiant qu'une
+  // autre ligne porte déjà (non mesuré), la commande serait rattachée à cette
+  // tournée avant l'erreur ; la reprise crée ensuite sa propre tournée.
   private async updateTourneeRef(
     tourneeId: string,
     tourId: string,
@@ -1549,7 +1556,10 @@ export class AdapterMts1 implements LogistiqueProvider {
    *
    * Une tournée qu'une ligne `tournees` porte déjà — autre rang de la
    * collecte, ou autre collecte — n'est pas reprise : une ligne = un camion =
-   * sa tournée, et rien en base n'impose l'unicité de `tms_reference`. Mesuré
+   * sa tournée. Cette lecture puis l'écriture de `tms_reference` ne sont pas
+   * atomiques : l'index unique partiel `uniq_tournee_par_tms_reference` refuse
+   * la seconde écriture de deux passages simultanés (23505), l'ordre repart « à
+   * réconcilier » et la reprise voit alors la ligne de l'autre passage. Mesuré
    * le 2026-10-13 sur une collecte de test à deux camions du compte de
    * démonstration (un seul cas, mécanisme non établi) : les commandes des deux
    * rangs portaient la même tournée. Non mesuré : que MTS-1 fasse de même

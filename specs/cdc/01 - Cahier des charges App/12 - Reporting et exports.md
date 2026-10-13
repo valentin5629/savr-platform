@@ -85,7 +85,7 @@ Le PDF dit "rapport RSE" est désormais un document unique multi-pages qui agrè
 
 **Implémentation Puppeteer** : le PDF agrégé (ZD) est généré en concaténant les 2 templates HTML (synthèse + bordereau) avant rendu Puppeteer unique. Pas de PDF merge a posteriori — un seul render = sobriété perf.
 
-**Accessibilité** : Admin Savr + traiteur_manager + traiteur_commercial + client_organisateur (si rattaché à l'événement) + **agence + gestionnaire_lieux** (si l'organisation est programmatrice de la collecte — extension 2026-05-07). RLS par `organisation_id` (programmateur) + `traiteur_operationnel_organisation_id` (traiteur sur place) + `client_organisateur_organisation_id` (client final).
+**Accessibilité** : Admin Savr + traiteur_manager + traiteur_commercial + client_organisateur (si rattaché à l'événement) + **agence** (si l'organisation est programmatrice de la collecte — extension 2026-05-07) + **gestionnaire_lieux** (s'il est programmateur de la collecte, ou si l'événement, daté, se tient sur un lieu rattaché à son organisation — décision Val 2026-10-06, cf. « Régénération manuelle » ci-dessous). RLS : les 4 chemins de la policy A8 ([[09 - Authentification et permissions]]), portés par `f_collecte_visible` — `organisation_id` (programmateur), `traiteur_operationnel_organisation_id` (traiteur sur place), `client_organisateur_organisation_id` (client final), lieu rattaché à l'organisation (`organisations_lieux`, événement daté).
 
 **Branding (extension 2026-05-07)** : le logo affiché en couverture suit la priorité :
 1. Si la collecte est programmée par une agence → logo agence (`organisations.logo_url` du programmateur) prime
@@ -168,7 +168,7 @@ Justification : l'agence partage ce rapport avec son client final, son branding 
 
 ---
 
-### 1.3-bis Rapport "Événement sans excédent alimentaire" (refonte 2026-05-04 — AG `realisee_sans_collecte` uniquement)
+### 1.3-bis Rapport "Événement sans excédent alimentaire" (refonte 2026-05-04 — AG `realisee_sans_collecte` uniquement ; affiché « Rapport de don » sur tous les écrans, comme l'attestation de don — décision Val 2026-10-09) **Nom « Rapport de don » partout (décision Val 2026-10-13)** : titre imprimé des PDF, nom des fichiers téléchargés, email de disponibilité et CGU adoptent aussi ce nom — gabarits à modifier (dette code, la pièce fiscale 2041-GE gardant ses mentions légales).
 
 **Contexte** : nouveau PDF dédié aux collectes AG terminées en `realisee_sans_collecte` (chauffeur déclare "aucun repas à collecter" via app mobile TMS). Aucune attestation 2041-GE n'est générée (pas de don à certifier), mais l'utilisateur a besoin d'un justificatif documentant la prestation. Refonte 2026-05-04 §06.04 : remplace l'ancien affichage "Voir les photos" + tooltip motif sur la fiche collecte traiteur.
 
@@ -377,12 +377,12 @@ Disponibles pour tous les profils, filtrés automatiquement par RLS — chaque u
 
 **Colonnes figées par entité — décision Val 2026-06-19 (M4.1/D3)** :
 
-- **Collectes** : Date événement, Date collecte, Heure, Événement, Lieu, Code postal, Ville, Traiteur, Client organisateur, Type, Statut, Tonnage ZD (kg), Taux recyclage (%), CO2 évité (kg), Repas AG.
+- **Collectes** : Date événement, Date collecte, Heure, Événement, Lieu, Code postal, Ville, Traiteur, Client organisateur, Type, Statut, Tonnage ZD (kg), Taux recyclage (%), CO2 évité (kg), Repas AG. *(Décision Val 2026-10-09 : une collecte AG sans excédent sort « Réalisée » dans Statut et **0** dans Repas AG, jamais une cellule vide.)*
 - **Pesées (par flux, ZD only)** : Date événement, Date collecte, Événement, Lieu, CP, Ville, Traiteur, Flux, Poids (kg), Nb bacs, Équivalent rolls.
 - **Factures (whitelist client-safe)** : Numéro, Type, Statut, Montant HT, Montant TTC, Date émission, Date échéance, Date paiement. **Jamais** `marge_logistique` ni colonnes synchro internes. Brouillons exclus côté rôles clients, inclus côté staff.
 - **Packs AG** : Référence, Crédits initiaux, Crédits consommés, Crédits restants, Date début, Date fin, Statut, Prix HT, Devise.
 - **Associations bénéficiaires AG** : staff = référentiel (Association, Adresse, Ville, Région, Contact, Email, Habilitée fiscale, Active) ; traiteur_manager = bénéficiaires de ses dons uniquement (Association, Ville, Région, Nb collectes, Repas donnés).
-- **Impact RSE consolidé (grain par collecte — décision Val 2026-06-19)** : Date événement, Événement, Lieu, Ville, Traiteur, Type, Tonnage ZD (kg), Taux recyclage (%), CO2 évité (kg), CO2 induit (kg), CO2 net (kg), Énergie primaire évitée (kWh), Repas AG.
+- **Impact RSE consolidé (grain par collecte — décision Val 2026-06-19)** : Date événement, Événement, Lieu, Ville, Traiteur, Type, Tonnage ZD (kg), Taux recyclage (%), CO2 évité (kg), CO2 induit (kg), CO2 net (kg), Énergie primaire évitée (kWh), Repas AG *(0 pour une collecte AG sans excédent, décision Val 2026-10-09)*.
 
 **Précision gestionnaire de lieux V1 (décision Val 2026-10-07)** : la page Événements côté gestionnaire est retirée → l'export tabulaire CSV du gestionnaire vit sur la liste **Collectes**, avec un **grain collecte** (1 ligne CSV = 1 collecte, colonnes « Collectes » ci-dessus). Périmètre = celui de la liste : ses propres programmations et les collectes tenues sur ses lieux.
 

@@ -8,6 +8,11 @@ import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 // Cible de l'action « Ajouter une collecte à cet événement » de l'écran de
 // confirmation (§06.01 étape 13) → ouverte à l'admin en mode support comme le POST
@@ -114,6 +119,11 @@ export async function POST(
 
   if (rpcErr)
     return serverError(rpcErr, 'programmation.evenements.collectes.create');
+
+  // L'ordre de création est en file (et, après l'acceptation automatique AG
+  // plus bas, l'ordre d'envoi) : traité après la réponse, sans attendre le
+  // passage planifié (décision Val 2026-10-12).
+  if (collecteId) envoyerOrdresSansAttendre(collecteId as string);
 
   // PROG-05 : auto-accept si la collecte ajoutée est AG (§06.01 l.398 + §09 §6).
   if (String(type) === 'ag' && collecteId) {

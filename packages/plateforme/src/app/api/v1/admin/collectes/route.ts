@@ -10,6 +10,11 @@ import {
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
 const TRIS = {
@@ -217,6 +222,10 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   if (rpcError) return serverError(rpcError, 'admin.collectes.create');
 
   const newId = collecteId as string;
+
+  // L'ordre éventuel est en file : il part sans attendre le passage planifié
+  // (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(newId);
 
   // NB : pas de pré-création de lignes collecte_flux ici. Les pesées ZD sont
   // DÉRIVÉES de pesees_tournees par fn_agreger_terminal_collecte à l'agrégation

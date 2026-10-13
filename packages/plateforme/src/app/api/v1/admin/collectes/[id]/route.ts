@@ -16,6 +16,11 @@ import {
   type SuiviEmailInfosAcces,
 } from '@/lib/infos-acces/suivi-email.js';
 import { deriverOrdreEnvoi, lireOrdresCollecte } from '@/lib/ordre-envoi.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 async function getHandler(
   req: NextRequest,
@@ -312,6 +317,10 @@ async function patchHandler(
     }
     return serverError(error, 'admin.collectes.update');
   }
+
+  // L'ordre éventuel est en file : il part sans attendre le passage planifié
+  // (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(id);
 
   const data = updatedJson as Record<string, unknown>;
 

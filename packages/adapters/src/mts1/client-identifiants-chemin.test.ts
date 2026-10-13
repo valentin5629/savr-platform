@@ -155,34 +155,48 @@ describe('M1.5a / MTS-1 client — identifiant dans un chemin (fil)', () => {
     },
   );
 
-  // Ce que l'encodage ne neutralise pas. Les deux derniers ne sont pas des
-  // chaînes : la signature les interdit, pas l'exécution.
-  const INUTILISABLES: Array<[string, string]> = [
+  // Ce que l'encodage ne neutralise pas.
+  const RELATIFS: Array<[string, string]> = [
     ['vide', ''],
     ['« . »', '.'],
     ['« .. »', '..'],
+  ];
+  // Les deux derniers ne sont pas des chaînes : la signature les interdit, pas
+  // l'exécution.
+  const NON_ENCODABLES: Array<[string, string]> = [
     ['un demi-caractère UTF-16 isolé', 'a\uD800b'],
     ['un tableau lu « .. »', ['..'] as unknown as string],
     ['un objet lu « .. »', { toString: () => '..' } as unknown as string],
   ];
-
-  it.each(
+  const parRoute = (cas: Array<[string, string]>) =>
     ROUTES.flatMap(([nom, , , , appel]) =>
-      INUTILISABLES.map(([cas, id]) => [nom, cas, id, appel] as const),
-    ),
-  )(
+      cas.map(([libelle, id]) => [nom, libelle, id, appel] as const),
+    );
+
+  async function attendreRefus(appel: Appel, id: string) {
+    const fetchMock = stubFetchOk();
+
+    const envoi = appel(new Mts1Client(fakeSupabase), id);
+
+    await expect(envoi).rejects.toBeInstanceOf(LogistiquePermanentError);
+    await expect(envoi).rejects.toThrow(
+      'MTS-1 : identifiant inutilisable dans un chemin (vide, « . », « .. » ou non encodable)',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(journal).toHaveLength(0);
+  }
+
+  it.each(parRoute(RELATIFS))(
     'M1.5a/chemin_identifiant_relatif_refuse (%s, %s) — refusé par la méthode avant son appel, échec définitif',
     async (_nom, _cas, id, appel) => {
-      const fetchMock = stubFetchOk();
+      await attendreRefus(appel, id);
+    },
+  );
 
-      const envoi = appel(new Mts1Client(fakeSupabase), id);
-
-      await expect(envoi).rejects.toBeInstanceOf(LogistiquePermanentError);
-      await expect(envoi).rejects.toThrow(
-        'MTS-1 : identifiant inutilisable dans un chemin (vide, « . », « .. » ou non encodable)',
-      );
-      expect(fetchMock).not.toHaveBeenCalled();
-      expect(journal).toHaveLength(0);
+  it.each(parRoute(NON_ENCODABLES))(
+    'M1.5a/chemin_identifiant_non_encodable_refuse (%s, %s) — ni chaîne, ni encodable : refusé par la méthode avant son appel, échec définitif',
+    async (_nom, _cas, id, appel) => {
+      await attendreRefus(appel, id);
     },
   );
 });

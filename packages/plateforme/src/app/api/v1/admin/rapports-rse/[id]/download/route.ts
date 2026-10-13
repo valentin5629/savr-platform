@@ -1,5 +1,7 @@
 // GET /api/v1/admin/rapports-rse/:id/download
-// Retourne une URL pré-signée R2 (15 min) pour un rapport de recyclage ZD.
+// Retourne une URL pré-signée R2 (15 min) pour un rapport de recyclage ZD, ou pour
+// le rapport d'une collecte AG sans excédent — ce dernier est servi sous le nom
+// « rapport-de-don-<date>-<événement>.pdf » (§12 §1.3-bis).
 // Contrôle applicatif embargo H+24 : refuse si now() < disponible_a (R-PDF2).
 // Accès : admin_savr + ops_savr.
 
@@ -8,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { requireStaff } from '@/lib/api-auth.js';
+import { nomFichierDuRapportDeLaCollecte } from '@/lib/pdf/nom-fichier-rapport-de-don.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 
 export const runtime = 'nodejs';
@@ -25,7 +28,7 @@ export async function GET(
 
   const { data: rapport, error } = await supabase
     .from('rapports_rse')
-    .select('id, disponible_a, genere_at, pdf_url')
+    .select('id, collecte_id, disponible_a, genere_at, pdf_url')
     .eq('id', id)
     .single();
 
@@ -58,6 +61,13 @@ export async function GET(
     return NextResponse.json({ error: 'Fichier PDF absent' }, { status: 404 });
   }
 
-  const url = await getPresignedUrl(storageKey, 900);
+  const url = await getPresignedUrl(
+    storageKey,
+    900,
+    await nomFichierDuRapportDeLaCollecte(
+      supabase,
+      rapport.collecte_id as string,
+    ),
+  );
   return NextResponse.json({ url, expires_in: 900 });
 }

@@ -137,11 +137,14 @@ const MTS1_STATUS_TO_TMS: Record<string, string | null> = {
   KO: 'rejetee_par_prestataire',
 };
 
-// Commande refusée ou en échec chez MTS-1 : la réconciliation ne l'adopte
-// jamais (elle ferait croire commandé un camion qui ne viendra pas). Ce sont
-// les deux statuts que le mapping ci-dessus lit comme un refus du prestataire.
-// Tout autre statut reste repris, `ARCHIVED` compris (son sens n'est pas mesuré).
-const STATUTS_COMMANDE_MORTE = new Set(['CANCELED', 'KO']);
+// Commande que la réconciliation n'adopte jamais : l'adopter ferait croire
+// commandé un camion qui ne viendra pas. `CANCELED` et `KO` sont les deux
+// statuts que le mapping ci-dessus lit comme un refus du prestataire ;
+// `ARCHIVED` est écarté par décision de Val (2026-10-13), son sens n'étant pas
+// mesuré. Des trois, c'est le seul que la recherche a rendu sur le compte de
+// démonstration (1 commande sur les 72 qu'elle rend) ; la commande de test
+// supprimée ce jour-là, sans tour, est passée `CANCELED` et n'est plus rendue.
+const STATUTS_COMMANDE_MORTE = new Set(['CANCELED', 'KO', 'ARCHIVED']);
 
 export class AdapterMts1 implements LogistiqueProvider {
   private readonly client: Mts1Client;
@@ -416,13 +419,17 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // A4 : sur reprise après timeout (requiresReconciliation), le 1er DELETE a
     // pu aboutir côté MTS-1. On lit d'abord quelles commandes existent encore,
-    // par IDENTIFIANT. RÈGLE de reprise, pas un fait mesuré : une commande que
-    // cette lecture ne rend pas est tenue pour déjà annulée, et aucun DELETE
-    // n'est renvoyé (jamais de faux « fenêtre fermée »). Mesuré le 2026-10-13 :
-    // un identifiant inconnu est absent de la réponse, et les 72 commandes du
-    // compte de démonstration y sont toutes rendues. Non mesuré : ce que devient
-    // une commande supprimée (aucune écriture pendant la mesure). C'est le seul
-    // chemin qui se ferme en succès sans rien envoyer : il est tracé.
+    // par IDENTIFIANT : une commande que cette lecture ne rend pas est tenue
+    // pour déjà annulée, et aucun DELETE n'est renvoyé. Mesuré le 2026-10-13 sur
+    // le compte de démonstration, avec une commande de test sans tour, créée
+    // puis supprimée : le DELETE répond 200 et passe la commande `CANCELED` ;
+    // elle n'est alors plus rendue par cette lecture (le détail, lui, la rend
+    // encore, `CANCELED`) ; un second DELETE répond 200 aussi. Un identifiant
+    // inconnu est absent de même, et les 72 commandes que rend la recherche par
+    // dates (2020 à 2030) sont toutes rendues par identifiant. Non mesuré : une
+    // commande déjà placée sur un tour, ou à moins d'une heure de sa mission.
+    // C'est le seul chemin qui se ferme en succès sans rien envoyer : il est
+    // tracé.
     const connues = opts?.requiresReconciliation
       ? await this.commandesConnues(avecRef)
       : null;
@@ -1388,8 +1395,9 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // L'égalité stricte se rejoue ICI, quoi que rende le filtre distant. Et
     // `orderNumber` n'est pas unique chez MTS-1 (jusqu'à 25 commandes mesurées
-    // sous un même numéro) : on écarte les commandes refusées ou en échec, puis on
-    // départage par identifiant, l'API ne garantissant aucun ordre de réponse.
+    // sous un même numéro) : on écarte les commandes refusées, en échec ou
+    // archivées, puis on départage par identifiant, l'API ne garantissant aucun
+    // ordre de réponse.
     // Le Set écarte une même commande rendue deux fois.
     const candidates = [
       ...new Set(

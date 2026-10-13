@@ -35,9 +35,9 @@ const EXPECTED_TYPES = [
 const EXPECTED_VERSIONS: Record<string, string> = {
   'bordereau-zd': 'bordereau-zd@2',
   'rapport-recyclage-zd': 'rapport-recyclage-zd@3',
-  'attestation-don': 'attestation-don@2',
+  'attestation-don': 'attestation-don@3',
   'synthese-dashboard': 'synthese-dashboard@1',
-  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@1',
+  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
   facture: 'facture@1',
 };
 import type { AttestationDonData } from './templates/attestation-don.js';
@@ -312,6 +312,22 @@ const DATA_BY_TYPE: Record<string, unknown> = {
   facture: factureData(),
 };
 
+/** Titre imprimé du document : le contenu de l'unique <h1>. */
+function titreImprime(html: string): string {
+  const titres = [...html.matchAll(/<h1>([^<]*)<\/h1>/g)].map((m) => m[1]);
+  expect(titres).toHaveLength(1);
+  return titres[0]!;
+}
+
+/** Sous-titre imprimé sous le titre (classe `sous-titre`), unique lui aussi. */
+function sousTitreImprime(html: string): string {
+  const sousTitres = [
+    ...html.matchAll(/<div class="sous-titre">([^<]*)<\/div>/g),
+  ].map((m) => m[1]);
+  expect(sousTitres).toHaveLength(1);
+  return sousTitres[0]!;
+}
+
 describe('M1.6 / renderer PDF — dispatch type_document', () => {
   it('les 3 type_document du contrat rendent un HTML non vide (plus de 400)', () => {
     expect([...RENDERER_DOCUMENT_TYPES].sort()).toEqual(EXPECTED_TYPES);
@@ -405,7 +421,8 @@ describe('M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis
       sansExcedentData(),
     );
     expect(html).toContain('<!DOCTYPE html>');
-    expect(html).toContain('Événement sans excédent alimentaire');
+    expect(titreImprime(html)).toBe('Rapport de don');
+    expect(sousTitreImprime(html)).toBe('Événement sans excédent alimentaire');
     expect(html).toContain('Cocktail Élysée');
     expect(html).toContain('200 convives');
     expect(html).toContain('Mairie de Paris');
@@ -422,13 +439,18 @@ describe('M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis
     expect(html).toContain('Client absent / Marchandise refusée');
   });
 
-  it('bloc Conséquences : mention fixe (aucune attestation 2041-GE, tarif normal) + réf facture', () => {
+  it('bloc Conséquences : mention fixe (pas de reçu fiscal, tarif normal) + réf facture', () => {
     const html = renderByType(
       'rapport-evenement-sans-excedent',
       sansExcedentData(),
     );
     expect(html).toContain("Aucun repas n'a été collecté");
-    expect(html).toContain('Aucune attestation de don');
+    expect(html).toContain(
+      "Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal.",
+    );
+    // Le document s'appelle « Rapport de don » : il ne dit plus qu'aucune
+    // « attestation de don » n'est générée (décision Val 2026-10-13).
+    expect(html).not.toContain('attestation de don');
     expect(html).toContain('facturée au tarif normal au titre du déplacement');
     expect(html).toContain('FAC-2026-00042');
   });
@@ -872,6 +894,54 @@ describe('M1.6 / bordereau ZD §1.1 — équivalent bacs/rolls (BL-P2-16)', () =
       bordereauData({ regenere_le: '07/07/2026' }),
     );
     expect(html).toContain('Version mise à jour — générée le 07/07/2026');
+  });
+});
+
+// §12 §1.3-bis, décision Val 2026-10-13 : le document d'une collecte AG s'appelle
+// « Rapport de don » jusque dans le titre imprimé de ses deux PDF.
+describe('M2.4 / renderer — titre imprimé « Rapport de don » des deux PDF AG', () => {
+  it('attestation : titre « Rapport de don », « Attestation de don » en sous-titre', () => {
+    const html = renderByType('attestation-don', attestationData());
+    expect(titreImprime(html)).toBe('Rapport de don');
+    expect(sousTitreImprime(html)).toBe('Attestation de don');
+  });
+
+  it('attestation : la pièce fiscale garde son numéro et ses mentions légales', () => {
+    const numero = attestationData().numero;
+    const habilitee = renderByType(
+      'attestation-don',
+      attestationData({ mention_fiscale_2041ge: true }),
+    );
+    expect(habilitee).toContain(numero);
+    expect(habilitee).toContain(
+      'Reçu fiscal — article 238 bis du Code général des impôts',
+    );
+    expect(habilitee).toContain('Cerfa n° 2041-GE');
+    const nonHabilitee = renderByType(
+      'attestation-don',
+      attestationData({ mention_fiscale_2041ge: false }),
+    );
+    expect(nonHabilitee).toContain(numero);
+    expect(nonHabilitee).toContain('La présente attestation certifie');
+  });
+
+  it('rapport sans excédent : même titre, ancien titre en sous-titre', () => {
+    const html = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData(),
+    );
+    expect(titreImprime(html)).toBe('Rapport de don');
+    expect(sousTitreImprime(html)).toBe('Événement sans excédent alimentaire');
+  });
+
+  it('les deux PDF portent le même titre imprimé', () => {
+    expect(
+      titreImprime(renderByType('attestation-don', attestationData())),
+    ).toBe(
+      titreImprime(
+        renderByType('rapport-evenement-sans-excedent', sansExcedentData()),
+      ),
+    );
   });
 });
 

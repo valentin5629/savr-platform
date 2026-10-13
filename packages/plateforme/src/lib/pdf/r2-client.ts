@@ -59,16 +59,35 @@ function cleDeLEnvironnement(storageKey: string): {
   return { bucket, key: segments.join('/') };
 }
 
+/** Seuls caractères admis dans un nom de fichier imposé, 150 caractères au plus. */
+const NOM_FICHIER_SUR = /^[A-Za-z0-9][A-Za-z0-9._-]{0,149}$/;
+
+/**
+ * URL pré-signée de lecture d'un objet.
+ *
+ * `nomFichier` impose le nom proposé par le navigateur à l'enregistrement, sans
+ * renommer l'objet stocké : R2 le renvoie dans l'en-tête `Content-Disposition`
+ * (mesuré sur `savr-dev` le 2026-10-13). `inline` : le document s'ouvre toujours
+ * dans l'onglet, comme sans nom. Un nom hors `NOM_FICHIER_SUR` est ignoré (jamais
+ * de guillemet ni de saut de ligne dans un en-tête) : l'URL est signée sans lui.
+ */
 export async function getPresignedUrl(
   storageKey: string,
   expiresInSeconds = 900,
+  nomFichier?: string,
 ): Promise<string> {
   const { bucket, key } = cleDeLEnvironnement(storageKey);
 
   const client = getS3Client();
   return getSignedUrl(
     client,
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ...(nomFichier && NOM_FICHIER_SUR.test(nomFichier)
+        ? { ResponseContentDisposition: `inline; filename="${nomFichier}"` }
+        : {}),
+    }),
     { expiresIn: expiresInSeconds },
   );
 }

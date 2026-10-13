@@ -35,8 +35,9 @@
  *   un `NextResponse.json(data)` est la donnée métier du cas nominal.
  *
  * RÈGLE F — dans tout fichier SERVEUR qui touche au moteur HTTP (adapters,
- *   shared, plateforme hors composants navigateur, apps : `fetch` appelé ou pris
- *   comme valeur, `new Request`, `new Headers`), l'erreur ATTRAPÉE ne se lit pas.
+ *   shared, plateforme, apps — hors tests, outillage de test et composants
+ *   navigateur : `fetch` appelé ou pris comme valeur, `new Request`,
+ *   `new Headers`), l'erreur ATTRAPÉE ne se lit pas.
  *   Ce n'est plus la
  *   structure de la base qui fuit, c'est un SECRET : le moteur recopie dans son
  *   erreur la valeur qu'il refuse — « Headers.append: "Bearer <clé entière>" is an
@@ -57,8 +58,8 @@
  *        `logger.error('x', { error: err.message })` (un journal est un texte
  *        conservé), `capturer(err)` (l'erreur entière confiée à un tiers)
  *     ❌ `.catch(console.error)`, `.catch(traiter)`, `.then(ok, traiter)` : un
- *        gestionnaire passé par RÉFÉRENCE reçoit l'erreur hors de vue — l'écrire
- *        sur place.
+ *        gestionnaire de REJET passé par référence reçoit l'erreur hors de vue —
+ *        l'écrire sur place. (Le premier argument de `.then` n'est pas regardé.)
  *   Portée : TOUT `catch` du fichier, pas seulement celui qui entoure le `fetch`
  *   — l'appel passe souvent par une méthode intermédiaire
  *   (`this.postJson(…).catch(…)`).
@@ -743,7 +744,7 @@ function appelleFetch(src: ts.SourceFile): boolean {
   return trouve;
 }
 
-/** Fichiers serveur, hors tests et hors composants navigateur, qui appellent `fetch`. */
+/** Fichiers serveur, hors tests et hors composants navigateur, qui touchent au moteur HTTP. */
 function fichiersAvecFetch(): string[] {
   const out = execSync(
     `grep -rl --include='*.ts' --include='*.tsx' -e 'fetch' -e 'new Request' -e 'new Headers' ${Object.keys(RACINES_FETCH).join(' ')} 2>/dev/null || true`,
@@ -764,7 +765,7 @@ function fichiersAvecFetch(): string[] {
   });
 }
 
-/** RÈGLE F — l'erreur attrapée d'un fichier qui appelle `fetch` ne se lit pas. */
+/** RÈGLE F — l'erreur attrapée d'un fichier qui touche au moteur HTTP ne se lit pas. */
 function regleF(source: string): Trouve[] {
   const src = parse('f.ts', source);
   if (!appelleFetch(src)) return [];
@@ -1365,23 +1366,23 @@ function violations(): Violation[] {
     }
   }
 
-  // Règle F — l'erreur d'un `fetch`, dans tout fichier serveur qui en appelle un.
+  // Règle F — l'erreur attrapée, dans tout fichier serveur qui touche au moteur HTTP.
   // Aucune liste d'exemption : ni les adapters, ni le client Pennylane.
   const avecFetch = fichiersAvecFetch();
   fichiersVisitesF = avecFetch.length;
-  // Non-vacuité du périmètre : chaque racine rend aujourd'hui au moins un fichier.
-  // Une découverte devenue aveugle (racine renommée, recherche cassée) rendrait
-  // la règle verte sur une liste vide, et le dirait « ✅ ».
-  const retrecies = Object.entries(RACINES_FETCH)
-    .map(([racine, plancher]) => ({
+  // Périmètre contrôlé : chaque racine rend le nombre de fichiers écrit dans
+  // RACINES_FETCH. Une découverte devenue aveugle (racine renommée, recherche
+  // cassée) rendrait sinon la règle verte sur une liste vide, et le dirait « ✅ ».
+  const ecarts = Object.entries(RACINES_FETCH)
+    .map(([racine, attendus]) => ({
       racine,
-      plancher,
+      attendus,
       trouves: avecFetch.filter((f) => f.startsWith(`${racine}/`)).length,
     }))
-    .filter((r) => r.trouves !== r.plancher);
-  if (retrecies.length > 0) {
+    .filter((r) => r.trouves !== r.attendus);
+  if (ecarts.length > 0) {
     console.error(
-      `🔴 check-api-error-leak : DÉTECTEUR EN ÉCHEC (périmètre de la règle F) — ${retrecies.map((r) => `${r.trouves} fichier(s) touchant au moteur HTTP sous ${r.racine}, ${r.plancher} attendus`).join(' ; ')} : le gate ne prouve plus rien. Si un fichier a réellement commencé ou cessé de toucher au moteur, corriger son nombre (RACINES_FETCH).`,
+      `🔴 check-api-error-leak : DÉTECTEUR EN ÉCHEC (périmètre de la règle F) — ${ecarts.map((r) => `${r.trouves} fichier(s) touchant au moteur HTTP sous ${r.racine}, ${r.attendus} attendus`).join(' ; ')} : le gate ne prouve plus rien. Si un fichier a réellement commencé ou cessé de toucher au moteur, corriger son nombre (RACINES_FETCH).`,
     );
     process.exit(1);
   }

@@ -24,7 +24,7 @@
 // secret.
 //
 // Cliquet : `pnpm check:api-error-leak`, règle F — dans un fichier serveur qui
-// appelle `fetch`, aucune lecture du texte d'une erreur attrapée.
+// touche au moteur HTTP, l'erreur attrapée ne se lit pas : on la passe ici.
 
 export type CategorieErreurReseau =
   | 'delai_depasse'

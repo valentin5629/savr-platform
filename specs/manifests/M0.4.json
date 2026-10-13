@@ -284,7 +284,7 @@
     {
       "id": "M0.4-outbox-events-lecture-admin-seul",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:544",
-      "artefact": "supabase/tests/rls_0_4_smoke.test.sql (preuve par rôle de la policy outbox_admin_read, inchangée : la file d'envoi n'est lue par aucun rôle autre que admin_savr — ops_savr, traiteur_commercial, agence, gestionnaire_lieux, client_organisateur, en plus de traiteur_manager déjà couvert par T12 —, un appel sans jeton (anon) est refusé, et l'Admin lit bien l'ordre de la fixture ; aucune migration dans ce lot)",
+      "artefact": "supabase/tests/rls_0_4_smoke.test.sql (preuve par rôle de la policy outbox_admin_read, inchangée : la file d'envoi n'est lue par aucun rôle autre que admin_savr — ops_savr, traiteur_commercial, agence, gestionnaire_lieux, client_organisateur, en plus de traiteur_manager déjà couvert par T12 —, un appel sans jeton (anon) est refusé faute de droit sur la table (42501 : un contrôle du droit, pas de la policy), et l'Admin lit bien l'ordre de la fixture ; aucune migration dans ce lot)",
       "test": "T12a outbox_denied_ops_savr + T12b outbox_denied_traiteur_commercial + T12c outbox_denied_agence + T12d outbox_denied_gestionnaire_lieux + T12e outbox_denied_client_organisateur + T12f outbox_denied_anon + T13a outbox_admin_read_voit_l_ordre",
       "statut": "implemented",
       "libelle": "plateforme.outbox_events reste réservée à l'Admin en lecture : depuis le 2026-10-12 la fiche collecte montre à l'Ops l'état de l'ordre d'envoi, mais par la route, qui n'en rend qu'un extrait (constat du relecteur sécurité du 2026-10-12, PR #554)"

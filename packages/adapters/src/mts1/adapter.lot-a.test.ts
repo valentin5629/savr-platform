@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CancelWindowClosedError, LogistiquePermanentError } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { AdapterMts1 } from './adapter.js';
-import type { Mts1CustomerOrder } from './mock.js';
+import type { Mts1CustomerOrder, Mts1Tour } from './mock.js';
 import { _setMts1Handlers } from './mock.js';
 import {
   PRESTA_MTS1,
@@ -212,20 +212,15 @@ describe('Lot A / A2 — rejeu inbox non terminé (crash-safety)', () => {
   afterEach(() => _setMts1Handlers(null));
 
   const ORDER_VALIDATED: Mts1CustomerOrder = {
-    id: 'MTS1-ORDER-A2',
-    externalReference: 'col-lota-001-1',
-    status: 'VALIDATED',
-    pickupDate: '2026-07-15T22:00:00Z',
+    customerOrderId: 'MTS1-ORDER-A2',
+    orderNumber: 'col-lota-001-1',
+    customerOrderStatus: 'VALIDATED',
+    orderDate: '2026-07-15T22:00:00.000Z',
   };
 
   it('A2 / clé inbox présente mais traite=false → l’event est REJOUÉ (collectes.update)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn(),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -255,12 +250,7 @@ describe('Lot A / A2 — rejeu inbox non terminé (crash-safety)', () => {
 
   it('A2 / clé inbox présente ET traite=true → skip (aucun effet rejoué)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn(),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -283,20 +273,15 @@ describe('Lot A / A7 — OK = terminal → agrégation déclenchée', () => {
   afterEach(() => _setMts1Handlers(null));
 
   const ORDER_OK: Mts1CustomerOrder = {
-    id: 'MTS1-ORDER-A7',
-    externalReference: 'col-lota-001-1',
-    status: 'OK',
-    pickupDate: '2026-07-15T22:00:00Z',
+    customerOrderId: 'MTS1-ORDER-A7',
+    orderNumber: 'col-lota-001-1',
+    customerOrderStatus: 'OK',
+    orderDate: '2026-07-15T22:00:00.000Z',
   };
 
   it("A7 / order 'OK' → tournée 'terminee' + fn_agreger_terminal_collecte appelé", async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn(),
       getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
@@ -327,6 +312,55 @@ describe('Lot A / A7 — OK = terminal → agrégation déclenchée', () => {
       (c) => c.name === 'fn_agreger_terminal_collecte',
     );
     expect(agreger).toBeDefined();
+  });
+
+  it('M1.5b/releve_tour_sans_arrets — un tour sans `stops` ne bloque pas le statut terminal de la commande', async () => {
+    // Mesuré le 2026-10-13 : sur un identifiant de tour qu'il ne connaît pas,
+    // MTS-1 répond 200 avec un objet creux, sans `stops`. La lecture du tour
+    // précède le traitement du statut terminal : elle levait, et la collecte ne
+    // passait jamais « réalisée ».
+    const tourVide = {
+      tourId: 'MTS1-TOUR-A7',
+      externalReference: '',
+      status: 'OK',
+    } satisfies Mts1Tour;
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
+      getTour: vi.fn().mockResolvedValue(tourVide),
+      getPhotos: vi.fn().mockResolvedValue([]),
+      postOrder: vi.fn(),
+    });
+
+    const supabase = makeSyncSupabase({
+      agregerTerminalResult: 'realisee',
+      tourneeInfo: {
+        collecteId: 'col-lota-001',
+        tourneeId: 'tournee-lota-001',
+        tmsReference: 'MTS1-TOUR-A7',
+        collecteStatut: 'en_cours',
+      },
+    });
+    await new AdapterMts1(TRANSPORTEUR, supabase).sync(FENETRE);
+
+    expect(
+      supabase._calls.find(
+        (c) =>
+          c.table === 'tournees' &&
+          c.op === 'update' &&
+          (c.data as Record<string, unknown>)['statut'] === 'terminee',
+      ),
+    ).toBeDefined();
+    expect(
+      supabase._rpcCalls.find((c) => c.name === 'fn_agreger_terminal_collecte'),
+    ).toBeDefined();
+    // Aucune commande en échec de traitement.
+    expect(
+      supabase._calls.filter((c) =>
+        String((c.data as { erreur?: string } | undefined)?.erreur).startsWith(
+          'SYNC_ORDER_FAILED',
+        ),
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -409,14 +443,14 @@ describe('Lot A / A4 — annulation E3 idempotente', () => {
 
   it('A4 / requiresReconciliation + ordre distant absent → DELETE court-circuité', async () => {
     const deleteOrder = vi.fn().mockResolvedValue(undefined);
-    // scan de réconciliation ne retrouve pas l'ordre → déjà supprimé
-    const scanOrdersByDateRange = vi.fn().mockResolvedValue([]);
+    // la lecture par identifiant ne rend pas la commande → déjà supprimée
+    const findOrdersByIds = vi.fn().mockResolvedValue([]);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder: vi.fn(),
       deleteOrder,
-      scanOrdersByDateRange,
+      findOrdersByIds,
     });
 
     await expect(
@@ -425,7 +459,8 @@ describe('Lot A / A4 — annulation E3 idempotente', () => {
         { requiresReconciliation: true },
       ),
     ).resolves.toBe('adapter_mts1');
-    expect(scanOrdersByDateRange).toHaveBeenCalledOnce();
+    expect(findOrdersByIds).toHaveBeenCalledOnce();
+    expect(findOrdersByIds).toHaveBeenCalledWith(['MTS1-ORDER-A4']);
     expect(deleteOrder).not.toHaveBeenCalled();
   });
 });

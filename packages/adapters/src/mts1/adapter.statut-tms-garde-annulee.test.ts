@@ -146,28 +146,26 @@ function makeSupabase(collecte: Ligne) {
   };
 }
 
-function armerPoll(status: Mts1CustomerOrder['status']) {
+function armerPoll(status: Mts1CustomerOrder['customerOrderStatus']) {
   _setMts1Handlers({
-    pollOrders: vi.fn().mockResolvedValue({
-      customerOrders: [
-        {
-          id: 'MTS1-ORDER-GARDE',
-          externalReference: 'col-garde-1',
-          status,
-          pickupDate: '2026-07-15T22:00:00Z',
-        },
-      ],
-      totalCount: 1,
-      page: 1,
-      pageSize: 50,
-    }),
+    pollOrders: vi.fn().mockResolvedValue([
+      {
+        customerOrderId: 'MTS1-ORDER-GARDE',
+        orderNumber: 'col-garde-1',
+        customerOrderStatus: status,
+        orderDate: '2026-07-15T22:00:00.000Z',
+      },
+    ]),
     getTour: vi.fn(),
     getPhotos: vi.fn().mockResolvedValue([]),
     postOrder: vi.fn(),
   });
 }
 
-async function poller(statut: string, status: Mts1CustomerOrder['status']) {
+async function poller(
+  statut: string,
+  status: Mts1CustomerOrder['customerOrderStatus'],
+) {
   armerPoll(status);
   const collecte: Ligne = {
     id: 'col-garde',

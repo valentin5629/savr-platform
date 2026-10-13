@@ -2,34 +2,18 @@
   "_description": "Simulation multi-camions N=2 : deux customerOrders pour 1 collecte, états terminaux distincts (OK + PARTIAL). ≥1 OK/PARTIAL → realisee + alerte Ops.",
   "customerOrders": [
     {
-      "id": "MTS1-ORDER-MULTI-001",
-      "externalReference": "col_multi_camions_001-1",
+      "customerOrderId": "MTS1-ORDER-MULTI-001",
+      "orderNumber": "col_multi_camions_001-1",
       "_rang": 1,
-      "status": "OK",
-      "pickupDate": "2026-06-10T22:00:00Z",
-      "deliveryDate": "2026-06-11T01:00:00Z",
-      "stops": [
-        {
-          "stopId": "stop-multi-001",
-          "address": "1 Place de la Porte de Versailles, 75015 Paris",
-          "status": "COMPLETED"
-        }
-      ]
+      "customerOrderStatus": "OK",
+      "orderDate": "2026-06-10T22:00:00.000Z"
     },
     {
-      "id": "MTS1-ORDER-MULTI-002",
-      "externalReference": "col_multi_camions_001-2",
+      "customerOrderId": "MTS1-ORDER-MULTI-002",
+      "orderNumber": "col_multi_camions_001-2",
       "_rang": 2,
-      "status": "PARTIAL",
-      "pickupDate": "2026-06-10T22:00:00Z",
-      "deliveryDate": "2026-06-11T01:30:00Z",
-      "stops": [
-        {
-          "stopId": "stop-multi-002",
-          "address": "1 Place de la Porte de Versailles, 75015 Paris",
-          "status": "PARTIAL"
-        }
-      ]
+      "customerOrderStatus": "PARTIAL",
+      "orderDate": "2026-06-10T22:00:00.000Z"
     }
   ],
   "tours": [

@@ -286,14 +286,14 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
 
   it('E1 sur reprise après timeout : la commande annulée n’est jamais reprise, celle de la tentative l’est', async () => {
     const annulee: Mts1CustomerOrder = {
-      id: 'MTS1-ORDER-ANNULEE',
-      externalReference: 'col-reatt-1',
-      status: 'CANCELED',
+      customerOrderId: 'MTS1-ORDER-ANNULEE',
+      orderNumber: 'col-reatt-1',
+      customerOrderStatus: 'CANCELED',
     };
     const tentative: Mts1CustomerOrder = {
-      id: 'MTS1-ORDER-TENTATIVE-2',
-      externalReference: 'col-reatt-1-r2',
-      status: 'DRAFT',
+      customerOrderId: 'MTS1-ORDER-TENTATIVE-2',
+      orderNumber: 'col-reatt-1-r2',
+      customerOrderStatus: 'DRAFT',
     };
 
     // Le POST précédent n'avait pas abouti : seule la commande annulée existe.

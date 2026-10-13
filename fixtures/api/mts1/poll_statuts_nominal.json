@@ -1,55 +1,23 @@
 {
-  "_description": "Réponse GET /v3/customerOrders — lot nominal de statuts de courses mappés sur les collectes seedées",
-  "customerOrders": [
+  "_description": "Corps de la réponse de GET /v3/customerOrders?minDate=…&maxDate=… — lot nominal de statuts mappés sur les collectes seedées. Forme mesurée sur le compte de démonstration le 2026-10-13 : la réponse est le tableau `response` lui-même (tableau JSON nu, sans enveloppe ni pagination). Seuls les champs lus par l'adapter sont repris ; ni `id`, ni `externalReference`, ni `status` n'existent sur le fil.",
+  "response": [
     {
-      "id": "MTS1-ORDER-COL-ZD-KASPIA-001",
-      "externalReference": "tour_strike_202605_01",
-      "status": "OK",
-      "pickupDate": "2026-05-06T22:00:00Z",
-      "deliveryDate": "2026-05-07T01:30:00Z",
-      "stops": [
-        {
-          "stopId": "stop-001",
-          "address": "1 Place de la Porte de Versailles, 75015 Paris",
-          "status": "COMPLETED"
-        }
-      ]
+      "customerOrderId": "MTS1-ORDER-COL-ZD-KASPIA-001",
+      "orderNumber": "tour_strike_202605_01",
+      "customerOrderStatus": "OK",
+      "orderDate": "2026-05-06T20:00:00.000Z"
     },
     {
-      "id": "MTS1-ORDER-COL-AG-POTEL-001",
-      "externalReference": "tour_marathon_202605_01",
-      "status": "OK",
-      "pickupDate": "2026-05-09T21:00:00Z",
-      "deliveryDate": "2026-05-10T00:45:00Z",
-      "stops": [
-        {
-          "stopId": "stop-002",
-          "address": "2 Place de la Porte Maillot, 75017 Paris",
-          "status": "COMPLETED"
-        }
-      ]
+      "customerOrderId": "MTS1-ORDER-COL-AG-POTEL-001",
+      "orderNumber": "tour_marathon_202605_01",
+      "customerOrderStatus": "OK",
+      "orderDate": "2026-05-09T19:00:00.000Z"
     },
     {
-      "id": "MTS1-ORDER-COL-ZD-KASPIA-002",
-      "externalReference": "tour_strike_202605_02",
-      "status": "IN_PROGRESSION",
-      "pickupDate": "2026-05-13T22:30:00Z",
-      "deliveryDate": null,
-      "stops": [
-        {
-          "stopId": "stop-003",
-          "address": "1 Place de la Porte de Versailles, 75015 Paris",
-          "status": "IN_PROGRESS"
-        },
-        {
-          "stopId": "stop-004",
-          "address": "Rue de la Convention, 75015 Paris",
-          "status": "PENDING"
-        }
-      ]
+      "customerOrderId": "MTS1-ORDER-COL-ZD-KASPIA-002",
+      "orderNumber": "tour_strike_202605_02",
+      "customerOrderStatus": "IN_PROGRESSION",
+      "orderDate": "2026-05-13T20:30:00.000Z"
     }
-  ],
-  "totalCount": 3,
-  "page": 1,
-  "pageSize": 50
+  ]
 }

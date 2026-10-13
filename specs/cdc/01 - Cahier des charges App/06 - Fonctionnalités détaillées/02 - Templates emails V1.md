@@ -487,43 +487,39 @@ L'équipe Savr
 
 **Slug** : `admin_modification_collecte_traiteur`
 **Destinataire** : Admin Savr — boîte de contact `contact@gosavr.io` *(décision Val 2026-10-08 ; ex « alias Ops `ops@gosavr.io` ou liste configurable en base », jamais implémenté)*
-**Déclencheur** : tout `UPDATE` sur les champs métier d'une collecte initié par un user `traiteur_manager` ou `traiteur_commercial` (programmeur ou manager — les collègues partagés ne peuvent pas modifier). Statuts autorisés : voir [[../05 - Règles métier#Modification d'une collecte à venir]] (source unique).
-**Objet** : `[Modification collecte] {{collecte_ref}} — {{evenement_nom}} le {{date_collecte}}`
+**Déclencheur** : tout enregistrement du formulaire d'édition d'une collecte par un rôle programmateur — `traiteur_manager`, `traiteur_commercial`, `agence`, `gestionnaire_lieux` (décision Val 2026-10-09 ; les collègues partagés ne peuvent pas modifier) — qui change réellement au moins un champ de la collecte ou de son événement. Statuts autorisés : voir [[../05 - Règles métier#Modification d'une collecte à venir]] (source unique).
+**Objet** : `Modification d'une collecte à venir`
 
 > **Sobriété A3 2026-05-04** : un seul objet, une seule variante. L'urgence (modification < 12h) est portée par le **contenu** de l'email (bloc "ATTENTION" conditionnel) et non par un préfixe d'objet ou un en-tête `X-Priority`. Filtrage Ops via règle Gmail standard si besoin. Évite la logique de variantes côté envoyeur Resend.
 
 ```
 Bonjour,
 
-Le traiteur {{organisation_nom}} ({{user_prenom}} {{user_nom}}, {{user_role}}) a modifié la collecte ci-dessous.
+L'organisation {{organisation_nom}} a modifié la collecte initialement prévue le {{date_initiale}}{{#if pax_initial}} pour {{pax_initial}} pax{{/if}}{{#if lieu_nom}} (lieu : {{lieu_nom}}){{/if}}.
 
-— Collecte : {{collecte_ref}} (type {{type_collecte}})
-— Événement : {{evenement_nom}}
-— Date / heure : {{date_collecte}} à {{heure_collecte}}
-— Lieu : {{lieu_nom}} ({{lieu_ville}})
-— Statut actuel : {{statut_collecte}}
-— Prestataire éventuel : {{prestataire_nom_ou_aucun}}
-
-Champs modifiés :
+Les champs modifiés sont :
 {{liste_modifications}}
 
-{{#if cascade_tms}}
-Cette modification a été propagée au TMS via webhook collecte-update.
-{{#if reacceptation_requise}}
-Le prestataire {{prestataire_nom}} doit re-confirmer le créneau (date/heure modifiées sur collecte précédemment acceptée). La collecte est repassée au statut "attribuee" côté TMS.
+{{#if programmateur}}
+Le programmateur est {{programmateur}}.
 {{/if}}
-{{/if}}
+
+Le statut actuel de la collecte est « {{statut_collecte}} ».
 
 {{#if priorite_urgence}}
 ATTENTION : modification effectuée moins de 12h avant le créneau de collecte. Action manuelle Ops probable (relais prestataire, vérification logistique).
 {{/if}}
 
-[Bouton : Voir la collecte sur le back-office]
+Merci de relayer au prestataire si nécessaire depuis le back-office.
 
-L'équipe Savr — alerte automatique
+{{#if lien_fiche}}
+[Lien : Ouvrir la fiche de la collecte]
+{{/if}}
+
+L'équipe Savr
 ```
 
-**Variables** : `collecte_ref`, `evenement_nom`, `date_collecte`, `heure_collecte`, `lieu_nom`, `lieu_ville`, `type_collecte` (ZD/AG), `statut_collecte`, `organisation_nom`, `user_prenom`, `user_nom`, `user_role`, `prestataire_nom_ou_aucun`, `liste_modifications` (texte formatté du diff `champ : ancien → nouveau`), `cascade_tms` (bool), `reacceptation_requise` (bool), `priorite_urgence` (bool), `lien_backoffice`
+**Variables** : `organisation_nom`, `date_initiale` (date de la collecte avant modification, JJ/MM/AAAA), `pax_initial` (pax de l'événement avant modification, omis s'il est vide), `lieu_nom` (nom du lieu de l'événement), `liste_modifications` (une ligne par champ réellement modifié, collecte ET événement : date « du … au … » ; nombre, heure, contrôle d'accès « de … à … » ; texte et contact « avant …. Maintenant … »), `programmateur` (prénom et nom de l'utilisateur qui a programmé la collecte, suivis de « , joignable au » et de son téléphone s'il en a un ; omis si le compte est introuvable), `statut_collecte` (libellé affiché à l'Admin), `priorite_urgence` (bool : l'ancien ou le nouveau créneau est à moins de 12 h), `lien_fiche` (adresse de la fiche Admin de la collecte). **Un seul email par enregistrement du formulaire d'édition (décision Val 2026-10-09)**, y compris quand seuls des champs de l'événement changent ; aucun email si aucun champ n'a réellement changé.
 
 **Variantes** : un seul slug, un seul objet, un seul en-tête. Le flag `priorite_urgence` ne pilote que le contenu (bloc "ATTENTION" conditionnel) — pas l'objet, pas les en-têtes Resend (sobriété A3 2026-05-04).
 

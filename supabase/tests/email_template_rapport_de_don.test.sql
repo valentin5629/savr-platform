@@ -30,10 +30,12 @@ SELECT is(
   'variables déclarées = celles que le batch AG fournit (plus de prenom, association_nom, lien_pdf exigés)'
 );
 
+-- strpos, pas LIKE : dans un motif LIKE, « _ » vaut n'importe quel caractère, et
+-- « {{lien-rapport}} » (que le moteur n'interpole pas) passerait pour « {{lien_rapport}} ».
 SELECT ok(
-  (SELECT corps_html LIKE '%<a href="{{lien_rapport}}">Voir le rapport de don</a>%'
-          AND corps_html LIKE '%{{date_evenement}}%'
-          AND corps_html LIKE '%L''équipe Savr%'
+  (SELECT strpos(corps_html, '<a href="{{lien_rapport}}">Voir le rapport de don</a>') > 0
+          AND strpos(corps_html, '{{date_evenement}}') > 0
+          AND strpos(corps_html, 'L''équipe Savr') > 0
    FROM plateforme.email_templates WHERE code = 'attestation_don_disponible'),
   'corps : date de l''événement, lien « Voir le rapport de don », signature « L''équipe Savr »'
 );

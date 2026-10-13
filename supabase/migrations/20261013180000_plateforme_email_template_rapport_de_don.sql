@@ -36,8 +36,9 @@
 -- Aucune structure modifiée, aucun droit touché. Idempotent : un rejeu réécrit
 -- les mêmes valeurs.
 --
--- Retour arrière : réécrire la ligne avec l'objet, le corps et les variables du
--- seed bloc8 (20260611171642).
+-- Retour arrière : réécrire la ligne avec l'objet, le corps, la description
+-- (« Attestation don AG disponible ») et les variables du seed bloc8
+-- (20260611171642). Ce retour rétablit aussi le refus de chaque envoi.
 -- =============================================================================
 
 UPDATE plateforme.email_templates

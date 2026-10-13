@@ -207,6 +207,30 @@ describe('M1.5a / envoi immédiat — clic « Envoyer » de la fiche collecte', 
   });
 });
 
+describe('M1.5a / envoi immédiat — appelant refusé par la garde de rôle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('M1.5a/envoi_immediat_refus_de_role — non connecté (401) ou rôle client (403) : aucune mutation, aucune tâche programmée, sur les deux routes', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    expect((await envoyer()).status).toBe(401);
+    expect((await validerAttribution()).status).toBe(401);
+
+    setupAuth('traiteur_manager');
+    expect((await envoyer()).status).toBe(403);
+    expect((await validerAttribution()).status).toBe(403);
+
+    // « Valider » une attribution est réservé à l'admin : l'ops est refusé aussi.
+    setupAuth('ops_savr');
+    expect((await validerAttribution()).status).toBe(403);
+
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+    expect(tachesProgrammees()).toHaveLength(0);
+  });
+});
+
 describe('M1.5a / envoi immédiat — tâche impossible à programmer', () => {
   beforeEach(() => {
     vi.clearAllMocks();

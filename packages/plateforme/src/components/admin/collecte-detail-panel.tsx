@@ -76,6 +76,11 @@ import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import { FLUX_ZD } from '@/lib/libelles/flux';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import { estADispatcher, estModifieeSansRenvoi } from '@/lib/collectes-chips';
+import { TENTATIVES_MAX_ORDRE, type OrdreEnvoi } from '@/lib/ordre-envoi';
+import {
+  formatDateParis,
+  formatHeureParis,
+} from '@savr/shared/src/temps/index.js';
 import {
   envoiAutomatique,
   libelleCanalEnvoi,
@@ -232,6 +237,9 @@ interface CollecteDetail {
     nom: string;
     type_tms: string | null;
   } | null;
+  // Ordre de tête de la collecte dans la file d'envoi au prestataire, lu par la
+  // route détail (`lib/ordre-envoi`) ; null quand plus rien n'est en file.
+  ordre_envoi?: OrdreEnvoi | null;
   // Surcharge per-collecte du lieu (§04 `collectes.lieu_overrides`) : prime sur
   // la référence `lieux` pour cette collecte seulement.
   lieu_overrides?: Record<string, unknown> | null;
@@ -421,6 +429,127 @@ function CarteChoix({
         </Text>
       </span>
     </ChoiceCard>
+  );
+}
+
+// Relecture automatique de la fiche pendant l'envoi : toutes les 2 secondes,
+// 15 fois au plus (30 secondes).
+const RELECTURE_MS = 2_000;
+const RELECTURES_MAX = 15;
+
+// Ordre en file d'envoi : le dispatch a posé le prestataire chez un adapter et la
+// commande n'est pas encore revenue avec sa référence (détail au point d'usage).
+function ordreEnFile(collecte: CollecteDetail): boolean {
+  return (
+    collecte.prestataire_logistique_id != null &&
+    envoiAutomatique(collecte.prestataire_actuel?.type_tms) &&
+    estADispatcher(collecte)
+  );
+}
+
+const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+
+// Encart du bloc « Prestataire & Dispatch » : ce qu'il est advenu de l'ordre
+// envoyé au prestataire (décision Val 2026-10-12, C6).
+//
+// Collecte en file d'envoi (pas encore de référence TMS) :
+//   · ordre en file ou en cours → la collecte est dite envoyée ;
+//   · ordre en échec, une reprise est planifiée → on dit quand ;
+//   · ordre abandonné → on dit que rien n'est transmis, et qu'un renvoi ne
+//     partira pas tant que l'ordre n'est pas débloqué (head-of-line ; le
+//     déblocage est une procédure technique en V1, §04 « Déblocage DLQ »).
+//
+// Hors file d'envoi (référence déjà enregistrée, ou collecte qui n'est plus à
+// dispatcher : annulée, en cours…) : seul un échec est signalé.
+//   · modification ou annulation en échec → c'est elle qui n'est pas passée ;
+//   · ordre de CRÉATION en échec ALORS QU'une référence est enregistrée → la
+//     collecte, elle, EST transmise (acceptation manuelle A Toutes! pendant
+//     une panne, ou véhicule supplémentaire non commandé) : on dit seulement
+//     qu'un ordre reste en échec, et qu'abandonné il retient les suivants ;
+//   · ordre de création en échec SANS référence (collecte annulée avant
+//     l'envoi, par exemple) → la collecte n'est pas transmise, on le dit.
+function EncartOrdreEnvoi({
+  ordre,
+  enFile,
+  referenceRecue,
+  prestataire,
+  canal,
+}: {
+  ordre: OrdreEnvoi | null;
+  enFile: boolean;
+  /** Une référence TMS est enregistrée sur la collecte. */
+  referenceRecue: boolean;
+  prestataire: string | undefined;
+  canal: string | null;
+}) {
+  const enEchec =
+    ordre?.etat === 'echec_reprise' || ordre?.etat === 'echec_definitif';
+  if (!enFile && !enEchec) return null;
+
+  const aPrestataire = prestataire ? `à ${prestataire}` : 'au prestataire';
+  if (!ordre || !enEchec) {
+    return (
+      <AlertBar variant="info">
+        <span>
+          Collecte envoyée {aPrestataire}
+          {aPrestataire.endsWith('!') ? '' : '.'}{' '}
+          <span className="font-normal">
+            La commande part vers {canal ?? 'le prestataire'} dans les secondes
+            qui suivent l’envoi ; à défaut, au prochain passage automatique. La
+            référence TMS et le statut « Attente acceptation presta »
+            s’afficheront ici dès sa prise en compte.
+          </span>
+        </span>
+      </AlertBar>
+    );
+  }
+
+  const abandonne = ordre.etat === 'echec_definitif';
+  const tentatives = abandonne
+    ? `après ${pluriel(ordre.tentatives, 'tentative')}`
+    : `tentative ${ordre.tentatives} sur ${TENTATIVES_MAX_ORDRE}`;
+  // Une date de reprise déjà passée ne s'affiche pas : l'ordre attend le
+  // prochain passage.
+  const reprise =
+    ordre.prochaine_tentative_at &&
+    Date.parse(ordre.prochaine_tentative_at) > Date.now()
+      ? `Nouvelle tentative automatique le ${formatDateParis(ordre.prochaine_tentative_at)} à ${formatHeureParis(ordre.prochaine_tentative_at)}.`
+      : 'Nouvelle tentative au prochain passage automatique.';
+  const motif = ordre.erreur ? (
+    <span className="mt-1 block font-normal">Motif : {ordre.erreur}</span>
+  ) : null;
+
+  let constat: string;
+  let suite: string;
+  if (referenceRecue && ordre.nature === 'creation') {
+    constat = abandonne
+      ? `Un ordre d’envoi ${aPrestataire} a été abandonné ${tentatives}, alors que la commande porte déjà une référence.`
+      : `Un ordre d’envoi ${aPrestataire} est encore en reprise (${tentatives}), alors que la commande porte déjà une référence.`;
+    suite = abandonne
+      ? 'Les ordres suivants de cette collecte (modification, annulation, véhicule supplémentaire) ne partiront pas tant qu’il n’est pas débloqué par l’équipe technique.'
+      : reprise;
+  } else {
+    const objet =
+      ordre.nature === 'modification'
+        ? 'La modification de la collecte'
+        : ordre.nature === 'annulation'
+          ? 'L’annulation de la collecte'
+          : 'La collecte';
+    constat = abandonne
+      ? `${objet} n’est pas transmise ${aPrestataire} : envoi abandonné ${tentatives}.`
+      : `${objet} n’a pas encore été transmise ${aPrestataire} (${tentatives}).`;
+    suite = abandonne
+      ? 'Un nouvel envoi depuis cette fiche ne partira pas tant que cet ordre n’est pas débloqué par l’équipe technique.'
+      : reprise;
+  }
+
+  return (
+    <AlertBar variant={abandonne ? 'err' : 'warn'}>
+      <span>
+        {constat} <span className="font-normal">{suite}</span>
+        {motif}
+      </span>
+    </AlertBar>
   );
 }
 
@@ -771,6 +900,29 @@ export function CollecteDetailPanel({
       .finally(() => setLoading(false));
   }, [collecteId]);
 
+  // Relecture automatique (décision Val 2026-10-12, C6) : l'envoi part en
+  // arrière-plan juste après le clic, la référence TMS arrive quelques secondes
+  // plus tard. Tant que l'ordre est en file ou en cours, la fiche se relit
+  // seule — un nombre borné de fois : au-delà, on rouvre la fiche.
+  const [relecturesRestantes, setRelecturesRestantes] =
+    useState(RELECTURES_MAX);
+  useEffect(() => {
+    setRelecturesRestantes(RELECTURES_MAX);
+  }, [collecteId]);
+  const envoiEnVol =
+    collecte != null &&
+    ordreEnFile(collecte) &&
+    collecte.ordre_envoi?.etat !== 'echec_reprise' &&
+    collecte.ordre_envoi?.etat !== 'echec_definitif';
+  useEffect(() => {
+    if (!envoiEnVol || relecturesRestantes <= 0) return;
+    const minuterie = setTimeout(() => {
+      setRelecturesRestantes((n) => n - 1);
+      void refetch();
+    }, RELECTURE_MS);
+    return () => clearTimeout(minuterie);
+  }, [envoiEnVol, relecturesRestantes, refetch]);
+
   // Référentiel transporteurs actifs — sélecteur prestataire Bloc 0.
   useEffect(() => {
     fetch('/api/v1/admin/transporteurs?actif=true')
@@ -898,6 +1050,7 @@ export function CollecteDetailPanel({
     );
     if (res.ok) {
       await refetch();
+      setRelecturesRestantes(RELECTURES_MAX);
       setSelectedTransporteurId('');
       setMotifOverride('');
       // Mode « changer » ouvert → il se referme : rendre le focus au bouton
@@ -1309,8 +1462,9 @@ export function CollecteDetailPanel({
   // Ordre en file d'envoi (décision Val 2026-10-02, C1) : collecte dont le
   // dispatch (validation d'attribution AG, choix du prestataire ZD) a posé le
   // prestataire chez un adapter (MTS-1 / A Toutes!) et dont la
-  // commande n'est pas encore partie (le worker outbox tourne toutes les 15 min :
-  // `tms_reference` vide, `statut_tms` encore « non envoyé » — §06.09 §3 pt 3).
+  // commande n'est pas encore revenue avec sa référence (l'ordre part au clic,
+  // le passage planifié du worker n'est plus que le filet : `tms_reference`
+  // vide, `statut_tms` encore « non envoyé » — §06.09 §3 pt 3).
   // À ce stade la fiche DIT la collecte envoyée et ne rouvre le choix du
   // prestataire que sur demande : avant, elle réaffichait « Prestataire à
   // attribuer » + « Envoyer », comme si rien n'était parti.
@@ -1323,10 +1477,9 @@ export function CollecteDetailPanel({
   // automatiquement pour eux.
   // « À dispatcher » au sens canonique (§11 §1.1, `estADispatcher` : non envoyée,
   // sans référence, programmée ou validée) — mais l'ordre est déjà en file.
-  const ordreEnFileEnvoi =
-    collecte.prestataire_logistique_id != null &&
-    envoiAutomatique(currentTransporteur?.type_tms) &&
-    estADispatcher(collecte);
+  const ordreEnFileEnvoi = ordreEnFile(collecte);
+  // État réel de l'ordre de tête, lu dans la file (décision Val 2026-10-12, C6).
+  const ordreEnvoi = collecte.ordre_envoi ?? null;
   const dispatchEnLecture = ordreEnFileEnvoi && !changerPrestataire;
   // Même prestataire, ordre déjà en file (ou référence TMS reçue) → « Renvoyer ».
   const renvoi =
@@ -1427,9 +1580,15 @@ export function CollecteDetailPanel({
 
   // En file d'envoi, « Non envoyé » (valeur brute de l'enum) tromperait l'Ops :
   // l'ordre est parti côté Plateforme. Affichage dérivé, l'enum DB ne change pas.
-  const statutTms = ordreEnFileEnvoi
-    ? { label: 'Envoyée', variant: 'info' as const }
-    : statutTmsDisplay(collecte.statut_tms);
+  // Un ordre en échec le dit : « Envoyée » laisserait croire que tout suit son
+  // cours (décision Val 2026-10-12, C6 — remplace « la fiche reste Envoyée »).
+  const statutTms = !ordreEnFileEnvoi
+    ? statutTmsDisplay(collecte.statut_tms)
+    : ordreEnvoi?.etat === 'echec_definitif'
+      ? { label: 'Échec d’envoi', variant: 'error' as const }
+      : ordreEnvoi?.etat === 'echec_reprise'
+        ? { label: 'Envoi en reprise', variant: 'warning' as const }
+        : { label: 'Envoyée', variant: 'info' as const };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -1806,21 +1965,13 @@ export function CollecteDetailPanel({
                   )}
                 </dl>
 
-                {ordreEnFileEnvoi && (
-                  <AlertBar variant="info">
-                    <span>
-                      Collecte envoyée à {currentTransporteur?.nom}
-                      {currentTransporteur?.nom?.endsWith('!') ? '' : '.'}{' '}
-                      <span className="font-normal">
-                        La commande part automatiquement vers {canalEnvoi}{' '}
-                        (prochain passage sous 15 minutes, reprises automatiques
-                        en cas d&apos;erreur) : la référence TMS et le statut «
-                        Attente acceptation presta » s&apos;afficheront ici dès
-                        sa prise en compte.
-                      </span>
-                    </span>
-                  </AlertBar>
-                )}
+                <EncartOrdreEnvoi
+                  ordre={ordreEnvoi}
+                  enFile={ordreEnFileEnvoi}
+                  referenceRecue={!!collecte.tms_reference}
+                  prestataire={currentTransporteur?.nom}
+                  canal={canalEnvoi}
+                />
 
                 {/* Choix du prestataire — §06.06 §3, en cartes cochables (décision
             Val C3). AG : la reco algo est présélectionnée et marquée

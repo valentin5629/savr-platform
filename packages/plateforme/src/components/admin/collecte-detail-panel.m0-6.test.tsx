@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  act,
   render,
   screen,
   waitFor,
@@ -821,6 +822,425 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(
         screen.getByRole('button', { name: 'Changer de prestataire' }),
       ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // État réel de l'ordre d'envoi (décision Val 2026-10-12, C6). L'envoi part en
+  // arrière-plan juste après le clic ; la route détail rend l'ordre de tête de
+  // la file (`ordre_envoi`). La fiche dit ce qu'il en est — en file, en échec
+  // avec reprise, abandonné — et se relit seule tant que l'envoi est en cours.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const ordreEnvoi = (over: Record<string, unknown> = {}) => ({
+    etat: 'en_attente',
+    nature: 'creation',
+    tentatives: 0,
+    prochaine_tentative_at: null,
+    erreur: null,
+    ...over,
+  });
+
+  // Sert la collecte par une fonction et compte ses lectures (GET de la fiche).
+  function mockLectures(servie: (lecture: number) => Record<string, unknown>) {
+    const compteur = { lectures: 0 };
+    const fetchMock = mockFetch() as unknown as ReturnType<typeof vi.fn>;
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(
+      (url: string, opts?: { method?: string; body?: string }) => {
+        if (url === '/api/v1/admin/collectes/c1' && !opts?.method) {
+          compteur.lectures += 1;
+          const collecte = servie(compteur.lectures);
+          return Promise.resolve({ ok: true, json: async () => collecte });
+        }
+        return base(url, opts);
+      },
+    );
+    return compteur;
+  }
+
+  it(
+    'M0.6/ordre_envoi_encart_en_file — ordre en file : collecte dite envoyée, départ annoncé dans les secondes qui suivent, plus de « 15 minutes »',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi(),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /Collecte envoyée à Strike/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /part vers MTS-1 dans les secondes qui suivent l.envoi ; à défaut, au prochain passage automatique/,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/15 minutes/)).toBeNull();
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Envoyée')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_echec_reprise — ordre en échec avec reprise : « Envoi en reprise », tentative comptée, date de la prochaine tentative et motif',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_reprise',
+          tentatives: 2,
+          prochaine_tentative_at: '2030-01-15T09:35:00Z',
+          erreur: '503 Service Unavailable',
+        }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(sousLigne).getByText('Envoi en reprise'),
+      ).toBeInTheDocument();
+      expect(within(sousLigne).queryByText('Envoyée')).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /La collecte n.a pas encore été transmise à Strike \(tentative 2 sur 4\)/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      // 09:35 UTC = 10:35 à Paris un 15 janvier.
+      expect(
+        screen.getByText(
+          'Nouvelle tentative automatique le 15/01/2030 à 10:35.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Motif : 503 Service Unavailable'),
+      ).toBeInTheDocument();
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Envoi en reprise')).toBeInTheDocument();
+      // La collecte n'est plus dite « envoyée ».
+      expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_echec_definitif — ordre abandonné : « Échec d’envoi », collecte dite non transmise, renvoi annoncé bloqué',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_definitif',
+          tentatives: 4,
+          erreur: '400 Bad Request',
+        }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(sousLigne).getByText('Échec d’envoi')).toBeInTheDocument();
+
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /La collecte n.est pas transmise à Strike : envoi abandonné après 4 tentatives\./,
+      );
+      expect(alerte.textContent).toMatch(
+        /Un nouvel envoi depuis cette fiche ne partira pas tant que cet ordre n.est pas débloqué par l.équipe technique\./,
+      );
+      expect(alerte.textContent).toMatch(/Motif : 400 Bad Request/);
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Échec d’envoi')).toBeInTheDocument();
+      expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_hors_file — commande déjà reçue par le prestataire : seul un échec est signalé, nommé par sa nature',
+    async () => {
+      const commandee = {
+        ...collecteEnFileMts1,
+        tms_reference: 'TOUR-77',
+        statut_tms: 'acceptee',
+      };
+
+      // Une modification encore en file : rien à signaler.
+      mockFetchPrestataire({
+        ...commandee,
+        ordre_envoi: ordreEnvoi({ nature: 'modification' }),
+      });
+      const premiere = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Statut TMS', undefined, ATTENTE_UI);
+      expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
+      expect(screen.queryByText(/transmise à Strike/)).toBeNull();
+      premiere.unmount();
+
+      // Une annulation abandonnée : le prestataire ne sait pas que c'est annulé.
+      mockFetchPrestataire({
+        ...commandee,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_definitif',
+          nature: 'annulation',
+          tentatives: 1,
+        }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /L’annulation de la collecte n.est pas transmise à Strike : envoi abandonné après 1 tentative\./,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_hors_file_creation — commande déjà reçue et ordre de création en échec : la collecte n’est pas dite « non transmise »',
+    async () => {
+      // Cas nominal de l'acceptation manuelle A Toutes! pendant une panne : la
+      // référence est enregistrée, l'ordre de création est encore en échec.
+      const acceptee = {
+        ...collecteEnFileMts1,
+        tms_reference: 'TOUR-77',
+        statut_tms: 'acceptee',
+      };
+
+      mockFetchPrestataire({
+        ...acceptee,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_reprise',
+          tentatives: 2,
+          prochaine_tentative_at: '2030-01-15T09:35:00Z',
+        }),
+      });
+      const premiere = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const reprise = await screen.findByText(
+        /Un ordre d.envoi à Strike est encore en reprise \(tentative 2 sur 4\), alors que la commande porte déjà une référence\./,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(reprise).toBeInTheDocument();
+      expect(screen.queryByText(/transmise à Strike/)).toBeNull();
+      premiere.unmount();
+
+      mockFetchPrestataire({
+        ...acceptee,
+        ordre_envoi: ordreEnvoi({ etat: 'echec_definitif', tentatives: 4 }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /Un ordre d.envoi à Strike a été abandonné après 4 tentatives, alors que la commande porte déjà une référence\./,
+      );
+      expect(alerte.textContent).toMatch(
+        /Les ordres suivants de cette collecte \(modification, annulation, véhicule supplémentaire\) ne partiront pas tant qu.il n.est pas débloqué par l.équipe technique\./,
+      );
+      expect(alerte.textContent).not.toMatch(/n.est pas transmise/);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_sans_reference — collecte annulée avant l’envoi, sans référence, ordre de création en échec : dite non transmise, jamais « porte déjà une référence »',
+    async () => {
+      // Hors file d'envoi (elle n'est plus à dispatcher) mais RIEN n'a été reçu
+      // par le prestataire.
+      const annulee = {
+        ...collecteEnFileMts1,
+        statut: 'annulee',
+        tms_reference: null,
+        statut_tms: 'non_envoye',
+      };
+
+      mockFetchPrestataire({
+        ...annulee,
+        ordre_envoi: ordreEnvoi({ etat: 'echec_reprise', tentatives: 2 }),
+      });
+      const premiere = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /La collecte n.a pas encore été transmise à Strike \(tentative 2 sur 4\)/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/porte déjà une référence/)).toBeNull();
+      premiere.unmount();
+
+      mockFetchPrestataire({
+        ...annulee,
+        ordre_envoi: ordreEnvoi({ etat: 'echec_definitif', tentatives: 4 }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /La collecte n.est pas transmise à Strike : envoi abandonné après 4 tentatives\./,
+      );
+      expect(alerte.textContent).not.toMatch(/porte déjà une référence/);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_textes_limites — date de reprise déjà passée : pas de date affichée ; prestataire sans nom : « au prestataire »',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_reprise',
+          tentatives: 1,
+          prochaine_tentative_at: '2020-01-15T09:35:00Z',
+        }),
+      });
+      const premiere = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          'Nouvelle tentative au prochain passage automatique.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/15\/01\/2020/)).toBeNull();
+      premiere.unmount();
+
+      // Commande reçue, annulation abandonnée, prestataire que la route n'a pas su nommer.
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        tms_reference: 'TOUR-77',
+        statut_tms: 'acceptee',
+        prestataire_actuel: null,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_definitif',
+          nature: 'annulation',
+          tentatives: 4,
+        }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /L.annulation de la collecte n.est pas transmise au prestataire : envoi abandonné après 4 tentatives\./,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_relecture — la fiche se relit seule tant que l’envoi est en cours, affiche la référence dès qu’elle arrive, puis cesse de relire',
+    async () => {
+      // Lectures 1 et 2 : ordre en cours. Lecture 3 : la commande est reçue.
+      const compteur = mockLectures((lecture) =>
+        lecture >= 3
+          ? {
+              ...collecteEnFileMts1,
+              tms_reference: 'TOUR-77',
+              statut_tms: 'attribuee_en_attente_acceptation',
+              ordre_envoi: null,
+            }
+          : {
+              ...collecteEnFileMts1,
+              ordre_envoi: ordreEnvoi({ etat: 'en_cours', tentatives: 1 }),
+            },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      await ouvrirOnglet('Logistique');
+      await screen.findByText(
+        /Collecte envoyée à Strike/,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(compteur.lectures).toBe(1);
+
+      // Sans aucun geste : deux relectures (2 s chacune) plus tard, la référence est là.
+      const ligne = screen.getByText('Référence TMS').parentElement!;
+      await waitFor(
+        () => expect(within(ligne).getByText('TOUR-77')).toBeInTheDocument(),
+        { timeout: 7_000 },
+      );
+      expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
+      expect(compteur.lectures).toBe(3);
+
+      // La commande est reçue : plus de relecture.
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+      expect(compteur.lectures).toBe(3);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_pas_de_relecture_en_echec — ordre en échec : la fiche ne se relit pas en boucle',
+    async () => {
+      const compteur = mockLectures(() => ({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi({ etat: 'echec_definitif', tentatives: 4 }),
+      }));
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      await ouvrirOnglet('Logistique');
+      await screen.findByRole('alert', undefined, ATTENTE_UI);
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+      expect(compteur.lectures).toBe(1);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_relecture_bornee — ordre qui reste en file : 15 relectures au plus, puis la fiche cesse de relire',
+    async () => {
+      const compteur = mockLectures(() => ({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi(),
+      }));
+      // Horloge simulée qui suit l'horloge réelle (les attentes de rendu
+      // fonctionnent), et qu'on avance plus bas de 40 secondes, par pas de 2.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        render(<CollecteDetailPanel collecteId="c1" />);
+        await screen.findByTestId(
+          'fiche-admin-sous-ligne',
+          undefined,
+          ATTENTE_UI,
+        );
+        expect(compteur.lectures).toBe(1);
+
+        // Un pas par relecture : chaque relecture doit être rendue avant que la
+        // suivante ne soit programmée.
+        for (let pas = 0; pas < 20; pas++) {
+          await act(async () => {
+            await vi.advanceTimersByTimeAsync(2_000);
+          });
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(compteur.lectures).toBe(16);
     },
     ATTENTE_CAS_MS,
   );

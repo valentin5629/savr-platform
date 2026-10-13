@@ -18,6 +18,7 @@ import type {
   EverestCreatedMission,
   EverestMissionDetail,
 } from './mock.js';
+import { verifierEcheance } from '../echeance-passage.js';
 import { _getEverestHandlers } from './mock.js';
 
 // Cache token : keyed par client_id (en V1 un seul transporteur Everest)
@@ -106,6 +107,7 @@ export class EverestClient {
       return result.data.token;
     }
 
+    verifierEcheance('Everest POST /auth');
     const resp = await fetch(`${this.baseUrl}/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -387,11 +389,15 @@ export class EverestClient {
 
   // ─── Primitives HTTP ───────────────────────────────────────────────────────
 
-  private async postJson(
+  // postJson et getJson ne sont PAS `async`, à dessein : un refus à l'échéance
+  // est levé avant qu'une promesse existe. Il ne passe donc pas par les `.catch`
+  // des appelants, qui le rhabilleraient en « timeout » ambigu.
+  private postJson(
     path: string,
     body: unknown,
     token: string,
   ): Promise<Response> {
+    verifierEcheance(`Everest POST ${path}`);
     return fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers: {
@@ -403,7 +409,8 @@ export class EverestClient {
     });
   }
 
-  private async getJson(path: string, token: string): Promise<Response> {
+  private getJson(path: string, token: string): Promise<Response> {
+    verifierEcheance(`Everest GET ${path}`);
     return fetch(`${this.baseUrl}${path}`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },

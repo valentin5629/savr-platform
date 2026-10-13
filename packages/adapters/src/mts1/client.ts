@@ -12,6 +12,7 @@ import {
   LogistiquePermanentError,
   LogistiqueTransientError,
 } from '../index.js';
+import { verifierEcheance } from '../echeance-passage.js';
 import type {
   Mts1Carrier,
   Mts1CustomerOrder,
@@ -585,6 +586,9 @@ export class Mts1Client {
     t0: number,
     direction: 'sortant' | 'entrant' = 'sortant',
   ): Promise<Response> {
+    // Passage du worker : plus aucun appel ne démarre après l'échéance de l'ordre.
+    verifierEcheance(`MTS-1 ${method} ${path}`);
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
 

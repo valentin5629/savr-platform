@@ -28,8 +28,9 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('M2.4 / régénération Admin rapport sans-excédent (BL-P1-RPT-02)', () => {
   it('type rapport-evenement-sans-excedent → ré-enqueue job + regenere_at/version+1', async () => {
-    // [0] rapports_rse docRow, [1] jobs_pdf lastJob (payload figé), [2] insert jobs_pdf,
-    // [3] select version, [4] update rapports_rse, [5] insert audit_log.
+    // [0] rapports_rse docRow, [1] jobs_pdf lastJob (payload figé), [2] select version
+    // (lue AVANT la mise en file : une lecture en échec ne lance aucun rendu),
+    // [3] insert jobs_pdf, [4] update rapports_rse, [5] insert audit_log.
     const sb = makeSupabase([
       { data: { id: 'rap-se-1' } },
       {
@@ -41,8 +42,8 @@ describe('M2.4 / régénération Admin rapport sans-excédent (BL-P1-RPT-02)', (
           },
         },
       },
-      { data: { id: 'job-regen' } },
       { data: { version: 1 } },
+      { data: { id: 'job-regen' } },
       { data: null },
       { data: null },
     ]);

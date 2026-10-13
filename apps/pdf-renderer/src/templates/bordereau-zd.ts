@@ -6,6 +6,8 @@ export const TEMPLATE_VERSION = 'bordereau-zd@2';
 
 export interface FluxDetail {
   nom: string;
+  /** Code du flux (`flux_dechets.code`) — sert au rapport de recyclage (couleur, ordre). */
+  code?: string;
   poids_kg: number;
   /** Nombre de bacs (flux collectés en bacs — §12 §1.1 « équivalent bacs/rolls »). */
   nb_bacs?: number | null;
@@ -41,24 +43,9 @@ function bacsRolls(f: FluxDetail): string {
   return '—';
 }
 
-export function renderBordereauZd(data: BordereauZdData): string {
-  const lignesFlux = data.flux
-    .map(
-      (f) => `
-      <tr>
-        <td class="flux-nom">${esc(f.nom)}</td>
-        <td class="num">${f.poids_kg.toFixed(2).replace('.', ',')} kg</td>
-        <td class="num">${bacsRolls(f)}</td>
-      </tr>`,
-    )
-    .join('');
-
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8"/>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+// Styles du bordereau, exportés pour que le rapport de recyclage (page 2) les
+// réemploie sous un sélecteur de portée, sans les recopier.
+export const BORDEREAU_CSS = `  * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1a1a1a; padding: 28px 32px; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #16a34a; padding-bottom: 14px; margin-bottom: 20px; }
   .logo-savr { font-size: 22px; font-weight: 800; color: #16a34a; letter-spacing: -0.5px; }
@@ -85,10 +72,22 @@ export function renderBordereauZd(data: BordereauZdData): string {
   .sig-box { flex: 1; border: 1px dashed #d1d5db; border-radius: 4px; padding: 10px; min-height: 60px; }
   .sig-box .label { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
   .regen-mention { font-size: 9px; color: #b45309; font-style: italic; margin-bottom: 8px; }
-</style>
-</head>
-<body>
-  <div class="header">
+`;
+
+/** Corps du bordereau (contenu de <body>), sans document ni styles. */
+export function renderBordereauBody(data: BordereauZdData): string {
+  const lignesFlux = data.flux
+    .map(
+      (f) => `
+      <tr>
+        <td class="flux-nom">${esc(f.nom)}</td>
+        <td class="num">${f.poids_kg.toFixed(2).replace('.', ',')} kg</td>
+        <td class="num">${bacsRolls(f)}</td>
+      </tr>`,
+    )
+    .join('');
+
+  return `  <div class="header">
     <div class="logo-savr">Savr</div>
     <div class="doc-title">
       <h1>Bordereau de pesée</h1>
@@ -151,7 +150,20 @@ export function renderBordereauZd(data: BordereauZdData): string {
   <div class="footer">
     <div class="footer-mention">Document officiel Savr · ${esc(data.numero)}</div>
     <div class="official">Savr — gosavr.io</div>
-  </div>
+  </div>`;
+}
+
+/** Document complet du bordereau unitaire (§12 §1.1). */
+export function renderBordereauZd(data: BordereauZdData): string {
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<style>
+${BORDEREAU_CSS}</style>
+</head>
+<body>
+${renderBordereauBody(data)}
 </body>
 </html>`;
 }

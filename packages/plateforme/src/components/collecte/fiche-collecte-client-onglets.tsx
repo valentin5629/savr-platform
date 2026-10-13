@@ -53,12 +53,11 @@ export interface FactureInfo {
 }
 
 // Réponse des routes GET /api/v1/{espace}/collectes/[id] : socle commun + les
-// seuls compléments de rôle (traiteur : programmée par, factures, régénération ;
-// agence : traiteur opérationnel).
+// seuls compléments de rôle (traiteur : programmée par, factures ; agence :
+// traiteur opérationnel).
 export interface FicheClientDonnees extends FicheCollecteClient {
   programmee_par?: ProgrammeePar | null;
   factures?: FactureInfo[];
-  can_regenerate?: boolean;
   traiteur_operationnel?: TraiteurOperationnel | null;
 }
 

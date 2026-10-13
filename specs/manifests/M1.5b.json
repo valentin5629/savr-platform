@@ -18,6 +18,7 @@
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)",
       "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
       "libelle": "upload photo MTS-1 → R2 (uploadObject @savr/shared, fin du stub Sig V4) + ligne shared.fichiers ; INSERT échoue si upload KO (jamais d'orpheline)"
     },
     {
@@ -26,7 +27,8 @@
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-1 / poll nominal VALIDATED → statut_tms=\"acceptee\", pesées upsertées, photo uploadée",
       "statut": "implemented",
-      "libelle": "sync nominal : customerOrderStatus → statut_tms + upsert pesées (pesees_tournees) + photos"
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
+      "libelle": "sync nominal : customerOrderStatus → statut_tms + upsert pesées (pesees_tournees) + photos. ⚠ Pesées et photos ne sont prouvées que sur des handlers simulés à la forme supposée : sur la forme réelle du tour elles ne sont pas lues (mesuré le 2026-10-13, livrable M1.5b-pesees-photos-forme-reelle)."
     },
     {
       "id": "M1.5b-dedup-inbox",
@@ -50,6 +52,7 @@
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-4 / stuff inconnu → integrations_logs STUFF_INCONNU, pesées connues upsertées quand même",
       "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
       "libelle": "flux MTS-1 inconnu → log STUFF_INCONNU non bloquant, pesées connues upsertées"
     },
     {
@@ -58,6 +61,7 @@
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-5 / collecte cloturee + poids différent → aucune écriture + log PESEE_DIVERGENCE_POST_CLOTURE",
       "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
       "libelle": "divergence poids sur collecte cloturee (R7) → aucune écriture + log + alerte Ops"
     },
     {
@@ -66,6 +70,7 @@
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-6 / photo déjà dans shared.fichiers → skip download",
       "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
       "libelle": "dédup photo : présente dans shared.fichiers (key) → skip download/upload"
     },
     {
@@ -74,6 +79,7 @@
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-7 / photo 404 → log PHOTO_DOWNLOAD_FAILED, poll continue (pas d'exception)",
       "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
       "libelle": "photo 404 → log non bloquant, retentée au poll suivant (pas d'orpheline)"
     },
     {
@@ -82,6 +88,7 @@
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
       "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
       "libelle": "photo MTS-1 rangée dans shared.fichiers sous entity_type='plateforme.collectes' (table propriétaire, liste C1 des 9 entity_type) : même valeur que l'import manuel Admin, lue par la galerie de la fiche collecte Admin et par shared.f_fichier_visible ; dédup inchangée (clé de stockage seule)"
     },
     {
@@ -90,6 +97,7 @@
       "artefact": "packages/adapters/src/mts1/adapter.ts (clePhoto)",
       "test": "M1.5b-photo-cle-opaque / la clé ne porte aucun identifiant du transporteur + photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement) + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule",
       "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
       "libelle": "Photo remontée par le transporteur stockée dans le bucket de l'environnement sous photos/collectes/<collecteId>/<sha256(tourId, stopId, photoId)>.jpg (décisions Val 2026-10-07 — _Divergences/M1.6_20261007_stockage-r2-par-environnement.md ; le CDC §08 §3bis.7 l.504 fixe la clé de dédup (tourId, stopId, photoId) mais ni le bucket ni la forme de la clé de stockage). La clé ne montre plus les identifiants de tournée, d'arrêt et de photo du logiciel du transporteur aux clients qui lisent la ligne shared.fichiers (§09 C1) ; elle est déterministe (la dédup cherche la clé) et ne dépend pas de l'URL de la photo. L'ancien bucket codé en dur `collectes` n'existait pas chez Cloudflare (404 mesuré le 2026-10-07)."
     },
     {
@@ -142,13 +150,22 @@
       "libelle": "Photo du lieu « aucun repas » (`collectes.aucun_repas_photo_url`) réservée à l'équipe Savr : un rôle client ne doit pas la lire, `admin_savr` et `ops_savr` la lisent (arbitrage Val 2026-10-07, scénario 09 `photo_aucun_repas_lecture_equipe_savr_seule`). NON LIVRÉ au sync du 2026-10-09 : la colonne reste lisible par `authenticated` sur `plateforme.collectes` et par la vue `v_collectes_gestionnaire_lieux`. Lot de fermeture à livrer (liste blanche de colonnes ; fermeture d'accès, donc GO reviewer-rls-securite et preuve pgTAP par rôle)."
     },
     {
+      "id": "M1.5b-releve-recherche-forme-reelle",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:496",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (sync : fenêtre du cron convertie en jours comptés à Paris ; processOrder : customerOrderId et customerOrderStatus ; processTourDetails : réponse de tour sans stops tolérée), packages/adapters/src/mts1/client.ts (getCarrier : tableau nu)",
+      "test": "M1.5b/releve_fenetre_en_jours_paris + M1.5b/releve_fil_statut_relaye + M1.5b/releve_fil_recherche_en_echec + M1.5b/releve_tour_sans_arrets + M1.5b/releve_fil_referentiel_transporteurs + M1.5b/releve_fil_referentiel_forme",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-recherche-commandes-contrat-mesure.md",
+      "libelle": "Relève entrante : remontée des STATUTS alignée sur le contrat mesuré le 2026-10-13, pour les commandes que la fenêtre du cron demande encore (limite de cette fenêtre : livrable M1.5b-pesees-photos-forme-reelle). La recherche part en jours yyyy-MM-dd comptés à Paris (les instants ISO répondaient 500 à chaque passage), la réponse est lue comme un tableau nu, la commande par customerOrderId / customerOrderStatus (lus sous id / status, la clé de dédup valait la même chose pour toutes les commandes), GET /v3/carrier comme un tableau nu (lu sous { carriers }, la résolution de la plaque levait avant le statut terminal), et la réponse sans stops que rend MTS-1 pour un tour qu'il ne connaît pas ne bloque plus le statut terminal de la commande."
+    },
+    {
       "id": "M1.5b-pesees-photos-forme-reelle",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:497",
       "artefact": null,
       "test": null,
       "statut": "partial",
       "ref_divergence": "_Divergences/M1.5_20261013_mts1-releve-pesees-photos-forme-reelle.md",
-      "libelle": "NON LIVRÉ au sync du 2026-10-13 — la relève entrante MTS-1 ne lit pas la forme réelle de l'API (mesurée le 2026-10-13 sur le compte de démonstration, §08 §3bis.7). Sur `main` : (1) la recherche des commandes part en instants ISO, que l'API refuse (500 ; elle n'accepte que des jours yyyy-MM-dd), et lit `id` / `externalReference` au lieu de `customerOrderId` / `orderNumber` — la relève échoue donc à chaque passage ; (2) les pesées sont lues dans `stops[].items[].weight`, alors que l'API rend `stops[].stuffs[]` sans champ `weight` (sur le seul tour terminé du compte, les kilos sont dans `quantityAfterPickup`, répétés sur l'arrêt d'enlèvement et l'arrêt de dépôt) ; (3) les photos sont demandées à `GET /v3/tours/{id}/photos`, qui répond 404 `BAD_ROUTE` (elles sont dans le détail du tour, `stops[].photos[].downloadUrl`) ; (4) `GET /v3/carrier` est lu sous `{ carriers }`, alors que l'API rend un tableau nu ; (5) le cron ne recule que de 2 h alors que la recherche compare des jours entiers. Les livrables M1.5b-sync-nominal, M1.5b-stuff-inconnu, M1.5b-dedup-photo et M1.5b-photo-404 ne sont prouvés que sur des réponses simulées à la forme supposée. Les points (1) et (4) sont repris par la branche `fix/mts1-recherche-commandes-forme-reelle` ; pesées, photos et fenêtre de relève partent dans un lot à part, après arbitrage par Val du champ qui porte le poids et de la fenêtre (décision Val 2026-10-13). Ordre de fusion à respecter : une fois la recherche réparée sans ce lot, une collecte terminée passe « réalisée » sans pesée."
+      "libelle": "NON LIVRÉ — pesées et photos ne sont pas lues sur la forme réelle du tour (mesuré le 2026-10-13 sur le compte de démonstration). Le code lit stops[].items[].weight ; GET /v3/tours/{id} rend stops[].stuffs[], sans champ weight, et sur le seul tour terminé du compte les kilos sont dans quantityAfterPickup, répétés sur l'arrêt d'enlèvement et l'arrêt de dépôt. La route GET /v3/tours/{id}/photos répond 404 BAD_ROUTE : les photos sont dans le détail du tour (stops[].photos[].downloadUrl, adresse du connecteur). Les tests existants passent par des handlers simulés à la forme supposée. Même lot à venir, la fenêtre de relève : le cron ne recule que de 2 h alors que la recherche compare des jours entiers, donc une commande du jour J n'est plus demandée après 2 h du matin à J+1 et un statut terminal posé plus tard n'est pas relevé (collectes de nuit : cas courant). Effet de bord tant que ce lot n'est pas livré : sur un environnement qui relève MTS-1, une collecte terminée passe réalisée sans pesée, est clôturée 24 heures plus tard, et la relève n'écrit plus de pesée après clôture. Lot à part (décision Val 2026-10-13), après arbitrage du champ qui porte le poids et de la fenêtre."
     }
   ],
   "cdc_source_hash": {

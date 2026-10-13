@@ -5,8 +5,9 @@ import { calculerAlgoAttributionAg } from '@/lib/attribution-ag/algo.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 
-// Envoi immédiat après la réponse : durée de vie bornée sous le bail de
-// réservation des ordres (cf. lib/envoi-immediat.ts).
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche, la moitié du bail de réservation des ordres. Elle ne borne pas
+// seule la durée de vie du passage (cf. lib/envoi-immediat.ts).
 export const maxDuration = 60;
 
 const STATUTS_TERMINAUX = [

@@ -9,8 +9,9 @@
  *      une exception (la requête a déjà répondu) ;
  *   3. cliquet de durée : toute route qui déclenche l'envoi immédiat, comme la
  *      route du passage planifié, déclare `maxDuration` ≤ 60 s — la moitié du
- *      bail de réservation des ordres, lu dans la migration. Sur Vercel, c'est
- *      ce qui garde un passage vivant hors de portée du reaper.
+ *      bail de réservation des ordres, lu dans la migration. Limite nécessaire,
+ *      pas suffisante : sur Vercel une tâche `after()` hors délai peut continuer
+ *      (mesuré le 2026-10-12, invariant A3 de adapters/src/outbox-worker.ts).
  *
  * `after()` est remplacée dans vitest.setup.ts par un espion qui n'exécute pas la
  * tâche : on la récupère dans ses appels et on la lance à la main.

@@ -8,6 +8,7 @@
 // trace, un échec Pennylane (4xx/5xx/timeout) était invisible côté Ops. Le
 // `supabase` (service_role côté jobs/routes facturation) est threadé des appelants.
 
+import { libelleErreurReseau } from '@savr/shared/src/api/erreur-reseau.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import {
@@ -73,10 +74,17 @@ function logFieldsFromResult(r: { ok: true } | PennylaneError): {
     : { ok: false, status: r.status, erreur: `${r.error}: ${r.message}` };
 }
 
-function apiKey(): string {
-  const key = process.env['PENNYLANE_API_KEY'];
-  if (!key) throw new Error('PENNYLANE_API_KEY non définie');
-  return key;
+// Appel qui n'a pas eu de réponse (clé absente, délai dépassé, réseau) : même
+// forme qu'un 5xx, l'appelant retente. `message` est un libellé écrit ICI, jamais
+// le texte de l'erreur — il va dans factures.erreur_synchro et integrations_logs.
+function echecSansReponse(path: string, message: string): PennylaneError {
+  logger.error('api.external.failed', {
+    service: 'pennylane',
+    endpoint: path,
+    error_code: 'network_error',
+    retry_count: 0,
+  });
+  return { ok: false, status: 503, error: 'network_error', message };
 }
 
 async function pennylaneRequest<T>(
@@ -85,12 +93,15 @@ async function pennylaneRequest<T>(
   body?: Record<string, unknown>,
   idempotencyKey?: string,
 ): Promise<{ ok: true; data: T } | PennylaneError> {
+  const cle = process.env['PENNYLANE_API_KEY'];
+  if (!cle) return echecSansReponse(path, 'PENNYLANE_API_KEY non définie');
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey()}`,
+      Authorization: `Bearer ${cle}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     };
@@ -140,19 +151,9 @@ async function pennylaneRequest<T>(
     const data = (await res.json()) as T;
     return { ok: true, data };
   } catch (err) {
-    // AbortError (timeout) ou réseau → 5xx-like pour retry
-    logger.error('api.external.failed', {
-      service: 'pennylane',
-      endpoint: path,
-      error_code: 'network_error',
-      retry_count: 0,
-    });
-    return {
-      ok: false,
-      status: 503,
-      error: 'network_error',
-      message: String(err),
-    };
+    // `fetch` recopie dans son erreur la valeur d'en-tête qu'il refuse, donc la
+    // clé entière : on n'en garde qu'un libellé (cf. libelleErreurReseau).
+    return echecSansReponse(path, libelleErreurReseau(err));
   } finally {
     clearTimeout(timer);
   }

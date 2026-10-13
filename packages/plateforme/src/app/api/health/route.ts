@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { libelleErreurReseau } from '@savr/shared/src/api/erreur-reseau.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 
 import { withApiTrace } from '@/lib/api-helpers.js';
@@ -48,9 +49,9 @@ async function getHandler(_req: Request): Promise<NextResponse> {
   } catch (err) {
     if (_lastStatus !== 'ko') {
       _lastStatus = 'ko';
-      logger.error('health.db_ko', {
-        error: err instanceof Error ? err.message : 'unknown',
-      });
+      // Jamais le texte de l'erreur : `fetch` y recopie la valeur d'en-tête qu'il
+      // refuse, donc la clé de service entière (cf. libelleErreurReseau).
+      logger.error('health.db_ko', { error: libelleErreurReseau(err) });
     }
     return NextResponse.json({ status: 'ko' }, { status: 503 });
   }

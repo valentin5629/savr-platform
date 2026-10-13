@@ -34,6 +34,30 @@
  *   n'apparaisse dans la route. Ciblée par convention de nommage (`result`/`res`) :
  *   un `NextResponse.json(data)` est la donnée métier du cas nominal.
  *
+ * RÈGLE F — dans tout fichier SERVEUR qui appelle `fetch` (adapters, shared,
+ *   `lib/`, `app/api/`), l'erreur ATTRAPÉE ne se lit pas. Ce n'est plus la
+ *   structure de la base qui fuit, c'est un SECRET : le moteur recopie dans son
+ *   erreur la valeur qu'il refuse — « Headers.append: "Bearer <clé entière>" is an
+ *   invalid header value. », « Failed to parse URL from <adresse entière> »
+ *   (mesuré le 2026-10-13, Node 22.23.2 et 25.9.0). Et la fuite ne passe pas par
+ *   une réponse HTTP, que voient les règles A à E : elle passe par une colonne
+ *   (`integrations_logs.erreur`, `outbox_events.last_error`, `jobs_pdf.last_error`,
+ *   `factures.erreur_synchro`), un journal ou une alerte, relus plus tard par un
+ *   écran. La règle ne suit donc pas le texte : elle interdit de le prendre.
+ *   Tout usage de la variable d'un `catch (err)` — ou du paramètre d'un
+ *   `.catch((err) => …)` — est refusé, sauf :
+ *     ✅ `libelleErreurReseau(err)` / `decrireErreurReseau(err)` (le classeur)
+ *     ✅ `err instanceof X`, `typeof err`, `err.name` (la classe, pas le texte)
+ *     ✅ `throw err` (relancée telle quelle — cf. « ce que la règle ne voit pas »)
+ *     ❌ `String(err)`, `${err}`, `err.message`, `err.stack`, `{ cause: err }`,
+ *        `logger.error('x', { error: err.message })` (un journal est un texte
+ *        conservé), `capturer(err)` (l'erreur entière confiée à un tiers)
+ *   Portée : TOUT `catch` du fichier, pas seulement celui qui entoure le `fetch`
+ *   — l'appel passe souvent par une méthode intermédiaire
+ *   (`this.postJson(…).catch(…)`). Ce que la règle ne voit pas : une erreur qui
+ *   sort du fichier sans y être attrapée (`fetch` sans `try`, ou `throw err`) —
+ *   c'est alors l'appelant qui la lit, dans un fichier sans `fetch`.
+ *
  * Les crons sont hors périmètre de la règle B : `assertCronAuth` exige
  * `Authorization: Bearer <CRON_SECRET>`, leurs `errors[]` de diagnostic ne sont pas
  * exposés. Ils sont exclus par le GRAPHE, pas par une liste à tenir à jour.
@@ -127,7 +151,8 @@ const ALLOWLIST_SOURCE: { fichier: RegExp; raison: string }[] = [
       'jamais de PII, jamais une VALEUR de secret. Ils alimentent `integrations_logs` et ' +
       'les alertes ; le seul chemin HTTP est `/api/health/logistique` (spread du ' +
       'HealthCheckResult), STAFF-ONLY — admin_savr ou HEALTH_INTERNAL_TOKEN. Site à ' +
-      'surveiller : le client HTTP de l’adapter (`erreur: String(err)`).',
+      'surveiller : le client HTTP de l’adapter (`erreur: String(err)`) — tenu ' +
+      'depuis le 2026-10-13 par la règle F, que cette liste n’exempte pas.',
   },
   {
     fichier: /^packages\/shared\/src\/email\//,
@@ -635,6 +660,135 @@ function regleE(source: string): Trouve[] {
   return out;
 }
 
+/** Racines du code serveur qui appelle des services tiers (règle F). */
+const RACINES_FETCH = [
+  'packages/adapters/src',
+  'packages/shared/src',
+  `${SRC}/lib`,
+  API,
+];
+
+/** Les deux seules fonctions à qui l'on confie l'erreur d'un `fetch`. */
+const CLASSEURS = /^(libelleErreurReseau|decrireErreurReseau)$/;
+
+function appelleFetch(src: ts.SourceFile): boolean {
+  let trouve = false;
+  const visit = (n: ts.Node): void => {
+    if (trouve) return;
+    if (
+      ts.isCallExpression(n) &&
+      /^(globalThis\.)?fetch$/.test(n.expression.getText(src))
+    ) {
+      trouve = true;
+      return;
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(src);
+  return trouve;
+}
+
+/** Fichiers serveur, hors tests et hors composants navigateur, qui appellent `fetch`. */
+function fichiersAvecFetch(): string[] {
+  const out = execSync(
+    `grep -rl --include='*.ts' --include='*.tsx' -e 'fetch(' ${RACINES_FETCH.join(' ')} || true`,
+    { encoding: 'utf8' },
+  ).trim();
+  return (out ? out.split('\n') : []).filter((f) => {
+    if (/\.(test|spec)\.tsx?$/.test(f)) return false;
+    const source = readFileSync(f, 'utf8');
+    // Un composant navigateur n'a aucun secret à citer : il appelle nos routes.
+    if (/^\s*['"]use client['"]/m.test(source.slice(0, 400))) return false;
+    return appelleFetch(parse(f, source));
+  });
+}
+
+/** RÈGLE F — l'erreur attrapée d'un fichier qui appelle `fetch` ne se lit pas. */
+function regleF(source: string): Trouve[] {
+  const src = parse('f.ts', source);
+  if (!appelleFetch(src)) return [];
+  const vus = new Set<number>();
+  const out: Trouve[] = [];
+  const noter = (n: ts.Node): void => {
+    if (vus.has(n.getStart())) return;
+    vus.add(n.getStart());
+    // On montre l'expression qui LIT (`String(err)`, `err.message`), pas le nom nu.
+    const lu = ts.isIdentifier(n) ? n.parent : n;
+    out.push({
+      ligne: src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
+      expr: lu.getText(src).slice(0, 60),
+    });
+  };
+  const usagePermis = (id: ts.Identifier): boolean => {
+    const p = id.parent;
+    if (
+      ts.isBinaryExpression(p) &&
+      p.left === id &&
+      p.operatorToken.kind === ts.SyntaxKind.InstanceOfKeyword
+    )
+      return true;
+    if (ts.isTypeOfExpression(p)) return true;
+    if (
+      ts.isPropertyAccessExpression(p) &&
+      p.expression === id &&
+      p.name.text === 'name'
+    )
+      return true;
+    if (ts.isThrowStatement(p)) return true;
+    if (
+      ts.isCallExpression(p) &&
+      p.arguments.some((a) => a === id) &&
+      CLASSEURS.test(p.expression.getText(src))
+    )
+      return true;
+    return false;
+  };
+  const examiner = (nom: string, portee: ts.Node): void => {
+    const visit = (n: ts.Node): void => {
+      if (ts.isIdentifier(n) && n.text === nom) {
+        const p = n.parent;
+        // Le MOT `err` employé comme nom de membre ou de clé n'est pas la variable.
+        const simpleNom =
+          (ts.isPropertyAccessExpression(p) && p.name === n) ||
+          (ts.isPropertyAssignment(p) && p.name === n);
+        if (!simpleNom && !usagePermis(n)) noter(n);
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(portee);
+  };
+  const erreurDe = (
+    f: ts.Expression | undefined,
+  ): { nom: ts.BindingName; corps: ts.Node } | null => {
+    if (!f || !(ts.isArrowFunction(f) || ts.isFunctionExpression(f)))
+      return null;
+    const param = f.parameters[0];
+    return param ? { nom: param.name, corps: f.body } : null;
+  };
+  const visit = (n: ts.Node): void => {
+    let liee: { nom: ts.BindingName; corps: ts.Node } | null = null;
+    if (ts.isCatchClause(n) && n.variableDeclaration) {
+      liee = { nom: n.variableDeclaration.name, corps: n.block };
+    } else if (
+      ts.isCallExpression(n) &&
+      ts.isPropertyAccessExpression(n.expression)
+    ) {
+      // `.catch(fn)` et le second argument de `.then(ok, fn)`.
+      const methode = n.expression.name.text;
+      if (methode === 'catch') liee = erreurDe(n.arguments[0]);
+      else if (methode === 'then') liee = erreurDe(n.arguments[1]);
+    }
+    if (liee) {
+      if (ts.isIdentifier(liee.nom)) examiner(liee.nom.text, liee.corps);
+      // `catch ({ message })` : l'erreur est lue dès la liaison.
+      else noter(liee.nom);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(src);
+  return out;
+}
+
 /** RÈGLE C — `NextResponse.json(result)` : objet de résultat applicatif rendu en bloc. */
 function regleC(source: string): Trouve[] {
   const src = parse('c.tsx', source);
@@ -663,7 +817,7 @@ function regleC(source: string): Trouve[] {
 }
 
 const SONDES: {
-  regle: 'A' | 'B' | 'C' | 'D' | 'E';
+  regle: 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
   source: string;
   attendus: number;
 }[] = [
@@ -879,6 +1033,99 @@ const SONDES: {
     source: `function a() {\n  const message = err.message;\n  logger.warn('x', { message });\n}\nfunction b() {\n  return NextResponse.json({ error: message });\n}`,
     attendus: 0,
   },
+  // ── Règle F : l'erreur d'un `fetch` rejeté ne se lit pas ──
+  {
+    // La forme d'origine : le texte du moteur dans l'erreur levée.
+    regle: 'F',
+    source: `try {\n  res = await globalThis.fetch(url, { headers });\n} catch (err) {\n  throw new LogistiqueTransientError(\`Prestataire réseau : \${String(err)}\`);\n}`,
+    attendus: 1,
+  },
+  {
+    // …et dans la ligne de journal écrite en base (que la règle B laisse passer :
+    // « stockage de diagnostic »).
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  await supabase.from('integrations_logs').insert({ erreur: String(err) });\n}`,
+    attendus: 1,
+  },
+  {
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  return { ok: false, status: 503, message: String(err) };\n}`,
+    attendus: 1,
+  },
+  {
+    // Vers un journal aussi (la règle B exempte `logger.*`, pas la règle F).
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  logger.error('health.db_ko', { error: err instanceof Error ? err.message : 'unknown' });\n}`,
+    attendus: 1,
+  },
+  {
+    // Paramètre d'un `.catch(…)`, appel passé par une méthode intermédiaire.
+    regle: 'F',
+    source: `const r = await this.postJson(path, body).catch((err: unknown) => {\n  throw new LogistiqueAmbiguousError(\`Prestataire timeout : \${String(err)}\`);\n});\nfunction postJson() { return fetch(url); }`,
+    attendus: 1,
+  },
+  {
+    regle: 'F',
+    source: `await fetch(url).catch((e) => {\n  throw new Error(\`échec : \${e}\`);\n});`,
+    attendus: 1,
+  },
+  {
+    regle: 'F',
+    source: `await fetch(url).then(lire, (e) => signaler(e.stack));`,
+    attendus: 1,
+  },
+  {
+    // L'erreur entière confiée à quelqu'un d'autre : journal, outil tiers, cause.
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  capturer(err);\n  throw new Error('échec', { cause: err });\n}`,
+    attendus: 2,
+  },
+  {
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch ({ message }) {\n  return message;\n}`,
+    attendus: 1,
+  },
+  {
+    // La forme voulue : classer, puis n'écrire que le libellé.
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  const libelle = libelleErreurReseau(err);\n  await log({ erreur: libelle });\n  if (err instanceof Error && err.name === 'AbortError') throw new A('délai');\n  throw new T(\`réseau : \${libelle}\`);\n}`,
+    attendus: 0,
+  },
+  {
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  await log({ erreur: err instanceof Error ? err.name : 'erreur réseau' });\n  return 'down';\n}`,
+    attendus: 0,
+  },
+  {
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch {\n  return null;\n}`,
+    attendus: 0,
+  },
+  {
+    // Relancée telle quelle : limite assumée (cf. docblock), pas une lecture.
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  clearTimeout(t);\n  throw err;\n}`,
+    attendus: 0,
+  },
+  {
+    // Le mot `err` comme nom de champ n'est pas la variable.
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  return { err: 'réseau', code: res.err };\n}`,
+    attendus: 0,
+  },
+  {
+    // Fichier sans `fetch` : hors périmètre de la règle F (les autres règles
+    // gardent la main).
+    regle: 'F',
+    source: `try {\n  JSON.parse(texte);\n} catch (err) {\n  throw new Error(String(err));\n}`,
+    attendus: 0,
+  },
+  {
+    // `this.fetch(…)` seul n'est pas un appel au moteur : c'est une méthode maison.
+    regle: 'F',
+    source: `try {\n  await this.fetch('GET', path);\n} catch (err) {\n  throw new Error(String(err));\n}`,
+    attendus: 0,
+  },
 ];
 
 function autoTest(): void {
@@ -888,6 +1135,7 @@ function autoTest(): void {
     C: regleC,
     D: regleD,
     E: regleE,
+    F: regleF,
   } as const;
   const echecs = SONDES.filter(
     (s) => moteur[s.regle](s.source).length !== s.attendus,
@@ -972,6 +1220,19 @@ function violations(): Violation[] {
       });
     }
   }
+
+  // Règle F — l'erreur d'un `fetch`, dans tout fichier serveur qui en appelle un.
+  // Aucune liste d'exemption : ni les adapters, ni le client Pennylane.
+  for (const f of fichiersAvecFetch()) {
+    const source = readFileSync(f, 'utf8');
+    for (const { ligne, expr } of regleF(source)) {
+      trouvees.push({
+        fichier: f,
+        ligne,
+        code: `[erreur de fetch lue] ${expr} — ${ligneDe(source, ligne)}`,
+      });
+    }
+  }
   return trouvees;
 }
 
@@ -979,18 +1240,19 @@ autoTest();
 const trouvees = violations();
 if (trouvees.length > 0) {
   console.error(
-    `🔴 check-api-error-leak : ${trouvees.length} message(s) d'erreur exposable(s) au client :`,
+    `🔴 check-api-error-leak : ${trouvees.length} message(s) d'erreur exposable(s) (au client, ou secret dans un texte conservé) :`,
   );
   for (const v of trouvees)
     console.error(`   ${v.fichier}:${v.ligne}  ${v.code}`);
   console.error(
     '   → réponse : serverError() / writeError() / typedRpcError(), ou businessError(error, event, [codes], status)\n' +
       '     quand le message est un libellé métier écrit par nous ;\n' +
-      '   → module lib/ : erreurInterne() pour un throw, messageEchecEcriture()/messageEchecTiers() pour un champ rendu.',
+      '   → module lib/ : erreurInterne() pour un throw, messageEchecEcriture()/messageEchecTiers() pour un champ rendu ;\n' +
+      '   → erreur d’un fetch : libelleErreurReseau(err) (@savr/shared/src/api/erreur-reseau.js), jamais String(err) ni err.message.',
   );
 } else {
   console.log(
-    "✅ check-api-error-leak : 0 message d'erreur exposable au client (règles A→E).",
+    "✅ check-api-error-leak : 0 message d'erreur exposable au client, 0 erreur de fetch lue (règles A→F).",
   );
 }
 console.log(`RATCHET_COUNT=${trouvees.length}`);

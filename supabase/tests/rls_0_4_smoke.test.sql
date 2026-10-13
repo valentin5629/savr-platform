@@ -5,7 +5,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(60);
+SELECT plan(66);
 
 -- ---------------------------------------------------------------------------
 -- HELPERS de simulation JWT (pgTAP context)
@@ -249,12 +249,61 @@ SELECT results_eq(
   'T12 outbox_denied_traiteur_manager'
 );
 
+-- T12a-T12e : même refus pour chaque autre rôle non admin, `ops_savr` en tête.
+-- Depuis le 2026-10-12 la fiche collecte Admin montre à l'Ops l'état de l'ordre
+-- d'envoi, dernière erreur comprise — mais par la route, qui n'en rend qu'un
+-- extrait. La table, elle, reste réservée à l'Admin (policy outbox_admin_read).
+-- L'ordre 0c0c0001 inséré plus haut est bien là : T13a le fait lire par l'Admin.
+SELECT test_set_jwt('ops_savr', NULL);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.outbox_events$$,
+  $$VALUES (0)$$,
+  'T12a outbox_denied_ops_savr'
+);
+
+SELECT test_set_jwt('traiteur_commercial', '11111111-0000-0000-0000-000000000001'::uuid);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.outbox_events$$,
+  $$VALUES (0)$$,
+  'T12b outbox_denied_traiteur_commercial'
+);
+
+SELECT test_set_jwt('agence', '33333333-0000-0000-0000-000000000001'::uuid);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.outbox_events$$,
+  $$VALUES (0)$$,
+  'T12c outbox_denied_agence'
+);
+
+SELECT test_set_jwt('gestionnaire_lieux', '44444444-0000-0000-0000-000000000001'::uuid);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.outbox_events$$,
+  $$VALUES (0)$$,
+  'T12d outbox_denied_gestionnaire_lieux'
+);
+
+SELECT test_set_jwt('client_organisateur', '55555555-0000-0000-0000-000000000001'::uuid);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.outbox_events$$,
+  $$VALUES (0)$$,
+  'T12e outbox_denied_client_organisateur'
+);
+
 -- T13 : outbox admin_savr peut lire
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT isnt(
   (SELECT count(*)::int FROM plateforme.outbox_events),
   -1,  -- juste vérifier que ça ne plante pas (peut être 0 ou plus)
   'T13 outbox_admin_read_ok'
+);
+
+-- T13a : contrôle positif — l'Admin lit l'ordre que les six rôles ci-dessus ne
+-- voient pas. Sans lui, leurs « 0 ligne » seraient vrais aussi sur une table vide.
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.outbox_events
+   WHERE id = '0c0c0001-0000-0000-0000-000000000001'),
+  1,
+  'T13a outbox_admin_read_voit_l_ordre'
 );
 
 -- T14 : tournees_collecte_perimetree_ok — traiteur voit tournée de SA collecte (B-5)

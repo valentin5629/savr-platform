@@ -134,13 +134,22 @@
       "test": "packages/plateforme/tests/api/batch-pdf-j1-ag.m2-4.test.ts « M2.4 / BatchPdfJ1Ag / pas de rapports_rse pour une collecte AG »",
       "statut": "implemented",
       "libelle": "Batch AG : aucune ligne rapports_rse pour une collecte AG avec excédents — son seul document est l'attestation, affichée « Rapport de don » (décision Val 2026-10-09). Les lignes déjà créées restent en base, ignorées par les écrans."
+    },
+    {
+      "id": "M2.4-rapport-de-don-nom-pdf-fichier-email-cgu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:171",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/M0.6_20261009_bloc3-rapport-rse-collecte-ag.md",
+      "libelle": "Document d'une collecte AG nommé « Rapport de don » partout, plus seulement à l'écran (décision Val 2026-10-13) : titre imprimé des deux PDF, nom des fichiers téléchargés, email de disponibilité et CGU — la pièce fiscale 2041-GE garde ses mentions légales. NON LIVRÉ au sync du 2026-10-13 : seuls les écrans disent « Rapport de don » (M0.6-col-bloc3-rapport-de-don-ligne-unique). Gardent l'ancien nom : le titre des gabarits `apps/pdf-renderer/src/templates/attestation-don.ts` (« Attestation de don ») et `rapport-evenement-sans-excedent.ts` (« Événement sans excédent alimentaire », livrables BL-P0-03 et BL-P1-RPT-02), le gabarit d'email `attestation_don_disponible` (« Votre attestation de don est disponible ») et les CGU publiées (`packages/plateforme/src/content/cgu-v1.ts`, « Attestation de don »). Lot à livrer."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "dbd5f11130243c0deb6ffca98328b5280f4d1499af9a0cd37a407d0a069a50a9",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "25a3b96b12a6e02fbd55ffb1a9c11f6348bdaa57c0e0d4519cc6223576fc686d",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a0d825c816bf6c002e0eba67940a12fd6e4ed805efbe0665b58513a780287d4d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1f07c96cdab4e47834a967332f5fc7365af1e50338a9038a5d82185376d419f2",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "f308640dbe0902f0570a0f9017a32874e932693f0adc95bfe817d36c344a50f6",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "0da1633ec5f2b34a9aecd73a28de0b97c62e18bbe63f097533c19725493ed992"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "5f711054a8ba58ea861abf0f47c88db1863c7d30540fd5b474180ec01bea2f02"
   }
 }

@@ -875,7 +875,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_ui_bloc3_masque_en_ag",
       "statut": "implemented",
-      "libelle": "Bilan & documents AG : 3 KPI (Repas donnés, Repas par pax, CO₂ évité figé) + bloc Association ; document affiché « Rapport de don » (Q5 : renommage d'affichage seul — titre PDF, nom de fichier et emails inchangés) ; pas de benchmark AG. Test au nom historique (fiche_ui_bloc3_masque_en_ag), corps réécrit pour le pop-up."
+      "libelle": "Bilan & documents AG : 3 KPI (Repas donnés, Repas par pax, CO₂ évité figé) + bloc Association ; document affiché « Rapport de don » (Q5 : renommage d'affichage seul — titre PDF, nom de fichier et emails inchangés dans le code ; la décision Val du 2026-10-13 étend ce nom aux PDF, aux fichiers, à l'email et aux CGU : livrable M2.4-rapport-de-don-nom-pdf-fichier-email-cgu, non livré) ; pas de benchmark AG. Test au nom historique (fiche_ui_bloc3_masque_en_ag), corps réécrit pour le pop-up."
     },
     {
       "id": "M3.1-popup-client-sans-excedent",
@@ -1071,11 +1071,11 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "b74f6ba9ea2743645c2c05d8dcd56a8d99b68ac92dcdaeb667f141665fdc813f",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "59497b8ae36602cfaaffdb017dd989067c9756d9d0f6e808642e8719bf1a5de3",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "07959c413b8b2e667a5ce48fb3a9c5a7f7e74b528c6d81eae72d77d280bab5a6",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "ecb359e00560473d7d724be1ba3ecf0282b9afde9829f93509ef11f96f9fa0c0",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "25a3b96b12a6e02fbd55ffb1a9c11f6348bdaa57c0e0d4519cc6223576fc686d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "aa62d38214feb13673fecd85037537aa7805a0082ea5deb5efbe6817515886a8",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "049fe1c8b74bd0b313c4ba7dbb4acc63b6b72a32fca276618ae1be55a344d893",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "1fc245abae161c2b5e153ca8a276faab3cd2e1aa8fc956a2ae33f54d2aa6c323",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "29c7b9ec6ddce36915347a9fe82c4e03c8340a85b0c73a0ebfc146eb1814c8e4",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "958d3d63bf7038300535557f5e8c12cda0dcc31d0666819579114b6d24293b2f"
   }
 }

@@ -195,7 +195,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:545",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:557",
       "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
       "test": "OUTBOX-01 skip/requeue/resolve : dead → débloqué + audit_log + gardes admin/motif/dead [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -211,7 +211,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:545",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:557",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "R9 worker reaper + alerte anticipée J-1 + DLQ critique (vrai runOutboxWorker, SANS mock du worker — G5) [outbox-worker.r9.test.ts] + OUTBOX-03 reaper [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -219,7 +219,7 @@
     },
     {
       "id": "M1.5a-alerte-anticipee-lieu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2482",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2484",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "alerte anticipée events lieu (E5) : date de référence = plus proche collecte future non terminale du lieu, seuil/canal inchangés, 1 alerte par event, pas de doublon DLQ (vrai runOutboxWorker — G5) [outbox-worker.alerte-anticipee-lieu.test.ts]",
       "statut": "implemented",
@@ -267,17 +267,8 @@
       "libelle": "Multi-camions réduction N→N−k : DELETE sélectif customerOrder MTS-1 + tournees/collecte_tournees des rangs > N (404 = idempotent)"
     },
     {
-      "id": "M1.5a-recherche-commandes-forme-reelle",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:544",
-      "artefact": "packages/adapters/src/mts1/client.ts (scanOrdersByDateRange : fenêtre en jours yyyy-MM-dd refusée sinon, filtre orderNumber, réponse lue comme tableau nu, commande sans customerOrderId refusée ; findOrdersByIds : GET /v3/customerOrders?customerOrderIds=a,b), packages/adapters/src/mts1/adapter.ts (reconcileOrder : J-1 → J+1, égalité stricte sur orderNumber, commande CANCELED ou KO jamais reprise, choix stable entre doublons et trace COMMANDES_EN_DOUBLE ; updateCollecte et cancelCollecte en reprise : existence lue par identifiant, annulation sans DELETE tracée ANNULATION_SANS_DELETE), packages/adapters/src/mts1/mock.ts et fixtures/api/mts1/ (Mts1CustomerOrder et handlers à la forme du fil)",
-      "test": "M1.5a/recherche_fil_fenetre_en_jours + M1.5a/recherche_fil_filtre_numero + M1.5a/recherche_fil_numero_encode + M1.5a/recherche_fil_tableau_nu + M1.5a/recherche_fil_aucune_commande + M1.5a/recherche_fil_forme_inattendue + M1.5a/recherche_fil_refus_instant + M1.5a/recherche_fil_refus_instant_simule + M1.5a/recherche_fil_erreur_500 + M1.5a/recherche_fil_par_identifiants + M1.5a/recherche_fil_par_identifiants_vide + M1.5a/recherche_fil_par_identifiants_forme + M1.5a/reconciliation_creation_fenetre_et_numero + M1.5a/reconciliation_creation_numero_strict + M1.5a/reconciliation_creation_commande_morte + M1.5a/reconciliation_creation_doublons + M1.5a/reconciliation_creation_sans_doublon_sans_trace + M1.5a/reconciliation_creation_recherche_en_echec + M1.5a/reconciliation_creation_hors_reprise + M1.5a/reconciliation_creation_fil + M1.5a/reconciliation_creation_fil_absente + M1.5a/reconciliation_creation_fil_tentative + M1.5a/reconciliation_creation_fil_illisible + M1.5a/reprise_modification_par_identifiant + M1.5a/reprise_modification_commande_disparue + M1.5a/reprise_modification_disparue_sans_augmentation + M1.5a/reprise_modification_recherche_en_echec + M1.5a/reprise_modification_hors_reprise + M1.5a/reprise_annulation_par_identifiant + M1.5a/reprise_annulation_recherche_en_echec + packages/adapters/src/mts1/client-recherche-commandes.test.ts + packages/adapters/src/mts1/adapter.recherche-commandes.test.ts",
-      "statut": "implemented",
-      "ref_divergence": "_Divergences/M1.5_20261013_mts1-recherche-commandes-contrat-mesure.md",
-      "libelle": "Recherche de commandes MTS-1 alignée sur le contrat mesuré le 2026-10-13 (compte de démonstration, lecture seule) : GET /v3/customerOrders ne lit que des jours yyyy-MM-dd (bornes incluses, jour compté à Paris ; un instant ISO répond 500), accepte un filtre orderNumber à l'égalité stricte et un filtre customerOrderIds, et rend un tableau nu de commandes nommées customerOrderId / orderNumber / customerOrderStatus. Avant : instants ISO, enveloppe { customerOrders } et champs id / externalReference, donc aucune réconciliation n'aboutissait. Création reprise : la commande déjà créée est retrouvée par son numéro, jamais une commande refusée ou en échec ; plusieurs commandes du même numéro (il en coexiste chez MTS-1, jusqu'à 25 mesurées) sont départagées de façon stable et tracées. Modification et annulation reprises : l'existence de la commande se lit par son identifiant, plus par une fenêtre de dates ; une commande disparue fait échouer la modification (alerte) au lieu de la clore en succès sans envoi ; en annulation, une commande que la lecture ne rend pas est tenue pour déjà annulée (règle de reprise : aucun DELETE, une trace). Non traité : une commande ARCHIVED du même numéro serait reprise (sens du statut non mesuré) ; le sort d'une commande supprimée chez MTS-1 n'est pas mesuré. Q3bis-5 soldée par la mesure ; Q3bis-6 répondue pour une commande rattachée à un tour (currentTour.tourId), pas pour un tour créé et jamais rattaché."
-    },
-    {
       "id": "M1.5a-envoi-immediat-au-clic",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2469",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2478",
       "artefact": "supabase/migrations/20261012113000_plateforme_outbox_claim_collecte.sql (fn_claim_outbox_collecte : réservation lease/claim bornée à une collecte, mêmes règles et même ligne rendue que fn_claim_outbox_batch, 0 ou 1 ordre, service_role seul), packages/adapters/src/outbox-worker.ts (runOutboxWorkerPourCollecte : un ordre à la fois dans l'ordre de la file, jusqu'à la réservation vide ; une seconde tentative si la première réservation est vide, plafond 5 ordres, budget 40 s ; jamais de reaper), packages/plateforme/src/lib/envoi-immediat.ts (envoyerOrdresSansAttendre : tâche programmée après la réponse, jamais d'exception, y compris quand la tâche ne peut pas être programmée), packages/plateforme/src/app/api/v1/admin/collectes/[id]/dispatch/route.ts et packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts (déclenchement après mutation réussie, maxDuration = 60)",
       "test": "M1.5a/envoi_immediat_clic_envoyer + M1.5a/envoi_immediat_validation_ag + M1.5a/envoi_immediat_refus_sans_envoi + M1.5a/envoi_immediat_echec_silencieux + M1.5a/envoi_immediat_non_programme + M1.5a/envoi_immediat_refus_de_role + M1.5a/envoi_immediat_reconciliation + M1.5a/envoi_immediat_routes_declencheuses + M1.5a/envoi_immediat_duree_bornee + M1.5a/envoi_immediat_duree_sous_le_bail + M1.5a/envoi_immediat_appel_depuis_une_route + packages/adapters/src/outbox-worker.envoi-immediat.test.ts + supabase/tests/outbox_claim_collecte.test.sql",
       "statut": "implemented",
@@ -285,7 +276,7 @@
     },
     {
       "id": "M1.5a-passage-borne-par-echeance",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2475",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2476",
       "artefact": "packages/adapters/src/echeance-passage.ts (bail de 120 s, échéance des appels à 80 s, limite d'écriture à 115 s, comptées depuis le départ de la réservation ; avecEcheance / verifierEcheance), packages/adapters/src/outbox-worker.ts (runOutboxWorker : un ordre par réservation, au plus 10 ordres, aucune réservation après 40 s, reaper ou réservation en erreur remontés à l'appelant ; traiterEvent : traitement sous l'échéance de l'ordre, aucun résultat écrit passé la limite ; bail passé explicitement aux deux réservations), packages/adapters/src/mts1/client.ts et packages/adapters/src/everest/client.ts (contrôle d'échéance avant chaque appel réseau d'un passage)",
       "test": "M1.5a/passage_borne_calcul + M1.5a/passage_borne_refus + M1.5a/passage_borne_tous_les_appels + M1.5a/passage_borne_duree_appel + M1.5a/passage_borne_bail_explicite + M1.5a/passage_borne_echeance_appel + M1.5a/passage_borne_instant_avant_reservation + M1.5a/passage_borne_un_bail_par_ordre + M1.5a/passage_borne_pas_d_ecriture_hors_bail + M1.5a/passage_borne_pas_d_echec_hors_bail + M1.5a/passage_borne_un_ordre_a_la_fois + M1.5a/passage_borne_reservation_en_erreur + M1.5a/passage_borne_reaper_en_erreur + M1.5a/passage_borne_seconde_reservation + M1.5a/passage_borne_client_mts1 + M1.5a/passage_borne_client_everest + packages/adapters/src/outbox-worker.echeance.test.ts",
       "statut": "implemented",
@@ -293,17 +284,26 @@
     },
     {
       "id": "M1.5a-envoi-immediat-autres-emetteurs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2476",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2478",
       "artefact": "packages/plateforme/src/lib/envoi-immediat.ts (envoyerOrdresSansAttendre : une ou plusieurs collectes, une seule tâche, l'une après l'autre, sans doublon ; envoyerOrdresEvenementSansAttendre : toutes les collectes d'un événement, lues dans la tâche), quatorze routes sous packages/plateforme/src/app/api/v1 (admin/collectes, admin/collectes/[id], admin/collectes/[id]/incident, admin/attributions-ag/[collecteId]/auto-accept, admin/evenements/[id], traiteur/collectes/[id], traiteur/collectes/[id]/annulation, agence/collectes/[id], agence/collectes/[id]/annulation, gestionnaire/collectes/[id], programmation/evenements, programmation/evenements/[id], programmation/evenements/[id]/collectes, programmation/evenements/[id]/confirmer : déclenchement après mutation réussie, maxDuration = 60)",
       "test": "M1.5a/envoi_immediat_autres_emetteurs + M1.5a/envoi_immediat_autres_emetteurs_refus + M1.5a/envoi_immediat_plusieurs_collectes + M1.5a/envoi_immediat_par_evenement + M1.5a/envoi_immediat_emetteurs_complets + M1.5a/envoi_immediat_enveloppes + M1.5a/envoi_immediat_emetteurs_sql + M1.5a/envoi_immediat_routes_declencheuses + M1.5a/envoi_immediat_duree_bornee + M1.5a/envoi_immediat_appel_depuis_une_route",
       "statut": "implemented",
       "libelle": "Envoi immédiat, autres émetteurs (décision Val 2026-10-12, C5 : tous les ordres d'une collecte ; troisième temps du lot, _Divergences/M1.5_20261012_envoi-immediat-au-clic) : toute route qui appelle une fonction SQL émettrice d'ordres de collecte programme, après sa mutation réussie, l'envoi des ordres en file de la ou des collectes touchées — création, modification, annulation et incident d'une collecte (Admin, traiteur, agence, gestionnaire de lieux), modification d'un événement, programmation et confirmation de brouillon, acceptation automatique AG. Rien n'est programmé quand la base refuse la mutation. La liste des fonctions émettrices est tenue en phase avec les migrations par un cliquet. L'ordre « lieu » (E5) reste au passage planifié."
+    },
+    {
+      "id": "M1.5a-recherche-commandes-forme-reelle",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:556",
+      "artefact": "packages/adapters/src/mts1/client.ts (scanOrdersByDateRange : fenêtre en jours yyyy-MM-dd refusée sinon, filtre orderNumber, réponse lue comme tableau nu, commande sans customerOrderId refusée ; findOrdersByIds : GET /v3/customerOrders?customerOrderIds=a,b), packages/adapters/src/mts1/adapter.ts (reconcileOrder : J-1 → J+1, égalité stricte sur orderNumber, commande CANCELED ou KO jamais reprise, choix stable entre doublons et trace COMMANDES_EN_DOUBLE ; updateCollecte et cancelCollecte en reprise : existence lue par identifiant, annulation sans DELETE tracée ANNULATION_SANS_DELETE), packages/adapters/src/mts1/mock.ts et fixtures/api/mts1/ (Mts1CustomerOrder et handlers à la forme du fil)",
+      "test": "M1.5a/recherche_fil_fenetre_en_jours + M1.5a/recherche_fil_filtre_numero + M1.5a/recherche_fil_numero_encode + M1.5a/recherche_fil_tableau_nu + M1.5a/recherche_fil_aucune_commande + M1.5a/recherche_fil_forme_inattendue + M1.5a/recherche_fil_refus_instant + M1.5a/recherche_fil_refus_instant_simule + M1.5a/recherche_fil_erreur_500 + M1.5a/recherche_fil_par_identifiants + M1.5a/recherche_fil_par_identifiants_vide + M1.5a/recherche_fil_par_identifiants_forme + M1.5a/reconciliation_creation_fenetre_et_numero + M1.5a/reconciliation_creation_numero_strict + M1.5a/reconciliation_creation_commande_morte + M1.5a/reconciliation_creation_doublons + M1.5a/reconciliation_creation_sans_doublon_sans_trace + M1.5a/reconciliation_creation_recherche_en_echec + M1.5a/reconciliation_creation_hors_reprise + M1.5a/reconciliation_creation_fil + M1.5a/reconciliation_creation_fil_absente + M1.5a/reconciliation_creation_fil_tentative + M1.5a/reconciliation_creation_fil_illisible + M1.5a/reprise_modification_par_identifiant + M1.5a/reprise_modification_commande_disparue + M1.5a/reprise_modification_disparue_sans_augmentation + M1.5a/reprise_modification_recherche_en_echec + M1.5a/reprise_modification_hors_reprise + M1.5a/reprise_annulation_par_identifiant + M1.5a/reprise_annulation_recherche_en_echec + packages/adapters/src/mts1/client-recherche-commandes.test.ts + packages/adapters/src/mts1/adapter.recherche-commandes.test.ts",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-recherche-commandes-contrat-mesure.md",
+      "libelle": "Recherche de commandes MTS-1 alignée sur le contrat mesuré le 2026-10-13 (compte de démonstration, lecture seule) : GET /v3/customerOrders ne lit que des jours yyyy-MM-dd (bornes incluses, jour compté à Paris ; un instant ISO répond 500), accepte un filtre orderNumber à l'égalité stricte et un filtre customerOrderIds, et rend un tableau nu de commandes nommées customerOrderId / orderNumber / customerOrderStatus. Avant : instants ISO, enveloppe { customerOrders } et champs id / externalReference, donc aucune réconciliation n'aboutissait. Création reprise : la commande déjà créée est retrouvée par son numéro, jamais une commande refusée ou en échec ; plusieurs commandes du même numéro (il en coexiste chez MTS-1, jusqu'à 25 mesurées) sont départagées de façon stable et tracées. Modification et annulation reprises : l'existence de la commande se lit par son identifiant, plus par une fenêtre de dates ; une commande disparue fait échouer la modification (alerte) au lieu de la clore en succès sans envoi ; en annulation, une commande que la lecture ne rend pas est tenue pour déjà annulée (règle de reprise : aucun DELETE, une trace). Non traité : une commande ARCHIVED du même numéro serait reprise (sens du statut non mesuré) ; le sort d'une commande supprimée chez MTS-1 n'est pas mesuré. Q3bis-5 soldée par la mesure ; Q3bis-6 répondue pour une commande rattachée à un tour (currentTour.tourId), pas pour un tour créé et jamais rattaché."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a2a7e9f81e8706688dbdc89726ff28e28e2404009196a638351130a75269c7ff",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7",
-    "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "4f01f41edc935ce46ee8eae438e27608d2ae5e0da9fd5534fe767aa78429c7b0"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "25a3b96b12a6e02fbd55ffb1a9c11f6348bdaa57c0e0d4519cc6223576fc686d",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a0d825c816bf6c002e0eba67940a12fd6e4ed805efbe0665b58513a780287d4d",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "c137740d036cb62021e00407a52dd768709c37fefa878c45e556aea913d19337",
+    "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "3adec5dfed66e4c6c9df3b5afd70b400c66e492c760941c2ee52b7c771f45f2b"
   }
 }

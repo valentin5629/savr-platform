@@ -29,7 +29,7 @@
 
 | Appel | Endpoint | Rôle / champs clés |
 |---|---|---|
-| Liste commandes | `GET /v3/customerOrders?minDate&maxDate` | Boucle de polling sur fenêtre de dates. |
+| Liste commandes | `GET /v3/customerOrders?minDate&maxDate` | Boucle de polling sur fenêtre de dates. **Mesuré le 2026-10-13** : dates en `yyyy-MM-dd` seulement (bornes incluses, jour compté à Paris), filtres `orderNumber` et `customerOrderIds`, réponse = tableau JSON nu — contrat complet au §08 §3bis.7. |
 | Détail commande | `GET /v3/customerOrders/{customerOrderId}` | `customerOrderStatus` (DRAFT…), `stuffs[]` (`name`, `task: PICKUP`, `measurement{height,length,width,weight}`), `contact`, `place`, `orderNumber`, `trackingUrl`. |
 | **Détail tournée** | `GET /v3/tours/{tourId}` | **Porte les pesées réelles.** Voir détail ci-dessous. |
 | Photo | `GET {photo_URL}` (type Text) | MTS-1 fournit des **URLs de photos** dans le payload ; Bubble les télécharge une par une. |
@@ -46,7 +46,7 @@
 - `dispatch { carrierShareableCode, transporterUserShareableCode, vehicleShareableCode }`
 
 ### Mapping remontée → Plateforme V1
-- **Pesées** : `tours.stops[].weight` (+ `quantityAfterPickup/Delivery`) → `collectes` / lignes de flux (pesées ZD).
+- **Pesées** : `tours.stops[].weight` (+ `quantityAfterPickup/Delivery`) → `collectes` / lignes de flux (pesées ZD). ⚠ **Mesuré en DEMO le 2026-10-13** : pas de champ `weight` sur l'arrêt ; sur le seul tour terminé du compte, les kilos sont dans `stops[].stuffs[].quantityAfterPickup`. Champ à lire : à arbitrer.
 - **Statut collecte** : `customerOrderStatus` / `customerOrderProgressionStatus` + `status{dispatch,payment,validation}` → `collectes.statut_tms` → trigger `fn_sync_statut_collecte_from_tms`.
 - **Photos** : URLs du payload → téléchargées (`GET {photo_URL}`) → ré-upload Storage Savr (persistance légale).
 - **Coût / km** : `summary` (info).
@@ -91,7 +91,7 @@
 
 La plaque **n'est pas** sur le tour/la commande. Elle est sur l'objet véhicule de **`GET /v3/carrier`** :
 ```
-carriers[] : { carrierShareableCode, name, vehicles[], transporters[] }
+[ { carrierShareableCode, name, vehicles[], transporters[] } ]   // tableau nu, pas d'enveloppe « carriers » (mesuré le 2026-10-13)
 vehicles[] : { name, numberPlate, vehicleShareableCode }   // ex numberPlate = "12ABC23"
 ```
 **Algo adapter** :
@@ -110,7 +110,7 @@ vehicles[] : { name, numberPlate, vehicleShareableCode }   // ex numberPlate = "
 - Webhook **tour/progress** / **customerOrder/progress** eventType : `STARTED, FINISHED`
 - Webhook **stop/progress** eventType : `ON_THE_WAY, AT_PLACE, FINISHED, RESET` ; `stopStatus { globalStatus, deliveryStatus, pickupStatus }`
 - `appointmentStatus` : `NONE, AWAIT_RESPONSE, RESPONSE_KO, RESPONSE_OK`
-- Photos : sur le webhook `stop/progress` (`photos[]` = StopPhoto download links) + `GET /v3/tours/photo/{tourId}/{stopId}/{photoId}` ; signatures via `GET /v3/tours/signature/{tourId}/{stopId}/{signatoryType}` (`contact` | `transporter`).
+- Photos : sur le webhook `stop/progress` (`photos[]` = StopPhoto download links) + `GET /v3/tours/photo/{tourId}/{stopId}/{photoId}` — **mesuré en DEMO le 2026-10-13** : ces adresses sont aussi dans le détail du tour (`stops[].photos[].downloadUrl`) ; il n'existe pas de route `GET /v3/tours/{tourId}/photos` (404 `BAD_ROUTE`) ; signatures via `GET /v3/tours/signature/{tourId}/{stopId}/{signatoryType}` (`contact` | `transporter`).
 
 ## 8. Webhooks push — alternative recommandée au polling
 

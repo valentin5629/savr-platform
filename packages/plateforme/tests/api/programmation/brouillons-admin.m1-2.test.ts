@@ -92,6 +92,9 @@ const gate = vi.fn(() =>
   Promise.resolve({ ok: true as const, entiteFacturationId: 'ef-1' }),
 );
 vi.mock('@/lib/onboarding-guards.js', () => ({
+  // La route lit l'entité avant ses gardes, puis la résout après son frein de
+  // débit : les deux appels portent sur la même organisation, même capture.
+  lireEntiteFacturation: (...a: unknown[]) => gate(...(a as [])),
   requireCompletedOrganisation: (...a: unknown[]) => gate(...(a as [])),
 }));
 

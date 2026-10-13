@@ -12,6 +12,7 @@ import {
 } from '@/lib/notifications/traiteur-operationnel.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -76,8 +77,15 @@ export async function POST(
     ? evt.organisation[0]?.nom
     : evt.organisation?.nom;
   const admin = createAdminSupabaseClient();
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client), compté pour
+  // une collecte annulable seulement.
+  const freiner = () =>
+    freinerEcritureCliente({ organisationId: auth.ctx.organisationId });
 
   if (c.statut === 'brouillon' || c.statut === 'programmee') {
+    const frein = freiner();
+    if (frein) return frein;
+
     // Annulation directe → 'annulee' (trigger _fn_trg_outbox_collecte_annulee
     // émet E3 DELETE si tms_reference / statut_tms != non_envoye)
     const { error } = await admin.rpc('fn_modifier_collecte', {
@@ -90,7 +98,7 @@ export async function POST(
 
     // L'ordre éventuel est en file : il part sans attendre le passage planifié
     // (décision Val 2026-10-12).
-    envoyerOrdresSansAttendre(id);
+    envoyerOrdresSansAttendre(c.id);
 
     await sendEmail('annulation_collecte', 'contact@gosavr.io', {
       organisation_nom: orgNom ?? '',
@@ -120,6 +128,9 @@ export async function POST(
   }
 
   if (c.statut === 'validee') {
+    const frein = freiner();
+    if (frein) return frein;
+
     // Demande d'annulation (validation Admin) → 'annulation_demandee'
     const { error } = await admin.rpc('fn_modifier_collecte', {
       p_id: id,
@@ -134,7 +145,7 @@ export async function POST(
 
     // L'ordre éventuel est en file : il part sans attendre le passage planifié
     // (décision Val 2026-10-12).
-    envoyerOrdresSansAttendre(id);
+    envoyerOrdresSansAttendre(c.id);
 
     await sendEmail('admin_demande_annulation', 'contact@gosavr.io', {
       organisation_nom: orgNom ?? '',

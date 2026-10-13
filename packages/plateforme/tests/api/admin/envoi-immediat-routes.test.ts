@@ -21,7 +21,13 @@
  *   6. le comportement de chaque route (envoi après une mutation réussie, rien
  *      après un refus de la base) est prouvé plus bas, dans le tableau des
  *      routes. Les gardes de ces routes restent prouvées par leurs propres
- *      fichiers de tests.
+ *      fichiers de tests ;
+ *   7. la tâche est bornée (décision Val 2026-10-13) : aucun passage pour une
+ *      collecte sans ordre en file, dix collectes au plus, aucune commencée
+ *      après quarante secondes ;
+ *   8. les neuf routes des espaces clients passent par le frein de débit avant
+ *      leur première écriture (lib/frein-ecritures-client, dont les compteurs
+ *      sont prouvés dans son propre fichier de tests).
  *
  * `after()` est remplacée dans vitest.setup.ts par un espion qui n'exécute pas la
  * tâche : on la récupère dans ses appels et on la lance à la main.
@@ -33,9 +39,19 @@ import { NextRequest, after } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  BUDGET_TACHE_MS,
+  MAX_COLLECTES_EXAMINEES,
+  MAX_COLLECTES_PAR_TACHE,
   envoyerOrdresEvenementSansAttendre,
   envoyerOrdresSansAttendre,
 } from '@/lib/envoi-immediat.js';
+import {
+  MAX_ECRITURES_PAR_ORGANISATION,
+  MAX_MODIFICATIONS_PAR_OBJET,
+  MESSAGE_FREIN,
+  _reinitialiserFreinEcritures,
+  freinerEcritureCliente,
+} from '@/lib/frein-ecritures-client.js';
 
 const mockSupabaseChain = {
   from: vi.fn().mockReturnThis(),
@@ -98,7 +114,12 @@ vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
 }));
 
-function setupAuth(role: string, userId = 'user-1', organisationId?: string) {
+function setupAuth(
+  role: string,
+  userId = 'user-1',
+  organisationId?: string,
+  autresClaims: Record<string, unknown> = {},
+) {
   mockGetUser.mockResolvedValue({
     data: { user: { id: userId } },
     error: null,
@@ -109,6 +130,7 @@ function setupAuth(role: string, userId = 'user-1', organisationId?: string) {
         access_token: makeJwt({
           user_role: role,
           ...(organisationId ? { organisation_id: organisationId } : {}),
+          ...autresClaims,
         }),
       },
     },
@@ -130,6 +152,39 @@ function tachesProgrammees(): Array<() => Promise<void>> {
     .mocked(after)
     .mock.calls.map((appel) => appel[0] as () => Promise<void>);
 }
+
+// ── Lectures de liste simulées ───────────────────────────────────────────────
+// `await supabase.from(table).select()…` : la chaîne devient « thenable » et
+// répond selon la table lue. Une table non décrite répond sans liste.
+const chaine = mockSupabaseChain as typeof mockSupabaseChain & {
+  then?: (resolve: (v: unknown) => void) => void;
+};
+type Reponse = { data: unknown; error: unknown };
+
+function simulerListes(parTable: Record<string, Reponse>): void {
+  let table = '';
+  mockSupabaseChain.from.mockImplementation((nom: string) => {
+    table = nom;
+    return mockSupabaseChain;
+  });
+  chaine.then = (resolve) =>
+    resolve(parTable[table] ?? { data: undefined, error: null });
+}
+
+/** File simulée : un ordre en attente pour chacune de ces collectes. */
+const ordresEnFile = (...collectes: string[]): Reponse => ({
+  data: collectes.map((aggregate_id) => ({ aggregate_id })),
+  error: null,
+});
+
+beforeEach(() => {
+  _reinitialiserFreinEcritures();
+});
+afterEach(() => {
+  delete chaine.then;
+  mockSupabaseChain.from.mockReset();
+  mockSupabaseChain.from.mockReturnThis();
+});
 
 const collecteZd = (over: Record<string, unknown> = {}) => ({
   data: {
@@ -196,6 +251,7 @@ describe('M1.5a / envoi immédiat — clic « Envoyer » de la fiche collecte', 
     const taches = tachesProgrammees();
     expect(taches).toHaveLength(1);
 
+    simulerListes({ outbox_events: ordresEnFile('col-1') });
     await taches[0]!();
     expect(mockPassageCible).toHaveBeenCalledTimes(1);
     expect(mockPassageCible).toHaveBeenCalledWith(mockSupabaseChain, 'col-1');
@@ -241,6 +297,7 @@ describe('M1.5a / envoi immédiat — clic « Envoyer » de la fiche collecte', 
     const journal = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     expect((await envoyer()).status).toBe(200);
+    simulerListes({ outbox_events: ordresEnFile('col-1') });
     await expect(tachesProgrammees()[0]!()).resolves.toBeUndefined();
 
     const lignes = journal.mock.calls.map((c) => String(c[0]));
@@ -356,6 +413,7 @@ describe('M1.5a / envoi immédiat — clic « Valider » une attribution AG', ()
     const taches = tachesProgrammees();
     expect(taches).toHaveLength(1);
 
+    simulerListes({ outbox_events: ordresEnFile('coll-ag') });
     await taches[0]!();
     expect(mockPassageCible).toHaveBeenCalledWith(mockSupabaseChain, 'coll-ag');
   });
@@ -380,6 +438,7 @@ const PASSAGE_OK = { reaped: 0, claimed: 1, done: 1, failed: 0, dead: 0 };
 describe('M1.5a / envoi immédiat — plusieurs collectes dans une seule tâche', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    simulerListes({ outbox_events: ordresEnFile('col-a', 'col-b') });
   });
 
   it('M1.5a/envoi_immediat_plusieurs_collectes — une seule tâche, une collecte après l’autre, sans doublon', async () => {
@@ -401,8 +460,9 @@ describe('M1.5a / envoi immédiat — plusieurs collectes dans une seule tâche'
     expect(taches).toHaveLength(1);
 
     const course = taches[0]!();
-    await Promise.resolve();
-    await Promise.resolve();
+    // La file est lue, puis le premier passage est lancé.
+    await vi.waitFor(() => expect(mockPassageCible).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
     // La seconde collecte attend la fin de la première.
     expect(mockPassageCible.mock.calls.map((c) => c[1])).toEqual(['col-a']);
 
@@ -442,20 +502,16 @@ describe('M1.5a / envoi immédiat — plusieurs collectes dans une seule tâche'
 });
 
 describe('M1.5a / envoi immédiat — toutes les collectes d’un événement', () => {
-  // La lecture `from('collectes').select('id').eq(...)` est attendue telle
-  // quelle : on rend la chaîne « thenable » le temps du test.
-  const chaine = mockSupabaseChain as typeof mockSupabaseChain & {
-    then?: (resolve: (v: unknown) => void) => void;
-  };
-  function lectureRend(reponse: { data: unknown; error: unknown }) {
-    chaine.then = (resolve) => resolve(reponse);
+  // Deux lectures dans la tâche : les collectes de l'événement, puis la file.
+  function lectureRend(reponse: Reponse) {
+    simulerListes({
+      collectes: reponse,
+      outbox_events: ordresEnFile('col-1', 'col-2'),
+    });
   }
 
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-  afterEach(() => {
-    delete chaine.then;
   });
 
   it('M1.5a/envoi_immediat_par_evenement — les collectes sont lues DANS la tâche, puis traitées une à une', async () => {
@@ -474,6 +530,7 @@ describe('M1.5a / envoi immédiat — toutes les collectes d’un événement', 
 
     expect(mockSupabaseChain.from).toHaveBeenCalledWith('collectes');
     expect(mockSupabaseChain.eq).toHaveBeenCalledWith('evenement_id', 'evt-1');
+    expect(mockSupabaseChain.from).toHaveBeenCalledWith('outbox_events');
     expect(mockPassageCible.mock.calls.map((c) => c[1])).toEqual([
       'col-1',
       'col-2',
@@ -579,6 +636,24 @@ interface CasRoute {
   rendSuccessifs?: unknown[];
   /** Collectes dont le passage doit être lancé, dans l'ordre. */
   attendu: string[];
+  /** Réponses d'autres fonctions de lecture propres à ce cas. */
+  autresRpc?: Record<string, unknown>;
+  /**
+   * Routes clientes : ce qu'il faut changer au cas pour que la DERNIÈRE garde
+   * de la route le refuse (celle qui précède le frein de débit).
+   */
+  refusGarde?: Partial<
+    Pick<CasRoute, 'ligne' | 'corps' | 'collectes' | 'autresRpc'>
+  >;
+  /** Modification d'un objet : la clé que la route doit donner au frein. */
+  modification?: { collecte: string } | { evenement: string };
+  /** Claims ajoutés au jeton de la session (impersonation). */
+  claims?: Record<string, unknown>;
+  /**
+   * Entité de facturation de l'organisation : absente (la route la crée), ou
+   * illisible (lecture en erreur). Par défaut : présente.
+   */
+  entiteFacturation?: 'absente' | 'illisible';
 }
 
 const PROGRAMMATION = {
@@ -676,6 +751,10 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_modifier_collecte',
     rend: { id: 'col-1' },
     attendu: ['col-1'],
+    refusGarde: {
+      ligne: { evenement: { ...EVENEMENT, organisation_id: 'org-tiers' } },
+    },
+    modification: { collecte: 'col-1' },
   },
   {
     nom: 'Traiteur — annulation directe',
@@ -688,6 +767,7 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_modifier_collecte',
     rend: null,
     attendu: ['col-1'],
+    refusGarde: { ligne: { statut: 'realisee' } },
   },
   {
     nom: 'Traiteur — demande d’annulation (collecte validée)',
@@ -701,6 +781,7 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_modifier_collecte',
     rend: null,
     attendu: ['col-1'],
+    refusGarde: { ligne: { statut: 'realisee' } },
   },
   {
     nom: 'Agence — modification d’une collecte',
@@ -713,6 +794,10 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_modifier_collecte',
     rend: { id: 'col-1' },
     attendu: ['col-1'],
+    refusGarde: {
+      ligne: { evenement: { ...EVENEMENT, organisation_id: 'org-tiers' } },
+    },
+    modification: { collecte: 'col-1' },
   },
   {
     nom: 'Agence — annulation directe',
@@ -725,6 +810,7 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_modifier_collecte',
     rend: null,
     attendu: ['col-1'],
+    refusGarde: { ligne: { statut: 'realisee' } },
   },
   {
     nom: 'Agence — demande d’annulation (collecte validée)',
@@ -738,6 +824,7 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_modifier_collecte',
     rend: null,
     attendu: ['col-1'],
+    refusGarde: { ligne: { statut: 'realisee' } },
   },
   {
     nom: 'Gestionnaire de lieux — modification d’une collecte',
@@ -750,6 +837,10 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_modifier_collecte',
     rend: { id: 'col-1' },
     attendu: ['col-1'],
+    refusGarde: {
+      ligne: { evenement: { ...EVENEMENT, organisation_id: 'org-tiers' } },
+    },
+    modification: { collecte: 'col-1' },
   },
   {
     nom: 'Programmation — événement confirmé à la création',
@@ -762,6 +853,14 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_creer_collecte',
     rend: 'col-neuve',
     attendu: ['col-neuve'],
+    refusGarde: {
+      corps: {
+        ...PROGRAMMATION,
+        collectes: [
+          { type: 'ag', date_collecte: '2099-01-15', heure_collecte: '08:00' },
+        ],
+      },
+    },
   },
   {
     nom: 'Programmation — événement confirmé à la création, deux collectes',
@@ -781,6 +880,14 @@ const CAS: CasRoute[] = [
     rend: 'col-a',
     rendSuccessifs: ['col-a', 'col-b'],
     attendu: ['col-a', 'col-b'],
+    refusGarde: {
+      corps: {
+        ...PROGRAMMATION,
+        collectes: [
+          { type: 'ag', date_collecte: '2099-01-15', heure_collecte: '08:00' },
+        ],
+      },
+    },
   },
   {
     nom: 'Programmation — modification d’un événement',
@@ -793,6 +900,8 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_modifier_evenement',
     rend: { id: 'evt-1' },
     attendu: ['col-1'],
+    refusGarde: { autresRpc: { f_collecte_editable: false } },
+    modification: { evenement: 'evt-1' },
   },
   {
     nom: 'Programmation — collecte ajoutée à un événement',
@@ -805,6 +914,13 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_ajouter_collecte_evenement',
     rend: 'col-neuve',
     attendu: ['col-neuve'],
+    refusGarde: {
+      corps: {
+        type: 'ag',
+        date_collecte: '2099-01-20',
+        heure_collecte: '22:00',
+      },
+    },
   },
   {
     nom: 'Programmation — brouillon confirmé',
@@ -817,6 +933,9 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_confirmer_programmation_brouillon',
     rend: null,
     attendu: ['col-1'],
+    refusGarde: {
+      collectes: [{ ...LIGNE, statut: 'brouillon', type: 'anti_gaspi' }],
+    },
   },
   {
     nom: 'Programmation — brouillon confirmé, deux collectes',
@@ -833,77 +952,84 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_confirmer_programmation_brouillon',
     rend: null,
     attendu: ['col-1', 'col-2'],
+    refusGarde: {
+      collectes: [{ ...LIGNE, statut: 'brouillon', type: 'anti_gaspi' }],
+    },
   },
 ];
 
-describe('M1.5a / envoi immédiat — les autres routes émettrices', () => {
-  const chaine = mockSupabaseChain as typeof mockSupabaseChain & {
-    then?: (resolve: (v: unknown) => void) => void;
+/**
+ * Base simulée : toute lecture rend `ligne`, sous l'identifiant de l'événement
+ * quand c'est la table des événements qui est lue (une route qui prendrait
+ * l'identifiant de l'événement pour celui d'une collecte se verrait). La file
+ * porte un ordre en attente pour chaque collecte attendue.
+ * `emetteur` répond `reponse`, ou ses valeurs successives.
+ */
+function base(cas: CasRoute, reponse: Reponse) {
+  const ligne = { ...LIGNE, ...(cas.ligne ?? {}) };
+  let table = '';
+  mockSupabaseChain.from.mockImplementation((nom: string) => {
+    table = nom;
+    return mockSupabaseChain;
+  });
+  const ligneLue = () =>
+    table === 'evenements' ? { ...ligne, id: EVENEMENT.id } : ligne;
+  mockSupabaseChain.single.mockImplementation(async () => ({
+    data: ligneLue(),
+    error: null,
+  }));
+  mockSupabaseChain.maybeSingle.mockImplementation(async () =>
+    cas.entiteFacturation && table === 'entites_facturation'
+      ? {
+          data: null,
+          error:
+            cas.entiteFacturation === 'illisible'
+              ? { message: 'timeout' }
+              : null,
+        }
+      : { data: ligneLue(), error: null },
+  );
+  const listes: Record<string, () => unknown> = {
+    collectes: () => cas.collectes ?? [ligne],
+    outbox_events: () => ordresEnFile(...cas.attendu).data,
   };
+  chaine.then = (resolve) =>
+    resolve({ data: (listes[table] ?? (() => [ligneLue()]))(), error: null });
+  const successifs = [...(cas.rendSuccessifs ?? [])];
+  mockSupabaseChain.rpc.mockImplementation(async (nom: string) => {
+    const autres = { ...AUTRES_RPC, ...(cas.autresRpc ?? {}) };
+    if (nom !== cas.emetteur) return { data: autres[nom] ?? null, error: null };
+    if (reponse.error || successifs.length === 0) return reponse;
+    return { data: successifs.shift(), error: null };
+  });
+}
 
-  /**
-   * Base simulée : toute lecture rend `ligne`, sous l'identifiant de l'événement
-   * quand c'est la table des événements qui est lue (une route qui prendrait
-   * l'identifiant de l'événement pour celui d'une collecte se verrait).
-   * `emetteur` répond `reponse`, ou ses valeurs successives.
-   */
-  function base(cas: CasRoute, reponse: { data: unknown; error: unknown }) {
-    const ligne = { ...LIGNE, ...(cas.ligne ?? {}) };
-    let table = '';
-    mockSupabaseChain.from.mockImplementation((nom: string) => {
-      table = nom;
-      return mockSupabaseChain;
-    });
-    const ligneLue = () =>
-      table === 'evenements' ? { ...ligne, id: EVENEMENT.id } : ligne;
-    mockSupabaseChain.single.mockImplementation(async () => ({
-      data: ligneLue(),
-      error: null,
-    }));
-    mockSupabaseChain.maybeSingle.mockImplementation(async () => ({
-      data: ligneLue(),
-      error: null,
-    }));
-    chaine.then = (resolve) =>
-      resolve({
-        data: table === 'collectes' ? (cas.collectes ?? [ligne]) : [ligneLue()],
-        error: null,
-      });
-    const successifs = [...(cas.rendSuccessifs ?? [])];
-    mockSupabaseChain.rpc.mockImplementation(async (nom: string) => {
-      if (nom !== cas.emetteur)
-        return { data: AUTRES_RPC[nom] ?? null, error: null };
-      if (reponse.error || successifs.length === 0) return reponse;
-      return { data: successifs.shift(), error: null };
-    });
-  }
+async function appeler(cas: CasRoute): Promise<Response> {
+  setupAuth(cas.role, UTILISATEUR, ORG, cas.claims);
+  const handlers = (await import(cas.module)) as Record<
+    string,
+    (req: NextRequest, ctx: unknown) => Promise<Response>
+  >;
+  const req = new NextRequest(`http://localhost${cas.url}`, {
+    method: cas.methode,
+    body: cas.corps ? JSON.stringify(cas.corps) : undefined,
+    headers: cas.corps ? { 'content-type': 'application/json' } : {},
+  });
+  return handlers[cas.methode]!(req, { params: Promise.resolve(cas.params) });
+}
 
-  async function appeler(cas: CasRoute): Promise<Response> {
-    setupAuth(cas.role, UTILISATEUR, ORG);
-    const handlers = (await import(cas.module)) as Record<
-      string,
-      (req: NextRequest, ctx: unknown) => Promise<Response>
-    >;
-    const req = new NextRequest(`http://localhost${cas.url}`, {
-      method: cas.methode,
-      body: cas.corps ? JSON.stringify(cas.corps) : undefined,
-      headers: cas.corps ? { 'content-type': 'application/json' } : {},
-    });
-    return handlers[cas.methode]!(req, { params: Promise.resolve(cas.params) });
-  }
+function oublierBase(): void {
+  mockSupabaseChain.single.mockReset();
+  mockSupabaseChain.maybeSingle.mockReset();
+  mockSupabaseChain.rpc.mockReset();
+}
 
+describe('M1.5a / envoi immédiat — les autres routes émettrices', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPassageCible.mockResolvedValue(PASSAGE_OK);
   });
-  afterEach(() => {
-    delete chaine.then;
-    mockSupabaseChain.single.mockReset();
-    mockSupabaseChain.maybeSingle.mockReset();
-    mockSupabaseChain.rpc.mockReset();
-    mockSupabaseChain.from.mockReset();
-    mockSupabaseChain.from.mockReturnThis();
-  });
+  afterEach(oublierBase);
 
   it.each(CAS)(
     'M1.5a/envoi_immediat_autres_emetteurs — $nom : mutation réussie, l’envoi est programmé pour la bonne collecte',
@@ -926,6 +1052,12 @@ describe('M1.5a / envoi immédiat — les autres routes émettrices', () => {
       expect(taches).toHaveLength(1);
 
       await taches[0]!();
+      // La file est consultée pour ces collectes et elles seules : une collecte
+      // de trop, que la file simulée écarterait, se voit ici.
+      expect(mockSupabaseChain.in).toHaveBeenCalledWith(
+        'aggregate_id',
+        cas.attendu,
+      );
       expect(mockPassageCible.mock.calls.map((c) => c[1])).toEqual(cas.attendu);
     },
   );
@@ -961,6 +1093,535 @@ describe('M1.5a / envoi immédiat — les autres routes émettrices', () => {
     expect(res.status).toBe(200);
     expect(tachesProgrammees()).toHaveLength(0);
   });
+});
+
+// ── Tâche bornée (décision Val 2026-10-13) ───────────────────────────────────
+
+describe('M1.5a / envoi immédiat — tâche bornée', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPassageCible.mockResolvedValue(PASSAGE_OK);
+  });
+
+  const collectesTraitees = () => mockPassageCible.mock.calls.map((c) => c[1]);
+
+  async function journalDe(action: () => Promise<void>): Promise<string[]> {
+    const journal = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await action();
+      return journal.mock.calls.map((c) => String(c[0]));
+    } finally {
+      journal.mockRestore();
+    }
+  }
+
+  it('M1.5a/frein_tache_sans_ordre — aucune collecte n’a d’ordre en file : aucun passage n’est lancé, la file est lue une fois', async () => {
+    simulerListes({ outbox_events: ordresEnFile() });
+
+    envoyerOrdresSansAttendre(['col-a', 'col-b']);
+    await tachesProgrammees()[0]!();
+
+    expect(mockPassageCible).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.from.mock.calls).toEqual([['outbox_events']]);
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith(
+      'aggregate_type',
+      'collecte',
+    );
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('aggregate_id', [
+      'col-a',
+      'col-b',
+    ]);
+    // Ordres en attente seulement : ni terminés, ni déjà pris par un passage.
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('statut', [
+      'pending',
+      'failed',
+    ]);
+  });
+
+  it('M1.5a/frein_tache_ordre_partiel — seules les collectes qui ont un ordre en file sont traitées, dans l’ordre reçu', async () => {
+    simulerListes({ outbox_events: ordresEnFile('col-c', 'col-a', 'col-c') });
+
+    envoyerOrdresSansAttendre(['col-a', 'col-b', 'col-c']);
+    await tachesProgrammees()[0]!();
+
+    expect(collectesTraitees()).toEqual(['col-a', 'col-c']);
+  });
+
+  it('M1.5a/frein_tache_identifiant_autre_ecriture — une collecte désignée par une autre écriture de son identifiant garde son passage', async () => {
+    const A = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+    const C = 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+    // La base rend toujours la forme standard.
+    simulerListes({ outbox_events: ordresEnFile(A, C) });
+    const recues = [
+      A.toUpperCase(),
+      '{b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11}',
+      'c0ee-bc99-9c0b-4ef8-bb6d-6bb9-bd38-0a11',
+      `{${A.replaceAll('-', '')}}`,
+    ];
+
+    envoyerOrdresSansAttendre(recues);
+    await tachesProgrammees()[0]!();
+
+    // Celles qui ont un ordre, telles que reçues ; pas la deuxième, sans ordre.
+    expect(collectesTraitees()).toEqual([recues[0], recues[2], recues[3]]);
+  });
+
+  it('M1.5a/frein_tache_reponse_tronquee — une réponse au plafond de lignes de l’API vaut une file illisible', async () => {
+    // Mille lignes pour la seule col-a : la réponse a pu perdre celles de col-b.
+    simulerListes({
+      outbox_events: ordresEnFile(...Array<string>(1_000).fill('col-a')),
+    });
+
+    envoyerOrdresSansAttendre(['col-a', 'col-b']);
+    const lignes = await journalDe(tachesProgrammees()[0]!);
+
+    expect(collectesTraitees()).toEqual(['col-a', 'col-b']);
+    expect(
+      lignes.find((l) => l.includes('outbox.envoi_immediat.file_illisible')),
+    ).toContain('plafond de lignes');
+  });
+
+  it('juste sous le plafond de lignes, la réponse est lue normalement', async () => {
+    simulerListes({
+      outbox_events: ordresEnFile(...Array<string>(999).fill('col-a')),
+    });
+
+    envoyerOrdresSansAttendre(['col-a', 'col-b']);
+    await tachesProgrammees()[0]!();
+
+    expect(collectesTraitees()).toEqual(['col-a']);
+  });
+
+  it.each([
+    [
+      'lecture en erreur',
+      { data: null, error: { message: 'permission denied' } },
+      'permission denied',
+    ],
+    [
+      'réponse sans liste',
+      { data: undefined, error: null },
+      'réponse sans liste',
+    ],
+  ])(
+    'M1.5a/frein_tache_file_illisible — %s : jamais lue comme « aucun ordre », les collectes sont traitées',
+    async (_cas, reponse, motif) => {
+      simulerListes({ outbox_events: reponse });
+
+      envoyerOrdresSansAttendre(['col-a', 'col-b']);
+      const lignes = await journalDe(tachesProgrammees()[0]!);
+
+      expect(collectesTraitees()).toEqual(['col-a', 'col-b']);
+      const alerte = lignes.find((l) =>
+        l.includes('outbox.envoi_immediat.file_illisible'),
+      );
+      expect(alerte).toContain(motif);
+    },
+  );
+
+  it('M1.5a/frein_tache_plafond — dix collectes traitées au plus, cinquante consultées ; le reste est laissé au passage planifié et journalisé', async () => {
+    // Valeurs décidées par Val le 2026-10-13.
+    expect([
+      MAX_COLLECTES_EXAMINEES,
+      MAX_COLLECTES_PAR_TACHE,
+      BUDGET_TACHE_MS,
+    ]).toEqual([50, 10, 40_000]);
+
+    const toutes = Array.from({ length: 60 }, (_, i) => `col-${i}`);
+    simulerListes({ outbox_events: ordresEnFile(...toutes) });
+
+    envoyerOrdresSansAttendre(toutes);
+    const lignes = await journalDe(tachesProgrammees()[0]!);
+
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith(
+      'aggregate_id',
+      toutes.slice(0, 50),
+    );
+    expect(collectesTraitees()).toEqual(toutes.slice(0, 10));
+    const laisse = lignes.find((l) =>
+      l.includes('outbox.envoi_immediat.laisse_au_passage_planifie'),
+    );
+    // 10 jamais consultées + 40 consultées mais au-delà du plafond.
+    expect(JSON.parse(laisse!).payload).toEqual({
+      motif: 'plafond',
+      collectes: 50,
+    });
+  });
+
+  it('sous les plafonds, rien n’est journalisé comme laissé au passage planifié', async () => {
+    simulerListes({ outbox_events: ordresEnFile('col-a') });
+
+    envoyerOrdresSansAttendre(['col-a', 'col-b']);
+    const lignes = await journalDe(tachesProgrammees()[0]!);
+
+    expect(
+      lignes.filter((l) => l.includes('laisse_au_passage_planifie')),
+    ).toHaveLength(0);
+  });
+
+  describe('budget de temps', () => {
+    let horloge = 0;
+    beforeEach(() => {
+      horloge = 1_700_000_000_000;
+      vi.spyOn(Date, 'now').mockImplementation(() => horloge);
+      simulerListes({ outbox_events: ordresEnFile('col-a', 'col-b', 'col-c') });
+    });
+    afterEach(() => {
+      vi.mocked(Date.now).mockRestore();
+    });
+
+    it('M1.5a/frein_tache_budget — passé quarante secondes depuis le départ de la tâche, aucune collecte n’est commencée', async () => {
+      mockPassageCible.mockImplementationOnce(async () => {
+        horloge += BUDGET_TACHE_MS + 1;
+        return PASSAGE_OK;
+      });
+
+      envoyerOrdresSansAttendre(['col-a', 'col-b', 'col-c']);
+      const lignes = await journalDe(tachesProgrammees()[0]!);
+
+      expect(collectesTraitees()).toEqual(['col-a']);
+      const laisse = lignes.find((l) =>
+        l.includes('outbox.envoi_immediat.laisse_au_passage_planifie'),
+      );
+      expect(JSON.parse(laisse!).payload).toEqual({
+        motif: 'budget',
+        collectes: 2,
+      });
+    });
+
+    it('à quarante secondes pile, la collecte suivante est encore commencée', async () => {
+      mockPassageCible.mockImplementationOnce(async () => {
+        horloge += BUDGET_TACHE_MS;
+        return PASSAGE_OK;
+      });
+
+      envoyerOrdresSansAttendre(['col-a', 'col-b']);
+      await tachesProgrammees()[0]!();
+
+      expect(collectesTraitees()).toEqual(['col-a', 'col-b']);
+    });
+
+    it('le budget se compte depuis le départ de la tâche, lecture de la file comprise', async () => {
+      // La lecture de la file a consommé tout le budget : rien n'est commencé.
+      const lecture = chaine.then!;
+      chaine.then = (resolve) => {
+        horloge += BUDGET_TACHE_MS + 1;
+        lecture(resolve);
+      };
+
+      envoyerOrdresSansAttendre(['col-a', 'col-b']);
+      await tachesProgrammees()[0]!();
+
+      expect(collectesTraitees()).toEqual([]);
+    });
+
+    it('par événement, le budget couvre aussi la lecture de ses collectes', async () => {
+      let lectures = 0;
+      simulerListes({
+        collectes: { data: [{ id: 'col-a' }, { id: 'col-b' }], error: null },
+        outbox_events: ordresEnFile('col-a', 'col-b'),
+      });
+      const lecture = chaine.then!;
+      chaine.then = (resolve) => {
+        // Seule la première lecture (les collectes de l'événement) est lente.
+        if (lectures++ === 0) horloge += BUDGET_TACHE_MS + 1;
+        lecture(resolve);
+      };
+
+      envoyerOrdresEvenementSansAttendre('evt-1');
+      await tachesProgrammees()[0]!();
+
+      expect(lectures).toBe(2);
+      expect(collectesTraitees()).toEqual([]);
+    });
+  });
+});
+
+// ── Frein de débit des routes clientes (décision Val 2026-10-13) ─────────────
+//
+// Les compteurs eux-mêmes sont prouvés dans src/lib/frein-ecritures-client.test.ts.
+// Ici : chaque route cliente passe par le frein, au bon endroit, avec la bonne clé.
+
+const CAS_CLIENTS = CAS.filter((c) => !c.module.includes('/admin/'));
+const CAS_MODIFICATION = CAS_CLIENTS.filter((c) => c.modification);
+
+/** Écritures déjà comptées, comme si elles venaient d'être acceptées. */
+function dejaEcrit(
+  nombre: number,
+  ecriture: Parameters<typeof freinerEcritureCliente>[0],
+): void {
+  for (let i = 0; i < nombre; i++) {
+    expect(freinerEcritureCliente(ecriture)).toBeNull();
+  }
+}
+
+describe('M1.5a / frein de débit — routes des espaces clients', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPassageCible.mockResolvedValue(PASSAGE_OK);
+  });
+  afterEach(oublierBase);
+
+  const rienEcrit = (cas: CasRoute) => {
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalledWith(
+      cas.emetteur,
+      expect.anything(),
+    );
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.delete).not.toHaveBeenCalled();
+    expect(tachesProgrammees()).toHaveLength(0);
+  };
+
+  it.each(CAS_CLIENTS)(
+    'M1.5a/frein_ecritures_routes_clientes — $nom : organisation au plafond, 429 sans rien écrire ni rien programmer',
+    async (cas) => {
+      base(cas, { data: cas.rend, error: null });
+      dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION, { organisationId: ORG });
+
+      const res = await appeler(cas);
+
+      expect(res.status).toBe(429);
+      expect(await res.json()).toEqual({ error: MESSAGE_FREIN });
+      expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
+      rienEcrit(cas);
+    },
+  );
+
+  it.each(CAS_CLIENTS)(
+    'M1.5a/frein_ecritures_apres_les_gardes — $nom : une requête refusée par la dernière garde ne consomme rien',
+    async (cas) => {
+      expect(cas.refusGarde, 'cas client sans refusGarde').toBeDefined();
+      dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION - 1, { organisationId: ORG });
+
+      // Refusée par la garde : ni 429, ni écriture.
+      const refuse = { ...cas, ...cas.refusGarde };
+      base(refuse, { data: cas.rend, error: null });
+      const refus = await appeler(refuse);
+      expect([403, 422]).toContain(refus.status);
+      rienEcrit(cas);
+
+      // La centième écriture de la fenêtre passe donc encore…
+      base(cas, { data: cas.rend, error: null });
+      expect((await appeler(cas)).status).toBeLessThan(300);
+      // … et c'est bien elle qui a été comptée : la suivante est freinée.
+      expect((await appeler(cas)).status).toBe(429);
+    },
+  );
+
+  it.each(CAS_MODIFICATION)(
+    'M1.5a/frein_ecritures_modification_par_objet — $nom : dix modifications du même objet, la onzième est freinée',
+    async (cas) => {
+      base(cas, { data: cas.rend, error: null });
+      // Comptées pour une autre organisation : seul le compteur de l'objet joue.
+      dejaEcrit(MAX_MODIFICATIONS_PAR_OBJET - 1, {
+        organisationId: 'org-autre',
+        modification: cas.modification,
+      });
+
+      expect((await appeler(cas)).status).toBeLessThan(300);
+      vi.clearAllMocks();
+      const res = await appeler(cas);
+
+      expect(res.status).toBe(429);
+      rienEcrit(cas);
+    },
+  );
+
+  it.each(CAS_CLIENTS.filter((c) => !c.modification))(
+    'M1.5a/frein_ecritures_hors_modification — $nom : création ou annulation, jamais freinée par le compteur de l’objet',
+    async (cas) => {
+      base(cas, { data: cas.rend, error: null });
+      for (const modification of [
+        { collecte: 'col-1' },
+        { evenement: 'evt-1' },
+      ]) {
+        dejaEcrit(MAX_MODIFICATIONS_PAR_OBJET, {
+          organisationId: 'org-autre',
+          modification,
+        });
+      }
+
+      expect((await appeler(cas)).status).toBeLessThan(300);
+    },
+  );
+
+  // L'identifiant de l'URL écrit autrement (la base accepte plusieurs écritures
+  // d'un même uuid) : la base simulée rend toujours le sien.
+  const autreEcriture = (cas: CasRoute): CasRoute => ({
+    ...cas,
+    url: cas.url.replace(cas.params.id!, cas.params.id!.toUpperCase()),
+    params: { id: cas.params.id!.toUpperCase() },
+  });
+
+  it.each(CAS_MODIFICATION)(
+    'M1.5a/frein_ecritures_identifiant_de_la_base — $nom : identifiant écrit autrement dans l’URL, le compteur reste celui de l’objet',
+    async (cas) => {
+      const autrement = autreEcriture(cas);
+      expect(autrement.params.id).not.toBe(cas.params.id);
+      base(autrement, { data: cas.rend, error: null });
+      dejaEcrit(MAX_MODIFICATIONS_PAR_OBJET, {
+        organisationId: 'org-autre',
+        modification: cas.modification,
+      });
+
+      const res = await appeler(autrement);
+
+      expect(res.status).toBe(429);
+      rienEcrit(cas);
+    },
+  );
+
+  it.each(CAS_CLIENTS.filter((c) => /\/collectes\/col-1/.test(c.url)))(
+    'M1.5a/frein_ecritures_envoi_identifiant_de_la_base — $nom : identifiant écrit autrement dans l’URL, l’envoi vise celui que rend la base',
+    async (cas) => {
+      const autrement = autreEcriture(cas);
+      base(autrement, { data: cas.rend, error: null });
+
+      expect((await appeler(autrement)).status).toBeLessThan(300);
+      await tachesProgrammees()[0]!();
+
+      expect(mockPassageCible.mock.calls.map((c) => c[1])).toEqual(cas.attendu);
+    },
+  );
+
+  it('modification d’un événement désigné autrement dans l’URL : ses collectes sont lues sous l’identifiant que rend la base', async () => {
+    const autrement = autreEcriture(
+      CAS_MODIFICATION.find((c) => 'evenement' in c.modification!)!,
+    );
+    base(autrement, { data: autrement.rend, error: null });
+
+    expect((await appeler(autrement)).status).toBeLessThan(300);
+    const tache = tachesProgrammees()[0]!;
+    // Seules les lectures de la tâche comptent ici, pas celles de la route.
+    mockSupabaseChain.eq.mockClear();
+    await tache();
+
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith('evenement_id', 'evt-1');
+    expect(mockSupabaseChain.eq).not.toHaveBeenCalledWith(
+      'evenement_id',
+      'EVT-1',
+    );
+  });
+
+  const PROGRAMMER = CAS_CLIENTS.find(
+    (c) => c.module === '@/app/api/v1/programmation/evenements/route.js',
+  )!;
+
+  it('M1.5a/frein_ecritures_organisation_du_jeton — un client ne choisit pas l’organisation comptée : celle de sa session, jamais celle du corps de la requête', async () => {
+    const cas: CasRoute = {
+      ...PROGRAMMER,
+      corps: { ...PROGRAMMATION, organisation_id: 'org-autre' },
+    };
+    base(cas, { data: cas.rend, error: null });
+    dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION, { organisationId: ORG });
+
+    expect((await appeler(cas)).status).toBe(429);
+    rienEcrit(cas);
+    // Et rien n'a été compté pour l'organisation nommée dans le corps.
+    dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION, { organisationId: 'org-autre' });
+  });
+
+  it('M1.5a/frein_ecritures_avant_entite_facturation — organisation sans entité de facturation, au plafond : 429 avant que la route ne la crée', async () => {
+    const cas: CasRoute = { ...PROGRAMMER, entiteFacturation: 'absente' };
+    base(cas, { data: cas.rend, error: null });
+    dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION, { organisationId: ORG });
+
+    expect((await appeler(cas)).status).toBe(429);
+    // L'entité a été cherchée (lecture), pas créée.
+    expect(mockSupabaseChain.from).toHaveBeenCalledWith('entites_facturation');
+    rienEcrit(cas);
+  });
+
+  it('organisation sans entité de facturation, sous le plafond : la route la crée et programme', async () => {
+    const cas: CasRoute = { ...PROGRAMMER, entiteFacturation: 'absente' };
+    base(cas, { data: cas.rend, error: null });
+
+    expect((await appeler(cas)).status).toBeLessThan(300);
+    expect(mockSupabaseChain.from).toHaveBeenCalledWith('entites_facturation');
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ entite_par_defaut: true }),
+    );
+  });
+
+  it('lecture de l’entité de facturation en erreur : 500, aucune entité créée, rien de compté', async () => {
+    const cas: CasRoute = { ...PROGRAMMER, entiteFacturation: 'illisible' };
+    base(cas, { data: cas.rend, error: null });
+    dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION - 1, { organisationId: ORG });
+    const journal = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const res = await appeler(cas);
+    journal.mockRestore();
+
+    expect(res.status).toBe(500);
+    rienEcrit(cas);
+    // La panne est survenue avant le frein : la centième écriture reste due.
+    expect(freinerEcritureCliente({ organisationId: ORG })).toBeNull();
+  });
+
+  it('M1.5a/frein_ecritures_brouillon — l’enregistrement d’un brouillon compte comme une écriture de l’organisation', async () => {
+    const brouillon: CasRoute = {
+      ...CAS_CLIENTS.find(
+        (c) => c.module === '@/app/api/v1/programmation/evenements/route.js',
+      )!,
+      corps: { ...PROGRAMMATION, confirmer: false },
+    };
+    base(brouillon, { data: null, error: null });
+    dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION - 1, { organisationId: ORG });
+
+    // La centième écriture de la fenêtre : le brouillon est enregistré…
+    expect((await appeler(brouillon)).status).toBeLessThan(300);
+    expect(mockSupabaseChain.insert).toHaveBeenCalled();
+    // … et compté : le suivant est freiné, sans rien écrire.
+    vi.clearAllMocks();
+    expect((await appeler(brouillon)).status).toBe(429);
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it.each(CAS_MODIFICATION)(
+    'M1.5a/frein_ecritures_impersonation — $nom : une session Admin ouverte sous l’identité d’un client est freinée comme ce client',
+    async (cas) => {
+      const sousIdentite = { ...cas, claims: { impersonator_id: 'admin-1' } };
+      base(sousIdentite, { data: cas.rend, error: null });
+      dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION, { organisationId: ORG });
+
+      const res = await appeler(sousIdentite);
+
+      expect(res.status).toBe(429);
+      rienEcrit(cas);
+    },
+  );
+
+  // Programmation de support : les trois routes ouvertes à l'équipe Savr.
+  const CAS_EQUIPE_SAVR: CasRoute[] = CAS_CLIENTS.filter((c) =>
+    [
+      '@/app/api/v1/programmation/evenements/route.js',
+      '@/app/api/v1/programmation/evenements/[id]/collectes/route.js',
+      '@/app/api/v1/programmation/evenements/[id]/confirmer/route.js',
+    ].includes(c.module),
+  ).flatMap((c) =>
+    ['admin_savr', 'ops_savr'].map((role) => ({
+      ...c,
+      role,
+      corps: c.corps ? { ...c.corps, organisation_id: ORG } : undefined,
+    })),
+  );
+
+  it.each(CAS_EQUIPE_SAVR)(
+    'M1.5a/frein_ecritures_equipe_savr — $nom, $role : sous son propre rôle, l’équipe Savr n’est ni freinée ni comptée',
+    async (cas) => {
+      base(cas, { data: cas.rend, error: null });
+      dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION - 1, { organisationId: ORG });
+
+      // Deux écritures de l'équipe Savr pour cette organisation : acceptées.
+      expect((await appeler(cas)).status).toBeLessThan(300);
+      expect((await appeler(cas)).status).toBeLessThan(300);
+
+      // Elles n'ont rien consommé : il reste exactement une écriture au client.
+      expect(freinerEcritureCliente({ organisationId: ORG })).toBeNull();
+      expect(freinerEcritureCliente({ organisationId: ORG })?.status).toBe(429);
+    },
+  );
 });
 
 // ── Cliquets : durée, complétude ─────────────────────────────────────────────
@@ -1171,6 +1832,32 @@ describe('M1.5a / envoi immédiat — cliquets de durée et de complétude', () 
     expect(emetteursDesMigrations()).toEqual(
       [...EMETTEURS_SQL, ...HORS_ENVOI_IMMEDIAT].sort(),
     );
+  });
+
+  it('M1.5a/frein_ecritures_routes_completes — toute route déclencheuse hors de l’espace Admin passe par le frein de débit, et chacune a sa preuve dans le tableau des routes', () => {
+    const FREIN = /freinerEcritureCliente\(/;
+    const admin = (r: { chemin: string }) => r.chemin.startsWith('v1/admin/');
+    const clientes = declencheuses.filter((r) => !admin(r));
+
+    expect(clientes).toHaveLength(9);
+    expect(
+      clientes.filter((r) => !FREIN.test(r.source)).map((r) => r.chemin),
+    ).toEqual([]);
+    // L'espace Admin n'est pas freiné.
+    expect(
+      declencheuses
+        .filter((r) => admin(r) && FREIN.test(r.source))
+        .map((r) => r.chemin),
+    ).toEqual([]);
+    // Le 429 de chaque route cliente est prouvé par son cas du tableau.
+    const prouvees = new Set(
+      CAS_CLIENTS.map((c) =>
+        c.module.replace('@/app/api/', '').replace(/\.js$/, '.ts'),
+      ),
+    );
+    expect(
+      clientes.map((r) => r.chemin).filter((c) => !prouvees.has(c)),
+    ).toEqual([]);
   });
 
   it('M1.5a/envoi_immediat_duree_bornee — chaque route déclencheuse déclare une durée de vie ≤ 60 s', () => {

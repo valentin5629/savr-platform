@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
-import { requireCompletedOrganisation } from '@/lib/onboarding-guards.js';
+import {
+  lireEntiteFacturation,
+  requireCompletedOrganisation,
+} from '@/lib/onboarding-guards.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import {
   notifierOverrideLieu,
@@ -14,6 +17,7 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -313,12 +317,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Entité de facturation de l'orga programmatrice (evenements.entite_facturation_id
   // NOT NULL). Le SIRET n'est PAS exigé pour programmer (décision Val 2026-09-28) ;
-  // il ne bloque que l'émission de facture (§05 §8 étape 3).
-  const completude = await requireCompletedOrganisation(
-    supabase,
-    effectiveOrgId,
-  );
-  if (!completude.ok) return completude.error;
+  // il ne bloque que l'émission de facture (§05 §8 étape 3). Lecture seule ici :
+  // une organisation qui n'en a pas la voit créée plus bas, après le frein.
+  const entiteLue = await lireEntiteFacturation(supabase, effectiveOrgId);
+  if (!entiteLue.ok) return entiteLue.error;
 
   // Vérification pack AG si collecte AG présente (R3)
   const hasAg = body.collectes.some((c) => c.type === 'ag');
@@ -340,6 +342,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
   }
+
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client), brouillon
+  // compris : la route est la même.
+  const frein = freinerEcritureCliente({
+    organisationId: effectiveOrgId,
+    equipeSavr: auth.ctx.isAdmin,
+  });
+  if (frein) return frein;
+
+  // Organisation sans entité de facturation : créée ici, après le frein.
+  const completude = await requireCompletedOrganisation(
+    supabase,
+    effectiveOrgId,
+    entiteLue,
+  );
+  if (!completude.ok) return completude.error;
 
   // INSERT événement
   const { data: evt, error: evtErr } = await supabase

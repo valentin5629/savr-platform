@@ -9,6 +9,7 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -103,6 +104,13 @@ export async function POST(
       );
     }
   }
+
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client).
+  const frein = freinerEcritureCliente({
+    organisationId: evt.organisation_id,
+    equipeSavr: auth.ctx.isAdmin,
+  });
+  if (frein) return frein;
 
   // fn_ajouter_collecte_evenement : délègue à fn_creer_collecte (gère E1 pour ZD)
   const { data: collecteId, error: rpcErr } = await supabase.rpc(

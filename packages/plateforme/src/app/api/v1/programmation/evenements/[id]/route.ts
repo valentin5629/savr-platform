@@ -13,6 +13,7 @@ import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modifi
 import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresEvenementSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -168,6 +169,14 @@ export async function PATCH(
     );
   }
 
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client). L'identifiant
+  // est celui que rend la base, jamais le paramètre d'URL.
+  const frein = freinerEcritureCliente({
+    organisationId: auth.ctx.organisationId,
+    modification: { evenement: evt.id },
+  });
+  if (frein) return frein;
+
   // Écriture via RPC service-role : UPDATE événement + recalcul volume si pax +
   // émission E2 par collecte dispatchée (atomique, row lock avant outbox — G4).
   const admin = createAdminSupabaseClient();
@@ -186,7 +195,7 @@ export async function PATCH(
 
   // Un ordre par collecte déjà commandée : ils partent sans attendre le passage
   // planifié (décision Val 2026-10-12).
-  envoyerOrdresEvenementSansAttendre(id);
+  envoyerOrdresEvenementSansAttendre(evt.id);
 
   // Audit (§05 l.330 audit_log global — accessible Admin only). Session impersonée :
   // user_id = identité assumée ET impersonator_id = admin réel (§09 §7) — écrit ici

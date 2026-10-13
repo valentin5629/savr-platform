@@ -7,6 +7,7 @@ import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-opera
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -102,6 +103,13 @@ export async function PATCH(
       );
     }
   }
+
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client).
+  const frein = freinerEcritureCliente({
+    organisationId: evt.organisation_id,
+    equipeSavr: auth.ctx.isAdmin,
+  });
+  if (frein) return frein;
 
   // RPC atomique : brouillon → programmee + E1 pour ZD
   const { error: rpcErr } = await supabase.rpc(

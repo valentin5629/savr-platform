@@ -225,7 +225,7 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
     expect(h.addCustomerOrder).toHaveBeenCalledWith('TOUR-NEUF', 'CMD-NEUVE');
   });
 
-  it.each(['CANCELED', 'KO'] as const)(
+  it.each(['CANCELED', 'KO', 'ARCHIVED'] as const)(
     'M1.5a/reconciliation_creation_commande_morte — une commande %s du même numéro n’est jamais reprise',
     async (statut) => {
       // La reprendre ferait croire commandé un camion qui ne viendra pas.
@@ -250,6 +250,9 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
     const lot = [
       commande('CMD-B'),
       commande('CMD-MORTE', { customerOrderStatus: 'CANCELED' }),
+      // Classée AVANT « CMD-A » : si elle n'était pas écartée, c'est elle que le
+      // tri retiendrait.
+      commande('CMD-0-ARCHIVEE', { customerOrderStatus: 'ARCHIVED' }),
       commande('CMD-A', { customerOrderStatus: 'VALIDATED' }),
       commande('CMD-C'),
     ];

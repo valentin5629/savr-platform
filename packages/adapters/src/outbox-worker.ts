@@ -2,8 +2,9 @@
 //
 // Flux :
 //   1. fn_reap_outbox_claims() — re-queue les claims expirés
-//   2. fn_claim_outbox_batch() — TX courte de claim (SKIP LOCKED + visibilité txid)
-//   3. Pour chaque event : appel adapter MTS-1 HORS TRANSACTION
+//   2. fn_claim_outbox_batch() — TX courte de claim (SKIP LOCKED + visibilité txid),
+//      UN event à la fois : chacun a son propre bail
+//   3. Pour l'event réservé : appel adapter HORS TRANSACTION, borné par son échéance
 //   4. fn_result_outbox() — TX de résultat (done/failed/dead)
 //
 // Alertes Slack :
@@ -25,14 +26,18 @@
 //      précédent n'est pas 'done' : jamais deux ordres d'une même collecte en vol.
 //      Il ne lie pas deux agrégats : un ordre « lieu » (passage planifié) et un
 //      ordre d'une collecte de ce lieu (clic) peuvent se chevaucher ;
-//   3. le reaper ne re-queue qu'une réservation EXPIRÉE. Elle n'est tenue par un
-//      passage mort que si le bail (120 s) dépasse la durée de vie de l'appelant.
+//   3. le reaper ne re-queue qu'une réservation EXPIRÉE, et un passage ne parle
+//      plus au prestataire quand la sienne approche de sa fin. Cette borne est
+//      tenue DANS LE CODE (echeance-passage.ts) : pour un ordre réservé à T,
+//      aucun appel au prestataire ne démarre après T + bail − 40 s, aucune
+//      écriture de résultat n'est lancée après T + bail − 5 s (ce que cette
+//      borne ne couvre pas est listé en tête de echeance-passage.ts).
 //      `maxDuration = 60` (route cron et routes qui déclenchent l'envoi immédiat ;
 //      cliquet : plateforme/tests/api/admin/envoi-immediat-routes.test.ts) ne
-//      borne pas seul cette durée. Sur un serveur local (`next dev`,
-//      `next start`), il n'est pas appliqué : rien ne borne un passage. Sur
-//      Vercel, mesuré le 2026-10-12 sur des déploiements d'aperçu (Fluid
-//      Compute), avec une tâche `after()` de 150 s sous `maxDuration = 60` :
+//      borne pas seul la durée de vie d'un passage. Sur un serveur local
+//      (`next dev`, `next start`), il n'est pas appliqué. Sur Vercel, mesuré le
+//      2026-10-12 sur des déploiements d'aperçu (Fluid Compute), avec une tâche
+//      `after()` de 150 s sous `maxDuration = 60` :
 //        - seule dans son processus, la tâche s'est arrêtée à 60 s ;
 //        - avec une autre invocation en cours dans le même processus à cette
 //          échéance, la plateforme a journalisé le dépassement et cessé
@@ -42,13 +47,16 @@
 //          à sa propre limite ;
 //        - les deux routes d'envoi immédiat et les routes cron à 60 s, dont
 //          celle de ce worker, étaient servies par la même instance.
-//      Aucune tâche n'a été vue active au-delà de 120 s. Rien de mesuré ne
-//      l'exclut, et le passage ne borne pas le traitement d'un ordre réservé.
-//      Non mesuré : la production, et le cas où l'autre invocation se termine
-//      avant sa propre limite.
-// C'est pourquoi SEUL le passage planifié lance le reaper : un clic ne libère
-// jamais la réservation d'un autre passage. Si une durée venait à dépasser le
-// bail, il faudrait un heartbeat de bail — invariant à préserver.
+//      Aucune tâche n'a été vue active au-delà de 120 s ; rien de mesuré ne
+//      l'exclut. Non mesuré : la production, et le cas où l'autre invocation se
+//      termine avant sa propre limite.
+// Le passage planifié réserve UN ordre à la fois : réservés par dix sous un seul
+// bail, les derniers commençaient bail expiré. SEUL le passage planifié lance le
+// reaper : un clic ne libère jamais la réservation d'un autre passage.
+//
+// Limite connue : l'écriture du résultat (fn_result_outbox) n'est pas
+// conditionnée en base à la réservation ; elle est bornée ici par l'horloge du
+// passage (règle des 5 s ci-dessus).
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -56,6 +64,12 @@ import { sendAlert } from '@savr/shared/src/alerting/slack.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
+import {
+  BAIL_RESERVATION_MS,
+  avecEcheance,
+  echeanceOrdre,
+  limiteEcriture,
+} from './echeance-passage.js';
 import {
   CancelWindowClosedError,
   LogistiqueAmbiguousError,
@@ -140,6 +154,19 @@ const RETRY_DELAYS_MS = [
   24 * 60 * 60 * 1000, // attempt 3 → retry dans 24h
 ];
 
+// Bail passé explicitement aux réservations : l'échéance des appels et le bail
+// en base viennent ainsi de la même constante (echeance-passage.ts).
+const BAIL = `${BAIL_RESERVATION_MS / 1000} seconds`;
+
+/** Ordres traités au plus par passage planifié (un par réservation). */
+const PASSAGE_PLANIFIE_MAX_ORDRES = 10;
+/**
+ * Passé ce délai, compté depuis le début du passage, on ne réserve plus de
+ * nouvel ordre. Il ne borne pas le traitement de l'ordre en cours : c'est le
+ * rôle de son échéance.
+ */
+const BUDGET_PASSAGE_MS = 40_000;
+
 export async function runOutboxWorker(
   supabase: SupabaseClient,
 ): Promise<WorkerResult> {
@@ -152,20 +179,41 @@ export async function runOutboxWorker(
   };
 
   // ── 1. Reaper : re-queue claims expirés ─────────────────────────────────────
-  const { data: reaped } = await supabase.rpc('fn_reap_outbox_claims');
+  // Son erreur n'est pas ignorée : un reaper muet laisserait pour toujours en
+  // 'processing' les ordres qu'un passage a laissés derrière lui.
+  const { data: reaped, error: erreurReaper } = await supabase.rpc(
+    'fn_reap_outbox_claims',
+  );
+  if (erreurReaper) {
+    throw new Error(`fn_reap_outbox_claims : ${erreurReaper.message}`);
+  }
   result.reaped = (reaped as number | null) ?? 0;
 
-  // ── 2. Claim batch ──────────────────────────────────────────────────────────
-  const { data: events } = await supabase.rpc('fn_claim_outbox_batch', {
-    p_limit: 10,
-  });
+  // ── 2-3. Un ordre à la fois : réservation, puis traitement sous SON bail ─────
+  const debut = Date.now();
+  const traites = new Set<string>();
+  for (let n = 0; n < PASSAGE_PLANIFIE_MAX_ORDRES; n++) {
+    if (Date.now() - debut > BUDGET_PASSAGE_MS) break;
 
-  const claimed = (events as ClaimedEvent[] | null) ?? [];
-  result.claimed = claimed.length;
+    const reserveA = Date.now();
+    const { data: events, error } = await supabase.rpc(
+      'fn_claim_outbox_batch',
+      { p_limit: 1, p_lease_duration: BAIL },
+    );
+    // Réservation impossible : le dire, plutôt qu'un passage muet à zéro ordre.
+    if (error) {
+      throw new Error(`fn_claim_outbox_batch : ${error.message}`);
+    }
+    const event = ((events as ClaimedEvent[] | null) ?? [])[0];
+    // Rien à réserver, ou un ordre déjà traité par CE passage : on s'arrête. Dans
+    // ce second cas (inattendu : un ordre traité n'est plus réservable), l'ordre
+    // vient d'être réservé de nouveau et n'est pas traité : il reste
+    // 'processing', une tentative comptée, jusqu'au reaper.
+    if (!event || traites.has(event.id)) break;
+    traites.add(event.id);
 
-  // ── 3. Traitement séquentiel ─────────────────────────────────────────────────
-  for (const event of claimed) {
-    await traiterEvent(supabase, event, result);
+    result.claimed++;
+    await traiterEvent(supabase, event, result, reserveA);
   }
 
   return result;
@@ -173,16 +221,40 @@ export async function runOutboxWorker(
 
 // Traitement d'un ordre réservé : appel du prestataire HORS transaction, puis
 // transaction de résultat. Commun au passage planifié et à l'envoi immédiat.
+// `reserveA` = instant pris AVANT la requête de réservation : il fonde l'échéance
+// des appels au prestataire et la limite d'écriture du résultat.
 async function traiterEvent(
   supabase: SupabaseClient,
   event: ClaimedEvent,
   result: WorkerResult,
+  reserveA: number,
 ): Promise<void> {
+  // Bail presque écoulé : l'ordre ne nous appartient plus de façon sûre. On
+  // n'écrit RIEN — ni succès, ni échec, ni alerte : le reaper le remettra en
+  // file avec réconciliation obligatoire.
+  // Le journal dit ce qui est écarté : un SUCCÈS écarté veut dire que l'ordre a
+  // peut-être abouti chez le prestataire sans que la file le sache.
+  const horsBail = (resultat: 'succes' | 'erreur', err?: unknown): boolean => {
+    if (Date.now() < limiteEcriture(reserveA)) return false;
+    logger.warn('outbox.passage_hors_bail', {
+      event_id: event.id,
+      aggregate_id: event.aggregate_id,
+      event_type: event.event_type,
+      resultat,
+      ...(resultat === 'erreur' ? { erreur: String(err).slice(0, 200) } : {}),
+    });
+    return true;
+  };
+
   try {
-    const consumer = await processEvent(supabase, event);
+    const consumer = await avecEcheance(echeanceOrdre(reserveA), () =>
+      processEvent(supabase, event),
+    );
+    if (horsBail('succes')) return;
     await markDone(supabase, event.id, consumer);
     result.done++;
   } catch (err) {
+    if (horsBail('erreur', err)) return;
     const status = await handleError(supabase, event, err);
     if (status === 'dead') {
       result.dead++;
@@ -212,11 +284,6 @@ async function traiterEvent(
 /** Plafond d'ordres traités par appel : ceinture contre une boucle sans fin. */
 const ENVOI_IMMEDIAT_MAX_ORDRES = 5;
 /**
- * Passé ce délai, compté depuis le début du passage, on ne réserve plus de
- * nouvel ordre. Il ne borne pas le traitement de l'ordre en cours.
- */
-const ENVOI_IMMEDIAT_BUDGET_MS = 40_000;
-/**
  * Seconde chance quand la première réservation est vide : l'ordre tout juste
  * écrit n'est pas réservable tant qu'une transaction plus ancienne est encore
  * ouverte (garde de visibilité txid). Une seule attente, puis le filet planifié.
@@ -237,20 +304,22 @@ export async function runOutboxWorkerPourCollecte(
 
   const debut = Date.now();
   for (let n = 0; n < ENVOI_IMMEDIAT_MAX_ORDRES; n++) {
-    if (Date.now() - debut > ENVOI_IMMEDIAT_BUDGET_MS) break;
+    if (Date.now() - debut > BUDGET_PASSAGE_MS) break;
 
+    let reserveA = Date.now();
     let claimed = await claimCollecte(supabase, collecteId);
     if (claimed.length === 0 && n === 0) {
       await new Promise((resolve) =>
         setTimeout(resolve, ENVOI_IMMEDIAT_ATTENTE_VISIBILITE_MS),
       );
+      reserveA = Date.now();
       claimed = await claimCollecte(supabase, collecteId);
     }
     if (claimed.length === 0) break;
 
     result.claimed += claimed.length;
     for (const event of claimed) {
-      await traiterEvent(supabase, event, result);
+      await traiterEvent(supabase, event, result, reserveA);
     }
   }
 
@@ -263,6 +332,7 @@ async function claimCollecte(
 ): Promise<ClaimedEvent[]> {
   const { data, error } = await supabase.rpc('fn_claim_outbox_collecte', {
     p_collecte_id: collecteId,
+    p_lease_duration: BAIL,
   });
   // Réservation impossible (fonction absente : migration pas encore appliquée ;
   // base injoignable) : le dire à l'appelant, qui le journalise. L'ordre reste

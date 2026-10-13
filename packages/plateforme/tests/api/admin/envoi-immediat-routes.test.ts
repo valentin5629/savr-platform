@@ -13,6 +13,16 @@
  *      pas suffisante : sur Vercel une tâche `after()` hors délai peut continuer
  *      (mesuré le 2026-10-12, invariant A3 de adapters/src/outbox-worker.ts).
  *
+ *   4. le module sait traiter plusieurs collectes, ou toutes celles d'un
+ *      événement, dans UNE tâche et l'une après l'autre ;
+ *   5. cliquets de complétude : toute route qui appelle une fonction SQL
+ *      émettrice d'ordres de collecte déclenche l'envoi immédiat, et la liste de
+ *      ces fonctions est celle que disent les migrations ;
+ *   6. le comportement de chaque route (envoi après une mutation réussie, rien
+ *      après un refus de la base) est prouvé plus bas, dans le tableau des
+ *      routes. Les gardes de ces routes restent prouvées par leurs propres
+ *      fichiers de tests.
+ *
  * `after()` est remplacée dans vitest.setup.ts par un espion qui n'exécute pas la
  * tâche : on la récupère dans ses appels et on la lance à la main.
  */
@@ -22,12 +32,27 @@ import path from 'node:path';
 import { NextRequest, after } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  envoyerOrdresEvenementSansAttendre,
+  envoyerOrdresSansAttendre,
+} from '@/lib/envoi-immediat.js';
+
 const mockSupabaseChain = {
   from: vi.fn().mockReturnThis(),
   select: vi.fn().mockReturnThis(),
   insert: vi.fn().mockReturnThis(),
   update: vi.fn().mockReturnThis(),
+  upsert: vi.fn().mockReturnThis(),
+  delete: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
+  neq: vi.fn().mockReturnThis(),
+  in: vi.fn().mockReturnThis(),
+  is: vi.fn().mockReturnThis(),
+  not: vi.fn().mockReturnThis(),
+  or: vi.fn().mockReturnThis(),
+  gte: vi.fn().mockReturnThis(),
+  lte: vi.fn().mockReturnThis(),
+  order: vi.fn().mockReturnThis(),
   limit: vi.fn().mockReturnThis(),
   single: vi.fn(),
   maybeSingle: vi.fn(),
@@ -54,19 +79,39 @@ const mockGetSession = vi.fn();
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: { getUser: mockGetUser, getSession: mockGetSession },
+    from: (...a: unknown[]) =>
+      (mockSupabaseChain.from as (...x: unknown[]) => unknown)(...a),
+    rpc: (...a: unknown[]) =>
+      (mockSupabaseChain.rpc as (...x: unknown[]) => unknown)(...a),
   }),
+}));
+vi.mock('@savr/shared/src/email/index.js', () => ({
+  sendEmail: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('@/lib/tarif-zd.js', () => ({
+  calculer_tarif_zd: vi
+    .fn()
+    .mockResolvedValue({ montant_ht: 120, montant_brut_ht: 120 }),
+  TarifZdError: class extends Error {},
 }));
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
 }));
 
-function setupAuth(role: string, userId = 'user-1') {
+function setupAuth(role: string, userId = 'user-1', organisationId?: string) {
   mockGetUser.mockResolvedValue({
     data: { user: { id: userId } },
     error: null,
   });
   mockGetSession.mockResolvedValue({
-    data: { session: { access_token: makeJwt({ user_role: role }) } },
+    data: {
+      session: {
+        access_token: makeJwt({
+          user_role: role,
+          ...(organisationId ? { organisation_id: organisationId } : {}),
+        }),
+      },
+    },
     error: null,
   });
 }
@@ -328,7 +373,597 @@ describe('M1.5a / envoi immédiat — clic « Valider » une attribution AG', ()
   });
 });
 
-// ── Cliquet de durée ─────────────────────────────────────────────────────────
+// ── Plusieurs collectes, et toutes celles d'un événement ─────────────────────
+
+const PASSAGE_OK = { reaped: 0, claimed: 1, done: 1, failed: 0, dead: 0 };
+
+describe('M1.5a / envoi immédiat — plusieurs collectes dans une seule tâche', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('M1.5a/envoi_immediat_plusieurs_collectes — une seule tâche, une collecte après l’autre, sans doublon', async () => {
+    let finirLaPremiere: (v: typeof PASSAGE_OK) => void = () => {};
+    mockPassageCible
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finirLaPremiere = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(PASSAGE_OK);
+
+    envoyerOrdresSansAttendre(['col-a', 'col-b', 'col-a']);
+
+    // Rien n'est parti pendant la requête, et une seule tâche est programmée.
+    expect(mockPassageCible).not.toHaveBeenCalled();
+    const taches = tachesProgrammees();
+    expect(taches).toHaveLength(1);
+
+    const course = taches[0]!();
+    await Promise.resolve();
+    await Promise.resolve();
+    // La seconde collecte attend la fin de la première.
+    expect(mockPassageCible.mock.calls.map((c) => c[1])).toEqual(['col-a']);
+
+    finirLaPremiere(PASSAGE_OK);
+    await course;
+    expect(mockPassageCible.mock.calls.map((c) => c[1])).toEqual([
+      'col-a',
+      'col-b',
+    ]);
+  });
+
+  it('l’échec d’une collecte est journalisé et n’arrête pas les suivantes', async () => {
+    mockPassageCible
+      .mockRejectedValueOnce(new Error('panne du prestataire'))
+      .mockResolvedValueOnce(PASSAGE_OK);
+    const journal = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    envoyerOrdresSansAttendre(['col-a', 'col-b']);
+    await expect(tachesProgrammees()[0]!()).resolves.toBeUndefined();
+
+    const lignes = journal.mock.calls.map((c) => String(c[0]));
+    journal.mockRestore();
+    const echec = lignes.find((l) => l.includes('outbox.envoi_immediat.echec'));
+    expect(echec).toContain('col-a');
+    expect(echec).toContain('panne du prestataire');
+    expect(mockPassageCible.mock.calls.map((c) => c[1])).toEqual([
+      'col-a',
+      'col-b',
+    ]);
+  });
+
+  it('aucune collecte : aucune tâche n’est programmée', () => {
+    envoyerOrdresSansAttendre([]);
+
+    expect(tachesProgrammees()).toHaveLength(0);
+  });
+});
+
+describe('M1.5a / envoi immédiat — toutes les collectes d’un événement', () => {
+  // La lecture `from('collectes').select('id').eq(...)` est attendue telle
+  // quelle : on rend la chaîne « thenable » le temps du test.
+  const chaine = mockSupabaseChain as typeof mockSupabaseChain & {
+    then?: (resolve: (v: unknown) => void) => void;
+  };
+  function lectureRend(reponse: { data: unknown; error: unknown }) {
+    chaine.then = (resolve) => resolve(reponse);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  afterEach(() => {
+    delete chaine.then;
+  });
+
+  it('M1.5a/envoi_immediat_par_evenement — les collectes sont lues DANS la tâche, puis traitées une à une', async () => {
+    lectureRend({ data: [{ id: 'col-1' }, { id: 'col-2' }], error: null });
+    mockPassageCible.mockResolvedValue(PASSAGE_OK);
+
+    envoyerOrdresEvenementSansAttendre('evt-1');
+
+    // Rien n'est lu ni envoyé pendant la requête.
+    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
+    expect(mockPassageCible).not.toHaveBeenCalled();
+    const taches = tachesProgrammees();
+    expect(taches).toHaveLength(1);
+
+    await taches[0]!();
+
+    expect(mockSupabaseChain.from).toHaveBeenCalledWith('collectes');
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith('evenement_id', 'evt-1');
+    expect(mockPassageCible.mock.calls.map((c) => c[1])).toEqual([
+      'col-1',
+      'col-2',
+    ]);
+  });
+
+  it('lecture des collectes en erreur : journalisée avec l’événement, rien n’est envoyé, aucune exception', async () => {
+    lectureRend({ data: null, error: { message: 'permission denied' } });
+    const journal = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    envoyerOrdresEvenementSansAttendre('evt-1');
+    await expect(tachesProgrammees()[0]!()).resolves.toBeUndefined();
+
+    const lignes = journal.mock.calls.map((c) => String(c[0]));
+    journal.mockRestore();
+    const echec = lignes.find((l) => l.includes('outbox.envoi_immediat.echec'));
+    expect(echec).toContain('evt-1');
+    // Le message de la base est journalisé à part, jamais porté par l'erreur.
+    expect(echec).not.toContain('permission denied');
+    const detail = lignes.find((l) =>
+      l.includes('outbox.envoi_immediat.lecture_collectes_evenement'),
+    );
+    expect(detail).toContain('permission denied');
+    expect(mockPassageCible).not.toHaveBeenCalled();
+  });
+
+  it('événement sans collecte : la tâche ne lance aucun passage', async () => {
+    lectureRend({ data: [], error: null });
+
+    envoyerOrdresEvenementSansAttendre('evt-1');
+    await tachesProgrammees()[0]!();
+
+    expect(mockPassageCible).not.toHaveBeenCalled();
+  });
+});
+
+// ── Les quatorze autres routes émettrices ────────────────────────────────────
+//
+// Chaque route est menée jusqu'à sa mutation avec une base simulée « large » :
+// toute lecture rend la même ligne, qui appartient à l'organisation et à
+// l'utilisateur de la session (sous l'identifiant de l'événement quand c'est
+// lui qui est lu). Deux choses sont prouvées par route :
+//   - mutation réussie : l'envoi est programmé, pour la ou les bonnes collectes ;
+//   - mutation refusée par la base : rien n'est programmé.
+
+const ORG = 'org-1';
+const UTILISATEUR = 'user-1';
+
+const EVENEMENT = {
+  id: 'evt-1',
+  organisation_id: ORG,
+  created_by: UTILISATEUR,
+  lieu_id: 'lieu-1',
+  pax: 100,
+  nom_evenement: 'Soirée de gala',
+  date_evenement: '2099-01-20',
+  statut: 'programmee',
+  organisation: { nom: 'Traiteur Dupont' },
+  lieux: { nom: 'Pavillon', organisation_id: ORG },
+};
+
+// Une seule ligne sert de collecte ET d'événement : elle porte les champs des
+// deux, et l'identifiant de la collecte.
+const LIGNE = {
+  ...EVENEMENT,
+  id: 'col-1',
+  statut: 'programmee',
+  statut_tms: 'non_envoye',
+  tms_reference: null,
+  type: 'zero_dechet',
+  date_collecte: '2099-01-20',
+  heure_collecte: '22:00:00',
+  nb_camions_demande: 1,
+  evenement_id: 'evt-1',
+  prestataire_logistique_id: null,
+  lieu_overrides: null,
+  evenements: EVENEMENT,
+  evenement: EVENEMENT,
+};
+
+/** Fonctions de lecture que certaines routes appellent avant leur mutation. */
+const AUTRES_RPC: Record<string, unknown> = {
+  // « L'événement est-il encore modifiable ? »
+  f_collecte_editable: true,
+};
+
+interface CasRoute {
+  nom: string;
+  module: string;
+  methode: 'POST' | 'PATCH';
+  role: string;
+  url: string;
+  params: Record<string, string>;
+  corps?: Record<string, unknown>;
+  /** Champs de la ligne lue propres à ce cas (statut de départ, type…). */
+  ligne?: Record<string, unknown>;
+  /** Collectes rendues par une lecture de liste (défaut : la seule ligne). */
+  collectes?: Record<string, unknown>[];
+  /** Fonction émettrice appelée, et ce qu'elle rend quand elle réussit. */
+  emetteur: string;
+  rend: unknown;
+  /** Ce qu'elle rend à chaque appel successif, quand la route l'appelle plusieurs fois. */
+  rendSuccessifs?: unknown[];
+  /** Collectes dont le passage doit être lancé, dans l'ordre. */
+  attendu: string[];
+}
+
+const PROGRAMMATION = {
+  pax: 80,
+  type_evenement_id: 'type-1',
+  lieu_id: 'lieu-1',
+  contact_principal_nom: 'Jean Martin',
+  contact_principal_telephone: '0612345678',
+  nom_client_organisateur: 'Traiteur Dupont',
+  controle_acces_requis: false,
+  collectes: [
+    { type: 'zd', date_collecte: '2099-01-15', heure_collecte: '08:00' },
+  ],
+  confirmer: true,
+};
+
+const CAS: CasRoute[] = [
+  {
+    nom: 'Admin — création d’une collecte',
+    module: '@/app/api/v1/admin/collectes/route.js',
+    methode: 'POST',
+    role: 'ops_savr',
+    url: '/api/v1/admin/collectes',
+    params: {},
+    corps: {
+      evenement_id: 'evt-1',
+      type: 'zero_dechet',
+      date_collecte: '2099-01-20',
+      heure_collecte: '22:00',
+    },
+    emetteur: 'fn_creer_collecte',
+    rend: 'col-neuve',
+    attendu: ['col-neuve'],
+  },
+  {
+    nom: 'Admin — modification d’une collecte',
+    module: '@/app/api/v1/admin/collectes/[id]/route.js',
+    methode: 'PATCH',
+    role: 'ops_savr',
+    url: '/api/v1/admin/collectes/col-1',
+    params: { id: 'col-1' },
+    corps: { heure_collecte: '09:30' },
+    emetteur: 'fn_modifier_collecte',
+    rend: { id: 'col-1' },
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Admin — incident (collecte annulée)',
+    module: '@/app/api/v1/admin/collectes/[id]/incident/route.js',
+    methode: 'POST',
+    role: 'ops_savr',
+    url: '/api/v1/admin/collectes/col-1/incident',
+    params: { id: 'col-1' },
+    corps: {
+      incident_imputable_a: 'prestataire',
+      motif_incident: 'Prestataire non présenté',
+    },
+    ligne: { statut: 'validee' },
+    emetteur: 'fn_modifier_collecte',
+    rend: { id: 'col-1', statut: 'annulee' },
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Admin — acceptation automatique AG',
+    module:
+      '@/app/api/v1/admin/attributions-ag/[collecteId]/auto-accept/route.js',
+    methode: 'POST',
+    role: 'admin_savr',
+    url: '/api/v1/admin/attributions-ag/col-1/auto-accept',
+    params: { collecteId: 'col-1' },
+    emetteur: 'rpc_evaluer_auto_accept_ag',
+    rend: { auto_accepted: true, reason: 'config_match' },
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Admin — modification d’un événement',
+    module: '@/app/api/v1/admin/evenements/[id]/route.js',
+    methode: 'PATCH',
+    role: 'ops_savr',
+    url: '/api/v1/admin/evenements/evt-1',
+    params: { id: 'evt-1' },
+    corps: { pax: 120 },
+    emetteur: 'fn_modifier_evenement',
+    rend: { id: 'evt-1' },
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Traiteur — modification d’une collecte',
+    module: '@/app/api/v1/traiteur/collectes/[id]/route.js',
+    methode: 'PATCH',
+    role: 'traiteur_manager',
+    url: '/api/v1/traiteur/collectes/col-1',
+    params: { id: 'col-1' },
+    corps: { heure_collecte: '21:00' },
+    emetteur: 'fn_modifier_collecte',
+    rend: { id: 'col-1' },
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Traiteur — annulation directe',
+    module: '@/app/api/v1/traiteur/collectes/[id]/annulation/route.js',
+    methode: 'POST',
+    role: 'traiteur_manager',
+    url: '/api/v1/traiteur/collectes/col-1/annulation',
+    params: { id: 'col-1' },
+    corps: { motif: 'Événement annulé par le client' },
+    emetteur: 'fn_modifier_collecte',
+    rend: null,
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Traiteur — demande d’annulation (collecte validée)',
+    module: '@/app/api/v1/traiteur/collectes/[id]/annulation/route.js',
+    methode: 'POST',
+    role: 'traiteur_manager',
+    url: '/api/v1/traiteur/collectes/col-1/annulation',
+    params: { id: 'col-1' },
+    corps: { motif: 'Événement annulé par le client' },
+    ligne: { statut: 'validee' },
+    emetteur: 'fn_modifier_collecte',
+    rend: null,
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Agence — modification d’une collecte',
+    module: '@/app/api/v1/agence/collectes/[id]/route.js',
+    methode: 'PATCH',
+    role: 'agence',
+    url: '/api/v1/agence/collectes/col-1',
+    params: { id: 'col-1' },
+    corps: { heure_collecte: '21:00' },
+    emetteur: 'fn_modifier_collecte',
+    rend: { id: 'col-1' },
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Agence — annulation directe',
+    module: '@/app/api/v1/agence/collectes/[id]/annulation/route.js',
+    methode: 'POST',
+    role: 'agence',
+    url: '/api/v1/agence/collectes/col-1/annulation',
+    params: { id: 'col-1' },
+    corps: { motif: 'Événement annulé par le client' },
+    emetteur: 'fn_modifier_collecte',
+    rend: null,
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Agence — demande d’annulation (collecte validée)',
+    module: '@/app/api/v1/agence/collectes/[id]/annulation/route.js',
+    methode: 'POST',
+    role: 'agence',
+    url: '/api/v1/agence/collectes/col-1/annulation',
+    params: { id: 'col-1' },
+    corps: { motif: 'Événement annulé par le client' },
+    ligne: { statut: 'validee' },
+    emetteur: 'fn_modifier_collecte',
+    rend: null,
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Gestionnaire de lieux — modification d’une collecte',
+    module: '@/app/api/v1/gestionnaire/collectes/[id]/route.js',
+    methode: 'PATCH',
+    role: 'gestionnaire_lieux',
+    url: '/api/v1/gestionnaire/collectes/col-1',
+    params: { id: 'col-1' },
+    corps: { heure_collecte: '21:00' },
+    emetteur: 'fn_modifier_collecte',
+    rend: { id: 'col-1' },
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Programmation — événement confirmé à la création',
+    module: '@/app/api/v1/programmation/evenements/route.js',
+    methode: 'POST',
+    role: 'traiteur_manager',
+    url: '/api/v1/programmation/evenements',
+    params: {},
+    corps: PROGRAMMATION,
+    emetteur: 'fn_creer_collecte',
+    rend: 'col-neuve',
+    attendu: ['col-neuve'],
+  },
+  {
+    nom: 'Programmation — événement confirmé à la création, deux collectes',
+    module: '@/app/api/v1/programmation/evenements/route.js',
+    methode: 'POST',
+    role: 'traiteur_manager',
+    url: '/api/v1/programmation/evenements',
+    params: {},
+    corps: {
+      ...PROGRAMMATION,
+      collectes: [
+        { type: 'zd', date_collecte: '2099-01-15', heure_collecte: '08:00' },
+        { type: 'zd', date_collecte: '2099-01-16', heure_collecte: '08:00' },
+      ],
+    },
+    emetteur: 'fn_creer_collecte',
+    rend: 'col-a',
+    rendSuccessifs: ['col-a', 'col-b'],
+    attendu: ['col-a', 'col-b'],
+  },
+  {
+    nom: 'Programmation — modification d’un événement',
+    module: '@/app/api/v1/programmation/evenements/[id]/route.js',
+    methode: 'PATCH',
+    role: 'traiteur_manager',
+    url: '/api/v1/programmation/evenements/evt-1',
+    params: { id: 'evt-1' },
+    corps: { pax: 120 },
+    emetteur: 'fn_modifier_evenement',
+    rend: { id: 'evt-1' },
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Programmation — collecte ajoutée à un événement',
+    module: '@/app/api/v1/programmation/evenements/[id]/collectes/route.js',
+    methode: 'POST',
+    role: 'traiteur_manager',
+    url: '/api/v1/programmation/evenements/evt-1/collectes',
+    params: { id: 'evt-1' },
+    corps: { type: 'zd', date_collecte: '2099-01-20', heure_collecte: '22:00' },
+    emetteur: 'fn_ajouter_collecte_evenement',
+    rend: 'col-neuve',
+    attendu: ['col-neuve'],
+  },
+  {
+    nom: 'Programmation — brouillon confirmé',
+    module: '@/app/api/v1/programmation/evenements/[id]/confirmer/route.js',
+    methode: 'PATCH',
+    role: 'traiteur_manager',
+    url: '/api/v1/programmation/evenements/evt-1/confirmer',
+    params: { id: 'evt-1' },
+    ligne: { statut: 'brouillon' },
+    emetteur: 'fn_confirmer_programmation_brouillon',
+    rend: null,
+    attendu: ['col-1'],
+  },
+  {
+    nom: 'Programmation — brouillon confirmé, deux collectes',
+    module: '@/app/api/v1/programmation/evenements/[id]/confirmer/route.js',
+    methode: 'PATCH',
+    role: 'traiteur_manager',
+    url: '/api/v1/programmation/evenements/evt-1/confirmer',
+    params: { id: 'evt-1' },
+    ligne: { statut: 'brouillon' },
+    collectes: [
+      { ...LIGNE, id: 'col-1', statut: 'brouillon' },
+      { ...LIGNE, id: 'col-2', statut: 'brouillon' },
+    ],
+    emetteur: 'fn_confirmer_programmation_brouillon',
+    rend: null,
+    attendu: ['col-1', 'col-2'],
+  },
+];
+
+describe('M1.5a / envoi immédiat — les autres routes émettrices', () => {
+  const chaine = mockSupabaseChain as typeof mockSupabaseChain & {
+    then?: (resolve: (v: unknown) => void) => void;
+  };
+
+  /**
+   * Base simulée : toute lecture rend `ligne`, sous l'identifiant de l'événement
+   * quand c'est la table des événements qui est lue (une route qui prendrait
+   * l'identifiant de l'événement pour celui d'une collecte se verrait).
+   * `emetteur` répond `reponse`, ou ses valeurs successives.
+   */
+  function base(cas: CasRoute, reponse: { data: unknown; error: unknown }) {
+    const ligne = { ...LIGNE, ...(cas.ligne ?? {}) };
+    let table = '';
+    mockSupabaseChain.from.mockImplementation((nom: string) => {
+      table = nom;
+      return mockSupabaseChain;
+    });
+    const ligneLue = () =>
+      table === 'evenements' ? { ...ligne, id: EVENEMENT.id } : ligne;
+    mockSupabaseChain.single.mockImplementation(async () => ({
+      data: ligneLue(),
+      error: null,
+    }));
+    mockSupabaseChain.maybeSingle.mockImplementation(async () => ({
+      data: ligneLue(),
+      error: null,
+    }));
+    chaine.then = (resolve) =>
+      resolve({
+        data: table === 'collectes' ? (cas.collectes ?? [ligne]) : [ligneLue()],
+        error: null,
+      });
+    const successifs = [...(cas.rendSuccessifs ?? [])];
+    mockSupabaseChain.rpc.mockImplementation(async (nom: string) => {
+      if (nom !== cas.emetteur)
+        return { data: AUTRES_RPC[nom] ?? null, error: null };
+      if (reponse.error || successifs.length === 0) return reponse;
+      return { data: successifs.shift(), error: null };
+    });
+  }
+
+  async function appeler(cas: CasRoute): Promise<Response> {
+    setupAuth(cas.role, UTILISATEUR, ORG);
+    const handlers = (await import(cas.module)) as Record<
+      string,
+      (req: NextRequest, ctx: unknown) => Promise<Response>
+    >;
+    const req = new NextRequest(`http://localhost${cas.url}`, {
+      method: cas.methode,
+      body: cas.corps ? JSON.stringify(cas.corps) : undefined,
+      headers: cas.corps ? { 'content-type': 'application/json' } : {},
+    });
+    return handlers[cas.methode]!(req, { params: Promise.resolve(cas.params) });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPassageCible.mockResolvedValue(PASSAGE_OK);
+  });
+  afterEach(() => {
+    delete chaine.then;
+    mockSupabaseChain.single.mockReset();
+    mockSupabaseChain.maybeSingle.mockReset();
+    mockSupabaseChain.rpc.mockReset();
+    mockSupabaseChain.from.mockReset();
+    mockSupabaseChain.from.mockReturnThis();
+  });
+
+  it.each(CAS)(
+    'M1.5a/envoi_immediat_autres_emetteurs — $nom : mutation réussie, l’envoi est programmé pour la bonne collecte',
+    async (cas) => {
+      base(cas, { data: cas.rend, error: null });
+
+      const res = await appeler(cas);
+
+      expect(
+        res.status,
+        `réponse inattendue : ${await res.clone().text()}`,
+      ).toBeLessThan(300);
+      expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+        cas.emetteur,
+        expect.anything(),
+      );
+      // Rien n'est parti pendant la requête : une tâche, pour après la réponse.
+      expect(mockPassageCible).not.toHaveBeenCalled();
+      const taches = tachesProgrammees();
+      expect(taches).toHaveLength(1);
+
+      await taches[0]!();
+      expect(mockPassageCible.mock.calls.map((c) => c[1])).toEqual(cas.attendu);
+    },
+  );
+
+  it.each(CAS)(
+    'M1.5a/envoi_immediat_autres_emetteurs_refus — $nom : mutation refusée par la base, rien n’est programmé',
+    async (cas) => {
+      base(cas, {
+        data: null,
+        error: { code: 'P0001', message: 'refus de la base' },
+      });
+
+      const res = await appeler(cas);
+
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+        cas.emetteur,
+        expect.anything(),
+      );
+      expect(tachesProgrammees()).toHaveLength(0);
+    },
+  );
+
+  it('acceptation automatique AG non accordée : aucune attribution validée, rien n’est programmé', async () => {
+    const cas = CAS.find((c) => c.emetteur === 'rpc_evaluer_auto_accept_ag')!;
+    base(cas, {
+      data: { auto_accepted: false, reason: 'aucune_config' },
+      error: null,
+    });
+
+    const res = await appeler(cas);
+
+    expect(res.status).toBe(200);
+    expect(tachesProgrammees()).toHaveLength(0);
+  });
+});
+
+// ── Cliquets : durée, complétude ─────────────────────────────────────────────
 
 const RACINE_SRC = path.resolve(__dirname, '../../../src');
 const RACINE_API = path.join(RACINE_SRC, 'app/api');
@@ -337,6 +972,49 @@ const MIGRATIONS = path.resolve(
   '../../../../../supabase/migrations',
 );
 const DUREE_MAX_S = 60;
+
+/** Appel de l'un des deux déclencheurs de `lib/envoi-immediat.ts`. */
+const DECLENCHEUR = /envoyerOrdres(Evenement)?SansAttendre\(/;
+
+/**
+ * Fonctions SQL qui écrivent un ordre de COLLECTE dans la file, ou qui en
+ * appellent une. Une route qui en appelle une doit déclencher l'envoi immédiat.
+ * Liste tenue en phase avec les migrations par le cliquet `emetteurs_sql`.
+ */
+const EMETTEURS_SQL = [
+  'fn_ajouter_collecte_evenement', // appelle fn_creer_collecte
+  'fn_confirmer_programmation_brouillon',
+  'fn_creer_collecte',
+  'fn_dispatcher_collecte',
+  'fn_modifier_collecte',
+  'fn_modifier_evenement',
+  'rpc_evaluer_auto_accept_ag', // appelle rpc_valider_attribution_ag
+  'rpc_valider_attribution_ag',
+];
+
+/** Fonctions qui écrivent dans la file sans relever de l'envoi immédiat. */
+const HORS_ENVOI_IMMEDIAT = [
+  // Trigger retiré de `collectes` (20260629100000) : la fonction subsiste, morte.
+  '_fn_trg_outbox_collecte_annulee',
+  // Ordre « lieu » (E5), émis par trigger : il reste au passage planifié.
+  '_fn_trg_outbox_lieu_critique',
+];
+
+/**
+ * Enveloppes TypeScript d'une fonction émettrice : les routes passent par elles.
+ * Fichier → fonction exportée que les routes appellent.
+ */
+const ENVELOPPES: Record<string, string> = {
+  'lib/attribution-ag/auto-accept.ts': 'evaluerAutoAcceptAg',
+  'lib/attribution-ag/validation.ts': 'validerAttributionAg',
+};
+
+const APPEL_RPC_EMETTEUR = new RegExp(
+  `rpc\\(\\s*['"](${EMETTEURS_SQL.join('|')})['"]`,
+);
+const APPEL_ENVELOPPE = new RegExp(
+  `\\b(${Object.values(ENVELOPPES).join('|')})\\(`,
+);
 
 /** Bail par défaut (en secondes) déclaré par la dernière définition d'une réservation. */
 function bailParDefaut(fonction: string): number {
@@ -357,6 +1035,52 @@ function bailParDefaut(fonction: string): number {
     return Number(bail[1]) * 60;
   }
   throw new Error(`${fonction} : aucune définition trouvée`);
+}
+
+/**
+ * Fonctions du schéma `plateforme` dont une définition, dans les migrations,
+ * écrit dans `outbox_events` ou appelle une fonction de `EMETTEURS_SQL`.
+ */
+function emetteursDesMigrations(): string[] {
+  const noms = new Set<string>();
+  // Insensible à la casse ; la table peut être écrite sans son schéma. Le
+  // cliquet protège la forme qu'ont les migrations : une déclaration sans
+  // schéma, ou un appel d'émetteur sans préfixe, lui échapperaient.
+  const appelEmetteur = new RegExp(
+    `plateforme\\.(${EMETTEURS_SQL.join('|')})\\(`,
+    'i',
+  );
+  const ecritureFile = /INSERT\s+INTO\s+(plateforme\.)?outbox_events\b/i;
+  for (const f of readdirSync(MIGRATIONS).filter((x) => x.endsWith('.sql'))) {
+    let courante: string | null = null;
+    for (const ligne of readFileSync(path.join(MIGRATIONS, f), 'utf8').split(
+      '\n',
+    )) {
+      const decl =
+        /^\s*CREATE (?:OR REPLACE )?FUNCTION ([a-z_]+)\.([a-z_0-9]+)/i.exec(
+          ligne,
+        );
+      if (decl) {
+        courante =
+          decl[1]!.toLowerCase() === 'plateforme'
+            ? decl[2]!.toLowerCase()
+            : null;
+        continue;
+      }
+      // Fin du corps (`$$;`, `$function$ LANGUAGE …`) : hors de toute fonction.
+      if (/^\$[a-z_]*\$/.test(ligne)) {
+        courante = null;
+        continue;
+      }
+      if (!courante || /^\s*--/.test(ligne)) continue;
+      if (ecritureFile.test(ligne)) {
+        noms.add(courante);
+      }
+      const appel = appelEmetteur.exec(ligne);
+      if (appel && appel[1]!.toLowerCase() !== courante) noms.add(courante);
+    }
+  }
+  return [...noms].sort();
 }
 
 function sources(dossier: string): string[] {
@@ -382,20 +1106,71 @@ function dureeMax(source: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
-describe('M1.5a / envoi immédiat — cliquet de durée des appelants', () => {
+describe('M1.5a / envoi immédiat — cliquets de durée et de complétude', () => {
   const toutes = routes(RACINE_API).map((chemin) => ({
     chemin: path.relative(RACINE_API, chemin),
     source: readFileSync(chemin, 'utf8'),
   }));
-  const declencheuses = toutes.filter((r) =>
-    r.source.includes('envoyerOrdresSansAttendre('),
-  );
+  const declencheuses = toutes.filter((r) => DECLENCHEUR.test(r.source));
 
-  it('M1.5a/envoi_immediat_routes_declencheuses — les deux clics d’envoi de l’Admin déclenchent l’envoi immédiat', () => {
+  it('M1.5a/envoi_immediat_routes_declencheuses — les seize routes qui écrivent un ordre de collecte déclenchent l’envoi immédiat', () => {
     expect(declencheuses.map((r) => r.chemin).sort()).toEqual([
+      'v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts',
       'v1/admin/attributions-ag/[collecteId]/valider/route.ts',
       'v1/admin/collectes/[id]/dispatch/route.ts',
+      'v1/admin/collectes/[id]/incident/route.ts',
+      'v1/admin/collectes/[id]/route.ts',
+      'v1/admin/collectes/route.ts',
+      'v1/admin/evenements/[id]/route.ts',
+      'v1/agence/collectes/[id]/annulation/route.ts',
+      'v1/agence/collectes/[id]/route.ts',
+      'v1/gestionnaire/collectes/[id]/route.ts',
+      'v1/programmation/evenements/[id]/collectes/route.ts',
+      'v1/programmation/evenements/[id]/confirmer/route.ts',
+      'v1/programmation/evenements/[id]/route.ts',
+      'v1/programmation/evenements/route.ts',
+      'v1/traiteur/collectes/[id]/annulation/route.ts',
+      'v1/traiteur/collectes/[id]/route.ts',
     ]);
+  });
+
+  it('M1.5a/envoi_immediat_emetteurs_complets — toute route qui appelle une fonction émettrice, en direct ou par une enveloppe, déclenche l’envoi immédiat', () => {
+    const emettrices = toutes.filter(
+      (r) =>
+        APPEL_RPC_EMETTEUR.test(r.source) || APPEL_ENVELOPPE.test(r.source),
+    );
+
+    expect(emettrices.length).toBeGreaterThan(0);
+    expect(
+      emettrices
+        .filter((r) => !DECLENCHEUR.test(r.source))
+        .map((r) => r.chemin),
+    ).toEqual([]);
+    // Et l'inverse : aucune route ne déclenche l'envoi sans rien émettre.
+    expect(
+      declencheuses.filter((r) => !emettrices.includes(r)).map((r) => r.chemin),
+    ).toEqual([]);
+  });
+
+  it('M1.5a/envoi_immediat_enveloppes — hors des routes, seules les enveloppes connues appellent une fonction émettrice', () => {
+    const horsRoutes = sources(RACINE_SRC)
+      .filter((chemin) => !/(^|\/)route\.(ts|tsx|js|jsx)$/.test(chemin))
+      .filter((chemin) => APPEL_RPC_EMETTEUR.test(readFileSync(chemin, 'utf8')))
+      .map((chemin) => path.relative(RACINE_SRC, chemin))
+      .sort();
+
+    expect(horsRoutes).toEqual(Object.keys(ENVELOPPES).sort());
+    for (const [fichier, fonction] of Object.entries(ENVELOPPES)) {
+      expect(readFileSync(path.join(RACINE_SRC, fichier), 'utf8')).toContain(
+        `export async function ${fonction}(`,
+      );
+    }
+  });
+
+  it('M1.5a/envoi_immediat_emetteurs_sql — la liste des fonctions émettrices est celle des migrations', () => {
+    expect(emetteursDesMigrations()).toEqual(
+      [...EMETTEURS_SQL, ...HORS_ENVOI_IMMEDIAT].sort(),
+    );
   });
 
   it('M1.5a/envoi_immediat_duree_bornee — chaque route déclencheuse déclare une durée de vie ≤ 60 s', () => {
@@ -428,11 +1203,9 @@ describe('M1.5a / envoi immédiat — cliquet de durée des appelants', () => {
     );
   });
 
-  it('M1.5a/envoi_immediat_appel_depuis_une_route — hors de sa propre lib, le déclencheur n’est appelé que depuis un fichier de route', () => {
+  it('M1.5a/envoi_immediat_appel_depuis_une_route — hors de leur propre lib, les déclencheurs ne sont appelés que depuis un fichier de route', () => {
     const appelants = sources(RACINE_SRC)
-      .filter((chemin) =>
-        readFileSync(chemin, 'utf8').includes('envoyerOrdresSansAttendre('),
-      )
+      .filter((chemin) => DECLENCHEUR.test(readFileSync(chemin, 'utf8')))
       .map((chemin) => path.relative(RACINE_SRC, chemin))
       .filter((chemin) => chemin !== 'lib/envoi-immediat.ts');
 

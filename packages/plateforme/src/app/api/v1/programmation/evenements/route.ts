@@ -13,6 +13,11 @@ import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateurOuAdmin(req);
@@ -406,6 +411,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       collecteIds.push(collecteId as string);
     }
+
+    // Les ordres de création sont en file (et, après l'acceptation automatique
+    // AG plus bas, l'ordre d'envoi) : ils sont traités après la réponse, sans
+    // attendre le passage planifié (décision Val 2026-10-12).
+    envoyerOrdresSansAttendre(collecteIds);
 
     // Informations manquantes OU override lieu : badge info_incomplete.
     const hasIncomplete =

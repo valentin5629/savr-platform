@@ -46,6 +46,26 @@ export interface ResolvedLogo {
 const nonVide = (s: string | null | undefined): s is string =>
   typeof s === 'string' && s.trim().length > 0;
 
+/**
+ * Logos du rapport de recyclage @3 : deux emplacements distincts dans le bandeau
+ * (maquette validée par Val, 2026-10-13), à côté du logo Savr.
+ *   - client   : agence programmatrice (prime) → client organisateur (compte Savr,
+ *                sinon logo déposé à la programmation) — étapes 1 à 3 de la cascade ;
+ *   - traiteur : traiteur opérationnel.
+ * Un emplacement sans logo n'est pas rendu. Fonction pure.
+ */
+export function resolveRapportLogos(input: LogoCascadeInput): {
+  client?: string;
+  traiteur?: string;
+} {
+  const client = resolveRapportLogo({ ...input, traiteur_operationnel: null });
+  const traiteur = input.traiteur_operationnel?.logo_url;
+  return {
+    client: client.logo_url,
+    traiteur: nonVide(traiteur) ? traiteur : undefined,
+  };
+}
+
 /** Résout le logo client d'un rapport selon la cascade §12 §1.2. Fonction pure. */
 export function resolveRapportLogo(input: LogoCascadeInput): ResolvedLogo {
   // 1. Agence programmatrice prime (si elle a un logo). Sinon, on retombe sur le standard.

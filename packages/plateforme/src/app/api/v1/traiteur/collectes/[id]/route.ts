@@ -117,11 +117,6 @@ export async function GET(
     .map((f) => (Array.isArray(f.facture) ? f.facture[0] : f.facture))
     .filter((f): f is FactureInfo => f != null && f.statut !== 'brouillon');
 
-  // Régénération traiteur (RPT-04, décision Val 2026-07-07) : manager, ZD
-  // uniquement (attestation AG + rapport sans-excédent = Admin seul).
-  const can_regenerate =
-    auth.ctx.role === 'traiteur_manager' && fiche.type !== 'anti_gaspi';
-
   // Badge « Programmée par » (§06.04, ajout 2026-05-07) — seulement quand
   // l'événement a été programmé par un TIERS (agence / gestionnaire de lieux).
   // Lecture service-role bornée à CETTE organisation et à 3 colonnes, car le
@@ -149,7 +144,7 @@ export async function GET(
   }
 
   return NextResponse.json({
-    data: { ...fiche, programmee_par, factures, can_regenerate },
+    data: { ...fiche, programmee_par, factures },
   });
 }
 

@@ -192,13 +192,12 @@ describe('M1.8 / E2E / scenario-nominal', () => {
 
   it('cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001', async () => {
     // ── Étape A : batch PDF J+1 ──────────────────────────────────────────────
-    // NB : ce mock rend `rpc()` thenable (`{single, then}`) → un `await supabase.rpc()`
-    // sans `.single()` consomme une réponse. Les 2 RPC R21a (f_taux_recyclage_moyen_parc
-    // avant la boucle, f_rapport_benchmark_zd dans le helper) consomment donc chacune un slot.
+    // NB : ce mock rend `rpc()` thenable (`{single, then}`). Le batch n'appelle plus
+    // que `f_next_numero_bordereau` : le rapport automatique est la version sans
+    // radar, il ne lit rien du parc (gabarit @3).
     const sbPdf = makeSupabase([
       { data: [makeCollectePdf()], error: null }, // select collectes
       { data: [], error: null }, // select bordereaux existants
-      { data: null, error: null }, // rpc f_taux_recyclage_moyen_parc (await → then, R21a)
       { count: 1, error: null }, // count collecte_flux (> 0)
       {
         // flux details : poids_reel_kg ici est DÉRIVÉ de pesees_tournees par
@@ -214,15 +213,6 @@ describe('M1.8 / E2E / scenario-nominal', () => {
       {
         data: { nom: 'Strike Transport', siret: '98765432100011' },
       }, // shared.prestataires (transporteur, single)
-      { data: [], error: null }, // rpc f_rapport_benchmark_zd (await → then, R21a)
-      {
-        data: {
-          evenement: {
-            type_evenement_id: 't1',
-            type_evenement: { libelle: 'Gala' },
-          },
-        },
-      }, // resolveRapportBenchmark : fetch type d'événement (R21a benchmark)
       { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr (single)
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse (single)
       { data: null, error: null }, // insert job bordereau (then)

@@ -18,6 +18,7 @@ import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-c
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import {
   ficheClient,
+  regenerationsDemandees,
   stubFetchFiche,
   urlsAppelees,
 } from '@/test-utils/fiche-collecte-client';
@@ -164,6 +165,50 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
         expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
       }, ATTENTE_UI);
       expect(screen.getByText('Répartition des tonnages')).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/fiche_popup_gestionnaire_regeneration — le gestionnaire régénère le rapport ; sans radar pour la collecte (traiteur tiers) : pas de case, demande sans corps',
+    async () => {
+      stubFetchFiche(
+        ficheGestionnaire({
+          statut: 'cloturee',
+          bilan_flux: { biodechet: 420 },
+          taux_recyclage: 70,
+          co2_net_kg: 100,
+          rapport_rse_disponible: true,
+          // Un traiteur a demandé le radar : le gestionnaire ne peut pas le
+          // recalculer, il ne doit pas non plus le retirer sans le vouloir.
+          rapport_avec_radar: true,
+          actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+        }),
+        { benchmark: 'indisponible' },
+      );
+      render(fiche());
+      await ouvrirOnglet('Bilan & documents');
+      await waitFor(() => {
+        expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+      }, ATTENTE_UI);
+      expect(screen.queryByTestId('option-rapport-radar')).toBeNull();
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Régénérer le rapport' },
+          ATTENTE_UI,
+        ),
+      );
+      await waitFor(
+        () => expect(regenerationsDemandees()).toHaveLength(1),
+        ATTENTE_UI,
+      );
+      // Aucun corps : le serveur reproduit le dernier rendu, radar compris.
+      expect(regenerationsDemandees()[0]).toEqual({
+        url: '/api/v1/gestionnaire/collectes/c1/documents/rapport-recyclage-zd/regenerate',
+        corps: undefined,
+      });
     },
     ATTENTE_CAS_MS,
   );

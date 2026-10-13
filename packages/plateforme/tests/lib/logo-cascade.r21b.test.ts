@@ -5,7 +5,14 @@
  */
 import { describe, it, expect } from 'vitest';
 
-import { resolveRapportLogo } from '../../src/lib/pdf/logo-cascade.js';
+import {
+  resolveRapportLogo,
+  resolveRapportLogos,
+} from '../../src/lib/pdf/logo-cascade.js';
+import {
+  bornerLogosRapport,
+  MAX_LOGOS_RAPPORT_CHARS,
+} from '../../src/lib/pdf/logo-inline.js';
 
 const AGENCE = { type: 'agence', logo_url: 'https://cdn/agence.png' };
 const TRAITEUR = { type: 'traiteur', logo_url: 'https://cdn/traiteur.png' };
@@ -103,5 +110,99 @@ describe('M1.6 / cascade logo rapport §1.2 (BL-P2-19)', () => {
     });
     expect(r.source).toBe('client_organisateur_compte');
     expect(r.logo_url).toBe('https://cdn/client.png');
+  });
+});
+
+// Gabarit @3 du rapport de recyclage : deux emplacements dans le bandeau.
+describe('M1.6 / logos du rapport de recyclage @3 — client et traiteur', () => {
+  it('client organisateur et traiteur opérationnel occupent chacun leur emplacement', () => {
+    expect(
+      resolveRapportLogos({
+        programmateur: TRAITEUR,
+        client_organisateur: CLIENT_ORGA,
+        traiteur_operationnel: TRAITEUR,
+      }),
+    ).toEqual({
+      client: 'https://cdn/client.png',
+      traiteur: 'https://cdn/traiteur.png',
+    });
+  });
+
+  it('agence programmatrice : son logo prime dans l’emplacement client, le traiteur garde le sien', () => {
+    expect(
+      resolveRapportLogos({
+        programmateur: AGENCE,
+        client_organisateur: CLIENT_ORGA,
+        evenement_logo_client_url: 'https://cdn/upload.png',
+        traiteur_operationnel: TRAITEUR,
+      }),
+    ).toEqual({
+      client: 'https://cdn/agence.png',
+      traiteur: 'https://cdn/traiteur.png',
+    });
+  });
+
+  it('sans compte client : logo déposé à la programmation ; sans aucun logo client, l’emplacement reste vide', () => {
+    expect(
+      resolveRapportLogos({
+        programmateur: TRAITEUR,
+        client_organisateur: null,
+        evenement_logo_client_url: 'https://cdn/upload.png',
+        traiteur_operationnel: TRAITEUR,
+      }).client,
+    ).toBe('https://cdn/upload.png');
+    // Le logo du traiteur ne glisse jamais dans l'emplacement client.
+    expect(
+      resolveRapportLogos({
+        programmateur: TRAITEUR,
+        client_organisateur: null,
+        traiteur_operationnel: TRAITEUR,
+      }),
+    ).toEqual({ client: undefined, traiteur: 'https://cdn/traiteur.png' });
+  });
+
+  it('gestionnaire programmateur : pas de logo de marque dans l’emplacement client ; traiteur sans logo → vide', () => {
+    expect(
+      resolveRapportLogos({
+        programmateur: GESTIONNAIRE,
+        client_organisateur: null,
+        traiteur_operationnel: { type: 'traiteur', logo_url: '  ' },
+      }),
+    ).toEqual({ client: undefined, traiteur: undefined });
+  });
+});
+
+describe('M1.6 / budget commun des deux logos du rapport @3', () => {
+  const lourd = 'x'.repeat(MAX_LOGOS_RAPPORT_CHARS / 2 + 1);
+  const leger = 'x'.repeat(1000);
+
+  it('sous le budget : les deux logos sont gardés (au budget exactement aussi)', () => {
+    expect(bornerLogosRapport({ client: leger, traiteur: leger })).toEqual({
+      client: leger,
+      traiteur: leger,
+    });
+    const moitie = 'x'.repeat(MAX_LOGOS_RAPPORT_CHARS / 2);
+    expect(
+      bornerLogosRapport({ client: moitie, traiteur: moitie }).traiteur,
+    ).toBe(moitie);
+  });
+
+  it('au-delà du budget : le logo du client est gardé, celui du traiteur est retiré', () => {
+    expect(bornerLogosRapport({ client: lourd, traiteur: lourd })).toEqual({
+      client: lourd,
+      traiteur: null,
+    });
+  });
+
+  it('un seul logo, même au plafond unitaire, n’est jamais retiré', () => {
+    const plafond = 'x'.repeat(1_333_400);
+    expect(bornerLogosRapport({ client: null, traiteur: plafond })).toEqual({
+      client: null,
+      traiteur: plafond,
+    });
+    expect(bornerLogosRapport({ client: plafond, traiteur: null })).toEqual({
+      client: plafond,
+      traiteur: null,
+    });
   });
 });

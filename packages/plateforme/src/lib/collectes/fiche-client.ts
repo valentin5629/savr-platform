@@ -246,7 +246,7 @@ export async function chargerFicheCollecteClient(
     useRapportsRse
       ? rls
           .from('rapports_rse')
-          .select('disponible_a, genere_at, regenere_at')
+          .select('disponible_a, genere_at, regenere_at, filtres_benchmark')
           .eq('collecte_id', id)
           .order('version', { ascending: false })
           .limit(1)
@@ -328,6 +328,7 @@ export async function chargerFicheCollecteClient(
     disponible_a: string | null;
     genere_at: string | null;
     regenere_at: string | null;
+    filtres_benchmark: unknown;
   } | null;
   const att = attRes.data as {
     eligible_at: string | null;
@@ -342,6 +343,10 @@ export async function chargerFicheCollecteClient(
       att?.eligible_at != null &&
       new Date(att.eligible_at).getTime() <= maintenant;
   const rapport_rse_regenere = useRapportsRse && Boolean(rap?.regenere_at);
+  // Rapport de recyclage ZD : régénérable par tout rôle qui le télécharge
+  // (§12 §1.2) ; `filtres_benchmark` renseigné = il porte le radar.
+  const can_regenerate = !isAg;
+  const rapport_avec_radar = !isAg && rap?.filtres_benchmark != null;
   const rapport_reserve_donneur_ordre =
     espace === 'traiteur' &&
     rapportReserveDonneurOrdre(c, evt?.organisation_id, ctx.organisationId);
@@ -448,6 +453,8 @@ export async function chargerFicheCollecteClient(
     association,
     rapport_rse_disponible,
     rapport_rse_regenere,
+    can_regenerate,
+    rapport_avec_radar,
     rapport_reserve_donneur_ordre,
     rapport_etat: etatRapport({
       reserve: rapport_reserve_donneur_ordre,

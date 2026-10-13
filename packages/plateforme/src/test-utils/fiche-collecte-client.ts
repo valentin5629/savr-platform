@@ -55,6 +55,9 @@ export function ficheClient(
     association: null,
     rapport_rse_disponible: false,
     rapport_rse_regenere: false,
+    // Comme le calcule le serveur : régénérable = collecte ZD (tout rôle).
+    can_regenerate: (over.type ?? 'zero_dechet') === 'zero_dechet',
+    rapport_avec_radar: false,
     rapport_reserve_donneur_ordre: false,
     // Par défaut, cohérent avec les deux indicateurs comme le calcule le
     // serveur (etatRapport) ; un test peut forcer n'importe quel état.
@@ -133,6 +136,26 @@ export function stubFetchFiche(
       );
     }),
   );
+}
+
+/** Requêtes POST émises vers `…/regenerate` par le fetch stubbé, avec leur corps. */
+export function regenerationsDemandees(): Array<{
+  url: string;
+  corps: unknown;
+}> {
+  return (
+    globalThis.fetch as unknown as {
+      mock: { calls: [unknown, { method?: string; body?: string }?][] };
+    }
+  ).mock.calls
+    .filter(
+      ([u, init]) =>
+        String(u).endsWith('/regenerate') && init?.method === 'POST',
+    )
+    .map(([u, init]) => ({
+      url: String(u),
+      corps: init?.body === undefined ? undefined : JSON.parse(init.body),
+    }));
 }
 
 /** URLs appelées par le fetch stubbé. */

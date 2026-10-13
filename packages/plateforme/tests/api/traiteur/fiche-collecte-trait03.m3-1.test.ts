@@ -222,7 +222,12 @@ describe('M3.1 / téléchargement rapport RSE traiteur (BL-P1-TRAIT-03)', () => 
     expect(res.status).toBe(200);
     const { url } = (await res.json()) as { url: string };
     expect(url).toContain('presigned');
-    expect(mockPresigned).toHaveBeenCalledWith('rapports/r1.pdf', 900);
+    // Rapport de recyclage : aucun nom de fichier imposé.
+    expect(mockPresigned).toHaveBeenCalledWith(
+      'rapports/r1.pdf',
+      900,
+      undefined,
+    );
   });
 
   it('M3.1/rapport_download_embargo — 425 si disponible_a futur', async () => {

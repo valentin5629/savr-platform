@@ -22,8 +22,11 @@ const chain = {
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => chain,
 }));
+const mockPresigned = vi.fn(async (..._args: unknown[]) => {
+  return 'https://r2/signed-attestation';
+});
 vi.mock('@/lib/pdf/r2-client.js', () => ({
-  getPresignedUrl: async () => 'https://r2/signed-attestation',
+  getPresignedUrl: (...a: unknown[]) => mockPresigned(...a),
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
@@ -89,6 +92,7 @@ describe('M0.6 — download attestation AG (BL-P1-BOA-07)', () => {
     attestationResult = {
       data: {
         id: 'a1',
+        numero: 'ATT-DON-2026-00001',
         statut: 'emise',
         eligible_at: new Date(Date.now() - H24).toISOString(),
         genere_at: new Date(Date.now() - H24).toISOString(),
@@ -100,6 +104,15 @@ describe('M0.6 — download attestation AG (BL-P1-BOA-07)', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { url: string };
     expect(body.url).toBe('https://r2/signed-attestation');
+    // §12 §1.3-bis : le fichier de l'attestation s'appelle « rapport-de-don-<numéro> ».
+    expect(chain.select).toHaveBeenCalledWith(
+      'id, numero, statut, eligible_at, genere_at, pdf_url',
+    );
+    expect(mockPresigned).toHaveBeenCalledWith(
+      'rapports/a1.pdf',
+      900,
+      'rapport-de-don-ATT-DON-2026-00001.pdf',
+    );
   });
 
   it('M0.6 — PDF pas encore généré (genere_at null) : 202', async () => {

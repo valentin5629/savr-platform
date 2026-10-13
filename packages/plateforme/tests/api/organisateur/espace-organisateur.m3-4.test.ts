@@ -404,11 +404,90 @@ describe('M3.4 / download', () => {
       },
       error: null,
     });
+    // Lecture de la collecte pour le nom du fichier : une ZD, aucun nom imposé.
+    rls.push({
+      data: { type: 'zero_dechet', statut: 'cloturee' },
+      error: null,
+    });
     const res = await callDownload('rapport', 'r1');
     const json = (await res.json()) as { url?: string };
     expect(res.status).toBe(200);
     expect(json.url).toBe('https://r2.example/signed');
-    expect(mockPresign).toHaveBeenCalledWith('rapports/r1.pdf', 900);
+    expect(mockPresign).toHaveBeenCalledWith('rapports/r1.pdf', 900, undefined);
+  });
+
+  it('M3.4/document_download_rapport_de_don_sans_excedent — fichier nommé « rapport-de-don », date et événement', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    rls.push({
+      data: {
+        id: 'r2',
+        collecte_id: 'c-sans',
+        disponible_a: '2020-01-01T00:00:00Z',
+        genere_at: '2020-01-02T00:00:00Z',
+        pdf_url: 'rapports/r2.pdf',
+      },
+      error: null,
+    });
+    rls.push({
+      data: {
+        type: 'anti_gaspi',
+        statut: 'realisee_sans_collecte',
+        evenements: {
+          nom_evenement: 'Dîner d’été — Château',
+          date_evenement: '2026-07-01',
+        },
+      },
+      error: null,
+    });
+    const res = await callDownload('rapport', 'r2');
+    expect(res.status).toBe(200);
+    expect(rls.__calls.eq).toContainEqual(['id', 'c-sans']);
+    expect(mockPresign).toHaveBeenCalledWith(
+      'rapports/r2.pdf',
+      900,
+      'rapport-de-don-2026-07-01-diner-d-ete-chateau.pdf',
+    );
+  });
+
+  it('M3.4/document_download_rapport_de_don_nom_illisible — la collecte ne se lit pas : téléchargement servi, sans nom imposé', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    rls.push({
+      data: {
+        id: 'r2',
+        collecte_id: 'c-sans',
+        disponible_a: '2020-01-01T00:00:00Z',
+        genere_at: '2020-01-02T00:00:00Z',
+        pdf_url: 'rapports/r2.pdf',
+      },
+      error: null,
+    });
+    rls.push({ data: null, error: { message: 'boom' } });
+    const res = await callDownload('rapport', 'r2');
+    expect(res.status).toBe(200);
+    expect(mockPresign).toHaveBeenCalledWith('rapports/r2.pdf', 900, undefined);
+  });
+
+  it('M3.4/document_download_rapport_de_don_attestation — fichier nommé par le numéro de l’attestation', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    rls.push({
+      data: {
+        id: 'a1',
+        numero: 'ATT-DON-2026-00003',
+        genere_at: '2020-01-02T00:00:00Z',
+        pdf_url: 'attestations/a1.pdf',
+      },
+      error: null,
+    });
+    const res = await callDownload('attestation', 'a1');
+    expect(res.status).toBe(200);
+    expect(rls.__calls.select).toContainEqual([
+      'id, numero, genere_at, pdf_url',
+    ]);
+    expect(mockPresign).toHaveBeenCalledWith(
+      'attestations/a1.pdf',
+      900,
+      'rapport-de-don-ATT-DON-2026-00003.pdf',
+    );
   });
 
   it('M3.4/document_embargo_h24_refuse — 425 si disponible_a dans le futur', async () => {

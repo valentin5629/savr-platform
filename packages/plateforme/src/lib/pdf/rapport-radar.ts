@@ -7,6 +7,7 @@
 // l'écran affiche, et hérite des mêmes gardes (accès à la collecte, k-anonymat,
 // périmètre du gestionnaire). Aucune lecture en service-role ici.
 
+import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
 import type {
@@ -18,6 +19,7 @@ import {
   type BenchmarkFiche,
 } from '@/lib/collectes/benchmark-fiche.js';
 
+import { tailleBracket } from '../dashboard-kpi.js';
 import { periodeBenchmark } from '../dashboards/periode-benchmark.js';
 
 type ClientSousRls = ReturnType<typeof createSupabaseServerClient>;
@@ -94,6 +96,58 @@ export function lireFiltresRadar(brut: unknown): FiltresRadar | null {
 }
 
 const ouNull = (a: string[]) => (a.length ? a : null);
+
+/**
+ * Filtres du radar quand l'appelant n'a pas de barre de filtres à l'écran
+ * (régénération par l'Admin) :
+ *  1. ceux que le rapport en vigueur a figés, s'il porte déjà le radar — une
+ *     régénération Admin ne défait pas la comparaison choisie par le client ;
+ *  2. sinon le segment de la collecte (même type d'événement, même taille, tous
+ *     lieux) : les filtres sur lesquels la fiche client s'ouvre.
+ * Lève en cas de lecture en échec (jamais « Tous » par défaut d'information).
+ */
+export async function filtresRadarParDefaut(
+  admin: SupabaseClient,
+  collecteId: string,
+): Promise<FiltresRadar> {
+  const { data: rapport, error: rapErr } = await admin
+    .from('rapports_rse')
+    .select('filtres_benchmark')
+    .eq('collecte_id', collecteId)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (rapErr) throw rapErr;
+  const figes = (rapport as { filtres_benchmark: unknown } | null)
+    ?.filtres_benchmark;
+  // Forme attendue seulement : un `{}` d'époque ne vaut pas « Tous ».
+  if (
+    figes != null &&
+    typeof figes === 'object' &&
+    Object.hasOwn(figes, 'taille_evenement_codes')
+  ) {
+    const lus = lireFiltresRadar(figes);
+    if (lus) return lus;
+  }
+
+  const { data: collecte, error: colErr } = await admin
+    .from('collectes')
+    .select('evenements!inner ( pax, type_evenement_id )')
+    .eq('id', collecteId)
+    .maybeSingle();
+  if (colErr) throw colErr;
+  const brut = (collecte as { evenements: unknown } | null)?.evenements;
+  const evt = (Array.isArray(brut) ? brut[0] : brut) as
+    | { pax: number | null; type_evenement_id: string | null }
+    | null
+    | undefined;
+  return {
+    lieu_ids: [],
+    type_evenement_ids: evt?.type_evenement_id ? [evt.type_evenement_id] : [],
+    taille_evenement_codes:
+      evt?.pax != null && evt.pax > 0 ? [tailleBracket(evt.pax)] : [],
+  };
+}
 
 export async function construireRadarRapport(
   supabase: ClientSousRls,

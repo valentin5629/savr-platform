@@ -140,6 +140,9 @@ describe('Client Everest — un appel sans réponse ne cite jamais le jeton', ()
       );
       // Ce que le worker écrit dans outbox_events.last_error et dans l'alerte.
       sansLeJeton(String(err));
+      // Ce client n'écrit aucune ligne integrations_logs pour un appel resté
+      // sans réponse : l'assertion suivante ne prouve rien aujourd'hui, elle
+      // garde une écriture future.
       sansLeJeton(JSON.stringify(lignes));
       expect(fetchMock).toHaveBeenCalledTimes(reponsesAvant.length + 1);
     },
@@ -169,7 +172,7 @@ describe('Client Everest — un appel sans réponse ne cite jamais le jeton', ()
     }
   });
 
-  it('délai dépassé et panne de transport : libellés écrits ici, avec le code de la panne', async () => {
+  it('M0.9/erreur_reseau_everest_libelles — délai dépassé et panne de transport : libellés écrits ici, avec le code de la panne', async () => {
     fetchMock.mockRejectedValueOnce(
       new DOMException(
         'The operation was aborted due to timeout',

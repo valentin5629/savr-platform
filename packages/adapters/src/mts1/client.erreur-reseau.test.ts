@@ -131,7 +131,7 @@ describe('Client MTS-1 — un appel sans réponse ne cite jamais la clé', () =>
     );
   });
 
-  it('les erreurs gardent leur type : délai dépassé = ambiguë, panne de transport = passagère avec son code', async () => {
+  it('M0.9/erreur_reseau_mts1_types — les erreurs gardent leur type : délai dépassé = ambiguë, panne de transport = passagère avec son code', async () => {
     vi.stubEnv('MTS1_API_KEY', 'cle-de-test-bien-formee');
     const { supabase, lignes } = fauxSupabase();
 

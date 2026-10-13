@@ -70,7 +70,7 @@ describe('Client du service PDF — un appel sans réponse ne cite jamais le sec
     sansLeSecret(String(err.stack));
   });
 
-  it('délai dépassé : libellé écrit ici', async () => {
+  it('M0.9/erreur_reseau_pdf_delai — délai dépassé : libellé écrit ici', async () => {
     vi.stubEnv('RAILWAY_PDF_URL', 'http://127.0.0.1:9');
     vi.stubEnv('RAILWAY_PDF_SECRET', 'secret-de-test-bien-forme');
     vi.stubGlobal(
@@ -89,7 +89,7 @@ describe('Client du service PDF — un appel sans réponse ne cite jamais le sec
     expect(err.message).toBe('Railway PDF : délai dépassé');
   });
 
-  it('réponse en erreur du service : inchangé, le statut et le corps restent dans le message', async () => {
+  it('M0.9/erreur_reseau_pdf_reponse_en_erreur — réponse en erreur du service : inchangé, le statut et le corps restent dans le message', async () => {
     vi.stubEnv('RAILWAY_PDF_URL', 'http://127.0.0.1:9');
     vi.stubEnv('RAILWAY_PDF_SECRET', 'secret-de-test-bien-forme');
     vi.stubGlobal(

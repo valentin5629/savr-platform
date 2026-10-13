@@ -102,7 +102,7 @@ describe('Client Pennylane — un appel sans réponse ne cite jamais la clé', (
     sansLaCle(JSON.stringify(journaux.mock.calls));
   });
 
-  it('délai dépassé : libellé écrit ici, toujours à retenter', async () => {
+  it('M0.9/erreur_reseau_pennylane_delai — délai dépassé : libellé écrit ici, toujours à retenter', async () => {
     vi.stubEnv('PENNYLANE_API_KEY', 'cle-de-test-bien-formee');
     vi.stubGlobal(
       'fetch',
@@ -125,7 +125,7 @@ describe('Client Pennylane — un appel sans réponse ne cite jamais la clé', (
     });
   });
 
-  it('clé absente : aucun appel, le résultat nomme la variable manquante', async () => {
+  it('M0.9/erreur_reseau_pennylane_cle_absente — clé absente : aucun appel, le résultat nomme la variable manquante', async () => {
     vi.stubEnv('PENNYLANE_API_KEY', '');
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

@@ -48,6 +48,7 @@
  *   `.catch((err) => …)` — est refusé, sauf :
  *     ✅ `libelleErreurReseau(err)` / `decrireErreurReseau(err)` (le classeur)
  *     ✅ `err instanceof X`, `typeof err`, `err.name` (la classe, pas le texte)
+ *     ✅ `err.code`, `err.cause?.code` (un code machine : ECONNREFUSED…)
  *     ✅ `throw err` (relancée telle quelle — cf. « ce que la règle ne voit pas »)
  *     ❌ `String(err)`, `${err}`, `err.message`, `err.stack`, `{ cause: err }`,
  *        `logger.error('x', { error: err.message })` (un journal est un texte
@@ -728,12 +729,19 @@ function regleF(source: string): Trouve[] {
     )
       return true;
     if (ts.isTypeOfExpression(p)) return true;
-    if (
-      ts.isPropertyAccessExpression(p) &&
-      p.expression === id &&
-      p.name.text === 'name'
-    )
-      return true;
+    if (ts.isPropertyAccessExpression(p) && p.expression === id) {
+      // La classe de l'erreur et son code machine, pas son texte.
+      if (p.name.text === 'name' || p.name.text === 'code') return true;
+      // `err.cause?.code` — et lui seul : `err.cause` porte aussi un message.
+      const pp = p.parent;
+      if (
+        p.name.text === 'cause' &&
+        ts.isPropertyAccessExpression(pp) &&
+        pp.expression === p &&
+        pp.name.text === 'code'
+      )
+        return true;
+    }
     if (ts.isThrowStatement(p)) return true;
     if (
       ts.isCallExpression(p) &&
@@ -1097,6 +1105,18 @@ const SONDES: {
     attendus: 0,
   },
   {
+    // Le code machine se lit sans passer par le classeur…
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  await log({ erreur: err.cause?.code ?? err.code ?? 'réseau' });\n}`,
+    attendus: 0,
+  },
+  {
+    // …mais pas la cause entière, qui porte un message (hôte, adresse).
+    regle: 'F',
+    source: `try {\n  await fetch(url);\n} catch (err) {\n  throw new Error(String(err.cause));\n}`,
+    attendus: 1,
+  },
+  {
     regle: 'F',
     source: `try {\n  await fetch(url);\n} catch {\n  return null;\n}`,
     attendus: 0,
@@ -1223,7 +1243,20 @@ function violations(): Violation[] {
 
   // Règle F — l'erreur d'un `fetch`, dans tout fichier serveur qui en appelle un.
   // Aucune liste d'exemption : ni les adapters, ni le client Pennylane.
-  for (const f of fichiersAvecFetch()) {
+  const avecFetch = fichiersAvecFetch();
+  // Non-vacuité du périmètre : chaque racine rend aujourd'hui au moins un fichier.
+  // Une découverte devenue aveugle (racine renommée, recherche cassée) rendrait
+  // la règle verte sur une liste vide, et le dirait « ✅ ».
+  const racinesMuettes = RACINES_FETCH.filter(
+    (r) => !avecFetch.some((f) => f.startsWith(`${r}/`)),
+  );
+  if (racinesMuettes.length > 0) {
+    console.error(
+      `🔴 check-api-error-leak : DÉTECTEUR EN ÉCHEC (périmètre de la règle F) — aucun fichier appelant fetch trouvé sous ${racinesMuettes.join(', ')} : le gate ne prouve plus rien.`,
+    );
+    process.exit(1);
+  }
+  for (const f of avecFetch) {
     const source = readFileSync(f, 'utf8');
     for (const { ligne, expr } of regleF(source)) {
       trouvees.push({

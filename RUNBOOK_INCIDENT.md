@@ -76,6 +76,17 @@ WHERE statut = 'dead' ORDER BY seq;
    SELECT plateforme.fn_admin_resolve_outbox('<event_id>', '<admin_id>', 'Commande créée manuellement côté MTS-1');
    ```
 
+⚠ Ni le skip ni le resolve ne touchent aux lignes `tournees`. Toute modification
+ultérieure de la collecte (ordre `collecte.modifiee`, y compris une modification
+faite par le client) reprend chez MTS-1 les rangs non servis, dès qu'au moins un
+rang de la collecte a une commande : un rang sans commande, et, avec le lot
+« reprise d'un envoi MTS-1 » (commit du 2026-10-13), un rang qui a une commande
+mais dont la tournée est restée `planifiee`. Si ce camion a été commandé à la
+main chez MTS-1, il serait commandé ou envoyé une seconde fois. Aucun geste de
+l'application ne l'évite : après un resolve manuel d'un ordre de création,
+faire aligner par un développeur la ligne `tournees` du rang (statut `en_cours`,
+référence de la tournée MTS-1) AVANT toute modification de la collecte.
+
 Garde-fous : ces RPC n'agissent que sur un event **`dead`** (sinon erreur `22023`) ;
 un motif < 5 caractères → `22023` ; un auteur non `admin_savr` → `42501`.
 

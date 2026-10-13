@@ -9,7 +9,10 @@
 //
 // Chaque commit est immédiat (CLAUDE.md §2 : MTS-1 présumé NON idempotent).
 // Curseur de reprise : lecture tournees (external_ref_commande, tms_reference) avant dispatch.
-// Réconciliation : si requires_reconciliation=true → scan minDate/maxDate avant re-POST.
+// Un curseur non écrit après une création = erreur AMBIGUË, jamais un simple rejeu.
+// Réconciliation : si requires_reconciliation=true → recherche de la commande par
+// son numéro avant tout re-POST, puis de sa tournée (currentTour) avant tout
+// re-POST /v3/tours.
 
 import { createHash } from 'node:crypto';
 
@@ -27,6 +30,7 @@ import type {
 } from '../index.js';
 import {
   CancelWindowClosedError,
+  LogistiqueAmbiguousError,
   LogistiquePermanentError,
   LogistiqueTransientError,
 } from '../index.js';
@@ -49,7 +53,7 @@ import type {
   PointLivraison,
 } from './client.js';
 import { Mts1Client } from './client.js';
-import type { Mts1Tour } from './mock.js';
+import type { Mts1CustomerOrder, Mts1Tour } from './mock.js';
 import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
 // `collectes.lieu_overrides` — jsonb libre porté par la collecte (§06.01).
@@ -192,16 +196,22 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // ── Étape 1 : POST /v3/customerOrders ──────────────────────────────────────
     let customerOrderId = tournee?.external_ref_commande ?? null;
+    // Commande retrouvée chez MTS-1 par la réconciliation : elle dit aussi sa
+    // tournée (étape 2).
+    let commandeRetrouvee: Mts1CustomerOrder | null = null;
+    let commandeNeuve = false;
     if (!customerOrderId) {
       // Réconciliation avant re-POST si claim expiré lors d'une tentative précédente
       if (opts?.requiresReconciliation) {
-        customerOrderId = await this.reconcileOrder(collecte, orderNumber);
+        commandeRetrouvee = await this.reconcileOrder(collecte, orderNumber);
+        customerOrderId = commandeRetrouvee?.customerOrderId ?? null;
       }
       if (!customerOrderId) {
         const created = await this.client.postOrder(
           this.buildOrderPayload(collecte, orderNumber),
         );
         customerOrderId = created.id;
+        commandeNeuve = true;
         // Commit immédiat — MTS-1 présumé NON idempotent (CLAUDE.md §2)
         tournee = await this.upsertTournee(
           collecte,
@@ -222,28 +232,54 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // ── Étape 2 : POST /v3/tours ────────────────────────────────────────────────
     let tourId = tournee?.tms_reference ?? null;
+    // Tournée reprise sur la commande à ce passage : la commande y est déjà
+    // rattachée, le rattachement n'est pas rejoué.
+    let dejaRattachee = false;
     if (!tourId) {
-      const tourPayload = this.buildTourPayload(collecte, orderNumber);
-      const created = await this.client.createTour(tourPayload);
-      tourId = created.tourId;
+      // Réconciliation avant re-POST : une tournée créée lors d'une tentative
+      // précédente, sans que son identifiant ait été enregistré, se retrouve par
+      // sa commande. Sans objet pour une commande créée à l'instant.
+      if (opts?.requiresReconciliation && !commandeNeuve) {
+        tourId = await this.reconcileTour(
+          collecte,
+          rang,
+          customerOrderId,
+          commandeRetrouvee,
+        );
+        dejaRattachee = tourId !== null;
+      }
+      if (!tourId) {
+        const tourPayload = this.buildTourPayload(collecte, orderNumber);
+        const created = await this.client.createTour(tourPayload);
+        tourId = created.tourId;
+      }
       // Commit immédiat
-      await this.updateTourneeRef(tournee!.id, tourId);
+      await this.updateTourneeRef(
+        tournee!.id,
+        tourId,
+        customerOrderId,
+        orderNumber,
+        dejaRattachee,
+      );
     }
 
     // ── Étape 2bis : rattacher la commande à la tournée ─────────────────────────
-    // INCONDITIONNEL (comme dispatch/validate ci-dessous) : rejoué à chaque passage
-    // tant que la tournée est 'planifiee'. Le `customerOrderId` du POST /v3/tours
+    // Rejoué à chaque passage tant que la tournée est 'planifiee' (comme
+    // dispatch/validate ci-dessous), sauf quand la tournée vient d'être reprise
+    // sur la commande elle-même (dejaRattachee). Le `customerOrderId` du POST /v3/tours
     // étant ignoré par MTS-1, ce PUT garantit la commande rattachée AVANT le dispatch
     // — y compris sur reprise après échec transitoire de createTour/addCustomerOrder
     // (sinon le dispatch porterait sur une tournée VIDE, réintroduisant en silence le
     // bug d'origine). Rejeu présumé sûr : même hypothèse que dispatch/validate (déjà
     // rejoués inconditionnellement) — si le PUT n'était PAS idempotent, un 2e appel
     // échouerait BRUYAMMENT (retry/DLQ + alerte), jamais en silence.
-    await this.client.addCustomerOrderToTour(
-      tourId,
-      customerOrderId,
-      orderNumber,
-    );
+    if (!dejaRattachee) {
+      await this.client.addCustomerOrderToTour(
+        tourId,
+        customerOrderId,
+        orderNumber,
+      );
+    }
 
     // ── Étape 3 : dispatch ──────────────────────────────────────────────────────
     const carrierCode = this.transporteur.code_transporteur_mts1;
@@ -346,15 +382,23 @@ export class AdapterMts1 implements LogistiqueProvider {
       );
     }
 
-    // BL-P1-RM-03 — augmentation N→N+k : créer les rangs manquants (1..N sans
-    // commande) via dispatchCollecte (idempotent, clé d'idempotence
-    // reference-{rang}). Une grosse collecte dont Ops augmente N est ainsi
-    // entièrement servie. « Sans commande » et non « sans tournée » : un rang
+    // BL-P1-RM-03 — augmentation N→N+k : mener à terme, via dispatchCollecte
+    // (idempotent, repart des curseurs du rang, clé d'idempotence
+    // reference-{rang}), tout rang de 1..N qui n'est pas servi. Une grosse
+    // collecte dont Ops augmente N est ainsi entièrement servie. La boucle joue
+    // à CHAQUE modification, pas seulement quand N augmente.
+    // Servi = une commande ET une tournée sortie de 'planifiee' (statut posé
+    // après la validation). « Sans commande » et non « sans tournée » : un rang
     // refusé puis réattribué garde sa tournée, réinitialisée par
     // fn_dispatcher_collecte (arbitrage Val 2026-09-17) — il doit repartir.
-    const rangsCommandes = new Set(avecRef.map((t) => t.rang));
+    // « Encore planifiee » : un rang dont l'envoi a été interrompu après la
+    // création de sa commande. Tenu pour servi, il n'était jamais repris par la
+    // reprise de la modification, et son camion n'était pas envoyé.
+    const rangsServis = new Set(
+      avecRef.filter((t) => t.statut !== 'planifiee').map((t) => t.rang),
+    );
     for (let rang = 1; rang <= n; rang++) {
-      if (!rangsCommandes.has(rang)) {
+      if (!rangsServis.has(rang)) {
         await this.dispatchCollecte(collecte, rang, {
           requiresReconciliation: opts?.requiresReconciliation,
         });
@@ -1278,8 +1322,9 @@ export class AdapterMts1 implements LogistiqueProvider {
         .single();
 
       if (errMaj || !maj) {
-        throw new LogistiquePermanentError(
-          `Impossible de committer la commande ${customerOrderId} sur la tournée rang ${rang} : ${String(errMaj)}`,
+        throw this.curseurNonEcrit(
+          `commande ${customerOrderId} (rang ${rang})`,
+          errMaj,
         );
       }
       return { ...existante, ...maj, rang } as TourneeRow;
@@ -1307,33 +1352,84 @@ export class AdapterMts1 implements LogistiqueProvider {
       .single();
 
     if (error || !tournee) {
-      throw new LogistiquePermanentError(
-        `Impossible de créer la tournée rang ${rang} : ${String(error)}`,
+      throw this.curseurNonEcrit(
+        `commande ${customerOrderId} (rang ${rang})`,
+        error,
       );
     }
 
-    // Lien collecte ↔ tournee avec rang
-    await this.supabase
+    // Lien collecte ↔ tournee avec rang. C'est par LUI que la reprise retrouve
+    // la tournée (findTournees) : non écrit, la commande passerait pour jamais
+    // créée.
+    const { error: errLien } = await this.supabase
       .from('collecte_tournees')
       .upsert(
         { collecte_id: collecte.id, tournee_id: tournee.id, rang },
         { onConflict: 'collecte_id,rang' },
       );
+    if (errLien) {
+      throw this.curseurNonEcrit(
+        `commande ${customerOrderId} (lien de la tournée, rang ${rang})`,
+        errLien,
+      );
+    }
 
     return { ...tournee, rang } as TourneeRow;
+  }
+
+  // Curseur de reprise non écrit alors que l'objet existe chez MTS-1 (créé à
+  // l'instant, ou retrouvé par la réconciliation). Erreur AMBIGUË, ni passagère
+  // ni définitive : la reprise repasse par la réconciliation avant tout re-POST
+  // (requires_reconciliation). Un simple rejeu recréerait l'objet, l'API étant
+  // présumée non idempotente (CLAUDE.md §2).
+  private curseurNonEcrit(
+    quoi: string,
+    error: { message?: string } | null,
+  ): LogistiqueAmbiguousError {
+    return new LogistiqueAmbiguousError(
+      `MTS-1 : ${quoi} non enregistrée côté Savr — ${
+        error?.message ?? 'aucune ligne écrite'
+      }`,
+    );
   }
 
   // Commit du curseur étape 2 : NE pose PAS statut='en_cours' (réservé au succès de
   // validate, étape 4). Sinon la garde de reprise (dispatchCollecte) sortirait en
   // no-op avant que dispatch+validate aient été joués → camion non commandé (bug C2).
+  //
+  // Écriture en échec : la tournée existe chez MTS-1 et son identifiant n'est
+  // dans aucun curseur. La reprise ne la retrouvera que par sa commande
+  // (reconcileTour) : on rattache donc la commande AVANT de lever, sauf si elle
+  // l'est déjà. Si ce rattachement échoue, ou ne part pas (échéance du passage
+  // atteinte), la tournée reste vide et sans transporteur chez MTS-1, et la
+  // reprise en créera une autre : l'erreur le dit.
   private async updateTourneeRef(
     tourneeId: string,
     tourId: string,
+    customerOrderId: string,
+    orderNumber: string,
+    dejaRattachee: boolean,
   ): Promise<void> {
-    await this.supabase
+    const { error } = await this.supabase
       .from('tournees')
       .update({ tms_reference: tourId })
       .eq('id', tourneeId);
+    if (!error) return;
+
+    const rattachee =
+      dejaRattachee ||
+      (await this.client
+        .addCustomerOrderToTour(tourId, customerOrderId, orderNumber)
+        .then(
+          () => true,
+          () => false,
+        ));
+    throw this.curseurNonEcrit(
+      `tournée ${tourId} (commande ${customerOrderId} ${
+        rattachee ? 'rattachée' : 'NON rattachée'
+      })`,
+      error,
+    );
   }
 
   // Référence lisible de la collecte pour l'affichage Admin / le rapprochement.
@@ -1369,7 +1465,7 @@ export class AdapterMts1 implements LogistiqueProvider {
   private async reconcileOrder(
     collecte: Collecte,
     orderNumber: string,
-  ): Promise<string | null> {
+  ): Promise<Mts1CustomerOrder | null> {
     // Fenêtre en JOURS : l'API ne lit que des « yyyy-MM-dd », bornes incluses,
     // jour compté à Paris (mesuré le 2026-10-13) — c'est-à-dire exactement
     // `date_collecte`, envoyée comme `orderDate` à la création. Un jour de marge
@@ -1391,16 +1487,13 @@ export class AdapterMts1 implements LogistiqueProvider {
     // sous un même numéro) : on écarte les commandes refusées ou en échec, puis on
     // départage par identifiant, l'API ne garantissant aucun ordre de réponse.
     // Le Set écarte une même commande rendue deux fois.
+    const vivantes = orders.filter(
+      (o) =>
+        o.orderNumber === orderNumber &&
+        !STATUTS_COMMANDE_MORTE.has(o.customerOrderStatus),
+    );
     const candidates = [
-      ...new Set(
-        orders
-          .filter(
-            (o) =>
-              o.orderNumber === orderNumber &&
-              !STATUTS_COMMANDE_MORTE.has(o.customerOrderStatus),
-          )
-          .map((o) => o.customerOrderId),
-      ),
+      ...new Set(vivantes.map((o) => o.customerOrderId)),
     ].sort();
     const retenue = candidates[0];
     if (!retenue) return null;
@@ -1418,7 +1511,79 @@ export class AdapterMts1 implements LogistiqueProvider {
         )}), reprise sur ${retenue}`,
       });
     }
-    return retenue;
+    return vivantes.find((o) => o.customerOrderId === retenue) ?? null;
+  }
+
+  /**
+   * Tournée déjà rattachée à cette commande chez MTS-1, ou `null` — avant tout
+   * re-POST /v3/tours d'une création reprise (§08 §3bis.5, Q3bis-6).
+   *
+   * Une commande rattachée porte `currentTour.tourId` (mesuré le 2026-10-13).
+   * `dejaLue` = la commande telle que la réconciliation vient de la rendre ;
+   * sinon elle est relue par son identifiant. Une lecture en échec LÈVE (erreur
+   * du client) : elle n'est jamais lue comme « aucune tournée ».
+   *
+   * Limite : une tournée créée mais jamais rattachée ne porte aucun lien vers
+   * sa commande (son numéro est attribué par MTS-1, elle n'a aucun arrêt). Elle
+   * reste introuvable et la reprise en crée une autre ; la première est vide et
+   * sans transporteur.
+   *
+   * Une tournée qu'une ligne `tournees` porte déjà — autre rang de la
+   * collecte, ou autre collecte — n'est pas reprise : une ligne = un camion =
+   * sa tournée, et rien en base n'impose l'unicité de `tms_reference`. Mesuré
+   * le 2026-10-13 sur une collecte de test à deux camions du compte de
+   * démonstration (un seul cas, mécanisme non établi) : les commandes des deux
+   * rangs portaient la même tournée. Non mesuré : que MTS-1 fasse de même
+   * entre deux collectes. Reprise, une telle tournée serait envoyée et validée
+   * une seconde fois, et la relève lirait ses pesées sous les deux lignes.
+   */
+  private async reconcileTour(
+    collecte: Collecte,
+    rang: number,
+    customerOrderId: string,
+    dejaLue: Mts1CustomerOrder | null,
+  ): Promise<string | null> {
+    const commande =
+      dejaLue ??
+      (await this.client.findOrdersByIds([customerOrderId])).find(
+        (c) => c.customerOrderId === customerOrderId,
+      );
+    // Commande disparue de chez MTS-1 : y créer une tournée ne commanderait
+    // aucun camion. Échec définitif (donc alerte), comme pour une modification
+    // reprise (updateCollecte).
+    if (!commande) {
+      throw new LogistiquePermanentError(
+        `collecte ${collecte.id} : commande introuvable chez MTS-1 pour le rang ${rang} (${customerOrderId}) — tournée non créée`,
+      );
+    }
+    // Formes mesurées de `tourId` : une chaîne quand la commande est rattachée,
+    // clé absente sinon. Absent ou nul, il vaut « aucune tournée ». Sous une
+    // autre forme (nombre, chaîne vide), il est refusé, comme à la création : lu
+    // comme « aucune tournée », il en ferait créer une seconde. La forme de
+    // `currentTour` lui-même n'est pas contrôlée : s'il n'est pas un objet,
+    // aucune tournée n'y est lue.
+    const tourId: unknown = commande.currentTour?.tourId;
+    if (tourId === undefined || tourId === null) return null;
+    if (typeof tourId !== 'string' || !tourId) {
+      throw new LogistiqueTransientError(
+        `MTS-1 GET /v3/customerOrders : réponse inattendue, currentTour.tourId illisible pour la commande ${customerOrderId}`,
+      );
+    }
+
+    // Le rang courant n'a pas de référence (sinon on ne serait pas ici) : toute
+    // ligne qui porte cette tournée est celle d'un autre camion. Une lecture en
+    // échec lève : elle n'est jamais lue comme « aucune ligne ».
+    const { data: porteuses, error } = await this.supabase
+      .from('tournees')
+      .select('id')
+      .eq('tms_reference', tourId)
+      .limit(1);
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Lecture des tournées portant la référence ${tourId} échouée — ${error.message}`,
+      );
+    }
+    return porteuses?.length ? null : tourId;
   }
 
   /**

@@ -134,7 +134,7 @@ export class Mts1Client {
         correlation_id: payload.orderNumber,
       });
       return {
-        id: result.id,
+        id: this.identifiantCree(result, 'id', 'POST /v3/customerOrders'),
         externalReference: result.externalReference,
         status: result.status,
         createdAt: result.createdAt,
@@ -152,15 +152,19 @@ export class Mts1Client {
     // `customerOrderId`, PAS `id` → mapper explicitement. Sinon `created.id` est
     // `undefined` → `external_ref_commande` jamais enregistré → l'étape
     // addCustomerOrder échoue en 400 « customerOrderId is mandatory ».
-    const body = (await res.json()) as {
-      customerOrderId: string;
+    const body = (await res.json().catch(() => null)) as {
+      customerOrderId?: string;
       orderNumber?: string;
       customerOrderStatus?: string;
-    };
+    } | null;
     return {
-      id: body.customerOrderId,
-      externalReference: body.orderNumber ?? '',
-      status: body.customerOrderStatus ?? '',
+      id: this.identifiantCree(
+        body,
+        'customerOrderId',
+        'POST /v3/customerOrders',
+      ),
+      externalReference: body?.orderNumber ?? '',
+      status: body?.customerOrderStatus ?? '',
       createdAt: '',
     };
   }
@@ -180,7 +184,10 @@ export class Mts1Client {
         duree_ms: Date.now() - t0,
         correlation_id: payload.orderNumber,
       });
-      return result;
+      return {
+        ...result,
+        tourId: this.identifiantCree(result, 'tourId', 'POST /v3/tours'),
+      };
     }
 
     const res = await this.fetch(
@@ -190,7 +197,11 @@ export class Mts1Client {
       payload.orderNumber,
       t0,
     );
-    return (await res.json()) as CreatedTour;
+    const body = (await res.json().catch(() => null)) as CreatedTour | null;
+    return {
+      ...(body as CreatedTour),
+      tourId: this.identifiantCree(body, 'tourId', 'POST /v3/tours'),
+    };
   }
 
   // Rattache une commande EXISTANTE à une tournée (PUT /v3/tours/addCustomerOrder,
@@ -661,6 +672,27 @@ export class Mts1Client {
   }
 
   // ─── Internals ──────────────────────────────────────────────────────────────
+
+  // Identifiant rendu par une CRÉATION (201). À ce stade l'objet existe chez
+  // MTS-1, que sa réponse soit lisible ou non : un identifiant illisible n'est
+  // ni un refus ni une erreur passagère (un simple rejeu créerait un second
+  // objet, l'API étant présumée non idempotente — CLAUDE.md §2). Erreur AMBIGUË :
+  // la reprise passe par la réconciliation avant tout re-POST.
+  private identifiantCree(
+    corps: unknown,
+    champ: string,
+    route: string,
+  ): string {
+    const valeur = (corps as Record<string, unknown> | null | undefined)?.[
+      champ
+    ];
+    if (typeof valeur !== 'string' || !valeur) {
+      throw new LogistiqueAmbiguousError(
+        `MTS-1 ${route} : création acceptée, mais « ${champ} » est illisible dans la réponse`,
+      );
+    }
+    return valeur;
+  }
 
   // Les deux listes lues ici (/v3/customerOrders, /v3/carrier) sont des tableaux
   // JSON nus (mesuré le 2026-10-13). Toute autre forme est REFUSÉE par une

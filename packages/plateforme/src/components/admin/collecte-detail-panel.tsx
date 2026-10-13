@@ -300,6 +300,8 @@ interface RapportDoc {
   regenere_at: string | null;
   consulte_par_user_at: string | null;
   pdf_url: string | null;
+  /** Rapport de recyclage en vigueur : porte-t-il le radar de comparaison ? */
+  avec_radar: boolean;
 }
 interface BordereauDoc {
   id: string;
@@ -755,6 +757,9 @@ export function CollecteDetailPanel({
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [regenerating, setRegenerating] = useState<PdfType | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
+  // Version du rapport de recyclage ZD : avec ou sans le radar de comparaison.
+  // `null` tant que l'Admin n'a pas touché la case : elle suit le rapport en vigueur.
+  const [radarChoisi, setRadarChoisi] = useState<boolean | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoEnCours, setPhotoEnCours] = useState<string | null>(null);
   const nbPhotosClient = (documents?.photos ?? []).filter(
@@ -806,15 +811,26 @@ export function CollecteDetailPanel({
     void refetchAudit();
   }, [refetchDocuments, refetchAudit]);
 
+  const avecRadar = radarChoisi ?? documents?.rapport?.avec_radar ?? false;
+
   // Régénération d'un PDF (§06.06 l.283-284) — ré-enqueue jobs_pdf côté serveur.
+  // Le rapport de recyclage ZD part avec la version choisie (avec ou sans radar).
   const handleRegenerate = async (type: PdfType) => {
     setRegenerating(type);
     setDocError(null);
     const res = await fetch(
       `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/documents/${encodeURIComponent(type)}/regenerate`,
-      { method: 'POST' },
+      type === 'rapport-recyclage-zd'
+        ? {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ options: { benchmark: avecRadar } }),
+          }
+        : { method: 'POST' },
     );
     if (res.ok) {
+      // La case reprend la version que le rapport porte désormais.
+      if (type === 'rapport-recyclage-zd') setRadarChoisi(null);
       await refetchDocuments();
       await refetchAudit();
     } else {
@@ -2593,7 +2609,7 @@ export function CollecteDetailPanel({
               <div className="divide-y divide-savr-neutral-100">
                 {/* Rapport : « Rapport RSE » (ZD) ou « Rapport de don » (AG sans excédents) */}
                 {afficherRapport && (
-                  <div className="flex items-center gap-3 py-3">
+                  <div className="flex flex-wrap items-center gap-3 py-3">
                     <div className="flex-1">
                       <p className="text-sm font-medium flex items-center gap-2">
                         {agSansExcedent ? 'Rapport de don' : 'Rapport RSE'}
@@ -2655,6 +2671,35 @@ export function CollecteDetailPanel({
                       <RotateCw />
                       Régénérer
                     </Button>
+                    {/* Version du rapport de recyclage : avec ou sans radar (ZD). */}
+                    {typeRapport === 'rapport-recyclage-zd' &&
+                      documents?.rapport && (
+                        <div
+                          className="basis-full"
+                          data-testid="option-rapport-radar-admin"
+                        >
+                          <Label
+                            variant="choice"
+                            htmlFor="rapport-avec-radar-admin"
+                            className="flex items-center gap-2"
+                          >
+                            <Checkbox
+                              id="rapport-avec-radar-admin"
+                              checked={avecRadar}
+                              onCheckedChange={(v) =>
+                                setRadarChoisi(v === true)
+                              }
+                            />
+                            Inclure le radar de comparaison dans le rapport
+                          </Label>
+                          <Text variant="hint" className="mt-1">
+                            Comparaison aux événements de même type et de même
+                            taille, ou avec les filtres déjà choisis par le
+                            client. Régénérez le rapport pour appliquer votre
+                            choix.
+                          </Text>
+                        </div>
+                      )}
                   </div>
                 )}
 

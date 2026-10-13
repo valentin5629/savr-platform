@@ -39,7 +39,7 @@ export async function GET(
   const { data: rapport } = await supabase
     .from('rapports_rse')
     .select(
-      'id, version, disponible_a, genere_at, regenere_at, consulte_par_user_at, pdf_url',
+      'id, version, disponible_a, genere_at, regenere_at, consulte_par_user_at, pdf_url, filtres_benchmark',
     )
     .eq('collecte_id', id)
     .order('version', { ascending: false })
@@ -97,8 +97,16 @@ export async function GET(
     }),
   );
 
+  // Version en vigueur du rapport de recyclage : filtres figés = avec radar.
+  // Seul ce booléen sort (les filtres restent côté serveur).
+  const { filtres_benchmark, ...rapportSansFiltres } = (rapport ?? {}) as {
+    filtres_benchmark?: unknown;
+  } & Record<string, unknown>;
+
   return NextResponse.json({
-    rapport: rapport ?? null,
+    rapport: rapport
+      ? { ...rapportSansFiltres, avec_radar: filtres_benchmark != null }
+      : null,
     bordereau: bordereau ?? null,
     attestation: attestation ?? null,
     photos,

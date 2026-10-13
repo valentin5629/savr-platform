@@ -90,6 +90,9 @@ export interface CreatedTour {
 
 export type ScanResult = Mts1CustomerOrder[];
 
+// Seule écriture de date que lit GET /v3/customerOrders (mesuré 2026-10-13).
+const JOUR_SEUL = /^\d{4}-\d{2}-\d{2}$/;
+
 export class Mts1Client {
   private readonly baseUrl: string;
   private readonly apiKey: string;
@@ -331,20 +334,55 @@ export class Mts1Client {
     );
   }
 
+  /**
+   * Recherche de commandes par fenêtre de JOURS — GET /v3/customerOrders.
+   *
+   * Contrat mesuré sur le compte de démonstration (2026-10-13, lecture seule) :
+   *   - `minDate` / `maxDate` ne se lisent qu'en « yyyy-MM-dd ». Un instant (ISO
+   *     avec ou sans millisecondes, avec ou sans fuseau) répond
+   *     500 INTERNAL_ERROR, des bornes inversées aussi ;
+   *   - les deux bornes sont INCLUSES et le jour est compté à Paris, pas en UTC
+   *     (une commande à 22h01 UTC le 9 sort pour le 10, pas pour le 9) ;
+   *   - `orderNumber` filtre à l'égalité stricte, casse comprise, et ne dispense
+   *     pas des dates (seul, il répond 400) ;
+   *   - la réponse est un tableau JSON nu, sans ordre garanti et sans
+   *     pagination (`pageSize`, `page`, `limit` sont ignorés). Aucun plafond n'a
+   *     pu être mesuré au-delà des 72 commandes du compte : garder la fenêtre
+   *     étroite.
+   */
   async scanOrdersByDateRange(
     minDate: string,
     maxDate: string,
+    orderNumber?: string,
   ): Promise<ScanResult> {
+    // Refus AVANT tout appel, mock compris : un instant ferait répondre 500 à
+    // MTS-1, soit une erreur passagère, rejouée jusqu'à la quatrième tentative
+    // sans jamais aboutir.
+    if (
+      !JOUR_SEUL.test(minDate) ||
+      !JOUR_SEUL.test(maxDate) ||
+      minDate > maxDate
+    ) {
+      throw new LogistiquePermanentError(
+        `MTS-1 : fenêtre de recherche invalide (« ${minDate} » → « ${maxDate} »), deux jours yyyy-MM-dd attendus, dans l'ordre`,
+      );
+    }
+
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
     if (handlers?.scanOrdersByDateRange) {
-      const result = await handlers.scanOrdersByDateRange(minDate, maxDate);
+      const result = await handlers.scanOrdersByDateRange(
+        minDate,
+        maxDate,
+        orderNumber,
+      );
       await this.log({
         methode: 'GET',
         endpoint: '/v3/customerOrders',
         statut_http: 200,
         duree_ms: Date.now() - t0,
+        correlation_id: orderNumber,
       });
       return result;
     }
@@ -357,11 +395,52 @@ export class Mts1Client {
         endpoint: '/v3/customerOrders',
         statut_http: 200,
         duree_ms: Date.now() - t0,
+        correlation_id: orderNumber,
       });
-      return result.customerOrders;
+      return result;
     }
 
-    const params = new URLSearchParams({ minDate, maxDate, pageSize: '200' });
+    const params = new URLSearchParams({ minDate, maxDate });
+    if (orderNumber) params.set('orderNumber', orderNumber);
+    const res = await this.fetch(
+      'GET',
+      `/v3/customerOrders?${params.toString()}`,
+      undefined,
+      orderNumber,
+      t0,
+    );
+    return this.lireCommandes(res);
+  }
+
+  /**
+   * Commandes par identifiant — GET /v3/customerOrders?customerOrderIds=a,b.
+   *
+   * C'est CETTE lecture qui dit si une commande existe encore (mesuré
+   * 2026-10-13) : un identifiant inconnu est simplement absent du tableau rendu
+   * (200, jamais 404), quelle que soit la date de la commande. Le détail
+   * GET /v3/customerOrders/{id} ne le dit pas : sur un identifiant inconnu il
+   * répond 200 avec un objet creux.
+   */
+  async findOrdersByIds(customerOrderIds: string[]): Promise<ScanResult> {
+    if (customerOrderIds.length === 0) return [];
+
+    const handlers = _getMts1Handlers();
+    const t0 = Date.now();
+
+    if (handlers?.findOrdersByIds) {
+      const result = await handlers.findOrdersByIds(customerOrderIds);
+      await this.log({
+        methode: 'GET',
+        endpoint: '/v3/customerOrders',
+        statut_http: 200,
+        duree_ms: Date.now() - t0,
+      });
+      return result;
+    }
+
+    const params = new URLSearchParams({
+      customerOrderIds: customerOrderIds.join(','),
+    });
     const res = await this.fetch(
       'GET',
       `/v3/customerOrders?${params.toString()}`,
@@ -369,8 +448,7 @@ export class Mts1Client {
       undefined,
       t0,
     );
-    const body = (await res.json()) as { customerOrders: ScanResult };
-    return body.customerOrders;
+    return this.lireCommandes(res);
   }
 
   async getTour(tourId: string): Promise<Mts1Tour> {
@@ -459,9 +537,13 @@ export class Mts1Client {
       t0,
       'entrant',
     );
-    const body = (await res.json()) as { carriers: Mts1Carrier[] };
-    this.carrierCache = body.carriers;
-    return body.carriers;
+    // Tableau nu, comme les commandes (mesuré 2026-10-13) — pas `{ carriers }`.
+    const carriers = (await this.lireTableau(
+      res,
+      'GET /v3/carrier',
+    )) as Mts1Carrier[];
+    this.carrierCache = carriers;
+    return carriers;
   }
 
   /**
@@ -577,6 +659,42 @@ export class Mts1Client {
   }
 
   // ─── Internals ──────────────────────────────────────────────────────────────
+
+  // Les deux listes lues ici (/v3/customerOrders, /v3/carrier) sont des tableaux
+  // JSON nus (mesuré le 2026-10-13). Toute autre forme est REFUSÉE par une
+  // erreur passagère (rejouée, puis signalée) : la lire comme
+  // une liste vide ferait conclure « commande absente », donc re-POSTer un
+  // doublon sur une API présumée non idempotente (CLAUDE.md §2).
+  private async lireTableau(res: Response, route: string): Promise<unknown[]> {
+    const body: unknown = await res.json().catch(() => undefined);
+    if (!Array.isArray(body)) {
+      throw new LogistiqueTransientError(
+        `MTS-1 ${route} : réponse inattendue, tableau attendu`,
+      );
+    }
+    return body;
+  }
+
+  // Une commande sans `customerOrderId` n'est pas lisible : l'identifiant est ce
+  // que la relève rapproche d'une tournée et ce que la réconciliation adopte.
+  // Une seule suffit à refuser toute la réponse : le contrat a changé.
+  // (L'ancien code lisait `id`, qui n'existe pas, sans que rien ne le signale.)
+  private async lireCommandes(res: Response): Promise<ScanResult> {
+    const commandes = (await this.lireTableau(
+      res,
+      'GET /v3/customerOrders',
+    )) as Array<Partial<Mts1CustomerOrder> | null>;
+    if (
+      commandes.some(
+        (c) => typeof c?.customerOrderId !== 'string' || !c.customerOrderId,
+      )
+    ) {
+      throw new LogistiqueTransientError(
+        'MTS-1 GET /v3/customerOrders : réponse inattendue, commande sans customerOrderId',
+      );
+    }
+    return commandes as ScanResult;
+  }
 
   private async fetch(
     method: string,

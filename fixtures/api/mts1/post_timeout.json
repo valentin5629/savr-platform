@@ -1,35 +1,29 @@
 {
-  "_description": "Simulation POST /v3/customerOrders timeout. MTS-1 présumé NON idempotent (Val 2026-06-11). Plan B : scan GET /v3/customerOrders?minDate=&maxDate= pour retrouver l'ordre créé côté MTS-1.",
+  "_description": "Simulation POST /v3/customerOrders timeout. MTS-1 présumé NON idempotent (Val 2026-06-11). Plan B : recherche GET /v3/customerOrders?minDate=&maxDate=&orderNumber= pour retrouver l'ordre créé côté MTS-1. Forme mesurée sur le compte de démonstration le 2026-10-13 : dates en « yyyy-MM-dd » seulement (bornes incluses, jour compté à Paris), réponse = tableau JSON nu.",
   "post_attempt": {
-    "externalReference": "col_timeout_001-1",
+    "orderNumber": "col_timeout_001-1",
     "note": "Le POST a timeouté — on ne sait pas si MTS-1 a créé l'ordre ou non"
   },
   "plan_b_scan": {
     "endpoint": "GET /v3/customerOrders",
     "params": {
-      "minDate": "2026-06-10T00:00:00Z",
-      "maxDate": "2026-06-11T00:00:00Z"
+      "minDate": "2026-06-09",
+      "maxDate": "2026-06-11",
+      "orderNumber": "col_timeout_001-1"
     },
-    "response": {
-      "customerOrders": [
-        {
-          "id": "MTS1-ORDER-TIMEOUT-FOUND-001",
-          "externalReference": "col_timeout_001-1",
-          "status": "PLANNED",
-          "pickupDate": "2026-06-10T22:00:00Z",
-          "deliveryDate": null,
-          "stops": []
-        }
-      ],
-      "totalCount": 1,
-      "page": 1,
-      "pageSize": 50
-    }
+    "response": [
+      {
+        "customerOrderId": "MTS1-ORDER-TIMEOUT-FOUND-001",
+        "orderNumber": "col_timeout_001-1",
+        "customerOrderStatus": "PLANNED",
+        "orderDate": "2026-06-10T20:00:00.000Z"
+      }
+    ]
   },
   "_assertions": [
     "POST timeout → requires_reconciliation=true sur outbox_events",
-    "plan B scan par minDate/maxDate permet de retrouver l'ordre via externalReference",
-    "re-POST autorisé uniquement si statut TRANSIENT (jamais si PLANNED/VALIDATED/etc.)",
-    "Q3bis-6 : retrouver le tour d'un customerOrder post-timeout"
+    "plan B : la recherche par fenêtre de jours retrouve l'ordre par son orderNumber (égalité stricte côté Savr)",
+    "re-POST autorisé uniquement si aucune commande vivante ne porte ce orderNumber",
+    "Q3bis-6 : une commande rattachée à un tour porte currentTour.tourId ; une commande sans tour ne le porte pas"
   ]
 }

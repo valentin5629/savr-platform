@@ -33,10 +33,10 @@ import { _setMts1Handlers } from './mock.js';
 // =============================================================================
 
 const ORDER: Mts1CustomerOrder = {
-  id: 'REF-PARTAGEE-001',
-  externalReference: 'col-entrant-1',
-  status: 'OK',
-  pickupDate: '2026-07-15T22:00:00Z',
+  customerOrderId: 'REF-PARTAGEE-001',
+  orderNumber: 'col-entrant-1',
+  customerOrderStatus: 'OK',
+  orderDate: '2026-07-15T22:00:00.000Z',
 };
 
 const ADAPTER_OPTS = {
@@ -158,12 +158,7 @@ function makeSupabase(opts: {
 
 function armerPoll() {
   _setMts1Handlers({
-    pollOrders: vi.fn().mockResolvedValue({
-      customerOrders: [ORDER],
-      totalCount: 1,
-      page: 1,
-      pageSize: 50,
-    }),
+    pollOrders: vi.fn().mockResolvedValue([ORDER]),
     getTour: vi.fn(),
     getPhotos: vi.fn().mockResolvedValue([]),
     postOrder: vi.fn(),

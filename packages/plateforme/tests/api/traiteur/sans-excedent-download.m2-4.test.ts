@@ -87,7 +87,15 @@ describe('M2.4 / download rapport sans-excédent (BL-P1-RPT-02)', () => {
 
   it('AG realisee_sans_collecte → sert rapports_rse (sans embargo), 200 + URL', async () => {
     rls.results.collectes = {
-      data: { id: 'c1', type: 'anti_gaspi', statut: 'realisee_sans_collecte' },
+      data: {
+        id: 'c1',
+        type: 'anti_gaspi',
+        statut: 'realisee_sans_collecte',
+        evenements: {
+          nom_evenement: 'Gala de la Fondation',
+          date_evenement: '2026-10-09',
+        },
+      },
       error: null,
     };
     rls.results.rapports_rse = {
@@ -105,7 +113,12 @@ describe('M2.4 / download rapport sans-excédent (BL-P1-RPT-02)', () => {
 
     const res = await download();
     expect(res.status).toBe(200);
-    expect(mockPresigned).toHaveBeenCalledWith('rapports/se-r1.pdf', 900);
+    // Fichier nommé « Rapport de don » : date et nom de l'événement (pas de numéro).
+    expect(mockPresigned).toHaveBeenCalledWith(
+      'rapports/se-r1.pdf',
+      900,
+      'rapport-de-don-2026-10-09-gala-de-la-fondation.pdf',
+    );
   });
 
   it('AG cloturee → sert toujours l’attestation (régression BL-P2-18)', async () => {
@@ -114,12 +127,22 @@ describe('M2.4 / download rapport sans-excédent (BL-P1-RPT-02)', () => {
       error: null,
     };
     rls.results.attestations_don = {
-      data: { id: 'a1', eligible_at: PAST, pdf_url: 'rapports/att-a1.pdf' },
+      data: {
+        id: 'a1',
+        numero: 'ATT-DON-2026-00012',
+        eligible_at: PAST,
+        pdf_url: 'rapports/att-a1.pdf',
+      },
       error: null,
     };
     const res = await download();
     expect(res.status).toBe(200);
-    expect(mockPresigned).toHaveBeenCalledWith('rapports/att-a1.pdf', 900);
+    // Fichier nommé « Rapport de don » : numéro de l'attestation.
+    expect(mockPresigned).toHaveBeenCalledWith(
+      'rapports/att-a1.pdf',
+      900,
+      'rapport-de-don-ATT-DON-2026-00012.pdf',
+    );
   });
 
   it('collecte cross-org (invisible RLS) → 404 SANS présignature (0 fuite inter-org)', async () => {

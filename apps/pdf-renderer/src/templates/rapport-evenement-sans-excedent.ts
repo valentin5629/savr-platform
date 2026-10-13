@@ -1,5 +1,8 @@
 // Template PDF — Rapport « Événement sans excédent alimentaire » (§12 §1.3-bis).
 //
+// Titre imprimé : « Rapport de don », le nom unique du document d'une collecte AG
+// (décision Val 2026-10-13) ; « Événement sans excédent alimentaire » en sous-titre.
+//
 // Justificatif texte seul destiné aux collectes AG terminées en
 // `realisee_sans_collecte` (le chauffeur a déclaré « aucun repas à collecter »).
 // Aucune attestation 2041-GE n'est générée (pas de don à certifier) : ce PDF
@@ -13,7 +16,9 @@
 // Version figée du gabarit — doit rester égale à
 // TEMPLATE_VERSIONS['rapport-evenement-sans-excedent'] du contrat partagé (@savr/shared).
 // Vérifié par check:pdf-contract. Incrémenter @N à toute modif structurelle.
-export const TEMPLATE_VERSION = 'rapport-evenement-sans-excedent@1';
+// @2 : titre « Rapport de don », ancien titre en sous-titre, phrase « ne vaut pas
+// reçu fiscal » à la place de « Aucune attestation de don 2041-GE n'est générée ».
+export const TEMPLATE_VERSION = 'rapport-evenement-sans-excedent@2';
 
 export interface RapportEvenementSansExcedentData {
   // En-tête événement (§1.3-bis)
@@ -96,6 +101,7 @@ export function renderRapportEvenementSansExcedent(
   .logo-savr { font-size: 22px; font-weight: 800; color: #16a34a; letter-spacing: -0.5px; }
   .doc-title { text-align: right; }
   .doc-title h1 { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+  .doc-title .sous-titre { font-size: 12px; font-weight: 600; color: #374151; margin-top: 2px; }
   .doc-title .sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
   .event-banner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 14px; margin-bottom: 18px; }
   .event-banner strong { color: #15803d; }
@@ -119,7 +125,8 @@ export function renderRapportEvenementSansExcedent(
   <div class="header">
     <div>${logoBlock}</div>
     <div class="doc-title">
-      <h1>Événement sans excédent alimentaire</h1>
+      <h1>Rapport de don</h1>
+      <div class="sous-titre">Événement sans excédent alimentaire</div>
       <div class="sub">Anti-Gaspi · ${esc(data.date_evenement)}</div>
     </div>
   </div>
@@ -137,7 +144,7 @@ export function renderRapportEvenementSansExcedent(
 
   <div class="consequences">
     <h2>Conséquences</h2>
-    <p>Aucun repas n'a été collecté lors de cet événement. Aucune attestation de don 2041-GE n'est générée. La prestation logistique reste facturée au tarif normal au titre du déplacement.</p>
+    <p>Aucun repas n'a été collecté lors de cet événement. Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal. La prestation logistique reste facturée au tarif normal au titre du déplacement.</p>
     ${refFactureBloc}
   </div>
 

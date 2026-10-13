@@ -150,7 +150,12 @@ describe('G7 / bordereau PDF : pdf_fichier_id → shared.fichiers(bucket, key)',
     ]);
     expect(db.__calls.schema).toEqual([['shared']]);
     const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
-    expect(getPresignedUrl).toHaveBeenCalledWith('bordereaux/b1/v1.pdf', 900);
+    // Un bordereau garde le nom de son fichier stocké : aucun nom imposé.
+    expect(getPresignedUrl).toHaveBeenCalledWith(
+      'bordereaux/b1/v1.pdf',
+      900,
+      undefined,
+    );
   });
 });
 
@@ -165,13 +170,58 @@ describe('G7 / admin', () => {
         pdf_url: 'rapports/r1.pdf',
       },
     });
+    // Lecture de la collecte pour le nom du fichier (« Rapport de don » d'une
+    // collecte AG sans excédent ; ici une ZD : aucun nom imposé).
+    db.push({ data: { type: 'zero_dechet', statut: 'cloturee' } });
     const { GET } =
       await import('@/app/api/v1/admin/rapports-rse/[id]/download/route.js');
     const res = await GET(req('/api/v1/admin/rapports-rse/r1/download'), {
       params: Promise.resolve({ id: 'r1' }),
     });
     expect(res.status).toBe(200);
-    expect(selects()).toEqual(['id, disponible_a, genere_at, pdf_url']);
+    expect(selects()).toEqual([
+      'id, collecte_id, disponible_a, genere_at, pdf_url',
+      'type, statut, evenements(nom_evenement, date_evenement)',
+    ]);
+    const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
+    expect(getPresignedUrl).toHaveBeenCalledWith(
+      'rapports/r1.pdf',
+      900,
+      undefined,
+    );
+  });
+
+  it('rapports-rse/:id/download : rapport d’une collecte AG sans excédent servi sous un nom « rapport-de-don »', async () => {
+    setupAuth('admin_savr', null);
+    db.push({
+      data: {
+        id: 'r2',
+        collecte_id: 'c-sans',
+        disponible_a: '2026-01-01T00:00:00Z',
+        genere_at: '2026-01-01T06:00:00Z',
+        pdf_url: 'rapports/r2.pdf',
+      },
+    });
+    db.push({
+      data: {
+        type: 'anti_gaspi',
+        statut: 'realisee_sans_collecte',
+        evenements: { nom_evenement: 'Gala', date_evenement: '2026-01-01' },
+      },
+    });
+    const { GET } =
+      await import('@/app/api/v1/admin/rapports-rse/[id]/download/route.js');
+    const res = await GET(req('/api/v1/admin/rapports-rse/r2/download'), {
+      params: Promise.resolve({ id: 'r2' }),
+    });
+    expect(res.status).toBe(200);
+    expect(db.__calls.eq).toContainEqual(['id', 'c-sans']);
+    const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
+    expect(getPresignedUrl).toHaveBeenCalledWith(
+      'rapports/r2.pdf',
+      900,
+      'rapport-de-don-2026-01-01-gala.pdf',
+    );
   });
 
   it('evenements/:id : types_evenements(libelle)', async () => {

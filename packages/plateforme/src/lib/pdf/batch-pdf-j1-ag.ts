@@ -15,6 +15,8 @@ import {
   logCollecteEnEchec,
 } from './batch-fatal.js';
 import { anneeParis, jourParis } from '@savr/shared/src/temps/index.js';
+import { urlCanonique } from '@/lib/url-application.js';
+import { cheminFicheCollecte } from './batch-pdf-j1.js';
 import {
   TAILLE_PAGE,
   lireParPages,
@@ -55,9 +57,13 @@ interface CollecteAgRow {
   co2_evite_kg: number | null;
   co2_facteurs_snapshot: Record<string, unknown> | null;
   evenements: {
-    nom_evenement: string;
+    // Nullable en base : le formulaire de programmation peut l'envoyer vide.
+    nom_evenement: string | null;
     date_evenement: string;
     organisation_id: string;
+    // Programmeur de la collecte (evenements.created_by → users) → variable
+    // `prenom` de l'email, s'il appartient à l'organisation destinataire.
+    programmeur: { prenom: string | null; organisation_id: string } | null;
   } | null;
   attributions_antgaspi: AttributionRow | null;
 }
@@ -97,7 +103,10 @@ export async function runBatchPdfJ1Ag(
           `
       id, evenement_id, realisee_at, date_collecte,
       co2_evite_kg, co2_facteurs_snapshot,
-      evenements ( nom_evenement, date_evenement, organisation_id ),
+      evenements (
+        nom_evenement, date_evenement, organisation_id,
+        programmeur:users!created_by ( prenom, organisation_id )
+      ),
       attributions_antgaspi (
         id, volume_repas_realise, poids_repas_kg, association_id,
         associations ( nom, adresse, habilitee_attestation_fiscale, numero_rup )
@@ -368,29 +377,50 @@ export async function runBatchPdfJ1Ag(
       // document est l'attestation, affichée « Rapport de don ». L'ancienne étape 9
       // en créait une qu'aucun rendu ne suivait — décision Val 2026-10-09.)
 
-      // 10. Email attestation_don_disponible (non bloquant). Destinataire =
-      // email_principal de l'organisation programmatrice (§06.02, tranché Val
-      // 2026-09-14, symétrie rapport_disponible). evenements n'a PAS de
-      // contact_principal_email en V1 : l'ancienne lecture renvoyait toujours
-      // vide → aucune attestation n'était jamais envoyée.
+      // 10. Email attestation_don_disponible, « Votre rapport de don est
+      // disponible » (non bloquant). Destinataire = email_principal de
+      // l'organisation programmatrice (§06.02, tranché Val 2026-09-14, symétrie
+      // rapport_disponible). evenements n'a PAS de contact_principal_email en V1 :
+      // l'ancienne lecture renvoyait toujours vide → aucune attestation n'était
+      // jamais envoyée.
       const { data: orgaData } = await supabase
         .from('organisations')
-        .select('email_principal')
+        .select('email_principal, type')
         .eq('id', ev.organisation_id)
         .single();
 
-      const contactEmail = (
-        orgaData as { email_principal: string | null } | null
-      )?.email_principal;
+      const orga = orgaData as {
+        email_principal: string | null;
+        type: string | null;
+      } | null;
+      const contactEmail = orga?.email_principal;
       if (contactEmail) {
         const { sendEmail } = await import('@savr/shared/src/email/index.js');
         void sendEmail(
           'attestation_don_disponible',
           contactEmail,
+          // Variables = celles que le gabarit déclare (migration
+          // 20261013180000) : une variable déclarée et non fournie fait refuser
+          // l'envoi (findMissingVariables). L'ancien jeu ne les fournissait
+          // pas : aucun de ces emails n'est parti (savr-dev : 24 refus le
+          // 2026-10-09, aucun envoi).
           {
-            nom_evenement: ev.nom_evenement,
+            // Programmeur = evenements.created_by. Son prénom n'est repris que
+            // s'il appartient à l'organisation destinataire : une collecte
+            // programmée par l'équipe Savr pour le compte d'un client ne doit
+            // pas saluer ce client par le prénom d'un membre de l'équipe.
+            // '' sinon : le gabarit écrit alors « Bonjour, ».
+            prenom:
+              ev.programmeur?.organisation_id === ev.organisation_id
+                ? (ev.programmeur.prenom?.trim() ?? '')
+                : '',
+            // Événement sans nom : même repli que l'email récapitulatif de
+            // programmation. Une valeur nulle ferait refuser l'envoi.
+            nom_evenement: ev.nom_evenement?.trim() || 'Votre événement',
             date_evenement: dateEvenementStr,
-            numero_attestation: numero,
+            lien_rapport: urlCanonique(
+              cheminFicheCollecte(orga?.type, collecte.id),
+            ),
           },
           { entityType: 'collectes', entityId: collecte.id },
         ).catch((e: unknown) => {

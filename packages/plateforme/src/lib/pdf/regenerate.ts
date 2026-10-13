@@ -11,6 +11,12 @@
 //
 // Le rapport RSE porte en plus regenere_at / regenere_par_user_id / version → alimente
 // le picto ⟳ « Rapport régénéré » (§06.06 l.170 : version actuelle ≠ initiale).
+//
+// Rapport de recyclage ZD (gabarit @3) : la page 1 existe en deux versions, avec ou
+// sans le radar de comparaison au parc. La régénération est le seul endroit où cette
+// version se choisit (`version`, ci-dessous) ; sans choix, le dernier rendu est
+// reproduit tel quel. `rapports_rse.filtres_benchmark` dit laquelle est en vigueur :
+// les filtres figés si le rapport porte le radar, NULL sinon.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
@@ -19,10 +25,7 @@ import {
   isPdfDocumentType,
   type PdfDocumentType,
 } from '@savr/shared/src/pdf/document-types.js';
-import {
-  resolveRapportBenchmark,
-  type BenchmarkFilters,
-} from './rapport-benchmark.js';
+import type { RadarRapport } from './rapport-radar.js';
 
 interface DocEntity {
   /** Table plateforme.* portant la ligne document (clé collecte_id). */
@@ -75,15 +78,23 @@ function dbError(err: unknown, event: string): RegenerateResult {
   return { ok: false, code: 'DB_ERROR', message: 'Erreur serveur' };
 }
 
+/**
+ * Version demandée du rapport de recyclage ZD. Le radar est calculé par l'appelant,
+ * sous l'identité du demandeur (`construireRadarRapport`) : cette fonction, qui
+ * écrit en service-role, ne lit jamais le parc elle-même.
+ */
+export type VersionRapportRecyclage =
+  | { avecRadar: false }
+  | { avecRadar: true; radar: RadarRapport };
+
 export async function regenerateCollecteDocument(
   supabase: SupabaseClient,
   collecteId: string,
   type: string,
   actor: { userId: string; role?: string },
-  // Filtres benchmark choisis à la régénération (§12 §1.2 « défaut batch / choisis à la
-  // régén »). Uniquement pris en compte pour 'rapport-recyclage-zd' ; sinon le PDF est
-  // reproduit à l'identique depuis le payload figé.
-  benchmarkFilters?: BenchmarkFilters,
+  // Uniquement pris en compte pour 'rapport-recyclage-zd'. Absent → le PDF est
+  // reproduit à l'identique depuis le payload figé (version comprise).
+  version?: VersionRapportRecyclage,
 ): Promise<RegenerateResult> {
   if (!isPdfDocumentType(type)) {
     return {
@@ -156,21 +167,51 @@ export async function regenerateCollecteDocument(
     }),
   };
 
-  // Rapport RSE : le demandeur peut surcharger les filtres benchmark à la régénération
-  // (§12 §1.2). On recalcule alors le bloc benchmark + on ré-fige le snapshot
-  // rapports_rse.filtres_benchmark. Sans filtres → reproduction fidèle du payload figé.
-  if (type === 'rapport-recyclage-zd' && benchmarkFilters) {
-    const bench = await resolveRapportBenchmark(
-      supabase,
-      collecteId,
-      benchmarkFilters,
-    );
-    payload.benchmark_flux = bench.benchmark_flux;
-    payload.benchmark_legende = bench.benchmark_legende;
-    await supabase
+  // Rapport de recyclage ZD : version avec ou sans radar (§12 §1.2). Le snapshot
+  // `filtres_benchmark` est écrit plus bas, avec le marquage de la régénération.
+  // `undefined` = snapshot laissé tel quel (reproduction d'un rapport avec radar).
+  let filtresFiges: RadarRapport['filtres_benchmark'] | null | undefined;
+  if (type === 'rapport-recyclage-zd') {
+    // Aucun flux rapporté au nombre de convives (pax absent ou nul) : rien à
+    // comparer, le rapport sort sans radar et le snapshot le dit.
+    const radar =
+      version?.avecRadar &&
+      version.radar.benchmark_flux.some((g) => g.collecte_kg_pax != null)
+        ? version.radar
+        : null;
+    if (radar) {
+      payload.options = { benchmark: true };
+      payload.benchmark_flux = radar.benchmark_flux;
+      payload.benchmark_legende = radar.benchmark_legende;
+      filtresFiges = radar.filtres_benchmark;
+    } else if (version) {
+      // Radar décoché (ou sans objet) : ses données quittent le payload figé.
+      payload.options = { benchmark: false };
+      delete payload.benchmark_flux;
+      delete payload.benchmark_legende;
+      filtresFiges = null;
+    } else if (
+      (frozen.options as { benchmark?: unknown } | undefined)?.benchmark !==
+      true
+    ) {
+      // Reproduction d'un rapport sans radar (dont tout payload antérieur au
+      // gabarit @3, rendu désormais sans radar) : le snapshot ne doit pas dire
+      // le contraire.
+      filtresFiges = null;
+    }
+  }
+
+  // Version courante du rapport, lue AVANT la mise en file : une lecture en échec
+  // ne doit ni lancer un rendu, ni faire retomber la version à 2.
+  let nextVersion = 0;
+  if (cfg.table === 'rapports_rse') {
+    const { data: cur, error: curErr } = await supabase
       .from('rapports_rse')
-      .update({ filtres_benchmark: bench.filtres_benchmark })
-      .eq('id', entityId);
+      .select('version')
+      .eq('id', entityId)
+      .single();
+    if (curErr) return dbError(curErr, 'pdf.regenerate.lecture_version');
+    nextVersion = ((cur as { version: number } | null)?.version ?? 1) + 1;
   }
 
   // 4. Ré-enqueuer un job frais (même contrat que le batch : statut pending, attempts 0).
@@ -196,20 +237,29 @@ export async function regenerateCollecteDocument(
   //    Couvre les deux documents portés par rapports_rse : recyclage ZD ET rapport
   //    « Événement sans excédent » AG (§12 §1.3-bis, régénération Admin).
   if (cfg.table === 'rapports_rse') {
-    const { data: cur } = await supabase
-      .from('rapports_rse')
-      .select('version')
-      .eq('id', entityId)
-      .single();
-    const nextVersion = ((cur as { version: number } | null)?.version ?? 1) + 1;
-    await supabase
+    const { error: majErr } = await supabase
       .from('rapports_rse')
       .update({
         regenere_at: new Date().toISOString(),
         regenere_par_user_id: actor.userId,
         version: nextVersion,
+        ...(filtresFiges !== undefined
+          ? { filtres_benchmark: filtresFiges }
+          : {}),
       })
       .eq('id', entityId);
+    // Marquage en échec : la ligne dirait une version, le PDF à venir une autre.
+    // On retire le job qu'on vient de poser (le dernier payload figé redevient
+    // celui d'avant) et on répond en erreur. Si ce retrait échoue lui aussi,
+    // l'écart subsiste : il est journalisé à part.
+    if (majErr) {
+      const { error: retraitErr } = await supabase
+        .from('jobs_pdf')
+        .delete()
+        .eq('id', (newJob as { id: string }).id);
+      if (retraitErr) dbError(retraitErr, 'pdf.regenerate.retrait_job');
+      return dbError(majErr, 'pdf.regenerate.marquage_rapport');
+    }
   }
 
   // 7. Audit (modèle poids/route.ts) — action tracée, table du document régénéré.

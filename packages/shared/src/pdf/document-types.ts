@@ -41,10 +41,10 @@ export type PdfDocumentType = (typeof PDF_DOCUMENT_TYPES)[number];
  */
 export const TEMPLATE_VERSIONS: Record<PdfDocumentType, string> = {
   'bordereau-zd': 'bordereau-zd@2',
-  'rapport-recyclage-zd': 'rapport-recyclage-zd@2',
-  'attestation-don': 'attestation-don@2',
+  'rapport-recyclage-zd': 'rapport-recyclage-zd@3',
+  'attestation-don': 'attestation-don@3',
   'synthese-dashboard': 'synthese-dashboard@1',
-  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@1',
+  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
   facture: 'facture@1',
 };
 

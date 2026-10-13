@@ -72,3 +72,21 @@ export function makeLogoResolver(): (
     return uri;
   };
 }
+
+// Budget commun aux DEUX logos du rapport de recyclage @3 (client + traiteur).
+// Chacun passe le plafond unitaire ci-dessus, mais leur somme peut atteindre
+// ~2,67 Mo de base64 : au-delà du corps de 2 Mo accepté par le renderer, le rendu
+// répondrait 413 et le rapport ne serait jamais généré. Au-delà du budget (l'ordre
+// de grandeur d'un seul logo au plafond, qui passait déjà en @2), on garde le
+// logo du client et on renonce à celui du traiteur.
+export const MAX_LOGOS_RAPPORT_CHARS = 1_400_000;
+
+export function bornerLogosRapport(logos: {
+  client: string | null;
+  traiteur: string | null;
+}): { client: string | null; traiteur: string | null } {
+  const total = (logos.client?.length ?? 0) + (logos.traiteur?.length ?? 0);
+  return total > MAX_LOGOS_RAPPORT_CHARS && logos.client
+    ? { client: logos.client, traiteur: null }
+    : logos;
+}

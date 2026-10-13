@@ -15,9 +15,8 @@ import {
   lireParPages,
   lireParLots,
 } from './selection-par-pages.js';
-import { resolveRapportBenchmark } from './rapport-benchmark.js';
-import { resolveRapportLogo } from './logo-cascade.js';
-import { makeLogoResolver } from './logo-inline.js';
+import { resolveRapportLogos } from './logo-cascade.js';
+import { bornerLogosRapport, makeLogoResolver } from './logo-inline.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import {
   anneeParis,
@@ -54,6 +53,8 @@ interface CollecteRow {
   co2_net_kg: number | null;
   energie_primaire_evitee_kwh: number | null;
   co2_facteurs_snapshot: Record<string, unknown> | null;
+  // Taux de captation figés à la clôture (§05 R_taux_recyclage) → bloc Méthodologie.
+  caps_appliques: Record<string, unknown> | null;
   nb_camions_demande: number;
   // Transporteur = prestataire logistique de la collecte (shared.prestataires).
   // tournees n'a pas de transporteur_id ; la FK est prestataire_logistique_id → shared.prestataires.
@@ -71,7 +72,10 @@ interface CollecteRow {
     // Cascade logo §1.2 (BL-P2-19).
     client_organisateur_organisation_id: string | null;
     logo_client_organisateur_url: string | null;
+    // Nom du client saisi à la programmation (titre du rapport, §12 §1.2).
+    nom_client_organisateur: string | null;
     organisations: {
+      nom: string;
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
@@ -82,13 +86,15 @@ interface CollecteRow {
       logo_url: string | null;
     } | null;
     traiteur_operationnel: {
+      nom: string;
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
       logo_url: string | null;
     } | null;
-    // Organisation du client organisateur (compte Savr) — logo cascade §1.2 étape 2.
+    // Organisation du client organisateur (compte Savr) — nom de repli + logo.
     client_organisateur: {
+      nom: string;
       logo_url: string | null;
     } | null;
     lieux: {
@@ -100,19 +106,13 @@ interface CollecteRow {
   } | null;
 }
 
-/** Ligne retournée par la RPC plateforme.f_taux_recyclage_moyen_parc (§12 §1.2 l.67). */
-interface ParcMoyenRow {
-  taux_moyen_pondere: number;
-  nb_organisations: number;
-  nb_collectes: number;
-}
-
 /**
- * Équivalences pédagogiques du CO₂ évité (§12 §1.2 l.63/l.65). Les facteurs sont figés
- * dans `co2_facteurs_snapshot.equivalences` à la clôture (reproductibilité) :
- *   - km_voiture / repas_boeuf = kgCO₂e par unité → compte = co2_evite_kg / facteur
+ * Équivalences pédagogiques du rapport (§12 §1.2). Les facteurs sont figés dans
+ * `co2_facteurs_snapshot.equivalences` à la clôture (reproductibilité) :
+ *   - km_voiture = kgCO₂e par km → compte = co2_evite_kg / facteur
  *   - foyer_kwh = kWh/an d'un foyer → compte = energie_primaire_evitee_kwh / facteur
- * Retourne undefined si pas de CO₂ évité ou pas de snapshot (bloc masqué côté PDF).
+ * L'équivalence « repas avec bœuf » n'est plus imprimée (décision Val 2026-10-02).
+ * Retourne undefined si pas de CO₂ évité ou pas de snapshot (équivalences omises).
  */
 export function buildEquivalences(
   co2EviteKg: number | null,
@@ -121,7 +121,6 @@ export function buildEquivalences(
 ):
   | {
       km_voiture: number | null;
-      repas_boeuf: number | null;
       foyer: number | null;
     }
   | undefined {
@@ -130,11 +129,9 @@ export function buildEquivalences(
     .equivalences;
   if (!eqv) return undefined;
   const feKm = Number(eqv.km_voiture);
-  const feBoeuf = Number(eqv.repas_boeuf);
   const feFoyer = Number(eqv.foyer_kwh);
   return {
     km_voiture: feKm > 0 ? Math.round(co2EviteKg / feKm) : null,
-    repas_boeuf: feBoeuf > 0 ? Math.round(co2EviteKg / feBoeuf) : null,
     foyer:
       energiePrimaireKwh != null && feFoyer > 0
         ? Math.round(energiePrimaireKwh / feFoyer)
@@ -170,15 +167,15 @@ export async function runBatchPdfJ1(
           `
       id, evenement_id, realisee_at, date_collecte,
       taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh,
-      co2_facteurs_snapshot, nb_camions_demande, prestataire_logistique_id,
+      co2_facteurs_snapshot, caps_appliques, nb_camions_demande, prestataire_logistique_id,
       evenements (
         id, nom_evenement, date_evenement, pax,
         organisation_id, traiteur_operationnel_organisation_id,
         programmeur:users!created_by ( prenom ),
-        client_organisateur_organisation_id, logo_client_organisateur_url,
-        organisations!organisation_id ( raison_sociale, siret, adresse, email_principal, type, logo_url ),
-        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, siret, adresse, logo_url ),
-        client_organisateur:organisations!client_organisateur_organisation_id ( logo_url ),
+        client_organisateur_organisation_id, logo_client_organisateur_url, nom_client_organisateur,
+        organisations!organisation_id ( nom, raison_sociale, siret, adresse, email_principal, type, logo_url ),
+        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, raison_sociale, siret, adresse, logo_url ),
+        client_organisateur:organisations!client_organisateur_organisation_id ( nom, logo_url ),
         lieux ( nom, adresse_acces, code_postal, ville )
       )
     `,
@@ -234,21 +231,6 @@ export async function runBatchPdfJ1(
 
   const now = new Date();
 
-  // Comparaison vs moyenne Savr anonymisée (§12 §1.2 l.67) — parc-wide, identique pour
-  // toutes les collectes du batch → calculée une seule fois. Masquée si < 3 acteurs
-  // (la fonction ne retourne aucune ligne). Distinct du benchmark kg/pax (k≥5, par collecte).
-  const { data: parcRows } = await supabase.rpc(
-    'f_taux_recyclage_moyen_parc',
-    {},
-  );
-  const parc = ((parcRows ?? []) as ParcMoyenRow[])[0];
-  const comparaisonSavr = parc
-    ? {
-        taux_moyen_pondere: Number(parc.taux_moyen_pondere),
-        nb_organisations: parc.nb_organisations,
-      }
-    : undefined;
-
   // Inline logo mémoïsé (BL-P3-05) : la cascade renvoie une clé R2 brute que le
   // renderer n'affiche pas → data URI. Cache partagé sur tout le batch (même logo
   // d'agence réutilisé sur N rapports).
@@ -290,7 +272,7 @@ export async function runBatchPdfJ1(
       const { data: flux } = await supabase
         .from('collecte_flux')
         .select(
-          'flux_id, poids_reel_kg, nb_bacs, equivalent_roll, flux:flux_id ( nom )',
+          'flux_id, poids_reel_kg, nb_bacs, equivalent_roll, flux:flux_id ( nom, code )',
         )
         .eq('collecte_id', collecte.id);
 
@@ -304,6 +286,17 @@ export async function runBatchPdfJ1(
       const poidsTotalKg = fluxDetails.reduce(
         (s: number, f: { poids_kg: number }) => s + f.poids_kg,
         0,
+      );
+      // Flux du rapport : mêmes lignes + le code du flux (couleur et ordre dans le
+      // gabarit). `fluxDetails` reste tel quel : il est aussi le snapshot
+      // `bordereaux_savr.detail_flux`, qui ne change pas de forme.
+      const fluxRapport = fluxDetails.map(
+        (f: (typeof fluxDetails)[number], i: number) => ({
+          ...f,
+          code:
+            ((flux ?? [])[i] as { flux?: { code?: string } | null })?.flux
+              ?.code ?? undefined,
+        }),
       );
 
       // 5. Allouer le numéro BSAV (gapless)
@@ -381,53 +374,58 @@ export async function runBatchPdfJ1(
         new Date(collecte.realisee_at).getTime() + 24 * 3600 * 1000,
       );
 
-      // 5bis. Bloc benchmark §12 §1.2 (BL-P1-RPT-01) — 5 jauges kg/pax + point rouge
-      // parc. Défaut batch auto (pas de filtres) : segment = type d'événement + taille
-      // de la collecte ; le helper résout filtres, légende et snapshot (k-anonymat ≥5).
-      const benchmark = await resolveRapportBenchmark(supabase, collecte.id);
-      const filtresBenchmark = benchmark.filtres_benchmark;
-
-      // Équivalences pédagogiques du CO₂ évité (§12 §1.2 l.63) — comptes dérivés des
-      // FACTEURS figés dans co2_facteurs_snapshot.equivalences (km_voiture/repas_boeuf =
-      // kgCO₂e/unité ; foyer_kwh = kWh/an). Absent si pas de snapshot / pas de CO₂.
+      // Équivalences pédagogiques (§12 §1.2) — comptes dérivés des FACTEURS figés
+      // dans co2_facteurs_snapshot.equivalences (km_voiture = kgCO₂e/km ;
+      // foyer_kwh = kWh/an). Absent si pas de snapshot / pas de CO₂.
       const equivalences = buildEquivalences(
         collecte.co2_evite_kg,
         collecte.energie_primaire_evitee_kwh,
         collecte.co2_facteurs_snapshot,
       );
 
-      // Cascade logo client §12 §1.2 (BL-P2-19) : agence prime → client organisateur
-      // (compte Savr, sinon upload) → traiteur opérationnel → Savr (fallback template).
-      const logo = resolveRapportLogo({
+      // Logos du bandeau (BL-P2-19, gabarit @3) : client (agence prime → client
+      // organisateur, compte Savr sinon dépôt à la programmation) et traiteur
+      // opérationnel. Le logo Savr est embarqué dans le gabarit.
+      const logos = resolveRapportLogos({
         programmateur: ev.organisations,
         client_organisateur: ev.client_organisateur,
         evenement_logo_client_url: ev.logo_client_organisateur_url,
         traiteur_operationnel: ev.traiteur_operationnel ?? ev.organisations,
       });
+      // Deux logos lourds dépasseraient le corps accepté par le renderer.
+      const logosInline = bornerLogosRapport({
+        client: await resolveLogoUri(logos.client),
+        traiteur: await resolveLogoUri(logos.traiteur),
+      });
 
+      // Rapport automatique = version SANS radar : la comparaison au parc n'entre
+      // dans le rapport que si un utilisateur la choisit depuis la fiche collecte
+      // (régénération, cf. regenerate.ts) — décision Val 2026-10-13. Aucun
+      // benchmark n'est donc calculé ici, et `rapports_rse.filtres_benchmark`
+      // reste NULL (= rapport sans comparaison).
       const rapportPayload = {
+        client_nom:
+          ev.nom_client_organisateur?.trim() ||
+          ev.client_organisateur?.nom ||
+          undefined,
         nom_evenement: ev.nom_evenement,
+        traiteur_nom: organisationProd?.nom ?? '',
         date_evenement: dateEvenementStr,
-        date_collecte: dateCollecteStr,
         lieu_nom: lieu?.nom ?? '',
         lieu_adresse: adresseLieu,
         nb_pax: ev.pax,
-        traiteur_nom: organisationProd?.raison_sociale ?? '',
-        logo_url: (await resolveLogoUri(logo.logo_url)) ?? undefined,
+        logo_client_url: logosInline.client ?? undefined,
+        logo_traiteur_url: logosInline.traiteur ?? undefined,
         taux_recyclage: collecte.taux_recyclage,
-        flux: fluxDetails,
+        flux: fluxRapport,
         poids_total_kg: poidsTotalKg,
         co2_evite_kg: collecte.co2_evite_kg,
         co2_induit_kg: collecte.co2_induit_kg,
         co2_net_kg: collecte.co2_net_kg,
         energie_primaire_evitee_kwh: collecte.energie_primaire_evitee_kwh,
-        co2_facteurs_version: (
-          collecte.co2_facteurs_snapshot as Record<string, unknown> | null
-        )?.version_parametres_at as string | undefined,
         equivalences,
-        comparaison_savr: comparaisonSavr,
-        benchmark_flux: benchmark.benchmark_flux,
-        benchmark_legende: benchmark.benchmark_legende,
+        caps_appliques: collecte.caps_appliques ?? undefined,
+        options: { benchmark: false },
         bordereau: bordereauPayload,
       };
 
@@ -466,7 +464,6 @@ export async function runBatchPdfJ1(
           version: 1,
           disponible_a: disponibleA.toISOString(),
           genere_par: 'automatique',
-          filtres_benchmark: filtresBenchmark,
         })
         .select('id')
         .single();
@@ -565,7 +562,7 @@ function formatNombre(n: number | null | undefined): string {
  * rapport se télécharge depuis la fiche collecte de chaque espace client ; le
  * chemin dépend du type de l'organisation programmatrice.
  */
-function cheminFicheCollecte(
+export function cheminFicheCollecte(
   typeOrganisation: string | null | undefined,
   collecteId: string,
 ): string {

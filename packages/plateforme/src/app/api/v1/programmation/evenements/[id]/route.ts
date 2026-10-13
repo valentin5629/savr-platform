@@ -12,6 +12,11 @@ import { CHAMPS_EVENEMENT_EDITABLES } from '@/lib/collectes/champs-editables.js'
 import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
+import { envoyerOrdresEvenementSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 // Verrouillés pour les programmateurs (refus 422). lieu_id / type / organisation =
 // immuables (§05 l.314). client_organisateur_organisation_id = RATTACHEMENT d'une
@@ -178,6 +183,10 @@ export async function PATCH(
     p_champs_modifies: Object.keys(updates),
   });
   if (error) return serverError(error, 'programmation.evenements.update');
+
+  // Un ordre par collecte déjà commandée : ils partent sans attendre le passage
+  // planifié (décision Val 2026-10-12).
+  envoyerOrdresEvenementSansAttendre(id);
 
   // Audit (§05 l.330 audit_log global — accessible Admin only). Session impersonée :
   // user_id = identité assumée ET impersonator_id = admin réel (§09 §7) — écrit ici

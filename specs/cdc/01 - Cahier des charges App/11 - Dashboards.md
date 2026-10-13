@@ -27,7 +27,7 @@ Vue de pilotage opérationnel Savr — exclusivement orientée actions à mener.
 |-------|--------|
 | Collectes non transmises au TMS (split ZD / AG) *(renommée Sujet 2 2026-05-26, ex « à valider » — monitoring d'échec E1, pas de gate Admin)* | `collectes` `statut_tms = 'non_envoye'` ET `tms_reference IS NULL` ET **`statut IN ('programmee','validee')`** *(**définition canonique de « à dispatcher », tranchée Val 2026-09-14** — remplace `statut = 'programmee'` seul. Une collecte validée transporteur mais non transmise au TMS **est** à dispatcher : c'est le cas d'usage le plus utile, et le sous-libellé « validées transporteur » de la tuile le disait déjà. **Ce prédicat est unique et partagé** par la tuile KPI (`/api/v1/admin/collectes/chip-counts`), le chip « Non transmises ZD/AG » (`lib/collectes-chips.ts`), le sous-libellé de la tuile et le bouton d'action rapide « Dispatcher » des cartes (`aDispatcherZd`) — aucune de ces 4 surfaces ne doit en dévier.)* |
 | Collectes en attente de validation prestataire | `statut_tms = 'attribuee_en_attente_acceptation'` *(corrigé 2026-05-29 : ex `statut_dispatch`, champ TMS — miroir Plateforme = `collectes.statut_tms`)* |
-| Collectes modifiées sans renvoi TMS | `dirty_tms = true` |
+| Collectes modifiées sans renvoi TMS | `dirty_tms = true` ET `statut IN (programmee, validee, en_cours)` |
 | Collectes <48h non validées | `type ∈ (zd, ag)` ET `date_collecte BETWEEN now() AND now()+48h` ET `statut ∈ (programmee, validee)` ET `statut_tms NOT IN ('acceptee', 'en_attente_execution')` *(fusion ex « ZD prévues 48h » + « AG prévues 48h » — revue E2E 2026-07-15, divergence M3.6 : ne garder que les collectes imminentes non verrouillées côté prestataire ; le `NOT IN` englobe les non transmises `non_envoye`, en attente d'acceptation et rejetées. Route renvoie `collectes_48h_non_validees`. Badge `warning` « À valider » si > 0, sinon `success` « À jour ».)* |
 
 > **Bloc « Données opérationnelles » supprimé 2026-05-07** — les agrégats métier (tonnage, flux, taux recyclage, graphs événements) sont accessibles via le **Dashboard Client §1.2** avec sélecteur "Toutes les organisations".
@@ -162,7 +162,7 @@ Onglet **AG** / Onglet **ZD**. *(Onglet « Vue consolidée » retiré — revue 
 
 ### Onglet AG
 - Cadrans (filtre période, §8 — par défaut 12 derniers mois) : événements AG, repas détournés, **CO₂e évité** *(taux de recyclage retiré — métrique ZD-only, cf. addendum 2026-05-06)*. **CO₂e évité AG modélisé 2026-06-04 bis** : lu depuis `collectes.co2_evite_kg` figé (= `volume_repas_realise × 2,5 kgCO₂e/repas`, facteur FAO `parametres_facteurs_co2_ag`), cf. [[05 - Règles métier#R_co2_ag]]. Évité seul V1 (induit/net/transport = V2). *(La synthèse YTD figée vit dans le bandeau de tête — décision M3.4 2026-06-17.)*
-- Liste événements (date, nom, lieu, traiteur, pax, repas)
+- Liste événements (date, nom, lieu, traiteur, pax, repas — « Sans excédent » à la place du nombre de repas pour une collecte AG `realisee_sans_collecte`, décision Val 2026-10-09)
 - Accès aux rapports RSE / attestations PDF
 
 ### Onglet ZD

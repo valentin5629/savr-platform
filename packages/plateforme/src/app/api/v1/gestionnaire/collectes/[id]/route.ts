@@ -15,6 +15,11 @@ import {
   CHAMPS_COLLECTE_VERROUILLES,
 } from '@/lib/collectes/champs-editables.js';
 import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 const GESTIONNAIRE_ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -158,6 +163,10 @@ export async function PATCH(
     p_champs_modifies: Object.keys(updates),
   });
   if (error) return serverError(error, 'gestionnaire.collectes.update');
+
+  // L'ordre éventuel est en file : il part sans attendre le passage planifié
+  // (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(id);
 
   if (reacceptation_requise) {
     await admin

@@ -39,7 +39,7 @@
 # Priorité : P1-critique
 
 Scénario : dashboard_admin_cinq_cartes_actions
-  Étant donné 1 collecte ZD "programmee" "statut_tms=non_envoye" "tms_reference IS NULL" (hors 48h), 1 collecte AG "programmee" "statut_tms=non_envoye" (hors 48h), 1 collecte "statut_tms=attribuee_en_attente_acceptation" (hors 48h), 1 collecte "dirty_tms=true", et 1 collecte "programmee" "statut_tms=a_attribuer" à J+1 (dans 48h, non verrouillée)
+  Étant donné 1 collecte ZD "programmee" "statut_tms=non_envoye" "tms_reference IS NULL" (hors 48h), 1 collecte AG "programmee" "statut_tms=non_envoye" (hors 48h), 1 collecte "statut_tms=attribuee_en_attente_acceptation" (hors 48h), 1 collecte "programmee" "dirty_tms=true", et 1 collecte "programmee" "statut_tms=a_attribuer" à J+1 (dans 48h, non verrouillée)
   Quand un admin_savr charge le Dashboard Admin
   Alors les 5 cartes « Non transmises ZD » / « Non transmises AG » / « En attente prestataire » / « Modifiées sans renvoi TMS » / « Collectes <48h non validées » affichent respectivement 1 / 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
   Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le chip miroir pré-appliqué (`non_transmises_zd` / `non_transmises_ag` / `attente_prestataire` / `dirty_tms` / `collectes_48h_non_validees`), sans page intermédiaire
@@ -1048,3 +1048,20 @@ Scénario : kpi_filtre_periode_date_collecte (M3.6 dashboard client admin)
 - **Notice méthodologique CSRD (bloc "À INTÉGRER")** : contenu éditorial à figer au rendu graphique — pas de scénario automatisable.
 - **Persistance préférences filtres** : `localStorage` navigateur (sobriété B1) — pas de table serveur, test UI léger seulement (hors P1).
 - **Vues matérialisées `mv_kpi_*`** : supprimées V1 (sobriété A1) — ne pas tester de refresh cron ; seule `mv_benchmark_kg_pax_zd_base` (refresh quotidien) reste, couverte via f_benchmark.
+
+
+## Ajouts divergences 2026-10-13 (run cdc-patch-divergences)
+
+```gherkin
+Scénario : liste_organisateur_sans_excedent
+  Étant donné une collecte AG « réalisée sans collecte »
+  Quand le client organisateur ouvre l'onglet Anti-Gaspi de sa liste Collectes
+  Alors la colonne Statut affiche « Réalisée »
+  Et la colonne Repas affiche « Sans excédent », jamais « 0 »
+
+Scénario : export_collectes_sans_excedent_zero_repas
+  Étant donné une collecte AG « réalisée sans collecte »
+  Quand un export CSV Collectes ou Impact RSE est produit
+  Alors la colonne Statut vaut « Réalisée » (export Collectes)
+  Et la colonne « Repas AG » vaut 0
+```

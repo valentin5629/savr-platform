@@ -11,6 +11,11 @@ import {
   notifierTraiteurOperationnel,
 } from '@/lib/notifications/traiteur-operationnel.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -83,6 +88,10 @@ export async function POST(
     if (error)
       return serverError(error, 'traiteur.collectes.annulation.directe');
 
+    // L'ordre éventuel est en file : il part sans attendre le passage planifié
+    // (décision Val 2026-10-12).
+    envoyerOrdresSansAttendre(id);
+
     await sendEmail('annulation_collecte', 'contact@gosavr.io', {
       organisation_nom: orgNom ?? '',
       collecte_ref: id,
@@ -122,6 +131,10 @@ export async function POST(
     });
     if (error)
       return serverError(error, 'traiteur.collectes.annulation.demande');
+
+    // L'ordre éventuel est en file : il part sans attendre le passage planifié
+    // (décision Val 2026-10-12).
+    envoyerOrdresSansAttendre(id);
 
     await sendEmail('admin_demande_annulation', 'contact@gosavr.io', {
       organisation_nom: orgNom ?? '',

@@ -1122,7 +1122,7 @@
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (barre toujours visible, Période en premier, Type / Traiteur / Lieu en FiltreCoches) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (types / traiteur_operationnel_ids / lieu_ids CSV validés) + packages/plateforme/src/components/ui/filtre-en-ligne.tsx (case « Tous »)",
       "test": "M0.6 — barre de filtres visible par défaut : traiteur/lieu peuplés + filtrage serveur + M0.6 — filtre Type à choix multiple : un type → types=… ; les deux cochés = « Tous » + M0.6 — choix multiple : types / traiteur_operationnel_ids / lieu_ids (CSV) → in(…) prioritaires sur le mono + ds/filtre_coches_case_tous_cochee_par_defaut_efface_la_selection + M0.6 — pastille rapide ET barre se cumulent (décision Val 2026-09-30) + M0.6 — Historique : pastille Anti-Gaspi × Type Zéro Déchet = aucun résultat, sans appel API + M0.6 — drill-down Dashboard Client (?traiteur / ?type / ?statut / ?perimetre) → filtres multiples pré-cochés + M0.6 — une réponse plus ancienne arrivée en dernier n’écrase pas la liste + M0.6 — pastille (chip) ET filtres de la barre se cumulent côté route (décision Val 2026-09-30, E5)",
       "statut": "à-vérifier",
-      "libelle": "Barre de filtres Admin Collectes (décisions Val 2026-09-30, _Divergences/M0.8_20260930_filtres-en-ligne D1 + M0.8_20260930_filtres-choix-multiple-tous) : plus de recherche libre ni de repli « Filtres avancés » ; Période en premier ; Type / Traiteur / Lieu à choix multiple avec case « Tous » (= aucun filtre) ; pastille rapide ET barre se cumulent (E5) ; réponse périmée ignorée. CDC §06.06 §3 à patcher (Type/Traiteur/Lieu décrits en valeur unique). GO-VISUAL en attente."
+      "libelle": "Barre de filtres Admin Collectes (décisions Val 2026-09-30, _Divergences/M0.8_20260930_filtres-en-ligne D1 + M0.8_20260930_filtres-choix-multiple-tous) : plus de recherche libre ni de repli « Filtres avancés » ; Période en premier ; Type / Traiteur / Lieu à choix multiple avec case « Tous » (= aucun filtre) ; pastille rapide ET barre se cumulent (E5) ; réponse périmée ignorée. GO-VISUAL en attente."
     },
     {
       "id": "BL-P1-BOA-06",
@@ -1247,7 +1247,7 @@
     },
     {
       "id": "BL-P2-31",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:877",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:889",
       "artefact": "packages/plateforme/src/lib/idempotency.ts",
       "test": "packages/plateforme/tests/api/admin/idempotency-params.m0-6.test.ts",
       "statut": "implemented",
@@ -1255,7 +1255,7 @@
     },
     {
       "id": "M0.6-co2-typed-errors-residuels",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:938",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:950",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/co2-divers/route.ts",
       "test": null,
       "statut": "partial",
@@ -1263,7 +1263,7 @@
     },
     {
       "id": "M0.6-idempotency-store",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:811",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:823",
       "artefact": "packages/plateforme/src/lib/idempotency.ts",
       "test": "packages/plateforme/tests/api/admin/idempotency-params.m0-6.test.ts",
       "statut": "implemented",
@@ -1271,7 +1271,7 @@
     },
     {
       "id": "BL-P2-32",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:942",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:954",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/coefficients-perte-labo/route.ts",
       "test": "packages/plateforme/tests/api/admin/coefficients-perte-labo.m0-6.test.ts",
       "statut": "implemented",
@@ -1716,16 +1716,25 @@
       "test": "M0.6/liste_sans_excedent_en_indicateur + M0.6/statut_sans_excedent_affiche_realisee + M0.6/fiche_sans_excedent_volume_repas",
       "statut": "à-vérifier",
       "libelle": "Rendu, côté Admin, de « Sans excédent » (colonne Indicateurs de la liste, ligne « Volume repas » de la fiche), de la frise « Réalisée » et de l'option « Réalisée — sans excédent ». GO visuel de Val en attente. Contrôlés le 2026-10-09 sur un aperçu local à données simulées (capture transmise à Val dans la conversation) : la colonne Indicateurs et la frise — ce contrôle prouve le rendu, pas l'application connectée. NON capturés : la ligne « Volume repas » de la fiche et la liste de choix de « Forcer le statut »."
+    },
+    {
+      "id": "M0.6-ordre-envoi-motif-admin-savr-seul",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:544",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/M0.6_20261012_fiche-etat-reel-ordre-envoi.md",
+      "libelle": "Fiche collecte Admin : le motif technique de l'ordre d'envoi (dernière erreur de `outbox_events`, tronquée) n'est rendu qu'à `admin_savr` ; `ops_savr` voit l'état de l'ordre sans le message brut (décision Val 2026-10-13, rendue au patch de la fiche de divergence ; même règle au §06.06 §3 Bloc 0). NON LIVRÉ au sync du 2026-10-13 : la route de détail `GET /api/v1/admin/collectes/[id]` rend `ordre_envoi.erreur` aux deux rôles du staff (`deriverOrdreEnvoi` ne reçoit pas le rôle) et la fiche l'affiche (« Motif : … »). Lot à livrer : restriction d'un accès, donc GO reviewer-rls-securite et test par rôle."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6d88689966c09c1ae6b00771b35c1dae03f23d709deac6065dd0225db7a8dce6",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "dbd5f11130243c0deb6ffca98328b5280f4d1499af9a0cd37a407d0a069a50a9",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5b71f84dbcb95ad00666c08e924b91a9e5ebdf4eb5fea2330235a92f9c0825e7",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "ecb359e00560473d7d724be1ba3ecf0282b9afde9829f93509ef11f96f9fa0c0",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "25a3b96b12a6e02fbd55ffb1a9c11f6348bdaa57c0e0d4519cc6223576fc686d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1f07c96cdab4e47834a967332f5fc7365af1e50338a9038a5d82185376d419f2",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "c137740d036cb62021e00407a52dd768709c37fefa878c45e556aea913d19337",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "29c7b9ec6ddce36915347a9fe82c4e03c8340a85b0c73a0ebfc146eb1814c8e4",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "958d3d63bf7038300535557f5e8c12cda0dcc31d0666819579114b6d24293b2f",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "4e6c27ef8c486b1f2d16282d6140876a8ebae5077103d5b79a2fe75fcf11f6a8",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "0da1633ec5f2b34a9aecd73a28de0b97c62e18bbe63f097533c19725493ed992",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "b15bfa4991600d2bb45df6a7c35c2b451f36afa02067d01b339266d94fcffad7",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "5f711054a8ba58ea861abf0f47c88db1863c7d30540fd5b474180ec01bea2f02",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "6833ce0fedd07fc850bdc6ff5b0d252b85dfd0a5c929ebc98e6c9f1634f7fbfc"
   }
 }

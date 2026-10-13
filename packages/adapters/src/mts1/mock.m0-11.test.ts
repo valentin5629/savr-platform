@@ -43,8 +43,9 @@ describe('M0.11 / MTS-1 — poll nominal', () => {
     const handlers = _getMts1Handlers()!;
     const result = await handlers.pollOrders();
 
-    expect(result.customerOrders).toHaveLength(3);
-    expect(result.totalCount).toBe(3);
+    // Tableau nu, comme le fil : ni enveloppe ni compteur de pagination.
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(3);
     restore();
   });
 
@@ -53,7 +54,7 @@ describe('M0.11 / MTS-1 — poll nominal', () => {
     const handlers = _getMts1Handlers()!;
     const result = await handlers.pollOrders();
 
-    expect(result.customerOrders.map((o) => o.status)).toContain('OK');
+    expect(result.map((o) => o.customerOrderStatus)).toContain('OK');
     restore();
   });
 });
@@ -75,7 +76,7 @@ describe('M0.11 / MTS-1 — tour / pesées / libellés as-built', () => {
     const restore = setupMts1Mock({ tour: 'nominal' });
     const handlers = _getMts1Handlers()!;
     const tour = await handlers.getTour('MTS1-TOUR-ZD-001');
-    const stuffs = tour.stops.flatMap((s) =>
+    const stuffs = (tour.stops ?? []).flatMap((s) =>
       (s.items ?? []).map((i) => i.stuff),
     );
 
@@ -103,7 +104,7 @@ describe('M0.11 / MTS-1 — tour / pesées / libellés as-built', () => {
     const restore = setupMts1Mock({ tour: 'stuff_inconnu' });
     const handlers = _getMts1Handlers()!;
     const tour = await handlers.getTour('MTS1-TOUR-ZD-002');
-    const stuffs = tour.stops.flatMap((s) =>
+    const stuffs = (tour.stops ?? []).flatMap((s) =>
       (s.items ?? []).map((i) => i.stuff),
     );
 
@@ -162,9 +163,9 @@ describe('M0.11 / MTS-1 — scénarios multi-camions et KO', () => {
     const result = await handlers.pollOrders();
     const TERMINAUX = new Set(['OK', 'PARTIAL', 'CANCELED', 'KO']);
 
-    expect(result.customerOrders).toHaveLength(2);
-    for (const order of result.customerOrders) {
-      expect(TERMINAUX.has(order.status)).toBe(true);
+    expect(result).toHaveLength(2);
+    for (const order of result) {
+      expect(TERMINAUX.has(order.customerOrderStatus)).toBe(true);
     }
     restore();
   });
@@ -173,8 +174,9 @@ describe('M0.11 / MTS-1 — scénarios multi-camions et KO', () => {
     const restore = setupMts1Mock({ poll: 'multi_camions' });
     const handlers = _getMts1Handlers()!;
     const result = await handlers.pollOrders();
-    const hasOkOrPartial = result.customerOrders.some(
-      (o) => o.status === 'OK' || o.status === 'PARTIAL',
+    const hasOkOrPartial = result.some(
+      (o) =>
+        o.customerOrderStatus === 'OK' || o.customerOrderStatus === 'PARTIAL',
     );
 
     expect(hasOkOrPartial).toBe(true);
@@ -185,12 +187,13 @@ describe('M0.11 / MTS-1 — scénarios multi-camions et KO', () => {
     const restore = setupMts1Mock({ poll: 'ko_partiel' });
     const handlers = _getMts1Handlers()!;
     const result = await handlers.pollOrders();
-    const allKo = result.customerOrders.every(
-      (o) => o.status === 'CANCELED' || o.status === 'KO',
+    const allKo = result.every(
+      (o) =>
+        o.customerOrderStatus === 'CANCELED' || o.customerOrderStatus === 'KO',
     );
 
     expect(allKo).toBe(true);
-    expect(result.customerOrders).toHaveLength(2);
+    expect(result).toHaveLength(2);
     restore();
   });
 });
@@ -202,7 +205,7 @@ describe('M0.11 / MTS-1 — pesées incomplètes', () => {
     const tour = await handlers.getTour('MTS1-TOUR-INCOMPLETE-001');
 
     expect(tour.status).toBe('OK');
-    const fluxItems = tour.stops
+    const fluxItems = (tour.stops ?? [])
       .flatMap((s) => s.items ?? [])
       .filter((i) => i.stuff !== '<volume_du_camion>');
     expect(fluxItems).toHaveLength(0);

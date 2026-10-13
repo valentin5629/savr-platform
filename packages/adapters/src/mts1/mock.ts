@@ -31,7 +31,7 @@ export type Mts1OrderStatus =
 // démonstration le 2026-10-13. La réponse est un TABLEAU JSON NU de ces objets,
 // sans enveloppe ni pagination. Sont typés les champs que lit l'adapter, plus
 // `orderDate` (non lu) ; l'API en rend d'autres (`place`, `stuffs`, `contact`,
-// `currentTour`, …).
+// `currentTours`, …).
 //   - `customerOrderId` : identifiant technique, celui que garde
 //     `tournees.external_ref_commande` ;
 //   - `orderNumber` : la clé « {collecte}-{rang} » posée à la création. Elle
@@ -44,6 +44,10 @@ export interface Mts1CustomerOrder {
   orderNumber: string;
   customerOrderStatus: Mts1OrderStatus;
   orderDate?: string;
+  // Tournée à laquelle la commande est rattachée : `{ tourId, stopId, tourDate,
+  // scheduleId }`. Sans `tourId` tant qu'elle ne l'est à aucune. `currentTours`
+  // porte le même élément (mesuré le 2026-10-13 sur le compte de démonstration).
+  currentTour?: { tourId?: string } | null;
 }
 
 export interface Mts1StopItem {

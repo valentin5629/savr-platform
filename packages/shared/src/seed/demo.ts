@@ -25,7 +25,7 @@ import {
   type ProfilHorairesSeed,
 } from './constants.js';
 import { genererPipelineVivant } from './pipeline-vivant.js';
-import { codeMts1Seed } from './codes-mts1.js';
+import { codeMts1Seed, modeIntegrationSeed } from './codes-mts1.js';
 import { instantParis } from '../temps/index.js';
 
 const U = seedUuid;
@@ -1680,7 +1680,7 @@ function prest(slug: string, nom: string, code: string, sir: string): Row {
     nom,
     code,
     type_prestation: ['zd', 'ag'],
-    mode_integration: 'mts1',
+    mode_integration: modeIntegrationSeed(code),
     siret: sir,
     statut: 'actif',
   };

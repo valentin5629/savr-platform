@@ -225,7 +225,90 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
     expect(h.addCustomerOrder).toHaveBeenCalledWith('TOUR-NEUF', 'CMD-NEUVE');
   });
 
-  it.each(['CANCELED', 'KO', 'ARCHIVED'] as const)(
+  it.each(['OK', 'PARTIAL', 'ARCHIVED'] as const)(
+    'M1.5a/reconciliation_creation_commande_terminee — une commande %s du même numéro arrête la reprise : échec définitif, ni reprise ni nouvelle création',
+    async (statut) => {
+      // Commande terminée ou archivée sous ce numéro : rien ne repart seul.
+      const h = armer({
+        scanOrdersByDateRange: vi
+          .fn()
+          .mockResolvedValue([
+            commande('CMD-FAITE', { customerOrderStatus: statut }),
+          ]),
+      });
+      const { supabase, ecritures } = makeSupabase();
+
+      const reprise = reprendre(supabase);
+
+      await expect(reprise).rejects.toBeInstanceOf(LogistiquePermanentError);
+      await expect(reprise).rejects.toThrow(
+        `collecte col-rech-001 : une commande du numéro ${NUMERO} est déjà terminée chez MTS-1 (CMD-FAITE ${statut}) — ni reprise ni nouvelle création`,
+      );
+      expect(h.postOrder).not.toHaveBeenCalled();
+      expect(h.createTour).not.toHaveBeenCalled();
+      expect(h.addCustomerOrder).not.toHaveBeenCalled();
+      expect(h.dispatchTour).not.toHaveBeenCalled();
+      // Rien n'est enregistré côté Savr : la commande n'est pas adoptée.
+      expect(ecritures.filter((e) => e.table === 'tournees')).toHaveLength(0);
+    },
+  );
+
+  it('M1.5a/reconciliation_creation_terminee_identifiant_illisible — commande terminée dont l’identifiant sort de l’alphabet adopté : l’arrêt a lieu, et le message ne recopie pas l’identifiant', async () => {
+    const h = armer({
+      scanOrdersByDateRange: vi
+        .fn()
+        .mockResolvedValue([
+          commande('../v3/x?y', { customerOrderStatus: 'OK' }),
+        ]),
+    });
+
+    const reprise = reprendre(makeSupabase().supabase);
+
+    await expect(reprise).rejects.toThrow(
+      `collecte col-rech-001 : une commande du numéro ${NUMERO} est déjà terminée chez MTS-1 (identifiant illisible OK) — ni reprise ni nouvelle création`,
+    );
+    expect(h.postOrder).not.toHaveBeenCalled();
+  });
+
+  it('M1.5a/reconciliation_creation_terminee_et_en_cours — une commande terminée ET une commande en cours du même numéro : échec définitif, la commande en cours n’est pas reprise', async () => {
+    const lot = [
+      commande('CMD-EN-COURS', { customerOrderStatus: 'VALIDATED' }),
+      commande('CMD-FAITE', { customerOrderStatus: 'OK' }),
+    ];
+    for (const ordre of [lot, [...lot].reverse()]) {
+      const h = armer({
+        scanOrdersByDateRange: vi.fn().mockResolvedValue(ordre),
+      });
+      const { supabase, ecritures } = makeSupabase();
+
+      await expect(reprendre(supabase)).rejects.toBeInstanceOf(
+        LogistiquePermanentError,
+      );
+      expect(h.postOrder).not.toHaveBeenCalled();
+      expect(h.addCustomerOrder).not.toHaveBeenCalled();
+      expect(ecritures.filter((e) => e.table === 'tournees')).toHaveLength(0);
+    }
+  });
+
+  it('M1.5a/reconciliation_creation_terminee_autre_numero — une commande terminée d’un AUTRE numéro n’arrête rien : la création part', async () => {
+    // Le filtre distant est rejoué ici : une réponse plus large que demandé ne
+    // doit pas tuer l'ordre d'un autre rang.
+    const h = armer({
+      scanOrdersByDateRange: vi.fn().mockResolvedValue([
+        commande('CMD-AUTRE-RANG', {
+          orderNumber: 'col-rech-001-2',
+          customerOrderStatus: 'OK',
+        }),
+      ]),
+    });
+
+    await reprendre(makeSupabase().supabase);
+
+    expect(h.postOrder).toHaveBeenCalledOnce();
+    expect(h.addCustomerOrder).toHaveBeenCalledWith('TOUR-NEUF', 'CMD-NEUVE');
+  });
+
+  it.each(['CANCELED', 'KO'] as const)(
     'M1.5a/reconciliation_creation_commande_morte — une commande %s du même numéro n’est jamais reprise',
     async (statut) => {
       // La reprendre ferait croire commandé un camion qui ne viendra pas.
@@ -252,7 +335,7 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
       commande('CMD-MORTE', { customerOrderStatus: 'CANCELED' }),
       // Classée AVANT « CMD-A » : si elle n'était pas écartée, c'est elle que le
       // tri retiendrait.
-      commande('CMD-0-ARCHIVEE', { customerOrderStatus: 'ARCHIVED' }),
+      commande('CMD-0-EN-ECHEC', { customerOrderStatus: 'KO' }),
       commande('CMD-A', { customerOrderStatus: 'VALIDATED' }),
       commande('CMD-C'),
     ];

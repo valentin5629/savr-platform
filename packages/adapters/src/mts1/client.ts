@@ -15,13 +15,8 @@ import {
   LogistiqueTransientError,
 } from '../index.js';
 import { verifierEcheance } from '../echeance-passage.js';
-import type {
-  Mts1Carrier,
-  Mts1CustomerOrder,
-  Mts1Photo,
-  Mts1Tour,
-} from './mock.js';
-import { _getMts1Handlers } from './mock.js';
+import type { Mts1Carrier, Mts1CustomerOrder, Mts1Tour } from './mock.js';
+import { JPEG_SIMULE, _getMts1Handlers } from './mock.js';
 
 // Point de dépôt (B) d'un stuff : favoritePlace MTS-1 ou adresse inline.
 export type PointLivraison =
@@ -134,6 +129,51 @@ function segment(identifiant: unknown): string {
   } catch {
     throw new LogistiquePermanentError(IDENTIFIANT_INUTILISABLE);
   }
+}
+
+// Plafond du corps d'une photo. MTS-1 n'en annonce pas la taille (aucun
+// Content-Length sur les 7 photos mesurées le 2026-10-13, 131 à 231 Ko de base64).
+const PLAFOND_CORPS_PHOTO = 15 * 1024 * 1024;
+
+// Corps lu morceau par morceau, arrêté au plafond. Une lecture interrompue par
+// l'échéance (signal) lève une erreur ambiguë, comme une réponse qui n'arrive pas.
+async function lireCorpsPlafonne(
+  res: Response,
+  signal: AbortSignal,
+): Promise<Buffer> {
+  try {
+    if (!res.body) return Buffer.alloc(0);
+    const lecteur = res.body.getReader();
+    const morceaux: Buffer[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await lecteur.read();
+      if (done) return Buffer.concat(morceaux);
+      total += value.byteLength;
+      if (total > PLAFOND_CORPS_PHOTO) {
+        await lecteur.cancel();
+        throw new LogistiqueTransientError(
+          'MTS-1 : photo de plus de 15 Mo, non téléchargée',
+        );
+      }
+      morceaux.push(Buffer.from(value));
+    }
+  } catch (err) {
+    if (signal.aborted) {
+      throw new LogistiqueAmbiguousError('MTS-1 timeout : photo');
+    }
+    throw err;
+  }
+}
+
+// Un fichier JPEG commence par les octets FF D8 FF.
+function estJpeg(octets: Buffer): boolean {
+  return (
+    octets.length > 3 &&
+    octets[0] === 0xff &&
+    octets[1] === 0xd8 &&
+    octets[2] === 0xff
+  );
 }
 
 export class Mts1Client {
@@ -520,35 +560,6 @@ export class Mts1Client {
     return (await res.json()) as Mts1Tour;
   }
 
-  async getPhotos(tourId: string): Promise<Mts1Photo[]> {
-    const chemin = `/v3/tours/${segment(tourId)}/photos`;
-    const handlers = _getMts1Handlers();
-    const t0 = Date.now();
-
-    if (handlers?.getPhotos) {
-      const result = await handlers.getPhotos(tourId);
-      await this.log({
-        methode: 'GET',
-        endpoint: chemin,
-        statut_http: 200,
-        duree_ms: Date.now() - t0,
-        correlation_id: tourId,
-        direction: 'entrant',
-      });
-      return result;
-    }
-
-    const res = await this.fetch(
-      'GET',
-      chemin,
-      undefined,
-      tourId,
-      t0,
-      'entrant',
-    );
-    return (await res.json()) as Mts1Photo[];
-  }
-
   // BL-P1-API-03 — référentiel transporteurs. La plaque (`numberPlate`) et le
   // chauffeur ne sont PAS sur le tour : ils se résolvent ici par code opaque
   // (`vehicleShareableCode` / `transporterUserShareableCode` du dispatch).
@@ -671,32 +682,93 @@ export class Mts1Client {
     }
   }
 
-  async downloadPhoto(url: string): Promise<Buffer | null> {
-    // In mock mode, signal 404 via URL pattern
-    if (_getMts1Handlers()) {
-      if (url.includes('not-found-404')) return null;
-      return Buffer.from('FAKE_PHOTO_DATA');
+  /**
+   * Photo d'un arrêt — GET sur l'adresse `downloadUrl` lue dans le détail du tour
+   * (`<connecteur>/v3/tours/photo/{tourId}/{stopId}/{photoId}`).
+   *
+   * Mesuré sur le compte de démonstration le 2026-10-13, sur ses 7 photos :
+   *   - sans clé d'API, 401 `BAD_CREDENTIALS` ; avec, 200 sans redirection ;
+   *   - le corps n'est pas le fichier : c'est le JPEG écrit en base64, sans
+   *     préfixe ni saut de ligne, annoncé « text/html » ;
+   *   - un identifiant de photo inventé répond 200 avec un corps vide, pas 404.
+   *
+   * Rend `null` pour une photo absente (corps vide, ou 404 par précaution) :
+   * l'appelant la retente au passage suivant. Lève si le corps n'est pas un
+   * JPEG : rien d'illisible n'est stocké.
+   */
+  async downloadPhoto(downloadUrl: string): Promise<Buffer | null> {
+    const handlers = _getMts1Handlers();
+    if (handlers) {
+      return handlers.downloadPhoto
+        ? handlers.downloadPhoto(downloadUrl)
+        : JPEG_SIMULE;
     }
 
+    // La clé d'API ne part que vers le connecteur. L'adresse vient d'une réponse :
+    // d'un autre hôte, elle livrerait la clé à un tiers. Une redirection est
+    // refusée pour la même raison (aucune n'a été mesurée).
+    if (!this.estAdresseDuConnecteur(downloadUrl)) {
+      throw new LogistiquePermanentError(
+        'MTS-1 : adresse de photo hors du connecteur, non téléchargée',
+      );
+    }
+
+    // Une seule échéance de 30 s pour la réponse ET son corps : levée plus tôt, un
+    // corps qui traîne retenait le passage au-delà, sous `maxDuration = 60`.
+    const t0 = Date.now();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
-      const res = await globalThis.fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (res.status === 404) return null;
-      if (!res.ok) {
+      let res: Response;
+      try {
+        res = await globalThis.fetch(downloadUrl, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${this.apiKey}` },
+          redirect: 'error',
+          signal: controller.signal,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw new LogistiqueAmbiguousError('MTS-1 timeout : photo');
+        }
+        // Jamais le texte de l'erreur : `fetch` y recopie la valeur d'en-tête
+        // qu'il refuse, donc la clé entière (cf. libelleErreurReseau).
         throw new LogistiqueTransientError(
-          `Photo download ${res.status}: ${url}`,
+          `MTS-1 réseau (photo) : ${libelleErreurReseau(err)}`,
         );
       }
-      const buf = await res.arrayBuffer();
-      return Buffer.from(buf);
-    } catch (err) {
+
+      await this.log({
+        methode: 'GET',
+        endpoint: '/v3/tours/photo',
+        statut_http: res.status,
+        duree_ms: Date.now() - t0,
+        direction: 'entrant',
+      });
+
+      if (res.status === 404) return null;
+      if (!res.ok) throw this.httpError(res.status, 'photo');
+
+      const corps = await lireCorpsPlafonne(res, controller.signal);
+      if (corps.length === 0) return null;
+      // Forme mesurée : le JPEG en base64. Un JPEG déjà binaire est pris tel quel
+      // (non mesuré) ; c'est le contenu qui est vérifié, pas l'en-tête de type.
+      if (estJpeg(corps)) return corps;
+      const decode = Buffer.from(corps.toString('latin1'), 'base64');
+      if (estJpeg(decode)) return decode;
+      throw new LogistiqueTransientError(
+        'MTS-1 : photo illisible (ni JPEG, ni JPEG écrit en base64)',
+      );
+    } finally {
       clearTimeout(timeout);
-      if (err instanceof Error && err.name === 'AbortError') {
-        throw new LogistiqueAmbiguousError(`Photo timeout: ${url}`);
-      }
-      throw err;
+    }
+  }
+
+  private estAdresseDuConnecteur(adresse: string): boolean {
+    try {
+      return new URL(adresse).origin === new URL(this.baseUrl).origin;
+    } catch {
+      return false;
     }
   }
 

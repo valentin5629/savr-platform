@@ -77,7 +77,7 @@ describe('M0.11 / MTS-1 — tour / pesées / libellés as-built', () => {
     const handlers = _getMts1Handlers()!;
     const tour = await handlers.getTour('MTS1-TOUR-ZD-001');
     const stuffs = (tour.stops ?? []).flatMap((s) =>
-      (s.items ?? []).map((i) => i.stuff),
+      (s.stuffs ?? []).map((i) => i.name),
     );
 
     expect(stuffs).toContain('Bio-déchets (en kg)');
@@ -105,7 +105,7 @@ describe('M0.11 / MTS-1 — tour / pesées / libellés as-built', () => {
     const handlers = _getMts1Handlers()!;
     const tour = await handlers.getTour('MTS1-TOUR-ZD-002');
     const stuffs = (tour.stops ?? []).flatMap((s) =>
-      (s.items ?? []).map((i) => i.stuff),
+      (s.stuffs ?? []).map((i) => i.name),
     );
 
     expect(stuffs).toContain('Gravats (en kg)');
@@ -199,40 +199,58 @@ describe('M0.11 / MTS-1 — scénarios multi-camions et KO', () => {
 });
 
 describe('M0.11 / MTS-1 — pesées incomplètes', () => {
-  it('M0.11 / MTS-1 — pesées incomplètes : tour OK sans items flux (batch J+1 skip attendu)', async () => {
+  it('M0.11 / MTS-1 — pesées incomplètes : tour terminé sans poids de flux (batch J+1 skip attendu)', async () => {
     const restore = setupMts1Mock({ tour: 'pesees_incompletes' });
     const handlers = _getMts1Handlers()!;
     const tour = await handlers.getTour('MTS1-TOUR-INCOMPLETE-001');
 
-    expect(tour.status).toBe('OK');
-    const fluxItems = (tour.stops ?? [])
-      .flatMap((s) => s.items ?? [])
-      .filter((i) => i.stuff !== '<volume_du_camion>');
-    expect(fluxItems).toHaveLength(0);
+    expect(tour.status?.progression).toBe('FINISHED');
+    const fluxPeses = (tour.stops ?? [])
+      .flatMap((s) => s.stuffs ?? [])
+      .filter(
+        (i) => i.name !== '<volume_du_camion>' && i.quantityAfterPickup != null,
+      );
+    expect(fluxPeses).toHaveLength(0);
     restore();
   });
 });
 
 describe('M0.11 / MTS-1 — photos', () => {
-  it('M0.11 / MTS-1 — photo 404 non bloquante : getPhotos retourne sans erreur même avec URL 404', async () => {
-    const restore = setupMts1Mock({ photosUrl404: true });
+  it('M0.11 / MTS-1 — photo absente non bloquante : le téléchargement simulé rend null sans erreur', async () => {
+    const restore = setupMts1Mock({ tour: 'photos', photoAbsente: true });
     const handlers = _getMts1Handlers()!;
-    const photos = await handlers.getPhotos!('MTS1-TOUR-AG-001');
+    const tour = await handlers.getTour('MTS1-TOUR-AG-001');
+    const adresses = (tour.stops ?? []).flatMap((s) =>
+      (s.photos ?? []).map((p) => p.downloadUrl),
+    );
 
-    expect(photos.length).toBeGreaterThan(0);
-    for (const p of photos) {
-      expect(p.url).toContain('not-found-404');
+    expect(adresses.length).toBeGreaterThan(0);
+    for (const adresse of adresses) {
+      await expect(handlers.downloadPhoto!(adresse)).resolves.toBeNull();
     }
     restore();
   });
 
   it('M0.11 / MTS-1 — photos nominales : clé dédup (tourId, stopId, photoId) unique par photo', async () => {
-    const restore = setupMts1Mock({});
+    const restore = setupMts1Mock({ tour: 'photos' });
     const handlers = _getMts1Handlers()!;
-    const photos = await handlers.getPhotos!('MTS1-TOUR-AG-001');
-    const keys = photos.map((p) => `${p.tourId}|${p.stopId}|${p.photoId}`);
+    const tour = await handlers.getTour('MTS1-TOUR-AG-001');
+    // Les photos sont dans le détail du tour, sur l'enlèvement et sur le dépôt ;
+    // rien d'autre que l'adresse n'identifie une photo.
+    const keys = (tour.stops ?? []).flatMap((s) =>
+      (s.photos ?? []).map((p) => {
+        expect(Object.keys(p)).toEqual(['downloadUrl']);
+        const [tourId, stopId, photoId] = new URL(p.downloadUrl).pathname
+          .split('/')
+          .slice(-3);
+        expect(tourId).toBe(tour.tourId);
+        expect(stopId).toBe(s.stopId);
+        return `${tourId}|${stopId}|${photoId}`;
+      }),
+    );
 
-    expect(new Set(keys).size).toBe(photos.length);
+    expect(keys).toHaveLength(3);
+    expect(new Set(keys).size).toBe(keys.length);
     restore();
   });
 });

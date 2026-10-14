@@ -4,43 +4,28 @@ import { builderTransporteurs } from '../mock-referentiel-transporteurs.js';
 import { AdapterMts1 } from './adapter.js';
 import type { Mts1CustomerOrder, Mts1Tour } from './mock.js';
 import { _setMts1Handlers } from './mock.js';
+import { stuffSimule, tourSimule } from './mock-tour.js';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-const TOUR_POIDS_BAS: Mts1Tour = {
+// Tours dans la forme mesurée le 2026-10-13 (valeurs inventées) : kilos dans
+// `quantityAfterPickup`, sur l'arrêt d'enlèvement de la commande.
+const TOUR_POIDS_BAS: Mts1Tour = tourSimule({
   tourId: 'MTS1-TOUR-M18-001',
-  externalReference: 'tour_m18_001',
-  status: 'OK',
-  startedAt: '2026-07-15T22:00:00Z',
-  completedAt: '2026-07-16T00:00:00Z',
-  stops: [
-    {
-      stopId: 'stop-m18-001',
-      address: '1 Place de la Porte de Versailles, 75015 Paris',
-      completedAt: '2026-07-15T23:45:00Z',
-      items: [
-        { stuff: 'Bio-déchets (en kg)', qty: 1, weight: 2 }, // < seuil_min=5
-        { stuff: 'Carton (en kg)', qty: 1, weight: 87.2 },
-      ],
-    },
+  customerOrderId: 'MTS1-ORDER-M18-VALIDATED',
+  stopId: 'stop-m18-001',
+  stuffs: [
+    stuffSimule('Bio-déchets (en kg)', 2), // < seuil_min=5
+    stuffSimule('Carton (en kg)', 87.2),
   ],
-};
+});
 
-const TOUR_NORMAL: Mts1Tour = {
+const TOUR_NORMAL: Mts1Tour = tourSimule({
   tourId: 'MTS1-TOUR-M18-002',
-  externalReference: 'tour_m18_002',
-  status: 'OK',
-  startedAt: '2026-07-15T22:00:00Z',
-  completedAt: '2026-07-16T00:00:00Z',
-  stops: [
-    {
-      stopId: 'stop-m18-002',
-      address: '1 Place de la Porte de Versailles, 75015 Paris',
-      completedAt: '2026-07-15T23:45:00Z',
-      items: [{ stuff: 'Bio-déchets (en kg)', qty: 1, weight: 234.5 }],
-    },
-  ],
-};
+  customerOrderId: 'MTS1-ORDER-M18-VALIDATED',
+  stopId: 'stop-m18-002',
+  stuffs: [stuffSimule('Bio-déchets (en kg)', 234.5)],
+});
 
 const ORDER_VALIDATED_M18: Mts1CustomerOrder = {
   customerOrderId: 'MTS1-ORDER-M18-VALIDATED',
@@ -240,7 +225,6 @@ describe('M1.8 / E2E / variante-pesee-hors-seuil', () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED_M18]),
       getTour: vi.fn().mockResolvedValue(TOUR_POIDS_BAS),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
@@ -284,7 +268,6 @@ describe('M1.8 / E2E / variante-multi-camions-ko-partiel', () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue([ORDER_KO_M18]),
       getTour: vi.fn().mockResolvedValue(TOUR_NORMAL),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
@@ -340,7 +323,6 @@ describe('M1.8 / E2E / variante-tous-annules-rejetee', () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue([ORDER_KO_M18]),
       getTour: vi.fn().mockResolvedValue(TOUR_NORMAL),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 

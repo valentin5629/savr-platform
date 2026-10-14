@@ -231,7 +231,6 @@
       "BL-P1-RM-04": "M1.5a / RM-04 réduction N→N−k — supprime sélectivement les rangs > N ; 404 idempotent ; N inchangé → PUT seul"
     },
     "M1.5b": {
-      "BL-P1-OUTBOX-04": "claim entrant atomique : conflit concurrent → skip (upsert ignoreDuplicates) ; erreur ≠23505 propagée [adapter.m1-5b.test.ts]",
       "BL-P1-API-03": "M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque_immatriculation + chauffeur_nom [adapter.m1-5b.test.ts]"
     },
     "M1.6": {

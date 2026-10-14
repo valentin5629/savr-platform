@@ -1600,12 +1600,13 @@ export class AdapterMts1 implements LogistiqueProvider {
    * la seconde écriture de deux passages simultanés (23505), l'ordre repart « à
    * réconcilier » et la reprise voit alors la ligne de l'autre passage. Vu le
    * 2026-10-13 sur une collecte de test à deux camions du compte de
-   * démonstration : les commandes des deux rangs portaient la même tournée,
-   * parce que Val avait déplacé à la main, dans la console MTS-1, la commande
-   * du second camion (MTS-1 ne les avait pas regroupées de lui-même). Le même
-   * geste reste possible entre deux collectes. Reprise, une telle tournée
-   * serait envoyée et validée une seconde fois, et la relève lirait ses pesées
-   * sous les deux lignes.
+   * démonstration : les commandes des deux rangs portaient la même tournée.
+   * D'après Val (sa réponse, pas une mesure : MTS-1 n'expose aucun
+   * historique), il avait déplacé à la main, dans la console MTS-1, la
+   * commande du second camion ; MTS-1 ne les aurait donc pas regroupées de
+   * lui-même. Le même geste reste possible entre deux collectes. Reprise, une
+   * telle tournée serait envoyée et validée une seconde fois, et la relève
+   * lirait ses pesées sous les deux lignes.
    */
   private async reconcileTour(
     collecte: Collecte,

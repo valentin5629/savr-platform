@@ -2,7 +2,7 @@
 -- Tests : schéma, triggers (débit réalisation, débit tardif, recrédit), RLS.
 
 BEGIN;
-SELECT plan(27);
+SELECT plan(28);
 
 -- ── Helpers JWT (identiques aux autres fichiers de test) ──────────────────
 
@@ -243,10 +243,13 @@ SELECT is(
 
 -- ── 8bis. Seuil 4h ancré Europe/Paris (fix E2, seuil Val 2026-10-15) ─────
 -- Bornes déterministes quel que soit le fuseau de la session de test : on
--- construit date_collecte/heure_collecte comme l'heure murale de Paris à
--- now()+3h59 (doit débiter, < 4h) puis now()+4h01 (ne doit pas débiter,
--- ≥ 4h). Avant le fix E2 (cast naïf interprété en UTC) le seuil était décalé de
--- 1-2h et ces deux cas tombaient du mauvais côté de la frontière.
+-- construit date_collecte/heure_collecte comme l'heure murale de Paris de
+-- l'instant now()+3h59 (doit débiter, < 4h), now()+4h pile (ne doit pas
+-- débiter, seuil strict) puis now()+4h01 (ne doit pas débiter). L'instant est
+-- calculé avant la conversion en heure de Paris : un changement d'heure dans les
+-- 4h ne décale pas la borne. now() est figé dans la transaction, d'où le « pile ».
+-- Avant le fix E2 (cast naïf interprété en UTC) le seuil était décalé de 1-2h et
+-- ces cas tombaient du mauvais côté de la frontière.
 SELECT test_as_superuser();
 
 -- Org + pack frais (évite le conflit uniq_pack_actif_par_org avec le pack 005)
@@ -264,7 +267,7 @@ INSERT INTO plateforme.packs_antgaspi (
   1300.00, 'par_collecte', 'actif', CURRENT_DATE
 );
 
--- Collecte A : heure murale Paris = now() + 3h59 → < 4h → DOIT débiter.
+-- Collecte A : créneau = now() + 3h59 → < 4h → DOIT débiter.
 INSERT INTO plateforme.collectes (
   id, evenement_id, type, statut, date_collecte, heure_collecte,
   nb_camions_demande, statut_tms, pack_antgaspi_id
@@ -272,8 +275,8 @@ INSERT INTO plateforme.collectes (
   '00000000-0000-0000-0000-000000000040'::uuid,
   '00000000-0000-0000-0000-000000000003'::uuid,
   'anti_gaspi', 'validee',
-  ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '3 hours 59 minutes')::date,
-  ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '3 hours 59 minutes')::time,
+  ((now() + INTERVAL '3 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::date,
+  ((now() + INTERVAL '3 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::time,
   1, 'non_envoye',
   '00000000-0000-0000-0000-000000000030'::uuid
 );
@@ -288,7 +291,32 @@ SELECT is(
   'E2 : annulation à H-3h59 (heure de Paris) < 4h → débit (credits_consommes=1)'
 );
 
--- Collecte B : heure murale Paris = now() + 4h01 → ≥ 4h → NE DOIT PAS débiter.
+-- Collecte P : créneau = now() + 4h exactement → pas < 4h → NE DOIT PAS débiter.
+-- Détecte un `<` devenu `<=` dans le trigger.
+INSERT INTO plateforme.collectes (
+  id, evenement_id, type, statut, date_collecte, heure_collecte,
+  nb_camions_demande, statut_tms, pack_antgaspi_id
+) VALUES (
+  '00000000-0000-0000-0000-000000000043'::uuid,
+  '00000000-0000-0000-0000-000000000003'::uuid,
+  'anti_gaspi', 'validee',
+  ((now() + INTERVAL '4 hours') AT TIME ZONE 'Europe/Paris')::date,
+  ((now() + INTERVAL '4 hours') AT TIME ZONE 'Europe/Paris')::time,
+  1, 'non_envoye',
+  '00000000-0000-0000-0000-000000000030'::uuid
+);
+
+UPDATE plateforme.collectes SET statut = 'annulee'
+WHERE id = '00000000-0000-0000-0000-000000000043'::uuid;
+
+SELECT is(
+  (SELECT credits_consommes FROM plateforme.packs_antgaspi
+   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
+  1,
+  'annulation à H-4h pile (heure de Paris) → pas de débit, seuil strict (credits_consommes reste 1)'
+);
+
+-- Collecte B : créneau = now() + 4h01 → ≥ 4h → NE DOIT PAS débiter.
 INSERT INTO plateforme.collectes (
   id, evenement_id, type, statut, date_collecte, heure_collecte,
   nb_camions_demande, statut_tms, pack_antgaspi_id
@@ -296,8 +324,8 @@ INSERT INTO plateforme.collectes (
   '00000000-0000-0000-0000-000000000041'::uuid,
   '00000000-0000-0000-0000-000000000003'::uuid,
   'anti_gaspi', 'validee',
-  ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '4 hours 1 minute')::date,
-  ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '4 hours 1 minute')::time,
+  ((now() + INTERVAL '4 hours 1 minute') AT TIME ZONE 'Europe/Paris')::date,
+  ((now() + INTERVAL '4 hours 1 minute') AT TIME ZONE 'Europe/Paris')::time,
   1, 'non_envoye',
   '00000000-0000-0000-0000-000000000030'::uuid
 );

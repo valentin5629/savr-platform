@@ -83,8 +83,8 @@
     {
       "id": "M2.1-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
-      "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
-      "test": "supabase/tests/m2_1_packs_ag.test.sql « E2 : annulation à H-3h59 (heure de Paris) < 4h → débit (credits_consommes=1) », « E2 : annulation à H-4h01 (heure de Paris) ≥ 4h → pas de débit (credits_consommes reste 1) », « annulation à J-2, transporteur déjà mandaté (acceptee) → pas de débit (credits_consommes reste 1) »",
+      "artefact": "supabase/migrations/20261015180000_plateforme_annulation_tardive_seuil_4h.sql",
+      "test": "supabase/tests/m2_1_packs_ag.test.sql « E2 : annulation à H-3h59 (heure de Paris) < 4h → débit (credits_consommes=1) », « annulation à H-4h pile (heure de Paris) → pas de débit, seuil strict (credits_consommes reste 1) », « E2 : annulation à H-4h01 (heure de Paris) ≥ 4h → pas de débit (credits_consommes reste 1) », « annulation à J-2, transporteur déjà mandaté (acceptee) → pas de débit (credits_consommes reste 1) »",
       "statut": "implemented",
       "libelle": "annulation < 4h avant le créneau (heure de Paris, strict) → débit tardif pack ; le mandat du prestataire seul ne débite plus (décision Val 2026-10-15)"
     },

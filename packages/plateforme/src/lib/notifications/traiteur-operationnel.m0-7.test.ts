@@ -264,6 +264,22 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
     expect(v['organisation_nom']).toBe('Traiteur Réel');
     expect(v['lien_backoffice']).toContain('/admin/collectes/col-1');
   });
+
+  it('annulation à 8h du créneau : annulation_tardive false, délai « 4h ou plus »', async () => {
+    await notifierAdminAnnulation(makeSupabase(BASE), {
+      collecteId: 'col-1',
+      collecteRef: 'col-1',
+      organisationNom: 'Traiteur Réel',
+      dateCollecte: '2026-07-20',
+      heureCollecte: '18:00:00',
+      acteurUserId: 'user-x',
+      acteurRole: 'agence',
+      nowMs: instantParis('2026-07-20', '10:00').getTime(), // 8h avant (Paris)
+    });
+    const v = emails[0]!.variables;
+    expect(v['annulation_tardive']).toBe('false');
+    expect(v['delai_avant_creneau']).toBe('4h ou plus');
+  });
 });
 
 describe('M0.7/bl-p2-22-annulation-tardive — estAnnulationTardive (pure)', () => {

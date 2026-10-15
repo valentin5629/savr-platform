@@ -427,6 +427,10 @@ async function patchHandler(
           lieuNom,
           acteurUserId,
           acteurRole,
+          statutAvant,
+          annulationDemandeeAt: (
+            before as { annulation_demandee_at?: string | null }
+          ).annulation_demandee_at,
         }),
         // tpl 21 (collecte_modifiee_tiers, annulation) → traiteur opérationnel si le
         // donneur d'ordre est un tiers non-shadow. acteurOrgId = organisation de

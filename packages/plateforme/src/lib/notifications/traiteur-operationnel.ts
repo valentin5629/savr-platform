@@ -291,6 +291,23 @@ export function estAnnulationTardive(
   return creneau - nowMs < SEUIL_ANNULATION_TARDIVE_HEURES * HEURE_MS;
 }
 
+// Instant auquel se juge le délai, comme le trigger SQL de débit (décision Val
+// 2026-10-15) : une demande d'annulation du client confirmée par l'Admin
+// (annulation_demandee → annulee) se juge à sa réception
+// (`collectes.annulation_demandee_at`) ; toute autre annulation, à l'instant où
+// elle est faite. Pure, testable.
+export function instantReferenceAnnulation(
+  statutAvant: string | null | undefined,
+  annulationDemandeeAt: string | null | undefined,
+  nowMs: number,
+): number {
+  if (statutAvant === 'annulation_demandee' && annulationDemandeeAt) {
+    const demande = Date.parse(annulationDemandeeAt);
+    if (!Number.isNaN(demande)) return demande;
+  }
+  return nowMs;
+}
+
 /**
  * Alerte Admin « collecte annulée » (template 22), en parallèle du template 5
  * client. Best-effort. `collecteRef`/`organisationNom` réutilisent ce que la route
@@ -308,14 +325,22 @@ export async function notifierAdminAnnulation(
     acteurUserId: string;
     acteurRole: string;
     infoFacturation?: string;
+    // Statut quitté et heure de la demande du client : une demande confirmée
+    // par l'Admin se juge à sa réception (cf. instantReferenceAnnulation).
+    statutAvant?: string | null;
+    annulationDemandeeAt?: string | null;
     nowMs?: number;
   },
 ): Promise<void> {
-  const now = params.nowMs ?? Date.now();
+  const reference = instantReferenceAnnulation(
+    params.statutAvant,
+    params.annulationDemandeeAt,
+    params.nowMs ?? Date.now(),
+  );
   const tardive = estAnnulationTardive(
     params.dateCollecte,
     params.heureCollecte,
-    now,
+    reference,
   );
 
   // Type de collecte + nom d'organisation (résolu ici si l'appelant ne l'a pas) +

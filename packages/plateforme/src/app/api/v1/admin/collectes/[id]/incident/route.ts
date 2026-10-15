@@ -58,7 +58,7 @@ async function postHandler(
   const { data: before, error: fetchErr } = await supabase
     .from('collectes')
     .select(
-      `id, statut, type, date_collecte, heure_collecte,
+      `id, statut, type, date_collecte, heure_collecte, annulation_demandee_at,
        evenements!inner(created_by, lieux!lieu_id(nom))`,
     )
     .eq('id', id)
@@ -183,6 +183,9 @@ async function postHandler(
     acteurRole: auth.ctx.role,
     infoFacturation:
       imputable === 'client' ? '' : 'Incident non imputable au client',
+    statutAvant: statutCourant,
+    annulationDemandeeAt: (before as { annulation_demandee_at?: string | null })
+      .annulation_demandee_at,
   }).catch(() => undefined);
 
   return NextResponse.json(updatedJson);

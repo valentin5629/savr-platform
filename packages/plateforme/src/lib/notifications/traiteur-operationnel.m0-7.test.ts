@@ -14,6 +14,7 @@ import {
 import {
   estTiersNonShadow,
   estAnnulationTardive,
+  instantReferenceAnnulation,
   notifierTraiteurOperationnel,
   notifierAdminAnnulation,
 } from './traiteur-operationnel.js';
@@ -279,6 +280,53 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
     const v = emails[0]!.variables;
     expect(v['annulation_tardive']).toBe('false');
     expect(v['delai_avant_creneau']).toBe('4h ou plus');
+  });
+
+  it('demande du client à 8h du créneau, confirmée par l’Admin à 3h : jugée à la demande, pas tardive', async () => {
+    await notifierAdminAnnulation(makeSupabase(BASE), {
+      collecteId: 'col-1',
+      collecteRef: 'col-1',
+      organisationNom: 'Traiteur Réel',
+      dateCollecte: '2026-07-20',
+      heureCollecte: '18:00:00',
+      acteurUserId: 'admin-1',
+      acteurRole: 'admin_savr',
+      statutAvant: 'annulation_demandee',
+      annulationDemandeeAt: instantParis('2026-07-20', '10:00').toISOString(),
+      nowMs: instantParis('2026-07-20', '15:00').getTime(),
+    });
+    const v = emails[0]!.variables;
+    expect(v['annulation_tardive']).toBe('false');
+    expect(v['delai_avant_creneau']).toBe('4h ou plus');
+  });
+});
+
+// Décision Val 2026-10-15 : « le délai compte à partir du moment où le client
+// l'a demandé, pas le moment où l'admin l'a annulé ».
+describe('instantReferenceAnnulation (pure)', () => {
+  const demande = '2026-07-20T08:00:00.000Z';
+  const maintenant = Date.parse('2026-07-20T13:00:00.000Z');
+  it('demande d’annulation confirmée → instant de la demande', () => {
+    expect(
+      instantReferenceAnnulation('annulation_demandee', demande, maintenant),
+    ).toBe(Date.parse(demande));
+  });
+  it('annulation directe (autre statut quitté) → maintenant, même si une ancienne demande est datée', () => {
+    expect(instantReferenceAnnulation('validee', demande, maintenant)).toBe(
+      maintenant,
+    );
+  });
+  it('demande sans heure enregistrée ou illisible → maintenant', () => {
+    expect(
+      instantReferenceAnnulation('annulation_demandee', null, maintenant),
+    ).toBe(maintenant);
+    expect(
+      instantReferenceAnnulation(
+        'annulation_demandee',
+        'pas une date',
+        maintenant,
+      ),
+    ).toBe(maintenant);
   });
 });
 

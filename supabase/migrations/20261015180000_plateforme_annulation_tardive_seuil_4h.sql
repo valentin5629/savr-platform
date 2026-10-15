@@ -9,27 +9,71 @@
 --   2. la seconde condition « OU prestataire déjà mandaté » est RETIRÉE : une
 --      annulation à 4 h ou plus du créneau ne débite rien, même si le
 --      transporteur a déjà reçu ou accepté l'ordre.
+--   3. une demande d'annulation (`validee` → `annulation_demandee`, confirmée
+--      ensuite par l'Admin) se juge à l'instant où le CLIENT l'a faite, pas à
+--      celui où l'Admin la confirme (« le délai compte à partir du moment où le
+--      client l'a demandé »). Cet instant n'était enregistré nulle part : la
+--      colonne `collectes.annulation_demandee_at` le retient, posée par un
+--      déclencheur à chaque passage en `annulation_demandee`.
 -- Le seuil d'urgence des MODIFICATIONS de créneau (12 h, décision du
 -- 2026-10-09) n'est pas concerné : il vit dans le code de l'application.
 --
--- Trois objets :
+-- Objets :
+--   0. colonne `collectes.annulation_demandee_at` (timestamptz, nullable) et
+--      déclencheur `trg_horodater_annulation_demandee` qui la pose ;
 --   1. fn_trg_pack_debit_annulation_tardive : corps de 20260709120000 (R22e),
---      seuls changent le seuil, la condition mandat et la ligne d'audit
---      (`motif_mandat` n'a plus de sens ; aucun lecteur, mesuré par grep) ;
---   2. fn_est_debit_pack_attendu (oracle G9, 20260624120000) : même règle. Sa
+--      seuls changent le seuil, la condition mandat, l'instant de référence
+--      (point 3) et la ligne d'audit (`motif_mandat` n'a plus de sens ; aucun
+--      lecteur, mesuré par grep) ;
+--   2. fn_est_debit_pack_attendu (oracle G9, 20260624120000) : même seuil. Sa
 --      signature garde `p_old_statut_tms`, désormais ignoré : la changer
---      demanderait un DROP FUNCTION ;
+--      demanderait un DROP FUNCTION. `p_now` y est l'instant de référence ;
 --   3. template 22 `admin_collecte_annulee` : la ligne ATTENTION dit « 4h ».
 --      Le libellé « moins de 4h » / « 4h ou plus » de `delai_avant_creneau` et
 --      le drapeau `annulation_tardive` sont calculés par le code
 --      (estAnnulationTardive) ; aucune variable n'est ajoutée ni retirée.
 --
--- Backward-compatible, non destructive : deux CREATE OR REPLACE (signatures,
--- propriétaires et droits inchangés — un CREATE OR REPLACE ne touche pas aux
--- ACL) et l'UPDATE d'une ligne de référentiel. Aucun accès ouvert. Idempotent.
+-- Backward-compatible, non destructive : une colonne nullable ajoutée, un
+-- déclencheur neuf en SECURITY INVOKER (EXECUTE retiré à PUBLIC, anon,
+-- authenticated), deux CREATE OR REPLACE (signatures, propriétaires et droits
+-- inchangés — un CREATE OR REPLACE ne touche pas aux ACL) et l'UPDATE d'une
+-- ligne de référentiel. Aucun GRANT, aucune policy. La colonne suit le droit
+-- SELECT de table qu'`authenticated` a déjà sur `collectes` (lignes filtrées par
+-- la RLS) : un client voit l'heure de sa propre demande. Idempotent.
 -- Retour arrière : rejouer les corps de 20260709120000 (§5) et de
--- 20260624120000 (oracle 1), et le corps du template de 20260708150000.
+-- 20260624120000 (oracle 1), et le corps du template de 20260708150000 ; puis
+--   DROP TRIGGER trg_horodater_annulation_demandee ON plateforme.collectes;
+--   DROP FUNCTION plateforme.fn_trg_horodater_annulation_demandee();
+-- La colonne peut rester (nullable, plus lue par personne).
 -- =============================================================================
+
+-- ─── 0. Heure de la demande d'annulation du client ───────────────────────────
+ALTER TABLE plateforme.collectes
+  ADD COLUMN IF NOT EXISTS annulation_demandee_at timestamptz;
+
+COMMENT ON COLUMN plateforme.collectes.annulation_demandee_at IS
+  'Instant du dernier passage en annulation_demandee (demande d''annulation du client, à confirmer par l''Admin). Le délai d''annulation tardive se mesure à cet instant quand l''Admin confirme (décision Val 2026-10-15). Posé par trg_horodater_annulation_demandee.';
+
+CREATE OR REPLACE FUNCTION plateforme.fn_trg_horodater_annulation_demandee()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = plateforme, pg_catalog
+AS $$
+BEGIN
+  IF NEW.statut = 'annulation_demandee'
+     AND OLD.statut IS DISTINCT FROM 'annulation_demandee' THEN
+    NEW.annulation_demandee_at := now();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION plateforme.fn_trg_horodater_annulation_demandee()
+  FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE TRIGGER trg_horodater_annulation_demandee
+  BEFORE UPDATE OF statut ON plateforme.collectes
+  FOR EACH ROW EXECUTE FUNCTION plateforme.fn_trg_horodater_annulation_demandee();
 
 -- ─── 1. Trigger débit annulation tardive ─────────────────────────────────────
 CREATE OR REPLACE FUNCTION plateforme.fn_trg_pack_debit_annulation_tardive()
@@ -40,6 +84,7 @@ CREATE OR REPLACE FUNCTION plateforme.fn_trg_pack_debit_annulation_tardive()
 AS $function$
 DECLARE
   v_pack_statut  plateforme.pack_statut;
+  v_reference    timestamptz;
   v_delai_court  boolean;
   v_initiaux     integer;
   v_consommes    integer;
@@ -59,6 +104,15 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Instant de référence (Val 2026-10-15) : une demande d'annulation confirmée
+  -- par l'Admin (annulation_demandee → annulee) se juge à sa réception ; toute
+  -- autre annulation, à l'instant où elle est faite.
+  v_reference := CASE
+    WHEN OLD.statut = 'annulation_demandee'
+      THEN COALESCE(OLD.annulation_demandee_at, now())
+    ELSE now()
+  END;
+
   -- Seule condition (Val 2026-10-15) : < 4h avant l'heure de collecte, strict.
   -- À 4h pile ou plus, aucun débit, que le prestataire soit mandaté ou non.
   -- Ancrage fuseau métier Europe/Paris : date_collecte (date) + heure_collecte (time)
@@ -68,7 +122,7 @@ BEGIN
     ((NEW.date_collecte + COALESCE(NEW.heure_collecte, '00:00:00'::time))
        AT TIME ZONE 'Europe/Paris')
     - INTERVAL '4 hours'
-  ) < now();
+  ) < v_reference;
 
   IF NOT v_delai_court THEN
     RETURN NEW; -- annulation à 4h ou plus du créneau → pas de débit
@@ -122,6 +176,7 @@ BEGIN
     jsonb_build_object('collecte_id', NEW.id),
     jsonb_build_object(
       'motif_delai_court', v_delai_court,
+      'instant_reference', v_reference,
       'statut_apres', v_pack_statut
     )
   );
@@ -139,7 +194,7 @@ CREATE OR REPLACE FUNCTION plateforme.fn_est_debit_pack_attendu(
   p_date_collecte  date,
   p_heure_collecte time,
   p_old_statut_tms text,  -- ignoré depuis le 2026-10-15 (condition mandat retirée)
-  p_now            timestamptz DEFAULT now()
+  p_now            timestamptz DEFAULT now()  -- instant de référence (cf. trigger)
 ) RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER

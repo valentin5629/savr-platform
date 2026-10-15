@@ -90,6 +90,7 @@ describe('M0.6 — notifications annulation (validation Admin → annulee)', () 
         statut: 'annulation_demandee',
         date_collecte: '2026-07-15',
         heure_collecte: '20:00:00',
+        annulation_demandee_at: '2026-07-15T08:00:00+00:00',
       },
       error: null,
     });
@@ -143,6 +144,9 @@ describe('M0.6 — notifications annulation (validation Admin → annulee)', () 
         lieuNom: 'Salle Wagram',
         acteurUserId: 'admin-1',
         acteurRole: 'admin_savr',
+        // Le délai se juge à la demande du client (Val 2026-10-15).
+        statutAvant: 'annulation_demandee',
+        annulationDemandeeAt: '2026-07-15T08:00:00+00:00',
       }),
     );
     // tpl 21 → traiteur op ; acteurOrgId = donneur d'ordre (evenements.organisation_id).
@@ -152,6 +156,51 @@ describe('M0.6 — notifications annulation (validation Admin → annulee)', () 
         collecteId: 'col-1',
         acteurOrgId: 'org-agence',
         changement: { kind: 'annulation' },
+      }),
+    );
+  });
+
+  it('incident sur une demande d’annulation : l’alerte Admin reçoit le statut quitté et l’heure de la demande (Val 2026-10-15)', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'col-1',
+        statut: 'annulation_demandee',
+        type: 'anti_gaspi',
+        date_collecte: '2026-07-20',
+        heure_collecte: '18:00:00',
+        annulation_demandee_at: '2026-07-20T08:00:00+00:00',
+        evenements: { created_by: 'user-prog', lieux: { nom: 'Lieu X' } },
+      },
+      error: null,
+    });
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: { id: 'col-1', statut: 'annulee' },
+      error: null,
+    });
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { email: 'prog@savr-test.local', prenom: 'Prog' },
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/incident/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-1/incident', {
+        incident_imputable_a: 'client',
+        motif_incident: 'Annulation demandée par le client',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+    expect(res.status).toBe(200);
+    await flush();
+
+    expect(mockNotifierAdminAnnulation).toHaveBeenCalledWith(
+      mockSupabaseChain,
+      expect.objectContaining({
+        collecteId: 'col-1',
+        statutAvant: 'annulation_demandee',
+        annulationDemandeeAt: '2026-07-20T08:00:00+00:00',
       }),
     );
   });

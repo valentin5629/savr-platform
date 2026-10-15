@@ -448,8 +448,10 @@ export class AdapterMts1 implements LogistiqueProvider {
       }
       // Le numéro est renvoyé à chaque modification : un nombre de pax, un lieu
       // ou un traiteur modifié renomme le point dans la console (renommage par
-      // PUT mesuré sur le compte de démonstration le 2026-10-15). La clé, en fin
-      // de numéro, ne change pas.
+      // `PUT { orderNumber, stuffs }` mesuré sur le compte de démonstration le
+      // 2026-10-15 ; le corps envoyé ici ne porte pas `stuffs`, défaut préexistant
+      // traité ailleurs). La clé, en fin de numéro, tentative comprise, ne change
+      // pas.
       const numero = this.orderNumber(collecte, t.rang, t);
       await this.client.updateOrder(
         t.external_ref_commande!,
@@ -2255,8 +2257,11 @@ export class AdapterMts1 implements LogistiqueProvider {
     // présumée non idempotente (§2).
     // Sans filtre `orderNumber` : il compare à l'égalité stricte (mesuré le
     // 2026-10-13), or le numéro envoyé porte un libellé qui a pu changer depuis
-    // la création. La liste du jour est rendue en entier, sans pagination
-    // (mesuré le 2026-10-13, 72 commandes) ; la clé est reconnue ici.
+    // la création. La clé est reconnue ici, sur la liste de la fenêtre : il faut
+    // qu'elle soit COMPLÈTE. Mesuré le 2026-10-13 : réponse sans pagination, les
+    // paramètres de page ignorés, les 72 commandes du compte rendues d'un coup ;
+    // aucun plafond mesuré au-delà. Hypothèse : une fenêtre de 3 jours reste
+    // sous un plafond éventuel (une ou deux dizaines de commandes).
     // Limite connue : une collecte dont la date a changé de plus d'un jour entre
     // le POST perdu et la reprise sort de la fenêtre. La commande laissée
     // derrière n'a ni tournée ni transporteur ; elle reste à supprimer chez MTS-1.
@@ -2507,9 +2512,9 @@ export class AdapterMts1 implements LogistiqueProvider {
       stuffs,
       // BL-P1-PROG-03 : informations_supplementaires → `comment` MTS-1 (§08 l.389),
       // pour que les instructions logistiques du programmeur atteignent le prestataire
-      // (M01/M03/M05). Le champ porte l'agrégat composé par fetchCollecte : saisie du
-      // traiteur + nom du contact de secours + informations d'accès du lieu — §08 l.397
-      // « comment (informations_supplementaires + nom du contact de secours) ».
+      // (M01/M03/M05). Le champ porte le commentaire au transporteur composé par
+      // fetchCollecte (format décidé par Val le 2026-10-15 : traiteur, pax,
+      // instructions d'accès, contacts, livraison — cf. infos-acces.ts).
       // controle_acces_requis n'a pas de champ natif MTS-1 (concern V2 TMS
       // via validate_tournee_controle_acces) → hors payload sortant V1.
       ...(collecte.informations_supplementaires
@@ -2565,8 +2570,9 @@ export class AdapterMts1 implements LogistiqueProvider {
     //
     // buildOrderPayload (E1) et buildUpdatePayload (E2) restent alignés par
     // CONSTRUCTION via buildPlace()/buildContact(), pas par recopie. pax : MTS-1 n'a
-    // aucun champ dédié (§08 l.173, push silencieux ignoré) → jamais dans le payload
-    // sortant V1 ; le signal part dans l'outbox E2, consommé par le TMS V2.
+    // aucun champ dédié (§08 l.173) ; depuis le 2026-10-15 (décision Val), il part
+    // en texte, dans le numéro de commande (nom du point) et dans `comment`, en E1
+    // comme en E2 ; le signal part aussi dans l'outbox E2, consommé par le TMS V2.
     const contact = this.buildContact(collecte);
     return {
       place: this.buildPlace(collecte),

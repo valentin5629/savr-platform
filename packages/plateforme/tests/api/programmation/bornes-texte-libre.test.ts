@@ -4,31 +4,20 @@
  *
  * Ces trois colonnes sont des `text` sans aucune contrainte (5 000 caractères
  * acceptés, mesuré) et les routes ne filtraient que les CLÉS. Elles partent au
- * transporteur, deux d'entre elles par le canal de texte libre où toutes les
- * informations d'exploitation sont concaténées.
+ * transporteur, deux d'entre elles par le canal de texte libre (le commentaire
+ * au transporteur, composé par `composerCommentaireTransporteur`,
+ * packages/adapters/src/infos-acces.ts).
  *
- * ÉVICTION : fermée pour les DEUX champs, à ne pas revendiquer ici (l'énoncé
- * était faux et a été corrigé deux fois en revue). Le NOM passe par `nomContact`
- * (blancs repliés, puis troncature à 120) ; et depuis #324 la note du traiteur et
- * le bloc composé par Savr se partagent l'enveloppe sans pouvoir s'évincer — le
- * bloc Savr est servi le premier dans la limite de `BUDGET_AGREGAT`, la note
- * prend le reste. Aucun des deux ne peut donc chasser l'adresse d'accès du
- * message lu par le chauffeur.
- *
- * FAUSSE LIGNE D'EN-TÊTE : deux moitiés, une seule est close — ne pas nier le
- * tout (défaut relevé en revue sécurité sur ce fichier même). Par le NOM, c'est
- * impossible : `valeurLigne` replie toute rupture de ligne, y compris NEL et les
- * séparateurs C1, et pas seulement `\s` (mesuré : un nom multiligne ressort en
- * UNE ligne). Par la NOTE, c'est possible et ASSUMÉ : elle est légitimement
- * multiligne (#322 y refuse les caractères de contrôle HORS blancs, les
- * demi-surrogates orphelins et le dépassement de 1000 caractères — mais pas le
- * saut de ligne, c'est un `<textarea>`), et elle ouvre le message : elle peut
- * donc poser un faux `SEPARATEUR_AGREGAT` au-dessus du vrai,
- * que le chauffeur rencontre en premier (mesuré). Val a tranché de NE PAS fermer
- * ce vecteur (2026-09-15), le cas reproduit sous les yeux ; le raisonnement
- * complet est dans le commentaire de `SEPARATEUR_AGREGAT`
- * (packages/adapters/src/infos-acces.ts). Rien ici ne doit laisser croire le
- * contraire.
+ * Depuis le format décidé par Val le 2026-10-15, ce commentaire tient chaque
+ * valeur sur UNE ligne (`uneLigne` → `valeurLigne` replie toute rupture de
+ * ligne, y compris NEL et les séparateurs C1), la saisie du traiteur comprise :
+ * ni un nom ni la note ne peuvent plus poser une fausse ligne lue comme
+ * composée par Savr. L'ancien format (note multiligne puis « — Infos Savr — »)
+ * laissait à la note ce vecteur, que Val avait accepté le 2026-09-15 ; il n'existe
+ * plus. ÉVICTION : les lignes longues (dont la note) sont amputées puis retirées
+ * dans un ordre fixe, les contacts sont bornés par construction ; aucune valeur
+ * ne chasse les autres de l'enveloppe de 1000 caractères. Ces propriétés sont
+ * tenues et testées à l'émission (infos-acces.test.ts), pas ici.
  *
  * Ce que la borne d'entrée tient, elle, c'est l'INTÉGRITÉ DE LA DONNÉE : la
  * colonne, les exports, le rendu des fiches — plus une propriété qui ne tient
@@ -500,10 +489,10 @@ describe('bornes texte libre — PATCH événement', () => {
   // NOM (motif corrigé en revue sécurité, l'énoncé initial était faux ; chaîne
   // re-vérifiée après #324, qui a inséré `valeurLigne` sans changer ce point) :
   //   · `contact_secours_telephone: '' → null` est le SEUL rempart contre un
-  //     numéro blanc parti verbatim sur le fil. `buildContact`, dans l'adapter
+  //     numéro blanc parti verbatim sur le fil. `contactMts1`, dans l'adapter
   //     camion de `packages/adapters/`, lit la colonne SANS trim et émet
-  //     `...(secoursPhone ? { phoneAlternatives: [secoursPhone] } : {})` — `''`
-  //     est falsy et tombe, `'   '` est TRUTHY et part tel quel à MTS-1.
+  //     `...(telephoneSecours ? { phoneAlternatives: [telephoneSecours] } : {})` —
+  //     `''` est falsy et tombe, `'   '` est TRUTHY et part tel quel à MTS-1.
   //   · le `trim()` du NOM protège la donnée stockée et son rendu : la fiche
   //     traiteur teste `evt?.contact_secours_nom &&`, donc `'   '` y affiche un
   //     bloc « contact de secours » sans personne à appeler.

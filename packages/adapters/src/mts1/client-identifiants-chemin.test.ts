@@ -80,7 +80,10 @@ const ROUTES: Array<[string, string, string, string, Appel]> = [
     (c, id) => c.deleteOrder(id, 'corr'),
   ],
   ['getTour', 'GET', '/v3/tours/', '', (c, id) => c.getTour(id)],
-  ['getPhotos', 'GET', '/v3/tours/', '/photos', (c, id) => c.getPhotos(id)],
+  // Plus de `getPhotos` : la route `/v3/tours/{id}/photos` n'existe pas (404
+  // BAD_ROUTE, mesuré le 2026-10-13) ; les photos se lisent dans le détail du
+  // tour et se téléchargent par leur adresse, tenue au seul connecteur
+  // (client-photos.test.ts).
 ];
 
 // Identifiant forgé pour viser une autre route, avec requête et fragment.

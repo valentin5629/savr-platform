@@ -171,6 +171,14 @@ async function postPayload(
     pollOrders: vi.fn(),
     getTour: vi.fn(),
     postOrder,
+    createTour: vi.fn().mockResolvedValue({
+      tourId: 'MTS1-TOUR-NEW-E2',
+      externalReference: `${collecte.id}-1`,
+      status: 'DRAFT',
+      createdAt: '',
+      customerOrderId: 'MTS1-ORDER-NEW-E2',
+    }),
+    addCustomerOrder: vi.fn().mockResolvedValue(undefined),
   });
   await new AdapterMts1(TRANSPORTEUR, mockSupabaseVierge()).dispatchCollecte(
     collecte,

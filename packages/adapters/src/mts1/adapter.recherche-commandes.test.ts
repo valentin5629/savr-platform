@@ -131,7 +131,11 @@ function makeSupabase(tournees: TourneeFixture[] = []) {
 /** Commandes enregistrées sur une tournée de Savr (curseur de reprise). */
 function enregistrees(ecritures: Ecriture[]): unknown[] {
   return ecritures
-    .filter((e) => e.table === 'tournees')
+    .filter(
+      (e) =>
+        e.table === 'tournees' &&
+        'external_ref_commande' in (e.data as Record<string, unknown>),
+    )
     .map((e) => (e.data as Record<string, unknown>)['external_ref_commande']);
 }
 
@@ -148,9 +152,9 @@ function commande(
   };
 }
 
-// Handlers simulés : la création de commande répond (seul appel sortant de
-// l'envoi depuis la décision Val du 2026-10-15), la recherche est fournie par le
-// test.
+// Handlers simulés : la création de commande, de sa tournée unitaire et le
+// rattachement répondent (jamais d'envoi au transporteur ni de validation,
+// décision Val 2026-10-15) ; la recherche est fournie par le test.
 function armer(recherche: Partial<Mts1Handlers>) {
   const pipeline = {
     pollOrders: vi.fn(),
@@ -162,6 +166,14 @@ function armer(recherche: Partial<Mts1Handlers>) {
       status: 'DRAFT' as const,
       createdAt: '',
     })),
+    createTour: vi.fn(async () => ({
+      tourId: 'TOUR-NEUF',
+      externalReference: NUMERO,
+      status: 'DRAFT',
+      createdAt: '',
+      customerOrderId: '',
+    })),
+    addCustomerOrder: vi.fn().mockResolvedValue(undefined),
     updateOrder: vi.fn().mockResolvedValue(undefined),
     deleteOrder: vi.fn().mockResolvedValue(undefined),
   };
@@ -449,7 +461,9 @@ describe('M1.5a / réconciliation d’une création reprise — chemin réel (wi
           ? recherche.corps
           : init.method === 'POST' && chemin === '/v3/customerOrders'
             ? { customerOrderId: 'CMD-NEUVE', orderNumber: NUMERO }
-            : {};
+            : init.method === 'POST' && chemin === '/v3/tours'
+              ? { tourId: 'TOUR-REEL' }
+              : {};
         return {
           ok: status >= 200 && status < 300,
           status,
@@ -488,11 +502,18 @@ describe('M1.5a / réconciliation d’une création reprise — chemin réel (wi
     const { supabase, ecritures } = makeSupabase();
     await reprendre(supabase);
 
-    // La recherche seule : ni second POST, ni appel de tournée (l'Admin la
-    // compose dans la console MTS-1).
+    // Pas de second POST de commande ; la commande retrouvée n'est dans aucune
+    // tournée : sa tournée unitaire est créée et elle y est rattachée, sans envoi
+    // au transporteur ni validation.
     expect(appels.map((a) => a.ligne)).toEqual([
       'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16&orderNumber=col-rech-001-1',
+      'POST /v3/tours',
+      'PUT /v3/tours/addCustomerOrder',
     ]);
+    expect(appels[2]!.corps).toEqual({
+      tourId: 'TOUR-REEL',
+      customerOrderId: '65a1b2c3d4e5f60718293a4b',
+    });
     expect(enregistrees(ecritures)).toEqual(['65a1b2c3d4e5f60718293a4b']);
   });
 

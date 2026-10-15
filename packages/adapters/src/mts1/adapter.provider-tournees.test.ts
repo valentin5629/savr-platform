@@ -186,14 +186,24 @@ function stubHandlers() {
     status: 'DRAFT',
     createdAt: '2026-07-14T10:00:00Z',
   });
+  const createTour = vi.fn().mockResolvedValue({
+    tourId: 'MTS1-TOUR-NEUF',
+    externalReference: 'col-redispatchee-1',
+    status: 'DRAFT',
+    createdAt: '2026-07-14T10:00:00Z',
+    customerOrderId: 'MTS1-ORDER-NEUVE',
+  });
+  const addCustomerOrder = vi.fn().mockResolvedValue(undefined);
   _setMts1Handlers({
     pollOrders: vi.fn(),
     getTour: vi.fn(),
     postOrder,
     updateOrder,
     deleteOrder,
+    createTour,
+    addCustomerOrder,
   });
-  return { updateOrder, deleteOrder, postOrder };
+  return { updateOrder, deleteOrder, postOrder, createTour, addCustomerOrder };
 }
 
 /** Tous les identifiants passés au client MTS-1, quel que soit l'appel. */
@@ -313,6 +323,8 @@ describe('E1 dispatchCollecte — une tournée Everest résiduelle ne sert pas d
     );
 
     expect(h.postOrder).toHaveBeenCalledOnce();
+    // C'est la commande neuve, pas la mission Everest, qui va dans la tournée.
+    expect(h.addCustomerOrder.mock.calls[0]).toContain('MTS1-ORDER-NEUVE');
     // La commande neuve est enregistrée, et c'est elle que la fiche affiche.
     expect(ecritures).toContainEqual({
       table: 'tournees',

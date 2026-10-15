@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { AdapterMts1 } from './adapter.js';
-import type { Mts1CreatedTour } from './mock.js';
 import {
   PRESTA_MTS1,
   builderTransporteurs,
@@ -125,6 +124,7 @@ function mockSupabaseVierge() {
     upsert: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     not: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
     // findTournees lit une LISTE (plus de maybeSingle) → builder thenable.
@@ -171,16 +171,6 @@ async function postPayload(
     pollOrders: vi.fn(),
     getTour: vi.fn(),
     postOrder,
-    createTour: vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-NEW-E2',
-      externalReference: `${collecte.id}-1`,
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-NEW-E2',
-    } satisfies Mts1CreatedTour),
-    addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-    dispatchTour: vi.fn().mockResolvedValue(undefined),
-    validateTour: vi.fn().mockResolvedValue(undefined),
   });
   await new AdapterMts1(TRANSPORTEUR, mockSupabaseVierge()).dispatchCollecte(
     collecte,

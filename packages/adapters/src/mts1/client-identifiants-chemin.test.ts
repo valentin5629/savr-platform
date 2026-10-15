@@ -10,7 +10,7 @@ import { _setMts1Handlers } from './mock.js';
 
 // Identifiants MTS-1 dans les chemins, et forme d'un identifiant adopté.
 //
-// Six appels placent un identifiant dans un chemin (commande ou tournée). Lu en
+// Trois appels placent un identifiant dans un chemin (commande ou tournée). Lu en
 // base ou rendu par MTS-1, il partait tel quel : avec des caractères de chemin,
 // il visait une autre route du même hôte. Il est désormais encodé, et refusé
 // quand l'encodage ne suffit pas (vide, « . », « .. », valeur qui n'est pas une
@@ -48,23 +48,11 @@ function stubFetchOk(corps: unknown = {}) {
 
 type Appel = (client: Mts1Client, identifiant: string) => Promise<unknown>;
 
-// Les six appels qui placent un identifiant dans un chemin :
+// Les trois appels qui placent un identifiant dans un chemin (plus d'envoi ni
+// de validation de tournée : l'Admin les fait dans la console MTS-1, décision
+// Val 2026-10-15) :
 // [méthode du client, verbe, chemin avant l'identifiant, chemin après, appel].
 const ROUTES: Array<[string, string, string, string, Appel]> = [
-  [
-    'dispatchTour',
-    'POST',
-    '/v3/dispatch/',
-    '/toCarrier',
-    (c, id) => c.dispatchTour(id, 'CA_1', 'corr'),
-  ],
-  [
-    'validateTour',
-    'PUT',
-    '/v3/tours/',
-    '/validate',
-    (c, id) => c.validateTour(id, 'corr'),
-  ],
   [
     'updateOrder',
     'PUT',
@@ -80,7 +68,10 @@ const ROUTES: Array<[string, string, string, string, Appel]> = [
     (c, id) => c.deleteOrder(id, 'corr'),
   ],
   ['getTour', 'GET', '/v3/tours/', '', (c, id) => c.getTour(id)],
-  ['getPhotos', 'GET', '/v3/tours/', '/photos', (c, id) => c.getPhotos(id)],
+  // Plus de `getPhotos` : la route `/v3/tours/{id}/photos` n'existe pas (404
+  // BAD_ROUTE, mesuré le 2026-10-13) ; les photos se lisent dans le détail du
+  // tour et se téléchargent par leur adresse, tenue au seul connecteur
+  // (client-photos.test.ts).
 ];
 
 // Identifiant forgé pour viser une autre route, avec requête et fragment.
@@ -247,8 +238,9 @@ describe('M1.5a / MTS-1 client — identifiant dans un chemin (handlers simulés
   );
 });
 
-// Un identifiant que Savr adopte va dans `tournees.external_ref_commande` ou
-// `tms_reference`, puis dans les chemins ci-dessus.
+// Un identifiant que Savr adopte va dans `tournees.external_ref_commande` (et,
+// pour le rang 1, dans `collectes.tms_reference`), puis dans les chemins
+// ci-dessus.
 const HORS_ALPHABET: Array<[string, unknown]> = [
   ['une barre oblique', 'a/b'],
   ['une remontée de chemin', '../x'],
@@ -324,39 +316,17 @@ describe('M1.5a / MTS-1 — alphabet d’un identifiant adopté', () => {
     },
   );
 
-  it.each(HORS_ALPHABET)(
-    'M1.5a/creation_tournee_identifiant_hors_alphabet — 201 dont l’identifiant porte %s → erreur ambiguë, il n’est pas rendu',
-    async (_cas, valeur) => {
-      stubFetchOk({ tourId: valeur });
-
-      const envoi = new Mts1Client(fakeSupabase).createTour({
-        orderNumber: 'col-1-1',
-        tourDate: '2027-03-20',
-      });
-
-      await expect(envoi).rejects.toBeInstanceOf(LogistiqueAmbiguousError);
-      await expect(envoi).rejects.toThrow(
-        'MTS-1 POST /v3/tours : création acceptée, mais « tourId » est illisible dans la réponse',
-      );
-    },
-  );
-
   it.each(DANS_ALPHABET)(
-    'M1.5a/creation_identifiant_dans_alphabet — 201 avec %s → commande et tournée rendues telles quelles',
+    'M1.5a/creation_identifiant_dans_alphabet — 201 avec %s → commande rendue telle quelle',
     async (_cas, valeur) => {
-      stubFetchOk({ customerOrderId: valeur, tourId: valeur });
+      stubFetchOk({ customerOrderId: valeur });
       const client = new Mts1Client(fakeSupabase);
 
       const commande = await client.postOrder({
         orderNumber: 'col-1-1',
       } as unknown as Parameters<Mts1Client['postOrder']>[0]);
-      const tournee = await client.createTour({
-        orderNumber: 'col-1-1',
-        tourDate: '2027-03-20',
-      });
 
       expect(commande.id).toBe(valeur);
-      expect(tournee.tourId).toBe(valeur);
     },
   );
 });

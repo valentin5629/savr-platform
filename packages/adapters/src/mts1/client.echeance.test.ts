@@ -40,12 +40,12 @@ describe('M1.5a / passage borné — client MTS-1', () => {
     const client = new Mts1Client(fakeSupabase);
 
     const appel = avecEcheance(Date.now() - 1, () =>
-      client.dispatchTour('T-1', 'CODE', 'corr'),
+      client.deleteOrder('O-1', 'corr'),
     );
 
     await expect(appel).rejects.toBeInstanceOf(LogistiqueTransientError);
     await expect(appel).rejects.toThrow(
-      'Échéance du passage atteinte : MTS-1 POST /v3/dispatch/T-1/toCarrier non démarré',
+      'Échéance du passage atteinte : MTS-1 DELETE /v3/customerOrders/O-1 non démarré',
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -55,13 +55,13 @@ describe('M1.5a / passage borné — client MTS-1', () => {
     const client = new Mts1Client(fakeSupabase);
 
     await avecEcheance(Date.now() + 60_000, () =>
-      client.dispatchTour('T-1', 'CODE', 'corr'),
+      client.deleteOrder('O-1', 'corr'),
     );
-    await client.dispatchTour('T-2', 'CODE', 'corr');
+    await client.deleteOrder('O-2', 'corr');
 
     expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
-      'https://mts1.test/v3/dispatch/T-1/toCarrier',
-      'https://mts1.test/v3/dispatch/T-2/toCarrier',
+      'https://mts1.test/v3/customerOrders/O-1',
+      'https://mts1.test/v3/customerOrders/O-2',
     ]);
   });
 });

@@ -66,7 +66,7 @@ type RpcCall = { name: string; args: unknown };
 
 // ─── Mock Supabase pour processOrder (A2 / A7) ───────────────────────────────
 function makeSyncSupabase(opts: {
-  /** Ligne integrations_inbox déjà présente (ON CONFLICT) → { id, traite }. null = pas de ligne. */
+  /** Ligne integrations_inbox déjà présente (la réservation reçoit 23505) → { id, traite }. null = pas de ligne. */
   inboxExistante?: { id: string; traite: boolean } | null;
   tourneeInfo?: {
     collecteId: string;
@@ -94,13 +94,6 @@ function makeSyncSupabase(opts: {
       }),
       insert: vi.fn((data: unknown) => {
         calls.push({ table, op: 'insert', data, filters });
-        // integrations_inbox : conflit (ON CONFLICT) si une ligne existe déjà
-        if (
-          table === 'integrations_inbox' &&
-          opts.inboxExistante !== undefined
-        ) {
-          return { ...self, data: [] };
-        }
         return { ...self, data: [{ id: `${table}-001` }] };
       }),
       upsert: vi.fn((data: unknown) => {
@@ -118,9 +111,15 @@ function makeSyncSupabase(opts: {
       in: vi.fn(() => self),
       limit: vi.fn(() => {
         if (table === 'integrations_inbox') {
-          const row =
-            opts.inboxExistante !== undefined ? [] : [{ id: 'inbox-lota-001' }];
-          return Promise.resolve({ data: row, error: null });
+          // Réservation du statut (INSERT nu) : 23505 si la clé existe déjà.
+          return Promise.resolve(
+            opts.inboxExistante !== undefined
+              ? {
+                  data: null,
+                  error: { code: '23505', message: 'duplicate key value' },
+                }
+              : { data: [{ id: 'inbox-lota-001' }], error: null },
+          );
         }
         return Promise.resolve({ data: [], error: null });
       }),
@@ -211,18 +210,19 @@ const FENETRE = {
 describe('Lot A / A2 — rejeu inbox non terminé (crash-safety)', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  const ORDER_VALIDATED: Mts1CustomerOrder = {
+  // Un refus du transporteur : le seul statut de commande qui écrit encore le
+  // statut logistique de la collecte (l'acceptation se lit sur la tournée).
+  const ORDER_REFUSE: Mts1CustomerOrder = {
     customerOrderId: 'MTS1-ORDER-A2',
     orderNumber: 'col-lota-001-1',
-    customerOrderStatus: 'VALIDATED',
+    customerOrderStatus: 'CANCELED',
     orderDate: '2026-07-15T22:00:00.000Z',
   };
 
   it('A2 / clé inbox présente mais traite=false → l’event est REJOUÉ (collectes.update)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_REFUSE]),
       getTour: vi.fn(),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
@@ -237,7 +237,7 @@ describe('Lot A / A2 — rejeu inbox non terminé (crash-safety)', () => {
     expect(collecteUpdate).toBeDefined();
     expect(
       (collecteUpdate!.data as Record<string, unknown>)['statut_tms'],
-    ).toBe('acceptee');
+    ).toBe('rejetee_par_prestataire');
     // markInboxDone a confirmé le traitement
     const inboxDone = supabase._calls.find(
       (c) =>
@@ -250,9 +250,8 @@ describe('Lot A / A2 — rejeu inbox non terminé (crash-safety)', () => {
 
   it('A2 / clé inbox présente ET traite=true → skip (aucun effet rejoué)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_REFUSE]),
       getTour: vi.fn(),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
@@ -283,7 +282,6 @@ describe('Lot A / A7 — OK = terminal → agrégation déclenchée', () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn(),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
@@ -320,14 +318,11 @@ describe('Lot A / A7 — OK = terminal → agrégation déclenchée', () => {
     // précède le traitement du statut terminal : elle levait, et la collecte ne
     // passait jamais « réalisée ».
     const tourVide = {
-      tourId: 'MTS1-TOUR-A7',
-      externalReference: '',
-      status: 'OK',
+      status: { progression: 'NOT_STARTED' },
     } satisfies Mts1Tour;
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(tourVide),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 

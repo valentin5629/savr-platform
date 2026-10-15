@@ -85,6 +85,7 @@ function makeSupabase(opts: {
         return self;
       }),
       eq: vi.fn(() => self),
+      neq: vi.fn(() => self),
       in: vi.fn((col: string, vals: unknown[]) => {
         filtresIn[col] = vals;
         return self;
@@ -160,7 +161,6 @@ function armerPoll() {
   _setMts1Handlers({
     pollOrders: vi.fn().mockResolvedValue([ORDER]),
     getTour: vi.fn(),
-    getPhotos: vi.fn().mockResolvedValue([]),
     postOrder: vi.fn(),
   });
 }

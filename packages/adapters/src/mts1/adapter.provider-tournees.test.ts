@@ -118,15 +118,22 @@ function makeSupabase(
   opts: { erreurCollecteTournees?: boolean } = {},
 ) {
   const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+  // Écritures reçues (update / upsert), par table.
+  const ecritures: Array<{ table: string; valeurs: unknown }> = [];
 
   const builder = (table: string): Record<string, unknown> => {
     const self: Record<string, unknown> = {};
     const chain = () => self;
+    const ecrire = (valeurs: unknown) => {
+      ecritures.push({ table, valeurs });
+      return self;
+    };
     Object.assign(self, {
       select: vi.fn(chain),
       eq: vi.fn(chain),
-      update: vi.fn(chain),
-      upsert: vi.fn(chain),
+      in: vi.fn(chain),
+      update: vi.fn(ecrire),
+      upsert: vi.fn(ecrire),
       insert: vi.fn().mockResolvedValue({ data: null, error: null }),
       delete: vi.fn(chain),
       single: vi.fn().mockResolvedValue({
@@ -166,7 +173,7 @@ function makeSupabase(
     rpc,
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
-  return { supabase, rpc };
+  return { supabase, rpc, ecritures };
 }
 
 function stubHandlers() {
@@ -179,36 +186,14 @@ function stubHandlers() {
     status: 'DRAFT',
     createdAt: '2026-07-14T10:00:00Z',
   });
-  const createTour = vi.fn().mockResolvedValue({
-    tourId: 'MTS1-TOUR-NEUF',
-    externalReference: 'col-redispatchee-1',
-    status: 'DRAFT',
-    createdAt: '2026-07-14T10:00:00Z',
-    customerOrderId: 'MTS1-ORDER-NEUVE',
-  });
-  const addCustomerOrder = vi.fn().mockResolvedValue(undefined);
-  const dispatchTour = vi.fn().mockResolvedValue(undefined);
-  const validateTour = vi.fn().mockResolvedValue(undefined);
   _setMts1Handlers({
     pollOrders: vi.fn(),
     getTour: vi.fn(),
     postOrder,
     updateOrder,
     deleteOrder,
-    createTour,
-    addCustomerOrder,
-    dispatchTour,
-    validateTour,
   });
-  return {
-    updateOrder,
-    deleteOrder,
-    postOrder,
-    createTour,
-    addCustomerOrder,
-    dispatchTour,
-    validateTour,
-  };
+  return { updateOrder, deleteOrder, postOrder };
 }
 
 /** Tous les identifiants passés au client MTS-1, quel que soit l'appel. */
@@ -317,10 +302,10 @@ describe('E1 dispatchCollecte — une tournée Everest résiduelle ne sert pas d
 
   it('le rang occupé par une tournée Everest est dispatché chez MTS-1 avec une commande neuve', async () => {
     // AVANT : la tournée Everest du rang 1 faisait office de curseur de reprise
-    // (`external_ref_commande` présent) → aucun `POST /v3/customerOrders`, et le
-    // tour MTS-1 se voyait rattacher l'identifiant de mission Everest.
+    // (`external_ref_commande` présent) → aucun `POST /v3/customerOrders`, et
+    // l'identifiant de mission Everest passait pour la commande MTS-1.
     const h = stubHandlers();
-    const { supabase } = makeSupabase([tourneeEverest()]);
+    const { supabase, ecritures } = makeSupabase([tourneeEverest()]);
 
     await new AdapterMts1(TRANSPORTEUR_STRIKE, supabase).dispatchCollecte(
       collecte(),
@@ -328,7 +313,17 @@ describe('E1 dispatchCollecte — une tournée Everest résiduelle ne sert pas d
     );
 
     expect(h.postOrder).toHaveBeenCalledOnce();
-    expect(h.addCustomerOrder.mock.calls[0]).toContain('MTS1-ORDER-NEUVE');
+    // La commande neuve est enregistrée, et c'est elle que la fiche affiche.
+    expect(ecritures).toContainEqual({
+      table: 'tournees',
+      valeurs: expect.objectContaining({
+        external_ref_commande: 'MTS1-ORDER-NEUVE',
+      }),
+    });
+    expect(ecritures).toContainEqual({
+      table: 'collectes',
+      valeurs: { tms_reference: 'MTS1-ORDER-NEUVE' },
+    });
     expect(refsTransmises(h)).not.toContain(REF_EVEREST);
   });
 });

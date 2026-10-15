@@ -208,12 +208,10 @@
       "BL-P1-RM-09": "supabase/tests/r16a_machine_etats.test.sql (RM-09 : incident prestataire → aucun débit pack ; client → débit) ; M1.4/RM-09 — incident prestataire : annulee + email Admin + notif client (annulation_collecte) + 200 ; motif<10 → 422 ; imputable invalide → 422"
     },
     "M1.5a": {
-      "M1.5a-01": "E1 dispatch ZD rang=1 nominal : POST order → create tour → dispatch → validate",
       "M1.5a-02": "E1 dispatch AG : orderCategories=['Alimentaire'], sans stuffs",
       "M1.5a-03": "E1 dispatch ZD : stuffs contient 5 flux + volume_du_camion",
       "M1.5a-04": "E1 multi-camions N=2 : 2 ordres créés rang 1 et rang 2",
       "M1.5a-05": "E1 idempotent : rang déjà en_cours → no-op sans appel HTTP",
-      "M1.5a-06": "E1 reprise étape 2 : external_ref_commande présent + tms_reference absent → POST tour seulement",
       "M1.5a-07": "E1 POST 422 → LogistiquePermanentError (dead immédiat)",
       "M1.5a-08": "E1 réconciliation : requires_reconciliation=true + ordre trouvé → pas de re-POST",
       "M1.5a-09": "E1 réconciliation : ordre introuvable → re-POST autorisé",
@@ -231,7 +229,6 @@
       "BL-P1-RM-04": "M1.5a / RM-04 réduction N→N−k — supprime sélectivement les rangs > N ; 404 idempotent ; N inchangé → PUT seul"
     },
     "M1.5b": {
-      "BL-P1-OUTBOX-04": "claim entrant atomique : conflit concurrent → skip (upsert ignoreDuplicates) ; erreur ≠23505 propagée [adapter.m1-5b.test.ts]",
       "BL-P1-API-03": "M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque_immatriculation + chauffeur_nom [adapter.m1-5b.test.ts]"
     },
     "M1.6": {

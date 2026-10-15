@@ -1,58 +1,267 @@
 {
-  "_description": "Simulation multi-camions N=2 : deux customerOrders pour 1 collecte, états terminaux distincts (OK + PARTIAL). ≥1 OK/PARTIAL → realisee + alerte Ops.",
+  "_description": "Simulation multi-camions N=2 : deux customerOrders pour 1 collecte, états terminaux distincts (OK + PARTIAL), un tour par camion. ≥1 OK/PARTIAL → realisee + alerte Ops. Forme mesurée sur le compte de démonstration le 2026-10-13 (les valeurs sont inventées) : `status` est un objet, chaque arrêt porte `stopType`, `customerOrders[]`, `stuffs[]` et `photos[]`. Les kilos sont dans `stuffs[].quantityAfterPickup` (`quantity` reste à 0, `measurement.weight` aussi) et les stuffs d'une commande sont répétés sur son arrêt d'enlèvement (`CUSTOMER_ORDER`) et sur son arrêt de dépôt (`CUSTOMER_ORDER_LINKED` ou `DEPOT`) : ne lire que l'enlèvement. Ni `items`, ni `weight` sur l'arrêt ou le stuff.",
   "customerOrders": [
     {
       "customerOrderId": "MTS1-ORDER-MULTI-001",
       "orderNumber": "col_multi_camions_001-1",
       "_rang": 1,
       "customerOrderStatus": "OK",
-      "orderDate": "2026-06-10T22:00:00.000Z"
+      "orderDate": "2026-06-10T22:00:00.000Z",
+      "currentTour": {
+        "tourId": "MTS1-TOUR-MULTI-001"
+      }
     },
     {
       "customerOrderId": "MTS1-ORDER-MULTI-002",
       "orderNumber": "col_multi_camions_001-2",
       "_rang": 2,
       "customerOrderStatus": "PARTIAL",
-      "orderDate": "2026-06-10T22:00:00.000Z"
+      "orderDate": "2026-06-10T22:00:00.000Z",
+      "currentTour": {
+        "tourId": "MTS1-TOUR-MULTI-002"
+      }
     }
   ],
   "tours": [
     {
       "tourId": "MTS1-TOUR-MULTI-001",
-      "externalReference": "col_multi_camions_001-1",
-      "status": "OK",
-      "startedAt": "2026-06-10T22:05:00Z",
-      "completedAt": "2026-06-11T01:00:00Z",
+      "tourNumber": "26/06-10-1",
+      "tourDate": "2026-06-10T20:00:00.000Z",
+      "status": {
+        "dispatch": "COMPLETED",
+        "dispatchedAt": "2026-06-09T20:00:00.000Z",
+        "startedAt": "2026-06-10T20:05:00.000Z",
+        "finishedAt": "2026-06-10T22:00:00.000Z",
+        "payment": "VALIDATED",
+        "validation": "VALIDATED",
+        "progression": "FINISHED"
+      },
       "stops": [
         {
           "stopId": "stop-multi-001",
-          "address": "1 Place de la Porte de Versailles, 75015 Paris",
-          "completedAt": "2026-06-11T00:45:00Z",
-          "items": [
-            { "stuff": "<volume_du_camion>", "qty": 1, "weight": null },
-            { "stuff": "Bio-déchets (en kg)", "qty": 1, "weight": 210.0 },
-            { "stuff": "Carton (en kg)", "qty": 1, "weight": 65.0 }
-          ]
+          "stopType": "CUSTOMER_ORDER",
+          "customerOrders": [
+            {
+              "customerOrderId": "MTS1-ORDER-MULTI-001",
+              "customerOrderStatus": "VALIDATED",
+              "orderNumber": "col_multi_camions_001-1",
+              "customerOrderProgressionStatus": "FINISHED"
+            }
+          ],
+          "stuffs": [
+            {
+              "name": "<volume_du_camion>",
+              "task": "PICKUP",
+              "quantity": 1,
+              "quantityAfterPickup": 1,
+              "quantityAfterDelivery": 1,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            },
+            {
+              "name": "Bio-déchets (en kg)",
+              "task": "PICKUP",
+              "quantity": 0,
+              "quantityAfterPickup": 210,
+              "quantityAfterDelivery": 210,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            },
+            {
+              "name": "Carton (en kg)",
+              "task": "PICKUP",
+              "quantity": 0,
+              "quantityAfterPickup": 65,
+              "quantityAfterDelivery": 65,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            }
+          ],
+          "photos": []
+        },
+        {
+          "stopId": "stop-multi-001-depot",
+          "stopType": "DEPOT",
+          "customerOrders": [
+            {
+              "customerOrderId": "MTS1-ORDER-MULTI-001",
+              "customerOrderStatus": "VALIDATED",
+              "orderNumber": "col_multi_camions_001-1",
+              "customerOrderProgressionStatus": "FINISHED"
+            }
+          ],
+          "stuffs": [
+            {
+              "name": "<volume_du_camion>",
+              "task": "PICKUP",
+              "quantity": 1,
+              "quantityAfterPickup": 1,
+              "quantityAfterDelivery": 1,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            },
+            {
+              "name": "Bio-déchets (en kg)",
+              "task": "PICKUP",
+              "quantity": 0,
+              "quantityAfterPickup": 210,
+              "quantityAfterDelivery": 210,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            },
+            {
+              "name": "Carton (en kg)",
+              "task": "PICKUP",
+              "quantity": 0,
+              "quantityAfterPickup": 65,
+              "quantityAfterDelivery": 65,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            }
+          ],
+          "photos": []
         }
-      ]
+      ],
+      "summary": {
+        "durationInMinutes": 115,
+        "distanceInKilometers": 21
+      },
+      "dispatch": {
+        "carrierShareableCode": "CA_FIXTURE",
+        "transporterUserShareableCode": null,
+        "vehicleShareableCode": null
+      }
     },
     {
       "tourId": "MTS1-TOUR-MULTI-002",
-      "externalReference": "col_multi_camions_001-2",
-      "status": "PARTIAL",
-      "startedAt": "2026-06-10T22:10:00Z",
-      "completedAt": "2026-06-11T01:30:00Z",
+      "tourNumber": "26/06-10-2",
+      "tourDate": "2026-06-10T20:00:00.000Z",
+      "status": {
+        "dispatch": "COMPLETED",
+        "dispatchedAt": "2026-06-09T20:00:00.000Z",
+        "startedAt": "2026-06-10T20:05:00.000Z",
+        "finishedAt": "2026-06-10T22:00:00.000Z",
+        "payment": "VALIDATED",
+        "validation": "VALIDATED",
+        "progression": "FINISHED"
+      },
       "stops": [
         {
           "stopId": "stop-multi-002",
-          "address": "1 Place de la Porte de Versailles, 75015 Paris",
-          "completedAt": "2026-06-11T01:20:00Z",
-          "items": [
-            { "stuff": "<volume_du_camion>", "qty": 1, "weight": null },
-            { "stuff": "Bio-déchets (en kg)", "qty": 1, "weight": 150.0 }
-          ]
+          "stopType": "CUSTOMER_ORDER",
+          "customerOrders": [
+            {
+              "customerOrderId": "MTS1-ORDER-MULTI-002",
+              "customerOrderStatus": "VALIDATED",
+              "orderNumber": "col_multi_camions_001-2",
+              "customerOrderProgressionStatus": "FINISHED"
+            }
+          ],
+          "stuffs": [
+            {
+              "name": "<volume_du_camion>",
+              "task": "PICKUP",
+              "quantity": 1,
+              "quantityAfterPickup": 1,
+              "quantityAfterDelivery": 1,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            },
+            {
+              "name": "Bio-déchets (en kg)",
+              "task": "PICKUP",
+              "quantity": 0,
+              "quantityAfterPickup": 150,
+              "quantityAfterDelivery": 150,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            }
+          ],
+          "photos": []
+        },
+        {
+          "stopId": "stop-multi-002-depot",
+          "stopType": "DEPOT",
+          "customerOrders": [
+            {
+              "customerOrderId": "MTS1-ORDER-MULTI-002",
+              "customerOrderStatus": "VALIDATED",
+              "orderNumber": "col_multi_camions_001-2",
+              "customerOrderProgressionStatus": "FINISHED"
+            }
+          ],
+          "stuffs": [
+            {
+              "name": "<volume_du_camion>",
+              "task": "PICKUP",
+              "quantity": 1,
+              "quantityAfterPickup": 1,
+              "quantityAfterDelivery": 1,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            },
+            {
+              "name": "Bio-déchets (en kg)",
+              "task": "PICKUP",
+              "quantity": 0,
+              "quantityAfterPickup": 150,
+              "quantityAfterDelivery": 150,
+              "measurement": {
+                "height": 0,
+                "length": 0,
+                "width": 0,
+                "weight": 0
+              }
+            }
+          ],
+          "photos": []
         }
-      ]
+      ],
+      "summary": {
+        "durationInMinutes": 115,
+        "distanceInKilometers": 21
+      },
+      "dispatch": {
+        "carrierShareableCode": "CA_FIXTURE",
+        "transporterUserShareableCode": null,
+        "vehicleShareableCode": null
+      }
     }
   ],
   "_assertions": [

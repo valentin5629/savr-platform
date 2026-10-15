@@ -1,18 +1,19 @@
 // Adapter MTS-1 — côté sortant (M1.5a).
 // Polling entrant (sync) = M1.5b.
 //
-// Pipeline dispatchCollecte :
-//   Étape 1 — POST /v3/customerOrders → commit external_ref_commande IMMÉDIATEMENT
-//   Étape 2 — POST /v3/tours → commit tms_reference IMMÉDIATEMENT
-//   Étape 3 — POST /v3/tours/{id}/dispatch
-//   Étape 4 — PUT  /v3/tours/{id}/validate
+// Envoi d'une collecte (dispatchCollecte) = la COMMANDE seule (décision Val
+// 2026-10-15) : POST /v3/customerOrders, puis commit de external_ref_commande
+// IMMÉDIATEMENT (CLAUDE.md §2 : MTS-1 présumé NON idempotent). La commande
+// arrive dans « Commander → Tournées » de la console MTS-1, où l'Admin Savr
+// compose les tournées (plusieurs collectes au besoin) et les envoie au
+// transporteur. La plateforme ne crée, n'envoie ni ne valide aucune tournée :
+// elle lit la tournée de la commande (`currentTour`), son transporteur et son
+// acceptation à la relève (sync).
 //
-// Chaque commit est immédiat (CLAUDE.md §2 : MTS-1 présumé NON idempotent).
-// Curseur de reprise : lecture tournees (external_ref_commande, tms_reference) avant dispatch.
+// Curseur de reprise : external_ref_commande du rang, lu avant tout envoi.
 // Un curseur non écrit après une création = erreur AMBIGUË, jamais un simple rejeu.
 // Réconciliation : si requires_reconciliation=true → recherche de la commande par
-// son numéro avant tout re-POST, puis de sa tournée (currentTour) avant tout
-// re-POST /v3/tours.
+// son numéro avant tout re-POST.
 
 import { createHash } from 'node:crypto';
 
@@ -47,13 +48,9 @@ import {
   FILTRE_STATUTS_COLLECTE_TERMINAUX,
   STATUTS_COLLECTE_EN_EXECUTION,
 } from '../statuts-collecte.js';
-import type {
-  CreateOrderPayload,
-  CreateTourPayload,
-  PointLivraison,
-} from './client.js';
+import type { CreateOrderPayload, PointLivraison } from './client.js';
 import { estIdentifiantMts1, Mts1Client } from './client.js';
-import type { Mts1CustomerOrder, Mts1Tour } from './mock.js';
+import type { Mts1CustomerOrder, Mts1Tour, Mts1TourStop } from './mock.js';
 import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
 // `collectes.lieu_overrides` — jsonb libre porté par la collecte (§06.01).
@@ -87,9 +84,8 @@ interface TourneeRow {
  * de la collecte (§09 C1), sa clé ne doit pas les leur montrer (décision Val
  * 2026-10-07, prise tant qu'aucune photo n'existe). Ce n'est pas un secret, juste
  * un nom qui ne dit plus rien. Elle est DÉTERMINISTE — la dédup de processPhotos
- * cherche la clé — et ne dépend pas de `photo.url` : rien ne garantit que cette
- * adresse reste la même d'un appel à l'autre (non mesuré chez le transporteur),
- * alors que le triplet d'identifiants, lui, désigne la photo.
+ * cherche la clé — et ne porte que le triplet d'identifiants, pas l'adresse de la
+ * photo : l'hôte du connecteur peut changer sans que la photo change.
  */
 function clePhoto(
   collecteId: string,
@@ -111,7 +107,11 @@ const FLUX_STUFFS_ZD = [
 ];
 
 // Mapping libellés MTS-1 → codes flux_dechets (entrant)
-// '_ignore' = volumétrie camion, jamais mappé sur un flux
+// '_ignore' = pas un flux de déchets, jamais une pesée :
+//   - le stuff « camion » ;
+//   - le don d'une collecte AG, que buildOrderPayload crée lui-même : son poids
+//     n'est pas relevé chez le prestataire en V1, l'équipe Savr le saisit d'après
+//     les photos (§06.09, décision Val 2026-06-07).
 const STUFF_TO_FLUX: Record<string, string | '_ignore'> = {
   'Bio-déchets (en kg)': 'biodechet',
   'Carton (en kg)': 'carton',
@@ -119,6 +119,7 @@ const STUFF_TO_FLUX: Record<string, string | '_ignore'> = {
   'Film plastique (en kg)': 'emballage',
   'Verre (en kg)': 'verre',
   '<volume_du_camion>': '_ignore',
+  'Don alimentaire': '_ignore',
 };
 
 // Mapping customerOrderStatus MTS-1 → statut_tms (§08 §3bis.6).
@@ -128,11 +129,15 @@ const STUFF_TO_FLUX: Record<string, string | '_ignore'> = {
 // MTS-1 : un succès réel arrive en 'OK' (et non 'DELIVERED'), donc l'agrégation
 // terminale — gardée sur un set sans 'OK' — ne se déclenchait jamais en prod
 // (collecte jamais realisee → ni batch J+1, ni bordereau/attestation).
+// Le statut de la COMMANDE ne dit pas l'acceptation : une commande `VALIDATED`
+// peut être sur une tournée seulement proposée au transporteur (mesuré le
+// 2026-10-13). L'attribution et l'acceptation se lisent sur la tournée
+// (NIVEAU_ATTRIBUTION). Ne reste ici que le refus.
 const MTS1_STATUS_TO_TMS: Record<string, string | null> = {
-  QUOTE: 'attribuee_en_attente_acceptation',
-  DRAFT: 'attribuee_en_attente_acceptation',
-  PLANNED: 'attribuee_en_attente_acceptation',
-  VALIDATED: 'acceptee',
+  QUOTE: null,
+  DRAFT: null,
+  PLANNED: null,
+  VALIDATED: null,
   IN_PROGRESSION: null, // pas de changement statut_tms ; → collectes.statut='en_cours' direct
   OK: null, // terminal géré par agrégation M1.5c
   PARTIAL: null, // terminal géré par agrégation M1.5c
@@ -149,18 +154,87 @@ const MTS1_STATUS_TO_TMS: Record<string, string | null> = {
 // et n'est plus rendue par la recherche.
 const STATUTS_COMMANDE_MORTE = new Set(['CANCELED', 'KO']);
 
+// Attribution d'un camion, lue sur la tournée de sa commande (`status.dispatch`,
+// valeurs mesurées le 2026-10-13) : 0 = à attribuer (commande hors de toute
+// tournée, ou tournée pas encore envoyée), 1 = proposée au transporteur,
+// 2 = acceptée par lui (décision Val 2026-10-13 : « acceptée » = le
+// transporteur a accepté la tournée). Toute autre valeur n'est pas mesurée :
+// rien n'en est conclu (cf. suivreAttribution).
+const NIVEAU_ATTRIBUTION: Readonly<Record<string, number>> = {
+  TO_BE_DISPATCHED: 0,
+  PROPOSED: 1,
+  ACCEPTED: 2,
+  COMPLETED: 2,
+};
+const STATUT_TMS_PAR_NIVEAU = [
+  'a_attribuer',
+  'attribuee_en_attente_acceptation',
+  'acceptee',
+] as const;
+// Collectes dont l'attribution se suit encore : à valider ou validées (une fois
+// la mission commencée, l'attribution est acquise).
+const STATUTS_ATTRIBUTION_COLLECTE: string[] = ['programmee', 'validee'];
+
 // Statuts qui arrêtent la reprise d'une création : une commande du même numéro
 // dans l'un d'eux met l'ordre en échec définitif, donc en alerte — ni reprise,
 // ni nouvelle création, même si une commande encore en cours porte aussi ce
-// numéro (décisions de Val, 2026-10-13). L'arrêt joue aux deux lectures d'une
-// reprise « à réconcilier » : la recherche par numéro (aucune commande enregistrée pour le rang)
-// et la relecture de la commande enregistrée quand la référence de sa tournée
-// manque. Les deux curseurs écrits, la reprise ne lit rien chez MTS-1 : le
-// rattachement, l'envoi et la validation sont rejoués sans contrôle de statut. `OK` et `PARTIAL` : la mission est
+// numéro (décisions de Val, 2026-10-13). L'arrêt joue à la lecture d'une
+// reprise « à réconcilier » : la recherche par numéro, quand aucune commande
+// n'est enregistrée pour le rang. `OK` et `PARTIAL` : la mission est
 // terminée. `ARCHIVED` : rangé avec eux par la même décision, son sens n'étant
 // pas mesuré (1 commande `ARCHIVED` parmi les 72 que rendait la recherche du
 // compte de démonstration ce jour-là).
 const STATUTS_COMMANDE_TERMINEE = new Set(['OK', 'PARTIAL', 'ARCHIVED']);
+
+// ─── Lecture du détail d'un tour (forme mesurée le 2026-10-13) ───────────────
+
+function sertLaCommande(stop: Mts1TourStop, customerOrderId: string): boolean {
+  return (stop.customerOrders ?? []).some(
+    (c) => c?.customerOrderId === customerOrderId,
+  );
+}
+
+// Arrêt d'ENLÈVEMENT de la commande : `stopType = CUSTOMER_ORDER`, la commande
+// nommée dans `customerOrders`. Les pesées ne se lisent que là (décision Val
+// 2026-10-13) : les stuffs sont répétés sur l'arrêt de dépôt, les lire aux deux
+// endroits doublerait les poids. Et pour CETTE commande seulement : un tour peut
+// porter plusieurs enlèvements (jusqu'à 3 mesurés, trois commandes du même
+// numéro).
+function arretEnlevement(
+  tour: Mts1Tour,
+  customerOrderId: string,
+): Mts1TourStop | undefined {
+  return (tour.stops ?? []).find(
+    (s) =>
+      s?.stopType === 'CUSTOMER_ORDER' && sertLaCommande(s, customerOrderId),
+  );
+}
+
+// Identifiant d'une photo : le dernier segment de son adresse, seul endroit où il
+// se lit (décision Val 2026-10-13). L'adresse doit finir par la forme mesurée,
+// `tours/photo/{tourId}/{stopId}/{photoId}`, pour CE tour et CET arrêt ; sinon
+// `null` : lire le dernier segment d'une autre forme pourrait donner le même
+// identifiant à des photos différentes, et la dédup n'en garderait qu'une.
+function identifiantPhoto(
+  downloadUrl: string,
+  tourId: string,
+  stopId: string,
+): string | null {
+  let segments: string[];
+  try {
+    segments = new URL(downloadUrl).pathname.split('/').filter(Boolean);
+  } catch {
+    return null;
+  }
+  const [tours, photo, tour, stop, photoId] = segments.slice(-5);
+  return tours === 'tours' &&
+    photo === 'photo' &&
+    tour === tourId &&
+    stop === stopId &&
+    photoId
+    ? photoId
+    : null;
+}
 
 export class AdapterMts1 implements LogistiqueProvider {
   private readonly client: Mts1Client;
@@ -195,144 +269,48 @@ export class AdapterMts1 implements LogistiqueProvider {
     // Curseur : lire la tournee existante pour ce rang
     let tournee = await this.findTournee(collecte.id, rang);
 
-    // Pipeline déjà mené à terme → idempotent no-op.
-    // statut n'est posé à 'en_cours' qu'APRÈS validate (étape 4) : tant que la
-    // tournée est 'planifiee', dispatch/validate DOIVENT être (re)joués — sinon un
-    // échec transient en étape 3/4 laisserait le camion non commandé (bug C2).
-    // Un statut terminal ('terminee'/'annulee', posé par le polling) sort aussi en
-    // no-op : on ne re-dispatch jamais un tour déjà clos.
-    if (tournee?.tms_reference && tournee.statut !== 'planifiee') {
-      return 'adapter_mts1';
-    }
-
     // Clé de la commande de CE rang, tentative comprise. Lue sur la tournée
     // trouvée (jamais réécrite par l'adapter) : stable sur toute la reprise.
     const orderNumber = this.orderNumber(collecte, rang, tournee);
 
-    // ── Étape 1 : POST /v3/customerOrders ──────────────────────────────────────
+    // ── POST /v3/customerOrders, sauf commande déjà enregistrée (reprise) ──────
     let customerOrderId = tournee?.external_ref_commande ?? null;
-    // Commande retrouvée chez MTS-1 par la réconciliation : elle dit aussi sa
-    // tournée (étape 2).
-    let commandeRetrouvee: Mts1CustomerOrder | null = null;
-    let commandeNeuve = false;
+    const dejaEnregistree = customerOrderId !== null;
     if (!customerOrderId) {
       // Réconciliation avant re-POST si claim expiré lors d'une tentative précédente
       if (opts?.requiresReconciliation) {
-        commandeRetrouvee = await this.reconcileOrder(collecte, orderNumber);
-        customerOrderId = commandeRetrouvee?.customerOrderId ?? null;
+        customerOrderId =
+          (await this.reconcileOrder(collecte, orderNumber))?.customerOrderId ??
+          null;
       }
       if (!customerOrderId) {
         const created = await this.client.postOrder(
           this.buildOrderPayload(collecte, orderNumber),
         );
         customerOrderId = created.id;
-        commandeNeuve = true;
-        // Commit immédiat — MTS-1 présumé NON idempotent (CLAUDE.md §2)
-        tournee = await this.upsertTournee(
-          collecte,
-          rang,
-          customerOrderId,
-          tournee,
-        );
-      } else {
-        // Ordre trouvé via réconciliation, écrire le curseur sans re-POSTer
-        tournee = await this.upsertTournee(
-          collecte,
-          rang,
-          customerOrderId,
-          tournee,
-        );
       }
-    }
-
-    // ── Étape 2 : POST /v3/tours ────────────────────────────────────────────────
-    let tourId = tournee?.tms_reference ?? null;
-    // Tournée reprise sur la commande à ce passage : la commande y est déjà
-    // rattachée, le rattachement n'est pas rejoué.
-    let dejaRattachee = false;
-    if (!tourId) {
-      // Réconciliation avant re-POST : une tournée créée lors d'une tentative
-      // précédente, sans que son identifiant ait été enregistré, se retrouve par
-      // sa commande. Sans objet pour une commande créée à l'instant.
-      if (opts?.requiresReconciliation && !commandeNeuve) {
-        tourId = await this.reconcileTour(
-          collecte,
-          rang,
-          customerOrderId,
-          commandeRetrouvee,
-        );
-        dejaRattachee = tourId !== null;
-      }
-      if (!tourId) {
-        const tourPayload = this.buildTourPayload(collecte, orderNumber);
-        const created = await this.client.createTour(tourPayload);
-        tourId = created.tourId;
-      }
-      // Commit immédiat
-      await this.updateTourneeRef(
-        tournee!.id,
-        tourId,
+      // Commit immédiat — MTS-1 présumé NON idempotent (CLAUDE.md §2). Une
+      // commande retrouvée par la réconciliation est enregistrée sans re-POST.
+      tournee = await this.upsertTournee(
+        collecte,
+        rang,
         customerOrderId,
-        orderNumber,
-        dejaRattachee,
+        tournee,
       );
     }
 
-    // ── Étape 2bis : rattacher la commande à la tournée ─────────────────────────
-    // Rejoué à chaque passage tant que la tournée est 'planifiee' (comme
-    // dispatch/validate ci-dessous), sauf quand la tournée vient d'être reprise
-    // sur la commande elle-même (dejaRattachee). Le `customerOrderId` du POST /v3/tours
-    // étant ignoré par MTS-1, ce PUT garantit la commande rattachée AVANT le dispatch
-    // — y compris sur reprise après échec transitoire de createTour/addCustomerOrder
-    // (sinon le dispatch porterait sur une tournée VIDE, réintroduisant en silence le
-    // bug d'origine). Rejeu présumé sûr : même hypothèse que dispatch/validate (déjà
-    // rejoués inconditionnellement) — si le PUT n'était PAS idempotent, un 2e appel
-    // échouerait BRUYAMMENT (retry/DLQ + alerte), jamais en silence.
-    if (!dejaRattachee) {
-      await this.client.addCustomerOrderToTour(
-        tourId,
-        customerOrderId,
-        orderNumber,
-      );
-    }
-
-    // ── Étape 3 : dispatch ──────────────────────────────────────────────────────
-    const carrierCode = this.transporteur.code_transporteur_mts1;
-    if (!carrierCode) {
-      throw new LogistiquePermanentError(
-        `transporteur ${this.transporteur.id} sans code_transporteur_mts1`,
-      );
-    }
-    await this.client.dispatchTour(tourId, carrierCode, orderNumber);
-
-    // ── Étape 4 : validate ──────────────────────────────────────────────────────
-    await this.client.validateTour(tourId, orderNumber);
-
-    // Curseur de complétion : dispatch + validate confirmés → 'en_cours'.
-    // Posé ICI (et non à l'étape 2) pour que la garde de reprise ne court-circuite
-    // dispatch/validate qu'une fois ceux-ci réellement réussis (bug C2). Le
-    // .eq('statut','planifiee') évite d'écraser un statut terminal qu'un poll
-    // concurrent aurait déjà posé.
-    await this.supabase
-      .from('tournees')
-      .update({ statut: 'en_cours' })
-      .eq('id', tournee!.id)
-      .eq('statut', 'planifiee');
-
-    // Référence d'AFFICHAGE de la collecte (§04 Data Model l.1509, §06.06 bouton
-    // « Renvoyer au TMS », §11 carte « Collectes non transmises »). Posée au rang 1
-    // seulement : une collecte multi-camions a N tours, le CDC ne prévoit qu'un
-    // identifiant de rapprochement. JAMAIS un prédicat : l'émission de E2 se décide
-    // sur l'existence d'une commande (fn_collecte_commandee_chez_provider).
-    // Posée ICI, après validate (et non dès que tourId est connu) : sinon un échec
-    // en étape 2bis/3/4 laisserait la fiche afficher « Renvoyer au TMS » sur une
-    // collecte dont le camion n'est pas commandé (revue sécurité 2026-09-15).
+    // Référence d'AFFICHAGE de la collecte (§04 Data Model : « identifiant de la
+    // collecte côté TMS » ; §06.06 bouton « Renvoyer au TMS », §11 carte
+    // « Collectes non transmises ») : l'identifiant de la commande du rang 1, posé
+    // dès qu'elle est enregistrée — la demande est alors chez MTS-1. Le CDC ne
+    // prévoit qu'un identifiant par collecte, même à plusieurs camions. JAMAIS un
+    // prédicat : l'émission de E2 se décide sur l'existence d'une commande
+    // (fn_collecte_commandee_chez_provider).
     if (rang === 1) {
-      await this.updateCollecteRef(collecte.id, tourId);
+      await this.updateCollecteRef(collecte.id, customerOrderId);
     }
 
-    // Mise à jour statut_tms (trigger dérive collectes.statut)
-    await this.updateStatutTms(collecte.id, 'attribuee_en_attente_acceptation');
+    await this.passerAAttribuer(collecte.id, dejaEnregistree);
     return 'adapter_mts1';
   }
 
@@ -397,21 +375,16 @@ export class AdapterMts1 implements LogistiqueProvider {
       );
     }
 
-    // BL-P1-RM-03 — augmentation N→N+k : mener à terme, via dispatchCollecte
-    // (idempotent, repart des curseurs du rang, clé d'idempotence
-    // reference-{rang}), tout rang de 1..N qui n'est pas servi. Une grosse
-    // collecte dont Ops augmente N est ainsi entièrement servie. La boucle joue
-    // à CHAQUE modification, pas seulement quand N augmente.
-    // Servi = une commande ET une tournée sortie de 'planifiee' (statut posé
-    // après la validation). « Sans commande » et non « sans tournée » : un rang
-    // refusé puis réattribué garde sa tournée, réinitialisée par
-    // fn_dispatcher_collecte (arbitrage Val 2026-09-17) — il doit repartir.
-    // « Encore planifiee » : un rang dont l'envoi a été interrompu après la
-    // création de sa commande. Tenu pour servi, il n'était jamais repris par la
-    // reprise de la modification, et son camion n'était pas envoyé.
-    const rangsServis = new Set(
-      avecRef.filter((t) => t.statut !== 'planifiee').map((t) => t.rang),
-    );
+    // BL-P1-RM-03 — augmentation N→N+k : créer, via dispatchCollecte
+    // (idempotent, repart du curseur du rang, clé d'idempotence
+    // reference-{rang}), la commande de tout rang de 1..N qui n'en a pas. Une
+    // grosse collecte dont Ops augmente N a ainsi une commande par camion. La
+    // boucle joue à CHAQUE modification, pas seulement quand N augmente.
+    // Servi = une commande enregistrée : la tournée, l'Admin la compose dans la
+    // console MTS-1 (décision Val 2026-10-15). « Sans commande » couvre le rang
+    // refusé puis réattribué : fn_dispatcher_collecte efface sa commande
+    // (arbitrage Val 2026-09-17), il doit repartir.
+    const rangsServis = new Set(avecRef.map((t) => t.rang));
     for (let rang = 1; rang <= n; rang++) {
       if (!rangsServis.has(rang)) {
         await this.dispatchCollecte(collecte, rang, {
@@ -669,9 +642,6 @@ export class AdapterMts1 implements LogistiqueProvider {
     // incluses, jour compté à Paris — mesuré le 2026-10-13) : la fenêtre
     // d'instants du cron est élargie aux jours qu'elle touche. Envoyer les
     // instants eux-mêmes faisait répondre 500 à MTS-1 à chaque passage.
-    // ⚠ Non traité ici : le cron ne recule que de 2 h, donc une commande du jour J
-    // n'est plus demandée après 2 h du matin à J+1. Un statut terminal posé plus
-    // tard n'est pas relevé (à arbitrer par Val, avec les pesées et les photos).
     const orders = await this.client.scanOrdersByDateRange(
       jourParis(fenetre.depuis),
       jourParis(fenetre.jusqu_a),
@@ -690,63 +660,14 @@ export class AdapterMts1 implements LogistiqueProvider {
   }
 
   private async processOrder(
-    order: import('./mock.js').Mts1CustomerOrder,
+    order: Mts1CustomerOrder,
     fluxById: Map<string, string>,
     seuils: { min: number; max: number },
   ): Promise<void> {
-    // 1. Claim — dédup intra-run et inter-polls sur le même statut.
-    // OUTBOX-04 : claim ATOMIQUE via upsert ON CONFLICT DO NOTHING (UNIQUE
-    // (source, event_id_externe)). Un run concurrent qui a déjà pris la clé →
-    // 0 ligne retournée (PAS une 23505 avalée). Toute AUTRE erreur (réseau,
-    // contrainte tierce) DOIT remonter — sinon elle serait confondue avec
-    // « déjà traité » → perte silencieuse d'event (§08 §3bis.7, R10).
-    const eventKey = `mts1:${order.customerOrderId}:${order.customerOrderStatus}`;
-    const { data: claimed, error: claimError } = await this.supabase
-      .from('integrations_inbox')
-      .upsert(
-        {
-          source: 'mts1',
-          event_type: 'order_status',
-          event_id_externe: eventKey,
-          payload: {
-            orderId: order.customerOrderId,
-            status: order.customerOrderStatus,
-          },
-        },
-        { onConflict: 'source,event_id_externe', ignoreDuplicates: true },
-      )
-      .select('id')
-      .limit(1);
-
-    if (claimError && claimError.code !== '23505') {
-      throw new Error(
-        `integrations_inbox claim échoué (${claimError.code ?? '?'}): ${claimError.message}`,
-      );
-    }
-
-    let inboxId: string;
-    if (claimed?.length) {
-      inboxId = claimed[0]!.id as string;
-    } else {
-      // A4-A2 : la clé existe déjà (ON CONFLICT). On NE skippe QUE si l'event a
-      // été ENTIÈREMENT traité (traite=true). Sinon — crash d'un run précédent
-      // entre l'upsert des pesées et markInboxDone — la simple présence de la clé
-      // faisait skipper à jamais : la collecte ne passait jamais realisee (ni batch
-      // J+1, ni bordereau). On REJOUE tant que traite=false : tous les effets sont
-      // idempotents (update statut par id, upsert pesées par clé, agrégation
-      // FOR UPDATE), donc le rejeu est sûr et finit par confirmer le traitement.
-      const { data: existing } = await this.supabase
-        .from('integrations_inbox')
-        .select('id, traite')
-        .eq('source', 'mts1')
-        .eq('event_id_externe', eventKey)
-        .maybeSingle();
-
-      if (!existing || existing.traite === true) {
-        return; // déjà entièrement traité (ou ligne absente)
-      }
-      inboxId = existing.id as string;
-    }
+    // 1. Réservation du STATUT — dédup intra-run et inter-polls sur le même
+    // statut. `null` : ce statut est déjà entièrement traité. Le tour, lui, est
+    // relu à chaque passage (étape 4).
+    const inboxId = await this.reserverStatut(order);
 
     try {
       // 2. Trouver la tournée liée à cet ordre
@@ -755,197 +676,456 @@ export class AdapterMts1 implements LogistiqueProvider {
       );
       if (!tourneeInfo) {
         // Commande MTS-1 sans tournée Savr associée → on l'ignore (pas dans notre système)
-        await this.markInboxDone(inboxId);
+        if (inboxId) await this.markInboxDone(inboxId);
         return;
       }
-      const { collecteId, tourneeId, tmsReference, collecteStatut } =
-        tourneeInfo;
+      const {
+        collecteId,
+        tourneeId,
+        tourneeStatut,
+        tmsReference,
+        collecteStatut,
+      } = tourneeInfo;
+      const enExecution = (
+        STATUTS_COLLECTE_EN_EXECUTION as readonly string[]
+      ).includes(collecteStatut);
 
-      // 3. Mise à jour statut_tms — seulement sur une collecte en cours
-      // d'exécution. Garde dans le WHERE (le statut lu plus haut peut avoir
-      // changé) : un ordre CANCELED/KO remonté après une annulation Savr ne
-      // réécrit pas le statut_tms d'une collecte annulée ou en demande
-      // d'annulation (arbitrage Val 2026-09-17).
-      const nouveauStatutTms =
-        MTS1_STATUS_TO_TMS[order.customerOrderStatus] ?? null;
-      if (nouveauStatutTms) {
-        await this.supabase
-          .from('collectes')
-          .update({
-            statut_tms: nouveauStatutTms,
-            statut_tms_at: new Date().toISOString(),
-          })
-          .eq('id', collecteId)
-          .in('statut', [...STATUTS_COLLECTE_EN_EXECUTION]);
+      if (inboxId) {
+        // 3. Mise à jour statut_tms — seulement sur une collecte en cours
+        // d'exécution. Garde dans le WHERE (le statut lu plus haut peut avoir
+        // changé) : un ordre CANCELED/KO remonté après une annulation Savr ne
+        // réécrit pas le statut_tms d'une collecte annulée ou en demande
+        // d'annulation (arbitrage Val 2026-09-17).
+        const nouveauStatutTms =
+          MTS1_STATUS_TO_TMS[order.customerOrderStatus] ?? null;
+        if (nouveauStatutTms) {
+          await this.supabase
+            .from('collectes')
+            .update({
+              statut_tms: nouveauStatutTms,
+              statut_tms_at: new Date().toISOString(),
+            })
+            .eq('id', collecteId)
+            .in('statut', [...STATUTS_COLLECTE_EN_EXECUTION]);
+        }
+
+        // IN_PROGRESSION → passage direct collectes.statut → 'en_cours'
+        if (
+          order.customerOrderStatus === 'IN_PROGRESSION' &&
+          ['programmee', 'validee'].includes(collecteStatut)
+        ) {
+          await this.supabase
+            .from('collectes')
+            .update({ statut: 'en_cours' })
+            .eq('id', collecteId)
+            .in('statut', ['programmee', 'validee']);
+        }
       }
 
-      // IN_PROGRESSION → passage direct collectes.statut → 'en_cours'
+      // 4. Détail du tour, relu à CHAQUE passage (décision Val 2026-10-13, §08
+      // §3bis.7), que le statut de la commande ait changé ou non : une pesée
+      // corrigée ou une photo arrivée après la fin du tour doit être vue. Le tour
+      // lu est celui que la commande désigne (`currentTour.tourId`, cohérent sur
+      // le compte de démonstration le 2026-10-13), à défaut celui qu'a créé
+      // l'envoi : sur la collecte de test à deux camions, la commande du rang 2
+      // est sur le tour du rang 1, et le sien est vide.
+      const tourDesigne = order.currentTour?.tourId;
+      const tourId =
+        typeof tourDesigne === 'string' && tourDesigne !== ''
+          ? tourDesigne
+          : tmsReference;
+      const lecture = tourId
+        ? await this.processTourDetails(
+            tourId,
+            order.customerOrderId,
+            tourneeId,
+            collecteId,
+            collecteStatut,
+            fluxById,
+            seuils,
+          )
+        : null;
+
+      // 4bis. Transporteur et attribution, lus sur la tournée à CHAQUE passage :
+      // c'est l'Admin qui compose la tournée et l'envoie au transporteur dans la
+      // console MTS-1 (décisions Val 2026-10-15). Sur une collecte en cours
+      // d'exécution, et pas sur une commande refusée (étape 3 et 5).
       if (
-        order.customerOrderStatus === 'IN_PROGRESSION' &&
-        ['programmee', 'validee'].includes(collecteStatut)
+        enExecution &&
+        !STATUTS_COMMANDE_MORTE.has(order.customerOrderStatus)
       ) {
-        await this.supabase
-          .from('collectes')
-          .update({ statut: 'en_cours' })
-          .eq('id', collecteId)
-          .in('statut', ['programmee', 'validee']);
-      }
-
-      // 4. Récupérer les détails du tour si tms_reference connu
-      if (tmsReference) {
-        await this.processTourDetails(
-          tmsReference,
-          tourneeId,
-          collecteId,
-          collecteStatut,
-          fluxById,
-          seuils,
+        if (lecture) {
+          await this.suivreTransporteur(lecture.tour, tourneeInfo, collecteId);
+        }
+        await this.suivreAttribution(
+          tourneeInfo,
+          order.customerOrderId,
+          tourId,
+          lecture?.tour ?? null,
         );
       }
 
-      // 5. Statuts terminaux MTS-1 → mise à jour tournée + agrégation (M1.8/M1.5c)
-      // A7 : 'OK' = succès terminal réel (as-built §7), pas 'DELIVERED'.
-      const MTS1_TERMINAUX = new Set(['OK', 'PARTIAL', 'CANCELED', 'KO']);
-      if (MTS1_TERMINAUX.has(order.customerOrderStatus)) {
-        const nouveauStatutTournee =
-          order.customerOrderStatus === 'CANCELED' ||
-          order.customerOrderStatus === 'KO'
-            ? 'annulee'
-            : 'terminee';
+      // 5. Fin de mission du camion → tournée terminale, puis agrégation de la
+      // collecte (M1.8/M1.5c). Deux lectures de la fin (décision Val 2026-10-13) :
+      //   - le statut de la commande, traité une fois, à son arrivée : `OK` /
+      //     `PARTIAL` (succès réel, as-built §7), `CANCELED` / `KO` (refus) ;
+      //   - `FINISHED` sur l'arrêt d'enlèvement, quel que soit le statut : sur les
+      //     3 tours terminés du compte de démonstration, la commande est `OK` une
+      //     fois, `VALIDATED` une fois, `ARCHIVED` une fois. Lue à chaque passage,
+      //     elle ne joue que tant que la collecte est en cours d'exécution.
+      const statutCommande = order.customerOrderStatus;
+      const refusee = statutCommande === 'CANCELED' || statutCommande === 'KO';
+      const finParStatut =
+        inboxId !== null &&
+        (statutCommande === 'OK' || statutCommande === 'PARTIAL');
+      const finParArret =
+        !refusee && lecture?.missionTerminee === true && enExecution;
 
-        await this.supabase
-          .from('tournees')
-          .update({ statut: nouveauStatutTournee })
-          .eq('id', tourneeId);
+      if ((refusee && inboxId !== null) || finParStatut || finParArret) {
+        const nouveauStatutTournee = refusee ? 'annulee' : 'terminee';
+        if (tourneeStatut !== nouveauStatutTournee) {
+          const { error: erreurTournee } = await this.supabase
+            .from('tournees')
+            .update({ statut: nouveauStatutTournee })
+            .eq('id', tourneeId);
+          if (erreurTournee) {
+            throw new LogistiqueTransientError(
+              `Tournée ${tourneeId} non passée « ${nouveauStatutTournee} » — ${erreurTournee.message}`,
+            );
+          }
+        }
 
-        // Agrégation concurrente-sûre : RPC avec FOR UPDATE (R5/R6 CLAUDE.md §4)
-        const { data: agrResultat } = await this.supabase
-          .rpc('fn_agreger_terminal_collecte', { p_collecte_id: collecteId })
-          .single();
+        const agrResultat = await this.agregerCollecte(collecteId);
 
         // KO partiel : ce tour était KO/CANCELED mais d'autres étaient OK → alerte in-app
-        if (
-          agrResultat === 'realisee' &&
-          (order.customerOrderStatus === 'CANCELED' ||
-            order.customerOrderStatus === 'KO')
-        ) {
+        if (agrResultat === 'realisee' && refusee) {
           await this.supabase.rpc('f_upsert_alerte_admin', {
             p_code: 'collecte_partiellement_servie',
             p_titre: 'Collecte partiellement servie',
-            p_message: `Un camion n'a pas pu collecter (statut MTS-1 ${order.customerOrderStatus}).`,
+            p_message: `Un camion n'a pas pu collecter (statut MTS-1 ${statutCommande}).`,
             p_entity_type: 'collectes',
             p_entity_id: collecteId,
           });
         }
+      } else if (lecture?.peseesModifiees && collecteStatut === 'realisee') {
+        // Pesée arrivée ou corrigée après la fin du tour, avant la clôture :
+        // `collecte_flux` est un dérivé, que seule l'agrégation recalcule.
+        await this.agregerCollecte(collecteId);
       }
 
-      await this.markInboxDone(inboxId);
+      // 6. Photos, en dernier, à chaque passage, après le traitement de la fin de
+      // mission : une photo lente ou en échec ne retarde ni les pesées ni la fin
+      // de mission (non bloquant, retentée au passage suivant).
+      if (lecture && tourId) {
+        await this.processPhotos(
+          lecture.tour,
+          tourId,
+          order.customerOrderId,
+          collecteId,
+        );
+      }
+
+      if (inboxId) await this.markInboxDone(inboxId);
     } catch (err) {
-      await this.supabase
-        .from('integrations_inbox')
-        .update({ erreur: String(err) })
-        .eq('id', inboxId);
+      if (inboxId) {
+        await this.supabase
+          .from('integrations_inbox')
+          .update({ erreur: String(err) })
+          .eq('id', inboxId);
+      }
       throw err;
     }
   }
 
+  /**
+   * Réserve le traitement d'un STATUT de commande — clé `(source, commande,
+   * statut)` dans integrations_inbox (§08 §3bis.7). Rend l'identifiant de la
+   * ligne à traiter, ou `null` si ce statut est déjà entièrement traité.
+   *
+   * INSERT nu : l'index unique `uniq_inbox_event_externe` arbitre, de deux
+   * passages qui découvrent le même statut un seul insère et l'autre reçoit
+   * 23505 (OUTBOX-04, pas de lecture-puis-écriture). Ce n'est pas une exclusion :
+   * le second rejoue le statut tant qu'il n'est pas marqué traité (effets
+   * idempotents), et la relève n'a pas de verrou de passage. ⚠ Pas
+   * d'`upsert … onConflict` : cet index est
+   * PARTIEL (`WHERE event_id_externe IS NOT NULL`) et PostgreSQL ne l'infère pas
+   * sans son prédicat. Mesuré le 2026-10-13 sur la base locale, en SQL comme par
+   * l'API : 42P10, « no unique or exclusion constraint matching the ON CONFLICT
+   * specification ». Écrite en upsert, la réservation échouait pour chaque
+   * commande sur une base réelle, et rien n'était relevé.
+   *
+   * Toute autre erreur que 23505 remonte (réseau, contrainte tierce) : la lire
+   * comme « déjà traité » perdrait le statut sans trace (§08 §3bis.7, R10).
+   */
+  private async reserverStatut(
+    order: Mts1CustomerOrder,
+  ): Promise<string | null> {
+    const eventKey = `mts1:${order.customerOrderId}:${order.customerOrderStatus}`;
+    const { data: reservee, error } = await this.supabase
+      .from('integrations_inbox')
+      .insert({
+        source: 'mts1',
+        event_type: 'order_status',
+        event_id_externe: eventKey,
+        payload: {
+          orderId: order.customerOrderId,
+          status: order.customerOrderStatus,
+        },
+      })
+      .select('id')
+      .limit(1);
+
+    if (!error) {
+      const id = reservee?.[0]?.id as string | undefined;
+      if (!id) {
+        throw new Error(
+          `integrations_inbox : réservation de ${eventKey} sans ligne rendue`,
+        );
+      }
+      return id;
+    }
+    if (error.code !== '23505') {
+      throw new Error(
+        `integrations_inbox claim échoué (${error.code ?? '?'}): ${error.message}`,
+      );
+    }
+
+    // A4-A2 : la clé existe déjà. On NE saute le statut QUE s'il a été
+    // ENTIÈREMENT traité (traite=true). Sinon — crash d'un run précédent entre
+    // l'upsert des pesées et markInboxDone — la simple présence de la clé
+    // faisait sauter le statut à jamais : la collecte ne passait jamais realisee
+    // (ni batch J+1, ni bordereau). On REJOUE tant que traite=false : tous les
+    // effets sont idempotents (update statut par id, upsert pesées par clé,
+    // agrégation FOR UPDATE), donc le rejeu est sûr et finit par confirmer le
+    // traitement.
+    const { data: existing } = await this.supabase
+      .from('integrations_inbox')
+      .select('id, traite')
+      .eq('source', 'mts1')
+      .eq('event_id_externe', eventKey)
+      .maybeSingle();
+
+    if (!existing || existing.traite === true) return null;
+    return existing.id as string;
+  }
+
+  // Agrégation concurrente-sûre de la collecte : RPC avec FOR UPDATE (R5/R6
+  // CLAUDE.md §4). Idempotente : rappelée sur une collecte déjà « réalisée », elle
+  // ne fait que recalculer `collecte_flux` depuis les pesées, et rien du tout
+  // après clôture.
+  private async agregerCollecte(collecteId: string): Promise<unknown> {
+    const { data, error } = await this.supabase
+      .rpc('fn_agreger_terminal_collecte', { p_collecte_id: collecteId })
+      .single();
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Agrégation de la collecte ${collecteId} échouée — ${error.message}`,
+      );
+    }
+    return data;
+  }
+
+  /**
+   * Détail d'un tour, pour UNE commande : plaque et chauffeur, pesées de son
+   * arrêt d'enlèvement. Rend le tour (ses photos sont relevées en dernier, après
+   * le traitement de la fin de mission), et dit si la mission de la commande est terminée (`FINISHED` sur
+   * l'arrêt d'enlèvement) et si une pesée a été écrite ou modifiée.
+   */
   private async processTourDetails(
     tourId: string,
+    customerOrderId: string,
     tourneeId: string,
     collecteId: string,
     collecteStatut: string,
     fluxById: Map<string, string>,
     seuils: { min: number; max: number },
-  ): Promise<void> {
+  ): Promise<{
+    tour: Mts1Tour;
+    missionTerminee: boolean;
+    peseesModifiees: boolean;
+  }> {
     const tour = await this.client.getTour(tourId);
 
     // BL-P1-API-03 — résoudre plaque + chauffeur depuis le référentiel carrier.
     await this.resolveCarrierForTournee(tour, tourneeId);
 
-    // `stops` est absent quand MTS-1 ne connaît pas le tour : il répond alors 200
-    // avec un objet creux (mesuré le 2026-10-13 ; un tour sans commande porte,
-    // lui, `stops: []`). Sans ce repli, la lecture levait ici, avant le
-    // traitement du statut terminal de la commande.
-    for (const stop of tour.stops ?? []) {
-      if (!stop.items?.length) continue;
+    // `stops` est absent quand MTS-1 ne connaît pas le tour (200 avec un objet
+    // creux) et vide pour un tour sans commande : dans les deux cas aucun arrêt
+    // ne sert la commande, rien n'est lu et le traitement du statut continue.
+    const enlevement = arretEnlevement(tour, customerOrderId);
+    const peseesModifiees = enlevement
+      ? await this.relevePesees(
+          enlevement,
+          tourneeId,
+          collecteId,
+          collecteStatut,
+          fluxById,
+          seuils,
+        )
+      : false;
 
-      for (const item of stop.items) {
-        const fluxCode = STUFF_TO_FLUX[item.stuff];
+    return {
+      tour,
+      missionTerminee: (enlevement?.customerOrders ?? []).some(
+        (c) =>
+          c?.customerOrderId === customerOrderId &&
+          c.customerOrderProgressionStatus === 'FINISHED',
+      ),
+      peseesModifiees,
+    };
+  }
 
-        // Volume du camion → ignorer silencieusement
-        if (fluxCode === '_ignore') continue;
+  /**
+   * Pesées de l'arrêt d'enlèvement → `pesees_tournees`, clé `(tournée, arrêt,
+   * flux)`. Rend `true` si une pesée a été écrite ou modifiée.
+   *
+   * Le poids d'un flux est `quantityAfterPickup` (décision Val 2026-10-13 ;
+   * mesuré sur UN tour de déchets terminé : 17, 2, 35, 9 et 19 kg, `quantity` et
+   * `measurement.weight` à 0 ; non recoupé avec ce que lit Bubble). `null` : le
+   * chauffeur n'a rien saisi. 0 : flux non pesé, aucune ligne (décision Val
+   * 2026-10-13) — un tour validé sans saisie ne doit pas produire un bordereau à
+   * 0 kg ; ce que MTS-1 renvoie dans ce cas n'est pas mesuré.
+   *
+   * Relue à chaque passage : une pesée inchangée n'écrit rien et ne lève aucune
+   * alerte ; une pesée nouvelle ou modifiée écrase la précédente tant que la
+   * collecte n'est pas clôturée.
+   */
+  private async relevePesees(
+    enlevement: Mts1TourStop,
+    tourneeId: string,
+    collecteId: string,
+    collecteStatut: string,
+    fluxById: Map<string, string>,
+    seuils: { min: number; max: number },
+  ): Promise<boolean> {
+    const stopId = enlevement.stopId;
+    // Par flux : un même flux répété sur l'arrêt (jamais mesuré, Savr n'envoie
+    // chaque flux qu'une fois) garde sa dernière valeur, plutôt que d'en écrire
+    // deux à tour de rôle à chaque passage.
+    const lues = new Map<
+      string,
+      { fluxId: string; fluxCode: string; poids: number }
+    >();
+    for (const stuff of enlevement.stuffs ?? []) {
+      if (!stuff) continue;
+      const fluxCode = STUFF_TO_FLUX[stuff.name];
 
-        // Stuff inconnu → alerte Ops in-app
-        if (fluxCode === undefined) {
-          await this.logEntrantError(
-            'STUFF_INCONNU',
-            `tournee=${tourneeId} stop=${stop.stopId} stuff="${item.stuff}"`,
-          );
-          continue;
-        }
+      // Camion, don alimentaire → ignorer silencieusement
+      if (fluxCode === '_ignore') continue;
 
-        const fluxId = fluxById.get(fluxCode);
-        if (!fluxId || item.weight === null) continue;
-
-        // Divergence post-clôture → aucune écriture
-        if (collecteStatut === 'cloturee') {
-          const { data: existante } = await this.supabase
-            .from('pesees_tournees')
-            .select('poids_kg')
-            .eq('tournee_id', tourneeId)
-            .eq('stop_id', stop.stopId)
-            .eq('flux_id', fluxId)
-            .maybeSingle();
-
-          if (
-            existante &&
-            Math.abs((existante.poids_kg as number) - item.weight) > 0.001
-          ) {
-            // BL-P2-37 : 2 sorties attendues (§08 §3bis.7 l.442) — trace technique
-            // integrations_logs ET alerte Ops in-app (sans ce signal, la vérité
-            // MTS-1 diverge silencieusement du bordereau réglementaire).
-            await this.logEntrantError(
-              'PESEE_DIVERGENCE_POST_CLOTURE',
-              `tournee=${tourneeId} stop=${stop.stopId} flux=${fluxCode} local=${String(existante.poids_kg)} distant=${item.weight}`,
-            );
-            await this.supabase.rpc('f_upsert_alerte_admin', {
-              p_code: 'pesee_divergence_post_cloture',
-              p_titre: 'Divergence pesée post-clôture',
-              p_message: `Poids MTS-1 (${item.weight} kg) ≠ poids local (${String(existante.poids_kg)} kg) sur une collecte clôturée — tournée ${tourneeId} stop ${stop.stopId} flux ${fluxCode}. Correction = édition + recalcul + avoir (§05).`,
-              p_entity_type: 'collectes',
-              p_entity_id: collecteId,
-            });
-          }
-          continue; // jamais d'écriture sur collecte clôturée
-        }
-
-        // Upsert pesée (idempotent — écrasement si poids modifié)
-        await this.supabase.from('pesees_tournees').upsert(
-          {
-            tournee_id: tourneeId,
-            stop_id: stop.stopId,
-            flux_id: fluxId,
-            poids_kg: item.weight,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'tournee_id,stop_id,flux_id' },
+      // Stuff inconnu → trace
+      if (fluxCode === undefined) {
+        await this.logEntrantError(
+          'STUFF_INCONNU',
+          `tournee=${tourneeId} stop=${stopId} stuff="${stuff.name}"`,
         );
+        continue;
+      }
 
-        // Alerte in-app si pesée hors seuil (pas d'email, pas de Slack — §13 CLAUDE.md)
-        if (item.weight < seuils.min || item.weight > seuils.max) {
+      const fluxId = fluxById.get(fluxCode);
+      const poids = stuff.quantityAfterPickup;
+      if (!fluxId || typeof poids !== 'number' || !(poids > 0)) continue;
+      lues.set(fluxId, { fluxId, fluxCode, poids });
+    }
+    if (lues.size === 0) return false;
+
+    const { data: existantes, error: erreurLecture } = await this.supabase
+      .from('pesees_tournees')
+      .select('flux_id, poids_kg')
+      .eq('tournee_id', tourneeId)
+      .eq('stop_id', stopId);
+    if (erreurLecture) {
+      throw new LogistiqueTransientError(
+        `Lecture des pesées de la tournée ${tourneeId} échouée — ${erreurLecture.message}`,
+      );
+    }
+    const locales = new Map(
+      (existantes ?? []).map((p) => [p.flux_id as string, Number(p.poids_kg)]),
+    );
+
+    let modifiees = false;
+    for (const { fluxId, fluxCode, poids } of lues.values()) {
+      const local = locales.get(fluxId);
+      if (local !== undefined && Math.abs(local - poids) <= 0.001) continue;
+
+      // Collecte clôturée → aucune écriture (R7). Le poids distant qui diffère du
+      // poids local (ou qui n'a pas de poids local) est signalé UNE fois par
+      // valeur : relue toutes les 15 minutes, la même divergence rouvrirait
+      // l'alerte à chaque passage après que l'Admin l'a traitée.
+      if (collecteStatut === 'cloturee') {
+        const cle = `mts1:divergence:${tourneeId}:${stopId}:${fluxId}:${poids}`;
+        if (await this.premiereFois('pesee_divergence_post_cloture', cle)) {
+          const poidsLocal = local === undefined ? 'aucun' : `${local} kg`;
+          // BL-P2-37 : 2 sorties attendues (§08 §3bis.7) — trace technique
+          // integrations_logs ET alerte Ops in-app (sans ce signal, la vérité
+          // MTS-1 diverge silencieusement du bordereau réglementaire).
+          await this.logEntrantError(
+            'PESEE_DIVERGENCE_POST_CLOTURE',
+            `tournee=${tourneeId} stop=${stopId} flux=${fluxCode} local=${poidsLocal} distant=${poids}`,
+          );
           await this.supabase.rpc('f_upsert_alerte_admin', {
-            p_code: 'pesee_hors_seuil',
-            p_titre: 'Pesée hors seuil',
-            p_message: `Poids ${item.weight} kg hors seuil [${seuils.min}–${seuils.max}] — tournée ${tourneeId} stop ${stop.stopId}.`,
+            p_code: 'pesee_divergence_post_cloture',
+            p_titre: 'Divergence pesée post-clôture',
+            p_message: `Poids MTS-1 (${poids} kg) ≠ poids local (${poidsLocal}) sur une collecte clôturée — tournée ${tourneeId} stop ${stopId} flux ${fluxCode}. Correction = édition + recalcul + avoir (§05).`,
             p_entity_type: 'collectes',
             p_entity_id: collecteId,
           });
         }
+        continue;
+      }
+
+      // Upsert pesée (idempotent — écrasement si poids modifié). L'erreur est
+      // lue : une pesée non écrite passée sous silence, c'est un bordereau faux.
+      const { error: erreurEcriture } = await this.supabase
+        .from('pesees_tournees')
+        .upsert(
+          {
+            tournee_id: tourneeId,
+            stop_id: stopId,
+            flux_id: fluxId,
+            poids_kg: poids,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'tournee_id,stop_id,flux_id' },
+        );
+      if (erreurEcriture) {
+        throw new LogistiqueTransientError(
+          `Pesée non écrite (tournée ${tourneeId}, flux ${fluxCode}) — ${erreurEcriture.message}`,
+        );
+      }
+      modifiees = true;
+
+      // Alerte in-app si pesée hors seuil (pas d'email, pas de Slack — §13 CLAUDE.md)
+      if (poids < seuils.min || poids > seuils.max) {
+        await this.supabase.rpc('f_upsert_alerte_admin', {
+          p_code: 'pesee_hors_seuil',
+          p_titre: 'Pesée hors seuil',
+          p_message: `Poids ${poids} kg hors seuil [${seuils.min}–${seuils.max}] — tournée ${tourneeId} stop ${stopId}.`,
+          p_entity_type: 'collectes',
+          p_entity_id: collecteId,
+        });
       }
     }
+    return modifiees;
+  }
 
-    // Téléchargement photos (non bloquant)
-    await this.processPhotos(tourId, collecteId);
+  // `true` la première fois qu'un signal de cette clé est posé, `false` ensuite.
+  // La mémoire est integrations_inbox, la table de dédup des événements entrants
+  // (même INSERT nu que reserverStatut, 23505 = déjà signalé). Dans le doute
+  // (autre erreur), on signale. Cette mémoire, comme les réservations de statut,
+  // est purgée à 7 jours : elle tient tant que la fenêtre de relève (cron
+  // polling-mts1) reste plus courte.
+  private async premiereFois(eventType: string, cle: string): Promise<boolean> {
+    const maintenant = new Date().toISOString();
+    const { error } = await this.supabase.from('integrations_inbox').insert({
+      source: 'mts1',
+      event_type: eventType,
+      event_id_externe: cle,
+      payload: {},
+      traite: true,
+      traite_at: maintenant,
+    });
+    return error?.code !== '23505';
   }
 
   // BL-P1-API-03 — peuple tournees.plaque_immatriculation + chauffeur_nom (+ le
@@ -1029,84 +1209,410 @@ export class AdapterMts1 implements LogistiqueProvider {
     await this.supabase.from('tournees').update(updates).eq('id', tourneeId);
   }
 
-  private async processPhotos(
-    tourId: string,
+  /**
+   * Transporteur réellement choisi par l'Admin dans la console MTS-1
+   * (`dispatch.carrierShareableCode` de la tournée), reporté sur la tournée du
+   * camion et, pour le rang 1, sur la collecte (décision Val 2026-10-15 : la
+   * plateforme suit MTS-1). Rapproché de `transporteurs.code_transporteur_mts1`,
+   * parmi les seuls transporteurs MTS-1 : la relève ne lit que leurs tournées.
+   * Tournée pas encore envoyée : pas de code, rien à faire. Code illisible,
+   * inconnu ou porté par plusieurs transporteurs : rien n'est changé, alerte
+   * Admin.
+   */
+  private async suivreTransporteur(
+    tour: Mts1Tour,
+    camion: {
+      tourneeId: string;
+      rang: number;
+      prestataireId: string | null;
+      collectePrestataireId: string | null;
+    },
     collecteId: string,
   ): Promise<void> {
-    let photos: import('./mock.js').Mts1Photo[];
-    try {
-      photos = await this.client.getPhotos(tourId);
-    } catch {
-      await this.logEntrantError('PHOTO_LIST_FAILED', `tourId=${tourId}`);
+    const code: unknown = tour.dispatch?.carrierShareableCode;
+    if (code === undefined || code === null || code === '') return;
+
+    let prestataires: string[] = [];
+    if (estIdentifiantMts1(code)) {
+      const { data, error } = await this.supabase
+        .from('transporteurs')
+        .select('prestataire_logistique_id')
+        .eq('code_transporteur_mts1', code)
+        .in('prestataire_logistique_id', [...(await this.prestatairesMts1())]);
+      if (error) {
+        throw new LogistiqueTransientError(
+          `Transporteur de la tournée de la collecte ${collecteId} non lu — ${error.message}`,
+        );
+      }
+      prestataires = [
+        ...new Set(
+          ((data ?? []) as Array<{ prestataire_logistique_id: string }>).map(
+            (t) => t.prestataire_logistique_id,
+          ),
+        ),
+      ];
+    }
+    const prestataire = prestataires.length === 1 ? prestataires[0] : undefined;
+    if (!prestataire) {
+      await this.supabase.rpc('f_upsert_alerte_admin', {
+        p_code: 'transporteur_mts1_inconnu',
+        p_titre: 'Transporteur MTS-1 inconnu du référentiel',
+        p_message: `La tournée de cette collecte est confiée dans MTS-1 au transporteur ${
+          estIdentifiantMts1(code) ? code : '(code illisible)'
+        }, ${
+          prestataires.length > 1
+            ? 'que portent plusieurs transporteurs du référentiel Savr'
+            : 'absent du référentiel Savr'
+        } : le transporteur de la fiche n'a pas été mis à jour.`,
+        p_entity_type: 'collectes',
+        p_entity_id: collecteId,
+      });
       return;
     }
 
-    for (const photo of photos) {
-      const storageKey = clePhoto(collecteId, photo);
-
-      // Dédup : photo déjà uploadée ?
-      const { data: existante } = await this.supabase
-        .schema('shared')
-        .from('fichiers')
-        .select('id')
-        .eq('key', storageKey)
-        .maybeSingle();
-
-      if (existante) continue;
-
-      // Téléchargement binaire
-      let buffer: Buffer | null;
-      try {
-        buffer = await this.client.downloadPhoto(photo.url);
-      } catch {
-        await this.logEntrantError(
-          'PHOTO_DOWNLOAD_FAILED',
-          `tourId=${tourId} stopId=${photo.stopId} photoId=${photo.photoId}`,
+    if (prestataire !== camion.prestataireId) {
+      const { error } = await this.supabase
+        .from('tournees')
+        .update({ prestataire_logistique_id: prestataire })
+        .eq('id', camion.tourneeId);
+      if (error) {
+        throw new LogistiqueTransientError(
+          `Transporteur de la tournée ${camion.tourneeId} non écrit — ${error.message}`,
         );
-        continue;
       }
-
-      if (buffer === null) {
-        // 404 → log non bloquant, retentée au prochain changement de statut
-        await this.logEntrantError(
-          'PHOTO_DOWNLOAD_FAILED',
-          `404 tourId=${tourId} stopId=${photo.stopId} photoId=${photo.photoId}`,
+    }
+    // La collecte ne suit que si elle est encore confiée à un transporteur MTS-1 :
+    // confiée depuis à un autre prestataire (par mail, A Toutes!), une commande
+    // MTS-1 restée vivante ne doit pas la ramener chez MTS-1 (la modification
+    // suivante partirait vers MTS-1 et y commanderait un camion).
+    const mts1 = [...(await this.prestatairesMts1())];
+    if (
+      camion.rang === 1 &&
+      prestataire !== camion.collectePrestataireId &&
+      camion.collectePrestataireId !== null &&
+      mts1.includes(camion.collectePrestataireId)
+    ) {
+      const { error } = await this.supabase
+        .from('collectes')
+        .update({ prestataire_logistique_id: prestataire })
+        .eq('id', collecteId)
+        .in('statut', [...STATUTS_COLLECTE_EN_EXECUTION])
+        .in('prestataire_logistique_id', mts1);
+      if (error) {
+        throw new LogistiqueTransientError(
+          `Transporteur de la collecte ${collecteId} non écrit — ${error.message}`,
         );
-        continue;
       }
+    }
+  }
 
-      // Upload R2 D'ABORD, pointeur shared.fichiers ENSUITE : si l'upload échoue
-      // (credentials absents, rejet R2), on log + on saute sans INSERT → JAMAIS de
-      // ligne shared.fichiers orpheline pointant un objet inexistant (BL-P0-02).
-      // Non bloquant pour le poll : la photo est retentée au prochain passage.
-      // Le bucket persisté est celui que l'upload a réellement écrit (bucket de
-      // l'environnement) ; la clé est celle de `clePhoto`
-      // (`photos/collectes/<collecteId>/<empreinte>.jpg`).
-      let bucket: string;
-      try {
-        bucket = await this.uploadPhotoToR2(storageKey, buffer);
-      } catch {
-        await this.logEntrantError(
-          'PHOTO_UPLOAD_FAILED',
-          `tourId=${tourId} stopId=${photo.stopId} photoId=${photo.photoId}`,
+  /**
+   * Statut logistique de la collecte, tiré de l'attribution de ses camions
+   * (NIVEAU_ATTRIBUTION) : le moins avancé l'emporte, une collecte à plusieurs
+   * camions n'est « acceptée » que quand tous le sont (décision Val 2026-10-15,
+   * C47). Les autres camions sont relus chez MTS-1 (leur commande, puis sa
+   * tournée) : un camion que ce passage ne lit pas n'est jamais supposé accepté.
+   * Écrit seulement sur une collecte à valider ou validée, et depuis l'un des
+   * trois statuts de l'attribution : jamais sur un refus, une annulation, ni une
+   * collecte « non envoyée ». Une tournée dans un état non mesuré : rien n'est
+   * conclu.
+   *
+   * Seulement quand l'état de la tournée de CETTE commande change (tournée et
+   * niveau), comme les statuts de commande (reserverStatut) : une collecte
+   * remise « en attente d'acceptation » par une modification de sa date ou de
+   * son heure (§08 « réacceptation requise ») y reste tant que MTS-1 ne montre
+   * rien de nouveau. Le dernier état vu est gardé par commande dans
+   * integrations_inbox (purgée à 7 jours, comme les statuts), et n'est noté
+   * qu'après l'écriture : une écriture en échec est rejouée au passage suivant.
+   */
+  private async suivreAttribution(
+    collecte: {
+      collecteId: string;
+      collecteStatut: string;
+      collecteStatutTms: string | null;
+      collectePrestataireId: string | null;
+      tourneeId: string;
+    },
+    customerOrderId: string,
+    tourId: string | null,
+    tour: Mts1Tour | null,
+  ): Promise<void> {
+    const { collecteId, tourneeId } = collecte;
+    // Gardes lues d'abord sur la collecte rapprochée, puis rejouées dans la
+    // requête d'écriture. Hors garde, rien n'est écrit ni noté : l'état sera
+    // relevé quand la collecte y entrera. Collecte confiée depuis à un autre
+    // prestataire que MTS-1 : jamais touchée (cf. suivreTransporteur).
+    const mts1 = [...(await this.prestatairesMts1())];
+    if (
+      !STATUTS_ATTRIBUTION_COLLECTE.includes(collecte.collecteStatut) ||
+      !(STATUT_TMS_PAR_NIVEAU as readonly (string | null)[]).includes(
+        collecte.collecteStatutTms,
+      ) ||
+      collecte.collectePrestataireId === null ||
+      !mts1.includes(collecte.collectePrestataireId)
+    ) {
+      return;
+    }
+    let niveau = await this.niveauAttribution(tour);
+    if (niveau === null) return;
+    const cle = `mts1:attribution:${customerOrderId}`;
+    const etat = `${tourId ?? 'aucune'}:${niveau}`;
+    const { data: vues, error: errVue } = await this.supabase
+      .from('integrations_inbox')
+      .select('id, payload')
+      .eq('source', 'mts1')
+      .eq('event_id_externe', cle)
+      .limit(1);
+    if (errVue) {
+      throw new LogistiqueTransientError(
+        `Attribution de la commande ${customerOrderId} non relue — ${errVue.message}`,
+      );
+    }
+    const vue = (vues ?? [])[0] as
+      | { id: string; payload: { etat?: unknown } | null }
+      | undefined;
+    if (vue?.payload?.etat === etat) return;
+    if (niveau > 0) {
+      const autres = (await this.findTournees(collecteId)).filter(
+        (t) =>
+          t.id !== tourneeId &&
+          t.external_ref_commande !== null &&
+          t.statut !== 'annulee',
+      );
+      const niveauAutres = await this.niveauDesCamions(autres);
+      if (niveauAutres === null) return;
+      niveau = Math.min(niveau, niveauAutres);
+    }
+    const cible = STATUT_TMS_PAR_NIVEAU[niveau];
+    if (!cible) return;
+    if (collecte.collecteStatutTms !== cible) {
+      const { data: ecrites, error } = await this.supabase
+        .from('collectes')
+        .update({
+          statut_tms: cible,
+          statut_tms_at: new Date().toISOString(),
+        })
+        .eq('id', collecteId)
+        .in('statut', STATUTS_ATTRIBUTION_COLLECTE)
+        .in('statut_tms', [...STATUT_TMS_PAR_NIVEAU])
+        .in('prestataire_logistique_id', mts1)
+        .select('id');
+      if (error) {
+        throw new LogistiqueTransientError(
+          `Statut logistique de la collecte ${collecteId} non écrit — ${error.message}`,
         );
-        continue;
       }
+      // Écartée par une garde entre la lecture et l'écriture : rien n'est noté,
+      // l'état sera relu au passage suivant.
+      if (!ecrites?.length) return;
+    }
+    await this.noterAttribution(cle, etat, vue?.id ?? null);
+  }
 
-      // Enregistrement dans shared.fichiers (objet désormais réellement présent sur R2)
-      await this.supabase.schema('shared').from('fichiers').insert({
-        storage_provider: 'r2',
-        bucket,
-        key: storageKey,
-        content_type: 'image/jpeg',
-        size_bytes: buffer.length,
-        // entity_type = table propriétaire (§04 shared.fichiers), ici la collecte :
-        // même valeur que l'import manuel Admin, lue par la galerie de la fiche
-        // collecte et par shared.f_fichier_visible (§09 C1). Toute autre valeur est
-        // refusée par la policy et la photo n'apparaît nulle part.
-        entity_type: 'plateforme.collectes',
-        entity_id: collecteId,
-      });
+  // Dernier état d'attribution vu pour une commande. INSERT nu (index unique
+  // PARTIEL : pas d'upsert, cf. reserverStatut) ; 23505 = un passage voisin l'a
+  // noté à l'instant, son état est le même.
+  private async noterAttribution(
+    cle: string,
+    etat: string,
+    id: string | null,
+  ): Promise<void> {
+    const maintenant = new Date().toISOString();
+    const { error } = id
+      ? await this.supabase
+          .from('integrations_inbox')
+          .update({ payload: { etat }, traite_at: maintenant })
+          .eq('id', id)
+      : await this.supabase.from('integrations_inbox').insert({
+          source: 'mts1',
+          event_type: 'order_attribution',
+          event_id_externe: cle,
+          payload: { etat },
+          traite: true,
+          traite_at: maintenant,
+        });
+    if (error && error.code !== '23505') {
+      throw new LogistiqueTransientError(
+        `Attribution ${cle} non notée — ${error.message}`,
+      );
+    }
+  }
+
+  // Niveau d'attribution d'une tournée ; pas de tournée = 0 (la commande attend
+  // l'Admin). `null` : état non mesuré, tracé une fois par valeur.
+  private async niveauAttribution(
+    tour: Mts1Tour | null,
+  ): Promise<number | null> {
+    if (!tour) return 0;
+    const etat: unknown = tour.status?.dispatch;
+    if (typeof etat === 'string' && Object.hasOwn(NIVEAU_ATTRIBUTION, etat)) {
+      return NIVEAU_ATTRIBUTION[etat] ?? null;
+    }
+    const lisible =
+      typeof etat === 'string' && /^[A-Z_]{1,40}$/.test(etat)
+        ? etat
+        : 'illisible';
+    if (
+      await this.premiereFois('tour_dispatch_inconnu', `dispatch:${lisible}`)
+    ) {
+      await this.logEntrantError(
+        'TOUR_DISPATCH_INCONNU',
+        `status.dispatch ${lisible} : état d'attribution non mesuré, rien n'en est conclu`,
+      );
+    }
+    return null;
+  }
+
+  // Niveau le plus bas parmi ces camions, relus chez MTS-1 (la tournée que
+  // désigne leur commande, à défaut celle de leur ligne). `null` si l'un d'eux
+  // ne se lit pas. Un camion dont la mission est finie compte pour accepté.
+  private async niveauDesCamions(
+    camions: TourneeRow[],
+  ): Promise<number | null> {
+    const aLire = camions.filter((t) => t.statut !== 'terminee');
+    if (aLire.length === 0) return 2;
+    const commandes = await this.client.findOrdersByIds(
+      aLire.map((t) => t.external_ref_commande!),
+    );
+    let niveau = 2;
+    for (const t of aLire) {
+      const commande = commandes.find(
+        (c) => c.customerOrderId === t.external_ref_commande,
+      );
+      const designe: unknown = commande?.currentTour?.tourId;
+      const tourId =
+        designe === undefined || designe === null || designe === ''
+          ? t.tms_reference
+          : designe;
+      if (tourId !== null && !estIdentifiantMts1(tourId)) return null;
+      const n = await this.niveauAttribution(
+        tourId ? await this.client.getTour(tourId) : null,
+      );
+      if (n === null) return null;
+      niveau = Math.min(niveau, n);
+    }
+    return niveau;
+  }
+
+  /**
+   * Photos de la commande : celles des arrêts du tour qui ne servent qu'elle,
+   * enlèvement et dépôt (`stops[].photos[].downloadUrl` ; il n'existe pas de
+   * route `GET /v3/tours/{id}/photos`, 404 `BAD_ROUTE` mesuré le 2026-10-13). Un
+   * arrêt qui nomme plusieurs commandes (dépôt commun) est écarté : sa photo
+   * pourrait montrer la marchandise d'une autre collecte.
+   * Non bloquant : une photo en échec est tracée et retentée au passage suivant.
+   */
+  private async processPhotos(
+    tour: Mts1Tour,
+    tourId: string,
+    customerOrderId: string,
+    collecteId: string,
+  ): Promise<void> {
+    for (const stop of tour.stops ?? []) {
+      if (!stop || !sertLaCommande(stop, customerOrderId)) continue;
+      const commandesNommees = (stop.customerOrders ?? []).filter(
+        (c) => c?.customerOrderId,
+      );
+      if (commandesNommees.length > 1) continue;
+
+      for (const photo of stop.photos ?? []) {
+        const stopId = stop.stopId;
+        const downloadUrl = photo?.downloadUrl;
+        const photoId =
+          typeof downloadUrl === 'string'
+            ? identifiantPhoto(downloadUrl, tourId, stopId)
+            : null;
+        if (!photoId) {
+          await this.logEntrantError(
+            'PHOTO_ADRESSE_INATTENDUE',
+            `tourId=${tourId} stopId=${stopId}`,
+          );
+          continue;
+        }
+        const storageKey = clePhoto(collecteId, { tourId, stopId, photoId });
+
+        // Dédup : photo déjà uploadée ? Une recherche en échec ne vaut pas
+        // « absente » : elle re-téléverserait la photo et doublerait sa ligne.
+        const { data: existante, error: erreurDedup } = await this.supabase
+          .schema('shared')
+          .from('fichiers')
+          .select('id')
+          .eq('key', storageKey)
+          .maybeSingle();
+
+        if (erreurDedup) {
+          await this.logEntrantError(
+            'PHOTO_DEDUP_FAILED',
+            `tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
+          );
+          continue;
+        }
+        if (existante) continue;
+
+        // Téléchargement binaire
+        let buffer: Buffer | null;
+        try {
+          buffer = await this.client.downloadPhoto(downloadUrl);
+        } catch {
+          await this.logEntrantError(
+            'PHOTO_DOWNLOAD_FAILED',
+            `tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
+          );
+          continue;
+        }
+
+        if (buffer === null) {
+          // Photo absente (corps vide) → log non bloquant, retentée au passage suivant
+          await this.logEntrantError(
+            'PHOTO_DOWNLOAD_FAILED',
+            `absente tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
+          );
+          continue;
+        }
+
+        // Upload R2 D'ABORD, pointeur shared.fichiers ENSUITE : si l'upload échoue
+        // (credentials absents, rejet R2), on log + on saute sans INSERT → JAMAIS de
+        // ligne shared.fichiers orpheline pointant un objet inexistant (BL-P0-02).
+        // Non bloquant pour le poll : la photo est retentée au prochain passage.
+        // Le bucket persisté est celui que l'upload a réellement écrit (bucket de
+        // l'environnement) ; la clé est celle de `clePhoto`
+        // (`photos/collectes/<collecteId>/<empreinte>.jpg`).
+        let bucket: string;
+        try {
+          bucket = await this.uploadPhotoToR2(storageKey, buffer);
+        } catch {
+          await this.logEntrantError(
+            'PHOTO_UPLOAD_FAILED',
+            `tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
+          );
+          continue;
+        }
+
+        // Enregistrement dans shared.fichiers (objet désormais réellement présent
+        // sur R2). En échec, la photo sera retéléchargée au passage suivant.
+        const { error: erreurEnregistrement } = await this.supabase
+          .schema('shared')
+          .from('fichiers')
+          .insert({
+            storage_provider: 'r2',
+            bucket,
+            key: storageKey,
+            content_type: 'image/jpeg',
+            size_bytes: buffer.length,
+            // entity_type = table propriétaire (§04 shared.fichiers), ici la collecte :
+            // même valeur que l'import manuel Admin, lue par la galerie de la fiche
+            // collecte et par shared.f_fichier_visible (§09 C1). Toute autre valeur est
+            // refusée par la policy et la photo n'apparaît nulle part.
+            entity_type: 'plateforme.collectes',
+            entity_id: collecteId,
+          });
+        if (erreurEnregistrement) {
+          await this.logEntrantError(
+            'PHOTO_ENREGISTREMENT_FAILED',
+            `tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
+          );
+        }
+      }
     }
   }
 
@@ -1169,8 +1675,13 @@ export class AdapterMts1 implements LogistiqueProvider {
   private async findTourneeByOrderId(customerOrderId: string): Promise<{
     collecteId: string;
     tourneeId: string;
+    tourneeStatut: string | null;
     tmsReference: string | null;
     collecteStatut: string;
+    rang: number;
+    prestataireId: string | null;
+    collectePrestataireId: string | null;
+    collecteStatutTms: string | null;
   } | null> {
     // `prestatairesDuType` garantit un Set NON VIDE (elle lève sinon) : le `.in()`
     // ci-dessous ne peut donc jamais dégénérer en requête toujours fausse, qui
@@ -1180,7 +1691,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     const { data, error } = await this.supabase
       .from('tournees')
       .select(
-        'id, tms_reference, collecte_tournees!inner(collecte_id, collectes!inner(id, statut))',
+        'id, statut, tms_reference, prestataire_logistique_id, collecte_tournees!inner(collecte_id, rang, collectes!inner(id, statut, statut_tms, prestataire_logistique_id))',
       )
       .eq('external_ref_commande', customerOrderId)
       .in('prestataire_logistique_id', [...prestatairesMts1])
@@ -1203,12 +1714,20 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     type Raw = {
       id: string;
+      statut?: string | null;
       tms_reference: string | null;
+      prestataire_logistique_id?: string | null;
       // `collecte_tournees` embarqué depuis `tournees` = FK entrante → TABLEAU.
       // `collectes` embarqué depuis `collecte_tournees` = FK sortante → OBJET.
       collecte_tournees: Array<{
         collecte_id: string;
-        collectes: { id: string; statut: string };
+        rang?: number;
+        collectes: {
+          id: string;
+          statut: string;
+          statut_tms?: string | null;
+          prestataire_logistique_id?: string | null;
+        };
       }>;
     };
     const raw = data as unknown as Raw;
@@ -1220,8 +1739,13 @@ export class AdapterMts1 implements LogistiqueProvider {
     return {
       collecteId: collecte.id,
       tourneeId: raw.id,
+      tourneeStatut: raw.statut ?? null,
       tmsReference: raw.tms_reference,
       collecteStatut: collecte.statut,
+      rang: ct.rang ?? 1,
+      prestataireId: raw.prestataire_logistique_id ?? null,
+      collectePrestataireId: collecte.prestataire_logistique_id ?? null,
+      collecteStatutTms: collecte.statut_tms ?? null,
     };
   }
 
@@ -1277,8 +1801,7 @@ export class AdapterMts1 implements LogistiqueProvider {
    * `onConflict: 'collecte_id,rang'`) faisait partir vers MTS-1 un
    * `PUT`/`DELETE /v3/customerOrders/{id_mission_everest}` sur E2/E3, et sur
    * E1 la tournée Everest servait de curseur : `POST /v3/customerOrders`
-   * sauté, mission Everest rattachée au tour MTS-1, et `tms_reference` MTS-1
-   * écrit sur la tournée Everest.
+   * sauté, et l'identifiant de mission Everest pris pour la commande MTS-1.
    *
    * Arbitrage « écarter en silence vs alerter Ops » : cf. provider-tournees.ts.
    */
@@ -1412,74 +1935,57 @@ export class AdapterMts1 implements LogistiqueProvider {
     );
   }
 
-  // Commit du curseur étape 2 : NE pose PAS statut='en_cours' (réservé au succès de
-  // validate, étape 4). Sinon la garde de reprise (dispatchCollecte) sortirait en
-  // no-op avant que dispatch+validate aient été joués → camion non commandé (bug C2).
-  //
-  // Écriture en échec : la tournée existe chez MTS-1 et son identifiant n'est
-  // dans aucun curseur. La reprise ne la retrouvera que par sa commande
-  // (reconcileTour) : on rattache donc la commande AVANT de lever, sauf si elle
-  // l'est déjà. Si ce rattachement échoue, ou ne part pas (échéance du passage
-  // atteinte), la tournée reste vide et sans transporteur chez MTS-1, et la
-  // reprise en créera une autre : l'erreur le dit.
-  //
-  // Cas de l'écriture refusée par l'index unique `uniq_tournee_par_tms_reference`
-  // (23505) : l'identifiant est alors dans le curseur d'une AUTRE ligne. Dans la
-  // course que ferme l'index, la commande est déjà rattachée et rien ne part.
-  // Limite, hors course : si MTS-1 rendait à la création un identifiant qu'une
-  // autre ligne porte déjà (non mesuré), la commande serait rattachée à cette
-  // tournée avant l'erreur ; la reprise crée ensuite sa propre tournée.
-  private async updateTourneeRef(
-    tourneeId: string,
-    tourId: string,
-    customerOrderId: string,
-    orderNumber: string,
-    dejaRattachee: boolean,
-  ): Promise<void> {
-    const { error } = await this.supabase
-      .from('tournees')
-      .update({ tms_reference: tourId })
-      .eq('id', tourneeId);
-    if (!error) return;
-
-    const rattachee =
-      dejaRattachee ||
-      (await this.client
-        .addCustomerOrderToTour(tourId, customerOrderId, orderNumber)
-        .then(
-          () => true,
-          () => false,
-        ));
-    throw this.curseurNonEcrit(
-      `tournée ${tourId} (commande ${customerOrderId} ${
-        rattachee ? 'rattachée' : 'NON rattachée'
-      })`,
-      error,
-    );
-  }
-
-  // Référence lisible de la collecte pour l'affichage Admin / le rapprochement.
-  // Réécriture inconditionnelle : la valeur est stable par construction (le tourId
-  // du rang 1, lu depuis la tournée déjà committée sur reprise ; le rang 1 n'est
-  // jamais supprimé par une réduction de N) → un rejeu réécrit la même chaîne.
+  // Référence lisible de la collecte pour l'affichage Admin / le rapprochement :
+  // l'identifiant de la commande du rang 1. Réécriture inconditionnelle : la
+  // valeur est stable par construction (lue sur la tournée déjà committée en
+  // reprise ; le rang 1 n'est jamais supprimé par une réduction de N) → un rejeu
+  // réécrit la même chaîne.
   private async updateCollecteRef(
     collecteId: string,
     reference: string,
   ): Promise<void> {
-    await this.supabase
+    const { error } = await this.supabase
       .from('collectes')
       .update({ tms_reference: reference })
       .eq('id', collecteId);
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Référence de la collecte ${collecteId} non écrite — ${error.message}`,
+      );
+    }
   }
 
-  private async updateStatutTms(
+  // Statut logistique de la collecte dont une commande vient d'être enregistrée :
+  // « à attribuer », l'Admin compose la tournée dans la console MTS-1 (décision
+  // Val 2026-10-15). Commande nouvelle : depuis tout statut de l'attribution — un
+  // camion ajouté à une collecte acceptée la ramène à « à attribuer » (C47 : le
+  // camion le moins avancé l'emporte). Commande déjà enregistrée (reprise) :
+  // depuis « non envoyé » seulement — la relève a pu avancer le statut
+  // entre-temps, une reprise ne le recule pas. Seulement sur une collecte à
+  // valider ou validée (une réattribution la remet « programmée ») : jamais
+  // une fois sa mission commencée, ni sur un refus ou une annulation. Une
+  // écriture que cette garde écarte n'est pas une erreur.
+  private async passerAAttribuer(
     collecteId: string,
-    statutTms: string,
+    reprise: boolean,
   ): Promise<void> {
-    await this.supabase
+    const { error } = await this.supabase
       .from('collectes')
-      .update({ statut_tms: statutTms })
-      .eq('id', collecteId);
+      .update({
+        statut_tms: 'a_attribuer',
+        statut_tms_at: new Date().toISOString(),
+      })
+      .eq('id', collecteId)
+      .in('statut', STATUTS_ATTRIBUTION_COLLECTE)
+      .in(
+        'statut_tms',
+        reprise ? ['non_envoye'] : ['non_envoye', ...STATUT_TMS_PAR_NIVEAU],
+      );
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Statut logistique de la collecte ${collecteId} non écrit — ${error.message}`,
+      );
+    }
   }
 
   // ─── Réconciliation plan B ────────────────────────────────────────────────────
@@ -1577,89 +2083,6 @@ export class AdapterMts1 implements LogistiqueProvider {
       });
     }
     return vivantes.find((o) => o.customerOrderId === retenue) ?? null;
-  }
-
-  /**
-   * Tournée déjà rattachée à cette commande chez MTS-1, ou `null` — avant tout
-   * re-POST /v3/tours d'une création reprise (§08 §3bis.5, Q3bis-6).
-   *
-   * Une commande rattachée porte `currentTour.tourId` (mesuré le 2026-10-13).
-   * `dejaLue` = la commande telle que la réconciliation vient de la rendre ;
-   * sinon elle est relue par son identifiant. Une lecture en échec LÈVE (erreur
-   * du client) : elle n'est jamais lue comme « aucune tournée ».
-   *
-   * Limite : une tournée créée mais jamais rattachée ne porte aucun lien vers
-   * sa commande (son numéro est attribué par MTS-1, elle n'a aucun arrêt). Elle
-   * reste introuvable et la reprise en crée une autre ; la première est vide et
-   * sans transporteur.
-   *
-   * Une tournée qu'une ligne `tournees` porte déjà — autre rang de la
-   * collecte, ou autre collecte — n'est pas reprise : une ligne = un camion =
-   * sa tournée. Cette lecture puis l'écriture de `tms_reference` ne sont pas
-   * atomiques : l'index unique partiel `uniq_tournee_par_tms_reference` refuse
-   * la seconde écriture de deux passages simultanés (23505), l'ordre repart « à
-   * réconcilier » et la reprise voit alors la ligne de l'autre passage. Mesuré
-   * le 2026-10-13 sur une collecte de test à deux camions du compte de
-   * démonstration (un seul cas, mécanisme non établi) : les commandes des deux
-   * rangs portaient la même tournée. Non mesuré : que MTS-1 fasse de même
-   * entre deux collectes. Reprise, une telle tournée serait envoyée et validée
-   * une seconde fois, et la relève lirait ses pesées sous les deux lignes.
-   */
-  private async reconcileTour(
-    collecte: Collecte,
-    rang: number,
-    customerOrderId: string,
-    dejaLue: Mts1CustomerOrder | null,
-  ): Promise<string | null> {
-    const commande =
-      dejaLue ??
-      (await this.client.findOrdersByIds([customerOrderId])).find(
-        (c) => c.customerOrderId === customerOrderId,
-      );
-    // Commande disparue de chez MTS-1 : y créer une tournée ne commanderait
-    // aucun camion. Échec définitif (donc alerte), comme pour une modification
-    // reprise (updateCollecte).
-    if (!commande) {
-      throw new LogistiquePermanentError(
-        `collecte ${collecte.id} : commande introuvable chez MTS-1 pour le rang ${rang} (${customerOrderId}) — tournée non créée`,
-      );
-    }
-    // Même arrêt qu'à la recherche par numéro : cette commande est terminée ou
-    // archivée, sa tournée n'est ni reprise ni recréée.
-    if (STATUTS_COMMANDE_TERMINEE.has(commande.customerOrderStatus)) {
-      throw new LogistiquePermanentError(
-        `collecte ${collecte.id} : la commande du rang ${rang} (${customerOrderId}) est déjà terminée chez MTS-1 (${commande.customerOrderStatus}) — tournée ni reprise ni créée`,
-      );
-    }
-    // Formes mesurées de `tourId` : une chaîne quand la commande est rattachée,
-    // clé absente sinon. Absent ou nul, il vaut « aucune tournée ». Sous une
-    // autre forme (nombre, chaîne vide, caractère hors de l'alphabet adopté), il
-    // est refusé, comme à la création : lu comme « aucune tournée », il en ferait
-    // créer une seconde ; adopté, il irait dans `tms_reference`. La forme de
-    // `currentTour` lui-même n'est pas contrôlée : s'il n'est pas un objet,
-    // aucune tournée n'y est lue.
-    const tourId: unknown = commande.currentTour?.tourId;
-    if (tourId === undefined || tourId === null) return null;
-    if (!estIdentifiantMts1(tourId)) {
-      throw new LogistiqueTransientError(
-        `MTS-1 GET /v3/customerOrders : réponse inattendue, currentTour.tourId illisible pour la commande ${customerOrderId}`,
-      );
-    }
-
-    // Le rang courant n'a pas de référence (sinon on ne serait pas ici) : toute
-    // ligne qui porte cette tournée est celle d'un autre camion. Une lecture en
-    // échec lève : elle n'est jamais lue comme « aucune ligne ».
-    const { data: porteuses, error } = await this.supabase
-      .from('tournees')
-      .select('id')
-      .eq('tms_reference', tourId)
-      .limit(1);
-    if (error) {
-      throw new LogistiqueTransientError(
-        `Lecture des tournées portant la référence ${tourId} échouée — ${error.message}`,
-      );
-    }
-    return porteuses?.length ? null : tourId;
   }
 
   /**
@@ -1822,22 +2245,6 @@ export class AdapterMts1 implements LogistiqueProvider {
       ...(collecte.informations_supplementaires
         ? { comment: collecte.informations_supplementaires }
         : {}),
-    };
-  }
-
-  private buildTourPayload(
-    collecte: Collecte,
-    orderNumber: string,
-  ): CreateTourPayload {
-    // `TourInput` ne prend que { tourDate, tourNumber?, customerOrders?, comments? }.
-    // Les `stuffs` et le `deliveryPlace` (relevé as-built Bubble) sont IGNORÉS par
-    // MTS-1 → retirés. Les stuffs ET le point de dépôt (B) sont désormais portés par
-    // la COMMANDE (buildOrderPayload : `stuffs[].relatedAddress`), elle-même rattachée
-    // à la tournée via PUT /v3/tours/addCustomerOrder.
-    return {
-      orderNumber,
-      // `tourDate` (yyyy-MM-dd) OBLIGATOIRE sur POST /v3/tours.
-      tourDate: collecte.date_collecte,
     };
   }
 

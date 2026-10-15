@@ -44,6 +44,7 @@ describe('severiteParCode — catalogue explicite', () => {
       'collecte_aucun_repas',
       'tournee_autre_provider',
       'everest_mission_hors_attribution',
+      'transporteur_mts1_inconnu',
     ]) {
       expect(severiteParCode(c)).toBe('attention');
     }

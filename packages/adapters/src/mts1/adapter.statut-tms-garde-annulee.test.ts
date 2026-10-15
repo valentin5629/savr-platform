@@ -157,7 +157,6 @@ function armerPoll(status: Mts1CustomerOrder['customerOrderStatus']) {
       },
     ]),
     getTour: vi.fn(),
-    getPhotos: vi.fn().mockResolvedValue([]),
     postOrder: vi.fn(),
   });
 }
@@ -214,10 +213,13 @@ describe('polling MTS-1 — statut_tms gardé sur les collectes en exécution', 
     },
   );
 
-  it('collecte programmee + ordre VALIDATED → statut_tms acceptee (la garde ne sur-ferme pas)', async () => {
+  it('collecte programmee + ordre VALIDATED → statut_tms inchangé : une commande validée ne vaut pas acceptation', async () => {
+    // L'acceptation se lit sur la tournée de la commande (décision Val
+    // 2026-10-13), plus sur le statut de la commande : la garde, elle, reste
+    // prouvée par les refus ci-dessus sur une collecte en exécution.
     const { collecte } = await poller('programmee', 'VALIDATED');
 
-    expect(collecte.statut_tms).toBe('acceptee');
+    expect(collecte.statut_tms).toBe(STATUT_TMS_INITIAL);
   });
 
   it('collecte annulee + ordre VALIDATED → statut_tms inchangé', async () => {

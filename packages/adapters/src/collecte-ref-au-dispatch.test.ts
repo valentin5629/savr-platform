@@ -12,8 +12,8 @@
 //   • valeur d'affichage / rapprochement → cette colonne, posée ICI au dispatch
 //     (§04 Data Model l.1509, §06.06 bouton « Renvoyer au TMS », §11 carte
 //     « Collectes non transmises au TMS »). Côté camion, c'est l'identifiant de
-//     la commande : la plateforme ne crée plus de tournée, l'Admin les compose
-//     dans la console MTS-1 (décision Val 2026-10-15).
+//     la commande ; la tournée unitaire du camion, elle, a sa référence sur la
+//     ligne `tournees` (décision Val 2026-10-15).
 //
 // Ce fichier verrouille le second volet, sur les DEUX providers. Le mock trace la
 // table de chaque `.update()` : une assertion qui ne regarderait que le payload
@@ -189,6 +189,14 @@ describe('dispatch → collectes.tms_reference (provider camion)', () => {
         status: 'PLANNED',
         createdAt: '',
       }),
+      createTour: vi.fn().mockResolvedValue({
+        tourId: `TOUR-${suffixe}`,
+        externalReference: '',
+        status: 'DRAFT',
+        createdAt: '',
+        customerOrderId: `ORDER-${suffixe}`,
+      }),
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
     };
     _setMts1Handlers(h);
     return h;
@@ -204,13 +212,13 @@ describe('dispatch → collectes.tms_reference (provider camion)', () => {
 
     // Le cœur du correctif : la colonne de `collectes` est réellement écrite.
     expect(refsPoseesSurCollectes(updates)).toEqual(['ORDER-R1']);
-    // Aucune référence de tournée n'est posée par Savr : la tournée, c'est
-    // l'Admin qui la compose dans la console MTS-1.
+    // La tournée unitaire du camion a sa propre référence, sur `tournees`.
     expect(
       updates.filter(
-        (u) => u.table === 'tournees' && 'tms_reference' in u.payload,
+        (u) =>
+          u.table === 'tournees' && u.payload['tms_reference'] === 'TOUR-R1',
       ),
-    ).toHaveLength(0);
+    ).toHaveLength(1);
   });
 
   it('rang 2 — aucune écriture sur collectes.tms_reference (un seul identifiant de rapprochement)', async () => {

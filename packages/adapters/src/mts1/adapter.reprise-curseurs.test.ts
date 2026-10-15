@@ -1,20 +1,22 @@
-// M1.5a — reprise d'un envoi MTS-1 : curseur de la commande, 201 illisible.
+// M1.5a — reprise d'un envoi MTS-1 : curseurs, 201 illisible, tournée unitaire.
 //
 // Toute la chaîne est réelle : runOutboxWorker → AdapterMts1 → Mts1Client. Deux
 // frontières simulées, qui gardent chacune leur état d'un passage à l'autre :
 //   - la base : tables `tournees` et `collecte_tournees`, la collecte, et
 //     l'ordre de la file tel que le rendent ses fonctions (réservation,
 //     résultat, reaper) ;
-//   - MTS-1 : un faux serveur derrière `fetch`, qui crée les commandes et
-//     répond à la recherche comme le compte de démonstration (formes mesurées le
-//     2026-10-13). Ses routes de tournée restent simulées : c'est par elles que
-//     se verrait un appel de tournée que Savr ne doit plus faire (l'Admin
-//     compose les tournées dans la console MTS-1, décision Val 2026-10-15).
+//   - MTS-1 : un faux serveur derrière `fetch`, qui crée commandes et tournées,
+//     les rattache, et répond à la recherche comme le compte de démonstration
+//     (formes mesurées le 2026-10-13). L'envoi au transporteur et la validation
+//     restent simulés : c'est par eux que se verrait un appel que Savr ne doit
+//     pas faire (l'Admin regroupe et envoie les tournées dans la console MTS-1,
+//     décision Val 2026-10-15).
 //
 // Chaque test joue une panne au premier passage, puis laisse le worker
 // reprendre l'ordre tel que la file le lui rend, drapeau « à réconcilier »
-// compris. Ce qui est prouvé : combien de commandes existent chez MTS-1 à la
-// fin, et qu'aucune tournée n'a été créée ni envoyée par Savr.
+// compris. Ce qui est prouvé : combien de commandes et de tournées existent chez
+// MTS-1 à la fin, où sont les commandes, et qu'aucune tournée n'a été envoyée
+// au transporteur ni validée par Savr.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -336,7 +338,7 @@ function fausseBase(
 
 // ─── MTS-1 simulé (faux serveur derrière fetch) ───────────────────────────────
 
-type Panne = 'corps_illisible' | 'sans_identifiant' | 'filtre_ignore';
+type Panne = 'corps_illisible' | 'sans_identifiant' | 'filtre_ignore' | 503;
 
 function fauxMts1() {
   const commandes: Array<{
@@ -368,6 +370,10 @@ function fauxMts1() {
       appels.push(route + decodeURIComponent(search));
       const i = pannes.findIndex((p) => p.route === route);
       const panne = i >= 0 ? pannes.splice(i, 1)[0]!.panne : null;
+      // Refus : rien n'est créé ni modifié chez MTS-1.
+      if (typeof panne === 'number') {
+        return reponse(panne, { error: 'UNAVAILABLE' });
+      }
       const corps = (init.body ? JSON.parse(init.body) : {}) as Record<
         string,
         string
@@ -422,8 +428,6 @@ function fauxMts1() {
             })),
         );
       }
-      // Routes de tournée : Savr ne doit plus les appeler (l'Admin compose les
-      // tournées dans la console MTS-1). Simulées pour qu'un appel se voie.
       if (route === 'POST /v3/tours') {
         const tour = {
           tourId: `TOUR-${tours.length + 1}`,
@@ -431,6 +435,9 @@ function fauxMts1() {
           validations: 0,
         };
         tours.push(tour);
+        // À partir d'ici la tournée EXISTE, quoi que dise la réponse.
+        if (panne === 'corps_illisible') return reponse(201, null, true);
+        if (panne === 'sans_identifiant') return reponse(201, {});
         return reponse(201, { tourId: tour.tourId });
       }
       if (route === 'PUT /v3/tours/addCustomerOrder') {
@@ -442,6 +449,9 @@ function fauxMts1() {
       }
       // Modification d'une commande (ordre « collecte.modifiee »).
       if (/^PUT \/v3\/customerOrders\/.+$/.test(route)) return reponse(200, {});
+      // Envoi au transporteur et validation : Savr ne doit pas les appeler
+      // (l'Admin regroupe et envoie les tournées dans la console MTS-1).
+      // Simulés pour qu'un appel se voie.
       const envoi = route.match(/^POST \/v3\/dispatch\/(.+)\/toCarrier$/);
       if (envoi) {
         tours.find((t) => t.tourId === envoi[1])!.envois++;
@@ -494,24 +504,29 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
     setSlackSink(async () => {});
   });
 
-  /** Appels de tournée reçus par MTS-1 (création, rattachement, envoi, validation). */
-  const appelsDeTournee = () =>
-    mts1.appels.filter((a) => /\/v3\/(tours|dispatch)\b/.test(a));
+  /** Envois au transporteur et validations : Savr ne doit jamais les faire. */
+  const envoisOuValidations = () =>
+    mts1.appels.filter((a) => /\/v3\/dispatch\/|\/validate$/.test(a));
 
   /**
-   * Une seule commande, enregistrée une seule fois, et rien d'autre : aucune
-   * tournée créée, rattachée, envoyée ni validée par Savr — l'Admin les compose
-   * dans la console MTS-1 (décision Val 2026-10-15). La collecte affiche
-   * l'identifiant de la commande et attend sa tournée.
+   * Un seul camion : une commande, une tournée unitaire où elle est rattachée,
+   * une seule fois, ni envoyée au transporteur ni validée — l'Admin regroupe et
+   * envoie dans la console MTS-1 (décision Val 2026-10-15). Curseurs écrits, la
+   * collecte affiche l'identifiant de la commande et attend sa tournée.
    */
-  function attendreUneSeuleCommande(base: ReturnType<typeof fausseBase>) {
-    expect(mts1.commandes).toHaveLength(1);
-    expect(appelsDeTournee()).toEqual([]);
+  function attendreUnSeulCamion(base: ReturnType<typeof fausseBase>) {
+    expect(mts1.commandes.map((c) => [c.customerOrderId, c.tourId])).toEqual([
+      ['CMD-1', 'TOUR-1'],
+    ]);
+    expect(mts1.tours).toEqual([
+      { tourId: 'TOUR-1', envois: 0, validations: 0 },
+    ]);
+    expect(envoisOuValidations()).toEqual([]);
     expect(base.liens).toHaveLength(1);
     expect(base.tournees).toHaveLength(1);
     expect(base.tournees[0]).toMatchObject({
       external_ref_commande: 'CMD-1',
-      tms_reference: null,
+      tms_reference: 'TOUR-1',
       statut: 'planifiee',
     });
     expect(base.collecte).toMatchObject({
@@ -535,6 +550,8 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
         p_last_error:
           'MTS-1 : commande CMD-1 (lien de la tournée, rang 1) non enregistrée côté Savr — connexion à la base perdue',
       });
+      // Rien n'est allé plus loin que la commande.
+      expect(mts1.tours).toHaveLength(0);
 
       const second = await runOutboxWorker(base.supabase);
 
@@ -544,7 +561,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
         `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
       ]);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
-      attendreUneSeuleCommande(base);
+      attendreUnSeulCamion(base);
     });
 
     it('M1.5a/reprise_ligne_tournee_non_ecrite — la ligne `tournees` n’est pas écrite après le 201 : ordre en reprise à réconcilier (et non en échec définitif), une seule commande', async () => {
@@ -563,7 +580,68 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       await runOutboxWorker(base.supabase);
 
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
-      attendreUneSeuleCommande(base);
+      attendreUnSeulCamion(base);
+    });
+
+    it('M1.5a/reprise_reference_tournee_non_ecrite — la référence de la tournée n’est pas écrite après le 201 : la commande y est rattachée avant l’erreur, la reprise retrouve la tournée sur la commande et n’en crée pas une seconde', async () => {
+      const base = fausseBase();
+      base.casser('tournees', 'update', (d) => 'tms_reference' in d);
+
+      await runOutboxWorker(base.supabase);
+
+      expect(base.resultats[0]).toMatchObject({
+        p_statut: 'failed',
+        p_requires_reconciliation: true,
+        p_last_error:
+          'MTS-1 : tournée TOUR-1 (commande CMD-1 rattachée) non enregistrée côté Savr — connexion à la base perdue',
+      });
+      expect(mts1.commandes[0]).toMatchObject({ tourId: 'TOUR-1' });
+      expect(base.tournees[0]!.tms_reference).toBeNull();
+
+      await runOutboxWorker(base.supabase);
+
+      // La tournée est lue sur la commande, par son identifiant.
+      expect(mts1.recus('GET /v3/customerOrders')).toEqual([
+        'GET /v3/customerOrders?customerOrderIds=CMD-1',
+      ]);
+      expect(mts1.recus('POST /v3/tours')).toHaveLength(1);
+      // Un seul rattachement : celui d'avant l'erreur.
+      expect(mts1.recus('PUT /v3/tours/addCustomerOrder')).toHaveLength(1);
+      attendreUnSeulCamion(base);
+    });
+
+    it('M1.5a/reprise_tournee_non_creee — 503 à la création de la tournée : à la reprise, la commande est relue, sa tournée est créée et elle y est rattachée', async () => {
+      const base = fausseBase();
+      mts1.casser('POST /v3/tours', 503);
+
+      await runOutboxWorker(base.supabase);
+
+      expect(base.resultats[0]).toMatchObject({ p_statut: 'failed' });
+      expect(mts1.tours).toHaveLength(0);
+
+      await runOutboxWorker(base.supabase);
+
+      expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
+      expect(mts1.recus('GET /v3/customerOrders')).toEqual([
+        'GET /v3/customerOrders?customerOrderIds=CMD-1',
+      ]);
+      attendreUnSeulCamion(base);
+    });
+
+    it('M1.5a/reprise_rattachement_interrompu — 503 au rattachement, la tournée déjà enregistrée : à la reprise, la commande est rattachée à cette tournée, aucune autre n’est créée', async () => {
+      const base = fausseBase();
+      mts1.casser('PUT /v3/tours/addCustomerOrder', 503);
+
+      await runOutboxWorker(base.supabase);
+
+      expect(base.resultats[0]).toMatchObject({ p_statut: 'failed' });
+      expect(base.tournees[0]!.tms_reference).toBe('TOUR-1');
+      expect(mts1.commandes[0]!.tourId).toBeNull();
+
+      await runOutboxWorker(base.supabase);
+
+      expect(mts1.recus('POST /v3/tours')).toHaveLength(1);
+      attendreUnSeulCamion(base);
     });
 
     it('M1.5a/reprise_rang_reattribue_commande_non_ecrite — rang refusé puis réattribué : la commande n’est pas écrite sur sa tournée réinitialisée ; ordre à réconcilier, la reprise la retrouve sous le numéro de la tentative', async () => {
@@ -589,7 +667,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
         `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}-r2`,
       ]);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
-      attendreUneSeuleCommande(base);
+      attendreUnSeulCamion(base);
     });
 
     it('M1.5a/reprise_resultat_non_ecrit — base injoignable : ni le lien ni le résultat de l’ordre ne sont écrits ; l’ordre repris par le reaper est à réconcilier, une seule commande', async () => {
@@ -607,7 +685,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
 
       expect(second).toMatchObject({ reaped: 1, done: 1 });
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
-      attendreUneSeuleCommande(base);
+      attendreUnSeulCamion(base);
     });
 
     it('M1.5a/reprise_multi_camions_lien_rang_2 — deux camions, le lien du second n’est pas écrit : la reprise ne recrée ni la commande du premier, ni celle du second', async () => {
@@ -624,15 +702,15 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       await runOutboxWorker(base.supabase);
 
       expect(base.ordre.statut).toBe('done');
-      expect(mts1.commandes.map((c) => c.orderNumber)).toEqual([
-        `${COLLECTE_ID}-1`,
-        `${COLLECTE_ID}-2`,
+      expect(mts1.commandes.map((c) => [c.orderNumber, c.tourId])).toEqual([
+        [`${COLLECTE_ID}-1`, 'TOUR-1'],
+        [`${COLLECTE_ID}-2`, 'TOUR-2'],
       ]);
-      expect(base.tournees.map((t) => t.external_ref_commande)).toEqual([
-        'CMD-1',
-        'CMD-2',
+      expect(mts1.tours).toEqual([
+        { tourId: 'TOUR-1', envois: 0, validations: 0 },
+        { tourId: 'TOUR-2', envois: 0, validations: 0 },
       ]);
-      expect(appelsDeTournee()).toEqual([]);
+      expect(envoisOuValidations()).toEqual([]);
     });
   });
 
@@ -661,13 +739,42 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
         await runOutboxWorker(base.supabase);
 
         expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
-        attendreUneSeuleCommande(base);
+        attendreUnSeulCamion(base);
+      },
+    );
+
+    it.each([
+      ['corps_illisible', 'un corps qui n’est pas du JSON'],
+      ['sans_identifiant', 'un corps sans tourId'],
+    ] as const)(
+      'M1.5a/reprise_201_tournee_%s_limite — POST /v3/tours répond 201 avec %s : ordre à réconcilier ; la première tournée reste vide, la reprise en crée une autre et y rattache la commande',
+      async (panne, _cas) => {
+        const base = fausseBase();
+        mts1.casser('POST /v3/tours', panne);
+
+        await runOutboxWorker(base.supabase);
+
+        expect(base.resultats[0]).toMatchObject({
+          p_statut: 'failed',
+          p_requires_reconciliation: true,
+          p_last_error:
+            'MTS-1 POST /v3/tours : création acceptée, mais « tourId » est illisible dans la réponse',
+        });
+
+        await runOutboxWorker(base.supabase);
+
+        // Limite connue : rattachée à rien, la première tournée ne se retrouve
+        // pas ; elle reste vide dans la console, sans transporteur.
+        expect(mts1.commandes.map((c) => c.tourId)).toEqual(['TOUR-2']);
+        expect(mts1.tours.map((t) => t.tourId)).toEqual(['TOUR-1', 'TOUR-2']);
+        expect(base.tournees[0]!.tms_reference).toBe('TOUR-2');
+        expect(envoisOuValidations()).toEqual([]);
       },
     );
   });
 
-  describe('ordre « à réconcilier » dont la commande est déjà enregistrée', () => {
-    it('M1.5a/reprise_commande_enregistree — rien n’est relu ni créé chez MTS-1 : la reprise écrit la référence et « à attribuer » depuis le curseur', async () => {
+  describe('commande déjà enregistrée, tournée absente côté Savr', () => {
+    it('M1.5a/reprise_commande_enregistree — la commande est relue : dans aucune tournée, sa tournée unitaire est créée et elle y est rattachée', async () => {
       const base = fausseBase();
       base.poserTournee(1);
       mts1.commandes.push({
@@ -679,15 +786,61 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
 
       await runOutboxWorker(base.supabase);
 
-      // La commande enregistrée est le curseur : aucune lecture, aucune écriture
-      // chez MTS-1.
-      expect(mts1.appels).toEqual([]);
-      attendreUneSeuleCommande(base);
+      expect(mts1.appels).toEqual([
+        'GET /v3/customerOrders?customerOrderIds=CMD-1',
+        'POST /v3/tours',
+        'PUT /v3/tours/addCustomerOrder',
+      ]);
+      attendreUnSeulCamion(base);
     });
+
+    it.each([
+      [
+        'qu’aucune ligne ne porte : elle devient celle du camion',
+        false,
+        'TOUR-9',
+      ],
+      [
+        'qu’une autre ligne porte (regroupement) : rien n’est enregistré',
+        true,
+        null,
+      ],
+    ] as const)(
+      'M1.5a/reprise_commande_dans_tournee_admin — la commande est déjà dans une tournée de la console %s ; rien n’est créé ni rattaché',
+      async (_cas, porteeAilleurs, attendue) => {
+        const base = fausseBase();
+        base.poserTournee(1);
+        if (porteeAilleurs) {
+          base.tournees.push({
+            id: 'tournee-autre-collecte',
+            reference_interne: 'TMS-autre-collecte-1',
+            external_ref_commande: 'CMD-AUTRE',
+            tms_reference: 'TOUR-9',
+            statut: 'planifiee',
+            prestataire_logistique_id: PRESTA_ID,
+          });
+        }
+        mts1.commandes.push({
+          customerOrderId: 'CMD-1',
+          orderNumber: NUMERO_RANG_1,
+          tourId: 'TOUR-9',
+        });
+        mts1.tours.push({ tourId: 'TOUR-9', envois: 0, validations: 0 });
+
+        await runOutboxWorker(base.supabase);
+
+        expect(base.ordre.statut).toBe('done');
+        expect(mts1.appels).toEqual([
+          'GET /v3/customerOrders?customerOrderIds=CMD-1',
+        ]);
+        expect(mts1.commandes[0]!.tourId).toBe('TOUR-9');
+        expect(base.tournees[0]!.tms_reference).toBe(attendue);
+      },
+    );
   });
 
   describe('ordre « à réconcilier » sans rien d’enregistré', () => {
-    it('M1.5a/reprise_commande_rendue_deux_fois — la recherche rend deux fois le même identifiant, d’abord sous un autre numéro : c’est la commande au bon numéro qui est reprise, la tournée de l’autre n’est ni adoptée ni touchée', async () => {
+    it('M1.5a/reprise_commande_rendue_deux_fois — la recherche rend deux fois le même identifiant, d’abord sous un autre numéro et sur une tournée : c’est la commande au bon numéro qui est reprise, la tournée de l’autre n’est ni adoptée ni touchée', async () => {
       const base = fausseBase();
       base.ordre.requires_reconciliation = true;
       mts1.tours.push({ tourId: 'TOUR-X', envois: 1, validations: 1 });
@@ -705,17 +858,17 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
 
       expect(base.ordre.statut).toBe('done');
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(0);
-      expect(appelsDeTournee()).toEqual([]);
       expect(mts1.tours).toEqual([
         { tourId: 'TOUR-X', envois: 1, validations: 1 },
+        { tourId: 'TOUR-2', envois: 0, validations: 0 },
       ]);
       expect(base.tournees[0]).toMatchObject({
         external_ref_commande: 'CMD-1',
-        tms_reference: null,
+        tms_reference: 'TOUR-2',
       });
     });
 
-    it('M1.5a/reprise_commande_retrouvee_avec_sa_tournee — la commande retrouvée par son numéro est déjà dans une tournée (composée par l’Admin) : elle est reprise en une seule lecture, rien n’est créé et la tournée n’est pas touchée', async () => {
+    it('M1.5a/reprise_commande_retrouvee_avec_sa_tournee — la commande retrouvée par son numéro est déjà dans une tournée : les deux sont reprises en une seule lecture, rien n’est créé', async () => {
       const base = fausseBase();
       base.ordre.requires_reconciliation = true;
       mts1.commandes.push({
@@ -730,11 +883,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       expect(mts1.appels).toEqual([
         `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
       ]);
-      expect(mts1.tours).toEqual([
-        { tourId: 'TOUR-1', envois: 0, validations: 0 },
-      ]);
-      // L'attribution se lit ensuite à la relève, sur la tournée de la commande.
-      attendreUneSeuleCommande(base);
+      attendreUnSeulCamion(base);
     });
 
     it('M1.5a/reprise_commande_identifiant_hors_alphabet — la commande retrouvée par son numéro porte un identifiant à caractères de chemin : elle n’est pas adoptée, aucune commande n’est créée à sa place, l’ordre repart en reprise', async () => {
@@ -844,7 +993,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       expect(base.tournees).toHaveLength(0);
     });
 
-    it('M1.5a/reprise_commande_absente_creation — aucune commande chez MTS-1 : elle est créée, sans tournée, sans relire la commande créée à l’instant', async () => {
+    it('M1.5a/reprise_commande_absente_creation — aucune commande chez MTS-1 : elle est créée avec sa tournée, sans relire la commande créée à l’instant', async () => {
       const base = fausseBase();
       base.ordre.requires_reconciliation = true;
 
@@ -854,18 +1003,18 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       expect(mts1.recus('GET /v3/customerOrders')).toEqual([
         `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
       ]);
-      attendreUneSeuleCommande(base);
+      attendreUnSeulCamion(base);
     });
   });
 
-  describe('ajout d’un camion par une modification, envoi du nouveau rang interrompu', () => {
+  describe('ajout d’un camion par une modification', () => {
     /**
-     * Collecte passée de 1 à 2 camions : la commande du premier est enregistrée,
-     * et l'Admin l'a mise dans une tournée acceptée par le transporteur.
+     * Collecte passée de 1 à 2 camions : le premier a sa commande et sa tournée,
+     * envoyée et validée par l'Admin dans la console.
      */
     function ajoutDUnCamion() {
       const base = fausseBase({ nbCamions: 2, ordre: 'modification' });
-      base.poserTournee(1);
+      base.poserTournee(1, { tms_reference: 'TOUR-1' });
       base.collecte.tms_reference = 'CMD-1';
       base.collecte.statut_tms = 'acceptee';
       mts1.poserCamionEnvoye(1);
@@ -873,24 +1022,24 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
     }
 
     /**
-     * Deux commandes, une par camion, chacune créée une seule fois ; la tournée
-     * de la première n'est pas touchée, et la collecte revient « à attribuer »
-     * tant que le second camion attend la sienne (décision Val 2026-10-15 : le
-     * camion le moins avancé l'emporte).
+     * Deux commandes, chacune dans sa tournée ; celle du premier camion n'est pas
+     * touchée, celle du second n'est ni envoyée ni validée, et la collecte revient
+     * « à attribuer » tant que le second camion attend (le moins avancé l'emporte).
      */
-    function attendreDeuxCommandes(base: ReturnType<typeof fausseBase>) {
+    function attendreDeuxCamions(base: ReturnType<typeof fausseBase>) {
       expect(base.ordre.statut).toBe('done');
       expect(mts1.commandes.map((c) => [c.customerOrderId, c.tourId])).toEqual([
         ['CMD-1', 'TOUR-1'],
-        ['CMD-2', null],
+        ['CMD-2', 'TOUR-2'],
       ]);
       expect(mts1.tours).toEqual([
         { tourId: 'TOUR-1', envois: 1, validations: 1 },
+        { tourId: 'TOUR-2', envois: 0, validations: 0 },
       ]);
-      expect(appelsDeTournee()).toEqual([]);
-      expect(base.tournees.map((t) => t.external_ref_commande)).toEqual([
-        'CMD-1',
-        'CMD-2',
+      expect(envoisOuValidations()).toEqual([]);
+      expect(base.tournees.map((t) => t.tms_reference)).toEqual([
+        'TOUR-1',
+        'TOUR-2',
       ]);
       expect(base.collecte).toMatchObject({
         tms_reference: 'CMD-1',
@@ -898,7 +1047,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       });
     }
 
-    it('M1.5a/reprise_ajout_camion_lien_non_ecrit — le lien du nouveau camion n’est pas écrit : la reprise retrouve sa commande, deux commandes en tout', async () => {
+    it('M1.5a/reprise_ajout_camion_lien_non_ecrit — le lien du nouveau camion n’est pas écrit : la reprise retrouve sa commande, deux camions en tout', async () => {
       const base = ajoutDUnCamion();
       base.casser('collecte_tournees', 'upsert', (d) => d['rang'] === 2);
 
@@ -916,24 +1065,24 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
         `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${COLLECTE_ID}-2`,
       ]);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
-      attendreDeuxCommandes(base);
+      attendreDeuxCamions(base);
     });
 
-    it('M1.5a/ajout_camion_mission_commencee — camion ajouté à une collecte en cours : sa commande part, le statut logistique de la collecte ne redescend pas', async () => {
+    it('M1.5a/ajout_camion_mission_commencee — camion ajouté à une collecte en cours : sa commande et sa tournée partent, le statut logistique de la collecte ne redescend pas', async () => {
       const base = ajoutDUnCamion();
       base.collecte.statut = 'en_cours';
 
       await runOutboxWorker(base.supabase);
 
       expect(base.ordre.statut).toBe('done');
-      expect(mts1.commandes.map((c) => c.customerOrderId)).toEqual([
-        'CMD-1',
-        'CMD-2',
+      expect(mts1.commandes.map((c) => [c.customerOrderId, c.tourId])).toEqual([
+        ['CMD-1', 'TOUR-1'],
+        ['CMD-2', 'TOUR-2'],
       ]);
       expect(base.collecte.statut_tms).toBe('acceptee');
     });
 
-    it('M1.5a/reprise_ajout_camion_rang_servi_sans_reference — un camion dont la commande est enregistrée, sans référence de tournée côté Savr, est servi : la modification ne lui crée ni commande ni tournée', async () => {
+    it('M1.5a/reprise_ajout_camion_rang_servi_sans_reference — un camion dont la commande est déjà dans une tournée, sans référence côté Savr : la modification reprend cette tournée, sans en créer ni rattacher', async () => {
       const base = fausseBase({ nbCamions: 1, ordre: 'modification' });
       base.poserTournee(1);
       mts1.poserCamionEnvoye(1);
@@ -941,14 +1090,18 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       await runOutboxWorker(base.supabase);
 
       expect(base.ordre.statut).toBe('done');
-      expect(mts1.appels).toEqual(['PUT /v3/customerOrders/CMD-1']);
+      expect(mts1.appels).toEqual([
+        'PUT /v3/customerOrders/CMD-1',
+        'GET /v3/customerOrders?customerOrderIds=CMD-1',
+      ]);
+      expect(base.tournees[0]!.tms_reference).toBe('TOUR-1');
       expect(mts1.tours).toEqual([
         { tourId: 'TOUR-1', envois: 1, validations: 1 },
       ]);
     });
 
     it.each(['terminee', 'annulee'] as const)(
-      'M1.5a/reprise_modification_rang_clos_non_repris — une modification ne reprend pas un rang dont la tournée est « %s » : aucune commande ni tournée créée',
+      'M1.5a/reprise_modification_rang_clos_non_repris — une modification ne reprend pas un rang dont la tournée est « %s », même sans référence : aucune tournée créée ni rattachée',
       async (statut) => {
         const base = fausseBase({ nbCamions: 1, ordre: 'modification' });
         base.poserTournee(1, { statut });
@@ -964,10 +1117,10 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       },
     );
 
-    it('M1.5a/reprise_ajout_camion_rang_servi_non_rejoue — témoin : à la reprise d’une modification, un camion dont la commande est enregistrée n’est pas recommandé', async () => {
+    it('M1.5a/reprise_ajout_camion_rang_servi_non_rejoue — témoin : à la reprise d’une modification, un camion dont la commande et la tournée sont enregistrées n’est ni recommandé ni rattaché', async () => {
       const base = fausseBase({ nbCamions: 2, ordre: 'modification' });
-      base.poserTournee(1);
-      base.poserTournee(2);
+      base.poserTournee(1, { tms_reference: 'TOUR-1' });
+      base.poserTournee(2, { tms_reference: 'TOUR-2' });
       mts1.poserCamionEnvoye(1);
       mts1.poserCamionEnvoye(2);
 
@@ -980,10 +1133,53 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       ]);
       expect(base.ordre.statut).toBe('done');
     });
+
+    it.each(['CANCELED', 'OK'] as const)(
+      'M1.5a/modification_commande_close_sans_tournee — la commande du camion est « %s » chez MTS-1 et sa tournée manque : la modification ne lui crée ni tournée ni rattachement',
+      async (statut) => {
+        const base = fausseBase({ nbCamions: 1, ordre: 'modification' });
+        base.poserTournee(1);
+        mts1.commandes.push({
+          customerOrderId: 'CMD-1',
+          orderNumber: NUMERO_RANG_1,
+          tourId: null,
+          statut,
+        });
+
+        await runOutboxWorker(base.supabase);
+
+        expect(base.ordre.statut).toBe('done');
+        expect(mts1.appels).toEqual([
+          'PUT /v3/customerOrders/CMD-1',
+          'GET /v3/customerOrders?customerOrderIds=CMD-1',
+        ]);
+        expect(mts1.tours).toEqual([]);
+      },
+    );
+
+    it('M1.5a/modification_apres_regroupement — l’Admin a regroupé la commande du camion dans une autre tournée : une modification ne la sort pas de cette tournée', async () => {
+      const base = fausseBase({ nbCamions: 1, ordre: 'modification' });
+      base.poserTournee(1, { tms_reference: 'TOUR-1' });
+      mts1.commandes.push({
+        customerOrderId: 'CMD-1',
+        orderNumber: NUMERO_RANG_1,
+        tourId: 'TOUR-9',
+      });
+      mts1.tours.push(
+        { tourId: 'TOUR-1', envois: 0, validations: 0 },
+        { tourId: 'TOUR-9', envois: 1, validations: 1 },
+      );
+
+      await runOutboxWorker(base.supabase);
+
+      expect(base.ordre.statut).toBe('done');
+      expect(mts1.appels).toEqual(['PUT /v3/customerOrders/CMD-1']);
+      expect(mts1.commandes[0]!.tourId).toBe('TOUR-9');
+    });
   });
 
-  describe('témoin : erreur passagère, curseur écrit', () => {
-    it('M1.5a/reprise_reference_collecte_non_ecrite — la référence de la collecte n’est pas écrite après la commande : erreur passagère, reprise depuis le curseur, une seule commande', async () => {
+  describe('témoin : erreur passagère, curseurs écrits', () => {
+    it('M1.5a/reprise_reference_collecte_non_ecrite — la référence de la collecte n’est pas écrite après la commande et la tournée : erreur passagère, reprise sans recherche, une seule commande et une seule tournée', async () => {
       const base = fausseBase();
       base.casser('collectes', 'update', (d) => 'tms_reference' in d);
 
@@ -995,12 +1191,13 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
 
       await runOutboxWorker(base.supabase);
 
-      expect(mts1.recus('GET ')).toHaveLength(0);
+      // La commande est relue par son identifiant, jamais cherchée par numéro.
+      expect(mts1.recus('GET /v3/customerOrders?minDate')).toHaveLength(0);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
-      attendreUneSeuleCommande(base);
+      attendreUnSeulCamion(base);
     });
 
-    it('M1.5a/reprise_passagere_depuis_les_curseurs — le statut « à attribuer » n’est pas écrit après la commande : reprise sans réconciliation ni recherche, depuis le curseur', async () => {
+    it('M1.5a/reprise_passagere_depuis_les_curseurs — le statut « à attribuer » n’est pas écrit après la commande et la tournée : reprise sans réconciliation ni recherche, depuis les curseurs', async () => {
       const base = fausseBase();
       base.casser('collectes', 'update', (d) => 'statut_tms' in d);
 
@@ -1012,9 +1209,10 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
 
       await runOutboxWorker(base.supabase);
 
-      expect(mts1.recus('GET ')).toHaveLength(0);
+      expect(mts1.recus('GET /v3/customerOrders?minDate')).toHaveLength(0);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
-      attendreUneSeuleCommande(base);
+      expect(mts1.recus('POST /v3/tours')).toHaveLength(1);
+      attendreUnSeulCamion(base);
     });
   });
 });

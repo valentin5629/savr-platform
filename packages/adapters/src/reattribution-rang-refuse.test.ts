@@ -221,10 +221,19 @@ function stubMts1(scan: Mts1CustomerOrder[] = []) {
       createdAt: '2026-07-14T10:00:00Z',
     };
   });
+  const createTour = vi.fn(async (payload: Record<string, unknown>) => ({
+    tourId: `MTS1-TOUR-NEUF-${n}`,
+    externalReference: String(payload['orderNumber']),
+    status: 'DRAFT',
+    createdAt: '2026-07-14T10:00:00Z',
+    customerOrderId: `MTS1-ORDER-NEUVE-${n}`,
+  }));
   const handlers = {
     pollOrders: vi.fn(),
     getTour: vi.fn(),
     postOrder,
+    createTour,
+    addCustomerOrder: vi.fn().mockResolvedValue(undefined),
     updateOrder: vi.fn().mockResolvedValue(undefined),
     deleteOrder: vi.fn().mockResolvedValue(undefined),
     scanOrdersByDateRange: vi.fn().mockResolvedValue(scan),
@@ -264,6 +273,9 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
     // Jamais la clé `col-reatt-1` de la commande annulée.
     expect(h.postOrder).toHaveBeenCalledOnce();
     expect(h.postOrder.mock.calls[0]![0]).toMatchObject({
+      orderNumber: 'col-reatt-1-r2',
+    });
+    expect(h.createTour.mock.calls[0]![0]).toMatchObject({
       orderNumber: 'col-reatt-1-r2',
     });
 

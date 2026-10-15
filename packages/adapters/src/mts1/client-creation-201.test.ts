@@ -9,9 +9,7 @@ import { Mts1Client } from './client.js';
 import type { Mts1Handlers } from './mock.js';
 import { _setMts1Handlers } from './mock.js';
 
-// Réponse d'une CRÉATION chez MTS-1 (POST /v3/customerOrders, seule création
-// depuis que l'Admin compose les tournées dans la console — décision Val
-// 2026-10-15).
+// Réponse d'une CRÉATION chez MTS-1 (POST /v3/customerOrders, POST /v3/tours).
 // Dès que MTS-1 a répondu 201, l'objet existe : si son identifiant n'est pas
 // lisible, ce n'est ni un refus ni une erreur passagère. Le client lève une
 // erreur AMBIGUË, que le worker range « à réconcilier » — rejouée telle quelle,
@@ -27,6 +25,7 @@ const fakeSupabase = {
 const COMMANDE = { orderNumber: 'col-1-1' } as unknown as Parameters<
   Mts1Client['postOrder']
 >[0];
+const TOURNEE = { orderNumber: 'col-1-1', tourDate: '2027-03-20' };
 
 /** Corps de réponse qui n'est pas du JSON. */
 const PAS_DU_JSON = Symbol('pas du JSON');
@@ -53,8 +52,8 @@ const CORPS_SANS_IDENTIFIANT: Array<[string, unknown]> = [
   ['un objet vide', {}],
   ['null', null],
   ['un tableau', []],
-  ['un identifiant vide', { customerOrderId: '' }],
-  ['un identifiant numérique', { customerOrderId: 42 }],
+  ['un identifiant vide', { customerOrderId: '', tourId: '' }],
+  ['un identifiant numérique', { customerOrderId: 42, tourId: 42 }],
 ];
 
 describe('M1.5a / MTS-1 client — réponse d’une création (fil)', () => {
@@ -113,6 +112,31 @@ describe('M1.5a / MTS-1 client — réponse d’une création (fil)', () => {
       ).rejects.toBeInstanceOf(LogistiqueTransientError);
     });
   });
+
+  describe('POST /v3/tours', () => {
+    it.each(CORPS_SANS_IDENTIFIANT)(
+      'M1.5a/creation_fil_tournee_201_illisible — 201 avec %s → erreur ambiguë',
+      async (_cas, corps) => {
+        const fetchMock = stubFetch(201, corps);
+
+        const envoi = new Mts1Client(fakeSupabase).createTour(TOURNEE);
+
+        await expect(envoi).rejects.toBeInstanceOf(LogistiqueAmbiguousError);
+        await expect(envoi).rejects.toThrow(
+          'MTS-1 POST /v3/tours : création acceptée, mais « tourId » est illisible dans la réponse',
+        );
+        expect(fetchMock).toHaveBeenCalledOnce();
+      },
+    );
+
+    it('M1.5a/creation_fil_tournee_201_lisible — 201 avec son identifiant → rendu tel quel', async () => {
+      stubFetch(201, { tourId: 'T-XYZ' });
+
+      const creee = await new Mts1Client(fakeSupabase).createTour(TOURNEE);
+
+      expect(creee.tourId).toBe('T-XYZ');
+    });
+  });
 });
 
 // Même règle quand MTS-1 est simulé par des handlers (tests des adapters) :
@@ -142,6 +166,24 @@ describe('M1.5a / MTS-1 client — réponse d’une création (handlers simulés
 
     await expect(
       new Mts1Client(fakeSupabase).postOrder(COMMANDE),
+    ).rejects.toBeInstanceOf(LogistiqueAmbiguousError);
+  });
+
+  it('M1.5a/creation_simulee_tournee_sans_identifiant — tournée acceptée sans identifiant → erreur ambiguë', async () => {
+    _setMts1Handlers(
+      handlers({
+        createTour: async () => ({
+          tourId: undefined as unknown as string,
+          externalReference: 'col-1-1',
+          status: 'DRAFT',
+          createdAt: '',
+          customerOrderId: '',
+        }),
+      }),
+    );
+
+    await expect(
+      new Mts1Client(fakeSupabase).createTour(TOURNEE),
     ).rejects.toBeInstanceOf(LogistiqueAmbiguousError);
   });
 });

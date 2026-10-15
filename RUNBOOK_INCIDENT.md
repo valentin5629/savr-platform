@@ -78,21 +78,21 @@ WHERE statut = 'dead' ORDER BY seq;
 
 ⚠ Ni le skip ni le resolve ne touchent aux lignes `tournees`. Toute modification
 ultérieure de la collecte (ordre `collecte.modifiee`, y compris une modification
-faite par le client) crée chez MTS-1 la commande des rangs qui n'en ont pas, dès
-qu'au moins un rang de la collecte a une commande. Si ce camion a été commandé à
-la main chez MTS-1, il serait commandé une seconde fois. Aucun geste de
-l'application ne l'évite : après un resolve manuel d'un ordre de création, faire
-aligner par un développeur la ligne `tournees` du rang (`external_ref_commande`
-= identifiant de la commande MTS-1) AVANT toute modification de la collecte.
-Depuis le 2026-10-15, Savr ne crée plus de tournée chez MTS-1 (l'Admin les
-compose dans la console) et n'écrit plus `tournees.tms_reference` : rien à
-aligner de ce côté.
+faite par le client) crée chez MTS-1 la commande et la tournée unitaire des
+rangs qui n'en ont pas, dès qu'au moins un rang de la collecte a une commande.
+Si ce camion a été commandé à la main chez MTS-1, il serait commandé une seconde
+fois. Aucun geste de l'application ne l'évite : après un resolve manuel d'un
+ordre de création, faire aligner par un développeur la ligne `tournees` du rang
+(`external_ref_commande` = identifiant de la commande MTS-1) AVANT toute
+modification de la collecte. La référence de la tournée peut rester vide : à la
+modification suivante, l'adapter relit la commande et reprend sa tournée sans en
+créer d'autre, ni la sortir d'une tournée où l'Admin l'a placée.
 
 ⚠ L'index `uniq_tournee_par_tms_reference` (migration `20261013210000`) refuse
 toujours (erreur `23505`) d'écrire sur une ligne `tournees` une référence de
-tournée qu'une AUTRE ligne porte déjà. Une tournée MTS-1 pouvant désormais
-porter plusieurs collectes, ne pas y écrire de référence à la main pour les
-relier — le remonter à Val.
+tournée qu'une AUTRE ligne porte déjà. Une tournée regroupée par l'Admin
+pouvant porter plusieurs collectes, ne pas y écrire de référence à la main pour
+les relier — le remonter à Val.
 
 ⚠ Ordre de création en échec définitif avec le message « … est déjà terminée
 chez MTS-1 … — ni reprise ni nouvelle création » : une commande du même numéro

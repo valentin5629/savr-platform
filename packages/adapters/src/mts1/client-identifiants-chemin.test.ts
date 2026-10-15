@@ -238,9 +238,9 @@ describe('M1.5a / MTS-1 client — identifiant dans un chemin (handlers simulés
   );
 });
 
-// Un identifiant que Savr adopte va dans `tournees.external_ref_commande` (et,
-// pour le rang 1, dans `collectes.tms_reference`), puis dans les chemins
-// ci-dessus.
+// Un identifiant que Savr adopte va dans `tournees.external_ref_commande` ou
+// `tms_reference` (et, pour la commande du rang 1, dans `collectes.tms_reference`),
+// puis dans les chemins ci-dessus.
 const HORS_ALPHABET: Array<[string, unknown]> = [
   ['une barre oblique', 'a/b'],
   ['une remontée de chemin', '../x'],
@@ -316,17 +316,39 @@ describe('M1.5a / MTS-1 — alphabet d’un identifiant adopté', () => {
     },
   );
 
-  it.each(DANS_ALPHABET)(
-    'M1.5a/creation_identifiant_dans_alphabet — 201 avec %s → commande rendue telle quelle',
+  it.each(HORS_ALPHABET)(
+    'M1.5a/creation_tournee_identifiant_hors_alphabet — 201 dont l’identifiant porte %s → erreur ambiguë, il n’est pas rendu',
     async (_cas, valeur) => {
-      stubFetchOk({ customerOrderId: valeur });
+      stubFetchOk({ tourId: valeur });
+
+      const envoi = new Mts1Client(fakeSupabase).createTour({
+        orderNumber: 'col-1-1',
+        tourDate: '2027-03-20',
+      });
+
+      await expect(envoi).rejects.toBeInstanceOf(LogistiqueAmbiguousError);
+      await expect(envoi).rejects.toThrow(
+        'MTS-1 POST /v3/tours : création acceptée, mais « tourId » est illisible dans la réponse',
+      );
+    },
+  );
+
+  it.each(DANS_ALPHABET)(
+    'M1.5a/creation_identifiant_dans_alphabet — 201 avec %s → commande et tournée rendues telles quelles',
+    async (_cas, valeur) => {
+      stubFetchOk({ customerOrderId: valeur, tourId: valeur });
       const client = new Mts1Client(fakeSupabase);
 
       const commande = await client.postOrder({
         orderNumber: 'col-1-1',
       } as unknown as Parameters<Mts1Client['postOrder']>[0]);
+      const tournee = await client.createTour({
+        orderNumber: 'col-1-1',
+        tourDate: '2027-03-20',
+      });
 
       expect(commande.id).toBe(valeur);
+      expect(tournee.tourId).toBe(valeur);
     },
   );
 });

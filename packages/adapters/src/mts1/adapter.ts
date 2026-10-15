@@ -1918,8 +1918,10 @@ export class AdapterMts1 implements LogistiqueProvider {
   // camion ajouté à une collecte acceptée la ramène à « à attribuer » (C47 : le
   // camion le moins avancé l'emporte). Commande déjà enregistrée (reprise) :
   // depuis « non envoyé » seulement — la relève a pu avancer le statut
-  // entre-temps, une reprise ne le recule pas. Jamais sur un refus ni une
-  // annulation.
+  // entre-temps, une reprise ne le recule pas. Seulement sur une collecte à
+  // valider ou validée (une réattribution la remet « programmée ») : jamais
+  // une fois sa mission commencée, ni sur un refus ou une annulation. Une
+  // écriture que cette garde écarte n'est pas une erreur.
   private async passerAAttribuer(
     collecteId: string,
     reprise: boolean,
@@ -1931,6 +1933,7 @@ export class AdapterMts1 implements LogistiqueProvider {
         statut_tms_at: new Date().toISOString(),
       })
       .eq('id', collecteId)
+      .in('statut', STATUTS_ATTRIBUTION_COLLECTE)
       .in(
         'statut_tms',
         reprise ? ['non_envoye'] : ['non_envoye', ...STATUT_TMS_PAR_NIVEAU],

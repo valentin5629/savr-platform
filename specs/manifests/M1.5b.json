@@ -24,7 +24,7 @@
       "id": "M1.5b-sync-nominal",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5b-1 / poll nominal VALIDATED → statut_tms=\"acceptee\", pesées upsertées, photo uploadée",
+      "test": "M1.5b-1 / poll nominal, tournée acceptée par le transporteur → statut_tms=\"acceptee\", pesées upsertées, photo uploadée",
       "statut": "implemented",
       "libelle": "sync nominal : refus de la commande et attribution de sa tournée → statut_tms (cf. M1.5b-acceptee-transporteur) + upsert pesées (pesees_tournees, lues sur l'arrêt d'enlèvement de la commande) + photos (lues dans le détail du tour). La preuve sur la forme réelle du fil est portée par le livrable M1.5b-pesees-photos-forme-reelle."
     },
@@ -208,7 +208,7 @@
       "id": "M1.5b-transporteur-suivi-console",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md:46",
       "artefact": "packages/adapters/src/mts1/adapter.ts (suivreTransporteur ; findTourneeByOrderId rend le rang, le transporteur de la tournée et celui de la collecte)",
-      "test": "M1.5b/transporteur_suivi + M1.5b/transporteur_suivi_rang_2 + M1.5b/transporteur_inconnu + M1.5b/transporteur_tournee_non_envoyee",
+      "test": "M1.5b/transporteur_suivi + M1.5b/transporteur_suivi_rang_2 + M1.5b/transporteur_inconnu + M1.5b/transporteur_code_partage + M1.5b/transporteur_hors_mts1 + M1.5b/transporteur_hors_execution + M1.5b/transporteur_tournee_non_envoyee",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.5_20261015_mts1-commande-seule-tournees-admin.md",
       "libelle": "Transporteur choisi par l'Admin dans la console MTS-1 (décision Val 2026-10-15, C46 : la plateforme suit MTS-1) : dispatch.carrierShareableCode de la tournée, rapproché de transporteurs.code_transporteur_mts1 parmi les transporteurs MTS-1, est reporté sur la ligne tournees du camion et, pour le rang 1, sur la collecte (collecte en cours d'exécution seulement). Code illisible, inconnu ou porté par plusieurs transporteurs : rien n'est changé, alerte Admin transporteur_mts1_inconnu. Tournée pas encore envoyée : rien à faire."

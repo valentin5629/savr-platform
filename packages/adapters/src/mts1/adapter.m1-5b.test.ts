@@ -346,7 +346,7 @@ function makeSyncSupabase(opts: {
 describe('M1.5b / AdapterMts1.sync — nominal', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('M1.5b-1 / poll nominal VALIDATED → statut_tms="acceptee", pesées upsertées, photo uploadée', async () => {
+  it('M1.5b-1 / poll nominal, tournée acceptée par le transporteur → statut_tms="acceptee", pesées upsertées, photo uploadée', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_AVEC_PHOTO),

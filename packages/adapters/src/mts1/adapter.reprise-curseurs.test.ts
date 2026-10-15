@@ -81,6 +81,7 @@ function fausseBase(
     date_collecte: '2027-03-20',
     heure_collecte: '22:00:00',
     nb_camions_demande: opts.nbCamions ?? 1,
+    statut: 'programmee',
     statut_tms: 'non_envoye',
     tms_reference: null as string | null,
     controle_acces_requis: false,
@@ -918,6 +919,20 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       attendreDeuxCommandes(base);
     });
 
+    it('M1.5a/ajout_camion_mission_commencee — camion ajouté à une collecte en cours : sa commande part, le statut logistique de la collecte ne redescend pas', async () => {
+      const base = ajoutDUnCamion();
+      base.collecte.statut = 'en_cours';
+
+      await runOutboxWorker(base.supabase);
+
+      expect(base.ordre.statut).toBe('done');
+      expect(mts1.commandes.map((c) => c.customerOrderId)).toEqual([
+        'CMD-1',
+        'CMD-2',
+      ]);
+      expect(base.collecte.statut_tms).toBe('acceptee');
+    });
+
     it('M1.5a/reprise_ajout_camion_rang_servi_sans_reference — un camion dont la commande est enregistrée, sans référence de tournée côté Savr, est servi : la modification ne lui crée ni commande ni tournée', async () => {
       const base = fausseBase({ nbCamions: 1, ordre: 'modification' });
       base.poserTournee(1);
@@ -968,6 +983,23 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
   });
 
   describe('témoin : erreur passagère, curseur écrit', () => {
+    it('M1.5a/reprise_reference_collecte_non_ecrite — la référence de la collecte n’est pas écrite après la commande : erreur passagère, reprise depuis le curseur, une seule commande', async () => {
+      const base = fausseBase();
+      base.casser('collectes', 'update', (d) => 'tms_reference' in d);
+
+      await runOutboxWorker(base.supabase);
+
+      expect(base.resultats[0]).toMatchObject({ p_statut: 'failed' });
+      expect(base.resultats[0]!['p_requires_reconciliation']).toBeUndefined();
+      expect(base.collecte.tms_reference).toBeNull();
+
+      await runOutboxWorker(base.supabase);
+
+      expect(mts1.recus('GET ')).toHaveLength(0);
+      expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
+      attendreUneSeuleCommande(base);
+    });
+
     it('M1.5a/reprise_passagere_depuis_les_curseurs — le statut « à attribuer » n’est pas écrit après la commande : reprise sans réconciliation ni recherche, depuis le curseur', async () => {
       const base = fausseBase();
       base.casser('collectes', 'update', (d) => 'statut_tms' in d);

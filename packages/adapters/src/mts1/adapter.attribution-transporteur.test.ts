@@ -49,10 +49,46 @@ interface Camion {
   prestataire?: string;
 }
 
+type LigneReferentiel = {
+  prestataire_logistique_id: string;
+  type_tms: string;
+  code_transporteur_mts1: string | null;
+};
+
+/**
+ * Référentiel des transporteurs qui APPLIQUE `.eq()` et `.in()` : le
+ * référentiel partagé ignore `.in()`, et ne prouverait donc pas que le
+ * transporteur de la console est cherché parmi les seuls transporteurs MTS-1.
+ */
+function referentielFiltrant(lignes: LigneReferentiel[]) {
+  return () => {
+    const filtres: Array<(l: LigneReferentiel) => boolean> = [];
+    const b: Record<string, unknown> = {
+      select: () => b,
+      eq: (col: keyof LigneReferentiel, val: unknown) => (
+        filtres.push((l) => l[col] === val),
+        b
+      ),
+      in: (col: keyof LigneReferentiel, vals: unknown[]) => (
+        filtres.push((l) => vals.includes(l[col])),
+        b
+      ),
+      then: (ok: (v: unknown) => unknown) =>
+        Promise.resolve({
+          data: lignes.filter((l) => filtres.every((f) => f(l))),
+          error: null,
+        }).then(ok),
+    };
+    return b;
+  };
+}
+
 function baseSimulee(init: {
   statut?: string;
   statutTms: string;
   camions: Camion[];
+  /** Référentiel des transporteurs ; par défaut le référentiel partagé. */
+  referentiel?: LigneReferentiel[];
 }) {
   const DOUBLON = { code: '23505', message: 'duplicate key value' };
   const etat = {
@@ -188,8 +224,11 @@ function baseSimulee(init: {
     return b;
   }
 
+  const transporteurs = init.referentiel
+    ? referentielFiltrant(init.referentiel)
+    : builderTransporteurs;
   const from = (table: string) =>
-    table === 'transporteurs' ? builderTransporteurs() : requete(table);
+    table === 'transporteurs' ? transporteurs() : requete(table);
   const supabase = {
     from,
     schema: () => ({ from }),
@@ -279,19 +318,25 @@ describe('M1.5b / relève MTS-1 — attribution lue sur la tournée', () => {
     );
   });
 
-  it('M1.5b/attribution_tournee_acceptee — le transporteur a accepté la tournée : « acceptée »', async () => {
-    const base = baseSimulee({
-      statutTms: 'attribuee_en_attente_acceptation',
-      camions: [{ id: 't1', rang: 1, commande: 'CMD-1' }],
-    });
-    armer([commande('CMD-1', 'TOUR-1')], {
-      'TOUR-1': tournee('TOUR-1', 'ACCEPTED'),
-    });
+  it.each([
+    ['acceptée par le transporteur', 'ACCEPTED'],
+    ['terminée par le transporteur', 'COMPLETED'],
+  ])(
+    'M1.5b/attribution_tournee_acceptee — tournée %s : « acceptée »',
+    async (_cas, dispatch) => {
+      const base = baseSimulee({
+        statutTms: 'attribuee_en_attente_acceptation',
+        camions: [{ id: 't1', rang: 1, commande: 'CMD-1' }],
+      });
+      armer([commande('CMD-1', 'TOUR-1')], {
+        'TOUR-1': tournee('TOUR-1', dispatch),
+      });
 
-    await relever(base);
+      await relever(base);
 
-    expect(base.etat.collecte.statut_tms).toBe('acceptee');
-  });
+      expect(base.etat.collecte.statut_tms).toBe('acceptee');
+    },
+  );
 
   it('M1.5b/attribution_commande_validee_tournee_proposee — commande VALIDATED sur une tournée seulement proposée (cas mesuré le 2026-10-13) : pas « acceptée »', async () => {
     const base = baseSimulee({
@@ -581,6 +626,95 @@ describe('M1.5b / relève MTS-1 — transporteur choisi dans la console', () => 
         p_entity_id: 'col-001',
       });
       expect(String(base.alertes[0]!['p_message'])).toContain(motif);
+    },
+  );
+
+  it('M1.5b/transporteur_code_partage — code porté par deux transporteurs MTS-1 : rien n’est changé, alerte Admin', async () => {
+    const base = baseSimulee({
+      statutTms: 'attribuee_en_attente_acceptation',
+      camions: [{ id: 't1', rang: 1, commande: 'CMD-1' }],
+      referentiel: [
+        {
+          prestataire_logistique_id: PRESTA_MTS1,
+          type_tms: 'mts1',
+          code_transporteur_mts1: CODE_MTS1,
+        },
+        {
+          prestataire_logistique_id: PRESTA_MTS1_BIS,
+          type_tms: 'mts1',
+          code_transporteur_mts1: CODE_MTS1_BIS,
+        },
+        {
+          prestataire_logistique_id: 'presta-doublon-uuid',
+          type_tms: 'mts1',
+          code_transporteur_mts1: CODE_MTS1_BIS,
+        },
+      ],
+    });
+    armer([commande('CMD-1', 'TOUR-1')], {
+      'TOUR-1': tournee('TOUR-1', 'PROPOSED', CODE_MTS1_BIS),
+    });
+
+    await relever(base);
+
+    expect(base.etat.tournees[0]!.prestataire_logistique_id).toBe(PRESTA_MTS1);
+    expect(base.etat.collecte.prestataire_logistique_id).toBe(PRESTA_MTS1);
+    expect(base.alertes).toHaveLength(1);
+    expect(String(base.alertes[0]!['p_message'])).toContain(
+      'que portent plusieurs transporteurs du référentiel Savr',
+    );
+  });
+
+  it('M1.5b/transporteur_hors_mts1 — code porté par un transporteur qui n’est pas MTS-1 : il n’est pas retenu, alerte Admin', async () => {
+    const base = baseSimulee({
+      statutTms: 'attribuee_en_attente_acceptation',
+      camions: [{ id: 't1', rang: 1, commande: 'CMD-1' }],
+      referentiel: [
+        {
+          prestataire_logistique_id: PRESTA_MTS1,
+          type_tms: 'mts1',
+          code_transporteur_mts1: CODE_MTS1,
+        },
+        {
+          prestataire_logistique_id: 'presta-velo-uuid',
+          type_tms: 'a_toutes',
+          code_transporteur_mts1: CODE_MTS1_BIS,
+        },
+      ],
+    });
+    armer([commande('CMD-1', 'TOUR-1')], {
+      'TOUR-1': tournee('TOUR-1', 'PROPOSED', CODE_MTS1_BIS),
+    });
+
+    await relever(base);
+
+    expect(base.etat.tournees[0]!.prestataire_logistique_id).toBe(PRESTA_MTS1);
+    expect(base.etat.collecte.prestataire_logistique_id).toBe(PRESTA_MTS1);
+    expect(base.alertes).toHaveLength(1);
+    expect(String(base.alertes[0]!['p_message'])).toContain(
+      'absent du référentiel Savr',
+    );
+  });
+
+  it.each(['realisee', 'annulee'])(
+    'M1.5b/transporteur_hors_execution — collecte %s : ni sa tournée ni la collecte ne suivent le transporteur de la console',
+    async (statut) => {
+      const base = baseSimulee({
+        statut,
+        statutTms: 'acceptee',
+        camions: [{ id: 't1', rang: 1, commande: 'CMD-1' }],
+      });
+      armer([commande('CMD-1', 'TOUR-1')], {
+        'TOUR-1': tournee('TOUR-1', 'ACCEPTED', CODE_MTS1_BIS),
+      });
+
+      await relever(base);
+
+      expect(base.etat.tournees[0]!.prestataire_logistique_id).toBe(
+        PRESTA_MTS1,
+      );
+      expect(base.etat.collecte.prestataire_logistique_id).toBe(PRESTA_MTS1);
+      expect(base.alertes).toEqual([]);
     },
   );
 

@@ -253,13 +253,14 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
       lieuNom: 'Salle des fêtes',
       acteurUserId: 'user-x',
       acteurRole: 'agence',
-      nowMs: instantParis('2026-07-20', '10:00').getTime(), // 8h avant (Paris) → tardive
+      nowMs: instantParis('2026-07-20', '15:00').getTime(), // 3h avant (Paris) → tardive
     });
     expect(emails).toHaveLength(1);
     expect(emails[0]!.slug).toBe('admin_collecte_annulee');
     expect(emails[0]!.to).toBe('contact@gosavr.io');
     const v = emails[0]!.variables;
     expect(v['annulation_tardive']).toBe('true');
+    expect(v['delai_avant_creneau']).toBe('moins de 4h');
     expect(v['organisation_nom']).toBe('Traiteur Réel');
     expect(v['lien_backoffice']).toContain('/admin/collectes/col-1');
   });
@@ -268,21 +269,31 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
 describe('M0.7/bl-p2-22-annulation-tardive — estAnnulationTardive (pure)', () => {
   const creneau = '2026-07-20';
   const heure = '18:00:00';
-  it('< 12h avant le créneau → true', () => {
+  // Seuil 4h, strict (décision Val 2026-10-15), comme le trigger SQL de débit.
+  it('3h59 avant le créneau → true', () => {
+    expect(
+      estAnnulationTardive(
+        creneau,
+        heure,
+        instantParis('2026-07-20', '14:01').getTime(),
+      ),
+    ).toBe(true);
+  });
+  it('4h pile avant le créneau → false (strict)', () => {
+    expect(
+      estAnnulationTardive(
+        creneau,
+        heure,
+        instantParis('2026-07-20', '14:00').getTime(),
+      ),
+    ).toBe(false);
+  });
+  it('8h avant le créneau (tardive sous l’ancien seuil de 12h) → false', () => {
     expect(
       estAnnulationTardive(
         creneau,
         heure,
         instantParis('2026-07-20', '10:00').getTime(),
-      ),
-    ).toBe(true);
-  });
-  it('> 12h avant le créneau → false', () => {
-    expect(
-      estAnnulationTardive(
-        creneau,
-        heure,
-        instantParis('2026-07-19', '10:00').getTime(),
       ),
     ).toBe(false);
   });

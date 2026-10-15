@@ -15,7 +15,7 @@
     "M0.10-2 — f_log_audit() SECURITY DEFINER insère dans audit_log depuis service_role",
     "M0.10-3 — f_log_audit() refusé pour INSERT direct authenticated (pas de policy INSERT)",
     "M0.10-4 — trigger controle_acces_cascade_upgrade : UPDATE collectes.controle_acces_requis=true → ligne audit_log",
-    "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 12h → ligne audit_log + nb_annulees++",
+    "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 4h → ligne audit_log",
     "M0.10-6 — trigger pack_recredite_annulation_collecte : collecte AG realisee → annulee → ligne audit_log + nb_utilisees--",
     "M0.10-7 — trigger config_auto_accept_update : UPDATE config_auto_accept_ag → ligne audit_log",
     "M0.10-8 — trigger parametres_algo_update : UPDATE parametres_algo → ligne audit_log avec old/new valeur",
@@ -71,9 +71,9 @@
       "id": "M0.10-05",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
       "artefact": null,
-      "test": "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 12h → ligne audit_log + nb_annulees++",
+      "test": "supabase/tests/audit_trail.m0-10.test.sql « T05 trigger pack_debit_annulation_tardive écrit dans audit_log »",
       "statut": "implemented",
-      "libelle": "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 12h → ligne audit_log + nb_annulees++"
+      "libelle": "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 4h → ligne audit_log"
     },
     {
       "id": "M0.10-06",

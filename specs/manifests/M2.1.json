@@ -34,7 +34,7 @@
     "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché",
     "dernier crédit consommé → pack bascule epuise + alerte Admin",
     "collecte annulee depuis realisee → recrédit GREATEST(0, consommes-1), pack réactivé si était epuise",
-    "annulation < 12h ou prestataire mandaté → débit tardif pack",
+    "annulation < 4h avant le créneau → débit tardif pack (le mandat seul ne débite plus)",
     "RPC annuler-credit : collecte reste realisee, pack décrémenté, audit_log",
     "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne"
   ],
@@ -84,9 +84,9 @@
       "id": "M2.1-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
       "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
-      "test": "annulation < 12h ou prestataire mandaté → débit tardif pack",
+      "test": "supabase/tests/m2_1_packs_ag.test.sql « E2 : annulation à H-3h59 (heure de Paris) < 4h → débit (credits_consommes=1) », « E2 : annulation à H-4h01 (heure de Paris) ≥ 4h → pas de débit (credits_consommes reste 1) », « annulation à J-2, transporteur déjà mandaté (acceptee) → pas de débit (credits_consommes reste 1) »",
       "statut": "implemented",
-      "libelle": "annulation < 12h ou prestataire mandaté → débit tardif pack"
+      "libelle": "annulation < 4h avant le créneau (heure de Paris, strict) → débit tardif pack ; le mandat du prestataire seul ne débite plus (décision Val 2026-10-15)"
     },
     {
       "id": "M2.1-05",

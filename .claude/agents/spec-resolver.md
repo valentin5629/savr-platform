@@ -43,7 +43,7 @@ _DEV-FACING/01 - Cahier des charges App/
 ## Décisions figées à connaître (ne pas re-questionner)
 
 - **Registre réglementaire** = `cloturee` seules + ZD only (pas `realisee`)
-- **Annulation AG < 12h** = débit crédit pack (trigger `trg_pack_debit_annulation_tardive`)
+- **Annulation < 4h avant le créneau** (AG et ZD, mandat indifférent — Val 2026-10-15) = débit crédit pack AG (trigger `trg_pack_debit_annulation_tardive`) / plein tarif ZD
 - **Pas de délai minimum bloquant** de programmation (warning < 48h seulement)
 - **1 user = 1 organisation** (pas de N-N)
 - **`client_organisateur`** = jamais self-service (création Admin uniquement)

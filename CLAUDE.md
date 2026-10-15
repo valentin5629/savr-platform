@@ -80,7 +80,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 ## 4. Règles métier critiques — NE PAS réinterpréter (SI/ALORS)
 
 - **SI** débit de crédit pack AG **ALORS** sur le **pack actif unique** de l'organisation — au plus 1 pack `statut='actif'` à un instant T (invariant DB `uniq_pack_actif_par_org`). **PAS de FIFO multi-packs en V1** (refonte CDC §05 « Pack unique actif » 2026-05-08 ; le FIFO `created_at` est supprimé, ne pas le ré-introduire).
-- **SI** annulation AG < 12h avant collecte **ALORS** débit du crédit pack (trigger `trg_pack_debit_annulation_tardive`). **SINON** crédit non débité.
+- **SI** annulation < 4h avant le créneau (`date_collecte` + `heure_collecte`, heure de Paris, strict) **ALORS** annulation tardive : AG = débit du crédit pack (trigger `trg_pack_debit_annulation_tardive`), ZD = plein tarif. **SINON** rien, même si le prestataire est déjà mandaté (décision Val 2026-10-15 : seuil 4 h au lieu de 12 h, condition « après mandat » retirée). Le seuil d'urgence des **modifications** de créneau reste 12 h.
 - **SI** programmation AG **ET** aucun pack actif **ALORS** alerte seule (pas de blocage hors-pack — supprimé).
 - Tarifs ZD : **versionnés**, jamais modifiés rétroactivement.
 - **SI** collecte passe à `realisee` **ET** type=AG **ALORS** générer attestation don au batch J+1 6h, AVEC mention fiscale 2041-GE si `association.habilitee_fiscale=true` **SINON** sans mention.

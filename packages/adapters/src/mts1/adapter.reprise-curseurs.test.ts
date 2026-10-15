@@ -876,6 +876,34 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       },
     );
 
+    it('M1.5a/reprise_tournee_adoption_non_ecrite — la commande est dans une tournée qu’aucune ligne ne porte, mais l’écriture de sa référence échoue (autre erreur qu’un refus de l’index) : erreur passagère, rien de créé ni de rattaché, la reprise suivante l’enregistre', async () => {
+      const base = fausseBase();
+      base.poserTournee(1);
+      mts1.commandes.push({
+        customerOrderId: 'CMD-1',
+        orderNumber: NUMERO_RANG_1,
+        tourId: 'TOUR-1',
+      });
+      mts1.tours.push({ tourId: 'TOUR-1', envois: 0, validations: 0 });
+      base.casser('tournees', 'update', (d) => 'tms_reference' in d);
+
+      const premier = await runOutboxWorker(base.supabase);
+
+      expect(premier).toMatchObject({ failed: 1, done: 0 });
+      expect(base.resultats[0]).toMatchObject({
+        p_statut: 'failed',
+        p_last_error:
+          'LogistiqueTransientError: Référence de la tournée TOUR-1 non écrite — connexion à la base perdue',
+      });
+      expect(base.tournees[0]!.tms_reference).toBeNull();
+
+      await runOutboxWorker(base.supabase);
+
+      expect(mts1.recus('POST /v3/tours')).toHaveLength(0);
+      expect(mts1.recus('PUT /v3/tours')).toHaveLength(0);
+      attendreUnSeulCamion(base);
+    });
+
     it('M1.5a/reprise_curseur_commande_terminee — la commande enregistrée est terminée chez MTS-1 et la référence de sa tournée manque : échec définitif, sa tournée n’est ni reprise ni recréée', async () => {
       const base = fausseBase();
       base.poserTournee(1);
@@ -1393,6 +1421,10 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
 
     it.each([
       ['OK', 'est déjà terminée chez MTS-1 (OK) — tournée ni reprise ni créée'],
+      [
+        'KO',
+        'est refusée ou annulée chez MTS-1 (KO) — tournée ni reprise ni créée',
+      ],
       // Mesuré le 2026-10-13 : la lecture par identifiant ne rend plus une
       // commande annulée.
       [

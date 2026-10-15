@@ -100,6 +100,12 @@ est terminée ou archivée chez MTS-1. Le remettre en file répète l'arrêt.
 Vérifier la collecte chez MTS-1 avant tout geste ; un skip ou un resolve laisse
 les lignes `tournees` telles quelles (voir les notes ci-dessus).
 
+⚠ Même effet, à la reprise de la tournée d'une commande déjà enregistrée :
+« … est déjà terminée | refusée ou annulée chez MTS-1 (STATUT) — tournée ni
+reprise ni créée », ou « commande introuvable chez MTS-1 pour le rang N (…) —
+tournée non créée » (une commande annulée n'est plus rendue par MTS-1). Le
+remettre en file répète l'arrêt : vérifier la collecte chez MTS-1 d'abord.
+
 Garde-fous : ces RPC n'agissent que sur un event **`dead`** (sinon erreur `22023`) ;
 un motif < 5 caractères → `22023` ; un auteur non `admin_savr` → `42501`.
 

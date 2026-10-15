@@ -84,7 +84,7 @@ VALUES ('a09f0008-0000-0000-0000-000000000001'::uuid, '2026-01-01', 'unitaire', 
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, statut, date_achat, credits_initiaux, type_pack)
 VALUES ('a09f0009-0000-0000-0000-000000000001'::uuid, 'a09f0001-0000-0000-0000-000000000001'::uuid, 'actif', current_date, 5, 'personnalise');
 
--- Collecte AG programmee (pour trigger pack_debit — date dans moins de 12h)
+-- Collecte AG programmee (pour trigger pack_debit — date dans moins de 4h)
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, pack_antgaspi_id)
 VALUES (
   'a09f000a-0000-0000-0000-000000000001'::uuid,
@@ -172,7 +172,7 @@ SELECT results_eq(
 
 -- =====================================================================
 -- T05 : trigger pack_debit_annulation_tardive → écrit dans audit_log
--- Passe collecte AG à annulee avec date_collecte dans moins de 12h.
+-- Passe collecte AG à annulee avec date_collecte dans moins de 4h.
 -- La FORME de la ligne est un contrat : la route gestionnaire/pack-ag la lit
 -- (table_name, action, record_id = pack, old_values.collecte_id = collecte)
 -- pour lister les annulations tardives débitées (§06.05 « Mon pack AG »).

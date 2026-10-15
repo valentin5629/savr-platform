@@ -52,39 +52,40 @@ SELECT is(plateforme.fn_est_terminal_attendu(3, 2, 0), 'pending', 'terminal : N=
 
 -- =============================================================================
 -- Oracle 1 — débit pack annulation tardive AG (fn_est_debit_pack_attendu)
--- Cas-limite central : seuil 12h STRICT, ancrage Europe/Paris.
+-- Cas-limite central : seuil 4h STRICT, ancrage Europe/Paris (Val 2026-10-15 :
+-- 4h au lieu de 12h, et le délai est la SEULE condition — plus de branche mandat).
 -- =============================================================================
--- Au seuil EXACT (now = collecte - 12h) → strict '<' → PAS de débit.
+-- Au seuil EXACT (now = collecte - 4h) → strict '<' → PAS de débit.
 SELECT ok(
   NOT plateforme.fn_est_debit_pack_attendu(
     'validee', 'annulee', 'anti_gaspi', gen_random_uuid(),
     DATE '2099-06-15', TIME '20:00', 'non_envoye',
-    (TIMESTAMP '2099-06-15 20:00' AT TIME ZONE 'Europe/Paris') - INTERVAL '12 hours'),
-  'débit : seuil 12h EXACT → pas de débit (strict <, anti-régression bug <=)'
+    (TIMESTAMP '2099-06-15 20:00' AT TIME ZONE 'Europe/Paris') - INTERVAL '4 hours'),
+  'débit : seuil 4h EXACT → pas de débit (strict <, anti-régression bug <=)'
 );
--- 1 min APRÈS le seuil (< 12h restant) → débit.
+-- 1 min APRÈS le seuil (< 4h restant) → débit.
 SELECT ok(
   plateforme.fn_est_debit_pack_attendu(
     'validee', 'annulee', 'anti_gaspi', gen_random_uuid(),
     DATE '2099-06-15', TIME '20:00', 'non_envoye',
-    (TIMESTAMP '2099-06-15 20:00' AT TIME ZONE 'Europe/Paris') - INTERVAL '12 hours' + INTERVAL '1 minute'),
-  'débit : < 12h avant collecte → débit'
+    (TIMESTAMP '2099-06-15 20:00' AT TIME ZONE 'Europe/Paris') - INTERVAL '4 hours' + INTERVAL '1 minute'),
+  'débit : < 4h avant collecte → débit'
 );
--- 1 min AVANT le seuil (> 12h restant) sans mandat → pas de débit.
+-- 1 min AVANT le seuil (> 4h restant) sans mandat → pas de débit.
 SELECT ok(
   NOT plateforme.fn_est_debit_pack_attendu(
     'validee', 'annulee', 'anti_gaspi', gen_random_uuid(),
     DATE '2099-06-15', TIME '20:00', 'non_envoye',
-    (TIMESTAMP '2099-06-15 20:00' AT TIME ZONE 'Europe/Paris') - INTERVAL '12 hours' - INTERVAL '1 minute'),
-  'débit : > 12h sans mandat → pas de débit'
+    (TIMESTAMP '2099-06-15 20:00' AT TIME ZONE 'Europe/Paris') - INTERVAL '4 hours' - INTERVAL '1 minute'),
+  'débit : > 4h sans mandat → pas de débit'
 );
--- > 12h MAIS prestataire mandaté → débit (branche mandat).
+-- > 4h MAIS prestataire mandaté → PAS de débit (branche mandat retirée).
 SELECT ok(
-  plateforme.fn_est_debit_pack_attendu(
+  NOT plateforme.fn_est_debit_pack_attendu(
     'validee', 'annulee', 'anti_gaspi', gen_random_uuid(),
     DATE '2099-06-15', TIME '20:00', 'acceptee',
     (TIMESTAMP '2099-06-15 20:00' AT TIME ZONE 'Europe/Paris') - INTERVAL '1 day'),
-  'débit : > 12h + mandat actif → débit'
+  'débit : > 4h + mandat actif → pas de débit (seul le délai compte)'
 );
 -- Pas de pack attaché → alerte, PAS de débit.
 SELECT ok(
@@ -143,10 +144,11 @@ INSERT INTO plateforme.evenements (
   CURRENT_DATE + INTERVAL '30 day', 200, 'Contact Oracle', '0600000001'
 );
 
--- ── Cross-check RÉEL oracle 1 : trigger de débit vs oracle (branche mandat) ──
--- Collecte AG future (> 12h → delai_court FALSE) + prestataire mandaté
--- (statut_tms='acceptee' → mandat actif) → débit attendu. Déterministe (pas de
--- dépendance à l'heure de run, contrairement à la branche temporelle).
+-- ── Cross-check RÉEL oracle 1 : trigger de débit vs oracle (mandat sans délai) ──
+-- Collecte AG future (> 4h → delai_court FALSE) + prestataire mandaté
+-- (statut_tms='acceptee') → AUCUN débit attendu depuis le 2026-10-15 (le mandat
+-- seul ne débite plus). Déterministe (pas de dépendance à l'heure de run,
+-- contrairement à la branche temporelle).
 -- uniq_tarif_pack_ag_ouvert_par_type (20260914160000) n'autorise qu'UNE ligne
 -- ouverte par type_pack : on ferme la version seedée avant d'ouvrir celle de la
 -- fixture (fermeture au jour de prise d'effet = intervalle nul, borne autorisée).
@@ -181,8 +183,8 @@ WHERE id = 'a9000000-0000-0000-0000-000000000006'::uuid;
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = 'a9000000-0000-0000-0000-000000000005'::uuid),
-  1,
-  'RÉEL : annulation AG > 12h avec mandat → 1 crédit débité (≡ oracle TRUE)'
+  0,
+  'RÉEL : annulation AG > 4h avec mandat → aucun crédit débité (≡ oracle FALSE)'
 );
 
 -- ── Cross-check RÉEL oracle 2 : fn_agreger_terminal_collecte vs oracle ──

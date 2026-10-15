@@ -205,11 +205,11 @@ INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_i
 VALUES ('e16a0f01-0000-0000-0000-000000000002'::uuid, 'e16a0001-0000-0000-0000-000000000002'::uuid,
         'pack_10', 10, 0, 'actif', current_date);
 
--- Collecte AG mandatée, mission passée (< 12h), pack attaché — cas incident prestataire.
+-- Collecte AG mandatée, mission passée (< 4h), pack attaché — cas incident prestataire.
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, pack_antgaspi_id)
 VALUES ('e16a0c05-0000-0000-0000-000000000001'::uuid, 'e16a0006-0000-0000-0000-000000000001'::uuid,
         'anti_gaspi', 'validee', 'acceptee', current_date, '00:00', 1, 'e16a0f01-0000-0000-0000-000000000001'::uuid);
--- Collecte AG mandatée, mission passée (< 12h), pack attaché — cas incident client.
+-- Collecte AG mandatée, mission passée (< 4h), pack attaché — cas incident client.
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, pack_antgaspi_id)
 VALUES ('e16a0c05-0000-0000-0000-000000000002'::uuid, 'e16a0006-0000-0000-0000-000000000002'::uuid,
         'anti_gaspi', 'validee', 'acceptee', current_date, '00:00', 1, 'e16a0f01-0000-0000-0000-000000000002'::uuid);

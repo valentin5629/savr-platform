@@ -19,6 +19,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CODE_MTS1,
   CODE_MTS1_BIS,
+  PRESTA_EVEREST,
+  PRESTA_MANUEL,
   PRESTA_MTS1,
   PRESTA_MTS1_BIS,
   builderTransporteurs,
@@ -89,6 +91,8 @@ function baseSimulee(init: {
   camions: Camion[];
   /** Référentiel des transporteurs ; par défaut le référentiel partagé. */
   referentiel?: LigneReferentiel[];
+  /** Prestataire de la collecte ; par défaut un transporteur MTS-1. */
+  prestataireCollecte?: string;
 }) {
   const DOUBLON = { code: '23505', message: 'duplicate key value' };
   const etat = {
@@ -96,7 +100,7 @@ function baseSimulee(init: {
       id: 'col-001',
       statut: init.statut ?? 'programmee',
       statut_tms: init.statutTms,
-      prestataire_logistique_id: PRESTA_MTS1 as string,
+      prestataire_logistique_id: init.prestataireCollecte ?? PRESTA_MTS1,
     },
     tournees: init.camions.map((c) => ({
       id: c.id,
@@ -194,7 +198,8 @@ function baseSimulee(init: {
             : c[col] === val,
       );
       if (passe) Object.assign(etat.collecte, data);
-      return { data: null, error: null };
+      // Comme `.select('id')` après l'écriture : les lignes réellement écrites.
+      return { data: passe ? [{ id: etat.collecte.id }] : [], error: null };
     }
     return { data: null, error: null };
   }
@@ -420,6 +425,31 @@ describe('M1.5b / relève MTS-1 — attribution lue sur la tournée', () => {
   );
 });
 
+describe('M1.5b / relève MTS-1 — collecte confiée hors MTS-1', () => {
+  it.each([
+    ['par mail', PRESTA_MANUEL, 'validee', 'acceptee', 'TOUR-1'],
+    ['à A Toutes!', PRESTA_EVEREST, 'validee', 'acceptee', undefined],
+  ])(
+    'M1.5b/collecte_hors_mts1 — collecte confiée depuis %s, commande MTS-1 encore vivante : ni son prestataire ni son statut logistique ne sont réécrits',
+    async (_cas, prestataire, statut, statutTms, tourId) => {
+      const base = baseSimulee({
+        statut,
+        statutTms,
+        prestataireCollecte: prestataire,
+        camions: [{ id: 't1', rang: 1, commande: 'CMD-1' }],
+      });
+      armer([commande('CMD-1', tourId)], {
+        'TOUR-1': tournee('TOUR-1', 'ACCEPTED', CODE_MTS1_BIS),
+      });
+
+      await relever(base);
+
+      expect(base.etat.collecte.prestataire_logistique_id).toBe(prestataire);
+      expect(base.etat.collecte.statut_tms).toBe(statutTms);
+    },
+  );
+});
+
 describe('M1.5b / relève MTS-1 — attribution relevée au changement d’état', () => {
   it('M1.5b/attribution_reacceptation_requise — une collecte remise « en attente d’acceptation » par une modification y reste tant que MTS-1 ne montre rien de nouveau, puis suit la nouvelle acceptation', async () => {
     const base = baseSimulee({
@@ -443,6 +473,23 @@ describe('M1.5b / relève MTS-1 — attribution relevée au changement d’état
     tours['TOUR-1'] = tournee('TOUR-1', 'PROPOSED');
     await relever(base);
     tours['TOUR-1'] = tournee('TOUR-1', 'ACCEPTED');
+    await relever(base);
+    expect(base.etat.collecte.statut_tms).toBe('acceptee');
+  });
+
+  it('M1.5b/attribution_hors_garde_non_notee — collecte encore « non envoyée » : rien n’est écrit ni noté ; passée « à attribuer », l’acceptation est relevée au passage suivant', async () => {
+    const base = baseSimulee({
+      statutTms: 'non_envoye',
+      camions: [{ id: 't1', rang: 1, commande: 'CMD-1' }],
+    });
+    armer([commande('CMD-1', 'TOUR-1')], {
+      'TOUR-1': tournee('TOUR-1', 'ACCEPTED'),
+    });
+
+    await relever(base);
+    expect(base.etat.collecte.statut_tms).toBe('non_envoye');
+
+    base.etat.collecte.statut_tms = 'a_attribuer';
     await relever(base);
     expect(base.etat.collecte.statut_tms).toBe('acceptee');
   });

@@ -247,6 +247,9 @@ function makeSyncSupabase(opts: {
                   collectes: {
                     id: tourneeInfo.collecteId,
                     statut: tourneeInfo.collecteStatut,
+                    statut_tms:
+                      opts.collecteStatutTms ??
+                      'attribuee_en_attente_acceptation',
                     prestataire_logistique_id:
                       tourneeInfo.prestataireId ?? PRESTA_MTS1,
                   },

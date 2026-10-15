@@ -758,7 +758,7 @@ export class AdapterMts1 implements LogistiqueProvider {
           await this.suivreTransporteur(lecture.tour, tourneeInfo, collecteId);
         }
         await this.suivreAttribution(
-          { collecteId, collecteStatut, tourneeId },
+          tourneeInfo,
           order.customerOrderId,
           tourId,
           lecture?.tour ?? null,
@@ -1281,12 +1281,23 @@ export class AdapterMts1 implements LogistiqueProvider {
         );
       }
     }
-    if (camion.rang === 1 && prestataire !== camion.collectePrestataireId) {
+    // La collecte ne suit que si elle est encore confiée à un transporteur MTS-1 :
+    // confiée depuis à un autre prestataire (par mail, A Toutes!), une commande
+    // MTS-1 restée vivante ne doit pas la ramener chez MTS-1 (la modification
+    // suivante partirait vers MTS-1 et y commanderait un camion).
+    const mts1 = [...(await this.prestatairesMts1())];
+    if (
+      camion.rang === 1 &&
+      prestataire !== camion.collectePrestataireId &&
+      camion.collectePrestataireId !== null &&
+      mts1.includes(camion.collectePrestataireId)
+    ) {
       const { error } = await this.supabase
         .from('collectes')
         .update({ prestataire_logistique_id: prestataire })
         .eq('id', collecteId)
-        .in('statut', [...STATUTS_COLLECTE_EN_EXECUTION]);
+        .in('statut', [...STATUTS_COLLECTE_EN_EXECUTION])
+        .in('prestataire_logistique_id', mts1);
       if (error) {
         throw new LogistiqueTransientError(
           `Transporteur de la collecte ${collecteId} non écrit — ${error.message}`,
@@ -1315,13 +1326,33 @@ export class AdapterMts1 implements LogistiqueProvider {
    * qu'après l'écriture : une écriture en échec est rejouée au passage suivant.
    */
   private async suivreAttribution(
-    collecte: { collecteId: string; collecteStatut: string; tourneeId: string },
+    collecte: {
+      collecteId: string;
+      collecteStatut: string;
+      collecteStatutTms: string | null;
+      collectePrestataireId: string | null;
+      tourneeId: string;
+    },
     customerOrderId: string,
     tourId: string | null,
     tour: Mts1Tour | null,
   ): Promise<void> {
     const { collecteId, tourneeId } = collecte;
-    if (!STATUTS_ATTRIBUTION_COLLECTE.includes(collecte.collecteStatut)) return;
+    // Gardes lues d'abord sur la collecte rapprochée, puis rejouées dans la
+    // requête d'écriture. Hors garde, rien n'est écrit ni noté : l'état sera
+    // relevé quand la collecte y entrera. Collecte confiée depuis à un autre
+    // prestataire que MTS-1 : jamais touchée (cf. suivreTransporteur).
+    const mts1 = [...(await this.prestatairesMts1())];
+    if (
+      !STATUTS_ATTRIBUTION_COLLECTE.includes(collecte.collecteStatut) ||
+      !(STATUT_TMS_PAR_NIVEAU as readonly (string | null)[]).includes(
+        collecte.collecteStatutTms,
+      ) ||
+      collecte.collectePrestataireId === null ||
+      !mts1.includes(collecte.collectePrestataireId)
+    ) {
+      return;
+    }
     let niveau = await this.niveauAttribution(tour);
     if (niveau === null) return;
     const cle = `mts1:attribution:${customerOrderId}`;
@@ -1354,17 +1385,26 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
     const cible = STATUT_TMS_PAR_NIVEAU[niveau];
     if (!cible) return;
-    const { error } = await this.supabase
-      .from('collectes')
-      .update({ statut_tms: cible, statut_tms_at: new Date().toISOString() })
-      .eq('id', collecteId)
-      .in('statut', STATUTS_ATTRIBUTION_COLLECTE)
-      .in('statut_tms', [...STATUT_TMS_PAR_NIVEAU])
-      .neq('statut_tms', cible);
-    if (error) {
-      throw new LogistiqueTransientError(
-        `Statut logistique de la collecte ${collecteId} non écrit — ${error.message}`,
-      );
+    if (collecte.collecteStatutTms !== cible) {
+      const { data: ecrites, error } = await this.supabase
+        .from('collectes')
+        .update({
+          statut_tms: cible,
+          statut_tms_at: new Date().toISOString(),
+        })
+        .eq('id', collecteId)
+        .in('statut', STATUTS_ATTRIBUTION_COLLECTE)
+        .in('statut_tms', [...STATUT_TMS_PAR_NIVEAU])
+        .in('prestataire_logistique_id', mts1)
+        .select('id');
+      if (error) {
+        throw new LogistiqueTransientError(
+          `Statut logistique de la collecte ${collecteId} non écrit — ${error.message}`,
+        );
+      }
+      // Écartée par une garde entre la lecture et l'écriture : rien n'est noté,
+      // l'état sera relu au passage suivant.
+      if (!ecrites?.length) return;
     }
     await this.noterAttribution(cle, etat, vue?.id ?? null);
   }
@@ -1641,6 +1681,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     rang: number;
     prestataireId: string | null;
     collectePrestataireId: string | null;
+    collecteStatutTms: string | null;
   } | null> {
     // `prestatairesDuType` garantit un Set NON VIDE (elle lève sinon) : le `.in()`
     // ci-dessous ne peut donc jamais dégénérer en requête toujours fausse, qui
@@ -1650,7 +1691,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     const { data, error } = await this.supabase
       .from('tournees')
       .select(
-        'id, statut, tms_reference, prestataire_logistique_id, collecte_tournees!inner(collecte_id, rang, collectes!inner(id, statut, prestataire_logistique_id))',
+        'id, statut, tms_reference, prestataire_logistique_id, collecte_tournees!inner(collecte_id, rang, collectes!inner(id, statut, statut_tms, prestataire_logistique_id))',
       )
       .eq('external_ref_commande', customerOrderId)
       .in('prestataire_logistique_id', [...prestatairesMts1])
@@ -1684,6 +1725,7 @@ export class AdapterMts1 implements LogistiqueProvider {
         collectes: {
           id: string;
           statut: string;
+          statut_tms?: string | null;
           prestataire_logistique_id?: string | null;
         };
       }>;
@@ -1703,6 +1745,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       rang: ct.rang ?? 1,
       prestataireId: raw.prestataire_logistique_id ?? null,
       collectePrestataireId: collecte.prestataire_logistique_id ?? null,
+      collecteStatutTms: collecte.statut_tms ?? null,
     };
   }
 

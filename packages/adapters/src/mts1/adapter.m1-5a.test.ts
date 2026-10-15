@@ -11,7 +11,6 @@ import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { composerInformationsSupplementaires } from '../infos-acces.js';
 import { ProviderManual } from '../manual/provider.js';
 import { AdapterMts1 } from './adapter.js';
-import type { Mts1CreatedTour } from './mock.js';
 import { _setMts1Handlers, setupMts1Mock } from './mock.js';
 import {
   PRESTA_MTS1,
@@ -134,6 +133,7 @@ function makeMockSupabase(
       return mockQuery;
     }),
     insert: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     not: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
   };
@@ -161,7 +161,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     vi.unstubAllEnvs();
   });
 
-  it('M1.5a / dispatch ZD rang=1 — POST order + create tour + dispatch + validate', async () => {
+  it('M1.5a / dispatch ZD rang=1 — la commande seule : POST order, ni tournée ni envoi au transporteur', async () => {
     const postOrder = vi.fn().mockResolvedValue({
       ok: true,
       id: 'MTS1-ORDER-001',
@@ -169,25 +169,11 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-001',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-001',
-    } satisfies Mts1CreatedTour);
-    const addCustomerOrder = vi.fn().mockResolvedValue(undefined);
-    const dispatchTour = vi.fn().mockResolvedValue(undefined);
-    const validateTour = vi.fn().mockResolvedValue(undefined);
 
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder,
-      dispatchTour,
-      validateTour,
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -214,19 +200,22 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     expect(place.timeslots).toEqual([{ start: '22:00', end: '22:00' }]);
     expect(orderPayload['timeslots']).toBeUndefined();
 
-    expect(createTour).toHaveBeenCalledOnce();
-    // `tourDate` (yyyy-MM-dd) obligatoire sur POST /v3/tours — MTS-1 rejette en
-    // 400 sans lui (régression découverte au 1er dispatch réel sandbox).
-    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
-    expect(tourPayload['tourDate']).toBe('2026-07-15');
-    // Rattachement obligatoire commande↔tournée (le customerOrderId du POST /tours
-    // est ignoré par MTS-1 → sans ce PUT la tournée serait vide).
-    expect(addCustomerOrder).toHaveBeenCalledWith(
-      'MTS1-TOUR-001',
-      'MTS1-ORDER-001',
+    // La commande est enregistrée (curseur de reprise), la fiche affiche son
+    // identifiant, et la collecte attend que l'Admin compose sa tournée dans la
+    // console MTS-1 (décision Val 2026-10-15) : aucune tournée n'est créée ni
+    // envoyée par Savr.
+    const q = supabase as unknown as {
+      _mockQuery: { upsert: ReturnType<typeof vi.fn> };
+      _updated: Record<string, unknown>[];
+    };
+    expect(q._mockQuery.upsert.mock.calls[0]![0]).toMatchObject({
+      external_ref_commande: 'MTS1-ORDER-001',
+      statut: 'planifiee',
+    });
+    expect(q._updated).toContainEqual({ tms_reference: 'MTS1-ORDER-001' });
+    expect(q._updated).toContainEqual(
+      expect.objectContaining({ statut_tms: 'a_attribuer' }),
     );
-    expect(dispatchTour).toHaveBeenCalledWith('MTS1-TOUR-001', 'STRIKE-IDF');
-    expect(validateTour).toHaveBeenCalledWith('MTS1-TOUR-001');
   });
 
   it('M1.5a / dispatch AG — orderCategories = Alimentaire', async () => {
@@ -237,21 +226,10 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-AG-001',
-      externalReference: 'col-ag-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-AG-001',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -287,21 +265,10 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-AG-FAV',
-      externalReference: 'col-ag-fav-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-AG-FAV',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
     });
 
     const collecteAgFavorite: Collecte = {
@@ -316,9 +283,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     );
 
     // Point B AG = point de dépôt de l'association, porté par le stuff « Don
-    // alimentaire » (relatedAddress.placeId). La tournée ne porte plus de deliveryPlace.
-    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
-    expect(tourPayload['deliveryPlace']).toBeUndefined();
+    // alimentaire » (relatedAddress.placeId).
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     const stuffs = orderPayload['stuffs'] as Array<{
       name: string;
@@ -342,21 +307,10 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'T-AG-NOFAV',
-      externalReference: 'col-ag-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'O-AG-NOFAV',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -366,8 +320,6 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       1,
     );
 
-    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
-    expect(tourPayload['deliveryPlace']).toBeUndefined();
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     const stuffs = orderPayload['stuffs'] as Array<{
       name: string;
@@ -387,15 +339,10 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
   // avant le prestataire — jamais un camion qui ne sait pas où livrer).
   it('M1.5a / dispatch AG — sans association attribuée → LogistiquePermanentError, aucun POST', async () => {
     const postOrder = vi.fn();
-    const createTour = vi.fn();
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn(),
-      dispatchTour: vi.fn(),
-      validateTour: vi.fn(),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -411,7 +358,6 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     ).rejects.toBeInstanceOf(LogistiquePermanentError);
     // Aucun effet de bord : ni commande, ni tournée MTS-1, ni tournée en base.
     expect(postOrder).not.toHaveBeenCalled();
-    expect(createTour).not.toHaveBeenCalled();
     expect(
       (supabase as unknown as { _upserted: unknown[] })._upserted,
     ).toHaveLength(0);
@@ -425,21 +371,10 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'T1',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'O1',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
     });
 
     vi.stubEnv('MTS1_ENTREPOT_PLACE_ID', 'Entrepôt Savr');
@@ -461,10 +396,6 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     for (const s of stuffs) {
       expect(s.relatedAddress).toEqual({ placeId: 'Entrepôt Savr' });
     }
-    // La tournée ne porte plus ni stuffs ni deliveryPlace (déplacés sur la commande).
-    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
-    expect(tourPayload['stuffs']).toBeUndefined();
-    expect(tourPayload['deliveryPlace']).toBeUndefined();
   });
 
   it('M1.5a / dispatch ZD — MTS1_ENTREPOT_PLACE_ID absent → stuffs sans relatedAddress (dégradation gracieuse)', async () => {
@@ -475,21 +406,10 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'T-NOENV',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'O-NOENV',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
     });
 
     // Config entrepôt absente → aucun point B, mais pas de throw : les stuffs
@@ -527,23 +447,10 @@ describe('M1.5a / AdapterMts1 — multi-camions', () => {
         createdAt: '',
       });
     });
-    const createTour = vi.fn().mockImplementation(() =>
-      Promise.resolve({
-        tourId: `MTS1-TOUR-00${callCount}`,
-        externalReference: `col-multi-001-${callCount}`,
-        status: 'DRAFT',
-        createdAt: '',
-        customerOrderId: `MTS1-ORDER-00${callCount}`,
-      } satisfies Mts1CreatedTour),
-    );
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -565,55 +472,14 @@ describe('M1.5a / AdapterMts1 — multi-camions', () => {
 describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('M1.5a / dispatch idempotent — rang déjà dispatchée (tms_reference + statut en_cours) = no-op', async () => {
+  const statutsDepuis = (supabase: unknown) =>
+    (
+      supabase as { _mockQuery: { in: ReturnType<typeof vi.fn> } }
+    )._mockQuery.in.mock.calls.filter((c) => c[0] === 'statut_tms');
+
+  it('M1.5a / dispatch idempotent — commande du rang déjà enregistrée : aucun POST, la reprise ne recule pas le statut', async () => {
     const postOrder = vi.fn();
-    _setMts1Handlers({
-      pollOrders: vi.fn(),
-      getTour: vi.fn(),
-      postOrder,
-      createTour: vi.fn(),
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn(),
-      validateTour: vi.fn(),
-    });
-
-    const supabase = makeMockSupabase({
-      tourneeExistante: {
-        id: 'tournee-existing',
-        external_ref_commande: 'MTS1-ORDER-EXISTING',
-        tms_reference: 'MTS1-TOUR-EXISTING',
-        statut: 'en_cours',
-        prestataire_logistique_id: PRESTA_MTS1,
-      },
-    });
-
-    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
-      COLLECTE_ZD,
-      1,
-    );
-    expect(postOrder).not.toHaveBeenCalled();
-  });
-
-  it('M1.5a / dispatch reprise étape 2 — external_ref_commande présent, tms_reference absent', async () => {
-    const postOrder = vi.fn();
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-REPRISE',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-EXISTING',
-    } satisfies Mts1CreatedTour);
-    const dispatchTour = vi.fn().mockResolvedValue(undefined);
-    const validateTour = vi.fn().mockResolvedValue(undefined);
-    _setMts1Handlers({
-      pollOrders: vi.fn(),
-      getTour: vi.fn(),
-      postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour,
-      validateTour,
-    });
+    _setMts1Handlers({ pollOrders: vi.fn(), getTour: vi.fn(), postOrder });
 
     const supabase = makeMockSupabase({
       tourneeExistante: {
@@ -631,101 +497,49 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
     );
 
     expect(postOrder).not.toHaveBeenCalled();
-    expect(createTour).toHaveBeenCalledOnce();
-    expect(dispatchTour).toHaveBeenCalledWith(
-      'MTS1-TOUR-REPRISE',
-      'STRIKE-IDF',
-    );
+    // La référence et « à attribuer » sont réécrites (coupure entre la commande
+    // enregistrée et ces écritures) ; le statut ne part que de « non envoyé » :
+    // la relève a pu l'avancer entre-temps.
+    expect(
+      (supabase as unknown as { _updated: Record<string, unknown>[] })._updated,
+    ).toContainEqual({ tms_reference: 'MTS1-ORDER-EXISTING' });
+    expect(statutsDepuis(supabase)).toEqual([['statut_tms', ['non_envoye']]]);
   });
 
-  it('M1.5a / reprise étapes 2bis-4 — tms_reference présent + statut planifiee → rattachement+dispatch+validate rejoués, order/tour NON recréés', async () => {
-    const postOrder = vi.fn();
-    const createTour = vi.fn();
-    const addCustomerOrder = vi.fn().mockResolvedValue(undefined);
-    const dispatchTour = vi.fn().mockResolvedValue(undefined);
-    const validateTour = vi.fn().mockResolvedValue(undefined);
-    _setMts1Handlers({
-      pollOrders: vi.fn(),
-      getTour: vi.fn(),
-      postOrder,
-      createTour,
-      addCustomerOrder,
-      dispatchTour,
-      validateTour,
-    });
-
-    // Étapes 1+2 déjà committées (curseurs présents) mais dispatch/validate ont
-    // échoué au run précédent → tournée encore 'planifiee'.
-    const supabase = makeMockSupabase({
-      tourneeExistante: {
-        id: 'tournee-existing',
-        external_ref_commande: 'MTS1-ORDER-EXISTING',
-        tms_reference: 'MTS1-TOUR-EXISTING',
-        statut: 'planifiee',
-        prestataire_logistique_id: PRESTA_MTS1,
-      },
-    });
-
-    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
-      COLLECTE_ZD,
-      1,
-    );
-
-    expect(postOrder).not.toHaveBeenCalled();
-    expect(createTour).not.toHaveBeenCalled();
-    // Régression (item reviewer) : le rattachement commande↔tournée est INCONDITIONNEL
-    // → rejoué sur reprise même si la tournée existe déjà, pour ne jamais dispatcher
-    // une tournée vide (le customerOrderId du POST /v3/tours est ignoré par MTS-1).
-    expect(addCustomerOrder).toHaveBeenCalledWith(
-      'MTS1-TOUR-EXISTING',
-      'MTS1-ORDER-EXISTING',
-    );
-    expect(dispatchTour).toHaveBeenCalledWith(
-      'MTS1-TOUR-EXISTING',
-      'STRIKE-IDF',
-    );
-    expect(validateTour).toHaveBeenCalledWith('MTS1-TOUR-EXISTING');
-  });
-
-  it("M1.5a / curseur C2 — statut 'en_cours' jamais posé avant un validate réussi (régression)", async () => {
-    // dispatch échoue (transient) → aucune écriture statut='en_cours' ne doit avoir
-    // eu lieu : sinon la garde de reprise court-circuiterait dispatch/validate au
-    // retry et le camion ne serait jamais commandé (bug C2).
-    const dispatchTour = vi
-      .fn()
-      .mockRejectedValue(new LogistiqueTransientError('5xx dispatch'));
+  it('M1.5a / commande neuve — « à attribuer » depuis tout statut de l’attribution (un camion ajouté ramène la collecte à attribuer)', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder: vi.fn().mockResolvedValue({
         ok: true,
-        id: 'O1',
-        externalReference: 'col-zd-001-1',
+        id: 'MTS1-ORDER-RANG-2',
+        externalReference: 'col-multi-001-2',
         status: 'PLANNED',
         createdAt: '',
       }),
-      createTour: vi.fn().mockResolvedValue({
-        tourId: 'T1',
-        externalReference: 'col-zd-001-1',
-        status: 'DRAFT',
-        createdAt: '',
-        customerOrderId: 'O1',
-      } satisfies Mts1CreatedTour),
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour,
-      validateTour: vi.fn(),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      COLLECTE_MULTI,
+      2,
+    );
 
-    await expect(
-      new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(COLLECTE_ZD, 1),
-    ).rejects.toThrow();
-
-    const updates = (
-      supabase as unknown as { _updated: Record<string, unknown>[] }
-    )._updated;
-    expect(updates.some((u) => u['statut'] === 'en_cours')).toBe(false);
+    expect(statutsDepuis(supabase)).toEqual([
+      [
+        'statut_tms',
+        [
+          'non_envoye',
+          'a_attribuer',
+          'attribuee_en_attente_acceptation',
+          'acceptee',
+        ],
+      ],
+    ]);
+    // Rang 2 : la référence affichée reste celle du rang 1.
+    expect(
+      (supabase as unknown as { _updated: Record<string, unknown>[] })._updated,
+    ).not.toContainEqual({ tms_reference: 'MTS1-ORDER-RANG-2' });
   });
 });
 
@@ -751,22 +565,11 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
         customerOrderStatus: 'PLANNED',
       },
     ]);
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-FOUND',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-FOUND',
-    } satisfies Mts1CreatedTour);
     const postOrder = vi.fn();
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
       scanOrdersByDateRange,
     });
 
@@ -777,10 +580,17 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
       { requiresReconciliation: true },
     );
 
-    // L'ordre a été retrouvé via scan — pas de re-POST
+    // L'ordre a été retrouvé via scan — pas de re-POST, et c'est lui qui est
+    // enregistré.
     expect(postOrder).not.toHaveBeenCalled();
     expect(scanOrdersByDateRange).toHaveBeenCalledOnce();
-    expect(createTour).toHaveBeenCalledOnce();
+    expect(
+      (
+        supabase as unknown as {
+          _mockQuery: { upsert: ReturnType<typeof vi.fn> };
+        }
+      )._mockQuery.upsert.mock.calls[0]![0],
+    ).toMatchObject({ external_ref_commande: 'MTS1-ORDER-FOUND' });
 
     // Fenêtre en JOURS, J-1 → J+1 autour de la collecte, filtrée sur le numéro
     // de la commande : l'API ne lit que des « yyyy-MM-dd », bornes incluses,
@@ -802,21 +612,10 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-NEW',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-NEW',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
       scanOrdersByDateRange,
     });
 
@@ -1005,16 +804,6 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour: vi.fn().mockResolvedValue({
-        tourId: 'MTS1-TOUR-C',
-        externalReference: 'x',
-        status: 'DRAFT',
-        createdAt: '',
-        customerOrderId: 'MTS1-ORDER-C',
-      } satisfies Mts1CreatedTour),
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
     });
     return postOrder;
   }

@@ -179,7 +179,7 @@ function prestataire(...etapes: Array<() => void>) {
 }
 
 const avancer = (ms: number) => vi.setSystemTime(Date.now() + ms);
-const appelReseau = () => verifierEcheance('MTS-1 POST /v3/tours');
+const appelReseau = () => verifierEcheance('MTS-1 POST /v3/customerOrders');
 
 const PASSAGES: Array<[string, (s: Supabase) => Promise<unknown>]> = [
   ['passage planifié', (s) => runOutboxWorker(s)],
@@ -232,7 +232,7 @@ describe.each(PASSAGES)('M1.5a / passage borné — %s', (_nom, lancerPassage) =
       p_id: 'evt-1',
       p_statut: 'failed',
       p_last_error:
-        'LogistiqueTransientError: Échéance du passage atteinte : MTS-1 POST /v3/tours non démarré',
+        'LogistiqueTransientError: Échéance du passage atteinte : MTS-1 POST /v3/customerOrders non démarré',
       p_next_retry_at: new Date(T0 + 80_000 + 5 * 60_000).toISOString(),
     });
     // Rien n'est parti et rien n'est en doute : aucune réconciliation demandée.

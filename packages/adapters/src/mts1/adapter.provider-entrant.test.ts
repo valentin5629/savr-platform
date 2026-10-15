@@ -85,6 +85,7 @@ function makeSupabase(opts: {
         return self;
       }),
       eq: vi.fn(() => self),
+      neq: vi.fn(() => self),
       in: vi.fn((col: string, vals: unknown[]) => {
         filtresIn[col] = vals;
         return self;

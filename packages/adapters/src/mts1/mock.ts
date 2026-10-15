@@ -175,14 +175,6 @@ export type Mts1PostResult = Mts1PostSuccess | Mts1PostError;
 
 // ─── Injectable handlers (consumed by adapter MTS-1 in M1.5) ─────────────────
 
-export interface Mts1CreatedTour {
-  tourId: string;
-  externalReference: string;
-  status: string;
-  createdAt: string;
-  customerOrderId: string;
-}
-
 export interface Mts1Handlers {
   // M1.5b — entrant. Rend le tableau nu, comme le fil.
   pollOrders: () => Promise<Mts1CustomerOrder[]>;
@@ -193,15 +185,9 @@ export interface Mts1Handlers {
   // M1.5b — référentiel transporteurs (résolution plaque/chauffeur, BL-P1-API-03)
   getCarrier?: () => Promise<Mts1Carrier[]>;
   // M1.5a — sortant
+  // La commande seule : les tournées, l'Admin les compose dans la console MTS-1
+  // (décision Val 2026-10-15).
   postOrder: (payload: Record<string, unknown>) => Promise<Mts1PostResult>;
-  createTour?: (payload: Record<string, unknown>) => Promise<Mts1CreatedTour>;
-  // Rattachement commande↔tournée (PUT /v3/tours/addCustomerOrder)
-  addCustomerOrder?: (tourId: string, customerOrderId: string) => Promise<void>;
-  dispatchTour?: (
-    tourId: string,
-    carrierShareableCode: string,
-  ) => Promise<void>;
-  validateTour?: (tourId: string) => Promise<void>;
   updateOrder?: (
     orderId: string,
     payload: Record<string, unknown>,

@@ -96,6 +96,8 @@ interface TourneeSimulee {
 
 function baseSimulee(init: {
   collecteStatut: string;
+  /** Statut logistique de départ de la collecte (« acceptée » par défaut). */
+  collecteStatutTms?: string;
   tournees: TourneeSimulee[];
   /** Pesées déjà en base : clé `tournée|arrêt|flux`. */
   pesees?: Record<string, number>;
@@ -113,7 +115,11 @@ function baseSimulee(init: {
   const DOUBLON = { code: '23505', message: 'duplicate key value' };
   const appels: Appel[] = [];
   const etat = {
-    collecte: { id: 'col-001', statut: init.collecteStatut },
+    collecte: {
+      id: 'col-001',
+      statut: init.collecteStatut,
+      statut_tms: init.collecteStatutTms ?? 'acceptee',
+    },
     tournees: init.tournees.map((t) => ({ ...t })),
     pesees: new Map(Object.entries(init.pesees ?? {})),
     inbox: new Map<string, { id: string; traite: boolean }>(),
@@ -196,9 +202,18 @@ function baseSimulee(init: {
     }
     if (table === 'collectes' && op === 'update') {
       const admis = filtres['statut'] as string[] | undefined;
-      if (!admis || admis.includes(etat.collecte.statut)) {
+      const admisTms = filtres['statut_tms'] as string[] | undefined;
+      const sauf = filtres['neq:statut_tms'];
+      if (
+        (!admis || admis.includes(etat.collecte.statut)) &&
+        (!admisTms || admisTms.includes(etat.collecte.statut_tms)) &&
+        (sauf === undefined || sauf !== etat.collecte.statut_tms)
+      ) {
         if (typeof data['statut'] === 'string') {
           etat.collecte.statut = data['statut'];
+        }
+        if (typeof data['statut_tms'] === 'string') {
+          etat.collecte.statut_tms = data['statut_tms'];
         }
       }
       return { data: null, error: null };
@@ -259,6 +274,7 @@ function baseSimulee(init: {
       update: (d: Ligne) => ((op = 'update'), (data = d), b),
       eq: (c: string, v: unknown) => ((filtres[c] = v), b),
       in: (c: string, v: unknown) => ((filtres[c] = v), b),
+      neq: (c: string, v: unknown) => ((filtres[`neq:${c}`] = v), b),
       limit: () => resoudre(),
       maybeSingle: () =>
         resoudre().then((r) => ({

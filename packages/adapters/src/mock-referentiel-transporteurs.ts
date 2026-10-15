@@ -22,14 +22,35 @@ export const PRESTA_EVEREST = 'presta-atoutes-uuid';
 export const PRESTA_MANUEL = 'presta-par-mail-uuid';
 
 /** Référentiel complet — volontairement hétérogène (cf. exigence 1 ci-dessus). */
+// Codes transporteur MTS-1 inventés (jamais le code réel d'un compte tiers).
+export const CODE_MTS1 = 'CA_STRIKE';
+export const CODE_MTS1_BIS = 'CA_MARATHON';
+
 export const REFERENTIEL_TRANSPORTEURS: ReadonlyArray<{
   prestataire_logistique_id: string;
   type_tms: string;
+  code_transporteur_mts1: string | null;
 }> = [
-  { prestataire_logistique_id: PRESTA_MTS1, type_tms: 'mts1' },
-  { prestataire_logistique_id: PRESTA_MTS1_BIS, type_tms: 'mts1' },
-  { prestataire_logistique_id: PRESTA_EVEREST, type_tms: 'a_toutes' },
-  { prestataire_logistique_id: PRESTA_MANUEL, type_tms: 'par_mail' },
+  {
+    prestataire_logistique_id: PRESTA_MTS1,
+    type_tms: 'mts1',
+    code_transporteur_mts1: CODE_MTS1,
+  },
+  {
+    prestataire_logistique_id: PRESTA_MTS1_BIS,
+    type_tms: 'mts1',
+    code_transporteur_mts1: CODE_MTS1_BIS,
+  },
+  {
+    prestataire_logistique_id: PRESTA_EVEREST,
+    type_tms: 'a_toutes',
+    code_transporteur_mts1: null,
+  },
+  {
+    prestataire_logistique_id: PRESTA_MANUEL,
+    type_tms: 'par_mail',
+    code_transporteur_mts1: null,
+  },
 ];
 
 /**

@@ -55,16 +55,18 @@ describe("M1.5a / passage borné — échéance d'un ordre réservé", () => {
 
     await avecEcheance(echeance, async () => {
       vi.setSystemTime(echeance - 1);
-      expect(() => verifierEcheance('MTS-1 POST /v3/tours')).not.toThrow();
+      expect(() =>
+        verifierEcheance('MTS-1 POST /v3/customerOrders'),
+      ).not.toThrow();
 
       vi.setSystemTime(echeance);
-      expect(() => verifierEcheance('MTS-1 POST /v3/tours')).toThrow(
+      expect(() => verifierEcheance('MTS-1 POST /v3/customerOrders')).toThrow(
         LogistiqueTransientError,
       );
 
       vi.setSystemTime(echeance + 60_000);
-      expect(() => verifierEcheance('MTS-1 POST /v3/tours')).toThrow(
-        'Échéance du passage atteinte : MTS-1 POST /v3/tours non démarré',
+      expect(() => verifierEcheance('MTS-1 POST /v3/customerOrders')).toThrow(
+        'Échéance du passage atteinte : MTS-1 POST /v3/customerOrders non démarré',
       );
     });
   });

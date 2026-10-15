@@ -59,6 +59,10 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // actif : risque de double passage (M14 EC11, warning). Même angle mort que
   // ci-dessus : aucun mot-clé de repli ne la teinte.
   everest_mission_hors_attribution: 'attention',
+  // Tournée confiée dans la console MTS-1 à un transporteur que le référentiel
+  // Savr ne connaît pas (ou que plusieurs transporteurs portent) : la fiche
+  // garde l'ancien transporteur. Aucun mot-clé de repli ne la teinte.
+  transporteur_mts1_inconnu: 'attention',
   // Gestionnaire qui demande la correction d'une information de son lieu (fiche
   // lieu, bouton « Demande de modification d'information ») : l'Admin corrige
   // la fiche puis résout l'alerte — tant qu'elle est ouverte, le gestionnaire

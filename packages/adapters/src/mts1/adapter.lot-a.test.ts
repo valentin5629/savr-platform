@@ -210,16 +210,18 @@ const FENETRE = {
 describe('Lot A / A2 — rejeu inbox non terminé (crash-safety)', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  const ORDER_VALIDATED: Mts1CustomerOrder = {
+  // Un refus du transporteur : le seul statut de commande qui écrit encore le
+  // statut logistique de la collecte (l'acceptation se lit sur la tournée).
+  const ORDER_REFUSE: Mts1CustomerOrder = {
     customerOrderId: 'MTS1-ORDER-A2',
     orderNumber: 'col-lota-001-1',
-    customerOrderStatus: 'VALIDATED',
+    customerOrderStatus: 'CANCELED',
     orderDate: '2026-07-15T22:00:00.000Z',
   };
 
   it('A2 / clé inbox présente mais traite=false → l’event est REJOUÉ (collectes.update)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_REFUSE]),
       getTour: vi.fn(),
       postOrder: vi.fn(),
     });
@@ -235,7 +237,7 @@ describe('Lot A / A2 — rejeu inbox non terminé (crash-safety)', () => {
     expect(collecteUpdate).toBeDefined();
     expect(
       (collecteUpdate!.data as Record<string, unknown>)['statut_tms'],
-    ).toBe('acceptee');
+    ).toBe('rejetee_par_prestataire');
     // markInboxDone a confirmé le traitement
     const inboxDone = supabase._calls.find(
       (c) =>
@@ -248,7 +250,7 @@ describe('Lot A / A2 — rejeu inbox non terminé (crash-safety)', () => {
 
   it('A2 / clé inbox présente ET traite=true → skip (aucun effet rejoué)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_REFUSE]),
       getTour: vi.fn(),
       postOrder: vi.fn(),
     });

@@ -60,29 +60,11 @@ export interface CreateOrderPayload {
   comment?: string;
 }
 
-export interface CreateTourPayload {
-  // NB : le rattachement de la commande se fait via PUT /v3/tours/addCustomerOrder
-  // (un `customerOrderId` ici serait ignoré par MTS-1 V3). `TourInput` n'accepte que
-  // { tourDate, tourNumber?, customerOrders?, comments? } : `stuffs` et `deliveryPlace`
-  // sont ignorés → portés par la COMMANDE (buildOrderPayload, stuffs[].relatedAddress).
-  orderNumber: string;
-  // Date de la tournée (yyyy-MM-dd) — champ OBLIGATOIRE de POST /v3/tours.
-  tourDate: string;
-}
-
 export interface CreatedOrder {
   id: string;
   externalReference: string;
   status: string;
   createdAt: string;
-}
-
-export interface CreatedTour {
-  tourId: string;
-  externalReference: string;
-  status: string;
-  createdAt: string;
-  customerOrderId: string;
 }
 
 export type ScanResult = Mts1CustomerOrder[];
@@ -91,8 +73,8 @@ export type ScanResult = Mts1CustomerOrder[];
 const JOUR_SEUL = /^\d{4}-\d{2}-\d{2}$/;
 
 // Identifiant MTS-1 que Savr accepte d'adopter, c'est-à-dire d'écrire dans
-// `tournees.external_ref_commande` ou `tournees.tms_reference` (et, pour la
-// tournée du rang 1, dans `collectes.tms_reference`). Mesuré le 2026-10-13 sur
+// `tournees.external_ref_commande` (et, pour la commande du rang 1, dans
+// `collectes.tms_reference`), ou de placer dans un chemin. Mesuré le 2026-10-13 sur
 // le compte de démonstration, en lecture seule : 98 identifiants distincts,
 // commandes et tournées, tous de 24 caractères hexadécimaux minuscules. La
 // règle est plus large que la mesure, le compte de production n'ayant jamais
@@ -231,8 +213,7 @@ export class Mts1Client {
     );
     // La réponse V3 (`CreateCustomerOrderResponse`) nomme l'id technique
     // `customerOrderId`, PAS `id` → mapper explicitement. Sinon `created.id` est
-    // `undefined` → `external_ref_commande` jamais enregistré → l'étape
-    // addCustomerOrder échoue en 400 « customerOrderId is mandatory ».
+    // `undefined` et `external_ref_commande` n'est jamais enregistré.
     const body = (await res.json().catch(() => null)) as {
       customerOrderId?: string;
       orderNumber?: string;
@@ -248,126 +229,6 @@ export class Mts1Client {
       status: body?.customerOrderStatus ?? '',
       createdAt: '',
     };
-  }
-
-  async createTour(payload: CreateTourPayload): Promise<CreatedTour> {
-    const handlers = _getMts1Handlers();
-    const t0 = Date.now();
-
-    if (handlers?.createTour) {
-      const result = await handlers.createTour(
-        payload as unknown as Record<string, unknown>,
-      );
-      await this.log({
-        methode: 'POST',
-        endpoint: '/v3/tours',
-        statut_http: 201,
-        duree_ms: Date.now() - t0,
-        correlation_id: payload.orderNumber,
-      });
-      return {
-        ...result,
-        tourId: this.identifiantCree(result, 'tourId', 'POST /v3/tours'),
-      };
-    }
-
-    const res = await this.fetch(
-      'POST',
-      '/v3/tours',
-      payload,
-      payload.orderNumber,
-      t0,
-    );
-    const body = (await res.json().catch(() => null)) as CreatedTour | null;
-    return {
-      ...(body as CreatedTour),
-      tourId: this.identifiantCree(body, 'tourId', 'POST /v3/tours'),
-    };
-  }
-
-  // Rattache une commande EXISTANTE à une tournée (PUT /v3/tours/addCustomerOrder,
-  // body `{ tourId, customerOrderId }`). Étape obligatoire du flux V3 : le champ
-  // `customerOrderId` du POST /v3/tours est ignoré par MTS-1 → sans ce PUT la
-  // tournée est créée vide. Découvert au 1er dispatch réel sandbox (doc OpenAPI).
-  async addCustomerOrderToTour(
-    tourId: string,
-    customerOrderId: string,
-    correlationId?: string,
-  ): Promise<void> {
-    const handlers = _getMts1Handlers();
-    const t0 = Date.now();
-
-    if (handlers?.addCustomerOrder) {
-      await handlers.addCustomerOrder(tourId, customerOrderId);
-      await this.log({
-        methode: 'PUT',
-        endpoint: '/v3/tours/addCustomerOrder',
-        statut_http: 200,
-        duree_ms: Date.now() - t0,
-        correlation_id: correlationId,
-      });
-      return;
-    }
-
-    await this.fetch(
-      'PUT',
-      '/v3/tours/addCustomerOrder',
-      { tourId, customerOrderId },
-      correlationId,
-      t0,
-    );
-  }
-
-  async dispatchTour(
-    tourId: string,
-    carrierShareableCode: string,
-    correlationId?: string,
-  ): Promise<void> {
-    const chemin = `/v3/dispatch/${segment(tourId)}/toCarrier`;
-    const handlers = _getMts1Handlers();
-    const t0 = Date.now();
-
-    // Route V3 réelle = POST /v3/dispatch/{tourId}/toCarrier (le relevé as-built
-    // Bubble « /v3/tours/{tourId}/dispatch » n'existe pas → 404 BAD_ROUTE).
-    if (handlers?.dispatchTour) {
-      await handlers.dispatchTour(tourId, carrierShareableCode);
-      await this.log({
-        methode: 'POST',
-        endpoint: chemin,
-        statut_http: 200,
-        duree_ms: Date.now() - t0,
-        correlation_id: correlationId,
-      });
-      return;
-    }
-
-    await this.fetch(
-      'POST',
-      chemin,
-      { carrierShareableCode },
-      correlationId,
-      t0,
-    );
-  }
-
-  async validateTour(tourId: string, correlationId?: string): Promise<void> {
-    const chemin = `/v3/tours/${segment(tourId)}/validate`;
-    const handlers = _getMts1Handlers();
-    const t0 = Date.now();
-
-    if (handlers?.validateTour) {
-      await handlers.validateTour(tourId);
-      await this.log({
-        methode: 'PUT',
-        endpoint: chemin,
-        statut_http: 200,
-        duree_ms: Date.now() - t0,
-        correlation_id: correlationId,
-      });
-      return;
-    }
-
-    await this.fetch('PUT', chemin, {}, correlationId, t0);
   }
 
   async updateOrder(

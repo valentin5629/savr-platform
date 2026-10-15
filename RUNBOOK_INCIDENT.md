@@ -78,25 +78,21 @@ WHERE statut = 'dead' ORDER BY seq;
 
 ⚠ Ni le skip ni le resolve ne touchent aux lignes `tournees`. Toute modification
 ultérieure de la collecte (ordre `collecte.modifiee`, y compris une modification
-faite par le client) reprend chez MTS-1 les rangs non servis, dès qu'au moins un
-rang de la collecte a une commande : un rang sans commande, et, avec le lot
-« reprise d'un envoi MTS-1 » (commit du 2026-10-13), un rang qui a une commande
-mais dont la tournée est restée `planifiee`. Si ce camion a été commandé à la
-main chez MTS-1, il serait commandé ou envoyé une seconde fois. Aucun geste de
-l'application ne l'évite : après un resolve manuel d'un ordre de création,
-faire aligner par un développeur la ligne `tournees` du rang (statut `en_cours`,
-référence de la tournée MTS-1) AVANT toute modification de la collecte.
+faite par le client) crée chez MTS-1 la commande des rangs qui n'en ont pas, dès
+qu'au moins un rang de la collecte a une commande. Si ce camion a été commandé à
+la main chez MTS-1, il serait commandé une seconde fois. Aucun geste de
+l'application ne l'évite : après un resolve manuel d'un ordre de création, faire
+aligner par un développeur la ligne `tournees` du rang (`external_ref_commande`
+= identifiant de la commande MTS-1) AVANT toute modification de la collecte.
+Depuis le 2026-10-15, Savr ne crée plus de tournée chez MTS-1 (l'Admin les
+compose dans la console) et n'écrit plus `tournees.tms_reference` : rien à
+aligner de ce côté.
 
-⚠ Depuis l'index `uniq_tournee_par_tms_reference` (migration `20261013210000`),
-la base refuse (erreur `23505`) d'écrire sur une ligne `tournees` une référence
-de tournée qu'une AUTRE ligne porte déjà. Si l'alignement manuel bute sur ce
-refus, ne pas le contourner : deux lignes désigneraient la même tournée MTS-1
-(par exemple une commande déplacée à la main dans la console MTS-1 sur la
-tournée d'un autre camion, cas vu le 2026-10-13) — le remonter à Val.
-Deux contournements que l'index ne voit pas, à ne pas employer : écrire une
-référence approchante (une casse ou un blanc de différence), ou relier le rang
-à la ligne qui porte déjà la référence (`collecte_tournees` n'impose pas
-l'unicité de `tournee_id`).
+⚠ L'index `uniq_tournee_par_tms_reference` (migration `20261013210000`) refuse
+toujours (erreur `23505`) d'écrire sur une ligne `tournees` une référence de
+tournée qu'une AUTRE ligne porte déjà. Une tournée MTS-1 pouvant désormais
+porter plusieurs collectes, ne pas y écrire de référence à la main pour les
+relier — le remonter à Val.
 
 ⚠ Ordre de création en échec définitif avec le message « … est déjà terminée
 chez MTS-1 … — ni reprise ni nouvelle création » : une commande du même numéro

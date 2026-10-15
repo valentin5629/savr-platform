@@ -24,9 +24,9 @@
       "id": "M1.5b-sync-nominal",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5b-1 / poll nominal VALIDATED → statut_tms=\"acceptee\", pesées upsertées, photo uploadée",
+      "test": "M1.5b-1 / poll nominal, tournée acceptée par le transporteur → statut_tms=\"acceptee\", pesées upsertées, photo uploadée",
       "statut": "implemented",
-      "libelle": "sync nominal : customerOrderStatus → statut_tms + upsert pesées (pesees_tournees, lues sur l'arrêt d'enlèvement de la commande) + photos (lues dans le détail du tour). La preuve sur la forme réelle du fil est portée par le livrable M1.5b-pesees-photos-forme-reelle."
+      "libelle": "sync nominal : refus de la commande et attribution de sa tournée → statut_tms (cf. M1.5b-acceptee-transporteur) + upsert pesées (pesees_tournees, lues sur l'arrêt d'enlèvement de la commande) + photos (lues dans le détail du tour). La preuve sur la forme réelle du fil est portée par le livrable M1.5b-pesees-photos-forme-reelle."
     },
     {
       "id": "M1.5b-dedup-inbox",
@@ -198,11 +198,20 @@
     {
       "id": "M1.5b-acceptee-transporteur",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:471",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (MTS1_STATUS_TO_TMS : le statut de la commande ne vaut plus acceptation ; NIVEAU_ATTRIBUTION, suivreAttribution, niveauAttribution, niveauDesCamions, noterAttribution)",
+      "test": "M1.5b/attribution_tournee_proposee + M1.5b/attribution_tournee_acceptee + M1.5b/attribution_commande_validee_tournee_proposee + M1.5b/attribution_a_attribuer + M1.5b/attribution_etat_inconnu + M1.5b/attribution_garde + M1.5b/attribution_reacceptation_requise + M1.5b/attribution_commande_deplacee + M1.5b/attribution_multi_camions_un_seul_accepte + M1.5b/attribution_multi_camions_tous_acceptes + M1.5b/attribution_multi_camions_un_hors_tournee + M1.5b/attribution_multi_camions_mission_finie + M1.5b/attribution_hors_garde_non_notee + M1.5b/collecte_hors_mts1",
+      "statut": "implemented",
       "ref_divergence": "_Divergences/M1.5_20261013_notifications-mts1-et-sens-acceptee.md",
-      "libelle": "NON LIVRÉ au 2026-10-13 — « acceptée » doit vouloir dire que le transporteur a accepté la tournée (décision Val 2026-10-13, conforme au §08 §3bis.6 : tour.status.dispatch = ACCEPTED). Sur main, la relève passe statut_tms à 'acceptee' dès que la commande est VALIDATED ; notre propre envoi valide la tournée (PUT /v3/tours/{id}/validate) et la commande est ensuite VALIDATED (corrélation relevée). Mesuré le 2026-10-13 sur le compte de démonstration : quatre commandes VALIDATED, dont une sur une tournée seulement PROPOSED. À corriger avec le traitement des notifications (étape 2), une fois la relève réparée."
+      "libelle": "« Acceptée » = le transporteur a accepté la tournée (décision Val 2026-10-13, conforme au §08 §3bis.6). La relève lit l'attribution sur la tournée que désigne la commande (currentTour.tourId) : aucune tournée ou TO_BE_DISPATCHED → a_attribuer, PROPOSED → attribuee_en_attente_acceptation, ACCEPTED ou COMPLETED → acceptee ; toute autre valeur → rien de conclu, trace unique. Une commande VALIDATED ne vaut plus acceptation. Une collecte à plusieurs camions n'est acceptée que quand tous le sont, les autres camions étant relus chez MTS-1 (décision Val 2026-10-15, C47). Écrite au changement d'état seulement (dernier état par commande dans integrations_inbox) : une réacceptation requise (§08) tient tant que MTS-1 ne montre rien de nouveau. Seulement sur une collecte programmée ou validée, encore confiée à un transporteur MTS-1, depuis un statut de l'attribution ; hors de ces gardes, rien n'est écrit ni noté. Livré par la relève ; le traitement des notifications (étape 2) appliquera la même lecture."
+    },
+    {
+      "id": "M1.5b-transporteur-suivi-console",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md:46",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (suivreTransporteur ; findTourneeByOrderId rend le rang, le transporteur de la tournée et celui de la collecte)",
+      "test": "M1.5b/transporteur_suivi + M1.5b/transporteur_suivi_rang_2 + M1.5b/transporteur_inconnu + M1.5b/transporteur_code_partage + M1.5b/transporteur_hors_mts1 + M1.5b/transporteur_hors_execution + M1.5b/transporteur_tournee_non_envoyee + M1.5b/collecte_hors_mts1",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261015_mts1-commande-seule-tournees-admin.md",
+      "libelle": "Transporteur choisi par l'Admin dans la console MTS-1 (décision Val 2026-10-15, C46 : la plateforme suit MTS-1) : dispatch.carrierShareableCode de la tournée, rapproché de transporteurs.code_transporteur_mts1 parmi les transporteurs MTS-1, est reporté sur la ligne tournees du camion et, pour le rang 1, sur la collecte (collecte en cours d'exécution et encore confiée à un transporteur MTS-1 seulement : une collecte confiée depuis par mail ou à A Toutes! n'est jamais ramenée chez MTS-1). Code illisible, inconnu ou porté par plusieurs transporteurs : rien n'est changé, alerte Admin transporteur_mts1_inconnu. Tournée pas encore envoyée : rien à faire."
     }
   ],
   "cdc_source_hash": {

@@ -273,10 +273,10 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
     // Jamais la clé `col-reatt-1` de la commande annulée.
     expect(h.postOrder).toHaveBeenCalledOnce();
     expect(h.postOrder.mock.calls[0]![0]).toMatchObject({
-      orderNumber: 'col-reatt-1-r2',
+      orderNumber: 'Pavillon Gabriel · col-reatt-1-r2',
     });
     expect(h.createTour.mock.calls[0]![0]).toMatchObject({
-      orderNumber: 'col-reatt-1-r2',
+      orderNumber: 'Pavillon Gabriel · col-reatt-1-r2',
     });
 
     // La commande est committée sur LA tournée existante, par id…
@@ -297,12 +297,12 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
   it('E1 sur reprise après timeout : la commande annulée n’est jamais reprise, celle de la tentative l’est', async () => {
     const annulee: Mts1CustomerOrder = {
       customerOrderId: 'MTS1-ORDER-ANNULEE',
-      orderNumber: 'col-reatt-1',
+      orderNumber: 'Pavillon Gabriel · col-reatt-1',
       customerOrderStatus: 'CANCELED',
     };
     const tentative: Mts1CustomerOrder = {
       customerOrderId: 'MTS1-ORDER-TENTATIVE-2',
-      orderNumber: 'col-reatt-1-r2',
+      orderNumber: 'Pavillon Gabriel · col-reatt-1-r2',
       customerOrderStatus: 'DRAFT',
     };
 
@@ -359,7 +359,7 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
     ]);
     expect(h.postOrder).toHaveBeenCalledOnce();
     expect(h.postOrder.mock.calls[0]![0]).toMatchObject({
-      orderNumber: 'col-reatt-1-r2',
+      orderNumber: 'Pavillon Gabriel · col-reatt-1-r2',
     });
   });
 
@@ -373,7 +373,7 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
     );
 
     expect(h.postOrder.mock.calls[0]![0]).toMatchObject({
-      orderNumber: 'col-reatt-1',
+      orderNumber: 'Pavillon Gabriel · col-reatt-1',
     });
     expect(
       ecritures.find((e) => e.table === 'tournees' && e.op === 'upsert'),

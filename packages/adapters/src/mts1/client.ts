@@ -23,7 +23,17 @@ export type PointLivraison =
   | { placeId: string }
   | { address: { addressSingleLine: string } };
 
+// Contact = CustomerOrderContactInput.
+export interface ContactCommande {
+  firstname?: string;
+  lastname?: string;
+  phone?: string;
+  phoneAlternatives?: string[];
+}
+
 export interface CreateOrderPayload {
+  // Numéro de commande = nom du point dans la console MTS-1 : « Traiteur - Lieu
+  // - N pax · clé » (décision Val 2026-10-15, C59 ; cf. AdapterMts1.orderNumber).
   orderNumber: string;
   orderDate: string;
   timezone: string;
@@ -40,12 +50,7 @@ export interface CreateOrderPayload {
   // Contact terrain = CustomerOrderContactInput, objet UNIQUE (pas un tableau
   // `contacts`) : MTS-1 attend `firstname`/`lastname`/`phone` (+ `phoneAlternatives`),
   // PAS `name`/`role` — sinon le contact arrive vide (`{}`).
-  contact?: {
-    firstname?: string;
-    lastname?: string;
-    phone?: string;
-    phoneAlternatives?: string[];
-  };
+  contact?: ContactCommande;
   // `relatedAddress` = point de dépôt (B) du stuff : `placeId` d'un favoritePlace
   // (entrepôt Savr pour le ZD / association pour l'AG) OU adresse inline. Le `place`
   // de la commande est le PICKUP (point A).
@@ -54,9 +59,13 @@ export interface CreateOrderPayload {
     task: string;
     quantity: number;
     relatedAddress?: PointLivraison;
+    // Contact de livraison (« Contact livr. »), pris en compte par MTS-1
+    // « seulement si l'adresse liée n'a pas de placeId » (documentation V3, lu le
+    // 2026-10-15 ; rendu à l'identique, mesuré sur le compte de démonstration).
+    relatedContact?: ContactCommande;
   }>;
-  // Instructions logistiques libres transmises au prestataire (M01/M03/M05).
-  // MTS-1 as-built §3bis.5 l.389 : `comment` ← collectes.informations_supplementaires.
+  // Commentaire au transporteur, affiché sous l'adresse de chargement : composé
+  // par le worker (infos-acces.ts, format décidé par Val le 2026-10-15).
   comment?: string;
 }
 

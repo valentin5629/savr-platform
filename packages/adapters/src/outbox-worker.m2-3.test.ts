@@ -48,6 +48,7 @@ const ASSOCIATION_ROW = {
   ville: 'Ivry-sur-Seine',
   contact_nom: 'Nadia Benali',
   contact_telephone: '+33699990001',
+  instructions_acces: 'Sonner à l’accueil',
 };
 
 function makeWorkerSupabase(opts: WorkerMockOpts) {
@@ -84,6 +85,10 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     lieu_overrides: opts.lieuOverrides ?? null,
     evenement: [
       {
+        pax: 120,
+        // Embed du traiteur opérationnel servi en tableau : le déballage du
+        // worker couvre les deux formes.
+        traiteur: [{ nom: 'Traiteur Essai' }],
         contact_principal_nom: 'Alice',
         contact_principal_telephone: '+33600000001',
         contact_secours_nom: opts.contactSecoursNom ?? null,
@@ -640,17 +645,16 @@ const LIEU_ACCES_COMPLET = {
   flux_autorises: ['biodéchets', 'carton'],
 };
 
-// Ce que le chauffeur doit lire pour chacun des 6 champs.
+// Ce que le chauffeur doit lire pour chacun des champs retenus par Val
+// (2026-10-15, C60 : ni « Véhicule max » ni « Stationnement »).
 const ATTENDU_PAR_CHAMP: Array<[string, string]> = [
-  ['acces_details', 'Accès : Quai n°2, sonner interphone B'],
-  ['stationnement', 'Stationnement : difficile'],
+  ['acces_details', '- Accès : Quai n°2, sonner interphone B'],
   [
     'contraintes_horaires',
-    'Contraintes horaires : Livraison avant 9h uniquement',
+    '- Contraintes horaires : Livraison avant 9h uniquement',
   ],
-  ['acces_office', 'Accès office : très difficile'],
-  ['type_vehicule_max', 'Véhicule max : camionnette'],
-  ['flux_autorises', 'Flux acceptés : biodéchets, carton'],
+  ['acces_office', '- Accès office : très difficile'],
+  ['flux_autorises', '- Flux acceptés : biodéchets, carton'],
 ];
 
 describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapters', () => {
@@ -660,7 +664,7 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
     ['a_toutes', AdapterEverest] as const,
     ['mts1', AdapterMts1] as const,
   ])(
-    'type_tms=%s — les 6 infos d’accès du lieu atteignent l’adapter',
+    'type_tms=%s — les infos d’accès retenues par Val atteignent l’adapter, sans « Véhicule max » ni « Stationnement »',
     async (typeTms, Adapter) => {
       const spy = vi
         .spyOn(Adapter.prototype, 'dispatchCollecte')
@@ -682,6 +686,63 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
           `champ ${champ} absent du canal libre`,
         ).toContain(ligne);
       }
+      expect(collecte.informations_supplementaires).not.toMatch(
+        /Véhicule max|Stationnement/,
+      );
+    },
+  );
+
+  // Format décidé par Val le 2026-10-15 (C60-C62) : traiteur, pax, contacts et
+  // point B composés une fois, pour les deux adapters, depuis les données
+  // réellement demandées à PostgREST.
+  it.each([
+    ['a_toutes', AdapterEverest] as const,
+    ['mts1', AdapterMts1] as const,
+  ])(
+    'type_tms=%s — traiteur, pax, contact et point B de l’association atteignent l’adapter',
+    async (typeTms, Adapter) => {
+      const spy = vi
+        .spyOn(Adapter.prototype, 'dispatchCollecte')
+        .mockResolvedValue('noop_no_remote');
+
+      const supabase = makeWorkerSupabase({
+        typeTms,
+        prestataireLogistiqueId: PRESTA_ID,
+      });
+      await runOutboxWorker(supabase);
+
+      const collecte = spy.mock.calls[0]![0] as {
+        informations_supplementaires: string | null;
+        traiteur_nom?: string | null;
+        pax?: number | null;
+      };
+      expect(collecte.traiteur_nom).toBe('Traiteur Essai');
+      expect(collecte.pax).toBe(120);
+      expect(collecte.informations_supplementaires).toBe(
+        [
+          'Traiteur : Traiteur Essai',
+          'Nombre de pax : 120',
+          'Contact : Alice, +33600000001',
+          'Livraison :',
+          "- Instructions d'accès : Sonner à l’accueil",
+          '- Contact : Nadia Benali, +33699990001',
+        ].join('\n'),
+      );
+      // Les colonnes sont bien DEMANDÉES à PostgREST (un mock ne filtre pas).
+      expect(
+        supabase._selects['collectes']?.some(
+          (s) =>
+            s.includes('pax') &&
+            s.includes(
+              'traiteur:organisations!traiteur_operationnel_organisation_id(nom)',
+            ),
+        ),
+      ).toBe(true);
+      expect(
+        supabase._selects['attributions_antgaspi']?.some((s) =>
+          s.includes('instructions_acces'),
+        ),
+      ).toBe(true);
     },
   );
 
@@ -803,8 +864,8 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
     const supabase = makeWorkerSupabase({
       typeTms: 'a_toutes',
       prestataireLogistiqueId: PRESTA_ID,
-      lieuOfficiel: { stationnement: 'facile' },
-      lieuOverrides: { stationnement: 'tres_difficile' },
+      lieuOfficiel: { acces_office: 'facile' },
+      lieuOverrides: { acces_office: 'tres_difficile' },
     });
     await runOutboxWorker(supabase);
 
@@ -812,10 +873,10 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
       informations_supplementaires: string | null;
     };
     expect(collecte.informations_supplementaires).toContain(
-      'Stationnement : très difficile',
+      'Accès office : très difficile',
     );
     expect(collecte.informations_supplementaires).not.toContain(
-      'Stationnement : facile',
+      'Accès office : facile',
     );
   });
 
@@ -836,14 +897,16 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
       informations_supplementaires: string | null;
     };
     expect(collecte.informations_supplementaires).toContain(
-      'Demander Karim à la plonge',
+      '- Précisions du traiteur : Demander Karim à la plonge',
     );
-    expect(collecte.informations_supplementaires).toContain('Accès : Quai n°2');
+    expect(collecte.informations_supplementaires).toContain(
+      '- Accès : Quai n°2',
+    );
   });
 
-  // Une collecte sans aucune information ne doit pas produire un champ libre
-  // vide (pas de `comment` MTS-1 / `notes` Everest fabriqués de toutes pièces).
-  it('lieu sans info d’accès et sans saisie → champ libre nul', async () => {
+  // Une collecte sans information d'accès ne fabrique aucune rubrique vide :
+  // ni « Instructions d'accès : » orphelin, ni ligne « Véhicule max » (C60).
+  it('lieu sans info d’accès et sans saisie → aucune rubrique « Instructions d’accès »', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
       .mockResolvedValue('adapter_everest');
@@ -851,14 +914,16 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
     const supabase = makeWorkerSupabase({
       typeTms: 'a_toutes',
       prestataireLogistiqueId: PRESTA_ID,
-      lieuOfficiel: { type_vehicule_max: '' },
+      lieuOfficiel: { type_vehicule_max: 'camionnette' },
     });
     await runOutboxWorker(supabase);
 
     const collecte = everestSpy.mock.calls[0]![0] as {
       informations_supplementaires: string | null;
     };
-    expect(collecte.informations_supplementaires).toBeNull();
+    expect(collecte.informations_supplementaires).not.toMatch(
+      /Instructions d'accès :\n|Véhicule max/,
+    );
   });
 });
 

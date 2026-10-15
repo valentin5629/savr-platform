@@ -318,8 +318,24 @@ describe('E1/E2 — rien d’INTERNE ne sort vers le prestataire', () => {
       'comment',
       'contact',
       'orderDate',
+      'orderNumber',
       'place',
     ]);
+  });
+});
+
+describe('E2 — le numéro de commande suit le libellé (décision Val 2026-10-15, C59)', () => {
+  afterEach(() => _setMts1Handlers(null));
+
+  it('M1.5a/modification_renomme_commande — pax modifiés : le PUT renvoie « Traiteur - Lieu - N pax » à jour, suivi de la même clé', async () => {
+    const payload = await putPayload({
+      ...COLLECTE_DISPATCHEE,
+      traiteur_nom: 'Traiteur Essai',
+      pax: 150,
+    });
+    expect(payload['orderNumber']).toBe(
+      'Traiteur Essai - Salle Pleyel - 150 pax · col-e2-001-1',
+    );
   });
 });
 

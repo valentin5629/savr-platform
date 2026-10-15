@@ -15,7 +15,7 @@ import {
   getLogistiqueProvider,
 } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
-import { composerInformationsSupplementaires } from '../infos-acces.js';
+import { composerCommentaireTransporteur } from '../infos-acces.js';
 import { AdapterEverest } from './adapter.js';
 import { _setEverestHandlers, setupEverestMock } from './mock.js';
 import {
@@ -1301,14 +1301,13 @@ describe('M2.5 / Garde-fou G3 — anti-couplage', () => {
   });
 });
 
-// ─── Infos d'accès du lieu → `notes` Everest (Val 2026-09-15) ─────────────────
+// ─── Commentaire au transporteur → `notes` Everest (Val 2026-10-15, C61) ──────
 //
-// Les 6 informations d'accès éditables par collecte n'ont pas de champ natif
-// Everest : elles sont agrégées en amont dans `informations_supplementaires`
-// (composerInformationsSupplementaires, appelé par fetchCollecte pour les DEUX
-// adapters). Ce test ferme le dernier maillon côté Everest : ce qui est agrégé
-// atteint bien le fil, dans `notes`.
-describe('M1.5 / infos d’accès du lieu → notes Everest', () => {
+// Même texte que le `comment` MTS-1 : composé en amont par fetchCollecte
+// (composerCommentaireTransporteur, partagé par les DEUX adapters). Ce test
+// ferme le dernier maillon côté Everest : ce qui est composé atteint bien le
+// fil, dans `notes`, sans « Véhicule max » ni « Stationnement » (C60).
+describe('M1.5 / commentaire au transporteur → notes Everest', () => {
   afterEach(() => _setEverestHandlers(null));
 
   const LIEU_ACCES: Lieu = {
@@ -1321,44 +1320,52 @@ describe('M1.5 / infos d’accès du lieu → notes Everest', () => {
     flux_autorises: ['biodéchets', 'carton'],
   };
 
-  it.each([
-    ['acces_details', 'Accès : Quai n°2, sonner interphone B'],
-    ['stationnement', 'Stationnement : difficile'],
-    [
-      'contraintes_horaires',
-      'Contraintes horaires : Livraison avant 9h uniquement',
-    ],
-    ['acces_office', 'Accès office : très difficile'],
-    ['type_vehicule_max', 'Véhicule max : camionnette'],
-    ['flux_autorises', 'Flux acceptés : biodéchets, carton'],
-  ])(
-    '%s est présent dans notes du payload createMission',
-    async (_c, ligne) => {
-      const { payloads } = setupEverestMock();
-      const supabase = makeMockSupabase({
-        brancheAttribution: 'ag_velo_programme',
-      });
+  it('le commentaire composé part tel quel dans notes du payload createMission', async () => {
+    const { payloads } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const commentaire = composerCommentaireTransporteur({
+      traiteurNom: 'Traiteur Essai',
+      pax: 80,
+      lieu: LIEU_ACCES,
+      informationsSupplementaires: 'Demander Karim à la plonge',
+      contact: { nom: 'Alice Martin', telephone: '+33600000001' },
+      contactSecours: { nom: null, telephone: null },
+      vehicule: null,
+      livraison: {
+        instructionsAcces: 'Sonner à l’accueil',
+        contact: { nom: 'Nadia Benali', telephone: '+33699990001' },
+      },
+    });
 
-      await new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
-        {
-          ...COLLECTE_AG,
-          lieu: LIEU_ACCES,
-          informations_supplementaires: composerInformationsSupplementaires(
-            LIEU_ACCES,
-            'Demander Karim à la plonge',
-            null,
-            null,
-          ),
-        },
-        1,
-      );
+    await new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
+      {
+        ...COLLECTE_AG,
+        lieu: LIEU_ACCES,
+        informations_supplementaires: commentaire,
+      },
+      1,
+    );
 
-      const payload = payloads.get('tournee-everest-new-001') as {
-        notes?: string;
-      };
-      expect(payload?.notes).toContain(ligne);
-      // La saisie du traiteur part avec, jamais remplacée.
-      expect(payload?.notes).toContain('Demander Karim à la plonge');
-    },
-  );
+    const payload = payloads.get('tournee-everest-new-001') as {
+      notes?: string;
+    };
+    expect(payload?.notes).toBe(
+      [
+        'Traiteur : Traiteur Essai',
+        'Nombre de pax : 80',
+        "Instructions d'accès :",
+        '- Accès : Quai n°2, sonner interphone B',
+        '- Précisions du traiteur : Demander Karim à la plonge',
+        '- Contraintes horaires : Livraison avant 9h uniquement',
+        '- Accès office : très difficile',
+        '- Flux acceptés : biodéchets, carton',
+        'Contact : Alice Martin, +33600000001',
+        'Livraison :',
+        "- Instructions d'accès : Sonner à l’accueil",
+        '- Contact : Nadia Benali, +33699990001',
+      ].join('\n'),
+    );
+  });
 });

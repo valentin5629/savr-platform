@@ -45,7 +45,10 @@ const COLLECTE: Collecte = {
     contraintes_horaires: null,
   },
 };
+// Clé du rang 1 (numéro entier des commandes créées avant le 2026-10-15), et
+// numéro envoyé depuis : le nom du lieu en tête (ni traiteur ni pax ici).
 const NUMERO = 'col-rech-001-1';
+const NUMERO_ENVOYE = `Salle Pleyel · ${NUMERO}`;
 
 const TRANSPORTEUR: Transporteur = {
   id: 'transp-rech',
@@ -193,7 +196,7 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
       requiresReconciliation: true,
     });
 
-  it('M1.5a/reconciliation_creation_fenetre_et_numero — la recherche part sur J-1 → J+1, en jours, avec le numéro de la commande', async () => {
+  it('M1.5a/reconciliation_creation_fenetre_sans_numero — la recherche part sur J-1 → J+1, en jours, sans filtre de numéro (le libellé a pu changer, la clé est reconnue ici)', async () => {
     const scanOrdersByDateRange = vi
       .fn()
       .mockResolvedValue([commande('CMD-DEJA-CREEE')]);
@@ -208,7 +211,7 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
     expect(scanOrdersByDateRange).toHaveBeenCalledWith(
       '2026-07-14',
       '2026-07-16',
-      NUMERO,
+      undefined,
     );
     // Commande retrouvée : reprise sur elle, jamais de second POST.
     expect(h.postOrder).not.toHaveBeenCalled();
@@ -251,7 +254,7 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
 
       await expect(reprise).rejects.toBeInstanceOf(LogistiquePermanentError);
       await expect(reprise).rejects.toThrow(
-        `collecte col-rech-001 : une commande du numéro ${NUMERO} est déjà terminée chez MTS-1 (CMD-FAITE ${statut}) — ni reprise ni nouvelle création`,
+        `collecte col-rech-001 : une commande de clé ${NUMERO} est déjà terminée chez MTS-1 (CMD-FAITE ${statut}) — ni reprise ni nouvelle création`,
       );
       expect(h.postOrder).not.toHaveBeenCalled();
       // Rien n'est enregistré côté Savr : la commande n'est pas adoptée.
@@ -271,7 +274,7 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
     const reprise = reprendre(makeSupabase().supabase);
 
     await expect(reprise).rejects.toThrow(
-      `collecte col-rech-001 : une commande du numéro ${NUMERO} est déjà terminée chez MTS-1 (identifiant illisible OK) — ni reprise ni nouvelle création`,
+      `collecte col-rech-001 : une commande de clé ${NUMERO} est déjà terminée chez MTS-1 (identifiant illisible OK) — ni reprise ni nouvelle création`,
     );
     expect(h.postOrder).not.toHaveBeenCalled();
   });
@@ -368,7 +371,7 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
         integration: 'mts1',
         correlation_id: NUMERO,
         erreur:
-          'COMMANDES_EN_DOUBLE: 3 commandes portent ce numéro (CMD-A, CMD-B, CMD-C), reprise sur CMD-A',
+          'COMMANDES_EN_DOUBLE: 3 commandes portent cette clé (CMD-A, CMD-B, CMD-C), reprise sur CMD-A',
       });
     }
   });
@@ -506,7 +509,7 @@ describe('M1.5a / réconciliation d’une création reprise — chemin réel (wi
     // tournée : sa tournée unitaire est créée et elle y est rattachée, sans envoi
     // au transporteur ni validation.
     expect(appels.map((a) => a.ligne)).toEqual([
-      'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16&orderNumber=col-rech-001-1',
+      'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16',
       'POST /v3/tours',
       'PUT /v3/tours/addCustomerOrder',
     ]);
@@ -523,12 +526,12 @@ describe('M1.5a / réconciliation d’une création reprise — chemin réel (wi
     await reprendre();
 
     expect(appels.map((a) => a.ligne).slice(0, 2)).toEqual([
-      'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16&orderNumber=col-rech-001-1',
+      'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16',
       'POST /v3/customerOrders',
     ]);
   });
 
-  it('M1.5a/reconciliation_creation_fil_tentative — rang réattribué : la recherche et la création portent le numéro suffixé de la tentative', async () => {
+  it('M1.5a/reconciliation_creation_fil_tentative — rang réattribué : la création porte la clé suffixée de la tentative, que la recherche reconnaît', async () => {
     // Sans le suffixe, la reprise chercherait la commande de la tentative
     // précédente et, ne trouvant rien de vivant, en créerait une de plus.
     const appels = stubMts1({ status: 200, corps: [] });
@@ -546,11 +549,11 @@ describe('M1.5a / réconciliation d’une création reprise — chemin réel (wi
     ).dispatchCollecte(COLLECTE, 1, { requiresReconciliation: true });
 
     expect(appels[0]!.ligne).toBe(
-      'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16&orderNumber=col-rech-001-1-r2',
+      'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16',
     );
     expect(appels[1]!.ligne).toBe('POST /v3/customerOrders');
     expect(appels[1]!.corps).toMatchObject({
-      orderNumber: 'col-rech-001-1-r2',
+      orderNumber: 'Salle Pleyel · col-rech-001-1-r2',
     });
   });
 
@@ -572,7 +575,7 @@ describe('M1.5a / réconciliation d’une création reprise — chemin réel (wi
         LogistiqueTransientError,
       );
       expect(appels.map((a) => a.ligne)).toEqual([
-        'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16&orderNumber=col-rech-001-1',
+        'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16',
       ]);
     },
   );
@@ -715,7 +718,7 @@ describe('M1.5a / annulation reprise (E3)', () => {
         direction: 'sortant',
         methode: 'GET',
         endpoint: '/v3/customerOrders',
-        correlation_id: 'col-rech-001-1',
+        correlation_id: NUMERO_ENVOYE,
         erreur:
           'ANNULATION_SANS_DELETE: commande CMD-1 absente chez MTS-1 à la reprise, tenue pour déjà annulée',
       },

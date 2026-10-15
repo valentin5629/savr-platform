@@ -494,9 +494,9 @@ describe('bornes texte libre — PATCH événement', () => {
   //
   // Ce que chacune des deux propriétés protège, mesuré sur le code d'émission —
   // et NON « une ligne orpheline dans le canal libre », qui ne peut pas se
-  // produire : `lignesCanalLibre` (packages/adapters/src/infos-acces.ts) passe le
-  // nom par `nomContact` → `valeurLigne` → `texte()` → `.trim()`, puis filtre
-  // `valeur !== ''`, si bien que l'aval rattrape déjà `''` comme `'   '` pour le
+  // produire : `ligneContact` (packages/adapters/src/infos-acces.ts) passe le
+  // nom par `uneLigne` → `valeurLigne` → `texte()` → `.trim()`, puis écarte une
+  // valeur vide, si bien que l'aval rattrape déjà `''` comme `'   '` pour le
   // NOM (motif corrigé en revue sécurité, l'énoncé initial était faux ; chaîne
   // re-vérifiée après #324, qui a inséré `valeurLigne` sans changer ce point) :
   //   · `contact_secours_telephone: '' → null` est le SEUL rempart contre un
@@ -731,11 +731,11 @@ describe('bornes texte libre — routes collecte', () => {
   // `<> ''` sur cette colonne dans TOUTES les migrations (vérifié).
   //
   // Ce que le `trim()` protège ici, relevé sur le code d'émission et NON déduit :
-  // l'aval rattrape déjà le cas BLANC pour ce champ — `composerInformations-
-  // Supplementaires` (packages/adapters/src/infos-acces.ts) le passe par
-  // `texte()` → `.trim()` et ne garde la note que si elle est non vide (`if
-  // (!base) return assemblerAgregat('', lignes, …)`, formulation post-#324), si
-  // bien que `'   '` n'ouvre aucune ligne chez le chauffeur. Ce que le `trim()`
+  // l'aval rattrape déjà le cas BLANC pour ce champ — `composerCommentaire-
+  // Transporteur` (packages/adapters/src/infos-acces.ts) le passe par `uneLigne`
+  // → `texte()` → `.trim()`, et aucune ligne n'est émise pour une valeur vide
+  // (format du 2026-10-15), si bien que `'   '` n'ouvre aucune ligne chez le
+  // chauffeur. Ce que le `trim()`
   // tient, ce sont la donnée STOCKÉE, les exports et le rendu — pas le fil.
   // (La propriété qui, elle, ne tient qu'ici est celle de
   // `contact_secours_telephone`, contre-éprouvée sur les routes événement.)

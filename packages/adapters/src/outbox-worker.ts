@@ -78,7 +78,7 @@ import {
   getLogistiqueProvider,
 } from './index.js';
 import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
-import { composerInformationsSupplementaires } from './infos-acces.js';
+import { composerCommentaireTransporteur } from './infos-acces.js';
 import { applyLieuOverrides } from './lieu-overrides.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
 
@@ -109,6 +109,8 @@ interface CollecteRow {
   contact_secours_telephone: string | null;
   prestataire_logistique_id: string | null;
   type_vehicule_souhaite: string | null;
+  traiteur_nom: string | null;
+  pax: number | null;
   // AG uniquement (BL-P1-API-02) — association destinataire (point B), résolue
   // via attributions_antgaspi → associations : placeId favori MTS-1 + adresse
   // postale (adresse inline MTS-1 sans point favori, dropoff Everest).
@@ -680,8 +682,10 @@ async function fetchCollecte(
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
       prestataire_logistique_id, lieu_overrides,
       evenement:evenements!inner(
+        pax,
         contact_principal_nom, contact_principal_telephone,
         contact_secours_nom, contact_secours_telephone,
+        traiteur:organisations!traiteur_operationnel_organisation_id(nom),
         lieux:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, latitude, longitude, acces_details, type_vehicule_max, contraintes_horaires, stationnement, acces_office, flux_autorises)
       )
     `,
@@ -697,6 +701,8 @@ async function fetchCollecte(
   // `evenements.lieu_id`) : PostgREST renvoie un OBJET. Le déballage reste
   // défensif (Array.isArray) — il couvre les deux formes.
   type EvenementJoin = {
+    pax: number | null;
+    traiteur: { nom: string | null } | { nom: string | null }[] | null;
     contact_principal_nom: string;
     contact_principal_telephone: string;
     contact_secours_nom: string | null;
@@ -706,6 +712,8 @@ async function fetchCollecte(
   const raw = data as unknown as Omit<
     CollecteRow,
     | 'lieux'
+    | 'traiteur_nom'
+    | 'pax'
     | 'contact_principal_nom'
     | 'contact_principal_telephone'
     | 'contact_secours_nom'
@@ -716,6 +724,7 @@ async function fetchCollecte(
   };
 
   const evt = Array.isArray(raw.evenement) ? raw.evenement[0]! : raw.evenement;
+  const traiteur = Array.isArray(evt.traiteur) ? evt.traiteur[0] : evt.traiteur;
   const lieuOfficiel = Array.isArray(evt.lieux) ? evt.lieux[0]! : evt.lieux;
   // PROG-01/PROG-03 — l'adresse d'accès corrigée par collecte (lieu_overrides,
   // §06.01) doit parvenir au transporteur. Sans ce merge, le worker re-fetch le
@@ -749,24 +758,42 @@ async function fetchCollecte(
     nb_camions_demande: raw.nb_camions_demande,
     statut_tms: raw.statut_tms,
     controle_acces_requis: raw.controle_acces_requis,
-    // Arbitrage Val 2026-09-15 — les 6 informations d'accès du lieu n'ont pas de
-    // champ natif MTS-1/Everest : elles sont agrégées dans le seul canal libre
-    // routé (`comment` / `notes`). Composé ICI, donc une seule fois pour les deux
-    // adapters (garde-fou 2), et à partir du lieu FUSIONNÉ — le lieu officiel
-    // retransmettrait précisément l'erreur corrigée par #304.
-    // Le nom du contact de secours y est joint (arbitrage Val 2026-09-14) : son
-    // téléphone part nativement (`phoneAlternatives` MTS-1), son nom n'a aucun
-    // champ d'accueil chez MTS-1 comme chez Everest.
-    // Le véhicule souhaité par l'Admin (type + nombre) emprunte le même canal :
-    // aucun champ natif MTS-1/Everest en V1 (décision Val 2026-10-01).
-    informations_supplementaires: composerInformationsSupplementaires(
+    // Commentaire au transporteur (format décidé par Val le 2026-10-15, C60-C62,
+    // cf. infos-acces.ts) : le seul canal libre routé (`comment` / `notes`).
+    // Composé ICI, donc une seule fois pour les deux adapters (garde-fou 2), et à
+    // partir du lieu FUSIONNÉ — le lieu officiel retransmettrait précisément
+    // l'erreur corrigée par #304. Les informations d'accès, le nom du contact de
+    // secours (arbitrage Val 2026-09-14), le véhicule souhaité (décision Val
+    // 2026-10-01) et le point B n'ont aucun champ natif MTS-1/Everest en V1.
+    informations_supplementaires: composerCommentaireTransporteur({
+      traiteurNom: traiteur?.nom,
+      pax: evt.pax,
       lieu,
-      raw.informations_supplementaires,
-      evt.contact_secours_nom,
-      raw.type === 'anti_gaspi'
-        ? { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande }
+      informationsSupplementaires: raw.informations_supplementaires,
+      contact: {
+        nom: evt.contact_principal_nom,
+        telephone: evt.contact_principal_telephone,
+      },
+      contactSecours: {
+        nom: evt.contact_secours_nom,
+        telephone: evt.contact_secours_telephone,
+      },
+      vehicule:
+        raw.type === 'anti_gaspi'
+          ? { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande }
+          : null,
+      livraison: association
+        ? {
+            instructionsAcces: association.instructions_acces,
+            contact: {
+              nom: association.contact_nom,
+              telephone: association.contact_telephone,
+            },
+          }
         : null,
-    ),
+    }),
+    traiteur_nom: traiteur?.nom ?? null,
+    pax: evt.pax,
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
     type_vehicule_souhaite: typeVehiculeSouhaite,
@@ -829,6 +856,7 @@ interface AssociationDestinataireRow {
   ville: string;
   contact_nom: string | null;
   contact_telephone: string | null;
+  instructions_acces: string | null;
 }
 
 async function fetchAssociationDestinataire(
@@ -838,7 +866,7 @@ async function fetchAssociationDestinataire(
   const { data, error } = await supabase
     .from('attributions_antgaspi')
     .select(
-      'associations:association_id(id_point_collecte_mts1, adresse, ville, contact_nom, contact_telephone)',
+      'associations:association_id(id_point_collecte_mts1, adresse, ville, contact_nom, contact_telephone, instructions_acces)',
     )
     .eq('collecte_id', collecteId)
     .maybeSingle();
@@ -903,6 +931,8 @@ function toCollecte(row: CollecteRow): Collecte {
     controle_acces_requis: row.controle_acces_requis,
     informations_supplementaires: row.informations_supplementaires,
     notes_internes: row.notes_internes,
+    traiteur_nom: row.traiteur_nom,
+    pax: row.pax,
     type_vehicule_souhaite: row.type_vehicule_souhaite,
     contact_principal_nom: row.contact_principal_nom,
     contact_principal_telephone: row.contact_principal_telephone,

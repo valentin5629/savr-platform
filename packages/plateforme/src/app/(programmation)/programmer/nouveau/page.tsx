@@ -939,7 +939,7 @@ export default function NouveauProgrammationPage() {
           </div>
 
           <Text variant="hint">
-            Toute collecte annulée à moins de 12h de l'heure de collecte donne
+            Toute collecte annulée à moins de 4h de l'heure de collecte donne
             lieu à facturation plein tarif — pour une collecte Anti-Gaspi sous
             pack, un crédit est décompté (cf. CGV).
           </Text>

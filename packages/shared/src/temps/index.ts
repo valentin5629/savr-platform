@@ -165,7 +165,7 @@ function decalageParis(d: Date): number {
  *
  * Remplace `new Date(\`${jour}T${heure}\`)`, qui interprète l'heure dans le fuseau
  * du process : sur Vercel (UTC) le créneau d'une collecte était décalé de 1 à 2h,
- * donc le seuil « moins de 12h avant la collecte » ne tombait pas au même moment
+ * donc le seuil « moins de N h avant la collecte » ne tombait pas au même moment
  * côté API et côté SQL (trigger de débit du pack AG, ancré Europe/Paris).
  *
  * L'heure accepte « HH:MM » ou « HH:MM:SS ». Entrée invalide → date invalide.

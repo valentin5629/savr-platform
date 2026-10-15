@@ -598,7 +598,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       pax: 200,
       type: tEvCocktail,
       off: -30,
-      nom: 'Fleur annulé H-6',
+      nom: 'Fleur annulé H-2',
     },
     {
       slug: 'ev_f5',
@@ -802,7 +802,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       {
         pack_antgaspi_id: U('pack_fleurdemets'),
         annulee_cote_savr: true,
-        annulee_cote_savr_motif: 'Annulation client H-6',
+        annulee_cote_savr_motif: 'Annulation client H-2',
       },
     ),
     col(

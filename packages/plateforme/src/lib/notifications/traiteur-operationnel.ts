@@ -265,12 +265,16 @@ export async function notifierTraiteurOperationnel(
 
 // ─── Template 22 — admin_collecte_annulee ──────────────────────────────────────
 // CDC §06.02 l.583 : alerte Admin à TOUTE annulation de collecte, en parallèle du
-// template 5 client (annulation_collecte). annulation_tardive = créneau < 12h.
+// template 5 client (annulation_collecte). annulation_tardive = créneau < 4h.
 
 const HEURE_MS = 60 * 60 * 1000;
 
-// True si l'annulation est « tardive » : moins de 12h avant le créneau
-// (date_collecte + heure_collecte). CDC §05 (seuil AG 12h). Pure, testable.
+// Seuil de l'annulation tardive, AG comme ZD (décision Val 2026-10-15, au lieu
+// de 12h). Le trigger SQL de débit du pack porte le même : INTERVAL '4 hours'.
+const SEUIL_ANNULATION_TARDIVE_HEURES = 4;
+
+// True si l'annulation est « tardive » : moins de 4h avant le créneau
+// (date_collecte + heure_collecte), strict. CDC §05. Pure, testable.
 export function estAnnulationTardive(
   dateCollecte: string,
   heureCollecte: string | null | undefined,
@@ -278,13 +282,30 @@ export function estAnnulationTardive(
 ): boolean {
   if (!dateCollecte) return false;
   // Heure murale parisienne, comme le trigger SQL de débit du pack : sinon
-  // l'alerte Admin peut annoncer « 12h ou plus » alors que le crédit a été débité.
+  // l'alerte Admin peut annoncer « 4h ou plus » alors que le crédit a été débité.
   const creneau = instantParis(
     dateCollecte,
     heureCollecte && heureCollecte.length ? heureCollecte : '00:00:00',
   ).getTime();
   if (Number.isNaN(creneau)) return false;
-  return creneau - nowMs < 12 * HEURE_MS;
+  return creneau - nowMs < SEUIL_ANNULATION_TARDIVE_HEURES * HEURE_MS;
+}
+
+// Instant auquel se juge le délai, comme le trigger SQL de débit (décision Val
+// 2026-10-15) : une demande d'annulation du client confirmée par l'Admin
+// (annulation_demandee → annulee) se juge à sa réception
+// (`collectes.annulation_demandee_at`) ; toute autre annulation, à l'instant où
+// elle est faite. Pure, testable.
+export function instantReferenceAnnulation(
+  statutAvant: string | null | undefined,
+  annulationDemandeeAt: string | null | undefined,
+  nowMs: number,
+): number {
+  if (statutAvant === 'annulation_demandee' && annulationDemandeeAt) {
+    const demande = Date.parse(annulationDemandeeAt);
+    if (!Number.isNaN(demande)) return demande;
+  }
+  return nowMs;
 }
 
 /**
@@ -304,14 +325,22 @@ export async function notifierAdminAnnulation(
     acteurUserId: string;
     acteurRole: string;
     infoFacturation?: string;
+    // Statut quitté et heure de la demande du client : une demande confirmée
+    // par l'Admin se juge à sa réception (cf. instantReferenceAnnulation).
+    statutAvant?: string | null;
+    annulationDemandeeAt?: string | null;
     nowMs?: number;
   },
 ): Promise<void> {
-  const now = params.nowMs ?? Date.now();
+  const reference = instantReferenceAnnulation(
+    params.statutAvant,
+    params.annulationDemandeeAt,
+    params.nowMs ?? Date.now(),
+  );
   const tardive = estAnnulationTardive(
     params.dateCollecte,
     params.heureCollecte,
-    now,
+    reference,
   );
 
   // Type de collecte + nom d'organisation (résolu ici si l'appelant ne l'a pas) +
@@ -356,7 +385,9 @@ export async function notifierAdminAnnulation(
       lieu_nom: params.lieuNom ?? '',
       user_nom: userNom,
       user_role: params.acteurRole,
-      delai_avant_creneau: tardive ? 'moins de 12h' : '12h ou plus',
+      delai_avant_creneau: tardive
+        ? `moins de ${SEUIL_ANNULATION_TARDIVE_HEURES}h`
+        : `${SEUIL_ANNULATION_TARDIVE_HEURES}h ou plus`,
       info_facturation: params.infoFacturation ?? '',
       annulation_tardive: tardive ? 'true' : 'false',
       lien_backoffice: urlCanonique(ROUTES.admin.collecte(params.collecteId)),

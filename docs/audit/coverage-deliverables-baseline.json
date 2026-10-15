@@ -113,7 +113,6 @@
       "M0.10-02": "M0.10-2 — f_log_audit() SECURITY DEFINER insère dans audit_log depuis service_role",
       "M0.10-03": "M0.10-3 — f_log_audit() refusé pour INSERT direct authenticated (pas de policy INSERT)",
       "M0.10-04": "M0.10-4 — trigger controle_acces_cascade_upgrade : UPDATE collectes.controle_acces_requis=true → ligne audit_log",
-      "M0.10-05": "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 12h → ligne audit_log + nb_annulees++",
       "M0.10-06": "M0.10-6 — trigger pack_recredite_annulation_collecte : collecte AG realisee → annulee → ligne audit_log + nb_utilisees--",
       "M0.10-07": "M0.10-7 — trigger config_auto_accept_update : UPDATE config_auto_accept_ag → ligne audit_log",
       "M0.10-08": "M0.10-8 — trigger parametres_algo_update : UPDATE parametres_algo → ligne audit_log avec old/new valeur",
@@ -269,7 +268,6 @@
       "M2.1-01": "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché",
       "M2.1-02": "dernier crédit consommé → pack bascule epuise + alerte Admin",
       "M2.1-03": "collecte annulee depuis realisee → recrédit GREATEST(0, consommes-1), pack réactivé si était epuise",
-      "M2.1-04": "annulation < 12h ou prestataire mandaté → débit tardif pack",
       "M2.1-05": "RPC annuler-credit : collecte reste realisee, pack décrémenté, audit_log",
       "M2.1-06": "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne"
     },

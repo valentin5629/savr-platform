@@ -8,8 +8,9 @@ interface Creneau {
 
 const DOUZE_HEURES_MS = 12 * 3600 * 1000;
 
-// Heure murale parisienne : le trigger SQL qui débite le crédit du pack ancre le
-// seuil 12h en Europe/Paris — l'API et l'écran doivent tomber au même instant.
+// Heure murale parisienne, comme le trigger SQL de débit du pack (dont le seuil
+// d'annulation tardive, 4h, est distinct de ces 12h) : l'API et l'écran doivent
+// tomber au même instant.
 const proche = (c: Creneau, maintenant: number): boolean =>
   instantParis(c.date, c.heure || '00:00:00').getTime() - maintenant <
   DOUZE_HEURES_MS;

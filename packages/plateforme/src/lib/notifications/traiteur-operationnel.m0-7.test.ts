@@ -14,6 +14,7 @@ import {
 import {
   estTiersNonShadow,
   estAnnulationTardive,
+  instantReferenceAnnulation,
   notifierTraiteurOperationnel,
   notifierAdminAnnulation,
 } from './traiteur-operationnel.js';
@@ -253,36 +254,110 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
       lieuNom: 'Salle des fêtes',
       acteurUserId: 'user-x',
       acteurRole: 'agence',
-      nowMs: instantParis('2026-07-20', '10:00').getTime(), // 8h avant (Paris) → tardive
+      nowMs: instantParis('2026-07-20', '15:00').getTime(), // 3h avant (Paris) → tardive
     });
     expect(emails).toHaveLength(1);
     expect(emails[0]!.slug).toBe('admin_collecte_annulee');
     expect(emails[0]!.to).toBe('contact@gosavr.io');
     const v = emails[0]!.variables;
     expect(v['annulation_tardive']).toBe('true');
+    expect(v['delai_avant_creneau']).toBe('moins de 4h');
     expect(v['organisation_nom']).toBe('Traiteur Réel');
     expect(v['lien_backoffice']).toContain('/admin/collectes/col-1');
+  });
+
+  it('annulation à 8h du créneau : annulation_tardive false, délai « 4h ou plus »', async () => {
+    await notifierAdminAnnulation(makeSupabase(BASE), {
+      collecteId: 'col-1',
+      collecteRef: 'col-1',
+      organisationNom: 'Traiteur Réel',
+      dateCollecte: '2026-07-20',
+      heureCollecte: '18:00:00',
+      acteurUserId: 'user-x',
+      acteurRole: 'agence',
+      nowMs: instantParis('2026-07-20', '10:00').getTime(), // 8h avant (Paris)
+    });
+    const v = emails[0]!.variables;
+    expect(v['annulation_tardive']).toBe('false');
+    expect(v['delai_avant_creneau']).toBe('4h ou plus');
+  });
+
+  it('demande du client à 8h du créneau, confirmée par l’Admin à 3h : jugée à la demande, pas tardive', async () => {
+    await notifierAdminAnnulation(makeSupabase(BASE), {
+      collecteId: 'col-1',
+      collecteRef: 'col-1',
+      organisationNom: 'Traiteur Réel',
+      dateCollecte: '2026-07-20',
+      heureCollecte: '18:00:00',
+      acteurUserId: 'admin-1',
+      acteurRole: 'admin_savr',
+      statutAvant: 'annulation_demandee',
+      annulationDemandeeAt: instantParis('2026-07-20', '10:00').toISOString(),
+      nowMs: instantParis('2026-07-20', '15:00').getTime(),
+    });
+    const v = emails[0]!.variables;
+    expect(v['annulation_tardive']).toBe('false');
+    expect(v['delai_avant_creneau']).toBe('4h ou plus');
+  });
+});
+
+// Décision Val 2026-10-15 : « le délai compte à partir du moment où le client
+// l'a demandé, pas le moment où l'admin l'a annulé ».
+describe('instantReferenceAnnulation (pure)', () => {
+  const demande = '2026-07-20T08:00:00.000Z';
+  const maintenant = Date.parse('2026-07-20T13:00:00.000Z');
+  it('demande d’annulation confirmée → instant de la demande', () => {
+    expect(
+      instantReferenceAnnulation('annulation_demandee', demande, maintenant),
+    ).toBe(Date.parse(demande));
+  });
+  it('annulation directe (autre statut quitté) → maintenant, même si une ancienne demande est datée', () => {
+    expect(instantReferenceAnnulation('validee', demande, maintenant)).toBe(
+      maintenant,
+    );
+  });
+  it('demande sans heure enregistrée ou illisible → maintenant', () => {
+    expect(
+      instantReferenceAnnulation('annulation_demandee', null, maintenant),
+    ).toBe(maintenant);
+    expect(
+      instantReferenceAnnulation(
+        'annulation_demandee',
+        'pas une date',
+        maintenant,
+      ),
+    ).toBe(maintenant);
   });
 });
 
 describe('M0.7/bl-p2-22-annulation-tardive — estAnnulationTardive (pure)', () => {
   const creneau = '2026-07-20';
   const heure = '18:00:00';
-  it('< 12h avant le créneau → true', () => {
+  // Seuil 4h, strict (décision Val 2026-10-15), comme le trigger SQL de débit.
+  it('3h59 avant le créneau → true', () => {
+    expect(
+      estAnnulationTardive(
+        creneau,
+        heure,
+        instantParis('2026-07-20', '14:01').getTime(),
+      ),
+    ).toBe(true);
+  });
+  it('4h pile avant le créneau → false (strict)', () => {
+    expect(
+      estAnnulationTardive(
+        creneau,
+        heure,
+        instantParis('2026-07-20', '14:00').getTime(),
+      ),
+    ).toBe(false);
+  });
+  it('8h avant le créneau (tardive sous l’ancien seuil de 12h) → false', () => {
     expect(
       estAnnulationTardive(
         creneau,
         heure,
         instantParis('2026-07-20', '10:00').getTime(),
-      ),
-    ).toBe(true);
-  });
-  it('> 12h avant le créneau → false', () => {
-    expect(
-      estAnnulationTardive(
-        creneau,
-        heure,
-        instantParis('2026-07-19', '10:00').getTime(),
       ),
     ).toBe(false);
   });

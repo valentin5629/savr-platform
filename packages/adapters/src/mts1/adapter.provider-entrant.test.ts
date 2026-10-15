@@ -160,7 +160,6 @@ function armerPoll() {
   _setMts1Handlers({
     pollOrders: vi.fn().mockResolvedValue([ORDER]),
     getTour: vi.fn(),
-    getPhotos: vi.fn().mockResolvedValue([]),
     postOrder: vi.fn(),
   });
 }

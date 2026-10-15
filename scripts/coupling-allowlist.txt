@@ -273,3 +273,13 @@ supabase/tests/reattribution_meme_type_tms.test.sql
 # HTTP transporteur. 'customerOrders' banni.
 supabase/migrations/20260929100000_plateforme_algo_ag_distance_inconnue_null.sql
 packages/plateforme/src/lib/type-tms-labels.ts
+# Relève MTS-1, fenêtre et relève par compte (2026-10-14) : 'mts1' = segment du chemin
+# de la route cron testée (@/app/api/cron/polling-mts1/route.js), valeur de l'enum
+# type_tms dans les transporteurs simulés et libellés de test. Le test lit seulement la
+# fenêtre passée à sync() et le nombre de relèves ; le provider est simulé, aucun appel
+# HTTP transporteur. 'customerOrders' banni.
+packages/plateforme/tests/api/cron/polling-mts1-fenetre.test.ts
+# pgTAP de la relève MTS-1 (2026-10-14) : 'mts1' = valeur de integrations_inbox.source et
+# préfixe de la clé de réservation d'un statut, plus un chemin cité en commentaire.
+# Écritures DB en transaction annulée, aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/tests/releve_mts1_ecritures_base.test.sql

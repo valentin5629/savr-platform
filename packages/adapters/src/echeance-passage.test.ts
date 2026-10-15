@@ -171,7 +171,7 @@ describe('M1.5a / passage borné — cliquets sur les clients prestataires', () 
       // Healthcheck : un GET sans effet, qui ne lève jamais.
       'mts1/client.ts | const res = await globalThis.fetch(`${this.baseUrl}/v3/carrier`, {',
       // Téléchargement d'une photo : relève entrante, jamais un passage du worker.
-      'mts1/client.ts | const res = await globalThis.fetch(url, { signal: controller.signal });',
+      'mts1/client.ts | res = await globalThis.fetch(downloadUrl, {',
     ]);
     expect(
       appels.filter((a) => a.garde).map((a) => `${a.fichier} | ${a.ligne}`),

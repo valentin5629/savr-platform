@@ -74,11 +74,11 @@
     },
     {
       "id": "M0.11/MTS1/pesees-incompletes/batch-skip",
-      "description": "pesées incomplètes : tour DELIVERED sans items flux (batch J+1 skip attendu)"
+      "description": "pesées incomplètes : tour terminé sans poids de flux (batch J+1 skip attendu)"
     },
     {
       "id": "M0.11/MTS1/photos/404-non-bloquant",
-      "description": "photo 404 non bloquante : getPhotos retourne sans erreur même avec URL 404"
+      "description": "photo absente non bloquante : le téléchargement simulé rend null sans erreur"
     },
     {
       "id": "M0.11/MTS1/photos/dedup-cle",
@@ -328,7 +328,7 @@
       "artefact": "packages/adapters/src/mts1/mock.ts",
       "test": "M0.11/MTS1/pesees-incompletes/batch-skip",
       "statut": "implemented",
-      "libelle": "pesées incomplètes : tour DELIVERED sans items flux (batch J+1 skip attendu)"
+      "libelle": "pesées incomplètes : tour terminé sans poids de flux (batch J+1 skip attendu)"
     },
     {
       "id": "M0.11-15",
@@ -336,7 +336,7 @@
       "artefact": "packages/adapters/src/mts1/mock.ts",
       "test": "M0.11/MTS1/photos/404-non-bloquant",
       "statut": "implemented",
-      "libelle": "photo 404 non bloquante : getPhotos retourne sans erreur même avec URL 404"
+      "libelle": "photo absente non bloquante : le téléchargement simulé rend null sans erreur"
     },
     {
       "id": "M0.11-16",

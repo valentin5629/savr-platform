@@ -1,31 +1,220 @@
 {
-  "_description": "Tour OK avec pesées incomplètes : stops[] sans items flux (seulement volume_du_camion). Batch J+1 doit skipper. Escalade Admin si > 48h.",
+  "_description": "Tour terminé aux pesées incomplètes : les flux sont présents mais `quantityAfterPickup` vaut null (le chauffeur n'a rien saisi) ; seul le stuff camion est renseigné. Batch J+1 doit skipper. Escalade Admin si > 48h. Forme mesurée sur le compte de démonstration le 2026-10-13 (les valeurs sont inventées) : `status` est un objet, chaque arrêt porte `stopType`, `customerOrders[]`, `stuffs[]` et `photos[]`. Les kilos sont dans `stuffs[].quantityAfterPickup` (`quantity` reste à 0, `measurement.weight` aussi) et les stuffs d'une commande sont répétés sur son arrêt d'enlèvement (`CUSTOMER_ORDER`) et sur son arrêt de dépôt (`CUSTOMER_ORDER_LINKED` ou `DEPOT`) : ne lire que l'enlèvement. Ni `items`, ni `weight` sur l'arrêt ou le stuff.",
   "tour": {
     "tourId": "MTS1-TOUR-INCOMPLETE-001",
-    "externalReference": "col_pesees_incompletes_001-1",
-    "status": "OK",
-    "startedAt": "2026-06-11T21:00:00Z",
-    "completedAt": "2026-06-12T01:00:00Z",
+    "tourNumber": "26/06-11-1",
+    "tourDate": "2026-06-11T19:00:00.000Z",
+    "status": {
+      "dispatch": "COMPLETED",
+      "dispatchedAt": "2026-06-10T19:00:00.000Z",
+      "startedAt": "2026-06-11T19:05:00.000Z",
+      "finishedAt": "2026-06-11T21:00:00.000Z",
+      "payment": "VALIDATED",
+      "validation": "VALIDATED",
+      "progression": "FINISHED"
+    },
     "stops": [
       {
         "stopId": "stop-inc-001",
-        "address": "3 Rue du Faubourg Saint-Antoine, 75011 Paris",
-        "completedAt": "2026-06-12T00:45:00Z",
-        "items": [
+        "stopType": "CUSTOMER_ORDER",
+        "customerOrders": [
           {
-            "stuff": "<volume_du_camion>",
-            "qty": 1,
-            "weight": null,
-            "_note": "Seul item présent — aucune pesée flux réelle"
+            "customerOrderId": "MTS1-ORDER-INCOMPLETE-001",
+            "customerOrderStatus": "VALIDATED",
+            "orderNumber": "col_pesees_incompletes_001-1",
+            "customerOrderProgressionStatus": "FINISHED"
           }
-        ]
+        ],
+        "stuffs": [
+          {
+            "name": "<volume_du_camion>",
+            "task": "PICKUP",
+            "quantity": 1,
+            "quantityAfterPickup": 1,
+            "quantityAfterDelivery": 1,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Bio-déchets (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Carton (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "D.I.B (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Film plastique (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Verre (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          }
+        ],
+        "photos": []
+      },
+      {
+        "stopId": "stop-inc-001-depot",
+        "stopType": "DEPOT",
+        "customerOrders": [
+          {
+            "customerOrderId": "MTS1-ORDER-INCOMPLETE-001",
+            "customerOrderStatus": "VALIDATED",
+            "orderNumber": "col_pesees_incompletes_001-1",
+            "customerOrderProgressionStatus": "FINISHED"
+          }
+        ],
+        "stuffs": [
+          {
+            "name": "<volume_du_camion>",
+            "task": "PICKUP",
+            "quantity": 1,
+            "quantityAfterPickup": 1,
+            "quantityAfterDelivery": 1,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Bio-déchets (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Carton (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "D.I.B (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Film plastique (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Verre (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": null,
+            "quantityAfterDelivery": null,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          }
+        ],
+        "photos": []
       }
-    ]
+    ],
+    "summary": {
+      "durationInMinutes": 115,
+      "distanceInKilometers": 21
+    },
+    "dispatch": {
+      "carrierShareableCode": "CA_FIXTURE",
+      "transporterUserShareableCode": null,
+      "vehicleShareableCode": null
+    }
   },
   "_assertions": [
-    "tour en état OK mais items[] ne contient aucun flux pesé (hors <volume_du_camion>)",
+    "tour terminé mais aucun flux n'a de quantityAfterPickup (hors <volume_du_camion>)",
     "batch J+1 skippe la collecte : jamais de bordereau avec 0 pesée",
     "escalade saisie manuelle Admin si skip > 48h (R9)",
-    "poids_kg null sur tous les flux mappés = pesées incomplètes"
+    "aucune ligne pesees_tournees écrite = pesées incomplètes"
   ]
 }

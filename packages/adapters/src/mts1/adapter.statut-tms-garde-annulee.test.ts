@@ -157,7 +157,6 @@ function armerPoll(status: Mts1CustomerOrder['customerOrderStatus']) {
       },
     ]),
     getTour: vi.fn(),
-    getPhotos: vi.fn().mockResolvedValue([]),
     postOrder: vi.fn(),
   });
 }

@@ -58,8 +58,11 @@ async function postHandler(
   const { data: before, error: fetchErr } = await supabase
     .from('collectes')
     .select(
-      `id, statut, type, date_collecte, heure_collecte, annulation_demandee_at,
-       evenements!inner(created_by, lieux!lieu_id(nom))`,
+      // `*` plutôt qu'une liste : `annulation_demandee_at` (migration
+      // 20261015180000) manque tant que la base n'est pas migrée, et une colonne
+      // nommée absente ferait échouer la lecture (404) au lieu de juger le délai
+      // à « maintenant ».
+      `*, evenements!inner(created_by, lieux!lieu_id(nom))`,
     )
     .eq('id', id)
     .single();

@@ -27,6 +27,7 @@
   "triggers": [
     "trg_pack_debit_realisee (BEFORE UPDATE statut → realisee AG) — fn_trg_pack_debit_realisee",
     "trg_pack_debit_annulation_tardive (BEFORE UPDATE statut → annulee, OLD != realisee) — fn_trg_pack_debit_annulation_tardive",
+    "trg_horodater_annulation_demandee (BEFORE UPDATE OF statut → annulation_demandee) — pose collectes.annulation_demandee_at",
     "trg_pack_recredit (BEFORE UPDATE statut realisee → annulee) — fn_trg_pack_recredit",
     "rpc_annuler_credit_collecte (SECURITY DEFINER, GRANT TO service_role)"
   ],
@@ -84,7 +85,7 @@
       "id": "M2.1-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
       "artefact": "supabase/migrations/20261015180000_plateforme_annulation_tardive_seuil_4h.sql",
-      "test": "supabase/tests/m2_1_packs_ag.test.sql « E2 : annulation à H-3h59 (heure de Paris) < 4h → débit (credits_consommes=1) », « annulation à H-4h pile (heure de Paris) → pas de débit, seuil strict (credits_consommes reste 1) », « E2 : annulation à H-4h01 (heure de Paris) ≥ 4h → pas de débit (credits_consommes reste 1) », « annulation à J-2, transporteur déjà mandaté (acceptee) → pas de débit (credits_consommes reste 1) », « demande à H-5h, confirmation Admin à H-3h → pas de débit, le délai se juge à la demande (credits_consommes reste 1) », « demande à H-5h confirmée après le créneau → pas de débit (credits_consommes reste 2) »",
+      "test": "supabase/tests/m2_1_packs_ag.test.sql « E2 : annulation à H-3h59 (heure de Paris) < 4h → débit (credits_consommes=1) », « annulation à H-4h pile (heure de Paris) → pas de débit, seuil strict (credits_consommes reste 1) », « E2 : annulation à H-4h01 (heure de Paris) ≥ 4h → pas de débit (credits_consommes reste 1) », « annulation à J-2, transporteur déjà mandaté (acceptee) → pas de débit (credits_consommes reste 1) », « passage en annulation_demandee → annulation_demandee_at horodaté au moment de la demande », « demande à H-5h, confirmation Admin à H-3h → pas de débit, le délai se juge à la demande (credits_consommes reste 1) », « demande à H-3h confirmée à H-3h → débit (credits_consommes=2) », « demande à H-5h confirmée après le créneau → pas de débit (credits_consommes reste 2) », « demande refusée puis annulation directe à H-3h → jugée maintenant, débit (credits_consommes=3) »",
       "statut": "implemented",
       "libelle": "annulation < 4h avant le créneau (heure de Paris, strict) → débit tardif pack ; le mandat du prestataire seul ne débite plus ; une demande d'annulation confirmée par l'Admin se juge à l'heure de la demande (décisions Val 2026-10-15)"
     },

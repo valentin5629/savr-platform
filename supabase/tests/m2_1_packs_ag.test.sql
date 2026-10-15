@@ -2,7 +2,7 @@
 -- Tests : schéma, triggers (débit réalisation, débit tardif, recrédit), RLS.
 
 BEGIN;
-SELECT plan(32);
+SELECT plan(33);
 
 -- ── Helpers JWT (identiques aux autres fichiers de test) ──────────────────
 
@@ -396,7 +396,7 @@ SELECT is(
   (SELECT annulation_demandee_at FROM plateforme.collectes
    WHERE id = '00000000-0000-0000-0000-000000000044'::uuid),
   now(),
-  'passage en annulation_demandee → annulation_demandee_at horodaté à l''instant de la demande'
+  'passage en annulation_demandee → annulation_demandee_at horodaté au moment de la demande'
 );
 
 UPDATE plateforme.collectes SET annulation_demandee_at = now() - INTERVAL '2 hours'
@@ -465,6 +465,38 @@ SELECT is(
    WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
   2,
   'demande à H-5h confirmée après le créneau → pas de débit (credits_consommes reste 2)'
+);
+
+-- Collecte G : créneau à now()+3h ; demande faite à now()-2h puis REFUSÉE par
+-- l'Admin (retour à validee) ; l'Admin annule ensuite directement → la demande
+-- refusée ne compte plus, l'annulation se juge maintenant (3h avant) → débit.
+INSERT INTO plateforme.collectes (
+  id, evenement_id, type, statut, date_collecte, heure_collecte,
+  nb_camions_demande, statut_tms, pack_antgaspi_id
+) VALUES (
+  '00000000-0000-0000-0000-000000000047'::uuid,
+  '00000000-0000-0000-0000-000000000003'::uuid,
+  'anti_gaspi', 'validee',
+  ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::date,
+  ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::time,
+  1, 'acceptee',
+  '00000000-0000-0000-0000-000000000030'::uuid
+);
+
+UPDATE plateforme.collectes SET statut = 'annulation_demandee'
+WHERE id = '00000000-0000-0000-0000-000000000047'::uuid;
+UPDATE plateforme.collectes SET annulation_demandee_at = now() - INTERVAL '2 hours'
+WHERE id = '00000000-0000-0000-0000-000000000047'::uuid;
+UPDATE plateforme.collectes SET statut = 'validee'
+WHERE id = '00000000-0000-0000-0000-000000000047'::uuid;
+UPDATE plateforme.collectes SET statut = 'annulee'
+WHERE id = '00000000-0000-0000-0000-000000000047'::uuid;
+
+SELECT is(
+  (SELECT credits_consommes FROM plateforme.packs_antgaspi
+   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
+  3,
+  'demande refusée puis annulation directe à H-3h → jugée maintenant, débit (credits_consommes=3)'
 );
 
 -- ── 9. CHECK constraint credits_consommes >= 0 ───────────────────────────

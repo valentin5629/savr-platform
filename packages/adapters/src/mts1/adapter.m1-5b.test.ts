@@ -108,6 +108,8 @@ function makeSyncSupabase(opts: {
   inboxExistant?: { traite: boolean };
   /** collecte.statut_tms courant */
   collecteStatutTms?: string;
+  /** L'état d'attribution de la tournée nominale a déjà été relevé. */
+  attributionDejaVue?: boolean;
 }) {
   const calls: TableCall[] = [];
 
@@ -173,7 +175,26 @@ function makeSyncSupabase(opts: {
         filters[col] = vals;
         return self;
       }),
+      neq: vi.fn((col: string, val: unknown) => {
+        filters[`neq:${col}`] = val;
+        return self;
+      }),
       limit: vi.fn((_n: number) => {
+        // integrations_inbox, lecture seule (clé d'attribution déjà relevée ?).
+        if (table === 'integrations_inbox' && derniere.op === 'select') {
+          // État déjà vu = celui de la tournée nominale (acceptée).
+          return Promise.resolve({
+            data: opts.attributionDejaVue
+              ? [
+                  {
+                    id: 'inbox-attribution',
+                    payload: { etat: 'MTS1-TOUR-ZD-001:2' },
+                  },
+                ]
+              : [],
+            error: null,
+          });
+        }
         // integrations_inbox, réservation du statut (INSERT nu … RETURNING id) :
         //   - erreur DB simulée → propagée par l'adapter si code≠23505 (OUTBOX-04)
         //   - 23505 = clé déjà posée ; sinon la ligne réservée
@@ -216,13 +237,18 @@ function makeSyncSupabase(opts: {
               id: tourneeInfo.tourneeId,
               statut: 'planifiee',
               tms_reference: tourneeInfo.tmsReference,
+              prestataire_logistique_id:
+                tourneeInfo.prestataireId ?? PRESTA_MTS1,
               collecte_tournees: [
                 {
                   collecte_id: tourneeInfo.collecteId,
+                  rang: 1,
                   // FK sortante `collecte_tournees.collecte_id` → OBJET.
                   collectes: {
                     id: tourneeInfo.collecteId,
                     statut: tourneeInfo.collecteStatut,
+                    prestataire_logistique_id:
+                      tourneeInfo.prestataireId ?? PRESTA_MTS1,
                   },
                 },
               ],
@@ -608,8 +634,12 @@ describe('M1.5b / AdapterMts1.sync — dédup statut', () => {
     });
 
     // La clé du statut est déjà posée (23505) et entièrement traitée (re-lecture
-    // = null par défaut → tenu pour traité).
-    const supabase = makeSyncSupabase({ statutDejaReserve: true });
+    // = null par défaut → tenu pour traité). L'état d'attribution de la tournée
+    // aussi : il a sa propre clé (adapter.attribution-transporteur.test.ts).
+    const supabase = makeSyncSupabase({
+      statutDejaReserve: true,
+      attributionDejaVue: true,
+    });
     const adapter = new AdapterMts1(
       {
         id: 'presta-001',
@@ -653,6 +683,8 @@ describe('M1.5b / AdapterMts1.sync — IN_PROGRESSION', () => {
       postOrder: vi.fn(),
     });
 
+    // L'attribution de la tournée est déjà relevée : seul le statut de la
+    // commande joue ici.
     const supabase = makeSyncSupabase({
       tourneeInfo: {
         collecteId: 'col-001',
@@ -660,6 +692,7 @@ describe('M1.5b / AdapterMts1.sync — IN_PROGRESSION', () => {
         tmsReference: 'MTS1-TOUR-ZD-001',
         collecteStatut: 'validee',
       },
+      attributionDejaVue: true,
     });
     const adapter = new AdapterMts1(
       {
@@ -852,7 +885,10 @@ describe('M1.5b / AdapterMts1.sync — claim entrant atomique (BL-P1-OUTBOX-04)'
 
     const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
     const reservations = calls.filter(
-      (c) => c.table === 'integrations_inbox' && c.op === 'insert',
+      (c) =>
+        c.table === 'integrations_inbox' &&
+        c.op === 'insert' &&
+        (c.data as Record<string, unknown>)['event_type'] === 'order_status',
     );
     expect(reservations).toHaveLength(1);
     expect(reservations[0]!.data).toEqual({
@@ -868,8 +904,12 @@ describe('M1.5b / AdapterMts1.sync — claim entrant atomique (BL-P1-OUTBOX-04)'
 
   it('clé déjà posée (23505) et statut traité → statut non rejoué (ni collecte, ni tournée, ni agrégation)', async () => {
     handlers();
-    // La re-lecture de la ligne rend null par défaut → tenu pour traité.
-    const supabase = makeSyncSupabase({ statutDejaReserve: true });
+    // La re-lecture de la ligne rend null par défaut → tenu pour traité. L'état
+    // d'attribution de la tournée est déjà relevé lui aussi.
+    const supabase = makeSyncSupabase({
+      statutDejaReserve: true,
+      attributionDejaVue: true,
+    });
     await new AdapterMts1(TRANSPORTEUR, supabase).sync(FENETRE);
 
     const calls = (supabase as unknown as { _calls: TableCall[] })._calls;

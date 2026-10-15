@@ -221,27 +221,28 @@ function stubMts1(scan: Mts1CustomerOrder[] = []) {
       createdAt: '2026-07-14T10:00:00Z',
     };
   });
-  const createTour = vi.fn(async (payload: Record<string, unknown>) => ({
-    tourId: `MTS1-TOUR-NEUF-${n}`,
-    externalReference: String(payload['orderNumber']),
-    status: 'DRAFT',
-    createdAt: '2026-07-14T10:00:00Z',
-    customerOrderId: `MTS1-ORDER-NEUVE-${n}`,
-  }));
   const handlers = {
     pollOrders: vi.fn(),
     getTour: vi.fn(),
     postOrder,
-    createTour,
-    addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-    dispatchTour: vi.fn().mockResolvedValue(undefined),
-    validateTour: vi.fn().mockResolvedValue(undefined),
     updateOrder: vi.fn().mockResolvedValue(undefined),
     deleteOrder: vi.fn().mockResolvedValue(undefined),
     scanOrdersByDateRange: vi.fn().mockResolvedValue(scan),
   };
   _setMts1Handlers(handlers);
   return handlers;
+}
+
+/** Commandes enregistrées sur une tournée (curseur de reprise), dans l'ordre. */
+function commandesEnregistrees(
+  ecritures: ReturnType<typeof makeSupabase>['ecritures'],
+): unknown[] {
+  return ecritures
+    .filter((e) => e.table === 'tournees')
+    .map(
+      (e) => (e.payload as Record<string, unknown>)?.['external_ref_commande'],
+    )
+    .filter((ref) => ref !== undefined);
 }
 
 // ─── MTS-1 ────────────────────────────────────────────────────────────────────
@@ -263,9 +264,6 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
     // Jamais la clé `col-reatt-1` de la commande annulée.
     expect(h.postOrder).toHaveBeenCalledOnce();
     expect(h.postOrder.mock.calls[0]![0]).toMatchObject({
-      orderNumber: 'col-reatt-1-r2',
-    });
-    expect(h.createTour.mock.calls[0]![0]).toMatchObject({
       orderNumber: 'col-reatt-1-r2',
     });
 
@@ -305,9 +303,7 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
       { requiresReconciliation: true },
     );
     expect(h1.postOrder).toHaveBeenCalledOnce();
-    expect(h1.addCustomerOrder.mock.calls[0]).not.toContain(
-      'MTS1-ORDER-ANNULEE',
-    );
+    expect(commandesEnregistrees(s1.ecritures)).toEqual(['MTS1-ORDER-NEUVE-1']);
 
     // Le POST précédent avait abouti : sa commande est reprise, pas de doublon.
     const h2 = stubMts1([annulee, tentative]);
@@ -318,9 +314,9 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
       { requiresReconciliation: true },
     );
     expect(h2.postOrder).not.toHaveBeenCalled();
-    expect(h2.addCustomerOrder.mock.calls[0]).toContain(
+    expect(commandesEnregistrees(s2.ecritures)).toEqual([
       'MTS1-ORDER-TENTATIVE-2',
-    );
+    ]);
   });
 
   it('E2 multi-camions : le rang refusé est recommandé, le rang vivant seulement modifié', async () => {

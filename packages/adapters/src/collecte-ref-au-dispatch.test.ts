@@ -11,7 +11,9 @@
 //     supabase/tests/e2_gate_commande_provider.test.sql) ;
 //   • valeur d'affichage / rapprochement → cette colonne, posée ICI au dispatch
 //     (§04 Data Model l.1509, §06.06 bouton « Renvoyer au TMS », §11 carte
-//     « Collectes non transmises au TMS »).
+//     « Collectes non transmises au TMS »). Côté camion, c'est l'identifiant de
+//     la commande : la plateforme ne crée plus de tournée, l'Admin les compose
+//     dans la console MTS-1 (décision Val 2026-10-15).
 //
 // Ce fichier verrouille le second volet, sur les DEUX providers. Le mock trace la
 // table de chaque `.update()` : une assertion qui ne regarderait que le payload
@@ -98,6 +100,7 @@ function makeTracingSupabase(opts: { brancheAttribution?: string } = {}) {
     const q: Record<string, unknown> = {};
     q['select'] = vi.fn(() => q);
     q['eq'] = vi.fn(() => q);
+    q['in'] = vi.fn(() => q);
     q['contains'] = vi.fn(() => q);
     q['limit'] = vi.fn(() => q);
     q['upsert'] = vi.fn(() => q);
@@ -186,22 +189,12 @@ describe('dispatch → collectes.tms_reference (provider camion)', () => {
         status: 'PLANNED',
         createdAt: '',
       }),
-      createTour: vi.fn().mockResolvedValue({
-        tourId: `TOUR-${suffixe}`,
-        externalReference: '',
-        status: 'DRAFT',
-        createdAt: '',
-        customerOrderId: `ORDER-${suffixe}`,
-      }),
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
     };
     _setMts1Handlers(h);
     return h;
   }
 
-  it('rang 1 — le dispatch écrit le tourId dans collectes.tms_reference (pas seulement dans tournees)', async () => {
+  it('rang 1 — le dispatch écrit l’identifiant de la commande dans collectes.tms_reference', async () => {
     handlers('R1');
     const { supabase, updates } = makeTracingSupabase();
     await new AdapterMts1(TRANSPORTEUR_CAMION, supabase).dispatchCollecte(
@@ -210,19 +203,18 @@ describe('dispatch → collectes.tms_reference (provider camion)', () => {
     );
 
     // Le cœur du correctif : la colonne de `collectes` est réellement écrite.
-    expect(refsPoseesSurCollectes(updates)).toEqual(['TOUR-R1']);
-    // …et la référence de la TOURNÉE reste écrite elle aussi (non-régression :
-    // c'est elle que lit la reprise de dispatch, cf. garde d'idempotence).
+    expect(refsPoseesSurCollectes(updates)).toEqual(['ORDER-R1']);
+    // Aucune référence de tournée n'est posée par Savr : la tournée, c'est
+    // l'Admin qui la compose dans la console MTS-1.
     expect(
       updates.filter(
-        (u) =>
-          u.table === 'tournees' && u.payload['tms_reference'] === 'TOUR-R1',
+        (u) => u.table === 'tournees' && 'tms_reference' in u.payload,
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
   it('rang 2 — aucune écriture sur collectes.tms_reference (un seul identifiant de rapprochement)', async () => {
-    handlers('R2');
+    const h = handlers('R2');
     const { supabase, updates } = makeTracingSupabase();
     await new AdapterMts1(TRANSPORTEUR_CAMION, supabase).dispatchCollecte(
       COLLECTE,
@@ -231,13 +223,13 @@ describe('dispatch → collectes.tms_reference (provider camion)', () => {
 
     expect(refsPoseesSurCollectes(updates)).toEqual([]);
     // Le rang 2 a bien été dispatché par ailleurs (sinon l'assertion ci-dessus
-    // serait vide pour une mauvaise raison — un dispatch qui n'a rien fait).
-    expect(
-      updates.filter(
-        (u) =>
-          u.table === 'tournees' && u.payload['tms_reference'] === 'TOUR-R2',
-      ),
-    ).toHaveLength(1);
+    // serait vide pour une mauvaise raison — un dispatch qui n'a rien fait) :
+    // sa commande est partie et la collecte attend sa tournée.
+    expect(h.postOrder).toHaveBeenCalledOnce();
+    expect(updates).toContainEqual({
+      table: 'collectes',
+      payload: expect.objectContaining({ statut_tms: 'a_attribuer' }),
+    });
   });
 });
 

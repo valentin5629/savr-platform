@@ -128,6 +128,13 @@ function makeSupabase(tournees: TourneeFixture[] = []) {
   return { supabase, ecritures };
 }
 
+/** Commandes enregistrées sur une tournée de Savr (curseur de reprise). */
+function enregistrees(ecritures: Ecriture[]): unknown[] {
+  return ecritures
+    .filter((e) => e.table === 'tournees')
+    .map((e) => (e.data as Record<string, unknown>)['external_ref_commande']);
+}
+
 function commande(
   customerOrderId: string,
   surcharge: Partial<Mts1CustomerOrder> = {},
@@ -141,8 +148,9 @@ function commande(
   };
 }
 
-// Handlers simulés : tout le pipeline sortant répond, la recherche est fournie
-// par le test.
+// Handlers simulés : la création de commande répond (seul appel sortant de
+// l'envoi depuis la décision Val du 2026-10-15), la recherche est fournie par le
+// test.
 function armer(recherche: Partial<Mts1Handlers>) {
   const pipeline = {
     pollOrders: vi.fn(),
@@ -154,16 +162,6 @@ function armer(recherche: Partial<Mts1Handlers>) {
       status: 'DRAFT' as const,
       createdAt: '',
     })),
-    createTour: vi.fn(async () => ({
-      tourId: 'TOUR-NEUF',
-      externalReference: NUMERO,
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: '',
-    })),
-    addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-    dispatchTour: vi.fn().mockResolvedValue(undefined),
-    validateTour: vi.fn().mockResolvedValue(undefined),
     updateOrder: vi.fn().mockResolvedValue(undefined),
     deleteOrder: vi.fn().mockResolvedValue(undefined),
   };
@@ -189,7 +187,8 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
       .mockResolvedValue([commande('CMD-DEJA-CREEE')]);
     const h = armer({ scanOrdersByDateRange });
 
-    await reprendre(makeSupabase().supabase);
+    const { supabase, ecritures } = makeSupabase();
+    await reprendre(supabase);
 
     // Des jours, pas des instants (un instant fait répondre 500 à MTS-1), et le
     // jour de la collecte lui-même au milieu : c'est lui que l'API compare.
@@ -201,10 +200,7 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
     );
     // Commande retrouvée : reprise sur elle, jamais de second POST.
     expect(h.postOrder).not.toHaveBeenCalled();
-    expect(h.addCustomerOrder).toHaveBeenCalledWith(
-      'TOUR-NEUF',
-      'CMD-DEJA-CREEE',
-    );
+    expect(enregistrees(ecritures)).toEqual(['CMD-DEJA-CREEE']);
   });
 
   it('M1.5a/reconciliation_creation_numero_strict — une commande vivante d’un AUTRE numéro n’est pas reprise', async () => {
@@ -219,10 +215,11 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
         ]),
     });
 
-    await reprendre(makeSupabase().supabase);
+    const { supabase, ecritures } = makeSupabase();
+    await reprendre(supabase);
 
     expect(h.postOrder).toHaveBeenCalledOnce();
-    expect(h.addCustomerOrder).toHaveBeenCalledWith('TOUR-NEUF', 'CMD-NEUVE');
+    expect(enregistrees(ecritures)).toEqual(['CMD-NEUVE']);
   });
 
   it.each(['OK', 'PARTIAL', 'ARCHIVED'] as const)(
@@ -245,9 +242,6 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
         `collecte col-rech-001 : une commande du numéro ${NUMERO} est déjà terminée chez MTS-1 (CMD-FAITE ${statut}) — ni reprise ni nouvelle création`,
       );
       expect(h.postOrder).not.toHaveBeenCalled();
-      expect(h.createTour).not.toHaveBeenCalled();
-      expect(h.addCustomerOrder).not.toHaveBeenCalled();
-      expect(h.dispatchTour).not.toHaveBeenCalled();
       // Rien n'est enregistré côté Savr : la commande n'est pas adoptée.
       expect(ecritures.filter((e) => e.table === 'tournees')).toHaveLength(0);
     },
@@ -285,7 +279,6 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
         LogistiquePermanentError,
       );
       expect(h.postOrder).not.toHaveBeenCalled();
-      expect(h.addCustomerOrder).not.toHaveBeenCalled();
       expect(ecritures.filter((e) => e.table === 'tournees')).toHaveLength(0);
     }
   });
@@ -302,10 +295,11 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
       ]),
     });
 
-    await reprendre(makeSupabase().supabase);
+    const { supabase, ecritures } = makeSupabase();
+    await reprendre(supabase);
 
     expect(h.postOrder).toHaveBeenCalledOnce();
-    expect(h.addCustomerOrder).toHaveBeenCalledWith('TOUR-NEUF', 'CMD-NEUVE');
+    expect(enregistrees(ecritures)).toEqual(['CMD-NEUVE']);
   });
 
   it.each(['CANCELED', 'KO'] as const)(
@@ -320,10 +314,11 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
           ]),
       });
 
-      await reprendre(makeSupabase().supabase);
+      const { supabase, ecritures } = makeSupabase();
+      await reprendre(supabase);
 
       expect(h.postOrder).toHaveBeenCalledOnce();
-      expect(h.addCustomerOrder).toHaveBeenCalledWith('TOUR-NEUF', 'CMD-NEUVE');
+      expect(enregistrees(ecritures)).toEqual(['CMD-NEUVE']);
     },
   );
 
@@ -348,7 +343,7 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
       await reprendre(supabase);
 
       expect(h.postOrder).not.toHaveBeenCalled();
-      expect(h.addCustomerOrder).toHaveBeenCalledWith('TOUR-NEUF', 'CMD-A');
+      expect(enregistrees(ecritures)).toEqual(['CMD-A']);
       const traces = ecritures.filter(
         (e) =>
           e.table === 'integrations_logs' &&
@@ -382,7 +377,8 @@ describe('M1.5a / réconciliation d’une création reprise (E1)', () => {
 
       await reprendre(supabase);
 
-      expect(h.addCustomerOrder).toHaveBeenCalledWith('TOUR-NEUF', 'CMD-SEULE');
+      expect(h.postOrder).not.toHaveBeenCalled();
+      expect(enregistrees(ecritures)).toEqual(['CMD-SEULE']);
 
       expect(
         ecritures.filter((e) =>
@@ -453,9 +449,7 @@ describe('M1.5a / réconciliation d’une création reprise — chemin réel (wi
           ? recherche.corps
           : init.method === 'POST' && chemin === '/v3/customerOrders'
             ? { customerOrderId: 'CMD-NEUVE', orderNumber: NUMERO }
-            : init.method === 'POST' && chemin === '/v3/tours'
-              ? { tourId: 'TOUR-REEL' }
-              : {};
+            : {};
         return {
           ok: status >= 200 && status < 300,
           status,
@@ -468,12 +462,13 @@ describe('M1.5a / réconciliation d’une création reprise — chemin réel (wi
     return appels;
   }
 
-  const reprendre = () =>
-    new AdapterMts1(TRANSPORTEUR, makeSupabase().supabase).dispatchCollecte(
-      COLLECTE,
-      1,
-      { requiresReconciliation: true },
-    );
+  const reprendre = (
+    supabase: import('@supabase/supabase-js').SupabaseClient = makeSupabase()
+      .supabase,
+  ) =>
+    new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(COLLECTE, 1, {
+      requiresReconciliation: true,
+    });
 
   it('M1.5a/reconciliation_creation_fil — la commande déjà créée est retrouvée par l’adresse réelle et reprise sans second POST', async () => {
     const appels = stubMts1({
@@ -490,19 +485,15 @@ describe('M1.5a / réconciliation d’une création reprise — chemin réel (wi
       ],
     });
 
-    await reprendre();
+    const { supabase, ecritures } = makeSupabase();
+    await reprendre(supabase);
 
+    // La recherche seule : ni second POST, ni appel de tournée (l'Admin la
+    // compose dans la console MTS-1).
     expect(appels.map((a) => a.ligne)).toEqual([
       'GET /v3/customerOrders?minDate=2026-07-14&maxDate=2026-07-16&orderNumber=col-rech-001-1',
-      'POST /v3/tours',
-      'PUT /v3/tours/addCustomerOrder',
-      'POST /v3/dispatch/TOUR-REEL/toCarrier',
-      'PUT /v3/tours/TOUR-REEL/validate',
     ]);
-    expect(appels[2]!.corps).toEqual({
-      tourId: 'TOUR-REEL',
-      customerOrderId: '65a1b2c3d4e5f60718293a4b',
-    });
+    expect(enregistrees(ecritures)).toEqual(['65a1b2c3d4e5f60718293a4b']);
   });
 
   it('M1.5a/reconciliation_creation_fil_absente — tableau vide : la commande n’existe pas, le POST repart', async () => {

@@ -1884,12 +1884,15 @@ export class AdapterMts1 implements LogistiqueProvider {
    * sa tournée. Cette lecture puis l'écriture de `tms_reference` ne sont pas
    * atomiques : l'index unique partiel `uniq_tournee_par_tms_reference` refuse
    * la seconde écriture de deux passages simultanés (23505), l'ordre repart « à
-   * réconcilier » et la reprise voit alors la ligne de l'autre passage. Mesuré
-   * le 2026-10-13 sur une collecte de test à deux camions du compte de
-   * démonstration (un seul cas, mécanisme non établi) : les commandes des deux
-   * rangs portaient la même tournée. Non mesuré : que MTS-1 fasse de même
-   * entre deux collectes. Reprise, une telle tournée serait envoyée et validée
-   * une seconde fois, et la relève lirait ses pesées sous les deux lignes.
+   * réconcilier » et la reprise voit alors la ligne de l'autre passage. Vu le
+   * 2026-10-13 sur une collecte de test à deux camions du compte de
+   * démonstration : les commandes des deux rangs portaient la même tournée.
+   * D'après Val (sa réponse, pas une mesure : MTS-1 n'expose aucun
+   * historique), il avait déplacé à la main, dans la console MTS-1, la
+   * commande du second camion ; MTS-1 ne les aurait donc pas regroupées de
+   * lui-même. Le même geste reste possible entre deux collectes. Reprise, une
+   * telle tournée serait envoyée et validée une seconde fois, et la relève
+   * lirait ses pesées sous les deux lignes.
    */
   private async reconcileTour(
     collecte: Collecte,

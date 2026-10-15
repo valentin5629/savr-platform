@@ -91,7 +91,8 @@ référence de la tournée MTS-1) AVANT toute modification de la collecte.
 la base refuse (erreur `23505`) d'écrire sur une ligne `tournees` une référence
 de tournée qu'une AUTRE ligne porte déjà. Si l'alignement manuel bute sur ce
 refus, ne pas le contourner : deux lignes désigneraient la même tournée MTS-1
-(cas « deux camions sur une même tournée », non élucidé) — le remonter à Val.
+(par exemple une commande déplacée à la main dans la console MTS-1 sur la
+tournée d'un autre camion, cas vu le 2026-10-13) — le remonter à Val.
 Deux contournements que l'index ne voit pas, à ne pas employer : écrire une
 référence approchante (une casse ou un blanc de différence), ou relier le rang
 à la ligne qui porte déjà la référence (`collecte_tournees` n'impose pas

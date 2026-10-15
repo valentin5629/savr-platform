@@ -323,7 +323,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     // Référence d'AFFICHAGE de la collecte (§04 Data Model : « identifiant de la
     // collecte côté TMS » ; §06.06 bouton « Renvoyer au TMS », §11 carte
     // « Collectes non transmises ») : l'identifiant de la commande du rang 1, posé
-    // dès qu'elle est enregistrée — la demande est alors chez MTS-1. Le CDC ne
+    // une fois la commande et sa tournée unitaire enregistrées. Le CDC ne
     // prévoit qu'un identifiant par collecte, même à plusieurs camions. JAMAIS un
     // prédicat : l'émission de E2 se décide sur l'existence d'une commande
     // (fn_collecte_commandee_chez_provider).
@@ -1977,7 +1977,8 @@ export class AdapterMts1 implements LogistiqueProvider {
    * n'est créé ni rattaché, et cette tournée devient celle du camion si aucune
    * ligne ne la porte. Dans aucune : la tournée enregistrée du camion est reprise,
    * à défaut une tournée est créée, puis la commande y est rattachée. Commande
-   * terminée, refusée ou annulée : rien à faire.
+   * disparue, terminée, refusée ou annulée : échec définitif (alerte), aucune
+   * tournée reprise ni créée.
    */
   private async tourneeUnitaire(
     collecte: Collecte,
@@ -2000,16 +2001,26 @@ export class AdapterMts1 implements LogistiqueProvider {
           `collecte ${collecte.id} : commande introuvable chez MTS-1 pour le rang ${tournee.rang} (${customerOrderId}) — tournée non créée`,
         );
       }
+      // Commande terminée ou archivée (décision Val 2026-10-13, même règle qu'à la
+      // recherche par numéro), refusée ou annulée : sa tournée n'est ni reprise ni
+      // créée. Échec définitif, donc alerte.
       if (
         STATUTS_COMMANDE_TERMINEE.has(lue.customerOrderStatus) ||
         STATUTS_COMMANDE_MORTE.has(lue.customerOrderStatus)
       ) {
-        return;
+        throw new LogistiquePermanentError(
+          `collecte ${collecte.id} : la commande du rang ${tournee.rang} (${customerOrderId}) est ${
+            STATUTS_COMMANDE_TERMINEE.has(lue.customerOrderStatus)
+              ? 'déjà terminée'
+              : 'refusée ou annulée'
+          } chez MTS-1 (${lue.customerOrderStatus}) — tournée ni reprise ni créée`,
+        );
       }
       // Formes mesurées de `tourId` : une chaîne quand la commande est dans une
-      // tournée, clé absente sinon. Sous une autre forme, refusé : lu comme
-      // « aucune tournée », il ferait créer une tournée et sortir la commande de
-      // celle de l'Admin.
+      // tournée, clé absente sinon (`null` est lu de même, non mesuré). Sous une
+      // autre forme (nombre, chaîne vide, caractère hors de l'alphabet), refusé :
+      // lu comme « aucune tournée », il ferait créer une tournée et sortir la
+      // commande de celle de l'Admin.
       const designe: unknown = lue.currentTour?.tourId;
       if (designe !== undefined && designe !== null) {
         if (!estIdentifiantMts1(designe)) {
@@ -2044,25 +2055,13 @@ export class AdapterMts1 implements LogistiqueProvider {
   // Tournée où la commande se trouve déjà (posée par l'Admin, ou créée par une
   // tentative précédente dont la référence n'a pas été écrite) : elle devient
   // celle du camion, sauf si une autre ligne la porte déjà — tournée regroupée
-  // par l'Admin avec celle d'un autre camion. L'index unique
-  // `uniq_tournee_par_tms_reference` tranche une course entre deux passages
-  // (23505 : une autre ligne l'a prise, rien à faire). La relève lit de toute
-  // façon la tournée sur la commande.
+  // par l'Admin avec celle d'un autre camion, ou prise par un passage voisin.
+  // C'est l'index unique `uniq_tournee_par_tms_reference` qui le dit (23505 :
+  // rien à faire). La relève lit de toute façon la tournée sur la commande.
   private async adopterTournee(
     tourneeId: string,
     tourId: string,
   ): Promise<void> {
-    const { data: porteuses, error: errLecture } = await this.supabase
-      .from('tournees')
-      .select('id')
-      .eq('tms_reference', tourId)
-      .limit(1);
-    if (errLecture) {
-      throw new LogistiqueTransientError(
-        `Lecture des tournées portant la référence ${tourId} échouée — ${errLecture.message}`,
-      );
-    }
-    if (porteuses?.length) return;
     const { error } = await this.supabase
       .from('tournees')
       .update({ tms_reference: tourId })

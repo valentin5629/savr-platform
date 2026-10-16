@@ -403,6 +403,10 @@ export function BilanCollecte({
                       masquerTraiteurs
                       {...barre}
                       onChange={radar.setFiltres}
+                      // Barre remontée (retour sur l'onglet Admin, dont l'état
+                      // du radar survit à l'onglet) : elle reprend les filtres
+                      // réglés. Fiche client : null au montage, sans effet.
+                      initialFilters={radar.filtres ?? undefined}
                       initialTypeEvenementIds={
                         c.evenement?.type_evenement_id
                           ? [c.evenement.type_evenement_id]

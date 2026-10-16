@@ -823,6 +823,8 @@ export function CollecteDetailPanel({
     `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/benchmark`,
     collecte,
   );
+  // Radar à l'écran : seul cas où les filtres de la barre font foi pour le rapport.
+  const choixRadarPossible = radar.visible && !radar.indisponible;
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -872,7 +874,7 @@ export function CollecteDetailPanel({
               options: { benchmark: avecRadar },
               // Filtres réglés sur le radar de l'onglet. Sans radar à l'écran, le
               // serveur reprend ceux du rapport en vigueur, sinon le segment.
-              ...(avecRadar && radar.filtres
+              ...(avecRadar && choixRadarPossible && radar.filtres
                 ? {
                     benchmark_filters: {
                       lieu_ids: radar.filtres.lieu_ids,
@@ -2808,7 +2810,7 @@ export function CollecteDetailPanel({
                       // eux, le rapport ne comparerait pas à ce qu'il affiche).
                       disabled={
                         !documents?.rapport ||
-                        (avecRadar && radar.visible && !radar.filtres)
+                        (avecRadar && choixRadarPossible && !radar.filtres)
                       }
                       loading={regenerating === typeRapport}
                       loadingText="Régénérer"
@@ -2839,7 +2841,7 @@ export function CollecteDetailPanel({
                             Inclure le radar de comparaison dans le rapport
                           </Label>
                           <Text variant="hint" className="mt-1">
-                            {radar.visible
+                            {choixRadarPossible
                               ? 'Le radar du rapport reprend les filtres de comparaison réglés ci-dessus. Régénérez le rapport pour appliquer votre choix.'
                               : 'Comparaison aux événements de même type et de même taille, ou avec les filtres déjà choisis par le client. Régénérez le rapport pour appliquer votre choix.'}
                           </Text>

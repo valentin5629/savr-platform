@@ -3397,6 +3397,93 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
+    'M0.6/documents_regeneration_radar_retire — statut forcé hors clôture après réglage du radar : la régénération avec radar part sans benchmark_filters (repli serveur annoncé à l’écran)',
+    async () => {
+      const collecte = { ...zdCloturee };
+      const fetchMock = installMock({ collecte, documents: documentsZd });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+
+      // Forçage du statut : la fiche relue n'est plus clôturée, le radar part.
+      collecte.statut = 'realisee';
+      fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
+      const dialog = screen
+        .getByText('Forcer le statut de la collecte')
+        .closest('div') as HTMLElement;
+      fireEvent.click(
+        within(dialog).getByRole('combobox', { name: 'Nouveau statut *' }),
+      );
+      fireEvent.click(
+        screen
+          .getAllByRole('option')
+          .find((o) => o.getAttribute('data-value') === 'realisee')!,
+      );
+      fireEvent.change(within(dialog).getByLabelText(/^Motif \(≥ 10/), {
+        target: { value: 'Pesée à reprendre avant clôture' },
+      });
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: /Confirmer le forçage/ }),
+      );
+      await screen.findByTestId('bandeau-bilan-attente', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+      expect(
+        screen.getByText(/ou avec les filtres déjà choisis par le client/),
+      ).toBeInTheDocument();
+
+      fireEvent.click(caseRadar());
+      fireEvent.click(screen.getAllByRole('button', { name: /Régénérer/ })[0]!);
+      await waitFor(
+        () =>
+          expect(corpsRegeneration(fetchMock, 'rapport-recyclage-zd')).toEqual([
+            { options: { benchmark: true } },
+          ]),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_radar_retour_onglet — retour sur l’onglet Documents : la barre reprend les filtres réglés, la régénération les porte',
+    async () => {
+      const fetchMock = installMock({
+        collecte: zdCloturee,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+      fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'M (500-749)' }));
+      await waitFor(
+        () =>
+          expect(
+            urlsAppelees(fetchMock).some((u) =>
+              u.includes('taille_evenement_codes=L%2CM'),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+
+      await ouvrirOnglet('Historique');
+      await ouvrirOnglet('Documents');
+      await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
+      fireEvent.click(caseRadar());
+      fireEvent.click(screen.getAllByRole('button', { name: /Régénérer/ })[0]!);
+      await waitFor(
+        () =>
+          expect(
+            corpsRegeneration(fetchMock, 'rapport-recyclage-zd')[0],
+          ).toMatchObject({
+            options: { benchmark: true },
+            benchmark_filters: { taille_evenement_codes: ['L', 'M'] },
+          }),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M0.6/documents_bilan_client_ag — collecte AG clôturée : repas donnés, CO₂ évité et association bénéficiaire, sans radar',
     async () => {
       const fetchMock = installMock({

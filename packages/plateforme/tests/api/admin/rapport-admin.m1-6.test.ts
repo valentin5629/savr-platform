@@ -288,7 +288,7 @@ describe('M1.6 / rapport fabriqué au clic par l’Admin — avec ou sans radar'
 });
 
 describe('M1.6 / rapport ZD : les anciennes voies du fichier stocké le refusent', () => {
-  it('régénération Admin d’un rapport ZD → 422, rien n’est mis en file ; les autres documents restent régénérables', async () => {
+  it('régénération Admin d’un rapport ZD → 409, rien n’est mis en file ; les autres documents restent régénérables', async () => {
     const { POST } =
       await import('@/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.js');
     // Réponse réelle du pipeline pour ce type (cf. collectes-documents.m0-6).

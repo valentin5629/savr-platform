@@ -18,7 +18,10 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { fabriquerRapport } from '@/lib/collectes/rapport-a-la-demande.js';
+import {
+  fabriquerRapport,
+  marquerConsulte,
+} from '@/lib/collectes/rapport-a-la-demande.js';
 import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
 import {
   nomFichierAttestation,
@@ -50,7 +53,9 @@ export async function GET(
   if (type === 'rapport') {
     const { data, error } = await supabase
       .from('rapports_rse')
-      .select('id, collecte_id, disponible_a, genere_at, pdf_url')
+      .select(
+        'id, collecte_id, disponible_a, genere_at, pdf_url, consulte_par_user_at',
+      )
       .eq('id', id)
       .maybeSingle();
     if (error || !data)
@@ -77,11 +82,19 @@ export async function GET(
       .eq('id', data.collecte_id as string)
       .maybeSingle();
     if ((col as { type: string } | null)?.type === 'zero_dechet') {
-      return fabriquerRapport(
+      const reponse = await fabriquerRapport(
         data.collecte_id as string,
         { avecRadar: false },
         'organisateur.documents.rapport',
       );
+      if (reponse.ok) {
+        await marquerConsulte(
+          data.id as string,
+          (data.consulte_par_user_at as string | null) ?? null,
+          'organisateur.documents.rapport',
+        );
+      }
+      return reponse;
     }
     if (!data.genere_at)
       return NextResponse.json(

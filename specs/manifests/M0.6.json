@@ -1183,8 +1183,8 @@
     {
       "id": "M0.6-col-doc-regenerate-endpoint",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:369",
-      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (POST, requireStaff, [type] ∈ PDF_DOCUMENT_TYPES → 422 sinon, 409 si document jamais généré / aucun rendu antérieur, 202 sinon) + packages/plateforme/src/lib/pdf/regenerate.ts (ré-enqueue jobs_pdf statut pending copie du dernier payload figé de l'entité + audit_log action document_regenere ; rapport RSE : regenere_at + regenere_par_user_id + version+1)",
-      "test": "packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — régénération PDF collecte (BL-P1-BOA-07) » (5 scénarios : UNKNOWN_TYPE, NO_DOCUMENT, NO_PRIOR_JOB, succès rapport insert jobs_pdf payload copié + audit_log + bump regenere_at/version, succès attestation sans bump)",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (POST, requireStaff, [type] ∈ PDF_DOCUMENT_TYPES → 422 sinon, 409 si document jamais généré / aucun rendu antérieur, 202 sinon) + packages/plateforme/src/lib/pdf/regenerate.ts (ré-enqueue jobs_pdf statut pending copie du dernier payload figé de l'entité + audit_log action document_regenere ; rapport « sans excédent » AG porté par rapports_rse : regenere_at + regenere_par_user_id + version+1 ; le rapport de recyclage ZD n'est plus régénérable — fabriqué au clic, décision Val 2026-10-16 → 409)",
+      "test": "packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — régénération PDF collecte (BL-P1-BOA-07) » (5 scénarios : UNKNOWN_TYPE, NO_DOCUMENT, NO_PRIOR_JOB, succès rapport « sans excédent » insert jobs_pdf payload copié + audit_log + bump regenere_at/version, succès attestation sans bump) + « M1.6 / régénération — le rapport de recyclage ZD n’en fait plus partie »",
       "statut": "implemented",
       "libelle": "Endpoint POST régénération PDF : ré-enqueue jobs_pdf + audit_log (§06.06 l.283-284, modèle poids/route.ts)"
     },

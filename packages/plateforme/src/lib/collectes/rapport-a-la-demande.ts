@@ -258,23 +258,35 @@ export async function repondreRapportClient(
 
   const reponse = await fabriquerRapport(id, lu.version, evenementLog);
 
-  // Premier téléchargement par un client : l'équipe Savr le voit dans la liste
-  // Collectes (« Rapport consulté »). Best-effort, jamais bloquant.
-  if (reponse.ok && ligne && !ligne.consulte_par_user_at) {
-    const { error: majErr } = await admin
-      .from('rapports_rse')
-      .update({ consulte_par_user_at: new Date().toISOString() })
-      .eq('id', ligne.id)
-      .is('consulte_par_user_at', null);
-    if (majErr) {
-      logger.error('api_route.error', {
-        route: `${evenementLog}.consultation`,
-        error_code: majErr.code ?? 'UNKNOWN',
-        error: messageErreur(majErr),
-      });
-    }
+  if (reponse.ok && ligne) {
+    await marquerConsulte(ligne.id, ligne.consulte_par_user_at, evenementLog);
   }
   return reponse;
+}
+
+/**
+ * Premier téléchargement par un client (espaces clients, client organisateur) :
+ * l'équipe Savr le voit dans la liste Collectes (« Rapport consulté »). Jamais
+ * réécrit, jamais posé par l'équipe Savr. Best-effort, jamais bloquant.
+ */
+export async function marquerConsulte(
+  rapportId: string,
+  dejaConsulte: string | null,
+  evenementLog: string,
+): Promise<void> {
+  if (dejaConsulte) return;
+  const { error } = await createAdminSupabaseClient()
+    .from('rapports_rse')
+    .update({ consulte_par_user_at: new Date().toISOString() })
+    .eq('id', rapportId)
+    .is('consulte_par_user_at', null);
+  if (error) {
+    logger.error('api_route.error', {
+      route: `${evenementLog}.consultation`,
+      error_code: error.code ?? 'UNKNOWN',
+      error: messageErreur(error),
+    });
+  }
 }
 
 /** Fiche collecte Admin (staff). */

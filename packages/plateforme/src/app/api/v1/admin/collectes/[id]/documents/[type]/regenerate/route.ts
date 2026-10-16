@@ -7,7 +7,7 @@
 // [type] ∈ bordereau-zd | attestation-don | rapport-evenement-sans-excedent (§12
 // §1.3-bis l.198 : régénération Admin uniquement, correction motif chauffeur /
 // plaque post-saisie). Le rapport de recyclage ZD n'est plus stocké : il se
-// fabrique au clic (POST /api/v1/admin/collectes/[id]/rapport-rse) → 422 ici.
+// fabrique au clic (POST /api/v1/admin/collectes/[id]/rapport-rse) → 409 ici (type non régénérable).
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';

@@ -79,8 +79,22 @@ vi.mock('@/lib/pdf/payload-rapport.js', () => ({
 vi.mock('@/lib/pdf/railway-client.js', () => ({
   generatePdf: (...a: unknown[]) => mockPdf(...a),
 }));
+// Marque « consulté » (service-role) : écritures relevées.
+const majsAdmin: { table: string; valeurs: unknown }[] = [];
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
-  createAdminSupabaseClient: () => ({ from: () => ({}) }),
+  createAdminSupabaseClient: () => ({
+    from: (table: string) => {
+      const c: Record<string, unknown> = {
+        update: (valeurs: unknown) => {
+          majsAdmin.push({ table, valeurs });
+          return c;
+        },
+        eq: () => c,
+        is: () => Promise.resolve({ data: null, error: null }),
+      };
+      return c;
+    },
+  }),
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
@@ -112,6 +126,7 @@ function makeReq(url: string): NextRequest {
 }
 
 beforeEach(() => {
+  majsAdmin.length = 0;
   vi.clearAllMocks();
   rls = makeChain();
   mockPresign.mockResolvedValue('https://r2.example/signed');
@@ -436,6 +451,9 @@ describe('M3.4 / download', () => {
     );
     // Aucun fichier stocké servi.
     expect(mockPresign).not.toHaveBeenCalled();
+    // Premier téléchargement par le client organisateur : « Rapport consulté ».
+    expect(majsAdmin.map((m) => m.table)).toEqual(['rapports_rse']);
+    expect(majsAdmin[0]!.valeurs).toHaveProperty('consulte_par_user_at');
   });
 
   it('M3.4/document_download_rapport_de_don_sans_excedent — fichier nommé « rapport-de-don », date et événement', async () => {

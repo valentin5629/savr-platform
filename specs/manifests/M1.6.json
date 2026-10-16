@@ -99,13 +99,13 @@
   "tests": {
     "vitest": [
       "packages/plateforme/tests/api/pdf-worker.m1-6.test.ts (8 tests)",
-      "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts (5 tests)",
+      "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts (12 tests)",
       "packages/plateforme/tests/api/batch-pdf-j1-observabilite.m1-6.test.ts (11 tests)",
-      "packages/shared/src/seed/template-rapport-disponible.m1-6.test.ts (6 tests)"
+      "packages/shared/src/seed/template-rapport-disponible.m1-6.test.ts (8 tests)"
     ],
     "pgtap": [
       "supabase/tests/m1_6_pdf_batch.test.sql (14 assertions)",
-      "supabase/tests/email_template_rapport_disponible.test.sql (5 assertions)"
+      "supabase/tests/email_template_rapport_disponible.test.sql (6 assertions)"
     ]
   },
   "hors_scope": [
@@ -263,7 +263,7 @@
       "id": "BL-P2-20",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:211",
       "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le) + apps/pdf-renderer/src/templates/{bordereau-zd,attestation-don}.ts (mention pied de page) ; rapport-recyclage-zd.ts ne la rend plus",
-      "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-20 : aucune mention de régénération sur le rapport », « BL-P2-20 : mention de régénération sur bordereau régénéré », « mention pied de page présente uniquement si régénérée » ; packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — succès rapport RSE »",
+      "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-20 : aucune mention de régénération sur le rapport », « BL-P2-20 : mention de régénération sur bordereau régénéré », « mention pied de page présente uniquement si régénérée » ; packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — succès rapport porté par rapports_rse (« sans excédent » AG) : ré-enqueue jobs_pdf (payload copié) + audit_log + bump regenere_at/version »",
       "statut": "implemented",
       "libelle": "Mention « Version mise à jour — générée le … » (§12 §1.4) : rendue par le bordereau unitaire et l'attestation de don régénérés ; le rapport de recyclage n'en porte plus (décision Val 2026-10-02), l'indicateur reste à l'écran."
     },
@@ -302,7 +302,7 @@
     {
       "id": "M1.6-email-rapport-disponible",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:134",
-      "artefact": "supabase/migrations/20261002100000_plateforme_email_template_rapport_disponible.sql + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (étape 10) + packages/shared/src/seed/constants.ts",
+      "artefact": "supabase/migrations/20261002100000_plateforme_email_template_rapport_disponible.sql + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (étape 9) + packages/shared/src/seed/constants.ts",
       "test": "envoi_rapport_disponible_apres_batch_j1 + M1.6/seed_slug_rapport_disponible_pas_bordereau + supabase/tests/email_template_rapport_disponible.test.sql",
       "statut": "implemented",
       "libelle": "Email rapport post-collecte ZD (§06.02 §6) : slug `rapport_disponible` en base (ex `bordereau_disponible`, divergence M1.6 tranchée Val 2026-09-14), objet/corps/variables du CDC, batch J+1 → organisations.email_principal avec exactement prenom, date_collecte, lieu_nom, poids_total, co2_evite, taux_recyclage, lien_rapport."

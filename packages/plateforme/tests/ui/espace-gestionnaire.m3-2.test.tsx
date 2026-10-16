@@ -3,7 +3,8 @@
  * Couvre les livrables BL-P1-GEST-01..04 :
  *  - GEST-01 : bouton « Programmer une collecte » (point d'entrée dashboard, libellé unique Q11) ;
  *  - GEST-02 : formulaire partagé « cas Gestionnaire » (sélecteur traiteur +
- *              blocage AG sans pack actif) ;
+ *              AG sans pack actif programmable, facturée à l'unité — décision
+ *              Val 2026-10-16, ex-blocage) ;
  *  - GEST-03 : KPI dashboard affichés (clé data.kpis, plus d'EmptyState systématique) ;
  *  - GEST-04 : jauge benchmark consommant la moyenne pondérée (benchmark_kg_pax).
  */
@@ -297,7 +298,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   );
 
   it(
-    'M3.2/GEST02_form_cas_gestionnaire — sélecteur traiteur + blocage AG sans pack',
+    'M3.2/GEST02_form_cas_gestionnaire — sélecteur traiteur + AG sans pack programmable',
     async () => {
       render(<NouveauProgrammationPage />);
 
@@ -306,13 +307,19 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
         await screen.findByText(/Traiteur opérant/i, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
 
-      // Cocher Anti-Gaspi sans pack actif → soumission AG bloquée (alerte).
-      fireEvent.click(screen.getByRole('checkbox', { name: /Anti-Gaspi/i }));
+      // Cocher Anti-Gaspi sans pack actif → la case reste cochée, une simple
+      // information annonce la facturation à l'unité (décision Val 2026-10-16,
+      // ex-blocage).
+      const caseAg = screen.getByRole('checkbox', { name: /Anti-Gaspi/i });
+      fireEvent.click(caseAg);
       await waitFor(
         () =>
-          expect(screen.getByText(/Aucun pack AG actif/i)).toBeInTheDocument(),
+          expect(
+            screen.getByText(/cette collecte sera facturée à l.unité/i),
+          ).toBeInTheDocument(),
         ATTENTE_UI,
       );
+      expect(caseAg).toBeChecked();
     },
     ATTENTE_CAS_MS,
   );

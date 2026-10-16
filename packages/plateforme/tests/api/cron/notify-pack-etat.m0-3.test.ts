@@ -155,7 +155,7 @@ describe('M0.3 — cron notify-pack-etat (template 9)', () => {
     ).toBeTruthy();
   });
 
-  it('M0.3-6 — alerte pack_ag_epuise → template 9 niveau=epuise (bloc programmation bloquée)', async () => {
+  it('M0.3-6 — alerte pack_ag_epuise → template 9 niveau=epuise (bloc facturation à l’unité)', async () => {
     const cfg: Cfg = {
       alertes: [
         {

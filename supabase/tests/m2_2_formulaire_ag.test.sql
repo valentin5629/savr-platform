@@ -9,7 +9,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(4);
+SELECT plan(5);
 
 -- ── Fixtures partagées M2.2 ──────────────────────────────────────────────────
 
@@ -207,6 +207,17 @@ SELECT ok(
       AND entity_id = '00000000-0000-0000-0022-000000000031'::uuid
   ),
   'T3a : alerte ag_realisee_sans_pack_actif créée dans alertes_admin'
+);
+
+-- Décision Val 2026-10-16 : sans pack actif, la collecte est facturée à l'unité ;
+-- l'alerte le dit au lieu de demander un arbitrage (migration 20261016120000).
+SELECT ok(
+  (SELECT strpos(message, 'facturée à l''unité') > 0
+     FROM plateforme.alertes_admin
+    WHERE code = 'ag_realisee_sans_pack_actif'
+      AND entity_type = 'collecte'
+      AND entity_id = '00000000-0000-0000-0022-000000000031'::uuid),
+  'T3a bis : le message annonce la facturation à l''unité'
 );
 
 SELECT is(

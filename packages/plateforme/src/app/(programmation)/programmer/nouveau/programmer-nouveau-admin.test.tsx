@@ -9,7 +9,13 @@
  * (agence/gestionnaire l'avaient déjà, l'admin non).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
@@ -111,6 +117,282 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
           ).toBeInTheDocument(),
         ATTENTE_UI,
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Décision Val 2026-10-16 : sans pack actif, la collecte AG se programme et sera
+  // facturée à l'unité — une information, jamais un blocage. En support, le pack
+  // est celui du traiteur choisi : tant qu'aucun ne l'est, il est inconnu (avant,
+  // l'admin lisait « aucun pack » à tort et la case se décochait).
+  it(
+    "admin : la case AG reste cochée ; l'information « facturée à l'unité » attend le traiteur choisi",
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: { access_token: makeToken({ user_role: 'admin_savr' }) },
+        },
+      });
+      const fetchMock = installFetch();
+      const routeur = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/programmation/pack-ag')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ pack_actif: false }),
+          } as Response);
+        }
+        return routeur(input);
+      });
+
+      render(<NouveauProgrammationPage />);
+      await screen.findByText(
+        'Traiteur (pour le compte de)',
+        undefined,
+        ATTENTE_UI,
+      );
+
+      const caseAg = screen.getByRole('checkbox', { name: /Anti-Gaspi/i });
+      fireEvent.click(caseAg);
+      expect(caseAg).toBeChecked();
+      expect(screen.queryByText(/facturée à l.unité/i)).not.toBeInTheDocument();
+      const lecturesPack = () =>
+        fetchMock.mock.calls
+          .map(([u]) => String(u))
+          .filter((u) => u.includes('/programmation/pack-ag'));
+      expect(lecturesPack()).toEqual([]);
+
+      fireEvent.click(
+        screen.getByRole('combobox', {
+          name: /Traiteur \(pour le compte de\)/,
+        }),
+      );
+      fireEvent.click(
+        await screen.findByRole('option', { name: 'Kaspia' }, ATTENTE_UI),
+      );
+
+      expect(
+        await screen.findByText(
+          "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.",
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(caseAg).toBeChecked();
+      expect(lecturesPack()).toEqual([
+        '/api/v1/programmation/pack-ag?organisation_id=org-kaspia',
+      ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "admin : l'information suit le pack du traiteur choisi — sans pack, avec crédits, sans crédit",
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: { access_token: makeToken({ user_role: 'admin_savr' }) },
+        },
+      });
+      const PACKS: Record<string, object> = {
+        'org-kaspia': { pack_actif: false },
+        'org-potel': {
+          pack_actif: true,
+          credits_initiaux: 10,
+          credits_restants: 3,
+        },
+        'org-dalloyau': {
+          pack_actif: true,
+          credits_initiaux: 10,
+          credits_restants: 0,
+        },
+      };
+      // Organisations dont la réponse pack a été lue par le formulaire.
+      const packsLus: string[] = [];
+      const fetchMock = installFetch();
+      const routeur = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        const json = (corps: unknown) =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(corps),
+          } as Response);
+        if (url.includes('/programmation/organisations/traiteurs')) {
+          return json([
+            { id: 'org-kaspia', nom: 'Kaspia', siret: null },
+            { id: 'org-potel', nom: 'Potel', siret: null },
+            { id: 'org-dalloyau', nom: 'Dalloyau', siret: null },
+          ]);
+        }
+        if (url.includes('/programmation/pack-ag')) {
+          const org = new URL(url, 'http://localhost').searchParams.get(
+            'organisation_id',
+          );
+          return Promise.resolve({
+            ok: true,
+            json: () => {
+              packsLus.push(org ?? '');
+              return Promise.resolve(PACKS[org ?? ''] ?? { pack_actif: false });
+            },
+          } as Response);
+        }
+        return routeur(input);
+      });
+      const INFO =
+        "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.";
+      const choisir = async (nom: string) => {
+        fireEvent.click(
+          screen.getByRole('combobox', {
+            name: /Traiteur \(pour le compte de\)/,
+          }),
+        );
+        fireEvent.click(
+          await screen.findByRole('option', { name: nom }, ATTENTE_UI),
+        );
+      };
+
+      render(<NouveauProgrammationPage />);
+      await screen.findByText(
+        'Traiteur (pour le compte de)',
+        undefined,
+        ATTENTE_UI,
+      );
+      const caseAg = screen.getByRole('checkbox', { name: /Anti-Gaspi/i });
+      fireEvent.click(caseAg);
+
+      // Sans pack : l'information exacte.
+      await choisir('Kaspia');
+      expect(
+        await screen.findByText(INFO, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+
+      // Pack actif avec crédits : relu au changement de traiteur, rien à dire.
+      // L'état est remis à zéro dès le changement : on attend que la réponse de
+      // Potel soit lue PUIS appliquée (une tâche plus loin), sinon l'absence du
+      // message serait prouvée avant même d'avoir lu son pack.
+      await choisir('Potel');
+      await waitFor(() => expect(packsLus).toContain('org-potel'), ATTENTE_UI);
+      await act(() => new Promise((fin) => setTimeout(fin, 0)));
+      expect(screen.queryByText(INFO)).not.toBeInTheDocument();
+      expect(
+        fetchMock.mock.calls
+          .map(([u]) => String(u))
+          .filter((u) => u.includes('/programmation/pack-ag')),
+      ).toEqual([
+        '/api/v1/programmation/pack-ag?organisation_id=org-kaspia',
+        '/api/v1/programmation/pack-ag?organisation_id=org-potel',
+      ]);
+
+      // Pack actif sans crédit restant : facturée à l'unité, comme sans pack.
+      await choisir('Dalloyau');
+      expect(
+        await screen.findByText(INFO, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(caseAg).toBeChecked();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'admin : une réponse arrivée après coup (traiteur précédent) ou en erreur n’affiche rien',
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: { access_token: makeToken({ user_role: 'admin_savr' }) },
+        },
+      });
+      // La réponse de Kaspia (sans pack) est retenue jusqu'à ce qu'on la libère ;
+      // celle de Potel (pack avec crédits) part tout de suite ; Dalloyau répond 500.
+      let libererKaspia: () => void = () => undefined;
+      const lus: string[] = [];
+      const fetchMock = installFetch();
+      const routeur = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/programmation/organisations/traiteurs')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                { id: 'org-kaspia', nom: 'Kaspia', siret: null },
+                { id: 'org-potel', nom: 'Potel', siret: null },
+                { id: 'org-dalloyau', nom: 'Dalloyau', siret: null },
+              ]),
+          } as Response);
+        }
+        if (url.includes('organisation_id=org-kaspia')) {
+          return new Promise<Response>((fin) => {
+            libererKaspia = () => {
+              lus.push('org-kaspia');
+              fin({
+                ok: true,
+                json: () => Promise.resolve({ pack_actif: false }),
+              } as Response);
+            };
+          });
+        }
+        if (url.includes('organisation_id=org-potel')) {
+          lus.push('org-potel');
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                pack_actif: true,
+                credits_initiaux: 10,
+                credits_restants: 3,
+              }),
+          } as Response);
+        }
+        if (url.includes('organisation_id=org-dalloyau')) {
+          lus.push('org-dalloyau');
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: () => Promise.resolve({ error: 'Erreur interne' }),
+          } as Response);
+        }
+        return routeur(input);
+      });
+      const INFO =
+        "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.";
+      const choisir = async (nom: string) => {
+        fireEvent.click(
+          screen.getByRole('combobox', {
+            name: /Traiteur \(pour le compte de\)/,
+          }),
+        );
+        fireEvent.click(
+          await screen.findByRole('option', { name: nom }, ATTENTE_UI),
+        );
+      };
+      const laisserPasser = () =>
+        act(() => new Promise((fin) => setTimeout(fin, 0)));
+
+      render(<NouveauProgrammationPage />);
+      await screen.findByText(
+        'Traiteur (pour le compte de)',
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.click(screen.getByRole('checkbox', { name: /Anti-Gaspi/i }));
+
+      await choisir('Kaspia');
+      await choisir('Potel');
+      await waitFor(() => expect(lus).toContain('org-potel'), ATTENTE_UI);
+      await laisserPasser();
+      // La réponse « sans pack » de Kaspia arrive maintenant : elle est ignorée.
+      libererKaspia();
+      await laisserPasser();
+      expect(lus).toContain('org-kaspia');
+      expect(screen.queryByText(INFO)).not.toBeInTheDocument();
+
+      // Réponse en erreur : le pack est inconnu, rien n'est affiché.
+      await choisir('Dalloyau');
+      await waitFor(() => expect(lus).toContain('org-dalloyau'), ATTENTE_UI);
+      await laisserPasser();
+      expect(screen.queryByText(INFO)).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

@@ -593,7 +593,7 @@
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
       "test": "M3.2/GEST02_form_cas_gestionnaire",
       "statut": "implemented",
-      "libelle": "Formulaire partagé cas Gestionnaire : lieu filtré organisations_lieux, traiteur référentiel, blocage AG sans pack actif"
+      "libelle": "Formulaire partagé cas Gestionnaire : lieu filtré organisations_lieux, traiteur référentiel, AG sans pack actif programmable (information « facturée à l'unité », décision Val 2026-10-16, ex-blocage)"
     },
     {
       "id": "BL-P1-GEST-03",

@@ -5,6 +5,7 @@ import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { PackAGIndicator } from '@/components/ui/pack-ag-indicator';
+import { factureeAlUnite, type PackInfo } from './use-pack-ag';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,13 +22,6 @@ export interface CollecteFormData {
   date_collecte: string;
   heure_collecte: string;
   informations_supplementaires: string;
-}
-
-interface PackInfo {
-  pack_actif: boolean;
-  credits_initiaux?: number;
-  credits_consommes?: number;
-  credits_restants?: number;
 }
 
 interface SousBlocCollecteProps {
@@ -73,16 +67,18 @@ export function SousBlocCollecte({
 
       {type === 'ag' && pack && (
         <div>
-          {pack.pack_actif ? (
+          {factureeAlUnite(pack) ? (
+            // Informatif, jamais bloquant (décision Val 2026-10-16).
+            <AlertBar variant="info">
+              Pas de pack Anti-Gaspi actif : cette collecte sera facturée à
+              l&apos;unité.
+            </AlertBar>
+          ) : (
             <PackAGIndicator
               total={pack.credits_initiaux ?? 0}
               restant={pack.credits_restants ?? 0}
               label="Crédits pack AG restants"
             />
-          ) : (
-            <AlertBar variant="err">
-              Aucun pack Anti-Gaspi actif — contactez votre responsable.
-            </AlertBar>
           )}
         </div>
       )}

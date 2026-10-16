@@ -37,7 +37,7 @@
     "M0.3-3 — reco complète (association + transporteur) → aucune alerte attribution émise",
     "M0.3-4 — best-effort : échec f_upsert_alerte_admin n’empêche pas la réponse 200",
     "M0.3-5 — alerte pack_ag_bas → template 9 niveau=bas envoyé + email_notifie_at posé",
-    "M0.3-6 — alerte pack_ag_epuise → template 9 niveau=epuise (bloc programmation bloquée)",
+    "M0.3-6 — alerte pack_ag_epuise → template 9 niveau=epuise (bloc facturation à l’unité)",
     "M0.3-7 — alerte déjà notifiée (email_notifie_at renseigné) → aucun renvoi (idempotent)",
     "M0.3-8 — variables tpl 9 résolues depuis le pack (organisation, crédits, pct, etat_libelle)"
   ],
@@ -118,6 +118,14 @@
       "test": "packages/plateforme/tests/api/admin/alertes.test.ts ; packages/plateforme/tests/lib/alertes-admin.test.ts ; packages/plateforme/tests/ui/alertes-page.m0-3.test.tsx ; packages/plateforme/tests/ui/sidebar-nav-badge.test.tsx",
       "statut": "à-vérifier",
       "libelle": "Écran Admin — file des alertes in-app + résolution + pastille nav (lecteur alertes_admin) — logique testée, rendu UI à valider visuellement (checkpoint Val)"
+    },
+    {
+      "id": "M0.3-alerte-ag-realisee-sans-pack-info",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/alertes-admin.ts (sévérité) + supabase/migrations/20261016120000_plateforme_pack_ag_non_bloquant.sql (message)",
+      "test": "severiteParCode — catalogue explicite > collecte AG réalisée sans pack → info + T3a bis : le message annonce la facturation",
+      "statut": "implemented",
+      "libelle": "Alerte ag_realisee_sans_pack_actif : sévérité « Info » (ex « critique ») et message « elle sera facturée à l'unité » (ex « Vérifier et imputer manuellement ») — sans pack actif, la collecte est facturée à l'unité, plus rien à arbitrer ; l'alerte reste pour retrouver les collectes à rattacher à un pack pris plus tard (décision Val 2026-10-16). CDC à patcher : _Divergences/M2.1_20261016_pack-ag-non-bloquant.md."
     }
   ],
   "cdc_source_hash": {

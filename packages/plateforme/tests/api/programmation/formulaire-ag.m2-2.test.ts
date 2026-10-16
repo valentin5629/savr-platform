@@ -1,7 +1,7 @@
 /**
  * M2.2 — Tests Vitest API : Formulaire AG (complétion)
  * Couvre la route GET /api/v1/programmation/pack-ag (non testée en M1.2)
- * et le cas ajouter-collecte AG avec pack actif.
+ * et le cas ajouter-collecte AG (pack actif ou non : jamais bloquant).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -132,7 +132,13 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
     mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
 
     const { GET } = await import('@/app/api/v1/programmation/pack-ag/route.js');
-    await GET(makeReq('GET', '/api/v1/programmation/pack-ag'));
+    // Un rôle client qui passe une autre organisation en paramètre : ignoré.
+    await GET(
+      makeReq(
+        'GET',
+        '/api/v1/programmation/pack-ag?organisation_id=org-victime',
+      ),
+    );
 
     // Vérifier que eq('organisation_id', ...) a été appelé avec l'org du caller
     const eqCalls = mockSupabaseChain.eq.mock.calls as Array<[string, string]>;
@@ -142,8 +148,8 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
   });
 
   it('pack_ag_credits_zero — 200 avec pack_actif=true même si credits_restants=0 (informationnel)', async () => {
-    // La route ne bloque pas selon credits=0 — c'est la route evenements/route.ts qui bloque.
-    // pack-ag retourne l'état brut du pack.
+    // pack-ag retourne l'état brut du pack ; le formulaire en déduit « facturée à
+    // l'unité » (aucune route ne bloque plus faute de crédit — décision Val 2026-10-16).
     setupAuth('traiteur_manager', 'org-traiteur-3');
     mockMaybeSingle.mockResolvedValueOnce({
       data: {
@@ -165,6 +171,27 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
     expect(json.pack_actif).toBe(true);
     expect(json.credits_restants).toBe(0);
   });
+
+  it('pack_ag_staff — lit l’organisation passée en paramètre ; sans paramètre, 422 sans lecture', async () => {
+    setupAuth('admin_savr', 'org-savr');
+    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    const { GET } = await import('@/app/api/v1/programmation/pack-ag/route.js');
+    const avec = await GET(
+      makeReq('GET', '/api/v1/programmation/pack-ag?organisation_id=org-cible'),
+    );
+    expect(avec.status).toBe(200);
+    const eqCalls = mockSupabaseChain.eq.mock.calls as Array<[string, string]>;
+    expect(eqCalls.find(([col]) => col === 'organisation_id')?.[1]).toBe(
+      'org-cible',
+    );
+
+    // Organisation inconnue : refusée plutôt que rendue comme « sans pack ».
+    mockSupabaseChain.from.mockClear();
+    const sans = await GET(makeReq('GET', '/api/v1/programmation/pack-ag'));
+    expect(sans.status).toBe(422);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
+  });
 });
 
 // ── Tests ajouter-collecte AG via [id]/collectes ───────────────────────────
@@ -172,7 +199,7 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
 describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type AG', () => {
   beforeEach(resetChain);
 
-  it('ajouter_collecte_ag_pack_actif — 201 si pack actif et crédits disponibles', async () => {
+  it('ajouter_collecte_ag — 201, collecte créée', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     // Ownership check
     mockSupabaseChain.single.mockResolvedValueOnce({
@@ -181,11 +208,6 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
     });
     // f_collecte_editable → true
     mockSupabaseChain.rpc.mockResolvedValueOnce({ data: true, error: null });
-    // packs_antgaspi → pack actif avec 3 crédits
-    mockMaybeSingle.mockResolvedValueOnce({
-      data: { id: 'pack-add-1', credits_restants: 3 },
-      error: null,
-    });
     // fn_ajouter_collecte_evenement → collecte créée
     mockSupabaseChain.rpc.mockResolvedValueOnce({
       data: 'collecte-ag-add-1',
@@ -208,20 +230,18 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
     expect(json.collecte_id).toBe('collecte-ag-add-1');
   });
 
-  it('ajouter_collecte_ag_credits_zero — 422 si pack actif mais credits_restants=0', async () => {
+  // Décision Val 2026-10-16 : sans pack actif ou sans crédit, la collecte AG
+  // ajoutée sera facturée à l'unité — la route ne lit plus aucun pack.
+  it('ajouter_collecte_ag_sans_pack — 201, aucun pack lu (facturée à l’unité)', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     // Ownership check
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: { id: 'evt-no-credit', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    // f_collecte_editable → true
-    mockSupabaseChain.rpc.mockResolvedValueOnce({ data: true, error: null });
-    // packs_antgaspi → pack actif mais credits_restants=0 (défense en profondeur)
-    mockMaybeSingle.mockResolvedValueOnce({
-      data: { id: 'pack-empty', credits_restants: 0 },
-      error: null,
-    });
+    mockSupabaseChain.rpc
+      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
+      .mockResolvedValueOnce({ data: 'collecte-ag-unite', error: null }); // fn_ajouter_collecte_evenement
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -234,8 +254,7 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
       { params: Promise.resolve({ id: 'evt-no-credit' }) },
     );
 
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/pack|Anti-Gaspi/i);
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith('packs_antgaspi');
   });
 });

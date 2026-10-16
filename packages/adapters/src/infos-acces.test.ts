@@ -62,7 +62,6 @@ const COMPLET: EntreeCommentaire = {
   vehicule: { type: 'camionnette', nombre: 2 },
   livraison: {
     instructionsAcces: 'Sonner à l’accueil',
-    contact: { nom: 'Nadia Benali', telephone: '+33699990001' },
   },
 };
 
@@ -89,8 +88,15 @@ describe('infos-acces / commentaire au transporteur', () => {
         'Contact de secours : Bruno Secours, +33600000002',
         'Livraison :',
         "- Instructions d'accès : Sonner à l’accueil",
-        '- Contact : Nadia Benali, +33699990001',
       ].join('\n'),
+    );
+  });
+
+  it('le bloc Livraison ne porte que les instructions d’accès : le contact de l’association part en contact de livraison (Val, C67)', () => {
+    const texte = composerCommentaireTransporteur(COMPLET)!;
+    const livraison = texte.slice(texte.indexOf('Livraison :'));
+    expect(livraison).toBe(
+      "Livraison :\n- Instructions d'accès : Sonner à l’accueil",
     );
   });
 
@@ -109,7 +115,7 @@ describe('infos-acces / commentaire au transporteur', () => {
     ).toBe('Contact : Alice Martin');
     expect(
       composer({
-        livraison: { instructionsAcces: '  ', contact: SANS_CONTACT },
+        livraison: { instructionsAcces: '  ' },
       }),
     ).toBeNull();
   });
@@ -185,7 +191,6 @@ describe('infos-acces / commentaire au transporteur', () => {
         contactSecours: { nom: forge, telephone: forge },
         livraison: {
           instructionsAcces: forge,
-          contact: { nom: forge, telephone: forge },
         },
       })!;
       const lignes = texte.split('\n');
@@ -228,7 +233,6 @@ describe('infos-acces / commentaire au transporteur', () => {
         contactSecours: { nom: long, telephone: long },
         livraison: {
           instructionsAcces: long,
-          contact: { nom: long, telephone: long },
         },
       })!;
       expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -263,16 +267,17 @@ describe('infos-acces / commentaire au transporteur', () => {
       },
       livraison: {
         instructionsAcces: long('l'),
-        contact: { nom: 'Nadia Benali', telephone: '+33699990001' },
       },
     })!;
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
-    // Chacune ne garderait pas 40 caractères : retirées dans l'ordre, jusqu'à ce
-    // que le reste tienne ; la dernière (flux) reste entière à son plafond.
+    // Les trois premières ne garderaient pas 40 caractères : retirées dans
+    // l'ordre (avec elles l'en-tête « Livraison »). La quatrième (contraintes
+    // horaires) est amputée juste ce qu'il faut ; la dernière (flux) reste
+    // entière à son plafond.
     expect(texte).not.toContain('Précisions du traiteur');
     expect(texte).not.toContain('- Accès :');
-    expect(texte).not.toContain("- Instructions d'accès :");
-    expect(texte).not.toContain('Contraintes horaires');
+    expect(texte).not.toContain('Livraison');
+    expect(texte).toMatch(/\n- Contraintes horaires : h{40,}…\n/);
     expect(texte).toContain(`- Flux acceptés : ${'f'.repeat(600)}\n`);
     // Les lignes bornées par construction sont toutes là.
     for (const ligne of [
@@ -281,7 +286,6 @@ describe('infos-acces / commentaire au transporteur', () => {
       '- Accès office : très difficile',
       'Contact : Alice Martin, +33600000001',
       'Contact de secours : Bruno Secours, +33600000002',
-      '- Contact : Nadia Benali, +33699990001',
     ]) {
       expect(texte).toContain(ligne);
     }

@@ -50,7 +50,7 @@
   "tests": {
     "pgtap": [
       "supabase/tests/m2_1_packs_ag.test.sql (32 tests)",
-      "supabase/tests/rattacher_collecte_pack.test.sql (56 tests)"
+      "supabase/tests/rattacher_collecte_pack.test.sql (64 tests)"
     ],
     "vitest": [
       "packages/plateforme/tests/api/admin/packs-ag.m2-1.test.ts (9 tests API)",

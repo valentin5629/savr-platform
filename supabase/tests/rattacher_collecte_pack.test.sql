@@ -1,7 +1,8 @@
 -- pgTAP — Rattacher après coup une collecte Anti-Gaspi au pack actif
 -- (décision Val 2026-10-16, migration 20261016140000).
 --
--- Couvre : fermeture des deux fonctions (service_role seul) ; éligibilité
+-- Couvre : fermeture des deux fonctions (service_role seul : droits, attributs
+-- et refus effectif sous authenticated — même JWT admin_savr — et anon) ; éligibilité
 -- (réalisée, clôturée, annulée tardivement ; refus d'une ZD, des statuts non
 -- terminaux, de realisee_sans_collecte, d'un crédit annulé côté Savr) ; débit
 -- d'un crédit sur le pack actif de la SEULE organisation programmatrice
@@ -14,7 +15,7 @@
 -- se rattache à un pack pris plus tard, sans second débit.
 
 BEGIN;
-SELECT plan(56);
+SELECT plan(64);
 
 -- ── 1. Fermeture ──────────────────────────────────────────────────────────────
 SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.rpc_rattacher_collecte_pack(uuid, uuid, text)', 'EXECUTE'),
@@ -31,6 +32,21 @@ SELECT ok(NOT has_function_privilege('anon', 'plateforme.f_collecte_rattachable_
   'f_collecte_rattachable_pack : anon n''a pas EXECUTE');
 SELECT ok(has_function_privilege('service_role', 'plateforme.f_collecte_rattachable_pack(uuid)', 'EXECUTE'),
   'f_collecte_rattachable_pack : service_role a EXECUTE');
+SELECT is(
+  (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'plateforme'
+       AND p.proname = 'rpc_rattacher_collecte_pack'
+       AND p.prosecdef
+       AND p.proconfig @> ARRAY['search_path=plateforme, pg_catalog']),
+  1,
+  'Attributs : rpc_rattacher_collecte_pack en SECURITY DEFINER avec search_path figé');
+SELECT is(
+  (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'plateforme'
+       AND p.proname = 'f_collecte_rattachable_pack'
+       AND NOT p.prosecdef),
+  1,
+  'Attributs : f_collecte_rattachable_pack en SECURITY INVOKER');
 
 -- ── 2. Fixtures (identifiants improbables, hexadécimaux) ──────────────────────
 -- Deux organisations : o1 (celle des collectes) et o2 (un pack actif qui ne doit
@@ -168,6 +184,39 @@ INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_i
 VALUES
   ('e1a70000-0000-0000-0000-0000000000a1', 'e1a70000-0000-0000-0000-000000000001', 'personnalise', 10, 3, 5000, 'par_collecte', 'actif', CURRENT_DATE),
   ('e1a70000-0000-0000-0000-0000000000a2', 'e1a70000-0000-0000-0000-0000000000b2', 'personnalise', 5, 0, 2500, 'par_collecte', 'actif', CURRENT_DATE);
+
+-- Refus EFFECTIF sous le rôle d'un client connecté — même avec un JWT
+-- admin_savr — puis d'un visiteur : 42501 avant l'exécution du corps. Visée :
+-- c1, rattachable, avec un pack actif disponible : le refus ne peut pas passer
+-- à vide (cf. assertions qui suivent).
+SELECT set_config('request.jwt.claims', json_build_object(
+  'sub', 'e1a70000-0000-0000-0000-000000000010', 'user_role', 'admin_savr',
+  'organisation_id', 'e1a70000-0000-0000-0000-000000000001', 'app_domain', 'plateforme'
+)::text, true);
+SET LOCAL ROLE authenticated;
+SELECT throws_ok(
+  $$ SELECT plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000c1', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr') $$,
+  '42501', NULL::text,
+  'Refus effectif : authenticated (JWT admin_savr) ne peut pas rattacher → 42501');
+SELECT throws_ok(
+  $$ SELECT plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000c1') $$,
+  '42501', NULL::text,
+  'Refus effectif : authenticated ne peut pas lire l''éligibilité → 42501');
+SET LOCAL ROLE anon;
+SELECT throws_ok(
+  $$ SELECT plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000c1', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr') $$,
+  '42501', NULL::text,
+  'Refus effectif : anon ne peut pas rattacher → 42501');
+SELECT throws_ok(
+  $$ SELECT plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000c1') $$,
+  '42501', NULL::text,
+  'Refus effectif : anon ne peut pas lire l''éligibilité → 42501');
+RESET ROLE;
+SELECT set_config('request.jwt.claims', NULL, true);
+SELECT is((SELECT pack_antgaspi_id FROM plateforme.collectes WHERE id = 'e1a70000-0000-0000-0000-0000000000c1'),
+  NULL::uuid, 'Refus effectif : c1 n''a pas été rattachée');
+SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e1a70000-0000-0000-0000-0000000000a1'),
+  3, 'Refus effectif : le pack n''a pas été débité');
 
 SELECT throws_ok(
   $$ SELECT plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000c4', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr') $$,

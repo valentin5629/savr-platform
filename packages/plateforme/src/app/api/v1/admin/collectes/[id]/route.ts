@@ -6,7 +6,12 @@ import {
   notifierTraiteurOperationnel,
 } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
+import {
+  erreurInterne,
+  readJsonBody,
+  serverError,
+  withApiTrace,
+} from '@/lib/api-helpers.js';
 import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
@@ -163,11 +168,56 @@ async function getHandler(
   const ordres = await lireOrdresCollecte(supabase, id);
   if (ordres.error) return serverError(ordres.error, 'admin.collectes.get');
 
+  // Rattachement après coup à un pack pris plus tard (décision Val 2026-10-16) :
+  // null si la collecte ne l'est pas — même règle que la RPC, lue dans la même
+  // fonction — ou si l'appelant ne peut pas l'exécuter (admin_savr seul, cf. la
+  // route rattacher-pack). `pack_actif` = le pack que le rattachement débiterait
+  // (celui de l'organisation programmatrice), null s'il n'y en a pas encore.
+  type PackActif = {
+    id: string;
+    type_pack: string;
+    credits_initiaux: number;
+    credits_restants: number;
+  };
+  let rattachementPack: { pack_actif: PackActif | null } | null = null;
+  const ag = data as {
+    type: string;
+    statut: string;
+    pack_antgaspi_id: string | null;
+    evenements: { organisation_id: string };
+  };
+  // Seuls les statuts éligibles interrogent la base (une AG à venir sans pack
+  // n'est jamais rattachable : elle sera débitée à la réalisation).
+  if (
+    auth.ctx.role === 'admin_savr' &&
+    ag.type === 'anti_gaspi' &&
+    !ag.pack_antgaspi_id &&
+    ['realisee', 'cloturee', 'annulee'].includes(ag.statut)
+  ) {
+    const rattachable = await supabase.rpc('f_collecte_rattachable_pack', {
+      p_collecte_id: id,
+    });
+    // Non bloquant : erreur journalisée, la fiche reste lisible sans l'action.
+    if (rattachable.error)
+      erreurInterne(rattachable.error, 'admin.collectes.get.rattachement');
+    if (rattachable.data === true) {
+      const pack = await supabase
+        .from('packs_antgaspi')
+        .select('id, type_pack, credits_initiaux, credits_restants')
+        .eq('organisation_id', ag.evenements.organisation_id)
+        .eq('statut', 'actif')
+        .maybeSingle();
+      if (pack.error) return serverError(pack.error, 'admin.collectes.get');
+      rattachementPack = { pack_actif: pack.data as PackActif | null };
+    }
+  }
+
   return NextResponse.json({
     ...data,
     prestataire_actuel: prestataireActuel,
     infos_acces_email: infosAccesEmail,
     ordre_envoi: deriverOrdreEnvoi(ordres.data),
+    rattachement_pack: rattachementPack,
   });
 }
 

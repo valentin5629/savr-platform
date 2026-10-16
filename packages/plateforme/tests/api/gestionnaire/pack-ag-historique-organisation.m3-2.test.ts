@@ -339,15 +339,51 @@ describe('M3.2 / Mon pack AG — annulations tardives débitées', () => {
       },
       { collecte_id: 'c-juin', annulee_tardivement: false },
     ]);
-    // Le client de service ne lit que le journal d'audit, et seulement les
-    // débits sur annulation tardive du pack de la collecte examinée.
-    expect(service.requetes.map((r) => r.table)).toEqual(['audit_log']);
+    // Le client de service ne lit que le journal d'audit : les débits sur
+    // annulation tardive du pack de la collecte examinée, et les rattachements
+    // après coup de cette même collecte (rpc_rattacher_collecte_pack).
+    expect(service.requetes.map((r) => r.table)).toEqual([
+      'audit_log',
+      'audit_log',
+    ]);
     expect(service.requetes[0]!.eq).toEqual([
       ['table_name', 'packs_antgaspi'],
       ['action', 'pack_debite_annulation_tardive'],
     ]);
     expect(service.requetes[0]!.in).toEqual([['record_id', ['pack-viparis']]]);
     expect(service.requetes[0]!.select).toBe('old_values');
+    expect(service.requetes[1]!.eq).toEqual([
+      ['table_name', 'collectes'],
+      ['action', 'pack_rattache_collecte'],
+    ]);
+    expect(service.requetes[1]!.in).toEqual([['record_id', ['c-annulee']]]);
+    expect(service.requetes[1]!.select).toBe('record_id');
+  });
+
+  it('M3.2/pack_ag_consommation_annulee_rattachee_listee — une annulée tardive rattachée après coup par l’Admin figure dans la liste', async () => {
+    client = makeClient({
+      collectes: [
+        collecteAg('c-rattachee', PACK_GESTIONNAIRE, 'annulee', '2026-06-10'),
+        // Annulée à temps : pack réservé, ni débit ni rattachement.
+        collecteAg('c-a-temps', PACK_GESTIONNAIRE, 'annulee', '2026-06-11'),
+      ],
+    });
+    service = makeClient({
+      audit_log: [
+        {
+          table_name: 'collectes',
+          action: 'pack_rattache_collecte',
+          record_id: 'c-rattachee',
+          old_values: { pack_antgaspi_id: null },
+        },
+      ],
+    });
+
+    const reponse = await appeler();
+
+    expect(reponse.data.historique_consommation).toMatchObject([
+      { collecte_id: 'c-rattachee', annulee_tardivement: true },
+    ]);
   });
 
   it('M3.2/pack_ag_consommation_annulation_sans_debit_exclue — une annulation qui porte un pack sans trace de débit n’est pas listée', async () => {

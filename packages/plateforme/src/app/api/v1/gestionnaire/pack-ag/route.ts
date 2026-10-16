@@ -131,8 +131,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .order('date_collecte', { ascending: false });
 
   // 1er cas de débit : la collecte est réalisée (ou clôturée). Le débit à la
-  // réalisation ne laisse pas de ligne d'audit : une réalisée dont le pack
-  // réservé n'a pu être débité (plus de pack actif, alerte Admin) reste listée.
+  // réalisation ne laisse pas de ligne d'audit ; une réalisée sans pack actif
+  // perd la réservation de son pack (facturée à l'unité) et n'est donc pas
+  // listée, sauf si l'Admin la rattache ensuite à un pack de l'organisation.
   const { data: realisees, error: consoErr } = await lire([
     'realisee',
     'cloturee',
@@ -144,10 +145,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // 2e cas de débit : l'annulation tardive. Le pack est rattaché à la collecte
   // dès la validation de l'attribution (réservation) : une collecte annulée qui
-  // porte un pack n'a donc PAS forcément consommé un crédit. La seule trace
-  // exacte du débit est la ligne d'audit du trigger
+  // porte un pack n'a donc PAS forcément consommé un crédit. Les seules traces
+  // exactes du débit sont la ligne d'audit du trigger
   // trg_pack_debit_annulation_tardive (pack en `record_id`, collecte en
-  // `old_values`).
+  // `old_values`) et, pour une annulée tardive rattachée après coup par
+  // l'Admin, celle de rpc_rattacher_collecte_pack (collecte en `record_id`).
   const { data: annulees, error: annuleesErr } = await lire(['annulee']);
   if (annuleesErr)
     return serverError(annuleesErr, 'gestionnaire.pack_ag.consommation');
@@ -160,20 +162,34 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // vient de lire pour SON organisation, et ne sert qu'à garder ou écarter
     // ces mêmes collectes : aucune valeur du journal ne part dans la réponse.
     const packIds = [...new Set(candidates.map((c) => c.packs_antgaspi.id))];
-    const { data: debits, error: debitsErr } = await createAdminSupabaseClient()
-      .from('audit_log')
-      .select('old_values')
-      .eq('table_name', 'packs_antgaspi')
-      .eq('action', 'pack_debite_annulation_tardive')
-      .in('record_id', packIds);
-    if (debitsErr)
-      return serverError(debitsErr, 'gestionnaire.pack_ag.consommation');
+    const service = createAdminSupabaseClient();
+    const [debitsLus, rattachementsLus] = await Promise.all([
+      service
+        .from('audit_log')
+        .select('old_values')
+        .eq('table_name', 'packs_antgaspi')
+        .eq('action', 'pack_debite_annulation_tardive')
+        .in('record_id', packIds),
+      service
+        .from('audit_log')
+        .select('record_id')
+        .eq('table_name', 'collectes')
+        .eq('action', 'pack_rattache_collecte')
+        .in(
+          'record_id',
+          candidates.map((c) => c.id),
+        ),
+    ]);
+    const erreurAudit = debitsLus.error ?? rattachementsLus.error;
+    if (erreurAudit)
+      return serverError(erreurAudit, 'gestionnaire.pack_ag.consommation');
 
-    const tracees = new Set(
-      (debits ?? []).map(
+    const tracees = new Set([
+      ...(debitsLus.data ?? []).map(
         (d) => (d.old_values as { collecte_id?: string } | null)?.collecte_id,
       ),
-    );
+      ...(rattachementsLus.data ?? []).map((r) => r.record_id),
+    ]);
     debitees = candidates.filter((c) => tracees.has(c.id));
   }
 

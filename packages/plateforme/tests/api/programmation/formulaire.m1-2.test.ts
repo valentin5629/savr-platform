@@ -233,17 +233,15 @@ describe('M1.2 / Programmation ZD — flux confirmé', () => {
   });
 });
 
-describe('M1.2 / Programmation AG — pack actif', () => {
+describe('M1.2 / Programmation AG — pack actif ou non', () => {
   beforeEach(resetChain);
 
   it('programmation_ag_pack_actif — 201 sans envoi TMS', async () => {
     setupAuth('traiteur_commercial');
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null })
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 5 },
-        error: null,
-      });
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
+      error: null,
+    });
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-ag-1', nom_evenement: 'AG Test' },
       error: null,
@@ -258,37 +256,28 @@ describe('M1.2 / Programmation AG — pack actif', () => {
     expect(res.status).toBe(201);
   });
 
-  it('ag_bloquee_sans_pack_actif — 422 si aucun pack actif', async () => {
+  // Décision Val 2026-10-16 : sans pack actif (aucun, épuisé ou sans crédit), la
+  // collecte AG se programme et sera facturée à l'unité — la route ne lit plus
+  // aucun pack, donc aucun état de pack ne peut la refuser.
+  it('ag_sans_pack_actif — 201, aucun pack lu (facturée à l’unité)', async () => {
     setupAuth('traiteur_commercial');
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
+      error: null,
+    });
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-ag-2', nom_evenement: 'AG sans pack' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-ag-2', error: null });
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements', BODY_AG),
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/pack/i);
-  });
-
-  it('ag_bloquee_pack_credits_zero — 422 si credits_restants = 0', async () => {
-    setupAuth('traiteur_commercial');
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null })
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 0 },
-        error: null,
-      });
-
-    const { POST } =
-      await import('@/app/api/v1/programmation/evenements/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements', BODY_AG),
-    );
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith('packs_antgaspi');
   });
 });
 
@@ -297,12 +286,10 @@ describe('M1.2 / Programmation mixte ZD+AG', () => {
 
   it('programmation_mixte_zd_ag — 201 deux collectes créées', async () => {
     setupAuth('traiteur_commercial');
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null })
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 3 },
-        error: null,
-      });
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
+      error: null,
+    });
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-mixte-1', nom_evenement: 'Mixte' },
       error: null,
@@ -694,17 +681,16 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
     expect(json.error).toMatch(/traiteur/i);
   });
 
-  it('ajout_collecte_ag_sans_pack_existant — 422 si AG ajouté sans pack actif', async () => {
+  it('ajout_collecte_ag_sans_pack_existant — 201 si AG ajouté sans pack actif (facturée à l’unité)', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     // Ownership check
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-sec', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    // f_collecte_editable → true
-    mockRpc.mockResolvedValueOnce({ data: true, error: null });
-    // packs_antgaspi → null (pas de pack)
-    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    mockRpc
+      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
+      .mockResolvedValueOnce({ data: 'collecte-sec-ag', error: null }); // fn_ajouter_collecte_evenement
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -716,9 +702,9 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
       }),
       { params: Promise.resolve({ id: 'evt-sec' }) },
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/pack|Anti-Gaspi/i);
+    // Décision Val 2026-10-16 : aucun pack n'est lu, aucun n'est exigé.
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith('packs_antgaspi');
   });
 
   it('agence_traiteur_reel_autorise — 201 si agence spécifie un traiteur réel non-shadow', async () => {

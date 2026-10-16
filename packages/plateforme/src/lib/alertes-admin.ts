@@ -24,7 +24,6 @@ export type AlerteSeverite = 'critique' | 'attention' | 'info';
 const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // Critiques — action requise, risque métier/comptable/logistique.
   pack_ag_epuise: 'critique',
-  ag_realisee_sans_pack_actif: 'critique',
   pdf_job_dead: 'critique',
   pennylane_echec_final: 'critique',
   collecte_rejetee_prestataire: 'critique',
@@ -73,6 +72,10 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // puis résout l'alerte, rattachée à l'organisation qui demande.
   [CODE_ALERTE_LIEU_AJOUT]: 'attention',
   // Informatives — trace d'un événement à connaître.
+  // Collecte AG réalisée sans pack actif : facturée à l'unité, rien à arbitrer ;
+  // l'alerte reste pour retrouver les collectes à rattacher à un pack pris plus
+  // tard (décision Val 2026-10-16, ex-critique).
+  ag_realisee_sans_pack_actif: 'info',
   shadow_traiteur_cree: 'info',
   shadow_siret_complete: 'info',
   lieu_override_programmation: 'info',

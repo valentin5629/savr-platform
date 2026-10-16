@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Save,
   CheckCircle,
+  Info,
   PlusCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,11 @@ import {
   SousBlocCollecte,
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
+import {
+  usePackAg,
+  factureeAlUnite,
+  PACK_PROPRE,
+} from '@/components/programmation/use-pack-ag';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -69,13 +75,6 @@ interface TraiteurOption {
   nom: string;
   raison_sociale?: string;
   siret?: string | null;
-}
-
-interface PackInfo {
-  pack_actif: boolean;
-  credits_initiaux?: number;
-  credits_consommes?: number;
-  credits_restants?: number;
 }
 
 // Source de pré-remplissage « Dupliquer » (?from=) — sous-ensemble du GET
@@ -165,8 +164,6 @@ export default function NouveauProgrammationPage() {
   // Logo Savr vert dès qu'on sélectionne le ZD ; retour à l'orange sinon.
   useSignalZdSelection(typesCollecte.zd);
   const [referenceAffaire, setReferenceAffaire] = useState('');
-  const [packAg, setPackAg] = useState<PackInfo | null>(null);
-  const [agBloque, setAgBloque] = useState(false);
 
   // Étape 2
   const [lieu, setLieu] = useState<LieuOption | null>(null);
@@ -335,30 +332,22 @@ export default function NouveauProgrammationPage() {
     if (lieu?.controle_acces_requis_default) setControleAcces(true);
   }, [lieu]);
 
-  const checkPackAg = useCallback(async (): Promise<boolean> => {
-    // Admin support : le pack ciblé est celui de l'organisation choisie, pas du
-    // caller (admin n'a pas d'organisation propre) → on passe organisation_id.
-    const url =
-      isAdmin && traiteurOperationnelId
-        ? `/api/v1/programmation/pack-ag?organisation_id=${traiteurOperationnelId}`
-        : '/api/v1/programmation/pack-ag';
-    const res = await fetch(url);
-    const data = (await res.json()) as PackInfo;
-    setPackAg(data);
-    const bloque = !data.pack_actif || (data.credits_restants ?? 0) <= 0;
-    setAgBloque(bloque);
-    if (bloque) setTypesCollecte((prev) => ({ ...prev, ag: false }));
-    return bloque;
-  }, [isAdmin, traiteurOperationnelId]);
-
-  const handleAgCheck = async (checked: boolean) => {
-    if (checked) {
-      const bloque = await checkPackAg();
-      if (!bloque) setTypesCollecte((prev) => ({ ...prev, ag: true }));
-    } else {
-      setTypesCollecte((prev) => ({ ...prev, ag: false }));
-    }
-  };
+  // Pack AG de l'organisation programmatrice : informatif, jamais bloquant —
+  // sans pack actif, la collecte AG est facturée à l'unité (décision Val
+  // 2026-10-16). Programmation de support : le pack est celui du traiteur choisi
+  // (le staff programme pour son compte), relu à chaque changement de traiteur ;
+  // tant qu'aucun n'est choisi, ou que le rôle n'est pas encore lu, il est
+  // inconnu et rien n'est affiché. Agence et gestionnaire lisent leur propre
+  // pack, une fois : changer de traiteur opérant ne change pas de payeur.
+  const packAg = usePackAg(
+    !typesCollecte.ag || role === ''
+      ? null
+      : isAdmin
+        ? traiteurOperationnelId || null
+        : PACK_PROPRE,
+  );
+  const agSansPack =
+    typesCollecte.ag && packAg !== null && factureeAlUnite(packAg);
 
   const step1Valid =
     nomClient.trim() !== '' &&
@@ -575,22 +564,38 @@ export default function NouveauProgrammationPage() {
                   id="type-ag"
                   className="mt-0.5"
                   checked={typesCollecte.ag}
-                  onCheckedChange={(c) => void handleAgCheck(c === true)}
+                  aria-describedby={agSansPack ? 'type-ag-info' : undefined}
+                  onCheckedChange={(c) =>
+                    setTypesCollecte((p) => ({ ...p, ag: c === true }))
+                  }
                 />
-                <Label variant="choice" htmlFor="type-ag">
-                  <span className="font-medium">
-                    {libelleCompletTypeCollecte('anti_gaspi')}
-                  </span>
-                  <span className="text-savr-neutral-500 ml-1">
-                    — don à association
-                  </span>
-                  {agBloque && (
-                    <FormError className="mt-0.5">
-                      Aucun pack AG actif — décochez cette option pour
-                      continuer.
-                    </FormError>
+                <div>
+                  <Label variant="choice" htmlFor="type-ag">
+                    <span className="font-medium">
+                      {libelleCompletTypeCollecte('anti_gaspi')}
+                    </span>
+                    <span className="text-savr-neutral-500 ml-1">
+                      — don à association
+                    </span>
+                  </Label>
+                  {/* Hors de l'étiquette : ni dans le nom de la case, ni cliquable. */}
+                  {agSansPack && (
+                    <Text
+                      id="type-ag-info"
+                      variant="hint"
+                      tone="inherit"
+                      role="status"
+                      className="mt-0.5 flex items-center gap-1 text-savr-info-strong"
+                    >
+                      <Info
+                        className="h-3.5 w-3.5 shrink-0"
+                        aria-hidden="true"
+                      />
+                      Pas de pack Anti-Gaspi actif : cette collecte sera
+                      facturée à l&apos;unité.
+                    </Text>
                   )}
-                </Label>
+                </div>
               </div>
             </div>
           </div>

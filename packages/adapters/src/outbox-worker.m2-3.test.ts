@@ -725,7 +725,6 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
           'Contact : Alice, +33600000001',
           'Livraison :',
           "- Instructions d'accès : Sonner à l’accueil",
-          '- Contact : Nadia Benali, +33699990001',
         ].join('\n'),
       );
       // Les colonnes sont bien DEMANDÉES à PostgREST (un mock ne filtre pas).

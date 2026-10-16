@@ -17,12 +17,13 @@
 //   Contact de secours : nom, téléphone
 //   Livraison :                       (AG : l'association)
 //   - Instructions d'accès : …
-//   - Contact : nom, téléphone
 //
 // « Véhicule max » et « Stationnement » n'y figurent plus (Val, C60). Le point B
 // n'a aucun commentaire propre dans l'API MTS-1 (`CustomerOrderPlaceInput` sans
-// `comment`, lu dans la documentation le 2026-10-15) : ses informations ferment
-// donc ce commentaire, sous « Livraison » (C62).
+// `comment`, lu dans la documentation le 2026-10-15) : ses instructions d'accès
+// ferment donc ce commentaire, sous « Livraison » (C62). Son contact n'y figure
+// pas (Val, 2026-10-16, C67) : il part en contact de livraison
+// (`stuffs[].relatedContact` MTS-1, contact de dépôt Everest).
 //
 // Les informations d'accès n'ont aucun champ natif chez MTS-1 ni chez Everest
 // (arbitrage Val 2026-09-15) ; le nom du contact de secours non plus (arbitrage
@@ -228,7 +229,6 @@ export interface EntreeCommentaire {
   /** Point B d'une collecte AG (l'association), `null` sinon. */
   readonly livraison: {
     readonly instructionsAcces: string | null | undefined;
-    readonly contact: ContactCommentaire;
   } | null;
 }
 
@@ -283,7 +283,7 @@ function rendre(blocs: Bloc[]): string {
  * qu'il faut si elle garde au moins {@link MIN_FRAGMENT_LIGNE} caractères, sinon
  * retirée, et l'on passe à la suivante. Les autres lignes (traiteur, pax,
  * contacts, véhicule, accès office) sont bornées par construction : ensemble,
- * elles font au plus ~860 caractères, et tiennent donc dans l'enveloppe une
+ * elles font au plus ~670 caractères, et tiennent donc dans l'enveloppe une
  * fois les lignes longues retirées.
  */
 function ajuster(blocs: Bloc[]): void {
@@ -373,13 +373,6 @@ export function composerCommentaireTransporteur(
                 LIMITE_LIGNE_LONGUE,
               ),
               abandon: 3,
-            },
-            {
-              libelle: 'Contact',
-              valeur: ligneContact(
-                e.livraison.contact.nom,
-                e.livraison.contact.telephone,
-              ),
             },
           ]
         : [],

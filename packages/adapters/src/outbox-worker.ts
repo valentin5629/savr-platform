@@ -783,13 +783,7 @@ async function fetchCollecte(
           ? { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande }
           : null,
       livraison: association
-        ? {
-            instructionsAcces: association.instructions_acces,
-            contact: {
-              nom: association.contact_nom,
-              telephone: association.contact_telephone,
-            },
-          }
+        ? { instructionsAcces: association.instructions_acces }
         : null,
     }),
     traiteur_nom: traiteur?.nom ?? null,

@@ -1333,10 +1333,7 @@ describe('M1.5 / commentaire au transporteur → notes Everest', () => {
       contact: { nom: 'Alice Martin', telephone: '+33600000001' },
       contactSecours: { nom: null, telephone: null },
       vehicule: null,
-      livraison: {
-        instructionsAcces: 'Sonner à l’accueil',
-        contact: { nom: 'Nadia Benali', telephone: '+33699990001' },
-      },
+      livraison: { instructionsAcces: 'Sonner à l’accueil' },
     });
 
     await new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
@@ -1364,7 +1361,6 @@ describe('M1.5 / commentaire au transporteur → notes Everest', () => {
         'Contact : Alice Martin, +33600000001',
         'Livraison :',
         "- Instructions d'accès : Sonner à l’accueil",
-        '- Contact : Nadia Benali, +33699990001',
       ].join('\n'),
     );
   });

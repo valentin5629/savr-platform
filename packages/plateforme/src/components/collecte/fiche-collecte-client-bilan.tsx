@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 import { Ban, Clock3, FileText, Info, MinusCircle } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,8 @@ import {
   STATUTS_ANNULES,
   STATUT_BILAN,
   type EspaceClient,
+  type EvenementFiche,
+  type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
 
@@ -40,6 +42,8 @@ import { Text } from '@/components/ui/text';
 // Val 2026-09-29). Valeurs FIGÉES à la clôture (taux de recyclage, CO₂) : lues,
 // jamais recalculées ici. Avant « Réalisée » : mêmes blocs estompés, sans
 // valeurs, sous le bandeau « Votre bilan sera disponible après la collecte ».
+// Le bilan (BilanCollecte) est aussi celui de l'onglet Documents de la fiche
+// Admin : l'équipe Savr voit ce que voit le client (décision Val 2026-10-16).
 
 // Tooltip méthode UE (§06.04 Bloc 2bis) — texte figé.
 const TOOLTIP_TAUX_UE =
@@ -133,52 +137,60 @@ function Kpi({
   );
 }
 
-export function OngletBilan({
-  c,
-  base,
-  espace,
-}: {
-  c: FicheClientDonnees;
-  // Préfixe déjà encodé : /api/v1/<espace>/collectes/<id>.
-  base: string;
-  espace: EspaceClient;
-}) {
-  const isAg = c.type === 'anti_gaspi';
-  const annulee = STATUTS_ANNULES.includes(c.statut);
-  const sansExcedent = c.statut === 'realisee_sans_collecte';
-  const realisee = c.statut === STATUT_BILAN;
-  const pax = c.evenement?.pax ?? null;
+/** Ce que le bilan lit d'une collecte : fiche client, ou fiche Admin. */
+export type BilanFiche = Pick<
+  FicheCollecteClient,
+  | 'id'
+  | 'type'
+  | 'statut'
+  | 'date_collecte'
+  | 'taux_recyclage'
+  | 'co2_net_kg'
+  | 'co2_evite_kg'
+  | 'realisee_at'
+  | 'aucun_repas_motif'
+  | 'taille_bracket'
+  | 'bilan_flux'
+  | 'repas_donnes'
+  | 'association'
+> & { evenement: Pick<EvenementFiche, 'pax' | 'type_evenement_id'> | null };
 
-  // Radar (ZD réalisée) : repère parc recalculé à chaque changement de filtre ;
-  // `null` renvoyé par la route = pas de radar pour cette collecte (collecte
-  // d'un traiteur tiers vue par un gestionnaire) → bloc masqué.
-  const radarVisible = !isAg && realisee;
+/**
+ * Radar de la fiche (ZD réalisée) : repère parc recalculé à chaque changement
+ * de filtre, lu sur `benchmarkUrl` (route `…/collectes/<id>/benchmark` de
+ * l'espace). `null` renvoyé par la route = pas de radar pour cette collecte
+ * (collecte d'un traiteur tiers vue par un gestionnaire) → bloc masqué. Les
+ * filtres réglés servent aussi la régénération du rapport avec radar.
+ */
+export function useRadarFiche(
+  benchmarkUrl: string,
+  c: Pick<BilanFiche, 'type' | 'statut'> | null,
+) {
+  const visible =
+    c != null && c.type !== 'anti_gaspi' && c.statut === STATUT_BILAN;
   const [bench, setBench] = useState<Record<string, BenchmarkFlux> | null>(
     null,
   );
-  const [benchIndisponible, setBenchIndisponible] = useState(false);
-  const [benchFilters, setBenchFilters] = useState<BenchmarkFilters | null>(
-    null,
-  );
+  const [indisponible, setIndisponible] = useState(false);
+  const [filtres, setFiltres] = useState<BenchmarkFilters | null>(null);
   useEffect(() => {
-    if (!radarVisible || !benchFilters) return;
+    if (!visible || !filtres) return;
     const qs = new URLSearchParams();
-    if (benchFilters.type_evenement_ids.length)
-      qs.set('type_evenement_ids', benchFilters.type_evenement_ids.join(','));
-    if (benchFilters.taille_evenement_codes.length)
+    if (filtres.type_evenement_ids.length)
+      qs.set('type_evenement_ids', filtres.type_evenement_ids.join(','));
+    if (filtres.taille_evenement_codes.length)
       qs.set(
         'taille_evenement_codes',
-        benchFilters.taille_evenement_codes.join(','),
+        filtres.taille_evenement_codes.join(','),
       );
-    if (benchFilters.lieu_ids.length)
-      qs.set('lieu_ids', benchFilters.lieu_ids.join(','));
+    if (filtres.lieu_ids.length) qs.set('lieu_ids', filtres.lieu_ids.join(','));
     let annule = false;
-    fetch(`${base}/benchmark?${qs.toString()}`)
+    fetch(`${benchmarkUrl}?${qs.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { data?: { flux?: Record<string, BenchmarkFlux> } | null }) => {
         if (annule) return;
         if (j && j.data === null) {
-          setBenchIndisponible(true);
+          setIndisponible(true);
           return;
         }
         // Échec du recalcul ⇒ on RETIRE le repère plutôt que de laisser celui
@@ -191,112 +203,37 @@ export function OngletBilan({
     return () => {
       annule = true;
     };
-  }, [base, radarVisible, benchFilters]);
+  }, [benchmarkUrl, visible, filtres]);
+  return { visible, bench, indisponible, filtres, setFiltres };
+}
 
-  // Documents
-  const [telechargement, setTelechargement] = useState<string | null>(null);
-  const [regenEnCours, setRegenEnCours] = useState(false);
-  const [regenFait, setRegenFait] = useState(false);
-  // Message du refus (libellé fixe écrit côté serveur) ou échec générique.
-  const [regenErreur, setRegenErreur] = useState<string | null>(null);
-  // Version du rapport de recyclage : avec ou sans le radar de comparaison. La
-  // case part de la version en vigueur, et n'existe que là où le radar existe à
-  // l'écran (même garde côté serveur).
-  const [avecRadar, setAvecRadar] = useState(c.rapport_avec_radar);
-  const choixRadarPossible = radarVisible && !benchIndisponible;
-  // Filtres modifiés après une demande : le rapport demandé ne correspond plus
-  // à l'écran, le bouton redevient disponible.
-  useEffect(() => {
-    setRegenFait(false);
-  }, [benchFilters]);
+export type RadarFiche = ReturnType<typeof useRadarFiche>;
 
-  async function telechargerRapport() {
-    setTelechargement(null);
-    const res = await fetch(`${base}/rapport-rse/download`);
-    const j = (await res.json().catch(() => ({}))) as { url?: string };
-    if (res.ok && j.url) {
-      window.open(j.url, '_blank');
-      return;
-    }
-    setTelechargement(
-      res.status === 425 || res.status === 202
-        ? 'Le rapport n’est pas encore disponible.'
-        : 'Le téléchargement a échoué. Réessayez dans un instant.',
-    );
-  }
-
-  // Régénération du rapport de recyclage (RPT-04). Avec la case : la version
-  // choisie, et les filtres de comparaison réglés au-dessus si le radar est
-  // demandé. Sans la case (pas de radar pour cette collecte) : aucun corps, le
-  // dernier rendu est reproduit tel quel.
-  async function regenererRapport() {
-    setRegenEnCours(true);
-    setRegenErreur(null);
-    try {
-      const res = await fetch(
-        `${base}/documents/rapport-recyclage-zd/regenerate`,
-        choixRadarPossible
-          ? {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                options: { benchmark: avecRadar },
-                ...(avecRadar && benchFilters
-                  ? {
-                      benchmark_filters: {
-                        lieu_ids: benchFilters.lieu_ids,
-                        type_evenement_ids: benchFilters.type_evenement_ids,
-                        taille_evenement_codes:
-                          benchFilters.taille_evenement_codes,
-                      },
-                    }
-                  : {}),
-              }),
-            }
-          : { method: 'POST' },
-      );
-      if (res.ok) {
-        setRegenFait(true);
-        return;
-      }
-      // Refus motivé (4xx) : on affiche le motif, réessayer n'y changerait rien.
-      const j = (await res.json().catch(() => ({}))) as { error?: unknown };
-      setRegenErreur(
-        res.status >= 400 && res.status < 500 && typeof j.error === 'string'
-          ? j.error
-          : REGEN_ECHEC,
-      );
-    } catch {
-      setRegenErreur(REGEN_ECHEC);
-    } finally {
-      setRegenEnCours(false);
-    }
-  }
-
-  if (annulee) {
-    return (
-      <Card
-        padding="md"
-        className="flex items-start gap-3"
-        data-testid="bilan-annulee"
-      >
-        <Ban
-          className="mt-0.5 h-5 w-5 shrink-0 text-savr-neutral-400"
-          aria-hidden="true"
-        />
-        <Text variant="body">Collecte annulée : aucun bilan ni document.</Text>
-      </Card>
-    );
-  }
-
-  // Collecte AG : un seul nom de document, « Rapport de don », avec ou sans
-  // excédents (décision Val 2026-10-09). Deux PDF distincts derrière ce nom :
-  // l'attestation de don, ou le rapport « Événement sans excédent alimentaire ».
-  const rapportNom = isAg ? 'Rapport de don' : 'Rapport RSE';
+/**
+ * Bilan d'une collecte : chiffres clés, répartition des tonnages et radar de
+ * comparaison avec sa barre « Comparer avec » (ZD), ou repas donnés et
+ * association (AG). Rien pour une collecte annulée.
+ */
+export function BilanCollecte({
+  c,
+  radar,
+  barre,
+}: {
+  c: BilanFiche;
+  radar: RadarFiche;
+  // Réglages de la barre « Comparer avec » propres à l'espace.
+  barre?: Pick<
+    ComponentProps<typeof BenchmarkFilterBar>,
+    'perimetre' | 'filtresEndpoint' | 'avertissementComparaisonSoi'
+  >;
+}) {
+  if (STATUTS_ANNULES.includes(c.statut)) return null;
+  const isAg = c.type === 'anti_gaspi';
+  const sansExcedent = c.statut === 'realisee_sans_collecte';
+  const realisee = c.statut === STATUT_BILAN;
   const bilanDispo = realisee || sansExcedent;
-  const factures = (c.factures ?? []).filter(
-    (f) => f.statut !== 'brouillon' && (f.pdf_url_pennylane || f.pdf_url_savr),
-  );
+  const pax = c.evenement?.pax ?? null;
+  const bench = radar.bench;
 
   // ── Bilan ZD ────────────────────────────────────────────────────────────
   const flux = c.bilan_flux ?? {};
@@ -326,7 +263,7 @@ export function OngletBilan({
   const repas = realisee ? c.repas_donnes : null;
 
   return (
-    <div className="space-y-3">
+    <>
       {!bilanDispo && (
         <div
           data-testid="bandeau-bilan-attente"
@@ -454,8 +391,8 @@ export function OngletBilan({
           {!realisee ? (
             <GrapheEnAttente titre={TITRE_RADAR} />
           ) : (
-            radarVisible &&
-            !benchIndisponible && (
+            radar.visible &&
+            !radar.indisponible && (
               <div data-testid="bloc-3-zd-fiche" key={c.id}>
                 <BenchmarkRadar
                   title={TITRE_RADAR}
@@ -464,10 +401,12 @@ export function OngletBilan({
                   filtersSlot={
                     <BenchmarkFilterBar
                       masquerTraiteurs
-                      perimetre={
-                        espace === 'gestionnaire' ? 'rattache' : 'parc'
-                      }
-                      onChange={setBenchFilters}
+                      {...barre}
+                      onChange={radar.setFiltres}
+                      // Barre remontée (retour sur l'onglet Admin, dont l'état
+                      // du radar survit à l'onglet) : elle reprend les filtres
+                      // réglés. Fiche client : null au montage, sans effet.
+                      initialFilters={radar.filtres ?? undefined}
                       initialTypeEvenementIds={
                         c.evenement?.type_evenement_id
                           ? [c.evenement.type_evenement_id]
@@ -484,6 +423,136 @@ export function OngletBilan({
           )}
         </Estompe>
       )}
+    </>
+  );
+}
+
+export function OngletBilan({
+  c,
+  base,
+  espace,
+}: {
+  c: FicheClientDonnees;
+  // Préfixe déjà encodé : /api/v1/<espace>/collectes/<id>.
+  base: string;
+  espace: EspaceClient;
+}) {
+  const isAg = c.type === 'anti_gaspi';
+  const annulee = STATUTS_ANNULES.includes(c.statut);
+  const radar = useRadarFiche(`${base}/benchmark`, c);
+
+  // Documents
+  const [telechargement, setTelechargement] = useState<string | null>(null);
+  const [regenEnCours, setRegenEnCours] = useState(false);
+  const [regenFait, setRegenFait] = useState(false);
+  // Message du refus (libellé fixe écrit côté serveur) ou échec générique.
+  const [regenErreur, setRegenErreur] = useState<string | null>(null);
+  // Version du rapport de recyclage : avec ou sans le radar de comparaison. La
+  // case part de la version en vigueur, et n'existe que là où le radar existe à
+  // l'écran (même garde côté serveur).
+  const [avecRadar, setAvecRadar] = useState(c.rapport_avec_radar);
+  const choixRadarPossible = radar.visible && !radar.indisponible;
+  const benchFilters = radar.filtres;
+  // Filtres modifiés après une demande : le rapport demandé ne correspond plus
+  // à l'écran, le bouton redevient disponible.
+  useEffect(() => {
+    setRegenFait(false);
+  }, [benchFilters]);
+
+  async function telechargerRapport() {
+    setTelechargement(null);
+    const res = await fetch(`${base}/rapport-rse/download`);
+    const j = (await res.json().catch(() => ({}))) as { url?: string };
+    if (res.ok && j.url) {
+      window.open(j.url, '_blank');
+      return;
+    }
+    setTelechargement(
+      res.status === 425 || res.status === 202
+        ? 'Le rapport n’est pas encore disponible.'
+        : 'Le téléchargement a échoué. Réessayez dans un instant.',
+    );
+  }
+
+  // Régénération du rapport de recyclage (RPT-04). Avec la case : la version
+  // choisie, et les filtres de comparaison réglés au-dessus si le radar est
+  // demandé. Sans la case (pas de radar pour cette collecte) : aucun corps, le
+  // dernier rendu est reproduit tel quel.
+  async function regenererRapport() {
+    setRegenEnCours(true);
+    setRegenErreur(null);
+    try {
+      const res = await fetch(
+        `${base}/documents/rapport-recyclage-zd/regenerate`,
+        choixRadarPossible
+          ? {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                options: { benchmark: avecRadar },
+                ...(avecRadar && benchFilters
+                  ? {
+                      benchmark_filters: {
+                        lieu_ids: benchFilters.lieu_ids,
+                        type_evenement_ids: benchFilters.type_evenement_ids,
+                        taille_evenement_codes:
+                          benchFilters.taille_evenement_codes,
+                      },
+                    }
+                  : {}),
+              }),
+            }
+          : { method: 'POST' },
+      );
+      if (res.ok) {
+        setRegenFait(true);
+        return;
+      }
+      // Refus motivé (4xx) : on affiche le motif, réessayer n'y changerait rien.
+      const j = (await res.json().catch(() => ({}))) as { error?: unknown };
+      setRegenErreur(
+        res.status >= 400 && res.status < 500 && typeof j.error === 'string'
+          ? j.error
+          : REGEN_ECHEC,
+      );
+    } catch {
+      setRegenErreur(REGEN_ECHEC);
+    } finally {
+      setRegenEnCours(false);
+    }
+  }
+
+  if (annulee) {
+    return (
+      <Card
+        padding="md"
+        className="flex items-start gap-3"
+        data-testid="bilan-annulee"
+      >
+        <Ban
+          className="mt-0.5 h-5 w-5 shrink-0 text-savr-neutral-400"
+          aria-hidden="true"
+        />
+        <Text variant="body">Collecte annulée : aucun bilan ni document.</Text>
+      </Card>
+    );
+  }
+
+  // Collecte AG : un seul nom de document, « Rapport de don », avec ou sans
+  // excédents (décision Val 2026-10-09). Deux PDF distincts derrière ce nom :
+  // l'attestation de don, ou le rapport « Événement sans excédent alimentaire ».
+  const rapportNom = isAg ? 'Rapport de don' : 'Rapport RSE';
+  const factures = (c.factures ?? []).filter(
+    (f) => f.statut !== 'brouillon' && (f.pdf_url_pennylane || f.pdf_url_savr),
+  );
+
+  return (
+    <div className="space-y-3">
+      <BilanCollecte
+        c={c}
+        radar={radar}
+        barre={{ perimetre: espace === 'gestionnaire' ? 'rattache' : 'parc' }}
+      />
 
       {/* Documents : un seul rapport (bordereau ZD intégré au PDF) + facture
           côté traiteur. */}

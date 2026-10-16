@@ -113,6 +113,12 @@ import { FileButton } from '@/components/ui/file-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
+import {
+  BilanCollecte,
+  useRadarFiche,
+  type BilanFiche,
+} from '@/components/collecte/fiche-collecte-client-bilan';
+import { tailleBracket } from '@/lib/dashboard-kpi';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -212,6 +218,12 @@ interface CollecteDetail {
   informations_supplementaires: string | null;
   motif_override_prestataire: string | null;
   annulee_cote_savr: boolean;
+  // Bilan de l'onglet Documents (valeurs figées à la clôture).
+  taux_recyclage?: number | null;
+  co2_net_kg?: number | null;
+  co2_evite_kg?: number | null;
+  realisee_at?: string | null;
+  aucun_repas_motif?: string | null;
   pack_antgaspi_id: string | null;
   packs_antgaspi: {
     id: string;
@@ -236,7 +248,11 @@ interface CollecteDetail {
     mode_validation: string;
     valide_at: string | null;
     volume_repas_realise: number | null;
-    associations: { nom: string } | null;
+    associations: {
+      nom: string;
+      ville?: string | null;
+      description_rapport_impact?: string | null;
+    } | null;
     transporteurs: { nom: string } | null;
   } | null;
   prestataire_logistique_id: string | null;
@@ -258,6 +274,7 @@ interface CollecteDetail {
   evenements: {
     nom_evenement: string | null;
     pax: number;
+    type_evenement_id?: string | null;
     nom_client_organisateur: string | null;
     contact_principal_nom?: string | null;
     contact_principal_telephone?: string | null;
@@ -800,6 +817,14 @@ export function CollecteDetailPanel({
   const typeRapport: PdfType = agSansExcedent
     ? 'rapport-evenement-sans-excedent'
     : 'rapport-recyclage-zd';
+  // Radar du bilan de l'onglet Documents (celui de la fiche client, décision Val
+  // 2026-10-16) : ses filtres sont ceux du rapport régénéré avec radar.
+  const radar = useRadarFiche(
+    `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/benchmark`,
+    collecte,
+  );
+  // Radar à l'écran : seul cas où les filtres de la barre font foi pour le rapport.
+  const choixRadarPossible = radar.visible && !radar.indisponible;
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -845,7 +870,21 @@ export function CollecteDetailPanel({
         ? {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ options: { benchmark: avecRadar } }),
+            body: JSON.stringify({
+              options: { benchmark: avecRadar },
+              // Filtres réglés sur le radar de l'onglet. Sans radar à l'écran, le
+              // serveur reprend ceux du rapport en vigueur, sinon le segment.
+              ...(avecRadar && choixRadarPossible && radar.filtres
+                ? {
+                    benchmark_filters: {
+                      lieu_ids: radar.filtres.lieu_ids,
+                      type_evenement_ids: radar.filtres.type_evenement_ids,
+                      taille_evenement_codes:
+                        radar.filtres.taille_evenement_codes,
+                    },
+                  }
+                : {}),
+            }),
           }
         : { method: 'POST' },
     );
@@ -1454,6 +1493,47 @@ export function CollecteDetailPanel({
   }
 
   const isTerminal = STATUTS_TERMINAUX.includes(collecte.statut);
+  // Bilan de l'onglet Documents, sous la forme de la fiche client : mêmes
+  // valeurs figées, pesées sommées par flux, repas donnés et association de
+  // l'attribution AG.
+  const attribution = collecte.attributions_antgaspi;
+  const bilan: BilanFiche = {
+    id: collecte.id,
+    type: collecte.type,
+    statut: collecte.statut,
+    date_collecte: collecte.date_collecte,
+    taux_recyclage: collecte.taux_recyclage ?? null,
+    co2_net_kg: collecte.co2_net_kg ?? null,
+    co2_evite_kg: collecte.co2_evite_kg ?? null,
+    realisee_at: collecte.realisee_at ?? null,
+    aucun_repas_motif: collecte.aucun_repas_motif ?? null,
+    taille_bracket:
+      collecte.evenements.pax != null
+        ? tailleBracket(collecte.evenements.pax)
+        : null,
+    evenement: {
+      pax: collecte.evenements.pax,
+      type_evenement_id: collecte.evenements.type_evenement_id ?? null,
+    },
+    bilan_flux: collecte.collecte_flux.reduce<Record<string, number>>(
+      (acc, cf) => {
+        const code = cf.flux_dechets?.code;
+        if (code && cf.poids_reel_kg != null)
+          acc[code] = (acc[code] ?? 0) + Number(cf.poids_reel_kg);
+        return acc;
+      },
+      {},
+    ),
+    repas_donnes: attribution?.volume_repas_realise ?? null,
+    association: attribution?.associations
+      ? {
+          nom: attribution.associations.nom,
+          ville: attribution.associations.ville ?? null,
+          description:
+            attribution.associations.description_rapport_impact ?? null,
+        }
+      : null,
+  };
   // AG sans attribution : le formulaire d'attribution (association, besoin
   // véhicule, prestataire — décision Val 2026-10-01) remplace le bloc dispatch,
   // dont il est l'unique point d'entrée : « Valider et envoyer » = la décision de
@@ -2652,7 +2732,18 @@ export function CollecteDetailPanel({
             )}
           </TabsContent>
 
-          <TabsContent value="documents">
+          <TabsContent value="documents" className="space-y-3">
+            {/* Bilan vu par le client, radar et barre « Comparer avec » compris
+                (décision Val 2026-10-16). */}
+            <BilanCollecte
+              c={bilan}
+              radar={radar}
+              barre={{
+                filtresEndpoint:
+                  '/api/v1/admin/dashboard-client/benchmark/filtres',
+                avertissementComparaisonSoi: false,
+              }}
+            />
             {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
             <Card padding="md" className="space-y-4">
               <SectionHeader icon={FileText} title="Documents" />
@@ -2715,7 +2806,12 @@ export function CollecteDetailPanel({
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={!documents?.rapport}
+                      // Radar demandé : on attend les filtres de l'onglet (sans
+                      // eux, le rapport ne comparerait pas à ce qu'il affiche).
+                      disabled={
+                        !documents?.rapport ||
+                        (avecRadar && choixRadarPossible && !radar.filtres)
+                      }
                       loading={regenerating === typeRapport}
                       loadingText="Régénérer"
                       onClick={() => void handleRegenerate(typeRapport)}
@@ -2745,10 +2841,9 @@ export function CollecteDetailPanel({
                             Inclure le radar de comparaison dans le rapport
                           </Label>
                           <Text variant="hint" className="mt-1">
-                            Comparaison aux événements de même type et de même
-                            taille, ou avec les filtres déjà choisis par le
-                            client. Régénérez le rapport pour appliquer votre
-                            choix.
+                            {choixRadarPossible
+                              ? 'Le radar du rapport reprend les filtres de comparaison réglés ci-dessus. Régénérez le rapport pour appliquer votre choix.'
+                              : 'Comparaison aux événements de même type et de même taille, ou avec les filtres déjà choisis par le client. Régénérez le rapport pour appliquer votre choix.'}
                           </Text>
                         </div>
                       )}

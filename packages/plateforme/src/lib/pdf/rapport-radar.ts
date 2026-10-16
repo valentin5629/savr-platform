@@ -98,8 +98,8 @@ export function lireFiltresRadar(brut: unknown): FiltresRadar | null {
 const ouNull = (a: string[]) => (a.length ? a : null);
 
 /**
- * Filtres du radar quand l'appelant n'a pas de barre de filtres à l'écran
- * (régénération par l'Admin) :
+ * Filtres du radar d'une régénération par l'Admin qui n'en envoie pas (pas de
+ * radar à l'écran) :
  *  1. ceux que le rapport en vigueur a figés, s'il porte déjà le radar — une
  *     régénération Admin ne défait pas la comparaison choisie par le client ;
  *  2. sinon le segment de la collecte (même type d'événement, même taille, tous

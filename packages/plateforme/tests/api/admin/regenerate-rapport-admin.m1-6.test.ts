@@ -2,8 +2,9 @@
  * M1.6 — Régénération du rapport de recyclage par l'Admin : choix de la version,
  * avec ou sans le radar de comparaison (décision Val 2026-10-13).
  *
- * L'Admin n'a pas de barre de filtres : le radar reprend les filtres figés du
- * rapport en vigueur, sinon le segment de la collecte. Il est calculé par la
+ * Filtres envoyés par l'écran (radar de l'onglet Documents) : utilisés tels
+ * quels. Sans filtres, le radar reprend ceux figés du rapport en vigueur, sinon
+ * le segment de la collecte. Il est calculé par la
  * fonction de l'écran, sous l'identité de l'appelant (k-anonymat compris) : ce
  * PDF est celui que le client télécharge.
  */

@@ -10,11 +10,13 @@
 //
 // Rapport de recyclage ZD : le corps `{ options: { benchmark } }` choisit la
 // version, avec ou sans le radar de comparaison (décision Val 2026-10-13). Sans
-// corps, le dernier rendu est reproduit. L'Admin n'a pas de barre de filtres :
-// le radar reprend les filtres figés du rapport en vigueur, sinon le segment de
-// la collecte (filtresRadarParDefaut). Le radar est calculé par la fonction de
-// l'écran, SOUS L'IDENTITÉ de l'appelant : le k-anonymat s'applique à l'Admin
-// comme aux clients — ce PDF est celui que le client télécharge.
+// corps, le dernier rendu est reproduit. `benchmark_filters` = les filtres
+// réglés sur le radar de l'onglet Documents (décision Val 2026-10-16) ; absents
+// (pas de radar à l'écran), le radar reprend les filtres figés du rapport en
+// vigueur, sinon le segment de la collecte (filtresRadarParDefaut). Le radar
+// est calculé par la fonction de l'écran, SOUS L'IDENTITÉ de l'appelant : le
+// k-anonymat s'applique à l'Admin comme aux clients — ce PDF est celui que le
+// client télécharge.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';

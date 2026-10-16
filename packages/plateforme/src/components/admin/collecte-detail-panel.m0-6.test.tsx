@@ -2160,6 +2160,23 @@ function installMock(opts: {
       if (url.includes('/documents/') && method === 'POST') {
         return ok({ job_id: 'job-1', type: 'x' }, 202);
       }
+      // Radar du bilan : options de la barre « Comparer avec », puis repère parc.
+      if (url.includes('/benchmark/filtres')) {
+        return ok({
+          data: {
+            lieux: [{ id: 'l1', nom: 'Pavillon' }],
+            traiteurs: [{ id: 'tr1', nom: 'Traiteur Beta' }],
+            types: [{ id: 't1', libelle: 'Cocktail apéritif' }],
+          },
+        });
+      }
+      if (url.includes('/benchmark?')) {
+        return ok({
+          data: {
+            flux: { biodechet: { ratio_user: 0.25, benchmark_kg_pax: 0.3 } },
+          },
+        });
+      }
       if (url.endsWith('/documents')) return ok(documents);
       if (url.endsWith('/audit')) return ok(audit);
       if (url.includes('/photos') && method === 'POST') {
@@ -3204,6 +3221,328 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       const arg = onLoaded.mock.calls.at(-1)?.[0] as { title: string };
       expect(arg.title).toContain('Collecte Anti-Gaspi');
       expect(arg.title).toContain("jusqu'à 80\u00a0pax"); // fmtPax : espace insécable
+    },
+    ATTENTE_CAS_MS,
+  );
+  // Onglet Documents : le bilan vu par le client (fiche traiteur « Bilan &
+  // documents »), radar et barre « Comparer avec » compris — décision Val
+  // 2026-10-16. Les filtres réglés sont ceux du rapport régénéré avec radar.
+  const zdCloturee = {
+    ...baseZd,
+    statut: 'cloturee',
+    taux_recyclage: 62.5,
+    co2_net_kg: 140,
+    realisee_at: '2026-05-10T23:00:00Z',
+    evenements: { ...baseZd.evenements, pax: 800, type_evenement_id: 't1' },
+    collecte_flux: [
+      {
+        flux_id: 'f1',
+        poids_reel_kg: 120,
+        flux_dechets: { code: 'biodechet', nom: 'Biodéchets' },
+      },
+      {
+        flux_id: 'f2',
+        poids_reel_kg: 80,
+        flux_dechets: { code: 'verre', nom: 'Verre' },
+      },
+    ],
+  };
+  const urlsAppelees = (fetchMock: ReturnType<typeof installMock>) =>
+    fetchMock.mock.calls.map((c) => String(c[0]));
+  // Le radar de l'onglet est chargé : ses filtres sont ceux qu'on enverra.
+  async function ouvrirDocumentsAvecRadar(
+    fetchMock: ReturnType<typeof installMock>,
+  ): Promise<void> {
+    await ouvrirOnglet('Documents');
+    await waitFor(() => {
+      if (!urlsAppelees(fetchMock).some((u) => u.includes('/benchmark?')))
+        throw new Error('radar non chargé');
+    }, ATTENTE_UI);
+    await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+  }
+
+  it(
+    'M0.6/documents_bilan_client_zd — collecte ZD clôturée : chiffres clés, répartition et radar « Comparer avec » du client, au-dessus des documents',
+    async () => {
+      const fetchMock = installMock({
+        collecte: zdCloturee,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+
+      const kpi = screen.getByTestId('kpi-zd');
+      expect(within(kpi).getByText('Poids total collecté')).toBeInTheDocument();
+      expect(within(kpi).getByText('200')).toBeInTheDocument();
+      expect(within(kpi).getByText('Taux de recyclage')).toBeInTheDocument();
+      expect(within(kpi).getByText('62,5')).toBeInTheDocument();
+      const radar = screen.getByTestId('bloc-3-zd-fiche');
+      expect(
+        within(radar).getByText(
+          'Votre collecte face aux événements comparables',
+        ),
+      ).toBeInTheDocument();
+      expect(within(radar).getByText('Comparer avec')).toBeInTheDocument();
+      // Fiche collecte : jamais de filtre « Traiteurs », ni d'avertissement
+      // « comparaison à soi-même » (l'Admin n'a pas de lieux à lui).
+      expect(
+        within(radar).queryByTestId('benchmark-filter-traiteurs'),
+      ).toBeNull();
+      // Un lieu coché déclencherait l'avertissement chez un client.
+      fireEvent.click(within(radar).getByTestId('benchmark-filter-lieux'));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Pavillon' }));
+      await waitFor(
+        () =>
+          expect(
+            urlsAppelees(fetchMock).some((u) => u.includes('lieu_ids=l1')),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(screen.queryByTestId('benchmark-comparaison-soi')).toBeNull();
+      // Bilan AVANT la carte des documents.
+      expect(
+        kpi.compareDocumentPosition(screen.getByText('Bordereau ZD')) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+
+      // Radar de la collecte lu sur la route Admin, ouvert sur son segment
+      // (type + taille) ; options de la barre = celles du radar Admin.
+      const urls = urlsAppelees(fetchMock);
+      const radarUrl = urls.find((u) => u.includes('/benchmark?'))!;
+      expect(radarUrl.startsWith('/api/v1/admin/collectes/c1/benchmark?')).toBe(
+        true,
+      );
+      const qs = new URLSearchParams(radarUrl.split('?')[1]);
+      expect(qs.get('type_evenement_ids')).toBe('t1');
+      expect(qs.get('taille_evenement_codes')).toBe('L');
+      expect(urls).toContain(
+        '/api/v1/admin/dashboard-client/benchmark/filtres',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_regeneration_filtres_radar — case cochée : Régénérer envoie les filtres réglés sur le radar de l’onglet, un filtre changé part avec la demande suivante',
+    async () => {
+      const fetchMock = installMock({
+        collecte: zdCloturee,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+      expect(
+        screen.getByText(
+          'Le radar du rapport reprend les filtres de comparaison réglés ci-dessus. Régénérez le rapport pour appliquer votre choix.',
+        ),
+      ).toBeInTheDocument();
+
+      fireEvent.click(caseRadar());
+      const regenRapport = () =>
+        screen.getAllByRole('button', { name: /Régénérer/ })[0]!;
+      fireEvent.click(regenRapport());
+      await waitFor(
+        () =>
+          expect(corpsRegeneration(fetchMock, 'rapport-recyclage-zd')).toEqual([
+            {
+              options: { benchmark: true },
+              benchmark_filters: {
+                lieu_ids: [],
+                type_evenement_ids: ['t1'],
+                taille_evenement_codes: ['L'],
+              },
+            },
+          ]),
+        ATTENTE_UI,
+      );
+
+      // La case reprend la version du rapport relu (ici toujours sans radar) :
+      // l'Admin la recoche, choisit d'autres filtres, la demande suivante les porte.
+      await waitFor(
+        () => expect(caseRadar().getAttribute('aria-checked')).toBe('false'),
+        ATTENTE_UI,
+      );
+      fireEvent.click(caseRadar());
+      fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'M (500-749)' }));
+      await waitFor(() => expect(regenRapport()).toBeEnabled(), ATTENTE_UI);
+      fireEvent.click(regenRapport());
+      await waitFor(
+        () =>
+          expect(
+            corpsRegeneration(fetchMock, 'rapport-recyclage-zd')[1],
+          ).toMatchObject({
+            options: { benchmark: true },
+            benchmark_filters: { taille_evenement_codes: ['L', 'M'] },
+          }),
+        ATTENTE_UI,
+      );
+
+      // Case décochée : version sans radar, aucun filtre envoyé.
+      await waitFor(
+        () => expect(caseRadar().getAttribute('aria-checked')).toBe('false'),
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(regenRapport()).toBeEnabled(), ATTENTE_UI);
+      fireEvent.click(regenRapport());
+      await waitFor(
+        () =>
+          expect(
+            corpsRegeneration(fetchMock, 'rapport-recyclage-zd')[2],
+          ).toEqual({ options: { benchmark: false } }),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_regeneration_radar_retire — statut forcé hors clôture après réglage du radar : la régénération avec radar part sans benchmark_filters (repli serveur annoncé à l’écran)',
+    async () => {
+      const collecte = { ...zdCloturee };
+      const fetchMock = installMock({ collecte, documents: documentsZd });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+
+      // Forçage du statut : la fiche relue n'est plus clôturée, le radar part.
+      collecte.statut = 'realisee';
+      fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
+      const dialog = screen
+        .getByText('Forcer le statut de la collecte')
+        .closest('div') as HTMLElement;
+      fireEvent.click(
+        within(dialog).getByRole('combobox', { name: 'Nouveau statut *' }),
+      );
+      fireEvent.click(
+        screen
+          .getAllByRole('option')
+          .find((o) => o.getAttribute('data-value') === 'realisee')!,
+      );
+      fireEvent.change(within(dialog).getByLabelText(/^Motif \(≥ 10/), {
+        target: { value: 'Pesée à reprendre avant clôture' },
+      });
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: /Confirmer le forçage/ }),
+      );
+      await screen.findByTestId('bandeau-bilan-attente', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+      expect(
+        screen.getByText(/ou avec les filtres déjà choisis par le client/),
+      ).toBeInTheDocument();
+
+      fireEvent.click(caseRadar());
+      fireEvent.click(screen.getAllByRole('button', { name: /Régénérer/ })[0]!);
+      await waitFor(
+        () =>
+          expect(corpsRegeneration(fetchMock, 'rapport-recyclage-zd')).toEqual([
+            { options: { benchmark: true } },
+          ]),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_radar_retour_onglet — retour sur l’onglet Documents : la barre reprend les filtres réglés, la régénération les porte',
+    async () => {
+      const fetchMock = installMock({
+        collecte: zdCloturee,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+      fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'M (500-749)' }));
+      await waitFor(
+        () =>
+          expect(
+            urlsAppelees(fetchMock).some((u) =>
+              u.includes('taille_evenement_codes=L%2CM'),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+
+      await ouvrirOnglet('Historique');
+      await ouvrirOnglet('Documents');
+      await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
+      fireEvent.click(caseRadar());
+      fireEvent.click(screen.getAllByRole('button', { name: /Régénérer/ })[0]!);
+      await waitFor(
+        () =>
+          expect(
+            corpsRegeneration(fetchMock, 'rapport-recyclage-zd')[0],
+          ).toMatchObject({
+            options: { benchmark: true },
+            benchmark_filters: { taille_evenement_codes: ['L', 'M'] },
+          }),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_bilan_client_ag — collecte AG clôturée : repas donnés, CO₂ évité et association bénéficiaire, sans radar',
+    async () => {
+      const fetchMock = installMock({
+        collecte: {
+          ...baseAg,
+          statut: 'cloturee',
+          co2_evite_kg: 105,
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            associations: {
+              nom: 'Les Restos du Cœur',
+              ville: 'Paris',
+              description_rapport_impact: 'Aide alimentaire depuis 1985.',
+            },
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      const kpi = await screen.findByTestId('kpi-ag', {}, ATTENTE_UI);
+      expect(within(kpi).getByText('Repas donnés')).toBeInTheDocument();
+      expect(within(kpi).getByText('42')).toBeInTheDocument();
+      expect(within(kpi).getByText('105')).toBeInTheDocument();
+      const asso = screen.getByTestId('bloc-association');
+      expect(within(asso).getByText('Les Restos du Cœur')).toBeInTheDocument();
+      expect(within(asso).getByText('Paris')).toBeInTheDocument();
+      expect(
+        within(asso).getByText('Aide alimentaire depuis 1985.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+      expect(
+        urlsAppelees(fetchMock).some((u) => u.includes('/benchmark')),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_bilan_client_attente — collecte pas encore clôturée : bandeau « bilan disponible après la collecte » et blocs estompés ; annulée : aucun bilan, documents conservés',
+    async () => {
+      installMock({ collecte: baseZd, documents: documentsZd });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      expect(
+        await screen.findByTestId('bandeau-bilan-attente', {}, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('bilan-estompe')).toBeInTheDocument();
+      expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+
+      document.body.innerHTML = '';
+      installMock({
+        collecte: { ...baseZd, statut: 'annulee' },
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Bordereau ZD', undefined, ATTENTE_UI);
+      expect(screen.queryByTestId('bandeau-bilan-attente')).toBeNull();
+      expect(screen.queryByTestId('kpi-zd')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

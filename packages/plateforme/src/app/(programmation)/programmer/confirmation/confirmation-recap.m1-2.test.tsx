@@ -189,3 +189,30 @@ describe('M1.2 / formulaire_simplifie — bouton « Modifier la collecte »', ()
     ATTENTE_CAS_MS,
   );
 });
+
+describe('M1.2 / formulaire_simplifie — le reste de l’écran est conservé', () => {
+  it(
+    'badge de statut, rappel de l’email et les trois actions restent affichés',
+    async () => {
+      await afficher(EVENEMENT);
+
+      // Badge client d'une collecte `programmee` (statut affiché « Créée »).
+      expect(screen.getByText('Créée')).toBeInTheDocument();
+      expect(
+        screen.getByText('Un email récapitulatif vient de vous être envoyé.'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', {
+          name: 'Ajouter une collecte à cet événement',
+        }),
+      ).toHaveAttribute('href', '/programmer/evt-1/ajouter-collecte');
+      expect(
+        screen.getByRole('link', { name: 'Programmer un autre événement' }),
+      ).toHaveAttribute('href', '/programmer/nouveau');
+      expect(
+        screen.getByRole('link', { name: "Retour à l'accueil" }),
+      ).toHaveAttribute('href', '/');
+    },
+    ATTENTE_CAS_MS,
+  );
+});

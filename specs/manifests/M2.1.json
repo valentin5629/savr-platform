@@ -16,7 +16,12 @@
     "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (Bloc 6 — annuler crédit AG)",
     "packages/plateforme/src/app/(admin)/admin/parametres/tarifs-ag/page.tsx",
     "packages/plateforme/tests/api/admin/packs-ag.m2-1.test.ts",
-    "specs/manifests/M2.1.json"
+    "specs/manifests/M2.1.json",
+    "supabase/migrations/20261016140000_plateforme_rattacher_collecte_pack.sql",
+    "supabase/tests/rattacher_collecte_pack.test.sql",
+    "packages/plateforme/src/app/api/v1/admin/collectes/[id]/rattacher-pack/route.ts",
+    "packages/plateforme/tests/api/admin/rattacher-pack.test.ts",
+    "packages/plateforme/src/components/admin/collecte-detail-panel-rattacher-pack.test.tsx"
   ],
   "tables_concernees": [
     "plateforme.packs_antgaspi (schéma aligné V2 : credits_initiaux, credits_consommes, type_pack, montant_total_ht, idempotency_key)",
@@ -41,10 +46,13 @@
   ],
   "tests": {
     "pgtap": [
-      "supabase/tests/m2_1_packs_ag.test.sql (32 tests)"
+      "supabase/tests/m2_1_packs_ag.test.sql (32 tests)",
+      "supabase/tests/rattacher_collecte_pack.test.sql (36 tests)"
     ],
     "vitest": [
-      "packages/plateforme/tests/api/admin/packs-ag.m2-1.test.ts (9 tests API)"
+      "packages/plateforme/tests/api/admin/packs-ag.m2-1.test.ts (9 tests API)",
+      "packages/plateforme/tests/api/admin/rattacher-pack.test.ts (12 tests API)",
+      "packages/plateforme/src/components/admin/collecte-detail-panel-rattacher-pack.test.tsx (5 tests UI)"
     ]
   },
   "divergences": [
@@ -120,6 +128,14 @@
       "test": "M1.7 FACT-02 : collecte Pack 30 par_collecte → PU = prix unitaire du pack (460 €, pas 590)",
       "statut": "implemented",
       "libelle": "PU AG pack par_collecte lu depuis packs_antgaspi.prix_unitaire_ht (snapshot à l'achat)"
+    },
+    {
+      "id": "M2.1-rattacher-collecte-pack",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "supabase/migrations/20261016140000_plateforme_rattacher_collecte_pack.sql",
+      "test": "M2.1 / rattacher-pack — POST + M2.1 / rattacher-pack — GET + M2.1 / rattacher-pack — fiche + supabase/tests/rattacher_collecte_pack.test.sql",
+      "statut": "implemented",
+      "libelle": "Rattachement Admin après coup d'une collecte AG programmée sans pack au pack actif pris plus tard (décision Val 2026-10-16) : réalisée, clôturée ou annulée tardivement ; débit d'un crédit, brouillon de facture unitaire retiré, facture déjà envoyée signalée (avoir à émettre), alertes « sans pack » résolues, audit_log. CDC à patcher : fiche _Divergences/M2.1_20261016_rattacher-collecte-pack.md."
     }
   ],
   "cdc_source_hash": {

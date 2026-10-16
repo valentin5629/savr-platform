@@ -163,11 +163,46 @@ async function getHandler(
   const ordres = await lireOrdresCollecte(supabase, id);
   if (ordres.error) return serverError(ordres.error, 'admin.collectes.get');
 
+  // Rattachement après coup à un pack pris plus tard (décision Val 2026-10-16) :
+  // null si la collecte ne l'est pas — même règle que la RPC, lue dans la même
+  // fonction. `pack_actif` = le pack que le rattachement débiterait (celui de
+  // l'organisation programmatrice), null s'il n'y en a pas encore.
+  type PackActif = {
+    id: string;
+    type_pack: string;
+    credits_initiaux: number;
+    credits_restants: number;
+  };
+  let rattachementPack: { pack_actif: PackActif | null } | null = null;
+  const ag = data as {
+    type: string;
+    pack_antgaspi_id: string | null;
+    evenements: { organisation_id: string };
+  };
+  if (ag.type === 'anti_gaspi' && !ag.pack_antgaspi_id) {
+    const rattachable = await supabase.rpc('f_collecte_rattachable_pack', {
+      p_collecte_id: id,
+    });
+    if (rattachable.error)
+      return serverError(rattachable.error, 'admin.collectes.get');
+    if (rattachable.data === true) {
+      const pack = await supabase
+        .from('packs_antgaspi')
+        .select('id, type_pack, credits_initiaux, credits_restants')
+        .eq('organisation_id', ag.evenements.organisation_id)
+        .eq('statut', 'actif')
+        .maybeSingle();
+      if (pack.error) return serverError(pack.error, 'admin.collectes.get');
+      rattachementPack = { pack_actif: pack.data as PackActif | null };
+    }
+  }
+
   return NextResponse.json({
     ...data,
     prestataire_actuel: prestataireActuel,
     infos_acces_email: infosAccesEmail,
     ordre_envoi: deriverOrdreEnvoi(ordres.data),
+    rattachement_pack: rattachementPack,
   });
 }
 

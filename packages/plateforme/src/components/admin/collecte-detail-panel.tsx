@@ -2,6 +2,7 @@
 
 import { fmtEuro, fmtPax, fmtKgAuto } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
+import { libelleTypePack } from '@/lib/libelles/pack';
 import { libelleStatutTournee } from '@/lib/libelles/tournee';
 import {
   useCallback,
@@ -217,6 +218,17 @@ interface CollecteDetail {
     type_pack: string;
     credits_restants: number;
     statut: string;
+  } | null;
+  // Collecte AG sans pack rattachable après coup au pack actif de son organisation
+  // (décision Val 2026-10-16) — null si elle ne l'est pas ; `pack_actif` null tant
+  // que le client n'a pas de pack actif.
+  rattachement_pack?: {
+    pack_actif: {
+      id: string;
+      type_pack: string;
+      credits_initiaux: number;
+      credits_restants: number;
+    } | null;
   } | null;
   // Attribution AG (Bloc 5) — asso/transporteur retenus + volume réalisé (§06.06 l.249).
   attributions_antgaspi: {
@@ -682,6 +694,14 @@ export function CollecteDetailPanel({
   const [annulerCreditError, setAnnulerCreditError] = useState<string | null>(
     null,
   );
+  const [rattacherPackModal, setRattacherPackModal] = useState(false);
+  const [rattacherPackSubmitting, setRattacherPackSubmitting] = useState(false);
+  const [rattacherPackError, setRattacherPackError] = useState<string | null>(
+    null,
+  );
+  // Facture unitaire déjà partie chez Pennylane au moment du rattachement :
+  // l'Admin doit émettre l'avoir (arbitrage Val 2026-10-16).
+  const [avoirARattachement, setAvoirARattachement] = useState(false);
   // Édition manuelle des pesées ZD (Bloc 3)
   const [editPesees, setEditPesees] = useState(false);
   const [peseesInput, setPeseesInput] = useState<Record<string, string>>({});
@@ -1042,6 +1062,28 @@ export function CollecteDetailPanel({
     setAnnulerCreditSubmitting(false);
   };
 
+  const handleRattacherPack = async () => {
+    setRattacherPackSubmitting(true);
+    setRattacherPackError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/rattacher-pack`,
+      { method: 'POST' },
+    );
+    if (res.ok) {
+      const resultat = (await res.json()) as { facture_envoyee: boolean };
+      setAvoirARattachement(resultat.facture_envoyee);
+      const updated = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      );
+      if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
+      setRattacherPackModal(false);
+    } else {
+      const body = (await res.json()) as { error: string };
+      setRattacherPackError(body.error);
+    }
+    setRattacherPackSubmitting(false);
+  };
+
   const handleDispatch = async () => {
     setDispatching(true);
     setDispatchError(null);
@@ -1379,6 +1421,7 @@ export function CollecteDetailPanel({
   // Miroir de l'état « sous-modale ouverte » pour le wrapper modale (garde Escape).
   const anySubModalOpen =
     annulerCreditModal ||
+    rattacherPackModal ||
     forceStatutModal ||
     nbCamionsModal ||
     acceptationModal;
@@ -2857,7 +2900,33 @@ export function CollecteDetailPanel({
                       Crédit annulé côté Savr
                     </Badge>
                   )}
+                  {collecte.rattachement_pack && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={!collecte.rattachement_pack.pack_actif}
+                      onClick={() => {
+                        setRattacherPackError(null);
+                        setRattacherPackModal(true);
+                      }}
+                    >
+                      Rattacher au pack
+                    </Button>
+                  )}
                 </div>
+                {collecte.rattachement_pack &&
+                  !collecte.rattachement_pack.pack_actif && (
+                    <Text variant="hint">
+                      Aucun pack Anti-Gaspi actif pour ce client : la collecte
+                      reste facturée à l&apos;unité.
+                    </Text>
+                  )}
+                {avoirARattachement && (
+                  <AlertBar variant="warn">
+                    La facture unitaire de cette collecte est déjà partie chez
+                    Pennylane : émettez un avoir.
+                  </AlertBar>
+                )}
               </div>
 
               {/* Galerie photos + import */}
@@ -3036,6 +3105,40 @@ export function CollecteDetailPanel({
             </>
           )}
         </Text>
+      </ConfirmDialog>
+
+      {/* Modale — Rattacher au pack (décision Val 2026-10-16) */}
+      <ConfirmDialog
+        open={rattacherPackModal}
+        title="Rattacher la collecte au pack"
+        confirmLabel="Rattacher"
+        cancelLabel="Retour"
+        variant="primary"
+        loading={rattacherPackSubmitting}
+        loadingText="Rattachement…"
+        error={rattacherPackError}
+        onConfirm={() => void handleRattacherPack()}
+        onCancel={() => setRattacherPackModal(false)}
+      >
+        {collecte.rattachement_pack?.pack_actif && (
+          <Text>
+            Un crédit du pack actif du client sera décompté :{' '}
+            <strong>
+              {libelleTypePack(collecte.rattachement_pack.pack_actif.type_pack)}
+            </strong>{' '}
+            — {collecte.rattachement_pack.pack_actif.credits_restants} crédit
+            {collecte.rattachement_pack.pack_actif.credits_restants !== 1
+              ? 's'
+              : ''}{' '}
+            restant
+            {collecte.rattachement_pack.pack_actif.credits_restants !== 1
+              ? 's'
+              : ''}
+            . Si la facture unitaire de la collecte est encore en brouillon,
+            elle est retirée ; si elle est déjà partie chez Pennylane, il faudra
+            émettre un avoir.
+          </Text>
+        )}
       </ConfirmDialog>
 
       {/* Modale — Forcer le statut (RM-08) */}

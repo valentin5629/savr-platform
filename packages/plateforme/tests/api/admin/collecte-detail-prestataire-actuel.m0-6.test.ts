@@ -54,6 +54,8 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
     schema: (schema: string) => ({
       from: (table: string) => chaine(`${schema}.${table}`),
     }),
+    // f_collecte_rattachable_pack (collecte AG sans pack) : hors sujet ici.
+    rpc: () => Promise.resolve({ data: false, error: null }),
   }),
 }));
 
@@ -119,6 +121,8 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
       infos_acces_email: null,
       // Aucun ordre en file pour cette collecte.
       ordre_envoi: null,
+      // Pas une collecte AG sans pack : rien à rattacher.
+      rattachement_pack: null,
     });
     expect(appelsSur('plateforme.transporteurs')).toHaveLength(0);
     expect(appelsSur('shared.prestataires')).toHaveLength(0);

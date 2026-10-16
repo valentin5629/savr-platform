@@ -332,22 +332,21 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     expect(gate).not.toHaveBeenCalled();
   });
 
-  it("le pack AG est lu sur l'org de l'événement, jamais sur l'org du JWT staff", async () => {
+  it('un brouillon AG se confirme sans lire aucun pack (facturé à l’unité sans pack actif)', async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null }); // select événement
     admin.push({ data: [COLLECTE_AG], error: null }); // collectes brouillon
-    admin.push({ data: { id: 'pack-1', credits_restants: 3 }, error: null }); // pack
     admin.push({ data: null, error: null }); // rpc confirmer
 
     const res = await confirmer();
 
+    // Décision Val 2026-10-16 : plus de garde pack AG à la confirmation. Sans
+    // elle, la seule question d'organisation qui restait (pack cherché sur
+    // `org-savr` au lieu de l'org de l'événement) disparaît avec la lecture.
     expect(res.status).toBe(200);
-    // C'est cette assertion qui fait foi : le stub sert le pack quel que soit le
-    // prédicat, donc le 200 ci-dessus survivrait à une régression. En prod, un
-    // pack cherché sur `org-savr` serait introuvable → 422 « Aucun pack actif ».
-    expect(predicatesOn('organisation_id')).toEqual([
-      ['organisation_id', 'org-kaspia'],
-    ]);
+    expect((admin.__calls.from ?? []).map(([t]) => t)).not.toContain(
+      'packs_antgaspi',
+    );
   });
 
   it("l'admin agit AU NOM de l'org cible (pas de notification « tiers » parasite)", async () => {

@@ -86,24 +86,8 @@ export async function POST(
     );
   }
 
-  // Vérification pack AG si type=ag (même gate que la programmation initiale, R3)
-  if (String(type) === 'ag') {
-    const { data: pack } = await supabase
-      .from('packs_antgaspi')
-      .select('id, credits_restants')
-      .eq('organisation_id', evt.organisation_id)
-      .eq('statut', 'actif')
-      .maybeSingle();
-    if (!pack || (pack.credits_restants ?? 0) <= 0) {
-      return NextResponse.json(
-        {
-          error:
-            'Aucun pack Anti-Gaspi actif disponible pour cette organisation',
-        },
-        { status: 422 },
-      );
-    }
-  }
+  // Aucune garde pack AG (décision Val 2026-10-16) : sans pack actif, la collecte
+  // AG ajoutée sera facturée à l'unité.
 
   // Débit des écritures clientes (cf. lib/frein-ecritures-client).
   const frein = freinerEcritureCliente({

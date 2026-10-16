@@ -5053,6 +5053,10 @@ export type Database = {
         Args: { p_evenement_id: string }
         Returns: boolean
       }
+      f_collecte_rattachable_pack: {
+        Args: { p_collecte_id: string }
+        Returns: boolean
+      }
       f_collecte_visible: { Args: { p_collecte_id: string }; Returns: boolean }
       f_completer_siret_shadow: {
         Args: { p_org_id: string; p_siret: string }
@@ -5405,6 +5409,10 @@ export type Database = {
           p_id: string
           p_taux: number
         }
+        Returns: Json
+      }
+      rpc_rattacher_collecte_pack: {
+        Args: { p_collecte_id: string; p_role: string; p_user_id: string }
         Returns: Json
       }
       rpc_valider_attribution_ag: {

@@ -177,7 +177,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/confirmer/route.ts",
       "test": "M1.2 — PROG-05 auto-accept AG déclenché à la confirmation",
       "statut": "implemented",
-      "libelle": "À la confirmation AG : évaluation auto-accept (algo §09 §6, best-effort) + fix bug latent gate pack 'anti_gaspi'"
+      "libelle": "À la confirmation AG : évaluation auto-accept (algo §09 §6, best-effort) sur le type 'anti_gaspi'. La garde pack qui l'accompagnait est retirée (décision Val 2026-10-16, livrable M1.2-ag-sans-pack-serveur)."
     },
     {
       "id": "M1.2-brouillon-admin",
@@ -226,6 +226,22 @@
       "test": "M1.2/confirmation_email_recap_issue_reelle — état dérivé du dernier envoi + M1.2/confirmation_email_recap_issue_reelle — lecture du journal des emails + M1.2/confirmation_email_recap_issue_reelle — GET détail événement + M1.2/confirmation_email_recap_issue_reelle — écran de confirmation",
       "statut": "implemented",
       "libelle": "Écran de confirmation : le rappel de l'email récapitulatif dit l'issue réelle de l'envoi (décision Val 2026-10-08, _Divergences/M1.2_20261008_confirmation-email-recap-issue-reelle.md). État lu dans emails_envoyes (dernier envoi `collecte_programmee` de l'événement) et rendu par le GET sous la forme d'un état à trois valeurs, sans adresse ni message d'erreur : parti → « Un email récapitulatif vient de vous être envoyé. » ; refusé pour l'instant → nouvelle tentative automatique annoncée ; non parti (4 tentatives épuisées, refus de la messagerie, ou aucune ligne d'envoi) → bandeau : programmation enregistrée, adresse de contact. État inconnu (journal illisible) → l'écran ne dit rien de l'email. Le journal n'est jamais lu pour un événement hors du périmètre de l'appelant."
+    },
+    {
+      "id": "M1.2-ag-sans-pack-ecran",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md",
+      "artefact": "packages/plateforme/src/components/programmation/use-pack-ag.ts + packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx + packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx + packages/plateforme/src/components/programmation/sous-bloc-collecte.tsx",
+      "test": "M1.2 — programmation formulaire : mode admin support > admin : la case AG reste cochée + M1.2 — programmation formulaire : mode admin support > admin : l'information suit le pack + M1.2 — programmation formulaire : mode admin support > admin : une réponse arrivée après coup + M1.2 — sous-bloc AG : état du pack + M1.2 — ajouter une collecte : information « facturée à l’unité »",
+      "statut": "implemented",
+      "libelle": "Collecte AG sans pack actif (aucun, épuisé, ou pack sans crédit) : la case Anti-Gaspi ne se décoche plus ; information « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. » sous la case (étape 1) et dans le sous-bloc AG (étape 3), en teinte info, jamais en erreur (décision Val 2026-10-16, ex-blocage F5). Programmation de support Admin : pack du traiteur choisi, relu à chaque changement de traiteur, rien d'affiché tant qu'aucun n'est choisi ; réponse tardive du traiteur précédent ou en erreur ignorée. « Ajouter une collecte » à un événement : même information, sur le pack de l'organisation de l'événement. CDC à patcher : _Divergences/M2.1_20261016_pack-ag-non-bloquant.md."
+    },
+    {
+      "id": "M1.2-ag-sans-pack-serveur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/confirmer/route.ts",
+      "test": "M1.2 / Programmation AG — pack actif ou non > ag_sans_pack_actif + M1.2 — confirmation d’un brouillon (mode admin support) > un brouillon AG se confirme sans lire aucun pack + M1.2 — confirmation de programmation : action « Ajouter une collecte » (mode admin support) > une collecte AG s’ajoute sans lire aucun pack",
+      "statut": "implemented",
+      "libelle": "Aucune route de programmation ne refuse une collecte AG faute de pack, ni ne lit de pack : création (POST evenements), ajout d'une collecte (POST evenements/[id]/collectes), confirmation d'un brouillon (PATCH evenements/[id]/confirmer). Sans pack actif, la collecte est facturée à l'unité (calculer_tarif_ag). Décision Val 2026-10-16 ; CDC à patcher : _Divergences/M2.1_20261016_pack-ag-non-bloquant.md."
     }
   ],
   "cdc_source_hash": {

@@ -853,11 +853,14 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_creer_collecte',
     rend: 'col-neuve',
     attendu: ['col-neuve'],
+    // Dernière garde 4xx avant le frein pour ce rôle : date de collecte passée
+    // (la garde pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
+    // La lecture de l'entité de facturation, après elle, ne refuse qu'en 500.
     refusGarde: {
       corps: {
         ...PROGRAMMATION,
         collectes: [
-          { type: 'ag', date_collecte: '2099-01-15', heure_collecte: '08:00' },
+          { type: 'zd', date_collecte: '2000-01-15', heure_collecte: '08:00' },
         ],
       },
     },
@@ -880,11 +883,14 @@ const CAS: CasRoute[] = [
     rend: 'col-a',
     rendSuccessifs: ['col-a', 'col-b'],
     attendu: ['col-a', 'col-b'],
+    // Dernière garde 4xx avant le frein pour ce rôle : date de collecte passée
+    // (la garde pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
+    // La lecture de l'entité de facturation, après elle, ne refuse qu'en 500.
     refusGarde: {
       corps: {
         ...PROGRAMMATION,
         collectes: [
-          { type: 'ag', date_collecte: '2099-01-15', heure_collecte: '08:00' },
+          { type: 'zd', date_collecte: '2000-01-15', heure_collecte: '08:00' },
         ],
       },
     },
@@ -914,13 +920,9 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_ajouter_collecte_evenement',
     rend: 'col-neuve',
     attendu: ['col-neuve'],
-    refusGarde: {
-      corps: {
-        type: 'ag',
-        date_collecte: '2099-01-20',
-        heure_collecte: '22:00',
-      },
-    },
+    // Dernière garde avant le frein : événement non modifiable (la garde pack
+    // AG, qui la suivait, est retirée — décision Val 2026-10-16).
+    refusGarde: { autresRpc: { f_collecte_editable: false } },
   },
   {
     nom: 'Programmation — brouillon confirmé',
@@ -933,9 +935,9 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_confirmer_programmation_brouillon',
     rend: null,
     attendu: ['col-1'],
-    refusGarde: {
-      collectes: [{ ...LIGNE, statut: 'brouillon', type: 'anti_gaspi' }],
-    },
+    // Dernière garde avant le frein : aucune collecte en brouillon (la garde
+    // pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
+    refusGarde: { collectes: [] },
   },
   {
     nom: 'Programmation — brouillon confirmé, deux collectes',
@@ -952,9 +954,9 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_confirmer_programmation_brouillon',
     rend: null,
     attendu: ['col-1', 'col-2'],
-    refusGarde: {
-      collectes: [{ ...LIGNE, statut: 'brouillon', type: 'anti_gaspi' }],
-    },
+    // Dernière garde avant le frein : aucune collecte en brouillon (la garde
+    // pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
+    refusGarde: { collectes: [] },
   },
 ];
 

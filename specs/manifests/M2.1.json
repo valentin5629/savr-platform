@@ -25,7 +25,9 @@
     "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (bloc Facture — bouton « Rattacher au pack », modale, avertissement avoir)",
     "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (GET — rattachement_pack)",
     "packages/shared/src/database.types.ts (f_collecte_rattachable_pack, rpc_rattacher_collecte_pack)",
-    "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts (historique « Mon pack AG » : annulée tardive rattachée après coup)"
+    "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts (historique « Mon pack AG » : annulée tardive rattachée après coup)",
+    "supabase/migrations/20261016173000_plateforme_annulation_tardive_pack_actif.sql",
+    "supabase/tests/annulation_tardive_pack_actif.test.sql"
   ],
   "tables_concernees": [
     "plateforme.packs_antgaspi (schéma aligné V2 : credits_initiaux, credits_consommes, type_pack, montant_total_ht, idempotency_key)",
@@ -51,7 +53,8 @@
   "tests": {
     "pgtap": [
       "supabase/tests/m2_1_packs_ag.test.sql (32 tests)",
-      "supabase/tests/rattacher_collecte_pack.test.sql (67 tests)"
+      "supabase/tests/rattacher_collecte_pack.test.sql (67 tests)",
+      "supabase/tests/annulation_tardive_pack_actif.test.sql (23 tests)"
     ],
     "vitest": [
       "packages/plateforme/tests/api/admin/packs-ag.m2-1.test.ts (9 tests API)",
@@ -140,6 +143,14 @@
       "test": "M2.1 / rattacher-pack — POST + M2.1 / rattacher-pack — GET + M2.1 / rattacher-pack — fiche + supabase/tests/rattacher_collecte_pack.test.sql",
       "statut": "implemented",
       "libelle": "Rattachement Admin après coup d'une collecte AG programmée sans pack au pack actif pris plus tard (décision Val 2026-10-16) : réalisée, clôturée ou annulée tardivement ; débit d'un crédit sur le pack actif de la seule organisation programmatrice, brouillon de facture unitaire SANS numéro retiré, facture numérotée (partie chez Pennylane, ou rejetée et revenue en brouillon avec son numéro) jamais retirée et signalée (avoir à émettre ou correction : séquence gapless), alertes « sans pack » de la collecte résolues, audit_log avec auteur et rôle (lu aussi par l'historique « Mon pack AG » pour une annulée tardive rattachée) ; admin_savr seul. Le déclencheur de débit à la réalisation lève la réservation périmée (pack réservé à l'envoi puis épuisé) : la collecte est facturée à l'unité et rattachable. CDC à patcher : fiche _Divergences/M2.1_20261016_rattacher-collecte-pack.md."
+    },
+    {
+      "id": "M2.1-annulation-tardive-pack-actif",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "supabase/migrations/20261016173000_plateforme_annulation_tardive_pack_actif.sql",
+      "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « cb : annulation tardive aboutit alors que son pack réservé est épuisé (plus de 23514) », « cb : la réservation périmée est levée », « cc : un crédit débité sur P2, le pack actif », « cd : sans réservation, un crédit débité sur P2 »",
+      "statut": "implemented",
+      "libelle": "Annulation tardive AG (moins de 4 h avant le créneau) : le crédit se débite sur le pack actif de l'organisation programmatrice, lu sous verrou, et non sur le pack réservé à l'envoi au transporteur (§05 §3 « Débit d'un crédit », action identique pour les deux déclencheurs) ; sans pack actif, aucun débit, réservation levée, alerte ag_annulee_tardive_sans_pack_actif, collecte rattachable à un pack pris plus tard. Avant ce correctif, l'annulation échouait (23514) quand le pack réservé s'était épuisé entre l'envoi et l'annulation."
     }
   ],
   "cdc_source_hash": {

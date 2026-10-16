@@ -87,12 +87,14 @@ SELECT ok(
     (TIMESTAMP '2099-06-15 20:00' AT TIME ZONE 'Europe/Paris') - INTERVAL '1 day'),
   'débit : > 4h + mandat actif → pas de débit (seul le délai compte)'
 );
--- Pas de pack attaché → alerte, PAS de débit.
+-- Aucun pack actif → alerte, PAS de débit. p_pack_id = le pack actif de
+-- l'organisation au moment de l'annulation, pas celui posé sur la collecte
+-- (20261016173000).
 SELECT ok(
   NOT plateforme.fn_est_debit_pack_attendu(
     'validee', 'annulee', 'anti_gaspi', NULL,
     DATE '2099-06-15', TIME '20:00', 'acceptee', now()),
-  'débit : pas de pack attaché → pas de débit (alerte Admin)'
+  'débit : aucun pack actif → pas de débit (alerte Admin)'
 );
 -- Type ZD → pas de débit.
 SELECT ok(

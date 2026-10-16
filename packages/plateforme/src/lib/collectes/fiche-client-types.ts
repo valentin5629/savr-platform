@@ -180,11 +180,6 @@ export interface FicheCollecteClient {
   association: AssociationFiche | null;
   rapport_rse_disponible: boolean;
   rapport_rse_regenere: boolean;
-  // Rapport de recyclage ZD : régénérable depuis la fiche par tout rôle qui le
-  // télécharge (§12 §1.2), et version en vigueur — avec le radar de comparaison
-  // au parc, ou sans (version du rapport automatique).
-  can_regenerate: boolean;
-  rapport_avec_radar: boolean;
   // Traiteur opérationnel d'une collecte AG programmée par une autre
   // organisation : l'attestation de don est émise au nom du donneur d'ordre et
   // ne lui est pas servie (att_traiteur_select — D12, arbitrage Val 2026-09-30).

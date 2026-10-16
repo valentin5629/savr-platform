@@ -18,6 +18,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
+import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
 import {
   CollecteFiltresBar,
   ecrireFiltresCollecte,
@@ -165,12 +166,14 @@ export function ListeCollectesClient({
   // Fiche collecte en pop-up (même format que l'Admin, décision Val 2026-09-29) :
   // ouverte depuis l'URL (?collecte=<id>[&edit=1]) → les liens profonds (emails,
   // dashboards, ancienne route [id] qui redirige ici) rouvrent la fiche.
-  const [fiche, setFiche] = useState<{ id: string; edit: boolean } | null>(
-    () => {
-      const id = params.get('collecte');
-      return id ? { id, edit: params.get('edit') === '1' } : null;
-    },
-  );
+  const [fiche, setFiche] = useState<{
+    id: string;
+    edit: boolean;
+    onglet?: OngletFiche;
+  } | null>(() => {
+    const id = params.get('collecte');
+    return id ? { id, edit: params.get('edit') === '1' } : null;
+  });
   const [drill, setDrill] = useState<Drill>(() => ({
     // Un seul lieu dans l'URL (lien de drill-down) ; plusieurs = simple filtre.
     lieu: valeurUnique(filtres.lieuIds) ?? '',
@@ -318,8 +321,8 @@ export function ListeCollectesClient({
       `/${espace}/collectes?${ecrireFiltresCollecte(usp, etat.filtres ?? filtres)}`,
     );
   }
-  function ouvrirFiche(id: string, edit = false) {
-    const f = { id, edit };
+  function ouvrirFiche(id: string, edit = false, onglet?: OngletFiche) {
+    const f = { id, edit, onglet };
     setFiche(f);
     majUrl({ fiche: f });
   }
@@ -413,10 +416,11 @@ export function ListeCollectesClient({
     window.open(`/api/v1/exports/collectes?${qsListe}`);
   }
 
-  // Téléchargement du rapport de la collecte réalisée (ZD = rapport recyclage,
-  // AG = attestation de don) — miroir du bouton de la fiche : URL R2 pré-signée,
-  // no-op silencieux si indisponible (embargo H+24, PDF non encore généré) ou en
-  // cas d'échec réseau.
+  // Téléchargement du « Rapport de don » d'une collecte AG réalisée — miroir du
+  // bouton de la fiche : URL R2 pré-signée, no-op silencieux si indisponible
+  // (embargo H+24, PDF non encore généré) ou en cas d'échec réseau. Le rapport de
+  // recyclage ZD se fabrique dans la fiche, où l'on choisit le radar : le picto
+  // l'ouvre sur « Bilan & documents » (décision Val 2026-10-16).
   async function telechargerRapport(collecteId: string) {
     try {
       const res = await fetch(
@@ -507,7 +511,10 @@ export function ListeCollectesClient({
         },
         onDupliquer: (c) =>
           router.push(`${ROUTES.programmer.nouveau}?from=${c.id}`),
-        onTelecharger: (c) => void telechargerRapport(c.id),
+        onTelecharger: (c) =>
+          c.type === 'zero_dechet'
+            ? ouvrirFicheRef.current(c.id, false, 'bilan')
+            : void telechargerRapport(c.id),
       }),
     // telechargerRapport ne dépend que de `api` (aucune dépendance d'état).
     [router, rows, api],
@@ -614,6 +621,7 @@ export function ListeCollectesClient({
         espace={espace}
         collecteId={fiche?.id ?? null}
         initialEditing={fiche?.edit ?? false}
+        initialOnglet={fiche?.onglet}
         onClose={fermerFiche}
       />
 

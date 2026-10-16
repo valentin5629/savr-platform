@@ -38,12 +38,18 @@
     "packages/plateforme/src/lib/pdf/rapport-radar.ts",
     "packages/plateforme/src/lib/pdf/regenerate.ts",
     "packages/plateforme/src/lib/pdf/logo-cascade.ts",
-    "packages/plateforme/src/lib/collectes/rapport-regeneration.ts",
-    "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/documents/[type]/regenerate/route.ts",
-    "packages/plateforme/src/app/api/v1/agence/collectes/[id]/documents/[type]/regenerate/route.ts",
-    "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/documents/[type]/regenerate/route.ts",
     "packages/plateforme/tests/lib/rapport-radar.m1-6.test.ts",
-    "packages/plateforme/tests/api/traiteur/regenerate-rapport.r21a.test.ts"
+    "packages/plateforme/src/lib/pdf/payload-rapport.ts",
+    "packages/plateforme/src/lib/collectes/rapport-a-la-demande.ts",
+    "packages/plateforme/src/lib/collectes/rapport-telechargement-client.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/route.ts",
+    "packages/plateforme/src/app/api/v1/agence/collectes/[id]/rapport-rse/route.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/rapport-rse/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/collectes/[id]/rapport-rse/route.ts",
+    "packages/plateforme/tests/api/traiteur/rapport-a-la-demande.m1-6.test.ts",
+    "packages/plateforme/tests/api/admin/rapport-admin.m1-6.test.ts",
+    "packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts",
+    "supabase/migrations/20261016200000_plateforme_email_rapport_disponible_a_telecharger.sql"
   ],
   "variables_env_requises": [
     "RAILWAY_PDF_URL",
@@ -65,7 +71,7 @@
   ],
   "_comment_scenarios": "scenarios[] = sous-ensemble VITEST-matchable (substring d'un titre de test vitest réel). La couverture exhaustive au grain livrable (y compris pgTAP f_next_numero_bordereau/f_upsert_alerte_admin et téléchargements M3.4) vit dans deliverables[]. R2 a réaligné ces chaînes sur les titres réels (l'ancienne formulation legacy ne matchait aucun test → check:coverage M1.6 rouge depuis l'origine).",
   "scenarios": [
-    "2 jobs enqueués (bordereau + rapport)",
+    "bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic",
     "0 ligne collecte_flux → skip, aucun job créé",
     "collecte skippée depuis > 48h → alerte Admin créée",
     "collecte déjà traitée (bordereau emis)",
@@ -82,13 +88,13 @@
     "option absente ou décochée → version sans radar",
     "tonnages — barre empilée (avec radar)",
     "colonne « Bacs / Rolls »",
-    "manager + collecte visible → 202",
+    "collecte visible, embargo levé → le PDF lui-même",
     "cross-org (collecte existe mais hors périmètre RLS) → 403",
     "convertit les FACTEURS figés en comptes",
     "radar coché → radar calculé sous l’identité du demandeur",
     "aucune mention de régénération sur le rapport",
     "cascade logo rapport §1.2 (BL-P2-19)",
-    "Logo cascade §1.2 (BL-P2-19)"
+    "BL-P2-19 : agence programmatrice → son logo dans l’emplacement client"
   ],
   "tests": {
     "vitest": [
@@ -232,16 +238,16 @@
     {
       "id": "BL-P1-RPT-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:72",
-      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (gabarit @3 : radarSvg, corpsAvecRadar) + packages/plateforme/src/lib/pdf/rapport-radar.ts (construireRadarRapport) + packages/plateforme/src/lib/collectes/benchmark-fiche.ts (chargerBenchmarkFiche, source commune à l'écran et au PDF) + packages/plateforme/src/lib/pdf/regenerate.ts (snapshot filtres_benchmark)",
-      "test": "apps/pdf-renderer/src/render.test.ts « option cochée → version avec radar », « BL-P1-RPT-01 : un flux au repère masqué sort du radar », « BL-P1-RPT-01 : moins de 3 flux comparables » ; packages/plateforme/tests/lib/rapport-radar.m1-6.test.ts « M1.6 / construireRadarRapport — mêmes chiffres que le radar de l’écran » ; packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M1.6 / régénération — version du rapport de recyclage (avec ou sans radar) »",
+      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (gabarit @3 : radarSvg, corpsAvecRadar) + packages/plateforme/src/lib/pdf/rapport-radar.ts (construireRadarRapport) + packages/plateforme/src/lib/collectes/benchmark-fiche.ts (chargerBenchmarkFiche, source commune à l'écran et au PDF) + packages/plateforme/src/lib/collectes/rapport-a-la-demande.ts (radar demandé au clic)",
+      "test": "apps/pdf-renderer/src/render.test.ts « option cochée → version avec radar », « BL-P1-RPT-01 : un flux au repère masqué sort du radar », « BL-P1-RPT-01 : moins de 3 flux comparables » ; packages/plateforme/tests/lib/rapport-radar.m1-6.test.ts « M1.6 / construireRadarRapport — mêmes chiffres que le radar de l’écran » ; packages/plateforme/tests/api/traiteur/rapport-a-la-demande.m1-6.test.ts « M1.6 / rapport fabriqué au clic — avec ou sans radar, au choix de celui qui télécharge »",
       "statut": "implemented",
-      "libelle": "Bloc benchmark kg/convive du rapport (gabarit @3) : radar base 100 (parc = polygone régulier, « Vous » = ligne), liste par flux (kg/pax, repère parc, badge d'écart coloré) et légende des filtres appliqués. Un flux au repère masqué (k-anonymat, garde portée par le SQL seul) sort du radar et s'affiche « n/d » sans cause ; sous 3 flux comparables, liste seule. Les chiffres viennent de la fonction qui alimente le radar de l'écran, appelée sous l'identité du demandeur (mêmes gardes, mêmes filtres) ; filtres figés dans rapports_rse.filtres_benchmark (NULL = rapport sans radar). Écarts au CDC tracés (divergence M1.6_20261013_rapport-recyclage-deux-versions) : le radar n'entre dans le rapport que sur choix de l'utilisateur (le rapport automatique sort sans), l'effectif du segment n'est plus imprimé, les fonctions SQL f_rapport_benchmark_zd et f_taux_recyclage_moyen_parc ne sont plus appelées."
+      "libelle": "Bloc benchmark kg/convive du rapport (gabarit @3) : radar base 100 (parc = polygone régulier, « Vous » = ligne), liste par flux (kg/pax, repère parc, badge d'écart coloré) et légende des filtres appliqués. Un flux au repère masqué (k-anonymat, garde portée par le SQL seul) sort du radar et s'affiche « n/d » sans cause ; sous 3 flux comparables, liste seule. Les chiffres viennent de la fonction qui alimente le radar de l'écran, appelée sous l'identité du demandeur (mêmes gardes, mêmes filtres) ; rien n'est stocké : chaque téléchargement fabrique son rapport, avec ou sans radar, au choix de celui qui clique (divergence M1.6_20261016_rapport-recyclage-a-la-demande). Écarts au CDC tracés (divergence M1.6_20261013_rapport-recyclage-deux-versions) : le radar n'entre dans le rapport que sur choix de l'utilisateur, l'effectif du segment n'est plus imprimé, les fonctions SQL f_rapport_benchmark_zd et f_taux_recyclage_moyen_parc ne sont plus appelées."
     },
     {
       "id": "BL-P2-18",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:66",
-      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (gabarit @3 : carbone, tonnages — barre empilée ou tableau + anneau, méthodologie) ; packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (buildEquivalences, payload @3) ; item (3) AG = attestation → voir M2.4-p2-18-ag-attestation",
-      "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-18 : carbone — évité en chiffre principal », « BL-P2-18 : tonnages — barre empilée (avec radar) », « méthodologie : taux de captation figés affichés » ; packages/plateforme/tests/lib/rapport-radar.m1-6.test.ts « M1.6 / buildEquivalences (§12 §1.2) » ; packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts « M1.6 / BatchPdfJ1 / payload du rapport @3 »",
+      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (gabarit @3 : carbone, tonnages — barre empilée ou tableau + anneau, méthodologie) ; packages/plateforme/src/lib/pdf/payload-rapport.ts (buildEquivalences, données @3 rassemblées au clic) ; item (3) AG = attestation → voir M2.4-p2-18-ag-attestation",
+      "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-18 : carbone — évité en chiffre principal », « BL-P2-18 : tonnages — barre empilée (avec radar) », « méthodologie : taux de captation figés affichés » ; packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « M1.6 / buildEquivalences (§12 §1.2) », « M1.6 / données du rapport @3 rassemblées au clic »",
       "statut": "implemented",
       "libelle": "Contenu §1.2 (gabarit @3) : (1) CO₂ évité en chiffre principal + équivalence km voiture seule (repas bœuf retirée), induit et net sur des lignes à part, net en valeur absolue, énergie primaire (équivalence foyers dans la version sans radar) ; (2) tonnages par flux : barre empilée dans la version avec radar, tableau + anneau + part valorisée / résiduelle dans la version sans radar, total « collecté » ; (3) rapport AG = attestation standalone (option a Val, cf. M2.4) ; (4) méthodologie avec taux de captation figés. Écart au CDC tracé (divergence M1.6_20261013_rapport-recyclage-deux-versions) : le bloc « comparaison à la moyenne Savr » et le bloc photos ne figurent pas dans les maquettes validées et ne sont pas rendus."
     },
@@ -264,10 +270,10 @@
     {
       "id": "BL-P1-RPT-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:96",
-      "artefact": "packages/plateforme/src/lib/collectes/rapport-regeneration.ts (repondreRegenerationRapport) + packages/plateforme/src/app/api/v1/{traiteur,agence,gestionnaire}/collectes/[id]/documents/[type]/regenerate/route.ts + packages/plateforme/src/lib/collectes/fiche-client.ts (can_regenerate, rapport_avec_radar) + packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (bouton + case « Inclure le radar ») + Admin : packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (lireVersionDemandee + filtresRadarParDefaut) + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (case « Inclure le radar », filtres du radar de l'onglet Documents)",
-      "test": "packages/plateforme/tests/api/traiteur/regenerate-rapport.r21a.test.ts « M1.6 / régénération rapport traiteur (RPT-04) », « M1.6 / régénération du rapport — choix de la version (avec ou sans radar) » ; packages/plateforme/tests/ui/fiche-collecte-client.m3-1.test.tsx « M3.1 / pop-up — version du rapport de recyclage (avec ou sans radar) » ; M3.2/fiche_popup_gestionnaire_regeneration ; M3.1/fiche_get_rapport_version_radar ; packages/plateforme/tests/api/admin/regenerate-rapport-admin.m1-6.test.ts « M1.6 / régénération Admin du rapport de recyclage — choix de la version (avec ou sans radar) », « M1.6 / GET admin/collectes/[id]/documents — version en vigueur du rapport » ; packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée si le rapport est sans radar, le bouton Régénérer envoie le choix », « M0.6 — Bloc 3 : case cochée d’emblée quand le rapport en vigueur porte le radar ; aucune case hors rapport de recyclage », « M0.6/documents_regeneration_filtres_radar »",
+      "artefact": "packages/plateforme/src/lib/collectes/rapport-a-la-demande.ts (repondreRapportClient, repondreRapportStaff, lireVersionDemandee, fabriquerRapport) + packages/plateforme/src/lib/pdf/payload-rapport.ts + packages/plateforme/src/app/api/v1/{traiteur,agence,gestionnaire,admin}/collectes/[id]/rapport-rse/route.ts + packages/plateforme/src/lib/collectes/fiche-client.ts (rapport_rse_disponible = fin d'embargo) + packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (« Télécharger » + case « Inclure le radar ») + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (même choix dans l'onglet Documents) + listes Collectes (picto du rapport ZD → fiche sur « Bilan & documents ») + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (plus de rapport fabriqué la nuit) + supabase/migrations/20261016200000_plateforme_email_rapport_disponible_a_telecharger.sql",
+      "test": "packages/plateforme/tests/api/traiteur/rapport-a-la-demande.m1-6.test.ts « M1.6 / rapport de recyclage fabriqué au clic — accès (RPT-04) », « M1.6 / rapport fabriqué au clic — avec ou sans radar, au choix de celui qui télécharge » ; packages/plateforme/tests/api/admin/rapport-admin.m1-6.test.ts « M1.6 / rapport fabriqué au clic par l’Admin — avec ou sans radar », « M1.6 / rapport ZD : les anciennes voies du fichier stocké le refusent », « M1.6 / GET admin/collectes/[id]/documents — rapport téléchargeable » ; packages/plateforme/tests/ui/fiche-collecte-client.m3-1.test.tsx « M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans radar) » ; M3.2/fiche_popup_gestionnaire_rapport ; M3.1/fiche_get_rapport_zd_disponible_sans_pdf ; packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée à l’ouverture, le bouton Télécharger envoie le choix », « M0.6/documents_regeneration_filtres_radar » ; packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts « bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic » ; packages/shared/src/seed/template-rapport-disponible.m1-6.test.ts « M1.6/email_rapport_disponible_a_telecharger — migration 20261016200000 (Val 2026-10-16) »",
       "statut": "implemented",
-      "libelle": "Régénération du rapport de recyclage depuis la fiche collecte par tout rôle qui le télécharge (traiteur manager et commercial, agence, gestionnaire de lieux — décisions Val 2026-10-02 et 2026-10-06). Le droit n'est pas retranscrit : collecte puis rapport sont lus sous l'identité du demandeur (RLS collectes, policy rr_select), embargo H+24 respecté, disponible_a jamais écrit ; cross-org 403. Le corps choisit la version du rapport (avec ou sans radar) et porte les filtres réglés dans la fiche ; le radar est calculé sous l'identité du demandeur, seule l'écriture passe en service-role. Bordereau et documents AG restent réservés à l'Admin. L'Admin choisit lui aussi la version (décision Val 2026-10-13, C4), avec les filtres réglés sur le radar de l'onglet Documents (décision Val 2026-10-16) ; sans radar à l'écran, son radar reprend les filtres figés du rapport en vigueur, sinon le segment de la collecte (type + taille, tous lieux) ; même fonction, même k-anonymat que les clients."
+      "libelle": "Rapport de recyclage ZD téléchargé au clic par tout rôle qui y a accès (traiteur manager et commercial, agence, gestionnaire de lieux, Admin ; client organisateur sans radar faute de fiche) — décision Val 2026-10-16 : plus aucun rapport n'est fabriqué automatiquement ; le batch J+1 pose la ligne rapports_rse (fin d'embargo) et envoie l'email reformulé, le PDF est fabriqué au clic avec ou sans le radar, au choix de celui qui le télécharge, et n'est pas stocké (chacun le sien). Accès client : collecte puis rapport lus sous l'identité du demandeur (RLS, rr_select), embargo H+24 jamais contourné, cross-org 403 ; données mesurées lues en service-role une fois l'accès établi ; radar calculé sous l'identité du demandeur (même k-anonymat pour l'Admin). Premier téléchargement client → rapports_rse.consulte_par_user_at. Le picto des listes ouvre la fiche sur « Bilan & documents ». (divergence M1.6_20261016_rapport-recyclage-a-la-demande)"
     },
     {
       "id": "BL-P2-21",
@@ -280,8 +286,8 @@
     {
       "id": "BL-P2-19",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:50",
-      "artefact": "packages/plateforme/src/lib/pdf/logo-cascade.ts (resolveRapportLogo, resolveRapportLogos) + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (rapportPayload.logo_client_url / logo_traiteur_url) ; cascade à un logo réutilisée par batch-pdf-sans-excedent.ts",
-      "test": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / logos du rapport de recyclage @3 — client et traiteur ; M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19) : programmateur agence → logo agence posé dans le payload rapport",
+      "artefact": "packages/plateforme/src/lib/pdf/logo-cascade.ts (resolveRapportLogo, resolveRapportLogos) + packages/plateforme/src/lib/pdf/payload-rapport.ts (logo_client_url / logo_traiteur_url, budget commun des deux logos) ; cascade à un logo réutilisée par batch-pdf-sans-excedent.ts",
+      "test": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / logos du rapport de recyclage @3 — client et traiteur ; packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « BL-P2-19 : agence programmatrice → son logo dans l’emplacement client », « deux logos lourds → le traiteur cède sa place »",
       "statut": "implemented",
       "libelle": "Logos du rapport §1.2. Gabarit @3 du rapport de recyclage : deux emplacements dans le bandeau, à côté du logo Savr — client (agence programmatrice prime → client organisateur, compte Savr sinon logo déposé à la programmation) et traiteur opérationnel ; un emplacement sans logo n'est pas rendu, le logo du traiteur ne glisse jamais dans l'emplacement client. Pas de logo de marque pour un gestionnaire programmateur. La cascade à un seul logo (… → traiteur → Savr) reste celle du rapport sans excédent AG. Écart au CDC tracé (divergence M1.6_20261013_rapport-recyclage-deux-versions) : deux emplacements au lieu d'un."
     },

@@ -7,6 +7,9 @@
 // jamais contournable.
 // Les deux documents d'une collecte AG (attestation, rapport sans excédent) sont
 // servis sous un nom de fichier « rapport-de-don-… » (§12 §1.3-bis).
+// Rapport de recyclage ZD : fabriqué au clic (décision Val 2026-10-16) et rendu
+// tel quel (application/pdf), sans radar — le client organisateur n'a pas de
+// fiche collecte où le choisir.
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -15,6 +18,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { fabriquerRapport } from '@/lib/collectes/rapport-a-la-demande.js';
 import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
 import {
   nomFichierAttestation,
@@ -25,6 +29,8 @@ import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Le rendu du rapport de recyclage prend quelques secondes.
+export const maxDuration = 60;
 
 const ORGANISATEUR_ROLES: ClientRole[] = ['client_organisateur'];
 
@@ -58,6 +64,23 @@ export async function GET(
       return NextResponse.json(
         { error: 'Rapport sous embargo H+24', disponible_a: data.disponible_a },
         { status: 425 },
+      );
+    }
+    // Ligne lue sous rr_select : l'accès est établi. Le type de la collecte, lu
+    // sous la même RLS, dit s'il s'agit du rapport de recyclage (fabriqué au
+    // clic) ou du rapport de don (fichier stocké).
+    // Collecte illisible : on sert le fichier stocké s'il existe, comme avant
+    // (même tolérance que pour le nom du fichier, ci-dessous).
+    const { data: col } = await supabase
+      .from('collectes')
+      .select('type')
+      .eq('id', data.collecte_id as string)
+      .maybeSingle();
+    if ((col as { type: string } | null)?.type === 'zero_dechet') {
+      return fabriquerRapport(
+        data.collecte_id as string,
+        { avecRadar: false },
+        'organisateur.documents.rapport',
       );
     }
     if (!data.genere_at)

@@ -36,6 +36,15 @@ vi.mock('@savr/shared/src/email/index.js', () => ({ sendEmail: vi.fn() }));
 vi.mock('@/lib/pdf/r2-client.js', () => ({
   getPresignedUrl: (...a: unknown[]) => mockPresigned(...a),
 }));
+// Rapport de recyclage ZD fabriqué au clic (décision Val 2026-10-16).
+const mockPayload = vi.fn();
+const mockPdf = vi.fn();
+vi.mock('@/lib/pdf/payload-rapport.js', () => ({
+  construirePayloadRapport: (...a: unknown[]) => mockPayload(...a),
+}));
+vi.mock('@/lib/pdf/railway-client.js', () => ({
+  generatePdf: (...a: unknown[]) => mockPdf(...a),
+}));
 
 function req(path: string, method = 'GET') {
   return new NextRequest(`http://localhost${path}`, { method });
@@ -286,7 +295,15 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
     });
   });
 
-  it('M3.2/rapport_download_gestionnaire_sous_rls — documents lus sous sa RLS, jamais en service-role', async () => {
+  it('M3.2/rapport_download_gestionnaire_sous_rls — accès établi sous sa RLS ; seules les données mesurées et la marque « consulté » passent en service-role', async () => {
+    mockPayload.mockResolvedValue({
+      ok: true,
+      payload: {
+        options: { benchmark: false },
+        bordereau: { date_collecte: '28/09/2026' },
+      },
+    });
+    mockPdf.mockResolvedValue({ pdfBuffer: Buffer.from('%PDF') });
     rls.results.collectes = {
       data: { id: 'c1', type: 'zero_dechet', statut: 'cloturee' },
       error: null,
@@ -295,19 +312,33 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
       data: {
         id: 'r1',
         disponible_a: '2020-01-01T00:00:00Z',
-        genere_at: '2020-01-01T00:00:00Z',
-        pdf_url: 'rapports/r1.pdf',
+        consulte_par_user_at: null,
       },
       error: null,
     };
-    const { GET } =
-      await import('@/app/api/v1/gestionnaire/collectes/[id]/rapport-rse/download/route.js');
-    const res = await GET(
-      req('/api/v1/gestionnaire/collectes/c1/rapport-rse/download'),
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/collectes/[id]/rapport-rse/route.js');
+    let res = await POST(
+      req('/api/v1/gestionnaire/collectes/c1/rapport-rse', 'POST'),
       params,
     );
     expect(res.status).toBe(200);
-    expect(admin.calls).toHaveLength(0);
+    expect(res.headers.get('Content-Type')).toBe('application/pdf');
+    // Accès établi sous la RLS du demandeur (collecte puis rapport).
+    expect(rls.calls).toEqual(['collectes', 'rapports_rse']);
+    // Service-role : seulement la marque « consulté » (données mesurées : mock).
+    expect(admin.calls).toEqual(['rapports_rse']);
+    expect(admin.updates.map((u) => u.table)).toEqual(['rapports_rse']);
+
+    rls.results.rapports_rse = {
+      data: { id: 'r1', disponible_a: '2999-01-01T00:00:00Z' },
+      error: null,
+    };
+    res = await POST(
+      req('/api/v1/gestionnaire/collectes/c1/rapport-rse', 'POST'),
+      params,
+    );
+    expect(res.status).toBe(425);
   });
 });
 

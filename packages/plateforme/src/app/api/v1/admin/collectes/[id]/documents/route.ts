@@ -39,7 +39,7 @@ export async function GET(
   const { data: rapport } = await supabase
     .from('rapports_rse')
     .select(
-      'id, version, disponible_a, genere_at, regenere_at, consulte_par_user_at, pdf_url, filtres_benchmark',
+      'id, version, disponible_a, genere_at, regenere_at, consulte_par_user_at, pdf_url',
     )
     .eq('collecte_id', id)
     .order('version', { ascending: false })
@@ -97,15 +97,29 @@ export async function GET(
     }),
   );
 
-  // Version en vigueur du rapport de recyclage : filtres figés = avec radar.
-  // Seul ce booléen sort (les filtres restent côté serveur).
-  const { filtres_benchmark, ...rapportSansFiltres } = (rapport ?? {}) as {
-    filtres_benchmark?: unknown;
-  } & Record<string, unknown>;
+  // Téléchargeable maintenant : fin d'embargo, et pour un document stocké (rapport
+  // « sans excédent » AG) un PDF déjà fabriqué. Le rapport de recyclage ZD, lui,
+  // se fabrique au clic (décision Val 2026-10-16) : la fin d'embargo suffit.
+  const r = rapport as {
+    disponible_a: string | null;
+    genere_at: string | null;
+  } | null;
+  const finEmbargo =
+    r?.disponible_a != null && new Date(r.disponible_a).getTime() <= Date.now();
+  const { data: collecte } = await supabase
+    .from('collectes')
+    .select('type')
+    .eq('id', id)
+    .maybeSingle();
+  const fabriqueAuClic =
+    (collecte as { type: string } | null)?.type === 'zero_dechet';
 
   return NextResponse.json({
     rapport: rapport
-      ? { ...rapportSansFiltres, avec_radar: filtres_benchmark != null }
+      ? {
+          ...rapport,
+          disponible: finEmbargo && (fabriqueAuClic || r?.genere_at != null),
+        }
       : null,
     bordereau: bordereau ?? null,
     attestation: attestation ?? null,

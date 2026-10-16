@@ -40,7 +40,7 @@ export interface RadarRapport {
     benchmark_kg_pax: number | null;
   }[];
   benchmark_legende: string;
-  /** Snapshot `rapports_rse.filtres_benchmark` (reproductibilité du PDF). */
+  /** Filtres appliqués (période comprise) : la légende du radar en est tirée. */
   filtres_benchmark: {
     periode_debut: string;
     periode_fin: string;
@@ -98,38 +98,15 @@ export function lireFiltresRadar(brut: unknown): FiltresRadar | null {
 const ouNull = (a: string[]) => (a.length ? a : null);
 
 /**
- * Filtres du radar d'une régénération par l'Admin qui n'en envoie pas (pas de
- * radar à l'écran) :
- *  1. ceux que le rapport en vigueur a figés, s'il porte déjà le radar — une
- *     régénération Admin ne défait pas la comparaison choisie par le client ;
- *  2. sinon le segment de la collecte (même type d'événement, même taille, tous
- *     lieux) : les filtres sur lesquels la fiche client s'ouvre.
- * Lève en cas de lecture en échec (jamais « Tous » par défaut d'information).
+ * Filtres du radar quand l'Admin n'en envoie pas (aucun radar affiché dans
+ * l'onglet Documents) : le segment de la collecte — même type d'événement, même
+ * taille, tous lieux —, les filtres sur lesquels la fiche s'ouvre. Lève si la
+ * lecture échoue (jamais « Tous » par défaut d'information).
  */
 export async function filtresRadarParDefaut(
   admin: SupabaseClient,
   collecteId: string,
 ): Promise<FiltresRadar> {
-  const { data: rapport, error: rapErr } = await admin
-    .from('rapports_rse')
-    .select('filtres_benchmark')
-    .eq('collecte_id', collecteId)
-    .order('version', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (rapErr) throw rapErr;
-  const figes = (rapport as { filtres_benchmark: unknown } | null)
-    ?.filtres_benchmark;
-  // Forme attendue seulement : un `{}` d'époque ne vaut pas « Tous ».
-  if (
-    figes != null &&
-    typeof figes === 'object' &&
-    Object.hasOwn(figes, 'taille_evenement_codes')
-  ) {
-    const lus = lireFiltresRadar(figes);
-    if (lus) return lus;
-  }
-
   const { data: collecte, error: colErr } = await admin
     .from('collectes')
     .select('evenements!inner ( pax, type_evenement_id )')

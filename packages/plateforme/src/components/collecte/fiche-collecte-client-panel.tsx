@@ -49,13 +49,17 @@ import { AnnulationCollecteDialog } from '@/components/collecte/annulation-colle
 // (Informations / Logistique / Bilan & documents), pied d'actions. Seules
 // changent les actions, calculées par le serveur selon le rôle.
 
-type Onglet = 'informations' | 'logistique' | 'bilan';
+export type OngletFiche = 'informations' | 'logistique' | 'bilan';
+type Onglet = OngletFiche;
 
 interface FicheCollecteClientPanelProps {
   espace: EspaceClient;
   collecteId: string;
   // Ouverture directe en édition (action « Modifier » de la liste, ?edit=1).
   initialEditing?: boolean;
+  // Onglet ouvert d'emblée — « bilan » depuis le picto de téléchargement d'un
+  // rapport de recyclage, qui se fabrique dans cet onglet (Val 2026-10-16).
+  initialOnglet?: Onglet;
   // Remonte au cadre le type + le titre accessible une fois la collecte chargée.
   onLoaded?: (info: FicheCollecteMeta) => void;
   // Miroir « une sous-modale est ouverte » : le cadre ne ferme pas la fiche sur
@@ -68,6 +72,7 @@ export function FicheCollecteClientPanel({
   espace,
   collecteId: id,
   initialEditing = false,
+  initialOnglet = 'informations',
   onLoaded,
   blockCloseRef,
 }: FicheCollecteClientPanelProps) {
@@ -76,7 +81,7 @@ export function FicheCollecteClientPanel({
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [editing, setEditing] = useState(initialEditing);
-  const [onglet, setOnglet] = useState<Onglet>('informations');
+  const [onglet, setOnglet] = useState<Onglet>(initialOnglet);
 
   // Annulation (directe ou demande) — modale + motif facultatif.
   const [annulOpen, setAnnulOpen] = useState(false);

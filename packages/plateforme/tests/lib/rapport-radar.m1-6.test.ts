@@ -1,8 +1,7 @@
 /**
  * M1.6 — Radar du rapport de recyclage (gabarit @3) : `construireRadarRapport`
  * reprend les chiffres du radar de l'écran (`chargerBenchmarkFiche`, sous
- * l'identité du demandeur) et en tire les lignes du PDF, la légende des filtres
- * et le snapshot `rapports_rse.filtres_benchmark`. + `buildEquivalences`.
+ * l'identité du demandeur) et en tire les lignes du PDF et la légende des filtres.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -15,7 +14,6 @@ import {
   construireRadarRapport,
   lireFiltresRadar,
 } from '@/lib/pdf/rapport-radar.js';
-import { buildEquivalences } from '@/lib/pdf/batch-pdf-j1.js';
 
 type Res = { data: unknown; error: unknown };
 
@@ -276,28 +274,5 @@ describe('M1.6 / lireFiltresRadar — filtres reçus de la fiche', () => {
         null,
       ]);
     }
-  });
-});
-
-describe('M1.6 / buildEquivalences (§12 §1.2)', () => {
-  const snapshot = {
-    equivalences: { km_voiture: 0.218, repas_boeuf: 7, foyer_kwh: 4500 },
-  };
-
-  it('convertit les FACTEURS figés en comptes (km voiture, foyers) ; plus de repas bœuf', () => {
-    expect(buildEquivalences(300, 9000, snapshot)).toEqual({
-      km_voiture: 1376,
-      foyer: 2,
-    });
-  });
-
-  it('retourne undefined sans CO₂ évité ou sans snapshot ; null par équivalence sans facteur', () => {
-    expect(buildEquivalences(null, 9000, snapshot)).toBeUndefined();
-    expect(buildEquivalences(300, 9000, null)).toBeUndefined();
-    expect(buildEquivalences(300, 9000, {})).toBeUndefined();
-    expect(buildEquivalences(300, null, { equivalences: {} })).toEqual({
-      km_voiture: null,
-      foyer: null,
-    });
   });
 });

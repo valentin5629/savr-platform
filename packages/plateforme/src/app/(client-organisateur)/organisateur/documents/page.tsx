@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { PageHero } from '@/components/ui/page-hero';
+import { enregistrerReponsePdf } from '@/lib/collectes/rapport-telechargement-client';
 
 interface DocItem {
   type: 'rapport' | 'bordereau' | 'attestation';
@@ -44,6 +45,14 @@ export default function ClientOrganisateurDocumentsPage() {
       const res = await fetch(
         `/api/v1/organisateur/documents/${encodeURIComponent(d.type)}/${encodeURIComponent(d.id)}/download`,
       );
+      // Rapport de recyclage ZD : fabriqué au clic, la réponse est le PDF.
+      if (
+        res.ok &&
+        res.headers.get('Content-Type')?.includes('application/pdf')
+      ) {
+        await enregistrerReponsePdf(res);
+        return;
+      }
       const json = (await res.json()) as { url?: string };
       if (res.ok && json.url) {
         window.open(json.url, '_blank', 'noopener');

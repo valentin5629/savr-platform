@@ -10,7 +10,9 @@ import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
 // Téléchargement du rapport d'UNE collecte depuis la fiche client — commun aux
 // routes /api/v1/{traiteur,agence,gestionnaire}/collectes/[id]/rapport-rse/download.
 //
-//  · ZD                         → rapport de recyclage (rapports_rse, embargo H+24)
+//  · ZD                         → plus servi ici : le rapport de recyclage se
+//                                 fabrique au clic (POST …/rapport-rse, décision
+//                                 Val 2026-10-16) → 409
 //  · AG cloturee                → attestation de don
 //  · AG realisee_sans_collecte  → rapport « Événement sans excédent alimentaire »
 //                                 (rapports_rse, disponible_a = genere_at)
@@ -48,6 +50,16 @@ export async function repondreTelechargementRapport(
     type: string;
     statut: string;
   };
+  if (collecteType === 'zero_dechet') {
+    return NextResponse.json(
+      {
+        error:
+          'Le rapport de recyclage se télécharge depuis la fiche de la collecte.',
+      },
+      { status: 409 },
+    );
+  }
+
   const servirAttestation =
     collecteType === 'anti_gaspi' &&
     collecteStatut !== 'realisee_sans_collecte';

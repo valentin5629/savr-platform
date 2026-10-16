@@ -25,7 +25,7 @@
     "plateforme.alertes_admin (via f_upsert_alerte_admin — pesee_hors_seuil, collecte_partiellement_servie)"
   ],
   "scenarios": [
-    "cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001",
+    "cycle nominal : collecte ZD cloturee → batch PDF (bordereau, rapport à télécharger) + brouillon → valider → emise FZD-2026-00001",
     "pesée < seuil_min → f_upsert_alerte_admin pesee_hors_seuil + upsert quand même",
     "2 ordres OK+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie",
     "tous camions KO → fn_agreger_terminal_collecte rejetee_par_prestataire, pas alerte partielle",
@@ -55,9 +55,9 @@
       "id": "M1.8-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
       "artefact": "supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql",
-      "test": "cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001",
+      "test": "cycle nominal : collecte ZD cloturee → batch PDF (bordereau, rapport à télécharger) + brouillon → valider → emise FZD-2026-00001",
       "statut": "implemented",
-      "libelle": "cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001"
+      "libelle": "cycle nominal : collecte ZD cloturee → batch PDF (bordereau, rapport à télécharger) + brouillon → valider → emise FZD-2026-00001"
     },
     {
       "id": "M1.8-02",

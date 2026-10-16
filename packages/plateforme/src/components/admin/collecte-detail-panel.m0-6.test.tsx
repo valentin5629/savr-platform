@@ -2073,6 +2073,7 @@ const documentsAg = {
     regenere_at: '2026-05-12T09:00:00Z',
     consulte_par_user_at: null,
     pdf_url: 'rapports/r1.pdf',
+    disponible: true,
   },
   bordereau: null,
   attestation: {
@@ -2150,12 +2151,32 @@ function installMock(opts: {
   const collecte = opts.collecte ?? baseAg;
   const documents = opts.documents ?? documentsAg;
   const audit = opts.audit ?? auditAg;
+  // Rapport ZD fabriqué au clic : le PDF reçu est « enregistré » sans navigation
+  // (jsdom n'implémente ni les URL d'objet ni le téléchargement).
+  Object.assign(URL, {
+    createObjectURL: vi.fn(() => 'blob:rapport'),
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   const fetchMock = vi.fn(
     (url: string, init?: { method?: string; body?: unknown }) => {
       const method = init?.method ?? 'GET';
       const ok = (json: unknown, status = 200) =>
         Promise.resolve({ ok: status < 400, status, json: async () => json });
 
+      // Rapport de recyclage ZD fabriqué au clic (POST /rapport-rse) : le PDF.
+      if (url.endsWith('/rapport-rse') && method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition':
+              'attachment; filename="rapport-recyclage-2026-05-10.pdf"',
+          }),
+          blob: async () => new Blob(['%PDF']),
+        });
+      }
       // Régénération PDF (POST /documents/<type>/regenerate)
       if (url.includes('/documents/') && method === 'POST') {
         return ok({ job_id: 'job-1', type: 'x' }, 202);
@@ -2257,7 +2278,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6 — Bloc 3 Documents : collecte ZD, Rapport RSE et Bordereau ZD ; Régénérer le rapport demande le rapport de recyclage',
+    'M0.6 — Bloc 3 Documents : collecte ZD, Rapport RSE fabriqué au clic (plus de Régénérer) et Bordereau ZD régénérable',
     async () => {
       const fetchMock = installMock({
         collecte: baseZd,
@@ -2272,15 +2293,31 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(screen.getByText('Bordereau ZD')).toBeInTheDocument();
       expect(screen.queryByText('Rapport de don')).not.toBeInTheDocument();
 
-      const regenBtns = screen.getAllByRole('button', { name: /Régénérer/ });
-      fireEvent.click(regenBtns[0]!);
+      // Un seul « Régénérer » : celui du bordereau.
+      expect(screen.getAllByRole('button', { name: /Régénérer/ })).toHaveLength(
+        1,
+      );
+      fireEvent.click(telechargerRapport());
       await waitFor(
         () =>
-          expect(regenerationDemandee(fetchMock, 'rapport-recyclage-zd')).toBe(
-            true,
-          ),
+          expect(corpsRapport(fetchMock)).toEqual([
+            { options: { benchmark: false } },
+          ]),
         ATTENTE_UI,
       );
+      await waitFor(
+        () => expect(URL.createObjectURL).toHaveBeenCalledTimes(1),
+        ATTENTE_UI,
+      );
+      expect(regenerationDemandee(fetchMock, 'rapport-recyclage-zd')).toBe(
+        false,
+      );
+      // Plus de téléchargement d'un fichier stocké pour le rapport ZD.
+      expect(
+        fetchMock.mock.calls.some((c) =>
+          String(c[0]).includes('/rapports-rse/'),
+        ),
+      ).toBe(false);
     },
     ATTENTE_CAS_MS,
   );
@@ -2304,9 +2341,19 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     screen.getByRole('checkbox', {
       name: 'Inclure le radar de comparaison dans le rapport',
     });
+  // Corps des rapports ZD demandés (POST …/rapport-rse), dans l'ordre.
+  const corpsRapport = (fetchMock: ReturnType<typeof installMock>): unknown[] =>
+    fetchMock.mock.calls
+      .filter((c) => c[0] === '/api/v1/admin/collectes/c1/rapport-rse')
+      .map((c) => JSON.parse((c[1] as { body: string }).body));
+  // « Télécharger » de la ligne « Rapport RSE » (fabrique le rapport ZD).
+  const telechargerRapport = () =>
+    within(
+      screen.getByText('Rapport RSE').closest('div')!.parentElement!,
+    ).getByRole('button', { name: /Télécharger/ });
 
   it(
-    'M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée si le rapport est sans radar, le bouton Régénérer envoie le choix',
+    'M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée à l’ouverture, le bouton Télécharger envoie le choix',
     async () => {
       const fetchMock = installMock({
         collecte: baseZd,
@@ -2317,12 +2364,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
 
       expect(caseRadar().getAttribute('aria-checked')).toBe('false');
-      const regenRapport = () =>
-        screen.getAllByRole('button', { name: /Régénérer/ })[0]!;
-      fireEvent.click(regenRapport());
+      fireEvent.click(telechargerRapport());
       await waitFor(
         () =>
-          expect(corpsRegeneration(fetchMock, 'rapport-recyclage-zd')).toEqual([
+          expect(corpsRapport(fetchMock)).toEqual([
             { options: { benchmark: false } },
           ]),
         ATTENTE_UI,
@@ -2330,21 +2375,25 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 
       fireEvent.click(caseRadar());
       expect(caseRadar().getAttribute('aria-checked')).toBe('true');
-      fireEvent.click(regenRapport());
+      await waitFor(
+        () => expect(telechargerRapport()).toBeEnabled(),
+        ATTENTE_UI,
+      );
+      fireEvent.click(telechargerRapport());
       await waitFor(
         () =>
-          expect(
-            corpsRegeneration(fetchMock, 'rapport-recyclage-zd')[1],
-          ).toEqual({ options: { benchmark: true } }),
+          expect(corpsRapport(fetchMock)[1]).toEqual({
+            options: { benchmark: true },
+          }),
         ATTENTE_UI,
       );
       // Aucun filtre n'est envoyé : ils sont choisis côté serveur.
-      expect(
-        JSON.stringify(corpsRegeneration(fetchMock, 'rapport-recyclage-zd')),
-      ).not.toContain('benchmark_filters');
+      expect(JSON.stringify(corpsRapport(fetchMock))).not.toContain(
+        'benchmark_filters',
+      );
 
-      // Le bordereau, lui, part sans corps.
-      fireEvent.click(screen.getAllByRole('button', { name: /Régénérer/ })[1]!);
+      // Le bordereau, lui, se régénère sans corps.
+      fireEvent.click(screen.getByRole('button', { name: /Régénérer/ }));
       await waitFor(
         () =>
           expect(corpsRegeneration(fetchMock, 'bordereau-zd')).toEqual([
@@ -2357,19 +2406,26 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6 — Bloc 3 : case cochée d’emblée quand le rapport en vigueur porte le radar ; aucune case hors rapport de recyclage',
+    'M0.6 — Bloc 3 : case décochée même si le client a déjà fait un rapport avec radar (rien n’est stocké) ; aucune case hors rapport de recyclage',
     async () => {
       installMock({
         collecte: baseZd,
         documents: {
           ...documentsZd,
-          rapport: { ...documentsZd.rapport, avec_radar: true },
+          rapport: {
+            ...documentsZd.rapport,
+            consulte_par_user_at: '2026-05-12T08:00:00Z',
+          },
         },
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
       await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
-      expect(caseRadar().getAttribute('aria-checked')).toBe('true');
+      expect(caseRadar().getAttribute('aria-checked')).toBe('false');
+      // Premier téléchargement par un client : affiché à l'équipe Savr.
+      expect(
+        screen.getByText(/^Téléchargé par le client le /),
+      ).toBeInTheDocument();
 
       // Collecte AG : pas de rapport de recyclage, donc pas de case.
       document.body.innerHTML = '';
@@ -2393,15 +2449,25 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale',
+    'M0.6 — Bloc 3 : picto « régénéré » sur le rapport de don « sans excédent » régénéré, jamais sur le rapport ZD fabriqué au clic',
     async () => {
-      installMock({ collecte: baseZd, documents: documentsZd });
+      installMock({
+        collecte: { ...baseAg, statut: 'realisee_sans_collecte' },
+        documents: { ...documentsAg, attestation: null },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
       // rapport.version = 2 + regenere_at → picto ⟳ avec title « Rapport régénéré ».
       expect(
         await screen.findByTitle(/Rapport régénéré/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
+
+      document.body.innerHTML = '';
+      installMock({ collecte: baseZd, documents: documentsZd });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      expect(screen.queryByTitle(/Rapport régénéré/)).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -2451,10 +2517,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
           within(ligneDocument(libelle)).getByText(TEXTE_DOCUMENT_A_VENIR),
         ).toBeInTheDocument();
         const boutons = boutonsDeLaLigne(libelle);
-        expect(boutons.map((b) => b.textContent)).toEqual([
-          'Télécharger',
-          'Régénérer',
-        ]);
+        // Rapport ZD fabriqué au clic : pas de « Régénérer » (Val 2026-10-16).
+        expect(boutons.map((b) => b.textContent)).toEqual(
+          libelle === 'Rapport RSE'
+            ? ['Télécharger']
+            : ['Télécharger', 'Régénérer'],
+        );
         for (const bouton of boutons) expect(bouton).toBeDisabled();
       }
       expect(screen.getAllByText(TEXTE_DOCUMENT_A_VENIR)).toHaveLength(
@@ -2516,6 +2584,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
             regenere_at: null,
             consulte_par_user_at: null,
             pdf_url: 'rapports/r-sans.pdf',
+            disponible: true,
           },
         },
       });
@@ -3323,7 +3392,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6/documents_regeneration_filtres_radar — case cochée : Régénérer envoie les filtres réglés sur le radar de l’onglet, un filtre changé part avec la demande suivante',
+    'M0.6/documents_regeneration_filtres_radar — case cochée : Télécharger envoie les filtres réglés sur le radar de l’onglet, un filtre changé part avec la demande suivante',
     async () => {
       const fetchMock = installMock({
         collecte: zdCloturee,
@@ -3333,17 +3402,17 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await ouvrirDocumentsAvecRadar(fetchMock);
       expect(
         screen.getByText(
-          'Le radar du rapport reprend les filtres de comparaison réglés ci-dessus. Régénérez le rapport pour appliquer votre choix.',
+          'Le radar du rapport reprend les filtres de comparaison réglés ci-dessus.',
         ),
       ).toBeInTheDocument();
 
       fireEvent.click(caseRadar());
-      const regenRapport = () =>
-        screen.getAllByRole('button', { name: /Régénérer/ })[0]!;
+      const regenRapport = telechargerRapport;
+      await waitFor(() => expect(regenRapport()).toBeEnabled(), ATTENTE_UI);
       fireEvent.click(regenRapport());
       await waitFor(
         () =>
-          expect(corpsRegeneration(fetchMock, 'rapport-recyclage-zd')).toEqual([
+          expect(corpsRapport(fetchMock)).toEqual([
             {
               options: { benchmark: true },
               benchmark_filters: {
@@ -3356,22 +3425,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         ATTENTE_UI,
       );
 
-      // La case reprend la version du rapport relu (ici toujours sans radar) :
-      // l'Admin la recoche, choisit d'autres filtres, la demande suivante les porte.
-      await waitFor(
-        () => expect(caseRadar().getAttribute('aria-checked')).toBe('false'),
-        ATTENTE_UI,
-      );
-      fireEvent.click(caseRadar());
+      // La case reste cochée (rien n'est stocké) : l'Admin choisit d'autres
+      // filtres, la demande suivante les porte.
+      expect(caseRadar().getAttribute('aria-checked')).toBe('true');
       fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
       fireEvent.click(screen.getByRole('checkbox', { name: 'M (500-749)' }));
       await waitFor(() => expect(regenRapport()).toBeEnabled(), ATTENTE_UI);
       fireEvent.click(regenRapport());
       await waitFor(
         () =>
-          expect(
-            corpsRegeneration(fetchMock, 'rapport-recyclage-zd')[1],
-          ).toMatchObject({
+          expect(corpsRapport(fetchMock)[1]).toMatchObject({
             options: { benchmark: true },
             benchmark_filters: { taille_evenement_codes: ['L', 'M'] },
           }),
@@ -3379,17 +3442,15 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       );
 
       // Case décochée : version sans radar, aucun filtre envoyé.
-      await waitFor(
-        () => expect(caseRadar().getAttribute('aria-checked')).toBe('false'),
-        ATTENTE_UI,
-      );
+      fireEvent.click(caseRadar());
+      expect(caseRadar().getAttribute('aria-checked')).toBe('false');
       await waitFor(() => expect(regenRapport()).toBeEnabled(), ATTENTE_UI);
       fireEvent.click(regenRapport());
       await waitFor(
         () =>
-          expect(
-            corpsRegeneration(fetchMock, 'rapport-recyclage-zd')[2],
-          ).toEqual({ options: { benchmark: false } }),
+          expect(corpsRapport(fetchMock)[2]).toEqual({
+            options: { benchmark: false },
+          }),
         ATTENTE_UI,
       );
     },
@@ -3397,7 +3458,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6/documents_regeneration_radar_retire — statut forcé hors clôture après réglage du radar : la régénération avec radar part sans benchmark_filters (repli serveur annoncé à l’écran)',
+    'M0.6/documents_regeneration_radar_retire — statut forcé hors clôture après réglage du radar : le rapport avec radar part sans benchmark_filters (repli serveur annoncé à l’écran)',
     async () => {
       const collecte = { ...zdCloturee };
       const fetchMock = installMock({ collecte, documents: documentsZd });
@@ -3427,14 +3488,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await screen.findByTestId('bandeau-bilan-attente', {}, ATTENTE_UI);
       expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
       expect(
-        screen.getByText(/ou avec les filtres déjà choisis par le client/),
+        screen.getByText(
+          'Comparaison aux événements de même type et de même taille.',
+        ),
       ).toBeInTheDocument();
 
       fireEvent.click(caseRadar());
-      fireEvent.click(screen.getAllByRole('button', { name: /Régénérer/ })[0]!);
+      fireEvent.click(telechargerRapport());
       await waitFor(
         () =>
-          expect(corpsRegeneration(fetchMock, 'rapport-recyclage-zd')).toEqual([
+          expect(corpsRapport(fetchMock)).toEqual([
             { options: { benchmark: true } },
           ]),
         ATTENTE_UI,
@@ -3444,7 +3507,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6/documents_radar_retour_onglet — retour sur l’onglet Documents : la barre reprend les filtres réglés, la régénération les porte',
+    'M0.6/documents_radar_retour_onglet — retour sur l’onglet Documents : la barre reprend les filtres réglés, le rapport les porte',
     async () => {
       const fetchMock = installMock({
         collecte: zdCloturee,
@@ -3468,12 +3531,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await ouvrirOnglet('Documents');
       await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
       fireEvent.click(caseRadar());
-      fireEvent.click(screen.getAllByRole('button', { name: /Régénérer/ })[0]!);
+      fireEvent.click(telechargerRapport());
       await waitFor(
         () =>
-          expect(
-            corpsRegeneration(fetchMock, 'rapport-recyclage-zd')[0],
-          ).toMatchObject({
+          expect(corpsRapport(fetchMock)[0]).toMatchObject({
             options: { benchmark: true },
             benchmark_filters: { taille_evenement_codes: ['L', 'M'] },
           }),

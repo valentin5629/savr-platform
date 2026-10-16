@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
 import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { instantParis, jourParis } from '@savr/shared/src/temps/index.js';
+import { TelephoneLien } from '@/components/collecte/fiche-blocs';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
@@ -32,6 +33,10 @@ interface SousBlocCollecteProps {
   className?: string;
 }
 
+// Ligne de l'équipe Savr à appeler pour une collecte à moins de 24 h.
+const TELEPHONE_SAVR = '07 61 91 29 97';
+const DELAI_APPEL_MS = 24 * 3600 * 1000;
+
 // Cadre du sous-bloc (pas un badge) : ZD vert / AG navy — hors
 // `VARIANT_TYPE_COLLECTE`, suit l'arbitrage Q1 (couleur du type de collecte).
 const TYPE_COLORS = {
@@ -48,10 +53,16 @@ export function SousBlocCollecte({
 }: SousBlocCollecteProps) {
   const today = jourParis();
 
-  const twoDaysFromNow = new Date();
-  twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
-  const isLessThan48h =
-    data.date_collecte !== '' && data.date_collecte < jourParis(twoDaysFromNow);
+  // Moins de 24 h avant la collecte (décision Val 2026-10-16, ex-48 h) : écart
+  // entre maintenant et la date + heure saisies, en heure de Paris. Tant que
+  // l'heure n'est pas choisie, seule une collecte le jour même est sûre d'y être.
+  const moinsDe24h =
+    data.date_collecte !== '' &&
+    (data.heure_collecte !== ''
+      ? instantParis(data.date_collecte, data.heure_collecte).getTime() -
+          Date.now() <
+        DELAI_APPEL_MS
+      : data.date_collecte <= today);
 
   return (
     <div
@@ -93,10 +104,14 @@ export function SousBlocCollecte({
             onChange={(v) => onChange({ ...data, date_collecte: v })}
             required
           />
-          {isLessThan48h && data.date_collecte && (
-            <p className="mt-1 flex items-center gap-1 text-xs text-savr-warning font-medium">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Programmation à moins de 48h — disponibilité non garantie.
+          {moinsDe24h && (
+            <p className="mt-1 flex items-start gap-1 text-xs text-savr-warning font-medium">
+              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+              <span>
+                Programmation à moins de 24h — Nous vous demandons de nous
+                appeler pour valider la faisabilité —{' '}
+                <TelephoneLien telephone={TELEPHONE_SAVR} />
+              </span>
             </p>
           )}
         </FormField>

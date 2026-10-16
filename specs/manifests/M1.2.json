@@ -242,6 +242,22 @@
       "test": "M1.2 / Programmation AG — pack actif ou non > ag_sans_pack_actif + M1.2 — confirmation d’un brouillon (mode admin support) > un brouillon AG se confirme sans lire aucun pack + M1.2 — confirmation de programmation : action « Ajouter une collecte » (mode admin support) > une collecte AG s’ajoute sans lire aucun pack",
       "statut": "implemented",
       "libelle": "Aucune route de programmation ne refuse une collecte AG faute de pack, ni ne lit de pack : création (POST evenements), ajout d'une collecte (POST evenements/[id]/collectes), confirmation d'un brouillon (PATCH evenements/[id]/confirmer). Sans pack actif, la collecte est facturée à l'unité (calculer_tarif_ag). Décision Val 2026-10-16 ; CDC à patcher : _Divergences/M2.1_20261016_pack-ag-non-bloquant.md."
+    },
+    {
+      "id": "M1.2-formulaire-simplifie",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:108",
+      "artefact": "packages/plateforme/src/components/programmation/lieu-champs-editables.tsx + packages/plateforme/src/components/programmation/lieu-manuel-form.tsx + packages/plateforme/src/components/programmation/sous-bloc-collecte.tsx + packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
+      "test": "M1.2 / formulaire_simplifie — étapes 2 et 3 + M1.2 / PROG-01 lieu override (front) > M1.2 / formulaire_simplifie — stationnement, accès office, véhicule max, contraintes horaires et flux acceptés ne sont plus éditables + M0.6 — quick-add lieu manuel (BL-P1-BOA-03) > M0.6 / formulaire_simplifie — ne propose plus véhicule max, stationnement ni accès office + M0.6 — quick-add lieu manuel (BL-P1-BOA-03) > M0.6 / formulaire_simplifie — envoie les 4 champs du lieu, sans les champs retirés + M1.2 / formulaire_simplifie — alerte programmation à moins de 24 h",
+      "statut": "implemented",
+      "libelle": "Formulaire de programmation allégé, tous rôles (décision Val 2026-10-16) : (1) stationnement, accès office, type de véhicule max, contraintes horaires et flux acceptés retirés des champs du lieu de l'étape 2 et de la fenêtre « Ajouter un lieu manuellement » — ils restent au référentiel lieu, renseignés par l'équipe Savr, et ne sont plus surchargés par collecte ; (2) alerte « Programmation à moins de 24h — Nous vous demandons de nous appeler pour valider la faisabilité — 07 61 91 29 97 » (numéro cliquable) à la place de l'alerte 48 h, calculée sur la date et l'heure de collecte en heure de Paris ; (3) étape 3 renommée « Date et heure de collecte », récapitulatif retiré. CDC à patcher : fiche _Divergences/ M1.2_20261016_formulaire-programmation-simplifie.md."
+    },
+    {
+      "id": "M1.2-confirmation-recap-modifier",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:421",
+      "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (GET : nom_client_organisateur + téléphones des contacts)",
+      "test": "M1.2 / formulaire_simplifie — récapitulatif de l’écran de confirmation + M1.2 / formulaire_simplifie — bouton « Modifier la collecte »",
+      "statut": "implemented",
+      "libelle": "Écran « Votre collecte est programmée » (décision Val 2026-10-16) : récapitulatif client, lieu, convives, date et heure (une ligne par type si deux collectes), contact principal et contact de secours avec téléphone cliquable ; un bouton « Modifier la collecte » par collecte, qui ouvre sa fiche en édition dans la liste Collectes de l'espace du rôle (traiteur, agence, gestionnaire : ?collecte=<id>&edit=1 ; staff : fiche collecte Admin) ; aucun bouton si le rôle est illisible. Le reste de l'écran est inchangé (badge de statut, rappel de l'email, 3 actions)."
     }
   ],
   "cdc_source_hash": {

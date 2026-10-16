@@ -56,10 +56,12 @@ import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
 import { libelleCompletTypeCollecte } from '@/lib/libelles/type-collecte';
 
+const ETAPE_DATE_HEURE = 'Date et heure de collecte';
+
 const STEPS = [
   { label: 'Événement' },
   { label: 'Lieu & contacts' },
-  { label: 'Collecte(s)' },
+  { label: ETAPE_DATE_HEURE },
 ];
 
 interface TypeEvenement {
@@ -903,10 +905,11 @@ export default function NouveauProgrammationPage() {
         </Card>
       )}
 
-      {/* ── Étape 3 : Collectes + récapitulatif ── */}
+      {/* ── Étape 3 : Date et heure de collecte (sans récapitulatif, décision
+          Val 2026-10-16 : il est montré après confirmation) ── */}
       {step === 2 && (
         <Card padding="lg" className="space-y-5">
-          <Heading level={2}>Détails de la collecte</Heading>
+          <Heading level={2}>{ETAPE_DATE_HEURE}</Heading>
 
           {collectes.map((c, i) => (
             <SousBlocCollecte
@@ -921,27 +924,6 @@ export default function NouveauProgrammationPage() {
               pack={c.type === 'ag' ? packAg : undefined}
             />
           ))}
-
-          {/* Récapitulatif */}
-          <div className="rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 p-4 space-y-2 text-sm">
-            <Heading level={3} size="inherit">
-              Récapitulatif
-            </Heading>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-savr-neutral-700">
-              <dt className="text-savr-neutral-500">Client</dt>
-              <dd>{nomClient}</dd>
-              <dt className="text-savr-neutral-500">Convives</dt>
-              <dd>{pax}</dd>
-              <dt className="text-savr-neutral-500">Lieu</dt>
-              <dd>
-                {lieu?.nom} — {lieu?.ville}
-              </dd>
-              <dt className="text-savr-neutral-500">Contact principal</dt>
-              <dd>
-                {contactPrincipal?.prenom} {contactPrincipal?.nom}
-              </dd>
-            </dl>
-          </div>
 
           <Text variant="hint">
             Toute collecte annulée à moins de 4h de l'heure de collecte donne

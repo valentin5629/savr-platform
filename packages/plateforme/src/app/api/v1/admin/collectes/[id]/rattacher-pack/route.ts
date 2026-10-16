@@ -6,9 +6,10 @@ import { serverError, businessError } from '@/lib/api-helpers.js';
 // POST /api/v1/admin/collectes/:id/rattacher-pack
 // Rattache après coup une collecte Anti-Gaspi programmée sans pack au pack actif
 // de son organisation, pris plus tard (décision Val 2026-10-16) : un crédit est
-// décompté, la ligne de la collecte quitte tout brouillon de facture unitaire.
-// Une facture déjà partie chez Pennylane est laissée telle quelle : la réponse
-// porte `facture_envoyee: true`, l'Admin émet l'avoir.
+// décompté, la ligne de la collecte quitte tout brouillon de facture unitaire
+// sans numéro. Une facture numérotée (partie chez Pennylane, ou rejetée et
+// revenue en brouillon avec son numéro) est laissée telle quelle : la réponse
+// porte `facture_numerotee: true`, l'Admin émet l'avoir ou la corrige.
 // Réservé à admin_savr : l'action retire une ligne de facture, ce que la matrice
 // §09 refuse à ops_savr (« Éditer ligne / montant : Non »).
 export async function POST(

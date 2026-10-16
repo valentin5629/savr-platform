@@ -9,7 +9,13 @@
  * (agence/gestionnaire l'avaient déjà, l'admin non).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
@@ -202,6 +208,8 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
           credits_restants: 0,
         },
       };
+      // Organisations dont la réponse pack a été lue par le formulaire.
+      const packsLus: string[] = [];
       const fetchMock = installFetch();
       const routeur = fetchMock.getMockImplementation()!;
       fetchMock.mockImplementation((input: RequestInfo | URL) => {
@@ -222,7 +230,13 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
           const org = new URL(url, 'http://localhost').searchParams.get(
             'organisation_id',
           );
-          return json(PACKS[org ?? ''] ?? { pack_actif: false });
+          return Promise.resolve({
+            ok: true,
+            json: () => {
+              packsLus.push(org ?? '');
+              return Promise.resolve(PACKS[org ?? ''] ?? { pack_actif: false });
+            },
+          } as Response);
         }
         return routeur(input);
       });
@@ -255,11 +269,13 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       ).toBeInTheDocument();
 
       // Pack actif avec crédits : relu au changement de traiteur, rien à dire.
+      // L'état est remis à zéro dès le changement : on attend que la réponse de
+      // Potel soit lue PUIS appliquée (une tâche plus loin), sinon l'absence du
+      // message serait prouvée avant même d'avoir lu son pack.
       await choisir('Potel');
-      await waitFor(
-        () => expect(screen.queryByText(INFO)).not.toBeInTheDocument(),
-        ATTENTE_UI,
-      );
+      await waitFor(() => expect(packsLus).toContain('org-potel'), ATTENTE_UI);
+      await act(() => new Promise((fin) => setTimeout(fin, 0)));
+      expect(screen.queryByText(INFO)).not.toBeInTheDocument();
       expect(
         fetchMock.mock.calls
           .map(([u]) => String(u))

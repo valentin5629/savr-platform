@@ -132,7 +132,13 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
     mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
 
     const { GET } = await import('@/app/api/v1/programmation/pack-ag/route.js');
-    await GET(makeReq('GET', '/api/v1/programmation/pack-ag'));
+    // Un rôle client qui passe une autre organisation en paramètre : ignoré.
+    await GET(
+      makeReq(
+        'GET',
+        '/api/v1/programmation/pack-ag?organisation_id=org-victime',
+      ),
+    );
 
     // Vérifier que eq('organisation_id', ...) a été appelé avec l'org du caller
     const eqCalls = mockSupabaseChain.eq.mock.calls as Array<[string, string]>;
@@ -142,8 +148,8 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
   });
 
   it('pack_ag_credits_zero — 200 avec pack_actif=true même si credits_restants=0 (informationnel)', async () => {
-    // La route ne bloque pas selon credits=0 — c'est la route evenements/route.ts qui bloque.
-    // pack-ag retourne l'état brut du pack.
+    // pack-ag retourne l'état brut du pack ; le formulaire en déduit « facturée à
+    // l'unité » (aucune route ne bloque plus faute de crédit — décision Val 2026-10-16).
     setupAuth('traiteur_manager', 'org-traiteur-3');
     mockMaybeSingle.mockResolvedValueOnce({
       data: {
@@ -164,6 +170,27 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.pack_actif).toBe(true);
     expect(json.credits_restants).toBe(0);
+  });
+
+  it('pack_ag_staff — lit l’organisation passée en paramètre ; sans paramètre, 422 sans lecture', async () => {
+    setupAuth('admin_savr', 'org-savr');
+    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    const { GET } = await import('@/app/api/v1/programmation/pack-ag/route.js');
+    const avec = await GET(
+      makeReq('GET', '/api/v1/programmation/pack-ag?organisation_id=org-cible'),
+    );
+    expect(avec.status).toBe(200);
+    const eqCalls = mockSupabaseChain.eq.mock.calls as Array<[string, string]>;
+    expect(eqCalls.find(([col]) => col === 'organisation_id')?.[1]).toBe(
+      'org-cible',
+    );
+
+    // Organisation inconnue : refusée plutôt que rendue comme « sans pack ».
+    mockSupabaseChain.from.mockClear();
+    const sans = await GET(makeReq('GET', '/api/v1/programmation/pack-ag'));
+    expect(sans.status).toBe(422);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
   });
 });
 

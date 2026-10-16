@@ -1,13 +1,14 @@
 'use client';
 
 import { AlertBar } from '@/components/ui/alert-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import {
   SousBlocCollecte,
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
+import { usePackAg } from '@/components/programmation/use-pack-ag';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { PageHeader } from '@/components/ui/page-header';
 import { FormActions } from '@/components/ui/form-actions';
@@ -29,6 +30,30 @@ export default function AjouterCollectePage() {
   const [error, setError] = useState<string | null>(null);
   const [agDoublonConfirm, setAgDoublonConfirm] = useState(false);
   const [agDoublonWarning, setAgDoublonWarning] = useState(false);
+
+  // Pack AG de l'organisation de l'événement, celle qui paie : sans pack actif,
+  // la collecte AG ajoutée sera facturée à l'unité, information affichée dans le
+  // sous-bloc (décision Val 2026-10-16). Le paramètre `organisation_id` n'est
+  // honoré que pour le staff ; un rôle client lit toujours son propre pack, qui
+  // est celui de l'événement (la route d'ajout l'impose).
+  const [orgEvenement, setOrgEvenement] = useState<string | null>(null);
+  useEffect(() => {
+    let ignore = false;
+    fetch(
+      `/api/v1/programmation/evenements/${encodeURIComponent(evenement_id)}`,
+    )
+      .then((res) =>
+        res.ok ? (res.json() as Promise<{ organisation_id?: string }>) : null,
+      )
+      .then((evt) => {
+        if (!ignore) setOrgEvenement(evt?.organisation_id ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      ignore = true;
+    };
+  }, [evenement_id]);
+  const pack = usePackAg(type === 'ag' ? orgEvenement : null);
 
   const handleTypeChange = (t: 'zd' | 'ag') => {
     setType(t);
@@ -100,6 +125,7 @@ export default function AjouterCollectePage() {
         type={type}
         data={{ ...data, type }}
         onChange={(updated) => setData(updated)}
+        pack={type === 'ag' ? pack : undefined}
       />
 
       {agDoublonWarning && (

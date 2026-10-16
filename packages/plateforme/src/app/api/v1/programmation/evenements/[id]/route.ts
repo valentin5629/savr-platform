@@ -53,7 +53,7 @@ export async function GET(
   const query = supabase
     .from('evenements')
     .select(
-      'id, nom_evenement, pax, contact_principal_nom, lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte)',
+      'id, organisation_id, nom_evenement, pax, contact_principal_nom, lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte)',
     )
     .eq('id', evenementId);
 

@@ -44,6 +44,11 @@ import {
   SousBlocCollecte,
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
+import {
+  usePackAg,
+  factureeAlUnite,
+  PACK_PROPRE,
+} from '@/components/programmation/use-pack-ag';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -70,13 +75,6 @@ interface TraiteurOption {
   nom: string;
   raison_sociale?: string;
   siret?: string | null;
-}
-
-interface PackInfo {
-  pack_actif: boolean;
-  credits_initiaux?: number;
-  credits_consommes?: number;
-  credits_restants?: number;
 }
 
 // Source de pré-remplissage « Dupliquer » (?from=) — sous-ensemble du GET
@@ -166,7 +164,6 @@ export default function NouveauProgrammationPage() {
   // Logo Savr vert dès qu'on sélectionne le ZD ; retour à l'orange sinon.
   useSignalZdSelection(typesCollecte.zd);
   const [referenceAffaire, setReferenceAffaire] = useState('');
-  const [packAg, setPackAg] = useState<PackInfo | null>(null);
 
   // Étape 2
   const [lieu, setLieu] = useState<LieuOption | null>(null);
@@ -337,35 +334,20 @@ export default function NouveauProgrammationPage() {
 
   // Pack AG de l'organisation programmatrice : informatif, jamais bloquant —
   // sans pack actif, la collecte AG est facturée à l'unité (décision Val
-  // 2026-10-16). Admin support : le pack ciblé est celui du traiteur choisi (admin
-  // n'a pas d'organisation propre), relu à chaque changement de traiteur ; tant
-  // qu'aucun n'est choisi, le pack est inconnu et rien n'est affiché.
-  useEffect(() => {
-    // Rien d'affiché pendant la lecture : le pack du traiteur précédent ne doit
-    // pas rester à l'écran le temps de lire celui du nouveau.
-    setPackAg(null);
-    if (!typesCollecte.ag || (isAdmin && !traiteurOperationnelId)) return;
-    let ignore = false;
-    const url = isAdmin
-      ? `/api/v1/programmation/pack-ag?organisation_id=${traiteurOperationnelId}`
-      : '/api/v1/programmation/pack-ag';
-    fetch(url)
-      .then((res) => (res.ok ? (res.json() as Promise<PackInfo>) : null))
-      .then((data) => {
-        if (!ignore) setPackAg(data);
-      })
-      .catch(() => {
-        if (!ignore) setPackAg(null);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [typesCollecte.ag, isAdmin, traiteurOperationnelId]);
-
+  // 2026-10-16). Programmation de support : le pack est celui du traiteur choisi
+  // (le staff programme pour son compte), relu à chaque changement de traiteur ;
+  // tant qu'aucun n'est choisi, ou que le rôle n'est pas encore lu, il est
+  // inconnu et rien n'est affiché. Agence et gestionnaire lisent leur propre
+  // pack, une fois : changer de traiteur opérant ne change pas de payeur.
+  const packAg = usePackAg(
+    !typesCollecte.ag || role === ''
+      ? null
+      : isAdmin
+        ? traiteurOperationnelId || null
+        : PACK_PROPRE,
+  );
   const agSansPack =
-    typesCollecte.ag &&
-    packAg !== null &&
-    !(packAg.pack_actif && (packAg.credits_restants ?? 0) > 0);
+    typesCollecte.ag && packAg !== null && factureeAlUnite(packAg);
 
   const step1Valid =
     nomClient.trim() !== '' &&
@@ -582,20 +564,24 @@ export default function NouveauProgrammationPage() {
                   id="type-ag"
                   className="mt-0.5"
                   checked={typesCollecte.ag}
+                  aria-describedby={agSansPack ? 'type-ag-info' : undefined}
                   onCheckedChange={(c) =>
                     setTypesCollecte((p) => ({ ...p, ag: c === true }))
                   }
                 />
-                <Label variant="choice" htmlFor="type-ag">
-                  <span className="font-medium">
-                    {libelleCompletTypeCollecte('anti_gaspi')}
-                  </span>
-                  <span className="text-savr-neutral-500 ml-1">
-                    — don à association
-                  </span>
+                <div>
+                  <Label variant="choice" htmlFor="type-ag">
+                    <span className="font-medium">
+                      {libelleCompletTypeCollecte('anti_gaspi')}
+                    </span>
+                    <span className="text-savr-neutral-500 ml-1">
+                      — don à association
+                    </span>
+                  </Label>
+                  {/* Hors de l'étiquette : ni dans le nom de la case, ni cliquable. */}
                   {agSansPack && (
                     <Text
-                      as="span"
+                      id="type-ag-info"
                       variant="hint"
                       tone="inherit"
                       role="status"
@@ -609,7 +595,7 @@ export default function NouveauProgrammationPage() {
                       facturée à l&apos;unité.
                     </Text>
                   )}
-                </Label>
+                </div>
               </div>
             </div>
           </div>

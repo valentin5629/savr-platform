@@ -52,7 +52,8 @@ export async function PATCH(
   // Périmètre d'ÉCRITURE — miroir des policies `evt_commercial_update` /
   // `col_delete_brouillon` (§09) : `traiteur_commercial` = ses propres créations.
   // La confirmation est une écriture à effets réels (transition brouillon→programmee,
-  // émission E1 vers le TMS, débit d'un crédit pack AG) : sans cette garde, un
+  // émission E1 vers le TMS ; le crédit pack AG, lui, n'est débité qu'à la
+  // réalisation) : sans cette garde, un
   // commercial confirmerait — et dispatcherait/facturerait — le brouillon d'un
   // collègue. Miroir strict du DELETE et du PATCH d'édition ; RLS ne rattrape pas
   // (route sous service-role).

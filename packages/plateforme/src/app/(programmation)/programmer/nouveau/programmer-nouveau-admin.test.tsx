@@ -296,6 +296,108 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
   );
 
   it(
+    'admin : une réponse arrivée après coup (traiteur précédent) ou en erreur n’affiche rien',
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: { access_token: makeToken({ user_role: 'admin_savr' }) },
+        },
+      });
+      // La réponse de Kaspia (sans pack) est retenue jusqu'à ce qu'on la libère ;
+      // celle de Potel (pack avec crédits) part tout de suite ; Dalloyau répond 500.
+      let libererKaspia: () => void = () => undefined;
+      const lus: string[] = [];
+      const fetchMock = installFetch();
+      const routeur = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/programmation/organisations/traiteurs')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                { id: 'org-kaspia', nom: 'Kaspia', siret: null },
+                { id: 'org-potel', nom: 'Potel', siret: null },
+                { id: 'org-dalloyau', nom: 'Dalloyau', siret: null },
+              ]),
+          } as Response);
+        }
+        if (url.includes('organisation_id=org-kaspia')) {
+          return new Promise<Response>((fin) => {
+            libererKaspia = () => {
+              lus.push('org-kaspia');
+              fin({
+                ok: true,
+                json: () => Promise.resolve({ pack_actif: false }),
+              } as Response);
+            };
+          });
+        }
+        if (url.includes('organisation_id=org-potel')) {
+          lus.push('org-potel');
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                pack_actif: true,
+                credits_initiaux: 10,
+                credits_restants: 3,
+              }),
+          } as Response);
+        }
+        if (url.includes('organisation_id=org-dalloyau')) {
+          lus.push('org-dalloyau');
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: () => Promise.resolve({ error: 'Erreur interne' }),
+          } as Response);
+        }
+        return routeur(input);
+      });
+      const INFO =
+        "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.";
+      const choisir = async (nom: string) => {
+        fireEvent.click(
+          screen.getByRole('combobox', {
+            name: /Traiteur \(pour le compte de\)/,
+          }),
+        );
+        fireEvent.click(
+          await screen.findByRole('option', { name: nom }, ATTENTE_UI),
+        );
+      };
+      const laisserPasser = () =>
+        act(() => new Promise((fin) => setTimeout(fin, 0)));
+
+      render(<NouveauProgrammationPage />);
+      await screen.findByText(
+        'Traiteur (pour le compte de)',
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.click(screen.getByRole('checkbox', { name: /Anti-Gaspi/i }));
+
+      await choisir('Kaspia');
+      await choisir('Potel');
+      await waitFor(() => expect(lus).toContain('org-potel'), ATTENTE_UI);
+      await laisserPasser();
+      // La réponse « sans pack » de Kaspia arrive maintenant : elle est ignorée.
+      libererKaspia();
+      await laisserPasser();
+      expect(lus).toContain('org-kaspia');
+      expect(screen.queryByText(INFO)).not.toBeInTheDocument();
+
+      // Réponse en erreur : le pack est inconnu, rien n'est affiché.
+      await choisir('Dalloyau');
+      await waitFor(() => expect(lus).toContain('org-dalloyau'), ATTENTE_UI);
+      await laisserPasser();
+      expect(screen.queryByText(INFO)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'un traiteur (rôle non-programmateur-tiers) ne voit PAS le sélecteur',
     async () => {
       mockGetSession.mockResolvedValue({

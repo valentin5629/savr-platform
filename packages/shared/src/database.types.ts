@@ -5412,7 +5412,7 @@ export type Database = {
         Returns: Json
       }
       rpc_rattacher_collecte_pack: {
-        Args: { p_collecte_id: string; p_user_id: string }
+        Args: { p_collecte_id: string; p_role: string; p_user_id: string }
         Returns: Json
       }
       rpc_valider_attribution_ag: {

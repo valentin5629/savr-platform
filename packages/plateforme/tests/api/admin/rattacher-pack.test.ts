@@ -120,6 +120,7 @@ describe('M2.1 / rattacher-pack — POST admin/collectes/[id]/rattacher-pack', (
     expect(mockRpc).toHaveBeenCalledWith('rpc_rattacher_collecte_pack', {
       p_collecte_id: 'col-1',
       p_user_id: 'admin-1',
+      p_role: 'admin_savr',
     });
   });
 
@@ -231,6 +232,22 @@ describe('M2.1 / rattacher-pack — GET admin/collectes/[id] : rattachement_pack
     const res = await getDetail();
 
     expect((await res.json()).rattachement_pack).toEqual({ pack_actif: null });
+  });
+
+  it('ops_savr : null, la fonction n’est pas appelée (rattachement réservé à admin_savr)', async () => {
+    setupAuth('ops_savr');
+    reponses.set('plateforme.collectes', {
+      data: collecteAgSansPack,
+      error: null,
+    });
+
+    const res = await getDetail();
+
+    expect((await res.json()).rattachement_pack).toBeNull();
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'f_collecte_rattachable_pack',
+      expect.anything(),
+    );
   });
 
   it('AG sans pack non rattachable (ex. annulée à temps) : null, aucun pack lu', async () => {

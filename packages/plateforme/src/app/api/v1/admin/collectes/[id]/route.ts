@@ -165,8 +165,9 @@ async function getHandler(
 
   // Rattachement après coup à un pack pris plus tard (décision Val 2026-10-16) :
   // null si la collecte ne l'est pas — même règle que la RPC, lue dans la même
-  // fonction. `pack_actif` = le pack que le rattachement débiterait (celui de
-  // l'organisation programmatrice), null s'il n'y en a pas encore.
+  // fonction — ou si l'appelant ne peut pas l'exécuter (admin_savr seul, cf. la
+  // route rattacher-pack). `pack_actif` = le pack que le rattachement débiterait
+  // (celui de l'organisation programmatrice), null s'il n'y en a pas encore.
   type PackActif = {
     id: string;
     type_pack: string;
@@ -179,7 +180,11 @@ async function getHandler(
     pack_antgaspi_id: string | null;
     evenements: { organisation_id: string };
   };
-  if (ag.type === 'anti_gaspi' && !ag.pack_antgaspi_id) {
+  if (
+    auth.ctx.role === 'admin_savr' &&
+    ag.type === 'anti_gaspi' &&
+    !ag.pack_antgaspi_id
+  ) {
     const rattachable = await supabase.rpc('f_collecte_rattachable_pack', {
       p_collecte_id: id,
     });

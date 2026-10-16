@@ -21,7 +21,10 @@
     "supabase/tests/rattacher_collecte_pack.test.sql",
     "packages/plateforme/src/app/api/v1/admin/collectes/[id]/rattacher-pack/route.ts",
     "packages/plateforme/tests/api/admin/rattacher-pack.test.ts",
-    "packages/plateforme/src/components/admin/collecte-detail-panel-rattacher-pack.test.tsx"
+    "packages/plateforme/src/components/admin/collecte-detail-panel-rattacher-pack.test.tsx",
+    "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (bloc Facture — bouton « Rattacher au pack », modale, avertissement avoir)",
+    "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (GET — rattachement_pack)",
+    "packages/shared/src/database.types.ts (f_collecte_rattachable_pack, rpc_rattacher_collecte_pack)"
   ],
   "tables_concernees": [
     "plateforme.packs_antgaspi (schéma aligné V2 : credits_initiaux, credits_consommes, type_pack, montant_total_ht, idempotency_key)",
@@ -47,11 +50,11 @@
   "tests": {
     "pgtap": [
       "supabase/tests/m2_1_packs_ag.test.sql (32 tests)",
-      "supabase/tests/rattacher_collecte_pack.test.sql (36 tests)"
+      "supabase/tests/rattacher_collecte_pack.test.sql (56 tests)"
     ],
     "vitest": [
       "packages/plateforme/tests/api/admin/packs-ag.m2-1.test.ts (9 tests API)",
-      "packages/plateforme/tests/api/admin/rattacher-pack.test.ts (12 tests API)",
+      "packages/plateforme/tests/api/admin/rattacher-pack.test.ts (13 tests API)",
       "packages/plateforme/src/components/admin/collecte-detail-panel-rattacher-pack.test.tsx (5 tests UI)"
     ]
   },
@@ -135,7 +138,7 @@
       "artefact": "supabase/migrations/20261016140000_plateforme_rattacher_collecte_pack.sql",
       "test": "M2.1 / rattacher-pack — POST + M2.1 / rattacher-pack — GET + M2.1 / rattacher-pack — fiche + supabase/tests/rattacher_collecte_pack.test.sql",
       "statut": "implemented",
-      "libelle": "Rattachement Admin après coup d'une collecte AG programmée sans pack au pack actif pris plus tard (décision Val 2026-10-16) : réalisée, clôturée ou annulée tardivement ; débit d'un crédit, brouillon de facture unitaire retiré, facture déjà envoyée signalée (avoir à émettre), alertes « sans pack » résolues, audit_log. CDC à patcher : fiche _Divergences/M2.1_20261016_rattacher-collecte-pack.md."
+      "libelle": "Rattachement Admin après coup d'une collecte AG programmée sans pack au pack actif pris plus tard (décision Val 2026-10-16) : réalisée, clôturée ou annulée tardivement ; débit d'un crédit sur le pack actif de la seule organisation programmatrice, brouillon de facture unitaire retiré, facture déjà partie (en attente Pennylane, émise, payée) signalée (avoir à émettre), alertes « sans pack » de la collecte résolues, audit_log avec auteur et rôle ; admin_savr seul. Le déclencheur de débit à la réalisation lève la réservation périmée (pack réservé à l'envoi puis épuisé) : la collecte est facturée à l'unité et rattachable. CDC à patcher : fiche _Divergences/M2.1_20261016_rattacher-collecte-pack.md."
     }
   ],
   "cdc_source_hash": {

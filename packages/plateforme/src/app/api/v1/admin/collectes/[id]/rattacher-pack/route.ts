@@ -24,6 +24,7 @@ export async function POST(
   const { data, error } = await supabase.rpc('rpc_rattacher_collecte_pack', {
     p_collecte_id: id,
     p_user_id: auth.ctx.userId,
+    p_role: auth.ctx.role,
   });
 
   if (error) {

@@ -252,9 +252,30 @@ SELECT is(
 -- ces cas tombaient du mauvais côté de la frontière.
 SELECT test_as_superuser();
 
--- Org + pack frais (évite le conflit uniq_pack_actif_par_org avec le pack 005)
+-- Org + pack frais (évite le conflit uniq_pack_actif_par_org avec le pack 005),
+-- et un événement de cette org : le débit tardif vise le pack actif de
+-- l'organisation de l'événement (§05 §3), pas le pack posé sur la collecte.
 INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif)
 VALUES ('00000000-0000-0000-0000-000000000031'::uuid, 'Org E2 TZ', 'Org E2 TZ', 'traiteur', '99999999900099', true);
+
+INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
+VALUES ('00000000-0000-0000-0000-000000000032'::uuid, '00000000-0000-0000-0000-000000000031'::uuid,
+  'Org E2 TZ SARL', '99999999900099', '1 rue Test', '75001', 'Paris');
+
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, created_by, lieu_id, type_evenement_id,
+  date_evenement, pax, contact_principal_nom, contact_principal_telephone
+) VALUES (
+  '00000000-0000-0000-0000-000000000033'::uuid,
+  '00000000-0000-0000-0000-000000000031'::uuid,
+  '00000000-0000-0000-0000-000000000031'::uuid,
+  '00000000-0000-0000-0000-000000000032'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000002'::uuid,
+  '00000000-0000-0000-0000-000000000009'::uuid,
+  CURRENT_DATE + INTERVAL '1 day', 200, 'Contact Test', '0600000001'
+);
 
 INSERT INTO plateforme.packs_antgaspi (
   id, organisation_id,
@@ -273,7 +294,7 @@ INSERT INTO plateforme.collectes (
   nb_camions_demande, statut_tms, pack_antgaspi_id
 ) VALUES (
   '00000000-0000-0000-0000-000000000040'::uuid,
-  '00000000-0000-0000-0000-000000000003'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
   ((now() + INTERVAL '3 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::date,
   ((now() + INTERVAL '3 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::time,
@@ -298,7 +319,7 @@ INSERT INTO plateforme.collectes (
   nb_camions_demande, statut_tms, pack_antgaspi_id
 ) VALUES (
   '00000000-0000-0000-0000-000000000043'::uuid,
-  '00000000-0000-0000-0000-000000000003'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
   ((now() + INTERVAL '4 hours') AT TIME ZONE 'Europe/Paris')::date,
   ((now() + INTERVAL '4 hours') AT TIME ZONE 'Europe/Paris')::time,
@@ -322,7 +343,7 @@ INSERT INTO plateforme.collectes (
   nb_camions_demande, statut_tms, pack_antgaspi_id
 ) VALUES (
   '00000000-0000-0000-0000-000000000041'::uuid,
-  '00000000-0000-0000-0000-000000000003'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
   ((now() + INTERVAL '4 hours 1 minute') AT TIME ZONE 'Europe/Paris')::date,
   ((now() + INTERVAL '4 hours 1 minute') AT TIME ZONE 'Europe/Paris')::time,
@@ -348,7 +369,7 @@ INSERT INTO plateforme.collectes (
   nb_camions_demande, statut_tms, pack_antgaspi_id
 ) VALUES (
   '00000000-0000-0000-0000-000000000042'::uuid,
-  '00000000-0000-0000-0000-000000000003'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
   ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '2 days')::date,
   ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '2 days')::time,
@@ -381,7 +402,7 @@ INSERT INTO plateforme.collectes (
   nb_camions_demande, statut_tms, pack_antgaspi_id
 ) VALUES (
   '00000000-0000-0000-0000-000000000044'::uuid,
-  '00000000-0000-0000-0000-000000000003'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
   ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::date,
   ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::time,
@@ -418,7 +439,7 @@ INSERT INTO plateforme.collectes (
   nb_camions_demande, statut_tms, pack_antgaspi_id
 ) VALUES (
   '00000000-0000-0000-0000-000000000045'::uuid,
-  '00000000-0000-0000-0000-000000000003'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
   ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::date,
   ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::time,
@@ -445,7 +466,7 @@ INSERT INTO plateforme.collectes (
   nb_camions_demande, statut_tms, pack_antgaspi_id
 ) VALUES (
   '00000000-0000-0000-0000-000000000046'::uuid,
-  '00000000-0000-0000-0000-000000000003'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
   ((now() - INTERVAL '1 hour') AT TIME ZONE 'Europe/Paris')::date,
   ((now() - INTERVAL '1 hour') AT TIME ZONE 'Europe/Paris')::time,
@@ -475,7 +496,7 @@ INSERT INTO plateforme.collectes (
   nb_camions_demande, statut_tms, pack_antgaspi_id
 ) VALUES (
   '00000000-0000-0000-0000-000000000047'::uuid,
-  '00000000-0000-0000-0000-000000000003'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
   ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::date,
   ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::time,

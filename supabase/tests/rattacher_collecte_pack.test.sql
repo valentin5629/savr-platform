@@ -8,14 +8,15 @@
 -- d'un crédit sur le pack actif de la SEULE organisation programmatrice
 -- (seuil « pack bas », bascule `epuise`) ; brouillon de facture retiré (vidé →
 -- annulé ; à plusieurs lignes → totaux recalculés) ; facture déjà partie
--- (en attente Pennylane, émise, payée) laissée intacte et signalée ; facture
--- annulée et avoir ignorés ; alertes « sans pack » de la seule collecte
+-- (en attente Pennylane, émise, payée) laissée intacte et signalée, comme une
+-- facture NUMÉROTÉE repassée en brouillon après un rejet Pennylane (séquence
+-- gapless) ; facture annulée et avoir ignorés ; alertes « sans pack » de la seule collecte
 -- résolues ; audit_log avec auteur et rôle. Et la réservation périmée : une
 -- collecte réalisée sans pack actif perd la réservation posée à l'envoi, puis
 -- se rattache à un pack pris plus tard, sans second débit.
 
 BEGIN;
-SELECT plan(64);
+SELECT plan(67);
 
 -- ── 1. Fermeture ──────────────────────────────────────────────────────────────
 SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.rpc_rattacher_collecte_pack(uuid, uuid, text)', 'EXECUTE'),
@@ -93,22 +94,22 @@ SELECT ('e1a70000-0000-0000-0000-0000000000' || suffixe)::uuid, 'e1a70000-0000-0
   FROM (VALUES ('c1','anti_gaspi'), ('c2','anti_gaspi'), ('c6','anti_gaspi'), ('c7','zero_dechet'),
                ('c8','anti_gaspi'), ('d4','anti_gaspi'), ('d5','anti_gaspi'), ('d6','anti_gaspi'),
                ('c9','zero_dechet'), ('ca','anti_gaspi'), ('cb','anti_gaspi'), ('cc','anti_gaspi'),
-               ('cd','anti_gaspi')) AS v(suffixe, type);
+               ('cd','anti_gaspi'), ('d7','anti_gaspi')) AS v(suffixe, type);
 UPDATE plateforme.collectes SET statut = 'realisee'
  WHERE id IN ('e1a70000-0000-0000-0000-0000000000c1', 'e1a70000-0000-0000-0000-0000000000c2',
               'e1a70000-0000-0000-0000-0000000000c6', 'e1a70000-0000-0000-0000-0000000000c8',
               'e1a70000-0000-0000-0000-0000000000d4', 'e1a70000-0000-0000-0000-0000000000d5',
-              'e1a70000-0000-0000-0000-0000000000d6');
+              'e1a70000-0000-0000-0000-0000000000d6', 'e1a70000-0000-0000-0000-0000000000d7');
 UPDATE plateforme.collectes SET annulee_cote_savr = true, annulee_cote_savr_motif = 'Geste commercial test'
  WHERE id = 'e1a70000-0000-0000-0000-0000000000c8';
 -- Statuts posés sans rejouer leurs déclencheurs (CO₂, documents, logistique) : hors sujet ici.
---   c2, d4 (= c14), d5 (= c15), d6 (= c16), c9 (ZD) : clôturées
+--   c2, d4 (= c14), d5 (= c15), d6 (= c16), d7 (= c17), c9 (ZD) : clôturées
 --   ca : validee ; cb : en_cours ; cc : realisee_sans_collecte ; cd : reste programmee
 SET LOCAL session_replication_role = replica;
 UPDATE plateforme.collectes SET statut = 'cloturee'
  WHERE id IN ('e1a70000-0000-0000-0000-0000000000c2', 'e1a70000-0000-0000-0000-0000000000d4',
               'e1a70000-0000-0000-0000-0000000000d5', 'e1a70000-0000-0000-0000-0000000000d6',
-              'e1a70000-0000-0000-0000-0000000000c9');
+              'e1a70000-0000-0000-0000-0000000000d7', 'e1a70000-0000-0000-0000-0000000000c9');
 UPDATE plateforme.collectes SET statut = 'validee' WHERE id = 'e1a70000-0000-0000-0000-0000000000ca';
 UPDATE plateforme.collectes SET statut = 'en_cours' WHERE id = 'e1a70000-0000-0000-0000-0000000000cb';
 UPDATE plateforme.collectes SET statut = 'realisee_sans_collecte' WHERE id = 'e1a70000-0000-0000-0000-0000000000cc';
@@ -127,7 +128,8 @@ UPDATE plateforme.collectes SET statut = 'annulee'
  WHERE id IN ('e1a70000-0000-0000-0000-0000000000c3', 'e1a70000-0000-0000-0000-0000000000c4');
 
 -- Factures : f1 brouillon (c1 seule), f2 émise (c2), f3 brouillon (c6 + c7),
--- f4 en attente Pennylane (c14), f5 payée (c15), f6 annulée + f7 avoir (c16).
+-- f4 en attente Pennylane (c14), f5 payée (c15), f6 annulée + f7 avoir (c16),
+-- f8 brouillon NUMÉROTÉ (rejet Pennylane, numéro conservé) (c17).
 INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, type, statut, facture_origine_id, montant_ht, taux_tva, montant_tva, montant_ttc)
 VALUES
   ('e1a70000-0000-0000-0000-0000000000f1', 'e1a70000-0000-0000-0000-000000000001', 'e1a70000-0000-0000-0000-000000000011', 'collecte_antigaspi', 'brouillon', NULL, 590, 20, 118, 708),
@@ -136,6 +138,9 @@ VALUES
   ('e1a70000-0000-0000-0000-0000000000f4', 'e1a70000-0000-0000-0000-000000000001', 'e1a70000-0000-0000-0000-000000000011', 'collecte_antigaspi', 'en_attente_pennylane', NULL, 590, 20, 118, 708),
   ('e1a70000-0000-0000-0000-0000000000f5', 'e1a70000-0000-0000-0000-000000000001', 'e1a70000-0000-0000-0000-000000000011', 'collecte_antigaspi', 'payee', NULL, 590, 20, 118, 708),
   ('e1a70000-0000-0000-0000-0000000000f6', 'e1a70000-0000-0000-0000-000000000001', 'e1a70000-0000-0000-0000-000000000011', 'collecte_antigaspi', 'annulee', NULL, 590, 20, 118, 708);
+INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, type, statut, numero_facture, montant_ht, taux_tva, montant_tva, montant_ttc)
+VALUES
+  ('e1a70000-0000-0000-0000-0000000000f8', 'e1a70000-0000-0000-0000-000000000001', 'e1a70000-0000-0000-0000-000000000011', 'collecte_antigaspi', 'brouillon', 'TEST-RATT-2026-0001', 590, 20, 118, 708);
 INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, type, statut, facture_origine_id, montant_ht, taux_tva, montant_tva, montant_ttc)
 VALUES
   ('e1a70000-0000-0000-0000-0000000000f7', 'e1a70000-0000-0000-0000-000000000001', 'e1a70000-0000-0000-0000-000000000011', 'avoir', 'brouillon', 'e1a70000-0000-0000-0000-0000000000f2', -590, 20, -118, -708);
@@ -148,7 +153,8 @@ VALUES
   ('e1a70000-0000-0000-0000-0000000000e4', 'e1a70000-0000-0000-0000-0000000000f4', 'e1a70000-0000-0000-0000-0000000000d4', 1, 20, 590, 590),
   ('e1a70000-0000-0000-0000-0000000000e5', 'e1a70000-0000-0000-0000-0000000000f5', 'e1a70000-0000-0000-0000-0000000000d5', 1, 20, 590, 590),
   ('e1a70000-0000-0000-0000-0000000000e6', 'e1a70000-0000-0000-0000-0000000000f6', 'e1a70000-0000-0000-0000-0000000000d6', 1, 20, 590, 590),
-  ('e1a70000-0000-0000-0000-0000000000e7', 'e1a70000-0000-0000-0000-0000000000f7', 'e1a70000-0000-0000-0000-0000000000d6', 1, 20, -590, -590);
+  ('e1a70000-0000-0000-0000-0000000000e7', 'e1a70000-0000-0000-0000-0000000000f7', 'e1a70000-0000-0000-0000-0000000000d6', 1, 20, -590, -590),
+  ('e1a70000-0000-0000-0000-0000000000e8', 'e1a70000-0000-0000-0000-0000000000f8', 'e1a70000-0000-0000-0000-0000000000d7', 1, 20, 590, 590);
 
 -- ── 3. Éligibilité ────────────────────────────────────────────────────────────
 SELECT ok(plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000c1'),
@@ -178,11 +184,11 @@ SELECT throws_ok(
   'P0006', NULL,
   'aucun pack actif → refus P0006');
 
--- Pack pris plus tard par o1 : 10 crédits dont 3 déjà consommés, facturé par
+-- Pack pris plus tard par o1 : 10 crédits dont 2 déjà consommés, facturé par
 -- collecte. Et un pack actif chez o2, qui ne doit jamais bouger.
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_initiaux, credits_consommes, montant_total_ht, mode_facturation, statut, date_achat)
 VALUES
-  ('e1a70000-0000-0000-0000-0000000000a1', 'e1a70000-0000-0000-0000-000000000001', 'personnalise', 10, 3, 5000, 'par_collecte', 'actif', CURRENT_DATE),
+  ('e1a70000-0000-0000-0000-0000000000a1', 'e1a70000-0000-0000-0000-000000000001', 'personnalise', 10, 2, 5000, 'par_collecte', 'actif', CURRENT_DATE),
   ('e1a70000-0000-0000-0000-0000000000a2', 'e1a70000-0000-0000-0000-0000000000b2', 'personnalise', 5, 0, 2500, 'par_collecte', 'actif', CURRENT_DATE);
 
 -- Refus EFFECTIF sous le rôle d'un client connecté — même avec un JWT
@@ -216,7 +222,7 @@ SELECT set_config('request.jwt.claims', NULL, true);
 SELECT is((SELECT pack_antgaspi_id FROM plateforme.collectes WHERE id = 'e1a70000-0000-0000-0000-0000000000c1'),
   NULL::uuid, 'Refus effectif : c1 n''a pas été rattachée');
 SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e1a70000-0000-0000-0000-0000000000a1'),
-  3, 'Refus effectif : le pack n''a pas été débité');
+  2, 'Refus effectif : le pack n''a pas été débité');
 
 SELECT throws_ok(
   $$ SELECT plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000c4', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr') $$,
@@ -231,12 +237,12 @@ SELECT throws_ok(
 SELECT is(
   plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000c1', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr')
     - 'pack_antgaspi_id' - 'statut_pack',
-  '{"ok": true, "brouillons_retires": 1, "facture_envoyee": false}'::jsonb,
-  'c1 : un brouillon retiré, aucune facture partie');
+  '{"ok": true, "brouillons_retires": 1, "facture_numerotee": false}'::jsonb,
+  'c1 : un brouillon retiré, aucune facture numérotée');
 SELECT is((SELECT pack_antgaspi_id FROM plateforme.collectes WHERE id = 'e1a70000-0000-0000-0000-0000000000c1'),
   'e1a70000-0000-0000-0000-0000000000a1'::uuid, 'c1 : rattachée au pack actif de son organisation');
 SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e1a70000-0000-0000-0000-0000000000a1'),
-  4, 'pack o1 : un crédit de plus consommé (3 → 4)');
+  3, 'pack o1 : un crédit de plus consommé (2 → 3)');
 SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e1a70000-0000-0000-0000-0000000000a2'),
   0, 'pack actif de l''autre organisation : intact');
 SELECT is((SELECT statut::text FROM plateforme.factures WHERE id = 'e1a70000-0000-0000-0000-0000000000f1'),
@@ -287,8 +293,8 @@ SELECT is((SELECT count(*)::int FROM plateforme.factures_collectes WHERE facture
 SELECT is(
   plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000c2', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr')
     - 'pack_antgaspi_id' - 'statut_pack',
-  '{"ok": true, "brouillons_retires": 0, "facture_envoyee": true}'::jsonb,
-  'c2 (émise) : aucune ligne retirée, facture envoyée signalée');
+  '{"ok": true, "brouillons_retires": 0, "facture_numerotee": true}'::jsonb,
+  'c2 (émise) : aucune ligne retirée, facture numérotée signalée');
 SELECT is((SELECT statut::text FROM plateforme.factures WHERE id = 'e1a70000-0000-0000-0000-0000000000f2'),
   'emise', 'f2 : facture émise intacte');
 SELECT is((SELECT count(*)::int FROM plateforme.factures_collectes WHERE facture_id = 'e1a70000-0000-0000-0000-0000000000f2'),
@@ -296,8 +302,8 @@ SELECT is((SELECT count(*)::int FROM plateforme.factures_collectes WHERE facture
 SELECT is(
   plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000d4', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr')
     - 'pack_antgaspi_id' - 'statut_pack',
-  '{"ok": true, "brouillons_retires": 0, "facture_envoyee": true}'::jsonb,
-  'c14 (en attente Pennylane) : facture envoyée signalée');
+  '{"ok": true, "brouillons_retires": 0, "facture_numerotee": true}'::jsonb,
+  'c14 (en attente Pennylane) : facture numérotée signalée');
 SELECT is(
   (SELECT statut::text || ':' || (SELECT count(*) FROM plateforme.factures_collectes WHERE facture_id = f.id)
      FROM plateforme.factures f WHERE id = 'e1a70000-0000-0000-0000-0000000000f4'),
@@ -305,8 +311,8 @@ SELECT is(
 SELECT is(
   plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000d5', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr')
     - 'pack_antgaspi_id' - 'statut_pack',
-  '{"ok": true, "brouillons_retires": 0, "facture_envoyee": true}'::jsonb,
-  'c15 (payée) : facture envoyée signalée');
+  '{"ok": true, "brouillons_retires": 0, "facture_numerotee": true}'::jsonb,
+  'c15 (payée) : facture numérotée signalée');
 SELECT is(
   (SELECT statut::text || ':' || (SELECT count(*) FROM plateforme.factures_collectes WHERE facture_id = f.id)
      FROM plateforme.factures f WHERE id = 'e1a70000-0000-0000-0000-0000000000f5'),
@@ -316,12 +322,26 @@ SELECT is(
 SELECT is(
   plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000d6', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr')
     - 'pack_antgaspi_id' - 'statut_pack',
-  '{"ok": true, "brouillons_retires": 0, "facture_envoyee": false}'::jsonb,
+  '{"ok": true, "brouillons_retires": 0, "facture_numerotee": false}'::jsonb,
   'c16 : lignes sur facture annulée et sur avoir ignorées (rien de retiré, rien de signalé)');
 SELECT is(
   (SELECT count(*)::int FROM plateforme.factures_collectes
     WHERE collecte_id = 'e1a70000-0000-0000-0000-0000000000d6'),
   2, 'c16 : ses lignes (facture annulée, avoir) sont intactes');
+SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e1a70000-0000-0000-0000-0000000000a1'),
+  8, 'pack o1 : 8 crédits consommés sur 10');
+
+-- c17 : brouillon NUMÉROTÉ (rejet Pennylane, numéro conservé) — jamais retiré.
+SELECT is(
+  plateforme.rpc_rattacher_collecte_pack('e1a70000-0000-0000-0000-0000000000d7', 'e1a70000-0000-0000-0000-000000000010', 'admin_savr')
+    - 'pack_antgaspi_id' - 'statut_pack',
+  '{"ok": true, "brouillons_retires": 0, "facture_numerotee": true}'::jsonb,
+  'c17 (brouillon numéroté) : rien retiré, facture numérotée signalée');
+SELECT is(
+  (SELECT statut::text || ':' || numero_facture || ':' || montant_ht::text || ':'
+          || (SELECT count(*) FROM plateforme.factures_collectes WHERE facture_id = f.id)
+     FROM plateforme.factures f WHERE id = 'e1a70000-0000-0000-0000-0000000000f8'),
+  'brouillon:TEST-RATT-2026-0001:590.00:1', 'f8 : brouillon numéroté intact (numéro, montant, ligne) — séquence gapless préservée');
 SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e1a70000-0000-0000-0000-0000000000a1'),
   9, 'pack o1 : 9 crédits consommés sur 10');
 SELECT ok(EXISTS (

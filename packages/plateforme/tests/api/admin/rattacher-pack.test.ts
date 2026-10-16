@@ -109,7 +109,7 @@ describe('M2.1 / rattacher-pack — POST admin/collectes/[id]/rattacher-pack', (
       pack_antgaspi_id: 'pack-1',
       statut_pack: 'actif',
       brouillons_retires: 0,
-      facture_envoyee: true,
+      facture_numerotee: true,
     };
     mockRpc.mockResolvedValueOnce({ data: resultat, error: null });
 
@@ -185,6 +185,7 @@ describe('M2.1 / rattacher-pack — GET admin/collectes/[id] : rattachement_pack
   const collecteAgSansPack = {
     id: 'col-1',
     type: 'anti_gaspi',
+    statut: 'realisee',
     pack_antgaspi_id: null,
     prestataire_logistique_id: null,
     evenements: { organisation_id: 'org-1' },
@@ -266,9 +267,27 @@ describe('M2.1 / rattacher-pack — GET admin/collectes/[id] : rattachement_pack
     ).toHaveLength(0);
   });
 
+  it('fonction d’éligibilité en erreur : fiche lisible (200), rattachement_pack null', async () => {
+    setupAuth('admin_savr');
+    reponses.set('plateforme.collectes', {
+      data: collecteAgSansPack,
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '42883', message: 'function does not exist' },
+    });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).rattachement_pack).toBeNull();
+  });
+
   it.each([
     ['AG déjà rattachée', { type: 'anti_gaspi', pack_antgaspi_id: 'pack-1' }],
     ['ZD', { type: 'zero_dechet', pack_antgaspi_id: null }],
+    ['AG à venir (programmée)', { statut: 'programmee' }],
   ])('%s : null, la fonction n’est pas appelée', async (_cas, champs) => {
     setupAuth('admin_savr');
     reponses.set('plateforme.collectes', {

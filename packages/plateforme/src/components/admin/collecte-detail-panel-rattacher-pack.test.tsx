@@ -66,6 +66,8 @@ interface Scenario {
   /** Fiches servies par les GET successifs (la dernière est répétée). */
   fiches: Array<Record<string, unknown>>;
   rattachement?: { ok: boolean; status?: number; corps: unknown };
+  /** La requête de rattachement échoue côté réseau (fetch rejeté). */
+  rattachementRejete?: boolean;
 }
 
 function mockFetch(scenario: Scenario) {
@@ -76,9 +78,11 @@ function mockFetch(scenario: Scenario) {
       const json = (corps: unknown, ok = true, status = 200) =>
         Promise.resolve({ ok, status, json: async () => corps });
       if (url.endsWith('/rattacher-pack') && method === 'POST') {
+        if (scenario.rattachementRejete)
+          return Promise.reject(new TypeError('Failed to fetch'));
         const r = scenario.rattachement ?? {
           ok: true,
-          corps: { ok: true, facture_envoyee: false },
+          corps: { ok: true, facture_numerotee: false },
         };
         return json(r.corps, r.ok, r.status ?? (r.ok ? 200 : 409));
       }
@@ -179,13 +183,13 @@ describe('M2.1 / rattacher-pack — fiche collecte Admin : bouton « Rattacher a
   );
 
   it(
-    'facture unitaire déjà partie chez Pennylane : avertissement « émettez un avoir »',
+    'facture unitaire déjà numérotée : avertissement « émettez un avoir ou corrigez-la »',
     async () => {
       mockFetch({
         fiches: [collecte(), collecte({ rattachement_pack: null })],
         rattachement: {
           ok: true,
-          corps: { ok: true, brouillons_retires: 0, facture_envoyee: true },
+          corps: { ok: true, brouillons_retires: 0, facture_numerotee: true },
         },
       });
       renderAvecToasts(<CollecteDetailPanel collecteId="c1" />);
@@ -205,7 +209,7 @@ describe('M2.1 / rattacher-pack — fiche collecte Admin : bouton « Rattacher a
 
       expect(
         await screen.findByText(
-          'La facture unitaire de cette collecte est déjà partie chez Pennylane : émettez un avoir.',
+          "La facture unitaire de cette collecte est déjà numérotée (partie chez Pennylane, ou rejetée) : elle n'a pas été retirée, émettez un avoir ou corrigez-la.",
           undefined,
           ATTENTE_UI,
         ),
@@ -287,6 +291,64 @@ describe('M2.1 / rattacher-pack — fiche collecte Admin : bouton « Rattacher a
 
       await screen.findByText('Aucune facture générée.', undefined, ATTENTE_UI);
       expect(boutonRattacher()).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+  it(
+    'coupure réseau : message dans la modale, bouton de nouveau utilisable',
+    async () => {
+      mockFetch({ fiches: [collecte()], rattachementRejete: true });
+      renderAvecToasts(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocuments();
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Rattacher au pack' },
+          ATTENTE_UI,
+        ),
+      );
+      const modale = await screen.findByRole('dialog', {}, ATTENTE_UI);
+      fireEvent.click(
+        within(modale).getByRole('button', { name: 'Rattacher' }),
+      );
+
+      expect(
+        await within(modale).findByText(
+          'Rattachement impossible : réseau indisponible.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(modale).getByRole('button', { name: 'Rattacher' }),
+      ).toBeEnabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'annulée tardivement sans pack actif : explication sans « facturée à l’unité »',
+    async () => {
+      mockFetch({
+        fiches: [
+          collecte({
+            statut: 'annulee',
+            rattachement_pack: { pack_actif: null },
+          }),
+        ],
+      });
+      renderAvecToasts(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocuments();
+
+      expect(
+        await screen.findByText(
+          "Aucun pack Anti-Gaspi actif pour ce client : rattachement possible dès qu'il en aura un.",
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/facturée à l.unité/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

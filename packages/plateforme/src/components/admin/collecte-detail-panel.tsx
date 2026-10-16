@@ -699,9 +699,10 @@ export function CollecteDetailPanel({
   const [rattacherPackError, setRattacherPackError] = useState<string | null>(
     null,
   );
-  // Facture unitaire déjà partie chez Pennylane au moment du rattachement :
-  // l'Admin doit émettre l'avoir (arbitrage Val 2026-10-16).
-  const [avoirARattachement, setAvoirARattachement] = useState(false);
+  // Facture unitaire déjà numérotée au moment du rattachement (partie chez
+  // Pennylane, ou rejetée et revenue en brouillon avec son numéro) : jamais
+  // retirée, l'Admin la corrige ou émet l'avoir (arbitrage Val 2026-10-16).
+  const [factureNumerotee, setFactureNumerotee] = useState(false);
   // Édition manuelle des pesées ZD (Bloc 3)
   const [editPesees, setEditPesees] = useState(false);
   const [peseesInput, setPeseesInput] = useState<Record<string, string>>({});
@@ -1065,23 +1066,31 @@ export function CollecteDetailPanel({
   const handleRattacherPack = async () => {
     setRattacherPackSubmitting(true);
     setRattacherPackError(null);
-    const res = await fetch(
-      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/rattacher-pack`,
-      { method: 'POST' },
-    );
-    if (res.ok) {
-      const resultat = (await res.json()) as { facture_envoyee: boolean };
-      setAvoirARattachement(resultat.facture_envoyee);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/rattacher-pack`,
+        { method: 'POST' },
+      );
+      const corps = (await res.json().catch(() => ({}))) as {
+        facture_numerotee?: boolean;
+        error?: string;
+      };
+      if (!res.ok) {
+        setRattacherPackError(corps.error ?? 'Rattachement impossible.');
+        return;
+      }
+      setFactureNumerotee(corps.facture_numerotee === true);
+      setRattacherPackModal(false);
       const updated = await fetch(
         `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
       );
       if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
-      setRattacherPackModal(false);
-    } else {
-      const body = (await res.json()) as { error: string };
-      setRattacherPackError(body.error);
+      void refetchAudit();
+    } catch {
+      setRattacherPackError('Rattachement impossible : réseau indisponible.');
+    } finally {
+      setRattacherPackSubmitting(false);
     }
-    setRattacherPackSubmitting(false);
   };
 
   const handleDispatch = async () => {
@@ -2917,14 +2926,17 @@ export function CollecteDetailPanel({
                 {collecte.rattachement_pack &&
                   !collecte.rattachement_pack.pack_actif && (
                     <Text variant="hint">
-                      Aucun pack Anti-Gaspi actif pour ce client : la collecte
-                      reste facturée à l&apos;unité.
+                      {/* Une annulée n'est pas facturée automatiquement. */}
+                      {collecte.statut === 'annulee'
+                        ? "Aucun pack Anti-Gaspi actif pour ce client : rattachement possible dès qu'il en aura un."
+                        : "Aucun pack Anti-Gaspi actif pour ce client : la collecte reste facturée à l'unité."}
                     </Text>
                   )}
-                {avoirARattachement && (
+                {factureNumerotee && (
                   <AlertBar variant="warn">
-                    La facture unitaire de cette collecte est déjà partie chez
-                    Pennylane : émettez un avoir.
+                    La facture unitaire de cette collecte est déjà numérotée
+                    (partie chez Pennylane, ou rejetée) : elle n&apos;a pas été
+                    retirée, émettez un avoir ou corrigez-la.
                   </AlertBar>
                 )}
               </div>
@@ -3134,9 +3146,10 @@ export function CollecteDetailPanel({
             {collecte.rattachement_pack.pack_actif.credits_restants !== 1
               ? 's'
               : ''}
-            . Si la facture unitaire de la collecte est encore en brouillon,
-            elle est retirée ; si elle est déjà partie chez Pennylane, il faudra
-            émettre un avoir.
+            . Si la facture unitaire de la collecte est encore en brouillon sans
+            numéro, elle est retirée ; si elle est déjà numérotée (partie chez
+            Pennylane, ou rejetée), elle reste en place et il faudra émettre un
+            avoir ou la corriger.
           </Text>
         )}
       </ConfirmDialog>

@@ -6,7 +6,12 @@ import {
   notifierTraiteurOperationnel,
 } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
+import {
+  erreurInterne,
+  readJsonBody,
+  serverError,
+  withApiTrace,
+} from '@/lib/api-helpers.js';
 import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
@@ -177,19 +182,24 @@ async function getHandler(
   let rattachementPack: { pack_actif: PackActif | null } | null = null;
   const ag = data as {
     type: string;
+    statut: string;
     pack_antgaspi_id: string | null;
     evenements: { organisation_id: string };
   };
+  // Seuls les statuts éligibles interrogent la base (une AG à venir sans pack
+  // n'est jamais rattachable : elle sera débitée à la réalisation).
   if (
     auth.ctx.role === 'admin_savr' &&
     ag.type === 'anti_gaspi' &&
-    !ag.pack_antgaspi_id
+    !ag.pack_antgaspi_id &&
+    ['realisee', 'cloturee', 'annulee'].includes(ag.statut)
   ) {
     const rattachable = await supabase.rpc('f_collecte_rattachable_pack', {
       p_collecte_id: id,
     });
+    // Non bloquant : erreur journalisée, la fiche reste lisible sans l'action.
     if (rattachable.error)
-      return serverError(rattachable.error, 'admin.collectes.get');
+      erreurInterne(rattachable.error, 'admin.collectes.get.rattachement');
     if (rattachable.data === true) {
       const pack = await supabase
         .from('packs_antgaspi')

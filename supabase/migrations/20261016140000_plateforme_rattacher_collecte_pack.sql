@@ -7,7 +7,8 @@
 --   - collectes rattachables : réalisées, clôturées et annulées tardivement ;
 --   - facture unitaire déjà créée : brouillon retiré ; facture envoyée à
 --     Pennylane → rattachement permis, l'Admin émet l'avoir (avertissement
---     affiché par l'application).
+--     affiché par l'application). Une facture numérotée repassée en brouillon
+--     après un rejet Pennylane est traitée comme partie (numérotation gapless).
 --
 -- Une collecte à venir n'a pas besoin de cette action : le pack actif est
 -- réservé à l'envoi au transporteur et débité au passage à `realisee`
@@ -36,8 +37,12 @@
 --      du pack actif (même ordre que le déclencheur de débit), débite un crédit
 --      exactement comme fn_trg_pack_debit_realisee (bascule `epuise`, alertes
 --      pack épuisé / pack bas), pose `collectes.pack_antgaspi_id`, retire la
---      ligne de la collecte de tout brouillon de facture actif (brouillon vidé
---      → `annulee` ; sinon totaux recalculés comme recomputeFactureTotaux),
+--      ligne de la collecte de tout brouillon de facture actif NON NUMÉROTÉ
+--      (brouillon vidé → `annulee` ; sinon totaux recalculés comme
+--      recomputeFactureTotaux) — une facture numérotée n'est jamais touchée,
+--      même repassée en brouillon après un rejet Pennylane (numérotation
+--      gapless) : elle est signalée (`facture_numerotee`), l'Admin la corrige
+--      ou émet l'avoir,
 --      résout les alertes « sans pack » de la collecte, trace l'audit_log
 --      (auteur et rôle passés par la route, comme fn_accepter_mission_everest_manuelle).
 --      Une collecte clôturée dont le brouillon est retiré est refacturée par le
@@ -202,7 +207,7 @@ DECLARE
   v_initiaux     integer;
   v_consommes    integer;
   v_brouillons   integer := 0;
-  v_envoyee      boolean := false;
+  v_numerotee    boolean := false;
   r              record;
 BEGIN
   -- Verrou de la collecte d'abord (même ordre que le déclencheur de débit :
@@ -261,12 +266,16 @@ BEGIN
          updated_at = now()
    WHERE id = p_collecte_id;
 
-  -- Facture unitaire : la ligne de la collecte quitte tout brouillon actif ;
-  -- une facture déjà partie (en attente Pennylane, émise, payée) est laissée
-  -- telle quelle, l'Admin émet l'avoir. « Active » = non annulée, hors avoir
-  -- (définition du batch de brouillons et de fn_trg_fc_collecte_non_facturee).
+  -- Facture unitaire : la ligne de la collecte quitte tout brouillon actif
+  -- SANS numéro. Une facture numérotée — partie (en attente Pennylane, émise,
+  -- payée) ou repassée en brouillon après un rejet Pennylane 4xx, numéro
+  -- conservé (validation-admin.ts) — est laissée telle quelle : l'annuler
+  -- creuserait la séquence gapless (§06.08, CLAUDE.md §4). L'Admin la corrige
+  -- ou émet l'avoir. « Active » = non annulée, hors avoir (définition du batch
+  -- de brouillons et de fn_trg_fc_collecte_non_facturee).
   FOR r IN
-    SELECT fc.id AS ligne_id, f.id AS facture_id, f.statut::text AS statut
+    SELECT fc.id AS ligne_id, f.id AS facture_id, f.statut::text AS statut,
+           f.numero_facture
       FROM plateforme.factures_collectes fc
       JOIN plateforme.factures f ON f.id = fc.facture_id
      WHERE fc.collecte_id = p_collecte_id
@@ -274,7 +283,7 @@ BEGIN
        AND f.type <> 'avoir'
      FOR UPDATE OF f
   LOOP
-    IF r.statut = 'brouillon' THEN
+    IF r.statut = 'brouillon' AND r.numero_facture IS NULL THEN
       DELETE FROM plateforme.factures_collectes WHERE id = r.ligne_id;
       IF EXISTS (
         SELECT 1 FROM plateforme.factures_collectes WHERE facture_id = r.facture_id
@@ -293,7 +302,8 @@ BEGIN
           ) t
          WHERE f.id = r.facture_id;
       ELSE
-        -- Brouillon vidé : annulé (jamais numéroté, aucune trace fiscale perdue).
+        -- Brouillon vidé : annulé (sans numéro — filtre ci-dessus —, aucune
+        -- trace fiscale perdue).
         UPDATE plateforme.factures
            SET statut = 'annulee',
                montant_ht = 0,
@@ -304,7 +314,7 @@ BEGIN
       END IF;
       v_brouillons := v_brouillons + 1;
     ELSE
-      v_envoyee := true;
+      v_numerotee := true;
     END IF;
   END LOOP;
 
@@ -330,7 +340,7 @@ BEGIN
       'pack_antgaspi_id', v_pack_id,
       'statut_pack_apres', v_pack_statut,
       'brouillons_retires', v_brouillons,
-      'facture_envoyee', v_envoyee
+      'facture_numerotee', v_numerotee
     )
   );
 
@@ -339,13 +349,13 @@ BEGIN
     'pack_antgaspi_id', v_pack_id,
     'statut_pack', v_pack_statut,
     'brouillons_retires', v_brouillons,
-    'facture_envoyee', v_envoyee
+    'facture_numerotee', v_numerotee
   );
 END;
 $$;
 
 COMMENT ON FUNCTION plateforme.rpc_rattacher_collecte_pack(uuid, uuid, text) IS
-  'Rattache après coup une collecte AG au pack actif de son organisation (décision Val 2026-10-16) : débit d''un crédit (comme fn_trg_pack_debit_realisee), pack_antgaspi_id posé, ligne retirée des brouillons de facture, alertes « sans pack » résolues, audit_log. Rend facture_envoyee=true si une facture déjà partie porte la collecte (avoir à émettre par l''Admin). service_role uniquement.';
+  'Rattache après coup une collecte AG au pack actif de son organisation (décision Val 2026-10-16) : débit d''un crédit (comme fn_trg_pack_debit_realisee), pack_antgaspi_id posé, ligne retirée des brouillons de facture, alertes « sans pack » résolues, audit_log. Rend facture_numerotee=true si une facture numérotée (partie, ou rejetée par Pennylane) porte la collecte : jamais retirée, l''Admin la corrige ou émet l''avoir. service_role uniquement.';
 
 REVOKE EXECUTE ON FUNCTION plateforme.rpc_rattacher_collecte_pack(uuid, uuid, text)
   FROM authenticated, anon, PUBLIC;

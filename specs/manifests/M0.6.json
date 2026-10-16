@@ -1630,6 +1630,22 @@
       "libelle": "Rendu de la ligne « Rapport de don » de la fiche collecte Admin (nom dicté par Val le 2026-10-09). GO visuel de Val en attente ; rendu contrôlé le 2026-10-09 sur un aperçu local à données simulées (captures transmises à Val dans la conversation) : ce contrôle prouve le rendu, pas l'application connectée."
     },
     {
+      "id": "M0.6-col-bloc3-bilan-client",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:325",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (BilanCollecte + useRadarFiche, extraits de l'onglet « Bilan & documents » de la fiche client) + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents : BilanCollecte au-dessus de la carte Documents, barre « Comparer avec » sur les options du radar Admin, sans filtre Traiteurs ni avertissement « comparaison à soi-même » ; régénération du rapport avec radar = benchmark_filters réglés sur l'onglet) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/benchmark/route.ts (GET, requireStaff, repondreBenchmarkFiche sous l'identité de l'appelant) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (association : ville et description)",
+      "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6/documents_bilan_client_zd », « M0.6/documents_regeneration_filtres_radar », « M0.6/documents_bilan_client_ag », « M0.6/documents_bilan_client_attente » ; packages/plateforme/tests/api/admin/collecte-benchmark-fiche.m0-6.test.ts « M0.6/admin_fiche_benchmark_sous_identite », « M0.6/admin_fiche_benchmark_non_staff »",
+      "statut": "implemented",
+      "libelle": "Onglet Documents de la fiche collecte Admin : le bilan que voit le client dans « Bilan & documents » (chiffres clés, répartition des tonnages, radar de comparaison et sa barre « Comparer avec » pour une ZD ; repas donnés, CO₂ évité et association pour une AG ; bandeau d'attente avant la clôture ; rien pour une annulée), au-dessus des documents (décision Val 2026-10-16). Le radar est calculé comme celui du client et du rapport (sous l'identité de l'appelant, k-anonymat compris) ; les filtres réglés partent avec la régénération du rapport avec radar."
+    },
+    {
+      "id": "M0.6-col-bloc3-bilan-client-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:325",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents : bilan du client au-dessus de la carte Documents ; aucun style nouveau, composants de la fiche client)",
+      "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6/documents_bilan_client_zd », « M0.6/documents_bilan_client_ag »",
+      "statut": "à-vérifier",
+      "libelle": "Rendu de l'onglet Documents de la fiche collecte Admin avec le bilan du client (décision Val 2026-10-16). GO visuel de Val en attente."
+    },
+    {
       "id": "M0.6-liste-rapport-non-consulte-hors-ag-avec-excedents",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:207",
       "artefact": "packages/plateforme/src/components/admin/collectes-table.tsx (IndicateursHistorique : l'indicateur « Rapport consulté / non consulté » n'est rendu que pour une collecte ZD ou une collecte AG sans excédents) + packages/plateforme/src/lib/collectes-admin.ts (filtre « Rapport non consulté » : `.or('type.eq.zero_dechet,statut.eq.realisee_sans_collecte')`, partagé par la liste et son export CSV). Mesuré sur savr-dev le 2026-10-09 : 79 collectes sans cette règle (dont 24 AG clôturées avec une ligne rapports_rse jamais rendue), 55 avec.",

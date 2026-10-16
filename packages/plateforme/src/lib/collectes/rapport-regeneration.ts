@@ -55,8 +55,8 @@ export type VersionDemandee =
  * Le radar est toujours calculé par `construireRadarRapport` avec le client et
  * le contexte de l'appelant : mêmes chiffres que l'écran, même k-anonymat.
  *
- * `filtresParDefaut` sert l'appelant qui n'a pas de barre de filtres à l'écran
- * (Admin) : il fournit les filtres quand le corps n'en porte pas.
+ * `filtresParDefaut` sert l'Admin quand le corps ne porte pas de filtres (pas de
+ * radar à l'écran) : il les fournit.
  */
 export async function lireVersionDemandee(
   req: NextRequest,

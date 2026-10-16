@@ -26,7 +26,11 @@ import { runOutboxWorker } from '../outbox-worker.js';
 
 const COLLECTE_ID = 'c0000000-0000-0000-0000-0000000000c1';
 const PRESTA_ID = 'aa000000-0000-0000-0000-0000000000a1';
+// Clé du rang 1, et numéro entier des commandes créées avant le 2026-10-15.
 const NUMERO_RANG_1 = `${COLLECTE_ID}-1`;
+// Libellé de la collecte simulée (traiteur, lieu, pax), en tête du numéro
+// depuis le 2026-10-15 (décision Val, C59).
+const LIBELLE = 'Traiteur Essai - Lieu - 120 pax';
 
 type Reponse = {
   data: unknown;
@@ -92,6 +96,8 @@ function fausseBase(
     prestataire_logistique_id: PRESTA_ID,
     lieu_overrides: null,
     evenement: {
+      pax: 120,
+      traiteur: { nom: 'Traiteur Essai' },
       contact_principal_nom: 'Alice Martin',
       contact_principal_telephone: '+33600000001',
       contact_secours_nom: null,
@@ -434,7 +440,8 @@ function fauxMts1() {
                   ? // Mesuré le 2026-10-13 : une commande annulée n'est plus
                     // rendue par la lecture par identifiant.
                     ids.includes(c.customerOrderId) && c.statut !== 'CANCELED'
-                  : c.orderNumber === numero),
+                  : // Sans filtre de numéro : toute la fenêtre de dates.
+                    numero === null || c.orderNumber === numero),
             )
             .map((c) => ({
               customerOrderId: c.customerOrderId,
@@ -596,7 +603,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       expect(second).toMatchObject({ claimed: 1, done: 1, failed: 0 });
       // La commande est retrouvée par son numéro, pas recréée.
       expect(mts1.recus('GET /v3/customerOrders')).toEqual([
-        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
+        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21`,
       ]);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
       attendreUnSeulCamion(base);
@@ -702,7 +709,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       await runOutboxWorker(base.supabase);
 
       expect(mts1.recus('GET /v3/customerOrders')).toEqual([
-        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}-r2`,
+        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21`,
       ]);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
       attendreUnSeulCamion(base);
@@ -741,8 +748,8 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
 
       expect(base.ordre.statut).toBe('done');
       expect(mts1.commandes.map((c) => [c.orderNumber, c.tourId])).toEqual([
-        [`${COLLECTE_ID}-1`, 'TOUR-1'],
-        [`${COLLECTE_ID}-2`, 'TOUR-2'],
+        [`${LIBELLE} · ${COLLECTE_ID}-1`, 'TOUR-1'],
+        [`${LIBELLE} · ${COLLECTE_ID}-2`, 'TOUR-2'],
       ]);
       expect(mts1.tours).toEqual([
         { tourId: 'TOUR-1', envois: 0, validations: 0 },
@@ -1095,7 +1102,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       await runOutboxWorker(base.supabase);
 
       expect(mts1.appels).toEqual([
-        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
+        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21`,
       ]);
       attendreUnSeulCamion(base);
     });
@@ -1114,13 +1121,13 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       expect(result).toMatchObject({ failed: 1, done: 0 });
       expect(base.resultats[0]).toMatchObject({
         p_statut: 'failed',
-        p_last_error: `LogistiqueTransientError: MTS-1 GET /v3/customerOrders : réponse inattendue, customerOrderId illisible pour le numéro ${NUMERO_RANG_1}`,
+        p_last_error: `LogistiqueTransientError: MTS-1 GET /v3/customerOrders : réponse inattendue, customerOrderId illisible pour la clé ${NUMERO_RANG_1}`,
       });
       // Aucune ligne `tournees` ne porte cet identifiant, et la recherche est le
       // seul appel parti : ni commande créée, ni appel sur l'identifiant rendu.
       expect(base.tournees).toHaveLength(0);
       expect(mts1.appels).toEqual([
-        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
+        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21`,
       ]);
     });
 
@@ -1143,7 +1150,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
       expect(result).toMatchObject({ failed: 1, done: 0 });
       expect(base.resultats[0]).toMatchObject({
         p_statut: 'failed',
-        p_last_error: `LogistiqueTransientError: MTS-1 GET /v3/customerOrders : réponse inattendue, customerOrderId illisible pour le numéro ${NUMERO_RANG_1}`,
+        p_last_error: `LogistiqueTransientError: MTS-1 GET /v3/customerOrders : réponse inattendue, customerOrderId illisible pour la clé ${NUMERO_RANG_1}`,
       });
       expect(base.tournees).toHaveLength(0);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(0);
@@ -1167,12 +1174,12 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
         expect(result).toMatchObject({ dead: 1, done: 0 });
         expect(base.resultats[0]).toMatchObject({
           p_statut: 'dead',
-          p_last_error: `collecte ${COLLECTE_ID} : une commande du numéro ${NUMERO_RANG_1} est déjà terminée chez MTS-1 (CMD-1 ${statut}) — ni reprise ni nouvelle création`,
+          p_last_error: `collecte ${COLLECTE_ID} : une commande de clé ${NUMERO_RANG_1} est déjà terminée chez MTS-1 (CMD-1 ${statut}) — ni reprise ni nouvelle création`,
         });
         // Une seule lecture, aucune écriture chez MTS-1 ; rien d'enregistré
         // côté Savr.
         expect(mts1.appels).toEqual([
-          `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
+          `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21`,
         ]);
         expect(mts1.commandes).toHaveLength(1);
         expect(base.tournees).toHaveLength(0);
@@ -1213,11 +1220,66 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
 
       await runOutboxWorker(base.supabase);
 
-      // Une seule lecture : la recherche par numéro, avant la création.
+      // Une seule lecture : la recherche par dates, avant la création.
       expect(mts1.recus('GET /v3/customerOrders')).toEqual([
-        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${NUMERO_RANG_1}`,
+        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21`,
+      ]);
+      expect(mts1.commandes.map((c) => c.orderNumber)).toEqual([
+        `${LIBELLE} · ${NUMERO_RANG_1}`,
       ]);
       attendreUnSeulCamion(base);
+    });
+
+    it.each([
+      [
+        'dont le libellé a changé depuis (pax modifiés)',
+        `Traiteur Essai - Lieu - 100 pax · ${NUMERO_RANG_1}`,
+      ],
+      ['créée avant le 2026-10-15, numéro = clé seule', NUMERO_RANG_1],
+    ])(
+      'M1.5a/reprise_commande_reconnue_par_la_cle — la commande du rang existe sous un numéro %s : elle est retrouvée par sa clé, aucune seconde commande',
+      async (_cas, numero) => {
+        const base = fausseBase();
+        base.ordre.requires_reconciliation = true;
+        mts1.commandes.push({
+          customerOrderId: 'CMD-1',
+          orderNumber: numero,
+          tourId: null,
+        });
+
+        await runOutboxWorker(base.supabase);
+
+        expect(mts1.recus('POST /v3/customerOrders')).toEqual([]);
+        attendreUnSeulCamion(base);
+      },
+    );
+
+    it('M1.5a/reprise_commande_cle_voisine — des commandes de clés voisines (rang 11, tentative r2 du rang 1) existent : aucune n’est prise pour celle du rang 1, qui est créée', async () => {
+      const base = fausseBase();
+      base.ordre.requires_reconciliation = true;
+      mts1.commandes.push(
+        {
+          customerOrderId: 'CMD-ONZE',
+          orderNumber: `${LIBELLE} · ${NUMERO_RANG_1}1`,
+          tourId: null,
+        },
+        {
+          customerOrderId: 'CMD-R2',
+          orderNumber: `${LIBELLE} · ${NUMERO_RANG_1}-r2`,
+          tourId: null,
+        },
+      );
+
+      await runOutboxWorker(base.supabase);
+
+      expect(base.ordre.statut).toBe('done');
+      expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
+      expect(mts1.commandes.map((c) => c.orderNumber)).toEqual([
+        `${LIBELLE} · ${NUMERO_RANG_1}1`,
+        `${LIBELLE} · ${NUMERO_RANG_1}-r2`,
+        `${LIBELLE} · ${NUMERO_RANG_1}`,
+      ]);
+      expect(base.tournees[0]!.external_ref_commande).toBe('CMD-3');
     });
 
     it('M1.5a/reprise_tournee_creee_reference_deja_portee_limite — POST /v3/tours rend un identifiant qu’une autre ligne porte déjà (non mesuré) : l’index refuse la référence, la commande est rattachée à cette tournée avant l’erreur ; à la reprise, elle y est lue et n’en est pas sortie (comme d’une tournée de l’Admin), le camion reste sans tournée à lui', async () => {
@@ -1347,7 +1409,7 @@ describe('M1.5a / reprise d’un envoi MTS-1', () => {
 
       // La commande du nouveau camion est retrouvée par son numéro.
       expect(mts1.recus('GET /v3/customerOrders?minDate=2027-03-19')).toEqual([
-        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21&orderNumber=${COLLECTE_ID}-2`,
+        `GET /v3/customerOrders?minDate=2027-03-19&maxDate=2027-03-21`,
       ]);
       expect(mts1.recus('POST /v3/customerOrders')).toHaveLength(1);
       attendreDeuxCamions(base);

@@ -8,9 +8,9 @@ import {
   getLogistiqueProvider,
 } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
-import { composerInformationsSupplementaires } from '../infos-acces.js';
+import { composerCommentaireTransporteur } from '../infos-acces.js';
 import { ProviderManual } from '../manual/provider.js';
-import { AdapterMts1 } from './adapter.js';
+import { AdapterMts1, numeroPorteLaCle } from './adapter.js';
 import { _setMts1Handlers, setupMts1Mock } from './mock.js';
 import {
   PRESTA_MTS1,
@@ -200,7 +200,9 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
 
     expect(postOrder).toHaveBeenCalledOnce();
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
-    expect(orderPayload['orderNumber']).toBe('col-zd-001-1');
+    // Nom du point dans la console : le libellé (ici le seul lieu, ni traiteur
+    // ni pax dans cette collecte), puis la clé de la commande.
+    expect(orderPayload['orderNumber']).toBe('Salle Pleyel · col-zd-001-1');
     expect(orderPayload['orderCategories']).toEqual(['Déchets']);
     // Contact terrain = objet UNIQUE firstname/lastname/phone (CustomerOrderContactInput),
     // plus l'ancien tableau `contacts` (ignoré par MTS-1 → arrivait vide).
@@ -500,10 +502,10 @@ describe('M1.5a / AdapterMts1 — multi-camions', () => {
     expect(postOrder).toHaveBeenCalledTimes(2);
     expect(
       (postOrder.mock.calls[0]![0] as Record<string, unknown>)['orderNumber'],
-    ).toBe('col-multi-001-1');
+    ).toBe('Salle Pleyel · col-multi-001-1');
     expect(
       (postOrder.mock.calls[1]![0] as Record<string, unknown>)['orderNumber'],
-    ).toBe('col-multi-001-2');
+    ).toBe('Salle Pleyel · col-multi-001-2');
   });
 });
 
@@ -651,14 +653,15 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
       )._mockQuery.upsert.mock.calls[0]![0],
     ).toMatchObject({ external_ref_commande: 'MTS1-ORDER-FOUND' });
 
-    // Fenêtre en JOURS, J-1 → J+1 autour de la collecte, filtrée sur le numéro
-    // de la commande : l'API ne lit que des « yyyy-MM-dd », bornes incluses,
-    // jour compté à Paris (mesuré le 2026-10-13). Les instants envoyés avant
-    // (« 2026-07-13T22:00:00.000Z ») lui faisaient répondre 500.
+    // Fenêtre en JOURS, J-1 → J+1 autour de la collecte, sans filtre de numéro
+    // (le libellé a pu changer, la clé est reconnue par l'adapter) : l'API ne lit
+    // que des « yyyy-MM-dd », bornes incluses, jour compté à Paris (mesuré le
+    // 2026-10-13). Les instants envoyés avant (« 2026-07-13T22:00:00.000Z ») lui
+    // faisaient répondre 500.
     expect(scanOrdersByDateRange).toHaveBeenCalledWith(
       '2026-07-14',
       '2026-07-16',
-      'col-zd-001-1',
+      undefined,
     );
   });
 
@@ -883,75 +886,26 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     expect(orderPayload['comment']).toBe('Sonner interphone B au RDC');
   });
 
-  // ─── Infos d'accès du lieu → `comment` MTS-1 (Val 2026-09-15) ──────────────
-  // Les 6 informations d'accès éditables par collecte n'ont pas de champ natif
-  // MTS-1 : elles sont agrégées en amont dans `informations_supplementaires`
-  // (composerInformationsSupplementaires, appelé par fetchCollecte pour les DEUX
-  // adapters). Ce test ferme le dernier maillon côté MTS-1 : ce qui est agrégé
-  // atteint bien le fil, dans `comment`.
-  it.each([
-    ['acces_details', 'Accès : Quai n°2, sonner interphone B'],
-    ['stationnement', 'Stationnement : difficile'],
-    [
-      'contraintes_horaires',
-      'Contraintes horaires : Livraison avant 9h uniquement',
-    ],
-    ['acces_office', 'Accès office : très difficile'],
-    ['type_vehicule_max', 'Véhicule max : camionnette'],
-    ['flux_autorises', 'Flux acceptés : biodéchets, carton'],
-  ])(
-    'M1.5 / %s est présent dans comment du payload customerOrders',
-    async (_champ, ligne) => {
-      const postOrder = setupHandlers();
-      const supabase = makeMockSupabase({ tourneeExistante: null });
-      const lieuAcces: Lieu = {
-        ...LIEU_FIXTURE,
-        acces_details: 'Quai n°2, sonner interphone B',
-        stationnement: 'difficile',
-        contraintes_horaires: 'Livraison avant 9h uniquement',
-        acces_office: 'tres_difficile',
-        type_vehicule_max: 'camionnette',
-        flux_autorises: ['biodéchets', 'carton'],
-      };
-
-      await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
-        {
-          ...COLLECTE_ZD,
-          lieu: lieuAcces,
-          informations_supplementaires: composerInformationsSupplementaires(
-            lieuAcces,
-            'Demander Karim à la plonge',
-            null,
-            null,
-          ),
-        },
-        1,
-      );
-
-      const orderPayload = postOrder.mock.calls[0]![0] as Record<
-        string,
-        unknown
-      >;
-      expect(orderPayload['comment']).toContain(ligne);
-      // La saisie du traiteur part avec, jamais remplacée.
-      expect(orderPayload['comment']).toContain('Demander Karim à la plonge');
-    },
-  );
-
-  // ─── Contact de secours : téléphone natif + NOM dans `comment` ─────────────
-  // Règle complète du §08 l.393-397 (relevé as-built MTS-1 l.79, arbitrage Val
-  // 2026-09-14) : MTS-1 n'expose qu'un contact par commande, donc le téléphone du
-  // secours part en `phoneAlternatives` ET son nom est concaténé au `comment` —
-  // « sans quoi le chauffeur a un numéro de secours sans savoir qui appeler ».
-  // Seule la 1re moitié était implémentée. Le nom est agrégé en amont par
-  // fetchCollecte (composerInformationsSupplementaires, partagé avec Everest) :
-  // ce test ferme le maillon aval, sur le fil.
-  it('M1.5 / le nom du secours est dans comment, son téléphone en phoneAlternatives', async () => {
+  // ─── Commentaire au transporteur → `comment` MTS-1 (Val 2026-10-15) ─────────
+  // Composé en amont par fetchCollecte (composerCommentaireTransporteur, partagé
+  // avec Everest) ; ce test ferme le maillon aval : ce qui est composé atteint
+  // le fil, dans `comment`, au format décidé par Val (C60) — sans « Véhicule
+  // max » ni « Stationnement ».
+  it('M1.5 / commentaire au transporteur : traiteur, pax, instructions d’accès, contacts, au format de Val, dans comment', async () => {
     const postOrder = setupHandlers();
     const supabase = makeMockSupabase({ tourneeExistante: null });
-
+    const lieuAcces: Lieu = {
+      ...LIEU_FIXTURE,
+      acces_details: 'Quai n°2, sonner interphone B',
+      stationnement: 'difficile',
+      contraintes_horaires: 'Livraison avant 9h uniquement',
+      acces_office: 'tres_difficile',
+      type_vehicule_max: 'camionnette',
+      flux_autorises: ['biodéchets', 'carton'],
+    };
     const collecte: Collecte = {
       ...COLLECTE_ZD,
+      lieu: lieuAcces,
       contact_secours_nom: 'Bruno Secours',
       contact_secours_telephone: '+33600000002',
     };
@@ -959,12 +913,22 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
       {
         ...collecte,
-        informations_supplementaires: composerInformationsSupplementaires(
-          collecte.lieu,
-          null,
-          collecte.contact_secours_nom,
-          null,
-        ),
+        informations_supplementaires: composerCommentaireTransporteur({
+          traiteurNom: 'Traiteur Essai',
+          pax: 120,
+          lieu: lieuAcces,
+          informationsSupplementaires: 'Demander Karim à la plonge',
+          contact: {
+            nom: collecte.contact_principal_nom,
+            telephone: collecte.contact_principal_telephone,
+          },
+          contactSecours: {
+            nom: collecte.contact_secours_nom,
+            telephone: collecte.contact_secours_telephone,
+          },
+          vehicule: null,
+          livraison: null,
+        }),
       },
       1,
     );
@@ -973,9 +937,21 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
       comment?: string;
       contact?: { phoneAlternatives?: string[] };
     };
-    expect(orderPayload.comment).toContain(
-      'Contact de secours : Bruno Secours',
+    expect(orderPayload.comment).toBe(
+      [
+        'Traiteur : Traiteur Essai',
+        'Nombre de pax : 120',
+        "Instructions d'accès :",
+        '- Accès : Quai n°2, sonner interphone B',
+        '- Précisions du traiteur : Demander Karim à la plonge',
+        '- Contraintes horaires : Livraison avant 9h uniquement',
+        '- Accès office : très difficile',
+        '- Flux acceptés : biodéchets, carton',
+        `Contact : ${collecte.contact_principal_nom}, ${collecte.contact_principal_telephone}`,
+        'Contact de secours : Bruno Secours, +33600000002',
+      ].join('\n'),
     );
+    // Le téléphone de secours part aussi nativement.
     expect(orderPayload.contact?.phoneAlternatives).toEqual(['+33600000002']);
   });
 
@@ -988,5 +964,136 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     );
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     expect(orderPayload['comment']).toBeUndefined();
+  });
+});
+
+// ─── Nom du point et contact de livraison (décisions Val 2026-10-15) ─────────
+// MTS-1 affiche le numéro de commande comme nom du point (C59) ; le contact de
+// livraison (« Contact livr. ») est celui de l'association quand son adresse part
+// en clair (C62). Formes mesurées sur le compte de démonstration le 2026-10-15.
+
+describe('M1.5a / nom du point et contact de livraison (Val 2026-10-15)', () => {
+  afterEach(() => _setMts1Handlers(null));
+
+  async function corpsCree(collecte: Collecte): Promise<{
+    orderNumber: string;
+    stuffs: Array<Record<string, unknown>>;
+  }> {
+    const postOrder = vi.fn().mockResolvedValue({
+      ok: true,
+      id: 'MTS1-ORDER-LIB',
+      externalReference: '',
+      status: 'DRAFT',
+      createdAt: '',
+    });
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder,
+      ...tourneeUnitaireSimulee(),
+    });
+    await new AdapterMts1(
+      TRANSPORTEUR,
+      makeMockSupabase({ tourneeExistante: null }),
+    ).dispatchCollecte(collecte, 1);
+    return postOrder.mock.calls[0]![0] as {
+      orderNumber: string;
+      stuffs: Array<Record<string, unknown>>;
+    };
+  }
+
+  it('M1.5a/numero_commande_libelle — « Traiteur - Lieu - N pax · clé »', async () => {
+    const corps = await corpsCree({
+      ...COLLECTE_ZD,
+      traiteur_nom: 'Traiteur Essai',
+      pax: 120,
+    });
+    expect(corps.orderNumber).toBe(
+      'Traiteur Essai - Salle Pleyel - 120 pax · col-zd-001-1',
+    );
+  });
+
+  it('M1.5a/numero_commande_libelle_borne — traiteur et lieu repliés sur une ligne et bornés à 40 caractères chacun, pax absent ou nul omis', async () => {
+    const corps = await corpsCree({
+      ...COLLECTE_ZD,
+      traiteur_nom: `Traiteur\nau nom ${'très '.repeat(10)}long`,
+      pax: 0,
+      lieu: { ...LIEU_FIXTURE, nom: `  Château\tde ${'l’Essai '.repeat(6)} ` },
+    });
+    const [libelle, cle] = corps.orderNumber.split(' · ');
+    expect(cle).toBe('col-zd-001-1');
+    const [traiteur, lieu, ...reste] = libelle!.split(' - ');
+    expect(reste).toEqual([]);
+    expect(traiteur).toBe(
+      `${'Traiteur au nom très très très très très'.slice(0, 39)}…`,
+    );
+    expect(traiteur).toHaveLength(40);
+    expect(lieu!.startsWith('Château de l’Essai')).toBe(true);
+    expect(lieu!.length).toBeLessThanOrEqual(40);
+    expect(corps.orderNumber).not.toMatch(/[\n\t]/);
+  });
+
+  it('M1.5a/numero_commande_sans_libelle — ni traiteur, ni lieu nommé, ni pax : le numéro est la clé seule', async () => {
+    const corps = await corpsCree({
+      ...COLLECTE_ZD,
+      lieu: { ...LIEU_FIXTURE, nom: '   ' },
+    });
+    expect(corps.orderNumber).toBe('col-zd-001-1');
+  });
+
+  it('M1.5a/contact_livraison_association — AG, adresse de l’association en clair : son contact part en contact de livraison (relatedContact)', async () => {
+    const corps = await corpsCree(COLLECTE_AG);
+    expect(corps.stuffs[0]!['relatedContact']).toEqual({
+      firstname: 'Nadia',
+      lastname: 'Benali',
+      phone: '+33699990001',
+    });
+  });
+
+  it.each([
+    [
+      'AG, association lieu favori (placeId)',
+      {
+        ...COLLECTE_AG,
+        association_id_point_collecte_mts1: 'PLACE_ASSO_FAVORI',
+      } as Collecte,
+    ],
+    [
+      'AG, association sans contact',
+      {
+        ...COLLECTE_AG,
+        association_contact_nom: null,
+        association_contact_telephone: null,
+      } as Collecte,
+    ],
+  ])(
+    'M1.5a/contact_livraison_absent — %s : aucun contact de livraison',
+    async (_cas, collecte) => {
+      const corps = await corpsCree(collecte);
+      expect(corps.stuffs[0]).not.toHaveProperty('relatedContact');
+    },
+  );
+});
+
+describe('M1.5a / reconnaissance de la clé dans un numéro (numeroPorteLaCle)', () => {
+  it.each([
+    ['la clé seule (commande d’avant le 2026-10-15)', 'col-1-1', true],
+    ['le libellé puis la clé', 'Traiteur - Lieu - 120 pax · col-1-1', true],
+    [
+      'un autre libellé puis la clé',
+      'Autre - Ailleurs - 80 pax · col-1-1',
+      true,
+    ],
+    ['la clé du rang 11', 'Traiteur - Lieu · col-1-11', false],
+    ['la clé d’une tentative r2', 'Traiteur - Lieu · col-1-1-r2', false],
+    ['la clé collée sans séparateur', 'Traiteur - Lieucol-1-1', false],
+    ['la clé d’une autre collecte', 'Traiteur · autre-col-1-1', false],
+  ])('M1.5a/numero_porte_la_cle — %s', (_cas, numero, attendu) => {
+    expect(numeroPorteLaCle(numero, 'col-1-1')).toBe(attendu);
+  });
+
+  it('M1.5a/numero_porte_la_cle — un numéro qui n’est pas une chaîne ne porte aucune clé', () => {
+    expect(numeroPorteLaCle(undefined, 'col-1-1')).toBe(false);
+    expect(numeroPorteLaCle(42, 'col-1-1')).toBe(false);
   });
 });

@@ -60,6 +60,7 @@ import type {
 import { estIdentifiantMts1, Mts1Client } from './client.js';
 import type { Mts1CustomerOrder, Mts1Tour, Mts1TourStop } from './mock.js';
 import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
+import { uneLigne } from '../infos-acces.js';
 
 // `collectes.lieu_overrides` — jsonb libre porté par la collecte (§06.01).
 interface CollecteLieuOverridesRow {
@@ -194,6 +195,71 @@ const STATUTS_ATTRIBUTION_COLLECTE: string[] = ['programmee', 'validee'];
 // compte de démonstration ce jour-là).
 const STATUTS_COMMANDE_TERMINEE = new Set(['OK', 'PARTIAL', 'ARCHIVED']);
 
+// ─── Contact d'une commande ──────────────────────────────────────────────────
+
+// CustomerOrderContactInput : Savr n'a qu'un nom complet → 1er mot = firstname,
+// reste = lastname (relevé as-built §« Contact »). `undefined` si rien à dire.
+function contactMts1(
+  nom: string | null | undefined,
+  telephone: string | null | undefined,
+  telephoneSecours?: string | null,
+): CreateOrderPayload['contact'] | undefined {
+  const [firstname, ...rest] = (nom?.trim() ?? '').split(/\s+/).filter(Boolean);
+  const lastname = rest.join(' ');
+  if (!firstname && !telephone && !telephoneSecours) return undefined;
+  return {
+    ...(firstname ? { firstname } : {}),
+    ...(lastname ? { lastname } : {}),
+    ...(telephone ? { phone: telephone } : {}),
+    ...(telephoneSecours ? { phoneAlternatives: [telephoneSecours] } : {}),
+  };
+}
+
+// ─── Numéro de commande (décision Val 2026-10-15, C59) ──────────────────────
+
+// MTS-1 n'a aucun champ « nom » de commande ni de lieu (documentation V3, lue le
+// 2026-10-15) : la console affiche le NUMÉRO de commande comme nom du point. Il
+// porte donc « Traiteur - Lieu - N pax », puis la clé de la commande, qui reste
+// la seule chose que la reprise recherche : le libellé suit les données de la
+// collecte et peut changer d'un passage à l'autre (modification du nombre de
+// pax, du lieu…), la clé jamais.
+const SEPARATEUR_CLE = ' · ';
+
+// Chaque partie du libellé est bornée : le libellé passe en tête et reste
+// lisible dans la frise de la console. MTS-1 a accepté et rendu à l'identique un
+// numéro de 164 caractères (mesuré sur le compte de démonstration le
+// 2026-10-15) ; ici, au plus ~95 caractères plus la clé (≤ 45).
+const LIMITE_PARTIE_LIBELLE = 40;
+
+function libelleCommande(collecte: Collecte): string {
+  const pax =
+    typeof collecte.pax === 'number' &&
+    Number.isInteger(collecte.pax) &&
+    collecte.pax > 0
+      ? `${collecte.pax} pax`
+      : '';
+  return [
+    uneLigne(collecte.traiteur_nom, LIMITE_PARTIE_LIBELLE),
+    uneLigne(collecte.lieu.nom, LIMITE_PARTIE_LIBELLE),
+    pax,
+  ]
+    .filter(Boolean)
+    .join(' - ');
+}
+
+/**
+ * Le numéro d'une commande MTS-1 porte-t-il cette clé ? Égal à la clé (commandes
+ * créées avant le 2026-10-15, ou sans libellé) ou terminé par « · clé ». La clé
+ * d'un rang ne peut pas terminer celle d'un autre : « …-1 » ne termine ni
+ * « …-11 » ni « …-1-r2 », et le séparateur exige le début de la clé.
+ */
+export function numeroPorteLaCle(numero: unknown, cle: string): boolean {
+  return (
+    typeof numero === 'string' &&
+    (numero === cle || numero.endsWith(`${SEPARATEUR_CLE}${cle}`))
+  );
+}
+
 // ─── Lecture du détail d'un tour (forme mesurée le 2026-10-13) ───────────────
 
 function sertLaCommande(stop: Mts1TourStop, customerOrderId: string): boolean {
@@ -278,7 +344,9 @@ export class AdapterMts1 implements LogistiqueProvider {
     let tournee = await this.findTournee(collecte.id, rang);
 
     // Clé de la commande de CE rang, tentative comprise. Lue sur la tournée
-    // trouvée (jamais réécrite par l'adapter) : stable sur toute la reprise.
+    // trouvée (jamais réécrite par l'adapter) : stable sur toute la reprise. Le
+    // numéro envoyé y ajoute le libellé, qui peut changer d'un passage à l'autre.
+    const cle = this.cleCommande(collecte, rang, tournee);
     const orderNumber = this.orderNumber(collecte, rang, tournee);
 
     // ── Étape 1 : POST /v3/customerOrders, sauf commande déjà enregistrée ──────
@@ -291,7 +359,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     if (!customerOrderId) {
       // Réconciliation avant re-POST si claim expiré lors d'une tentative précédente
       if (opts?.requiresReconciliation) {
-        commandeRetrouvee = await this.reconcileOrder(collecte, orderNumber);
+        commandeRetrouvee = await this.reconcileOrder(collecte, cle);
         customerOrderId = commandeRetrouvee?.customerOrderId ?? null;
       }
       if (!customerOrderId) {
@@ -378,10 +446,17 @@ export class AdapterMts1 implements LogistiqueProvider {
         disparues.push(t);
         continue;
       }
+      // Le numéro est renvoyé à chaque modification : un nombre de pax, un lieu
+      // ou un traiteur modifié renomme le point dans la console (renommage par
+      // `PUT { orderNumber, stuffs }` mesuré sur le compte de démonstration le
+      // 2026-10-15 ; le corps envoyé ici ne porte pas `stuffs`, défaut préexistant
+      // traité ailleurs). La clé, en fin de numéro, tentative comprise, ne change
+      // pas.
+      const numero = this.orderNumber(collecte, t.rang, t);
       await this.client.updateOrder(
         t.external_ref_commande!,
-        updatePayload,
-        this.orderNumber(collecte, t.rang, t),
+        { ...updatePayload, orderNumber: numero },
+        numero,
       );
     }
     // Une commande disparue n'est PAS un succès : la modification n'a atteint
@@ -2168,19 +2243,25 @@ export class AdapterMts1 implements LogistiqueProvider {
   // ─── Réconciliation plan B ────────────────────────────────────────────────────
 
   /**
-   * Commande déjà créée chez MTS-1 pour ce numéro, ou `null` — avant tout
+   * Commande déjà créée chez MTS-1 pour cette clé, ou `null` — avant tout
    * re-POST d'une création reprise (§08 §3bis.9).
    */
   private async reconcileOrder(
     collecte: Collecte,
-    orderNumber: string,
+    cle: string,
   ): Promise<Mts1CustomerOrder | null> {
     // Fenêtre en JOURS : l'API ne lit que des « yyyy-MM-dd », bornes incluses,
     // jour compté à Paris (mesuré le 2026-10-13) — c'est-à-dire exactement
     // `date_collecte`, envoyée comme `orderDate` à la création. Un jour de marge
     // de chaque côté : un ordre manqué ferait re-POSTer un doublon sur une API
-    // présumée non idempotente (§2), et le filtre `orderNumber` réduit déjà la
-    // réponse aux commandes de CE rang.
+    // présumée non idempotente (§2).
+    // Sans filtre `orderNumber` : il compare à l'égalité stricte (mesuré le
+    // 2026-10-13), or le numéro envoyé porte un libellé qui a pu changer depuis
+    // la création. La clé est reconnue ici, sur la liste de la fenêtre : il faut
+    // qu'elle soit COMPLÈTE. Mesuré le 2026-10-13 : réponse sans pagination, les
+    // paramètres de page ignorés, les 72 commandes du compte rendues d'un coup ;
+    // aucun plafond mesuré au-delà. Hypothèse : une fenêtre de 3 jours reste
+    // sous un plafond éventuel (une ou deux dizaines de commandes).
     // Limite connue : une collecte dont la date a changé de plus d'un jour entre
     // le POST perdu et la reprise sort de la fenêtre. La commande laissée
     // derrière n'a ni tournée ni transporteur ; elle reste à supprimer chez MTS-1.
@@ -2188,11 +2269,9 @@ export class AdapterMts1 implements LogistiqueProvider {
     const orders = await this.client.scanOrdersByDateRange(
       decalerJour(jour, -1),
       decalerJour(jour, 1),
-      orderNumber,
     );
 
-    // L'égalité stricte se rejoue ICI, quoi que rende le filtre distant.
-    const duNumero = orders.filter((o) => o.orderNumber === orderNumber);
+    const duNumero = orders.filter((o) => numeroPorteLaCle(o.orderNumber, cle));
 
     // Commande terminée ou archivée sous ce numéro : l'ordre s'arrête (cf.
     // STATUTS_COMMANDE_TERMINEE). Regardé AVANT de chercher une commande à
@@ -2215,7 +2294,7 @@ export class AdapterMts1 implements LogistiqueProvider {
         ),
       ].sort();
       throw new LogistiquePermanentError(
-        `collecte ${collecte.id} : une commande du numéro ${orderNumber} est déjà terminée chez MTS-1 (${lesquelles.join(
+        `collecte ${collecte.id} : une commande de clé ${cle} est déjà terminée chez MTS-1 (${lesquelles.join(
           ', ',
         )}) — ni reprise ni nouvelle création`,
       );
@@ -2242,7 +2321,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     // réponse qu'on ne sait pas lire).
     if (!estIdentifiantMts1(retenue)) {
       throw new LogistiqueTransientError(
-        `MTS-1 GET /v3/customerOrders : réponse inattendue, customerOrderId illisible pour le numéro ${orderNumber}`,
+        `MTS-1 GET /v3/customerOrders : réponse inattendue, customerOrderId illisible pour la clé ${cle}`,
       );
     }
 
@@ -2253,8 +2332,8 @@ export class AdapterMts1 implements LogistiqueProvider {
         direction: 'sortant',
         methode: 'GET',
         endpoint: '/v3/customerOrders',
-        correlation_id: orderNumber,
-        erreur: `COMMANDES_EN_DOUBLE: ${candidates.length} commandes portent ce numéro (${candidates.join(
+        correlation_id: cle,
+        erreur: `COMMANDES_EN_DOUBLE: ${candidates.length} commandes portent cette clé (${candidates.join(
           ', ',
         )}), reprise sur ${retenue}`,
       });
@@ -2283,13 +2362,25 @@ export class AdapterMts1 implements LogistiqueProvider {
   // (fn_dispatcher_collecte suffixe alors `tournees.reference_interne` —
   // arbitrage Val 2026-09-17). Sans suffixe, la nouvelle commande porterait la
   // clé de la commande annulée, et la réconciliation retrouverait cette dernière.
-  private orderNumber(
+  private cleCommande(
     collecte: Collecte,
     rang: number,
     tournee?: Pick<TourneeRow, 'reference_interne'> | null,
   ): string {
     const tentative = tournee?.reference_interne?.match(/-r\d+$/)?.[0] ?? '';
     return `${collecte.id}-${rang}${tentative}`;
+  }
+
+  // Numéro envoyé à MTS-1 : « Traiteur - Lieu - N pax · clé », ou la clé seule
+  // faute de libellé (cf. SEPARATEUR_CLE).
+  private orderNumber(
+    collecte: Collecte,
+    rang: number,
+    tournee?: Pick<TourneeRow, 'reference_interne'> | null,
+  ): string {
+    const cle = this.cleCommande(collecte, rang, tournee);
+    const libelle = libelleCommande(collecte);
+    return libelle ? `${libelle}${SEPARATEUR_CLE}${cle}` : cle;
   }
 
   // Contacts propagés au TMS : principal (toujours) + téléphone du secours (dès
@@ -2300,29 +2391,20 @@ export class AdapterMts1 implements LogistiqueProvider {
   // Contact terrain → CustomerOrderContactInput (objet UNIQUE). MTS-1 n'expose
   // qu'UN `contact` sur la commande : on y met le contact PRINCIPAL, et le
   // téléphone du contact de SECOURS va en `phoneAlternatives`. Le NOM du secours
-  // n'a pas de champ dédié → il est concaténé au `comment` de la commande
+  // n'a pas de champ dédié → il figure dans le `comment` de la commande
   // (arbitrage Val 2026-09-14, §08 l.393-397 : « sans quoi le chauffeur a un
-  // numéro de secours sans savoir qui appeler »). Cette concaténation a lieu en
-  // AMONT, dans `composerInformationsSupplementaires` (fetchCollecte), donc pour
-  // les DEUX adapters — garde-fou 2 : ne pas la refaire ici. On ne dispose que
-  // d'un `nom` complet → 1er mot = firstname, reste = lastname.
+  // numéro de secours sans savoir qui appeler »), composé en AMONT par
+  // `composerCommentaireTransporteur` (fetchCollecte), donc pour les DEUX
+  // adapters — garde-fou 2 : ne pas le refaire ici. On ne dispose que d'un
+  // `nom` complet → 1er mot = firstname, reste = lastname (cf. contactMts1).
   private buildContact(
     collecte: Collecte,
   ): CreateOrderPayload['contact'] | undefined {
-    const nom = collecte.contact_principal_nom?.trim() ?? '';
-    const phone = collecte.contact_principal_telephone;
-    const secoursPhone = collecte.contact_secours_telephone;
-    if (!nom && !phone && !secoursPhone) return undefined;
-
-    const [firstname, ...rest] = nom.split(/\s+/).filter(Boolean);
-    const lastname = rest.join(' ');
-
-    return {
-      ...(firstname ? { firstname } : {}),
-      ...(lastname ? { lastname } : {}),
-      ...(phone ? { phone } : {}),
-      ...(secoursPhone ? { phoneAlternatives: [secoursPhone] } : {}),
-    };
+    return contactMts1(
+      collecte.contact_principal_nom,
+      collecte.contact_principal_telephone,
+      collecte.contact_secours_telephone,
+    );
   }
 
   // Point A (enlèvement) = adresse du lieu + créneau d'arrivée souhaité, dans le
@@ -2373,7 +2455,23 @@ export class AdapterMts1 implements LogistiqueProvider {
       }
       pointB = { address: { addressSingleLine: collecte.association_adresse } };
     }
-    const relatedAddress = pointB ? { relatedAddress: pointB } : {};
+    // Contact de livraison (« Contact livr. ») : le contact de l'association,
+    // quand son adresse part en clair. MTS-1 ne le prend en compte que pour une
+    // adresse liée sans placeId (documentation V3) ; un lieu favori porte son
+    // propre contact dans la console (décision Val 2026-10-15, C62).
+    const contactLivraison =
+      pointB && 'address' in pointB
+        ? contactMts1(
+            collecte.association_contact_nom,
+            collecte.association_contact_telephone,
+          )
+        : undefined;
+    const relatedAddress = pointB
+      ? {
+          relatedAddress: pointB,
+          ...(contactLivraison ? { relatedContact: contactLivraison } : {}),
+        }
+      : {};
 
     // Marchandise transportée (pesée plus tard → quantity 0), chaque stuff portant le
     // point B (relatedAddress). ZD = 5 flux + volume du camion ; AG = le don
@@ -2414,9 +2512,9 @@ export class AdapterMts1 implements LogistiqueProvider {
       stuffs,
       // BL-P1-PROG-03 : informations_supplementaires → `comment` MTS-1 (§08 l.389),
       // pour que les instructions logistiques du programmeur atteignent le prestataire
-      // (M01/M03/M05). Le champ porte l'agrégat composé par fetchCollecte : saisie du
-      // traiteur + nom du contact de secours + informations d'accès du lieu — §08 l.397
-      // « comment (informations_supplementaires + nom du contact de secours) ».
+      // (M01/M03/M05). Le champ porte le commentaire au transporteur composé par
+      // fetchCollecte (format décidé par Val le 2026-10-15 : traiteur, pax,
+      // instructions d'accès, contacts, livraison — cf. infos-acces.ts).
       // controle_acces_requis n'a pas de champ natif MTS-1 (concern V2 TMS
       // via validate_tournee_controle_acces) → hors payload sortant V1.
       ...(collecte.informations_supplementaires
@@ -2472,8 +2570,9 @@ export class AdapterMts1 implements LogistiqueProvider {
     //
     // buildOrderPayload (E1) et buildUpdatePayload (E2) restent alignés par
     // CONSTRUCTION via buildPlace()/buildContact(), pas par recopie. pax : MTS-1 n'a
-    // aucun champ dédié (§08 l.173, push silencieux ignoré) → jamais dans le payload
-    // sortant V1 ; le signal part dans l'outbox E2, consommé par le TMS V2.
+    // aucun champ dédié (§08 l.173) ; depuis le 2026-10-15 (décision Val), il part
+    // en texte, dans le numéro de commande (nom du point) et dans `comment`, en E1
+    // comme en E2 ; le signal part aussi dans l'outbox E2, consommé par le TMS V2.
     const contact = this.buildContact(collecte);
     return {
       place: this.buildPlace(collecte),

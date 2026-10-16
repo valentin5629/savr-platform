@@ -16,7 +16,7 @@ import {
 // Ce que chacune coûte — relevé sur le code d'émission des adapters de CETTE
 // branche (main mergé), pas déduit du nom des colonnes :
 //   · `informations_supplementaires` ET `contact_secours_nom` transitent par le
-//     canal de TEXTE LIBRE, agrégé par `composerInformationsSupplementaires`
+//     canal de TEXTE LIBRE, composé par `composerCommentaireTransporteur`
 //     (packages/adapters/src/infos-acces.ts), où les informations d'exploitation
 //     sont concaténées en un seul message pour le chauffeur. Une valeur démesurée
 //     y évinçait les lignes voisines — et le nom de secours OUVRE le bloc, donc il
@@ -29,11 +29,17 @@ import {
 //     donc plus sur cet argument pour ce champ : elle vaut pour l'intégrité de
 //     la donnée (voir plus bas), et le plafond de mise en forme de l'agrégat
 //     reste nécessaire pour le nom de secours (historique + écritures hors route).
+//     ⚠ Mis à jour (2026-10-15, format décidé par Val) : le canal libre n'est
+//     plus « note puis bloc Savr » ; chaque valeur y tient sur UNE ligne
+//     repliée et bornée (`uneLigne`), le nom de secours compris, et les seules
+//     lignes longues (accès, saisie du traiteur…) sont amputées puis retirées
+//     dans un ordre fixe pour tenir l'enveloppe. Un nom ne forge donc plus de
+//     ligne, et n'évince plus rien.
 //   · `contact_secours_telephone` part dans un champ NATIF de la commande : pas
 //     d'éviction possible, mais un numéro de 5 000 caractères reste une donnée
 //     aberrante transmise telle quelle.
 //
-// L'amont borne déjà la MISE EN FORME (`nomContact`, 120 car., blancs repliés) —
+// L'amont borne déjà la MISE EN FORME (`uneLigne`, 120 car. pour un nom, blancs repliés) —
 // et son propre commentaire constate que la colonne n'a « ni CHECK en base, ni
 // borne de longueur sur la route d'édition ». C'est précisément ce que ce module
 // et la migration 20260915180000 ferment.

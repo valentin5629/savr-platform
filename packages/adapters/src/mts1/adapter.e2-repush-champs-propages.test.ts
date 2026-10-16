@@ -73,7 +73,7 @@ const TRANSPORTEUR: Transporteur = {
 // (`collecte_tournees.tournee_id` → `tournees.id`), donc PostgREST renvoie un
 // objet, jamais un tableau. Ce fichier épingle le CONTENU du payload ; la forme
 // de l'embed est ancrée par `embed-cardinalite.test.ts`.
-function mockSupabaseDispatched() {
+function mockSupabaseDispatched(referenceInterne?: string) {
   const mockQuery = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockResolvedValue({
@@ -82,6 +82,9 @@ function mockSupabaseDispatched() {
           rang: 1,
           tournees: {
             id: 'tournee-e2-001',
+            ...(referenceInterne
+              ? { reference_interne: referenceInterne }
+              : {}),
             external_ref_commande: 'MTS1-ORDER-E2-001',
             tms_reference: 'MTS1-TOUR-E2-001',
             statut: 'en_cours',
@@ -141,6 +144,7 @@ function mockSupabaseVierge() {
 /** Joue E2 sur `collecte` et rend le corps du PUT réellement adressé à MTS-1. */
 async function putPayload(
   collecte: Collecte,
+  referenceInterne?: string,
 ): Promise<Record<string, unknown>> {
   const updateOrder = vi.fn().mockResolvedValue(undefined);
   _setMts1Handlers({
@@ -149,9 +153,10 @@ async function putPayload(
     postOrder: vi.fn(),
     updateOrder,
   });
-  await new AdapterMts1(TRANSPORTEUR, mockSupabaseDispatched()).updateCollecte(
-    collecte,
-  );
+  await new AdapterMts1(
+    TRANSPORTEUR,
+    mockSupabaseDispatched(referenceInterne),
+  ).updateCollecte(collecte);
   expect(updateOrder).toHaveBeenCalledOnce();
   return updateOrder.mock.calls[0]![1] as Record<string, unknown>;
 }
@@ -318,8 +323,37 @@ describe('E1/E2 — rien d’INTERNE ne sort vers le prestataire', () => {
       'comment',
       'contact',
       'orderDate',
+      'orderNumber',
       'place',
     ]);
+  });
+});
+
+describe('E2 — le numéro de commande suit le libellé (décision Val 2026-10-15, C59)', () => {
+  afterEach(() => _setMts1Handlers(null));
+
+  it('M1.5a/modification_renomme_commande — pax modifiés : le PUT renvoie « Traiteur - Lieu - N pax » à jour, suivi de la même clé', async () => {
+    const payload = await putPayload({
+      ...COLLECTE_DISPATCHEE,
+      traiteur_nom: 'Traiteur Essai',
+      pax: 150,
+    });
+    expect(payload['orderNumber']).toBe(
+      'Traiteur Essai - Salle Pleyel - 150 pax · col-e2-001-1',
+    );
+  });
+
+  it('M1.5a/modification_renomme_commande_tentative — camion refusé puis réattribué : le numéro renvoyé garde la clé de la tentative (-r2), jamais celle de la commande annulée', async () => {
+    // Sans le suffixe, le numéro porterait la clé de l'ancienne commande : une
+    // reprise ultérieure chercherait « …-1-r2 », ne la trouverait plus et
+    // re-créerait la commande.
+    const payload = await putPayload(
+      { ...COLLECTE_DISPATCHEE, traiteur_nom: 'Traiteur Essai', pax: 150 },
+      'TMS-col-e2-001-1-r2',
+    );
+    expect(payload['orderNumber']).toBe(
+      'Traiteur Essai - Salle Pleyel - 150 pax · col-e2-001-1-r2',
+    );
   });
 });
 

@@ -616,7 +616,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         'mts1',
         null,
         null,
-      ), // R_code_mts1 négatif + pont prestataire absent (fixture négative)
+      ), // R_code_mts1 négatif (fixture négative) ; sa fiche prestataire est créée par la base (trg_transporteur_prestataire_auto)
     ],
     ['id'],
   );

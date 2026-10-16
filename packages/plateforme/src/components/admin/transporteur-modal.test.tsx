@@ -9,7 +9,6 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 import {
   TransporteurModal,
-  type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
 import { buttonVariants } from '@/components/ui/button';
@@ -32,7 +31,6 @@ const EDIT_FIXTURE: TransporteurRecord = {
   type_tms: 'autre',
   description_process_collecte: null,
   code_transporteur_mts1: null,
-  prestataire_logistique_id: null,
   actif: true,
 };
 
@@ -46,33 +44,6 @@ function choisirOption(libelle: RegExp, option: string) {
 function ouvrirOnglet(nom: RegExp) {
   fireEvent.mouseDown(screen.getByRole('tab', { name: nom }));
 }
-
-const PRESTATAIRES: PrestataireOption[] = [
-  {
-    id: '11111111-1111-4111-8111-111111111111',
-    nom: 'A Toutes!',
-    code: 'ATOUTES',
-    statut: 'actif',
-    transporteur_id: null,
-    transporteur_nom: null,
-  },
-  {
-    id: '22222222-2222-4222-8222-222222222222',
-    nom: 'Strike',
-    code: 'STRIKE',
-    statut: 'actif',
-    transporteur_id: 'transp-autre',
-    transporteur_nom: 'Strike Paris',
-  },
-  {
-    id: '33333333-3333-4333-8333-333333333333',
-    nom: 'Marathon',
-    code: 'MARATHON',
-    statut: 'actif',
-    transporteur_id: EDIT_FIXTURE_ID,
-    transporteur_nom: 'Strike Logistique',
-  },
-];
 
 // Onglet « Identité & contact » (ouvert par défaut).
 function remplirIdentite() {
@@ -299,13 +270,20 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
   );
 
   // ── Lien prestataire logistique ─────────────────────────────────────────────
-  // Sans ce lien, un transporteur routé vers un adapter écarte toutes ses
-  // tournées : 100 % de ses événements finissent en file d'erreur.
+  // Plus choisi à l'écran (décision Val 2026-10-16) : la base crée la fiche
+  // prestataire du même nom et pose le lien (trg_transporteur_prestataire_auto).
 
-  it(
-    'bloque la soumission si type_tms=a_toutes sans prestataire logistique',
-    async () => {
-      const fetchMock = vi.fn();
+  // MTS-1 = le cas de la capture de Val (2026-10-16) : la création doit partir.
+  it.each([
+    ['mts1', 'MTS-1 (Strike / Marathon)'],
+    ['a_toutes', 'A Toutes! (vélo cargo)'],
+  ])(
+    'création %s : aucun champ prestataire, le POST part sans lien',
+    async (typeTms, libelle) => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'transp-1' }),
+      });
       vi.stubGlobal('fetch', fetchMock);
       render(
         <TransporteurModal
@@ -313,169 +291,65 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
           transporteur={null}
           onClose={vi.fn()}
           onSaved={vi.fn()}
-          prestataires={PRESTATAIRES}
         />,
       );
 
       fillCommonFields();
       ouvrirOnglet(/Connexion logistique/);
-      choisirOption(/Type de TMS/, 'A Toutes! (vélo cargo)');
-      fireEvent.click(
-        screen.getByRole('button', { name: /Créer le transporteur/ }),
-      );
-
+      choisirOption(/Type de TMS/, libelle);
+      if (typeTms === 'mts1')
+        fireEvent.change(screen.getByLabelText(/Code transporteur MTS-1/), {
+          target: { value: 'CA_TEST01' },
+        });
       expect(
-        await screen.findByText(
-          /Prestataire logistique obligatoire/,
-          undefined,
-          ATTENTE_UI,
-        ),
-      ).toBeInTheDocument();
-      expect(fetchMock).not.toHaveBeenCalled();
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    'création a_toutes → POST porte le prestataire logistique choisi',
-    async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: 'transp-1' }),
-      });
-      vi.stubGlobal('fetch', fetchMock);
-      render(
-        <TransporteurModal
-          open
-          transporteur={null}
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-          prestataires={PRESTATAIRES}
-        />,
-      );
-
-      fillCommonFields();
-      ouvrirOnglet(/Connexion logistique/);
-      choisirOption(/Type de TMS/, 'A Toutes! (vélo cargo)');
-      choisirOption(/Prestataire logistique/, PRESTATAIRES[0]!.nom);
+        screen.queryByText(/Prestataire logistique/),
+      ).not.toBeInTheDocument();
       fireEvent.click(
         screen.getByRole('button', { name: /Créer le transporteur/ }),
       );
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-      const body = JSON.parse(options.body as string) as {
-        prestataire_logistique_id: string | null;
-      };
-      expect(body.prestataire_logistique_id).toBe(PRESTATAIRES[0]!.id);
+      const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as Record<
+        string,
+        unknown
+      >;
+      expect(url).toBe('/api/v1/admin/transporteurs');
+      expect(body.type_tms).toBe(typeTms);
+      expect(body).not.toHaveProperty('prestataire_logistique_id');
     },
     ATTENTE_CAS_MS,
   );
-
-  it(
-    'type manuel sans prestataire → POST avec prestataire_logistique_id null (jamais chaîne vide)',
-    async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: 'transp-1' }),
-      });
-      vi.stubGlobal('fetch', fetchMock);
-      render(
-        <TransporteurModal
-          open
-          transporteur={null}
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-          prestataires={PRESTATAIRES}
-        />,
-      );
-
-      fillCommonFields();
-      ouvrirOnglet(/Connexion logistique/);
-      choisirOption(/Type de TMS/, 'Par mail (validation Admin manuelle)');
-      fireEvent.click(
-        screen.getByRole('button', { name: /Créer le transporteur/ }),
-      );
-
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-      const body = JSON.parse(options.body as string) as {
-        prestataire_logistique_id: string | null;
-      };
-      // '' serait refusé par la route (UUID invalide) : l'écran doit envoyer null.
-      expect(body.prestataire_logistique_id).toBeNull();
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it('création : grise les prestataires déjà rattachés à un transporteur', () => {
-    render(
-      <TransporteurModal
-        open
-        transporteur={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-        prestataires={PRESTATAIRES}
-      />,
-    );
-
-    // Combobox : options portées dans le portail à l'ouverture ; une option
-    // grisée porte aria-disabled (cmdk), pas l'attribut disabled natif.
-    ouvrirOnglet(/Connexion logistique/);
-    fireEvent.click(
-      screen.getByRole('combobox', { name: /Prestataire logistique/ }),
-    );
-    expect(
-      screen.getByRole('option', { name: 'A Toutes!' }),
-    ).not.toHaveAttribute('aria-disabled', 'true');
-    expect(
-      screen.getByRole('option', {
-        name: /Strike — déjà rattaché à Strike Paris/,
-      }),
-    ).toHaveAttribute('aria-disabled', 'true');
-    expect(
-      screen.getByRole('option', {
-        name: /Marathon — déjà rattaché à Strike Logistique/,
-      }),
-    ).toHaveAttribute('aria-disabled', 'true');
-  });
 
   // ── Immuabilité (arbitrage Val 2026-09-16) ─────────────────────────────────
   // type_tms et prestataire_logistique_id sont posés à la création et jamais
-  // modifiables : verrouillés à l'écran, jamais envoyés au PATCH (qui les refuse).
+  // modifiables : type verrouillé à l'écran, aucun des deux envoyé au PATCH
+  // (qui les refuse).
 
-  it('édition : Type de TMS et Prestataire logistique verrouillés, affichant la valeur posée', () => {
+  it('édition : Type de TMS verrouillé, affichant la valeur posée', () => {
     render(
       <TransporteurModal
         open
-        transporteur={{
-          ...EDIT_FIXTURE,
-          type_tms: 'a_toutes',
-          prestataire_logistique_id: PRESTATAIRES[2]!.id,
-        }}
+        transporteur={{ ...EDIT_FIXTURE, type_tms: 'a_toutes' }}
         onClose={vi.fn()}
         onSaved={vi.fn()}
-        prestataires={PRESTATAIRES}
       />,
     );
 
     ouvrirOnglet(/Connexion logistique/);
     const typeTms = screen.getByRole('combobox', { name: /Type de TMS/ });
-    const presta = screen.getByRole('combobox', {
-      name: /Prestataire logistique/,
-    });
     expect(typeTms).toBeDisabled();
     expect(typeTms).toHaveTextContent(/^A Toutes! \(vélo cargo\)$/);
-    expect(presta).toBeDisabled();
-    // PRESTATAIRES[2] = Marathon, rattaché à CE transporteur (donc non grisé).
-    expect(presta).toHaveTextContent(/^Marathon$/);
+    expect(
+      screen.queryByText(/Prestataire logistique/),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('bandeau-immuabilite')).toHaveTextContent(
-      /fixés à la création\. Pour en changer, créez un nouveau transporteur/,
+      /^Le type de TMS est fixé à la création\. Pour en changer, créez un nouveau transporteur\.$/,
     );
   });
 
   it(
-    "édition : le PATCH n'envoie ni type_tms ni prestataire_logistique_id, même sans lien posé",
+    "édition : le PATCH n'envoie ni type_tms ni prestataire_logistique_id",
     async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -485,12 +359,9 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       render(
         <TransporteurModal
           open
-          // a_toutes SANS lien : un transporteur antérieur au contrôle doit rester
-          // éditable (l'obligation ne vaut qu'à la création).
           transporteur={{ ...EDIT_FIXTURE, type_tms: 'a_toutes' }}
           onClose={vi.fn()}
           onSaved={vi.fn()}
-          prestataires={PRESTATAIRES}
         />,
       );
 
@@ -512,51 +383,6 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     },
     ATTENTE_CAS_MS,
   );
-
-  it("liste des prestataires non chargée : l'édition affiche quand même le lien posé, jamais « Aucun »", () => {
-    render(
-      <TransporteurModal
-        open
-        transporteur={{
-          ...EDIT_FIXTURE,
-          type_tms: 'a_toutes',
-          prestataire_logistique_id: PRESTATAIRES[0]!.id,
-        }}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-        prestataires={null}
-      />,
-    );
-
-    ouvrirOnglet(/Connexion logistique/);
-    const presta = screen.getByRole('combobox', {
-      name: /Prestataire logistique/,
-    });
-    expect(presta).toHaveTextContent(/Prestataire rattaché/);
-    expect(presta).not.toHaveTextContent(/^Aucun$/);
-    // Le Combobox n'affiche ce libellé que si la valeur courante est l'id de
-    // l'option « lien hors liste » (= prestataire_logistique_id posé).
-  });
-
-  it('liste des prestataires en échec : la création le dit, sans prétendre le référentiel vide', () => {
-    render(
-      <TransporteurModal
-        open
-        transporteur={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-        prestataires={null}
-      />,
-    );
-
-    ouvrirOnglet(/Connexion logistique/);
-    expect(
-      screen.getByText(/Liste des prestataires indisponible/),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Aucun prestataire logistique enregistré/),
-    ).not.toBeInTheDocument();
-  });
 
   // ── Fiche en onglets, format du pop-up collecte (décision Val 2026-09-30) ──
 
@@ -613,10 +439,10 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
       screen.getByRole('combobox', { name: /Type de TMS/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('combobox', { name: /Prestataire logistique/ }),
-    ).toBeInTheDocument();
+      screen.queryByText(/Prestataire logistique/),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('bandeau-immuabilite')).toHaveTextContent(
-      /ne pourront plus être modifiés après la création/,
+      /^Le type de TMS ne pourra plus être modifié après la création : vérifiez-le avant de créer le transporteur\.$/,
     );
   });
 

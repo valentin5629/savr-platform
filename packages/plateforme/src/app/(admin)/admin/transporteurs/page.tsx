@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Truck, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
@@ -27,7 +27,6 @@ import {
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import {
   TransporteurModal,
-  type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
 import { PageHero } from '@/components/ui/page-hero';
@@ -79,25 +78,6 @@ export default function TransporteursPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transporteur | null>(null);
-  const [prestataires, setPrestataires] = useState<PrestataireOption[] | null>(
-    null,
-  ); // null = non chargé ou en échec (≠ référentiel vide)
-
-  const fetchPrestataires = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/admin/prestataires');
-      if (!res.ok) return;
-      const json = (await res.json()) as { data: PrestataireOption[] };
-      setPrestataires(json.data);
-    } catch {
-      // Réseau : la modale signale la liste indisponible (prestataires null).
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchPrestataires();
-  }, [fetchPrestataires]);
-
   function openEdit(row: Transporteur) {
     setEditing(row);
     setModalOpen(true);
@@ -264,12 +244,7 @@ export default function TransporteursPage() {
         open={modalOpen}
         transporteur={editing}
         onClose={() => setModalOpen(false)}
-        onSaved={() => {
-          recharger();
-          // Un rattachement change les prestataires à griser.
-          void fetchPrestataires();
-        }}
-        prestataires={prestataires}
+        onSaved={recharger}
       />
     </div>
   );

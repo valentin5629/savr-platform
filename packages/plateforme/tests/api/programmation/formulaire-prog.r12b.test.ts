@@ -2,7 +2,8 @@
  * M1.2 / R12b — Tests Vitest : Formulaire de programmation (BL-P1-PROG-01..05).
  * Couvre : override lieu → fn_creer_collecte + notif Admin (PROG-01), traiteur shadow +
  * fix colonne-DB (PROG-02), récap email programmeur + tarif (PROG-04), auto-accept AG à
- * la confirmation + fix gate pack 'anti_gaspi' (PROG-05). Le payload E1 (PROG-03) est
+ * la confirmation sur le type 'anti_gaspi' (PROG-05 ; la garde pack qui l'accompagnait
+ * est retirée — décision Val 2026-10-16). Le payload E1 (PROG-03) est
  * couvert par pgTAP (supabase/tests/M1_2__programmation.test.sql) et l'adapter comment
  * par packages/adapters (adapter.m1-5a).
  */

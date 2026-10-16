@@ -13,7 +13,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let organisationId = auth.ctx.organisationId;
   if (auth.ctx.isAdmin) {
     const orgParam = new URL(req.url).searchParams.get('organisation_id');
-    // Pas d'org cible encore sélectionnée → pas de pack à vérifier (l'UI bloque l'AG).
+    // Pas d'org cible encore sélectionnée : le pack est inconnu, pas absent. Le
+    // formulaire n'appelle donc pas la route dans ce cas (il attend le traiteur) ;
+    // la réponse historique `pack_actif: false` ne doit pas être lue comme « sans pack ».
     if (!orgParam) return NextResponse.json({ pack_actif: false });
     organisationId = orgParam;
   }

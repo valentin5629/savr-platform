@@ -853,8 +853,9 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_creer_collecte',
     rend: 'col-neuve',
     attendu: ['col-neuve'],
-    // Dernière garde avant le frein pour ce rôle : date de collecte passée (la
-    // garde pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
+    // Dernière garde 4xx avant le frein pour ce rôle : date de collecte passée
+    // (la garde pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
+    // La lecture de l'entité de facturation, après elle, ne refuse qu'en 500.
     refusGarde: {
       corps: {
         ...PROGRAMMATION,
@@ -882,8 +883,9 @@ const CAS: CasRoute[] = [
     rend: 'col-a',
     rendSuccessifs: ['col-a', 'col-b'],
     attendu: ['col-a', 'col-b'],
-    // Dernière garde avant le frein pour ce rôle : date de collecte passée (la
-    // garde pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
+    // Dernière garde 4xx avant le frein pour ce rôle : date de collecte passée
+    // (la garde pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
+    // La lecture de l'entité de facturation, après elle, ne refuse qu'en 500.
     refusGarde: {
       corps: {
         ...PROGRAMMATION,

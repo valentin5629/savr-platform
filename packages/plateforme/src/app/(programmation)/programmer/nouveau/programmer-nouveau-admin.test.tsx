@@ -168,7 +168,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
 
       expect(
         await screen.findByText(
-          /Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l.unité/i,
+          "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.",
           undefined,
           ATTENTE_UI,
         ),
@@ -177,6 +177,104 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       expect(lecturesPack()).toEqual([
         '/api/v1/programmation/pack-ag?organisation_id=org-kaspia',
       ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    "admin : l'information suit le pack du traiteur choisi — sans pack, avec crédits, sans crédit",
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: { access_token: makeToken({ user_role: 'admin_savr' }) },
+        },
+      });
+      const PACKS: Record<string, object> = {
+        'org-kaspia': { pack_actif: false },
+        'org-potel': {
+          pack_actif: true,
+          credits_initiaux: 10,
+          credits_restants: 3,
+        },
+        'org-dalloyau': {
+          pack_actif: true,
+          credits_initiaux: 10,
+          credits_restants: 0,
+        },
+      };
+      const fetchMock = installFetch();
+      const routeur = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        const json = (corps: unknown) =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(corps),
+          } as Response);
+        if (url.includes('/programmation/organisations/traiteurs')) {
+          return json([
+            { id: 'org-kaspia', nom: 'Kaspia', siret: null },
+            { id: 'org-potel', nom: 'Potel', siret: null },
+            { id: 'org-dalloyau', nom: 'Dalloyau', siret: null },
+          ]);
+        }
+        if (url.includes('/programmation/pack-ag')) {
+          const org = new URL(url, 'http://localhost').searchParams.get(
+            'organisation_id',
+          );
+          return json(PACKS[org ?? ''] ?? { pack_actif: false });
+        }
+        return routeur(input);
+      });
+      const INFO =
+        "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.";
+      const choisir = async (nom: string) => {
+        fireEvent.click(
+          screen.getByRole('combobox', {
+            name: /Traiteur \(pour le compte de\)/,
+          }),
+        );
+        fireEvent.click(
+          await screen.findByRole('option', { name: nom }, ATTENTE_UI),
+        );
+      };
+
+      render(<NouveauProgrammationPage />);
+      await screen.findByText(
+        'Traiteur (pour le compte de)',
+        undefined,
+        ATTENTE_UI,
+      );
+      const caseAg = screen.getByRole('checkbox', { name: /Anti-Gaspi/i });
+      fireEvent.click(caseAg);
+
+      // Sans pack : l'information exacte.
+      await choisir('Kaspia');
+      expect(
+        await screen.findByText(INFO, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+
+      // Pack actif avec crédits : relu au changement de traiteur, rien à dire.
+      await choisir('Potel');
+      await waitFor(
+        () => expect(screen.queryByText(INFO)).not.toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(
+        fetchMock.mock.calls
+          .map(([u]) => String(u))
+          .filter((u) => u.includes('/programmation/pack-ag')),
+      ).toEqual([
+        '/api/v1/programmation/pack-ag?organisation_id=org-kaspia',
+        '/api/v1/programmation/pack-ag?organisation_id=org-potel',
+      ]);
+
+      // Pack actif sans crédit restant : facturée à l'unité, comme sans pack.
+      await choisir('Dalloyau');
+      expect(
+        await screen.findByText(INFO, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(caseAg).toBeChecked();
     },
     ATTENTE_CAS_MS,
   );

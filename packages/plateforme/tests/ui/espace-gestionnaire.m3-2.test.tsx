@@ -3,7 +3,8 @@
  * Couvre les livrables BL-P1-GEST-01..04 :
  *  - GEST-01 : bouton « Programmer une collecte » (point d'entrée dashboard, libellé unique Q11) ;
  *  - GEST-02 : formulaire partagé « cas Gestionnaire » (sélecteur traiteur +
- *              blocage AG sans pack actif) ;
+ *              AG sans pack actif programmable, facturée à l'unité — décision
+ *              Val 2026-10-16, ex-blocage) ;
  *  - GEST-03 : KPI dashboard affichés (clé data.kpis, plus d'EmptyState systématique) ;
  *  - GEST-04 : jauge benchmark consommant la moyenne pondérée (benchmark_kg_pax).
  */

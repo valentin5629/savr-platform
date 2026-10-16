@@ -341,10 +341,10 @@ export default function NouveauProgrammationPage() {
   // n'a pas d'organisation propre), relu à chaque changement de traiteur ; tant
   // qu'aucun n'est choisi, le pack est inconnu et rien n'est affiché.
   useEffect(() => {
-    if (!typesCollecte.ag || (isAdmin && !traiteurOperationnelId)) {
-      setPackAg(null);
-      return;
-    }
+    // Rien d'affiché pendant la lecture : le pack du traiteur précédent ne doit
+    // pas rester à l'écran le temps de lire celui du nouveau.
+    setPackAg(null);
+    if (!typesCollecte.ag || (isAdmin && !traiteurOperationnelId)) return;
     let ignore = false;
     const url = isAdmin
       ? `/api/v1/programmation/pack-ag?organisation_id=${traiteurOperationnelId}`

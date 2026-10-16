@@ -32,7 +32,6 @@ import {
   FichePied,
 } from '@/components/ui/fiche/fiche-modal';
 import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
-import { TYPES_TMS_AVEC_PRESTATAIRE } from '@/lib/transporteur-lien-prestataire';
 import { VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { estSiren } from '@savr/shared/src/validation/index.js';
 import {
@@ -67,19 +66,7 @@ export interface TransporteurRecord {
   type_tms: string;
   description_process_collecte: string | null;
   code_transporteur_mts1: string | null;
-  prestataire_logistique_id: string | null;
   actif: boolean;
-}
-
-// Entrée de GET /api/v1/admin/prestataires.
-export interface PrestataireOption {
-  id: string;
-  nom: string;
-  code: string;
-  statut: string;
-  /** Transporteur déjà rattaché — un prestataire n'en admet qu'un (#323). */
-  transporteur_id: string | null;
-  transporteur_nom: string | null;
 }
 
 // Options = sources uniques (R-UI-2 C2/C10/C11) : véhicules `lib/lieux-labels`,
@@ -123,7 +110,6 @@ const ONGLET_DU_CHAMP: Record<string, Onglet> = {
   types_vehicules: 'capacites',
   type_tms: 'connexion',
   code_transporteur_mts1: 'connexion',
-  prestataire_logistique_id: 'connexion',
 };
 
 // Coordonnées d'un tiers : sans ça, Bitwarden propose l'identité de l'admin
@@ -147,7 +133,6 @@ interface FormValues {
   type_tms: string;
   description_process_collecte: string;
   code_transporteur_mts1: string;
-  prestataire_logistique_id: string;
 }
 
 function toForm(t: TransporteurRecord | null): FormValues {
@@ -165,7 +150,6 @@ function toForm(t: TransporteurRecord | null): FormValues {
     type_tms: t?.type_tms ?? '',
     description_process_collecte: t?.description_process_collecte ?? '',
     code_transporteur_mts1: t?.code_transporteur_mts1 ?? '',
-    prestataire_logistique_id: t?.prestataire_logistique_id ?? '',
   };
 }
 
@@ -176,12 +160,6 @@ interface TransporteurModalProps {
   onClose: () => void;
   /** Appelé après un enregistrement/désactivation réussi (rafraîchir la liste). */
   onSaved: () => void;
-  /**
-   * Référentiel des prestataires logistiques (GET /api/v1/admin/prestataires).
-   * `null` = pas (encore) chargé ou en échec — à ne pas confondre avec un
-   * référentiel vide.
-   */
-  prestataires?: PrestataireOption[] | null;
 }
 
 // En-tête de la fiche : il décrit le transporteur ENREGISTRÉ (stable pendant
@@ -230,7 +208,6 @@ export function TransporteurModal({
   transporteur,
   onClose,
   onSaved,
-  prestataires = null,
 }: TransporteurModalProps) {
   const isEdition = Boolean(transporteur);
   const [values, setValues] = React.useState<FormValues>(() =>
@@ -240,12 +217,6 @@ export function TransporteurModal({
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-  const optionsPrestataires = prestataires ?? [];
-  // Lien posé mais absent de la liste (non chargée, en échec) : on l'affiche
-  // quand même, sinon le select verrouillé montrerait « Aucun » à tort.
-  const lienHorsListe =
-    Boolean(values.prestataire_logistique_id) &&
-    !optionsPrestataires.some((p) => p.id === values.prestataire_logistique_id);
   const ongletsRef = React.useRef<Partial<Record<Onglet, HTMLButtonElement>>>(
     {},
   );
@@ -266,8 +237,8 @@ export function TransporteurModal({
 
   // Un champ corrigé perd son erreur, et son onglet son compteur, sans
   // attendre le prochain envoi (même comportement que les fiches lieu et
-  // association). Changer de type de TMS efface aussi les erreurs des champs
-  // qui en dépendent (code MTS-1, prestataire) : ils peuvent disparaître.
+  // association). Changer de type de TMS efface aussi l'erreur du code MTS-1,
+  // qui en dépend : le champ peut disparaître.
   function effacerErreurs(champs: string[]) {
     setErrors((e) =>
       champs.some((c) => c in e)
@@ -281,9 +252,7 @@ export function TransporteurModal({
   function set<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
     effacerErreurs(
-      key === 'type_tms'
-        ? ['type_tms', 'code_transporteur_mts1', 'prestataire_logistique_id']
-        : [key],
+      key === 'type_tms' ? ['type_tms', 'code_transporteur_mts1'] : [key],
     );
   }
 
@@ -319,17 +288,6 @@ export function TransporteurModal({
         'Code transporteur MTS-1',
         'pour type_tms = mts1',
       );
-    // Exigé à la création seulement : en édition le lien n'est plus modifiable,
-    // et un transporteur antérieur à ce contrôle doit rester éditable.
-    if (
-      !isEdition &&
-      TYPES_TMS_AVEC_PRESTATAIRE.includes(values.type_tms) &&
-      !values.prestataire_logistique_id
-    )
-      next.prestataire_logistique_id = messageObligatoire(
-        'Prestataire logistique',
-        'pour ce type de TMS',
-      );
     setErrors(next);
     // Sinon « Enregistrer » ne fait rien de visible quand l'erreur est ailleurs.
     const premier = ONGLETS.find((o) =>
@@ -363,14 +321,10 @@ export function TransporteurModal({
         values.type_tms === 'mts1'
           ? values.code_transporteur_mts1.trim()
           : null,
-      // Immuables après création (trg_transporteur_cols_immuables) : envoyés au
-      // POST seulement, le PATCH les refuse.
-      ...(isEdition
-        ? {}
-        : {
-            type_tms: values.type_tms,
-            prestataire_logistique_id: values.prestataire_logistique_id || null,
-          }),
+      // Immuable après création (trg_transporteur_cols_immuables) : envoyé au
+      // POST seulement, le PATCH le refuse. Le prestataire logistique n'est
+      // jamais envoyé : la base le crée (trg_transporteur_prestataire_auto).
+      ...(isEdition ? {} : { type_tms: values.type_tms }),
     };
   }
 
@@ -703,8 +657,8 @@ export function TransporteurModal({
                 data-testid="bandeau-immuabilite"
               >
                 {isEdition
-                  ? 'Le type de TMS et le prestataire logistique sont fixés à la création. Pour en changer, créez un nouveau transporteur.'
-                  : 'Le type de TMS et le prestataire logistique ne pourront plus être modifiés après la création : vérifiez-les avant de créer le transporteur.'}
+                  ? 'Le type de TMS est fixé à la création. Pour en changer, créez un nouveau transporteur.'
+                  : 'Le type de TMS ne pourra plus être modifié après la création : vérifiez-le avant de créer le transporteur.'}
               </AlertBar>
 
               <Card padding="md" className="space-y-4">
@@ -757,58 +711,6 @@ export function TransporteurModal({
                       />
                     </FormField>
                   )}
-                  <FormField
-                    label="Prestataire logistique"
-                    htmlFor="tm_prestataire_logistique_id"
-                    required={TYPES_TMS_AVEC_PRESTATAIRE.includes(
-                      values.type_tms,
-                    )}
-                    error={errors.prestataire_logistique_id}
-                    className="sm:col-span-2"
-                    hint={
-                      isEdition
-                        ? 'Fixé à la création'
-                        : prestataires === null
-                          ? 'Liste des prestataires indisponible — rechargez la page'
-                          : prestataires.length === 0
-                            ? 'Aucun prestataire logistique enregistré — à créer par l’équipe technique'
-                            : 'Société qui exécute les courses : c’est ce lien qui rattache les tournées au bon transporteur.'
-                    }
-                  >
-                    <Combobox
-                      id="tm_prestataire_logistique_id"
-                      icon={null}
-                      placeholder="Aucun"
-                      value={values.prestataire_logistique_id}
-                      onChange={(v) => set('prestataire_logistique_id', v)}
-                      error={Boolean(errors.prestataire_logistique_id)}
-                      disabled={isEdition}
-                      options={[
-                        { value: '', label: 'Aucun' },
-                        ...(lienHorsListe
-                          ? [
-                              {
-                                value: values.prestataire_logistique_id,
-                                label:
-                                  'Prestataire rattaché (liste indisponible)',
-                              },
-                            ]
-                          : []),
-                        ...optionsPrestataires.map((p) => {
-                          // Rattaché à un AUTRE transporteur : grisé (l'index
-                          // unique le refuserait). Le sien reste choisissable.
-                          const pris =
-                            p.transporteur_id !== null &&
-                            p.transporteur_id !== transporteur?.id;
-                          return {
-                            value: p.id,
-                            label: `${p.nom}${p.statut !== 'actif' ? ` (${p.statut})` : ''}${pris ? ` — déjà rattaché à ${p.transporteur_nom}` : ''}`,
-                            disabled: pris,
-                          };
-                        }),
-                      ]}
-                    />
-                  </FormField>
                 </FormGrid>
               </Card>
             </TabsContent>

@@ -1,8 +1,9 @@
 /**
  * M1.1b — Tests API /admin/transporteurs
  * Règles critiques : code_transporteur_mts1 obligatoire si type_tms=mts1 ;
- * prestataire_logistique_id obligatoire si type_tms ∈ {mts1, a_toutes} ;
- * type_tms et prestataire_logistique_id immuables après création.
+ * prestataire_logistique_id jamais lu du corps (la base crée la fiche
+ * prestataire, décision Val 2026-10-16) ; type_tms et prestataire_logistique_id
+ * immuables après création.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -117,7 +118,6 @@ describe('M1.1b / Transporteurs / Validation MTS-1', () => {
         ...BASE_TRANSPORTEUR,
         type_tms: 'mts1',
         code_transporteur_mts1: 'STRIKE-001',
-        prestataire_logistique_id: PRESTA_ID,
       }),
     );
     expect(res.status).toBe(201);
@@ -181,8 +181,11 @@ describe('M1.1b / Transporteurs / Modification', () => {
 });
 
 // Lien transporteur → prestataire logistique : seul moyen pour les adapters de
-// reconnaître les tournées d'un provider (#327). Un transporteur mts1/a_toutes
-// sans lien envoie 100 % de ses événements en file d'erreur.
+// reconnaître les tournées d'un provider (#327). Il n'est plus choisi à l'écran :
+// la base crée la fiche prestataire et pose le lien à l'insertion
+// (trg_transporteur_prestataire_auto, prouvé par
+// supabase/tests/SECU__transporteur_prestataire_auto.test.sql). La route ne doit
+// donc jamais l'envoyer, sans quoi un lien fourni court-circuiterait le trigger.
 describe('Transporteurs / Lien prestataire logistique', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -194,9 +197,13 @@ describe('Transporteurs / Lien prestataire logistique', () => {
   });
 
   it.each(['mts1', 'a_toutes'])(
-    "create — 422 si type_tms=%s sans prestataire logistique, rien n'est écrit",
+    'create — type_tms=%s sans prestataire : 201, le lien est laissé à la base',
     async (type_tms) => {
       setupAuth('admin_savr');
+      mockSupabaseChain.single.mockResolvedValueOnce({
+        data: { id: 'tr-9', prestataire_logistique_id: PRESTA_ID },
+        error: null,
+      });
       const { POST } =
         await import('@/app/api/v1/admin/transporteurs/route.js');
       const res = await POST(
@@ -206,28 +213,17 @@ describe('Transporteurs / Lien prestataire logistique', () => {
           code_transporteur_mts1: 'CODE-001',
         }),
       );
-      expect(res.status).toBe(422);
-      const body = (await res.json()) as { error: string };
-      expect(body.error).toContain('prestataire_logistique_id');
-      expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+      expect(res.status).toBe(201);
+      const ecrit = mockSupabaseChain.insert.mock.calls[0]?.[0] as Record<
+        string,
+        unknown
+      >;
+      expect(ecrit).toMatchObject({ type_tms });
+      expect(ecrit).not.toHaveProperty('prestataire_logistique_id');
     },
   );
 
-  it("create — 422 si prestataire_logistique_id n'est pas un UUID (jamais un 500)", async () => {
-    setupAuth('admin_savr');
-    const { POST } = await import('@/app/api/v1/admin/transporteurs/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/admin/transporteurs', {
-        ...BASE_TRANSPORTEUR,
-        type_tms: 'par_mail',
-        prestataire_logistique_id: '',
-      }),
-    );
-    expect(res.status).toBe(422);
-    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
-  });
-
-  it('create — a_toutes avec prestataire : le lien est ÉCRIT', async () => {
+  it('create — un prestataire_logistique_id envoyé est ignoré, jamais écrit', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: { id: 'tr-9' },
@@ -242,57 +238,9 @@ describe('Transporteurs / Lien prestataire logistique', () => {
       }),
     );
     expect(res.status).toBe(201);
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ prestataire_logistique_id: PRESTA_ID }),
+    expect(mockSupabaseChain.insert.mock.calls[0]?.[0]).not.toHaveProperty(
+      'prestataire_logistique_id',
     );
-  });
-
-  it('create — prestataire déjà rattaché (23505) → 409 lisible, sans message Postgres', async () => {
-    setupAuth('admin_savr');
-    mockSupabaseChain.single.mockResolvedValueOnce({
-      data: null,
-      error: {
-        code: '23505',
-        message:
-          'duplicate key value violates unique constraint "uniq_transporteur_par_prestataire"',
-      },
-    });
-    const { POST } = await import('@/app/api/v1/admin/transporteurs/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/admin/transporteurs', {
-        ...BASE_TRANSPORTEUR,
-        type_tms: 'a_toutes',
-        prestataire_logistique_id: PRESTA_ID,
-      }),
-    );
-    expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toContain('déjà rattaché');
-    expect(body.error).not.toContain('uniq_transporteur_par_prestataire');
-  });
-
-  it('create — prestataire inexistant (23503) → 422 lisible, sans message Postgres', async () => {
-    setupAuth('admin_savr');
-    mockSupabaseChain.single.mockResolvedValueOnce({
-      data: null,
-      error: {
-        code: '23503',
-        message:
-          'insert or update on table "transporteurs" violates foreign key constraint "transporteurs_prestataire_logistique_id_fkey"',
-      },
-    });
-    const { POST } = await import('@/app/api/v1/admin/transporteurs/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/admin/transporteurs', {
-        ...BASE_TRANSPORTEUR,
-        type_tms: 'par_telephone',
-        prestataire_logistique_id: PRESTA_ID,
-      }),
-    );
-    expect(res.status).toBe(422);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toContain('introuvable');
-    expect(body.error).not.toContain('foreign key');
   });
 
   // type_tms et prestataire_logistique_id : posés à la création, JAMAIS

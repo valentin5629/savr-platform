@@ -51,9 +51,10 @@
     "specs/manifests/M1.1b.json",
     ".claude/brief-ack-feat-m1.1-backoffice-admin",
     "packages/plateforme/src/lib/transporteur-lien-prestataire.ts",
-    "packages/plateforme/src/app/api/v1/admin/prestataires/route.ts",
     "packages/plateforme/src/components/admin/transporteur-modal.tsx",
     "supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql",
+    "supabase/migrations/20261016160000_plateforme_transporteurs_prestataire_auto.sql",
+    "supabase/tests/SECU__transporteur_prestataire_auto.test.sql",
     "packages/plateforme/src/app/api/v1/admin/lieux/[id]/activite/route.ts",
     "packages/plateforme/tests/api/admin/lieux-activite.m1-1b.test.ts"
   ],
@@ -78,11 +79,11 @@
     "M1.1b/transporteurs/create — 403 si rôle client",
     "M1.1b/transporteurs/create — 422 si type_tms=mts1 sans code",
     "M1.1b/transporteurs/patch — 422 si un transporteur mts1 perd son code (type lu en base)",
-    "create — 422 si type_tms=a_toutes sans prestataire logistique, rien n'est écrit",
-    "create — a_toutes avec prestataire : le lien est ÉCRIT",
+    "create — type_tms=a_toutes sans prestataire : 201, le lien est laissé à la base",
+    "create — un prestataire_logistique_id envoyé est ignoré, jamais écrit",
     "patch — refus même quand la valeur envoyée est identique à l'existant",
     "patch — « Désactiver » un transporteur mts1 sans prestataire reste LIBRE, et n'écrit que actif",
-    "édition : Type de TMS et Prestataire logistique verrouillés, affichant la valeur posée",
+    "édition : Type de TMS verrouillé, affichant la valeur posée",
     "M1.1b/dispatch — 403 si ops tente override prestataire",
     "M1.1b/dispatch — 404 si collecte inconnue",
     "M1.1b/dispatch — 422 si override sans motif du tout",
@@ -354,10 +355,10 @@
     {
       "id": "M1.1b-transporteur-lien-requis",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": "packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts",
-      "test": "create — 422 si type_tms=a_toutes sans prestataire logistique, rien n'est écrit",
+      "artefact": "supabase/migrations/20261016160000_plateforme_transporteurs_prestataire_auto.sql",
+      "test": "supabase/tests/SECU__transporteur_prestataire_auto.test.sql",
       "statut": "implemented",
-      "libelle": "§6 Prestataire logistique : saisi à la création, requis si type_tms ∈ {mts1, a_toutes}, prestataire déjà rattaché grisé/refusé (UNIQUE)"
+      "libelle": "§6 Prestataire logistique : plus saisi à l'écran (décision Val 2026-10-16, C1) — à l'insertion d'un transporteur type_tms ∈ {mts1, a_toutes}, la base crée la fiche shared.prestataires du même nom et pose le lien (trg_transporteur_prestataire_auto) ; la route ne l'envoie jamais"
     },
     {
       "id": "M1.1b-transporteur-cols-immuables",

@@ -801,13 +801,15 @@ INSERT INTO plateforme.evenements (
 INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires, actif, description_rapport_impact, latitude, longitude)
 VALUES ('a0000000-0000-0000-0000-000000000035'::uuid, 'Asso Province Rouen', '1 Rue Province', 'Rouen', 'province', 'rouen@asso.test', 800, true, 'Association province Normandie, collectes invendus Rouen.', 49.4431, 1.0993);
 
--- Transporteur province (pas a_toutes, actif)
-INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
-VALUES ('a0000000-0000-0000-0000-000000000042'::uuid, 'Transnormandie Test', '456789123', '5 Quai', '76000', 'Rouen', 'mts1', true, 'Contact Trans', 'trans@test.test', '0600000003', ARRAY['fourgon'], 49.4431, 1.0993);
-
+-- Transporteur province (pas a_toutes, actif), lié à sa fiche prestataire dès
+-- la création comme tout transporteur mts1 (sinon la base en crée une seconde
+-- du même nom, cf. trg_transporteur_prestataire_auto).
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut, nb_collectes_6_mois_cache)
-VALUES ('a0000000-0000-0000-0000-000000000051'::uuid, 'Transnormandie Test', 'TRANSNOR_TEST', ARRAY['ag'], 'mts1', '456789123012345', 'actif', 5)
+VALUES ('a0000000-0000-0000-0000-000000000053'::uuid, 'Transnormandie Test', 'TRANSNOR_TEST', ARRAY['ag'], 'mts1', '456789123012345', 'actif', 5)
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
+VALUES ('a0000000-0000-0000-0000-000000000042'::uuid, 'Transnormandie Test', '456789123', '5 Quai', '76000', 'Rouen', 'mts1', true, 'Contact Trans', 'trans@test.test', '0600000003', ARRAY['fourgon'], 49.4431, 1.0993, 'a0000000-0000-0000-0000-000000000053'::uuid);
 
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
 VALUES (

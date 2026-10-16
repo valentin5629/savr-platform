@@ -363,7 +363,7 @@ describe('M1.2 / PROG-04 récap programmation', () => {
   });
 });
 
-// ── PROG-05 : auto-accept AG à la confirmation + fix gate pack 'anti_gaspi' ────
+// ── PROG-05 : auto-accept AG à la confirmation (type 'anti_gaspi') ────────────
 describe('M1.2 / PROG-05 auto-accept AG', () => {
   beforeEach(resetChain);
 
@@ -371,10 +371,6 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 5 },
-        error: null,
-      }) // pack
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-ag-1', nom_evenement: 'AG' },
@@ -403,9 +399,10 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
     });
   });
 
-  it('M1.2 — PROG-05 gate pack AG à la confirmation (type anti_gaspi)', async () => {
-    // Oracle du fix 'ag'→'anti_gaspi' : les collectes viennent de la DB (type='anti_gaspi').
-    // Avec l'ancien `=== 'ag'`, hasAg=false → la gate serait sautée (200). Ici : 422.
+  it('M1.2 — PROG-05 confirmation d’un brouillon AG sans pack actif : 200 + auto-accept (type anti_gaspi)', async () => {
+    // Les collectes viennent de la DB (type='anti_gaspi', jamais l'alias 'ag') :
+    // l'auto-accept filtre sur cette valeur. Sans pack actif, rien ne bloque — la
+    // collecte sera facturée à l'unité (décision Val 2026-10-16) : aucun pack lu.
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -437,9 +434,9 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
     mockSupabaseChain.from.mockImplementation((table: string) =>
       table === 'collectes' ? collectesChain : mockSupabaseChain,
     );
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
-      .mockResolvedValueOnce({ data: null, error: null }); // pack absent → 422
+    mockRpc
+      .mockResolvedValueOnce({ data: null, error: null }) // fn_confirmer_programmation_brouillon
+      .mockResolvedValueOnce({ data: { auto_accepted: false }, error: null }); // rpc_evaluer_auto_accept_ag
 
     const { PATCH } =
       await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
@@ -447,9 +444,11 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       makeReq('PATCH', '/api/v1/programmation/evenements/evt-b/confirmer'),
       { params: Promise.resolve({ id: 'evt-b' }) },
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/pack|Anti-Gaspi/i);
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('rpc_evaluer_auto_accept_ag', {
+      p_collecte_id: 'c1',
+    });
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith('packs_antgaspi');
   });
 
   it('M1.2 — PROG-04/05 ajout collecte AG à un événement existant déclenche auto-accept + récap', async () => {
@@ -467,12 +466,10 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
       .mockResolvedValueOnce({ data: 'new-collecte-ag', error: null }) // fn_ajouter_collecte_evenement
       .mockResolvedValueOnce({ data: { auto_accepted: false }, error: null }); // rpc_evaluer_auto_accept_ag
-    mockMaybeSingle
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 5 },
-        error: null,
-      }) // pack
-      .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { email: 'prog@x.fr' },
+      error: null,
+    }); // users récap
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');

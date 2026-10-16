@@ -73,15 +73,17 @@ export function SousBlocCollecte({
 
       {type === 'ag' && pack && (
         <div>
-          {pack.pack_actif ? (
+          {pack.pack_actif && (pack.credits_restants ?? 0) > 0 ? (
             <PackAGIndicator
               total={pack.credits_initiaux ?? 0}
               restant={pack.credits_restants ?? 0}
               label="Crédits pack AG restants"
             />
           ) : (
-            <AlertBar variant="err">
-              Aucun pack Anti-Gaspi actif — contactez votre responsable.
+            // Informatif, jamais bloquant (décision Val 2026-10-16).
+            <AlertBar variant="info">
+              Pas de pack Anti-Gaspi actif : cette collecte sera facturée à
+              l&apos;unité.
             </AlertBar>
           )}
         </div>

@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Save,
   CheckCircle,
+  Info,
   PlusCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -166,7 +167,6 @@ export default function NouveauProgrammationPage() {
   useSignalZdSelection(typesCollecte.zd);
   const [referenceAffaire, setReferenceAffaire] = useState('');
   const [packAg, setPackAg] = useState<PackInfo | null>(null);
-  const [agBloque, setAgBloque] = useState(false);
 
   // Étape 2
   const [lieu, setLieu] = useState<LieuOption | null>(null);
@@ -335,30 +335,37 @@ export default function NouveauProgrammationPage() {
     if (lieu?.controle_acces_requis_default) setControleAcces(true);
   }, [lieu]);
 
-  const checkPackAg = useCallback(async (): Promise<boolean> => {
-    // Admin support : le pack ciblé est celui de l'organisation choisie, pas du
-    // caller (admin n'a pas d'organisation propre) → on passe organisation_id.
-    const url =
-      isAdmin && traiteurOperationnelId
-        ? `/api/v1/programmation/pack-ag?organisation_id=${traiteurOperationnelId}`
-        : '/api/v1/programmation/pack-ag';
-    const res = await fetch(url);
-    const data = (await res.json()) as PackInfo;
-    setPackAg(data);
-    const bloque = !data.pack_actif || (data.credits_restants ?? 0) <= 0;
-    setAgBloque(bloque);
-    if (bloque) setTypesCollecte((prev) => ({ ...prev, ag: false }));
-    return bloque;
-  }, [isAdmin, traiteurOperationnelId]);
-
-  const handleAgCheck = async (checked: boolean) => {
-    if (checked) {
-      const bloque = await checkPackAg();
-      if (!bloque) setTypesCollecte((prev) => ({ ...prev, ag: true }));
-    } else {
-      setTypesCollecte((prev) => ({ ...prev, ag: false }));
+  // Pack AG de l'organisation programmatrice : informatif, jamais bloquant —
+  // sans pack actif, la collecte AG est facturée à l'unité (décision Val
+  // 2026-10-16). Admin support : le pack ciblé est celui du traiteur choisi (admin
+  // n'a pas d'organisation propre), relu à chaque changement de traiteur ; tant
+  // qu'aucun n'est choisi, le pack est inconnu et rien n'est affiché.
+  useEffect(() => {
+    if (!typesCollecte.ag || (isAdmin && !traiteurOperationnelId)) {
+      setPackAg(null);
+      return;
     }
-  };
+    let ignore = false;
+    const url = isAdmin
+      ? `/api/v1/programmation/pack-ag?organisation_id=${traiteurOperationnelId}`
+      : '/api/v1/programmation/pack-ag';
+    fetch(url)
+      .then((res) => (res.ok ? (res.json() as Promise<PackInfo>) : null))
+      .then((data) => {
+        if (!ignore) setPackAg(data);
+      })
+      .catch(() => {
+        if (!ignore) setPackAg(null);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [typesCollecte.ag, isAdmin, traiteurOperationnelId]);
+
+  const agSansPack =
+    typesCollecte.ag &&
+    packAg !== null &&
+    !(packAg.pack_actif && (packAg.credits_restants ?? 0) > 0);
 
   const step1Valid =
     nomClient.trim() !== '' &&
@@ -575,7 +582,9 @@ export default function NouveauProgrammationPage() {
                   id="type-ag"
                   className="mt-0.5"
                   checked={typesCollecte.ag}
-                  onCheckedChange={(c) => void handleAgCheck(c === true)}
+                  onCheckedChange={(c) =>
+                    setTypesCollecte((p) => ({ ...p, ag: c === true }))
+                  }
                 />
                 <Label variant="choice" htmlFor="type-ag">
                   <span className="font-medium">
@@ -584,11 +593,21 @@ export default function NouveauProgrammationPage() {
                   <span className="text-savr-neutral-500 ml-1">
                     — don à association
                   </span>
-                  {agBloque && (
-                    <FormError className="mt-0.5">
-                      Aucun pack AG actif — décochez cette option pour
-                      continuer.
-                    </FormError>
+                  {agSansPack && (
+                    <Text
+                      as="span"
+                      variant="hint"
+                      tone="inherit"
+                      role="status"
+                      className="mt-0.5 flex items-center gap-1 text-savr-info-strong"
+                    >
+                      <Info
+                        className="h-3.5 w-3.5 shrink-0"
+                        aria-hidden="true"
+                      />
+                      Pas de pack Anti-Gaspi actif : cette collecte sera
+                      facturée à l&apos;unité.
+                    </Text>
                   )}
                 </Label>
               </div>

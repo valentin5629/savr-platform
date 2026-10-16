@@ -240,20 +240,21 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
     expect(orgPredicates()).toEqual([]);
   });
 
-  it("le pack AG est lu sur l'org de l'événement, jamais sur l'org du JWT staff", async () => {
+  it('une collecte AG s’ajoute sans lire aucun pack (facturée à l’unité sans pack actif)', async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null }); // select événement
     admin.push({ data: true, error: null }); // rpc f_collecte_editable
-    admin.push({ data: { id: 'pack-1', credits_restants: 3 }, error: null }); // pack
     admin.push({ data: 'col-new', error: null }); // rpc fn_ajouter_collecte_evenement
 
     const res = await ajouterCollecte('ag');
 
+    // Décision Val 2026-10-16 : plus de garde pack AG. Sans elle, la seule
+    // question d'organisation qui restait (pack cherché sur `org-savr` au lieu
+    // de l'org de l'événement) disparaît avec la lecture elle-même.
     expect(res.status).toBe(201);
-    // C'est cette assertion qui fait foi : le stub sert le pack quel que soit le
-    // prédicat, donc le 201 ci-dessus survivrait à une régression. En prod, un
-    // pack cherché sur `org-savr` serait introuvable → 422 « Aucun pack actif ».
-    expect(orgPredicates()).toEqual([['organisation_id', 'org-kaspia']]);
+    expect((admin.__calls.from ?? []).map(([t]) => t)).not.toContain(
+      'packs_antgaspi',
+    );
   });
 
   it("l'admin agit AU NOM de l'org cible (pas de notification « tiers » parasite)", async () => {

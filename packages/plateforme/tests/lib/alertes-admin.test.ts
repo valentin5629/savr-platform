@@ -14,7 +14,6 @@ describe('severiteParCode — catalogue explicite', () => {
   it('codes critiques connus', () => {
     for (const c of [
       'pack_ag_epuise',
-      'ag_realisee_sans_pack_actif',
       'pdf_job_dead',
       'pennylane_echec_final',
       'collecte_rejetee_prestataire',
@@ -48,6 +47,13 @@ describe('severiteParCode — catalogue explicite', () => {
     ]) {
       expect(severiteParCode(c)).toBe('attention');
     }
+  });
+
+  // Décision Val 2026-10-16 : sans pack actif, la collecte AG est facturée à
+  // l'unité — plus rien à arbitrer. Le code porte le mot-clé de repli
+  // « sans_pack » (critique) : seule l'entrée au catalogue le garde en « Info ».
+  it('collecte AG réalisée sans pack → info', () => {
+    expect(severiteParCode('ag_realisee_sans_pack_actif')).toBe('info');
   });
 
   it('codes informatifs connus', () => {

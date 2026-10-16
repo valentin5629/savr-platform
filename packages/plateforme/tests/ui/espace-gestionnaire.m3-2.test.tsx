@@ -297,7 +297,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   );
 
   it(
-    'M3.2/GEST02_form_cas_gestionnaire — sélecteur traiteur + blocage AG sans pack',
+    'M3.2/GEST02_form_cas_gestionnaire — sélecteur traiteur + AG sans pack programmable',
     async () => {
       render(<NouveauProgrammationPage />);
 
@@ -306,13 +306,19 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
         await screen.findByText(/Traiteur opérant/i, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
 
-      // Cocher Anti-Gaspi sans pack actif → soumission AG bloquée (alerte).
-      fireEvent.click(screen.getByRole('checkbox', { name: /Anti-Gaspi/i }));
+      // Cocher Anti-Gaspi sans pack actif → la case reste cochée, une simple
+      // information annonce la facturation à l'unité (décision Val 2026-10-16,
+      // ex-blocage).
+      const caseAg = screen.getByRole('checkbox', { name: /Anti-Gaspi/i });
+      fireEvent.click(caseAg);
       await waitFor(
         () =>
-          expect(screen.getByText(/Aucun pack AG actif/i)).toBeInTheDocument(),
+          expect(
+            screen.getByText(/cette collecte sera facturée à l.unité/i),
+          ).toBeInTheDocument(),
         ATTENTE_UI,
       );
+      expect(caseAg).toBeChecked();
     },
     ATTENTE_CAS_MS,
   );

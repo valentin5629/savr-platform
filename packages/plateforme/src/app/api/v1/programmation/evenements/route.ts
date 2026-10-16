@@ -322,26 +322,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const entiteLue = await lireEntiteFacturation(supabase, effectiveOrgId);
   if (!entiteLue.ok) return entiteLue.error;
 
-  // Vérification pack AG si collecte AG présente (R3)
-  const hasAg = body.collectes.some((c) => c.type === 'ag');
-  if (hasAg && body.confirmer) {
-    const { data: pack } = await supabase
-      .from('packs_antgaspi')
-      .select('id, credits_restants')
-      .eq('organisation_id', effectiveOrgId)
-      .eq('statut', 'actif')
-      .maybeSingle();
-
-    if (!pack || (pack.credits_restants ?? 0) <= 0) {
-      return NextResponse.json(
-        {
-          error:
-            'Aucun pack Anti-Gaspi actif disponible pour cette organisation',
-        },
-        { status: 422 },
-      );
-    }
-  }
+  // Aucune garde pack AG : sans pack actif, la collecte AG se programme et sera
+  // facturée à l'unité (décision Val 2026-10-16, ex-gate R3).
 
   // Débit des écritures clientes (cf. lib/frein-ecritures-client), brouillon
   // compris : la route est la même.

@@ -83,26 +83,8 @@ export async function PATCH(
   // Aucune garde « profil entreprise » ici : l'événement porte déjà son entité de
   // facturation (evenements.entite_facturation_id NOT NULL, résolue à la création),
   // et le SIRET ne bloque pas la programmation (décision Val 2026-09-28).
-
-  // Gate pack AG (R3) — si des collectes AG sont présentes dans ce brouillon.
-  // ⚠ Les collectes viennent de la DB : type = 'anti_gaspi' (valeur enum), jamais 'ag'
-  // (alias d'entrée). L'ancienne comparaison `=== 'ag'` était toujours fausse → la gate
-  // pack ne se déclenchait jamais à la confirmation d'un brouillon (bug latent PROG-05).
-  const hasAg = collectes.some((c) => c.type === 'anti_gaspi');
-  if (hasAg) {
-    const { data: pack } = await supabase
-      .from('packs_antgaspi')
-      .select('id, credits_restants')
-      .eq('organisation_id', evt.organisation_id)
-      .eq('statut', 'actif')
-      .maybeSingle();
-    if (!pack || (pack.credits_restants ?? 0) <= 0) {
-      return NextResponse.json(
-        { error: 'Aucun pack Anti-Gaspi actif disponible pour confirmer' },
-        { status: 422 },
-      );
-    }
-  }
+  // Pas de garde pack AG non plus : sans pack actif, la collecte AG est facturée à
+  // l'unité (décision Val 2026-10-16, ex-gate R3).
 
   // Débit des écritures clientes (cf. lib/frein-ecritures-client).
   const frein = freinerEcritureCliente({

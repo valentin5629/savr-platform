@@ -115,6 +115,72 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
     ATTENTE_CAS_MS,
   );
 
+  // Décision Val 2026-10-16 : sans pack actif, la collecte AG se programme et sera
+  // facturée à l'unité — une information, jamais un blocage. En support, le pack
+  // est celui du traiteur choisi : tant qu'aucun ne l'est, il est inconnu (avant,
+  // l'admin lisait « aucun pack » à tort et la case se décochait).
+  it(
+    "admin : la case AG reste cochée ; l'information « facturée à l'unité » attend le traiteur choisi",
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: { access_token: makeToken({ user_role: 'admin_savr' }) },
+        },
+      });
+      const fetchMock = installFetch();
+      const routeur = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/programmation/pack-ag')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ pack_actif: false }),
+          } as Response);
+        }
+        return routeur(input);
+      });
+
+      render(<NouveauProgrammationPage />);
+      await screen.findByText(
+        'Traiteur (pour le compte de)',
+        undefined,
+        ATTENTE_UI,
+      );
+
+      const caseAg = screen.getByRole('checkbox', { name: /Anti-Gaspi/i });
+      fireEvent.click(caseAg);
+      expect(caseAg).toBeChecked();
+      expect(screen.queryByText(/facturée à l.unité/i)).not.toBeInTheDocument();
+      const lecturesPack = () =>
+        fetchMock.mock.calls
+          .map(([u]) => String(u))
+          .filter((u) => u.includes('/programmation/pack-ag'));
+      expect(lecturesPack()).toEqual([]);
+
+      fireEvent.click(
+        screen.getByRole('combobox', {
+          name: /Traiteur \(pour le compte de\)/,
+        }),
+      );
+      fireEvent.click(
+        await screen.findByRole('option', { name: 'Kaspia' }, ATTENTE_UI),
+      );
+
+      expect(
+        await screen.findByText(
+          /Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l.unité/i,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(caseAg).toBeChecked();
+      expect(lecturesPack()).toEqual([
+        '/api/v1/programmation/pack-ag?organisation_id=org-kaspia',
+      ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'un traiteur (rôle non-programmateur-tiers) ne voit PAS le sélecteur',
     async () => {

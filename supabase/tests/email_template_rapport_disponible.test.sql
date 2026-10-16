@@ -8,7 +8,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(5);
+SELECT plan(6);
 
 SELECT is(
   (SELECT COUNT(*)::integer FROM plateforme.email_templates
@@ -40,6 +40,14 @@ SELECT ok(
   (SELECT corps_html LIKE '%{{lien_rapport}}%' AND corps_html LIKE '%L''équipe Savr%'
    FROM plateforme.email_templates WHERE code = 'rapport_disponible'),
   'rapport_disponible : corps avec CTA {{lien_rapport}} et signature « L''équipe Savr »'
+);
+
+SELECT ok(
+  (SELECT corps_html LIKE '%peut être téléchargé sur la plateforme%'
+      AND corps_html LIKE '%radar de comparaison%'
+      AND corps_html NOT LIKE '%est prêt%'
+   FROM plateforme.email_templates WHERE code = 'rapport_disponible'),
+  'rapport_disponible : le rapport se télécharge sur la plateforme, radar au choix (20261016200000, Val 2026-10-16)'
 );
 
 SELECT * FROM finish();

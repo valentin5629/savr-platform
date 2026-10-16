@@ -37,6 +37,7 @@ import {
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
+import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargement-client';
 
 // Onglet « Bilan & documents » du pop-up fiche collecte CLIENT (§06.04 refonte
 // Val 2026-09-29). Valeurs FIGÉES à la clôture (taux de recyclage, CO₂) : lues,
@@ -50,9 +51,6 @@ const TOOLTIP_TAUX_UE =
   'Taux de recyclage net (méthode UE 2019/1004) — calculé avec les taux de captation ' +
   'effectifs par filière (verre, carton, biodéchets, emballages). L’OMR (déchet ' +
   'résiduel) entre uniquement au dénominateur. Voir Méthodologie.';
-
-const REGEN_ECHEC =
-  'La régénération du rapport a échoué. Réessayez dans un instant.';
 
 const TITRE_RADAR = 'Votre collecte face aux événements comparables';
 const SOUS_TITRE_RADAR =
@@ -443,24 +441,39 @@ export function OngletBilan({
 
   // Documents
   const [telechargement, setTelechargement] = useState<string | null>(null);
-  const [regenEnCours, setRegenEnCours] = useState(false);
-  const [regenFait, setRegenFait] = useState(false);
-  // Message du refus (libellé fixe écrit côté serveur) ou échec générique.
-  const [regenErreur, setRegenErreur] = useState<string | null>(null);
-  // Version du rapport de recyclage : avec ou sans le radar de comparaison. La
-  // case part de la version en vigueur, et n'existe que là où le radar existe à
-  // l'écran (même garde côté serveur).
-  const [avecRadar, setAvecRadar] = useState(c.rapport_avec_radar);
+  const [fabrication, setFabrication] = useState(false);
+  // Rapport de recyclage ZD : fabriqué au clic, avec ou sans le radar de
+  // comparaison, au choix de celui qui le télécharge (décision Val 2026-10-16).
+  // La case n'existe que là où le radar existe à l'écran (même garde côté
+  // serveur) ; elle part décochée.
+  const [avecRadar, setAvecRadar] = useState(false);
   const choixRadarPossible = radar.visible && !radar.indisponible;
   const benchFilters = radar.filtres;
-  // Filtres modifiés après une demande : le rapport demandé ne correspond plus
-  // à l'écran, le bouton redevient disponible.
-  useEffect(() => {
-    setRegenFait(false);
-  }, [benchFilters]);
 
   async function telechargerRapport() {
     setTelechargement(null);
+    if (!isAg) {
+      // ZD : le PDF est fabriqué par la route, avec les filtres affichés au-dessus
+      // si le radar est demandé.
+      const radarDemande = choixRadarPossible && avecRadar;
+      setFabrication(true);
+      const erreur = await telechargerRapportRecyclage(`${base}/rapport-rse`, {
+        options: { benchmark: radarDemande },
+        ...(radarDemande && benchFilters
+          ? {
+              benchmark_filters: {
+                lieu_ids: benchFilters.lieu_ids,
+                type_evenement_ids: benchFilters.type_evenement_ids,
+                taille_evenement_codes: benchFilters.taille_evenement_codes,
+              },
+            }
+          : {}),
+      });
+      setFabrication(false);
+      setTelechargement(erreur);
+      return;
+    }
+    // AG : le « Rapport de don » est un fichier déjà fabriqué (URL pré-signée).
     const res = await fetch(`${base}/rapport-rse/download`);
     const j = (await res.json().catch(() => ({}))) as { url?: string };
     if (res.ok && j.url) {
@@ -472,54 +485,6 @@ export function OngletBilan({
         ? 'Le rapport n’est pas encore disponible.'
         : 'Le téléchargement a échoué. Réessayez dans un instant.',
     );
-  }
-
-  // Régénération du rapport de recyclage (RPT-04). Avec la case : la version
-  // choisie, et les filtres de comparaison réglés au-dessus si le radar est
-  // demandé. Sans la case (pas de radar pour cette collecte) : aucun corps, le
-  // dernier rendu est reproduit tel quel.
-  async function regenererRapport() {
-    setRegenEnCours(true);
-    setRegenErreur(null);
-    try {
-      const res = await fetch(
-        `${base}/documents/rapport-recyclage-zd/regenerate`,
-        choixRadarPossible
-          ? {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                options: { benchmark: avecRadar },
-                ...(avecRadar && benchFilters
-                  ? {
-                      benchmark_filters: {
-                        lieu_ids: benchFilters.lieu_ids,
-                        type_evenement_ids: benchFilters.type_evenement_ids,
-                        taille_evenement_codes:
-                          benchFilters.taille_evenement_codes,
-                      },
-                    }
-                  : {}),
-              }),
-            }
-          : { method: 'POST' },
-      );
-      if (res.ok) {
-        setRegenFait(true);
-        return;
-      }
-      // Refus motivé (4xx) : on affiche le motif, réessayer n'y changerait rien.
-      const j = (await res.json().catch(() => ({}))) as { error?: unknown };
-      setRegenErreur(
-        res.status >= 400 && res.status < 500 && typeof j.error === 'string'
-          ? j.error
-          : REGEN_ECHEC,
-      );
-    } catch {
-      setRegenErreur(REGEN_ECHEC);
-    } finally {
-      setRegenEnCours(false);
-    }
   }
 
   if (annulee) {
@@ -579,32 +544,24 @@ export function OngletBilan({
               )}
             </Text>
           </div>
-          {c.can_regenerate && c.rapport_rse_disponible && (
-            <Button
-              variant="ghost"
-              size="sm"
-              // Radar demandé : on attend les filtres de la fiche (sans eux, le
-              // serveur comparerait à « Tous », pas à ce que l'écran affiche).
-              disabled={
-                regenFait || (choixRadarPossible && avecRadar && !benchFilters)
-              }
-              loading={regenEnCours}
-              loadingText="Régénération…"
-              onClick={() => void regenererRapport()}
-            >
-              {regenFait ? 'Régénération demandée' : 'Régénérer le rapport'}
-            </Button>
-          )}
           {!c.rapport_reserve_donneur_ordre && (
             <Button
               variant="secondary"
-              disabled={!c.rapport_rse_disponible}
+              // Radar demandé : on attend les filtres de la fiche (sans eux, le
+              // serveur comparerait à « Tous », pas à ce que l'écran affiche).
+              disabled={
+                !c.rapport_rse_disponible ||
+                (choixRadarPossible && avecRadar && !benchFilters)
+              }
+              loading={fabrication}
+              loadingText="Préparation du PDF…"
               onClick={() => void telechargerRapport()}
             >
               Télécharger
             </Button>
           )}
-          {c.can_regenerate &&
+          {!isAg &&
+            !c.rapport_reserve_donneur_ordre &&
             c.rapport_rse_disponible &&
             choixRadarPossible && (
               <div className="basis-full" data-testid="option-rapport-radar">
@@ -616,16 +573,13 @@ export function OngletBilan({
                   <Checkbox
                     id="rapport-avec-radar"
                     checked={avecRadar}
-                    onCheckedChange={(v) => {
-                      setAvecRadar(v === true);
-                      setRegenFait(false);
-                    }}
+                    onCheckedChange={(v) => setAvecRadar(v === true)}
                   />
                   Inclure le radar de comparaison dans le rapport
                 </Label>
                 <Text className="mt-1">
                   Le radar du rapport reprend les filtres de comparaison réglés
-                  ci-dessus. Régénérez le rapport pour appliquer votre choix.
+                  ci-dessus.
                 </Text>
               </div>
             )}
@@ -662,11 +616,6 @@ export function OngletBilan({
         {telechargement && (
           <AlertBar variant="err" role="alert" className="mx-5 my-3">
             {telechargement}
-          </AlertBar>
-        )}
-        {regenErreur && (
-          <AlertBar variant="err" role="alert" className="mx-5 my-3">
-            {regenErreur}
           </AlertBar>
         )}
       </Card>

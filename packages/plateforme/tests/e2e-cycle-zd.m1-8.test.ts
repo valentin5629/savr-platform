@@ -190,11 +190,11 @@ describe('M1.8 / E2E / scenario-nominal', () => {
     vi.clearAllMocks();
   });
 
-  it('cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001', async () => {
+  it('cycle nominal : collecte ZD cloturee → batch PDF (bordereau, rapport à télécharger) + brouillon → valider → emise FZD-2026-00001', async () => {
     // ── Étape A : batch PDF J+1 ──────────────────────────────────────────────
     // NB : ce mock rend `rpc()` thenable (`{single, then}`). Le batch n'appelle plus
-    // que `f_next_numero_bordereau` : le rapport automatique est la version sans
-    // radar, il ne lit rien du parc (gabarit @3).
+    // que `f_next_numero_bordereau` : il ne fabrique plus le rapport (fabriqué
+    // au clic, décision Val 2026-10-16) et ne lit rien du parc.
     const sbPdf = makeSupabase([
       { data: [makeCollectePdf()], error: null }, // select collectes
       { data: [], error: null }, // select bordereaux existants
@@ -216,7 +216,6 @@ describe('M1.8 / E2E / scenario-nominal', () => {
       { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr (single)
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse (single)
       { data: null, error: null }, // insert job bordereau (then)
-      { data: null, error: null }, // insert job rapport (then)
     ]);
 
     const pdfResult = await runBatchPdfJ1(sbPdf as never);
@@ -228,8 +227,12 @@ describe('M1.8 / E2E / scenario-nominal', () => {
     const types = insertCalls
       .map((c) => c[0].type_document)
       .filter(Boolean) as string[];
-    expect(types).toContain('bordereau-zd');
-    expect(types).toContain('rapport-recyclage-zd');
+    // Le bordereau part au rendu ; le rapport de recyclage n'est plus fabriqué
+    // par le batch : il le sera au clic de celui qui le télécharge (Val 2026-10-16).
+    expect(types).toEqual(['bordereau-zd']);
+    expect(insertCalls.some((c) => c[0].genere_par === 'automatique')).toBe(
+      true,
+    );
 
     // ── Étape B : batch brouillons J+1 ──────────────────────────────────────
     const sbBrouillons = makeSupabase([

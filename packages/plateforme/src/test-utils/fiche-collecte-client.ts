@@ -55,9 +55,6 @@ export function ficheClient(
     association: null,
     rapport_rse_disponible: false,
     rapport_rse_regenere: false,
-    // Comme le calcule le serveur : régénérable = collecte ZD (tout rôle).
-    can_regenerate: (over.type ?? 'zero_dechet') === 'zero_dechet',
-    rapport_avec_radar: false,
     rapport_reserve_donneur_ordre: false,
     // Par défaut, cohérent avec les deux indicateurs comme le calcule le
     // serveur (etatRapport) ; un test peut forcer n'importe quel état.
@@ -89,8 +86,17 @@ export function stubFetchFiche(
     detailStatus?: number;
     benchmark?: 'ok' | 'indisponible';
     urgenceStatus?: number;
+    // Rapport de recyclage fabriqué au clic : refus du serveur (statut + motif).
+    rapportRefus?: { status: number; error: string };
   } = {},
 ): void {
+  // jsdom n'implémente pas les URL d'objet : le PDF reçu est « enregistré » ici.
+  Object.assign(URL, {
+    createObjectURL: vi.fn(() => 'blob:rapport'),
+    revokeObjectURL: vi.fn(),
+  });
+  // …et le lien de téléchargement n'ouvre aucune navigation (jsdom ne la gère pas).
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, init?: { method?: string }) => {
@@ -124,6 +130,23 @@ export function stubFetchFiche(
         return Promise.resolve(
           reponse(opts.urgenceStatus ?? 200, { data: { demandee: true } }),
         );
+      if (u.endsWith('/rapport-rse') && init?.method === 'POST')
+        return Promise.resolve(
+          opts.rapportRefus
+            ? reponse(opts.rapportRefus.status, {
+                error: opts.rapportRefus.error,
+              })
+            : ({
+                ok: true,
+                status: 200,
+                headers: new Headers({
+                  'Content-Type': 'application/pdf',
+                  'Content-Disposition':
+                    'attachment; filename="rapport-recyclage-2026-09-28.pdf"',
+                }),
+                blob: () => Promise.resolve(new Blob(['%PDF'])),
+              } as unknown as Response),
+        );
       if (init?.method === 'POST')
         return Promise.resolve(reponse(200, { data: {} }));
       if (u.includes('/rapport-rse/download'))
@@ -138,8 +161,8 @@ export function stubFetchFiche(
   );
 }
 
-/** Requêtes POST émises vers `…/regenerate` par le fetch stubbé, avec leur corps. */
-export function regenerationsDemandees(): Array<{
+/** Rapports de recyclage demandés (POST `…/rapport-rse`), avec leur corps. */
+export function rapportsDemandes(): Array<{
   url: string;
   corps: unknown;
 }> {
@@ -150,7 +173,7 @@ export function regenerationsDemandees(): Array<{
   ).mock.calls
     .filter(
       ([u, init]) =>
-        String(u).endsWith('/regenerate') && init?.method === 'POST',
+        String(u).endsWith('/rapport-rse') && init?.method === 'POST',
     )
     .map(([u, init]) => ({
       url: String(u),

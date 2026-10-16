@@ -245,46 +245,50 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
             ? reponse(200, { url: 'https://r2.example/rapport.pdf' })
             : String(url).startsWith('/api/v1/gestionnaire/collectes/c1')
               ? reponse(200, { data: ficheClient() })
-              : reponse(200, {
-                  data: [
-                    LIGNES[0],
-                    {
-                      id: 'zd/1',
-                      type: 'zero_dechet',
-                      statut: 'cloturee',
-                      date_collecte: '2026-10-11',
-                      heure_collecte: '22:00:00',
-                      evenement_nom: null,
-                      lieu_nom: 'Musée des Arts Forains',
-                      lieu_adresse:
-                        '53 Avenue des Terroirs de France 75012 Paris',
-                      client_nom: null,
-                      traiteur_nom: 'Fleurdemets',
-                      pax: 500,
-                      poids_total_kg: 412.5,
-                      taux_recyclage: 87,
-                      co2_evite_kg: 96,
-                      nb_repas_donnes: null,
-                    },
-                    {
-                      id: 'ag-1',
-                      type: 'anti_gaspi',
-                      statut: 'cloturee',
-                      date_collecte: '2026-10-04',
-                      heure_collecte: '23:00:00',
-                      evenement_nom: null,
-                      lieu_nom: 'Paris Nord Villepinte',
-                      lieu_adresse: null,
-                      client_nom: null,
-                      traiteur_nom: 'Kaspia Réceptions',
-                      pax: 238,
-                      poids_total_kg: 0,
-                      taux_recyclage: null,
-                      co2_evite_kg: 450,
-                      nb_repas_donnes: 180,
-                    },
-                  ],
-                }),
+              : String(url).startsWith('/api/v1/gestionnaire/collectes/zd%2F1')
+                ? reponse(200, {
+                    data: ficheClient({ id: 'zd/1', statut: 'cloturee' }),
+                  })
+                : reponse(200, {
+                    data: [
+                      LIGNES[0],
+                      {
+                        id: 'zd/1',
+                        type: 'zero_dechet',
+                        statut: 'cloturee',
+                        date_collecte: '2026-10-11',
+                        heure_collecte: '22:00:00',
+                        evenement_nom: null,
+                        lieu_nom: 'Musée des Arts Forains',
+                        lieu_adresse:
+                          '53 Avenue des Terroirs de France 75012 Paris',
+                        client_nom: null,
+                        traiteur_nom: 'Fleurdemets',
+                        pax: 500,
+                        poids_total_kg: 412.5,
+                        taux_recyclage: 87,
+                        co2_evite_kg: 96,
+                        nb_repas_donnes: null,
+                      },
+                      {
+                        id: 'ag-1',
+                        type: 'anti_gaspi',
+                        statut: 'cloturee',
+                        date_collecte: '2026-10-04',
+                        heure_collecte: '23:00:00',
+                        evenement_nom: null,
+                        lieu_nom: 'Paris Nord Villepinte',
+                        lieu_adresse: null,
+                        client_nom: null,
+                        traiteur_nom: 'Kaspia Réceptions',
+                        pax: 238,
+                        poids_total_kg: 0,
+                        taux_recyclage: null,
+                        co2_evite_kg: 450,
+                        nb_repas_donnes: 180,
+                      },
+                    ],
+                  }),
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
@@ -323,10 +327,10 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(within(ligneAg).getByText('180 repas')).toBeTruthy();
       expect(within(ligneAg).getByText(/450\s*kg CO₂e/)).toBeTruthy();
 
-      // Téléchargement du rapport : route gestionnaire, id encodé, sans ouvrir
-      // la fiche (cellule interactive).
+      // Rapport de don AG : téléchargé directement (fichier stocké), route
+      // gestionnaire, sans ouvrir la fiche (cellule interactive).
       fireEvent.click(
-        within(ligneZd).getByRole('button', {
+        within(ligneAg).getByRole('button', {
           name: 'Télécharger le rapport de la collecte',
         }),
       );
@@ -337,9 +341,32 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         ),
       );
       expect(fetchMock.mock.calls.map(([u]) => String(u))).toContain(
-        '/api/v1/gestionnaire/collectes/zd%2F1/rapport-rse/download',
+        '/api/v1/gestionnaire/collectes/ag-1/rapport-rse/download',
       );
       expect(replace).not.toHaveBeenCalled();
+
+      // Rapport de recyclage ZD : il se fabrique dans la fiche, où l'on choisit
+      // le radar — le picto l'ouvre sur « Bilan & documents » (Val 2026-10-16),
+      // id encodé dans l'URL, aucun téléchargement direct.
+      fireEvent.click(
+        within(ligneZd).getByRole('button', {
+          name: 'Télécharger le rapport de la collecte',
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(String(replace.mock.calls.at(-1)?.[0])).toContain(
+          'collecte=zd%2F1',
+        ),
+      );
+      const ongletBilan = await screen.findByRole(
+        'tab',
+        { name: 'Bilan & documents' },
+        ATTENTE_UI,
+      );
+      expect(ongletBilan.getAttribute('aria-selected')).toBe('true');
+      expect(fetchMock.mock.calls.map(([u]) => String(u))).not.toContain(
+        '/api/v1/gestionnaire/collectes/zd%2F1/rapport-rse/download',
+      );
 
       // Collecte non réalisée : pas de résultats ; aucun picto d'action
       // (Modifier / Annuler / Dupliquer) sur aucune ligne.

@@ -28,7 +28,7 @@ import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-c
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import {
   ficheClient,
-  regenerationsDemandees,
+  rapportsDemandes,
   stubFetchFiche,
   urlsAppelees,
 } from '@/test-utils/fiche-collecte-client';
@@ -938,7 +938,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
   );
 
   it(
-    'M3.1/fiche_popup_telechargement_rapport — « Télécharger » appelle la route de l’espace',
+    'M3.1/fiche_popup_telechargement_rapport — « Télécharger » fabrique le rapport ZD par la route de l’espace et enregistre le PDF reçu (aucun fichier stocké)',
     async () => {
       const ouvrir = vi.fn();
       vi.stubGlobal('open', ouvrir);
@@ -951,28 +951,34 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
         within(docs).getByRole('button', { name: 'Télécharger' }),
       );
       await waitFor(
-        () =>
-          expect(ouvrir).toHaveBeenCalledWith(
-            'https://r2.example/rapport.pdf',
-            '_blank',
-          ),
+        () => expect(URL.createObjectURL).toHaveBeenCalledTimes(1),
         ATTENTE_UI,
       );
+      expect(rapportsDemandes()[0]!.url).toBe(
+        '/api/v1/traiteur/collectes/c1/rapport-rse',
+      );
+      // Plus d'URL de fichier stocké pour un rapport ZD.
+      expect(ouvrir).not.toHaveBeenCalled();
       expect(
-        urlsAppelees().some(
-          (c) => c.url === '/api/v1/traiteur/collectes/c1/rapport-rse/download',
-        ),
-      ).toBe(true);
+        urlsAppelees().some((c) => c.url.includes('/rapport-rse/download')),
+      ).toBe(false);
     },
     ATTENTE_CAS_MS,
   );
 });
 
-// Rapport de recyclage en deux versions (gabarit @3) : le radar n'entre dans le
-// PDF que si l'utilisateur coche la case, avec les filtres réglés dans la fiche.
-describe('M3.1 / pop-up — version du rapport de recyclage (avec ou sans radar)', () => {
-  async function ouvrirDocuments(detail: Parameters<typeof ficheClient>[0]) {
-    stubFetchFiche(ficheClient({ ...ZD_REALISEE, ...detail }));
+// Rapport de recyclage fabriqué au clic (décision Val 2026-10-16) : celui qui le
+// télécharge choisit s'il porte le radar, avec les filtres réglés dans la fiche.
+// Rien n'est stocké : la case part toujours décochée.
+describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans radar)', () => {
+  async function ouvrirDocuments(
+    detail: Parameters<typeof ficheClient>[0],
+    opts: Parameters<typeof stubFetchFiche>[1] = {},
+  ) {
+    stubFetchFiche(
+      ficheClient({ ...ZD_REALISEE, rapport_rse_disponible: true, ...detail }),
+      opts,
+    );
     render(fiche('c1'));
     await ouvrirOnglet('Bilan & documents');
     // Le radar de l'écran est chargé : ses filtres sont ceux qu'on enverra.
@@ -986,35 +992,34 @@ describe('M3.1 / pop-up — version du rapport de recyclage (avec ou sans radar)
     screen.getByRole('checkbox', {
       name: 'Inclure le radar de comparaison dans le rapport',
     });
+  const telecharger = (docs: HTMLElement) =>
+    within(docs).getByRole('button', { name: 'Télécharger' });
 
   it(
-    'M3.1/fiche_popup_rapport_option_radar — case décochée par défaut (rapport automatique sans radar), cochée si le rapport en vigueur le porte',
+    'M3.1/fiche_popup_rapport_option_radar — case décochée à l’ouverture ; plus de bouton « Régénérer »',
     async () => {
-      await ouvrirDocuments({});
+      const docs = await ouvrirDocuments({});
       expect(caseRadar().getAttribute('aria-checked')).toBe('false');
-      document.body.innerHTML = '';
-      vi.clearAllMocks();
-      await ouvrirDocuments({ rapport_avec_radar: true });
-      expect(caseRadar().getAttribute('aria-checked')).toBe('true');
+      expect(
+        within(docs).queryByRole('button', { name: /Régénér/ }),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.1/fiche_popup_regeneration_avec_radar — case cochée : « Régénérer le rapport » envoie l’option et les filtres réglés dans la fiche',
+    'M3.1/fiche_popup_rapport_avec_radar — case cochée : « Télécharger » fabrique le rapport avec l’option et les filtres réglés dans la fiche',
     async () => {
       const docs = await ouvrirDocuments({});
       fireEvent.click(caseRadar());
       expect(caseRadar().getAttribute('aria-checked')).toBe('true');
-      fireEvent.click(
-        within(docs).getByRole('button', { name: 'Régénérer le rapport' }),
-      );
+      fireEvent.click(telecharger(docs));
       await waitFor(
-        () => expect(regenerationsDemandees()).toHaveLength(1),
+        () => expect(rapportsDemandes()).toHaveLength(1),
         ATTENTE_UI,
       );
-      expect(regenerationsDemandees()[0]).toEqual({
-        url: '/api/v1/traiteur/collectes/c1/documents/rapport-recyclage-zd/regenerate',
+      expect(rapportsDemandes()[0]).toEqual({
+        url: '/api/v1/traiteur/collectes/c1/rapport-rse',
         corps: {
           options: { benchmark: true },
           // Filtres initiaux de la fiche = segment de la collecte (type + taille).
@@ -1025,9 +1030,8 @@ describe('M3.1 / pop-up — version du rapport de recyclage (avec ou sans radar)
           },
         },
       });
-      await within(docs).findByRole(
-        'button',
-        { name: 'Régénération demandée' },
+      await waitFor(
+        () => expect(URL.createObjectURL).toHaveBeenCalledTimes(1),
         ATTENTE_UI,
       );
     },
@@ -1035,132 +1039,84 @@ describe('M3.1 / pop-up — version du rapport de recyclage (avec ou sans radar)
   );
 
   it(
-    'M3.1/fiche_popup_regeneration_sans_radar — case décochée : version sans radar demandée, aucun filtre envoyé ; changer la case réarme le bouton',
+    'M3.1/fiche_popup_rapport_sans_radar — case décochée : rapport sans radar, aucun filtre envoyé',
     async () => {
-      const docs = await ouvrirDocuments({ rapport_avec_radar: true });
-      fireEvent.click(caseRadar()); // décoche
-      fireEvent.click(
-        within(docs).getByRole('button', { name: 'Régénérer le rapport' }),
-      );
+      const docs = await ouvrirDocuments({});
+      fireEvent.click(telecharger(docs));
       await waitFor(
-        () => expect(regenerationsDemandees()).toHaveLength(1),
+        () => expect(rapportsDemandes()).toHaveLength(1),
         ATTENTE_UI,
       );
-      expect(regenerationsDemandees()[0]!.corps).toEqual({
+      expect(rapportsDemandes()[0]!.corps).toEqual({
         options: { benchmark: false },
       });
-      // Demande partie : bouton neutralisé… jusqu'au prochain changement de choix.
-      const fait = await within(docs).findByRole(
-        'button',
-        { name: 'Régénération demandée' },
-        ATTENTE_UI,
-      );
-      expect(fait.hasAttribute('disabled')).toBe(true);
-      fireEvent.click(caseRadar()); // recoche
-      expect(
-        within(docs)
-          .getByRole('button', { name: 'Régénérer le rapport' })
-          .hasAttribute('disabled'),
-      ).toBe(false);
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.1/fiche_popup_regeneration_echec — refus du serveur : message affiché, bouton toujours actif',
+    'M3.1/fiche_popup_rapport_refus_motive — refus 4xx : le motif écrit par le serveur est affiché, pas « réessayez »',
     async () => {
-      const docs = await ouvrirDocuments({});
-      const fetchFiche = globalThis.fetch;
-      vi.stubGlobal(
-        'fetch',
-        vi.fn((url: string, init?: { method?: string }) =>
-          String(url).endsWith('/regenerate')
-            ? Promise.resolve({
-                ok: false,
-                status: 500,
-                json: () => Promise.resolve({ error: 'Erreur serveur' }),
-              } as Response)
-            : fetchFiche(url, init as RequestInit),
-        ),
-      );
-      fireEvent.click(
-        within(docs).getByRole('button', { name: 'Régénérer le rapport' }),
-      );
-      const alerte = await within(docs).findByRole('alert', {}, ATTENTE_UI);
-      expect(alerte.textContent).toContain(
-        'La régénération du rapport a échoué',
-      );
-      expect(
-        within(docs)
-          .getByRole('button', { name: 'Régénérer le rapport' })
-          .hasAttribute('disabled'),
-      ).toBe(false);
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    'M3.1/fiche_popup_regeneration_refus_motive — refus 4xx : le motif écrit par le serveur est affiché, pas « réessayez »',
-    async () => {
-      const docs = await ouvrirDocuments({});
-      const fetchFiche = globalThis.fetch;
-      vi.stubGlobal(
-        'fetch',
-        vi.fn((url: string, init?: { method?: string }) =>
-          String(url).endsWith('/regenerate')
-            ? Promise.resolve({
-                ok: false,
-                status: 422,
-                json: () =>
-                  Promise.resolve({
-                    error:
-                      'La comparaison au parc n’est pas disponible pour cette collecte.',
-                  }),
-              } as Response)
-            : fetchFiche(url, init as RequestInit),
-        ),
+      const docs = await ouvrirDocuments(
+        {},
+        {
+          rapportRefus: {
+            status: 422,
+            error:
+              'La comparaison au parc n’est pas disponible pour cette collecte.',
+          },
+        },
       );
       fireEvent.click(caseRadar());
-      fireEvent.click(
-        within(docs).getByRole('button', { name: 'Régénérer le rapport' }),
-      );
+      fireEvent.click(telecharger(docs));
       const alerte = await within(docs).findByRole('alert', {}, ATTENTE_UI);
       expect(alerte.textContent).toBe(
         'La comparaison au parc n’est pas disponible pour cette collecte.',
       );
-      expect(alerte.textContent).not.toContain('Réessayez');
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.1/fiche_popup_regeneration_filtre_modifie — changer un filtre du radar après une demande réarme le bouton, et la nouvelle demande part avec le nouveau filtre',
+    'M3.1/fiche_popup_rapport_echec — panne : message générique, bouton toujours actif',
+    async () => {
+      const docs = await ouvrirDocuments(
+        {},
+        { rapportRefus: { status: 502, error: 'détail interne' } },
+      );
+      fireEvent.click(telecharger(docs));
+      const alerte = await within(docs).findByRole('alert', {}, ATTENTE_UI);
+      expect(alerte.textContent).toBe(
+        'La fabrication du rapport a échoué. Réessayez dans un instant.',
+      );
+      expect(telecharger(docs).hasAttribute('disabled')).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/fiche_popup_rapport_filtre_modifie — un filtre changé dans la fiche part avec la demande suivante',
     async () => {
       const docs = await ouvrirDocuments({});
       fireEvent.click(caseRadar());
-      fireEvent.click(
-        within(docs).getByRole('button', { name: 'Régénérer le rapport' }),
-      );
-      await within(docs).findByRole(
-        'button',
-        { name: 'Régénération demandée' },
+      fireEvent.click(telecharger(docs));
+      await waitFor(
+        () => expect(rapportsDemandes()).toHaveLength(1),
         ATTENTE_UI,
       );
-      // Le rapport demandé ne correspond plus à l'écran dès qu'un filtre bouge.
       fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
       fireEvent.click(screen.getByRole('checkbox', { name: 'M (500-749)' }));
-      const bouton = await within(docs).findByRole(
-        'button',
-        { name: 'Régénérer le rapport' },
-        ATTENTE_UI,
-      );
-      expect(bouton.hasAttribute('disabled')).toBe(false);
-      fireEvent.click(bouton);
       await waitFor(
-        () => expect(regenerationsDemandees()).toHaveLength(2),
+        () => expect(telecharger(docs).hasAttribute('disabled')).toBe(false),
         ATTENTE_UI,
       );
-      expect(regenerationsDemandees()[1]!.corps).toMatchObject({
+      fireEvent.click(telecharger(docs));
+      await waitFor(
+        () => expect(rapportsDemandes()).toHaveLength(2),
+        ATTENTE_UI,
+      );
+      expect(rapportsDemandes()[1]!.corps).toMatchObject({
         options: { benchmark: true },
         benchmark_filters: { taille_evenement_codes: ['XL', 'M'] },
       });
@@ -1169,12 +1125,10 @@ describe('M3.1 / pop-up — version du rapport de recyclage (avec ou sans radar)
   );
 
   it(
-    'M3.1/fiche_popup_regeneration_absente — rapport pas encore disponible : ni bouton ni case',
+    'M3.1/fiche_popup_rapport_indisponible — rapport pas encore disponible : « Télécharger » grisé, pas de case',
     async () => {
-      await ouvrirDocuments({ rapport_rse_disponible: false });
-      expect(
-        screen.queryByRole('button', { name: 'Régénérer le rapport' }),
-      ).toBeNull();
+      const docs = await ouvrirDocuments({ rapport_rse_disponible: false });
+      expect(telecharger(docs).hasAttribute('disabled')).toBe(true);
       expect(screen.queryByTestId('option-rapport-radar')).toBeNull();
     },
     ATTENTE_CAS_MS,

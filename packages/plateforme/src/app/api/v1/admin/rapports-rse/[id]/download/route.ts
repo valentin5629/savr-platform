@@ -1,7 +1,8 @@
 // GET /api/v1/admin/rapports-rse/:id/download
-// Retourne une URL pré-signée R2 (15 min) pour un rapport de recyclage ZD, ou pour
-// le rapport d'une collecte AG sans excédent — ce dernier est servi sous le nom
-// « rapport-de-don-<date>-<événement>.pdf » (§12 §1.3-bis).
+// Retourne une URL pré-signée R2 (15 min) pour le rapport d'une collecte AG sans
+// excédent, servi sous le nom « rapport-de-don-<date>-<événement>.pdf » (§12
+// §1.3-bis). Le rapport de recyclage ZD n'est plus stocké : il se fabrique au clic
+// (POST /api/v1/admin/collectes/[id]/rapport-rse, décision Val 2026-10-16) → 409.
 // Contrôle applicatif embargo H+24 : refuse si now() < disponible_a (R-PDF2).
 // Accès : admin_savr + ops_savr.
 
@@ -34,6 +35,21 @@ export async function GET(
 
   if (error || !rapport) {
     return NextResponse.json({ error: 'Rapport introuvable' }, { status: 404 });
+  }
+
+  const { data: collecte } = await supabase
+    .from('collectes')
+    .select('type')
+    .eq('id', rapport.collecte_id as string)
+    .maybeSingle();
+  if ((collecte as { type: string } | null)?.type === 'zero_dechet') {
+    return NextResponse.json(
+      {
+        error:
+          'Le rapport de recyclage se télécharge depuis l’onglet Documents de la collecte.',
+      },
+      { status: 409 },
+    );
   }
 
   // Contrôle embargo applicatif (R-PDF2) — jamais contournable même pour admin

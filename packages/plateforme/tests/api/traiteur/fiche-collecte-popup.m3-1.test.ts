@@ -452,54 +452,67 @@ describe('M3.1 / documents de la fiche — lus sous la RLS du traiteur (D12)', (
     expect(json.data.rapport_reserve_donneur_ordre).toBe(false);
   });
 
-  it('M3.1/fiche_get_rapport_version_radar — ZD : rapport régénérable par tout rôle traiteur ; « avec radar » = filtres de comparaison figés sur le rapport', async () => {
+  it('M3.1/fiche_get_rapport_zd_disponible_sans_pdf — ZD : téléchargeable dès la fin de l’embargo, sans PDF préalable (fabriqué au clic, Val 2026-10-16) ; ni version ni « mis à jour »', async () => {
     rls.results.collectes = {
       data: ligneCollecte({ statut: 'cloturee' }),
       error: null,
     };
-    const rapport = (filtres_benchmark: unknown) => ({
+    rls.results.rapports_rse = {
+      data: {
+        disponible_a: '2020-01-02T00:00:00Z',
+        genere_at: null,
+        // Ancienne régénération d'un rapport stocké : sans objet désormais.
+        regenere_at: '2020-01-05T00:00:00Z',
+      },
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.rapport_rse_disponible).toBe(true);
+    expect(json.data.rapport_etat).toBe('disponible');
+    expect(json.data.rapport_rse_regenere).toBe(false);
+    expect(json.data).not.toHaveProperty('can_regenerate');
+    expect(json.data).not.toHaveProperty('rapport_avec_radar');
+
+    // Embargo en cours : pas encore téléchargeable.
+    rls.results.rapports_rse = {
+      data: {
+        disponible_a: '2999-01-01T00:00:00Z',
+        genere_at: null,
+        regenere_at: null,
+      },
+      error: null,
+    };
+    expect((await getFiche()).json.data.rapport_rse_disponible).toBe(false);
+  });
+
+  it('M3.1/fiche_get_rapport_ag_fichier_stocke — AG sans excédent : téléchargeable une fois le PDF fabriqué, « mis à jour » après une régénération Admin', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        type: 'anti_gaspi',
+        statut: 'realisee_sans_collecte',
+      }),
+      error: null,
+    };
+    rls.results.rapports_rse = {
+      data: {
+        disponible_a: '2020-01-02T00:00:00Z',
+        genere_at: null,
+        regenere_at: null,
+      },
+      error: null,
+    };
+    expect((await getFiche()).json.data.rapport_rse_disponible).toBe(false);
+    rls.results.rapports_rse = {
       data: {
         disponible_a: '2020-01-02T00:00:00Z',
         genere_at: '2020-01-02T00:00:00Z',
-        regenere_at: null,
-        filtres_benchmark,
+        regenere_at: '2020-01-05T00:00:00Z',
       },
-      error: null,
-    });
-    // Rapport automatique : aucun filtre figé → version sans radar.
-    rls.results.rapports_rse = rapport(null);
-    const auto = (await getFiche()).json.data;
-    expect(auto.can_regenerate).toBe(true);
-    expect(auto.rapport_avec_radar).toBe(false);
-    // Régénéré avec le radar : les filtres appliqués sont figés sur la ligne.
-    rls.results.rapports_rse = rapport({
-      periode_debut: '2024-10-13',
-      periode_fin: '2026-10-13',
-      lieu_ids: null,
-      type_evenement_ids: null,
-      taille_evenement_codes: null,
-    });
-    expect((await getFiche()).json.data.rapport_avec_radar).toBe(true);
-    // Le commercial télécharge le rapport : il le régénère aussi (§12 §1.2).
-    mockRequireUser.mockResolvedValue({
-      ctx: {
-        userId: 'com-1',
-        role: 'traiteur_commercial',
-        organisationId: 'org-1',
-      },
-    });
-    expect((await getFiche()).json.data.can_regenerate).toBe(true);
-  });
-
-  it('M3.1/fiche_get_rapport_ag_non_regenerable — collecte AG : jamais régénérable depuis la fiche client, jamais « avec radar »', async () => {
-    rls.results.collectes = {
-      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee' }),
       error: null,
     };
-    rls.results.attestations_don = ATTESTATION_AGENCE;
     const { json } = await getFiche();
-    expect(json.data.can_regenerate).toBe(false);
-    expect(json.data.rapport_avec_radar).toBe(false);
+    expect(json.data.rapport_rse_disponible).toBe(true);
+    expect(json.data.rapport_rse_regenere).toBe(true);
   });
 
   it('M3.1/rapport_download_attestation_donneur_ordre_404 — téléchargement refusé au traiteur opérationnel', async () => {
@@ -565,9 +578,9 @@ describe('M3.1 / ligne document — état calculé par le serveur (arbitrage Val
       null,
     ],
     [
-      'ZD clôturée, rendu PDF pas encore fait',
-      'zero_dechet',
-      'cloturee',
+      'AG sans excédent, rendu PDF pas encore fait',
+      'anti_gaspi',
+      'realisee_sans_collecte',
       ilYa(30 * H),
       'rapports_rse',
       { disponible_a: ilYa(6 * H), genere_at: null, regenere_at: null },
@@ -602,7 +615,7 @@ describe('M3.1 / ligne document — état calculé par le serveur (arbitrage Val
     },
   );
 
-  it('M3.1/fiche_get_rapport_etat_disponible — PDF généré, embargo écoulé', async () => {
+  it('M3.1/fiche_get_rapport_etat_disponible — embargo écoulé', async () => {
     rls.results.collectes = {
       data: ligneCollecte({ statut: 'cloturee', realisee_at: ilYa(30 * H) }),
       error: null,

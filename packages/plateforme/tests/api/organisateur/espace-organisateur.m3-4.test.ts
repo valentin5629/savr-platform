@@ -70,6 +70,32 @@ vi.mock('next/headers', () => ({
 vi.mock('@/lib/pdf/r2-client.js', () => ({
   getPresignedUrl: (...a: unknown[]) => mockPresign(...a),
 }));
+// Rapport de recyclage ZD fabriqué au clic (décision Val 2026-10-16).
+const mockPayload = vi.fn();
+const mockPdf = vi.fn();
+vi.mock('@/lib/pdf/payload-rapport.js', () => ({
+  construirePayloadRapport: (...a: unknown[]) => mockPayload(...a),
+}));
+vi.mock('@/lib/pdf/railway-client.js', () => ({
+  generatePdf: (...a: unknown[]) => mockPdf(...a),
+}));
+// Marque « consulté » (service-role) : écritures relevées.
+const majsAdmin: { table: string; valeurs: unknown }[] = [];
+vi.mock('@savr/shared/src/supabase-client.js', () => ({
+  createAdminSupabaseClient: () => ({
+    from: (table: string) => {
+      const c: Record<string, unknown> = {
+        update: (valeurs: unknown) => {
+          majsAdmin.push({ table, valeurs });
+          return c;
+        },
+        eq: () => c,
+        is: () => Promise.resolve({ data: null, error: null }),
+      };
+      return c;
+    },
+  }),
+}));
 
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
@@ -100,6 +126,7 @@ function makeReq(url: string): NextRequest {
 }
 
 beforeEach(() => {
+  majsAdmin.length = 0;
   vi.clearAllMocks();
   rls = makeChain();
   mockPresign.mockResolvedValue('https://r2.example/signed');
@@ -393,27 +420,40 @@ describe('M3.4 / download', () => {
     );
   }
 
-  it('M3.4/document_download_rapport_ok — URL pré-signée renvoyée', async () => {
+  it('M3.4/document_download_rapport_ok — rapport de recyclage ZD fabriqué au clic, sans radar (pas de fiche où le choisir), rendu en PDF', async () => {
     setupAuth('client_organisateur', 'org-a');
+    mockPayload.mockResolvedValueOnce({
+      ok: true,
+      payload: {
+        options: { benchmark: false },
+        bordereau: { date_collecte: '28/09/2026' },
+      },
+    });
+    mockPdf.mockResolvedValueOnce({ pdfBuffer: Buffer.from('%PDF orga') });
     rls.push({
       data: {
         id: 'r1',
+        collecte_id: 'c-zd',
         disponible_a: '2020-01-01T00:00:00Z',
-        genere_at: '2020-01-02T00:00:00Z',
-        pdf_url: 'rapports/r1.pdf',
+        genere_at: null,
+        pdf_url: null,
       },
       error: null,
     });
-    // Lecture de la collecte pour le nom du fichier : une ZD, aucun nom imposé.
-    rls.push({
-      data: { type: 'zero_dechet', statut: 'cloturee' },
-      error: null,
-    });
+    // Type de la collecte, lu sous la RLS du client organisateur.
+    rls.push({ data: { type: 'zero_dechet' }, error: null });
     const res = await callDownload('rapport', 'r1');
-    const json = (await res.json()) as { url?: string };
     expect(res.status).toBe(200);
-    expect(json.url).toBe('https://r2.example/signed');
-    expect(mockPresign).toHaveBeenCalledWith('rapports/r1.pdf', 900, undefined);
+    expect(res.headers.get('Content-Type')).toBe('application/pdf');
+    expect(mockPdf.mock.calls[0]![0]).toBe('rapport-recyclage-zd');
+    expect((mockPdf.mock.calls[0]![1] as { options: unknown }).options).toEqual(
+      { benchmark: false },
+    );
+    // Aucun fichier stocké servi.
+    expect(mockPresign).not.toHaveBeenCalled();
+    // Premier téléchargement par le client organisateur : « Rapport consulté ».
+    expect(majsAdmin.map((m) => m.table)).toEqual(['rapports_rse']);
+    expect(majsAdmin[0]!.valeurs).toHaveProperty('consulte_par_user_at');
   });
 
   it('M3.4/document_download_rapport_de_don_sans_excedent — fichier nommé « rapport-de-don », date et événement', async () => {
@@ -428,6 +468,8 @@ describe('M3.4 / download', () => {
       },
       error: null,
     });
+    // Type de la collecte (rapport de don : fichier stocké), puis lecture du nom.
+    rls.push({ data: { type: 'anti_gaspi' }, error: null });
     rls.push({
       data: {
         type: 'anti_gaspi',
@@ -461,6 +503,8 @@ describe('M3.4 / download', () => {
       },
       error: null,
     });
+    // Ni le type ni le nom ne se lisent : le fichier stocké est servi.
+    rls.push({ data: null, error: { message: 'boom' } });
     rls.push({ data: null, error: { message: 'boom' } });
     const res = await callDownload('rapport', 'r2');
     expect(res.status).toBe(200);

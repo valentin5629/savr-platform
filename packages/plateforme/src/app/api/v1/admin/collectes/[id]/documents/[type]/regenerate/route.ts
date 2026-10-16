@@ -4,29 +4,15 @@
 // Ré-enqueue jobs_pdf (type_document + TEMPLATE_VERSIONS courant appliqué par le
 // worker) + audit_log. Accès : admin_savr + ops_savr (requireStaff).
 //
-// [type] ∈ PDF_DOCUMENT_TYPES : bordereau-zd | rapport-recyclage-zd | attestation-don |
-// rapport-evenement-sans-excedent (§12 §1.3-bis l.198 : régénération Admin uniquement,
-// correction motif chauffeur / plaque post-saisie).
-//
-// Rapport de recyclage ZD : le corps `{ options: { benchmark } }` choisit la
-// version, avec ou sans le radar de comparaison (décision Val 2026-10-13). Sans
-// corps, le dernier rendu est reproduit. `benchmark_filters` = les filtres
-// réglés sur le radar de l'onglet Documents (décision Val 2026-10-16) ; absents
-// (pas de radar à l'écran), le radar reprend les filtres figés du rapport en
-// vigueur, sinon le segment de la collecte (filtresRadarParDefaut). Le radar
-// est calculé par la fonction de l'écran, SOUS L'IDENTITÉ de l'appelant : le
-// k-anonymat s'applique à l'Admin comme aux clients — ce PDF est celui que le
-// client télécharge.
+// [type] ∈ bordereau-zd | attestation-don | rapport-evenement-sans-excedent (§12
+// §1.3-bis l.198 : régénération Admin uniquement, correction motif chauffeur /
+// plaque post-saisie). Le rapport de recyclage ZD n'est plus stocké : il se
+// fabrique au clic (POST /api/v1/admin/collectes/[id]/rapport-rse) → 409 ici (type non régénérable).
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { createSupabaseServerClient, requireStaff } from '@/lib/api-auth.js';
-import { lireVersionDemandee } from '@/lib/collectes/rapport-regeneration.js';
-import { filtresRadarParDefaut } from '@/lib/pdf/rapport-radar.js';
-import {
-  regenerateCollecteDocument,
-  type VersionRapportRecyclage,
-} from '@/lib/pdf/regenerate.js';
+import { requireStaff } from '@/lib/api-auth.js';
+import { regenerateCollecteDocument } from '@/lib/pdf/regenerate.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,34 +27,10 @@ export async function POST(
   const { id, type } = await params;
   const supabase = createAdminSupabaseClient();
 
-  // Seul le rapport de recyclage a deux versions ; les autres documents ignorent
-  // le corps de la requête.
-  let version: VersionRapportRecyclage | undefined;
-  if (type === 'rapport-recyclage-zd') {
-    const lu = await lireVersionDemandee(
-      req,
-      createSupabaseServerClient(),
-      {
-        userId: auth.ctx.userId,
-        role: auth.ctx.role,
-        // Sans objet pour un rôle staff : la fonction du parc ne lit que le rôle.
-        organisationId: auth.ctx.organisationId ?? '',
-      },
-      id,
-      'admin.collectes.rapport.regeneration',
-      () => filtresRadarParDefaut(supabase, id),
-    );
-    if ('refus' in lu) return lu.refus;
-    version = lu.version;
-  }
-
-  const result = await regenerateCollecteDocument(
-    supabase,
-    id,
-    type,
-    { userId: auth.ctx.userId, role: auth.ctx.role },
-    version,
-  );
+  const result = await regenerateCollecteDocument(supabase, id, type, {
+    userId: auth.ctx.userId,
+    role: auth.ctx.role,
+  });
 
   if (!result.ok) {
     const status =

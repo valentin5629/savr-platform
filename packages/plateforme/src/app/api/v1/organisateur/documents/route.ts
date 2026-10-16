@@ -96,7 +96,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       collecte_id: r.collecte_id as string,
       evenement_nom: evtOf(r).nom_evenement ?? null,
       date: evtOf(r).date_evenement ?? null,
-      disponible: r.genere_at != null && !embargo,
+      // Rapport de recyclage ZD : fabriqué au clic (décision Val 2026-10-16), la
+      // fin d'embargo suffit ; le rapport de don AG est un fichier stocké.
+      disponible: (!estAg || r.genere_at != null) && !embargo,
       sous_embargo: embargo,
       disponible_a: dispoA,
     });

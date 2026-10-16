@@ -160,35 +160,30 @@ describe('G7 / bordereau PDF : pdf_fichier_id → shared.fichiers(bucket, key)',
 });
 
 describe('G7 / admin', () => {
-  it('rapports-rse/:id/download : pdf_url lu direct (clé R2), sans embed fichiers', async () => {
+  it('rapports-rse/:id/download : rapport de recyclage ZD → 409 (fabriqué au clic), colonnes lues existantes', async () => {
     setupAuth('admin_savr', null);
     db.push({
       data: {
         id: 'r1',
+        collecte_id: 'c-zd',
         disponible_a: '2026-01-01T00:00:00Z',
         genere_at: '2026-01-01T06:00:00Z',
         pdf_url: 'rapports/r1.pdf',
       },
     });
-    // Lecture de la collecte pour le nom du fichier (« Rapport de don » d'une
-    // collecte AG sans excédent ; ici une ZD : aucun nom imposé).
-    db.push({ data: { type: 'zero_dechet', statut: 'cloturee' } });
+    db.push({ data: { type: 'zero_dechet' } });
     const { GET } =
       await import('@/app/api/v1/admin/rapports-rse/[id]/download/route.js');
     const res = await GET(req('/api/v1/admin/rapports-rse/r1/download'), {
       params: Promise.resolve({ id: 'r1' }),
     });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(409);
     expect(selects()).toEqual([
       'id, collecte_id, disponible_a, genere_at, pdf_url',
-      'type, statut, evenements(nom_evenement, date_evenement)',
+      'type',
     ]);
     const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
-    expect(getPresignedUrl).toHaveBeenCalledWith(
-      'rapports/r1.pdf',
-      900,
-      undefined,
-    );
+    expect(getPresignedUrl).not.toHaveBeenCalled();
   });
 
   it('rapports-rse/:id/download : rapport d’une collecte AG sans excédent servi sous un nom « rapport-de-don »', async () => {
@@ -202,6 +197,8 @@ describe('G7 / admin', () => {
         pdf_url: 'rapports/r2.pdf',
       },
     });
+    // Type de la collecte (rapport de don : fichier stocké), puis lecture du nom.
+    db.push({ data: { type: 'anti_gaspi' } });
     db.push({
       data: {
         type: 'anti_gaspi',

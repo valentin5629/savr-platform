@@ -127,7 +127,7 @@ beforeEach(() => {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('M1.6 / BatchPdfJ1 / Nominal', () => {
-  it('R-PDF1 : collecte ZD cloturee avec flux → 2 jobs enqueués (bordereau + rapport)', async () => {
+  it('R-PDF1 : collecte ZD cloturee avec flux → bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic (décision Val 2026-10-16)', async () => {
     const collecte = makeCollecte();
     const sb = makeSupabase([
       { data: [collecte], error: null }, // select collectes
@@ -151,7 +151,6 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
       { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
       { data: null, error: null }, // insert job bordereau
-      { data: null, error: null }, // insert job rapport
     ]);
 
     const result = await runBatchPdfJ1(sb as never);
@@ -165,12 +164,11 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
     const types = insertCalls
       .map((c) => c[0].type_document)
       .filter(Boolean) as string[];
-    expect(types).toContain('bordereau-zd');
-    expect(types).toContain('rapport-recyclage-zd');
+    // Plus de rapport fabriqué automatiquement : seul le bordereau part au rendu.
+    expect(types).toEqual(['bordereau-zd']);
 
-    // BL-P1-RPT-01 : le rapport automatique est la version SANS radar. Le batch
-    // ne lit donc rien du parc, et le rapport naît sans filtres de comparaison
-    // figés (filtres_benchmark absent de l'insert → NULL en base).
+    // La ligne rapports_rse est posée (fin d'embargo = rapport téléchargeable) ;
+    // le batch ne lit rien du parc et ne fige aucun filtre de comparaison.
     const rpcNames = (sb.rpc as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => c[0],
     );
@@ -180,13 +178,7 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
     )?.[0];
     expect(rseInsert).toBeDefined();
     expect(rseInsert).not.toHaveProperty('filtres_benchmark');
-    const rapPayload = insertCalls.find(
-      (c) => c[0].type_document === 'rapport-recyclage-zd',
-    )![0].payload as Record<string, unknown>;
-    expect(rapPayload.options).toEqual({ benchmark: false });
-    expect(rapPayload).not.toHaveProperty('benchmark_flux');
-    expect(rapPayload).not.toHaveProperty('benchmark_legende');
-    expect(rapPayload).not.toHaveProperty('comparaison_savr');
+    expect(rseInsert).not.toHaveProperty('genere_at');
 
     // BL-P2-16 : le payload bordereau porte l'équivalent bacs.
     const bordJob = insertCalls.find(
@@ -316,230 +308,6 @@ describe('M1.6 / BatchPdfJ1 / Embargo', () => {
   });
 });
 
-describe('M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19)', () => {
-  /** Collecte programmée par une agence, traiteur opérationnel distinct, deux logos. */
-  async function jobRapportAgenceEtTraiteur() {
-    const collecte = makeCollecte({
-      evenements: {
-        id: 'ev-1',
-        nom_evenement: 'Gala Kaspia',
-        date_evenement: '2026-06-13',
-        pax: 250,
-        organisation_id: 'org-agence',
-        traiteur_operationnel_organisation_id: 'org-traiteur',
-        client_organisateur_organisation_id: null,
-        logo_client_organisateur_url: null,
-        organisations: {
-          raison_sociale: 'Agence Événement',
-          siret: '11111111100001',
-          adresse: '1 rue',
-          email_principal: 'a@agence.fr',
-          type: 'agence',
-          logo_url: 'savr-dev/logos/a9e1c2d3-4b5c-4d6e-8f70-81a2b3c4d5e6.png',
-        },
-        traiteur_operationnel: {
-          raison_sociale: 'Traiteur Op',
-          siret: '22222222200002',
-          adresse: '2 rue',
-          logo_url: 'savr-dev/logos/b8f2d3e4-5c6d-4e7f-9a81-92b3c4d5e6f7.png',
-        },
-        client_organisateur: null,
-        lieux: {
-          nom: 'Grand Palais',
-          adresse_acces: '3 avenue',
-          code_postal: '75008',
-          ville: 'Paris',
-        },
-      },
-    });
-    const sb = makeSupabase([
-      { data: [collecte], error: null }, // select collectes
-      { data: [], error: null }, // bordereaux existants
-      { count: 2, error: null }, // count collecte_flux
-      {
-        data: [
-          { flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Biodéchets' } },
-        ],
-      }, // flux
-      { data: 'BSAV-2026-00010', error: null }, // rpc numero
-      {
-        data: { nom: 'Strike Transport', siret: '98765432100011' },
-      }, // shared.prestataires
-      { data: { id: 'bord-logo' }, error: null }, // insert bordereaux_savr
-      { data: { id: 'rse-logo' }, error: null }, // insert rapports_rse
-      { data: null, error: null }, // job bordereau
-      { data: null, error: null }, // job rapport
-    ]);
-
-    await runBatchPdfJ1(sb as never);
-
-    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
-      .calls as Array<[Record<string, unknown>]>;
-    const rapJob = insertCalls.find(
-      (c) => c[0].type_document === 'rapport-recyclage-zd',
-    )?.[0];
-    expect(rapJob).toBeDefined();
-    return rapJob!;
-  }
-
-  it('programmateur agence → logo agence posé dans le payload rapport (prime sur traiteur)', async () => {
-    // §1.2 l.86-90 : l'agence programmatrice prime dans l'emplacement « client ».
-    const rapJob = await jobRapportAgenceEtTraiteur();
-    // BL-P3-05 : le logo agence (gagnant de la cascade) est inliné en data URI
-    // (le renderer n'affiche pas une clé R2 brute) — la clé agence est bien celle
-    // téléchargée (prime sur le traiteur).
-    expect(getObjectBytes).toHaveBeenCalledWith(
-      'savr-dev/logos/a9e1c2d3-4b5c-4d6e-8f70-81a2b3c4d5e6.png',
-    );
-    // Gabarit @3 : le logo de l'agence occupe l'emplacement « client » du bandeau.
-    const logos = rapJob!.payload as {
-      logo_client_url?: string;
-      logo_traiteur_url?: string;
-    };
-    expect(logos.logo_client_url).toMatch(/^data:image\/png;base64,/);
-    // Deux logos légers : le traiteur garde son emplacement.
-    expect(logos.logo_traiteur_url).toMatch(/^data:image\/png;base64,/);
-    expect(rapJob!.payload).not.toHaveProperty('logo_url');
-  });
-
-  it('deux logos lourds → le traiteur cède sa place : le payload reste sous les 2 Mo acceptés par le renderer', async () => {
-    // 900 Ko chacun : sous le plafond unitaire (1 Mo), mais 2,4 Mo de base64 à deux
-    // → le rendu répondrait 413 et le rapport ne serait jamais généré.
-    getObjectBytes.mockResolvedValue(Buffer.alloc(900_000, 7));
-    try {
-      const rapJob = await jobRapportAgenceEtTraiteur();
-      const payload = rapJob.payload as {
-        logo_client_url?: string;
-        logo_traiteur_url?: string;
-      };
-      expect(payload.logo_client_url).toMatch(/^data:image\/png;base64,/);
-      expect(payload.logo_traiteur_url).toBeUndefined();
-      expect(
-        JSON.stringify({ type: 'rapport-recyclage-zd', data: payload }).length,
-      ).toBeLessThan(2 * 1024 * 1024);
-    } finally {
-      getObjectBytes.mockResolvedValue(Buffer.from([1, 2, 3]));
-    }
-  });
-});
-
-// Gabarit @3 : ce que le batch fige pour la page 1 du rapport.
-describe('M1.6 / BatchPdfJ1 / payload du rapport @3', () => {
-  async function payloads(evenements: Record<string, unknown>) {
-    const base = makeCollecte();
-    const collecte = makeCollecte({
-      caps_appliques: { verre: 0.95, carton: 0.85 },
-      evenements: { ...base.evenements, ...evenements },
-    });
-    const sb = makeSupabase([
-      { data: [collecte], error: null }, // select collectes
-      { data: [], error: null }, // select bordereaux existants
-      { count: 2, error: null }, // count collecte_flux
-      {
-        data: [
-          {
-            flux_id: 'f1',
-            poids_reel_kg: 12,
-            nb_bacs: 3,
-            equivalent_roll: null,
-            flux: { nom: 'Biodéchets', code: 'biodechet' },
-          },
-          {
-            flux_id: 'f5',
-            poids_reel_kg: 4,
-            nb_bacs: 1,
-            equivalent_roll: null,
-            flux: { nom: 'Déchet résiduel', code: 'dechet_residuel' },
-          },
-        ],
-      }, // select flux
-      { data: 'BSAV-2026-00001', error: null }, // rpc numero
-      { data: { nom: 'Strike Transport', siret: '98765432100011' } }, // prestataire
-      { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
-      { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
-      { data: null, error: null }, // job bordereau
-      { data: null, error: null }, // job rapport
-    ]);
-    await runBatchPdfJ1(sb as never);
-    const inserts = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
-      .calls as Array<[Record<string, unknown>]>;
-    return {
-      rapport: inserts.find(
-        (c) => c[0].type_document === 'rapport-recyclage-zd',
-      )![0].payload as Record<string, unknown>,
-      bordereau: inserts.find((c) => c[0].detail_flux !== undefined)![0],
-      select: selectionCollectes(sb),
-    };
-  }
-
-  it('client saisi à la programmation, traiteur au nom commercial, flux avec leur code, taux de captation figés', async () => {
-    const { rapport, select } = await payloads({
-      nom_client_organisateur: '  Groupe Lumière ',
-      client_organisateur: { nom: 'Lumière SAS', logo_url: null },
-      organisations: {
-        nom: 'Kaspia Réceptions',
-        raison_sociale: 'Kaspia SAS',
-        type: 'traiteur',
-      },
-    });
-    expect(rapport.client_nom).toBe('Groupe Lumière');
-    expect(rapport.nom_evenement).toBe('Gala Kaspia');
-    expect(rapport.traiteur_nom).toBe('Kaspia Réceptions');
-    expect(rapport.date_evenement).toBe('13/06/2026');
-    expect(rapport.flux).toEqual([
-      {
-        nom: 'Biodéchets',
-        code: 'biodechet',
-        poids_kg: 12,
-        nb_bacs: 3,
-        equivalent_roll: null,
-      },
-      {
-        nom: 'Déchet résiduel',
-        code: 'dechet_residuel',
-        poids_kg: 4,
-        nb_bacs: 1,
-        equivalent_roll: null,
-      },
-    ]);
-    expect(rapport.caps_appliques).toEqual({ verre: 0.95, carton: 0.85 });
-    // Champs retirés du rapport : ni version brute des facteurs, ni repas bœuf.
-    expect(rapport).not.toHaveProperty('co2_facteurs_version');
-    expect(rapport).not.toHaveProperty('date_collecte');
-    // Les colonnes lues existent dans la requête de sélection.
-    expect(select).toContain('nom_client_organisateur');
-    expect(select).toContain('caps_appliques');
-  });
-
-  it('sans nom saisi : nom du compte client ; sans client du tout : champ absent (le gabarit affiche l’événement)', async () => {
-    const compte = await payloads({
-      nom_client_organisateur: null,
-      client_organisateur: { nom: 'Lumière SAS', logo_url: null },
-    });
-    expect(compte.rapport.client_nom).toBe('Lumière SAS');
-    const aucun = await payloads({
-      nom_client_organisateur: '   ',
-      client_organisateur: null,
-    });
-    expect(aucun.rapport.client_nom).toBeUndefined();
-  });
-
-  it('le snapshot du bordereau ne change pas de forme : pas de code de flux dans detail_flux ni dans le bordereau embarqué', async () => {
-    const { rapport, bordereau } = await payloads({});
-    const sansCode = [
-      { nom: 'Biodéchets', poids_kg: 12, nb_bacs: 3, equivalent_roll: null },
-      {
-        nom: 'Déchet résiduel',
-        poids_kg: 4,
-        nb_bacs: 1,
-        equivalent_roll: null,
-      },
-    ];
-    expect(bordereau.detail_flux).toEqual(sansCode);
-    expect((rapport.bordereau as { flux: unknown }).flux).toEqual(sansCode);
-  });
-});
-
 /** Texte de la requête de sélection des collectes (1er `.select` embarquant `evenements`). */
 function selectionCollectes(sb: { _chain: Record<string, unknown> }): string {
   const calls = (sb._chain['select'] as ReturnType<typeof vi.fn>).mock.calls;
@@ -548,10 +316,6 @@ function selectionCollectes(sb: { _chain: Record<string, unknown> }): string {
   );
 }
 
-// Régression (2026-09-11) : `evenements` porte 3 FK vers `organisations` (programmateur,
-// traiteur opérationnel, client organisateur). Un embed `organisations(...)` non qualifié
-// est ambigu → PostgREST rejette la requête et le batch n'enqueue RIEN, sans lever. Un
-// mock répond quoi qu'on lui demande : seul le texte de la sélection peut l'épingler.
 describe('M1.6 / BatchPdfJ1 / requête de sélection', () => {
   it("embed programmateur qualifié par sa FK — jamais d'embed `organisations(...)` ambigu", async () => {
     const sb = makeSupabase([{ data: [], error: null }]);
@@ -662,7 +426,6 @@ describe('M1.6 / BatchPdfJ1 / email rapport_disponible (§06.02 §6)', () => {
       { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
       { data: null, error: null }, // insert job bordereau
-      { data: null, error: null }, // insert job rapport
     ];
   }
 
@@ -748,7 +511,7 @@ describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux
     vi.useRealTimers();
   });
 
-  it('bordereau + rapport : date_collecte = date de la collecte, date_emission = jour du batch', async () => {
+  it('bordereau : date_collecte = date de la collecte, date_emission = jour du batch', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(JOUR_BATCH);
 
@@ -778,7 +541,6 @@ describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux
       { data: { id: 'bord-date' }, error: null }, // insert bordereaux_savr
       { data: { id: 'rse-date' }, error: null }, // insert rapports_rse
       { data: null, error: null }, // job bordereau
-      { data: null, error: null }, // job rapport
     ]);
 
     const result = await runBatchPdfJ1(sb as never);
@@ -809,18 +571,5 @@ describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux
     expect(bordPayload.date_collecte).toBe('10/09/2026');
     expect(bordPayload.date_evenement).toBe('09/09/2026');
     expect(bordPayload.date_emission).toBe('01/10/2026');
-
-    // Payload rapport : même date d'intervention, et le bordereau embarqué aussi.
-    const rapJob = insertCalls.find(
-      (c) => c[0].type_document === 'rapport-recyclage-zd',
-    )?.[0];
-    // Payload rapport : la page 1 porte la date de l'événement ; la date
-    // d'intervention vit dans le bordereau embarqué (page 2).
-    const rapPayload = rapJob!.payload as {
-      date_evenement: string;
-      bordereau: { date_collecte: string };
-    };
-    expect(rapPayload.date_evenement).toBe('09/09/2026');
-    expect(rapPayload.bordereau.date_collecte).toBe('10/09/2026');
   });
 });

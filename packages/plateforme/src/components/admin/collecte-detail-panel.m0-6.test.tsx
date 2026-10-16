@@ -3288,6 +3288,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         within(radar).queryByTestId('benchmark-filter-traiteurs'),
       ).toBeNull();
+      // Un lieu coché déclencherait l'avertissement chez un client.
+      fireEvent.click(within(radar).getByTestId('benchmark-filter-lieux'));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Pavillon' }));
+      await waitFor(
+        () =>
+          expect(
+            urlsAppelees(fetchMock).some((u) => u.includes('lieu_ids=l1')),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
       expect(screen.queryByTestId('benchmark-comparaison-soi')).toBeNull();
       // Bilan AVANT la carte des documents.
       expect(
@@ -3412,6 +3422,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(within(kpi).getByText('105')).toBeInTheDocument();
       const asso = screen.getByTestId('bloc-association');
       expect(within(asso).getByText('Les Restos du Cœur')).toBeInTheDocument();
+      expect(within(asso).getByText('Paris')).toBeInTheDocument();
       expect(
         within(asso).getByText('Aide alimentaire depuis 1985.'),
       ).toBeInTheDocument();
